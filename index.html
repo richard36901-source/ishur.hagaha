@@ -1,0 +1,1306 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>אישורי הגעה לחתונה | בלי כאב ראש</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,500;1,300;1,400&family=Heebo:wght@300;400;500;600&display=swap" rel="stylesheet">
+<!-- GTM – replace GTM-XXXXXXX -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src='https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);})(window,document,'script','dataLayer','GTM-XXXXXXX');</script>
+<!-- Pixel – replace PIXEL_ID -->
+<script>!function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');fbq('init','PIXEL_ID');fbq('track','PageView');</script>
+<style>
+/* ══════════════════════════════════════
+   DESIGN TOKENS
+══════════════════════════════════════ */
+:root{
+  --c:#faf8f5; --ci:#f4efe6; --cw:#fff;
+  --g:#c8a45a; --gl:#e2c98a; --gp:#faf2e0; --gd:#9e7e38;
+  --warm:#7a6e63; --dk:#1c1714; --dm:#3a322a; --ds:#5a4f44;
+  --bdr:rgba(200,164,90,.22); --bdr2:rgba(200,164,90,.12);
+  --sh:0 4px 24px rgba(28,23,20,.07);
+  --sh2:0 12px 48px rgba(28,23,20,.1);
+  --r:8px;
+  --wa:#25d366; --wa2:#1a8f49;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{font-family:'Heebo',sans-serif;background:var(--c);color:var(--dk);font-weight:300;line-height:1.7;overflow-x:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+
+/* ── TYPOGRAPHY ── */
+.serif{font-family:'Cormorant Garamond',serif;font-weight:300;letter-spacing:.02em}
+h2{font-family:'Cormorant Garamond',serif;font-size:clamp(1.9rem,4.5vw,3rem);font-weight:400;letter-spacing:.02em;line-height:1.2}
+.gold-bar{display:block;width:40px;height:1.5px;background:linear-gradient(90deg,transparent,var(--g),transparent);margin:.9rem auto}
+.tag{display:inline-block;font-size:.65rem;letter-spacing:.22em;color:var(--g);text-transform:uppercase;margin-bottom:.6rem}
+
+/* ── NAV ── */
+nav{position:fixed;inset:0 0 auto;z-index:300;height:56px;display:flex;align-items:center;justify-content:space-between;padding:0 1.4rem;background:rgba(250,248,245,.97);backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr2);transition:box-shadow .3s}
+nav.sc{box-shadow:0 2px 20px rgba(28,23,20,.08)}
+.nav-logo{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:500;letter-spacing:.06em;color:var(--dk)}
+.nav-logo span{color:var(--g)}
+.nav-btn{background:var(--g);color:#fff;border:none;padding:.46rem 1.1rem;font-family:'Heebo',sans-serif;font-size:.78rem;font-weight:500;letter-spacing:.06em;border-radius:4px;cursor:pointer;transition:background .2s;white-space:nowrap}
+.nav-btn:hover{background:var(--gd)}
+
+/* ── BUTTONS ── */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;font-family:'Heebo',sans-serif;font-weight:500;letter-spacing:.05em;border-radius:5px;cursor:pointer;transition:all .22s;text-decoration:none;border:none;white-space:nowrap}
+.btn-gold{background:linear-gradient(135deg,var(--g),var(--gd));color:#fff;padding:.85rem 1.8rem;font-size:.9rem;box-shadow:0 4px 18px rgba(200,164,90,.35)}
+.btn-gold:hover{transform:translateY(-2px);box-shadow:0 8px 28px rgba(200,164,90,.45)}
+.btn-outline{background:transparent;color:var(--dk);border:1.5px solid rgba(28,23,20,.2);padding:.82rem 1.6rem;font-size:.9rem}
+.btn-outline:hover{border-color:var(--g);color:var(--g)}
+.btn-ghost{background:transparent;color:rgba(245,240,232,.7);border:1.5px solid rgba(245,240,232,.2);padding:.82rem 1.6rem;font-size:.9rem}
+.btn-ghost:hover{border-color:rgba(226,201,138,.6);color:var(--gl)}
+.btn-lg{padding:1rem 2.2rem;font-size:.95rem}
+.btn-sm{padding:.52rem 1rem;font-size:.78rem}
+.btn-full{width:100%}
+
+/* ── LAYOUT ── */
+section{padding:5rem 1.4rem}
+@media(min-width:768px){section{padding:7rem 2rem}}
+.wrap{max-width:1060px;margin:0 auto}
+.wrap-sm{max-width:680px;margin:0 auto}
+.sec-head{text-align:center;margin-bottom:3.5rem}
+.sec-head p{color:var(--warm);font-size:.95rem;max-width:480px;margin:.8rem auto 0;line-height:1.65}
+
+/* ── HERO ── */
+#hero{min-height:100svh;display:flex;align-items:center;justify-content:center;padding:5rem 1.4rem 3rem;text-align:center;position:relative;overflow:hidden}
+.hero-bg{position:absolute;inset:0;background:radial-gradient(ellipse 80% 60% at 50% 40%,rgba(226,201,138,.16) 0%,transparent 68%)}
+.ring{position:absolute;border-radius:50%;border:1px solid rgba(200,164,90,.1);animation:pulse 8s ease-in-out infinite;top:50%;left:50%}
+.r1{width:340px;height:340px;transform:translate(-50%,-50%)}
+.r2{width:580px;height:580px;transform:translate(-50%,-50%);animation-delay:-3s}
+.r3{width:820px;height:820px;transform:translate(-50%,-50%);animation-delay:-6s}
+@keyframes pulse{0%,100%{opacity:.25;transform:translate(-50%,-50%) scale(1)}50%{opacity:.55;transform:translate(-50%,-50%) scale(1.03)}}
+.hero-in{position:relative;z-index:1;max-width:620px;width:100%}
+.hero-chip{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;letter-spacing:.14em;color:var(--g);border:1px solid var(--bdr);padding:.38rem 1rem;border-radius:100px;background:rgba(255,255,255,.7);margin-bottom:1.6rem;opacity:0;animation:rise .7s .15s forwards}
+.hero-h{font-family:'Cormorant Garamond',serif;font-size:clamp(2.6rem,9vw,5.2rem);font-weight:300;line-height:1.12;color:var(--dk);margin-bottom:1rem;opacity:0;animation:rise .8s .3s forwards}
+.hero-h em{font-style:italic;color:var(--g)}
+.hero-p{font-size:clamp(.92rem,3.2vw,1.08rem);color:var(--warm);max-width:480px;margin:0 auto 2rem;opacity:0;animation:rise .8s .45s forwards}
+.hero-ctas{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;margin-bottom:2rem;opacity:0;animation:rise .8s .6s forwards}
+.hero-trust{display:inline-flex;align-items:center;gap:.55rem;font-size:.8rem;color:var(--warm);opacity:0;animation:rise .8s .75s forwards}
+.avatars{display:flex}.avatars span{width:24px;height:24px;border-radius:50%;background:var(--gl);border:2px solid var(--c);margin-left:-5px;display:flex;align-items:center;justify-content:center;font-size:.6rem}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
+
+/* ── STEPS ── */
+#how{background:var(--ci);position:relative}
+#how::before{content:'';position:absolute;top:0;inset-inline:0;height:1px;background:linear-gradient(90deg,transparent,var(--gl),transparent)}
+.steps-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:1.2rem}
+@media(min-width:680px){.steps-grid{grid-template-columns:repeat(4,1fr)}}
+.step-card{background:var(--cw);border:1px solid var(--bdr2);border-radius:var(--r);padding:1.6rem 1.2rem;text-align:center}
+.step-n{width:48px;height:48px;border-radius:50%;background:var(--gp);border:1px solid var(--bdr);margin:0 auto 1rem;display:flex;align-items:center;justify-content:center;font-family:'Cormorant Garamond',serif;font-size:1.3rem;color:var(--g)}
+.step-card h3{font-size:1rem;font-weight:500;margin-bottom:.4rem}
+.step-card p{font-size:.83rem;color:var(--warm);line-height:1.55}
+
+/* ── FEATURES ── */
+#features{background:var(--c)}
+.feat-grid{display:grid;grid-template-columns:1fr;gap:.85rem;max-width:640px;margin:0 auto}
+@media(min-width:540px){.feat-grid{grid-template-columns:1fr 1fr}}
+.feat-item{display:flex;gap:.9rem;align-items:flex-start;padding:1.2rem 1.3rem;background:var(--cw);border:1px solid var(--bdr2);border-radius:var(--r)}
+.feat-ico{width:26px;height:26px;border-radius:50%;background:var(--gp);border:1px solid var(--bdr);display:flex;align-items:center;justify-content:center;flex-shrink:0;color:var(--g);font-size:.65rem;margin-top:.1rem}
+.feat-item strong{display:block;font-size:.9rem;font-weight:500;color:var(--dk);margin-bottom:.12rem}
+.feat-item p{font-size:.84rem;color:var(--warm);line-height:1.5}
+
+/* ── MSG STYLES ── */
+#msg-styles{background:var(--ci);position:relative}
+#msg-styles::before,#msg-styles::after{content:'';position:absolute;inset-inline:0;height:1px;background:linear-gradient(90deg,transparent,var(--gl),transparent)}
+#msg-styles::before{top:0}#msg-styles::after{bottom:0}
+.msg-tabs{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-bottom:2rem}
+.mtab{background:var(--cw);border:1px solid var(--bdr);border-radius:100px;padding:.42rem 1rem;font-family:'Heebo',sans-serif;font-size:.78rem;color:var(--warm);cursor:pointer;transition:all .2s}
+.mtab.on{background:var(--g);border-color:var(--g);color:#fff}
+.msg-card{background:var(--cw);border:1px solid var(--bdr);border-radius:var(--r);padding:1.6rem;position:relative;overflow:hidden;max-width:600px;margin:0 auto}
+.msg-card::before{content:'';position:absolute;top:0;inset-inline:0;height:3px;background:linear-gradient(90deg,var(--gl),var(--g))}
+.msg-label{font-size:.65rem;letter-spacing:.14em;color:var(--g);text-transform:uppercase;background:var(--gp);padding:.22rem .65rem;border-radius:3px;display:inline-block;margin-bottom:.8rem}
+.msg-badge{display:inline-flex;align-items:center;gap:.3rem;font-size:.65rem;background:rgba(200,164,90,.12);border:1px solid var(--bdr);color:var(--g);padding:.18rem .5rem;border-radius:3px;margin-right:.5rem}
+.msg-text{font-size:.88rem;color:var(--dm);line-height:1.7;direction:rtl}
+
+/* ── PREVIEWS SECTION ── */
+#previews{background:var(--dk);overflow:hidden;position:relative}
+#previews::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(200,164,90,.07) 0%,transparent 70%);pointer-events:none}
+#previews .tag{color:var(--gl)}
+#previews h2{color:#f4ece0}
+#previews .gold-bar{opacity:.5}
+#previews .sec-head p{color:rgba(240,232,220,.5)}
+
+/* Tabs */
+.prev-tabs{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:2.5rem}
+.prev-tab{background:rgba(255,255,255,.06);border:1px solid rgba(200,164,90,.18);color:rgba(240,232,220,.5);font-family:'Heebo',sans-serif;font-size:.8rem;letter-spacing:.05em;padding:.55rem 1.4rem;border-radius:100px;cursor:pointer;transition:all .22s}
+.prev-tab.on{background:rgba(200,164,90,.16);border-color:rgba(200,164,90,.6);color:var(--gl)}
+
+/* panels */
+.prev-panel{display:none;animation:fadeIn .35s ease}
+.prev-panel.on{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+
+/* iPhone shell */
+.iphone{width:min(296px,90vw);background:#0c0c0e;border-radius:46px;padding:10px;box-shadow:0 40px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08),inset 0 0 0 1px rgba(255,255,255,.04);flex-shrink:0}
+.iphone-notch{width:76px;height:24px;background:#0c0c0e;border-radius:0 0 14px 14px;margin:0 auto 6px;display:flex;align-items:center;justify-content:center}
+.iphone-notch::after{content:'';width:8px;height:8px;border-radius:50%;background:#1c1c1e;margin-top:3px}
+.iphone-screen{border-radius:36px;overflow:hidden;min-height:550px}
+
+/* Mac browser */
+.mac{background:#1e1e20;border-radius:12px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.65),0 0 0 1px rgba(255,255,255,.07);flex:1;min-width:0}
+.mac-bar{background:#2a2a2c;padding:.62rem 1rem;display:flex;align-items:center;gap:.5rem;border-bottom:1px solid rgba(255,255,255,.06)}
+.mac-dots{display:flex;gap:.42rem}
+.mac-dot{width:11px;height:11px;border-radius:50%}
+.mac-dot.r{background:#ff5f57}.mac-dot.y{background:#febc2e}.mac-dot.g{background:#28c840}
+.mac-url{flex:1;background:rgba(255,255,255,.07);border-radius:5px;padding:.26rem .8rem;font-size:.65rem;color:rgba(255,255,255,.3);font-family:monospace;margin:0 .7rem;text-align:center}
+.mac-body{background:#141210;overflow:hidden}
+
+/* Dashboard */
+.dash-layout{display:grid;grid-template-columns:152px 1fr}
+.dash-side{background:#0e0b09;border-left:1px solid rgba(200,164,90,.08);padding:1rem 0}
+.dash-couple{text-align:center;padding:0 .7rem 1rem;border-bottom:1px solid rgba(200,164,90,.07);margin-bottom:.6rem}
+.dash-ava{width:40px;height:40px;border-radius:50%;background:linear-gradient(135deg,var(--gl),var(--g));display:flex;align-items:center;justify-content:center;font-size:1.1rem;margin:0 auto .45rem}
+.dash-couple h4{font-family:'Cormorant Garamond',serif;font-size:.82rem;font-weight:400;color:#f0e8d8;margin-bottom:.08rem}
+.dash-couple span{font-size:.58rem;color:var(--g);letter-spacing:.05em}
+.dash-nav a{display:flex;align-items:center;gap:.42rem;padding:.48rem .85rem;font-size:.68rem;color:rgba(240,230,215,.35);cursor:pointer;border-right:2px solid transparent;font-family:'Heebo',sans-serif;transition:all .15s;text-decoration:none}
+.dash-nav a.on{color:var(--gl);background:rgba(200,164,90,.07);border-right-color:var(--g)}
+.dash-main{padding:1.1rem}
+.dash-title{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-weight:400;color:#f0e8d8;margin-bottom:.1rem}
+.dash-meta{font-size:.6rem;color:rgba(240,230,215,.3);margin-bottom:.8rem;font-family:'Heebo',sans-serif}
+.dash-alert{display:flex;align-items:center;gap:.4rem;background:rgba(200,164,90,.07);border:1px solid rgba(200,164,90,.15);border-radius:5px;padding:.45rem .65rem;font-size:.62rem;color:rgba(240,230,215,.5);margin-bottom:.75rem;font-family:'Heebo',sans-serif}
+.dash-alert strong{color:var(--gl)}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.35rem;margin-bottom:.75rem}
+.kpi{background:rgba(255,255,255,.04);border:1px solid rgba(200,164,90,.1);border-radius:6px;padding:.55rem .4rem;text-align:center}
+.kpi.hl{background:rgba(200,164,90,.09);border-color:rgba(200,164,90,.28)}
+.kpi-v{font-family:'Cormorant Garamond',serif;font-size:1.38rem;font-weight:300;color:#e8d5a0;line-height:1}
+.kpi.hl .kpi-v{color:var(--g)}
+.kpi-l{font-size:.52rem;color:rgba(240,230,215,.28);letter-spacing:.04em;margin-top:.1rem;font-family:'Heebo',sans-serif}
+.prog-wrap{background:rgba(255,255,255,.03);border:1px solid rgba(200,164,90,.08);border-radius:6px;padding:.6rem;margin-bottom:.7rem}
+.prog-hdr{display:flex;justify-content:space-between;font-size:.57rem;color:rgba(240,230,215,.3);margin-bottom:.38rem;font-family:'Heebo',sans-serif}
+.prog-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gl),var(--g));transition:width 1.4s cubic-bezier(.4,0,.2,1)}
+.dash-tbl{background:rgba(255,255,255,.025);border:1px solid rgba(200,164,90,.07);border-radius:6px;overflow:hidden}
+.tbl-hdr{display:grid;grid-template-columns:1fr 64px 54px 66px;padding:.38rem .65rem;background:rgba(200,164,90,.04);font-size:.55rem;color:rgba(240,230,215,.22);letter-spacing:.06em;font-family:'Heebo',sans-serif;border-bottom:1px solid rgba(200,164,90,.06)}
+.tbl-row{display:grid;grid-template-columns:1fr 64px 54px 66px;padding:.4rem .65rem;border-bottom:1px solid rgba(255,255,255,.02);font-size:.63rem;color:rgba(240,230,215,.6);font-family:'Heebo',sans-serif}
+.tbl-row:last-child{border-bottom:none}
+.ts-y{color:#6fcf97;font-size:.58rem}.ts-n{color:#eb5757;font-size:.58rem}.ts-w{color:var(--g);font-size:.58rem}
+
+/* Iphone dashboard */
+.id-screen{background:#141210;min-height:550px;display:flex;flex-direction:column}
+.id-top{background:#0e0b09;padding:.62rem .85rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(200,164,90,.1)}
+.id-top h4{font-family:'Cormorant Garamond',serif;font-size:.88rem;font-weight:400;color:#f0e8d8}
+.id-top span{font-size:.62rem;color:var(--g)}
+.id-body{padding:.82rem;display:flex;flex-direction:column;gap:.62rem;overflow:hidden;flex:1}
+.id-cd{display:flex;align-items:center;gap:.4rem;background:rgba(200,164,90,.07);border:1px solid rgba(200,164,90,.15);border-radius:5px;padding:.5rem .7rem;font-size:.68rem;color:rgba(240,230,215,.5);font-family:'Heebo',sans-serif}
+.id-cd strong{color:var(--gl)}
+.id-kpis{display:grid;grid-template-columns:1fr 1fr;gap:.42rem}
+.id-k{background:rgba(255,255,255,.04);border:1px solid rgba(200,164,90,.1);border-radius:7px;padding:.72rem .55rem;text-align:center}
+.id-k.hl{background:rgba(200,164,90,.09);border-color:rgba(200,164,90,.28)}
+.id-kv{font-family:'Cormorant Garamond',serif;font-size:1.6rem;font-weight:300;color:#e8d5a0;line-height:1}
+.id-k.hl .id-kv{color:var(--g)}
+.id-kl{font-size:.58rem;color:rgba(240,230,215,.3);letter-spacing:.04em;margin-top:.1rem;font-family:'Heebo',sans-serif}
+.id-prog{background:rgba(255,255,255,.03);border:1px solid rgba(200,164,90,.08);border-radius:6px;padding:.62rem}
+.id-prog-hdr{display:flex;justify-content:space-between;font-size:.6rem;color:rgba(240,230,215,.3);margin-bottom:.38rem;font-family:'Heebo',sans-serif}
+.id-pbar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.id-pfill{height:100%;border-radius:2px;background:linear-gradient(90deg,var(--gl),var(--g));transition:width 1.4s cubic-bezier(.4,0,.2,1)}
+.id-tbl{background:rgba(255,255,255,.025);border:1px solid rgba(200,164,90,.07);border-radius:6px;overflow:hidden}
+.id-th{display:grid;grid-template-columns:1fr 56px 46px;padding:.38rem .6rem;background:rgba(200,164,90,.04);font-size:.56rem;color:rgba(240,230,215,.22);letter-spacing:.05em;font-family:'Heebo',sans-serif;border-bottom:1px solid rgba(200,164,90,.06)}
+.id-tr{display:grid;grid-template-columns:1fr 56px 46px;padding:.42rem .6rem;border-bottom:1px solid rgba(255,255,255,.02);font-size:.68rem;color:rgba(240,230,215,.58);font-family:'Heebo',sans-serif}
+.id-tr:last-child{border-bottom:none}
+
+/* Side by side layout */
+.sbs{display:flex;gap:2.5rem;align-items:flex-start;justify-content:center;position:relative;z-index:1}
+.sbs-label{font-family:'Heebo',sans-serif;font-size:.65rem;letter-spacing:.13em;color:rgba(240,230,215,.3);text-transform:uppercase;text-align:center;margin-bottom:.75rem}
+.sbs-col{display:flex;flex-direction:column;align-items:center}
+.sbs-mac{flex:1;min-width:0;max-width:640px}
+.sbs-phone{flex:0 0 auto}
+@media(max-width:860px){
+  .sbs{flex-direction:column;align-items:center;gap:2.2rem}
+  .sbs-mac{width:100%;max-width:100%}
+  .dash-layout{grid-template-columns:130px 1fr}
+  .kpi-row{grid-template-columns:repeat(2,1fr)}
+  .tbl-hdr,.tbl-row{grid-template-columns:1fr 60px 50px}.tbl-hdr span:last-child,.tbl-row span:last-child{display:none}
+}
+@media(max-width:520px){.dash-layout{grid-template-columns:1fr}.dash-side{display:none}}
+
+/* WA chat */
+.wa-screen{background:#e5ddd5;min-height:550px;display:flex;flex-direction:column}
+.wa-header{background:#1a8f49;padding:.62rem .85rem;display:flex;align-items:center;gap:.52rem}
+.wa-back{color:rgba(255,255,255,.7);font-size:1rem}
+.wa-av{width:31px;height:31px;border-radius:50%;background:linear-gradient(135deg,#4caf50,#25d366);display:flex;align-items:center;justify-content:center;font-size:.9rem;flex-shrink:0}
+.wa-info h4{font-size:.76rem;color:#fff;font-weight:500;font-family:'Heebo',sans-serif}
+.wa-info span{font-size:.62rem;color:rgba(255,255,255,.6);font-family:'Heebo',sans-serif}
+.wa-chat{flex:1;padding:.82rem .62rem;display:flex;flex-direction:column;gap:.52rem;background-image:url("data:image/svg+xml,%3Csvg width='40' height='40' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='20' cy='20' r='1' fill='%23b2b2b2' fill-opacity='.06'/%3E%3C/svg%3E")}
+.wa-day{text-align:center;font-size:.6rem;color:rgba(0,0,0,.35);font-family:'Heebo',sans-serif}
+.bubble{border-radius:8px 8px 8px 2px;padding:.68rem .78rem;max-width:90%;box-shadow:0 1px 2px rgba(0,0,0,.1);align-self:flex-start;background:#fff}
+.bubble.out{background:#dcf8c6;border-radius:8px 8px 2px 8px;align-self:flex-end}
+.bubble p{font-size:.74rem;color:#303030;font-family:'Heebo',sans-serif;line-height:1.55;direction:rtl}
+.bubble .ts{font-size:.58rem;color:rgba(0,0,0,.33);text-align:left;margin-top:.18rem;direction:ltr;font-family:'Heebo',sans-serif}
+.bubble .ts.r{text-align:right}
+.wa-btns{display:flex;flex-direction:column;gap:.32rem;margin-top:.52rem;border-top:1px solid rgba(0,0,0,.07);padding-top:.52rem}
+.wa-btn{display:flex;align-items:center;justify-content:center;gap:.32rem;padding:.44rem;border:none;border-radius:6px;font-family:'Heebo',sans-serif;font-size:.7rem;font-weight:500;cursor:pointer;width:100%}
+.wa-btn.y{background:#e6f4ea;color:#1a7a2a}
+.wa-btn.n{background:#fde8e8;color:#c0392b}
+.wa-btn.m{background:#fff8e0;color:#7a5c00}
+.typing{background:#fff;border-radius:20px;padding:.42rem .75rem;align-self:flex-start;display:flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.td{width:6px;height:6px;border-radius:50%;background:#aaa;animation:typ .9s infinite}
+.td:nth-child(2){animation-delay:.15s}.td:nth-child(3){animation-delay:.3s}
+@keyframes typ{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-4px)}}
+
+/* ── PRICING ── */
+#pricing{background:var(--ci)}
+#pricing::before{content:'';display:block;height:1px;background:linear-gradient(90deg,transparent,var(--gl),transparent);margin-bottom:0}
+.price-grid{display:grid;grid-template-columns:1fr;gap:1.2rem;max-width:880px;margin:0 auto}
+@media(min-width:640px){.price-grid{grid-template-columns:repeat(3,1fr);align-items:start}}
+.pc{background:var(--cw);border:1.5px solid var(--bdr);border-radius:14px;padding:2.2rem 1.6rem;text-align:center;position:relative;transition:box-shadow .25s,transform .25s,border-color .25s;cursor:pointer}
+.pc:hover{box-shadow:var(--sh2);transform:translateY(-3px)}
+.pc.feat{border-color:rgba(200,164,90,.55);box-shadow:0 10px 44px rgba(200,164,90,.16)}
+@media(min-width:640px){.pc.feat{transform:scale(1.04)}.pc.feat:hover{transform:scale(1.04) translateY(-3px)}}
+.pc-pop{position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:linear-gradient(90deg,var(--gl),var(--g));color:#fff;font-size:.62rem;letter-spacing:.12em;padding:.25rem 1.1rem;border-radius:0 0 6px 6px;white-space:nowrap;font-family:'Heebo',sans-serif;font-weight:500}
+.pc-tier{font-size:.62rem;letter-spacing:.2em;color:var(--g);text-transform:uppercase;margin-bottom:.45rem;font-family:'Heebo',sans-serif}
+.pc-name{font-family:'Cormorant Garamond',serif;font-size:1.7rem;font-weight:400;margin-bottom:.3rem}
+.pc-price{font-family:'Cormorant Garamond',serif;font-size:2.5rem;font-weight:300;color:var(--g);line-height:1;margin:.75rem 0 .3rem}
+.pc-price sup{font-size:1.1rem;vertical-align:super}
+.pc-note{font-size:.72rem;color:var(--warm);margin-bottom:1.3rem;line-height:1.5}
+.pc-feats{list-style:none;text-align:right;margin-bottom:1.4rem}
+.pc-feats li{font-size:.82rem;color:var(--dm);padding:.38rem 0;border-bottom:1px solid var(--bdr2);display:flex;align-items:center;gap:.45rem}
+.pc-feats li:last-child{border-bottom:none}
+.pc-feats li::before{content:'✦';color:var(--g);font-size:.5rem;flex-shrink:0}
+.pc-feats li.off{color:var(--warm);opacity:.55}
+.pc-feats li.off::before{opacity:.35}
+.pc-btn{width:100%;background:transparent;border:1.5px solid var(--g);color:var(--g);padding:.78rem;font-family:'Heebo',sans-serif;font-size:.84rem;font-weight:500;letter-spacing:.05em;cursor:pointer;border-radius:5px;transition:all .22s}
+.pc.feat .pc-btn,.pc-btn:hover{background:linear-gradient(135deg,var(--g),var(--gd));color:#fff;border-color:transparent}
+.pc.sel{border-color:var(--g)!important;box-shadow:0 0 0 3px rgba(200,164,90,.18),0 12px 40px rgba(200,164,90,.14)!important;transform:translateY(-2px)}
+
+/* ── ORDER FLOW ── */
+#order{background:var(--c)}
+.flow-wrap{max-width:640px;margin:0 auto}
+
+/* step dots */
+.flow-dots{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:2.5rem;position:relative}
+.flow-dots::before{content:'';position:absolute;top:17px;right:12%;left:12%;height:1px;background:var(--bdr2);z-index:0}
+.fd{display:flex;flex-direction:column;align-items:center;gap:.38rem;flex:1;z-index:1}
+.fd-dot{width:34px;height:34px;border-radius:50%;border:1.5px solid var(--bdr);background:var(--c);display:flex;align-items:center;justify-content:center;font-size:.72rem;color:var(--warm);font-family:'Heebo',sans-serif;transition:all .28s}
+.fd-dot.done{background:var(--g);border-color:var(--g);color:#fff}
+.fd-dot.active{background:var(--cw);border-color:var(--g);color:var(--g);box-shadow:0 0 0 4px rgba(200,164,90,.14)}
+.fd-lbl{font-size:.62rem;color:var(--warm);letter-spacing:.04em;text-align:center;transition:color .28s}
+.fd-lbl.active{color:var(--g)}
+
+/* flow card */
+.fcard{background:var(--cw);border:1px solid var(--bdr);border-radius:12px;padding:1.8rem 1.4rem;box-shadow:var(--sh);position:relative;overflow:hidden}
+@media(min-width:540px){.fcard{padding:2.4rem 2.2rem}}
+.fcard::before{content:'';position:absolute;top:0;inset-inline:0;height:3px;background:linear-gradient(90deg,var(--gl),var(--g),var(--gl))}
+.fcard-title{font-family:'Cormorant Garamond',serif;font-size:1.45rem;font-weight:400;color:var(--dk);margin-bottom:.25rem}
+.fcard-sub{font-size:.82rem;color:var(--warm);margin-bottom:1.4rem}
+.opanel{display:none}.opanel.on{display:block}
+
+/* form grid */
+.fg{display:grid;grid-template-columns:1fr;gap:.88rem}
+@media(min-width:460px){.fg{grid-template-columns:1fr 1fr}}
+.ff{display:flex;flex-direction:column;gap:.35rem}
+.ff.full{grid-column:1/-1}
+label{font-size:.74rem;letter-spacing:.06em;color:var(--warm);font-weight:400}
+.req{color:var(--g)}
+input,select,textarea{font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:300;color:var(--dk);background:var(--ci);border:1px solid rgba(200,164,90,.28);border-radius:5px;padding:.68rem .88rem;transition:border-color .2s,box-shadow .2s;outline:none;width:100%;direction:rtl;-webkit-appearance:none;appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--g);box-shadow:0 0 0 3px rgba(200,164,90,.1);background:var(--cw)}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%23c8a45a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .85rem center;padding-left:2.2rem}
+
+/* plan badge inside form */
+.sel-plan-badge{display:flex;align-items:center;gap:.6rem;background:var(--gp);border:1px solid var(--bdr);border-radius:6px;padding:.65rem 1rem;margin-bottom:1.2rem}
+.spb-dot{width:8px;height:8px;border-radius:50%;background:var(--g);flex-shrink:0}
+.spb-text{font-size:.82rem;color:var(--dm);flex:1}
+.spb-text strong{color:var(--g);font-weight:500}
+.spb-change{font-size:.75rem;color:var(--g);cursor:pointer;text-decoration:underline;white-space:nowrap}
+
+/* file upload */
+.fup{border:1.5px dashed rgba(200,164,90,.35);border-radius:6px;padding:1.1rem;text-align:center;cursor:pointer;background:var(--gp);position:relative}
+.fup input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.fup-ico{font-size:1.4rem;margin-bottom:.25rem;display:block}
+.fup p{font-size:.78rem;color:var(--warm)}
+.fup strong{color:var(--g)}
+
+/* style picker grid */
+.style-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.48rem;margin-top:.3rem}
+@media(min-width:460px){.style-grid{grid-template-columns:repeat(3,1fr)}}
+.sopt{border:1px solid var(--bdr);border-radius:6px;padding:.65rem .45rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--ci)}
+.sopt.on{border-color:var(--g);background:var(--gp)}
+.sopt-ico{font-size:1rem;display:block;margin-bottom:.18rem}
+.sopt-lbl{font-size:.68rem;color:var(--warm);font-family:'Heebo',sans-serif}
+.sopt.on .sopt-lbl{color:var(--dm)}
+.sopt.prem{position:relative}
+.sopt.prem::after{content:'PRO';position:absolute;top:-1px;right:-1px;font-size:.46rem;background:var(--g);color:#fff;padding:.1rem .28rem;border-radius:0 6px 0 4px;letter-spacing:.05em}
+
+/* csv mode */
+.csv-toggle{display:flex;gap:.5rem;margin-bottom:.6rem}
+.csv-o{flex:1;display:flex;align-items:center;justify-content:center;gap:.38rem;padding:.52rem;border:1px solid var(--bdr);border-radius:5px;font-size:.78rem;color:var(--warm);cursor:pointer;transition:all .2s;font-family:'Heebo',sans-serif}
+.csv-o.on{border-color:var(--g);background:var(--gp);color:var(--dm)}
+.cpanel{display:none}.cpanel.on{display:block}
+.csv-tip{background:var(--gp);border:1px solid var(--bdr);border-radius:5px;padding:.72rem .9rem;font-size:.78rem;color:var(--dm)}
+
+/* checks */
+.checks{display:flex;flex-direction:column;gap:.58rem;margin-top:.28rem}
+.chk{display:flex;align-items:flex-start;gap:.58rem;cursor:pointer;font-size:.84rem;color:var(--dm)}
+.chk input{width:16px;height:16px;accent-color:var(--g);flex-shrink:0;margin-top:.18rem;cursor:pointer}
+
+/* divider */
+.fdiv{height:1px;background:linear-gradient(90deg,transparent,var(--bdr),transparent);margin:1.1rem 0}
+
+/* payment */
+.pay-options{display:flex;flex-direction:column;gap:.72rem;margin:1rem 0}
+.pay-opt{display:flex;align-items:center;gap:.85rem;padding:.95rem 1.1rem;border:1.5px solid var(--bdr);border-radius:8px;cursor:pointer;transition:all .2s;background:var(--cw)}
+.pay-opt.on{border-color:rgba(200,164,90,.5);background:var(--gp)}
+.pay-opt input{width:15px;height:15px;accent-color:var(--g);flex-shrink:0}
+.pay-opt-ico{font-size:1.25rem;flex-shrink:0}
+.pay-opt-info strong{display:block;font-size:.86rem;color:var(--dk);font-weight:500}
+.pay-opt-info span{font-size:.74rem;color:var(--warm)}
+.pay-sec{display:flex;align-items:center;justify-content:center;gap:.4rem;font-size:.7rem;color:var(--warm);margin-top:.7rem}
+
+/* price box */
+.pricebox{background:linear-gradient(135deg,var(--gp),rgba(226,201,138,.15));border:1px solid var(--bdr);border-radius:8px;padding:1.15rem;text-align:center;margin:.5rem 0 1rem}
+.pricebox-lbl{font-size:.68rem;letter-spacing:.1em;color:var(--warm);margin-bottom:.28rem}
+.pricebox-val{font-family:'Cormorant Garamond',serif;font-size:2.5rem;font-weight:300;color:var(--g);line-height:1}
+.pricebox-val sup{font-size:1.1rem;vertical-align:super}
+.pricebox-note{font-size:.7rem;color:var(--warm);margin-top:.22rem}
+.pricebox-detail{font-size:.72rem;color:var(--ds);margin-top:.35rem}
+
+/* terms checkbox */
+.terms-wrap{background:var(--gp);border:1px solid var(--bdr);border-radius:6px;padding:.82rem 1rem;display:flex;align-items:flex-start;gap:.65rem}
+.terms-wrap input{width:16px;height:16px;accent-color:var(--g);flex-shrink:0;margin-top:.18rem}
+.terms-wrap label{font-size:.8rem;color:var(--dm);cursor:pointer;line-height:1.55}
+.terms-wrap a{color:var(--g);text-decoration:none}
+
+/* schedule */
+.sched-warn{background:var(--gp);border:1px solid var(--bdr);border-radius:6px;padding:.88rem 1rem;font-size:.8rem;color:var(--dm);margin-bottom:1.1rem;line-height:1.6}
+.sched-warn strong{display:block;font-size:.88rem;margin-bottom:.2rem;color:var(--dk)}
+.cancel-note{font-size:.74rem;color:var(--warm);background:rgba(200,164,90,.06);border-right:2px solid var(--g);padding:.55rem .75rem;border-radius:0 4px 4px 0;margin-top:.7rem;line-height:1.5}
+
+/* flow nav buttons */
+.flow-nav{display:flex;gap:.7rem;margin-top:1.3rem;flex-wrap:wrap}
+.btn-next{flex:1;background:linear-gradient(135deg,var(--g),var(--gd));color:#fff;border:none;padding:.88rem 1.5rem;font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:500;letter-spacing:.05em;cursor:pointer;border-radius:5px;box-shadow:0 4px 16px rgba(200,164,90,.35);transition:all .22s;min-height:48px}
+.btn-next:hover{transform:translateY(-1px)}
+.btn-next:disabled{opacity:.6;pointer-events:none}
+.btn-back{background:transparent;border:1px solid var(--bdr);color:var(--warm);padding:.88rem 1.2rem;font-family:'Heebo',sans-serif;font-size:.84rem;cursor:pointer;border-radius:5px;transition:all .2s}
+.btn-back:hover{border-color:var(--dm);color:var(--dm)}
+
+/* success */
+.ok-state{display:none;text-align:center;padding:2rem 1rem}
+.ok-state.on{display:block}
+.ok-ico{font-size:2.6rem;margin-bottom:.7rem}
+.ok-state h3{font-family:'Cormorant Garamond',serif;font-size:1.65rem;font-weight:400;margin-bottom:.65rem}
+.ok-state p{color:var(--warm);font-size:.88rem;line-height:1.65}
+.ok-acts{display:flex;gap:.7rem;justify-content:center;margin-top:1.2rem;flex-wrap:wrap}
+
+/* ── REPORTS ── */
+#reports{background:var(--ci)}
+#reports::before{content:'';display:block;height:1px;background:linear-gradient(90deg,transparent,var(--gl),transparent)}
+.rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:.9rem;max-width:660px;margin:0 auto}
+@media(min-width:540px){.rep-grid{grid-template-columns:repeat(4,1fr)}}
+.rep-card{background:var(--cw);border:1px solid var(--bdr2);border-radius:var(--r);padding:1.3rem .9rem;text-align:center}
+.rep-ico{font-size:1.4rem;display:block;margin-bottom:.45rem}
+.rep-card h4{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-weight:400;margin-bottom:.25rem}
+.rep-card p{font-size:.76rem;color:var(--warm)}
+
+/* ── CTA ── */
+#cta{background:linear-gradient(160deg,var(--dk) 0%,var(--dm) 100%);text-align:center;padding:5.5rem 1.4rem;position:relative;overflow:hidden}
+#cta::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 60% at 50% 50%,rgba(200,164,90,.08),transparent 70%)}
+#cta h2{color:#f4ece0;position:relative}
+#cta h2 em{color:var(--gl);font-style:italic}
+#cta .gold-bar{opacity:.5}
+#cta p{color:rgba(244,236,224,.55);font-size:.92rem;max-width:400px;margin:.8rem auto 2rem;position:relative}
+#cta .cta-btns{display:flex;gap:.8rem;justify-content:center;flex-wrap:wrap;position:relative}
+
+/* ── FOOTER ── */
+footer{background:var(--dk);padding:2.2rem 1.4rem;text-align:center;border-top:1px solid rgba(200,164,90,.1)}
+.f-logo{font-family:'Cormorant Garamond',serif;font-size:1.18rem;color:#f4ece0;letter-spacing:.08em;margin-bottom:1rem}
+.f-logo span{color:var(--g)}
+.f-links{display:flex;gap:1.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:.9rem}
+.f-links a{color:rgba(244,236,224,.45);text-decoration:none;font-size:.8rem;display:flex;align-items:center;gap:.3rem;transition:color .2s}
+.f-links a:hover{color:var(--g)}
+.f-copy{font-size:.68rem;color:rgba(244,236,224,.2)}
+
+/* ── TERMS OVERLAY ── */
+#terms-page{display:none;position:fixed;inset:0;z-index:500;background:var(--c);overflow-y:auto}
+#terms-page.on{display:block}
+.t-bar{position:sticky;top:0;background:rgba(250,248,245,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr2);padding:.9rem 1.4rem;display:flex;align-items:center;justify-content:space-between;z-index:10}
+.t-bar h3{font-family:'Cormorant Garamond',serif;font-size:1.15rem;font-weight:400}
+.t-close{background:none;border:none;font-size:1.3rem;color:var(--warm);cursor:pointer;padding:.2rem .4rem}
+.t-body{max-width:680px;margin:0 auto;padding:2rem 1.4rem 4rem}
+.t-body h1{font-family:'Cormorant Garamond',serif;font-size:1.9rem;font-weight:400;margin-bottom:.25rem}
+.t-body .t-date{font-size:.76rem;color:var(--warm);margin-bottom:1.8rem;display:block}
+.t-body h2{font-family:'Cormorant Garamond',serif;font-size:1.2rem;font-weight:400;margin:1.6rem 0 .55rem;padding-right:.6rem;border-right:2px solid var(--g)}
+.t-body p,.t-body li{font-size:.86rem;color:var(--ds);line-height:1.75;margin-bottom:.45rem}
+.t-body ul{padding-right:1.2rem;margin-bottom:.7rem}
+.t-hl{background:var(--gp);border:1px solid var(--bdr);border-radius:5px;padding:.85rem 1rem;margin:1rem 0;font-size:.82rem;color:var(--dm)}
+.t-hl strong{display:block;margin-bottom:.18rem;color:var(--dk)}
+
+/* ── SCROLL ANIMATIONS ── */
+.fi{opacity:0;transform:translateY(16px);transition:opacity .65s,transform .65s}
+.fi.v{opacity:1;transform:none}
+
+
+/* ── INTERACTIVE ENHANCEMENTS ── */
+
+/* Animated counter numbers */
+.count-up{display:inline-block;transition:transform .3s}
+
+/* Feature items hover lift */
+.feat-item{transition:box-shadow .2s,transform .2s,border-color .2s}
+.feat-item:hover{box-shadow:var(--sh);transform:translateY(-2px);border-color:var(--bdr)}
+
+/* Step cards interactive */
+.step-card{transition:box-shadow .22s,transform .22s}
+.step-card:hover{box-shadow:var(--sh);transform:translateY(-3px)}
+
+/* Rep cards */
+.rep-card{transition:box-shadow .22s,transform .22s}
+.rep-card:hover{box-shadow:var(--sh);transform:translateY(-2px)}
+
+/* Hero stats row */
+.hero-stats{display:flex;gap:0;justify-content:center;flex-wrap:wrap;margin-top:2rem;opacity:0;animation:rise .8s .9s forwards}
+.hero-stat{flex:1;min-width:80px;padding:.8rem .5rem;text-align:center;border-right:1px solid var(--bdr2)}
+.hero-stat:last-child{border-right:none}
+.hero-stat-n{font-family:'Cormorant Garamond',serif;font-size:1.85rem;font-weight:300;color:var(--g);line-height:1;display:block}
+.hero-stat-l{font-size:.7rem;color:var(--warm);letter-spacing:.04em;display:block;margin-top:.15rem}
+
+/* Pricing comparison toggle */
+.price-toggle{display:flex;align-items:center;justify-content:center;gap:.7rem;margin-bottom:2rem;font-size:.82rem;color:var(--warm)}
+.toggle-switch{width:44px;height:24px;background:var(--bdr);border-radius:100px;cursor:pointer;position:relative;transition:background .25s;flex-shrink:0}
+.toggle-switch.on{background:var(--g)}
+.toggle-thumb{position:absolute;top:2px;right:2px;width:20px;height:20px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.2);transition:transform .25s}
+.toggle-switch.on .toggle-thumb{transform:translateX(-20px)}
+
+/* Features row with icons */
+.feat-item .feat-ico{background:linear-gradient(135deg,var(--gp) 0%,rgba(226,201,138,.3) 100%);border:1px solid var(--bdr)}
+
+/* CTA section improved */
+#cta{position:relative}
+.cta-ring{position:absolute;border-radius:50%;border:1px solid rgba(200,164,90,.08);top:50%;left:50%}
+.cta-ring-1{width:400px;height:400px;transform:translate(-50%,-50%);animation:pulse 9s ease-in-out infinite}
+.cta-ring-2{width:700px;height:700px;transform:translate(-50%,-50%);animation:pulse 9s ease-in-out -4s infinite}
+
+/* Number animation for stats */
+@keyframes countUp{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+
+/* Smooth appear for plan picker */
+#plan-pick-wrap{animation:fadeSlide .3s ease}
+@keyframes fadeSlide{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:translateY(0)}}
+
+/* Mobile nav improvements */
+@media(max-width:460px){
+  .hero-stats{gap:0}
+  .hero-stat{min-width:70px}
+  .hero-stat-n{font-size:1.5rem}
+}
+
+/* Pricing section background */
+#pricing{background:var(--ci);position:relative;overflow:hidden}
+#pricing::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(226,201,138,.07) 0%,transparent 65%);pointer-events:none}
+
+/* Improve the section background alternation */
+#how{background:var(--ci)}
+#features{background:var(--cw)}
+#msg-styles{background:var(--ci)}
+#reports{background:var(--ci)}
+#order{background:var(--cw)}
+
+/* Active plan card glow */
+.pc.sel::after{content:'✓ נבחרה';position:absolute;top:12px;left:12px;font-size:.65rem;background:var(--g);color:#fff;padding:.18rem .55rem;border-radius:100px;font-family:'Heebo',sans-serif;font-weight:500;letter-spacing:.04em}
+
+/* ── SCROLLBAR ── */
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(200,164,90,.25);border-radius:3px}
+</style>
+</head>
+<body>
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+
+<!-- ══ TERMS PAGE ══ -->
+<div id="terms-page">
+  <div class="t-bar"><h3>תנאי שימוש ומדיניות</h3><button class="t-close" onclick="T(0)">✕</button></div>
+  <div class="t-body">
+    <h1>תנאי שימוש</h1>
+    <span class="t-date">עודכן: ינואר 2025</span>
+    <h2>1. כללי</h2>
+    <p>שירות "אישורי הגעה" מספק פתרון לניהול ואישורי הגעה לאירועים. שימוש בשירות מהווה הסכמה מלאה לתנאים אלו.</p>
+    <h2>2. מדיניות ביטול — אין החזר כספי</h2>
+    <div class="t-hl"><strong>⚠️ אין החזר כספי בשום מקרה</strong>לאחר ביצוע תשלום, לא יינתן החזר כספי בשום נסיבות – כולל ביטול אירוע, שינוי תאריך, או הפסקת שימוש.</div>
+    <ul><li>אין החזר עבור ביטול/דחיית חתונה.</li><li>אין החזר עבור אי-שביעות רצון לאחר אישור.</li><li>אין החזר חלקי עבור שליחה שהושלמה חלקית.</li></ul>
+    <h2>3. אחריות רשימת מוזמנים</h2>
+    <div class="t-hl"><strong>📋 הלקוח אחראי על נכונות הנתונים</strong>השירות אינו אחראי לטעויות, מספרים שגויים, כפילויות, או כל נתון שגוי ברשימה שסופקה.</div>
+    <ul><li>הלקוח אחראי בלעדי על דיוק הרשימה.</li><li>הודעות למספרים שגויים לא יוחזרו כספית.</li><li>כפילויות יגרמו לשליחה כפולה ללא זיכוי.</li></ul>
+    <h2>4. שינוי תאריכי שליחה</h2>
+    <ul><li>ניתן לשנות תאריכים <strong>עתידיים בלבד</strong>, לפחות <strong>48 שעות מראש</strong>.</li><li>הודעות שיצאו לא ניתן לבטל.</li><li>שינויים מאוחרים מ-48 שעות לא יתקבלו.</li></ul>
+    <h2>5. פרטיות</h2>
+    <p>נתוני מוזמנים ישמשו לצורך השירות בלבד ויימחקו תוך 90 יום מהאירוע.</p>
+    <h2>6. יצירת קשר</h2>
+    <p><a href="mailto:hello@rsvp-service.co.il" style="color:var(--g)">hello@rsvp-service.co.il</a></p>
+  </div>
+</div>
+
+<!-- ══ NAV ══ -->
+<nav id="nav">
+  <div class="nav-logo">אישורי <span>הגעה</span></div>
+  <button class="nav-btn" onclick="goTo('order')">הזמינו עכשיו</button>
+</nav>
+
+<!-- ══ HERO ══ -->
+<section id="hero">
+  <div class="hero-bg"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="hero-in">
+    <div class="hero-chip">✦ שירות אישורי הגעה לחתונות ✦</div>
+    <h1 class="serif hero-h">אישורי הגעה<br><em>בלי כאב ראש</em></h1>
+    <p class="hero-p">אנחנו מטפלים בכל ההודעות, התזכורות והמעקב –<br>אתם מתמקדים ביום שלכם</p>
+    <div class="hero-ctas">
+      <button class="btn btn-gold btn-lg" onclick="goTo('order')">הזמינו עכשיו</button>
+      <button class="btn btn-outline btn-lg" onclick="goTo('cta')">קבעו שיחה</button>
+    </div>
+    <div class="hero-trust">
+      <div class="avatars"><span>👰</span><span>💍</span><span>🤵</span></div>
+      <span>מאות זוגות כבר השתמשו בשירות</span>
+    </div>
+    <div class="hero-stats">
+      <div class="hero-stat"><span class="hero-stat-n" data-target="500">500+</span><span class="hero-stat-l">זוגות</span></div>
+      <div class="hero-stat"><span class="hero-stat-n" data-target="98">98%</span><span class="hero-stat-l">שביעות רצון</span></div>
+      <div class="hero-stat"><span class="hero-stat-n" data-target="24">24/7</span><span class="hero-stat-l">תמיכה</span></div>
+      <div class="hero-stat"><span class="hero-stat-n" data-target="48">48 שעות</span><span class="hero-stat-l">ממוצע תגובה</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ HOW IT WORKS ══ -->
+<section id="how">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">התהליך</span>
+      <h2>איך זה עובד?</h2>
+      <span class="gold-bar"></span>
+      <p>ארבעה צעדים פשוטים ואתם חופשיים ליהנות מהדרך לחופה</p>
+    </div>
+    <div class="steps-grid">
+      <div class="step-card fi"><div class="step-n">01</div><h3>בוחרים חבילה</h3><p>בחרו את הפיצ'רים שאתם צריכים ומשלמים. תוך דקות אתם מוגדרים.</p></div>
+      <div class="step-card fi" style="transition-delay:.1s"><div class="step-n">02</div><h3>מעלים רשימה</h3><p>מעלים Excel/CSV עם שמות ומספרי טלפון ובוחרים סגנון הודעה.</p></div>
+      <div class="step-card fi" style="transition-delay:.2s"><div class="step-n">03</div><h3>אנחנו שולחים</h3><p>הודעות, תזכורות ומעקב תשובות – הכל אוטומטי, בלי מגע.</p></div>
+      <div class="step-card fi" style="transition-delay:.3s"><div class="step-n">04</div><h3>דוחות בזמן אמת</h3><p>לוח בקרה מסודר עם כל הנתונים, ישירות לוואטסאפ שלכם.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FEATURES ══ -->
+<section id="features">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">מה מקבלים</span>
+      <h2>כל מה שצריך, במקום אחד</h2>
+      <span class="gold-bar"></span>
+    </div>
+    <div class="feat-grid">
+      <div class="feat-item fi"><div class="feat-ico">✦</div><div><strong>הודעות אישיות</strong><p>לכל מוזמן בנפרד, עם שמו האישי</p></div></div>
+      <div class="feat-item fi" style="transition-delay:.07s"><div class="feat-ico">✦</div><div><strong>מעקב חכם אחרי תשובות</strong><p>כן / לא / כמה מגיעים – הכל מתועד</p></div></div>
+      <div class="feat-item fi" style="transition-delay:.14s"><div class="feat-ico">✦</div><div><strong>תזכורות אוטומטיות</strong><p>למי שלא ענה, בלי שתצטרכו לבקש</p></div></div>
+      <div class="feat-item fi" style="transition-delay:.21s"><div class="feat-ico">✦</div><div><strong>דוחות שוטפים</strong><p>כל כמה ימים ישירות לוואטסאפ שלכם</p></div></div>
+      <div class="feat-item fi" style="transition-delay:.28s"><div class="feat-ico">✦</div><div><strong>סיכום ביום החתונה</strong><p>כמה מגיעים, כמה לא – הכל ברור</p></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ MESSAGE STYLES ══ -->
+<section id="msg-styles">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">סגנונות הודעה</span>
+      <h2>בחרו את הטון שלכם</h2>
+      <span class="gold-bar"></span>
+      <p>כל סגנון מייצר חוויה שונה למוזמן – מרשמי עד משובב לב</p>
+    </div>
+    <div class="msg-tabs">
+      <button class="mtab on" onclick="showMsg(this,'happy')">😊 שמחה</button>
+      <button class="mtab" onclick="showMsg(this,'serious')">🎩 רשמי</button>
+      <button class="mtab" onclick="showMsg(this,'respectful')">🙏 מכובד</button>
+      <button class="mtab" onclick="showMsg(this,'playful')">🎉 שובב</button>
+      <button class="mtab" onclick="showMsg(this,'postponed')">📅 דחייה/עדכון</button>
+      <button class="mtab" onclick="showMsg(this,'canceled')">⚠️ ביטול</button>
+    </div>
+    <div class="msg-card" id="msg-card">
+      <div id="msg-inner"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PREVIEWS ══ -->
+<section id="previews">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">תצוגה מקדימה</span>
+      <h2>ככה זה נראה בפועל</h2>
+      <span class="gold-bar"></span>
+      <p>כך המוזמנים רואים את ההודעה, וכך אתם מנהלים הכל</p>
+    </div>
+
+    <!-- TABS -->
+    <div class="prev-tabs">
+      <button class="prev-tab on" id="tab-wa" onclick="showPreview('wa')">📱 הודעה למוזמן</button>
+      <button class="prev-tab" id="tab-dash" onclick="showPreview('dash')">📊 לוח הבקרה</button>
+    </div>
+
+    <!-- WA PANEL -->
+    <div class="prev-panel on" id="panel-wa">
+      <div style="display:flex;justify-content:center">
+        <div class="iphone">
+          <div class="iphone-notch"></div>
+          <div class="iphone-screen">
+            <div class="wa-screen">
+              <div class="wa-header">
+                <span class="wa-back">‹</span>
+                <div class="wa-av">💍</div>
+                <div class="wa-info"><h4>אישורי הגעה · נועה ויונתן</h4><span>online</span></div>
+              </div>
+              <div class="wa-chat">
+                <div class="wa-day">היום · 10:14</div>
+                <div class="bubble">
+                  <p>שלום משפחת כהן! 🤍<br><br><b>נועה ויונתן</b> מתחתנים!<br>📅 <b>15 בספטמבר 2025</b><br>📍 <b>אולם הגן הקסום, רמת גן</b><br><br>נשמח מאוד לנוכחותכם בשמחתנו!</p>
+                  <div class="wa-btns">
+                    <button class="wa-btn y">✅ &nbsp; כן, מגיעים בשמחה!</button>
+                    <button class="wa-btn n">❌ &nbsp; לצערנו לא נוכל</button>
+                    <button class="wa-btn m">🤔 &nbsp; אולי, נעדכן בקרוב</button>
+                  </div>
+                  <div class="ts">10:14 ✓✓</div>
+                </div>
+                <div class="bubble out"><p>כן, מגיעים בשמחה! 🎉</p><div class="ts r">10:17 ✓✓</div></div>
+                <div class="bubble"><p>נהדר! 🙌 כמה אנשים יגיעו?</p><div class="ts">10:17 ✓✓</div></div>
+                <div class="bubble out"><p>4 אנשים</p><div class="ts r">10:19 ✓✓</div></div>
+                <div class="bubble"><p>מעולה! רשמנו 4 מגיעים ✅<br>מחכים לראותכם! 💒</p><div class="ts">10:19 ✓✓</div></div>
+                <div class="typing"><div class="td"></div><div class="td"></div><div class="td"></div></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- DASHBOARD PANEL -->
+    <div class="prev-panel" id="panel-dash">
+      <div class="sbs">
+
+        <!-- Mac side -->
+        <div class="sbs-col sbs-mac">
+          <div class="sbs-label">💻 &nbsp; דפדפן · מחשב</div>
+          <div class="mac">
+            <div class="mac-bar">
+              <div class="mac-dots"><div class="mac-dot r"></div><div class="mac-dot y"></div><div class="mac-dot g"></div></div>
+              <div class="mac-url">rsvp-service.co.il/dashboard · נועה ויונתן</div>
+            </div>
+            <div class="mac-body">
+              <div class="dash-layout">
+                <div class="dash-side">
+                  <div class="dash-couple">
+                    <div class="dash-ava">💍</div>
+                    <h4>נועה ויונתן</h4>
+                    <span>15.9.2025</span>
+                  </div>
+                  <nav class="dash-nav">
+                    <a class="on">📊 <span>סקירה</span></a>
+                    <a>✅ <span>אישרו</span></a>
+                    <a>⏳ <span>ממתינים</span></a>
+                    <a>❌ <span>לא מגיעים</span></a>
+                    <a>📩 <span>הודעות</span></a>
+                    <a>📋 <span>דוחות</span></a>
+                  </nav>
+                </div>
+                <div class="dash-main">
+                  <div class="dash-title">שלום נועה ויונתן 👋</div>
+                  <div class="dash-meta">עדכון אחרון: היום · 14:32</div>
+                  <div class="dash-alert">⏰ &nbsp; נותרו <strong>43 ימים</strong> לחתונה · תזכורת הבאה: <strong>10 באוגוסט</strong></div>
+                  <div class="kpi-row">
+                    <div class="kpi"><div class="kpi-v">280</div><div class="kpi-l">מוזמנים</div></div>
+                    <div class="kpi hl"><div class="kpi-v">187</div><div class="kpi-l">אישרו ✅</div></div>
+                    <div class="kpi"><div class="kpi-v">34</div><div class="kpi-l">לא מגיעים</div></div>
+                    <div class="kpi"><div class="kpi-v">59</div><div class="kpi-l">ממתינים ⏳</div></div>
+                  </div>
+                  <div class="prog-wrap">
+                    <div class="prog-hdr"><span>אחוז מענה</span><span>221 / 280 · 79%</span></div>
+                    <div class="prog-bar"><div class="prog-fill" id="mac-fill" style="width:0%"></div></div>
+                  </div>
+                  <div class="dash-tbl">
+                    <div class="tbl-hdr"><span>שם</span><span>סטטוס</span><span>כמה</span><span>עדכון</span></div>
+                    <div class="tbl-row"><span>משפחת כהן</span><span class="ts-y">✓ אישרו</span><span>4</span><span>אמש</span></div>
+                    <div class="tbl-row"><span>דני לוי</span><span class="ts-y">✓ אישרו</span><span>2</span><span>לפני יומיים</span></div>
+                    <div class="tbl-row"><span>משפחת אברהם</span><span class="ts-w">⏳ ממתין</span><span>—</span><span>תזכורת נשלחה</span></div>
+                    <div class="tbl-row"><span>רחל מזרחי</span><span class="ts-n">✗ לא מגיע</span><span>0</span><span>שבוע שעבר</span></div>
+                    <div class="tbl-row"><span>יוסי ברק</span><span class="ts-w">⏳ ממתין</span><span>—</span><span>הודעה נשלחה</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- iPhone side -->
+        <div class="sbs-col sbs-phone">
+          <div class="sbs-label">📱 &nbsp; אותו דבר · נייד</div>
+          <div class="iphone">
+            <div class="iphone-notch"></div>
+            <div class="iphone-screen">
+              <div class="id-screen">
+                <div class="id-top"><h4>נועה ויונתן 💍</h4><span>15 ספטמבר</span></div>
+                <div class="id-body">
+                  <div class="id-cd">⏰ &nbsp; נותרו <strong>43 ימים</strong></div>
+                  <div class="id-kpis">
+                    <div class="id-k"><div class="id-kv">280</div><div class="id-kl">מוזמנים</div></div>
+                    <div class="id-k hl"><div class="id-kv">187</div><div class="id-kl">אישרו ✅</div></div>
+                    <div class="id-k"><div class="id-kv">34</div><div class="id-kl">לא מגיעים</div></div>
+                    <div class="id-k"><div class="id-kv">59</div><div class="id-kl">ממתינים ⏳</div></div>
+                  </div>
+                  <div class="id-prog">
+                    <div class="id-prog-hdr"><span>אחוז מענה</span><span>79%</span></div>
+                    <div class="id-pbar"><div class="id-pfill" id="id-fill" style="width:0%"></div></div>
+                  </div>
+                  <div class="id-tbl">
+                    <div class="id-th"><span>שם</span><span>סטטוס</span><span>כמה</span></div>
+                    <div class="id-tr"><span>משפחת כהן</span><span class="ts-y" style="font-size:.6rem">✓ אישרו</span><span>4</span></div>
+                    <div class="id-tr"><span>דני לוי</span><span class="ts-y" style="font-size:.6rem">✓ אישרו</span><span>2</span></div>
+                    <div class="id-tr"><span>משפחת אברהם</span><span class="ts-w" style="font-size:.6rem">⏳ ממתין</span><span>—</span></div>
+                    <div class="id-tr"><span>רחל מזרחי</span><span class="ts-n" style="font-size:.6rem">✗ לא</span><span>0</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ PRICING ══ -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">חבילות</span>
+      <h2>בחרו את הפיצ'רים שלכם</h2>
+      <span class="gold-bar"></span>
+      <p>המחיר זהה לכל כמות מוזמנים – הפיצ'רים הם שמבדילים בין החבילות</p>
+    </div>
+    <div class="price-grid">
+      <!-- Basic -->
+      <div class="pc fi" dir="rtl" onclick="choosePlan('basic',this)">
+        <div class="pc-tier">Basic</div>
+        <div class="pc-name">בסיסי</div>
+        <div class="pc-price"><sup>₪</sup>299</div>
+        <div class="pc-note">לאירוע אחד · כל כמות מוזמנים</div>
+        <ul class="pc-feats">
+          <li>שליחת הודעות אישיות לכולם</li>
+          <li>מעקב תשובות (כן/לא/כמה)</li>
+          <li>דוח אחד לפני האירוע</li>
+          <li>2 סגנונות הודעה</li>
+          <li>תמיכה בוואטסאפ</li>
+          <li class="off">תזכורות אוטומטיות</li>
+          <li class="off">דוחות שבועיים</li>
+          <li class="off">הודעת דחייה / ביטול</li>
+        </ul>
+        <button class="pc-btn" onclick="event.stopPropagation();choosePlan('basic',this.closest('.pc'))">בחרו חבילה זו</button>
+      </div>
+      <!-- Pro -->
+      <div class="pc feat fi" dir="rtl" onclick="choosePlan('pro',this)">
+        <div class="pc-pop">הנבחר ביותר</div>
+        <div class="pc-tier">Pro</div>
+        <div class="pc-name">מקצועי</div>
+        <div class="pc-price"><sup>₪</sup>499</div>
+        <div class="pc-note">לאירוע אחד · כל כמות מוזמנים</div>
+        <ul class="pc-feats">
+          <li>הכל בחבילה הבסיסית</li>
+          <li>תזכורות אוטומטיות</li>
+          <li>דוחות כל 7 ימים</li>
+          <li>4 סגנונות הודעה</li>
+          <li>הודעת דחייה / עדכון מועד</li>
+          <li>סיכום ביום החתונה</li>
+          <li class="off">ביטול חתונה</li>
+          <li class="off">טיפול ידני</li>
+        </ul>
+        <button class="pc-btn" onclick="event.stopPropagation();choosePlan('pro',this.closest('.pc'))">בחרו חבילה זו</button>
+      </div>
+      <!-- Premium -->
+      <div class="pc fi" dir="rtl" onclick="choosePlan('premium',this)">
+        <div class="pc-tier">Premium</div>
+        <div class="pc-name">פרמיום</div>
+        <div class="pc-price"><sup>₪</sup>799</div>
+        <div class="pc-note">לאירוע אחד · כל כמות מוזמנים</div>
+        <ul class="pc-feats">
+          <li>הכל בחבילה המקצועית</li>
+          <li>טיפול ידני במוזמנים קשים</li>
+          <li>6 סגנונות הודעה</li>
+          <li>הודעת דחייה / עדכון מועד</li>
+          <li>הודעת ביטול חתונה</li>
+          <li>ליווי אישי עד האירוע</li>
+          <li>עדיפות בתמיכה 24/7</li>
+        </ul>
+        <button class="pc-btn" onclick="event.stopPropagation();choosePlan('premium',this.closest('.pc'))">בחרו חבילה זו</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ ORDER FLOW ══ -->
+<section id="order">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">הזמנה</span>
+      <h2>נתחיל? זה לוקח 3 דקות</h2>
+      <span class="gold-bar"></span>
+    </div>
+    <div class="flow-wrap">
+
+      <!-- Step dots -->
+      <div class="flow-dots">
+        <div class="fd"><div class="fd-dot active" id="dot1">1</div><div class="fd-lbl active" id="lbl1">פרטים</div></div>
+        <div class="fd"><div class="fd-dot" id="dot2">2</div><div class="fd-lbl" id="lbl2">הגדרות</div></div>
+        <div class="fd"><div class="fd-dot" id="dot3">3</div><div class="fd-lbl" id="lbl3">תשלום</div></div>
+        <div class="fd"><div class="fd-dot" id="dot4">4</div><div class="fd-lbl" id="lbl4">תזמון</div></div>
+      </div>
+
+      <!-- STEP 1 -->
+      <div class="opanel on" id="step1">
+        <div class="fcard">
+          <div class="fcard-title">פרטי הזוג ובחירת חבילה</div>
+          <div class="fcard-sub">נתחיל עם הבסיס</div>
+          <div class="fg">
+            <div class="ff"><label>שם הכלה <span class="req">*</span></label><input type="text" id="bride" placeholder="נועה" autocomplete="given-name"></div>
+            <div class="ff"><label>שם החתן <span class="req">*</span></label><input type="text" id="groom" placeholder="יונתן"></div>
+            <div class="ff"><label>תאריך האירוע <span class="req">*</span></label><input type="date" id="edate"></div>
+            <div class="ff"><label>מיקום האירוע</label><input type="text" id="eloc" placeholder="שם האולם / עיר"></div>
+            <div class="ff"><label>טלפון ליצירת קשר <span class="req">*</span></label><input type="tel" id="phone" placeholder="050-0000000" inputmode="tel"></div>
+            <div class="ff"><label>אימייל</label><input type="email" id="email" placeholder="your@email.com" inputmode="email"></div>
+
+            <!-- Guest count -->
+            <div class="ff full">
+              <label>מספר מוזמנים משוער <span class="req">*</span></label>
+              <select id="guest-count" onchange="onGuests()">
+                <option value="">בחרו כמות</option>
+                <option value="50">עד 50 מוזמנים</option>
+                <option value="100">51–100 מוזמנים</option>
+                <option value="150">101–150 מוזמנים</option>
+                <option value="200">151–200 מוזמנים</option>
+                <option value="250">201–250 מוזמנים</option>
+                <option value="300">251–300 מוזמנים</option>
+                <option value="400">301–400 מוזמנים</option>
+                <option value="custom">מספר מדויק ›</option>
+              </select>
+              <div id="custom-guest-wrap" style="display:none;margin-top:.5rem">
+                <input type="number" id="guest-custom" placeholder="הכניסו מספר מדויק" min="1" max="5000" inputmode="numeric">
+              </div>
+            </div>
+
+            <!-- Plan picker -->
+            <div class="ff full" id="plan-pick-wrap" style="display:none">
+              <label>בחרו חבילה <span class="req">*</span></label>
+              <div id="plan-pick" style="display:flex;flex-direction:column;gap:.5rem;margin-top:.3rem"></div>
+            </div>
+          </div>
+
+          <div class="flow-nav">
+            <button class="btn-next" onclick="step1Next()">המשיכו להגדרות ←</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2 -->
+      <div class="opanel" id="step2">
+        <div class="fcard">
+          <div id="s2-badge"></div>
+          <div class="fcard-title">הגדרות שליחה</div>
+          <div class="fcard-sub">איך תישלחנה ההודעות?</div>
+          <div class="fg">
+            <!-- CSV -->
+            <div class="ff full">
+              <label>רשימת מוזמנים <span class="req">*</span></label>
+              <div class="csv-toggle">
+                <div class="csv-o on" id="csv-now" onclick="setCsv('now')">📎 אעלה עכשיו</div>
+                <div class="csv-o" id="csv-later" onclick="setCsv('later')">⏰ אעלה אחרי תשלום</div>
+              </div>
+              <div class="cpanel on" id="csv-panel-now">
+                <div class="fup">
+                  <input type="file" id="gfile" accept=".csv,.xlsx,.xls">
+                  <span class="fup-ico">📋</span>
+                  <p><strong>לחצו להעלאת קובץ</strong> – CSV / Excel</p>
+                  <p style="font-size:.7rem;margin-top:.2rem">עמודות: שם, טלפון</p>
+                </div>
+                <p id="fname" style="font-size:.74rem;color:var(--g);margin-top:.35rem;display:none"></p>
+              </div>
+              <div class="cpanel" id="csv-panel-later">
+                <div class="csv-tip">💡 תקבלו לינק מיד אחרי התשלום בוואטסאפ ובאימייל</div>
+              </div>
+            </div>
+
+            <!-- Style picker -->
+            <div class="ff full">
+              <label>סגנון ההודעה <span class="req">*</span></label>
+              <div class="style-grid" id="order-style-grid">
+                <div class="sopt on" data-s="happy" onclick="pickStyle(this)"><span class="sopt-ico">😊</span><span class="sopt-lbl">שמחה</span></div>
+                <div class="sopt" data-s="serious" onclick="pickStyle(this)"><span class="sopt-ico">🎩</span><span class="sopt-lbl">רשמי</span></div>
+                <div class="sopt" data-s="respectful" onclick="pickStyle(this)"><span class="sopt-ico">🙏</span><span class="sopt-lbl">מכובד</span></div>
+                <div class="sopt" data-s="playful" onclick="pickStyle(this)"><span class="sopt-ico">🎉</span><span class="sopt-lbl">שובב</span></div>
+                <div class="sopt" data-s="postponed" onclick="pickStyle(this)"><span class="sopt-ico">📅</span><span class="sopt-lbl">דחייה</span></div>
+                <div class="sopt prem" id="s-cancel" data-s="canceled" onclick="pickStyle(this)"><span class="sopt-ico">⚠️</span><span class="sopt-lbl">ביטול</span></div>
+              </div>
+              <p style="font-size:.7rem;color:var(--warm);margin-top:.45rem">* הודעת ביטול חתונה זמינה בפרמיום בלבד</p>
+            </div>
+
+            <div class="ff full">
+              <div class="fdiv"></div>
+              <label style="display:block;margin-bottom:.55rem">הגדרות נוספות</label>
+              <div class="checks">
+                <label class="chk"><input type="checkbox" id="ar" checked><span>תזכורות אוטומטיות למי שלא ענה</span></label>
+                <label class="chk"><input type="checkbox" id="wr"><span>דוחות עדכון כל 7 ימים לוואטסאפ שלי</span></label>
+              </div>
+            </div>
+          </div>
+          <div class="flow-nav">
+            <button class="btn-back" onclick="setStep(1)">← חזרה</button>
+            <button class="btn-next" onclick="step2Next()">המשיכו לתשלום ←</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 3 -->
+      <div class="opanel" id="step3">
+        <div class="fcard">
+          <div id="s3-badge"></div>
+          <div class="fcard-title">תשלום</div>
+          <div class="fcard-sub">תשלום חד-פעמי מאובטח</div>
+          <div class="pricebox" id="pay-pricebox">
+            <div class="pricebox-lbl">סה"כ לתשלום</div>
+            <div class="pricebox-val">₪<span id="pay-total">—</span></div>
+            <div class="pricebox-note">תשלום חד-פעמי · כולל מע"מ · אין חידוש</div>
+          </div>
+          <div class="pay-options">
+            <label class="pay-opt on" onclick="selPay(this)"><input type="radio" name="pay" value="card" checked><span class="pay-opt-ico">💳</span><div class="pay-opt-info"><strong>כרטיס אשראי</strong><span>Visa, Mastercard, Amex</span></div></label>
+            <label class="pay-opt" onclick="selPay(this)"><input type="radio" name="pay" value="bit"><span class="pay-opt-ico">📲</span><div class="pay-opt-info"><strong>Bit</strong><span>תשלום מיידי</span></div></label>
+            <label class="pay-opt" onclick="selPay(this)"><input type="radio" name="pay" value="paypal"><span class="pay-opt-ico">🌐</span><div class="pay-opt-info"><strong>PayPal</strong><span>חשבון קיים</span></div></label>
+          </div>
+          <div class="pay-sec">🔒 &nbsp; תשלום מאובטח SSL</div>
+          <div class="fdiv"></div>
+          <div class="terms-wrap">
+            <input type="checkbox" id="terms-chk">
+            <label for="terms-chk">קראתי ומסכים/ה ל<a href="#" onclick="T(1);return false">תנאי השימוש</a> כולל מדיניות אי-ההחזר ואחריות הרשימה</label>
+          </div>
+          <div class="flow-nav">
+            <button class="btn-back" onclick="setStep(2)">← חזרה</button>
+            <button class="btn-next" onclick="step3Next()">שלמו עכשיו ✦</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 4 -->
+      <div class="opanel" id="step4">
+        <div class="fcard">
+          <div class="fcard-title">תזמון שליחות</div>
+          <div class="fcard-sub">מתי נתחיל לשלוח?</div>
+          <div class="sched-warn">
+            <strong>⚠️ שימו לב לפני שמגדירים</strong>
+            לאחר שתאריכים הוגדרו והופעלו, לא ניתן לבטל הודעות שכבר יצאו. שינוי אפשרי לתאריכים <strong>עתידיים בלבד</strong>, לפחות <strong>48 שעות מראש</strong>.
+          </div>
+          <div class="fg">
+            <div class="ff"><label>שליחה ראשונה <span class="req">*</span></label><input type="date" id="sd1"></div>
+            <div class="ff"><label>תזכורת ראשונה</label><input type="date" id="sd2"></div>
+            <div class="ff"><label>תזכורת שנייה</label><input type="date" id="sd3"></div>
+            <div class="ff"><label>סיכום לפני האירוע</label><input type="date" id="sd4"></div>
+            <div class="ff full">
+              <div class="cancel-note">📌 שינויים אפשריים 48 שעות לפני כל שליחה בלבד. הודעות שיצאו לא ניתן לבטל.</div>
+            </div>
+          </div>
+          <div class="flow-nav">
+            <button class="btn-next" onclick="submitOrder()" id="finish-btn">אשרו והפעילו את השירות ✦</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- SUCCESS -->
+      <div class="ok-state" id="ok-state">
+        <div class="ok-ico">💍</div>
+        <h3>השירות הופעל!</h3>
+        <p>קיבלנו את הכל ✅<br>נשלח אישור לוואטסאפ ולאימייל תוך מספר דקות.<br><br>לשינוי תאריכים – פנו אלינו <strong>48 שעות לפני</strong> כל שליחה.</p>
+        <div class="ok-acts">
+          <a href="https://wa.me/972500000000" class="btn btn-gold" target="_blank">פתחו וואטסאפ 💬</a>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ══ REPORTS ══ -->
+<section id="reports">
+  <div class="wrap">
+    <div class="sec-head fi">
+      <span class="tag">דוחות</span>
+      <h2>תמיד תדעו מה קורה</h2>
+      <span class="gold-bar"></span>
+      <p>עדכונים מסודרים לכל אורך הדרך, ישירות לוואטסאפ</p>
+    </div>
+    <div class="rep-grid">
+      <div class="rep-card fi"><span class="rep-ico">✅</span><h4>אישרו הגעה</h4><p>שם ומספר מגיעים</p></div>
+      <div class="rep-card fi" style="transition-delay:.08s"><span class="rep-ico">❌</span><h4>לא מגיעים</h4><p>רשימה מפורטת</p></div>
+      <div class="rep-card fi" style="transition-delay:.16s"><span class="rep-ico">📊</span><h4>סיכום כולל</h4><p>כמה אישרו, כמה ממתינים</p></div>
+      <div class="rep-card fi" style="transition-delay:.24s"><span class="rep-ico">⏳</span><h4>עדיין לא ענו</h4><p>מי עוד לא ענה</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ══ CTA ══ -->
+<section id="cta">
+  <div class="cta-ring cta-ring-1"></div>
+  <div class="cta-ring cta-ring-2"></div>
+  <div class="wrap" style="position:relative;z-index:1;text-align:center">
+    <span class="tag" style="color:var(--gl)">מוכנים?</span>
+    <h2 class="serif">תנו לנו לטפל<br><em>בזה בשבילכם</em></h2>
+    <span class="gold-bar"></span>
+    <p>אתם עסוקים מספיק – תאריך, שמלה, קייטרינג...<br>את אישורי ההגעה נשאיר לנו.</p>
+    <div class="cta-btns">
+      <button class="btn btn-gold btn-lg" onclick="goTo('order')">הזמינו עכשיו</button>
+      <a href="https://wa.me/972500000000?text=היי, יש לי שאלה לגבי השירות" class="btn btn-ghost btn-lg" target="_blank" rel="noopener">שאלו אותנו</a>
+    </div>
+  </div>
+</section>
+
+<!-- ══ FOOTER ══ -->
+<footer>
+  <div class="f-logo">אישורי <span>הגעה</span></div>
+  <div class="f-links">
+    <a href="https://wa.me/972500000000" target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      וואטסאפ
+    </a>
+    <a href="mailto:hello@rsvp-service.co.il">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+      hello@rsvp-service.co.il
+    </a>
+    <a href="#" onclick="T(1);return false">תנאי שימוש</a>
+  </div>
+  <div class="f-copy">© 2025 שירות אישורי הגעה לחתונה · כל הזכויות שמורות</div>
+</footer>
+
+<script>
+// ══ Helpers ══
+const $=id=>document.getElementById(id);
+function goTo(id){$(id)?.scrollIntoView({behavior:'smooth'})}
+function push(ev,p={}){window.dataLayer=window.dataLayer||[];window.dataLayer.push({event:ev,...p})}
+function px(ev,p={}){typeof fbq!=='undefined'&&fbq('track',ev,p)}
+function pxc(ev,p={}){typeof fbq!=='undefined'&&fbq('trackCustom',ev,p)}
+function T(on){$('terms-page').classList.toggle('on',!!on)}
+
+// ══ State ══
+const S={plan:'pro',guests:0,style:'happy',csv:'now'};
+const PRICES={basic:299,pro:499,premium:799};
+const PNAMES={basic:'בסיסי',pro:'מקצועי',premium:'פרמיום'};
+
+// ══ Nav ══
+window.addEventListener('scroll',()=>$('nav').classList.toggle('sc',scrollY>30),{passive:true});
+
+// ══ Scroll depth ══
+const depths=new Set();
+window.addEventListener('scroll',()=>{
+  const p=Math.round(scrollY/(document.body.scrollHeight-innerHeight)*100);
+  [25,50,75,90].forEach(m=>{if(p>=m&&!depths.has(m)){depths.add(m);push('scroll_depth',{depth:m})}})
+},{passive:true});
+
+// ══ Intersection animations + bar trigger ══
+let barsTriggered=false;
+const obs=new IntersectionObserver(entries=>entries.forEach(el=>{
+  if(el.isIntersecting){
+    el.target.classList.add('v');
+    if(!barsTriggered&&el.target.closest('#previews')){
+      barsTriggered=true;
+      setTimeout(()=>{
+        ['mac-fill','id-fill'].forEach(id=>{const b=$(id);if(b)b.style.width='79%'});
+      },500);
+    }
+  }
+}),{threshold:.07,rootMargin:'0px 0px -20px 0px'});
+document.querySelectorAll('.fi,.step-card,.feat-item,.rep-card,.pc').forEach(el=>obs.observe(el));
+
+// ══ Message style previews ══
+const MSGS={
+  happy:{tag:'😊 שמחה',pro:false,text:'שלום [שם]! 🎊<br><br><b>נועה ויונתן</b> מתחתנים ומזמינים אתכם לשמוח איתם!<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>נשמח מאוד לראותכם! 🤍',note:''},
+  serious:{tag:'🎩 רשמי',pro:false,text:'הננו מתכבדים להזמינכם לאירוע נישואינו.<br><br>📅 <b>15 בספטמבר 2025</b><br>📍 <b>אולם הגן הקסום, רמת גן</b><br><br>נבקש לאשר הגעה עד 1 בספטמבר.<br>בברכה, נועה ויונתן',note:''},
+  respectful:{tag:'🙏 מכובד',pro:false,text:'שלום רב,<br><br>בכבוד ובהוקרה אנו מבקשים את נוכחותכם בשמחת חתונתנו.<br>📅 15 בספטמבר 2025<br>📍 אולם הגן הקסום<br><br>נודה לתגובתכם. בהוקרה, נועה ויונתן',note:''},
+  playful:{tag:'🎉 שובב',pro:true,text:'היי! 👋 אתם מוזמנים! 🥳<br><br>נועה ויונתן עושים את זה רשמי!<br>15.9.2025 | הגן הקסום, רמת גן<br><br>בואו תרקדו איתנו 💃🕺<br>אשרו הגעה כי המנות מוגבלות 😅',note:'זמין בחבילת Pro ומעלה'},
+  postponed:{tag:'📅 דחייה / עדכון',pro:true,text:'שלום,<br><br>אנחנו רוצים לעדכן שאירוע חתונתנו <b>נדחה</b>.<br><br>📅 <b>התאריך החדש: 1 בנובמבר 2025</b><br>📍 המקום נשאר: אולם הגן הקסום<br><br>מצטערים על אי הנוחות 🙏<br>נועה ויונתן',note:'זמין בחבילת Pro ומעלה'},
+  canceled:{tag:'⚠️ ביטול חתונה',pro:true,text:'שלום,<br><br>מצטערים להודיע שנאלצנו <b>לבטל</b> את אירוע חתונתנו שתוכנן ל-15 בספטמבר 2025.<br><br>תודה על ההבנה ועל התמיכה שלכם. 🙏<br>נועה ויונתן',note:'⚠️ זמין בפרמיום בלבד'}
+};
+
+function showMsg(btn,key){
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
+  btn.classList.add('on');
+  const m=MSGS[key];
+  $('msg-inner').innerHTML=`${m.pro?`<span class="msg-badge">★ ${m.note}</span><br>`:''}
+    <span class="msg-label">${m.tag}</span>
+    <div class="msg-text">${m.text}</div>`;
+}
+showMsg(document.querySelector('.mtab'),'happy');
+
+// ══ Preview tabs ══
+function showPreview(t){
+  ['tab-wa','tab-dash'].forEach(id=>$(id)?.classList.remove('on'));
+  ['panel-wa','panel-dash'].forEach(id=>$(id)?.classList.remove('on'));
+  $('tab-'+t)?.classList.add('on');
+  $('panel-'+t)?.classList.add('on');
+  if(t==='dash'){
+    setTimeout(()=>{['mac-fill','id-fill'].forEach(id=>{const b=$(id);if(b)b.style.width='79%'})},350);
+  }
+  push('preview_tab',{tab:t});pxc('PreviewTab',{tab:t});
+}
+
+// ══ Pricing: choose plan ══
+function choosePlan(plan,card){
+  S.plan=plan;
+  document.querySelectorAll('.pc').forEach(c=>c.classList.remove('sel'));
+  // find the right card by plan if not passed
+  if(!card){
+    document.querySelectorAll('.pc').forEach(pc=>{
+      if(pc.getAttribute('onclick')&&pc.getAttribute('onclick').includes("'"+plan+"'")){card=pc}
+    });
+  }
+  card?.classList.add('sel');
+  // update radio buttons in order form
+  document.querySelectorAll('input[name="plan-radio"]').forEach(r=>r.checked=r.value===plan);
+  refreshBadges();
+  push('plan_selected',{plan});
+  // scroll to order after short delay so animation is visible
+  setTimeout(()=>goTo('order'),300);
+}
+
+function onGuests(){
+  const v=$('guest-count').value;
+  const cw=$('custom-guest-wrap');
+  cw.style.display=v==='custom'?'block':'none';
+  if(v!=='custom'){S.guests=parseInt(v)||0}
+  showPlanPicker();
+}
+
+function showPlanPicker(){
+  const wrap=$('plan-pick-wrap');
+  const pick=$('plan-pick');
+  wrap.style.display='block';
+  pick.innerHTML=Object.entries(PRICES).map(([key,price])=>{
+    const isFeat=key==='pro';
+    return `<label style="display:flex;align-items:center;gap:.75rem;padding:.72rem 1rem;border:1.5px solid ${key===S.plan?'rgba(200,164,90,.5)':'var(--bdr)'};border-radius:6px;background:${key===S.plan?'var(--gp)':'var(--cw)'};cursor:pointer;transition:all .2s;font-family:Heebo,sans-serif" onclick="choosePlanRadio('${key}')">
+      <input type="radio" name="plan-radio" value="${key}" ${key===S.plan?'checked':''} style="accent-color:var(--g);width:15px;height:15px;flex-shrink:0">
+      <span style="flex:1;font-size:.85rem;color:var(--dk)"><strong style="font-weight:500">${PNAMES[key]}</strong>${isFeat?' · <span style="color:var(--g);font-size:.75rem">מומלץ</span>':''}</span>
+      <span style="font-family:Cormorant Garamond,serif;font-size:1.3rem;color:var(--g);font-weight:300">₪${price}</span>
+    </label>`;
+  }).join('');
+  refreshBadges();
+}
+
+function choosePlanRadio(plan){
+  S.plan=plan;
+  document.querySelectorAll('#plan-pick label').forEach((l,i)=>{
+    const key=Object.keys(PRICES)[i];
+    l.style.borderColor=key===plan?'rgba(200,164,90,.5)':'var(--bdr)';
+    l.style.background=key===plan?'var(--gp)':'var(--cw)';
+  });
+  document.querySelector(`input[name="plan-radio"][value="${plan}"]`).checked=true;
+  refreshBadges();
+  push('plan_selected',{plan});
+}
+
+function refreshBadges(){
+  const html=`<div class="sel-plan-badge"><div class="spb-dot"></div><div class="spb-text">חבילה: <strong>${PNAMES[S.plan]}</strong> &nbsp;·&nbsp; ₪${PRICES[S.plan]}</div><div class="spb-change" onclick="goTo('pricing');setStep(1)">שינוי</div></div>`;
+  ['s2-badge','s3-badge'].forEach(id=>{const el=$(id);if(el)el.innerHTML=html});
+  const pt=$('pay-total');if(pt)pt.textContent=PRICES[S.plan];
+  // update canceled style availability
+  const sc=$('s-cancel');if(sc)sc.style.opacity=S.plan==='premium'?'1':'.45';
+}
+
+// ══ Style picker in order ══
+function pickStyle(el){
+  if(el.dataset.s==='canceled'&&S.plan!=='premium'){alert('הודעת ביטול חתונה זמינה בפרמיום בלבד');return}
+  document.querySelectorAll('.sopt').forEach(e=>e.classList.remove('on'));
+  el.classList.add('on');S.style=el.dataset.s;
+}
+
+// ══ CSV mode ══
+function setCsv(mode){
+  S.csv=mode;
+  $('csv-now').classList.toggle('on',mode==='now');
+  $('csv-later').classList.toggle('on',mode==='later');
+  $('csv-panel-now').classList.toggle('on',mode==='now');
+  $('csv-panel-later').classList.toggle('on',mode==='later');
+}
+
+// ══ Payment ══
+function selPay(el){document.querySelectorAll('.pay-opt').forEach(e=>e.classList.remove('on'));el.classList.add('on')}
+
+// ══ Flow step management ══
+function setStep(n){
+  [1,2,3,4].forEach(i=>{
+    $(('step'+i)).classList.toggle('on',i===n);
+    const dot=$('dot'+i),lbl=$('lbl'+i);
+    if(i<n){dot.classList.add('done');dot.classList.remove('active');dot.textContent='✓';lbl.classList.remove('active')}
+    else if(i===n){dot.classList.remove('done');dot.classList.add('active');dot.textContent=i;lbl.classList.add('active')}
+    else{dot.classList.remove('done','active');dot.textContent=i;lbl.classList.remove('active')}
+  });
+  goTo('order');
+  push('flow_step',{step:n});
+}
+
+function step1Next(){
+  const bride=$('bride').value.trim(),groom=$('groom').value.trim(),phone=$('phone').value.trim(),date=$('edate').value;
+  const guests=$('guest-count').value==='custom'?(parseInt($('guest-custom').value)||0):parseInt($('guest-count').value)||0;
+  if(!bride||!groom||!phone||!date){alert('אנא מלאו: שם כלה, שם חתן, טלפון ותאריך');return}
+  if(!guests){alert('אנא בחרו מספר מוזמנים');return}
+  S.guests=guests;
+  if(!S.plan){alert('אנא בחרו חבילה');return}
+  refreshBadges();
+  setStep(2);
+  px('InitiateCheckout',{value:PRICES[S.plan],currency:'ILS'});
+}
+
+function step2Next(){setStep(3);push('step2_done',{style:S.style})}
+
+function step3Next(){
+  if(!$('terms-chk').checked){alert('יש לאשר את תנאי השימוש');return}
+  setStep(4);
+  push('payment_intent',{plan:S.plan,price:PRICES[S.plan]});
+  px('Purchase',{value:PRICES[S.plan],currency:'ILS',content_name:PNAMES[S.plan]});
+  pxc('OrderPaid',{plan:S.plan,price:PRICES[S.plan]});
+}
+
+// set min date
+const tom=new Date();tom.setDate(tom.getDate()+1);
+const tomStr=tom.toISOString().split('T')[0];
+['sd1','sd2','sd3','sd4'].forEach(id=>{const el=$(id);if(el)el.min=tomStr});
+
+async function submitOrder(){
+  const d1=$('sd1').value;
+  if(!d1){alert('אנא הזינו לפחות תאריך שליחה ראשונה');return}
+  const btn=$('finish-btn');btn.textContent='...מפעילים';btn.disabled=true;
+  const qs=new URLSearchParams(location.search);
+  const payload={
+    bride:$('bride').value.trim(),groom:$('groom').value.trim(),
+    event_date:$('edate').value,event_location:$('eloc').value,
+    phone:$('phone').value.trim(),email:$('email').value,
+    plan:S.plan,price:PRICES[S.plan],guests:S.guests,
+    message_style:S.style,csv_mode:S.csv,
+    send_dates:[$('sd1').value,$('sd2').value,$('sd3').value,$('sd4').value].filter(Boolean),
+    auto_reminders:$('ar').checked,weekly_reports:$('wr').checked,
+    payment_method:document.querySelector('input[name="pay"]:checked')?.value,
+    source:'wedding-rsvp',
+    utm_source:qs.get('utm_source')||'',utm_medium:qs.get('utm_medium')||'',utm_campaign:qs.get('utm_campaign')||'',
+    timestamp:new Date().toISOString()
+  };
+  try{await fetch('https://hook.eu1.make.com/YOUR_WEBHOOK_HERE',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),mode:'no-cors'})}catch(e){}
+  push('order_complete',{plan:S.plan,price:PRICES[S.plan],guests:S.guests});
+  pxc('OrderComplete',{plan:S.plan,price:PRICES[S.plan]});
+  $('step4').classList.remove('on');
+  $('ok-state').classList.add('on');
+}
+
+// ══ File upload display ══
+$('gfile')?.addEventListener('change',function(){
+  const n=$('fname');
+  if(this.files[0]){n.textContent='✦ '+this.files[0].name;n.style.display='block';push('file_uploaded');pxc('GuestListUploaded')}
+});
+
+// ══ UTM → WA links ══
+;(()=>{
+  const p=new URLSearchParams(location.search);
+  const s=['utm_source','utm_medium','utm_campaign'].map(k=>p.get(k)?k+'='+p.get(k):'').filter(Boolean).join('&');
+  if(s)document.querySelectorAll('a[href*="wa.me"]').forEach(a=>a.href+=(a.href.includes('?')?'&':'?')+s)
+})();
+</script>
+</body>
+</html>
