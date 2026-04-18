@@ -1191,8 +1191,9 @@ function selectPlan(key){
   });
   updateStyleLocks();
   renderPlanOpts();
-  goTo('order');
   push('plan_selected',{plan:key}); pxc('PlanSelected',{plan:key});
+  // Open order modal directly
+  openOrderModal();
 }
 
 function renderPlanOpts(){
@@ -1461,6 +1462,56 @@ const sObs=new IntersectionObserver(e=>e.forEach(el=>{if(el.isIntersecting&&el.t
 // ═══ WIZARD STATE ═══
 const WS={step:1,totalSteps:10,evType:'wedding',coupleType:'mf',plan:'pro',csvMode:'upload',style:'happy',guests:0};
 
+// ═══ WEBHOOK ═══
+const WEBHOOK_URL='WEBHOOK_URL_PLACEHOLDER';
+
+function getWizData(){
+  return {
+    step: WS.step,
+    timestamp: new Date().toISOString(),
+    event_type: WS.evType,
+    couple_type: WS.coupleType,
+    plan: WS.plan,
+    guests: WS.guests,
+    style: WS.style,
+    csv_mode: WS.csvMode,
+    name1: document.getElementById('bride')?.value||'',
+    name2: document.getElementById('groom')?.value||'',
+    phone: document.getElementById('wiz-phone')?.value||'',
+    event_date: document.getElementById('edate')?.value||'',
+    reception_time: document.getElementById('wiz-reception')?.value||'',
+    venue_name: document.getElementById('wiz-venue')?.value||'',
+    venue_addr: document.getElementById('wiz-addr')?.value||'',
+    venue_city: document.getElementById('wiz-city')?.value||'',
+    guests_notes: document.getElementById('wiz-notes')?.value||'',
+    send_date_1: document.getElementById('wiz-sd1')?.value||'',
+    send_date_2: document.getElementById('wiz-sd2')?.value||'',
+    utm_source: new URLSearchParams(location.search).get('utm_source')||'',
+    utm_medium: new URLSearchParams(location.search).get('utm_medium')||'',
+    utm_campaign: new URLSearchParams(location.search).get('utm_campaign')||'',
+    page_url: location.href
+  };
+}
+
+function sendWebhook(stepLabel, extraData){
+  if(!WEBHOOK_URL||WEBHOOK_URL==='WEBHOOK_URL_PLACEHOLDER') return;
+  const data = {...getWizData(), step_label: stepLabel, ...extraData};
+  // Send file if exists
+  const fileInput = document.getElementById('wiz-gfile');
+  if(fileInput && fileInput.files && fileInput.files[0]){
+    const formData = new FormData();
+    formData.append('file', fileInput.files[0]);
+    formData.append('data', JSON.stringify(data));
+    fetch(WEBHOOK_URL, {method:'POST', body: formData}).catch(()=>{});
+  } else {
+    fetch(WEBHOOK_URL, {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify(data)
+    }).catch(()=>{});
+  }
+}
+
 const WIZ_LABELS=['סוג האירוע','סוג הזוג','שמות + טלפון','תאריך האירוע','מיקום','מוזמנים + הערות','הגדרות שליחה','בחירת חבילה','תשלום','זמנים'];
 
 function openOrderModal(){
@@ -1501,6 +1552,7 @@ function goWizStep(n){
   updateWizProgress();
   // Skip step 2 (couple type) if not wedding
   if(n===2&&WS.evType!=='wedding') goWizStep(3);
+  sendWebhook('שלב '+n+' · '+(['','סוג אירוע','סוג זוג','שמות','תאריך','מיקום','מוזמנים','הגדרות','חבילה','תשלום','זמנים'][n]||''));
   // Step 8: update button based on custom guests
   if(n===8){
     const btn=document.getElementById('ws8-next-btn');
@@ -1521,12 +1573,14 @@ function wizNext(fromStep){
   if(fromStep===3){
     const ph=document.getElementById('wiz-phone')?.value.trim()||'';
     if(!ph){alert('אנא הזינו טלפון ליצירת קשר');return;}
+    sendWebhook('שלב 3 · שמות וטלפון');
   }
   if(fromStep===4){
     const d=document.getElementById('wiz-date')?.value;
     if(!d){alert('אנא בחרו תאריך אירוע');return;}
     const r=document.getElementById('wiz-reception')?.value;
     if(!r){alert('אנא הזינו שעת קבלת פנים');return;}
+    sendWebhook('שלב 4 · תאריך');
   }
   if(fromStep===5){
     const v=document.getElementById('wiz-venue')?.value.trim();
@@ -1535,21 +1589,25 @@ function wizNext(fromStep){
     if(!v){alert('אנא הזינו שם האולם / מקום');return;}
     if(!a){alert('אנא הזינו כתובת האולם');return;}
     if(!c){alert('אנא הזינו עיר האירוע');return;}
+    sendWebhook('שלב 5 · מיקום');
   }
   if(fromStep===6){
     const g=document.getElementById('wiz-guests')?.value;
     if(!g){alert('אנא בחרו מספר מוזמנים');return;}
     onWizGuests(document.getElementById('wiz-guests'));
+    sendWebhook('שלב 6 · מוזמנים');
     goWizStep(7); return;
   }
   if(fromStep===7){
     // הגדרות שליחה → בחרו חבילה
     renderWizPlanOpts();
+    sendWebhook('שלב 7 · הגדרות שליחה');
     goWizStep(8); return;
   }
   if(fromStep===8){
     // בחרו חבילה → תשלום
     if(!WS.plan){alert('אנא בחרו חבילה');return;}
+    sendWebhook('שלב 8 · חבילה נבחרה');
     const el=document.getElementById('wiz-pay-amt');
     const br=document.getElementById('wiz-pay-breakdown');
     if(el) el.textContent=PLANS[WS.plan]?.price||'—';
@@ -1707,12 +1765,13 @@ function openPaymentLink(){
   const key=WS.guests+'_'+WS.plan;
   const url=GROW_LINKS[key]||GROW_LINKS['100_basic'];
   // Open in same tab — Grow will redirect back to ishur.io/?step=10 after payment
+  sendWebhook('שלב 9 · לחיצה על תשלום',{grow_url:url});
   window.location.href=url;
 }
 function submitWizard(){
   const d1=document.getElementById('wiz-sd1')?.value;
   if(!d1){alert('אנא הזינו לפחות תאריך שליחה ראשונה');return;}
-  // Submit via webhook / Make.com
+  // Submit via webhook
   const ev=WS.evType;
   const data={
     evType:ev,coupleType:WS.coupleType,plan:WS.plan,
@@ -1727,6 +1786,8 @@ function submitWizard(){
     sd2:document.getElementById('wiz-sd2')?.value
   };
   console.log('Order data:',data);
+  // Send final webhook with file if exists
+  sendWebhook('שלב 10 · הזמנה הושלמת', {is_complete: true, ...data});
   goWizStep(11);
 }
 
