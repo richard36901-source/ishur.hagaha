@@ -1709,13 +1709,8 @@ function openPaymentLink(){
   };
   const key=WS.guests+'_'+WS.plan;
   const url=GROW_LINKS[key]||GROW_LINKS['100_basic'];
-  // Open as centered popup
-  const w=480,h=680;
-  const left=(screen.width/2)-(w/2);
-  const top=(screen.height/2)-(h/2);
-  window.open(url,'grow_payment',
-    `width=${w},height=${h},top=${top},left=${left},toolbar=no,menubar=no,scrollbars=yes,resizable=no,location=no,status=no`
-  );
+  // Open in same tab — Grow will redirect back to ishur.io/?step=10 after payment
+  window.location.href=url;
 }
 function submitWizard(){
   const d1=document.getElementById('wiz-sd1')?.value;
