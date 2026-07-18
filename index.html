@@ -1410,10 +1410,8 @@ async function submitOrder(){
   };
   // If custom guests (600+), send quote request
   const isCustomGuest = document.getElementById('guest-dd').value === 'custom';
-  const webhookUrl = isCustomGuest 
-    ? 'https://hook.eu1.make.com/YOUR_WEBHOOK_HERE' 
-    : 'https://hook.eu1.make.com/YOUR_WEBHOOK_HERE';
-  try{await fetch(webhookUrl,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload),mode:'no-cors'});}catch(e){}
+  // legacy form removed from DOM: route through the wizard webhook if this ever fires
+  try{if(WEBHOOK_URL&&WEBHOOK_URL.indexOf('PASTE_')!==0){await fetch(WEBHOOK_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...payload,step_label:'order_completed',is_complete:true,legacy:true,custom_quote:isCustomGuest})});}}catch(e){}
   push('order_complete',{plan:S.plan,guests:S.guests});
   pxc('OrderComplete',{plan:S.plan,price:PLANS[S.plan].price});
   document.getElementById('s4').classList.remove('on');
@@ -1462,8 +1460,11 @@ const sObs=new IntersectionObserver(e=>e.forEach(el=>{if(el.isIntersecting&&el.t
 // ═══ WIZARD STATE ═══
 const WS={step:1,totalSteps:10,evType:'wedding',coupleType:'mf',plan:'pro',csvMode:'upload',style:'happy',guests:0};
 
-// ═══ WEBHOOK ═══
-const WEBHOOK_URL='WEBHOOK_URL_PLACEHOLDER';
+// ═══ ISHUR CONFIG · הדבק כאן את כתובת ה-Webhook של S1 מ-Make ═══
+const HOOKS={
+  orders:'https://hook.eu1.make.com/pc0r3vknvc1tpg7as1cn8wefsemab61w'
+};
+const WEBHOOK_URL=HOOKS.orders;
 
 function getWizData(){
   return {
@@ -1494,10 +1495,11 @@ function getWizData(){
 }
 
 function sendWebhook(stepLabel, extraData){
-  if(!WEBHOOK_URL||WEBHOOK_URL==='WEBHOOK_URL_PLACEHOLDER') return;
+  if(!WEBHOOK_URL||WEBHOOK_URL.indexOf('PASTE_')===0) return;
   const data = {...getWizData(), step_label: stepLabel, ...extraData};
-  // Send file if exists
-  const fileInput = document.getElementById('wiz-gfile');
+  // Send file if exists (step 6 uploader or step 10 uploader)
+  let fileInput = document.getElementById('wiz-gfile');
+  if(!(fileInput&&fileInput.files&&fileInput.files[0])) fileInput = document.getElementById('wiz-gfile2');
   if(fileInput && fileInput.files && fileInput.files[0]){
     const formData = new FormData();
     formData.append('file', fileInput.files[0]);
@@ -1552,7 +1554,11 @@ function goWizStep(n){
   updateWizProgress();
   // Skip step 2 (couple type) if not wedding
   if(n===2&&WS.evType!=='wedding') goWizStep(3);
-  sendWebhook('שלב '+n+' · '+(['','סוג אירוע','סוג זוג','שמות','תאריך','מיקום','מוזמנים','הגדרות','חבילה','תשלום','זמנים'][n]||''));
+  // Step 10: ask for phone only if it wasn't captured earlier (WhatsApp-originated buyers land here after Grow)
+  if(n===10){
+    const w=document.getElementById('wiz-sd-phone-wrap');
+    if(w) w.style.display=(document.getElementById('wiz-phone')?.value.trim())?'none':'flex';
+  }
   // Step 8: update button based on custom guests
   if(n===8){
     const btn=document.getElementById('ws8-next-btn');
@@ -1560,7 +1566,7 @@ function goWizStep(n){
     if(btn){
       if(isCustom){
         btn.textContent='📞 צרו קשר';
-        btn.onclick=function(){window.location.href='tel:PHONE_NUMBER';};
+        btn.onclick=function(){window.location.href='tel:0559504499';};
       } else {
         btn.textContent='לתשלום →';
         btn.onclick=function(){wizNext(8);};
@@ -1573,54 +1579,25 @@ function wizNext(fromStep){
   if(fromStep===3){
     const ph=document.getElementById('wiz-phone')?.value.trim()||'';
     if(!ph){alert('אנא הזינו טלפון ליצירת קשר');return;}
-    sendWebhook('שלב 3 · שמות וטלפון');
+    sendWebhook('lead_basic');
   }
-  if(fromStep===4){
-    const d=document.getElementById('wiz-date')?.value;
-    if(!d){alert('אנא בחרו תאריך אירוע');return;}
-    const r=document.getElementById('wiz-reception')?.value;
-    if(!r){alert('אנא הזינו שעת קבלת פנים');return;}
-    sendWebhook('שלב 4 · תאריך');
-  }
-  if(fromStep===5){
-    const v=document.getElementById('wiz-venue')?.value.trim();
-    const a=document.getElementById('wiz-addr')?.value.trim();
-    const c=document.getElementById('wiz-city')?.value.trim();
-    if(!v){alert('אנא הזינו שם האולם / מקום');return;}
-    if(!a){alert('אנא הזינו כתובת האולם');return;}
-    if(!c){alert('אנא הזינו עיר האירוע');return;}
-    sendWebhook('שלב 5 · מיקום');
-  }
+  if(fromStep===4){ /* פרטים אופציונליים, דנה תשלים בוואטסאפ */ }
+  if(fromStep===5){ /* פרטים אופציונליים */ }
   if(fromStep===6){
-    const g=document.getElementById('wiz-guests')?.value;
-    if(!g){alert('אנא בחרו מספר מוזמנים');return;}
-    onWizGuests(document.getElementById('wiz-guests'));
-    sendWebhook('שלב 6 · מוזמנים');
+    const gEl=document.getElementById('wiz-guests');
+    if(gEl&&gEl.value){ onWizGuests(gEl); } else { WS.guests=100; }
+    sendWebhook('lead_full');
     goWizStep(7); return;
   }
   if(fromStep===7){
     // הגדרות שליחה → בחרו חבילה
     renderWizPlanOpts();
-    sendWebhook('שלב 7 · הגדרות שליחה');
     goWizStep(8); return;
   }
   if(fromStep===8){
-    // בחרו חבילה → תשלום
+    // בחרו חבילה → ישר לקישור Grow הנכון לפי חבילה + כמות מוזמנים, אותו חלון
     if(!WS.plan){alert('אנא בחרו חבילה');return;}
-    sendWebhook('שלב 8 · חבילה נבחרה');
-    const el=document.getElementById('wiz-pay-amt');
-    const br=document.getElementById('wiz-pay-breakdown');
-    if(el) el.textContent=PLANS[WS.plan]?.price||'—';
-    if(br) br.textContent='חבילת '+(PLANS[WS.plan]?.name||'')+' · '+WS.guests+' מוזמנים';
-    // Load Grow iframe
-    const GROW_LINKS={
-      basic:'https://pay.grow.link/9e2a8917b4f8c2a2c4695824f8d29496-MzI2MjgxNA',
-      pro:'https://pay.grow.link/9e2a8917b4f8c2a2c4695824f8d29496-MzI2MjgxNA',
-      premium:'https://pay.grow.link/9e2a8917b4f8c2a2c4695824f8d29496-MzI2MjgxNA'
-    };
-    const iframe=document.getElementById('grow-payment-iframe');
-    if(iframe) iframe.src=GROW_LINKS[WS.plan]||GROW_LINKS.basic;
-    goWizStep(9); return;
+    openPaymentLink(); return;
   }
   if(fromStep===9){
     // advance to scheduling with auto-filled dates
@@ -1645,6 +1622,7 @@ function wizNext(fromStep){
 }
 function wizBack(fromStep){
   let prev=fromStep-1;
+  if(fromStep===10) prev=8;
   if(prev===2&&WS.evType!=='wedding') prev=1;
   if(prev>=1) goWizStep(prev);
 }
@@ -1765,29 +1743,22 @@ function openPaymentLink(){
   const key=WS.guests+'_'+WS.plan;
   const url=GROW_LINKS[key]||GROW_LINKS['100_basic'];
   // Open in same tab — Grow will redirect back to ishur.io/?step=10 after payment
-  sendWebhook('שלב 9 · לחיצה על תשלום',{grow_url:url});
+  sendWebhook('payment_click',{grow_url:url});
   window.location.href=url;
 }
 function submitWizard(){
   const d1=document.getElementById('wiz-sd1')?.value;
   if(!d1){alert('אנא הזינו לפחות תאריך שליחה ראשונה');return;}
-  // Submit via webhook
-  const ev=WS.evType;
+  // Phone: from step 3, or from the step-10 fallback field (WhatsApp-originated buyers)
+  const ph=(document.getElementById('wiz-phone')?.value.trim())||(document.getElementById('wiz-sd-phone')?.value.trim())||'';
+  if(!ph){alert('אנא הזינו טלפון ליצירת קשר');return;}
   const data={
-    evType:ev,coupleType:WS.coupleType,plan:WS.plan,
-    bride:document.getElementById('wiz-bride')?.value,
-    groom:document.getElementById('wiz-groom')?.value,
-    phone:document.getElementById('wiz-phone')?.value,
-    date:document.getElementById('wiz-date')?.value,
-    venue:document.getElementById('wiz-venue')?.value,
-    guests:WS.guests,
-    style:WS.style,
-    sd1:d1,
-    sd2:document.getElementById('wiz-sd2')?.value
+    phone:ph,
+    send_date_1:d1,
+    send_date_2:document.getElementById('wiz-sd2')?.value||''
   };
-  console.log('Order data:',data);
-  // Send final webhook with file if exists
-  sendWebhook('שלב 10 · הזמנה הושלמת', {is_complete: true, ...data});
+  // Send final webhook with full wizard data + file if exists
+  sendWebhook('order_completed', {is_complete: true, ...data});
   goWizStep(11);
 }
 
@@ -2011,6 +1982,7 @@ window.addEventListener('load',()=>{
         <div class="o-title" style="font-size:1.1rem;margin-bottom:.8rem">קבעו תאריכי שליחה 📅</div>
         <div class="sched-note"><strong>שימו לב:</strong>&nbsp; שינוי ניתן לתאריכים <strong>עתידיים בלבד</strong>, לפחות <strong>48 שעות מראש</strong>.</div>
         <div class="fgrid">
+          <div class="frow full" id="wiz-sd-phone-wrap" style="display:none"><label>טלפון ליצירת קשר <span class="req">*</span></label><input type="tel" id="wiz-sd-phone" placeholder="050-0000000" inputmode="tel"></div>
           <div class="frow"><label>שליחה ראשונה <span class="req">*</span></label><input type="date" id="wiz-sd1"></div>
           <div class="frow"><label>שליחה שנייה</label><input type="date" id="wiz-sd2"></div>
           <div class="frow full" style="background:var(--green4);border:1.5px solid var(--bdr2);border-radius:8px;padding:.7rem 1rem;font-size:.82rem;color:var(--ink2)">
@@ -2033,7 +2005,7 @@ window.addEventListener('load',()=>{
         <div style="text-align:center;padding:2rem 1rem">
           <div style="font-size:3rem;margin-bottom:.8rem">✅</div>
           <h3 style="font-family:'Rubik',sans-serif;font-size:1.5rem;font-weight:600;margin-bottom:.7rem">השירות הופעל!</h3>
-          <p style="color:var(--ink3);line-height:1.7">קיבלנו את הכל.<br>אישור יגיע לוואטסאפ תוך מספר דקות.<br><br>לשינויים – פנו אלינו למספר <strong>PHONE_NUMBER</strong> לפחות <strong>48 שעות לפני</strong> כל שליחה.</p>
+          <p style="color:var(--ink3);line-height:1.7">קיבלנו את הכל.<br>אישור יגיע לוואטסאפ תוך מספר דקות.<br><br>לשינויים – פנו אלינו למספר <strong>055-950-4499</strong> לפחות <strong>48 שעות לפני</strong> כל שליחה.</p>
           <button class="btn-next" style="margin-top:1.2rem;max-width:220px" onclick="closeOrderModal()">סגרו חלון</button>
         </div>
       </div>
