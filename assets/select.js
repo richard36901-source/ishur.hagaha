@@ -35,9 +35,24 @@ window.IshurSelect = (function () {
     btn.setAttribute('aria-controls', id);
     if (sel.id) btn.setAttribute('aria-labelledby', findLabelId(sel));
 
-    var val = document.createElement('span');
-    val.className = 'isel-val';
-    btn.appendChild(val);
+    /* data-typeable turns the trigger into a combobox: the list still opens,
+       but typing filters it and a value outside the list is accepted when it
+       passes the field's own format check. */
+    var typeable = sel.hasAttribute('data-typeable');
+    var val;
+    if (typeable) {
+      val = document.createElement('input');
+      val.type = 'text';
+      val.className = 'isel-val isel-input';
+      val.setAttribute('autocomplete', 'off');
+      val.setAttribute('inputmode', sel.dataset.accept === 'time' ? 'numeric' : 'text');
+      if (sel.dataset.placeholder) val.placeholder = sel.dataset.placeholder;
+      btn.appendChild(val);
+    } else {
+      val = document.createElement('span');
+      val.className = 'isel-val';
+      btn.appendChild(val);
+    }
 
     var arrow = document.createElement('span');
     arrow.className = 'isel-arrow';
@@ -65,7 +80,9 @@ window.IshurSelect = (function () {
     var active = -1;
 
     function options() {
-      return Array.prototype.slice.call(panel.querySelectorAll('.isel-opt'));
+      return Array.prototype.slice.call(panel.querySelectorAll('.isel-opt')).filter(function (o) {
+        return !o.hidden;
+      });
     }
 
     function build() {
@@ -107,8 +124,60 @@ window.IshurSelect = (function () {
     function syncLabel() {
       var o = sel.options[sel.selectedIndex];
       var empty = !o || o.value === '';
-      val.textContent = o ? o.textContent : '';
+      var text = o ? o.textContent : '';
+      if (typeable) val.value = empty ? '' : text;
+      else val.textContent = text;
       wrap.dataset.placeholder = empty ? 'true' : 'false';
+    }
+
+    /* accept a value the list does not contain, when the format allows it */
+    function normalise(raw) {
+      var v = String(raw || '').trim();
+      if (!v) return null;
+      if (sel.dataset.accept === 'time') {
+        var m = /^(\d{1,2})[:.]?(\d{2})$/.exec(v.replace(/\s/g, ''));
+        if (!m) return null;
+        var hh = +m[1], mm = +m[2];
+        if (hh > 23 || mm > 59) return null;
+        return String(hh).padStart(2, '0') + ':' + String(mm).padStart(2, '0');
+      }
+      return null;
+    }
+
+    function commitTyped() {
+      if (!typeable) return;
+      var raw = val.value;
+      if (!raw.trim()) { sel.selectedIndex = 0; sel.dispatchEvent(new Event('change', { bubbles: true })); build(); return; }
+      var exact = null;
+      for (var i = 0; i < sel.options.length; i++) {
+        if (sel.options[i].textContent.trim() === raw.trim()) { exact = i; break; }
+      }
+      if (exact != null) { sel.selectedIndex = exact; }
+      else {
+        var n = normalise(raw);
+        if (n) {
+          var found = null;
+          for (var j = 0; j < sel.options.length; j++) if (sel.options[j].value === n) { found = j; break; }
+          if (found == null) {
+            /* keep the list ordered so the new value lands where it belongs */
+            var opt = new Option(n, n);
+            var at = null;
+            for (var k = 1; k < sel.options.length; k++) if (sel.options[k].value > n) { at = sel.options[k]; break; }
+            sel.add(opt, at);
+            found = opt.index;
+          }
+          sel.selectedIndex = found;
+        }
+      }
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+      build();
+    }
+
+    function filter(q) {
+      q = String(q || '').trim();
+      options().forEach(function (o) {
+        o.hidden = q ? o.textContent.trim().indexOf(q) !== 0 : false;
+      });
     }
 
     function setActive(i) {
@@ -131,8 +200,9 @@ window.IshurSelect = (function () {
       sel.selectedIndex = parseInt(opts[row].dataset.index, 10);
       sel.dispatchEvent(new Event('change', { bubbles: true }));
       build();
+      if (typeable) { val.value = sel.options[sel.selectedIndex].textContent; filter(''); }
       close();
-      btn.focus();
+      (typeable ? val : btn).focus();
     }
 
     function open() {
@@ -148,7 +218,7 @@ window.IshurSelect = (function () {
         void panel.offsetWidth;
         panel.style.animation = '';
       }
-      setActive(activeRow());
+      setActive(typeable && val.value.trim() && sel.selectedIndex <= 0 ? -1 : activeRow());
       /* if the panel would open past the bottom of a scrolling container,
          bring it into view rather than letting it clip */
       setTimeout(function () {
@@ -172,10 +242,25 @@ window.IshurSelect = (function () {
 
     function toggle() { wrap.dataset.open === 'true' ? close() : open(); }
 
-    btn.addEventListener('click', toggle);
+    if (typeable) {
+      val.addEventListener('focus', function () { open(); });
+      val.addEventListener('click', function (e) { e.stopPropagation(); open(); });
+      val.addEventListener('input', function () { open(); filter(val.value); });
+      val.addEventListener('blur', function () { setTimeout(commitTyped, 120); });
+      btn.addEventListener('click', function (e) {
+        if (e.target === val) return;
+        wrap.dataset.open === 'true' ? close() : open();
+        val.focus();
+      });
+    } else {
+      btn.addEventListener('click', toggle);
+    }
 
-    btn.addEventListener('keydown', function (e) {
+    (typeable ? val : btn).addEventListener('keydown', function (e) {
       var opts = options(), isOpen = wrap.dataset.open === 'true';
+      if (e.key === 'Enter' && typeable && isOpen && active < 0) {
+        e.preventDefault(); commitTyped(); close(); return;
+      }
       if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
         e.preventDefault();
         if (!isOpen) { open(); return; }
@@ -190,7 +275,7 @@ window.IshurSelect = (function () {
         if (isOpen) { e.preventDefault(); e.stopPropagation(); close(); }
       } else if (e.key === 'Home' || e.key === 'End') {
         if (isOpen) { e.preventDefault(); setActive(e.key === 'Home' ? 0 : opts.length - 1); }
-      } else if (e.key.length === 1) {
+      } else if (!typeable && e.key.length === 1) {
         /* type-ahead */
         var q = e.key.toLowerCase();
         for (var i = 0; i < opts.length; i++) {

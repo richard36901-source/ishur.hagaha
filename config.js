@@ -162,10 +162,89 @@ window.ISHUR_CONFIG = (function () {
     ]
   };
 
+  /* ══ RECEPTION TIMES ══════════════════════════════════════════════════════
+     Half hours through the day, quarter hours across the evening window where
+     most receptions actually start. Nothing before 08:00 or after 23:30.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var TIME_OPTIONS = {
+    from: '08:00', to: '23:30', step: 30,
+    fineFrom: '17:00', fineTo: '23:00', fineStep: 15
+  };
+
+  /* ══ MESSAGE FOOTER ═══════════════════════════════════════════════════════
+     Appended to every message a guest receives. Says who it is on behalf of
+     and how to stop it, which is what the anti-spam law expects and what stops
+     recipients reporting the number. Shown in the preview so the customer sees
+     exactly what goes out.
+     {names} is replaced with the names from the event setup.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var MESSAGE_FOOTER = {
+    sentBy: 'נשלח עבור {names} · ishur.io',
+    optOut: 'הגיע בטעות? השיבו "הסר" ולא נכתוב שוב.'
+  };
+
+  /* ══ ADD-ONS ══════════════════════════════════════════════════════════════
+     `plans` lists the packages that already include it. Anyone on a package
+     outside that list sees it locked with a buy button.
+     Prices and links are keyed '<addon>_<guests>' exactly like GROW_LINKS.
+     While a link is missing the button routes to WhatsApp instead of showing
+     a price, so nobody is ever quoted a number we have not set.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var ADDONS = {
+    extra_send: {
+      label: 'שליחה נוספת',
+      desc: 'סבב הודעות נוסף למי שעדיין לא ענה',
+      plans: []
+    },
+    calls: {
+      label: 'סבב שיחות ממוקד אנושי',
+      desc: 'נציג מתקשר למי שלא הגיב ומאשר בשמו',
+      plans: ['pro', 'premium'],
+      /* a call round needs lead time. Closer than this to the event it stops
+         being offered at all rather than being sold and not delivered. */
+      minDaysBefore: 14
+    },
+    more_guests: {
+      label: 'הגדלת כמות מוזמנים',
+      desc: 'מעבר למדרגה גבוהה יותר, עם אפשרות להעלות קובץ נוסף',
+      plans: []
+    },
+    postpone: {
+      label: 'הודעת דחייה או עדכון מועד',
+      desc: 'הודעה לכל הרשימה על שינוי במועד',
+      plans: ['premium']
+    },
+    cancel: {
+      label: 'הודעת ביטול אירוע',
+      desc: 'הודעה לכל הרשימה על ביטול',
+      plans: ['premium']
+    }
+  };
+
+  var ADDON_PRICES = {};   // '<addon>_<guests>': 120
+  var ADDON_LINKS  = {};   // '<addon>_<guests>': 'https://pay.grow.link/...'
+
   /* ══ SENDING RULES ════════════════════════════════════════════════════════
      Enforced in the date picker, so an impossible date cannot be chosen.
      Weekdays are JS numbers: 0 Sunday … 6 Saturday.
      ─────────────────────────────────────────────────────────────────────── */
+
+  var SCHEDULE = {
+    minEventDays: 1,          // tomorrow is the closest an event can be
+    autoUnderDays: 3,         // event this close, the schedule is fixed for them
+    firstSendDaysBefore: 35,  // recommended first send, about five weeks out
+    secondSendDaysBefore: 14, // recommended reminder to whoever stayed silent
+    minGapDays: 7,            // never chase someone less than a week later
+    /* derived from the event date, not chosen. Offsets are in days. */
+    auto: [
+      { key: 'day_before', offset: -1, label: 'תזכורת עם הכתובת', to: 'למי שאישר' },
+      { key: 'event_day',  offset:  0, label: 'הודעת יום האירוע', to: 'למי שאישר', optional: true },
+      { key: 'day_after',  offset:  1, label: 'הודעת תודה',       to: 'למי שאישר' }
+    ]
+  };
 
   var SEND_RULES = {
     /* The daily batch leaves at 06:00. To go out on a given day the event has
@@ -200,6 +279,23 @@ window.ISHUR_CONFIG = (function () {
   function growLink(guests, plan) {
     if (!guests || guests === 'custom' || !plan) return null;
     return GROW_LINKS[guests + '_' + plan] || null;
+  }
+
+  /* what a package already covers, versus what has to be bought */
+  function addonState(key, plan, daysToEvent) {
+    var a = ADDONS[key];
+    if (!a) return null;
+    if (a.plans.indexOf(plan) > -1) return 'included';
+    if (a.minDaysBefore != null && daysToEvent != null && daysToEvent < a.minDaysBefore) return 'too-late';
+    return 'locked';
+  }
+
+  function addonPrice(key, guests) {
+    return ADDON_PRICES[key + '_' + guests] || null;
+  }
+
+  function addonLink(key, guests) {
+    return ADDON_LINKS[key + '_' + guests] || null;
   }
 
   function occasion(value) {
@@ -253,10 +349,19 @@ window.ISHUR_CONFIG = (function () {
     DEFAULT_PLAN: DEFAULT_PLAN,
     UPLOAD: UPLOAD,
     SEND_RULES: SEND_RULES,
+    SCHEDULE: SCHEDULE,
+    TIME_OPTIONS: TIME_OPTIONS,
+    MESSAGE_FOOTER: MESSAGE_FOOTER,
+    ADDONS: ADDONS,
+    ADDON_PRICES: ADDON_PRICES,
+    ADDON_LINKS: ADDON_LINKS,
 
     isSet: isSet,
     waLink: waLink,
     priceFor: priceFor,
+    addonState: addonState,
+    addonPrice: addonPrice,
+    addonLink: addonLink,
     growLink: growLink,
     occasion: occasion,
     occasionLabel: occasionLabel,

@@ -86,8 +86,17 @@ window.IshurDate = (function () {
      data-idate="free"  any future date, used for the event date itself, which
                         may well fall on a Saturday */
   function rulesFor(input) {
-    if (input.dataset.idate === 'free') {
-      return { setupCutoffHour: null, blockedWeekdays: [], cutoff: {}, maxMonthsAhead: RULES.maxMonthsAhead };
+    var mode = input.dataset.idate;
+    if (mode === 'free' || mode === 'event') {
+      /* the event itself is not a send: Saturday is fine, plenty of events are
+         on מוצאי שבת. It only needs enough notice to be worth setting up. */
+      return {
+        setupCutoffHour: null,
+        blockedWeekdays: [],
+        cutoff: {},
+        minDays: mode === 'event' ? ((CFG.SCHEDULE || {}).minEventDays || 0) : 0,
+        maxMonthsAhead: RULES.maxMonthsAhead
+      };
     }
     return RULES;
   }
@@ -146,7 +155,9 @@ window.IshurDate = (function () {
        earliest possible send moves to tomorrow */
     function minD() {
       var now = new Date();
-      if (R.setupCutoffHour == null) return midnight(now);
+      if (R.setupCutoffHour == null) {
+        return midnight(new Date(now.getTime() + (R.minDays || 0) * 864e5));
+      }
       var d = midnight(now);
       if (now.getHours() >= R.setupCutoffHour) d = new Date(d.getTime() + 864e5);
       return midnight(d);

@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=1"></script>
-<script src="assets/tracking.js?v=1"></script>
-<script src="assets/lead.js?v=1"></script>
-<script src="assets/messages.js?v=1"></script>
+<script src="config.js?v=2"></script>
+<script src="assets/tracking.js?v=2"></script>
+<script src="assets/lead.js?v=2"></script>
+<script src="assets/messages.js?v=2"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -225,6 +225,44 @@
   .msg-text{font-size:.86rem;color:#111b21;line-height:1.6}
   .preview-cap{font-size:.71rem;color:var(--ink3);text-align:center;margin-top:.45rem}
 
+
+  /* the sends laid out in order, so the whole plan is visible at once */
+  .timeline{margin-top:.9rem;border:1px solid var(--bdr);border-radius:11px;overflow:hidden}
+  .tl-row{display:flex;align-items:flex-start;gap:.7rem;padding:.6rem .85rem;border-bottom:1px solid var(--bdr);background:#fff}
+  .tl-row:last-child{border-bottom:none}
+  .tl-row.auto{background:var(--bg2)}
+  .tl-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--green);margin-top:.42rem}
+  .tl-row.auto .tl-dot{background:var(--bdr);border:1.5px solid var(--ink3);box-sizing:border-box}
+  .tl-b{flex:1;min-width:0}
+  .tl-t{font-size:.86rem;color:var(--ink);font-weight:500}
+  .tl-d{font-size:.78rem;color:var(--ink3);line-height:1.5}
+  .tl-tag{font-size:.68rem;color:var(--ink3);background:var(--bg3);border-radius:99px;padding:.1rem .45rem;white-space:nowrap;align-self:center}
+
+  /* the footer is part of the same message, not a second one */
+  .bubble-foot{margin-top:.6rem;padding-top:.5rem;border-top:1px solid #e9edef}
+  .fine-l{display:block;font-size:.72rem;color:#667781;line-height:1.5}
+
+  /* what the package covers, and what is a paid extra */
+  .addons{border:1px solid var(--bdr);border-radius:11px;overflow:hidden}
+  .addon{display:flex;align-items:flex-start;gap:.7rem;padding:.7rem .85rem;border-bottom:1px solid var(--bdr)}
+  .addon:last-child{border-bottom:none}
+  .addon.locked{background:var(--bg2)}
+  .addon.locked .addon-t,.addon.locked .addon-d{opacity:.62}
+  .addon.late{background:var(--bg2);opacity:.72}
+  .addon-m{flex-shrink:0;margin-top:.15rem}
+  .addon-b{flex:1;min-width:0}
+  .addon-t{font-size:.87rem;font-weight:500;color:var(--ink)}
+  .addon-d{font-size:.77rem;color:var(--ink3);line-height:1.5}
+  .addon-a{flex-shrink:0;align-self:center}
+  .addon-buy{
+    background:var(--green);color:#fff;border:none;border-radius:8px;cursor:pointer;
+    font-family:inherit;font-size:.79rem;font-weight:600;padding:.42rem .8rem;white-space:nowrap;
+    transition:background .2s,transform .22s var(--ease);
+  }
+  .addon-buy:hover{background:var(--green2)}
+  .addon-buy:active{transform:scale(.95);transition-duration:100ms}
+  .addon-inc{font-size:.74rem;color:var(--green2);font-weight:600;white-space:nowrap}
+  .addon-no{font-size:.72rem;color:var(--ink3);white-space:nowrap}
   .note{background:var(--green4);border:1px solid var(--bdr2);border-radius:10px;padding:.7rem .9rem;font-size:.8rem;color:var(--ink2);line-height:1.6}
   .note b{color:var(--ink)}
   .note.warn{background:#fffbeb;border-color:#fcd34d}
@@ -337,12 +375,12 @@
         </div>
         <div class="frow full">
           <label for="f-edate">תאריך האירוע <span class="req">*</span></label>
-          <input type="text" id="f-edate" data-idate="free" data-placeholder="בחרו תאריך">
+          <input type="text" id="f-edate" data-idate="event" data-placeholder="בחרו תאריך">
           <p class="ferr" id="e-edate" aria-live="polite"></p>
         </div>
         <div class="frow">
           <label for="f-time">שעת קבלת פנים <span class="req">*</span></label>
-          <input type="time" id="f-time">
+          <select id="f-time" data-isel data-typeable data-accept="time" data-placeholder="19:30"></select>
           <p class="ferr" id="e-time" aria-live="polite"></p>
         </div>
       </div>
@@ -372,36 +410,59 @@
     <div class="sec">
       <div class="sec-h">סגנון ההודעה</div>
       <div class="styles" id="styles"></div>
-      <div class="preview"><div class="bubble" id="preview"></div></div>
+      <div class="preview">
+        <div class="bubble">
+          <div id="preview"></div>
+          <div class="bubble-foot" id="previewFoot"></div>
+        </div>
+      </div>
       <p class="preview-cap">כך ההודעה תיראה אצל המוזמן</p>
     </div>
 
     <div class="sec">
       <div class="sec-h">מתי שולחים</div>
-      <div class="note warn" style="margin-bottom:.8rem">
+
+      <p class="note" id="schedHint">בחרו קודם את תאריך האירוע ונציע לוח שליחות.</p>
+
+      <div id="schedAuto" hidden>
+        <div class="note warn" id="schedAutoTxt"></div>
+      </div>
+
+      <div id="schedManual" hidden>
+        <div class="fgrid two">
+          <div class="frow full">
+            <label for="f-sd1">שליחה ראשונה <span class="req">*</span></label>
+            <input type="text" id="f-sd1" data-idate data-placeholder="בחרו תאריך">
+            <p class="ferr" id="e-sd1" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-sd2">תזכורת למי שלא ענה <span class="fopt">לא חובה</span></label>
+            <input type="text" id="f-sd2" data-idate data-placeholder="בחרו תאריך">
+            <p class="ferr" id="e-sd2" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline" hidden></div>
+
+      <div class="note warn" style="margin-top:.8rem">
         השליחה יוצאת בבוקר. כדי שההודעות יצאו ביום מסוים צריך לסיים את ההגדרה
         <b>עד 06:00 באותו יום</b>, אחרת המועד הראשון האפשרי הוא למחרת.
         <b>בשבת לא שולחים כלל</b>, וביום שישי השליחה יוצאת עד <b>15:00</b>.
       </div>
-      <div class="fgrid two">
-        <div class="frow full">
-          <label for="f-sd1">שליחה ראשונה <span class="req">*</span></label>
-          <input type="text" id="f-sd1" data-idate data-placeholder="בחרו תאריך">
-          <p class="ferr" id="e-sd1" aria-live="polite"></p>
-        </div>
-        <div class="frow full">
-          <label for="f-sd2">תזכורת למי שלא ענה <span class="fopt">לא חובה</span></label>
-          <input type="text" id="f-sd2" data-idate data-placeholder="בחרו תאריך">
-          <p class="ferr" id="e-sd2" aria-live="polite"></p>
-        </div>
+
+      <div class="fgrid two" style="margin-top:.8rem">
         <div class="frow full">
           <label for="f-notes">הערות <span class="fopt">לא חובה</span></label>
           <input type="text" id="f-notes" placeholder="משהו שכדאי שנדע">
         </div>
       </div>
-      <p class="note" style="margin-top:.8rem">
-        תזכורת עם הכתובת יוצאת אוטומטית יום לפני האירוע. אין צורך לקבוע אותה.
-      </p>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h">מה כלול ומה אפשר להוסיף</div>
+      <div class="addons" id="addons"></div>
+      <p class="tmpl" style="margin-top:.6rem">אפשר להוסיף גם אחרי שההגדרות נשמרו, כל עוד לא יצאה השליחה.</p>
     </div>
 
     <button class="btn" id="saveBtn">שמירה והפעלת השליחה</button>
@@ -447,8 +508,8 @@
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
 
-<script src="assets/select.js?v=1"></script>
-<script src="assets/datepicker.js?v=1"></script>
+<script src="assets/select.js?v=2"></script>
+<script src="assets/datepicker.js?v=2"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -605,6 +666,18 @@
 
   var S = { occasion: occasionHint || 'wedding', style: 'happy' };
 
+  var TO = CFG.TIME_OPTIONS;
+  function mins(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
+  function hhmm(m) { return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+
+  var tsel = $('f-time');
+  tsel.appendChild(new Option('', ''));
+  var fineA = mins(TO.fineFrom), fineB = mins(TO.fineTo);
+  for (var m = mins(TO.from); m <= mins(TO.to); ) {
+    tsel.appendChild(new Option(hhmm(m), hhmm(m)));
+    m += (m >= fineA && m < fineB) ? TO.fineStep : TO.step;
+  }
+
   var occ = $('f-occasion');
   occ.appendChild(new Option('בחרו סוג אירוע', ''));
   CFG.OCCASIONS.forEach(function (o) { occ.appendChild(new Option(o.label, o.value)); });
@@ -649,7 +722,16 @@
   function renderPreview() {
     var m = MSG.sample(S.occasion, S.style);
     $('preview').innerHTML = m ? m.html : '';
+    var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
+    var F = CFG.MESSAGE_FOOTER;
+    $('previewFoot').innerHTML =
+      '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
+      '<span class="fine-l">' + F.optOut + '</span>';
   }
+  ['f-name1', 'f-name2'].forEach(function (id) {
+    var el = $(id);
+    if (el) el.addEventListener('input', renderPreview);
+  });
 
   occ.addEventListener('change', function () {
     S.occasion = occ.value || 'wedding';
@@ -664,6 +746,189 @@
 
   IshurSelect.enhanceAll();
   IshurDate.enhanceAll();
+  renderAddons();
+
+  /* ══ add-ons ════════════════════════════════════════════════════════════
+     The package the customer bought comes in on the token link. Anything the
+     package does not cover shows a buy button; anything that has run out of
+     lead time is shown as unavailable rather than sold.
+     ───────────────────────────────────────────────────────────────────── */
+
+  var plan = (qs.get('p') || '').trim() || 'basic';
+  var guests = (qs.get('g') || '').trim();
+
+  function renderAddons() {
+    var ed = $('f-edate').value;
+    var dte = ed ? daysUntil(ed) : null;
+
+    $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
+      var a = CFG.ADDONS[k];
+      var state = CFG.addonState(k, plan, dte);
+      var price = guests ? CFG.addonPrice(k, guests) : null;
+
+      var mark, action, cls = '';
+      if (state === 'included') {
+        cls = '';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+        action = '<span class="addon-inc">כלול</span>';
+      } else if (state === 'too-late') {
+        cls = ' late';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+        action = '<span class="addon-no">נסגר, פחות מ-' + a.minDaysBefore + ' יום לאירוע</span>';
+      } else {
+        cls = ' locked';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+        action = '<button type="button" class="addon-buy" data-addon="' + k + '">' +
+                 (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
+      }
+
+      return '<div class="addon' + cls + '">' +
+             '<span class="addon-m">' + mark + '</span>' +
+             '<span class="addon-b"><span class="addon-t">' + a.label + '</span>' +
+             '<span class="addon-d">' + a.desc + '</span></span>' +
+             '<span class="addon-a">' + action + '</span></div>';
+    }).join('');
+
+    $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
+      b.addEventListener('click', function () { buyAddon(b.dataset.addon); });
+    });
+  }
+
+  function buyAddon(key) {
+    var a = CFG.ADDONS[key];
+    var url = guests ? CFG.addonLink(key, guests) : null;
+    IshurLead.track('addon_click', { addon: key, plan: plan, guests: guests, has_link: !!url });
+    if (url) { location.href = url; return; }
+    /* no link configured yet: hand it to support rather than a dead button */
+    location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + a.label + '.');
+  }
+
+  /* ══ schedule ═══════════════════════════════════════════════════════════
+     The event date drives everything. Far enough out and the customer picks
+     the two sends; too close and the plan is fixed for them, because there is
+     no room left to spread it.
+     ───────────────────────────────────────────────────────────────────── */
+
+  var SCH = CFG.SCHEDULE;
+
+  function dayMs(d) { var x = new Date(d.getTime()); x.setHours(0, 0, 0, 0); return x.getTime(); }
+  function today0() { return dayMs(new Date()); }
+  function shift(isoStr, days) {
+    var d = IshurDate.parse(isoStr);
+    if (!d) return '';
+    return IshurDate.iso(new Date(d.getTime() + days * 864e5));
+  }
+  function daysUntil(isoStr) {
+    var d = IshurDate.parse(isoStr);
+    return d ? Math.round((dayMs(d) - today0()) / 864e5) : null;
+  }
+
+  /* walk backwards off a Saturday, and off anything already past the cutoff */
+  function nearestSendable(isoStr) {
+    var d = IshurDate.parse(isoStr);
+    if (!d) return '';
+    var floor = IshurDate.minDate();
+    for (var i = 0; i < 14; i++) {
+      var c = new Date(d.getTime() - i * 864e5);
+      if (dayMs(c) < dayMs(floor)) break;
+      if (IshurDate.valid(IshurDate.iso(c))) return IshurDate.iso(c);
+    }
+    /* nothing earlier works, take the first sendable day going forward */
+    for (var j = 0; j < 14; j++) {
+      var f = new Date(dayMs(floor) + j * 864e5);
+      if (IshurDate.valid(IshurDate.iso(f))) return IshurDate.iso(f);
+    }
+    return '';
+  }
+
+  function autoMode() {
+    var n = daysUntil($('f-edate').value);
+    return n != null && n <= SCH.autoUnderDays;
+  }
+
+  /* With the event this close there is no room to spread anything: the
+     invitation goes out on the first day we are allowed to send, which for an
+     event tomorrow is the morning of the event itself. */
+  function autoFirstSend() {
+    var ed = $('f-edate').value;
+    var earliest = IshurDate.iso(IshurDate.minDate());
+    return earliest > ed ? ed : earliest;
+  }
+
+  function renderTimeline() {
+    var ed = $('f-edate').value;
+    var tl = $('timeline');
+    if (!ed) { tl.hidden = true; return; }
+
+    var rows = [];
+    var auto = autoMode();
+    var firstSend = auto ? autoFirstSend() : $('f-sd1').value;
+
+    if (auto) {
+      rows.push({ t: 'ההזמנה ואישור ההגעה', d: firstSend, tag: 'לכל הרשימה' });
+    } else {
+      if ($('f-sd1').value) rows.push({ t: 'ההזמנה ואישור ההגעה', d: $('f-sd1').value, tag: 'לכל הרשימה' });
+      if ($('f-sd2').value) rows.push({ t: 'תזכורת', d: $('f-sd2').value, tag: 'למי שלא ענה' });
+    }
+
+    SCH.auto.forEach(function (a) {
+      var d = shift(ed, a.offset);
+      /* an automatic send only happens if there is still a day left for it,
+         and never on the day the invitation itself goes out */
+      if (d < IshurDate.iso(IshurDate.minDate())) return;
+      if (auto && (a.key === 'day_before' || d <= firstSend)) return;
+      rows.push({ t: a.label, d: d, tag: a.to, auto: true });
+    });
+
+    rows.sort(function (x, y) { return x.d < y.d ? -1 : 1; });
+
+    tl.innerHTML = rows.map(function (r) {
+      return '<div class="tl-row' + (r.auto ? ' auto' : '') + '">' +
+             '<span class="tl-dot"></span>' +
+             '<span class="tl-b"><span class="tl-t">' + r.t + '</span>' +
+             '<span class="tl-d">' + IshurDate.pretty(r.d) + '</span></span>' +
+             '<span class="tl-tag">' + (r.auto ? 'אוטומטי' : r.tag) + '</span></div>';
+    }).join('');
+    tl.hidden = false;
+  }
+
+  /* first send about five weeks out, the chase a week later and around two
+     weeks before the event. Both pulled onto a sendable day. */
+  function suggestDates() {
+    var ed = $('f-edate').value;
+    if (!ed) return;
+    var s1 = nearestSendable(shift(ed, -SCH.firstSendDaysBefore));
+    var s2 = nearestSendable(shift(ed, -SCH.secondSendDaysBefore));
+    if (s1 && s2 && daysUntil(s2) - daysUntil(s1) < SCH.minGapDays) {
+      s2 = nearestSendable(shift(s1, SCH.minGapDays));
+    }
+    if (s1 && s1 < ed) $('f-sd1').value = s1;
+    if (s2 && s2 < ed && s2 > $('f-sd1').value) $('f-sd2').value = s2;
+    [$('f-sd1'), $('f-sd2')].forEach(function (el) {
+      if (el && el._idate) el._idate.syncLabel();
+    });
+  }
+
+  function renderSchedule() {
+    var ed = $('f-edate').value;
+    var auto = autoMode();
+    $('schedHint').hidden = !!ed;
+    $('schedAuto').hidden = !(ed && auto);
+    if (ed && auto) {
+      var n = daysUntil(ed);
+      var first = autoFirstSend();
+      $('schedAutoTxt').innerHTML = n <= 1
+        ? 'האירוע מחר, אז אין מקום לפרוס שליחות. ההזמנה יוצאת <b>בבוקר האירוע</b>, ' +
+          'ויום אחריו יוצאת הודעת התודה. שווה לוודא שהרשימה מעודכנת.'
+        : 'האירוע קרוב, אז לוח השליחות נקבע אוטומטית. ההזמנה יוצאת ' +
+          '<b>' + IshurDate.pretty(first) + '</b>, ואחריה ההודעות של יום האירוע.';
+    }
+    $('schedManual').hidden = !(ed && !auto);
+    if (ed && !auto && !$('f-sd1').value) suggestDates();
+    if (auto) { $('f-sd1').value = ''; $('f-sd2').value = ''; }
+    renderTimeline();
+    renderAddons();
+  }
 
   /* ── validation ── */
   function shell(el) { return (el.closest && el.closest('.isel')) || el; }
@@ -683,8 +948,13 @@
   });
   ['edate', 'sd1', 'sd2'].forEach(function (f) {
     var el = $('f-' + f);
-    if (el) el.addEventListener('change', function () { clearErr(f); clearErr('sd2'); });
+    if (el) el.addEventListener('change', function () {
+      clearErr(f); clearErr('sd2');
+      if (f === 'edate') { $('f-sd1').value = ''; $('f-sd2').value = ''; renderSchedule(); }
+      else renderTimeline();
+    });
   });
+  renderSchedule();
 
   function validate() {
     var ok = true;
@@ -695,9 +965,9 @@
       ['time', $('f-time').value, 'צריך שעת קבלת פנים'],
       ['venue', $('f-venue').value.trim(), 'צריך שם אולם או גן'],
       ['addr', $('f-addr').value.trim(), 'צריך כתובת'],
-      ['city', $('f-city').value.trim(), 'צריך עיר'],
-      ['sd1', $('f-sd1').value, 'בחרו מתי יוצאת השליחה הראשונה']
+      ['city', $('f-city').value.trim(), 'צריך עיר']
     ];
+    if (!autoMode()) req.push(['sd1', $('f-sd1').value, 'בחרו מתי יוצאת השליחה הראשונה']);
     req.forEach(function (r) {
       if (!r[1]) { showErr(r[0], r[2]); ok = false; } else clearErr(r[0]);
     });
@@ -750,8 +1020,17 @@
       venue_addr: $('f-addr').value.trim(),
       venue_city: $('f-city').value.trim(),
       style: S.style,
-      send_date_1: $('f-sd1').value,
-      send_date_2: $('f-sd2').value || '',
+      plan: plan,
+      schedule_mode: autoMode() ? 'auto' : 'manual',
+      send_date_1: autoMode() ? autoFirstSend() : $('f-sd1').value,
+      send_date_2: autoMode() ? '' : ($('f-sd2').value || ''),
+      auto_sends: CFG.SCHEDULE.auto
+        .map(function (a) { return { key: a.key, date: shift($('f-edate').value, a.offset) }; })
+        .filter(function (x) {
+          if (x.date < IshurDate.iso(IshurDate.minDate())) return false;
+          if (autoMode() && (x.key === 'day_before' || x.date <= autoFirstSend())) return false;
+          return true;
+        }),
       notes: ($('f-notes').value || '').trim(),
       source: location.href,
       ts: new Date().toISOString()
