@@ -18,7 +18,9 @@ window.ISHUR_CONFIG = (function () {
   var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/pc0r3vknvc1tpg7as1cn8wefsemab61w';
   var MAKE_UPLOAD_WEBHOOK = '';          // guest-list file uploads (multipart)
   var GTM_ID              = '';          // GTM-XXXXXXX
-  var FB_PIXEL_ID         = '';          // Meta pixel, optional
+  var FB_PIXEL_ID         = '';          // Meta pixel id (digits only)
+  var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
+  var GA4_ID              = '';          // G-XXXXXXX, only if you are not using GTM
 
   var WHATSAPP_NUMBER     = '972559504499';   // digits only, country code, no +
   var SUPPORT_PHONE       = '0559504499';     // for tel: links
@@ -204,6 +206,8 @@ window.ISHUR_CONFIG = (function () {
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,
     GTM_ID: GTM_ID,
     FB_PIXEL_ID: FB_PIXEL_ID,
+    TIKTOK_PIXEL_ID: TIKTOK_PIXEL_ID,
+    GA4_ID: GA4_ID,
     WHATSAPP_NUMBER: WHATSAPP_NUMBER,
     SUPPORT_PHONE: SUPPORT_PHONE,
     SUPPORT_EMAIL: SUPPORT_EMAIL,

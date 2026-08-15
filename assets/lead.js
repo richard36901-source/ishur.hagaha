@@ -116,6 +116,12 @@ window.IshurLead = (function () {
     };
     var u = utm();
     for (var k in u) if (u.hasOwnProperty(k)) p[k] = u[k];
+    /* click ids, pixel cookies and first-touch source, so Make can send this
+       same conversion to the Conversions API and Meta can match the user */
+    if (window.IshurTrack) {
+      var a = IshurTrack.attribution();
+      for (var j in a) if (a.hasOwnProperty(j) && a[j] !== '') p[j] = a[j];
+    }
     return p;
   }
 
@@ -153,6 +159,13 @@ window.IshurLead = (function () {
 
   function popupOpen(where) {
     newSession();
+    if (window.IshurTrack) {
+      IshurTrack.conversion({
+        key: 'vc_' + getSession(),
+        meta: 'ViewContent', tiktok: 'ViewContent', ga: 'view_item',
+        value: 0, contentName: 'order_popup'
+      });
+    }
     track('popup_open', { session_id: getSession(), where: where || '' });
   }
 
@@ -162,26 +175,55 @@ window.IshurLead = (function () {
     if (!isValidPhone(f && f.phone)) return false;
     partialSent = true;
     var p = build('lead_partial', f);
+    if (window.IshurTrack) {
+      p.event_id = IshurTrack.eventId('lead_' + p.session_id);
+      p.event_name = 'Lead';
+      IshurTrack.conversion({
+        key: 'lead_' + p.session_id, eventId: p.event_id,
+        meta: 'Lead', tiktok: 'SubmitForm', ga: 'generate_lead',
+        value: 0, contentName: 'lead_partial'
+      });
+    }
     send(p);
-    track('lead_partial', { session_id: p.session_id });
+    track('lead_partial', { session_id: p.session_id, event_id: p.event_id || '' });
     return true;
   }
 
   function submitted(f) {
     var p = build('lead_submitted', f);
+    if (window.IshurTrack) {
+      p.event_id = IshurTrack.eventId('ic_' + p.session_id);
+      p.event_name = 'InitiateCheckout';
+      IshurTrack.conversion({
+        key: 'ic_' + p.session_id, eventId: p.event_id,
+        meta: 'InitiateCheckout', tiktok: 'InitiateCheckout', ga: 'begin_checkout',
+        value: p.price || 0,
+        contentName: p.plan_name + ' · ' + p.guest_range,
+        contentCategory: p.occasion
+      });
+    }
     send(p);
     track('lead_submitted', {
       session_id: p.session_id,
+      event_id: p.event_id || '',
       occasion: p.occasion_key,
       guests: p.guests,
       plan: p.plan,
       price: p.price
     });
-    pixel('InitiateCheckout', { value: p.price || 0, currency: 'ILS' });
     return p;
   }
 
   function paymentRedirect(f, url) {
+    if (window.IshurTrack) {
+      IshurTrack.setPending({
+        session_id: getSession(),
+        name: f.name || '', phone: normalizePhone(f.phone), email: f.email || '',
+        occasion: f.occasion || '', guests: f.guests || '', plan: f.plan || '',
+        consent: !!f.consent,
+        price: CFG.priceFor ? CFG.priceFor(f.guests, f.plan) : null
+      });
+    }
     track('payment_redirect', {
       session_id: getSession(),
       tier: (f.guests || '') + '_' + (f.plan || ''),
@@ -192,8 +234,34 @@ window.IshurLead = (function () {
     });
   }
 
+  /* fired on the post-payment page. Make sends the authoritative server-side
+     copy from Grow's webhook using this same event_id. */
+  function purchase(f) {
+    f = f || {};
+    /* reuse the checkout's session so the purchase row joins to the lead row
+       instead of looking like a brand new visitor */
+    if (f.sessionId) sessionId = f.sessionId;
+    var p = build('purchase', f);
+    p.order_ref = f.orderRef || '';
+    if (window.IshurTrack) {
+      p.event_id = IshurTrack.eventId('purchase_' + (p.order_ref || p.session_id));
+      p.event_name = 'Purchase';
+      IshurTrack.conversion({
+        key: 'purchase_' + (p.order_ref || p.session_id), eventId: p.event_id,
+        meta: 'Purchase', tiktok: 'CompletePayment', ga: 'purchase',
+        value: p.price || 0,
+        contentName: p.plan_name + ' · ' + p.guest_range,
+        contentCategory: p.occasion
+      });
+    }
+    send(p);
+    track('purchase', { session_id: p.session_id, event_id: p.event_id || '', price: p.price });
+    return p;
+  }
+
   return {
     init: init,
+    purchase: purchase,
     newSession: newSession,
     getSession: getSession,
     normalizePhone: normalizePhone,
