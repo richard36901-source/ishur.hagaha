@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=9"></script>
-<script src="assets/tracking.js?v=9"></script>
-<script src="assets/guard.js?v=9"></script>
-<script src="assets/lead.js?v=9"></script>
-<script src="assets/messages.js?v=9"></script>
+<script src="config.js?v=10"></script>
+<script src="assets/tracking.js?v=10"></script>
+<script src="assets/guard.js?v=10"></script>
+<script src="assets/lead.js?v=10"></script>
+<script src="assets/messages.js?v=10"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -1062,6 +1062,69 @@ footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
 @media (prefers-reduced-transparency:reduce){
   .hero-stats,.hero-badge{backdrop-filter:none;background:rgba(10,33,25,.85)}
 }
+
+/* ── what's included: gold plates on a pine header ──────────────────────── */
+.feat-accordion{border-color:var(--gold-pale);border-radius:14px;overflow:hidden;box-shadow:0 10px 34px rgba(15,46,34,.07)}
+.feat-acc-hdr{
+  background:linear-gradient(135deg,var(--pine) 0%,var(--navy) 100%);
+  color:var(--paper);border-bottom:1px solid rgba(199,174,122,.22);
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.05rem;letter-spacing:-.01em;
+}
+.feat-acc-hdr:hover{background:linear-gradient(135deg,var(--pine-lift) 0%,var(--navy) 100%)}
+.acc-arrow{color:var(--gold-soft)}
+.feat-acc-body{background:#fff}
+.feat{
+  border:1px solid var(--bdr);border-radius:12px;background:#fff;
+  transition:border-color .22s,box-shadow .22s,transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.feat:hover{border-color:var(--gold-soft);box-shadow:0 8px 26px rgba(15,46,34,.07)}
+.feat-ico2{
+  background:linear-gradient(140deg,var(--pine) 0%,var(--navy) 100%);
+  color:var(--gold-soft);
+  border:1px solid rgba(199,174,122,.3);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:40px;height:40px;border-radius:10px;font-size:0;
+}
+.feat-ico2 svg{width:20px;height:20px;display:block}
+.feat strong{font-family:'Frank Ruhl Libre',serif;font-weight:700}
+
+/* ── package names read as a pair, Hebrew leading ───────────────────────── */
+.plan-opt-name{font-size:1.15rem;line-height:1.25}
+.plan-opt-name i{
+  display:block;font-size:.66rem;letter-spacing:.16em;font-weight:600;
+  color:var(--gold);margin:.15rem 0 0;font-family:'Heebo',sans-serif;
+}
+.price-pick .plan-opt{padding:1.05rem 1.1rem}
+
+/* ── closing: one gold action, one quiet one, same family ───────────────── */
+.cta-btns{gap:.7rem}
+.btn-wa{
+  background:transparent;border:1px solid rgba(199,174,122,.45);color:var(--paper);
+  font-weight:400;border-radius:10px;padding:1rem 1.7rem;
+}
+.btn-wa svg{color:var(--gold-soft)}
+.btn-wa:hover{background:rgba(199,174,122,.1);border-color:var(--gold-soft);color:var(--paper)}
+.btn-white{border-radius:10px;padding:1rem 2.2rem}
+#cta{padding:4rem 1.5rem 3.4rem}
+
+/* ── footer: all gold, and less of it ───────────────────────────────────── */
+footer{padding:1.9rem 1.5rem 1.6rem}
+.f-logo2{margin-bottom:.7rem}
+.f-logo2-text{color:var(--gold-soft);font-family:'Frank Ruhl Libre',serif}
+.f-logo2-text span{color:var(--gold)}
+.f-links2{margin-bottom:.6rem;gap:1.4rem}
+.f-links2 a{color:var(--gold-soft);opacity:.85}
+.f-links2 a svg{color:var(--gold)}
+.f-links2 a:hover{color:var(--gold);opacity:1}
+.f-copy2{color:rgba(199,174,122,.45);font-size:.72rem}
+
+/* ── every section eyebrow behaves the same, previews included ──────────── */
+.sec-hd .sec-tag,#previews .sec-tag{
+  display:inline-block;background:none!important;border:none!important;
+  padding:0!important;border-radius:0!important;
+  color:var(--gold)!important;font-size:.72rem;font-weight:500;
+  letter-spacing:.22em;text-transform:uppercase;
+}
 </style>
 </head>
 <body>
@@ -1105,7 +1168,7 @@ footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
   <div class="hero-blob blob2"></div>
   <div class="hero-inner">
     <div class="hero-badge">✓ &nbsp; אישורי הגעה חכמים לכל אירוע</div>
-    <h1 class="hero-h1">אישורי הגעה<br><span class="accent">אוטומטיים בוואטסאפ</span></h1>
+    <h1 class="hero-h1">אישורי הגעה<br><span class="accent">אוטומטיים לאירועים</span></h1>
     <p class="hero-sub">שולחים הודעה לכל מוזמן, אוספים תשובות, מזכירים למי ששכח. אתם מקבלים מספר מדויק.</p>
     <div class="hero-btns">
       <button class="btn btn-green" data-order="hero">התחילו עכשיו</button>
@@ -1154,17 +1217,17 @@ footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
     </div>
     <div class="feat-accordion">
       <div class="feat-acc-hdr" onclick="toggleAcc(this)">
-        <span>📦 מה כלול בשירות?</span>
+        <span>מה כלול בשירות</span>
         <span class="acc-arrow">▼</span>
       </div>
       <div class="feat-acc-body">
         <div class="feat-grid" style="margin-top:.6rem">
-          <div class="feat fi"><div class="feat-ico2">📨</div><div><strong>הודעות אישיות</strong><p>לכל מוזמן בנפרד עם שמו האישי וקישור לאישור</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">📊</div><div><strong>מעקב תשובות</strong><p>כן, לא, וכמה מגיעים. הכל מתועד ומסודר</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">🔔</div><div><strong>תזכורות אוטומטיות</strong><p>למי שלא ענה, בלי שתצטרכו לבקש</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">📋</div><div><strong>דוחות שוטפים</strong><p>כל כמה ימים ישירות לוואטסאפ שלכם</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">🎯</div><div><strong>סיכום ביום האירוע</strong><p>כמה מגיעים וכמה לא, ברור ונקי</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">📞</div><div><strong>שיחת טלפון ממוקד אנושי</strong><p>למוזמנים שלא ענו, נציג מטעמנו יתקשר ויאשר בשמם</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/><path d="m3.5 6.5 8.5 6 8.5-6"/></svg></div><div><strong>הודעות אישיות</strong><p>לכל מוזמן בנפרד עם שמו האישי וקישור לאישור</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><div><strong>מעקב תשובות</strong><p>כן, לא, וכמה מגיעים. הכל מתועד ומסודר</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7Z"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><div><strong>תזכורות אוטומטיות</strong><p>למי שלא ענה, בלי שתצטרכו לבקש</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><path d="M15 4.5h2.5A1.5 1.5 0 0 1 19 6v13.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="M8.5 11h7M8.5 15h4.5"/></svg></div><div><strong>דוחות שוטפים</strong><p>כל כמה ימים ישירות לוואטסאפ שלכם</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></div><div><strong>סיכום ביום האירוע</strong><p>כמה מגיעים וכמה לא, ברור ונקי</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 1.1 4.2 2 2 0 0 1 3.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2Z"/></svg></div><div><strong>שיחת טלפון ממוקד אנושי</strong><p>למוזמנים שלא ענו, נציג מטעמנו יתקשר ויאשר בשמם</p></div></div>
         </div>
       </div>
     </div>
@@ -1245,17 +1308,17 @@ footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
               <div class="wa-btns">
                 <button type="button">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
-                  מגיעים
+                  מגיע/ה
                 </button>
                 <button type="button">
                   <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
-                  לא נוכל
+                  לא מגיע/ה
                 </button>
               </div>
             </div>
 
             <div class="wa-msg out">
-              <div class="wa-bub out"><p class="wa-txt">מגיעים</p><span class="wa-meta">10:17 <i class="rr">✓✓</i></span></div>
+              <div class="wa-bub out"><p class="wa-txt">מגיע/ה</p><span class="wa-meta">10:17 <i class="rr">✓✓</i></span></div>
             </div>
 
             <div class="wa-msg">
@@ -1339,7 +1402,7 @@ footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
 <!-- FOOTER -->
 <footer>
   <div class="f-logo2">
-    <div class="f-logo2-icon" style="background:transparent;border-radius:5px;padding:2px;display:flex;align-items:center;justify-content:center;"><img src="assets/logo-light.png" style="width:40px;height:40px;object-fit:contain;" alt="לוגו"></div>
+    <div class="f-logo2-icon" style="background:transparent;border-radius:5px;padding:2px;display:flex;align-items:center;justify-content:center;"><img src="assets/logo-gold.png" style="width:36px;height:36px;object-fit:contain;" alt="לוגו"></div>
     <div class="f-logo2-text">אישורי <span>הגעה</span></div>
   </div>
   <div class="f-links2">
@@ -1617,7 +1680,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=9"></script>
-<script src="assets/popup.js?v=9"></script>
+<script src="assets/select.js?v=10"></script>
+<script src="assets/popup.js?v=10"></script>
 </body>
 </html>
