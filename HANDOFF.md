@@ -179,6 +179,16 @@ marketing only to rows where `marketing_consent` is `true`.
       hook or get its own scenario
 - [ ] Check the Make scenario upserts `lead_partial` on `session_id`
 
+## After you edit config.js or anything in assets/
+
+Bump the `?v=` on the script tags in `index.html`, `upload.html`, `thanks.html`
+(and `v2/index.html` if you resume it). They all carry `?v=1` today.
+
+GitHub Pages caches assets, so without a bump some visitors keep running the old
+`config.js` for a while. That matters most for payment links: a stale config
+sends someone to the wrong Grow page. One find-and-replace of `?v=1` to `?v=2`
+across those files is the whole job.
+
 ## Notes
 
 - No build step, no framework, no dependencies. Fonts come from Google Fonts.

@@ -71,16 +71,19 @@ window.IshurTrack = (function () {
     if (!a.first_seen) a.first_seen = new Date().toISOString();
 
     /* last click wins */
+    var newFbclid = false;
     CLICK_IDS.forEach(function (k) {
       var v = q.get(k);
-      if (v) a[k] = v;
+      if (!v) return;
+      if (k === 'fbclid' && v !== a.fbclid) newFbclid = true;
+      a[k] = v;
     });
 
     /* Meta builds _fbc from fbclid itself, but only on a page where its pixel
-       ran. Build it here so the value exists even if the pixel is blocked. */
-    /* stamped once, at the click. Regenerating it on every page view would
-       hand Meta a different value each time and weaken matching. */
-    if (a.fbclid && !cookie('_fbc') && !a._fbc_synth) {
+       ran. Build it here so the value exists even if the pixel is blocked.
+       Stamped once per click id: stable across page views so matching stays
+       consistent, rebuilt when a different ad click arrives. */
+    if (a.fbclid && !cookie('_fbc') && (newFbclid || !a._fbc_synth)) {
       a._fbc_synth = 'fb.1.' + Date.now() + '.' + a.fbclid;
     }
 
