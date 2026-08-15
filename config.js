@@ -15,21 +15,21 @@ window.ISHUR_CONFIG = (function () {
      to WhatsApp, a missing GTM id skips the container.
      ─────────────────────────────────────────────────────────────────────── */
 
-  var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/ncspc47ub65nex4k8ndufpurk1pky4hg';
-  var MAKE_UPLOAD_WEBHOOK = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // guest-list file uploads (multipart)
+  var MAKE_LEAD_WEBHOOK   = '';   // held by the Worker as a secret
+  var MAKE_UPLOAD_WEBHOOK = '';   // held by the Worker as a secret
   /* Flip to true once worker/ is deployed, and paste its URL below. Every
      request then goes through the proxy and the Make URLs can be deleted from
      this file, which is the only way to stop them being public. */
-  var USE_PROXY  = false;
-  var PROXY_BASE = '';   // https://ishur-webhooks.<subdomain>.workers.dev
+  var USE_PROXY  = true;
+  var PROXY_BASE = 'https://ishur-webhooks.richardtomskiy.workers.dev';
 
-  var MAKE_STATUS_WEBHOOK = 'https://hook.eu1.make.com/qaskw7ccoz2ir6zolis144j4cc9gp2vt';
+  var MAKE_STATUS_WEBHOOK = '';   // held by the Worker as a secret
                                          // dashboard reads event + guest status
                                          // from here. POST {token} -> JSON,
                                          // shape documented in HANDOFF.md.
-  var MAKE_CHANGE_WEBHOOK = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // customer edits a send date (JSON).
+  var MAKE_CHANGE_WEBHOOK = '';
                                          // Falls back to the setup hook.
-  var MAKE_SETUP_WEBHOOK  = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // event setup after upload (JSON).
+  var MAKE_SETUP_WEBHOOK  = '';
                                          // Can be the same URL as the upload
                                          // hook; the payload is tagged
                                          // event_type: 'event_setup'.
@@ -45,14 +45,6 @@ window.ISHUR_CONFIG = (function () {
   var WHATSAPP_NUMBER     = '972559504499';   // digits only, country code, no +
   var SUPPORT_PHONE       = '0559504499';     // for tel: links
   var SUPPORT_EMAIL       = 'info@ishur.io';
-
-  /* Required on terms.html. Until the name is filled the page shows a notice
-     saying so, because these are legal facts that cannot be guessed. */
-  var LEGAL = {
-    name:    '[שם העוסק או החברה]',
-    id:      '[מספר ח.פ. או עוסק מורשה]',
-    address: '[כתובת למשלוח דואר]'
-  };
 
   var TEMPLATE_URL        = '';          // sample .xlsx for the upload form. empty hides the row
 
@@ -432,7 +424,6 @@ window.ISHUR_CONFIG = (function () {
     SUPPORT_PHONE: SUPPORT_PHONE,
     SUPPORT_EMAIL: SUPPORT_EMAIL,
     TEMPLATE_URL: TEMPLATE_URL,
-    LEGAL: LEGAL,
 
     PLANS: PLANS,
     PLAN_ORDER: PLAN_ORDER,

@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=13"></script>
+<script src="config.js?v=14"></script>
 
 <style>
   :root{
@@ -106,11 +106,6 @@
     <a href="#rights">10. זכויות במידע</a>
     <a href="#contact">11. יצירת קשר</a>
   </nav>
-
-  <div class="flag" id="entityFlag">
-    <b>לפני העלייה לאוויר:</b> יש להשלים את שם העוסק או החברה, מספר ח.פ. או עוסק מורשה,
-    וכתובת למשלוח דואר. אלה פרטים משפטיים שאי אפשר לנחש, והם נדרשים בסעיף 11.
-  </div>
 
   <section id="service">
     <h2>1. השירות</h2>
@@ -274,12 +269,7 @@
 
   <section id="contact">
     <h2>11. יצירת קשר</h2>
-    <p>
-      <b>ishur.io</b><br>
-      <span id="entityName">[שם העוסק או החברה]</span><br>
-      <span id="entityId">[מספר ח.פ. או עוסק מורשה]</span><br>
-      <span id="entityAddr">[כתובת למשלוח דואר]</span>
-    </p>
+    <p><b>ishur.io</b></p>
     <p>
       טלפון ווואטסאפ: <a href="#" id="waLink" target="_blank" rel="noopener">055-950-4499</a>
     </p>
@@ -301,14 +291,6 @@
   wa.href = C.waLink('היי, שאלה לגבי תנאי השימוש.');
   wa.textContent = C.SUPPORT_PHONE.replace(/^(\d{3})(\d{3})(\d{4})$/, '$1-$2-$3');
 
-  /* the notice only shows while the legal details are still placeholders */
-  var filled = C.LEGAL && C.LEGAL.name && C.LEGAL.name.indexOf('[') === -1;
-  if (filled) {
-    document.getElementById('entityFlag').hidden = true;
-    document.getElementById('entityName').textContent = C.LEGAL.name;
-    document.getElementById('entityId').textContent = C.LEGAL.id;
-    document.getElementById('entityAddr').textContent = C.LEGAL.address;
-  }
 })();
 </script>
 </body>

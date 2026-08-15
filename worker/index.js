@@ -30,6 +30,7 @@ const ROUTES = {
 const ALLOWED_ORIGINS = [
   'https://ishur.io',
   'https://www.ishur.io',
+  'http://localhost:4180',
 ];
 
 const MAX_STAMP_AGE_MS = 24 * 60 * 60 * 1000;
