@@ -425,6 +425,7 @@ window.IshurPopup = (function () {
     modal.classList.add('open');
     open = true;
     document.body.style.overflow = 'hidden';
+    document.body.classList.add('modal-open');
     setStep(1, 'next');
 
     IshurLead.popupOpen(where);
@@ -450,6 +451,7 @@ window.IshurPopup = (function () {
     if (modal) modal.classList.remove('open');
     open = false;
     document.body.style.overflow = '';
+    document.body.classList.remove('modal-open');
     if (lastTrigger && lastTrigger.focus) lastTrigger.focus();
   }
 

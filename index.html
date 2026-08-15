@@ -687,6 +687,13 @@ footer{background:#0f172a;padding:1.5rem 1.5rem;text-align:center;border-top:1px
   .frow input,.frow select{font-size:16px}
 }
 
+/* the cookie bar sits at the bottom, exactly where the popup's primary
+   button lands on mobile. It steps aside while the popup is open. */
+body.modal-open #cookie-bar{
+  opacity:0;pointer-events:none;
+  transform:translateX(-50%) translateY(20px);
+}
+
 /* ═══ ACCESSIBILITY PREFERENCES ═══════════════════════════════════════════ */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
