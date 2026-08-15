@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=10"></script>
-<script src="assets/tracking.js?v=10"></script>
-<script src="assets/guard.js?v=10"></script>
-<script src="assets/lead.js?v=10"></script>
-<script src="assets/messages.js?v=10"></script>
+<script src="config.js?v=11"></script>
+<script src="assets/tracking.js?v=11"></script>
+<script src="assets/guard.js?v=11"></script>
+<script src="assets/lead.js?v=11"></script>
+<script src="assets/messages.js?v=11"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -1125,6 +1125,38 @@ footer{padding:1.9rem 1.5rem 1.6rem}
   color:var(--gold)!important;font-size:.72rem;font-weight:500;
   letter-spacing:.22em;text-transform:uppercase;
 }
+
+
+/* ── the accordion is a control, not a banner ───────────────────────────── */
+.feat-acc-hdr{
+  background:#fff;
+  border:1px solid var(--bdr);
+  border-bottom:1px solid var(--bdr);
+  color:var(--green);
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.05rem;
+  border-radius:12px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.feat-acc-hdr:hover{background:#fff;border-color:var(--gold-soft);box-shadow:0 6px 20px rgba(15,46,34,.06)}
+.feat-acc-hdr.open{border-radius:12px 12px 0 0;border-bottom-color:var(--gold-pale)}
+.feat-acc-hdr .acc-arrow{color:var(--gold)}
+.feat-accordion{border:none;box-shadow:none;overflow:visible}
+.feat-acc-body{background:transparent}
+
+/* ── tighter vertical rhythm: both dark panels were mostly air ──────────── */
+#hero{min-height:auto;padding:6.2rem 1.5rem 2.6rem}
+@media(min-width:768px){#hero{padding:6.8rem 2rem 3rem}}
+.hero-badge{margin-bottom:1rem}
+.hero-h1{margin-bottom:.9rem}
+.hero-sub{margin-bottom:1.6rem}
+.hero-trust{margin-top:1.4rem}
+.hero-stats{margin-top:1.4rem}
+#hero::after{inset:16px}
+@media(max-width:640px){#hero{padding:5.6rem 1.25rem 2.2rem}#hero::after{inset:10px}}
+
+#cta{padding:2.9rem 1.5rem 3rem}
+#cta h2{margin-bottom:.7rem}
+#cta p{margin-bottom:1.5rem}
 </style>
 </head>
 <body>
@@ -1680,7 +1712,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=10"></script>
-<script src="assets/popup.js?v=10"></script>
+<script src="assets/select.js?v=11"></script>
+<script src="assets/popup.js?v=11"></script>
 </body>
 </html>
