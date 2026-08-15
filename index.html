@@ -8,14 +8,14 @@
 <link rel="apple-touch-icon" href="assets/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=7"></script>
-<script src="assets/tracking.js?v=7"></script>
-<script src="assets/guard.js?v=7"></script>
-<script src="assets/lead.js?v=7"></script>
-<script src="assets/messages.js?v=7"></script>
+<script src="config.js?v=9"></script>
+<script src="assets/tracking.js?v=9"></script>
+<script src="assets/guard.js?v=9"></script>
+<script src="assets/lead.js?v=9"></script>
+<script src="assets/messages.js?v=9"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -921,6 +921,147 @@ body.modal-open #cookie-bar{
 .consent:active .consent-box{transform:scale(.9)}
 .consent input:focus-visible + .consent-box{outline:2px solid var(--green);outline-offset:2px}
 .consent-txt{font-size:.79rem;color:var(--ink3);line-height:1.5}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   LUXURY LAYER
+   Pine and navy carry the weight, gold is the only ornament, and the display
+   face turns serif. Appended last so it wins over the older rules.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --pine:#0F2E22;
+  --pine-deep:#0A2119;
+  --pine-lift:#17402F;
+  --navy:#16233A;
+  --navy-deep:#0E1726;
+  --gold:#A8853C;
+  --gold-soft:#C7AE7A;
+  --gold-pale:rgba(199,174,122,.28);
+  --paper:#F8F4EA;
+}
+
+/* ── display face ───────────────────────────────────────────────────────── */
+.hero-h1,.sec-title,#cta h2,.pac-name,.plan-opt-name,.o-title{
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;
+}
+.hero-h1{letter-spacing:-.025em;line-height:1.1}
+.sec-title{letter-spacing:-.018em}
+
+/* ── the eyebrow becomes a gold rule ────────────────────────────────────── */
+.sec-tag{
+  background:none;border:none;padding:0;color:var(--gold);
+  font-size:.72rem;font-weight:500;letter-spacing:.22em;text-transform:uppercase;
+}
+/* the plain bar under a heading turns into the invitation flourish */
+.divider{
+  width:132px;height:9px;background:none;border-radius:0;margin:.9rem auto 0;
+  background-image:
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    radial-gradient(circle,var(--gold) 2.6px,transparent 2.7px);
+  background-size:52px 1px,52px 1px,100% 9px;
+  background-position:left center,right center,center center;
+  background-repeat:no-repeat;
+}
+
+/* ── hero: the dark stage ───────────────────────────────────────────────── */
+#hero{
+  background:
+    radial-gradient(120% 95% at 50% -8%, var(--pine-lift) 0%, var(--pine) 46%, var(--navy-deep) 100%);
+  color:var(--paper);
+}
+.hero-blob{display:none}
+#hero::after{
+  /* a hairline frame, the way an invitation is bordered */
+  content:'';position:absolute;inset:22px;pointer-events:none;
+  border:1px solid rgba(199,174,122,.16);border-radius:4px;
+}
+@media(max-width:640px){#hero::after{inset:12px}}
+.hero-badge{
+  background:rgba(248,244,234,.06);border:1px solid var(--gold-pale);
+  color:var(--gold-soft);backdrop-filter:blur(6px);
+  letter-spacing:.06em;font-size:.76rem;
+}
+.hero-h1{color:var(--paper)}
+.hero-h1 .accent{color:var(--gold)}
+.hero-sub{color:rgba(248,244,234,.72);font-weight:300}
+.hero-trust{color:rgba(248,244,234,.5)}
+.trust-avs span{border-color:rgba(248,244,234,.25);background:rgba(248,244,234,.08)}
+
+/* the numbers sit on glass rather than a white card */
+.hero-stats{
+  background:rgba(248,244,234,.05);
+  border:1px solid rgba(199,174,122,.18);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:none;
+}
+.h-stat{border-color:rgba(199,174,122,.16)!important}
+.h-stat-n{color:var(--gold);font-family:'Frank Ruhl Libre',serif}
+.h-stat-l{color:rgba(248,244,234,.55)}
+
+/* ── two tiers, unmistakably different ──────────────────────────────────── */
+#hero .btn-green{
+  background:var(--gold);color:#1B1508;font-weight:600;letter-spacing:.01em;
+  padding:1rem 2.4rem;border-radius:10px;
+  box-shadow:0 10px 30px rgba(168,133,60,.34);
+}
+#hero .btn-green:hover{background:#B8933F;box-shadow:0 12px 34px rgba(168,133,60,.42)}
+#hero .btn-outline{
+  background:transparent;color:var(--paper);
+  border:1px solid rgba(199,174,122,.45);
+  padding:1rem 2rem;border-radius:10px;font-weight:400;
+}
+#hero .btn-outline:hover{border-color:var(--gold-soft);background:rgba(199,174,122,.09);color:var(--paper)}
+
+/* ── nav ── dark glass, so the bar frames the page rather than sitting on it */
+#nav{
+  background:rgba(14,23,38,.72);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  border-bottom:1px solid rgba(168,133,60,.18);
+}
+#nav.sc{background:rgba(10,20,33,.92);box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.nav-logo-text{color:var(--paper)}
+.nav-logo-text span{color:var(--gold)}
+.nav-btn{
+  background:var(--gold);color:#1B1508;font-weight:600;letter-spacing:.02em;
+  box-shadow:0 4px 16px rgba(168,133,60,.3);
+}
+.nav-btn:hover{background:#B8933F}
+
+/* ── surfaces get a gold hairline on approach ───────────────────────────── */
+.price-pick .plan-opt,.ev-card,.feat-acc-hdr,.rep-card{transition:border-color .22s,box-shadow .22s,transform .22s cubic-bezier(.2,.8,.2,1)}
+.price-pick .plan-opt:hover,.ev-card:hover{border-color:var(--gold-soft);background:#fff;box-shadow:0 10px 30px rgba(15,46,34,.07)}
+.price-pick .plan-opt.rec{border-color:var(--gold-soft)}
+.plan-rec{background:var(--gold);color:#1B1508;letter-spacing:.08em;font-size:.58rem;text-transform:uppercase}
+.plan-opt-name i{color:var(--gold)}
+.plan-opt-price{color:var(--pine)}
+.plan-opt-price .cur{color:var(--gold)}
+.ev-card.on{border-color:var(--gold-soft);background:#FBF8F1;color:var(--pine)}
+.ev-card.on .ev-lbl{color:var(--pine)}
+
+/* ── closing panel and footer, the dark bookend ─────────────────────────── */
+#cta{
+  background:radial-gradient(110% 130% at 50% 0%, var(--pine-lift) 0%, var(--pine) 45%, var(--navy-deep) 100%);
+}
+#cta::before,#cta::after{display:none}
+#cta h2{color:var(--paper)}
+#cta h2 span{color:var(--gold)}
+#cta p{color:rgba(248,244,234,.7)}
+.btn-white{background:var(--gold);color:#1B1508;font-weight:600}
+.btn-white:hover{background:#B8933F}
+.btn-wa{border-color:rgba(199,174,122,.4);color:var(--paper)}
+.btn-wa:hover{background:rgba(199,174,122,.1);border-color:var(--gold-soft)}
+footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
+.f-logo2-text span{color:var(--gold)}
+.f-links2 a:hover{color:var(--gold-soft)}
+
+/* ── the phone keeps its own light, it is a screenshot ──────────────────── */
+.ptab2.on{background:var(--pine);border-color:var(--pine)}
+.ptab2:hover{border-color:var(--gold-soft)}
+
+@media (prefers-reduced-transparency:reduce){
+  .hero-stats,.hero-badge{backdrop-filter:none;background:rgba(10,33,25,.85)}
+}
 </style>
 </head>
 <body>
@@ -951,7 +1092,7 @@ body.modal-open #cookie-bar{
 <nav id="nav">
   <div class="nav-logo">
     <div class="nav-logo-icon">
-      <img src="assets/logo.png" style="width:48px;height:48px;object-fit:contain;display:block;margin-top:6px;" alt="לוגו">
+      <img src="assets/logo-light.png" style="width:48px;height:48px;object-fit:contain;display:block;margin-top:6px;" alt="לוגו">
     </div>
     <div class="nav-logo-text">אישורי <span>הגעה</span></div>
   </div>
@@ -1476,7 +1617,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=7"></script>
-<script src="assets/popup.js?v=7"></script>
+<script src="assets/select.js?v=9"></script>
+<script src="assets/popup.js?v=9"></script>
 </body>
 </html>
