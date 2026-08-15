@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>אישורי הגעה בוואטסאפ · ishur.io</title>
+<meta name="description" content="שולחים לכל מוזמן הודעה אישית בוואטסאפ, אוספים תשובות, מזכירים למי שלא ענה, ומעדכנים אתכם. אתם לא נוגעים בזה.">
+<link rel="icon" type="image/png" sizes="128x128" href="../assets/favicon.png">
+<link rel="apple-touch-icon" href="../assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@400;500;700&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<script src="../config.js"></script>
+<script src="../assets/tracking.js"></script>
+<script src="../assets/lead.js"></script>
+<script>IshurLead.init({ variant: 'v2' });</script>
+
+<style>
+/* ═══════════════════════════════════════════════════════════════════════════
+   INVITATION · a foil-stamped invitation on a dark table.
+   Pine is the room, paper is where you read, gold is the only accent.
+   ═════════════════════════════════════════════════════════════════════════ */
+:root{
+  --pine:#1F3329;
+  --pine-deep:#182A21;
+  --pine-lift:#26402F;
+  --paper:#F8F4EA;
+  --paper-warm:#FDFBF5;
+  --ink:#22301F;
+  --ink-soft:#5C6657;
+  --ink-faint:#8A9382;
+  --gold:#A8853C;
+  --gold-soft:#C7AE7A;
+  --gold-glow:rgba(168,133,60,.14);
+  --line:#DDD5C2;
+  --ok:#2E6B4F;
+  --err:#A8402F;
+  --r:14px;
+  --ease:cubic-bezier(.22,.9,.24,1);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html{scroll-behavior:smooth}
+html{background:var(--pine-deep)}
+body{
+  font-family:'Heebo',sans-serif;font-weight:400;
+  /* the ground: a pool of light on a dark table. Pinned to the viewport so
+     the light stays overhead as you scroll. iOS ignores fixed attachment and
+     simply scrolls it, which still reads fine. */
+  background:radial-gradient(125% 85% at 50% 0%, var(--pine-lift) 0%, var(--pine) 50%, var(--pine-deep) 100%);
+  background-attachment:fixed;
+  color:var(--paper);
+  line-height:1.7;
+  -webkit-font-smoothing:antialiased;
+  -webkit-tap-highlight-color:transparent;
+  overflow-x:hidden;
+}
+@media (prefers-reduced-motion:no-preference){html{scroll-behavior:smooth}}
+
+/* ── type ── tracking is size-specific: tight as it grows ───────────────── */
+h1,h2,h3,.serif{font-family:'Frank Ruhl Libre',serif;font-weight:700}
+h1{font-size:clamp(2rem,7.4vw,3.4rem);line-height:1.12;letter-spacing:-.022em}
+h2{font-size:clamp(1.5rem,4.6vw,2.15rem);line-height:1.2;letter-spacing:-.016em}
+h3{font-size:1.12rem;line-height:1.35;letter-spacing:-.008em;font-weight:500}
+p{font-size:1rem}
+
+.eyebrow{
+  font-size:.72rem;letter-spacing:.2em;color:var(--gold);
+  text-transform:uppercase;font-weight:500;
+}
+
+/* ── flourish ── the line-dot-line rule that marks every section ────────── */
+.flourish{display:flex;justify-content:center;margin:1.1rem 0 1.4rem}
+.flourish.tight{margin:.9rem 0 1.1rem}
+
+/* ── layout ─────────────────────────────────────────────────────────────── */
+.wrap{max-width:940px;margin:0 auto;padding:0 1.25rem}
+.narrow{max-width:640px;margin:0 auto}
+section{padding:4.5rem 0}
+@media(max-width:640px){section{padding:3.4rem 0}}
+.center{text-align:center}
+
+/* ── paper ── content sits on paper, the dark ground is the stage ───────── */
+.paper{
+  background:var(--paper);color:var(--ink);
+  border-radius:var(--r);padding:9px;
+  box-shadow:0 22px 56px rgba(0,0,0,.32);
+}
+.paper-in{
+  border:1px solid var(--gold-soft);
+  outline:1px solid var(--gold-soft);
+  outline-offset:3px;
+  border-radius:calc(var(--r) - 4px);
+  padding:2.2rem 1.6rem;
+}
+@media(min-width:640px){.paper-in{padding:2.6rem 2.4rem}}
+
+/* ── buttons ────────────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  font-family:'Heebo',sans-serif;font-size:1rem;font-weight:500;
+  padding:.95rem 2.2rem;border:none;border-radius:10px;cursor:pointer;
+  text-decoration:none;
+  transition:transform .22s var(--ease),background .2s,color .2s,border-color .2s;
+}
+.btn:active{transform:scale(.972);transition-duration:100ms}
+.btn-gold{background:var(--gold);color:#1B1508;box-shadow:0 8px 24px rgba(168,133,60,.28)}
+.btn-gold:hover{background:#B8933F}
+.btn-paper{background:var(--paper);color:var(--ink)}
+.btn-paper:hover{background:#fff}
+.btn-ghost{background:transparent;color:var(--paper);border:1px solid rgba(199,174,122,.5)}
+.btn-ghost:hover{border-color:var(--gold-soft);background:rgba(199,174,122,.08)}
+.btn-full{width:100%}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+
+/* ── nav ── translucent, content scrolls beneath ────────────────────────── */
+#nav{
+  position:fixed;inset:0 0 auto;z-index:300;height:62px;
+  display:flex;align-items:center;justify-content:space-between;
+  padding:0 1.25rem;
+  background:rgba(31,51,41,.62);
+  backdrop-filter:blur(20px) saturate(160%);
+  -webkit-backdrop-filter:blur(20px) saturate(160%);
+  border-bottom:1px solid rgba(199,174,122,.16);
+  transition:background .3s,border-color .3s;
+}
+#nav.sc{background:rgba(24,42,33,.86);border-bottom-color:rgba(199,174,122,.26)}
+.nav-brand{display:flex;align-items:center;gap:.55rem;text-decoration:none}
+.nav-brand img{width:32px;height:32px;object-fit:contain;display:block}
+.nav-word{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;font-weight:500;color:var(--paper);letter-spacing:.01em}
+.nav-word span{color:var(--gold)}
+.nav-cta{
+  height:38px;padding:0 1.15rem;background:var(--gold);color:#1B1508;
+  border:none;border-radius:8px;font-family:'Heebo',sans-serif;
+  font-size:.85rem;font-weight:500;cursor:pointer;
+  transition:transform .22s var(--ease),background .2s;
+}
+.nav-cta:active{transform:scale(.96);transition-duration:100ms}
+.nav-cta:hover{background:#B8933F}
+
+/* ── hero ───────────────────────────────────────────────────────────────── */
+#hero{padding-top:8.5rem;padding-bottom:4rem;text-align:center}
+@media(max-width:640px){#hero{padding-top:7rem}}
+.hero-sub{
+  font-size:1.06rem;color:rgba(248,244,234,.76);font-weight:300;
+  max-width:29rem;margin:0 auto 2rem;line-height:1.75;
+}
+.hero-h1 em{font-style:normal;color:var(--gold)}
+.hero-btns{display:flex;gap:.7rem;justify-content:center;flex-wrap:wrap}
+.hero-note{
+  margin-top:1.9rem;font-size:.82rem;color:var(--ink-faint);
+  letter-spacing:.02em;
+}
+
+/* ── steps ──────────────────────────────────────────────────────────────── */
+.steps{display:grid;gap:1px;background:var(--line);border-radius:10px;overflow:hidden;margin-top:.4rem}
+@media(min-width:760px){.steps{grid-template-columns:repeat(3,1fr)}}
+.step{background:var(--paper-warm);padding:1.7rem 1.4rem;text-align:center}
+.step-n{
+  font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;color:var(--gold);
+  line-height:1;margin-bottom:.7rem;display:block;
+}
+.step h3{color:var(--ink);margin-bottom:.4rem}
+.step p{font-size:.9rem;color:var(--ink-soft);line-height:1.65}
+
+/* ── included ───────────────────────────────────────────────────────────── */
+.incl{display:grid;gap:0;margin-top:.4rem}
+.incl-row{
+  display:flex;gap:.85rem;align-items:flex-start;
+  padding:.85rem 0;border-bottom:1px solid var(--line);
+}
+.incl-row:last-child{border-bottom:none}
+.incl-mark{flex-shrink:0;color:var(--gold);margin-top:.28rem}
+.incl-t{font-size:.96rem;color:var(--ink);font-weight:500}
+.incl-d{font-size:.86rem;color:var(--ink-soft);line-height:1.6}
+
+/* ── pricing ────────────────────────────────────────────────────────────── */
+.pr-table{border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-top:.5rem}
+.pr-head,.pr-row{display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr}
+.pr-head{background:#F2ECDD;border-bottom:1px solid var(--line)}
+.pr-c{
+  padding:.7rem .3rem;text-align:center;min-width:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.1rem;
+}
+.pr-h-guests{font-size:.72rem;color:var(--ink-soft);letter-spacing:.02em}
+.pr-h-plan{font-size:.76rem;font-weight:500;color:var(--ink)}
+.pr-h-plan.hi{background:var(--gold-glow)}
+.pr-tag{font-size:.56rem;letter-spacing:.1em;color:var(--gold);text-transform:uppercase}
+.pr-row{border-bottom:1px solid var(--line);cursor:pointer;background:var(--paper);transition:background .18s}
+.pr-row:last-child{border-bottom:none}
+.pr-row:hover{background:var(--paper-warm)}
+.pr-guests{font-size:.8rem;color:var(--ink-soft);border-inline-end:1px solid var(--line)}
+.pr-price{
+  font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;font-weight:500;color:var(--ink);
+  flex-direction:row;align-items:baseline;gap:1px;
+}
+.pr-price.hi{background:var(--gold-glow);color:var(--gold)}
+.pr-row:hover .pr-price.hi{background:transparent}
+.pr-cur{font-size:.66em;opacity:.7}
+.pr-quote{font-size:.8rem;color:var(--gold)}
+.pr-note{text-align:center;font-size:.8rem;color:var(--ink-soft);margin-top:.9rem}
+@media(max-width:400px){
+  .pr-c{padding:.6rem .12rem}
+  .pr-guests{font-size:.71rem}
+  .pr-price{font-size:.95rem}
+  .pr-h-plan{font-size:.65rem}
+}
+.pw{display:grid;gap:.9rem;margin-top:1.5rem}
+@media(min-width:760px){.pw{grid-template-columns:repeat(3,1fr)}}
+.pw-col{border:1px solid var(--line);border-radius:10px;padding:1.1rem 1.2rem;background:var(--paper-warm)}
+.pw-col.hi{border-color:var(--gold-soft);background:#FBF7EC}
+.pw-col h4{font-family:'Frank Ruhl Libre',serif;font-size:1.02rem;font-weight:500;color:var(--ink);margin-bottom:.55rem}
+.pw-col ul{list-style:none}
+.pw-col li{font-size:.85rem;color:var(--ink-soft);padding:.24rem 0 .24rem 0;line-height:1.55;position:relative;padding-inline-start:1rem}
+.pw-col li::before{content:'';position:absolute;inset-inline-start:0;top:.72em;width:4px;height:4px;border-radius:50%;background:var(--gold-soft)}
+
+/* ── faq ────────────────────────────────────────────────────────────────── */
+.faq-item{border-bottom:1px solid var(--line)}
+.faq-item:last-child{border-bottom:none}
+.faq-q{
+  width:100%;background:none;border:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:1rem;
+  padding:1.05rem 0;text-align:start;
+  font-family:'Heebo',sans-serif;font-size:.98rem;font-weight:500;color:var(--ink);
+}
+.faq-mark{flex-shrink:0;color:var(--gold);transition:transform .28s var(--ease)}
+.faq-item.open .faq-mark{transform:rotate(45deg)}
+.faq-a{
+  overflow:hidden;max-height:0;
+  transition:max-height .34s var(--ease),opacity .24s;
+  opacity:0;
+}
+.faq-item.open .faq-a{max-height:22rem;opacity:1}
+.faq-a p{font-size:.9rem;color:var(--ink-soft);line-height:1.72;padding-bottom:1.05rem}
+
+/* ── closing ────────────────────────────────────────────────────────────── */
+#closing{text-align:center}
+#closing h2{color:var(--paper)}
+#closing h2 em{font-style:normal;color:var(--gold)}
+.closing-sub{color:rgba(248,244,234,.72);font-weight:300;margin-bottom:1.9rem;max-width:26rem;margin-inline:auto}
+
+/* ── footer ─────────────────────────────────────────────────────────────── */
+footer{
+  border-top:1px solid rgba(199,174,122,.18);
+  padding:2.4rem 1.25rem 2.8rem;text-align:center;
+}
+.f-brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1rem}
+.f-brand img{width:26px;height:26px;object-fit:contain}
+.f-word{font-family:'Frank Ruhl Libre',serif;font-size:.95rem;color:var(--paper)}
+.f-word span{color:var(--gold)}
+.f-links{display:flex;gap:1.4rem;justify-content:center;flex-wrap:wrap;margin-bottom:1rem}
+.f-links a{
+  color:rgba(248,244,234,.62);text-decoration:none;font-size:.85rem;
+  transition:color .2s;
+}
+.f-links a:hover{color:var(--gold-soft)}
+.f-copy{font-size:.74rem;color:rgba(248,244,234,.36);letter-spacing:.03em}
+
+/* ═══ ORDER POPUP ═════════════════════════════════════════════════════════ */
+#order-modal{position:fixed;inset:0;z-index:900;display:none;align-items:center;justify-content:center;padding:1.5rem}
+#order-modal.open{display:flex}
+#order-modal-bg{
+  position:absolute;inset:0;background:rgba(12,22,17,.62);
+  backdrop-filter:blur(7px);-webkit-backdrop-filter:blur(7px);
+}
+#order-modal-box{
+  position:relative;z-index:1;width:100%;max-width:480px;max-height:90vh;
+  overflow-y:auto;background:var(--paper);border-radius:var(--r);padding:9px;
+  box-shadow:0 28px 70px rgba(0,0,0,.45);
+  will-change:transform;
+  animation:popIn .4s var(--ease) both;
+}
+@keyframes popIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+#order-modal-inner{
+  border:1px solid var(--gold-soft);
+  outline:1px solid var(--gold-soft);outline-offset:3px;
+  border-radius:calc(var(--r) - 4px);
+  padding:1.5rem 1.4rem 1.6rem;color:var(--ink);
+}
+@media(min-width:520px){#order-modal-inner{padding:1.7rem 1.8rem}}
+.sheet-grab{display:none}
+#order-modal-close{position:sticky;top:0;z-index:3;display:flex;justify-content:flex-end;padding:0 0 .2rem}
+#order-modal-close button{
+  background:none;border:none;font-size:1.2rem;line-height:1;cursor:pointer;
+  color:var(--ink-soft);padding:.25rem;transition:color .2s;
+}
+#order-modal-close button:hover{color:var(--ink)}
+
+.wiz-progress{display:flex;gap:.3rem;margin-bottom:.7rem}
+.wiz-dot{flex:1;height:2px;background:var(--line);transition:background .3s var(--ease)}
+.wiz-dot.done{background:var(--gold)}
+.wiz-step-lbl{font-size:.68rem;letter-spacing:.14em;color:var(--gold);text-align:center;margin-bottom:1.1rem;text-transform:uppercase}
+.wiz-step{display:none}
+.wiz-step.active{display:block}
+.wiz-step.active.from-next{animation:stepNext .34s var(--ease) both}
+.wiz-step.active.from-prev{animation:stepPrev .34s var(--ease) both}
+@keyframes stepNext{from{opacity:0;transform:translate3d(-14px,0,0)}to{opacity:1;transform:none}}
+@keyframes stepPrev{from{opacity:0;transform:translate3d(14px,0,0)}to{opacity:1;transform:none}}
+
+.o-title{font-family:'Frank Ruhl Libre',serif;font-size:1.42rem;font-weight:700;color:var(--ink);letter-spacing:-.012em}
+.pop-sub{font-size:.86rem;color:var(--ink-soft);margin:.2rem 0 1.2rem;line-height:1.6}
+.pop-fine{text-align:center;font-size:.71rem;color:var(--ink-soft);margin-top:1rem;line-height:1.55}
+
+.fgrid{display:grid;grid-template-columns:1fr;gap:.85rem}
+.frow{display:flex;flex-direction:column;gap:.32rem}
+.frow.full{grid-column:1/-1}
+.frow label{font-size:.8rem;font-weight:500;color:var(--ink);letter-spacing:.01em}
+.req{color:var(--gold)}
+.fopt{font-size:.7rem;color:var(--ink-soft);font-weight:400;margin-inline-start:.3rem}
+.frow input{
+  width:100%;padding:.75rem .9rem;background:var(--paper-warm);
+  border:1px solid var(--line);border-radius:8px;
+  font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);
+  transition:border-color .16s,box-shadow .16s,background .16s;
+}
+.frow input::placeholder{color:#A9AF9D}
+.frow input:focus{outline:none;border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px var(--gold-glow)}
+.frow input.bad{border-color:var(--err);box-shadow:0 0 0 3px rgba(168,64,47,.1)}
+.ferr{font-size:.74rem;color:var(--err);max-height:0;opacity:0;overflow:hidden;transition:max-height .18s,opacity .18s}
+.ferr.on{max-height:3em;opacity:1;margin-top:.15rem}
+
+/* select: the panel continues the field's own line */
+.isel{position:relative}
+.isel-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
+.isel-btn{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  padding:.75rem .9rem;min-height:46px;
+  background:var(--paper-warm);border:1px solid var(--line);border-radius:8px;
+  font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);
+  text-align:start;cursor:pointer;
+  transition:border-color .16s,box-shadow .16s,border-radius .16s,background .16s;
+}
+.isel-btn:hover{border-color:var(--gold-soft)}
+.isel-btn:focus-visible{outline:none;border-color:var(--gold);background:#fff;box-shadow:0 0 0 3px var(--gold-glow)}
+.isel[data-placeholder="true"] .isel-val{color:#A9AF9D}
+.isel-arrow{color:var(--gold);display:flex;flex-shrink:0;transition:transform .22s var(--ease)}
+.isel[data-open="true"] .isel-arrow{transform:rotate(180deg)}
+.isel.bad .isel-btn{border-color:var(--err);box-shadow:0 0 0 3px rgba(168,64,47,.1)}
+.isel[data-open="true"] .isel-btn{
+  border-color:var(--gold);border-bottom-color:var(--line);
+  border-radius:8px 8px 0 0;background:#fff;box-shadow:none;
+}
+.isel-panel{
+  position:absolute;top:100%;inset-inline-start:0;inset-inline-end:0;z-index:40;
+  background:#fff;border:1px solid var(--gold);border-top:none;
+  border-radius:0 0 8px 8px;
+  max-height:min(258px,42vh);overflow-y:auto;overscroll-behavior:contain;
+  box-shadow:0 16px 34px rgba(24,42,33,.16);
+  animation:iselOpen .22s var(--ease) both;
+}
+@keyframes iselOpen{from{opacity:.4;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+.isel[data-open="false"] .isel-panel{animation:iselClose .15s cubic-bezier(.4,0,1,1) both}
+@keyframes iselClose{from{opacity:1;clip-path:inset(0 0 0 0)}to{opacity:0;clip-path:inset(0 0 100% 0)}}
+.isel-opt{
+  padding:.66rem .9rem;font-size:.96rem;color:var(--ink);cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  border-bottom:1px solid #F0EBDE;
+}
+.isel-opt:last-child{border-bottom:none}
+.isel-opt.active{background:var(--paper-warm)}
+.isel-opt.on{background:#FBF7EC;color:var(--gold);font-weight:500}
+.isel-opt.on::after{content:'✓';font-size:.85rem}
+
+/* consent */
+.consent{display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;margin-top:.15rem}
+.consent input{position:absolute;opacity:0;width:1px;height:1px}
+.consent-box{
+  flex-shrink:0;width:20px;height:20px;margin-top:1px;
+  border:1px solid var(--line);border-radius:5px;background:var(--paper-warm);
+  display:flex;align-items:center;justify-content:center;
+  transition:background .16s var(--ease),border-color .16s,transform .16s;
+}
+.consent-box::after{
+  content:'';width:10px;height:6px;
+  /* physical sides on purpose: a checkmark must not mirror in RTL */
+  border-left:2px solid var(--paper);border-bottom:2px solid var(--paper);
+  transform:rotate(-45deg) scale(.4);opacity:0;margin-bottom:2px;
+  transition:transform .18s cubic-bezier(.2,.9,.3,1.3),opacity .12s;
+}
+.consent input:checked + .consent-box{background:var(--gold);border-color:var(--gold)}
+.consent input:checked + .consent-box::after{transform:rotate(-45deg) scale(1);opacity:1}
+.consent:active .consent-box{transform:scale(.9)}
+.consent input:focus-visible + .consent-box{outline:2px solid var(--gold);outline-offset:2px}
+.consent-txt{font-size:.78rem;color:var(--ink-soft);line-height:1.5}
+
+/* packages */
+.pop-plans-lbl{font-size:.8rem;font-weight:500;color:var(--ink);margin:1.1rem 0 .45rem}
+.plan-opts{display:flex;flex-direction:column;gap:.5rem}
+.plan-opt{
+  display:flex;align-items:center;gap:.7rem;position:relative;
+  padding:.85rem .9rem;background:var(--paper-warm);
+  border:1px solid var(--line);border-radius:9px;cursor:pointer;
+  transition:border-color .2s,background .2s,transform .22s var(--ease);
+}
+.plan-opt:hover{border-color:var(--gold-soft)}
+.plan-opt:active{transform:scale(.985);transition-duration:100ms}
+.plan-opt.on{border-color:var(--gold);background:#FBF7EC}
+.plan-chk{
+  flex-shrink:0;width:19px;height:19px;border:1px solid var(--line);border-radius:50%;
+  background:#fff;display:flex;align-items:center;justify-content:center;
+  font-size:.7rem;color:#fff;transition:background .18s,border-color .18s;
+}
+.plan-opt.on .plan-chk{background:var(--gold);border-color:var(--gold)}
+.plan-txt{flex:1;display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.plan-opt-name{font-family:'Frank Ruhl Libre',serif;font-size:1rem;font-weight:500;color:var(--ink)}
+.plan-opt-note{font-size:.74rem;color:var(--ink-soft);line-height:1.45}
+.plan-opt-price{
+  font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;font-weight:500;
+  color:var(--gold);white-space:nowrap;flex-shrink:0;
+}
+.plan-opt-price .cur{font-size:.68em;opacity:.75}
+.plan-rec{
+  position:absolute;top:-8px;inset-inline-start:.85rem;
+  background:var(--gold);color:#1B1508;font-size:.58rem;font-weight:500;
+  letter-spacing:.1em;padding:.15rem .5rem;border-radius:99px;line-height:1.5;
+  text-transform:uppercase;
+}
+.pop-total[hidden]{display:none}
+.pop-total{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  border-top:1px solid var(--line);margin-top:1rem;padding-top:.9rem;
+}
+.pop-total .pt-l{font-size:.82rem;color:var(--ink-soft)}
+.pop-total .pt-v{font-family:'Frank Ruhl Libre',serif;font-size:1.5rem;font-weight:700;color:var(--gold)}
+.pop-total.quote{display:block;text-align:center;font-size:.84rem;color:var(--ink-soft);line-height:1.6}
+
+.wiz-nav{display:flex;align-items:center;gap:.6rem;margin-top:1.3rem}
+.wiz-next{
+  flex:1;height:48px;background:var(--pine);color:var(--paper);border:none;border-radius:9px;
+  font-family:'Heebo',sans-serif;font-size:.98rem;font-weight:500;cursor:pointer;
+  transition:background .2s,transform .22s var(--ease);
+}
+.wiz-next:hover{background:var(--pine-deep)}
+.wiz-next:active{transform:scale(.972);transition-duration:100ms}
+.wiz-next:disabled{opacity:.5;pointer-events:none}
+.wiz-back{
+  background:none;border:1px solid var(--line);border-radius:9px;
+  padding:.6rem 1.05rem;font-family:'Heebo',sans-serif;font-size:.86rem;
+  color:var(--ink-soft);cursor:pointer;transition:border-color .2s,color .2s;
+}
+.wiz-back:hover{border-color:var(--ink-soft);color:var(--ink)}
+
+/* ── mobile: the popup becomes a sheet you can throw away ───────────────── */
+@media(max-width:640px){
+  #order-modal{padding:0;align-items:flex-end}
+  #order-modal-box{
+    max-width:none;border-radius:18px 18px 0 0;max-height:94vh;padding:7px 7px 0;
+    animation:sheetUp .4s var(--ease) both;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  @keyframes sheetUp{from{transform:translate3d(0,100%,0)}to{transform:none}}
+  #order-modal-inner{outline:none;border-radius:14px 14px 0 0;padding:.6rem 1.15rem 1.5rem}
+  .sheet-grab{
+    display:flex;align-items:center;justify-content:center;
+    padding:.5rem 0 .35rem;cursor:grab;touch-action:none;
+    position:sticky;top:0;z-index:4;background:var(--paper);
+    border-radius:18px 18px 0 0;
+  }
+  .sheet-grab span{width:38px;height:4px;border-radius:99px;background:var(--line)}
+  #order-modal-close{margin-top:-1.4rem;padding-inline-end:.4rem}
+  /* 16px keeps iOS from zooming the page on focus */
+  .frow input,.isel-btn{font-size:16px}
+}
+
+/* ── reveal ─────────────────────────────────────────────────────────────── */
+.fi{opacity:0;transform:translateY(16px);transition:opacity .7s var(--ease),transform .7s var(--ease)}
+.fi.v{opacity:1;transform:none}
+
+/* ── preferences ────────────────────────────────────────────────────────── */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .fi{opacity:1;transform:none}
+  .wiz-step.active.from-next,.wiz-step.active.from-prev{animation:fadeOnly .18s ease both}
+  @keyframes fadeOnly{from{opacity:0}to{opacity:1}}
+  .btn:active,.wiz-next:active,.plan-opt:active,.nav-cta:active{transform:none}
+}
+@media (prefers-reduced-transparency:reduce){
+  #nav{background:var(--pine-deep);backdrop-filter:none;-webkit-backdrop-filter:none}
+  #order-modal-bg{background:rgba(12,22,17,.94);backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  .frow input,.isel-btn,.plan-opt{border-color:var(--ink-soft)}
+  .hero-sub,.closing-sub{color:var(--paper)}
+}
+</style>
+</head>
+<body>
+
+<!-- ── nav ──────────────────────────────────────────────────────────────── -->
+<nav id="nav">
+  <a class="nav-brand" href="#hero">
+    <img src="../assets/logo-light.png" alt="">
+    <span class="nav-word">ishur<span>.io</span></span>
+  </a>
+  <button class="nav-cta" data-order="nav">להזמנה</button>
+</nav>
+
+<!-- ── hero ─────────────────────────────────────────────────────────────── -->
+<section id="hero">
+  <div class="wrap">
+    <p class="eyebrow">אישורי הגעה בוואטסאפ</p>
+    <div class="flourish" aria-hidden="true">
+      <svg width="140" height="10" viewBox="0 0 140 10" fill="none">
+        <line x1="0" y1="5" x2="58" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+        <circle cx="70" cy="5" r="2.8" fill="#A8853C"/>
+        <line x1="82" y1="5" x2="140" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+      </svg>
+    </div>
+    <h1 class="hero-h1">מי מגיע לאירוע שלכם?<br><em>אנחנו נברר.</em></h1>
+    <p class="hero-sub">
+      כל מוזמן מקבל הודעה אישית בוואטסאפ. מי שלא עונה מקבל תזכורת, ואחר כך שיחה.
+      אתם מקבלים מספר מדויק לפני שהאולם שואל.
+    </p>
+    <div class="hero-btns">
+      <button class="btn btn-gold" data-order="hero">להזמנה</button>
+      <a class="btn btn-ghost" href="#pricing">למחירים</a>
+    </div>
+    <p class="hero-note">מאות אירועים · הפעלה תוך דקות · בלי אפליקציה להתקין</p>
+  </div>
+</section>
+
+<!-- ── how ──────────────────────────────────────────────────────────────── -->
+<section id="how">
+  <div class="wrap">
+    <div class="paper fi">
+      <div class="paper-in">
+        <div class="center">
+          <p class="eyebrow" style="color:var(--gold)">איך זה עובד</p>
+          <h2 style="color:var(--ink);margin-top:.5rem">שלושה צעדים, ואתם בחוץ</h2>
+          <div class="flourish tight" aria-hidden="true">
+            <svg width="110" height="10" viewBox="0 0 110 10" fill="none">
+              <line x1="0" y1="5" x2="44" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+              <circle cx="55" cy="5" r="2.4" fill="#A8853C"/>
+              <line x1="66" y1="5" x2="110" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+        <div class="steps">
+          <div class="step">
+            <span class="step-n">א</span>
+            <h3>מזמינים</h3>
+            <p>ממלאים חמישה פרטים ומשלמים. לוקח פחות מדקה.</p>
+          </div>
+          <div class="step">
+            <span class="step-n">ב</span>
+            <h3>מעלים רשימה</h3>
+            <p>קישור אישי מגיע בוואטסאפ. מעלים קובץ Excel עם שם, טלפון וכמות.</p>
+          </div>
+          <div class="step">
+            <span class="step-n">ג</span>
+            <h3>מקבלים תשובות</h3>
+            <p>אנחנו שולחים, מזכירים ומתקשרים. אתם מקבלים דוח מסודר.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── included ─────────────────────────────────────────────────────────── -->
+<section id="included">
+  <div class="wrap narrow">
+    <div class="paper fi">
+      <div class="paper-in">
+        <div class="center">
+          <p class="eyebrow">מה מקבלים</p>
+          <h2 style="color:var(--ink);margin-top:.5rem">כל מה שצריך, בלי שתבקשו</h2>
+          <div class="flourish tight" aria-hidden="true">
+            <svg width="110" height="10" viewBox="0 0 110 10" fill="none">
+              <line x1="0" y1="5" x2="44" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+              <circle cx="55" cy="5" r="2.4" fill="#A8853C"/>
+              <line x1="66" y1="5" x2="110" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+        <div class="incl">
+          <div class="incl-row">
+            <span class="incl-mark" aria-hidden="true">&#9670;</span>
+            <span><span class="incl-t">הודעה אישית לכל מוזמן</span>
+            <span class="incl-d">בשמו, עם התאריך והמקום, וכפתורים לאישור או סירוב.</span></span>
+          </div>
+          <div class="incl-row">
+            <span class="incl-mark" aria-hidden="true">&#9670;</span>
+            <span><span class="incl-t">תזכורת למי שלא ענה</span>
+            <span class="incl-d">יוצאת מעצמה. אתם לא רודפים אחרי אף אחד.</span></span>
+          </div>
+          <div class="incl-row">
+            <span class="incl-mark" aria-hidden="true">&#9670;</span>
+            <span><span class="incl-t">שיחה אנושית לשקטים</span>
+            <span class="incl-d">מי שלא הגיב גם לתזכורת מקבל טלפון מנציג שלנו.</span></span>
+          </div>
+          <div class="incl-row">
+            <span class="incl-mark" aria-hidden="true">&#9670;</span>
+            <span><span class="incl-t">מספר מדויק לפני האירוע</span>
+            <span class="incl-d">כמה מגיעים, כמה לא, מי עדיין שותק. בוואטסאפ שלכם.</span></span>
+          </div>
+          <div class="incl-row">
+            <span class="incl-mark" aria-hidden="true">&#9670;</span>
+            <span><span class="incl-t">תזכורת יום לפני</span>
+            <span class="incl-d">עם הכתובת, למי שאישר. פחות שיחות אליכם ביום עצמו.</span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── pricing ──────────────────────────────────────────────────────────── -->
+<section id="pricing">
+  <div class="wrap">
+    <div class="paper fi">
+      <div class="paper-in">
+        <div class="center">
+          <p class="eyebrow">מחירון</p>
+          <h2 style="color:var(--ink);margin-top:.5rem">תשלום אחד לאירוע</h2>
+          <div class="flourish tight" aria-hidden="true">
+            <svg width="110" height="10" viewBox="0 0 110 10" fill="none">
+              <line x1="0" y1="5" x2="44" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+              <circle cx="55" cy="5" r="2.4" fill="#A8853C"/>
+              <line x1="66" y1="5" x2="110" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="pr-table">
+          <div class="pr-head" id="pr-head"></div>
+          <div class="pr-body" id="pr-body"></div>
+        </div>
+        <p class="pr-note">לחצו על שורה כדי להתחיל. המחירים כוללים מע״מ.</p>
+
+        <div class="pw">
+          <div class="pw-col"><h4>בסיס</h4><ul id="pw-basic"></ul></div>
+          <div class="pw-col hi"><h4>פרמיום</h4><ul id="pw-pro"></ul></div>
+          <div class="pw-col"><h4>הכל כלול</h4><ul id="pw-premium"></ul></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── faq ──────────────────────────────────────────────────────────────── -->
+<section id="faq">
+  <div class="wrap narrow">
+    <div class="paper fi">
+      <div class="paper-in">
+        <div class="center">
+          <p class="eyebrow">שאלות</p>
+          <h2 style="color:var(--ink);margin-top:.5rem">מה שרוב האנשים שואלים</h2>
+          <div class="flourish tight" aria-hidden="true">
+            <svg width="110" height="10" viewBox="0 0 110 10" fill="none">
+              <line x1="0" y1="5" x2="44" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+              <circle cx="55" cy="5" r="2.4" fill="#A8853C"/>
+              <line x1="66" y1="5" x2="110" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="faq" id="faq-list">
+          <div class="faq-item">
+            <button class="faq-q" type="button">
+              <span>איך אני מעביר את רשימת המוזמנים?</span>
+              <span class="faq-mark" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+            <div class="faq-a"><p>אחרי התשלום מגיע אליכם קישור אישי בוואטסאפ. פותחים, מעלים קובץ Excel או CSV עם שלוש עמודות: שם, טלפון, כמות מוזמנים. זהו.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button">
+              <span>מה קורה עם מי שלא עונה?</span>
+              <span class="faq-mark" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+            <div class="faq-a"><p>הוא מקבל תזכורת אוטומטית. אם גם אז אין תשובה, בחבילות פרמיום והכל כלול נציג שלנו מתקשר אליו ומאשר בשמו.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button">
+              <span>צריך להתקין משהו?</span>
+              <span class="faq-mark" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+            <div class="faq-a"><p>לא. המוזמנים מקבלים הודעה רגילה בוואטסאפ ולוחצים על כפתור. אתם מקבלים עדכונים לוואטסאפ שלכם.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button">
+              <span>מתי כדאי להתחיל?</span>
+              <span class="faq-mark" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+            <div class="faq-a"><p>שבועיים עד שלושה לפני האירוע זה הטווח שעובד הכי טוב. אפשר גם מוקדם יותר, ואפשר גם ימים ספורים לפני.</p></div>
+          </div>
+          <div class="faq-item">
+            <button class="faq-q" type="button">
+              <span>ומה אם האירוע נדחה?</span>
+              <span class="faq-mark" aria-hidden="true">
+                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+              </span>
+            </button>
+            <div class="faq-a"><p>בחבילת הכל כלול נשלחת הודעת דחייה או ביטול לכל הרשימה. שינוי תאריכי שליחה אפשרי עד 48 שעות לפני משלוח שטרם יצא.</p></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── closing ──────────────────────────────────────────────────────────── -->
+<section id="closing">
+  <div class="wrap narrow fi">
+    <div class="flourish" aria-hidden="true">
+      <svg width="140" height="10" viewBox="0 0 140 10" fill="none">
+        <line x1="0" y1="5" x2="58" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+        <circle cx="70" cy="5" r="2.8" fill="#A8853C"/>
+        <line x1="82" y1="5" x2="140" y2="5" stroke="#C7AE7A" stroke-width="1"/>
+      </svg>
+    </div>
+    <h2>יש לכם מספיק על הראש.<br><em>את הספירה תשאירו לנו.</em></h2>
+    <p class="closing-sub" style="margin-top:1rem">הפעלה לוקחת דקה. משם זה כבר רץ לבד.</p>
+    <button class="btn btn-gold" data-order="closing">להזמנה</button>
+  </div>
+</section>
+
+<!-- ── footer ───────────────────────────────────────────────────────────── -->
+<footer>
+  <div class="f-brand">
+    <img src="../assets/logo-light.png" alt="">
+    <span class="f-word">ishur<span>.io</span></span>
+  </div>
+  <div class="f-links">
+    <a href="#" data-wa>וואטסאפ</a>
+    <a href="#" data-mail>info@ishur.io</a>
+    <a href="terms.html">תנאי שימוש</a>
+    <a href="terms.html#privacy">פרטיות</a>
+  </div>
+  <p class="f-copy">© 2026 ishur.io · אישורי הגעה בוואטסאפ</p>
+</footer>
+
+<!-- ── order popup ──────────────────────────────────────────────────────── -->
+<div id="order-modal" role="dialog" aria-modal="true" aria-labelledby="pop-title">
+  <div id="order-modal-bg"></div>
+  <div id="order-modal-box">
+    <div class="sheet-grab" data-sheet-handle aria-hidden="true"><span></span></div>
+    <div id="order-modal-inner">
+      <div id="order-modal-close"><button type="button" data-pop-close aria-label="סגירת החלון">&#10005;</button></div>
+
+      <div class="wiz-progress" aria-hidden="true">
+        <div class="wiz-dot" id="wd1"></div>
+        <div class="wiz-dot" id="wd2"></div>
+      </div>
+      <div class="wiz-step-lbl" id="wiz-lbl">שלב 1 מתוך 2</div>
+
+      <!-- step 1 -->
+      <div class="wiz-step active" id="ws1">
+        <h3 class="o-title" id="pop-title">נעים להכיר</h3>
+        <p class="pop-sub">שלושה שדות ואפשר להמשיך.</p>
+        <div class="fgrid">
+          <div class="frow full">
+            <label for="f-name">שם מלא <span class="req">*</span></label>
+            <input type="text" id="f-name" name="name" autocomplete="name" placeholder="ישראל ישראלי" enterkeyhint="next" aria-describedby="e-name">
+            <p class="ferr" id="e-name" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-phone">טלפון <span class="req">*</span></label>
+            <input type="tel" id="f-phone" name="tel" autocomplete="tel" inputmode="tel" placeholder="050-0000000" enterkeyhint="next" aria-describedby="e-phone">
+            <p class="ferr" id="e-phone" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-email">אימייל <span class="fopt">לא חובה</span></label>
+            <input type="email" id="f-email" name="email" autocomplete="email" inputmode="email" placeholder="you@example.com" enterkeyhint="done" aria-describedby="e-email">
+            <p class="ferr" id="e-email" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label class="consent" for="f-consent">
+              <input type="checkbox" id="f-consent">
+              <span class="consent-box" aria-hidden="true"></span>
+              <span class="consent-txt">כן, שלחו לי טיפים לארגון האירוע והטבות. כותבים מעט, ורק כשיש משהו ששווה.</span>
+            </label>
+          </div>
+        </div>
+        <div class="wiz-nav"><button type="button" class="wiz-next" id="pop-next">המשך</button></div>
+        <p class="pop-fine">הפרטים משמשים לשליחת אישור ההזמנה ולתמיכה.</p>
+      </div>
+
+      <!-- step 2 -->
+      <div class="wiz-step" id="ws2">
+        <h3 class="o-title">על האירוע</h3>
+        <p class="pop-sub">בחרו סוג וכמות, ונסמן את החבילה שמתאימה.</p>
+        <div class="fgrid">
+          <div class="frow full">
+            <label for="f-occasion">סוג האירוע <span class="req">*</span></label>
+            <select id="f-occasion" data-isel aria-describedby="e-occasion"></select>
+            <p class="ferr" id="e-occasion" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-guests">כמות מוזמנים <span class="req">*</span></label>
+            <select id="f-guests" data-isel aria-describedby="e-guests"></select>
+            <p class="ferr" id="e-guests" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="pop-plans-lbl" id="plans-lbl">חבילה <span class="req">*</span></div>
+        <div class="plan-opts" id="f-plans" role="radiogroup" aria-labelledby="plans-lbl"></div>
+        <p class="ferr" id="e-plan" aria-live="polite"></p>
+
+        <div class="pop-total" id="pop-total" hidden aria-live="polite"></div>
+
+        <div class="wiz-nav">
+          <button type="button" class="wiz-back" id="pop-back">חזרה</button>
+          <button type="button" class="wiz-next" id="pop-submit">המשך לתשלום</button>
+        </div>
+        <p class="pop-fine">תשלום מאובטח דרך Grow · Visa · Mastercard · bit</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<script src="../assets/select.js"></script>
+<script src="../assets/popup.js"></script>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+
+  /* pricing, straight from config */
+  function buildPricing() {
+    var head = document.getElementById('pr-head');
+    var body = document.getElementById('pr-body');
+    head.innerHTML = '<div class="pr-c pr-h-guests">מוזמנים</div>' +
+      CFG.PLAN_ORDER.map(function (k) {
+        return '<div class="pr-c pr-h-plan' + (k === 'pro' ? ' hi' : '') + '">' +
+               '<span>' + CFG.PLANS[k].name + '</span>' +
+               (k === 'pro' ? '<span class="pr-tag">הנפוץ</span>' : '') + '</div>';
+      }).join('');
+
+    body.innerHTML = CFG.GUEST_TIERS.map(function (t) {
+      if (t.value === 'custom') {
+        return '<div class="pr-row" data-order="pricing-custom" role="button" tabindex="0">' +
+               '<div class="pr-c pr-guests">' + t.label + '</div>' +
+               '<div class="pr-c pr-quote" style="grid-column:2/-1">מתומחר לפי האירוע · דברו איתנו</div></div>';
+      }
+      return '<div class="pr-row" data-order="pricing-' + t.value + '" role="button" tabindex="0">' +
+             '<div class="pr-c pr-guests">' + t.label + '</div>' +
+             CFG.PLAN_ORDER.map(function (k) {
+               return '<div class="pr-c pr-price' + (k === 'pro' ? ' hi' : '') + '">' +
+                      '<span class="pr-cur">₪</span>' + CFG.priceFor(t.value, k) + '</div>';
+             }).join('') + '</div>';
+    }).join('');
+
+    body.querySelectorAll('[data-order]').forEach(function (r) {
+      r.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); r.click(); }
+      });
+    });
+
+    CFG.PLAN_ORDER.forEach(function (k) {
+      var ul = document.getElementById('pw-' + k);
+      if (ul) ul.innerHTML = CFG.PLANS[k].features.map(function (f) { return '<li>' + f + '</li>'; }).join('');
+    });
+  }
+  buildPricing();
+
+  /* the pricing rows are built after popup.js bound its delegated handler,
+     so they are wired here */
+  document.querySelectorAll('#pr-body [data-order]').forEach(function (el) {
+    el.addEventListener('click', function () { IshurPopup.open(el.getAttribute('data-order')); });
+  });
+
+  /* faq */
+  document.querySelectorAll('.faq-q').forEach(function (q) {
+    q.addEventListener('click', function () {
+      var item = q.parentNode;
+      var wasOpen = item.classList.contains('open');
+      document.querySelectorAll('.faq-item').forEach(function (i) { i.classList.remove('open'); });
+      if (!wasOpen) {
+        item.classList.add('open');
+        IshurLead.track('faq_open', { question: q.textContent.trim().slice(0, 60) });
+      }
+    });
+  });
+
+  /* contact links from config */
+  var q = new URLSearchParams(location.search);
+  var utm = ['utm_source', 'utm_medium', 'utm_campaign']
+    .map(function (k) { return q.get(k) ? k + '=' + q.get(k) : ''; }).filter(Boolean);
+  document.querySelectorAll('[data-wa]').forEach(function (a) {
+    var url = new URL(CFG.waLink());
+    utm.forEach(function (p) { var kv = p.split('='); url.searchParams.set(kv[0], kv[1]); });
+    a.href = url.toString();
+    a.target = '_blank'; a.rel = 'noopener';
+  });
+  document.querySelectorAll('[data-mail]').forEach(function (a) {
+    a.href = 'mailto:' + CFG.SUPPORT_EMAIL;
+    a.textContent = CFG.SUPPORT_EMAIL;
+  });
+
+  /* nav lifts off the page once you scroll */
+  var nav = document.getElementById('nav');
+  addEventListener('scroll', function () {
+    nav.classList.toggle('sc', scrollY > 24);
+  }, { passive: true });
+
+  /* reveal on entry */
+  var obs = new IntersectionObserver(function (es) {
+    es.forEach(function (e) { if (e.isIntersecting) e.target.classList.add('v'); });
+  }, { threshold: .08, rootMargin: '0px 0px -40px 0px' });
+  document.querySelectorAll('.fi').forEach(function (el) { obs.observe(el); });
+
+  /* section views and scroll depth */
+  var seen = new Set();
+  var sObs = new IntersectionObserver(function (es) {
+    es.forEach(function (e) {
+      if (e.isIntersecting && e.target.id && !seen.has(e.target.id)) {
+        seen.add(e.target.id);
+        IshurLead.track('section_view', { section: e.target.id });
+      }
+    });
+  }, { threshold: .35 });
+  ['hero', 'how', 'included', 'pricing', 'faq', 'closing'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) sObs.observe(el);
+  });
+
+  var depths = new Set();
+  addEventListener('scroll', function () {
+    var p = Math.round(scrollY / (document.body.scrollHeight - innerHeight) * 100);
+    [25, 50, 75, 90].forEach(function (m) {
+      if (p >= m && !depths.has(m)) { depths.add(m); IshurLead.track('scroll_depth', { depth: m }); }
+    });
+  }, { passive: true });
+})();
+</script>
+</body>
+</html>

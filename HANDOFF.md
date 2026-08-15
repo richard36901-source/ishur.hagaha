@@ -1,0 +1,191 @@
+# ishur.io · handoff
+
+Static site, no build step. Open a file, edit, push. GitHub Pages serves it as is.
+
+## Files
+
+```
+index.html        the site. Landing page + the two-step order popup.
+upload.html       guest-list upload. Reached only with a valid ?t= token.
+thanks.html       where Grow returns after payment.
+config.js         every id, link and price. The only file you normally edit.
+assets/
+  tracking.js     ad platforms, attribution, conversion event ids
+  lead.js         session, phone validation, payload, delivery
+  select.js       the dropdown whose panel continues the field
+  popup.js        the two-step order popup controller
+  logo.png        navy mark, for light backgrounds
+  logo-light.png  white mark, for the dark footer
+  favicon.png
+v2/index.html     parked. Second design ("Invitation") for A/B testing, not finished.
+```
+
+Load order matters and is the same on every page:
+`config.js` → `tracking.js` → `lead.js` → `select.js` → `popup.js`.
+
+## Where each placeholder is consumed
+
+Everything lives in the `FILL ME` block at the top of `config.js`.
+
+| Key | Consumed by | What breaks while it is empty |
+|---|---|---|
+| `MAKE_LEAD_WEBHOOK` | `lead.js` → `send()` | Leads are not recorded. The funnel still works and still redirects to payment. |
+| `MAKE_UPLOAD_WEBHOOK` | `upload.html` | Upload shows "ההעלאה עדיין לא מחוברת" and points the customer to WhatsApp. **Currently empty.** |
+| `GTM_ID` | `tracking.js` → `loadGTM()` | No GTM container loads. `dataLayer` still fills, so nothing is lost once you add the id. |
+| `FB_PIXEL_ID` | `tracking.js` → `loadMeta()` | No browser-side Meta events. Server-side via Make still works. |
+| `TIKTOK_PIXEL_ID` | `tracking.js` → `loadTikTok()` | No TikTok events. Optional. |
+| `GA4_ID` | `tracking.js` → `loadGA4()` | Only used when `GTM_ID` is empty. With GTM set, GTM owns GA4. |
+| `WHATSAPP_NUMBER` | `config.waLink()`, used everywhere | Nothing, it is already set. |
+| `SUPPORT_EMAIL` | `[data-mail]` links | Nothing, already set. |
+| `TEMPLATE_URL` | `upload.html` | The "sample file" row stays hidden. |
+| `GROW_LINKS` | `config.growLink()` | A missing pair routes to WhatsApp instead of a dead page. All 21 are filled. |
+
+Nothing is hardcoded outside `config.js`. If you find a URL or id in a page, that is a bug.
+
+## The funnel
+
+1. Any element with `data-order="<where>"` opens the popup. No inline handlers.
+2. Step 1: name, phone, email, marketing consent.
+3. Step 2: occasion, guest count, package. Picking an occasion pre-selects the
+   package from `OCCASIONS[].rec`, and the customer can override it.
+4. `המשך לתשלום` redirects to `GROW_LINKS['<guests>_<plan>']`.
+5. Grow returns to `thanks.html`, which fires Purchase and tells the customer to
+   watch WhatsApp.
+6. Make sends the tokenized `upload.html?t=<token>` link over WhatsApp, only
+   after Grow's payment webhook confirms the charge.
+
+**Step 6 is the security boundary.** The upload form is never linked from the
+site and shows nothing without a token, so it cannot be reached by editing a URL.
+Do not add a link to it from `thanks.html`.
+
+### Guests over 600
+
+No self-serve price. The package cards show "הצעה אישית", the button becomes
+"לשיחה בוואטסאפ", and the lead is still sent before the handoff, so you keep it.
+
+## Payloads
+
+`POST` JSON to `MAKE_LEAD_WEBHOOK`, `keepalive` so the request survives the
+redirect to Grow. Never blocks the customer: a webhook failure is swallowed and
+payment proceeds.
+
+Four `event_type` values: `lead_partial`, `lead_submitted`, `purchase`, plus
+whatever `IshurLead.track()` pushes to `dataLayer` (that stays in the browser).
+
+```json
+{
+  "event_type": "lead_submitted",
+  "session_id": "uuid",
+  "variant": "v1",
+  "name": "נועה כהן",
+  "phone": "0521234567",
+  "email": "",
+  "occasion": "בר מצווה",
+  "occasion_key": "bar",
+  "guest_range": "עד 200 מוזמנים",
+  "guests": "200",
+  "plan": "pro",
+  "plan_name": "פרמיום",
+  "price": 219,
+  "marketing_consent": true,
+  "page": "https://ishur.io/",
+  "ts": "2026-08-15T12:00:00.000Z",
+  "utm_source": "facebook",
+  "utm_medium": "",
+  "utm_campaign": "weddings_aug",
+  "fbclid": "...", "fbc": "fb.1.1786.....", "fbp": "",
+  "landing_page": "...", "referrer": "", "first_seen": "...",
+  "user_agent": "...",
+  "event_id": "uuid",
+  "event_name": "InitiateCheckout"
+}
+```
+
+Rules worth knowing:
+- `phone` is always normalized to 10 digits starting `05`. `+972` and dashes are
+  handled before sending.
+- `session_id` is minted when the popup opens and is the same across
+  `lead_partial`, `lead_submitted` and `purchase`. Join on it.
+- `lead_partial` fires once per session, the first time the phone field holds a
+  valid number and loses focus. Partial rows should upsert, not insert.
+- `price` is `null` when the guest tier is `custom`.
+
+## Feeding conversions back to Meta
+
+Each conversion carries `event_id` and `event_name`. The browser already fired
+that event with the same id.
+
+**In Make: send the same `event_name` to the Conversions API with the same
+`event_id`.** Meta then counts one conversion instead of two, and still receives
+it when the browser pixel is blocked, which on iOS is often.
+
+Send these to the CAPI, hashed with SHA-256 where Meta requires it:
+
+| CAPI field | From the payload |
+|---|---|
+| `event_name` | `event_name` |
+| `event_id` | `event_id` |
+| `event_source_url` | `page` |
+| `user_data.ph` | `phone`, prefixed `972` and stripped of the leading 0, then hashed |
+| `user_data.em` | `email` lowercased, then hashed (skip when empty) |
+| `user_data.fbc` / `fbp` | `fbc` / `fbp`, sent raw, never hashed |
+| `user_data.external_id` | `session_id`, hashed |
+| `user_data.client_user_agent` | `user_agent` |
+| `custom_data.value` / `currency` | `price` / `"ILS"` |
+
+Funnel mapping: `ViewContent` on popup open, `Lead` on first valid phone,
+`InitiateCheckout` on continue, `Purchase` on `thanks.html`.
+
+The authoritative Purchase is the one Make sends from Grow's payment webhook.
+The browser copy on `thanks.html` exists so Meta gets it fast; the shared
+`event_id` keeps them from double counting.
+
+Attribution is kept in `localStorage` for 30 days, so a purchase that lands back
+from Grow is still tied to the ad that caused it. First touch wins for UTMs, last
+click wins for click ids.
+
+## How to change prices
+
+`PRICE_TABLE` in `config.js`. Both the pricing table on the page and the popup
+read from it. Nothing else to touch.
+
+## How to add a guest tier
+
+1. Add a row to `GUEST_TIERS`, for example `{ value: '800', label: 'עד 800 מוזמנים' }`.
+   Keep `custom` last.
+2. Add the matching row to `PRICE_TABLE`: `800: { basic: …, pro: …, premium: … }`.
+3. Create three Grow links and add them to `GROW_LINKS` as `800_basic`,
+   `800_pro`, `800_premium`.
+
+The pricing table, the popup dropdown and the payment mapping all pick it up.
+Miss step 3 and that tier routes to WhatsApp rather than breaking.
+
+## How to change which package is recommended
+
+`OCCASIONS[].rec` in `config.js`. One word per occasion.
+
+## Consent
+
+The marketing checkbox ships **unchecked**, and it must stay that way. Israeli
+anti-spam law wants explicit prior opt-in, and a pre-ticked box is not that. Send
+marketing only to rows where `marketing_consent` is `true`.
+
+## Before going live
+
+- [ ] Fill `MAKE_UPLOAD_WEBHOOK`, or the upload form cannot accept files
+- [ ] Fill `GTM_ID` and `FB_PIXEL_ID`
+- [ ] Point Grow's post-payment redirect at `https://ishur.io/thanks.html`
+- [ ] Confirm whether `MAKE_LEAD_WEBHOOK` should stay on the existing orders
+      hook or get its own scenario
+- [ ] Check the Make scenario upserts `lead_partial` on `session_id`
+
+## Notes
+
+- No build step, no framework, no dependencies. Fonts come from Google Fonts.
+- Everything is RTL and mobile-first. The popup becomes a draggable sheet under
+  640px.
+- Motion respects `prefers-reduced-motion`, `prefers-reduced-transparency` and
+  `prefers-contrast`.
+- `v2/` is a parked second design for A/B testing. It shares `config.js` and all
+  of `assets/`, so it stays in sync automatically. It is not linked from
+  anywhere and is not finished.
