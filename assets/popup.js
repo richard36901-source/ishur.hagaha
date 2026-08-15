@@ -67,7 +67,7 @@ window.IshurPopup = (function () {
 
   /* ══ state ════════════════════════════════════════════════════════════════ */
 
-  var S = { step: 1, name: '', phone: '', email: '', occasion: '', guests: '', plan: '' };
+  var S = { step: 1, name: '', phone: '', email: '', occasion: '', guests: '', plan: '', consent: false };
   var open = false;
   var lastTrigger = null;
   var cancelSheet = null;
@@ -176,6 +176,15 @@ window.IshurPopup = (function () {
         g.appendChild(new Option(t.label, t.value));
       });
     }
+    /* the panel is a continuation of the field, so the native select is
+       enhanced only once its options are in place */
+    if (window.IshurSelect) {
+      [occ, g].forEach(function (el) {
+        if (!el) return;
+        if (el.dataset.enhanced) IshurSelect.refresh(el);
+        else IshurSelect.enhance(el);
+      });
+    }
   }
 
   function renderPlans() {
@@ -258,16 +267,26 @@ window.IshurPopup = (function () {
     plan:     'בחרו חבילה'
   };
 
+  function shell(f) {
+    return (f && f.closest) ? (f.closest('.isel') || f) : f;
+  }
+
   function showError(field, text) {
     var e = $('e-' + field), f = $('f-' + field);
     if (e) { e.textContent = text; e.classList.add('on'); }
-    if (f) { f.classList.add('bad'); f.setAttribute('aria-invalid', 'true'); }
+    if (f) {
+      shell(f).classList.add('bad');
+      f.setAttribute('aria-invalid', 'true');
+    }
   }
 
   function clearError(field) {
     var e = $('e-' + field), f = $('f-' + field);
     if (e) { e.textContent = ''; e.classList.remove('on'); }
-    if (f) { f.classList.remove('bad'); f.removeAttribute('aria-invalid'); }
+    if (f) {
+      shell(f).classList.remove('bad');
+      f.removeAttribute('aria-invalid');
+    }
   }
 
   function checkName(quiet) {
@@ -321,7 +340,7 @@ window.IshurPopup = (function () {
     var box = $('order-modal-box');
     if (box) box.scrollTop = 0;
 
-    var first = to.querySelector('input, select, [role="radio"]');
+    var first = to.querySelector('input, .isel-btn, [role="radio"]');
     if (first && !isSheet()) setTimeout(function () { first.focus(); }, 60);
   }
 
@@ -333,7 +352,7 @@ window.IshurPopup = (function () {
     var okEmail = checkEmail();
     if (!(okName && okPhone && okEmail)) {
       var bad = document.querySelector('#ws1 .bad');
-      if (bad) bad.focus();
+      if (bad) (bad.classList.contains('isel') ? bad.querySelector('.isel-btn') : bad).focus();
       return;
     }
     setStep(2, 'next');
@@ -354,7 +373,8 @@ window.IshurPopup = (function () {
 
     var fields = {
       name: S.name, phone: S.phone, email: S.email,
-      occasion: S.occasion, guests: S.guests, plan: S.plan
+      occasion: S.occasion, guests: S.guests, plan: S.plan,
+      consent: S.consent
     };
 
     IshurLead.submitted(fields);
@@ -395,7 +415,8 @@ window.IshurPopup = (function () {
     if (!modal) return;
     lastTrigger = document.activeElement;
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = '';
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false;
+    var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
 
     fillSelects();
@@ -468,10 +489,17 @@ window.IshurPopup = (function () {
         IshurLead.partial({
           name: ($('f-name').value || ''), phone: phone.value,
           email: ($('f-email').value || ''),
-          occasion: S.occasion, guests: S.guests, plan: S.plan
+          occasion: S.occasion, guests: S.guests, plan: S.plan,
+          consent: S.consent
         });
       });
     }
+
+    var consent = $('f-consent');
+    if (consent) consent.addEventListener('change', function () {
+      S.consent = consent.checked;
+      IshurLead.track('marketing_consent', { consent: S.consent });
+    });
 
     var occ = $('f-occasion');
     if (occ) occ.addEventListener('change', function () {

@@ -110,6 +110,7 @@ window.IshurLead = (function () {
       plan: f.plan || '',
       plan_name: (f.plan && CFG.PLANS && CFG.PLANS[f.plan]) ? CFG.PLANS[f.plan].name : '',
       price: price,
+      marketing_consent: !!f.consent,
       page: location.href,
       ts: new Date().toISOString()
     };
