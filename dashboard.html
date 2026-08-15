@@ -523,16 +523,31 @@
     body: JSON.stringify({ token: token })
   })
     .then(function (r) {
-      if (r.status === 403 || r.status === 404) throw new Error('dead');
-      return r.json();
+      if (r.status === 403 || r.status === 404) { var e = new Error('dead'); e.dead = true; throw e; }
+      return r.text();
     })
-    .then(function (j) {
+    .then(function (body) {
+      var j;
+      /* a Make webhook with no response module answers "Accepted" in plain
+         text. That is a scenario that has not been finished, not a customer
+         problem, so it is reported as such. */
+      try { j = JSON.parse(body); }
+      catch (e) { var p = new Error('not-json'); p.raw = body; throw p; }
       if (!j || j.ok === false) throw new Error('bad');
       data = j; render();
       IshurLead.track('dashboard_view', {});
     })
-    ['catch'](function () {
-      fail('לא הצלחנו לטעון את הנתונים כרגע.<br>רעננו את העמוד, ואם זה חוזר כתבו לנו.', false);
+    ['catch'](function (e) {
+      if (e && e.dead) {
+        fail('הקישור הזה כבר לא פעיל.<br>כתבו לנו ונשלח קישור עדכני.', false);
+        return;
+      }
+      if (e && e.message === 'not-json') {
+        IshurLead.track('dashboard_no_response', { raw: String(e.raw || '').slice(0, 40) });
+        fail('לוח הבקרה עדיין לא מחזיר נתונים.<br>הוא יתמלא מעצמו ברגע שהחיבור יושלם.', true);
+        return;
+      }
+      fail('לא הצלחנו לטעון את הנתונים כרגע.<br>רעננו את העמוד, ואם זה חוזר כתבו לנו.', true);
     });
 })();
 </script>

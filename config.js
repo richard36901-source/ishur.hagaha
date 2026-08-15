@@ -15,14 +15,15 @@ window.ISHUR_CONFIG = (function () {
      to WhatsApp, a missing GTM id skips the container.
      ─────────────────────────────────────────────────────────────────────── */
 
-  var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/pc0r3vknvc1tpg7as1cn8wefsemab61w';
-  var MAKE_UPLOAD_WEBHOOK = '';          // guest-list file uploads (multipart)
-  var MAKE_STATUS_WEBHOOK = '';          // dashboard reads event + guest status
+  var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/ncspc47ub65nex4k8ndufpurk1pky4hg';
+  var MAKE_UPLOAD_WEBHOOK = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // guest-list file uploads (multipart)
+  var MAKE_STATUS_WEBHOOK = 'https://hook.eu1.make.com/qaskw7ccoz2ir6zolis144j4cc9gp2vt';
+                                         // dashboard reads event + guest status
                                          // from here. POST {token} -> JSON,
                                          // shape documented in HANDOFF.md.
-  var MAKE_CHANGE_WEBHOOK = '';          // customer edits a send date (JSON).
+  var MAKE_CHANGE_WEBHOOK = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // customer edits a send date (JSON).
                                          // Falls back to the setup hook.
-  var MAKE_SETUP_WEBHOOK  = '';          // event setup after upload (JSON).
+  var MAKE_SETUP_WEBHOOK  = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // event setup after upload (JSON).
                                          // Can be the same URL as the upload
                                          // hook; the payload is tagged
                                          // event_type: 'event_setup'.

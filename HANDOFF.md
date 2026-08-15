@@ -111,6 +111,28 @@ any later WhatsApp message.
 `dashboard.html?demo=1` renders the whole thing with sample data and no
 webhook, which is the quickest way to see it.
 
+**This is the only webhook that has to answer.** The other two receive data and
+nothing is read back. This one is asked a question, so the Make scenario needs a
+**Webhook response** module at the end. Without one, Make replies `Accepted` in
+plain text and the dashboard reports that it is not returning data yet.
+
+The scenario shape:
+
+1. Custom webhook, receives `{ "token": "..." }`
+2. Search the events sheet for `upload_token = token`
+3. No match, respond 404 with `{"ok":false}`
+4. Search guests by `event_id`, aggregate the counts
+5. Webhook response, status 200, body the JSON below, content type
+   `application/json`
+
+Make already sends `Access-Control-Allow-Origin: *`, so the browser can read the
+reply. Nothing extra to configure for CORS.
+
+**The token is the only credential.** Anyone holding it sees that event's guest
+list, which is the point, but it means tokens must be long and random, must
+never appear in a public sheet or a shared screenshot, and an unknown token must
+answer 404 rather than an empty success.
+
 It POSTs `{token}` to `MAKE_STATUS_WEBHOOK` and expects:
 
 ```json
