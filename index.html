@@ -14,6 +14,7 @@
 <script src="config.js?v=1"></script>
 <script src="assets/tracking.js?v=1"></script>
 <script src="assets/lead.js?v=1"></script>
+<script src="assets/messages.js?v=1"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -694,6 +695,21 @@ body.modal-open #cookie-bar{
   transform:translateX(-50%) translateY(20px);
 }
 
+
+/* what still has to be done after paying, so nobody expects a same-day send */
+.next-up{
+  margin-top:1.1rem;padding:.85rem 1rem;
+  background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;
+}
+.next-up-t{font-size:.78rem;font-weight:600;color:var(--ink2);margin-bottom:.45rem}
+.next-up-l{margin:0;padding-inline-start:1.15rem}
+.next-up-l li{font-size:.79rem;color:var(--ink3);line-height:1.6;padding-inline-start:.15rem}
+.next-up-l li::marker{color:var(--green)}
+.next-up-n{
+  font-size:.75rem;color:var(--ink2);line-height:1.55;
+  margin-top:.55rem;padding-top:.5rem;border-top:1px solid var(--bdr);
+}
+
 /* ═══ ACCESSIBILITY PREFERENCES ═══════════════════════════════════════════ */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
@@ -1176,62 +1192,12 @@ function closeTerms(){document.getElementById('terms-page').classList.remove('sh
 const S={evType:'wedding'};
 
 // ═══ MSG PREVIEWS ═══
-const MSGS_BY_EVENT={
-  wedding:{
-    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🎊<br><br>נועה ויונתן מתחתנים ומזמינים אתכם לשמוח איתם!<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>נשמח מאוד לראותכם! 🤍</p>`,note:''},
-    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🎊 החתונה של נועה ויונתן!<br><br>אנו שמחים להזמינכם לשמוח איתנו ביום המאושר בחיינו 💍<br>15/09/2025 | אולם הגן הקסום, רמת גן<br><br>בברכה, נועה ויונתן 🤍</p>`,note:''},
-    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכם לאירוע נישואינו. 💍<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>בהוקרה, נועה ויונתן 🤍</p>`,note:''},
-    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">נועה ויונתן עושים את זה רשמי ואתם מוזמנים! 🥳<br><br>15.9.2025 | הגן הקסום, רמת גן<br><br>בואו תרקדו איתנו 💃🕺<br>נועה ויונתן</p>`,note:''},
-    postponed:{tag:'📅 דחייה/עדכון',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>רוצים לעדכן שאירוע החתונה שלנו <b>נדחה</b>.<br><br>📅 <b>התאריך החדש: 1 בנובמבר 2025</b><br>📍 המקום נשאר: אולם הגן הקסום<br><br>מצטערים על אי הנוחות 🙏<br>נועה ויונתן</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
-    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע שנאלצנו <b>לבטל</b> את אירוע החתונה שתוכנן ל-15 בספטמבר 2025.<br><br>תודה על ההבנה ועל התמיכה 🙏<br>נועה ויונתן</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
-  },
-  bar:{
-    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🎊<br><br>דניאל עולה לתורה ואתם מוזמנים לשמוח איתנו!<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>נשמח לראותכם! 🎉</p>`,note:''},
-    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🎉 בר המצווה של דניאל!<br><br>אנו מתכבדים להזמינכם לחגוג את עלייתו לתורה 📖<br>15/09/2025 | אולם הגן הקסום, רמת גן<br><br>בברכה, משפחת לוי</p>`,note:''},
-    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכם לאירוע בר המצווה של בננו דניאל.<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>בהוקרה, משפחת לוי</p>`,note:''},
-    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">דניאל נעשה גדול ועושה מסיבה! 🎉<br><br>15.9.2025 | הגן הקסום, רמת גן<br><br>בואו לחגוג איתנו 🕺<br>משפחת לוי</p>`,note:''},
-    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>אירוע בר המצווה של דניאל <b>נדחה</b>.<br>📅 <b>תאריך חדש: 1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏<br>משפחת לוי</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
-    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול אירוע בר המצווה שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏<br>משפחת לוי</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
-  },
-  bat:{
-    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🎊<br><br>מיה חוגגת בת מצווה ואתם מוזמנים!<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>נשמח לראותכם! 🌸</p>`,note:''},
-    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🌸 בת המצווה של מיה!<br><br>אנו שמחים להזמינכם לחגוג את האירוע המיוחד<br>15/09/2025 | אולם הגן הקסום, רמת גן<br><br>בברכה, משפחת כהן</p>`,note:''},
-    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכם לאירוע בת המצווה של בתנו מיה.<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>בהוקרה, משפחת כהן</p>`,note:''},
-    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">מיה נעשית גדולה ועושה מסיבה! 🌸🎉<br><br>15.9.2025 | הגן הקסום, רמת גן<br><br>בואו לחגוג 💃<br>משפחת כהן</p>`,note:''},
-    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>אירוע בת המצווה של מיה <b>נדחה</b>.<br>📅 <b>תאריך חדש: 1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏<br>משפחת כהן</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
-    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול אירוע בת המצווה שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏<br>משפחת כהן</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
-  },
-  brit:{
-    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🎊<br><br>אנחנו שמחים לבשר על הגעתו של יובל ולהזמינכם לברית!<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>נשמח לראותכם! 👶</p>`,note:''},
-    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">👶 ברית המילה של יובל<br><br>אנו מתכבדים להזמינכם לשמוח עמנו באירוע הברית<br>15/09/2025 | אולם הגן הקסום, רמת גן<br><br>בברכה, משפחת ישראלי</p>`,note:''},
-    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכם לאירוע ברית בננו יובל.<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>בהוקרה, משפחת ישראלי</p>`,note:''},
-    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">יובל הגיע לעולם ואנחנו חוגגים! 👶🎉<br><br>15.9.2025 | הגן הקסום, רמת גן<br><br>בואו לשמוח איתנו!<br>משפחת ישראלי</p>`,note:''},
-    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>אירוע הברית <b>נדחה</b> לתאריך חדש.<br>📅 <b>1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏<br>משפחת ישראלי</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
-    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול אירוע הברית שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏<br>משפחת ישראלי</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
-  },
-  bday:{
-    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🎊<br><br>רינה חוגגת יום הולדת 40 ואתם מוזמנים!<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>נשמח לחגוג יחד! 🎂</p>`,note:''},
-    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🎂 יום הולדת 40 לרינה!<br><br>אנו מזמינים אתכם לחגוג את האירוע המיוחד<br>15/09/2025 | אולם הגן הקסום, רמת גן<br><br>בברכה, משפחת כהן</p>`,note:''},
-    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכם לאירוע יום הולדת 40 של רינה.<br>📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום<br><br>בהוקרה, משפחת כהן</p>`,note:''},
-    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">רינה עושה 40 ועושה מסיבה! 🎂🥳<br><br>15.9.2025 | הגן הקסום, רמת גן<br><br>בואו לחגוג איתה 🎉<br>משפחת כהן</p>`,note:''},
-    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>מסיבת יום ההולדת של רינה <b>נדחתה</b>.<br>📅 <b>תאריך חדש: 1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
-    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול אירוע יום ההולדת שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
-  },
-  biz:{
-    happy:{tag:'😊 ידידותי',html:`<div class="msg-style-tag">סגנון ידידותי</div><p class="msg-text">שלום [שם]! 🎊<br><br>אנחנו שמחים להזמינכם לכנס השנתי של חברת אלפא!<br>📅 15 בספטמבר 2025 | 📍 מלון הילטון, תל אביב<br><br>נשמח לראותכם!</p>`,note:''},
-    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🏢 כנס שנתי – חברת אלפא<br><br>אנו מזמינים אתכם לאירוע השנתי שלנו<br>15/09/2025 | מלון הילטון, תל אביב<br><br>בברכה, הנהלת חברת אלפא</p>`,note:''},
-    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב,<br><br>הננו מתכבדים להזמינכם לכנס השנתי של חברת אלפא.<br>📅 15 בספטמבר 2025 | 📍 מלון הילטון, תל אביב<br><br>בהוקרה, הנהלת חברת אלפא</p>`,note:''},
-    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">חברת אלפא עושה כנס ואתם מוזמנים! 🎉<br><br>15.9.2025 | מלון הילטון, תל אביב<br><br>בואו נצמח ביחד 🚀</p>`,note:''},
-    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>הכנס השנתי <b>נדחה</b> לתאריך חדש.<br>📅 <b>1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏<br>הנהלת חברת אלפא</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
-    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול הכנס שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏<br>הנהלת חברת אלפא</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
-  }
-};
+const MSGS_BY_EVENT=ISHUR_MESSAGES.BY_EVENT;
 
 function showMsg(key,btn){
   document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
   if(btn) btn.classList.add('on');
-  const evMsgs=MSGS_BY_EVENT[S.evType||'wedding']||MSGS_BY_EVENT.wedding;
-  const m=evMsgs[key]||MSGS_BY_EVENT.wedding[key];
+  const m=ISHUR_MESSAGES.sample(S.evType||'wedding', key);
   if(!m) return;
   document.getElementById('msg-body').innerHTML=m.html;
   document.getElementById('msg-note').textContent=m.note||'';
@@ -1428,6 +1394,16 @@ window.addEventListener('load',()=>{
         <p class="ferr" id="e-plan" aria-live="polite"></p>
 
         <div class="pop-total" id="pop-total" hidden aria-live="polite"></div>
+
+        <div class="next-up">
+          <p class="next-up-t">מה קורה אחרי התשלום</p>
+          <ol class="next-up-l">
+            <li>מגיע קישור בוואטסאפ להעלאת רשימת המוזמנים</li>
+            <li>בוחרים את סגנון ההודעה ואת תאריכי השליחה</li>
+            <li>ממלאים את פרטי האירוע: תאריך, שעה ומקום</li>
+          </ol>
+          <p class="next-up-n">ההודעות יוצאות בבוקר. הגדרה שנסגרת עד 06:00 יוצאת באותו יום. בשבת לא שולחים, וביום שישי עד 15:00.</p>
+        </div>
 
         <div class="wiz-nav">
           <button type="button" class="wiz-back" id="pop-back">חזרה</button>

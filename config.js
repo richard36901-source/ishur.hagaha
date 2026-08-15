@@ -17,6 +17,10 @@ window.ISHUR_CONFIG = (function () {
 
   var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/pc0r3vknvc1tpg7as1cn8wefsemab61w';
   var MAKE_UPLOAD_WEBHOOK = '';          // guest-list file uploads (multipart)
+  var MAKE_SETUP_WEBHOOK  = '';          // event setup after upload (JSON).
+                                         // Can be the same URL as the upload
+                                         // hook; the payload is tagged
+                                         // event_type: 'event_setup'.
   var GTM_ID              = '';          // GTM-XXXXXXX
   var FB_PIXEL_ID         = '';          // Meta pixel id (digits only)
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
@@ -148,7 +152,29 @@ window.ISHUR_CONFIG = (function () {
 
   var UPLOAD = {
     maxMB: 10,
-    allowed: ['csv', 'xlsx', 'xls']
+    allowed: ['csv', 'xlsx', 'xls'],
+    /* the file is read by column position, not by header text, so the order
+       is the contract */
+    columns: [
+      { letter: 'A', label: 'שם',            note: 'שם המוזמן או המשפחה', required: true },
+      { letter: 'B', label: 'טלפון',          note: 'נייד ישראלי, 05X', required: true },
+      { letter: 'C', label: 'כמות מוזמנים',   note: 'כמה אנשים ההזמנה מכסה', required: false }
+    ]
+  };
+
+  /* ══ SENDING RULES ════════════════════════════════════════════════════════
+     Enforced in the date picker, so an impossible date cannot be chosen.
+     Weekdays are JS numbers: 0 Sunday … 6 Saturday.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var SEND_RULES = {
+    /* The daily batch leaves at 06:00. To go out on a given day the event has
+       to be set up before 06:00 that morning, so tomorrow is available right up
+       until 06:00 tonight, and from 06:00 the earliest becomes the day after. */
+    setupCutoffHour: 6,
+    blockedWeekdays: [6],     // Saturday, no sending at all
+    cutoff: { 5: '15:00' },   // Friday, everything goes out before this
+    maxMonthsAhead: 18
   };
 
   /* ══════════════════════════════════════════════════════════════════════════
@@ -208,6 +234,7 @@ window.ISHUR_CONFIG = (function () {
   return {
     MAKE_LEAD_WEBHOOK: MAKE_LEAD_WEBHOOK,
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,
+    MAKE_SETUP_WEBHOOK: MAKE_SETUP_WEBHOOK,
     GTM_ID: GTM_ID,
     FB_PIXEL_ID: FB_PIXEL_ID,
     TIKTOK_PIXEL_ID: TIKTOK_PIXEL_ID,
@@ -225,6 +252,7 @@ window.ISHUR_CONFIG = (function () {
     OCCASIONS: OCCASIONS,
     DEFAULT_PLAN: DEFAULT_PLAN,
     UPLOAD: UPLOAD,
+    SEND_RULES: SEND_RULES,
 
     isSet: isSet,
     waLink: waLink,

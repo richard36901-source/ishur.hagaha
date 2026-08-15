@@ -49,6 +49,13 @@ payment webhook confirms the charge. A token cannot be reached by editing a URL.
 - [x] Multipart contract verified: `token` + `file` + `source`, no custom headers
 - [x] Response branches verified: 200 success, 403/404 dead link, 500 retry, network error
 - [x] Graceful message while `MAKE_UPLOAD_WEBHOOK` is empty, routing to WhatsApp
+- [x] Column contract stated on the page: A name, B phone, C seats
+- [x] Step 2 event setup: occasion, names, date, time, venue, tone, send dates
+- [x] Message tones shared with the landing page via `assets/messages.js`, chosen from a live preview
+- [x] Hebrew calendar picker, panel continuing the field, day name + month + year
+- [x] Sending rules enforced in the calendar: 06:00 cutoff, no Saturday, Friday marked
+- [x] Cross-field checks: send before the event, reminder after the first send
+- [x] Landing popup states what still has to be done after paying
 
 ## Phase 4 · Tracking
 

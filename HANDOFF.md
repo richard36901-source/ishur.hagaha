@@ -6,13 +6,15 @@ Static site, no build step. Open a file, edit, push. GitHub Pages serves it as i
 
 ```
 index.html        the site. Landing page + the two-step order popup.
-upload.html       guest-list upload. Reached only with a valid ?t= token.
+upload.html       guest list upload, then event setup. Needs a valid ?t= token.
 thanks.html       where Grow returns after payment.
-config.js         every id, link and price. The only file you normally edit.
+config.js         every id, link, price and rule. The only file you normally edit.
 assets/
   tracking.js     ad platforms, attribution, conversion event ids
   lead.js         session, phone validation, payload, delivery
   select.js       the dropdown whose panel continues the field
+  datepicker.js   Hebrew calendar, enforces the sending rules
+  messages.js     the four message tones and a sample per event type
   popup.js        the two-step order popup controller
   logo.png        navy mark, for light backgrounds
   logo-light.png  white mark, for the dark footer
@@ -30,7 +32,8 @@ Everything lives in the `FILL ME` block at the top of `config.js`.
 | Key | Consumed by | What breaks while it is empty |
 |---|---|---|
 | `MAKE_LEAD_WEBHOOK` | `lead.js` → `send()` | Leads are not recorded. The funnel still works and still redirects to payment. |
-| `MAKE_UPLOAD_WEBHOOK` | `upload.html` | Upload shows "ההעלאה עדיין לא מחוברת" and points the customer to WhatsApp. **Currently empty.** |
+| `MAKE_UPLOAD_WEBHOOK` | `upload.html` step 1 | Upload shows "ההעלאה עדיין לא מחוברת" and points the customer to WhatsApp. **Currently empty.** |
+| `MAKE_SETUP_WEBHOOK` | `upload.html` step 2 | Falls back to `MAKE_UPLOAD_WEBHOOK`; if both are empty the setup step says so and points to WhatsApp. Can be the same URL, the payload is tagged `event_type: "event_setup"`. |
 | `GTM_ID` | `tracking.js` → `loadGTM()` | No GTM container loads. `dataLayer` still fills, so nothing is lost once you add the id. |
 | `FB_PIXEL_ID` | `tracking.js` → `loadMeta()` | No browser-side Meta events. Server-side via Make still works. |
 | `TIKTOK_PIXEL_ID` | `tracking.js` → `loadTikTok()` | No TikTok events. Optional. |
@@ -57,6 +60,63 @@ Nothing is hardcoded outside `config.js`. If you find a URL or id in a page, tha
 **Step 6 is the security boundary.** The upload form is never linked from the
 site and shows nothing without a token, so it cannot be reached by editing a URL.
 Do not add a link to it from `thanks.html`.
+
+### What the customer does on the token link
+
+`upload.html` is two steps.
+
+**Step 1, the guest list.** The file is read **by column position, not by header
+text**, so the order is the contract and the page states it plainly:
+
+| Column | Holds | Required |
+|---|---|---|
+| A | name of the guest or family, as it appears in the message | yes |
+| B | Israeli mobile, 05X | yes |
+| C | how many people that invitation covers | no, defaults to 1 |
+
+Column C is what makes the totals mean chairs rather than invitations. One row
+"משפחת כהן / 0521234567 / 4" is a single WhatsApp covering four seats, and the
+guest's reply is capped at that number.
+
+**Step 2, the event setup.** Occasion, names, event date, reception time, venue,
+message tone, and the send dates. Posted as JSON:
+
+```json
+{
+  "event_type": "event_setup",
+  "token": "…",
+  "occasion": "bar", "occasion_label": "בר מצווה",
+  "name1": "דניאל", "name2": "",
+  "event_date": "2026-09-10", "reception_time": "19:30",
+  "venue_name": "…", "venue_addr": "…", "venue_city": "…",
+  "style": "respectful",
+  "send_date_1": "2026-08-25", "send_date_2": "2026-09-01",
+  "notes": "", "source": "…", "ts": "…"
+}
+```
+
+`style` is one of `happy`, `serious`, `respectful`, `playful`. The wording for
+each lives in `assets/messages.js`, and the customer picked it from a live
+preview of that exact text, so send what they were shown.
+
+## Sending rules
+
+Set once in `SEND_RULES` in `config.js` and enforced inside the calendar, so an
+impossible date cannot be clicked rather than being rejected afterwards:
+
+- `setupCutoffHour: 6` — the batch leaves at 06:00. To go out on a given day the
+  setup has to be finished before 06:00 that morning. Tomorrow stays available
+  until 06:00 tonight; from 06:00 the earliest becomes the day after.
+- `blockedWeekdays: [6]` — no sending on Saturday at all.
+- `cutoff: { 5: '15:00' }` — Friday sends leave before 15:00. Fridays are marked
+  with a dot in the calendar rather than blocked.
+
+These apply to the send dates. The **event date itself** uses
+`data-idate="free"` and allows any future day including Saturday, because plenty
+of events are on מוצאי שבת.
+
+Change the hour or the blocked days in `config.js` and the calendar, the legend
+and the warning text all follow.
 
 ### Guests over 600
 
