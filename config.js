@@ -47,7 +47,7 @@ window.ISHUR_CONFIG = (function () {
   var PLANS = {
     basic: {
       key: 'basic', name: 'בסיס', label: 'BASE',
-      desc: 'הודעות אישור, מעקב תשובות ותזכורת יום לפני',
+      desc: 'שליחה + מעקב + תזכורת יום לפני',
       features: [
         'הזמנה דיגיטלית לאורחים',
         '2 הודעות אישורי הגעה בוואטסאפ',
@@ -58,7 +58,7 @@ window.ISHUR_CONFIG = (function () {
     },
     pro: {
       key: 'pro', name: 'פרמיום', label: 'PREMIUM',
-      desc: 'ועוד: 2 סבבי שיחות ממוקד אנושי, דף צפייה בזמן אמת',
+      desc: '+ מוקד אנושי, דף צפייה 24/7, הודעת דחייה',
       features: [
         'כל מה שבחבילת בסיס',
         '2 סבבי שיחות ממוקד אנושי',
@@ -68,7 +68,7 @@ window.ISHUR_CONFIG = (function () {
     },
     premium: {
       key: 'premium', name: 'הכל כלול', label: 'ALL INCLUSIVE',
-      desc: 'ועוד: 3 סבבי שיחות, הודעת דחייה וביטול, טיפול ידני',
+      desc: '+ הזמנה דיגיטלית, 3 סבבי שיחות, ביטול אירוע',
       features: [
         'כל מה שבחבילת פרמיום',
         '3 סבבי שיחות ממוקד אנושי',
@@ -143,15 +143,30 @@ window.ISHUR_CONFIG = (function () {
      Change a `rec` here and both site versions follow.
      ─────────────────────────────────────────────────────────────────────── */
 
+  /* `names` are the labels for the two name fields; a null second entry means
+     the occasion has one name. `title` adds a free line for what the event is,
+     for the cases a template cannot guess. */
   var OCCASIONS = [
-    { value: 'wedding', label: 'חתונה',        icon: '💍', rec: 'premium' },
-    { value: 'hina',    label: 'חינה',         icon: '🪘', rec: 'pro'     },
-    { value: 'bar',     label: 'בר מצווה',     icon: '🎉', rec: 'pro'     },
-    { value: 'bat',     label: 'בת מצווה',     icon: '🎀', rec: 'pro'     },
-    { value: 'brit',    label: 'ברית / בריתה', icon: '👶', rec: 'basic'   },
-    { value: 'bday',    label: 'יום הולדת',    icon: '🎂', rec: 'basic'   },
-    { value: 'biz',     label: 'אירוע עסקי',   icon: '💼', rec: 'pro'     },
-    { value: 'other',   label: 'אחר',          icon: '✨', rec: 'pro'     }
+    { value: 'wedding',    label: 'חתונה',              rec: 'premium',
+      names: ['שם הכלה', 'שם החתן'] },
+    { value: 'wedding_mm', label: 'חתונה · שני חתנים',  rec: 'premium',
+      names: ['שם החתן', 'שם החתן השני'] },
+    { value: 'wedding_ff', label: 'חתונה · שתי כלות',   rec: 'premium',
+      names: ['שם הכלה', 'שם הכלה השנייה'] },
+    { value: 'hina',       label: 'חינה',               rec: 'pro',
+      names: ['שם הכלה', 'שם החתן'] },
+    { value: 'bar',        label: 'בר מצווה',           rec: 'pro',
+      names: ['שם החוגג', null] },
+    { value: 'bat',        label: 'בת מצווה',           rec: 'pro',
+      names: ['שם החוגגת', null] },
+    { value: 'brit',       label: 'ברית / בריתה',       rec: 'basic',
+      names: ['שם ההורה', 'שם ההורה השני'], familyHint: true },
+    { value: 'bday',       label: 'יום הולדת',          rec: 'basic',
+      names: ['שם החוגג/ת', null] },
+    { value: 'biz',        label: 'אירוע עסקי',         rec: 'pro',
+      names: ['שם החברה', null], title: 'שם האירוע' },
+    { value: 'other',      label: 'אחר',                rec: 'pro',
+      names: ['שם המארגן/ת', null], title: 'מה האירוע' }
   ];
 
   var DEFAULT_PLAN = 'pro';
@@ -166,7 +181,7 @@ window.ISHUR_CONFIG = (function () {
     columns: [
       { letter: 'A', label: 'שם',            note: 'שם המוזמן או המשפחה', required: true },
       { letter: 'B', label: 'טלפון',          note: 'נייד ישראלי, 05X', required: true },
-      { letter: 'C', label: 'כמות מוזמנים',   note: 'כמה אנשים ההזמנה מכסה', required: false }
+      { letter: 'C', label: 'כמות מוזמנים',   note: 'כמה אנשים ההזמנה מכסה', required: true }
     ]
   };
 
@@ -231,7 +246,7 @@ window.ISHUR_CONFIG = (function () {
   var ADDONS = {
     extra_send: {
       label: 'שליחה נוספת',
-      desc: 'סבב הודעות נוסף למי שעדיין לא ענה',
+      desc: 'תזכורת נוספת לכל הרשימה בתאריך שתבחרו, למשל שבוע לפני האירוע',
       plans: [],
       inForm: true          // the only add-on offered during setup
     },
@@ -353,6 +368,11 @@ window.ISHUR_CONFIG = (function () {
     return o ? o.label : '';
   }
 
+  function occasionNames(value) {
+    var o = occasion(value);
+    return (o && o.names) || ['שם', null];
+  }
+
   function recommendedPlan(occasionValue) {
     var o = occasion(occasionValue);
     return o ? o.rec : DEFAULT_PLAN;
@@ -411,6 +431,7 @@ window.ISHUR_CONFIG = (function () {
     growLink: growLink,
     occasion: occasion,
     occasionLabel: occasionLabel,
+    occasionNames: occasionNames,
     recommendedPlan: recommendedPlan,
     guestLabel: guestLabel,
     fromPrice: fromPrice

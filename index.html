@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=3"></script>
-<script src="assets/tracking.js?v=3"></script>
-<script src="assets/guard.js?v=3"></script>
-<script src="assets/lead.js?v=3"></script>
-<script src="assets/messages.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="assets/tracking.js?v=4"></script>
+<script src="assets/guard.js?v=4"></script>
+<script src="assets/lead.js?v=4"></script>
+<script src="assets/messages.js?v=4"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -578,38 +578,21 @@ footer{background:#0f172a;padding:1.5rem 1.5rem;text-align:center;border-top:1px
 .sec-title{letter-spacing:-.015em}
 .o-title{letter-spacing:-.012em}
 
-/* ═══ PRICING TABLE ═══════════════════════════════════════════════════════ */
-.pr-table{max-width:620px;margin:0 auto;border:1px solid var(--bdr);border-radius:14px;overflow:hidden;background:#fff;box-shadow:var(--sh)}
-.pr-head,.pr-row{display:grid;grid-template-columns:1.25fr 1fr 1fr 1fr;align-items:stretch}
-.pr-head{background:var(--bg2);border-bottom:1px solid var(--bdr)}
-.pr-c{padding:.62rem .3rem;text-align:center;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.12rem;min-width:0}
-.pr-h-guests{font-size:.72rem;color:var(--ink3);font-weight:500}
-.pr-h-plan{font-size:.74rem;font-weight:600;color:var(--ink);position:relative}
-.pr-h-plan.hi{background:var(--green4)}
-.pr-plan-name{line-height:1.2}
-.pr-tag{font-size:.56rem;letter-spacing:.04em;color:var(--green2);font-weight:600;white-space:nowrap}
-.pr-row{border-bottom:1px solid var(--bdr);cursor:pointer;background:#fff}
-.pr-row:last-child{border-bottom:none}
-.pr-row:hover{background:var(--green4)}
-.pr-guests{font-size:.78rem;color:var(--ink2);font-weight:500;border-inline-end:1px solid var(--bdr)}
-.pr-price{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:var(--ink);flex-direction:row;align-items:baseline;gap:1px}
-.pr-price.hi{background:rgba(22,163,74,.055);color:var(--green2);font-weight:700}
-.pr-row:hover .pr-price.hi{background:transparent}
-.pr-cur{font-size:.66em;font-weight:400;margin-inline-end:1px;opacity:.75}
-.pr-quote{font-size:.78rem;color:var(--green2);font-weight:500}
-.pr-hint{text-align:center;font-size:.75rem;color:var(--ink3);margin-top:.75rem}
-.pr-what{max-width:620px;margin:2rem auto 0;display:grid;grid-template-columns:1fr;gap:.7rem}
-@media(min-width:700px){.pr-what{grid-template-columns:repeat(3,1fr)}}
-.pr-what-col{border:1px solid var(--bdr);border-radius:12px;padding:1rem 1.1rem;background:#fff}
-.pr-what-col.hi{border-color:var(--bdr2);background:var(--green4)}
-.pr-what-col h4{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600;margin-bottom:.5rem;color:var(--ink)}
-.pr-what-col .pc-ul{margin:0}
-@media(max-width:400px){
-  .pr-c{padding:.55rem .15rem}
-  .pr-guests{font-size:.72rem}
-  .pr-price{font-size:.92rem}
-  .pr-h-plan{font-size:.66rem}
+/* ═══ PRICING ═══ picker + package rows, same shapes as the popup ════════ */
+.price-pick{max-width:540px;margin:0 auto}
+.price-pick > label{display:block;font-size:.85rem;font-weight:500;color:var(--ink2);margin-bottom:.4rem}
+.price-pick .plan-opts{margin-top:1rem;gap:.6rem}
+.price-pick .plan-opt{
+  width:100%;text-align:start;font-family:'Heebo',sans-serif;
+  padding:.95rem 1rem;background:#fff;
 }
+.price-pick .plan-opt:hover{border-color:var(--green);background:var(--green4)}
+.plan-opt-name i{font-style:normal;font-size:.62rem;letter-spacing:.09em;color:var(--green);font-weight:600;margin-inline-start:.3rem}
+.plan-opt-price{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.plan-opt-price em{font-style:normal;font-size:.63rem;font-weight:400;color:var(--ink3);margin-top:.1rem}
+.plan-opt-price .from{font-size:.6rem;font-weight:400;color:var(--ink3)}
+.plan-opt-price b{font-size:.85rem;font-weight:600}
+.pr-note{text-align:center;font-size:.78rem;color:var(--ink3);margin-top:.9rem}
 
 /* ═══ ORDER POPUP ═════════════════════════════════════════════════════════ */
 #order-modal-bg{background:rgba(17,24,39,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
@@ -958,7 +941,7 @@ body.modal-open #cookie-bar{
     <h2>5. זמינות השירות</h2>
     <ul><li>השירות יעשה כל מאמץ להבטיח שליחה בזמן, אך אינו אחראי לעיכובים מצד ספקי תקשורת.</li><li>וואטסאפ עשוי להגביל שליחות מסיביות. שליחה חלקית לא תזכה בהחזר.</li></ul>
     <h2>6. פרטיות</h2><p>פרטי המוזמנים ישמשו לשליחת אישורי הגעה בלבד ויימחקו תוך 90 יום מהאירוע.</p>
-    <h2>7. יצירת קשר</h2><p><a href="#" data-mail style="color:var(--green)">info@ishur.io</a> | <a href="#" data-wa style="color:var(--green)">וואטסאפ</a></p>
+    <h2>7. יצירת קשר</h2><p><a href="#" data-wa style="color:var(--green)">וואטסאפ</a></p>
   </div>
 </div>
 
@@ -1182,30 +1165,16 @@ body.modal-open #cookie-bar{
   <div class="wrap">
     <div class="sec-hd fi">
       <span class="sec-tag">מחירון</span>
-      <h2 class="sec-title">מחיר אחד לאירוע, לפי כמות מוזמנים</h2>
+      <h2 class="sec-title">תשלום אחד לאירוע</h2>
       <div class="divider"></div>
-      <p class="sec-note">בלי מנוי, בלי תשלום חודשי. משלמים פעם אחת על האירוע.<br><b>הזמנה אחת = מספר טלפון אחד.</b> משפחה שמקבלת הזמנה אחת נספרת פעם אחת, גם אם מגיעים ממנה חמישה.</p>
+      <p class="sec-note">בחרו כמה הזמנות, והמחיר מתעדכן.<br><b>הזמנה אחת = מספר טלפון אחד.</b> משפחה על מספר אחד נספרת פעם אחת.</p>
     </div>
 
-    <div class="pr-table fi">
-      <div class="pr-head" id="pr-head"></div>
-      <div class="pr-body" id="pr-body"></div>
-    </div>
-    <p class="pr-hint">לחצו על שורה כדי להתחיל. המחירים כוללים מע״מ.</p>
-
-    <div class="pr-what">
-      <div class="pr-what-col">
-        <h4>בסיס</h4>
-        <ul class="pc-ul" id="pw-basic"></ul>
-      </div>
-      <div class="pr-what-col hi">
-        <h4>פרמיום</h4>
-        <ul class="pc-ul" id="pw-pro"></ul>
-      </div>
-      <div class="pr-what-col">
-        <h4>הכל כלול</h4>
-        <ul class="pc-ul" id="pw-premium"></ul>
-      </div>
+    <div class="price-pick fi">
+      <label for="pr-guests">כמות הזמנות</label>
+      <select id="pr-guests" data-isel></select>
+      <div class="plan-opts" id="pr-plans"></div>
+      <p class="pr-note">לחצו על חבילה כדי להתחיל. המחירים כוללים מע״מ.</p>
     </div>
   </div>
 </section>
@@ -1236,10 +1205,7 @@ body.modal-open #cookie-bar{
       <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
       וואטסאפ
     </a>
-    <a href="#" data-mail data-keep-text>
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
-      info@ishur.io
-    </a>
+    
     <a href="#" onclick="openTerms();return false;">תנאי שימוש</a>
   </div>
   <div class="f-copy2">© 2025 אישורי הגעה · כל הזכויות שמורות</div>
@@ -1312,36 +1278,45 @@ function renderWaPreview(){
 }
 function currentStyleKey(){
   const a=document.querySelector('.mtab.on');
-  return a?.getAttribute('onclick')?.match(/showMsg\('(\w+)'/)?.[1]||'happy';
+  const k=a?.getAttribute('onclick')?.match(/showMsg\('(\w+)'/)?.[1]||'happy';
+  /* the phone always shows an invitation. Postpone and cancel are situational,
+     and the reply buttons underneath make no sense on them. */
+  return ISHUR_MESSAGES.SITUATIONAL.indexOf(k)>-1 ? 'happy' : k;
 }
 
-// ═══ PRICING TABLE ═══ built from config, one row per guest tier
+// ═══ PRICING ═══ a guest picker and the three packages, priced live
 function buildPricing(){
-  const head=document.getElementById('pr-head');
-  const body=document.getElementById('pr-body');
-  if(!head||!body) return;
-  head.innerHTML='<div class="pr-c pr-h-guests">הזמנות</div>'+
-    CFG.PLAN_ORDER.map(k=>'<div class="pr-c pr-h-plan'+(k==='pro'?' hi':'')+'">'+
-      '<span class="pr-plan-name">'+CFG.PLANS[k].name+'</span>'+
-      (k==='pro'?'<span class="pr-tag">הנבחר ביותר</span>':'')+'</div>').join('');
-  body.innerHTML=CFG.GUEST_TIERS.map(t=>{
-    if(t.value==='custom'){
-      return '<div class="pr-row pr-row-quote" data-order="pricing-custom" role="button" tabindex="0">'+
-        '<div class="pr-c pr-guests">'+t.label+'</div>'+
-        '<div class="pr-c pr-quote" style="grid-column:2/-1">מתומחר לפי האירוע · דברו איתנו</div></div>';
-    }
-    return '<div class="pr-row" data-order="pricing-'+t.value+'" role="button" tabindex="0">'+
-      '<div class="pr-c pr-guests">'+t.label+'</div>'+
-      CFG.PLAN_ORDER.map(k=>'<div class="pr-c pr-price'+(k==='pro'?' hi':'')+'">'+
-        '<span class="pr-cur">₪</span>'+CFG.priceFor(t.value,k)+'</div>').join('')+
-      '</div>';
+  const sel=document.getElementById('pr-guests');
+  if(!sel) return;
+  sel.appendChild(new Option('בחרו כמות','') );
+  CFG.GUEST_TIERS.forEach(t=>sel.appendChild(new Option(t.label,t.value)));
+  sel.addEventListener('change',()=>{ renderPlans(sel.value); push('pricing_guests',{guests:sel.value}); });
+  if(window.IshurSelect) IshurSelect.enhance(sel);
+  renderPlans('');
+}
+
+function renderPlans(guests){
+  const wrap=document.getElementById('pr-plans');
+  if(!wrap) return;
+  const custom=guests==='custom';
+  wrap.innerHTML=CFG.PLAN_ORDER.map(k=>{
+    const p=CFG.PLANS[k];
+    const price=(guests&&!custom)?CFG.priceFor(guests,k):null;
+    return `<button type="button" class="plan-opt${k==='pro'?' rec':''}" data-plan="${k}">
+      ${k==='pro'?'<span class="plan-rec">הנפוץ</span>':''}
+      <span class="plan-txt">
+        <span class="plan-opt-name">${p.name} <i>${p.label}</i></span>
+        <span class="plan-opt-note">${p.desc}</span>
+      </span>
+      <span class="plan-opt-price">${
+        price?`<span class="cur">₪</span>${price}<em>לאירוע אחד</em>`
+        : custom?'<b>הצעה אישית</b>'
+        : `<span class="from">החל מ-</span><span class="cur">₪</span>${CFG.fromPrice(k)}`
+      }</span>
+    </button>`;
   }).join('');
-  body.querySelectorAll('[data-order]').forEach(r=>{
-    r.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();r.click();}});
-  });
-  CFG.PLAN_ORDER.forEach(k=>{
-    const ul=document.getElementById('pw-'+k);
-    if(ul) ul.innerHTML=CFG.PLANS[k].features.map(f=>'<li>'+f+'</li>').join('');
+  wrap.querySelectorAll('[data-plan]').forEach(b=>{
+    b.addEventListener('click',()=>IshurPopup.open('pricing-'+b.dataset.plan));
   });
 }
 buildPricing();
@@ -1376,9 +1351,6 @@ const sObs=new IntersectionObserver(e=>e.forEach(el=>{if(el.isIntersecting&&el.t
     const url=new URL(CFG.waLink(a.getAttribute('data-wa')||undefined));
     utm.forEach(p=>{const[k,v]=p.split('=');url.searchParams.set(k,v);});
     a.href=url.toString();
-  });
-  document.querySelectorAll('[data-mail]').forEach(a=>{
-    a.href='mailto:'+CFG.SUPPORT_EMAIL; if(!a.dataset.keepText) a.textContent=CFG.SUPPORT_EMAIL;
   });
 })();
 
@@ -1443,7 +1415,7 @@ window.addEventListener('load',()=>{
             <label class="consent" for="f-consent">
               <input type="checkbox" id="f-consent">
               <span class="consent-box" aria-hidden="true"></span>
-              <span class="consent-txt">כן, שלחו לי טיפים לארגון האירוע והטבות. כותבים מעט, ורק כשיש משהו ששווה.</span>
+              <span class="consent-txt">כן, שלחו לי טיפים לארגון האירוע והטבות.</span>
             </label>
           </div>
         </div>
@@ -1485,7 +1457,6 @@ window.addEventListener('load',()=>{
             <li>בוחרים את סגנון ההודעה ואת תאריכי השליחה</li>
             <li>ממלאים את פרטי האירוע: תאריך, שעה ומקום</li>
           </ol>
-          <p class="next-up-n">ההודעות יוצאות בבוקר. הגדרה שנסגרת עד 06:00 יוצאת באותו יום. בשבת לא שולחים, וביום שישי עד 15:00.</p>
         </div>
 
         <div class="wiz-nav">
@@ -1505,7 +1476,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=3"></script>
-<script src="assets/popup.js?v=3"></script>
+<script src="assets/select.js?v=4"></script>
+<script src="assets/popup.js?v=4"></script>
 </body>
 </html>

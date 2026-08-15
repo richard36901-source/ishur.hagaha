@@ -10,11 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=3"></script>
-<script src="assets/tracking.js?v=3"></script>
-<script src="assets/guard.js?v=3"></script>
-<script src="assets/lead.js?v=3"></script>
-<script src="assets/messages.js?v=3"></script>
+<script src="config.js?v=4"></script>
+<script src="assets/tracking.js?v=4"></script>
+<script src="assets/guard.js?v=4"></script>
+<script src="assets/lead.js?v=4"></script>
+<script src="assets/messages.js?v=4"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -58,18 +58,17 @@
   /* ── column contract ── the file is read by position, so this is the spec ── */
   .cols{border:1px solid var(--bdr);border-radius:11px;overflow:hidden;margin-bottom:1.1rem}
   .cols-h{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:.5rem .85rem;font-size:.76rem;font-weight:600;color:var(--ink2)}
-  .col{display:flex;align-items:baseline;gap:.7rem;padding:.6rem .85rem;border-bottom:1px solid var(--bdr)}
+  .col{display:flex;align-items:flex-start;gap:.7rem;padding:.65rem .85rem;border-bottom:1px solid var(--bdr)}
   .col:last-child{border-bottom:none}
   .col-l{
     flex-shrink:0;width:26px;height:26px;border-radius:6px;background:var(--green);
     color:#fff;font-family:'Rubik',sans-serif;font-size:.8rem;font-weight:600;
     display:flex;align-items:center;justify-content:center;align-self:center;
   }
-  .col.opt .col-l{background:var(--bg3);color:var(--ink3)}
   .col-b{flex:1;min-width:0}
-  .col-t{font-size:.88rem;font-weight:500;color:var(--ink)}
-  .col-n{font-size:.78rem;color:var(--ink3);line-height:1.5}
-  .col-tag{font-size:.68rem;color:var(--ink3)}
+  .col-t{display:block;font-size:.88rem;font-weight:500;color:var(--ink);margin-bottom:.15rem}
+  .col-n{display:block;font-size:.78rem;color:var(--ink3);line-height:1.55}
+  .col-n b{color:var(--ink2);font-weight:500}
   .cols-f{background:var(--green4);padding:.55rem .85rem;font-size:.76rem;color:var(--ink2);line-height:1.55}
   .cols-f b{color:var(--ink)}
 
@@ -264,6 +263,25 @@
   .addon-buy:active{transform:scale(.95);transition-duration:100ms}
   .addon-inc{font-size:.74rem;color:var(--green2);font-weight:600;white-space:nowrap}
   .addon-no{font-size:.72rem;color:var(--ink3);white-space:nowrap}
+
+  .chosen{
+    display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+    background:var(--green4);border:1.5px solid var(--bdr2);border-radius:9px;
+    padding:.7rem .85rem;font-size:1rem;color:var(--ink);font-weight:500;
+  }
+  .chosen button{
+    background:none;border:none;cursor:pointer;font-family:inherit;font-size:.79rem;
+    color:var(--green2);text-decoration:underline;text-underline-offset:3px;padding:.2rem;
+  }
+  .frow textarea{
+    width:100%;padding:.7rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+    font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);background:#fff;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .frow textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(22,163,74,.14)}
+  .hint-s{font-size:.74rem;color:var(--ink3);line-height:1.5;margin-top:.2rem}
+  /* the add-on title and its line need air between them */
+  .addon-t{display:block;margin-bottom:.2rem}
   .note{background:var(--green4);border:1px solid var(--bdr2);border-radius:10px;padding:.7rem .9rem;font-size:.8rem;color:var(--ink2);line-height:1.6}
   .note b{color:var(--ink)}
   .note.warn{background:#fffbeb;border-color:#fcd34d}
@@ -308,19 +326,29 @@
       <div class="cols-h">סדר העמודות בקובץ</div>
       <div class="col">
         <span class="col-l">A</span>
-        <span class="col-b"><span class="col-t">שם</span><span class="col-n">שם המוזמן או המשפחה, כפי שיופיע בהודעה</span></span>
+        <span class="col-b">
+          <span class="col-t">שם</span>
+          <span class="col-n">שם המוזמן כפי שיופיע בהודעה. משפחה נרשמת בשם אחד, למשל <b>משפחת לוי</b>.</span>
+        </span>
       </div>
       <div class="col">
         <span class="col-l">B</span>
-        <span class="col-b"><span class="col-t">טלפון</span><span class="col-n">נייד ישראלי. 05X, עם או בלי מקפים</span></span>
+        <span class="col-b">
+          <span class="col-t">טלפון</span>
+          <span class="col-n">נייד ישראלי, 05X. עם מקפים או בלי, שניהם בסדר.</span>
+        </span>
       </div>
-      <div class="col opt">
+      <div class="col">
         <span class="col-l">C</span>
-        <span class="col-b"><span class="col-t">כמות מוזמנים <span class="col-tag">(לא חובה)</span></span><span class="col-n">כמה אנשים ההזמנה מכסה. משפחה של 4 היא שורה אחת עם 4</span></span>
+        <span class="col-b">
+          <span class="col-t">כמות מוזמנים</span>
+          <span class="col-n">כמה אנשים ההזמנה מכסה. משפחה של 4 היא שורה אחת עם 4.</span>
+        </span>
       </div>
       <div class="cols-f">
         שורת כותרות בראש הקובץ זה בסדר, נזהה אותה לבד.
-        <b>עמודה A חייבת להיות השם ועמודה B הטלפון</b>, אחרת הקובץ לא ייקלט.
+        <b>הסדר חייב להישמר: A שם, B טלפון, C כמות.</b>
+        <br>אחרי ההעלאה תגיע אליכם הודעה בוואטסאפ שהקובץ תקין ונקלט.
       </div>
     </div>
 
@@ -360,10 +388,19 @@
     <div class="sec">
       <div class="sec-h">האירוע</div>
       <div class="fgrid two">
-        <div class="frow full">
+        <div class="frow full" id="occRow">
           <label for="f-occasion">סוג האירוע <span class="req">*</span></label>
           <select id="f-occasion" data-isel></select>
           <p class="ferr" id="e-occasion" aria-live="polite"></p>
+        </div>
+        <div class="frow full" id="occFixed" hidden>
+          <label>סוג האירוע</label>
+          <div class="chosen"><span id="occFixedTxt"></span><button type="button" id="occChange">שינוי</button></div>
+        </div>
+        <div class="frow full" id="titleRow" hidden>
+          <label for="f-title" id="titleLbl">שם האירוע <span class="req">*</span></label>
+          <input type="text" id="f-title" placeholder="כנס לקוחות שנתי">
+          <p class="ferr" id="e-title" aria-live="polite"></p>
         </div>
         <div class="frow" id="name1Row">
           <label for="f-name1" id="name1Lbl">שם הכלה <span class="req">*</span></label>
@@ -411,6 +448,11 @@
     <div class="sec">
       <div class="sec-h">סגנון ההודעה</div>
       <div class="styles" id="styles"></div>
+      <div class="frow full" style="margin-top:.8rem">
+        <label for="f-extra">שורה משלכם בהודעה <span class="fopt">לא חובה</span></label>
+        <textarea id="f-extra" rows="2" placeholder="חניה חינם במקום · הקבלה מתחילה בשעה 19:00"></textarea>
+        <p class="hint-s">מה שתכתבו כאן ייכנס להודעה כמו שהוא, מתחת לפרטי האירוע.</p>
+      </div>
       <div class="preview">
         <div class="bubble">
           <div id="preview"></div>
@@ -452,17 +494,19 @@
         <b>בשבת לא שולחים כלל</b>, וביום שישי השליחה יוצאת עד <b>15:00</b>.
       </div>
 
-      <div class="fgrid two" style="margin-top:.8rem">
-        <div class="frow full">
-          <label for="f-notes">הערות <span class="fopt">לא חובה</span></label>
-          <input type="text" id="f-notes" placeholder="משהו שכדאי שנדע">
-        </div>
-      </div>
     </div>
 
     <div class="sec">
       <div class="sec-h">תוספות</div>
       <div class="addons" id="addons"></div>
+      <div id="extraSendWrap" hidden>
+        <div class="frow full" style="padding:.9rem 1rem 0">
+          <label for="f-sd3">תאריך השליחה הנוספת <span class="req">*</span></label>
+          <input type="text" id="f-sd3" data-idate data-placeholder="בחרו תאריך">
+          <p class="ferr" id="e-sd3" aria-live="polite"></p>
+          <p class="hint-s">תזכורת נוספת לכל הרשימה, לא יאוחר מיום האירוע.</p>
+        </div>
+      </div>
       <p class="tmpl" style="margin-top:.6rem">שינויים ותוספות אחרות אפשר לעשות בלוח הבקרה, אחרי שההגדרות נשמרות.</p>
     </div>
 
@@ -509,8 +553,8 @@
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
 
-<script src="assets/select.js?v=3"></script>
-<script src="assets/datepicker.js?v=3"></script>
+<script src="assets/select.js?v=4"></script>
+<script src="assets/datepicker.js?v=4"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -697,24 +741,30 @@
   CFG.OCCASIONS.forEach(function (o) { occ.appendChild(new Option(o.label, o.value)); });
   occ.value = S.occasion;
 
-  /* the name fields change with the occasion: a wedding has two, a brit has one */
-  var NAMES = {
-    wedding: ['שם הכלה', 'שם החתן'],
-    hina:    ['שם הכלה', 'שם החתן'],
-    bar:     ['שם החוגג', null],
-    bat:     ['שם החוגגת', null],
-    brit:    ['שם התינוק/ת', null],
-    bday:    ['שם החוגג/ת', null],
-    biz:     ['שם החברה', null],
-    other:   ['שם החוגג/ת', null]
-  };
+  function syncOccasion() {
+    var o = CFG.occasion(S.occasion);
+    var pair = CFG.occasionNames(S.occasion);
 
-  function syncNames() {
-    var pair = NAMES[S.occasion] || NAMES.other;
     $('name1Lbl').innerHTML = pair[0] + ' <span class="req">*</span>';
     var two = !!pair[1];
     $('name2Row').style.display = two ? '' : 'none';
     if (two) $('name2Lbl').innerHTML = pair[1] + ' <span class="req">*</span>';
+
+    /* a brit is usually written as one family name, so say so rather than
+       leaving someone guessing which parent goes first */
+    var hint = $('nameHint');
+    if (o && o.familyHint) {
+      if (!hint) {
+        hint = document.createElement('p');
+        hint.className = 'hint-s'; hint.id = 'nameHint';
+        $('name1Row').appendChild(hint);
+      }
+      hint.textContent = 'אפשר גם שם משפחה אחד, למשל משפחת לוי.';
+    } else if (hint) hint.remove();
+
+    /* occasions a template cannot guess get a line for what the event is */
+    $('titleRow').hidden = !(o && o.title);
+    if (o && o.title) $('titleLbl').innerHTML = o.title + ' <span class="req">*</span>';
   }
 
   function renderStyles() {
@@ -736,13 +786,21 @@
   function renderPreview() {
     var m = MSG.sample(S.occasion, S.style);
     $('preview').innerHTML = m ? m.html : '';
+    var extra = ($('f-extra').value || '').trim();
+    if (extra) {
+      var e = document.createElement('p');
+      e.className = 'msg-text';
+      e.style.marginTop = '.5rem';
+      e.textContent = extra;
+      $('preview').appendChild(e);
+    }
     var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
     var F = CFG.MESSAGE_FOOTER;
     $('previewFoot').innerHTML =
       '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
       '<span class="fine-l">' + F.optOut + '</span>';
   }
-  ['f-name1', 'f-name2'].forEach(function (id) {
+  ['f-name1', 'f-name2', 'f-extra', 'f-title'].forEach(function (id) {
     var el = $(id);
     if (el) el.addEventListener('input', renderPreview);
   });
@@ -755,11 +813,25 @@
   occ.addEventListener('change', function () {
     S.occasion = occ.value || 'wedding';
     clearErr('occasion');
-    syncNames();
+    syncOccasion();
     renderPreview();
   });
 
-  syncNames();
+  /* the occasion was already chosen when they paid, so it is shown as settled
+     with a way back rather than asked a second time */
+  if (occasionHint && CFG.occasion(occasionHint)) {
+    occ.value = occasionHint;
+    S.occasion = occasionHint;
+    $('occRow').hidden = true;
+    $('occFixed').hidden = false;
+    $('occFixedTxt').textContent = CFG.occasionLabel(occasionHint);
+  }
+  $('occChange').addEventListener('click', function () {
+    $('occFixed').hidden = true;
+    $('occRow').hidden = false;
+  });
+
+  syncOccasion();
   renderStyles();
   renderPreview();
 
@@ -798,8 +870,10 @@
       } else {
         cls = ' locked';
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+        var isExtra = k === 'extra_send';
         action = '<button type="button" class="addon-buy" data-addon="' + k + '">' +
-                 (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
+                 (isExtra ? (extraSend ? 'הסרה' : 'הוספה')
+                          : (price ? 'הוספה · ₪' + price : 'לפרטים')) + '</button>';
       }
 
       return '<div class="addon' + cls + '">' +
@@ -814,7 +888,20 @@
     });
   }
 
+  var extraSend = false;
+
+  function toggleExtraSend() {
+    extraSend = !extraSend;
+    $('extraSendWrap').hidden = !extraSend;
+    if (extraSend && !$('f-sd3').dataset.enhanced) IshurDate.enhance($('f-sd3'));
+    renderAddons();
+    renderTimeline();
+  }
+
   function buyAddon(key) {
+    /* the extra send is the one add-on set up here, so it opens its date
+       instead of leaving for a payment page */
+    if (key === 'extra_send') { toggleExtraSend(); return; }
     var a = CFG.ADDONS[key];
     var url = guests ? CFG.addonLink(key, guests) : null;
     IshurLead.track('addon_click', { addon: key, plan: plan, guests: guests, has_link: !!url });
@@ -901,6 +988,7 @@
     } else {
       if ($('f-sd1').value) rows.push({ t: 'ההזמנה ואישור ההגעה', d: $('f-sd1').value, tag: 'לכל הרשימה' });
       if ($('f-sd2').value) rows.push({ t: 'תזכורת', d: $('f-sd2').value, tag: 'למי שלא ענה' });
+      if (extraSend && $('f-sd3').value) rows.push({ t: 'תזכורת נוספת', d: $('f-sd3').value, tag: 'לכל הרשימה' });
     }
 
     SCH.auto.forEach(function (a) {
@@ -1000,6 +1088,9 @@
       ['city', $('f-city').value.trim(), 'צריך עיר']
     ];
     if (!autoMode()) req.push(['sd1', $('f-sd1').value, 'בחרו מתי יוצאת השליחה הראשונה']);
+    var oc = CFG.occasion(S.occasion);
+    if (oc && oc.title) req.push(['title', $('f-title').value.trim(), 'צריך ' + oc.title]);
+    if (extraSend) req.push(['sd3', $('f-sd3').value, 'בחרו תאריך לשליחה הנוספת']);
     req.forEach(function (r) {
       if (!r[1]) { showErr(r[0], r[2]); ok = false; } else clearErr(r[0]);
     });
@@ -1015,6 +1106,8 @@
       if (s1 && s2 <= s1) { showErr('sd2', 'התזכורת צריכה לצאת אחרי השליחה הראשונה'); ok = false; }
       else if (ed && s2 >= ed) { showErr('sd2', 'התזכורת חייבת לצאת לפני האירוע'); ok = false; }
     }
+    var s3 = extraSend ? $('f-sd3').value : '';
+    if (s3 && ed && s3 > ed) { showErr('sd3', 'השליחה הנוספת לא יכולה לצאת אחרי האירוע'); ok = false; }
     return ok;
   }
 
@@ -1062,6 +1155,9 @@
       venue_city: $('f-city').value.trim(),
       style: S.style,
       plan: plan,
+      event_title: ($('f-title').value || '').trim(),
+      message_extra: ($('f-extra').value || '').trim(),
+      send_date_3: extraSend ? $('f-sd3').value : '',
       schedule_mode: autoMode() ? 'auto' : 'manual',
       send_date_1: autoMode() ? autoFirstSend() : $('f-sd1').value,
       send_date_2: autoMode() ? '' : ($('f-sd2').value || ''),
@@ -1075,7 +1171,6 @@
           if (autoMode() && x.date <= autoFirstSend()) return false;
           return true;
         }),
-      notes: ($('f-notes').value || '').trim(),
       source: location.href,
       ts: new Date().toISOString()
     };
