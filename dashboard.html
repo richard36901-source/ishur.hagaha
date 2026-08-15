@@ -10,18 +10,18 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=6"></script>
-<script src="assets/tracking.js?v=6"></script>
-<script src="assets/guard.js?v=6"></script>
-<script src="assets/lead.js?v=6"></script>
+<script src="config.js?v=7"></script>
+<script src="assets/tracking.js?v=7"></script>
+<script src="assets/guard.js?v=7"></script>
+<script src="assets/lead.js?v=7"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
   :root{
-    --green:#16a34a;--green2:#15803d;--green4:#f0fdf4;
+    --green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;
     --ink:#111827;--ink2:#374151;--ink3:#6b7280;
     --bg2:#f9fafb;--bg3:#f3f4f6;
-    --bdr:#e5e7eb;--bdr2:rgba(22,163,74,.2);
+    --bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);
     --err:#dc2626;--warn:#b45309;--amber:#fffbeb;
     --ease:cubic-bezier(.22,.9,.24,1);
   }
@@ -212,8 +212,8 @@
 
 <div aria-live="polite" class="hp" id="live"></div>
 
-<script src="assets/select.js?v=6"></script>
-<script src="assets/datepicker.js?v=6"></script>
+<script src="assets/select.js?v=7"></script>
+<script src="assets/datepicker.js?v=7"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -454,7 +454,7 @@
 
       var mark, action, cls = '';
       if (state === 'included') {
-        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         action = '<span class="inc">כלול</span>';
       } else if (state === 'too-late') {
         cls = ' late';
