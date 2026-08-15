@@ -710,6 +710,137 @@ body.modal-open #cookie-bar{
   margin-top:.55rem;padding-top:.5rem;border-top:1px solid var(--bdr);
 }
 
+
+/* ═════════════════════════════════════════════════════════════════════════
+   PREVIEWS · a real iPhone showing real WhatsApp, and the real dashboard
+   ═══════════════════════════════════════════════════════════════════════ */
+.ptabs2{display:flex;gap:.4rem;justify-content:center;margin-bottom:1.6rem;flex-wrap:wrap}
+.ptab2{
+  background:#fff;border:1.5px solid var(--bdr);border-radius:99px;
+  padding:.5rem 1.1rem;font-family:'Heebo',sans-serif;font-size:.87rem;
+  color:var(--ink2);cursor:pointer;
+  transition:border-color .2s,background .2s,color .2s,transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.ptab2:hover{border-color:var(--green)}
+.ptab2:active{transform:scale(.96);transition-duration:100ms}
+.ptab2.on{background:var(--green);border-color:var(--green);color:#fff;font-weight:500}
+
+.phone-stage{display:flex;flex-direction:column;align-items:center}
+.stage-cap{text-align:center;font-size:.82rem;color:var(--ink3);margin-top:1.1rem;max-width:24rem}
+
+/* the handset */
+.iph{
+  width:min(310px,84vw);
+  background:#1c1c1e;
+  border-radius:44px;
+  padding:9px;
+  box-shadow:0 2px 4px rgba(0,0,0,.3),0 18px 46px rgba(0,0,0,.22),inset 0 0 0 1.5px #3a3a3c;
+  position:relative;
+}
+.iph::after{
+  /* the pill */
+  content:'';position:absolute;top:20px;left:50%;transform:translateX(-50%);
+  width:86px;height:24px;background:#000;border-radius:99px;z-index:5;
+}
+.iph-screen{
+  position:relative;background:#fff;border-radius:36px;overflow:hidden;
+  aspect-ratio:9/19.5;display:flex;flex-direction:column;
+}
+
+/* ios status bar */
+.ios-status{
+  flex-shrink:0;height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 22px 4px;font-size:12.5px;font-weight:600;color:#000;
+  background:#F6F6F6;position:relative;z-index:4;letter-spacing:.01em;
+}
+.ios-status.dark{background:#fff}
+.ios-right{display:flex;align-items:center;gap:4px}
+.ios-right svg{display:block}
+
+/* whatsapp chat header */
+.wa-bar{
+  flex-shrink:0;display:flex;align-items:center;gap:7px;
+  padding:5px 11px 8px;background:#F6F6F6;
+  border-bottom:.5px solid rgba(0,0,0,.14);color:#007AFF;
+}
+.wa-back{display:flex;flex-shrink:0}
+.wa-av{
+  width:31px;height:31px;border-radius:50%;background:#fff;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:.5px solid rgba(0,0,0,.08);
+}
+.wa-av img{width:24px;height:24px;object-fit:contain}
+.wa-who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.wa-who b{font-size:12.5px;font-weight:600;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-who i{font-size:10.5px;font-style:normal;color:#8E8E93}
+.wa-icons{display:flex;gap:13px;flex-shrink:0;color:#007AFF}
+
+/* the chat itself */
+.wa-chat{
+  flex:1;overflow:hidden;padding:8px 8px 4px;
+  background-color:#EFE7DE;
+  background-image:
+    radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px),
+    radial-gradient(rgba(0,0,0,.028) 1px, transparent 1px);
+  background-size:22px 22px, 34px 34px;
+  background-position:0 0, 11px 17px;
+  display:flex;flex-direction:column;gap:5px;
+}
+.wa-day{
+  align-self:center;background:#E2F0F7;color:#54656F;
+  font-size:10px;padding:3px 10px;border-radius:7px;margin-bottom:2px;
+  box-shadow:0 1px .5px rgba(0,0,0,.07);
+}
+.wa-msg{display:flex;flex-direction:column;align-items:flex-start;max-width:85%}
+.wa-msg.out{align-self:flex-end;align-items:flex-end}
+.wa-bub{
+  position:relative;padding:5px 8px 4px;border-radius:8px;
+  box-shadow:0 1px .5px rgba(0,0,0,.13);
+}
+.wa-bub.in{background:#fff;border-start-start-radius:0}
+.wa-bub.out{background:#D9FDD3;border-start-end-radius:0}
+.wa-txt{font-size:12.3px;line-height:1.42;color:#111B21;white-space:pre-line}
+.wa-txt b{font-weight:600}
+.wa-foot{
+  font-size:10px;line-height:1.45;color:#667781;
+  margin-top:6px;padding-top:5px;border-top:.5px solid rgba(0,0,0,.09);
+}
+.wa-meta{display:block;text-align:end;font-size:9.5px;color:#667781;margin-top:1px}
+.wa-meta .rr{font-style:normal;color:#53BDEB}
+
+/* the reply buttons wa sends with a template */
+.wa-btns{
+  width:100%;margin-top:2px;background:#fff;border-radius:8px;overflow:hidden;
+  box-shadow:0 1px .5px rgba(0,0,0,.13);
+}
+.wa-btns button{
+  width:100%;background:none;border:none;cursor:pointer;
+  font-family:'Heebo',sans-serif;font-size:12.3px;color:#0A7CFF;font-weight:400;
+  padding:8px 6px;display:flex;align-items:center;justify-content:center;gap:5px;
+  border-bottom:.5px solid rgba(0,0,0,.09);
+  transition:background .15s;
+}
+.wa-btns button:last-child{border-bottom:none}
+.wa-btns button:hover{background:#F5F6F6}
+.wa-btns button:active{background:#EBECEC}
+
+/* the compose bar */
+.wa-input{
+  flex-shrink:0;display:flex;align-items:center;gap:8px;
+  padding:6px 10px 16px;background:#F6F6F6;border-top:.5px solid rgba(0,0,0,.12);
+}
+.wa-field{
+  flex:1;background:#fff;border:.5px solid rgba(0,0,0,.12);border-radius:16px;
+  padding:5px 11px;font-size:12px;color:#8E8E93;
+}
+.wa-mic{color:#8E8E93;display:flex;flex-shrink:0}
+
+/* the dashboard, running for real inside the handset */
+.dash-frame{
+  flex:1;width:100%;border:0;display:block;background:#f9fafb;
+  pointer-events:none;
+}
+
 /* ═══ ACCESSIBILITY PREFERENCES ═══════════════════════════════════════════ */
 @media (prefers-reduced-motion:reduce){
   *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
@@ -815,16 +946,16 @@ body.modal-open #cookie-bar{
   <div class="terms-body2">
     <h1>תנאי שימוש</h1><span class="tdate2">עודכן: ינואר 2025</span>
     <h2>1. כללי</h2><p>שירות "אישורי הגעה" מספק פתרון לניהול ואישור הגעה לאירועים. שימוש בשירות מהווה הסכמה מלאה לתנאים.</p>
-    <h2>2. מדיניות ביטול – אין החזר כספי</h2>
-    <div class="t-hl2"><strong>⚠️ אין החזר כספי בשום מקרה</strong>לאחר תשלום לא יינתן החזר בשום נסיבות – כולל ביטול אירוע, שינוי תאריך, או הפסקת שימוש.</div>
+    <h2>2. מדיניות ביטול, אין החזר כספי</h2>
+    <div class="t-hl2"><strong>⚠️ אין החזר כספי בשום מקרה</strong>לאחר תשלום לא יינתן החזר בשום נסיבות, כולל ביטול אירוע, שינוי תאריך או הפסקת שימוש.</div>
     <ul><li>אין החזר עבור ביטול/דחיית אירוע.</li><li>אין החזר חלקי עבור שליחה שהושלמה חלקית.</li><li>אין החזר עבור אי-שביעות רצון מסגנון שאושר.</li></ul>
     <h2>3. אחריות רשימת מוזמנים</h2>
     <div class="t-hl2"><strong>📋 הלקוח אחראי על נכונות הנתונים</strong>השירות אינו אחראי לטעויות, מספרים שגויים, כפילויות, או כל נתון שגוי ברשימה שסופקה.</div>
-    <ul><li>הלקוח אחראי בלעדי על דיוק הרשימה.</li><li>הודעות למספרים שגויים – לא יוחזרו כספית.</li><li>כפילויות ברשימה גורמות לשליחה כפולה ללא זיכוי.</li></ul>
+    <ul><li>הלקוח אחראי בלעדי על דיוק הרשימה.</li><li>הודעות למספרים שגויים לא יוחזרו כספית.</li><li>כפילויות ברשימה גורמות לשליחה כפולה ללא זיכוי.</li></ul>
     <h2>4. שינוי תאריכי שליחה</h2>
     <ul><li>ניתן לשנות תאריכים <strong>עתידיים בלבד</strong>, לפחות <strong>48 שעות לפני</strong> המשלוח.</li><li>הודעות שיצאו לא ניתן לבטל, להחזיר, או לשנות.</li><li>שינויים פחות מ-48 שעות מראש לא יתקבלו.</li></ul>
     <h2>5. זמינות השירות</h2>
-    <ul><li>השירות יעשה כל מאמץ להבטיח שליחה בזמן, אך אינו אחראי לעיכובים מצד ספקי תקשורת.</li><li>וואטסאפ עשוי להגביל שליחות מסיביות – שליחה חלקית לא תזכה בהחזר.</li></ul>
+    <ul><li>השירות יעשה כל מאמץ להבטיח שליחה בזמן, אך אינו אחראי לעיכובים מצד ספקי תקשורת.</li><li>וואטסאפ עשוי להגביל שליחות מסיביות. שליחה חלקית לא תזכה בהחזר.</li></ul>
     <h2>6. פרטיות</h2><p>פרטי המוזמנים ישמשו לשליחת אישורי הגעה בלבד ויימחקו תוך 90 יום מהאירוע.</p>
     <h2>7. יצירת קשר</h2><p><a href="#" data-mail style="color:var(--green)">info@ishur.io</a> | <a href="#" data-wa style="color:var(--green)">וואטסאפ</a></p>
   </div>
@@ -848,7 +979,7 @@ body.modal-open #cookie-bar{
   <div class="hero-inner">
     <div class="hero-badge">✓ &nbsp; אישורי הגעה חכמים לכל אירוע</div>
     <h1 class="hero-h1">אישורי הגעה<br><span class="accent">אוטומטיים בוואטסאפ</span></h1>
-    <p class="hero-sub">שולחים הודעות, מקבלים תשובות, עוקבים אחרי כל מוזמן – בלי כאב ראש מיותר. אתם מתמקדים ביום שלכם.</p>
+    <p class="hero-sub">שולחים הודעה לכל מוזמן, אוספים תשובות, מזכירים למי ששכח. אתם מקבלים מספר מדויק.</p>
     <div class="hero-btns">
       <button class="btn btn-green" data-order="hero">התחילו עכשיו</button>
       <button class="btn btn-outline" onclick="goTo('previews')">ראו איך זה עובד</button>
@@ -902,11 +1033,11 @@ body.modal-open #cookie-bar{
       <div class="feat-acc-body">
         <div class="feat-grid" style="margin-top:.6rem">
           <div class="feat fi"><div class="feat-ico2">📨</div><div><strong>הודעות אישיות</strong><p>לכל מוזמן בנפרד עם שמו האישי וקישור לאישור</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">📊</div><div><strong>מעקב תשובות</strong><p>כן / לא / כמה מגיעים – הכל מתועד ומסודר</p></div></div>
+          <div class="feat fi"><div class="feat-ico2">📊</div><div><strong>מעקב תשובות</strong><p>כן, לא, וכמה מגיעים. הכל מתועד ומסודר</p></div></div>
           <div class="feat fi"><div class="feat-ico2">🔔</div><div><strong>תזכורות אוטומטיות</strong><p>למי שלא ענה, בלי שתצטרכו לבקש</p></div></div>
           <div class="feat fi"><div class="feat-ico2">📋</div><div><strong>דוחות שוטפים</strong><p>כל כמה ימים ישירות לוואטסאפ שלכם</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">🎯</div><div><strong>סיכום ביום האירוע</strong><p>כמה מגיעים, כמה לא – הכל ברור ונקי</p></div></div>
-          <div class="feat fi"><div class="feat-ico2">📞</div><div><strong>שיחת טלפון – מענה אנושי</strong><p>למוזמנים שלא ענו, נציג מטעמנו יתקשר ויאשר בשמם</p></div></div>
+          <div class="feat fi"><div class="feat-ico2">🎯</div><div><strong>סיכום ביום האירוע</strong><p>כמה מגיעים וכמה לא, ברור ונקי</p></div></div>
+          <div class="feat fi"><div class="feat-ico2">📞</div><div><strong>שיחת טלפון ממוקד אנושי</strong><p>למוזמנים שלא ענו, נציג מטעמנו יתקשר ויאשר בשמם</p></div></div>
         </div>
       </div>
     </div>
@@ -943,132 +1074,104 @@ body.modal-open #cookie-bar{
       <span class="sec-tag">תצוגה מקדימה</span>
       <h2 class="sec-title">ככה זה נראה בפועל</h2>
       <div class="divider"></div>
-      <p class="sec-note">כך המוזמנים שלכם רואים את ההודעה – וכך אתם מנהלים הכל</p>
+      <p class="sec-note">מה שהמוזמן מקבל בוואטסאפ, ומה שאתם רואים בלוח הבקרה</p>
     </div>
+
     <div class="ptabs2">
-      <button class="ptab2 on" id="ptab-wa" onclick="showPrev('wa')">📱 הודעה למוזמן</button>
-      <button class="ptab2" id="ptab-dash" onclick="showPrev('dash')">📊 לוח הבקרה שלכם</button>
+      <button class="ptab2 on" id="ptab-wa" onclick="showPrev('wa')">ההודעה שהמוזמן מקבל</button>
+      <button class="ptab2" id="ptab-dash" onclick="showPrev('dash')">לוח הבקרה שלכם</button>
     </div>
 
-    <!-- WA PANEL -->
-    <div id="prev-wa" style="display:flex;flex-direction:column;align-items:center">
-      <div class="iphone" style="width:min(185px,56vw)">
-        <div class="iph-notch"></div>
+    <!-- ══ the guest's phone ══ -->
+    <div id="prev-wa" class="phone-stage">
+      <div class="iph">
         <div class="iph-screen">
-          <div class="wa-screen" style="max-height:370px;overflow-y:hidden">
-            <div class="wa-hdr">
-              <span class="wa-back">‹</span>
-              <div class="wa-av2">✓</div>
-              <div class="wa-info2"><h4>אישורי הגעה · נועה ויונתן</h4><span>online</span></div>
-            </div>
-            <div class="wa-chat2">
-              <div class="wa-day2">היום · 10:14</div>
-              <div class="bub">
-                <p>שלום משפחת כהן! 🤍<br><br><b>נועה ויונתן</b> מתחתנים!<br>📅 <b>15 בספטמבר 2025</b><br>📍 <b>אולם הגן הקסום, רמת גן</b><br><br>נשמח מאוד לנוכחותכם!</p>
-                <div class="wa-acts2">
-                  <button class="wa-act2 y">כן, מגיעים בשמחה! &nbsp;✅</button>
-                  <button class="wa-act2 n">לצערנו לא נוכל &nbsp;❌</button>
-                  <button class="wa-act2 m">אולי, נעדכן בקרוב &nbsp;🤔</button>
-                </div>
-                <div class="ts2">10:14 ✓✓</div>
+          <div class="ios-status">
+            <span class="ios-time">9:41</span>
+            <span class="ios-right">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.5" y="5.5" width="3" height="5.5" rx="1"/><rect x="9" y="3" width="3" height="8" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 9.6 6.1 7.7a2.7 2.7 0 0 1 3.8 0L8 9.6Zm-3.3-3.3a5.3 5.3 0 0 1 6.6 0l1.3-1.3a7.2 7.2 0 0 0-9.2 0l1.3 1.3ZM1.5 3.1a9.8 9.8 0 0 1 13 0l1.3-1.4a11.7 11.7 0 0 0-15.6 0l1.3 1.4Z"/></svg>
+              <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6Z" fill="currentColor" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="wa-bar">
+            <span class="wa-back" aria-hidden="true">
+              <svg width="11" height="18" viewBox="0 0 11 18" fill="none"><path d="M9.5 1.5 2 9l7.5 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="wa-av"><img src="assets/logo.png" alt=""></span>
+            <span class="wa-who"><b>נועה ויונתן</b><i>אישורי הגעה</i></span>
+            <span class="wa-icons" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2Z"/></svg>
+            </span>
+          </div>
+
+          <div class="wa-chat">
+            <div class="wa-day">היום</div>
+
+            <div class="wa-msg">
+              <div class="wa-bub in">
+                <p class="wa-txt" id="wa-preview-txt"></p>
+                <p class="wa-foot" id="wa-preview-foot"></p>
+                <span class="wa-meta">10:14</span>
               </div>
-              <div class="bub out"><p>כן, מגיעים! 🎉</p><div class="ts2 r">10:17 ✓✓</div></div>
-              <div class="bub"><p>כמה תגיעו? 😊</p><div class="ts2">10:17 ✓✓</div></div>
-              <div class="bub out"><p>2 אנשים</p><div class="ts2 r">10:18 ✓✓</div></div>
-              <div class="bub"><p>מעולה! רשמנו 2 מגיעים ✅<br>מחכים לראותכם! 💒</p><div class="ts2">10:18 ✓✓</div></div>
+              <div class="wa-btns">
+                <button type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                  מגיעים
+                </button>
+                <button type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                  לא נוכל
+                </button>
+              </div>
             </div>
+
+            <div class="wa-msg out">
+              <div class="wa-bub out"><p class="wa-txt">מגיעים</p><span class="wa-meta">10:17 <i class="rr">✓✓</i></span></div>
+            </div>
+
+            <div class="wa-msg">
+              <div class="wa-bub in"><p class="wa-txt">מעולה. כמה אתם מגיעים?</p><span class="wa-meta">10:17</span></div>
+            </div>
+
+            <div class="wa-msg out">
+              <div class="wa-bub out"><p class="wa-txt">4</p><span class="wa-meta">10:18 <i class="rr">✓✓</i></span></div>
+            </div>
+
+            <div class="wa-msg">
+              <div class="wa-bub in"><p class="wa-txt">רשמנו 4 מקומות. נתראה! 🤍</p><span class="wa-meta">10:18</span></div>
+            </div>
+          </div>
+
+          <div class="wa-input">
+            <span class="wa-field">הודעה</span>
+            <span class="wa-mic" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M18 11a1 1 0 1 0-2 0 4 4 0 0 1-8 0 1 1 0 1 0-2 0 6 6 0 0 0 5 5.9V19h-2a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.1A6 6 0 0 0 18 11Z"/></svg>
+            </span>
           </div>
         </div>
       </div>
+      <p class="stage-cap">הכפתורים אמיתיים. המוזמן לוחץ, והתשובה נרשמת מיד.</p>
     </div>
 
-    <!-- DASH PANEL -->
-    <div id="prev-dash" style="display:none">
-      <div class="sbs">
-        <!-- Mac browser -->
-        <div class="sbs-col sbs-mac">
-          <div class="sbs-lbl">לוח בקרה במחשב</div>
-          <div class="mac-browser">
-            <div class="mac-bar">
-              <div class="mac-dots"><div class="mac-dot r"></div><div class="mac-dot y"></div><div class="mac-dot g"></div></div>
-              <div class="mac-url">rsvp-pro.co.il/dashboard · נועה ויונתן</div>
-            </div>
-            <div class="mac-body">
-              <div class="dash-layout">
-                <div class="dash-side">
-                  <div class="dash-couple">
-                    <div class="dash-av">✓</div>
-                    <h4>נועה ויונתן</h4>
-                    <span>15.9.2025</span>
-                  </div>
-                  <nav class="dash-nav">
-                    <a class="on">📊 <span>סקירה</span></a>
-                    <a>✅ <span>אישרו</span></a>
-                    <a>⏳ <span>ממתינים</span></a>
-                    <a>❌ <span>לא מגיעים</span></a>
-                    <a>📩 <span>הודעות</span></a>
-                    <a>📋 <span>דוחות</span></a>
-                  </nav>
-                </div>
-                <div class="dash-main">
-                  <div class="dash-title">שלום נועה ויונתן 👋</div>
-                  <div class="dash-meta">עדכון אחרון: היום · 14:32</div>
-                  <div class="dash-cd">⏰ &nbsp; נותרו <strong>43 ימים</strong> לחתונה · תזכורת הבאה: <strong>10 באוגוסט</strong></div>
-                  <div class="kpi-row">
-                    <div class="kpi"><div class="kpi-v">280</div><div class="kpi-l">מוזמנים</div></div>
-                    <div class="kpi hi"><div class="kpi-v">187</div><div class="kpi-l">אישרו ✅</div></div>
-                    <div class="kpi"><div class="kpi-v">34</div><div class="kpi-l">לא מגיעים</div></div>
-                    <div class="kpi"><div class="kpi-v">59</div><div class="kpi-l">ממתינים ⏳</div></div>
-                  </div>
-                  <div class="prog-w">
-                    <div class="prog-hd"><span>אחוז מענה</span><span>221 / 280 · 79%</span></div>
-                    <div class="prog-bar"><div class="prog-fill" id="mac-pf" style="width:0%"></div></div>
-                  </div>
-                  <div class="dash-tbl">
-                    <div class="tbl-hd"><span>שם</span><span>סטטוס</span><span>כמה</span><span>עדכון</span></div>
-                    <div class="tbl-row"><span>משפחת כהן</span><span class="ts-y">✓ אישרו</span><span>4</span><span>אמש</span></div>
-                    <div class="tbl-row"><span>דני לוי</span><span class="ts-y">✓ אישרו</span><span>2</span><span>לפני יומיים</span></div>
-                    <div class="tbl-row"><span>משפחת אברהם</span><span class="ts-w">⏳ ממתין</span><span>—</span><span>תזכורת נשלחה</span></div>
-                    <div class="tbl-row"><span>רחל מזרחי</span><span class="ts-n">✗ לא מגיע</span><span>0</span><span>שבוע שעבר</span></div>
-                    <div class="tbl-row"><span>יוסי ברק</span><span class="ts-w">⏳ ממתין</span><span>—</span><span>הודעה נשלחה</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
+    <!-- ══ the real dashboard ══ -->
+    <div id="prev-dash" class="phone-stage" style="display:none">
+      <div class="iph">
+        <div class="iph-screen">
+          <div class="ios-status dark">
+            <span class="ios-time">9:41</span>
+            <span class="ios-right">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.5" y="5.5" width="3" height="5.5" rx="1"/><rect x="9" y="3" width="3" height="8" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+              <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/></svg>
+            </span>
           </div>
-        </div>
-        <!-- iPhone -->
-        <div class="sbs-col sbs-ph">
-          <div class="sbs-lbl">לוח בקרה בנייד</div>
-          <div class="iphone">
-            <div class="iph-notch"></div>
-            <div class="iph-screen">
-              <div class="id-screen">
-                <div class="id-top"><h4>נועה ויונתן ✓</h4><span>15 ספטמבר</span></div>
-                <div class="id-body">
-                  <div class="id-cd">⏰ &nbsp; נותרו <strong>43 ימים</strong></div>
-                  <div class="id-kpis">
-                    <div class="id-k"><div class="id-kv">280</div><div class="id-kl">מוזמנים</div></div>
-                    <div class="id-k hi"><div class="id-kv">187</div><div class="id-kl">אישרו ✅</div></div>
-                    <div class="id-k"><div class="id-kv">34</div><div class="id-kl">לא מגיעים</div></div>
-                    <div class="id-k"><div class="id-kv">59</div><div class="id-kl">ממתינים ⏳</div></div>
-                  </div>
-                  <div class="id-prog">
-                    <div class="id-prog-hd"><span>מענה</span><span>221/280 · 79%</span></div>
-                    <div class="id-pb"><div class="id-pfill" id="ph-pf" style="width:0%"></div></div>
-                  </div>
-                  <div class="id-tbl">
-                    <div class="id-th"><span>שם</span><span>סטטוס</span><span>כמה</span></div>
-                    <div class="id-tr"><span>משפחת כהן</span><span class="ts-y">✓ אישרו</span><span>4</span></div>
-                    <div class="id-tr"><span>משפחת אברהם</span><span class="ts-w">⏳ ממתין</span><span>—</span></div>
-                    <div class="id-tr"><span>רחל מזרחי</span><span class="ts-n">✗ לא מגיע</span><span>0</span></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
+          <!-- the live dashboard, not a drawing of one -->
+          <iframe class="dash-frame" id="dashFrame" title="לוח הבקרה" loading="lazy" scrolling="no" tabindex="-1"></iframe>
         </div>
       </div>
+      <p class="stage-cap">זה לוח הבקרה עצמו, עם נתוני דוגמה. נפתח מהקישור שנשלח אליכם.</p>
     </div>
   </div>
 </section>
@@ -1163,6 +1266,7 @@ function showMsg(key,btn){
   if(!m) return;
   document.getElementById('msg-body').innerHTML=m.html;
   document.getElementById('msg-note').textContent=m.note||'';
+  renderWaPreview();
 }
 showMsg('happy');
 
@@ -1178,20 +1282,36 @@ function toggleEv(card){
 }
 
 // ═══ PREVIEW TABS ═══
-let barsAnimated=false;
+let dashLoaded=false;
 function showPrev(tab){
   document.getElementById('ptab-wa').classList.toggle('on',tab==='wa');
   document.getElementById('ptab-dash').classList.toggle('on',tab==='dash');
   document.getElementById('prev-wa').style.display=tab==='wa'?'flex':'none';
-  document.getElementById('prev-dash').style.display=tab==='dash'?'block':'none';
-  if(tab==='dash'&&!barsAnimated){
-    barsAnimated=true;
-    setTimeout(()=>{
-      const mp=document.getElementById('mac-pf'); if(mp) mp.style.width='79%';
-      const pp=document.getElementById('ph-pf');  if(pp) pp.style.width='79%';
-    },300);
+  document.getElementById('prev-dash').style.display=tab==='dash'?'flex':'none';
+  // the dashboard is the real page, loaded only once someone asks to see it
+  if(tab==='dash'&&!dashLoaded){
+    dashLoaded=true;
+    document.getElementById('dashFrame').src='dashboard.html#demo';
   }
   push('preview_tab',{tab});
+}
+
+// the bubble shows the message that actually goes out, footer included
+function renderWaPreview(){
+  const m=ISHUR_MESSAGES.sample(S.evType||'wedding', currentStyleKey());
+  const box=document.getElementById('wa-preview-txt');
+  if(!box||!m) return;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=m.html;
+  const t=tmp.querySelector('.msg-text');
+  box.innerHTML=t?t.innerHTML:'';
+  const F=CFG.MESSAGE_FOOTER;
+  document.getElementById('wa-preview-foot').innerHTML=
+    F.sentBy.replace('{names}','נועה ויונתן')+'<br>'+F.optOut;
+}
+function currentStyleKey(){
+  const a=document.querySelector('.mtab.on');
+  return a?.getAttribute('onclick')?.match(/showMsg\('(\w+)'/)?.[1]||'happy';
 }
 
 // ═══ PRICING TABLE ═══ built from config, one row per guest tier

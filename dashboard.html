@@ -216,7 +216,7 @@
   var CFG = window.ISHUR_CONFIG;
   var qs = new URLSearchParams(location.search);
   var token = (qs.get('t') || '').trim();
-  var demo = qs.get('demo') === '1';
+  var demo = qs.get('demo') === '1' || location.hash === '#demo';
   var $ = function (id) { return document.getElementById(id); };
 
   $('wa').href = CFG.waLink('היי, לגבי האירוע שלי:');
@@ -478,24 +478,43 @@
     });
   }
 
-  function fail(msg) {
+  /* Never leave the page looking empty. Say what happened, and offer the
+     sample data so the layout can still be seen. */
+  function fail(msg, offerDemo) {
     $('title').textContent = 'לוח הבקרה';
     $('title').classList.remove('skel');
+    $('sub').textContent = '';
+    document.querySelectorAll('.card, #changeNote').forEach(function (el) { el.hidden = true; });
     document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
-      '<div class="note warn">' + msg + '</div>');
+      '<div class="card"><div class="card-b" style="text-align:center">' +
+      '<div style="font-size:2rem;margin-bottom:.5rem">📋</div>' +
+      '<p style="font-size:.92rem;color:var(--ink2);line-height:1.7">' + msg + '</p>' +
+      (offerDemo ? '<button type="button" class="buy" id="demoBtn" style="margin-top:1rem">' +
+                   'צפייה בנתוני דוגמה</button>' : '') +
+      '</div></div>');
+    var b = $('demoBtn');
+    if (b) b.addEventListener('click', function () {
+      document.querySelectorAll('.wrap > .card').forEach(function (c, i) { if (i === 0) c.remove(); });
+      document.querySelectorAll('.card, #changeNote').forEach(function (el) { el.hidden = false; });
+      data = demoData();
+      render();
+      document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+        '<div class="note warn">אלה נתוני דוגמה להמחשה, לא האירוע שלכם.</div>');
+    });
   }
 
   /* ── load ── */
 
   if (!token && !demo) {
-    fail('הקישור הזה לא תקין. פתחו את הקישור שקיבלתם בוואטסאפ.');
+    fail('לוח הבקרה נפתח מהקישור האישי שנשלח אליכם בוואטסאפ אחרי התשלום.<br>' +
+         'הקישור הזה נפתח בלי מזהה אירוע, אז אין מה להציג כאן.', true);
     return;
   }
 
   if (demo) { data = demoData(); render(); return; }
 
   if (!CFG.isSet(CFG.MAKE_STATUS_WEBHOOK)) {
-    fail('לוח הבקרה עדיין לא מחובר. הנתונים יופיעו כאן ברגע שנחבר אותו, ובינתיים אפשר לכתוב לנו בוואטסאפ.');
+    fail('לוח הבקרה עדיין לא מחובר לנתונים.<br>הוא יתמלא מעצמו ברגע שנחבר אותו.', true);
     return;
   }
 
@@ -513,7 +532,7 @@
       IshurLead.track('dashboard_view', {});
     })
     ['catch'](function () {
-      fail('לא הצלחנו לטעון את הנתונים כרגע. רעננו את העמוד, ואם זה חוזר כתבו לנו.');
+      fail('לא הצלחנו לטעון את הנתונים כרגע.<br>רעננו את העמוד, ואם זה חוזר כתבו לנו.', false);
     });
 })();
 </script>
