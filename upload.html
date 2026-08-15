@@ -10,11 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=4"></script>
-<script src="assets/tracking.js?v=4"></script>
-<script src="assets/guard.js?v=4"></script>
-<script src="assets/lead.js?v=4"></script>
-<script src="assets/messages.js?v=4"></script>
+<script src="config.js?v=5"></script>
+<script src="assets/tracking.js?v=5"></script>
+<script src="assets/guard.js?v=5"></script>
+<script src="assets/lead.js?v=5"></script>
+<script src="assets/messages.js?v=5"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -342,7 +342,7 @@
         <span class="col-l">C</span>
         <span class="col-b">
           <span class="col-t">כמות מוזמנים</span>
-          <span class="col-n">כמה אנשים ההזמנה מכסה. משפחה של 4 היא שורה אחת עם 4.</span>
+          <span class="col-n">כמה אנשים ההזמנה מכסה.</span>
         </span>
       </div>
       <div class="cols-f">
@@ -388,14 +388,14 @@
     <div class="sec">
       <div class="sec-h">האירוע</div>
       <div class="fgrid two">
-        <div class="frow full" id="occRow">
+        <div class="frow full" id="occRow" hidden>
           <label for="f-occasion">סוג האירוע <span class="req">*</span></label>
           <select id="f-occasion" data-isel></select>
           <p class="ferr" id="e-occasion" aria-live="polite"></p>
         </div>
         <div class="frow full" id="occFixed" hidden>
           <label>סוג האירוע</label>
-          <div class="chosen"><span id="occFixedTxt"></span><button type="button" id="occChange">שינוי</button></div>
+          <div class="chosen"><span id="occFixedTxt"></span></div>
         </div>
         <div class="frow full" id="titleRow" hidden>
           <label for="f-title" id="titleLbl">שם האירוע <span class="req">*</span></label>
@@ -446,12 +446,14 @@
     </div>
 
     <div class="sec">
-      <div class="sec-h">סגנון ההודעה</div>
+      <div class="sec-h" id="styleHead">סגנון ההודעה</div>
+      <div id="stylesWrap">
       <div class="styles" id="styles"></div>
-      <div class="frow full" style="margin-top:.8rem">
-        <label for="f-extra">שורה משלכם בהודעה <span class="fopt">לא חובה</span></label>
-        <textarea id="f-extra" rows="2" placeholder="חניה חינם במקום · הקבלה מתחילה בשעה 19:00"></textarea>
-        <p class="hint-s">מה שתכתבו כאן ייכנס להודעה כמו שהוא, מתחת לפרטי האירוע.</p>
+      <div class="frow full" id="extraRow" hidden style="margin-top:.8rem">
+        <label for="f-extra">נוסח ההודעה <span class="req">*</span></label>
+        <textarea id="f-extra" rows="3" placeholder="אנחנו מזמינים אתכם לכנס הלקוחות השנתי שלנו. חניה חינם במקום."></textarea>
+        <p class="hint-s">לאירוע כזה אין תבנית מוכנה, אז מה שתכתבו כאן הוא גוף ההודעה. הפרטים והכפתורים נוספים אוטומטית.</p>
+      </div>
       </div>
       <div class="preview">
         <div class="bubble">
@@ -505,12 +507,17 @@
           <input type="text" id="f-sd3" data-idate data-placeholder="בחרו תאריך">
           <p class="ferr" id="e-sd3" aria-live="polite"></p>
           <p class="hint-s">תזכורת נוספת לכל הרשימה, לא יאוחר מיום האירוע.</p>
+          <div class="note warn" style="margin-top:.6rem">
+            שומרים קודם את כל ההגדרות, ומיד אחרי זה עוברים לתשלום על התוספת.
+            <b>אם התשלום לא יושלם, התזכורת הנוספת פשוט לא תישלח</b> ושאר השליחות יוצאות כרגיל.
+          </div>
         </div>
       </div>
       <p class="tmpl" style="margin-top:.6rem">שינויים ותוספות אחרות אפשר לעשות בלוח הבקרה, אחרי שההגדרות נשמרות.</p>
     </div>
 
     <button class="btn" id="saveBtn">שמירה והפעלת השליחה</button>
+    <p class="hint-s" id="saveHint" style="text-align:center;margin-top:.5rem"></p>
     <div class="bar" id="bar2"><i></i></div>
     <p class="tmpl">אפשר לשנות תאריכים עתידיים בוואטסאפ, עד 06:00 ביום המשלוח.</p>
   </section>
@@ -553,8 +560,8 @@
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
 
-<script src="assets/select.js?v=4"></script>
-<script src="assets/datepicker.js?v=4"></script>
+<script src="assets/select.js?v=5"></script>
+<script src="assets/datepicker.js?v=5"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -763,8 +770,13 @@
     } else if (hint) hint.remove();
 
     /* occasions a template cannot guess get a line for what the event is */
-    $('titleRow').hidden = !(o && o.title);
-    if (o && o.title) $('titleLbl').innerHTML = o.title + ' <span class="req">*</span>';
+    /* biz and other have no canned wording, so they write their own and the
+       tone tabs stop applying */
+    var free = !!(o && o.title);
+    $('titleRow').hidden = !free;
+    if (free) $('titleLbl').innerHTML = o.title + ' <span class="req">*</span>';
+    $('extraRow').hidden = !free;
+    $('stylesWrap').hidden = free;
   }
 
   function renderStyles() {
@@ -784,23 +796,41 @@
   }
 
   function renderPreview() {
+    var o = CFG.occasion(S.occasion);
+    if (o && o.title) {
+      /* their own wording, wrapped in the same frame every message gets */
+      var title = ($('f-title').value || '').trim() || o.title;
+      var body = ($('f-extra').value || '').trim() || 'כאן ייכנס הנוסח שתכתבו למעלה.';
+      var when = $('f-edate').value ? IshurDate.pretty($('f-edate').value) : 'תאריך האירוע';
+      var time = $('f-time').value ? ' בשעה ' + $('f-time').value : '';
+      var where = [$('f-venue').value.trim(), $('f-city').value.trim()].filter(Boolean).join(', ') || 'מקום האירוע';
+      $('preview').innerHTML =
+        '<p class="msg-text">שלום [שם],<br><br><b>' + esc(title) + '</b><br><br>' +
+        esc(body).replace(/\n/g, '<br>') + '<br><br>' +
+        '📅 ' + esc(when) + esc(time) + '<br>📍 ' + esc(where) + '</p>';
+      $('styleHead').textContent = 'נוסח ההודעה';
+      $('previewFoot').innerHTML = footHtml();
+      return;
+    }
+    $('styleHead').textContent = 'סגנון ההודעה';
     var m = MSG.sample(S.occasion, S.style);
     $('preview').innerHTML = m ? m.html : '';
-    var extra = ($('f-extra').value || '').trim();
-    if (extra) {
-      var e = document.createElement('p');
-      e.className = 'msg-text';
-      e.style.marginTop = '.5rem';
-      e.textContent = extra;
-      $('preview').appendChild(e);
-    }
+    $('previewFoot').innerHTML = footHtml();
+  }
+
+  function esc(t) {
+    return String(t).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  function footHtml() {
     var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
     var F = CFG.MESSAGE_FOOTER;
-    $('previewFoot').innerHTML =
-      '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
-      '<span class="fine-l">' + F.optOut + '</span>';
+    return '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
+           '<span class="fine-l">' + F.optOut + '</span>';
   }
-  ['f-name1', 'f-name2', 'f-extra', 'f-title'].forEach(function (id) {
+  ['f-name1', 'f-name2', 'f-extra', 'f-title', 'f-venue', 'f-city'].forEach(function (id) {
     var el = $(id);
     if (el) el.addEventListener('input', renderPreview);
   });
@@ -817,19 +847,16 @@
     renderPreview();
   });
 
-  /* the occasion was already chosen when they paid, so it is shown as settled
-     with a way back rather than asked a second time */
+  /* the occasion was captured with the lead and arrives on the link, so it is
+     shown as settled. The picker only appears if the link somehow lacks it. */
   if (occasionHint && CFG.occasion(occasionHint)) {
     occ.value = occasionHint;
     S.occasion = occasionHint;
-    $('occRow').hidden = true;
     $('occFixed').hidden = false;
     $('occFixedTxt').textContent = CFG.occasionLabel(occasionHint);
-  }
-  $('occChange').addEventListener('click', function () {
-    $('occFixed').hidden = true;
+  } else {
     $('occRow').hidden = false;
-  });
+  }
 
   syncOccasion();
   renderStyles();
@@ -894,6 +921,10 @@
     extraSend = !extraSend;
     $('extraSendWrap').hidden = !extraSend;
     if (extraSend && !$('f-sd3').dataset.enhanced) IshurDate.enhance($('f-sd3'));
+    $('saveBtn').textContent = extraSend ? 'שמירה ומעבר לתשלום' : 'שמירה והפעלת השליחה';
+    $('saveHint').textContent = extraSend
+      ? 'ההגדרות נשמרות קודם. התשלום הוא על השליחה הנוספת בלבד.'
+      : '';
     renderAddons();
     renderTimeline();
   }
@@ -1089,7 +1120,10 @@
     ];
     if (!autoMode()) req.push(['sd1', $('f-sd1').value, 'בחרו מתי יוצאת השליחה הראשונה']);
     var oc = CFG.occasion(S.occasion);
-    if (oc && oc.title) req.push(['title', $('f-title').value.trim(), 'צריך ' + oc.title]);
+    if (oc && oc.title) {
+      req.push(['title', $('f-title').value.trim(), 'צריך ' + oc.title]);
+      req.push(['extra', $('f-extra').value.trim(), 'כתבו את נוסח ההודעה']);
+    }
     if (extraSend) req.push(['sd3', $('f-sd3').value, 'בחרו תאריך לשליחה הנוספת']);
     req.forEach(function (r) {
       if (!r[1]) { showErr(r[0], r[2]); ok = false; } else clearErr(r[0]);
@@ -1138,7 +1172,7 @@
 
     var btn = $('saveBtn');
     btn.disabled = true;
-    btn.innerHTML = 'שומר<span class="spin" aria-hidden="true"></span>';
+    btn.innerHTML = (extraSend ? 'שומר ומעביר לתשלום' : 'שומר') + '<span class="spin" aria-hidden="true"></span>';
     $('bar2').classList.add('on');
 
     var payload = {
@@ -1184,7 +1218,16 @@
     })
       .then(function (res) {
         if (res.status === 200) {
-          IshurLead.track('setup_success', {});
+          IshurLead.track('setup_success', { extra_send: extraSend });
+          if (extraSend) {
+            /* everything is saved first, so an abandoned payment costs only the
+               extra reminder and leaves the rest of the schedule standing */
+            var url = guests ? CFG.addonLink('extra_send', guests) : null;
+            IshurLead.track('addon_checkout', { addon: 'extra_send', has_link: !!url });
+            location.href = url || CFG.waLink(
+              'היי, הוספתי שליחה נוספת בתאריך ' + $('f-sd3').value + ' ורציתי להשלים את התשלום.');
+            return;
+          }
           /* straight into the dashboard, same tab */
           location.href = 'dashboard.html?t=' + encodeURIComponent(token);
           return;
@@ -1201,7 +1244,7 @@
       })
       ['finally'](function () {
         btn.disabled = false;
-        btn.textContent = 'שמירה והפעלת השליחה';
+        btn.textContent = extraSend ? 'שמירה ומעבר לתשלום' : 'שמירה והפעלת השליחה';
         $('bar2').classList.remove('on');
       });
   });
