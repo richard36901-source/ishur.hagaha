@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=11"></script>
-<script src="assets/tracking.js?v=11"></script>
-<script src="assets/guard.js?v=11"></script>
-<script src="assets/lead.js?v=11"></script>
-<script src="assets/messages.js?v=11"></script>
+<script src="config.js?v=13"></script>
+<script src="assets/tracking.js?v=13"></script>
+<script src="assets/guard.js?v=13"></script>
+<script src="assets/lead.js?v=13"></script>
+<script src="assets/messages.js?v=13"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -448,8 +448,6 @@ footer{background:#0f172a;padding:1.5rem 1.5rem;text-align:center;border-top:1px
 .f-copy2{font-size:.7rem;color:rgba(255,255,255,.18)}
 
 /* ═══ TERMS ═══ */
-#terms-page{display:none;position:fixed;inset:0;z-index:500;background:var(--bg);overflow-y:auto}
-#terms-page.show{display:block}
 .terms-bar2{position:sticky;top:0;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr);padding:.9rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
 .terms-bar2 h3{font-family:'Rubik',sans-serif;font-size:1.1rem;font-weight:600}
 .terms-close2{background:none;border:none;font-size:1.4rem;color:var(--ink3);cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .2s}
@@ -1162,27 +1160,6 @@ footer{padding:1.9rem 1.5rem 1.6rem}
 <body>
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-XXXXXXX" height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
-<!-- TERMS OVERLAY -->
-<div id="terms-page">
-  <div class="terms-bar2"><h3>תנאי שימוש ומדיניות</h3><button class="terms-close2" onclick="closeTerms()">✕</button></div>
-  <div class="terms-body2">
-    <h1>תנאי שימוש</h1><span class="tdate2">עודכן: ינואר 2025</span>
-    <h2>1. כללי</h2><p>שירות "אישורי הגעה" מספק פתרון לניהול ואישור הגעה לאירועים. שימוש בשירות מהווה הסכמה מלאה לתנאים.</p>
-    <h2>2. מדיניות ביטול, אין החזר כספי</h2>
-    <div class="t-hl2"><strong>⚠️ אין החזר כספי בשום מקרה</strong>לאחר תשלום לא יינתן החזר בשום נסיבות, כולל ביטול אירוע, שינוי תאריך או הפסקת שימוש.</div>
-    <ul><li>אין החזר עבור ביטול/דחיית אירוע.</li><li>אין החזר חלקי עבור שליחה שהושלמה חלקית.</li><li>אין החזר עבור אי-שביעות רצון מסגנון שאושר.</li></ul>
-    <h2>3. אחריות רשימת מוזמנים</h2>
-    <div class="t-hl2"><strong>📋 הלקוח אחראי על נכונות הנתונים</strong>השירות אינו אחראי לטעויות, מספרים שגויים, כפילויות, או כל נתון שגוי ברשימה שסופקה.</div>
-    <ul><li>הלקוח אחראי בלעדי על דיוק הרשימה.</li><li>הודעות למספרים שגויים לא יוחזרו כספית.</li><li>כפילויות ברשימה גורמות לשליחה כפולה ללא זיכוי.</li></ul>
-    <h2>4. שינוי תאריכי שליחה</h2>
-    <ul><li>ניתן לשנות תאריכים <strong>עתידיים בלבד</strong>, לפחות <strong>48 שעות לפני</strong> המשלוח.</li><li>הודעות שיצאו לא ניתן לבטל, להחזיר, או לשנות.</li><li>שינויים פחות מ-48 שעות מראש לא יתקבלו.</li></ul>
-    <h2>5. זמינות השירות</h2>
-    <ul><li>השירות יעשה כל מאמץ להבטיח שליחה בזמן, אך אינו אחראי לעיכובים מצד ספקי תקשורת.</li><li>וואטסאפ עשוי להגביל שליחות מסיביות. שליחה חלקית לא תזכה בהחזר.</li></ul>
-    <h2>6. פרטיות</h2><p>פרטי המוזמנים ישמשו לשליחת אישורי הגעה בלבד ויימחקו תוך 90 יום מהאירוע.</p>
-    <h2>7. יצירת קשר</h2><p><a href="#" data-wa style="color:var(--green)">וואטסאפ</a></p>
-  </div>
-</div>
-
 <!-- NAV -->
 <nav id="nav">
   <div class="nav-logo">
@@ -1443,7 +1420,8 @@ footer{padding:1.9rem 1.5rem 1.6rem}
       וואטסאפ
     </a>
     
-    <a href="#" onclick="openTerms();return false;">תנאי שימוש</a>
+    <a href="terms.html">תנאי שימוש</a>
+    <a href="terms.html#privacy">פרטיות</a>
   </div>
   <div class="f-copy2">© 2025 אישורי הגעה · כל הזכויות שמורות</div>
 </footer>
@@ -1454,8 +1432,6 @@ const CFG=window.ISHUR_CONFIG;
 function goTo(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'})}
 function push(e,p={}){IshurLead.track(e,p)}
 function pxc(e,p={}){typeof fbq!=='undefined'&&fbq('trackCustom',e,p)}
-function openTerms(){document.getElementById('terms-page').classList.add('show')}
-function closeTerms(){document.getElementById('terms-page').classList.remove('show')}
 
 // ═══ PAGE STATE ═══ (preview only, the order popup keeps its own)
 const S={evType:'wedding'};
@@ -1712,7 +1688,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=11"></script>
-<script src="assets/popup.js?v=11"></script>
+<script src="assets/select.js?v=13"></script>
+<script src="assets/popup.js?v=13"></script>
 </body>
 </html>

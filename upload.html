@@ -8,13 +8,13 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=7"></script>
-<script src="assets/tracking.js?v=7"></script>
-<script src="assets/guard.js?v=7"></script>
-<script src="assets/lead.js?v=7"></script>
-<script src="assets/messages.js?v=7"></script>
+<script src="config.js?v=13"></script>
+<script src="assets/tracking.js?v=13"></script>
+<script src="assets/guard.js?v=13"></script>
+<script src="assets/lead.js?v=13"></script>
+<script src="assets/messages.js?v=13"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -37,13 +37,14 @@
   }
   .card{
     width:100%;max-width:520px;background:#fff;border:1px solid var(--bdr);
-    border-radius:16px;padding:1.8rem 1.5rem 1.6rem;margin-top:1rem;
+    border-radius:16px;padding:0 1.5rem 1.6rem;margin-top:1rem;overflow:hidden;
     box-shadow:0 1px 3px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.07);
     animation:rise .45s var(--ease) both;
   }
   @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
 
-  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1.1rem}
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem}
+  .lux-head{margin:0 -1.5rem 1.4rem}
   .brand img{width:32px;height:32px;object-fit:contain}
   .brand-t{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600}
   .brand-t span{color:var(--green)}
@@ -306,13 +307,17 @@
     .drop:active,.btn:active,.retry:active,.idate-cell:active,.style-opt:active{transform:none}
   }
 </style>
+<link rel="stylesheet" href="assets/lux.css?v=13">
 </head>
 <body>
 
 <main class="card">
-  <div class="brand">
-    <img src="assets/logo.png" alt="">
-    <span class="brand-t">אישורי <span>הגעה</span></span>
+  <div class="lux-head">
+    <div class="brand">
+      <img src="assets/logo-gold.png" alt="">
+      <span class="brand-t">אישורי <span>הגעה</span></span>
+    </div>
+    <div class="lux-rule" aria-hidden="true"></div>
   </div>
 
   <div class="steps-bar" id="stepsBar" hidden><i id="sb1"></i><i id="sb2"></i></div>
@@ -562,8 +567,8 @@
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
 
-<script src="assets/select.js?v=7"></script>
-<script src="assets/datepicker.js?v=7"></script>
+<script src="assets/select.js?v=13"></script>
+<script src="assets/datepicker.js?v=13"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -671,7 +676,8 @@
     /* honeypot: a bot filled a field no human can see */
     if ($('website').value) { show('okView'); return; }
 
-    if (!CFG.isSet(CFG.MAKE_UPLOAD_WEBHOOK)) {
+    var uploadUrl = CFG.endpoint('event');
+    if (!CFG.isSet(uploadUrl)) {
       returnTo = 'formView';
       fail('ההעלאה עדיין לא מחוברת. שלחו לנו את הקובץ בוואטסאפ ונטפל בזה.', 'רגע אחד');
       IshurLead.track('upload_not_configured', {});
@@ -702,7 +708,7 @@
       Object.keys(st).forEach(function (k) { fd.append(k, st[k]); });
     }
 
-    fetch(CFG.MAKE_UPLOAD_WEBHOOK, { method: 'POST', body: fd })
+    fetch(uploadUrl, { method: 'POST', body: fd })
       .then(function (res) {
         if (res.status === 200) {
           IshurLead.track('upload_success', {});
@@ -1154,8 +1160,7 @@
       return;
     }
 
-    var endpoint = CFG.isSet(CFG.MAKE_SETUP_WEBHOOK) ? CFG.MAKE_SETUP_WEBHOOK
-                 : (CFG.isSet(CFG.MAKE_UPLOAD_WEBHOOK) ? CFG.MAKE_UPLOAD_WEBHOOK : '');
+    var endpoint = CFG.endpoint('event');
     if (!endpoint) {
       returnTo = 'setupView';
       fail('ההגדרות עדיין לא מחוברות. שלחו לנו את הפרטים בוואטסאפ ונטפל בזה.', 'רגע אחד');

@@ -8,12 +8,12 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=7"></script>
-<script src="assets/tracking.js?v=7"></script>
-<script src="assets/guard.js?v=7"></script>
-<script src="assets/lead.js?v=7"></script>
+<script src="config.js?v=13"></script>
+<script src="assets/tracking.js?v=13"></script>
+<script src="assets/guard.js?v=13"></script>
+<script src="assets/lead.js?v=13"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -32,13 +32,17 @@
   }
   .card{
     width:100%;max-width:480px;background:#fff;border:1px solid var(--bdr);
-    border-radius:18px;padding:2.4rem 1.8rem 2rem;text-align:center;
+    border-radius:18px;padding:0 1.8rem 2rem;text-align:center;overflow:hidden;
     box-shadow:0 4px 12px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.06);
     animation:rise .45s cubic-bezier(.22,.9,.24,1) both;
   }
   @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .lux-head{margin:0 -1.8rem 1.6rem}
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem}
+  .brand img{object-fit:contain}
+  .brand-t{font-size:.92rem;font-weight:600}
   .mark{
-    width:64px;height:64px;margin:0 auto 1.1rem;border-radius:50%;
+    width:64px;height:64px;margin:1.6rem auto 1.1rem;border-radius:50%;
     background:var(--green4);border:1.5px solid var(--bdr2);
     display:flex;align-items:center;justify-content:center;
   }
@@ -74,10 +78,17 @@
     .wa:active{transform:none}
   }
 </style>
+<link rel="stylesheet" href="assets/lux.css?v=13">
 </head>
 <body>
 
 <main class="card">
+  <div class="lux-head">
+    <div class="brand">
+      <img src="assets/logo-gold.png" alt="">
+      <span class="brand-t">אישורי <span>הגעה</span></span>
+    </div>
+  </div>
   <div class="mark">
     <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
       <path d="m5 12.5 4.5 4.5L19 7.5"/>

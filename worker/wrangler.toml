@@ -1,0 +1,10 @@
+name = "ishur-webhooks"
+main = "index.js"
+compatibility_date = "2026-08-01"
+
+# Optional but recommended: rate limits survive a Worker restart with KV bound.
+# Create it once, then uncomment and paste the id.
+#   npx wrangler kv namespace create RATE
+# [[kv_namespaces]]
+# binding = "RATE"
+# id = "PASTE_NAMESPACE_ID"

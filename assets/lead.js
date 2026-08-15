@@ -131,7 +131,7 @@ window.IshurLead = (function () {
      fallback; it cannot set a JSON content-type, so Make reads it as text and
      parses. Never throws, never blocks the caller. */
   function send(payload) {
-    var url = CFG.MAKE_LEAD_WEBHOOK;
+    var url = CFG.endpoint ? CFG.endpoint('lead') : CFG.MAKE_LEAD_WEBHOOK;
     if (!url || !CFG.isSet(url)) return;
 
     if (window.IshurGuard) {

@@ -17,6 +17,12 @@ window.ISHUR_CONFIG = (function () {
 
   var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/ncspc47ub65nex4k8ndufpurk1pky4hg';
   var MAKE_UPLOAD_WEBHOOK = 'https://hook.eu1.make.com/8z5concgga1en37633ao2blpi2n7k27i';  // guest-list file uploads (multipart)
+  /* Flip to true once worker/ is deployed, and paste its URL below. Every
+     request then goes through the proxy and the Make URLs can be deleted from
+     this file, which is the only way to stop them being public. */
+  var USE_PROXY  = false;
+  var PROXY_BASE = '';   // https://ishur-webhooks.<subdomain>.workers.dev
+
   var MAKE_STATUS_WEBHOOK = 'https://hook.eu1.make.com/qaskw7ccoz2ir6zolis144j4cc9gp2vt';
                                          // dashboard reads event + guest status
                                          // from here. POST {token} -> JSON,
@@ -39,6 +45,14 @@ window.ISHUR_CONFIG = (function () {
   var WHATSAPP_NUMBER     = '972559504499';   // digits only, country code, no +
   var SUPPORT_PHONE       = '0559504499';     // for tel: links
   var SUPPORT_EMAIL       = 'info@ishur.io';
+
+  /* Required on terms.html. Until the name is filled the page shows a notice
+     saying so, because these are legal facts that cannot be guessed. */
+  var LEGAL = {
+    name:    '[שם העוסק או החברה]',
+    id:      '[מספר ח.פ. או עוסק מורשה]',
+    address: '[כתובת למשלוח דואר]'
+  };
 
   var TEMPLATE_URL        = '';          // sample .xlsx for the upload form. empty hides the row
 
@@ -318,6 +332,20 @@ window.ISHUR_CONFIG = (function () {
      Derived helpers. Nothing to fill below this line.
      ═══════════════════════════════════════════════════════════════════════ */
 
+  /* one place decides whether a caller talks to Make or to the proxy */
+  function endpoint(kind) {
+    if (USE_PROXY && PROXY_BASE) {
+      return PROXY_BASE.replace(/\/$/, '') + ({
+        lead: '/api/lead', event: '/api/event', status: '/api/status'
+      }[kind] || '/api/event');
+    }
+    return {
+      lead: MAKE_LEAD_WEBHOOK,
+      event: MAKE_UPLOAD_WEBHOOK || MAKE_SETUP_WEBHOOK,
+      status: MAKE_STATUS_WEBHOOK
+    }[kind] || '';
+  }
+
   function isSet(v) {
     return typeof v === 'string' && v.length > 0 && v.indexOf('PASTE_') !== 0 && v.indexOf('XXXX') === -1;
   }
@@ -404,6 +432,7 @@ window.ISHUR_CONFIG = (function () {
     SUPPORT_PHONE: SUPPORT_PHONE,
     SUPPORT_EMAIL: SUPPORT_EMAIL,
     TEMPLATE_URL: TEMPLATE_URL,
+    LEGAL: LEGAL,
 
     PLANS: PLANS,
     PLAN_ORDER: PLAN_ORDER,
@@ -422,6 +451,8 @@ window.ISHUR_CONFIG = (function () {
     ADDON_PRICES: ADDON_PRICES,
     ADDON_LINKS: ADDON_LINKS,
 
+    USE_PROXY: USE_PROXY,
+    endpoint: endpoint,
     isSet: isSet,
     waLink: waLink,
     priceFor: priceFor,

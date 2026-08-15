@@ -8,12 +8,12 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=7"></script>
-<script src="assets/tracking.js?v=7"></script>
-<script src="assets/guard.js?v=7"></script>
-<script src="assets/lead.js?v=7"></script>
+<script src="config.js?v=13"></script>
+<script src="assets/tracking.js?v=13"></script>
+<script src="assets/guard.js?v=13"></script>
+<script src="assets/lead.js?v=13"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -36,9 +36,16 @@
   .wrap{max-width:620px;margin:0 auto;padding:0 1rem}
 
   .top{
-    background:#fff;border-bottom:1px solid var(--bdr);padding:1rem 0 1.1rem;
-    margin-bottom:1.1rem;
+    background:linear-gradient(135deg,#0F2E22 0%,#16233A 100%);
+    border-bottom:1px solid rgba(199,174,122,.22);
+    padding:1.1rem 0 1.3rem;margin-bottom:1.1rem;
   }
+  .top h1{color:#F8F4EA}
+  .top .sub{color:rgba(248,244,234,.6)}
+  .top .brand-t{color:#F8F4EA}
+  .top .brand-t span{color:#A8853C}
+  .top .cd{background:rgba(248,244,234,.07);border-color:rgba(199,174,122,.3);color:#C7AE7A}
+  .top .skel{background:rgba(248,244,234,.12)}
   .brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:.7rem}
   .brand img{width:28px;height:28px;object-fit:contain}
   .brand-t{font-family:'Rubik',sans-serif;font-size:.85rem;font-weight:600}
@@ -155,13 +162,14 @@
     .filt:active,.buy:active,.send-edit:active{transform:none}
   }
 </style>
+<link rel="stylesheet" href="assets/lux.css?v=13">
 </head>
 <body>
 
 <header class="top">
   <div class="wrap">
     <div class="brand">
-      <img src="assets/logo.png" alt="">
+      <img src="assets/logo-gold.png" alt="">
       <span class="brand-t">אישורי <span>הגעה</span></span>
     </div>
     <h1 id="title" class="skel">האירוע שלכם</h1>
@@ -212,8 +220,8 @@
 
 <div aria-live="polite" class="hp" id="live"></div>
 
-<script src="assets/select.js?v=7"></script>
-<script src="assets/datepicker.js?v=7"></script>
+<script src="assets/select.js?v=13"></script>
+<script src="assets/datepicker.js?v=13"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -406,8 +414,7 @@
   }
 
   function saveChange(key, date, host) {
-    var url = CFG.isSet(CFG.MAKE_CHANGE_WEBHOOK) ? CFG.MAKE_CHANGE_WEBHOOK
-            : (CFG.isSet(CFG.MAKE_SETUP_WEBHOOK) ? CFG.MAKE_SETUP_WEBHOOK : '');
+    var url = CFG.endpoint('event');
     IshurLead.track('send_date_change', { send: key, date: date });
 
     if (!url) {
@@ -519,12 +526,12 @@
 
   if (demo) { data = demoData(); render(); return; }
 
-  if (!CFG.isSet(CFG.MAKE_STATUS_WEBHOOK)) {
+  if (!CFG.isSet(CFG.endpoint('status'))) {
     fail('לוח הבקרה עדיין לא מחובר לנתונים.<br>הוא יתמלא מעצמו ברגע שנחבר אותו.', true);
     return;
   }
 
-  fetch(CFG.MAKE_STATUS_WEBHOOK, {
+  fetch(CFG.endpoint('status'), {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp({ token: token }) : { token: token })
   })

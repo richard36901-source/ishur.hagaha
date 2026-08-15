@@ -1,0 +1,93 @@
+/* ============================================================================
+   ishur.io · shared design language for the working pages
+   ----------------------------------------------------------------------------
+   upload, thanks and dashboard are places people do a job, not shop windows,
+   so they keep a light ground. What they take from the landing page is the
+   letterhead, the serif display face, the gold labelling and the pine and navy
+   the brand is built on.
+
+   Loaded after each page's own styles, so it wins.
+   ========================================================================== */
+
+:root{
+  --pine:#0F2E22;
+  --pine-deep:#0A2119;
+  --pine-lift:#17402F;
+  --navy:#16233A;
+  --navy-deep:#0E1726;
+  --gold:#A8853C;
+  --gold-soft:#C7AE7A;
+  --gold-pale:rgba(199,174,122,.3);
+  --paper:#F8F4EA;
+}
+
+/* ── letterhead ─────────────────────────────────────────────────────────── */
+.lux-head{
+  background:linear-gradient(135deg,var(--pine) 0%,var(--navy) 100%);
+  border-bottom:1px solid rgba(199,174,122,.22);
+  padding:1.1rem 1rem 1.15rem;
+  text-align:center;
+}
+.lux-head .brand{margin-bottom:0}
+.lux-head .brand img{width:30px;height:30px}
+.lux-head .brand-t{color:var(--paper);font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:.01em}
+.lux-head .brand-t span{color:var(--gold)}
+.lux-rule{
+  width:104px;height:9px;margin:.6rem auto 0;
+  background-image:
+    linear-gradient(rgba(199,174,122,.6),rgba(199,174,122,.6)),
+    linear-gradient(rgba(199,174,122,.6),rgba(199,174,122,.6)),
+    radial-gradient(circle,var(--gold) 2.2px,transparent 2.3px);
+  background-size:40px 1px,40px 1px,100% 9px;
+  background-position:left center,right center,center center;
+  background-repeat:no-repeat;
+}
+
+/* ── display face ───────────────────────────────────────────────────────── */
+h1,h2,.msg h2,.o-title{font-family:'Frank Ruhl Libre',serif;font-weight:700;letter-spacing:-.015em}
+
+/* ── every label that groups a block speaks gold ────────────────────────── */
+.sec-h,.card-h,.cols-h{
+  color:var(--gold)!important;
+  font-size:.71rem;font-weight:600;
+  letter-spacing:.2em;text-transform:uppercase;
+  background:none!important;
+}
+.cols-h{border-bottom:1px solid var(--gold-pale)}
+.card-h{border-bottom:1px solid var(--gold-pale)}
+.sec-h{border-bottom:1px solid var(--gold-pale)}
+
+/* ── surfaces ───────────────────────────────────────────────────────────── */
+.card,.cols,.addons,.pr-table,.timeline,.isel-panel{border-color:var(--gold-pale)}
+.card{box-shadow:0 1px 3px rgba(15,46,34,.05),0 14px 40px rgba(15,46,34,.06)}
+
+/* the column letters are the mark of the file format, so they carry gold */
+.col-l{
+  background:linear-gradient(140deg,var(--pine) 0%,var(--navy) 100%)!important;
+  color:var(--gold-soft)!important;
+  border:1px solid rgba(199,174,122,.3);
+}
+
+/* ── steps and progress ─────────────────────────────────────────────────── */
+.steps-bar i.on{background:var(--gold)}
+.step-lbl{color:var(--gold);letter-spacing:.12em;font-size:.67rem;text-transform:uppercase}
+.step-n{background:linear-gradient(140deg,var(--pine),var(--navy));color:var(--gold-soft)}
+
+/* ── accents ────────────────────────────────────────────────────────────── */
+.req{color:var(--gold)}
+.event{color:var(--gold)}
+.mark{background:rgba(15,76,53,.06);border-color:var(--gold-pale)}
+.tl-row.auto .tl-dot{border-color:var(--gold-soft)}
+.plan-rec,.addon-buy,.buy{letter-spacing:.02em}
+.idate-cell.on{background:var(--pine)}
+.isel-opt.on{color:var(--pine);background:rgba(15,76,53,.06)}
+.isel-opt.on::after{color:var(--gold)}
+.style-opt.on{border-color:var(--gold-soft);background:#FBF8F1}
+.kpi.hi{background:rgba(15,76,53,.05)}
+.kpi.hi .kpi-v{color:var(--pine)}
+.pill.yes{background:rgba(15,76,53,.08);color:var(--pine)}
+.filt.on{background:var(--pine);border-color:var(--pine)}
+.cd{background:rgba(15,76,53,.06);border-color:var(--gold-pale);color:var(--pine)}
+
+/* ── the footer line ────────────────────────────────────────────────────── */
+.foot{color:var(--gold);opacity:.7;letter-spacing:.1em;font-size:.68rem;text-transform:uppercase}
