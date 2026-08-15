@@ -22,6 +22,10 @@ window.ISHUR_CONFIG = (function () {
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
   var GA4_ID              = '';          // G-XXXXXXX, only if you are not using GTM
 
+  /* Support line, 055-950-4499. This is the number leads and clients talk to:
+     every "questions?" link on the site, the over-600 handoff, the upload
+     fallback and the post-payment page all point here.
+     It is NOT the number guest invitations are sent from. Do not swap them. */
   var WHATSAPP_NUMBER     = '972559504499';   // digits only, country code, no +
   var SUPPORT_PHONE       = '0559504499';     // for tel: links
   var SUPPORT_EMAIL       = 'info@ishur.io';
