@@ -10,11 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=5"></script>
-<script src="assets/tracking.js?v=5"></script>
-<script src="assets/guard.js?v=5"></script>
-<script src="assets/lead.js?v=5"></script>
-<script src="assets/messages.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="assets/tracking.js?v=6"></script>
+<script src="assets/guard.js?v=6"></script>
+<script src="assets/lead.js?v=6"></script>
+<script src="assets/messages.js?v=6"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -27,6 +27,8 @@
     --ease:cubic-bezier(.22,.9,.24,1);
   }
   *{margin:0;padding:0;box-sizing:border-box}
+  /* a display rule on a class must never beat the hidden attribute */
+  [hidden]{display:none!important}
   body{
     font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);
     min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
@@ -448,12 +450,12 @@
     <div class="sec">
       <div class="sec-h" id="styleHead">סגנון ההודעה</div>
       <div id="stylesWrap">
-      <div class="styles" id="styles"></div>
-      <div class="frow full" id="extraRow" hidden style="margin-top:.8rem">
-        <label for="f-extra">נוסח ההודעה <span class="req">*</span></label>
-        <textarea id="f-extra" rows="3" placeholder="אנחנו מזמינים אתכם לכנס הלקוחות השנתי שלנו. חניה חינם במקום."></textarea>
-        <p class="hint-s">לאירוע כזה אין תבנית מוכנה, אז מה שתכתבו כאן הוא גוף ההודעה. הפרטים והכפתורים נוספים אוטומטית.</p>
+        <div class="styles" id="styles"></div>
       </div>
+      <div class="frow full" id="extraRow" hidden>
+        <label for="f-extra">תיאור האירוע <span class="req">*</span></label>
+        <textarea id="f-extra" rows="3" placeholder="ערב של הרצאות ונטוורקינג. חניה חינם במקום."></textarea>
+        <p class="hint-s">התיאור נכנס להודעה שהמוזמנים מקבלים. התאריך, המקום והכפתורים נוספים אוטומטית.</p>
       </div>
       <div class="preview">
         <div class="bubble">
@@ -560,8 +562,8 @@
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
 
-<script src="assets/select.js?v=5"></script>
-<script src="assets/datepicker.js?v=5"></script>
+<script src="assets/select.js?v=6"></script>
+<script src="assets/datepicker.js?v=6"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -800,7 +802,7 @@
     if (o && o.title) {
       /* their own wording, wrapped in the same frame every message gets */
       var title = ($('f-title').value || '').trim() || o.title;
-      var body = ($('f-extra').value || '').trim() || 'כאן ייכנס הנוסח שתכתבו למעלה.';
+      var body = ($('f-extra').value || '').trim() || 'כאן ייכנס תיאור האירוע שתכתבו למעלה.';
       var when = $('f-edate').value ? IshurDate.pretty($('f-edate').value) : 'תאריך האירוע';
       var time = $('f-time').value ? ' בשעה ' + $('f-time').value : '';
       var where = [$('f-venue').value.trim(), $('f-city').value.trim()].filter(Boolean).join(', ') || 'מקום האירוע';
@@ -808,7 +810,7 @@
         '<p class="msg-text">שלום [שם],<br><br><b>' + esc(title) + '</b><br><br>' +
         esc(body).replace(/\n/g, '<br>') + '<br><br>' +
         '📅 ' + esc(when) + esc(time) + '<br>📍 ' + esc(where) + '</p>';
-      $('styleHead').textContent = 'נוסח ההודעה';
+      $('styleHead').textContent = 'תיאור האירוע';
       $('previewFoot').innerHTML = footHtml();
       return;
     }
@@ -1122,7 +1124,7 @@
     var oc = CFG.occasion(S.occasion);
     if (oc && oc.title) {
       req.push(['title', $('f-title').value.trim(), 'צריך ' + oc.title]);
-      req.push(['extra', $('f-extra').value.trim(), 'כתבו את נוסח ההודעה']);
+      req.push(['extra', $('f-extra').value.trim(), 'כתבו תיאור קצר לאירוע']);
     }
     if (extraSend) req.push(['sd3', $('f-sd3').value, 'בחרו תאריך לשליחה הנוספת']);
     req.forEach(function (r) {
@@ -1190,7 +1192,7 @@
       style: S.style,
       plan: plan,
       event_title: ($('f-title').value || '').trim(),
-      message_extra: ($('f-extra').value || '').trim(),
+      event_description: ($('f-extra').value || '').trim(),
       send_date_3: extraSend ? $('f-sd3').value : '',
       schedule_mode: autoMode() ? 'auto' : 'manual',
       send_date_1: autoMode() ? autoFirstSend() : $('f-sd1').value,

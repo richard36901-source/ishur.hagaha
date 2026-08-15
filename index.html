@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=5"></script>
-<script src="assets/tracking.js?v=5"></script>
-<script src="assets/guard.js?v=5"></script>
-<script src="assets/lead.js?v=5"></script>
-<script src="assets/messages.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="assets/tracking.js?v=6"></script>
+<script src="assets/guard.js?v=6"></script>
+<script src="assets/lead.js?v=6"></script>
+<script src="assets/messages.js?v=6"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -31,6 +31,8 @@
   --r:8px;
 }
 *{margin:0;padding:0;box-sizing:border-box}
+  /* a display rule on a class must never beat the hidden attribute */
+  [hidden]{display:none!important}
 html{scroll-behavior:smooth}
 body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);font-weight:300;line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
 
@@ -1476,7 +1478,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=5"></script>
-<script src="assets/popup.js?v=5"></script>
+<script src="assets/select.js?v=6"></script>
+<script src="assets/popup.js?v=6"></script>
 </body>
 </html>

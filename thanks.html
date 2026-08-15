@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=5"></script>
-<script src="assets/tracking.js?v=5"></script>
-<script src="assets/guard.js?v=5"></script>
-<script src="assets/lead.js?v=5"></script>
+<script src="config.js?v=6"></script>
+<script src="assets/tracking.js?v=6"></script>
+<script src="assets/guard.js?v=6"></script>
+<script src="assets/lead.js?v=6"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -23,6 +23,8 @@
     --bdr:#e5e7eb;--bdr2:rgba(22,163,74,.2);--bg2:#f9fafb;
   }
   *{margin:0;padding:0;box-sizing:border-box}
+  /* a display rule on a class must never beat the hidden attribute */
+  [hidden]{display:none!important}
   body{
     font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);
     min-height:100vh;display:flex;align-items:center;justify-content:center;
