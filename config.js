@@ -81,15 +81,17 @@ window.ISHUR_CONFIG = (function () {
      'custom' = over 600, no self-serve payment, routed to WhatsApp.
      ─────────────────────────────────────────────────────────────────────── */
 
+  /* A tier counts phone numbers, not people. One family on one number is one
+     invitation however many seats it covers, so the wording says הזמנות. */
   var GUEST_TIERS = [
-    { value: '50',     label: 'עד 50 מוזמנים' },
-    { value: '100',    label: 'עד 100 מוזמנים' },
-    { value: '200',    label: 'עד 200 מוזמנים' },
-    { value: '300',    label: 'עד 300 מוזמנים' },
-    { value: '400',    label: 'עד 400 מוזמנים' },
-    { value: '500',    label: 'עד 500 מוזמנים' },
-    { value: '600',    label: 'עד 600 מוזמנים' },
-    { value: 'custom', label: 'מעל 600 מוזמנים' }
+    { value: '50',     label: 'עד 50 הזמנות' },
+    { value: '100',    label: 'עד 100 הזמנות' },
+    { value: '200',    label: 'עד 200 הזמנות' },
+    { value: '300',    label: 'עד 300 הזמנות' },
+    { value: '400',    label: 'עד 400 הזמנות' },
+    { value: '500',    label: 'עד 500 הזמנות' },
+    { value: '600',    label: 'עד 600 הזמנות' },
+    { value: 'custom', label: 'מעל 600 הזמנות' }
   ];
 
   /* ══ PRICES ═══ ₪ per event, by guest tier × package ══════════════════════ */
@@ -197,7 +199,8 @@ window.ISHUR_CONFIG = (function () {
     extra_send: {
       label: 'שליחה נוספת',
       desc: 'סבב הודעות נוסף למי שעדיין לא ענה',
-      plans: []
+      plans: [],
+      inForm: true          // the only add-on offered during setup
     },
     calls: {
       label: 'סבב שיחות ממוקד אנושי',
@@ -235,14 +238,21 @@ window.ISHUR_CONFIG = (function () {
   var SCHEDULE = {
     minEventDays: 1,          // tomorrow is the closest an event can be
     autoUnderDays: 3,         // event this close, the schedule is fixed for them
-    firstSendDaysBefore: 35,  // recommended first send, about five weeks out
-    secondSendDaysBefore: 14, // recommended reminder to whoever stayed silent
+    firstSendDaysBefore: 30,  // the invitation, about a month out
+    secondSendDaysBefore: 7,  // the chase, about a week out
     minGapDays: 7,            // never chase someone less than a week later
-    /* derived from the event date, not chosen. Offsets are in days. */
+    /* Derived from the event date, not chosen.
+       The day-of reminder carries the address, so it has to land while it is
+       still useful: an evening reception gets it the same morning, an event
+       that starts before `earlyBefore` gets it the day before instead. */
     auto: [
-      { key: 'day_before', offset: -1, label: 'תזכורת עם הכתובת', to: 'למי שאישר' },
-      { key: 'event_day',  offset:  0, label: 'הודעת יום האירוע', to: 'למי שאישר', optional: true },
-      { key: 'day_after',  offset:  1, label: 'הודעת תודה',       to: 'למי שאישר' }
+      {
+        key: 'event_day', offset: 0,
+        label: 'תזכורת עם הכתובת', to: 'למי שאישר',
+        earlyBefore: '16:00', earlyOffset: -1,
+        earlyLabel: 'תזכורת עם הכתובת, ערב לפני'
+      },
+      { key: 'day_after', offset: 1, label: 'הודעת תודה', to: 'למי שאישר' }
     ]
   };
 

@@ -1080,7 +1080,7 @@ body.modal-open #cookie-bar{
       <span class="sec-tag">מחירון</span>
       <h2 class="sec-title">מחיר אחד לאירוע, לפי כמות מוזמנים</h2>
       <div class="divider"></div>
-      <p class="sec-note">בלי מנוי, בלי תשלום חודשי. משלמים פעם אחת על האירוע.</p>
+      <p class="sec-note">בלי מנוי, בלי תשלום חודשי. משלמים פעם אחת על האירוע.<br><b>הזמנה אחת = מספר טלפון אחד.</b> משפחה שמקבלת הזמנה אחת נספרת פעם אחת, גם אם מגיעים ממנה חמישה.</p>
     </div>
 
     <div class="pr-table fi">
@@ -1237,7 +1237,7 @@ function buildPricing(){
   const head=document.getElementById('pr-head');
   const body=document.getElementById('pr-body');
   if(!head||!body) return;
-  head.innerHTML='<div class="pr-c pr-h-guests">מוזמנים</div>'+
+  head.innerHTML='<div class="pr-c pr-h-guests">הזמנות</div>'+
     CFG.PLAN_ORDER.map(k=>'<div class="pr-c pr-h-plan'+(k==='pro'?' hi':'')+'">'+
       '<span class="pr-plan-name">'+CFG.PLANS[k].name+'</span>'+
       (k==='pro'?'<span class="pr-tag">הנבחר ביותר</span>':'')+'</div>').join('');
@@ -1383,7 +1383,7 @@ window.addEventListener('load',()=>{
             <p class="ferr" id="e-occasion" aria-live="polite"></p>
           </div>
           <div class="frow full">
-            <label for="f-guests">כמות מוזמנים <span class="req">*</span></label>
+            <label for="f-guests">כמות הזמנות <span class="req">*</span></label>
             <select id="f-guests" data-isel aria-describedby="e-guests"></select>
             <p class="ferr" id="e-guests" aria-live="polite"></p>
           </div>

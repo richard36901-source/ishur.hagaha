@@ -460,9 +460,9 @@
     </div>
 
     <div class="sec">
-      <div class="sec-h">מה כלול ומה אפשר להוסיף</div>
+      <div class="sec-h">תוספות</div>
       <div class="addons" id="addons"></div>
-      <p class="tmpl" style="margin-top:.6rem">אפשר להוסיף גם אחרי שההגדרות נשמרו, כל עוד לא יצאה השליחה.</p>
+      <p class="tmpl" style="margin-top:.6rem">שינויים ותוספות אחרות אפשר לעשות בלוח הבקרה, אחרי שההגדרות נשמרות.</p>
     </div>
 
     <button class="btn" id="saveBtn">שמירה והפעלת השליחה</button>
@@ -733,6 +733,11 @@
     if (el) el.addEventListener('input', renderPreview);
   });
 
+  $('f-time').addEventListener('change', function () {
+    clearErr('time');
+    renderTimeline();
+  });
+
   occ.addEventListener('change', function () {
     S.occasion = occ.value || 'wedding';
     clearErr('occasion');
@@ -761,7 +766,8 @@
     var ed = $('f-edate').value;
     var dte = ed ? daysUntil(ed) : null;
 
-    $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
+    var keys = Object.keys(CFG.ADDONS).filter(function (k) { return CFG.ADDONS[k].inForm; });
+    $('addons').innerHTML = keys.map(function (k) {
       var a = CFG.ADDONS[k];
       var state = CFG.addonState(k, plan, dte);
       var price = guests ? CFG.addonPrice(k, guests) : null;
@@ -841,6 +847,18 @@
     return '';
   }
 
+  /* An address reminder is only useful if it arrives before people leave.
+     A reception at 19:00 gets it that morning; one at 12:00 gets it the
+     evening before, because the same morning is already too late. */
+  function autoSend(a, ed) {
+    var t = $('f-time').value;
+    var early = a.earlyBefore && t && t < a.earlyBefore;
+    return {
+      date: shift(ed, early ? a.earlyOffset : a.offset),
+      label: early ? (a.earlyLabel || a.label) : a.label
+    };
+  }
+
   function autoMode() {
     var n = daysUntil($('f-edate').value);
     return n != null && n <= SCH.autoUnderDays;
@@ -872,12 +890,12 @@
     }
 
     SCH.auto.forEach(function (a) {
-      var d = shift(ed, a.offset);
+      var res = autoSend(a, ed);
       /* an automatic send only happens if there is still a day left for it,
          and never on the day the invitation itself goes out */
-      if (d < IshurDate.iso(IshurDate.minDate())) return;
-      if (auto && (a.key === 'day_before' || d <= firstSend)) return;
-      rows.push({ t: a.label, d: d, tag: a.to, auto: true });
+      if (res.date < IshurDate.iso(IshurDate.minDate())) return;
+      if (auto && res.date <= firstSend) return;
+      rows.push({ t: res.label, d: res.date, tag: a.to, auto: true });
     });
 
     rows.sort(function (x, y) { return x.d < y.d ? -1 : 1; });
@@ -1025,10 +1043,13 @@
       send_date_1: autoMode() ? autoFirstSend() : $('f-sd1').value,
       send_date_2: autoMode() ? '' : ($('f-sd2').value || ''),
       auto_sends: CFG.SCHEDULE.auto
-        .map(function (a) { return { key: a.key, date: shift($('f-edate').value, a.offset) }; })
+        .map(function (a) {
+          var res = autoSend(a, $('f-edate').value);
+          return { key: a.key, date: res.date };
+        })
         .filter(function (x) {
           if (x.date < IshurDate.iso(IshurDate.minDate())) return false;
-          if (autoMode() && (x.key === 'day_before' || x.date <= autoFirstSend())) return false;
+          if (autoMode() && x.date <= autoFirstSend()) return false;
           return true;
         }),
       notes: ($('f-notes').value || '').trim(),
