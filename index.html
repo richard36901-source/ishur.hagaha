@@ -1106,44 +1106,6 @@ body.modal-open #cookie-bar{
   </div>
 </section>
 
-<!-- ORDER FLOW -->
-<section id="order" class="sec" style="text-align:center;padding:2.5rem 1.5rem">
-  <div class="wrap">
-    <div class="sec-hd fi">
-      <span class="sec-tag">הזמנה</span>
-      <h2 class="sec-title">מוכנים להתחיל?</h2>
-      <div class="divider"></div>
-      <p class="sec-note" style="margin-bottom:1.8rem">לחצו וענו על כמה שאלות קצרות — אנחנו עושים את השאר</p>
-    </div>
-    <button class="btn btn-green order-cta-btn" data-order="order-section" style="font-size:1.1rem;padding:1rem 2.8rem;border-radius:12px">
-      🚀 &nbsp; התחילו בהזמנה
-    </button>
-    <div style="margin-top:1.2rem;display:flex;align-items:center;justify-content:center;gap:.8rem;flex-wrap:nowrap;font-size:.82rem;color:var(--ink3)">
-      <span>✓ &nbsp;ממלאים פרטים</span>
-      <span>✓ &nbsp;בוחרים חבילה</span>
-      <span>✓ &nbsp;משלמים</span>
-      <span>✓ &nbsp;אנחנו עושים הכל</span>
-    </div>
-  </div>
-</section>
-
-<!-- REPORTS -->
-<section id="reports" class="sec" style="padding:1.5rem 1.5rem;">
-  <div class="wrap">
-    <div class="sec-hd fi">
-      <span class="sec-tag">דוחות ועדכונים</span>
-      <h2 class="sec-title">תמיד תדעו מה קורה</h2>
-      <div class="divider"></div>
-    </div>
-    <div class="rep-grid">
-      <div class="rep-card fi"><span class="rep-ico2">✅</span><h4>אישרו הגעה</h4><p>שם, מספר מגיעים, אישור מלא</p></div>
-      <div class="rep-card fi"><span class="rep-ico2">❌</span><h4>לא מגיעים</h4><p>רשימה מפורטת של המתנצלים</p></div>
-      <div class="rep-card fi"><span class="rep-ico2">📊</span><h4>סיכום כולל</h4><p>כמה מוזמנים, כמה אישרו</p></div>
-      <div class="rep-card fi"><span class="rep-ico2">⏳</span><h4>עדיין לא ענו</h4><p>מי עוד לא ענה – ונטפל בהם</p></div>
-    </div>
-  </div>
-</section>
-
 <!-- CTA -->
 <section id="cta">
   <div class="wrap" style="position:relative;z-index:1">
@@ -1281,7 +1243,7 @@ document.querySelectorAll('.fi,.step,.feat,.rep-card').forEach(el=>obs.observe(e
 
 // ═══ SECTION VIEWS ═══
 const sObs=new IntersectionObserver(e=>e.forEach(el=>{if(el.isIntersecting&&el.target.id) push('section_view',{section:el.target.id});}),{threshold:.35});
-['hero','events','features','msg-styles','previews','pricing','order','reports','cta'].forEach(id=>{
+['hero','events','features','msg-styles','previews','pricing','cta'].forEach(id=>{
   const el=document.getElementById(id); if(el) sObs.observe(el);
 });
 

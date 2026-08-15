@@ -17,6 +17,11 @@ window.ISHUR_CONFIG = (function () {
 
   var MAKE_LEAD_WEBHOOK   = 'https://hook.eu1.make.com/pc0r3vknvc1tpg7as1cn8wefsemab61w';
   var MAKE_UPLOAD_WEBHOOK = '';          // guest-list file uploads (multipart)
+  var MAKE_STATUS_WEBHOOK = '';          // dashboard reads event + guest status
+                                         // from here. POST {token} -> JSON,
+                                         // shape documented in HANDOFF.md.
+  var MAKE_CHANGE_WEBHOOK = '';          // customer edits a send date (JSON).
+                                         // Falls back to the setup hook.
   var MAKE_SETUP_WEBHOOK  = '';          // event setup after upload (JSON).
                                          // Can be the same URL as the upload
                                          // hook; the payload is tagged
@@ -341,6 +346,8 @@ window.ISHUR_CONFIG = (function () {
     MAKE_LEAD_WEBHOOK: MAKE_LEAD_WEBHOOK,
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,
     MAKE_SETUP_WEBHOOK: MAKE_SETUP_WEBHOOK,
+    MAKE_STATUS_WEBHOOK: MAKE_STATUS_WEBHOOK,
+    MAKE_CHANGE_WEBHOOK: MAKE_CHANGE_WEBHOOK,
     GTM_ID: GTM_ID,
     FB_PIXEL_ID: FB_PIXEL_ID,
     TIKTOK_PIXEL_ID: TIKTOK_PIXEL_ID,

@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>לוח הבקרה · אישורי הגעה</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="config.js?v=2"></script>
+<script src="assets/tracking.js?v=2"></script>
+<script src="assets/lead.js?v=2"></script>
+<script>IshurLead.init({ variant: 'v1' });</script>
+
+<style>
+  :root{
+    --green:#16a34a;--green2:#15803d;--green4:#f0fdf4;
+    --ink:#111827;--ink2:#374151;--ink3:#6b7280;
+    --bg2:#f9fafb;--bg3:#f3f4f6;
+    --bdr:#e5e7eb;--bdr2:rgba(22,163,74,.2);
+    --err:#dc2626;--warn:#b45309;--amber:#fffbeb;
+    --ease:cubic-bezier(.22,.9,.24,1);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{
+    font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);
+    line-height:1.6;padding:0 0 3rem;
+    -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  }
+  .wrap{max-width:620px;margin:0 auto;padding:0 1rem}
+
+  .top{
+    background:#fff;border-bottom:1px solid var(--bdr);padding:1rem 0 1.1rem;
+    margin-bottom:1.1rem;
+  }
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:.7rem}
+  .brand img{width:28px;height:28px;object-fit:contain}
+  .brand-t{font-family:'Rubik',sans-serif;font-size:.85rem;font-weight:600}
+  .brand-t span{color:var(--green)}
+  h1{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:600;text-align:center;letter-spacing:-.015em}
+  .sub{text-align:center;font-size:.85rem;color:var(--ink3);margin-top:.15rem}
+  .cd{
+    text-align:center;margin-top:.7rem;font-size:.83rem;color:var(--green2);
+    background:var(--green4);border:1px solid var(--bdr2);border-radius:99px;
+    padding:.3rem .9rem;display:inline-block;
+  }
+  .cd-wrap{text-align:center}
+
+  .card{background:#fff;border:1px solid var(--bdr);border-radius:14px;margin-bottom:1rem;overflow:hidden}
+  .card-h{
+    padding:.75rem 1rem;border-bottom:1px solid var(--bdr);
+    font-size:.75rem;letter-spacing:.09em;text-transform:uppercase;
+    color:var(--green2);font-weight:600;
+  }
+  .card-b{padding:1rem}
+
+  /* headline numbers */
+  .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr)}
+  @media(min-width:520px){.kpis{grid-template-columns:repeat(4,1fr)}}
+  .kpi{background:#fff;padding:.9rem .6rem;text-align:center}
+  .kpi.hi{background:var(--green4)}
+  .kpi-v{font-family:'Rubik',sans-serif;font-size:1.5rem;font-weight:600;line-height:1.1;color:var(--ink)}
+  .kpi.hi .kpi-v{color:var(--green2)}
+  .kpi-l{font-size:.74rem;color:var(--ink3);margin-top:.15rem}
+  .kpi-s{font-size:.68rem;color:var(--ink3);margin-top:.1rem}
+
+  .prog{padding:.9rem 1rem;border-top:1px solid var(--bdr)}
+  .prog-h{display:flex;justify-content:space-between;font-size:.78rem;color:var(--ink3);margin-bottom:.4rem}
+  .prog-b{height:7px;background:var(--bg3);border-radius:99px;overflow:hidden;display:flex}
+  .prog-b i{display:block;height:100%;transition:width .7s var(--ease)}
+  .prog-b .yes{background:var(--green)}
+  .prog-b .no{background:#d1d5db}
+
+  /* guest list */
+  .filters{display:flex;gap:.35rem;padding:.7rem 1rem;border-bottom:1px solid var(--bdr);overflow-x:auto}
+  .filt{
+    flex-shrink:0;background:#fff;border:1px solid var(--bdr);border-radius:99px;
+    padding:.3rem .75rem;font-family:inherit;font-size:.78rem;color:var(--ink2);cursor:pointer;
+    transition:border-color .2s,background .2s,color .2s,transform .2s var(--ease);
+  }
+  .filt:hover{border-color:var(--green)}
+  .filt:active{transform:scale(.95);transition-duration:100ms}
+  .filt.on{background:var(--green);border-color:var(--green);color:#fff;font-weight:500}
+  .rows{max-height:330px;overflow-y:auto}
+  .row{display:flex;align-items:center;gap:.7rem;padding:.6rem 1rem;border-bottom:1px solid var(--bdr)}
+  .row:last-child{border-bottom:none}
+  .row-n{flex:1;min-width:0;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
+  .pill{flex-shrink:0;font-size:.72rem;font-weight:500;border-radius:99px;padding:.12rem .55rem;white-space:nowrap}
+  .pill.yes{background:var(--green4);color:var(--green2)}
+  .pill.no{background:#fef2f2;color:var(--err)}
+  .pill.wait{background:var(--bg3);color:var(--ink3)}
+  .row-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.85rem;color:var(--ink2);min-width:1.4rem;text-align:center}
+  .empty{padding:1.6rem 1rem;text-align:center;font-size:.85rem;color:var(--ink3)}
+
+  /* schedule */
+  .send{display:flex;align-items:center;gap:.7rem;padding:.65rem 1rem;border-bottom:1px solid var(--bdr)}
+  .send:last-child{border-bottom:none}
+  .send-d{flex-shrink:0;width:8px;height:8px;border-radius:50%;background:var(--bdr)}
+  .send.sent .send-d{background:var(--green)}
+  .send.locked{background:var(--bg2)}
+  .send-b{flex:1;min-width:0}
+  .send-t{font-size:.86rem;font-weight:500}
+  .send-w{font-size:.77rem;color:var(--ink3)}
+  .send-a{flex-shrink:0}
+  .send-edit{
+    background:none;border:1px solid var(--bdr);border-radius:8px;cursor:pointer;
+    font-family:inherit;font-size:.76rem;color:var(--ink2);padding:.3rem .65rem;
+    transition:border-color .2s,transform .2s var(--ease);
+  }
+  .send-edit:hover{border-color:var(--green);color:var(--green2)}
+  .send-edit:active{transform:scale(.95);transition-duration:100ms}
+  .send-tag{font-size:.72rem;color:var(--ink3)}
+
+  /* add-ons */
+  .addon{display:flex;align-items:flex-start;gap:.7rem;padding:.75rem 1rem;border-bottom:1px solid var(--bdr)}
+  .addon:last-child{border-bottom:none}
+  .addon.locked{background:var(--bg2)}
+  .addon.locked .addon-t,.addon.locked .addon-d{opacity:.6}
+  .addon.late{background:var(--bg2);opacity:.66}
+  .addon-m{flex-shrink:0;margin-top:.15rem}
+  .addon-b{flex:1;min-width:0}
+  .addon-t{font-size:.87rem;font-weight:500}
+  .addon-d{font-size:.77rem;color:var(--ink3);line-height:1.5}
+  .addon-a{flex-shrink:0;align-self:center}
+  .buy{
+    background:var(--green);color:#fff;border:none;border-radius:8px;cursor:pointer;
+    font-family:inherit;font-size:.78rem;font-weight:600;padding:.42rem .8rem;white-space:nowrap;
+    transition:background .2s,transform .22s var(--ease);
+  }
+  .buy:hover{background:var(--green2)}
+  .buy:active{transform:scale(.95);transition-duration:100ms}
+  .inc{font-size:.74rem;color:var(--green2);font-weight:600;white-space:nowrap}
+  .no-a{font-size:.72rem;color:var(--ink3);white-space:nowrap;max-width:9rem;text-align:center;line-height:1.4}
+
+  .note{background:var(--green4);border:1px solid var(--bdr2);border-radius:10px;padding:.7rem .9rem;font-size:.79rem;color:var(--ink2);line-height:1.55;margin:1rem 0}
+  .note.warn{background:var(--amber);border-color:#fcd34d}
+  .note b{color:var(--ink)}
+
+  .foot{text-align:center;font-size:.74rem;color:var(--ink3);margin-top:1.5rem}
+  .foot a{color:var(--green2)}
+  .skel{background:linear-gradient(90deg,var(--bg3) 25%,#eceef1 37%,var(--bg3) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite;border-radius:6px;color:transparent}
+  @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
+    .skel{animation:none}
+    .filt:active,.buy:active,.send-edit:active{transform:none}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <div class="brand">
+      <img src="assets/logo.png" alt="">
+      <span class="brand-t">אישורי <span>הגעה</span></span>
+    </div>
+    <h1 id="title" class="skel">האירוע שלכם</h1>
+    <p class="sub" id="sub"></p>
+    <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
+  </div>
+</header>
+
+<div class="wrap">
+
+  <!-- numbers -->
+  <section class="card">
+    <div class="card-h">התמונה הנוכחית</div>
+    <div class="kpis" id="kpis"></div>
+    <div class="prog" id="prog" hidden>
+      <div class="prog-h"><span>אחוז מענה</span><span id="progTxt"></span></div>
+      <div class="prog-b"><i class="yes" id="pYes" style="width:0"></i><i class="no" id="pNo" style="width:0"></i></div>
+    </div>
+  </section>
+
+  <!-- guests -->
+  <section class="card">
+    <div class="card-h">המוזמנים</div>
+    <div class="filters" id="filters"></div>
+    <div class="rows" id="rows"></div>
+  </section>
+
+  <!-- schedule -->
+  <section class="card">
+    <div class="card-h">לוח השליחות</div>
+    <div id="sends"></div>
+  </section>
+  <p class="note" id="changeNote">
+    אפשר להזיז תאריך שליחה בעצמכם, כל עוד לא עברה השעה <b>06:00</b> ביום שהוא נקבע.
+    אחרי זה השליחה כבר יצאה לדרך.
+  </p>
+
+  <!-- add-ons -->
+  <section class="card">
+    <div class="card-h">תוספות</div>
+    <div id="addons"></div>
+  </section>
+
+  <p class="foot">
+    צריכים משהו שלא נמצא כאן? <a href="#" id="wa" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a>
+  </p>
+</div>
+
+<div aria-live="polite" class="hp" id="live"></div>
+
+<script src="assets/select.js?v=2"></script>
+<script src="assets/datepicker.js?v=2"></script>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var qs = new URLSearchParams(location.search);
+  var token = (qs.get('t') || '').trim();
+  var demo = qs.get('demo') === '1';
+  var $ = function (id) { return document.getElementById(id); };
+
+  $('wa').href = CFG.waLink('היי, לגבי האירוע שלי:');
+
+  var STATUS = {
+    confirmed: { label: 'אישרו', pill: 'yes' },
+    declined:  { label: 'לא מגיעים', pill: 'no' },
+    pending:   { label: 'ממתינים', pill: 'wait' },
+    awaiting_call: { label: 'ממתין לשיחה', pill: 'wait' }
+  };
+
+  var data = null;
+  var filter = 'all';
+
+  /* ── demo payload, so the layout can be reviewed before Make is wired ── */
+  function demoData() {
+    var ev = new Date(Date.now() + 38 * 864e5);
+    var iso = function (d) { return d.toISOString().slice(0, 10); };
+    var names = ['משפחת כהן', 'דני לוי', 'משפחת אברהם', 'רחל מזרחי', 'יוסי ברק',
+                 'משפחת פרץ', 'נועה שגיא', 'משפחת דהן', 'אורי גל', 'משפחת ביטון'];
+    var st = ['confirmed','confirmed','pending','declined','pending',
+              'confirmed','confirmed','awaiting_call','declined','confirmed'];
+    return {
+      ok: true,
+      event: { name1: 'נועה', name2: 'יונתן', occasion: 'wedding',
+               event_date: iso(ev), reception_time: '19:30',
+               venue_name: 'אולם הגן הקסום', venue_city: 'רמת גן',
+               plan: 'pro', guests_tier: '300' },
+      totals: { invitations: 240, confirmed: 150, confirmed_seats: 380,
+                declined: 30, pending: 60, awaiting_call: 42 },
+      sends: [
+        { key: 'invite',   label: 'ההזמנה ואישור ההגעה', date: iso(new Date(ev - 30 * 864e5)), status: 'sent' },
+        { key: 'reminder', label: 'תזכורת למי שלא ענה',  date: iso(new Date(ev - 7 * 864e5)),  status: 'scheduled', editable: true },
+        { key: 'event_day', label: 'תזכורת עם הכתובת',   date: iso(ev), status: 'scheduled', auto: true },
+        { key: 'day_after', label: 'הודעת תודה',         date: iso(new Date(+ev + 864e5)), status: 'scheduled', auto: true }
+      ],
+      guests: names.map(function (n, i) {
+        return { name: n, phone: '05' + (21234567 + i), status: st[i],
+                 seats: st[i] === 'confirmed' ? [4,2,1,1,2,3,2,1,1,5][i] : 0 };
+      })
+    };
+  }
+
+  function daysUntil(iso) {
+    var d = new Date(iso); d.setHours(0,0,0,0);
+    var t = new Date(); t.setHours(0,0,0,0);
+    return Math.round((d - t) / 864e5);
+  }
+
+  /* ── render ── */
+
+  function render() {
+    var ev = data.event || {};
+    var t = data.totals || {};
+
+    var names = [ev.name1, ev.name2].filter(Boolean).join(' ו');
+    $('title').textContent = names || 'האירוע שלכם';
+    $('title').classList.remove('skel');
+    $('sub').textContent = [ev.venue_name, ev.venue_city].filter(Boolean).join(', ');
+
+    if (ev.event_date) {
+      var n = daysUntil(ev.event_date);
+      $('cd').hidden = false;
+      $('cd').textContent = n > 1 ? 'נותרו ' + n + ' ימים לאירוע'
+                          : n === 1 ? 'האירוע מחר'
+                          : n === 0 ? 'האירוע היום' : 'האירוע היה לפני ' + (-n) + ' ימים';
+    }
+
+    var answered = (t.confirmed || 0) + (t.declined || 0);
+    $('kpis').innerHTML =
+      kpi(t.invitations, 'הזמנות', '') +
+      kpi(t.confirmed, 'אישרו', t.confirmed_seats ? t.confirmed_seats + ' מקומות' : '', true) +
+      kpi(t.declined, 'לא מגיעים', '') +
+      kpi(t.pending, 'ממתינים', '');
+
+    if (t.invitations) {
+      $('prog').hidden = false;
+      var y = (t.confirmed || 0) / t.invitations * 100;
+      var no = (t.declined || 0) / t.invitations * 100;
+      setTimeout(function () {
+        $('pYes').style.width = y + '%';
+        $('pNo').style.width = no + '%';
+      }, 60);
+      $('progTxt').textContent = answered + ' / ' + t.invitations +
+        ' · ' + Math.round(answered / t.invitations * 100) + '%';
+    }
+
+    renderFilters();
+    renderRows();
+    renderSends();
+    renderAddons();
+  }
+
+  function kpi(v, l, s, hi) {
+    return '<div class="kpi' + (hi ? ' hi' : '') + '">' +
+           '<div class="kpi-v">' + (v == null ? '—' : v) + '</div>' +
+           '<div class="kpi-l">' + l + '</div>' +
+           (s ? '<div class="kpi-s">' + s + '</div>' : '') + '</div>';
+  }
+
+  function renderFilters() {
+    var t = data.totals || {};
+    var opts = [
+      { k: 'all', l: 'הכל', n: (data.guests || []).length },
+      { k: 'confirmed', l: 'אישרו', n: t.confirmed },
+      { k: 'pending', l: 'ממתינים', n: t.pending },
+      { k: 'declined', l: 'לא מגיעים', n: t.declined }
+    ];
+    if (t.awaiting_call) opts.push({ k: 'awaiting_call', l: 'ממתינים לשיחה', n: t.awaiting_call });
+
+    $('filters').innerHTML = opts.map(function (o) {
+      return '<button type="button" class="filt' + (filter === o.k ? ' on' : '') +
+             '" data-f="' + o.k + '">' + o.l + (o.n != null ? ' · ' + o.n : '') + '</button>';
+    }).join('');
+    $('filters').querySelectorAll('[data-f]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        filter = b.dataset.f; renderFilters(); renderRows();
+      });
+    });
+  }
+
+  function renderRows() {
+    var list = (data.guests || []).filter(function (g) {
+      return filter === 'all' || g.status === filter;
+    });
+    if (!list.length) {
+      $('rows').innerHTML = '<div class="empty">אין כאן אף אחד עדיין.</div>';
+      return;
+    }
+    $('rows').innerHTML = list.map(function (g) {
+      var st = STATUS[g.status] || STATUS.pending;
+      return '<div class="row">' +
+             '<span class="row-n">' + g.name + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+             '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
+             '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span></div>';
+    }).join('');
+  }
+
+  function renderSends() {
+    var sends = data.sends || [];
+    if (!sends.length) { $('sends').innerHTML = '<div class="empty">לוח השליחות ייקבע אחרי ההגדרה.</div>'; return; }
+    $('sends').innerHTML = sends.map(function (s, i) {
+      var sent = s.status === 'sent';
+      /* a send is only movable while its 06:00 batch has not left */
+      var open = !sent && !s.auto && IshurDate.valid(s.date);
+      return '<div class="send' + (sent ? ' sent' : '') + (open ? '' : ' locked') + '">' +
+             '<span class="send-d"></span>' +
+             '<span class="send-b"><span class="send-t">' + s.label + '</span>' +
+             '<span class="send-w">' + IshurDate.pretty(s.date) + '</span></span>' +
+             '<span class="send-a">' +
+               (sent ? '<span class="send-tag">יצא</span>'
+                     : open ? '<button type="button" class="send-edit" data-i="' + i + '">שינוי תאריך</button>'
+                            : '<span class="send-tag">' + (s.auto ? 'אוטומטי' : 'נעול') + '</span>') +
+             '</span></div>';
+    }).join('');
+    $('sends').querySelectorAll('[data-i]').forEach(function (b) {
+      b.addEventListener('click', function () { editSend(+b.dataset.i); });
+    });
+  }
+
+  function editSend(i) {
+    var s = data.sends[i];
+    var host = document.createElement('div');
+    host.style.padding = '0 1rem .8rem';
+    host.innerHTML = '<label style="font-size:.78rem;color:var(--ink3);display:block;margin-bottom:.3rem">' +
+                     'תאריך חדש ל' + s.label + '</label>' +
+                     '<input type="text" id="editDate" data-idate data-placeholder="בחרו תאריך">' +
+                     '<button type="button" class="buy" id="editSave" style="margin-top:.6rem;width:100%">שמירת התאריך</button>';
+    var row = $('sends').children[i];
+    row.insertAdjacentElement('afterend', host);
+    row.querySelector('.send-edit').disabled = true;
+
+    var inp = host.querySelector('#editDate');
+    inp.value = s.date;
+    IshurDate.enhance(inp);
+
+    host.querySelector('#editSave').addEventListener('click', function () {
+      if (!inp.value || !IshurDate.valid(inp.value)) {
+        $('live').textContent = 'בחרו תאריך אפשרי';
+        return;
+      }
+      saveChange(s.key, inp.value, host);
+    });
+  }
+
+  function saveChange(key, date, host) {
+    var url = CFG.isSet(CFG.MAKE_CHANGE_WEBHOOK) ? CFG.MAKE_CHANGE_WEBHOOK
+            : (CFG.isSet(CFG.MAKE_SETUP_WEBHOOK) ? CFG.MAKE_SETUP_WEBHOOK : '');
+    IshurLead.track('send_date_change', { send: key, date: date });
+
+    if (!url) {
+      location.href = CFG.waLink('היי, רציתי להזיז את "' + key + '" לתאריך ' + date + '.');
+      return;
+    }
+    var btn = host.querySelector('#editSave');
+    btn.disabled = true; btn.textContent = 'שומר';
+    fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ event_type: 'send_date_change', token: token, send: key, date: date, ts: new Date().toISOString() })
+    }).then(function (r) {
+      if (r.status === 200) {
+        data.sends.forEach(function (s) { if (s.key === key) s.date = date; });
+        host.remove(); renderSends();
+        $('live').textContent = 'התאריך עודכן';
+      } else { btn.disabled = false; btn.textContent = 'שמירת התאריך'; $('live').textContent = 'לא הצלחנו לעדכן'; }
+    })['catch'](function () {
+      btn.disabled = false; btn.textContent = 'שמירת התאריך'; $('live').textContent = 'לא הצלחנו לעדכן';
+    });
+  }
+
+  function renderAddons() {
+    var ev = data.event || {};
+    var t = data.totals || {};
+    var plan = ev.plan || 'basic';
+    var guests = ev.guests_tier || '';
+    var dte = ev.event_date ? daysUntil(ev.event_date) : null;
+
+    $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
+      var a = CFG.ADDONS[k];
+      var state = CFG.addonState(k, plan, dte);
+      var price = guests ? CFG.addonPrice(k, guests) : null;
+
+      /* the call round is the one that shows how many people it would reach,
+         so the value is visible before the button is pressed */
+      var extra = '';
+      if (k === 'calls' && t.awaiting_call) {
+        extra = ' · ' + t.awaiting_call + ' מוזמנים מחכים לשיחה';
+      }
+
+      var mark, action, cls = '';
+      if (state === 'included') {
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#16a34a" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+        action = '<span class="inc">כלול</span>';
+      } else if (state === 'too-late') {
+        cls = ' late';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+        action = '<span class="no-a">נסגר, פחות מ-' + a.minDaysBefore + ' יום לאירוע</span>';
+      } else {
+        cls = ' locked';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+        action = '<button type="button" class="buy" data-addon="' + k + '">' +
+                 (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
+      }
+
+      return '<div class="addon' + cls + '">' +
+             '<span class="addon-m">' + mark + '</span>' +
+             '<span class="addon-b"><span class="addon-t">' + a.label + '</span>' +
+             '<span class="addon-d">' + a.desc + extra + '</span></span>' +
+             '<span class="addon-a">' + action + '</span></div>';
+    }).join('');
+
+    $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var k = b.dataset.addon;
+        var url = guests ? CFG.addonLink(k, guests) : null;
+        IshurLead.track('addon_click', { addon: k, plan: plan, guests: guests, has_link: !!url, where: 'dashboard' });
+        location.href = url || CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
+      });
+    });
+  }
+
+  function fail(msg) {
+    $('title').textContent = 'לוח הבקרה';
+    $('title').classList.remove('skel');
+    document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+      '<div class="note warn">' + msg + '</div>');
+  }
+
+  /* ── load ── */
+
+  if (!token && !demo) {
+    fail('הקישור הזה לא תקין. פתחו את הקישור שקיבלתם בוואטסאפ.');
+    return;
+  }
+
+  if (demo) { data = demoData(); render(); return; }
+
+  if (!CFG.isSet(CFG.MAKE_STATUS_WEBHOOK)) {
+    fail('לוח הבקרה עדיין לא מחובר. הנתונים יופיעו כאן ברגע שנחבר אותו, ובינתיים אפשר לכתוב לנו בוואטסאפ.');
+    return;
+  }
+
+  fetch(CFG.MAKE_STATUS_WEBHOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ token: token })
+  })
+    .then(function (r) {
+      if (r.status === 403 || r.status === 404) throw new Error('dead');
+      return r.json();
+    })
+    .then(function (j) {
+      if (!j || j.ok === false) throw new Error('bad');
+      data = j; render();
+      IshurLead.track('dashboard_view', {});
+    })
+    ['catch'](function () {
+      fail('לא הצלחנו לטעון את הנתונים כרגע. רעננו את העמוד, ואם זה חוזר כתבו לנו.');
+    });
+})();
+</script>
+</body>
+</html>

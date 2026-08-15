@@ -57,7 +57,16 @@ payment webhook confirms the charge. A token cannot be reached by editing a URL.
 - [x] Cross-field checks: send before the event, reminder after the first send
 - [x] Landing popup states what still has to be done after paying
 
-## Phase 4 · Tracking
+## Phase 4 · Dashboard
+
+- [x] `dashboard.html`: totals, response bar, guest list with status filters
+- [x] Send schedule with self-service date changes, locked once a send has left
+- [x] Add-ons gated by package, call round closes inside 14 days of the event
+- [x] `?demo=1` renders it with sample data, no webhook needed
+- [x] Setup hands off to the dashboard in the same tab
+- [x] Landing page trimmed from 9 sections to 7, dropping the duplicate CTA and features block
+
+## Phase 5 · Tracking
 
 - [x] Meta, TikTok, GA4 and GTM all load from `config.js`, skipped when unset
 - [x] Attribution persisted 30 days: utm, fbclid, gclid, gbraid, wbraid, ttclid, msclkid, `_fbp`, `_fbc`
@@ -66,7 +75,7 @@ payment webhook confirms the charge. A token cannot be reached by editing a URL.
 - [x] Order stashed before the Grow redirect so Purchase fires with a real value
 - [x] Purchase reuses the checkout `session_id` so it joins to the lead row
 
-## Phase 5 · Handoff
+## Phase 6 · Handoff
 
 - [x] `HANDOFF.md`: file map, placeholder table, payload contract, CAPI field mapping, how to add a tier
 

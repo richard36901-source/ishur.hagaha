@@ -7,6 +7,7 @@ Static site, no build step. Open a file, edit, push. GitHub Pages serves it as i
 ```
 index.html        the site. Landing page + the two-step order popup.
 upload.html       guest list upload, then event setup. Needs a valid ?t= token.
+dashboard.html    what the customer sees afterwards. Same token.
 thanks.html       where Grow returns after payment.
 config.js         every id, link, price and rule. The only file you normally edit.
 assets/
@@ -33,6 +34,8 @@ Everything lives in the `FILL ME` block at the top of `config.js`.
 |---|---|---|
 | `MAKE_LEAD_WEBHOOK` | `lead.js` → `send()` | Leads are not recorded. The funnel still works and still redirects to payment. |
 | `MAKE_UPLOAD_WEBHOOK` | `upload.html` step 1 | Upload shows "ההעלאה עדיין לא מחוברת" and points the customer to WhatsApp. **Currently empty.** |
+| `MAKE_STATUS_WEBHOOK` | `dashboard.html` | Dashboard says it is not connected yet and points to WhatsApp. Everything else still works. |
+| `MAKE_CHANGE_WEBHOOK` | `dashboard.html` date edits | Falls back to `MAKE_SETUP_WEBHOOK`; if both are empty the change is sent over WhatsApp instead. |
 | `MAKE_SETUP_WEBHOOK` | `upload.html` step 2 | Falls back to `MAKE_UPLOAD_WEBHOOK`; if both are empty the setup step says so and points to WhatsApp. Can be the same URL, the payload is tagged `event_type: "event_setup"`. |
 | `GTM_ID` | `tracking.js` → `loadGTM()` | No GTM container loads. `dataLayer` still fills, so nothing is lost once you add the id. |
 | `FB_PIXEL_ID` | `tracking.js` → `loadMeta()` | No browser-side Meta events. Server-side via Make still works. |
@@ -98,6 +101,67 @@ message tone, and the send dates. Posted as JSON:
 `style` is one of `happy`, `serious`, `respectful`, `playful`. The wording for
 each lives in `assets/messages.js`, and the customer picked it from a live
 preview of that exact text, so send what they were shown.
+
+## The dashboard
+
+After the setup saves, `upload.html` sends the customer straight to
+`dashboard.html?t=<token>` in the same tab. That is also the page to link from
+any later WhatsApp message.
+
+`dashboard.html?demo=1` renders the whole thing with sample data and no
+webhook, which is the quickest way to see it.
+
+It POSTs `{token}` to `MAKE_STATUS_WEBHOOK` and expects:
+
+```json
+{
+  "ok": true,
+  "event": {
+    "name1": "נועה", "name2": "יונתן",
+    "occasion": "wedding",
+    "event_date": "2026-12-10", "reception_time": "19:30",
+    "venue_name": "אולם הגן הקסום", "venue_city": "רמת גן",
+    "plan": "pro", "guests_tier": "300"
+  },
+  "totals": {
+    "invitations": 240,
+    "confirmed": 150, "confirmed_seats": 380,
+    "declined": 30, "pending": 60,
+    "awaiting_call": 42
+  },
+  "sends": [
+    { "key": "invite",   "label": "ההזמנה ואישור ההגעה", "date": "2026-11-10", "status": "sent" },
+    { "key": "reminder", "label": "תזכורת למי שלא ענה",  "date": "2026-12-03", "status": "scheduled" },
+    { "key": "event_day","label": "תזכורת עם הכתובת",    "date": "2026-12-10", "status": "scheduled", "auto": true },
+    { "key": "day_after","label": "הודעת תודה",          "date": "2026-12-11", "status": "scheduled", "auto": true }
+  ],
+  "guests": [
+    { "name": "משפחת כהן", "phone": "0521234567", "status": "confirmed", "seats": 4 }
+  ]
+}
+```
+
+`status` on a guest is one of `confirmed`, `declined`, `pending`,
+`awaiting_call`. `status` on a send is `sent` or `scheduled`; `auto: true`
+marks the ones derived from the event date, which the customer cannot move.
+
+**Moving a send.** Only a send that is `scheduled`, not `auto`, and still
+passes the calendar rules shows a change button. It POSTs to
+`MAKE_CHANGE_WEBHOOK`:
+
+```json
+{ "event_type": "send_date_change", "token": "…", "send": "reminder",
+  "date": "2026-12-04", "ts": "…" }
+```
+
+Re-check the 06:00 rule server-side before accepting it. The browser enforces
+it, but the browser is not the authority.
+
+**Add-ons.** Every add-on other than the extra send is offered here rather than
+during setup. `calls` shows how many guests are waiting for one, and stops
+being offered inside 14 days of the event. No add-on ever shows a price until
+`ADDON_PRICES` and `ADDON_LINKS` are filled; until then the button opens
+WhatsApp with the request written out.
 
 ## Sending rules
 

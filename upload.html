@@ -1066,11 +1066,10 @@
     })
       .then(function (res) {
         if (res.status === 200) {
-          $('okText').innerHTML = 'קיבלנו את הרשימה ואת פרטי האירוע.<br>' +
-            'השליחה הראשונה יוצאת ב' + IshurDate.pretty($('f-sd1').value) + '.<br>' +
-            'אישור עם סיכום יגיע בוואטסאפ בדקות הקרובות.';
-          show('okView');
           IshurLead.track('setup_success', {});
+          /* straight into the dashboard, same tab */
+          location.href = 'dashboard.html?t=' + encodeURIComponent(token);
+          return;
         } else if (res.status === 403 || res.status === 404) {
           show('deadView');
         } else {
