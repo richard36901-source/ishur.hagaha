@@ -10,10 +10,11 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=2"></script>
-<script src="assets/tracking.js?v=2"></script>
-<script src="assets/lead.js?v=2"></script>
-<script src="assets/messages.js?v=2"></script>
+<script src="config.js?v=3"></script>
+<script src="assets/tracking.js?v=3"></script>
+<script src="assets/guard.js?v=3"></script>
+<script src="assets/lead.js?v=3"></script>
+<script src="assets/messages.js?v=3"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -508,8 +509,8 @@
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
 
-<script src="assets/select.js?v=2"></script>
-<script src="assets/datepicker.js?v=2"></script>
+<script src="assets/select.js?v=3"></script>
+<script src="assets/datepicker.js?v=3"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -624,6 +625,15 @@
       return;
     }
 
+    var v = window.IshurGuard ? IshurGuard.allow('upload', { t: token, n: file.name, s: file.size }) : { ok: true };
+    if (!v.ok) {
+      returnTo = 'formView';
+      fail(v.why === 'duplicate' ? 'הקובץ הזה כבר נשלח. אם צריך לשלוח שוב, המתינו רגע.'
+                                 : 'נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.',
+           'רגע אחד');
+      return;
+    }
+
     sendBtn.disabled = true;
     sendBtn.innerHTML = 'מעלה<span class="spin" aria-hidden="true"></span>';
     bar.classList.add('on');
@@ -634,6 +644,10 @@
     fd.append('token', token);
     fd.append('file', file, file.name);
     fd.append('source', location.href);
+    if (window.IshurGuard) {
+      var st = IshurGuard.stamp({});
+      Object.keys(st).forEach(function (k) { fd.append(k, st[k]); });
+    }
 
     fetch(CFG.MAKE_UPLOAD_WEBHOOK, { method: 'POST', body: fd })
       .then(function (res) {
@@ -1020,6 +1034,15 @@
       return;
     }
 
+    var gv = window.IshurGuard ? IshurGuard.allow('setup', { t: token }) : { ok: true };
+    if (!gv.ok) {
+      returnTo = 'setupView';
+      fail(gv.why === 'duplicate' ? 'ההגדרות האלה כבר נשמרו.'
+                                  : 'נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.',
+           'רגע אחד');
+      return;
+    }
+
     var btn = $('saveBtn');
     btn.disabled = true;
     btn.innerHTML = 'שומר<span class="spin" aria-hidden="true"></span>';
@@ -1062,7 +1085,7 @@
     fetch(endpoint, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
     })
       .then(function (res) {
         if (res.status === 200) {

@@ -10,9 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=2"></script>
-<script src="assets/tracking.js?v=2"></script>
-<script src="assets/lead.js?v=2"></script>
+<script src="config.js?v=3"></script>
+<script src="assets/tracking.js?v=3"></script>
+<script src="assets/guard.js?v=3"></script>
+<script src="assets/lead.js?v=3"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -209,8 +210,8 @@
 
 <div aria-live="polite" class="hp" id="live"></div>
 
-<script src="assets/select.js?v=2"></script>
-<script src="assets/datepicker.js?v=2"></script>
+<script src="assets/select.js?v=3"></script>
+<script src="assets/datepicker.js?v=3"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -411,11 +412,14 @@
       location.href = CFG.waLink('היי, רציתי להזיז את "' + key + '" לתאריך ' + date + '.');
       return;
     }
+    var v = window.IshurGuard ? IshurGuard.allow('change', { token: token, send: key, date: date }) : { ok: true };
+    if (!v.ok) { $('live').textContent = 'נסו שוב בעוד כמה דקות'; return; }
+
     var btn = host.querySelector('#editSave');
     btn.disabled = true; btn.textContent = 'שומר';
     fetch(url, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ event_type: 'send_date_change', token: token, send: key, date: date, ts: new Date().toISOString() })
+      body: JSON.stringify(IshurGuard.stamp({ event_type: 'send_date_change', token: token, send: key, date: date, ts: new Date().toISOString() }))
     }).then(function (r) {
       if (r.status === 200) {
         data.sends.forEach(function (s) { if (s.key === key) s.date = date; });
@@ -520,7 +524,7 @@
 
   fetch(CFG.MAKE_STATUS_WEBHOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ token: token })
+    body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp({ token: token }) : { token: token })
   })
     .then(function (r) {
       if (r.status === 403 || r.status === 404) { var e = new Error('dead'); e.dead = true; throw e; }

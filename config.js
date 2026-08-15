@@ -170,6 +170,33 @@ window.ISHUR_CONFIG = (function () {
     ]
   };
 
+  /* ══ REQUEST GUARD ════════════════════════════════════════════════════════
+     The webhook URLs are visible in this file, so this is not a secret. It is
+     a marker that the page actually ran, cheap for Make to verify and enough to
+     drop anything posted straight at the URL.
+
+     Verify in Make, as the first filter after each webhook:
+       sha256(APP_KEY + "|" + nonce + "|" + stamp_ts)  ==  sig
+     and reject when now - stamp_ts is more than 24 hours.
+
+     Rotating appKey here invalidates every stamp immediately, which is the
+     lever to pull if the URLs start getting hit.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var GUARD = {
+    appId: 'ishur-web',
+    appKey: 'aee02297c1578a7453b79cb4cf4b0c5d60b899ed45e0cfd0',
+    minDwellMs: 2500,          // a submit faster than this is not a person
+    duplicateWindowMs: 120000, // the same payload twice inside two minutes
+    limits: {                  // per browser, per hour
+      lead: 8,
+      upload: 6,
+      setup: 8,
+      change: 12,
+      status: 60
+    }
+  };
+
   /* ══ RECEPTION TIMES ══════════════════════════════════════════════════════
      Half hours through the day, quarter hours across the evening window where
      most receptions actually start. Nothing before 08:00 or after 23:30.
@@ -368,6 +395,7 @@ window.ISHUR_CONFIG = (function () {
     UPLOAD: UPLOAD,
     SEND_RULES: SEND_RULES,
     SCHEDULE: SCHEDULE,
+    GUARD: GUARD,
     TIME_OPTIONS: TIME_OPTIONS,
     MESSAGE_FOOTER: MESSAGE_FOOTER,
     ADDONS: ADDONS,

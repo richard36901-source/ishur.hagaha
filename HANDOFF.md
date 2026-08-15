@@ -185,6 +185,69 @@ being offered inside 14 days of the event. No add-on ever shows a price until
 `ADDON_PRICES` and `ADDON_LINKS` are filled; until then the button opens
 WhatsApp with the request written out.
 
+## Locking down the webhooks
+
+**Start from what is true: the three URLs are in `config.js`, and anyone can
+read them.** Nothing on the page hides that. Someone who reads `assets/guard.js`
+can reproduce every stamp it makes. What follows raises the cost of abuse and
+makes it trivial to filter; it is not a secret.
+
+### What the page sends
+
+Every request carries four extra fields:
+
+| Field | Meaning |
+|---|---|
+| `app` | `ishur-web` |
+| `nonce` | random per page load |
+| `stamp_ts` | epoch **milliseconds** at page load |
+| `sig` | `sha256(appKey + "|" + nonce + "|" + stamp_ts)` |
+
+On the file upload these ride as form fields alongside `token` and `file`.
+
+### The filter to add in Make
+
+First module after each of the three webhooks, before anything writes:
+
+```
+sha256( APP_KEY + "|" + nonce + "|" + stamp_ts )   equals   sig
+AND   now − stamp_ts  <  24 hours        (stamp_ts is epoch ms)
+```
+
+`APP_KEY` is `GUARD.appKey` in `config.js`. Anything failing that filter was not
+sent by the page. Drop it before it costs a row, a message or an operation.
+
+**Rotating `appKey` invalidates every stamp at once.** That is the lever to pull
+if the URLs start getting hit: change it in `config.js`, bump `?v=`, change it in
+the Make filter.
+
+### What the page already refuses to send
+
+Enforced in `assets/guard.js`, tuned in `GUARD` in `config.js`:
+
+- a submit within **2.5 seconds** of page load, which is most naive bots
+- more than **8 leads, 6 uploads, 8 setups, 12 date changes, 60 status reads**
+  per browser per hour
+- the **same payload twice** inside two minutes, which is what a stuck retry or
+  a leant-on button produces
+
+A blocked attempt fires a `blocked` dataLayer event with the reason, so a real
+customer hitting a limit is visible rather than silent.
+
+A `purchase` is deliberately exempt from the caps. It is the record of money
+changing hands and fires once on a page the customer has just landed on.
+
+### What this does not stop
+
+Someone who reads `guard.js` can mint valid stamps and post at will. The caps
+live in that browser's `localStorage` and a fresh incognito window resets them.
+
+**The real fix is to stop publishing the URLs.** ishur.io is already on
+Cloudflare, so a Worker sitting at `ishur.io/api/*` can hold the Make URLs as
+secrets, rate limit by IP, and let `config.js` point at your own domain. That is
+roughly thirty lines and turns all of the above into a genuine boundary rather
+than a speed bump.
+
 ## Sending rules
 
 Set once in `SEND_RULES` in `config.js` and enforced inside the calendar, so an

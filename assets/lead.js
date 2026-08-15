@@ -133,6 +133,20 @@ window.IshurLead = (function () {
   function send(payload) {
     var url = CFG.MAKE_LEAD_WEBHOOK;
     if (!url || !CFG.isSet(url)) return;
+
+    if (window.IshurGuard) {
+      /* a purchase is the one thing never dropped: it is the record of money
+         changing hands, and it fires once on a page the customer just landed on */
+      if (payload.event_type !== 'purchase') {
+        var v = IshurGuard.allow('lead', payload);
+        if (!v.ok) {
+          track('blocked', { at: 'lead', why: v.why, event_type: payload.event_type });
+          return;
+        }
+      }
+      payload = IshurGuard.stamp(payload);
+    }
+
     var body = JSON.stringify(payload);
     try {
       if (window.fetch) {
