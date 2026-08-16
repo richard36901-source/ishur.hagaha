@@ -21,9 +21,12 @@
   --paper:#F8F4EA;
 }
 
-/* ── letterhead ─────────────────────────────────────────────────────────── */
+/* ── the ground is cream, like the landing page's light rooms ───────────── */
+body{background:#FAF8F1}
+
+/* ── letterhead ── pure bottle green, navy stays out of the gradient ────── */
 .lux-head{
-  background:linear-gradient(135deg,var(--pine) 0%,var(--navy) 100%);
+  background:radial-gradient(130% 140% at 50% -30%,var(--pine-lift) 0%,var(--pine) 60%,var(--pine-deep) 100%);
   border-bottom:1px solid rgba(199,174,122,.22);
   padding:1.1rem 1rem 1.15rem;
   text-align:center;
@@ -63,7 +66,7 @@ h1,h2,.msg h2,.o-title{font-family:'Frank Ruhl Libre',serif;font-weight:700;lett
 
 /* the column letters are the mark of the file format, so they carry gold */
 .col-l{
-  background:linear-gradient(140deg,var(--pine) 0%,var(--navy) 100%)!important;
+  background:linear-gradient(140deg,var(--pine-lift) 0%,var(--pine-deep) 100%)!important;
   color:var(--gold-soft)!important;
   border:1px solid rgba(199,174,122,.3);
 }
@@ -71,7 +74,7 @@ h1,h2,.msg h2,.o-title{font-family:'Frank Ruhl Libre',serif;font-weight:700;lett
 /* ── steps and progress ─────────────────────────────────────────────────── */
 .steps-bar i.on{background:var(--gold)}
 .step-lbl{color:var(--gold);letter-spacing:.12em;font-size:.67rem;text-transform:uppercase}
-.step-n{background:linear-gradient(140deg,var(--pine),var(--navy));color:var(--gold-soft)}
+.step-n{background:linear-gradient(140deg,var(--pine-lift),var(--pine-deep));color:var(--gold-soft)}
 
 /* ── accents ────────────────────────────────────────────────────────────── */
 .req{color:var(--gold)}
