@@ -1167,6 +1167,7 @@ footer{padding:1.9rem 1.5rem 1.6rem}
 #previews::before{background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(168,133,60,.07),transparent 70%)}
 #previews .sec-note{color:rgba(248,244,234,.55)}
 #previews .stage-cap{color:rgba(248,244,234,.6)}
+#previews .divider{display:none}
 .ptab2.on{background:var(--gold);border-color:var(--gold);color:#1B1508;font-weight:600}
 .ptab2:hover{border-color:var(--gold-soft)}
 
@@ -1204,6 +1205,28 @@ footer{background:var(--pine-deep);border-top:1px solid rgba(168,133,60,.14)}
 #events,#features,#pricing{background:#FAF8F1}
 .mtab{background:#FAF8F1}
 .ev-card,.feat,.price-pick .plan-opt{border-color:#EAE4D6}
+
+/* ── what's included: this room's accent is navy, not green ─────────────── */
+#features .feat-acc-hdr{color:var(--navy)}
+#features .feat-acc-hdr:hover{border-color:var(--navy);color:var(--navy);box-shadow:0 6px 20px rgba(22,35,58,.08)}
+#features .feat-acc-hdr.open{background:#EEF1F7;border-color:var(--navy);border-bottom-color:rgba(22,35,58,.25)}
+#features .feat-acc-hdr .acc-arrow{color:var(--navy)}
+#features .feat-acc-body{border-color:var(--navy)}
+#features .feat-ico2{background:linear-gradient(140deg,var(--navy) 0%,var(--navy-deep) 100%);border-color:rgba(199,174,122,.3)}
+#features .feat:hover{border-color:rgba(22,35,58,.4);box-shadow:0 8px 26px rgba(22,35,58,.08)}
+
+/* ── the footer becomes one quiet line ──────────────────────────────────── */
+footer{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:.3rem 1.8rem;padding:.85rem 1.5rem;
+}
+.f-logo2{margin-bottom:0}
+.f-logo2-icon img{width:22px!important;height:22px!important}
+.f-logo2-text{font-size:.88rem}
+.f-links2{margin-bottom:0;gap:1.1rem}
+.f-links2 a{font-size:.75rem}
+.f-links2 a svg{width:12px;height:12px}
+.f-copy2{font-size:.68rem}
 
 /* ── hero numbers: each one rises in turn, then counts up ───────────────── */
 .h-stat-n{font-variant-numeric:tabular-nums}
