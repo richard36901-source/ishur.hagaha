@@ -109,13 +109,13 @@ window.ISHUR_CONFIG = (function () {
   /* ══ PRICES ═══ ₪ per event, by guest tier × package ══════════════════════ */
 
   var PRICE_TABLE = {
-    50:  { basic: 50,  pro: 70,  premium: 90  },
-    100: { basic: 99,  pro: 129, premium: 149 },
-    200: { basic: 199, pro: 219, premium: 239 },
-    300: { basic: 299, pro: 319, premium: 339 },
-    400: { basic: 399, pro: 419, premium: 439 },
-    500: { basic: 499, pro: 519, premium: 539 },
-    600: { basic: 599, pro: 619, premium: 639 }
+    50:  { basic: 50,  pro: 70,  premium: 140 },
+    100: { basic: 99,  pro: 129, premium: 199 },
+    200: { basic: 199, pro: 219, premium: 289 },
+    300: { basic: 299, pro: 319, premium: 389 },
+    400: { basic: 399, pro: 419, premium: 489 },
+    500: { basic: 499, pro: 519, premium: 589 },
+    600: { basic: 599, pro: 619, premium: 689 }
   };
 
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
