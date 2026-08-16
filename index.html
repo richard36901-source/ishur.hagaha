@@ -1215,6 +1215,21 @@ footer{background:var(--pine-deep);border-top:1px solid rgba(168,133,60,.14)}
 #features .feat-ico2{background:linear-gradient(140deg,var(--navy) 0%,var(--navy-deep) 100%);border-color:rgba(199,174,122,.3)}
 #features .feat:hover{border-color:rgba(22,35,58,.4);box-shadow:0 8px 26px rgba(22,35,58,.08)}
 
+/* ── nav: cream over the hero, bottle green once past it ────────────────── */
+#nav{
+  background:rgba(248,244,234,.94);
+  border-bottom:1px solid rgba(168,133,60,.25);
+  transition:background .35s,box-shadow .35s,border-color .35s;
+}
+#nav .nav-logo-text{color:var(--pine);transition:color .35s}
+#nav .nav-logo-text span{color:var(--gold);transition:color .35s}
+#nav.sc{
+  background:rgba(12,40,29,.96);
+  border-bottom-color:rgba(168,133,60,.2);
+  box-shadow:0 6px 24px rgba(0,0,0,.18);
+}
+#nav.sc .nav-logo-text,#nav.sc .nav-logo-text span{color:#fff}
+
 /* ── the footer becomes one quiet line ──────────────────────────────────── */
 footer{
   display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
@@ -1657,8 +1672,23 @@ function renderPlans(guests){
 }
 buildPricing();
 
-// ═══ NAV SCROLL ═══
-window.addEventListener('scroll',()=>document.getElementById('nav').classList.toggle('sc',scrollY>30),{passive:true});
+// ═══ NAV SCROLL ═══ cream over the hero, bottle green once past it
+(()=>{
+  const nav=document.getElementById('nav');
+  const heroEl=document.getElementById('hero');
+  const logoImg=document.querySelector('.nav-logo-icon img');
+  const GOLD='assets/logo-gold.png', LIGHT='assets/logo-light.png';
+  let was=null;
+  function navState(){
+    const sc=scrollY>(heroEl?heroEl.offsetHeight-60:30);
+    if(sc===was) return;
+    was=sc;
+    nav.classList.toggle('sc',sc);
+    if(logoImg) logoImg.src=sc?LIGHT:GOLD;
+  }
+  window.addEventListener('scroll',navState,{passive:true});
+  navState();
+})();
 
 // ═══ SCROLL DEPTH ═══
 const depths=new Set();
