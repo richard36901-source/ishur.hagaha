@@ -365,7 +365,8 @@ window.IshurPopup = (function () {
     var d1 = $('wd1'), d2 = $('wd2'), lbl = $('wiz-lbl');
     if (d1) d1.classList.toggle('done', true);
     if (d2) d2.classList.toggle('done', n >= 2);
-    if (lbl) lbl.textContent = S.quote ? 'הצעה אישית · מעל 900 הזמנות'
+    if (lbl) lbl.textContent = S.quote ? ('הצעה אישית · מעל 900 הזמנות' +
+                                          (S.plan && CFG.PLANS[S.plan] ? ' · חבילת ' + CFG.PLANS[S.plan].name : ''))
                              : n === 1 ? 'שלב 1 מתוך 2 · הפרטים שלכם'
                                        : 'שלב 2 מתוך 2 · פרטי האירוע';
 
@@ -463,14 +464,15 @@ window.IshurPopup = (function () {
       box = document.createElement('div');
       box.id = 'quote-ok';
       box.className = 'quote-ok';
-      box.innerHTML =
-        '<div class="qo-ico" aria-hidden="true">✓</div>' +
-        '<h3>הפרטים נשלחו</h3>' +
-        '<p>קיבלנו את הבקשה להצעה אישית למעל 900 מוזמנים.<br>נחזור אליכם בהקדם.</p>' +
-        '<button type="button" class="wiz-next" data-quote-close>סגירה</button>';
       inner.appendChild(box);
-      box.querySelector('[data-quote-close]').addEventListener('click', closePopup);
     }
+    var planLine = S.plan && CFG.PLANS[S.plan] ? ' · חבילת ' + CFG.PLANS[S.plan].name : '';
+    box.innerHTML =
+      '<div class="qo-ico" aria-hidden="true">✓</div>' +
+      '<h3>הפרטים נשלחו</h3>' +
+      '<p>קיבלנו את הבקשה להצעה אישית למעל 900 מוזמנים' + planLine + '.<br>נחזור אליכם בהקדם.</p>' +
+      '<button type="button" class="wiz-next" data-quote-close>סגירה</button>';
+    box.querySelector('[data-quote-close]').addEventListener('click', closePopup);
     box.hidden = false;
   }
 
@@ -556,7 +558,9 @@ window.IshurPopup = (function () {
     if (S.quote) {
       if (nextBtn) nextBtn.textContent = 'שלח';
       if (prog) prog.hidden = true;
-      if (sub1) sub1.textContent = 'השאירו פרטים ונחזור אליכם עם הצעה אישית.';
+      if (sub1) sub1.textContent = S.plan && CFG.PLANS[S.plan]
+        ? 'בחרתם את חבילת ' + CFG.PLANS[S.plan].name + '. השאירו פרטים ונחזור אליכם עם הצעה אישית.'
+        : 'השאירו פרטים ונחזור אליכם עם הצעה אישית.';
     } else {
       if (nextBtn) nextBtn.textContent = 'המשך';
       if (prog) prog.hidden = false;
