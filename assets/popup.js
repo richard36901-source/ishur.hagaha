@@ -234,20 +234,6 @@ window.IshurPopup = (function () {
     renderPlans();
   }
 
-  /* the fixed package as a read-only card, for the one-step quote flow */
-  function lockedPlanHTML() {
-    var p = CFG.PLANS[S.plan];
-    if (!p) return '';
-    return '<div class="pop-plans-lbl">חבילה</div>' +
-      '<div class="plan-opt on" role="radio" tabindex="-1" aria-checked="true" aria-disabled="true" style="cursor:default">' +
-        '<span class="plan-chk" aria-hidden="true">✓</span>' +
-        '<span class="plan-txt">' +
-          '<span class="plan-opt-name">' + p.name + '</span>' +
-          '<span class="plan-opt-note">' + p.desc + '</span>' +
-        '</span>' +
-        '<span class="plan-opt-price">הצעה אישית</span>' +
-      '</div>';
-  }
 
   function updateTotal() {
     var t = $('pop-total');
@@ -561,19 +547,17 @@ window.IshurPopup = (function () {
       }
     })();
 
-    /* quote mode: details + fixed package + send, nothing else */
+    /* quote mode: details and send, nothing else — no package shown */
     var ws1Plan = $('ws1-plan');
+    if (ws1Plan) { ws1Plan.hidden = true; ws1Plan.innerHTML = ''; }
     var nextBtn = $('pop-next');
     var prog = document.querySelector('#order-modal-inner .wiz-progress');
-    var lbl = $('wiz-lbl');
     var sub1 = document.querySelector('#ws1 .pop-sub');
     if (S.quote) {
-      if (ws1Plan) { ws1Plan.hidden = false; ws1Plan.innerHTML = lockedPlanHTML(); }
       if (nextBtn) nextBtn.textContent = 'שלח';
       if (prog) prog.hidden = true;
       if (sub1) sub1.textContent = 'השאירו פרטים ונחזור אליכם עם הצעה אישית.';
     } else {
-      if (ws1Plan) { ws1Plan.hidden = true; ws1Plan.innerHTML = ''; }
       if (nextBtn) nextBtn.textContent = 'המשך';
       if (prog) prog.hidden = false;
       if (sub1) sub1.textContent = 'שלושה שדות ואפשר להמשיך.';
@@ -675,6 +659,19 @@ window.IshurPopup = (function () {
     if (g) g.addEventListener('change', function () {
       S.guests = g.value;
       clearError('guests');
+      /* over 900 picked mid-flow: the details from step 1 are already in
+         hand, so the request goes out right here and the flow ends */
+      if (g.value === 'custom') {
+        var fields = {
+          name: S.name, phone: S.phone, email: S.email,
+          occasion: S.occasion || '', guests: 'custom', plan: S.plan || '',
+          consent: S.consent
+        };
+        IshurLead.submitted(fields);
+        IshurLead.track('quote_request', { occasion: S.occasion || '', plan: S.plan || '' });
+        showQuoteOk();
+        return;
+      }
       renderPlans();
     });
 
