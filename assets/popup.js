@@ -233,13 +233,21 @@ window.IshurPopup = (function () {
     var btn = $('pop-submit');
     if (!t || !btn) return;
 
+    var nextUp = document.querySelector('#ws2 .next-up');
+    var fine = document.querySelector('#ws2 .pop-fine');
+
     if (S.guests === 'custom') {
       t.hidden = false;
-      t.innerHTML = 'מעל 900 מוזמנים מתומחר לפי האירוע. נדבר בוואטסאפ ונשלח הצעה.';
+      t.innerHTML = 'מעל 900 מוזמנים מתומחר בהצעה אישית. שלחו את הפרטים ונחזור אליכם עם הצעה.';
       t.className = 'pop-total quote';
-      btn.textContent = 'לשיחה בוואטסאפ';
+      btn.textContent = 'שלח';
+      /* nothing here is about payment, so the payment copy steps aside */
+      if (nextUp) nextUp.hidden = true;
+      if (fine) fine.hidden = true;
       return;
     }
+    if (nextUp) nextUp.hidden = false;
+    if (fine) fine.hidden = false;
     btn.textContent = 'המשך לתשלום';
     var price = CFG.priceFor(S.guests, S.plan);
     if (price) {
@@ -379,16 +387,11 @@ window.IshurPopup = (function () {
 
     IshurLead.submitted(fields);
 
-    /* over 900: no self-serve price, hand off to WhatsApp with the context
-       already filled in */
+    /* over 900: no self-serve payment. The details already went out through
+       submitted() above; here we only confirm and stop. */
     if (S.guests === 'custom') {
-      var msg = 'היי, מעוניין/ת בשירות אישורי הגעה.\n' +
-                'שם: ' + S.name + '\n' +
-                'סוג האירוע: ' + CFG.occasionLabel(S.occasion) + '\n' +
-                'כמות מוזמנים: מעל 900\n' +
-                'חבילה: ' + CFG.PLANS[S.plan].name;
       IshurLead.track('quote_request', { occasion: S.occasion, plan: S.plan });
-      location.href = CFG.waLink(msg);
+      showQuoteOk();
       return;
     }
 
@@ -408,12 +411,46 @@ window.IshurPopup = (function () {
     location.href = url;
   }
 
+  /* the over-900 confirmation: the steps step aside, a thank-you takes over */
+  function showQuoteOk() {
+    var inner = $('order-modal-inner');
+    if (!inner) return;
+    ['ws1', 'ws2'].forEach(function (id) {
+      var el = $(id); if (el) el.classList.remove('active');
+    });
+    var prog = inner.querySelector('.wiz-progress'); if (prog) prog.hidden = true;
+    var lbl = $('wiz-lbl'); if (lbl) lbl.hidden = true;
+
+    var box = $('quote-ok');
+    if (!box) {
+      box = document.createElement('div');
+      box.id = 'quote-ok';
+      box.className = 'quote-ok';
+      box.innerHTML =
+        '<div class="qo-ico" aria-hidden="true">✓</div>' +
+        '<h3>הפרטים נשלחו</h3>' +
+        '<p>קיבלנו את הבקשה להצעה אישית למעל 900 מוזמנים.<br>נחזור אליכם בהקדם.</p>' +
+        '<button type="button" class="wiz-next" data-quote-close>סגירה</button>';
+      inner.appendChild(box);
+      box.querySelector('[data-quote-close]').addEventListener('click', closePopup);
+    }
+    box.hidden = false;
+  }
+
+  function resetQuoteOk() {
+    var box = $('quote-ok'); if (box) box.hidden = true;
+    var inner = $('order-modal-inner');
+    var prog = inner && inner.querySelector('.wiz-progress'); if (prog) prog.hidden = false;
+    var lbl = $('wiz-lbl'); if (lbl) lbl.hidden = false;
+  }
+
   /* ══ open / close ═════════════════════════════════════════════════════════ */
 
   function openPopup(where) {
     var modal = $('order-modal');
     if (!modal) return;
     lastTrigger = document.activeElement;
+    resetQuoteOk();
 
     S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false;
     var cb = $('f-consent'); if (cb) cb.checked = false;

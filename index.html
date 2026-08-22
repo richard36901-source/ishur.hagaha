@@ -1289,6 +1289,18 @@ footer{
 @media(min-width:768px){.sec{padding:4.6rem 2rem}}
 .sec-hd{margin-bottom:2.1rem}
 
+/* ── over-900: the quote confirmation inside the popup ──────────────────── */
+.quote-ok{text-align:center;padding:1.4rem 0 .6rem;animation:fadeSlideIn .3s ease both}
+.quote-ok[hidden]{display:none}
+.quote-ok .qo-ico{
+  width:56px;height:56px;border-radius:50%;margin:0 auto .9rem;
+  background:var(--green4);border:1.5px solid var(--bdr2);color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;
+}
+.quote-ok h3{font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;color:var(--ink);margin-bottom:.45rem}
+.quote-ok p{font-size:.9rem;color:var(--ink3);line-height:1.65;margin-bottom:1.3rem}
+.quote-ok .wiz-next{max-width:220px;margin:0 auto;display:block;width:100%}
+
 @media (prefers-reduced-motion:reduce){
   .event-grid .ev-card{opacity:1;transform:none}
   .price-pick .plan-opt,.h-stat{opacity:1;transform:none;animation:none}
