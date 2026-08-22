@@ -1289,6 +1289,15 @@ footer{
 @media(min-width:768px){.sec{padding:4.6rem 2rem}}
 .sec-hd{margin-bottom:2.1rem}
 
+/* ── a field whose value is already decided reads as settled, not editable ─ */
+.fixed-field{
+  width:100%;min-height:46px;display:flex;align-items:center;gap:.5rem;
+  padding:.72rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+  background:var(--bg2);font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink2);
+}
+.fixed-field::after{content:'✓';margin-inline-start:auto;color:var(--green);font-size:.85rem;font-weight:700}
+.fixed-field[hidden]{display:none}
+
 /* ── over-900: the quote confirmation inside the popup ──────────────────── */
 .quote-ok{text-align:center;padding:1.4rem 0 .6rem;animation:fadeSlideIn .3s ease both}
 .quote-ok[hidden]{display:none}

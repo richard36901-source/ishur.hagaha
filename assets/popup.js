@@ -486,7 +486,7 @@ window.IshurPopup = (function () {
     lastTrigger = document.activeElement;
     resetQuoteOk();
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false;
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false;
     var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
 
@@ -509,7 +509,9 @@ window.IshurPopup = (function () {
         S.guests = 'custom';
         S.quote = true;
       } else if (pre.guests) {
+        /* the quantity they picked on the pricing block is final too */
         S.guests = pre.guests;
+        S.guestsLocked = true;
         var gsel = $('f-guests');
         if (gsel) {
           gsel.value = pre.guests;
@@ -517,6 +519,30 @@ window.IshurPopup = (function () {
         }
       }
     }
+
+    /* locked quantity: the select steps aside for a read-only field that
+       shows the number they chose */
+    (function () {
+      var gsel = $('f-guests');
+      if (!gsel) return;
+      var gWrap = gsel.closest('.isel') || gsel;
+      var row = gsel.closest('.frow');
+      var fixed = $('f-guests-fixed');
+      if (S.guestsLocked) {
+        gWrap.hidden = true;
+        if (!fixed && row) {
+          fixed = document.createElement('div');
+          fixed.id = 'f-guests-fixed';
+          fixed.className = 'fixed-field';
+          var err = row.querySelector('.ferr');
+          row.insertBefore(fixed, err || null);
+        }
+        if (fixed) { fixed.hidden = false; fixed.textContent = CFG.guestLabel(S.guests); }
+      } else {
+        gWrap.hidden = false;
+        if (fixed) fixed.hidden = true;
+      }
+    })();
 
     /* quote mode: details + fixed package + send, nothing else */
     var ws1Plan = $('ws1-plan');
@@ -536,9 +562,10 @@ window.IshurPopup = (function () {
       if (sub1) sub1.textContent = 'שלושה שדות ואפשר להמשיך.';
     }
     var sub2 = document.querySelector('#ws2 .pop-sub');
-    if (sub2) sub2.textContent = S.locked
-      ? 'בחרו סוג אירוע וכמות, והחבילה כבר מסומנת.'
-      : 'בחרו סוג וכמות, ונסמן את החבילה שמתאימה.';
+    if (sub2) sub2.textContent =
+      S.locked && S.guestsLocked ? 'נשאר רק לבחור את סוג האירוע.'
+      : S.locked                 ? 'בחרו סוג אירוע וכמות, והחבילה כבר מסומנת.'
+                                 : 'בחרו סוג וכמות, ונסמן את החבילה שמתאימה.';
 
     renderPlans();
 
