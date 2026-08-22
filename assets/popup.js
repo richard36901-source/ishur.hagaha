@@ -257,6 +257,22 @@ window.IshurPopup = (function () {
     var nextUp = document.querySelector('#ws2 .next-up');
     var fine = document.querySelector('#ws2 .pop-fine');
 
+    /* over 900 chosen inside the flow: the event questions disappear — no
+       event type, no quantity. What remains is the package and Send. */
+    var isCustom = S.guests === 'custom';
+    var occEl = $('f-occasion'), occRow = occEl && occEl.closest('.frow');
+    var gEl = $('f-guests'), gRow = gEl && gEl.closest('.frow');
+    var title2 = document.querySelector('#ws2 .o-title');
+    var sub2 = document.querySelector('#ws2 .pop-sub');
+    if (occRow) occRow.hidden = isCustom;
+    if (gRow) gRow.hidden = isCustom;
+    if (title2) title2.textContent = isCustom ? 'הצעה אישית' : 'על האירוע';
+    if (sub2) sub2.textContent =
+      isCustom                   ? 'מעל 900 הזמנות · בחרו חבילה, ונחזור אליכם עם הצעה.'
+      : S.locked && S.guestsLocked ? 'נשאר רק לבחור את סוג האירוע.'
+      : S.locked                 ? 'בחרו סוג אירוע וכמות, והחבילה כבר מסומנת.'
+                                 : 'בחרו סוג וכמות, ונסמן את החבילה שמתאימה.';
+
     if (S.guests === 'custom') {
       t.hidden = false;
       t.innerHTML = 'מעל 900 מוזמנים מתומחר בהצעה אישית. שלחו את הפרטים ונחזור אליכם עם הצעה.';
@@ -404,7 +420,8 @@ window.IshurPopup = (function () {
 
   function submit() {
     var ok = true;
-    if (!S.occasion) { showError('occasion', MSG.occasion); ok = false; }
+    /* over 900 asks nothing about the event, so only the package matters */
+    if (!S.occasion && S.guests !== 'custom') { showError('occasion', MSG.occasion); ok = false; }
     if (!S.guests) { showError('guests', MSG.guests); ok = false; }
     if (!S.plan) {
       var pe = $('e-plan');
@@ -561,12 +578,6 @@ window.IshurPopup = (function () {
       if (prog) prog.hidden = false;
       if (sub1) sub1.textContent = 'שלושה שדות ואפשר להמשיך.';
     }
-    var sub2 = document.querySelector('#ws2 .pop-sub');
-    if (sub2) sub2.textContent =
-      S.locked && S.guestsLocked ? 'נשאר רק לבחור את סוג האירוע.'
-      : S.locked                 ? 'בחרו סוג אירוע וכמות, והחבילה כבר מסומנת.'
-                                 : 'בחרו סוג וכמות, ונסמן את החבילה שמתאימה.';
-
     renderPlans();
 
     modal.classList.add('open');
