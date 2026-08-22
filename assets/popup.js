@@ -234,6 +234,21 @@ window.IshurPopup = (function () {
     renderPlans();
   }
 
+  /* the fixed package as a read-only card, for the one-step quote flow */
+  function lockedPlanHTML() {
+    var p = CFG.PLANS[S.plan];
+    if (!p) return '';
+    return '<div class="pop-plans-lbl">חבילה</div>' +
+      '<div class="plan-opt on" role="radio" tabindex="-1" aria-checked="true" aria-disabled="true" style="cursor:default">' +
+        '<span class="plan-chk" aria-hidden="true">✓</span>' +
+        '<span class="plan-txt">' +
+          '<span class="plan-opt-name">' + p.name + '</span>' +
+          '<span class="plan-opt-note">' + p.desc + '</span>' +
+        '</span>' +
+        '<span class="plan-opt-price">הצעה אישית</span>' +
+      '</div>';
+  }
+
   function updateTotal() {
     var t = $('pop-total');
     var btn = $('pop-submit');
@@ -348,7 +363,8 @@ window.IshurPopup = (function () {
     var d1 = $('wd1'), d2 = $('wd2'), lbl = $('wiz-lbl');
     if (d1) d1.classList.toggle('done', true);
     if (d2) d2.classList.toggle('done', n >= 2);
-    if (lbl) lbl.textContent = n === 1 ? 'שלב 1 מתוך 2 · הפרטים שלכם'
+    if (lbl) lbl.textContent = S.quote ? 'הצעה אישית · מעל 900 הזמנות'
+                             : n === 1 ? 'שלב 1 מתוך 2 · הפרטים שלכם'
                                        : 'שלב 2 מתוך 2 · פרטי האירוע';
 
     var box = $('order-modal-box');
@@ -367,6 +383,18 @@ window.IshurPopup = (function () {
     if (!(okName && okPhone && okEmail)) {
       var bad = document.querySelector('#ws1 .bad');
       if (bad) (bad.classList.contains('isel') ? bad.querySelector('.isel-btn') : bad).focus();
+      return;
+    }
+    /* over-900 quote: this one step is the whole flow, so Send happens here */
+    if (S.quote) {
+      var fields = {
+        name: S.name, phone: S.phone, email: S.email,
+        occasion: '', guests: 'custom', plan: S.plan,
+        consent: S.consent
+      };
+      IshurLead.submitted(fields);
+      IshurLead.track('quote_request', { occasion: '', plan: S.plan });
+      showQuoteOk();
       return;
     }
     setStep(2, 'next');
@@ -458,29 +486,58 @@ window.IshurPopup = (function () {
     lastTrigger = document.activeElement;
     resetQuoteOk();
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false;
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false;
     var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
 
     fillSelects();
 
-    /* over-900 quote opened from a package button: the quantity is already
-       known and the package is the one they tapped, so both are fixed */
-    if (pre && pre.guests === 'custom' && pre.plan) {
-      S.guests = 'custom';
+    /* a fresh open starts clean: the selects match the reset state, so a
+       leftover value from the previous visit cannot contradict it */
+    ['f-occasion', 'f-guests'].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      el.value = '';
+      if (window.IshurSelect && el.dataset.enhanced) IshurSelect.refresh(el);
+    });
+
+    /* opened from a package button: that package rides in fixed. A chosen
+       quantity rides along too; over 900 collapses the flow to one step. */
+    if (pre && pre.plan) {
       S.plan = pre.plan;
       S.locked = true;
-      var gsel = $('f-guests');
-      if (gsel) {
-        gsel.value = 'custom';
-        if (window.IshurSelect && gsel.dataset.enhanced) IshurSelect.refresh(gsel);
+      if (pre.guests === 'custom') {
+        S.guests = 'custom';
+        S.quote = true;
+      } else if (pre.guests) {
+        S.guests = pre.guests;
+        var gsel = $('f-guests');
+        if (gsel) {
+          gsel.value = pre.guests;
+          if (window.IshurSelect && gsel.dataset.enhanced) IshurSelect.refresh(gsel);
+        }
       }
     }
-    var gRow = $('f-guests'); gRow = gRow && gRow.closest('.frow');
-    if (gRow) gRow.hidden = S.locked;
+
+    /* quote mode: details + fixed package + send, nothing else */
+    var ws1Plan = $('ws1-plan');
+    var nextBtn = $('pop-next');
+    var prog = document.querySelector('#order-modal-inner .wiz-progress');
+    var lbl = $('wiz-lbl');
+    var sub1 = document.querySelector('#ws1 .pop-sub');
+    if (S.quote) {
+      if (ws1Plan) { ws1Plan.hidden = false; ws1Plan.innerHTML = lockedPlanHTML(); }
+      if (nextBtn) nextBtn.textContent = 'שלח';
+      if (prog) prog.hidden = true;
+      if (sub1) sub1.textContent = 'השאירו פרטים ונחזור אליכם עם הצעה אישית.';
+    } else {
+      if (ws1Plan) { ws1Plan.hidden = true; ws1Plan.innerHTML = ''; }
+      if (nextBtn) nextBtn.textContent = 'המשך';
+      if (prog) prog.hidden = false;
+      if (sub1) sub1.textContent = 'שלושה שדות ואפשר להמשיך.';
+    }
     var sub2 = document.querySelector('#ws2 .pop-sub');
     if (sub2) sub2.textContent = S.locked
-      ? 'בחרו סוג אירוע ושלחו. נחזור אליכם עם הצעה אישית.'
+      ? 'בחרו סוג אירוע וכמות, והחבילה כבר מסומנת.'
       : 'בחרו סוג וכמות, ונסמן את החבילה שמתאימה.';
 
     renderPlans();

@@ -1680,9 +1680,8 @@ function renderPlans(guests){
   }).join('');
   wrap.querySelectorAll('[data-plan]').forEach(b=>{
     b.addEventListener('click',()=>{
-      /* over 900: the popup opens as a quote request, package fixed to this one */
-      if(guests==='custom') IshurPopup.open('pricing-'+b.dataset.plan,{guests:'custom',plan:b.dataset.plan});
-      else IshurPopup.open('pricing-'+b.dataset.plan);
+      /* the tapped package rides into the popup fixed; a chosen quantity rides along too */
+      IshurPopup.open('pricing-'+b.dataset.plan,{plan:b.dataset.plan,guests:guests||''});
     });
   });
 }
@@ -1832,6 +1831,9 @@ window.addEventListener('load',()=>{
                    placeholder="you@example.com" enterkeyhint="done" aria-describedby="e-email">
             <p class="ferr" id="e-email" aria-live="polite"></p>
           </div>
+
+          <!-- over-900 quote: the fixed package shows here, inside the details step -->
+          <div class="frow full" id="ws1-plan" hidden></div>
 
           <div class="frow full">
             <label class="consent" for="f-consent">
