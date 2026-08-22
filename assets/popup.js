@@ -192,16 +192,20 @@ window.IshurPopup = (function () {
     if (!wrap) return;
     var rec = S.occasion ? CFG.recommendedPlan(S.occasion) : null;
     var custom = S.guests === 'custom';
+    /* fixed package: only the chosen one shows, marked, and cannot change */
+    var order = S.locked ? [S.plan] : CFG.PLAN_ORDER;
 
-    wrap.innerHTML = CFG.PLAN_ORDER.map(function (k) {
+    wrap.innerHTML = order.map(function (k) {
       var p = CFG.PLANS[k];
       var price = custom ? null : CFG.priceFor(S.guests, k);
       var on = S.plan === k;
       return '' +
-        '<div class="plan-opt' + (on ? ' on' : '') + (rec === k ? ' rec' : '') + '"' +
-        ' role="radio" tabindex="0" aria-checked="' + (on ? 'true' : 'false') + '"' +
+        '<div class="plan-opt' + (on ? ' on' : '') + (!S.locked && rec === k ? ' rec' : '') + '"' +
+        ' role="radio" tabindex="' + (S.locked ? '-1' : '0') + '"' +
+        ' aria-checked="' + (on ? 'true' : 'false') + '"' +
+        (S.locked ? ' aria-disabled="true" style="cursor:default"' : '') +
         ' data-plan="' + k + '">' +
-          (rec === k ? '<span class="plan-rec">מומלץ</span>' : '') +
+          (!S.locked && rec === k ? '<span class="plan-rec">מומלץ</span>' : '') +
           '<span class="plan-chk" aria-hidden="true">' + (on ? '✓' : '') + '</span>' +
           '<span class="plan-txt">' +
             '<span class="plan-opt-name">' + p.name + '</span>' +
@@ -213,12 +217,14 @@ window.IshurPopup = (function () {
         '</div>';
     }).join('');
 
-    Array.prototype.forEach.call(wrap.querySelectorAll('.plan-opt'), function (el) {
-      el.addEventListener('click', function () { setPlan(el.dataset.plan); });
-      el.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPlan(el.dataset.plan); }
+    if (!S.locked) {
+      Array.prototype.forEach.call(wrap.querySelectorAll('.plan-opt'), function (el) {
+        el.addEventListener('click', function () { setPlan(el.dataset.plan); });
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setPlan(el.dataset.plan); }
+        });
       });
-    });
+    }
     updateTotal();
   }
 
@@ -446,17 +452,37 @@ window.IshurPopup = (function () {
 
   /* ══ open / close ═════════════════════════════════════════════════════════ */
 
-  function openPopup(where) {
+  function openPopup(where, pre) {
     var modal = $('order-modal');
     if (!modal) return;
     lastTrigger = document.activeElement;
     resetQuoteOk();
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false;
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false;
     var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
 
     fillSelects();
+
+    /* over-900 quote opened from a package button: the quantity is already
+       known and the package is the one they tapped, so both are fixed */
+    if (pre && pre.guests === 'custom' && pre.plan) {
+      S.guests = 'custom';
+      S.plan = pre.plan;
+      S.locked = true;
+      var gsel = $('f-guests');
+      if (gsel) {
+        gsel.value = 'custom';
+        if (window.IshurSelect && gsel.dataset.enhanced) IshurSelect.refresh(gsel);
+      }
+    }
+    var gRow = $('f-guests'); gRow = gRow && gRow.closest('.frow');
+    if (gRow) gRow.hidden = S.locked;
+    var sub2 = document.querySelector('#ws2 .pop-sub');
+    if (sub2) sub2.textContent = S.locked
+      ? 'בחרו סוג אירוע ושלחו. נחזור אליכם עם הצעה אישית.'
+      : 'בחרו סוג וכמות, ונסמן את החבילה שמתאימה.';
+
     renderPlans();
 
     modal.classList.add('open');
@@ -544,8 +570,9 @@ window.IshurPopup = (function () {
     if (occ) occ.addEventListener('change', function () {
       S.occasion = occ.value;
       clearError('occasion');
-      /* pre-select the package that fits this occasion, they can override */
-      if (S.occasion) S.plan = CFG.recommendedPlan(S.occasion);
+      /* pre-select the package that fits this occasion, they can override —
+         unless the package came fixed from the pricing block */
+      if (S.occasion && !S.locked) S.plan = CFG.recommendedPlan(S.occasion);
       renderPlans();
     });
 

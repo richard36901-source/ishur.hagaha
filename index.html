@@ -1679,7 +1679,11 @@ function renderPlans(guests){
     </button>`;
   }).join('');
   wrap.querySelectorAll('[data-plan]').forEach(b=>{
-    b.addEventListener('click',()=>IshurPopup.open('pricing-'+b.dataset.plan));
+    b.addEventListener('click',()=>{
+      /* over 900: the popup opens as a quote request, package fixed to this one */
+      if(guests==='custom') IshurPopup.open('pricing-'+b.dataset.plan,{guests:'custom',plan:b.dataset.plan});
+      else IshurPopup.open('pricing-'+b.dataset.plan);
+    });
   });
 }
 buildPricing();
