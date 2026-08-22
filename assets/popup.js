@@ -235,7 +235,7 @@ window.IshurPopup = (function () {
 
     if (S.guests === 'custom') {
       t.hidden = false;
-      t.innerHTML = 'מעל 600 מוזמנים מתומחר לפי האירוע. נדבר בוואטסאפ ונשלח הצעה.';
+      t.innerHTML = 'מעל 900 מוזמנים מתומחר לפי האירוע. נדבר בוואטסאפ ונשלח הצעה.';
       t.className = 'pop-total quote';
       btn.textContent = 'לשיחה בוואטסאפ';
       return;
@@ -379,13 +379,13 @@ window.IshurPopup = (function () {
 
     IshurLead.submitted(fields);
 
-    /* over 600: no self-serve price, hand off to WhatsApp with the context
+    /* over 900: no self-serve price, hand off to WhatsApp with the context
        already filled in */
     if (S.guests === 'custom') {
       var msg = 'היי, מעוניין/ת בשירות אישורי הגעה.\n' +
                 'שם: ' + S.name + '\n' +
                 'סוג האירוע: ' + CFG.occasionLabel(S.occasion) + '\n' +
-                'כמות מוזמנים: מעל 600\n' +
+                'כמות מוזמנים: מעל 900\n' +
                 'חבילה: ' + CFG.PLANS[S.plan].name;
       IshurLead.track('quote_request', { occasion: S.occasion, plan: S.plan });
       location.href = CFG.waLink(msg);

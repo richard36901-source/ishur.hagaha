@@ -39,7 +39,7 @@ window.ISHUR_CONFIG = (function () {
   var GA4_ID              = '';          // G-XXXXXXX, only if you are not using GTM
 
   /* Support line, 055-950-4499. This is the number leads and clients talk to:
-     every "questions?" link on the site, the over-600 handoff, the upload
+     every "questions?" link on the site, the over-900 handoff, the upload
      fallback and the post-payment page all point here.
      It is NOT the number guest invitations are sent from. Do not swap them. */
   var WHATSAPP_NUMBER     = '972559504499';   // digits only, country code, no +
@@ -90,7 +90,7 @@ window.ISHUR_CONFIG = (function () {
 
   /* ══ GUEST TIERS ══════════════════════════════════════════════════════════
      value is what the payment links and price table are keyed on.
-     'custom' = over 600, no self-serve payment, routed to WhatsApp.
+     'custom' = over 900, no self-serve payment, routed to WhatsApp.
      ─────────────────────────────────────────────────────────────────────── */
 
   /* A tier counts phone numbers, not people. One family on one number is one
@@ -103,7 +103,10 @@ window.ISHUR_CONFIG = (function () {
     { value: '400',    label: 'עד 400 הזמנות' },
     { value: '500',    label: 'עד 500 הזמנות' },
     { value: '600',    label: 'עד 600 הזמנות' },
-    { value: 'custom', label: 'מעל 600 הזמנות' }
+    { value: '700',    label: 'עד 700 הזמנות' },
+    { value: '800',    label: 'עד 800 הזמנות' },
+    { value: '900',    label: 'עד 900 הזמנות' },
+    { value: 'custom', label: 'מעל 900 הזמנות' }
   ];
 
   /* ══ PRICES ═══ ₪ per event, by guest tier × package ══════════════════════ */
@@ -115,7 +118,10 @@ window.ISHUR_CONFIG = (function () {
     300: { basic: 299, pro: 319, premium: 389 },
     400: { basic: 399, pro: 419, premium: 489 },
     500: { basic: 499, pro: 519, premium: 589 },
-    600: { basic: 599, pro: 619, premium: 689 }
+    600: { basic: 599, pro: 619, premium: 689 },
+    700: { basic: 699, pro: 719, premium: 789 },
+    800: { basic: 799, pro: 819, premium: 889 },
+    900: { basic: 899, pro: 919, premium: 989 }
   };
 
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
