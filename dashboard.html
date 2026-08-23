@@ -318,9 +318,21 @@
   var STATUS = {
     confirmed: { label: 'אישרו', pill: 'yes' },
     declined:  { label: 'לא מגיעים', pill: 'no' },
-    pending:   { label: 'ממתינים', pill: 'wait' },
-    awaiting_call: { label: 'ממתין לשיחה', pill: 'wait' }
+    pending:   { label: 'לא ענו', pill: 'wait' }
   };
+
+  /* awaiting_call is not a status of its own: whoever waits for a call has
+     simply not answered yet, so it folds into pending wherever data arrives */
+  function normalize(d) {
+    (d.guests || []).forEach(function (g) {
+      if (g.status === 'awaiting_call') g.status = 'pending';
+    });
+    var t = d.totals || {};
+    if (t.awaiting_call) {
+      t.pending = (t.pending || 0) + t.awaiting_call;
+      t.awaiting_call = 0;
+    }
+  }
 
   var data = null;
   var filter = 'all';
@@ -348,8 +360,8 @@
       G('יוסי מזרחי', 'pending'),       G('משפחת אלון', 'pending'),
       G('נטע פרידמן', 'pending'),       G('משפחת קדוש', 'pending'),
       G('אבי שמש', 'pending'),          G('הילה נחום', 'pending'),
-      G('משפחת שוקרון', 'awaiting_call'), G('דוד טל', 'awaiting_call'),
-      G('ענת ברוך', 'awaiting_call')
+      G('משפחת שוקרון', 'pending'),     G('דוד טל', 'pending'),
+      G('ענת ברוך', 'pending')
     ];
     guests.forEach(function (g, i) { g.phone = '05' + (21234501 + i * 137 % 9000000 + 1000000); });
 
@@ -387,6 +399,7 @@
   /* ── render ── */
 
   function render() {
+    normalize(data);
     var ev = data.event || {};
     var t = data.totals || {};
 
@@ -408,7 +421,7 @@
       kpi(t.invitations, 'הזמנות', '') +
       kpi(t.confirmed, 'אישרו', t.confirmed_seats ? t.confirmed_seats + ' מקומות' : '', true) +
       kpi(t.declined, 'לא מגיעים', '') +
-      kpi(t.pending, 'ממתינים', '');
+      kpi(t.pending, 'לא ענו', '');
 
     if (t.invitations) {
       $('prog').hidden = false;
@@ -448,11 +461,9 @@
     var opts = [
       { k: 'all', l: 'הכל', n: useList ? list.length : t.invitations },
       { k: 'confirmed', l: 'אישרו', n: cnt('confirmed', t.confirmed) },
-      { k: 'pending', l: 'ממתינים', n: cnt('pending', t.pending) },
+      { k: 'pending', l: 'לא ענו', n: cnt('pending', t.pending) },
       { k: 'declined', l: 'לא מגיעים', n: cnt('declined', t.declined) }
     ];
-    var ac = cnt('awaiting_call', t.awaiting_call);
-    if (ac) opts.push({ k: 'awaiting_call', l: 'ממתינים לשיחה', n: ac });
 
     $('filters').innerHTML = opts.map(function (o) {
       return '<button type="button" class="filt' + (filter === o.k ? ' on' : '') +
@@ -578,8 +589,8 @@
       /* the call round is the one that shows how many people it would reach,
          so the value is visible before the button is pressed */
       var extra = '';
-      if (k === 'calls' && t.awaiting_call) {
-        extra = ' · ' + t.awaiting_call + ' מוזמנים מחכים לשיחה';
+      if (k === 'calls' && t.pending) {
+        extra = ' · ' + t.pending + ' מוזמנים עדיין לא ענו';
       }
 
       var mark, action, cls = '';
