@@ -417,9 +417,10 @@
     }
 
     var answered = (t.confirmed || 0) + (t.declined || 0);
+    /* אישרו counts people, not invitations: a family of four is four meals */
     $('kpis').innerHTML =
       kpi(t.invitations, 'הזמנות', '') +
-      kpi(t.confirmed, 'אישרו', t.confirmed_seats ? t.confirmed_seats + ' מקומות' : '', true) +
+      kpi(t.confirmed_seats, 'אישרו (אנשים)', t.confirmed ? t.confirmed + ' הזמנות' : '', true) +
       kpi(t.declined, 'לא מגיעים', '') +
       kpi(t.pending, 'לא ענו', '');
 
@@ -458,9 +459,13 @@
       if (!useList) return fallback;
       return list.filter(function (g) { return g.status === k; }).length;
     };
+    /* the confirmed chip counts people (a meal per person), like the KPI */
+    var seats = useList
+      ? list.reduce(function (s, g) { return s + (g.status === 'confirmed' ? (g.seats || 0) : 0); }, 0)
+      : t.confirmed_seats;
     var opts = [
       { k: 'all', l: 'הכל', n: useList ? list.length : t.invitations },
-      { k: 'confirmed', l: 'אישרו', n: cnt('confirmed', t.confirmed) },
+      { k: 'confirmed', l: 'אישרו', n: seats },
       { k: 'pending', l: 'לא ענו', n: cnt('pending', t.pending) },
       { k: 'declined', l: 'לא מגיעים', n: cnt('declined', t.declined) }
     ];
