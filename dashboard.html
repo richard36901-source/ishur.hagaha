@@ -215,6 +215,40 @@
   .acc-body{display:none}
   .acc-body.open{display:block}
 
+  /* ── the phone is the main screen this page lives on ── */
+  @media(max-width:640px){
+    .wrap{padding:0 .75rem}
+    body{padding-bottom:2rem}
+    .top{padding:1rem 0 1.15rem}
+    .top::after{inset:7px}
+    h1{font-size:1.2rem}
+    /* iOS zooms into any field under 16px, so every field is 16px */
+    .gate-in,.gsearch{font-size:16px}
+    .gate-card{padding:1.4rem 1.1rem}
+    .kpi{padding:.75rem .4rem}
+    .kpi-v{font-size:1.35rem}
+    .kpi-l{font-size:.7rem}
+    .filters{padding:.6rem .75rem;gap:.3rem;-webkit-overflow-scrolling:touch}
+    .filt{padding:.34rem .7rem;font-size:.76rem}
+    .gsearch-w{padding:.6rem .75rem 0}
+    .rows{max-height:60vh}
+    .row{padding:.55rem .75rem;gap:.5rem}
+    .rows-h{padding:.45rem .75rem .35rem}
+    .pill{min-width:74px;font-size:.68rem;padding:.12rem .4rem}
+    .rows-h .b{width:74px}
+    .row-s{width:2.1rem}
+    .rows-h .c{width:2.1rem}
+    /* a send or an add-on folds to two lines instead of squeezing */
+    .send{flex-wrap:wrap;padding:.6rem .75rem}
+    .send-a{margin-inline-start:auto}
+    .addon{flex-wrap:wrap;padding:.65rem .75rem}
+    .addon-a{width:100%;display:flex;justify-content:flex-end;margin-top:.1rem}
+    .addon-a .inc,.addon-a .no-a{width:auto}
+    .buy{padding:.5rem 1rem;font-size:.82rem}
+    .send-edit{padding:.4rem .8rem;font-size:.8rem}
+    .no-a{max-width:none;text-align:end}
+  }
+
   .foot{text-align:center;font-size:.74rem;color:var(--ink3);margin-top:1.5rem}
   .foot a{color:var(--green2)}
   .skel{background:linear-gradient(90deg,var(--bg3) 25%,#eceef1 37%,var(--bg3) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite;border-radius:6px;color:transparent}
