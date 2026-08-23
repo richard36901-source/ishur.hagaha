@@ -327,10 +327,20 @@
     (d.guests || []).forEach(function (g) {
       if (g.status === 'awaiting_call') g.status = 'pending';
     });
-    var t = d.totals || {};
+    var t = d.totals = d.totals || {};
     if (t.awaiting_call) {
       t.pending = (t.pending || 0) + t.awaiting_call;
       t.awaiting_call = 0;
+    }
+    /* every count speaks in people: an invitation covering four is four.
+       When the list is here, the people-sums come from it directly. */
+    if (d.guests && d.guests.length) {
+      var sum = function (k) {
+        return d.guests.reduce(function (s, g) { return s + (g.status === k ? (g.seats || 1) : 0); }, 0);
+      };
+      t.confirmed_seats = sum('confirmed');
+      t.declined_seats = sum('declined');
+      t.pending_seats = sum('pending');
     }
   }
 
@@ -354,14 +364,14 @@
       G('משפחת אוחיון', 'confirmed', 3),G('איתן ברק', 'confirmed', 2),
       G('משפחת חדד', 'confirmed', 5),   G('ליאור עמר', 'confirmed', 1),
       G('משפחת סבן', 'confirmed', 4),   G('טל רוזן', 'confirmed', 2),
-      G('אורי בר', 'declined'),         G('גיא דדון', 'declined'),
-      G('מיכל סגל', 'declined'),        G('משפחת יוסף', 'declined'),
-      G('רון אלבז', 'declined'),
-      G('יוסי מזרחי', 'pending'),       G('משפחת אלון', 'pending'),
-      G('נטע פרידמן', 'pending'),       G('משפחת קדוש', 'pending'),
-      G('אבי שמש', 'pending'),          G('הילה נחום', 'pending'),
-      G('משפחת שוקרון', 'pending'),     G('דוד טל', 'pending'),
-      G('ענת ברוך', 'pending')
+      G('אורי בר', 'declined', 1),      G('גיא דדון', 'declined', 2),
+      G('מיכל סגל', 'declined', 1),     G('משפחת יוסף', 'declined', 4),
+      G('רון אלבז', 'declined', 1),
+      G('יוסי מזרחי', 'pending', 1),    G('משפחת אלון', 'pending', 3),
+      G('נטע פרידמן', 'pending', 1),    G('משפחת קדוש', 'pending', 5),
+      G('אבי שמש', 'pending', 1),       G('הילה נחום', 'pending', 2),
+      G('משפחת שוקרון', 'pending', 4),  G('דוד טל', 'pending', 1),
+      G('ענת ברוך', 'pending', 1)
     ];
     guests.forEach(function (g, i) { g.phone = '05' + (21234501 + i * 137 % 9000000 + 1000000); });
 
@@ -417,12 +427,14 @@
     }
 
     var answered = (t.confirmed || 0) + (t.declined || 0);
-    /* אישרו counts people, not invitations: a family of four is four meals */
+    /* every headline number counts people: a family of four is four meals */
+    var dv = t.declined_seats != null ? t.declined_seats : t.declined;
+    var pv = t.pending_seats != null ? t.pending_seats : t.pending;
     $('kpis').innerHTML =
       kpi(t.invitations, 'הזמנות', '') +
       kpi(t.confirmed_seats, 'אישרו (אנשים)', t.confirmed ? t.confirmed + ' הזמנות' : '', true) +
-      kpi(t.declined, 'לא מגיעים', '') +
-      kpi(t.pending, 'לא ענו', '');
+      kpi(dv, 'לא מגיעים', t.declined_seats != null && t.declined ? t.declined + ' הזמנות' : '') +
+      kpi(pv, 'לא ענו', t.pending_seats != null && t.pending ? t.pending + ' הזמנות' : '');
 
     if (t.invitations) {
       $('prog').hidden = false;
@@ -455,19 +467,18 @@
     var list = data.guests || [];
     var t = data.totals || {};
     var useList = list.length > 0;
-    var cnt = function (k, fallback) {
+    /* every chip counts people: an invitation covering four is four guests */
+    var people = function (k, fallback) {
       if (!useList) return fallback;
-      return list.filter(function (g) { return g.status === k; }).length;
+      return list.reduce(function (s, g) {
+        return s + ((k === 'all' || g.status === k) ? (g.seats || 1) : 0);
+      }, 0);
     };
-    /* the confirmed chip counts people (a meal per person), like the KPI */
-    var seats = useList
-      ? list.reduce(function (s, g) { return s + (g.status === 'confirmed' ? (g.seats || 0) : 0); }, 0)
-      : t.confirmed_seats;
     var opts = [
-      { k: 'all', l: 'הכל', n: useList ? list.length : t.invitations },
-      { k: 'confirmed', l: 'אישרו', n: seats },
-      { k: 'pending', l: 'לא ענו', n: cnt('pending', t.pending) },
-      { k: 'declined', l: 'לא מגיעים', n: cnt('declined', t.declined) }
+      { k: 'all', l: 'הכל', n: people('all', t.invitations) },
+      { k: 'confirmed', l: 'אישרו', n: people('confirmed', t.confirmed_seats) },
+      { k: 'pending', l: 'לא ענו', n: people('pending', t.pending_seats != null ? t.pending_seats : t.pending) },
+      { k: 'declined', l: 'לא מגיעים', n: people('declined', t.declined_seats != null ? t.declined_seats : t.declined) }
     ];
 
     $('filters').innerHTML = opts.map(function (o) {
