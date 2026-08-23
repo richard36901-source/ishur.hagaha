@@ -341,6 +341,7 @@
       t.confirmed_seats = sum('confirmed');
       t.declined_seats = sum('declined');
       t.pending_seats = sum('pending');
+      t.total_people = d.guests.reduce(function (s, g) { return s + (g.seats || 1); }, 0);
     }
   }
 
@@ -426,26 +427,28 @@
                           : n === 0 ? 'האירוע היום' : 'האירוע היה לפני ' + (-n) + ' ימים';
     }
 
-    var answered = (t.confirmed || 0) + (t.declined || 0);
-    /* every headline number counts people: a family of four is four meals */
+    /* people only. Invitations do not matter here: whoever comes, comes
+       with a partner or a whole family, and each person is counted. */
     var dv = t.declined_seats != null ? t.declined_seats : t.declined;
     var pv = t.pending_seats != null ? t.pending_seats : t.pending;
+    var totalPeople = t.total_people != null ? t.total_people : t.invitations;
     $('kpis').innerHTML =
-      kpi(t.invitations, 'הזמנות', '') +
-      kpi(t.confirmed_seats, 'אישרו (אנשים)', t.confirmed ? t.confirmed + ' הזמנות' : '', true) +
-      kpi(dv, 'לא מגיעים', t.declined_seats != null && t.declined ? t.declined + ' הזמנות' : '') +
-      kpi(pv, 'לא ענו', t.pending_seats != null && t.pending ? t.pending + ' הזמנות' : '');
+      kpi(totalPeople, 'מוזמנים', '') +
+      kpi(t.confirmed_seats, 'אישרו', '', true) +
+      kpi(dv, 'לא מגיעים', '') +
+      kpi(pv, 'לא ענו', '');
 
-    if (t.invitations) {
+    if (totalPeople) {
       $('prog').hidden = false;
-      var y = (t.confirmed || 0) / t.invitations * 100;
-      var no = (t.declined || 0) / t.invitations * 100;
+      var answered = (t.confirmed_seats || 0) + (dv || 0);
+      var y = (t.confirmed_seats || 0) / totalPeople * 100;
+      var no = (dv || 0) / totalPeople * 100;
       setTimeout(function () {
         $('pYes').style.width = y + '%';
         $('pNo').style.width = no + '%';
       }, 60);
-      $('progTxt').textContent = answered + ' / ' + t.invitations +
-        ' · ' + Math.round(answered / t.invitations * 100) + '%';
+      $('progTxt').textContent = answered + ' / ' + totalPeople +
+        ' · ' + Math.round(answered / totalPeople * 100) + '%';
     }
 
     renderFilters();
