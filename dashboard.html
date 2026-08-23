@@ -150,6 +150,71 @@
   .note.warn{background:var(--amber);border-color:#fcd34d}
   .note b{color:var(--ink)}
 
+  /* ── the header carries the invitation hairline, like the landing hero ── */
+  .top{position:relative}
+  .top::after{content:'';position:absolute;inset:9px;border:1px solid rgba(199,174,122,.18);border-radius:6px;pointer-events:none}
+  .lux-rule2{
+    width:104px;height:9px;margin:.55rem auto 0;
+    background-image:
+      linear-gradient(rgba(199,174,122,.6),rgba(199,174,122,.6)),
+      linear-gradient(rgba(199,174,122,.6),rgba(199,174,122,.6)),
+      radial-gradient(circle,#A8853C 2.2px,transparent 2.3px);
+    background-size:40px 1px,40px 1px,100% 9px;
+    background-position:left center,right center,center center;
+    background-repeat:no-repeat;
+  }
+
+  /* ── the gate: phone + personal code, shaped like the site's order card ── */
+  #gate{max-width:400px;margin:1.6rem auto 0}
+  .gate-card{
+    background:#fff;border:1px solid rgba(199,174,122,.3);border-radius:16px;
+    padding:1.7rem 1.5rem;box-shadow:0 1px 3px rgba(15,46,34,.05),0 14px 40px rgba(15,46,34,.06);
+  }
+  .gate-card h2{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;font-weight:700;text-align:center;margin-bottom:.15rem;color:var(--ink)}
+  .gate-sub{font-size:.84rem;color:var(--ink3);text-align:center;margin-bottom:1rem}
+  .gate-l{font-size:.8rem;font-weight:500;color:var(--ink2);display:block;margin:.75rem 0 .3rem}
+  .gate-in{
+    width:100%;padding:.7rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+    font-family:inherit;font-size:1rem;background:#fff;direction:rtl;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .gate-in:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.12)}
+  .gate-in.code{text-align:center;letter-spacing:.4em;font-size:1.25rem;direction:ltr}
+  .gate-btn{
+    width:100%;margin-top:1.05rem;height:46px;background:var(--green);color:#fff;border:none;
+    border-radius:9px;font-family:inherit;font-size:.95rem;font-weight:600;cursor:pointer;
+    transition:background .2s,transform .2s var(--ease);
+  }
+  .gate-btn:hover{background:var(--green2)}
+  .gate-btn:active{transform:scale(.975)}
+  .gate-btn:disabled{opacity:.6;pointer-events:none}
+  .gate-err{font-size:.78rem;color:var(--err);text-align:center;margin-top:.5rem;min-height:1.1em}
+  .gate-note{font-size:.74rem;color:var(--ink3);text-align:center;margin-top:.7rem;line-height:1.5}
+  .gate-note a{color:var(--green2)}
+
+  /* ── the guest list as a work surface: search, aligned columns ── */
+  .gsearch-w{padding:.7rem 1rem 0}
+  .gsearch{
+    width:100%;padding:.55rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+    font-family:inherit;font-size:.9rem;background:var(--bg2);transition:border-color .15s,background .15s;
+  }
+  .gsearch:focus{outline:none;border-color:var(--green);background:#fff}
+  .rows-h{
+    display:flex;align-items:center;gap:.7rem;padding:.5rem 1rem .4rem;margin-top:.4rem;
+    font-size:.66rem;letter-spacing:.08em;color:var(--ink3);border-bottom:1px solid var(--bdr);
+  }
+  .rows-h .a{flex:1}.rows-h .b{width:92px;text-align:center}.rows-h .c{width:3rem;text-align:center}
+  .pill{min-width:92px;text-align:center}
+  .row-s{width:3rem;min-width:0}
+
+  /* ── add-ons fold behind their header ── */
+  .card-h.acc{cursor:pointer;display:flex;align-items:center;justify-content:space-between;user-select:none;transition:background .2s}
+  .card-h.acc:hover{background:var(--green4)}
+  .card-h.acc .arr{transition:transform .25s var(--ease);color:#A8853C;font-size:.6rem}
+  .card-h.acc.open .arr{transform:rotate(180deg)}
+  .acc-body{display:none}
+  .acc-body.open{display:block}
+
   .foot{text-align:center;font-size:.74rem;color:var(--ink3);margin-top:1.5rem}
   .foot a{color:var(--green2)}
   .skel{background:linear-gradient(90deg,var(--bg3) 25%,#eceef1 37%,var(--bg3) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite;border-radius:6px;color:transparent}
@@ -173,12 +238,28 @@
       <span class="brand-t">אישורי <span>הגעה</span></span>
     </div>
     <h1 id="title" class="skel">האירוע שלכם</h1>
+    <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
   </div>
 </header>
 
-<div class="wrap">
+<!-- the gate: each customer signs in with their phone and personal code -->
+<div class="wrap" id="gate" hidden>
+  <div class="gate-card">
+    <h2>כניסה ללוח הבקרה</h2>
+    <p class="gate-sub">מתחברים עם מספר הטלפון והקוד האישי שקיבלתם מאיתנו</p>
+    <label class="gate-l" for="g-phone">מספר טלפון</label>
+    <input class="gate-in" id="g-phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000">
+    <label class="gate-l" for="g-code">קוד אישי</label>
+    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••">
+    <button type="button" class="gate-btn" id="g-go">כניסה</button>
+    <p class="gate-err" id="g-err" aria-live="polite"></p>
+    <p class="gate-note">הקוד האישי נשלח אליכם בוואטסאפ אחרי ההזמנה.<br>לא מוצאים אותו? <a href="#" id="g-wa" target="_blank" rel="noopener">כתבו לנו</a></p>
+  </div>
+</div>
+
+<div class="wrap" id="main" hidden>
 
   <!-- numbers -->
   <section class="card">
@@ -194,6 +275,8 @@
   <section class="card">
     <div class="card-h">המוזמנים</div>
     <div class="filters" id="filters"></div>
+    <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
+    <div class="rows-h"><span class="a">מוזמן</span><span class="b">סטטוס</span><span class="c">מקומות</span></div>
     <div class="rows" id="rows"></div>
   </section>
 
@@ -209,8 +292,8 @@
 
   <!-- add-ons -->
   <section class="card">
-    <div class="card-h">תוספות</div>
-    <div id="addons"></div>
+    <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
+    <div class="acc-body" id="addonsBody"><div id="addons"></div></div>
   </section>
 
   <p class="foot">
@@ -242,32 +325,56 @@
   var data = null;
   var filter = 'all';
 
-  /* ── demo payload, so the layout can be reviewed before Make is wired ── */
+  /* ── demo payload, so the layout can be reviewed before Make is wired.
+        The totals are computed FROM the guest list, so the numbers always
+        match what the list actually shows. ── */
   function demoData() {
     var ev = new Date(Date.now() + 38 * 864e5);
     var iso = function (d) { return d.toISOString().slice(0, 10); };
-    var names = ['משפחת כהן', 'דני לוי', 'משפחת אברהם', 'רחל מזרחי', 'יוסי ברק',
-                 'משפחת פרץ', 'נועה שגיא', 'משפחת דהן', 'אורי גל', 'משפחת ביטון'];
-    var st = ['confirmed','confirmed','pending','declined','pending',
-              'confirmed','confirmed','awaiting_call','declined','confirmed'];
+
+    var G = function (name, status, seats) { return { name: name, status: status, seats: seats || 0 }; };
+    var guests = [
+      G('משפחת כהן', 'confirmed', 4),   G('דנה לוי', 'confirmed', 2),
+      G('משפחת פרץ', 'confirmed', 5),   G('רות אברהם', 'confirmed', 3),
+      G('משפחת ביטון', 'confirmed', 4), G('יעל שרון', 'confirmed', 2),
+      G('משפחת אזולאי', 'confirmed', 6),G('עומר ניסים', 'confirmed', 1),
+      G('משפחת מלכה', 'confirmed', 4),  G('שירה גבאי', 'confirmed', 2),
+      G('משפחת אוחיון', 'confirmed', 3),G('איתן ברק', 'confirmed', 2),
+      G('משפחת חדד', 'confirmed', 5),   G('ליאור עמר', 'confirmed', 1),
+      G('משפחת סבן', 'confirmed', 4),   G('טל רוזן', 'confirmed', 2),
+      G('אורי בר', 'declined'),         G('גיא דדון', 'declined'),
+      G('מיכל סגל', 'declined'),        G('משפחת יוסף', 'declined'),
+      G('רון אלבז', 'declined'),
+      G('יוסי מזרחי', 'pending'),       G('משפחת אלון', 'pending'),
+      G('נטע פרידמן', 'pending'),       G('משפחת קדוש', 'pending'),
+      G('אבי שמש', 'pending'),          G('הילה נחום', 'pending'),
+      G('משפחת שוקרון', 'awaiting_call'), G('דוד טל', 'awaiting_call'),
+      G('ענת ברוך', 'awaiting_call')
+    ];
+    guests.forEach(function (g, i) { g.phone = '05' + (21234501 + i * 137 % 9000000 + 1000000); });
+
+    var totals = { invitations: guests.length, confirmed: 0, confirmed_seats: 0, declined: 0, pending: 0, awaiting_call: 0 };
+    guests.forEach(function (g) {
+      if (g.status === 'confirmed') { totals.confirmed++; totals.confirmed_seats += g.seats; }
+      else if (g.status === 'declined') totals.declined++;
+      else if (g.status === 'pending') totals.pending++;
+      else if (g.status === 'awaiting_call') totals.awaiting_call++;
+    });
+
     return {
       ok: true,
       event: { name1: 'נועה', name2: 'יונתן', occasion: 'wedding',
                event_date: iso(ev), reception_time: '19:30',
                venue_name: 'אולם הגן הקסום', venue_city: 'רמת גן',
                plan: 'pro', guests_tier: '300' },
-      totals: { invitations: 240, confirmed: 150, confirmed_seats: 380,
-                declined: 30, pending: 60, awaiting_call: 42 },
+      totals: totals,
       sends: [
         { key: 'invite',   label: 'ההזמנה ואישור ההגעה', date: iso(new Date(ev - 30 * 864e5)), status: 'sent' },
         { key: 'reminder', label: 'תזכורת למי שלא ענה',  date: iso(new Date(ev - 7 * 864e5)),  status: 'scheduled', editable: true },
         { key: 'event_day', label: 'תזכורת עם הכתובת',   date: iso(ev), status: 'scheduled', auto: true },
         { key: 'day_after', label: 'הודעת תודה',         date: iso(new Date(+ev + 864e5)), status: 'scheduled', auto: true }
       ],
-      guests: names.map(function (n, i) {
-        return { name: n, phone: '05' + (21234567 + i), status: st[i],
-                 seats: st[i] === 'confirmed' ? [4,2,1,1,2,3,2,1,1,5][i] : 0 };
-      })
+      guests: guests
     };
   }
 
@@ -329,14 +436,23 @@
   }
 
   function renderFilters() {
+    /* the chip numbers count the list itself, so a chip never promises
+       rows the list does not have */
+    var list = data.guests || [];
     var t = data.totals || {};
+    var useList = list.length > 0;
+    var cnt = function (k, fallback) {
+      if (!useList) return fallback;
+      return list.filter(function (g) { return g.status === k; }).length;
+    };
     var opts = [
-      { k: 'all', l: 'הכל', n: (data.guests || []).length },
-      { k: 'confirmed', l: 'אישרו', n: t.confirmed },
-      { k: 'pending', l: 'ממתינים', n: t.pending },
-      { k: 'declined', l: 'לא מגיעים', n: t.declined }
+      { k: 'all', l: 'הכל', n: useList ? list.length : t.invitations },
+      { k: 'confirmed', l: 'אישרו', n: cnt('confirmed', t.confirmed) },
+      { k: 'pending', l: 'ממתינים', n: cnt('pending', t.pending) },
+      { k: 'declined', l: 'לא מגיעים', n: cnt('declined', t.declined) }
     ];
-    if (t.awaiting_call) opts.push({ k: 'awaiting_call', l: 'ממתינים לשיחה', n: t.awaiting_call });
+    var ac = cnt('awaiting_call', t.awaiting_call);
+    if (ac) opts.push({ k: 'awaiting_call', l: 'ממתינים לשיחה', n: ac });
 
     $('filters').innerHTML = opts.map(function (o) {
       return '<button type="button" class="filt' + (filter === o.k ? ' on' : '') +
@@ -349,12 +465,19 @@
     });
   }
 
+  var query = '';
+
   function renderRows() {
+    var needle = query.trim().toLowerCase();
     var list = (data.guests || []).filter(function (g) {
-      return filter === 'all' || g.status === filter;
+      if (filter !== 'all' && g.status !== filter) return false;
+      if (!needle) return true;
+      return (g.name || '').toLowerCase().indexOf(needle) > -1 ||
+             String(g.phone || '').replace(/\D/g, '').indexOf(needle.replace(/\D/g, '') || ' ') > -1;
     });
     if (!list.length) {
-      $('rows').innerHTML = '<div class="empty">אין כאן אף אחד עדיין.</div>';
+      $('rows').innerHTML = '<div class="empty">' +
+        (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : 'אין כאן אף אחד עדיין.') + '</div>';
       return;
     }
     $('rows').innerHTML = list.map(function (g) {
@@ -497,8 +620,8 @@
     $('title').textContent = 'לוח הבקרה';
     $('title').classList.remove('skel');
     $('sub').textContent = '';
-    document.querySelectorAll('.card, #changeNote').forEach(function (el) { el.hidden = true; });
-    document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+    document.querySelectorAll('#main .card, #changeNote').forEach(function (el) { el.hidden = true; });
+    $('main').insertAdjacentHTML('afterbegin',
       '<div class="card"><div class="card-b" style="text-align:center">' +
       '<div style="font-size:2rem;margin-bottom:.5rem">📋</div>' +
       '<p style="font-size:.92rem;color:var(--ink2);line-height:1.7">' + msg + '</p>' +
@@ -507,61 +630,126 @@
       '</div></div>');
     var b = $('demoBtn');
     if (b) b.addEventListener('click', function () {
-      document.querySelectorAll('.wrap > .card').forEach(function (c, i) { if (i === 0) c.remove(); });
-      document.querySelectorAll('.card, #changeNote').forEach(function (el) { el.hidden = false; });
+      document.querySelectorAll('#main > .card').forEach(function (c, i) { if (i === 0) c.remove(); });
+      document.querySelectorAll('#main .card, #changeNote').forEach(function (el) { el.hidden = false; });
       data = demoData();
       render();
-      document.querySelector('.wrap').insertAdjacentHTML('afterbegin',
+      $('main').insertAdjacentHTML('afterbegin',
         '<div class="note warn">אלה נתוני דוגמה להמחשה, לא האירוע שלכם.</div>');
     });
   }
 
-  /* ── load ── */
+  /* ── wiring: search and the add-ons fold ── */
 
-  if (!token && !demo) {
-    fail('לוח הבקרה נפתח מהקישור האישי שנשלח אליכם בוואטסאפ אחרי התשלום.<br>' +
-         'הקישור הזה נפתח בלי מזהה אירוע, אז אין מה להציג כאן.', true);
-    return;
+  $('gsearch').addEventListener('input', function () { query = this.value; renderRows(); });
+  $('addonsHead').addEventListener('click', function () {
+    this.classList.toggle('open');
+    $('addonsBody').classList.toggle('open');
+  });
+
+  /* ── the gate ──
+     Every customer signs in with their phone and the personal code we send
+     them. A personal ?t= link (from WhatsApp) still walks straight in. */
+
+  function showGate(msg) {
+    $('gate').hidden = false; $('main').hidden = true;
+    $('title').textContent = 'לוח הבקרה';
+    $('title').classList.remove('skel');
+    $('sub').textContent = 'האזור האישי של האירוע שלכם';
+    $('g-err').textContent = msg || '';
+    gateBusy(false);
+  }
+  function showApp() { $('gate').hidden = true; $('main').hidden = false; }
+  function gateBusy(on) {
+    var b = $('g-go');
+    if (b) { b.disabled = on; b.textContent = on ? 'נכנסים…' : 'כניסה'; }
   }
 
-  if (demo) { data = demoData(); render(); return; }
+  $('g-wa').href = CFG.waLink('היי, אין לי קוד כניסה ללוח הבקרה');
 
-  if (!CFG.isSet(CFG.endpoint('status'))) {
-    fail('לוח הבקרה עדיין לא מחובר לנתונים.<br>הוא יתמלא מעצמו ברגע שנחבר אותו.', true);
-    return;
+  function loadData(payload, fromGate) {
+    if (!CFG.isSet(CFG.endpoint('status'))) {
+      showApp();
+      fail('לוח הבקרה עדיין לא מחובר לנתונים.<br>הוא יתמלא מעצמו ברגע שנחבר אותו.', true);
+      return;
+    }
+    fetch(CFG.endpoint('status'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    })
+      .then(function (r) {
+        if (r.status === 403 || r.status === 404) { var e = new Error('dead'); e.dead = true; throw e; }
+        return r.text();
+      })
+      .then(function (body) {
+        var j;
+        /* a Make webhook with no response module answers "Accepted" in plain
+           text. That is a scenario that has not been finished, not a customer
+           problem, so it is reported as such. */
+        try { j = JSON.parse(body); }
+        catch (e) { var p = new Error('not-json'); p.raw = body; throw p; }
+        if (!j || j.ok === false) throw new Error('bad');
+        data = j; showApp(); render();
+        if (payload.phone) localStorage.setItem('ishur_dash', JSON.stringify(payload));
+        IshurLead.track('dashboard_view', {});
+      })
+      ['catch'](function (e) {
+        if (e && e.dead) {
+          if (fromGate) {
+            localStorage.removeItem('ishur_dash');
+            showGate('המספר או הקוד לא נכונים. בדקו ונסו שוב.');
+            return;
+          }
+          showApp();
+          fail('הקישור הזה כבר לא פעיל.<br>כתבו לנו ונשלח קישור עדכני.', false);
+          return;
+        }
+        if (e && e.message === 'not-json') {
+          IshurLead.track('dashboard_no_response', { raw: String(e.raw || '').slice(0, 40) });
+          showApp();
+          fail('לוח הבקרה עדיין לא מחזיר נתונים.<br>הוא יתמלא מעצמו ברגע שהחיבור יושלם.', true);
+          return;
+        }
+        showApp();
+        fail('לא הצלחנו לטעון את הנתונים כרגע.<br>רעננו את העמוד, ואם זה חוזר כתבו לנו.', true);
+      });
   }
 
-  fetch(CFG.endpoint('status'), {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp({ token: token }) : { token: token })
-  })
-    .then(function (r) {
-      if (r.status === 403 || r.status === 404) { var e = new Error('dead'); e.dead = true; throw e; }
-      return r.text();
-    })
-    .then(function (body) {
-      var j;
-      /* a Make webhook with no response module answers "Accepted" in plain
-         text. That is a scenario that has not been finished, not a customer
-         problem, so it is reported as such. */
-      try { j = JSON.parse(body); }
-      catch (e) { var p = new Error('not-json'); p.raw = body; throw p; }
-      if (!j || j.ok === false) throw new Error('bad');
-      data = j; render();
-      IshurLead.track('dashboard_view', {});
-    })
-    ['catch'](function (e) {
-      if (e && e.dead) {
-        fail('הקישור הזה כבר לא פעיל.<br>כתבו לנו ונשלח קישור עדכני.', false);
-        return;
-      }
-      if (e && e.message === 'not-json') {
-        IshurLead.track('dashboard_no_response', { raw: String(e.raw || '').slice(0, 40) });
-        fail('לוח הבקרה עדיין לא מחזיר נתונים.<br>הוא יתמלא מעצמו ברגע שהחיבור יושלם.', true);
-        return;
-      }
-      fail('לא הצלחנו לטעון את הנתונים כרגע.<br>רעננו את העמוד, ואם זה חוזר כתבו לנו.', true);
-    });
+  function gateSubmit() {
+    var phone = $('g-phone').value.trim();
+    var code = $('g-code').value.trim();
+    $('g-err').textContent = '';
+    if (!IshurLead.isValidPhone(phone)) { $('g-err').textContent = 'צריך מספר נייד ישראלי, 10 ספרות שמתחילות ב-05'; return; }
+    if (code.length < 4) { $('g-err').textContent = 'הקוד קצר מדי'; return; }
+    IshurLead.track('dashboard_login', { demo: demo });
+    if (demo) {
+      sessionStorage.setItem('ishur_demo_in', '1');
+      data = demoData(); showApp(); render();
+      return;
+    }
+    gateBusy(true);
+    loadData({ phone: phone, code: code }, true);
+  }
+
+  $('g-go').addEventListener('click', gateSubmit);
+  ['g-phone', 'g-code'].forEach(function (id) {
+    $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') gateSubmit(); });
+  });
+
+  /* ── entry ── */
+
+  if (token) {
+    showApp();
+    loadData({ token: token }, false);
+  } else if (demo) {
+    if (sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
+    else showGate();
+  } else {
+    var saved = null;
+    try { saved = JSON.parse(localStorage.getItem('ishur_dash') || 'null'); } catch (e) {}
+    if (saved && saved.phone && saved.code) loadData(saved, true);
+    else showGate();
+  }
 })();
 </script>
 </body>
