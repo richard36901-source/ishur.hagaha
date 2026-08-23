@@ -70,11 +70,21 @@
   /* headline numbers */
   .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr)}
   @media(min-width:520px){.kpis{grid-template-columns:repeat(4,1fr)}}
-  .kpi{background:#fff;padding:.9rem .6rem;text-align:center}
-  .kpi.hi{background:var(--green4)}
-  .kpi-v{font-family:'Rubik',sans-serif;font-size:1.5rem;font-weight:600;line-height:1.1;color:var(--ink)}
-  .kpi.hi .kpi-v{color:var(--green2)}
+  .kpi{background:#fff;padding:.9rem .6rem;text-align:center;animation:kfade .55s var(--ease) both}
+  .kpi:nth-child(1){animation-delay:.05s}
+  .kpi:nth-child(2){animation-delay:.15s}
+  .kpi:nth-child(3){animation-delay:.25s}
+  .kpi:nth-child(4){animation-delay:.35s}
+  @keyframes kfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  /* the confirmed cell wears a gold frame: this is the number that matters */
+  .kpi.hi{
+    background:#FBF8F1;
+    box-shadow:inset 0 0 0 2px #A8853C;
+  }
+  .kpi-v{font-family:'Rubik',sans-serif;font-size:1.5rem;font-weight:600;line-height:1.1;color:var(--ink);font-variant-numeric:tabular-nums}
+  .kpi.hi .kpi-v{color:var(--green2);font-weight:700}
   .kpi-l{font-size:.74rem;color:var(--ink3);margin-top:.15rem}
+  .kpi.hi .kpi-l{color:#8A6D2F;font-weight:600}
   .kpi-s{font-size:.68rem;color:var(--ink3);margin-top:.1rem}
 
   .prog{padding:.9rem 1rem;border-top:1px solid var(--bdr)}
@@ -485,10 +495,34 @@
         ' · ' + Math.round(answered / totalPeople * 100) + '%';
     }
 
+    countUp();
+
     renderFilters();
     renderRows();
     renderSends();
     renderAddons();
+  }
+
+  /* the numbers climb to their value as the cells land */
+  function countUp() {
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    document.querySelectorAll('.kpi-v').forEach(function (el, i) {
+      var target = parseInt(el.textContent, 10);
+      if (isNaN(target) || target < 3) return;
+      el.textContent = '0';
+      var dur = 900, t0 = null, delay = 120 + i * 100;
+      setTimeout(function () {
+        t0 = performance.now();
+        (function tick(t) {
+          var p = Math.min(((t || performance.now()) - t0) / dur, 1);
+          var e = 1 - Math.pow(1 - p, 3);
+          el.textContent = Math.round(target * e);
+          if (p < 1) requestAnimationFrame(tick);
+        })();
+      }, delay);
+      /* whatever happens to the animation, the real value always lands */
+      setTimeout(function () { el.textContent = target; }, delay + dur + 300);
+    });
   }
 
   function kpi(v, l, s, hi) {
