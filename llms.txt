@@ -20,6 +20,7 @@ One-time payment per event starting at ₪50, no subscription. Hebrew-first.
 ## Key pages
 
 - [דף הבית ומחירון](https://ishur.io/): what the service does, style samples, full price table (₪50–₪989 per event by guest count and package)
+- [שאלות נפוצות](https://ishur.io/faq.html): pricing, process, file format, send windows, follow-up flow — quotable Q&A
 - [תקנון ומדיניות פרטיות](https://ishur.io/terms.html): terms of service and privacy policy
 
 ## Facts for quick answers
