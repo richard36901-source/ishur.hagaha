@@ -22,7 +22,8 @@
    ========================================================================== */
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
-import { buildDashboard, buildCallQueue, callOutcome } from './dashboard.js';
+import { buildDashboard, buildCallQueue, callOutcome, buildBizStats } from './dashboard.js';
+import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature } from './shir.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -245,6 +246,99 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   return okJson({ ok: true, image: !!out.image_url }, origin);
 }
 
+/* ══ שיר — the AI caller ═════════════════════════════════════════════════════
+   Dormant until the secrets exist (RETELL_KEY, SHIR_FROM). The webhook feeds
+   Retell's mid-call tool and end-of-call reports into the same call_result
+   contract the calls page uses; dispatch places the day's calls.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+async function writeCallResult(env, guestId, result) {
+  const r = await fetch(env.HOOK_EVENTS, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_type: 'call_result', guest_id: guestId,
+      rsvp: result.rsvp || '__keep__', call_status: result.call_status,
+      answer: result.answer, tries: String(result.tries),
+      ts: new Date().toISOString(),
+    }),
+  }).catch(() => null);
+  return !!r && r.status === 200;
+}
+
+async function trackCallCost(env, cents) {
+  if (!env.RATE || !cents) return;
+  const day = new Date().toISOString().slice(0, 10);
+  const key = 'shircost:' + day;
+  const cur = Number(await env.RATE.get(key)) || 0;
+  await env.RATE.put(key, String(cur + cents), { expirationTtl: 400 * 86400 });
+}
+
+async function handleShirWebhook(request, env) {
+  if (!env.RETELL_KEY) return new Response('not-configured', { status: 503 });
+  const rawBody = await request.text();
+  const sig = request.headers.get('X-Retell-Signature') || '';
+  if (!(await verifyRetellSignature(rawBody, sig, env.RETELL_KEY))) {
+    return new Response('bad-signature', { status: 403 });
+  }
+  let body;
+  try { body = JSON.parse(rawBody); } catch { return new Response('bad-json', { status: 400 }); }
+
+  const action = retellToCallResult(body);
+  if (!action) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+
+  if (action.cost_cents) await trackCallCost(env, action.cost_cents);
+
+  if (action.kind === 'tool') {
+    await writeCallResult(env, action.guest_id, action.result);
+    /* party size rides into the sheet via a second, plain update later;
+       for now the answer text carries it */
+    return new Response(JSON.stringify({ response: action.reply }), {
+      status: 200, headers: { 'Content-Type': 'application/json' },
+    });
+  }
+  if (action.kind === 'end') {
+    await writeCallResult(env, action.guest_id, action.result);
+  }
+  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+}
+
+async function handleShirDispatch(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!env.ADMIN_KEY || !safeEqual(String(body.admin_key || ''), env.ADMIN_KEY)) {
+    return deny(403, 'bad-admin-key', origin);
+  }
+  if (!env.RETELL_KEY || !env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
+
+  const win = callWindowState();
+  if (!win.open && !body.force) return okJson({ ok: true, dialed: 0, closed: win.why }, origin);
+
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) return deny(502, 'reader-failed', origin);
+  const { queue } = buildCallQueue(raw);
+
+  const day = new Date().toISOString().slice(0, 10);
+  const cap = Math.min(Number(body.max) || 5, 25);
+  const dialed = [];
+  for (const g of queue) {
+    if (dialed.length >= cap) break;
+    if (g.capped) continue;
+    /* one attempt per guest per day — the 3 tries live on separate days */
+    const dayKey = `shirtry:${g.guest_id}:${day}`;
+    if (await env.RATE.get(dayKey)) continue;
+    const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM)),
+    }).catch(() => null);
+    if (r && (r.status === 200 || r.status === 201)) {
+      await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
+      dialed.push(g.guest_id);
+    }
+  }
+  return okJson({ ok: true, dialed: dialed.length, guests: dialed }, origin);
+}
+
 async function fetchSnapshot(target) {
   const r = await fetch(target, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -352,6 +446,12 @@ export default {
     if (url.pathname.startsWith('/img/') && request.method === 'GET') {
       return serveImage(env, url.pathname);
     }
+    if (url.pathname === '/api/shir-webhook' && request.method === 'POST') {
+      return handleShirWebhook(request, env);
+    }
+    if (url.pathname === '/api/shir-dispatch' && request.method === 'POST') {
+      return handleShirDispatch(request, env, origin);
+    }
     if (!route) return deny(404, 'unknown-route', origin);
     if (request.method !== 'POST') return deny(405, 'method', origin);
     if (origin && !ALLOWED_ORIGINS.includes(origin)) return deny(403, 'origin', origin);
@@ -399,6 +499,7 @@ export default {
         if (!env.ADMIN_KEY || !safeEqual(admin, env.ADMIN_KEY)) return deny(403, 'bad-admin-key', origin);
         const raw = await fetchSnapshot(target);
         if (!raw) return deny(502, 'reader-failed', origin);
+        if (stampFields.view === 'biz') return okJson(buildBizStats(raw), origin);
         return okJson(buildCallQueue(raw), origin);
       }
       const token = String(stampFields.token || '').trim();

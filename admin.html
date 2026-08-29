@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>מרכז הבקרה · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=19"></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
+  .wrap{max-width:860px;margin:0 auto;padding:0 .9rem}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin:1rem 0}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .5rem;text-align:center}
+  .kpi b{display:block;font-size:1.45rem;color:var(--pine);font-variant-numeric:tabular-nums}
+  .kpi span{font-size:.7rem;color:var(--ink3)}
+  .kpi.money b{color:var(--gold)}
+  h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.2rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
+  .tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:640px}
+  th{color:var(--gold);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--gold-pale);white-space:nowrap}
+  td{padding:.5rem .6rem;border-bottom:1px solid var(--line);color:var(--ink2);white-space:nowrap;font-variant-numeric:tabular-nums}
+  tr:last-child td{border-bottom:none}
+  td:first-child{font-weight:600;color:var(--ink)}
+  .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:99px;padding:.08rem .5rem}
+  .p-ok{background:rgba(15,76,53,.1);color:var(--ok)}
+  .p-no{background:#EDECE6;color:var(--ink3)}
+  .p-warn{background:rgba(168,64,47,.1);color:var(--warn)}
+  .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;font-size:.9rem}
+  .meta{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--ink3);margin:.6rem 0}
+  .meta button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.3rem .8rem;font:inherit;cursor:pointer;color:var(--ink2)}
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{color:var(--warn);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
+  .foot{text-align:center;font-size:.66rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-top:2.5rem;opacity:.75}
+  .foot a{color:var(--gold)}
+</style>
+</head>
+<body>
+<header class="head">
+  <h1>ishur<i>.io</i> · מרכז הבקרה</h1>
+  <p>המספרים של העסק, חיים מהגיליון</p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2 style="font-family:'Frank Ruhl Libre',serif;color:var(--pine);border:none">כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+  <div class="kpis">
+    <div class="kpi money"><b id="k-rev">–</b><span>הכנסות ₪</span></div>
+    <div class="kpi"><b id="k-leads">–</b><span>לידים</span></div>
+    <div class="kpi"><b id="k-conv">–</b><span>% המרה</span></div>
+    <div class="kpi"><b id="k-events">–</b><span>אירועים בתשלום</span></div>
+    <div class="kpi"><b id="k-guests">–</b><span>אורחים במערכת</span></div>
+    <div class="kpi"><b id="k-calls">–</b><span>ממתינים לשיחה</span></div>
+  </div>
+
+  <div class="meta"><span id="gen"></span><button id="refresh">רענון</button></div>
+
+  <h2>אירועים</h2>
+  <div class="tblwrap">
+    <table id="tbl">
+      <thead><tr>
+        <th>אירוע</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>קובץ</th>
+        <th>אורחים</th><th>אישרו</th><th>סועדים</th><th>ממתינים</th><th>לשיחה</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
+
+  <p class="foot"><a href="calls.html">→ למוקד השיחות</a> · הנתונים נקראים ישירות מהגיליון</p>
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var adminKey = '';
+
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) { localStorage.setItem('ishur_calls_key', qk); history.replaceState(null, '', location.pathname); }
+  adminKey = localStorage.getItem('ishur_calls_key') || '';
+
+  function heDate(iso) {
+    if (!iso) return '—';
+    var p = String(iso).split('-');
+    return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0].slice(2) : iso;
+  }
+
+  function load() {
+    var payload = { admin_key: adminKey, view: 'biz' };
+    fetch(CFG.endpoint('status'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    }).then(function (r) {
+      if (r.status === 403) { localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
+      return r.json();
+    }).then(function (d) {
+      if (!d) return;
+      $('gate').hidden = true; $('main').hidden = false;
+      $('k-rev').textContent = (d.money.revenue_ils || 0).toLocaleString('he-IL');
+      $('k-leads').textContent = d.funnel.leads;
+      $('k-conv').textContent = d.funnel.conversion + '%';
+      $('k-events').textContent = d.funnel.paid_events;
+      $('k-guests').textContent = d.guests.total;
+      $('k-calls').textContent = d.guests.awaiting_call;
+      $('gen').textContent = 'עודכן: ' + new Date(d.generated_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+
+      var rows = $('rows'); rows.innerHTML = '';
+      var shown = d.events.filter(function (e) { return e.paid; });
+      $('empty').hidden = shown.length > 0;
+      shown.forEach(function (e) {
+        var tr = document.createElement('tr');
+        var filePill = e.file_uploaded ? '<span class="pill p-ok">הועלה</span>' : '<span class="pill p-no">ממתין</span>';
+        if (e.cancelled) filePill = '<span class="pill p-warn">בוטל</span>';
+        tr.innerHTML =
+          '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + '</td>' +
+          '<td>' + heDate(e.date) + '</td>' +
+          '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
+          '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
+          '<td>' + filePill + '</td>' +
+          '<td>' + e.guests + '</td>' +
+          '<td>' + e.confirmed + '</td>' +
+          '<td>' + e.seats + '</td>' +
+          '<td>' + e.pending + '</td>' +
+          '<td>' + (e.need_call || '') + '</td>';
+        rows.appendChild(tr);
+      });
+    }).catch(function () {
+      $('main').hidden = false;
+      $('gen').textContent = 'לא הצלחנו לטעון — רעננו';
+    });
+  }
+
+  function gate(err) {
+    $('gate').hidden = false; $('main').hidden = true;
+    $('keyErr').textContent = err || '';
+  }
+  $('keyGo').addEventListener('click', function () {
+    adminKey = $('keyIn').value.trim();
+    if (!adminKey) return;
+    localStorage.setItem('ishur_calls_key', adminKey);
+    load();
+  });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  $('refresh').addEventListener('click', load);
+
+  if (adminKey) load(); else gate();
+})();
+</script>
+</body>
+</html>

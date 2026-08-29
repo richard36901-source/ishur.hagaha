@@ -82,6 +82,73 @@ export function callOutcome(outcome, tries, maxTries = 3) {
   }
 }
 
+/* The owner's business view: the funnel from leads to money, per-event RSVP
+   progress, and totals. Reads the same snapshot plus the לידים sheet.
+   לידים columns: 1 שם · 2 טלפון · 4 סוג · 6 שלב נטישה · 7 שולם? · 11 מקור · 14 זמן */
+export function buildBizStats(raw) {
+  const evRows = (raw.events && raw.events.values) || [];
+  const gRows = (raw.guests && raw.guests.values) || [];
+  const leadRows = (raw.leads && raw.leads.values) || [];
+
+  const t = s => String(s ?? '').trim();
+  const leads = leadRows.filter(r => t(r[2]));
+  const leadsPaid = leads.filter(r => t(r[7]) === 'כן').length;
+
+  const events = evRows.filter(r => t(r[1]));
+  let revenue = 0;
+  const perEvent = [];
+  const guestsByToken = {};
+  for (const r of gRows) {
+    const tok = t(r[28]);
+    if (!tok) continue;
+    (guestsByToken[tok] = guestsByToken[tok] || []).push(r);
+  }
+  for (const ev of events) {
+    const tok = t(ev[1]);
+    const paid = t(ev[7]) === 'כן';
+    const sum = Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0;
+    if (paid) revenue += sum;
+    const gl = guestsByToken[tok] || [];
+    let confirmed = 0, declined = 0, seats = 0, needCall = 0;
+    for (const g of gl) {
+      const rsvp = t(g[15]);
+      if (rsvp === 'מגיע') { confirmed++; seats += Number(t(g[13])) || Number(t(g[5])) || 0; }
+      else if (rsvp === 'לא מגיע') declined++;
+      if (t(g[21]) === 'נדרשת שיחה') needCall++;
+    }
+    perEvent.push({
+      token: tok, client: t(ev[2]), name: t(ev[34]) || t(ev[2]),
+      occasion: t(ev[5]), date: t(ev[6]), paid, sum,
+      plan: t(ev[31]), tier: t(ev[32]),
+      file_uploaded: t(ev[43]) === 'כן',
+      guests: gl.length, confirmed, declined,
+      pending: Math.max(0, gl.length - confirmed - declined),
+      seats, need_call: needCall,
+      cancelled: t(ev[27]) === 'כן',
+    });
+  }
+  perEvent.sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
+
+  const paidEvents = perEvent.filter(e => e.paid && !e.cancelled);
+  return {
+    ok: true,
+    generated_at: new Date().toISOString(),
+    funnel: {
+      leads: leads.length,
+      leads_paid: leadsPaid,
+      events: events.length,
+      paid_events: paidEvents.length,
+      conversion: leads.length ? Math.round(100 * leadsPaid / leads.length) : 0,
+    },
+    money: { revenue_ils: revenue },
+    guests: {
+      total: Object.values(guestsByToken).reduce((n, a) => n + a.length, 0),
+      awaiting_call: perEvent.reduce((n, e) => n + e.need_call, 0),
+    },
+    events: perEvent,
+  };
+}
+
 export function buildDashboard(token, raw) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
