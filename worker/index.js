@@ -22,6 +22,7 @@
    ========================================================================== */
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
+import { buildDashboard, buildCallQueue, callOutcome } from './dashboard.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -244,6 +245,15 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   return okJson({ ok: true, image: !!out.image_url }, origin);
 }
 
+async function fetchSnapshot(target) {
+  const r = await fetch(target, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ kind: 'snapshot' }),
+  }).catch(() => null);
+  if (!r || r.status !== 200) return null;
+  try { return await r.json(); } catch { return null; }
+}
+
 async function serveImage(env, pathname) {
   const token = pathname.slice('/img/'.length);
   if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token)) return new Response('not-found', { status: 404 });
@@ -378,6 +388,51 @@ export default {
     const bucket = `${url.pathname}:${ip}`;
     if (await overBudget(env, bucket, route.limit, route.window)) {
       return deny(429, 'rate-limited', origin);
+    }
+
+    /* the dashboard asks with a token; the numbers are computed here, not in
+       Make — Make only hands the sheets over */
+    if (url.pathname === '/api/status') {
+      /* the calls page asks with the admin key and gets the whole queue */
+      const admin = String(stampFields.admin_key || '');
+      if (admin) {
+        if (!env.ADMIN_KEY || !safeEqual(admin, env.ADMIN_KEY)) return deny(403, 'bad-admin-key', origin);
+        const raw = await fetchSnapshot(target);
+        if (!raw) return deny(502, 'reader-failed', origin);
+        return okJson(buildCallQueue(raw), origin);
+      }
+      const token = String(stampFields.token || '').trim();
+      if (!token) return deny(403, 'code-login-not-ready', origin); // phone+code waits for WhatsApp OTP
+      if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+      const raw = await fetchSnapshot(target);
+      if (!raw) return deny(502, 'reader-failed', origin);
+      const snapshot = buildDashboard(token, raw);
+      if (!snapshot) return deny(404, 'event-not-found', origin);
+      return okJson(snapshot, origin);
+    }
+
+    /* a call outcome from the calls page: admin key instead of a token, and
+       the button pressed becomes exact cell values here, not in Make */
+    if (url.pathname === '/api/event' && stampFields.event_type === 'call_result') {
+      if (!env.ADMIN_KEY || !safeEqual(String(stampFields.admin_key || ''), env.ADMIN_KEY)) {
+        return deny(403, 'bad-admin-key', origin);
+      }
+      const result = callOutcome(String(stampFields.outcome || ''), stampFields.tries);
+      if (!result || !stampFields.guest_id) return deny(400, 'bad-outcome', origin);
+      const r = await fetch(target, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event_type: 'call_result',
+          guest_id: String(stampFields.guest_id),
+          /* empty rsvp means "leave what is there" — Make swaps the sentinel
+             for the cell's current value */
+          rsvp: result.rsvp || '__keep__', call_status: result.call_status,
+          answer: result.answer, tries: String(result.tries),
+          ts: new Date().toISOString(),
+        }),
+      }).catch(() => null);
+      if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+      return okJson({ ok: true, ...result }, origin);
     }
 
     /* everything aimed at an event must present a token minted by a payment */
