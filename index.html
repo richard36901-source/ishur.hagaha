@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=15"></script>
-<script src="assets/tracking.js?v=15"></script>
-<script src="assets/guard.js?v=15"></script>
-<script src="assets/lead.js?v=15"></script>
-<script src="assets/messages.js?v=15"></script>
+<script src="config.js?v=18"></script>
+<script src="assets/tracking.js?v=18"></script>
+<script src="assets/guard.js?v=18"></script>
+<script src="assets/lead.js?v=18"></script>
+<script src="assets/messages.js?v=18"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -930,6 +930,7 @@ body.modal-open #cookie-bar{
   --pine-deep:#0A2119;
   --pine-lift:#17402F;
   --navy:#16233A;
+  --navy-lift:#20335A;
   --navy-deep:#0E1726;
   --gold:#A8853C;
   --gold-soft:#C7AE7A;
@@ -964,7 +965,7 @@ body.modal-open #cookie-bar{
 /* ── hero: the dark stage ───────────────────────────────────────────────── */
 #hero{
   background:
-    radial-gradient(120% 95% at 50% -8%, var(--pine-lift) 0%, var(--pine) 46%, var(--navy-deep) 100%);
+    radial-gradient(120% 95% at 50% -8%, var(--pine-lift) 0%, var(--pine) 55%, var(--pine-deep) 100%);
   color:var(--paper);
 }
 .hero-blob{display:none}
@@ -1012,12 +1013,12 @@ body.modal-open #cookie-bar{
 
 /* ── nav ── dark glass, so the bar frames the page rather than sitting on it */
 #nav{
-  background:rgba(14,23,38,.72);
+  background:rgba(8,28,20,.75);
   backdrop-filter:blur(20px) saturate(170%);
   -webkit-backdrop-filter:blur(20px) saturate(170%);
   border-bottom:1px solid rgba(168,133,60,.18);
 }
-#nav.sc{background:rgba(10,20,33,.92);box-shadow:0 6px 24px rgba(0,0,0,.18)}
+#nav.sc{background:rgba(7,23,17,.93);box-shadow:0 6px 24px rgba(0,0,0,.18)}
 .nav-logo-text{color:var(--paper)}
 .nav-logo-text span{color:var(--gold)}
 .nav-btn{
@@ -1039,7 +1040,7 @@ body.modal-open #cookie-bar{
 
 /* ── closing panel and footer, the dark bookend ─────────────────────────── */
 #cta{
-  background:radial-gradient(110% 130% at 50% 0%, var(--pine-lift) 0%, var(--pine) 45%, var(--navy-deep) 100%);
+  background:radial-gradient(110% 130% at 50% 0%, var(--pine-lift) 0%, var(--pine) 50%, var(--pine-deep) 100%);
 }
 #cta::before,#cta::after{display:none}
 #cta h2{color:var(--paper)}
@@ -1155,6 +1156,165 @@ footer{padding:1.9rem 1.5rem 1.6rem}
 #cta{padding:2.9rem 1.5rem 3rem}
 #cta h2{margin-bottom:.7rem}
 #cta p{margin-bottom:1.5rem}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   POLISH v2 · navy and gold carry every dark panel, the page reveals itself
+   in stages on scroll. Appended last so it wins.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── the dark preview panel joins the navy family, green tint out ───────── */
+#previews{background:var(--navy)}
+#previews::before{background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(168,133,60,.07),transparent 70%)}
+#previews .sec-note{color:rgba(248,244,234,.55)}
+#previews .stage-cap{color:rgba(248,244,234,.6)}
+#previews .divider{display:none}
+.ptab2.on{background:var(--gold);border-color:var(--gold);color:#1B1508;font-weight:600}
+.ptab2:hover{border-color:var(--gold-soft)}
+
+/* ── the gold action pulses gold, never green, on the dark stages ───────── */
+@keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(168,133,60,.45)}70%{box-shadow:0 0 0 12px rgba(168,133,60,0)}}
+#hero .btn-green{animation:pulse-gold 2.6s ease-in-out infinite}
+#hero .btn-green:hover{animation:none}
+.btn-white{animation:pulse-gold 2.6s ease-in-out infinite}
+.btn-white:hover{animation:none}
+
+/* ── closing panel: two actions, one size, centred to the text ──────────── */
+.cta-btns{gap:.8rem;justify-content:center;align-items:stretch}
+.btn-white,.btn-wa{
+  height:54px;min-width:216px;padding:0 1.6rem;
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  font-size:.95rem;border-radius:10px;box-sizing:border-box;
+}
+@media(max-width:520px){
+  .cta-btns{flex-direction:column;align-items:center}
+  .btn-white,.btn-wa{width:min(300px,100%);min-width:0}
+}
+
+/* ── the little circles by the trust line: clear, ringed in gold ────────── */
+.trust-avs span{
+  width:32px;height:32px;font-size:.9rem;margin-left:-9px;
+  background:var(--pine-lift);
+  border:1.5px solid rgba(199,174,122,.55);
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.trust-avs span:first-child{margin-left:-9px}
+.hero-trust{gap:.75rem}
+
+/* ── bottle green leads, navy is a touch, the light rooms turn cream ────── */
+footer{background:var(--pine-deep);border-top:1px solid rgba(168,133,60,.14)}
+#events,#features,#pricing{background:#FAF8F1}
+.mtab{background:#FAF8F1}
+.ev-card,.feat,.price-pick .plan-opt{border-color:#EAE4D6}
+
+/* ── what's included: this room's accent is navy, not green ─────────────── */
+#features .feat-acc-hdr{color:var(--navy)}
+#features .feat-acc-hdr:hover{border-color:var(--navy);color:var(--navy);box-shadow:0 6px 20px rgba(22,35,58,.08)}
+#features .feat-acc-hdr.open{background:#EEF1F7;border-color:var(--navy);border-bottom-color:rgba(22,35,58,.25)}
+#features .feat-acc-hdr .acc-arrow{color:var(--navy)}
+#features .feat-acc-body{border-color:var(--navy)}
+#features .feat-ico2{background:linear-gradient(140deg,var(--navy) 0%,var(--navy-deep) 100%);border-color:rgba(199,174,122,.3)}
+#features .feat:hover{border-color:rgba(22,35,58,.4);box-shadow:0 8px 26px rgba(22,35,58,.08)}
+
+/* ── nav: cream over the hero, bottle green once past it ────────────────── */
+#nav{
+  background:rgba(248,244,234,.94);
+  border-bottom:1px solid rgba(168,133,60,.25);
+  transition:background .35s,box-shadow .35s,border-color .35s;
+}
+#nav .nav-logo-text{color:var(--pine);transition:color .35s}
+#nav .nav-logo-text span{color:var(--gold);transition:color .35s}
+#nav.sc{
+  background:rgba(12,40,29,.96);
+  border-bottom-color:rgba(168,133,60,.2);
+  box-shadow:0 6px 24px rgba(0,0,0,.18);
+}
+#nav.sc .nav-logo-text,#nav.sc .nav-logo-text span{color:#fff}
+
+/* ── the footer becomes one quiet line ──────────────────────────────────── */
+footer{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:.3rem 1.8rem;padding:.85rem 1.5rem;
+}
+.f-logo2{margin-bottom:0}
+.f-logo2-icon img{width:22px!important;height:22px!important}
+.f-logo2-text{font-size:.88rem}
+.f-links2{margin-bottom:0;gap:1.1rem}
+.f-links2 a{font-size:.75rem}
+.f-links2 a svg{width:12px;height:12px}
+.f-copy2{font-size:.68rem}
+
+/* ── hero numbers: each one rises in turn, then counts up ───────────────── */
+.h-stat-n{font-variant-numeric:tabular-nums}
+.h-stat{opacity:0;animation:rise .55s cubic-bezier(.22,.9,.24,1) forwards}
+.h-stat:nth-child(1){animation-delay:.95s}
+.h-stat:nth-child(2){animation-delay:1.1s}
+.h-stat:nth-child(3){animation-delay:1.25s}
+.h-stat:nth-child(4){animation-delay:1.4s}
+
+/* ── event cards fly in from both sides and meet as one row ─────────────── */
+.event-grid .ev-card{
+  opacity:0;
+  transition:opacity .85s cubic-bezier(.22,.9,.24,1),transform .85s cubic-bezier(.2,.95,.3,1.06),
+             border-color .2s,background .2s,box-shadow .2s;
+}
+/* RTL: the first three enter from the right edge, the last three from the left */
+.event-grid .ev-card:nth-child(-n+3){transform:translateX(min(160px,18vw))}
+.event-grid .ev-card:nth-child(n+4){transform:translateX(max(-160px,-18vw))}
+.event-grid.v .ev-card{opacity:1;transform:none}
+/* the outer cards land first, the middle pair closes the row */
+.event-grid.v .ev-card:nth-child(1),.event-grid.v .ev-card:nth-child(6){transition-delay:0s}
+.event-grid.v .ev-card:nth-child(2),.event-grid.v .ev-card:nth-child(5){transition-delay:.14s}
+.event-grid.v .ev-card:nth-child(3),.event-grid.v .ev-card:nth-child(4){transition-delay:.28s}
+/* press feedback survives the entrance */
+.event-grid.v .ev-card:active{transform:scale(.972);transition-delay:0s}
+
+/* ── the three packages step in one after the other ─────────────────────── */
+.price-pick .plan-opt{opacity:0;transform:translateY(20px)}
+.price-pick .plan-opt{transition:opacity .6s cubic-bezier(.22,.9,.24,1),transform .6s cubic-bezier(.22,.9,.24,1),
+                      border-color .22s,box-shadow .22s,background .2s}
+.price-pick.v .plan-opt{opacity:1;transform:none}
+.price-pick.v .plan-opt:nth-child(1){transition-delay:.05s}
+.price-pick.v .plan-opt:nth-child(2){transition-delay:.18s}
+.price-pick.v .plan-opt:nth-child(3){transition-delay:.31s}
+.price-pick.v .plan-opt:active{transform:scale(.972);transition-delay:0s}
+
+/* ── the page reveals itself in stages ──────────────────────────────────── */
+.fi{opacity:0;transform:translateY(26px) scale(.985);transition:opacity .8s cubic-bezier(.22,.9,.24,1),transform .8s cubic-bezier(.22,.9,.24,1)}
+.fi.v{opacity:1;transform:none}
+.fi.d1{transition-delay:.12s}
+.fi.d2{transition-delay:.24s}
+
+/* ── air between the chapters, the way an invitation breathes ───────────── */
+.sec{padding:3.6rem 1.5rem}
+@media(min-width:768px){.sec{padding:4.6rem 2rem}}
+.sec-hd{margin-bottom:2.1rem}
+
+/* ── a field whose value is already decided reads as settled, not editable ─ */
+.fixed-field{
+  width:100%;min-height:46px;display:flex;align-items:center;gap:.5rem;
+  padding:.72rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+  background:var(--bg2);font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink2);
+}
+.fixed-field::after{content:'✓';margin-inline-start:auto;color:var(--green);font-size:.85rem;font-weight:700}
+.fixed-field[hidden]{display:none}
+
+/* ── over-900: the quote confirmation inside the popup ──────────────────── */
+.quote-ok{text-align:center;padding:1.4rem 0 .6rem;animation:fadeSlideIn .3s ease both}
+.quote-ok[hidden]{display:none}
+.quote-ok .qo-ico{
+  width:56px;height:56px;border-radius:50%;margin:0 auto .9rem;
+  background:var(--green4);border:1.5px solid var(--bdr2);color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;
+}
+.quote-ok h3{font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;color:var(--ink);margin-bottom:.45rem}
+.quote-ok p{font-size:.9rem;color:var(--ink3);line-height:1.65;margin-bottom:1.3rem}
+.quote-ok .wiz-next{max-width:220px;margin:0 auto;display:block;width:100%}
+
+@media (prefers-reduced-motion:reduce){
+  .event-grid .ev-card{opacity:1;transform:none}
+  .price-pick .plan-opt,.h-stat{opacity:1;transform:none;animation:none}
+  #hero .btn-green,.btn-white{animation:none}
+}
 </style>
 </head>
 <body>
@@ -1164,7 +1324,7 @@ footer{padding:1.9rem 1.5rem 1.6rem}
 <nav id="nav">
   <div class="nav-logo">
     <div class="nav-logo-icon">
-      <img src="assets/logo-light.png" style="width:48px;height:48px;object-fit:contain;display:block;margin-top:6px;" alt="לוגו">
+      <img src="assets/logo-light.png" style="width:48px;height:48px;object-fit:contain;display:block;" alt="לוגו">
     </div>
     <div class="nav-logo-text">אישורי <span>הגעה</span></div>
   </div>
@@ -1251,7 +1411,7 @@ footer{padding:1.9rem 1.5rem 1.6rem}
       <h2 class="sec-title">בחרו את הסגנון שמתאים לאירוע</h2>
       <div class="divider"></div>
     </div>
-    <div class="mtabs">
+    <div class="mtabs fi">
       <button class="mtab on" onclick="showMsg('happy',this)">😊 שמחה</button>
       <button class="mtab" onclick="showMsg('serious',this)">🎩 רשמי</button>
       <button class="mtab" onclick="showMsg('respectful',this)">🙏 מכובד</button>
@@ -1259,7 +1419,7 @@ footer{padding:1.9rem 1.5rem 1.6rem}
       <button class="mtab" onclick="showMsg('postponed',this)">📅 דחייה/עדכון</button>
       <button class="mtab" onclick="showMsg('canceled',this)">⚠️ ביטול</button>
     </div>
-    <div class="msg-card wrap-sm">
+    <div class="msg-card wrap-sm fi d1">
       <div id="msg-body"></div>
     </div>
     <p class="msg-note-txt" id="msg-note"></p>
@@ -1276,7 +1436,7 @@ footer{padding:1.9rem 1.5rem 1.6rem}
       <p class="sec-note">מה שהמוזמן מקבל בוואטסאפ, ומה שאתם רואים בלוח הבקרה</p>
     </div>
 
-    <div class="ptabs2">
+    <div class="ptabs2 fi">
       <button class="ptab2 on" id="ptab-wa" onclick="showPrev('wa')">ההודעה שהמוזמן מקבל</button>
       <button class="ptab2" id="ptab-dash" onclick="showPrev('dash')">לוח הבקרה שלכם</button>
     </div>
@@ -1395,7 +1555,7 @@ footer{padding:1.9rem 1.5rem 1.6rem}
 
 <!-- CTA -->
 <section id="cta">
-  <div class="wrap" style="position:relative;z-index:1">
+  <div class="wrap fi" style="position:relative;z-index:1">
     <h2>תנו לנו לטפל<br><span>בזה בשבילכם</span></h2>
     <p>אתם גם ככה עסוקים מספיק...<br>את אישורי ההגעה תשאירו לנו.</p>
     <div class="cta-btns">
@@ -1528,13 +1688,31 @@ function renderPlans(guests){
     </button>`;
   }).join('');
   wrap.querySelectorAll('[data-plan]').forEach(b=>{
-    b.addEventListener('click',()=>IshurPopup.open('pricing-'+b.dataset.plan));
+    b.addEventListener('click',()=>{
+      /* the tapped package rides into the popup fixed; a chosen quantity rides along too */
+      IshurPopup.open('pricing-'+b.dataset.plan,{plan:b.dataset.plan,guests:guests||''});
+    });
   });
 }
 buildPricing();
 
-// ═══ NAV SCROLL ═══
-window.addEventListener('scroll',()=>document.getElementById('nav').classList.toggle('sc',scrollY>30),{passive:true});
+// ═══ NAV SCROLL ═══ cream over the hero, bottle green once past it
+(()=>{
+  const nav=document.getElementById('nav');
+  const heroEl=document.getElementById('hero');
+  const logoImg=document.querySelector('.nav-logo-icon img');
+  const GOLD='assets/logo-gold.png', LIGHT='assets/logo-light.png';
+  let was=null;
+  function navState(){
+    const sc=scrollY>(heroEl?heroEl.offsetHeight-60:30);
+    if(sc===was) return;
+    was=sc;
+    nav.classList.toggle('sc',sc);
+    if(logoImg) logoImg.src=sc?LIGHT:GOLD;
+  }
+  window.addEventListener('scroll',navState,{passive:true});
+  navState();
+})();
 
 // ═══ SCROLL DEPTH ═══
 const depths=new Set();
@@ -1548,6 +1726,46 @@ const obs=new IntersectionObserver(entries=>entries.forEach(el=>{
   if(el.isIntersecting) el.target.classList.add('v');
 }),{threshold:.08,rootMargin:'0px 0px -20px 0px'});
 document.querySelectorAll('.fi,.step,.feat,.rep-card').forEach(el=>obs.observe(el));
+
+// the event cards fly in from both sides once the grid is on screen
+const evGrid=document.querySelector('.event-grid');
+if(evGrid){
+  const gObs=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){evGrid.classList.add('v');gObs.disconnect();}
+  }),{threshold:.25});
+  gObs.observe(evGrid);
+}
+
+// ═══ HERO STATS COUNT-UP ═══ the numbers climb to their value on arrival
+(()=>{
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const els=document.querySelectorAll('.h-stat-n');
+  let done=false;
+  function run(){
+    if(done) return; done=true;
+    els.forEach(el=>{
+      const txt=el.textContent.trim();
+      const m=txt.match(/^(\d+)(.*)$/);
+      if(!m||+m[1]<3) return;            // "2 דק׳" stays as it is
+      const target=+m[1],suffix=m[2],dur=1500,t0=performance.now();
+      function tick(t){
+        const p=Math.min((t-t0)/dur,1);
+        const ease=1-Math.pow(1-p,3);
+        el.textContent=Math.round(target*ease)+suffix;
+        if(p<1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+  // the stats card fades in at .85s, so the climb starts as it lands
+  const stats=document.querySelector('.hero-stats');
+  if(stats){
+    const sObs2=new IntersectionObserver(es=>es.forEach(e=>{
+      if(e.isIntersecting){setTimeout(run,650);sObs2.disconnect();}
+    }),{threshold:.4});
+    sObs2.observe(stats);
+  }
+})();
 
 // ═══ SECTION VIEWS ═══
 const sObs=new IntersectionObserver(e=>e.forEach(el=>{if(el.isIntersecting&&el.target.id) push('section_view',{section:el.target.id});}),{threshold:.35});
@@ -1688,7 +1906,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=15"></script>
-<script src="assets/popup.js?v=15"></script>
+<script src="assets/select.js?v=18"></script>
+<script src="assets/popup.js?v=18"></script>
 </body>
 </html>

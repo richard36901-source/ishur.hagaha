@@ -36,10 +36,10 @@ window.ISHUR_CONFIG = (function () {
   var GTM_ID              = '';          // GTM-XXXXXXX
   var FB_PIXEL_ID         = '';          // Meta pixel id (digits only)
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
-  var GA4_ID              = '';          // G-XXXXXXX, only if you are not using GTM
+  var GA4_ID              = 'G-H21EMT09HL';  // GA4 property for ishur.io, owned by ishurhagaha@gmail.com
 
   /* Support line, 055-950-4499. This is the number leads and clients talk to:
-     every "questions?" link on the site, the over-600 handoff, the upload
+     every "questions?" link on the site, the over-900 handoff, the upload
      fallback and the post-payment page all point here.
      It is NOT the number guest invitations are sent from. Do not swap them. */
   var WHATSAPP_NUMBER     = '972559504499';   // digits only, country code, no +
@@ -90,7 +90,7 @@ window.ISHUR_CONFIG = (function () {
 
   /* ══ GUEST TIERS ══════════════════════════════════════════════════════════
      value is what the payment links and price table are keyed on.
-     'custom' = over 600, no self-serve payment, routed to WhatsApp.
+     'custom' = over 900, no self-serve payment, routed to WhatsApp.
      ─────────────────────────────────────────────────────────────────────── */
 
   /* A tier counts phone numbers, not people. One family on one number is one
@@ -103,19 +103,25 @@ window.ISHUR_CONFIG = (function () {
     { value: '400',    label: 'עד 400 הזמנות' },
     { value: '500',    label: 'עד 500 הזמנות' },
     { value: '600',    label: 'עד 600 הזמנות' },
-    { value: 'custom', label: 'מעל 600 הזמנות' }
+    { value: '700',    label: 'עד 700 הזמנות' },
+    { value: '800',    label: 'עד 800 הזמנות' },
+    { value: '900',    label: 'עד 900 הזמנות' },
+    { value: 'custom', label: 'מעל 900 הזמנות' }
   ];
 
   /* ══ PRICES ═══ ₪ per event, by guest tier × package ══════════════════════ */
 
   var PRICE_TABLE = {
-    50:  { basic: 50,  pro: 70,  premium: 90  },
-    100: { basic: 99,  pro: 129, premium: 149 },
-    200: { basic: 199, pro: 219, premium: 239 },
-    300: { basic: 299, pro: 319, premium: 339 },
-    400: { basic: 399, pro: 419, premium: 439 },
-    500: { basic: 499, pro: 519, premium: 539 },
-    600: { basic: 599, pro: 619, premium: 639 }
+    50:  { basic: 50,  pro: 70,  premium: 140 },
+    100: { basic: 99,  pro: 129, premium: 199 },
+    200: { basic: 199, pro: 219, premium: 289 },
+    300: { basic: 299, pro: 319, premium: 389 },
+    400: { basic: 399, pro: 419, premium: 489 },
+    500: { basic: 499, pro: 519, premium: 589 },
+    600: { basic: 599, pro: 619, premium: 689 },
+    700: { basic: 699, pro: 719, premium: 789 },
+    800: { basic: 799, pro: 819, premium: 889 },
+    900: { basic: 899, pro: 919, premium: 989 }
   };
 
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
@@ -141,7 +147,16 @@ window.ISHUR_CONFIG = (function () {
     '500_premium': 'https://pay.grow.link/37e6ef830751c527803ad91409405f92-MzMwMDM4NQ',
     '600_basic':   'https://pay.grow.link/7ccfb90823621420824d81f9bea18591-MzMwMDM4Ng',
     '600_pro':     'https://pay.grow.link/89505e155694e788c38f1597820f0dbb-MzMwMDM4OQ',
-    '600_premium': 'https://pay.grow.link/5ff7364c47f9c39c9706e5e7720b2624-MzMwMDM5MA'
+    '600_premium': 'https://pay.grow.link/5ff7364c47f9c39c9706e5e7720b2624-MzMwMDM5MA',
+    '700_basic':   'https://pay.grow.link/NTY2OTg~6fee0687208ad54a752069e5ea3e610b-Mzg3NDE1OA',
+    '700_pro':     'https://pay.grow.link/NTY2OTg~cc4ae55f425a3285e3dc6b1c80736c2e-Mzg3NDE1Nw',
+    '700_premium': 'https://pay.grow.link/NTY2OTg~6ec74307cfc76fe84bf6e9c5ca6bad83-Mzg3NDE1NQ',
+    '800_basic':   'https://pay.grow.link/NTY2OTg~d38ef2cdc904adff19e8904b85ff2fda-Mzg3NDE2MA',
+    '800_pro':     'https://pay.grow.link/NTY2OTg~0c6743cc6490f13a96a8a6359e53e5ab-Mzg3NDE2MQ',
+    '800_premium': 'https://pay.grow.link/NTY2OTg~31e109098f79dd4340267f6997ac9f24-Mzg3NDE2Ng',
+    '900_basic':   'https://pay.grow.link/NTY2OTg~093a3d23b75ef497e3f96e996394ff70-Mzg3NDE3Ng',
+    '900_pro':     'https://pay.grow.link/NTY2OTg~9833d477964944bf8d1a49098d2ff34d-Mzg3NDE3OA',
+    '900_premium': 'https://pay.grow.link/NTY2OTg~70a109d46c6ecb9d90eda76f4e2b6593-Mzg3NDE4MQ'
   };
 
   /* ══ OCCASIONS ════════════════════════════════════════════════════════════
