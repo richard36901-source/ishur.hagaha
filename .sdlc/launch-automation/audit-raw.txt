@@ -1,0 +1,469 @@
+{
+  "summary": "Fetch and summarize every ishur Make scenario blueprint",
+  "agentCount": 9,
+  "logs": [],
+  "result": {
+    "scenarios": [
+      {
+        "scenarioId": 6959453,
+        "trigger": "gateway:CustomWebHook — hook 3553048 \"Ishur.io - Website leads\", instant, maxResults 1, max 100 runs/min; sample payload from ishur-web (lead_submitted with name/phone/email/occasion/guests/plan/utm/sig/nonce)",
+        "moduleChain": [
+          "Module 2 — gateway:CustomWebHook (hook 3553048 'Ishur.io - Website leads'): receives website lead payload",
+          "Module 6 — google-sheets:addRow: appends a row to spreadsheet 1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q (path '[1] Main Folder/אישור הגעה/RSVP - SEND'), sheet 'לידים - לא סגרו'; maps B=שם {{2.name}}, C=טלפון {{2.phone}}, D=מייל {{2.email}}, E=סוג אירוע {{2.occasion}}, F=כמות מוזמנים {{2.guests}}, G=שלב נטישה {{2.event_name}}, L=מקור הגעה {{2.utm_source}}, N=סוג חבילה {{2.plan_name}}, O=זמן formatDate(2.ts, 'YYYY-MM-DD HH:mm:ss'); connection 3909210 (richardtomskiy@gmail.com)"
+        ],
+        "writesTo": [
+          "Google Sheets: spreadsheet 1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q, sheet 'לידים - לא סגרו' (columns B-G, L, N, O)"
+        ],
+        "webhookResponds": "No Webhook Response module — webhook uses Make's default 200 \"Accepted\" reply",
+        "errorHandling": "none — no error handler routes anywhere; maxErrors 3, DLQ off",
+        "gaps": [
+          "Module 6: column A 'מזהה ליד' left unmapped even though the payload has event_id/session_id — no lead identifier written",
+          "Module 6: columns H 'שולם?', I 'כמה פעמים השאיר פרטים', J 'לקוח קיים?', K 'מזהה לקוח', M 'ווצאפ נשלח?' unmapped — no dedup/status logic exists in this scenario",
+          "Column G 'שלב נטישה' (abandonment stage) is fed {{2.event_name}} (e.g. 'InitiateCheckout') — likely a proxy rather than a real stage field; verify intent",
+          "No WhatsApp or Monday step despite sheet tracking 'ווצאפ נשלח?' — follow-up presumably lives elsewhere or is unbuilt",
+          "No signature/nonce verification of the webhook payload despite sig/nonce fields being sent",
+          "No error handling and no webhook response module"
+        ],
+        "verdict": "partial",
+        "name": "Website - leads (folder 379970, ACTIVE)"
+      },
+      {
+        "scenarioId": 6959458,
+        "trigger": "gateway:CustomWebHook \"Events upload \" (hookId 3553071), scheduling immediately, maxResults 1, instant scenario, inactive (isActive: false)",
+        "moduleChain": [
+          "gateway:CustomWebHook (id 2) — webhook trigger 'Events upload ', hook 3553071, empty mapper; this is the ONLY module in the flow"
+        ],
+        "writesTo": [],
+        "webhookResponds": "No Webhook Response module — caller gets Make's default \"Accepted\" only",
+        "errorHandling": "none",
+        "gaps": [
+          "Entire processing chain missing: the flow contains only the webhook trigger, no downstream modules at all (no parsing, no monday/WhatsApp/Sheets writes)",
+          "No Webhook Response module",
+          "Webhook has no data structure attached (editable hook, no schema), so incoming payload fields are undefined",
+          "Scenario is inactive and interface input/output are empty arrays"
+        ],
+        "verdict": "skeleton",
+        "name": "events upload (folder 379970)"
+      },
+      {
+        "scenarioId": 6959463,
+        "trigger": "gateway:CustomWebHook — custom webhook \"Ishur.io Status \" (hookId 3553076), instant trigger, maxResults 1, scheduling \"immediately\" (max 100 runs/min), scenario inactive",
+        "moduleChain": [
+          "gateway:CustomWebHook (id 2) — receives webhook payload; no data structure defined, no mappings, and nothing downstream"
+        ],
+        "writesTo": [],
+        "webhookResponds": "No Webhook Response module — callers get Make's default \"Accepted\" 200, no custom body/status",
+        "errorHandling": "none",
+        "gaps": [
+          "Entire flow after the webhook trigger is missing — the scenario contains exactly one module (the webhook) and no processing, routing, or writes of any kind",
+          "No Webhook Response module despite the name suggesting a status endpoint",
+          "Webhook has no expected data structure defined, so incoming payload fields are unvalidated/unmapped",
+          "Scenario is inactive (isActive: false), created and last edited 2026-08-15 with no changes since"
+        ],
+        "verdict": "empty",
+        "name": "Ishur.io Status (folder 379970)"
+      },
+      {
+        "scenarioId": 6611392,
+        "trigger": "gateway:CustomWebHook (hook 3412269, \"Webhook מהאתר\"), instant scheduling, maxResults 1; scenario is currently INACTIVE (isActive: false)",
+        "moduleChain": [
+          "1 gateway:CustomWebHook — receives site payload (hook 3412269)",
+          "2 json:ParseJSON — parses 1.data fallback \"{}\" (multipart body)",
+          "3 util:SetVariables \"מיזוג שדות\" — merges 1.x/2.x for step_label, phone, name1/name2, event_type, event_date, reception_time, venue_name/addr/city, guests, plan, style, send_date_1/2, email, guests_notes, page_url; sanitizes quotes/newlines",
+          "4 util:SetVariables \"נרמול\" — phone normalized to 972…, payNames, nowIso, leadTxt summary, leadLabel (payment_click→\"נשלח קישור\" else \"חדש\")",
+          "5 builtin:BasicRouter — order_completed branch vs lead branch",
+          "6 monday:ListItemsByColumnValuesV2 (filter step_label=order_completed) — dedupe lookup on board 18411339558 col phone_mm5c6ezb by 4.phone (conn 3903771)",
+          "7 builtin:BasicAggregator — collects ids/names of matches",
+          "8 builtin:BasicRouter — new customer vs existing",
+          "9 monday:ListItemsByColumnValuesV2 (filter: no dupe found) — find lead on board 18411339547 col phone_mm5cghhc",
+          "10 builtin:BasicAggregator — lead ids",
+          "11 monday:GetItemColumnValueV2 — read long_text_mm5cpcd8 from found lead, else HARDCODED fallback itemId 12567884591",
+          "12 json:ParseJSON — parse lead JSON blob (guarded for non-JSON)",
+          "13 util:SetVariables \"מיזוג אתר + וואטסאפ\" — merges site vs lead data; planHeb/evHeb/styleHeb Hebrew switch maps, callsChk (plan!=basic), thxChk (plan=premium), groupName \"names · DD.MM\", plus3 date",
+          "14 monday:CreateGroupV2 — creates guest group on board 18422660194 named 13.groupName",
+          "15 monday:ExecuteGraphQLQueryV2 — create_item on board 18411339558 group topics with ~19 columns (phone_mm5c6ezb, email_mm5c5bk3, status=כן, date4=today, color_mm5bd7pp=planHeb, date_mm5bx4kt=event_date, color_mm5b1mjm=evHeb, color_mm5b5qde=styleHeb, date_mm5bpbck/date_mm5b2se4=send dates, boolean_mm5bj1y6/boolean_mm5cfkjd, venue texts, numeric_mm5c5t8y=guests, long_text_mm5cw15m, text_mm5ca4q6=group id, date_mm5cdzfc=plus3)",
+          "17 builtin:BasicRouter — 4 sub-routes:",
+          "18-47-19 CSV route (file exists, .csv): csv:ParseCSV (autodetect, no headers) → normalize guest phone (col2) + qty (col3) → monday create_item per row on guests board 18422660194 in group 14.id with phone_mm5cz95r, color_mm5cx8d8=ממתין, text_mm5ck0qe + board_relation_mm5cwjam→customer item, text_mm5cy3dw=names, numeric_mm5cqfba=qty; row filter phone length>7",
+          "20 Excel route (file not .csv): monday:AddFileToFileColumnValueV2 — stores raw file to file_mm5cpk39 on the customer item (no parsing of Excel rows)",
+          "22 whatsapp-business-cloud:sendMessage — plain text alert to 972545764327 (Richard) from number id 1218978741299669, onerror Ignore",
+          "21 whatsapp-business-cloud:sendTemplateMessage — template ishur_order_confirm to customer 4.phone from 1218978741299669, NO template variables/language mapped, onerror Ignore",
+          "16 monday:ExecuteGraphQLQueryV2 (filter: lead found) — set lead status \"הומר ללקוח\" on board 18411339547",
+          "23 existing-customer branch: whatsapp sendMessage alert to 972545764327 \"הזמנה חוזרת מלקוח קיים\" with monday link, onerror Ignore",
+          "24-25 lead branch (step_label≠order_completed AND phone exists): lookup lead on 18411339547 phone_mm5cghhc + aggregate",
+          "26 builtin:BasicRouter — existing lead vs new",
+          "27 monday GraphQL change_multiple_column_values — update lead: text_mm5cpwgx=step_label, text_mm5cfy6r=nowIso, long_text_mm5cpcd8=leadTxt, status=leadLabel",
+          "28 monday GraphQL create_item on 18411339547 group topics — new lead with phone, source text_mm5c9f3e=\"אתר\", same status/step fields"
+        ],
+        "writesTo": [
+          "monday board 18411339558 (customers/הזמנות): create_item with ~19 columns, file column file_mm5cpk39, dedupe on phone_mm5c6ezb",
+          "monday board 18411339547 (leads): create/update items, phone_mm5cghhc, status labels חדש/נשלח קישור/הומר ללקוח, long_text_mm5cpcd8 snapshot",
+          "monday board 18422660194 (guests): CreateGroupV2 + create_item per CSV row, board_relation_mm5cwjam to customer",
+          "WhatsApp Business Cloud from phone-number id 1218978741299669: text alerts to 972545764327 and template ishur_order_confirm to customer phone (conn 9106897)"
+        ],
+        "webhookResponds": "No Webhook Response module anywhere — webhook gets Make's default \"Accepted\" response only",
+        "errorHandling": "Only the three WhatsApp send modules (21, 22, 23) have onerror → builtin:Ignore handlers. No error handling on any Monday module or JSON/CSV parsing; scenario maxErrors=3, dlq disabled",
+        "gaps": [
+          "Module 21 (אישור הזמנה ללקוח): sendTemplateMessage maps only template name ishur_order_confirm — no language code and no body/header variable components mapped; will fail or send unpersonalized if template expects params",
+          "Module 11 (שליפת נתוני ליד): hardcoded fallback itemId 12567884591 when no lead found — looks like a leftover test item id; a truly new customer reads that arbitrary item's long_text",
+          "Module 20 (Excel route): uploaded non-CSV guest file is only attached to the Monday item, never parsed — Excel guest lists produce zero guest items on board 18422660194",
+          "No Webhook Response module — site gets no structured ack/status back",
+          "CSV parsing assumes fixed positional columns col1=name, col2=phone, col3=quantity with includesHeaders:false — a file with a header row would create a bogus 'header' guest (only guarded by phone-length filter)",
+          "No error handling on Monday create/update modules — a failed create_item (e.g. label mismatch since create_labels_if_missing:false) silently breaks downstream mappings",
+          "Scenario is inactive (isActive:false) — nothing runs even though wiring exists"
+        ],
+        "verdict": "partial",
+        "name": "S1 הזמנות ולידים (old scaffold)"
+      },
+      {
+        "scenarioId": 6611370,
+        "trigger": "gateway:CustomWebHook \"Grow IPN\" (hook 3412270, instant, maxResults 1, no schedule — runs immediately on webhook)",
+        "moduleChain": [
+          "1 gateway:CustomWebHook \"Grow IPN\" — receives Grow IPN payload on hook 3412270",
+          "2 util:SetVariables \"נרמול\" — normalizes phone from ifempty(payerPhone; phone; customerPhone; cell), strips -/space/+, converts leading 0 to 972 prefix; sum = ifempty(sum; amount; paymentSum); today = formatDate(now, YYYY-MM-DD)",
+          "3 monday:ListItemsByColumnValuesV2 \"חיפוש לקוח\" — board 18411339558, column phone_mm5c6ezb = {{2.phone}}, limit 1 (connection 3903771)",
+          "4 builtin:BasicAggregator — aggregates module 3 results into array of {id, nm}",
+          "5 builtin:BasicRouter — two routes:",
+          "6 [route נמצא, filter length(4.array) > 0] monday:ExecuteGraphQLQueryV2 \"סימון תשלום\" — mutation change_multiple_column_values on board 18411339558, item {{get(4.array;1).id}}, sets column date4 to {{2.today}}",
+          "7 whatsapp-business-cloud:sendMessage \"התראה\" — plain text (not template) to 972545764327 from phone id 1218978741299669: \"תשלום Grow אומת: <name> · <sum>\"; onerror Ignore",
+          "8 [route לא נמצא, filter length(4.array) < 1] whatsapp-business-cloud:sendMessage \"ללא התאמה\" — plain text to 972545764327: \"תשלום Grow ללא התאמה ללקוח: <phone> · <sum>\"; onerror Ignore"
+        ],
+        "writesTo": [
+          "monday board 18411339558: date column date4 set to today's date on the matched item (payment-verified mark)",
+          "WhatsApp Business Cloud: freeform text messages (no template) to internal number 972545764327 from sender id 1218978741299669"
+        ],
+        "webhookResponds": "No Webhook Response module — Grow gets Make's default 200 \"Accepted\"; no custom body/status",
+        "errorHandling": "Only on the two WhatsApp sendMessage modules: builtin:Ignore error handlers (ids 904, 905). No error handling on monday search/mutation modules; no DLQ (dlq false, maxErrors 3)",
+        "gaps": [
+          "Scenario is INACTIVE (isActive false) — nothing runs even if Grow posts to the hook",
+          "No Webhook Response module — fine if Grow accepts default 200, but no signature/secret validation of the IPN payload at all (any POST to the hook marks a payment verified)",
+          "Module 6 marks only date4 (payment date) — no status column update, no payment-sum or transaction-id written to the board, so 'verified' state on monday is just a date",
+          "Monday search limit 1 + aggregator: duplicate customers with same phone are silently collapsed; no handling for multiple matches",
+          "WhatsApp messages are freeform text, not approved templates — will fail outside a 24h session window with 972545764327; failures are then swallowed by the Ignore handlers, so a missed alert is invisible",
+          "No error handling on monday modules 3 and 6 — a monday API failure kills the run with no notification",
+          "Phone normalization only handles IL leading-0 case; a payload with none of payerPhone/phone/customerPhone/cell yields empty phone and routes to 'לא נמצא' with a blank number in the alert",
+          "No logging/persistence of the raw IPN (no data store / sheet), so unmatched payments exist only as a WhatsApp message"
+        ],
+        "verdict": "partial",
+        "name": "S2 אימות תשלום Grow (old scaffold)"
+      },
+      {
+        "scenarioId": 6611408,
+        "trigger": "whatsapp-business-cloud:watchEvents2 instant webhook (hookId 3413019), scheduling \"immediately\", max 100 runs/min. Scenario is currently inactive and flagged isinvalid:true.",
+        "moduleChain": [
+          "1 WhatsApp watchEvents2 — receives inbound WA events (hook 3413019)",
+          "2 BasicFeeder — iterates {{1.messages}}",
+          "3 SetVariables (filter 'יש טקסט': text/button/interactive-reply exists) — from={{2.from}}, text=ifempty(text.body; button.text; interactive.button_reply.title), waName from contacts[1].profile.name",
+          "4 monday:ListItemsByColumnValuesV2 — customer lookup, board 18411339558, column phone_mm5c6ezb = from, limit 1",
+          "5 Aggregator — {id, nm} of customer matches",
+          "30 monday:ListItemsByColumnValuesV2 — guest lookup, board 18422660194, column phone_mm5cz95r = from, limit 10",
+          "31 Aggregator — guest item ids",
+          "6 Router with 3 routes:",
+          "ROUTE 1 (filter 'לקוח קיים': len(5.array)>0): 7 monday:GetItemColumnValueV2 reads memory long_text_mm5c2x2x on board 18411339558 → 8 ai-tools:Ask 'Dana' service prompt (Hebrew, returns {reply,intent,escalate,memo}) → 9 ParseJSON (strips ```json) → 45 sub-router: [intent!=status: 10 WA sendMessage reply to {{3.from}} fromId 1218978741299669; 11 monday GraphQL change_simple_column_value writes memo to long_text_mm5c2x2x; 12 WA sendMessage escalation to 972545764327 if escalate=true] / [intent=status: 33 monday list guests board 18422660194 by text_mm5ck0qe=customer id, cols color_mm5cx8d8+numeric_mm5cqfba; 34 Aggregator; 35 SetVariables counts מגיע/לא מגיע/אולי/ממתין/ללא מענה + seats sum; 36 WA sendMessage status summary; 46 monday GraphQL writes memo]",
+          "ROUTE 2 (filter 'אורח': no customer match AND len(31.array)>0): 40 ai-tools:Ask classifies guest RSVP into {status(מגיע/לא מגיע/אולי/לשאול שוב), seats, note} → 41 ParseJSON → 42 monday GraphQL change_multiple_column_values on board 18422660194 (color_mm5cx8d8 label, numeric_mm5cqfba seats, text_mm5c435b note) targeting last matched guest item → 43 WA sendMessage confirmation to guest",
+          "ROUTE 3 (filter 'לא לקוח ולא אורח'): 14 monday lead lookup board 18411339547 column phone_mm5cghhc, limit 1 → 15 Aggregator → 25 sub-router: [known lead: 16 GetItemColumnValue long_text_mm5cpcd8 (lead memory) → 17 ai-tools:Ask sales prompt ({reply,lead_json,grow_key,escalate}) → 18 ParseJSON → 48 SetVariables (nowIso, lbl, growUrl via switch over 21 hardcoded pay.grow.link URLs for 50-600 x basic/pro/premium) → 19 WA sendMessage reply + payment link → 20 monday GraphQL updates lead (text_mm5cfy6r=nowIso, status label, text_mm5cpwgx='וואטסאפ') → 51 GraphQL saves lead_json to long_text_mm5cpcd8] / [new lead: 21 ai-tools:Ask same sales prompt with '(פנייה ראשונה)' → 22 ParseJSON → 49 SetVariables (same growUrl switch) → 23 WA sendMessage → 24 monday GraphQL create_item on board 18411339547 group 'topics' with phone/status/source columns → 52 GraphQL saves lead_json to new item]"
+        ],
+        "writesTo": [
+          "monday board 18411339558 (customers): memo column long_text_mm5c2x2x (modules 11, 46)",
+          "monday board 18422660194 (guests): color_mm5cx8d8 (RSVP status label), numeric_mm5cqfba (seats), text_mm5c435b (note) (module 42)",
+          "monday board 18411339547 (leads): create_item + text_mm5cfy6r, status, text_mm5cpwgx, text_mm5c9f3e, phone_mm5cghhc, long_text_mm5cpcd8 lead_json (modules 20, 24, 51, 52)",
+          "WhatsApp Business Cloud (conn 9106897, fromId 1218978741299669): free-text session messages to sender {{3.from}} and escalation alerts to 972545764327 — no templates used"
+        ],
+        "webhookResponds": "No Webhook Response module — the WhatsApp watchEvents trigger is a gateway-managed instant webhook, so no explicit response is sent (acceptable for this trigger type).",
+        "errorHandling": "Partial: every WhatsApp sendMessage module (10, 12, 36, 43, 19, 23) has an onerror route with builtin:Ignore (errors swallowed silently). No error handlers on any monday module, AI Ask, or ParseJSON — a malformed AI JSON or monday failure kills the run with no fallback or alert.",
+        "gaps": [
+          "Scenario is flagged isinvalid:true by Make and is inactive (isActive:false) — it cannot run as-is",
+          "Sales-flow escalate flag is dead: prompts 17/21 can return escalate=true (guests>600) but no module in route 3 checks it or notifies anyone — only route 1 (existing customer, module 12) acts on escalation",
+          "Guest route (route 2) has no escalation/fallback path: if AI returns status 'לשאול שוב' it still writes it as a monday label and sends a generic thank-you to the guest",
+          "ParseJSON modules (9, 41, 18, 22) have no onerror — any non-JSON AI answer aborts the run mid-conversation with no reply sent to the user",
+          "monday write modules (11, 42, 20, 24, 46, 51, 52) have no error handlers",
+          "ai-tools:Ask modules have empty parameters (default Make AI Tools, no model/connection pinned)",
+          "Sales prompt + 21 grow.link payment URLs are duplicated verbatim in modules 17/21 and 48/49 — maintenance hazard, any pricing change must be made in 4 places",
+          "Non-text messages (images, audio, location) are silently dropped by filter on module 3 with no auto-reply",
+          "Guest update (module 42) targets get(31.array; length(31.array)) — if a phone matches up to 10 guest rows only the last is updated; multi-event guests get an arbitrary row",
+          "Escalation target phone 972545764327 and fromId 1218978741299669 are hardcoded rather than variables"
+        ],
+        "verdict": "partial",
+        "name": "S3 AI קבלה A (old scaffold)"
+      },
+      {
+        "scenarioId": 6612192,
+        "trigger": "Scheduled (no webhook): daily at 08:30. Trigger module is monday:ListItemsByColumnValuesV2 on board 18411339558 (לקוחות מאושרים), columnId \"status\" = \"כן\", limit 100, pulling columns date_mm5bpbck, date_mm5b2se4, date_mm5bx4kt, text_mm5cv3z8, text_mm5cyvte, text_mm5cq3a4, text_mm5c6jpe, color_mm5b5qde, boolean_mm5bj1y6, boolean_mm5cfkjd. Scenario is currently INACTIVE (isActive:false).",
+        "moduleChain": [
+          "1 monday:ListItemsByColumnValuesV2 'לקוחות מאושרים' — board 18411339558, status='כן', fetches send dates 1/2 (date_mm5bpbck/date_mm5b2se4), event date (date_mm5bx4kt), hall/address/city/time text cols, style color_mm5b5qde, booleans boolean_mm5bj1y6 (calls) and boolean_mm5cfkjd (thank-you)",
+          "2 util:SetVariables 'חילוץ שדות' — today/tom/yest dates; send1/send2/evd; hall/addr/city/tm/names; evP formatted DD.MM.YYYY; styleT switch on color_mm5b5qde mapping שמחה/רשמי/כבוד/שובב/דחייה/ביטול → templates ishur_invite_happy/formal/respect/playful, ishur_postponed, ishur_canceled (default ishur_invite_happy); calls/thx flags; sweepLbl = 'לחייג' or 'ללא מענה'",
+          "3 builtin:BasicRouter with 4 routes",
+          "Route A (filter 'יום שליחה': send1=today OR send2=today): 4 monday:ListItemsByColumnValuesV2 guests board 18422660194 where text_mm5ck0qe = client item id (fetch phone_mm5cz95r, color_mm5cx8d8, numeric_mm5cshcw) → 20 util:SetVariables (gph, gst, gtries, tname = styleT if tries=0 else 'ishur_reminder', nexttries=tries+1) → 5 whatsapp sendTemplateMessage (filter 'אורח פתוח': status not in מגיע/לא מגיע/לחייג/ללא מענה/שגיאת שליחה AND phone exists) to gph from 1218978741299669, template {{tname}} → 6 monday GraphQL: set color_mm5cx8d8='נשלח', numeric_mm5cshcw=nexttries, date_mm5cd533=today",
+          "Route B (filter 'יום לפני האירוע': evd=tomorrow): 7 list guests board 18422660194 → 8 whatsapp sendTemplateMessage 'ishur_day_before' (filter status='מגיע') from 1218978741299669",
+          "Route C (filter 'תאריכי שליחה עברו': last send date < today AND evd >= today): 9 list guests → 10 monday GraphQL (filter status='נשלח' AND tries>=2): set color_mm5cx8d8 = sweepLbl ('לחייג' or 'ללא מענה')",
+          "Route D (filter 'יום אחרי + תודה': evd=yesterday AND thx=1): 11 monday:MoveItemToGroupV2 client item to group group_mm5bhd1e on board 18411339558 → 12 list guests → 13 whatsapp sendTemplateMessage 'ishur_thank_you' (filter status='מגיע') from 1218978741299669"
+        ],
+        "writesTo": [
+          "monday board 18422660194 (guests): color_mm5cx8d8 (נשלח / שגיאת שליחה / לחייג / ללא מענה), numeric_mm5cshcw (tries), date_mm5cd533 (last-sent date) via GraphQL mutations",
+          "monday board 18411339558 (clients): item moved to group group_mm5bhd1e",
+          "WhatsApp Business Cloud from phone id 1218978741299669: templates ishur_invite_happy/formal/respect/playful, ishur_postponed, ishur_canceled, ishur_reminder, ishur_day_before, ishur_thank_you; plus plain-text error alert to 972545764327"
+        ],
+        "webhookResponds": "No webhook and no Webhook Response module — scheduled daily scenario.",
+        "errorHandling": "Error handlers on WhatsApp sends: module 5 (invite/reminder) has onerror → monday GraphQL marks guest color_mm5cx8d8='שגיאת שליחה' → WhatsApp text alert to 972545764327 ('שגיאת שליחה לאורח X של Y') → Ignore. Modules 8 (day-before) and 13 (thank-you) have onerror → Ignore only (silent). Scenario maxErrors 3.",
+        "gaps": [
+          "All whatsapp-business-cloud:sendTemplateMessage modules (5, 8, 13) send only 'to', 'fromId', 'messageTemplate' — no template components/body parameters mapped, even though module 2 computes names/evP/hall/addr/city/tm apparently for personalization; templates will only work if they have zero variables",
+          "Templates ishur_postponed and ishur_canceled are routed through the same Route A invite path — postponed/canceled clients still get status='נשלח' and reminders (tname becomes 'ishur_reminder' on second pass regardless of cancel/postpone style)",
+          "Route C's 'last send date passed' check uses string comparison of send2 fallback send1 vs today; if send2 empty but send1 set, evaluates send1 only — but if only send2 exists behavior of ifempty chain is inverted (checks send2 first) — worth verifying intent",
+          "Modules 8 and 13 swallow send errors with Ignore only — no error marking or alert, unlike module 5",
+          "Router route B/D re-list ALL guests (limit 500) with no dedupe/sent-tracking for day-before and thank-you sends; a re-run same day would double-send",
+          "Scenario is inactive (isActive:false, nextExec null) — old scaffold, not running"
+        ],
+        "verdict": "partial",
+        "name": "S4 מנוע יומי (old scaffold)"
+      },
+      {
+        "scenarioId": 6612196,
+        "trigger": "Scheduled (not webhook): daily at 10:00; scenario currently INACTIVE (isActive: false)",
+        "moduleChain": [
+          "1 monday:ListItemsByColumnValuesV2 'לקוחות מאושרים' — board 18411339558, columnId 'status' = 'כן', pulls columns date_mm5cdzfc (next report date), date_mm5bx4kt (end date), phone_mm5c6ezb (client phone)",
+          "2 monday:ListItemsByColumnValuesV2 'אורחי הלקוח' — board 18422660194, columnId text_mm5ck0qe = {{1.id}} (guest rows linked to client item id), pulls color_mm5cx8d8 (RSVP status) and numeric_mm5cqfba (seats); input filter 'הגיע מועד דוח': date_mm5cdzfc <= today AND date_mm5bx4kt >= today AND phone exists",
+          "3 builtin:BasicAggregator — aggregates guest rows into array of {q: seats count, s: RSVP status text}",
+          "4 util:SetVariables 'ספירה' — cok=count 'מגיע', cno=count 'לא מגיע', cmb=count 'אולי', cwait=count 'ממתין'+'נשלח'+'לשאול שוב', seats=sum of q where s='מגיע', plus3=today+3 (YYYY-MM-DD)",
+          "5 whatsapp-business-cloud:sendTemplateMessage 'דוח ללקוח' — to {{phone_mm5c6ezb}}, fromId 1218978741299669, template 'ishur_status_report'; NO template body components/parameters mapped; onerror route: builtin:Ignore",
+          "6 monday:ExecuteGraphQLQueryV2 'דוח הבא בעוד 3 ימים' — mutation change_multiple_column_values on board 18411339558, item {{1.id}}, sets date_mm5cdzfc to {{4.plus3}}"
+        ],
+        "writesTo": [
+          "monday board 18411339558: column date_mm5cdzfc updated to today+3 via GraphQL mutation",
+          "WhatsApp Business Cloud: template 'ishur_status_report' from phone-number id 1218978741299669 to client phone (phone_mm5c6ezb)"
+        ],
+        "webhookResponds": "No Webhook Response module — scenario is schedule-triggered, no webhook at all",
+        "errorHandling": "Module 5 (WhatsApp send) has an onerror route with builtin:Ignore — send failures are silently swallowed; no other error handlers; note: module 6 still runs and pushes the report date +3 days even if the send failed",
+        "gaps": [
+          "Module 5 sendTemplateMessage maps NO template components/variables — the computed stats (cok, cno, cmb, cwait, seats from module 4) are never passed into the 'ishur_status_report' template, so the report either sends with unfilled placeholders or fails; the counting work in modules 3-4 is effectively unused",
+          "Module 5 onerror Ignore + module 6 unconditional date bump: a failed WhatsApp send still advances date_mm5cdzfc by 3 days, silently skipping that client's report",
+          "Scenario is inactive (isActive: false) and language field on module 5 is absent — template language not specified",
+          "Module 2's filter checks module-1 dates, meaning aggregation runs per client only when due, but if a client has zero guest rows, modules 3-6 may still execute with empty/zero values (no guard)"
+        ],
+        "verdict": "partial",
+        "name": "S6 דוחות ללקוח (old scaffold)"
+      },
+      {
+        "scenarioId": 6611373,
+        "trigger": "Scheduled polling (no webhook): monday:ListBoardItemsV2 runs every 120 min, restricted to 09:00-21:00 all 7 days; scenario is currently INACTIVE (isActive:false, nextExec:null)",
+        "moduleChain": [
+          "Module 1 monday:ListBoardItemsV2 ('כל הלידים') — lists up to 200 items from board 18411339547 (connection 3903771)",
+          "Module 2 whatsapp-business-cloud:sendTemplateMessage ('תזכורת השלמה') — filter 'ליד רלוונטי': phone column phone_mm5cghhc exists AND checkbox boolean_mm5c2mkf not true AND status != 'הומר ללקוח' AND status != 'לא רלוונטי' AND timestamp in text column text_mm5cfy6r older than 2 hours (defaults to 2099 if empty) AND item name does not start with '⚙️'. Sends template 'ishur_finish_order' from phone-number id 1218978741299669; 'to' normalizes the phone (strip -, spaces, +; leading 0 -> 972 prefix). onerror: builtin:Ignore",
+          "Module 3 monday:ExecuteGraphQLQueryV2 ('סימון נשלח') — GraphQL mutation change_multiple_column_values on board 18411339547, item {{1.id}}, sets boolean_mm5c2mkf checked:true (marks reminder sent)"
+        ],
+        "writesTo": [
+          "WhatsApp Business Cloud: template 'ishur_finish_order' from number id 1218978741299669 to lead phone from monday column phone_mm5cghhc",
+          "monday board 18411339547: checkbox column boolean_mm5c2mkf set to checked via GraphQL mutation"
+        ],
+        "webhookResponds": "No Webhook Response module — scenario is schedule-driven, not webhook-driven",
+        "errorHandling": "builtin:Ignore error handler on the WhatsApp send module (module 2) only; monday modules have none; scenario maxErrors 3",
+        "gaps": [
+          "Scenario is deactivated (isActive:false) — never runs as-is",
+          "Template 'ishur_finish_order' sent with no template variables/components mapped — only works if the template has zero placeholders",
+          "Module 3 marks boolean_mm5c2mkf checked unconditionally after module 2's Ignore handler — a failed WhatsApp send still gets marked as sent, so failed leads are never retried",
+          "Reminder-eligibility timestamp read from a plain text column text_mm5cfy6r parsed as YYYY-MM-DDTHH:mm:ss — fragile, and an empty value defaults to 2099 meaning the lead is never reminded",
+          "ListBoardItemsV2 limit 200 with no pagination — leads beyond 200 items are silently skipped",
+          "Checkbox check compares raw JSON value contains 'true' — works, but no re-reminder logic: one reminder ever per lead"
+        ],
+        "verdict": "partial",
+        "name": "S8 תזכורת לידים (old scaffold)"
+      }
+    ]
+  },
+  "workflowProgress": [
+    {
+      "type": "workflow_phase",
+      "index": 1,
+      "title": "Read"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 1,
+      "label": "read:6959453",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "a95a565e574c8f4f4",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015786804,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "gateway:CustomWebHook — hook 3553048 \"Ishur.io - Website le…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6959453 (Website - leads (folder 379970, ACTIVE)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output sch…",
+      "lastProgressAt": 1788015807522,
+      "tokens": 67428,
+      "toolCalls": 3,
+      "durationMs": 20715,
+      "resultPreview": "{\"scenarioId\":6959453,\"trigger\":\"gateway:CustomWebHook — hook 3553048 \\\"Ishur.io - Website leads\\\", instant, maxResults 1, max 100 runs/min; sample payload from ishur-web (lead_submitted with name/phone/email/occasion/guests/plan/utm/sig/nonce)\",\"moduleChain\":[\"Module 2 — gateway:CustomWebHook (hook 3553048 'Ishur.io - Website leads'): receives website lead payload\",\"Module 6 — google-sheets:addRo…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 2,
+      "label": "read:6959458",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "a7d367b80f610b110",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015786910,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "gateway:CustomWebHook \"Events upload \" (hookId 3553071), sc…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6959458 (events upload (folder 379970)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In mo…",
+      "lastProgressAt": 1788015804540,
+      "tokens": 63765,
+      "toolCalls": 3,
+      "durationMs": 15888,
+      "resultPreview": "{\"scenarioId\":6959458,\"trigger\":\"gateway:CustomWebHook \\\"Events upload \\\" (hookId 3553071), scheduling immediately, maxResults 1, instant scenario, inactive (isActive: false)\",\"moduleChain\":[\"gateway:CustomWebHook (id 2) — webhook trigger 'Events upload ', hook 3553071, empty mapper; this is the ONLY module in the flow\"],\"writesTo\":[],\"webhookResponds\":\"No Webhook Response module — caller gets Mak…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 3,
+      "label": "read:6959463",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "a0a91c4fff3ff9512",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015787101,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "gateway:CustomWebHook — custom webhook \"Ishur.io Status \" (…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6959463 (Ishur.io Status (folder 379970)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In …",
+      "lastProgressAt": 1788015804377,
+      "tokens": 63801,
+      "toolCalls": 3,
+      "durationMs": 15725,
+      "resultPreview": "{\"scenarioId\":6959463,\"trigger\":\"gateway:CustomWebHook — custom webhook \\\"Ishur.io Status \\\" (hookId 3553076), instant trigger, maxResults 1, scheduling \\\"immediately\\\" (max 100 runs/min), scenario inactive\",\"moduleChain\":[\"gateway:CustomWebHook (id 2) — receives webhook payload; no data structure defined, no mappings, and nothing downstream\"],\"writesTo\":[],\"webhookResponds\":\"No Webhook Response m…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 4,
+      "label": "read:6611392",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "ac234e16e63e6c927",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015787093,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "gateway:CustomWebHook (hook 3412269, \"Webhook מהאתר\"), inst…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6611392 (S1 הזמנות ולידים (old scaffold)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In …",
+      "lastProgressAt": 1788015833200,
+      "tokens": 75711,
+      "toolCalls": 3,
+      "durationMs": 44547,
+      "resultPreview": "{\"scenarioId\":6611392,\"trigger\":\"gateway:CustomWebHook (hook 3412269, \\\"Webhook מהאתר\\\"), instant scheduling, maxResults 1; scenario is currently INACTIVE (isActive: false)\",\"moduleChain\":[\"1 gateway:CustomWebHook — receives site payload (hook 3412269)\",\"2 json:ParseJSON — parses 1.data fallback \\\"{}\\\" (multipart body)\",\"3 util:SetVariables \\\"מיזוג שדות\\\" — merges 1.x/2.x for step_label, phone, na…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 5,
+      "label": "read:6611370",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "a1cfafdcdf1c48116",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015786951,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "gateway:CustomWebHook \"Grow IPN\" (hook 3412270, instant, ma…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6611370 (S2 אימות תשלום Grow (old scaffold)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. …",
+      "lastProgressAt": 1788015814553,
+      "tokens": 65912,
+      "toolCalls": 3,
+      "durationMs": 25901,
+      "resultPreview": "{\"scenarioId\":6611370,\"trigger\":\"gateway:CustomWebHook \\\"Grow IPN\\\" (hook 3412270, instant, maxResults 1, no schedule — runs immediately on webhook)\",\"moduleChain\":[\"1 gateway:CustomWebHook \\\"Grow IPN\\\" — receives Grow IPN payload on hook 3412270\",\"2 util:SetVariables \\\"נרמול\\\" — normalizes phone from ifempty(payerPhone; phone; customerPhone; cell), strips -/space/+, converts leading 0 to 972 pref…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 6,
+      "label": "read:6611408",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "a59ed72ddaed99911",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015786840,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "whatsapp-business-cloud:watchEvents2 instant webhook (hookI…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6611408 (S3 AI קבלה A (old scaffold)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In modu…",
+      "lastProgressAt": 1788015859801,
+      "tokens": 82459,
+      "toolCalls": 11,
+      "durationMs": 71149,
+      "resultPreview": "{\"scenarioId\":6611408,\"trigger\":\"whatsapp-business-cloud:watchEvents2 instant webhook (hookId 3413019), scheduling \\\"immediately\\\", max 100 runs/min. Scenario is currently inactive and flagged isinvalid:true.\",\"moduleChain\":[\"1 WhatsApp watchEvents2 — receives inbound WA events (hook 3413019)\",\"2 BasicFeeder — iterates {{1.messages}}\",\"3 SetVariables (filter 'יש טקסט': text/button/interactive-repl…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 7,
+      "label": "read:6612192",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "ab800212f49a9475e",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015807681,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Scheduled (no webhook): daily at 08:30. Trigger module is m…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6612192 (S4 מנוע יומי (old scaffold)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In modu…",
+      "lastProgressAt": 1788015844493,
+      "tokens": 71056,
+      "toolCalls": 3,
+      "durationMs": 36811,
+      "resultPreview": "{\"scenarioId\":6612192,\"trigger\":\"Scheduled (no webhook): daily at 08:30. Trigger module is monday:ListItemsByColumnValuesV2 on board 18411339558 (לקוחות מאושרים), columnId \\\"status\\\" = \\\"כן\\\", limit 100, pulling columns date_mm5bpbck, date_mm5b2se4, date_mm5bx4kt, text_mm5cv3z8, text_mm5cyvte, text_mm5cq3a4, text_mm5c6jpe, color_mm5b5qde, boolean_mm5bj1y6, boolean_mm5cfkjd. Scenario is currently I…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 8,
+      "label": "read:6612196",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "a55232a5ceb0d1444",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015807721,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Scheduled (not webhook): daily at 10:00; scenario currently…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6612196 (S6 דוחות ללקוח (old scaffold)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In mo…",
+      "lastProgressAt": 1788015832517,
+      "tokens": 65839,
+      "toolCalls": 3,
+      "durationMs": 24795,
+      "resultPreview": "{\"scenarioId\":6612196,\"trigger\":\"Scheduled (not webhook): daily at 10:00; scenario currently INACTIVE (isActive: false)\",\"moduleChain\":[\"1 monday:ListItemsByColumnValuesV2 'לקוחות מאושרים' — board 18411339558, columnId 'status' = 'כן', pulls columns date_mm5cdzfc (next report date), date_mm5bx4kt (end date), phone_mm5c6ezb (client phone)\",\"2 monday:ListItemsByColumnValuesV2 'אורחי הלקוח' — board 1…"
+    },
+    {
+      "type": "workflow_agent",
+      "index": 9,
+      "label": "read:6611373",
+      "phaseIndex": 1,
+      "phaseTitle": "Read",
+      "agentId": "af1762f50a088dce4",
+      "model": "claude-fable-5",
+      "state": "done",
+      "startedAt": 1788015810645,
+      "queuedAt": 1788015785144,
+      "attempt": 1,
+      "lastToolName": "StructuredOutput",
+      "lastToolSummary": "Scheduled polling (no webhook): monday:ListBoardItemsV2 run…",
+      "promptPreview": "You are auditing a Make.com scenario. Use ToolSearch with query \"select:mcp__d9c54acb-7655-4447-8cde-5b446372ee0f__scenarios_get\" to load the tool, then call it with scenarioId 6611373 (S8 תזכורת לידים (old scaffold)).\nRead the ENTIRE blueprint JSON. If the result is saved to a file because it is large, Read the file in chunks until you have seen every module.\nSummarize per the output schema. In m…",
+      "lastProgressAt": 1788015832947,
+      "tokens": 65268,
+      "toolCalls": 3,
+      "durationMs": 22301,
+      "resultPreview": "{\"scenarioId\":6611373,\"trigger\":\"Scheduled polling (no webhook): monday:ListBoardItemsV2 runs every 120 min, restricted to 09:00-21:00 all 7 days; scenario is currently INACTIVE (isActive:false, nextExec:null)\",\"moduleChain\":[\"Module 1 monday:ListBoardItemsV2 ('כל הלידים') — lists up to 200 items from board 18411339547 (connection 3903771)\",\"Module 2 whatsapp-business-cloud:sendTemplateMessage ('ת…"
+    }
+  ],
+  "totalTokens": 621239,
+  "totalToolCalls": 35
+}
