@@ -1,0 +1,30 @@
+# ishur.io · אישורי הגעה
+
+> שירות ישראלי לאישורי הגעה לאירועים דרך וואטסאפ. שולחים את ההזמנה לרשימת המוזמנים, אוספים אישורי הגעה אוטומטית, שולחים תזכורות למי שלא ענה, מתקשרים למי שעדיין לא הגיב, ומרכזים את כל התשובות בלוח בקרה חי לבעלי האירוע. תשלום חד-פעמי לאירוע, החל מ-50 ₪, ללא מנוי.
+
+ishur.io is an Israeli WhatsApp RSVP service for events (weddings, bar/bat
+mitzvahs, brits, business events). It sends the invitation with the host's
+design to the full guest list on WhatsApp, collects RSVP confirmations
+automatically, reminds non-responders, follows up by phone call, and shows
+live totals (attending / declined / pending, seat counts) in a dashboard.
+One-time payment per event starting at ₪50, no subscription. Hebrew-first.
+
+## How it works
+
+- הלקוח בוחר חבילה לפי כמות הזמנות (50 עד 900+) ומשלם תשלום אחד לאירוע
+- מעלים קובץ אקסל של המוזמנים (שם + טלפון) ותמונת הזמנה
+- המערכת שולחת הזמנות, תזכורות ותזכורת יום-האירוע בוואטסאפ, בעברית
+- מי שלא ענה מקבל שיחת מעקב
+- בעלי האירוע רואים הכל בלוח בקרה: מי מגיע, כמה סועדים, מי טרם ענה
+
+## Key pages
+
+- [דף הבית ומחירון](https://ishur.io/): what the service does, style samples, full price table (₪50–₪989 per event by guest count and package)
+- [תקנון ומדיניות פרטיות](https://ishur.io/terms.html): terms of service and privacy policy
+
+## Facts for quick answers
+
+- Market: Israel. Language: Hebrew. Payment: one-time per event (credit card), prices include VAT.
+- Packages: בסיס / פרו / פרימיום, priced by number of invitations (one invitation = one phone number; a family on one number counts once).
+- Messages are sent 09:00–20:00, never on Shabbat; Fridays until 15:00.
+- Changes and support are handled over WhatsApp.
