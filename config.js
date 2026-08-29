@@ -36,7 +36,7 @@ window.ISHUR_CONFIG = (function () {
   var GTM_ID              = '';          // GTM-XXXXXXX
   var FB_PIXEL_ID         = '';          // Meta pixel id (digits only)
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
-  var GA4_ID              = '';          // G-XXXXXXX, only if you are not using GTM
+  var GA4_ID              = 'G-H21EMT09HL';  // GA4 property for ishur.io, owned by ishurhagaha@gmail.com
 
   /* Support line, 055-950-4499. This is the number leads and clients talk to:
      every "questions?" link on the site, the over-900 handoff, the upload
