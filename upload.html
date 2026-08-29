@@ -472,6 +472,31 @@
     </div>
 
     <div class="sec">
+      <div class="sec-h">תמונת ההזמנה</div>
+      <style>
+        .imgbtn{display:inline-flex;align-items:center;gap:.45rem;border:1px dashed #B9B4A4;background:#FDFCF8;border-radius:10px;padding:.65rem 1.1rem;font:inherit;font-size:.88rem;cursor:pointer;color:#3D4A42}
+        .imgbtn:hover{border-color:#A8853C;color:#0F2E22}
+        .imgchip{display:flex;align-items:center;gap:.6rem;border:1px solid #E3E1D8;background:#fff;border-radius:10px;padding:.45rem .6rem}
+        .imgchip img{width:44px;height:44px;object-fit:cover;border-radius:7px}
+        .imgchip span{font-size:.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;direction:ltr;text-align:right}
+        .imgchip button{border:none;background:none;font-size:1.1rem;cursor:pointer;color:#8A9382;padding:.2rem .4rem}
+        .imgchip button:hover{color:#A8402F}
+      </style>
+      <div class="frow full">
+        <label for="f-img">תמונה שתישלח עם ההזמנה <span class="fopt">לא חובה</span></label>
+        <input type="file" id="f-img" accept="image/jpeg,image/png,image/webp" hidden>
+        <button type="button" class="imgbtn" id="imgBtn">בחירת תמונה מהמכשיר</button>
+        <div class="imgchip" id="imgChip" hidden>
+          <img id="imgThumb" alt="תצוגה מקדימה של תמונת ההזמנה">
+          <span id="imgName"></span>
+          <button type="button" id="imgClear" aria-label="הסרת התמונה">×</button>
+        </div>
+        <p class="ferr" id="e-img" aria-live="polite"></p>
+        <p class="hint-s">JPG, PNG או WebP עד 4MB. התמונה מצורפת להודעת ההזמנה שהמוזמנים מקבלים.</p>
+      </div>
+    </div>
+
+    <div class="sec">
       <div class="sec-h">מתי שולחים</div>
 
       <p class="note" id="schedHint">בחרו קודם את תאריך האירוע ונציע לוח שליחות.</p>
@@ -1153,6 +1178,32 @@
     return ok;
   }
 
+  /* ── invitation image, optional ── validated here, stored by the Worker ── */
+  var imgFile = null;
+  var imgInput = $('f-img');
+  $('imgBtn').addEventListener('click', function () { imgInput.click(); });
+  imgInput.addEventListener('change', function () {
+    var f = imgInput.files[0];
+    if (!f) return;
+    $('e-img').textContent = '';
+    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
+      $('e-img').textContent = 'רק JPG, PNG או WebP.'; imgInput.value = ''; return;
+    }
+    if (f.size > 4 * 1024 * 1024) {
+      $('e-img').textContent = 'התמונה גדולה מדי — עד 4MB.'; imgInput.value = ''; return;
+    }
+    imgFile = f;
+    $('imgThumb').src = URL.createObjectURL(f);
+    $('imgName').textContent = f.name;
+    $('imgChip').hidden = false;
+    $('imgBtn').hidden = true;
+    IshurLead.track('image_selected', { size: f.size });
+  });
+  $('imgClear').addEventListener('click', function () {
+    imgFile = null; imgInput.value = '';
+    $('imgChip').hidden = true; $('imgBtn').hidden = false;
+  });
+
   $('saveBtn').addEventListener('click', function () {
     if (!validate()) {
       var bad = document.querySelector('#setupView .bad');
@@ -1216,13 +1267,26 @@
       ts: new Date().toISOString()
     };
 
-    IshurLead.track('setup_submitted', { occasion: S.occasion, style: S.style });
+    /* in auto mode the later sends live in auto_sends — flatten them into the
+       date columns the sender actually reads */
+    if (autoMode()) {
+      var later = payload.auto_sends.map(function (x) { return x.date; });
+      payload.send_date_2 = later[0] || '';
+      if (!payload.send_date_3) payload.send_date_3 = later[1] || '';
+    }
 
-    fetch(endpoint, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
-    })
+    IshurLead.track('setup_submitted', { occasion: S.occasion, style: S.style, has_image: !!imgFile });
+
+    /* multipart, so the invitation image rides along with the fields */
+    var stamped = window.IshurGuard ? IshurGuard.stamp(payload) : payload;
+    var fd = new FormData();
+    Object.keys(stamped).forEach(function (k) {
+      var v = stamped[k];
+      fd.append(k, (v && typeof v === 'object') ? JSON.stringify(v) : v);
+    });
+    if (imgFile) fd.append('image', imgFile, imgFile.name);
+
+    fetch(endpoint, { method: 'POST', body: fd })
       .then(function (res) {
         if (res.status === 200) {
           IshurLead.track('setup_success', { extra_send: extraSend });

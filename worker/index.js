@@ -21,11 +21,18 @@
    Then set USE_PROXY to true and PROXY_BASE to the deployed URL in config.js.
    ========================================================================== */
 
+import { parseGuestFile, guestsFromRows } from './parse.js';
+
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
   '/api/event':  { secret: 'HOOK_EVENTS', limit: 20,  window: 3600 },
   '/api/status': { secret: 'HOOK_STATUS', limit: 120, window: 3600 },
 };
+
+const MAX_GUESTS      = 2000;
+const MAX_FILE_BYTES  = 8 * 1024 * 1024;
+const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+const TOKEN_TTL       = 400 * 86400;   // covers events booked far ahead
 
 /* ══ Grow payments ═══════════════════════════════════════════════════════════
    Grow's notify URL points here (with ?k=<GROW_KEY>), not at Make directly.
@@ -94,6 +101,10 @@ async function handleGrowIpn(request, env, url) {
     /* ref→token lives 30 days so the thank-you page can claim it */
     await env.RATE.put('grow:' + ref, token, { expirationTtl: 30 * 86400 });
     await env.RATE.put('client:' + phone, '1', { expirationTtl: 730 * 86400 });
+    /* token→who: the upload page presents a token, this is how it is trusted */
+    await env.RATE.put('token:' + token, JSON.stringify({
+      phone, ref, name, clientId: 'C-' + phone.slice(-9),
+    }), { expirationTtl: TOKEN_TTL });
   }
 
   const clean = {
@@ -133,6 +144,116 @@ async function handleClaim(request, env, origin) {
   }
   return new Response(JSON.stringify({ ok: true, token }), {
     status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
+  });
+}
+
+/* ══ event uploads ═══════════════════════════════════════════════════════════
+   /api/event does the heavy lifting in code instead of in Make:
+     · guest file  → parsed + validated here, Make receives ready-made rows
+     · invitation image → stored in KV, served back publicly at /img/<token>
+   Make stays a plain writer with nothing fragile inside it.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+async function tokenRecord(env, token) {
+  if (!env.RATE || !token || !/^[0-9a-f-]{36}$/.test(token)) return null;
+  const raw = await env.RATE.get('token:' + token);
+  if (!raw) return null;
+  try { return JSON.parse(raw); } catch { return null; }
+}
+
+function sniffImage(bytes) {
+  if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
+  if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
+  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
+      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+  return null;
+}
+
+function okJson(payload, origin) {
+  return new Response(JSON.stringify(payload), {
+    status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
+  });
+}
+
+async function handleEventForm(form, rec, token, env, origin, target, url) {
+  const file = form.get('file');
+  if (file && typeof file === 'object' && file.arrayBuffer) {
+    /* one guest list per event; replacements go through support on purpose */
+    if (await env.RATE.get('uploaded:' + token)) return deny(409, 'already-uploaded', origin);
+    if (file.size > MAX_FILE_BYTES) return deny(413, 'file-too-large', origin);
+    if (!/\.(csv|xlsx|xls)$/i.test(file.name || '')) return deny(422, 'bad-file-type', origin);
+
+    let rows;
+    try { rows = parseGuestFile(file.name, await file.arrayBuffer()); }
+    catch { return deny(422, 'unreadable-file', origin); }
+    const { guests, skipped } = guestsFromRows(rows);
+    if (!guests.length) return deny(422, 'no-valid-guests', origin);
+    if (guests.length > MAX_GUESTS) return deny(422, 'too-many-guests', origin);
+
+    /* rows in the exact shape of the אורחים sheet, A through AC */
+    const now = new Date().toISOString();
+    const values = guests.map((g, i) => {
+      const row = new Array(29).fill('');
+      row[0] = rec.clientId;                        // מזהה לקוח
+      row[1] = rec.name || '';                      // שם לקוח
+      row[2] = 'G-' + token.slice(0, 8) + '-' + (i + 1); // מזהה אורח
+      row[3] = g.name;                              // שם אורח
+      row[4] = g.phone;                             // טלפון אורח
+      row[5] = g.party;                             // כמה הוזמנו
+      row[24] = 'הועלה מקובץ: ' + file.name;        // הערות מערכת
+      row[25] = now;                                // זמן שינוי אחרון
+      row[28] = token;                              // מזהה אירוע
+      return row;
+    });
+
+    const r = await fetch(target, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        event_type: 'guests_file', token,
+        file_name: file.name,
+        guest_count: guests.length,
+        skipped_count: skipped.length,
+        append_body: JSON.stringify({ values }),
+      }),
+    }).catch(() => null);
+    if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+
+    await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
+    return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
+  }
+
+  /* setup step — text fields, plus the invitation image when one was chosen */
+  const out = {};
+  for (const [k, v] of form.entries()) if (typeof v === 'string') out[k] = v;
+
+  const image = form.get('image');
+  if (image && typeof image === 'object' && image.arrayBuffer) {
+    if (image.size > MAX_IMAGE_BYTES) return deny(413, 'image-too-large', origin);
+    const buf = await image.arrayBuffer();
+    const mime = sniffImage(new Uint8Array(buf.slice(0, 16)));
+    if (!mime) return deny(422, 'bad-image', origin);
+    await env.RATE.put('img:' + token, buf, { expirationTtl: TOKEN_TTL, metadata: { mime } });
+    out.image_url = 'https://' + url.hostname + '/img/' + token;
+  }
+
+  const r = await fetch(target, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(out),
+  }).catch(() => null);
+  if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+  return okJson({ ok: true, image: !!out.image_url }, origin);
+}
+
+async function serveImage(env, pathname) {
+  const token = pathname.slice('/img/'.length);
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token)) return new Response('not-found', { status: 404 });
+  const { value, metadata } = await env.RATE.getWithMetadata('img:' + token, { type: 'arrayBuffer' });
+  if (!value) return new Response('not-found', { status: 404 });
+  return new Response(value, {
+    headers: {
+      'Content-Type': (metadata && metadata.mime) || 'image/jpeg',
+      'Cache-Control': 'public, max-age=3600',
+    },
   });
 }
 
@@ -218,6 +339,9 @@ export default {
     if (url.pathname === '/api/claim' && request.method === 'POST') {
       return handleClaim(request, env, origin);
     }
+    if (url.pathname.startsWith('/img/') && request.method === 'GET') {
+      return serveImage(env, url.pathname);
+    }
     if (!route) return deny(404, 'unknown-route', origin);
     if (request.method !== 'POST') return deny(405, 'method', origin);
     if (origin && !ALLOWED_ORIGINS.includes(origin)) return deny(403, 'origin', origin);
@@ -235,10 +359,12 @@ export default {
 
     /* The body is read once and rebuilt, because a stream cannot be both
        inspected and forwarded. */
+    let parsedForm = null;
     if (type.includes('multipart/form-data')) {
       const form = await request.formData();
       ['app', 'nonce', 'stamp_ts', 'sig'].forEach(k => { stampFields[k] = form.get(k); });
       forwardBody = form;
+      parsedForm = form;
     } else {
       const text = await request.text();
       try { stampFields = JSON.parse(text); } catch { return deny(400, 'bad-json', origin); }
@@ -252,6 +378,14 @@ export default {
     const bucket = `${url.pathname}:${ip}`;
     if (await overBudget(env, bucket, route.limit, route.window)) {
       return deny(429, 'rate-limited', origin);
+    }
+
+    /* everything aimed at an event must present a token minted by a payment */
+    if (url.pathname === '/api/event') {
+      const token = String((parsedForm ? parsedForm.get('token') : stampFields.token) || '').trim();
+      const rec = await tokenRecord(env, token);
+      if (!rec) return deny(403, 'unknown-token', origin);
+      if (parsedForm) return handleEventForm(parsedForm, rec, token, env, origin, target, url);
     }
 
     const headers = new Headers();
