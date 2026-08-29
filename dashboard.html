@@ -357,6 +357,9 @@
   var qs = new URLSearchParams(location.search);
   var token = (qs.get('t') || '').trim();
   var demo = qs.get('demo') === '1' || location.hash === '#demo';
+  /* the site embeds this page to show what the dashboard looks like,
+     so that embed walks straight past the gate */
+  var preview = qs.get('preview') === '1';
   var $ = function (id) { return document.getElementById(id); };
 
   $('wa').href = CFG.waLink('היי, לגבי האירוע שלי:');
@@ -854,7 +857,7 @@
     showApp();
     loadData({ token: token }, false);
   } else if (demo) {
-    if (sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
+    if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
     else showGate();
   } else {
     var saved = null;

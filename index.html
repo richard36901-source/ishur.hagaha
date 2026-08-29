@@ -1631,7 +1631,7 @@ function showPrev(tab){
   // the dashboard is the real page, loaded only once someone asks to see it
   if(tab==='dash'&&!dashLoaded){
     dashLoaded=true;
-    document.getElementById('dashFrame').src='dashboard.html#demo';
+    document.getElementById('dashFrame').src='dashboard.html?demo=1&preview=1';
   }
   push('preview_tab',{tab});
 }
