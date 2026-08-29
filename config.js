@@ -328,7 +328,8 @@ window.ISHUR_CONFIG = (function () {
   function endpoint(kind) {
     if (USE_PROXY && PROXY_BASE) {
       return PROXY_BASE.replace(/\/$/, '') + ({
-        lead: '/api/lead', event: '/api/event', status: '/api/status'
+        lead: '/api/lead', event: '/api/event', status: '/api/status',
+        claim: '/api/claim'
       }[kind] || '/api/event');
     }
     return {

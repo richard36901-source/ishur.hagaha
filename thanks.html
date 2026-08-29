@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=14"></script>
-<script src="assets/tracking.js?v=14"></script>
-<script src="assets/guard.js?v=14"></script>
-<script src="assets/lead.js?v=14"></script>
+<script src="config.js?v=15"></script>
+<script src="assets/tracking.js?v=15"></script>
+<script src="assets/guard.js?v=15"></script>
+<script src="assets/lead.js?v=15"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -78,7 +78,7 @@
     .wa:active{transform:none}
   }
 </style>
-<link rel="stylesheet" href="assets/lux.css?v=14">
+<link rel="stylesheet" href="assets/lux.css?v=15">
 </head>
 <body>
 
@@ -133,7 +133,8 @@
   /* Grow passes back whatever it is configured to send. Any of these is enough
      to key the purchase so a refresh does not double-count it. */
   var q = new URLSearchParams(location.search);
-  var orderRef = q.get('order') || q.get('transactionId') || q.get('asmachta') || '';
+  var orderRef = q.get('order') || q.get('transactionId') || q.get('asmachta') ||
+                 q.get('paymentId') || q.get('processToken') || q.get('processId') || '';
 
   if (pending) {
     var price = pending.price;
@@ -157,6 +158,47 @@
        just not one we can value */
     IshurLead.track('thanks_view_no_order', {});
   }
+
+  /* the personal upload link, claimed by the payment reference the customer
+     came back with. Polls briefly because Grow's server notification can lag
+     the redirect by a few seconds. */
+  (function claimLink() {
+    if (!orderRef || !CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
+    var tries = 0;
+    var box = document.createElement('div');
+    box.id = 'claimBox';
+    box.innerHTML = '<p style="font-size:.85rem;color:var(--ink3)">מכינים את הקישור האישי שלכם…</p>';
+    document.querySelector('.steps').insertAdjacentElement('beforebegin', box);
+
+    function attempt() {
+      tries++;
+      var body = window.IshurGuard ? IshurGuard.stamp({ ref: orderRef }) : { ref: orderRef };
+      fetch(CFG.endpoint('claim'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (j && j.ok && j.token) {
+            IshurLead.track('claim_success', { tries: tries });
+            box.innerHTML =
+              '<a href="upload.html?t=' + encodeURIComponent(j.token) + '" ' +
+              'style="display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;' +
+              'background:var(--green);color:#fff;text-decoration:none;font-weight:600;font-size:1rem;' +
+              'padding:1rem;border-radius:10px;margin-bottom:.6rem">' +
+              'המשך להעלאת רשימת המוזמנים ←</a>' +
+              '<p style="font-size:.72rem;color:var(--ink3);margin-bottom:.8rem">הקישור אישי לאירוע שלכם. הוא יגיע גם בוואטסאפ.</p>';
+          } else if (tries < 15) {
+            setTimeout(attempt, 3000);
+          } else {
+            IshurLead.track('claim_timeout', {});
+            box.innerHTML = '<p style="font-size:.8rem;color:var(--ink3)">הקישור האישי יגיע אליכם בוואטסאפ בדקות הקרובות.</p>';
+          }
+        })
+        ['catch'](function () { if (tries < 15) setTimeout(attempt, 3000); });
+    }
+    attempt();
+  })();
 
   var wa = document.getElementById('wa');
   var msg = 'היי, שילמתי ולא קיבלתי את הקישור להעלאת רשימת המוזמנים.';
