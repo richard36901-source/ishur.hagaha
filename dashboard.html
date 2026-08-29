@@ -202,6 +202,46 @@
   .gate-note{font-size:.74rem;color:var(--ink3);text-align:center;margin-top:.7rem;line-height:1.5}
   .gate-note a{color:var(--green2)}
 
+  /* ── one customer, several events: pick one, and switch later ── */
+  #picker{max-width:460px;margin:1.6rem auto 0}
+  .pick-card{
+    background:#fff;border:1px solid rgba(199,174,122,.3);border-radius:16px;
+    padding:1.5rem 1.3rem;box-shadow:0 1px 3px rgba(15,46,34,.05),0 14px 40px rgba(15,46,34,.06);
+  }
+  .pick-card h2{font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;font-weight:700;text-align:center;margin-bottom:.15rem}
+  .pick-sub{font-size:.84rem;color:var(--ink3);text-align:center;margin-bottom:1.1rem}
+  .ev-btn{
+    width:100%;display:flex;align-items:center;gap:.75rem;text-align:start;
+    background:#fff;border:1.5px solid var(--bdr);border-radius:12px;
+    padding:.85rem .95rem;margin-bottom:.6rem;cursor:pointer;font-family:inherit;
+    transition:border-color .2s,box-shadow .2s,transform .2s var(--ease);
+  }
+  .ev-btn:hover{border-color:#A8853C;box-shadow:0 6px 20px rgba(15,46,34,.07)}
+  .ev-btn:active{transform:scale(.985)}
+  .ev-btn:last-child{margin-bottom:0}
+  .ev-ic{
+    flex-shrink:0;width:38px;height:38px;border-radius:10px;
+    background:linear-gradient(140deg,#17402F,#0A2119);color:#C7AE7A;
+    display:flex;align-items:center;justify-content:center;font-size:1.05rem;
+  }
+  .ev-tx{flex:1;min-width:0}
+  .ev-nm{font-size:.95rem;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev-mt{font-size:.78rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .ev-go{flex-shrink:0;color:var(--ink3);font-size:.8rem}
+  .ev-cd{flex-shrink:0;font-size:.7rem;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2);border-radius:99px;padding:.1rem .5rem;white-space:nowrap}
+
+  /* the switch back into the picker, sitting in the dark header */
+  .switch{
+    display:inline-flex;align-items:center;gap:.35rem;margin-top:.6rem;
+    background:rgba(248,244,234,.07);border:1px solid rgba(199,174,122,.3);
+    color:#C7AE7A;border-radius:99px;padding:.28rem .8rem;
+    font-family:inherit;font-size:.76rem;cursor:pointer;
+    transition:background .2s,transform .2s var(--ease);
+  }
+  .switch:hover{background:rgba(248,244,234,.14)}
+  .switch:active{transform:scale(.96)}
+  .switch[hidden]{display:none}
+
   /* ── the guest list as a work surface: search, aligned columns ── */
   .gsearch-w{padding:.7rem 1rem 0}
   .gsearch{
@@ -286,8 +326,21 @@
     <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
+    <div class="cd-wrap"><button type="button" class="switch" id="switchEv" hidden>
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+      החלפת אירוע
+    </button></div>
   </div>
 </header>
+
+<!-- one customer can hold several events; this is where they choose -->
+<div class="wrap" id="picker" hidden>
+  <div class="pick-card">
+    <h2>האירועים שלכם</h2>
+    <p class="pick-sub">בחרו את האירוע שתרצו לראות</p>
+    <div id="evList"></div>
+  </div>
+</div>
 
 <!-- the gate: each customer signs in with their phone and personal code -->
 <div class="wrap" id="gate" hidden>
@@ -401,8 +454,8 @@
   /* ── demo payload, so the layout can be reviewed before Make is wired.
         The totals are computed FROM the guest list, so the numbers always
         match what the list actually shows. ── */
-  function demoData() {
-    var ev = new Date(Date.now() + 38 * 864e5);
+  function demoData(pick) {
+    var ev = new Date(pick && pick.event_date ? pick.event_date : Date.now() + 38 * 864e5);
     var iso = function (d) { return d.toISOString().slice(0, 10); };
 
     var G = function (name, status, seats) { return { name: name, status: status, seats: seats || 0 }; };
@@ -436,9 +489,10 @@
 
     return {
       ok: true,
-      event: { name1: 'נועה', name2: 'יונתן', occasion: 'wedding',
+      event: { name1: (pick && pick.name1) || 'נועה', name2: pick ? pick.name2 : 'יונתן',
+               occasion: (pick && pick.occasion) || 'wedding',
                event_date: iso(ev), reception_time: '19:30',
-               venue_name: 'אולם הגן הקסום', venue_city: 'רמת גן',
+               venue_name: (pick && pick.venue_name) || 'אולם הגן הקסום', venue_city: 'רמת גן',
                plan: 'pro', guests_tier: '300' },
       totals: totals,
       sends: [
@@ -449,6 +503,17 @@
       ],
       guests: guests
     };
+  }
+
+  /* a demo customer with two events, so the picker and the switch can be seen */
+  function demoEvents() {
+    var iso = function (d) { return new Date(d).toISOString().slice(0, 10); };
+    return [
+      { token: 'demo-1', name1: 'נועה', name2: 'יונתן', occasion: 'wedding',
+        event_date: iso(Date.now() + 38 * 864e5), venue_name: 'אולם הגן הקסום' },
+      { token: 'demo-2', name1: 'איתי', occasion: 'bar',
+        event_date: iso(Date.now() + 96 * 864e5), venue_name: 'בית הכנסת הגדול' }
+    ];
   }
 
   function daysUntil(iso) {
@@ -757,6 +822,9 @@
   /* ── wiring: search and the add-ons fold ── */
 
   $('gsearch').addEventListener('input', function () { query = this.value; renderRows(); });
+  $('switchEv').addEventListener('click', function () {
+    if (myEvents.length > 1) { IshurLead.track('dashboard_event_switch', {}); showPicker(); }
+  });
   $('addonsHead').addEventListener('click', function () {
     this.classList.toggle('open');
     $('addonsBody').classList.toggle('open');
@@ -774,7 +842,84 @@
     $('g-err').textContent = msg || '';
     gateBusy(false);
   }
-  function showApp() { $('gate').hidden = true; $('main').hidden = false; }
+  function showApp() { $('gate').hidden = true; $('picker').hidden = true; $('main').hidden = false; }
+
+  /* ── several events on one phone ───────────────────────────────────────
+     The status endpoint may answer with a list instead of a single event.
+     One event walks straight in; several are offered, and the header keeps
+     a switch so they can move between them without signing in again. ── */
+
+  var myEvents = [];   // [{ token, title, meta, date }]
+  var creds = null;    // the phone+code that listed them, kept for the switch
+
+  function eventList(j) {
+    var list = j && (j.events || j.list);
+    return Array.isArray(list) ? list : null;
+  }
+
+  function eventTitle(e) {
+    var names = [e.name1, e.name2].filter(Boolean).join(' ו');
+    return names || e.title || e.event_name || CFG.occasionLabel(e.occasion) || 'האירוע שלכם';
+  }
+
+  function eventMeta(e) {
+    var bits = [];
+    if (e.occasion) bits.push(CFG.occasionLabel(e.occasion) || '');
+    if (e.event_date) {
+      var n = daysUntil(e.event_date);
+      bits.push(IshurDate && IshurDate.pretty ? IshurDate.pretty(e.event_date) : e.event_date);
+      if (n >= 0) bits.push(n === 0 ? 'היום' : n === 1 ? 'מחר' : 'בעוד ' + n + ' ימים');
+    }
+    if (e.venue_name) bits.push(e.venue_name);
+    return bits.filter(Boolean).join(' · ');
+  }
+
+  function showPicker() {
+    $('gate').hidden = true; $('main').hidden = true; $('picker').hidden = false;
+    $('title').textContent = 'לוח הבקרה';
+    $('title').classList.remove('skel');
+    $('sub').textContent = 'האזור האישי שלכם';
+    $('cd').hidden = true;
+    $('switchEv').hidden = true;
+
+    $('evList').innerHTML = myEvents.map(function (e, i) {
+      var n = e.event_date ? daysUntil(e.event_date) : null;
+      return '<button type="button" class="ev-btn" data-ev="' + i + '">' +
+        '<span class="ev-ic" aria-hidden="true">' +
+          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>' +
+        '</span>' +
+        '<span class="ev-tx"><span class="ev-nm">' + eventTitle(e) + '</span>' +
+        '<span class="ev-mt">' + (eventMeta(e) || '') + '</span></span>' +
+        (n != null && n >= 0 && n <= 30 ? '<span class="ev-cd">' + (n === 0 ? 'היום' : n + ' ימים') + '</span>' : '') +
+        '<span class="ev-go" aria-hidden="true">‹</span></button>';
+    }).join('');
+
+    $('evList').querySelectorAll('[data-ev]').forEach(function (b) {
+      b.addEventListener('click', function () { openEvent(myEvents[+b.dataset.ev]); });
+    });
+    IshurLead.track('dashboard_event_picker', { count: myEvents.length });
+  }
+
+  /* an event carries its own token, so opening one is the ordinary path */
+  function openEvent(ev) {
+    if (!ev) return;
+    if (demo) {
+      try { localStorage.setItem('ishur_dash_ev', ev.token); } catch (e) {}
+      data = demoData(ev);
+      showApp(); render();
+      $('switchEv').hidden = myEvents.length < 2;
+      return;
+    }
+    if (ev.token) {
+      try { localStorage.setItem('ishur_dash_ev', ev.token); } catch (e) {}
+      loadData({ token: ev.token }, false);
+    } else {
+      /* no per-event token: ask for it by id, with the credentials we hold */
+      var payload = creds ? { phone: creds.phone, code: creds.code, event_id: ev.id || ev.event_id }
+                          : { event_id: ev.id || ev.event_id };
+      loadData(payload, false);
+    }
+  }
   function gateBusy(on) {
     var b = $('g-go');
     if (b) { b.disabled = on; b.textContent = on ? 'נכנסים…' : 'כניסה'; }
@@ -804,14 +949,40 @@
         try { j = JSON.parse(body); }
         catch (e) { var p = new Error('not-json'); p.raw = body; throw p; }
         if (!j || j.ok === false) throw new Error('bad');
+
+        if (payload.phone) {
+          creds = { phone: payload.phone, code: payload.code };
+          localStorage.setItem('ishur_dash', JSON.stringify(payload));
+        }
+
+        /* the endpoint may answer with the customer's events rather than one
+           event: one goes straight in, several are offered */
+        var list = eventList(j);
+        if (list) {
+          myEvents = list;
+          try { localStorage.setItem('ishur_dash_list', JSON.stringify(list)); } catch (e) {}
+          if (list.length === 0) {
+            showApp();
+            fail('לא מצאנו אירוע שמשויך למספר הזה.<br>אם שילמתם ועדיין לא מופיע כאן, כתבו לנו.', false);
+            return;
+          }
+          if (list.length === 1) { openEvent(list[0]); return; }
+          showPicker();
+          return;
+        }
+
         data = j; showApp(); render();
-        if (payload.phone) localStorage.setItem('ishur_dash', JSON.stringify(payload));
+        /* the switch only makes sense for someone who holds more than one */
+        $('switchEv').hidden = myEvents.length < 2;
         IshurLead.track('dashboard_view', {});
       })
       ['catch'](function (e) {
         if (e && e.dead) {
           if (fromGate) {
             localStorage.removeItem('ishur_dash');
+            localStorage.removeItem('ishur_dash_list');
+            localStorage.removeItem('ishur_dash_ev');
+            myEvents = []; creds = null;
             showGate('המספר או הקוד לא נכונים. בדקו ונסו שוב.');
             return;
           }
@@ -839,7 +1010,10 @@
     IshurLead.track('dashboard_login', { demo: demo });
     if (demo) {
       sessionStorage.setItem('ishur_demo_in', '1');
-      data = demoData(); showApp(); render();
+      myEvents = demoEvents();
+      creds = { phone: phone, code: code };
+      try { localStorage.setItem('ishur_dash_list', JSON.stringify(myEvents)); } catch (e) {}
+      showPicker();
       return;
     }
     gateBusy(true);
@@ -862,7 +1036,16 @@
   } else {
     var saved = null;
     try { saved = JSON.parse(localStorage.getItem('ishur_dash') || 'null'); } catch (e) {}
-    if (saved && saved.phone && saved.code) loadData(saved, true);
+    if (saved && saved.phone && saved.code) {
+      /* keep the switch alive across a reload, and reopen the event they
+         were last looking at rather than asking again */
+      try { myEvents = JSON.parse(localStorage.getItem('ishur_dash_list') || '[]') || []; } catch (e) { myEvents = []; }
+      creds = { phone: saved.phone, code: saved.code };
+      var last = null;
+      try { last = localStorage.getItem('ishur_dash_ev'); } catch (e) {}
+      if (last && myEvents.length > 1) loadData({ token: last }, false);
+      else loadData(saved, true);
+    }
     else showGate();
   }
 })();
