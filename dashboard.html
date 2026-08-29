@@ -209,6 +209,7 @@
     font-family:inherit;font-size:.9rem;background:var(--bg2);transition:border-color .15s,background .15s;
   }
   .gsearch:focus{outline:none;border-color:var(--green);background:#fff}
+  .list-sum{padding:.5rem 1rem 0;font-size:.76rem;color:var(--ink3)}
   .rows-h{
     display:flex;align-items:center;gap:.7rem;padding:.5rem 1rem .4rem;margin-top:.4rem;
     font-size:.66rem;letter-spacing:.08em;color:var(--ink3);border-bottom:1px solid var(--bdr);
@@ -320,7 +321,8 @@
     <div class="card-h">המוזמנים</div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
-    <div class="rows-h"><span class="a">מוזמן</span><span class="b">סטטוס</span><span class="c">מקומות</span></div>
+    <p class="list-sum" id="listSum"></p>
+    <div class="rows-h"><span class="a">רשומה</span><span class="b">סטטוס</span><span class="c">מוזמנים</span></div>
     <div class="rows" id="rows"></div>
   </section>
 
@@ -382,6 +384,7 @@
       var sum = function (k) {
         return d.guests.reduce(function (s, g) { return s + (g.status === k ? (g.seats || 1) : 0); }, 0);
       };
+      t.records = d.guests.length;
       t.confirmed_seats = sum('confirmed');
       t.declined_seats = sum('declined');
       t.pending_seats = sum('pending');
@@ -476,8 +479,12 @@
     var dv = t.declined_seats != null ? t.declined_seats : t.declined;
     var pv = t.pending_seats != null ? t.pending_seats : t.pending;
     var totalPeople = t.total_people != null ? t.total_people : t.invitations;
+    /* a record is one row of the list: a name, a phone and the number of
+       guests it covers. Confirmations count those guests, so they can, and
+       usually do, run higher than the number of records. */
+    var recs = t.records != null ? t.records : t.invitations;
     $('kpis').innerHTML =
-      kpi(totalPeople, 'מוזמנים', '') +
+      kpi(recs, 'רשומות', '') +
       kpi(t.confirmed_seats, 'אישרו', '', true) +
       kpi(dv, 'לא מגיעים', '') +
       kpi(pv, 'לא ענו', '');
@@ -538,18 +545,17 @@
     var list = data.guests || [];
     var t = data.totals || {};
     var useList = list.length > 0;
-    /* every chip counts people: an invitation covering four is four guests */
-    var people = function (k, fallback) {
+    /* a chip filters rows, so a chip counts rows. The people behind them are
+       spelled out in the line under the search. */
+    var recs = function (k, fallback) {
       if (!useList) return fallback;
-      return list.reduce(function (s, g) {
-        return s + ((k === 'all' || g.status === k) ? (g.seats || 1) : 0);
-      }, 0);
+      return list.filter(function (g) { return k === 'all' || g.status === k; }).length;
     };
     var opts = [
-      { k: 'all', l: 'הכל', n: people('all', t.invitations) },
-      { k: 'confirmed', l: 'אישרו', n: people('confirmed', t.confirmed_seats) },
-      { k: 'pending', l: 'לא ענו', n: people('pending', t.pending_seats != null ? t.pending_seats : t.pending) },
-      { k: 'declined', l: 'לא מגיעים', n: people('declined', t.declined_seats != null ? t.declined_seats : t.declined) }
+      { k: 'all', l: 'הכל', n: recs('all', t.records) },
+      { k: 'confirmed', l: 'אישרו', n: recs('confirmed', t.confirmed) },
+      { k: 'pending', l: 'לא ענו', n: recs('pending', t.pending) },
+      { k: 'declined', l: 'לא מגיעים', n: recs('declined', t.declined) }
     ];
 
     $('filters').innerHTML = opts.map(function (o) {
@@ -570,9 +576,17 @@
     var list = (data.guests || []).filter(function (g) {
       if (filter !== 'all' && g.status !== filter) return false;
       if (!needle) return true;
-      return (g.name || '').toLowerCase().indexOf(needle) > -1 ||
-             String(g.phone || '').replace(/\D/g, '').indexOf(needle.replace(/\D/g, '') || ' ') > -1;
+      var digits = needle.replace(/\D/g, '');
+      if ((g.name || '').toLowerCase().indexOf(needle) > -1) return true;
+      return !!digits && String(g.phone || '').replace(/\D/g, '').indexOf(digits) > -1;
     });
+    var sum = list.reduce(function (a, g) { return a + (g.seats || 1); }, 0);
+    var sumEl = $('listSum');
+    if (sumEl) {
+      sumEl.textContent = list.length
+        ? list.length + ' רשומות · ' + sum + ' מוזמנים'
+        : '';
+    }
     if (!list.length) {
       $('rows').innerHTML = '<div class="empty">' +
         (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : 'אין כאן אף אחד עדיין.') + '</div>';
