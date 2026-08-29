@@ -202,6 +202,48 @@
   .gate-note{font-size:.74rem;color:var(--ink3);text-align:center;margin-top:.7rem;line-height:1.5}
   .gate-note a{color:var(--green2)}
 
+  /* ── embedded preview ──────────────────────────────────────────────
+     The landing page shows this inside a phone mockup barely 600px tall,
+     while the whole dashboard runs to three times that. So the embed keeps
+     what the preview is for - the numbers, the answer bar and a few guest
+     rows - and drops the working parts nobody can use from in there. ── */
+  body.preview{padding:0;overflow:hidden}
+  body.preview .top{padding:.7rem 0 .85rem;margin-bottom:.55rem}
+  body.preview .top::after{inset:6px}
+  body.preview h1{font-size:1.05rem}
+  body.preview .brand{margin-bottom:.45rem}
+  body.preview .brand img{width:22px;height:22px}
+  body.preview .lux-rule2{margin-top:.4rem}
+  body.preview .sub{font-size:.75rem}
+  body.preview .cd{font-size:.7rem;padding:.18rem .6rem;margin-top:.4rem}
+  body.preview .rows-h{display:none}
+  body.preview .wrap{padding:0 .6rem}
+  body.preview .card{margin-bottom:.5rem;border-radius:12px}
+  body.preview .card-h{padding:.5rem .8rem;font-size:.66rem}
+  body.preview .kpi{padding:.5rem .3rem}
+  body.preview .kpi-v{font-size:1.15rem}
+  body.preview .kpi-l{font-size:.63rem}
+  body.preview .prog{padding:.6rem .8rem}
+  body.preview .prog-h{font-size:.68rem}
+  body.preview .filters,
+  body.preview .gsearch-w,
+  body.preview .list-sum,
+  body.preview #sendsCard,
+  body.preview #addonsCard,
+  body.preview #changeNote,
+  body.preview .foot,
+  body.preview .switch,
+  body.preview #cookie-bar{display:none!important}
+  body.preview .rows{max-height:none;overflow:visible}
+  /* only the first few rows fit, and the rest would just be cut mid-line */
+  body.preview .rows .row:nth-child(n+4){display:none}
+  body.preview .row{padding:.45rem .8rem;gap:.45rem}
+  body.preview .row-n{font-size:.78rem}
+  body.preview .row-p{font-size:.66rem}
+  body.preview .pill{font-size:.63rem;min-width:62px;padding:.1rem .35rem}
+  body.preview .rows-h{padding:.4rem .8rem .3rem;font-size:.6rem}
+  body.preview .rows-h .b{width:62px}
+
   /* ── one customer, several events: pick one, and switch later ── */
   #picker{max-width:460px;margin:1.6rem auto 0}
   .pick-card{
@@ -380,7 +422,7 @@
   </section>
 
   <!-- schedule -->
-  <section class="card">
+  <section class="card" id="sendsCard">
     <div class="card-h">לוח השליחות</div>
     <div id="sends"></div>
   </section>
@@ -390,7 +432,7 @@
   </p>
 
   <!-- add-ons -->
-  <section class="card">
+  <section class="card" id="addonsCard">
     <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
     <div class="acc-body" id="addonsBody"><div id="addons"></div></div>
   </section>
@@ -413,6 +455,7 @@
   /* the site embeds this page to show what the dashboard looks like,
      so that embed walks straight past the gate */
   var preview = qs.get('preview') === '1';
+  if (preview) document.body.classList.add('preview');
   var $ = function (id) { return document.getElementById(id); };
 
   $('wa').href = CFG.waLink('היי, לגבי האירוע שלי:');
