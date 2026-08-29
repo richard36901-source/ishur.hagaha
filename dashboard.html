@@ -10,10 +10,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=18"></script>
-<script src="assets/tracking.js?v=18"></script>
-<script src="assets/guard.js?v=18"></script>
-<script src="assets/lead.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="assets/tracking.js?v=19"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/lead.js?v=19"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -207,7 +207,12 @@
      while the whole dashboard runs to three times that. So the embed keeps
      what the preview is for - the numbers, the answer bar and a few guest
      rows - and drops the working parts nobody can use from in there. ── */
-  body.preview{padding:0;overflow:hidden}
+  /* the frame's height is the page's height, whatever phone it is drawn on,
+     so the header and the numbers are always what shows and nothing spills */
+  body.preview{padding:0;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+  body.preview .top{flex:0 0 auto}
+  body.preview #main{flex:1 1 auto;min-height:0;overflow:hidden}
+  body.preview .rows{overflow:hidden}
   body.preview .top{padding:.7rem 0 .85rem;margin-bottom:.55rem}
   body.preview .top::after{inset:6px}
   body.preview h1{font-size:1.05rem}
@@ -354,7 +359,7 @@
     .filt:active,.buy:active,.send-edit:active{transform:none}
   }
 </style>
-<link rel="stylesheet" href="assets/lux.css?v=18">
+<link rel="stylesheet" href="assets/lux.css?v=19">
 </head>
 <body>
 
@@ -444,8 +449,8 @@
 
 <div aria-live="polite" class="hp" id="live"></div>
 
-<script src="assets/select.js?v=18"></script>
-<script src="assets/datepicker.js?v=18"></script>
+<script src="assets/select.js?v=19"></script>
+<script src="assets/datepicker.js?v=19"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;

@@ -11,11 +11,11 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=18"></script>
-<script src="assets/tracking.js?v=18"></script>
-<script src="assets/guard.js?v=18"></script>
-<script src="assets/lead.js?v=18"></script>
-<script src="assets/messages.js?v=18"></script>
+<script src="config.js?v=19"></script>
+<script src="assets/tracking.js?v=19"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/lead.js?v=19"></script>
+<script src="assets/messages.js?v=19"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
 <style>
@@ -1526,7 +1526,7 @@ footer{
             </span>
           </div>
           <!-- the live dashboard, not a drawing of one -->
-          <iframe class="dash-frame" id="dashFrame" title="לוח הבקרה" loading="lazy" scrolling="no" tabindex="-1"></iframe>
+          <iframe class="dash-frame" id="dashFrame" title="לוח הבקרה" scrolling="no" tabindex="-1"></iframe>
         </div>
       </div>
       <p class="stage-cap">זה לוח הבקרה עצמו, עם נתוני דוגמה. נפתח מהקישור שנשלח אליכם.</p>
@@ -1631,7 +1631,9 @@ function showPrev(tab){
   // the dashboard is the real page, loaded only once someone asks to see it
   if(tab==='dash'&&!dashLoaded){
     dashLoaded=true;
-    document.getElementById('dashFrame').src='dashboard.html?demo=1&preview=1';
+    /* the version travels with the frame too, or a returning phone keeps
+       serving the dashboard it cached weeks ago */
+    document.getElementById('dashFrame').src='dashboard.html?v=19&demo=1&preview=1';
   }
   push('preview_tab',{tab});
 }
@@ -1906,7 +1908,7 @@ window.addEventListener('load',()=>{
   <button id="cookie-accept" onclick="acceptCookies()">מקבל/ת</button>
 </div>
 
-<script src="assets/select.js?v=18"></script>
-<script src="assets/popup.js?v=18"></script>
+<script src="assets/select.js?v=19"></script>
+<script src="assets/popup.js?v=19"></script>
 </body>
 </html>
