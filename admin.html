@@ -23,7 +23,19 @@
   .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
   .head h1 i{font-style:normal;color:var(--gold-soft)}
   .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
-  .wrap{max-width:860px;margin:0 auto;padding:0 .9rem}
+  .wrap{max-width:min(96vw,1360px);margin:0 auto;padding:0 .9rem}
+
+  /* transcript sheet: floats above the table, so nothing reflows */
+  .sheet-bg{position:fixed;inset:0;background:rgba(15,46,34,.35);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:40}
+  .sheet-bg.on{opacity:1;pointer-events:auto}
+  .sheet{position:fixed;top:0;bottom:0;right:0;width:min(440px,92vw);background:var(--card);border-inline-start:1px solid var(--line);box-shadow:-18px 0 50px rgba(15,46,34,.18);transform:translateX(102%);transition:transform .32s cubic-bezier(.32,.72,.28,1);z-index:41;display:flex;flex-direction:column}
+  .sheet.on{transform:none}
+  .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.1rem;border-bottom:1px solid var(--line)}
+  .sheet-h b{font-family:'Frank Ruhl Libre',serif;color:var(--pine)}
+  .sheet-x{border:none;background:var(--bg);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;color:var(--ink2)}
+  .sheet-meta{font-size:.72rem;color:var(--ink3);padding:.6rem 1.1rem;border-bottom:1px solid var(--line)}
+  .sheet-body{flex:1;overflow:auto;padding:1rem 1.1rem;font-size:.82rem;line-height:1.8;white-space:pre-wrap;color:var(--ink2)}
+  @media (prefers-reduced-motion:reduce){.sheet,.sheet-bg{transition:none}}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin:1rem 0}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .5rem;text-align:center}
   .kpi b{display:block;font-size:1.45rem;color:var(--pine);font-variant-numeric:tabular-nums}
@@ -136,6 +148,13 @@
 
   <p class="foot"><a href="calls.html">→ למוקד השיחות</a> · הנתונים נקראים ישירות מהגיליון</p>
 </main>
+
+<div class="sheet-bg" id="sheetBg"></div>
+<aside class="sheet" id="sheet" role="dialog" aria-label="תמלול שיחה">
+  <div class="sheet-h"><b>תמלול השיחה</b><button class="sheet-x" id="sheetX" aria-label="סגירה">✕</button></div>
+  <div class="sheet-meta" id="sheetMeta"></div>
+  <div class="sheet-body" id="sheetBody"></div>
+</aside>
 
 <script>
 (function () {
@@ -273,6 +292,21 @@
     b.addEventListener('click', function () { rangeDays = Number(b.dataset.d); renderOps(); });
   });
 
+  /* ── transcript sheet ── */
+  function openSheet(call, when) {
+    $('sheetMeta').textContent = when + (call.to ? ' · ' + call.to : '') +
+      ' · ' + fmtDur(call.duration_s) + ' · $' + (call.cost_usd_cents / 100).toFixed(2) +
+      (call.sentiment ? ' · ' + call.sentiment : '');
+    $('sheetBody').textContent = call.transcript || '';
+    $('sheet').classList.add('on'); $('sheetBg').classList.add('on');
+  }
+  function closeSheet() {
+    $('sheet').classList.remove('on'); $('sheetBg').classList.remove('on');
+  }
+  $('sheetX').addEventListener('click', closeSheet);
+  $('sheetBg').addEventListener('click', closeSheet);
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+
   function fmtDur(s) {
     if (s == null) return '—';
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
@@ -314,12 +348,13 @@
           tr.appendChild(tdA);
           var tdT = document.createElement('td');
           if (c.transcript) {
-            var det = document.createElement('details');
-            var sum = document.createElement('summary'); sum.textContent = 'פתח';
-            var pre = document.createElement('div');
-            pre.style.cssText = 'white-space:pre-wrap;max-width:340px;max-height:220px;overflow:auto;font-size:.72rem;text-align:right';
-            pre.textContent = c.transcript;
-            det.appendChild(sum); det.appendChild(pre); tdT.appendChild(det);
+            var btn = document.createElement('button');
+            btn.textContent = 'פתח';
+            btn.style.cssText = 'border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:.2rem .7rem;font:inherit;cursor:pointer;color:var(--ink2)';
+            (function (call, when) {
+              btn.addEventListener('click', function () { openSheet(call, when); });
+            })(c, t);
+            tdT.appendChild(btn);
           } else tdT.textContent = '—';
           tr.appendChild(tdT);
           rows.appendChild(tr);
