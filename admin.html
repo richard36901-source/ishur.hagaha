@@ -17,6 +17,15 @@
     --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
     --ok:#0F4C35; --warn:#A8402F;
   }
+  /* night mode: same key the client dashboard uses (ishur_theme) */
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;
+  }
+  html[data-theme=dark] .kpi b{color:#7BC9A4}
+  html[data-theme=dark] h2{color:#7BC9A4}
+  html[data-theme=dark] .sheet-h b{color:#7BC9A4}
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
   .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
@@ -64,10 +73,35 @@
 </style>
 </head>
 <body>
-<header class="head">
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<header class="head" style="position:relative">
+  <button type="button" id="themeTog" aria-label="מצב תצוגה"
+    style="position:absolute;top:.8rem;left:.8rem;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:.9rem;line-height:1;background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA">🌙</button>
   <h1>ishur<i>.io</i> · מרכז הבקרה</h1>
   <p>המספרים של העסק, חיים מהגיליון</p>
 </header>
+<script>
+  (function () {
+    var b = document.getElementById('themeTog');
+    function paint() { b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'; }
+    b.addEventListener('click', function () {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
+      paint();
+    });
+    paint();
+  })();
+</script>
 
 <div class="gate" id="gate" hidden>
   <h2 style="font-family:'Frank Ruhl Libre',serif;color:var(--pine);border:none">כניסת ניהול</h2>
