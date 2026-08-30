@@ -1003,6 +1003,19 @@ async function runDailyEngine(env, dry, todayOverride) {
     } catch (e) { await alert(env, 'לקוח תקוע', 'שלב הבדיקה נפל', String(e && e.message)); }
   }
 
+  /* ── stage 0.6: channel health — yesterday's send-failure rate ──────────── */
+  if (env.RATE && !dry) {
+    try {
+      const yd = new Date(Date.parse(today) - 864e5).toISOString().slice(0, 10);
+      let st = null; try { st = JSON.parse(await env.RATE.get('wastat:' + yd)); } catch {}
+      if (st && st.out >= 10 && st.fail / st.out >= 0.3 && !(await env.RATE.get('healthalert:' + yd))) {
+        await alert(env, 'בריאות ערוץ',
+          `אתמול נכשלו ${st.fail} מתוך ${st.out} שליחות (${Math.round(st.fail / st.out * 100)}%) — לבדוק את איכות המספר במטא`, yd);
+        await env.RATE.put('healthalert:' + yd, '1', { expirationTtl: 3 * 86400 });
+      }
+    } catch {}
+  }
+
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
   const WAVES = [
     { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
@@ -1015,6 +1028,9 @@ async function runDailyEngine(env, dry, todayOverride) {
     const cancelled = String(ev[27] || '').trim() === 'כן';
     const fileUp = String(ev[43] || '').trim() === 'כן';
     if (!token || !paid || cancelled || !fileUp) continue;
+    /* service-suspension lever: hold:<token> in KV freezes all guest sending
+       for one event (unpaid balance, dispute) without touching the sheet */
+    if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
     if (!guests.length) continue;
@@ -1230,6 +1246,7 @@ async function runDailyEngine(env, dry, todayOverride) {
     const cancelled = String(ev[27] || '').trim() === 'כן';
     const date = String(ev[6] || '').trim().slice(0, 10);
     if (!token || !paid || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     const plan = planKeyOf(ev);
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
     const name = String(ev[2] || '').trim();
