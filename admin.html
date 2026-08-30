@@ -304,7 +304,14 @@
           tr.appendChild(td(fmtDur(c.duration_s)));
           tr.appendChild(td((c.cost_usd_cents / 100).toFixed(2)));
           tr.appendChild(td(c.reason || '—'));
-          tr.appendChild(td(c.recording_url ? '<a href="' + c.recording_url + '" target="_blank" rel="noopener">▶ שמע</a>' : '—'));
+          var tdA = document.createElement('td');
+          if (c.recording_url) {
+            var au = document.createElement('audio');
+            au.controls = true; au.preload = 'none'; au.src = c.recording_url;
+            au.style.cssText = 'width:190px;height:30px';
+            tdA.appendChild(au);
+          } else tdA.textContent = '—';
+          tr.appendChild(tdA);
           var tdT = document.createElement('td');
           if (c.transcript) {
             var det = document.createElement('details');

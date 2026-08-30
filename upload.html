@@ -588,6 +588,19 @@
     <button class="retry" id="retryBtn">ניסיון נוסף</button>
   </section>
 
+  <section class="view msg" id="issuesView">
+    <span class="msg-ico">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#A8853C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </span>
+    <h2>כמה שורות בקובץ צריכות תשומת לב</h2>
+    <div id="issuesList" style="text-align:right;max-height:260px;overflow:auto;background:#F6F5F1;border:1px solid #E3E1D8;border-radius:10px;padding:.8rem 1rem;font-size:.82rem;line-height:1.7;margin:.8rem 0"></div>
+    <p id="issuesSummary" style="font-size:.85rem"></p>
+    <button class="retry" id="issuesUpload" style="background:#0F4C35;color:#fff">להעלות כך בכל זאת</button>
+    <button class="retry" id="issuesFix" style="margin-top:.5rem">אתקן את הקובץ ואעלה שוב</button>
+  </section>
+
   <div aria-live="polite" class="hp" id="live"></div>
   <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
 </main>
@@ -605,7 +618,7 @@
   var occasionHint = (qs.get('e') || '').trim();
 
   var $ = function (id) { return document.getElementById(id); };
-  var VIEWS = ['formView', 'setupView', 'okView', 'deadView', 'errView'];
+  var VIEWS = ['formView', 'setupView', 'okView', 'deadView', 'errView', 'issuesView'];
   var returnTo = 'formView';
 
   function show(v) {
@@ -724,10 +737,17 @@
     $('live').textContent = 'מעלה את הקובץ';
     IshurLead.track('upload_started', { size: file.size });
 
+    sendFile(false);
+  });
+
+  /* the second click from the issues screen re-sends with confirm=1 */
+  function sendFile(confirmAnyway) {
+    var uploadUrl = CFG.endpoint('event');
     var fd = new FormData();
     fd.append('token', token);
     fd.append('file', file, file.name);
     fd.append('source', location.href);
+    if (confirmAnyway) fd.append('confirm', '1');
     if (window.IshurGuard) {
       var st = IshurGuard.stamp({});
       Object.keys(st).forEach(function (k) { fd.append(k, st[k]); });
@@ -736,9 +756,12 @@
     fetch(uploadUrl, { method: 'POST', body: fd })
       .then(function (res) {
         if (res.status === 200) {
-          IshurLead.track('upload_success', {});
-          $('live').textContent = 'הקובץ נקלט, ממשיכים להגדרות';
-          show('setupView');
+          return res.json()['catch'](function () { return { ok: true }; }).then(function (d) {
+            if (d && d.preview) { renderIssues(d); return; }
+            IshurLead.track('upload_success', {});
+            $('live').textContent = 'הקובץ נקלט, ממשיכים להגדרות';
+            show('setupView');
+          });
         } else if (res.status === 403 || res.status === 404) {
           show('deadView');
           IshurLead.track('upload_dead_link', { reason: 'status_' + res.status });
@@ -769,7 +792,33 @@
         sendBtn.textContent = 'העלאה והמשך להגדרות';
         bar.classList.remove('on');
       });
+  }
+
+  function renderIssues(d) {
+    var list = $('issuesList'); list.innerHTML = '';
+    (d.skipped || []).forEach(function (x) {
+      var li = document.createElement('div');
+      li.textContent = '✗ שורה ' + x.row + (x.name ? ' (' + x.name + ')' : '') + ': ' + x.why +
+        (x.phone ? ' — ' + x.phone : '') + ' · לא תיקלט';
+      list.appendChild(li);
+    });
+    (d.warnings || []).forEach(function (x) {
+      var li = document.createElement('div');
+      li.textContent = '⚠ שורה ' + x.row + (x.name ? ' (' + x.name + ')' : '') + ': ' + x.why;
+      list.appendChild(li);
+    });
+    $('issuesSummary').textContent = 'ייקלטו ' + d.guests + ' אורחים' +
+      ((d.skipped || []).length ? ' · ' + d.skipped.length + ' שורות לא ייקלטו' : '');
+    IshurLead.track('upload_issues', { guests: d.guests, skipped: (d.skipped || []).length, warnings: (d.warnings || []).length });
+    show('issuesView');
+  }
+
+  $('issuesUpload').addEventListener('click', function () {
+    $('issuesUpload').disabled = true;
+    sendFile(true);
+    setTimeout(function () { $('issuesUpload').disabled = false; }, 3000);
   });
+  $('issuesFix').addEventListener('click', function () { clearFile(); show('formView'); });
 
   /* ══ step 2 · event setup ═══════════════════════════════════════════════ */
 

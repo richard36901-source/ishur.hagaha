@@ -104,7 +104,7 @@ export function parseGuestFile(fileName, buf) {
    Kept out: bad phones, landlines, duplicates — each with a reason, so the
    response can tell the client what was left behind. */
 export function guestsFromRows(rows) {
-  const guests = [], skipped = [], seen = new Set();
+  const guests = [], skipped = [], warnings = [], seen = new Set();
   for (let i = 0; i < rows.length; i++) {
     const r = rows[i] || [];
     const name = String(r[0] ?? '').trim();
@@ -112,16 +112,19 @@ export function guestsFromRows(rows) {
     if (!name && !rawPhone) continue;
     const phone = normPhone(rawPhone);
     const mobile = /^9725\d{8}$/.test(phone);
-    if (i === 0 && !mobile) continue; // header row
-    if (!mobile) { skipped.push({ row: i + 1, name, phone: rawPhone, why: 'טלפון לא תקין' }); continue; }
-    if (seen.has(phone)) { skipped.push({ row: i + 1, name, phone: rawPhone, why: 'כפול' }); continue; }
+    if (i === 0 && !mobile) continue; // header row is welcome, silently skipped
+    /* a bad row never kills the file — it lands in the report to the client */
+    if (!mobile) { skipped.push({ row: i + 1, name, phone: rawPhone, why: 'מספר הטלפון לא תקין' }); continue; }
+    if (seen.has(phone)) { skipped.push({ row: i + 1, name, phone: rawPhone, why: 'מספר כפול — מופיע כבר בשורה קודמת' }); continue; }
     seen.add(phone);
+    if (!name) warnings.push({ row: i + 1, phone: rawPhone, why: 'חסר שם — נקלט בתור "אורח ' + (guests.length + 1) + '"' });
     const party = String(r[2] ?? '').trim();
+    if (!/^\d{1,3}$/.test(party)) warnings.push({ row: i + 1, name: name || 'אורח', why: 'חסרה כמות מוזמנים — נרשם 1' });
     guests.push({
       name: name || 'אורח ' + (guests.length + 1),
       phone,
-      party: /^\d{1,3}$/.test(party) ? party : '',
+      party: /^\d{1,3}$/.test(party) ? party : '1',
     });
   }
-  return { guests, skipped };
+  return { guests, skipped, warnings };
 }

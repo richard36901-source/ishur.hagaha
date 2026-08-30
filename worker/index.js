@@ -215,9 +215,21 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     let rows;
     try { rows = parseGuestFile(file.name, await file.arrayBuffer()); }
     catch { return deny(422, 'unreadable-file', origin); }
-    const { guests, skipped } = guestsFromRows(rows);
+    const { guests, skipped, warnings } = guestsFromRows(rows);
     if (!guests.length) return deny(422, 'no-valid-guests', origin);
     if (guests.length > MAX_GUESTS) return deny(422, 'too-many-guests', origin);
+
+    /* a partly-bad file stops for a human decision: the client sees exactly
+       which rows have problems and chooses — upload anyway, or fix and retry.
+       confirm=1 on the second send means "upload anyway". */
+    if ((skipped.length || warnings.length) && String(form.get('confirm') || '') !== '1') {
+      return okJson({
+        ok: true, preview: true,
+        guests: guests.length,
+        skipped: skipped.slice(0, 60),
+        warnings: warnings.slice(0, 60),
+      }, origin);
+    }
 
     /* rows in the exact shape of the אורחים sheet, A through AC */
     const now = new Date().toISOString();
