@@ -592,6 +592,24 @@ async function getBrain(env) {
   return brain;
 }
 
+/* the last few exchanges with this phone, oldest first — real chat memory */
+async function chatHistory(env, from, limit = 6) {
+  if (!env.RATE || !env.RATE.list) return [];
+  const prefix = 'inbox:' + normPhone(from) + ':';
+  const page = await env.RATE.list({ prefix, limit: 1000 }).catch(() => null);
+  if (!page) return [];
+  const names = page.keys.map(k => k.name).sort().slice(-limit);
+  const out = [];
+  for (const n of names) {
+    try {
+      const e = JSON.parse(await env.RATE.get(n));
+      if (e && e.in) out.push({ role: 'user', content: e.in });
+      if (e && e.out) out.push({ role: 'assistant', content: e.out });
+    } catch {}
+  }
+  return out;
+}
+
 async function aiReply(env, from, text) {
   if (!env.AI) return null;
   const brain = await getBrain(env);
@@ -605,19 +623,28 @@ async function aiReply(env, from, text) {
     await env.RATE.put(key, String(n + 1), { expirationTtl: 86400 }).catch(() => {});
   }
 
+  const history = await chatHistory(env, from);
+
   const sys = (brain.persona || 'את נציגת שירות חמה של ishur.io — שירות אישורי הגעה לאירועים בוואטסאפ.') +
     '\n\nכללים קשיחים:' +
-    '\n- עני בעברית, קצר (2-4 משפטים), חם וטבעי כמו בן אדם. אימוג׳י אחד לכל היותר.' +
+    '\n- זו שיחת וואטסאפ מתמשכת. קראי את ההיסטוריה ועני בהמשך טבעי לה.' +
+    '\n- אסור להציג את עצמך ("אני נועה") אם כבר הצגת את עצמך קודם בשיחה, או אם לא שאלו מי את. פעם אחת לכל היותר.' +
+    '\n- אסור לחזור על משפטים או ניסוחים שכבר כתבת בשיחה.' +
+    '\n- עני כמו בן אדם בצ׳אט: משפט אחד עד שלושה, ישיר, בלי פתיחים מנופחים. אימוג׳י לפעמים, לא בכל הודעה.' +
     '\n- אל תמציאי מחירים, קישורים או הבטחות. הקישור היחיד שמותר להזכיר: ishur.io' +
-    '\n- אם אין לך תשובה בטוחה מהידע למטה — כתבי שתבדקי ותחזרי בהקדם.' +
+    '\n- אם אין תשובה בטוחה בידע למטה — כתבי בקצרה שתבדקי ותחזרי.' +
     '\n- לעולם אל תגידי שאת בוט או AI.' +
     '\n\nידע (שאלה → תשובה):\n' +
     brain.faq.map(x => '• ' + x[0] + ' → ' + x[1]).join('\n');
 
   try {
     const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
-      messages: [{ role: 'system', content: sys }, { role: 'user', content: String(text).slice(0, 800) }],
-      max_tokens: 300, temperature: 0.4,
+      messages: [
+        { role: 'system', content: sys },
+        ...history,
+        { role: 'user', content: String(text).slice(0, 800) },
+      ],
+      max_tokens: 300, temperature: 0.6,
     });
     const out = String((r && r.response) || '').trim();
     return out || null;
@@ -646,6 +673,35 @@ async function writeGuestReply(env, guest, outcome, party) {
    ishur_doch to the client with confirmed / diners / declined / pending and
    their personal dashboard link. KV flag report7:<token> makes it fire once.
    ─────────────────────────────────────────────────────────────────────────── */
+function heDate(iso) {
+  const p = String(iso || '').slice(0, 10).split('-');
+  return p.length === 3 ? `${p[2]}.${p[1]}.${p[0]}` : iso;
+}
+
+/* one sending wave to the guests of one event. Guests are skipped when they
+   opted out, and (for reminders) when they already answered. */
+async function sendWave(env, ev, token, guests, wave, dry) {
+  const occasion = String(ev[5] || '').trim() || 'אירוע';
+  const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+  const date = heDate(String(ev[6] || '').trim());
+  const time = String(ev[36] || '').trim() || 'בשעות הערב';
+  const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+
+  let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0;
+  for (const g of guests) {
+    const phone = String(g[4] || '').trim();
+    const answered = String(g[15] || '').trim() !== '';
+    if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
+    if (env.RATE && await env.RATE.get('optout:' + phone)) { skippedOptout++; continue; }
+    if (dry) { sent++; continue; }
+    const name = String(g[3] || '').trim() || 'אורח יקר';
+    const res = await sendTemplate(env, phone, 'hazmana_ishur',
+      [name, occasion, hosts, date, time, venue], '', 'he', 'guests');
+    if (res.ok) sent++; else failed++;
+  }
+  return { wave: wave.key, sent, skippedOptout, skippedAnswered, failed };
+}
+
 async function runDailyEngine(env, dry) {
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
@@ -659,6 +715,66 @@ async function runDailyEngine(env, dry) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
   const out = [];
+
+  /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
+  const WAVES = [
+    { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
+    { key: 2, col: 40, onlyUnanswered: true },   // תזכורת — למי שלא ענה
+    { key: 3, col: 41, onlyUnanswered: false },  // שליחה נוספת — לכל הרשימה
+  ];
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const fileUp = String(ev[43] || '').trim() === 'כן';
+    if (!token || !paid || cancelled || !fileUp) continue;
+
+    const guests = gRows.filter(g => String(g[28] || '').trim() === token);
+    if (!guests.length) continue;
+
+    for (const wave of WAVES) {
+      const when = String(ev[wave.col] || '').trim().slice(0, 10);
+      if (when !== today) continue;
+      const flagKey = `wave:${token}:${wave.key}`;
+      if (env.RATE && await env.RATE.get(flagKey)) continue;
+      const res = await sendWave(env, ev, token, guests, wave, dry);
+      if (!dry && env.RATE) await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
+      if (!dry && res.failed) {
+        await alert(env, 'גל שליחה', `גל ${wave.key} לאירוע ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו`, '');
+      }
+      out.push({ token, type: 'wave', ...res });
+    }
+
+    /* escalation: the morning after the LAST planned send, whoever still has
+       no answer is queued for a call */
+    const lastSend = WAVES.map(w => String(ev[w.col] || '').trim().slice(0, 10))
+      .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+    if (lastSend && lastSend < today) {
+      const escKey = `esc:${token}`;
+      if (!(env.RATE && await env.RATE.get(escKey))) {
+        let queued = 0;
+        for (const g of guests) {
+          const answered = String(g[15] || '').trim() !== '';
+          const gid = String(g[2] || '').trim();
+          const callStatus = String(g[21] || '').trim();
+          if (answered || !gid || callStatus) continue;
+          if (dry) { queued++; continue; }
+          await fetch(env.HOOK_EVENTS, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              event_type: 'call_result', guest_id: gid,
+              rsvp: '__keep__', call_status: 'נדרשת שיחה',
+              answer: 'לא ענה להודעות', tries: '__keep__', party: '__keep__',
+              ts: new Date().toISOString(),
+            }),
+          }).catch(() => null);
+          queued++;
+        }
+        if (!dry && env.RATE) await env.RATE.put(escKey, today, { expirationTtl: 120 * 86400 });
+        if (queued) out.push({ token, type: 'escalation', queued });
+      }
+    }
+  }
 
   for (const ev of evRows) {
     const token = String(ev[1] || '').trim();
