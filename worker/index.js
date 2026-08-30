@@ -688,8 +688,11 @@ async function sendWave(env, ev, token, guests, wave, dry) {
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
 
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0;
+  const seenPhones = new Set();
   for (const g of guests) {
     const phone = String(g[4] || '').trim();
+    if (!phone || seenPhones.has(phone)) continue; // one message per phone per event, whatever file it came from
+    seenPhones.add(phone);
     const answered = String(g[15] || '').trim() !== '';
     if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
     if (env.RATE && await env.RATE.get('optout:' + phone)) { skippedOptout++; continue; }
