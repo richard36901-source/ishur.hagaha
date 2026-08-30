@@ -88,6 +88,8 @@
     body.open .list{display:none}
     body.open .pane{display:flex}
   }
+  button:not(:disabled):active{transform:scale(.97)}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>

@@ -400,6 +400,8 @@
     .skel{animation:none}
     .filt:active,.buy:active,.send-edit:active{transform:none}
   }
+  button:not(:disabled):active{transform:scale(.97)}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
 <link rel="stylesheet" href="assets/picker.css?v=20">

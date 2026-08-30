@@ -32,7 +32,10 @@
   ];
 
   var css = '' +
-    '.ibar{position:sticky;top:0;z-index:60;background:#0A2119;border-bottom:1px solid rgba(199,174,122,.32);flex-shrink:0}' +
+    /* translucent chrome: content scrolls under the rail, iOS-material style */
+    '.ibar{position:sticky;top:0;z-index:60;background:rgba(10,33,25,.85);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(199,174,122,.32);flex-shrink:0}' +
+    '@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.ibar{background:#0A2119}}' +
+    '@media (prefers-reduced-transparency:reduce){.ibar{background:#0A2119;-webkit-backdrop-filter:none;backdrop-filter:none}}' +
     '.ibar-in{max-width:1360px;margin:0 auto;padding:0 .9rem;display:flex;align-items:stretch;gap:.25rem;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch}' +
     '.ibar-in::-webkit-scrollbar{display:none}' +
     '.ibar a{display:flex;align-items:center;gap:.4rem;padding:.55rem .7rem;font-size:.78rem;color:rgba(248,244,234,.78);text-decoration:none;white-space:nowrap;border-bottom:2px solid transparent;transition:color .15s,border-color .15s}' +

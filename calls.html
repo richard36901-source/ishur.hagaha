@@ -56,6 +56,8 @@
   .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
   .gate p.err{color:var(--no);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
   .foot{text-align:center;font-size:.68rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-top:2.5rem;opacity:.75}
+  button:not(:disabled):active{transform:scale(.97)}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
 </style>
 </head>
 <body>

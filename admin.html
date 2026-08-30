@@ -71,6 +71,19 @@
   .gate p.err{color:var(--warn);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
   .foot{text-align:center;font-size:.66rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-top:2.5rem;opacity:.75}
   .foot a{color:var(--gold)}
+  /* iOS-style switch: track + sliding knob, press feedback on pointer-down */
+  .sw-wrap{display:inline-flex;align-items:center;gap:.55rem}
+  .sw-state{font-size:.78rem;font-weight:600;color:var(--ink2)}
+  .sw{position:relative;flex:none;width:51px;height:31px;border-radius:999px;border:none;padding:0;cursor:pointer;background:var(--line);transition:background .25s ease;-webkit-tap-highlight-color:transparent}
+  .sw i{position:absolute;top:2px;right:2px;width:27px;height:27px;border-radius:999px;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.06);transition:transform .25s cubic-bezier(.34,1.2,.4,1),width .15s ease}
+  .sw:active:not(:disabled) i{width:31px}
+  .sw[aria-checked="true"]{background:var(--ok)}
+  .sw[aria-checked="true"] i{transform:translateX(-20px)}
+  .sw[aria-checked="true"]:active:not(:disabled) i{transform:translateX(-24px)}
+  .sw:disabled{opacity:.45;cursor:default}
+  button:not(:disabled):active{transform:scale(.97)}
+  .sw:active{transform:none}
+  @media (prefers-reduced-motion:reduce){.sw,.sw i,button{transition:none !important}}
 </style>
 </head>
 <body>
@@ -138,7 +151,8 @@
 
   <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <span>נועה · מענה AI</span>
-    <button id="aiTog" class="rng" style="min-width:8.5rem" disabled>טוען…</button>
+    <span class="sw-wrap"><span class="sw-state" id="aiState">טוען…</span>
+    <button id="aiTog" class="sw" role="switch" aria-checked="false" aria-label="מענה AI של נועה" disabled><i></i></button></span>
   </h2>
 
   <h2>שיר · שיחות</h2>
@@ -413,11 +427,10 @@
   /* ── Noa kill-switch — writes מוח שירות!B1 through the worker ── */
   var aiActive = null;
   function paintAi() {
-    var b = $('aiTog');
+    var b = $('aiTog'), s = $('aiState');
     b.disabled = false;
-    b.textContent = aiActive ? 'פעילה · לחצו לכיבוי' : 'כבויה · לחצו להפעלה';
-    b.style.background = aiActive ? '' : '#A8402F';
-    b.style.color = aiActive ? '' : '#fff';
+    b.setAttribute('aria-checked', aiActive ? 'true' : 'false');
+    s.textContent = aiActive ? 'פעילה' : 'כבויה';
   }
   function loadBrain() {
     fetch(CFG.endpoint('brain'), {
@@ -430,8 +443,9 @@
   $('aiTog').addEventListener('click', function () {
     if (aiActive === null) return;
     var next = !aiActive;
-    if (!confirm(next ? 'להפעיל את נועה חזרה?' : 'לכבות את נועה? הודעות נכנסות יקבלו רק קישור/מענה אנושי')) return;
-    var b = $('aiTog'); b.disabled = true; b.textContent = 'רגע…';
+    if (!next && !confirm('לכבות את נועה? הודעות נכנסות יקבלו רק קישור או מענה אנושי')) return;
+    var b = $('aiTog'); b.disabled = true; $('aiState').textContent = 'רגע…';
+    b.setAttribute('aria-checked', next ? 'true' : 'false');
     fetch(CFG.endpoint('brain'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ admin_key: adminKey, active: next })
