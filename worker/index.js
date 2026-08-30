@@ -884,6 +884,63 @@ async function runDailyEngine(env, dry, todayOverride) {
   return { ok: true, date: today, events: out };
 }
 
+/* ══ Daily sheet backup ══════════════════════════════════════════════════════
+   Every tab that holds state is snapshotted into KV once a day (35-day
+   retention) right after the morning engine. Restore = read the JSON and
+   paste back; the admin route serves list / fetch / run-now.
+   ─────────────────────────────────────────────────────────────────────────── */
+const BACKUP_TABS = ['לקוחות', 'אירועים', 'אורחים', 'לידים - לא סגרו', 'הסרות', 'מוח שירות'];
+
+async function runBackup(env) {
+  if (!env.BRAIN_HOOK || !env.RATE) return { ok: false, error: 'not-configured' };
+  const tabs = {};
+  for (const tab of BACKUP_TABS) {
+    /* the proxy takes a single query pair, so one call per tab */
+    const r = await fetch(env.BRAIN_HOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+        qk1: 'ranges', qv1: `${tab}!A1:AZ3000`,
+      }),
+    }).catch(() => null);
+    if (!r || !r.ok) return { ok: false, error: 'read-failed: ' + tab };
+    try { tabs[tab] = (await r.json()).valueRanges[0].values || []; }
+    catch { return { ok: false, error: 'parse-failed: ' + tab }; }
+  }
+  const date = ilDate();
+  const body = JSON.stringify({ at: new Date().toISOString(), date, tabs });
+  await env.RATE.put('backup:' + date, body, { expirationTtl: 35 * 86400 });
+  return { ok: true, date, bytes: body.length, rows: Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, v.length])) };
+}
+
+async function handleBackup(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (body.run) {
+    const res = await runBackup(env);
+    if (!res.ok) { await alert(env, 'גיבוי', 'גיבוי ידני נכשל', res.error || ''); return deny(502, res.error || 'backup-failed', origin); }
+    return okJson(res, origin);
+  }
+  if (body.date) {
+    const raw = env.RATE ? await env.RATE.get('backup:' + String(body.date).slice(0, 10)) : null;
+    if (!raw) return deny(404, 'no-backup-for-date', origin);
+    return new Response(raw, { status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+  }
+  const dates = [];
+  if (env.RATE && env.RATE.list) {
+    let cursor;
+    for (let i = 0; i < 5; i++) {
+      const page = await env.RATE.list({ prefix: 'backup:', cursor, limit: 1000 }).catch(() => null);
+      if (!page) break;
+      for (const k of page.keys) dates.push(k.name.slice('backup:'.length));
+      if (page.list_complete) break;
+      cursor = page.cursor;
+    }
+  }
+  return okJson({ ok: true, dates: dates.sort().reverse() }, origin);
+}
+
 /* ══ AI kill-switch from the admin board ═════════════════════════════════════
    Writes פעיל/כבוי into מוח שירות!B1 (the same cell Richard edits by hand)
    and busts the 3-minute brain cache so the change bites immediately.
@@ -1225,7 +1282,9 @@ async function overBudget(env, key, limit, windowSec) {
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
-    ctx.waitUntil(runDailyEngine(env, false));
+    ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
+      if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
+    }).catch(() => {}));
   },
 
   async fetch(request, env, ctx) {
@@ -1268,6 +1327,9 @@ export default {
     }
     if (url.pathname === '/api/brain-toggle' && request.method === 'POST') {
       return handleBrainToggle(request, env, origin);
+    }
+    if (url.pathname === '/api/backup' && request.method === 'POST') {
+      return handleBackup(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
