@@ -89,10 +89,11 @@
   <div class="meta"><span id="gen"></span><button id="refresh">רענון</button></div>
 
   <h2>אירועים</h2>
+  <p id="invNotice" style="display:none;background:rgba(168,64,47,.08);border:1px solid rgba(168,64,47,.35);border-radius:10px;padding:.5rem .8rem;font-size:.8rem;color:#A8402F;font-weight:600;margin:0 0 .6rem"></p>
   <div class="tblwrap">
     <table id="tbl">
       <thead><tr>
-        <th>אירוע</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>קובץ</th>
+        <th>אירוע</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>עלות ₪</th><th>רווח ₪</th><th>חשבונית</th><th>קובץ</th>
         <th>אורחים</th><th>אישרו</th><th>סועדים</th><th>ממתינים</th><th>לשיחה</th>
       </tr></thead>
       <tbody id="rows"></tbody>
@@ -154,6 +155,52 @@
     <span id="ad-cur" style="color:var(--ink3)"></span>
   </div>
 
+  <h2>ממוצעים ומרג'ין</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>תקופה</th><th>הכנסות ₪</th><th>עלויות ₪</th><th>רווח ₪</th><th>מרג'ין</th><th>תשלומים</th><th>רווח ממוצע ללקוח ₪</th></tr></thead>
+      <tbody id="avgRows"></tbody>
+    </table>
+  </div>
+
+  <h2>חבילות · מה נמכר</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>#</th><th>חבילה</th><th>נמכרו</th><th>הכנסות ₪</th><th>ממוצע ₪</th></tr></thead>
+      <tbody id="planRows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="planEmpty" hidden>עוד אין מכירות לניתוח חבילות.</p>
+
+  <h2>הוצאות קבועות חודשיות</h2>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin-bottom:1rem">
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;font-size:.78rem;margin-bottom:.5rem">
+      <input type="month" id="fx-month" style="font:inherit;font-size:.72rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+      <span style="color:var(--ink3)">מספרים, Make, תוכנות. נכנס אוטומטית ל-P&L</span>
+    </div>
+    <div id="fxList" style="display:flex;flex-direction:column;gap:.35rem;font-size:.8rem"></div>
+    <div style="display:flex;gap:.5rem;margin-top:.5rem">
+      <input id="fx-name" placeholder="שם ההוצאה" style="font:inherit;font-size:.75rem;flex:1;padding:.25rem .4rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+      <input id="fx-ils" type="number" min="0" placeholder="₪ לחודש" style="font:inherit;font-size:.75rem;width:6.5rem;padding:.25rem .4rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+      <button class="rng" id="fx-add">הוספה</button>
+    </div>
+  </div>
+
+  <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
+    <span>דוח עלויות מפורט</span>
+    <span>
+      <button class="rng" id="csvDays">CSV ימי</button>
+      <button class="rng" id="csvEvents">CSV אירועים</button>
+    </span>
+  </h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th></tr></thead>
+      <tbody id="costRows"></tbody>
+    </table>
+  </div>
+  <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">עלות פר-אירוע נספרת מ-30.8.26 (שליחות ושיחות מוקדמות יותר לא שויכו לאירוע). המרה: ‎$1 = ₪3.7</p>
+
   <h2>מאיפה מגיעים הלידים</h2>
   <div class="tblwrap">
     <table>
@@ -208,26 +255,9 @@
       $('k-calls').textContent = d.guests.awaiting_call;
       $('gen').textContent = 'עודכן: ' + new Date(d.generated_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
-      var rows = $('rows'); rows.innerHTML = '';
-      var shown = d.events.filter(function (e) { return e.paid; });
-      $('empty').hidden = shown.length > 0;
-      shown.forEach(function (e) {
-        var tr = document.createElement('tr');
-        var filePill = e.file_uploaded ? '<span class="pill p-ok">הועלה</span>' : '<span class="pill p-no">ממתין</span>';
-        if (e.cancelled) filePill = '<span class="pill p-warn">בוטל</span>';
-        tr.innerHTML =
-          '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + '</td>' +
-          '<td>' + heDate(e.date) + '</td>' +
-          '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
-          '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
-          '<td>' + filePill + '</td>' +
-          '<td>' + e.guests + '</td>' +
-          '<td>' + e.confirmed + '</td>' +
-          '<td>' + e.seats + '</td>' +
-          '<td>' + e.pending + '</td>' +
-          '<td>' + (e.need_call || '') + '</td>';
-        rows.appendChild(tr);
-      });
+      bizEvents = d.events || [];
+      renderEventsTable();
+      renderPlans();
     }).catch(function () {
       $('main').hidden = false;
       $('gen').textContent = 'לא הצלחנו לטעון — רעננו';
@@ -235,7 +265,115 @@
     loadShir();
     loadOps();
     loadBrain();
+    loadCost();
   }
+
+  /* ── events table: revenue, per-event cost & profit, invoice state ── */
+  var bizEvents = [];
+  var costMap = {};   // token8 → USD cents
+  var costDays = [];
+  var costEvents = [];
+
+  function renderEventsTable() {
+    var rows = $('rows'); rows.innerHTML = '';
+    var shown = bizEvents.filter(function (e) { return e.paid; });
+    $('empty').hidden = shown.length > 0;
+    var missingInv = 0;
+    shown.forEach(function (e) {
+      var tr = document.createElement('tr');
+      var filePill = e.file_uploaded ? '<span class="pill p-ok">הועלה</span>' : '<span class="pill p-no">ממתין</span>';
+      if (e.cancelled) filePill = '<span class="pill p-warn">בוטל</span>';
+      var t8 = (e.token || '').slice(0, 8);
+      var costIls = (costMap[t8] || 0) / 100 * USD_ILS;
+      var profit = e.sum - costIls;
+      var invPill;
+      if (e.invoice) invPill = '<span class="pill p-ok">✓</span>';
+      else if (e.cancelled) invPill = '<span class="pill p-warn">—</span>';
+      else { invPill = '<span class="pill p-no">חסרה</span>'; missingInv++; }
+      tr.innerHTML =
+        '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + '</td>' +
+        '<td>' + heDate(e.date) + '</td>' +
+        '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
+        '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
+        '<td>' + (costIls ? costIls.toFixed(2) : '0') + '</td>' +
+        '<td style="font-weight:600;color:' + (profit >= 0 ? '#0F4C35' : '#A8402F') + '">' + (Math.round(profit * 100) / 100).toLocaleString('he-IL') + '</td>' +
+        '<td>' + invPill + '</td>' +
+        '<td>' + filePill + '</td>' +
+        '<td>' + e.guests + '</td>' +
+        '<td>' + e.confirmed + '</td>' +
+        '<td>' + e.seats + '</td>' +
+        '<td>' + e.pending + '</td>' +
+        '<td>' + (e.need_call || '') + '</td>';
+      rows.appendChild(tr);
+    });
+    var n = $('invNotice');
+    if (missingInv > 0) {
+      n.style.display = 'block';
+      n.textContent = '⚠ צריך לטפל בחשבוניות: ' + missingInv + ' אירועים בתשלום בלי חשבונית. פתחו את הגיליון (עמודה J) וסמנו מה הופק.';
+    } else n.style.display = 'none';
+  }
+
+  function renderPlans() {
+    var byPlan = {};
+    bizEvents.filter(function (e) { return e.paid && !e.cancelled; }).forEach(function (e) {
+      var p = e.plan || 'ללא חבילה';
+      (byPlan[p] = byPlan[p] || { n: 0, rev: 0 });
+      byPlan[p].n++; byPlan[p].rev += e.sum;
+    });
+    var list = Object.keys(byPlan).map(function (p) { return { plan: p, n: byPlan[p].n, rev: byPlan[p].rev }; })
+      .sort(function (a, b) { return b.n - a.n || b.rev - a.rev; });
+    $('planEmpty').hidden = list.length > 0;
+    $('planRows').innerHTML = list.map(function (r, i) {
+      return '<tr><td>' + (i + 1) + '</td><td>' + r.plan + '</td><td>' + r.n + '</td><td>' +
+        r.rev.toLocaleString('he-IL') + '</td><td>' + Math.round(r.rev / r.n).toLocaleString('he-IL') + '</td></tr>';
+    }).join('');
+  }
+
+  /* ── cost log + CSV ── */
+  function loadCost() {
+    fetch(CFG.endpoint('costlog'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        costDays = d.days || [];
+        costEvents = d.events || [];
+        costMap = {};
+        costEvents.forEach(function (e) { costMap[e.token8] = e.cost_usd_cents; });
+        $('costRows').innerHTML = costDays.slice(-60).reverse().map(function (r) {
+          return '<tr><td>' + heDate(r.date) + '</td><td>' + r.wa_out + '</td><td>' + r.wa_tmpl +
+            '</td><td>' + (r.wa_fail || '') + '</td><td>' + (r.wa_cost_usd_cents / 100 * USD_ILS).toFixed(2) +
+            '</td><td>' + (r.shir_cost_usd_cents / 100 * USD_ILS).toFixed(2) + '</td></tr>';
+        }).join('');
+        renderEventsTable();
+      }).catch(function () {});
+  }
+
+  function downloadCsv(name, header, rows) {
+    var csv = '﻿' + header.join(',') + '\n' +
+      rows.map(function (r) { return r.map(function (c) { return '"' + String(c == null ? '' : c).replace(/"/g, '""') + '"'; }).join(','); }).join('\n');
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    a.download = name;
+    document.body.appendChild(a); a.click(); a.remove();
+  }
+  $('csvDays').addEventListener('click', function () {
+    downloadCsv('ishur-costs-daily.csv',
+      ['תאריך', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪'],
+      costDays.map(function (r) {
+        return [r.date, r.wa_out, r.wa_tmpl, r.wa_fail,
+          (r.wa_cost_usd_cents / 100 * USD_ILS).toFixed(2), (r.shir_cost_usd_cents / 100 * USD_ILS).toFixed(2)];
+      }));
+  });
+  $('csvEvents').addEventListener('click', function () {
+    downloadCsv('ishur-events-profit.csv',
+      ['אירוע', 'לקוח', 'תאריך', 'חבילה', 'הכנסה ₪', 'עלות ₪', 'רווח ₪', 'חשבונית'],
+      costEvents.map(function (e) {
+        var c = e.cost_usd_cents / 100 * USD_ILS;
+        return [e.name || e.client, e.client, e.date, e.plan, e.sum_ils, c.toFixed(2), (e.sum_ils - c).toFixed(2), e.invoice || 'חסרה'];
+      }));
+  });
 
   /* ── Noa kill-switch — writes מוח שירות!B1 through the worker ── */
   var aiActive = null;
@@ -291,6 +429,7 @@
           if (pct >= 80) { el.style.color = '#A8402F'; el.style.fontWeight = '600'; }
         }
         paintAdCur();
+        renderFx();
         var rows = $('utmRows'); rows.innerHTML = '';
         $('utmEmpty').hidden = d.utm.length > 0;
         d.utm.forEach(function (u) {
@@ -312,11 +451,12 @@
     };
   }
 
-  /* ad spend overlapping the range, allocated by day within each month */
-  function adSpendIls(from, to) {
-    var map = (opsData && opsData.adspend) || {};
+  /* monthly amounts (ads / fixed items) allocated by day-overlap with a range */
+  function monthlyIls(map, from, to, valueOf) {
     var total = 0;
-    Object.keys(map).forEach(function (m) {
+    Object.keys(map || {}).forEach(function (m) {
+      var v = valueOf(map[m]);
+      if (!v) return;
       var mStart = m + '-01';
       var dim = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate();
       var mEnd = m + '-' + String(dim).padStart(2, '0');
@@ -324,9 +464,17 @@
       var e = mEnd < to ? mEnd : to;
       if (s > e) return;
       var overlap = Math.round((Date.parse(e) - Date.parse(s)) / 864e5) + 1;
-      total += map[m] * overlap / dim;
+      total += v * overlap / dim;
     });
     return total;
+  }
+  function adSpendIls(from, to) {
+    return monthlyIls((opsData && opsData.adspend) || {}, from, to, function (v) { return Number(v) || 0; });
+  }
+  function fixedSpendIls(from, to) {
+    return monthlyIls((opsData && opsData.fixedcost) || {}, from, to, function (items) {
+      return (items || []).reduce(function (a, x) { return a + (Number(x.ils) || 0); }, 0);
+    });
   }
 
   function renderOps() {
@@ -339,8 +487,10 @@
       costUsdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
     });
     var adIls = adSpendIls(b.from, b.to);
-    var costIls = costUsdC / 100 * USD_ILS + adIls;
+    var fxIls = fixedSpendIls(b.from, b.to);
+    var costIls = costUsdC / 100 * USD_ILS + adIls + fxIls;
     var profit = rev - costIls;
+    renderAvgs();
     $('p-rev').textContent = rev.toLocaleString('he-IL');
     $('p-pay').textContent = pay;
     $('p-cost').textContent = costIls.toFixed(costIls < 100 ? 1 : 0);
@@ -391,6 +541,73 @@
       rangeTo = $('d-to').value || null;
       if (rangeFrom && rangeTo) renderOps();
     });
+  });
+
+  /* ── weekly / monthly / quarterly / yearly margins ── */
+  function renderAvgs() {
+    if (!opsData) return;
+    var periods = [
+      { label: 'שבוע', d: 7 }, { label: 'חודש', d: 30 },
+      { label: 'רבעון', d: 90 }, { label: 'שנה', d: 365 },
+    ];
+    var to = new Date().toISOString().slice(0, 10);
+    $('avgRows').innerHTML = periods.map(function (p) {
+      var from = new Date(Date.now() - (p.d - 1) * 864e5).toISOString().slice(0, 10);
+      var rev = 0, pay = 0, costUsdC = 0;
+      opsData.series.forEach(function (s) {
+        if (s.date < from || s.date > to) return;
+        rev += s.revenue_ils; pay += s.payments;
+        costUsdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
+      });
+      var cost = costUsdC / 100 * USD_ILS + adSpendIls(from, to) + fixedSpendIls(from, to);
+      var profit = rev - cost;
+      var margin = rev ? Math.round(100 * profit / rev) : 0;
+      return '<tr><td>' + p.label + '</td><td>' + rev.toLocaleString('he-IL') + '</td><td>' +
+        cost.toFixed(cost < 100 ? 1 : 0) + '</td><td style="font-weight:600;color:' + (profit >= 0 ? '#0F4C35' : '#A8402F') + '">' +
+        Math.round(profit).toLocaleString('he-IL') + '</td><td>' + (rev ? margin + '%' : '—') + '</td><td>' + pay +
+        '</td><td>' + (pay ? Math.round(profit / pay).toLocaleString('he-IL') : '—') + '</td></tr>';
+    }).join('');
+  }
+
+  /* ── fixed monthly overheads editor ── */
+  $('fx-month').value = new Date().toISOString().slice(0, 7);
+  function fxItems() {
+    var m = $('fx-month').value;
+    return ((opsData && opsData.fixedcost) || {})[m] || [];
+  }
+  function renderFx() {
+    var items = fxItems();
+    $('fxList').innerHTML = items.length
+      ? items.map(function (x, i) {
+          return '<div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem">' +
+            '<span>' + String(x.name).replace(/[&<>"]/g, '') + '</span>' +
+            '<span>₪' + Number(x.ils).toLocaleString('he-IL') +
+            ' <button data-fx="' + i + '" style="border:none;background:none;color:#A8402F;cursor:pointer;font-size:.9rem">✕</button></span></div>';
+        }).join('')
+      : '<span style="color:var(--ink3)">אין הוצאות קבועות לחודש הזה עדיין</span>';
+  }
+  function saveFx(items) {
+    fetch(CFG.endpoint('fixedcost'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, month: $('fx-month').value, items: items })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.ok) { opsData.fixedcost = d.fixedcost; renderFx(); renderOps(); }
+      }).catch(function () {});
+  }
+  $('fx-month').addEventListener('change', renderFx);
+  $('fx-add').addEventListener('click', function () {
+    var name = $('fx-name').value.trim(), ils = Number($('fx-ils').value);
+    if (!name || isNaN(ils)) return;
+    $('fx-name').value = ''; $('fx-ils').value = '';
+    saveFx(fxItems().concat([{ name: name, ils: ils }]));
+  });
+  $('fxList').addEventListener('click', function (e) {
+    var i = e.target && e.target.dataset && e.target.dataset.fx;
+    if (i == null) return;
+    var items = fxItems().slice();
+    items.splice(Number(i), 1);
+    saveFx(items);
   });
 
   /* ── ad spend save ── */

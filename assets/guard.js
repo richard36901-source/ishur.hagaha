@@ -30,7 +30,9 @@ window.IshurGuard = (function () {
 
   /* the stamp is computed once at load, so nothing has to wait on crypto at
      the moment of submit. That matters on the payment redirect, where a delay
-     would cost the lead. */
+     would cost the lead. The digest still takes a few ms, and until it lands
+     sig is empty — a page that sends before then is rejected as missing-stamp,
+     so anything firing on load must await whenReady() first. */
   var nonce = uuid();
   var stampTs = Date.now();
   var sig = '';
@@ -48,13 +50,13 @@ window.IshurGuard = (function () {
 
   /* sha256(appKey|nonce|ts). Make recomputes it with one sha256 call. */
   function computeSig() {
-    if (!KEY || !window.crypto || !crypto.subtle) return;
+    if (!KEY || !window.crypto || !crypto.subtle) return Promise.resolve();
     try {
       var msg = new TextEncoder().encode(KEY + '|' + nonce + '|' + stampTs);
-      crypto.subtle.digest('SHA-256', msg).then(function (d) { sig = hex(d); });
-    } catch (e) {}
+      return crypto.subtle.digest('SHA-256', msg).then(function (d) { sig = hex(d); });
+    } catch (e) { return Promise.resolve(); }
   }
-  computeSig();
+  var sigReady = computeSig();
 
   /* ── caps ─────────────────────────────────────────────────────────────── */
 
@@ -144,6 +146,9 @@ window.IshurGuard = (function () {
     allow: allow,
     remaining: remaining,
     nonce: function () { return nonce; },
-    ready: function () { return Date.now() - loadedAt >= (G.minDwellMs || 0); }
+    ready: function () { return Date.now() - loadedAt >= (G.minDwellMs || 0); },
+    /* resolves once sig holds the digest, so a request sent on page load
+       carries a real stamp instead of an empty one */
+    whenReady: function () { return sigReady; }
   };
 })();

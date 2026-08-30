@@ -345,7 +345,8 @@ window.ISHUR_CONFIG = (function () {
       return PROXY_BASE.replace(/\/$/, '') + ({
         lead: '/api/lead', event: '/api/event', status: '/api/status',
         claim: '/api/claim', 'shir-calls': '/api/shir-calls', ops: '/api/ops-stats',
-        brain: '/api/brain-toggle', adspend: '/api/adspend', seating: '/api/seating'
+        brain: '/api/brain-toggle', adspend: '/api/adspend', seating: '/api/seating',
+        fixedcost: '/api/fixedcost', costlog: '/api/cost-log'
       }[kind] || '/api/event');
     }
     return {
