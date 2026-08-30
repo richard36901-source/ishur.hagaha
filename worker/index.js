@@ -23,7 +23,7 @@
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats } from './dashboard.js';
-import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature } from './shir.js';
+import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -252,13 +252,14 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
    contract the calls page uses; dispatch places the day's calls.
    ─────────────────────────────────────────────────────────────────────────── */
 
-async function writeCallResult(env, guestId, result) {
+async function writeCallResult(env, guestId, result, partySize) {
   const r = await fetch(env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_type: 'call_result', guest_id: guestId,
       rsvp: result.rsvp || '__keep__', call_status: result.call_status,
       answer: result.answer, tries: String(result.tries),
+      party: partySize != null && partySize !== '' ? String(partySize) : '__keep__',
       ts: new Date().toISOString(),
     }),
   }).catch(() => null);
@@ -267,14 +268,29 @@ async function writeCallResult(env, guestId, result) {
 
 async function trackCallCost(env, cents) {
   if (!env.RATE || !cents) return;
-  const day = new Date().toISOString().slice(0, 10);
-  const key = 'shircost:' + day;
+  const key = 'shircost:' + ilDate();
   const cur = Number(await env.RATE.get(key)) || 0;
   await env.RATE.put(key, String(cur + cents), { expirationTtl: 400 * 86400 });
 }
 
+/* Retell retries webhooks and fires several events per call — each (call, stage)
+   is processed exactly once. */
+async function seenOnce(env, key) {
+  if (!env.RATE) return false;
+  if (await env.RATE.get(key)) return true;
+  await env.RATE.put(key, '1', { expirationTtl: 3 * 86400 });
+  return false;
+}
+
+const okJsonPlain = payload => new Response(JSON.stringify(payload), {
+  status: 200, headers: { 'Content-Type': 'application/json' },
+});
+
 async function handleShirWebhook(request, env) {
   if (!env.RETELL_KEY) return new Response('not-configured', { status: 503 });
+  if (Number(request.headers.get('Content-Length') || 0) > 262144) {
+    return new Response('too-large', { status: 413 });
+  }
   const rawBody = await request.text();
   const sig = request.headers.get('X-Retell-Signature') || '';
   if (!(await verifyRetellSignature(rawBody, sig, env.RETELL_KEY))) {
@@ -284,25 +300,40 @@ async function handleShirWebhook(request, env) {
   try { body = JSON.parse(rawBody); } catch { return new Response('bad-json', { status: 400 }); }
 
   const action = retellToCallResult(body);
-  if (!action) return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-
-  if (action.cost_cents) await trackCallCost(env, action.cost_cents);
+  if (!action) return okJsonPlain({ ok: true });
 
   if (action.kind === 'tool') {
-    await writeCallResult(env, action.guest_id, action.result);
-    /* party size rides into the sheet via a second, plain update later;
-       for now the answer text carries it */
-    return new Response(JSON.stringify({ response: action.reply }), {
-      status: 200, headers: { 'Content-Type': 'application/json' },
-    });
+    if (action.call_id && await seenOnce(env, 'shirdone:tool:' + action.call_id)) {
+      return okJsonPlain({ response: action.reply });
+    }
+    /* remember the outcome was recorded, so the end-of-call report for this
+       call does not overwrite it with "no clear outcome" */
+    if (action.call_id && env.RATE) {
+      await env.RATE.put('shirtool:' + action.call_id, '1', { expirationTtl: 3 * 86400 });
+    }
+    await writeCallResult(env, action.guest_id, action.result, action.party_size);
+    return okJsonPlain({ response: action.reply });
   }
+
+  /* end-of-call (call_analyzed only) */
+  if (action.call_id && await seenOnce(env, 'shirdone:end:' + action.call_id)) {
+    return okJsonPlain({ ok: true });
+  }
+  if (action.cost_cents) await trackCallCost(env, action.cost_cents);
+
   if (action.kind === 'end') {
     await writeCallResult(env, action.guest_id, action.result);
+  } else if (action.kind === 'end-no-outcome') {
+    const toolRan = action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id);
+    if (!toolRan) await writeCallResult(env, action.guest_id, action.result);
   }
-  return new Response(JSON.stringify({ ok: true }), { status: 200, headers: { 'Content-Type': 'application/json' } });
+  return okJsonPlain({ ok: true });
 }
 
 async function handleShirDispatch(request, env, origin) {
+  if (Number(request.headers.get('Content-Length') || 0) > 65536) {
+    return deny(413, 'too-large', origin);
+  }
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!env.ADMIN_KEY || !safeEqual(String(body.admin_key || ''), env.ADMIN_KEY)) {
@@ -317,12 +348,12 @@ async function handleShirDispatch(request, env, origin) {
   if (!raw) return deny(502, 'reader-failed', origin);
   const { queue } = buildCallQueue(raw);
 
-  const day = new Date().toISOString().slice(0, 10);
+  const day = ilDate();
   const cap = Math.min(Number(body.max) || 5, 25);
   const dialed = [];
   for (const g of queue) {
     if (dialed.length >= cap) break;
-    if (g.capped) continue;
+    if (!shouldDial(g, day)) continue; // capped, or the event already happened
     /* one attempt per guest per day — the 3 tries live on separate days */
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
@@ -529,6 +560,7 @@ export default {
              for the cell's current value */
           rsvp: result.rsvp || '__keep__', call_status: result.call_status,
           answer: result.answer, tries: String(result.tries),
+          party: '__keep__',
           ts: new Date().toISOString(),
         }),
       }).catch(() => null);

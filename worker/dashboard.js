@@ -72,6 +72,7 @@ export function callOutcome(outcome, tries, maxTries = 3) {
     case 'לא מגיע':  return { rsvp: 'לא מגיע',  call_status: '',            answer: 'ענה',  tries: t };
     case 'מתלבט':    return { rsvp: 'מתלבט',    call_status: 'נדרשת שיחה', answer: 'ענה - מתלבט', tries: t };
     case 'לחייג שוב': return { rsvp: '',        call_status: 'נדרשת שיחה', answer: 'לחייג שוב',   tries: t };
+    case 'לא להתקשר': return { rsvp: '',        call_status: '',            answer: 'ביקש לא להתקשר יותר', tries: t };
     case 'לא ענה': {
       const n = t + 1;
       return n >= maxTries
@@ -106,8 +107,10 @@ export function buildBizStats(raw) {
   for (const ev of events) {
     const tok = t(ev[1]);
     const paid = t(ev[7]) === 'כן';
+    const isCancelled = t(ev[27]) === 'כן';
     const sum = Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0;
-    if (paid) revenue += sum;
+    /* revenue and paid_events use the SAME definition: paid and not cancelled */
+    if (paid && !isCancelled) revenue += sum;
     const gl = guestsByToken[tok] || [];
     let confirmed = 0, declined = 0, seats = 0, needCall = 0;
     for (const g of gl) {
@@ -124,7 +127,7 @@ export function buildBizStats(raw) {
       guests: gl.length, confirmed, declined,
       pending: Math.max(0, gl.length - confirmed - declined),
       seats, need_call: needCall,
-      cancelled: t(ev[27]) === 'כן',
+      cancelled: isCancelled,
     });
   }
   perEvent.sort((a, b) => (a.date || '9') < (b.date || '9') ? -1 : 1);
