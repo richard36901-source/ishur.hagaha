@@ -776,10 +776,10 @@ async function handleWaSend(request, env, origin) {
   let res;
   switch (String(body.mode || 'text')) {
     case 'template':
-      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he');
+      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he', body.channel);
       break;
     case 'image':
-      res = await sendImage(env, to, body.image_url, body.caption || '');
+      res = await sendImage(env, to, body.image_url, body.caption || '', body.channel);
       break;
     case 'invite': {
       const text = inviteText(body.event || {});

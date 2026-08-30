@@ -23,9 +23,17 @@ function normPhone(raw) {
   return d;
 }
 
-async function post(env, body) {
-  if (!env.WA_TOKEN || !env.WA_PHONE_ID) return { ok: false, error: 'wa-not-configured' };
-  const r = await fetch(`${GRAPH}/${env.WA_PHONE_ID}/messages`, {
+/* guests get their own number the moment WA_PHONE_ID_GUESTS exists;
+   until then everything rides the client number. */
+function pickPhone(env, channel) {
+  if (channel === 'guests' && env.WA_PHONE_ID_GUESTS) return env.WA_PHONE_ID_GUESTS;
+  return env.WA_PHONE_ID;
+}
+
+async function post(env, body, channel) {
+  const phoneId = pickPhone(env, channel);
+  if (!env.WA_TOKEN || !phoneId) return { ok: false, error: 'wa-not-configured' };
+  const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
     method: 'POST',
     headers: { Authorization: 'Bearer ' + env.WA_TOKEN, 'Content-Type': 'application/json' },
     body: JSON.stringify({ messaging_product: 'whatsapp', ...body }),
@@ -67,22 +75,22 @@ async function post(env, body) {
   return res;
 }
 
-export function sendText(env, to, text) {
-  return post(env, { to: normPhone(to), type: 'text', text: { body: String(text) } });
+export function sendText(env, to, text, channel) {
+  return post(env, { to: normPhone(to), type: 'text', text: { body: String(text) } }, channel);
 }
 
 /* An image with a caption — what an invitation actually looks like when the
    client uploaded artwork and the guest already has an open window. */
-export function sendImage(env, to, imageUrl, caption) {
+export function sendImage(env, to, imageUrl, caption, channel) {
   return post(env, {
     to: normPhone(to), type: 'image',
     image: { link: imageUrl, caption: String(caption || '').slice(0, 1024) },
-  });
+  }, channel);
 }
 
 /* The production path. `params` are the positional body variables; `imageUrl`
    fills a header of type IMAGE when the template has one. */
-export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he') {
+export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel) {
   const components = [];
   if (imageUrl) {
     components.push({ type: 'header', parameters: [{ type: 'image', image: { link: imageUrl } }] });
@@ -96,7 +104,7 @@ export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = '
   return post(env, {
     to: normPhone(to), type: 'template',
     template: { name, language: { code: lang }, ...(components.length ? { components } : {}) },
-  });
+  }, channel);
 }
 
 /* ── inbound ── a guest replied: a template button, or free text ──────────
