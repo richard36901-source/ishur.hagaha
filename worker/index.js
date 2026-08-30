@@ -221,8 +221,12 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
 
     /* a partly-bad file stops for a human decision: the client sees exactly
        which rows have problems and chooses — upload anyway, or fix and retry.
-       confirm=1 on the second send means "upload anyway". */
-    if ((skipped.length || warnings.length) && String(form.get('confirm') || '') !== '1') {
+       confirm=1 on the second send means "upload anyway". Only pages that
+       declare supports_preview get this — an older cached page would mistake
+       the preview for success and never confirm. */
+    if ((skipped.length || warnings.length) &&
+        String(form.get('supports_preview') || '') === '1' &&
+        String(form.get('confirm') || '') !== '1') {
       return okJson({
         ok: true, preview: true,
         guests: guests.length,

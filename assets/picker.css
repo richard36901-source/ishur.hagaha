@@ -1,0 +1,66 @@
+/* בורר תאריכים ורשימות — משותף לכל הדפים (מקור: upload.html) */
+/* select + calendar share one skin */
+  .isel{position:relative}
+.isel-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
+.isel-btn{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+    padding:.7rem .85rem;min-height:46px;border:1.5px solid var(--bdr);border-radius:9px;
+    background:#fff;font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);
+    text-align:start;cursor:pointer;
+    transition:border-color .15s,box-shadow .15s,border-radius .16s;
+  }
+.isel-btn:hover{border-color:var(--ink3)}
+.isel-btn:focus-visible{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
+.isel[data-placeholder="true"] .isel-val{color:var(--ink3)}
+.isel-arrow{color:var(--ink3);display:flex;flex-shrink:0;transition:transform .22s var(--ease)}
+.isel:not(.idate)[data-open="true"] .isel-arrow{transform:rotate(180deg);color:var(--green)}
+.idate[data-open="true"] .isel-arrow{color:var(--green)}
+.isel.bad .isel-btn{border-color:var(--err);box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+.isel[data-open="true"] .isel-btn{border-color:var(--green);border-bottom-color:var(--bdr);border-radius:9px 9px 0 0;box-shadow:none}
+.isel-panel{
+    position:absolute;top:100%;inset-inline-start:0;inset-inline-end:0;z-index:40;
+    background:#fff;border:1.5px solid var(--green);border-top:none;border-radius:0 0 9px 9px;
+    max-height:min(300px,52vh);overflow-y:auto;overscroll-behavior:contain;
+    box-shadow:0 14px 30px rgba(0,0,0,.1);
+    animation:iselOpen .22s var(--ease) both;
+  }
+.isel[data-open="false"] .isel-panel{animation:iselClose .15s cubic-bezier(.4,0,1,1) both}
+.isel-opt{padding:.64rem .85rem;font-size:.95rem;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-bottom:1px solid var(--bg3)}
+.isel-opt:last-child{border-bottom:none}
+.isel-opt.active{background:var(--bg2)}
+.isel-opt.on{color:var(--green2);font-weight:500;background:var(--green4)}
+.isel-opt.on::after{content:'✓';font-size:.85rem;color:var(--green)}
+/* calendar */
+  .idate-panel{padding:.6rem .55rem .5rem;max-height:none}
+.idate-head{display:flex;align-items:center;justify-content:space-between;padding:.1rem .25rem .5rem}
+.idate-title{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600;color:var(--ink)}
+.idate-nav{
+    background:none;border:1px solid var(--bdr);border-radius:8px;cursor:pointer;
+    width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+    color:var(--ink2);transition:border-color .2s,color .2s,transform .2s var(--ease);
+  }
+.idate-nav:hover:not(:disabled){border-color:var(--green);color:var(--green)}
+.idate-nav:active:not(:disabled){transform:scale(.92)}
+.idate-nav:disabled{opacity:.3;cursor:default}
+.idate-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.idate-dow{text-align:center;font-size:.7rem;color:var(--ink3);padding:.2rem 0 .35rem;font-weight:500}
+.idate-dow.off{color:#cbd0d6}
+.idate-cell{
+    aspect-ratio:1;min-height:36px;border:none;background:none;cursor:pointer;
+    border-radius:8px;font-family:'Heebo',sans-serif;font-size:.88rem;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;position:relative;
+    transition:background .15s,color .15s,transform .18s var(--ease);
+  }
+.idate-cell.empty{pointer-events:none}
+.idate-cell:hover:not(:disabled){background:var(--green4);color:var(--green2)}
+.idate-cell:active:not(:disabled){transform:scale(.9)}
+.idate-cell.on{background:var(--green);color:#fff;font-weight:600}
+.idate-cell.off{color:#cbd0d6;cursor:default;text-decoration:line-through;text-decoration-thickness:1px}
+.idate-cell.cut::after{
+    content:'';position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:var(--warn);
+  }
+.idate-cell.on.cut::after{background:#fff}
+.idate-legend{font-size:.71rem;color:var(--ink3);line-height:1.5;padding:.55rem .35rem .1rem;border-top:1px solid var(--bdr);margin-top:.4rem}
+.idate-note{font-size:.73rem;color:var(--warn);margin-top:.2rem}
+.drop:active,.btn:active,.retry:active,.idate-cell:active,.style-opt:active{transform:none}

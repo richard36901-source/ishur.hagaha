@@ -477,7 +477,7 @@
         .imgbtn{display:inline-flex;align-items:center;gap:.45rem;border:1px dashed #B9B4A4;background:#FDFCF8;border-radius:10px;padding:.65rem 1.1rem;font:inherit;font-size:.88rem;cursor:pointer;color:#3D4A42}
         .imgbtn:hover{border-color:#A8853C;color:#0F2E22}
         .imgchip{display:flex;align-items:center;gap:.6rem;border:1px solid #E3E1D8;background:#fff;border-radius:10px;padding:.45rem .6rem}
-        .imgchip img{width:44px;height:44px;object-fit:cover;border-radius:7px}
+        .imgchip img{width:96px;height:96px;object-fit:cover;border-radius:9px;border:1px solid var(--bdr)}
         .imgchip span{font-size:.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;direction:ltr;text-align:right}
         .imgchip button{border:none;background:none;font-size:1.1rem;cursor:pointer;color:#8A9382;padding:.2rem .4rem}
         .imgchip button:hover{color:#A8402F}
@@ -747,6 +747,7 @@
     fd.append('token', token);
     fd.append('file', file, file.name);
     fd.append('source', location.href);
+    fd.append('supports_preview', '1');
     if (confirmAnyway) fd.append('confirm', '1');
     if (window.IshurGuard) {
       var st = IshurGuard.stamp({});
@@ -1194,7 +1195,13 @@
     var el = $('f-' + f);
     if (el) el.addEventListener('change', function () {
       clearErr(f); clearErr('sd2');
-      if (f === 'edate') { $('f-sd1').value = ''; $('f-sd2').value = ''; renderSchedule(); }
+      if (f === 'edate') {
+        $('f-sd1').value = ''; $('f-sd2').value = '';
+        ['f-sd1', 'f-sd2', 'f-sd3'].forEach(function (id) {
+          var d = $(id); if (d) d.dataset.maxIso = $('f-edate').value || '';
+        });
+        renderSchedule();
+      }
       else renderTimeline();
     });
   });
@@ -1279,12 +1286,11 @@
       return;
     }
 
-    var gv = window.IshurGuard ? IshurGuard.allow('setup', { t: token }) : { ok: true };
+    /* resaving settings is always allowed — the write is idempotent */
+    var gv = window.IshurGuard ? IshurGuard.allow('setup') : { ok: true };
     if (!gv.ok) {
       returnTo = 'setupView';
-      fail(gv.why === 'duplicate' ? 'ההגדרות האלה כבר נשמרו.'
-                                  : 'נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.',
-           'רגע אחד');
+      fail('נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.', 'רגע אחד');
       return;
     }
 

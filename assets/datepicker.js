@@ -165,7 +165,11 @@ window.IshurDate = (function () {
     function maxD() {
       var d = new Date();
       d.setMonth(d.getMonth() + (R.maxMonthsAhead || 18));
-      return midnight(d);
+      d = midnight(d);
+      /* data-max-iso caps the picker — a send never lands after the event */
+      var cap = parse(input.dataset.maxIso || '');
+      if (cap && midnight(cap) < d) return midnight(cap);
+      return d;
     }
     function blocked(d) { return (R.blockedWeekdays || []).indexOf(d.getDay()) > -1; }
     function cutoff(d) { return (R.cutoff || {})[d.getDay()] || null; }
