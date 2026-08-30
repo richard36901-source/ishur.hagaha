@@ -4,3 +4,4 @@ node_modules/
 .agent-native/
 worker/.wrangler/
 worker/node_modules/
+.sdlc/marketing/
