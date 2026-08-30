@@ -64,6 +64,25 @@ async function post(env, body, channel) {
       if (body.type === 'template') st.tmpl += 1;
       if (!res.ok) st.fail += 1;
       await env.RATE.put(key, JSON.stringify(st), { expirationTtl: 400 * 86400 });
+      /* crossing 80% of Meta's daily conversation cap → one alert per day.
+         wa:cap is kept warm by the daily engine and the admin board. */
+      if (body.type === 'template') {
+        let cap = null;
+        try { cap = JSON.parse(await env.RATE.get('wa:cap')); } catch {}
+        if (cap && cap.limit && st.tmpl >= cap.limit * 0.8 && !(await env.RATE.get('capalert:' + day))) {
+          await env.RATE.put('capalert:' + day, '1', { expirationTtl: 2 * 86400 });
+          if (env.ALERT_HOOK) {
+            await fetch(env.ALERT_HOOK, {
+              method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                where: 'תקרת וואטסאפ',
+                what: `נשלחו ${st.tmpl} תבניות היום — מעל 80% מתקרת מטא (${cap.limit})`,
+                detail: cap.tier || '', ts: new Date().toISOString(),
+              }),
+            }).catch(() => {});
+          }
+        }
+      }
     }
     if (!res.ok && env.ALERT_HOOK) {
       await fetch(env.ALERT_HOOK, {

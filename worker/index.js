@@ -723,6 +723,9 @@ async function runDailyEngine(env, dry, todayOverride) {
   const gRows = (raw.guests && raw.guests.values) || [];
   const out = [];
 
+  /* keep Meta's cap cached so the 80% alert has a number during the waves */
+  await waCapInfo(env).catch(() => null);
+
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
   const WAVES = [
     { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
@@ -881,6 +884,48 @@ async function runDailyEngine(env, dry, todayOverride) {
   return { ok: true, date: today, events: out };
 }
 
+/* ══ AI kill-switch from the admin board ═════════════════════════════════════
+   Writes פעיל/כבוי into מוח שירות!B1 (the same cell Richard edits by hand)
+   and busts the 3-minute brain cache so the change bites immediately.
+   POST {admin_key} reads the state; POST {admin_key, active:bool} sets it.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function setBrainActive(env, active) {
+  if (!env.BRAIN_HOOK) return false;
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      method: 'POST',
+      /* the Make proxy maps `payload` verbatim into the request body only when
+         it is a pre-serialized JSON string — an object arrives empty */
+      payload: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: [{ range: 'מוח שירות!B1', values: [[active ? 'פעיל' : 'כבוי']] }],
+      }),
+    }),
+  }).catch(() => null);
+  if (!(r && r.ok)) return false;
+  let out = null;
+  try { out = await r.json(); } catch { return false; }
+  if (!out || !out.totalUpdatedCells) return false;
+  if (env.RATE) await env.RATE.delete('brain:cache').catch(() => {});
+  return true;
+}
+
+async function handleBrainToggle(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (typeof body.active === 'boolean') {
+    const ok = await setBrainActive(env, body.active);
+    if (!ok) return deny(502, 'sheet-write-failed', origin);
+    /* KV delete is eventually consistent — answer from what we just wrote */
+    return okJson({ ok: true, active: body.active }, origin);
+  }
+  const brain = await getBrain(env);
+  return okJson({ ok: true, active: brain.active }, origin);
+}
+
 async function handleDailyRun(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -904,6 +949,30 @@ async function kvPrefix(env, prefix) {
     cursor = page.cursor;
   }
   return out;
+}
+
+/* Meta's daily business-initiated-conversation ceiling for the sending number.
+   Cached 6 hours — the tier only moves when Meta bumps it. The whatsapp.js
+   sender reads the same KV entry to fire the 80% alert mid-wave. */
+async function waCapInfo(env) {
+  const TIERS = { TIER_50: 50, TIER_250: 250, TIER_1K: 1000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: 0 };
+  let cached = null;
+  if (env.RATE) { try { cached = JSON.parse(await env.RATE.get('wa:cap')); } catch {} }
+  if (cached) return cached;
+  if (!env.WA_TOKEN || !env.WA_PHONE_ID) return null;
+  const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID}?fields=messaging_limit_tier,quality_rating`, {
+    headers: { Authorization: 'Bearer ' + env.WA_TOKEN },
+  }).catch(() => null);
+  if (!r || !r.ok) return null;
+  const j = await r.json().catch(() => null);
+  if (!j || !j.messaging_limit_tier) return null;
+  cached = {
+    tier: j.messaging_limit_tier,
+    limit: TIERS[j.messaging_limit_tier] ?? 250,
+    quality: j.quality_rating || '',
+  };
+  if (env.RATE) await env.RATE.put('wa:cap', JSON.stringify(cached), { expirationTtl: 6 * 3600 }).catch(() => {});
+  return cached;
 }
 
 async function handleOpsStats(request, env, origin) {
@@ -960,11 +1029,17 @@ async function handleOpsStats(request, env, origin) {
     utm[src] = (utm[src] || 0) + 1;
   }
 
+  /* today's business-initiated sends against Meta's ceiling */
+  const cap = await waCapInfo(env);
+  let usedToday = 0;
+  try { usedToday = Number((JSON.parse(waDays[ilDate()] || '{}') || {}).tmpl) || 0; } catch {}
+
   return okJson({
     ok: true,
     series: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
     utm: Object.entries(utm).sort((a, b) => b[1] - a[1]),
     leads_total: leadRows.filter(r => String((r || [])[2] || '').trim()).length,
+    wa_cap: cap ? { ...cap, used_today: usedToday } : null,
     generated_at: new Date().toISOString(),
   }, origin);
 }
@@ -1190,6 +1265,9 @@ export default {
     }
     if (url.pathname === '/api/daily-run' && request.method === 'POST') {
       return handleDailyRun(request, env, origin);
+    }
+    if (url.pathname === '/api/brain-toggle' && request.method === 'POST') {
+      return handleBrainToggle(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);

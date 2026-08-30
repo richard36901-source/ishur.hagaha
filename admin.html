@@ -100,6 +100,11 @@
   </div>
   <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
 
+  <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
+    <span>נועה · מענה AI</span>
+    <button id="aiTog" class="rng" style="min-width:8.5rem" disabled>טוען…</button>
+  </h2>
+
   <h2>שיר · שיחות</h2>
   <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi"><b id="s-live">–</b><span>שיחות פעילות כרגע</span></div>
@@ -135,7 +140,8 @@
   <div class="tblwrap" style="padding:.6rem .4rem;background:var(--card);border:1px solid var(--line);border-radius:12px">
     <svg id="chart" width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" aria-label="הכנסות לפי יום"></svg>
   </div>
-  <p style="font-size:.68rem;color:var(--ink3);margin:.4rem 0 1rem">* הוצאות = הודעות וואטסאפ + שיחות שיר, בהמרה משוערת של ‎$1 = ₪3.7. עלויות מודעות יתווספו בחיבור חשבון המודעות.</p>
+  <p style="font-size:.68rem;color:var(--ink3);margin:.4rem 0 .2rem">* הוצאות = הודעות וואטסאפ + שיחות שיר, בהמרה משוערת של ‎$1 = ₪3.7. עלויות מודעות יתווספו בחיבור חשבון המודעות.</p>
+  <p id="capLine" style="font-size:.78rem;color:var(--ink2);margin:0 0 1rem" hidden></p>
 
   <h2>מאיפה מגיעים הלידים</h2>
   <div class="tblwrap">
@@ -217,7 +223,38 @@
     });
     loadShir();
     loadOps();
+    loadBrain();
   }
+
+  /* ── Noa kill-switch — writes מוח שירות!B1 through the worker ── */
+  var aiActive = null;
+  function paintAi() {
+    var b = $('aiTog');
+    b.disabled = false;
+    b.textContent = aiActive ? 'פעילה · לחצו לכיבוי' : 'כבויה · לחצו להפעלה';
+    b.style.background = aiActive ? '' : '#A8402F';
+    b.style.color = aiActive ? '' : '#fff';
+  }
+  function loadBrain() {
+    fetch(CFG.endpoint('brain'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) { if (d && d.ok) { aiActive = !!d.active; paintAi(); } })
+      .catch(function () {});
+  }
+  $('aiTog').addEventListener('click', function () {
+    if (aiActive === null) return;
+    var next = !aiActive;
+    if (!confirm(next ? 'להפעיל את נועה חזרה?' : 'לכבות את נועה? הודעות נכנסות יקבלו רק קישור/מענה אנושי')) return;
+    var b = $('aiTog'); b.disabled = true; b.textContent = 'רגע…';
+    fetch(CFG.endpoint('brain'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, active: next })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) { if (d && d.ok) aiActive = !!d.active; paintAi(); })
+      .catch(function () { paintAi(); });
+  });
 
   /* ── money board ── */
   var USD_ILS = 3.7;
@@ -233,6 +270,15 @@
         if (!d || !d.ok) return;
         opsData = d;
         renderOps();
+        if (d.wa_cap && d.wa_cap.limit) {
+          var c = d.wa_cap, pct = Math.round(c.used_today / c.limit * 100);
+          var q = { GREEN: 'ירוקה', YELLOW: 'צהובה', RED: 'אדומה' }[c.quality] || c.quality || '';
+          var el = $('capLine');
+          el.hidden = false;
+          el.innerHTML = 'תקרת וואטסאפ היומית: <b>' + c.used_today + '</b> מתוך <b>' + c.limit +
+            '</b> שיחות-עסק (' + pct + '%)' + (q ? ' · איכות מספר: ' + q : '');
+          if (pct >= 80) { el.style.color = '#A8402F'; el.style.fontWeight = '600'; }
+        }
         var rows = $('utmRows'); rows.innerHTML = '';
         $('utmEmpty').hidden = d.utm.length > 0;
         d.utm.forEach(function (u) {
