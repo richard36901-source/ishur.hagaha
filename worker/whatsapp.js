@@ -30,7 +30,24 @@ function pickPhone(env, channel) {
   return env.WA_PHONE_ID;
 }
 
-async function post(env, body, channel) {
+/* failures and cap warnings go where Richard looks: Slack first, Telegram
+   only when the Slack webhook secret is missing */
+async function opsPing(env, where, what, detail) {
+  if (env.SLACK_ALERT_HOOK) {
+    await fetch(env.SLACK_ALERT_HOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: `⚠️ *${where}*\n${what}${detail ? '\n' + detail : ''}` }),
+    }).catch(() => {});
+    return;
+  }
+  if (!env.ALERT_HOOK) return;
+  await fetch(env.ALERT_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ where, what, detail: detail || '', ts: new Date().toISOString() }),
+  }).catch(() => {});
+}
+
+async function post(env, body, channel, ctx) {
   const phoneId = pickPhone(env, channel);
   if (!env.WA_TOKEN || !phoneId) return { ok: false, error: 'wa-not-configured' };
   const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
@@ -56,9 +73,37 @@ async function post(env, body, channel) {
         body.type === 'text' ? String((body.text || {}).body || '') :
         body.type === 'image' ? '🖼 ' + String((body.image || {}).caption || 'תמונה') :
         body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type;
+      /* ctx (template/occasion/wave/token) makes per-message performance
+         measurable later: which text, for which event type, got answered */
       await env.RATE.put('log:' + String(body.to || '') + ':' + Date.now(),
-        JSON.stringify({ dir: 'out', type: body.type, text: summary.slice(0, 300), ok: res.ok, error: res.error || '', at: new Date().toISOString() }),
+        JSON.stringify({
+          dir: 'out', type: body.type, text: summary.slice(0, 300),
+          ok: res.ok, error: res.error || '',
+          tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
+          ...(ctx && typeof ctx === 'object' ? {
+            occ: String(ctx.occasion || '').slice(0, 40),
+            wave: ctx.wave || '',
+            tok: String(ctx.token || '').slice(0, 8),
+          } : {}),
+          at: new Date().toISOString(),
+        }),
         { expirationTtl: 90 * 86400 });
+      /* per-template performance: sent/fail here, replied credited by the
+         inbound webhook against lastout:<phone>. Occasion rides along so a
+         weak wording for one event type stands out. */
+      if (body.type === 'template') {
+        const tmpl = String((body.template || {}).name || '');
+        const occ = ctx && ctx.occasion ? String(ctx.occasion).slice(0, 40) : '-';
+        const tk = `tstat:${tmpl}:${occ}`;
+        let ts = { sent: 0, fail: 0, replied: 0 };
+        try { ts = JSON.parse(await env.RATE.get(tk)) || ts; } catch {}
+        if (res.ok) ts.sent += 1; else ts.fail += 1;
+        await env.RATE.put(tk, JSON.stringify(ts), { expirationTtl: 400 * 86400 });
+        if (res.ok) {
+          await env.RATE.put('lastout:' + String(body.to || ''),
+            JSON.stringify({ tmpl, occ, at: new Date().toISOString() }), { expirationTtl: 2 * 86400 });
+        }
+      }
       /* daily counters feed the money board: sends, template sends, failures */
       const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
       const key = 'wastat:' + day;
@@ -75,24 +120,13 @@ async function post(env, body, channel) {
         try { cap = JSON.parse(await env.RATE.get('wa:cap')); } catch {}
         if (cap && cap.limit && st.tmpl >= cap.limit * 0.8 && !(await env.RATE.get('capalert:' + day))) {
           await env.RATE.put('capalert:' + day, '1', { expirationTtl: 2 * 86400 });
-          if (env.ALERT_HOOK) {
-            await fetch(env.ALERT_HOOK, {
-              method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                where: 'תקרת וואטסאפ',
-                what: `נשלחו ${st.tmpl} תבניות היום — מעל 80% מתקרת מטא (${cap.limit})`,
-                detail: cap.tier || '', ts: new Date().toISOString(),
-              }),
-            }).catch(() => {});
-          }
+          await opsPing(env, 'תקרת וואטסאפ',
+            `נשלחו ${st.tmpl} תבניות היום, מעל 80% מתקרת מטא (${cap.limit})`, cap.tier || '');
         }
       }
     }
-    if (!res.ok && env.ALERT_HOOK) {
-      await fetch(env.ALERT_HOOK, {
-        method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ where: 'שליחת וואטסאפ', what: res.error, detail: `${body.type} → ${body.to}`, ts: new Date().toISOString() }),
-      });
+    if (!res.ok) {
+      await opsPing(env, 'שליחת וואטסאפ', res.error, `${body.type} → ${body.to}`);
     }
   } catch {}
   return res;
@@ -128,7 +162,7 @@ export function sendOtpTemplate(env, to, code) {
 
 /* The production path. `params` are the positional body variables; `imageUrl`
    fills a header of type IMAGE when the template has one. */
-export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel) {
+export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel, ctx) {
   const components = [];
   if (imageUrl) {
     components.push({ type: 'header', parameters: [{ type: 'image', image: { link: imageUrl } }] });
@@ -142,7 +176,7 @@ export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = '
   return post(env, {
     to: normPhone(to), type: 'template',
     template: { name, language: { code: lang }, ...(components.length ? { components } : {}) },
-  }, channel);
+  }, channel, ctx);
 }
 
 /* ── inbound ── a guest replied: a template button, or free text ──────────

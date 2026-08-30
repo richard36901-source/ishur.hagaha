@@ -67,7 +67,7 @@ window.ISHUR_CONFIG = (function () {
       desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + סבב שיחות אחד',
       features: [
         'כל מה שבחבילת בסיס',
-        '2 סבבי שיחות ממוקד אנושי',
+        'סבב שיחות ממוקד אנושי למי שלא ענה',
         'דף צפייה בזמן אמת 24/7',
         'דוח מסודר ביום האירוע'
       ]
@@ -277,7 +277,7 @@ window.ISHUR_CONFIG = (function () {
       plans: ['pro', 'premium'],
       /* a call round needs lead time. Closer than this to the event it stops
          being offered at all rather than being sold and not delivered. */
-      minDaysBefore: 14
+      minDaysBefore: 7
     },
     more_guests: {
       label: 'הגדלת כמות מוזמנים',

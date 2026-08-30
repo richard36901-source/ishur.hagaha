@@ -22,7 +22,7 @@
    ========================================================================== */
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
-import { buildDashboard, buildCallQueue, callOutcome, buildBizStats } from './dashboard.js';
+import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
 import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone } from './whatsapp.js';
 
@@ -51,16 +51,32 @@ function normPhone(raw) {
   return d;
 }
 
-/* Any failure anywhere → immediate ping to Richard (Make hook → Telegram for
-   now; swaps to the Slack channel the moment a Slack webhook exists). */
+/* Any failure anywhere → immediate ping to Richard in Slack (#ishur-hagaa via
+   incoming webhook). Telegram (ALERT_HOOK → Make) is only the fallback when
+   the Slack secret is missing — Richard asked for Slack-only, 30.8. */
 async function alert(env, where, what, detail) {
+  const what300 = String(what || '').slice(0, 300);
+  const detail500 = String(detail || '').slice(0, 500);
+  if (env.SLACK_ALERT_HOOK) {
+    await slackPost(env, `⚠️ *${where}*\n${what300}${detail500 ? '\n' + detail500 : ''}`);
+    return;
+  }
   if (!env.ALERT_HOOK) return;
   await fetch(env.ALERT_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      where, what: String(what || '').slice(0, 300),
-      detail: String(detail || '').slice(0, 500), ts: new Date().toISOString(),
+      where, what: what300,
+      detail: detail500, ts: new Date().toISOString(),
     }),
+  }).catch(() => {});
+}
+
+/* Anything the team should just SEE (purchases, milestones) — not failures. */
+async function slackPost(env, text) {
+  if (!env.SLACK_ALERT_HOOK) return;
+  await fetch(env.SLACK_ALERT_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
   }).catch(() => {});
 }
 
@@ -116,10 +132,39 @@ async function handleGrowIpn(request, env, url) {
   } catch { return new Response('bad-body', { status: 400 }); }
 
   const flat = { ...(typeof p.data === 'object' ? p.data : {}), ...p };
+
+  /* Richard clears OTHER businesses through the same Grow account, and the
+     Grow webhook fires on every transaction. Only payments made on one of
+     ishur's own payment pages may enter this pipeline. The page ids are the
+     decoded tails of the pay.grow.link URLs in config.js. Raw payloads are
+     kept 14 days so the matcher can be tightened against real traffic. */
+  const ISHUR_GROW_PAGES = [
+    '3300348', '3300353', '3300355', '3300359', '3300361', '3300362',
+    '3300365', '3300367', '3300369', '3300370', '3300372', '3300373',
+    '3300375', '3300376', '3300379', '3300381', '3300383', '3300385',
+    '3300386', '3300389', '3300390', '3874155', '3874157', '3874158',
+    '3874160', '3874161', '3874166', '3874176', '3874178', '3874181',
+  ];
+  const flatDump = JSON.stringify(flat);
+  if (env.RATE) {
+    await env.RATE.put('ipnraw:' + Date.now(), flatDump.slice(0, 8000),
+      { expirationTtl: 14 * 86400 }).catch(() => {});
+  }
+  const isIshur = ISHUR_GROW_PAGES.some((id) => flatDump.includes(id)) ||
+    flatDump.toLowerCase().includes('ishur') || flatDump.includes('אישורי הגעה');
+  if (!isIshur) {
+    await alert(env, 'תשלום Grow', 'תשלום שלא זוהה כ-ishur — לא הופעל שום דבר (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו, הפרטים בפנים',
+      flatDump.slice(0, 400));
+    return new Response('ignored-non-ishur', { status: 200 });
+  }
+
   const ref = String(
     flat.asmachta || flat.transactionId || flat.transactionToken ||
     flat.paymentId || flat.processToken || flat.processId || ''
   ).trim();
+  /* אשראי / ביט / העברה — Grow names this differently per gateway; grab what exists */
+  const payMethod = String(flat.paymentType || flat.paymentMethod || flat.payment_type ||
+    flat.transactionType || flat.typeName || '').trim();
   const phone = normPhone(flat.payerPhone || flat.phone || flat.customerPhone || flat.cell);
   const sum = String(flat.sum || flat.amount || flat.paymentSum || flat.price || '').trim();
   const name = String(flat.fullName || flat.payerName ||
@@ -156,7 +201,7 @@ async function handleGrowIpn(request, env, url) {
   }
 
   const clean = {
-    kind: 'payment', ref, token, phone, sum, name, email,
+    kind: 'payment', ref, token, phone, sum, name, email, payMethod,
     clientId: 'C-' + phone.slice(-9),
     isNewClient: isNewClient ? 'yes' : 'no',
     paidAt: new Date().toISOString(),
@@ -180,7 +225,14 @@ async function handleGrowIpn(request, env, url) {
     /* verified referral: when this payer's lead carries referral:<code>, the
        referrer earns a tier credit. Never blocks the payment path. */
     try { await creditReferral(env, phone, token); } catch {}
+    /* every purchase lands in Slack — Richard doesn't always get Grow's email */
+    await slackPost(env, `🎉 *רכישה חדשה ב-ishur*\n${name || 'ללא שם'} · ${phone}` +
+      `\nסכום: ₪${sum || '?'}${payMethod ? ' · ' + payMethod : ''}` +
+      `\n${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'} · אסמכתא ${ref}`);
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
+    /* the stuck-client stage nudges whoever still hasn't uploaded a day later */
+    if (env.RATE) await env.RATE.put('pend:' + token,
+      JSON.stringify({ phone, name, at: new Date().toISOString() }), { expirationTtl: 7 * 86400 });
     const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
     const wa = await sendTemplate(env, phone, 'ishur_tashlum',
       [first, 'https://ishur.io/upload.html?t=' + token]);
@@ -254,6 +306,21 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     if (!guests.length) return deny(422, 'no-valid-guests', origin);
     if (guests.length > MAX_GUESTS) return deny(422, 'too-many-guests', origin);
 
+    /* the purchased tier caps the list: a 50-guest package cannot swallow a
+       100-row file. The tier sits in the event row (col 32) written at setup;
+       when the row isn't there yet we let it pass and the sheet stays the
+       source of truth for a later manual check. */
+    const capSnap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const capRow = capSnap ? ((capSnap.events && capSnap.events.values) || [])
+      .find(r => String(r[1] || '').trim() === token) : null;
+    const tierNum = capRow ? parseInt(String(capRow[32] || '').replace(/\D/g, ''), 10) || 0 : 0;
+    if (tierNum && guests.length > tierNum) {
+      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: קובץ של ${guests.length} מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
+      return new Response(JSON.stringify({
+        ok: false, error: 'over-tier', allowed: tierNum, got: guests.length,
+      }), { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+    }
+
     /* a partly-bad file stops for a human decision: the client sees exactly
        which rows have problems and chooses — upload anyway, or fix and retry.
        confirm=1 on the second send means "upload anyway". Only pages that
@@ -299,6 +366,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
 
     await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
+    await env.RATE.delete('pend:' + token).catch(() => {});
     return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
   }
 
@@ -322,6 +390,101 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   }).catch(() => null);
   if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
   return okJson({ ok: true, image: !!out.image_url }, origin);
+}
+
+/* ══ guest list over WhatsApp ════════════════════════════════════════════════
+   A paying client can just send the Excel/CSV to the business number instead
+   of the upload page — same parser, same validations, same Make writer. */
+async function waGuestFile(env, from, doc) {
+  const phone = normPhone(from);
+  const token = env.RATE ? await env.RATE.get('claimlink:' + phone) : null;
+  if (!token) {
+    await sendText(env, from, 'קיבלנו את הקובץ 🙂 העלאת רשימת מוזמנים זמינה למי שרכש חבילה, ולא מצאתי תשלום מהמספר הזה. אם שילמתם ממספר אחר, כתבו לנו כאן ונעזור.');
+    return;
+  }
+  const rec = await tokenRecord(env, token);
+  if (!rec) {
+    await sendText(env, from, 'הקישור האישי כבר לא בתוקף. כתבו לנו כאן ונשלח קישור חדש 🙂');
+    return;
+  }
+  if (await env.RATE.get('uploaded:' + token)) {
+    await sendText(env, from, 'כבר קיימת רשימת מוזמנים לאירוע הזה. להחלפת הרשימה כתבו לנו כאן ונטפל בזה יחד.');
+    return;
+  }
+  const fname = String(doc.filename || 'guests.xlsx');
+  if (!/\.(csv|xlsx|xls)$/i.test(fname)) {
+    await sendText(env, from, 'הקובץ צריך להיות אקסל (xlsx) או CSV. אפשר גם דרך הקישור האישי: https://ishur.io/upload.html?t=' + token);
+    return;
+  }
+  const meta = await fetch('https://graph.facebook.com/v21.0/' + doc.id, {
+    headers: { Authorization: 'Bearer ' + env.WA_TOKEN },
+  }).then(r => r.ok ? r.json() : null).catch(() => null);
+  if (!meta || !meta.url) {
+    await sendText(env, from, 'לא הצלחנו למשוך את הקובץ מוואטסאפ. נסו לשלוח שוב 🙂');
+    return;
+  }
+  const buf = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } })
+    .then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
+  if (!buf || buf.byteLength > MAX_FILE_BYTES) {
+    await sendText(env, from, 'הקובץ גדול מדי או לא נקרא. אפשר להעלות דרך הקישור האישי: https://ishur.io/upload.html?t=' + token);
+    return;
+  }
+  let rows;
+  try { rows = parseGuestFile(fname, buf); }
+  catch {
+    await sendText(env, from, 'לא הצלחנו לקרוא את הקובץ. ודאו שיש בו עמודת שם ועמודת טלפון ונסו שוב 🙂');
+    return;
+  }
+  const { guests, skipped } = guestsFromRows(rows);
+  if (!guests.length) {
+    await sendText(env, from, 'לא מצאנו ברשימה אף שורה תקינה (שם + טלפון). בדקו את הקובץ ונסו שוב 🙂');
+    return;
+  }
+  if (guests.length > MAX_GUESTS) {
+    await sendText(env, from, 'הרשימה גדולה מהמותר במערכת. כתבו לנו כאן ונסדר את זה.');
+    return;
+  }
+  const snap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const evRow = snap ? ((snap.events && snap.events.values) || [])
+    .find(r => String(r[1] || '').trim() === token) : null;
+  const tierNum = evRow ? parseInt(String(evRow[32] || '').replace(/\D/g, ''), 10) || 0 : 0;
+  if (tierNum && guests.length > tierNum) {
+    await sendText(env, from, `הרשימה כוללת ${guests.length} מוזמנים, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
+    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${guests.length} מוזמנים מול חבילת ${tierNum}`);
+    return;
+  }
+  const now = new Date().toISOString();
+  const values = guests.map((g, i) => {
+    const row = new Array(29).fill('');
+    row[0] = rec.clientId;
+    row[1] = rec.name || '';
+    row[2] = 'G-' + token.slice(0, 8) + '-' + (i + 1);
+    row[3] = g.name;
+    row[4] = g.phone;
+    row[5] = g.party;
+    row[24] = 'הועלה בוואטסאפ: ' + fname;
+    row[25] = now;
+    row[28] = token;
+    return row;
+  });
+  const r = await fetch(env.HOOK_EVENTS, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_type: 'guests_file', token,
+      file_name: fname,
+      guest_count: guests.length,
+      skipped_count: skipped.length,
+      append_body: JSON.stringify({ values }),
+    }),
+  }).catch(() => null);
+  if (!r || r.status !== 200) {
+    await sendText(env, from, 'קרתה תקלה זמנית בשמירה. נסו שוב בעוד כמה דקות 🙂');
+    return;
+  }
+  await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
+  await env.RATE.delete('pend:' + token).catch(() => {});
+  await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}`);
+  await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`);
 }
 
 /* ══ שיר — the AI caller ═════════════════════════════════════════════════════
@@ -467,6 +630,8 @@ async function handleShirDispatch(request, env, origin) {
     }).catch(() => null);
     if (r && (r.status === 200 || r.status === 201)) {
       await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
+      /* the pro upsell fires the day after a call round actually happened */
+      await env.RATE.put('calldate:' + g.token, day, { expirationTtl: 60 * 86400 });
       dialed.push(g.guest_id);
     }
   }
@@ -508,7 +673,31 @@ async function handleWaWebhook(request, env, url) {
           at: new Date().toISOString(),
         }), { expirationTtl: 90 * 86400 }).catch(() => {});
     }
+    /* an Excel/CSV on WhatsApp = the guest list, same pipeline as the site */
+    if (msg.type === 'document' && msg.document) {
+      await waGuestFile(env, from, msg.document).catch(async (e) => {
+        await alert(env, 'קובץ בוואטסאפ', 'קליטת קובץ נכשלה', `${from}: ${e && e.message}`);
+        await sendText(env, from, 'משהו השתבש בקליטת הקובץ. אפשר לנסות שוב, או להעלות דרך הקישור האישי 🙂');
+      });
+      continue;
+    }
     if (!parsed) continue;
+
+    /* reply-rate attribution: one inbound credits the last template sent */
+    if (env.RATE) {
+      try {
+        const lo = await env.RATE.get('lastout:' + from);
+        if (lo) {
+          const { tmpl, occ } = JSON.parse(lo);
+          const tk = `tstat:${tmpl}:${occ || '-'}`;
+          let st = { sent: 0, fail: 0, replied: 0 };
+          try { st = JSON.parse(await env.RATE.get(tk)) || st; } catch {}
+          st.replied += 1;
+          await env.RATE.put(tk, JSON.stringify(st), { expirationTtl: 400 * 86400 });
+          await env.RATE.delete('lastout:' + from);
+        }
+      } catch {}
+    }
 
     if (parsed.kind === 'optout') {
       if (env.RATE) await env.RATE.put('optout:' + from, new Date().toISOString());
@@ -760,7 +949,8 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     if (dry) { sent++; continue; }
     const name = String(g[3] || '').trim() || 'אורח יקר';
     const res = await sendTemplate(env, phone, 'hazmana_ishur',
-      [name, occasion, hosts, date, time, venue], '', 'he', 'guests');
+      [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
+      { occasion, wave: wave.key, token });
     if (res.ok) sent++; else failed++;
   }
   return { wave: wave.key, sent, skippedOptout, skippedAnswered, failed };
@@ -785,6 +975,34 @@ async function runDailyEngine(env, dry, todayOverride) {
   /* keep Meta's cap cached so the 80% alert has a number during the waves */
   await waCapInfo(env).catch(() => null);
 
+  /* ── stage 0.5: paid but never uploaded a guest list ──────────────────────
+     handleGrowIpn drops pend:<token> at payment; a successful upload deletes
+     it. Whatever is still pending a day later gets one friendly nudge with
+     the personal link (ishur_tzikoret_kovetz) + a tagged Slack heads-up.   */
+  if (env.RATE) {
+    try {
+      const pend = await kvPrefix(env, 'pend:');
+      for (const [token, vRaw] of Object.entries(pend)) {
+        let v = null; try { v = JSON.parse(vRaw); } catch {}
+        if (!v || !v.phone) { if (!dry) await env.RATE.delete('pend:' + token); continue; }
+        if (await env.RATE.get('uploaded:' + token)) { if (!dry) await env.RATE.delete('pend:' + token); continue; }
+        const ageDays = Math.round((Date.parse(today) - Date.parse(String(v.at || today).slice(0, 10))) / 864e5);
+        if (ageDays < 1) continue;
+        if (dry) { out.push({ token, type: 'stuck_client', would_send_to: v.phone }); continue; }
+        const first = (String(v.name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
+        const wa = await sendTemplate(env, v.phone, 'ishur_tzikoret_kovetz',
+          [first, 'https://ishur.io/upload.html?t=' + token], '', 'he', undefined, { token });
+        if (wa.ok) {
+          await addEvCost(env, token, 0.53);
+          await slackPost(env, `🟠 *לקוח תקוע* · ${v.name || ''} ${v.phone}\nשילם אתמול ולא העלה רשימת מוזמנים. נשלחה תזכורת עם הקישור האישי. אפשר לענות לו מהאינבוקס, והוא גם יכול פשוט לשלוח את האקסל בוואטסאפ.`);
+          await env.RATE.delete('pend:' + token);
+          await env.RATE.put('pend2:' + token, today, { expirationTtl: 30 * 86400 });
+        }
+        out.push({ token, type: 'stuck_client', sent: wa.ok });
+      }
+    } catch (e) { await alert(env, 'לקוח תקוע', 'שלב הבדיקה נפל', String(e && e.message)); }
+  }
+
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
   const WAVES = [
     { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
@@ -806,9 +1024,24 @@ async function runDailyEngine(env, dry, todayOverride) {
       if (when !== today) continue;
       const flagKey = `wave:${token}:${wave.key}`;
       if (env.RATE && await env.RATE.get(flagKey)) continue;
+      /* wave 3 is the paid extra_send add-on — no plan includes it. The add-on
+         purchase drops extrasend:<token> into KV; without it the wave holds. */
+      if (wave.key === 3 && env.RATE && !(await env.RATE.get('extrasend:' + token))) {
+        if (!(await env.RATE.get('wave3note:' + token))) {
+          await alert(env, 'גל 3', 'מתוכנן גל שלישי אך תוסף "שליחה נוספת" לא נרכש — הגל מוחזק', token.slice(0, 8));
+          if (!dry) await env.RATE.put('wave3note:' + token, today, { expirationTtl: 120 * 86400 });
+        }
+        continue;
+      }
       const res = await sendWave(env, ev, token, guests, wave, dry);
       if (!dry && res.sent) await addEvCost(env, token, res.sent * 0.53);
       if (!dry && env.RATE) await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
+      /* remember which event date the invitations announced — the postpone
+         stage compares against it when the sheet's date later moves */
+      if (!dry && wave.key === 1 && res.sent && env.RATE) {
+        await env.RATE.put('sentdate:' + token, String(ev[6] || '').trim().slice(0, 10),
+          { expirationTtl: 200 * 86400 });
+      }
       if (!dry && res.failed) {
         await alert(env, 'גל שליחה', `גל ${wave.key} לאירוע ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו`, '');
       }
@@ -819,7 +1052,9 @@ async function runDailyEngine(env, dry, todayOverride) {
        no answer is queued for a call */
     const lastSend = WAVES.map(w => String(ev[w.col] || '').trim().slice(0, 10))
       .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
-    if (lastSend && lastSend < today) {
+    /* calls are a plan feature: בסיס never enters the call queue — the basic
+       upsell stage offers the upgrade instead of silently marking calls */
+    if (lastSend && lastSend < today && planKeyOf(ev) !== 'basic') {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0;
@@ -981,6 +1216,164 @@ async function runDailyEngine(env, dry, todayOverride) {
     if (sent && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
     if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו`, token.slice(0, 8));
     if (sent || failed) out.push({ token, type: 'seating', sent, failed });
+  }
+
+  /* ── stage 5: lifecycle extras — day-before, cancel, postpone, upsell ─────
+     · יום-לפני: promised in every plan — confirmed guests get the venue.
+     · ביטול/דחייה to guests: a הכל-כלול feature; other plans raise an alert
+       so Richard can offer it manually.
+     · upsell: בסיס whose waves left ≥40% silent → offer calls; פרמיום whose
+       single call round left ≥60% unreachable → offer הכל כלול.            */
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const date = String(ev[6] || '').trim().slice(0, 10);
+    if (!token || !paid || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+    const plan = planKeyOf(ev);
+    const guests = gRows.filter(g => String(g[28] || '').trim() === token);
+    const name = String(ev[2] || '').trim();
+    const occasion = String(ev[5] || '').trim();
+    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
+    const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
+    const time = String(ev[36] || '').trim() || 'בשעות הערב';
+    const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ');
+
+    if (cancelled) {
+      if (!invited || date < today) continue;
+      if (env.RATE && await env.RATE.get('cancelmsg:' + token)) continue;
+      if (plan !== 'premium') {
+        if (env.RATE && !(await env.RATE.get('cancelnote:' + token))) {
+          await alert(env, 'אירוע בוטל',
+            `האורחים של ${evName} כבר הוזמנו, אך הודעת ביטול לאורחים כלולה רק בהכל כלול (כאן: ${plan}). לשליחה חד-פעמית דברו איתי`,
+            token.slice(0, 8));
+          if (!dry) await env.RATE.put('cancelnote:' + token, today, { expirationTtl: 60 * 86400 });
+        }
+        continue;
+      }
+      if (dry) { out.push({ token, type: 'cancel_notice', would_send: guests.length }); continue; }
+      let sent = 0, failed = 0; const seen = new Set();
+      for (const g of guests) {
+        const phone = String(g[4] || '').trim();
+        if (!phone || seen.has(phone)) continue; seen.add(phone);
+        if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+        const gname = String(g[3] || '').trim() || 'אורח יקר';
+        const wa = await sendTemplate(env, phone, 'ishur_bitul', [gname, evName], '', 'he', 'guests', { occasion, token });
+        if (wa.ok) sent++; else failed++;
+      }
+      if (sent) { await addEvCost(env, token, sent * 0.53); if (env.RATE) await env.RATE.put('cancelmsg:' + token, today, { expirationTtl: 120 * 86400 }); }
+      if (failed) await alert(env, 'הודעת ביטול', `${failed} שליחות נכשלו`, token.slice(0, 8));
+      out.push({ token, type: 'cancel_notice', sent, failed });
+      continue;
+    }
+
+    const sentDate = env.RATE ? await env.RATE.get('sentdate:' + token) : null;
+    if (invited && sentDate && sentDate !== date && date >= today) {
+      if (plan === 'premium') {
+        if (dry) { out.push({ token, type: 'postpone_notice', would_send: guests.length, from: sentDate, to: date }); }
+        else {
+          let sent = 0, failed = 0; const seen = new Set();
+          for (const g of guests) {
+            const phone = String(g[4] || '').trim();
+            if (!phone || seen.has(phone)) continue; seen.add(phone);
+            if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+            const gname = String(g[3] || '').trim() || 'אורח יקר';
+            const wa = await sendTemplate(env, phone, 'ishur_dchiya',
+              [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
+            if (wa.ok) sent++; else failed++;
+          }
+          if (sent) {
+            await addEvCost(env, token, sent * 0.53);
+            if (env.RATE) {
+              await env.RATE.put('sentdate:' + token, date, { expirationTtl: 200 * 86400 });
+              /* one-shot flags realign to the new date */
+              await env.RATE.delete('report7:' + token).catch(() => {});
+              await env.RATE.delete('seat:' + token).catch(() => {});
+              await env.RATE.delete('daybefore:' + token).catch(() => {});
+            }
+          }
+          if (failed) await alert(env, 'הודעת דחייה', `${failed} שליחות נכשלו`, token.slice(0, 8));
+          out.push({ token, type: 'postpone_notice', sent, failed });
+        }
+      } else if (env.RATE && !(await env.RATE.get(`postponenote:${token}:${date}`))) {
+        await alert(env, 'אירוע נדחה',
+          `${evName} עבר מ-${sentDate} ל-${date}, אך עדכון אורחים כלול רק בהכל כלול (כאן: ${plan})`, token.slice(0, 8));
+        if (!dry) await env.RATE.put(`postponenote:${token}:${date}`, today, { expirationTtl: 60 * 86400 });
+      }
+    }
+
+    const fileUp = String(ev[43] || '').trim() === 'כן';
+    const daysLeft = Math.round((Date.parse(date) - Date.parse(today)) / 864e5);
+    if (fileUp && daysLeft === 1 && !(env.RATE && await env.RATE.get('daybefore:' + token))) {
+      let sent = 0, failed = 0, would = 0; const seen = new Set();
+      for (const g of guests) {
+        const phone = String(g[4] || '').trim();
+        const rsvp = String(g[15] || '').trim();
+        if (!phone || rsvp !== 'מגיע' || seen.has(phone)) continue; seen.add(phone);
+        if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+        if (dry) { would++; continue; }
+        const gname = String(g[3] || '').trim() || 'אורח יקר';
+        const wa = await sendTemplate(env, phone, 'ishur_yom_lifnei',
+          [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
+          { occasion, wave: 'daybefore', token });
+        if (wa.ok) sent++; else failed++;
+      }
+      if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
+      else {
+        if (sent) { await addEvCost(env, token, sent * 0.53); if (env.RATE) await env.RATE.put('daybefore:' + token, today, { expirationTtl: 30 * 86400 }); }
+        if (failed) await alert(env, 'תזכורת יום-לפני', `${failed} שליחות נכשלו`, token.slice(0, 8));
+        if (sent || failed) out.push({ token, type: 'day_before', sent, failed });
+      }
+    }
+
+    /* rulebook: a call round takes time — no calls offer under 7 days out */
+    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7) {
+      const lastSend = [39, 40, 41].map(c => String(ev[c] || '').trim().slice(0, 10))
+        .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+      if (lastSend && Math.round((Date.parse(today) - Date.parse(lastSend)) / 864e5) >= 2 &&
+          !(env.RATE && await env.RATE.get('upsell:' + token))) {
+        const total = guests.length;
+        const silent = guests.filter(g => !String(g[15] || '').trim()).length;
+        if (total >= 10 && silent / total >= 0.4) {
+          const phone = String(ev[3] || '').trim();
+          const first = (name.split(' ')[0] || '').trim() || 'שלום';
+          if (dry) out.push({ token, type: 'upsell_basic', silent, total });
+          else if (phone) {
+            const wa = await sendTemplate(env, phone, 'ishur_shidrug',
+              [first, evName, `${silent} מתוך ${total}`], '', 'he', undefined, { occasion, token });
+            if (wa.ok && env.RATE) await env.RATE.put('upsell:' + token, today, { expirationTtl: 120 * 86400 });
+            if (wa.ok) {
+              await addEvCost(env, token, 0.53);
+              await slackPost(env, `💡 *הצעת שדרוג נשלחה* · ${name} (בסיס): ${silent}/${total} לא ענו להודעות — הוצעו שיחות של שיר`);
+            }
+            out.push({ token, type: 'upsell_basic', sent: wa.ok });
+          }
+        }
+      }
+    }
+
+    if (plan === 'pro' && guests.length && daysLeft >= 7) {
+      const callDay = env.RATE ? await env.RATE.get('calldate:' + token) : null;
+      if (callDay && callDay < today && !(env.RATE && await env.RATE.get('upsell2:' + token))) {
+        const tried = guests.filter(g => (Number(String(g[29] || '').trim()) || 0) >= 1);
+        const silent = tried.filter(g => !String(g[15] || '').trim()).length;
+        if (tried.length >= 5 && silent / tried.length >= 0.6) {
+          const phone = String(ev[3] || '').trim();
+          const first = (name.split(' ')[0] || '').trim() || 'שלום';
+          if (dry) out.push({ token, type: 'upsell_pro', silent, tried: tried.length });
+          else if (phone) {
+            const wa = await sendTemplate(env, phone, 'ishur_shidrug_sichot',
+              [first, evName, `${silent} מתוך ${tried.length}`], '', 'he', undefined, { occasion, token });
+            if (wa.ok && env.RATE) await env.RATE.put('upsell2:' + token, today, { expirationTtl: 120 * 86400 });
+            if (wa.ok) {
+              await addEvCost(env, token, 0.53);
+              await slackPost(env, `💡 *הצעת הכל כלול נשלחה* · ${name} (פרמיום): ${silent}/${tried.length} לא נענו לסבב השיחות`);
+            }
+            out.push({ token, type: 'upsell_pro', sent: wa.ok });
+          }
+        }
+      }
+    }
   }
   return { ok: true, date: today, events: out };
 }
@@ -1444,6 +1837,76 @@ async function handleDailyRun(request, env, origin) {
   return okJson(await runDailyEngine(env, !!body.dry, body.today), origin);
 }
 
+/* ══ Retell admin proxy ══════════════════════════════════════════════════════
+   RETELL_KEY exists only in this Worker's secrets, so Retell account plumbing
+   (importing the Telnyx number, binding agents) is driven through here rather
+   than a key on any laptop. POST {admin_key, path, method?, payload?} — path
+   must start with '/' and is hit verbatim on api.retellai.com.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleShirAdmin(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RETELL_KEY) return deny(503, 'shir-not-configured', origin);
+  const path = String(body.path || '');
+  if (!path.startsWith('/')) return deny(400, 'bad-path', origin);
+  const method = String(body.method || 'GET').toUpperCase();
+  const init = { method, headers: { Authorization: `Bearer ${env.RETELL_KEY}` } };
+  if (body.payload !== undefined && method !== 'GET') {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(body.payload);
+  }
+  const r = await fetch(`https://api.retellai.com${path}`, init).catch(() => null);
+  if (!r) return deny(502, 'retell-unreachable', origin);
+  let out = null;
+  try { out = await r.json(); } catch { out = null; }
+  return okJson({ ok: r.ok, status: r.status, data: out }, origin);
+}
+
+/* ══ message performance ═════════════════════════════════════════════════════
+   tstat:<template>:<occasion> counts sent/fail/replied (reply credited by the
+   inbound webhook against lastout:<phone>). This is the raw feed for "which
+   wording works for which event type" — the digest ranks it weekly in Slack,
+   and improvement stays a human decision until Richard automates it.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function msgStats(env) {
+  const raw = await kvPrefix(env, 'tstat:');
+  const rows = [];
+  for (const [k, v] of Object.entries(raw)) {
+    const [, tmpl, occ] = k.split(':');
+    let st = null; try { st = JSON.parse(v); } catch {}
+    if (!st) continue;
+    const sent = Number(st.sent) || 0;
+    rows.push({
+      template: tmpl, occasion: occ === '-' ? '' : occ,
+      sent, fail: Number(st.fail) || 0, replied: Number(st.replied) || 0,
+      reply_rate: sent ? Math.round((Number(st.replied) || 0) / sent * 100) : 0,
+    });
+  }
+  rows.sort((a, b) => b.sent - a.sent);
+  return rows;
+}
+
+async function handleMsgStats(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  return okJson({ ok: true, stats: await msgStats(env) }, origin);
+}
+
+async function msgPerformanceDigest(env) {
+  const rows = (await msgStats(env)).filter(r => r.sent >= 20);
+  if (!rows.length) return;
+  const byRate = [...rows].sort((a, b) => b.reply_rate - a.reply_rate);
+  const best = byRate[0], worst = byRate[byRate.length - 1];
+  const lines = rows.slice(0, 8).map(r =>
+    `· ${r.template}${r.occasion ? ' (' + r.occasion + ')' : ''}: ${r.sent} נשלחו, ${r.reply_rate}% ענו${r.fail ? ', ' + r.fail + ' נכשלו' : ''}`);
+  await slackPost(env,
+    `📊 *ביצועי הודעות — סיכום שבועי*\n${lines.join('\n')}\n\n` +
+    `🏆 הכי טובה: ${best.template}${best.occasion ? ' (' + best.occasion + ')' : ''} — ${best.reply_rate}% מענה\n` +
+    (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
+}
+
 /* ══ Money & sources board ═══════════════════════════════════════════════════
    Admin-gated: revenue per day (from the events sheet), messaging + call costs
    per day (from KV counters), and lead sources (utm) from the leads sheet.
@@ -1753,6 +2216,10 @@ export default {
     }
     ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
+    }).then(() => {
+      /* Monday morning: the weekly message-performance digest into Slack */
+      const dow = new Date(ilDate() + 'T12:00:00Z').getUTCDay();
+      if (dow === 1) return msgPerformanceDigest(env).catch(() => {});
     }).catch(() => {}));
   },
 
@@ -1796,6 +2263,12 @@ export default {
     }
     if (url.pathname === '/api/brain-toggle' && request.method === 'POST') {
       return handleBrainToggle(request, env, origin);
+    }
+    if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
+      return handleShirAdmin(request, env, origin);
+    }
+    if (url.pathname === '/api/msg-stats' && request.method === 'POST') {
+      return handleMsgStats(request, env, origin);
     }
     if (url.pathname === '/api/backup' && request.method === 'POST') {
       return handleBackup(request, env, origin);

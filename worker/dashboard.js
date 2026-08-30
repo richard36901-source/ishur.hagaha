@@ -12,6 +12,21 @@
                15 מגיע? (מגיע/לא מגיע/מתלבט) · 21 סטטוס שיחה · 28 מזהה אירוע
    ========================================================================== */
 
+/* The purchased plan decides what the machine may do for an event:
+   בסיס — messages only, no calls · פרמיום — one call attempt per guest ·
+   הכל כלול — three attempts on separate days. Column 31 holds the Hebrew
+   plan name; an unknown/empty value falls back to פרמיום (the site default). */
+export function planKeyOf(ev) {
+  const s = String((ev && ev[31]) || '').trim().toLowerCase();
+  if (/הכל|premium|all/.test(s)) return 'premium';
+  if (/בסיס|basic|base/.test(s)) return 'basic';
+  return 'pro';
+}
+
+export function planMaxCallTries(planKey) {
+  return planKey === 'premium' ? 3 : planKey === 'pro' ? 1 : 0;
+}
+
 function guestStatus(rsvp, callFlag) {
   if (rsvp === 'מגיע') return 'confirmed';
   if (rsvp === 'לא מגיע') return 'declined';
@@ -38,6 +53,10 @@ export function buildCallQueue(raw, maxTries = 3) {
     const token = g(28);
     const ev = events[token] || [];
     const e = i => String(ev[i] ?? '').trim();
+    if (e(27) === 'כן') continue;            // cancelled event — never call
+    const plan = planKeyOf(ev);
+    const planCap = planMaxCallTries(plan);
+    if (!planCap) continue;                  // בסיס — calls are not included
     queue.push({
       guest_id: g(2),
       name: g(3),
@@ -46,7 +65,8 @@ export function buildCallQueue(raw, maxTries = 3) {
       rsvp: g(15),
       last_answer: g(22),
       tries,
-      capped: tries >= maxTries,
+      capped: tries >= Math.min(maxTries, planCap),
+      plan,
       token,
       client_name: e(2),
       occasion: e(5),
