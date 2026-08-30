@@ -1950,9 +1950,12 @@ async function waCapInfo(env) {
   let cached = null;
   if (env.RATE) { try { cached = JSON.parse(await env.RATE.get('wa:cap')); } catch {} }
   if (cached) return cached;
-  if (!env.WA_TOKEN || !env.WA_PHONE_ID) return null;
-  const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID}?fields=messaging_limit_tier,quality_rating`, {
-    headers: { Authorization: 'Bearer ' + env.WA_TOKEN },
+  /* the cap that matters is the SENDING number's — guests once it exists */
+  const capPhone = env.WA_PHONE_ID_GUESTS || env.WA_PHONE_ID;
+  const capToken = (env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+  if (!capToken || !capPhone) return null;
+  const r = await fetch(`https://graph.facebook.com/v21.0/${capPhone}?fields=messaging_limit_tier,quality_rating`, {
+    headers: { Authorization: 'Bearer ' + capToken },
   }).catch(() => null);
   if (!r || !r.ok) return null;
   const j = await r.json().catch(() => null);

@@ -23,11 +23,22 @@ function normPhone(raw) {
   return d;
 }
 
-/* guests get their own number the moment WA_PHONE_ID_GUESTS exists;
-   until then everything rides the client number. */
+/* Guests ride their own number the moment WA_PHONE_ID_GUESTS exists. That
+   number lives in a SEPARATE Meta business portfolio on purpose: bulk sending
+   is what gets flagged, and a ban there must not touch the client number.
+   A separate portfolio means a separate system user, hence its own token
+   (WA_TOKEN_GUESTS). Until both secrets exist, everything rides the client
+   number and the client token — the system degrades, it never breaks. */
 function pickPhone(env, channel) {
   if (channel === 'guests' && env.WA_PHONE_ID_GUESTS) return env.WA_PHONE_ID_GUESTS;
   return env.WA_PHONE_ID;
+}
+
+function pickToken(env, channel) {
+  if (channel === 'guests' && env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS) {
+    return env.WA_TOKEN_GUESTS;
+  }
+  return env.WA_TOKEN;
 }
 
 /* failures and cap warnings go where Richard looks: Slack first, Telegram
@@ -49,10 +60,11 @@ async function opsPing(env, where, what, detail) {
 
 async function post(env, body, channel, ctx) {
   const phoneId = pickPhone(env, channel);
-  if (!env.WA_TOKEN || !phoneId) return { ok: false, error: 'wa-not-configured' };
+  const token = pickToken(env, channel);
+  if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
   const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
     method: 'POST',
-    headers: { Authorization: 'Bearer ' + env.WA_TOKEN, 'Content-Type': 'application/json' },
+    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
     body: JSON.stringify({ messaging_product: 'whatsapp', ...body }),
   }).catch(() => null);
   let res;
