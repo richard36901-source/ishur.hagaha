@@ -575,7 +575,7 @@ async function getBrain(env) {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
-      qk1: 'ranges', qv1: 'מוח שירות!A1:B80',
+      qk1: 'ranges', qv1: 'מוח שירות!A1:D80',
     }),
   }).catch(() => null);
   if (!r || !r.ok) return fallback;
@@ -585,6 +585,8 @@ async function getBrain(env) {
   const brain = {
     active: !/כבוי/.test(cell(0, 1)),
     persona: cell(1, 1),
+    reviewLink: cell(0, 3),      // D1 — Google review link for the end-of-event message
+    testimonialLink: cell(1, 3), // D2 — video-testimonial tool link
     faq: rows.slice(4).map(x => [String(x[0] || '').trim(), String(x[1] || '').trim()])
       .filter(x => x[0] && x[1]).slice(0, 60),
   };
@@ -705,13 +707,15 @@ async function sendWave(env, ev, token, guests, wave, dry) {
   return { wave: wave.key, sent, skippedOptout, skippedAnswered, failed };
 }
 
-async function runDailyEngine(env, dry) {
+async function runDailyEngine(env, dry, todayOverride) {
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
     await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
     return { ok: false, error: 'no-snapshot' };
   }
-  const today = ilDate();
+  /* date override is allowed in dry runs only — for testing tomorrow safely */
+  const today = (dry && /^\d{4}-\d{2}-\d{2}$/.test(String(todayOverride || '')))
+    ? String(todayOverride) : ilDate();
   const isShabbat = new Date(today + 'T12:00:00Z').getUTCDay() === 6;
   if (isShabbat && !dry) return { ok: true, skipped: 'shabbat' };
 
@@ -818,6 +822,62 @@ async function runDailyEngine(env, dry) {
     if (!wa.ok) await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה', token + ': ' + wa.error);
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
+
+  /* ── stage 3: the day-after wrap-up — thanks + final report + review links ──
+     Fires once per event, the first non-Shabbat morning after the event date.
+     The Google-review and video-testimonial links live in the brain sheet
+     (מוח שירות D1/D2) so Richard drops them in without a deploy; until both
+     exist the message waits and he gets a single reminder alert per event.  */
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const date = String(ev[6] || '').trim().slice(0, 10);
+    const phone = String(ev[3] || '').trim();
+    if (!token || !paid || cancelled || !phone || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
+
+    const daysAfter = Math.round((Date.parse(today) - Date.parse(date)) / 864e5);
+    if (daysAfter < 1 || daysAfter > 14) continue; // day-after and up to two weeks late, then let it go
+    if (env.RATE && await env.RATE.get('eoe:' + token)) continue;
+
+    let confirmed = 0, declined = 0, pending = 0, diners = 0;
+    for (const g of gRows) {
+      if (String(g[28] || '').trim() !== token) continue;
+      const st = String(g[15] || '').trim();
+      if (st === 'מגיע') {
+        confirmed += 1;
+        diners += Number(String(g[13] || '').trim()) || Number(String(g[5] || '').trim()) || 1;
+      } else if (st === 'לא מגיע') declined += 1;
+      else pending += 1;
+    }
+
+    const name = String(ev[2] || '').trim();
+    const occasion = String(ev[5] || '').trim();
+    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+    const brain = await getBrain(env);
+    const review = String(brain.reviewLink || '').trim();
+    const clip = String(brain.testimonialLink || '').trim();
+
+    if (dry) {
+      out.push({ token, type: 'end_of_event', daysAfter, confirmed, diners, declined, pending,
+        links_missing: !(review && clip), would_send_to: phone });
+      continue;
+    }
+    if (!review || !clip) {
+      if (!(env.RATE && await env.RATE.get('eoelink:' + token))) {
+        await alert(env, 'סוף-אירוע',
+          'חסרים קישורי ביקורת/המלצה (מוח שירות D1/D2) — הודעת הסיום ממתינה', token.slice(0, 8));
+        if (env.RATE) await env.RATE.put('eoelink:' + token, today, { expirationTtl: 14 * 86400 });
+      }
+      continue;
+    }
+    const wa = await sendTemplate(env, phone, 'ishur_syum', [
+      evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
+    ]);
+    if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
+    if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
+    out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
+  }
   return { ok: true, date: today, events: out };
 }
 
@@ -825,7 +885,7 @@ async function handleDailyRun(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
-  return okJson(await runDailyEngine(env, !!body.dry), origin);
+  return okJson(await runDailyEngine(env, !!body.dry, body.today), origin);
 }
 
 /* ══ Money & sources board ═══════════════════════════════════════════════════
@@ -1194,6 +1254,15 @@ export default {
       if (!raw) return deny(502, 'reader-failed', origin);
       const snapshot = buildDashboard(token, raw);
       if (!snapshot) return deny(404, 'event-not-found', origin);
+      /* after the event: surface the review + testimonial links permanently */
+      const evDate = String(snapshot.event.event_date || '').slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && evDate < ilDate()) {
+        const brain = await getBrain(env);
+        snapshot.after_party = {
+          review: String(brain.reviewLink || '').trim(),
+          clip: String(brain.testimonialLink || '').trim(),
+        };
+      }
       return okJson(snapshot, origin);
     }
 

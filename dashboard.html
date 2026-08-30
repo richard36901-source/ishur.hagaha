@@ -437,6 +437,22 @@
     אחרי זה השליחה כבר יצאה לדרך.
   </p>
 
+  <!-- after the event: review + testimonial, stays here for good -->
+  <section class="card" id="afterCard" hidden>
+    <div class="card-h">תודה שחגגתם איתנו 💚</div>
+    <div style="padding:1rem 1.1rem">
+      <p style="font-size:.9rem;color:#4A554E;margin:0 0 .8rem">
+        האירוע מאחוריכם — נשמח אם תקדישו דקה, זה עוזר לזוגות הבאים למצוא אותנו:
+      </p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <a id="apReview" target="_blank" rel="noopener" hidden
+           style="flex:1;min-width:10rem;text-align:center;background:#0F4C35;color:#fff;border-radius:10px;padding:.65rem 1rem;text-decoration:none;font-weight:600;font-size:.9rem">⭐ ביקורת בגוגל</a>
+        <a id="apClip" target="_blank" rel="noopener" hidden
+           style="flex:1;min-width:10rem;text-align:center;background:#fff;color:#0F4C35;border:1.5px solid #0F4C35;border-radius:10px;padding:.65rem 1rem;text-decoration:none;font-weight:600;font-size:.9rem">🎥 המלצת וידאו קצרה</a>
+      </div>
+    </div>
+  </section>
+
   <!-- add-ons -->
   <section class="card" id="addonsCard">
     <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
@@ -625,6 +641,7 @@
     renderRows();
     renderSends();
     renderAddons();
+    renderAfterParty();
   }
 
   /* the numbers climb to their value as the cells land */
@@ -790,6 +807,15 @@
     })['catch'](function () {
       btn.disabled = false; btn.textContent = 'שמירת התאריך'; $('live').textContent = 'לא הצלחנו לעדכן';
     });
+  }
+
+  function renderAfterParty() {
+    var ap = data.after_party || null;
+    var has = ap && (ap.review || ap.clip);
+    $('afterCard').hidden = !has;
+    if (!has) return;
+    if (ap.review) { $('apReview').href = ap.review; $('apReview').hidden = false; }
+    if (ap.clip) { $('apClip').href = ap.clip; $('apClip').hidden = false; }
   }
 
   function renderAddons() {
