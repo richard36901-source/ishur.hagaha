@@ -72,6 +72,7 @@ export function buildCallPayload(guest, fromNumber) {
       guest_id: guest.guest_id,
       token: guest.token,
       tries: String(guest.tries || 0),
+      max_tries: String(guest.max_tries || 3),
     },
     retell_llm_dynamic_variables: {
       guest_name: String(guest.name || ''),
@@ -97,12 +98,15 @@ export function retellToCallResult(body) {
     const meta = (body.call && body.call.metadata) || {};
     const args = body.args || {};
     const base = Number(meta.tries) || 0;
-    const result = callOutcome(String(args.outcome || ''), base);
+    /* the plan decides how many rounds this guest is entitled to; the cap
+       rides in the call metadata so the webhook honours it too */
+    const cap = Number(meta.max_tries) || 3;
+    const result = callOutcome(String(args.outcome || ''), base, cap);
     if (!result || !meta.guest_id) return null;
     /* an automated dial always consumes an attempt (callOutcome only
        increments for לא ענה, which is not a tool outcome) */
     result.tries = base + 1;
-    if (result.call_status === 'נדרשת שיחה' && result.tries >= 3) result.call_status = '';
+    if (result.call_status === 'נדרשת שיחה' && result.tries >= cap) result.call_status = '';
     return {
       kind: 'tool',
       call_id: String((body.call && body.call.call_id) || ''),
@@ -135,7 +139,7 @@ export function retellToCallResult(body) {
     return {
       kind: 'end-no-outcome', call_id: callId, guest_id: String(meta.guest_id),
       result: {
-        rsvp: '', call_status: tries >= 3 ? '' : 'נדרשת שיחה',
+        rsvp: '', call_status: tries >= (Number(meta.max_tries) || 3) ? '' : 'נדרשת שיחה',
         answer: 'שיחה ללא תוצאה ברורה', tries,
       },
       cost_cents: costOf(call),

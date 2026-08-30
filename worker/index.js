@@ -153,11 +153,26 @@ async function handleGrowIpn(request, env, url) {
   const isIshur = ISHUR_GROW_PAGES.some((id) => flatDump.includes(id)) ||
     flatDump.toLowerCase().includes('ishur') || flatDump.includes('אישורי הגעה');
   if (!isIshur) {
-    await alert(env, 'תשלום Grow', 'תשלום שלא זוהה כ-ishur — לא הופעל שום דבר (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו, הפרטים בפנים',
-      flatDump.slice(0, 400));
+    /* The matcher has never seen a real Grow payload, so a miss here could be
+       a genuine customer who paid and would get nothing. Never silently drop:
+       park the whole payload under ipnmiss:<id> (30d) and shout in Slack with
+       the id, so /api/ipn-replay can push it through the normal pipeline. */
+    const missId = 'ipnmiss:' + Date.now();
+    if (env.RATE) {
+      await env.RATE.put(missId, flatDump.slice(0, 12000), { expirationTtl: 30 * 86400 }).catch(() => {});
+    }
+    await alert(env, 'תשלום Grow לא זוהה',
+      `תשלום שלא זוהה כ-ishur לא הופעל (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו — שלח לי את המזהה ${missId} ואני מריץ אותו מיד`,
+      flatDump.slice(0, 600));
     return new Response('ignored-non-ishur', { status: 200 });
   }
 
+  return processGrowPayment(env, flat);
+}
+
+/* Everything after the ishur gate. Split out so a payment the gate wrongly
+   rejected can be replayed from KV through the identical path. */
+async function processGrowPayment(env, flat) {
   const ref = String(
     flat.asmachta || flat.transactionId || flat.transactionToken ||
     flat.paymentId || flat.processToken || flat.processId || ''
@@ -243,6 +258,48 @@ async function handleGrowIpn(request, env, url) {
   return new Response(ok ? 'ok' : 'writer-failed', { status: ok ? 200 : 502 });
 }
 
+/* Per-event levers that live in KV rather than the sheet, so they can be
+   flipped without a deploy: extrasend (unlocks wave 3, the paid add-on) and
+   hold (freezes every guest send for one event).
+   POST {admin_key, token, flag:'extrasend'|'hold', on:bool}; omit `on` to read. */
+const EVENT_FLAGS = ['extrasend', 'hold'];
+async function handleEventFlag(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const token = String(body.token || '').trim();
+  const flag = String(body.flag || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token) || !EVENT_FLAGS.includes(flag) || !env.RATE) {
+    return deny(400, 'bad-request', origin);
+  }
+  const key = flag + ':' + token;
+  if (typeof body.on !== 'boolean') {
+    return okJson({ ok: true, flag, on: !!(await env.RATE.get(key)) }, origin);
+  }
+  if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+  else await env.RATE.delete(key);
+  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`);
+  return okJson({ ok: true, flag, on: body.on }, origin);
+}
+
+/* A payment the ishur gate wrongly rejected: POST {admin_key, id:"ipnmiss:…"}
+   pushes the stored payload through the normal pipeline, once. */
+async function handleIpnReplay(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const id = String(body.id || '').trim();
+  if (!/^ipnmiss:\d+$/.test(id) || !env.RATE) return deny(400, 'bad-id', origin);
+  const raw = await env.RATE.get(id);
+  if (!raw) return deny(404, 'not-found', origin);
+  let flat = null;
+  try { flat = JSON.parse(raw); } catch { return deny(422, 'bad-payload', origin); }
+  const res = await processGrowPayment(env, flat);
+  const text = await res.text().catch(() => '');
+  if (res.status === 200) await env.RATE.delete(id).catch(() => {});
+  return okJson({ ok: res.status === 200, status: res.status, result: text }, origin);
+}
+
 /* thanks.html asks: "payment ref X just paid — where do I go?" Only the payer
    holds the ref, so returning the tokenized link to it is safe. */
 async function handleClaim(request, env, origin) {
@@ -291,6 +348,20 @@ function okJson(payload, origin) {
   });
 }
 
+/* The purchased tier, from the event row (col 32, e.g. "עד 300"). 0 = unknown,
+   which lets the upload through and leaves the sheet as the source of truth. */
+function tierOf(evRow) {
+  if (!evRow) return 0;
+  return parseInt(String(evRow[32] || '').replace(/\D/g, ''), 10) || 0;
+}
+
+/* Invitations, not people: one phone number is one invitation. */
+function countBillable(guests) {
+  const seen = new Set();
+  for (const g of guests) { const p = normPhone(g.phone); if (p) seen.add(p); }
+  return seen.size;
+}
+
 async function handleEventForm(form, rec, token, env, origin, target, url) {
   const file = form.get('file');
   if (file && typeof file === 'object' && file.arrayBuffer) {
@@ -313,11 +384,14 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     const capSnap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
     const capRow = capSnap ? ((capSnap.events && capSnap.events.values) || [])
       .find(r => String(r[1] || '').trim() === token) : null;
-    const tierNum = capRow ? parseInt(String(capRow[32] || '').replace(/\D/g, ''), 10) || 0 : 0;
-    if (tierNum && guests.length > tierNum) {
-      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: קובץ של ${guests.length} מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
+    const tierNum = tierOf(capRow);
+    /* the tier counts invitations, i.e. distinct phone numbers — a family on
+       one number is one invitation, exactly as the waves dedupe them */
+    const billable = countBillable(guests);
+    if (tierNum && billable > tierNum) {
+      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} הזמנות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
       return new Response(JSON.stringify({
-        ok: false, error: 'over-tier', allowed: tierNum, got: guests.length,
+        ok: false, error: 'over-tier', allowed: tierNum, got: billable,
       }), { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
     }
 
@@ -397,9 +471,15 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
    of the upload page — same parser, same validations, same Make writer. */
 async function waGuestFile(env, from, doc) {
   const phone = normPhone(from);
+  /* anyone can send documents to a business number: cap the work and the
+     replies per sender so this path cannot be used to burn our send quota */
+  if (await overBudget(env, 'rl:wadoc:' + phone, 5, 3600)) return;
   const token = env.RATE ? await env.RATE.get('claimlink:' + phone) : null;
   if (!token) {
-    await sendText(env, from, 'קיבלנו את הקובץ 🙂 העלאת רשימת מוזמנים זמינה למי שרכש חבילה, ולא מצאתי תשלום מהמספר הזה. אם שילמתם ממספר אחר, כתבו לנו כאן ונעזור.');
+    /* one explanation per sender per day, then silence */
+    if (!(await seenOnce(env, 'wadocnag:' + phone + ':' + ilDate()))) {
+      await sendText(env, from, 'קיבלנו את הקובץ 🙂 העלאת רשימת מוזמנים זמינה למי שרכש חבילה, ולא מצאתי תשלום מהמספר הזה. אם שילמתם ממספר אחר, כתבו לנו כאן ונעזור.');
+    }
     return;
   }
   const rec = await tokenRecord(env, token);
@@ -423,6 +503,12 @@ async function waGuestFile(env, from, doc) {
     await sendText(env, from, 'לא הצלחנו למשוך את הקובץ מוואטסאפ. נסו לשלוח שוב 🙂');
     return;
   }
+  /* trust the declared size first so a huge file is never pulled into the
+     isolate, then re-check the bytes we actually got */
+  if (Number(meta.file_size) > MAX_FILE_BYTES) {
+    await sendText(env, from, 'הקובץ גדול מדי לשליחה בוואטסאפ. אפשר להעלות דרך הקישור האישי: https://ishur.io/upload.html?t=' + token);
+    return;
+  }
   const buf = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } })
     .then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
   if (!buf || buf.byteLength > MAX_FILE_BYTES) {
@@ -444,13 +530,24 @@ async function waGuestFile(env, from, doc) {
     await sendText(env, from, 'הרשימה גדולה מהמותר במערכת. כתבו לנו כאן ונסדר את זה.');
     return;
   }
+  /* The website shows problem rows and asks before writing. WhatsApp has no
+     room for that, and one guest list per event is final — so a file with a
+     material number of unusable rows goes to the page instead of being
+     silently accepted minus the people it dropped. */
+  if (skipped.length > Math.max(3, Math.round(guests.length * 0.1))) {
+    await sendText(env, from,
+      `בקובץ יש ${skipped.length} שורות שלא הצלחנו לקרוא (חסר שם או טלפון תקין), ורשימה נשמרת פעם אחת.\n` +
+      `כדי לראות בדיוק אילו שורות ולהחליט, פתחו את הקישור האישי: https://ishur.io/upload.html?t=${token}`);
+    return;
+  }
   const snap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
   const evRow = snap ? ((snap.events && snap.events.values) || [])
     .find(r => String(r[1] || '').trim() === token) : null;
-  const tierNum = evRow ? parseInt(String(evRow[32] || '').replace(/\D/g, ''), 10) || 0 : 0;
-  if (tierNum && guests.length > tierNum) {
-    await sendText(env, from, `הרשימה כוללת ${guests.length} מוזמנים, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
-    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${guests.length} מוזמנים מול חבילת ${tierNum}`);
+  const tierNum = tierOf(evRow);
+  const billable = countBillable(guests);
+  if (tierNum && billable > tierNum) {
+    await sendText(env, from, `הרשימה כוללת ${billable} הזמנות, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
+    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${billable} הזמנות מול חבילת ${tierNum}`);
     return;
   }
   const now = new Date().toISOString();
@@ -663,6 +760,10 @@ async function handleWaWebhook(request, env, url) {
 
   for (const { from, msg } of extractInbound(payload)) {
     try {
+    /* Meta retries a delivery until it gets a 200, and one slow reply is
+       enough to earn a retry. Without this the guest is answered twice and
+       the sheet is written twice. msg.id is Meta's stable per-message id. */
+    if (msg.id && await seenOnce(env, 'wain:' + msg.id)) continue;
     const parsed = parseInboundReply(msg);
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
@@ -700,7 +801,7 @@ async function handleWaWebhook(request, env, url) {
     }
 
     if (parsed.kind === 'optout') {
-      if (env.RATE) await env.RATE.put('optout:' + from, new Date().toISOString());
+      if (env.RATE) await env.RATE.put('optout:' + normPhone(from), new Date().toISOString());
       await sendText(env, from, 'הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
       continue;
     }
@@ -945,7 +1046,7 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     seenPhones.add(phone);
     const answered = String(g[15] || '').trim() !== '';
     if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
-    if (env.RATE && await env.RATE.get('optout:' + phone)) { skippedOptout++; continue; }
+    if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) { skippedOptout++; continue; }
     if (dry) { sent++; continue; }
     const name = String(g[3] || '').trim() || 'אורח יקר';
     const res = await sendTemplate(env, phone, 'hazmana_ishur',
@@ -1043,15 +1144,22 @@ async function runDailyEngine(env, dry, todayOverride) {
       /* wave 3 is the paid extra_send add-on — no plan includes it. The add-on
          purchase drops extrasend:<token> into KV; without it the wave holds. */
       if (wave.key === 3 && env.RATE && !(await env.RATE.get('extrasend:' + token))) {
+        if (dry) { out.push({ token, type: 'wave3_held' }); continue; }
         if (!(await env.RATE.get('wave3note:' + token))) {
           await alert(env, 'גל 3', 'מתוכנן גל שלישי אך תוסף "שליחה נוספת" לא נרכש — הגל מוחזק', token.slice(0, 8));
-          if (!dry) await env.RATE.put('wave3note:' + token, today, { expirationTtl: 120 * 86400 });
+          await env.RATE.put('wave3note:' + token, today, { expirationTtl: 120 * 86400 });
         }
         continue;
       }
       const res = await sendWave(env, ev, token, guests, wave, dry);
       if (!dry && res.sent) await addEvCost(env, token, res.sent * 0.53);
-      if (!dry && env.RATE) await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
+      /* only close the wave if something actually went out. A wave where every
+         send failed (revoked token, number blocked) must stay open so a fixed
+         re-run still reaches the guests instead of burning the list. */
+      const waveDelivered = res.sent > 0 || res.failed === 0;
+      if (!dry && env.RATE && waveDelivered) {
+        await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
+      }
       /* remember which event date the invitations announced — the postpone
          stage compares against it when the sheet's date later moves */
       if (!dry && wave.key === 1 && res.sent && env.RATE) {
@@ -1104,6 +1212,7 @@ async function runDailyEngine(env, dry, todayOverride) {
     const date = String(ev[6] || '').trim();
     const phone = String(ev[3] || '').trim();
     if (!token || !paid || cancelled || !phone || !/^\d{4}-\d{2}-\d{2}/.test(date)) continue;
+    if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
     const daysLeft = Math.round((Date.parse(date.slice(0, 10)) - Date.parse(today)) / 864e5);
     if (daysLeft < 0 || daysLeft > 7) continue;
@@ -1151,6 +1260,7 @@ async function runDailyEngine(env, dry, todayOverride) {
     const phone = String(ev[3] || '').trim();
     if (!token || !paid || cancelled || !phone || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
 
+    if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     const daysAfter = Math.round((Date.parse(today) - Date.parse(date)) / 864e5);
     if (daysAfter < 1 || daysAfter > 14) continue; // day-after and up to two weeks late, then let it go
     if (env.RATE && await env.RATE.get('eoe:' + token)) continue;
@@ -1207,6 +1317,7 @@ async function runDailyEngine(env, dry, todayOverride) {
     const date = String(ev[6] || '').trim().slice(0, 10);
     if (!token || !paid || cancelled || date !== today) continue;
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
+    if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
     const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
@@ -1221,7 +1332,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       const rsvp = String(g[15] || '').trim();
       if (!phone || !table || rsvp !== 'מגיע' || seenPhones.has(phone)) continue;
       seenPhones.add(phone);
-      if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+      if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
       if (dry) { would++; continue; }
       const gname = String(g[3] || '').trim() || 'אורח יקר';
       const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
@@ -1248,6 +1359,14 @@ async function runDailyEngine(env, dry, todayOverride) {
     if (!token || !paid || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     const plan = planKeyOf(ev);
+    /* an unreadable plan cell silently downgrades a הכל כלול customer to one
+       call round — never let that pass quietly */
+    if (!String(ev[31] || '').trim() && !dry && env.RATE &&
+        !(await env.RATE.get('plannote:' + token))) {
+      await alert(env, 'חבילה חסרה',
+        `לאירוע ${token.slice(0, 8)} אין חבילה בעמודה AF — המערכת מתייחסת אליו כפרמיום. למלא בגיליון`, '');
+      await env.RATE.put('plannote:' + token, today, { expirationTtl: 60 * 86400 });
+    }
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
     const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
@@ -1260,6 +1379,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       if (!invited || date < today) continue;
       if (env.RATE && await env.RATE.get('cancelmsg:' + token)) continue;
       if (plan !== 'premium') {
+        if (dry) { out.push({ token, type: 'cancel_note_would_alert' }); continue; }
         if (env.RATE && !(await env.RATE.get('cancelnote:' + token))) {
           await alert(env, 'אירוע בוטל',
             `האורחים של ${evName} כבר הוזמנו, אך הודעת ביטול לאורחים כלולה רק בהכל כלול (כאן: ${plan}). לשליחה חד-פעמית דברו איתי`,
@@ -1273,7 +1393,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       for (const g of guests) {
         const phone = String(g[4] || '').trim();
         if (!phone || seen.has(phone)) continue; seen.add(phone);
-        if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+        if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_bitul', [gname, evName], '', 'he', 'guests', { occasion, token });
         if (wa.ok) sent++; else failed++;
@@ -1293,7 +1413,7 @@ async function runDailyEngine(env, dry, todayOverride) {
           for (const g of guests) {
             const phone = String(g[4] || '').trim();
             if (!phone || seen.has(phone)) continue; seen.add(phone);
-            if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+            if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
             const gname = String(g[3] || '').trim() || 'אורח יקר';
             const wa = await sendTemplate(env, phone, 'ishur_dchiya',
               [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
@@ -1312,6 +1432,8 @@ async function runDailyEngine(env, dry, todayOverride) {
           if (failed) await alert(env, 'הודעת דחייה', `${failed} שליחות נכשלו`, token.slice(0, 8));
           out.push({ token, type: 'postpone_notice', sent, failed });
         }
+      } else if (dry) {
+        out.push({ token, type: 'postpone_note_would_alert', from: sentDate, to: date });
       } else if (env.RATE && !(await env.RATE.get(`postponenote:${token}:${date}`))) {
         await alert(env, 'אירוע נדחה',
           `${evName} עבר מ-${sentDate} ל-${date}, אך עדכון אורחים כלול רק בהכל כלול (כאן: ${plan})`, token.slice(0, 8));
@@ -1321,13 +1443,17 @@ async function runDailyEngine(env, dry, todayOverride) {
 
     const fileUp = String(ev[43] || '').trim() === 'כן';
     const daysLeft = Math.round((Date.parse(date) - Date.parse(today)) / 864e5);
-    if (fileUp && daysLeft === 1 && !(env.RATE && await env.RATE.get('daybefore:' + token))) {
+    /* D-1 normally, but the engine never runs on Shabbat, so a Sunday event
+       would lose its reminder entirely. The window covers the event morning
+       too and the KV flag keeps it to one send either way. */
+    if (fileUp && daysLeft >= 0 && daysLeft <= 1 &&
+        !(env.RATE && await env.RATE.get('daybefore:' + token))) {
       let sent = 0, failed = 0, would = 0; const seen = new Set();
       for (const g of guests) {
         const phone = String(g[4] || '').trim();
         const rsvp = String(g[15] || '').trim();
         if (!phone || rsvp !== 'מגיע' || seen.has(phone)) continue; seen.add(phone);
-        if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+        if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
         if (dry) { would++; continue; }
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_yom_lifnei',
@@ -1345,9 +1471,11 @@ async function runDailyEngine(env, dry, todayOverride) {
 
     /* rulebook: a call round takes time — no calls offer under 7 days out */
     if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7) {
-      const lastSend = [39, 40, 41].map(c => String(ev[c] || '').trim().slice(0, 10))
-        .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
-      if (lastSend && Math.round((Date.parse(today) - Date.parse(lastSend)) / 864e5) >= 2 &&
+      /* measure from the FIRST wave that already went out: by the time the
+         last one lands there is no room left before the 7-day calls cutoff */
+      const firstSend = [39, 40, 41].map(c => String(ev[c] || '').trim().slice(0, 10))
+        .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d <= today).sort().shift();
+      if (firstSend && Math.round((Date.parse(today) - Date.parse(firstSend)) / 864e5) >= 2 &&
           !(env.RATE && await env.RATE.get('upsell:' + token))) {
         const total = guests.length;
         const silent = guests.filter(g => !String(g[15] || '').trim()).length;
@@ -1370,7 +1498,10 @@ async function runDailyEngine(env, dry, todayOverride) {
     }
 
     if (plan === 'pro' && guests.length && daysLeft >= 7) {
-      const callDay = env.RATE ? await env.RATE.get('calldate:' + token) : null;
+      const callDay = env.RATE
+        ? (await env.RATE.get('calldate:' + token)) ||
+          (await env.RATE.get('calldate8:' + token.slice(0, 8)))
+        : null;
       if (callDay && callDay < today && !(env.RATE && await env.RATE.get('upsell2:' + token))) {
         const tried = guests.filter(g => (Number(String(g[29] || '').trim()) || 0) >= 1);
         const silent = tried.filter(g => !String(g[15] || '').trim()).length;
@@ -1890,7 +2021,11 @@ async function msgStats(env) {
   const raw = await kvPrefix(env, 'tstat:');
   const rows = [];
   for (const [k, v] of Object.entries(raw)) {
-    const [, tmpl, occ] = k.split(':');
+    /* kvPrefix already strips "tstat:", so k is "<template>:<occasion>".
+       Split on the first colon only — an occasion may contain one. */
+    const i = k.indexOf(':');
+    const tmpl = i < 0 ? k : k.slice(0, i);
+    const occ = i < 0 ? '-' : k.slice(i + 1);
     let st = null; try { st = JSON.parse(v); } catch {}
     if (!st) continue;
     const sent = Number(st.sent) || 0;
@@ -1950,9 +2085,10 @@ async function waCapInfo(env) {
   let cached = null;
   if (env.RATE) { try { cached = JSON.parse(await env.RATE.get('wa:cap')); } catch {} }
   if (cached) return cached;
-  /* the cap that matters is the SENDING number's — guests once it exists */
-  const capPhone = env.WA_PHONE_ID_GUESTS || env.WA_PHONE_ID;
-  const capToken = (env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+  /* the cap that matters is the SENDING number's — guests once fully wired */
+  const guestsReady = !!(env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS);
+  const capPhone = guestsReady ? env.WA_PHONE_ID_GUESTS : env.WA_PHONE_ID;
+  const capToken = guestsReady ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
   if (!capToken || !capPhone) return null;
   const r = await fetch(`https://graph.facebook.com/v21.0/${capPhone}?fields=messaging_limit_tier,quality_rating`, {
     headers: { Authorization: 'Bearer ' + capToken },
@@ -2290,6 +2426,12 @@ export default {
     if (url.pathname === '/api/msg-stats' && request.method === 'POST') {
       return handleMsgStats(request, env, origin);
     }
+    if (url.pathname === '/api/event-flag' && request.method === 'POST') {
+      return handleEventFlag(request, env, origin);
+    }
+    if (url.pathname === '/api/ipn-replay' && request.method === 'POST') {
+      return handleIpnReplay(request, env, origin);
+    }
     if (url.pathname === '/api/backup' && request.method === 'POST') {
       return handleBackup(request, env, origin);
     }
@@ -2441,6 +2583,13 @@ export default {
         }),
       }).catch(() => null);
       if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+      /* a human round counts as a round: the guest id carries the event's
+         first 8 token chars, which is all the upsell stage needs */
+      const gid = String(stampFields.guest_id || '');
+      const m8 = /^G-([0-9a-f]{8})-/i.exec(gid);
+      if (m8 && env.RATE) {
+        await env.RATE.put('calldate8:' + m8[1], ilDate(), { expirationTtl: 60 * 86400 }).catch(() => {});
+      }
       return okJson({ ok: true, ...result }, origin);
     }
 
@@ -2450,6 +2599,12 @@ export default {
       const rec = await tokenRecord(env, token);
       if (!rec) return deny(403, 'unknown-token', origin);
       if (parsedForm) return handleEventForm(parsedForm, rec, token, env, origin, target, url);
+      /* JSON on this route is the settings step only. Guest rows must go
+         through handleEventForm, which owns parsing, the tier cap and the
+         one-upload lock — a raw append_body here would skip all three. */
+      if (stampFields.append_body || stampFields.event_type === 'guests_file') {
+        return deny(400, 'guests-need-upload', origin);
+      }
     }
 
     const headers = new Headers();

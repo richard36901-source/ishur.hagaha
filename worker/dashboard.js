@@ -51,7 +51,9 @@ export function buildCallQueue(raw, maxTries = 3) {
     if (!g(2) || !g(4)) continue; // a row without a guest id or phone is noise
     const tries = Number(g(29)) || 0;
     const token = g(28);
-    const ev = events[token] || [];
+    /* no event row means no plan and no date: never dial into the unknown */
+    const ev = events[token];
+    if (!ev) continue;
     const e = i => String(ev[i] ?? '').trim();
     if (e(27) === 'כן') continue;            // cancelled event — never call
     const plan = planKeyOf(ev);
@@ -65,6 +67,7 @@ export function buildCallQueue(raw, maxTries = 3) {
       rsvp: g(15),
       last_answer: g(22),
       tries,
+      max_tries: Math.min(maxTries, planCap),
       capped: tries >= Math.min(maxTries, planCap),
       plan,
       token,

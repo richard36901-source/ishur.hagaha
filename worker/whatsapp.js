@@ -29,15 +29,19 @@ function normPhone(raw) {
    A separate portfolio means a separate system user, hence its own token
    (WA_TOKEN_GUESTS). Until both secrets exist, everything rides the client
    number and the client token — the system degrades, it never breaks. */
+/* The pair moves together: a guests number in another portfolio is unusable
+   without its own token, so half a configuration must never route traffic. */
+function guestsReady(env) {
+  return !!(env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS);
+}
+
 function pickPhone(env, channel) {
-  if (channel === 'guests' && env.WA_PHONE_ID_GUESTS) return env.WA_PHONE_ID_GUESTS;
+  if (channel === 'guests' && guestsReady(env)) return env.WA_PHONE_ID_GUESTS;
   return env.WA_PHONE_ID;
 }
 
 function pickToken(env, channel) {
-  if (channel === 'guests' && env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS) {
-    return env.WA_TOKEN_GUESTS;
-  }
+  if (channel === 'guests' && guestsReady(env)) return env.WA_TOKEN_GUESTS;
   return env.WA_TOKEN;
 }
 
