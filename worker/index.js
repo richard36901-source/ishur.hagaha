@@ -624,6 +624,75 @@ async function writeGuestReply(env, guest, outcome, party) {
   }).catch(() => null);
 }
 
+/* ══ daily engine · stage 1: the week-before report ══════════════════════════
+   Runs every morning (cron) and on demand via /api/daily-run.
+   One report per event, the first non-Shabbat day within 7 days of the event:
+   ishur_doch to the client with confirmed / diners / declined / pending and
+   their personal dashboard link. KV flag report7:<token> makes it fire once.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function runDailyEngine(env, dry) {
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) {
+    await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
+    return { ok: false, error: 'no-snapshot' };
+  }
+  const today = ilDate();
+  const isShabbat = new Date(today + 'T12:00:00Z').getUTCDay() === 6;
+  if (isShabbat && !dry) return { ok: true, skipped: 'shabbat' };
+
+  const evRows = (raw.events && raw.events.values) || [];
+  const gRows = (raw.guests && raw.guests.values) || [];
+  const out = [];
+
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const date = String(ev[6] || '').trim();
+    const phone = String(ev[3] || '').trim();
+    if (!token || !paid || cancelled || !phone || !/^\d{4}-\d{2}-\d{2}/.test(date)) continue;
+
+    const daysLeft = Math.round((Date.parse(date.slice(0, 10)) - Date.parse(today)) / 864e5);
+    if (daysLeft < 0 || daysLeft > 7) continue;
+    if (env.RATE && await env.RATE.get('report7:' + token)) continue;
+
+    let confirmed = 0, declined = 0, pending = 0, diners = 0;
+    for (const g of gRows) {
+      if (String(g[28] || '').trim() !== token) continue;
+      const st = String(g[15] || '').trim();
+      if (st === 'מגיע') {
+        confirmed += 1;
+        diners += Number(String(g[13] || '').trim()) || Number(String(g[5] || '').trim()) || 1;
+      } else if (st === 'לא מגיע') declined += 1;
+      else pending += 1;
+    }
+
+    const name = String(ev[2] || '').trim();
+    const occasion = String(ev[5] || '').trim();
+    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+
+    if (dry) {
+      out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
+      continue;
+    }
+    const wa = await sendTemplate(env, phone, 'ishur_doch', [
+      evName, String(confirmed), String(diners), String(declined), String(pending),
+      'https://ishur.io/dashboard.html?t=' + token,
+    ]);
+    if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
+    if (!wa.ok) await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה', token + ': ' + wa.error);
+    out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
+  }
+  return { ok: true, date: today, events: out };
+}
+
+async function handleDailyRun(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  return okJson(await runDailyEngine(env, !!body.dry), origin);
+}
+
 /* ══ Money & sources board ═══════════════════════════════════════════════════
    Admin-gated: revenue per day (from the events sheet), messaging + call costs
    per day (from KV counters), and lead sources (utm) from the leads sheet.
@@ -884,6 +953,11 @@ async function overBudget(env, key, limit, windowSec) {
 }
 
 export default {
+  /* the morning run: reports (and, next stage, the guest sending waves) */
+  async scheduled(event, env, ctx) {
+    ctx.waitUntil(runDailyEngine(env, false));
+  },
+
   async fetch(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -918,6 +992,9 @@ export default {
     }
     if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
       return handleOpsStats(request, env, origin);
+    }
+    if (url.pathname === '/api/daily-run' && request.method === 'POST') {
+      return handleDailyRun(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);

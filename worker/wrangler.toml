@@ -8,3 +8,7 @@ id = "05a171c6b3cb46f2af7cc72b1ac19f14"
 
 [ai]
 binding = "AI"
+
+# 06:35 UTC = בוקר בישראל כל השנה (08:35 חורף / 09:35 קיץ)
+[triggers]
+crons = ["35 6 * * *"]
