@@ -128,20 +128,31 @@
       <button class="rng" data-d="30">חודש</button>
       <button class="rng" data-d="90">רבעון</button>
       <button class="rng" data-d="365">שנה</button>
+      <input type="date" id="d-from" style="font:inherit;font-size:.72rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+      –
+      <input type="date" id="d-to" style="font:inherit;font-size:.72rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
     </span>
     <span id="rngLbl"></span>
   </div>
-  <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+  <div class="kpis" style="grid-template-columns:repeat(5,1fr)">
     <div class="kpi money"><b id="p-rev">–</b><span>הכנסות ₪</span></div>
     <div class="kpi"><b id="p-pay">–</b><span>תשלומים</span></div>
-    <div class="kpi"><b id="p-cost">–</b><span>הוצאות תפעול ₪*</span></div>
+    <div class="kpi"><b id="p-cost">–</b><span>הוצאות ₪*</span></div>
     <div class="kpi money"><b id="p-profit">–</b><span>רווח גולמי ₪</span></div>
+    <div class="kpi money"><b id="p-avg">–</b><span>רווח ממוצע ללקוח ₪</span></div>
   </div>
   <div class="tblwrap" style="padding:.6rem .4rem;background:var(--card);border:1px solid var(--line);border-radius:12px">
     <svg id="chart" width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" aria-label="הכנסות לפי יום"></svg>
   </div>
   <p style="font-size:.68rem;color:var(--ink3);margin:.4rem 0 .2rem">* הוצאות = הודעות וואטסאפ + שיחות שיר, בהמרה משוערת של ‎$1 = ₪3.7. עלויות מודעות יתווספו בחיבור חשבון המודעות.</p>
-  <p id="capLine" style="font-size:.78rem;color:var(--ink2);margin:0 0 1rem" hidden></p>
+  <p id="capLine" style="font-size:.78rem;color:var(--ink2);margin:0 0 .4rem" hidden></p>
+  <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;font-size:.78rem;color:var(--ink2);margin:0 0 1rem">
+    <span>עלויות מודעות לפי חודש:</span>
+    <input type="month" id="ad-month" style="font:inherit;font-size:.72rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+    <input type="number" id="ad-ils" min="0" placeholder="₪" style="font:inherit;font-size:.72rem;width:6rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">
+    <button class="rng" id="ad-save">שמירה</button>
+    <span id="ad-cur" style="color:var(--ink3)"></span>
+  </div>
 
   <h2>מאיפה מגיעים הלידים</h2>
   <div class="tblwrap">
@@ -279,6 +290,7 @@
             '</b> שיחות-עסק (' + pct + '%)' + (q ? ' · איכות מספר: ' + q : '');
           if (pct >= 80) { el.style.color = '#A8402F'; el.style.fontWeight = '600'; }
         }
+        paintAdCur();
         var rows = $('utmRows'); rows.innerHTML = '';
         $('utmEmpty').hidden = d.utm.length > 0;
         d.utm.forEach(function (u) {
@@ -290,27 +302,58 @@
       }).catch(function () {});
   }
 
+  /* the range is either a preset (last N days) or the two free date fields */
+  var rangeFrom = null, rangeTo = null;
+  function rangeBounds() {
+    if (rangeFrom && rangeTo && rangeFrom <= rangeTo) return { from: rangeFrom, to: rangeTo };
+    return {
+      from: new Date(Date.now() - (rangeDays - 1) * 864e5).toISOString().slice(0, 10),
+      to: new Date().toISOString().slice(0, 10),
+    };
+  }
+
+  /* ad spend overlapping the range, allocated by day within each month */
+  function adSpendIls(from, to) {
+    var map = (opsData && opsData.adspend) || {};
+    var total = 0;
+    Object.keys(map).forEach(function (m) {
+      var mStart = m + '-01';
+      var dim = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate();
+      var mEnd = m + '-' + String(dim).padStart(2, '0');
+      var s = mStart > from ? mStart : from;
+      var e = mEnd < to ? mEnd : to;
+      if (s > e) return;
+      var overlap = Math.round((Date.parse(e) - Date.parse(s)) / 864e5) + 1;
+      total += map[m] * overlap / dim;
+    });
+    return total;
+  }
+
   function renderOps() {
     if (!opsData) return;
-    var since = new Date(Date.now() - rangeDays * 864e5).toISOString().slice(0, 10);
-    var rows = opsData.series.filter(function (s) { return s.date >= since; });
+    var b = rangeBounds();
+    var rows = opsData.series.filter(function (s) { return s.date >= b.from && s.date <= b.to; });
     var rev = 0, pay = 0, costUsdC = 0;
     rows.forEach(function (s) {
       rev += s.revenue_ils; pay += s.payments;
       costUsdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
     });
-    var costIls = costUsdC / 100 * USD_ILS;
+    var adIls = adSpendIls(b.from, b.to);
+    var costIls = costUsdC / 100 * USD_ILS + adIls;
+    var profit = rev - costIls;
     $('p-rev').textContent = rev.toLocaleString('he-IL');
     $('p-pay').textContent = pay;
     $('p-cost').textContent = costIls.toFixed(costIls < 100 ? 1 : 0);
-    $('p-profit').textContent = Math.round(rev - costIls).toLocaleString('he-IL');
-    $('rngLbl').textContent = 'מ-' + heDate(since);
+    $('p-profit').textContent = Math.round(profit).toLocaleString('he-IL');
+    $('p-avg').textContent = pay ? Math.round(profit / pay).toLocaleString('he-IL') : '–';
+    $('rngLbl').textContent = heDate(b.from) + ' – ' + heDate(b.to);
 
     /* bar chart: revenue per day, cost overlaid as a darker base bar */
     var svg = $('chart'); svg.innerHTML = '';
     var byDate = {}; rows.forEach(function (s) { byDate[s.date] = s; });
     var days = [];
-    for (var i = rangeDays - 1; i >= 0; i--) days.push(new Date(Date.now() - i * 864e5).toISOString().slice(0, 10));
+    var span = Math.min(730, Math.round((Date.parse(b.to) - Date.parse(b.from)) / 864e5));
+    for (var i = span; i >= 0; i--) days.push(new Date(Date.parse(b.to) - i * 864e5).toISOString().slice(0, 10));
     var max = 1; days.forEach(function (d) { var s = byDate[d]; if (s) max = Math.max(max, s.revenue_ils); });
     var W = 720, H = 180, pad = 4, bw = Math.max(2, W / days.length - 2);
     days.forEach(function (d, i) {
@@ -334,8 +377,43 @@
     });
   }
 
-  Array.prototype.forEach.call(document.querySelectorAll('.rng'), function (b) {
-    b.addEventListener('click', function () { rangeDays = Number(b.dataset.d); renderOps(); });
+  Array.prototype.forEach.call(document.querySelectorAll('.rng[data-d]'), function (b) {
+    b.addEventListener('click', function () {
+      rangeDays = Number(b.dataset.d);
+      rangeFrom = rangeTo = null;
+      $('d-from').value = ''; $('d-to').value = '';
+      renderOps();
+    });
+  });
+  ['d-from', 'd-to'].forEach(function (id) {
+    $(id).addEventListener('change', function () {
+      rangeFrom = $('d-from').value || null;
+      rangeTo = $('d-to').value || null;
+      if (rangeFrom && rangeTo) renderOps();
+    });
+  });
+
+  /* ── ad spend save ── */
+  $('ad-month').value = new Date().toISOString().slice(0, 7);
+  function paintAdCur() {
+    var m = $('ad-month').value;
+    var v = opsData && opsData.adspend && opsData.adspend[m];
+    $('ad-cur').textContent = v ? 'שמור: ₪' + Number(v).toLocaleString('he-IL') : '';
+    if (v) $('ad-ils').value = v;
+  }
+  $('ad-month').addEventListener('change', paintAdCur);
+  $('ad-save').addEventListener('click', function () {
+    var m = $('ad-month').value, v = Number($('ad-ils').value);
+    if (!m || isNaN(v)) return;
+    $('ad-save').disabled = true;
+    fetch(CFG.endpoint('adspend'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, month: m, ils: v })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        $('ad-save').disabled = false;
+        if (d && d.ok) { opsData.adspend = d.adspend; paintAdCur(); renderOps(); }
+      }).catch(function () { $('ad-save').disabled = false; });
   });
 
   /* ── transcript sheet ── */

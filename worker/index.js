@@ -941,6 +941,24 @@ async function handleBackup(request, env, origin) {
   return okJson({ ok: true, dates: dates.sort().reverse() }, origin);
 }
 
+/* ══ Manual ad-spend per month ═══════════════════════════════════════════════
+   Richard types what he actually paid Meta/Google each month; the P&L board
+   subtracts it. Stored as adspend:<YYYY-MM> in KV, no expiry.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleAdspend(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+  const m = String(body.month || '').slice(0, 7);
+  if (/^\d{4}-\d{2}$/.test(m) && body.ils != null) {
+    await env.RATE.put('adspend:' + m, String(Math.max(0, Number(body.ils) || 0)));
+  }
+  const map = {};
+  for (const [k, v] of Object.entries(await kvPrefix(env, 'adspend:'))) map[k] = Number(v) || 0;
+  return okJson({ ok: true, adspend: map }, origin);
+}
+
 /* ══ AI kill-switch from the admin board ═════════════════════════════════════
    Writes פעיל/כבוי into מוח שירות!B1 (the same cell Richard edits by hand)
    and busts the 3-minute brain cache so the change bites immediately.
@@ -1091,12 +1109,16 @@ async function handleOpsStats(request, env, origin) {
   let usedToday = 0;
   try { usedToday = Number((JSON.parse(waDays[ilDate()] || '{}') || {}).tmpl) || 0; } catch {}
 
+  const adspend = {};
+  for (const [k, v] of Object.entries(await kvPrefix(env, 'adspend:'))) adspend[k] = Number(v) || 0;
+
   return okJson({
     ok: true,
     series: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
     utm: Object.entries(utm).sort((a, b) => b[1] - a[1]),
     leads_total: leadRows.filter(r => String((r || [])[2] || '').trim()).length,
     wa_cap: cap ? { ...cap, used_today: usedToday } : null,
+    adspend,
     generated_at: new Date().toISOString(),
   }, origin);
 }
@@ -1330,6 +1352,9 @@ export default {
     }
     if (url.pathname === '/api/backup' && request.method === 'POST') {
       return handleBackup(request, env, origin);
+    }
+    if (url.pathname === '/api/adspend' && request.method === 'POST') {
+      return handleAdspend(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
