@@ -47,6 +47,15 @@ async function post(env, body) {
       await env.RATE.put('log:' + String(body.to || '') + ':' + Date.now(),
         JSON.stringify({ dir: 'out', type: body.type, ok: res.ok, error: res.error || '', at: new Date().toISOString() }),
         { expirationTtl: 90 * 86400 });
+      /* daily counters feed the money board: sends, template sends, failures */
+      const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+      const key = 'wastat:' + day;
+      let st = { out: 0, tmpl: 0, fail: 0 };
+      try { st = JSON.parse(await env.RATE.get(key)) || st; } catch {}
+      st.out += 1;
+      if (body.type === 'template') st.tmpl += 1;
+      if (!res.ok) st.fail += 1;
+      await env.RATE.put(key, JSON.stringify(st), { expirationTtl: 400 * 86400 });
     }
     if (!res.ok && env.ALERT_HOOK) {
       await fetch(env.ALERT_HOOK, {

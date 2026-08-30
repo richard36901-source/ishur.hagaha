@@ -624,6 +624,87 @@ async function writeGuestReply(env, guest, outcome, party) {
   }).catch(() => null);
 }
 
+/* ══ Money & sources board ═══════════════════════════════════════════════════
+   Admin-gated: revenue per day (from the events sheet), messaging + call costs
+   per day (from KV counters), and lead sources (utm) from the leads sheet.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function kvPrefix(env, prefix) {
+  const out = {};
+  if (!env.RATE || !env.RATE.list) return out;
+  let cursor;
+  for (let i = 0; i < 10; i++) {
+    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) out[k.name.slice(prefix.length)] = await env.RATE.get(k.name);
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return out;
+}
+
+async function handleOpsStats(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+
+  const [raw, waDays, shirDays, leadsRes] = await Promise.all([
+    fetchSnapshot(env.HOOK_STATUS),
+    kvPrefix(env, 'wastat:'),
+    kvPrefix(env, 'shircost:'),
+    env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+        qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500',
+      }),
+    }).catch(() => null) : null,
+  ]);
+
+  /* revenue per day: paid, not cancelled, dated by the Grow-payment stamp */
+  const days = {};
+  const day = d => (days[d] = days[d] ||
+    { date: d, revenue_ils: 0, payments: 0, wa_msgs: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 });
+  for (const ev of (raw && raw.events && raw.events.values) || []) {
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const m = String(ev[25] || '').match(/\d{4}-\d{2}-\d{2}/);
+    if (!paid || cancelled || !m) continue;
+    const d = day(m[0]);
+    d.revenue_ils += Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0;
+    d.payments += 1;
+  }
+  for (const [d, v] of Object.entries(waDays)) {
+    let st = {}; try { st = JSON.parse(v) || {}; } catch {}
+    const row = day(d);
+    row.wa_msgs += Number(st.out) || 0;
+    /* utility template ≈ $0.0053; free-form service messages cost nothing */
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
+  }
+  for (const [d, v] of Object.entries(shirDays)) {
+    day(d).shir_cost_usd_cents += Number(v) || 0;
+  }
+
+  /* lead sources */
+  const utm = {};
+  let leadRows = [];
+  if (leadsRes && leadsRes.ok) {
+    try { leadRows = (await leadsRes.json()).valueRanges[0].values || []; } catch {}
+  }
+  for (const r of leadRows) {
+    if (!String((r || [])[2] || '').trim()) continue;
+    const src = String(r[11] || '').trim() || 'ישיר / לא ידוע';
+    utm[src] = (utm[src] || 0) + 1;
+  }
+
+  return okJson({
+    ok: true,
+    series: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
+    utm: Object.entries(utm).sort((a, b) => b[1] - a[1]),
+    leads_total: leadRows.filter(r => String((r || [])[2] || '').trim()).length,
+    generated_at: new Date().toISOString(),
+  }, origin);
+}
+
 /* ══ Shir call monitoring ════════════════════════════════════════════════════
    Admin-gated proxy to Retell: live concurrency, today's cost, recent calls
    with duration / cost / recording / transcript. Feeds the admin board.
@@ -834,6 +915,9 @@ export default {
     }
     if (url.pathname === '/api/shir-calls' && request.method === 'POST') {
       return handleShirCalls(request, env, origin);
+    }
+    if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
+      return handleOpsStats(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);

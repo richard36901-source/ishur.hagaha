@@ -104,6 +104,36 @@
   </div>
   <p class="empty" id="shirEmpty" hidden>עוד לא היו שיחות. ברגע ששיר תתחיל לחייג — הכל יופיע כאן: משך, עלות, הקלטה ותמלול מלא.</p>
 
+  <h2>כספים · רווח והפסד</h2>
+  <div class="meta">
+    <span>
+      <button class="rng" data-d="7">שבוע</button>
+      <button class="rng" data-d="30">חודש</button>
+      <button class="rng" data-d="90">רבעון</button>
+      <button class="rng" data-d="365">שנה</button>
+    </span>
+    <span id="rngLbl"></span>
+  </div>
+  <div class="kpis" style="grid-template-columns:repeat(4,1fr)">
+    <div class="kpi money"><b id="p-rev">–</b><span>הכנסות ₪</span></div>
+    <div class="kpi"><b id="p-pay">–</b><span>תשלומים</span></div>
+    <div class="kpi"><b id="p-cost">–</b><span>הוצאות תפעול ₪*</span></div>
+    <div class="kpi money"><b id="p-profit">–</b><span>רווח גולמי ₪</span></div>
+  </div>
+  <div class="tblwrap" style="padding:.6rem .4rem;background:var(--card);border:1px solid var(--line);border-radius:12px">
+    <svg id="chart" width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" aria-label="הכנסות לפי יום"></svg>
+  </div>
+  <p style="font-size:.68rem;color:var(--ink3);margin:.4rem 0 1rem">* הוצאות = הודעות וואטסאפ + שיחות שיר, בהמרה משוערת של ‎$1 = ₪3.7. עלויות מודעות יתווספו בחיבור חשבון המודעות.</p>
+
+  <h2>מאיפה מגיעים הלידים</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>מקור</th><th>לידים</th><th>%</th></tr></thead>
+      <tbody id="utmRows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="utmEmpty" hidden>עוד אין לידים לניתוח מקורות.</p>
+
   <p class="foot"><a href="calls.html">→ למוקד השיחות</a> · הנתונים נקראים ישירות מהגיליון</p>
 </main>
 
@@ -167,7 +197,81 @@
       $('gen').textContent = 'לא הצלחנו לטעון — רעננו';
     });
     loadShir();
+    loadOps();
   }
+
+  /* ── money board ── */
+  var USD_ILS = 3.7;
+  var opsData = null;
+  var rangeDays = 30;
+
+  function loadOps() {
+    fetch(CFG.endpoint('ops'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        opsData = d;
+        renderOps();
+        var rows = $('utmRows'); rows.innerHTML = '';
+        $('utmEmpty').hidden = d.utm.length > 0;
+        d.utm.forEach(function (u) {
+          var tr = document.createElement('tr');
+          var pct = d.leads_total ? Math.round(u[1] / d.leads_total * 100) : 0;
+          tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td>';
+          rows.appendChild(tr);
+        });
+      }).catch(function () {});
+  }
+
+  function renderOps() {
+    if (!opsData) return;
+    var since = new Date(Date.now() - rangeDays * 864e5).toISOString().slice(0, 10);
+    var rows = opsData.series.filter(function (s) { return s.date >= since; });
+    var rev = 0, pay = 0, costUsdC = 0;
+    rows.forEach(function (s) {
+      rev += s.revenue_ils; pay += s.payments;
+      costUsdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
+    });
+    var costIls = costUsdC / 100 * USD_ILS;
+    $('p-rev').textContent = rev.toLocaleString('he-IL');
+    $('p-pay').textContent = pay;
+    $('p-cost').textContent = costIls.toFixed(costIls < 100 ? 1 : 0);
+    $('p-profit').textContent = Math.round(rev - costIls).toLocaleString('he-IL');
+    $('rngLbl').textContent = 'מ-' + heDate(since);
+
+    /* bar chart: revenue per day, cost overlaid as a darker base bar */
+    var svg = $('chart'); svg.innerHTML = '';
+    var byDate = {}; rows.forEach(function (s) { byDate[s.date] = s; });
+    var days = [];
+    for (var i = rangeDays - 1; i >= 0; i--) days.push(new Date(Date.now() - i * 864e5).toISOString().slice(0, 10));
+    var max = 1; days.forEach(function (d) { var s = byDate[d]; if (s) max = Math.max(max, s.revenue_ils); });
+    var W = 720, H = 180, pad = 4, bw = Math.max(2, W / days.length - 2);
+    days.forEach(function (d, i) {
+      var s = byDate[d];
+      var x = i * (W / days.length) + 1;
+      if (s && s.revenue_ils > 0) {
+        var h = Math.max(3, (s.revenue_ils / max) * (H - 30));
+        var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        r.setAttribute('x', x); r.setAttribute('y', H - pad - h);
+        r.setAttribute('width', bw); r.setAttribute('height', h);
+        r.setAttribute('rx', 2); r.setAttribute('fill', '#0F4C35');
+        var t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
+        t.textContent = heDate(d) + ' · ₪' + s.revenue_ils.toLocaleString('he-IL') + ' · ' + s.payments + ' תשלומים';
+        r.appendChild(t); svg.appendChild(r);
+      } else {
+        var b = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        b.setAttribute('x', x); b.setAttribute('y', H - pad - 2);
+        b.setAttribute('width', bw); b.setAttribute('height', 2);
+        b.setAttribute('fill', '#E3E1D8'); svg.appendChild(b);
+      }
+    });
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('.rng'), function (b) {
+    b.addEventListener('click', function () { rangeDays = Number(b.dataset.d); renderOps(); });
+  });
 
   function fmtDur(s) {
     if (s == null) return '—';
