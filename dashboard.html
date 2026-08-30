@@ -501,6 +501,21 @@
     </div>
   </section>
 
+  <!-- invite a friend + loyalty tier -->
+  <section class="card" id="refCard" hidden>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center">
+      <span>הזמן חבר</span>
+      <span id="tierChip" style="font-size:.68rem;font-weight:700;border-radius:99px;padding:.12rem .6rem;background:rgba(168,133,60,.15);color:#8A6D2F;letter-spacing:.03em"></span>
+    </div>
+    <div style="padding:1rem 1.1rem">
+      <p style="font-size:.9rem;color:var(--ink2);margin:0 0 .8rem">
+        מכירים זוג לפני אירוע? שתפו איתם את ishur, וככל שמצטרפים דרככם עולים בדרגה.
+      </p>
+      <a id="refShare" target="_blank" rel="noopener"
+         style="display:inline-block;background:#0F4C35;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">שיתוף בוואטסאפ</a>
+    </div>
+  </section>
+
   <!-- add-ons -->
   <section class="card" id="addonsCard">
     <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
@@ -690,6 +705,18 @@
     renderSends();
     renderAddons();
     renderAfterParty();
+    renderReferral();
+  }
+
+  function renderReferral() {
+    var code = data.referral_code;
+    if (!code) { $('refCard').hidden = true; return; }
+    $('refCard').hidden = false;
+    var tier = data.tier || {};
+    $('tierChip').textContent = tier.name ? 'דרגת ' + tier.name : '';
+    var link = 'https://ishur.io/?utm_source=referral&utm_medium=friend&utm_campaign=' + encodeURIComponent(code);
+    var msg = 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה: ' + link;
+    $('refShare').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
   }
 
   /* the numbers climb to their value as the cells land */

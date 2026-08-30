@@ -183,6 +183,19 @@ export function buildDashboard(token, raw) {
 
   /* the daily sender is not live yet, so nothing is honestly "sent" — every
      date shows as scheduled until the sender stamps real send history */
+  /* loyalty tier: how many paid events this client has run with us */
+  const myPhone = c(3);
+  let paidEvents = 0;
+  for (const r of evRows) {
+    const t = i => String(r[i] ?? '').trim();
+    if (t(3) === myPhone && t(7) === 'כן' && t(27) !== 'כן') paidEvents++;
+  }
+  const tier =
+    paidEvents >= 5 ? { key: 'vip', name: 'VIP' } :
+    paidEvents >= 3 ? { key: 'gold', name: 'זהב' } :
+    paidEvents >= 2 ? { key: 'silver', name: 'כסף' } :
+    { key: 'bronze', name: 'ארד' };
+
   const sends = [];
   if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: 'scheduled' });
   if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: 'scheduled', editable: true });
@@ -202,5 +215,7 @@ export function buildDashboard(token, raw) {
     totals,
     sends,
     guests,
+    tier: { ...tier, events: paidEvents },
+    referral_code: token.slice(0, 8),
   };
 }
