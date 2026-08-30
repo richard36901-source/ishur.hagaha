@@ -114,6 +114,11 @@
   .pill.no{background:#fef2f2;color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
   .row-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.85rem;color:var(--ink2);min-width:1.4rem;text-align:center}
+  .tbl-in{flex-shrink:0;width:4.4rem;font:inherit;font-size:.78rem;padding:.25rem .4rem;border:1px solid var(--bdr);border-radius:8px;text-align:center;background:var(--card);color:var(--ink)}
+  .tbl-sp{flex-shrink:0;width:4.4rem}
+  .seat-bar{display:flex;align-items:center;gap:.7rem;padding:.55rem 1rem;background:rgba(15,76,53,.06);border-bottom:1px solid var(--bdr);font-size:.8rem}
+  .seat-bar button{font:inherit;font-size:.8rem;font-weight:600;background:#0F4C35;color:#fff;border:0;border-radius:9px;padding:.4rem .9rem;cursor:pointer}
+  .seat-bar button:disabled{opacity:.5}
   .empty{padding:1.6rem 1rem;text-align:center;font-size:.85rem;color:var(--ink3)}
 
   /* schedule */
@@ -423,6 +428,10 @@
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
     <p class="list-sum" id="listSum"></p>
+    <div class="seat-bar" id="seatBar" hidden>
+      <button type="button" id="seatSave">שמירת שיבוץ שולחנות</button>
+      <span id="seatMsg">למי שאישרו הגעה — ביום האירוע יקבלו הודעה עם מספר השולחן</span>
+    </div>
     <div class="rows-h"><span class="a">רשומה</span><span class="b">סטטוס</span><span class="c">מוזמנים</span></div>
     <div class="rows" id="rows"></div>
   </section>
@@ -728,12 +737,57 @@
     }
     $('rows').innerHTML = list.map(function (g) {
       var st = STATUS[g.status] || STATUS.pending;
+      /* confirmed guests get a table box; the rest keep the layout aligned */
+      var esc = function (s) { return String(s || '').replace(/[&<>"]/g, ''); };
+      var tbl = g.status === 'confirmed' && g.id
+        ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12">'
+        : '<span class="tbl-sp"></span>';
       return '<div class="row">' +
              '<span class="row-n">' + g.name + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
-             '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span></div>';
+             '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
+    var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
+    $('seatBar').hidden = !anyConfirmed;
   }
+
+  /* ── seating: collect edits, save in one call ── */
+  var seatDirty = {};
+  $('rows').addEventListener('input', function (e) {
+    var t = e.target;
+    if (!t.classList || !t.classList.contains('tbl-in')) return;
+    seatDirty[t.dataset.id] = t.value.trim();
+    $('seatSave').disabled = false;
+    $('seatMsg').textContent = 'יש שינויים שלא נשמרו';
+  });
+  $('seatSave').addEventListener('click', function () {
+    var ids = Object.keys(seatDirty);
+    if (!ids.length) return;
+    var payload = {
+      token: token,
+      assignments: ids.map(function (id) { return { id: id, table: seatDirty[id] }; }),
+    };
+    $('seatSave').disabled = true; $('seatMsg').textContent = 'שומרים…';
+    fetch(CFG.endpoint('seating'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.json().catch(function () { return null; }); })
+      .then(function (d) {
+        if (d && d.ok) {
+          (data.guests || []).forEach(function (g) {
+            if (seatDirty[g.id] != null) g.table = seatDirty[g.id];
+          });
+          seatDirty = {};
+          $('seatMsg').textContent = 'נשמר ✓ — ההודעות ייצאו בבוקר האירוע';
+        } else {
+          $('seatSave').disabled = false;
+          $('seatMsg').textContent = 'השמירה נכשלה — נסו שוב';
+        }
+      }).catch(function () {
+        $('seatSave').disabled = false;
+        $('seatMsg').textContent = 'השמירה נכשלה — נסו שוב';
+      });
+  });
 
   function renderSends() {
     var sends = data.sends || [];

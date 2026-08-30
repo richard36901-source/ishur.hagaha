@@ -881,6 +881,44 @@ async function runDailyEngine(env, dry, todayOverride) {
     if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
+
+  /* ── stage 4: event-day "your table" messages ─────────────────────────────
+     On the morning of the event, every confirmed guest with an assigned table
+     (column AE, set from the client's dashboard) gets ishur_shulchan. One run
+     per event (KV seat:<token>) — but only once something was actually sent,
+     so tables assigned later that morning still go out on a manual run.     */
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const date = String(ev[6] || '').trim().slice(0, 10);
+    if (!token || !paid || cancelled || date !== today) continue;
+    if (env.RATE && await env.RATE.get('seat:' + token)) continue;
+
+    const name = String(ev[2] || '').trim();
+    const occasion = String(ev[5] || '').trim();
+    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
+
+    let sent = 0, failed = 0, would = 0;
+    const seenPhones = new Set();
+    for (const g of gRows) {
+      if (String(g[28] || '').trim() !== token) continue;
+      const phone = String(g[4] || '').trim();
+      const table = String(g[30] || '').trim();
+      const rsvp = String(g[15] || '').trim();
+      if (!phone || !table || rsvp !== 'מגיע' || seenPhones.has(phone)) continue;
+      seenPhones.add(phone);
+      if (env.RATE && await env.RATE.get('optout:' + phone)) continue;
+      if (dry) { would++; continue; }
+      const gname = String(g[3] || '').trim() || 'אורח יקר';
+      const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
+      if (wa.ok) sent++; else failed++;
+    }
+    if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
+    if (sent && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
+    if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו`, token.slice(0, 8));
+    if (sent || failed) out.push({ token, type: 'seating', sent, failed });
+  }
   return { ok: true, date: today, events: out };
 }
 
@@ -939,6 +977,59 @@ async function handleBackup(request, env, origin) {
     }
   }
   return okJson({ ok: true, dates: dates.sort().reverse() }, origin);
+}
+
+/* ══ Seating: the client assigns tables from their dashboard ═════════════════
+   POST {token, assignments:[{id, table}]} — token is the same personal token
+   the dashboard already uses; writes go straight to column AE of אורחים via
+   the sheet proxy, only into rows that belong to this event. On event day the
+   engine sends each confirmed guest their table number (stage 4).
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleSeating(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const token = String(body.token || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token)) return deny(403, 'bad-token', origin);
+  if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+  if (await overBudget(env, 'rl:seating:' + token, 30, 3600)) return deny(429, 'slow-down', origin);
+
+  const list = Array.isArray(body.assignments) ? body.assignments.slice(0, 400) : [];
+  if (!list.length) return deny(400, 'no-assignments', origin);
+
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) return deny(502, 'reader-failed', origin);
+  const gRows = (raw.guests && raw.guests.values) || [];
+
+  /* guest_id → sheet row (values start at A2, so row = index + 2) */
+  const rowOf = {};
+  gRows.forEach((g, i) => {
+    if (String((g || [])[28] || '').trim() === token) {
+      rowOf[String(g[2] || '').trim()] = i + 2;
+    }
+  });
+
+  const data = [];
+  for (const a of list) {
+    const row = rowOf[String((a || {}).id || '').trim()];
+    if (!row) continue; // not this event's guest — silently skipped
+    const table = String((a || {}).table ?? '').trim().slice(0, 12);
+    data.push({ range: `אורחים!AE${row}`, values: [[table]] });
+  }
+  if (!data.length) return deny(400, 'no-matching-guests', origin);
+
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      method: 'POST',
+      payload: JSON.stringify({ valueInputOption: 'RAW', data }),
+    }),
+  }).catch(() => null);
+  if (!r || !r.ok) return deny(502, 'sheet-write-failed', origin);
+  let out = null;
+  try { out = await r.json(); } catch {}
+  if (!out || !out.totalUpdatedCells) return deny(502, 'sheet-write-failed', origin);
+  return okJson({ ok: true, updated: data.length }, origin);
 }
 
 /* ══ Manual ad-spend per month ═══════════════════════════════════════════════
@@ -1355,6 +1446,9 @@ export default {
     }
     if (url.pathname === '/api/adspend' && request.method === 'POST') {
       return handleAdspend(request, env, origin);
+    }
+    if (url.pathname === '/api/seating' && request.method === 'POST') {
+      return handleSeating(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);

@@ -165,10 +165,12 @@ export function buildDashboard(token, raw) {
       const g = i => String(r[i] ?? '').trim();
       const status = guestStatus(g(15), g(21));
       return {
+        id: g(2),
         name: g(3),
         phone: g(4),
         status,
         seats: Number(g(13)) || Number(g(5)) || 0,
+        table: g(30),
       };
     });
 
