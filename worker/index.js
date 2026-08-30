@@ -64,6 +64,37 @@ async function alert(env, where, what, detail) {
   }).catch(() => {});
 }
 
+/* One tier credit per new paying customer whose first touch was a referral
+   link. The code sits in the lead row (column L, "referral:<tok8>"). */
+async function creditReferral(env, payerPhone, newToken) {
+  if (!env.RATE || !env.BRAIN_HOOK) return;
+  const last9 = String(payerPhone).slice(-9);
+  if (!last9) return;
+  if (await env.RATE.get('refdone:' + last9)) return; // one credit per payer, ever
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+      qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000',
+    }),
+  }).catch(() => null);
+  if (!r || !r.ok) return;
+  let rows = [];
+  try { rows = (await r.json()).valueRanges[0].values || []; } catch { return; }
+  for (const row of rows) {
+    if (!String(row[2] || '').includes(last9)) continue;
+    const m = String(row[11] || '').match(/^referral:([0-9a-f]{8})/);
+    if (!m || m[1] === String(newToken).slice(0, 8)) return;
+    await env.RATE.put('refdone:' + last9, m[1], { expirationTtl: 730 * 86400 });
+    const key = 'refcred:' + m[1];
+    const cur = Number(await env.RATE.get(key)) || 0;
+    await env.RATE.put(key, String(cur + 1), { expirationTtl: 730 * 86400 });
+    await alert(env, 'הפניה מאומתת 🎉',
+      `לקוח חדש שילם דרך קישור ההפניה של ${m[1]} — נזקף זיכוי דרגה`, '');
+    return;
+  }
+}
+
 async function handleGrowIpn(request, env, url) {
   if ((url.searchParams.get('k') || '') !== env.GROW_KEY) {
     return new Response('forbidden', { status: 403 });
@@ -146,6 +177,9 @@ async function handleGrowIpn(request, env, url) {
   /* paid → the client gets their personal upload link on WhatsApp, right now.
      claimlink:<phone> lets the service bot re-send it on request later. */
   if (ok) {
+    /* verified referral: when this payer's lead carries referral:<code>, the
+       referrer earns a tier credit. Never blocks the payment path. */
+    try { await creditReferral(env, phone, token); } catch {}
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
     const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
     const wa = await sendTemplate(env, phone, 'ishur_tashlum',
@@ -1793,7 +1827,8 @@ export default {
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
       const raw = await fetchSnapshot(target);
       if (!raw) return deny(502, 'reader-failed', origin);
-      const snapshot = buildDashboard(token, raw);
+      const refCount = env.RATE ? Number(await env.RATE.get('refcred:' + token.slice(0, 8))) || 0 : 0;
+      const snapshot = buildDashboard(token, raw, refCount);
       if (!snapshot) return deny(404, 'event-not-found', origin);
       /* after the event: surface the review + testimonial links permanently */
       const evDate = String(snapshot.event.event_date || '').slice(0, 10);

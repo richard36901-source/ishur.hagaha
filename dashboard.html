@@ -508,13 +508,33 @@
       <span id="tierChip" style="font-size:.68rem;font-weight:700;border-radius:99px;padding:.12rem .6rem;background:rgba(168,133,60,.15);color:#8A6D2F;letter-spacing:.03em"></span>
     </div>
     <div style="padding:1rem 1.1rem">
-      <p style="font-size:.9rem;color:var(--ink2);margin:0 0 .8rem">
+      <p style="font-size:.9rem;color:var(--ink2);margin:0 0 .5rem">
         מכירים זוג לפני אירוע? שתפו איתם את ishur, וככל שמצטרפים דרככם עולים בדרגה.
       </p>
-      <a id="refShare" target="_blank" rel="noopener"
-         style="display:inline-block;background:#0F4C35;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">שיתוף בוואטסאפ</a>
+      <p id="refStats" style="font-size:.8rem;color:var(--ink3);margin:0 0 .8rem"></p>
+      <p id="refPerk" hidden style="font-size:.82rem;background:rgba(168,133,60,.1);border:1px solid rgba(168,133,60,.35);border-radius:10px;padding:.5rem .8rem;margin:0 0 .8rem;color:#8A6D2F;font-weight:600">
+        🎁 צברתם הטבה: סבב שליחה נוסף מתנה. כתבו לנו בוואטסאפ ונפעיל אותו לאירוע.
+      </p>
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+        <a id="refShare" target="_blank" rel="noopener"
+           style="display:inline-block;background:#0F4C35;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">שיתוף בוואטסאפ</a>
+        <a id="badgeLink"
+           style="display:inline-block;background:var(--card);color:#8A6D2F;border:1.5px solid #A8853C;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">הבאדג' שלי לסטורי</a>
+      </div>
     </div>
   </section>
+
+  <!-- tier upgrade popup -->
+  <div id="tierPopBg" hidden style="position:fixed;inset:0;background:rgba(15,46,34,.5);z-index:50"></div>
+  <div id="tierPop" hidden style="position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:51;background:var(--card);border:1.5px solid #A8853C;border-radius:18px;padding:1.6rem 1.8rem;text-align:center;max-width:20rem;width:88vw">
+    <div style="font-size:2.2rem">🏆</div>
+    <h3 id="tierPopT" style="font-size:1.15rem;margin:.4rem 0 .3rem"></h3>
+    <p style="font-size:.85rem;color:var(--ink2);margin:0 0 1rem">ההפניות והאירועים שלכם קידמו אתכם. תודה שאתם ממליצים עלינו!</p>
+    <div style="display:flex;gap:.6rem;justify-content:center">
+      <a id="tierPopBadge" style="background:#0F4C35;color:#fff;border-radius:10px;padding:.55rem 1.1rem;text-decoration:none;font-weight:600;font-size:.85rem">לבאדג' לסטורי</a>
+      <button id="tierPopX" style="font:inherit;background:none;border:1px solid var(--bdr);border-radius:10px;padding:.55rem 1.1rem;cursor:pointer;color:var(--ink2);font-size:.85rem">סגירה</button>
+    </div>
+  </div>
 
   <!-- add-ons -->
   <section class="card" id="addonsCard">
@@ -717,7 +737,35 @@
     var link = 'https://ishur.io/?utm_source=referral&utm_medium=friend&utm_campaign=' + encodeURIComponent(code);
     var msg = 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה: ' + link;
     $('refShare').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+
+    var refs = Number(tier.referrals) || 0;
+    $('refStats').textContent = refs
+      ? 'הפניות מאומתות: ' + refs + ' · כל חבר שסוגר אירוע דרך הקישור מקדם אתכם בדרגה'
+      : 'ההפניה נספרת כשחבר סוגר אירוע דרך הקישור שלכם';
+    $('refPerk').hidden = refs < 1;
+    var badgeHref = 'badge.html?t=' + encodeURIComponent(token || '');
+    $('badgeLink').href = badgeHref;
+    $('tierPopBadge').href = badgeHref;
+
+    /* the "you leveled up" moment — once per device per level */
+    try {
+      var k = 'ishur_tier_' + code;
+      var order = { bronze: 1, silver: 2, gold: 3, vip: 4 };
+      var prev = localStorage.getItem(k);
+      if (prev && order[tier.key] > (order[prev] || 0)) {
+        $('tierPopT').textContent = 'שודרגתם לדרגת ' + tier.name + '!';
+        $('tierPopBg').hidden = false;
+        $('tierPop').hidden = false;
+      }
+      localStorage.setItem(k, tier.key);
+    } catch (e) {}
   }
+  ['tierPopBg', 'tierPopX'].forEach(function (id) {
+    $(id).addEventListener('click', function () {
+      $('tierPopBg').hidden = true;
+      $('tierPop').hidden = true;
+    });
+  });
 
   /* the numbers climb to their value as the cells land */
   function countUp() {

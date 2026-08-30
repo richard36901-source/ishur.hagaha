@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>הבאדג' שלי · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=21"></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{--pine:#0F2E22;--gold:#A8853C;--gold-soft:#C7AE7A;--ink:#1B2420;--ink2:#4A554E;--bg:#F8F4EA}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;text-align:center;padding:1.5rem 1rem 3rem}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;color:var(--pine)}
+  p.sub{font-size:.85rem;color:var(--ink2);margin:.3rem 0 1.2rem}
+  canvas{width:min(300px,80vw);border-radius:18px;box-shadow:0 12px 40px rgba(15,46,34,.25)}
+  .btns{margin-top:1.2rem;display:flex;gap:.6rem;justify-content:center;flex-wrap:wrap}
+  a.btn,button.btn{font:inherit;font-weight:600;font-size:.9rem;border-radius:10px;padding:.65rem 1.4rem;cursor:pointer;text-decoration:none;border:none}
+  .btn.dl{background:#0F4C35;color:#fff}
+  .btn.back{background:#fff;color:var(--ink2);border:1px solid #E3E1D8}
+  .err{color:#A8402F;font-size:.85rem;margin-top:1rem}
+</style>
+</head>
+<body>
+<h1>הבאדג' שלכם לסטורי</h1>
+<p class="sub">שומרים את התמונה ומעלים לסטורי. חברים ששואלים, שולחים להם את קישור ההפניה מהדשבורד 🙂</p>
+<canvas id="cv" width="1080" height="1920"></canvas>
+<div class="btns">
+  <button class="btn dl" id="dl">שמירת התמונה</button>
+  <a class="btn back" id="back" href="dashboard.html">חזרה לדשבורד</a>
+</div>
+<p class="err" id="err" hidden></p>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search);
+  var token = (qs.get('t') || '').trim();
+  var demo = qs.get('demo') === '1';
+  if (token) $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+
+  var TIER_ART = {
+    bronze: { ring: '#B0714B', glow: 'rgba(176,113,75,.45)', label: 'ארד' },
+    silver: { ring: '#B9C0BD', glow: 'rgba(185,192,189,.5)', label: 'כסף' },
+    gold:   { ring: '#D9B45B', glow: 'rgba(217,180,91,.5)', label: 'זהב' },
+    vip:    { ring: '#C7AE7A', glow: 'rgba(199,174,122,.6)', label: 'VIP' },
+  };
+
+  function draw(tierKey, eventName) {
+    var art = TIER_ART[tierKey] || TIER_ART.bronze;
+    var cv = $('cv'), x = cv.getContext('2d');
+    var W = 1080, H = 1920;
+
+    /* deep pine backdrop with a soft radial light */
+    var g = x.createRadialGradient(W / 2, H * 0.28, 80, W / 2, H * 0.55, H);
+    g.addColorStop(0, '#17402F'); g.addColorStop(.55, '#0F2E22'); g.addColorStop(1, '#0A2119');
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+
+    /* halo behind the ring */
+    var halo = x.createRadialGradient(W / 2, H * 0.42, 60, W / 2, H * 0.42, 460);
+    halo.addColorStop(0, art.glow); halo.addColorStop(1, 'rgba(0,0,0,0)');
+    x.fillStyle = halo; x.fillRect(0, 0, W, H);
+
+    /* the medal ring */
+    x.beginPath(); x.arc(W / 2, H * 0.42, 300, 0, Math.PI * 2);
+    x.lineWidth = 26; x.strokeStyle = art.ring; x.stroke();
+    x.beginPath(); x.arc(W / 2, H * 0.42, 258, 0, Math.PI * 2);
+    x.lineWidth = 4; x.strokeStyle = 'rgba(248,244,234,.35)'; x.stroke();
+
+    x.textAlign = 'center'; x.fillStyle = '#F8F4EA';
+    x.font = '700 64px "Frank Ruhl Libre", serif';
+    x.fillText('דרגת', W / 2, H * 0.42 - 60);
+    x.font = '700 170px "Frank Ruhl Libre", serif';
+    x.fillStyle = art.ring;
+    x.fillText(art.label, W / 2, H * 0.42 + 110);
+
+    x.fillStyle = '#F8F4EA';
+    x.font = '600 56px Heebo, sans-serif';
+    x.fillText('אישורי הגעה חכמים בוואטסאפ', W / 2, H * 0.68);
+    if (eventName) {
+      x.fillStyle = 'rgba(248,244,234,.75)';
+      x.font = '400 46px Heebo, sans-serif';
+      x.fillText(eventName, W / 2, H * 0.68 + 80);
+    }
+
+    x.fillStyle = '#C7AE7A';
+    x.font = '700 60px "Frank Ruhl Libre", serif';
+    x.fillText('ishur.io', W / 2, H * 0.88);
+    x.fillStyle = 'rgba(248,244,234,.55)';
+    x.font = '400 36px Heebo, sans-serif';
+    x.fillText('גם באירוע שלכם, בלי לרדוף אחרי אף אחד', W / 2, H * 0.88 + 66);
+  }
+
+  function ready(fn) {
+    if (document.fonts && document.fonts.ready) {
+      Promise.all([
+        document.fonts.load('700 170px "Frank Ruhl Libre"'),
+        document.fonts.load('600 56px Heebo'),
+      ]).then(fn).catch(fn);
+    } else fn();
+  }
+
+  function start() {
+    if (demo || !token) { ready(function () { draw('gold', 'החתונה של דנה ויוסי'); }); return; }
+    var payload = { token: token };
+    fetch(CFG.endpoint('status'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        var tier = (d && d.tier && d.tier.key) || 'bronze';
+        var ev = d && d.event;
+        var name = ev ? [(ev.name1 || ''), ev.occasion ? 'ה' + ev.occasion : ''].filter(Boolean).join(' · ') : '';
+        ready(function () { draw(tier, name); });
+      })
+      .catch(function () {
+        $('err').hidden = false;
+        $('err').textContent = 'לא הצלחנו לטעון את הנתונים, מציגים באדג\' כללי';
+        ready(function () { draw('bronze', ''); });
+      });
+  }
+
+  $('dl').addEventListener('click', function () {
+    var a = document.createElement('a');
+    a.download = 'ishur-badge.png';
+    a.href = $('cv').toDataURL('image/png');
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  if (window.IshurGuard && IshurGuard.whenReady) IshurGuard.whenReady().then(start);
+  else start();
+})();
+</script>
+</body>
+</html>

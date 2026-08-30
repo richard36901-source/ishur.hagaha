@@ -153,7 +153,7 @@ export function buildBizStats(raw) {
   };
 }
 
-export function buildDashboard(token, raw) {
+export function buildDashboard(token, raw, refCount = 0) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
   const ev = evRows.find(r => String(r[1] || '').trim() === token);
@@ -190,10 +190,14 @@ export function buildDashboard(token, raw) {
     const t = i => String(r[i] ?? '').trim();
     if (t(3) === myPhone && t(7) === 'כן' && t(27) !== 'כן') paidEvents++;
   }
+  /* the tier climbs with paid events AND verified referrals (a friend who
+     actually purchased through this client's link) */
+  const refs = Number(refCount) || 0;
+  const score = paidEvents + refs;
   const tier =
-    paidEvents >= 5 ? { key: 'vip', name: 'VIP' } :
-    paidEvents >= 3 ? { key: 'gold', name: 'זהב' } :
-    paidEvents >= 2 ? { key: 'silver', name: 'כסף' } :
+    score >= 5 ? { key: 'vip', name: 'VIP' } :
+    score >= 3 ? { key: 'gold', name: 'זהב' } :
+    score >= 2 ? { key: 'silver', name: 'כסף' } :
     { key: 'bronze', name: 'ארד' };
 
   const sends = [];
@@ -215,7 +219,7 @@ export function buildDashboard(token, raw) {
     totals,
     sends,
     guests,
-    tier: { ...tier, events: paidEvents },
+    tier: { ...tier, events: paidEvents, referrals: refs },
     referral_code: token.slice(0, 8),
   };
 }
