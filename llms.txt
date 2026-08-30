@@ -29,3 +29,5 @@ One-time payment per event starting at ₪50, no subscription. Hebrew-first.
 - Packages: בסיס / פרו / פרימיום, priced by number of invitations (one invitation = one phone number; a family on one number counts once).
 - Messages are sent 09:00–20:00, never on Shabbat; Fridays until 15:00.
 - Changes and support are handled over WhatsApp.
+
+Dedicated pages: /hatuna.html (weddings), /bar-mitzvah.html, and city pages for Tel Aviv, Jerusalem, Haifa, Rishon LeZion, Petah Tikva, Netanya, Beer Sheva, Ramat Gan (e.g. /tel-aviv.html).
