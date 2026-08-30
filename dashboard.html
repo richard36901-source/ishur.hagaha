@@ -56,6 +56,12 @@
     background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA;
   }
   .theme-tog:active{transform:scale(.92)}
+  .gate-send{
+    display:block;margin:.35rem 0 .9rem;background:none;border:none;cursor:pointer;
+    font:inherit;font-size:.82rem;color:var(--green);font-weight:600;text-decoration:underline;
+    text-underline-offset:3px;padding:0;
+  }
+  .gate-send:disabled{opacity:.5}
   *{margin:0;padding:0;box-sizing:border-box}
   /* a display rule on a class must never beat the hidden attribute */
   [hidden]{display:none!important}
@@ -431,14 +437,15 @@
 <div class="wrap" id="gate" hidden>
   <div class="gate-card">
     <h2>כניסה ללוח הבקרה</h2>
-    <p class="gate-sub">מתחברים עם מספר הטלפון והקוד האישי שקיבלתם מאיתנו</p>
+    <p class="gate-sub">מקלידים את הטלפון, מקבלים קוד לוואטסאפ ונכנסים</p>
     <label class="gate-l" for="g-phone">מספר טלפון</label>
     <input class="gate-in" id="g-phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000">
-    <label class="gate-l" for="g-code">קוד אישי</label>
-    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••">
+    <button type="button" class="gate-send" id="g-send">שליחת קוד בוואטסאפ</button>
+    <label class="gate-l" for="g-code">קוד כניסה</label>
+    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••••">
     <button type="button" class="gate-btn" id="g-go">כניסה</button>
     <p class="gate-err" id="g-err" aria-live="polite"></p>
-    <p class="gate-note">הקוד האישי נשלח אליכם בוואטסאפ אחרי ההזמנה.<br>לא מוצאים אותו? <a href="#" id="g-wa" target="_blank" rel="noopener">כתבו לנו</a></p>
+    <p class="gate-note">הקוד מגיע לוואטסאפ של המספר שאיתו נרשמתם.<br>משהו לא מסתדר? <a href="#" id="g-wa" target="_blank" rel="noopener">כתבו לנו</a></p>
   </div>
 </div>
 
@@ -1201,6 +1208,41 @@
   $('g-go').addEventListener('click', gateSubmit);
   ['g-phone', 'g-code'].forEach(function (id) {
     $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') gateSubmit(); });
+  });
+
+  /* "send me a code": the worker fires ishur_kod to this phone's WhatsApp */
+  $('g-send').addEventListener('click', function () {
+    var phone = $('g-phone').value.trim();
+    $('g-err').style.color = '';
+    if (!IshurLead.isValidPhone(phone)) {
+      $('g-err').textContent = 'צריך מספר נייד ישראלי, 10 ספרות שמתחילות ב-05';
+      return;
+    }
+    if (demo) { $('g-err').style.color = 'var(--green)'; $('g-err').textContent = 'במצב הדגמה כל קוד עובד 🙂'; return; }
+    $('g-err').textContent = '';
+    var b = $('g-send');
+    b.disabled = true; b.textContent = 'שולחים…';
+    var payload = { phone: phone };
+    fetch(CFG.endpoint('otp'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    }).then(function (r) {
+      b.disabled = false; b.textContent = 'שליחת קוד בוואטסאפ';
+      if (r.status === 200) {
+        $('g-err').style.color = 'var(--green)';
+        $('g-err').textContent = 'הקוד בדרך אליכם בוואטסאפ 🙂';
+        $('g-code').focus();
+      } else if (r.status === 404) {
+        $('g-err').textContent = 'לא מצאנו אירוע למספר הזה. אם שילמתם ועדיין לא מופיע, כתבו לנו';
+      } else if (r.status === 429) {
+        $('g-err').textContent = 'נשלחו כמה קודים לאחרונה. חכו דקה ונסו שוב';
+      } else {
+        $('g-err').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע';
+      }
+    }).catch(function () {
+      b.disabled = false; b.textContent = 'שליחת קוד בוואטסאפ';
+      $('g-err').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע';
+    });
   });
 
   /* ── entry ── */

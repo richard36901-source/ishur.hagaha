@@ -107,6 +107,21 @@ export function sendImage(env, to, imageUrl, caption, channel) {
   }, channel);
 }
 
+/* AUTHENTICATION template (ishur_kod): the one-time code fills both the body
+   and the copy-code button. */
+export function sendOtpTemplate(env, to, code) {
+  return post(env, {
+    to: normPhone(to), type: 'template',
+    template: {
+      name: 'ishur_kod', language: { code: 'he' },
+      components: [
+        { type: 'body', parameters: [{ type: 'text', text: String(code) }] },
+        { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: String(code) }] },
+      ],
+    },
+  });
+}
+
 /* The production path. `params` are the positional body variables; `imageUrl`
    fills a header of type IMAGE when the template has one. */
 export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel) {

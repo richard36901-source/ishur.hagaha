@@ -24,7 +24,7 @@
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats } from './dashboard.js';
 import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
-import { sendText, sendImage, sendTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone } from './whatsapp.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone } from './whatsapp.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -1001,6 +1001,61 @@ async function handleBackup(request, env, origin) {
   return okJson({ ok: true, dates: dates.sort().reverse() }, origin);
 }
 
+/* ══ Phone + code login for the dashboard ════════════════════════════════════
+   The client types their phone, gets a one-time code on WhatsApp (ishur_kod),
+   and signs in. A code that logged in once keeps working on that phone for a
+   month, so the saved login survives reloads. The events column AU can hold a
+   second allowed phone per event — that's the "two people, one dashboard".
+   ─────────────────────────────────────────────────────────────────────────── */
+function eventsForPhone(raw, phone) {
+  const out = [];
+  for (const ev of (raw && raw.events && raw.events.values) || []) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    if (!token || !paid || cancelled) continue;
+    const owner = normPhone(ev[3] || '');
+    const extra = normPhone(ev[46] || '');
+    if (owner !== phone && (!extra || extra !== phone)) continue;
+    out.push({
+      token,
+      event_name: String(ev[34] || ev[2] || '').trim(),
+      occasion: String(ev[5] || '').trim(),
+      event_date: String(ev[6] || '').trim(),
+      venue_name: String(ev[4] || '').trim(),
+      venue_city: String(ev[37] || '').trim(),
+    });
+  }
+  return out;
+}
+
+async function handleOtpSend(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const stampError = await checkStamp(body, env.APP_KEY);
+  if (stampError) return deny(403, stampError, origin);
+  const phone = normPhone(body.phone || '');
+  if (!/^972\d{8,9}$/.test(phone)) return deny(400, 'bad-phone', origin);
+  if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (await overBudget(env, 'rl:otps:' + phone, 3, 3600)) return deny(429, 'rate-limited', origin);
+  if (await overBudget(env, 'rl:otpi:' + ip, 10, 3600)) return deny(429, 'rate-limited', origin);
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) return deny(502, 'reader-failed', origin);
+  if (!eventsForPhone(raw, phone).length) return deny(404, 'no-events', origin);
+  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+  await env.RATE.put('otp:' + phone,
+    JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600 }),
+    { expirationTtl: 600 });
+  const wa = await sendOtpTemplate(env, phone, code);
+  if (!wa.ok) {
+    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + wa.error);
+    return deny(502, 'send-failed', origin);
+  }
+  await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', 0.53);
+  return okJson({ ok: true }, origin);
+}
+
 /* ══ Seating: the client assigns tables from their dashboard ═════════════════
    POST {token, assignments:[{id, table}]} — token is the same personal token
    the dashboard already uses; writes go straight to column AE of אורחים via
@@ -1564,6 +1619,9 @@ export default {
     if (url.pathname === '/api/cost-log' && request.method === 'POST') {
       return handleCostLog(request, env, origin);
     }
+    if (url.pathname === '/api/otp-send' && request.method === 'POST') {
+      return handleOtpSend(request, env, origin);
+    }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
     }
@@ -1621,7 +1679,36 @@ export default {
         return okJson(buildCallQueue(raw), origin);
       }
       const token = String(stampFields.token || '').trim();
-      if (!token) return deny(403, 'code-login-not-ready', origin); // phone+code waits for WhatsApp OTP
+      if (!token) {
+        /* phone + code login (the gate). The code arrived via ishur_kod. */
+        const phone = normPhone(stampFields.phone || '');
+        const code = String(stampFields.code || '').replace(/\D/g, '');
+        if (!phone || code.length < 4) return deny(403, 'bad-login', origin);
+        if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+        if (await overBudget(env, 'rl:login:' + phone, 12, 3600)) return deny(429, 'rate-limited', origin);
+        let rec = null;
+        try { rec = JSON.parse(await env.RATE.get('otp:' + phone)); } catch {}
+        const good = rec && (rec.tries || 0) < 6 && safeEqual(String(rec.code), code);
+        if (!good) {
+          if (rec) {
+            /* keep the record's own remaining lifetime — a stranger guessing
+               wrong must not shorten a legitimate month-long session */
+            const left = Math.max(60, (Number(rec.exp) || Math.floor(Date.now() / 1000) + 600) - Math.floor(Date.now() / 1000));
+            await env.RATE.put('otp:' + phone,
+              JSON.stringify({ ...rec, tries: (rec.tries || 0) + 1 }), { expirationTtl: left });
+          }
+          return deny(403, 'bad-login', origin);
+        }
+        /* a code that logged in once keeps working on this phone for a month */
+        await env.RATE.put('otp:' + phone,
+          JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 30 * 86400 }),
+          { expirationTtl: 30 * 86400 });
+        const raw = await fetchSnapshot(target);
+        if (!raw) return deny(502, 'reader-failed', origin);
+        const evs = eventsForPhone(raw, phone);
+        if (!evs.length) return deny(404, 'no-events', origin);
+        return okJson({ ok: true, events: evs }, origin);
+      }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
       const raw = await fetchSnapshot(target);
       if (!raw) return deny(502, 'reader-failed', origin);
