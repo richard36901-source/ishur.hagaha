@@ -150,6 +150,7 @@ async function handleGrowIpn(request, env, url) {
     const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
     const wa = await sendTemplate(env, phone, 'ishur_tashlum',
       [first, 'https://ishur.io/upload.html?t=' + token]);
+    if (wa.ok) await addEvCost(env, token, 0.53);
     if (env.RATE) await env.RATE.put('paywa:' + ref,
       JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
   }
@@ -316,6 +317,19 @@ async function trackCallCost(env, cents) {
   await env.RATE.put(key, String(cur + cents), { expirationTtl: 400 * 86400 });
 }
 
+/* Per-event running cost, USD cents, keyed by the token's first 8 characters —
+   guest ids carry the same prefix (G-<tok8>-N), so Shir's call costs join the
+   same bucket as the WhatsApp sends. Feeds the per-event profit column. */
+async function addEvCost(env, tokenOrGuestId, cents) {
+  if (!env.RATE || !cents) return;
+  let t8 = String(tokenOrGuestId || '');
+  t8 = t8.startsWith('G-') ? (t8.split('-')[1] || '') : t8.slice(0, 8);
+  if (!/^[0-9a-f]{8}$/.test(t8)) return;
+  const key = 'evcost:' + t8;
+  const cur = Number(await env.RATE.get(key)) || 0;
+  await env.RATE.put(key, String(Math.round((cur + cents) * 100) / 100), { expirationTtl: 400 * 86400 });
+}
+
 /* Retell retries webhooks and fires several events per call — each (call, stage)
    is processed exactly once. */
 async function seenOnce(env, key) {
@@ -371,7 +385,10 @@ async function handleShirWebhook(request, env) {
   if (action.call_id && await seenOnce(env, 'shirdone:end:' + action.call_id)) {
     return okJsonPlain({ ok: true });
   }
-  if (action.cost_cents) await trackCallCost(env, action.cost_cents);
+  if (action.cost_cents) {
+    await trackCallCost(env, action.cost_cents);
+    await addEvCost(env, action.guest_id, action.cost_cents);
+  }
 
   if (action.kind === 'end') {
     await writeCallResult(env, action.guest_id, action.result);
@@ -490,13 +507,13 @@ async function handleWaWebhook(request, env, url) {
         await sendText(env, from, 'איזה כיף! כמה תהיו בסך הכל? (אפשר לענות רק במספר)');
       } else if (parsed.outcome === 'מגיע') {
         await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        await sendText(env, from, `נרשם — ${parsed.party} מגיעים 🎉`);
+        await sendText(env, from, `נרשם, ${parsed.party} מגיעים 🎉`);
       } else if (parsed.outcome === 'לא מגיע') {
         await writeGuestReply(env, guest, 'לא מגיע');
         await sendText(env, from, 'חבל שלא תהיו, תודה שעדכנתם 🙏');
       } else {
         await writeGuestReply(env, guest, 'מתלבט');
-        await sendText(env, from, 'אין לחץ — אפשר לעדכן כאן בכל רגע 🙂');
+        await sendText(env, from, 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂');
       }
     }
     /* a guest wrote a free question — same service brain answers */
@@ -537,12 +554,12 @@ async function serviceReply(env, from, text) {
   if (/קישור|לינק|לא קיבלתי|שילמ|תשלום|רכשתי|קניתי|העלא|איפה ממשיכ/.test(t)) {
     const token = env.RATE ? await env.RATE.get('claimlink:' + normPhone(from)) : null;
     if (token) {
-      reply = 'בדקתי — התשלום שלך אצלנו ✅\n' +
+      reply = 'בדקתי, התשלום שלך אצלנו ✅\n' +
         'הנה הקישור האישי להעלאת רשימת המוזמנים והגדרת האירוע:\n' +
         'https://ishur.io/upload.html?t=' + token + '\n\n' +
         'זה לוקח 3 דקות, ואני כאן לכל שאלה 🙂';
     } else if (/שילמ|תשלום|רכשתי|קניתי|לא קיבלתי/.test(t)) {
-      reply = 'רגע, בודקים 🙂 לא מצאתי תשלום שמשויך למספר הזה — ' +
+      reply = 'רגע, בודקים 🙂 לא מצאתי תשלום שמשויך למספר הזה. ' +
         'יכול להיות שהתשלום בוצע עם מספר טלפון אחר. ' +
         'נציג עובר על זה עכשיו ויחזור אליכם ממש בקרוב.';
     }
@@ -633,8 +650,9 @@ async function aiReply(env, from, text) {
     '\n- אסור להציג את עצמך ("אני נועה") אם כבר הצגת את עצמך קודם בשיחה, או אם לא שאלו מי את. פעם אחת לכל היותר.' +
     '\n- אסור לחזור על משפטים או ניסוחים שכבר כתבת בשיחה.' +
     '\n- עני כמו בן אדם בצ׳אט: משפט אחד עד שלושה, ישיר, בלי פתיחים מנופחים. אימוג׳י לפעמים, לא בכל הודעה.' +
+    '\n- כתיבה אנושית: בלי קו מפריד ארוך (—) בכלל, פסיק או נקודה במקום. בלי "חשוב לציין", "לסיכום", "יתרה מזאת". בלי לחזור על השאלה לפני שעונים. בלי סיכומים ריקים בסוף. משפטים באורכים משתנים.' +
     '\n- אל תמציאי מחירים, קישורים או הבטחות. הקישור היחיד שמותר להזכיר: ishur.io' +
-    '\n- אם אין תשובה בטוחה בידע למטה — כתבי בקצרה שתבדקי ותחזרי.' +
+    '\n- אם אין תשובה בטוחה בידע למטה, כתבי בקצרה שתבדקי ותחזרי.' +
     '\n- לעולם אל תגידי שאת בוט או AI.' +
     '\n\nידע (שאלה → תשובה):\n' +
     brain.faq.map(x => '• ' + x[0] + ' → ' + x[1]).join('\n');
@@ -748,6 +766,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       const flagKey = `wave:${token}:${wave.key}`;
       if (env.RATE && await env.RATE.get(flagKey)) continue;
       const res = await sendWave(env, ev, token, guests, wave, dry);
+      if (!dry && res.sent) await addEvCost(env, token, res.sent * 0.53);
       if (!dry && env.RATE) await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
       if (!dry && res.failed) {
         await alert(env, 'גל שליחה', `גל ${wave.key} לאירוע ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו`, '');
@@ -822,6 +841,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
+    if (wa.ok) await addEvCost(env, token, 0.53);
     if (!wa.ok) await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה', token + ': ' + wa.error);
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
@@ -878,6 +898,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
+    if (wa.ok) await addEvCost(env, token, 0.53);
     if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
@@ -915,6 +936,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       if (wa.ok) sent++; else failed++;
     }
     if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
+    if (sent) await addEvCost(env, token, sent * 0.53);
     if (sent && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
     if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו`, token.slice(0, 8));
     if (sent || failed) out.push({ token, type: 'seating', sent, failed });
@@ -1048,6 +1070,87 @@ async function handleAdspend(request, env, origin) {
   const map = {};
   for (const [k, v] of Object.entries(await kvPrefix(env, 'adspend:'))) map[k] = Number(v) || 0;
   return okJson({ ok: true, adspend: map }, origin);
+}
+
+/* ══ Fixed monthly overheads ═════════════════════════════════════════════════
+   Named line items per month (numbers rent, Make, whatever) — the P&L board
+   always subtracts them. fixedcost:<YYYY-MM> holds a JSON array of
+   {name, ils}; sending items replaces that month's list.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleFixedCost(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+  const m = String(body.month || '').slice(0, 7);
+  if (/^\d{4}-\d{2}$/.test(m) && Array.isArray(body.items)) {
+    const items = body.items.slice(0, 30)
+      .map(x => ({ name: String((x || {}).name || '').slice(0, 40), ils: Math.max(0, Number((x || {}).ils) || 0) }))
+      .filter(x => x.name);
+    await env.RATE.put('fixedcost:' + m, JSON.stringify(items));
+  }
+  const map = {};
+  for (const [k, v] of Object.entries(await kvPrefix(env, 'fixedcost:'))) {
+    try { map[k] = JSON.parse(v) || []; } catch { map[k] = []; }
+  }
+  return okJson({ ok: true, fixedcost: map }, origin);
+}
+
+/* ══ Cost log — the "what exactly did we spend" report ═══════════════════════
+   Day by day (messages, calls) plus per-event totals, straight from the KV
+   counters. The admin board renders it and exports CSV from it.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleCostLog(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+
+  const [raw, waDays, shirDays, evCosts] = await Promise.all([
+    fetchSnapshot(env.HOOK_STATUS),
+    kvPrefix(env, 'wastat:'),
+    kvPrefix(env, 'shircost:'),
+    kvPrefix(env, 'evcost:'),
+  ]);
+
+  const days = {};
+  const day = d => (days[d] = days[d] ||
+    { date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 });
+  for (const [d, v] of Object.entries(waDays)) {
+    let st = {}; try { st = JSON.parse(v) || {}; } catch {}
+    const row = day(d);
+    row.wa_out += Number(st.out) || 0;
+    row.wa_tmpl += Number(st.tmpl) || 0;
+    row.wa_fail += Number(st.fail) || 0;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
+  }
+  for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
+
+  const events = [];
+  for (const ev of (raw && raw.events && raw.events.values) || []) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    if (!token || !paid) continue;
+    const t8 = token.slice(0, 8);
+    events.push({
+      token8: t8,
+      client: String(ev[2] || '').trim(),
+      name: String(ev[34] || ev[2] || '').trim(),
+      occasion: String(ev[5] || '').trim(),
+      date: String(ev[6] || '').trim(),
+      plan: String(ev[31] || '').trim(),
+      sum_ils: Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0,
+      cost_usd_cents: Number(evCosts[t8]) || 0,
+      invoice: String(ev[9] || '').trim(),
+      cancelled: String(ev[27] || '').trim() === 'כן',
+    });
+  }
+
+  return okJson({
+    ok: true,
+    days: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
+    events,
+    generated_at: new Date().toISOString(),
+  }, origin);
 }
 
 /* ══ AI kill-switch from the admin board ═════════════════════════════════════
@@ -1202,6 +1305,10 @@ async function handleOpsStats(request, env, origin) {
 
   const adspend = {};
   for (const [k, v] of Object.entries(await kvPrefix(env, 'adspend:'))) adspend[k] = Number(v) || 0;
+  const fixedcost = {};
+  for (const [k, v] of Object.entries(await kvPrefix(env, 'fixedcost:'))) {
+    try { fixedcost[k] = JSON.parse(v) || []; } catch { fixedcost[k] = []; }
+  }
 
   return okJson({
     ok: true,
@@ -1210,6 +1317,7 @@ async function handleOpsStats(request, env, origin) {
     leads_total: leadRows.filter(r => String((r || [])[2] || '').trim()).length,
     wa_cap: cap ? { ...cap, used_today: usedToday } : null,
     adspend,
+    fixedcost,
     generated_at: new Date().toISOString(),
   }, origin);
 }
@@ -1449,6 +1557,12 @@ export default {
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);
+    }
+    if (url.pathname === '/api/fixedcost' && request.method === 'POST') {
+      return handleFixedCost(request, env, origin);
+    }
+    if (url.pathname === '/api/cost-log' && request.method === 'POST') {
+      return handleCostLog(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);

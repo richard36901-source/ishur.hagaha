@@ -123,6 +123,7 @@ export function buildBizStats(raw) {
       token: tok, client: t(ev[2]), name: t(ev[34]) || t(ev[2]),
       occasion: t(ev[5]), date: t(ev[6]), paid, sum,
       plan: t(ev[31]), tier: t(ev[32]),
+      invoice: t(ev[9]),
       file_uploaded: t(ev[43]) === 'כן',
       guests: gl.length, confirmed, declined,
       pending: Math.max(0, gl.length - confirmed - declined),

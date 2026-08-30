@@ -430,7 +430,7 @@
     <p class="list-sum" id="listSum"></p>
     <div class="seat-bar" id="seatBar" hidden>
       <button type="button" id="seatSave">שמירת שיבוץ שולחנות</button>
-      <span id="seatMsg">למי שאישרו הגעה — ביום האירוע יקבלו הודעה עם מספר השולחן</span>
+      <span id="seatMsg">מי שאישרו הגעה יקבלו ביום האירוע הודעה עם מספר השולחן</span>
     </div>
     <div class="rows-h"><span class="a">רשומה</span><span class="b">סטטוס</span><span class="c">מוזמנים</span></div>
     <div class="rows" id="rows"></div>
@@ -451,7 +451,7 @@
     <div class="card-h">תודה שחגגתם איתנו 💚</div>
     <div style="padding:1rem 1.1rem">
       <p style="font-size:.9rem;color:#4A554E;margin:0 0 .8rem">
-        האירוע מאחוריכם — נשמח אם תקדישו דקה, זה עוזר לזוגות הבאים למצוא אותנו:
+        האירוע מאחוריכם. נשמח אם תקדישו דקה, זה עוזר לזוגות הבאים למצוא אותנו:
       </p>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         <a id="apReview" target="_blank" rel="noopener" hidden
@@ -778,7 +778,7 @@
             if (seatDirty[g.id] != null) g.table = seatDirty[g.id];
           });
           seatDirty = {};
-          $('seatMsg').textContent = 'נשמר ✓ — ההודעות ייצאו בבוקר האירוע';
+          $('seatMsg').textContent = 'נשמר ✓ ההודעות ייצאו בבוקר האירוע';
         } else {
           $('seatSave').disabled = false;
           $('seatMsg').textContent = 'השמירה נכשלה — נסו שוב';

@@ -222,8 +222,8 @@ export function inviteText(ev) {
     ev.reception_time ? `🕐 קבלת פנים ${ev.reception_time}` : '',
     [ev.venue_name, ev.venue_city].filter(Boolean).join(', '),
     '',
-    'נשמח לדעת אם תגיעו — פשוט השיבו להודעה הזו:',
-    'כן / לא, ואם כן — כמה תהיו.',
+    'נשמח לדעת אם תגיעו, פשוט השיבו להודעה הזו:',
+    'כן / לא, ואם כן כמה תהיו.',
   ];
   return lines.filter(Boolean).join('\n');
 }
