@@ -709,12 +709,12 @@
       return;
     }
 
-    var v = window.IshurGuard ? IshurGuard.allow('upload', { t: token, n: file.name, s: file.size }) : { ok: true };
+    /* rate-cap only — real duplicate protection lives in the Worker (409),
+       so a failed attempt here never blocks the retry */
+    var v = window.IshurGuard ? IshurGuard.allow('upload') : { ok: true };
     if (!v.ok) {
       returnTo = 'formView';
-      fail(v.why === 'duplicate' ? 'הקובץ הזה כבר נשלח. אם צריך לשלוח שוב, המתינו רגע.'
-                                 : 'נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.',
-           'רגע אחד');
+      fail('נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.', 'רגע אחד');
       return;
     }
 
@@ -744,8 +744,19 @@
           IshurLead.track('upload_dead_link', { reason: 'status_' + res.status });
         } else {
           returnTo = 'formView';
-          fail('השרת החזיר שגיאה (' + res.status + '). נסו שוב בעוד רגע.');
-          IshurLead.track('upload_error', { status: res.status });
+          return res.json()['catch'](function () { return {}; }).then(function (body) {
+            var why = (body && (body.error || body.reason)) || '';
+            var msgs = {
+              'already-uploaded': 'לאירוע הזה כבר הועלתה רשימה. להחלפת הקובץ — כתבו לנו בוואטסאפ ונסדר.',
+              'no-valid-guests': 'לא זיהינו שורות תקינות בקובץ. ודאו: עמודה A — שם, עמודה B — טלפון נייד (05X), בלי שורת כותרת חובה.',
+              'unreadable-file': 'לא הצלחנו לקרוא את הקובץ. שמרו אותו מחדש כ-Excel (xlsx) או CSV ונסו שוב.',
+              'bad-file-type': 'סוג הקובץ לא נתמך — צריך Excel (xlsx/xls) או CSV.',
+              'file-too-large': 'הקובץ גדול מדי (עד 8MB).',
+              'too-many-guests': 'יש יותר מ-2000 שורות — פצלו את הקובץ או כתבו לנו.',
+            };
+            fail(msgs[why] || ('השרת החזיר שגיאה (' + res.status + '). נסו שוב בעוד רגע.'));
+            IshurLead.track('upload_error', { status: res.status, why: why });
+          });
         }
       })
       ['catch'](function () {

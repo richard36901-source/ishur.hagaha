@@ -415,6 +415,13 @@ window.IshurPopup = (function () {
       if (pe) { pe.textContent = MSG.plan; pe.classList.add('on'); }
       ok = false;
     }
+    /* the terms box is a hard gate: no consent, no payment */
+    var terms = $('f-terms');
+    if (terms && !terms.checked) {
+      var te = $('e-terms');
+      if (te) { te.textContent = 'כדי להמשיך צריך לאשר את התקנון'; te.classList.add('on'); }
+      ok = false;
+    }
     if (!ok) return;
 
     var fields = {
@@ -422,6 +429,15 @@ window.IshurPopup = (function () {
       occasion: S.occasion, guests: S.guests, plan: S.plan,
       consent: S.consent
     };
+
+    /* timestamped consent record — lands as its own line in the lead history */
+    try {
+      var tsIso = new Date().toISOString();
+      localStorage.setItem('ishur_terms_ok', tsIso);
+      var cp = IshurLead.build('terms_accepted', fields);
+      cp.event_name = 'אישר תקנון (ללא החזרים)';
+      IshurLead.send(cp);
+    } catch (e) {}
 
     IshurLead.submitted(fields);
 
@@ -648,6 +664,31 @@ window.IshurPopup = (function () {
       S.consent = consent.checked;
       IshurLead.track('marketing_consent', { consent: S.consent });
     });
+
+    var terms = $('f-terms');
+    if (terms) terms.addEventListener('change', function () {
+      var te = $('e-terms');
+      if (terms.checked && te) { te.textContent = ''; te.classList.remove('on'); }
+      IshurLead.track('terms_checkbox', { checked: terms.checked });
+    });
+
+    /* returning visitor: the details they typed last time come back by
+       themselves; every keystroke keeps the stored copy fresh */
+    try {
+      var prof = JSON.parse(localStorage.getItem('ishur_profile') || '{}');
+      [['f-name', 'name'], ['f-phone', 'phone'], ['f-email', 'email']].forEach(function (pair) {
+        var el = $(pair[0]);
+        if (!el) return;
+        if (!el.value && prof[pair[1]]) el.value = prof[pair[1]];
+        el.addEventListener('input', function () {
+          try {
+            var p2 = JSON.parse(localStorage.getItem('ishur_profile') || '{}');
+            p2[pair[1]] = el.value;
+            localStorage.setItem('ishur_profile', JSON.stringify(p2));
+          } catch (e) {}
+        });
+      });
+    } catch (e) {}
 
     var occ = $('f-occasion');
     if (occ) occ.addEventListener('change', function () {
