@@ -391,6 +391,7 @@
   <section class="view" id="setupView">
     <h1>הגדרת האירוע</h1>
     <p class="lede">הפרטים האלה נכנסים להודעה שהמוזמנים מקבלים.</p>
+    <p id="planLine" hidden style="text-align:center;font-size:.82rem;background:rgba(15,76,53,.07);border:1px solid rgba(15,76,53,.25);border-radius:99px;padding:.3rem 1rem;display:inline-block;margin:0 auto .6rem;color:#0F4C35;font-weight:600"></p>
 
     <div class="sec">
       <div class="sec-h">האירוע</div>
@@ -968,6 +969,33 @@
 
   var plan = (qs.get('p') || '').trim() || 'basic';
   var guests = (qs.get('g') || '').trim();
+
+  /* the WhatsApp link carries only the token, so the real package comes from
+     the server: token → event → plan name (Hebrew) → plan key. The ?p= value
+     stays as a fallback for the old links. */
+  (function () {
+    if (!token) return;
+    var payload = { token: token };
+    fetch(CFG.endpoint('status'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.event) return;
+        var byName = {};
+        Object.keys(CFG.PLANS || {}).forEach(function (k) { byName[CFG.PLANS[k].name] = k; });
+        var key = byName[String(d.event.plan || '').trim()];
+        if (key) plan = key;
+        if (d.event.guests_tier) guests = String(d.event.guests_tier);
+        var line = $('planLine');
+        if (line && (key || d.event.plan)) {
+          line.hidden = false;
+          line.textContent = 'החבילה שלכם: ' + (d.event.plan || key) +
+            (guests ? ' · עד ' + guests + ' מוזמנים' : '');
+        }
+        renderAddons();
+      }).catch(function () {});
+  })();
 
   function renderAddons() {
     var ed = $('f-edate').value;
