@@ -550,8 +550,15 @@ async function handleWaWebhook(request, env, url) {
         await sendText(env, from, 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂');
       }
     }
-    /* a guest wrote a free question — same service brain answers */
-    if (parsed.kind === 'text') await serviceReply(env, from, parsed.body);
+    /* "בוצע AUT-123" closes a team reminder before the service brain answers */
+    if (parsed.kind === 'text') {
+      const done = await markTaskDone(env, parsed.body).catch(() => null);
+      if (done) {
+        await sendText(env, from, 'סומן ✓ ' + done + ' ירד מהתזכורות. כל הכבוד!');
+        continue;
+      }
+      await serviceReply(env, from, parsed.body);
+    }
     } catch (e) {
       await alert(env, 'וובהוק וואטסאפ', 'שגיאה בטיפול בהודעה נכנסת', `${from}: ${e && e.message}`);
     }
@@ -976,6 +983,74 @@ async function runDailyEngine(env, dry, todayOverride) {
     if (sent || failed) out.push({ token, type: 'seating', sent, failed });
   }
   return { ok: true, date: today, events: out };
+}
+
+/* ══ Team reminders ══════════════════════════════════════════════════════════
+   KV key `reminders` holds a JSON list: [{date:"YYYY-MM-DD", to:["9725..."],
+   who:"שלו", tasks:[{id:"AUT-891", title:"...", done:false}]}].
+   A Tuesday cron fires at 12:00/13:00/19:00 IL: the first slot always sends,
+   the later slots nag only while something is still open. Anyone on the list
+   closes a task by WhatsApping "בוצע AUT-891" to the business number.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function loadReminders(env) {
+  if (!env.RATE) return [];
+  try { return JSON.parse(await env.RATE.get('reminders')) || []; } catch { return []; }
+}
+
+async function runTeamReminders(env, hourUtc, dry) {
+  const today = ilDate();
+  const list = await loadReminders(env);
+  const out = [];
+  for (const r of list) {
+    if (r.date !== today) continue;
+    const open = (r.tasks || []).filter(t => !t.done);
+    const firstSlot = hourUtc === 9;
+    if (!open.length && !firstSlot) continue;
+    const lines = open.length
+      ? open.map(t => '· ' + t.id + ' — ' + t.title)
+      : ['הכל סגור 🎉'];
+    const nag = hourUtc === 16 ? 'תזכורת אחרונה להיום — ' : hourUtc === 10 ? 'תזכורת — ' : '';
+    const msg = 'היי ' + (r.who || '') + ' 🌟 ' + nag + 'המשימות הפתוחות להיום:\n' +
+      lines.join('\n') +
+      (open.length ? '\n\nסגרתם משהו? השיבו כאן "בוצע ' + open[0].id + '" ואפסיק להזכיר אותו.' : '');
+    for (const to of r.to || []) {
+      if (dry) { out.push({ to, would_send: msg.slice(0, 80) }); continue; }
+      const res = await sendText(env, to, msg);
+      out.push({ to, sent: res.ok });
+    }
+  }
+  return { ok: true, date: today, hour: hourUtc, results: out };
+}
+
+async function handleRemindRun(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (Array.isArray(body.set)) {
+    /* replace the whole reminders list — the admin seeds or edits it */
+    await env.RATE.put('reminders', JSON.stringify(body.set.slice(0, 50)));
+  }
+  if (body.run != null) {
+    return okJson(await runTeamReminders(env, Number(body.run) || 9, !!body.dry), origin);
+  }
+  return okJson({ ok: true, reminders: await loadReminders(env) }, origin);
+}
+
+/* WhatsApp "בוצע AUT-123" marks the task done and stops the nagging */
+async function markTaskDone(env, text) {
+  const m = String(text || '').match(/בוצע\s+((?:AUT|aut)-\d+)/);
+  if (!m || !env.RATE) return null;
+  const id = m[1].toUpperCase();
+  const list = await loadReminders(env);
+  let hit = false;
+  for (const r of list) {
+    for (const t of r.tasks || []) {
+      if (String(t.id).toUpperCase() === id) { t.done = true; hit = true; }
+    }
+  }
+  if (!hit) return null;
+  await env.RATE.put('reminders', JSON.stringify(list));
+  return id;
 }
 
 /* ══ Daily sheet backup ══════════════════════════════════════════════════════
@@ -1670,6 +1745,12 @@ async function overBudget(env, key, limit, windowSec) {
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
+    /* the Tuesday reminder crons carry their own schedule string */
+    if (String(event.cron || '').startsWith('0 9,10,16')) {
+      const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
+      ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
+      return;
+    }
     ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).catch(() => {}));
@@ -1736,6 +1817,9 @@ export default {
     }
     if (url.pathname === '/api/inbox' && request.method === 'POST') {
       return handleInbox(request, env, origin);
+    }
+    if (url.pathname === '/api/remind-run' && request.method === 'POST') {
+      return handleRemindRun(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
