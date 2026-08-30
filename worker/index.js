@@ -24,6 +24,7 @@
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats } from './dashboard.js';
 import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
+import { sendText, sendImage, sendTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone } from './whatsapp.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -48,6 +49,19 @@ function normPhone(raw) {
   if (d.startsWith('972')) return d;
   if (d.startsWith('0')) return '972' + d.slice(1);
   return d;
+}
+
+/* Any failure anywhere → immediate ping to Richard (Make hook → Telegram for
+   now; swaps to the Slack channel the moment a Slack webhook exists). */
+async function alert(env, where, what, detail) {
+  if (!env.ALERT_HOOK) return;
+  await fetch(env.ALERT_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      where, what: String(what || '').slice(0, 300),
+      detail: String(detail || '').slice(0, 500), ts: new Date().toISOString(),
+    }),
+  }).catch(() => {});
 }
 
 async function handleGrowIpn(request, env, url) {
@@ -89,6 +103,7 @@ async function handleGrowIpn(request, env, url) {
         body: JSON.stringify({ problem: 'missing-ref-or-phone', raw: flat }),
       }).catch(() => {});
     }
+    await alert(env, 'תשלום Grow', 'הגיע תשלום בלי אסמכתא או טלפון — טיפול ידני', JSON.stringify(flat).slice(0, 400));
     return new Response('accepted-incomplete', { status: 200 });
   }
 
@@ -126,6 +141,18 @@ async function handleGrowIpn(request, env, url) {
   }
   /* if the writer failed, forget the dedupe key so Grow's retry works */
   if (!ok && env.RATE) await env.RATE.delete('grow:' + ref);
+  if (!ok) await alert(env, 'תשלום Grow', 'Make לא קלט את התשלום (writer-failed)', `ref=${ref} phone=${phone} sum=${sum}`);
+
+  /* paid → the client gets their personal upload link on WhatsApp, right now.
+     claimlink:<phone> lets the service bot re-send it on request later. */
+  if (ok) {
+    if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
+    const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
+    const wa = await sendTemplate(env, phone, 'ishur_tashlum',
+      [first, 'https://ishur.io/upload.html?t=' + token]);
+    if (env.RATE) await env.RATE.put('paywa:' + ref,
+      JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
+  }
   return new Response(ok ? 'ok' : 'writer-failed', { status: ok ? 200 : 502 });
 }
 
@@ -286,6 +313,15 @@ const okJsonPlain = payload => new Response(JSON.stringify(payload), {
   status: 200, headers: { 'Content-Type': 'application/json' },
 });
 
+/* Two personal admin keys — Richard's and Shalev's — each revocable alone */
+function isAdmin(env, key) {
+  const k = String(key || '');
+  if (!k) return false;
+  if (env.ADMIN_KEY && safeEqual(k, env.ADMIN_KEY)) return true;
+  if (env.ADMIN_KEY2 && safeEqual(k, env.ADMIN_KEY2)) return true;
+  return false;
+}
+
 async function handleShirWebhook(request, env) {
   if (!env.RETELL_KEY) return new Response('not-configured', { status: 503 });
   if (Number(request.headers.get('Content-Length') || 0) > 262144) {
@@ -336,7 +372,7 @@ async function handleShirDispatch(request, env, origin) {
   }
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-  if (!env.ADMIN_KEY || !safeEqual(String(body.admin_key || ''), env.ADMIN_KEY)) {
+  if (!isAdmin(env, body.admin_key)) {
     return deny(403, 'bad-admin-key', origin);
   }
   if (!env.RETELL_KEY || !env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
@@ -368,6 +404,259 @@ async function handleShirDispatch(request, env, origin) {
     }
   }
   return okJson({ ok: true, dialed: dialed.length, guests: dialed }, origin);
+}
+
+/* ══ WhatsApp inbound — the RSVP buttons land here ═══════════════════════════
+   Meta calls this URL for every reply to our numbers. A button tap or a
+   text answer becomes the same call_result write the calls page uses; a bare
+   "מגיע" gets a follow-up question about party size, whose numeric answer is
+   matched back through a short-lived KV marker. הסר is honored immediately.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleWaWebhook(request, env, url) {
+  /* Meta's one-time verification handshake */
+  if (request.method === 'GET') {
+    const p = url.searchParams;
+    if (p.get('hub.mode') === 'subscribe' && env.WA_VERIFY && p.get('hub.verify_token') === env.WA_VERIFY) {
+      return new Response(p.get('hub.challenge') || '', { status: 200 });
+    }
+    return new Response('forbidden', { status: 403 });
+  }
+  /* No app secret for HMAC — the shared token rides the callback URL instead */
+  if (!env.WA_VERIFY || url.searchParams.get('t') !== env.WA_VERIFY) {
+    return new Response('forbidden', { status: 403 });
+  }
+
+  let payload;
+  try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
+
+  for (const { from, msg } of extractInbound(payload)) {
+    try {
+    const parsed = parseInboundReply(msg);
+    /* full inbound log — every message from every number, always */
+    if (env.RATE) {
+      await env.RATE.put('log:' + from + ':' + Date.now(),
+        JSON.stringify({
+          dir: 'in', type: msg.type,
+          text: (parsed ? textOf(parsed) : '').slice(0, 300),
+          at: new Date().toISOString(),
+        }), { expirationTtl: 90 * 86400 }).catch(() => {});
+    }
+    if (!parsed) continue;
+
+    if (parsed.kind === 'optout') {
+      if (env.RATE) await env.RATE.put('optout:' + from, new Date().toISOString());
+      await sendText(env, from, 'הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
+      continue;
+    }
+
+    const raw = await fetchSnapshot(env.HOOK_STATUS);
+    const guest = raw ? findGuestByPhone(raw, from, ilDate()) : null;
+    if (!guest) {
+      /* not a guest of any event — client service: always answer something */
+      await serviceReply(env, from, textOf(parsed));
+      continue;
+    }
+
+    if (parsed.kind === 'party' && env.RATE) {
+      const pending = await env.RATE.get('awaitparty:' + guest.guest_id);
+      if (pending) {
+        await env.RATE.delete('awaitparty:' + guest.guest_id);
+        await writeGuestReply(env, guest, 'מגיע', parsed.party);
+        await sendText(env, from, `מעולה, רשמנו ${parsed.party} 🎉 נתראה בשמחות!`);
+      }
+      continue;
+    }
+
+    if (parsed.kind === 'rsvp') {
+      if (parsed.outcome === 'מגיע' && !parsed.party) {
+        await writeGuestReply(env, guest, 'מגיע');
+        if (env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+        await sendText(env, from, 'איזה כיף! כמה תהיו בסך הכל? (אפשר לענות רק במספר)');
+      } else if (parsed.outcome === 'מגיע') {
+        await writeGuestReply(env, guest, 'מגיע', parsed.party);
+        await sendText(env, from, `נרשם — ${parsed.party} מגיעים 🎉`);
+      } else if (parsed.outcome === 'לא מגיע') {
+        await writeGuestReply(env, guest, 'לא מגיע');
+        await sendText(env, from, 'חבל שלא תהיו, תודה שעדכנתם 🙏');
+      } else {
+        await writeGuestReply(env, guest, 'מתלבט');
+        await sendText(env, from, 'אין לחץ — אפשר לעדכן כאן בכל רגע 🙂');
+      }
+    }
+    /* a guest wrote a free question — same service brain answers */
+    if (parsed.kind === 'text') await serviceReply(env, from, parsed.body);
+    } catch (e) {
+      await alert(env, 'וובהוק וואטסאפ', 'שגיאה בטיפול בהודעה נכנסת', `${from}: ${e && e.message}`);
+    }
+  }
+  return new Response('ok', { status: 200 });
+}
+
+/* ══ customer service — every message gets an answer ═════════════════════════
+   Order of play:
+     1. "didn't get my link / I paid" → verify against claimlink:<phone>,
+        re-send the personal upload link.
+     2. Anything else → the AI answers from the editable sheet brain
+        (tab "מוח שירות": B1 kill-switch, B2 persona, rows 5+ are Q→A pairs).
+     3. AI off/down → warm human fallback. Silence is never an option.
+   Every exchange is logged to KV (inbox:<phone>:<ts>) for the inbox phase.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+function textOf(parsed) {
+  if (parsed.kind === 'text') return parsed.body;
+  if (parsed.kind === 'party') return String(parsed.party);
+  if (parsed.kind === 'rsvp') return parsed.outcome;
+  return '';
+}
+
+const FALLBACK_REPLY = 'היי! כאן הצוות של ishur.io 🙂 קיבלנו את ההודעה ונחזור אליכם ממש בקרוב.';
+
+async function serviceReply(env, from, text) {
+  const t = String(text || '').trim();
+  if (!t) return;
+
+  let reply = '';
+
+  /* 1 · paid client asking for their link */
+  if (/קישור|לינק|לא קיבלתי|שילמ|תשלום|רכשתי|קניתי|העלא|איפה ממשיכ/.test(t)) {
+    const token = env.RATE ? await env.RATE.get('claimlink:' + normPhone(from)) : null;
+    if (token) {
+      reply = 'בדקתי — התשלום שלך אצלנו ✅\n' +
+        'הנה הקישור האישי להעלאת רשימת המוזמנים והגדרת האירוע:\n' +
+        'https://ishur.io/upload.html?t=' + token + '\n\n' +
+        'זה לוקח 3 דקות, ואני כאן לכל שאלה 🙂';
+    } else if (/שילמ|תשלום|רכשתי|קניתי|לא קיבלתי/.test(t)) {
+      reply = 'רגע, בודקים 🙂 לא מצאתי תשלום שמשויך למספר הזה — ' +
+        'יכול להיות שהתשלום בוצע עם מספר טלפון אחר. ' +
+        'נציג עובר על זה עכשיו ויחזור אליכם ממש בקרוב.';
+    }
+  }
+
+  /* 2 · the sheet-brain AI */
+  if (!reply) reply = (await aiReply(env, from, t)) || '';
+
+  /* 3 · never silent */
+  if (!reply) reply = FALLBACK_REPLY;
+
+  await sendText(env, from, reply);
+  if (env.RATE) {
+    await env.RATE.put('inbox:' + normPhone(from) + ':' + Date.now(),
+      JSON.stringify({ in: t.slice(0, 500), out: reply.slice(0, 500), at: new Date().toISOString() }),
+      { expirationTtl: 90 * 86400 }).catch(() => {});
+  }
+}
+
+/* The brain lives in the sheet so Richard edits it like text, no deploys.
+   Cached in KV for 3 minutes — the kill-switch bites within that window. */
+async function getBrain(env) {
+  const fallback = { active: false, persona: '', faq: [] };
+  if (!env.BRAIN_HOOK) return fallback;
+  if (env.RATE) {
+    const hit = await env.RATE.get('brain:cache');
+    if (hit) { try { return JSON.parse(hit); } catch {} }
+  }
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+      qk1: 'ranges', qv1: 'מוח שירות!A1:B80',
+    }),
+  }).catch(() => null);
+  if (!r || !r.ok) return fallback;
+  let rows = [];
+  try { rows = (await r.json()).valueRanges[0].values || []; } catch { return fallback; }
+  const cell = (i, j) => String((rows[i] || [])[j] || '').trim();
+  const brain = {
+    active: !/כבוי/.test(cell(0, 1)),
+    persona: cell(1, 1),
+    faq: rows.slice(4).map(x => [String(x[0] || '').trim(), String(x[1] || '').trim()])
+      .filter(x => x[0] && x[1]).slice(0, 60),
+  };
+  if (env.RATE) await env.RATE.put('brain:cache', JSON.stringify(brain), { expirationTtl: 180 }).catch(() => {});
+  return brain;
+}
+
+async function aiReply(env, from, text) {
+  if (!env.AI) return null;
+  const brain = await getBrain(env);
+  if (!brain.active) return null;
+
+  /* per-phone daily cap so a prankster can't burn the budget */
+  if (env.RATE) {
+    const key = 'aicount:' + normPhone(from) + ':' + ilDate();
+    const n = Number(await env.RATE.get(key)) || 0;
+    if (n >= 20) return null;
+    await env.RATE.put(key, String(n + 1), { expirationTtl: 86400 }).catch(() => {});
+  }
+
+  const sys = (brain.persona || 'את נציגת שירות חמה של ishur.io — שירות אישורי הגעה לאירועים בוואטסאפ.') +
+    '\n\nכללים קשיחים:' +
+    '\n- עני בעברית, קצר (2-4 משפטים), חם וטבעי כמו בן אדם. אימוג׳י אחד לכל היותר.' +
+    '\n- אל תמציאי מחירים, קישורים או הבטחות. הקישור היחיד שמותר להזכיר: ishur.io' +
+    '\n- אם אין לך תשובה בטוחה מהידע למטה — כתבי שתבדקי ותחזרי בהקדם.' +
+    '\n- לעולם אל תגידי שאת בוט או AI.' +
+    '\n\nידע (שאלה → תשובה):\n' +
+    brain.faq.map(x => '• ' + x[0] + ' → ' + x[1]).join('\n');
+
+  try {
+    const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [{ role: 'system', content: sys }, { role: 'user', content: String(text).slice(0, 800) }],
+      max_tokens: 300, temperature: 0.4,
+    });
+    const out = String((r && r.response) || '').trim();
+    return out || null;
+  } catch { return null; }
+}
+
+/* An RSVP from WhatsApp resolves the guest without touching the call fields */
+async function writeGuestReply(env, guest, outcome, party) {
+  await fetch(env.HOOK_EVENTS, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      event_type: 'call_result', guest_id: guest.guest_id,
+      rsvp: outcome,
+      call_status: outcome === 'מתלבט' ? '__keep__' : '',
+      answer: 'ענה בוואטסאפ',
+      tries: '__keep__',
+      party: party != null ? String(party) : '__keep__',
+      ts: new Date().toISOString(),
+    }),
+  }).catch(() => null);
+}
+
+/* ══ WhatsApp sending ════════════════════════════════════════════════════════
+   Admin-gated. Make's daily engine calls this instead of the WhatsApp module,
+   so every message goes out through code we control and can log.
+   modes: text | image | template | invite (build the invitation body for us)
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleWaSend(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) {
+    return deny(403, 'bad-admin-key', origin);
+  }
+  const to = String(body.to || '').trim();
+  if (!to) return deny(400, 'no-recipient', origin);
+
+  let res;
+  switch (String(body.mode || 'text')) {
+    case 'template':
+      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he');
+      break;
+    case 'image':
+      res = await sendImage(env, to, body.image_url, body.caption || '');
+      break;
+    case 'invite': {
+      const text = inviteText(body.event || {});
+      res = body.image_url
+        ? await sendImage(env, to, body.image_url, text)
+        : await sendText(env, to, text);
+      break;
+    }
+    default:
+      res = await sendText(env, to, body.text || '');
+  }
+  return okJson(res, origin);
 }
 
 async function fetchSnapshot(target) {
@@ -471,6 +760,12 @@ export default {
     if (url.pathname === '/api/grow-ipn' && request.method === 'POST') {
       return handleGrowIpn(request, env, url);
     }
+    /* the same IPN with the key as a path segment — Grow's webhook form
+       chokes on query strings, so it gets a URL with no ? at all */
+    if (url.pathname.startsWith('/api/grow-ipn/k/') && request.method === 'POST') {
+      url.searchParams.set('k', url.pathname.slice('/api/grow-ipn/k/'.length));
+      return handleGrowIpn(request, env, url);
+    }
     if (url.pathname === '/api/claim' && request.method === 'POST') {
       return handleClaim(request, env, origin);
     }
@@ -482,6 +777,12 @@ export default {
     }
     if (url.pathname === '/api/shir-dispatch' && request.method === 'POST') {
       return handleShirDispatch(request, env, origin);
+    }
+    if (url.pathname === '/api/wa-send' && request.method === 'POST') {
+      return handleWaSend(request, env, origin);
+    }
+    if (url.pathname === '/api/wa-webhook') {
+      return handleWaWebhook(request, env, url);
     }
     if (!route) return deny(404, 'unknown-route', origin);
     if (request.method !== 'POST') return deny(405, 'method', origin);
@@ -527,7 +828,7 @@ export default {
       /* the calls page asks with the admin key and gets the whole queue */
       const admin = String(stampFields.admin_key || '');
       if (admin) {
-        if (!env.ADMIN_KEY || !safeEqual(admin, env.ADMIN_KEY)) return deny(403, 'bad-admin-key', origin);
+        if (!isAdmin(env, admin)) return deny(403, 'bad-admin-key', origin);
         const raw = await fetchSnapshot(target);
         if (!raw) return deny(502, 'reader-failed', origin);
         if (stampFields.view === 'biz') return okJson(buildBizStats(raw), origin);
@@ -546,7 +847,7 @@ export default {
     /* a call outcome from the calls page: admin key instead of a token, and
        the button pressed becomes exact cell values here, not in Make */
     if (url.pathname === '/api/event' && stampFields.event_type === 'call_result') {
-      if (!env.ADMIN_KEY || !safeEqual(String(stampFields.admin_key || ''), env.ADMIN_KEY)) {
+      if (!isAdmin(env, stampFields.admin_key)) {
         return deny(403, 'bad-admin-key', origin);
       }
       const result = callOutcome(String(stampFields.outcome || ''), stampFields.tries);

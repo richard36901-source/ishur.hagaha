@@ -5,3 +5,6 @@ compatibility_date = "2026-08-01"
 [[kv_namespaces]]
 binding = "RATE"
 id = "05a171c6b3cb46f2af7cc72b1ac19f14"
+
+[ai]
+binding = "AI"
