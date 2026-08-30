@@ -52,8 +52,12 @@ async function post(env, body, channel) {
   /* every outbound message is logged; every failure raises an alert */
   try {
     if (env.RATE) {
+      const summary =
+        body.type === 'text' ? String((body.text || {}).body || '') :
+        body.type === 'image' ? '🖼 ' + String((body.image || {}).caption || 'תמונה') :
+        body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type;
       await env.RATE.put('log:' + String(body.to || '') + ':' + Date.now(),
-        JSON.stringify({ dir: 'out', type: body.type, ok: res.ok, error: res.error || '', at: new Date().toISOString() }),
+        JSON.stringify({ dir: 'out', type: body.type, text: summary.slice(0, 300), ok: res.ok, error: res.error || '', at: new Date().toISOString() }),
         { expirationTtl: 90 * 86400 });
       /* daily counters feed the money board: sends, template sends, failures */
       const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());

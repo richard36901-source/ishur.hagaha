@@ -1001,6 +1001,84 @@ async function handleBackup(request, env, origin) {
   return okJson({ ok: true, dates: dates.sort().reverse() }, origin);
 }
 
+/* ══ The inbox — every WhatsApp conversation, Wati style ═════════════════════
+   Built straight from the KV message log (log:<phone>:<ts>, 90 days).
+   POST {admin_key} → conversation list; {admin_key, phone} → the thread.
+   Replies go out through /api/wa-send, which logs itself into the same keys.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function kvKeys(env, prefix, cap = 6000) {
+  const names = [];
+  if (!env.RATE || !env.RATE.list) return names;
+  let cursor;
+  while (names.length < cap) {
+    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) names.push(k.name);
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return names;
+}
+
+async function handleInbox(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+
+  const phone = normPhone(body.phone || '');
+  if (phone) {
+    /* one thread, oldest first */
+    const names = (await kvKeys(env, 'log:' + phone + ':')).sort();
+    const messages = [];
+    for (const n of names.slice(-200)) {
+      try {
+        const v = JSON.parse(await env.RATE.get(n));
+        if (v) messages.push({ ts: Number(n.split(':').pop()) || 0, ...v });
+      } catch {}
+    }
+    return okJson({ ok: true, phone, messages }, origin);
+  }
+
+  /* conversation list: newest activity first, with a name when we know one */
+  const names = await kvKeys(env, 'log:');
+  const conv = {};
+  for (const n of names) {
+    const parts = n.split(':');           // log:<phone>:<ts>
+    const p = parts[1], ts = Number(parts[2]) || 0;
+    if (!p) continue;
+    const c = (conv[p] = conv[p] || { phone: p, msgs: 0, last_ts: 0 });
+    c.msgs++;
+    if (ts > c.last_ts) { c.last_ts = ts; c.last_key = n; }
+  }
+  const list = Object.values(conv).sort((a, b) => b.last_ts - a.last_ts).slice(0, 200);
+  for (const c of list) {
+    try {
+      const v = JSON.parse(await env.RATE.get(c.last_key));
+      if (v) { c.last_dir = v.dir; c.last_text = String(v.text || v.type || '').slice(0, 80); }
+    } catch {}
+    delete c.last_key;
+  }
+
+  /* names from the sheet: event owners and guests */
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (raw) {
+    const nameOf = {};
+    for (const ev of (raw.events && raw.events.values) || []) {
+      const p = normPhone(ev[3] || '');
+      if (p && !nameOf[p]) nameOf[p] = { name: String(ev[2] || '').trim(), kind: 'לקוח' };
+    }
+    for (const g of (raw.guests && raw.guests.values) || []) {
+      const p = normPhone(g[4] || '');
+      if (p && !nameOf[p]) nameOf[p] = { name: String(g[3] || '').trim(), kind: 'אורח' };
+    }
+    for (const c of list) {
+      const hit = nameOf[c.phone];
+      if (hit) { c.name = hit.name; c.kind = hit.kind; }
+    }
+  }
+  return okJson({ ok: true, conversations: list }, origin);
+}
+
 /* ══ Phone + code login for the dashboard ════════════════════════════════════
    The client types their phone, gets a one-time code on WhatsApp (ishur_kod),
    and signs in. A code that logged in once keeps working on that phone for a
@@ -1621,6 +1699,9 @@ export default {
     }
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);
+    }
+    if (url.pathname === '/api/inbox' && request.method === 'POST') {
+      return handleInbox(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
