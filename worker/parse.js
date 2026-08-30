@@ -15,6 +15,9 @@ export function normPhone(raw) {
   let d = String(raw || '').replace(/\D/g, '');
   if (d.startsWith('972')) return d;
   if (d.startsWith('0')) return '972' + d.slice(1);
+  /* Excel and Numbers store phones as numbers and eat the leading zero:
+     545764327 is really 0545764327. Nine digits starting with 5 = mobile. */
+  if (/^5\d{8}$/.test(d)) return '972' + d;
   return d;
 }
 

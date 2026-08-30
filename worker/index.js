@@ -624,6 +624,60 @@ async function writeGuestReply(env, guest, outcome, party) {
   }).catch(() => null);
 }
 
+/* ══ Shir call monitoring ════════════════════════════════════════════════════
+   Admin-gated proxy to Retell: live concurrency, today's cost, recent calls
+   with duration / cost / recording / transcript. Feeds the admin board.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleShirCalls(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RETELL_KEY) return deny(503, 'shir-not-configured', origin);
+
+  const auth = { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' };
+  const [callsRes, concRes] = await Promise.all([
+    fetch('https://api.retellai.com/v2/list-calls', {
+      method: 'POST', headers: auth,
+      body: JSON.stringify({ sort_order: 'descending', limit: Math.min(Number(body.limit) || 30, 100) }),
+    }).catch(() => null),
+    fetch('https://api.retellai.com/get-concurrency', { headers: auth }).catch(() => null),
+  ]);
+
+  let calls = [];
+  if (callsRes && callsRes.ok) { try { calls = await callsRes.json(); } catch {} }
+  if (!Array.isArray(calls)) calls = [];
+  let conc = {};
+  if (concRes && concRes.ok) { try { conc = await concRes.json(); } catch {} }
+
+  const slim = calls.map(c => ({
+    id: c.call_id || '',
+    status: c.call_status || '',
+    type: c.call_type || '',
+    from: c.from_number || '',
+    to: c.to_number || '',
+    started_at: c.start_timestamp || null,
+    duration_s: c.start_timestamp && c.end_timestamp
+      ? Math.round((c.end_timestamp - c.start_timestamp) / 1000) : null,
+    cost_usd_cents: (c.call_cost && c.call_cost.combined_cost) || 0,
+    reason: c.disconnection_reason || '',
+    sentiment: (c.call_analysis && c.call_analysis.user_sentiment) || '',
+    recording_url: c.recording_url || '',
+    transcript: String(c.transcript || '').slice(0, 8000),
+  }));
+
+  const costToday = env.RATE ? Number(await env.RATE.get('shircost:' + ilDate())) || 0 : 0;
+  return okJson({
+    ok: true,
+    live: {
+      now: Number(conc.current_concurrency) || 0,
+      limit: Number(conc.concurrency_limit) || 0,
+    },
+    cost_today_usd_cents: costToday,
+    calls: slim,
+    generated_at: new Date().toISOString(),
+  }, origin);
+}
+
 /* ══ WhatsApp sending ════════════════════════════════════════════════════════
    Admin-gated. Make's daily engine calls this instead of the WhatsApp module,
    so every message goes out through code we control and can log.
@@ -777,6 +831,9 @@ export default {
     }
     if (url.pathname === '/api/shir-dispatch' && request.method === 'POST') {
       return handleShirDispatch(request, env, origin);
+    }
+    if (url.pathname === '/api/shir-calls' && request.method === 'POST') {
+      return handleShirCalls(request, env, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);

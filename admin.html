@@ -88,6 +88,22 @@
   </div>
   <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
 
+  <h2>שיר · שיחות</h2>
+  <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+    <div class="kpi"><b id="s-live">–</b><span>שיחות פעילות כרגע</span></div>
+    <div class="kpi"><b id="s-count">–</b><span>שיחות אחרונות</span></div>
+    <div class="kpi money"><b id="s-cost">–</b><span>עלות היום $</span></div>
+  </div>
+  <div class="tblwrap">
+    <table>
+      <thead><tr>
+        <th>שעה</th><th>אל</th><th>סטטוס</th><th>משך</th><th>עלות $</th><th>סיום</th><th>הקלטה</th><th>תמלול</th>
+      </tr></thead>
+      <tbody id="shirRows"></tbody>
+    </table>
+  </div>
+  <p class="empty" id="shirEmpty" hidden>עוד לא היו שיחות. ברגע ששיר תתחיל לחייג — הכל יופיע כאן: משך, עלות, הקלטה ותמלול מלא.</p>
+
   <p class="foot"><a href="calls.html">→ למוקד השיחות</a> · הנתונים נקראים ישירות מהגיליון</p>
 </main>
 
@@ -150,6 +166,54 @@
       $('main').hidden = false;
       $('gen').textContent = 'לא הצלחנו לטעון — רעננו';
     });
+    loadShir();
+  }
+
+  function fmtDur(s) {
+    if (s == null) return '—';
+    return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
+  }
+
+  function loadShir() {
+    var payload = { admin_key: adminKey, limit: 30 };
+    fetch(CFG.endpoint('shir-calls'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.ok) return;
+        $('s-live').textContent = d.live.now + (d.live.limit ? ' / ' + d.live.limit : '');
+        $('s-count').textContent = d.calls.length;
+        $('s-cost').textContent = (d.cost_today_usd_cents / 100).toFixed(2);
+        var rows = $('shirRows'); rows.innerHTML = '';
+        $('shirEmpty').hidden = d.calls.length > 0;
+        d.calls.forEach(function (c) {
+          var tr = document.createElement('tr');
+          var t = c.started_at ? new Date(c.started_at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+          var live = c.status === 'ongoing';
+          var pill = live ? '<span class="pill p-warn">🔴 חיה</span>'
+                          : '<span class="pill ' + (c.status === 'ended' ? 'p-ok' : 'p-no') + '">' + (c.status || '—') + '</span>';
+          var td = function (h) { var x = document.createElement('td'); x.innerHTML = h; return x; };
+          tr.appendChild(td(t));
+          tr.appendChild(td(c.to ? '<span dir="ltr">' + c.to + '</span>' : (c.type || '—')));
+          tr.appendChild(td(pill));
+          tr.appendChild(td(fmtDur(c.duration_s)));
+          tr.appendChild(td((c.cost_usd_cents / 100).toFixed(2)));
+          tr.appendChild(td(c.reason || '—'));
+          tr.appendChild(td(c.recording_url ? '<a href="' + c.recording_url + '" target="_blank" rel="noopener">▶ שמע</a>' : '—'));
+          var tdT = document.createElement('td');
+          if (c.transcript) {
+            var det = document.createElement('details');
+            var sum = document.createElement('summary'); sum.textContent = 'פתח';
+            var pre = document.createElement('div');
+            pre.style.cssText = 'white-space:pre-wrap;max-width:340px;max-height:220px;overflow:auto;font-size:.72rem;text-align:right';
+            pre.textContent = c.transcript;
+            det.appendChild(sum); det.appendChild(pre); tdT.appendChild(det);
+          } else tdT.textContent = '—';
+          tr.appendChild(tdT);
+          rows.appendChild(tr);
+        });
+      }).catch(function () {});
   }
 
   function gate(err) {

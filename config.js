@@ -344,7 +344,7 @@ window.ISHUR_CONFIG = (function () {
     if (USE_PROXY && PROXY_BASE) {
       return PROXY_BASE.replace(/\/$/, '') + ({
         lead: '/api/lead', event: '/api/event', status: '/api/status',
-        claim: '/api/claim'
+        claim: '/api/claim', 'shir-calls': '/api/shir-calls'
       }[kind] || '/api/event');
     }
     return {
