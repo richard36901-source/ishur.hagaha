@@ -24,7 +24,7 @@
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
 import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone } from './whatsapp.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText } from './whatsapp.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -814,30 +814,42 @@ async function handleWaWebhook(request, env, url) {
       continue;
     }
 
-    if (parsed.kind === 'party' && env.RATE) {
+    /* answering "how many of you?" — a bare number, but also "אנחנו 4",
+       "נהיה שלושה" or "לבד", which people write far more often */
+    if (env.RATE) {
       const pending = await env.RATE.get('awaitparty:' + guest.guest_id);
       if (pending) {
-        await env.RATE.delete('awaitparty:' + guest.guest_id);
-        await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        await sendText(env, from, `מעולה, רשמנו ${parsed.party} 🎉 נתראה בשמחות!`);
+        const n = parsed.kind === 'party' ? parsed.party : partyFromText(textOf(parsed));
+        if (n) {
+          await env.RATE.delete('awaitparty:' + guest.guest_id);
+          const saved = await writeGuestReply(env, guest, 'מגיע', n);
+          await sendText(env, from, saved
+            ? `מעולה, רשמנו ${n} 🎉 נתראה בשמחות!`
+            : 'קיבלנו, רגע רושמים ונחזור אליכם 🙂');
+          continue;
+        }
       }
-      continue;
     }
+    if (parsed.kind === 'party') continue; // a number with no open question
 
     if (parsed.kind === 'rsvp') {
+      /* never confirm what the sheet did not take */
+      const HOLD = 'קיבלנו את התשובה, רגע רושמים ונחזור אליכם 🙂';
       if (parsed.outcome === 'מגיע' && !parsed.party) {
-        await writeGuestReply(env, guest, 'מגיע');
-        if (env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
-        await sendText(env, from, 'איזה כיף! כמה תהיו בסך הכל? (אפשר לענות רק במספר)');
+        const saved = await writeGuestReply(env, guest, 'מגיע');
+        if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+        await sendText(env, from, saved
+          ? 'איזה כיף! כמה תהיו בסך הכל?'
+          : HOLD);
       } else if (parsed.outcome === 'מגיע') {
-        await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        await sendText(env, from, `נרשם, ${parsed.party} מגיעים 🎉`);
+        const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
+        await sendText(env, from, saved ? `נרשם, ${parsed.party} מגיעים 🎉` : HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
-        await writeGuestReply(env, guest, 'לא מגיע');
-        await sendText(env, from, 'חבל שלא תהיו, תודה שעדכנתם 🙏');
+        const saved = await writeGuestReply(env, guest, 'לא מגיע');
+        await sendText(env, from, saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
       } else {
-        await writeGuestReply(env, guest, 'מתלבט');
-        await sendText(env, from, 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂');
+        const saved = await writeGuestReply(env, guest, 'מתלבט');
+        await sendText(env, from, saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
       }
     }
     /* "בוצע AUT-123" closes a team reminder before the service brain answers */
@@ -1003,8 +1015,10 @@ async function aiReply(env, from, text) {
 }
 
 /* An RSVP from WhatsApp resolves the guest without touching the call fields */
+/* Returns whether the sheet actually took the answer. The guest is only told
+   "נרשם" when it did — otherwise we keep the reply and say we are on it. */
 async function writeGuestReply(env, guest, outcome, party) {
-  await fetch(env.HOOK_EVENTS, {
+  const r = await fetch(env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_type: 'call_result', guest_id: guest.guest_id,
@@ -1016,6 +1030,15 @@ async function writeGuestReply(env, guest, outcome, party) {
       ts: new Date().toISOString(),
     }),
   }).catch(() => null);
+  const ok = !!r && r.status === 200;
+  if (!ok && env.RATE) {
+    await env.RATE.put('rsvpfail:' + guest.guest_id + ':' + Date.now(),
+      JSON.stringify({ guest_id: guest.guest_id, outcome, party: party ?? null, at: new Date().toISOString() }),
+      { expirationTtl: 30 * 86400 }).catch(() => {});
+    await alert(env, 'תשובת אורח לא נשמרה',
+      `RSVP של ${guest.guest_id} (${outcome}) לא נכתב לגיליון — נשמר לשחזור`, '');
+  }
+  return ok;
 }
 
 /* ══ daily engine · stage 1: the week-before report ══════════════════════════
@@ -1104,6 +1127,33 @@ async function runDailyEngine(env, dry, todayOverride) {
     } catch (e) { await alert(env, 'לקוח תקוע', 'שלב הבדיקה נפל', String(e && e.message)); }
   }
 
+  /* ── stage 0.55: paid, uploaded, but the settings step was never finished ──
+     No event date or no send dates means the engine has nothing to fire on,
+     so the event would sit paid and silent forever. Nudge the client back to
+     the page (it resumes at the settings step) and say so in Slack.        */
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim();
+    const paid = String(ev[7] || '').trim() === 'כן';
+    const cancelled = String(ev[27] || '').trim() === 'כן';
+    const fileUp = String(ev[43] || '').trim() === 'כן';
+    const phone = String(ev[3] || '').trim();
+    if (!token || !paid || cancelled || !fileUp || !phone) continue;
+    const evDate = String(ev[6] || '').trim().slice(0, 10);
+    const anySend = [39, 40, 41].some(c => /^\d{4}-\d{2}-\d{2}/.test(String(ev[c] || '').trim()));
+    if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && anySend) continue; // properly set up
+    if (env.RATE && await env.RATE.get('nosetup:' + token)) continue;
+    if (dry) { out.push({ token, type: 'no_setup', would_send_to: phone }); continue; }
+    const first = (String(ev[2] || '').split(' ')[0] || '').trim() || 'לקוח יקר';
+    const wa = await sendTemplate(env, phone, 'ishur_tzikoret_kovetz',
+      [first, 'https://ishur.io/upload.html?t=' + token], '', 'he', undefined, { token });
+    if (wa.ok) {
+      await addEvCost(env, token, 0.53);
+      if (env.RATE) await env.RATE.put('nosetup:' + token, today, { expirationTtl: 14 * 86400 });
+      await slackPost(env, `🟠 *אירוע משולם בלי הגדרות* · ${ev[2] || ''} ${phone}\nהרשימה הועלתה אבל לא נבחרו תאריך אירוע או מועדי שליחה, ולכן שום הודעה לא תצא. נשלחה תזכורת חזרה לעמוד.`);
+    }
+    out.push({ token, type: 'no_setup', sent: wa.ok });
+  }
+
   /* ── stage 0.6: channel health — yesterday's send-failure rate ──────────── */
   if (env.RATE && !dry) {
     try {
@@ -1138,7 +1188,15 @@ async function runDailyEngine(env, dry, todayOverride) {
 
     for (const wave of WAVES) {
       const when = String(ev[wave.col] || '').trim().slice(0, 10);
-      if (when !== today) continue;
+      /* the engine never runs on Shabbat, and a date can be missed for other
+         reasons too, so a wave stays claimable for three days. The KV flag
+         below is what keeps it to a single send. */
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(when)) continue;
+      const lateBy = Math.round((Date.parse(today) - Date.parse(when)) / 864e5);
+      if (lateBy < 0 || lateBy > 3) continue;
+      /* never chase after the event itself has passed */
+      const evDay = String(ev[6] || '').trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < today) continue;
       const flagKey = `wave:${token}:${wave.key}`;
       if (env.RATE && await env.RATE.get(flagKey)) continue;
       /* wave 3 is the paid extra_send add-on — no plan includes it. The add-on
@@ -2059,6 +2117,31 @@ async function msgPerformanceDigest(env) {
     (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
 }
 
+/* ══ Meta admin proxy ════════════════════════════════════════════════════════
+   WA_TOKEN lives only in this Worker's secrets. Template management and Graph
+   lookups go through here so the token never sits on a laptop or in /tmp.
+   POST {admin_key, path, method?, payload?} — path is hit on graph.facebook.com.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleMetaAdmin(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.WA_TOKEN) return deny(503, 'wa-not-configured', origin);
+  const path = String(body.path || '');
+  if (!path.startsWith('/')) return deny(400, 'bad-path', origin);
+  const method = String(body.method || 'GET').toUpperCase();
+  const init = { method, headers: { Authorization: 'Bearer ' + env.WA_TOKEN } };
+  if (body.payload !== undefined && method !== 'GET') {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(body.payload);
+  }
+  const r = await fetch('https://graph.facebook.com/v21.0' + path, init).catch(() => null);
+  if (!r) return deny(502, 'meta-unreachable', origin);
+  let out = null;
+  try { out = await r.json(); } catch { out = null; }
+  return okJson({ ok: r.ok, status: r.status, data: out }, origin);
+}
+
 /* ══ Money & sources board ═══════════════════════════════════════════════════
    Admin-gated: revenue per day (from the events sheet), messaging + call costs
    per day (from KV counters), and lead sources (utm) from the leads sheet.
@@ -2422,6 +2505,9 @@ export default {
     }
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
+    }
+    if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
+      return handleMetaAdmin(request, env, origin);
     }
     if (url.pathname === '/api/msg-stats' && request.method === 'POST') {
       return handleMsgStats(request, env, origin);

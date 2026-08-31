@@ -214,7 +214,13 @@ export function parseInboundReply(msg) {
   if (!text) return null;
 
   const clean = text.replace(/[‎‏]/g, '');
-  if (/הסר|הסירו|תסירו|לא להתקשר|תפסיקו/.test(clean)) return { kind: 'optout' };
+  /* opt-out must be the whole intent, anchored: a bare "הסר" or an explicit
+     phrase. Unanchored it also matched הסרטון, הסרנו, and removed a guest
+     from the list forever over a word about a video. */
+  if (/^\s*(הסר|הסירו|תסירו|הפסיקו|תפסיקו|תורידו אותי)\b/.test(clean) ||
+      /(לא להתקשר|להסיר אותי|תסירו אותי|הסירו אותי)/.test(clean)) {
+    return { kind: 'optout' };
+  }
 
   /* a bare number = party size reply */
   const bare = clean.replace(/[^\d]/g, '');
@@ -223,16 +229,32 @@ export function parseInboundReply(msg) {
   }
 
   const yes = /^(מגיע|מגיעה|מגיע\/ה|מגיעים|כן|נגיע|בטח|אשמח|נהיה שם)/.test(clean);
-  const no = /^(לא מגיע|לא מגיעה|לא מגיע\/ה|לא מגיעים|לא נגיע|לא נוכל|לצערנו|לא)/.test(clean);
-  const maybe = /(עדיין לא|לא ידוע|מתלבט|נעדכן|לא בטוח|אולי)/.test(clean);
+  const no = /^(לא מגיע|לא מגיעה|לא מגיע\/ה|לא מגיעים|לא נגיע|לא נוכל|לצערנו|לא נספיק)|^לא\s*$|^לא[.!]/.test(clean);
+  const maybe = /(עדיין לא|לא ידוע|מתלבט|נעדכן|לא בטוח|לא יודע|לא סגרנו|אולי)/.test(clean);
 
+  /* order matters: "לא בטוח עדיין" is undecided, not a refusal. A bare "לא"
+     still declines, but anything after it has to be checked first. */
+  if (maybe) return { kind: 'rsvp', outcome: 'מתלבט' };
   if (no) return { kind: 'rsvp', outcome: 'לא מגיע' };
   if (yes) {
     const m = clean.match(/(\d{1,2})/);
     return { kind: 'rsvp', outcome: 'מגיע', party: m ? Number(m[1]) : undefined };
   }
-  if (maybe) return { kind: 'rsvp', outcome: 'מתלבט' };
   return { kind: 'text', body: text };
+}
+
+/* Hebrew words people answer "how many of you?" with, plus a loose digit
+   grab. Only consulted while a party-size question is actually open. */
+const HE_COUNT = { 'לבד': 1, 'רק אני': 1, 'אחד': 1, 'אחת': 1, 'שניים': 2, 'שתיים': 2, 'זוג': 2,
+  'שלושה': 3, 'שלוש': 3, 'ארבעה': 4, 'ארבע': 4, 'חמישה': 5, 'חמש': 5, 'שישה': 6, 'שש': 6,
+  'שבעה': 7, 'שבע': 7, 'שמונה': 8, 'תשעה': 9, 'תשע': 9, 'עשרה': 10, 'עשר': 10 };
+export function partyFromText(text) {
+  const clean = String(text || '').replace(/[‎‏]/g, '').trim();
+  if (!clean) return null;
+  const m = clean.match(/\b(\d{1,2})\b/);
+  if (m) { const n = Number(m[1]); if (n >= 1 && n <= 99) return n; }
+  for (const w of Object.keys(HE_COUNT)) if (clean.includes(w)) return HE_COUNT[w];
+  return null;
 }
 
 /* Pull the reply messages out of Meta's webhook envelope */

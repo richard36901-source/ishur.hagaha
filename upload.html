@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=23"></script>
+<script src="config.js?v=24"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -1342,6 +1342,15 @@
       occasion_label: CFG.occasionLabel(S.occasion),
       name1: $('f-name1').value.trim(),
       name2: ($('f-name2').value || '').trim(),
+      /* column 34 (event title) is the only host field the sender reads, and
+         Make prefers event_title over name1 — so both hosts must be joined
+         here or every wedding invitation goes out with one name */
+      event_title: (function () {
+        var t = ($('f-title') && $('f-title').value || '').trim();
+        if (t) return t;
+        var a = $('f-name1').value.trim(), b = ($('f-name2').value || '').trim();
+        return b ? a + ' ו' + b : a;
+      })(),
       event_date: $('f-edate').value,
       reception_time: $('f-time').value,
       venue_name: $('f-venue').value.trim(),
@@ -1369,13 +1378,10 @@
       ts: new Date().toISOString()
     };
 
-    /* in auto mode the later sends live in auto_sends — flatten them into the
-       date columns the sender actually reads */
-    if (autoMode()) {
-      var later = payload.auto_sends.map(function (x) { return x.date; });
-      payload.send_date_2 = later[0] || '';
-      if (!payload.send_date_3) payload.send_date_3 = later[1] || '';
-    }
+    /* auto_sends holds the event-day reminder and the day-after wrap-up. Those
+       are computed by the engine from the event date itself, so writing them
+       into the wave columns sent an RSVP invitation ON the event day and the
+       day after it. The wave columns stay empty in auto mode. */
 
     IshurLead.track('setup_submitted', { occasion: S.occasion, style: S.style, has_image: !!imgFile });
 

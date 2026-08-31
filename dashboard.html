@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=23"></script>
+<script src="config.js?v=24"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -175,6 +175,7 @@
   }
   .send-edit:hover{border-color:var(--green);color:var(--green2)}
   .send-edit:active{transform:scale(.95);transition-duration:100ms}
+  .send-note{font-size:.72rem;color:var(--ink3)}
   .send-tag{font-size:.72rem;color:var(--ink3)}
 
   /* add-ons */
@@ -918,7 +919,7 @@
              '<span class="send-w">' + IshurDate.pretty(s.date) + '</span></span>' +
              '<span class="send-a">' +
                (sent ? '<span class="send-tag">יצא</span>'
-                     : open ? '<button type="button" class="send-edit" data-i="' + i + '">שינוי תאריך</button>'
+                     : open ? '<span class="send-note">לשינוי מועד, כתבו לנו בוואטסאפ</span>'
                             : '<span class="send-tag">' + (s.auto ? 'אוטומטי' : 'נעול') + '</span>') +
              '</span></div>';
     }).join('');
@@ -1157,6 +1158,9 @@
     }
     if (ev.token) {
       try { localStorage.setItem('ishur_dash_ev', ev.token); } catch (e) {}
+      /* seating and every other token-authed write read this module-level
+         token; without it a phone+code login can view but not act */
+      token = ev.token;
       loadData({ token: ev.token }, false);
     } else {
       /* no per-event token: ask for it by id, with the credentials we hold */
