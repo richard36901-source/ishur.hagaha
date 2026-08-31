@@ -61,7 +61,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=23"></script>
+<script src="config.js?v=26"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -1418,6 +1418,138 @@ footer{
 .dpv-p.w{background:#f3f4f6;color:#6b7280}
 .dpv-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.58rem;color:#374151;width:.9rem;text-align:center}
 
+/* ═════════════════════════════════════════════════════════════════════════
+   PROMO LAYER
+   A thin bar at the very top, one popup per visit, and a struck price in the
+   pricing block. Same pine, gold and cream as everything above it.
+   Display only: nothing here changes what Grow charges.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── the bar ────────────────────────────────────────────────────────────── */
+#promo-bar{
+  position:fixed;inset:0 0 auto;z-index:320;
+  display:flex;align-items:center;justify-content:center;
+  min-height:34px;padding:.32rem 2.6rem;
+  background:linear-gradient(90deg,var(--pine-deep) 0%,var(--pine-lift) 50%,var(--pine-deep) 100%);
+  border-bottom:1px solid var(--gold-pale);
+  color:var(--paper);font-family:'Heebo',sans-serif;
+  font-size:.76rem;font-weight:300;line-height:1.4;text-align:center;
+}
+#promo-bar b{color:var(--gold-soft);font-weight:600}
+#promo-bar i{font-style:normal;color:var(--gold);margin:0 .28rem}
+/* the bar is fixed, so the nav and the page both step down behind it */
+body.has-promo{padding-top:34px}
+body.has-promo #nav{top:34px}
+#promo-bar-x{
+  position:absolute;inset-inline-start:.4rem;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:6px;cursor:pointer;
+  color:var(--gold-soft);font-size:.9rem;line-height:1;padding:0;
+  transition:background .2s,color .2s;
+}
+#promo-bar-x:hover{background:rgba(199,174,122,.16);color:var(--paper)}
+#promo-bar-x:focus-visible{outline:2px solid var(--gold-soft);outline-offset:1px}
+@media(max-width:560px){
+  #promo-bar{font-size:.7rem;min-height:40px;padding:.35rem 2.4rem}
+  body.has-promo{padding-top:40px}
+  body.has-promo #nav{top:40px}
+}
+
+/* ── the popup ──────────────────────────────────────────────────────────── */
+#promo-modal{
+  position:fixed;inset:0;z-index:9998;
+  display:flex;align-items:center;justify-content:center;padding:1.2rem;
+}
+#promo-modal-bg{
+  position:absolute;inset:0;background:rgba(10,33,25,.62);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+#promo-card{
+  position:relative;width:100%;max-width:400px;
+  background:#FBF8F1;color:var(--pine);
+  border:1px solid var(--gold-pale);border-radius:16px;
+  padding:1.9rem 1.5rem 1.4rem;text-align:center;
+  box-shadow:0 24px 70px rgba(10,33,25,.34);
+  animation:promoIn .38s cubic-bezier(.22,.9,.24,1) both;
+}
+.promo-rule{
+  width:104px;height:9px;margin:0 auto .95rem;
+  background-image:
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    radial-gradient(circle,var(--gold) 2.2px,transparent 2.3px);
+  background-size:38px 1px,38px 1px,100% 9px;
+  background-position:left center,right center,center center;
+  background-repeat:no-repeat;
+}
+#promo-title{
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;
+  font-size:1.55rem;line-height:1.2;letter-spacing:-.022em;
+  color:var(--pine);margin-bottom:.7rem;
+}
+#promo-label{
+  display:inline-block;background:var(--gold);color:#1B1508;
+  font-family:'Heebo',sans-serif;font-size:.71rem;font-weight:600;
+  letter-spacing:.04em;border-radius:100px;padding:.26rem .85rem;
+  margin-bottom:.9rem;
+}
+#promo-greeting{
+  font-family:'Heebo',sans-serif;font-size:.89rem;font-weight:300;
+  line-height:1.75;color:#2E4238;margin:0 0 1.25rem;
+}
+#promo-ok{
+  width:100%;background:var(--pine);color:var(--paper);
+  border:none;border-radius:10px;padding:.85rem 1.2rem;
+  font-family:'Heebo',sans-serif;font-size:.95rem;font-weight:600;
+  cursor:pointer;transition:background .2s,transform .18s;
+}
+#promo-ok:hover{background:var(--pine-lift)}
+#promo-ok:active{transform:scale(.978)}
+#promo-ok:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#promo-x{
+  position:absolute;top:.45rem;inset-inline-start:.45rem;
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:8px;cursor:pointer;padding:0;
+  color:#7B8B82;font-size:.95rem;line-height:1;transition:background .2s,color .2s;
+}
+#promo-x:hover{background:rgba(15,46,34,.07);color:var(--pine)}
+#promo-x:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+@keyframes promoIn{from{opacity:0;transform:translateY(14px) scale(.972)}to{opacity:1;transform:none}}
+
+/* ── the struck price in the pricing block ──────────────────────────────── */
+.plan-opt-price .was{
+  font-size:.72rem;font-weight:400;color:var(--ink3);
+  text-decoration:line-through;text-decoration-thickness:1px;
+  line-height:1.2;opacity:.8;
+}
+.plan-opt-price .was .cur{color:inherit;font-size:.72rem}
+.plan-opt-price .now{color:var(--gold);font-weight:700}
+.plan-opt-price .now .cur{color:var(--gold)}
+.promo-save{
+  display:inline-block;margin-top:.22rem;
+  background:rgba(168,133,60,.12);border:1px solid var(--gold-pale);
+  color:#7A5F27;border-radius:100px;padding:.06rem .45rem;
+  font-family:'Heebo',sans-serif;font-size:.6rem;font-weight:600;
+  letter-spacing:0;white-space:nowrap;
+}
+
+/* ── a browser set to dark must not repaint any of this ─────────────────── */
+@media(prefers-color-scheme:dark){
+  #promo-bar,#promo-modal,#promo-card{color-scheme:light}
+  #promo-bar{color:var(--paper)}
+  #promo-card{background:#FBF8F1;color:var(--pine);border-color:var(--gold-pale)}
+  #promo-title{color:var(--pine)}
+  #promo-greeting{color:#2E4238}
+  #promo-ok{background:var(--pine);color:var(--paper)}
+  .promo-save{background:rgba(168,133,60,.14);color:#7A5F27}
+}
+
+@media(prefers-reduced-motion:reduce){
+  #promo-card{animation:none}
+  #promo-ok,#promo-x,#promo-bar-x{transition:none}
+  #promo-ok:active{transform:none}
+}
+
 </style>
 </head>
 <body>
@@ -1797,6 +1929,105 @@ function currentStyleKey(){
   return ISHUR_MESSAGES.SITUATIONAL.indexOf(k)>-1 ? 'happy' : k;
 }
 
+// ═══ PROMO ═══ display only. A thin bar, one popup per visit, and struck
+// prices in the block below. The payment link is untouched, see config.js.
+const IshurPromo=(()=>{
+  /* resolved from the url the moment the script runs, so the pricing block
+     below can already ask for it. The DOM half waits for the document. */
+  const key=(CFG&&CFG.activePromo)?CFG.activePromo():null;
+  const info=key?CFG.promoInfo(key):null;
+  const SEEN='ishur_promo_seen', BAR_OFF='ishur_promo_bar_off';
+  let lastFocus=null;
+
+  function flag(k){ try{ return sessionStorage.getItem(k)==='1'; }catch(e){ return false; } }
+  function setFlag(k){ try{ sessionStorage.setItem(k,'1'); }catch(e){} }
+
+  /* the bar line, assembled from the promo itself so it can never drift
+     away from PROMOS. biz reads:
+     "מבצע בעלי עסקים פעיל · בסיס עד 300 מוזמנים ב-49 ש״ח" */
+  function barLine(){
+    if(!info) return '';
+    const on=info.activeWord||'פעיל';
+    if(info.kind==='flat'){
+      const plan=CFG.PLANS[info.plan];
+      return `<b>${info.label}</b> ${on} <i>·</i> ${plan?plan.name:''} עד ${info.maxTier} מוזמנים ב-${info.price} ש״ח`;
+    }
+    return `<b>${info.label}</b> ${on} <i>·</i> ${info.percent}% הנחה על כל החבילות`;
+  }
+
+  function focusables(box){
+    return [...box.querySelectorAll('button:not([disabled]),[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+      .filter(el=>el.offsetParent!==null||el===document.activeElement);
+  }
+
+  function onKey(e){
+    const modal=document.getElementById('promo-modal');
+    if(!modal||modal.hidden) return;
+    if(e.key==='Escape'){ e.preventDefault(); closeModal(); return; }
+    if(e.key!=='Tab') return;
+    /* basic trap: Tab off either end wraps back inside the card */
+    const f=focusables(document.getElementById('promo-card'));
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+
+  function openModal(){
+    const modal=document.getElementById('promo-modal');
+    if(!modal||!info) return;
+    document.getElementById('promo-label').textContent=info.label;
+    document.getElementById('promo-greeting').textContent=info.greeting||'';
+    lastFocus=document.activeElement;
+    modal.hidden=false;
+    document.addEventListener('keydown',onKey);
+    const ok=document.getElementById('promo-ok');
+    if(ok) ok.focus();
+    setFlag(SEEN);
+    push('promo_popup',{promo:key});
+  }
+
+  function closeModal(){
+    const modal=document.getElementById('promo-modal');
+    if(!modal||modal.hidden) return;
+    modal.hidden=true;
+    document.removeEventListener('keydown',onKey);
+    /* back where they were, and never left sitting on a hidden button */
+    if(lastFocus&&lastFocus!==document.body&&lastFocus.focus) lastFocus.focus();
+    else if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  }
+
+  function showBar(){
+    const bar=document.getElementById('promo-bar');
+    if(!bar||!info||flag(BAR_OFF)) return;
+    document.getElementById('promo-bar-txt').innerHTML=barLine();
+    bar.hidden=false;
+    document.body.classList.add('has-promo');
+  }
+
+  function hideBar(){
+    const bar=document.getElementById('promo-bar');
+    if(bar) bar.hidden=true;
+    document.body.classList.remove('has-promo');
+    setFlag(BAR_OFF);
+  }
+
+  function boot(){
+    if(!info) return;
+    showBar();
+    const x=document.getElementById('promo-bar-x');
+    if(x) x.addEventListener('click',hideBar);
+    document.querySelectorAll('[data-promo-close]').forEach(el=>el.addEventListener('click',closeModal));
+    /* once a visit, not once a page view */
+    if(!flag(SEEN)) openModal();
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+
+  return { key:()=>key, info:()=>info, open:openModal, close:closeModal };
+})();
+
 // ═══ PRICING ═══ a guest picker and the three packages, priced live
 function buildPricing(){
   const sel=document.getElementById('pr-guests');
@@ -1814,9 +2045,13 @@ function renderPlans(guests){
   const wrap=document.getElementById('pr-plans');
   if(!wrap) return;
   const custom=guests==='custom';
+  /* a promo only ever changes what is printed here, never what is charged */
+  const promo=(typeof IshurPromo!=='undefined')?IshurPromo.key():null;
   wrap.innerHTML=CFG.PLAN_ORDER.map(k=>{
     const p=CFG.PLANS[k];
     const price=(guests&&!custom)?CFG.priceFor(guests,k):null;
+    const pr=(promo&&price!=null)?CFG.promoPrice(promo,guests,k):null;
+    const cut=!!(pr&&pr.applies);
     return `<button type="button" class="plan-opt${k==='pro'?' rec':''}" data-plan="${k}">
       ${k==='pro'?'<span class="plan-rec">המומלץ ביותר</span>':''}
       <span class="plan-txt">
@@ -1824,7 +2059,8 @@ function renderPlans(guests){
         <span class="plan-opt-note">${p.desc}</span>
       </span>
       <span class="plan-opt-price">${
-        price?`<span class="cur">₪</span>${price}<em>לאירוע אחד</em>`
+        cut?`<span class="was"><span class="cur">₪</span>${pr.original}</span><span class="now"><span class="cur">₪</span>${pr.final}</span><em>לאירוע אחד</em><span class="promo-save">חסכתם ${pr.saved} ש״ח</span>`
+        : price?`<span class="cur">₪</span>${price}<em>לאירוע אחד</em>`
         : custom?'<b>הצעה אישית</b>'
         : `<span class="from">החל מ-</span><span class="cur">₪</span>${CFG.fromPrice(k)}`
       }</span>
@@ -2049,6 +2285,26 @@ window.addEventListener('load',()=>{
       </div>
 
     </div>
+  </div>
+</div>
+
+<!-- PROMO BAR -->
+<!-- hidden until the promo script decides there is one; [hidden] is !important -->
+<div id="promo-bar" role="region" aria-label="מבצע פעיל" hidden>
+  <button type="button" id="promo-bar-x" aria-label="סגירת הודעת המבצע">✕</button>
+  <span id="promo-bar-txt"></span>
+</div>
+
+<!-- PROMO POPUP -->
+<div id="promo-modal" role="dialog" aria-modal="true" aria-labelledby="promo-title" hidden>
+  <div id="promo-modal-bg" data-promo-close></div>
+  <div id="promo-card">
+    <button type="button" id="promo-x" data-promo-close aria-label="סגירת החלון">✕</button>
+    <div class="promo-rule" aria-hidden="true"></div>
+    <h2 id="promo-title">קיבלתם הנחה</h2>
+    <span id="promo-label"></span>
+    <p id="promo-greeting"></p>
+    <button type="button" id="promo-ok" data-promo-close>מעולה, קדימה</button>
   </div>
 </div>
 

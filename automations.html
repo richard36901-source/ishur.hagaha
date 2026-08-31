@@ -1,0 +1,767 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>האוטומציות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=26"></script>
+<script src="assets/adminbar.js?v=3" defer></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F;
+    --chip:#F1EEE4;
+  }
+  /* night mode: same key the client dashboard uses (ishur_theme) */
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;
+    --chip:#222A24;
+  }
+  html[data-theme=dark] h2{color:#7BC9A4}
+  html[data-theme=dark] .auto-t{color:#7BC9A4}
+  html[data-theme=dark] .sum b{color:#7BC9A4}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
+  .wrap{max-width:min(96vw,1360px);margin:0 auto;padding:0 .9rem}
+
+  h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.6rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
+  h2 em{font-style:normal;color:var(--ink3);font-family:'Heebo',sans-serif;font-size:.72rem;font-weight:400}
+  .lead{font-size:.82rem;color:var(--ink2);margin-bottom:.8rem}
+  .lead b{color:var(--ink)}
+
+  .autos{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:.6rem}
+  .auto{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.85rem .95rem;display:flex;flex-direction:column}
+  .auto-h{display:flex;align-items:center;gap:.5rem;margin-bottom:.3rem}
+  .auto-n{flex:none;width:22px;height:22px;border-radius:50%;background:var(--chip);color:var(--gold);font-size:.68rem;font-weight:700;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  .auto-t{font-family:'Frank Ruhl Libre',serif;font-size:.97rem;color:var(--pine);line-height:1.3}
+  .auto-d{font-size:.78rem;color:var(--ink2);margin-bottom:.6rem}
+  .auto dl{display:grid;grid-template-columns:auto 1fr;gap:.28rem .6rem;font-size:.74rem;margin-top:auto}
+  .auto dt{color:var(--gold);font-weight:600;white-space:nowrap}
+  .auto dd{color:var(--ink2);min-width:0;overflow-wrap:anywhere}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.7rem;background:var(--chip);color:var(--ink2);border-radius:5px;padding:.05rem .32rem;direction:ltr;display:inline-block;unicode-bidi:isolate}
+  .tag{display:inline-block;font-size:.63rem;font-weight:700;border-radius:99px;padding:.06rem .5rem;background:var(--chip);color:var(--ink3);margin-inline-start:.3rem;vertical-align:middle}
+  .tag.plan{background:rgba(168,133,60,.14);color:var(--gold)}
+  .tag.quiet{background:rgba(168,64,47,.1);color:var(--warn)}
+
+  /* ── dry run ── */
+  .dry{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem}
+  .dry-row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}
+  .dry input[type=date]{border:1px solid var(--line);border-radius:10px;padding:.5rem .7rem;font:inherit;font-size:.82rem;background:var(--bg);color:var(--ink);direction:ltr}
+  .btn{border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.55rem 1.2rem;font:inherit;font-weight:600;font-size:.85rem;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:var(--card);color:var(--ink2);border:1px solid var(--line)}
+  button:not(:disabled):active{transform:scale(.97)}
+  .hint{font-size:.72rem;color:var(--ink3);margin-top:.5rem}
+  .sum{display:flex;flex-wrap:wrap;gap:.5rem;margin:.9rem 0 .2rem}
+  .sum span{background:var(--chip);border-radius:10px;padding:.35rem .7rem;font-size:.75rem;color:var(--ink3)}
+  .sum b{color:var(--pine);font-variant-numeric:tabular-nums}
+  .tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px;margin-top:.7rem}
+  table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:560px}
+  th{color:var(--gold);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:.5rem .7rem;border-bottom:1px solid var(--gold-pale);white-space:nowrap}
+  td{padding:.55rem .7rem;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  td.stage{font-weight:600;color:var(--ink);white-space:nowrap}
+  td.tok{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;color:var(--ink3);direction:ltr;text-align:right;white-space:nowrap;unicode-bidi:isolate}
+  .empty{text-align:center;color:var(--ink3);padding:2.2rem 1rem;font-size:.88rem}
+  .err{color:var(--warn);font-size:.82rem;margin-top:.6rem}
+
+  /* ── crons ── */
+  .crons{background:var(--card);border:1px solid var(--line);border-radius:12px;overflow-x:auto}
+  .crons table{min-width:520px;font-size:.78rem}
+  .crons td:first-child{white-space:nowrap}
+
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate h2{border:none;margin:0;color:var(--pine)}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{min-height:1.2rem;margin-top:.4rem}
+  .foot{text-align:center;font-size:.66rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-top:2.5rem;opacity:.75}
+
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--gold-pale);border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-inline-end:.35rem}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}button{transition:none!important}button:not(:disabled):active{transform:none}}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<header class="head" style="position:relative">
+  <button type="button" id="themeTog" aria-label="מצב תצוגה"
+    style="position:absolute;top:.8rem;left:.8rem;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:.9rem;line-height:1;background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA">🌙</button>
+  <h1>ishur<i>.io</i> · האוטומציות</h1>
+  <p>מה הוורקר עושה, ומה היה קורה אם היה רץ עכשיו</p>
+</header>
+<script>
+  (function () {
+    var b = document.getElementById('themeTog');
+    function paint() { b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'; }
+    b.addEventListener('click', function () {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
+      paint();
+    });
+    paint();
+  })();
+</script>
+
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+
+  <h2 id="sec-cron">אוטומציות מתוזמנות · המנוע היומי <em>לפי סדר הריצה</em></h2>
+  <p class="lead">
+    הקרון היומי רץ <b>06:35 UTC</b> כל יום, כלומר 08:35 בשעון החורף ו-09:35 בשעון הקיץ, ומדלג על שבת.
+    יש קרון נוסף לתזכורות הצוות בימי שלישי בלבד.
+    כל שלב מדלג על אירוע שמוחזק ידנית (<code>hold:&lt;token&gt;</code>), וכל שליחה לאורח נבדקת מול רשימת ההסרה.
+  </p>
+  <div class="autos" id="cronCards"></div>
+
+  <h2 id="sec-events">אוטומציות מונעות אירוע <em>רצות בתגובה, לא לפי שעון</em></h2>
+  <p class="lead">הנתיבים האלה מחכים לבקשה נכנסת. אין להם תזמון, והם לא מופיעים בהרצה היבשה למטה.</p>
+  <div class="autos" id="evCards"></div>
+
+  <h2 id="sec-dry">הרצה יבשה <em>שום הודעה לא נשלחת</em></h2>
+  <div class="dry">
+    <div class="dry-row">
+      <button class="btn" id="dryGo">מה יקרה</button>
+      <input type="date" id="dryDate" aria-label="תאריך להרצה">
+      <button class="btn ghost" id="dryToday" type="button">היום</button>
+    </div>
+    <p class="hint">
+      נשלחת קריאה אמיתית לוורקר עם <code>dry: true</code>. המנוע קורא את הגיליון ומחשב הכול,
+      אבל לא שולח אף הודעה ולא כותב אף דגל דדופ. אפשר לבחור תאריך עתידי כדי לראות מה יצא מחר.
+    </p>
+    <div id="dryOut"></div>
+  </div>
+
+  <h2 id="sec-crons">הקרונות <em>wrangler.toml</em></h2>
+  <div class="crons">
+    <table>
+      <thead><tr><th>ביטוי</th><th>שעון ישראל</th><th>מה רץ</th></tr></thead>
+      <tbody>
+        <tr>
+          <td><code>35 6 * * *</code></td>
+          <td>08:35 בחורף · 09:35 בקיץ, כל יום</td>
+          <td>המנוע היומי (16 השלבים למעלה), אחריו הגיבוי היומי, ובימי שני גם סיכום ביצועי ההודעות לסלאק. בשבת המנוע יוצא מיד.</td>
+        </tr>
+        <tr>
+          <td><code>0 9,10,16 * * 2</code></td>
+          <td>11:00/12:00/18:00 בחורף · 12:00/13:00/19:00 בקיץ, שלישי בלבד</td>
+          <td>תזכורות הצוות. המשבצת הראשונה תמיד יוצאת, השתיים הבאות רק כל עוד נשארה משימה פתוחה. סוגרים משימה בהודעת "בוצע AUT-123" למספר העסקי.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <p class="foot">ishur.io · internal</p>
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var adminKey = '';
+
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) {
+    try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {}
+    history.replaceState(null, '', location.pathname);
+  }
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) { adminKey = qk || ''; }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     Part 1 · the daily engine, one entry per step, in runDailyEngine order.
+     Read straight off worker/index.js — if a step moves there, move it here.
+     ═══════════════════════════════════════════════════════════════════════ */
+  var STAGES = [
+    {
+      title: 'נדנוד ללקוח תקוע',
+      desc: 'שילם ולא העלה רשימת מוזמנים. יום אחרי התשלום יוצאת תזכורת אחת עם הקישור האישי, ובמקביל התראה מתויגת בסלאק.',
+      trigger: 'מפתח <code>pend:&lt;token&gt;</code> ב-KV בן יום ומעלה, שאין לצידו <code>uploaded:&lt;token&gt;</code>',
+      scope: 'כל מי ששילם, בלי קשר לחבילה',
+      tmpl: '<code>ishur_tzikoret_kovetz</code> · שם פרטי + הקישור האישי להעלאה',
+      dedup: '<code>pend:&lt;token&gt;</code> נמחק אחרי שליחה מוצלחת, ו-<code>pend2:&lt;token&gt;</code> נכתב ל-30 יום'
+    },
+    {
+      title: 'אירוע משולם בלי הגדרות',
+      desc: 'הרשימה הועלתה אבל לא נבחרו תאריך אירוע או מועדי שליחה, ולכן שום הודעה לא תצא לעולם. הלקוח מוחזר לעמוד ההגדרות.',
+      trigger: 'שורת אירוע משולמת, לא מבוטלת, עם קובץ וטלפון, כשחסר תאריך אירוע או שאין אף תאריך שליחה ב-AN/AO/AP',
+      scope: 'כל החבילות',
+      tmpl: '<code>ishur_tzikoret_kovetz</code> · אותה תבנית, עם הקישור לעמוד',
+      dedup: '<code>nosetup:&lt;token&gt;</code> ל-14 יום'
+    },
+    {
+      title: 'בדיקת בריאות הערוץ',
+      desc: 'סופר את כשלי השליחה של אתמול. אחוז כשלים גבוה מסמן שהמספר במטא נפגע, ואז עדיף לדעת לפני שיוצא גל שלם.',
+      trigger: 'הסטטיסטיקה של אתמול (<code>wastat:&lt;YYYY-MM-DD&gt;</code>): לפחות 10 שליחות ולפחות 30% כשלים',
+      scope: 'המספר העסקי כולו, לא אירוע מסוים · רץ רק בהרצה אמיתית',
+      tmpl: 'אין הודעה לאף אחד, רק התראה לסלאק',
+      dedup: '<code>healthalert:&lt;YYYY-MM-DD&gt;</code> ל-3 ימים'
+    },
+    {
+      title: 'גל 1 · ההזמנה',
+      desc: 'ההזמנה עצמה, לכל הרשימה. גל שהוחמץ נשאר פתוח שלושה ימים, כי המנוע לא רץ בשבת. שולח פעם אחת לכל מספר טלפון גם אם הוא מופיע פעמיים בקובץ.',
+      trigger: 'התאריך בעמודה AN הוא היום, או עד שלושה ימים אחורה, ותאריך האירוע עוד לא עבר',
+      scope: 'אירוע משולם, לא מבוטל, עם קובץ · כל הרשימה · כל החבילות',
+      tmpl: '<code>hazmana_ishur</code> · שם, סוג האירוע, בעלי השמחה, תאריך, שעה, מקום',
+      dedup: '<code>wave:&lt;token&gt;:1</code> ל-120 יום, נסגר רק אם משהו באמת יצא. במקביל נשמר <code>sentdate:&lt;token&gt;</code>'
+    },
+    {
+      title: 'גל 2 · התזכורת',
+      desc: 'החזרה, רק למי שעדיין לא ענה. מי שכבר אישר או סירב מדולג ולא מקבל הודעה נוספת.',
+      trigger: 'התאריך בעמודה AO הוא היום, או עד שלושה ימים אחורה',
+      scope: 'רק אורחים בלי תשובה · כל החבילות',
+      tmpl: '<code>hazmana_ishur</code>',
+      dedup: '<code>wave:&lt;token&gt;:2</code> ל-120 יום'
+    },
+    {
+      title: 'גל 3 · שליחה נוספת',
+      desc: 'התוסף בתשלום. בלי רכישה הגל מוחזק, לא נשלח ולא נסגר, ויוצאת התראה אחת כדי שלא ייעלם בשקט.',
+      trigger: 'התאריך בעמודה AP הוא היום, או עד שלושה ימים אחורה',
+      scope: 'כל הרשימה, אבל רק אם נרכש התוסף — <code>extrasend:&lt;token&gt;</code> ב-KV',
+      tmpl: '<code>hazmana_ishur</code>',
+      dedup: '<code>wave:&lt;token&gt;:3</code> ל-120 יום · ההחזקה מסומנת ב-<code>wave3note:&lt;token&gt;</code>',
+      plan: 'תוסף בתשלום'
+    },
+    {
+      title: 'הסלמה לתור השיחות',
+      desc: 'הבוקר שאחרי השליחה האחרונה שתוכננה, כל מי שעדיין שותק נכנס לתור השיחות של המוקד.',
+      trigger: 'התאריך המאוחר מבין AN/AO/AP כבר עבר',
+      scope: 'אורחים בלי תשובה ובלי סטטוס שיחה קיים · חבילת בסיס לא נכנסת לתור, היא מקבלת הצעת שדרוג במקום',
+      tmpl: 'אין תבנית וואטסאפ · נכתב לגיליון האורחים כ-call_result עם הסטטוס "נדרשת שיחה"',
+      dedup: '<code>esc:&lt;token&gt;</code> ל-120 יום',
+      plan: 'פרמיום והכל כלול'
+    },
+    {
+      title: 'דוח שבוע לפני',
+      desc: 'דוח אחד ללקוח לפני האירוע: כמה אישרו, כמה מנות, כמה סירבו וכמה עוד לא ענו, עם הקישור לדף המעקב שלו.',
+      trigger: 'בין 0 ל-7 ימים לפני תאריך האירוע',
+      scope: 'אירוע משולם, לא מבוטל, עם טלפון ותאריך · כל החבילות · יוצא ללקוח, לא לאורחים',
+      tmpl: '<code>ishur_doch</code> · שם האירוע, אישרו, מנות, סירבו, טרם ענו, קישור לדשבורד',
+      dedup: '<code>report7:&lt;token&gt;</code> ל-60 יום'
+    },
+    {
+      title: 'הודעת סיום ודוח אחרון',
+      desc: 'יום אחרי האירוע: תודה, המספרים הסופיים, וקישור לביקורת ולסרטון המלצה. אם הקישורים חסרים בגיליון "מוח שירות" ההודעה ממתינה במקום לצאת חלקית.',
+      trigger: 'בין יום ל-14 יום אחרי תאריך האירוע',
+      scope: 'אירוע משולם ולא מבוטל · כל החבילות · יוצא ללקוח',
+      tmpl: '<code>ishur_syum</code> · המספרים הסופיים + קישור ביקורת + קישור המלצה',
+      dedup: '<code>eoe:&lt;token&gt;</code> ל-120 יום · קישורים חסרים מסומנים ב-<code>eoelink:&lt;token&gt;</code>'
+    },
+    {
+      title: 'הודעות שולחן ביום האירוע',
+      desc: 'בבוקר האירוע, כל אורח שאישר ויש לו שולחן מקבל את מספר השולחן שלו. הדגל נסגר רק אם באמת יצאה הודעה, כדי ששיבוץ מאוחר יותר באותו בוקר עדיין יוכל לצאת בהרצה ידנית.',
+      trigger: 'תאריך האירוע הוא היום',
+      scope: 'אורחים בסטטוס "מגיע" עם שולחן בעמודה AE · כל החבילות',
+      tmpl: '<code>ishur_shulchan</code> · שם האורח, שם האירוע, מספר השולחן',
+      dedup: '<code>seat:&lt;token&gt;</code> ל-30 יום'
+    },
+    {
+      title: 'בדיקת חבילה חסרה',
+      desc: 'תא חבילה ריק בגיליון גורם למערכת להתייחס לאירוע כפרמיום, וזה משתיק בשקט לקוח הכל כלול. במקום זה יוצאת התראה לתיקון ידני.',
+      trigger: 'עמודה AF ריקה באירוע משולם עם תאריך',
+      scope: 'כל אירוע משולם',
+      tmpl: 'אין הודעה, רק התראה',
+      dedup: '<code>plannote:&lt;token&gt;</code> ל-60 יום'
+    },
+    {
+      title: 'הודעת ביטול לאורחים',
+      desc: 'האירוע בוטל אחרי שההזמנות כבר יצאו. בהכל כלול האורחים מקבלים הודעה, בחבילה אחרת יוצאת התראה כדי שאפשר יהיה להציע שליחה חד פעמית.',
+      trigger: 'עמודת הביטול = כן, גל ההזמנה כבר יצא, והאירוע עוד לפנינו',
+      scope: 'כל הרשימה, למעט מי שהסיר את עצמו',
+      tmpl: '<code>ishur_bitul</code> · שם האורח + שם האירוע',
+      dedup: '<code>cancelmsg:&lt;token&gt;</code> ל-120 יום · ההתראה בחבילה אחרת: <code>cancelnote:&lt;token&gt;</code>',
+      plan: 'הכל כלול בלבד'
+    },
+    {
+      title: 'הודעת דחייה או עדכון מועד',
+      desc: 'תאריך האירוע בגיליון זז אחרי שההזמנות יצאו. האורחים מקבלים את המועד החדש, ודגלי הפעם-אחת של הדוח, השולחנות והיום-לפני מתאפסים כדי שירוצו מחדש מול התאריך החדש.',
+      trigger: 'התאריך בגיליון שונה מהתאריך ש-<code>sentdate:&lt;token&gt;</code> זוכר, והאירוע עדיין לפנינו',
+      scope: 'כל הרשימה · חבילה אחרת מקבלת התראה בלבד',
+      tmpl: '<code>ishur_dchiya</code> · שם, אירוע, תאריך חדש, שעה, מקום',
+      dedup: '<code>sentdate:&lt;token&gt;</code> מתעדכן · ההתראה בחבילה אחרת: <code>postponenote:&lt;token&gt;:&lt;date&gt;</code>',
+      plan: 'הכל כלול בלבד'
+    },
+    {
+      title: 'תזכורת יום לפני',
+      desc: 'התזכורת עם הכתובת והשעה. החלון מכסה גם את בוקר האירוע עצמו, כי המנוע לא רץ בשבת ואירוע ביום ראשון היה מאבד אותה לגמרי.',
+      trigger: 'נשארו 0 או 1 ימים לאירוע, והקובץ הועלה',
+      scope: 'רק אורחים שאישרו הגעה · כלול בכל החבילות',
+      tmpl: '<code>ishur_yom_lifnei</code> · שם, אירוע, תאריך, שעה, מקום',
+      dedup: '<code>daybefore:&lt;token&gt;</code> ל-30 יום'
+    },
+    {
+      title: 'הצעת שדרוג לשיחות',
+      desc: 'לקוח בסיס שהגלים שלו השאירו הרבה שתיקה. מוצע לו סבב שיחות אנושי, כל עוד נשאר מספיק זמן לבצע אותו.',
+      trigger: 'עברו יומיים מהשליחה הראשונה שיצאה, ונשארו לפחות 7 ימים לאירוע',
+      scope: 'לפחות 10 מוזמנים, ולפחות 40% מהם בלי תשובה',
+      tmpl: '<code>ishur_shidrug</code> ללקוח · יוצאת גם הודעה לסלאק',
+      dedup: '<code>upsell:&lt;token&gt;</code> ל-120 יום',
+      plan: 'בסיס בלבד'
+    },
+    {
+      title: 'הצעת הכל כלול',
+      desc: 'לקוח פרמיום שסבב השיחות היחיד שלו לא הספיק. מוצעת לו החבילה עם שלושה סבבים.',
+      trigger: 'יום השיחות (<code>calldate:&lt;token&gt;</code>) כבר עבר, ונשארו לפחות 7 ימים לאירוע',
+      scope: 'לפחות 5 אורחים שנוסה לגביהם ניסיון שיחה, ולפחות 60% מהם עדיין בלי תשובה',
+      tmpl: '<code>ishur_shidrug_sichot</code> ללקוח · יוצאת גם הודעה לסלאק',
+      dedup: '<code>upsell2:&lt;token&gt;</code> ל-120 יום',
+      plan: 'פרמיום בלבד'
+    }
+  ];
+
+  /* ══ Part 2 · event-driven routes ═════════════════════════════════════════ */
+  var EVENT_AUTOS = [
+    {
+      title: 'תשלום נכנס מגרואו',
+      desc: 'נקודת ההתחלה של כל אירוע. גרואו מדווח לוורקר ישירות, לא ל-Make, כי הדדופ ומינוי הטוקן חייבים לקרות בקוד.',
+      trigger: '<code>POST /api/grow-ipn?k=…</code> (וגם <code>/api/grow-ipn/k/&lt;key&gt;</code> לטופס שלא סובל query)',
+      what: 'סינון קודם: רק תשלום שנעשה באחד מעמודי התשלום של ishur ממשיך, כי אותו חשבון גרואו מסלק גם עסקים אחרים. תשלום שלא זוהה לא נזרק — הוא נשמר תחת <code>ipnmiss:&lt;ts&gt;</code> ל-30 יום ויוצאת התראה עם המזהה, כדי שאפשר יהיה להריץ אותו ידנית. תשלום מזוהה עובר דדופ לפי אסמכתא, מקבל טוקן חדש, ומיד יוצאת ללקוח תבנית <code>ishur_tashlum</code> עם הקישור האישי.',
+      to: 'KV: <code>grow:&lt;ref&gt;</code>, <code>token:&lt;token&gt;</code>, <code>client:&lt;phone&gt;</code>, <code>claimlink:&lt;phone&gt;</code>, <code>pend:&lt;token&gt;</code> · שורת אירוע בגיליון דרך Make · הודעת רכישה לסלאק'
+    },
+    {
+      title: 'שליפת הטוקן בעמוד התודה',
+      desc: 'העמוד שאחרי התשלום צריך את הקישור האישי, אבל ה-IPN עלול להגיע שנייה אחריו.',
+      trigger: '<code>POST /api/claim</code> עם האסמכתא, חתום בחתימת guard',
+      what: 'מחליף אסמכתא בטוקן מתוך <code>grow:&lt;ref&gt;</code>. עוד לא הגיע — מוחזר "ממתין" והעמוד מנסה שוב, במקום להראות שגיאה.',
+      to: 'קריאה בלבד מ-KV'
+    },
+    {
+      title: 'העלאת רשימת המוזמנים',
+      desc: 'הקובץ נקרא ומאומת בוורקר, ו-Make מקבל שורות מוכנות. כל הבדיקות השבירות יושבות בקוד ולא בתרחיש.',
+      trigger: '<code>POST /api/event</code> עם קובץ csv/xlsx/xls',
+      what: 'נחסם אם כבר הועלתה רשימה לאירוע, אם הקובץ מעל 8MB, אם אין בו אף שורה תקינה, אם יש בו מעל 2000 שורות, או אם מספר ההזמנות חורג ממדרגת החבילה — ואז יוצאת גם הודעת סלאק על חריגת מכסה. קובץ עם שורות בעייתיות עוצר לתצוגה מקדימה: הלקוח רואה בדיוק אילו שורות בעייתיות ובוחר להעלות בכל זאת או לתקן.',
+      to: 'שורות בפורמט גיליון האורחים דרך Make · <code>uploaded:&lt;token&gt;</code> ב-KV · מחיקת <code>pend:&lt;token&gt;</code> שמכבה את שלב הלקוח התקוע'
+    },
+    {
+      title: 'שלב ההגדרות ותמונת ההזמנה',
+      desc: 'תאריך האירוע, השעה, המקום ומועדי השליחה. זה מה שגורם למנוע היומי להיות בכלל בעל מה לירות עליו.',
+      trigger: '<code>POST /api/event</code> עם שדות טקסט, ואופציונלית תמונה',
+      what: 'התמונה מאומתת לפי החתימה שלה ולא לפי הסיומת, נשמרת עד 4MB, ומוגשת חזרה בכתובת ציבורית שנכנסת להזמנה.',
+      to: 'שורת האירוע בגיליון דרך Make · התמונה ב-KV תחת <code>img:&lt;token&gt;</code>, מוגשת ב-<code>/img/&lt;token&gt;</code>'
+    },
+    {
+      title: 'הודעה נכנסת בוואטסאפ · השער',
+      desc: 'כל הודעה נכנסת עוברת דרך הצינור הזה לפני שמישהו מטפל בה.',
+      trigger: '<code>POST /api/wa-webhook?t=…</code> · ה-GET הוא אימות חד פעמי של מטא',
+      what: 'מטא חוזרת ומנסה עד שהיא מקבלת 200, אז כל הודעה עוברת דדופ לפי המזהה של מטא — בלי זה האורח היה נענה פעמיים והגיליון נכתב פעמיים. אחרי הדדופ ההודעה נרשמת ביומן, ומזכה בתגובה את התבנית האחרונה שנשלחה לאותו מספר.',
+      to: 'KV: <code>wain:&lt;msg_id&gt;</code>, <code>log:&lt;phone&gt;:&lt;ts&gt;</code> ל-90 יום, <code>tstat:&lt;template&gt;:&lt;occasion&gt;</code> לסטטיסטיקת המענה'
+    },
+    {
+      title: 'אישור הגעה',
+      desc: 'הכפתור בהודעה, וגם תשובות חופשיות כמו "מגיעים", "לא נוכל" או "אנחנו 4".',
+      trigger: 'הודעה נכנסת ממספר שמזוהה כאורח באחד האירועים',
+      what: 'אישור בלי כמות פותח שאלת המשך ("כמה תהיו?") ומסמן <code>awaitparty</code> ל-24 שעות, כך שהמספר הבא שיגיע ייקרא ככמות ולא כטקסט. האורח מקבל אישור רק אחרי שהכתיבה לגיליון הצליחה — אם היא נכשלה נשלחת הודעת המתנה במקום אישור שקרי.',
+      to: 'שורת האורח בגיליון (סטטוס + כמות) · <code>awaitparty:&lt;guest_id&gt;</code> ב-KV'
+    },
+    {
+      title: 'הסרה מרשימת התפוצה',
+      desc: 'המילה "הסר" עוצרת הכול, לנצח, בלי לעבור דרך אף אדם.',
+      trigger: 'טקסט נכנס שמזוהה כבקשת הסרה',
+      what: 'המספר נכנס לרשימת ההסרה ומקבל אישור מיידי. כל שלב שליחה במנוע היומי בודק את המפתח הזה לפני כל הודעה בודדת, כולל הגלים, היום-לפני, השולחנות, הביטול והדחייה.',
+      to: 'KV: <code>optout:&lt;phone&gt;</code> · בלי תפוגה'
+    },
+    {
+      title: 'קובץ אקסל בוואטסאפ',
+      desc: 'לקוח שמעדיף פשוט לשלוח את הקובץ למספר העסקי, במקום להיכנס לעמוד ההעלאה.',
+      trigger: 'מסמך נכנס בוואטסאפ ממספר ששילם',
+      what: 'אותו פרסר ואותן בדיקות של עמוד ההעלאה. נדרש תשלום מאותו מספר, אחרת יוצאת הסבר אחד ליום ואז שקט. עד 5 קבצים לשעה מאותו שולח, וכל כישלון מקבל תשובה מפורשת עם הקישור האישי כחלופה.',
+      to: 'אותה כתיבה של ההעלאה מהאתר · <code>uploaded:&lt;token&gt;</code>'
+    },
+    {
+      title: 'שאלה לשירות · המוח של נועה',
+      desc: 'מספר שהוא לא אורח, או טקסט חופשי שאינו אישור. שתיקה אף פעם לא אופציה.',
+      trigger: 'הודעה נכנסת שלא נתפסה על ידי אף אחד מהשלבים שמעליה',
+      what: 'קודם נבדק אם זו בקשה לקישור אישי, ואז הוא נשלח מיד מול הרשומה בזיכרון. אחרת עונה ה-AI מתוך גיליון "מוח שירות": תא B1 הוא מתג כיבוי, B2 האופי, ושורות 5 והלאה הן זוגות שאלה ותשובה שריצ\'רד עורך בלי דיפלוי. AI כבוי או שנפל — יוצאת תשובה אנושית קבועה. הודעה בנוסח "בוצע AUT-123" נתפסת לפני זה וסוגרת משימת תזכורת צוות.',
+      to: 'שיחה נשמרת ב-<code>inbox:&lt;phone&gt;:&lt;ts&gt;</code> ונקראת בעמוד האינבוקס'
+    },
+    {
+      title: 'כניסה עם קוד חד פעמי',
+      desc: 'הדרך של לקוח להיכנס לדף המעקב שלו בלי סיסמה.',
+      trigger: '<code>POST /api/otp-send</code> עם טלפון, חתום בחתימת guard',
+      what: 'הקוד נשלח רק אם המספר ישראלי תקין ורק אם יש לו בכלל אירוע בגיליון. שלושה קודים לשעה לאותו טלפון, עשרה לאותה כתובת IP.',
+      to: 'KV: <code>otp:&lt;phone&gt;</code> ל-10 דקות · הקוד עצמו יוצא בתבנית וואטסאפ'
+    },
+    {
+      title: 'שיבוץ שולחנות',
+      desc: 'הלקוח מסמן מי יושב איפה בדף המעקב, וזה מה שיוצא לאורחים בבוקר האירוע.',
+      trigger: '<code>POST /api/seating</code> עם הטוקן האישי ורשימת שיבוצים',
+      what: 'רק שורות שבאמת שייכות לאותו אירוע נכתבות, כל השאר מדולג בשקט. עד 400 שיבוצים בבקשה ו-30 בקשות לשעה.',
+      to: 'עמודה AE בגיליון האורחים · מוזן לשלב 10 של המנוע היומי'
+    },
+    {
+      title: 'שינוי תאריך שליחה',
+      desc: 'הזזה של אחד משלושת הגלים מתוך דף המעקב.',
+      trigger: '<code>POST /api/send-date</code> עם הטוקן, איזה גל, ותאריך',
+      what: 'גל שכבר יצא לא ניתן להזזה בכלל. נדחים גם תאריך בעבר, תאריך אחרי האירוע, שבת, ואירוע מבוטל. הסדר נשמר בכוח: הזמנה, אחר כך תזכורת, אחר כך שליחה נוספת.',
+      to: 'עמודות AN/AO/AP בגיליון האירועים'
+    }
+  ];
+
+  /* ── card rendering ────────────────────────────────────────────────────── */
+  function row(dl, label, html) {
+    if (!html) return;
+    var dt = document.createElement('dt');
+    dt.textContent = label;
+    var dd = document.createElement('dd');
+    dd.innerHTML = html;
+    dl.appendChild(dt); dl.appendChild(dd);
+  }
+
+  function card(i, s, kind) {
+    var el = document.createElement('article');
+    el.className = 'auto';
+    var h = document.createElement('div');
+    h.className = 'auto-h';
+    var n = document.createElement('span');
+    n.className = 'auto-n';
+    n.textContent = String(i + 1);
+    var t = document.createElement('h3');
+    t.className = 'auto-t';
+    t.textContent = s.title;
+    h.appendChild(n); h.appendChild(t);
+    if (s.plan) {
+      var tag = document.createElement('span');
+      tag.className = 'tag plan';
+      tag.textContent = s.plan;
+      h.appendChild(tag);
+    }
+    el.appendChild(h);
+    var d = document.createElement('p');
+    d.className = 'auto-d';
+    d.textContent = s.desc;
+    el.appendChild(d);
+    var dl = document.createElement('dl');
+    if (kind === 'cron') {
+      row(dl, 'מפעיל', s.trigger);
+      row(dl, 'חל על', s.scope);
+      row(dl, 'נשלח', s.tmpl);
+      row(dl, 'דדופ', s.dedup);
+    } else {
+      row(dl, 'מפעיל', s.trigger);
+      row(dl, 'מה קורה', s.what);
+      row(dl, 'נכתב ל', s.to);
+    }
+    el.appendChild(dl);
+    return el;
+  }
+
+  function renderCards() {
+    var a = $('cronCards'), b = $('evCards');
+    a.innerHTML = ''; b.innerHTML = '';
+    for (var i = 0; i < STAGES.length; i++) a.appendChild(card(i, STAGES[i], 'cron'));
+    for (var j = 0; j < EVENT_AUTOS.length; j++) b.appendChild(card(j, EVENT_AUTOS[j], 'ev'));
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════════
+     Part 3 · the dry run
+     ═══════════════════════════════════════════════════════════════════════ */
+  function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+  function ilToday() {
+    try {
+      return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+    } catch (e) {
+      var d = new Date();
+      return d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+    }
+  }
+
+  function heDate(iso) {
+    var p = String(iso || '').slice(0, 10).split('-');
+    return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : String(iso || '');
+  }
+
+  function n(v) { return Number(v) || 0; }
+
+  /* Hebrew counts read badly at 1: "לפני 1 ימים", "1 דילוגים", "אורח אחד שלא ענו" */
+  function days(c) { return c === 1 ? 'יום אחד' : c + ' ימים'; }
+  function guests(c) { return c === 1 ? 'אורח אחד' : c + ' אורחים'; }
+  function skips(c) { return c === 1 ? 'דילוג אחד' : c + ' דילוגים'; }
+
+  /* one row per event item: Hebrew stage name + a sentence a person can read */
+  function describe(it) {
+    var type = String(it.type || '');
+    var bits = [];
+
+    if (type === 'wave') {
+      var names = { 1: 'גל 1 · ההזמנה', 2: 'גל 2 · התזכורת', 3: 'גל 3 · שליחה נוספת' };
+      var many = { 1: 'הזמנות', 2: 'תזכורות', 3: 'הודעות' };
+      var one = { 1: 'הזמנה אחת', 2: 'תזכורת אחת', 3: 'הודעה אחת' };
+      var w = n(it.wave) || 1;
+      var sent = n(it.sent);
+      if (!sent) bits.push('לא הייתה יוצאת אף הודעה');
+      else if (sent === 1) bits.push('הייתה יוצאת ' + (one[w] || 'הודעה אחת'));
+      else bits.push('היו יוצאות ' + sent + ' ' + (many[w] || 'הודעות'));
+      if (n(it.skippedAnswered)) bits.push(skips(n(it.skippedAnswered)) + ' כי כבר ענו');
+      if (n(it.skippedOptout)) bits.push(skips(n(it.skippedOptout)) + ' בגלל הסרה');
+      if (n(it.failed)) bits.push(n(it.failed) + ' כשלים');
+      return { stage: names[w] || 'גל שליחה', text: bits.join(', ') };
+    }
+
+    if (type === 'wave3_held') {
+      return { stage: 'גל 3 · מוחזק',
+        text: 'מתוכננת שליחה נוספת, אבל התוסף לא נרכש — הגל מוחזק ולא יוצא' };
+    }
+
+    if (type === 'escalation') {
+      return { stage: 'הסלמה לשיחות',
+        text: n(it.queued) === 1
+          ? 'אורח אחד שלא ענה היה נכנס לתור השיחות של המוקד'
+          : n(it.queued) + ' אורחים שלא ענו היו נכנסים לתור השיחות של המוקד' };
+    }
+
+    if (type === 'stuck_client') {
+      return { stage: 'לקוח תקוע',
+        text: 'שילם ולא העלה רשימה — תזכורת עם הקישור האישי הייתה יוצאת אל ' + (it.would_send_to || 'הלקוח') };
+    }
+
+    if (type === 'no_setup') {
+      return { stage: 'משולם בלי הגדרות',
+        text: 'חסר תאריך אירוע או מועדי שליחה — תזכורת להשלמת ההגדרות הייתה יוצאת אל ' + (it.would_send_to || 'הלקוח') };
+    }
+
+    if (type === 'day_before') {
+      return { stage: 'תזכורת יום לפני',
+        text: 'תזכורת עם הכתובת הייתה יוצאת אל ' + guests(n(it.would_send)) +
+              (n(it.would_send) === 1 ? ' שאישר' : ' שאישרו') };
+    }
+
+    if (type === 'seating') {
+      return { stage: 'הודעות שולחן',
+        text: n(it.would_send) === 1
+          ? 'אורח אחד שאישר ויש לו שולחן היה מקבל את מספר השולחן'
+          : n(it.would_send) + ' אורחים שאישרו ויש להם שולחן היו מקבלים את מספר השולחן' };
+    }
+
+    if (type === 'cancel_notice') {
+      return { stage: 'הודעת ביטול',
+        text: 'האירוע בוטל — הודעה הייתה יוצאת אל ' + guests(n(it.would_send)) };
+    }
+
+    if (type === 'cancel_note_would_alert') {
+      return { stage: 'ביטול · התראה בלבד',
+        text: 'האירוע בוטל והאורחים כבר הוזמנו, אבל החבילה לא כוללת הודעת ביטול לאורחים — הייתה יוצאת התראה בלבד' };
+    }
+
+    if (type === 'postpone_notice') {
+      return { stage: 'הודעת דחייה',
+        text: 'התאריך זז מ-' + heDate(it.from) + ' ל-' + heDate(it.to) +
+              ' — עדכון היה יוצא אל ' + guests(n(it.would_send)) };
+    }
+
+    if (type === 'postpone_note_would_alert') {
+      return { stage: 'דחייה · התראה בלבד',
+        text: 'התאריך זז מ-' + heDate(it.from) + ' ל-' + heDate(it.to) +
+              ', אבל עדכון אורחים לא כלול בחבילה — הייתה יוצאת התראה בלבד' };
+    }
+
+    if (type === 'upsell_basic') {
+      return { stage: 'הצעת שדרוג לשיחות',
+        text: n(it.silent) + ' מתוך ' + n(it.total) + ' לא ענו להודעות — הצעת סבב שיחות הייתה יוצאת ללקוח' };
+    }
+
+    if (type === 'upsell_pro') {
+      return { stage: 'הצעת הכל כלול',
+        text: n(it.silent) + ' מתוך ' + n(it.tried) + ' לא נענו בסבב השיחות — הצעת שדרוג הייתה יוצאת ללקוח' };
+    }
+
+    if (type === 'end_of_event') {
+      bits.push(n(it.daysAfter) === 1 ? 'האירוע היה אתמול' : 'האירוע היה לפני ' + days(n(it.daysAfter)));
+      bits.push(n(it.confirmed) + ' אישרו, ' + n(it.diners) + ' מנות, ' +
+                n(it.declined) + ' סירבו, ' + n(it.pending) + ' לא ענו');
+      if (it.links_missing) bits.push('חסרים קישורי ביקורת והמלצה, ולכן ההודעה הייתה ממתינה ולא יוצאת');
+      else bits.push('הודעת סיום הייתה יוצאת אל ' + (it.would_send_to || 'הלקוח'));
+      return { stage: 'הודעת סיום', text: bits.join(' · ') };
+    }
+
+    /* the week-before report is the one item with no `type` at all */
+    if (!type && it.daysLeft != null) {
+      var when = n(it.daysLeft) === 0 ? 'האירוע היום'
+        : n(it.daysLeft) === 1 ? 'האירוע מחר' : 'נשארו ' + days(n(it.daysLeft)) + ' לאירוע';
+      return { stage: 'דוח שבוע לפני',
+        text: when + ' · ' + n(it.confirmed) + ' אישרו, ' + n(it.diners) + ' מנות, ' +
+              n(it.declined) + ' סירבו, ' + n(it.pending) + ' טרם ענו · הדוח היה יוצא אל ' +
+              (it.would_send_to || 'הלקוח') };
+    }
+
+    return { stage: type || 'פריט', text: 'פריט שהעמוד לא מכיר עדיין: ' + JSON.stringify(it) };
+  }
+
+  /* how many WhatsApp messages this item would have put on the wire */
+  function msgCount(it) {
+    var type = String(it.type || '');
+    if (type === 'wave') return n(it.sent);
+    if (type === 'day_before' || type === 'seating' || type === 'cancel_notice' ||
+        type === 'postpone_notice') return n(it.would_send);
+    if (type === 'end_of_event') return it.links_missing ? 0 : 1;
+    if (type === 'stuck_client' || type === 'no_setup' ||
+        type === 'upsell_basic' || type === 'upsell_pro') return 1;
+    if (!type && it.daysLeft != null) return 1;
+    return 0;
+  }
+
+  function clear(el) { while (el.firstChild) el.removeChild(el.firstChild); }
+
+  function note(el, cls, text) {
+    var p = document.createElement('p');
+    p.className = cls;
+    p.textContent = text;
+    el.appendChild(p);
+  }
+
+  function renderDry(d, asked) {
+    var out = $('dryOut');
+    clear(out);
+
+    if (!d || d.ok === false) {
+      note(out, 'err', 'ההרצה נכשלה: ' + ((d && d.error) || 'אין תשובה מהוורקר'));
+      return;
+    }
+    if (d.skipped) {
+      note(out, 'empty', 'המנוע דילג על התאריך הזה (' + d.skipped + ')');
+      return;
+    }
+
+    var list = d.events || [];
+    var when = d.date || asked;
+    var shabbat = new Date(String(when) + 'T12:00:00Z').getUTCDay() === 6;
+
+    var sum = document.createElement('div');
+    sum.className = 'sum';
+    function chip(label, value) {
+      var s = document.createElement('span');
+      s.innerHTML = label + ' <b>' + value + '</b>';
+      sum.appendChild(s);
+    }
+    var msgs = 0;
+    for (var i = 0; i < list.length; i++) msgs += msgCount(list[i]);
+    chip('תאריך', heDate(when));
+    chip('פעולות', list.length);
+    chip('הודעות שהיו יוצאות', msgs);
+    out.appendChild(sum);
+
+    if (shabbat) {
+      note(out, 'hint', 'התאריך שנבחר הוא שבת. בהרצה אמיתית הקרון היה יוצא מיד ולא מבצע כלום, ובהרצה יבשה המנוע כן מחשב הכול כדי שאפשר יהיה להסתכל.');
+    }
+
+    if (!list.length) {
+      note(out, 'empty', 'בתאריך הזה לא הייתה יוצאת אף הודעה.');
+      return;
+    }
+
+    var wrap = document.createElement('div');
+    wrap.className = 'tblwrap';
+    var tbl = document.createElement('table');
+    tbl.innerHTML = '<thead><tr><th>שלב</th><th>אירוע</th><th>מה היה קורה</th></tr></thead>';
+    var tb = document.createElement('tbody');
+    for (var j = 0; j < list.length; j++) {
+      var info = describe(list[j]);
+      var tr = document.createElement('tr');
+      var c1 = document.createElement('td');
+      c1.className = 'stage';
+      c1.textContent = info.stage;
+      var c2 = document.createElement('td');
+      c2.className = 'tok';
+      c2.textContent = String(list[j].token || '').slice(0, 8) || '—';
+      var c3 = document.createElement('td');
+      c3.textContent = info.text;
+      tr.appendChild(c1); tr.appendChild(c2); tr.appendChild(c3);
+      tb.appendChild(tr);
+    }
+    tbl.appendChild(tb);
+    wrap.appendChild(tbl);
+    out.appendChild(wrap);
+  }
+
+  function runDry() {
+    var btn = $('dryGo');
+    var when = $('dryDate').value || ilToday();
+    var out = $('dryOut');
+    clear(out);
+    var p = document.createElement('p');
+    p.className = 'hint';
+    p.innerHTML = '<span class="spin"></span>מריצים יבש על ' + heDate(when) + '…';
+    out.appendChild(p);
+    btn.disabled = true;
+
+    fetch(CFG.endpoint('daily'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, dry: true, today: when })
+    }).then(function (r) {
+      if (r.status === 403) {
+        try { localStorage.removeItem('ishur_calls_key'); } catch (e) {}
+        gate('המפתח לא נכון');
+        return null;
+      }
+      return r.json();
+    }).then(function (d) {
+      btn.disabled = false;
+      if (!d) return;
+      renderDry(d, when);
+    }).catch(function (e) {
+      btn.disabled = false;
+      clear(out);
+      note(out, 'err', 'לא הצלחנו להגיע לוורקר: ' + (e && e.message ? e.message : 'שגיאת רשת'));
+    });
+  }
+
+  /* ── gate ──────────────────────────────────────────────────────────────── */
+  function gate(err) {
+    $('gate').hidden = false;
+    $('main').hidden = true;
+    $('keyErr').textContent = err || '';
+  }
+  function open_() {
+    $('gate').hidden = true;
+    $('main').hidden = false;
+    renderCards();
+  }
+
+  $('keyGo').addEventListener('click', function () {
+    var v = $('keyIn').value.trim();
+    if (!v) return;
+    adminKey = v;
+    try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {}
+    open_();
+  });
+  $('keyIn').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') $('keyGo').click();
+  });
+
+  $('dryDate').value = ilToday();
+  $('dryGo').addEventListener('click', runDry);
+  $('dryToday').addEventListener('click', function () { $('dryDate').value = ilToday(); });
+
+  if (adminKey) open_(); else gate();
+})();
+</script>
+</body>
+</html>

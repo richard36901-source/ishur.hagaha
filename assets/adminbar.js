@@ -21,6 +21,7 @@
     site: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a15 15 0 0 1 0 18M12 3a15 15 0 0 0 0 18"/></svg>',
     more: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="5" cy="12" r="1.3" fill="currentColor"/><circle cx="12" cy="12" r="1.3" fill="currentColor"/><circle cx="19" cy="12" r="1.3" fill="currentColor"/></svg>',
     out: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 5h5v5M19 5l-8 8M19 14v4.5a1.5 1.5 0 0 1-1.5 1.5h-11A1.5 1.5 0 0 1 5 18.5v-11A1.5 1.5 0 0 1 6.5 6H11"/></svg>',
+    flow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="7" height="5.5" rx="1.6"/><rect x="14.5" y="3" width="7" height="5.5" rx="1.6"/><rect x="8.5" y="15.5" width="7" height="5.5" rx="1.6"/><path d="M6 8.5v2.6a1.8 1.8 0 0 0 1.8 1.8h8.4A1.8 1.8 0 0 0 18 11.1V8.5M12 12.9v2.6"/></svg>',
     rules: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h7"/></svg>',
   };
 
@@ -28,6 +29,7 @@
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
     { href: 'calls.html', label: 'מוקד שיחות', icon: ic.calls },
+    { href: 'automations.html', label: 'אוטומציות', icon: ic.flow },
   ];
   var EXTERNAL = [
     { href: SHEET_URL, label: 'האקסל', icon: ic.sheet },

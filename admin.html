@@ -7,8 +7,8 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=25"></script>
-<script src="assets/adminbar.js?v=2" defer></script>
+<script src="config.js?v=26"></script>
+<script src="assets/adminbar.js?v=3" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
   :root{
@@ -66,6 +66,9 @@
   .meta{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--ink3);margin:.6rem 0}
   .meta button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.3rem .8rem;font:inherit;cursor:pointer;color:var(--ink2)}
   .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  /* --pine is a fixed dark green: on the dark background it read as
+     near-black on near-black. --ink follows the theme. */
+  .gate-h{font-family:'Frank Ruhl Libre',serif;color:var(--ink);border:none}
   .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr}
   .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
   .gate p.err{color:var(--warn);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
@@ -118,7 +121,7 @@
 </script>
 
 <div class="gate" id="gate" hidden>
-  <h2 style="font-family:'Frank Ruhl Libre',serif;color:var(--pine);border:none">כניסת ניהול</h2>
+  <h2 class="gate-h">כניסת ניהול</h2>
   <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
   <button id="keyGo">כניסה</button>
   <p class="err" id="keyErr"></p>
