@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=24"></script>
+<script src="config.js?v=25"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -175,7 +175,6 @@
   }
   .send-edit:hover{border-color:var(--green);color:var(--green2)}
   .send-edit:active{transform:scale(.95);transition-duration:100ms}
-  .send-note{font-size:.72rem;color:var(--ink3)}
   .send-tag{font-size:.72rem;color:var(--ink3)}
 
   /* add-ons */
@@ -279,8 +278,9 @@
   body.preview #sendsCard,
   body.preview #addonsCard,
   body.preview #changeNote,
+  body.preview #overNote,
   body.preview .foot,
-  body.preview .switch,
+  body.preview .evsw-wrap,
   body.preview #cookie-bar{display:none!important}
   body.preview .rows{max-height:none;overflow:visible}
   /* only the first few rows fit, and the rest would just be cut mid-line */
@@ -320,17 +320,88 @@
   .ev-go{flex-shrink:0;color:var(--ink3);font-size:.8rem}
   .ev-cd{flex-shrink:0;font-size:.7rem;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2);border-radius:99px;padding:.1rem .5rem;white-space:nowrap}
 
-  /* the switch back into the picker, sitting in the dark header */
-  .switch{
-    display:inline-flex;align-items:center;gap:.35rem;margin-top:.6rem;
+  /* ── the event switcher, sitting in the dark header ──
+     Someone holding more than one event sees which one they are looking at,
+     and moves to another without signing in again. ── */
+  .evsw-wrap{position:relative;display:inline-block;margin-top:.65rem;text-align:start}
+  .evsw{
+    display:inline-flex;align-items:center;gap:.5rem;max-width:min(94vw,21rem);
     background:rgba(248,244,234,.07);border:1px solid rgba(199,174,122,.3);
-    color:#C7AE7A;border-radius:99px;padding:.28rem .8rem;
-    font-family:inherit;font-size:.76rem;cursor:pointer;
+    color:#F8F4EA;border-radius:12px;padding:.42rem .7rem;
+    font-family:inherit;cursor:pointer;text-align:start;
     transition:background .2s,transform .2s var(--ease);
   }
-  .switch:hover{background:rgba(248,244,234,.14)}
-  .switch:active{transform:scale(.96)}
-  .switch[hidden]{display:none}
+  .evsw:hover{background:rgba(248,244,234,.14)}
+  .evsw:active{transform:scale(.98)}
+  .evsw-ic{flex-shrink:0;display:flex;color:#C7AE7A}
+  .evsw-tx{flex:1;min-width:0}
+  .evsw-nm{display:block;font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .evsw-dt{display:block;font-size:.71rem;color:rgba(248,244,234,.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .evsw-ar{flex-shrink:0;color:#C7AE7A;font-size:.58rem;transition:transform .25s var(--ease)}
+  .evsw[aria-expanded=true] .evsw-ar{transform:rotate(180deg)}
+  .evsw-panel{
+    position:absolute;top:calc(100% + .4rem);inset-inline-start:0;z-index:30;
+    width:min(92vw,20rem);max-height:min(58vh,21rem);overflow-y:auto;
+    background:var(--card);border:1px solid var(--bdr);border-radius:14px;
+    box-shadow:0 18px 44px rgba(10,33,25,.3);padding:.35rem;text-align:start;
+    animation:evswIn .18s var(--ease) both;
+  }
+  @keyframes evswIn{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+  .evsw-gr{
+    font-size:.66rem;letter-spacing:.08em;font-weight:600;color:var(--ink3);
+    padding:.55rem .6rem .25rem;
+  }
+  .evsw-it{
+    width:100%;display:flex;align-items:center;gap:.55rem;text-align:start;
+    background:none;border:none;border-radius:10px;padding:.5rem .6rem;cursor:pointer;
+    font-family:inherit;color:var(--ink);transition:background .18s;
+  }
+  .evsw-it:hover{background:var(--green4)}
+  .evsw-it[aria-current=true]{background:var(--green4);box-shadow:inset 0 0 0 1px var(--bdr2)}
+  .evsw-it .tx{flex:1;min-width:0}
+  .evsw-it .n{display:block;font-size:.85rem;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .evsw-it .m{display:block;font-size:.73rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .evsw-it.done .n{font-weight:500;color:var(--ink2)}
+  .evsw-dot{flex-shrink:0;width:7px;height:7px;border-radius:50%;background:var(--green)}
+  .evsw-it.done .evsw-dot{background:var(--nobar)}
+
+  /* ── an event that already happened: everything stays, nothing moves ── */
+  .note.over{
+    display:flex;align-items:flex-start;gap:.55rem;
+    background:var(--cream);border-color:rgba(168,133,60,.35);color:var(--ink2);
+  }
+  .note.over .ic{flex-shrink:0;color:#A8853C;margin-top:.12rem;display:flex}
+  .tbl-in:disabled,.seat-bar button:disabled{opacity:.55;cursor:default}
+
+  /* ── the small date popup behind "שינוי תאריך" ── */
+  .dpop-bg{position:fixed;inset:0;background:rgba(15,46,34,.5);z-index:60}
+  .dpop{
+    position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:61;
+    width:min(92vw,21rem);background:var(--card);border:1px solid var(--bdr);
+    border-radius:16px;padding:1.2rem 1.2rem 1.05rem;
+    box-shadow:0 24px 60px rgba(10,33,25,.35);
+    animation:dpopIn .18s var(--ease) both;
+  }
+  @keyframes dpopIn{from{opacity:0;transform:translate(-50%,-46%)}to{opacity:1;transform:translate(-50%,-50%)}}
+  .dpop h3{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:var(--ink)}
+  .dpop .cur{font-size:.78rem;color:var(--ink3);margin:.1rem 0 .8rem;line-height:1.5}
+  .dpop input[type=date]{
+    width:100%;padding:.62rem .75rem;border:1.5px solid var(--bdr);border-radius:10px;
+    font-family:inherit;font-size:16px;background:var(--bg2);color:var(--ink);
+    direction:ltr;text-align:center;
+  }
+  .dpop input[type=date]:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.12)}
+  html[data-theme=dark] .dpop input[type=date]{color-scheme:dark}
+  .dpop-err{font-size:.78rem;color:var(--err);line-height:1.5;margin-top:.5rem;min-height:1.2em}
+  .dpop-row{display:flex;gap:.5rem;margin-top:.75rem}
+  .dpop-row button{
+    flex:1;font-family:inherit;font-size:.85rem;font-weight:600;
+    border-radius:10px;padding:.6rem .8rem;cursor:pointer;
+  }
+  .dpop-ok{background:var(--green);color:#fff;border:none}
+  .dpop-ok:disabled{opacity:.6;cursor:default}
+  .dpop-x{background:var(--card);color:var(--ink2);border:1px solid var(--bdr)}
+  .dpop-x:hover{border-color:var(--green)}
 
   /* ── the guest list as a work surface: search, aligned columns ── */
   .gsearch-w{padding:.7rem 1rem 0}
@@ -420,10 +491,14 @@
     <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
-    <div class="cd-wrap"><button type="button" class="switch" id="switchEv" hidden>
-      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
-      החלפת אירוע
-    </button></div>
+    <div class="cd-wrap"><span class="evsw-wrap" id="evSwitchWrap" hidden>
+      <button type="button" class="evsw" id="switchEv" aria-haspopup="true" aria-expanded="false" aria-controls="evSwitchPanel">
+        <span class="evsw-ic" aria-hidden="true"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg></span>
+        <span class="evsw-tx"><span class="evsw-nm" id="evSwitchNm">האירוע שלכם</span><span class="evsw-dt" id="evSwitchDt"></span></span>
+        <span class="evsw-ar" aria-hidden="true">▼</span>
+      </button>
+      <div class="evsw-panel" id="evSwitchPanel" hidden></div>
+    </span></div>
   </div>
 </header>
 
@@ -453,6 +528,12 @@
 </div>
 
 <div class="wrap" id="main" hidden>
+
+  <!-- the event is behind them: the page turns into a record of it -->
+  <p class="note over" id="overNote" hidden>
+    <span class="ic" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3 2"/></svg></span>
+    <span>האירוע הסתיים. הנתונים נשמרים לצפייה.</span>
+  </p>
 
   <!-- numbers -->
   <section class="card">
@@ -516,7 +597,7 @@
       </p>
       <p id="refStats" style="font-size:.8rem;color:var(--ink3);margin:0 0 .8rem"></p>
       <p id="refPerk" hidden style="font-size:.82rem;background:rgba(168,133,60,.1);border:1px solid rgba(168,133,60,.35);border-radius:10px;padding:.5rem .8rem;margin:0 0 .8rem;color:#8A6D2F;font-weight:600">
-        🎁 צברתם הטבה: סבב שליחה נוסף מתנה. כתבו לנו בוואטסאפ ונפעיל אותו לאירוע.
+        🎁 צברתם הטבה: סבב שליחה נוסף מתנה. היא רשומה על שמכם ומחכה לכם כאן בלוח.
       </p>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
         <a id="refShare" target="_blank" rel="noopener"
@@ -546,7 +627,7 @@
   </section>
 
   <p class="foot">
-    צריכים משהו שלא נמצא כאן? <a href="#" id="wa" target="_blank" rel="noopener">כתבו לנו בוואטסאפ</a>
+    יש שאלה על האירוע? <a href="#" id="wa" target="_blank" rel="noopener">דברו איתנו</a>
   </p>
 </div>
 
@@ -628,7 +709,10 @@
       G('משפחת שוקרון', 'pending', 4),  G('דוד טל', 'pending', 1),
       G('ענת ברוך', 'pending', 1)
     ];
-    guests.forEach(function (g, i) { g.phone = '05' + (21234501 + i * 137 % 9000000 + 1000000); });
+    guests.forEach(function (g, i) {
+      g.phone = '05' + (21234501 + i * 137 % 9000000 + 1000000);
+      g.id = 'demo-g' + i;   /* an id is what turns a row into a seatable one */
+    });
 
     var totals = { invitations: guests.length, confirmed: 0, confirmed_seats: 0, declined: 0, pending: 0, awaiting_call: 0 };
     guests.forEach(function (g) {
@@ -637,6 +721,16 @@
       else if (g.status === 'pending') totals.pending++;
       else if (g.status === 'awaiting_call') totals.awaiting_call++;
     });
+
+    /* the demo mirrors what the worker computes: a wave whose day is behind
+       us reads "passed", and only a future one can still be moved */
+    var today = ilToday();
+    var wave = function (key, label, d) {
+      var date = iso(d);
+      return { key: key, label: label, date: date,
+               status: date < today ? 'passed' : 'scheduled',
+               editable: date >= today };
+    };
 
     return {
       ok: true,
@@ -647,8 +741,8 @@
                plan: 'pro', guests_tier: '300' },
       totals: totals,
       sends: [
-        { key: 'invite',   label: 'ההזמנה ואישור ההגעה', date: iso(new Date(ev - 30 * 864e5)), status: 'sent' },
-        { key: 'reminder', label: 'תזכורת למי שלא ענה',  date: iso(new Date(ev - 7 * 864e5)),  status: 'scheduled', editable: true },
+        { key: 'invite', label: 'ההזמנה ואישור ההגעה', date: iso(new Date(ev - 30 * 864e5)), status: 'sent' },
+        wave('reminder', 'תזכורת למי שלא ענה', new Date(ev - 7 * 864e5)),
         { key: 'event_day', label: 'תזכורת עם הכתובת',   date: iso(ev), status: 'scheduled', auto: true },
         { key: 'day_after', label: 'הודעת תודה',         date: iso(new Date(+ev + 864e5)), status: 'scheduled', auto: true }
       ],
@@ -656,15 +750,20 @@
     };
   }
 
-  /* a demo customer with two events, so the picker and the switch can be seen */
+  /* a demo customer with a few events, so the switcher, the two groups and
+     the read-only past event can all be seen. ?evs=1 cuts it to one. */
   function demoEvents() {
     var iso = function (d) { return new Date(d).toISOString().slice(0, 10); };
-    return [
+    var list = [
       { token: 'demo-1', name1: 'נועה', name2: 'יונתן', occasion: 'wedding',
         event_date: iso(Date.now() + 38 * 864e5), venue_name: 'אולם הגן הקסום' },
       { token: 'demo-2', name1: 'איתי', occasion: 'bar',
-        event_date: iso(Date.now() + 96 * 864e5), venue_name: 'בית הכנסת הגדול' }
+        event_date: iso(Date.now() + 96 * 864e5), venue_name: 'בית הכנסת הגדול' },
+      { token: 'demo-3', name1: 'שירה', name2: 'עמית', occasion: 'wedding',
+        event_date: iso(Date.now() - 24 * 864e5), venue_name: 'חוות האורנים' }
     ];
+    var n = parseInt(qs.get('evs'), 10);
+    return n > 0 ? list.slice(0, n) : list;
   }
 
   function daysUntil(iso) {
@@ -672,6 +771,41 @@
     var t = new Date(); t.setHours(0,0,0,0);
     return Math.round((d - t) / 864e5);
   }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* Today in Israel, the same YYYY-MM-DD the worker compares against, so a
+     customer abroad sees the same "already happened" the server does. */
+  function ilToday() {
+    try {
+      return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+    } catch (e) {
+      var d = new Date(), p = function (n) { return (n < 10 ? '0' : '') + n; };
+      return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
+    }
+  }
+
+  function isoDay(v) {
+    var s = String(v == null ? '' : v).slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : '';
+  }
+
+  function shiftDay(isoStr, days) {
+    var d = IshurDate.parse(isoStr);
+    if (!d) return '';
+    return IshurDate.iso(new Date(d.getFullYear(), d.getMonth(), d.getDate() + days));
+  }
+
+  /* the event is behind us: the page keeps showing everything and writes nothing */
+  function eventIsOver() {
+    var d = isoDay(data && data.event && data.event.event_date);
+    return !!d && d < ilToday();
+  }
+  var OVER_HINT = 'האירוע הסתיים, הנתונים נשמרים לצפייה';
 
   /* ── render ── */
 
@@ -723,12 +857,18 @@
 
     countUp();
 
+    /* an event that already happened is a record, not a control panel */
+    var over = eventIsOver();
+    $('overNote').hidden = !over;
+    $('changeNote').hidden = over;
+
     renderFilters();
     renderRows();
     renderSends();
     renderAddons();
     renderAfterParty();
     renderReferral();
+    paintSwitcher();
   }
 
   function renderReferral() {
@@ -852,12 +992,14 @@
         (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : 'אין כאן אף אחד עדיין.') + '</div>';
       return;
     }
+    var over = eventIsOver();
     $('rows').innerHTML = list.map(function (g) {
       var st = STATUS[g.status] || STATUS.pending;
       /* confirmed guests get a table box; the rest keep the layout aligned */
       var esc = function (s) { return String(s || '').replace(/[&<>"]/g, ''); };
       var tbl = g.status === 'confirmed' && g.id
-        ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12">'
+        ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
+          (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : '<span class="tbl-sp"></span>';
       return '<div class="row">' +
              '<span class="row-n">' + g.name + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
@@ -866,6 +1008,17 @@
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
     $('seatBar').hidden = !anyConfirmed;
+    if (over) {
+      $('seatSave').disabled = true;
+      $('seatSave').title = OVER_HINT;
+      $('seatMsg').textContent = 'האירוע הסתיים. השיבוץ נשמר לצפייה.';
+    } else {
+      $('seatSave').removeAttribute('title');
+      $('seatSave').disabled = !Object.keys(seatDirty).length;
+      if (!Object.keys(seatDirty).length) {
+        $('seatMsg').textContent = 'מי שאישרו הגעה יקבלו ביום האירוע הודעה עם מספר השולחן';
+      }
+    }
   }
 
   /* ── seating: collect edits, save in one call ── */
@@ -873,13 +1026,24 @@
   $('rows').addEventListener('input', function (e) {
     var t = e.target;
     if (!t.classList || !t.classList.contains('tbl-in')) return;
+    if (eventIsOver()) return;
     seatDirty[t.dataset.id] = t.value.trim();
     $('seatSave').disabled = false;
     $('seatMsg').textContent = 'יש שינויים שלא נשמרו';
   });
   $('seatSave').addEventListener('click', function () {
     var ids = Object.keys(seatDirty);
-    if (!ids.length) return;
+    if (!ids.length || eventIsOver()) return;
+    if (demo) {
+      /* nothing behind the demo to save into, so it just settles */
+      (data.guests || []).forEach(function (g) {
+        if (seatDirty[g.id] != null) g.table = seatDirty[g.id];
+      });
+      seatDirty = {};
+      $('seatSave').disabled = true;
+      $('seatMsg').textContent = 'נשמר ✓ ההודעות ייצאו בבוקר האירוע';
+      return;
+    }
     var payload = {
       token: token,
       assignments: ids.map(function (id) { return { id: id, table: seatDirty[id] }; }),
@@ -906,78 +1070,201 @@
       });
   });
 
+  /* ── the sending schedule, and moving a date from right here ──────────────
+     Every change a customer makes happens on this page. The button shows only
+     for a wave the server itself marked editable, and only while the event is
+     still ahead. What the server answers is what the page believes. ── */
+
+  /* the worker's error codes, said plainly */
+  var SEND_ERR = {
+    'already-sent': 'השליחה הזו כבר יצאה, אי אפשר לשנות מועד',
+    'date-in-past': 'אפשר לבחור רק תאריך עתידי',
+    'after-event': 'התאריך חייב להיות לפני האירוע',
+    'shabbat': 'בשבת לא נשלחות הודעות, בחרו יום אחר',
+    'out-of-order': 'הסדר חייב להישמר: הזמנה, אחר כך תזכורת, אחר כך תזכורת נוספת',
+    'event-cancelled': 'האירוע מסומן אצלנו כמבוטל, אי אפשר לשנות מועדים',
+    'bad-send': 'לא זיהינו את השליחה הזו, רעננו את העמוד ונסו שוב',
+    'bad-date': 'התאריך לא תקין, בחרו תאריך מהלוח',
+    'unknown-token': 'הקישור הזה כבר לא פעיל, רעננו את העמוד',
+    'bad-token': 'הקישור הזה כבר לא פעיל, רעננו את העמוד',
+    'slow-down': 'יותר מדי נסיונות, נסו בעוד רגע'
+  };
+  var SEND_ERR_ANY = 'לא הצלחנו לעדכן, נסו שוב בעוד רגע';
+  function sendError(code) { return SEND_ERR[code] || SEND_ERR_ANY; }
+
+  /* a date can only be changed where there is something to change it through */
+  function canMoveSends() {
+    if (eventIsOver()) return false;
+    if (demo) return true;
+    return !!token && CFG.isSet(CFG.endpoint('senddate'));
+  }
+
   function renderSends() {
     var sends = data.sends || [];
     if (!sends.length) { $('sends').innerHTML = '<div class="empty">לוח השליחות ייקבע אחרי ההגדרה.</div>'; return; }
+    var movable = canMoveSends();
+    var over = eventIsOver();
+    /* a redraw must not pull the keyboard out from under whoever is using it */
+    var had = document.activeElement;
+    var keep = had && had.classList && had.classList.contains('send-edit')
+             ? had.getAttribute('data-i') : null;
     $('sends').innerHTML = sends.map(function (s, i) {
       var sent = s.status === 'sent';
-      /* a send is only movable while its 06:00 batch has not left */
-      var open = !sent && !s.auto && IshurDate.valid(s.date);
+      var passed = s.status === 'passed';
+      var open = !sent && !passed && !s.auto && s.editable === true && movable;
+      var act;
+      if (sent) act = '<span class="send-tag">יצא</span>';
+      else if (passed) act = '<span class="send-tag">עבר</span>';
+      else if (open) act = '<button type="button" class="send-edit" data-i="' + i + '">שינוי תאריך</button>';
+      else if (over && s.editable === true && !s.auto) act = '<span class="send-tag" title="' + OVER_HINT + '">האירוע הסתיים</span>';
+      else act = '<span class="send-tag">' + (s.auto ? 'אוטומטי' : 'נעול') + '</span>';
       return '<div class="send' + (sent ? ' sent' : '') + (open ? '' : ' locked') + '">' +
              '<span class="send-d"></span>' +
-             '<span class="send-b"><span class="send-t">' + s.label + '</span>' +
-             '<span class="send-w">' + IshurDate.pretty(s.date) + '</span></span>' +
-             '<span class="send-a">' +
-               (sent ? '<span class="send-tag">יצא</span>'
-                     : open ? '<span class="send-note">לשינוי מועד, כתבו לנו בוואטסאפ</span>'
-                            : '<span class="send-tag">' + (s.auto ? 'אוטומטי' : 'נעול') + '</span>') +
-             '</span></div>';
+             '<span class="send-b"><span class="send-t">' + esc(s.label) + '</span>' +
+             '<span class="send-w">' + esc(IshurDate.pretty(s.date) || s.date) + '</span></span>' +
+             '<span class="send-a">' + act + '</span></div>';
     }).join('');
     $('sends').querySelectorAll('[data-i]').forEach(function (b) {
       b.addEventListener('click', function () { editSend(+b.dataset.i); });
     });
+    if (keep != null) {
+      var back = $('sends').querySelector('.send-edit[data-i="' + keep + '"]');
+      if (back) back.focus();
+    }
   }
+
+  /* ── the date popup ── */
+
+  var dpopIdx = null;
 
   function editSend(i) {
+    var s = (data.sends || [])[i];
+    if (!s || !canMoveSends()) return;
+    closeDpop(false);
+    dpopIdx = i;
+
+    var evDate = isoDay(data.event && data.event.event_date);
+    var min = shiftDay(ilToday(), 1);                    /* tomorrow at the earliest */
+    var max = evDate ? shiftDay(evDate, -1) : '';        /* the day before the event  */
+    var cur = isoDay(s.date);
+    var start = cur && cur >= min && (!max || cur <= max) ? cur : min;
+
+    var bg = document.createElement('div');
+    bg.className = 'dpop-bg'; bg.id = 'dpopBg';
+    var box = document.createElement('div');
+    box.className = 'dpop'; box.id = 'dpop';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-labelledby', 'dpopT');
+    box.innerHTML =
+      '<h3 id="dpopT">מועד חדש ל' + esc(s.label) + '</h3>' +
+      '<p class="cur">כרגע ' + esc(IshurDate.pretty(s.date) || s.date) + '</p>' +
+      '<input type="date" id="dpopIn" value="' + esc(start) + '" min="' + esc(min) + '"' +
+        (max ? ' max="' + esc(max) + '"' : '') + ' aria-labelledby="dpopT">' +
+      '<p class="dpop-err" id="dpopErr" role="alert"></p>' +
+      '<div class="dpop-row">' +
+        '<button type="button" class="dpop-ok" id="dpopOk">שמירת התאריך</button>' +
+        '<button type="button" class="dpop-x" id="dpopX">ביטול</button>' +
+      '</div>';
+
+    document.body.appendChild(bg);
+    document.body.appendChild(box);
+    document.addEventListener('keydown', dpopKey, true);
+    bg.addEventListener('click', function () { closeDpop(true); });
+    box.querySelector('#dpopX').addEventListener('click', function () { closeDpop(true); });
+    box.querySelector('#dpopOk').addEventListener('click', function () { submitDpop(i); });
+    box.querySelector('#dpopIn').focus();
+  }
+
+  function dpopKey(e) {
+    if (e.key !== 'Escape' || !$('dpop')) return;
+    e.preventDefault(); e.stopPropagation();
+    closeDpop(true);
+  }
+
+  /* closing hands the keyboard back to the button that opened it */
+  function closeDpop(focusBack) {
+    var bg = $('dpopBg'), box = $('dpop');
+    if (bg) bg.remove();
+    if (box) box.remove();
+    document.removeEventListener('keydown', dpopKey, true);
+    var i = dpopIdx;
+    dpopIdx = null;
+    if (!focusBack || i == null) return;
+    var back = $('sends').querySelector('.send-edit[data-i="' + i + '"]');
+    if (back) back.focus();
+  }
+
+  function submitDpop(i) {
+    var s = (data.sends || [])[i];
+    var box = $('dpop');
+    if (!s || !box) return;
+    var inp = box.querySelector('#dpopIn');
+    var err = box.querySelector('#dpopErr');
+    var date = isoDay(inp.value);
+    var evDate = isoDay(data.event && data.event.event_date);
+
+    /* the same rules the worker enforces, said before the round trip */
+    if (!date) { err.textContent = 'בחרו תאריך'; inp.focus(); return; }
+    if (date <= ilToday()) { err.textContent = SEND_ERR['date-in-past']; inp.focus(); return; }
+    if (evDate && date >= evDate) { err.textContent = SEND_ERR['after-event']; inp.focus(); return; }
+    if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) { err.textContent = SEND_ERR.shabbat; inp.focus(); return; }
+
+    err.textContent = '';
+    saveSendDate(i, date);
+  }
+
+  function saveSendDate(i, date) {
     var s = data.sends[i];
-    var host = document.createElement('div');
-    host.style.padding = '0 1rem .8rem';
-    host.innerHTML = '<label style="font-size:.78rem;color:var(--ink3);display:block;margin-bottom:.3rem">' +
-                     'תאריך חדש ל' + s.label + '</label>' +
-                     '<input type="text" id="editDate" data-idate data-placeholder="בחרו תאריך">' +
-                     '<button type="button" class="buy" id="editSave" style="margin-top:.6rem;width:100%">שמירת התאריך</button>';
-    var row = $('sends').children[i];
-    row.insertAdjacentElement('afterend', host);
-    row.querySelector('.send-edit').disabled = true;
+    var box = $('dpop');
+    var ok = box.querySelector('#dpopOk');
+    var err = box.querySelector('#dpopErr');
+    IshurLead.track('send_date_change', { send: s.key, date: date });
+    ok.disabled = true; ok.textContent = 'שומרים…';
 
-    var inp = host.querySelector('#editDate');
-    inp.value = s.date;
-    IshurDate.enhance(inp);
+    /* the demo has no server behind it, so it settles on its own */
+    if (demo) {
+      setTimeout(function () {
+        s.date = date; s.status = 'scheduled';
+        renderSends(); closeDpop(true);
+        $('live').textContent = 'התאריך עודכן';
+      }, 300);
+      return;
+    }
 
-    host.querySelector('#editSave').addEventListener('click', function () {
-      if (!inp.value || !IshurDate.valid(inp.value)) {
-        $('live').textContent = 'בחרו תאריך אפשרי';
+    var payload = { token: token, send: s.key, date: date };
+    fetch(CFG.endpoint('senddate'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    }).then(function (r) {
+      return r.json()['catch'](function () { return null; })
+        .then(function (j) { return { status: r.status, body: j }; });
+    }).then(function (res) {
+      /* nothing but ok:true from the server counts as saved */
+      if (res.status === 200 && res.body && res.body.ok === true) {
+        s.date = isoDay(res.body.date) || date;
+        s.status = 'scheduled';
+        renderSends();
+        closeDpop(true);
+        $('live').textContent = 'התאריך עודכן';
+        /* and then ask the server what it actually holds now */
+        reloadData();
         return;
       }
-      saveChange(s.key, inp.value, host);
+      ok.disabled = false; ok.textContent = 'שמירת התאריך';
+      err.textContent = sendError(res.body && res.body.error);
+      $('live').textContent = err.textContent;
+    })['catch'](function () {
+      ok.disabled = false; ok.textContent = 'שמירת התאריך';
+      err.textContent = SEND_ERR_ANY;
+      $('live').textContent = SEND_ERR_ANY;
     });
   }
 
-  function saveChange(key, date, host) {
-    var url = CFG.endpoint('event');
-    IshurLead.track('send_date_change', { send: key, date: date });
-
-    if (!url) {
-      location.href = CFG.waLink('היי, רציתי להזיז את "' + key + '" לתאריך ' + date + '.');
-      return;
-    }
-    var v = window.IshurGuard ? IshurGuard.allow('change', { token: token, send: key, date: date }) : { ok: true };
-    if (!v.ok) { $('live').textContent = 'נסו שוב בעוד כמה דקות'; return; }
-
-    var btn = host.querySelector('#editSave');
-    btn.disabled = true; btn.textContent = 'שומר';
-    fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(IshurGuard.stamp({ event_type: 'send_date_change', token: token, send: key, date: date, ts: new Date().toISOString() }))
-    }).then(function (r) {
-      if (r.status === 200) {
-        data.sends.forEach(function (s) { if (s.key === key) s.date = date; });
-        host.remove(); renderSends();
-        $('live').textContent = 'התאריך עודכן';
-      } else { btn.disabled = false; btn.textContent = 'שמירת התאריך'; $('live').textContent = 'לא הצלחנו לעדכן'; }
-    })['catch'](function () {
-      btn.disabled = false; btn.textContent = 'שמירת התאריך'; $('live').textContent = 'לא הצלחנו לעדכן';
-    });
+  /* pull the snapshot again, so what is on screen is what was saved */
+  function reloadData() {
+    if (demo || !token) return;
+    loadData({ token: token }, false);
   }
 
   function renderAfterParty() {
@@ -995,6 +1282,7 @@
     var plan = ev.plan || 'basic';
     var guests = ev.guests_tier || '';
     var dte = ev.event_date ? daysUntil(ev.event_date) : null;
+    var over = eventIsOver();
 
     $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
       var a = CFG.ADDONS[k];
@@ -1019,8 +1307,11 @@
       } else {
         cls = ' locked';
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
-        action = '<button type="button" class="buy" data-addon="' + k + '">' +
-                 (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
+        /* nothing can be added to an event that already happened */
+        action = over
+          ? '<span class="no-a" title="' + OVER_HINT + '">האירוע הסתיים</span>'
+          : '<button type="button" class="buy" data-addon="' + k + '">' +
+            (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
       }
 
       return '<div class="addon' + cls + '">' +
@@ -1068,9 +1359,6 @@
   /* ── wiring: search and the add-ons fold ── */
 
   $('gsearch').addEventListener('input', function () { query = this.value; renderRows(); });
-  $('switchEv').addEventListener('click', function () {
-    if (myEvents.length > 1) { IshurLead.track('dashboard_event_switch', {}); showPicker(); }
-  });
   $('addonsHead').addEventListener('click', function () {
     this.classList.toggle('open');
     $('addonsBody').classList.toggle('open');
@@ -1120,25 +1408,119 @@
     return bits.filter(Boolean).join(' · ');
   }
 
+  /* ── the switcher in the header ────────────────────────────────────────
+     Whoever holds more than one event sees which one is open, and moves to
+     another from here. One event on its own gets no switcher at all. ── */
+
+  var currentEv = null;
+
+  function eventsByTime() {
+    var today = ilToday();
+    var ahead = [], done = [];
+    (myEvents || []).forEach(function (e, i) {
+      var d = isoDay(e && e.event_date);
+      (d && d < today ? done : ahead).push({ e: e, i: i, d: d || '9999-99-99' });
+    });
+    ahead.sort(function (a, b) { return a.d < b.d ? -1 : a.d > b.d ? 1 : 0; });
+    done.sort(function (a, b) { return a.d > b.d ? -1 : a.d < b.d ? 1 : 0; });
+    return { ahead: ahead, done: done };
+  }
+
+  function isOpenEvent(e) {
+    if (!e) return false;
+    if (e.token && token && e.token === token) return true;
+    return !!currentEv && e === currentEv;
+  }
+
+  function paintSwitcher() {
+    var wrap = $('evSwitchWrap');
+    if (!wrap) return;
+    if (!myEvents || myEvents.length < 2 || $('main').hidden) {
+      closeSwitcher(false);
+      wrap.hidden = true;
+      return;
+    }
+    wrap.hidden = false;
+    var ev = (data && data.event) || currentEv || {};
+    $('evSwitchNm').textContent = eventTitle(ev);
+    var d = isoDay(ev.event_date);
+    $('evSwitchDt').textContent = d ? (IshurDate.pretty(d) || d) : 'מעבר לאירוע אחר';
+  }
+
+  function switcherOpen() { return $('evSwitchPanel') && !$('evSwitchPanel').hidden; }
+
+  function openSwitcher() {
+    var panel = $('evSwitchPanel');
+    var groups = eventsByTime();
+    var block = function (title, rows) {
+      if (!rows.length) return '';
+      return '<p class="evsw-gr">' + title + '</p>' + rows.map(function (r) {
+        var meta = eventMeta(r.e);
+        return '<button type="button" class="evsw-it' + (r.d < ilToday() ? ' done' : '') + '"' +
+               ' data-ev="' + r.i + '"' + (isOpenEvent(r.e) ? ' aria-current="true"' : '') + '>' +
+               '<span class="evsw-dot" aria-hidden="true"></span>' +
+               '<span class="tx"><span class="n">' + esc(eventTitle(r.e)) + '</span>' +
+               '<span class="m">' + esc(meta) + '</span></span></button>';
+      }).join('');
+    };
+    panel.innerHTML = block('האירועים שלי', groups.ahead) + block('אירועים שהסתיימו', groups.done);
+    panel.querySelectorAll('[data-ev]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var ev = myEvents[+b.dataset.ev];
+        closeSwitcher(false);
+        if (isOpenEvent(ev)) return;
+        IshurLead.track('dashboard_event_switch', {});
+        openEvent(ev);
+      });
+    });
+    panel.hidden = false;
+    $('switchEv').setAttribute('aria-expanded', 'true');
+  }
+
+  function closeSwitcher(focusBack) {
+    var panel = $('evSwitchPanel');
+    if (!panel || panel.hidden) return;
+    panel.hidden = true;
+    $('switchEv').setAttribute('aria-expanded', 'false');
+    if (focusBack) $('switchEv').focus();
+  }
+
+  $('switchEv').addEventListener('click', function () {
+    switcherOpen() ? closeSwitcher(false) : openSwitcher();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && switcherOpen()) { e.preventDefault(); closeSwitcher(true); }
+  });
+  document.addEventListener('pointerdown', function (e) {
+    if (switcherOpen() && !$('evSwitchWrap').contains(e.target)) closeSwitcher(false);
+  });
+
   function showPicker() {
     $('gate').hidden = true; $('main').hidden = true; $('picker').hidden = false;
     $('title').textContent = 'לוח הבקרה';
     $('title').classList.remove('skel');
     $('sub').textContent = 'האזור האישי שלכם';
     $('cd').hidden = true;
-    $('switchEv').hidden = true;
+    paintSwitcher();
 
-    $('evList').innerHTML = myEvents.map(function (e, i) {
-      var n = e.event_date ? daysUntil(e.event_date) : null;
-      return '<button type="button" class="ev-btn" data-ev="' + i + '">' +
-        '<span class="ev-ic" aria-hidden="true">' +
-          '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>' +
-        '</span>' +
-        '<span class="ev-tx"><span class="ev-nm">' + eventTitle(e) + '</span>' +
-        '<span class="ev-mt">' + (eventMeta(e) || '') + '</span></span>' +
-        (n != null && n >= 0 && n <= 30 ? '<span class="ev-cd">' + (n === 0 ? 'היום' : n + ' ימים') + '</span>' : '') +
-        '<span class="ev-go" aria-hidden="true">‹</span></button>';
-    }).join('');
+    /* the same two groups the header switcher shows */
+    var groups = eventsByTime();
+    var block = function (title, rows) {
+      if (!rows.length) return '';
+      return '<p class="evsw-gr">' + title + '</p>' + rows.map(function (r) {
+        var e = r.e;
+        var n = e.event_date ? daysUntil(e.event_date) : null;
+        return '<button type="button" class="ev-btn" data-ev="' + r.i + '">' +
+          '<span class="ev-ic" aria-hidden="true">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M8 3v4M16 3v4M3 10h18"/></svg>' +
+          '</span>' +
+          '<span class="ev-tx"><span class="ev-nm">' + esc(eventTitle(e)) + '</span>' +
+          '<span class="ev-mt">' + esc(eventMeta(e)) + '</span></span>' +
+          (n != null && n >= 0 && n <= 30 ? '<span class="ev-cd">' + (n === 0 ? 'היום' : n + ' ימים') + '</span>' : '') +
+          '<span class="ev-go" aria-hidden="true">‹</span></button>';
+      }).join('');
+    };
+    $('evList').innerHTML = block('האירועים שלי', groups.ahead) + block('אירועים שהסתיימו', groups.done);
 
     $('evList').querySelectorAll('[data-ev]').forEach(function (b) {
       b.addEventListener('click', function () { openEvent(myEvents[+b.dataset.ev]); });
@@ -1149,11 +1531,11 @@
   /* an event carries its own token, so opening one is the ordinary path */
   function openEvent(ev) {
     if (!ev) return;
+    currentEv = ev;
     if (demo) {
       try { localStorage.setItem('ishur_dash_ev', ev.token); } catch (e) {}
       data = demoData(ev);
       showApp(); render();
-      $('switchEv').hidden = myEvents.length < 2;
       return;
     }
     if (ev.token) {
@@ -1238,8 +1620,6 @@
         }
 
         data = j; showApp(); render();
-        /* the switch only makes sense for someone who holds more than one */
-        $('switchEv').hidden = myEvents.length < 2;
         IshurLead.track('dashboard_view', {});
       })
       ['catch'](function (e) {
@@ -1279,7 +1659,9 @@
       myEvents = demoEvents();
       creds = { phone: phone, code: code };
       try { localStorage.setItem('ishur_dash_list', JSON.stringify(myEvents)); } catch (e) {}
-      showPicker();
+      /* like the real path: one event walks straight in, several are offered */
+      if (myEvents.length === 1) openEvent(myEvents[0]);
+      else showPicker();
       return;
     }
     gateBusy(true);

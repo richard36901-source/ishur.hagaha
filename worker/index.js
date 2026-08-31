@@ -2117,6 +2117,77 @@ async function msgPerformanceDigest(env) {
     (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
 }
 
+/* ══ Client changes a send date ══════════════════════════════════════════════
+   Everything the client does happens in their dashboard, never by asking us on
+   WhatsApp. Token-authed, and every rule the upload page enforces is enforced
+   again here: a wave that already went out is frozen, dates must be ahead of
+   today and before the event, Shabbat is refused, and the invitation always
+   stays before the chase.
+   POST {token, send:'invite'|'reminder'|'extra', date:'YYYY-MM-DD'}
+   ─────────────────────────────────────────────────────────────────────────── */
+const SEND_COL = { invite: { n: 1, idx: 39, col: 'AN' }, reminder: { n: 2, idx: 40, col: 'AO' }, extra: { n: 3, idx: 41, col: 'AP' } };
+
+async function handleSendDate(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const token = String(body.token || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token)) return deny(403, 'bad-token', origin);
+  if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+  if (await overBudget(env, 'rl:senddate:' + token, 20, 3600)) return deny(429, 'slow-down', origin);
+
+  const spec = SEND_COL[String(body.send || '').trim()];
+  if (!spec) return deny(400, 'bad-send', origin);
+  const date = String(body.date || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return deny(400, 'bad-date', origin);
+
+  /* a wave that already went out cannot be moved */
+  if (env.RATE && await env.RATE.get(`wave:${token}:${spec.n}`)) {
+    return deny(409, 'already-sent', origin);
+  }
+
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) return deny(502, 'reader-failed', origin);
+  const evRows = (raw.events && raw.events.values) || [];
+  const idx = evRows.findIndex(r => String((r || [])[1] || '').trim() === token);
+  if (idx < 0) return deny(404, 'event-not-found', origin);
+  const ev = evRows[idx];
+  if (String(ev[27] || '').trim() === 'כן') return deny(409, 'event-cancelled', origin);
+
+  const today = ilDate();
+  const evDate = String(ev[6] || '').trim().slice(0, 10);
+  if (date < today) return deny(422, 'date-in-past', origin);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && date >= evDate) return deny(422, 'after-event', origin);
+  if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) return deny(422, 'shabbat', origin);
+
+  /* keep the order sane: invitation, then chase, then extra */
+  const others = {
+    1: String(ev[39] || '').trim().slice(0, 10),
+    2: String(ev[40] || '').trim().slice(0, 10),
+    3: String(ev[41] || '').trim().slice(0, 10),
+  };
+  others[spec.n] = date;
+  const seq = [others[1], others[2], others[3]].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  for (let i = 1; i < seq.length; i++) if (seq[i] <= seq[i - 1]) return deny(422, 'out-of-order', origin);
+
+  const row = idx + 2; // values start at A2
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      method: 'POST',
+      payload: JSON.stringify({
+        valueInputOption: 'RAW',
+        data: [{ range: `אירועים!${spec.col}${row}`, values: [[date]] }],
+      }),
+    }),
+  }).catch(() => null);
+  if (!r || !r.ok) return deny(502, 'sheet-write-failed', origin);
+  let out = null;
+  try { out = await r.json(); } catch {}
+  if (!out || !out.totalUpdatedCells) return deny(502, 'sheet-write-failed', origin);
+  return okJson({ ok: true, send: body.send, date }, origin);
+}
+
 /* ══ Meta admin proxy ════════════════════════════════════════════════════════
    WA_TOKEN lives only in this Worker's secrets. Template management and Graph
    lookups go through here so the token never sits on a laptop or in /tmp.
@@ -2506,6 +2577,9 @@ export default {
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
     }
+    if (url.pathname === '/api/send-date' && request.method === 'POST') {
+      return handleSendDate(request, env, origin);
+    }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
     }
@@ -2633,7 +2707,14 @@ export default {
       const raw = await fetchSnapshot(target);
       if (!raw) return deny(502, 'reader-failed', origin);
       const refCount = env.RATE ? Number(await env.RATE.get('refcred:' + token.slice(0, 8))) || 0 : 0;
-      const snapshot = buildDashboard(token, raw, refCount);
+      /* which waves already fired, so the page can lock those rows */
+      const sentWaves = {};
+      if (env.RATE) {
+        for (const n of [1, 2, 3]) {
+          sentWaves[n] = !!(await env.RATE.get(`wave:${token}:${n}`));
+        }
+      }
+      const snapshot = buildDashboard(token, raw, refCount, sentWaves);
       if (!snapshot) return deny(404, 'event-not-found', origin);
       /* after the event: surface the review + testimonial links permanently */
       const evDate = String(snapshot.event.event_date || '').slice(0, 10);

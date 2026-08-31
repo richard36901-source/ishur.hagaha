@@ -176,7 +176,9 @@ export function buildBizStats(raw) {
   };
 }
 
-export function buildDashboard(token, raw, refCount = 0) {
+/* `sent` marks which waves already went out (from KV wave:<token>:<n>) so the
+   client sees "יצא" instead of a date they could pointlessly try to change. */
+export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
   const ev = evRows.find(r => String(r[1] || '').trim() === token);
@@ -224,9 +226,12 @@ export function buildDashboard(token, raw, refCount = 0) {
     { key: 'bronze', name: 'ארד' };
 
   const sends = [];
-  if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: 'scheduled' });
-  if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: 'scheduled', editable: true });
-  if (c(41)) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: 'scheduled', editable: true });
+  /* a send is editable while it has not gone out and its date is still ahead */
+  const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+  const state = (n, date) => (sent[n] ? 'sent' : (date && date.slice(0, 10) < todayIso ? 'passed' : 'scheduled'));
+  if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled' });
+  if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled' });
+  if (c(41)) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled' });
   if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: 'scheduled', auto: true });
 
   return {
