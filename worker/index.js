@@ -71,6 +71,15 @@ async function alert(env, where, what, detail) {
   }).catch(() => {});
 }
 
+/* A client who asked to be removed must stop hearing from us too, not just
+   the guests. Every client-facing template goes through here. */
+async function sendClient(env, phone, template, params, ctx) {
+  const p = normPhone(phone);
+  if (!p) return { ok: false, error: 'no-phone' };
+  if (env.RATE && await env.RATE.get('optout:' + p)) return { ok: false, error: 'optout' };
+  return sendTemplate(env, p, template, params, '', 'he', undefined, ctx);
+}
+
 /* Anything the team should just SEE (purchases, milestones) — not failures. */
 async function slackPost(env, text) {
   if (!env.SLACK_ALERT_HOOK) return;
@@ -249,8 +258,8 @@ async function processGrowPayment(env, flat) {
     if (env.RATE) await env.RATE.put('pend:' + token,
       JSON.stringify({ phone, name, at: new Date().toISOString() }), { expirationTtl: 7 * 86400 });
     const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
-    const wa = await sendTemplate(env, phone, 'ishur_tashlum',
-      [first, 'https://ishur.io/upload.html?t=' + token]);
+    const wa = await sendClient(env, phone, 'ishur_tashlum',
+      [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) await addEvCost(env, token, 0.53);
     if (env.RATE) await env.RATE.put('paywa:' + ref,
       JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
@@ -444,9 +453,25 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
   }
 
-  /* setup step — text fields, plus the invitation image when one was chosen */
-  const out = {};
-  for (const [k, v] of form.entries()) if (typeof v === 'string') out[k] = v;
+  /* setup step — text fields, plus the invitation image when one was chosen.
+     Only the settings fields are forwarded, by name. Copying the whole form
+     let a caller smuggle event_type/guest_id/append_body through to the Make
+     writer and touch rows belonging to somebody else's event. */
+  /* exactly the fields Make scenario 6959458 reads for event_setup, checked
+     against the blueprint. event_type/token are set below, never taken from
+     the caller; guest_id, append_body, rsvp and friends belong to other
+     routes and must not be reachable from here. */
+  const SETUP_FIELDS = [
+    'occasion', 'occasion_label', 'event_title', 'name1', 'name2',
+    'event_date', 'reception_time', 'venue_name', 'venue_addr', 'venue_city',
+    'style', 'event_description', 'schedule_mode',
+    'send_date_1', 'send_date_2', 'send_date_3',
+  ];
+  const out = { event_type: 'event_setup', token };
+  for (const k of SETUP_FIELDS) {
+    const v = form.get(k);
+    if (typeof v === 'string' && v !== '') out[k] = v;
+  }
 
   const image = form.get('image');
   if (image && typeof image === 'object' && image.arrayBuffer) {
@@ -717,6 +742,9 @@ async function handleShirDispatch(request, env, origin) {
   for (const g of queue) {
     if (dialed.length >= cap) break;
     if (!shouldDial(g, day)) continue; // capped, or the event already happened
+    /* "הסר" means every channel, not only WhatsApp: a guest who opted out
+       must never be dialled either */
+    if (env.RATE && await env.RATE.get('optout:' + normPhone(g.phone))) continue;
     /* one attempt per guest per day — the 3 tries live on separate days */
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
@@ -1061,7 +1089,7 @@ async function sendWave(env, ev, token, guests, wave, dry) {
   const time = String(ev[36] || '').trim() || 'בשעות הערב';
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
 
-  let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0;
+  let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
   const seenPhones = new Set();
   for (const g of guests) {
     const phone = String(g[4] || '').trim();
@@ -1071,13 +1099,21 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
     if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) { skippedOptout++; continue; }
     if (dry) { sent++; continue; }
+    /* per-guest marker: the wave flag is only written after the whole loop, so
+       a run cut short (subrequest ceiling, an exception) would otherwise start
+       from the top tomorrow and message everyone a second time */
+    const gk = `wsent:${token}:${wave.key}:${normPhone(phone)}`;
+    if (env.RATE && await env.RATE.get(gk)) { skippedDone++; continue; }
     const name = String(g[3] || '').trim() || 'אורח יקר';
     const res = await sendTemplate(env, phone, 'hazmana_ishur',
       [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
       { occasion, wave: wave.key, token });
-    if (res.ok) sent++; else failed++;
+    if (res.ok) {
+      sent++;
+      if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+    } else failed++;
   }
-  return { wave: wave.key, sent, skippedOptout, skippedAnswered, failed };
+  return { wave: wave.key, sent, skippedOptout, skippedAnswered, skippedDone, failed };
 }
 
 async function runDailyEngine(env, dry, todayOverride) {
@@ -1114,8 +1150,8 @@ async function runDailyEngine(env, dry, todayOverride) {
         if (ageDays < 1) continue;
         if (dry) { out.push({ token, type: 'stuck_client', would_send_to: v.phone }); continue; }
         const first = (String(v.name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-        const wa = await sendTemplate(env, v.phone, 'ishur_tzikoret_kovetz',
-          [first, 'https://ishur.io/upload.html?t=' + token], '', 'he', undefined, { token });
+        const wa = await sendClient(env, v.phone, 'ishur_tzikoret_kovetz',
+          [first, 'https://ishur.io/upload.html?t=' + token], { token });
         if (wa.ok) {
           await addEvCost(env, token, 0.53);
           await slackPost(env, `🟠 *לקוח תקוע* · ${v.name || ''} ${v.phone}\nשילם אתמול ולא העלה רשימת מוזמנים. נשלחה תזכורת עם הקישור האישי. אפשר לענות לו מהאינבוקס, והוא גם יכול פשוט לשלוח את האקסל בוואטסאפ.`);
@@ -1144,8 +1180,8 @@ async function runDailyEngine(env, dry, todayOverride) {
     if (env.RATE && await env.RATE.get('nosetup:' + token)) continue;
     if (dry) { out.push({ token, type: 'no_setup', would_send_to: phone }); continue; }
     const first = (String(ev[2] || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-    const wa = await sendTemplate(env, phone, 'ishur_tzikoret_kovetz',
-      [first, 'https://ishur.io/upload.html?t=' + token], '', 'he', undefined, { token });
+    const wa = await sendClient(env, phone, 'ishur_tzikoret_kovetz',
+      [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) {
       await addEvCost(env, token, 0.53);
       if (env.RATE) await env.RATE.put('nosetup:' + token, today, { expirationTtl: 14 * 86400 });
@@ -1295,7 +1331,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
       continue;
     }
-    const wa = await sendTemplate(env, phone, 'ishur_doch', [
+    const wa = await sendClient(env, phone, 'ishur_doch', [
       evName, String(confirmed), String(diners), String(declined), String(pending),
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
@@ -1354,7 +1390,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       }
       continue;
     }
-    const wa = await sendTemplate(env, phone, 'ishur_syum', [
+    const wa = await sendClient(env, phone, 'ishur_syum', [
       evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
@@ -1542,8 +1578,8 @@ async function runDailyEngine(env, dry, todayOverride) {
           const first = (name.split(' ')[0] || '').trim() || 'שלום';
           if (dry) out.push({ token, type: 'upsell_basic', silent, total });
           else if (phone) {
-            const wa = await sendTemplate(env, phone, 'ishur_shidrug',
-              [first, evName, `${silent} מתוך ${total}`], '', 'he', undefined, { occasion, token });
+            const wa = await sendClient(env, phone, 'ishur_shidrug',
+              [first, evName, `${silent} מתוך ${total}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
               await addEvCost(env, token, 0.53);
@@ -1568,8 +1604,8 @@ async function runDailyEngine(env, dry, todayOverride) {
           const first = (name.split(' ')[0] || '').trim() || 'שלום';
           if (dry) out.push({ token, type: 'upsell_pro', silent, tried: tried.length });
           else if (phone) {
-            const wa = await sendTemplate(env, phone, 'ishur_shidrug_sichot',
-              [first, evName, `${silent} מתוך ${tried.length}`], '', 'he', undefined, { occasion, token });
+            const wa = await sendClient(env, phone, 'ishur_shidrug_sichot',
+              [first, evName, `${silent} מתוך ${tried.length}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell2:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
               await addEvCost(env, token, 0.53);
@@ -2642,7 +2678,11 @@ export default {
     let parsedForm = null;
     if (type.includes('multipart/form-data')) {
       const form = await request.formData();
-      ['app', 'nonce', 'stamp_ts', 'sig'].forEach(k => { stampFields[k] = form.get(k); });
+      /* the routing fields have to be lifted too: the admin gate and the
+         raw-append guard below both read stampFields, and a multipart body
+         that carried only the four stamp keys sailed past both of them */
+      ['app', 'nonce', 'stamp_ts', 'sig', 'event_type', 'append_body', 'guest_id', 'admin_key']
+        .forEach(k => { stampFields[k] = form.get(k); });
       forwardBody = form;
       parsedForm = form;
     } else {
