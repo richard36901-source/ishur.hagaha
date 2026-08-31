@@ -217,8 +217,15 @@ export function parseInboundReply(msg) {
   /* opt-out must be the whole intent, anchored: a bare "הסר" or an explicit
      phrase. Unanchored it also matched הסרטון, הסרנו, and removed a guest
      from the list forever over a word about a video. */
-  if (/^\s*(הסר|הסירו|תסירו|הפסיקו|תפסיקו|תורידו אותי)\b/.test(clean) ||
-      /(לא להתקשר|להסיר אותי|תסירו אותי|הסירו אותי)/.test(clean)) {
+  /* two different requests, two different channels. "הסר" stops the WhatsApp
+     messages; "לא להתקשר" stops the phone calls. Neither implies the other. */
+  if (/(לא להתקשר|אל תתקשרו|אל תתקשר|תפסיקו להתקשר|לא לחייג)/.test(clean)) {
+    return { kind: 'nocall' };
+  }
+  /* \b is defined on [A-Za-z0-9_], so it never matches after a Hebrew letter.
+     The boundary has to be spelled out: end of string, space, or punctuation. */
+  if (/^\s*(הסר|הסירו|תסירו|הפסיקו|תפסיקו|תורידו אותי)(\s|$|[.!,?׃־])/.test(clean) ||
+      /(להסיר אותי|תסירו אותי|הסירו אותי)/.test(clean)) {
     return { kind: 'optout' };
   }
 

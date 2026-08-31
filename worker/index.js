@@ -742,9 +742,10 @@ async function handleShirDispatch(request, env, origin) {
   for (const g of queue) {
     if (dialed.length >= cap) break;
     if (!shouldDial(g, day)) continue; // capped, or the event already happened
-    /* "הסר" means every channel, not only WhatsApp: a guest who opted out
-       must never be dialled either */
-    if (env.RATE && await env.RATE.get('optout:' + normPhone(g.phone))) continue;
+    /* "הסר" stops WhatsApp messages only. A guest who does not want messages
+       may still be perfectly happy to answer the phone, and confirming their
+       seat is the whole job. Only an explicit "לא להתקשר" stops the calls. */
+    if (env.RATE && await env.RATE.get('nocall:' + normPhone(g.phone))) continue;
     /* one attempt per guest per day — the 3 tries live on separate days */
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
@@ -828,6 +829,12 @@ async function handleWaWebhook(request, env, url) {
       } catch {}
     }
 
+    /* stop the calls, keep the messages */
+    if (parsed.kind === 'nocall') {
+      if (env.RATE) await env.RATE.put('nocall:' + normPhone(from), new Date().toISOString());
+      await sendText(env, from, 'סגור, לא נתקשר יותר 🙏 אפשר לעדכן הגעה כאן בהודעה בכל רגע.');
+      continue;
+    }
     if (parsed.kind === 'optout') {
       if (env.RATE) await env.RATE.put('optout:' + normPhone(from), new Date().toISOString());
       await sendText(env, from, 'הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
@@ -2153,6 +2160,65 @@ async function msgPerformanceDigest(env) {
     (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
 }
 
+/* ══ Telnyx watch ════════════════════════════════════════════════════════════
+   Shir's Israeli number sat in Telnyx regulatory review. This runs on its own
+   morning cron and does the whole thing: the moment the number goes active it
+   attaches it to the SIP connection Retell dials through, then says so in
+   Slack. While it is still pending it says that too, once a day, so the wait
+   is visible without anyone opening a portal. Goes quiet once wired.
+   ─────────────────────────────────────────────────────────────────────────── */
+const TELNYX_CONNECTION_ID = '3038128441548342863'; // FQDN connection "retell-shir"
+
+async function checkTelnyx(env) {
+  if (!env.TELNYX_KEY) return { ok: false, why: 'no-key' };
+  if (env.RATE && await env.RATE.get('telnyxdone')) return { ok: true, why: 'already-wired' };
+
+  const h = { Authorization: 'Bearer ' + env.TELNYX_KEY };
+  const r = await fetch('https://api.telnyx.com/v2/phone_numbers', { headers: h }).catch(() => null);
+  if (!r || !r.ok) {
+    await alert(env, 'טלניקס', 'לא הצלחתי לקרוא את סטטוס המספר', r ? String(r.status) : 'unreachable');
+    return { ok: false, why: 'unreachable' };
+  }
+  let j = null;
+  try { j = await r.json(); } catch {}
+  const num = ((j && j.data) || [])[0];
+  if (!num) {
+    await alert(env, 'טלניקס', 'אין מספרים בחשבון — משהו לא צפוי', '');
+    return { ok: false, why: 'no-numbers' };
+  }
+
+  const status = String(num.status || '');
+  const phone = String(num.phone_number || '');
+  if (status !== 'active') {
+    await slackPost(env, `⏳ *המספר של שיר עדיין לא פעיל*\n${phone} · סטטוס: ${status}\nאם זה נמשך, שווה לדחוף בצ'אט התמיכה (טיקט 620361).`);
+    return { ok: true, why: status };
+  }
+
+  /* active: attach it to the SIP connection so Retell can dial through it */
+  let wired = String(num.connection_id || '') === TELNYX_CONNECTION_ID;
+  if (!wired) {
+    const p = await fetch('https://api.telnyx.com/v2/phone_numbers/' + num.id, {
+      method: 'PATCH',
+      headers: { ...h, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ connection_id: TELNYX_CONNECTION_ID }),
+    }).catch(() => null);
+    wired = !!p && p.ok;
+  }
+  if (wired && env.RATE) await env.RATE.put('telnyxdone', new Date().toISOString());
+  await slackPost(env, wired
+    ? `🎉 *המספר של שיר פעיל וחובר*\n${phone} משויך לחיבור ה-SIP, ורטל יכולה לחייג דרכו.\nנשאר רק להריץ שיחת בדיקה.`
+    : `✅ *המספר של שיר אושר* (${phone}) אבל השיוך לחיבור ה-SIP נכשל. צריך לשייך ידנית בפורטל.`);
+  return { ok: true, why: wired ? 'wired' : 'active-not-wired' };
+}
+
+/* Admin can ask at any time instead of waiting for the morning run. */
+async function handleTelnyxCheck(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  return okJson(await checkTelnyx(env), origin);
+}
+
 /* ══ Client changes a send date ══════════════════════════════════════════════
    Everything the client does happens in their dashboard, never by asking us on
    WhatsApp. Token-authed, and every rule the upload page enforces is enforced
@@ -2555,6 +2621,13 @@ export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
     /* the Tuesday reminder crons carry their own schedule string */
+    /* 04:00 UTC = 07:00 in Israel through the summer. Temporary: this exists
+       only until Shir's number is connected, and checkTelnyx goes quiet on
+       its own once that happens (telnyxdone). Remove the cron after. */
+    if (String(event.cron || '').startsWith('0 4 ')) {
+      ctx.waitUntil(checkTelnyx(env).catch(() => {}));
+      return;
+    }
     if (String(event.cron || '').startsWith('0 9,10,16')) {
       const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
       ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
@@ -2612,6 +2685,9 @@ export default {
     }
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
+    }
+    if (url.pathname === '/api/telnyx-check' && request.method === 'POST') {
+      return handleTelnyxCheck(request, env, origin);
     }
     if (url.pathname === '/api/send-date' && request.method === 'POST') {
       return handleSendDate(request, env, origin);

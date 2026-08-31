@@ -12,4 +12,4 @@ binding = "AI"
 # 06:35 UTC = בוקר בישראל כל השנה (08:35 חורף / 09:35 קיץ)
 [triggers]
 # 06:35 UTC — the daily engine · 09/10/16 UTC Tue = 12:00/13:00/19:00 IL — team reminders
-crons = ["35 6 * * *", "0 9,10,16 * * 2"]
+crons = ["35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2"]
