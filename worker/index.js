@@ -2721,6 +2721,7 @@ async function handleShirCalls(request, env, origin) {
     outcome: String(((c.call_analysis || {}).custom_analysis_data || {}).outcome || ''),
     party_size: ((c.call_analysis || {}).custom_analysis_data || {}).party_size ?? null,
     productive: !!((c.call_analysis || {}).custom_analysis_data || {}).got_answer,
+    needs_review: !!((c.call_analysis || {}).custom_analysis_data || {}).needs_review,
     agent_quality: ((c.call_analysis || {}).custom_analysis_data || {}).agent_quality ?? null,
     quality_note: String(((c.call_analysis || {}).custom_analysis_data || {}).quality_note || ''),
     summary: String((c.call_analysis || {}).call_summary || '').slice(0, 400),
