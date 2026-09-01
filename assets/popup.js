@@ -450,6 +450,20 @@ window.IshurPopup = (function () {
     }
 
     var url = CFG.growLink(S.guests, S.plan);
+
+    /* A validated promo code swaps the LINK, never the price shown. The cheap
+       Grow link is not in this repo at all: /promo/go holds a seat and 302s to
+       it, and refuses anything that is spent, closed or sold out. Only the
+       package the offer covers is redirected; everything else pays as usual.
+       This has to be a real navigation — a fetch would follow the redirect
+       into Grow and die on CORS. */
+    try {
+      if (window.IshurPromo && IshurPromo.goUrl) {
+        var promoUrl = IshurPromo.goUrl(S.guests, S.plan, S.phone);
+        if (promoUrl) url = promoUrl;
+      }
+    } catch (e) {}
+
     var btn = $('pop-submit');
 
     if (!url) {

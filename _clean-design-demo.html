@@ -1,0 +1,129 @@
+<!doctype html><html lang="he" dir="rtl"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>clean-design · הדגמה</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F;
+    /* --- type scale (9 steps, was 17 ad-hoc) --- */
+    --fs-2xs:.625rem;--fs-xs:.6875rem;--fs-sm:.75rem;--fs-base:.8125rem;
+    --fs-md:.875rem;--fs-lg:.9375rem;--fs-xl:1rem;--fs-2xl:1.25rem;--fs-3xl:1.5rem;
+    /* --- radius scale (5, was 10) --- */
+    --r-sm:8px;--r-md:12px;--r-lg:16px;--r-full:999px;--r-circle:50%;
+  }
+html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:var(--gold-soft);--ok:#4CAF82;--warn:#F08A8A;
+  }
+*{box-sizing:border-box}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);margin:0;padding:1.5rem;line-height:1.6}
+h1{font-size:var(--fs-3xl);margin:0 0 .3rem}
+h2{font-size:var(--fs-xl);margin:2rem 0 .5rem;color:var(--pine)}
+.sub{color:var(--ink3);font-size:var(--fs-md);margin:0 0 1.5rem}
+.demo{background:var(--card);border:1px solid var(--line);border-radius:var(--r-lg);padding:1rem;margin-bottom:.5rem}
+table{width:100%;border-collapse:collapse;font-size:var(--fs-sm)}
+th{text-align:right;padding:.5rem;color:var(--ink3);font-weight:600;border-bottom:1px solid var(--line)}
+td{padding:.55rem .5rem;border-bottom:1px solid var(--line)}
+.note{font-size:var(--fs-sm);color:var(--ink2);background:var(--paper);border-radius:var(--r-md);padding:.7rem .9rem;margin:.4rem 0 0}
+.trigger{min-height:44px;padding:0 1.1rem;border-radius:var(--r-md);border:1px solid var(--warn);background:var(--card);color:var(--warn);font:600 var(--fs-md) 'Heebo';cursor:pointer}
+.trigger:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.old{background:var(--card);border:1px dashed var(--ink3);border-radius:var(--r-md);padding:.9rem;color:var(--ink3);font-size:var(--fs-sm)}
+/* ===== clean-design: skeleton rows. Tables rendered empty until JS filled
+     them — an empty table is indistinguishable from "no data" or a crash. ===== */
+  .sk{
+    display:block;height:.8em;border-radius:var(--r-sm);
+    background:linear-gradient(90deg,var(--line) 25%,var(--bg) 37%,var(--line) 63%);
+    background-size:400% 100%;animation:skx 1.4s ease infinite;
+  }
+  .sk.w40{width:40%} .sk.w60{width:60%} .sk.w80{width:80%}
+  tr[data-skeleton] td{padding:.55rem .5rem}
+  @keyframes skx{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  @media (prefers-reduced-motion:reduce){.sk{animation:none;background:var(--line)}}
+
+/* ===== clean-design: named-action confirm. A raw confirm() asks
+     "are you sure?" — nobody reads that. The verb is the warning. ===== */
+  .cd-scrim{
+    position:fixed;inset:0;background:rgba(10,33,25,.55);backdrop-filter:blur(2px);
+    display:grid;place-items:center;z-index:90;padding:1rem;
+  }
+  .cd-box{
+    background:var(--card);border-radius:var(--r-lg);max-width:24rem;width:100%;
+    padding:1.25rem;box-shadow:0 20px 50px rgba(10,33,25,.28);
+    border:1px solid var(--line);
+  }
+  .cd-box h3{margin:0 0 .4rem;font-size:var(--fs-xl);color:var(--ink)}
+  .cd-box p{margin:0 0 1rem;font-size:var(--fs-md);color:var(--ink2);line-height:1.55}
+  .cd-acts{display:flex;gap:.5rem;flex-direction:row-reverse}
+  .cd-acts button{
+    flex:1;min-height:44px;border-radius:var(--r-md);cursor:pointer;
+    font-size:var(--fs-md);font-weight:600;border:1px solid var(--line);
+  }
+  .cd-keep{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .cd-go{background:var(--card);color:var(--warn);border-color:var(--warn)}
+  .cd-acts button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+</style></head><body>
+<h1>clean-design · מה נוסף ל-admin</h1>
+<p class="sub">שני הרכיבים החדשים, מרונדרים מאותו CSS שנמצא ב-admin.new.html</p>
+
+<h2>1 · שורות skeleton בטבלאות</h2>
+<div class="demo">
+  <table><thead><tr><th>אירוע</th><th>תאריך</th><th>אורחים</th><th>אישרו</th></tr></thead>
+  <tbody>
+    <tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w60"></span></td></tr>
+    <tr data-skeleton aria-hidden="true"><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w40"></span></td></tr>
+    <tr data-skeleton aria-hidden="true"><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w80"></span></td></tr>
+  </tbody></table>
+</div>
+<p class="note"><b>לפני:</b> הטבלה הייתה <code>&lt;tbody&gt;&lt;/tbody&gt;</code> ריק עד ש-JS מילא. טבלה ריקה נראית זהה ל"אין נתונים" ול"קרס".<br>
+<b>הכלל:</b> אל תראה כלום — תראה את המבנה. ה-shimmer גורם למוח לחשוב שתוכן בדרך.</p>
+
+<h2>2 · דיאלוג עם פעולה מנוסחת</h2>
+<div class="demo">
+  <div class="old">לפני: <code>confirm('לכבות את נועה? הודעות נכנסות יקבלו רק קישור או מענה אנושי')</code> — חלון דפדפן עם "אישור / ביטול".</div>
+  <p style="margin:.9rem 0 .5rem;font-size:var(--fs-sm);color:var(--ink2)">אחרי — לחץ לבדיקה:</p>
+  <button class="trigger" id="t">לכבות את נועה</button>
+  <p id="out" style="font-size:var(--fs-sm);color:var(--ink3);margin-top:.7rem"></p>
+</div>
+<p class="note"><b>הכלל:</b> "בטוח?" אף אחד לא קורא. השם של הפעולה הוא האזהרה.<br>
+האפשרות הבטוחה ראשית וממוקדת · ההרסנית בצבע אזהרה בלבד · Escape ולחיצה מחוץ = ביטול · הפוקוס חוזר לכפתור.</p>
+
+<script>
+function cdConfirm(opts){
+  return new Promise(function(resolve){
+    var scrim=document.createElement('div'); scrim.className='cd-scrim';
+    scrim.setAttribute('role','dialog'); scrim.setAttribute('aria-modal','true');
+    var box=document.createElement('div'); box.className='cd-box';
+    var h=document.createElement('h3'); h.textContent=opts.title;
+    var p=document.createElement('p'); p.textContent=opts.body;
+    var acts=document.createElement('div'); acts.className='cd-acts';
+    var keep=document.createElement('button'); keep.className='cd-keep'; keep.textContent=opts.keepLabel;
+    var go=document.createElement('button'); go.className='cd-go'; go.textContent=opts.goLabel;
+    acts.appendChild(keep); acts.appendChild(go);
+    box.appendChild(h); box.appendChild(p); box.appendChild(acts); scrim.appendChild(box);
+    document.body.appendChild(scrim);
+    var prev=document.activeElement;
+    function done(v){ scrim.remove(); if(prev&&prev.focus) prev.focus(); resolve(v); }
+    keep.addEventListener('click',function(){done(false)});
+    go.addEventListener('click',function(){done(true)});
+    scrim.addEventListener('click',function(e){ if(e.target===scrim) done(false) });
+    document.addEventListener('keydown',function esc(e){
+      if(e.key==='Escape'){ document.removeEventListener('keydown',esc); done(false) }
+    });
+    keep.focus();  /* safe option is the default */
+  });
+}
+document.getElementById('t').addEventListener('click', async function(){
+  var ok = await cdConfirm({
+    title:'לכבות את נועה?',
+    body:'הודעות נכנסות יקבלו רק קישור או מענה אנושי. אפשר להדליק אותה בחזרה בכל רגע.',
+    keepLabel:'להשאיר פעילה', goLabel:'לכבות את נועה'
+  });
+  document.getElementById('out').textContent = ok ? '→ נבחר: לכבות (הפעולה הייתה רצה)' : '→ נבחר: להשאיר פעילה (בוטל)';
+});
+</script></body></html>

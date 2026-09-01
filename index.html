@@ -61,7 +61,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=30"></script>
+<script src="config.js?v=31"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -1437,9 +1437,12 @@ footer{
 }
 #promo-bar b{color:var(--gold-soft);font-weight:600}
 #promo-bar i{font-style:normal;color:var(--gold);margin:0 .28rem}
-/* the bar is fixed, so the nav and the page both step down behind it */
-body.has-promo{padding-top:34px}
-body.has-promo #nav{top:34px}
+/* The bar is fixed, so the nav and the page both step down behind it. The
+   campaign label comes from KV and can be any length, so the step is the bar's
+   measured height (--promo-h, set in JS); the literal is the one-line fallback
+   for the moment before the measurement lands. */
+body.has-promo{padding-top:var(--promo-h,34px)}
+body.has-promo #nav{top:var(--promo-h,34px)}
 #promo-bar-x{
   position:absolute;inset-inline-start:.4rem;top:50%;transform:translateY(-50%);
   width:26px;height:26px;display:flex;align-items:center;justify-content:center;
@@ -1451,8 +1454,8 @@ body.has-promo #nav{top:34px}
 #promo-bar-x:focus-visible{outline:2px solid var(--gold-soft);outline-offset:1px}
 @media(max-width:560px){
   #promo-bar{font-size:.7rem;min-height:40px;padding:.35rem 2.4rem}
-  body.has-promo{padding-top:40px}
-  body.has-promo #nav{top:40px}
+  body.has-promo{padding-top:var(--promo-h,40px)}
+  body.has-promo #nav{top:var(--promo-h,40px)}
 }
 
 /* ── the popup ──────────────────────────────────────────────────────────── */
@@ -1533,6 +1536,64 @@ body.has-promo #nav{top:34px}
   letter-spacing:0;white-space:nowrap;
 }
 
+/* ── the beta note in the popup ─────────────────────────────────────────── */
+#promo-beta{
+  display:block;margin:0 0 .9rem;
+  background:rgba(168,133,60,.12);border:1px solid var(--gold-pale);
+  color:#7A5F27;border-radius:10px;padding:.55rem .75rem;
+  font-family:'Heebo',sans-serif;font-size:.76rem;font-weight:500;line-height:1.6;
+}
+
+/* ── "יש לי קוד" ── the codes go out in a WhatsApp group, so plenty of
+      people arrive without the link and type theirs in by hand ──────────── */
+.promo-field{margin-top:1.15rem}
+.promo-field > label{
+  display:block;font-family:'Heebo',sans-serif;font-size:.85rem;font-weight:500;
+  color:var(--ink2);margin-bottom:.4rem;
+}
+.promo-row{display:flex;gap:.5rem;align-items:stretch}
+#pr-code{
+  flex:1 1 auto;min-width:0;
+  padding:.72rem .7rem;min-height:46px;
+  background:#fff;border:1.5px solid var(--bdr);border-radius:9px;
+  font-family:'Heebo',sans-serif;font-size:1rem;font-weight:500;color:var(--ink);
+  direction:ltr;text-align:center;letter-spacing:.1em;text-transform:uppercase;
+  transition:border-color .15s,box-shadow .15s;
+}
+#pr-code::placeholder{color:var(--ink3);font-weight:300;letter-spacing:.06em}
+#pr-code:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(168,133,60,.16)}
+#pr-code:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#pr-code-go{
+  flex:0 0 auto;padding:0 1.1rem;min-height:46px;
+  background:var(--pine);color:var(--paper);border:none;border-radius:9px;
+  font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:600;
+  cursor:pointer;white-space:nowrap;transition:background .2s,transform .18s;
+}
+#pr-code-go:hover{background:var(--pine-lift)}
+#pr-code-go:active{transform:scale(.978)}
+#pr-code-go:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#pr-code-go[disabled]{opacity:.5;cursor:default;transform:none}
+
+/* one line, and empty until we actually know something */
+.promo-msg{
+  font-family:'Heebo',sans-serif;font-size:.79rem;font-weight:400;line-height:1.6;
+  color:var(--ink3);margin-top:.5rem;
+}
+.promo-msg:empty{display:none}
+.promo-msg.ok{color:#2E4238}
+.promo-msg.ok b{color:var(--gold);font-weight:600}
+.promo-msg.err{color:#9A3412}
+.promo-msg .promo-beta-chip{
+  display:inline-block;margin-inline-start:.35rem;
+  background:rgba(168,133,60,.12);border:1px solid var(--gold-pale);
+  color:#7A5F27;border-radius:100px;padding:.06rem .5rem;
+  font-size:.66rem;font-weight:600;white-space:nowrap;
+}
+@media(max-width:340px){
+  .promo-row{flex-wrap:wrap}
+  #pr-code-go{width:100%}
+}
+
 /* ── a browser set to dark must not repaint any of this ─────────────────── */
 @media(prefers-color-scheme:dark){
   #promo-bar,#promo-modal,#promo-card{color-scheme:light}
@@ -1542,12 +1603,22 @@ body.has-promo #nav{top:34px}
   #promo-greeting{color:#2E4238}
   #promo-ok{background:var(--pine);color:var(--paper)}
   .promo-save{background:rgba(168,133,60,.14);color:#7A5F27}
+  #promo-beta{background:rgba(168,133,60,.14);color:#7A5F27;border-color:var(--gold-pale)}
+  .promo-field{color-scheme:light}
+  .promo-field > label{color:var(--ink2)}
+  #pr-code{background:#fff;color:var(--ink);border-color:var(--bdr)}
+  #pr-code::placeholder{color:var(--ink3)}
+  #pr-code-go{background:var(--pine);color:var(--paper)}
+  .promo-msg{color:var(--ink3)}
+  .promo-msg.ok{color:#2E4238}
+  .promo-msg.err{color:#9A3412}
+  .promo-msg .promo-beta-chip{background:rgba(168,133,60,.14);color:#7A5F27}
 }
 
 @media(prefers-reduced-motion:reduce){
   #promo-card{animation:none}
-  #promo-ok,#promo-x,#promo-bar-x{transition:none}
-  #promo-ok:active{transform:none}
+  #promo-ok,#promo-x,#promo-bar-x,#pr-code,#pr-code-go{transition:none}
+  #promo-ok:active,#pr-code-go:active{transform:none}
 }
 
 </style>
@@ -1816,6 +1887,23 @@ body.has-promo #nav{top:34px}
       <label for="pr-guests">כמות הזמנות</label>
       <select id="pr-guests" data-isel></select>
       <div class="plan-opts" id="pr-plans"></div>
+
+      <!-- the codes are read out in a WhatsApp group, so not everyone arrives
+           on a ?code= link. Nothing here knows the discounted price: the
+           Worker answers, and only then do the cards above move. -->
+      <div class="promo-field">
+        <label for="pr-code">יש לי קוד מבצע</label>
+        <div class="promo-row">
+          <input id="pr-code" type="text" name="promo-code"
+                 placeholder="XXXX-XXXX" maxlength="12"
+                 autocomplete="off" autocapitalize="characters"
+                 autocorrect="off" spellcheck="false"
+                 aria-describedby="pr-code-msg">
+          <button type="button" id="pr-code-go">בדיקת קוד</button>
+        </div>
+        <p id="pr-code-msg" class="promo-msg" role="status" aria-live="polite"></p>
+      </div>
+
       <p class="pr-note">לחצו על חבילה כדי להתחיל. המחירים כוללים מע״מ.</p>
     </div>
   </div>
@@ -1929,32 +2017,72 @@ function currentStyleKey(){
   return ISHUR_MESSAGES.SITUATIONAL.indexOf(k)>-1 ? 'happy' : k;
 }
 
-// ═══ PROMO ═══ display only. A thin bar, one popup per visit, and struck
-// prices in the block below. The payment link is untouched, see config.js.
+// ═══ PROMO ═══ A code buys a cheaper price, and neither the price nor its
+// payment link is anywhere in this repo — the Worker holds both and releases
+// them only against a code that is real, unused and still has a seat. See the
+// PROMO CODES note in config.js.
+//
+// The order matters: the cards below render at full price first, and only move
+// after /promo/check has answered ok. So a dead network, a Worker that is down
+// or a code that has been spent all leave 299 standing. Showing 49 and
+// charging 299 is the one direction of mismatch we must never ship.
 const IshurPromo=(()=>{
-  /* resolved from the url the moment the script runs, so the pricing block
-     below can already ask for it. The DOM half waits for the document. */
-  const key=(CFG&&CFG.activePromo)?CFG.activePromo():null;
-  const info=key?CFG.promoInfo(key):null;
   const SEEN='ishur_promo_seen', BAR_OFF='ishur_promo_bar_off';
-  let lastFocus=null;
+  /* resolved the moment the script runs, so ?code= is pinned before anything
+     below can ask for it. The DOM half waits for the document. */
+  let code=null; try{ code=CFG.promoCode()||null; }catch(e){ code=null; }
+  let offer=null, lastFocus=null;
 
   function flag(k){ try{ return sessionStorage.getItem(k)==='1'; }catch(e){ return false; } }
   function setFlag(k){ try{ sessionStorage.setItem(k,'1'); }catch(e){} }
 
-  /* the bar line, assembled from the promo itself so it can never drift
-     away from PROMOS. biz reads:
-     "מבצע בעלי עסקים פעיל · בסיס עד 300 מוזמנים ב-49 ש״ח" */
-  function barLine(){
-    if(!info) return '';
-    const on=info.activeWord||'פעיל';
-    if(info.kind==='flat'){
-      const plan=CFG.PLANS[info.plan];
-      return `<b>${info.label}</b> ${on} <i>·</i> ${plan?plan.name:''} עד ${info.maxTier} מוזמנים ב-${info.price} ש״ח`;
-    }
-    return `<b>${info.label}</b> ${on} <i>·</i> ${info.percent}% הנחה על כל החבילות`;
+  /* label and greeting are written by an admin into KV, not by this page */
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>(
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const planName=k=>(CFG.PLANS[k]&&CFG.PLANS[k].name)||'';
+
+  /* what the offer covers, in one phrase: "בסיס עד 300 מוזמנים ב-50 ש״ח" */
+  function scope(){
+    if(!offer) return '';
+    return `${esc(planName(offer.plan))} עד ${esc(offer.maxTier)} מוזמנים ב-${esc(offer.price)} ש״ח`;
   }
 
+  /* the bar line, assembled from what the Worker sent so it can never drift
+     away from the campaign in KV */
+  function barLine(){
+    if(!offer) return '';
+    const label=String(offer.label||'קוד מבצע');
+    const bits=[`<b>${esc(label)}</b>`, scope()];
+    if(offer.left!=null) bits.push(`נשארו ${esc(offer.left)} מקומות`);
+    /* say beta out loud, but not twice: some campaign labels already do */
+    if(offer.beta&&label.indexOf('בטא')===-1) bits.push('הרצת בטא');
+    return bits.join(' <i>·</i> ');
+  }
+
+  /* ── the message under the code field ─────────────────────────────────── */
+  function msg(text,kind){
+    const el=document.getElementById('pr-code-msg');
+    if(!el) return;
+    el.className='promo-msg'+(kind?' '+kind:'');
+    el.textContent=text||'';
+  }
+
+  function msgOffer(){
+    const el=document.getElementById('pr-code-msg');
+    if(!el||!offer) return;
+    el.className='promo-msg ok';
+    let html=`הקוד <b>${esc(code)}</b> תקף · ${scope()}`;
+    if(offer.left!=null) html+=` · נשארו ${esc(offer.left)} מקומות`;
+    /* Richard wants beta said out loud up front, not discovered later */
+    if(offer.beta) html+=`<span class="promo-beta-chip">הרצת בטא</span>`;
+    el.innerHTML=html;
+  }
+
+  /* Anything we do not have words for — a failed fetch, a Worker that is down —
+     gets no message at all, and the full price simply stands. */
+  function msgReason(reason){ msg(CFG.promoReason(reason),'err'); }
+
+  /* ── the popup ────────────────────────────────────────────────────────── */
   function focusables(box){
     return [...box.querySelectorAll('button:not([disabled]),[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
       .filter(el=>el.offsetParent!==null||el===document.activeElement);
@@ -1975,16 +2103,23 @@ const IshurPromo=(()=>{
 
   function openModal(){
     const modal=document.getElementById('promo-modal');
-    if(!modal||!info) return;
-    document.getElementById('promo-label').textContent=info.label;
-    document.getElementById('promo-greeting').textContent=info.greeting||'';
+    if(!modal||!offer) return;
+    document.getElementById('promo-label').textContent=offer.label||'קוד מבצע';
+    document.getElementById('promo-greeting').textContent=offer.greeting||'';
+    const beta=document.getElementById('promo-beta');
+    if(beta){
+      beta.hidden=!offer.beta;
+      beta.textContent=offer.beta
+        ? 'שימו לב: זו הרצת בטא. אתם מהראשונים שמריצים אצלנו אירוע, והמחיר הוא מחיר של הרצה.'
+        : '';
+    }
     lastFocus=document.activeElement;
     modal.hidden=false;
     document.addEventListener('keydown',onKey);
     const ok=document.getElementById('promo-ok');
     if(ok) ok.focus();
     setFlag(SEEN);
-    push('promo_popup',{promo:key});
+    push('promo_popup',{promo:offer.campaign||'',beta:!!offer.beta});
   }
 
   function closeModal(){
@@ -1997,36 +2132,152 @@ const IshurPromo=(()=>{
     else if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
   }
 
+  /* the label is campaign text, so on a narrow screen the bar can wrap to two
+     lines. Measure it rather than guess, or the nav sits under it. */
+  function sizeBar(){
+    const bar=document.getElementById('promo-bar');
+    if(!bar||bar.hidden) return;
+    const h=Math.ceil(bar.getBoundingClientRect().height);
+    if(h>0) document.documentElement.style.setProperty('--promo-h',h+'px');
+  }
+
   function showBar(){
     const bar=document.getElementById('promo-bar');
-    if(!bar||!info||flag(BAR_OFF)) return;
+    if(!bar||!offer||flag(BAR_OFF)) return;
     document.getElementById('promo-bar-txt').innerHTML=barLine();
     bar.hidden=false;
     document.body.classList.add('has-promo');
+    sizeBar();
+    window.addEventListener('resize',sizeBar,{passive:true});
   }
 
   function hideBar(){
     const bar=document.getElementById('promo-bar');
     if(bar) bar.hidden=true;
     document.body.classList.remove('has-promo');
-    setFlag(BAR_OFF);
+    window.removeEventListener('resize',sizeBar);
+    document.documentElement.style.removeProperty('--promo-h');
+  }
+
+  function dismissBar(){ hideBar(); setFlag(BAR_OFF); }
+
+  /* ── the Worker ───────────────────────────────────────────────────────── */
+  /* read-only, burns nothing. 'unreachable' has no words in PROMO_REASONS on
+     purpose: we could not ask, so we say nothing and charge full price. */
+  function check(c){
+    const url=CFG.promoCheckUrl(c);
+    if(!url) return Promise.resolve({ok:false,reason:'bad-code'});
+    return fetch(url,{method:'GET',cache:'no-store',credentials:'omit'})
+      .then(r=>r.json())
+      .then(j=>(j&&typeof j.ok==='boolean')?j:{ok:false,reason:'unreachable'})
+      .catch(()=>({ok:false,reason:'unreachable'}));
+  }
+
+  function apply(res){
+    offer=(res&&res.ok)?res:null;
+    if(offer){
+      CFG.rememberPromoCode(code);
+      showBar();
+      msgOffer();
+      if(!flag(SEEN)) openModal();
+    }else{
+      /* 'closed' and 'sold-out' are about the campaign, not this code, so the
+         pin survives: the same code works once the campaign opens. A code that
+         does not exist or is already spent is not worth carrying for 60 days. */
+      const why=res&&res.reason;
+      if(why==='bad-code'||why==='used'){ CFG.forgetPromoCode(); }
+      hideBar();
+      msgReason(why);
+    }
+    /* the only place a price is allowed to move, and only ever after this */
+    const sel=document.getElementById('pr-guests');
+    renderPlans(sel?sel.value:'');
+  }
+
+  /* ── the manual field ─────────────────────────────────────────────────── */
+  function bindField(){
+    const input=document.getElementById('pr-code');
+    const btn=document.getElementById('pr-code-go');
+    if(!input||!btn) return;
+    if(code) input.value=code;
+
+    function run(){
+      const c=CFG.normPromoCode(input.value);
+      if(!c){
+        offer=null;
+        msg('הקוד בנוי מ-8 תווים, למשל XXXX-XXXX','err');
+        return;
+      }
+      input.value=c;             // lower case and no dash both land here
+      code=CFG.rememberPromoCode(c);   // pinned like a ?code= link would be
+      btn.disabled=true;
+      msg('בודקים את הקוד…','');
+      check(c).then(res=>{
+        btn.disabled=false;
+        apply(res);
+        if(!res.ok) input.focus();
+      });
+    }
+
+    btn.addEventListener('click',run);
+    input.addEventListener('keydown',e=>{
+      if(e.key==='Enter'){ e.preventDefault(); run(); }
+    });
+  }
+
+  /* /promo/go bounces a code it refused back to ?promo_error=<reason> */
+  function urlError(){
+    try{
+      const m=/[?&]promo_error=([^&#]*)/.exec(location.search||'');
+      return m?decodeURIComponent(m[1].replace(/\+/g,' ')):'';
+    }catch(e){ return ''; }
+  }
+
+  /* so a refresh does not replay an error the visitor already read */
+  function scrubUrl(){
+    try{
+      if(!history.replaceState) return;
+      const u=new URL(location.href);
+      u.searchParams.delete('promo_error');
+      history.replaceState(null,'',u.pathname+u.search+u.hash);
+    }catch(e){}
   }
 
   function boot(){
-    if(!info) return;
-    showBar();
+    bindField();
     const x=document.getElementById('promo-bar-x');
-    if(x) x.addEventListener('click',hideBar);
+    if(x) x.addEventListener('click',dismissBar);
     document.querySelectorAll('[data-promo-close]').forEach(el=>el.addEventListener('click',closeModal));
-    /* once a visit, not once a page view */
-    if(!flag(SEEN)) openModal();
+
+    const err=urlError();
+    if(err){
+      /* a spent or unknown code is not worth carrying to the next visit */
+      if(err==='used'||err==='bad-code'){ CFG.forgetPromoCode(); code=null; }
+      msgReason(err);
+      scrubUrl();
+      return;                    // the Worker just answered; do not ask again
+    }
+    if(!code) return;            // nothing pinned, nothing to ask about
+    msg('בודקים את הקוד…','');
+    check(code).then(apply);
   }
 
   if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
   else boot();
 
-  return { key:()=>key, info:()=>info, open:openModal, close:closeModal };
+  /* The buy button for the package this offer actually covers. Everything
+     else keeps its ordinary Grow link. '' means "pay the normal way". */
+  function goUrl(guests,plan,phone){
+    if(!offer||!code) return '';
+    if(!CFG.offerPrice(offer,guests,plan).applies) return '';
+    return CFG.promoGoUrl(code,phone);
+  }
+
+  return { code:()=>code, offer:()=>offer, goUrl:goUrl, open:openModal, close:closeModal };
 })();
+/* popup.js is a separate classic script, and a top-level const is not a
+   window property. This is how the checkout reaches the offer. */
+window.IshurPromo=IshurPromo;
 
 // ═══ PRICING ═══ a guest picker and the three packages, priced live
 function buildPricing(){
@@ -2045,12 +2296,14 @@ function renderPlans(guests){
   const wrap=document.getElementById('pr-plans');
   if(!wrap) return;
   const custom=guests==='custom';
-  /* a promo only ever changes what is printed here, never what is charged */
-  const promo=(typeof IshurPromo!=='undefined')?IshurPromo.key():null;
+  /* Only an offer the Worker has just validated may strike a price here, and
+     only on the package it covers. Before that answer arrives, and if it never
+     arrives, every card prints its full PRICE_TABLE number. */
+  const offer=(typeof IshurPromo!=='undefined')?IshurPromo.offer():null;
   wrap.innerHTML=CFG.PLAN_ORDER.map(k=>{
     const p=CFG.PLANS[k];
     const price=(guests&&!custom)?CFG.priceFor(guests,k):null;
-    const pr=(promo&&price!=null)?CFG.promoPrice(promo,guests,k):null;
+    const pr=(offer&&price!=null)?CFG.offerPrice(offer,guests,k):null;
     const cut=!!(pr&&pr.applies);
     return `<button type="button" class="plan-opt${k==='pro'?' rec':''}" data-plan="${k}">
       ${k==='pro'?'<span class="plan-rec">המומלץ ביותר</span>':''}
@@ -2303,6 +2556,7 @@ window.addEventListener('load',()=>{
     <div class="promo-rule" aria-hidden="true"></div>
     <h2 id="promo-title">קיבלתם הנחה</h2>
     <span id="promo-label"></span>
+    <p id="promo-beta" hidden></p>
     <p id="promo-greeting"></p>
     <button type="button" id="promo-ok" data-promo-close>מעולה, קדימה</button>
   </div>
@@ -2315,6 +2569,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=19"></script>
+<script src="assets/popup.js?v=20"></script>
 </body>
 </html>

@@ -641,19 +641,113 @@ window.ISHUR_CONFIG = (function () {
     return PRICE_TABLE[50][plan];
   }
 
-  /* A promo may only be SHOWN once a Grow link exists to charge that amount.
-     Without this, a business-offer visitor sees 49 on the card and is charged
-     299 at checkout, which is the one direction of mismatch we must never
-     ship. Add the key to PROMO_LINKS the moment the link is created. */
-  var PROMO_LINKS = {};   // e.g. 'biz_300_basic': 'https://pay.grow.link/...'
+  /* ══ PROMO CODES ══════════════════════════════════════════════════════════
+     The discounted price and its Grow link are deliberately NOT in this file.
 
-  function promoLink(promoKey, tier, planKey) {
-    return PROMO_LINKS[promoKey + '_' + tier + '_' + planKey] || '';
+     ishur.io is a public GitHub repo, so a cheap payment link written here is a
+     link anybody can find and pay 49 with instead of 299. The cheap price and
+     its link live in the Worker's KV, and the Worker hands them out only
+     against a code that is real, unused, and still has a seat left:
+
+       GET /promo/check?code=XXXX-XXXX  read-only, and it never returns the
+                                        link. The page asks this before it
+                                        dares print 49 beside a struck 299.
+       GET /promo/go?code=XXXX-XXXX     the buy button. Holds a seat, then 302s
+                                        to the real link. Navigate the browser
+                                        to it — a fetch would follow the redirect
+                                        into Grow and die on CORS.
+
+     This is the same rule the old PROMO_LINKS / promoLive() pair enforced from
+     the client while the Worker could not yet: never show a price we are not
+     able to charge. Enforcement now lives on the server, next to the link, so
+     the client-side pair is gone.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var PROMO_CODE_STORE = 'ishur_promo_code';   // { v: 'XXXX-XXXX', ts }
+
+  /* Codes are read aloud in a WhatsApp group and typed by hand, so "m9hc qkts",
+     "m9hcqkts" and "M9HC-QKTS" all mean the same thing. Mirrors normCode() in
+     worker/promo.js; the Worker normalises again on arrival, this copy only
+     lets the page recognise and pin what was typed. */
+  function normPromoCode(raw) {
+    var s = String(raw || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (s.length !== 8) return '';
+    return s.slice(0, 4) + '-' + s.slice(4);
   }
 
-  function promoLive(promoKey) {
-    for (var k in PROMO_LINKS) { if (PROMO_LINKS.hasOwnProperty(k) && k.indexOf(promoKey + '_') === 0) return true; }
-    return false;
+  function promoBase() {
+    return String(PROXY_BASE || '').replace(/\/$/, '');
+  }
+
+  function promoCheckUrl(code) {
+    var c = normPromoCode(code), b = promoBase();
+    return (c && b) ? b + '/promo/check?code=' + encodeURIComponent(c) : '';
+  }
+
+  /* The buy button's href. `phone` is optional but worth passing: it is the
+     only thread tying the payment Grow reports back to the code that gets
+     burned, and by checkout the lead form already knows it. */
+  function promoGoUrl(code, phone) {
+    var c = normPromoCode(code), b = promoBase();
+    if (!c || !b) return '';
+    var u = b + '/promo/go?code=' + encodeURIComponent(c);
+    var p = String(phone || '').replace(/\D/g, '');
+    if (p.length >= 9) u += '&phone=' + encodeURIComponent(p);
+    return u;
+  }
+
+  /* The code this visitor is on: ?code= first, then whatever an earlier visit
+     pinned. A code in the url is pinned for the same 60 days as a promo. */
+  function promoCode() {
+    var fromUrl = normPromoCode(queryParam('code'));
+    if (fromUrl) { stash(PROMO_CODE_STORE, fromUrl); return fromUrl; }
+    return normPromoCode(unstash(PROMO_CODE_STORE));
+  }
+
+  function rememberPromoCode(code) {
+    var c = normPromoCode(code);
+    if (c) stash(PROMO_CODE_STORE, c);
+    return c;
+  }
+
+  function forgetPromoCode() {
+    var s = store(); if (!s) return;
+    try { s.removeItem(PROMO_CODE_STORE); } catch (e) {}
+  }
+
+  /* Why a code is not being honoured, in words a visitor understands. Anything
+     unrecognised — a network failure, a Worker that is down — gets no message
+     at all, and the page just shows the full price. That is the only direction
+     of mismatch that is safe. */
+  var PROMO_REASONS = {
+    'bad-code':     'הקוד לא נמצא',
+    'used':         'הקוד הזה כבר נוצל',
+    'sold-out':     'כל המקומות במבצע נתפסו',
+    'closed':       'המבצע לא פעיל כרגע',
+    'unavailable':  'המבצע לא פעיל כרגע',
+    'rate-limited': 'נסו שוב בעוד רגע'
+  };
+
+  function promoReason(reason) {
+    return PROMO_REASONS[String(reason || '')] || '';
+  }
+
+  /* What a Worker-validated offer does to one card. `offer` is exactly what
+     /promo/check returned; not one number here comes from this file. */
+  function offerPrice(offer, tier, planKey) {
+    var original = priceFor(tier, planKey);
+    var out = { original: original, final: original, saved: 0, applies: false };
+    if (!offer || !offer.ok || original == null) return out;
+    if (offer.plan && offer.plan !== planKey) return out;        // wrong package
+    var n = parseInt(tier, 10);
+    if (!(n > 0)) return out;                                    // 'custom', no price
+    if (offer.maxTier != null && n > offer.maxTier) return out;  // tier too big
+    var cut = parseInt(offer.price, 10);
+    if (!(cut >= 0) || cut >= original) return out;              // not cheaper
+    out.final = cut;
+    out.saved = original - cut;
+    out.applies = true;
+    return out;
   }
 
   function promoPrice(promoKey, tier, planKey) {
@@ -725,9 +819,14 @@ window.ISHUR_CONFIG = (function () {
   /* Which promo this visitor is on, or null.
      Order: an explicit ?promo=, then the referral link, then what was pinned
      on an earlier visit. A promo found in the url is pinned for 60 days. */
+  /* The legacy display-only promos (?promo=, the referral link) are no longer
+     allowed to change a printed price — nothing exists to charge their amount.
+     They are still pinned, so a referral code keeps riding along on the lead,
+     but the only thing that may strike a price now is a code the Worker has
+     just validated. See the PROMO CODES note above. */
   function activePromo() {
-    var k = activePromoRaw();
-    return (k && promoLive(k)) ? k : null;
+    activePromoRaw();
+    return null;
   }
 
   function activePromoRaw() {
@@ -820,9 +919,16 @@ window.ISHUR_CONFIG = (function () {
     promoPrice: promoPrice,
     activePromo: activePromo,
     promoInfo: promoInfo,
-    promoLink: promoLink,
-    promoLive: promoLive,
-    PROMO_LINKS: PROMO_LINKS,
+
+    /* promo codes — the Worker owns the price and the link, these only ask */
+    normPromoCode: normPromoCode,
+    promoCode: promoCode,
+    rememberPromoCode: rememberPromoCode,
+    forgetPromoCode: forgetPromoCode,
+    promoCheckUrl: promoCheckUrl,
+    promoGoUrl: promoGoUrl,
+    promoReason: promoReason,
+    offerPrice: offerPrice,
 
     MAKE_LEAD_WEBHOOK: MAKE_LEAD_WEBHOOK,
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,
