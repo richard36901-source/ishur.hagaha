@@ -34,7 +34,7 @@ window.ISHUR_CONFIG = (function () {
                                          // hook; the payload is tagged
                                          // event_type: 'event_setup'.
   var GTM_ID              = '';          // GTM-XXXXXXX
-  var FB_PIXEL_ID         = '1385478339740122';  // dataset "ishur.io", BM AutoScale, created 01.09.26
+  var FB_PIXEL_ID         = '1412366810814749';  // dataset "ishur.io" in the Ishur.io portfolio (same as the ad account); replaced the AutoScale-portfolio one 01.09.26 to dodge cross-portfolio sharing that Meta gates for new portfolios
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
   var GA4_ID              = 'G-H21EMT09HL';  // GA4 property for ishur.io, owned by ishurhagaha@gmail.com
   /* PostHog: product analytics — funnels across the 14 landing pages, session

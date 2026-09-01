@@ -3389,6 +3389,227 @@ async function handleShirAdmin(request, env, origin) {
   return okJson({ ok: r.ok, status: r.status, data: out }, origin);
 }
 
+/* ══ voice-agent training: versioned prompts with rollback ═══════════════════
+   Every prompt save is a commit: the applied text is stored as vp:<agent>:<n>
+   with a note, vpmeta:<agent> holds the log, and rollback applies an old
+   version AS A NEW COMMIT — history is append-only, exactly like git revert.
+   The first save on an agent snapshots whatever is live as version 1, so the
+   pre-system baseline is never lost. brain.html drives this; the raw Retell
+   proxy stays for plumbing, but prompt edits should come through here so
+   nothing changes without a line in the log. */
+const VOICE_AGENTS = {
+  noa_out: { agent: 'agent_dfc2c18968a9daea870caffbab', name: 'נועה · יוצאת (מכירות)' },
+  noa_in: { agent: 'agent_f86326fe9b9fd16233276ea951', name: 'נועה · נכנסת' },
+  shir_out: { agent: 'agent_fa5c86723f7c49960f7f4076be', name: 'שיר · יוצאת (אורחים)' },
+  shir_in: { agent: 'agent_c7d317f758ed084571630ce25e', name: 'שיר · נכנסת' },
+};
+
+async function retellApi(env, path, method = 'GET', payload) {
+  const init = { method, headers: { Authorization: 'Bearer ' + env.RETELL_KEY } };
+  if (payload !== undefined && method !== 'GET') {
+    init.headers['Content-Type'] = 'application/json';
+    init.body = JSON.stringify(payload);
+  }
+  const r = await fetch('https://api.retellai.com' + path, init).catch(() => null);
+  if (!r || !r.ok) return null;
+  return r.json().catch(() => null);
+}
+
+async function voiceLlmId(env, agentId) {
+  const a = await retellApi(env, '/get-agent/' + agentId);
+  return (a && a.response_engine && a.response_engine.llm_id) || '';
+}
+
+async function handleVoicePrompt(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RETELL_KEY || !env.RATE) return deny(503, 'not-configured', origin);
+  const key = String(body.agent || '');
+  const spec = VOICE_AGENTS[key];
+  if (!spec) return deny(400, 'unknown-agent', origin);
+  const action = String(body.action || 'get');
+
+  const metaKey = 'vpmeta:' + key;
+  let meta = { head: 0, list: [] };
+  try { meta = JSON.parse(await env.RATE.get(metaKey)) || meta; } catch {}
+
+  if (action === 'version') {
+    const n = parseInt(body.n, 10);
+    let v = null;
+    try { v = JSON.parse(await env.RATE.get('vp:' + key + ':' + n)); } catch {}
+    if (!v) return deny(404, 'no-such-version', origin);
+    return okJson({ ok: true, agent: key, n, ...v }, origin);
+  }
+
+  const llm = await voiceLlmId(env, spec.agent);
+  if (!llm) return deny(502, 'retell-unreachable', origin);
+
+  if (action === 'get') {
+    const cur = await retellApi(env, '/get-retell-llm/' + llm);
+    return okJson({
+      ok: true, agent: key, name: spec.name,
+      prompt: (cur && cur.general_prompt) || '',
+      head: meta.head,
+      history: meta.list.slice(-40).reverse(),
+    }, origin);
+  }
+
+  if (action !== 'save' && action !== 'rollback') return deny(400, 'unknown-action', origin);
+
+  const now = new Date().toISOString();
+  const cur = ((await retellApi(env, '/get-retell-llm/' + llm)) || {}).general_prompt || '';
+  /* first commit ever: preserve the live prompt as the baseline */
+  if (meta.head === 0 && cur) {
+    meta.head = 1;
+    await env.RATE.put('vp:' + key + ':1',
+      JSON.stringify({ prompt: cur, at: now, note: 'בסיס — לפני מערכת הגרסאות' }));
+    meta.list.push({ n: 1, at: now, note: 'בסיס — לפני מערכת הגרסאות', chars: cur.length });
+  }
+
+  let newPrompt, note;
+  if (action === 'rollback') {
+    const n = parseInt(body.n, 10);
+    let v = null;
+    try { v = JSON.parse(await env.RATE.get('vp:' + key + ':' + n)); } catch {}
+    if (!v || !v.prompt) return deny(404, 'no-such-version', origin);
+    newPrompt = v.prompt;
+    note = 'שחזור לגרסה ' + n + (body.note ? ' · ' + String(body.note).slice(0, 100) : '');
+  } else {
+    newPrompt = String(body.prompt || '');
+    if (!newPrompt.trim()) return deny(400, 'empty-prompt', origin);
+    note = String(body.note || '').trim().slice(0, 140) || 'עדכון ללא הערה';
+  }
+
+  const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_prompt: newPrompt });
+  if (!applied) return deny(502, 'retell-write-failed', origin);
+
+  const n = meta.head + 1;
+  await env.RATE.put('vp:' + key + ':' + n, JSON.stringify({ prompt: newPrompt, at: now, note }));
+  meta.head = n;
+  meta.list.push({ n, at: now, note, chars: newPrompt.length });
+  if (meta.list.length > 200) meta.list = meta.list.slice(-200);
+  await env.RATE.put(metaKey, JSON.stringify(meta));
+  await slackPost(env, `🎓 *${spec.name}* · גרסה ${n} הוחלה — ${note}`).catch(() => {});
+  return okJson({ ok: true, agent: key, version: n, note }, origin);
+}
+
+/* ══ the daily review: every call and every free-text WhatsApp thread ════════
+   Once a day (and on demand) the system reads what the agents actually said,
+   lets a model critique it, and drops a digest in Slack + KV. This is the raw
+   material Richard and Claude train the agents on, version by version. */
+async function aiReviewText(env, label, text) {
+  if (!env.AI || !text) return '';
+  try {
+    const r = await env.AI.run('@cf/meta/llama-3.3-70b-instruct-fp8-fast', {
+      messages: [
+        {
+          role: 'system',
+          content: 'את מבקרת איכות של סוכנות שירות ומכירה בעברית של שירות אישורי הגעה. נתחי את השיחה: ציון 1-10, ואז עד שלוש נקודות קונקרטיות עם ציטוט קצר — עובדה שהומצאה, מחיר שגוי, שאלה שלא נענתה, סיום לקוי (לא ניתקה/לא סגרה), הזדמנות מכירה שפוספסה, ניסוח רובוטי. אם השיחה טובה, כתבי במשפט מה עבד. עד 70 מילים סה"כ, בעברית.',
+        },
+        { role: 'user', content: label + '\n\n' + String(text).slice(0, 6000) },
+      ],
+      max_tokens: 240,
+    });
+    return String((r && r.response) || '').trim().slice(0, 700);
+  } catch { return ''; }
+}
+
+async function runDailyCallReview(env, opts = {}) {
+  if (!env.RATE) return { ok: false, why: 'no-kv' };
+  const day = ilDate();
+  const since = Number(await env.RATE.get('callreview:lastts').catch(() => 0)) || (Date.now() - 26 * 3600 * 1000);
+
+  /* ── voice calls ── */
+  const calls = [];
+  const listed = await retellApi(env, '/v2/list-calls', 'POST', { sort_order: 'descending', limit: 100 });
+  for (const c of Array.isArray(listed) ? listed : []) {
+    if (c.call_status !== 'ended') continue;
+    if (!c.start_timestamp || c.start_timestamp < since) continue;
+    const meta = c.metadata || {};
+    const line = String(c.direction || '').includes('inbound') ? c.to_number : c.from_number;
+    calls.push({
+      id: c.call_id,
+      kind: String(meta.kind || 'guest'),
+      caller_kind: String(meta.caller_kind || ''),
+      persona: String(line || '').includes('7733') ? 'נועה' : 'שיר',
+      to: String(c.to_number || '').replace('+', ''),
+      dur: c.end_timestamp ? Math.round((c.end_timestamp - c.start_timestamp) / 1000) : null,
+      reason: c.disconnection_reason || '',
+      sentiment: (c.call_analysis && c.call_analysis.user_sentiment) || '',
+      transcript: String(c.transcript || ''),
+    });
+  }
+  /* longest conversations carry the most signal; cap the AI spend */
+  const toReview = calls.filter(c => c.transcript.length > 200)
+    .sort((a, b) => b.transcript.length - a.transcript.length).slice(0, 8);
+  for (const c of toReview) {
+    c.review = await aiReviewText(env,
+      `שיחת טלפון · ${c.persona} · סוג: ${c.kind}${c.caller_kind ? ' (' + c.caller_kind + ')' : ''} · ${c.dur || '?'} שניות · סיום: ${c.reason}`,
+      c.transcript);
+  }
+
+  /* ── WhatsApp free-text threads נועה answered ── */
+  const waThreads = [];
+  const convs = await kvPrefix(env, 'conv:');
+  for (const [phone, raw] of Object.entries(convs)) {
+    if (waThreads.length >= 10) break;
+    let cv = null;
+    try { cv = JSON.parse(raw); } catch {}
+    if (!cv || !cv.last_ts || cv.last_ts < since) continue;
+    const logs = await kvPrefix(env, 'log:' + phone + ':');
+    const msgs = Object.entries(logs)
+      .map(([ts, v]) => { try { return { ts: Number(ts), ...JSON.parse(v) }; } catch { return null; } })
+      .filter(m => m && m.ts >= since)
+      .sort((a, b) => a.ts - b.ts);
+    const hasIn = msgs.some(m => m.dir === 'in');
+    const hasAiOut = msgs.some(m => m.dir === 'out' && m.type === 'text');
+    if (!hasIn || !hasAiOut) continue;
+    const text = msgs.map(m => (m.dir === 'in' ? 'הפונה: ' : 'נועה: ') + String(m.text || '')).join('\n');
+    waThreads.push({ phone, count: msgs.length, text });
+  }
+  for (const t of waThreads.slice(0, 6)) {
+    t.review = await aiReviewText(env, 'שיחת וואטסאפ בטקסט חופשי · נועה מול ליד/לקוח', t.text);
+  }
+
+  /* ── digest ── */
+  const stats = {
+    calls: calls.length,
+    byKind: calls.reduce((m, c) => { m[c.kind] = (m[c.kind] || 0) + 1; return m; }, {}),
+    avgDur: calls.length ? Math.round(calls.reduce((s, c) => s + (c.dur || 0), 0) / calls.length) : 0,
+    waThreads: waThreads.length,
+  };
+  const store = { at: new Date().toISOString(), day, since, stats, calls, wa: waThreads };
+  await env.RATE.put('callreview:' + day, JSON.stringify(store), { expirationTtl: 90 * 86400 }).catch(() => {});
+  await env.RATE.put('callreview:lastts', String(Date.now())).catch(() => {});
+
+  if (!opts.quiet && (calls.length || waThreads.length)) {
+    const lines = [`🎧 *סקירת שיחות יומית · ${day}*`,
+      `${stats.calls} שיחות טלפון (ממוצע ${stats.avgDur} שנ') · ${stats.waThreads} שיחות וואטסאפ חופשיות`];
+    for (const c of toReview.slice(0, 5)) {
+      if (c.review) lines.push(`\n📞 ${c.persona} → ${c.to} (${c.dur} שנ'):\n${c.review}`);
+    }
+    for (const t of waThreads.slice(0, 3)) {
+      if (t.review) lines.push(`\n💬 וואטסאפ ${t.phone.slice(-4)}:\n${t.review}`);
+    }
+    lines.push('\nהדוח המלא שמור, והאימון דרך לוח המוח — כל שינוי נרשם וניתן לשחזור.');
+    await slackPost(env, lines.join('\n').slice(0, 3800)).catch(() => {});
+  }
+  return { ok: true, day, stats };
+}
+
+async function handleCallReview(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (body.run) return okJson(await runDailyCallReview(env, { quiet: !!body.quiet }), origin);
+  const day = String(body.date || ilDate());
+  let stored = null;
+  try { stored = JSON.parse(await env.RATE.get('callreview:' + day)); } catch {}
+  if (!stored) return okJson({ ok: true, day, empty: true }, origin);
+  return okJson({ ok: true, ...stored }, origin);
+}
+
 /* ══ message performance ═════════════════════════════════════════════════════
    tstat:<template>:<occasion> counts sent/fail/replied (reply credited by the
    inbound webhook against lastout:<phone>). This is the raw feed for "which
