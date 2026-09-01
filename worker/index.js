@@ -3581,6 +3581,66 @@ async function overBudget(env, key, limit, windowSec) {
   return false;
 }
 
+/* ══ go.ishur.io ═════════════════════════════════════════════════════════════
+   Bezeq's SecuringSam blocklisted this site by exact hostname. Measured, not
+   guessed: the same TLS handshake to the same GitHub Pages IP is killed for
+   `ishur.io` and `www.ishur.io`, and passes for every other subdomain. So a
+   customer on a filtered line gets a block page instead of the upload link
+   they paid for — while Chrome works, because it hides the hostname.
+
+   This serves the identical site from a name the filter does not know. The
+   Worker fetches ishur.io from Cloudflare's network, which is nowhere near
+   Bezeq's middlebox, so the origin is unchanged and there is one site to
+   maintain, not two.
+
+   It is a bypass, not a fix. The fix is getting the domain delisted; this
+   exists so nobody who paid is stuck while that happens.
+   ────────────────────────────────────────────────────────────────────────── */
+const MIRROR_HOST = 'go.ishur.io';
+
+async function serveMirror(request, url) {
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    return new Response('method-not-allowed', { status: 405 });
+  }
+  const target = 'https://ishur.io' + url.pathname + url.search;
+  let up;
+  try {
+    up = await fetch(target, {
+      method: request.method,
+      headers: { 'Accept': request.headers.get('Accept') || '*/*',
+                 'Accept-Language': request.headers.get('Accept-Language') || 'he' },
+      redirect: 'follow',
+    });
+  } catch {
+    return new Response('origin-unreachable', { status: 502 });
+  }
+
+  const type = up.headers.get('Content-Type') || '';
+  const headers = new Headers();
+  headers.set('Content-Type', type || 'text/html; charset=utf-8');
+  const cc = up.headers.get('Cache-Control');
+  if (cc) headers.set('Cache-Control', cc);
+  /* the mirror must never compete with the real domain in search results */
+  headers.set('X-Robots-Tag', 'noindex, nofollow');
+
+  if (!type.includes('text/html')) {
+    return new Response(up.body, { status: up.status, headers });
+  }
+
+  /* Absolute links back to ishur.io would drop the visitor straight back onto
+     the blocked name mid-journey — the upload link, the terms page, the logo.
+     Rewrite them to stay on this host. */
+  let html = await up.text();
+  html = html
+    .replace(/https:\/\/www\.ishur\.io/g, 'https://' + MIRROR_HOST)
+    .replace(/https:\/\/ishur\.io/g, 'https://' + MIRROR_HOST);
+  /* except the canonical, which must keep pointing at the real site */
+  html = html.replace(
+    /<link([^>]*\brel=["']canonical["'][^>]*)href=["']https:\/\/go\.ishur\.io([^"']*)["']/gi,
+    '<link$1href="https://ishur.io$2"');
+  return new Response(html, { status: up.status, headers });
+}
+
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
@@ -3635,6 +3695,13 @@ export default {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
+    }
+    /* on the mirror host, anything that is not an API call is the website */
+    if (url.hostname === MIRROR_HOST &&
+        !url.pathname.startsWith('/api/') &&
+        !url.pathname.startsWith('/promo/') &&
+        !url.pathname.startsWith('/img/')) {
+      return serveMirror(request, url);
     }
     if (url.pathname === '/api/grow-ipn' && request.method === 'POST') {
       return handleGrowIpn(request, env, url);

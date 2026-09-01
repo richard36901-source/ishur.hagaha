@@ -61,7 +61,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=32"></script>
+<script src="config.js?v=33"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -1556,33 +1556,7 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 
 /* ── "יש לי קוד" ── the codes go out in a WhatsApp group, so plenty of
       people arrive without the link and type theirs in by hand ──────────── */
-.promo-field{margin-top:1.15rem}
-.promo-field > label{
-  display:block;font-family:'Heebo',sans-serif;font-size:.85rem;font-weight:500;
-  color:var(--ink2);margin-bottom:.4rem;
-}
 .promo-row{display:flex;gap:.5rem;align-items:stretch}
-#pr-code{
-  flex:1 1 auto;min-width:0;
-  padding:.72rem .7rem;min-height:46px;
-  background:#fff;border:1.5px solid var(--bdr);border-radius:9px;
-  font-family:'Heebo',sans-serif;font-size:1rem;font-weight:500;color:var(--ink);
-  direction:ltr;text-align:center;letter-spacing:.1em;text-transform:uppercase;
-  transition:border-color .15s,box-shadow .15s;
-}
-#pr-code::placeholder{color:var(--ink3);font-weight:300;letter-spacing:.06em}
-#pr-code:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(168,133,60,.16)}
-#pr-code:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-#pr-code-go{
-  flex:0 0 auto;padding:0 1.1rem;min-height:46px;
-  background:var(--pine);color:var(--paper);border:none;border-radius:9px;
-  font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:600;
-  cursor:pointer;white-space:nowrap;transition:background .2s,transform .18s;
-}
-#pr-code-go:hover{background:var(--pine-lift)}
-#pr-code-go:active{transform:scale(.978)}
-#pr-code-go:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
-#pr-code-go[disabled]{opacity:.5;cursor:default;transform:none}
 
 /* one line, and empty until we actually know something */
 .promo-msg{
@@ -1601,7 +1575,6 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 }
 @media(max-width:340px){
   .promo-row{flex-wrap:wrap}
-  #pr-code-go{width:100%}
 }
 
 /* ── a browser set to dark must not repaint any of this ─────────────────── */
@@ -1614,11 +1587,6 @@ body.has-promo #nav{top:var(--promo-h,34px)}
   #promo-ok{background:var(--pine);color:var(--paper)}
   .promo-save{background:rgba(168,133,60,.14);color:#7A5F27}
   #promo-beta{background:rgba(168,133,60,.14);color:#7A5F27;border-color:var(--gold-pale)}
-  .promo-field{color-scheme:light}
-  .promo-field > label{color:var(--ink2)}
-  #pr-code{background:#fff;color:var(--ink);border-color:var(--bdr)}
-  #pr-code::placeholder{color:var(--ink3)}
-  #pr-code-go{background:var(--pine);color:var(--paper)}
   .promo-msg{color:var(--ink3)}
   .promo-msg.ok{color:#2E4238}
   .promo-msg.err{color:#9A3412}
@@ -1627,8 +1595,8 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 
 @media(prefers-reduced-motion:reduce){
   #promo-card{animation:none}
-  #promo-ok,#promo-x,#promo-bar-x,#pr-code,#pr-code-go{transition:none}
-  #promo-ok:active,#pr-code-go:active{transform:none}
+  #promo-ok,#promo-x,#promo-bar-x{transition:none}
+  #promo-ok:active{transform:none}
 }
 
 </style>
@@ -1898,21 +1866,11 @@ body.has-promo #nav{top:var(--promo-h,34px)}
       <select id="pr-guests" data-isel></select>
       <div class="plan-opts" id="pr-plans"></div>
 
-      <!-- the codes are read out in a WhatsApp group, so not everyone arrives
-           on a ?code= link. Nothing here knows the discounted price: the
-           Worker answers, and only then do the cards above move. -->
-      <div class="promo-field">
-        <label for="pr-code">יש לי קוד מבצע</label>
-        <div class="promo-row">
-          <input id="pr-code" type="text" name="promo-code"
-                 placeholder="XXXX-XXXX" maxlength="12"
-                 autocomplete="off" autocapitalize="characters"
-                 autocorrect="off" spellcheck="false"
-                 aria-describedby="pr-code-msg">
-          <button type="button" id="pr-code-go">בדיקת קוד</button>
-        </div>
-        <p id="pr-code-msg" class="promo-msg" role="status" aria-live="polite"></p>
-      </div>
+      <!-- No "I have a code" field on purpose. A code arrives as a link, and a
+           box on a public pricing page mostly teaches strangers that codes
+           exist and are worth hunting for. The status line stays: it is how a
+           dead or spent code explains itself. -->
+      <p id="pr-code-msg" class="promo-msg" role="status" aria-live="polite"></p>
 
       <p class="pr-note">לחצו על חבילה כדי להתחיל. המחירים כוללים מע״מ.</p>
     </div>
@@ -2261,37 +2219,6 @@ const IshurPromo=(()=>{
     })(started);
   }
 
-  /* ── the manual field ─────────────────────────────────────────────────── */
-  function bindField(){
-    const input=document.getElementById('pr-code');
-    const btn=document.getElementById('pr-code-go');
-    if(!input||!btn) return;
-    if(code) input.value=code;
-
-    function run(){
-      const c=CFG.normPromoCode(input.value);
-      if(!c){
-        offer=null;
-        msg('הקוד בנוי מ-8 תווים, למשל XXXX-XXXX','err');
-        return;
-      }
-      input.value=c;             // lower case and no dash both land here
-      code=CFG.rememberPromoCode(c);   // pinned like a ?code= link would be
-      btn.disabled=true;
-      msg('בודקים את הקוד…','');
-      check(c).then(res=>{
-        btn.disabled=false;
-        apply(res);
-        if(!res.ok) input.focus();
-      });
-    }
-
-    btn.addEventListener('click',run);
-    input.addEventListener('keydown',e=>{
-      if(e.key==='Enter'){ e.preventDefault(); run(); }
-    });
-  }
-
   /* /promo/go bounces a code it refused back to ?promo_error=<reason> */
   function urlError(){
     try{
@@ -2311,7 +2238,6 @@ const IshurPromo=(()=>{
   }
 
   function boot(){
-    bindField();
     const x=document.getElementById('promo-bar-x');
     if(x) x.addEventListener('click',dismissBar);
     document.querySelectorAll('[data-promo-close]').forEach(el=>el.addEventListener('click',closeModal));
@@ -2636,6 +2562,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=21"></script>
+<script src="assets/popup.js?v=22"></script>
 </body>
 </html>

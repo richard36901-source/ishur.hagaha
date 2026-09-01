@@ -1,5 +1,8 @@
 name = "ishur-webhooks"
 main = "index.js"
+# Adding [[routes]] silently disables the workers.dev hostname, and every page
+# on the site calls it. Keep both alive.
+workers_dev = true
 compatibility_date = "2026-08-01"
 
 # שיר — הסוכן שעונה לשיחות נכנסות. גם החזרה המהירה מדברת איתו, כי מי שחזרנו
@@ -19,3 +22,10 @@ binding = "AI"
 [triggers]
 # 06:35 UTC — the daily engine · 09/10/16 UTC Tue = 12:00/13:00/19:00 IL — team reminders
 crons = ["*/10 * * * *", "35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2"]
+
+# ishur.io itself is on Bezeq's SecuringSam blocklist by exact name — the same
+# TLS handshake passes with any other subdomain. Customer-facing links move
+# here so a paying customer can actually open the thing they paid for.
+[[routes]]
+pattern = "go.ishur.io"
+custom_domain = true
