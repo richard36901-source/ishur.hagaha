@@ -1,0 +1,322 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>המוח · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=36"></script>
+<script src="assets/adminbar.js?v=4" defer></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F;
+    --chip:#F1EEE4;
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;
+    --chip:#222A24;
+  }
+  html[data-theme=dark] h2{color:#7BC9A4}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
+  .wrap{max-width:min(96vw,1100px);margin:0 auto;padding:0 .9rem}
+  h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.6rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft);display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  h2 em{font-style:normal;color:var(--ink3);font-family:'Heebo',sans-serif;font-size:.72rem;font-weight:400}
+  .lead{font-size:.82rem;color:var(--ink2);margin-bottom:.8rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-bottom:.8rem}
+  .rule{border-inline-start:3px solid var(--gold);font-size:.82rem;color:var(--ink2)}
+  .rule b{color:var(--ink)}
+  label.fld{display:block;font-size:.74rem;font-weight:600;color:var(--gold);margin:.7rem 0 .25rem}
+  textarea,input[type=text],input[type=url]{width:100%;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;font:inherit;font-size:.84rem;background:var(--bg);color:var(--ink);resize:vertical}
+  textarea.tall{min-height:150px}
+  textarea.mono{direction:rtl}
+  .qa-row{display:grid;grid-template-columns:1fr 1.6fr auto;gap:.45rem;margin-bottom:.45rem;align-items:start}
+  .qa-row textarea{min-height:2.4rem}
+  .del{border:none;background:var(--chip);color:var(--warn);border-radius:8px;width:30px;height:30px;cursor:pointer;font-size:.9rem;margin-top:.2rem}
+  .btn{border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.55rem 1.2rem;font:inherit;font-weight:600;font-size:.85rem;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:var(--card);color:var(--ink2);border:1px solid var(--line)}
+  button:not(:disabled):active{transform:scale(.97)}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-top:.8rem}
+  .status{font-size:.76rem;color:var(--ink3);min-height:1.1rem}
+  .status.ok{color:var(--ok)} .status.err{color:var(--warn)}
+  .pill{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:700;border-radius:99px;padding:.15rem .6rem;background:var(--chip);color:var(--ink3)}
+  .pill.on{background:rgba(15,76,53,.12);color:var(--ok)}
+  .pill.off{background:rgba(168,64,47,.1);color:var(--warn)}
+  /* iOS switch, same as the admin board */
+  .sw{position:relative;display:inline-block;width:46px;height:26px;vertical-align:middle}
+  .sw input{opacity:0;width:0;height:0}
+  .sw i{position:absolute;inset:0;background:var(--line);border-radius:99px;transition:.18s;cursor:pointer}
+  .sw i:before{content:'';position:absolute;width:20px;height:20px;border-radius:50%;background:#fff;top:3px;inset-inline-start:3px;transition:.18s;box-shadow:0 1px 3px rgba(0,0,0,.25)}
+  .sw input:checked+i{background:var(--ok)}
+  .sw input:checked+i:before{transform:translateX(-20px)}
+  html[dir=rtl] .sw input:checked+i:before{transform:translateX(-20px)}
+  .meta{font-size:.72rem;color:var(--ink3);margin-top:.3rem}
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate h2{border:none;margin:0;color:var(--pine);display:block}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{min-height:1.2rem;margin-top:.4rem;color:var(--warn);font-size:.8rem}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--gold-pale);border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-inline-end:.35rem}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}button{transition:none!important}button:not(:disabled):active{transform:none}}
+  @media (max-width:640px){.qa-row{grid-template-columns:1fr;} .del{justify-self:end}}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<header class="head">
+  <h1>ishur<i>.io</i> · המוח</h1>
+  <p>הפרומפטים, החוקים והידע של נועה ושל שיר. מה שנשמר כאן חי מיד.</p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+
+  <div class="card rule">
+    <b>חוק ההפרדה, לא ניתן לעריכה:</b>
+    נועה (055-950-4499) מדברת רק עם <b>לקוחות ולידים</b>. לקוח = יש לו אירוע פעיל בגיליון, ליד = כל השאר.
+    מספר האורחים (055-972-6673) ושיר בטלפון מדברים רק עם <b>אורחים</b>. אף סוכנת לא חוצה את הקו:
+    שיר לעולם לא תשאל ליד "אם הוא מגיע לאירוע", ונועה לעולם לא תדבר עם אורח.
+  </div>
+
+  <!-- ══ נועה ══ -->
+  <h2>נועה · שירות בוואטסאפ
+    <span class="pill" id="noaPill">טוען…</span>
+    <label class="sw" title="מענה חכם פעיל / כבוי"><input type="checkbox" id="noaActive"><i></i></label>
+    <em>נשמר ללשונית "מוח שירות" בגיליון. נועה קוראת משם, עם קאש של עד 3 דקות.</em>
+  </h2>
+  <div class="card">
+    <label class="fld" for="noaPersona">אופי ונהלים (הפרומפט של נועה)</label>
+    <textarea id="noaPersona" class="tall mono" placeholder="טוען…"></textarea>
+
+    <label class="fld">שאלות ותשובות (הידע שלה)</label>
+    <div id="qaList"></div>
+    <button class="btn ghost" id="qaAdd" type="button">+ שאלה חדשה</button>
+
+    <label class="fld" for="noaReview">קישור ביקורת גוגל (להודעת סוף-אירוע)</label>
+    <input type="url" id="noaReview" placeholder="https://g.page/r/…">
+    <label class="fld" for="noaTestim">קישור כלי צילום המלצה</label>
+    <input type="url" id="noaTestim" placeholder="https://www.videoask.com/…">
+
+    <div class="row">
+      <button class="btn" id="noaSave" type="button">שמירת המוח של נועה</button>
+      <span class="status" id="noaStatus"></span>
+    </div>
+  </div>
+
+  <!-- ══ שיר יוצאת ══ -->
+  <h2>שיר · שיחות יוצאות לאורחים <em>נשמר ישירות לסוכנת ב-Retell</em></h2>
+  <div class="card">
+    <label class="fld" for="shirOutPrompt">הפרומפט המלא</label>
+    <textarea id="shirOutPrompt" class="tall mono" placeholder="טוען…"></textarea>
+    <p class="meta" id="shirOutMeta"></p>
+    <div class="row">
+      <button class="btn" id="shirOutSave" type="button">שמירת שיר · יוצאת</button>
+      <span class="status" id="shirOutStatus"></span>
+    </div>
+  </div>
+
+  <!-- ══ שיר נכנסת ══ -->
+  <h2>שיר · שיחות נכנסות <em>מי שמתקשר חזרה למספר של שיר</em></h2>
+  <div class="card">
+    <label class="fld" for="shirInPrompt">הפרומפט המלא</label>
+    <textarea id="shirInPrompt" class="tall mono" placeholder="טוען…"></textarea>
+    <p class="meta" id="shirInMeta"></p>
+    <div class="row">
+      <button class="btn" id="shirInSave" type="button">שמירת שיר · נכנסת</button>
+      <span class="status" id="shirInStatus"></span>
+    </div>
+  </div>
+
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  function $(id) { return document.getElementById(id); }
+  function qs(name) {
+    var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  var adminKey = qs('key') || (function () {
+    try { return localStorage.getItem('ishur_calls_key') || ''; } catch (e) { return ''; }
+  })();
+  if (qs('key')) { try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} }
+
+  var API = (CFG && CFG.USE_PROXY) ? 'https://ishur-webhooks.richardtomskiy.workers.dev' : '';
+
+  function post(path, body) {
+    body.admin_key = adminKey;
+    return fetch(API + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      if (r.status === 403) { gate('המפתח לא נכון, או שהשעון במכשיר לא מסונכרן'); throw new Error('403'); }
+      return r.json();
+    });
+  }
+
+  function setStatus(id, text, cls) {
+    var el = $(id); el.textContent = text || ''; el.className = 'status' + (cls ? ' ' + cls : '');
+  }
+
+  /* ── נועה ─────────────────────────────────────────────────────────────── */
+  function qaRow(q, a) {
+    var row = document.createElement('div'); row.className = 'qa-row';
+    var tq = document.createElement('textarea'); tq.value = q || ''; tq.placeholder = 'שאלה';
+    var ta = document.createElement('textarea'); ta.value = a || ''; ta.placeholder = 'תשובה';
+    var del = document.createElement('button'); del.type = 'button'; del.className = 'del'; del.textContent = '✕';
+    del.title = 'מחיקת השורה'; del.addEventListener('click', function () { row.remove(); });
+    row.appendChild(tq); row.appendChild(ta); row.appendChild(del);
+    return row;
+  }
+
+  function paintNoaPill(active) {
+    var p = $('noaPill');
+    p.textContent = active ? 'המענה החכם פעיל' : 'המענה החכם כבוי';
+    p.className = 'pill ' + (active ? 'on' : 'off');
+    $('noaActive').checked = !!active;
+  }
+
+  function loadNoa() {
+    setStatus('noaStatus', 'טוען מהגיליון…');
+    post('/api/brain-admin', { action: 'get' }).then(function (d) {
+      if (!d || !d.ok) { setStatus('noaStatus', 'הטעינה נכשלה', 'err'); return; }
+      paintNoaPill(d.active);
+      $('noaPersona').value = d.persona || '';
+      $('noaReview').value = d.reviewLink || '';
+      $('noaTestim').value = d.testimonialLink || '';
+      var list = $('qaList'); list.innerHTML = '';
+      (d.faq || []).forEach(function (p) { list.appendChild(qaRow(p[0], p[1])); });
+      setStatus('noaStatus', '');
+    }).catch(function () { setStatus('noaStatus', 'הטעינה נכשלה', 'err'); });
+  }
+
+  $('qaAdd').addEventListener('click', function () { $('qaList').appendChild(qaRow('', '')); });
+
+  $('noaActive').addEventListener('change', function () {
+    var on = $('noaActive').checked;
+    post('/api/brain-admin', { action: 'set', active: on }).then(function (d) {
+      if (d && d.ok) paintNoaPill(on);
+    }).catch(function () {});
+  });
+
+  $('noaSave').addEventListener('click', function () {
+    var btn = $('noaSave'); btn.disabled = true;
+    setStatus('noaStatus', 'שומר…');
+    var faq = [];
+    $('qaList').querySelectorAll('.qa-row').forEach(function (row) {
+      var t = row.querySelectorAll('textarea');
+      if (t[0].value.trim() && t[1].value.trim()) faq.push([t[0].value.trim(), t[1].value.trim()]);
+    });
+    post('/api/brain-admin', {
+      action: 'set',
+      persona: $('noaPersona').value,
+      reviewLink: $('noaReview').value.trim(),
+      testimonialLink: $('noaTestim').value.trim(),
+      faq: faq
+    }).then(function (d) {
+      btn.disabled = false;
+      if (d && d.ok) setStatus('noaStatus', 'נשמר. נועה עונה לפי זה מעכשיו (עד 3 דקות קאש).', 'ok');
+      else setStatus('noaStatus', 'השמירה נכשלה: ' + ((d && d.error) || ''), 'err');
+    }).catch(function () { btn.disabled = false; setStatus('noaStatus', 'השמירה נכשלה', 'err'); });
+  });
+
+  /* ── שיר: שני סוכנים, אותו טיפול ──────────────────────────────────────── */
+  var SHIR = {
+    out: { agent: 'agent_fa5c86723f7c49960f7f4076be', llm: '', prompt: 'shirOutPrompt', meta: 'shirOutMeta', save: 'shirOutSave', status: 'shirOutStatus' },
+    inn: { agent: 'agent_c7d317f758ed084571630ce25e', llm: '', prompt: 'shirInPrompt', meta: 'shirInMeta', save: 'shirInSave', status: 'shirInStatus' }
+  };
+
+  function loadShir(k) {
+    var s = SHIR[k];
+    setStatus(s.status, 'טוען מ-Retell…');
+    post('/api/shir-admin', { path: '/get-agent/' + s.agent }).then(function (d) {
+      var ag = d && d.data;
+      if (!d || !d.ok || !ag) { setStatus(s.status, 'טעינת הסוכנת נכשלה', 'err'); return null; }
+      var llm = ag.response_engine && ag.response_engine.llm_id;
+      if (!llm) { setStatus(s.status, 'לסוכנת אין LLM מוגדר', 'err'); return null; }
+      s.llm = llm;
+      $(s.meta).textContent = 'סוכנת: ' + s.agent.slice(0, 14) + '… · קול: ' + (ag.voice_id || '?') + ' · שפה: ' + (ag.language || '?');
+      return post('/api/shir-admin', { path: '/get-retell-llm/' + llm });
+    }).then(function (d) {
+      if (!d) return;
+      if (d.ok && d.data) {
+        $(s.prompt).value = d.data.general_prompt || '';
+        setStatus(s.status, '');
+      } else setStatus(s.status, 'טעינת הפרומפט נכשלה', 'err');
+    }).catch(function () { setStatus(s.status, 'טעינה נכשלה', 'err'); });
+  }
+
+  function saveShir(k) {
+    var s = SHIR[k];
+    if (!s.llm) { setStatus(s.status, 'עוד לא נטען, אין לאן לשמור', 'err'); return; }
+    var btn = $(s.save); btn.disabled = true;
+    setStatus(s.status, 'שומר ל-Retell…');
+    post('/api/shir-admin', {
+      path: '/update-retell-llm/' + s.llm, method: 'PATCH',
+      payload: { general_prompt: $(s.prompt).value }
+    }).then(function (d) {
+      btn.disabled = false;
+      if (d && d.ok) setStatus(s.status, 'נשמר. השיחה הבאה כבר תדבר לפי זה.', 'ok');
+      else setStatus(s.status, 'השמירה נכשלה (' + (d && d.status) + ')', 'err');
+    }).catch(function () { btn.disabled = false; setStatus(s.status, 'השמירה נכשלה', 'err'); });
+  }
+
+  $('shirOutSave').addEventListener('click', function () { saveShir('out'); });
+  $('shirInSave').addEventListener('click', function () { saveShir('inn'); });
+
+  /* ── gate ─────────────────────────────────────────────────────────────── */
+  function gate(err) {
+    $('gate').hidden = false;
+    $('main').hidden = true;
+    $('keyErr').textContent = err || '';
+  }
+  function open_() {
+    $('gate').hidden = true;
+    $('main').hidden = false;
+    loadNoa();
+    loadShir('out');
+    loadShir('inn');
+  }
+  $('keyGo').addEventListener('click', function () {
+    var v = $('keyIn').value.trim();
+    if (!v) return;
+    adminKey = v;
+    try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {}
+    open_();
+  });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+
+  if (adminKey) open_(); else gate();
+})();
+</script>
+</body>
+</html>

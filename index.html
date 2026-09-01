@@ -2023,9 +2023,11 @@ const IshurPromo=(()=>{
        how WE name the campaign, not how the visitor should hear about it, and
        a test name once made it onto the live bar. What matters to them is that
        they got a discount and what it covers. */
+    /* offer.beta is an internal flag (post-event feedback ask). Richard,
+       01.09: a buyer never reads בטא/הרצה/התנסות anywhere. From their side
+       there is exactly one fact, they got a discount. */
     const bits=['<b>קיבלתם הנחה 🎉</b>', scope()];
     if(offer.left!=null) bits.push(`נשארו ${esc(offer.left)} מקומות`);
-    if(offer.beta) bits.push('הרצת בטא');
     return bits.join(' <i>·</i> ');
   }
 
@@ -2043,8 +2045,6 @@ const IshurPromo=(()=>{
     el.className='promo-msg ok';
     let html=`הקוד <b>${esc(code)}</b> תקף · ${scope()}`;
     if(offer.left!=null) html+=` · נשארו ${esc(offer.left)} מקומות`;
-    /* Richard wants beta said out loud up front, not discovered later */
-    if(offer.beta) html+=`<span class="promo-beta-chip">הרצת בטא</span>`;
     el.innerHTML=html;
   }
 
@@ -2079,13 +2079,9 @@ const IshurPromo=(()=>{
        the visitor's side there is one fact: they got a discount. */
     document.getElementById('promo-label').textContent='קיבלתם הנחה 🎉';
     document.getElementById('promo-greeting').textContent=offer.greeting||'';
+    /* the beta note is gone for good; the element stays, permanently hidden */
     const beta=document.getElementById('promo-beta');
-    if(beta){
-      beta.hidden=!offer.beta;
-      beta.textContent=offer.beta
-        ? 'שימו לב: זו הרצת בטא. אתם מהראשונים שמריצים אצלנו אירוע, והמחיר הוא מחיר של הרצה.'
-        : '';
-    }
+    if(beta){ beta.hidden=true; beta.textContent=''; }
     lastFocus=document.activeElement;
     modal.hidden=false;
     document.addEventListener('keydown',onKey);

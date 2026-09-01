@@ -38,6 +38,45 @@ const MAX_FILE_BYTES  = 8 * 1024 * 1024;
 const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 const TOKEN_TTL       = 400 * 86400;   // covers events booked far ahead
 
+/* ══ what a message really costs ═════════════════════════════════════════════
+   Meta bills per delivered template since 07/2025, by the CATEGORY the template
+   was APPROVED under — not by what we meant. Israel: utility $0.0053 (~0.02 ₪),
+   marketing $0.0353 (~0.12 ₪), authentication ~0.05 ₪. Free-form text inside an
+   open 24h service window costs nothing at all.
+   The categories below were read from Meta on 01.09.26 via /api/meta-admin.
+   The previous flat 0.53 ₪ overstated utility sends ~25x and drove the P&L
+   board into fiction. Still to do: reconcile against the first real invoice. */
+const TMPL_CATEGORY = {
+  hazmana_ishur: 'utility', hazmana_ishur_v2: 'utility', ishur_hazmana_shuv: 'utility',
+  ishur_dchiya: 'utility', ishur_bitul: 'utility', ishur_yom_lifnei: 'utility',
+  ishur_shulchan: 'utility', ishur_doch: 'utility', ishur_tzikoret_kovetz: 'utility',
+  ishur_tashlum: 'utility',
+  ishur_lo_siyem: 'marketing', ishur_lo_siyem_2: 'marketing', ishur_lo_siyem_3: 'marketing',
+  ishur_toda_orach: 'marketing', ishur_syum: 'marketing',
+  ishur_shidrug: 'marketing', ishur_shidrug_sichot: 'marketing',
+  ishur_kod: 'auth',
+};
+const CAT_COST = { utility: 0.02, marketing: 0.12, auth: 0.05 };
+function msgCost(tmpl) { return CAT_COST[TMPL_CATEGORY[tmpl] || 'utility'] || 0.02; }
+
+/* One batched write to the sheet — many cells, one Make operation. Every range
+   must name its tab explicitly. Returns true only when Sheets confirmed cells. */
+async function sheetBatchWrite(env, data) {
+  if (!env.BRAIN_HOOK || !data || !data.length) return false;
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      method: 'POST',
+      payload: JSON.stringify({ valueInputOption: 'RAW', data }),
+    }),
+  }).catch(() => null);
+  if (!r || !r.ok) return false;
+  let out = null;
+  try { out = await r.json(); } catch {}
+  return !!(out && out.totalUpdatedCells);
+}
+
 /* ══ Grow payments ═══════════════════════════════════════════════════════════
    Grow's notify URL points here (with ?k=<GROW_KEY>), not at Make directly.
    This route does the fragile part in code: dedupe by receipt ref, mint the
@@ -303,7 +342,7 @@ async function processGrowPayment(env, flat) {
     const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
     const wa = await sendClient(env, phone, 'ishur_tashlum',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
-    if (wa.ok) await addEvCost(env, token, 0.53);
+    if (wa.ok) await addEvCost(env, token, msgCost('ishur_tashlum'));
     if (env.RATE) await env.RATE.put('paywa:' + ref,
       JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
   }
@@ -389,38 +428,84 @@ async function noteLead(env, f) {
   if (!phone || phone.length < 11) return;
   /* somebody who already bought is not a lead, and must never be chased */
   if (await env.RATE.get('client:' + phone)) return;
-  /* the first submission is the one that counts: re-submitting the form
-     should not reset the clock and postpone the follow-up forever */
-  if (await env.RATE.get('lead:' + phone)) return;
-  await env.RATE.put('lead:' + phone, JSON.stringify({
+  const key = 'lead:' + phone;
+  const consent = f.marketing_consent === true || f.marketing_consent === 'true' || f.consent === true;
+  /* the first submission sets the clock; later ones only fill blanks. The
+     updates checkbox is the exception: a yes that arrives on submission two
+     still counts, because the person did tick it. */
+  let rec = null;
+  try { rec = JSON.parse(await env.RATE.get(key)); } catch {}
+  if (rec) {
+    let dirty = false;
+    if (consent && !rec.consent) { rec.consent = true; dirty = true; }
+    if (!rec.name && f.name) { rec.name = String(f.name).trim().slice(0, 60); dirty = true; }
+    if (!rec.occasion && (f.occasion || f.event_type)) {
+      rec.occasion = String(f.occasion || f.event_type).trim().slice(0, 40); dirty = true;
+    }
+    if (dirty) await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
+    return;
+  }
+  /* someone who already went through the whole sequence starts nothing new */
+  if (await env.RATE.get('leadchase:' + phone)) return;
+  await env.RATE.put(key, JSON.stringify({
     name: String(f.name || f.fullName || f.full_name || '').trim().slice(0, 60),
     occasion: String(f.occasion || f.event_type || f.sug || '').trim().slice(0, 40),
     at: new Date().toISOString(),
+    consent,
   }), { expirationTtl: LEAD_TTL });
 }
 
-/* One WhatsApp message, once, to a lead who never paid. `ishur_lo_siyem` was
-   approved by Meta on 01/09 — a template is required because these people
-   never wrote to us, so there is no 24h window to reply inside.
-   Deliberately NOT here: chasing twice. One message that is easy to answer
-   beats two that read as pressure, and the follow-up call (AUT-896) is the
-   next touch, not another text. */
-const LEAD_WAIT_MS = 5 * 60 * 60 * 1000;   // long enough that it isn't creepy
+/* The abandoned-lead sequence, exactly as Richard specced it (01.09):
+     t1  half an hour after the form died          → ishur_lo_siyem
+     t2  the next calendar day                     → ishur_lo_siyem_2
+     then, for someone who did NOT tick updates:
+     q   two silent hours after t2                 → lq: (the sales-call queue;
+                                                     dialling it stays off until
+                                                     a sales agent exists, AUT-896)
+     and for someone who DID tick updates:
+     t3  three days after t2                       → ishur_lo_siyem_3 (a tip, not a nag)
+   A reply at any point ends the sequence on the spot — from that moment the
+   conversation belongs to נועה and her 24h window, not to templates.
+   Templates are required for the outbound touches because these people never
+   wrote to us first. All of this only runs inside the send window, from the
+   pacer, so "half an hour" after a 23:00 abandon really means 09:00. */
+const LEAD_T1_MS = 30 * 60 * 1000;
+const LEAD_T2_MIN_MS = 16 * 3600 * 1000;   // plus a calendar-day change, checked below
+const LEAD_Q_MS = 2 * 3600 * 1000;
+const LEAD_T3_MS = 3 * 86400 * 1000;
+
+async function leadReplied(env, phone, sinceIso) {
+  let c = null;
+  try { c = JSON.parse(await env.RATE.get('conv:' + normPhone(phone))); } catch {}
+  return !!(c && c.last_dir === 'in' && c.last_ts && c.last_ts > Date.parse(sinceIso || '1970-01-01'));
+}
 
 async function chaseAbandonedLeads(env, dry, budget) {
   if (!env.RATE) return [];
   const out = [];
   const now = Date.now();
+  const today = ilDate();
   /* Two hard rules from the review (finding #1), learned the expensive way:
-     1. A handled lead's lead: key DIES immediately — chased, bought, blocked,
+     1. A settled lead's lead: key DIES immediately — finished, bought, blocked,
         whatever. Skipping a dead lead still costs KV reads, and a fortnight of
         paid traffic builds enough of them that the scan alone blows the
-        subrequest ceiling BEFORE the wave loop runs — killing every
-        invitation of the day, silently, every tick.
+        subrequest ceiling BEFORE the wave loop runs.
      2. The scan itself is bounded: one page, and skips also spend budget.
         Whatever does not fit this tick is ten minutes away from the next. */
   const page = await env.RATE.list({ prefix: 'lead:', limit: 1000 }).catch(() => null);
   if (!page) return out;
+
+  const settle = async (phone, why) => {
+    await env.RATE.put('leadchase:' + phone, why + ':' + new Date().toISOString(), { expirationTtl: LEAD_TTL });
+    await env.RATE.delete('lead:' + phone);
+  };
+  const save = (phone, rec) =>
+    env.RATE.put('lead:' + phone, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
+
+  /* a touch that Meta will refuse tomorrow too advances the sequence anyway:
+     losing one text must not strand the person outside the call queue */
+  const PERMANENT = /132000|132001|132005|131009|131026/;
+
   for (const k of page.keys) {
     if (budget && budget.left <= 0) break;
     const phone = k.name.slice('lead:'.length);
@@ -428,39 +513,60 @@ async function chaseAbandonedLeads(env, dry, budget) {
     try { rec = JSON.parse(await env.RATE.get(k.name)); } catch {}
     if (!rec) { await env.RATE.delete(k.name); continue; }
     if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
-    if (now - Date.parse(rec.at || 0) < LEAD_WAIT_MS) continue;   // not ripe yet — the one legitimate survivor
-    if (await env.RATE.get('leadchase:' + phone)) { await env.RATE.delete(k.name); continue; }
-    if (await phoneBlocked(env, phone)) { await env.RATE.delete(k.name); continue; }
-    if (dry) { out.push({ type: 'lead_chase', phone, name: rec.name }); continue; }
-    if (budget) budget.left--;
+    if (await phoneBlocked(env, phone)) { if (!dry) await settle(phone, 'blocked'); continue; }
+    /* answered = theirs now. Any inbound message after the form died means a
+       human (or נועה) is already talking to them; more templates would nag. */
+    if (await leadReplied(env, phone, rec.at)) { if (!dry) await settle(phone, 'answered'); continue; }
+
     const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
     const occ = rec.occasion || 'האירוע שלכם';
-    const wa = await sendClient(env, phone, 'ishur_lo_siyem', [first, occ]);
-    if (wa.ok) {
-      /* chased: both keys settle now. leadchase: blocks a second text forever,
-         lead: dies so no future scan pays for this person again. */
-      await env.RATE.put('leadchase:' + phone, new Date().toISOString(), { expirationTtl: LEAD_TTL });
-      await env.RATE.delete(k.name);
-      out.push({ type: 'lead_chase', phone, sent: true });
-      /* the call comes next, and only to someone who did not answer the
-         text. lq: is the lead-call queue; dialling it is still switched off
-         until the sales agent exists (AUT-896). */
+    const sendTouch = async (tmpl, stampField) => {
+      if (budget) budget.left--;
+      const wa = await sendClient(env, phone, tmpl, [first, occ]);
+      if (wa.ok || PERMANENT.test(String(wa.error || ''))) {
+        rec[stampField] = new Date().toISOString();
+        rec[stampField + 'd'] = today;
+        await save(phone, rec);
+      }
+      out.push({ type: 'lead_' + stampField, phone, sent: !!wa.ok, error: wa.error || '' });
+      return wa;
+    };
+
+    if (!rec.t1) {
+      if (now - Date.parse(rec.at || 0) < LEAD_T1_MS) continue;
+      if (dry) { out.push({ type: 'lead_t1', phone, name: rec.name }); continue; }
+      await sendTouch('ishur_lo_siyem', 't1');
+      continue;
+    }
+    if (!rec.t2) {
+      if (today === rec.t1d || now - Date.parse(rec.t1) < LEAD_T2_MIN_MS) continue;
+      if (dry) { out.push({ type: 'lead_t2', phone }); continue; }
+      await sendTouch('ishur_lo_siyem_2', 't2');
+      continue;
+    }
+    if (!rec.consent) {
+      if (now - Date.parse(rec.t2) < LEAD_Q_MS) continue;
+      if (dry) { out.push({ type: 'lead_queue', phone }); continue; }
       await env.RATE.put('lq:' + phone, JSON.stringify({ name: rec.name, occ, at: new Date().toISOString() }),
         { expirationTtl: 14 * 86400 });
-    } else {
-      /* Review finding #12: marking a TRANSIENT failure as chased silenced the
-         lead for 45 days over a hiccup. Permanent template errors (Meta will
-         refuse them tomorrow too) settle; anything else retries next tick. */
-      const permanent = /132000|132001|132005|131009|131026/.test(String(wa.error || ''));
-      if (permanent) {
-        await env.RATE.put('leadchase:' + phone, 'failed:' + String(wa.error).slice(0, 60), { expirationTtl: LEAD_TTL });
-        await env.RATE.delete(k.name);
-      }
-      out.push({ type: 'lead_chase', phone, sent: false, error: wa.error, permanent });
+      await settle(phone, 'queued');
+      out.push({ type: 'lead_queue', phone, queued: true });
+      continue;
+    }
+    if (!rec.t3) {
+      if (now - Date.parse(rec.t2) < LEAD_T3_MS) continue;
+      if (dry) { out.push({ type: 'lead_t3', phone }); continue; }
+      await sendTouch('ishur_lo_siyem_3', 't3');
+      await settle(phone, 'done');
     }
   }
-  if (!dry && out.some(o => o.sent)) {
-    await slackPost(env, `📨 *${out.filter(o => o.sent).length} לידים שנטשו קיבלו הודעת המשך.*`);
+  const sentNow = out.filter(o => o.sent).length;
+  const queuedNow = out.filter(o => o.queued).length;
+  if (!dry && (sentNow || queuedNow)) {
+    const bits = [];
+    if (sentNow) bits.push(`${sentNow} הודעות המשך ללידים שנטשו`);
+    if (queuedNow) bits.push(`${queuedNow} נכנסו לתור שיחות המכירה`);
+    await slackPost(env, `📨 *${bits.join(' · ')}.*`);
   }
   return out;
 }
@@ -1756,6 +1862,10 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
   const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
   let truncated = false;
+  /* the sheet is the source of truth, so every delivered invitation is written
+     back to the guest's own row — תאריך שליחה 1/2/3 (columns I/J/K) — in one
+     batched call after the loop. __row was stamped when the snapshot loaded. */
+  const okRows = [];
   /* Where the previous tick stopped. Without this, tick 14 of a 400-guest
      wedding re-walked 325 already-handled guests at 2-3 KV reads each — a
      thousand subrequests before the first new invitation, which is the
@@ -1810,6 +1920,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     if (res.ok) {
       sent++;
       cursor = gi + 1;
+      if (g.__row) okRows.push(g.__row);
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
          must never cost the invitation, which already landed. */
@@ -1825,7 +1936,16 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
       await env.RATE.delete(posKey).catch(() => {});
     }
   }
-  return { wave: wave.key, sent, skippedOptout, skippedAnswered, skippedDone, failed, truncated };
+  /* one Make operation for the whole pulse. A failure here never costs the
+     wave — the messages already went; the sheet catches up on a later pass. */
+  if (!dry && okRows.length) {
+    const col = { 1: 'I', 2: 'J', 3: 'K' }[wave.key] || 'I';
+    const stamp = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jerusalem' }).slice(0, 16);
+    await sheetBatchWrite(env, okRows.map(row => ({
+      range: `אורחים!${col}${row}`, values: [[stamp]],
+    }))).catch(() => {});
+  }
+  return { wave: wave.key, tmpl: inviteTmpl, sent, skippedOptout, skippedAnswered, skippedDone, failed, truncated };
 }
 
 async function runDailyEngine(env, dry, todayOverride, opts = {}) {
@@ -1854,6 +1974,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
+  /* remember where each guest lives in the sheet (values start at A2), so a
+     filtered subset can still write its send-stamp back to the right row */
+  gRows.forEach((g, i) => { if (g && typeof g === 'object') g.__row = i + 2; });
   const out = [];
 
   /* the master switch: stop before a single message is composed */
@@ -1888,7 +2011,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         const wa = await sendClient(env, v.phone, 'ishur_tzikoret_kovetz',
           [first, 'https://ishur.io/upload.html?t=' + token], { token });
         if (wa.ok) {
-          await addEvCost(env, token, 0.53);
+          await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
           await slackPost(env, `🟠 *לקוח תקוע* · ${v.name || ''} ${v.phone}\nשילם אתמול ולא העלה רשימת מוזמנים. נשלחה תזכורת עם הקישור האישי. אפשר לענות לו מהאינבוקס, והוא גם יכול פשוט לשלוח את האקסל בוואטסאפ.`);
           await env.RATE.delete('pend:' + token);
           await env.RATE.put('pend2:' + token, today, { expirationTtl: 30 * 86400 });
@@ -1918,7 +2041,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const wa = await sendClient(env, phone, 'ishur_tzikoret_kovetz',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) {
-      await addEvCost(env, token, 0.53);
+      await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
       if (env.RATE) await env.RATE.put('nosetup:' + token, today, { expirationTtl: 14 * 86400 });
       await slackPost(env, `🟠 *אירוע משולם בלי הגדרות* · ${ev[2] || ''} ${phone}\nהרשימה הועלתה אבל לא נבחרו תאריך אירוע או מועדי שליחה, ולכן שום הודעה לא תצא. נשלחה תזכורת חזרה לעמוד.`);
     }
@@ -1982,7 +2105,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       }
       const res = await sendWave(env, ev, token, guests, wave, dry, budget);
       if (res.truncated) out.push({ token, type: 'wave_truncated', wave: wave.key, truncated: true });
-      if (!dry && res.sent) await addEvCost(env, token, res.sent * 0.53);
+      if (!dry && res.sent) await addEvCost(env, token, res.sent * msgCost(res.tmpl || 'hazmana_ishur'));
       /* only close the wave if something actually went out. A wave where every
          send failed (revoked token, number blocked) must stay open so a fixed
          re-run still reaches the guests instead of burning the list. */
@@ -2082,7 +2205,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
-    if (wa.ok) await addEvCost(env, token, 0.53);
+    if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
     if (!wa.ok) await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה', token + ': ' + wa.error);
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
@@ -2140,7 +2263,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
-    if (wa.ok) await addEvCost(env, token, 0.53);
+    if (wa.ok) await addEvCost(env, token, msgCost('ishur_syum'));
     if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
@@ -2188,7 +2311,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else failed++;
     }
     if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
-    if (sent) await addEvCost(env, token, sent * 0.53);
+    if (sent) await addEvCost(env, token, sent * msgCost('ishur_shulchan'));
     /* only close once something actually went out AND nothing failed — an
        empty pass keeps the flag open so tables assigned later still send */
     if (sent && !cut && !failed && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
@@ -2261,7 +2384,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 30 * 86400 }).catch(() => {}); }
         else failed++;
       }
-      if (sent) await addEvCost(env, token, sent * 0.53);
+      if (sent) await addEvCost(env, token, sent * msgCost('ishur_bitul'));
       if (!cut && !failed && env.RATE) await env.RATE.put('cancelmsg:' + token, today, { expirationTtl: 120 * 86400 });
       if (failed) await alert(env, 'הודעת ביטול', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
       out.push({ token, type: 'cancel_notice', sent, failed, truncated: cut });
@@ -2296,7 +2419,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
             else failed++;
           }
-          if (sent) await addEvCost(env, token, sent * 0.53);
+          if (sent) await addEvCost(env, token, sent * msgCost('ishur_dchiya'));
           if (!cut && !failed && env.RATE) {
             await env.RATE.put('sentdate:' + token, date, { expirationTtl: 200 * 86400 });
             /* one-shot flags realign to the new date — only now, when the
@@ -2346,7 +2469,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       }
       if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
       else {
-        if (sent) await addEvCost(env, token, sent * 0.53);
+        if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei'));
         /* the day-before flag closes only on a clean, complete pass (finding #5) */
         if (!cut && !failed && env.RATE) await env.RATE.put('daybefore:' + token, today, { expirationTtl: 30 * 86400 });
         if (failed) await alert(env, 'תזכורת יום-לפני', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
@@ -2374,7 +2497,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
               [first, evName, `${silent} מתוך ${total}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
-              await addEvCost(env, token, 0.53);
+              await addEvCost(env, token, msgCost('ishur_shidrug'));
               await slackPost(env, `💡 *הצעת שדרוג נשלחה* · ${name} (בסיס): ${silent}/${total} לא ענו להודעות — הוצעו שיחות של שיר`);
             }
             out.push({ token, type: 'upsell_basic', sent: wa.ok });
@@ -2400,7 +2523,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
               [first, evName, `${silent} מתוך ${tried.length}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell2:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
-              await addEvCost(env, token, 0.53);
+              await addEvCost(env, token, msgCost('ishur_shidrug_sichot'));
               await slackPost(env, `💡 *הצעת הכל כלול נשלחה* · ${name} (פרמיום): ${silent}/${tried.length} לא נענו לסבב השיחות`);
             }
             out.push({ token, type: 'upsell_pro', sent: wa.ok });
@@ -2826,7 +2949,7 @@ async function handleOtpSend(request, env, origin) {
     await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + wa.error);
     return deny(502, 'send-failed', origin);
   }
-  await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', 0.53);
+  await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', msgCost('ishur_kod'));
   return okJson({ ok: true }, origin);
 }
 
@@ -2950,7 +3073,7 @@ async function handleCostLog(request, env, origin) {
     row.wa_out += Number(st.out) || 0;
     row.wa_tmpl += Number(st.tmpl) || 0;
     row.wa_fail += Number(st.fail) || 0;
-    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.02 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
 
@@ -3022,6 +3145,57 @@ async function handleBrainToggle(request, env, origin) {
   }
   const brain = await getBrain(env);
   return okJson({ ok: true, active: brain.active }, origin);
+}
+
+/* ══ the brain board ═════════════════════════════════════════════════════════
+   Read and edit נועה's whole brain (the "מוח שירות" tab) from brain.html,
+   without opening the spreadsheet: persona (B2), the on/off switch (B1), the
+   two end-of-event links (D1/D2) and the Q&A rows (A5:B80).
+   POST {admin_key, action:'get'} → the brain as JSON.
+   POST {admin_key, action:'set', persona?, active?, reviewLink?,
+         testimonialLink?, faq?:[[q,a],…]} → writes only what was passed.
+   faq replaces the whole block: sent rows first, blanks through row 80 behind
+   them, so a deleted question actually disappears (no batchClear needed).
+   ─────────────────────────────────────────────────────────────────────────── */
+async function handleBrainAdmin(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const action = String(body.action || 'get');
+
+  if (action === 'get') {
+    if (env.RATE) await env.RATE.delete('brain:cache').catch(() => {});   // the editor wants the sheet, not a 3-minute-old copy
+    const brain = await getBrain(env);
+    return okJson({ ok: true, ...brain }, origin);
+  }
+
+  if (action !== 'set') return deny(400, 'unknown-action', origin);
+  const data = [];
+  if (typeof body.active === 'boolean') {
+    data.push({ range: 'מוח שירות!B1', values: [[body.active ? 'פעיל' : 'כבוי']] });
+  }
+  if (typeof body.persona === 'string') {
+    data.push({ range: 'מוח שירות!B2', values: [[body.persona.trim().slice(0, 4000)]] });
+  }
+  if (typeof body.reviewLink === 'string') {
+    data.push({ range: 'מוח שירות!D1', values: [[body.reviewLink.trim().slice(0, 500)]] });
+  }
+  if (typeof body.testimonialLink === 'string') {
+    data.push({ range: 'מוח שירות!D2', values: [[body.testimonialLink.trim().slice(0, 500)]] });
+  }
+  if (Array.isArray(body.faq)) {
+    const rows = body.faq
+      .map(p => [String((p && p[0]) || '').trim().slice(0, 300), String((p && p[1]) || '').trim().slice(0, 1500)])
+      .filter(p => p[0] && p[1])
+      .slice(0, 60);
+    while (rows.length < 76) rows.push(['', '']);   // rows 5..80: blanks erase what was removed
+    data.push({ range: 'מוח שירות!A5:B80', values: rows });
+  }
+  if (!data.length) return deny(400, 'nothing-to-write', origin);
+  const ok = await sheetBatchWrite(env, data);
+  if (!ok) return deny(502, 'sheet-write-failed', origin);
+  if (env.RATE) await env.RATE.delete('brain:cache').catch(() => {});
+  return okJson({ ok: true, wrote: data.map(d => d.range) }, origin);
 }
 
 async function handleDailyRun(request, env, origin) {
@@ -3147,7 +3321,7 @@ async function resendInvitation(env, guestPhone) {
     const wa = await sendTemplate(env, phone, 'ishur_hazmana_shuv',
       [gname, occasion, hosts, date, time, venue, said], '', 'he', 'guests',
       { occasion, wave: 'resend', token: guest.token });
-    if (wa.ok) await addEvCost(env, guest.token, 0.53);
+    if (wa.ok) await addEvCost(env, guest.token, msgCost('ishur_hazmana_shuv'));
     return { ok: wa.ok, mode: 'no-buttons', rsvp, why: wa.error };
   }
 
@@ -3155,7 +3329,7 @@ async function resendInvitation(env, guestPhone) {
   const wa = await sendTemplate(env, phone, 'hazmana_ishur',
     [gname, occasion, hosts, date, time, venue], '', 'he', 'guests',
     { occasion, wave: 'resend', token: guest.token });
-  if (wa.ok) await addEvCost(env, guest.token, 0.53);
+  if (wa.ok) await addEvCost(env, guest.token, msgCost('hazmana_ishur'));
   return { ok: wa.ok, mode: 'with-buttons', rsvp: rsvp || 'לא ענה', why: wa.error };
 }
 
@@ -3516,7 +3690,7 @@ async function handleOpsStats(request, env, origin) {
     const row = day(d);
     row.wa_msgs += Number(st.out) || 0;
     /* utility template ≈ $0.0053; free-form service messages cost nothing */
-    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.02 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) {
     day(d).shir_cost_usd_cents += Number(v) || 0;
@@ -3944,6 +4118,9 @@ export default {
     }
     if (url.pathname === '/api/daily-run' && request.method === 'POST') {
       return handleDailyRun(request, env, origin);
+    }
+    if (url.pathname === '/api/brain-admin' && request.method === 'POST') {
+      return handleBrainAdmin(request, env, origin);
     }
     if (url.pathname === '/api/brain-toggle' && request.method === 'POST') {
       return handleBrainToggle(request, env, origin);
