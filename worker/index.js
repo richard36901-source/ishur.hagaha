@@ -23,7 +23,7 @@
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
-import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow } from './shir.js';
+import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 
@@ -991,6 +991,72 @@ function isAdmin(env, key) {
   return false;
 }
 
+/* ══ iPad-friendly admin sessions ════════════════════════════════════════════
+   Typing a 48-character key on a tablet once was the whole login story. Now:
+   admin-login.html asks for a phone number, the Worker WhatsApps a one-time
+   code to it (only numbers in ADMIN_PHONES ever get one), and a correct code
+   mints a year-long session token, sess.<hex>, kept in KV.
+   The router below swaps a valid session token for the real admin key before
+   any handler parses the body — so every admin endpoint accepts it with zero
+   call-site changes, and revoking a device is deleting one KV key. */
+async function resolveAdminSession(request, env) {
+  const ct = String(request.headers.get('Content-Type') || '');
+  if (!ct.includes('application/json')) return request;
+  if (Number(request.headers.get('Content-Length') || 0) > 262144) return request;
+  let text;
+  try { text = await request.clone().text(); } catch { return request; }
+  if (!text || !text.includes('"admin_key":"sess.')) return request;
+  let body;
+  try { body = JSON.parse(text); } catch { return request; }
+  const tok = String(body.admin_key || '');
+  if (!/^sess\.[0-9a-f]{48}$/.test(tok) || !env.RATE || !env.ADMIN_KEY) return request;
+  const hit = await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null);
+  if (!hit) return request;
+  body.admin_key = env.ADMIN_KEY;
+  return new Request(request, { body: JSON.stringify(body) });
+}
+
+async function handleAdminOtp(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const phone = normPhone(body.phone || '');
+  const allowed = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim())).filter(Boolean);
+  /* the answer never reveals whether a number is on the list */
+  if (!phone || !allowed.includes(phone) || !env.RATE) return okJson({ ok: true }, origin);
+  if (await overBudget(env, 'rl:adminotp:' + phone, 5, 3600)) return okJson({ ok: true }, origin);
+  const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
+  await env.RATE.put('adminotp:' + phone, JSON.stringify({ code, tries: 0 }), { expirationTtl: 600 });
+  await sendOtpTemplate(env, phone, code);
+  return okJson({ ok: true }, origin);
+}
+
+async function handleAdminLogin(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const phone = normPhone(body.phone || '');
+  const code = String(body.code || '').replace(/\D/g, '');
+  if (!phone || code.length !== 6 || !env.RATE) return deny(403, 'bad-login', origin);
+  let rec = null;
+  try { rec = JSON.parse(await env.RATE.get('adminotp:' + phone)); } catch {}
+  if (!rec) return deny(403, 'bad-login', origin);
+  rec.tries = (rec.tries || 0) + 1;
+  if (rec.tries > 5) {
+    await env.RATE.delete('adminotp:' + phone).catch(() => {});
+    return deny(403, 'bad-login', origin);
+  }
+  if (!safeEqual(code, String(rec.code))) {
+    await env.RATE.put('adminotp:' + phone, JSON.stringify(rec), { expirationTtl: 600 });
+    return deny(403, 'bad-login', origin);
+  }
+  await env.RATE.delete('adminotp:' + phone).catch(() => {});
+  const raw = crypto.getRandomValues(new Uint8Array(24));
+  const tok = [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
+  await env.RATE.put('adminsess:' + tok, JSON.stringify({ phone, at: new Date().toISOString() }),
+    { expirationTtl: 365 * 86400 });
+  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`).catch(() => {});
+  return okJson({ ok: true, token: 'sess.' + tok }, origin);
+}
+
 async function handleShirWebhook(request, env) {
   if (!env.RETELL_KEY) return new Response('not-configured', { status: 503 });
   if (Number(request.headers.get('Content-Length') || 0) > 262144) {
@@ -1040,6 +1106,22 @@ async function handleShirWebhook(request, env) {
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
     await addEvCost(env, action.guest_id, action.cost_cents);
+  }
+
+  /* a sales call by נועה: there is no guest row to write, but the call must
+     not vanish either — one Slack line with what happened. The admin board
+     already shows it tagged 'ליד' via the call metadata. */
+  if (meta0.kind === 'lead') {
+    const call = body.call || {};
+    const ca = call.call_analysis || {};
+    const dur = call.start_timestamp && call.end_timestamp
+      ? Math.round((call.end_timestamp - call.start_timestamp) / 1000) : null;
+    const to = String(call.to_number || '').replace('+', '');
+    await slackPost(env,
+      `📞 *שיחת מכירה של נועה הסתיימה* · ${to}${dur != null ? ` · ${dur} שנ'` : ''}` +
+      `${ca.user_sentiment ? ` · סנטימנט: ${ca.user_sentiment}` : ''}` +
+      `${ca.call_summary ? `\n${String(ca.call_summary).slice(0, 400)}` : ''}`).catch(() => {});
+    return okJsonPlain({ ok: true });
   }
 
   /* Did we actually talk to whoever rang us? A call that reached the tool
@@ -1344,20 +1426,18 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
      · lq:<phone> as its own queue, drained here, never mixed with the guest
        queue or the callback queue
 
-   THREE things are missing before this may ring one human being:
-     1. a sales agent + LLM in Retell, and its id in SHIR_LEAD_AGENT
-        (wrangler.toml [vars]). The RSVP script would be nonsense on a lead.
-     2. env.SHIR_LEADS = 'on'. The master switch. Deliberately absent.
-     3. Richard's call on consent: a lead who filled in a form is not the same
-        as a guest whose own host handed us their number. Until that is
-        decided, this function returns without touching Retell.
-   All three are required; any one missing and the drain is a no-op. */
+   CONNECTED 01.09.26, on Richard's explicit go: the sales voice is נועה, on
+   her own number (NOA_FROM) with her own agent (NOA_AGENT) — full isolation
+   from Shir's guest line, so a lead can never be greeted with guest-speak and
+   a callback to either number lands on the right persona.
+   The switch is env.NOA_LEADS = 'on' (wrangler.toml [vars]); flip it off and
+   the drain is a no-op again. */
 async function runShirLeadDial(env, { max = 3 } = {}) {
-  const ready = String(env.SHIR_LEADS || '') === 'on' && !!env.SHIR_LEAD_AGENT;
+  const ready = String(env.NOA_LEADS || '') === 'on' && !!env.NOA_AGENT && !!env.NOA_FROM;
   if (!ready) return { dialed: 0, skipped: 'lead-calling-disabled' };
   /* Every guard the guest dialler obeys applies here too, and one more:
      a lead who already paid is a client, not a prospect. */
-  if (!env.RETELL_KEY || !env.SHIR_FROM || !env.RATE) return { dialed: 0, skipped: 'not-configured' };
+  if (!env.RETELL_KEY || !env.RATE) return { dialed: 0, skipped: 'not-configured' };
   if (await sendingPaused(env)) return { dialed: 0, skipped: 'paused' };
   const today = ilDate();
   if (isNoContactDay(today)) return { dialed: 0, skipped: 'no-contact-day' };
@@ -1370,6 +1450,13 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
   for (const phone of Object.keys(queued)) {
     if (dialed.length >= max) break;
     if (await callBlocked(env, phone)) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    /* answered on WhatsApp after joining the queue = נועה already has the
+       conversation in text. Ringing them on top of it reads as pressure. */
+    let q = null; try { q = JSON.parse(queued[phone]); } catch {}
+    if (q && q.at && await leadReplied(env, phone, q.at)) {
+      await env.RATE.delete('lq:' + phone).catch(() => {});
+      continue;
+    }
     const row = rows.find(r => normPhone(r && r[2]) === phone);
     if (!row) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
     const lead = leadFromRow(row);
@@ -1377,13 +1464,18 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
     const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildCallPayload(lead, env.SHIR_FROM,
-        { override_agent_id: env.SHIR_LEAD_AGENT })),
+      body: JSON.stringify(buildCallPayload(lead, env.NOA_FROM,
+        { override_agent_id: env.NOA_AGENT })),
     }).catch(() => null);
     if (res && (res.status === 200 || res.status === 201)) {
       dialed.push(phone);
       await env.RATE.delete('lq:' + phone).catch(() => {});
+      /* one sales call per lead, ever — a no-answer does not earn a redial */
+      await env.RATE.put('lqdone:' + phone, new Date().toISOString(), { expirationTtl: 90 * 86400 }).catch(() => {});
     }
+  }
+  if (dialed.length) {
+    await slackPost(env, `📞 *נועה יצאה ל-${dialed.length} שיחות מכירה* ללידים שנטשו ולא ענו להודעות.`);
   }
   return { dialed: dialed.length, phones: dialed };
 }
@@ -1468,6 +1560,67 @@ async function handleShirInbound(request, env, url, origin) {
       },
       ...answer,
     }, origin);
+  }
+  return okJsonPlain(answer);
+}
+
+/* POST /api/noa-inbound?k=<secret>
+   The same contract as /api/shir-inbound, for נועה's number: somebody rings
+   the client/lead line back. Same snapshot lookup, different persona — a
+   client gets service, a lead gets honest sales help, and a guest who rang
+   the wrong line is pointed back to WhatsApp. The one thing this endpoint
+   must never do is guest-speak: that is Richard's separation rule. */
+async function noaInboundSecret(env) {
+  return (await sha256Hex('noa-inbound|v1|' + String(env.RETELL_KEY || ''))).slice(0, 32);
+}
+
+async function handleNoaInbound(request, env, url, origin) {
+  if (Number(request.headers.get('Content-Length') || 0) > 65536) {
+    return deny(413, 'too-large', origin);
+  }
+  const rawBody = await request.text();
+  let body = {};
+  try { body = JSON.parse(rawBody || '{}'); } catch { return deny(400, 'bad-json', origin); }
+
+  const admin = isAdmin(env, body.admin_key);
+  if (!admin) {
+    if (!env.RETELL_KEY) return deny(503, 'noa-not-configured', origin);
+    const k = String(url.searchParams.get('k') || '');
+    const want = await noaInboundSecret(env);
+    const sig = request.headers.get('X-Retell-Signature') || '';
+    const signed = !!sig && await verifyRetellSignature(rawBody, sig, env.RETELL_KEY);
+    if (!safeEqual(k, want) && !signed) return deny(403, 'bad-inbound-key', origin);
+  }
+
+  const ci = body.call_inbound || {};
+  const from = String(body.from_number || ci.from_number || '').trim();
+  if (admin && !from) {
+    return okJson({
+      ok: true,
+      webhook_url: `https://${url.host}/api/noa-inbound?k=${await noaInboundSecret(env)}`,
+      inbound_agent: String(env.NOA_INBOUND_AGENT || ''),
+    }, origin);
+  }
+
+  const phone = normPhone(from);
+  const today = ilDate();
+  const raw = await Promise.race([
+    snapshotCached(env).catch(() => null),
+    new Promise(r => setTimeout(() => r(null), 4000)),
+  ]);
+  const hit = raw ? inboundLookup(raw, phone, today) : { caller_kind: 'unknown', phone, name: '', event: null };
+
+  const answer = {
+    call_inbound: {
+      dynamic_variables: noaInboundVariables(hit),
+      metadata: { kind: 'inbound', caller_kind: String(hit.caller_kind || 'unknown'), from: phone, line: 'noa' },
+    },
+  };
+  if (env.NOA_INBOUND_AGENT) answer.call_inbound.override_agent_id = String(env.NOA_INBOUND_AGENT);
+
+  if (admin) {
+    return okJson({ ok: true, snapshot: !!raw, phone,
+      lookup: { caller_kind: hit.caller_kind, name: hit.name || '' }, ...answer }, origin);
   }
   return okJsonPlain(answer);
 }
@@ -2622,6 +2775,11 @@ async function runPacer(env) {
       })
       : { dialed: 0, why: 'callbacks-took-the-slice' };
     out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why };
+    /* נועה's slice: sales calls to leads who went silent. Small on purpose —
+       two per tick is 12 an hour, plenty for the queue this funnel produces,
+       and it can never crowd out the guest calls that were paid for. */
+    const lead = await runShirLeadDial(env, { max: 2 }).catch(() => ({ dialed: 0, skipped: 'error' }));
+    out.leadCalls = lead;
   } else {
     out.calls = { dialed: 0, why: callWin.why };
     out.callbacks = { dialed: 0, why: callWin.why };
@@ -3779,6 +3937,9 @@ async function handleShirCalls(request, env, origin) {
        carries no metadata of ours at all, so direction decides. */
     call_kind: String((c.metadata || {}).kind ||
       (String(c.direction || c.call_type || '').includes('inbound') ? 'inbound' : 'guest')),
+    /* on an inbound call, who rang: client / lead / guest / unknown — the
+       admin board shows it so a support call never reads like an RSVP call */
+    caller_kind: String((c.metadata || {}).caller_kind || ''),
     direction: String(c.direction || '').includes('inbound') ? 'inbound' : 'outbound',
     outcome: String(((c.call_analysis || {}).custom_analysis_data || {}).outcome || ''),
     party_size: ((c.call_analysis || {}).custom_analysis_data || {}).party_size ?? null,
@@ -4058,6 +4219,12 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
+    /* iPad sessions: a valid sess. token becomes the real admin key before any
+       handler reads the body. Grow's IPN is skipped — its body is not ours. */
+    if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
+        !url.pathname.startsWith('/api/grow-ipn')) {
+      request = await resolveAdminSession(request, env);
+    }
     /* on the mirror host, anything that is not an API call is the website */
     if (url.hostname === MIRROR_HOST &&
         !url.pathname.startsWith('/api/') &&
@@ -4104,6 +4271,15 @@ export default {
       return handleShirWebhook(request, env);
     }
     /* Retell asks who is calling, before the agent speaks */
+    if (url.pathname === '/api/noa-inbound' && request.method === 'POST') {
+      return handleNoaInbound(request, env, url, origin);
+    }
+    if (url.pathname === '/api/admin-otp' && request.method === 'POST') {
+      return handleAdminOtp(request, env, origin);
+    }
+    if (url.pathname === '/api/admin-login' && request.method === 'POST') {
+      return handleAdminLogin(request, env, origin);
+    }
     if (url.pathname === '/api/shir-inbound' && request.method === 'POST') {
       return handleShirInbound(request, env, url, origin);
     }

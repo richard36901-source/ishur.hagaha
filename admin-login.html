@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>כניסת ניהול · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=36"></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --paper:#F8F4EA; --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8; --warn:#A8402F; --ok:#0F4C35;
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;
+    min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1rem}
+  .card{width:min(92vw,380px);background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:2rem 1.6rem;box-shadow:0 18px 50px rgba(27,36,32,.12);text-align:center}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem;color:var(--pine)}
+  html[data-theme=dark] h1{color:#7BC9A4}
+  p.sub{font-size:.82rem;color:var(--ink3);margin:.4rem 0 1.4rem}
+  label{display:block;text-align:right;font-size:.74rem;font-weight:600;color:var(--gold);margin:.9rem 0 .25rem}
+  input{width:100%;border:1px solid var(--line);border-radius:12px;padding:.75rem .9rem;font:inherit;font-size:1.05rem;
+    text-align:center;direction:ltr;background:var(--bg);color:var(--ink);letter-spacing:.08em}
+  button{width:100%;border:none;border-radius:12px;background:var(--pine);color:var(--paper);padding:.8rem;
+    font:inherit;font-weight:600;font-size:.95rem;cursor:pointer;margin-top:1.1rem}
+  button:disabled{opacity:.55;cursor:default}
+  .msg{min-height:1.3rem;font-size:.8rem;margin-top:.7rem}
+  .msg.err{color:var(--warn)} .msg.ok{color:var(--ok)}
+  .tiny{font-size:.7rem;color:var(--ink3);margin-top:1.2rem}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<div class="card">
+  <h1>כניסת ניהול</h1>
+  <p class="sub">מזינים טלפון, מקבלים קוד בוואטסאפ, והמכשיר הזה זוכר אתכם לשנה.</p>
+
+  <div id="step1">
+    <label for="ph">מספר טלפון</label>
+    <input id="ph" type="tel" inputmode="tel" placeholder="05X-XXXXXXX" autocomplete="tel">
+    <button id="send" type="button">שלחו לי קוד לוואטסאפ</button>
+  </div>
+
+  <div id="step2" hidden>
+    <label for="code">הקוד שקיבלתם</label>
+    <input id="code" type="text" inputmode="numeric" maxlength="6" placeholder="••••••" autocomplete="one-time-code">
+    <button id="go" type="button">כניסה</button>
+  </div>
+
+  <p class="msg" id="msg"></p>
+  <p class="tiny">רק מספרים שהוגדרו מראש מקבלים קוד. אפשר תמיד להיכנס גם עם מפתח הגישה הרגיל בכל עמוד.</p>
+</div>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var API = 'https://ishur-webhooks.richardtomskiy.workers.dev';
+  function $(id) { return document.getElementById(id); }
+  function msg(t, cls) { var m = $('msg'); m.textContent = t || ''; m.className = 'msg' + (cls ? ' ' + cls : ''); }
+  var phone = '';
+
+  $('send').addEventListener('click', function () {
+    phone = $('ph').value.replace(/\D/g, '');
+    if (!/^05\d{8}$/.test(phone)) { msg('מספר לא תקין — 05 ואז שמונה ספרות', 'err'); return; }
+    $('send').disabled = true;
+    msg('שולח קוד…');
+    fetch(API + '/api/admin-otp', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone })
+    }).then(function (r) { return r.json(); }).then(function () {
+      $('step1').hidden = true; $('step2').hidden = false;
+      msg('אם המספר מורשה, קוד בדרך אליכם בוואטסאפ', 'ok');
+      $('code').focus();
+    }).catch(function () { $('send').disabled = false; msg('לא הצלחנו להגיע לשרת', 'err'); });
+  });
+
+  $('go').addEventListener('click', function () {
+    var code = $('code').value.replace(/\D/g, '');
+    if (code.length !== 6) { msg('הקוד הוא שש ספרות', 'err'); return; }
+    $('go').disabled = true;
+    msg('בודק…');
+    fetch(API + '/api/admin-login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ phone: phone, code: code })
+    }).then(function (r) { return r.json(); }).then(function (d) {
+      if (d && d.ok && d.token) {
+        try { localStorage.setItem('ishur_calls_key', d.token); } catch (e) {}
+        msg('נכנסתם! מעביר למרכז הבקרה…', 'ok');
+        setTimeout(function () { location.href = 'admin.html'; }, 700);
+      } else {
+        $('go').disabled = false;
+        msg('הקוד לא נכון או שפג תוקפו', 'err');
+      }
+    }).catch(function () { $('go').disabled = false; msg('לא הצלחנו להגיע לשרת', 'err'); });
+  });
+  $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('go').click(); });
+  $('ph').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('send').click(); });
+})();
+</script>
+</body>
+</html>

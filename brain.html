@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=36"></script>
-<script src="assets/adminbar.js?v=4" defer></script>
+<script src="assets/adminbar.js?v=5" defer></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -95,14 +95,15 @@
   <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
   <button id="keyGo">כניסה</button>
   <p class="err" id="keyErr"></p>
+  <p style="font-size:.75rem;margin-top:.6rem"><a href="admin-login.html" style="color:var(--gold)">או כניסה עם קוד לטלפון</a></p>
 </div>
 
 <main class="wrap" id="main" hidden>
 
   <div class="card rule">
     <b>חוק ההפרדה, לא ניתן לעריכה:</b>
-    נועה (055-950-4499) מדברת רק עם <b>לקוחות ולידים</b>. לקוח = יש לו אירוע פעיל בגיליון, ליד = כל השאר.
-    מספר האורחים (055-972-6673) ושיר בטלפון מדברים רק עם <b>אורחים</b>. אף סוכנת לא חוצה את הקו:
+    נועה (וואטסאפ 055-950-4499 · טלפון 055-507-7733) מדברת רק עם <b>לקוחות ולידים</b>. לקוח = יש לו אירוע פעיל בגיליון, ליד = כל השאר.
+    מספר האורחים (055-972-6673) ושיר בטלפון (055-507-4446) מדברים רק עם <b>אורחים</b>. אף סוכנת לא חוצה את הקו:
     שיר לעולם לא תשאל ליד "אם הוא מגיע לאירוע", ונועה לעולם לא תדבר עם אורח.
   </div>
 
@@ -128,6 +129,30 @@
     <div class="row">
       <button class="btn" id="noaSave" type="button">שמירת המוח של נועה</button>
       <span class="status" id="noaStatus"></span>
+    </div>
+  </div>
+
+  <!-- ══ נועה בטלפון · יוצאת ══ -->
+  <h2>נועה · שיחות מכירה ללידים <em>הקול של 055-507-7733, נשמר ישירות ל-Retell</em></h2>
+  <div class="card">
+    <label class="fld" for="noaOutPrompt">הפרומפט המלא</label>
+    <textarea id="noaOutPrompt" class="tall mono" placeholder="טוען…"></textarea>
+    <p class="meta" id="noaOutMeta"></p>
+    <div class="row">
+      <button class="btn" id="noaOutSave" type="button">שמירת נועה · יוצאת</button>
+      <span class="status" id="noaOutStatus"></span>
+    </div>
+  </div>
+
+  <!-- ══ נועה בטלפון · נכנסת ══ -->
+  <h2>נועה · שיחות נכנסות מלקוחות ולידים <em>מי שמחזיר שיחה למספר של נועה</em></h2>
+  <div class="card">
+    <label class="fld" for="noaInPrompt">הפרומפט המלא</label>
+    <textarea id="noaInPrompt" class="tall mono" placeholder="טוען…"></textarea>
+    <p class="meta" id="noaInMeta"></p>
+    <div class="row">
+      <button class="btn" id="noaInSave" type="button">שמירת נועה · נכנסת</button>
+      <span class="status" id="noaInStatus"></span>
     </div>
   </div>
 
@@ -252,7 +277,9 @@
   /* ── שיר: שני סוכנים, אותו טיפול ──────────────────────────────────────── */
   var SHIR = {
     out: { agent: 'agent_fa5c86723f7c49960f7f4076be', llm: '', prompt: 'shirOutPrompt', meta: 'shirOutMeta', save: 'shirOutSave', status: 'shirOutStatus' },
-    inn: { agent: 'agent_c7d317f758ed084571630ce25e', llm: '', prompt: 'shirInPrompt', meta: 'shirInMeta', save: 'shirInSave', status: 'shirInStatus' }
+    inn: { agent: 'agent_c7d317f758ed084571630ce25e', llm: '', prompt: 'shirInPrompt', meta: 'shirInMeta', save: 'shirInSave', status: 'shirInStatus' },
+    nout: { agent: 'agent_dfc2c18968a9daea870caffbab', llm: '', prompt: 'noaOutPrompt', meta: 'noaOutMeta', save: 'noaOutSave', status: 'noaOutStatus' },
+    ninn: { agent: 'agent_f86326fe9b9fd16233276ea951', llm: '', prompt: 'noaInPrompt', meta: 'noaInMeta', save: 'noaInSave', status: 'noaInStatus' }
   };
 
   function loadShir(k) {
@@ -292,6 +319,8 @@
 
   $('shirOutSave').addEventListener('click', function () { saveShir('out'); });
   $('shirInSave').addEventListener('click', function () { saveShir('inn'); });
+  $('noaOutSave').addEventListener('click', function () { saveShir('nout'); });
+  $('noaInSave').addEventListener('click', function () { saveShir('ninn'); });
 
   /* ── gate ─────────────────────────────────────────────────────────────── */
   function gate(err) {
@@ -305,6 +334,8 @@
     loadNoa();
     loadShir('out');
     loadShir('inn');
+    loadShir('nout');
+    loadShir('ninn');
   }
   $('keyGo').addEventListener('click', function () {
     var v = $('keyIn').value.trim();

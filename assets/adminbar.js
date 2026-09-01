@@ -24,6 +24,7 @@
     flow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="3" width="7" height="5.5" rx="1.6"/><rect x="14.5" y="3" width="7" height="5.5" rx="1.6"/><rect x="8.5" y="15.5" width="7" height="5.5" rx="1.6"/><path d="M6 8.5v2.6a1.8 1.8 0 0 0 1.8 1.8h8.4A1.8 1.8 0 0 0 18 11.1V8.5M12 12.9v2.6"/></svg>',
     rules: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/><path d="M9 7h7M9 11h7"/></svg>',
     brain: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4a3.5 3.5 0 0 0-3.5 3.5c-2 .4-3.5 2-3.5 4a4 4 0 0 0 2.6 3.8A3.6 3.6 0 0 0 11 20h1"/><path d="M12 4a3.5 3.5 0 0 1 3.5 3.5c2 .4 3.5 2 3.5 4a4 4 0 0 1-2.6 3.8A3.6 3.6 0 0 1 13 20h-1"/><path d="M12 4v16"/></svg>',
+    ops: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="5" rx="2.5"/><circle cx="8" cy="7.5" r="1.4" fill="currentColor" stroke="none"/><rect x="3" y="14" width="18" height="5" rx="2.5"/><circle cx="16" cy="16.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
   };
 
   var INTERNAL = [
@@ -32,6 +33,7 @@
     { href: 'calls.html', label: 'מוקד שיחות', icon: ic.calls },
     { href: 'automations.html', label: 'אוטומציות', icon: ic.flow },
     { href: 'brain.html', label: 'המוח', icon: ic.brain },
+    { href: 'ops.html', label: 'שליטה', icon: ic.ops },
   ];
   var EXTERNAL = [
     { href: SHEET_URL, label: 'האקסל', icon: ic.sheet },

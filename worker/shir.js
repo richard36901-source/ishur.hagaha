@@ -350,9 +350,22 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
    count, so feeding it the guest set would hand the model empty braces to
    read out loud. Nothing calls this yet on a live number; see requirement 5.
    לידים columns: 1 שם · 2 טלפון · 4 סוג · 6 שלב נטישה · 7 שולם? · 11 מקור */
+/* The first sentence of the sales call, composed from data exactly like the
+   inbound opener — Retell speaks it verbatim, so it can neither stall nor
+   read out an empty variable. Noa, never Shir: this call crosses the
+   guest/client line and the persona must cross with it. */
+export function leadOpeningLine(lead) {
+  const l = lead || {};
+  const first = String(l.name || '').trim().split(/\s+/)[0] || '';
+  const hello = first ? `היי ${first}` : 'שלום';
+  const occ = l.occasion && l.occasion !== 'אירוע' ? `ל${l.occasion}` : 'לאירוע שלכם';
+  return `${hello}, מדברת נועה מאישורי הגעה. ראיתם אותנו באתר והתחלתם הזמנה ${occ}, ונעצרתם רגע לפני הסוף. רציתי לשאול אם משהו לא היה ברור, ואם אפשר לעזור.`;
+}
+
 export function leadVariables(lead) {
   const l = lead || {};
   return {
+    opening_line: leadOpeningLine(l),
     lead_name: String(l.name || ''),
     lead_first_name: String(l.name || '').trim().split(/\s+/)[0] || '',
     occasion: String(l.occasion || 'אירוע'),
@@ -362,6 +375,38 @@ export function leadVariables(lead) {
     abandoned_stage: String(l.stage || ''),
     guest_count: String(l.guest_count || ''),
     source: String(l.source || ''),
+  };
+}
+
+/* ── נועה · the inbound side of HER number ──────────────────────────────────
+   Same lookup as Shir's line, different persona and different priorities:
+   clients get service, leads get honest sales help, and a guest who somehow
+   rang the sales line is gently pointed back to WhatsApp — Noa never does
+   guest-speak. That is the separation rule, spoken. */
+export function noaOpeningLine(hit) {
+  const h = hit || {};
+  const first = String(h.name || '').trim().split(/\s+/)[0] || '';
+  const hello = first ? `היי ${first}` : 'שלום';
+  if (h.caller_kind === 'client') {
+    return `${hello}, מדברת נועה מאישורי הגעה. איך אפשר לעזור?`;
+  }
+  if (h.caller_kind === 'lead') {
+    return `${hello}, הגעתם לאישורי הגעה, מדברת נועה. איך אפשר לעזור?`;
+  }
+  return 'שלום, הגעתם לאישורי הגעה, מדברת נועה. איך אפשר לעזור?';
+}
+
+export function noaInboundVariables(hit) {
+  const h = hit || {};
+  const ev = h.event || {};
+  return {
+    opening_line: noaOpeningLine(h),
+    caller_kind: String(h.caller_kind || 'unknown'),
+    caller_name: String(h.name || ''),
+    known: h.caller_kind && h.caller_kind !== 'unknown' ? 'כן' : 'לא',
+    occasion: String(ev.occasion || 'אירוע'),
+    event_name: String(ev.event_name || ''),
+    event_date_spoken: spokenDate(ev.event_date || ''),
   };
 }
 

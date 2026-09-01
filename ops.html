@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>שליטה ידנית · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=36"></script>
+<script src="assets/adminbar.js?v=5" defer></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F; --chip:#F1EEE4;
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;--chip:#222A24;
+  }
+  html[data-theme=dark] h2{color:#7BC9A4}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
+  .wrap{max-width:min(96vw,900px);margin:0 auto;padding:0 .9rem}
+  h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.6rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
+  h2 em{font-style:normal;color:var(--ink3);font-family:'Heebo';font-size:.72rem;font-weight:400}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-bottom:.7rem}
+  .card p.d{font-size:.78rem;color:var(--ink3);margin-bottom:.7rem}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  input[type=text]{border:1px solid var(--line);border-radius:10px;padding:.55rem .8rem;font:inherit;font-size:.85rem;background:var(--bg);color:var(--ink);direction:ltr;flex:1;min-width:180px}
+  .btn{border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.55rem 1.1rem;font:inherit;font-weight:600;font-size:.84rem;cursor:pointer}
+  .btn.ghost{background:var(--card);color:var(--ink2);border:1px solid var(--line)}
+  .btn.danger{background:var(--warn)}
+  .btn:disabled{opacity:.5;cursor:default}
+  button:not(:disabled):active{transform:scale(.97)}
+  .st{font-size:.78rem;min-height:1.1rem;margin-top:.5rem;color:var(--ink3)}
+  .st.ok{color:var(--ok)} .st.err{color:var(--warn)}
+  .pill{display:inline-block;font-size:.7rem;font-weight:700;border-radius:99px;padding:.15rem .6rem;background:var(--chip);color:var(--ink3)}
+  .pill.on{background:rgba(15,76,53,.12);color:var(--ok)}
+  .pill.off{background:rgba(168,64,47,.12);color:var(--warn)}
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate h2{border:none;margin:0;color:var(--pine)}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{min-height:1.2rem;margin-top:.4rem;color:var(--warn);font-size:.8rem}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<header class="head">
+  <h1>ishur<i>.io</i> · שליטה ידנית</h1>
+  <p>מתגי החירום והתפעול, בלי לגעת בקוד ובלי לחכות לאף אחד</p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+  <p style="font-size:.75rem;margin-top:.6rem"><a href="admin-login.html" style="color:var(--gold)">או כניסה עם קוד לטלפון</a></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+
+  <h2>עצירת חירום <em>עוצר הכל: הודעות, גלים, ושיחות</em></h2>
+  <div class="card">
+    <div class="row">
+      <span class="pill" id="pausePill">בודק…</span>
+      <button class="btn danger" id="pauseBtn" type="button">⏸ לעצור את כל השליחה</button>
+      <button class="btn" id="resumeBtn" type="button">▶ להחזיר לפעולה</button>
+    </div>
+    <p class="st" id="pauseSt"></p>
+  </div>
+
+  <h2>המענה החכם של נועה <em>בוואטסאפ</em></h2>
+  <div class="card">
+    <div class="row">
+      <span class="pill" id="brainPill">בודק…</span>
+      <button class="btn ghost" id="brainOn" type="button">להדליק</button>
+      <button class="btn ghost" id="brainOff" type="button">לכבות</button>
+    </div>
+    <p class="st" id="brainSt"></p>
+  </div>
+
+  <h2>אירוע בודד <em>הדבק טוקן מהאדמין (מזהה האירוע המלא)</em></h2>
+  <div class="card">
+    <div class="row"><input type="text" id="evTok" placeholder="event token (uuid)"></div>
+    <div class="row" style="margin-top:.5rem">
+      <button class="btn ghost" data-flag="hold" data-on="true" type="button">🧊 להקפיא את האירוע</button>
+      <button class="btn ghost" data-flag="hold" data-on="false" type="button">להפשיר</button>
+      <button class="btn ghost" data-flag="extrasend" data-on="true" type="button">לפתוח גל שלישי</button>
+    </div>
+    <p class="st" id="evSt"></p>
+  </div>
+
+  <h2>מספר טלפון <em>חסימה מוחקת אותו מכל שליחה עתידית</em></h2>
+  <div class="card">
+    <div class="row"><input type="text" id="blkPhone" placeholder="05XXXXXXXX"></div>
+    <div class="row" style="margin-top:.5rem">
+      <button class="btn ghost" id="blkCheck" type="button">מה המצב שלו?</button>
+      <button class="btn danger" id="blkOn" type="button">🚫 לחסום</button>
+      <button class="btn ghost" id="blkOff" type="button">להחזיר לשליחה</button>
+    </div>
+    <p class="st" id="blkSt"></p>
+  </div>
+
+  <h2>מנוע ופעימה <em>להריץ עכשיו במקום לחכות</em></h2>
+  <div class="card">
+    <div class="row">
+      <button class="btn ghost" id="dryBtn" type="button">🔍 הרצה יבשה (בלי לשלוח)</button>
+      <button class="btn" id="paceBtn" type="button">▶ פעימה עכשיו (שולח באמת)</button>
+    </div>
+    <p class="st" id="runSt"></p>
+  </div>
+
+  <h2>תשלום שנדחה בטעות <em>המזהה מגיע בהתראת הסלאק, נראה כמו ipnmiss:17…</em></h2>
+  <div class="card">
+    <div class="row"><input type="text" id="ipnId" placeholder="ipnmiss:1234567890123"></div>
+    <div class="row" style="margin-top:.5rem">
+      <button class="btn" id="ipnBtn" type="button">להריץ את התשלום מחדש</button>
+    </div>
+    <p class="st" id="ipnSt"></p>
+  </div>
+
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var API = 'https://ishur-webhooks.richardtomskiy.workers.dev';
+  function $(id) { return document.getElementById(id); }
+  function qs(name) {
+    var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(location.search);
+    return m ? decodeURIComponent(m[1]) : '';
+  }
+  var adminKey = qs('key') || (function () {
+    try { return localStorage.getItem('ishur_calls_key') || ''; } catch (e) { return ''; }
+  })();
+  if (qs('key')) { try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} }
+
+  function post(path, body) {
+    body.admin_key = adminKey;
+    return fetch(API + path, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      if (r.status === 403) { gate('המפתח לא נכון'); throw new Error('403'); }
+      return r.json();
+    });
+  }
+  function st(id, t, cls) { var e = $(id); e.textContent = t || ''; e.className = 'st' + (cls ? ' ' + cls : ''); }
+
+  /* ── master pause ── */
+  function paintPause(p) {
+    var el = $('pausePill');
+    el.textContent = p ? 'השליחה עצורה' : 'המערכת פועלת';
+    el.className = 'pill ' + (p ? 'off' : 'on');
+  }
+  function loadPause() {
+    post('/api/pause', {}).then(function (d) { paintPause(!!d.paused); }).catch(function () {});
+  }
+  $('pauseBtn').addEventListener('click', function () {
+    if (!confirm('לעצור את כל השליחה? אף הודעה ואף שיחה לא ייצאו עד שתחזירו.')) return;
+    post('/api/pause', { paused: true }).then(function () { paintPause(true); st('pauseSt', 'נעצר. כלום לא יוצא.', 'ok'); });
+  });
+  $('resumeBtn').addEventListener('click', function () {
+    post('/api/pause', { paused: false }).then(function () { paintPause(false); st('pauseSt', 'חזר לפעול. הפעימה הקרובה ממשיכה מאיפה שעצרנו.', 'ok'); });
+  });
+
+  /* ── Noa AI toggle ── */
+  function paintBrain(a) {
+    var el = $('brainPill');
+    el.textContent = a ? 'המענה החכם פעיל' : 'המענה החכם כבוי';
+    el.className = 'pill ' + (a ? 'on' : 'off');
+  }
+  function loadBrain() {
+    post('/api/brain-toggle', {}).then(function (d) { paintBrain(!!d.active); }).catch(function () {});
+  }
+  $('brainOn').addEventListener('click', function () {
+    post('/api/brain-toggle', { active: true }).then(function () { paintBrain(true); st('brainSt', 'נועה עונה שוב.', 'ok'); });
+  });
+  $('brainOff').addEventListener('click', function () {
+    post('/api/brain-toggle', { active: false }).then(function () { paintBrain(false); st('brainSt', 'נועה לא תענה אוטומטית עד שתדליקו.', 'ok'); });
+  });
+
+  /* ── per-event flags ── */
+  document.querySelectorAll('[data-flag]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      var tok = $('evTok').value.trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) { st('evSt', 'צריך להדביק טוקן מלא (36 תווים)', 'err'); return; }
+      post('/api/event-flag', { token: tok, flag: b.getAttribute('data-flag'), on: b.getAttribute('data-on') === 'true' })
+        .then(function (d) {
+          if (d && d.ok) st('evSt', 'בוצע. ' + (b.getAttribute('data-flag') === 'hold' ? (b.getAttribute('data-on') === 'true' ? 'האירוע קפוא — שום הודעה לא תצא אליו.' : 'האירוע חזר לפעול.') : 'הגל השלישי פתוח לאירוע הזה.'), 'ok');
+          else st('evSt', 'נכשל: ' + ((d && d.error) || ''), 'err');
+        }).catch(function () { st('evSt', 'נכשל', 'err'); });
+    });
+  });
+
+  /* ── phone block ── */
+  function phoneVal() { return $('blkPhone').value.replace(/\D/g, ''); }
+  $('blkCheck').addEventListener('click', function () {
+    post('/api/block-phone', { phone: phoneVal() }).then(function (d) {
+      if (d && d.ok) st('blkSt', (d.blocked ? 'חסום ידנית. ' : '') + (d.opted_out ? 'ביקש הסרה בוואטסאפ. ' : '') + (!d.blocked && !d.opted_out ? 'פתוח לשליחה רגילה.' : ''), 'ok');
+      else st('blkSt', 'מספר לא תקין', 'err');
+    });
+  });
+  $('blkOn').addEventListener('click', function () {
+    post('/api/block-phone', { phone: phoneVal(), blocked: true }).then(function (d) {
+      st('blkSt', d && d.ok ? 'נחסם. לא יקבל יותר כלום.' : 'נכשל', d && d.ok ? 'ok' : 'err');
+    });
+  });
+  $('blkOff').addEventListener('click', function () {
+    post('/api/block-phone', { phone: phoneVal(), blocked: false }).then(function (d) {
+      st('blkSt', d && d.ok ? 'הוחזר לשליחה.' : 'נכשל', d && d.ok ? 'ok' : 'err');
+    });
+  });
+
+  /* ── engine ── */
+  $('dryBtn').addEventListener('click', function () {
+    st('runSt', 'מריץ יבש…');
+    post('/api/daily-run', { dry: true }).then(function (d) {
+      st('runSt', 'הרצה יבשה: ' + ((d.events && d.events.length) || 0) + ' פעולות היו קורות. הפירוט בעמוד האוטומציות.', 'ok');
+    }).catch(function () { st('runSt', 'נכשל', 'err'); });
+  });
+  $('paceBtn').addEventListener('click', function () {
+    if (!confirm('להריץ פעימה אמיתית עכשיו? הודעות ושיחות שממתינות יצאו בפועל.')) return;
+    st('runSt', 'מריץ פעימה…');
+    post('/api/pacer', {}).then(function (d) {
+      var s = d && d.sends && d.sends.ran ? 'הודעות נשלחו' : 'אין הודעות ממתינות';
+      var c = d && d.calls ? (d.calls.dialed || 0) : 0;
+      st('runSt', 'הפעימה רצה. ' + s + ', ' + c + ' שיחות יצאו.', 'ok');
+    }).catch(function () { st('runSt', 'נכשל', 'err'); });
+  });
+
+  /* ── IPN replay ── */
+  $('ipnBtn').addEventListener('click', function () {
+    var id = $('ipnId').value.trim();
+    if (!/^ipnmiss:\d+$/.test(id)) { st('ipnSt', 'המזהה נראה כמו ipnmiss: ואז מספר', 'err'); return; }
+    post('/api/ipn-replay', { id: id }).then(function (d) {
+      st('ipnSt', d && d.ok ? 'התשלום הורץ מחדש דרך הצינור הרגיל.' : 'נכשל: ' + ((d && d.error) || ''), d && d.ok ? 'ok' : 'err');
+    }).catch(function () { st('ipnSt', 'נכשל', 'err'); });
+  });
+
+  /* ── gate ── */
+  function gate(err) {
+    $('gate').hidden = false;
+    $('main').hidden = true;
+    $('keyErr').textContent = err || '';
+  }
+  function open_() {
+    $('gate').hidden = true;
+    $('main').hidden = false;
+    loadPause(); loadBrain();
+  }
+  $('keyGo').addEventListener('click', function () {
+    var v = $('keyIn').value.trim();
+    if (!v) return;
+    adminKey = v;
+    try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {}
+    open_();
+  });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+
+  if (adminKey) open_(); else gate();
+})();
+</script>
+</body>
+</html>

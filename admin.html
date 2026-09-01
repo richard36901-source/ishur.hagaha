@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=36"></script>
-<script src="assets/adminbar.js?v=4" defer></script>
+<script src="assets/adminbar.js?v=5" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
   :root{
@@ -2195,17 +2195,32 @@
      Old calls come back without the field at all, and the worker calls those
      guest, so anything unrecognised is treated the same way. */
   var KIND_HE = { guest: 'אורח', lead: 'ליד', inbound: 'נכנסת' };
+  /* which persona placed or answered the call, by the line it ran on.
+     שיר = the guest line, נועה = the client/lead line. Richard's rule: the
+     board must never let a sales call be mistaken for an RSVP call. */
+  var LINE_PERSONA = { '+972555074446': 'שיר', '+972555077733': 'נועה' };
   var shirKind = 'all';
 
   function kindOf(c) {
     var k = String((c && c.call_kind) || '').trim();
     return (k === 'lead' || k === 'inbound') ? k : 'guest';
   }
+  function personaOf(c) {
+    var line = String((c && c.direction) === 'inbound' ? (c && c.to) : (c && c.from) || '').trim();
+    return LINE_PERSONA[line] || (kindOf(c) === 'lead' ? 'נועה' : 'שיר');
+  }
   function kindCell(c) {
     var k = kindOf(c);
     var dir = String((c && c.direction) || '');
+    /* an inbound call knows WHO rang: a client, a lead, or a guest */
+    var who = String((c && c.caller_kind) || '');
+    var label = KIND_HE[k];
+    if (k === 'inbound' && who === 'client') label = 'נכנסת · לקוח';
+    else if (k === 'inbound' && who === 'lead') label = 'נכנסת · ליד';
+    else if (k === 'inbound' && who === 'guest') label = 'נכנסת · אורח';
+    label += ' · ' + personaOf(c);
     return '<span class="kind kind-' + k + '"' + (dir ? ' title="' + esc(dir === 'inbound' ? 'שיחה נכנסת' : 'שיחה יוצאת') + '"' : '') +
-           '>' + KIND_HE[k] + '</span>';
+           '>' + esc(label) + '</span>';
   }
 
   function visibleCalls() {

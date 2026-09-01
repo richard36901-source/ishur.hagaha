@@ -11,6 +11,17 @@ compatibility_date = "2026-08-01"
 [vars]
 SHIR_INBOUND_AGENT = "agent_c7d317f758ed084571630ce25e"
 
+# נועה — קו הלקוחות והלידים, בבידוד מלא מקו האורחים של שיר. סוכנת המכירות
+# היוצאת מחייגת מ-NOA_FROM ללידים שנטשו (התור lq:), והסוכנת הנכנסת עונה
+# למי שמחזיר שיחה. NOA_LEADS="off" מכבה את החיוג היוצא בלי דיפלוי-קוד נוסף.
+NOA_FROM = "+972555077733"
+NOA_AGENT = "agent_dfc2c18968a9daea870caffbab"
+NOA_INBOUND_AGENT = "agent_f86326fe9b9fd16233276ea951"
+NOA_LEADS = "on"
+
+# מי רשאי לקבל קוד כניסה לניהול בוואטסאפ (admin-login.html). פסיקים בין מספרים.
+ADMIN_PHONES = "972545764327"
+
 [[kv_namespaces]]
 binding = "RATE"
 id = "05a171c6b3cb46f2af7cc72b1ac19f14"
