@@ -739,36 +739,28 @@ async function handleShirWebhook(request, env) {
   return okJsonPlain({ ok: true });
 }
 
-async function handleShirDispatch(request, env, origin) {
-  if (Number(request.headers.get('Content-Length') || 0) > 65536) {
-    return deny(413, 'too-large', origin);
-  }
-  let body = {};
-  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-  if (!isAdmin(env, body.admin_key)) {
-    return deny(403, 'bad-admin-key', origin);
-  }
-  if (!env.RETELL_KEY || !env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
-
-  if (await sendingPaused(env)) return okJson({ ok: true, dialed: 0, paused: true }, origin);
+/* The dialling itself, with no HTTP around it, so the morning cron can run it.
+   Until this existed, every guest queued for a call sat there forever: the
+   only caller was an admin POST that nobody was making. */
+async function runShirDispatch(env, { max = 25, force = false } = {}) {
+  if (!env.RETELL_KEY || !env.SHIR_FROM) return { ok: false, why: 'not-configured' };
+  if (await sendingPaused(env)) return { ok: true, dialed: 0, paused: true };
   const win = callWindowState();
-  if (!win.open && !body.force) return okJson({ ok: true, dialed: 0, closed: win.why }, origin);
+  if (!win.open && !force) return { ok: true, dialed: 0, closed: win.why };
 
   const raw = await fetchSnapshot(env.HOOK_STATUS);
-  if (!raw) return deny(502, 'reader-failed', origin);
+  if (!raw) return { ok: false, why: 'reader-failed' };
   const { queue } = buildCallQueue(raw);
-
   const day = ilDate();
-  const cap = Math.min(Number(body.max) || 5, 25);
+  const cap = Math.min(Number(max) || 25, 25);
   const dialed = [];
+  let blocked = 0;
   for (const g of queue) {
     if (dialed.length >= cap) break;
-    if (!shouldDial(g, day)) continue; // capped, or the event already happened
-    /* "הסר" stops WhatsApp messages only. A guest who does not want messages
-       may still be perfectly happy to answer the phone, and confirming their
-       seat is the whole job. Only an explicit "לא להתקשר" stops the calls. */
-    if (env.RATE && await env.RATE.get('nocall:' + normPhone(g.phone))) continue;
-    /* one attempt per guest per day — the 3 tries live on separate days */
+    if (!shouldDial(g, day)) continue;
+    if (env.RATE && await env.RATE.get('nocall:' + normPhone(g.phone))) { blocked++; continue; }
+    if (env.RATE && await env.RATE.get('hold:' + g.token)) { blocked++; continue; }
+    if (await phoneBlocked(env, g.phone)) { blocked++; continue; }
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
@@ -778,12 +770,30 @@ async function handleShirDispatch(request, env, origin) {
     }).catch(() => null);
     if (r && (r.status === 200 || r.status === 201)) {
       await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
-      /* the pro upsell fires the day after a call round actually happened */
       await env.RATE.put('calldate:' + g.token, day, { expirationTtl: 60 * 86400 });
       dialed.push(g.guest_id);
     }
   }
-  return okJson({ ok: true, dialed: dialed.length, guests: dialed }, origin);
+  /* a queue that never empties is a silent failure: say so */
+  if (queue.length && !dialed.length && !blocked) {
+    await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`);
+  } else if (dialed.length) {
+    await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`);
+  }
+  return { ok: true, dialed: dialed.length, guests: dialed, queued: queue.length, blocked };
+}
+
+async function handleShirDispatch(request, env, origin) {
+  if (Number(request.headers.get('Content-Length') || 0) > 65536) {
+    return deny(413, 'too-large', origin);
+  }
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const res = await runShirDispatch(env, { max: body.max, force: !!body.force });
+  if (res.why === 'not-configured') return deny(503, 'shir-not-configured', origin);
+  if (res.why === 'reader-failed') return deny(502, 'reader-failed', origin);
+  return okJson(res, origin);
 }
 
 /* ══ WhatsApp inbound — the RSVP buttons land here ═══════════════════════════
@@ -1659,6 +1669,11 @@ async function runDailyEngine(env, dry, todayOverride) {
         }
       }
     }
+  }
+  if (!dry && env.RATE) {
+    await env.RATE.put('engine:lastrun',
+      JSON.stringify({ at: new Date().toISOString(), date: today, items: out.length }),
+      { expirationTtl: 30 * 86400 }).catch(() => {});
   }
   return { ok: true, date: today, events: out };
 }
@@ -2827,22 +2842,38 @@ export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
     /* the Tuesday reminder crons carry their own schedule string */
-    /* 04:00 UTC = 07:00 in Israel through the summer. Temporary: this exists
-       only until Shir's number is connected, and checkTelnyx goes quiet on
-       its own once that happens (telnyxdone). Remove the cron after. */
+    /* 04:00 UTC = 07:00 in Israel through the summer. Telnyx is done, so this
+       slot now carries the heartbeat: if the engine has not run in 30 hours,
+       say so, because a silent engine is the failure nobody notices. */
     if (String(event.cron || '').startsWith('0 4 ')) {
-      ctx.waitUntil(checkTelnyx(env).catch(() => {}));
+      ctx.waitUntil((async () => {
+        await checkTelnyx(env).catch(() => {});
+        if (!env.RATE) return;
+        const last = await env.RATE.get('engine:lastrun').catch(() => null);
+        const age = last ? (Date.now() - Date.parse(JSON.parse(last).at || 0)) / 36e5 : 999;
+        if (age > 30) {
+          await alert(env, 'המנוע היומי',
+            last ? `לא רץ כבר ${Math.round(age)} שעות` : 'אין תיעוד שרץ אי פעם', '');
+        }
+      })().catch(() => {}));
       return;
     }
+
     if (String(event.cron || '').startsWith('0 9,10,16')) {
       const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
       ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
       return;
     }
     ctx.waitUntil(syncCallCosts(env).catch(() => {}));
+    /* Shir dials right after the morning engine. A separate cron would be
+       better (three rounds across the day) but the free plan caps us at five,
+       so one round a morning it is, and the admin route covers extra rounds. */
+    ctx.waitUntil(runShirDispatch(env).catch(e =>
+      alert(env, 'חיוג', 'סבב החיוג נפל', String(e && e.message))));
     ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
-    }).then(() => {
+    }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
+      String((e && e.stack) || e).slice(0, 500))).then(() => {
       /* Monday morning: the weekly message-performance digest into Slack */
       const dow = new Date(ilDate() + 'T12:00:00Z').getUTCDay();
       if (dow === 1) return msgPerformanceDigest(env).catch(() => {});
