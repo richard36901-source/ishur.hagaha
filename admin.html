@@ -35,23 +35,49 @@
   .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
   .wrap{max-width:min(96vw,1360px);margin:0 auto;padding:0 .9rem}
 
-  /* transcript sheet: floats above the table, so nothing reflows */
-  .sheet-bg{position:fixed;inset:0;background:rgba(15,46,34,.35);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .25s ease;z-index:40}
-  .sheet-bg.on{opacity:1;pointer-events:auto}
-  .sheet{position:fixed;top:0;bottom:0;right:0;width:min(440px,92vw);background:var(--card);border-inline-start:1px solid var(--line);box-shadow:-18px 0 50px rgba(15,46,34,.18);transform:translateX(102%);transition:transform .32s cubic-bezier(.32,.72,.28,1);z-index:41;display:flex;flex-direction:column}
-  .sheet.on{transform:none}
-  .sheet-h{display:flex;justify-content:space-between;align-items:center;padding:.9rem 1.1rem;border-bottom:1px solid var(--line)}
+  /* transcript modal: centred over the board. It used to slide in from the
+     side, which meant reading a whole conversation through a 440px slot. In
+     the middle of the screen it gets the line length a transcript needs. */
+  .sheet-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);backdrop-filter:blur(3px);
+            display:flex;align-items:center;justify-content:center;padding:1.5rem 1rem;z-index:70;
+            opacity:0;visibility:hidden;pointer-events:none;
+            transition:opacity .22s ease,visibility 0s linear .22s}
+  .sheet-bg.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .22s ease,visibility 0s}
+  .sheet{position:relative;width:100%;max-width:680px;max-height:80vh;background:var(--card);
+         border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(15,46,34,.34);
+         display:flex;flex-direction:column;overflow:hidden;
+         opacity:0;transform:translateY(12px) scale(.985);
+         transition:opacity .22s ease,transform .22s cubic-bezier(.32,.72,.28,1)}
+  .sheet.on{opacity:1;transform:none}
+  .sheet-h{flex:none;display:flex;justify-content:space-between;align-items:center;gap:.6rem;
+           padding:.9rem 1.1rem;border-bottom:1px solid var(--line)}
   .sheet-h b{font-family:'Frank Ruhl Libre',serif;color:var(--pine)}
-  .sheet-x{border:none;background:var(--bg);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;color:var(--ink2)}
+  .sheet-x{border:none;background:var(--bg);width:32px;height:32px;border-radius:50%;font-size:1rem;
+           cursor:pointer;color:var(--ink2);flex:none}
+  .sheet-x:focus-visible,.sheet-f .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  /* one scrolling region between a fixed head and a fixed foot, so the modal
+     never grows a second scrollbar inside itself */
+  .sheet-scroll{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}
+  .sheet-f{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.75rem;
+           padding:.7rem 1.1rem;border-top:1px solid var(--line);background:var(--card)}
+  .sheet-f audio{height:32px;max-width:min(360px,58%)}
   .sheet-meta{font-size:.72rem;color:var(--ink3);padding:.6rem 1.1rem;border-bottom:1px solid var(--line)}
-  .sheet-body{flex:1;overflow:auto;padding:1rem 1.1rem;font-size:.82rem;line-height:1.8;white-space:pre-wrap;color:var(--ink2)}
+  .sheet-body{padding:1rem 1.1rem;font-size:.82rem;line-height:1.8;white-space:pre-wrap;color:var(--ink2)}
   /* the headline facts, above the transcript: what the call actually produced */
-  .sheet-sum{flex:none;max-height:45vh;overflow:auto;padding:.75rem 1.1rem;border-bottom:1px solid var(--line);font-size:.8rem;color:var(--ink2);line-height:1.7}
+  .sheet-sum{padding:.75rem 1.1rem;border-bottom:1px solid var(--line);font-size:.8rem;color:var(--ink2);line-height:1.7}
   .sheet-sum .sum-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.35rem}
   .sheet-sum .sum-b{display:inline-flex;gap:.3rem;align-items:center}
   .sheet-sum .sum-k{font-size:.68rem;color:var(--ink3)}
   .sheet-sum p{margin:.4rem 0 0}
   .sheet-sum p b{color:var(--ink);font-weight:600}
+  /* on a phone it is all but the whole screen, with just enough margin to read
+     as a sheet floating over the board rather than a new page */
+  @media (max-width:640px){
+    .sheet-bg{padding:.6rem}
+    .sheet{max-height:92vh;border-radius:14px}
+    .sheet-f{flex-wrap:wrap}
+    .sheet-f audio{max-width:100%;width:100%}
+  }
   @media (prefers-reduced-motion:reduce){.sheet,.sheet-bg{transition:none}}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin:1rem 0}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .5rem;text-align:center}
@@ -204,6 +230,10 @@
   /* the live-calls tile beats while someone is actually on the phone */
   .kpi.beat{border-color:rgba(168,64,47,.45)}
   .kpi.beat b{color:var(--warn);animation:kpiBeat 1.6s ease-in-out infinite}
+  /* night mode paints every .kpi b green and that rule outranks a plain
+     .kpi.beat b, so the red has to be claimed back explicitly */
+  html[data-theme=dark] .kpi.beat{border-color:rgba(240,138,138,.45)}
+  html[data-theme=dark] .kpi.beat b{color:var(--warn)}
   @keyframes kpiBeat{0%,100%{opacity:1}50%{opacity:.4}}
 
   /* a row that arrived on the last refresh, fading back to normal.
@@ -214,10 +244,123 @@
   html[data-theme=dark] #shirRows tr.fresh td{animation:freshFadeD 5s ease-out forwards}
   @keyframes freshFadeD{0%{background:rgba(199,174,122,.24)}100%{background:transparent}}
 
+  /* ══ סקשנים מתקפלים ═══════════════════════════════════════════════════════
+     The long tables grow without a ceiling and used to stretch the page with
+     them. Each one now folds away and, when open, scrolls inside a fixed box
+     instead of pushing everything below it down. The row count lives in the
+     header on purpose: reading the state is the thing you do without opening.
+     ─────────────────────────────────────────────────────────────────────── */
+  h2.fold-h{display:flex;align-items:center;gap:.6rem}
+  .fold-btn{display:flex;align-items:center;gap:.5rem;flex:1;min-width:0;font:inherit;
+            color:inherit;background:none;border:none;padding:0;cursor:pointer;
+            text-align:start;-webkit-tap-highlight-color:transparent}
+  /* the global press-scale would wobble a full-width header, and the row of
+     buttons next to it needs a real focus ring for keyboard use */
+  .fold-btn:not(:disabled):active{transform:none}
+  .fold-btn:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+  .fold-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .fold-sp{flex:1}
+  .fold-chev{flex:none;color:var(--gold);transition:transform .2s ease}
+  .fold-btn[aria-expanded=true] .fold-chev{transform:rotate(-90deg)}
+  .fold-n{flex:none;font-family:'Heebo',system-ui,sans-serif;font-size:.7rem;font-weight:600;
+          color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:99px;
+          padding:.06rem .5rem;font-variant-numeric:tabular-nums;line-height:1.5}
+  .fold-new{flex:none;font-family:'Heebo',system-ui,sans-serif;font-size:.62rem;font-weight:700;
+            border-radius:99px;padding:.05rem .45rem;line-height:1.6;background:rgba(168,64,47,.13);
+            color:var(--warn);border:1px solid rgba(168,64,47,.35)}
+  html[data-theme=dark] .fold-new{background:rgba(240,138,138,.12);border-color:rgba(240,138,138,.4)}
+  .fold-new[hidden]{display:none}
+  .fold[hidden]{display:none}
+  .fold{animation:foldIn .18s ease}
+  @keyframes foldIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:none}}
+
+  /* open: a box of its own that scrolls both ways, so the page stops growing */
+  .tblwrap.tall{max-height:min(60vh,420px);overflow:auto}
+  @media (max-width:640px){
+    .tblwrap.tall{max-height:50vh}
+    .fold-t{white-space:normal;font-size:.92rem}
+  }
+  /* border-collapse drops the border on a sticky cell, so the rule under the
+     column names has to be a shadow instead */
+  .tblwrap.tall thead th{position:sticky;top:0;z-index:2;background:var(--card);
+                         box-shadow:inset 0 -1px 0 var(--gold-pale)}
+
+  /* ══ נגן ההקלטה ═══════════════════════════════════════════════════════════
+     One <audio> for the whole page, not one per row: only a single recording
+     plays at a time by design, and a table of 300 calls must not carry 300
+     media elements. Every row gets a shell; the shell that is playing is the
+     one bound to the element.
+     ─────────────────────────────────────────────────────────────────────── */
+  .ply{display:inline-flex;align-items:center;gap:.4rem;min-width:186px;background:var(--bg);
+       border:1px solid var(--line);border-radius:99px;padding:.16rem .42rem;outline:none}
+  .ply:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .ply.on{border-color:var(--gold-soft);background:var(--card)}
+  /* background-color, not the background shorthand: a transition on the
+     shorthand swallows a later shorthand override that resolves through var(),
+     and the night-mode green never lands on the button. */
+  .ply-play{flex:none;width:24px;height:24px;border-radius:50%;border:none;cursor:pointer;padding:0;
+            background-color:var(--pine);color:var(--paper);display:flex;align-items:center;
+            justify-content:center;transition:background-color .15s ease}
+  html[data-theme=dark] .ply-play{background-color:var(--ok);color:#0B1712}
+  .ply-play svg{width:10px;height:10px;display:block}
+  .ply-seek{flex:1;min-width:46px;height:16px;display:flex;align-items:center;cursor:pointer;touch-action:none}
+  .ply-track{width:100%;height:4px;border-radius:99px;background:var(--line);overflow:hidden}
+  .ply-fill{display:block;height:100%;width:0;background:var(--gold);border-radius:99px;transition:width .08s linear}
+  .ply-time{flex:none;font-size:.66rem;color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ply-volwrap{display:none;align-items:center;gap:.2rem}
+  .ply.on .ply-volwrap{display:flex}
+  .ply-volwrap input[type=range]{width:58px;accent-color:var(--gold)}
+  /* a recording that does not exist gets an honest disabled state, not a
+     player that looks fine and then does nothing */
+  .ply-off{display:inline-flex;align-items:center;gap:.3rem;font-size:.66rem;color:var(--ink3);
+           border:1px dashed var(--line);border-radius:99px;padding:.14rem .55rem;white-space:nowrap}
+
+  /* ── the row menu, the row picker and the bulk bar ── */
+  .rowmenu{flex:none;border:1px solid var(--line);background:var(--bg);color:var(--ink2);width:26px;height:26px;
+           border-radius:8px;cursor:pointer;font-size:.85rem;line-height:1;padding:0}
+  .rowmenu:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .menu{position:absolute;z-index:75;min-width:13rem;background:var(--card);border:1px solid var(--line);
+        border-radius:12px;box-shadow:0 14px 40px rgba(15,46,34,.24);padding:.3rem}
+  .menu[hidden]{display:none}
+  .menu button{display:flex;align-items:center;gap:.5rem;width:100%;text-align:start;font:inherit;font-size:.78rem;
+               color:var(--ink2);background:none;border:none;border-radius:8px;padding:.45rem .6rem;cursor:pointer}
+  .menu button:hover,.menu button:focus-visible{background:var(--bg);color:var(--ink);outline:none}
+  .menu button:disabled{opacity:.42;cursor:default}
+  .c-sel{width:2.1rem}
+  #shirRows td input[type=checkbox],.c-sel input[type=checkbox]{width:15px;height:15px;accent-color:var(--pine);cursor:pointer}
+  html[data-theme=dark] #shirRows td input[type=checkbox],
+  html[data-theme=dark] .c-sel input[type=checkbox]{accent-color:var(--ok)}
+  #shirRows tr.picked td{background:rgba(168,133,60,.1)}
+  html[data-theme=dark] #shirRows tr.picked td{background:rgba(199,174,122,.1)}
+  .selbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;font-size:.8rem;
+          color:var(--ink2);background:var(--card);border:1px solid var(--gold-soft);border-radius:12px;
+          padding:.55rem .8rem;margin:0 0 .6rem}
+  .selbar[hidden]{display:none}
+  .selbar b{color:var(--ink)}
+  .selbar-note{font-size:.7rem;color:var(--ink3);flex-basis:100%}
+  .callmsg{font-size:.78rem;color:var(--ink2);margin:0 0 .6rem;padding:.45rem .75rem;border-radius:10px;
+           background:var(--card);border:1px solid var(--line)}
+  .callmsg[hidden]{display:none}
+  .callmsg.bad{color:var(--warn);background:rgba(168,64,47,.08);border-color:rgba(168,64,47,.35)}
+  html[data-theme=dark] .callmsg.bad{background:rgba(240,138,138,.1);border-color:rgba(240,138,138,.4)}
+  /* what kind of call this was: the same number can be both a guest and a lead */
+  .kindf{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center}
+  .kindf button[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:var(--paper)}
+  html[data-theme=dark] .kindf button[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#0B1712}
+  .kind{display:inline-block;font-size:.62rem;font-weight:700;border-radius:99px;padding:.05rem .45rem;
+        white-space:nowrap;border:1px solid var(--line);color:var(--ink3);background:var(--bg)}
+  .kind-guest{border-color:rgba(15,76,53,.3);color:var(--ok);background:rgba(15,76,53,.08)}
+  .kind-lead{border-color:rgba(168,133,60,.42);color:#8A6B25;background:rgba(168,133,60,.12)}
+  html[data-theme=dark] .kind-lead{color:var(--gold);border-color:rgba(199,174,122,.42)}
+  .kind-inbound{border-color:rgba(199,174,122,.45);color:var(--gold);background:transparent}
+
   /* blinking is physically unpleasant for some people, and none of this is
      load-bearing enough to keep when the system asks for less motion: the dot
      stays lit, and a new row gets a flat tint that JS clears on schedule */
   @media (prefers-reduced-motion:reduce){
+    .fold{animation:none}
+    .fold-chev{transition:none}
+    .ply-fill,.ply-play{transition:none}
     .live-dot{animation:none;box-shadow:none}
     .dotlive{animation:none;opacity:1;transform:none}
     .kpi.beat b{animation:none}
@@ -321,18 +464,29 @@
 
   <div class="meta"><span id="gen"></span><button id="refresh">רענון</button></div>
 
-  <h2>אירועים</h2>
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-events" aria-expanded="false" aria-controls="fold-events">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">אירועים</span>
+      <span class="fold-n" id="fn-events">–</span>
+      <span class="fold-new" id="fnew-events" hidden>חדש</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <!-- the invoice alarm stays outside the fold: a closed section must not hide it -->
   <p id="invNotice" style="display:none;background:rgba(168,64,47,.08);border:1px solid rgba(168,64,47,.35);border-radius:10px;padding:.5rem .8rem;font-size:.8rem;color:#A8402F;font-weight:600;margin:0 0 .6rem"></p>
-  <div class="tblwrap">
-    <table id="tbl">
-      <thead><tr>
-        <th>אירוע</th><th>הקפאה</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>עלות ₪</th><th>רווח ₪</th><th>חשבונית</th><th>קובץ</th>
-        <th>אורחים</th><th>אישרו</th><th>סועדים</th><th>ממתינים</th><th>לשיחה</th>
-      </tr></thead>
-      <tbody id="rows"></tbody>
-    </table>
+  <div class="fold" id="fold-events" hidden>
+    <div class="tblwrap tall">
+      <table id="tbl">
+        <thead><tr>
+          <th>אירוע</th><th>הקפאה</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>עלות ₪</th><th>רווח ₪</th><th>חשבונית</th><th>קובץ</th>
+          <th>אורחים</th><th>אישרו</th><th>סועדים</th><th>ממתינים</th><th>לשיחה</th>
+        </tr></thead>
+        <tbody id="rows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
   </div>
-  <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
 
   <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <span>נועה · מענה AI</span>
@@ -340,7 +494,17 @@
     <button id="aiTog" class="sw" role="switch" aria-checked="false" aria-label="מענה AI של נועה" disabled><i></i></button></span>
   </h2>
 
-  <h2>שיר · שיחות</h2>
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-calls" aria-expanded="true" aria-controls="fold-calls">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">שיר · שיחות</span>
+      <span class="fold-n" id="fn-calls">–</span>
+      <span class="fold-new" id="fnew-calls" hidden>חדש</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <!-- the tiles and the review bar sit outside the fold: they are the summary
+       he scans, and folding the table away should not take them with it -->
   <div class="kpis">
     <div class="kpi" id="s-live-t"><b id="s-live">–</b><span>שיחות פעילות כרגע</span></div>
     <div class="kpi"><b id="s-count">–</b><span>שיחות אחרונות</span></div>
@@ -353,15 +517,36 @@
     <span id="revTxt">טוען…</span>
     <button type="button" class="btn" id="revTog" aria-pressed="false" disabled>הצג רק שיחות לבדיקה</button>
   </div>
-  <div class="tblwrap">
-    <table>
-      <thead><tr>
-        <th></th><th>שעה</th><th>אל</th><th>סטטוס</th><th>תוצאה</th><th>כמות</th><th>איכות</th><th>משך</th><th>עלות $</th><th>סיום</th><th>הקלטה</th><th>תמלול</th>
-      </tr></thead>
-      <tbody id="shirRows"></tbody>
-    </table>
+  <!-- the same number can be a guest on one call and a lead on the next -->
+  <div class="revbar kindf" id="kindBar" role="group" aria-label="סינון לפי סוג שיחה">
+    <span style="color:var(--ink3);font-size:.74rem">סוג שיחה:</span>
+    <button type="button" class="btn" data-kind="all" aria-pressed="true">הכל</button>
+    <button type="button" class="btn" data-kind="guest" aria-pressed="false">אורחים</button>
+    <button type="button" class="btn" data-kind="lead" aria-pressed="false">לידים</button>
+    <button type="button" class="btn" data-kind="inbound" aria-pressed="false">נכנסות</button>
   </div>
-  <p class="empty" id="shirEmpty" hidden>עוד לא היו שיחות. ברגע ששיר תתחיל לחייג — הכל יופיע כאן: משך, עלות, הקלטה ותמלול מלא.</p>
+  <div class="selbar" id="selBar" hidden>
+    <span><b id="selCount">0</b> שיחות מסומנות</span>
+    <span style="display:flex;gap:.4rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-ok" id="selDl">הורדת ההקלטות</button>
+      <button type="button" class="btn" id="selCancel" hidden>ביטול ההורדה</button>
+      <button type="button" class="btn" id="selClear">ניקוי הבחירה</button>
+    </span>
+    <span class="selbar-note">"בחירת הכל" מסמנת רק את השורות המוצגות כרגע, אחרי הסינון. שיחה בלי הקלטה תדולג.</span>
+  </div>
+  <p class="callmsg" id="callMsg" hidden aria-live="polite"></p>
+  <div class="fold" id="fold-calls">
+    <div class="tblwrap tall">
+      <table>
+        <thead><tr>
+          <th class="c-sel"><input type="checkbox" id="selAll" aria-label="בחירת כל השיחות המוצגות"></th>
+          <th></th><th>שעה</th><th>אל</th><th>סוג</th><th>סטטוס</th><th>תוצאה</th><th>כמות</th><th>איכות</th><th>משך</th><th>עלות $</th><th>סיום</th><th>הקלטה</th><th>תמלול</th><th></th>
+        </tr></thead>
+        <tbody id="shirRows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="shirEmpty" hidden>עוד לא היו שיחות. ברגע ששיר תתחיל לחייג — הכל יופיע כאן: משך, עלות, הקלטה ותמלול מלא.</p>
+  </div>
 
   <h2>כספים · רווח והפסד</h2>
   <div class="meta">
@@ -404,14 +589,24 @@
     </table>
   </div>
 
-  <h2>חבילות · מה נמכר</h2>
-  <div class="tblwrap">
-    <table>
-      <thead><tr><th>#</th><th>חבילה</th><th>נמכרו</th><th>הכנסות ₪</th><th>ממוצע ₪</th></tr></thead>
-      <tbody id="planRows"></tbody>
-    </table>
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-plans" aria-expanded="false" aria-controls="fold-plans">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">חבילות · מה נמכר</span>
+      <span class="fold-n" id="fn-plans">–</span>
+      <span class="fold-new" id="fnew-plans" hidden>חדש</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <div class="fold" id="fold-plans" hidden>
+    <div class="tblwrap tall">
+      <table>
+        <thead><tr><th>#</th><th>חבילה</th><th>נמכרו</th><th>הכנסות ₪</th><th>ממוצע ₪</th></tr></thead>
+        <tbody id="planRows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="planEmpty" hidden>עוד אין מכירות לניתוח חבילות.</p>
   </div>
-  <p class="empty" id="planEmpty" hidden>עוד אין מכירות לניתוח חבילות.</p>
 
   <h2>הוצאות קבועות חודשיות</h2>
   <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin-bottom:1rem">
@@ -427,29 +622,48 @@
     </div>
   </div>
 
-  <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
-    <span>דוח עלויות מפורט</span>
-    <span>
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-cost" aria-expanded="false" aria-controls="fold-cost">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">דוח עלויות מפורט</span>
+      <span class="fold-n" id="fn-cost">–</span>
+      <span class="fold-new" id="fnew-cost" hidden>חדש</span>
+      <span class="fold-sp"></span>
+    </button>
+    <!-- the exports are siblings of the header button, never nested inside it -->
+    <span style="flex:none">
       <button class="rng" id="csvDays">CSV ימי</button>
       <button class="rng" id="csvEvents">CSV אירועים</button>
     </span>
   </h2>
-  <div class="tblwrap">
-    <table>
-      <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th></tr></thead>
-      <tbody id="costRows"></tbody>
-    </table>
+  <div class="fold" id="fold-cost" hidden>
+    <div class="tblwrap tall">
+      <table>
+        <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th></tr></thead>
+        <tbody id="costRows"></tbody>
+      </table>
+    </div>
+    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">עלות פר-אירוע נספרת מ-30.8.26 (שליחות ושיחות מוקדמות יותר לא שויכו לאירוע). המרה: ‎$1 = ₪3.7</p>
   </div>
-  <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">עלות פר-אירוע נספרת מ-30.8.26 (שליחות ושיחות מוקדמות יותר לא שויכו לאירוע). המרה: ‎$1 = ₪3.7</p>
 
-  <h2>מאיפה מגיעים הלידים</h2>
-  <div class="tblwrap">
-    <table>
-      <thead><tr><th>מקור</th><th>לידים</th><th>%</th></tr></thead>
-      <tbody id="utmRows"></tbody>
-    </table>
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-utm" aria-expanded="false" aria-controls="fold-utm">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">מאיפה מגיעים הלידים</span>
+      <span class="fold-n" id="fn-utm">–</span>
+      <span class="fold-new" id="fnew-utm" hidden>חדש</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <div class="fold" id="fold-utm" hidden>
+    <div class="tblwrap tall">
+      <table>
+        <thead><tr><th>מקור</th><th>לידים</th><th>%</th></tr></thead>
+        <tbody id="utmRows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="utmEmpty" hidden>עוד אין לידים לניתוח מקורות.</p>
   </div>
-  <p class="empty" id="utmEmpty" hidden>עוד אין לידים לניתוח מקורות.</p>
 
   <p class="foot"><a href="inbox.html">→ לאינבוקס</a> · <a href="calls.html">→ למוקד השיחות</a> · הנתונים נקראים ישירות מהגיליון</p>
 </main>
@@ -465,13 +679,31 @@
   </div>
 </div>
 
-<div class="sheet-bg" id="sheetBg"></div>
-<aside class="sheet" id="sheet" role="dialog" aria-label="תמלול שיחה">
-  <div class="sheet-h"><b>תמלול השיחה</b><button class="sheet-x" id="sheetX" aria-label="סגירה">✕</button></div>
-  <div class="sheet-meta" id="sheetMeta"></div>
-  <div class="sheet-sum" id="sheetSum" hidden></div>
-  <div class="sheet-body" id="sheetBody"></div>
-</aside>
+<!-- one menu element, moved to whichever row asked for it -->
+<div class="menu" id="rowMenu" role="menu" hidden>
+  <button type="button" role="menuitem" data-act="download">הורדת ההקלטה</button>
+  <button type="button" role="menuitem" data-act="transcript">פתיחת התמלול</button>
+  <button type="button" role="menuitem" data-act="copyid">העתקת מזהה השיחה</button>
+</div>
+
+<div class="sheet-bg" id="sheetBg">
+  <div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="sheet-h">
+      <b id="sheetTitle">תמלול השיחה</b>
+      <button type="button" class="sheet-x" id="sheetX" aria-label="סגירה">✕</button>
+    </div>
+    <!-- head and foot are pinned; only this middle strip moves -->
+    <div class="sheet-scroll" id="sheetScroll">
+      <div class="sheet-meta" id="sheetMeta"></div>
+      <div class="sheet-sum" id="sheetSum" hidden></div>
+      <div class="sheet-body" id="sheetBody"></div>
+    </div>
+    <div class="sheet-f">
+      <span id="sheetAudio"></span>
+      <button type="button" class="btn" id="sheetClose">סגירה</button>
+    </div>
+  </div>
+</div>
 
 <script>
 (function () {
@@ -488,6 +720,86 @@
     var p = String(iso).split('-');
     return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0].slice(2) : iso;
   }
+
+  /* ══ סקשנים מתקפלים ═══════════════════════════════════════════════════════
+     The long tables used to stretch the page until it had no end. Each one now
+     folds, and when it is open it scrolls inside its own box. The header keeps
+     the row count either way, because the reason to close a section is to read
+     its number without wading through it.
+     ─────────────────────────────────────────────────────────────────────── */
+  var FOLD_KEY = 'ishur_admin_folds';
+  var FOLDS = [
+    { key: 'events', tbody: 'rows' },
+    { key: 'calls',  tbody: 'shirRows' },
+    { key: 'plans',  tbody: 'planRows' },
+    { key: 'cost',   tbody: 'costRows' },
+    { key: 'utm',    tbody: 'utmRows' }
+  ];
+  /* first visit: the calls are what he actually watches, the rest keep quiet.
+     These must match the hidden/aria-expanded already in the markup. */
+  var foldOpen = { events: false, calls: true, plans: false, cost: false, utm: false };
+  var foldCount = {};   /* the last count we showed, to notice a closed table growing */
+  var foldQuiet = false;   /* a re-render the user asked for, not fresh data */
+
+  (function loadFolds() {
+    try {
+      var raw = localStorage.getItem(FOLD_KEY);
+      if (!raw) return;
+      var saved = JSON.parse(raw);
+      if (!saved || typeof saved !== 'object') return;
+      FOLDS.forEach(function (f) {
+        if (typeof saved[f.key] === 'boolean') foldOpen[f.key] = saved[f.key];
+      });
+    } catch (e) {}
+  })();
+
+  function saveFolds() {
+    try { localStorage.setItem(FOLD_KEY, JSON.stringify(foldOpen)); } catch (e) {}
+  }
+
+  function paintFold(key) {
+    var btn = $('fb-' + key), body = $('fold-' + key);
+    if (!btn || !body) return;
+    var on = !!foldOpen[key];
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+    body.hidden = !on;
+    /* an open section is being read, so the "there is something new" mark
+       has done its job and goes away */
+    if (on) { var n = $('fnew-' + key); if (n) n.hidden = true; }
+  }
+
+  function foldNew(key) {
+    if (foldOpen[key]) return;      /* it is open, he can already see it */
+    var el = $('fnew-' + key);
+    if (el) el.hidden = false;
+  }
+
+  /* every render ends here, open or closed, so a folded table still counts */
+  function syncFolds() {
+    FOLDS.forEach(function (f) {
+      var tb = $(f.tbody);
+      if (!tb) return;
+      var n = tb.children.length;
+      var label = $('fn-' + f.key);
+      if (label) label.textContent = String(n);
+      if (!foldQuiet && foldCount[f.key] != null && n > foldCount[f.key]) foldNew(f.key);
+      /* an empty table is "not loaded yet", never a baseline: otherwise the
+         first batch of rows would read as new arrivals */
+      if (n > 0) foldCount[f.key] = n;
+    });
+  }
+
+  FOLDS.forEach(function (f) {
+    paintFold(f.key);
+    var btn = $('fb-' + f.key);
+    if (!btn) return;
+    /* a real <button>, so Enter and Space come for free */
+    btn.addEventListener('click', function () {
+      foldOpen[f.key] = !foldOpen[f.key];
+      paintFold(f.key);
+      saveFolds();
+    });
+  });
 
   /* ══ לוח חי ═══════════════════════════════════════════════════════════════
      The board pulls itself, so Richard never has to hit refresh to see what is
@@ -532,7 +844,7 @@
   function eventId(e) { return e && e.token ? String(e.token) : ''; }
   function callId(c) { return c && c.id ? String(c.id) : ''; }
 
-  function noteNew(prevSeen, list, idOf, store) {
+  function noteNew(prevSeen, list, idOf, store, foldKey) {
     var now = Date.now(), seen = {}, added = false;
     (list || []).forEach(function (x) {
       var id = idOf(x);
@@ -542,6 +854,10 @@
       if (prevSeen && !prevSeen[id]) { store[id] = now + FRESH_MS; added = true; }
     });
     Object.keys(store).forEach(function (k) { if (store[k] <= now) delete store[k]; });
+    /* by id, so a capped list that swaps a row still reports the arrival.
+       A closed section gets the mark and stays closed: opening itself under
+       his hands is exactly what he asked the page to stop doing. */
+    if (added && foldKey) foldNew(foldKey);
     /* one repaint after the window closes, so the reduced-motion tint clears */
     if (added && !freshTimer) {
       freshTimer = setTimeout(function () {
@@ -590,10 +906,10 @@
       var tag = (a.tagName || '').toLowerCase();
       if (tag === 'input' || tag === 'textarea' || tag === 'select' || a.isContentEditable) return 'field';
     }
-    /* pulling the table out from under a recording he is listening to would
-       stop the audio mid-sentence */
-    var au = document.querySelectorAll('#shirRows audio');
-    for (var i = 0; i < au.length; i++) if (!au[i].paused) return 'audio';
+    /* rebuilding the table under a recording he is listening to would cut the
+       audio mid-sentence. There is exactly one <audio> on the page now, so this
+       covers the row players and the modal alike. */
+    if (audioEl && !audioEl.paused && !audioEl.ended) return 'audio';
     return '';
   }
 
@@ -674,7 +990,7 @@
       $('k-calls').textContent = d.guests.awaiting_call;
       $('gen').textContent = 'נתוני הגיליון: ' + new Date(d.generated_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
 
-      seenEvents = noteNew(seenEvents, d.events || [], eventId, freshEvents);
+      seenEvents = noteNew(seenEvents, d.events || [], eventId, freshEvents, 'events');
       bizEvents = d.events || [];
       renderEventsTable();
       renderPlans();
@@ -699,6 +1015,7 @@
   function renderEventsTable() {
     var rows = $('rows');
     keepScroll(rows, function () { paintEventsTable(rows); });
+    syncFolds();
   }
 
   function paintEventsTable(rows) {
@@ -759,6 +1076,7 @@
       return '<tr><td>' + (i + 1) + '</td><td>' + r.plan + '</td><td>' + r.n + '</td><td>' +
         r.rev.toLocaleString('he-IL') + '</td><td>' + Math.round(r.rev / r.n).toLocaleString('he-IL') + '</td></tr>';
     }).join('');
+    syncFolds();
   }
 
   /* ── cost log + CSV ── */
@@ -780,6 +1098,7 @@
               '</td><td>' + (r.shir_cost_usd_cents / 100 * USD_ILS).toFixed(2) + '</td></tr>';
           }).join('');
         });
+        syncFolds();
         renderEventsTable();
         liveOk();
       }).catch(function () {});
@@ -1215,6 +1534,7 @@
           tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td>';
           rows.appendChild(tr);
         });
+        syncFolds();
       }).catch(function () {});
   }
 
@@ -1430,16 +1750,81 @@
     box.hidden = !html;
 
     $('sheetBody').textContent = call.transcript || 'אין תמלול לשיחה הזאת.';
+
+    /* the recording belongs next to the words, not only back in the table.
+       Same shell as a row, bound to the same single <audio> element. */
+    $('sheetAudio').innerHTML = plyShell(call);
+
+    sheetPrev = document.activeElement;   /* the row button that opened this */
+    lockBodyScroll();
+    $('sheetScroll').scrollTop = 0;
     $('sheet').classList.add('on'); $('sheetBg').classList.add('on');
+    $('sheetX').focus();
   }
+
   function closeSheet() {
     if (!$('sheet').classList.contains('on')) return;
     $('sheet').classList.remove('on'); $('sheetBg').classList.remove('on');
+    /* a recording still running behind a closed modal would be a small
+       horror, but a row that was already playing is left alone */
+    if (activePly && $('sheet').contains(activePly)) stopPlayback();
+    $('sheetAudio').innerHTML = '';
+    unlockBodyScroll();
+    if (sheetPrev && sheetPrev.focus) { try { sheetPrev.focus(); } catch (e) {} }
+    sheetPrev = null;
     setTimeout(liveResume, 0);
   }
+
+  /* ── the modal's manners: no background scroll, no focus escaping ── */
+  var sheetPrev = null, sheetLockY = 0, sheetPrevBodyOv = '', sheetPrevHtmlOv = '';
+
+  function lockBodyScroll() {
+    sheetLockY = window.pageYOffset || document.documentElement.scrollTop || 0;
+    sheetPrevBodyOv = document.body.style.overflow;
+    sheetPrevHtmlOv = document.documentElement.style.overflow;
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+  }
+  function unlockBodyScroll() {
+    document.body.style.overflow = sheetPrevBodyOv;
+    document.documentElement.style.overflow = sheetPrevHtmlOv;
+    /* locking can nudge the page; put him back exactly where he was reading */
+    var y = window.pageYOffset || document.documentElement.scrollTop || 0;
+    if (y !== sheetLockY) window.scrollTo(0, sheetLockY);
+  }
+
+  function sheetFocusables() {
+    var all = $('sheet').querySelectorAll(
+      'button, [href], input, select, textarea, audio[controls], [tabindex]:not([tabindex="-1"])');
+    return Array.prototype.filter.call(all, function (el) {
+      if (el.disabled) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 0 || r.height > 0;
+    });
+  }
+
   $('sheetX').addEventListener('click', closeSheet);
-  $('sheetBg').addEventListener('click', closeSheet);
-  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(); });
+  $('sheetClose').addEventListener('click', closeSheet);
+  /* the backdrop closes only when the press and the release both land on it,
+     so dragging a selection out of the transcript does not shut the modal */
+  var sheetDownOnBg = false;
+  $('sheetBg').addEventListener('mousedown', function (e) { sheetDownOnBg = (e.target === $('sheetBg')); });
+  $('sheetBg').addEventListener('click', function (e) {
+    if (sheetDownOnBg && e.target === $('sheetBg')) closeSheet();
+    sheetDownOnBg = false;
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (!$('sheet').classList.contains('on')) return;
+    if (e.key === 'Escape') { closeSheet(); return; }
+    if (e.key !== 'Tab') return;
+    var f = sheetFocusables();
+    if (!f.length) { e.preventDefault(); return; }
+    var first = f[0], last = f[f.length - 1];
+    if (f.indexOf(document.activeElement) === -1) { e.preventDefault(); first.focus(); return; }
+    if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
 
   function fmtDur(s) {
     if (s == null) return '—';
@@ -1495,6 +1880,7 @@
 
   var shirCalls = [];
   var shirOnlyReview = false;
+  var SHIR_EMPTY_TXT = $('shirEmpty').textContent;
 
   /* Retell's call_status, straight through from the worker. "ongoing" is a call
      in the middle of talking, "registered" is one already placed and still
@@ -1505,12 +1891,337 @@
     return s === 'ongoing' || s === 'registered';
   }
 
+  /* ══ נגן ההקלטה ═══════════════════════════════════════════════════════════
+     One <audio> for the page. Rows carry a shell; the shell that is playing is
+     bound to the element and gets the volume control moved into it. Starting
+     one recording therefore stops the one before it, which is the behaviour
+     asked for and also the only sane thing in a table this long.
+     ─────────────────────────────────────────────────────────────────────── */
+  var SVG_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 3.6v16.8L21 12z"/></svg>';
+  var SVG_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4.2v16H6zM13.8 4H18v16h-4.2z"/></svg>';
+  var audioEl = null, activePly = null, volNode = null;
+
+  function fmtClock(s) {
+    var n = Number(s);
+    if (!isFinite(n) || n < 0) return '0:00';
+    n = Math.floor(n);
+    return Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0');
+  }
+
+  function callById(id) {
+    for (var i = 0; i < shirCalls.length; i++) if (String(shirCalls[i].id) === String(id)) return shirCalls[i];
+    return null;
+  }
+
+  function buildVolume() {
+    if (volNode) return volNode;
+    volNode = document.createElement('span');
+    volNode.className = 'ply-volnode';
+    volNode.style.cssText = 'display:inline-flex;align-items:center;gap:.2rem';
+    volNode.innerHTML = '<span aria-hidden="true" style="font-size:.7rem;color:var(--ink3)">🔈</span>';
+    var r = document.createElement('input');
+    r.type = 'range'; r.min = '0'; r.max = '1'; r.step = '0.05'; r.value = '1';
+    r.setAttribute('aria-label', 'עוצמת שמע');
+    r.addEventListener('input', function () { if (audioEl) audioEl.volume = Number(r.value); });
+    /* the slider owns its own arrow keys; the player must not also seek */
+    r.addEventListener('keydown', function (e) { e.stopPropagation(); });
+    volNode.appendChild(r);
+    return volNode;
+  }
+
+  function ensureAudio() {
+    if (audioEl) return audioEl;
+    audioEl = document.createElement('audio');
+    audioEl.preload = 'none';
+    audioEl.style.display = 'none';
+    audioEl.id = 'shirAudio';
+    document.body.appendChild(audioEl);
+    ['timeupdate', 'durationchange', 'play', 'pause', 'ended', 'loadedmetadata'].forEach(function (ev) {
+      audioEl.addEventListener(ev, paintPly);
+    });
+    audioEl.addEventListener('error', function () {
+      if (activePly) {
+        var t = activePly.querySelector('.ply-time');
+        if (t) t.textContent = 'לא נטען';
+      }
+    });
+    return audioEl;
+  }
+
+  function plyTotal(shell) {
+    var d = audioEl && isFinite(audioEl.duration) ? audioEl.duration : Number(shell.getAttribute('data-dur'));
+    return isFinite(d) && d > 0 ? d : 0;
+  }
+
+  function paintPly() {
+    if (!activePly || !document.contains(activePly)) return;
+    var a = audioEl, total = plyTotal(activePly);
+    var btn = activePly.querySelector('.ply-play');
+    var fill = activePly.querySelector('.ply-fill');
+    var time = activePly.querySelector('.ply-time');
+    var seek = activePly.querySelector('.ply-seek');
+    var playing = a && !a.paused && !a.ended;
+    if (btn) { btn.innerHTML = playing ? SVG_PAUSE : SVG_PLAY; btn.setAttribute('aria-label', playing ? 'עצירה' : 'ניגון'); }
+    var cur = a ? a.currentTime : 0;
+    var pct = total ? Math.min(100, cur / total * 100) : 0;
+    if (fill) fill.style.width = pct + '%';
+    if (time) time.textContent = fmtClock(cur) + ' / ' + fmtClock(total);
+    if (seek) { seek.setAttribute('aria-valuemax', String(Math.round(total))); seek.setAttribute('aria-valuenow', String(Math.round(cur))); }
+  }
+
+  function resetPly(shell) {
+    if (!shell || !document.contains(shell)) return;
+    shell.classList.remove('on');
+    var btn = shell.querySelector('.ply-play');
+    if (btn) { btn.innerHTML = SVG_PLAY; btn.setAttribute('aria-label', 'ניגון'); }
+    var fill = shell.querySelector('.ply-fill');
+    if (fill) fill.style.width = '0%';
+    var time = shell.querySelector('.ply-time');
+    if (time) time.textContent = fmtClock(shell.getAttribute('data-dur'));
+  }
+
+  function plyToggle(shell) {
+    var url = shell.getAttribute('data-url');
+    if (!url) return;
+    var a = ensureAudio();
+    if (activePly === shell && document.contains(shell)) {
+      if (a.paused) a.play().catch(function () {}); else a.pause();
+      paintPly();
+      return;
+    }
+    if (activePly) resetPly(activePly);
+    activePly = shell;
+    shell.classList.add('on');
+    shell.querySelector('.ply-volwrap').appendChild(buildVolume());
+    a.src = url;
+    a.currentTime = 0;
+    a.play().catch(function () {
+      var t = shell.querySelector('.ply-time');
+      if (t) t.textContent = 'לא נטען';
+    });
+    paintPly();
+  }
+
+  function plySeekTo(shell, clientX) {
+    if (activePly !== shell || !audioEl) return;
+    var seek = shell.querySelector('.ply-seek');
+    var r = seek.getBoundingClientRect();
+    if (!r.width) return;
+    /* the board is RTL, so the bar fills from the right edge */
+    var ratio = (r.right - clientX) / r.width;
+    ratio = Math.max(0, Math.min(1, ratio));
+    var total = plyTotal(shell);
+    if (total) { audioEl.currentTime = ratio * total; paintPly(); }
+  }
+
+  function plyNudge(shell, delta) {
+    if (activePly !== shell || !audioEl) return;
+    var total = plyTotal(shell);
+    audioEl.currentTime = Math.max(0, Math.min(total || 0, audioEl.currentTime + delta));
+    paintPly();
+  }
+
+  function plyShell(c) {
+    if (!c.recording_url) return '<span class="ply-off">אין הקלטה</span>';
+    return '<span class="ply" tabindex="0" role="group" aria-label="הקלטת השיחה"' +
+      ' data-url="' + esc(c.recording_url) + '" data-call="' + esc(c.id) + '" data-dur="' + (Number(c.duration_s) || 0) + '">' +
+      '<button type="button" class="ply-play" aria-label="ניגון" tabindex="-1">' + SVG_PLAY + '</button>' +
+      '<span class="ply-seek" role="slider" aria-label="מיקום בהקלטה" aria-valuemin="0" aria-valuemax="' +
+        (Number(c.duration_s) || 0) + '" aria-valuenow="0"><span class="ply-track"><span class="ply-fill"></span></span></span>' +
+      '<span class="ply-time">' + fmtClock(c.duration_s) + '</span>' +
+      '<span class="ply-volwrap"></span></span>';
+  }
+
+  /* one set of handlers for every shell on the page, table and modal alike */
+  function wirePlayers(root) {
+    root.addEventListener('click', function (e) {
+      var shell = e.target.closest ? e.target.closest('.ply') : null;
+      if (!shell) return;
+      if (e.target.closest('.ply-volnode')) return;
+      if (e.target.closest('.ply-seek')) { plySeekTo(shell, e.clientX); return; }
+      plyToggle(shell);
+    });
+    root.addEventListener('pointerdown', function (e) {
+      var seek = e.target.closest ? e.target.closest('.ply-seek') : null;
+      if (!seek) return;
+      var shell = seek.closest('.ply');
+      if (activePly !== shell) return;
+      var move = function (ev) { plySeekTo(shell, ev.clientX); };
+      var up = function () { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); };
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+    });
+    root.addEventListener('keydown', function (e) {
+      var shell = e.target.closest ? e.target.closest('.ply') : null;
+      if (!shell) return;
+      if (e.key === ' ' || e.key === 'Spacebar' || e.key === 'Enter') { e.preventDefault(); plyToggle(shell); }
+      else if (e.key === 'ArrowLeft') { e.preventDefault(); plyNudge(shell, 5); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); plyNudge(shell, -5); }
+    });
+  }
+
+  function stopPlayback() {
+    if (audioEl && !audioEl.paused) audioEl.pause();
+    if (activePly) resetPly(activePly);
+    activePly = null;
+  }
+
+  /* ══ הורדות ═══════════════════════════════════════════════════════════════
+     recording_url points at Retell's CDN, and a cross-origin <a download> is
+     ignored by the browser, so the file has to come through fetch as a blob
+     before it can be handed over with a name that means something.
+     ─────────────────────────────────────────────────────────────────────── */
+  function callMsg(text, bad) {
+    var el = $('callMsg');
+    if (!text) { el.hidden = true; el.textContent = ''; return; }
+    el.hidden = false;
+    el.className = 'callmsg' + (bad ? ' bad' : '');
+    el.textContent = text;
+  }
+
+  function fileNameFor(c) {
+    var stamp = 'ללא-תאריך';
+    if (c.started_at) {
+      var d = new Date(c.started_at), p = function (n) { return String(n).padStart(2, '0'); };
+      stamp = d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate()) + '_' + p(d.getHours()) + p(d.getMinutes());
+    }
+    /* the feed carries no guest name, only the number that was dialled */
+    var who = String(c.to || c.from || 'ללא-מספר').replace(/[^\d+]/g, '') || 'ללא-מספר';
+    var short = String(c.id || '').replace(/^call_/, '').slice(0, 8);
+    return ('shir_' + stamp + '_' + who + '_' + short + '.wav').replace(/[\\/:*?"<>|]/g, '-');
+  }
+
+  function downloadOne(c) {
+    if (!c || !c.recording_url) return Promise.reject(new Error('אין הקלטה לשיחה הזאת'));
+    /* cache:'reload' is load-bearing, not caution. The <audio> element fetches
+       the file without an Origin header, so the browser caches a response with
+       no Access-Control-Allow-Origin on it. A later CORS fetch reuses that
+       entry and dies with "Failed to fetch" — but only for recordings he has
+       already listened to, which is exactly the ones he wants to keep.
+       Forcing a revalidation sends Origin and gets a CORS-valid response. */
+    return fetch(c.recording_url, { cache: 'reload' }).then(function (r) {
+      if (!r.ok) throw new Error('השרת החזיר ' + r.status);
+      return r.blob();
+    }).then(function (blob) {
+      var url = URL.createObjectURL(blob);
+      var a = document.createElement('a');
+      a.href = url;
+      a.download = fileNameFor(c);
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      /* the object URL pins the whole file in memory until it is released */
+      setTimeout(function () { try { URL.revokeObjectURL(url); } catch (e) {} }, 60000);
+    });
+  }
+
+  var bulk = null;   /* {cancel:bool} while a run is going */
+
+  function runBulk(list) {
+    bulk = { cancel: false };
+    $('selDl').disabled = true;
+    $('selCancel').hidden = false;
+    var i = 0, ok = 0, failed = [];
+    (function step() {
+      if (bulk.cancel || i >= list.length) {
+        var note = bulk.cancel ? 'ההורדה בוטלה אחרי ' + ok + ' קבצים.' : 'הורדו ' + ok + ' מתוך ' + list.length + '.';
+        if (failed.length) note += ' נכשלו: ' + failed.length + ' (' + failed.slice(0, 3).join(', ') + (failed.length > 3 ? '…' : '') + ')';
+        callMsg(note, failed.length > 0);
+        bulk = null;
+        $('selDl').disabled = false;
+        $('selCancel').hidden = true;
+        return;
+      }
+      var c = list[i];
+      callMsg('מוריד ' + (i + 1) + ' מתוך ' + list.length + '…', false);
+      downloadOne(c).then(function () { ok++; }, function (err) {
+        failed.push(String((c.to || c.id || '').slice(-6)) + ': ' + (err && err.message ? err.message : 'שגיאה'));
+      }).then(function () {
+        i++;
+        /* browsers throttle or drop a burst of downloads, so they go one by one */
+        setTimeout(step, 700);
+      });
+    })();
+  }
+
+  function startBulk() {
+    var list = pickedCalls().filter(function (c) { return !!c.recording_url; });
+    if (!list.length) { callMsg('אין הקלטות בשיחות שסימנת.', true); return; }
+    if (list.length > 25) {
+      askConfirm({
+        title: 'להוריד ' + list.length + ' הקלטות?',
+        yes: 'כן, להוריד הכל',
+        body: 'זה יוריד <b>' + list.length + '</b> קבצים בזה אחר זה, אחד כל 0.7 שניות. ' +
+              'הדפדפן עלול לבקש אישור להורדות מרובות.<br><br>אפשר לעצור באמצע בכל רגע.'
+      }, function (okYes) { if (okYes) runBulk(list); });
+      return;
+    }
+    runBulk(list);
+  }
+
+  /* ══ בחירה מרובה ══════════════════════════════════════════════════════════ */
+  var picked = {};
+
+  function pickedCalls() {
+    var out = [];
+    shirCalls.forEach(function (c) { if (picked[c.id]) out.push(c); });
+    return out;
+  }
+
+  function prunePicked() {
+    /* a call that dropped out of the feed drops out of the selection with it */
+    var live = {};
+    shirCalls.forEach(function (c) { live[c.id] = 1; });
+    Object.keys(picked).forEach(function (id) { if (!live[id]) delete picked[id]; });
+  }
+
+  function paintSelBar() {
+    var n = pickedCalls().length;
+    $('selBar').hidden = n === 0;
+    $('selCount').textContent = String(n);
+    var withRec = pickedCalls().filter(function (c) { return !!c.recording_url; }).length;
+    $('selDl').textContent = 'הורדת ההקלטות (' + withRec + ')';
+    $('selDl').disabled = withRec === 0 || !!bulk;
+    /* the header box reflects the visible rows only, so it can be part-way */
+    var vis = visibleCalls();
+    var chosen = vis.filter(function (c) { return picked[c.id]; }).length;
+    var all = $('selAll');
+    all.checked = vis.length > 0 && chosen === vis.length;
+    all.indeterminate = chosen > 0 && chosen < vis.length;
+    all.disabled = vis.length === 0;
+  }
+
+  /* ══ סוג השיחה ════════════════════════════════════════════════════════════
+     Old calls come back without the field at all, and the worker calls those
+     guest, so anything unrecognised is treated the same way. */
+  var KIND_HE = { guest: 'אורח', lead: 'ליד', inbound: 'נכנסת' };
+  var shirKind = 'all';
+
+  function kindOf(c) {
+    var k = String((c && c.call_kind) || '').trim();
+    return (k === 'lead' || k === 'inbound') ? k : 'guest';
+  }
+  function kindCell(c) {
+    var k = kindOf(c);
+    var dir = String((c && c.direction) || '');
+    return '<span class="kind kind-' + k + '"' + (dir ? ' title="' + esc(dir === 'inbound' ? 'שיחה נכנסת' : 'שיחה יוצאת') + '"' : '') +
+           '>' + KIND_HE[k] + '</span>';
+  }
+
+  function visibleCalls() {
+    var list = shirCalls;
+    if (shirKind !== 'all') list = list.filter(function (c) { return kindOf(c) === shirKind; });
+    if (shirOnlyReview) list = list.filter(function (c) { return c.needs_review === true; });
+    return list;
+  }
+
   function shirRow(c) {
     var tr = document.createElement('tr');
     var live = isLiveCall(c);
     var cls = [];
     if (c.needs_review === true) cls.push('rev');
     if (live) cls.push('oncall');
+    if (picked[c.id]) cls.push('picked');
     if (isFresh(freshCalls, callId(c))) cls.push('fresh');
     if (cls.length) tr.className = cls.join(' ');
     var t = c.started_at ? new Date(c.started_at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
@@ -1521,9 +2232,12 @@
        anything has to be read */
     var head = live ? '<span class="callive"><span class="dotlive"></span>בשיחה</span>' : '';
     if (c.needs_review === true) head += (head ? ' ' : '') + '<span class="rev-tag">לבדיקה</span>';
+    tr.appendChild(td('<input type="checkbox" data-pick="' + esc(c.id) + '"' + (picked[c.id] ? ' checked' : '') +
+                      ' aria-label="בחירת השיחה"' + (c.recording_url ? '' : ' title="אין הקלטה לשיחה הזאת"') + '>'));
     tr.appendChild(td(head));
     tr.appendChild(td(t));
     tr.appendChild(td(c.to ? '<span dir="ltr">' + esc(c.to) + '</span>' : esc(c.type || '—')));
+    tr.appendChild(td(kindCell(c)));
     tr.appendChild(td(pill));
     tr.appendChild(td(outcomeCell(c.outcome)));
     tr.appendChild(td(countCell(c.party_size)));
@@ -1531,14 +2245,7 @@
     tr.appendChild(td(fmtDur(c.duration_s)));
     tr.appendChild(td((centsUsd(c) / 100).toFixed(2)));
     tr.appendChild(td(esc(c.reason || '—')));
-    var tdA = document.createElement('td');
-    if (c.recording_url) {
-      var au = document.createElement('audio');
-      au.controls = true; au.preload = 'none'; au.src = c.recording_url;
-      au.style.cssText = 'width:190px;height:30px';
-      tdA.appendChild(au);
-    } else tdA.textContent = '—';
-    tr.appendChild(tdA);
+    tr.appendChild(td(plyShell(c)));
     var tdT = document.createElement('td');
     /* a call with only a summary is still worth opening */
     if (c.transcript || c.summary || c.quality_note || c.outcome) {
@@ -1551,6 +2258,8 @@
       tdT.appendChild(btn);
     } else tdT.textContent = '—';
     tr.appendChild(tdT);
+    tr.appendChild(td('<button type="button" class="rowmenu" data-menu="' + esc(c.id) + '" data-when="' + esc(t) +
+                      '" aria-haspopup="menu" aria-expanded="false" aria-label="עוד פעולות">⋯</button>'));
     return tr;
   }
 
@@ -1591,19 +2300,151 @@
     tog.setAttribute('aria-pressed', shirOnlyReview ? 'true' : 'false');
     tog.textContent = shirOnlyReview ? 'הצג את כל השיחות' : 'הצג רק שיחות לבדיקה';
 
-    var list = shirOnlyReview ? review : all;
+    prunePicked();
+    var list = visibleCalls();
     var rows = $('shirRows');
-    $('shirEmpty').hidden = all.length > 0;
+    /* an empty screen has two different causes and they read differently */
+    var noMatch = all.length > 0 && list.length === 0;
+    $('shirEmpty').textContent = noMatch ? 'אין שיחות שמתאימות לסינון הזה.' : SHIR_EMPTY_TXT;
+    $('shirEmpty').hidden = all.length > 0 && !noMatch;
+    /* a rebuild throws away the shell the player was bound to. Playing blocks
+       the background refresh, so this only happens on a click the user made. */
+    if (activePly && !document.contains(activePly)) activePly = null;
     keepScroll(rows, function () {
       rows.innerHTML = '';
       list.forEach(function (c) { rows.appendChild(shirRow(c)); });
     });
+    paintSelBar();
+    syncFolds();
+  }
+
+  function refilter() {
+    /* the filters live outside the fold, so they can change the count while the
+       table is shut. He asked for that himself, so it is not an arrival. */
+    foldQuiet = true;
+    renderShir();
+    foldQuiet = false;
   }
 
   $('revTog').addEventListener('click', function () {
     shirOnlyReview = !shirOnlyReview;
-    renderShir();
+    refilter();
   });
+
+  Array.prototype.forEach.call($('kindBar').querySelectorAll('button[data-kind]'), function (b) {
+    b.addEventListener('click', function () {
+      shirKind = b.getAttribute('data-kind');
+      Array.prototype.forEach.call($('kindBar').querySelectorAll('button[data-kind]'), function (o) {
+        o.setAttribute('aria-pressed', o === b ? 'true' : 'false');
+      });
+      refilter();
+    });
+  });
+
+  /* ── picking rows ── */
+  $('shirRows').addEventListener('change', function (e) {
+    var box = e.target;
+    if (!box || !box.getAttribute || !box.getAttribute('data-pick')) return;
+    var id = box.getAttribute('data-pick');
+    if (box.checked) picked[id] = true; else delete picked[id];
+    var tr = box.closest('tr');
+    if (tr) tr.classList.toggle('picked', !!box.checked);
+    paintSelBar();
+  });
+
+  $('selAll').addEventListener('change', function () {
+    /* only what is on screen after the filters, never the whole feed */
+    var vis = visibleCalls();
+    if ($('selAll').checked) vis.forEach(function (c) { picked[c.id] = true; });
+    else vis.forEach(function (c) { delete picked[c.id]; });
+    refilter();
+  });
+
+  $('selClear').addEventListener('click', function () { picked = {}; callMsg(''); refilter(); });
+  $('selDl').addEventListener('click', startBulk);
+  $('selCancel').addEventListener('click', function () {
+    if (bulk) { bulk.cancel = true; callMsg('עוצר אחרי הקובץ הנוכחי…', false); }
+  });
+
+  /* ── the three dots ── */
+  var menuFor = null;
+  function closeRowMenu() {
+    var m = $('rowMenu');
+    if (m.hidden) return;
+    m.hidden = true;
+    if (menuFor) {
+      var b = document.querySelector('.rowmenu[data-menu="' + menuFor.id + '"]');
+      if (b) { b.setAttribute('aria-expanded', 'false'); try { b.focus(); } catch (e) {} }
+    }
+    menuFor = null;
+  }
+  function openRowMenu(btn) {
+    var c = callById(btn.getAttribute('data-menu'));
+    if (!c) return;
+    menuFor = { id: c.id, when: btn.getAttribute('data-when') || '' };
+    var m = $('rowMenu');
+    m.querySelector('[data-act="download"]').disabled = !c.recording_url;
+    m.querySelector('[data-act="transcript"]').disabled = !(c.transcript || c.summary || c.quality_note || c.outcome);
+    m.hidden = false;
+    var r = btn.getBoundingClientRect();
+    var mw = m.offsetWidth, mh = m.offsetHeight;
+    var left = Math.max(8, Math.min(window.innerWidth - mw - 8, r.left + window.pageXOffset));
+    var top = r.bottom + window.pageYOffset + 4;
+    if (r.bottom + mh + 12 > window.innerHeight) top = r.top + window.pageYOffset - mh - 4;
+    m.style.left = left + 'px';
+    m.style.top = top + 'px';
+    btn.setAttribute('aria-expanded', 'true');
+    var first = m.querySelector('button:not(:disabled)');
+    if (first) first.focus();
+  }
+  $('shirRows').addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.rowmenu') : null;
+    if (!btn) return;
+    if (!$('rowMenu').hidden && menuFor && menuFor.id === btn.getAttribute('data-menu')) { closeRowMenu(); return; }
+    closeRowMenu();
+    openRowMenu(btn);
+  });
+  $('rowMenu').addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('button[data-act]') : null;
+    if (!b || b.disabled || !menuFor) return;
+    var c = callById(menuFor.id), when = menuFor.when, act = b.getAttribute('data-act');
+    closeRowMenu();
+    if (!c) return;
+    if (act === 'transcript') { openSheet(c, when); return; }
+    if (act === 'copyid') {
+      var done = function () { callMsg('מזהה השיחה הועתק: ' + c.id, false); };
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(c.id).then(done, function () { callMsg('לא הצלחנו להעתיק. המזהה הוא ' + c.id, true); });
+        } else { callMsg('המזהה הוא ' + c.id, false); }
+      } catch (err) { callMsg('לא הצלחנו להעתיק. המזהה הוא ' + c.id, true); }
+      return;
+    }
+    if (act === 'download') {
+      callMsg('מוריד את ההקלטה…', false);
+      try {
+        downloadOne(c).then(function () {
+          callMsg('ההקלטה ירדה: ' + fileNameFor(c), false);
+        }, function (err) {
+          callMsg('ההורדה נכשלה: ' + (err && err.message ? err.message : 'שגיאה לא ידועה'), true);
+        });
+      } catch (err) {
+        callMsg('ההורדה נכשלה: ' + (err && err.message ? err.message : 'שגיאה לא ידועה'), true);
+      }
+    }
+  });
+  document.addEventListener('click', function (e) {
+    if ($('rowMenu').hidden) return;
+    if (e.target.closest && (e.target.closest('#rowMenu') || e.target.closest('.rowmenu'))) return;
+    closeRowMenu();
+  });
+  document.addEventListener('keydown', function (e) {
+    if (!$('rowMenu').hidden && e.key === 'Escape') { e.stopPropagation(); closeRowMenu(); }
+  });
+  window.addEventListener('resize', closeRowMenu);
+
+  wirePlayers($('shirRows'));
+  wirePlayers($('sheetBg'));
 
   /* the heartbeat of the whole board: it runs every FAST_MS, so it is also
      what decides whether the header dot is alive */
@@ -1619,7 +2460,7 @@
         var nowLive = Number(live.now) || 0;
         $('s-live').textContent = nowLive + (live.limit ? ' / ' + live.limit : '');
         $('s-live-t').className = 'kpi' + (nowLive > 0 ? ' beat' : '');
-        seenCalls = noteNew(seenCalls, d.calls || [], callId, freshCalls);
+        seenCalls = noteNew(seenCalls, d.calls || [], callId, freshCalls, 'calls');
         shirCalls = d.calls || [];
         $('s-count').textContent = shirCalls.length;
         /* Retell bills in USD; Richard reads shekels */

@@ -23,8 +23,9 @@
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
-import { callWindowState, msUntilCallWindow, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText } from './whatsapp.js';
+import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow } from './shir.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation } from './whatsapp.js';
+import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -84,6 +85,11 @@ async function sendingPaused(env) {
 /* A phone Richard pulled out of sending by hand, for any reason: a wrong
    number, a family that asked him directly, a guest in mourning. Same effect
    as the guest texting הסר, but it is his action and it is reversible. */
+/* Opting out of WhatsApp is NOT opting out of calls. A guest who writes "הסר"
+   is telling us to stop messaging them; the host still needs to know whether
+   they are coming, and Shir still calls. Only `nocall:` (the guest asked not
+   to be phoned) and `block:` (Richard pulled the number by hand) stop a dial.
+   Two predicates, because one was silently doing both jobs. */
 async function phoneBlocked(env, phone) {
   if (!env.RATE) return false;
   const p = normPhone(phone);
@@ -270,9 +276,21 @@ async function processGrowPayment(env, flat) {
     /* verified referral: when this payer's lead carries referral:<code>, the
        referrer earns a tier credit. Never blocks the payment path. */
     try { await creditReferral(env, phone, token); } catch {}
+    /* a promo seat is only really taken once the money lands. Until here the
+       code was on hold and would have expired back into the pool. */
+    let promo = null;
+    try {
+      promo = await promoBurn(env, phone,
+        flat.cField1 || flat.cField2 || flat.customField1 || flat.promo || '');
+    } catch {}
+    if (promo && env.RATE) {
+      await env.RATE.put('promoof:' + token, JSON.stringify(promo), { expirationTtl: 400 * 86400 });
+    }
     /* every purchase lands in Slack — Richard doesn't always get Grow's email */
     await slackPost(env, `🎉 *רכישה חדשה ב-ishur*\n${name || 'ללא שם'} · ${phone}` +
       `\nסכום: ₪${sum || '?'}${payMethod ? ' · ' + payMethod : ''}` +
+      (promo ? `\n🎫 ${promo.label} · קוד ${promo.code || ''}` +
+        (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : '') +
       `\n${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'} · אסמכתא ${ref}`);
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
     /* the stuck-client stage nudges whoever still hasn't uploaded a day later */
@@ -286,6 +304,58 @@ async function processGrowPayment(env, flat) {
       JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
   }
   return new Response(ok ? 'ok' : 'writer-failed', { status: ok ? 200 : 502 });
+}
+
+/* ── promo vouchers ───────────────────────────────────────────────────────
+   /promo/check is what the site asks before it dares show 49 instead of 299.
+   /promo/go is the buy button: it holds a seat and sends the visitor to the
+   real Grow link, which never appears anywhere a scraper can read it.
+   Both are unauthenticated by design (a code IS the credential), so both are
+   rate limited — 8.5e11 codes make guessing hopeless, but not free. */
+async function handlePromoCheck(env, request, url, origin) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (await overBudget(env, 'promo-check:' + ip, 40, 600)) {
+    return deny(429, 'rate-limited', origin);
+  }
+  const res = await promoCheck(env, url.searchParams.get('code'));
+  return new Response(JSON.stringify(res), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...cors(origin) },
+  });
+}
+
+async function handlePromoGo(env, request, url, origin) {
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (await overBudget(env, 'promo-go:' + ip, 20, 600)) {
+    return deny(429, 'rate-limited', origin);
+  }
+  const res = await promoGo(env, url.searchParams.get('code'), url.searchParams.get('phone'));
+  if (!res.ok) {
+    /* a dead code lands on the normal pricing page rather than an error blob —
+       whoever forwarded it out of the group just pays full price */
+    const to = 'https://ishur.io/index.html?promo_error=' + encodeURIComponent(res.reason || 'invalid');
+    return Response.redirect(to, 302);
+  }
+  /* if Grow echoes custom fields back on the IPN this closes the loop without
+     needing the phone; if it does not, the phone claim already covers it */
+  let link = res.link;
+  try {
+    const u = new URL(link);
+    if (!u.searchParams.has('cField1')) u.searchParams.set('cField1', normCode(url.searchParams.get('code')));
+    link = u.toString();
+  } catch {}
+  return new Response(null, {
+    status: 302,
+    headers: { Location: link, 'Cache-Control': 'no-store' },
+  });
+}
+
+async function handlePromoAdmin(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const res = await promoAdmin(env, body);
+  return okJson(res, origin);
 }
 
 /* Per-event levers that live in KV rather than the sheet, so they can be
@@ -386,6 +456,21 @@ function tierOf(evRow) {
   return parseInt(String(evRow[32] || '').replace(/\D/g, ''), 10) || 0;
 }
 
+/* A promo seat carries its own entitlement. The pilot pays 50, which is also
+   the price of the 50-guest package, so the sheet can end up saying 50 while
+   the customer was sold 300. The voucher is the stronger claim — it is what we
+   actually promised — so it raises the cap, never lowers it. */
+async function tierWithPromo(env, token, sheetTier) {
+  if (!env.RATE || !token) return sheetTier;
+  try {
+    const raw = await env.RATE.get('promoof:' + token);
+    if (!raw) return sheetTier;
+    const p = JSON.parse(raw);
+    const t = parseInt(p.maxTier, 10) || 0;
+    return t > sheetTier ? t : sheetTier;
+  } catch { return sheetTier; }
+}
+
 /* Invitations, not people: one phone number is one invitation. */
 function countBillable(guests) {
   const seen = new Set();
@@ -415,7 +500,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     const capSnap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
     const capRow = capSnap ? ((capSnap.events && capSnap.events.values) || [])
       .find(r => String(r[1] || '').trim() === token) : null;
-    const tierNum = tierOf(capRow);
+    const tierNum = await tierWithPromo(env, token, tierOf(capRow));
     /* the tier counts invitations, i.e. distinct phone numbers — a family on
        one number is one invitation, exactly as the waves dedupe them */
     const billable = countBillable(guests);
@@ -590,7 +675,7 @@ async function waGuestFile(env, from, doc) {
   const snap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
   const evRow = snap ? ((snap.events && snap.events.values) || [])
     .find(r => String(r[1] || '').trim() === token) : null;
-  const tierNum = tierOf(evRow);
+  const tierNum = await tierWithPromo(env, token, tierOf(evRow));
   const billable = countBillable(guests);
   if (tierNum && billable > tierNum) {
     await sendText(env, from, `הרשימה כוללת ${billable} הזמנות, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
@@ -709,10 +794,23 @@ async function handleShirWebhook(request, env) {
   const action = retellToCallResult(body);
   if (!action) return okJsonPlain({ ok: true });
 
+  /* who rang whom, for the callback queue. Reaching the mid-call tool at all
+     means a real conversation happened, so the provisional entry the inbound
+     endpoint wrote when the phone rang is no longer owed. */
+  const meta0 = (body.call && body.call.metadata) || {};
+  const isInb = meta0.kind === 'inbound' || meta0.kind === 'callback';
+  const inbPhone = normPhone(meta0.from || (body.call && body.call.from_number) || '');
+
+  if (action.kind === 'tool-noop') {
+    if (isInb && inbPhone) await cbqClear(env, inbPhone);
+    return okJsonPlain({ response: action.reply });
+  }
+
   if (action.kind === 'tool') {
     if (action.call_id && await seenOnce(env, 'shirdone:tool:' + action.call_id)) {
       return okJsonPlain({ response: action.reply });
     }
+    if (isInb && inbPhone) await cbqClear(env, inbPhone);
     /* remember the outcome was recorded, so the end-of-call report for this
        call does not overwrite it with "no clear outcome" */
     if (action.call_id && env.RATE) {
@@ -731,11 +829,23 @@ async function handleShirWebhook(request, env) {
     await addEvCost(env, action.guest_id, action.cost_cents);
   }
 
+  /* Did we actually talk to whoever rang us? A call that reached the tool
+     recorded an answer and owes nothing; anything shorter than a greeting,
+     or a Retell-side failure, goes back in the queue for a quick ring back. */
+  const toolRanHere = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
+  const verdict = inboundCallVerdict(body, { outcomeRecorded: toolRanHere });
+  if (verdict) {
+    if (verdict.missed) await cbqEnqueue(env, verdict.phone, verdict.why).catch(() => {});
+    else await cbqClear(env, verdict.phone).catch(() => {});
+  }
+  /* an inbound call from a number no sheet knows: costed and queued above,
+     but there is no row to write */
+  if (action.kind === 'end-untracked') return okJsonPlain({ ok: true });
+
   if (action.kind === 'end') {
     await writeCallResult(env, action.guest_id, action.result);
   } else if (action.kind === 'end-no-outcome') {
-    const toolRan = action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id);
-    if (!toolRan) await writeCallResult(env, action.guest_id, action.result);
+    if (!toolRanHere) await writeCallResult(env, action.guest_id, action.result);
   }
   return okJsonPlain({ ok: true });
 }
@@ -743,9 +853,11 @@ async function handleShirWebhook(request, env) {
 /* The dialling itself, with no HTTP around it, so the morning cron can run it.
    Until this existed, every guest queued for a call sat there forever: the
    only caller was an admin POST that nobody was making. */
-async function runShirDispatch(env, { max = 25, force = false } = {}) {
+async function runShirDispatch(env, { max = 25, force = false, quiet = false } = {}) {
   if (!env.RETELL_KEY || !env.SHIR_FROM) return { ok: false, why: 'not-configured' };
   if (await sendingPaused(env)) return { ok: true, dialed: 0, paused: true };
+  /* a holiday is not a closed window, it is a closed day */
+  if (isNoContactDay(ilDate()) && !force) return { ok: true, dialed: 0, closed: 'no-contact-day' };
   const win = callWindowState();
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) return { ok: false, why: 'reader-failed' };
@@ -753,7 +865,7 @@ async function runShirDispatch(env, { max = 25, force = false } = {}) {
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
-    if (queue.length) {
+    if (queue.length && !quiet) {
       await slackPost(env, `🕐 ${queue.length} אורחים ממתינים לשיחה, אבל חלון החיוג סגור (${win.why}). ננסה בהזדמנות הבאה.`);
     }
     return { ok: true, dialed: 0, closed: win.why, queued: queue.length };
@@ -765,9 +877,10 @@ async function runShirDispatch(env, { max = 25, force = false } = {}) {
   for (const g of queue) {
     if (dialed.length >= cap) break;
     if (!shouldDial(g, day)) continue;
-    if (env.RATE && await env.RATE.get('nocall:' + normPhone(g.phone))) { blocked++; continue; }
     if (env.RATE && await env.RATE.get('hold:' + g.token)) { blocked++; continue; }
-    if (await phoneBlocked(env, g.phone)) { blocked++; continue; }
+    /* was phoneBlocked() — which counts an opt-out. An opt-out is about
+       messages, never about calls. See the note on callBlocked. */
+    if (await callBlocked(env, g.phone)) { blocked++; continue; }
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
@@ -782,10 +895,15 @@ async function runShirDispatch(env, { max = 25, force = false } = {}) {
     }
   }
   /* a queue that never empties is a silent failure: say so */
-  if (queue.length && !dialed.length && !blocked) {
+  if (queue.length && !dialed.length && !blocked && !quiet) {
     await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`);
-  } else if (dialed.length) {
+  } else if (dialed.length && !quiet) {
     await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`);
+  } else if (dialed.length && quiet && env.RATE) {
+    /* one running total a day instead of a line every ten minutes */
+    const dk = 'dialday:' + day;
+    const n = (parseInt(await env.RATE.get(dk) || '0', 10) || 0) + dialed.length;
+    await env.RATE.put(dk, String(n), { expirationTtl: 3 * 86400 });
   }
   return { ok: true, dialed: dialed.length, guests: dialed, queued: queue.length, blocked };
 }
@@ -797,10 +915,334 @@ async function handleShirDispatch(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  /* the ring-back queue, on demand — same route, so there is one admin door
+     into Shir's dialling rather than two */
+  if (body.callbacks) {
+    return okJson(await runShirCallbacks(env, { max: Math.min(Number(body.max) || 3, 10), force: !!body.force }), origin);
+  }
+  /* the sales pipe. Reachable on purpose so its inertness is provable rather
+     than asserted: with SHIR_LEADS unset it answers skipped and dials nobody. */
+  if (body.leads) {
+    return okJson(await runShirLeadDial(env, { max: Math.min(Number(body.max) || 3, 10) }), origin);
+  }
   const res = await runShirDispatch(env, { max: body.max, force: !!body.force });
   if (res.why === 'not-configured') return deny(503, 'shir-not-configured', origin);
   if (res.why === 'reader-failed') return deny(502, 'reader-failed', origin);
   return okJson(res, origin);
+}
+
+/* ══ שיר · הצד הנכנס ════════════════════════════════════════════════════════
+   Somebody rings +972555074446 back. Retell asks THIS endpoint who they are
+   before the agent opens its mouth, and answers with dynamic variables and
+   metadata; the agent then greets them by name with a script written for a
+   call they placed, not one we placed.
+
+   Until this existed the number pointed the same agent at both directions:
+   an inbound caller heard the outbound chase script with every variable
+   empty, and the call was never written anywhere because the end-of-call
+   handler dropped anything without a guest_id.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Why a 60-second cache of the whole snapshot, and not a phoneidx:<phone> map
+   rebuilt once a day:
+
+   An inbound caller is almost always somebody who got our WhatsApp minutes
+   ago. A list uploaded at 10:00 must be recognised at 10:05, and a daily
+   index would greet that guest as a stranger for the rest of the day — the
+   single worst failure this endpoint has. Sixty seconds is fresh enough for
+   that and still caps the cost at one Make operation per minute no matter how
+   many calls arrive, which is far below what an inbound line can generate.
+
+   The whole snapshot is cached rather than a phone→name map because the
+   script also needs the event facts (host, date, venue, time), and those come
+   from the same read — building a slimmer index would cost a second one.
+
+   Shared deliberately: the callback drain reads it too, so a tick that rings
+   three people back pays for one snapshot, not three. */
+async function snapshotCached(env, maxAgeSec = 60) {
+  if (!env.RATE) return fetchSnapshot(env.HOOK_STATUS);
+  let hit = null;
+  try { hit = JSON.parse(await env.RATE.get('snapcache')); } catch {}
+  if (hit && hit.raw && Number.isFinite(hit.at) && Date.now() - hit.at < maxAgeSec * 1000) {
+    return hit.raw;
+  }
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (raw) {
+    await env.RATE.put('snapcache', JSON.stringify({ at: Date.now(), raw }),
+      { expirationTtl: 900 }).catch(() => {});
+    return raw;
+  }
+  /* Make is down. A stale snapshot beats greeting a known guest as a stranger,
+     so the last good one is served rather than nothing. */
+  return (hit && hit.raw) || null;
+}
+
+/* The inbound webhook is unauthenticated by nature — Retell POSTs it from
+   their infrastructure — and it turns a phone number into a person's name.
+   So the URL carries a secret derived from RETELL_KEY: nothing new to store,
+   nothing to leak into a config file, and it rotates when the key does.
+   A valid Retell signature is accepted as well, in case they start signing
+   this event; an admin key is accepted for testing. */
+async function inboundSecret(env) {
+  return (await sha256Hex('shir-inbound|v1|' + String(env.RETELL_KEY || ''))).slice(0, 32);
+}
+
+/* ── the fast callback queue ──
+   cbq:<phone> — somebody rang us and we did not get to talk to them. This is
+   the hottest lead the system has: they dialled US. The pacer empties this
+   before it touches the guest queue.
+
+   The entry is written the moment the call ARRIVES, not when it fails, and a
+   call that gets properly answered deletes its own entry at the end. That way
+   a call which never reached Shir at all — concurrency limit, a Retell error,
+   a caller who hung up mid-ring, anything that produces no end-of-call event
+   — still gets a ring back, with no sweeper needed to notice the silence.
+   The grace period below is what makes that safe: a normal thirty-second call
+   clears itself minutes before the drain would look at it. */
+const CBQ_GRACE_MS = 5 * 60 * 1000;
+const CBQ_MAX_TRIES = 3;
+const CBQ_TTL_S = 3 * 86400;
+const CBQ_RETRY_MS = 45 * 60 * 1000;
+
+/* Only two things stop a callback: Richard pulled the number out of calling
+   by hand (nocall:), or the number is blocked outright (block:).
+   optout: is NOT checked here, and that is on purpose — it means "stop
+   WhatsApping me", it has never meant "stop calling me", and conflating the
+   two is a standing rule in this project. */
+async function callBlocked(env, phone) {
+  if (!env.RATE) return false;
+  const p = normPhone(phone);
+  if (!p) return true;
+  return !!(await env.RATE.get('nocall:' + p)) || !!(await env.RATE.get('block:' + p));
+}
+
+async function cbqEnqueue(env, phone, why) {
+  if (!env.RATE) return false;
+  const p = normPhone(phone);
+  if (!p || await callBlocked(env, p)) return false;
+  /* never queue our own line: a ring-back that reported the wrong side of the
+     call would otherwise have Shir dialling herself, forever */
+  if (env.SHIR_FROM && normPhone(env.SHIR_FROM) === p) return false;
+  let cur = null;
+  try { cur = JSON.parse(await env.RATE.get('cbq:' + p)); } catch {}
+  const rec = {
+    at: (cur && cur.at) || Date.now(),
+    tries: (cur && Number(cur.tries)) || 0,
+    last: (cur && Number(cur.last)) || 0,
+    why: String(why || 'inbound'),
+  };
+  await env.RATE.put('cbq:' + p, JSON.stringify(rec), { expirationTtl: CBQ_TTL_S });
+  return true;
+}
+
+async function cbqClear(env, phone) {
+  if (!env.RATE) return;
+  const p = normPhone(phone);
+  if (p) await env.RATE.delete('cbq:' + p).catch(() => {});
+}
+
+/* Ring back everyone in the queue, oldest first. Same window, same holiday
+   rule and same pause switch the guest dialler obeys — a hot lead is not a
+   licence to call somebody on Yom Kippur.
+
+   The callback speaks the INBOUND script, not the chase script: they rang us,
+   so "we sent you an invitation and saw no reply" is the wrong sentence.
+   That is what override_agent_id is for. */
+async function runShirCallbacks(env, { max = 3, force = false } = {}) {
+  if (!env.RETELL_KEY || !env.SHIR_FROM || !env.RATE) return { dialed: 0, why: 'not-configured' };
+  if (await sendingPaused(env)) return { dialed: 0, why: 'paused' };
+  const today = ilDate();
+  if (isNoContactDay(today) && !force) return { dialed: 0, why: 'no-contact-day' };
+  const win = callWindowState();
+  if (!win.open && !force) return { dialed: 0, why: win.why };
+
+  const raw0 = await kvPrefix(env, 'cbq:');
+  const rows = [];
+  for (const [phone, v] of Object.entries(raw0)) {
+    let rec = null;
+    try { rec = JSON.parse(v); } catch {}
+    if (!rec) { await env.RATE.delete('cbq:' + phone).catch(() => {}); continue; }
+    rows.push({ phone, ...rec });
+  }
+  rows.sort((a, b) => (Number(a.at) || 0) - (Number(b.at) || 0));
+
+  const now = Date.now();
+  const dialed = [];
+  let waiting = 0, skipped = 0, snap;
+  for (const r of rows) {
+    if (dialed.length >= max) break;
+    if (Number(r.tries) >= CBQ_MAX_TRIES) { await cbqClear(env, r.phone); skipped++; continue; }
+    /* a call still in progress, or one that just ended and will clear itself */
+    if (now - (Number(r.at) || 0) < CBQ_GRACE_MS && !force) { waiting++; continue; }
+    if (Number(r.last) && now - Number(r.last) < CBQ_RETRY_MS && !force) { waiting++; continue; }
+    if (await callBlocked(env, r.phone)) { await cbqClear(env, r.phone); skipped++; continue; }
+
+    if (snap === undefined) snap = await snapshotCached(env).catch(() => null);
+    /* looked up fresh rather than replayed from the queue entry: between the
+       missed call and the ring back, the guest may have answered on WhatsApp */
+    const hit = snap ? inboundLookup(snap, r.phone, today) : { caller_kind: 'unknown', phone: r.phone, name: '' };
+    const meta = inboundMetadata(hit, { callback: true });
+    const target = {
+      kind: 'callback', phone: r.phone, hit,
+      guest_id: meta.guest_id || '', token: meta.token || '',
+      tries: meta.tries || '0', max_tries: meta.max_tries || '3',
+    };
+    const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildCallPayload(target, env.SHIR_FROM,
+        { override_agent_id: env.SHIR_INBOUND_AGENT || '' })),
+    }).catch(() => null);
+    if (res && (res.status === 200 || res.status === 201)) {
+      dialed.push(r.phone);
+      await env.RATE.put('cbq:' + r.phone,
+        JSON.stringify({ ...r, phone: undefined, tries: (Number(r.tries) || 0) + 1, last: now }),
+        { expirationTtl: CBQ_TTL_S });
+    }
+  }
+  if (dialed.length) {
+    await slackPost(env, `📲 שיר חזרה ל-${dialed.length} מי שהתקשרו אלינו ולא ענינו.`);
+  }
+  return { dialed: dialed.length, phones: dialed, queued: rows.length, waiting, skipped };
+}
+
+/* ══ שיר · שיחת מכירה — the pipe, deliberately not connected ═════════════════
+   Richard wants Shir to ring leads who walked away before paying. Everything
+   structural for that exists now and nothing dials:
+
+     · metadata.kind = 'lead', so the calls feed separates a sales call from
+       an RSVP call the moment the first one happens
+     · leadVariables / leadFromRow in shir.js — a lead has no host, no venue
+       and no seat count, so it must never be fed the guest variable set
+     · lq:<phone> as its own queue, drained here, never mixed with the guest
+       queue or the callback queue
+
+   THREE things are missing before this may ring one human being:
+     1. a sales agent + LLM in Retell, and its id in SHIR_LEAD_AGENT
+        (wrangler.toml [vars]). The RSVP script would be nonsense on a lead.
+     2. env.SHIR_LEADS = 'on'. The master switch. Deliberately absent.
+     3. Richard's call on consent: a lead who filled in a form is not the same
+        as a guest whose own host handed us their number. Until that is
+        decided, this function returns without touching Retell.
+   All three are required; any one missing and the drain is a no-op. */
+async function runShirLeadDial(env, { max = 3 } = {}) {
+  const ready = String(env.SHIR_LEADS || '') === 'on' && !!env.SHIR_LEAD_AGENT;
+  if (!ready) return { dialed: 0, skipped: 'lead-calling-disabled' };
+  /* Every guard the guest dialler obeys applies here too, and one more:
+     a lead who already paid is a client, not a prospect. */
+  if (!env.RETELL_KEY || !env.SHIR_FROM || !env.RATE) return { dialed: 0, skipped: 'not-configured' };
+  if (await sendingPaused(env)) return { dialed: 0, skipped: 'paused' };
+  const today = ilDate();
+  if (isNoContactDay(today)) return { dialed: 0, skipped: 'no-contact-day' };
+  if (!callWindowState().open) return { dialed: 0, skipped: 'window' };
+
+  const snap = await snapshotCached(env).catch(() => null);
+  const rows = (snap && snap.leads && snap.leads.values) || [];
+  const queued = await kvPrefix(env, 'lq:');
+  const dialed = [];
+  for (const phone of Object.keys(queued)) {
+    if (dialed.length >= max) break;
+    if (await callBlocked(env, phone)) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    const row = rows.find(r => normPhone(r && r[2]) === phone);
+    if (!row) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    const lead = leadFromRow(row);
+    if (lead.paid) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify(buildCallPayload(lead, env.SHIR_FROM,
+        { override_agent_id: env.SHIR_LEAD_AGENT })),
+    }).catch(() => null);
+    if (res && (res.status === 200 || res.status === 201)) {
+      dialed.push(phone);
+      await env.RATE.delete('lq:' + phone).catch(() => {});
+    }
+  }
+  return { dialed: dialed.length, phones: dialed };
+}
+
+/* POST /api/shir-inbound?k=<secret>
+   Retell's call_inbound event. Answers within one snapshot read, always 200:
+   a non-2xx here would make Retell drop or mishandle a live call, so every
+   internal failure degrades to "we do not know this number" instead.
+
+   Also accepts {admin_key, from_number} for testing, and {admin_key} alone,
+   which hands back the URL to register on the phone number. */
+async function handleShirInbound(request, env, url, origin) {
+  if (Number(request.headers.get('Content-Length') || 0) > 65536) {
+    return deny(413, 'too-large', origin);
+  }
+  const rawBody = await request.text();
+  let body = {};
+  try { body = JSON.parse(rawBody || '{}'); } catch { return deny(400, 'bad-json', origin); }
+
+  const admin = isAdmin(env, body.admin_key);
+  if (!admin) {
+    if (!env.RETELL_KEY) return deny(503, 'shir-not-configured', origin);
+    const k = String(url.searchParams.get('k') || '');
+    const want = await inboundSecret(env);
+    const sig = request.headers.get('X-Retell-Signature') || '';
+    const signed = !!sig && await verifyRetellSignature(rawBody, sig, env.RETELL_KEY);
+    if (!safeEqual(k, want) && !signed) return deny(403, 'bad-inbound-key', origin);
+  }
+
+  const ci = body.call_inbound || {};
+  const from = String(body.from_number || ci.from_number || '').trim();
+
+  /* admin, no number: the install URL, so the secret never has to be printed
+     anywhere it could be pasted by accident */
+  if (admin && !from) {
+    return okJson({
+      ok: true,
+      webhook_url: `https://${url.host}/api/shir-inbound?k=${await inboundSecret(env)}`,
+      inbound_agent: String(env.SHIR_INBOUND_AGENT || ''),
+    }, origin);
+  }
+
+  const phone = normPhone(from);
+  const today = ilDate();
+  /* Never hold a ringing phone hostage to Make. Four seconds and the call
+     goes ahead as an unknown caller, which the script handles by asking. */
+  const raw = await Promise.race([
+    snapshotCached(env).catch(() => null),
+    new Promise(r => setTimeout(() => r(null), 4000)),
+  ]);
+  const hit = raw ? inboundLookup(raw, phone, today) : { caller_kind: 'unknown', phone, name: '', event: null };
+
+  const answer = {
+    call_inbound: {
+      dynamic_variables: inboundVariables(hit),
+      metadata: inboundMetadata(hit),
+    },
+  };
+  /* Belt and braces: even if the number's inbound_agents binding is ever
+     reverted to the outbound agent, an inbound call still lands on the
+     inbound script. This is the bug that started all of this. */
+  if (env.SHIR_INBOUND_AGENT) answer.call_inbound.override_agent_id = String(env.SHIR_INBOUND_AGENT);
+
+  if (!admin) {
+    /* provisional callback entry — see CBQ_GRACE_MS above for why it goes in
+       now and not on failure */
+    await cbqEnqueue(env, phone, 'inbound-ring').catch(() => {});
+    if (env.RATE) {
+      const day = 'inbday:' + today;
+      const n = (parseInt(await env.RATE.get(day) || '0', 10) || 0) + 1;
+      await env.RATE.put(day, String(n), { expirationTtl: 40 * 86400 }).catch(() => {});
+    }
+  }
+
+  if (admin) {
+    return okJson({
+      ok: true, snapshot: !!raw, phone,
+      lookup: {
+        caller_kind: hit.caller_kind, name: hit.name || '',
+        guest_id: hit.guest_id || '', token: hit.token || '',
+        rsvp: hit.rsvp || '', tries: hit.tries || 0, max_tries: hit.max_tries || 0,
+      },
+      ...answer,
+    }, origin);
+  }
+  return okJsonPlain(answer);
 }
 
 /* ══ WhatsApp inbound — the RSVP buttons land here ═══════════════════════════
@@ -826,7 +1268,7 @@ async function handleWaWebhook(request, env, url) {
   let payload;
   try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
 
-  for (const { from, msg } of extractInbound(payload)) {
+  for (const { from, msg, phoneId, profileName } of extractInbound(payload)) {
     try {
     /* Meta retries a delivery until it gets a 200, and one slow reply is
        enough to earn a retry. Without this the guest is answered twice and
@@ -835,12 +1277,22 @@ async function handleWaWebhook(request, env, url) {
     const parsed = parseInboundReply(msg);
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
-      await env.RATE.put('log:' + from + ':' + Date.now(),
+      /* which of our two numbers received this — the inbox filters on it */
+      const ch = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
+      const ts = Date.now();
+      const body = (parsed ? textOf(parsed) : '').slice(0, 300);
+      /* kept forever, on purpose: this is the record of the conversation */
+      await env.RATE.put('log:' + from + ':' + ts,
         JSON.stringify({
-          dir: 'in', type: msg.type,
-          text: (parsed ? textOf(parsed) : '').slice(0, 300),
+          dir: 'in', type: msg.type, ch,
+          text: body,
           at: new Date().toISOString(),
-        }), { expirationTtl: 90 * 86400 }).catch(() => {});
+        })).catch(() => {});
+      await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
+      /* the WhatsApp profile name, refreshed on every inbound */
+      if (profileName) {
+        await env.RATE.put('waname:' + from, profileName.slice(0, 60)).catch(() => {});
+      }
     }
     /* an Excel/CSV on WhatsApp = the guest list, same pipeline as the site */
     if (msg.type === 'document' && msg.document) {
@@ -1128,7 +1580,7 @@ function heDate(iso) {
 
 /* one sending wave to the guests of one event. Guests are skipped when they
    opted out, and (for reminders) when they already answered. */
-async function sendWave(env, ev, token, guests, wave, dry) {
+async function sendWave(env, ev, token, guests, wave, dry, budget) {
   const occasion = String(ev[5] || '').trim() || 'אירוע';
   const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
   const date = heDate(String(ev[6] || '').trim());
@@ -1140,8 +1592,14 @@ async function sendWave(env, ev, token, guests, wave, dry) {
   const invite = String(ev[44] || '').trim();
 
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
+  let truncated = false;
   const seenPhones = new Set();
   for (const g of guests) {
+    /* A wave of 300 does not fit in one Worker invocation — Cloudflare caps
+       subrequests, and a 300-guest blast at 09:35 is a spam signature besides.
+       The budget stops the loop early; wsent: makes the next tick resume from
+       exactly here rather than starting over. */
+    if (budget && budget.left <= 0) { truncated = true; break; }
     const phone = String(g[4] || '').trim();
     if (!phone || seenPhones.has(phone)) continue; // one message per phone per event, whatever file it came from
     seenPhones.add(phone);
@@ -1167,6 +1625,7 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     const res = await sendTemplate(env, phone, 'hazmana_ishur',
       [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
       { occasion, wave: wave.key, token });
+    if (budget) budget.left--;
     if (res.ok) {
       sent++;
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
@@ -1177,10 +1636,13 @@ async function sendWave(env, ev, token, guests, wave, dry) {
       }
     } else failed++;
   }
-  return { wave: wave.key, sent, skippedOptout, skippedAnswered, skippedDone, failed };
+  return { wave: wave.key, sent, skippedOptout, skippedAnswered, skippedDone, failed, truncated };
 }
 
-async function runDailyEngine(env, dry, todayOverride) {
+async function runDailyEngine(env, dry, todayOverride, opts = {}) {
+  /* how many guest messages this invocation may send before it stops and
+     leaves the rest for the next tick. null = no ceiling (the nightly run). */
+  const budget = opts.budget != null ? { left: Number(opts.budget) } : null;
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
     await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
@@ -1191,6 +1653,15 @@ async function runDailyEngine(env, dry, todayOverride) {
     ? String(todayOverride) : ilDate();
   const isShabbat = new Date(today + 'T12:00:00Z').getUTCDay() === 6;
   if (isShabbat && !dry) return { ok: true, skipped: 'shabbat' };
+  /* חג: no messages, no calls, no "friendly nudge". A holiday that nobody
+     configured is the one day a wedding RSVP text is genuinely offensive. */
+  if (isNoContactDay(today) && !dry) {
+    if (env.RATE && !(await env.RATE.get('holnote:' + today))) {
+      await env.RATE.put('holnote:' + today, '1', { expirationTtl: 3 * 86400 });
+      await slackPost(env, `🕯️ *${today} מסומן כיום ללא יצירת קשר.* לא נשלחו הודעות ולא בוצעו שיחות. הכל ימשיך מחר.`);
+    }
+    return { ok: true, date: today, skipped: 'no-contact-day' };
+  }
 
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
@@ -1315,12 +1786,15 @@ async function runDailyEngine(env, dry, todayOverride) {
         }
         continue;
       }
-      const res = await sendWave(env, ev, token, guests, wave, dry);
+      const res = await sendWave(env, ev, token, guests, wave, dry, budget);
+      if (res.truncated) out.push({ token, type: 'wave_truncated', wave: wave.key, truncated: true });
       if (!dry && res.sent) await addEvCost(env, token, res.sent * 0.53);
       /* only close the wave if something actually went out. A wave where every
          send failed (revoked token, number blocked) must stay open so a fixed
          re-run still reaches the guests instead of burning the list. */
-      const waveDelivered = res.sent > 0 || res.failed === 0;
+      /* a wave the budget cut short is NOT finished: closing its flag here
+         would strand every guest past the cut-off with no second chance */
+      const waveDelivered = !res.truncated && (res.sent > 0 || res.failed === 0);
       if (!dry && env.RATE && waveDelivered) {
         await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
       }
@@ -1691,8 +2165,84 @@ async function runDailyEngine(env, dry, todayOverride) {
     await env.RATE.put('engine:lastrun',
       JSON.stringify({ at: new Date().toISOString(), date: today, items: out.length }),
       { expirationTtl: 30 * 86400 }).catch(() => {});
+    /* did the budget cut this run short? The pacer reads this to decide
+       whether the next tick has anything to do at all, which is what keeps
+       144 daily ticks from costing 144 Make operations. */
+    const cut = out.some(o => o && o.truncated);
+    if (cut) await env.RATE.put('pacer:pending', today, { expirationTtl: 2 * 86400 });
+    else if (budget) await env.RATE.delete('pacer:pending');
   }
-  return { ok: true, date: today, events: out };
+  return { ok: true, date: today, events: out, truncated: out.some(o => o && o.truncated) };
+}
+
+/* ══ the pacer ═══════════════════════════════════════════════════════════════
+   Everything used to happen in one burst at 09:35: every wave for every event,
+   then Shir's whole dial round. Two problems with that. A 300-guest wave does
+   not survive one invocation's subrequest ceiling, and 300 identical messages
+   in ninety seconds is what a spam filter is built to catch. At the volume
+   Richard is aiming for — a couple of thousand contacts a day — it does not
+   work at all.
+
+   So the burst becomes a trickle: a tick every ten minutes through the contact
+   window, each one draining a slice. The dedupe keys that already existed
+   (wsent: per guest per wave, shirtry: per guest per day) are what make this
+   safe to re-enter; nothing here needed a new lock.
+
+   The tick is cheap when there is nothing to do: one KV read and out. It only
+   reaches for the sheet when the last run left work behind, or when the call
+   queue is warm.
+   ────────────────────────────────────────────────────────────────────────── */
+const PACE_SENDS = 25;    // guest messages per tick — 63 ticks ≈ 1,500/day
+const PACE_CALLS = 6;     // dials per tick — 63 ticks ≈ 375/day
+const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
+
+async function runPacer(env) {
+  if (!env.RATE) return { ok: false, why: 'no-kv' };
+  const today = ilDate();
+  if (isNoContactDay(today)) return { ok: true, skipped: 'no-contact-day' };
+  if (await sendingPaused(env)) return { ok: true, paused: true };
+
+  const out = { date: today };
+
+  /* messages first: they are cheaper and they warm the 24h window a call
+     lands in more gracefully than a cold ring does */
+  const sendWin = sendWindowState();
+  if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
+    const r = await runDailyEngine(env, false, null, { budget: PACE_SENDS }).catch(e => {
+      return { ok: false, error: String((e && e.message) || e) };
+    });
+    out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated } : { ran: false, error: r && r.error };
+  } else {
+    out.sends = { ran: false, why: sendWin.open ? 'nothing-pending' : sendWin.why };
+  }
+
+  /* then the dial slice */
+  const callWin = callWindowState();
+  if (callWin.open) {
+    /* Whoever just rang US is the hottest lead in the system: somebody who
+       wanted to talk to us badly enough to dial. The callback queue therefore
+       empties BEFORE the guest queue — and out of the same per-tick budget,
+       so a busy inbound hour cannot quietly blow the concurrency limit. */
+    const cb = await runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) }).catch(e => {
+      return { dialed: 0, why: String((e && e.message) || e) };
+    });
+    out.callbacks = cb;
+    const left = Math.max(0, PACE_CALLS - ((cb && cb.dialed) || 0));
+    const r = left
+      ? await runShirDispatch(env, { max: left, quiet: true }).catch(e => {
+        return { ok: false, why: String((e && e.message) || e) };
+      })
+      : { dialed: 0, why: 'callbacks-took-the-slice' };
+    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why };
+  } else {
+    out.calls = { dialed: 0, why: callWin.why };
+    out.callbacks = { dialed: 0, why: callWin.why };
+  }
+  /* a heartbeat worth having: "the pacer is alive" is otherwise invisible
+     until the day somebody notices nothing went out */
+  await env.RATE.put('pacer:last', JSON.stringify({ at: new Date().toISOString(), ...out }),
+    { expirationTtl: 3 * 86400 }).catch(() => {});
+  return { ok: true, ...out };
 }
 
 /* ══ Team reminders ══════════════════════════════════════════════════════════
@@ -1846,39 +2396,49 @@ async function handleInbox(request, env, origin) {
 
   const phone = normPhone(body.phone || '');
   if (phone) {
-    /* one thread, oldest first */
+    /* one thread, oldest first. Nothing expires any more, so an old customer
+       coming back still finds everything that was ever said to them. */
     const names = (await kvKeys(env, 'log:' + phone + ':')).sort();
     const messages = [];
-    for (const n of names.slice(-200)) {
+    for (const n of names.slice(-400)) {
       try {
         const v = JSON.parse(await env.RATE.get(n));
         if (v) messages.push({ ts: Number(n.split(':').pop()) || 0, ...v });
       } catch {}
     }
-    return okJson({ ok: true, phone, messages }, origin);
+    const waName = env.RATE ? await env.RATE.get('waname:' + phone) : '';
+    return okJson({ ok: true, phone, wa_name: waName || '', messages }, origin);
   }
 
-  /* conversation list: newest activity first, with a name when we know one */
-  const names = await kvKeys(env, 'log:');
-  const conv = {};
-  for (const n of names) {
-    const parts = n.split(':');           // log:<phone>:<ts>
-    const p = parts[1], ts = Number(parts[2]) || 0;
-    if (!p) continue;
-    const c = (conv[p] = conv[p] || { phone: p, msgs: 0, last_ts: 0 });
-    c.msgs++;
-    if (ts > c.last_ts) { c.last_ts = ts; c.last_key = n; }
-  }
-  const list = Object.values(conv).sort((a, b) => b.last_ts - a.last_ts).slice(0, 200);
-  for (const c of list) {
+  /* One key per conversation instead of one per message. The old list walked
+     every log: key ever written and stopped at its scan cap, which is why
+     older threads vanished as volume grew. */
+  const channel = String(body.channel || '').trim();   // '' | 'client' | 'guests'
+  const list = [];
+  for (const k of await kvKeys(env, 'conv:')) {
     try {
-      const v = JSON.parse(await env.RATE.get(c.last_key));
-      if (v) { c.last_dir = v.dir; c.last_text = String(v.text || v.type || '').slice(0, 80); }
+      const c = JSON.parse(await env.RATE.get(k));
+      if (!c || !c.phone) continue;
+      if (channel && !(c.ch || []).includes(channel)) continue;
+      list.push({
+        phone: c.phone,
+        msgs: c.msgs || 0,
+        last_ts: c.last_ts || 0,
+        last_dir: c.last_dir || '',
+        last_text: c.last_text || '',
+        first_ts: c.first_ts || 0,
+        ch: c.ch || [],
+      });
     } catch {}
-    delete c.last_key;
   }
+  list.sort((a, b) => b.last_ts - a.last_ts);
+  const page = list.slice(0, 400);
 
-  /* names from the sheet: event owners and guests */
+  /* the name, best source first: what they call themselves on WhatsApp, then
+     the sheet. A number in no sheet at all still shows a person. */
+  for (const c of page) {
+    try { c.wa_name = (await env.RATE.get('waname:' + c.phone)) || ''; } catch {}
+  }
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (raw) {
     const nameOf = {};
@@ -1890,12 +2450,64 @@ async function handleInbox(request, env, origin) {
       const p = normPhone(g[4] || '');
       if (p && !nameOf[p]) nameOf[p] = { name: String(g[3] || '').trim(), kind: 'אורח' };
     }
-    for (const c of list) {
+    for (const c of page) {
       const hit = nameOf[c.phone];
       if (hit) { c.name = hit.name; c.kind = hit.kind; }
+      if (!c.name) c.name = c.wa_name || '';
     }
+  } else {
+    for (const c of page) if (!c.name) c.name = c.wa_name || '';
   }
-  return okJson({ ok: true, conversations: list }, origin);
+  return okJson({
+    ok: true, conversations: page, total: list.length,
+    counts: {
+      all: list.length,
+      client: list.filter(c => (c.ch || []).includes('client')).length,
+      guests: list.filter(c => (c.ch || []).includes('guests')).length,
+    },
+  }, origin);
+}
+
+/* Everything written before the conversation index existed only lives as
+   log: keys. This walks them once and builds the index, so the inbox opens on
+   the full history rather than on whatever arrived after the deploy.
+   POST /api/inbox-reindex {admin_key}. Safe to run twice: it rebuilds from
+   scratch rather than adding to what is there. */
+async function handleInboxReindex(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RATE) return okJson({ ok: false, error: 'no-kv' }, origin);
+
+  const names = await kvKeys(env, 'log:', 60000);
+  const conv = {};
+  for (const n of names) {
+    const parts = n.split(':');                 // log:<phone>:<ts>
+    const p = parts[1], ts = Number(parts[2]) || 0;
+    if (!p) continue;
+    const c = (conv[p] = conv[p] || { phone: p, msgs: 0, last_ts: 0, first_ts: ts, ch: [] });
+    c.msgs++;
+    if (ts && (!c.first_ts || ts < c.first_ts)) c.first_ts = ts;
+    if (ts > c.last_ts) { c.last_ts = ts; c.last_key = n; }
+  }
+  let written = 0;
+  for (const c of Object.values(conv)) {
+    try {
+      const v = JSON.parse(await env.RATE.get(c.last_key));
+      if (v) {
+        c.last_dir = v.dir || '';
+        c.last_text = String(v.text || v.type || '').slice(0, 80);
+        /* entries written before channels were tagged are client-number
+           traffic — the guests number was not sending yet */
+        if (v.ch) c.ch = [v.ch];
+      }
+    } catch {}
+    if (!c.ch.length) c.ch = ['client'];
+    delete c.last_key;
+    await env.RATE.put('conv:' + c.phone, JSON.stringify(c));
+    written++;
+  }
+  return okJson({ ok: true, scanned: names.length, conversations: written }, origin);
 }
 
 /* ══ Phone + code login for the dashboard ════════════════════════════════════
@@ -2718,6 +3330,13 @@ async function handleShirCalls(request, env, origin) {
        The outcome comes from the tool Shir calls mid-conversation; the
        custom analysis fields are filled by Retell after the call. */
     guest_id: String((c.metadata || {}).guest_id || ''),
+    /* What kind of call this WAS. A number can be a guest at one event and a
+       lead of ours at the same time, so the type belongs to the call. Calls
+       placed before this field existed are guest RSVP calls; an inbound call
+       carries no metadata of ours at all, so direction decides. */
+    call_kind: String((c.metadata || {}).kind ||
+      (String(c.direction || c.call_type || '').includes('inbound') ? 'inbound' : 'guest')),
+    direction: String(c.direction || '').includes('inbound') ? 'inbound' : 'outbound',
     outcome: String(((c.call_analysis || {}).custom_analysis_data || {}).outcome || ''),
     party_size: ((c.call_analysis || {}).custom_analysis_data || {}).party_size ?? null,
     productive: !!((c.call_analysis || {}).custom_analysis_data || {}).got_answer,
@@ -2892,19 +3511,18 @@ export default {
       ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
       return;
     }
+    /* the ten-minute pacer: a slice of the sends and a slice of the dials,
+       spread across the contact window instead of one burst at 09:35 */
+    if (String(event.cron || '').startsWith('*/10')) {
+      ctx.waitUntil(runPacer(env).catch(e =>
+        alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
+      return;
+    }
     ctx.waitUntil(syncCallCosts(env).catch(() => {}));
-    /* Shir dials right after the morning engine. A separate cron would be
-       better (three rounds across the day) but the free plan caps us at five,
-       so one round a morning it is, and the admin route covers extra rounds. */
-    /* the calling window opens at 10:00 and this cron fires at 09:35 IL, so
-       dialling immediately would always return "closed". Hold until the window
-       is genuinely open, then dial. */
-    ctx.waitUntil((async () => {
-      const wait = msUntilCallWindow();
-      if (wait > 0 && wait < 60 * 60 * 1000) await new Promise(r => setTimeout(r, wait));
-      await runShirDispatch(env);
-    })().catch(e => alert(env, 'חיוג', 'סבב החיוג נפל', String(e && e.message))));
-    ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
+    /* Dialling belongs to the pacer now — it runs every ten minutes through
+       the whole window instead of emptying 25 calls into the first minute of
+       it. This cron keeps only the planning half of the morning. */
+    ctx.waitUntil(runDailyEngine(env, false, null, { budget: PACE_SENDS * 2 }).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
       String((e && e.stack) || e).slice(0, 500))).then(() => {
@@ -2934,11 +3552,35 @@ export default {
     if (url.pathname === '/api/claim' && request.method === 'POST') {
       return handleClaim(request, env, origin);
     }
+    if (url.pathname === '/promo/check' && request.method === 'GET') {
+      return handlePromoCheck(env, request, url, origin);
+    }
+    if (url.pathname === '/promo/go' && request.method === 'GET') {
+      return handlePromoGo(env, request, url, origin);
+    }
+    if (url.pathname === '/api/inbox-reindex' && request.method === 'POST') {
+      return handleInboxReindex(request, env, origin);
+    }
+    if (url.pathname === '/api/pacer' && request.method === 'POST') {
+      return (async () => {
+        let b = {};
+        try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+        if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+        return okJson(await runPacer(env), origin);
+      })();
+    }
+    if (url.pathname === '/api/promo' && request.method === 'POST') {
+      return handlePromoAdmin(request, env, origin);
+    }
     if (url.pathname.startsWith('/img/') && request.method === 'GET') {
       return serveImage(env, url.pathname);
     }
     if (url.pathname === '/api/shir-webhook' && request.method === 'POST') {
       return handleShirWebhook(request, env);
+    }
+    /* Retell asks who is calling, before the agent speaks */
+    if (url.pathname === '/api/shir-inbound' && request.method === 'POST') {
+      return handleShirInbound(request, env, url, origin);
     }
     if (url.pathname === '/api/shir-dispatch' && request.method === 'POST') {
       return handleShirDispatch(request, env, origin);

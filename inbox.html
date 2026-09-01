@@ -7,7 +7,7 @@
 <title>אינבוקס · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=30"></script>
+<script src="config.js?v=31"></script>
 <script src="assets/adminbar.js?v=3" defer></script>
 <script>
   (function () {
@@ -23,14 +23,15 @@
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
     --paper:#F8F4EA; --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
     --bg:#FAF8F1; --card:#fff; --line:#E3E1D8; --ok:#0F4C35; --warn:#A8402F;
-    --me:#DCF3E6; --them:#fff;
+    --me:#DCF3E6; --them:#fff; --on-ok:#fff;
   }
   html[data-theme=dark]{
     --gold:#C7AE7A; --ink:#E8EBE7; --ink2:#C2C9C1; --ink3:#8D968C;
     --bg:#131714; --card:#1A201C; --line:#2A322C; --ok:#4CAF82; --warn:#F08A8A;
-    --me:#173425; --them:#1E2621;
+    --me:#173425; --them:#1E2621; --on-ok:#0A2119;
   }
   *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none !important}   /* our flex rules would otherwise beat the attribute */
   body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;height:100vh;display:flex;flex-direction:column;overflow:hidden}
   .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:.8rem 1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(199,174,122,.3);flex-shrink:0}
   .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem}
@@ -38,22 +39,59 @@
   .head a{color:var(--gold-soft);font-size:.75rem;text-decoration:none}
   .head-btns{display:flex;gap:.5rem;align-items:center}
   .hbtn{background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA;border-radius:99px;padding:.25rem .7rem;font:inherit;font-size:.72rem;cursor:pointer}
+  .hbtn:focus-visible{outline:2px solid var(--gold-soft);outline-offset:2px}
+
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 
   .split{flex:1;display:flex;min-height:0}
   .list{width:min(320px,38vw);border-inline-end:1px solid var(--line);overflow-y:auto;background:var(--card);flex-shrink:0}
+
+  /* ── channel tabs ── */
+  .tabs{display:flex;gap:.3rem;padding:.45rem .5rem;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:1 1 0;min-width:max-content;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:.32rem .5rem;font:inherit;color:var(--ink2);cursor:pointer;text-align:center;line-height:1.18;white-space:nowrap}
+  .tab-t{display:block;font-size:.77rem;font-weight:600}
+  .tab-s{display:block;font-size:.6rem;color:var(--ink3);margin-top:.05rem;direction:ltr;unicode-bidi:isolate}
+  .tab-s.he{direction:rtl}
+  .tab-n{display:inline-block;min-width:1.15rem;padding:0 .28rem;margin-inline-start:.28rem;border-radius:99px;background:rgba(15,46,34,.09);font-size:.64rem;font-weight:600}
+  html[data-theme=dark] .tab-n{background:rgba(199,174,122,.16)}
+  .tab[aria-selected=true]{background:var(--ok);border-color:var(--ok);color:var(--on-ok);box-shadow:0 1px 4px rgba(15,76,53,.18)}
+  .tab[aria-selected=true] .tab-s{color:var(--on-ok);opacity:.75}
+  .tab[aria-selected=true] .tab-n{background:rgba(255,255,255,.22);color:var(--on-ok)}
+  html[data-theme=dark] .tab[aria-selected=true] .tab-n{background:rgba(10,33,25,.18)}
+  .tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
   .conv{display:block;width:100%;text-align:right;background:none;border:none;border-bottom:1px solid var(--line);padding:.65rem .9rem;cursor:pointer;font:inherit;color:var(--ink)}
   .conv.on{background:rgba(15,76,53,.08)}
   html[data-theme=dark] .conv.on{background:rgba(76,175,130,.12)}
-  .conv b{display:flex;justify-content:space-between;font-size:.85rem;font-weight:600}
-  .conv b time{font-weight:400;font-size:.68rem;color:var(--ink3)}
-  .conv span{display:block;font-size:.75rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.1rem}
-  .ch{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(15,76,53,.1);color:var(--ok);margin-inline-start:.3rem}
+  .conv:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+  .conv b{display:flex;justify-content:space-between;align-items:baseline;font-size:.85rem;font-weight:600;gap:.4rem}
+  .conv b .cname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conv b time{flex-shrink:0;font-weight:400;font-size:.68rem;color:var(--ink3)}
+  .conv span.prev{display:block;font-size:.75rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.1rem}
+  .cnum{font-weight:400;font-size:.68rem;color:var(--ink3);direction:ltr;unicode-bidi:isolate;margin:0 .3rem}  /* physical: the element's own ltr would flip a logical margin */
+  .ch{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(15,76,53,.1);color:var(--ok);margin-inline-start:.3rem;white-space:nowrap}
+  html[data-theme=dark] .ch{background:rgba(76,175,130,.14)}
 
   .pane{flex:1;display:flex;flex-direction:column;min-width:0}
-  .pane-h{padding:.6rem 1rem;border-bottom:1px solid var(--line);background:var(--card);font-size:.85rem;display:flex;justify-content:space-between;align-items:center}
-  .pane-h .p{color:var(--ink3);font-size:.72rem;direction:ltr}
+  .pane-h{padding:.55rem 1rem;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:flex-start;gap:.5rem}
+  .backb{display:none;flex-shrink:0;color:var(--ink2);border-color:var(--line);background:none;margin-top:.1rem}
+  .pane-id{flex:1;min-width:0}
+  .pane-name{display:flex;align-items:center;flex-wrap:wrap;gap:.1rem;font-size:.92rem;font-weight:600}
+  .pane-name .ch{margin-inline-start:.35rem}
+  .pane-sub{font-size:.68rem;color:var(--ink3);margin-top:.05rem;overflow:hidden;text-overflow:ellipsis}
+  .pane-phone{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;margin-top:.2rem}
+  .pane-phone .p{color:var(--ink2);font-size:.76rem;direction:ltr;unicode-bidi:isolate;letter-spacing:.02em}
+  .pane-since{font-size:.66rem;color:var(--ink3);margin-top:.18rem}
+  .copyb{display:inline-flex;align-items:center;gap:.25rem;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.12rem .45rem;font:inherit;font-size:.66rem;color:var(--ink2);cursor:pointer;white-space:nowrap}
+  .copyb:hover{border-color:var(--gold);color:var(--ink)}
+  .copyb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .copyb.done{background:rgba(15,76,53,.12);border-color:var(--ok);color:var(--ok)}
+  .copyb.bad{border-color:var(--warn);color:var(--warn)}
+  .copyb svg{width:.78rem;height:.78rem;flex-shrink:0}
+
   .thread{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.45rem}
-  .msg{max-width:74%;border-radius:14px;padding:.5rem .8rem;font-size:.85rem;line-height:1.5;position:relative;border:1px solid var(--line)}
+  .msg{max-width:74%;border-radius:14px;padding:.5rem .8rem;font-size:.85rem;line-height:1.5;position:relative;border:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere}
   .msg.out{background:var(--me);align-self:flex-start;border-bottom-inline-start-radius:4px}
   .msg.in{background:var(--them);align-self:flex-end;border-bottom-inline-end-radius:4px}
   .msg time{display:block;font-size:.62rem;color:var(--ink3);margin-top:.2rem}
@@ -63,7 +101,8 @@
   .composer{display:flex;gap:.5rem;padding:.7rem 1rem;border-top:1px solid var(--line);background:var(--card);flex-shrink:0}
   .composer textarea{flex:1;font:inherit;font-size:.85rem;border:1px solid var(--line);border-radius:12px;padding:.5rem .8rem;resize:none;height:2.6rem;background:var(--bg);color:var(--ink)}
   .composer button{font:inherit;font-size:.85rem;font-weight:600;border:none;border-radius:12px;padding:0 1.1rem;cursor:pointer}
-  #send{background:var(--ok);color:#fff}
+  .composer button:focus-visible,.composer textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  #send{background:var(--ok);color:var(--on-ok)}
   #tmplBtn{background:none;border:1px solid var(--line);color:var(--ink2)}
   .note24{font-size:.66rem;color:var(--ink3);padding:0 1rem .5rem;background:var(--card)}
 
@@ -76,7 +115,7 @@
   .pop select,.pop input{width:100%;font:inherit;font-size:.8rem;border:1px solid var(--line);border-radius:9px;padding:.4rem .6rem;margin-bottom:.45rem;background:var(--bg);color:var(--ink)}
   .pop-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem}
   .pop-btns button{font:inherit;font-size:.8rem;border-radius:9px;padding:.4rem .9rem;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink)}
-  .pop-btns .go{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .pop-btns .go{background:var(--ok);color:var(--on-ok);border-color:var(--ok)}
 
   .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
   .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
@@ -87,6 +126,10 @@
     .pane{display:none}
     body.open .list{display:none}
     body.open .pane{display:flex}
+    .backb{display:inline-block}
+    .tab{padding:.32rem .42rem}
+    .tab-t{font-size:.74rem}
+    .tab-s{font-size:.56rem}
   }
   button:not(:disabled):active{transform:scale(.97)}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
@@ -96,7 +139,7 @@
 <header class="head">
   <h1>ishur<i>.io</i> · אינבוקס</h1>
   <div class="head-btns">
-    <button class="hbtn" id="themeTog">🌙</button>
+    <button class="hbtn" id="themeTog" aria-label="מצב כהה / בהיר">🌙</button>
     <button class="hbtn" id="refresh">רענון</button>
     <a href="admin.html">→ מרכז הבקרה</a>
   </div>
@@ -110,11 +153,38 @@
 </div>
 
 <div class="split" id="split" hidden>
-  <div class="list" id="convList"></div>
+  <div class="list" id="listCol">
+    <div class="tabs" role="tablist" aria-label="סינון לפי מספר">
+      <button class="tab" role="tab" id="tabAll" data-ch="all" aria-selected="true" aria-controls="convList" tabindex="0">
+        <span class="tab-t">הכל<span class="tab-n" id="cAll">·</span></span>
+        <span class="tab-s he">כל השיחות</span>
+      </button>
+      <button class="tab" role="tab" id="tabClient" data-ch="client" aria-selected="false" aria-controls="convList" tabindex="-1">
+        <span class="tab-t">נועה<span class="tab-n" id="cClient">·</span></span>
+        <span class="tab-s he">מספר הלקוחות</span>
+      </button>
+      <button class="tab" role="tab" id="tabGuests" data-ch="guests" aria-selected="false" aria-controls="convList" tabindex="-1">
+        <span class="tab-t">אורחים<span class="tab-n" id="cGuests">·</span></span>
+        <span class="tab-s">055-972-6673</span>
+      </button>
+    </div>
+    <div id="convList" role="tabpanel" aria-labelledby="tabAll"></div>
+  </div>
   <div class="pane">
     <div class="pane-h" hidden id="paneH">
-      <span><button class="hbtn" id="backBtn" style="color:var(--ink2);border-color:var(--line);background:none;display:none">→</button> <b id="pName"></b> <span class="ch" id="pKind"></span></span>
-      <span class="p" id="pPhone"></span>
+      <button class="hbtn backb" id="backBtn" aria-label="חזרה לרשימת השיחות">→</button>
+      <div class="pane-id">
+        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span></div>
+        <div class="pane-sub" id="pWa" hidden></div>
+        <div class="pane-phone">
+          <span class="p" id="pPhone"></span>
+          <button class="copyb" id="copyPhone" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span id="copyLbl">העתקה</span>
+          </button>
+        </div>
+        <div class="pane-since" id="pSince" hidden></div>
+      </div>
     </div>
     <div class="thread" id="thread"><div class="empty">בוחרים שיחה מהרשימה ורואים כאן את כל ההיסטוריה</div></div>
     <p class="note24" id="note24" hidden>מענה חופשי עובר רק בתוך 24 שעות מההודעה האחרונה של הצד השני. מעבר לזה, שולחים תבנית.</p>
@@ -137,13 +207,17 @@
   </div>
 </div>
 
+<span class="sr" id="live" role="status" aria-live="polite"></span>
+
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
   var $ = function (id) { return document.getElementById(id); };
   var adminKey = '';
-  var current = null;
+  var current = null;        /* phone of the open thread */
+  var currentConv = null;    /* the conversation object behind it */
   var timer = null;
+  var counts = { all: null, client: null, guests: null };
 
   /* ── theme ── */
   (function () {
@@ -161,8 +235,8 @@
 
   /* ── the same admin key the control room uses ── */
   var qk = new URLSearchParams(location.search).get('key');
-  if (qk) { localStorage.setItem('ishur_calls_key', qk); history.replaceState(null, '', location.pathname); }
-  adminKey = localStorage.getItem('ishur_calls_key') || '';
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) { adminKey = ''; }
 
   function gate(msg) {
     $('gate').hidden = false; $('split').hidden = true;
@@ -171,7 +245,7 @@
   $('keyGo').addEventListener('click', function () {
     adminKey = $('keyIn').value.trim();
     if (!adminKey) return;
-    localStorage.setItem('ishur_calls_key', adminKey);
+    try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {}
     boot();
   });
 
@@ -183,68 +257,212 @@
     }).then(function (r) {
       if (r.status === 403) { gate('המפתח לא נכון'); return null; }
       return r.status === 200 ? r.json() : null;
-    });
+    }).catch(function () { return null; });
   }
 
-  function heTime(ts) {
-    var d = new Date(ts);
-    var today = new Date().toDateString() === d.toDateString();
-    return today
-      ? d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
-      : d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
-  }
+  /* ── formatting helpers ── */
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
 
-  function loadConvs() {
-    api({}).then(function (d) {
-      if (!d || !d.ok) return;
-      $('gate').hidden = true; $('split').hidden = false;
-      var host = $('convList'); host.innerHTML = '';
-      if (!d.conversations.length) {
-        host.innerHTML = '<div class="empty">עוד אין שיחות. ברגע שמישהו יכתוב — זה יופיע כאן.</div>';
-        return;
-      }
-      d.conversations.forEach(function (c) {
-        var b = document.createElement('button');
-        b.className = 'conv' + (current === c.phone ? ' on' : '');
-        b.innerHTML = '<b>' + esc(c.name || '0' + c.phone.slice(3)) +
-          (c.kind ? '<span class="ch">' + esc(c.kind) + '</span>' : '') +
-          '<time>' + heTime(c.last_ts) + '</time></b>' +
-          '<span>' + (c.last_dir === 'out' ? '↩ ' : '') + esc(c.last_text || '') + '</span>';
-        b.addEventListener('click', function () { openConv(c); });
-        host.appendChild(b);
-      });
+  /* 972545764327 → 054-576-4327. Anything we do not recognise stays +digits. */
+  function fmtPhone(p) {
+    var d = String(p == null ? '' : p).replace(/\D/g, '');
+    if (!d) return '';
+    if (d.indexOf('972') === 0 && d.length > 3) {
+      var loc = '0' + d.slice(3);
+      if (loc.length === 10) return loc.slice(0, 3) + '-' + loc.slice(3, 6) + '-' + loc.slice(6);
+      if (loc.length === 9) return loc.slice(0, 2) + '-' + loc.slice(2, 5) + '-' + loc.slice(5);
+      return loc;
+    }
+    return '+' + d;
+  }
+
+  /* name from the sheet, then the name the person gave WhatsApp, then nothing */
+  function dispName(c) {
+    if (!c) return 'לא מזוהה';
+    return (c.name && String(c.name).trim()) || (c.wa_name && String(c.wa_name).trim()) || 'לא מזוהה';
+  }
+
+  function hhmm(d) { return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
+
+  /* compact stamp for the conversation list */
+  function listTime(ts) {
+    if (!ts) return '';
+    var d = new Date(ts), n = new Date();
+    if (d.toDateString() === n.toDateString()) return hhmm(d);
+    var o = { day: 'numeric', month: 'numeric' };
+    if (d.getFullYear() !== n.getFullYear()) o.year = '2-digit';
+    return d.toLocaleDateString('he-IL', o);
+  }
+  /* stamp under a bubble — carries the year once the thread is old */
+  function msgTime(ts) {
+    if (!ts) return '';
+    var d = new Date(ts), n = new Date();
+    if (d.toDateString() === n.toDateString()) return hhmm(d);
+    var o = { day: 'numeric', month: 'numeric' };
+    if (d.getFullYear() !== n.getFullYear()) o.year = '2-digit';
+    return d.toLocaleDateString('he-IL', o) + ' ' + hhmm(d);
+  }
+  function longDate(ts) {
+    return new Date(ts).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  /* ── channel tabs ── */
+  var CH_KEY = 'ishur_inbox_channel';
+  var channel = 'all';
+  try {
+    var saved = localStorage.getItem(CH_KEY);
+    if (saved === 'all' || saved === 'client' || saved === 'guests') channel = saved;
+  } catch (e) {}
+
+  var tabs = [$('tabAll'), $('tabClient'), $('tabGuests')];
+  var countEl = { all: $('cAll'), client: $('cClient'), guests: $('cGuests') };
+
+  function paintTabs() {
+    tabs.forEach(function (t) {
+      var on = t.getAttribute('data-ch') === channel;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      if (on) $('convList').setAttribute('aria-labelledby', t.id);
     });
+  }
+  function paintCounts() {
+    ['all', 'client', 'guests'].forEach(function (k) {
+      countEl[k].textContent = counts[k] == null ? '·' : String(counts[k]);
+    });
+  }
+  function setChannel(ch, moveFocus) {
+    if (ch !== 'all' && ch !== 'client' && ch !== 'guests') return;
+    channel = ch;
+    try { localStorage.setItem(CH_KEY, ch); } catch (e) {}
+    paintTabs();
+    if (moveFocus) { tabs.forEach(function (t) { if (t.getAttribute('data-ch') === ch) t.focus(); }); }
+    loadConvs();
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { setChannel(t.getAttribute('data-ch'), false); });
+    t.addEventListener('keydown', function (e) {
+      var j;
+      if (e.key === 'ArrowLeft') j = i + 1;        /* RTL: left is "next" */
+      else if (e.key === 'ArrowRight') j = i - 1;  /* RTL: right is "previous" */
+      else if (e.key === 'Home') j = 0;
+      else if (e.key === 'End') j = tabs.length - 1;
+      else return;
+      e.preventDefault();
+      j = (j + tabs.length) % tabs.length;
+      setChannel(tabs[j].getAttribute('data-ch'), true);
+    });
+  });
+  paintTabs();
+  paintCounts();
+
+  /* ── conversation list ──
+     counts come back computed over whatever the server just filtered, so the
+     only response we trust for them is the unfiltered one. */
+  function loadConvs() {
+    var want = channel;
+    if (want === 'all') {
+      api({}).then(function (d) {
+        if (!d || !d.ok) return;
+        if (d.counts) { counts = d.counts; paintCounts(); }
+        if (channel === want) paintList(d.conversations || []);
+        shown();
+      });
+      return;
+    }
+    api({ channel: want }).then(function (d) {
+      if (!d || !d.ok) return;
+      if (channel === want) paintList(d.conversations || []);
+      shown();
+    });
+    api({}).then(function (d) {
+      if (d && d.ok && d.counts) { counts = d.counts; paintCounts(); }
+    });
+  }
+  function shown() { $('gate').hidden = true; $('split').hidden = false; }
+
+  function paintList(list) {
+    var host = $('convList'); host.innerHTML = '';
+    if (!list.length) {
+      host.innerHTML = '<div class="empty">' +
+        (channel === 'all'
+          ? 'עוד אין שיחות. ברגע שמישהו יכתוב — זה יופיע כאן.'
+          : 'אין שיחות במספר הזה.') + '</div>';
+      return;
+    }
+    list.forEach(function (c) {
+      if (c.phone === current) { currentConv = c; paintHeader(c); }
+      var nm = dispName(c);
+      var unknown = !(c.name && String(c.name).trim()) && !(c.wa_name && String(c.wa_name).trim());
+      var b = document.createElement('button');
+      b.className = 'conv' + (current === c.phone ? ' on' : '');
+      b.innerHTML = '<b><span class="cname"><span dir="auto">' + esc(nm) + '</span>' +
+        (unknown ? '<span class="cnum">' + esc(fmtPhone(c.phone)) + '</span>' : '') +
+        (c.kind ? '<span class="ch">' + esc(c.kind) + '</span>' : '') +
+        '</span><time>' + esc(listTime(c.last_ts)) + '</time></b>' +
+        '<span class="prev">' + (c.last_dir === 'out' ? '↩ ' : '') + esc(c.last_text || '') + '</span>';
+      b.addEventListener('click', function () { openConv(c); });
+      host.appendChild(b);
+    });
+  }
+
+  /* ── thread header ── */
+  var WEEK = 7 * 24 * 60 * 60 * 1000;
+  function paintHeader(c) {
+    if (!c) return;
+    $('pName').textContent = dispName(c);
+
+    $('pKind').textContent = c.kind || '';
+    $('pKind').hidden = !c.kind;
+
+    var wa = (c.wa_name && String(c.wa_name).trim()) || '';
+    var nm = (c.name && String(c.name).trim()) || '';
+    var showWa = !!wa && wa !== nm;
+    $('pWa').hidden = !showWa;
+    $('pWa').innerHTML = showWa ? 'בוואטסאפ: <span dir="auto">' + esc(wa) + '</span>' : '';
+
+    $('pPhone').textContent = fmtPhone(c.phone);
+    var raw = String(c.phone || '').replace(/\D/g, '');
+    var tip = 'מעתיק את המספר הבינלאומי המלא: ' + raw;
+    $('copyPhone').title = tip;
+    $('copyPhone').setAttribute('aria-label', tip);
+
+    var old = c.first_ts && (Date.now() - c.first_ts > WEEK);
+    $('pSince').hidden = !old;
+    $('pSince').textContent = old ? 'שיחה מאז ' + longDate(c.first_ts) : '';
   }
 
   function openConv(c) {
     current = c.phone;
+    currentConv = c;
     document.body.classList.add('open');
     $('paneH').hidden = false;
     $('composer').hidden = false;
     $('note24').hidden = false;
-    $('pName').textContent = c.name || 'ללא שם';
-    $('pKind').textContent = c.kind || '';
-    $('pKind').style.display = c.kind ? '' : 'none';
-    $('pPhone').textContent = '+' + c.phone;
-    $('backBtn').style.display = '';
+    paintHeader(c);
     loadThread();
     loadConvs();
   }
 
   function loadThread() {
     if (!current) return;
-    api({ phone: current }).then(function (d) {
-      if (!d || !d.ok) return;
+    var want = current;
+    api({ phone: want }).then(function (d) {
+      if (!d || !d.ok || current !== want) return;
+      /* the thread endpoint knows the freshest wa_name */
+      if (currentConv && typeof d.wa_name === 'string' && d.wa_name) {
+        currentConv.wa_name = d.wa_name;
+        paintHeader(currentConv);
+      }
       var host = $('thread'); host.innerHTML = '';
-      if (!d.messages.length) { host.innerHTML = '<div class="empty">אין הודעות בשיחה הזאת עדיין.</div>'; return; }
-      d.messages.forEach(function (m) {
+      var msgs = d.messages || [];
+      if (!msgs.length) { host.innerHTML = '<div class="empty">אין הודעות בשיחה הזאת עדיין.</div>'; return; }
+      msgs.forEach(function (m) {
         var el = document.createElement('div');
         el.className = 'msg ' + (m.dir === 'out' ? 'out' : 'in');
-        var text = m.text || (m.type === 'template' ? 'תבנית' : m.type);
+        var text = m.text || (m.type === 'template' ? 'תבנית' + (m.tmpl ? ' · ' + m.tmpl : '') : (m.type || ''));
         el.innerHTML = esc(text) +
           (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') +
-          '<time>' + heTime(m.ts) + '</time>';
+          '<time>' + esc(msgTime(m.ts)) + '</time>';
         host.appendChild(el);
       });
       host.scrollTop = host.scrollHeight;
@@ -253,6 +471,55 @@
 
   $('backBtn').addEventListener('click', function () {
     document.body.classList.remove('open');
+  });
+
+  /* ── copy the phone ──
+     we copy the clean international number (972545764327) because that is what
+     gets pasted back into the sheet, the worker and wa.me — not the dashes. */
+  function fallbackCopy(s) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = s;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ta.setSelectionRange(0, s.length); } catch (e) {}
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (e) { return false; }
+  }
+  function copyText(s) {
+    return new Promise(function (resolve) {
+      var p = null;
+      /* navigator.clipboard does not exist over plain http and can throw */
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) p = navigator.clipboard.writeText(s);
+      } catch (e) { p = null; }
+      if (p && typeof p.then === 'function') {
+        p.then(function () { resolve(true); }, function () { resolve(fallbackCopy(s)); });
+      } else {
+        resolve(fallbackCopy(s));
+      }
+    });
+  }
+  var copyTimer = null;
+  $('copyPhone').addEventListener('click', function () {
+    if (!current) return;
+    var raw = String(current).replace(/\D/g, '');
+    var btn = this;
+    copyText(raw).then(function (ok) {
+      btn.classList.toggle('done', ok);
+      btn.classList.toggle('bad', !ok);
+      $('copyLbl').textContent = ok ? 'הועתק' : 'לא הצלחנו';
+      $('live').textContent = ok ? 'הועתק: ' + raw : 'ההעתקה נכשלה. אפשר לסמן את המספר ידנית.';
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(function () {
+        btn.classList.remove('done'); btn.classList.remove('bad');
+        $('copyLbl').textContent = 'העתקה';
+      }, 1800);
+    });
   });
 
   /* ── free-text reply ── */

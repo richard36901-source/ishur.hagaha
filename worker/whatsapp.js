@@ -62,6 +62,33 @@ async function opsPing(env, where, what, detail) {
   }).catch(() => {});
 }
 
+/* One key per conversation, not per message. The inbox list used to be built
+   by listing every log: key ever written — two waves on one 300-guest event is
+   600 keys, so the list hit its scan cap and older threads simply stopped
+   appearing. This index is what the list reads now: it grows with people, not
+   with messages. */
+export async function touchConversation(env, phone, { ts, dir, text, ch }) {
+  if (!env.RATE || !phone) return;
+  const key = 'conv:' + phone;
+  let c = null;
+  try { c = JSON.parse(await env.RATE.get(key)); } catch {}
+  if (!c || typeof c !== 'object') c = { phone, msgs: 0, first_ts: ts };
+  c.phone = phone;
+  c.msgs = (c.msgs || 0) + 1;
+  if (!c.first_ts) c.first_ts = ts;
+  if (!(ts < (c.last_ts || 0))) {
+    c.last_ts = ts;
+    c.last_dir = dir;
+    c.last_text = String(text || '').slice(0, 80);
+  }
+  /* a number can be written to on one channel and reply on the other, so the
+     filter needs the set, not the latest */
+  const chans = new Set(c.ch || []);
+  if (ch) chans.add(ch);
+  c.ch = [...chans];
+  await env.RATE.put(key, JSON.stringify(c)).catch(() => {});
+}
+
 async function post(env, body, channel, ctx) {
   const phoneId = pickPhone(env, channel);
   const token = pickToken(env, channel);
@@ -91,10 +118,14 @@ async function post(env, body, channel, ctx) {
         body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type;
       /* ctx (template/occasion/wave/token) makes per-message performance
          measurable later: which text, for which event type, got answered */
-      await env.RATE.put('log:' + String(body.to || '') + ':' + Date.now(),
+      const ch = (channel === 'guests' && guestsReady(env)) ? 'guests' : 'client';
+      const ts = Date.now();
+      /* no TTL: the inbox is the record of what we said to a customer, and a
+         customer who comes back after a year should not meet a blank thread */
+      await env.RATE.put('log:' + String(body.to || '') + ':' + ts,
         JSON.stringify({
           dir: 'out', type: body.type, text: summary.slice(0, 300),
-          ok: res.ok, error: res.error || '',
+          ok: res.ok, error: res.error || '', ch,
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
           ...(ctx && typeof ctx === 'object' ? {
             occ: String(ctx.occasion || '').slice(0, 40),
@@ -102,8 +133,10 @@ async function post(env, body, channel, ctx) {
             tok: String(ctx.token || '').slice(0, 8),
           } : {}),
           at: new Date().toISOString(),
-        }),
-        { expirationTtl: 90 * 86400 });
+        }));
+      await touchConversation(env, String(body.to || ''), {
+        ts, dir: 'out', text: summary.slice(0, 80), ch,
+      });
       /* per-template performance: sent/fail here, replied credited by the
          inbound webhook against lastout:<phone>. Occasion rides along so a
          weak wording for one event type stands out. */
@@ -270,8 +303,22 @@ export function extractInbound(payload) {
   for (const entry of (payload && payload.entry) || []) {
     for (const ch of entry.changes || []) {
       const v = ch.value || {};
+      /* Meta sends the sender's WhatsApp profile name alongside the message.
+         It is the only name we get for a number that is in no sheet, so it is
+         worth keeping: the inbox shows a person, not a phone number. */
+      const names = {};
+      for (const c of v.contacts || []) {
+        const wa = String(c.wa_id || '');
+        const nm = String((c.profile && c.profile.name) || '').trim();
+        if (wa && nm) names[wa] = nm;
+      }
       for (const m of v.messages || []) {
-        out.push({ from: String(m.from || ''), msg: m, phoneId: String((v.metadata && v.metadata.phone_number_id) || '') });
+        const from = String(m.from || '');
+        out.push({
+          from, msg: m,
+          phoneId: String((v.metadata && v.metadata.phone_number_id) || ''),
+          profileName: names[from] || '',
+        });
       }
     }
   }
