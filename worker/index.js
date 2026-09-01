@@ -819,7 +819,38 @@ async function waGuestFile(env, from, doc) {
   /* anyone can send documents to a business number: cap the work and the
      replies per sender so this path cannot be used to burn our send quota */
   if (await overBudget(env, 'rl:wadoc:' + phone, 5, 3600)) return;
-  const token = env.RATE ? await env.RATE.get('claimlink:' + phone) : null;
+  /* Which event does this file belong to? claimlink:<phone> holds only the
+     LATEST paid token, so a returning customer with two events would have had
+     their new list stapled to the wrong one (premortem case 6). Route by the
+     phone's actual paid events instead, and when it is genuinely ambiguous,
+     ASK rather than guess — a wrong guess here means a whole list of the wrong
+     people gets invited. */
+  const claim = env.RATE ? await env.RATE.get('claimlink:' + phone) : null;
+  let token = null;
+  const ownerSnap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const mine = ownerSnap ? eventsForPhone(ownerSnap, phone) : [];
+  if (mine.length) {
+    /* events of this phone that still have no guest list uploaded */
+    const pending = [];
+    for (const e of mine) {
+      if (!(await env.RATE.get('uploaded:' + e.token))) pending.push(e);
+    }
+    if (pending.length === 1) {
+      token = pending[0].token;                       // the common case, unchanged
+    } else if (pending.length === 0) {
+      await sendText(env, from, 'כל האירועים שלכם כבר עם רשימת מוזמנים 🙂 להחלפת רשימה לאירוע מסוים, כתבו לנו כאן איזה אירוע ונטפל בזה יחד.');
+      return;
+    } else {
+      /* two or more events awaiting a list — never guess which */
+      const names = pending.map(e => '· ' + (e.event_name || e.occasion || 'אירוע') + (e.event_date ? ' (' + heDate(e.event_date) + ')' : '')).join('\n');
+      await sendText(env, from, 'יש לכם כמה אירועים פעילים, ולא רציתי לצרף את הרשימה לאירוע הלא נכון. לאיזה מהם הקובץ?\n' + names + '\nכתבו לנו כאן את שם האירוע ונסדר.');
+      return;
+    }
+  } else if (claim) {
+    /* no snapshot / not found as owner, but we do have a remembered link:
+       fall back to the old behaviour rather than reject a real customer */
+    token = claim;
+  }
   if (!token) {
     /* one explanation per sender per day, then silence */
     if (!(await seenOnce(env, 'wadocnag:' + phone + ':' + ilDate()))) {
@@ -2237,6 +2268,48 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         await env.RATE.put('healthalert:' + yd, '1', { expirationTtl: 3 * 86400 });
       }
     } catch {}
+  }
+
+  /* ── stage 0.7: the wedding-with-no-reminders watchdog (premortem case 2) ──
+     The scariest operational failure: a fully set-up, paid event whose first
+     wave should have gone out but didn't — a stuck upload, a token mixup, a
+     silent Make failure — and nobody notices until the bride does, a day
+     before. This is the safety net: an event that is paid, has a guest list,
+     whose wave-1 date is a day or more in the PAST, yet has no wave:token:1
+     completion flag, gets ONE loud Slack alert. Reads only existing state, so
+     it can never itself send or break anything. */
+  if (env.RATE && !dry) {
+    for (const ev of evRows) {
+      const token = String(ev[1] || '').trim();
+      const paid = String(ev[7] || '').trim() === 'כן';
+      const cancelled = String(ev[27] || '').trim() === 'כן';
+      const fileUp = String(ev[43] || '').trim() === 'כן';
+      if (!token || !paid || cancelled || !fileUp) continue;
+      if (await env.RATE.get('hold:' + token)) continue;
+      const evDay = String(ev[6] || '').trim().slice(0, 10);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < today) continue;  // event already happened
+      const w1 = String(ev[39] || '').trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(w1)) continue;                     // no wave-1 date set (that's stage 0.55)
+      const lateBy = Math.round((Date.parse(today) - Date.parse(w1)) / 864e5);
+      if (lateBy < 1) continue;                                          // not overdue yet
+      if (await env.RATE.get('wave:' + token + ':1')) continue;          // wave 1 actually completed — all good
+      if (await env.RATE.get('watchdog:' + token)) continue;            // already shouted about this one
+      const guestN = gRows.filter(g => String(g[28] || '').trim() === token).length;
+      await env.RATE.put('watchdog:' + token, today, { expirationTtl: 30 * 86400 });
+      await alert(env, '🚨 אירוע ששולם ולא יצאה ממנו הזמנה',
+        `${ev[2] || ''} (${ev[3] || ''}) · אירוע ${token.slice(0, 8)} · הגל הראשון היה אמור לצאת ב-${w1} (לפני ${lateBy} ימים) ל-${guestN} מוזמנים, ואין סימן שיצא. לבדוק ידנית עכשיו — זה בדיוק המקרה שבו מתגלה מאוחר.`, token.slice(0, 8));
+      out.push({ token, type: 'watchdog_no_send', lateBy, guests: guestN });
+    }
+  } else if (dry) {
+    for (const ev of evRows) {
+      const token = String(ev[1] || '').trim();
+      if (!token || String(ev[7] || '').trim() !== 'כן' || String(ev[43] || '').trim() !== 'כן') continue;
+      const w1 = String(ev[39] || '').trim().slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(w1)) continue;
+      if (Math.round((Date.parse(today) - Date.parse(w1)) / 864e5) < 1) continue;
+      if (env.RATE && await env.RATE.get('wave:' + token + ':1')) continue;
+      out.push({ token, type: 'watchdog_no_send', would_alert: true });
+    }
   }
 
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
