@@ -245,6 +245,10 @@ async function processGrowPayment(env, flat) {
     /* ref→token lives 30 days so the thank-you page can claim it */
     await env.RATE.put('grow:' + ref, token, { expirationTtl: 30 * 86400 });
     await env.RATE.put('client:' + phone, '1', { expirationTtl: 730 * 86400 });
+    /* they paid — they are not an abandoned lead any more, in either
+       direction: no chase message, and no lead call queued behind it */
+    await env.RATE.delete('lead:' + phone).catch(() => {});
+    await env.RATE.delete('lq:' + phone).catch(() => {});
     /* token→who: the upload page presents a token, this is how it is trusted */
     await env.RATE.put('token:' + token, JSON.stringify({
       phone, ref, name, clientId: 'C-' + phone.slice(-9),
@@ -356,6 +360,82 @@ async function handlePromoAdmin(request, env, origin) {
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   const res = await promoAdmin(env, body);
   return okJson(res, origin);
+}
+
+/* ══ abandoned leads ═════════════════════════════════════════════════════════
+   lead:<phone> is written the moment somebody submits the form, and deleted
+   the moment they pay. Whatever is still sitting there some hours later is a
+   person who asked us a question and got silence.
+   ────────────────────────────────────────────────────────────────────────── */
+const LEAD_TTL = 45 * 86400;
+
+async function noteLead(env, f) {
+  const phone = normPhone(f.phone || f.telefon || f.tel || '');
+  if (!phone || phone.length < 11) return;
+  /* somebody who already bought is not a lead, and must never be chased */
+  if (await env.RATE.get('client:' + phone)) return;
+  /* the first submission is the one that counts: re-submitting the form
+     should not reset the clock and postpone the follow-up forever */
+  if (await env.RATE.get('lead:' + phone)) return;
+  await env.RATE.put('lead:' + phone, JSON.stringify({
+    name: String(f.name || f.fullName || f.full_name || '').trim().slice(0, 60),
+    occasion: String(f.occasion || f.event_type || f.sug || '').trim().slice(0, 40),
+    at: new Date().toISOString(),
+  }), { expirationTtl: LEAD_TTL });
+}
+
+/* One WhatsApp message, once, to a lead who never paid. `ishur_lo_siyem` was
+   approved by Meta on 01/09 — a template is required because these people
+   never wrote to us, so there is no 24h window to reply inside.
+   Deliberately NOT here: chasing twice. One message that is easy to answer
+   beats two that read as pressure, and the follow-up call (AUT-896) is the
+   next touch, not another text. */
+const LEAD_WAIT_MS = 5 * 60 * 60 * 1000;   // long enough that it isn't creepy
+
+async function chaseAbandonedLeads(env, dry, budget) {
+  if (!env.RATE) return [];
+  const out = [];
+  const now = Date.now();
+  let cursor;
+  do {
+    const page = await env.RATE.list({ prefix: 'lead:', cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) {
+      if (budget && budget.left <= 0) break;
+      const phone = k.name.slice('lead:'.length);
+      let rec = null;
+      try { rec = JSON.parse(await env.RATE.get(k.name)); } catch {}
+      if (!rec) continue;
+      /* they bought in the meantime — clear the flag and move on */
+      if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
+      if (now - Date.parse(rec.at || 0) < LEAD_WAIT_MS) continue;
+      if (await env.RATE.get('leadchase:' + phone)) continue;
+      if (await phoneBlocked(env, phone)) { await env.RATE.delete(k.name); continue; }
+      if (dry) { out.push({ type: 'lead_chase', phone, name: rec.name }); continue; }
+      const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
+      const occ = rec.occasion || 'האירוע שלכם';
+      const wa = await sendClient(env, phone, 'ishur_lo_siyem', [first, occ]);
+      /* mark it either way: a template Meta refuses will be refused again, and
+         retrying it every ten minutes is how you get a number flagged */
+      await env.RATE.put('leadchase:' + phone, new Date().toISOString(), { expirationTtl: LEAD_TTL });
+      if (budget) budget.left--;
+      if (wa.ok) {
+        out.push({ type: 'lead_chase', phone, sent: true });
+        /* the call comes next, and only to someone who did not answer the
+           text. lq: is the lead-call queue; dialling it is still switched off
+           until the sales agent exists (AUT-896). */
+        await env.RATE.put('lq:' + phone, JSON.stringify({ name: rec.name, occ, at: new Date().toISOString() }),
+          { expirationTtl: 14 * 86400 });
+      } else {
+        out.push({ type: 'lead_chase', phone, sent: false, error: wa.error });
+      }
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor && !(budget && budget.left <= 0));
+  if (!dry && out.some(o => o.sent)) {
+    await slackPost(env, `📨 *${out.filter(o => o.sent).length} לידים שנטשו קיבלו הודעת המשך.*`);
+  }
+  return out;
 }
 
 /* Per-event levers that live in KV rather than the sheet, so they can be
@@ -1610,7 +1690,9 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     if (rsvp === 'לא מגיע') { skippedAnswered++; continue; }
     if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
     if (await phoneBlocked(env, phone)) { skippedOptout++; continue; }
-    if (dry) { sent++; continue; }
+    /* a dry run spends the budget too, or the preview would promise a whole
+       wave while the real tick sends twenty-five and stops */
+    if (dry) { sent++; if (budget) budget.left--; continue; }
     /* per-guest marker: the wave flag is only written after the whole loop, so
        a run cut short (subrequest ceiling, an exception) would otherwise start
        from the top tomorrow and message everyone a second time */
@@ -1675,6 +1757,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
   /* keep Meta's cap cached so the 80% alert has a number during the waves */
   await waCapInfo(env).catch(() => null);
+
+  /* ── stage 0.4: left a phone, never paid ────────────────────────────────
+     The one branch of the funnel that had nothing on it at all. */
+  for (const r of await chaseAbandonedLeads(env, dry, budget)) out.push(r);
 
   /* ── stage 0.5: paid but never uploaded a guest list ──────────────────────
      handleGrowIpn drops pend:<token> at payment; a successful upload deletes
@@ -3814,6 +3900,15 @@ export default {
       if (stampFields.append_body || stampFields.event_type === 'guests_file') {
         return deny(400, 'guests-need-upload', origin);
       }
+    }
+
+    /* Somebody who typed their phone into the form and then walked away is the
+       most expensive person we lose: they asked, and nobody ever answered.
+       Until now the lead reached the sheet and stopped there. Recording it here
+       — at the one point every lead passes through — is what lets the engine
+       come back to them tomorrow. Never blocks the forward. */
+    if (url.pathname === '/api/lead' && env.RATE) {
+      try { await noteLead(env, stampFields); } catch {}
     }
 
     const headers = new Headers();
