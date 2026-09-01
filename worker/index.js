@@ -71,12 +71,33 @@ async function alert(env, where, what, detail) {
   }).catch(() => {});
 }
 
+/* ══ The master switch ═══════════════════════════════════════════════════════
+   One key, checked before anything leaves the system. Set it and the whole
+   business goes quiet within seconds, without a deploy and without touching
+   the sheet. Nothing else in the engine needs to know about it.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function sendingPaused(env) {
+  if (!env.RATE) return false;
+  return !!(await env.RATE.get('paused'));
+}
+
+/* A phone Richard pulled out of sending by hand, for any reason: a wrong
+   number, a family that asked him directly, a guest in mourning. Same effect
+   as the guest texting הסר, but it is his action and it is reversible. */
+async function phoneBlocked(env, phone) {
+  if (!env.RATE) return false;
+  const p = normPhone(phone);
+  if (!p) return false;
+  return !!(await env.RATE.get('optout:' + p)) || !!(await env.RATE.get('block:' + p));
+}
+
 /* A client who asked to be removed must stop hearing from us too, not just
    the guests. Every client-facing template goes through here. */
 async function sendClient(env, phone, template, params, ctx) {
   const p = normPhone(phone);
   if (!p) return { ok: false, error: 'no-phone' };
-  if (env.RATE && await env.RATE.get('optout:' + p)) return { ok: false, error: 'optout' };
+  if (await sendingPaused(env)) return { ok: false, error: 'paused' };
+  if (await phoneBlocked(env, p)) return { ok: false, error: 'optout' };
   return sendTemplate(env, p, template, params, '', 'he', undefined, ctx);
 }
 
@@ -729,6 +750,7 @@ async function handleShirDispatch(request, env, origin) {
   }
   if (!env.RETELL_KEY || !env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
 
+  if (await sendingPaused(env)) return okJson({ ok: true, dialed: 0, paused: true }, origin);
   const win = callWindowState();
   if (!win.open && !body.force) return okJson({ ok: true, dialed: 0, closed: win.why }, origin);
 
@@ -1104,7 +1126,7 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     seenPhones.add(phone);
     const answered = String(g[15] || '').trim() !== '';
     if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
-    if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) { skippedOptout++; continue; }
+    if (await phoneBlocked(env, phone)) { skippedOptout++; continue; }
     if (dry) { sent++; continue; }
     /* per-guest marker: the wave flag is only written after the whole loop, so
        a run cut short (subrequest ceiling, an exception) would otherwise start
@@ -1138,6 +1160,12 @@ async function runDailyEngine(env, dry, todayOverride) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
   const out = [];
+
+  /* the master switch: stop before a single message is composed */
+  if (await sendingPaused(env)) {
+    if (!dry) await slackPost(env, '⏸️ *המנוע היומי לא רץ* — השליחה מושהית ידנית. להפעלה מחדש: המתג במרכז הבקרה.');
+    return { ok: true, date: today, paused: true, events: [] };
+  }
 
   /* keep Meta's cap cached so the 80% alert has a number during the waves */
   await waCapInfo(env).catch(() => null);
@@ -1433,7 +1461,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       const rsvp = String(g[15] || '').trim();
       if (!phone || !table || rsvp !== 'מגיע' || seenPhones.has(phone)) continue;
       seenPhones.add(phone);
-      if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
+      if (await phoneBlocked(env, phone)) continue;
       if (dry) { would++; continue; }
       const gname = String(g[3] || '').trim() || 'אורח יקר';
       const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
@@ -1494,7 +1522,7 @@ async function runDailyEngine(env, dry, todayOverride) {
       for (const g of guests) {
         const phone = String(g[4] || '').trim();
         if (!phone || seen.has(phone)) continue; seen.add(phone);
-        if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
+        if (await phoneBlocked(env, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_bitul', [gname, evName], '', 'he', 'guests', { occasion, token });
         if (wa.ok) sent++; else failed++;
@@ -1514,7 +1542,7 @@ async function runDailyEngine(env, dry, todayOverride) {
           for (const g of guests) {
             const phone = String(g[4] || '').trim();
             if (!phone || seen.has(phone)) continue; seen.add(phone);
-            if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
+            if (await phoneBlocked(env, phone)) continue;
             const gname = String(g[3] || '').trim() || 'אורח יקר';
             const wa = await sendTemplate(env, phone, 'ishur_dchiya',
               [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
@@ -1554,7 +1582,7 @@ async function runDailyEngine(env, dry, todayOverride) {
         const phone = String(g[4] || '').trim();
         const rsvp = String(g[15] || '').trim();
         if (!phone || rsvp !== 'מגיע' || seen.has(phone)) continue; seen.add(phone);
-        if (env.RATE && await env.RATE.get('optout:' + normPhone(phone))) continue;
+        if (await phoneBlocked(env, phone)) continue;
         if (dry) { would++; continue; }
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_yom_lifnei',
@@ -2160,6 +2188,111 @@ async function msgPerformanceDigest(env) {
     (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
 }
 
+/* ══ Call cost sync ══════════════════════════════════════════════════════════
+   Retell's webhook is best-effort: a missed delivery means a call whose cost
+   we never learn, and the money board quietly under-reports. So we pull
+   instead of waiting to be pushed. Idempotent per call id, so running it
+   twice costs nothing and fixes gaps.
+   ─────────────────────────────────────────────────────────────────────────── */
+const USD_ILS = 3.7;
+
+async function syncCallCosts(env, limit = 100) {
+  if (!env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
+  const r = await fetch('https://api.retellai.com/v2/list-calls', {
+    method: 'POST',
+    headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ limit, sort_order: 'descending' }),
+  }).catch(() => null);
+  if (!r || !r.ok) return { ok: false, why: 'retell-unreachable' };
+  let calls = null;
+  try { calls = await r.json(); } catch {}
+  if (!Array.isArray(calls)) return { ok: false, why: 'bad-response' };
+
+  let added = 0, skipped = 0, cents = 0;
+  for (const c of calls) {
+    const id = String(c.call_id || '');
+    if (!id) continue;
+    /* one call is counted once, ever */
+    if (await env.RATE.get('costdone:' + id)) { skipped++; continue; }
+    const cc = c.call_cost || {};
+    const amount = typeof cc.combined_cost === 'number' ? cc.combined_cost : 0;
+    if (!amount || !c.end_timestamp) continue; // still running, or free
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' })
+      .format(new Date(c.end_timestamp));
+    const key = 'shircost:' + day;
+    const cur = Number(await env.RATE.get(key)) || 0;
+    await env.RATE.put(key, String(cur + amount), { expirationTtl: 400 * 86400 });
+    /* and onto the event, so per-event profit includes the calls */
+    const gid = String((c.metadata || {}).guest_id || '');
+    if (gid) await addEvCost(env, gid, amount);
+    await env.RATE.put('costdone:' + id, '1', { expirationTtl: 400 * 86400 });
+    added++; cents += amount;
+  }
+  return { ok: true, added, skipped, cents: Math.round(cents * 100) / 100,
+           ils: Math.round(cents / 100 * USD_ILS * 100) / 100 };
+}
+
+async function handleCostSync(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  return okJson(await syncCallCosts(env, Math.min(Number(body.limit) || 100, 500)), origin);
+}
+
+/* ══ The controls Richard reaches for ════════════════════════════════════════
+   Everything here is reversible on purpose. The destructive-feeling actions
+   are the ones that STOP things, and stopping is always undoable, so the
+   confirmation lives in the interface rather than in a second API call.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* POST {admin_key} reads · POST {admin_key, paused:bool} sets */
+async function handlePause(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RATE) return deny(503, 'no-kv', origin);
+  if (typeof body.paused !== 'boolean') {
+    return okJson({ ok: true, paused: await sendingPaused(env) }, origin);
+  }
+  if (body.paused) {
+    await env.RATE.put('paused', new Date().toISOString());
+    await slackPost(env, '⏸️ *כל השליחות הושהו* — אף הודעה לא תצא, כולל המנוע היומי ושיחות של שיר, עד להפעלה מחדש.');
+  } else {
+    await env.RATE.delete('paused');
+    await slackPost(env, '▶️ *השליחות חזרו לפעול* — המנוע ירוץ כרגיל בבוקר הבא.');
+  }
+  return okJson({ ok: true, paused: body.paused }, origin);
+}
+
+/* POST {admin_key, phone} reads · {admin_key, phone, blocked:bool} sets.
+   Blocking one number by hand, and unblocking it, including numbers that
+   opted themselves out — Richard asked to be able to undo that too. */
+async function handleBlockPhone(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RATE) return deny(503, 'no-kv', origin);
+  const p = normPhone(body.phone);
+  if (!p || p.length < 9) return deny(400, 'bad-phone', origin);
+  if (typeof body.blocked !== 'boolean') {
+    return okJson({
+      ok: true, phone: p,
+      blocked: !!(await env.RATE.get('block:' + p)),
+      opted_out: !!(await env.RATE.get('optout:' + p)),
+    }, origin);
+  }
+  if (body.blocked) {
+    await env.RATE.put('block:' + p, new Date().toISOString());
+  } else {
+    /* releasing clears both, so a number can be restored whichever way it
+       stopped receiving messages */
+    await env.RATE.delete('block:' + p);
+    await env.RATE.delete('optout:' + p);
+  }
+  await slackPost(env, `${body.blocked ? '🚫' : '✅'} *${p}* ${body.blocked ? 'הוצא משליחה ידנית' : 'הוחזר לשליחה'}`);
+  return okJson({ ok: true, phone: p, blocked: body.blocked }, origin);
+}
+
 /* ══ Telnyx watch ════════════════════════════════════════════════════════════
    Shir's Israeli number sat in Telnyx regulatory review. This runs on its own
    morning cron and does the whole thing: the moment the number goes active it
@@ -2633,6 +2766,7 @@ export default {
       ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
       return;
     }
+    ctx.waitUntil(syncCallCosts(env).catch(() => {}));
     ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).then(() => {
@@ -2685,6 +2819,15 @@ export default {
     }
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
+    }
+    if (url.pathname === '/api/cost-sync' && request.method === 'POST') {
+      return handleCostSync(request, env, origin);
+    }
+    if (url.pathname === '/api/pause' && request.method === 'POST') {
+      return handlePause(request, env, origin);
+    }
+    if (url.pathname === '/api/block-phone' && request.method === 'POST') {
+      return handleBlockPhone(request, env, origin);
     }
     if (url.pathname === '/api/telnyx-check' && request.method === 'POST') {
       return handleTelnyxCheck(request, env, origin);

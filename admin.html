@@ -7,7 +7,7 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=26"></script>
+<script src="config.js?v=27"></script>
 <script src="assets/adminbar.js?v=3" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -87,6 +87,59 @@
   button:not(:disabled):active{transform:scale(.97)}
   .sw:active{transform:none}
   @media (prefers-reduced-motion:reduce){.sw,.sw i,button{transition:none !important}}
+
+  /* mission control: the levers that stop things, at the top of the page */
+  .ctl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem 1rem;margin:1rem 0 .2rem}
+  .ctl h2{margin-top:0}
+  .ctl-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.6rem;margin:0 0 .2rem}
+  .cst{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:.55rem .5rem;text-align:center}
+  .cst b{display:block;font-size:1rem;font-weight:700;color:var(--ink)}
+  .cst span{font-size:.68rem;color:var(--ink3)}
+  .cst.good b{color:var(--ok)}
+  .cst.bad b{color:var(--warn)}
+  .ctl-row{border-top:1px solid var(--line);padding-top:.9rem;margin-top:.9rem}
+  .ctl-top{display:flex;align-items:center;justify-content:space-between;gap:.9rem;flex-wrap:wrap}
+  .ctl-label{font-weight:600;font-size:.92rem;color:var(--ink)}
+  .ctl-note{font-size:.78rem;color:var(--ink3);margin-top:.28rem;line-height:1.65}
+  .ctl-alarm{font-size:.82rem;font-weight:700;color:var(--warn);background:rgba(168,64,47,.09);border:1px solid rgba(168,64,47,.4);border-radius:10px;padding:.5rem .75rem;margin-top:.55rem;line-height:1.6}
+  html[data-theme=dark] .ctl-alarm{background:rgba(240,138,138,.1);border-color:rgba(240,138,138,.4)}
+  .ctl-line{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-top:.65rem}
+  .ctl-line input{font:inherit;font-size:.82rem;padding:.42rem .65rem;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);width:11rem}
+  .btn{font:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:9px;padding:.42rem .95rem;cursor:pointer}
+  .btn:disabled{opacity:.45;cursor:default}
+  .btn-danger{background:#A8402F;border-color:#A8402F;color:#fff}
+  html[data-theme=dark] .btn-danger{background:#C4503C;border-color:#C4503C;color:#fff}
+  .btn-ok{background:var(--ok);border-color:var(--ok);color:#fff}
+  html[data-theme=dark] .btn-ok{color:#0B1712}
+  .ctl-res{font-size:.8rem;color:var(--ink2);margin-top:.55rem;line-height:1.7;min-height:1.1rem}
+  .ctl-res b{color:var(--ink)}
+  .ctl-flash{font-size:.8rem;font-weight:600;border-radius:10px;padding:.5rem .75rem;margin-top:.9rem;line-height:1.65}
+  .ctl-flash.ok{color:var(--ok);background:rgba(15,76,53,.08);border:1px solid rgba(15,76,53,.3)}
+  html[data-theme=dark] .ctl-flash.ok{background:rgba(76,175,130,.1);border-color:rgba(76,175,130,.38)}
+  .ctl-flash.bad{color:var(--warn);background:rgba(168,64,47,.09);border:1px solid rgba(168,64,47,.35)}
+  html[data-theme=dark] .ctl-flash.bad{background:rgba(240,138,138,.1);border-color:rgba(240,138,138,.4)}
+
+  /* per event freeze, lives inside the events table */
+  .hbtn{font:inherit;font-size:.7rem;font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:.16rem .62rem;cursor:pointer;white-space:nowrap}
+  .hbtn.on{background:rgba(168,64,47,.13);border-color:rgba(168,64,47,.45);color:var(--warn)}
+  html[data-theme=dark] .hbtn.on{background:rgba(240,138,138,.13);border-color:rgba(240,138,138,.45)}
+  .hbtn:disabled{opacity:.45;cursor:default}
+  tr.row-hold td{background:rgba(168,64,47,.07)}
+  html[data-theme=dark] tr.row-hold td{background:rgba(240,138,138,.08)}
+  tr.row-hold td:first-child{color:var(--warn)}
+
+  /* confirm dialog: custom, because the browser one cannot explain anything */
+  .dlg-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);backdrop-filter:blur(3px);z-index:60;display:flex;align-items:center;justify-content:center;padding:1rem}
+  .dlg-bg[hidden]{display:none}
+  .dlg{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(15,46,34,.3);max-width:440px;width:100%;padding:1.15rem 1.25rem 1.05rem;animation:dlgIn .18s ease}
+  @keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
+  .dlg h3{font-family:'Frank Ruhl Libre',serif;font-size:1.06rem;color:var(--ink);margin-bottom:.55rem}
+  .dlg p{font-size:.84rem;color:var(--ink2);line-height:1.8}
+  .dlg p b{color:var(--ink)}
+  .dlg-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.05rem}
+  .dlg-btns .btn{padding:.52rem 1.15rem}
+  .dlg-btns .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  @media (prefers-reduced-motion:reduce){.dlg{animation:none}}
 </style>
 </head>
 <body>
@@ -128,6 +181,47 @@
 </div>
 
 <main class="wrap" id="main" hidden>
+  <section class="ctl" id="ctl">
+    <h2>שליטה</h2>
+
+    <div class="ctl-tiles">
+      <div class="cst" id="cs-send-t"><b id="cs-send">טוען…</b><span>שליחות</span></div>
+      <div class="cst" id="cs-noa-t"><b id="cs-noa">טוען…</b><span>נועה · מענה AI</span></div>
+      <div class="cst" id="cs-hold-t"><b id="cs-hold">…</b><span>אירועים מוקפאים</span></div>
+    </div>
+
+    <div class="ctl-row">
+      <div class="ctl-top">
+        <div>
+          <div class="ctl-label">שליחות פעילות</div>
+          <div class="ctl-note" id="pauseNote">בודקים את המצב מול השרת…</div>
+        </div>
+        <span class="sw-wrap"><span class="sw-state" id="pauseState">טוען…</span>
+        <button type="button" id="pauseTog" class="sw" role="switch" aria-checked="false" aria-label="שליחות פעילות" disabled><i></i></button></span>
+      </div>
+      <p class="ctl-alarm" id="pauseAlarm" hidden>כל השליחות מושהות: המנוע היומי, ההודעות ושיחות שיר</p>
+    </div>
+
+    <div class="ctl-row">
+      <div class="ctl-label">הוצאת מספר משליחה</div>
+      <div class="ctl-note">בדקו קודם מה המצב של המספר, ואז הוציאו אותו משליחה או החזירו אותו.</div>
+      <div class="ctl-line">
+        <input type="tel" id="phIn" dir="ltr" inputmode="tel" autocomplete="off" placeholder="0500000000" aria-label="מספר טלפון">
+        <button type="button" class="btn" id="phCheck">בדיקה</button>
+        <button type="button" class="btn btn-danger" id="phBlock" hidden>הוצאה משליחה</button>
+        <button type="button" class="btn btn-ok" id="phRelease" hidden>החזרה לשליחה</button>
+      </div>
+      <div class="ctl-res" id="phRes"></div>
+    </div>
+
+    <div class="ctl-row">
+      <div class="ctl-label">הקפאת אירוע</div>
+      <div class="ctl-note">בטבלת האירועים שלמטה יש עמודת "הקפאה". אירוע מוקפא לא מקבל אף שליחה, כולל תזכורות, עד שמשחררים אותו. שאר האירועים ממשיכים כרגיל.</div>
+    </div>
+
+    <p class="ctl-flash" id="ctlFlash" hidden></p>
+  </section>
+
   <div class="kpis">
     <div class="kpi money"><b id="k-rev">–</b><span>הכנסות ₪</span></div>
     <div class="kpi"><b id="k-leads">–</b><span>לידים</span></div>
@@ -144,7 +238,7 @@
   <div class="tblwrap">
     <table id="tbl">
       <thead><tr>
-        <th>אירוע</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>עלות ₪</th><th>רווח ₪</th><th>חשבונית</th><th>קובץ</th>
+        <th>אירוע</th><th>הקפאה</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>עלות ₪</th><th>רווח ₪</th><th>חשבונית</th><th>קובץ</th>
         <th>אורחים</th><th>אישרו</th><th>סועדים</th><th>ממתינים</th><th>לשיחה</th>
       </tr></thead>
       <tbody id="rows"></tbody>
@@ -162,7 +256,7 @@
   <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
     <div class="kpi"><b id="s-live">–</b><span>שיחות פעילות כרגע</span></div>
     <div class="kpi"><b id="s-count">–</b><span>שיחות אחרונות</span></div>
-    <div class="kpi money"><b id="s-cost">–</b><span>עלות היום $</span></div>
+    <div class="kpi money"><b id="s-cost">–</b><span>עלות שיחות היום ₪</span></div>
   </div>
   <div class="tblwrap">
     <table>
@@ -265,6 +359,17 @@
   <p class="foot"><a href="inbox.html">→ לאינבוקס</a> · <a href="calls.html">→ למוקד השיחות</a> · הנתונים נקראים ישירות מהגיליון</p>
 </main>
 
+<div class="dlg-bg" id="dlgBg" hidden>
+  <div class="dlg" role="alertdialog" aria-modal="true" aria-labelledby="dlgT" aria-describedby="dlgB">
+    <h3 id="dlgT"></h3>
+    <p id="dlgB"></p>
+    <div class="dlg-btns">
+      <button type="button" class="btn" id="dlgNo">ביטול</button>
+      <button type="button" class="btn btn-danger" id="dlgYes">אישור</button>
+    </div>
+  </div>
+</div>
+
 <div class="sheet-bg" id="sheetBg"></div>
 <aside class="sheet" id="sheet" role="dialog" aria-label="תמלול שיחה">
   <div class="sheet-h"><b>תמלול השיחה</b><button class="sheet-x" id="sheetX" aria-label="סגירה">✕</button></div>
@@ -310,6 +415,7 @@
       bizEvents = d.events || [];
       renderEventsTable();
       renderPlans();
+      loadHolds();
     }).catch(function () {
       $('main').hidden = false;
       $('gen').textContent = 'לא הצלחנו לטעון — רעננו';
@@ -318,6 +424,7 @@
     loadOps();
     loadBrain();
     loadCost();
+    loadPause();
   }
 
   /* ── events table: revenue, per-event cost & profit, invoice state ── */
@@ -344,6 +451,7 @@
       else { invPill = '<span class="pill p-no">חסרה</span>'; missingInv++; }
       tr.innerHTML =
         '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + '</td>' +
+        '<td>' + holdCell(e) + '</td>' +
         '<td>' + heDate(e.date) + '</td>' +
         '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
         '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
@@ -356,6 +464,7 @@
         '<td>' + e.seats + '</td>' +
         '<td>' + e.pending + '</td>' +
         '<td>' + (e.need_call || '') + '</td>';
+      if (e.token && holdMap[e.token]) tr.className = 'row-hold';
       rows.appendChild(tr);
     });
     var n = $('invNotice');
@@ -434,6 +543,7 @@
     b.disabled = false;
     b.setAttribute('aria-checked', aiActive ? 'true' : 'false');
     s.textContent = aiActive ? 'פעילה' : 'כבויה';
+    paintCtlStatus();
   }
   function loadBrain() {
     fetch(CFG.endpoint('brain'), {
@@ -455,6 +565,342 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) { if (d && d.ok) aiActive = !!d.active; paintAi(); })
       .catch(function () { paintAi(); });
+  });
+
+  /* ══ מרכז שליטה ═══════════════════════════════════════════════════════════
+     The levers Richard needs to stop things without touching code: the master
+     sending switch, one number in or out, and a freeze per event.
+     Nothing here trusts a 200. Every action re-reads the real state from the
+     worker and only then repaints, so the screen can never claim something the
+     server did not actually do.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  function esc(v) {
+    return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+  }
+
+  function flash(kind, msg) {
+    var f = $('ctlFlash');
+    f.hidden = false;
+    f.className = 'ctl-flash ' + kind;
+    f.textContent = msg;
+  }
+  var FAIL_SAVE = 'השינוי לא נשמר. מה שמוצג עכשיו הוא המצב האמיתי בשרת.';
+  var FAIL_NET = 'לא הצלחנו להגיע לשרת, שום דבר לא השתנה.';
+
+  /* custom confirm: Esc מבטל, לחיצה על הרקע מבטלת, הפוקוס מתחיל על ביטול */
+  var dlgCb = null, dlgPrev = null;
+  function askConfirm(opt, cb) {
+    dlgCb = cb;
+    dlgPrev = document.activeElement;
+    $('dlgT').textContent = opt.title;
+    $('dlgB').innerHTML = opt.body;
+    $('dlgYes').textContent = opt.yes;
+    $('dlgBg').hidden = false;
+    $('dlgNo').focus();
+  }
+  function endDlg(ok) {
+    if ($('dlgBg').hidden) return;
+    var cb = dlgCb; dlgCb = null;
+    $('dlgBg').hidden = true;
+    if (dlgPrev && dlgPrev.focus) { try { dlgPrev.focus(); } catch (e) {} }
+    dlgPrev = null;
+    if (cb) cb(!!ok);
+  }
+  $('dlgNo').addEventListener('click', function () { endDlg(false); });
+  $('dlgYes').addEventListener('click', function () { endDlg(true); });
+  $('dlgBg').addEventListener('mousedown', function (e) { if (e.target === $('dlgBg')) endDlg(false); });
+  document.addEventListener('keydown', function (e) {
+    if ($('dlgBg').hidden) return;
+    if (e.key === 'Escape') { endDlg(false); return; }
+    /* two buttons only, so the trap is just a flip between them */
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      $(document.activeElement === $('dlgNo') ? 'dlgYes' : 'dlgNo').focus();
+    }
+  });
+
+  /* ── the status box at the top of the section ── */
+  function paintCtlStatus() {
+    var v = $('cs-send'), t = $('cs-send-t');
+    if (sendPaused === null) { v.textContent = '–'; t.className = 'cst'; }
+    else { v.textContent = sendPaused ? 'מושהות' : 'פעילות'; t.className = 'cst ' + (sendPaused ? 'bad' : 'good'); }
+
+    v = $('cs-noa'); t = $('cs-noa-t');
+    if (aiActive === null) { v.textContent = '–'; t.className = 'cst'; }
+    else { v.textContent = aiActive ? 'פעילה' : 'כבויה'; t.className = 'cst ' + (aiActive ? 'good' : 'bad'); }
+
+    /* a partial count would be a lie, so a failed read shows nothing */
+    v = $('cs-hold'); t = $('cs-hold-t');
+    if (!holdReady || holdFail) { v.textContent = '–'; t.className = 'cst'; }
+    else {
+      var n = 0;
+      Object.keys(holdMap).forEach(function (k) { if (holdMap[k]) n++; });
+      v.textContent = String(n);
+      t.className = 'cst ' + (n ? 'bad' : 'good');
+    }
+  }
+
+  /* ── 1. master switch: stops the daily engine, every message, and Shir ── */
+  var sendPaused = null;
+
+  function paintPause() {
+    var b = $('pauseTog'), st = $('pauseState'), note = $('pauseNote'), alarm = $('pauseAlarm');
+    if (sendPaused === null) {
+      b.disabled = true;
+      st.textContent = 'לא זמין';
+      note.hidden = false;
+      note.textContent = 'לא הצלחנו לקרוא את המצב מהשרת. רעננו את העמוד.';
+      alarm.hidden = true;
+    } else {
+      b.disabled = false;
+      b.setAttribute('aria-checked', sendPaused ? 'false' : 'true');
+      st.textContent = sendPaused ? 'מושהות' : 'פעילות';
+      note.textContent = 'המערכת שולחת כרגיל';
+      note.hidden = sendPaused;
+      alarm.hidden = !sendPaused;
+    }
+    paintCtlStatus();
+  }
+
+  function loadPause() {
+    return fetch(CFG.endpoint('pause'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        sendPaused = (d && d.ok === true && typeof d.paused === 'boolean') ? d.paused : null;
+        paintPause();
+        return sendPaused;
+      }).catch(function () { sendPaused = null; paintPause(); return null; });
+  }
+
+  function applyPause(next) {
+    $('pauseTog').disabled = true;
+    $('pauseState').textContent = 'רגע…';
+    fetch(CFG.endpoint('pause'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, paused: next })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        var wrote = !!(d && d.ok === true && d.paused === next);
+        return loadPause().then(function (real) {
+          if (wrote && real === next) {
+            flash('ok', next
+              ? 'הכל נעצר. המנוע היומי, ההודעות והשיחות של שיר לא יצאו עד שתפעילו מחדש.'
+              : 'השליחות חזרו לפעול. המנוע ירוץ כרגיל בבוקר הבא.');
+          } else flash('bad', FAIL_SAVE);
+        });
+      }).catch(function () {
+        loadPause().then(function () { flash('bad', FAIL_NET); });
+      });
+  }
+
+  $('pauseTog').addEventListener('click', function () {
+    if (sendPaused === null) return;
+    var next = !sendPaused;
+    /* turning sending back on is the safe direction, so it goes straight through */
+    if (!next) { applyPause(false); return; }
+    askConfirm({
+      title: 'לעצור את כל השליחות?',
+      yes: 'כן, לעצור הכל',
+      body: '<b>ייעצר:</b> המנוע היומי, כל ההודעות בוואטסאפ, וכל השיחות של שיר. שום דבר לא יצא מהמערכת.<br><br>' +
+            '<b>לא ייעצר:</b> הודעות נכנסות ותשובות של אורחים עדיין מתקבלות ונרשמות כרגיל. רק היוצאות נעצרות.<br><br>' +
+            'אפשר להפעיל מחדש בכל רגע מאותו מתג.'
+    }, function (ok) { if (ok) applyPause(true); });
+  });
+
+  /* ── 2. one number in or out of sending ── */
+  var phState = null;   /* exactly what the worker last told us about this number */
+
+  function phBusy(on) {
+    $('phCheck').disabled = on;
+    $('phBlock').disabled = on;
+    $('phRelease').disabled = on;
+  }
+
+  function paintPhone() {
+    var res = $('phRes');
+    if (!phState) { $('phBlock').hidden = true; $('phRelease').hidden = true; return; }
+    var num = '<b dir="ltr">' + esc(phState.phone) + '</b>';
+    if (phState.blocked) {
+      res.innerHTML = num + ' · הוצא ידנית משליחה' + (phState.opted_out ? ', וגם ביקש בעצמו הסרה' : '') + '. לא מקבל שום הודעה.';
+      $('phBlock').hidden = true; $('phRelease').hidden = false;
+    } else if (phState.opted_out) {
+      res.innerHTML = num + ' · ביקש בעצמו להפסיק לקבל הודעות. לא מקבל שום הודעה.';
+      $('phBlock').hidden = true; $('phRelease').hidden = false;
+    } else {
+      res.innerHTML = num + ' · משלוח רגיל. מקבל הודעות כמו כולם.';
+      $('phBlock').hidden = false; $('phRelease').hidden = true;
+    }
+  }
+
+  function readPhone(raw, quiet) {
+    return fetch(CFG.endpoint('blockphone'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, phone: raw })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || d.ok !== true || typeof d.blocked !== 'boolean') {
+          phState = null; paintPhone();
+          if (!quiet) $('phRes').textContent = 'לא הצלחנו לקרוא את מצב המספר. בדקו שהמספר תקין ונסו שוב.';
+          return null;
+        }
+        phState = { phone: d.phone, blocked: d.blocked, opted_out: !!d.opted_out };
+        paintPhone();
+        return phState;
+      }).catch(function () {
+        phState = null; paintPhone();
+        if (!quiet) $('phRes').textContent = 'לא הצלחנו להגיע לשרת.';
+        return null;
+      });
+  }
+
+  function applyPhone(blocked) {
+    if (!phState) return;
+    var num = phState.phone;
+    phBusy(true);
+    fetch(CFG.endpoint('blockphone'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, phone: num, blocked: blocked })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        var wrote = !!(d && d.ok === true && d.blocked === blocked);
+        /* the write reply carries no opted_out, so the truth comes from a re-read */
+        return readPhone(num, true).then(function (fresh) {
+          phBusy(false);
+          if (wrote && fresh && fresh.blocked === blocked && (blocked || !fresh.opted_out)) {
+            flash('ok', blocked
+              ? 'המספר ' + num + ' הוצא משליחה. הוא לא יקבל יותר הודעות עד שתחזירו אותו.'
+              : 'המספר ' + num + ' חזר לשליחה. גם בקשת הסרה שהוא עשה בעצמו בוטלה.');
+          } else flash('bad', FAIL_SAVE);
+        });
+      }).catch(function () {
+        phBusy(false);
+        readPhone(num, true);
+        flash('bad', FAIL_NET);
+      });
+  }
+
+  $('phCheck').addEventListener('click', function () {
+    var raw = $('phIn').value.replace(/\D/g, '');
+    if (raw.length < 9) {
+      phState = null; paintPhone();
+      $('phRes').textContent = 'הכניסו מספר טלפון מלא.';
+      return;
+    }
+    $('phRes').textContent = 'בודקים…';
+    readPhone(raw);
+  });
+  $('phIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('phCheck').click(); });
+  /* editing the field drops the old answer, so no action can hit a stale number */
+  $('phIn').addEventListener('input', function () {
+    phState = null; paintPhone();
+    $('phRes').textContent = '';
+  });
+
+  $('phBlock').addEventListener('click', function () {
+    if (!phState) return;
+    askConfirm({
+      title: 'להוציא את המספר משליחה?',
+      yes: 'כן, להוציא משליחה',
+      body: 'המספר <b dir="ltr">' + esc(phState.phone) + '</b> יפסיק לקבל הודעות מהמערכת: אישורי הגעה, תזכורות, הכל.<br><br>' +
+            'אפשר להחזיר אותו בכל רגע מאותו מסך.'
+    }, function (ok) { if (ok) applyPhone(true); });
+  });
+
+  $('phRelease').addEventListener('click', function () {
+    if (!phState) return;
+    askConfirm({
+      title: 'להחזיר את המספר לשליחה?',
+      yes: 'כן, להחזיר לשליחה',
+      body: 'המספר <b dir="ltr">' + esc(phState.phone) + '</b> יחזור לקבל הודעות מהמערכת.<br><br>' +
+            '<b>פעולה זו מבטלת גם בקשת הסרה שהאורח עשה בעצמו, יש לוודא שהוא באמת רוצה לחזור לקבל הודעות.</b>'
+    }, function (ok) { if (ok) applyPhone(false); });
+  });
+
+  /* ── 3. freeze one event, straight from its row in the table ── */
+  var holdMap = {}, holdReady = false, holdFail = false;
+
+  function holdCell(e) {
+    var tok = e.token || '';
+    if (!tok) return '—';
+    var on = holdMap[tok];
+    if (on === undefined) return '<span style="color:var(--ink3)">…</span>';
+    return '<button type="button" class="hbtn' + (on ? ' on' : '') + '" data-hold="' + esc(tok) + '">' +
+      (on ? 'מוקפא · שחרור' : 'הקפאה') + '</button>';
+  }
+
+  function readHold(tok) {
+    return fetch(CFG.endpoint('eventflag'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, token: tok, flag: 'hold' })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || d.ok !== true || typeof d.on !== 'boolean') { holdFail = true; return null; }
+        holdMap[tok] = d.on;
+        return d.on;
+      }).catch(function () { holdFail = true; return null; });
+  }
+
+  function loadHolds() {
+    var toks = bizEvents.filter(function (e) { return e.paid && e.token; })
+                        .map(function (e) { return e.token; });
+    holdMap = {}; holdReady = false; holdFail = false;
+    if (!toks.length) { holdReady = true; paintCtlStatus(); return; }
+    var i = 0;
+    (function next() {
+      if (i >= toks.length) { holdReady = true; renderEventsTable(); paintCtlStatus(); return; }
+      var batch = toks.slice(i, i + 5);
+      i += 5;
+      Promise.all(batch.map(readHold)).then(function () {
+        renderEventsTable(); paintCtlStatus(); next();
+      });
+    })();
+  }
+
+  function applyHold(tok, on, label) {
+    var btn = document.querySelector('button[data-hold="' + tok + '"]');
+    if (btn) { btn.disabled = true; btn.textContent = 'רגע…'; }
+    fetch(CFG.endpoint('eventflag'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, token: tok, flag: 'hold', on: on })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        var wrote = !!(d && d.ok === true && d.flag === 'hold' && d.on === on);
+        return readHold(tok).then(function (real) {
+          renderEventsTable(); paintCtlStatus();
+          if (wrote && real === on) {
+            flash('ok', on
+              ? 'האירוע "' + label + '" מוקפא. אף הודעה לא תצא לאורחים שלו עד לשחרור.'
+              : 'האירוע "' + label + '" שוחרר. השליחות אליו חוזרות לפעול.');
+          } else flash('bad', FAIL_SAVE);
+        });
+      }).catch(function () {
+        readHold(tok).then(function () { renderEventsTable(); paintCtlStatus(); });
+        flash('bad', FAIL_NET);
+      });
+  }
+
+  $('rows').addEventListener('click', function (e) {
+    var btn = e.target && e.target.closest ? e.target.closest('button[data-hold]') : null;
+    if (!btn) return;
+    var tok = btn.getAttribute('data-hold');
+    var ev = null;
+    for (var i = 0; i < bizEvents.length; i++) {
+      if (bizEvents[i].token === tok) { ev = bizEvents[i]; break; }
+    }
+    var label = (ev && (ev.name || ev.client)) || 'ללא שם';
+    /* releasing an event is the safe direction, same rule as the master switch */
+    if (holdMap[tok]) { applyHold(tok, false, label); return; }
+    askConfirm({
+      title: 'להקפיא את האירוע?',
+      yes: 'כן, להקפיא',
+      body: 'האירוע <b>' + esc(label) + '</b> יוקפא: אף הודעה לא תצא לאורחים שלו, כולל תזכורות והמנוע היומי.<br><br>' +
+            'שאר האירועים ממשיכים לשלוח כרגיל. אפשר לשחרר בכל רגע מאותה שורה.'
+    }, function (ok) { if (ok) applyHold(tok, true, label); });
   });
 
   /* ── money board ── */
@@ -688,7 +1134,7 @@
   /* ── transcript sheet ── */
   function openSheet(call, when) {
     $('sheetMeta').textContent = when + (call.to ? ' · ' + call.to : '') +
-      ' · ' + fmtDur(call.duration_s) + ' · $' + (call.cost_usd_cents / 100).toFixed(2) +
+      ' · ' + fmtDur(call.duration_s) + ' · ₪' + (call.cost_usd_cents / 100 * USD_ILS).toFixed(2) +
       (call.sentiment ? ' · ' + call.sentiment : '');
     $('sheetBody').textContent = call.transcript || '';
     $('sheet').classList.add('on'); $('sheetBg').classList.add('on');
@@ -715,7 +1161,8 @@
         if (!d || !d.ok) return;
         $('s-live').textContent = d.live.now + (d.live.limit ? ' / ' + d.live.limit : '');
         $('s-count').textContent = d.calls.length;
-        $('s-cost').textContent = (d.cost_today_usd_cents / 100).toFixed(2);
+        /* Retell bills in USD; Richard reads shekels */
+        $('s-cost').textContent = (d.cost_today_usd_cents / 100 * USD_ILS).toFixed(2);
         var rows = $('shirRows'); rows.innerHTML = '';
         $('shirEmpty').hidden = d.calls.length > 0;
         d.calls.forEach(function (c) {

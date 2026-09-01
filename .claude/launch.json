@@ -6,6 +6,12 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "4173", "--directory", "/Users/richardtomskiy/ishur.io"],
       "port": 4173
+    },
+    {
+      "name": "ishur-4180",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "4180", "--directory", "/Users/richardtomskiy/ishur.io"],
+      "port": 4180
     }
   ]
 }
