@@ -143,16 +143,17 @@ export async function promoGo(env, code, phone) {
 
   const p = String(phone || '').replace(/\D/g, '');
   const p9 = p.length >= 9 ? p.slice(-9) : '';
-  /* One code passed around a group is the obvious way to cheat this. When we
-     know who took it, the hold belongs to them: a second person arriving on
-     the same code mid-checkout is turned away rather than sent to a checkout
-     that would charge them the discounted price too. With no phone we cannot
-     tell them apart, and the single-use burn at payment is the backstop. */
+  /* The route refuses a phoneless request before we get here, so p9 is real.
+     The first version accepted anonymous holds as the sentinel '1' — and the
+     review proved that one stripped query param then handed the same code to
+     unlimited callers, with the sentinel also disarming the check for
+     everyone after (finding #6). No phone, no hold, no link. */
+  if (!p9) return { ok: false, reason: 'phone-required' };
   const holder = await env.RATE.get(kHold(camp.campaign, v));
-  if (holder && p9 && holder !== '1' && holder !== p9) {
+  if (holder && holder !== p9) {
     return { ok: false, reason: 'in-use' };
   }
-  await env.RATE.put(kHold(camp.campaign, v), p9 || '1', { expirationTtl: HOLD_TTL });
+  await env.RATE.put(kHold(camp.campaign, v), p9, { expirationTtl: HOLD_TTL });
   /* the IPN arrives knowing a phone and a sum, nothing else. This is the only
      thread back to which code paid, so it is worth writing even when the phone
      is a guess from the lead form. */

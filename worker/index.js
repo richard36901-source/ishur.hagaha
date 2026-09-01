@@ -318,7 +318,11 @@ async function processGrowPayment(env, flat) {
    rate limited — 8.5e11 codes make guessing hopeless, but not free. */
 async function handlePromoCheck(env, request, url, origin) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  if (await overBudget(env, 'promo-check:' + ip, 40, 600)) {
+  /* A whole household, office or wedding venue shares one IP, and this fires
+     on every page load. 40 was low enough that an afternoon of testing locked
+     out the tester's own home. Brute force is not what this defends against
+     anyway — 31^8 codes make guessing hopeless — it only stops a flood. */
+  if (await overBudget(env, 'promo-check:' + ip, 300, 600)) {
     return deny(429, 'rate-limited', origin);
   }
   const res = await promoCheck(env, url.searchParams.get('code'));
@@ -330,14 +334,25 @@ async function handlePromoCheck(env, request, url, origin) {
 
 async function handlePromoGo(env, request, url, origin) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
-  if (await overBudget(env, 'promo-go:' + ip, 20, 600)) {
+  if (await overBudget(env, 'promo-go:' + ip, 60, 600)) {
     return deny(429, 'rate-limited', origin);
   }
-  const res = await promoGo(env, url.searchParams.get('code'), url.searchParams.get('phone'));
+  /* the phone is not optional: without it the one-holder lock has nothing to
+     lock onto, and the review proved a stripped ?phone= handed the same code
+     to unlimited callers (finding #6). The site always sends it; a request
+     without one is not the site. */
+  const goPhone = String(url.searchParams.get('phone') || '').replace(/\D/g, '');
+  if (goPhone.length < 9) {
+    return Response.redirect('https://ishur.io/index.html?promo_error=phone-required', 302);
+  }
+  const res = await promoGo(env, url.searchParams.get('code'), goPhone);
   if (!res.ok) {
     /* a dead code lands on the normal pricing page rather than an error blob —
        whoever forwarded it out of the group just pays full price */
-    const to = 'https://ishur.io/index.html?promo_error=' + encodeURIComponent(res.reason || 'invalid');
+    /* back to whichever host they were on — bouncing a go.ishur.io visitor
+       onto the blocked name is how a bad code becomes a dead end */
+    const back = url.hostname === MIRROR_HOST ? LINK_BASE : 'https://ishur.io';
+    const to = back + '/index.html?promo_error=' + encodeURIComponent(res.reason || 'invalid');
     return Response.redirect(to, 302);
   }
   /* if Grow echoes custom fields back on the IPN this closes the loop without
@@ -396,42 +411,54 @@ async function chaseAbandonedLeads(env, dry, budget) {
   if (!env.RATE) return [];
   const out = [];
   const now = Date.now();
-  let cursor;
-  do {
-    const page = await env.RATE.list({ prefix: 'lead:', cursor, limit: 1000 }).catch(() => null);
-    if (!page) break;
-    for (const k of page.keys) {
-      if (budget && budget.left <= 0) break;
-      const phone = k.name.slice('lead:'.length);
-      let rec = null;
-      try { rec = JSON.parse(await env.RATE.get(k.name)); } catch {}
-      if (!rec) continue;
-      /* they bought in the meantime — clear the flag and move on */
-      if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
-      if (now - Date.parse(rec.at || 0) < LEAD_WAIT_MS) continue;
-      if (await env.RATE.get('leadchase:' + phone)) continue;
-      if (await phoneBlocked(env, phone)) { await env.RATE.delete(k.name); continue; }
-      if (dry) { out.push({ type: 'lead_chase', phone, name: rec.name }); continue; }
-      const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
-      const occ = rec.occasion || 'האירוע שלכם';
-      const wa = await sendClient(env, phone, 'ishur_lo_siyem', [first, occ]);
-      /* mark it either way: a template Meta refuses will be refused again, and
-         retrying it every ten minutes is how you get a number flagged */
+  /* Two hard rules from the review (finding #1), learned the expensive way:
+     1. A handled lead's lead: key DIES immediately — chased, bought, blocked,
+        whatever. Skipping a dead lead still costs KV reads, and a fortnight of
+        paid traffic builds enough of them that the scan alone blows the
+        subrequest ceiling BEFORE the wave loop runs — killing every
+        invitation of the day, silently, every tick.
+     2. The scan itself is bounded: one page, and skips also spend budget.
+        Whatever does not fit this tick is ten minutes away from the next. */
+  const page = await env.RATE.list({ prefix: 'lead:', limit: 1000 }).catch(() => null);
+  if (!page) return out;
+  for (const k of page.keys) {
+    if (budget && budget.left <= 0) break;
+    const phone = k.name.slice('lead:'.length);
+    let rec = null;
+    try { rec = JSON.parse(await env.RATE.get(k.name)); } catch {}
+    if (!rec) { await env.RATE.delete(k.name); continue; }
+    if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
+    if (now - Date.parse(rec.at || 0) < LEAD_WAIT_MS) continue;   // not ripe yet — the one legitimate survivor
+    if (await env.RATE.get('leadchase:' + phone)) { await env.RATE.delete(k.name); continue; }
+    if (await phoneBlocked(env, phone)) { await env.RATE.delete(k.name); continue; }
+    if (dry) { out.push({ type: 'lead_chase', phone, name: rec.name }); continue; }
+    if (budget) budget.left--;
+    const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
+    const occ = rec.occasion || 'האירוע שלכם';
+    const wa = await sendClient(env, phone, 'ishur_lo_siyem', [first, occ]);
+    if (wa.ok) {
+      /* chased: both keys settle now. leadchase: blocks a second text forever,
+         lead: dies so no future scan pays for this person again. */
       await env.RATE.put('leadchase:' + phone, new Date().toISOString(), { expirationTtl: LEAD_TTL });
-      if (budget) budget.left--;
-      if (wa.ok) {
-        out.push({ type: 'lead_chase', phone, sent: true });
-        /* the call comes next, and only to someone who did not answer the
-           text. lq: is the lead-call queue; dialling it is still switched off
-           until the sales agent exists (AUT-896). */
-        await env.RATE.put('lq:' + phone, JSON.stringify({ name: rec.name, occ, at: new Date().toISOString() }),
-          { expirationTtl: 14 * 86400 });
-      } else {
-        out.push({ type: 'lead_chase', phone, sent: false, error: wa.error });
+      await env.RATE.delete(k.name);
+      out.push({ type: 'lead_chase', phone, sent: true });
+      /* the call comes next, and only to someone who did not answer the
+         text. lq: is the lead-call queue; dialling it is still switched off
+         until the sales agent exists (AUT-896). */
+      await env.RATE.put('lq:' + phone, JSON.stringify({ name: rec.name, occ, at: new Date().toISOString() }),
+        { expirationTtl: 14 * 86400 });
+    } else {
+      /* Review finding #12: marking a TRANSIENT failure as chased silenced the
+         lead for 45 days over a hiccup. Permanent template errors (Meta will
+         refuse them tomorrow too) settle; anything else retries next tick. */
+      const permanent = /132000|132001|132005|131009|131026/.test(String(wa.error || ''));
+      if (permanent) {
+        await env.RATE.put('leadchase:' + phone, 'failed:' + String(wa.error).slice(0, 60), { expirationTtl: LEAD_TTL });
+        await env.RATE.delete(k.name);
       }
+      out.push({ type: 'lead_chase', phone, sent: false, error: wa.error, permanent });
     }
-    cursor = page.list_complete ? null : page.cursor;
-  } while (cursor && !(budget && budget.left <= 0));
+  }
   if (!dry && out.some(o => o.sent)) {
     await slackPost(env, `📨 *${out.filter(o => o.sent).length} לידים שנטשו קיבלו הודעת המשך.*`);
   }
@@ -939,7 +966,9 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   /* a holiday is not a closed window, it is a closed day */
   if (isNoContactDay(ilDate()) && !force) return { ok: true, dialed: 0, closed: 'no-contact-day' };
   const win = callWindowState();
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  /* the pacer calls this 63 times a day — the 60s cache exists exactly so
+     those ticks do not each cost a Make operation (review finding #10) */
+  const raw = await snapshotCached(env).catch(() => null);
   if (!raw) return { ok: false, why: 'reader-failed' };
   const { queue } = buildCallQueue(raw);
   /* a closed window with people waiting is worth saying out loud: silence here
@@ -961,6 +990,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     /* was phoneBlocked() — which counts an opt-out. An opt-out is about
        messages, never about calls. See the note on callBlocked. */
     if (await callBlocked(env, g.phone)) { blocked++; continue; }
+    if (await wrongNum(env, g.token, g.phone)) { blocked++; continue; }
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
@@ -1094,6 +1124,17 @@ async function callBlocked(env, phone) {
   const p = normPhone(phone);
   if (!p) return true;
   return !!(await env.RATE.get('nocall:' + p)) || !!(await env.RATE.get('block:' + p));
+}
+
+/* "טעות" — this phone was marked wrong-number for ONE event. Both messages
+   and calls stop for that event: a wrong number is a wrong person, so ringing
+   them about it is as bad as texting them. Everything else about the number
+   stays untouched. */
+async function wrongNum(env, token, phone) {
+  if (!env.RATE || !token) return false;
+  const p = normPhone(phone);
+  if (!p) return false;
+  return !!(await env.RATE.get('wrong:' + token + ':' + p));
 }
 
 async function cbqEnqueue(env, phone, why) {
@@ -1413,10 +1454,37 @@ async function handleWaWebhook(request, env, url) {
     }
 
     const raw = await fetchSnapshot(env.HOOK_STATUS);
-    const guest = raw ? findGuestByPhone(raw, from, ilDate()) : null;
+    /* WHO is this, in Richard's order of precedence. An event OWNER is a
+       client even when their own number also sits in a guest row (his test
+       wedding did exactly that, and Noa answered the boss with "כמה תהיו?").
+       On the client number there are only two kinds of people: clients and
+       leads. Guest logic runs for a matched guest who is NOT an owner — those
+       are invitation replies riding the client number until the guests
+       number is connected (AUT-884). */
+    const ownEvents = raw ? eventsForPhone(raw, normPhone(from)) : [];
+    const isClient = ownEvents.length > 0 ||
+      !!(env.RATE && await env.RATE.get('client:' + normPhone(from)));
+    const guest = (!isClient && raw) ? findGuestByPhone(raw, from, ilDate()) : null;
+
+    /* wrong number: silence this event for this phone, nothing else */
+    if (parsed.kind === 'mistake') {
+      if (guest && guest.token && env.RATE) {
+        await env.RATE.put('wrong:' + guest.token + ':' + normPhone(from),
+          new Date().toISOString(), { expirationTtl: 400 * 86400 });
+        await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`);
+      }
+      await sendText(env, from, 'תודה על העדכון, וסליחה על ההפרעה 🙏 לא תגיע אליכם עוד הודעה על האירוע הזה.');
+      continue;
+    }
+
     if (!guest) {
-      /* not a guest of any event — client service: always answer something */
-      await serviceReply(env, from, textOf(parsed));
+      /* a client or a lead — never guest language (Richard's rule: Noa does
+         not speak to guests; she checks the sheet and picks one of two
+         voices) */
+      await serviceReply(env, from, textOf(parsed), {
+        kind: isClient ? 'client' : 'lead',
+        events: ownEvents.map(e => e.event_name || e.occasion || '').filter(Boolean).slice(0, 3),
+      });
       continue;
     }
 
@@ -1493,7 +1561,7 @@ function textOf(parsed) {
 
 const FALLBACK_REPLY = 'היי! כאן הצוות של ishur.io 🙂 קיבלנו את ההודעה ונחזור אליכם ממש בקרוב.';
 
-async function serviceReply(env, from, text) {
+async function serviceReply(env, from, text, who) {
   const t = String(text || '').trim();
   if (!t) return;
 
@@ -1515,7 +1583,7 @@ async function serviceReply(env, from, text) {
   }
 
   /* 2 · the sheet-brain AI */
-  if (!reply) reply = (await aiReply(env, from, t)) || '';
+  if (!reply) reply = (await aiReply(env, from, t, who)) || '';
 
   /* 3 · never silent */
   if (!reply) reply = FALLBACK_REPLY;
@@ -1578,7 +1646,7 @@ async function chatHistory(env, from, limit = 6) {
   return out;
 }
 
-async function aiReply(env, from, text) {
+async function aiReply(env, from, text, who) {
   if (!env.AI) return null;
   const brain = await getBrain(env);
   if (!brain.active) return null;
@@ -1593,7 +1661,15 @@ async function aiReply(env, from, text) {
 
   const history = await chatHistory(env, from);
 
-  const sys = (brain.persona || 'את נציגת שירות חמה של ishur.io — שירות אישורי הגעה לאירועים בוואטסאפ.') +
+  /* who is on the line, stated as fact so the model cannot guess wrong.
+     There is deliberately no "guest" identity here at all. */
+  const callerLine = who && who.kind === 'client'
+    ? '\n\nמי מולך: לקוח/ה קיים/ת של ishur' +
+      (who.events && who.events.length ? ' (אירועים: ' + who.events.join(', ') + ')' : '') +
+      '. דברי כמו נציגת שירות ללקוח משלם: קצר, מקצועי, פותרת. אל תשאלי שאלות של אורח (כמה תהיו, מגיעים?) לעולם.'
+    : '\n\nמי מולך: ליד — מתעניין/ת שעוד לא רכש/ה. המטרה: לעזור, לענות קצר, ולהוביל בעדינות לרכישה באתר ishur.io. אל תדברי אליו/ה כאילו הוזמנו לאירוע ואל תשאלי שאלות של אורח לעולם.';
+
+  const sys = callerLine.slice(2) + '\n\n' + (brain.persona || 'את נציגת שירות חמה של ishur.io — שירות אישורי הגעה לאירועים בוואטסאפ.') +
     '\n\nכללים קשיחים:' +
     '\n- זו שיחת וואטסאפ מתמשכת. קראי את ההיסטוריה ועני בהמשך טבעי לה.' +
     '\n- אסור להציג את עצמך ("אני נועה") אם כבר הצגת את עצמך קודם בשיחה, או אם לא שאלו מי את. פעם אחת לכל היותר.' +
@@ -1671,45 +1747,69 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      text while their design sat unused in the sheet. */
   const invite = String(ev[44] || '').trim();
 
+  /* which invitation template. v2 adds the small-print footer ("נשלח ע\"י
+     ishur.io · הגיע בטעות? השיבו טעות") but starts life PENDING at Meta, and a
+     pending template fails every send — so the name lives in KV and flips only
+     after approval: wrangler kv key put invitetmpl hazmana_ishur_v2 --remote.
+     Editing the live template instead would have parked it in review and
+     silenced every wave meanwhile. */
+  const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
   let truncated = false;
+  /* Where the previous tick stopped. Without this, tick 14 of a 400-guest
+     wedding re-walked 325 already-handled guests at 2-3 KV reads each — a
+     thousand subrequests before the first new invitation, which is the
+     ceiling, which killed the tick, every tick (review finding #2). Guests
+     before the cursor were all settled: sent (wsent:), declined, answered, or
+     suppressed — all states that do not come back. A failure does NOT advance
+     the cursor, so failed guests are retried from exactly where they stand. */
+  const posKey = `wpos:${token}:${wave.key}`;
+  let start = 0;
+  if (!dry && env.RATE) start = parseInt(await env.RATE.get(posKey), 10) || 0;
+  if (start > guests.length) start = 0;   // the list shrank; walk it again, wsent: dedupes
+  let cursor = start;
   const seenPhones = new Set();
-  for (const g of guests) {
+  for (let gi = start; gi < guests.length; gi++) {
+    const g = guests[gi];
     /* A wave of 300 does not fit in one Worker invocation — Cloudflare caps
        subrequests, and a 300-guest blast at 09:35 is a spam signature besides.
        The budget stops the loop early; wsent: makes the next tick resume from
        exactly here rather than starting over. */
     if (budget && budget.left <= 0) { truncated = true; break; }
     const phone = String(g[4] || '').trim();
-    if (!phone || seenPhones.has(phone)) continue; // one message per phone per event, whatever file it came from
+    if (!phone || seenPhones.has(phone)) { cursor = gi + 1; continue; }
     seenPhones.add(phone);
     const rsvp = String(g[15] || '').trim();
     const answered = rsvp !== '';
     /* a declined guest is out of the funnel for good: no reminder, no extra
        send, nothing. Only מגיע, מתלבט and people who never answered continue. */
-    if (rsvp === 'לא מגיע') { skippedAnswered++; continue; }
-    if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
-    if (await phoneBlocked(env, phone)) { skippedOptout++; continue; }
-    /* a dry run spends the budget too, or the preview would promise a whole
-       wave while the real tick sends twenty-five and stops */
+    if (rsvp === 'לא מגיע') { skippedAnswered++; cursor = gi + 1; continue; }
+    if (wave.onlyUnanswered && answered) { skippedAnswered++; cursor = gi + 1; continue; }
+    /* dry runs never touch KV state */
     if (dry) { sent++; if (budget) budget.left--; continue; }
+    /* wsent: FIRST — it is one read and it is true for every guest a previous
+       tick handled, where phoneBlocked+wrongNum are three (finding #2) */
+    const gkEarly = `wsent:${token}:${wave.key}:${normPhone(phone)}`;
+    if (env.RATE && await env.RATE.get(gkEarly)) { skippedDone++; cursor = gi + 1; continue; }
+    if (await phoneBlocked(env, phone)) { skippedOptout++; cursor = gi + 1; continue; }
+    if (await wrongNum(env, token, phone)) { skippedOptout++; cursor = gi + 1; continue; }
     /* per-guest marker: the wave flag is only written after the whole loop, so
        a run cut short (subrequest ceiling, an exception) would otherwise start
        from the top tomorrow and message everyone a second time */
-    const gk = `wsent:${token}:${wave.key}:${normPhone(phone)}`;
-    if (env.RATE && await env.RATE.get(gk)) { skippedDone++; continue; }
+    const gk = gkEarly;
     const name = String(g[3] || '').trim() || 'אורח יקר';
     /* hazmana_ishur was approved with a BODY and buttons and NO image header,
        verified against Meta. Passing an image adds a header component the
        approved template does not have, and Meta rejects the whole send
        (132000) — so every client who uploaded artwork would have had their
        entire wave fail. The artwork goes as its own message right after. */
-    const res = await sendTemplate(env, phone, 'hazmana_ishur',
+    const res = await sendTemplate(env, phone, inviteTmpl,
       [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
       { occasion, wave: wave.key, token });
     if (budget) budget.left--;
     if (res.ok) {
       sent++;
+      cursor = gi + 1;
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
          must never cost the invitation, which already landed. */
@@ -1717,6 +1817,13 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
         await sendImage(env, phone, invite, '', 'guests').catch(() => null);
       }
     } else failed++;
+  }
+  if (!dry && env.RATE) {
+    if (truncated || failed > 0) {
+      await env.RATE.put(posKey, String(cursor), { expirationTtl: 7 * 86400 }).catch(() => {});
+    } else {
+      await env.RATE.delete(posKey).catch(() => {});
+    }
   }
   return { wave: wave.key, sent, skippedOptout, skippedAnswered, skippedDone, failed, truncated };
 }
@@ -1759,8 +1866,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   await waCapInfo(env).catch(() => null);
 
   /* ── stage 0.4: left a phone, never paid ────────────────────────────────
-     The one branch of the funnel that had nothing on it at all. */
-  for (const r of await chaseAbandonedLeads(env, dry, budget)) out.push(r);
+     Preview only. The live chase runs from the pacer every ten minutes; doing
+     it here too meant the same scan ran twice per tick (review finding #1). */
+  if (dry) for (const r of await chaseAbandonedLeads(env, true, budget)) out.push(r);
 
   /* ── stage 0.5: paid but never uploaded a guest list ──────────────────────
      handleGrowIpn drops pend:<token> at payment; a successful upload deletes
@@ -1880,7 +1988,15 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
          re-run still reaches the guests instead of burning the list. */
       /* a wave the budget cut short is NOT finished: closing its flag here
          would strand every guest past the cut-off with no second chance */
-      const waveDelivered = !res.truncated && (res.sent > 0 || res.failed === 0);
+      /* delivered means DELIVERED: zero failures and no truncation. The old
+         `sent > 0 ||` closed a wave where 12 went out and 188 failed on a
+         revoked token — wsent: already stops the 12 from repeating, so leaving
+         the flag open costs nothing and the 188 get their invitation on the
+         next tick. (Review finding #4.) */
+      const waveDelivered = !res.truncated && res.failed === 0;
+      if (!dry && res.failed > 0) {
+        await slackPost(env, `⚠️ גל ${wave.key} · ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו, ${res.sent} יצאו. הגל נשאר פתוח וינסה שוב בפעימה הבאה.`);
+      }
       if (!dry && env.RATE && waveDelivered) {
         await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
       }
@@ -2048,25 +2164,37 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
 
     let sent = 0, failed = 0, would = 0;
+    /* same discipline as the waves (review finding #5): per-guest marker,
+       budget, and the event flag only when the whole list is done */
+    let cut = false;
     const seenPhones = new Set();
     for (const g of gRows) {
       if (String(g[28] || '').trim() !== token) continue;
+      if (budget && budget.left <= 0) { cut = true; break; }
       const phone = String(g[4] || '').trim();
       const table = String(g[30] || '').trim();
       const rsvp = String(g[15] || '').trim();
       if (!phone || !table || rsvp !== 'מגיע' || seenPhones.has(phone)) continue;
       seenPhones.add(phone);
-      if (await phoneBlocked(env, phone)) continue;
       if (dry) { would++; continue; }
+      const mk = `s5t:${token}:${normPhone(phone)}`;
+      if (env.RATE && await env.RATE.get(mk)) continue;
+      if (await phoneBlocked(env, phone)) continue;
+      if (await wrongNum(env, token, phone)) continue;
       const gname = String(g[3] || '').trim() || 'אורח יקר';
       const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
-      if (wa.ok) sent++; else failed++;
+      if (budget) budget.left--;
+      if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
+      else failed++;
     }
     if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
     if (sent) await addEvCost(env, token, sent * 0.53);
-    if (sent && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
-    if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו`, token.slice(0, 8));
-    if (sent || failed) out.push({ token, type: 'seating', sent, failed });
+    /* only close once something actually went out AND nothing failed — an
+       empty pass keeps the flag open so tables assigned later still send */
+    if (sent && !cut && !failed && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
+    if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+    if (sent || failed) out.push({ token, type: 'seating', sent, failed, truncated: cut });
+    if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
   }
 
   /* ── stage 5: lifecycle extras — day-before, cancel, postpone, upsell ─────
@@ -2113,18 +2241,31 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         continue;
       }
       if (dry) { out.push({ token, type: 'cancel_notice', would_send: guests.length }); continue; }
-      let sent = 0, failed = 0; const seen = new Set();
+      /* Same shape as the waves, for the same reason (review finding #5): a
+         180-of-300 partial run used to write cancelmsg: anyway, and 120 people
+         showed up to a cancelled hall. Per-guest markers make re-entry free,
+         the budget stops before the ceiling, and the event flag is only
+         written when nobody is left behind. */
+      let sent = 0, failed = 0, cut = false; const seen = new Set();
       for (const g of guests) {
+        if (budget && budget.left <= 0) { cut = true; break; }
         const phone = String(g[4] || '').trim();
         if (!phone || seen.has(phone)) continue; seen.add(phone);
+        const mk = `s5c:${token}:${normPhone(phone)}`;
+        if (env.RATE && await env.RATE.get(mk)) continue;
         if (await phoneBlocked(env, phone)) continue;
+        if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_bitul', [gname, evName], '', 'he', 'guests', { occasion, token });
-        if (wa.ok) sent++; else failed++;
+        if (budget) budget.left--;
+        if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 30 * 86400 }).catch(() => {}); }
+        else failed++;
       }
-      if (sent) { await addEvCost(env, token, sent * 0.53); if (env.RATE) await env.RATE.put('cancelmsg:' + token, today, { expirationTtl: 120 * 86400 }); }
-      if (failed) await alert(env, 'הודעת ביטול', `${failed} שליחות נכשלו`, token.slice(0, 8));
-      out.push({ token, type: 'cancel_notice', sent, failed });
+      if (sent) await addEvCost(env, token, sent * 0.53);
+      if (!cut && !failed && env.RATE) await env.RATE.put('cancelmsg:' + token, today, { expirationTtl: 120 * 86400 });
+      if (failed) await alert(env, 'הודעת ביטול', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+      out.push({ token, type: 'cancel_notice', sent, failed, truncated: cut });
+      if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
       continue;
     }
 
@@ -2133,28 +2274,40 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (plan === 'premium') {
         if (dry) { out.push({ token, type: 'postpone_notice', would_send: guests.length, from: sentDate, to: date }); }
         else {
-          let sent = 0, failed = 0; const seen = new Set();
+          /* Per-guest markers keyed to the NEW date, so a second postponement
+             re-notifies everyone. sentdate: only moves when every guest heard
+             about the move — advancing it on a partial run made the condition
+             above false forever and stranded the rest on the old date, and it
+             also wiped the one-shot flags off that partial success (review
+             finding #5). */
+          let sent = 0, failed = 0, cut = false; const seen = new Set();
           for (const g of guests) {
+            if (budget && budget.left <= 0) { cut = true; break; }
             const phone = String(g[4] || '').trim();
             if (!phone || seen.has(phone)) continue; seen.add(phone);
+            const mk = `s5p:${token}:${date}:${normPhone(phone)}`;
+            if (env.RATE && await env.RATE.get(mk)) continue;
             if (await phoneBlocked(env, phone)) continue;
+            if (await wrongNum(env, token, phone)) continue;
             const gname = String(g[3] || '').trim() || 'אורח יקר';
             const wa = await sendTemplate(env, phone, 'ishur_dchiya',
               [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
-            if (wa.ok) sent++; else failed++;
+            if (budget) budget.left--;
+            if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
+            else failed++;
           }
-          if (sent) {
-            await addEvCost(env, token, sent * 0.53);
-            if (env.RATE) {
-              await env.RATE.put('sentdate:' + token, date, { expirationTtl: 200 * 86400 });
-              /* one-shot flags realign to the new date */
-              await env.RATE.delete('report7:' + token).catch(() => {});
-              await env.RATE.delete('seat:' + token).catch(() => {});
-              await env.RATE.delete('daybefore:' + token).catch(() => {});
-            }
+          if (sent) await addEvCost(env, token, sent * 0.53);
+          if (!cut && !failed && env.RATE) {
+            await env.RATE.put('sentdate:' + token, date, { expirationTtl: 200 * 86400 });
+            /* one-shot flags realign to the new date — only now, when the
+               whole list has actually heard about it */
+            await env.RATE.delete('report7:' + token).catch(() => {});
+            await env.RATE.delete('seat:' + token).catch(() => {});
+            await env.RATE.delete('daybefore:' + token).catch(() => {});
           }
-          if (failed) await alert(env, 'הודעת דחייה', `${failed} שליחות נכשלו`, token.slice(0, 8));
-          out.push({ token, type: 'postpone_notice', sent, failed });
+          if (failed) await alert(env, 'הודעת דחייה', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+          out.push({ token, type: 'postpone_notice', sent, failed, truncated: cut });
+          if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
         }
       } else if (dry) {
         out.push({ token, type: 'postpone_note_would_alert', from: sentDate, to: date });
@@ -2172,24 +2325,33 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
        too and the KV flag keeps it to one send either way. */
     if (fileUp && daysLeft >= 0 && daysLeft <= 1 &&
         !(env.RATE && await env.RATE.get('daybefore:' + token))) {
-      let sent = 0, failed = 0, would = 0; const seen = new Set();
+      let sent = 0, failed = 0, would = 0, cut = false; const seen = new Set();
       for (const g of guests) {
+        if (budget && budget.left <= 0) { cut = true; break; }
         const phone = String(g[4] || '').trim();
         const rsvp = String(g[15] || '').trim();
         if (!phone || rsvp !== 'מגיע' || seen.has(phone)) continue; seen.add(phone);
-        if (await phoneBlocked(env, phone)) continue;
         if (dry) { would++; continue; }
+        const mk = `s5d:${token}:${normPhone(phone)}`;
+        if (env.RATE && await env.RATE.get(mk)) continue;
+        if (await phoneBlocked(env, phone)) continue;
+        if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_yom_lifnei',
           [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
           { occasion, wave: 'daybefore', token });
-        if (wa.ok) sent++; else failed++;
+        if (budget) budget.left--;
+        if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
+        else failed++;
       }
       if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
       else {
-        if (sent) { await addEvCost(env, token, sent * 0.53); if (env.RATE) await env.RATE.put('daybefore:' + token, today, { expirationTtl: 30 * 86400 }); }
-        if (failed) await alert(env, 'תזכורת יום-לפני', `${failed} שליחות נכשלו`, token.slice(0, 8));
-        if (sent || failed) out.push({ token, type: 'day_before', sent, failed });
+        if (sent) await addEvCost(env, token, sent * 0.53);
+        /* the day-before flag closes only on a clean, complete pass (finding #5) */
+        if (!cut && !failed && env.RATE) await env.RATE.put('daybefore:' + token, today, { expirationTtl: 30 * 86400 });
+        if (failed) await alert(env, 'תזכורת יום-לפני', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+        if (sent || failed) out.push({ token, type: 'day_before', sent, failed, truncated: cut });
+        if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
       }
     }
 
@@ -2298,6 +2460,13 @@ async function runPacer(env) {
       return { ok: false, error: String((e && e.message) || e) };
     });
     out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated } : { ran: false, error: r && r.error };
+    /* a tick that failed while work is pending used to vanish into the
+       heartbeat; one alert a day is the difference between "Richard knows in
+       20 minutes" and "somebody finds out at the hall" */
+    if ((!r || !r.ok) && !(await env.RATE.get('paceralert:' + today))) {
+      await env.RATE.put('paceralert:' + today, '1', { expirationTtl: 86400 });
+      await slackPost(env, `🚨 *פעימת שליחה נכשלה* (${(r && r.error) || 'שגיאה'}) בזמן שיש עבודה ממתינה. הפעימה הבאה תנסה שוב בעוד 10 דקות; אם ההתראה הזאת חוזרת מחר — משהו תקוע באמת.`);
+    }
   } else {
     out.sends = { ran: false, why: sendWin.open ? 'nothing-pending' : sendWin.why };
   }
@@ -3072,7 +3241,11 @@ async function handlePause(request, env, origin) {
     await slackPost(env, '⏸️ *כל השליחות הושהו* — אף הודעה לא תצא, כולל המנוע היומי ושיחות של שיר, עד להפעלה מחדש.');
   } else {
     await env.RATE.delete('paused');
-    await slackPost(env, '▶️ *השליחות חזרו לפעול* — המנוע ירוץ כרגיל בבוקר הבא.');
+    /* re-arm today: pausing over the 06:35 run used to mean the pacer said
+       "nothing-pending" until tomorrow, so unpausing at 08:00 still lost the
+       whole day (review finding #3) */
+    await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 2 * 86400 }).catch(() => {});
+    await slackPost(env, '▶️ *השליחות חזרו לפעול* — הפעימה הקרובה (עד 10 דקות) ממשיכה מאיפה שעצרנו.');
   }
   return okJson({ ok: true, paused: body.paused }, origin);
 }
@@ -3517,6 +3690,10 @@ async function serveImage(env, pathname) {
 const ALLOWED_ORIGINS = [
   'https://ishur.io',
   'https://www.ishur.io',
+  /* the mirror. Serving the pages from go.ishur.io was only half the job: the
+     browser still refused every API call from them, because this list did not
+     know the host. The page loaded and nothing on it worked. */
+  'https://go.ishur.io',
   'http://localhost:4180',
 ];
 
@@ -3598,6 +3775,10 @@ async function overBudget(env, key, limit, windowSec) {
    ────────────────────────────────────────────────────────────────────────── */
 const MIRROR_HOST = 'go.ishur.io';
 
+/* Kept for the promo bounce below. Sent links deliberately still point at
+   ishur.io: moving them all was a decision to make, not one to assume. */
+const LINK_BASE = 'https://' + MIRROR_HOST;
+
 async function serveMirror(request, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('method-not-allowed', { status: 405 });
@@ -3678,6 +3859,13 @@ export default {
     /* Dialling belongs to the pacer now — it runs every ten minutes through
        the whole window instead of emptying 25 calls into the first minute of
        it. This cron keeps only the planning half of the morning. */
+    /* Arm the day BEFORE the engine runs, not in its tail. When the morning
+       snapshot failed, the tail never ran, pacer:pending kept yesterday's
+       date, and all 143 remaining ticks answered "nothing-pending" — a whole
+       day of invitations lost to one bad fetch (review finding #3). */
+    ctx.waitUntil((async () => {
+      if (env.RATE) await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 2 * 86400 }).catch(() => {});
+    })());
     ctx.waitUntil(runDailyEngine(env, false, null, { budget: PACE_SENDS * 2 }).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
@@ -3984,10 +4172,6 @@ export default {
        Until now the lead reached the sheet and stopped there. Recording it here
        — at the one point every lead passes through — is what lets the engine
        come back to them tomorrow. Never blocks the forward. */
-    if (url.pathname === '/api/lead' && env.RATE) {
-      try { await noteLead(env, stampFields); } catch {}
-    }
-
     const headers = new Headers();
     if (!type.includes('multipart/form-data')) headers.set('Content-Type', 'application/json');
     /* Make sees where the request really came from, not the Worker */
@@ -3999,6 +4183,13 @@ export default {
       upstream = await fetch(target, { method: 'POST', headers, body: forwardBody });
     } catch (e) {
       return deny(502, 'upstream-unreachable', origin);
+    }
+
+    /* the lead is only worth chasing if it actually reached the sheet — and a
+       forged POST that Make rejected must never earn a WhatsApp template from
+       the business number (review finding #12) */
+    if (url.pathname === '/api/lead' && env.RATE && upstream.ok) {
+      try { await noteLead(env, stampFields); } catch {}
     }
 
     /* status has to answer, the other two only need their code passed back */

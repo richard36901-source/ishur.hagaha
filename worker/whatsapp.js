@@ -262,6 +262,14 @@ export function parseInboundReply(msg) {
     return { kind: 'optout' };
   }
 
+  /* "טעות" — the invitation reached the wrong number. Scoped to ONE event,
+     unlike הסר: the same phone may be a real guest at somebody else's wedding
+     next month. Anchored like the opt-out, or "בטעות" inside a sentence about
+     something else would silence a legitimate guest. */
+  if (/^\s*(טעות|זו טעות|זאת טעות|הגיע בטעות|הגיעה בטעות|קיבלתי בטעות|לא מכיר|לא מכירה|מספר שגוי|מספר לא נכון)(\s|$|[.!,?׃־])/.test(clean)) {
+    return { kind: 'mistake' };
+  }
+
   /* a bare number = party size reply */
   const bare = clean.replace(/[^\d]/g, '');
   if (bare && bare === clean.replace(/\s/g, '') && Number(bare) >= 1 && Number(bare) <= 99) {
