@@ -114,15 +114,225 @@ window.ISHUR_CONFIG = (function () {
   var PRICE_TABLE = {
     50:  { basic: 50,  pro: 70,  premium: 140 },
     100: { basic: 99,  pro: 129, premium: 199 },
-    200: { basic: 199, pro: 219, premium: 289 },
-    300: { basic: 299, pro: 319, premium: 389 },
-    400: { basic: 399, pro: 419, premium: 489 },
-    500: { basic: 499, pro: 519, premium: 589 },
-    600: { basic: 599, pro: 619, premium: 689 },
-    700: { basic: 699, pro: 719, premium: 789 },
-    800: { basic: 799, pro: 819, premium: 889 },
-    900: { basic: 899, pro: 919, premium: 989 }
+    200: { basic: 199, pro: 219, premium: 339 },
+    300: { basic: 299, pro: 319, premium: 449 },
+    400: { basic: 399, pro: 419, premium: 559 },
+    500: { basic: 499, pro: 519, premium: 669 },
+    600: { basic: 599, pro: 619, premium: 789 },
+    700: { basic: 699, pro: 719, premium: 919 },
+    800: { basic: 799, pro: 819, premium: 1049 },
+    900: { basic: 899, pro: 919, premium: 1179 }
   };
+
+  /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
+
+  var GROW_LINKS = {
+    '50_basic':    'https://pay.grow.link/63837d8806ad3fddd77d2c4de191f6d6-MzMwMDM0OA',
+    '50_pro':      'https://pay.grow.link/d9c255f8a1ab7b16700779b251519c09-MzMwMDM1Mw',
+    '50_premium':  'https://pay.grow.link/9b22787a5822cef6825fb217b6691bb0-MzMwMDM1NQ',
+    '100_basic':   'https://pay.grow.link/d633fac130d3bc882a15868b286bb09e-MzMwMDM1OQ',
+    '100_pro':     'https://pay.grow.link/f671ceaf46b8c41c2eaf0a0fd092dc5f-MzMwMDM2MQ',
+    '100_premium': 'https://pay.grow.link/20432f1e23930c44550bfb5fa969a255-MzMwMDM2Mg',
+    '200_basic':   'https://pay.grow.link/3d5abb2f20d11d103530ee4f1aa351e6-MzMwMDM2NQ',
+    '200_pro':     'https://pay.grow.link/0c517d7cab0a7aae5a66a9a2f99cad6c-MzMwMDM2Nw',
+    '200_premium': 'https://pay.grow.link/7a4036d47428b14a1c855b689bd928a0-MzMwMDM2OQ',
+    '300_basic':   'https://pay.grow.link/7300295e529fbbef06ad003997fff37e-MzMwMDM3MA',
+    '300_pro':     'https://pay.grow.link/3652a9284848893900dd4d931b7da4fa-MzMwMDM3Mg',
+    '300_premium': 'https://pay.grow.link/e3fc1b79a12f43b21a540012ab2c6a16-MzMwMDM3Mw',
+    '400_basic':   'https://pay.grow.link/1906552907dbc5fb6029a1d39d3902b2-MzMwMDM3NQ',
+    '400_pro':     'https://pay.grow.link/f4feebf6816812162a3113a14091cc42-MzMwMDM3Ng',
+    '400_premium': 'https://pay.grow.link/d49baafcf8b90061b4e11c16d9e872aa-MzMwMDM3OQ',
+    '500_basic':   'https://pay.grow.link/8e4108603713f7dc3f85e2256f352990-MzMwMDM4MQ',
+    '500_pro':     'https://pay.grow.link/2e8143c56fd9f59dcdb621dfebd7d2ff-MzMwMDM4Mw',
+    '500_premium': 'https://pay.grow.link/37e6ef830751c527803ad91409405f92-MzMwMDM4NQ',
+    '600_basic':   'https://pay.grow.link/7ccfb90823621420824d81f9bea18591-MzMwMDM4Ng',
+    '600_pro':     'https://pay.grow.link/89505e155694e788c38f1597820f0dbb-MzMwMDM4OQ',
+    '600_premium': 'https://pay.grow.link/5ff7364c47f9c39c9706e5e7720b2624-MzMwMDM5MA',
+    '700_basic':   'https://pay.grow.link/NTY2OTg~6fee0687208ad54a752069e5ea3e610b-Mzg3NDE1OA',
+    '700_pro':     'https://pay.grow.link/NTY2OTg~cc4ae55f425a3285e3dc6b1c80736c2e-Mzg3NDE1Nw',
+    '700_premium': 'https://pay.grow.link/NTY2OTg~6ec74307cfc76fe84bf6e9c5ca6bad83-Mzg3NDE1NQ',
+    '800_basic':   'https://pay.grow.link/NTY2OTg~d38ef2cdc904adff19e8904b85ff2fda-Mzg3NDE2MA',
+    '800_pro':     'https://pay.grow.link/NTY2OTg~0c6743cc6490f13a96a8a6359e53e5ab-Mzg3NDE2MQ',
+    '800_premium': 'https://pay.grow.link/NTY2OTg~31e109098f79dd4340267f6997ac9f24-Mzg3NDE2Ng',
+    '900_basic':   'https://pay.grow.link/NTY2OTg~093a3d23b75ef497e3f96e996394ff70-Mzg3NDE3Ng',
+    '900_pro':     'https://pay.grow.link/NTY2OTg~9833d477964944bf8d1a49098d2ff34d-Mzg3NDE3OA',
+    '900_premium': 'https://pay.grow.link/NTY2OTg~70a109d46c6ecb9d90eda76f4e2b6593-Mzg3NDE4MQ'
+  };
+
+  /* ══ OCCASIONS ════════════════════════════════════════════════════════════
+     `rec` is the package pre-selected when this occasion is chosen.
+     Change a `rec` here and both site versions follow.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  /* `names` are the labels for the two name fields; a null second entry means
+     the occasion has one name. `title` adds a free line for what the event is,
+     for the cases a template cannot guess. */
+  var OCCASIONS = [
+    { value: 'wedding',    label: 'חתונה',              rec: 'premium',
+      names: ['שם הכלה', 'שם החתן'] },
+    { value: 'wedding_mm', label: 'חתונה · שני חתנים',  rec: 'premium',
+      names: ['שם החתן', 'שם החתן השני'] },
+    { value: 'wedding_ff', label: 'חתונה · שתי כלות',   rec: 'premium',
+      names: ['שם הכלה', 'שם הכלה השנייה'] },
+    { value: 'hina',       label: 'חינה',               rec: 'pro',
+      names: ['שם הכלה', 'שם החתן'] },
+    { value: 'bar',        label: 'בר מצווה',           rec: 'pro',
+      names: ['שם החוגג', null] },
+    { value: 'bat',        label: 'בת מצווה',           rec: 'pro',
+      names: ['שם החוגגת', null] },
+    { value: 'brit',       label: 'ברית / בריתה',       rec: 'basic',
+      names: ['שם ההורה', 'שם ההורה השני'], familyHint: true },
+    { value: 'bday',       label: 'יום הולדת',          rec: 'basic',
+      names: ['שם החוגג/ת', null] },
+    { value: 'biz',        label: 'אירוע עסקי',         rec: 'pro',
+      names: ['שם החברה', null], title: 'שם האירוע' },
+    { value: 'other',      label: 'אחר',                rec: 'pro',
+      names: ['שם המארגן/ת', null], title: 'מה האירוע' }
+  ];
+
+  var DEFAULT_PLAN = 'pro';
+
+  /* ══ UPLOAD FORM ══════════════════════════════════════════════════════════ */
+
+  var UPLOAD = {
+    maxMB: 10,
+    allowed: ['csv', 'xlsx', 'xls'],
+    /* the file is read by column position, not by header text, so the order
+       is the contract */
+    columns: [
+      { letter: 'A', label: 'שם',            note: 'שם המוזמן או המשפחה', required: true },
+      { letter: 'B', label: 'טלפון',          note: 'נייד ישראלי, 05X', required: true },
+      { letter: 'C', label: 'כמות מוזמנים',   note: 'כמה אנשים ההזמנה מכסה', required: true }
+    ]
+  };
+
+  /* ══ REQUEST GUARD ════════════════════════════════════════════════════════
+     The webhook URLs are visible in this file, so this is not a secret. It is
+     a marker that the page actually ran, cheap for Make to verify and enough to
+     drop anything posted straight at the URL.
+
+     Verify in Make, as the first filter after each webhook:
+       sha256(APP_KEY + "|" + nonce + "|" + stamp_ts)  ==  sig
+     and reject when now - stamp_ts is more than 24 hours.
+
+     Rotating appKey here invalidates every stamp immediately, which is the
+     lever to pull if the URLs start getting hit.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var GUARD = {
+    appId: 'ishur-web',
+    appKey: 'aee02297c1578a7453b79cb4cf4b0c5d60b899ed45e0cfd0',
+    minDwellMs: 2500,          // a submit faster than this is not a person
+    duplicateWindowMs: 120000, // the same payload twice inside two minutes
+    limits: {                  // per browser, per hour
+      lead: 8,
+      upload: 6,
+      setup: 8,
+      change: 12,
+      status: 60
+    }
+  };
+
+  /* ══ RECEPTION TIMES ══════════════════════════════════════════════════════
+     Half hours through the day, quarter hours across the evening window where
+     most receptions actually start. Nothing before 08:00 or after 23:30.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var TIME_OPTIONS = {
+    from: '08:00', to: '23:30', step: 30,
+    fineFrom: '17:00', fineTo: '23:00', fineStep: 15
+  };
+
+  /* ══ MESSAGE FOOTER ═══════════════════════════════════════════════════════
+     Appended to every message a guest receives. Says who it is on behalf of
+     and how to stop it, which is what the anti-spam law expects and what stops
+     recipients reporting the number. Shown in the preview so the customer sees
+     exactly what goes out.
+     {names} is replaced with the names from the event setup.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var MESSAGE_FOOTER = {
+    sentBy: 'נשלח עבור {names} · ishur.io',
+    optOut: 'הגיע בטעות? השיבו "הסר" ולא נכתוב שוב.'
+  };
+
+  /* ══ ADD-ONS ══════════════════════════════════════════════════════════════
+     `plans` lists the packages that already include it. Anyone on a package
+     outside that list sees it locked with a buy button.
+     Prices and links are keyed '<addon>_<guests>' exactly like GROW_LINKS.
+     While a link is missing the button routes to WhatsApp instead of showing
+     a price, so nobody is ever quoted a number we have not set.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var ADDONS = {
+    extra_send: {
+      label: 'שליחה נוספת',
+      desc: 'תזכורת נוספת לכל הרשימה בתאריך שתבחרו, למשל שבוע לפני האירוע',
+      plans: [],
+      inForm: true          // the only add-on offered during setup
+    },
+    calls: {
+      label: 'סבב שיחות ממוקד אנושי',
+      desc: 'נציג מתקשר למי שלא הגיב ומאשר בשמו',
+      plans: ['pro', 'premium'],
+      /* a call round needs lead time. Closer than this to the event it stops
+         being offered at all rather than being sold and not delivered. */
+      minDaysBefore: 7
+    },
+    more_guests: {
+      label: 'הגדלת כמות מוזמנים',
+      desc: 'מעבר למדרגה גבוהה יותר, עם אפשרות להעלות קובץ נוסף',
+      plans: []
+    },
+    postpone: {
+      label: 'הודעת דחייה או עדכון מועד',
+      desc: 'הודעה לכל הרשימה על שינוי במועד',
+      plans: ['premium']
+    },
+    cancel: {
+      label: 'הודעת ביטול אירוע',
+      desc: 'הודעה לכל הרשימה על ביטול',
+      plans: ['premium']
+    }
+  };
+
+  var ADDON_PRICES = {};   // '<addon>_<guests>': 120
+  var ADDON_LINKS  = {};   // '<addon>_<guests>': 'https://pay.grow.link/...'
+
+  /* ══ PROMOS ═══════════════════════════════════════════════════════════════
+     Display only, for now. A promo changes what the pricing block and the
+     popup SHOW, it does not change what Grow charges: every GROW_LINKS entry
+     is a fixed amount created in Grow, so a discounted amount needs its own
+     link (or the Make Grow module creating the charge on the fly) before the
+     customer is actually billed the lower number.
+
+     kind 'flat'    fixed price, only on `plan`, only up to `maxTier` guests
+     kind 'percent' the same cut off every package
+     `greeting` is what the visitor reads in the discount popup.
+
+     Arriving with ?promo=<key> pins the promo for 60 days. The existing
+     referral link, ?utm_source=referral&utm_medium=friend&utm_campaign=<code>,
+     counts as the 'friend' promo and its code is kept in `ishur_ref`.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var PROMOS = {
+    biz: {
+      label: 'מבצע בעלי עסקים',
+      kind: 'flat', plan: 'basic', maxTier: 300, price: 49,
+      greeting: 'היי לאפ עסקים 👋 שמחים שבחרתם להשתמש בנו. לכל שאלה אפשר לפנות לנועה מקשרי לקוחות כאן בוואטסאפ, או ישירות לריצארד.'
+    },
+    friend: {
+      label: 'הנחת חבר',
+      /* the bar says "<label> <activeWord> · ...", and הנחה is feminine */
+      activeWord: 'פעילה',
+      kind: 'percent', percent: 10,
+      greeting: 'הגעתם דרך המלצה של חבר 🎁 ההנחה כבר מוחלת על כל החבילות.'
+    }
+  };
+
+  var PROMO_KEY_STORE = 'ishur_promo';   // { promo, ts }
+  var PROMO_REF_STORE = 'ishur_ref';     // { code, ts }
+  var PROMO_TTL_MS    = 60 * 24 * 60 * 60 * 1000;   // 60 days
 
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
 
@@ -431,7 +641,189 @@ window.ISHUR_CONFIG = (function () {
     return PRICE_TABLE[50][plan];
   }
 
+  /* A promo may only be SHOWN once a Grow link exists to charge that amount.
+     Without this, a business-offer visitor sees 49 on the card and is charged
+     299 at checkout, which is the one direction of mismatch we must never
+     ship. Add the key to PROMO_LINKS the moment the link is created. */
+  var PROMO_LINKS = {};   // e.g. 'biz_300_basic': 'https://pay.grow.link/...'
+
+  function promoLink(promoKey, tier, planKey) {
+    return PROMO_LINKS[promoKey + '_' + tier + '_' + planKey] || '';
+  }
+
+  function promoLive(promoKey) {
+    for (var k in PROMO_LINKS) { if (PROMO_LINKS.hasOwnProperty(k) && k.indexOf(promoKey + '_') === 0) return true; }
+    return false;
+  }
+
+  function promoPrice(promoKey, tier, planKey) {
+    var p = PROMOS[promoKey];
+    var original = priceFor(tier, planKey);
+    var out = { original: original, final: original, saved: 0, applies: false };
+    if (!p || original == null) return out;
+
+    var n = parseInt(tier, 10);
+    var cut = null;
+
+    if (p.kind === 'flat') {
+      if (p.plan && p.plan !== planKey) return out;          // wrong package
+      if (!(n > 0)) return out;                              // 'custom', no price
+      if (p.maxTier != null && n > p.maxTier) return out;    // tier too big
+      cut = p.price;
+    } else if (p.kind === 'percent') {
+      cut = Math.round(original * (1 - p.percent / 100));
+    } else {
+      return out;
+    }
+
+    /* a promo that is not cheaper is not a promo */
+    if (cut == null || cut >= original) return out;
+
+    out.final = cut;
+    out.saved = original - cut;
+    out.applies = true;
+    return out;
+  }
+
+  /* localStorage is not there in every context: private mode, a node test
+     harness, a locked-down browser. Every read and write is optional. */
+  function store() {
+    try { return (typeof window !== 'undefined' && window.localStorage) || null; }
+    catch (e) { return null; }
+  }
+
+  function stash(key, value) {
+    var s = store(); if (!s) return;
+    try { s.setItem(key, JSON.stringify({ v: value, ts: Date.now() })); } catch (e) {}
+  }
+
+  /* a stashed value, or null once it is older than 60 days */
+  function unstash(key) {
+    var s = store(); if (!s) return null;
+    var raw = null;
+    try { raw = s.getItem(key); } catch (e) { return null; }
+    if (!raw) return null;
+    var o = null;
+    try { o = JSON.parse(raw); } catch (e) { return null; }
+    if (!o || !o.v || !o.ts) return null;
+    if (Date.now() - o.ts > PROMO_TTL_MS) {
+      try { s.removeItem(key); } catch (e) {}
+      return null;
+    }
+    return o.v;
+  }
+
+  function queryParam(name) {
+    try {
+      if (typeof window === 'undefined' || !window.location) return '';
+      var q = String(window.location.search || '');
+      var m = new RegExp('[?&]' + name + '=([^&#]*)').exec(q);
+      return m ? decodeURIComponent(m[1].replace(/\+/g, ' ')) : '';
+    } catch (e) { return ''; }
+  }
+
+  /* Which promo this visitor is on, or null.
+     Order: an explicit ?promo=, then the referral link, then what was pinned
+     on an earlier visit. A promo found in the url is pinned for 60 days. */
+  function activePromo() {
+    var k = activePromoRaw();
+    return (k && promoLive(k)) ? k : null;
+  }
+
+  function activePromoRaw() {
+    var direct = queryParam('promo');
+    if (direct && PROMOS[direct]) {
+      stash(PROMO_KEY_STORE, direct);
+      return direct;
+    }
+
+    /* the referral link the dashboard hands out:
+       ?utm_source=referral&utm_medium=friend&utm_campaign=<code> */
+    var src  = queryParam('utm_source').toLowerCase();
+    var code = queryParam('utm_campaign');
+    if (src === 'referral' && code) {
+      stash(PROMO_REF_STORE, code);      // the lead still reads utm_campaign
+      if (PROMOS.friend) {
+        stash(PROMO_KEY_STORE, 'friend');
+        return 'friend';
+      }
+    }
+
+    var saved = unstash(PROMO_KEY_STORE);
+    return (saved && PROMOS[saved]) ? saved : null;
+  }
+
+  function promoInfo(promoKey) {
+    return PROMOS[promoKey] || null;
+  }
+
+  /* the referral code this visitor arrived on, url first then storage */
+  function refCode() {
+    var code = queryParam('utm_campaign');
+    if (code && queryParam('utm_source').toLowerCase() === 'referral') return code;
+    return unstash(PROMO_REF_STORE) || '';
+  }
+
+  /* what a package already covers, versus what has to be bought */
+  function addonState(key, plan, daysToEvent) {
+    var a = ADDONS[key];
+    if (!a) return null;
+    if (a.plans.indexOf(plan) > -1) return 'included';
+    if (a.minDaysBefore != null && daysToEvent != null && daysToEvent < a.minDaysBefore) return 'too-late';
+    return 'locked';
+  }
+
+  function addonPrice(key, guests) {
+    return ADDON_PRICES[key + '_' + guests] || null;
+  }
+
+  function addonLink(key, guests) {
+    return ADDON_LINKS[key + '_' + guests] || null;
+  }
+
+  function occasion(value) {
+    for (var i = 0; i < OCCASIONS.length; i++) {
+      if (OCCASIONS[i].value === value) return OCCASIONS[i];
+    }
+    return null;
+  }
+
+  function occasionLabel(value) {
+    var o = occasion(value);
+    return o ? o.label : '';
+  }
+
+  function occasionNames(value) {
+    var o = occasion(value);
+    return (o && o.names) || ['שם', null];
+  }
+
+  function recommendedPlan(occasionValue) {
+    var o = occasion(occasionValue);
+    return o ? o.rec : DEFAULT_PLAN;
+  }
+
+  function guestLabel(value) {
+    for (var i = 0; i < GUEST_TIERS.length; i++) {
+      if (GUEST_TIERS[i].value === value) return GUEST_TIERS[i].label;
+    }
+    return '';
+  }
+
+  /* cheapest price at a guest tier, for "החל מ-" copy on the pricing block */
+  function fromPrice(plan) {
+    return PRICE_TABLE[50][plan];
+  }
+
   return {
+    PROMOS: PROMOS,
+    promoPrice: promoPrice,
+    activePromo: activePromo,
+    promoInfo: promoInfo,
+    promoLink: promoLink,
+    promoLive: promoLive,
+    PROMO_LINKS: PROMO_LINKS,
+
     MAKE_LEAD_WEBHOOK: MAKE_LEAD_WEBHOOK,
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,
     MAKE_SETUP_WEBHOOK: MAKE_SETUP_WEBHOOK,
