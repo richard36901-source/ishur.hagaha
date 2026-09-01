@@ -84,6 +84,19 @@
   .kpi b{display:block;font-size:1.45rem;color:var(--pine);font-variant-numeric:tabular-nums}
   .kpi span{font-size:.7rem;color:var(--ink3)}
   .kpi.money b{color:var(--gold)}
+  .cac-tile{margin-top:.6rem;border-radius:14px;padding:.9rem 1.1rem;border:1px solid var(--line);background:var(--card)}
+  .cac-tile .cac-main{display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap}
+  .cac-tile .cac-main b{font-size:2rem;font-variant-numeric:tabular-nums;line-height:1}
+  .cac-tile .cac-main span{font-size:.82rem;color:var(--ink2);font-weight:600}
+  .cac-tile .cac-sub{font-size:.8rem;color:var(--ink2);margin-top:.35rem}
+  .cac-tile .cac-note{font-size:.68rem;color:var(--ink3);margin-top:.3rem}
+  .cac-green{border-inline-start:5px solid #0F4C35} .cac-green .cac-main b{color:#0F4C35}
+  .cac-amber{border-inline-start:5px solid #A8853C} .cac-amber .cac-main b{color:#A8853C}
+  .cac-red{border-inline-start:5px solid #A8402F;background:rgba(168,64,47,.06)} .cac-red .cac-main b{color:#A8402F}
+  .cac-no-buyers-yet{border-inline-start:5px solid #A8402F} .cac-no-buyers-yet .cac-main b{color:#A8402F}
+  .cac-idle{border-inline-start:5px solid var(--line)} .cac-idle .cac-main b{color:var(--ink3)}
+  html[data-theme=dark] .cac-green .cac-main b{color:#4CAF82}
+  html[data-theme=dark] .cac-red .cac-main b,html[data-theme=dark] .cac-no-buyers-yet .cac-main b{color:#F08A8A}
   h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.2rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
   .tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
   table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:640px}
@@ -567,6 +580,13 @@
     <div class="kpi"><b id="p-cost">–</b><span>הוצאות ₪*</span></div>
     <div class="kpi money"><b id="p-profit">–</b><span>רווח גולמי ₪</span></div>
     <div class="kpi money"><b id="p-avg">–</b><span>רווח ממוצע ללקוח ₪</span></div>
+  </div>
+  <!-- the premortem's headline metric: cost per paying customer this month,
+       the number budget decisions ride on — never CPL. Colour = verdict. -->
+  <div id="cacTile" class="cac-tile" hidden>
+    <div class="cac-main"><b id="cac-val">–</b><span>עלות ללקוח החודש (CAC) ₪</span></div>
+    <div class="cac-sub" id="cac-sub"></div>
+    <div class="cac-note">זה המדד להחלטות תקציב, לא ה-CPL. ירוק עד 150 · כתום עד 240 · אדום מעל התרומה לאירוע (~225).</div>
   </div>
   <div class="tblwrap" style="padding:.6rem .4rem;background:var(--card);border:1px solid var(--line);border-radius:12px">
     <svg id="chart" width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" aria-label="הכנסות לפי יום"></svg>
@@ -1574,6 +1594,23 @@
     });
   }
 
+  /* CAC this month, the premortem's headline gauge. Reads the worker's cac map
+     (spend ÷ paying customers this calendar month) and colours by verdict. */
+  function renderCac() {
+    var tile = $('cacTile');
+    if (!tile || !opsData || !opsData.cac) { if (tile) tile.hidden = true; return; }
+    var mo = new Date().toISOString().slice(0, 7);
+    var c = opsData.cac[mo];
+    if (!c || (!c.spend && !c.buyers)) { tile.hidden = true; return; }
+    tile.hidden = false;
+    tile.className = 'cac-tile cac-' + (c.verdict || 'idle');
+    $('cac-val').textContent = c.cac_ils != null ? c.cac_ils.toLocaleString('he-IL') : '—';
+    var sub = c.buyers + ' לקוחות · ' + (c.spend || 0).toLocaleString('he-IL') + ' ₪ פרסום החודש';
+    if (c.verdict === 'no-buyers-yet') sub = 'הוצאת ' + (c.spend || 0).toLocaleString('he-IL') + ' ₪ ועדיין 0 לקוחות — כאן שורפים כסף בשקט';
+    if (c.verdict === 'red') sub += ' · מעל התרומה לאירוע, כל אירוע מפסיד';
+    $('cac-sub').textContent = sub;
+  }
+
   function renderOps() {
     if (!opsData) return;
     var b = rangeBounds();
@@ -1594,6 +1631,7 @@
     $('p-profit').textContent = Math.round(profit).toLocaleString('he-IL');
     $('p-avg').textContent = pay ? Math.round(profit / pay).toLocaleString('he-IL') : '–';
     $('rngLbl').textContent = heDate(b.from) + ' – ' + heDate(b.to);
+    renderCac();
 
     /* bar chart: revenue per day, cost overlaid as a darker base bar */
     var svg = $('chart'); svg.innerHTML = '';

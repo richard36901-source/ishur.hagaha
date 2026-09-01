@@ -4099,6 +4099,37 @@ async function handleOpsStats(request, env, origin) {
     try { fixedcost[k] = JSON.parse(v) || []; } catch { fixedcost[k] = []; }
   }
 
+  /* ── CAC, the premortem's headline rule ──────────────────────────────────
+     Budget decisions ride on cost-per-CUSTOMER from the sheet, never CPL from
+     Meta — a cheap lead that never pays is the failure mode the whole ladder
+     was calibrated to miss. adspend is logged per-month (adspend:YYYY-MM), so
+     CAC is monthly: that month's ad spend ÷ that month's paid events. The
+     thresholds mirror the report: ≤150 ₪ green (rung A/B target), ≤240 ₪ amber
+     (still above contribution is the red line), above = burning money. */
+  const paidByMonth = {};
+  for (const d of Object.values(days)) {
+    const mo = d.date.slice(0, 7);
+    paidByMonth[mo] = (paidByMonth[mo] || 0) + d.payments;
+  }
+  const cac = {};
+  for (const [mo, spend] of Object.entries(adspend)) {
+    const buyers = paidByMonth[mo] || 0;
+    cac[mo] = {
+      spend, buyers,
+      cac_ils: buyers > 0 ? Math.round(spend / buyers) : null,
+      verdict: buyers === 0 ? (spend > 0 ? 'no-buyers-yet' : 'idle')
+        : (spend / buyers <= 150 ? 'green' : spend / buyers <= 240 ? 'amber' : 'red'),
+    };
+  }
+  const thisMonth = ilDate().slice(0, 7);
+  /* one Slack alert per day if this month's CAC has crossed the red line, so a
+     silent burn during a green-CPL week gets said out loud (report finding #1) */
+  const cm = cac[thisMonth];
+  if (cm && cm.verdict === 'red' && env.RATE && !(await env.RATE.get('cacalert:' + ilDate()))) {
+    await env.RATE.put('cacalert:' + ilDate(), '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+    await slackPost(env, `🔴 *CAC חצה את הקו האדום* · ${cm.cac_ils} ₪ ללקוח החודש (${cm.spend} ₪ פרסום ÷ ${cm.buyers} אירועים). התרומה לאירוע ~210-240 ₪ — מעל זה כל אירוע מפסיד. זה המדד להחלטות תקציב, לא ה-CPL.`).catch(() => {});
+  }
+
   return okJson({
     ok: true,
     series: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
@@ -4107,6 +4138,8 @@ async function handleOpsStats(request, env, origin) {
     wa_cap: cap ? { ...cap, used_today: usedToday } : null,
     adspend,
     fixedcost,
+    cac,
+    cac_targets: { green: 150, amber: 240, contribution: 225 },
     generated_at: new Date().toISOString(),
   }, origin);
 }
