@@ -61,7 +61,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=31"></script>
+<script src="config.js?v=32"></script>
 <script src="assets/tracking.js?v=19"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=19"></script>
@@ -1490,6 +1490,16 @@ body.has-promo #nav{top:var(--promo-h,34px)}
   font-size:1.55rem;line-height:1.2;letter-spacing:-.022em;
   color:var(--pine);margin-bottom:.7rem;
 }
+.plan-was,.pop-total s{
+  color:var(--ink2);font-size:.78em;font-weight:400;
+  margin-inline-end:.34rem;text-decoration-thickness:1px;opacity:.75
+}
+.plan-opt-price.cut .cur,.plan-opt-price.cut{color:var(--gold)}
+.pop-total.cut .pt-v{color:var(--gold)}
+.pt-save{
+  font-style:normal;font-size:.8em;font-weight:600;color:var(--gold);
+  margin-inline-start:.4rem
+}
 #promo-label{
   display:inline-block;background:var(--gold);color:#1B1508;
   font-family:'Heebo',sans-serif;font-size:.71rem;font-weight:600;
@@ -2051,11 +2061,13 @@ const IshurPromo=(()=>{
      away from the campaign in KV */
   function barLine(){
     if(!offer) return '';
-    const label=String(offer.label||'קוד מבצע');
-    const bits=[`<b>${esc(label)}</b>`, scope()];
+    /* `label` is an admin field — "מבצע בעלי עסקים", "בדיקת קצה לקצה". It is
+       how WE name the campaign, not how the visitor should hear about it, and
+       a test name once made it onto the live bar. What matters to them is that
+       they got a discount and what it covers. */
+    const bits=['<b>קיבלתם הנחה 🎉</b>', scope()];
     if(offer.left!=null) bits.push(`נשארו ${esc(offer.left)} מקומות`);
-    /* say beta out loud, but not twice: some campaign labels already do */
-    if(offer.beta&&label.indexOf('בטא')===-1) bits.push('הרצת בטא');
+    if(offer.beta) bits.push('הרצת בטא');
     return bits.join(' <i>·</i> ');
   }
 
@@ -2179,7 +2191,7 @@ const IshurPromo=(()=>{
       CFG.rememberPromoCode(code);
       showBar();
       msgOffer();
-      if(!flag(SEEN)) openModal();
+      if(!flag(SEEN)){ celebrate(); openModal(); }
     }else{
       /* 'closed' and 'sold-out' are about the campaign, not this code, so the
          pin survives: the same code works once the campaign opens. A code that
@@ -2192,6 +2204,58 @@ const IshurPromo=(()=>{
     /* the only place a price is allowed to move, and only ever after this */
     const sel=document.getElementById('pr-guests');
     renderPlans(sel?sel.value:'');
+    /* the checkout popup is a separate script that may already have drawn its
+       plan cards at the old price — the answer from the Worker arrives after
+       it. This is how it learns to redraw. */
+    try{ document.dispatchEvent(new CustomEvent('ishur:offer',{detail:offer})); }catch(e){}
+  }
+
+  /* A short burst of confetti on arrival, once per session. Somebody who
+     followed a code link should know in the first second that it worked —
+     a line of text at the top of a long page does not do that. */
+  function celebrate(){
+    let quiet=false;
+    try{ quiet=window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+    if(quiet) return;
+    const cv=document.createElement('canvas');
+    cv.setAttribute('aria-hidden','true');
+    cv.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    document.body.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const W=cv.width=innerWidth*dpr, H=cv.height=innerHeight*dpr;
+    ctx.scale(dpr,dpr);
+    const COLORS=['#A8853C','#C7AE7A','#0F2E22','#2F7A55','#F8F4EA','#D9B44A'];
+    const bits=[];
+    for(let i=0;i<130;i++){
+      bits.push({
+        x:innerWidth*(0.15+Math.random()*0.7),
+        y:-20-Math.random()*innerHeight*0.4,
+        w:5+Math.random()*7, h:8+Math.random()*8,
+        vy:2.4+Math.random()*3.4, vx:(Math.random()-0.5)*2.2,
+        rot:Math.random()*Math.PI, vr:(Math.random()-0.5)*0.22,
+        c:COLORS[(Math.random()*COLORS.length)|0],
+      });
+    }
+    const started=performance.now(), LIFE=2600;
+    (function frame(now){
+      const t=now-started;
+      ctx.clearRect(0,0,W,H);
+      /* fade the whole burst out rather than letting pieces vanish mid-air */
+      ctx.globalAlpha=t>LIFE-700?Math.max(0,(LIFE-t)/700):1;
+      let live=0;
+      for(const b of bits){
+        b.x+=b.vx; b.y+=b.vy; b.rot+=b.vr; b.vy+=0.045;
+        if(b.y<innerHeight+40) live++;
+        ctx.save();
+        ctx.translate(b.x,b.y); ctx.rotate(b.rot);
+        ctx.fillStyle=b.c;
+        ctx.fillRect(-b.w/2,-b.h/2,b.w,b.h);
+        ctx.restore();
+      }
+      if(t<LIFE&&live) requestAnimationFrame(frame);
+      else cv.remove();
+    })(started);
   }
 
   /* ── the manual field ─────────────────────────────────────────────────── */
@@ -2569,6 +2633,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=20"></script>
+<script src="assets/popup.js?v=21"></script>
 </body>
 </html>

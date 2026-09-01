@@ -17,6 +17,9 @@
     --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
     --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
     --ok:#0F4C35; --warn:#A8402F;
+    --fs-2xs:.625rem;--fs-xs:.6875rem;--fs-sm:.75rem;--fs-base:.8125rem;
+    --fs-md:.875rem;--fs-lg:.9375rem;--fs-xl:1rem;--fs-2xl:1.25rem;--fs-3xl:1.5rem;
+    --r-sm:8px;--r-md:12px;--r-lg:16px;--r-full:999px;--r-circle:50%;
   }
   /* night mode: same key the client dashboard uses (ishur_theme) */
   html[data-theme=dark]{
@@ -30,9 +33,9 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
   .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
-  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:var(--fs-2xl)}
   .head h1 i{font-style:normal;color:var(--gold-soft)}
-  .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
+  .head p{font-size:var(--fs-sm);color:rgba(248,244,234,.65)}
   .wrap{max-width:min(96vw,1360px);margin:0 auto;padding:0 .9rem}
 
   /* transcript modal: centred over the board. It used to slide in from the
@@ -44,7 +47,7 @@
             transition:opacity .22s ease,visibility 0s linear .22s}
   .sheet-bg.on{opacity:1;visibility:visible;pointer-events:auto;transition:opacity .22s ease,visibility 0s}
   .sheet{position:relative;width:100%;max-width:680px;max-height:80vh;background:var(--card);
-         border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 70px rgba(15,46,34,.34);
+         border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:0 24px 70px rgba(15,46,34,.34);
          display:flex;flex-direction:column;overflow:hidden;
          opacity:0;transform:translateY(12px) scale(.985);
          transition:opacity .22s ease,transform .22s cubic-bezier(.32,.72,.28,1)}
@@ -52,7 +55,7 @@
   .sheet-h{flex:none;display:flex;justify-content:space-between;align-items:center;gap:.6rem;
            padding:.9rem 1.1rem;border-bottom:1px solid var(--line)}
   .sheet-h b{font-family:'Frank Ruhl Libre',serif;color:var(--pine)}
-  .sheet-x{border:none;background:var(--bg);width:32px;height:32px;border-radius:50%;font-size:1rem;
+  .sheet-x{border:none;background:var(--bg);width:32px;height:32px;border-radius:var(--r-circle);font-size:var(--fs-xl);
            cursor:pointer;color:var(--ink2);flex:none}
   .sheet-x:focus-visible,.sheet-f .btn:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   /* one scrolling region between a fixed head and a fixed foot, so the modal
@@ -61,42 +64,42 @@
   .sheet-f{flex:none;display:flex;align-items:center;justify-content:space-between;gap:.75rem;
            padding:.7rem 1.1rem;border-top:1px solid var(--line);background:var(--card)}
   .sheet-f audio{height:32px;max-width:min(360px,58%)}
-  .sheet-meta{font-size:.72rem;color:var(--ink3);padding:.6rem 1.1rem;border-bottom:1px solid var(--line)}
-  .sheet-body{padding:1rem 1.1rem;font-size:.82rem;line-height:1.8;white-space:pre-wrap;color:var(--ink2)}
+  .sheet-meta{font-size:var(--fs-sm);color:var(--ink3);padding:.6rem 1.1rem;border-bottom:1px solid var(--line)}
+  .sheet-body{padding:1rem 1.1rem;font-size:var(--fs-base);line-height:1.8;white-space:pre-wrap;color:var(--ink2)}
   /* the headline facts, above the transcript: what the call actually produced */
-  .sheet-sum{padding:.75rem 1.1rem;border-bottom:1px solid var(--line);font-size:.8rem;color:var(--ink2);line-height:1.7}
+  .sheet-sum{padding:.75rem 1.1rem;border-bottom:1px solid var(--line);font-size:var(--fs-base);color:var(--ink2);line-height:1.7}
   .sheet-sum .sum-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.35rem}
   .sheet-sum .sum-b{display:inline-flex;gap:.3rem;align-items:center}
-  .sheet-sum .sum-k{font-size:.68rem;color:var(--ink3)}
+  .sheet-sum .sum-k{font-size:var(--fs-xs);color:var(--ink3)}
   .sheet-sum p{margin:.4rem 0 0}
   .sheet-sum p b{color:var(--ink);font-weight:600}
   /* on a phone it is all but the whole screen, with just enough margin to read
      as a sheet floating over the board rather than a new page */
   @media (max-width:640px){
     .sheet-bg{padding:.6rem}
-    .sheet{max-height:92vh;border-radius:14px}
+    .sheet{max-height:92vh;border-radius:var(--r-md)}
     .sheet-f{flex-wrap:wrap}
     .sheet-f audio{max-width:100%;width:100%}
   }
   @media (prefers-reduced-motion:reduce){.sheet,.sheet-bg{transition:none}}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin:1rem 0}
-  .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .5rem;text-align:center}
-  .kpi b{display:block;font-size:1.45rem;color:var(--pine);font-variant-numeric:tabular-nums}
-  .kpi span{font-size:.7rem;color:var(--ink3)}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:.7rem .5rem;text-align:center}
+  .kpi b{display:block;font-size:var(--fs-3xl);color:var(--pine);font-variant-numeric:tabular-nums}
+  .kpi span{font-size:var(--fs-xs);color:var(--ink3)}
   .kpi.money b{color:var(--gold)}
-  h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.2rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
-  .tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:12px}
-  table{width:100%;border-collapse:collapse;font-size:.8rem;min-width:640px}
-  th{color:var(--gold);font-size:.66rem;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--gold-pale);white-space:nowrap}
+  h2{font-family:'Frank Ruhl Libre',serif;font-size:var(--fs-xl);color:var(--pine);margin:1.2rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
+  .tblwrap{overflow-x:auto;background:var(--card);border:1px solid var(--line);border-radius:var(--r-md)}
+  table{width:100%;border-collapse:collapse;font-size:var(--fs-base);min-width:640px}
+  th{color:var(--gold);font-size:var(--fs-xs);letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:.5rem .6rem;border-bottom:1px solid var(--gold-pale);white-space:nowrap}
   td{padding:.5rem .6rem;border-bottom:1px solid var(--line);color:var(--ink2);white-space:nowrap;font-variant-numeric:tabular-nums}
   tr:last-child td{border-bottom:none}
   td:first-child{font-weight:600;color:var(--ink)}
-  .pill{display:inline-block;font-size:.66rem;font-weight:700;border-radius:99px;padding:.08rem .5rem}
+  .pill{display:inline-block;font-size:var(--fs-xs);font-weight:700;border-radius:var(--r-full);padding:.08rem .5rem}
   .p-ok{background:rgba(15,76,53,.1);color:var(--ok)}
   .p-no{background:#EDECE6;color:var(--ink3)}
   .p-warn{background:rgba(168,64,47,.1);color:var(--warn)}
   /* Shir's calls: outcome, quality and the calls worth listening to */
-  .oc{display:inline-block;font-size:.66rem;font-weight:700;border-radius:99px;padding:.08rem .5rem;white-space:nowrap}
+  .oc{display:inline-block;font-size:var(--fs-xs);font-weight:700;border-radius:var(--r-full);padding:.08rem .5rem;white-space:nowrap}
   .oc-yes{background:rgba(15,76,53,.1);color:var(--ok)}
   .oc-no{background:#EDECE6;color:var(--ink3)}
   .oc-maybe{background:rgba(168,133,60,.16);color:#8A6B25}
@@ -104,7 +107,7 @@
   html[data-theme=dark] .oc-no{background:#252E28;color:var(--ink2)}
   html[data-theme=dark] .oc-maybe{background:rgba(199,174,122,.16);color:var(--gold)}
   .q5{font-weight:700;font-variant-numeric:tabular-nums}
-  .q5 i{font-style:normal;font-weight:400;font-size:.7rem;color:var(--ink3)}
+  .q5 i{font-style:normal;font-weight:400;font-size:var(--fs-xs);color:var(--ink3)}
   .q-hi{color:var(--ok)}
   .q-mid{color:#8A6B25}
   .q-lo{color:var(--warn)}
@@ -113,31 +116,31 @@
   html[data-theme=dark] #shirRows tr.rev td{background:rgba(240,138,138,.08)}
   #shirRows td:first-child{padding-inline-end:.25rem}
   #shirRows td:nth-child(2){font-weight:600;color:var(--ink)}
-  .rev-tag{display:inline-block;font-size:.62rem;font-weight:700;border-radius:99px;padding:.05rem .45rem;background:rgba(168,64,47,.13);color:var(--warn);border:1px solid rgba(168,64,47,.35);white-space:nowrap}
+  .rev-tag{display:inline-block;font-size:var(--fs-2xs);font-weight:700;border-radius:var(--r-full);padding:.05rem .45rem;background:rgba(168,64,47,.13);color:var(--warn);border:1px solid rgba(168,64,47,.35);white-space:nowrap}
   html[data-theme=dark] .rev-tag{background:rgba(240,138,138,.12);border-color:rgba(240,138,138,.4)}
-  .revbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;font-size:.8rem;color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.55rem .8rem;margin:0 0 .6rem}
+  .revbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;font-size:var(--fs-base);color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:.55rem .8rem;margin:0 0 .6rem}
   .revbar.hot{border-color:rgba(168,64,47,.4);background:rgba(168,64,47,.05)}
   html[data-theme=dark] .revbar.hot{border-color:rgba(240,138,138,.35);background:rgba(240,138,138,.07)}
   .revbar b{color:var(--warn)}
   .revbar button[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:var(--paper)}
   html[data-theme=dark] .revbar button[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#0B1712}
-  .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;font-size:.9rem}
-  .meta{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--ink3);margin:.6rem 0}
-  .meta button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.3rem .8rem;font:inherit;cursor:pointer;color:var(--ink2)}
+  .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;font-size:var(--fs-md)}
+  .meta{display:flex;justify-content:space-between;align-items:center;font-size:var(--fs-sm);color:var(--ink3);margin:.6rem 0}
+  .meta button{border:1px solid var(--line);background:var(--card);border-radius:var(--r-sm);padding:.3rem .8rem;font:inherit;cursor:pointer;color:var(--ink2)}
   .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
   /* --pine is a fixed dark green: on the dark background it read as
      near-black on near-black. --ink follows the theme. */
   .gate-h{font-family:'Frank Ruhl Libre',serif;color:var(--ink);border:none}
-  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr}
-  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
-  .gate p.err{color:var(--warn);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
-  .foot{text-align:center;font-size:.66rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-top:2.5rem;opacity:.75}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:var(--r-md);padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr}
+  .gate button{width:100%;border:none;border-radius:var(--r-md);background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{color:var(--warn);font-size:var(--fs-base);min-height:1.2rem;margin-top:.4rem}
+  .foot{text-align:center;font-size:var(--fs-xs);color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin-top:2.5rem;opacity:.75}
   .foot a{color:var(--gold)}
   /* iOS-style switch: track + sliding knob, press feedback on pointer-down */
   .sw-wrap{display:inline-flex;align-items:center;gap:.55rem}
-  .sw-state{font-size:.78rem;font-weight:600;color:var(--ink2)}
-  .sw{position:relative;flex:none;width:51px;height:31px;border-radius:999px;border:none;padding:0;cursor:pointer;background:var(--line);transition:background .25s ease;-webkit-tap-highlight-color:transparent}
-  .sw i{position:absolute;top:2px;right:2px;width:27px;height:27px;border-radius:999px;background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.06);transition:transform .25s cubic-bezier(.34,1.2,.4,1),width .15s ease}
+  .sw-state{font-size:var(--fs-sm);font-weight:600;color:var(--ink2)}
+  .sw{position:relative;flex:none;width:51px;height:31px;border-radius:var(--r-full);border:none;padding:0;cursor:pointer;background:var(--line);transition:background .25s ease;-webkit-tap-highlight-color:transparent}
+  .sw i{position:absolute;top:2px;right:2px;width:27px;height:27px;border-radius:var(--r-full);background:#fff;box-shadow:0 3px 8px rgba(0,0,0,.15),0 1px 1px rgba(0,0,0,.06);transition:transform .25s cubic-bezier(.34,1.2,.4,1),width .15s ease}
   .sw:active:not(:disabled) i{width:31px}
   .sw[aria-checked="true"]{background:var(--ok)}
   .sw[aria-checked="true"] i{transform:translateX(-20px)}
@@ -148,38 +151,38 @@
   @media (prefers-reduced-motion:reduce){.sw,.sw i,button{transition:none !important}}
 
   /* mission control: the levers that stop things, at the top of the page */
-  .ctl{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem 1rem;margin:1rem 0 .2rem}
+  .ctl{background:var(--card);border:1px solid var(--line);border-radius:var(--r-md);padding:.9rem 1rem 1rem;margin:1rem 0 .2rem}
   .ctl h2{margin-top:0}
   .ctl-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.6rem;margin:0 0 .2rem}
-  .cst{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:.55rem .5rem;text-align:center}
-  .cst b{display:block;font-size:1rem;font-weight:700;color:var(--ink)}
-  .cst span{font-size:.68rem;color:var(--ink3)}
+  .cst{background:var(--bg);border:1px solid var(--line);border-radius:var(--r-md);padding:.55rem .5rem;text-align:center}
+  .cst b{display:block;font-size:var(--fs-xl);font-weight:700;color:var(--ink)}
+  .cst span{font-size:var(--fs-xs);color:var(--ink3)}
   .cst.good b{color:var(--ok)}
   .cst.bad b{color:var(--warn)}
   .ctl-row{border-top:1px solid var(--line);padding-top:.9rem;margin-top:.9rem}
   .ctl-top{display:flex;align-items:center;justify-content:space-between;gap:.9rem;flex-wrap:wrap}
-  .ctl-label{font-weight:600;font-size:.92rem;color:var(--ink)}
-  .ctl-note{font-size:.78rem;color:var(--ink3);margin-top:.28rem;line-height:1.65}
-  .ctl-alarm{font-size:.82rem;font-weight:700;color:var(--warn);background:rgba(168,64,47,.09);border:1px solid rgba(168,64,47,.4);border-radius:10px;padding:.5rem .75rem;margin-top:.55rem;line-height:1.6}
+  .ctl-label{font-weight:600;font-size:var(--fs-lg);color:var(--ink)}
+  .ctl-note{font-size:var(--fs-sm);color:var(--ink3);margin-top:.28rem;line-height:1.65}
+  .ctl-alarm{font-size:var(--fs-base);font-weight:700;color:var(--warn);background:rgba(168,64,47,.09);border:1px solid rgba(168,64,47,.4);border-radius:var(--r-md);padding:.5rem .75rem;margin-top:.55rem;line-height:1.6}
   html[data-theme=dark] .ctl-alarm{background:rgba(240,138,138,.1);border-color:rgba(240,138,138,.4)}
   .ctl-line{display:flex;gap:.45rem;align-items:center;flex-wrap:wrap;margin-top:.65rem}
-  .ctl-line input{font:inherit;font-size:.82rem;padding:.42rem .65rem;border:1px solid var(--line);border-radius:9px;background:var(--bg);color:var(--ink);width:11rem}
-  .btn{font:inherit;font-size:.8rem;font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:9px;padding:.42rem .95rem;cursor:pointer}
+  .ctl-line input{font:inherit;font-size:var(--fs-base);padding:.42rem .65rem;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--bg);color:var(--ink);width:11rem}
+  .btn{font:inherit;font-size:var(--fs-base);font-weight:600;border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:var(--r-sm);padding:.42rem .95rem;cursor:pointer}
   .btn:disabled{opacity:.45;cursor:default}
-  .btn-danger{background:#A8402F;border-color:#A8402F;color:#fff}
+  .btn-danger{background:var(--warn);border-color:var(--warn);color:#fff}
   html[data-theme=dark] .btn-danger{background:#C4503C;border-color:#C4503C;color:#fff}
   .btn-ok{background:var(--ok);border-color:var(--ok);color:#fff}
   html[data-theme=dark] .btn-ok{color:#0B1712}
-  .ctl-res{font-size:.8rem;color:var(--ink2);margin-top:.55rem;line-height:1.7;min-height:1.1rem}
+  .ctl-res{font-size:var(--fs-base);color:var(--ink2);margin-top:.55rem;line-height:1.7;min-height:1.1rem}
   .ctl-res b{color:var(--ink)}
-  .ctl-flash{font-size:.8rem;font-weight:600;border-radius:10px;padding:.5rem .75rem;margin-top:.9rem;line-height:1.65}
+  .ctl-flash{font-size:var(--fs-base);font-weight:600;border-radius:var(--r-md);padding:.5rem .75rem;margin-top:.9rem;line-height:1.65}
   .ctl-flash.ok{color:var(--ok);background:rgba(15,76,53,.08);border:1px solid rgba(15,76,53,.3)}
   html[data-theme=dark] .ctl-flash.ok{background:rgba(76,175,130,.1);border-color:rgba(76,175,130,.38)}
   .ctl-flash.bad{color:var(--warn);background:rgba(168,64,47,.09);border:1px solid rgba(168,64,47,.35)}
   html[data-theme=dark] .ctl-flash.bad{background:rgba(240,138,138,.1);border-color:rgba(240,138,138,.4)}
 
   /* per event freeze, lives inside the events table */
-  .hbtn{font:inherit;font-size:.7rem;font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:99px;padding:.16rem .62rem;cursor:pointer;white-space:nowrap}
+  .hbtn{font:inherit;font-size:var(--fs-xs);font-weight:700;border:1px solid var(--line);background:var(--bg);color:var(--ink2);border-radius:var(--r-full);padding:.16rem .62rem;cursor:pointer;white-space:nowrap}
   .hbtn.on{background:rgba(168,64,47,.13);border-color:rgba(168,64,47,.45);color:var(--warn)}
   html[data-theme=dark] .hbtn.on{background:rgba(240,138,138,.13);border-color:rgba(240,138,138,.45)}
   .hbtn:disabled{opacity:.45;cursor:default}
@@ -190,10 +193,10 @@
   /* confirm dialog: custom, because the browser one cannot explain anything */
   .dlg-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);backdrop-filter:blur(3px);z-index:60;display:flex;align-items:center;justify-content:center;padding:1rem}
   .dlg-bg[hidden]{display:none}
-  .dlg{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:16px;box-shadow:0 24px 60px rgba(15,46,34,.3);max-width:440px;width:100%;padding:1.15rem 1.25rem 1.05rem;animation:dlgIn .18s ease}
+  .dlg{background:var(--card);color:var(--ink);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:0 24px 60px rgba(15,46,34,.3);max-width:440px;width:100%;padding:1.15rem 1.25rem 1.05rem;animation:dlgIn .18s ease}
   @keyframes dlgIn{from{opacity:0;transform:translateY(10px) scale(.985)}to{opacity:1;transform:none}}
-  .dlg h3{font-family:'Frank Ruhl Libre',serif;font-size:1.06rem;color:var(--ink);margin-bottom:.55rem}
-  .dlg p{font-size:.84rem;color:var(--ink2);line-height:1.8}
+  .dlg h3{font-family:'Frank Ruhl Libre',serif;font-size:var(--fs-xl);color:var(--ink);margin-bottom:.55rem}
+  .dlg p{font-size:var(--fs-base);color:var(--ink2);line-height:1.8}
   .dlg p b{color:var(--ink)}
   .dlg-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:1.05rem}
   .dlg-btns .btn{padding:.52rem 1.15rem}
@@ -205,10 +208,10 @@
      says so without shouting: a pulse in the header, a blinking dot on a call
      that is happening right now, and a short glow on a row that just arrived.
      ─────────────────────────────────────────────────────────────────────── */
-  .live{display:inline-flex;align-items:center;gap:.42rem;margin-top:.5rem;font-size:.68rem;
+  .live{display:inline-flex;align-items:center;gap:.42rem;margin-top:.5rem;font-size:var(--fs-xs);
         color:rgba(248,244,234,.74);background:rgba(248,244,234,.08);
-        border:1px solid rgba(199,174,122,.32);border-radius:99px;padding:.24rem .64rem;line-height:1.25}
-  .live-dot{width:7px;height:7px;border-radius:50%;flex:none;background:#5FC79A;animation:livePulse 2.4s ease-out infinite}
+        border:1px solid rgba(199,174,122,.32);border-radius:var(--r-full);padding:.24rem .64rem;line-height:1.25}
+  .live-dot{width:7px;height:7px;border-radius:var(--r-circle);flex:none;background:#5FC79A;animation:livePulse 2.4s ease-out infinite}
   @keyframes livePulse{
     0%{box-shadow:0 0 0 0 rgba(95,199,154,.55)}
     70%{box-shadow:0 0 0 7px rgba(95,199,154,0)}
@@ -218,11 +221,11 @@
   .live.off .live-dot{background:rgba(248,244,234,.34);animation:none;box-shadow:none}
 
   /* a call that is running at this second */
-  .callive{display:inline-flex;align-items:center;gap:.32rem;font-size:.62rem;font-weight:700;
-           border-radius:99px;padding:.05rem .45rem;background:rgba(168,64,47,.13);color:var(--warn);
+  .callive{display:inline-flex;align-items:center;gap:.32rem;font-size:var(--fs-2xs);font-weight:700;
+           border-radius:var(--r-full);padding:.05rem .45rem;background:rgba(168,64,47,.13);color:var(--warn);
            border:1px solid rgba(168,64,47,.38);white-space:nowrap}
   html[data-theme=dark] .callive{background:rgba(240,138,138,.12);border-color:rgba(240,138,138,.42)}
-  .dotlive{width:7px;height:7px;border-radius:50%;flex:none;background:#D9483B;animation:dotBlink 1.1s ease-in-out infinite}
+  .dotlive{width:7px;height:7px;border-radius:var(--r-circle);flex:none;background:#D9483B;animation:dotBlink 1.1s ease-in-out infinite}
   html[data-theme=dark] .dotlive{background:#F08A8A}
   @keyframes dotBlink{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.22;transform:scale(.68)}}
   #shirRows tr.oncall td{background:rgba(168,64,47,.06)}
@@ -257,16 +260,16 @@
   /* the global press-scale would wobble a full-width header, and the row of
      buttons next to it needs a real focus ring for keyboard use */
   .fold-btn:not(:disabled):active{transform:none}
-  .fold-btn:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:6px}
+  .fold-btn:focus-visible{outline:2px solid var(--gold);outline-offset:3px;border-radius:var(--r-sm)}
   .fold-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .fold-sp{flex:1}
   .fold-chev{flex:none;color:var(--gold);transition:transform .2s ease}
   .fold-btn[aria-expanded=true] .fold-chev{transform:rotate(-90deg)}
-  .fold-n{flex:none;font-family:'Heebo',system-ui,sans-serif;font-size:.7rem;font-weight:600;
-          color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:99px;
+  .fold-n{flex:none;font-family:'Heebo',system-ui,sans-serif;font-size:var(--fs-xs);font-weight:600;
+          color:var(--ink2);background:var(--bg);border:1px solid var(--line);border-radius:var(--r-full);
           padding:.06rem .5rem;font-variant-numeric:tabular-nums;line-height:1.5}
-  .fold-new{flex:none;font-family:'Heebo',system-ui,sans-serif;font-size:.62rem;font-weight:700;
-            border-radius:99px;padding:.05rem .45rem;line-height:1.6;background:rgba(168,64,47,.13);
+  .fold-new{flex:none;font-family:'Heebo',system-ui,sans-serif;font-size:var(--fs-2xs);font-weight:700;
+            border-radius:var(--r-full);padding:.05rem .45rem;line-height:1.6;background:rgba(168,64,47,.13);
             color:var(--warn);border:1px solid rgba(168,64,47,.35)}
   html[data-theme=dark] .fold-new{background:rgba(240,138,138,.12);border-color:rgba(240,138,138,.4)}
   .fold-new[hidden]{display:none}
@@ -278,7 +281,7 @@
   .tblwrap.tall{max-height:min(60vh,420px);overflow:auto}
   @media (max-width:640px){
     .tblwrap.tall{max-height:50vh}
-    .fold-t{white-space:normal;font-size:.92rem}
+    .fold-t{white-space:normal;font-size:var(--fs-lg)}
   }
   /* border-collapse drops the border on a sticky cell, so the rule under the
      column names has to be a shadow instead */
@@ -292,38 +295,38 @@
      one bound to the element.
      ─────────────────────────────────────────────────────────────────────── */
   .ply{display:inline-flex;align-items:center;gap:.4rem;min-width:186px;background:var(--bg);
-       border:1px solid var(--line);border-radius:99px;padding:.16rem .42rem;outline:none}
+       border:1px solid var(--line);border-radius:var(--r-full);padding:.16rem .42rem;outline:none}
   .ply:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   .ply.on{border-color:var(--gold-soft);background:var(--card)}
   /* background-color, not the background shorthand: a transition on the
      shorthand swallows a later shorthand override that resolves through var(),
      and the night-mode green never lands on the button. */
-  .ply-play{flex:none;width:24px;height:24px;border-radius:50%;border:none;cursor:pointer;padding:0;
+  .ply-play{flex:none;width:24px;height:24px;border-radius:var(--r-circle);border:none;cursor:pointer;padding:0;
             background-color:var(--pine);color:var(--paper);display:flex;align-items:center;
             justify-content:center;transition:background-color .15s ease}
   html[data-theme=dark] .ply-play{background-color:var(--ok);color:#0B1712}
   .ply-play svg{width:10px;height:10px;display:block}
   .ply-seek{flex:1;min-width:46px;height:16px;display:flex;align-items:center;cursor:pointer;touch-action:none}
-  .ply-track{width:100%;height:4px;border-radius:99px;background:var(--line);overflow:hidden}
-  .ply-fill{display:block;height:100%;width:0;background:var(--gold);border-radius:99px;transition:width .08s linear}
-  .ply-time{flex:none;font-size:.66rem;color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ply-track{width:100%;height:4px;border-radius:var(--r-full);background:var(--line);overflow:hidden}
+  .ply-fill{display:block;height:100%;width:0;background:var(--gold);border-radius:var(--r-full);transition:width .08s linear}
+  .ply-time{flex:none;font-size:var(--fs-xs);color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
   .ply-volwrap{display:none;align-items:center;gap:.2rem}
   .ply.on .ply-volwrap{display:flex}
   .ply-volwrap input[type=range]{width:58px;accent-color:var(--gold)}
   /* a recording that does not exist gets an honest disabled state, not a
      player that looks fine and then does nothing */
-  .ply-off{display:inline-flex;align-items:center;gap:.3rem;font-size:.66rem;color:var(--ink3);
-           border:1px dashed var(--line);border-radius:99px;padding:.14rem .55rem;white-space:nowrap}
+  .ply-off{display:inline-flex;align-items:center;gap:.3rem;font-size:var(--fs-xs);color:var(--ink3);
+           border:1px dashed var(--line);border-radius:var(--r-full);padding:.14rem .55rem;white-space:nowrap}
 
   /* ── the row menu, the row picker and the bulk bar ── */
   .rowmenu{flex:none;border:1px solid var(--line);background:var(--bg);color:var(--ink2);width:26px;height:26px;
-           border-radius:8px;cursor:pointer;font-size:.85rem;line-height:1;padding:0}
+           border-radius:var(--r-sm);cursor:pointer;font-size:var(--fs-md);line-height:1;padding:0}
   .rowmenu:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
   .menu{position:absolute;z-index:75;min-width:13rem;background:var(--card);border:1px solid var(--line);
-        border-radius:12px;box-shadow:0 14px 40px rgba(15,46,34,.24);padding:.3rem}
+        border-radius:var(--r-md);box-shadow:0 14px 40px rgba(15,46,34,.24);padding:.3rem}
   .menu[hidden]{display:none}
-  .menu button{display:flex;align-items:center;gap:.5rem;width:100%;text-align:start;font:inherit;font-size:.78rem;
-               color:var(--ink2);background:none;border:none;border-radius:8px;padding:.45rem .6rem;cursor:pointer}
+  .menu button{display:flex;align-items:center;gap:.5rem;width:100%;text-align:start;font:inherit;font-size:var(--fs-sm);
+               color:var(--ink2);background:none;border:none;border-radius:var(--r-sm);padding:.45rem .6rem;cursor:pointer}
   .menu button:hover,.menu button:focus-visible{background:var(--bg);color:var(--ink);outline:none}
   .menu button:disabled{opacity:.42;cursor:default}
   .c-sel{width:2.1rem}
@@ -332,13 +335,13 @@
   html[data-theme=dark] .c-sel input[type=checkbox]{accent-color:var(--ok)}
   #shirRows tr.picked td{background:rgba(168,133,60,.1)}
   html[data-theme=dark] #shirRows tr.picked td{background:rgba(199,174,122,.1)}
-  .selbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;font-size:.8rem;
-          color:var(--ink2);background:var(--card);border:1px solid var(--gold-soft);border-radius:12px;
+  .selbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;font-size:var(--fs-base);
+          color:var(--ink2);background:var(--card);border:1px solid var(--gold-soft);border-radius:var(--r-md);
           padding:.55rem .8rem;margin:0 0 .6rem}
   .selbar[hidden]{display:none}
   .selbar b{color:var(--ink)}
-  .selbar-note{font-size:.7rem;color:var(--ink3);flex-basis:100%}
-  .callmsg{font-size:.78rem;color:var(--ink2);margin:0 0 .6rem;padding:.45rem .75rem;border-radius:10px;
+  .selbar-note{font-size:var(--fs-xs);color:var(--ink3);flex-basis:100%}
+  .callmsg{font-size:var(--fs-sm);color:var(--ink2);margin:0 0 .6rem;padding:.45rem .75rem;border-radius:var(--r-md);
            background:var(--card);border:1px solid var(--line)}
   .callmsg[hidden]{display:none}
   .callmsg.bad{color:var(--warn);background:rgba(168,64,47,.08);border-color:rgba(168,64,47,.35)}
@@ -347,7 +350,7 @@
   .kindf{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center}
   .kindf button[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:var(--paper)}
   html[data-theme=dark] .kindf button[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#0B1712}
-  .kind{display:inline-block;font-size:.62rem;font-weight:700;border-radius:99px;padding:.05rem .45rem;
+  .kind{display:inline-block;font-size:var(--fs-2xs);font-weight:700;border-radius:var(--r-full);padding:.05rem .45rem;
         white-space:nowrap;border:1px solid var(--line);color:var(--ink3);background:var(--bg)}
   .kind-guest{border-color:rgba(15,76,53,.3);color:var(--ok);background:rgba(15,76,53,.08)}
   .kind-lead{border-color:rgba(168,133,60,.42);color:#8A6B25;background:rgba(168,133,60,.12)}
@@ -368,6 +371,112 @@
     html[data-theme=dark] #rows tr.fresh td,
     html[data-theme=dark] #shirRows tr.fresh td{animation:none;background:rgba(199,174,122,.14)}
   }
+
+  /* ==================================================================
+     Controls, feedback & native-widget pass
+     apple-hig (components-controls, foundations) + clean-design + taste
+     ================================================================== */
+
+  /* Native pickers rendered a WHITE popup with English months on a dark
+     page because color-scheme was never declared. This is the whole fix. */
+  :root{color-scheme:light}
+  html[data-theme=dark]{color-scheme:dark}
+
+  input[type=date],input[type=month],input[type=number],input[type=text],
+  input[type=search],select,textarea{
+    font:inherit;font-size:var(--fs-sm);color:var(--ink);background:var(--card);
+    border:1px solid var(--line);border-radius:var(--r-sm);
+    padding:.34rem .5rem;min-height:32px;
+    transition:border-color .15s ease,box-shadow .15s ease;
+  }
+  input[type=number]{font-variant-numeric:tabular-nums}
+  input[type=date]:hover,input[type=month]:hover,input[type=number]:hover,
+  input[type=text]:hover,select:hover,textarea:hover{border-color:var(--gold-soft)}
+  input:focus-visible,select:focus-visible,textarea:focus-visible{
+    outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(168,133,60,.22);
+  }
+  html[data-theme=dark] input[type=date]::-webkit-calendar-picker-indicator,
+  html[data-theme=dark] input[type=month]::-webkit-calendar-picker-indicator{
+    filter:invert(1) opacity(.65);cursor:pointer;
+  }
+
+  /* Checkbox rebuilt so it obeys the brand instead of the OS */
+  input[type=checkbox]{
+    appearance:none;-webkit-appearance:none;width:18px;height:18px;flex:none;
+    margin:0;cursor:pointer;border:1.5px solid var(--ink3);border-radius:5px;
+    background:var(--card);display:inline-grid;place-content:center;
+    transition:background .15s ease,border-color .15s ease;
+  }
+  input[type=checkbox]::before{
+    content:'';width:10px;height:10px;transform:scale(0);background:var(--card);
+    transition:transform .12s cubic-bezier(.2,.9,.3,1.4);
+    clip-path:polygon(14% 44%,0 60%,39% 100%,100% 18%,84% 0,39% 68%);
+  }
+  input[type=checkbox]:checked{background:var(--ok);border-color:var(--ok)}
+  input[type=checkbox]:checked::before{transform:scale(1)}
+  input[type=checkbox]:hover:not(:checked){border-color:var(--gold)}
+  input[type=checkbox]:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(168,133,60,.28)}
+
+  /* 51x31 is Apple's iOS TOUCH spec. This is a desktop admin beside 12px
+     text, where it read as oversized. Same proportions, denser. */
+  .sw{width:42px;height:24px}
+  .sw i{top:3px;right:3px;width:18px;height:18px}
+  .sw:active:not(:disabled) i{width:22px}
+  .sw[aria-checked="true"] i{transform:translateX(-18px)}
+  .sw:hover:not(:disabled){filter:brightness(1.06)}
+  .sw:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  /* The file had exactly ONE :hover rule in 129KB — nothing answered the
+     pointer. These are the surfaces that should. */
+  button:not(:disabled),a[href],[role=button],.fold-h,summary{
+    transition:background-color .15s ease,border-color .15s ease,color .15s ease,
+               transform .12s ease,box-shadow .15s ease;
+  }
+  button:not(:disabled):hover{filter:brightness(1.05)}
+  button:not(:disabled):active{transform:translateY(1px)}
+  .btn:not(:disabled):hover{border-color:var(--gold)}
+  a[href]:hover{color:var(--gold)}
+  tbody tr:not([data-skeleton]):hover{background:var(--paper)}
+  html[data-theme=dark] tbody tr:not([data-skeleton]):hover{background:rgba(199,174,122,.07)}
+  .fold-h:hover{background:var(--paper)}
+  html[data-theme=dark] .fold-h:hover{background:rgba(199,174,122,.06)}
+  .kpi{transition:transform .15s ease,box-shadow .15s ease}
+  .kpi:hover{transform:translateY(-1px);box-shadow:0 4px 14px rgba(15,46,34,.10)}
+  .ply:hover{border-color:var(--gold-soft)}
+  .ply-play:hover{filter:brightness(1.1)}
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{transition-duration:.01ms !important}
+    button:not(:disabled):active,.kpi:hover{transform:none}
+  }
+
+  /* Latin brand inside an RTL heading: without isolation the bidi
+     algorithm reorders "ishur.io" into "io. ishur". */
+  .brand-ltr{unicode-bidi:isolate;direction:ltr;display:inline-block}
+
+  /* clean-design: an empty <tbody> looks identical to "no data" and to a
+     crash. Show the shape while it loads. */
+  .sk{display:block;height:.8em;border-radius:var(--r-sm);
+    background:linear-gradient(90deg,var(--line) 25%,var(--bg) 37%,var(--line) 63%);
+    background-size:400% 100%;animation:skx 1.4s ease infinite;}
+  .sk.w40{width:40%} .sk.w60{width:60%} .sk.w80{width:80%}
+  tr[data-skeleton] td{padding:.55rem .5rem}
+  @keyframes skx{0%{background-position:100% 50%}100%{background-position:0 50%}}
+  @media (prefers-reduced-motion:reduce){.sk{animation:none;background:var(--line)}}
+
+
+  /* clean-design: "Are you sure?" — nobody reads that. The verb is the warning. */
+  .cd-scrim{position:fixed;inset:0;background:rgba(10,33,25,.55);backdrop-filter:blur(2px);
+    display:grid;place-items:center;z-index:90;padding:1rem}
+  .cd-box{background:var(--card);border-radius:var(--r-lg);max-width:24rem;width:100%;
+    padding:1.25rem;box-shadow:0 20px 50px rgba(10,33,25,.28);border:1px solid var(--line)}
+  .cd-box h3{margin:0 0 .4rem;font-size:var(--fs-xl);color:var(--ink)}
+  .cd-box p{margin:0 0 1rem;font-size:var(--fs-md);color:var(--ink2);line-height:1.55}
+  .cd-acts{display:flex;gap:.5rem;flex-direction:row-reverse}
+  .cd-acts button{flex:1;min-height:44px;border-radius:var(--r-md);cursor:pointer;
+    font-size:var(--fs-md);font-weight:600;border:1px solid var(--line)}
+  .cd-keep{background:var(--ok);color:#fff;border-color:var(--ok)}
+  .cd-go{background:var(--card);color:var(--warn);border-color:var(--warn)}
+  .cd-acts button:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 </style>
 </head>
 <body>
@@ -383,7 +492,7 @@
 <header class="head" style="position:relative">
   <button type="button" id="themeTog" aria-label="מצב תצוגה"
     style="position:absolute;top:.8rem;left:.8rem;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:.9rem;line-height:1;background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA">🌙</button>
-  <h1>ishur<i>.io</i> · מרכז הבקרה</h1>
+  <h1><span class="brand-ltr">ishur<i>.io</i></span> · מרכז הבקרה</h1>
   <p>המספרים של העסק, חיים מהגיליון</p>
   <div class="live" id="liveBox" hidden aria-live="polite">
     <span class="live-dot" id="liveDot"></span><span id="liveTxt">מתחבר…</span>
@@ -478,11 +587,11 @@
   <div class="fold" id="fold-events" hidden>
     <div class="tblwrap tall">
       <table id="tbl">
-        <thead><tr>
-          <th>אירוע</th><th>הקפאה</th><th>תאריך</th><th>חבילה</th><th>₪</th><th>עלות ₪</th><th>רווח ₪</th><th>חשבונית</th><th>קובץ</th>
-          <th>אורחים</th><th>אישרו</th><th>סועדים</th><th>ממתינים</th><th>לשיחה</th>
+        <th scope="col"ead><tr>
+          <th scope="col">אירוע</th><th scope="col">הקפאה</th><th scope="col">תאריך</th><th scope="col">חבילה</th><th scope="col">₪</th><th scope="col">עלות ₪</th><th scope="col">רווח ₪</th><th scope="col">חשבונית</th><th scope="col">קובץ</th>
+          <th scope="col">אורחים</th><th scope="col">אישרו</th><th scope="col">סועדים</th><th scope="col">ממתינים</th><th scope="col">לשיחה</th>
         </tr></thead>
-        <tbody id="rows"></tbody>
+        <tbody id="rows"><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td></tr></tbody>
       </table>
     </div>
     <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
@@ -538,11 +647,11 @@
   <div class="fold" id="fold-calls">
     <div class="tblwrap tall">
       <table>
-        <thead><tr>
-          <th class="c-sel"><input type="checkbox" id="selAll" aria-label="בחירת כל השיחות המוצגות"></th>
-          <th></th><th>שעה</th><th>אל</th><th>סוג</th><th>סטטוס</th><th>תוצאה</th><th>כמות</th><th>איכות</th><th>משך</th><th>עלות $</th><th>סיום</th><th>הקלטה</th><th>תמלול</th><th></th>
+        <th scope="col"ead><tr>
+          <th scope="col" class="c-sel"><input type="checkbox" id="selAll" aria-label="בחירת כל השיחות המוצגות"></th>
+          <th scope="col"></th><th scope="col">שעה</th><th scope="col">אל</th><th scope="col">סוג</th><th scope="col">סטטוס</th><th scope="col">תוצאה</th><th scope="col">כמות</th><th scope="col">איכות</th><th scope="col">משך</th><th scope="col">עלות $</th><th scope="col">סיום</th><th scope="col">הקלטה</th><th scope="col">תמלול</th><th scope="col"></th>
         </tr></thead>
-        <tbody id="shirRows"></tbody>
+        <tbody id="shirRows"><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td></tr></tbody>
       </table>
     </div>
     <p class="empty" id="shirEmpty" hidden>עוד לא היו שיחות. ברגע ששיר תתחיל לחייג — הכל יופיע כאן: משך, עלות, הקלטה ותמלול מלא.</p>
@@ -584,8 +693,8 @@
   <h2>ממוצעים ומרג'ין</h2>
   <div class="tblwrap">
     <table>
-      <thead><tr><th>תקופה</th><th>הכנסות ₪</th><th>עלויות ₪</th><th>רווח ₪</th><th>מרג'ין</th><th>תשלומים</th><th>רווח ממוצע ללקוח ₪</th></tr></thead>
-      <tbody id="avgRows"></tbody>
+      <th scope="col"ead><tr><th scope="col">תקופה</th><th scope="col">הכנסות ₪</th><th scope="col">עלויות ₪</th><th scope="col">רווח ₪</th><th scope="col">מרג'ין</th><th scope="col">תשלומים</th><th scope="col">רווח ממוצע ללקוח ₪</th></tr></thead>
+      <tbody id="avgRows"><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td></tr></tbody>
     </table>
   </div>
 
@@ -601,7 +710,7 @@
   <div class="fold" id="fold-plans" hidden>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>#</th><th>חבילה</th><th>נמכרו</th><th>הכנסות ₪</th><th>ממוצע ₪</th></tr></thead>
+        <th scope="col"ead><tr><th scope="col">#</th><th scope="col">חבילה</th><th scope="col">נמכרו</th><th scope="col">הכנסות ₪</th><th scope="col">ממוצע ₪</th></tr></thead>
         <tbody id="planRows"></tbody>
       </table>
     </div>
@@ -639,7 +748,7 @@
   <div class="fold" id="fold-cost" hidden>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th></tr></thead>
+        <th scope="col"ead><tr><th scope="col">תאריך</th><th scope="col">הודעות</th><th scope="col">תבניות</th><th scope="col">כשלים</th><th scope="col">עלות WA ₪</th><th scope="col">עלות שיר ₪</th></tr></thead>
         <tbody id="costRows"></tbody>
       </table>
     </div>
@@ -658,8 +767,8 @@
   <div class="fold" id="fold-utm" hidden>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>מקור</th><th>לידים</th><th>%</th></tr></thead>
-        <tbody id="utmRows"></tbody>
+        <th scope="col"ead><tr><th scope="col">מקור</th><th scope="col">לידים</th><th scope="col">%</th></tr></thead>
+        <tbody id="utmRows"><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w40"></span></td><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td></tr><tr data-skeleton aria-hidden="true"><td><span class="sk w80"></span></td><td><span class="sk w60"></span></td><td><span class="sk w40"></span></td></tr></tbody>
       </table>
     </div>
     <p class="empty" id="utmEmpty" hidden>עוד אין לידים לניתוח מקורות.</p>
@@ -1146,10 +1255,18 @@
       .then(function (d) { if (d && d.ok) { aiActive = !!d.active; paintAi(); } })
       .catch(function () {});
   }
-  $('aiTog').addEventListener('click', function () {
+  $('aiTog').addEventListener('click', async function () {
     if (aiActive === null) return;
     var next = !aiActive;
-    if (!next && !confirm('לכבות את נועה? הודעות נכנסות יקבלו רק קישור או מענה אנושי')) return;
+    if (!next) {
+      var ok = await cdConfirm({
+        title: 'לכבות את נועה?',
+        body: 'הודעות נכנסות יקבלו רק קישור או מענה אנושי. אפשר להדליק אותה בחזרה בכל רגע.',
+        keepLabel: 'להשאיר פעילה',
+        goLabel: 'לכבות את נועה'
+      });
+      if (!ok) return;
+    }
     var b = $('aiTog'); b.disabled = true; $('aiState').textContent = 'רגע…';
     b.setAttribute('aria-checked', next ? 'true' : 'false');
     fetch(CFG.endpoint('brain'), {
@@ -2495,6 +2612,32 @@
 
   if (adminKey) boot(); else gate();
 })();
+</script>
+
+<script>
+/* clean-design: named-action confirm. Safe choice is primary and pre-focused. */
+function cdConfirm(o){
+  return new Promise(function(res){
+    var sc=document.createElement('div'); sc.className='cd-scrim';
+    sc.setAttribute('role','dialog'); sc.setAttribute('aria-modal','true');
+    var bx=document.createElement('div'); bx.className='cd-box';
+    var h=document.createElement('h3'); h.textContent=o.title;
+    var p=document.createElement('p'); p.textContent=o.body;
+    var a=document.createElement('div'); a.className='cd-acts';
+    var k=document.createElement('button'); k.className='cd-keep'; k.textContent=o.keepLabel;
+    var g=document.createElement('button'); g.className='cd-go'; g.textContent=o.goLabel;
+    a.appendChild(k); a.appendChild(g); bx.appendChild(h); bx.appendChild(p); bx.appendChild(a);
+    sc.appendChild(bx); document.body.appendChild(sc);
+    var prev=document.activeElement;
+    function done(v){ sc.remove(); if(prev&&prev.focus) prev.focus(); res(v); }
+    k.addEventListener('click',function(){done(false)});
+    g.addEventListener('click',function(){done(true)});
+    sc.addEventListener('click',function(e){ if(e.target===sc) done(false) });
+    document.addEventListener('keydown',function esc(e){
+      if(e.key==='Escape'){ document.removeEventListener('keydown',esc); done(false) } });
+    k.focus();
+  });
+}
 </script>
 </body>
 </html>

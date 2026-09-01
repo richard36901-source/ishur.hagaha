@@ -187,6 +187,29 @@ window.IshurPopup = (function () {
     }
   }
 
+  /* The discount lives in index.html's IshurPromo module, which asks the
+     Worker and answers asynchronously. This popup drew its prices from
+     CFG.priceFor — the list price — so a visitor who arrived on a valid code
+     saw 299 in the one place that decides whether they buy. */
+  function offerNow() {
+    try { return (window.IshurPromo && window.IshurPromo.offer()) || null; }
+    catch (e) { return null; }
+  }
+
+  /* {original, final, saved, applies} for one package */
+  function priceOf(guests, plan) {
+    if (guests === 'custom') return { original: null, final: null, saved: 0, applies: false };
+    return CFG.offerPrice(offerNow(), guests, plan);
+  }
+
+  /* ₪50 with ₪299 struck through beside it, or just the price */
+  function priceHtml(pr) {
+    if (pr.final == null) return '';
+    if (!pr.applies) return '<span class="cur">₪</span>' + pr.final;
+    return '<s class="plan-was">₪' + pr.original + '</s>' +
+           '<span class="cur">₪</span>' + pr.final;
+  }
+
   function renderPlans() {
     var wrap = $('f-plans');
     if (!wrap) return;
@@ -197,7 +220,7 @@ window.IshurPopup = (function () {
 
     wrap.innerHTML = order.map(function (k) {
       var p = CFG.PLANS[k];
-      var price = custom ? null : CFG.priceFor(S.guests, k);
+      var pr = priceOf(S.guests, k);
       var on = S.plan === k;
       return '' +
         '<div class="plan-opt' + (on ? ' on' : '') + (!S.locked && rec === k ? ' rec' : '') + '"' +
@@ -211,8 +234,8 @@ window.IshurPopup = (function () {
             '<span class="plan-opt-name">' + p.name + '</span>' +
             '<span class="plan-opt-note">' + p.desc + '</span>' +
           '</span>' +
-          '<span class="plan-opt-price">' +
-            (price ? '<span class="cur">₪</span>' + price : (custom ? 'הצעה אישית' : '')) +
+          '<span class="plan-opt-price' + (pr.applies ? ' cut' : '') + '">' +
+            (pr.final != null ? priceHtml(pr) : (custom ? 'הצעה אישית' : '')) +
           '</span>' +
         '</div>';
     }).join('');
@@ -227,6 +250,13 @@ window.IshurPopup = (function () {
     }
     updateTotal();
   }
+
+  /* The Worker answers after this script has already drawn its cards, and the
+     visitor may be looking at them when it does. Redraw rather than leave a
+     stale list price on screen. */
+  document.addEventListener('ishur:offer', function () {
+    try { renderPlans(); } catch (e) {}
+  });
 
   function setPlan(k) {
     S.plan = k;
@@ -272,13 +302,18 @@ window.IshurPopup = (function () {
     if (nextUp) nextUp.hidden = false;
     if (fine) fine.hidden = false;
     btn.textContent = 'המשך לתשלום';
-    var price = CFG.priceFor(S.guests, S.plan);
-    if (price) {
+    var pr = priceOf(S.guests, S.plan);
+    if (pr.final != null) {
       t.hidden = false;
-      t.className = 'pop-total';
+      t.className = 'pop-total' + (pr.applies ? ' cut' : '');
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +
-                    CFG.guestLabel(S.guests) + '</span>' +
-                    '<span class="pt-v">₪' + price + '</span>';
+                    CFG.guestLabel(S.guests) +
+                    (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' : '') +
+                    '</span>' +
+                    '<span class="pt-v">' +
+                      (pr.applies ? '<s>₪' + pr.original + '</s> ' : '') +
+                      '₪' + pr.final +
+                    '</span>';
     } else {
       t.hidden = true;
     }
