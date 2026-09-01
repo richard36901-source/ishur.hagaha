@@ -319,6 +319,10 @@ async function processGrowPayment(env, flat) {
     /* verified referral: when this payer's lead carries referral:<code>, the
        referrer earns a tier credit. Never blocks the payment path. */
     try { await creditReferral(env, phone, token); } catch {}
+    /* the closed customer is reported back to Meta server-side (CAPI). The
+       browser fires the same event_id ('pur_<ref>') from thanks.html, so Meta
+       dedups; when the tab never returns, this copy is the only one. */
+    try { await capiPurchase(env, { phone, email, value: parseFloat(sum) || 0, ref }); } catch {}
     /* a promo seat is only really taken once the money lands. Until here the
        code was on hold and would have expired back into the pool. */
     let promo = null;
@@ -2312,6 +2316,16 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     }
   }
 
+  /* ── stage 0.8: the 4-day paid-campaign review. Scheduling lives here in
+     the cron, not in any chat session; runAdReview gates itself on adrev:last
+     and reports to WhatsApp + Slack only when a review is actually due. ── */
+  if (!dry) {
+    try {
+      const rev = await runAdReview(env, {});
+      if (rev && rev.ok && !rev.skipped) out.push({ type: 'ad_review', flags: (rev.flags || []).length });
+    } catch {}
+  }
+
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
   const WAVES = [
     { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
@@ -4085,6 +4099,187 @@ async function handleMetaAdmin(request, env, origin) {
   return okJson({ ok: r.ok, status: r.status, data: out }, origin);
 }
 
+/* ══ Meta ads: server-side purchases + the 4-day campaign review ═════════════
+   META_ADS_TOKEN is a system-user token that never expires. It does three jobs:
+   1) capiPurchase — every Grow payment is reported back to Meta server-side
+      with event_id 'pur_<ref>'; the browser fires the same id from thanks.html
+      so Meta dedups, and closed customers keep teaching the ads algorithm.
+   2) runAdReview — every 4 days (worker cron, no chat session involved) pull
+      campaign structure + insights, apply the stop-rules from the campaign
+      doc, diff against the previous snapshot, refresh adspend:<month> so the
+      CAC gauge feeds itself, and WhatsApp the report from Noa's number.
+   3) /api/ad-review — the same review on demand, admin-gated.
+   ─────────────────────────────────────────────────────────────────────────── */
+const META_PIXEL_ID = '1412366810814749';
+const META_AD_ACCOUNT = 'act_1944903292858482';
+const META_CAMPAIGN_ID = '120250009883070731';
+
+async function metaAds(env, path, method, payload) {
+  if (!env.META_ADS_TOKEN) return null;
+  const init = { method: method || 'GET', headers: { Authorization: 'Bearer ' + env.META_ADS_TOKEN } };
+  if (payload && init.method !== 'GET') {
+    const b = new URLSearchParams();
+    for (const [k, v] of Object.entries(payload)) b.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+    init.body = b;
+  }
+  const r = await fetch('https://graph.facebook.com/v21.0' + path, init).catch(() => null);
+  if (!r) return null;
+  let j = null;
+  try { j = await r.json(); } catch {}
+  return { ok: r.ok, status: r.status, data: j };
+}
+
+async function capiPurchase(env, { phone, email, value, ref }) {
+  if (!env.META_ADS_TOKEN || !ref) return;
+  const user_data = {};
+  const ph = normPhone(phone);
+  if (ph) user_data.ph = [await sha256Hex(ph)];
+  const em = String(email || '').trim().toLowerCase();
+  if (em) user_data.em = [await sha256Hex(em)];
+  const ev = {
+    event_name: 'Purchase',
+    event_time: Math.floor(Date.now() / 1000),
+    event_id: 'pur_' + String(ref),
+    action_source: 'website',
+    event_source_url: 'https://ishur.io/thanks.html',
+    user_data,
+    custom_data: { value: Number(value) || 0, currency: 'ILS' },
+  };
+  const r = await metaAds(env, `/${META_PIXEL_ID}/events`, 'POST', { data: [ev] });
+  if (!r || !r.ok) {
+    await slackPost(env, `⚠️ CAPI: רכישה ${ref} לא דווחה למטא — ` +
+      JSON.stringify((r && r.data && r.data.error) || 'no-response').slice(0, 220)).catch(() => {});
+  }
+}
+
+async function runAdReview(env, opts = {}) {
+  if (!env.META_ADS_TOKEN) return { ok: false, error: 'no-token' };
+  if (!env.RATE) return { ok: false, error: 'no-kv' };
+  const now = Date.now();
+  const last = await env.RATE.get('adrev:last');
+  const FOUR_D = 4 * 86400e3;
+  /* the 6h slack keeps the daily 06:35 cron from drifting a day late forever */
+  if (!opts.force && last && now - Date.parse(last) < FOUR_D - 6 * 3600e3) {
+    return { ok: true, skipped: 'not-due', last };
+  }
+
+  const today = ilDate();
+  const since = new Date(last ? Date.parse(last) : now - FOUR_D).toISOString().slice(0, 10);
+  const range = encodeURIComponent(JSON.stringify({ since, until: today }));
+
+  const treeR = await metaAds(env, `/${META_CAMPAIGN_ID}?fields=name,status,effective_status,adsets.limit(10){id,name,status,daily_budget}`);
+  if (!treeR || !treeR.ok) return { ok: false, error: 'meta-tree', detail: treeR && treeR.data };
+  const tree = treeR.data;
+  const insR = await metaAds(env, `/${META_CAMPAIGN_ID}/insights?level=adset&fields=adset_name,spend,impressions,clicks,ctr,frequency,actions&time_range=${range}`);
+  const rows = (insR && insR.ok && insR.data && insR.data.data) || [];
+  const monthR = await metaAds(env, `/${META_AD_ACCOUNT}/insights?fields=spend&time_range=${encodeURIComponent(JSON.stringify({ since: today.slice(0, 7) + '-01', until: today }))}`);
+
+  const leadsOf = (r) => {
+    let n = 0;
+    for (const a of r.actions || []) if (a.action_type === 'offsite_conversion.fb_pixel_lead') n = Number(a.value) || 0;
+    if (!n) for (const a of r.actions || []) if (a.action_type === 'lead') n = Number(a.value) || 0;
+    return n;
+  };
+
+  /* fresh month spend into the KV the CAC gauge already reads */
+  const mo = today.slice(0, 7);
+  const monthSpend = Math.round(Number((((monthR && monthR.ok && monthR.data.data) || [])[0] || {}).spend) || 0);
+  await env.RATE.put('adspend:' + mo, String(monthSpend)).catch(() => {});
+
+  /* CAC from the money board itself — same numbers the admin tile shows */
+  let cm = null;
+  try {
+    const fake = new Request('https://internal/api/ops-stats', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: env.ADMIN_KEY }),
+    });
+    const ops = await (await handleOpsStats(fake, env, null)).json();
+    cm = ops && ops.cac && ops.cac[mo];
+  } catch {}
+
+  /* stop-rules from the campaign doc, verbatim thresholds */
+  const flags = [];
+  for (const r of rows) {
+    const spend = Number(r.spend) || 0, leads = leadsOf(r), imp = Number(r.impressions) || 0;
+    const ctr = Number(r.ctr) || 0, freq = Number(r.frequency) || 0;
+    const cpl = leads ? spend / leads : null;
+    if (spend >= 60 && leads === 0) flags.push(`🔻 ${r.adset_name}: ${Math.round(spend)}₪ בלי אף ליד — לפי הכלל: לכבות את האד-סט`);
+    if (leads >= 15 && cpl > 35) flags.push(`🔻 ${r.adset_name}: CPL ‏${Math.round(cpl)}₪ אחרי ${leads} לידים — לפי הכלל: לכבות את האד-סט`);
+    if (imp >= 2000 && ctr < 0.8) flags.push(`⚠️ ${r.adset_name}: CTR ‏${ctr.toFixed(2)}% על ${imp} חשיפות — לכבות את המודעה החלשה, לא את האד-סט`);
+    if (freq > 3) flags.push(`⚠️ ${r.adset_name}: תדירות ${freq.toFixed(1)} — שחיקת קריאייטיב. קריאייטיב חדש, לא תקציב`);
+  }
+
+  /* what changed since the previous report (budgets, statuses) */
+  const changes = [];
+  try {
+    const prev = JSON.parse((await env.RATE.get('adrev:snap')) || 'null');
+    const cur = { status: tree.effective_status, adsets: {} };
+    for (const a of (tree.adsets && tree.adsets.data) || []) cur.adsets[a.name] = { status: a.status, daily_budget: a.daily_budget };
+    if (prev) {
+      if (prev.status !== cur.status) changes.push(`סטטוס קמפיין: ${prev.status} ← ${cur.status}`);
+      for (const [n, c] of Object.entries(cur.adsets)) {
+        const p = prev.adsets && prev.adsets[n];
+        if (!p) { changes.push(`אד-סט חדש: ${n}`); continue; }
+        if (p.status !== c.status) changes.push(`${n}: ${p.status} ← ${c.status}`);
+        if (String(p.daily_budget) !== String(c.daily_budget)) changes.push(`${n}: תקציב ${Number(p.daily_budget) / 100}₪ ← ${Number(c.daily_budget) / 100}₪`);
+      }
+      for (const n of Object.keys(prev.adsets || {})) if (!cur.adsets[n]) changes.push(`אד-סט הוסר: ${n}`);
+    }
+    await env.RATE.put('adrev:snap', JSON.stringify(cur));
+  } catch {}
+
+  const tot = rows.reduce((a, r) => ({
+    spend: a.spend + (Number(r.spend) || 0), imp: a.imp + (Number(r.impressions) || 0),
+    clicks: a.clicks + (Number(r.clicks) || 0), leads: a.leads + leadsOf(r),
+  }), { spend: 0, imp: 0, clicks: 0, leads: 0 });
+  const cpl = tot.leads ? Math.round(tot.spend / tot.leads) : null;
+
+  let cacLine = 'CAC החודש: אין עדיין נתונים';
+  if (cm && cm.cac_ils != null) {
+    const dot = cm.verdict === 'green' ? '🟢' : cm.verdict === 'amber' ? '🟠' : '🔴';
+    cacLine = `CAC החודש: ${cm.cac_ils}₪ ${dot} (‏${cm.spend}₪ פרסום ÷ ${cm.buyers} רכישות)`;
+  } else if (cm && cm.verdict === 'no-buyers-yet') {
+    cacLine = `CAC החודש: ${cm.spend}₪ הוצאו, עדיין 0 רכישות משויכות`;
+  } else if (cm && cm.verdict === 'idle') {
+    cacLine = 'CAC החודש: אין הוצאה ואין רכישות משויכות';
+  }
+
+  const perSet = rows.map(r => {
+    const l = leadsOf(r), s = Number(r.spend) || 0;
+    return `· ${r.adset_name}: ${Math.round(s)}₪, ${l} לידים` + (l ? `, CPL ‏${Math.round(s / l)}₪` : '');
+  });
+  const active = ((tree.adsets && tree.adsets.data) || []).filter(a => a.status === 'ACTIVE');
+  const nextDate = new Date(now + FOUR_D).toISOString().slice(0, 10);
+
+  const text = [
+    `📊 *דוח קמפיין ishur* · ${since} עד ${today}`,
+    `מצב קמפיין: ${tree.effective_status === 'PAUSED' ? 'מושהה ⏸️' : tree.effective_status}` +
+      (active.length ? ` · פעילים: ${active.map(a => a.name).join(', ')}` : ' · אף אד-סט לא פעיל'),
+    `הוצאה בתקופה: ${Math.round(tot.spend)}₪ · לידים: ${tot.leads}` +
+      (cpl != null ? ` · CPL ‏${cpl}₪` : '') + ` · חשיפות: ${tot.imp}`,
+    cacLine,
+    ...(perSet.length ? ['— פר אד-סט:', ...perSet] : []),
+    changes.length ? `🔁 שינויים מאז הדוח הקודם:\n${changes.map(c => '· ' + c).join('\n')}` : '🔁 אין שינויים מאז הדוח הקודם',
+    flags.length ? `🚩 דגלים לפי כללי העצירה:\n${flags.join('\n')}` : '🚩 אין דגלים — אף כלל עצירה לא נחצה',
+    `הדוח הבא: ${nextDate} (אוטומטי מהענן, כל 4 ימים)`,
+  ].join('\n\n');
+
+  /* the report goes out from Noa's number to every admin phone + Slack copy */
+  const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim())).filter(Boolean);
+  const sends = [];
+  for (const p of admins) {
+    let sent = false;
+    try { const r = await sendText(env, p, text); sent = !!r; } catch {}
+    sends.push({ to: p.slice(-4), sent });
+  }
+  await slackPost(env, text).catch(() => {});
+
+  await env.RATE.put('adrev:last', new Date(now).toISOString()).catch(() => {});
+  await env.RATE.put('adlog:' + today, text, { expirationTtl: 200 * 86400 }).catch(() => {});
+
+  return { ok: true, since, until: today, totals: tot, cpl, flags, changes, sends, report: text };
+}
+
 /* ══ Money & sources board ═══════════════════════════════════════════════════
    Admin-gated: revenue per day (from the events sheet), messaging + call costs
    per day (from KV counters), and lead sources (utm) from the leads sheet.
@@ -4643,6 +4838,13 @@ export default {
     }
     if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
       return handleOpsStats(request, env, origin);
+    }
+    if (url.pathname === '/api/ad-review' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const r = await runAdReview(env, { force: b.force !== false });
+      return okJson(r, origin);
     }
     if (url.pathname === '/api/daily-run' && request.method === 'POST') {
       return handleDailyRun(request, env, origin);

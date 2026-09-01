@@ -258,7 +258,11 @@ window.IshurLead = (function () {
     var p = build('purchase', f);
     p.order_ref = f.orderRef || '';
     if (window.IshurTrack) {
-      p.event_id = IshurTrack.eventId('purchase_' + (p.order_ref || p.session_id));
+      /* when Grow handed back a reference, the event_id is DERIVED from it
+         ('pur_<ref>') — the worker's server-side CAPI Purchase uses the same
+         id, so Meta dedups the pair. A random id here would double-count. */
+      p.event_id = p.order_ref ? ('pur_' + p.order_ref)
+                               : IshurTrack.eventId('purchase_' + p.session_id);
       p.event_name = 'Purchase';
       IshurTrack.conversion({
         key: 'purchase_' + (p.order_ref || p.session_id), eventId: p.event_id,
