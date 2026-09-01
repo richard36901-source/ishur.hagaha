@@ -34,7 +34,7 @@ window.ISHUR_CONFIG = (function () {
                                          // hook; the payload is tagged
                                          // event_type: 'event_setup'.
   var GTM_ID              = '';          // GTM-XXXXXXX
-  var FB_PIXEL_ID         = '';          // Meta pixel id (digits only)
+  var FB_PIXEL_ID         = '1385478339740122';  // dataset "ishur.io", BM AutoScale, created 01.09.26
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
   var GA4_ID              = 'G-H21EMT09HL';  // GA4 property for ishur.io, owned by ishurhagaha@gmail.com
   /* PostHog: product analytics — funnels across the 14 landing pages, session
