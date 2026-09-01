@@ -2117,7 +2117,11 @@ const IshurPromo=(()=>{
   function showBar(){
     const bar=document.getElementById('promo-bar');
     if(!bar||!offer||flag(BAR_OFF)) return;
-    document.getElementById('promo-bar-txt').innerHTML=barLine();
+    const line=barLine();
+    /* an empty green band across the top is worse than no band — Richard
+       screenshotted exactly that. No text, no bar. */
+    if(!line) return;
+    document.getElementById('promo-bar-txt').innerHTML=line;
     bar.hidden=false;
     document.body.classList.add('has-promo');
     sizeBar();
