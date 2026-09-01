@@ -1117,6 +1117,10 @@ async function sendWave(env, ev, token, guests, wave, dry) {
   const date = heDate(String(ev[6] || '').trim());
   const time = String(ev[36] || '').trim() || 'בשעות הערב';
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+  /* the artwork the client uploaded (column AS). The template has an image
+     header, and leaving this empty meant every invitation went out as plain
+     text while their design sat unused in the sheet. */
+  const invite = String(ev[44] || '').trim();
 
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
   const seenPhones = new Set();
@@ -1124,7 +1128,11 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     const phone = String(g[4] || '').trim();
     if (!phone || seenPhones.has(phone)) continue; // one message per phone per event, whatever file it came from
     seenPhones.add(phone);
-    const answered = String(g[15] || '').trim() !== '';
+    const rsvp = String(g[15] || '').trim();
+    const answered = rsvp !== '';
+    /* a declined guest is out of the funnel for good: no reminder, no extra
+       send, nothing. Only מגיע, מתלבט and people who never answered continue. */
+    if (rsvp === 'לא מגיע') { skippedAnswered++; continue; }
     if (wave.onlyUnanswered && answered) { skippedAnswered++; continue; }
     if (await phoneBlocked(env, phone)) { skippedOptout++; continue; }
     if (dry) { sent++; continue; }
@@ -1135,7 +1143,7 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     if (env.RATE && await env.RATE.get(gk)) { skippedDone++; continue; }
     const name = String(g[3] || '').trim() || 'אורח יקר';
     const res = await sendTemplate(env, phone, 'hazmana_ishur',
-      [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
+      [name, occasion, hosts, date, time, venue], invite, 'he', 'guests',
       { occasion, wave: wave.key, token });
     if (res.ok) {
       sent++;
@@ -2188,6 +2196,71 @@ async function msgPerformanceDigest(env) {
     (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
 }
 
+/* ══ Re-sending the invitation ═══════════════════════════════════════════════
+   A guest asks Shir (or writes in) to send the invitation again. If they have
+   already answered, the re-send must NOT carry the RSVP buttons: pressing one
+   a second time would overwrite what they already told us. So the reply states
+   what we have on record and asks for nothing.
+   ─────────────────────────────────────────────────────────────────────────── */
+async function resendInvitation(env, guestPhone) {
+  const phone = normPhone(guestPhone);
+  if (!phone) return { ok: false, why: 'no-phone' };
+  if (await sendingPaused(env)) return { ok: false, why: 'paused' };
+  if (await phoneBlocked(env, phone)) return { ok: false, why: 'opted-out' };
+  if (await overBudget(env, 'rl:resend:' + phone, 3, 3600)) return { ok: false, why: 'too-many' };
+
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) return { ok: false, why: 'reader-failed' };
+  const guest = findGuestByPhone(raw, phone, ilDate());
+  if (!guest) return { ok: false, why: 'not-a-guest' };
+
+  const evRows = (raw.events && raw.events.values) || [];
+  const ev = evRows.find(r => String((r || [])[1] || '').trim() === String(guest.token || '').trim());
+  if (!ev) return { ok: false, why: 'event-not-found' };
+  if (String(ev[27] || '').trim() === 'כן') return { ok: false, why: 'cancelled' };
+
+  const gname = String(guest.name || '').trim() || 'אורח יקר';
+  const occasion = String(ev[5] || '').trim() || 'אירוע';
+  const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+  const date = heDate(String(ev[6] || '').trim());
+  const time = String(ev[36] || '').trim() || 'בשעות הערב';
+  const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+  const invite = String(ev[44] || '').trim();
+  const rsvp = String(guest.rsvp || '').trim();
+
+  /* already answered → no buttons, and say what we have so they do not
+     re-answer and overwrite themselves */
+  if (rsvp === 'מגיע' || rsvp === 'לא מגיע') {
+    const party = Number(guest.party) || 0;
+    const said = rsvp === 'מגיע'
+      ? (party > 1 ? `מגיעים, ${party} אורחים` : 'מגיעים')
+      : 'לא מגיעים';
+    const wa = await sendTemplate(env, phone, 'ishur_hazmana_shuv',
+      [gname, occasion, hosts, date, time, venue, said], invite, 'he', 'guests',
+      { occasion, wave: 'resend', token: guest.token });
+    if (wa.ok) await addEvCost(env, guest.token, 0.53);
+    return { ok: wa.ok, mode: 'no-buttons', rsvp, why: wa.error };
+  }
+
+  /* never answered, or still undecided → the normal invitation, buttons and all */
+  const wa = await sendTemplate(env, phone, 'hazmana_ishur',
+    [gname, occasion, hosts, date, time, venue], invite, 'he', 'guests',
+    { occasion, wave: 'resend', token: guest.token });
+  if (wa.ok) await addEvCost(env, guest.token, 0.53);
+  return { ok: wa.ok, mode: 'with-buttons', rsvp: rsvp || 'לא ענה', why: wa.error };
+}
+
+/* Shir calls this mid-conversation; the inbox and the service bot use it too. */
+async function handleResend(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const viaAdmin = isAdmin(env, body.admin_key);
+  const viaShir = env.RETELL_KEY && String(body.shir_key || '') === env.RETELL_KEY;
+  if (!viaAdmin && !viaShir) return deny(403, 'bad-key', origin);
+  const res = await resendInvitation(env, body.phone);
+  return okJson(res, origin);
+}
+
 /* ══ Call cost sync ══════════════════════════════════════════════════════════
    Retell's webhook is best-effort: a missed delivery means a call whose cost
    we never learn, and the money board quietly under-reports. So we pull
@@ -2819,6 +2892,9 @@ export default {
     }
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
+    }
+    if (url.pathname === '/api/resend' && request.method === 'POST') {
+      return handleResend(request, env, origin);
     }
     if (url.pathname === '/api/cost-sync' && request.method === 'POST') {
       return handleCostSync(request, env, origin);
