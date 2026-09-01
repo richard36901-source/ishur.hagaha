@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>למה קיבלתי הודעה · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --paper:#F8F4EA; --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8; --ok:#0F4C35;
+  }
+  @media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+    --bg:#131714;--card:#1A201C;--line:#2A322C;--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--gold:#C7AE7A;--ok:#4CAF82;--pine:#7BC9A4;}}
+  :root[data-theme=dark]{--bg:#131714;--card:#1A201C;--line:#2A322C;--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--gold:#C7AE7A;--ok:#4CAF82;--pine:#7BC9A4;}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.7;
+    display:flex;justify-content:center;padding:2.5rem 1rem 4rem}
+  .wrap{max-width:600px;width:100%}
+  .brand{font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;color:var(--pine);text-align:center;margin-bottom:1.6rem}
+  .brand i{font-style:normal;color:var(--gold)}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;color:var(--ink);margin-bottom:1rem;text-wrap:balance}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.5rem 1.6rem;margin-bottom:1rem}
+  .card h2{font-size:1.05rem;color:var(--pine);margin-bottom:.4rem}
+  .card p{font-size:.95rem;color:var(--ink2)}
+  .q{font-weight:700;color:var(--ink)}
+  .stop{border-inline-start:4px solid var(--gold);background:linear-gradient(90deg,rgba(168,133,60,.06),transparent)}
+  .cta{display:inline-block;margin-top:.6rem;background:#25D366;color:#062e14;text-decoration:none;font-weight:700;
+    border-radius:12px;padding:.7rem 1.3rem;font-size:.95rem}
+  .foot{text-align:center;font-size:.72rem;color:var(--ink3);margin-top:1.5rem}
+  .foot a{color:var(--gold)}
+</style>
+</head>
+<body>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<div class="wrap">
+  <div class="brand">ishur<i>.io</i></div>
+  <h1>קיבלתם מאיתנו הודעה ולא בטוחים למה? הכל בסדר, הנה ההסבר.</h1>
+
+  <div class="card">
+    <h2 class="q">מי אנחנו</h2>
+    <p>ishur.io הוא שירות שעוזר לבעלי אירועים (חתונה, בר או בת מצווה, ברית, אירוע עסקי) לאסוף אישורי הגעה בוואטסאפ, במקום להתקשר לכל אחד בנפרד. כשמישהו מזמין אתכם לאירוע שלו, הוא מבקש מאיתנו לשלוח בשמו את בקשת אישור ההגעה.</p>
+  </div>
+
+  <div class="card">
+    <h2 class="q">מאיפה המספר שלי אצלכם?</h2>
+    <p>בעלי השמחה מסרו לנו את רשימת המוזמנים שלהם, ואתם ברשימה הזאת. אנחנו לא קונים, לא מוכרים ולא משתפים מספרים עם אף אחד, והמספר שלכם משמש אך ורק לאירוע הזה ולתקופה שלו.</p>
+  </div>
+
+  <div class="card">
+    <h2 class="q">מה מבקשים ממני?</h2>
+    <p>רק לדעת אם אתם מגיעים, וכמה אנשים. תשובה של שנייה אחת עוזרת לבעלי השמחה לתכנן כמה כיסאות ומנות להזמין. אפשר לענות ישירות בהודעה, בכל רגע.</p>
+  </div>
+
+  <div class="card stop">
+    <h2 class="q">לא רוצים לקבל עוד הודעות?</h2>
+    <p>פשוט השיבו <b>הסר</b> בהודעת הוואטסאפ, ולא נכתוב שוב. אם ההודעה הגיעה בטעות למספר הלא נכון, השיבו <b>טעות</b> ונסיר אתכם מהאירוע הזה מיד.</p>
+  </div>
+
+  <div class="card">
+    <h2 class="q">יש לי שאלה אחרת</h2>
+    <p>אפשר לכתוב לנו ישירות בוואטסאפ ונשמח לעזור. שאלות על האירוע עצמו (מתנה, הסעה, קוד לבוש) כדאי לתאם ישירות עם בעלי השמחה.</p>
+    <a class="cta" id="wa" href="#">לכתוב לנו בוואטסאפ</a>
+  </div>
+
+  <p class="foot">ishur.io · שירות אישורי הגעה · <a href="terms.html">תקנון ומדיניות פרטיות</a></p>
+</div>
+<script src="config.js?v=37"></script>
+<script>
+(function(){
+  var CFG=window.ISHUR_CONFIG||{};
+  var a=document.getElementById('wa');
+  if(a&&CFG.waLink) a.href=CFG.waLink('היי, קיבלתי מכם הודעת אישור הגעה ורציתי לשאול משהו');
+})();
+</script>
+</body>
+</html>

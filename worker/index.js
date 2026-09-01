@@ -1318,6 +1318,29 @@ async function callBlocked(env, phone) {
    and calls stop for that event: a wrong number is a wrong person, so ringing
    them about it is as bad as texting them. Everything else about the number
    stays untouched. */
+/* Opt-out / "wrong number" rate, the consent early-warning from the premortem
+   (case 9). Counts הסר+טעות for the day against how many templates went out,
+   and fires ONE Slack alert if it crosses 2% on a day with real volume — the
+   signal that a wave read as spam, long before a guest's lawyer does. */
+async function bumpRemoveRate(env, kind) {
+  if (!env.RATE) return;
+  const day = ilDate();
+  const key = 'removst:' + day;
+  let st = { optout: 0, mistake: 0 };
+  try { st = JSON.parse(await env.RATE.get(key)) || st; } catch {}
+  st[kind] = (st[kind] || 0) + 1;
+  await env.RATE.put(key, JSON.stringify(st), { expirationTtl: 60 * 86400 }).catch(() => {});
+  let sent = 0;
+  try { sent = Number((JSON.parse(await env.RATE.get('wastat:' + day) || '{}') || {}).tmpl) || 0; } catch {}
+  const removes = (st.optout || 0) + (st.mistake || 0);
+  /* need real volume before a ratio means anything */
+  if (sent >= 40 && removes / sent >= 0.02 && !(await env.RATE.get('removalert:' + day))) {
+    await env.RATE.put('removalert:' + day, '1', { expirationTtl: 3 * 86400 });
+    await alert(env, 'קצב הסרות גבוה',
+      `היום ${removes} הסר/טעות מתוך ${sent} הודעות (${Math.round(removes / sent * 100)}%). מעל 2% = גל שנקרא כספאם. לבדוק איזה אירוע/מספר, ולשקול להאט גלים.`, day);
+  }
+}
+
 async function wrongNum(env, token, phone) {
   if (!env.RATE || !token) return false;
   const p = normPhone(phone);
@@ -1708,6 +1731,7 @@ async function handleWaWebhook(request, env, url) {
     }
     if (parsed.kind === 'optout') {
       if (env.RATE) await env.RATE.put('optout:' + normPhone(from), new Date().toISOString());
+      await bumpRemoveRate(env, 'optout');
       await sendText(env, from, 'הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
       continue;
     }
@@ -1732,6 +1756,7 @@ async function handleWaWebhook(request, env, url) {
           new Date().toISOString(), { expirationTtl: 400 * 86400 });
         await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`);
       }
+      await bumpRemoveRate(env, 'mistake');
       await sendText(env, from, 'תודה על העדכון, וסליחה על ההפרעה 🙏 לא תגיע אליכם עוד הודעה על האירוע הזה.');
       continue;
     }
