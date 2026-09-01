@@ -90,11 +90,14 @@ async function usedCount(env, campaign) {
   return parseInt(await env.RATE.get(kCount(campaign)) || '0', 10) || 0;
 }
 
-/* What a campaign looks like from outside: never the Grow link. */
+/* What a campaign looks like from outside: never the Grow link, and never the
+   campaign's admin label either. `label` is how we file a campaign — "מבצע
+   בעלי עסקים", "בדיקת קצה לקצה" — and a test name reached a customer's screen
+   through it once. Not sending it at all is cheaper than remembering not to
+   render it. Admin responses still carry it. */
 function publicView(camp, left) {
   return {
     campaign: camp.campaign,
-    label: camp.label || '',
     price: camp.price,
     plan: camp.plan || 'basic',
     maxTier: camp.maxTier || null,

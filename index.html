@@ -2116,7 +2116,10 @@ const IshurPromo=(()=>{
   function openModal(){
     const modal=document.getElementById('promo-modal');
     if(!modal||!offer) return;
-    document.getElementById('promo-label').textContent=offer.label||'קוד מבצע';
+    /* never the campaign's admin label. "מבצע בעלי עסקים" is how WE file it;
+       "בדיקת קצה לקצה" is a test name that reached a real screen once. From
+       the visitor's side there is one fact: they got a discount. */
+    document.getElementById('promo-label').textContent='קיבלתם הנחה 🎉';
     document.getElementById('promo-greeting').textContent=offer.greeting||'';
     const beta=document.getElementById('promo-beta');
     if(beta){
