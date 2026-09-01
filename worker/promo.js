@@ -258,7 +258,13 @@ export async function promoAdmin(env, body) {
     /* codes ARE the cap. Ten seats means ten codes, because that is the only
        count that cannot be raced. Asking for a different number is allowed but
        has to be deliberate. */
-    const n = Math.min(MAX_BATCH, Math.max(0, parseInt(body.codes, 10) || cap));
+    /* never more codes than seats — the code list is the cap.
+       `|| cap` would turn an explicit codes:0 into a full batch, which is how
+       an overwrite of a live campaign silently doubled its codes once. */
+    const asked = body.codes === undefined || body.codes === null || body.codes === ''
+      ? cap : Math.max(0, parseInt(body.codes, 10) || 0);
+    const already = existing ? await codeCount(env, campaign) : 0;
+    const n = Math.max(0, Math.min(MAX_BATCH, cap - already, asked));
     const codes = await mintCodes(env, campaign, n);
     return { ok: true, campaign: camp.campaign, cap, price, active: camp.active, codes };
   }
@@ -292,9 +298,16 @@ export async function promoAdmin(env, body) {
   }
 
   if (action === 'add') {
-    const n = Math.min(MAX_BATCH, Math.max(1, parseInt(body.codes, 10) || 1));
+    const asked = Math.min(MAX_BATCH, Math.max(1, parseInt(body.codes, 10) || 1));
+    const have = await codeCount(env, campaign);
+    const room = camp.cap - have;
+    if (room <= 0) {
+      return { ok: false, error: 'cap-full', cap: camp.cap, codes_issued: have,
+        hint: 'raise the cap first: {action:"cap", cap:N}' };
+    }
+    const n = Math.min(asked, room);
     const codes = await mintCodes(env, campaign, n);
-    return { ok: true, campaign, codes };
+    return { ok: true, campaign, codes, asked, minted: codes.length, cap: camp.cap };
   }
 
   if (action === 'codes') {
@@ -322,6 +335,24 @@ export async function promoAdmin(env, body) {
   }
 
   return { ok: false, error: 'unknown-action' };
+}
+
+/* Now that the cap IS the code count, minting is the thing that has to be
+   bounded. Without this, `add` quietly raises the cap: fifteen more codes on a
+   ten-seat campaign is a fifteen-seat campaign, and nothing anywhere would
+   have said so. */
+async function codeCount(env, campaign) {
+  if (!env.RATE) return 0;
+  let n = 0, cursor;
+  do {
+    const page = await env.RATE.list({ prefix: 'promov:', cursor });
+    for (const k of page.keys) {
+      const v = await getJson(env, k.name);
+      if (v && v.c === campaign) n++;
+    }
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  return n;
 }
 
 async function mintCodes(env, campaign, n) {
