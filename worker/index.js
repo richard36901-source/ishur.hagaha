@@ -2302,6 +2302,16 @@ async function runPacer(env) {
     out.sends = { ran: false, why: sendWin.open ? 'nothing-pending' : sendWin.why };
   }
 
+  /* Chasing an abandoned lead does not need the sheet, only KV, so it runs on
+     every tick rather than waiting for the nightly engine. Without this the
+     "five hours later" promise was really "tomorrow morning", which for
+     somebody who asked about their wedding this afternoon is a different
+     product. Cheap: one KV list, no Make operation. */
+  if (sendWin.open) {
+    const chased = await chaseAbandonedLeads(env, false, { left: 10 }).catch(() => []);
+    out.leads = chased.filter(c => c.sent).length;
+  }
+
   /* then the dial slice */
   const callWin = callWindowState();
   if (callWin.open) {
