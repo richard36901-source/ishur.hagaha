@@ -37,6 +37,13 @@ window.ISHUR_CONFIG = (function () {
   var FB_PIXEL_ID         = '';          // Meta pixel id (digits only)
   var TIKTOK_PIXEL_ID     = '';          // TikTok pixel id, optional
   var GA4_ID              = 'G-H21EMT09HL';  // GA4 property for ishur.io, owned by ishurhagaha@gmail.com
+  /* PostHog: product analytics — funnels across the 14 landing pages, session
+     replay, feature flags and A/B tests. GA4 answers "how many"; this answers
+     "where did they give up". Stays dormant until the key is filled, exactly
+     like the pixels above. Project key from posthog.com → Project Settings.
+     Use the EU host for Israeli/EU traffic so data never lands in the US. */
+  var POSTHOG_KEY         = '';          // phc_XXXXXXXX
+  var POSTHOG_HOST        = 'https://eu.i.posthog.com';
 
   /* Support line, 055-950-4499. This is the number leads and clients talk to:
      every "questions?" link on the site, the over-900 handoff, the upload
@@ -168,12 +175,11 @@ window.ISHUR_CONFIG = (function () {
      the occasion has one name. `title` adds a free line for what the event is,
      for the cases a template cannot guess. */
   var OCCASIONS = [
+    /* one wedding, full stop. Who is a bride and who is a groom is chosen
+       per-name in the setup form AFTER purchase (including two brides or two
+       grooms) — a public dropdown listing family shapes is not the place. */
     { value: 'wedding',    label: 'חתונה',              rec: 'premium',
-      names: ['שם הכלה', 'שם החתן'] },
-    { value: 'wedding_mm', label: 'חתונה · שני חתנים',  rec: 'premium',
-      names: ['שם החתן', 'שם החתן השני'] },
-    { value: 'wedding_ff', label: 'חתונה · שתי כלות',   rec: 'premium',
-      names: ['שם הכלה', 'שם הכלה השנייה'] },
+      names: ['שם בן/בת הזוג', 'שם בן/בת הזוג השני/ה'] },
     { value: 'hina',       label: 'חינה',               rec: 'pro',
       names: ['שם הכלה', 'שם החתן'] },
     { value: 'bar',        label: 'בר מצווה',           rec: 'pro',
@@ -713,6 +719,8 @@ window.ISHUR_CONFIG = (function () {
     FB_PIXEL_ID: FB_PIXEL_ID,
     TIKTOK_PIXEL_ID: TIKTOK_PIXEL_ID,
     GA4_ID: GA4_ID,
+    POSTHOG_KEY: POSTHOG_KEY,
+    POSTHOG_HOST: POSTHOG_HOST,
     WHATSAPP_NUMBER: WHATSAPP_NUMBER,
     SUPPORT_PHONE: SUPPORT_PHONE,
     SUPPORT_EMAIL: SUPPORT_EMAIL,

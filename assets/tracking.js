@@ -171,6 +171,43 @@ window.IshurTrack = (function () {
     gtag('config', CFG.GA4_ID);
   }
 
+  function loadPostHog() {
+    if (!CFG.isSet(CFG.POSTHOG_KEY)) return;
+    !function(t,e){var o,n,p,r;e.__SV||(window.posthog=e,e._i=[],e.init=function(i,s,a){
+    function g(t,e){var o=e.split(".");2==o.length&&(t=t[o[0]],e=o[1]);
+    t[e]=function(){t.push([e].concat(Array.prototype.slice.call(arguments,0)))}}
+    (p=t.createElement("script")).type="text/javascript",p.async=!0,p.src=s.api_host+"/static/array.js",
+    (r=t.getElementsByTagName("script")[0]).parentNode.insertBefore(p,r);var u=e;
+    for(void 0!==a?u=e[a]=[]:a="posthog",u.people=u.people||[],u.toString=function(t){
+    var e="posthog";return"posthog"!==a&&(e+="."+a),t||(e+=" (stub)"),e},
+    u.people.toString=function(){return u.toString(1)+".people (stub)"},
+    o="capture identify alias people.set people.set_once set_config register register_once unregister opt_out_capturing has_opted_out_capturing opt_in_capturing reset isFeatureEnabled onFeatureFlags getFeatureFlag getFeatureFlagPayload reloadFeatureFlags group updateEarlyAccessFeatureEnrollment getEarlyAccessFeatures getActiveMatchingSurveys getSurveys onSessionId".split(" "),
+    n=0;n<o.length;n++)g(u,o[n]);e._i.push([i,s,a])},e.__SV=1)}(document,window.posthog||[]);
+
+    posthog.init(CFG.POSTHOG_KEY, {
+      api_host: CFG.POSTHOG_HOST || 'https://eu.i.posthog.com',
+      person_profiles: 'identified_only',   /* anonymous visitors cost nothing */
+      capture_pageview: true,
+      capture_pageleave: true,              /* needed for real bounce + scroll depth */
+      autocapture: true,                    /* clicks without hand-instrumenting each one */
+      session_recording: { maskAllInputs: true },  /* never record what people type */
+      persistence: 'localStorage+cookie',
+      loaded: function (ph) {
+        /* attribution already resolved by capture(); attach it so a funnel can
+           be split by the ad that produced the visitor */
+        try {
+          var a = attribution();
+          if (a && (a.utm_source || a.fbclid || a.ttclid)) {
+            ph.register({
+              utm_source: a.utm_source || '', utm_medium: a.utm_medium || '',
+              utm_campaign: a.utm_campaign || '', has_click_id: !!(a.fbclid || a.ttclid)
+            });
+          }
+        } catch (e) {}
+      }
+    });
+  }
+
   /* ══ firing ═══════════════════════════════════════════════════════════════ */
 
   /* Meta standard events, with the event id that Make will reuse server-side */
@@ -182,6 +219,11 @@ window.IshurTrack = (function () {
   function tiktok(name, params) {
     if (typeof ttq === 'undefined') return;
     try { ttq.track(name, params || {}); } catch (e) {}
+  }
+
+  function posthogFire(name, params) {
+    if (typeof posthog === 'undefined' || !posthog.capture) return;
+    try { posthog.capture(name, params || {}); } catch (e) {}
   }
 
   function ga(name, params) {
@@ -201,6 +243,8 @@ window.IshurTrack = (function () {
     };
     meta(spec.meta, contents, eid);
     tiktok(spec.tiktok || spec.meta, { value: value, currency: 'ILS', content_name: spec.contentName || '' });
+    posthogFire(spec.ga || spec.key, { value: value, currency: 'ILS',
+      content_name: spec.contentName || '', content_category: spec.contentCategory || '' });
     ga(spec.ga || spec.key, { value: value, currency: 'ILS', items: spec.contentName ? [{ item_name: spec.contentName }] : undefined });
     return eid;
   }
@@ -212,6 +256,7 @@ window.IshurTrack = (function () {
   loadMeta();
   loadTikTok();
   loadGA4();
+  loadPostHog();
 
   /* ══ pending order ════════════════════════════════════════════════════════
      Stored before the redirect to Grow so the page the buyer comes back to
@@ -251,6 +296,7 @@ window.IshurTrack = (function () {
     meta: meta,
     tiktok: tiktok,
     ga: ga,
+    posthog: posthogFire,
     capture: capture
   };
 })();

@@ -96,5 +96,25 @@
   <a href="https://ishur.io/">דף הבית</a> · <a href="faq.html">שאלות נפוצות</a> · <a href="terms.html">תנאי שימוש</a><br>
   © 2026 אישורי הגעה · ishur.io · עוסק מורשה 322414905
 </footer>
+<script src="config.js?v=34"></script>
+<script src="assets/tracking.js?v=20"></script>
+<script>
+/* Landing pages were invisible to analytics — no pixel, no GA4, no PostHog.
+   These two events are what a funnel needs: which page, and did the CTA work. */
+(function () {
+  var page = location.pathname.replace(/^\/|\.html$/g, '') || 'index';
+  function fire(name, props) {
+    props = props || {}; props.landing_page = page;
+    if (window.IshurTrack && IshurTrack.posthog) IshurTrack.posthog(name, props);
+    if (window.IshurTrack && IshurTrack.ga) IshurTrack.ga(name, props);
+  }
+  fire('landing_view');
+  document.addEventListener('click', function (e) {
+    var a = e.target.closest && e.target.closest('a.cta, .bottom-cta a, a[href*="ishur.io/?"]');
+    if (!a) return;
+    fire('landing_cta_click', { cta_text: (a.textContent || '').trim().slice(0, 60) });
+  }, true);
+})();
+</script>
 </body>
 </html>
