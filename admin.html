@@ -7,7 +7,7 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=27"></script>
+<script src="config.js?v=28"></script>
 <script src="assets/adminbar.js?v=3" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -45,6 +45,13 @@
   .sheet-x{border:none;background:var(--bg);width:32px;height:32px;border-radius:50%;font-size:1rem;cursor:pointer;color:var(--ink2)}
   .sheet-meta{font-size:.72rem;color:var(--ink3);padding:.6rem 1.1rem;border-bottom:1px solid var(--line)}
   .sheet-body{flex:1;overflow:auto;padding:1rem 1.1rem;font-size:.82rem;line-height:1.8;white-space:pre-wrap;color:var(--ink2)}
+  /* the headline facts, above the transcript: what the call actually produced */
+  .sheet-sum{flex:none;max-height:45vh;overflow:auto;padding:.75rem 1.1rem;border-bottom:1px solid var(--line);font-size:.8rem;color:var(--ink2);line-height:1.7}
+  .sheet-sum .sum-row{display:flex;gap:.75rem;align-items:center;flex-wrap:wrap;margin-bottom:.35rem}
+  .sheet-sum .sum-b{display:inline-flex;gap:.3rem;align-items:center}
+  .sheet-sum .sum-k{font-size:.68rem;color:var(--ink3)}
+  .sheet-sum p{margin:.4rem 0 0}
+  .sheet-sum p b{color:var(--ink);font-weight:600}
   @media (prefers-reduced-motion:reduce){.sheet,.sheet-bg{transition:none}}
   .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.6rem;margin:1rem 0}
   .kpi{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .5rem;text-align:center}
@@ -62,6 +69,32 @@
   .p-ok{background:rgba(15,76,53,.1);color:var(--ok)}
   .p-no{background:#EDECE6;color:var(--ink3)}
   .p-warn{background:rgba(168,64,47,.1);color:var(--warn)}
+  /* Shir's calls: outcome, quality and the calls worth listening to */
+  .oc{display:inline-block;font-size:.66rem;font-weight:700;border-radius:99px;padding:.08rem .5rem;white-space:nowrap}
+  .oc-yes{background:rgba(15,76,53,.1);color:var(--ok)}
+  .oc-no{background:#EDECE6;color:var(--ink3)}
+  .oc-maybe{background:rgba(168,133,60,.16);color:#8A6B25}
+  .oc-pale{background:transparent;color:var(--ink3);border:1px solid var(--line)}
+  html[data-theme=dark] .oc-no{background:#252E28;color:var(--ink2)}
+  html[data-theme=dark] .oc-maybe{background:rgba(199,174,122,.16);color:var(--gold)}
+  .q5{font-weight:700;font-variant-numeric:tabular-nums}
+  .q5 i{font-style:normal;font-weight:400;font-size:.7rem;color:var(--ink3)}
+  .q-hi{color:var(--ok)}
+  .q-mid{color:#8A6B25}
+  .q-lo{color:var(--warn)}
+  html[data-theme=dark] .q-mid{color:var(--gold)}
+  #shirRows tr.rev td{background:rgba(168,64,47,.07)}
+  html[data-theme=dark] #shirRows tr.rev td{background:rgba(240,138,138,.08)}
+  #shirRows td:first-child{padding-inline-end:.25rem}
+  #shirRows td:nth-child(2){font-weight:600;color:var(--ink)}
+  .rev-tag{display:inline-block;font-size:.62rem;font-weight:700;border-radius:99px;padding:.05rem .45rem;background:rgba(168,64,47,.13);color:var(--warn);border:1px solid rgba(168,64,47,.35);white-space:nowrap}
+  html[data-theme=dark] .rev-tag{background:rgba(240,138,138,.12);border-color:rgba(240,138,138,.4)}
+  .revbar{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;font-size:.8rem;color:var(--ink2);background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.55rem .8rem;margin:0 0 .6rem}
+  .revbar.hot{border-color:rgba(168,64,47,.4);background:rgba(168,64,47,.05)}
+  html[data-theme=dark] .revbar.hot{border-color:rgba(240,138,138,.35);background:rgba(240,138,138,.07)}
+  .revbar b{color:var(--warn)}
+  .revbar button[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:var(--paper)}
+  html[data-theme=dark] .revbar button[aria-pressed=true]{background:var(--ok);border-color:var(--ok);color:#0B1712}
   .empty{text-align:center;color:var(--ink3);padding:2.5rem 1rem;font-size:.9rem}
   .meta{display:flex;justify-content:space-between;align-items:center;font-size:.72rem;color:var(--ink3);margin:.6rem 0}
   .meta button{border:1px solid var(--line);background:var(--card);border-radius:8px;padding:.3rem .8rem;font:inherit;cursor:pointer;color:var(--ink2)}
@@ -253,15 +286,22 @@
   </h2>
 
   <h2>שיר · שיחות</h2>
-  <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+  <div class="kpis">
     <div class="kpi"><b id="s-live">–</b><span>שיחות פעילות כרגע</span></div>
     <div class="kpi"><b id="s-count">–</b><span>שיחות אחרונות</span></div>
     <div class="kpi money"><b id="s-cost">–</b><span>עלות שיחות היום ₪</span></div>
+    <div class="kpi"><b id="s-prod">–</b><span>שיחות פוריות</span></div>
+    <div class="kpi"><b id="s-qual">–</b><span>ממוצע איכות מתוך 5</span></div>
+    <div class="kpi"><b id="s-rev">–</b><span>שיחות לבדיקה</span></div>
+  </div>
+  <div class="revbar" id="revBar">
+    <span id="revTxt">טוען…</span>
+    <button type="button" class="btn" id="revTog" aria-pressed="false" disabled>הצג רק שיחות לבדיקה</button>
   </div>
   <div class="tblwrap">
     <table>
       <thead><tr>
-        <th>שעה</th><th>אל</th><th>סטטוס</th><th>משך</th><th>עלות $</th><th>סיום</th><th>הקלטה</th><th>תמלול</th>
+        <th></th><th>שעה</th><th>אל</th><th>סטטוס</th><th>תוצאה</th><th>כמות</th><th>איכות</th><th>משך</th><th>עלות $</th><th>סיום</th><th>הקלטה</th><th>תמלול</th>
       </tr></thead>
       <tbody id="shirRows"></tbody>
     </table>
@@ -374,6 +414,7 @@
 <aside class="sheet" id="sheet" role="dialog" aria-label="תמלול שיחה">
   <div class="sheet-h"><b>תמלול השיחה</b><button class="sheet-x" id="sheetX" aria-label="סגירה">✕</button></div>
   <div class="sheet-meta" id="sheetMeta"></div>
+  <div class="sheet-sum" id="sheetSum" hidden></div>
   <div class="sheet-body" id="sheetBody"></div>
 </aside>
 
@@ -1134,9 +1175,23 @@
   /* ── transcript sheet ── */
   function openSheet(call, when) {
     $('sheetMeta').textContent = when + (call.to ? ' · ' + call.to : '') +
-      ' · ' + fmtDur(call.duration_s) + ' · ₪' + (call.cost_usd_cents / 100 * USD_ILS).toFixed(2) +
+      ' · ' + fmtDur(call.duration_s) + ' · ₪' + (centsUsd(call) / 100 * USD_ILS).toFixed(2) +
       (call.sentiment ? ' · ' + call.sentiment : '');
-    $('sheetBody').textContent = call.transcript || '';
+
+    /* the four facts that save listening to the whole thing */
+    var bits = [];
+    if (call.outcome) bits.push('<span class="sum-b"><span class="sum-k">תוצאה</span>' + outcomeCell(call.outcome) + '</span>');
+    if (countCell(call.party_size) !== '—') bits.push('<span class="sum-b"><span class="sum-k">מגיעים</span><b>' + countCell(call.party_size) + '</b></span>');
+    if (qualityCell(call.agent_quality) !== '—') bits.push('<span class="sum-b"><span class="sum-k">איכות</span>' + qualityCell(call.agent_quality) + '</span>');
+    if (call.needs_review === true) bits.push('<span class="rev-tag">לבדיקה</span>');
+    var html = bits.length ? '<div class="sum-row">' + bits.join('') + '</div>' : '';
+    if (call.quality_note) html += '<p><b>איך שיר דיברה:</b> ' + esc(call.quality_note) + '</p>';
+    if (call.summary) html += '<p><b>סיכום:</b> ' + esc(call.summary) + '</p>';
+    var box = $('sheetSum');
+    box.innerHTML = html;
+    box.hidden = !html;
+
+    $('sheetBody').textContent = call.transcript || 'אין תמלול לשיחה הזאת.';
     $('sheet').classList.add('on'); $('sheetBg').classList.add('on');
   }
   function closeSheet() {
@@ -1151,6 +1206,145 @@
     return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
   }
 
+  /* ── Shir: what came out of every call ─────────────────────────────────
+     outcome, party_size, agent_quality, needs_review and quality_note are
+     written by the post-call analysis, so any call made before that was
+     switched on comes back empty or null. Every helper here has to answer
+     with a dash instead of "undefined" or NaN. */
+  var OUTCOME_CLS = {
+    'מגיע': 'oc-yes',
+    'לא מגיע': 'oc-no',
+    'מתלבט': 'oc-maybe',
+    'לא ענה': 'oc-pale',
+    'ביקש לא להתקשר': 'oc-pale',
+    'לא ברור': 'oc-pale'
+  };
+
+  function outcomeCell(v) {
+    var s = String(v == null ? '' : v).trim();
+    if (!s) return '—';
+    return '<span class="oc ' + (OUTCOME_CLS[s] || 'oc-pale') + '">' + esc(s) + '</span>';
+  }
+
+  function countCell(v) {
+    var n = Number(v);
+    if (v == null || v === '' || v === false || !isFinite(n)) return '—';
+    return String(n);
+  }
+
+  function qualityCell(v, note) {
+    var n = Number(v);
+    if (v == null || v === '' || !isFinite(n) || n <= 0) return '—';
+    var cls = n >= 4 ? 'q-hi' : (n >= 3 ? 'q-mid' : 'q-lo');
+    return '<span class="q5 ' + cls + '"' + (note ? ' title="' + esc(note) + '"' : '') +
+           '>' + n + '<i> / 5</i></span>';
+  }
+
+  function centsUsd(c) {
+    var n = Number(c.cost_usd_cents);
+    return isFinite(n) ? n : 0;
+  }
+
+  /* a call the analysis actually looked at. call_summary alone does not
+     count: Retell writes that one for every call, so an old call would
+     otherwise drag the productive rate down to a false 0%. */
+  function hasAnalysis(c) {
+    return !!(c.outcome || c.quality_note || c.needs_review === true ||
+              c.agent_quality != null || c.party_size != null);
+  }
+
+  var shirCalls = [];
+  var shirOnlyReview = false;
+
+  function shirRow(c) {
+    var tr = document.createElement('tr');
+    if (c.needs_review === true) tr.className = 'rev';
+    var t = c.started_at ? new Date(c.started_at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+    var live = c.status === 'ongoing';
+    var pill = live ? '<span class="pill p-warn">🔴 חיה</span>'
+                    : '<span class="pill ' + (c.status === 'ended' ? 'p-ok' : 'p-no') + '">' + esc(c.status || '—') + '</span>';
+    var td = function (h) { var x = document.createElement('td'); x.innerHTML = h; return x; };
+    tr.appendChild(td(c.needs_review === true ? '<span class="rev-tag">לבדיקה</span>' : ''));
+    tr.appendChild(td(t));
+    tr.appendChild(td(c.to ? '<span dir="ltr">' + esc(c.to) + '</span>' : esc(c.type || '—')));
+    tr.appendChild(td(pill));
+    tr.appendChild(td(outcomeCell(c.outcome)));
+    tr.appendChild(td(countCell(c.party_size)));
+    tr.appendChild(td(qualityCell(c.agent_quality, c.quality_note)));
+    tr.appendChild(td(fmtDur(c.duration_s)));
+    tr.appendChild(td((centsUsd(c) / 100).toFixed(2)));
+    tr.appendChild(td(esc(c.reason || '—')));
+    var tdA = document.createElement('td');
+    if (c.recording_url) {
+      var au = document.createElement('audio');
+      au.controls = true; au.preload = 'none'; au.src = c.recording_url;
+      au.style.cssText = 'width:190px;height:30px';
+      tdA.appendChild(au);
+    } else tdA.textContent = '—';
+    tr.appendChild(tdA);
+    var tdT = document.createElement('td');
+    /* a call with only a summary is still worth opening */
+    if (c.transcript || c.summary || c.quality_note || c.outcome) {
+      var btn = document.createElement('button');
+      btn.textContent = 'פתח';
+      btn.style.cssText = 'border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:.2rem .7rem;font:inherit;cursor:pointer;color:var(--ink2)';
+      (function (call, when) {
+        btn.addEventListener('click', function () { openSheet(call, when); });
+      })(c, t);
+      tdT.appendChild(btn);
+    } else tdT.textContent = '—';
+    tr.appendChild(tdT);
+    return tr;
+  }
+
+  function renderShir() {
+    var all = shirCalls;
+    var review = all.filter(function (c) { return c.needs_review === true; });
+    var analyzed = all.filter(hasAnalysis);
+
+    /* a dash whenever there is nothing real behind the number */
+    var ended = analyzed.filter(function (c) { return c.status === 'ended'; });
+    var prod = ended.filter(function (c) { return c.productive === true; });
+    $('s-prod').textContent = ended.length ? Math.round(prod.length / ended.length * 100) + '%' : '–';
+
+    var scored = all.filter(function (c) {
+      return c.agent_quality != null && isFinite(Number(c.agent_quality));
+    });
+    var sum = 0;
+    scored.forEach(function (c) { sum += Number(c.agent_quality); });
+    $('s-qual').textContent = scored.length ? (sum / scored.length).toFixed(1) : '–';
+    $('s-rev').textContent = analyzed.length ? String(review.length) : '–';
+
+    /* the bar is Richard's way in to the calls worth hearing */
+    if (!review.length) shirOnlyReview = false;
+    var tog = $('revTog');
+    if (review.length) {
+      $('revBar').classList.add('hot');
+      $('revTxt').innerHTML = review.length === 1
+        ? '<b>שיחה אחת</b> שכדאי להאזין לה'
+        : '<b>' + review.length + '</b> שיחות שכדאי להאזין להן';
+      tog.disabled = false;
+    } else {
+      $('revBar').classList.remove('hot');
+      $('revTxt').textContent = analyzed.length
+        ? 'אין שיחות שדורשות בדיקה'
+        : 'סימון שיחות לבדיקה יופיע כאן ברגע שהניתוח ירוץ על השיחות';
+      tog.disabled = true;
+    }
+    tog.setAttribute('aria-pressed', shirOnlyReview ? 'true' : 'false');
+    tog.textContent = shirOnlyReview ? 'הצג את כל השיחות' : 'הצג רק שיחות לבדיקה';
+
+    var list = shirOnlyReview ? review : all;
+    var rows = $('shirRows'); rows.innerHTML = '';
+    $('shirEmpty').hidden = all.length > 0;
+    list.forEach(function (c) { rows.appendChild(shirRow(c)); });
+  }
+
+  $('revTog').addEventListener('click', function () {
+    shirOnlyReview = !shirOnlyReview;
+    renderShir();
+  });
+
   function loadShir() {
     var payload = { admin_key: adminKey, limit: 30 };
     fetch(CFG.endpoint('shir-calls'), {
@@ -1159,46 +1353,13 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.ok) return;
-        $('s-live').textContent = d.live.now + (d.live.limit ? ' / ' + d.live.limit : '');
-        $('s-count').textContent = d.calls.length;
+        var live = d.live || {};
+        $('s-live').textContent = (live.now || 0) + (live.limit ? ' / ' + live.limit : '');
+        shirCalls = d.calls || [];
+        $('s-count').textContent = shirCalls.length;
         /* Retell bills in USD; Richard reads shekels */
-        $('s-cost').textContent = (d.cost_today_usd_cents / 100 * USD_ILS).toFixed(2);
-        var rows = $('shirRows'); rows.innerHTML = '';
-        $('shirEmpty').hidden = d.calls.length > 0;
-        d.calls.forEach(function (c) {
-          var tr = document.createElement('tr');
-          var t = c.started_at ? new Date(c.started_at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
-          var live = c.status === 'ongoing';
-          var pill = live ? '<span class="pill p-warn">🔴 חיה</span>'
-                          : '<span class="pill ' + (c.status === 'ended' ? 'p-ok' : 'p-no') + '">' + (c.status || '—') + '</span>';
-          var td = function (h) { var x = document.createElement('td'); x.innerHTML = h; return x; };
-          tr.appendChild(td(t));
-          tr.appendChild(td(c.to ? '<span dir="ltr">' + c.to + '</span>' : (c.type || '—')));
-          tr.appendChild(td(pill));
-          tr.appendChild(td(fmtDur(c.duration_s)));
-          tr.appendChild(td((c.cost_usd_cents / 100).toFixed(2)));
-          tr.appendChild(td(c.reason || '—'));
-          var tdA = document.createElement('td');
-          if (c.recording_url) {
-            var au = document.createElement('audio');
-            au.controls = true; au.preload = 'none'; au.src = c.recording_url;
-            au.style.cssText = 'width:190px;height:30px';
-            tdA.appendChild(au);
-          } else tdA.textContent = '—';
-          tr.appendChild(tdA);
-          var tdT = document.createElement('td');
-          if (c.transcript) {
-            var btn = document.createElement('button');
-            btn.textContent = 'פתח';
-            btn.style.cssText = 'border:1px solid var(--line);background:var(--bg);border-radius:8px;padding:.2rem .7rem;font:inherit;cursor:pointer;color:var(--ink2)';
-            (function (call, when) {
-              btn.addEventListener('click', function () { openSheet(call, when); });
-            })(c, t);
-            tdT.appendChild(btn);
-          } else tdT.textContent = '—';
-          tr.appendChild(tdT);
-          rows.appendChild(tr);
-        });
+        $('s-cost').textContent = ((Number(d.cost_today_usd_cents) || 0) / 100 * USD_ILS).toFixed(2);
+        renderShir();
       }).catch(function () {});
   }
 

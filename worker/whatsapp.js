@@ -299,6 +299,12 @@ export function findGuestByPhone(raw, phone, todayIso) {
       guest_id: String(r[2] || '').trim(),
       token, date, upcoming,
       tries: Number(String(r[29] || '').trim()) || 0,
+      /* the resend path needs to know who this is and what they already
+         answered: without these it greeted everyone "אורח יקר" and re-offered
+         the RSVP buttons to people who had already replied */
+      name: String(r[3] || '').trim(),
+      rsvp: String(r[15] || '').trim(),
+      party: Number(String(r[13] || '').trim()) || Number(String(r[5] || '').trim()) || 0,
     };
     if (!cand.guest_id) continue;
     if (!best) { best = cand; continue; }

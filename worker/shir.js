@@ -39,6 +39,19 @@ export function callWindowState(now = new Date()) {
     ? { open: true } : { open: false, why: 'hours' };
 }
 
+/* How long until the calling window opens, in ms. 0 when it is already open,
+   -1 when the wait is longer than an hour (not worth holding a cron for).
+   The daily engine fires at 09:35 Israel time and the window opens at 10:00,
+   so without this the dialler asked "is it open?", heard no, and gave up
+   twenty five minutes early, every day. */
+export function msUntilCallWindow(now = new Date()) {
+  if (callWindowState(now).open) return 0;
+  for (let m = 1; m <= 60; m++) {
+    if (callWindowState(new Date(now.getTime() + m * 60000)).open) return m * 60000;
+  }
+  return -1;
+}
+
 /* Today's date in Israel, YYYY-MM-DD — day buckets follow the local calendar,
    not UTC, so a late-night run cannot double-dial the same Israeli day. */
 export function ilDate(now = new Date()) {

@@ -23,7 +23,7 @@
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
-import { callWindowState, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
+import { callWindowState, msUntilCallWindow, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText } from './whatsapp.js';
 
 const ROUTES = {
@@ -367,8 +367,9 @@ async function tokenRecord(env, token) {
 function sniffImage(bytes) {
   if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
-  if (bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46 &&
-      bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50) return 'image/webp';
+  /* WhatsApp renders JPEG and PNG. WebP was harmless while the artwork was
+     never sent; now that it goes out as an image message it would fail, so
+     the client is told at upload time instead of finding out on event day. */
   return null;
 }
 
@@ -746,11 +747,17 @@ async function runShirDispatch(env, { max = 25, force = false } = {}) {
   if (!env.RETELL_KEY || !env.SHIR_FROM) return { ok: false, why: 'not-configured' };
   if (await sendingPaused(env)) return { ok: true, dialed: 0, paused: true };
   const win = callWindowState();
-  if (!win.open && !force) return { ok: true, dialed: 0, closed: win.why };
-
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) return { ok: false, why: 'reader-failed' };
   const { queue } = buildCallQueue(raw);
+  /* a closed window with people waiting is worth saying out loud: silence here
+     is exactly how the queue grew unnoticed */
+  if (!win.open && !force) {
+    if (queue.length) {
+      await slackPost(env, `🕐 ${queue.length} אורחים ממתינים לשיחה, אבל חלון החיוג סגור (${win.why}). ננסה בהזדמנות הבאה.`);
+    }
+    return { ok: true, dialed: 0, closed: win.why, queued: queue.length };
+  }
   const day = ilDate();
   const cap = Math.min(Number(max) || 25, 25);
   const dialed = [];
@@ -1152,12 +1159,22 @@ async function sendWave(env, ev, token, guests, wave, dry) {
     const gk = `wsent:${token}:${wave.key}:${normPhone(phone)}`;
     if (env.RATE && await env.RATE.get(gk)) { skippedDone++; continue; }
     const name = String(g[3] || '').trim() || 'אורח יקר';
+    /* hazmana_ishur was approved with a BODY and buttons and NO image header,
+       verified against Meta. Passing an image adds a header component the
+       approved template does not have, and Meta rejects the whole send
+       (132000) — so every client who uploaded artwork would have had their
+       entire wave fail. The artwork goes as its own message right after. */
     const res = await sendTemplate(env, phone, 'hazmana_ishur',
-      [name, occasion, hosts, date, time, venue], invite, 'he', 'guests',
+      [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
       { occasion, wave: wave.key, token });
     if (res.ok) {
       sent++;
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+      /* the artwork the client uploaded, as its own message. A failure here
+         must never cost the invitation, which already landed. */
+      if (invite && wave.key === 1) {
+        await sendImage(env, phone, invite, '', 'guests').catch(() => null);
+      }
     } else failed++;
   }
   return { wave: wave.key, sent, skippedOptout, skippedAnswered, skippedDone, failed };
@@ -2251,7 +2268,7 @@ async function resendInvitation(env, guestPhone) {
       ? (party > 1 ? `מגיעים, ${party} אורחים` : 'מגיעים')
       : 'לא מגיעים';
     const wa = await sendTemplate(env, phone, 'ishur_hazmana_shuv',
-      [gname, occasion, hosts, date, time, venue, said], invite, 'he', 'guests',
+      [gname, occasion, hosts, date, time, venue, said], '', 'he', 'guests',
       { occasion, wave: 'resend', token: guest.token });
     if (wa.ok) await addEvCost(env, guest.token, 0.53);
     return { ok: wa.ok, mode: 'no-buttons', rsvp, why: wa.error };
@@ -2259,7 +2276,7 @@ async function resendInvitation(env, guestPhone) {
 
   /* never answered, or still undecided → the normal invitation, buttons and all */
   const wa = await sendTemplate(env, phone, 'hazmana_ishur',
-    [gname, occasion, hosts, date, time, venue], invite, 'he', 'guests',
+    [gname, occasion, hosts, date, time, venue], '', 'he', 'guests',
     { occasion, wave: 'resend', token: guest.token });
   if (wa.ok) await addEvCost(env, guest.token, 0.53);
   return { ok: wa.ok, mode: 'with-buttons', rsvp: rsvp || 'לא ענה', why: wa.error };
@@ -2697,6 +2714,16 @@ async function handleShirCalls(request, env, origin) {
     cost_usd_cents: (c.call_cost && c.call_cost.combined_cost) || 0,
     reason: c.disconnection_reason || '',
     sentiment: (c.call_analysis && c.call_analysis.user_sentiment) || '',
+    /* what the guest actually answered, and whether the call did its job.
+       The outcome comes from the tool Shir calls mid-conversation; the
+       custom analysis fields are filled by Retell after the call. */
+    guest_id: String((c.metadata || {}).guest_id || ''),
+    outcome: String(((c.call_analysis || {}).custom_analysis_data || {}).outcome || ''),
+    party_size: ((c.call_analysis || {}).custom_analysis_data || {}).party_size ?? null,
+    productive: !!((c.call_analysis || {}).custom_analysis_data || {}).got_answer,
+    agent_quality: ((c.call_analysis || {}).custom_analysis_data || {}).agent_quality ?? null,
+    quality_note: String(((c.call_analysis || {}).custom_analysis_data || {}).quality_note || ''),
+    summary: String((c.call_analysis || {}).call_summary || '').slice(0, 400),
     recording_url: c.recording_url || '',
     transcript: String(c.transcript || '').slice(0, 8000),
   }));
@@ -2868,8 +2895,14 @@ export default {
     /* Shir dials right after the morning engine. A separate cron would be
        better (three rounds across the day) but the free plan caps us at five,
        so one round a morning it is, and the admin route covers extra rounds. */
-    ctx.waitUntil(runShirDispatch(env).catch(e =>
-      alert(env, 'חיוג', 'סבב החיוג נפל', String(e && e.message))));
+    /* the calling window opens at 10:00 and this cron fires at 09:35 IL, so
+       dialling immediately would always return "closed". Hold until the window
+       is genuinely open, then dial. */
+    ctx.waitUntil((async () => {
+      const wait = msUntilCallWindow();
+      if (wait > 0 && wait < 60 * 60 * 1000) await new Promise(r => setTimeout(r, wait));
+      await runShirDispatch(env);
+    })().catch(e => alert(env, 'חיוג', 'סבב החיוג נפל', String(e && e.message))));
     ctx.waitUntil(runDailyEngine(env, false).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
