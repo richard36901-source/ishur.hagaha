@@ -118,17 +118,21 @@ window.ISHUR_CONFIG = (function () {
 
   /* ══ PRICES ═══ ₪ per event, by guest tier × package ══════════════════════ */
 
+  /* pro sits deliberately CLOSE to premium, not close to basic. At +20 over
+     basic it was a free upgrade nobody had to think about; at ~55% of the gap
+     it forces the real question — with calls or without — and once someone
+     says "with", the last 70-130 for all three rounds is the easy yes. */
   var PRICE_TABLE = {
-    50:  { basic: 50,  pro: 70,  premium: 140 },
-    100: { basic: 99,  pro: 129, premium: 199 },
-    200: { basic: 199, pro: 219, premium: 339 },
-    300: { basic: 299, pro: 319, premium: 449 },
-    400: { basic: 399, pro: 419, premium: 559 },
-    500: { basic: 499, pro: 519, premium: 669 },
-    600: { basic: 599, pro: 619, premium: 789 },
-    700: { basic: 699, pro: 719, premium: 919 },
-    800: { basic: 799, pro: 819, premium: 1049 },
-    900: { basic: 899, pro: 919, premium: 1179 }
+    50:  { basic: 50,  pro: 95,   premium: 140 },
+    100: { basic: 99,  pro: 149,  premium: 199 },
+    200: { basic: 199, pro: 279,  premium: 339 },
+    300: { basic: 299, pro: 379,  premium: 449 },
+    400: { basic: 399, pro: 489,  premium: 559 },
+    500: { basic: 499, pro: 589,  premium: 669 },
+    600: { basic: 599, pro: 699,  premium: 789 },
+    700: { basic: 699, pro: 819,  premium: 919 },
+    800: { basic: 799, pro: 929,  premium: 1049 },
+    900: { basic: 899, pro: 1049, premium: 1179 }
   };
 
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
