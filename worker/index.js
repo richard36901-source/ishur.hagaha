@@ -1764,10 +1764,28 @@ async function handleWaWebhook(request, env, url) {
           if (st.status !== 'failed') continue;
           const err = (st.errors && st.errors[0]) || {};
           if (st.id && await seenOnce(env, 'wafail:' + st.id)) continue;
+          /* was this a wave invitation? then the guest is NOT sent — reopen them */
+          let retry = '';
+          try {
+            const m = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null;
+            if (m && m.gk) {
+              const fk = `wfail:${m.token}:${m.wave}:${m.phone}`;
+              const n = (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
+              await env.RATE.put(fk, String(n), { expirationTtl: 7 * 86400 });
+              if (n >= 3) {
+                await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, String(err.code || ''), { expirationTtl: 120 * 86400 });
+                retry = ` · ניסיון ${n}/3 — נעצר, דורש טיפול ידני`;
+              } else {
+                await env.RATE.delete(m.gk);          // wsent: gone → next tick resends
+                await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {}); // the wave is open again
+                retry = ` · ניסיון ${n}/3 — יישלח שוב בפעימה הבאה`;
+              }
+            }
+          } catch {}
           await logEvent(env, { area: 'ווצאפ', action: 'מטא לא הצליחה למסור הודעה', ok: false, review: true,
             phone: st.recipient_id || '', ref: String(st.id || '').slice(-12),
-            detail: `${err.code || ''} ${err.title || ''} ${(err.error_data && err.error_data.details) || ''}`.trim() });
-          await alert(env, 'ווצאפ', `הודעה ל-${st.recipient_id || '?'} לא נמסרה`, `${err.code || ''} ${err.title || ''}`);
+            detail: `${err.code || ''} ${err.title || ''} ${(err.error_data && err.error_data.details) || ''}`.trim() + retry });
+          await alert(env, 'ווצאפ', `הודעה ל-${st.recipient_id || '?'} לא נמסרה${retry}`, `${err.code || ''} ${err.title || ''}`);
         }
       }
     }
@@ -2201,6 +2219,8 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     if (env.RATE && await env.RATE.get(gkEarly)) { skippedDone++; cursor = gi + 1; continue; }
     if (await phoneBlocked(env, phone)) { skippedOptout++; cursor = gi + 1; continue; }
     if (await wrongNum(env, token, phone)) { skippedOptout++; cursor = gi + 1; continue; }
+    /* three delivery failures from Meta: stop retrying, it is in the journal red */
+    if (env.RATE && await env.RATE.get(`wdead:${token}:${wave.key}:${normPhone(phone)}`)) { skippedOptout++; cursor = gi + 1; continue; }
     /* per-guest marker: the wave flag is only written after the whole loop, so
        a run cut short (subrequest ceiling, an exception) would otherwise start
        from the top tomorrow and message everyone a second time */
@@ -2219,6 +2239,10 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
       sent++;
       cursor = gi + 1;
       if (g.__row) okRows.push(g.__row);
+      /* Meta "accepted" is not "delivered". If a failed status comes back for
+         this id, the webhook uses this to reopen exactly this guest. */
+      if (env.RATE && res.id) await env.RATE.put('wamid:' + res.id,
+        JSON.stringify({ token, wave: wave.key, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
          must never cost the invitation, which already landed. */
@@ -2442,6 +2466,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
          below is what keeps it to a single send. */
       if (!/^\d{4}-\d{2}-\d{2}$/.test(when)) continue;
       const lateBy = Math.round((Date.parse(today) - Date.parse(when)) / 864e5);
+      if (lateBy > 3 && !dry && env.RATE && !(await env.RATE.get(`wave:${token}:${wave.key}`)) &&
+          !(await env.RATE.get(`wlate:${token}:${wave.key}`))) {
+        await env.RATE.put(`wlate:${token}:${wave.key}`, today, { expirationTtl: 120 * 86400 });
+        await logEvent(env, { area: 'שליחה', action: `גל ${wave.key} ננטש — עברו 3 ימים מהתאריך ולא הושלם`, ok: false, review: true, token,
+          detail: 'לבדוק מי לא קיבל; שליחה ידנית דרך /api/send-date עם תאריך חדש' });
+      }
       if (lateBy < 0 || lateBy > 3) continue;
       /* never chase after the event itself has passed */
       const evDay = String(ev[6] || '').trim().slice(0, 10);
@@ -2476,8 +2506,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
          the flag open costs nothing and the 188 get their invitation on the
          next tick. (Review finding #4.) */
       const waveDelivered = !res.truncated && res.failed === 0;
-      if (!dry && res.failed > 0) {
-        await slackPost(env, `⚠️ גל ${wave.key} · ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו, ${res.sent} יצאו. הגל נשאר פתוח וינסה שוב בפעימה הבאה.`);
+      if (!dry && res.failed > 0 && env.RATE && !(await env.RATE.get(`wavefailnote:${token}:${wave.key}:${today}`))) {
+        await env.RATE.put(`wavefailnote:${token}:${wave.key}:${today}`, '1', { expirationTtl: 2 * 86400 });
+        await slackPost(env, `⚠️ גל ${wave.key} · ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו, ${res.sent} יצאו. הגל נשאר פתוח וינסה שוב כל 10 דקות (עד 3 ימים מהתאריך). פירוט ביומן המערכת.`);
       }
       if (!dry && env.RATE && waveDelivered) {
         await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
