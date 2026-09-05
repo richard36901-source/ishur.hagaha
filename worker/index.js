@@ -26,6 +26,7 @@ import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf }
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
+import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -97,6 +98,12 @@ function normPhone(raw) {
 async function alert(env, where, what, detail) {
   const what300 = String(what || '').slice(0, 300);
   const detail500 = String(detail || '').slice(0, 500);
+  /* the journal is the record; Slack is the notification */
+  await logEvent(env, { area: where, action: what300, ok: false, review: true, detail: detail500 });
+  /* money that arrived and went nowhere cannot wait for somebody to open Slack */
+  if (/Grow|תשלום/.test(String(where))) {
+    try { await sendText(env, OWNER_PHONE, `🚨 ${where}: ${what300}`.slice(0, 900)); } catch {}
+  }
   if (env.SLACK_ALERT_HOOK) {
     await slackPost(env, `⚠️ *${where}*\n${what300}${detail500 ? '\n' + detail500 : ''}`);
     return;
@@ -225,7 +232,17 @@ async function handleGrowIpn(request, env, url) {
     await env.RATE.put('ipnraw:' + Date.now(), flatDump.slice(0, 8000),
       { expirationTtl: 14 * 86400 }).catch(() => {});
   }
+  await logEvent(env, { area: 'תשלום', action: 'IPN הגיע מגרואו', ok: true,
+    phone: flat.payerPhone || flat.phone || '', ref: flat.asmachta || flat.transactionId || '',
+    detail: `${flat.paymentDesc || ''} · ₪${flat.paymentSum || flat.sum || '?'} · ${flat.paymentType || ''}` });
+  /* The first real Grow payload (05/09, Richard's own test) carried NO page
+     id at all — fields are paymentDesc / paymentSum / asmachta / payerPhone —
+     so the page-id list above never could have matched, and the very first
+     real customer was parked as "not ishur". Every ishur payment page is
+     named "<N> מוזמנים <plan>", so the description is the reliable signal. */
+  const desc = String(flat.paymentDesc || flat.description || flat.productName || '');
   const isIshur = ISHUR_GROW_PAGES.some((id) => flatDump.includes(id)) ||
+    /מוזמנים|אישור/.test(desc) ||
     flatDump.toLowerCase().includes('ishur') || flatDump.includes('אישורי הגעה');
   if (!isIshur) {
     /* The matcher has never seen a real Grow payload, so a miss here could be
@@ -236,6 +253,8 @@ async function handleGrowIpn(request, env, url) {
     if (env.RATE) {
       await env.RATE.put(missId, flatDump.slice(0, 12000), { expirationTtl: 30 * 86400 }).catch(() => {});
     }
+    await logEvent(env, { area: 'תשלום', action: 'תשלום לא זוהה כ-ishur — חונה, לא הופעל', ok: false, review: true,
+      phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${missId} · ${String(flat.paymentDesc || '')} · להרצה: /api/ipn-replay` });
     await alert(env, 'תשלום Grow לא זוהה',
       `תשלום שלא זוהה כ-ishur לא הופעל (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו — שלח לי את המזהה ${missId} ואני מריץ אותו מיד`,
       flatDump.slice(0, 600));
@@ -275,7 +294,10 @@ async function processGrowPayment(env, flat) {
 
   /* dedupe: one event per receipt, forever */
   const seen = env.RATE ? await env.RATE.get('grow:' + ref) : null;
-  if (seen) return new Response('duplicate', { status: 200 });
+  if (seen) {
+    await logEvent(env, { area: 'תשלום', action: 'IPN כפול — כבר טופל', ok: true, phone, ref });
+    return new Response('duplicate', { status: 200 });
+  }
 
   const token = crypto.randomUUID();
   const isNewClient = env.RATE ? !(await env.RATE.get('client:' + phone)) : true;
@@ -312,6 +334,8 @@ async function processGrowPayment(env, flat) {
   /* if the writer failed, forget the dedupe key so Grow's retry works */
   if (!ok && env.RATE) await env.RATE.delete('grow:' + ref);
   if (!ok) await alert(env, 'תשלום Grow', 'Make לא קלט את התשלום (writer-failed)', `ref=${ref} phone=${phone} sum=${sum}`);
+  else await logEvent(env, { area: 'תשלום', action: 'תשלום נקלט → נשלח למייק לכתיבה בגיליון', ok: true, phone, ref, token,
+    detail: `${name} · ₪${sum} · ${payMethod} · ${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'}` });
 
   /* paid → the client gets their personal upload link on WhatsApp, right now.
      claimlink:<phone> lets the service bot re-send it on request later. */
@@ -332,6 +356,8 @@ async function processGrowPayment(env, flat) {
     } catch {}
     if (promo && env.RATE) {
       await env.RATE.put('promoof:' + token, JSON.stringify(promo), { expirationTtl: 400 * 86400 });
+      await logEvent(env, { area: 'מבצעים', action: 'קוד מבצע נשרף בתשלום', ok: true, phone, token, ref: promo.code || '',
+        detail: `${promo.label || promo.campaign} · נשארו ${promo.left ?? '?'}` });
     }
     /* every purchase lands in Slack — Richard doesn't always get Grow's email */
     await slackPost(env, `🎉 *רכישה חדשה ב-ishur*\n${name || 'ללא שם'} · ${phone}` +
@@ -347,6 +373,8 @@ async function processGrowPayment(env, flat) {
     const wa = await sendClient(env, phone, 'ishur_tashlum',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_tashlum'));
+    await logEvent(env, { area: 'ווצאפ', action: 'קישור העלאה נשלח ללקוח (ishur_tashlum)', ok: wa.ok, review: !wa.ok,
+      phone, token, ref, detail: wa.ok ? String(wa.id || '') : String(wa.error || '') });
     if (env.RATE) await env.RATE.put('paywa:' + ref,
       JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
   }
@@ -389,6 +417,8 @@ async function handlePromoGo(env, request, url, origin) {
     return Response.redirect('https://ishur.io/index.html?promo_error=phone-required', 302);
   }
   const res = await promoGo(env, url.searchParams.get('code'), goPhone);
+  await logEvent(env, { area: 'מבצעים', action: res.ok ? 'לחיצה על קנייה עם קוד → גרואו' : `קוד נדחה בקנייה (${res.reason})`,
+    ok: res.ok, review: res.reason === 'in-use', phone: goPhone, ref: normCode(url.searchParams.get('code')) });
   if (!res.ok) {
     /* a dead code lands on the normal pricing page rather than an error blob —
        whoever forwarded it out of the group just pays full price */
@@ -613,6 +643,8 @@ async function handleIpnReplay(request, env, origin) {
   try { flat = JSON.parse(raw); } catch { return deny(422, 'bad-payload', origin); }
   const res = await processGrowPayment(env, flat);
   const text = await res.text().catch(() => '');
+  await logEvent(env, { area: 'תשלום', action: 'הרצה ידנית של תשלום שחנה (ipn-replay)', ok: res.status === 200,
+    phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${id} → ${text}` });
   if (res.status === 200) await env.RATE.delete(id).catch(() => {});
   return okJson({ ok: res.status === 200, status: res.status, result: text }, origin);
 }
@@ -1232,7 +1264,10 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`);
   } else if (dialed.length && !quiet) {
     await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`);
-  } else if (dialed.length && quiet && env.RATE) {
+  }
+  if (dialed.length) await logEvent(env, { area: 'שיחות', action: 'שיר חייגה (סבב)', ok: true,
+    detail: `${dialed.length} חיוגים · בתור ${queue.length} · דולגו ${blocked}` });
+  if (dialed.length && quiet && env.RATE) {
     /* one running total a day instead of a line every ten minutes */
     const dk = 'dialday:' + day;
     const n = (parseInt(await env.RATE.get(dk) || '0', 10) || 0) + dialed.length;
@@ -1706,6 +1741,25 @@ async function handleWaWebhook(request, env, url) {
   let payload;
   try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
 
+  /* Meta also posts delivery STATUSES here (sent/delivered/read/failed). We
+     never read them, so a template Meta accepted and then failed to deliver
+     was invisible — exactly Richard's "I didn't get the WhatsApp" on 05/09.
+     A failed delivery is a red row; nothing else about statuses is kept. */
+  try {
+    for (const entry of (payload && payload.entry) || []) {
+      for (const ch of entry.changes || []) {
+        for (const st of (ch.value && ch.value.statuses) || []) {
+          if (st.status !== 'failed') continue;
+          const err = (st.errors && st.errors[0]) || {};
+          if (st.id && await seenOnce(env, 'wafail:' + st.id)) continue;
+          await logEvent(env, { area: 'ווצאפ', action: 'מטא לא הצליחה למסור הודעה', ok: false, review: true,
+            phone: st.recipient_id || '', ref: String(st.id || '').slice(-12),
+            detail: `${err.code || ''} ${err.title || ''} ${(err.error_data && err.error_data.details) || ''}`.trim() });
+          await alert(env, 'ווצאפ', `הודעה ל-${st.recipient_id || '?'} לא נמסרה`, `${err.code || ''} ${err.title || ''}`);
+        }
+      }
+    }
+  } catch {}
   for (const { from, msg, phoneId, profileName } of extractInbound(payload)) {
     try {
     /* Meta retries a delivery until it gets a 200, and one slow reply is
@@ -1761,11 +1815,13 @@ async function handleWaWebhook(request, env, url) {
     /* stop the calls, keep the messages */
     if (parsed.kind === 'nocall') {
       if (env.RATE) await env.RATE.put('nocall:' + normPhone(from), new Date().toISOString());
+      await logEvent(env, { area: 'ווצאפ', action: 'אורח ביקש לא להתקשר', ok: true, phone: from });
       await sendText(env, from, 'סגור, לא נתקשר יותר 🙏 אפשר לעדכן הגעה כאן בהודעה בכל רגע.');
       continue;
     }
     if (parsed.kind === 'optout') {
       if (env.RATE) await env.RATE.put('optout:' + normPhone(from), new Date().toISOString());
+      await logEvent(env, { area: 'ווצאפ', action: 'הסרה מהודעות (הסר)', ok: true, phone: from });
       await bumpRemoveRate(env, 'optout');
       await sendText(env, from, 'הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
       continue;
@@ -1790,6 +1846,7 @@ async function handleWaWebhook(request, env, url) {
         await env.RATE.put('wrong:' + guest.token + ':' + normPhone(from),
           new Date().toISOString(), { expirationTtl: 400 * 86400 });
         await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`);
+        await logEvent(env, { area: 'ווצאפ', action: 'אורח סימן "טעות" — הושתק לאירוע', ok: true, phone: from, token: guest.token });
       }
       await bumpRemoveRate(env, 'mistake');
       await sendText(env, from, 'תודה על העדכון, וסליחה על ההפרעה 🙏 לא תגיע אליכם עוד הודעה על האירוע הזה.');
@@ -2370,6 +2427,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       }
       const res = await sendWave(env, ev, token, guests, wave, dry, budget);
       if (res.truncated) out.push({ token, type: 'wave_truncated', wave: wave.key, truncated: true });
+      if (!dry && (res.sent || res.failed)) {
+        await logEvent(env, { area: 'שליחה', action: `גל ${wave.key} · פעימה`, ok: res.failed === 0, review: res.failed > 0, token,
+          detail: `נשלחו ${res.sent} · נכשלו ${res.failed} · דולגו ${res.skippedDone + res.skippedAnswered + res.skippedOptout}${res.truncated ? ' · ממשיך בפעימה הבאה' : ' · הגל הושלם'}` });
+      }
       if (!dry && res.sent) await addEvCost(env, token, res.sent * msgCost(res.tmpl || 'hazmana_ishur'));
       /* only close the wave if something actually went out. A wave where every
          send failed (revoked token, number blocked) must stay open so a fixed
@@ -2896,6 +2957,10 @@ async function runPacer(env) {
     out.calls = { dialed: 0, why: callWin.why };
     out.callbacks = { dialed: 0, why: callWin.why };
   }
+  /* the journal rides the same tick: everything buffered since the last one
+     lands in the sheet as a single Sheets call */
+  try { out.journal = await flushEventLog(env); } catch (e) { out.journal = { ok: false, why: String(e && e.message) }; }
+
   /* a heartbeat worth having: "the pacer is alive" is otherwise invisible
      until the day somebody notices nothing went out */
   await env.RATE.put('pacer:last', JSON.stringify({ at: new Date().toISOString(), ...out }),
@@ -4800,6 +4865,26 @@ export default {
     if (url.pathname === '/api/inbox-reindex' && request.method === 'POST') {
       return handleInboxReindex(request, env, origin);
     }
+    if (url.pathname === '/api/evlog' && request.method === 'POST') {
+      return (async () => {
+        let b = {};
+        try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+        if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+        if (b.action === 'test') {
+          await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן', ok: true, detail: b.detail || 'שורה ירוקה' });
+          await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן — שורה שדורשת בדיקה', ok: false, review: true, detail: 'אמורה להיות אדומה' });
+        }
+        if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
+        if (b.action === 'formats') {
+          const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets(properties.title,conditionalFormats)' }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => null) : null;
+          const tab = ((j && j.sheets) || []).find(x => x.properties && x.properties.title === 'יומן מערכת');
+          return okJson({ ok: !!tab, rules: (tab && tab.conditionalFormats) || [] }, origin);
+        }
+        return okJson(await readLogTail(env, Number(b.n) || 20), origin);
+      })();
+    }
     if (url.pathname === '/api/pacer' && request.method === 'POST') {
       return (async () => {
         let b = {};
@@ -5095,8 +5180,10 @@ export default {
     /* the lead is only worth chasing if it actually reached the sheet — and a
        forged POST that Make rejected must never earn a WhatsApp template from
        the business number (review finding #12) */
-    if (url.pathname === '/api/lead' && env.RATE && upstream.ok) {
-      try { await noteLead(env, stampFields); } catch {}
+    if (url.pathname === '/api/lead' && env.RATE) {
+      await logEvent(env, { area: 'אתר', action: 'ליד מהטופס → מייק', ok: upstream.ok, review: !upstream.ok,
+        phone: stampFields.phone || '', detail: `${stampFields.name || ''} · ${stampFields.occasion || ''} · HTTP ${upstream.status}` });
+      if (upstream.ok) { try { await noteLead(env, stampFields); } catch {} }
     }
 
     /* status has to answer, the other two only need their code passed back */
