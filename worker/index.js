@@ -315,6 +315,9 @@ async function processGrowPayment(env, flat) {
 
   const clean = {
     kind: 'payment', ref, token, phone, sum, name, email, payMethod,
+    /* what was bought, as Grow names the page — the invoice line item */
+    plan: String(flat.paymentDesc || flat.description || '').trim(),
+    taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
     clientId: 'C-' + phone.slice(-9),
     isNewClient: isNewClient ? 'yes' : 'no',
     paidAt: new Date().toISOString(),
