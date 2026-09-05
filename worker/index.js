@@ -1989,6 +1989,14 @@ async function serviceReply(env, from, text, who) {
     }
   }
 
+  /* 1b · a client asking for their invoice — we have the link the moment Make made it */
+  if (!reply && /חשבונית|קבלה/.test(t) && env.RATE) {
+    const tok = await env.RATE.get('claimlink:' + normPhone(from));
+    const inv = tok ? await env.RATE.get('invoice:' + tok) : null;
+    if (inv) { try { reply = 'הנה החשבונית שלכם 🧾\n' + JSON.parse(inv).link + '\nהתנאים המלאים: https://ishur.io/terms'; } catch {} }
+    else if (tok) reply = 'החשבונית עוד לא נוצרה, היא בדרך 🙂 אם לא הגיעה עד מחר, כתבו לי ואטפל.';
+  }
+
   /* 2 · the sheet-brain AI */
   if (!reply) reply = (await aiReply(env, from, t, who)) || '';
 
@@ -4939,6 +4947,25 @@ export default {
     }
     if (url.pathname === '/api/inbox-reindex' && request.method === 'POST') {
       return handleInboxReindex(request, env, origin);
+    }
+    /* Make → "the invoice exists": Green Invoice created the document, here
+       is its link. The worker owns the WhatsApp send (4499 = clients only). */
+    if (url.pathname.startsWith('/api/invoice-ready/k/') && request.method === 'POST') {
+      return (async () => {
+        if (url.pathname.slice('/api/invoice-ready/k/'.length) !== env.GROW_KEY) return new Response('forbidden', { status: 403 });
+        let b = {}; try { b = await request.json(); } catch { return new Response('bad-json', { status: 400 }); }
+        const phone = normPhone(b.phone || ''); const token = String(b.token || '').trim();
+        const link = String(b.url || b.invoice_url || '').trim(); const num = String(b.number || '').trim();
+        if (!phone || !link) return new Response('missing-phone-or-url', { status: 400 });
+        if (env.RATE) await env.RATE.put('invoice:' + token, JSON.stringify({ link, num, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+        const first = (String(b.name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
+        const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
+        let sent = null;
+        if (invTmpl) sent = await sendClient(env, phone, invTmpl, [first, link], { token });
+        await logEvent(env, { area: 'חשבוניות', action: invTmpl ? 'חשבונית נוצרה במורנינג ונשלחה ללקוח (4499)' : 'חשבונית נוצרה במורנינג — לא נשלחה (תבנית ממתינה לאישור מטא)',
+          ok: invTmpl ? !!(sent && sent.ok) : true, review: !invTmpl || !(sent && sent.ok), phone, token, ref: num, detail: link + (sent && !sent.ok ? ' · ' + sent.error : '') });
+        return okJsonPlain({ ok: true, sent: !!(sent && sent.ok), templated: !!invTmpl });
+      })();
     }
     if (url.pathname === '/api/evlog' && request.method === 'POST') {
       return (async () => {
