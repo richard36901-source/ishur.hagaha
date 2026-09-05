@@ -2184,6 +2184,10 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      Editing the live template instead would have parked it in review and
      silenced every wave meanwhile. */
   const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+  /* the image-header variant, once Meta approves it (the pacer flips this
+     key). With it, an event that uploaded artwork sends ONE message: picture
+     + invitation + buttons — to cold guests too. */
+  const imgTmpl = env.RATE ? await env.RATE.get('invitetmpl_img') : null;
   /* no guests number = nothing leaves. The wave stays open and untouched:
      no budget spent, no cursor moved, no flag written. It resumes on its own
      the moment the secrets exist. */
@@ -2246,8 +2250,9 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
        approved template does not have, and Meta rejects the whole send
        (132000) — so every client who uploaded artwork would have had their
        entire wave fail. The artwork goes as its own message right after. */
-    const res = await sendTemplate(env, phone, inviteTmpl,
-      [name, occasion, hosts, date, time, venue], '', 'he', 'guests',
+    const useImg = !!(imgTmpl && invite && wave.key === 1);
+    const res = await sendTemplate(env, phone, useImg ? imgTmpl : inviteTmpl,
+      [name, occasion, hosts, date, time, venue], useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token });
     if (budget) budget.left--;
     if (res.ok) {
@@ -3037,6 +3042,27 @@ async function runPacer(env) {
     out.calls = { dialed: 0, why: callWin.why };
     out.callbacks = { dialed: 0, why: callWin.why };
   }
+  /* Meta approvals, checked once an hour: the image invitation and the invoice
+     template switch themselves on the moment they are approved. */
+  try {
+    const hourKey = 'tmplcheck:' + new Date().toISOString().slice(0, 13);
+    if (env.WA_TOKEN && !(await env.RATE.get(hourKey))) {
+      await env.RATE.put(hourKey, '1', { expirationTtl: 7200 });
+      const want = { hazmana_ishur_img: 'invitetmpl_img', ishur_heshbonit: 'invoicetmpl' };
+      const r = await fetch('https://graph.facebook.com/v21.0/1060242146337688/message_templates?limit=60&fields=name,status',
+        { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
+      const j = r ? await r.json().catch(() => null) : null;
+      for (const t of (j && j.data) || []) {
+        const key = want[t.name];
+        if (key && t.status === 'APPROVED' && !(await env.RATE.get(key))) {
+          await env.RATE.put(key, t.name);
+          await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
+          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`);
+        }
+      }
+    }
+  } catch {}
+
   /* the journal rides the same tick: everything buffered since the last one
      lands in the sheet as a single Sheets call */
   try { out.journal = await flushEventLog(env); } catch (e) { out.journal = { ok: false, why: String(e && e.message) }; }
@@ -4965,6 +4991,41 @@ export default {
         await logEvent(env, { area: 'חשבוניות', action: invTmpl ? 'חשבונית נוצרה במורנינג ונשלחה ללקוח (4499)' : 'חשבונית נוצרה במורנינג — לא נשלחה (תבנית ממתינה לאישור מטא)',
           ok: invTmpl ? !!(sent && sent.ok) : true, review: !invTmpl || !(sent && sent.ok), phone, token, ref: num, detail: link + (sent && !sent.ok ? ' · ' + sent.error : '') });
         return okJsonPlain({ ok: true, sent: !!(sent && sent.ok), templated: !!invTmpl });
+      })();
+    }
+    /* Create the invitation template WITH an image header. Meta wants a sample
+       image uploaded through its resumable-upload API first (a handle, not a
+       URL); at send time every event passes its own artwork. One approval,
+       every event automatic — no per-event template. */
+    if (url.pathname === '/api/meta-img-template' && request.method === 'POST') {
+      return (async () => {
+        let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+        if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+        const appId = String(b.app_id || '1258746612804480');
+        const imgUrl = String(b.image_url || 'https://ishur.io/logo.png');
+        const img = await fetch(imgUrl).catch(() => null);
+        if (!img || !img.ok) return okJson({ ok: false, step: 'fetch-image', status: img && img.status }, origin);
+        const buf = await img.arrayBuffer();
+        const type = img.headers.get('Content-Type') || 'image/png';
+        const s1 = await fetch(`https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buf.byteLength}&file_type=${encodeURIComponent(type)}&access_token=${env.WA_TOKEN}`, { method: 'POST' });
+        const j1 = await s1.json().catch(() => ({}));
+        if (!j1.id) return okJson({ ok: false, step: 'open-session', resp: j1 }, origin);
+        const s2 = await fetch(`https://graph.facebook.com/v21.0/${j1.id}`, { method: 'POST',
+          headers: { Authorization: 'OAuth ' + env.WA_TOKEN, file_offset: '0', 'Content-Type': type }, body: buf });
+        const j2 = await s2.json().catch(() => ({}));
+        if (!j2.h) return okJson({ ok: false, step: 'upload', resp: j2 }, origin);
+        const name = String(b.name || 'hazmana_ishur_img');
+        const tpl = { name, language: 'he', category: 'UTILITY', components: [
+          { type: 'HEADER', format: 'IMAGE', example: { header_handle: [j2.h] } },
+          { type: 'BODY', text: 'שלום {{1}}! הוזמנתם ל{{2}} של {{3}}.\n\n📅 {{4}}\n🕐 קבלת פנים {{5}}\n📍 {{6}}\n\nנשמח לדעת אם תגיעו:',
+            example: { body_text: [['דנה', 'חתונה', 'נועה ויונתן', '12.09.2026', '19:30', 'הגן הקסום, רמת גן']] } },
+          { type: 'FOOTER', text: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' },
+          { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'מגיע/ה' }, { type: 'QUICK_REPLY', text: 'לא מגיע/ה' }, { type: 'QUICK_REPLY', text: 'עדיין לא ידוע' }] } ] };
+        const s3 = await fetch(`https://graph.facebook.com/v21.0/1060242146337688/message_templates`, { method: 'POST',
+          headers: { Authorization: 'Bearer ' + env.WA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) });
+        const j3 = await s3.json().catch(() => ({}));
+        await logEvent(env, { area: 'מטא', action: 'תבנית הזמנה עם תמונה הוגשה לאישור', ok: !!j3.id, review: !j3.id, ref: name, detail: JSON.stringify(j3).slice(0, 200) });
+        return okJson({ ok: !!j3.id, handle: j2.h.slice(0, 20) + '…', resp: j3 }, origin);
       })();
     }
     if (url.pathname === '/api/evlog' && request.method === 'POST') {
