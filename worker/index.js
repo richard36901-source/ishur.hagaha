@@ -100,10 +100,7 @@ async function alert(env, where, what, detail) {
   const detail500 = String(detail || '').slice(0, 500);
   /* the journal is the record; Slack is the notification */
   await logEvent(env, { area: where, action: what300, ok: false, review: true, detail: detail500 });
-  /* money that arrived and went nowhere cannot wait for somebody to open Slack */
-  if (/Grow|תשלום/.test(String(where))) {
-    try { await sendText(env, OWNER_PHONE, `🚨 ${where}: ${what300}`.slice(0, 900)); } catch {}
-  }
+  /* Richard reads Slack alerts; a second ping on WhatsApp was noise (his call, 06/09) */
   if (env.SLACK_ALERT_HOOK) {
     await slackPost(env, `⚠️ *${where}*\n${what300}${detail500 ? '\n' + detail500 : ''}`);
     return;
@@ -370,6 +367,21 @@ async function processGrowPayment(env, flat) {
     if (env.RATE) await env.RATE.put('pend:' + token,
       JSON.stringify({ phone, name, at: new Date().toISOString() }), { expirationTtl: 7 * 86400 });
     const first = (name.split(' ')[0] || '').trim() || 'לקוח יקר';
+    /* the invoice Grow generated (only when auto-invoice is on for the page).
+       A cold customer needs a template; until ishur_heshbonit is approved the
+       link is journaled so nothing is lost, and Richard can send it by hand. */
+    const invoiceUrl = String(flat.invoiceURL || flat.invoiceUrl || '').trim();
+    if (invoiceUrl) {
+      const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
+      if (invTmpl) {
+        const inv = await sendClient(env, phone, invTmpl, [first, invoiceUrl], { token });
+        await logEvent(env, { area: 'חשבוניות', action: 'חשבונית נשלחה ללקוח בווצאפ', ok: inv.ok, review: !inv.ok, phone, token, ref, detail: inv.ok ? invoiceUrl : String(inv.error || '') });
+      } else {
+        await logEvent(env, { area: 'חשבוניות', action: 'חשבונית נוצרה בגרואו — טרם נשלחה (אין תבנית מאושרת)', ok: true, review: true, phone, token, ref, detail: invoiceUrl });
+      }
+    } else {
+      await logEvent(env, { area: 'חשבוניות', action: 'גרואו לא צירפה חשבונית לתשלום', ok: false, review: true, phone, ref, detail: 'להפעיל חשבונית אוטומטית בעמוד התשלום בגרואו' });
+    }
     const wa = await sendClient(env, phone, 'ishur_tashlum',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_tashlum'));
@@ -1902,6 +1914,7 @@ async function handleWaWebhook(request, env, url) {
         await sendText(env, from, saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
       }
     }
+    if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
     /* "בוצע AUT-123" closes a team reminder before the service brain answers */
     if (parsed.kind === 'text') {
       const done = await markTaskDone(env, parsed.body).catch(() => null);
@@ -2072,6 +2085,21 @@ async function aiReply(env, from, text, who) {
   } catch { return null; }
 }
 
+/* The invitation artwork, sent the first time a guest replies — that reply
+   opens the 24h window a free-form image needs. Once per guest per event. */
+async function sendArtworkOnReply(env, raw, guest, from) {
+  try {
+    if (!guest || !guest.token || !raw) return;
+    const ev = ((raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === guest.token);
+    const invite = ev ? String(ev[44] || '').trim() : '';
+    if (!invite) return;
+    const key = `art:${guest.token}:${normPhone(from)}`;
+    if (env.RATE && await env.RATE.get(key)) return;
+    const r = await sendImage(env, from, invite, '', 'guests');
+    if (r && r.ok && env.RATE) await env.RATE.put(key, '1', { expirationTtl: 120 * 86400 });
+  } catch {}
+}
+
 /* An RSVP from WhatsApp resolves the guest without touching the call fields */
 /* Returns whether the sheet actually took the answer. The guest is only told
    "נרשם" when it did — otherwise we keep the reply and say we are on it. */
@@ -2194,9 +2222,12 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
          must never cost the invitation, which already landed. */
-      if (invite && wave.key === 1) {
-        await sendImage(env, phone, invite, '', 'guests').catch(() => null);
-      }
+      /* The artwork used to follow here as a plain image message. Meta refused
+         every one of them on the first real wave (131047): a free-form message
+         may only go to somebody who wrote to us in the last 24 hours, and a
+         cold guest has not. It goes out the moment they reply instead — see
+         sendArtworkOnReply. The real fix is a template with an IMAGE header
+         (AUT-907). */
     } else failed++;
   }
   if (!dry && env.RATE) {
@@ -2231,10 +2262,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   const today = (dry && /^\d{4}-\d{2}-\d{2}$/.test(String(todayOverride || '')))
     ? String(todayOverride) : ilDate();
   const isShabbat = new Date(today + 'T12:00:00Z').getUTCDay() === 6;
-  if (isShabbat && !dry) return { ok: true, skipped: 'shabbat' };
+  /* force: admin-only, for a test run against the owner's own numbers when
+     the calendar says no. Never reachable from a cron or the pacer. */
+  if (isShabbat && !dry && !opts.force) return { ok: true, skipped: 'shabbat' };
   /* חג: no messages, no calls, no "friendly nudge". A holiday that nobody
      configured is the one day a wedding RSVP text is genuinely offensive. */
-  if (isNoContactDay(today) && !dry) {
+  if (isNoContactDay(today) && !dry && !opts.force) {
     if (env.RATE && !(await env.RATE.get('holnote:' + today))) {
       await env.RATE.put('holnote:' + today, '1', { expirationTtl: 3 * 86400 });
       await slackPost(env, `🕯️ *${today} מסומן כיום ללא יצירת קשר.* לא נשלחו הודעות ולא בוצעו שיחות. הכל ימשיך מחר.`);
@@ -3537,7 +3570,10 @@ async function handleDailyRun(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
-  return okJson(await runDailyEngine(env, !!body.dry, body.today), origin);
+  const opts = { force: !!body.force };
+  if (body.budget) opts.budget = Number(body.budget);
+  if (body.force && !body.dry) await logEvent(env, { area: 'מערכת', action: 'הרצה כפויה של המנוע (אדמין, בדיקה)', ok: true, review: true, detail: 'עוקף שבת/חלון — לבדיקה בלבד' });
+  return okJson(await runDailyEngine(env, !!body.dry, body.today, opts), origin);
 }
 
 /* ══ Retell admin proxy ══════════════════════════════════════════════════════
