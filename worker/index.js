@@ -24,7 +24,7 @@
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables } from './shir.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation } from './whatsapp.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
 
@@ -2176,6 +2176,13 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      Editing the live template instead would have parked it in review and
      silenced every wave meanwhile. */
   const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+  /* no guests number = nothing leaves. The wave stays open and untouched:
+     no budget spent, no cursor moved, no flag written. It resumes on its own
+     the moment the secrets exist. */
+  if (!dry && !guestsReady(env)) {
+    await sendTemplate(env, '000', 'noop', [], '', 'he', 'guests');   // trips the once-a-day journal row
+    return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: false, held: true };
+  }
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
   let truncated = false;
   /* the sheet is the source of truth, so every delivered invitation is written
@@ -2505,7 +2512,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
          revoked token — wsent: already stops the 12 from repeating, so leaving
          the flag open costs nothing and the 188 get their invitation on the
          next tick. (Review finding #4.) */
-      const waveDelivered = !res.truncated && res.failed === 0;
+      const waveDelivered = !res.truncated && !res.held && res.failed === 0;
+      if (res.held) { out.push({ token, type: 'wave_held', wave: wave.key, why: 'no-guest-number' }); continue; }
       if (!dry && res.failed > 0 && env.RATE && !(await env.RATE.get(`wavefailnote:${token}:${wave.key}:${today}`))) {
         await env.RATE.put(`wavefailnote:${token}:${wave.key}:${today}`, '1', { expirationTtl: 2 * 86400 });
         await slackPost(env, `⚠️ גל ${wave.key} · ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו, ${res.sent} יצאו. הגל נשאר פתוח וינסה שוב כל 10 דקות (עד 3 ימים מהתאריך). פירוט ביומן המערכת.`);

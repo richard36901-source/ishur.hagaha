@@ -14,6 +14,8 @@
    Every send returns {ok, id|error} and the caller logs the cost.
    ========================================================================== */
 
+import { logEvent } from './evlog.js';
+
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
 function normPhone(raw) {
@@ -31,17 +33,17 @@ function normPhone(raw) {
    number and the client token — the system degrades, it never breaks. */
 /* The pair moves together: a guests number in another portfolio is unusable
    without its own token, so half a configuration must never route traffic. */
-function guestsReady(env) {
+export function guestsReady(env) {
   return !!(env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS);
 }
 
 function pickPhone(env, channel) {
-  if (channel === 'guests' && guestsReady(env)) return env.WA_PHONE_ID_GUESTS;
+  if (channel === 'guests') return guestsReady(env) ? env.WA_PHONE_ID_GUESTS : '';
   return env.WA_PHONE_ID;
 }
 
 function pickToken(env, channel) {
-  if (channel === 'guests' && guestsReady(env)) return env.WA_TOKEN_GUESTS;
+  if (channel === 'guests') return guestsReady(env) ? env.WA_TOKEN_GUESTS : '';
   return env.WA_TOKEN;
 }
 
@@ -90,6 +92,22 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
 }
 
 async function post(env, body, channel, ctx) {
+  /* Iron rule (Richard, 06/09): 4499 talks to clients and leads ONLY. Guest
+     traffic leaves from Shir's WhatsApp number or it does not leave at all.
+     The old "degrade to the client number" fallback sent a real wave from
+     4499 on the first live run — never again. */
+  if (channel === 'guests' && !guestsReady(env)) {
+    try {
+      const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+      if (env.RATE && !(await env.RATE.get('noguestnum:' + day))) {
+        await env.RATE.put('noguestnum:' + day, '1', { expirationTtl: 86400 });
+        await logEvent(env, { area: 'שליחה', action: 'מספר האורחים (שיר) לא מחובר — שליחות לאורחים מוחזקות, לא יוצאות מ-4499', ok: false, review: true,
+          detail: 'חסרים WA_PHONE_ID_GUESTS / WA_TOKEN_GUESTS · AUT-884 · הגלים נשארים פתוחים ויצאו ברגע שהמספר יחובר' });
+        await opsPing(env, 'מספר האורחים לא מחובר', 'גלים לאורחים מוחזקים. כלום לא יוצא מ-4499.', 'AUT-884');
+      }
+    } catch {}
+    return { ok: false, error: 'guests-number-not-connected', held: true };
+  }
   const phoneId = pickPhone(env, channel);
   const token = pickToken(env, channel);
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
