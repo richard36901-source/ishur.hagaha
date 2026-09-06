@@ -5800,6 +5800,24 @@ export default {
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
+        if (b.action === 'invoice-make') {
+          /* recovery: issue an invoice for a payment whose first attempt
+             failed, and send it if the template is live */
+          const inv = await createInvoice(env, b);
+          if (inv.ok && b.token && env.RATE) {
+            await env.RATE.put('invoice:' + b.token, JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+          }
+          let wa = null;
+          if (inv.ok && b.phone && b.send !== false) {
+            const t = env.RATE ? await env.RATE.get('invoicetmpl') : null;
+            const first = (String(b.name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
+            if (t) wa = await sendClient(env, b.phone, t, [first, inv.url], { token: b.token || '' });
+          }
+          await logEvent(env, { area: 'חשבוניות', action: inv.ok ? `חשבונית ${inv.number} הופקה ידנית` : 'הפקה ידנית של חשבונית נכשלה',
+            ok: !!inv.ok, review: !inv.ok, phone: b.phone || '', token: b.token || '', ref: b.ref || '',
+            detail: inv.ok ? `${inv.url}${wa ? ' · ווצאפ ' + (wa.ok ? 'נשלח' : wa.error) : ''}` : `${inv.why} ${inv.detail || ''}` });
+          return okJson({ inv, wa }, origin);
+        }
         if (b.action === 'morning-check') {
           /* login only, nothing is created */
           const r = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },

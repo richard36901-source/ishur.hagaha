@@ -18,15 +18,21 @@
 const API = 'https://api.greeninvoice.co.il/api/v1';
 const DOC_INVOICE_RECEIPT = 320;   // חשבונית מס קבלה
 
-/* Grow's free-text payment method → Morning payment type */
+/* Grow's free-text payment method → Morning payment type.
+
+   The default is 3 (credit card), not 11 ("other"). Grow is a card
+   processor: every payment that reaches us was a card unless it says
+   otherwise, and Morning rejects type 11 outright (error 2439, "סוג אמצעי
+   תשלום אחר לא תקין") because it wants extra fields we do not have. The
+   first real invoice, 06/09, died on exactly that. */
 function paymentType(method) {
   const m = String(method || '').toLowerCase();
-  if (/כרטיס|אשראי|card|visa|master|amex|credit/.test(m)) return 3;
-  if (/bit|ביט|paybox|פייבוקס|apple|google/.test(m)) return 10;
+  if (/bit|ביט|paybox|פייבוקס/.test(m)) return 10;
   if (/העברה|transfer|bank/.test(m)) return 4;
   if (/paypal/.test(m)) return 5;
   if (/מזומן|cash/.test(m)) return 1;
-  return 11;
+  if (/צ'ק|צק|check|cheque/.test(m)) return 2;
+  return 3;
 }
 
 /* The terms, as they appear on the document. A digest of terms.html, in the
