@@ -1,0 +1,369 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>דוח קמפיין · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=38"></script>
+<script src="assets/adminbar.js?v=5" defer></script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F; --amber:#8A6414; --chip:#F1EEE4;
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;--amber:#E2B65A;--chip:#222A24;
+  }
+  html[data-theme=dark] h2{color:#7BC9A4}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding-bottom:4rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1.1rem 1rem 1.2rem;text-align:center;border-bottom:1px solid var(--gold-pale)}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.76rem;color:rgba(248,244,234,.65)}
+  .wrap{max-width:min(96vw,1100px);margin:0 auto;padding:0 .9rem}
+  .layout{display:grid;grid-template-columns:220px 1fr;gap:1rem;margin-top:1.2rem;align-items:start}
+  @media (max-width:760px){.layout{grid-template-columns:1fr}}
+  h2{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--pine);margin:1.2rem 0 .5rem;padding-bottom:.3rem;border-bottom:1px solid var(--gold-soft)}
+  h2:first-child{margin-top:0}
+  h2 em{font-style:normal;color:var(--ink3);font-family:'Heebo';font-size:.72rem;font-weight:400}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem 1.1rem;margin-bottom:.7rem}
+  .card p.d{font-size:.78rem;color:var(--ink3);margin-bottom:.7rem}
+  .row{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  .btn{border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.55rem 1.1rem;font:inherit;font-weight:600;font-size:.84rem;cursor:pointer}
+  .btn.ghost{background:var(--card);color:var(--ink2);border:1px solid var(--line)}
+  .btn:disabled{opacity:.5;cursor:default}
+  button:not(:disabled):active{transform:scale(.97)}
+  .st{font-size:.78rem;min-height:1.1rem;margin-top:.5rem;color:var(--ink3)}
+  .st.err{color:var(--warn)}
+  .pill{display:inline-block;font-size:.7rem;font-weight:700;border-radius:99px;padding:.15rem .6rem;background:var(--chip);color:var(--ink3)}
+  .pill.on{background:rgba(15,76,53,.12);color:var(--ok)}
+  .pill.off{background:rgba(168,64,47,.12);color:var(--warn)}
+  .pill.stop{background:rgba(168,64,47,.14);color:var(--warn)}
+  .pill.warn{background:rgba(168,133,60,.16);color:var(--amber)}
+  .pill.clear{background:rgba(15,76,53,.12);color:var(--ok)}
+
+  /* archive list */
+  .arch{list-style:none}
+  .arch li{margin-bottom:.25rem}
+  .arch button{width:100%;text-align:right;border:1px solid transparent;border-radius:10px;background:none;padding:.5rem .7rem;font:inherit;font-size:.86rem;color:var(--ink2);cursor:pointer;direction:rtl}
+  .arch button:hover{background:var(--chip)}
+  .arch button.on{background:var(--chip);border-color:var(--gold-soft);color:var(--ink);font-weight:600}
+  .arch button small{display:block;font-size:.68rem;color:var(--ink3);font-weight:400}
+
+  /* report */
+  .rep-h{display:flex;justify-content:space-between;align-items:flex-start;gap:1rem;flex-wrap:wrap;margin-bottom:.8rem}
+  .rep-h .t{font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;color:var(--pine)}
+  html[data-theme=dark] .rep-h .t{color:#7BC9A4}
+  .rep-h .s{font-size:.78rem;color:var(--ink3)}
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:.9rem}
+  .tile{background:var(--chip);border-radius:12px;padding:.7rem .8rem}
+  .tile b{display:block;font-size:1.3rem;font-weight:700;line-height:1.2;direction:ltr;text-align:right}
+  .tile span{font-size:.72rem;color:var(--ink3)}
+  .tbl{width:100%;border-collapse:collapse;font-size:.84rem}
+  .tbl th,.tbl td{padding:.5rem .55rem;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  .tbl th{font-size:.72rem;font-weight:600;color:var(--ink3)}
+  .tbl td.n{direction:ltr;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .tbl tr.stop td:first-child{border-right:3px solid var(--warn)}
+  .tbl tr.warn td:first-child{border-right:3px solid var(--gold)}
+  .tblwrap{overflow-x:auto}
+  .verd{list-style:none;font-size:.82rem}
+  .verd li{padding:.35rem 0;border-bottom:1px dashed var(--line);display:flex;gap:.5rem;align-items:flex-start}
+  .verd li:last-child{border-bottom:none}
+  .verd .pill{flex-shrink:0;margin-top:.1rem}
+  .list{list-style:none;font-size:.84rem}
+  .list li{padding:.25rem 0}
+  .list li::before{content:'·';color:var(--gold);margin-left:.4rem}
+  pre.txt{white-space:pre-wrap;font:inherit;font-size:.84rem;background:var(--chip);border-radius:12px;padding:.9rem 1rem;direction:rtl}
+  .empty{font-size:.82rem;color:var(--ink3);padding:1rem 0}
+
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate h2{border:none;margin:0;color:var(--pine)}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{min-height:1.2rem;margin-top:.4rem;color:var(--warn);font-size:.8rem}
+
+  /* print: the report alone, black on white, one page per report */
+  @media print{
+    @page{size:A4;margin:14mm}
+    html,body{background:#fff!important;color:#000!important;padding:0!important}
+    .ibar,.ibar-menu,.head,.no-print,#archCard,#printBtn,.st{display:none!important}
+    .wrap{max-width:none;padding:0}
+    .layout{display:block;margin-top:0}
+    .card{border:none;padding:0;margin:0 0 .8rem;background:#fff;page-break-inside:avoid}
+    .tile{border:1px solid #ccc;background:#fff}
+    .tbl th,.tbl td{border-bottom:1px solid #bbb;color:#000}
+    .pill{border:1px solid #888;background:#fff!important;color:#000!important}
+    pre.txt{background:#fff;border:1px solid #ccc}
+    h2,.rep-h .t{color:#000!important}
+    a{color:#000;text-decoration:none}
+  }
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<header class="head">
+  <h1>ishur<i>.io</i> · דוח קמפיין</h1>
+  <p>הביקורת האוטומטית של כל 4 ימים — הארכיון, פר אד-סט, וכללי העצירה</p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+  <p style="font-size:.75rem;margin-top:.6rem"><a href="admin-login.html" style="color:var(--gold)">או כניסה עם קוד לטלפון</a></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+  <div class="layout">
+    <aside class="card" id="archCard">
+      <h2>ארכיון <em id="archCount"></em></h2>
+      <ul class="arch" id="arch"></ul>
+      <p class="empty" id="archEmpty" hidden>עוד אין דוחות שמורים. הדוח הראשון נכתב בריצה האוטומטית הבאה.</p>
+      <p class="st" id="archSt"></p>
+    </aside>
+
+    <section>
+      <div class="card">
+        <div class="rep-h">
+          <div>
+            <div class="t" id="repTitle">בחרו דוח מהארכיון</div>
+            <div class="s" id="repSub"></div>
+          </div>
+          <div class="row no-print">
+            <button class="btn" id="printBtn" disabled>הדפס / שמור PDF</button>
+          </div>
+        </div>
+        <div id="repBody"><p class="empty">הדוח יופיע כאן.</p></div>
+        <p class="st" id="repSt"></p>
+      </div>
+    </section>
+  </div>
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var API = (CFG && CFG.endpoint) ? CFG.endpoint('ops').replace(/\/api\/ops-stats$/, '') : 'https://ishur-webhooks.richardtomskiy.workers.dev';
+  var $ = function (id) { return document.getElementById(id); };
+
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  var adminKey = '';
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+
+  var dates = [], current = null;
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function heDate(iso) {
+    if (!iso) return '—';
+    var p = String(iso).split('-');
+    return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0] : iso;
+  }
+  function ils(n) { return n == null || isNaN(n) ? '—' : Math.round(Number(n)).toLocaleString('he-IL') + '₪'; }
+  function num(n) { return n == null || isNaN(n) ? '—' : Number(n).toLocaleString('he-IL'); }
+  function st(id, msg, cls) { var e = $(id); e.textContent = msg || ''; e.className = 'st' + (cls ? ' ' + cls : ''); }
+
+  function post(body) {
+    body.admin_key = adminKey;
+    return fetch(API + '/api/ad-reports', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
+    }).then(function (r) {
+      if (r.status === 403) { try { localStorage.removeItem('ishur_calls_key'); } catch (e) {} gate('המפתח לא נכון'); throw new Error('403'); }
+      return r.json();
+    });
+  }
+
+  /* ── archive ── */
+  function paintArchive() {
+    var ul = $('arch'); ul.innerHTML = '';
+    $('archEmpty').hidden = dates.length > 0;
+    $('archCount').textContent = dates.length ? dates.length + ' דוחות' : '';
+    dates.forEach(function (d, i) {
+      var li = document.createElement('li');
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = d === current ? 'on' : '';
+      b.innerHTML = esc(heDate(d)) + (i === 0 ? '<small>האחרון</small>' : '');
+      b.addEventListener('click', function () { loadReport(d); });
+      li.appendChild(b); ul.appendChild(li);
+    });
+  }
+
+  function loadList() {
+    st('archSt', 'טוען…');
+    return post({}).then(function (d) {
+      if (!d || !d.ok) { st('archSt', 'נכשל: ' + ((d && d.error) || ''), 'err'); return; }
+      dates = d.dates || [];
+      st('archSt', '');
+      paintArchive();
+      if (dates.length && !current) loadReport(dates[0]);
+    }).catch(function (e) { if (String(e.message) !== '403') st('archSt', 'נכשל', 'err'); });
+  }
+
+  /* ── one report ── */
+  function loadReport(date) {
+    st('repSt', 'טוען…');
+    post({ date: date }).then(function (d) {
+      if (!d || !d.ok) { st('repSt', 'נכשל: ' + ((d && d.error) || ''), 'err'); return; }
+      current = d.date;
+      dates = d.dates || dates;
+      paintArchive();
+      paintReport(d.report);
+      st('repSt', '');
+      $('printBtn').disabled = false;
+      document.title = 'דוח קמפיין ' + heDate(current) + ' · ishur.io';
+    }).catch(function (e) { if (String(e.message) !== '403') st('repSt', 'נכשל', 'err'); });
+  }
+
+  function statusPill(s) {
+    if (!s) return '<span class="pill">—</span>';
+    var on = s === 'ACTIVE';
+    return '<span class="pill ' + (on ? 'on' : 'off') + '">' + (on ? 'פעיל' : s === 'PAUSED' ? 'מושהה' : esc(s)) + '</span>';
+  }
+
+  function paintReport(r) {
+    var body = $('repBody');
+    if (r.legacy) {
+      $('repTitle').textContent = 'דוח קמפיין · ' + heDate(r.date);
+      $('repSub').textContent = 'דוח מהגרסה הקודמת — נשמר כטקסט בלבד';
+      body.innerHTML = '<pre class="txt">' + esc(r.text) + '</pre>';
+      return;
+    }
+    var c = r.campaign || {};
+    var totals = r.totals || {};
+    $('repTitle').textContent = 'דוח קמפיין · ' + heDate(r.since) + ' – ' + heDate(r.until);
+    $('repSub').innerHTML = esc(c.name || 'קמפיין ishur') + ' · ' + statusPill(c.effective_status) +
+      (r.next ? ' · הדוח הבא: ' + esc(heDate(r.next)) : '');
+
+    var html = '';
+
+    /* totals */
+    html += '<div class="tiles">' +
+      tile(ils(totals.spend), 'הוצאה בתקופה') +
+      tile(num(totals.leads), 'לידים') +
+      tile(r.cpl != null ? ils(r.cpl) : '—', 'CPL') +
+      tile(num(totals.impressions), 'חשיפות') +
+      tile(num(totals.clicks), 'קליקים') +
+      '</div>';
+
+    /* CAC */
+    var cac = r.cac;
+    var cacTxt = 'אין עדיין נתונים';
+    var cacCls = '';
+    if (cac && cac.cac_ils != null) {
+      cacTxt = ils(cac.cac_ils) + ' (' + ils(cac.spend) + ' פרסום ÷ ' + num(cac.buyers) + ' רכישות)';
+      cacCls = cac.verdict === 'green' ? 'clear' : cac.verdict === 'amber' ? 'warn' : 'stop';
+    } else if (cac && cac.verdict === 'no-buyers-yet') {
+      cacTxt = ils(cac.spend) + ' הוצאו, עדיין 0 רכישות משויכות'; cacCls = 'warn';
+    } else if (cac && cac.verdict === 'idle') {
+      cacTxt = 'אין הוצאה ואין רכישות משויכות';
+    }
+    html += '<h2>CAC החודש <em>' + esc(r.month || '') + (r.month_spend != null ? ' · הוצאה חודשית ' + esc(ils(r.month_spend)) : '') + '</em></h2>' +
+      '<p style="font-size:.9rem">' + (cacCls ? '<span class="pill ' + cacCls + '">' + (cacCls === 'clear' ? 'ירוק' : cacCls === 'warn' ? 'כתום' : 'אדום') + '</span> ' : '') + esc(cacTxt) + '</p>';
+
+    /* per ad set */
+    var sets = (r.adsets || []).slice();
+    html += '<h2>פר אד-סט <em>' + sets.length + ' עם נתונים בתקופה</em></h2>';
+    if (!sets.length) {
+      html += '<p class="empty">אף אד-סט לא הוציא כסף בתקופה הזו.</p>';
+    } else {
+      html += '<div class="tblwrap"><table class="tbl"><thead><tr>' +
+        '<th>אד-סט</th><th>סטטוס</th><th>תקציב יומי</th><th>הוצאה</th><th>לידים</th><th>CPL</th><th>חשיפות</th><th>קליקים</th><th>CTR</th><th>תדירות</th><th>דין</th>' +
+        '</tr></thead><tbody>';
+      sets.forEach(function (a) {
+        var v = a.verdicts || [];
+        var lvl = v.some(function (x) { return x.level === 'stop'; }) ? 'stop' : v.length ? 'warn' : '';
+        html += '<tr class="' + lvl + '">' +
+          '<td><b>' + esc(a.name) + '</b></td>' +
+          '<td>' + statusPill(a.status) + '</td>' +
+          '<td class="n">' + (a.daily_budget != null ? esc(ils(a.daily_budget)) : '—') + '</td>' +
+          '<td class="n">' + esc(ils(a.spend)) + '</td>' +
+          '<td class="n">' + esc(num(a.leads)) + '</td>' +
+          '<td class="n">' + (a.cpl != null ? esc(ils(a.cpl)) : '—') + '</td>' +
+          '<td class="n">' + esc(num(a.impressions)) + '</td>' +
+          '<td class="n">' + esc(num(a.clicks)) + '</td>' +
+          '<td class="n">' + (a.ctr != null ? esc(Number(a.ctr).toFixed(2)) + '%' : '—') + '</td>' +
+          '<td class="n">' + (a.frequency != null ? esc(Number(a.frequency).toFixed(1)) : '—') + '</td>' +
+          '<td>' + (lvl === 'stop' ? '<span class="pill stop">לכבות</span>' : lvl === 'warn' ? '<span class="pill warn">אזהרה</span>' : '<span class="pill clear">נקי</span>') + '</td>' +
+          '</tr>';
+      });
+      html += '</tbody></table></div>';
+    }
+    if (r.inactive_adsets && r.inactive_adsets.length) {
+      html += '<p class="st">בלי נתונים בתקופה: ' + r.inactive_adsets.map(function (a) { return esc(a.name) + ' (' + (a.status === 'ACTIVE' ? 'פעיל' : 'מושהה') + ')'; }).join(', ') + '</p>';
+    }
+
+    /* stop-rule verdicts */
+    html += '<h2>כללי העצירה <em>≥60₪ בלי ליד · CPL&gt;35₪ אחרי 15 לידים · CTR&lt;0.8% על 2000 חשיפות · תדירות&gt;3</em></h2>';
+    var anyV = false;
+    var vHtml = '<ul class="verd">';
+    sets.forEach(function (a) {
+      (a.verdicts || []).forEach(function (v) {
+        anyV = true;
+        vHtml += '<li><span class="pill ' + (v.level === 'stop' ? 'stop' : 'warn') + '">' + (v.level === 'stop' ? 'לכבות' : 'אזהרה') + '</span><span><b>' + esc(a.name) + '</b>: ' + esc(v.text) + '</span></li>';
+      });
+    });
+    vHtml += '</ul>';
+    if (!anyV && r.flags && r.flags.length) {
+      vHtml = '<ul class="list">' + r.flags.map(function (f) { return '<li>' + esc(f) + '</li>'; }).join('') + '</ul>';
+      anyV = true;
+    }
+    html += anyV ? vHtml : '<p class="empty"><span class="pill clear">נקי</span> אף כלל עצירה לא נחצה.</p>';
+
+    /* changes */
+    html += '<h2>שינויים מאז הדוח הקודם</h2>';
+    html += (r.changes && r.changes.length)
+      ? '<ul class="list">' + r.changes.map(function (c) { return '<li>' + esc(c) + '</li>'; }).join('') + '</ul>'
+      : '<p class="empty">אין שינויים.</p>';
+
+    /* the text that went out */
+    if (r.text) html += '<h2>ההודעה שנשלחה <em>וואטסאפ + Slack</em></h2><pre class="txt">' + esc(r.text) + '</pre>';
+
+    body.innerHTML = html;
+  }
+  function tile(v, label) { return '<div class="tile"><b>' + esc(v) + '</b><span>' + esc(label) + '</span></div>'; }
+
+  $('printBtn').addEventListener('click', function () { window.print(); });
+
+  /* ── gate ── */
+  function gate(err) {
+    $('gate').hidden = false;
+    $('main').hidden = true;
+    $('keyErr').textContent = err || '';
+  }
+  function open_() {
+    $('gate').hidden = true;
+    $('main').hidden = false;
+    loadList();
+  }
+  $('keyGo').addEventListener('click', function () {
+    var v = $('keyIn').value.trim();
+    if (!v) return;
+    adminKey = v;
+    try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {}
+    open_();
+  });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+
+  if (adminKey) open_(); else gate();
+})();
+</script>
+</body>
+</html>
