@@ -2389,7 +2389,16 @@ async function serviceReply(env, from, text, who, ch) {
   if (!reply && /חשבונית|קבלה/.test(t) && env.RATE) {
     const tok = await env.RATE.get('claimlink:' + normPhone(from));
     const inv = tok ? await env.RATE.get('invoice:' + tok) : null;
-    if (inv) { try { reply = 'הנה החשבונית שלכם 🧾\n' + JSON.parse(inv).link + '\nהתנאים המלאים: https://ishur.io/terms'; } catch {} }
+    /* the record is written by the worker as {url, number}; Make's old shape
+       used {link}. Accept both, or a client asking for their invoice gets
+       silence (the parse threw and the branch fell through). */
+    if (inv) {
+      try {
+        const o = JSON.parse(inv);
+        const link = o.url || o.link || '';
+        if (link) reply = `הנה החשבונית שלכם 🧾${o.number ? ' (מספר ' + o.number + ')' : ''}\n${link}\nהתנאים המלאים: https://ishur.io/terms`;
+      } catch {}
+    }
     else if (tok) reply = 'החשבונית עוד לא נוצרה, היא בדרך 🙂 אם לא הגיעה עד מחר, כתבו לי ואטפל.';
   }
 
