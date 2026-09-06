@@ -161,7 +161,7 @@
   <div class="steps">
     <div class="step">
       <span class="step-n">1</span>
-      <span class="step-t"><b>פותחים לכם אירוע</b> ומעבירים אתכם לעמוד האישי שלו. הקישור נשלח גם בוואטסאפ, אפשר לחזור אליו מתי שרוצים.</span>
+      <span class="step-t"><b>פותחים לכם אירוע</b> ומעבירים אתכם לעמוד האישי שלו. כדאי לשמור את הקישור, אפשר לחזור אליו מתי שרוצים.</span>
     </div>
     <div class="step">
       <span class="step-n">2</span>
@@ -316,7 +316,7 @@
             askPhone('לא מצאנו תשלום למספר הזה. בדקו שזה המספר שאיתו שילמתם:');
           } else {
             IshurLead.track('claim_timeout', {});
-            box.innerHTML = '<p style="font-size:.8rem;color:var(--ink3)">הקישור האישי בדרך אליכם בוואטסאפ. אם הוא לא הגיע תוך כמה דקות, כתבו לנו כאן ונשלח מיד.</p>';
+            box.innerHTML = '<p style="font-size:.8rem;color:var(--ink3)">לא הצלחנו לאתר את התשלום מהדפדפן הזה. כתבו לנו כאן ונשלח לכם את הקישור האישי תוך רגע.</p>';
           }
         })
         ['catch'](function () { if (tries < 15) setTimeout(attempt, 3000); });
