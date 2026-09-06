@@ -163,7 +163,19 @@ export function eventFacts(ev) {
    matters: a guest first (that is what the number is FOR), then the client
    who is paying us, then somebody who once asked about the service.
    Pure — index.js hands it a snapshot, node hands it a fixture. */
-export function inboundLookup(raw, phone, todayIso) {
+export function inboundLookup(raw, phone, todayIso, opts = {}) {
+  /* one person can be a client of ours AND a guest at somebody's wedding.
+     The LINE they called decides who they are: Noa's line → client first,
+     Shir's line → guest first. */
+  if (opts.prefer === 'client') {
+    const asGuest = inboundLookup(raw, phone, todayIso, {});
+    const p0 = normIl(phone);
+    const facts0 = [];
+    for (const ev of (raw && raw.events && raw.events.values) || []) { const f = eventFacts(ev); if (f.token && !f.cancelled) facts0.push(f); }
+    const host0 = facts0.find(f => normIl(f.client_phone) === p0 || normIl(f.extra_phone) === p0);
+    if (host0) return { caller_kind: 'client', phone: p0, name: host0.client_name, token: host0.token, event: host0 };
+    return asGuest;
+  }
   const p = normIl(phone);
   const miss = { caller_kind: 'unknown', phone: p, name: '', event: null };
   if (!raw || !p) return miss;

@@ -1755,7 +1755,8 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
     if (snap === undefined) snap = await snapshotCached(env).catch(() => null);
     /* looked up fresh rather than replayed from the queue entry: between the
        missed call and the ring back, the guest may have answered on WhatsApp */
-    const hit = snap ? inboundLookup(snap, r.phone, today) : { caller_kind: 'unknown', phone: r.phone, name: '' };
+    const hit = snap ? inboundLookup(snap, r.phone, today, { prefer: r.why === 'guest-rang-noa' || r.why === 'noa-ring' ? 'client' : 'guest' })
+      : { caller_kind: 'unknown', phone: r.phone, name: '' };
     const meta = inboundMetadata(hit, { callback: true });
     const target = {
       kind: 'callback', phone: r.phone, hit,
@@ -1999,7 +2000,7 @@ async function handleNoaInbound(request, env, url, origin) {
     snapshotCached(env).catch(() => null),
     new Promise(r => setTimeout(() => r(null), 4000)),
   ]);
-  const hit = raw ? inboundLookup(raw, phone, today) : { caller_kind: 'unknown', phone, name: '', event: null };
+  const hit = raw ? inboundLookup(raw, phone, today, { prefer: 'client' }) : { caller_kind: 'unknown', phone, name: '', event: null };
 
   const answer = {
     call_inbound: {
@@ -2191,7 +2192,9 @@ async function handleWaWebhook(request, env, url) {
     const ownEvents = raw ? eventsForPhone(raw, normPhone(from)) : [];
     const isClient = ownEvents.length > 0 ||
       !!(env.RATE && await env.RATE.get('client:' + normPhone(from)));
-    const guest = (!isClient && raw) ? findGuestByPhone(raw, from, ilDate()) : null;
+    /* a client can also be a guest at somebody else's event: on Shir's line
+       the guest row wins, on Noa's line the client wins */
+    const guest = raw && (ch === 'guests' || !isClient) ? findGuestByPhone(raw, from, ilDate()) : null;
 
     /* Separation rule on WhatsApp (Richard 06/09): Noa's number never runs
        guest logic, Shir's number never runs service logic. Each side points
