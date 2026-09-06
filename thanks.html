@@ -168,7 +168,7 @@
        phone the buyer typed into the lead form minutes ago is what identifies
        them. Either one is enough to claim. */
     var claimPhone = (pending && pending.phone) || '';
-    if ((!orderRef && !claimPhone) || !CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
+    if (!CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
     var tries = 0;
     var box = document.createElement('div');
     box.id = 'claimBox';
@@ -177,7 +177,9 @@
 
     function attempt() {
       tries++;
-      var claim = { ref: orderRef, phone: claimPhone };
+      /* qs is what Grow actually appended to this URL. It is journaled by the
+         worker so a failed claim explains itself instead of sitting silent. */
+      var claim = { ref: orderRef, phone: claimPhone, qs: String(location.search || '').slice(0, 300) };
       var body = window.IshurGuard ? IshurGuard.stamp(claim) : claim;
       fetch(CFG.endpoint('claim'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

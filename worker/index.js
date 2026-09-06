@@ -782,6 +782,15 @@ async function handleClaim(request, env, origin) {
     if (p && p.length >= 11) token = await env.RATE.get('claimfresh:' + p);
   }
   if (!token || token === 'addon') {
+    /* one line a day at most, but it answers the only open question: what
+       Grow actually sends back to the thank-you page */
+    try {
+      if (env.RATE && !(await env.RATE.get('claimqs:' + ilDate()))) {
+        await env.RATE.put('claimqs:' + ilDate(), '1', { expirationTtl: 3 * 86400 });
+        await logEvent(env, { area: 'תשלום', action: 'עמוד התודה לא הצליח לזהות את הרוכש', ok: false, review: true,
+          phone: normPhone(body.phone || ''), detail: `מה שגרואו החזיר: "${String(body.qs || '').slice(0, 200)}" · ref="${ref}" · phone="${String(body.phone || '')}"` });
+      }
+    } catch {}
     return new Response(JSON.stringify({ ok: false, pending: true }), {
       status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
     });
