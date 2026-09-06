@@ -819,7 +819,7 @@ function parseAddonDesc(desc) {
   return { kind: 'guests', n: parseInt(m[1], 10), desc: d.slice(0, 80) };
 }
 
-async function applyAddon(env, { phone, name, sum, ref, addon }) {
+async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   const today = ilDate();
   const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
   const rows = (raw && raw.events && raw.events.values) || [];
@@ -837,6 +837,21 @@ async function applyAddon(env, { phone, name, sum, ref, addon }) {
     return { ok: false, why: 'no-active-event' };
   }
   const token = ev.token, row = idx + 2, evRow = rows[idx];
+  /* an add-on is money too: same invoice-receipt, same terms, same WhatsApp */
+  try {
+    const inv = await createInvoice(env, { name, phone, sum, ref, payMethod: String(flat.paymentType || flat.paymentMethod || '').trim(),
+      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
+    if (inv.ok) {
+      const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
+      const first = (String(name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
+      const wa = invTmpl ? await sendClient(env, phone, invTmpl, [first, inv.url], { token }) : { ok: false, error: 'no-template' };
+      await logEvent(env, { area: 'חשבוניות', action: `חשבונית ${inv.number} לתוספת הופקה${wa.ok ? ' ונשלחה' : ' — לא נשלחה'}`, ok: wa.ok, review: !wa.ok, phone, token, ref, detail: `₪${sum} · ${inv.url}` });
+      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true }), { expirationTtl: 400 * 86400 });
+      await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
+    } else if (inv.why !== 'not-configured') {
+      await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
+    }
+  } catch {}
   if (addon.kind === 'extrasend') {
     if (env.RATE) await env.RATE.put('extrasend:' + token, new Date().toISOString(), { expirationTtl: 200 * 86400 });
     await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
