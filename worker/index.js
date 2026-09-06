@@ -1800,10 +1800,14 @@ async function handleWaWebhook(request, env, url) {
        the sheet is written twice. msg.id is Meta's stable per-message id. */
     if (msg.id && await seenOnce(env, 'wain:' + msg.id)) continue;
     const parsed = parseInboundReply(msg);
+    /* which of our two numbers received this. Every reply below goes back out on
+       the SAME number: a guest who wrote to Shir's line is answered from Shir's
+       line, never from 4499 (iron rule 06/09). The inbox filters on it too. */
+    const ch = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
+    const say = (t) => sendText(env, from, t, ch);
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
-      const ch = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
       const ts = Date.now();
       const body = (parsed ? textOf(parsed) : '').slice(0, 300);
       /* kept forever, on purpose: this is the record of the conversation */
@@ -1823,7 +1827,7 @@ async function handleWaWebhook(request, env, url) {
     if (msg.type === 'document' && msg.document) {
       await waGuestFile(env, from, msg.document).catch(async (e) => {
         await alert(env, 'קובץ בוואטסאפ', 'קליטת קובץ נכשלה', `${from}: ${e && e.message}`);
-        await sendText(env, from, 'משהו השתבש בקליטת הקובץ. אפשר לנסות שוב, או להעלות דרך הקישור האישי 🙂');
+        await say('משהו השתבש בקליטת הקובץ. אפשר לנסות שוב, או להעלות דרך הקישור האישי 🙂');
       });
       continue;
     }
@@ -1849,14 +1853,14 @@ async function handleWaWebhook(request, env, url) {
     if (parsed.kind === 'nocall') {
       if (env.RATE) await env.RATE.put('nocall:' + normPhone(from), new Date().toISOString());
       await logEvent(env, { area: 'ווצאפ', action: 'אורח ביקש לא להתקשר', ok: true, phone: from });
-      await sendText(env, from, 'סגור, לא נתקשר יותר 🙏 אפשר לעדכן הגעה כאן בהודעה בכל רגע.');
+      await say('סגור, לא נתקשר יותר 🙏 אפשר לעדכן הגעה כאן בהודעה בכל רגע.');
       continue;
     }
     if (parsed.kind === 'optout') {
       if (env.RATE) await env.RATE.put('optout:' + normPhone(from), new Date().toISOString());
       await logEvent(env, { area: 'ווצאפ', action: 'הסרה מהודעות (הסר)', ok: true, phone: from });
       await bumpRemoveRate(env, 'optout');
-      await sendText(env, from, 'הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
+      await say('הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
       continue;
     }
 
@@ -1882,7 +1886,7 @@ async function handleWaWebhook(request, env, url) {
         await logEvent(env, { area: 'ווצאפ', action: 'אורח סימן "טעות" — הושתק לאירוע', ok: true, phone: from, token: guest.token });
       }
       await bumpRemoveRate(env, 'mistake');
-      await sendText(env, from, 'תודה על העדכון, וסליחה על ההפרעה 🙏 לא תגיע אליכם עוד הודעה על האירוע הזה.');
+      await say('תודה על העדכון, וסליחה על ההפרעה 🙏 לא תגיע אליכם עוד הודעה על האירוע הזה.');
       continue;
     }
 
@@ -1906,7 +1910,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          await sendText(env, from, saved
+          await say(saved
             ? `מעולה, רשמנו ${n} 🎉 נתראה בשמחות!`
             : 'קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
@@ -1921,18 +1925,18 @@ async function handleWaWebhook(request, env, url) {
       if (parsed.outcome === 'מגיע' && !parsed.party) {
         const saved = await writeGuestReply(env, guest, 'מגיע');
         if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
-        await sendText(env, from, saved
+        await say(saved
           ? 'איזה כיף! כמה תהיו בסך הכל?'
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        await sendText(env, from, saved ? `נרשם, ${parsed.party} מגיעים 🎉` : HOLD);
+        await say(saved ? `נרשם, ${parsed.party} מגיעים 🎉` : HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
-        await sendText(env, from, saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
+        await say(saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
       } else {
         const saved = await writeGuestReply(env, guest, 'מתלבט');
-        await sendText(env, from, saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
+        await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
       }
     }
     if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
@@ -1940,10 +1944,10 @@ async function handleWaWebhook(request, env, url) {
     if (parsed.kind === 'text') {
       const done = await markTaskDone(env, parsed.body).catch(() => null);
       if (done) {
-        await sendText(env, from, 'סומן ✓ ' + done + ' ירד מהתזכורות. כל הכבוד!');
+        await say('סומן ✓ ' + done + ' ירד מהתזכורות. כל הכבוד!');
         continue;
       }
-      await serviceReply(env, from, parsed.body);
+      await serviceReply(env, from, parsed.body, undefined, ch);
     }
     } catch (e) {
       await alert(env, 'וובהוק וואטסאפ', 'שגיאה בטיפול בהודעה נכנסת', `${from}: ${e && e.message}`);
@@ -1971,7 +1975,7 @@ function textOf(parsed) {
 
 const FALLBACK_REPLY = 'היי! כאן הצוות של ishur.io 🙂 קיבלנו את ההודעה ונחזור אליכם ממש בקרוב.';
 
-async function serviceReply(env, from, text, who) {
+async function serviceReply(env, from, text, who, ch) {
   const t = String(text || '').trim();
   if (!t) return;
 
@@ -2006,7 +2010,7 @@ async function serviceReply(env, from, text, who) {
   /* 3 · never silent */
   if (!reply) reply = FALLBACK_REPLY;
 
-  await sendText(env, from, reply);
+  await sendText(env, from, reply, ch);
   if (env.RATE) {
     await env.RATE.put('inbox:' + normPhone(from) + ':' + Date.now(),
       JSON.stringify({ in: t.slice(0, 500), out: reply.slice(0, 500), at: new Date().toISOString() }),
