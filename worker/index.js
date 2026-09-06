@@ -3069,12 +3069,22 @@ async function runPacer(env) {
     const hourKey = 'tmplcheck:' + new Date().toISOString().slice(0, 13);
     if (env.WA_TOKEN && !(await env.RATE.get(hourKey))) {
       await env.RATE.put(hourKey, '1', { expirationTtl: 7200 });
-      const want = { hazmana_ishur_img: 'invitetmpl_img', ishur_heshbonit: 'invoicetmpl' };
-      const r = await fetch('https://graph.facebook.com/v21.0/1060242146337688/message_templates?limit=60&fields=name,status',
-        { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
-      const j = r ? await r.json().catch(() => null) : null;
-      for (const t of (j && j.data) || []) {
-        const key = want[t.name];
+      /* Each template is checked on the WABA that will actually SEND it. The
+         invitation with the image header goes to guests, so it must be approved
+         on Shir's account (1378764257421712) — approval on the 4499 account
+         flipped the switch on 06/09 and every guest send died with 132001. The
+         invoice goes to clients from 4499. */
+      const checks = [
+        { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
+        { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+      ];
+      for (const c of checks) {
+        if (!c.tok) continue;
+        const r = await fetch(`https://graph.facebook.com/v21.0/${c.waba}/message_templates?name=${c.name}&fields=name,status`,
+          { headers: { Authorization: 'Bearer ' + c.tok } }).catch(() => null);
+        const j = r ? await r.json().catch(() => null) : null;
+        const t = ((j && j.data) || []).find(x => x.name === c.name);
+        const key = t ? c.key : null;
         if (key && t.status === 'APPROVED' && !(await env.RATE.get(key))) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
@@ -5154,17 +5164,23 @@ export default {
       return (async () => {
         let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
         if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-        const appId = String(b.app_id || '1258746612804480');
+        /* channel:'guests' submits on Shir's WABA with the Ishur.io app + token;
+           default stays the 4499 account */
+        const guests = b.channel === 'guests';
+        const tok = guests ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+        const waba = guests ? '1378764257421712' : '1060242146337688';
+        if (!tok) return deny(503, 'wa-not-configured', origin);
+        const appId = String(b.app_id || (guests ? '1084149031015902' : '1258746612804480'));
         const imgUrl = String(b.image_url || 'https://ishur.io/logo.png');
         const img = await fetch(imgUrl).catch(() => null);
         if (!img || !img.ok) return okJson({ ok: false, step: 'fetch-image', status: img && img.status }, origin);
         const buf = await img.arrayBuffer();
         const type = img.headers.get('Content-Type') || 'image/png';
-        const s1 = await fetch(`https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buf.byteLength}&file_type=${encodeURIComponent(type)}&access_token=${env.WA_TOKEN}`, { method: 'POST' });
+        const s1 = await fetch(`https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buf.byteLength}&file_type=${encodeURIComponent(type)}&access_token=${tok}`, { method: 'POST' });
         const j1 = await s1.json().catch(() => ({}));
         if (!j1.id) return okJson({ ok: false, step: 'open-session', resp: j1 }, origin);
         const s2 = await fetch(`https://graph.facebook.com/v21.0/${j1.id}`, { method: 'POST',
-          headers: { Authorization: 'OAuth ' + env.WA_TOKEN, file_offset: '0', 'Content-Type': type }, body: buf });
+          headers: { Authorization: 'OAuth ' + tok, file_offset: '0', 'Content-Type': type }, body: buf });
         const j2 = await s2.json().catch(() => ({}));
         if (!j2.h) return okJson({ ok: false, step: 'upload', resp: j2 }, origin);
         const name = String(b.name || 'hazmana_ishur_img');
@@ -5174,8 +5190,8 @@ export default {
             example: { body_text: [['דנה', 'חתונה', 'נועה ויונתן', '12.09.2026', '19:30', 'הגן הקסום, רמת גן']] } },
           { type: 'FOOTER', text: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' },
           { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'מגיע/ה' }, { type: 'QUICK_REPLY', text: 'לא מגיע/ה' }, { type: 'QUICK_REPLY', text: 'עדיין לא ידוע' }] } ] };
-        const s3 = await fetch(`https://graph.facebook.com/v21.0/1060242146337688/message_templates`, { method: 'POST',
-          headers: { Authorization: 'Bearer ' + env.WA_TOKEN, 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) });
+        const s3 = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST',
+          headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) });
         const j3 = await s3.json().catch(() => ({}));
         await logEvent(env, { area: 'מטא', action: 'תבנית הזמנה עם תמונה הוגשה לאישור', ok: !!j3.id, review: !j3.id, ref: name, detail: JSON.stringify(j3).slice(0, 200) });
         return okJson({ ok: !!j3.id, handle: j2.h.slice(0, 20) + '…', resp: j3 }, origin);
