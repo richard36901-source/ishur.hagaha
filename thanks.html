@@ -74,6 +74,32 @@
   .wa:active{transform:scale(.972);transition-duration:100ms}
   .home{display:inline-block;margin-top:1rem;font-size:.84rem;color:var(--ink3);text-decoration:underline;text-underline-offset:3px}
   .fine{font-size:.74rem;color:var(--ink3);margin-top:1.2rem;line-height:1.6}
+  .claim{
+    background:var(--green4);border:1px solid var(--bdr2);border-radius:12px;
+    padding:.95rem 1rem;margin-bottom:1.3rem;display:flex;align-items:center;
+    gap:.75rem;text-align:start;
+  }
+  .spin{
+    width:22px;height:22px;border-radius:50%;flex:none;
+    border:2.5px solid var(--bdr2);border-top-color:var(--green);
+    animation:spin .8s linear infinite;
+  }
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .claim-t{font-size:.9rem;font-weight:600;color:var(--ink)}
+  .claim-s{font-size:.76rem;color:var(--ink3);margin-top:.1rem}
+  .claim-go{
+    display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;
+    background:var(--green);color:#fff;text-decoration:none;font-weight:600;
+    font-size:1rem;padding:1rem;border-radius:10px;margin-bottom:.5rem;
+  }
+  .cin{
+    width:100%;padding:.85rem;border:1px solid var(--bdr);border-radius:10px;
+    font-family:inherit;font-size:1rem;text-align:center;margin-bottom:.5rem;
+  }
+  .cbtn{
+    width:100%;background:var(--green);color:#fff;border:0;font-family:inherit;
+    font-weight:600;font-size:1rem;padding:.9rem;border-radius:10px;cursor:pointer;
+  }
   @media (prefers-reduced-motion:reduce){
     .card{animation:none}
     .wa:active{transform:none}
@@ -104,7 +130,7 @@
   <div class="steps">
     <div class="step">
       <span class="step-n">1</span>
-      <span class="step-t">ממשיכים לעמוד האישי ומעלים את <b>רשימת המוזמנים</b>. הקישור נשלח גם בוואטסאפ, אפשר לחזור אליו מתי שרוצים.</span>
+      <span class="step-t"><b>פותחים לכם אירוע</b> ומעבירים אתכם לעמוד האישי שלו. הקישור נשלח גם בוואטסאפ, אפשר לחזור אליו מתי שרוצים.</span>
     </div>
     <div class="step">
       <span class="step-n">2</span>
@@ -172,17 +198,20 @@
     var tries = 0, asked = false, phoneTries = 0;
     var box = document.createElement('div');
     box.id = 'claimBox';
-    box.innerHTML = '<p style="font-size:.85rem;color:var(--ink3)">מאשרים את התשלום ומכינים את הקישור האישי שלכם…</p>';
+    function loading(title, sub) {
+      box.innerHTML = '<div class="claim"><div class="spin"></div><div>' +
+        '<div class="claim-t">' + title + '</div>' +
+        '<div class="claim-s">' + sub + '</div></div></div>';
+    }
+    loading('מאשרים את התשלום', 'זה לוקח עד דקה. אל תסגרו את החלון.');
     document.querySelector('.steps').insertAdjacentElement('beforebegin', box);
 
     function askPhone(err) {
       box.innerHTML =
         '<p style="font-size:.88rem;color:var(--ink2);margin-bottom:.6rem">' +
         (err || 'הזינו את מספר הטלפון שאיתו שילמתם, ונמשיך לעמוד האישי שלכם:') + '</p>' +
-        '<input id="cph" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000" ' +
-        'style="width:100%;padding:.85rem;border:1px solid var(--bdr);border-radius:10px;font-family:inherit;font-size:1rem;text-align:center;margin-bottom:.5rem">' +
-        '<button id="cgo" type="button" style="width:100%;background:var(--green);color:#fff;border:0;' +
-        'font-family:inherit;font-weight:600;font-size:1rem;padding:.9rem;border-radius:10px;cursor:pointer">המשך ←</button>' +
+        '<input id="cph" class="cin" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000">' +
+        '<button id="cgo" class="cbtn" type="button">המשך ←</button>' +
         '<p id="cerr" style="font-size:.78rem;color:#b42318;margin-top:.45rem;min-height:1.1em"></p>';
       var inp = document.getElementById('cph');
       function go() {
@@ -213,12 +242,9 @@
           if (j && j.ok && j.token) {
             IshurLead.track('claim_success', { tries: tries });
             box.innerHTML =
-              '<a href="upload.html?t=' + encodeURIComponent(j.token) + '" ' +
-              'style="display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;' +
-              'background:var(--green);color:#fff;text-decoration:none;font-weight:600;font-size:1rem;' +
-              'padding:1rem;border-radius:10px;margin-bottom:.6rem">' +
+              '<a class="claim-go" href="upload.html?t=' + encodeURIComponent(j.token) + '">' +
               'המשך להעלאת רשימת המוזמנים ←</a>' +
-              '<p style="font-size:.72rem;color:var(--ink3);margin-bottom:.8rem">הקישור אישי לאירוע שלכם. שומרים אותו, הוא נשלח גם בוואטסאפ. ממשיכים אוטומטית…</p>';
+              '<p style="font-size:.74rem;color:var(--ink3);margin-bottom:.9rem">התשלום אושר והאירוע נפתח. מעבירים אתכם עכשיו…</p>';
             /* The purchase must never depend on a WhatsApp arriving. Three
                seconds to read the confirmation, then straight into the
                personal page. The button stays for anyone who lands back here. */
@@ -226,6 +252,8 @@
               try { location.href = 'upload.html?t=' + encodeURIComponent(j.token); } catch (e) {}
             }, 3000);
           } else if (tries < 60) {
+            if (tries === 8) loading('מאשרים את התשלום', 'עוד רגע. חברת הסליקה מאשרת את התשלום.');
+            if (tries === 25) loading('כמעט שם', 'האישור מגיע. אפשר להמתין כאן בבטחה.');
             /* Grow notifies our server about a minute AFTER it sends the buyer
                here (measured 07/09: buyer at 00:05:34, notification 00:06:22),
                so the page has to wait it out rather than give up. Three
