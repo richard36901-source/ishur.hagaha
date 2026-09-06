@@ -235,8 +235,9 @@
     var STEPS = ['התשלום התקבל', 'פותחים את האירוע שלכם', 'מכינים את הקישור האישי'];
     var at = 1;
     function paint(done) {
+      /* no spinner: the travelling bar and the ticking list already say
+         "working", and a second spinning thing only competes with them */
       var html = '<div class="claim' + (done ? ' ok' : '') + '">' +
-        (done ? '<div class="tick" style="background:var(--green);border-color:var(--green);width:22px;height:22px;font-size:13px">✓</div>' : '<div class="spin"></div>') +
         '<div style="flex:1">' +
         '<div class="claim-t">' + (done ? 'הכל מוכן' : 'רק רגע, מסיימים') + '</div>' +
         '<div class="claim-s">' + (done ? 'מעבירים אתכם לעמוד האישי' : 'לוקח כמה שניות. אל תסגרו את החלון.') + '</div>' +
