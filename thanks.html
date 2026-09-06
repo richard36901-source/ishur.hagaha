@@ -99,8 +99,10 @@
   .claim.ok{background:#EDF7F1;border-color:var(--green)}
   .cl{list-style:none;margin:.7rem 0 0;padding:0;text-align:start}
   .cl li{animation:slidein .34s cubic-bezier(.22,.9,.24,1) both}
-  .cl li:nth-child(2){animation-delay:.07s}
-  .cl li:nth-child(3){animation-delay:.14s}
+  .cl li:nth-child(2){animation-delay:.06s}
+  .cl li:nth-child(3){animation-delay:.12s}
+  .cl li:nth-child(4){animation-delay:.18s}
+  .cl li:nth-child(5){animation-delay:.24s}
   @keyframes slidein{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
   .cl li.done .tick{animation:pop .32s cubic-bezier(.34,1.56,.64,1) both}
   @keyframes pop{0%{transform:scale(.5)}60%{transform:scale(1.18)}100%{transform:scale(1)}}
@@ -226,13 +228,22 @@
        them. Either one is enough to claim. */
     var claimPhone = (pending && pending.phone) || '';
     if (!CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
-    var tries = 0, asked = false, phoneTries = 0;
+    var tries = 0, asked = false, phoneTries = 0, doneAll = false;
     var box = document.createElement('div');
     box.id = 'claimBox';
     /* A live checklist beats a spinner: the buyer sees three real things
        happen instead of one word that never changes. The last line only turns
        green when the worker actually hands back the token. */
-    var STEPS = ['התשלום התקבל', 'פותחים את האירוע שלכם', 'מכינים את הקישור האישי'];
+    /* five real things the worker does when the payment notification lands.
+       The first four tick on a timer so the minute reads as progress; the
+       last only turns green when the token actually comes back. */
+    var STEPS = [
+      'התשלום התקבל',
+      'מאמתים מול חברת הסליקה',
+      'פותחים את האירוע שלכם',
+      'מפיקים חשבונית מס-קבלה',
+      'מכינים את הקישור האישי'
+    ];
     var at = 1;
     function paint(done) {
       /* no spinner: the travelling bar and the ticking list already say
@@ -251,7 +262,9 @@
     paint(false);
     /* the three lines tick in sequence so the wait reads as progress; the
        last one only turns green when the payment is actually confirmed */
-    setTimeout(function () { if (at < 2) { at = 2; paint(false); } }, 2600);
+    [[2600, 1], [7000, 2], [14000, 3]].forEach(function (p) {
+      setTimeout(function () { if (!doneAll && at <= p[1]) { at = p[1] + 1; paint(false); } }, p[0]);
+    });
     document.querySelector('.steps').insertAdjacentElement('beforebegin', box);
 
     function askPhone(err) {
@@ -289,7 +302,7 @@
         .then(function (j) {
           if (j && j.ok && j.token) {
             IshurLead.track('claim_success', { tries: tries });
-            at = 3; paint(true);
+            doneAll = true; at = STEPS.length; paint(true);
             setTimeout(function () { try { location.href = 'upload.html?t=' + encodeURIComponent(j.token); } catch (e) {} }, 900);
             /* a visible way back, in case the redirect is blocked */
             setTimeout(function () {
