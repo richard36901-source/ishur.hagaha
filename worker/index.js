@@ -1337,7 +1337,7 @@ async function handleShirWebhook(request, env) {
         phone: String(inbound ? (call.from_number || meta.from || '') : (call.to_number || '')).replace('+', ''),
         name: cname, kind: meta.kind === 'lead' ? 'ליד (מכירה)' : meta.kind === 'callback' ? 'חזרה למי שהתקשר' : inbound ? `נכנסת (${meta.caller_kind || '?'})` : 'אורח (אישור הגעה)',
         token: String(meta.token || '').slice(0, 8), status: 'הסתיימה ' + ilTime(), dur,
-        outcome: action.result ? (action.result.answer || action.result.rsvp || '') : (action.kind === 'skip' ? 'תא קולי' : ''),
+        outcome: action.result ? (action.result.answer || action.result.rsvp || '') : (action.kind === 'skip' ? (action.why === 'voicemail' ? 'תא קולי' : 'נכנסת ללא תוצאה — לא נרשם') : ''),
         summary: String(ca.call_summary || '').slice(0, 400), sentiment: String(ca.user_sentiment || ''),
         cost: action.cost_cents ? (action.cost_cents / 100).toFixed(2) : '', reason: String(call.disconnection_reason || ''), id: cid,
       };
@@ -1354,6 +1354,14 @@ async function handleShirWebhook(request, env) {
 
   if (action.kind === 'tool-noop') {
     if (isInb && inbPhone) await cbqClear(env, inbPhone);
+    /* "נרשם" must be true: there is no sheet row, so the outcome is recorded
+       where a human will see it (journal + Slack) instead of vanishing
+       (review finding #11) */
+    const outcome = String((body.args && body.args.outcome) || '').trim();
+    const party = body.args && body.args.party_size != null ? String(body.args.party_size) : '';
+    await logEvent(env, { area: 'שיחות', action: 'תוצאת שיחה ממספר לא מזוהה — אין שורה לעדכן', ok: false, review: true, phone: inbPhone,
+      detail: `תוצאה: ${outcome || '?'}${party ? ` · ${party} מגיעים` : ''} · לעדכן ידנית` }).catch(() => {});
+    await slackPost(env, `📞 שיר רשמה תוצאה ממספר שלא מופיע בגיליון: ${inbPhone || '?'} · ${outcome || '?'}${party ? ` · ${party} מגיעים` : ''}. לעדכן ידנית.`).catch(() => {});
     return okJsonPlain({ response: action.reply });
   }
 
@@ -1708,6 +1716,12 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
       await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת (חזרה)', phone: r.phone, name: (hit && hit.name) || '', kind: 'חזרה למי שהתקשר',
         token: String((target && target.token) || '').slice(0, 8), status: 'חויג ' + ilTime(), id: cid });
       dialed.push(r.phone);
+      /* the guest dialler keys its once-a-day rule on shirtry:<guest>:<day>;
+         a ring-back that skipped it let the same guest be dialled twice in
+         one day (review finding #11) */
+      if (target.guest_id) {
+        await env.RATE.put(`shirtry:${target.guest_id}:${today}`, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+      }
       await env.RATE.put('cbq:' + r.phone,
         JSON.stringify({ ...r, phone: undefined, tries: (Number(r.tries) || 0) + 1, last: now }),
         { expirationTtl: CBQ_TTL_S });
@@ -2858,14 +2872,19 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (lastSend && lastSend < today && planKeyOf(ev) !== 'basic') {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
-        let queued = 0;
+        let queued = 0, failed = 0;
         for (const g of guests) {
           const answered = String(g[15] || '').trim() !== '';
           const gid = String(g[2] || '').trim();
           const callStatus = String(g[21] || '').trim();
           if (answered || !gid || callStatus) continue;
           if (dry) { queued++; continue; }
-          await fetch(env.HOOK_EVENTS, {
+          /* per-guest marker: a guest whose queue-write already landed is not
+             posted again on the retry, so a half-finished escalation costs
+             Make only the guests that actually failed (review finding #7) */
+          const gKey = `escg:${gid}`;
+          if (env.RATE && await env.RATE.get(gKey)) { queued++; continue; }
+          const r = await fetch(env.HOOK_EVENTS, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               event_type: 'call_result', guest_id: gid,
@@ -2874,10 +2893,22 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
               ts: new Date().toISOString(),
             }),
           }).catch(() => null);
+          if (!r || r.status !== 200) { failed++; continue; }
+          if (env.RATE) await env.RATE.put(gKey, today, { expirationTtl: 120 * 86400 }).catch(() => {});
           queued++;
         }
-        if (!dry && env.RATE) await env.RATE.put(escKey, today, { expirationTtl: 120 * 86400 });
-        if (queued) out.push({ token, type: 'escalation', queued });
+        /* The event-level flag closes the escalation ONLY when every guest
+           made it into the queue. Writing it unconditionally (the old code)
+           meant that above Make's request cap the tail of an "הכל כלול"
+           list never entered the call queue and the engine reported success
+           (review finding #7). With failures the flag stays open, tomorrow's
+           run posts just the failed guests again, and the journal says so. */
+        if (!dry && failed) {
+          await logEvent(env, { area: 'שיחות', action: 'אסקלציה לשיחות — חלק מהאורחים לא נכנסו לתור', ok: false, review: true, token,
+            detail: `נכנסו ${queued} · נכשלו ${failed} · יישלחו שוב במנוע הבא` });
+        }
+        if (!dry && env.RATE && !failed) await env.RATE.put(escKey, today, { expirationTtl: 120 * 86400 });
+        if (queued || failed) out.push({ token, type: 'escalation', queued, failed });
       }
     }
   }
@@ -5245,6 +5276,11 @@ async function handleWaSend(request, env, origin) {
   return okJson(res, origin);
 }
 
+/* AUT-903 · the snapshot is assembled by the Make scenario behind HOOK_STATUS,
+   which cuts the אורחים read at 4,999 rows (≈15 live events). The ceiling is
+   not in this repo: raising it means widening the range in that Make module
+   (or paginating there / archiving past events). Nothing to fix here; kept
+   as a marker so the next person does not search this file for the number. */
 async function fetchSnapshot(target) {
   const r = await fetch(target, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -5450,7 +5486,26 @@ export default {
     ctx.waitUntil((async () => {
       if (env.RATE) await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 2 * 86400 }).catch(() => {});
     })());
-    ctx.waitUntil(runDailyEngine(env, false, null, { budget: PACE_SENDS * 2 }).then(() => runBackup(env)).then(res => {
+    /* קרון החורף — every cron above is UTC while the contact windows are
+       Israel time (sendWindowState / callWindowState in shir.js), so the
+       clocks drift by an hour when Israel leaves DST (late October):
+         · "0 4"   heartbeat/Telnyx: 07:00 IL summer, 06:00 winter — no time
+           logic inside, harmless.
+         · "0 18"  journal digest: 21:00 IL summer, 20:00 winter — reads by
+           ilDate(), never compares hours. Harmless.
+         · "0 9,10,16 * * 2" team reminders: runTeamReminders compares the
+           cron's OWN UTC hour (9 = first slot, 16 = last), so slots keep
+           their meaning; they just land at 11:00/12:00/18:00 IL in winter.
+         · "* /10" pacer: gated by sendWindowState/callWindowState. Correct
+           all year.
+         · "35 6"  THIS branch: 09:35 IL in summer, 08:35 IL in winter — i.e.
+           25 minutes BEFORE the 09:00 send window opens, and it used to send
+           its 50-message opening slice regardless. Fixed below: the morning
+           run keeps its planning half all year, but its send budget is zero
+           while the window is closed, so the pacer (already armed via
+           pacer:pending above) carries the first sends at 09:00. */
+    const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
+    ctx.waitUntil(runDailyEngine(env, false, null, { budget: morningBudget }).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
       String((e && e.stack) || e).slice(0, 500))).then(() => {
@@ -5858,7 +5913,7 @@ export default {
       if (!isAdmin(env, stampFields.admin_key)) {
         return deny(403, 'bad-admin-key', origin);
       }
-      const result = callOutcome(String(stampFields.outcome || ''), stampFields.tries);
+      const result = callOutcome(String(stampFields.outcome || '').trim(), stampFields.tries);
       if (!result || !stampFields.guest_id) return deny(400, 'bad-outcome', origin);
       const r = await fetch(target, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },

@@ -187,7 +187,15 @@ async function post(env, body, channel, ctx) {
             JSON.stringify({ tmpl, occ, at: new Date().toISOString() }), { expirationTtl: 2 * 86400 });
         }
       }
-      /* daily counters feed the money board: sends, template sends, failures */
+      /* daily counters feed the money board: sends, template sends, failures.
+         AUT-903: this and tstat: above are read-modify-write on ONE hot key
+         per send. KV allows one write per second per key, so in a 25-message
+         tick some increments are rejected and swallowed by the outer catch —
+         the money board under-counts; sending itself is unaffected. The clean
+         fix is an in-memory tally per tick flushed once at the end, which
+         needs a context threaded through sendWave → sendTemplate → here and
+         every other sendTemplate caller; not done in this pass. Sharding the
+         key was rejected: three readers aggregate by the bare day key. */
       const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
       const key = 'wastat:' + day;
       let st = { out: 0, tmpl: 0, fail: 0 };
