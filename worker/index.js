@@ -701,16 +701,22 @@ async function handleIpnReplay(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   const id = String(body.id || '').trim();
-  if (!/^ipnmiss:\d+$/.test(id) || !env.RATE) return deny(400, 'bad-id', origin);
-  const raw = await env.RATE.get(id);
-  if (!raw) return deny(404, 'not-found', origin);
   let flat = null;
-  try { flat = JSON.parse(raw); } catch { return deny(422, 'bad-payload', origin); }
+  if (body.payload && typeof body.payload === 'object') {
+    /* admin simulation: run a hand-made Grow payload through the real
+       pipeline (tests of add-ons / packages without a live card charge) */
+    flat = { ...body.payload, _simulated: true };
+  } else {
+    if (!/^ipnmiss:\d+$/.test(id) || !env.RATE) return deny(400, 'bad-id', origin);
+    const raw = await env.RATE.get(id);
+    if (!raw) return deny(404, 'not-found', origin);
+    try { flat = JSON.parse(raw); } catch { return deny(422, 'bad-payload', origin); }
+  }
   const res = await processGrowPayment(env, flat);
   const text = await res.text().catch(() => '');
   await logEvent(env, { area: 'תשלום', action: 'הרצה ידנית של תשלום שחנה (ipn-replay)', ok: res.status === 200,
     phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${id} → ${text}` });
-  if (res.status === 200) await env.RATE.delete(id).catch(() => {});
+  if (res.status === 200 && id) await env.RATE.delete(id).catch(() => {});
   return okJson({ ok: res.status === 200, status: res.status, result: text }, origin);
 }
 
@@ -5718,6 +5724,9 @@ export default {
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
+        if (b.action === 'setcell' && /^[^!]+![A-Z]{1,2}\d{1,5}$/.test(String(b.range || ''))) {
+          return okJson({ ok: await sheetBatchWrite(env, [{ range: String(b.range), values: [[String(b.value ?? '')]] }]) }, origin);
+        }
         if (b.action === 'tabtail') return okJson(await readTabTail(env, String(b.tab || 'msg_guests'), Number(b.n) || 10), origin);
         if (b.action === 'clientrow') return okJson(await upsertClientRow(env, b), origin);
         if (b.action === 'tabs') {
