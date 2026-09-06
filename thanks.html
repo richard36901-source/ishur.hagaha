@@ -188,12 +188,18 @@
               'background:var(--green);color:#fff;text-decoration:none;font-weight:600;font-size:1rem;' +
               'padding:1rem;border-radius:10px;margin-bottom:.6rem">' +
               'המשך להעלאת רשימת המוזמנים ←</a>' +
-              '<p style="font-size:.72rem;color:var(--ink3);margin-bottom:.8rem">הקישור אישי לאירוע שלכם. הוא יגיע גם בוואטסאפ.</p>';
+              '<p style="font-size:.72rem;color:var(--ink3);margin-bottom:.8rem">הקישור אישי לאירוע שלכם. שומרים אותו, הוא נשלח גם בוואטסאפ. ממשיכים אוטומטית…</p>';
+            /* The purchase must never depend on a WhatsApp arriving. Three
+               seconds to read the confirmation, then straight into the
+               personal page. The button stays for anyone who lands back here. */
+            setTimeout(function () {
+              try { location.href = 'upload.html?t=' + encodeURIComponent(j.token); } catch (e) {}
+            }, 3000);
           } else if (tries < 15) {
             setTimeout(attempt, 3000);
           } else {
             IshurLead.track('claim_timeout', {});
-            box.innerHTML = '<p style="font-size:.8rem;color:var(--ink3)">הקישור האישי יגיע אליכם בוואטסאפ בדקות הקרובות.</p>';
+            box.innerHTML = '<p style="font-size:.8rem;color:var(--ink3)">הקישור האישי בדרך אליכם. אם הוא לא הגיע תוך כמה דקות, כתבו לנו כאן בוואטסאפ ונשלח מיד.</p>';
           }
         })
         ['catch'](function () { if (tries < 15) setTimeout(attempt, 3000); });
