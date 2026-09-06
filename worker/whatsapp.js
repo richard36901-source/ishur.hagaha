@@ -14,6 +14,7 @@
    Every send returns {ok, id|error} and the caller logs the cost.
    ========================================================================== */
 
+import { logRow } from './sheetlogs.js';
 import { logEvent } from './evlog.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -155,6 +156,21 @@ async function post(env, body, channel, ctx) {
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
       });
+      /* the sheet line (Richard 06/09: every message, with its status). The
+         delivered/read columns are filled by the status webhook via the id. */
+      try {
+        const c = ctx && typeof ctx === 'object' ? ctx : {};
+        const name = c.name || (await env.RATE.get('waname:' + String(body.to || ''))) || '';
+        await logRow(env, ch === 'guests' ? 'msg_guests' : 'msg_clients', {
+          id: res.id || '', dir: 'יוצאת', who: c.who || (ch === 'guests' ? 'שיר (מערכת)' : 'נועה (מערכת)'),
+          sent: res.ok ? 'כן ' + ilTimeLocal() : 'נכשל', error: res.ok ? '' : res.error,
+          name, phone: String(body.to || ''), text: summary.slice(0, 500),
+          sender: ch === 'guests' ? '0559726673' : '0559504499',
+          type: body.type === 'template' ? 'תבנית' : body.type === 'image' ? 'תמונה' : body.type === 'text' ? 'טקסט' : body.type,
+          tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
+          token: String(c.token || '').slice(0, 8), wave: c.wave || '',
+        });
+      } catch {}
       /* per-template performance: sent/fail here, replied credited by the
          inbound webhook against lastout:<phone>. Occasion rides along so a
          weak wording for one event type stands out. */
@@ -199,17 +215,17 @@ async function post(env, body, channel, ctx) {
   return res;
 }
 
-export function sendText(env, to, text, channel) {
-  return post(env, { to: normPhone(to), type: 'text', text: { body: String(text) } }, channel);
+export function sendText(env, to, text, channel, ctx) {
+  return post(env, { to: normPhone(to), type: 'text', text: { body: String(text) } }, channel, ctx);
 }
 
 /* An image with a caption — what an invitation actually looks like when the
    client uploaded artwork and the guest already has an open window. */
-export function sendImage(env, to, imageUrl, caption, channel) {
+export function sendImage(env, to, imageUrl, caption, channel, ctx) {
   return post(env, {
     to: normPhone(to), type: 'image',
     image: { link: imageUrl, caption: String(caption || '').slice(0, 1024) },
-  }, channel);
+  }, channel, ctx);
 }
 
 /* AUTHENTICATION template (ishur_kod): the one-time code fills both the body
@@ -403,4 +419,8 @@ export function inviteText(ev) {
     'כן / לא, ואם כן כמה תהיו.',
   ];
   return lines.filter(Boolean).join('\n');
+}
+
+function ilTimeLocal(d = new Date()) {
+  return new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).format(d);
 }

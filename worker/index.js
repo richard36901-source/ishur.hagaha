@@ -23,6 +23,7 @@
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
+import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
@@ -329,6 +330,11 @@ async function processGrowPayment(env, flat) {
     }), { expirationTtl: TOKEN_TTL });
   }
 
+  /* the clients list is the worker's job now (Make never wrote a row) */
+  try {
+    const cr = await upsertClientRow(env, { clientId: 'C-' + phone.slice(-9), name, phone, taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(), token, eventName: '' });
+    await logEvent(env, { area: 'תשלום', action: cr.added ? 'לקוח חדש נוסף לרשימת הלקוחות' : 'לקוח קיים עודכן ברשימת הלקוחות', ok: !!cr.ok, review: !cr.ok, phone, token, detail: JSON.stringify(cr) });
+  } catch {}
   const clean = {
     kind: 'payment', ref, token, phone, sum, name, email, payMethod,
     /* what was bought, as Grow names the page — the invoice line item */
@@ -1189,6 +1195,33 @@ async function handleShirWebhook(request, env) {
 
   const action = retellToCallResult(body);
   if (!action) return okJsonPlain({ ok: true });
+  /* the calls log: mid-call outcome → update; end of call → update the dial
+     row (or a full row for a call we did not place, e.g. inbound) */
+  try {
+    const call = body.call || {};
+    const meta = call.metadata || {};
+    const dv = call.retell_llm_dynamic_variables || {};
+    const cname = String(dv.guest_name || dv.lead_name || dv.caller_name || dv.name || '').trim();
+    const isNoa = meta.line === 'noa' || meta.kind === 'lead';
+    const cid = String(call.call_id || action.call_id || '');
+    if (action.kind === 'tool' || action.kind === 'tool-noop') {
+      await logUpdate(env, 'calls', cid, { outcome: (action.result && (action.result.answer || action.result.rsvp)) || 'נרשם' + (body.args && body.args.party_size ? ` · ${body.args.party_size} מגיעים` : '') });
+    } else if (body.event === 'call_analyzed') {
+      const ca = call.call_analysis || {};
+      const dur = call.start_timestamp && call.end_timestamp ? Math.round((call.end_timestamp - call.start_timestamp) / 1000) : '';
+      const inbound = meta.kind === 'inbound' || String(call.direction || '').includes('inbound');
+      const rec = {
+        agent: isNoa ? 'נועה' : 'שיר', dir: inbound ? 'נכנסת' : (meta.kind === 'callback' ? 'יוצאת (חזרה)' : 'יוצאת'),
+        phone: String(inbound ? (call.from_number || meta.from || '') : (call.to_number || '')).replace('+', ''),
+        name: cname, kind: meta.kind === 'lead' ? 'ליד (מכירה)' : meta.kind === 'callback' ? 'חזרה למי שהתקשר' : inbound ? `נכנסת (${meta.caller_kind || '?'})` : 'אורח (אישור הגעה)',
+        token: String(meta.token || '').slice(0, 8), status: 'הסתיימה ' + ilTime(), dur,
+        outcome: action.result ? (action.result.answer || action.result.rsvp || '') : (action.kind === 'skip' ? 'תא קולי' : ''),
+        summary: String(ca.call_summary || '').slice(0, 400), sentiment: String(ca.user_sentiment || ''),
+        cost: action.cost_cents ? (action.cost_cents / 100).toFixed(2) : '', reason: String(call.disconnection_reason || ''), id: cid,
+      };
+      if (inbound) await logRow(env, 'calls', rec); else await logUpdate(env, 'calls', cid, rec);
+    }
+  } catch {}
 
   /* who rang whom, for the callback queue. Reaching the mid-call tool at all
      means a real conversation happened, so the provisional entry the inbound
@@ -1304,6 +1337,9 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
       body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM)),
     }).catch(() => null);
     if (r && (r.status === 200 || r.status === 201)) {
+      let cid = ''; try { cid = String(((await r.clone().json()) || {}).call_id || ''); } catch {}
+      await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: g.phone, name: g.name || '', kind: 'אורח (אישור הגעה)',
+        token: String(g.token || '').slice(0, 8), status: 'חויג ' + ilTime(), id: cid, outcome: `ניסיון ${(Number(g.tries) || 0) + 1}/${g.max_tries || 3}` });
       await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
       await env.RATE.put('calldate:' + g.token, day, { expirationTtl: 60 * 86400 });
       dialed.push(g.guest_id);
@@ -1546,6 +1582,9 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
         { override_agent_id: env.SHIR_INBOUND_AGENT || '' })),
     }).catch(() => null);
     if (res && (res.status === 200 || res.status === 201)) {
+      let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
+      await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת (חזרה)', phone: r.phone, name: (hit && hit.name) || '', kind: 'חזרה למי שהתקשר',
+        token: String((target && target.token) || '').slice(0, 8), status: 'חויג ' + ilTime(), id: cid });
       dialed.push(r.phone);
       await env.RATE.put('cbq:' + r.phone,
         JSON.stringify({ ...r, phone: undefined, tries: (Number(r.tries) || 0) + 1, last: now }),
@@ -1611,6 +1650,8 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
         { override_agent_id: env.NOA_AGENT })),
     }).catch(() => null);
     if (res && (res.status === 200 || res.status === 201)) {
+      let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
+      await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name || '', kind: 'ליד (מכירה)', status: 'חויג ' + ilTime(), id: cid });
       dialed.push(phone);
       await env.RATE.delete('lq:' + phone).catch(() => {});
       /* one sales call per lead, ever — a no-answer does not earn a redial */
@@ -1799,6 +1840,21 @@ async function handleWaWebhook(request, env, url) {
     for (const entry of (payload && payload.entry) || []) {
       for (const ch of entry.changes || []) {
         for (const st of (ch.value && ch.value.statuses) || []) {
+          /* every status lands in the message log line of that id: delivered,
+             read, failed ('sent' is already the row itself) */
+          try {
+            const pid = String(((ch.value || {}).metadata || {}).phone_number_id || '');
+            const stab = (env.WA_PHONE_ID_GUESTS && pid === env.WA_PHONE_ID_GUESTS) ? 'msg_guests' : 'msg_clients';
+            const when = ilTime(st.timestamp ? new Date(Number(st.timestamp) * 1000) : new Date());
+            const cat = st.pricing ? `${st.pricing.category || ''}${st.pricing.billable === false ? ' (לא בתשלום)' : ''}` : '';
+            if (st.status === 'delivered') await logUpdate(env, stab, st.id, { delivered: 'כן ' + when, phone: st.recipient_id || '', category: cat });
+            else if (st.status === 'read') await logUpdate(env, stab, st.id, { read: 'כן ' + when, phone: st.recipient_id || '', category: cat });
+            else if (st.status === 'failed') {
+              const e0 = (st.errors && st.errors[0]) || {};
+              await logUpdate(env, stab, st.id, { sent: 'נכשל במסירה ' + when, phone: st.recipient_id || '',
+                error: `${e0.code || ''} ${e0.title || ''} ${(e0.error_data && e0.error_data.details) || ''}`.trim() });
+            }
+          } catch {}
           if (st.status !== 'failed') continue;
           const err = (st.errors && st.errors[0]) || {};
           if (st.id && await seenOnce(env, 'wafail:' + st.id)) continue;
@@ -1813,6 +1869,8 @@ async function handleWaWebhook(request, env, url) {
               if (n >= 3) {
                 await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, String(err.code || ''), { expirationTtl: 120 * 86400 });
                 retry = ` · ניסיון ${n}/3 — נעצר, דורש טיפול ידני`;
+                await logRow(env, 'removals', { kind: 'מסירה נכשלה 3 פעמים', channel: 'ווצאפ (מטא)', phone: m.phone, token: String(m.token || '').slice(0, 8),
+                  scope: 'גל ' + m.wave + ' של האירוע הזה', said: '', detail: `${err.code || ''} ${err.title || ''}`.trim() });
               } else {
                 await env.RATE.delete(m.gk);          // wsent: gone → next tick resends
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {}); // the wave is open again
@@ -1839,7 +1897,7 @@ async function handleWaWebhook(request, env, url) {
        the SAME number: a guest who wrote to Shir's line is answered from Shir's
        line, never from 4499 (iron rule 06/09). The inbox filters on it too. */
     const ch = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
-    const say = (t) => sendText(env, from, t, ch);
+    const say = (t) => sendText(env, from, t, ch, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
@@ -1853,6 +1911,13 @@ async function handleWaWebhook(request, env, url) {
           at: new Date().toISOString(),
         })).catch(() => {});
       await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
+      await logRow(env, ch === 'guests' ? 'msg_guests' : 'msg_clients', {
+        id: msg.id || '', dir: 'נכנסת', who: ch === 'guests' ? 'אורח' : 'לקוח / ליד',
+        sent: 'התקבלה ' + ilTime(), name: profileName || (await env.RATE.get('waname:' + from)) || '',
+        phone: from, text: body, sender: from,
+        type: msg.type === 'button' || msg.type === 'interactive' ? 'לחיצת כפתור' : msg.type === 'text' ? 'טקסט' : msg.type,
+        tmpl: '', category: '',
+      });
       /* the WhatsApp profile name, refreshed on every inbound */
       if (profileName) {
         await env.RATE.put('waname:' + from, profileName.slice(0, 60)).catch(() => {});
@@ -1888,12 +1953,16 @@ async function handleWaWebhook(request, env, url) {
     if (parsed.kind === 'nocall') {
       if (env.RATE) await env.RATE.put('nocall:' + normPhone(from), new Date().toISOString());
       await logEvent(env, { area: 'ווצאפ', action: 'אורח ביקש לא להתקשר', ok: true, phone: from });
+      await logRow(env, 'removals', { kind: 'לא להתקשר', channel: ch === 'guests' ? 'ווצאפ 6673' : 'ווצאפ 4499', phone: from, name: profileName || '',
+        scope: 'שיחות בלבד, הודעות ממשיכות', said: (parsed ? textOf(parsed) : '').slice(0, 120), detail: 'nocall:' + normPhone(from) });
       await say('סגור, לא נתקשר יותר 🙏 אפשר לעדכן הגעה כאן בהודעה בכל רגע.');
       continue;
     }
     if (parsed.kind === 'optout') {
       if (env.RATE) await env.RATE.put('optout:' + normPhone(from), new Date().toISOString());
       await logEvent(env, { area: 'ווצאפ', action: 'הסרה מהודעות (הסר)', ok: true, phone: from });
+      await logRow(env, 'removals', { kind: 'הסר', channel: ch === 'guests' ? 'ווצאפ 6673' : 'ווצאפ 4499', phone: from, name: profileName || '',
+        scope: 'כל ההודעות, לכל האירועים', said: (parsed ? textOf(parsed) : '').slice(0, 120), detail: 'optout:' + normPhone(from) });
       await bumpRemoveRate(env, 'optout');
       await say('הוסרת מרשימת התפוצה. לא נשלח לך עוד הודעות 🙏');
       continue;
@@ -1921,6 +1990,9 @@ async function handleWaWebhook(request, env, url) {
         await logEvent(env, { area: 'ווצאפ', action: 'אורח סימן "טעות" — הושתק לאירוע', ok: true, phone: from, token: guest.token });
       }
       await bumpRemoveRate(env, 'mistake');
+      await logRow(env, 'removals', { kind: 'טעות במספר', channel: ch === 'guests' ? 'ווצאפ 6673' : 'ווצאפ 4499', phone: from, name: profileName || (guest && guest.name) || '',
+        token: guest && guest.token ? guest.token.slice(0, 8) : '', scope: guest ? 'האירוע הזה בלבד (הודעות ושיחות)' : 'לא נמצא אורח, נרשם בלבד',
+        said: (parsed ? textOf(parsed) : '').slice(0, 120), detail: guest && guest.token ? 'wrong:' + guest.token + ':' + normPhone(from) : '' });
       await say('תודה על העדכון, וסליחה על ההפרעה 🙏 לא תגיע אליכם עוד הודעה על האירוע הזה.');
       continue;
     }
@@ -2045,7 +2117,7 @@ async function serviceReply(env, from, text, who, ch) {
   /* 3 · never silent */
   if (!reply) reply = FALLBACK_REPLY;
 
-  await sendText(env, from, reply, ch);
+  await sendText(env, from, reply, ch, { who: 'נועה AI' });
   if (env.RATE) {
     await env.RATE.put('inbox:' + normPhone(from) + ':' + Date.now(),
       JSON.stringify({ in: t.slice(0, 500), out: reply.slice(0, 500), at: new Date().toISOString() }),
@@ -2304,7 +2376,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     const useImg = !!(imgTmpl && invite && wave.key === 1);
     const res = await sendTemplate(env, phone, useImg ? imgTmpl : inviteTmpl,
       [name, occasion, hosts, date, time, venue], useImg ? invite : '', 'he', 'guests',
-      { occasion, wave: wave.key, token });
+      { occasion, wave: wave.key, token, name });
     if (budget) budget.left--;
     if (res.ok) {
       sent++;
@@ -2450,6 +2522,31 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (fills.length >= 20) break;
     }
     if (fills.length) { const okw = await sheetBatchWrite(env, fills); if (!okw) await alert(env, 'חבילה', 'כתיבת חבילה/מכסה לשורת אירוע נכשלה', `${fills.length} תאים`); }
+  }
+
+  /* ── stage 0.4: every paid event's owner is on the clients list ──────────
+     Once per token, after the event name exists: a new client gets a row, a
+     returning one gets this event appended in H/I. Reads the tab, so a row
+     Make or a human added by hand is respected. */
+  if (!dry && env.RATE && env.BRAIN_HOOK) {
+    let n = 0;
+    for (const ev of evRows) {
+      if (!ev) continue;
+      const token = String(ev[1] || '').trim();
+      if (!token || String(ev[7] || '').trim() !== 'כן') continue;
+      if (await env.RATE.get('clientrow:' + token)) continue;
+      const phone = normPhone(ev[3] || '');
+      const cr = await upsertClientRow(env, { clientId: String(ev[0] || '').trim() || ('C-' + phone.slice(-9)), name: String(ev[2] || '').trim(), phone,
+        taxId: '', token, eventName: String(ev[34] || ev[5] || '').trim() });
+      if (cr.ok) {
+        await env.RATE.put('clientrow:' + token, today, { expirationTtl: 400 * 86400 });
+        await logEvent(env, { area: 'לקוחות', action: cr.added ? 'לקוח נוסף לרשימת הלקוחות' : 'אירוע קושר ללקוח ברשימת הלקוחות', ok: true, phone, token,
+          detail: `${String(ev[2] || '').trim()} · ${String(ev[34] || '').trim()}${cr.unchanged ? ' · כבר היה' : ''}` });
+      } else {
+        await logEvent(env, { area: 'לקוחות', action: 'כתיבה לרשימת הלקוחות נכשלה', ok: false, review: true, phone, token, detail: JSON.stringify(cr) });
+      }
+      if (++n >= 10) break;
+    }
   }
 
   /* ── stage 0.55: paid, uploaded, but the settings step was never finished ──
@@ -3162,6 +3259,7 @@ async function runPacer(env) {
   /* the journal rides the same tick: everything buffered since the last one
      lands in the sheet as a single Sheets call */
   try { out.journal = await flushEventLog(env); } catch (e) { out.journal = { ok: false, why: String(e && e.message) }; }
+  try { out.sheetlogs = await flushSheetLogs(env); } catch (e) { out.sheetlogs = { ok: false, why: String(e && e.message) }; }
 
   /* the doctor: looks at what this tick produced, fixes what it can, and
      shouts once a day about what it cannot. Never throws into the pacer. */
@@ -4169,6 +4267,15 @@ async function dailyJournalDigest(env) {
   }
   const areas = Object.entries(by).map(([a, v]) => `${a} ${v.ok}✓${v.failed ? ' ' + v.failed + '✗' : ''}`).join(' · ');
   const pacer = JSON.parse((await env.RATE.get('pacer:last').catch(() => null)) || 'null');
+  /* site traffic and what went back to Meta, from the pixel's own counters */
+  let traffic = '';
+  try {
+    const end = Math.floor(Date.now() / 1000);
+    const r = await metaAds(env, `/${META_PIXEL_ID}/stats?aggregation=event&start_time=${end - 86400}&end_time=${end}`, 'GET');
+    const c = {};
+    for (const d of ((r && r.data && r.data.data) || [])) for (const e of (d.data || [])) { const k = String(e.value || e.event || '?'); c[k] = (c[k] || 0) + Number(e.count || 0); }
+    traffic = `*תנועה 24 שעות (פיקסל):* ${c.PageView || 0} כניסות · ${c.ViewContent || 0} צפו במחיר · ${c.InitiateCheckout || 0} התחילו תשלום · ${c.Lead || 0} לידים · ${c.Purchase || 0} רכישות דווחו למטא`;
+  } catch {}
   const text = [
     `📋 *דוח יומי ${stamp}* — ${rows.length} פעולות ביומן · ${ok} הצליחו · ${failed} נכשלו · ${red} אדומות`,
     areas ? `לפי תחום: ${areas}` : '',
@@ -4177,6 +4284,7 @@ async function dailyJournalDigest(env) {
     reds.length ? `*עדיין אדום, צריך אותך:*\n${reds.join('\n')}${red > reds.length ? `\n… ועוד ${red - reds.length} בגיליון` : ''}` : 'אין שורות אדומות פתוחות מהיום. 🟢',
     pacer && pacer.at ? `פעימה אחרונה: ${pacer.at.slice(11, 16)} UTC` : '',
     'מה יקרה מחר: המנוע רץ ב-06:35 UTC, הפייסר כל 10 דקות בחלון השליחה, הרופא בסוף כל פעימה. שורות אדומות שלא טופלו נשארות אדומות ביומן עד שתסמן אותן.',
+    traffic,
   ].filter(Boolean).join('\n');
   await slackPost(env, text);
   await logEvent(env, { area: 'דוח', action: 'דוח יומי נשלח לסלאק', ok: true, detail: `${rows.length} פעולות · ${failed} נכשלו · ${red} אדומות · ${fixes.length} תיקוני רופא · ${builds.length} גרסאות` });
@@ -4367,6 +4475,8 @@ async function handleBlockPhone(request, env, origin) {
     await env.RATE.delete('optout:' + p);
   }
   await slackPost(env, `${body.blocked ? '🚫' : '✅'} *${p}* ${body.blocked ? 'הוצא משליחה ידנית' : 'הוחזר לשליחה'}`);
+  await logRow(env, 'removals', { kind: body.blocked ? 'חסימה ידנית' : 'הוחזר לשליחה', channel: 'לוח בקרה', phone: p,
+    scope: body.blocked ? 'כל ההודעות' : 'בוטלו הסר וחסימה', said: '', detail: String(body.reason || '') });
   return okJson({ ok: true, phone: p, blocked: body.blocked }, origin);
 }
 
@@ -5311,6 +5421,25 @@ export default {
           await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן — שורה שדורשת בדיקה', ok: false, review: true, detail: 'אמורה להיות אדומה' });
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
+        if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
+        if (b.action === 'tabtail') return okJson(await readTabTail(env, String(b.tab || 'msg_guests'), Number(b.n) || 10), origin);
+        if (b.action === 'clientrow') return okJson(await upsertClientRow(env, b), origin);
+        if (b.action === 'tabs') {
+          /* every tab with its header row and row count — the map of the sheet */
+          const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => null) : null;
+          const tabs = ((j && j.sheets) || []).map(x => x.properties || {});
+          const out = [];
+          for (const t of tabs) {
+            const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${t.title}'!A1:AZ2000` }) }).catch(() => null);
+            const v = rr ? await rr.json().catch(() => null) : null;
+            const vals = (v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || [];
+            out.push({ title: t.title, sheetId: t.sheetId, filled: vals.length, header: vals[0] || [], sample: vals[1] || [], last: vals[vals.length - 1] || [] });
+          }
+          return okJson({ ok: true, tabs: out }, origin);
+        }
         if (b.action === 'formats') {
           const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets(properties.title,conditionalFormats)' }) }).catch(() => null);
@@ -5364,6 +5493,24 @@ export default {
       let b = {}; try { b = await request.json(); } catch {}
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       return okJson(await dailyJournalDigest(env), origin);
+    }
+    /* site traffic + what we sent back to Meta, straight from the pixel's own
+       counters (PageView / Lead / Purchase per day, browser + server-side) */
+    if (url.pathname === '/api/site-stats' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const days = Math.min(Number(b.days) || 7, 30);
+      const end = Math.floor(Date.now() / 1000), start = end - days * 86400;
+      const r = await metaAds(env, `/${META_PIXEL_ID}/stats?aggregation=event&start_time=${start}&end_time=${end}`, 'GET');
+      const byDay = {};
+      for (const d of ((r && r.data && r.data.data) || [])) {
+        const t = /^\d+$/.test(String(d.start_time)) ? Number(d.start_time) * 1000 : Date.parse(d.start_time);
+        const day = Number.isFinite(t) ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date(t)) : String(d.start_time);
+        byDay[day] = byDay[day] || {};
+        for (const e of (d.data || [])) { const k = String(e.value || e.event || '?'); byDay[day][k] = (byDay[day][k] || 0) + Number(e.count || 0); }
+      }
+      return okJson({ ok: !!(r && r.ok), days: byDay, raw: r && !r.ok ? r.data : undefined }, origin);
     }
     if (url.pathname === '/api/ad-review' && request.method === 'POST') {
       let b = {};
