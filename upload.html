@@ -138,6 +138,12 @@
   }
   .frow input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
   .frow input.bad{border-color:var(--err);box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+  /* host name + role side by side: the role select keeps the field skin */
+  .hpair{display:flex;gap:.5rem;align-items:stretch;min-width:0}
+  .hpair input[type=text]{flex:1 1 auto;min-width:0}
+  .hpair .hrole{flex:0 0 9.5rem;min-width:0}
+  .hpair .hrole[hidden]{display:none}
+  @media(max-width:359px){.hpair{flex-direction:column}.hpair .hrole{flex-basis:auto}}
   .ferr{font-size:.75rem;color:var(--err);max-height:0;opacity:0;overflow:hidden;transition:max-height .18s,opacity .18s}
   .ferr.on{max-height:4em;opacity:1;margin-top:.15rem}
 
@@ -411,13 +417,19 @@
           <p class="ferr" id="e-title" aria-live="polite"></p>
         </div>
         <div class="frow" id="name1Row">
-          <label for="f-name1" id="name1Lbl">שם הכלה <span class="req">*</span></label>
-          <input type="text" id="f-name1" autocomplete="off" placeholder="נועה">
+          <label for="f-name1" id="name1Lbl">שם בן/בת הזוג <span class="req">*</span></label>
+          <div class="hpair">
+            <input type="text" id="f-name1" autocomplete="off" placeholder="נועה">
+            <div class="hrole" id="role1Wrap"><select id="f-role1" data-isel aria-label="תפקיד באירוע"></select></div>
+          </div>
           <p class="ferr" id="e-name1" aria-live="polite"></p>
         </div>
         <div class="frow" id="name2Row">
-          <label for="f-name2" id="name2Lbl">שם החתן <span class="req">*</span></label>
-          <input type="text" id="f-name2" autocomplete="off" placeholder="יונתן">
+          <label for="f-name2" id="name2Lbl">שם בן/בת הזוג השני/ה <span class="req">*</span></label>
+          <div class="hpair">
+            <input type="text" id="f-name2" autocomplete="off" placeholder="יונתן">
+            <div class="hrole" id="role2Wrap"><select id="f-role2" data-isel aria-label="תפקיד באירוע"></select></div>
+          </div>
         </div>
         <div class="frow full">
           <label for="f-edate">תאריך האירוע <span class="req">*</span></label>
@@ -852,6 +864,34 @@
   CFG.OCCASIONS.forEach(function (o) { occ.appendChild(new Option(o.label, o.value)); });
   occ.value = S.occasion;
 
+  /* who each host is — chosen per name, so two brides or two grooms are just
+     two picks. Shown only for the couple occasions (two names, no family
+     hint, no free title); everywhere else the config label stands as is. */
+  var HOST_ROLES = ['כלה', 'חתן', 'בעל השמחה', 'בעלת השמחה', 'חוגג', 'חוגגת'];
+  var roleSels = [$('f-role1'), $('f-role2')];
+  roleSels.forEach(function (sel) {
+    HOST_ROLES.forEach(function (r) { sel.appendChild(new Option(r, r)); });
+  });
+  function rolesOn() {
+    var o = CFG.occasion(S.occasion);
+    var pair = CFG.occasionNames(S.occasion);
+    return !!(o && pair[1] && !o.familyHint && !o.title);
+  }
+  function roleLabel(role) {
+    return (role.indexOf('בעל') === 0 ? 'שם ' : 'שם ה') + role;
+  }
+  function syncRoleLabels() {
+    if (!rolesOn()) return;
+    $('name1Lbl').innerHTML = roleLabel(roleSels[0].value) + ' <span class="req">*</span>';
+    $('name2Lbl').innerHTML = roleLabel(roleSels[1].value) + ' <span class="req">*</span>';
+  }
+  function hostRoles() {
+    return rolesOn() ? roleSels[0].value + ',' + roleSels[1].value : '';
+  }
+  roleSels.forEach(function (sel) {
+    sel.addEventListener('change', function () { syncRoleLabels(); renderPreview(); });
+  });
+
   function syncOccasion() {
     var o = CFG.occasion(S.occasion);
     var pair = CFG.occasionNames(S.occasion);
@@ -860,6 +900,18 @@
     var two = !!pair[1];
     $('name2Row').style.display = two ? '' : 'none';
     if (two) $('name2Lbl').innerHTML = pair[1] + ' <span class="req">*</span>';
+
+    var on = rolesOn();
+    $('role1Wrap').hidden = !on;
+    $('role2Wrap').hidden = !on;
+    /* with a role beside it the name needs the full row, not half a grid */
+    $('name1Row').classList.toggle('full', on);
+    $('name2Row').classList.toggle('full', on);
+    if (on) {
+      roleSels[0].value = 'כלה'; roleSels[1].value = 'חתן';
+      roleSels.forEach(function (sel) { IshurSelect.refresh(sel); });
+      syncRoleLabels();
+    }
 
     /* a brit is usually written as one family name, so say so rather than
        leaving someone guessing which parent goes first */
@@ -1343,6 +1395,7 @@
       occasion_label: CFG.occasionLabel(S.occasion),
       name1: $('f-name1').value.trim(),
       name2: ($('f-name2').value || '').trim(),
+      host_roles: hostRoles(),
       /* column 34 (event title) is the only host field the sender reads, and
          Make prefers event_title over name1 — so both hosts must be joined
          here or every wedding invitation goes out with one name */

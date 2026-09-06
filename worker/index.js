@@ -874,7 +874,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
      the caller; guest_id, append_body, rsvp and friends belong to other
      routes and must not be reachable from here. */
   const SETUP_FIELDS = [
-    'occasion', 'occasion_label', 'event_title', 'name1', 'name2',
+    'occasion', 'occasion_label', 'event_title', 'name1', 'name2', 'host_roles',
     'event_date', 'reception_time', 'venue_name', 'venue_addr', 'venue_city',
     'style', 'event_description', 'schedule_mode',
     'send_date_1', 'send_date_2', 'send_date_3',
@@ -884,6 +884,9 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     const v = form.get(k);
     if (typeof v === 'string' && v !== '') out[k] = v;
   }
+  /* host_roles: "כלה,חתן" — one role per host name, from a fixed list. Anything
+     else is dropped rather than written into the sheet. */
+  if (out.host_roles !== undefined && !hostRolesOk(out.host_roles)) delete out.host_roles;
 
   const image = form.get('image');
   if (image && typeof image === 'object' && image.arrayBuffer) {
@@ -900,7 +903,34 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     body: JSON.stringify(out),
   }).catch(() => null);
   if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+  if (out.host_roles) await writeHostRoles(env, token, out.host_roles);
   return okJson({ ok: true, image: !!out.image_url }, origin);
+}
+
+/* ── host roles → sheet ──────────────────────────────────────────────────────
+   The Make writer only knows the columns in its blueprint, so the roles go to
+   the event row straight from here. Column: HOST_ROLES_COL, at the end of the
+   'אירועים' header. NOT AU — the worker already reads AU (ev[46]) as the second
+   allowed dashboard phone (eventsForPhone), so the next free column is AV.
+   The row may not exist yet when setup posts (Make creates it from the same
+   payload), so a miss is parked in KV and stage 0.35 of the cron fills it. */
+const HOST_ROLES_COL = 'AV';
+const HOST_ROLES_IDX = 47;               // 0-based index of HOST_ROLES_COL
+const HOST_ROLE_SET = new Set(['כלה', 'חתן', 'בעל השמחה', 'בעלת השמחה', 'חוגג', 'חוגגת']);
+function hostRolesOk(v) {
+  const parts = String(v || '').split(',');
+  return parts.length >= 1 && parts.length <= 2 && parts.every(p => HOST_ROLE_SET.has(p));
+}
+async function writeHostRoles(env, token, roles) {
+  const snap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const rows = snap ? ((snap.events && snap.events.values) || []) : [];
+  const i = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
+  if (i >= 0) {
+    const ok = await sheetBatchWrite(env, [{ range: `אירועים!${HOST_ROLES_COL}${i + 2}`, values: [[roles]] }]);
+    if (ok) return true;
+  }
+  if (env.RATE) await env.RATE.put('hostroles:' + token, roles, { expirationTtl: TOKEN_TTL }).catch(() => {});
+  return false;
 }
 
 /* ══ guest list over WhatsApp ════════════════════════════════════════════════
@@ -2520,6 +2550,16 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       await logEvent(env, { area: 'תשלום', action: 'חבילה ומכסה נכתבו לשורת האירוע מהתשלום', ok: true, token,
         detail: `${paid.planText || ''} · ${paid.tier || '?'} מוזמנים · "${paid.desc || ''}"` });
       if (fills.length >= 20) break;
+    }
+    /* host roles that setup could not place because the row did not exist yet */
+    for (let i = 0; i < evRows.length && fills.length < 20; i++) {
+      const ev = evRows[i]; if (!ev) continue;
+      const token = String(ev[1] || '').trim();
+      if (!token || String(ev[HOST_ROLES_IDX] || '').trim()) continue;
+      const parked = await env.RATE.get('hostroles:' + token);
+      if (!parked || !hostRolesOk(parked)) continue;
+      fills.push({ range: `אירועים!${HOST_ROLES_COL}${i + 2}`, values: [[parked]] });
+      await env.RATE.delete('hostroles:' + token).catch(() => {});
     }
     if (fills.length) { const okw = await sheetBatchWrite(env, fills); if (!okw) await alert(env, 'חבילה', 'כתיבת חבילה/מכסה לשורת אירוע נכשלה', `${fills.length} תאים`); }
   }
