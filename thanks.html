@@ -169,11 +169,34 @@
        them. Either one is enough to claim. */
     var claimPhone = (pending && pending.phone) || '';
     if (!CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
-    var tries = 0;
+    var tries = 0, asked = false, phoneTries = 0;
     var box = document.createElement('div');
     box.id = 'claimBox';
     box.innerHTML = '<p style="font-size:.85rem;color:var(--ink3)">מכינים את הקישור האישי שלכם…</p>';
     document.querySelector('.steps').insertAdjacentElement('beforebegin', box);
+
+    function askPhone(err) {
+      box.innerHTML =
+        '<p style="font-size:.88rem;color:var(--ink2);margin-bottom:.6rem">' +
+        (err || 'הזינו את מספר הטלפון שאיתו שילמתם, ונמשיך לעמוד האישי שלכם:') + '</p>' +
+        '<input id="cph" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000" ' +
+        'style="width:100%;padding:.85rem;border:1px solid var(--bdr);border-radius:10px;font-family:inherit;font-size:1rem;text-align:center;margin-bottom:.5rem">' +
+        '<button id="cgo" type="button" style="width:100%;background:var(--green);color:#fff;border:0;' +
+        'font-family:inherit;font-weight:600;font-size:1rem;padding:.9rem;border-radius:10px;cursor:pointer">המשך ←</button>' +
+        '<p id="cerr" style="font-size:.78rem;color:#b42318;margin-top:.45rem;min-height:1.1em"></p>';
+      var inp = document.getElementById('cph');
+      function go() {
+        var v = (inp.value || '').replace(/\D/g, '');
+        if (v.length < 9) { document.getElementById('cerr').textContent = 'צריך מספר טלפון מלא'; return; }
+        document.getElementById('cerr').textContent = '';
+        document.getElementById('cgo').textContent = 'בודקים…';
+        claimPhone = v; tries = 0; asked = true;
+        attempt();
+      }
+      document.getElementById('cgo').addEventListener('click', go);
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') go(); });
+      inp.focus();
+    }
 
     function attempt() {
       tries++;
@@ -202,8 +225,19 @@
             setTimeout(function () {
               try { location.href = 'upload.html?t=' + encodeURIComponent(j.token); } catch (e) {}
             }, 3000);
-          } else if (tries < 15) {
+          } else if (tries < 8) {
             setTimeout(attempt, 3000);
+          } else if (!asked) {
+            /* Nothing identifies the buyer: Grow sent no reference and this
+               browser never filled the site form, which is exactly what
+               happens when somebody opens a payment link straight from an ad.
+               Ask for the phone they paid with. The worker only answers for a
+               payment made in the last 30 minutes. */
+            asked = true;
+            askPhone();
+          } else if (phoneTries < 3) {
+            phoneTries++;
+            askPhone('לא מצאנו תשלום למספר הזה. בדקו שזה המספר שאיתו שילמתם:');
           } else {
             IshurLead.track('claim_timeout', {});
             box.innerHTML = '<p style="font-size:.8rem;color:var(--ink3)">הקישור האישי בדרך אליכם. אם הוא לא הגיע תוך כמה דקות, כתבו לנו כאן בוואטסאפ ונשלח מיד.</p>';
