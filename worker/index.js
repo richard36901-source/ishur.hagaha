@@ -305,6 +305,19 @@ async function processGrowPayment(env, flat) {
     return new Response('duplicate', { status: 200 });
   }
 
+  /* ── an add-on, not a new event ─────────────────────────────────────────
+     A Grow page named "תוספת 50 מוזמנים" or "שליחה נוספת" is money for an
+     event that already exists. It never mints a token: it raises the cap of
+     the buyer's active event (AG, plus S-V "הוספת אורחים" for before/after),
+     opens ONE more upload that merges with the existing list, or unlocks
+     wave 3. No active event → parked red, nothing invented. */
+  const addon = parseAddonDesc(flat.paymentDesc || flat.description || flat.productName || '');
+  if (addon) {
+    if (env.RATE) await env.RATE.put('grow:' + ref, 'addon', { expirationTtl: 30 * 86400 });
+    const ar = await applyAddon(env, { phone, name, sum, ref, addon, flat }).catch(e => ({ ok: false, why: String(e && e.message) }));
+    return new Response(ar.ok ? 'addon-applied' : 'addon-parked', { status: 200 });
+  }
+
   const token = crypto.randomUUID();
   const isNewClient = env.RATE ? !(await env.RATE.get('client:' + phone)) : true;
 
@@ -646,7 +659,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
    flipped without a deploy: extrasend (unlocks wave 3, the paid add-on) and
    hold (freezes every guest send for one event).
    POST {admin_key, token, flag:'extrasend'|'hold', on:bool}; omit `on` to read. */
-const EVENT_FLAGS = ['extrasend', 'hold'];
+const EVENT_FLAGS = ['extrasend', 'hold', 'cancel'];
 async function handleEventFlag(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -657,6 +670,21 @@ async function handleEventFlag(request, env, origin) {
     return deny(400, 'bad-request', origin);
   }
   const key = flag + ':' + token;
+  if (flag === 'cancel') {
+    /* "בוטל?" (AB) had no writer: the engine read it, nobody set it. This is
+       the writer. on → 'כן' (waves stop, הכל כלול guests get ishur_bitul on
+       the next engine run); off → '' (event resumes). */
+    if (typeof body.on !== 'boolean') return deny(400, 'bad-request', origin);
+    const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const rows = (raw && raw.events && raw.events.values) || [];
+    const idx = rows.findIndex(r => String(r[1] || '').trim() === token);
+    if (idx < 0) return deny(404, 'event-not-found', origin);
+    const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${idx + 2}`, values: [[body.on ? 'כן' : '']] }]);
+    await logEvent(env, { area: 'אירוע', action: body.on ? 'האירוע סומן כמבוטל (בוטל? = כן)' : 'ביטול האירוע הוסר', ok: okw, review: !okw, token,
+      detail: `${String(rows[idx][34] || rows[idx][2] || '').trim()} · ${String(body.reason || 'מלוח הבקרה')}` });
+    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`);
+    return okJson({ ok: okw, flag, on: body.on }, origin);
+  }
   if (typeof body.on !== 'boolean') {
     return okJson({ ok: true, flag, on: !!(await env.RATE.get(key)) }, origin);
   }
@@ -752,6 +780,68 @@ function parsePaidDesc(desc) {
   return { tier, plan, planText, desc: d.slice(0, 80) };
 }
 
+/* "תוספת 50 מוזמנים" → {kind:'guests', n:50}; "שליחה נוספת" / "גל נוסף" →
+   {kind:'extrasend'}. A plain package ("50 מוזמנים בסיס") is NOT an add-on. */
+function parsePaidDesc_isAddon(d) { return /תוספת|הרחב|הוספת|add-?on|extra/i.test(d); }
+function parseAddonDesc(desc) {
+  const d = String(desc || '');
+  if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', desc: d.slice(0, 80) };
+  if (!parsePaidDesc_isAddon(d)) return null;
+  const m = d.match(/(\d{1,4})\s*מוזמנים/);
+  if (!m) return null;
+  return { kind: 'guests', n: parseInt(m[1], 10), desc: d.slice(0, 80) };
+}
+
+async function applyAddon(env, { phone, name, sum, ref, addon }) {
+  const today = ilDate();
+  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const rows = (raw && raw.events && raw.events.values) || [];
+  /* the buyer's active event: paid, not cancelled, not in the past; nearest date first */
+  const mine = eventsForPhone(raw, phone)
+    .filter(e => !e.event_date || String(e.event_date).slice(0, 10) >= today)
+    .sort((a, b) => String(a.event_date || '9').localeCompare(String(b.event_date || '9')));
+  const ev = mine[0];
+  const idx = ev ? rows.findIndex(r => String(r[1] || '').trim() === ev.token) : -1;
+  if (!ev || idx < 0) {
+    if (env.RATE) await env.RATE.put('addonpark:' + ref, JSON.stringify({ phone, name, sum, ref, addon, at: new Date().toISOString() }), { expirationTtl: 60 * 86400 });
+    await logEvent(env, { area: 'תשלום', action: 'תוספת נרכשה אך לא נמצא אירוע פעיל לטלפון — הוחנה', ok: false, review: true, phone, ref,
+      detail: `${addon.desc} · ₪${sum} · addonpark:${ref}` });
+    await alert(env, 'תוספת', `${name || phone} רכש/ה "${addon.desc}" (₪${sum}) ואין אירוע פעיל על ${phone}. לשייך ידנית.`, ref);
+    return { ok: false, why: 'no-active-event' };
+  }
+  const token = ev.token, row = idx + 2, evRow = rows[idx];
+  if (addon.kind === 'extrasend') {
+    if (env.RATE) await env.RATE.put('extrasend:' + token, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+    await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
+    await slackPost(env, `💳 *תוסף שליחה נוספת* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — גל 3 ייצא בתאריך שבגיליון`);
+    return { ok: true, token };
+  }
+  const before = await tierWithPromo(env, token, tierOf(evRow));
+  const after = before + addon.n;
+  const prevN = parseInt(String(evRow[19] || '').replace(/\D/g, ''), 10) || 0;
+  const prevSum = Number(String(evRow[20] || '').replace(/[^\d.]/g, '')) || 0;
+  const okw = await sheetBatchWrite(env, [
+    { range: `אירועים!AG${row}`, values: [[String(after)]] },
+    { range: `אירועים!S${row}:V${row}`, values: [['כן', String(prevN + addon.n), String(prevSum + (Number(sum) || 0)), 'כן']] },
+    { range: `אירועים!Z${row}`, values: [[String(evRow[25] || '').trim() + `\nתוספת ${addon.n} מוזמנים · מכסה ${before} → ${after} · ₪${sum} · ${new Date().toISOString().slice(0, 16)}`]] },
+  ]);
+  if (env.RATE) {
+    let cur = { n: 0 }; try { cur = JSON.parse(await env.RATE.get('addon:' + token)) || cur; } catch {}
+    await env.RATE.put('addon:' + token, JSON.stringify({ n: (cur.n || 0) + addon.n, ref, at: new Date().toISOString(), before, after }), { expirationTtl: 200 * 86400 });
+    /* the cache the upload cap reads */
+    let paid = null; try { paid = JSON.parse(await env.RATE.get('paid:' + token)) || null; } catch {}
+    if (paid) { paid.tier = after; await env.RATE.put('paid:' + token, JSON.stringify(paid), { expirationTtl: 400 * 86400 }); }
+    else await env.RATE.put('paid:' + token, JSON.stringify({ tier: after, plan: '', planText: '', desc: addon.desc }), { expirationTtl: 400 * 86400 });
+  }
+  await logEvent(env, { area: 'תשלום', action: 'תוספת מוזמנים נרכשה — המכסה הוגדלה, נפתחה העלאה נוספת', ok: okw, review: !okw, phone, token, ref,
+    detail: `מכסה ${before} → ${after} · +${addon.n} · ₪${sum} · "${addon.desc}"` });
+  await slackPost(env, `💳 *תוספת ${addon.n} מוזמנים* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} · מכסה ${before} → ${after}. הלקוח יכול להעלות קובץ נוסף (כפולים מסוננים).`);
+  const txt = `התוספת נקלטה 🙌 המכסה של ${ev.event_name || 'האירוע'} עכשיו ${after} הזמנות. אפשר להעלות קובץ עם המוזמנים החדשים כאן: https://ishur.io/upload.html?t=${token} (מספרים שכבר ברשימה יסוננו אוטומטית).`;
+  const wa = await sendText(env, phone, txt, 'client', { who: 'נועה (מערכת)', token });
+  if (!wa.ok) await logEvent(env, { area: 'ווצאפ', action: 'הודעת תוספת ללקוח לא יצאה (מחוץ לחלון 24ש) — לשלוח ידנית', ok: false, review: true, phone, token, detail: wa.error });
+  return { ok: true, token, before, after };
+}
+
 function tierOf(evRow) {
   if (!evRow) return 0;
   return parseInt(String(evRow[32] || '').replace(/\D/g, ''), 10) || 0;
@@ -786,15 +876,19 @@ function countBillable(guests) {
 async function handleEventForm(form, rec, token, env, origin, target, url) {
   const file = form.get('file');
   if (file && typeof file === 'object' && file.arrayBuffer) {
-    /* one guest list per event; replacements go through support on purpose */
-    if (await env.RATE.get('uploaded:' + token)) return deny(409, 'already-uploaded', origin);
+    /* one guest list per event; replacements go through support on purpose.
+       Exception: a paid add-on (addon:<token>) opens ONE merge upload — new
+       numbers are appended, numbers already on the list are skipped. */
+    let addonRec = null; try { addonRec = JSON.parse(await env.RATE.get('addon:' + token)) || null; } catch {}
+    const merge = !!(await env.RATE.get('uploaded:' + token));
+    if (merge && !addonRec) return deny(409, 'already-uploaded', origin);
     if (file.size > MAX_FILE_BYTES) return deny(413, 'file-too-large', origin);
     if (!/\.(csv|xlsx|xls)$/i.test(file.name || '')) return deny(422, 'bad-file-type', origin);
 
     let rows;
     try { rows = parseGuestFile(file.name, await file.arrayBuffer()); }
     catch { return deny(422, 'unreadable-file', origin); }
-    const { guests, skipped, warnings } = guestsFromRows(rows);
+    let { guests, skipped, warnings } = guestsFromRows(rows);
     if (!guests.length) return deny(422, 'no-valid-guests', origin);
     if (guests.length > MAX_GUESTS) return deny(422, 'too-many-guests', origin);
 
@@ -806,9 +900,30 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     const capRow = capSnap ? ((capSnap.events && capSnap.events.values) || [])
       .find(r => String(r[1] || '').trim() === token) : null;
     const tierNum = await tierWithPromo(env, token, tierOf(capRow));
+    /* merge upload: drop every number already on this event's list (the waves
+       dedupe by phone too, so a duplicate here would never have been sent —
+       but it would have been counted against the cap and shown twice) */
+    let existingRows = 0, duplicates = [];
+    if (merge) {
+      const have = new Set();
+      for (const g of ((capSnap && capSnap.guests && capSnap.guests.values) || [])) {
+        if (String(g[28] || '').trim() !== token) continue;
+        existingRows++;
+        const p = normPhone(g[4] || ''); if (p) have.add(p);
+      }
+      const fresh = [];
+      for (const g of guests) { const p = normPhone(g.phone); if (p && have.has(p)) duplicates.push(g.name || p); else { fresh.push(g); have.add(p); } }
+      if (!fresh.length) {
+        return new Response(JSON.stringify({ ok: false, error: 'all-duplicates', duplicates: duplicates.length }),
+          { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+      }
+      guests = fresh;
+      /* the existing list stays; only distinct new numbers count */
+      var mergeBase = have.size - countBillable(fresh);
+    }
     /* the tier counts invitations, i.e. distinct phone numbers — a family on
        one number is one invitation, exactly as the waves dedupe them */
-    const billable = countBillable(guests);
+    const billable = countBillable(guests) + (merge ? mergeBase : 0);
     if (tierNum && billable > tierNum) {
       await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} הזמנות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
       return new Response(JSON.stringify({
@@ -838,11 +953,11 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
       const row = new Array(29).fill('');
       row[0] = rec.clientId;                        // מזהה לקוח
       row[1] = rec.name || '';                      // שם לקוח
-      row[2] = 'G-' + token.slice(0, 8) + '-' + (i + 1); // מזהה אורח
+      row[2] = 'G-' + token.slice(0, 8) + '-' + (existingRows + i + 1); // מזהה אורח
       row[3] = g.name;                              // שם אורח
       row[4] = g.phone;                             // טלפון אורח
       row[5] = g.party;                             // כמה הוזמנו
-      row[24] = 'הועלה מקובץ: ' + file.name;        // הערות מערכת
+      row[24] = (merge ? 'תוספת · ' : '') + 'הועלה מקובץ: ' + file.name; // הערות מערכת
       row[25] = now;                                // זמן שינוי אחרון
       row[28] = token;                              // מזהה אירוע
       return row;
@@ -862,6 +977,13 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
 
     await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
     await env.RATE.delete('pend:' + token).catch(() => {});
+    if (merge) {
+      await env.RATE.delete('addon:' + token).catch(() => {});
+      await logEvent(env, { area: 'העלאה', action: 'קובץ תוספת מוזג לרשימה', ok: true, token, phone: rec.phone || '',
+        detail: `${guests.length} חדשים נוספו · ${duplicates.length} כפולים דולגו · היו ${existingRows} שורות · מכסה ${tierNum || '∞'}` });
+      await slackPost(env, `📎 *תוספת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} חדשים · ${duplicates.length} כפולים סוננו`);
+      return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
+    }
     return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
   }
 
@@ -2834,6 +2956,35 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
     const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+
+    /* ishur_toda_orach — a thank-you to every guest who confirmed, the day
+       after. A marketing template to hundreds of people, so הכל כלול only.
+       Same per-guest markers + budget shape as the cancel notice. */
+    if (planKeyOf(ev) === 'premium' && !(env.RATE && await env.RATE.get('toda:' + token))) {
+      if (dry) { out.push({ token, type: 'guest_thanks', would_send: confirmed }); }
+      else {
+        let tsent = 0, tfail = 0, tcut = false; const tseen = new Set();
+        for (const g of gRows) {
+          if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
+          if (budget && budget.left <= 0) { tcut = true; break; }
+          const gp = String(g[4] || '').trim();
+          if (!gp || tseen.has(gp)) continue; tseen.add(gp);
+          const mk = `s3t:${token}:${normPhone(gp)}`;
+          if (env.RATE && await env.RATE.get(mk)) continue;
+          if (await phoneBlocked(env, gp)) continue;
+          if (await wrongNum(env, token, gp)) continue;
+          const gname = String(g[3] || '').trim() || 'אורח יקר';
+          const wa = await sendTemplate(env, gp, 'ishur_toda_orach', [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          if (budget) budget.left--;
+          if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); }
+          else tfail++;
+        }
+        if (tsent || tfail) await logEvent(env, { area: 'שליחה', action: 'תודה לאורחים (יום אחרי)', ok: tfail === 0, review: tfail > 0, token,
+          detail: `${tsent} נשלחו · ${tfail} נכשלו${tcut ? ' · נעצר בתקציב, ימשיך בפעימה הבאה' : ''}` });
+        if (!tcut && !tfail && env.RATE) await env.RATE.put('toda:' + token, today, { expirationTtl: 120 * 86400 });
+        if (tcut) out.push({ token, type: 'guest_thanks_truncated', truncated: true });
+      }
+    }
     const brain = await getBrain(env);
     const review = String(brain.reviewLink || '').trim();
     const clip = String(brain.testimonialLink || '').trim();
