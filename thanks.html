@@ -225,7 +225,12 @@
             setTimeout(function () {
               try { location.href = 'upload.html?t=' + encodeURIComponent(j.token); } catch (e) {}
             }, 3000);
-          } else if (tries < 8) {
+          } else if (tries < 60) {
+            /* Grow notifies our server about a minute AFTER it sends the buyer
+               here (measured 07/09: buyer at 00:05:34, notification 00:06:22),
+               so the page has to wait it out rather than give up. Three
+               minutes, then the WhatsApp fallback. */
+            if (tries === 12 && !claimPhone && !asked) { asked = true; askPhone(); }
             setTimeout(attempt, 3000);
           } else if (!asked) {
             /* Nothing identifies the buyer: Grow sent no reference and this
