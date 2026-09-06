@@ -63,7 +63,7 @@ export async function logEvent(env, e) {
 }
 
 /* ── the sheet plumbing, all through the Make proxy that already exists ───── */
-async function proxy(env, url, opts = {}) {
+export async function proxy(env, url, opts = {}) {
   if (!env.BRAIN_HOOK) return null;
   const body = { url };
   if (opts.method) body.method = opts.method;

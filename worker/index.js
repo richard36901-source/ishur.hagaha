@@ -24,6 +24,7 @@
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
+import { proxy as evProxy } from './evlog.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
@@ -5726,6 +5727,11 @@ export default {
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
         if (b.action === 'setcell' && /^[^!]+![A-Z]{1,2}\d{1,5}$/.test(String(b.range || ''))) {
           return okJson({ ok: await sheetBatchWrite(env, [{ range: String(b.range), values: [[String(b.value ?? '')]] }]) }, origin);
+        }
+        if (b.action === 'sheetreq' && Array.isArray(b.requests)) {
+          /* raw Sheets batchUpdate (admin only): add columns, formats, etc. */
+          const r = await evProxy(env, 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q:batchUpdate', { method: 'POST', payload: { requests: b.requests } });
+          return okJson({ ok: !!(r && r.replies), r }, origin);
         }
         if (b.action === 'tabtail') return okJson(await readTabTail(env, String(b.tab || 'msg_guests'), Number(b.n) || 10), origin);
         if (b.action === 'clientrow') return okJson(await upsertClientRow(env, b), origin);
