@@ -311,6 +311,14 @@ async function processGrowPayment(env, flat) {
     /* ref→token lives 30 days so the thank-you page can claim it */
     await env.RATE.put('grow:' + ref, token, { expirationTtl: 30 * 86400 });
     await env.RATE.put('client:' + phone, '1', { expirationTtl: 730 * 86400 });
+    /* what was bought, from Grow's own description ("50 מוזמנים בסיס"): the
+       tier caps the upload and the plan decides calls/notices. Make only fills
+       AF/AG from the lead row, so a direct-link buyer had NO cap and defaulted
+       to פרמיום — the engine backfills the sheet from this (stage 0.35). */
+    try {
+      const bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || '');
+      if (bought) await env.RATE.put('paid:' + token, JSON.stringify({ ...bought, sum: String(sum || ''), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+    } catch {}
     /* they paid — they are not an abandoned lead any more, in either
        direction: no chase message, and no lead call queued behind it */
     await env.RATE.delete('lead:' + phone).catch(() => {});
@@ -723,6 +731,21 @@ function okJson(payload, origin) {
 
 /* The purchased tier, from the event row (col 32, e.g. "עד 300"). 0 = unknown,
    which lets the upload through and leaves the sheet as the source of truth. */
+/* "50 מוזמנים בסיס" → { tier: 50, plan: 'basic', planText: 'בסיס' }. The Grow
+   page names are the contract; anything unparseable returns null and the
+   sheet stays the authority. */
+function parsePaidDesc(desc) {
+  const d = String(desc || '');
+  const m = d.match(/(\d{2,4})\s*מוזמנים/);
+  const tier = m ? parseInt(m[1], 10) : 0;
+  let plan = '', planText = '';
+  if (/הכל|premium|all/i.test(d)) { plan = 'premium'; planText = 'הכל כלול'; }
+  else if (/בסיס|basic|base/i.test(d)) { plan = 'basic'; planText = 'בסיס'; }
+  else if (/פרמיום|פרימיום|pro|premium/i.test(d)) { plan = 'pro'; planText = 'פרמיום'; }
+  if (!tier && !plan) return null;
+  return { tier, plan, planText, desc: d.slice(0, 80) };
+}
+
 function tierOf(evRow) {
   if (!evRow) return 0;
   return parseInt(String(evRow[32] || '').replace(/\D/g, ''), 10) || 0;
@@ -735,6 +758,10 @@ function tierOf(evRow) {
 async function tierWithPromo(env, token, sheetTier) {
   if (!env.RATE || !token) return sheetTier;
   try {
+    if (!sheetTier) {
+      const paid = JSON.parse((await env.RATE.get('paid:' + token)) || 'null');
+      if (paid && paid.tier) sheetTier = paid.tier;
+    }
     const raw = await env.RATE.get('promoof:' + token);
     if (!raw) return sheetTier;
     const p = JSON.parse(raw);
@@ -2182,6 +2209,7 @@ function heDate(iso) {
 /* one sending wave to the guests of one event. Guests are skipped when they
    opted out, and (for reminders) when they already answered. */
 async function sendWave(env, ev, token, guests, wave, dry, budget) {
+  const today = ilDate();
   const occasion = String(ev[5] || '').trim() || 'אירוע';
   const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
   const date = heDate(String(ev[6] || '').trim());
@@ -2210,7 +2238,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     await sendTemplate(env, '000', 'noop', [], '', 'he', 'guests');   // trips the once-a-day journal row
     return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: false, held: true };
   }
-  let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0;
+  let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0; let deferred = 0;
   let truncated = false;
   /* the sheet is the source of truth, so every delivered invitation is written
      back to the guest's own row — תאריך שליחה 1/2/3 (columns I/J/K) — in one
@@ -2251,6 +2279,14 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
        tick handled, where phoneBlocked+wrongNum are three (finding #2) */
     const gkEarly = `wsent:${token}:${wave.key}:${normPhone(phone)}`;
     if (env.RATE && await env.RATE.get(gkEarly)) { skippedDone++; cursor = gi + 1; continue; }
+    /* one invitation per person per day, across events: somebody on three
+       guest lists whose waves fall on the same day gets one today and the
+       others on the following days (the wave stays claimable 3 days). The
+       guest is NOT marked, so the cursor moves on and the next tick/day retries. */
+    if (env.RATE) {
+      const gd = await env.RATE.get(`gday:${normPhone(phone)}:${today}`);
+      if (gd && gd !== token) { deferred++; cursor = gi + 1; continue; }
+    }
     if (await phoneBlocked(env, phone)) { skippedOptout++; cursor = gi + 1; continue; }
     if (await wrongNum(env, token, phone)) { skippedOptout++; cursor = gi + 1; continue; }
     /* three delivery failures from Meta: stop retrying, it is in the journal red */
@@ -2279,6 +2315,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
       if (env.RATE && res.id) await env.RATE.put('wamid:' + res.id,
         JSON.stringify({ token, wave: wave.key, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+      if (env.RATE) await env.RATE.put(`gday:${normPhone(phone)}:${today}`, token, { expirationTtl: 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
          must never cost the invitation, which already landed. */
       /* The artwork used to follow here as a plain image message. Meta refused
@@ -2311,7 +2348,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
       range: `אורחים!${col}${row}`, values: [[stamp]],
     }))).catch(() => {});
   }
-  return { wave: wave.key, tmpl: inviteTmpl, sent, skippedOptout, skippedAnswered, skippedDone, failed, truncated };
+  return { wave: wave.key, tmpl: inviteTmpl, sent, skippedOptout, skippedAnswered, skippedDone, deferred, failed, truncated };
 }
 
 async function runDailyEngine(env, dry, todayOverride, opts = {}) {
@@ -2387,6 +2424,32 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         out.push({ token, type: 'stuck_client', sent: wa.ok });
       }
     } catch (e) { await alert(env, 'לקוח תקוע', 'שלב הבדיקה נפל', String(e && e.message)); }
+  }
+
+  /* ── stage 0.35: the package on the event row, from the payment ──────────
+     Make writes AF/AG only when a lead row existed; a direct-link buyer's row
+     has both empty → no upload cap, plan defaults to פרמיום. Fill them from
+     paid:<token> once. The sheet stays editable by hand afterwards. */
+  if (!dry && env.RATE && env.BRAIN_HOOK) {
+    const fills = [];
+    for (let i = 0; i < evRows.length; i++) {
+      const ev = evRows[i]; if (!ev) continue;
+      const token = String(ev[1] || '').trim();
+      if (!token || String(ev[7] || '').trim() !== 'כן') continue;
+      const planEmpty = !String(ev[31] || '').trim(), tierEmpty = !String(ev[32] || '').trim();
+      if (!planEmpty && !tierEmpty) continue;
+      if (await env.RATE.get('planfill:' + token)) continue;
+      let paid = null; try { paid = JSON.parse((await env.RATE.get('paid:' + token)) || 'null'); } catch {}
+      if (!paid) continue;
+      const row = i + 2;
+      if (planEmpty && paid.planText) fills.push({ range: `אירועים!AF${row}`, values: [[paid.planText]] });
+      if (tierEmpty && paid.tier) fills.push({ range: `אירועים!AG${row}`, values: [[String(paid.tier)]] });
+      await env.RATE.put('planfill:' + token, today, { expirationTtl: 400 * 86400 });
+      await logEvent(env, { area: 'תשלום', action: 'חבילה ומכסה נכתבו לשורת האירוע מהתשלום', ok: true, token,
+        detail: `${paid.planText || ''} · ${paid.tier || '?'} מוזמנים · "${paid.desc || ''}"` });
+      if (fills.length >= 20) break;
+    }
+    if (fills.length) { const okw = await sheetBatchWrite(env, fills); if (!okw) await alert(env, 'חבילה', 'כתיבת חבילה/מכסה לשורת אירוע נכשלה', `${fills.length} תאים`); }
   }
 
   /* ── stage 0.55: paid, uploaded, but the settings step was never finished ──
