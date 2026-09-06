@@ -249,6 +249,9 @@
       return box.innerHTML = html + '</ul></div></div>';
     }
     paint(false);
+    /* the three lines tick in sequence so the wait reads as progress; the
+       last one only turns green when the payment is actually confirmed */
+    setTimeout(function () { if (at < 2) { at = 2; paint(false); } }, 2600);
     document.querySelector('.steps').insertAdjacentElement('beforebegin', box);
 
     function askPhone(err) {
@@ -298,8 +301,6 @@
             /* One second, not three: Grow notifies our server about a minute
                after it sends the buyer here (measured 07/09, 00:05:34 vs
                00:06:22), and the buyer should move the instant it lands. */
-            if (tries === 10) at = 2;
-            if (tries === 10 || tries === 40) paint(false);
             if (tries === 45 && !claimPhone && !asked) { asked = true; askPhone(); }
             setTimeout(attempt, 1000);
           } else if (!asked) {
