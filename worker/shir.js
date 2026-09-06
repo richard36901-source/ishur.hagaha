@@ -238,7 +238,8 @@ export function openingLine(hit, opts = {}) {
 
   /* a call WE placed back to somebody who rang us and did not get through */
   if (opts.callback) {
-    return `${hello}, ${who}. ראיתי שהתקשרתם אלינו ולא הספקנו לדבר, אז חזרתי אליכם. איך אפשר לעזור?`;
+    const w = opts.noa ? 'מדברת נועה מאישורי הגעה' : who;
+    return `${hello}, ${w}. ראיתי שהתקשרתם אלינו ולא הספקנו לדבר, אז חזרתי אליכם. איך אפשר לעזור?`;
   }
   if (h.caller_kind === 'guest') {
     const at = ev.occasion ? `ל${ev.occasion}${ev.client_name ? ' של ' + ev.client_name : ''}` : '';
@@ -250,10 +251,10 @@ export function openingLine(hit, opts = {}) {
     }
     return `${hello}, ${who}. ההזמנה שלכם ${at} עוד מחכה לתשובה — אתם מגיעים?`;
   }
-  if (h.caller_kind === 'client') {
-    return `${hello}, ${who}. איך אפשר לעזור?`;
-  }
-  return 'שלום, הגעתם לאישורי הגעה, מדברת שיר. איך אפשר לעזור?';
+  /* Separation rule (Richard 06/09): Shir speaks with guests only. A client,
+     a lead or a stranger on her line hears who handles them, and Noa rings
+     back (the callback queue routes by caller kind). */
+  return `${hello}, ${who}. הקו הזה מיועד למוזמנים לאירועים. נועה מצוות השירות תחזור אליכם בהקדם, ואפשר גם לכתוב לה בוואטסאפ, 055-950-4499. תודה ויום טוב!`;
 }
 
 /* Everything the inbound script may say, as strings. Every key is always
@@ -392,6 +393,11 @@ export function noaOpeningLine(hit) {
   }
   if (h.caller_kind === 'lead') {
     return `${hello}, הגעתם לאישורי הגעה, מדברת נועה. איך אפשר לעזור?`;
+  }
+  if (h.caller_kind === 'guest') {
+    /* Noa never speaks guest-talk: a guest who rang the service line is
+       handed to Shir, who rings back from her own number */
+    return `${hello}, מדברת נועה מאישורי הגעה. לגבי ההזמנה לאירוע, שיר תחזור אליכם מיד מהמספר שלה. תודה!`;
   }
   return 'שלום, הגעתם לאישורי הגעה, מדברת נועה. איך אפשר לעזור?';
 }

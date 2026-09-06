@@ -25,7 +25,8 @@ import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy } from './evlog.js';
-import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables } from './shir.js';
+import { createInvoice } from './invoice.js';
+import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
@@ -409,7 +410,26 @@ async function processGrowPayment(env, flat) {
     /* the invoice Grow generated (only when auto-invoice is on for the page).
        A cold customer needs a template; until ishur_heshbonit is approved the
        link is journaled so nothing is lost, and Richard can send it by hand. */
-    const invoiceUrl = String(flat.invoiceURL || flat.invoiceUrl || '').trim();
+    let invoiceUrl = String(flat.invoiceURL || flat.invoiceUrl || '').trim();
+    /* no invoice from Grow → the worker issues one in Morning, with the
+       package, the amount, the payment method and the terms on it */
+    if (!invoiceUrl) {
+      let bought = null; try { bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); } catch {}
+      const inv = await createInvoice(env, {
+        name, phone, email, sum, ref, payMethod,
+        taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
+        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0,
+        occasion: String(flat.occasion || flat.cField2 || '').trim(),
+      }).catch(e => ({ ok: false, why: String(e && e.message) }));
+      if (inv.ok) {
+        invoiceUrl = inv.url;
+        if (env.RATE) await env.RATE.put('invoice:' + token, JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+        await logEvent(env, { area: 'חשבוניות', action: `חשבונית מס-קבלה ${inv.number} הופקה במורנינג`, ok: true, phone, token, ref, detail: `₪${sum} · ${payMethod || ''} · ${inv.url}` });
+      } else if (inv.why !== 'not-configured') {
+        await logEvent(env, { area: 'חשבוניות', action: 'הפקת חשבונית במורנינג נכשלה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}`.trim() });
+        await alert(env, 'חשבוניות', `חשבונית ל-${name || phone} (₪${sum}) לא הופקה: ${inv.why}`, ref);
+      }
+    }
     if (invoiceUrl) {
       const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
       if (invTmpl) {
@@ -1742,15 +1762,26 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
       guest_id: meta.guest_id || '', token: meta.token || '',
       tries: meta.tries || '0', max_tries: meta.max_tries || '3',
     };
+    /* Separation rule: a guest is rung back by Shir from her number; a
+       client, a lead or a stranger is rung back by Noa from hers. Never the
+       other way round. Without Noa's line configured the entry waits. */
+    const noaLine = hit.caller_kind !== 'guest';
+    if (noaLine && !(env.NOA_FROM && env.NOA_INBOUND_AGENT)) { waiting++; continue; }
+    const payload = buildCallPayload(target, noaLine ? env.NOA_FROM : env.SHIR_FROM,
+      { override_agent_id: noaLine ? env.NOA_INBOUND_AGENT : (env.SHIR_INBOUND_AGENT || '') });
+    if (noaLine) {
+      payload.metadata.line = 'noa';
+      payload.retell_llm_dynamic_variables = noaInboundVariables(hit);
+      payload.retell_llm_dynamic_variables.opening_line = openingLine(hit, { callback: true, noa: true });
+    }
     const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildCallPayload(target, env.SHIR_FROM,
-        { override_agent_id: env.SHIR_INBOUND_AGENT || '' })),
+      body: JSON.stringify(payload),
     }).catch(() => null);
     if (res && (res.status === 200 || res.status === 201)) {
       let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
-      await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת (חזרה)', phone: r.phone, name: (hit && hit.name) || '', kind: 'חזרה למי שהתקשר',
+      await logRow(env, 'calls', { agent: noaLine ? 'נועה' : 'שיר', dir: 'יוצאת (חזרה)', phone: r.phone, name: (hit && hit.name) || '', kind: noaLine ? `חזרה ללקוח/ליד (${hit.caller_kind})` : 'חזרה למי שהתקשר',
         token: String((target && target.token) || '').slice(0, 8), status: 'חויג ' + ilTime(), id: cid });
       dialed.push(r.phone);
       /* the guest dialler keys its once-a-day rule on shirtry:<guest>:<day>;
@@ -1897,6 +1928,9 @@ async function handleShirInbound(request, env, url, origin) {
   if (env.SHIR_INBOUND_AGENT) answer.call_inbound.override_agent_id = String(env.SHIR_INBOUND_AGENT);
 
   if (!admin) {
+    if (hit.caller_kind !== 'guest') {
+      await logEvent(env, { area: 'שיחות', action: `${hit.caller_kind === 'client' ? 'לקוח' : hit.caller_kind === 'lead' ? 'ליד' : 'מספר לא מזוהה'} התקשר לקו של שיר — הופנה לנועה (חזרה בתור)`, ok: true, phone });
+    }
     /* provisional callback entry — see CBQ_GRACE_MS above for why it goes in
        now and not on failure */
     await cbqEnqueue(env, phone, 'inbound-ring').catch(() => {});
@@ -1974,6 +2008,11 @@ async function handleNoaInbound(request, env, url, origin) {
     },
   };
   if (env.NOA_INBOUND_AGENT) answer.call_inbound.override_agent_id = String(env.NOA_INBOUND_AGENT);
+  if (!admin && hit.caller_kind === 'guest') {
+    /* separation rule: Noa told the guest that Shir will ring back — queue it */
+    await cbqEnqueue(env, phone, 'guest-rang-noa').catch(() => {});
+    await logEvent(env, { area: 'שיחות', action: 'אורח התקשר לקו של נועה — הופנה לשיר (חזרה בתור)', ok: true, phone, token: String(hit.token || '').slice(0, 8) });
+  }
 
   if (admin) {
     return okJson({ ok: true, snapshot: !!raw, phone,
@@ -2153,6 +2192,20 @@ async function handleWaWebhook(request, env, url) {
     const isClient = ownEvents.length > 0 ||
       !!(env.RATE && await env.RATE.get('client:' + normPhone(from)));
     const guest = (!isClient && raw) ? findGuestByPhone(raw, from, ilDate()) : null;
+
+    /* Separation rule on WhatsApp (Richard 06/09): Noa's number never runs
+       guest logic, Shir's number never runs service logic. Each side points
+       the person to the right number, in one line, and stops. */
+    if (ch === 'client' && guest && parsed.kind !== 'mistake' && parsed.kind !== 'optout' && parsed.kind !== 'nocall') {
+      await say('היי 🙂 ההזמנה לאירוע הגיעה אליכם מהמספר של שיר, 055-972-6673. השיבו שם ונרשום אתכם מיד.');
+      await logEvent(env, { area: 'ווצאפ', action: 'אורח כתב למספר של נועה — הופנה למספר של שיר', ok: true, phone: from, token: guest.token });
+      continue;
+    }
+    if (ch === 'guests' && !guest && parsed.kind !== 'mistake' && parsed.kind !== 'optout' && parsed.kind !== 'nocall') {
+      await say('היי 🙂 המספר הזה משמש לאישורי הגעה של מוזמנים בלבד. לשירות לקוחות כתבו לנועה: https://wa.me/972559504499');
+      await logEvent(env, { area: 'ווצאפ', action: `${isClient ? 'לקוח' : 'ליד/לא מזוהה'} כתב למספר של שיר — הופנה לנועה`, ok: true, phone: from });
+      continue;
+    }
 
     /* wrong number: silence this event for this phone, nothing else */
     if (parsed.kind === 'mistake') {
@@ -2688,6 +2741,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (!paid) continue;
       const row = i + 2;
       if (planEmpty && paid.planText) fills.push({ range: `אירועים!AF${row}`, values: [[paid.planText]] });
+      try {
+        const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null');
+        if (inv && inv.url && !String(ev[9] || '').trim()) fills.push({ range: `אירועים!J${row}`, values: [[inv.number ? `${inv.number} · ${inv.url}` : inv.url]] });
+      } catch {}
       if (tierEmpty && paid.tier) fills.push({ range: `אירועים!AG${row}`, values: [[String(paid.tier)]] });
       await env.RATE.put('planfill:' + token, today, { expirationTtl: 400 * 86400 });
       await logEvent(env, { area: 'תשלום', action: 'חבילה ומכסה נכתבו לשורת האירוע מהתשלום', ok: true, token,
