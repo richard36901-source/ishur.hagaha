@@ -40,11 +40,18 @@ const CALL_COLS = ['at', 'agent', 'dir', 'phone', 'name', 'kind', 'token', 'stat
 const REM_HEADER = ['זמן', 'סוג הסרה', 'ערוץ', 'טלפון', 'שם', 'אירוע', 'תוקף', 'מה נכתב', 'פירוט'];
 const REM_COLS = ['at', 'kind', 'channel', 'phone', 'name', 'token', 'scope', 'said', 'detail'];
 
+/* every tax invoice-receipt we issued, in one place: the accountant's tab */
+const INV_HEADER = ['זמן', 'מספר חשבונית', 'סוג', 'שם לקוח', 'טלפון', 'ח.פ / ת.ז', 'אירוע', 'חבילה', 'סכום ₪',
+  'אמצעי תשלום', 'אסמכתא Grow', 'קישור לחשבונית', 'נשלחה בווצאפ', 'מייל הלקוח'];
+const INV_COLS = ['at', 'number', 'kind', 'name', 'phone', 'taxId', 'token', 'plan', 'sum',
+  'payMethod', 'ref', 'url', 'wa', 'email'];
+
 export const TABS = {
   msg_guests: { title: 'אורחים לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.36, green: 0.62, blue: 0.45 } },
   msg_clients: { title: ' לקוחות לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.30, green: 0.50, blue: 0.75 } },
   calls: { title: 'לוג שיחות', header: CALL_HEADER, cols: CALL_COLS, color: { red: 0.55, green: 0.35, blue: 0.65 } },
   removals: { title: 'הסרות', header: REM_HEADER, cols: REM_COLS, color: { red: 0.80, green: 0.30, blue: 0.30 } },
+  invoices: { title: 'חשבוניות', header: INV_HEADER, cols: INV_COLS, color: { red: 0.20, green: 0.45, blue: 0.40 } },
 };
 
 export function ilStamp(d = new Date()) {
@@ -235,15 +242,15 @@ export async function readTabTail(env, tab, n = 10) {
    tab, so it is safe to call twice. */
 const CLIENTS_TAB = 'לקוחות';
 const CLIENTS_SHEET_ID = 830527183;
-export async function upsertClientRow(env, { clientId, name, phone, taxId, token, eventName }) {
+export async function upsertClientRow(env, { clientId, name, phone, taxId, token, eventName, invoice }) {
   if (!env.BRAIN_HOOK || !clientId) return { ok: false, why: 'no-config' };
-  const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${CLIENTS_TAB}'!A1:I2000` });
+  const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${CLIENTS_TAB}'!A1:J2000` });
   const values = (res && res.valueRanges && res.valueRanges[0] && res.valueRanges[0].values);
   if (!values) return { ok: false, why: 'read-failed' };
   const idx = values.findIndex((r, i) => i > 0 && (String(r[1] || '').trim() === clientId || (phone && String(r[4] || '').trim() === phone)));
   const tok = String(token || '').trim();
   if (idx < 0) {
-    const row = ['כן', clientId, name || '', '', phone || '', '', taxId || '', tok, eventName || ''];
+    const row = ['כן', clientId, name || '', '', phone || '', '', taxId || '', tok, eventName || '', invoice || ''];
     const w = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, {
       method: 'POST',
       payload: { requests: [{ appendCells: { sheetId: CLIENTS_SHEET_ID,
@@ -254,13 +261,17 @@ export async function upsertClientRow(env, { clientId, name, phone, taxId, token
   const r = values[idx];
   const toks = String(r[7] || '').split(/[\s,]+/).filter(Boolean);
   const names = String(r[8] || '').split(/\s*,\s*/).filter(Boolean);
-  let changed = false;
+  /* every invoice this client ever got, newest last, in one cell */
+  const invs = String(r[9] || '').split(/\s*\|\s*/).filter(Boolean);
+  let changed = false, invChanged = false;
   if (tok && !toks.includes(tok)) { toks.push(tok); changed = true; }
   if (eventName && !names.includes(eventName)) { names.push(eventName); changed = true; }
+  if (invoice && !invs.some(x => x.indexOf(String(invoice).split(' ')[0]) === 0)) { invs.push(invoice); invChanged = true; }
   const fill = [];
   if (!String(r[2] || '').trim() && name) fill.push({ range: `'${CLIENTS_TAB}'!C${idx + 1}`, values: [[name]] });
   if (!String(r[6] || '').trim() && taxId) fill.push({ range: `'${CLIENTS_TAB}'!G${idx + 1}`, values: [[taxId]] });
   if (changed) fill.push({ range: `'${CLIENTS_TAB}'!H${idx + 1}:I${idx + 1}`, values: [[toks.join(', '), names.join(', ')]] });
+  if (invChanged) fill.push({ range: `'${CLIENTS_TAB}'!J${idx + 1}`, values: [[invs.join(' | ')]] });
   if (!fill.length) return { ok: true, added: false, unchanged: true };
   const w = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchUpdate`, {
     method: 'POST', payload: { valueInputOption: 'RAW', data: fill },

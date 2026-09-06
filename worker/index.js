@@ -326,6 +326,8 @@ async function processGrowPayment(env, flat) {
   if (env.RATE) {
     /* ref→token lives 30 days so the thank-you page can claim it */
     await env.RATE.put('grow:' + ref, token, { expirationTtl: 30 * 86400 });
+    /* the thank-you page's fallback when Grow sends no reference back */
+    await env.RATE.put('claimfresh:' + phone, token, { expirationTtl: 1800 });
     await env.RATE.put('client:' + phone, '1', { expirationTtl: 730 * 86400 });
     /* what was bought, from Grow's own description ("50 מוזמנים בסיס"): the
        tier caps the upload and the plan decides calls/notices. Make only fills
@@ -423,23 +425,40 @@ async function processGrowPayment(env, flat) {
       }).catch(e => ({ ok: false, why: String(e && e.message) }));
       if (inv.ok) {
         invoiceUrl = inv.url;
-        if (env.RATE) await env.RATE.put('invoice:' + token, JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
-        await logEvent(env, { area: 'חשבוניות', action: `חשבונית מס-קבלה ${inv.number} הופקה במורנינג`, ok: true, phone, token, ref, detail: `₪${sum} · ${payMethod || ''} · ${inv.url}` });
+        if (env.RATE) {
+          await env.RATE.put('invoice:' + token, JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+          /* queued for the sheets: the event row does not exist yet (Make is
+             still writing it), so the pacer places it a few minutes later */
+          await env.RATE.put('invq:' + token, JSON.stringify({
+            token, number: inv.number, url: inv.url, kind: 'רכישה', name, phone, email,
+            taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
+            plan: bought ? bought.planText : '', sum, payMethod, ref, clientId: 'C-' + phone.slice(-9),
+          }), { expirationTtl: 30 * 86400 });
+        }
+        await logRow(env, 'invoices', {
+          number: inv.number, kind: 'רכישה', name, phone, email,
+          taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
+          token: token.slice(0, 8), plan: bought ? bought.planText : '', sum, payMethod, ref,
+          url: inv.url, wa: '',
+        });
+        await logEvent(env, { area: 'חשבוניות', action: `חשבונית מס-קבלה ${inv.number} הופקה במורנינג`, ok: true, phone, token, ref, detail: `₪${sum} · ${payMethod || ''} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — תישלח בווצאפ'} · ${inv.url}` });
       } else if (inv.why !== 'not-configured') {
         await logEvent(env, { area: 'חשבוניות', action: 'הפקת חשבונית במורנינג נכשלה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}`.trim() });
         await alert(env, 'חשבוניות', `חשבונית ל-${name || phone} (₪${sum}) לא הופקה: ${inv.why}`, ref);
       }
     }
-    if (invoiceUrl) {
+    /* Richard, 06/09: the invoice goes out by email. Morning mails it to the
+       address Grow collected. WhatsApp is kept only for a customer who left
+       no email, because a paying customer without any invoice is not an
+       option. */
+    if (invoiceUrl && !email) {
       const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
       if (invTmpl) {
-        const inv = await sendClient(env, phone, invTmpl, [first, invoiceUrl], { token });
-        await logEvent(env, { area: 'חשבוניות', action: 'חשבונית נשלחה ללקוח בווצאפ', ok: inv.ok, review: !inv.ok, phone, token, ref, detail: inv.ok ? invoiceUrl : String(inv.error || '') });
+        const iw = await sendClient(env, phone, invTmpl, [first, invoiceUrl], { token });
+        await logEvent(env, { area: 'חשבוניות', action: 'ללקוח אין מייל — החשבונית נשלחה בווצאפ', ok: iw.ok, review: !iw.ok, phone, token, ref, detail: iw.ok ? invoiceUrl : String(iw.error || '') });
       } else {
-        await logEvent(env, { area: 'חשבוניות', action: 'חשבונית נוצרה בגרואו — טרם נשלחה (אין תבנית מאושרת)', ok: true, review: true, phone, token, ref, detail: invoiceUrl });
+        await logEvent(env, { area: 'חשבוניות', action: 'ללקוח אין מייל ואין תבנית ווצאפ — החשבונית לא נשלחה', ok: false, review: true, phone, token, ref, detail: invoiceUrl });
       }
-    } else {
-      await logEvent(env, { area: 'חשבוניות', action: 'גרואו לא צירפה חשבונית לתשלום', ok: false, review: true, phone, ref, detail: 'להפעיל חשבונית אוטומטית בעמוד התשלום בגרואו' });
     }
     const wa = await sendClient(env, phone, 'ishur_tashlum',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
@@ -748,10 +767,21 @@ async function handleClaim(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   const stampError = await checkStamp(body, env.APP_KEY);
   if (stampError) return deny(403, stampError, origin);
+  if (!env.RATE) return deny(404, 'not-found', origin);
   const ref = String(body.ref || '').trim();
-  if (!ref || !env.RATE) return deny(404, 'not-found', origin);
-  const token = await env.RATE.get('grow:' + ref);
+  /* Grow does not append the payment reference to the success URL, so the
+     thank-you page often has nothing to look up with (06/09: two live test
+     purchases sat on the page and never forwarded). The buyer's own browser
+     still holds the phone they typed into the lead form minutes earlier, so
+     that is the fallback. claimfresh:<phone> is written at payment and lives
+     30 minutes, which keeps the window narrow enough that knowing somebody's
+     number is not a way to reach their event. */
+  let token = ref ? await env.RATE.get('grow:' + ref) : null;
   if (!token) {
+    const p = normPhone(body.phone || '');
+    if (p && p.length >= 11) token = await env.RATE.get('claimfresh:' + p);
+  }
+  if (!token || token === 'addon') {
     return new Response(JSON.stringify({ ok: false, pending: true }), {
       status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
     });
@@ -842,12 +872,20 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
     const inv = await createInvoice(env, { name, phone, sum, ref, payMethod: String(flat.paymentType || flat.paymentMethod || '').trim(),
       taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
     if (inv.ok) {
-      const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
-      const first = (String(name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-      const wa = invTmpl ? await sendClient(env, phone, invTmpl, [first, inv.url], { token }) : { ok: false, error: 'no-template' };
-      await logEvent(env, { area: 'חשבוניות', action: `חשבונית ${inv.number} לתוספת הופקה${wa.ok ? ' ונשלחה' : ' — לא נשלחה'}`, ok: wa.ok, review: !wa.ok, phone, token, ref, detail: `₪${sum} · ${inv.url}` });
+      const email = String(flat.payerEmail || flat.email || '').trim();
+      let wa = { ok: true, skipped: 'email' };
+      if (!email) {
+        const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
+        const first = (String(name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
+        wa = invTmpl ? await sendClient(env, phone, invTmpl, [first, inv.url], { token }) : { ok: false, error: 'no-template' };
+      }
+      await logEvent(env, { area: 'חשבוניות', action: `חשבונית ${inv.number} לתוספת הופקה`, ok: true, phone, token, ref,
+        detail: `₪${sum} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — ווצאפ ' + (wa.ok ? 'נשלח' : wa.error)} · ${inv.url}` });
+      await logRow(env, 'invoices', { number: inv.number, kind: 'תוספת', name, phone, email, token: String(token).slice(0, 8),
+        plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
       if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true }), { expirationTtl: 400 * 86400 });
       await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
+      await upsertClientRow(env, { clientId: 'C-' + String(phone).slice(-9), name, phone, token, eventName: ev.event_name || '', invoice: `${inv.number} · ${inv.url}` }).catch(() => {});
     } else if (inv.why !== 'not-configured') {
       await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
     }
@@ -3564,6 +3602,7 @@ async function runPacer(env) {
      lands in the sheet as a single Sheets call */
   try { out.journal = await flushEventLog(env); } catch (e) { out.journal = { ok: false, why: String(e && e.message) }; }
   try { out.sheetlogs = await flushSheetLogs(env); } catch (e) { out.sheetlogs = { ok: false, why: String(e && e.message) }; }
+  try { out.invoices = await syncInvoices(env); } catch (e) { out.invoices = { ok: false, why: String(e && e.message) }; }
 
   /* the doctor: looks at what this tick produced, fixes what it can, and
      shouts once a day about what it cannot. Never throws into the pacer. */
@@ -4551,6 +4590,40 @@ async function handleMsgStats(request, env, origin) {
 /* ── the daily journal digest (Richard, 06/09): once a day read everything the
    journal recorded today, say what failed, what the doctor fixed on its own,
    what changed (builds), and what is still red for a human. Slack + one row. */
+/* ── invoices → the sheet ──────────────────────────────────────────────────
+   An invoice is issued in the same second as the payment, but the event row
+   it belongs to is written by Make a few seconds later, so there is nothing
+   to write into yet. Every issued invoice is parked in invq:<token> and this
+   places it on the next pacer tick: the number and link on the event row
+   (J for a purchase, W for an add-on) and on the client's row in לקוחות.
+   A token whose row has still not appeared simply waits for the next tick. */
+async function syncInvoices(env) {
+  if (!env.RATE || !env.BRAIN_HOOK) return { ok: false, why: 'not-configured' };
+  const page = await env.RATE.list({ prefix: 'invq:', limit: 50 }).catch(() => null);
+  if (!page || !page.keys.length) return { ok: true, written: 0 };
+  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const rows = (raw && raw.events && raw.events.values) || [];
+  if (!rows.length) return { ok: false, why: 'reader-failed' };
+  let written = 0, waiting = 0;
+  for (const k of page.keys) {
+    const v = await env.RATE.get(k.name); if (!v) continue;
+    let q; try { q = JSON.parse(v); } catch { await env.RATE.delete(k.name); continue; }
+    const idx = rows.findIndex(r => String(r[1] || '').trim() === q.token);
+    if (idx < 0) { waiting++; continue; }
+    const cell = `${q.number} · ${q.url}`;
+    const col = q.kind === 'תוספת' ? 'W' : 'J';
+    const okw = await sheetBatchWrite(env, [{ range: `אירועים!${col}${idx + 2}`, values: [[cell]] }]);
+    await upsertClientRow(env, {
+      clientId: q.clientId || ('C-' + String(q.phone || '').slice(-9)), name: q.name, phone: q.phone,
+      taxId: q.taxId, token: q.token, eventName: String(rows[idx][34] || '').trim(), invoice: cell,
+    }).catch(() => {});
+    await logEvent(env, { area: 'חשבוניות', action: `חשבונית ${q.number} נרשמה בגיליון (${col}) וברשימת הלקוחות`, ok: okw, review: !okw,
+      phone: q.phone || '', token: q.token, ref: q.ref || '', detail: cell });
+    if (okw) { await env.RATE.delete(k.name); written++; }
+  }
+  return { ok: true, written, waiting };
+}
+
 async function dailyJournalDigest(env) {
   const today = ilDate();
   const il = (iso) => iso;                                   // rows are already in IL time
@@ -5817,6 +5890,16 @@ export default {
             ok: !!inv.ok, review: !inv.ok, phone: b.phone || '', token: b.token || '', ref: b.ref || '',
             detail: inv.ok ? `${inv.url}${wa ? ' · ווצאפ ' + (wa.ok ? 'נשלח' : wa.error) : ''}` : `${inv.why} ${inv.detail || ''}` });
           return okJson({ inv, wa }, origin);
+        }
+        if (b.action === 'morning-get') {
+          const tr = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: env.MORNING_ID || '', secret: env.MORNING_SECRET || '' }) }).catch(() => null);
+          const tj = tr ? await tr.json().catch(() => ({})) : {};
+          if (!tj.token) return okJson({ ok: false, why: 'auth' }, origin);
+          const rr = await fetch('https://api.greeninvoice.co.il/api/v1' + String(b.path || '/'), {
+            headers: { Authorization: 'Bearer ' + tj.token } }).catch(() => null);
+          const jj = rr ? await rr.json().catch(() => ({})) : {};
+          return okJson({ ok: !!(rr && rr.ok), status: rr && rr.status, data: jj }, origin);
         }
         if (b.action === 'morning-check') {
           /* login only, nothing is created */

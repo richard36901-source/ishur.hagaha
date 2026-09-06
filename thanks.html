@@ -164,7 +164,11 @@
      came back with. Polls briefly because Grow's server notification can lag
      the redirect by a few seconds. */
   (function claimLink() {
-    if (!orderRef || !CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
+    /* Grow does not send the payment reference back to this page, so the
+       phone the buyer typed into the lead form minutes ago is what identifies
+       them. Either one is enough to claim. */
+    var claimPhone = (pending && pending.phone) || '';
+    if ((!orderRef && !claimPhone) || !CFG.endpoint || !CFG.isSet(CFG.endpoint('claim'))) return;
     var tries = 0;
     var box = document.createElement('div');
     box.id = 'claimBox';
@@ -173,7 +177,8 @@
 
     function attempt() {
       tries++;
-      var body = window.IshurGuard ? IshurGuard.stamp({ ref: orderRef }) : { ref: orderRef };
+      var claim = { ref: orderRef, phone: claimPhone };
+      var body = window.IshurGuard ? IshurGuard.stamp(claim) : claim;
       fetch(CFG.endpoint('claim'), {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
