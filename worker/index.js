@@ -4146,6 +4146,43 @@ async function handleMsgStats(request, env, origin) {
   return okJson({ ok: true, stats: await msgStats(env) }, origin);
 }
 
+/* ── the daily journal digest (Richard, 06/09): once a day read everything the
+   journal recorded today, say what failed, what the doctor fixed on its own,
+   what changed (builds), and what is still red for a human. Slack + one row. */
+async function dailyJournalDigest(env) {
+  const today = ilDate();
+  const il = (iso) => iso;                                   // rows are already in IL time
+  const tail = await readLogTail(env, 2000);
+  const dd = today.split('-');                               // YYYY-MM-DD → DD/MM/YYYY
+  const stamp = `${dd[2]}/${dd[1]}/${dd[0]}`;
+  const rows = tail.rows.filter(r => String(r[0] || '').startsWith(stamp));
+  const by = {};
+  let ok = 0, failed = 0, red = 0;
+  const reds = [], fixes = [], builds = [];
+  for (const r of rows) {
+    const area = r[1] || 'מערכת', st = r[3] || '', rev = r[4] === 'כן';
+    by[area] = by[area] || { ok: 0, failed: 0 };
+    if (st === 'הצליח') { ok++; by[area].ok++; } else if (st === 'נכשל') { failed++; by[area].failed++; }
+    if (rev) { red++; if (reds.length < 12) reds.push(`• ${r[0].slice(11, 16)} ${area}: ${r[2]}${r[8] ? ' — ' + String(r[8]).slice(0, 120) : ''}`); }
+    if (area === 'רופא') fixes.push(`• ${r[0].slice(11, 16)} ${r[2]}${r[8] ? ' — ' + String(r[8]).slice(0, 100) : ''}`);
+    if (area === 'בנייה') builds.push(`• ${r[0].slice(11, 16)} ${String(r[8] || '').slice(0, 120)}`);
+  }
+  const areas = Object.entries(by).map(([a, v]) => `${a} ${v.ok}✓${v.failed ? ' ' + v.failed + '✗' : ''}`).join(' · ');
+  const pacer = JSON.parse((await env.RATE.get('pacer:last').catch(() => null)) || 'null');
+  const text = [
+    `📋 *דוח יומי ${stamp}* — ${rows.length} פעולות ביומן · ${ok} הצליחו · ${failed} נכשלו · ${red} אדומות`,
+    areas ? `לפי תחום: ${areas}` : '',
+    builds.length ? `*מה השתנה בקוד היום:*\n${builds.join('\n')}` : 'לא עלתה גרסה חדשה היום.',
+    fixes.length ? `*מה הרופא תיקן לבד:*\n${fixes.join('\n')}` : 'הרופא לא נדרש לתקן כלום היום.',
+    reds.length ? `*עדיין אדום, צריך אותך:*\n${reds.join('\n')}${red > reds.length ? `\n… ועוד ${red - reds.length} בגיליון` : ''}` : 'אין שורות אדומות פתוחות מהיום. 🟢',
+    pacer && pacer.at ? `פעימה אחרונה: ${pacer.at.slice(11, 16)} UTC` : '',
+    'מה יקרה מחר: המנוע רץ ב-06:35 UTC, הפייסר כל 10 דקות בחלון השליחה, הרופא בסוף כל פעימה. שורות אדומות שלא טופלו נשארות אדומות ביומן עד שתסמן אותן.',
+  ].filter(Boolean).join('\n');
+  await slackPost(env, text);
+  await logEvent(env, { area: 'דוח', action: 'דוח יומי נשלח לסלאק', ok: true, detail: `${rows.length} פעולות · ${failed} נכשלו · ${red} אדומות · ${fixes.length} תיקוני רופא · ${builds.length} גרסאות` });
+  return { rows: rows.length, ok, failed, red, fixes: fixes.length, builds: builds.length };
+}
+
 async function msgPerformanceDigest(env) {
   const rows = (await msgStats(env)).filter(r => r.sent >= 20);
   if (!rows.length) return;
@@ -5125,6 +5162,10 @@ export default {
       return;
     }
 
+    if (String(event.cron || '').startsWith('0 18 ')) {
+      ctx.waitUntil(dailyJournalDigest(env).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
+      return;
+    }
     if (String(event.cron || '').startsWith('0 9,10,16')) {
       const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
       ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
@@ -5318,6 +5359,11 @@ export default {
     }
     if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
       return handleOpsStats(request, env, origin);
+    }
+    if (url.pathname === '/api/daily-digest' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson(await dailyJournalDigest(env), origin);
     }
     if (url.pathname === '/api/ad-review' && request.method === 'POST') {
       let b = {};
