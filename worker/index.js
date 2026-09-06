@@ -1751,13 +1751,13 @@ async function handleWaWebhook(request, env, url) {
   /* Meta's one-time verification handshake */
   if (request.method === 'GET') {
     const p = url.searchParams;
-    if (p.get('hub.mode') === 'subscribe' && env.WA_VERIFY && p.get('hub.verify_token') === env.WA_VERIFY) {
+    if (p.get('hub.mode') === 'subscribe' && verifyOk(env, p.get('hub.verify_token'))) {
       return new Response(p.get('hub.challenge') || '', { status: 200 });
     }
     return new Response('forbidden', { status: 403 });
   }
   /* No app secret for HMAC — the shared token rides the callback URL instead */
-  if (!env.WA_VERIFY || url.searchParams.get('t') !== env.WA_VERIFY) {
+  if (!verifyOk(env, url.searchParams.get('t'))) {
     return new Response('forbidden', { status: 403 });
   }
 
@@ -4389,15 +4389,26 @@ async function handleSendDate(request, env, origin) {
    lookups go through here so the token never sits on a laptop or in /tmp.
    POST {admin_key, path, method?, payload?} — path is hit on graph.facebook.com.
    ─────────────────────────────────────────────────────────────────────────── */
+/* Two Meta apps deliver to this webhook: the AutoScale app for 4499 (WA_VERIFY)
+   and the Ishur.io app "ishur-ads" for Shir's 6673 (WA_VERIFY_GUESTS). Each app
+   has its own verify token; either is accepted, nothing else is. */
+function verifyOk(env, t) {
+  if (!t) return false;
+  return (!!env.WA_VERIFY && t === env.WA_VERIFY) || (!!env.WA_VERIFY_GUESTS && t === env.WA_VERIFY_GUESTS);
+}
+
 async function handleMetaAdmin(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
-  if (!env.WA_TOKEN) return deny(503, 'wa-not-configured', origin);
+  /* channel:'guests' talks to Meta as Shir's number (the Ishur.io system-user
+     token); default is the 4499 client token */
+  const tok = body.channel === 'guests' ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+  if (!tok) return deny(503, 'wa-not-configured', origin);
   const path = String(body.path || '');
   if (!path.startsWith('/')) return deny(400, 'bad-path', origin);
   const method = String(body.method || 'GET').toUpperCase();
-  const init = { method, headers: { Authorization: 'Bearer ' + env.WA_TOKEN } };
+  const init = { method, headers: { Authorization: 'Bearer ' + tok } };
   if (body.payload !== undefined && method !== 'GET') {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body.payload);
