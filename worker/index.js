@@ -2287,7 +2287,13 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
          cold guest has not. It goes out the moment they reply instead — see
          sendArtworkOnReply. The real fix is a template with an IMAGE header
          (AUT-907). */
-    } else failed++;
+    } else {
+      failed++;
+      /* the raw Meta error, journaled for the first few failures per tick — a wave
+         that says 'נכשלו 3' with no reason cost an hour on 06/09 */
+      if (failed <= 3) await logEvent(env, { area: 'שליחה', action: 'שליחת הזמנה לאורח נכשלה', ok: false, review: true, phone: normPhone(phone), token,
+        detail: `גל ${wave.key} · ${useImg ? imgTmpl : inviteTmpl} · ${String(res.error || res.why || 'unknown').slice(0, 300)}` }).catch(() => {});
+    }
   }
   if (!dry && env.RATE) {
     if (truncated || failed > 0) {
