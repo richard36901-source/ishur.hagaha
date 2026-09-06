@@ -51,7 +51,7 @@ const TOKEN_TTL       = 400 * 86400;   // covers events booked far ahead
    The previous flat 0.53 ₪ overstated utility sends ~25x and drove the P&L
    board into fiction. Still to do: reconcile against the first real invoice. */
 const TMPL_CATEGORY = {
-  hazmana_ishur: 'utility', hazmana_ishur_v2: 'utility', ishur_hazmana_shuv: 'utility',
+  hazmana_ishur: 'utility', hazmana_ishur_v2: 'marketing', ishur_hazmana_shuv: 'marketing',
   ishur_dchiya: 'utility', ishur_bitul: 'utility', ishur_yom_lifnei: 'utility',
   ishur_shulchan: 'utility', ishur_doch: 'utility', ishur_tzikoret_kovetz: 'utility',
   ishur_tashlum: 'utility',
