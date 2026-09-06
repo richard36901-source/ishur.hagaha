@@ -5800,6 +5800,13 @@ export default {
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
+        if (b.action === 'morning-check') {
+          /* login only, nothing is created */
+          const r = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: env.MORNING_ID || '', secret: env.MORNING_SECRET || '' }) }).catch(() => null);
+          const j = r ? await r.json().catch(() => ({})) : {};
+          return okJson({ ok: !!(r && r.ok && j.token), status: r && r.status, configured: !!(env.MORNING_ID && env.MORNING_SECRET), err: j.errorMessage || j.errorCode || '' }, origin);
+        }
         if (b.action === 'setcell' && /^[^!]+![A-Z]{1,2}\d{1,5}$/.test(String(b.range || ''))) {
           return okJson({ ok: await sheetBatchWrite(env, [{ range: String(b.range), values: [[String(b.value ?? '')]] }]) }, origin);
         }
