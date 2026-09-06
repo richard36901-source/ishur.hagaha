@@ -4966,17 +4966,22 @@ async function runAdReview(env, opts = {}) {
     cm = ops && ops.cac && ops.cac[mo];
   } catch {}
 
-  /* stop-rules from the campaign doc, verbatim thresholds */
+  /* stop-rules from the campaign doc, verbatim thresholds. Each ad set gets a
+     structured verdict list (for the archive page) and the same lines as
+     before go into the WhatsApp text. */
   const flags = [];
-  for (const r of rows) {
+  const adsetRows = rows.map(r => {
     const spend = Number(r.spend) || 0, leads = leadsOf(r), imp = Number(r.impressions) || 0;
-    const ctr = Number(r.ctr) || 0, freq = Number(r.frequency) || 0;
+    const ctr = Number(r.ctr) || 0, freq = Number(r.frequency) || 0, clicks = Number(r.clicks) || 0;
     const cpl = leads ? spend / leads : null;
-    if (spend >= 60 && leads === 0) flags.push(`🔻 ${r.adset_name}: ${Math.round(spend)}₪ בלי אף ליד — לפי הכלל: לכבות את האד-סט`);
-    if (leads >= 15 && cpl > 35) flags.push(`🔻 ${r.adset_name}: CPL ‏${Math.round(cpl)}₪ אחרי ${leads} לידים — לפי הכלל: לכבות את האד-סט`);
-    if (imp >= 2000 && ctr < 0.8) flags.push(`⚠️ ${r.adset_name}: CTR ‏${ctr.toFixed(2)}% על ${imp} חשיפות — לכבות את המודעה החלשה, לא את האד-סט`);
-    if (freq > 3) flags.push(`⚠️ ${r.adset_name}: תדירות ${freq.toFixed(1)} — שחיקת קריאייטיב. קריאייטיב חדש, לא תקציב`);
-  }
+    const verdicts = [];
+    if (spend >= 60 && leads === 0) verdicts.push({ rule: 'no-leads', level: 'stop', text: `${Math.round(spend)}₪ בלי אף ליד — לפי הכלל: לכבות את האד-סט` });
+    if (leads >= 15 && cpl > 35) verdicts.push({ rule: 'cpl', level: 'stop', text: `CPL ‏${Math.round(cpl)}₪ אחרי ${leads} לידים — לפי הכלל: לכבות את האד-סט` });
+    if (imp >= 2000 && ctr < 0.8) verdicts.push({ rule: 'ctr', level: 'warn', text: `CTR ‏${ctr.toFixed(2)}% על ${imp} חשיפות — לכבות את המודעה החלשה, לא את האד-סט` });
+    if (freq > 3) verdicts.push({ rule: 'frequency', level: 'warn', text: `תדירות ${freq.toFixed(1)} — שחיקת קריאייטיב. קריאייטיב חדש, לא תקציב` });
+    for (const v of verdicts) flags.push(`${v.level === 'stop' ? '🔻' : '⚠️'} ${r.adset_name}: ${v.text}`);
+    return { name: r.adset_name, spend: Math.round(spend * 100) / 100, impressions: imp, clicks, ctr, frequency: freq, leads, cpl: cpl == null ? null : Math.round(cpl), verdicts };
+  });
 
   /* what changed since the previous report (budgets, statuses) */
   const changes = [];
@@ -5044,9 +5049,54 @@ async function runAdReview(env, opts = {}) {
   await slackPost(env, text).catch(() => {});
 
   await env.RATE.put('adrev:last', new Date(now).toISOString()).catch(() => {});
-  await env.RATE.put('adlog:' + today, text, { expirationTtl: 200 * 86400 }).catch(() => {});
+  /* the archive entry the ad-report page renders: structure + the text that
+     went out, so old plain-text entries and new ones read the same way */
+  const treeSets = (tree.adsets && tree.adsets.data) || [];
+  const snapshot = {
+    v: 1, date: today, since, until: today,
+    campaign: { id: META_CAMPAIGN_ID, name: tree.name, status: tree.status, effective_status: tree.effective_status },
+    adsets: adsetRows.map(a => {
+      const t = treeSets.find(x => x.name === a.name) || {};
+      return { ...a, status: t.status || null, daily_budget: t.daily_budget != null ? Number(t.daily_budget) / 100 : null };
+    }),
+    inactive_adsets: treeSets.filter(a => !adsetRows.some(r => r.name === a.name)).map(a => ({ name: a.name, status: a.status, daily_budget: a.daily_budget != null ? Number(a.daily_budget) / 100 : null })),
+    totals: { spend: Math.round(tot.spend), impressions: tot.imp, clicks: tot.clicks, leads: tot.leads }, cpl,
+    month: mo, month_spend: monthSpend, cac: cm || null,
+    flags, changes, next: nextDate, text,
+  };
+  await env.RATE.put('adlog:' + today, JSON.stringify(snapshot), { expirationTtl: 200 * 86400 }).catch(() => {});
 
   return { ok: true, since, until: today, totals: tot, cpl, flags, changes, sends, report: text };
+}
+
+/* POST /api/ad-reports {admin_key, date?} — the archive behind ad-report.html.
+   Without a date: every stored report date, newest first. With one: that
+   report. Entries written before the structured snapshot are plain text and
+   come back as { legacy: true, text } so the page can still show them. */
+async function handleAdReports(request, env, origin) {
+  let b = {};
+  try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.RATE) return deny(500, 'no-kv', origin);
+
+  const dates = [];
+  let cursor;
+  do {
+    const page = await env.RATE.list({ prefix: 'adlog:', cursor });
+    for (const k of page.keys || []) dates.push(k.name.slice('adlog:'.length));
+    cursor = page.list_complete ? null : page.cursor;
+  } while (cursor);
+  dates.sort().reverse();
+
+  const date = String(b.date || '').trim();
+  if (!date) return okJson({ ok: true, dates }, origin);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return deny(400, 'bad-date', origin);
+  const raw = await env.RATE.get('adlog:' + date);
+  if (raw == null) return deny(404, 'no-report', origin);
+  let report;
+  try { report = JSON.parse(raw); } catch { report = null; }
+  if (!report || typeof report !== 'object') report = { legacy: true, date, text: raw };
+  return okJson({ ok: true, dates, date, report }, origin);
 }
 
 /* ══ Money & sources board ═══════════════════════════════════════════════════
@@ -5764,6 +5814,9 @@ export default {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const r = await runAdReview(env, { force: b.force !== false });
       return okJson(r, origin);
+    }
+    if (url.pathname === '/api/ad-reports' && request.method === 'POST') {
+      return handleAdReports(request, env, origin);
     }
     if (url.pathname === '/api/daily-run' && request.method === 'POST') {
       return handleDailyRun(request, env, origin);
