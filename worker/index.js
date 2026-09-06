@@ -190,6 +190,17 @@ async function creditReferral(env, payerPhone, newToken) {
   }
 }
 
+/* The one place that decides "is this Grow payment ours". handleGrowIpn uses it
+   live; the doctor re-runs it every tick on payloads that were parked, so a
+   matcher fix ships a stuck payment without anyone typing /api/ipn-replay. */
+function looksIshur(flat, pages) {
+  const dump = JSON.stringify(flat || {});
+  const desc = String(flat.paymentDesc || flat.description || flat.productName || '');
+  return (pages || []).some((id) => dump.includes(id)) ||
+    /מוזמנים|אישור/.test(desc) ||
+    dump.toLowerCase().includes('ishur') || dump.includes('אישורי הגעה');
+}
+
 async function handleGrowIpn(request, env, url) {
   if ((url.searchParams.get('k') || '') !== env.GROW_KEY) {
     return new Response('forbidden', { status: 403 });
@@ -237,10 +248,7 @@ async function handleGrowIpn(request, env, url) {
      so the page-id list above never could have matched, and the very first
      real customer was parked as "not ishur". Every ishur payment page is
      named "<N> מוזמנים <plan>", so the description is the reliable signal. */
-  const desc = String(flat.paymentDesc || flat.description || flat.productName || '');
-  const isIshur = ISHUR_GROW_PAGES.some((id) => flatDump.includes(id)) ||
-    /מוזמנים|אישור/.test(desc) ||
-    flatDump.toLowerCase().includes('ishur') || flatDump.includes('אישורי הגעה');
+  const isIshur = looksIshur(flat, ISHUR_GROW_PAGES);
   if (!isIshur) {
     /* The matcher has never seen a real Grow payload, so a miss here could be
        a genuine customer who paid and would get nothing. Never silently drop:
@@ -3068,17 +3076,138 @@ async function runPacer(env) {
         }
       }
     }
-  } catch {}
+  } catch (e) {
+    out.tmplcheck = { ok: false, why: String(e && e.message) };
+  }
 
   /* the journal rides the same tick: everything buffered since the last one
      lands in the sheet as a single Sheets call */
   try { out.journal = await flushEventLog(env); } catch (e) { out.journal = { ok: false, why: String(e && e.message) }; }
+
+  /* the doctor: looks at what this tick produced, fixes what it can, and
+     shouts once a day about what it cannot. Never throws into the pacer. */
+  try { out.doctor = await runDoctor(env, out, sendWin, callWin); } catch (e) { out.doctor = { ok: false, why: String(e && e.message) }; }
 
   /* a heartbeat worth having: "the pacer is alive" is otherwise invisible
      until the day somebody notices nothing went out */
   await env.RATE.put('pacer:last', JSON.stringify({ at: new Date().toISOString(), ...out }),
     { expirationTtl: 3 * 86400 }).catch(() => {});
   return { ok: true, ...out };
+}
+
+/* ══ The doctor ══════════════════════════════════════════════════════════════
+   Runs at the tail of every pacer tick. Richard's requirement (06/09): when
+   something fails, the system tries to fix it itself before a human hears
+   about it, and every attempt is a journal row. What it does, in order:
+
+     1. build   — a new Worker version is written to the journal once, with
+                  the git sha the deploy script passed as BUILD_SHA. So the
+                  journal answers "what was running when this happened".
+     2. ipnmiss — every parked Grow payment is re-run through looksIshur().
+                  A matcher fix ships the payment on the next tick; a payload
+                  that still does not match is reported once a day, not lost.
+     3. pacer   — a stale pacer:pending (Friday afternoon's leftovers found on
+                  Sunday morning before the 06:35 cron) is re-armed for today.
+     4. flush   — two consecutive failed journal flushes = the sheet is not
+                  taking rows; alert once a day (the rows themselves survive
+                  three days in KV and keep retrying).
+     5. reader  — the dial queue went quiet because the sheet snapshot could
+                  not be read inside the call window; alert once a day.
+     6. tmpl    — the hourly Meta template check failed; alert once a day.
+
+   Daily throttles live under doctor:<what>:<day> (TTL 2d). */
+async function onceADay(env, what) {
+  const k = 'doctor:' + what + ':' + ilDate();
+  if (await env.RATE.get(k)) return false;
+  await env.RATE.put(k, '1', { expirationTtl: 2 * 86400 });
+  return true;
+}
+
+async function runDoctor(env, out, sendWin, callWin) {
+  if (!env.RATE) return { ok: false, why: 'no-kv' };
+  const rep = { fixed: 0, alerted: 0, notes: [] };
+
+  /* 1. build version → journal, once per version */
+  try {
+    const vid = env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id;
+    if (vid && (await env.RATE.get('build:current')) !== vid) {
+      await env.RATE.put('build:current', vid);
+      await logEvent(env, { area: 'בנייה', action: 'גרסה חדשה של הוורקר עלתה', ok: true,
+        ref: String(vid).slice(0, 8), detail: `version ${vid}` + (env.BUILD_SHA ? ` · git ${env.BUILD_SHA}` : '') + (env.BUILD_NOTE ? ` · ${env.BUILD_NOTE}` : '') });
+      rep.notes.push('build:' + String(vid).slice(0, 8));
+    }
+  } catch (e) { rep.notes.push('build-err'); }
+
+  /* 2. parked Grow payments — re-run the matcher, ship what now matches */
+  try {
+    const page = await env.RATE.list({ prefix: 'ipnmiss:', limit: 20 });
+    let stuck = 0;
+    for (const k of page.keys) {
+      const raw = await env.RATE.get(k.name);
+      if (!raw) continue;
+      let flat; try { flat = JSON.parse(raw); } catch { continue; }
+      if (looksIshur(flat, [])) {
+        const r = await processGrowPayment(env, flat).catch(() => null);
+        const st = r ? r.status : 0;
+        await logEvent(env, { area: 'רופא', action: 'תשלום שחנה זוהה מחדש והורץ אוטומטית', ok: st === 200, review: st !== 200,
+          phone: flat.payerPhone || flat.phone || '', ref: flat.asmachta || '', detail: `${k.name} → ${st}` });
+        if (st === 200) { await env.RATE.delete(k.name); rep.fixed++; }
+        else stuck++;
+      } else {
+        stuck++;
+      }
+    }
+    if (stuck && await onceADay(env, 'ipnmiss')) {
+      await alert(env, 'רופא · תשלומים שחנו', `${stuck} תשלומי Grow עדיין חונים ולא זוהו כ-ishur. אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת`, '');
+      rep.alerted++;
+    }
+  } catch (e) { rep.notes.push('ipnmiss-err'); }
+
+  /* 3. stale pacer day — re-arm so the send slice runs today */
+  try {
+    const today = ilDate();
+    const pending = await env.RATE.get('pacer:pending');
+    if (sendWin && sendWin.open && pending && pending !== today && !isNoContactDay(today)) {
+      await env.RATE.put('pacer:pending', today, { expirationTtl: 2 * 86400 });
+      await logEvent(env, { area: 'רופא', action: 'יום שליחה לא חומש — חומש מחדש', ok: true, detail: `pacer:pending היה ${pending}, עכשיו ${today}` });
+      rep.fixed++;
+    }
+  } catch (e) { rep.notes.push('pacer-err'); }
+
+  /* 4. journal flush failing twice in a row */
+  try {
+    const j = out && out.journal;
+    if (j && !j.ok && j.why !== 'not-configured') {
+      const n = (parseInt(await env.RATE.get('doctor:flushfail') || '0', 10) || 0) + 1;
+      await env.RATE.put('doctor:flushfail', String(n), { expirationTtl: 3600 });
+      if (n >= 2 && await onceADay(env, 'flush')) {
+        await alert(env, 'רופא · יומן המערכת', `שטיפת היומן לגיליון נכשלה ${n} פעמים ברצף (${j.why || ''}${j.pending ? ` · ${j.pending} שורות ממתינות` : ''}). השורות נשמרות ב-KV ומנסות שוב כל 10 דקות`, '');
+        rep.alerted++;
+      }
+    } else if (j && j.ok) {
+      await env.RATE.delete('doctor:flushfail').catch(() => {});
+    }
+  } catch (e) { rep.notes.push('flush-err'); }
+
+  /* 5. the dial queue went silent because the snapshot could not be read */
+  try {
+    const c = out && out.calls;
+    if (callWin && callWin.open && c && c.why === 'reader-failed' && await onceADay(env, 'reader')) {
+      await alert(env, 'רופא · תור השיחות', 'חלון החיוג פתוח אבל תמונת הגיליון לא נקראת (Make Status). שיר לא מחייגת עד שזה חוזר', '');
+      rep.alerted++;
+    }
+  } catch (e) { rep.notes.push('reader-err'); }
+
+  /* 6. Meta template check failed */
+  try {
+    const t = out && out.tmplcheck;
+    if (t && !t.ok && await onceADay(env, 'tmpl')) {
+      await alert(env, 'רופא · תבניות מטא', `בדיקת אישור התבניות השעתית נכשלה: ${t.why || ''}. ההפעלה האוטומטית של תבנית התמונה/החשבונית מתעכבת`, '');
+      rep.alerted++;
+    }
+  } catch (e) { rep.notes.push('tmpl-err'); }
+
+  return { ok: true, ...rep };
 }
 
 /* ══ Team reminders ══════════════════════════════════════════════════════════

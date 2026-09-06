@@ -40,3 +40,7 @@ crons = ["*/10 * * * *", "35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2"]
 [[routes]]
 pattern = "go.ishur.io"
 custom_domain = true
+
+# The doctor writes "a new build went live" to the journal once per version.
+[version_metadata]
+binding = "CF_VERSION_METADATA"
