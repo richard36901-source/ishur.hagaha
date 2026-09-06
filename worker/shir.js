@@ -438,7 +438,7 @@ export function retellToCallResult(body) {
     /* the plan decides how many rounds this guest is entitled to; the cap
        rides in the call metadata so the webhook honours it too */
     const cap = Number(meta.max_tries) || 3;
-    const result = callOutcome(String(args.outcome || ''), base, cap);
+    const result = callOutcome(String(args.outcome || '').trim(), base, cap);
     if (!result) return null;
     /* An inbound call from a number we could not place has no sheet row to
        write. Answer the tool anyway: returning null left Shir listening to
@@ -489,9 +489,15 @@ export function retellToCallResult(body) {
     const reason = String(call.disconnection_reason || '');
     if (reason === 'voicemail_reached') {
       /* hung up on voicemail — deliberately NOT counted as a try */
-      return { kind: 'skip', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
+      return { kind: 'skip', why: 'voicemail', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
     }
     if (reason === 'dial_no_answer' || reason === 'dial_busy' || reason === 'dial_failed') {
+      /* a ring-back they did not pick up is not one of THEIR tries, and must
+         not push "נדרשת שיחה" onto a guest who may already have answered —
+         the callback queue owns the retry (review finding #11) */
+      if (isInbound(meta)) {
+        return { kind: 'skip', why: 'inbound-no-answer', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
+      }
       const result = callOutcome('לא ענה', base);
       return { kind: 'end', call_id: callId, guest_id: String(meta.guest_id), result, cost_cents: costOf(call) };
     }
@@ -499,7 +505,15 @@ export function retellToCallResult(body) {
        handler will downgrade this to cost-only; otherwise the dial still
        consumed an attempt — write it, or the guest loops forever. An inbound
        call is exempt for the same reason as above: they rang us. */
-    const tries = isInbound(meta) ? base : base + 1;
+    /* An inbound/callback call with no recorded outcome writes nothing: the
+       metadata carries no RSVP, so "נדרשת שיחה" here re-queued guests who had
+       already confirmed on WhatsApp, and burned nothing else. A short or
+       failed inbound still gets its ring-back through inboundCallVerdict
+       (review finding #11). */
+    if (isInbound(meta)) {
+      return { kind: 'skip', why: 'inbound-no-outcome', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
+    }
+    const tries = base + 1;
     return {
       kind: 'end-no-outcome', call_id: callId, guest_id: String(meta.guest_id),
       result: {
