@@ -271,7 +271,8 @@
       box.innerHTML =
         '<p style="font-size:.88rem;color:var(--ink2);margin-bottom:.6rem">' +
         (err || 'הזינו את מספר הטלפון שאיתו שילמתם, ונמשיך לעמוד האישי שלכם:') + '</p>' +
-        '<input id="cph" class="cin" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000">' +
+        '<input id="cph" class="cin" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000"' +
+        (claimPhone ? ' value="' + String(claimPhone).replace(/[^0-9]/g, '') + '"' : '') + '>' +
         '<button id="cgo" class="cbtn" type="button">המשך ←</button>' +
         '<p id="cerr" style="font-size:.78rem;color:#b42318;margin-top:.45rem;min-height:1.1em"></p>';
       var inp = document.getElementById('cph');
