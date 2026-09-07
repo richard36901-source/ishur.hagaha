@@ -8,7 +8,7 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=40"></script>
+<script src="config.js?v=41"></script>
 <script src="assets/adminbar.js?v=5" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -100,6 +100,24 @@
   .fdrop{font-size:.72rem;color:var(--ink3);text-align:center;padding:.05rem}
   .cmp-legend{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.7rem;color:var(--ink2);margin:.3rem 0 .5rem}
   .cmp-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-inline-end:.25rem}
+  /* the call board: who is queued, who owns them, and what already ran */
+  .cb-filters{display:flex;flex-wrap:wrap;gap:.3rem;margin:.5rem 0}
+  .cb-filters button{font:inherit;font-size:.72rem;padding:.25rem .6rem;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .cb-filters button[aria-pressed="true"]{background:var(--pine);border-color:var(--pine);color:#fff;font-weight:700}
+  .cb-win{font-size:.75rem;color:var(--ink2);margin:.2rem 0 .1rem}
+  .cb-win b{color:var(--pine)}
+  .cb-win.shut b{color:#A8402F}
+  .who{display:inline-block;font-size:.66rem;font-weight:700;padding:.05rem .4rem;border-radius:5px}
+  .who.shir{background:rgba(15,76,53,.12);color:#0F4C35}
+  .who.noa{background:rgba(74,111,165,.14);color:#33578C}
+  .kindtag{display:inline-block;font-size:.64rem;padding:.05rem .38rem;border-radius:5px;border:1px solid var(--line);color:var(--ink2)}
+  .kindtag.guest{border-color:rgba(15,76,53,.35)}
+  .kindtag.lead{border-color:rgba(180,136,74,.5)}
+  .kindtag.client{border-color:rgba(74,111,165,.5)}
+  tr.past td{color:var(--ink3);background:rgba(0,0,0,.02)}
+  .st{font-weight:700;font-size:.78rem}
+  .st.ok{color:#2E7D5B}.st.problem{color:#A8402F}.st.noanswer{color:#B4884A}
+  .st.failed{color:#A8402F}.st.running{color:#33578C}.st.waiting{color:var(--ink2)}
   .heard-btn{font:inherit;font-size:.66rem;padding:.1rem .4rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
   .heard-btn[aria-pressed="true"]{background:rgba(46,125,91,.12);border-color:rgba(46,125,91,.45);color:#2E7D5B;font-weight:700}
   tr.rev.heardrow{background:transparent}
@@ -511,6 +529,39 @@
   <svg id="tchart" width="100%" height="120" viewBox="0 0 720 120" preserveAspectRatio="none" aria-label="מבקרים לפי יום" style="margin-top:.5rem"></svg>
   <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 0">מונה משלנו, לא גוגל ולא פייסבוק, כדי שחוסמי פרסומות לא יבלעו את המספר. נשמר גם בלשונית "תנועה יומית" בגיליון.</p>
 
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-board" aria-expanded="true" aria-controls="fold-board">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">לוח שיחות · מי בתור ומה כבר קרה</span>
+      <span class="fold-n" id="fn-board">–</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <div class="fold" id="fold-board">
+    <p class="cb-win" id="cbWin">בודקים את חלון החיוג…</p>
+    <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
+      <div class="kpi"><b id="cb-g">–</b><span>אורחים ממתינים לשיר</span></div>
+      <div class="kpi"><b id="cb-l">–</b><span>לידים ממתינים לנועה</span></div>
+      <div class="kpi"><b id="cb-d">–</b><span>שיחות שיצאו היום</span></div>
+    </div>
+    <div class="cb-filters" id="cbFilters" role="group" aria-label="סינון לוח השיחות">
+      <button type="button" data-cb="all" aria-pressed="true">הכל</button>
+      <button type="button" data-cb="waiting" aria-pressed="false">בתור</button>
+      <button type="button" data-cb="done" aria-pressed="false">בוצעו</button>
+      <button type="button" data-cb="shir" aria-pressed="false">שיר · אורחים</button>
+      <button type="button" data-cb="noa" aria-pressed="false">נועה · לידים ולקוחות</button>
+      <button type="button" data-cb="problem" aria-pressed="false">תקלות</button>
+    </div>
+    <div class="tblwrap tall">
+      <table>
+        <thead><tr><th>מצב</th><th>מי מתקשרת</th><th>סוג</th><th>שם</th><th>טלפון</th><th>אירוע</th><th>מתי</th><th>ניסיונות</th><th>הערה</th></tr></thead>
+        <tbody id="cbRows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="cbEmpty" hidden>אין כרגע שיחות בתור ולא יצאו שיחות לאחרונה.</p>
+    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">שורה אפורה = כבר קרה. ✓ ענו והשיחה עשתה את שלה · ⚠ לבדיקה · ✕ לא ענו או נכשל. שיר מדברת רק עם אורחים, נועה רק עם לידים ולקוחות.</p>
+  </div>
+
   <h2>משפך הרכישה · 7 ימים</h2>
   <div class="funnel" id="funnel"></div>
   <p class="empty" id="funEmpty" hidden>עדיין אין מספיק תנועה כדי להראות משפך.</p>
@@ -815,11 +866,12 @@
     { key: 'plans',  tbody: 'planRows' },
     { key: 'cost',   tbody: 'costRows' },
     { key: 'utm',    tbody: 'utmRows' },
-    { key: 'camp',   tbody: 'campRows' }
+    { key: 'camp',   tbody: 'campRows' },
+    { key: 'board',  tbody: 'cbRows' }
   ];
   /* first visit: the calls are what he actually watches, the rest keep quiet.
      These must match the hidden/aria-expanded already in the markup. */
-  var foldOpen = { events: false, calls: true, plans: false, cost: false, utm: false, camp: false };
+  var foldOpen = { events: false, calls: true, plans: false, cost: false, utm: false, camp: false, board: true };
   var foldCount = {};   /* the last count we showed, to notice a closed table growing */
   var foldQuiet = false;   /* a re-render the user asked for, not fresh data */
 
@@ -1011,6 +1063,7 @@
     loadCost();
     loadTraffic();
     loadCampaigns();
+    loadBoard();
   }
 
   function liveStart() {
@@ -1054,6 +1107,7 @@
     loadPause();
     loadTraffic();
     loadCampaigns();
+    loadBoard();
   }
 
   /* the sheet read: headline KPIs, the events table, the plan breakdown */
@@ -1328,6 +1382,105 @@
     });
     syncFolds();
   }
+
+
+  /* ══ the call board ═══════════════════════════════════════════════════════
+     One table for calls that are going to happen and calls that already did.
+     A queued row says who owns it and when the window opens; a finished row
+     goes grey and carries its verdict. The persona column exists because the
+     rule of this business is that Shir talks only to guests and Noa only to
+     leads and clients, and a board that hid that would hide a real failure.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var cbData = null;
+  var cbFilter = 'all';
+
+  var CB_STATE = {
+    waiting:  { t: '⏳ בתור',   c: 'waiting' },
+    capped:   { t: '⏹ מוצה',    c: 'waiting' },
+    blocked:  { t: '⛔ חסום',   c: 'problem' },
+    running:  { t: '● בשיחה',   c: 'running' },
+    ok:       { t: '✓ בוצע',    c: 'ok' },
+    problem:  { t: '⚠ לבדיקה',  c: 'problem' },
+    noanswer: { t: '✕ לא ענו',  c: 'noanswer' },
+    failed:   { t: '✕ נכשל',    c: 'failed' }
+  };
+  var CB_KIND = { guest: 'אורח', lead: 'ליד', client: 'לקוח', inbound: 'נכנסת', callback: 'חזרה' };
+
+  function loadBoard() {
+    fetch(CFG.endpoint('callboard'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) { if (d && d.ok) { cbData = d; renderBoard(); } })
+      .catch(function () {});
+  }
+
+  function renderBoard() {
+    if (!cbData) return;
+    var w = cbData.window || {};
+    var el = $('cbWin');
+    el.classList.toggle('shut', !w.open);
+    var extra = w.paused ? ' · כל השליחות והשיחות מושהות' : '';
+    el.innerHTML = 'חלון החיוג: <b>' + (w.open ? 'פתוח' : 'סגור') + '</b> · ' + esc(w.next || '') + esc(extra);
+    var c = cbData.counts || {};
+    $('cb-g').textContent = String(c.guests || 0);
+    $('cb-l').textContent = String(c.leads || 0);
+    $('cb-d').textContent = String(c.done_today || 0);
+
+    var rows = [];
+    (cbData.waiting || []).forEach(function (r) { rows.push({ r: r, past: false }); });
+    (cbData.done || []).forEach(function (r) { rows.push({ r: r, past: true }); });
+
+    rows = rows.filter(function (x) {
+      var r = x.r;
+      if (cbFilter === 'waiting') return !x.past;
+      if (cbFilter === 'done') return x.past;
+      if (cbFilter === 'shir') return r.who === 'שיר';
+      if (cbFilter === 'noa') return r.who === 'נועה';
+      if (cbFilter === 'problem') return r.state === 'problem' || r.state === 'failed' || r.state === 'blocked';
+      return true;
+    });
+
+    var tb = $('cbRows');
+    if (!rows.length) { tb.innerHTML = ''; $('cbEmpty').hidden = false; syncFolds(); return; }
+    $('cbEmpty').hidden = true;
+
+    tb.innerHTML = rows.map(function (x) {
+      var r = x.r;
+      var st = CB_STATE[r.state] || { t: esc(r.state || '—'), c: 'waiting' };
+      var whoCls = r.who === 'נועה' ? 'noa' : 'shir';
+      var kind = CB_KIND[r.kind] || r.kind || '—';
+      var kindCls = r.kind === 'lead' ? 'lead' : (r.kind === 'guest' ? 'guest' : 'client');
+      var when = x.past
+        ? (r.at ? new Date(r.at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')
+        : ((cbData.window || {}).next || '—');
+      var tries = r.max_tries ? (r.tries || 0) + '/' + r.max_tries : '—';
+      var note = r.note || r.outcome || (x.past && r.duration_s != null ? fmtDur(r.duration_s) : '');
+      return '<tr' + (x.past ? ' class="past"' : '') + '>' +
+        '<td><span class="st ' + st.c + '">' + st.t + '</span></td>' +
+        '<td><span class="who ' + whoCls + '">' + esc(r.who || '') + '</span></td>' +
+        '<td><span class="kindtag ' + kindCls + '">' + esc(kind) + '</span></td>' +
+        '<td>' + esc(r.name || '—') + '</td>' +
+        '<td><span dir="ltr">' + esc(r.phone || '') + '</span></td>' +
+        '<td>' + esc(r.event || '—') + '</td>' +
+        '<td>' + esc(when) + '</td>' +
+        '<td>' + tries + '</td>' +
+        '<td>' + esc(note || '') + '</td>' +
+        '</tr>';
+    }).join('');
+    syncFolds();
+  }
+
+  Array.prototype.forEach.call(document.querySelectorAll('#cbFilters button'), function (b) {
+    b.addEventListener('click', function () {
+      cbFilter = b.dataset.cb;
+      Array.prototype.forEach.call(document.querySelectorAll('#cbFilters button'), function (x) {
+        x.setAttribute('aria-pressed', x === b ? 'true' : 'false');
+      });
+      renderBoard();
+    });
+  });
 
   /* ── cost log + CSV ── */
   function loadCost() {

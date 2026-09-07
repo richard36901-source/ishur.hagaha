@@ -53,6 +53,11 @@ const TRF_HEADER = ['תאריך', 'כניסות', 'מבקרים', 'חדשים', 
 const TRF_COLS = ['date', 'views', 'visitors', 'fresh', 'returning', 'pay', 'purchase',
   'cr_pay', 'cr_buy', 'top_page', 'top_src', 'spend', 'clicks', 'leads', 'cpl'];
 
+/* the call queue as it stood, once a day: who was waiting, for whom, and how
+   many tries were left. The board shows now; this tab shows what "now" was. */
+const CQ_HEADER = ['תאריך', 'שעה', 'מצב', 'מי מתקשרת', 'סוג', 'שם', 'טלפון', 'אירוע', 'תאריך אירוע', 'חבילה', 'ניסיונות', 'הערה'];
+const CQ_COLS = ['date', 'time', 'state', 'who', 'kind', 'name', 'phone', 'event', 'event_date', 'plan', 'tries', 'note'];
+
 export const TABS = {
   msg_guests: { title: 'אורחים לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.36, green: 0.62, blue: 0.45 } },
   msg_clients: { title: ' לקוחות לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.30, green: 0.50, blue: 0.75 } },
@@ -60,6 +65,7 @@ export const TABS = {
   removals: { title: 'הסרות', header: REM_HEADER, cols: REM_COLS, color: { red: 0.80, green: 0.30, blue: 0.30 } },
   invoices: { title: 'חשבוניות', header: INV_HEADER, cols: INV_COLS, color: { red: 0.20, green: 0.45, blue: 0.40 } },
   traffic: { title: 'תנועה יומית', header: TRF_HEADER, cols: TRF_COLS, color: { red: 0.85, green: 0.60, blue: 0.20 } },
+  callqueue: { title: 'תור שיחות', header: CQ_HEADER, cols: CQ_COLS, color: { red: 0.45, green: 0.55, blue: 0.75 } },
 };
 
 export function ilStamp(d = new Date()) {

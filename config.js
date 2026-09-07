@@ -395,7 +395,7 @@ window.ISHUR_CONFIG = (function () {
         fixedcost: '/api/fixedcost', costlog: '/api/cost-log', otp: '/api/otp-send',
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
-        traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard'
+        traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board'
       }[kind] || '/api/event');
     }
     return {

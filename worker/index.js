@@ -5134,7 +5134,141 @@ async function snapshotTraffic(env) {
     cpl: leads ? Math.round((spend / leads) * 100) / 100 : 0,
   });
   await env.RATE.put('trf:wrote:' + day, '1', { expirationTtl: 3 * 86400 });
+
+  /* and the call queue as it stands tonight: the board shows the present, the
+     sheet keeps what the present was, which is the only way to answer later
+     "how long did people actually wait" */
+  try {
+    const board = await callBoard(env);
+    const t = ilTime();
+    for (const w of (board.waiting || []).slice(0, 300)) {
+      await logRow(env, 'callqueue', {
+        date: day, time: t, state: w.state, who: w.who, kind: w.kind,
+        name: w.name, phone: w.phone, event: w.event, event_date: w.event_date || '',
+        plan: w.plan || '', tries: w.max_tries ? (w.tries || 0) + '/' + w.max_tries : '',
+        note: w.note || '',
+      });
+    }
+  } catch {}
   return { ok: true, day };
+}
+
+/* Everything about calls in one payload: what is queued, who owns it, when
+   the window next opens, and what already happened today. Read-only. */
+async function callBoard(env) {
+  const win = callWindowState();
+  const day = ilDate();
+  const noContact = isNoContactDay(day);
+  const paused = await sendingPaused(env).catch(() => false);
+
+  /* guests waiting on an RSVP call — Shir's queue */
+  let guests = [];
+  try {
+    const raw = await snapshotCached(env);
+    if (raw) {
+      const { queue } = buildCallQueue(raw);
+      guests = (queue || []).map(q => ({
+        kind: 'guest',
+        who: 'שיר',
+        from: '+972555074446',
+        name: q.name,
+        phone: q.phone,
+        event: q.event_name || q.client_name,
+        event_date: q.event_date,
+        plan: q.plan,
+        tries: q.tries,
+        max_tries: q.max_tries,
+        /* capped means the plan's calls are spent: it stays on the board, but
+           as "finished", never as something still waiting to happen */
+        state: q.capped ? 'capped' : 'waiting',
+        note: q.capped ? 'מיצה את מכסת השיחות בחבילה' : '',
+      }));
+    }
+  } catch {}
+
+  /* leads who left checkout — Noa's queue */
+  const leads = [];
+  try {
+    const queued = await kvPrefix(env, 'lq:');
+    for (const [phone, rawv] of Object.entries(queued)) {
+      let v = {};
+      try { v = JSON.parse(rawv) || {}; } catch {}
+      const blocked = await callBlocked(env, phone).catch(() => false);
+      leads.push({
+        kind: 'lead',
+        who: 'נועה',
+        from: env.NOA_FROM || '+972555077733',
+        name: v.name || '',
+        phone,
+        event: v.occ || '',
+        queued_at: v.at || '',
+        state: blocked ? 'blocked' : 'waiting',
+        note: blocked ? 'ביקש לא לקבל שיחות' : '',
+      });
+    }
+  } catch {}
+
+  /* what already ran — the last 60 calls, so a queued row and its result can
+     be read side by side instead of on two different pages */
+  let done = [];
+  try {
+    const r = await fetch('https://api.retellai.com/v2/list-calls', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ limit: 60, sort_order: 'descending' }),
+    }).catch(() => null);
+    const j = r && r.ok ? await r.json().catch(() => []) : [];
+    done = (Array.isArray(j) ? j : []).map(c => {
+      const from = String(c.from_number || '');
+      const inbound = String(c.direction || c.call_type || '').includes('inbound');
+      const kind = String((c.metadata || {}).kind || (inbound ? 'inbound' : 'guest'));
+      const cad = (c.call_analysis || {}).custom_analysis_data || {};
+      /* Retell reports more than ended/ongoing: not_connected and error are
+         finished calls too, and calling them "running" would leave a row
+         spinning on the board forever. Only these two are actually live. */
+      const st = String(c.call_status || '');
+      const live = st === 'ongoing' || st === 'registered';
+      const ended = !live;
+      /* green only when the call actually reached a person and did its job;
+         everything else is amber or red, never a silent pass */
+      const okCall = ended && !!cad.got_answer && !cad.needs_review;
+      return {
+        kind: inbound ? 'inbound' : kind,
+        who: from === (env.NOA_FROM || '+972555077733') ? 'נועה' : 'שיר',
+        from,
+        phone: c.to_number || c.from_number || '',
+        at: c.start_timestamp || null,
+        duration_s: c.start_timestamp && c.end_timestamp
+          ? Math.round((c.end_timestamp - c.start_timestamp) / 1000) : null,
+        status: c.call_status || '',
+        outcome: String(cad.outcome || ''),
+        state: live ? 'running' : (okCall ? 'ok' : (cad.needs_review ? 'problem' : (st === 'ended' ? 'noanswer' : 'failed'))),
+        id: c.call_id || '',
+      };
+    });
+  } catch {}
+
+  return {
+    ok: true,
+    window: {
+      open: !!win.open,
+      why: win.why || '',
+      no_contact_day: noContact,
+      paused,
+      /* the plain-language answer to "when will this actually happen" */
+      next: win.open ? 'עכשיו — החלון פתוח' :
+        (noContact ? 'לא היום, יום ללא יצירת קשר' :
+          (win.why === 'shabbat' ? 'במוצאי שבת, בחלון הבא' : 'בחלון הבא: א-ה 10:00-20:30, ו׳ 9:30-13:00')),
+    },
+    waiting: [...guests, ...leads],
+    done,
+    counts: {
+      guests: guests.filter(g => g.state === 'waiting').length,
+      leads: leads.filter(l => l.state === 'waiting').length,
+      done_today: done.filter(d => d.at && ilDate(new Date(d.at)) === day).length,
+    },
+    generated_at: new Date().toISOString(),
+  };
 }
 
 async function runAdReview(env, opts = {}) {
@@ -6148,6 +6282,22 @@ export default {
       await env.RATE.put('calls:heard', JSON.stringify(heard));
       await logEvent(env, { area: 'שיחות', action: b.on === false ? 'סימון "שמעתי" הוסר' : 'שיחה סומנה כנשמעה', ok: true, detail: id });
       return okJson({ ok: true, call_id: id, heard: b.on !== false }, origin);
+    }
+    /* ── the call board ───────────────────────────────────────────────────
+       Richard (07/09): "who is in the sales queue, who is waiting on an RSVP
+       call, who is calling them, when, and did it happen." Three sources that
+       never sat on one screen before:
+         · guests waiting on an RSVP call   → Shir, from the guests sheet
+         · leads who abandoned checkout     → Noa, from the lq: queue in KV
+         · calls that already ran           → Retell, with how they ended
+       Every row says which persona owns it, because the iron rule of this
+       business is that Shir never speaks to a client and Noa never to a
+       guest, and a board that blurs the two would hide a real failure. */
+    if (url.pathname === '/api/call-board' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson(await callBoard(env), origin);
     }
     if (url.pathname === '/api/traffic' && request.method === 'POST') {
       let b = {};
