@@ -41,9 +41,9 @@ window.ISHUR_CONFIG = (function () {
      replay, feature flags and A/B tests. GA4 answers "how many"; this answers
      "where did they give up". Stays dormant until the key is filled, exactly
      like the pixels above. Project key from posthog.com → Project Settings.
-     Use the EU host for Israeli/EU traffic so data never lands in the US. */
-  var POSTHOG_KEY         = '';          // phc_XXXXXXXX
-  var POSTHOG_HOST        = 'https://eu.i.posthog.com';
+     The project (595055) was created on US Cloud, so the host must match it. */
+  var POSTHOG_KEY         = 'phc_ssZmdzSM6zeFfDjvygobpNUd5zNQUnPTnBQ4pbsmRoC7';
+  var POSTHOG_HOST        = 'https://us.i.posthog.com';   /* project 595055 lives on US Cloud */
 
   /* Support line, 055-950-4499. This is the number leads and clients talk to:
      every "questions?" link on the site, the over-900 handoff, the upload

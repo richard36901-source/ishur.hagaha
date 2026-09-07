@@ -6024,6 +6024,21 @@ export default {
       }
       return okJson({ ok: !!(r && r.ok), days: byDay, raw: r && !r.ok ? r.data : undefined }, origin);
     }
+    /* admin passthrough to the ads API, for turning the campaign on and off
+       and reading its state. Uses META_ADS_TOKEN, never the WhatsApp tokens. */
+    if (url.pathname === '/api/ads' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const path = String(b.path || '');
+      if (!path.startsWith('/')) return deny(400, 'bad-path', origin);
+      const r = await metaAds(env, path, String(b.method || 'GET').toUpperCase(), b.payload);
+      if (b.note) {
+        await logEvent(env, { area: 'פרסום', action: String(b.note).slice(0, 80), ok: !!(r && r.ok), review: !(r && r.ok),
+          detail: `${path} · ${JSON.stringify((r && r.data) || {}).slice(0, 200)}` });
+      }
+      return okJson(r || { ok: false, why: 'no-token' }, origin);
+    }
     if (url.pathname === '/api/ad-review' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
