@@ -55,8 +55,8 @@ const TRF_COLS = ['date', 'views', 'visitors', 'fresh', 'returning', 'pay', 'pur
 
 /* the call queue as it stood, once a day: who was waiting, for whom, and how
    many tries were left. The board shows now; this tab shows what "now" was. */
-const CQ_HEADER = ['תאריך', 'שעה', 'מצב', 'מי מתקשרת', 'סוג', 'שם', 'טלפון', 'אירוע', 'תאריך אירוע', 'חבילה', 'ניסיונות', 'הערה'];
-const CQ_COLS = ['date', 'time', 'state', 'who', 'kind', 'name', 'phone', 'event', 'event_date', 'plan', 'tries', 'note'];
+const CQ_HEADER = ['תאריך', 'שעה', 'מצב', 'מי מתקשרת', 'סוג', 'שם', 'טלפון', 'אירוע', 'תאריך אירוע', 'חבילה', 'ניסיונות', 'סיבה', 'הערה'];
+const CQ_COLS = ['date', 'time', 'state', 'who', 'kind', 'name', 'phone', 'event', 'event_date', 'plan', 'tries', 'reason', 'note'];
 
 export const TABS = {
   msg_guests: { title: 'אורחים לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.36, green: 0.62, blue: 0.45 } },

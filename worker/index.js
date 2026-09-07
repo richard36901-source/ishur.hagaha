@@ -5155,6 +5155,31 @@ async function snapshotTraffic(env) {
 
 /* Everything about calls in one payload: what is queued, who owns it, when
    the window next opens, and what already happened today. Read-only. */
+/* Retell's disconnection_reason, in words that say what to do about it. */
+function reasonHe(raw, status) {
+  const r = String(raw || '').toLowerCase();
+  if (!r) return status === 'not_connected' ? 'לא התחברה' : '';
+  const map = [
+    [/user_hangup/,            'האורח ניתק'],
+    [/agent_hangup/,           'הסוכנת סיימה'],
+    [/call_transfer/,          'הועברה'],
+    [/voicemail/,              'הגיעה לתא קולי'],
+    [/dial_busy/,              'הקו תפוס'],
+    [/dial_failed/,            'החיוג נכשל'],
+    [/dial_no_answer|no_answer/, 'לא ענו'],
+    [/inactivity/,             'שקט על הקו'],
+    [/max_duration/,           'הגיעה למגבלת זמן'],
+    [/concurrency/,            'חריגה ממכסת שיחות במקביל'],
+    [/no_valid_payment|payment/, 'בעיית תשלום בספק'],
+    [/scam|blocked|rejected/,  'המספר דחה את השיחה'],
+    [/error_llm|error_agent|agent_error/, 'תקלה בסוכנת'],
+    [/machine_detected/,       'זוהה מענה אוטומטי'],
+    [/error/,                  'תקלה טכנית'],
+  ];
+  for (const [re, he] of map) if (re.test(r)) return he;
+  return raw;
+}
+
 async function callBoard(env) {
   const win = callWindowState();
   const day = ilDate();
@@ -5234,15 +5259,25 @@ async function callBoard(env) {
       const okCall = ended && !!cad.got_answer && !cad.needs_review;
       return {
         kind: inbound ? 'inbound' : kind,
-        who: from === (env.NOA_FROM || '+972555077733') ? 'נועה' : 'שיר',
-        from,
-        phone: c.to_number || c.from_number || '',
+        /* On an outbound call OUR line is from_number; on an inbound one it is
+           to_number, and from_number is the person ringing us. Reading the
+           persona off from_number either way labelled inbound calls to Noa's
+           line as Shir — the one mistake this board exists to make visible. */
+        who: (inbound ? String(c.to_number || '') : from) === (env.NOA_FROM || '+972555077733') ? 'נועה' : 'שיר',
+        from: inbound ? String(c.to_number || '') : from,
+        phone: (inbound ? c.from_number : c.to_number) || '',
         at: c.start_timestamp || null,
         duration_s: c.start_timestamp && c.end_timestamp
           ? Math.round((c.end_timestamp - c.start_timestamp) / 1000) : null,
         status: c.call_status || '',
         outcome: String(cad.outcome || ''),
         state: live ? 'running' : (okCall ? 'ok' : (cad.needs_review ? 'problem' : (st === 'ended' ? 'noanswer' : 'failed'))),
+        /* why it ended the way it did. Raw for the log, Hebrew for the board:
+           "נכשל" without a reason tells you nothing you can act on, and the
+           difference between a busy line, a rejected number and our own agent
+           erroring is the difference between waiting and fixing something. */
+        reason: String(c.disconnection_reason || ''),
+        reason_he: reasonHe(c.disconnection_reason, st),
         id: c.call_id || '',
       };
     });

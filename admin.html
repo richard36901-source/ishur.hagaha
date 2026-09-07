@@ -8,7 +8,7 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=41"></script>
+<script src="config.js?v=42"></script>
 <script src="assets/adminbar.js?v=5" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -1456,7 +1456,11 @@
         ? (r.at ? new Date(r.at).toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—')
         : ((cbData.window || {}).next || '—');
       var tries = r.max_tries ? (r.tries || 0) + '/' + r.max_tries : '—';
-      var note = r.note || r.outcome || (x.past && r.duration_s != null ? fmtDur(r.duration_s) : '');
+      /* the reason a call failed is the point of the row: show it first, and
+         keep the duration only when there is nothing more useful to say */
+      var note = r.note || r.reason_he || r.outcome ||
+                 (x.past && r.duration_s != null ? fmtDur(r.duration_s) : '');
+      if (r.reason_he && r.outcome) note = r.outcome + ' · ' + r.reason_he;
       return '<tr' + (x.past ? ' class="past"' : '') + '>' +
         '<td><span class="st ' + st.c + '">' + st.t + '</span></td>' +
         '<td><span class="who ' + whoCls + '">' + esc(r.who || '') + '</span></td>' +
