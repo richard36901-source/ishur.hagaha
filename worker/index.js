@@ -450,24 +450,24 @@ async function processGrowPayment(env, flat) {
         await alert(env, 'חשבוניות', `חשבונית ל-${name || phone} (₪${sum}) לא הופקה: ${inv.why}`, ref);
       }
     }
-    /* Richard, 06/09: the invoice goes out by email. Morning mails it to the
-       address Grow collected. WhatsApp is kept only for a customer who left
-       no email, because a paying customer without any invoice is not an
-       option. */
+    /* Richard, 07/09: the invoice goes out by email and ONLY by email. A
+       customer who left no address simply does not receive one, and if he
+       asks in WhatsApp, Noa sends it herself. This replaces the earlier
+       automatic WhatsApp fallback: an unrequested document on WhatsApp is
+       noise, and the invoice already exists in Morning and in the sheet
+       either way. The journal keeps the link so Noa can find it in one
+       search. */
     if (invoiceUrl && !email) {
-      const invTmpl = env.RATE ? await env.RATE.get('invoicetmpl') : null;
-      if (invTmpl) {
-        const iw = await sendClient(env, phone, invTmpl, [first, invoiceUrl], { token });
-        await logEvent(env, { area: 'חשבוניות', action: 'ללקוח אין מייל — החשבונית נשלחה בווצאפ', ok: iw.ok, review: !iw.ok, phone, token, ref, detail: iw.ok ? invoiceUrl : String(iw.error || '') });
-      } else {
-        await logEvent(env, { area: 'חשבוניות', action: 'ללקוח אין מייל ואין תבנית ווצאפ — החשבונית לא נשלחה', ok: false, review: true, phone, token, ref, detail: invoiceUrl });
-      }
+      await logEvent(env, { area: 'חשבוניות', action: 'ללקוח אין מייל — החשבונית לא נשלחה, ממתינה לבקשה', ok: true, phone, token, ref, detail: invoiceUrl });
     }
-    const wa = await sendClient(env, phone, 'ishur_tashlum',
-      [first, 'https://ishur.io/upload.html?t=' + token], { token });
-    if (wa.ok) await addEvCost(env, token, msgCost('ishur_tashlum'));
-    await logEvent(env, { area: 'ווצאפ', action: 'קישור העלאה נשלח ללקוח (ishur_tashlum)', ok: wa.ok, review: !wa.ok,
-      phone, token, ref, detail: wa.ok ? String(wa.id || '') : String(wa.error || '') });
+    /* Richard, 07/09: no automatic upload link any more. thanks.html now takes
+       the buyer straight into his own window, so a WhatsApp arriving one second
+       later says something he is already looking at — and costs a template.
+       The link is sent only when he asks for it (/api/resend), and the
+       next-day reminder still catches anyone who paid and never uploaded. */
+    const wa = { ok: true, skipped: true };
+    await logEvent(env, { area: 'ווצאפ', action: 'קישור העלאה לא נשלח אוטומטית — הלקוח הופנה ישירות מעמוד התודה', ok: true,
+      phone, token, ref, detail: 'https://ishur.io/upload.html?t=' + token });
     if (env.RATE) await env.RATE.put('paywa:' + ref,
       JSON.stringify({ ...wa, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 });
   }
@@ -1393,8 +1393,24 @@ async function handleAdminOtp(request, env, origin) {
   if (await overBudget(env, 'rl:adminotp:' + phone, 5, 3600)) return okJson({ ok: true }, origin);
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   await env.RATE.put('adminotp:' + phone, JSON.stringify({ code, tries: 0 }), { expirationTtl: 600 });
-  await sendOtpTemplate(env, phone, code);
-  return okJson({ ok: true }, origin);
+  /* Richard, 07/09: the admin code goes to Slack, not to WhatsApp. He is
+     already in Slack all day, and the WhatsApp route costs an authentication
+     template and depends on Meta approving it. WhatsApp stays as the fallback
+     for the case where Slack is not configured or the post fails, because a
+     login code that never arrives locks him out of his own board.
+     The code is short-lived (10 minutes), single-use, capped at 5 tries and
+     only ever minted for a number on ADMIN_PHONES — so the private channel is
+     an acceptable place for it. */
+  let viaSlack = false;
+  if (env.SLACK_ALERT_HOOK) {
+    const r = await fetch(env.SLACK_ALERT_HOOK, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: `🔐 קוד כניסה ללוח הבקרה: *${code}*\nתקף 10 דקות, לשימוש חד-פעמי. אם לא ביקשת אותו, התעלם.` }),
+    }).catch(() => null);
+    viaSlack = !!(r && r.ok);
+  }
+  if (!viaSlack) await sendOtpTemplate(env, phone, code);
+  return okJson({ ok: true, via: viaSlack ? 'slack' : 'whatsapp' }, origin);
 }
 
 async function handleAdminLogin(request, env, origin) {
@@ -5164,6 +5180,7 @@ function reasonHe(raw, status) {
     [/agent_hangup/,           'הסוכנת סיימה'],
     [/call_transfer/,          'הועברה'],
     [/voicemail/,              'הגיעה לתא קולי'],
+    [/invalid_destination/,    'מספר לא תקין או לא ניתן לחיוג'],
     [/dial_busy/,              'הקו תפוס'],
     [/dial_failed/,            'החיוג נכשל'],
     [/dial_no_answer|no_answer/, 'לא ענו'],

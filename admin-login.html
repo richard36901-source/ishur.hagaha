@@ -8,7 +8,7 @@
 <title>כניסת ניהול · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=42"></script>
+<script src="config.js?v=43"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -50,7 +50,7 @@
 </script>
 <div class="card">
   <h1>כניסת ניהול</h1>
-  <p class="sub">מזינים טלפון, מקבלים קוד בוואטסאפ, והמכשיר הזה זוכר אתכם לשנה.</p>
+  <p class="sub">מזינים טלפון, הקוד מגיע לסלאק, והמכשיר הזה זוכר אתכם לשנה.</p>
 
   <div id="step1">
     <label for="ph">מספר טלפון</label>
@@ -86,7 +86,7 @@
       body: JSON.stringify({ phone: phone })
     }).then(function (r) { return r.json(); }).then(function () {
       $('step1').hidden = true; $('step2').hidden = false;
-      msg('אם המספר מורשה, קוד בדרך אליכם בוואטסאפ', 'ok');
+      msg('אם המספר מורשה, הקוד בדרך לסלאק', 'ok');
       $('code').focus();
     }).catch(function () { $('send').disabled = false; msg('לא הצלחנו להגיע לשרת', 'err'); });
   });
