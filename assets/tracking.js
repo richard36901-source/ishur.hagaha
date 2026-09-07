@@ -285,6 +285,56 @@ window.IshurTrack = (function () {
     try { localStorage.removeItem(PENDING); } catch (e) {}
   }
 
+
+  /* ══ our own counter ══════════════════════════════════════════════════════
+     One pixel-sized GET to the Worker per page view. It exists because GA4 and
+     PostHog are both blocked for a meaningful slice of visitors, and because
+     "how many are on the site right now" has to live somewhere we can read
+     from the Worker and write to the sheet.
+
+     It sends three things and nothing else: a random visitor id kept in this
+     browser, the path, and the utm source. No name, no phone, no email. The
+     id is ours alone and is never joined to a customer record.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var VID_KEY = 'ishur_vid';
+  var BEACON = 'https://go.ishur.io/px';
+
+  function visitorId() {
+    try {
+      var v = localStorage.getItem(VID_KEY);
+      if (v && /^[A-Za-z0-9_-]{8,64}$/.test(v)) return v;
+      v = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 12);
+      localStorage.setItem(VID_KEY, v);
+      return v;
+    } catch (e) { return ''; }
+  }
+
+  function beacon(kind) {
+    var v = visitorId();
+    if (!v) return;
+    var a = attribution() || {};
+    var q = '?v=' + encodeURIComponent(v) +
+            '&p=' + encodeURIComponent(location.pathname || '/') +
+            '&s=' + encodeURIComponent(a.utm_source || '') +
+            (kind ? '&k=' + kind : '');
+    try {
+      /* keepalive so a beacon fired on the way to Grow still leaves */
+      fetch(BEACON + q, { method: 'GET', keepalive: true, mode: 'cors', credentials: 'omit' })
+        .catch(function () {});
+    } catch (e) {}
+  }
+
+  beacon('');
+
+  /* Anything that takes the visitor to checkout is the middle step of the
+     funnel. Captured on the link itself, so a new button never needs wiring. */
+  document.addEventListener('click', function (e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (!a) return;
+    if (/meshulam|grow|pay|tashlum/i.test(a.getAttribute('href') || '')) beacon('pay');
+  }, true);
+
   return {
     attribution: attribution,
     setPending: setPending,
@@ -297,6 +347,7 @@ window.IshurTrack = (function () {
     tiktok: tiktok,
     ga: ga,
     posthog: posthogFire,
-    capture: capture
+    capture: capture,
+    beacon: beacon
   };
 })();

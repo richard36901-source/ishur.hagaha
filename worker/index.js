@@ -30,6 +30,7 @@ import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, bu
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
+import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -386,6 +387,8 @@ async function processGrowPayment(env, flat) {
        browser fires the same event_id ('pur_<ref>') from thanks.html, so Meta
        dedups; when the tab never returns, this copy is the only one. */
     try { await capiPurchase(env, { phone, email, value: parseFloat(sum) || 0, ref }); } catch {}
+    /* the funnel's last step, counted where the money actually lands */
+    try { await recordPurchase(env); } catch {}
     /* a promo seat is only really taken once the money lands. Until here the
        code was on hold and would have expired back into the pool. */
     let promo = null;
@@ -5094,6 +5097,46 @@ async function capiPurchase(env, { phone, email, value, ref }) {
   }
 }
 
+/* One row a day in the 'תנועה יומית' tab: what the site did and what the ads
+   cost, side by side. KV keeps 400 days; the sheet keeps it forever and can be
+   charted by anyone without an admin key. Guarded by a KV flag so a cron that
+   fires twice does not write the day twice. */
+async function snapshotTraffic(env) {
+  if (!env.RATE) return { ok: false, why: 'no-kv' };
+  const day = ilDate();
+  if (await env.RATE.get('trf:wrote:' + day)) return { ok: true, skipped: 'already-written' };
+
+  const t = await trafficReport(env, 1);
+  const d = t.today || { views: 0, visitors: 0, fresh: 0, returning: 0, pay: 0, purchase: 0, pages: {}, src: {} };
+  const top = o => (Object.entries(o || {}).sort((a, b) => b[1] - a[1])[0] || [''])[0];
+  const pct = (a, b) => (b > 0 ? Math.round((a / b) * 1000) / 10 : 0);
+
+  /* the ad side of the same day, so cost and result sit on one line */
+  let spend = 0, clicks = 0, leads = 0;
+  const range = encodeURIComponent(JSON.stringify({ since: day, until: day }));
+  const r = await metaAds(env,
+    `/${META_AD_ACCOUNT}/insights?level=account&time_range=${range}&fields=spend,clicks,actions`, 'GET');
+  for (const x of ((r && r.data && r.data.data) || [])) {
+    spend += Number(x.spend) || 0;
+    clicks += Number(x.clicks) || 0;
+    for (const a of (x.actions || [])) {
+      if (a.action_type === 'lead' || a.action_type === 'offsite_conversion.fb_pixel_lead') leads += Number(a.value) || 0;
+    }
+  }
+
+  await logRow(env, 'traffic', {
+    date: day,
+    views: d.views, visitors: d.visitors, fresh: d.fresh, returning: d.returning,
+    pay: d.pay, purchase: d.purchase,
+    cr_pay: pct(d.pay, d.visitors), cr_buy: pct(d.purchase, d.visitors),
+    top_page: top(d.pages), top_src: top(d.src),
+    spend: Math.round(spend * 100) / 100, clicks, leads,
+    cpl: leads ? Math.round((spend / leads) * 100) / 100 : 0,
+  });
+  await env.RATE.put('trf:wrote:' + day, '1', { expirationTtl: 3 * 86400 });
+  return { ok: true, day };
+}
+
 async function runAdReview(env, opts = {}) {
   if (!env.META_ADS_TOKEN) return { ok: false, error: 'no-token' };
   if (!env.RATE) return { ok: false, error: 'no-kv' };
@@ -5484,12 +5527,22 @@ async function handleShirCalls(request, env, origin) {
     party_size: ((c.call_analysis || {}).custom_analysis_data || {}).party_size ?? null,
     productive: !!((c.call_analysis || {}).custom_analysis_data || {}).got_answer,
     needs_review: !!((c.call_analysis || {}).custom_analysis_data || {}).needs_review,
+    /* filled in below from KV — a call Richard listened to stops being red */
+    heard: false,
     agent_quality: ((c.call_analysis || {}).custom_analysis_data || {}).agent_quality ?? null,
     quality_note: String(((c.call_analysis || {}).custom_analysis_data || {}).quality_note || ''),
     summary: String((c.call_analysis || {}).call_summary || '').slice(0, 400),
     recording_url: c.recording_url || '',
     transcript: String(c.transcript || '').slice(0, 8000),
   }));
+
+  /* Which calls Richard has already listened to. Manual only, by his explicit
+     instruction: nothing here is ever set by the system, so a call that says
+     "heard" was heard by a person. Kept as one KV key, not one per call, so
+     reading the board costs a single get. */
+  let heard = {};
+  if (env.RATE) { try { heard = JSON.parse(await env.RATE.get('calls:heard') || '{}') || {}; } catch {} }
+  for (const c of slim) if (heard[c.id]) c.heard = true;
 
   const costToday = env.RATE ? Number(await env.RATE.get('shircost:' + ilDate())) || 0 : 0;
   return okJson({
@@ -5583,7 +5636,7 @@ function cors(origin) {
   const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
   return {
     'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
@@ -5723,6 +5776,7 @@ export default {
     }
 
     if (String(event.cron || '').startsWith('0 18 ')) {
+      ctx.waitUntil(snapshotTraffic(env).catch(() => {}));
       ctx.waitUntil(dailyJournalDigest(env).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
       return;
     }
@@ -5795,6 +5849,7 @@ export default {
     /* on the mirror host, anything that is not an API call is the website */
     if (url.hostname === MIRROR_HOST &&
         !url.pathname.startsWith('/api/') &&
+        url.pathname !== '/px' &&
         !url.pathname.startsWith('/promo/') &&
         !url.pathname.startsWith('/img/')) {
       return serveMirror(request, url);
@@ -6005,6 +6060,100 @@ export default {
       let b = {}; try { b = await request.json(); } catch {}
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       return okJson(await dailyJournalDigest(env), origin);
+    }
+    /* ── first-party traffic beacon ────────────────────────────────────────
+       Public on purpose: it is a counter, it holds no secret, and requiring a
+       key would mean shipping one to every browser. It writes counts only —
+       never a name, a phone or an address — so the worst a forged hit can do
+       is inflate a number on our own board. */
+    if (url.pathname === '/px') {
+      const vid = String(url.searchParams.get('v') || '').slice(0, 64);
+      if (!/^[A-Za-z0-9_-]{8,64}$/.test(vid)) return okJson({ ok: false, why: 'bad-vid' }, origin);
+      ctx.waitUntil(recordHit(env, {
+        vid,
+        path: url.searchParams.get('p') || '/',
+        src: url.searchParams.get('s') || '',
+        kind: url.searchParams.get('k') === 'pay' ? 'pay' : 'view',
+      }).catch(() => {}));
+      return okJson({ ok: true }, origin);
+    }
+    /* Campaign performance for the board: a point per day per campaign, so a
+       chart can show whether THIS campaign is beating the one before it. Meta's
+       own UI compares dates; Richard asked to compare campaigns. */
+    if (url.pathname === '/api/campaign-stats' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const days = Math.min(Math.max(Number(b.days) || 30, 1), 180);
+      const until = ilDate();
+      const since = ilDate(new Date(Date.now() - (days - 1) * 86400e3));
+      const range = encodeURIComponent(JSON.stringify({ since, until }));
+      const fields = 'campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,actions,date_start';
+      const r = await metaAds(env,
+        `/${META_AD_ACCOUNT}/insights?level=campaign&time_increment=1&time_range=${range}` +
+        `&fields=${fields}&limit=500`, 'GET');
+      const rows = ((r && r.data && r.data.data) || []).map(x => {
+        const acts = x.actions || [];
+        const pick = t => Number((acts.find(a => a.action_type === t) || {}).value || 0);
+        return {
+          date: x.date_start,
+          campaign_id: x.campaign_id,
+          campaign: x.campaign_name,
+          spend: Number(x.spend) || 0,
+          impressions: Number(x.impressions) || 0,
+          clicks: Number(x.clicks) || 0,
+          ctr: Number(x.ctr) || 0,
+          cpc: Number(x.cpc) || 0,
+          leads: pick('lead') + pick('offsite_conversion.fb_pixel_lead'),
+          purchases: pick('purchase') + pick('offsite_conversion.fb_pixel_purchase'),
+        };
+      });
+      /* one totals row per campaign, so the board can rank them without
+         re-adding the same numbers in JavaScript and drifting from here */
+      const by = {};
+      for (const x of rows) {
+        const k = x.campaign_id;
+        by[k] = by[k] || { campaign_id: k, campaign: x.campaign, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, days: 0 };
+        by[k].spend += x.spend; by[k].impressions += x.impressions; by[k].clicks += x.clicks;
+        by[k].leads += x.leads; by[k].purchases += x.purchases; by[k].days++;
+      }
+      const totals = Object.values(by).map(t => ({
+        ...t,
+        spend: Math.round(t.spend * 100) / 100,
+        cpc: t.clicks ? Math.round((t.spend / t.clicks) * 100) / 100 : 0,
+        ctr: t.impressions ? Math.round((t.clicks / t.impressions) * 10000) / 100 : 0,
+        cpl: t.leads ? Math.round((t.spend / t.leads) * 100) / 100 : 0,
+        cac: t.purchases ? Math.round((t.spend / t.purchases) * 100) / 100 : 0,
+      })).sort((a, b) => b.spend - a.spend);
+      return okJson({ ok: !!(r && r.ok), since, until, rows, totals, raw: r && !r.ok ? r.data : undefined }, origin);
+    }
+    /* mark a call as listened to (or undo it). Manual, admin-gated, and it
+       never changes needs_review itself — the analysis stays as it was, the
+       board simply stops shouting about a call a human already handled. */
+    if (url.pathname === '/api/call-heard' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const id = String(b.call_id || '').slice(0, 120);
+      if (!id || !env.RATE) return deny(400, 'no-call-id', origin);
+      let heard = {};
+      try { heard = JSON.parse(await env.RATE.get('calls:heard') || '{}') || {}; } catch {}
+      if (b.on === false) delete heard[id]; else heard[id] = ilTime();
+      /* keep the map from growing without end: the newest 2000 are plenty */
+      const ks = Object.keys(heard);
+      if (ks.length > 2000) {
+        ks.sort((a, z) => String(heard[a]).localeCompare(String(heard[z])));
+        for (const k of ks.slice(0, ks.length - 2000)) delete heard[k];
+      }
+      await env.RATE.put('calls:heard', JSON.stringify(heard));
+      await logEvent(env, { area: 'שיחות', action: b.on === false ? 'סימון "שמעתי" הוסר' : 'שיחה סומנה כנשמעה', ok: true, detail: id });
+      return okJson({ ok: true, call_id: id, heard: b.on !== false }, origin);
+    }
+    if (url.pathname === '/api/traffic' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson(await trafficReport(env, b.days), origin);
     }
     /* site traffic + what we sent back to Meta, straight from the pixel's own
        counters (PageView / Lead / Purchase per day, browser + server-side) */

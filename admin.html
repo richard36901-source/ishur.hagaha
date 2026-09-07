@@ -8,7 +8,7 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=39"></script>
+<script src="config.js?v=40"></script>
 <script src="assets/adminbar.js?v=5" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -85,6 +85,24 @@
   .kpi b{display:block;font-size:1.45rem;color:var(--pine);font-variant-numeric:tabular-nums}
   .kpi span{font-size:.7rem;color:var(--ink3)}
   .kpi.money b{color:var(--gold)}
+  /* traffic · funnel · campaigns — added 07/09 so the board answers "where do
+     they come from and where do they give up", not only "how much came in" */
+  .livedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#C9CCC5;margin-inline-end:.35rem;vertical-align:middle}
+  .livedot.on{background:#2E7D5B;box-shadow:0 0 0 0 rgba(46,125,91,.55);animation:lpulse 2s infinite}
+  @keyframes lpulse{70%{box-shadow:0 0 0 7px rgba(46,125,91,0)}100%{box-shadow:0 0 0 0 rgba(46,125,91,0)}}
+  @media (prefers-reduced-motion:reduce){.livedot.on{animation:none}}
+  .funnel{display:flex;flex-direction:column;gap:.4rem;margin:.6rem 0 .2rem}
+  .fstep{position:relative;background:var(--card);border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  .fstep .fbar{position:absolute;inset-inline-start:0;top:0;bottom:0;background:rgba(15,76,53,.13)}
+  .fstep .frow{position:relative;display:flex;justify-content:space-between;align-items:baseline;gap:.6rem;padding:.55rem .8rem}
+  .fstep .fname{font-size:.82rem;font-weight:600;color:var(--ink)}
+  .fstep .fnum{font-size:1.05rem;font-weight:700;color:var(--pine);font-variant-numeric:tabular-nums}
+  .fdrop{font-size:.72rem;color:var(--ink3);text-align:center;padding:.05rem}
+  .cmp-legend{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.7rem;color:var(--ink2);margin:.3rem 0 .5rem}
+  .cmp-legend i{display:inline-block;width:9px;height:9px;border-radius:2px;margin-inline-end:.25rem}
+  .heard-btn{font:inherit;font-size:.66rem;padding:.1rem .4rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .heard-btn[aria-pressed="true"]{background:rgba(46,125,91,.12);border-color:rgba(46,125,91,.45);color:#2E7D5B;font-weight:700}
+  tr.rev.heardrow{background:transparent}
   .cac-tile{margin-top:.6rem;border-radius:14px;padding:.9rem 1.1rem;border:1px solid var(--line);background:var(--card)}
   .cac-tile .cac-main{display:flex;align-items:baseline;gap:.5rem;flex-wrap:wrap}
   .cac-tile .cac-main b{font-size:2rem;font-variant-numeric:tabular-nums;line-height:1}
@@ -476,6 +494,48 @@
     <div class="kpi"><b id="k-calls">–</b><span>ממתינים לשיחה</span></div>
   </div>
 
+  <h2 style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">
+    תנועה לאתר
+    <span style="font-size:.75rem;font-weight:500;color:var(--ink2)">
+      <span class="livedot" id="t-dot"></span><b id="t-live">–</b> באתר עכשיו
+    </span>
+  </h2>
+  <div class="kpis">
+    <div class="kpi"><b id="t-today">–</b><span>כניסות היום</span></div>
+    <div class="kpi"><b id="t-vis">–</b><span>מבקרים היום</span></div>
+    <div class="kpi"><b id="t-week">–</b><span>מבקרים ב-7 ימים</span></div>
+    <div class="kpi"><b id="t-new">–</b><span>חדשים ב-7 ימים</span></div>
+    <div class="kpi"><b id="t-ret">–</b><span>חוזרים ב-7 ימים</span></div>
+    <div class="kpi money"><b id="t-all">–</b><span>כניסות מאז ומעולם</span></div>
+  </div>
+  <svg id="tchart" width="100%" height="120" viewBox="0 0 720 120" preserveAspectRatio="none" aria-label="מבקרים לפי יום" style="margin-top:.5rem"></svg>
+  <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 0">מונה משלנו, לא גוגל ולא פייסבוק, כדי שחוסמי פרסומות לא יבלעו את המספר. נשמר גם בלשונית "תנועה יומית" בגיליון.</p>
+
+  <h2>משפך הרכישה · 7 ימים</h2>
+  <div class="funnel" id="funnel"></div>
+  <p class="empty" id="funEmpty" hidden>עדיין אין מספיק תנועה כדי להראות משפך.</p>
+
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-camp" aria-expanded="false" aria-controls="fold-camp">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">קמפיינים · ביצועים והשוואה</span>
+      <span class="fold-n" id="fn-camp">–</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <div class="fold" id="fold-camp" hidden>
+    <div class="cmp-legend" id="campLegend"></div>
+    <svg id="campChart" width="100%" height="150" viewBox="0 0 720 150" preserveAspectRatio="none" aria-label="הוצאה יומית לפי קמפיין"></svg>
+    <div class="tblwrap tall">
+      <table>
+        <thead><tr><th>קמפיין</th><th>ימים</th><th>הוצאה ₪</th><th>קליקים</th><th>CPC ₪</th><th>CTR %</th><th>לידים</th><th>עלות לליד ₪</th><th>רכישות</th><th>CAC ₪</th></tr></thead>
+        <tbody id="campRows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="campEmpty" hidden>אין עדיין נתוני קמפיין להשוואה.</p>
+    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">השורה הכי חשובה היא עלות לליד. קמפיין חדש טוב מהקודם רק אם הוא מוריד אותה, לא אם הוא מוציא יותר.</p>
+  </div>
+
   <div class="meta"><span id="gen"></span><button id="refresh">רענון</button></div>
 
   <h2 class="fold-h">
@@ -754,11 +814,12 @@
     { key: 'calls',  tbody: 'shirRows' },
     { key: 'plans',  tbody: 'planRows' },
     { key: 'cost',   tbody: 'costRows' },
-    { key: 'utm',    tbody: 'utmRows' }
+    { key: 'utm',    tbody: 'utmRows' },
+    { key: 'camp',   tbody: 'campRows' }
   ];
   /* first visit: the calls are what he actually watches, the rest keep quiet.
      These must match the hidden/aria-expanded already in the markup. */
-  var foldOpen = { events: false, calls: true, plans: false, cost: false, utm: false };
+  var foldOpen = { events: false, calls: true, plans: false, cost: false, utm: false, camp: false };
   var foldCount = {};   /* the last count we showed, to notice a closed table growing */
   var foldQuiet = false;   /* a re-render the user asked for, not fresh data */
 
@@ -948,6 +1009,8 @@
     loadOps();
     loadBrain();
     loadCost();
+    loadTraffic();
+    loadCampaigns();
   }
 
   function liveStart() {
@@ -989,6 +1052,8 @@
     loadBrain();
     loadCost();
     loadPause();
+    loadTraffic();
+    loadCampaigns();
   }
 
   /* the sheet read: headline KPIs, the events table, the plan breakdown */
@@ -1097,6 +1162,170 @@
       return '<tr><td>' + (i + 1) + '</td><td>' + r.plan + '</td><td>' + r.n + '</td><td>' +
         r.rev.toLocaleString('he-IL') + '</td><td>' + Math.round(r.rev / r.n).toLocaleString('he-IL') + '</td></tr>';
     }).join('');
+    syncFolds();
+  }
+
+
+  /* ══ traffic, funnel and campaigns ════════════════════════════════════════
+     Added 07/09. The board had money and calls and was blind between the ad
+     click and the payment — the one stretch where a decision actually changes
+     the outcome. Three reads, all admin-gated, all failing quietly.
+     ─────────────────────────────────────────────────────────────────────── */
+
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  function svgEl(name, attrs) {
+    var e = document.createElementNS(SVGNS, name);
+    for (var k in attrs) if (attrs.hasOwnProperty(k)) e.setAttribute(k, attrs[k]);
+    return e;
+  }
+
+  function loadTraffic() {
+    fetch(CFG.endpoint('traffic'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, days: 14 })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) { if (d && d.ok) renderTraffic(d); })
+      .catch(function () {});
+  }
+
+  function renderTraffic(d) {
+    var t = d.today || {};
+    $('t-live').textContent = String(d.live_now || 0);
+    $('t-dot').classList.toggle('on', (d.live_now || 0) > 0);
+    $('t-today').textContent = String(t.views || 0);
+    $('t-vis').textContent = String(t.visitors || 0);
+
+    var last7 = (d.days || []).slice(-7);
+    var sum = function (k) { return last7.reduce(function (a, r) { return a + (r[k] || 0); }, 0); };
+    $('t-week').textContent = String(sum('visitors'));
+    $('t-new').textContent = String(sum('fresh'));
+    $('t-ret').textContent = String(sum('returning'));
+    $('t-all').textContent = ((d.all_time || {}).views || 0).toLocaleString('he-IL');
+
+    /* visitors per day: new stacked under returning, so the shape says
+       whether the ads are bringing anyone the site has not already met */
+    var svg = $('tchart'); svg.innerHTML = '';
+    var days = d.days || [];
+    var max = 1;
+    days.forEach(function (r) { max = Math.max(max, r.visitors || 0); });
+    var W = 720, H = 120, bw = Math.max(3, W / Math.max(days.length, 1) - 3);
+    days.forEach(function (r, i) {
+      var x = i * (W / days.length) + 1.5;
+      var total = r.visitors || 0;
+      if (!total) {
+        svg.appendChild(svgEl('rect', { x: x, y: H - 3, width: bw, height: 2, fill: '#E3E1D8' }));
+        return;
+      }
+      var h = Math.max(3, (total / max) * (H - 16));
+      var hNew = total ? (r.fresh || 0) / total * h : 0;
+      svg.appendChild(svgEl('rect', { x: x, y: H - h, width: bw, height: h - hNew, rx: 2, fill: '#9FB8AC' }));
+      var rn = svgEl('rect', { x: x, y: H - hNew, width: bw, height: hNew, rx: 2, fill: '#0F4C35' });
+      var ttl = document.createElementNS(SVGNS, 'title');
+      ttl.textContent = r.date + ' · ' + total + ' מבקרים (' + (r.fresh || 0) + ' חדשים)';
+      rn.appendChild(ttl);
+      svg.appendChild(rn);
+    });
+
+    renderFunnel(d.funnel || {}, last7);
+  }
+
+  function renderFunnel(f, last7) {
+    var visitors = last7.reduce(function (a, r) { return a + (r.visitors || 0); }, 0);
+    var pay = last7.reduce(function (a, r) { return a + (r.pay || 0); }, 0);
+    var buy = last7.reduce(function (a, r) { return a + (r.purchase || 0); }, 0);
+    var box = $('funnel');
+    if (!visitors) { box.innerHTML = ''; $('funEmpty').hidden = false; return; }
+    $('funEmpty').hidden = true;
+
+    var steps = [
+      { name: 'נכנסו לאתר', n: visitors },
+      { name: 'הגיעו לעמוד תשלום', n: pay },
+      { name: 'שילמו', n: buy }
+    ];
+    var html = '';
+    steps.forEach(function (st, i) {
+      var w = visitors ? Math.max(2, (st.n / visitors) * 100) : 0;
+      html += '<div class="fstep"><div class="fbar" style="width:' + w.toFixed(1) + '%"></div>' +
+              '<div class="frow"><span class="fname">' + st.name + '</span>' +
+              '<span class="fnum">' + st.n.toLocaleString('he-IL') + '</span></div></div>';
+      if (i < steps.length - 1) {
+        var nxt = steps[i + 1].n;
+        var rate = st.n ? Math.round((nxt / st.n) * 1000) / 10 : 0;
+        html += '<div class="fdrop">↓ ' + rate + '% ממשיכים</div>';
+      }
+    });
+    box.innerHTML = html;
+  }
+
+  var CAMP_COLORS = ['#0F4C35', '#B4884A', '#4A6FA5', '#8C5B7B', '#5E7A4F', '#A8402F'];
+
+  function loadCampaigns() {
+    fetch(CFG.endpoint('campaigns'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, days: 30 })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) { if (d && d.ok) renderCampaigns(d); })
+      .catch(function () {});
+  }
+
+  function renderCampaigns(d) {
+    var totals = d.totals || [];
+    var tb = $('campRows');
+    if (!totals.length) { tb.innerHTML = ''; $('campEmpty').hidden = false; syncFolds(); return; }
+    $('campEmpty').hidden = true;
+
+    /* the winner is the cheapest lead, not the biggest spender — mark it, so
+       the comparison answers the question instead of just showing numbers */
+    var withLeads = totals.filter(function (t) { return t.leads > 0; });
+    var best = withLeads.length
+      ? withLeads.reduce(function (a, b) { return a.cpl <= b.cpl ? a : b; }).campaign_id : '';
+
+    tb.innerHTML = totals.map(function (t, i) {
+      var win = t.campaign_id === best;
+      return '<tr>' +
+        '<td><span style="display:inline-block;width:9px;height:9px;border-radius:2px;margin-inline-end:.35rem;background:' +
+          CAMP_COLORS[i % CAMP_COLORS.length] + '"></span>' + esc(t.campaign) +
+          (win ? ' <b style="color:#2E7D5B">★</b>' : '') + '</td>' +
+        '<td>' + t.days + '</td>' +
+        '<td>' + t.spend.toLocaleString('he-IL') + '</td>' +
+        '<td>' + t.clicks.toLocaleString('he-IL') + '</td>' +
+        '<td>' + (t.cpc || '–') + '</td>' +
+        '<td>' + (t.ctr || '–') + '</td>' +
+        '<td>' + t.leads + '</td>' +
+        '<td' + (win ? ' style="font-weight:700;color:#2E7D5B"' : '') + '>' + (t.cpl || '–') + '</td>' +
+        '<td>' + t.purchases + '</td>' +
+        '<td>' + (t.cac || '–') + '</td>' +
+        '</tr>';
+    }).join('');
+
+    $('campLegend').innerHTML = totals.map(function (t, i) {
+      return '<span><i style="background:' + CAMP_COLORS[i % CAMP_COLORS.length] + '"></i>' + esc(t.campaign) + '</span>';
+    }).join('') + '<span style="color:var(--ink3)">★ = הליד הזול ביותר</span>';
+
+    /* daily spend per campaign, one line each: a campaign that is improving
+       shows a falling cost per lead, which the table beside it spells out */
+    var svg = $('campChart'); svg.innerHTML = '';
+    var rows = d.rows || [];
+    var dates = [];
+    rows.forEach(function (r) { if (dates.indexOf(r.date) === -1) dates.push(r.date); });
+    dates.sort();
+    if (!dates.length) { syncFolds(); return; }
+    var max = 1;
+    rows.forEach(function (r) { max = Math.max(max, r.spend); });
+    var W = 720, H = 150, pad = 8;
+    var xOf = function (i) { return dates.length > 1 ? pad + i * ((W - pad * 2) / (dates.length - 1)) : W / 2; };
+    var yOf = function (v) { return H - pad - (v / max) * (H - pad * 2); };
+
+    totals.forEach(function (t, ci) {
+      var byDate = {};
+      rows.forEach(function (r) { if (r.campaign_id === t.campaign_id) byDate[r.date] = r; });
+      var pts = dates.map(function (dt, i) { return xOf(i) + ',' + yOf((byDate[dt] || {}).spend || 0); });
+      svg.appendChild(svgEl('polyline', {
+        points: pts.join(' '), fill: 'none', 'stroke-width': 2,
+        'stroke-linejoin': 'round', 'stroke-linecap': 'round',
+        stroke: CAMP_COLORS[ci % CAMP_COLORS.length]
+      }));
+    });
     syncFolds();
   }
 
@@ -2230,6 +2459,32 @@
     all.disabled = vis.length === 0;
   }
 
+
+  /* mark a call as listened to. Optimistic on screen, confirmed by the worker;
+     if the worker refuses, the row goes back to what it was. */
+  document.addEventListener('click', function (e) {
+    var b = e.target && e.target.closest ? e.target.closest('[data-heard]') : null;
+    if (!b) return;
+    var id = b.getAttribute('data-heard');
+    var on = b.getAttribute('aria-pressed') !== 'true';
+    var call = null;
+    shirCalls.forEach(function (c) { if (c.id === id) call = c; });
+    if (call) call.heard = on;
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    b.textContent = on ? '✓ שמעתי' : 'סמן כנשמעה';
+    renderShir();
+    fetch(CFG.endpoint('callheard'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, call_id: id, on: on })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.ok) return;
+        if (call) call.heard = !on;
+        renderShir();
+      })
+      .catch(function () { if (call) call.heard = !on; renderShir(); });
+  });
+
   /* ══ סוג השיחה ════════════════════════════════════════════════════════════
      Old calls come back without the field at all, and the worker calls those
      guest, so anything unrecognised is treated the same way. */
@@ -2265,7 +2520,7 @@
   function visibleCalls() {
     var list = shirCalls;
     if (shirKind !== 'all') list = list.filter(function (c) { return kindOf(c) === shirKind; });
-    if (shirOnlyReview) list = list.filter(function (c) { return c.needs_review === true; });
+    if (shirOnlyReview) list = list.filter(function (c) { return c.needs_review === true && !c.heard; });
     return list;
   }
 
@@ -2274,6 +2529,7 @@
     var live = isLiveCall(c);
     var cls = [];
     if (c.needs_review === true) cls.push('rev');
+    if (c.heard) cls.push('heardrow');
     if (live) cls.push('oncall');
     if (picked[c.id]) cls.push('picked');
     if (isFresh(freshCalls, callId(c))) cls.push('fresh');
@@ -2285,7 +2541,12 @@
     /* the blinking dot opens the row, so a call in progress registers before
        anything has to be read */
     var head = live ? '<span class="callive"><span class="dotlive"></span>בשיחה</span>' : '';
-    if (c.needs_review === true) head += (head ? ' ' : '') + '<span class="rev-tag">לבדיקה</span>';
+    if (c.needs_review === true && !c.heard) head += (head ? ' ' : '') + '<span class="rev-tag">לבדיקה</span>';
+    /* Richard's rule: only a person marks a call as heard, never the system.
+       Marking it stops the row shouting; the analysis underneath is untouched. */
+    head += (head ? ' ' : '') + '<button type="button" class="heard-btn" data-heard="' + esc(c.id) + '"' +
+            ' aria-pressed="' + (c.heard ? 'true' : 'false') + '">' +
+            (c.heard ? '✓ שמעתי' : 'סמן כנשמעה') + '</button>';
     tr.appendChild(td('<input type="checkbox" data-pick="' + esc(c.id) + '"' + (picked[c.id] ? ' checked' : '') +
                       ' aria-label="בחירת השיחה"' + (c.recording_url ? '' : ' title="אין הקלטה לשיחה הזאת"') + '>'));
     tr.appendChild(td(head));
@@ -2319,7 +2580,7 @@
 
   function renderShir() {
     var all = shirCalls;
-    var review = all.filter(function (c) { return c.needs_review === true; });
+    var review = all.filter(function (c) { return c.needs_review === true && !c.heard; });
     var analyzed = all.filter(hasAnalysis);
 
     /* a dash whenever there is nothing real behind the number */

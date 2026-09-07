@@ -46,12 +46,20 @@ const INV_HEADER = ['זמן', 'מספר חשבונית', 'סוג', 'שם לקו�
 const INV_COLS = ['at', 'number', 'kind', 'name', 'phone', 'taxId', 'token', 'plan', 'sum',
   'payMethod', 'ref', 'url', 'wa', 'email'];
 
+/* one row per day: the traffic and funnel snapshot, so the numbers on the
+   admin board have a history that outlives KV and can be charted in the sheet */
+const TRF_HEADER = ['תאריך', 'כניסות', 'מבקרים', 'חדשים', 'חוזרים', 'הגיעו לתשלום', 'רכשו',
+  'המרה לתשלום %', 'המרה לרכישה %', 'עמוד מוביל', 'מקור מוביל', 'הוצאת פרסום ₪', 'קליקים', 'לידים', 'עלות לליד ₪'];
+const TRF_COLS = ['date', 'views', 'visitors', 'fresh', 'returning', 'pay', 'purchase',
+  'cr_pay', 'cr_buy', 'top_page', 'top_src', 'spend', 'clicks', 'leads', 'cpl'];
+
 export const TABS = {
   msg_guests: { title: 'אורחים לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.36, green: 0.62, blue: 0.45 } },
   msg_clients: { title: ' לקוחות לוג הודעות יוצאות', header: MSG_HEADER, cols: MSG_COLS, color: { red: 0.30, green: 0.50, blue: 0.75 } },
   calls: { title: 'לוג שיחות', header: CALL_HEADER, cols: CALL_COLS, color: { red: 0.55, green: 0.35, blue: 0.65 } },
   removals: { title: 'הסרות', header: REM_HEADER, cols: REM_COLS, color: { red: 0.80, green: 0.30, blue: 0.30 } },
   invoices: { title: 'חשבוניות', header: INV_HEADER, cols: INV_COLS, color: { red: 0.20, green: 0.45, blue: 0.40 } },
+  traffic: { title: 'תנועה יומית', header: TRF_HEADER, cols: TRF_COLS, color: { red: 0.85, green: 0.60, blue: 0.20 } },
 };
 
 export function ilStamp(d = new Date()) {
