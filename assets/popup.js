@@ -695,17 +695,47 @@ window.IshurPopup = (function () {
       el.addEventListener('input', function () { clearError(pair[0]); });
     });
 
-    /* lead_partial: first time the phone holds a valid number and loses focus */
+    /* lead_partial — Richard, 07/09: "we need to listen to every action that
+       lets us reach him again later".
+
+       Blur alone was not enough. A browser autofill fills name, phone and mail
+       in one go without the visitor ever focusing the phone field, so no blur
+       ever fires and a real, reachable person left no trace. On mobile, where
+       autofill is the norm, that was the common case, not the rare one.
+
+       Four triggers now, all funnelling into the same once-per-visit call:
+         blur        — typed it and moved on (the original)
+         change      — autofill, or a paste, committing a value
+         input       — settles 1.2s after typing stops, for someone who fills
+                       the phone and then just sits there
+         pagehide    — closing the tab or navigating away with a valid number
+       IshurLead.partial() guards itself with partialSent, so four triggers
+       still produce exactly one lead row and one Meta event. */
     var phone = $('f-phone');
     if (phone) {
-      phone.addEventListener('blur', function () {
+      var fireP = function () {
         IshurLead.partial({
           name: ($('f-name').value || ''), phone: phone.value,
           email: ($('f-email').value || ''),
           occasion: S.occasion, guests: S.guests, plan: S.plan,
           consent: S.consent
         });
+      };
+      var idle = null;
+      phone.addEventListener('blur', fireP);
+      phone.addEventListener('change', fireP);
+      phone.addEventListener('input', function () {
+        clearTimeout(idle);
+        idle = setTimeout(fireP, 1200);
       });
+      /* the last chance: they are leaving. pagehide fires on mobile where
+         beforeunload does not, and the beacon in lead.js uses keepalive. */
+      window.addEventListener('pagehide', fireP);
+      document.addEventListener('visibilitychange', function () {
+        if (document.visibilityState === 'hidden') fireP();
+      });
+      /* autofill often lands before our listeners are attached */
+      setTimeout(fireP, 800);
     }
 
     var consent = $('f-consent');
