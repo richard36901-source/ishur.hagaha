@@ -632,6 +632,16 @@ async function chaseAbandonedLeads(env, dry, budget) {
   /* a touch that Meta will refuse tomorrow too advances the sequence anyway:
      losing one text must not strand the person outside the call queue */
   const PERMANENT = /132000|132001|132005|131009|131026/;
+  /* a touch that is refused for a reason that might clear on its own (Meta
+     billing/eligibility, rate limits) must NOT advance the sequence — this
+     branch covers Meta rejecting the send itself. It rarely does: 131042
+     (billing) is typically ACCEPTED synchronously (a message id comes back,
+     wa.ok is true) and only fails a few seconds later via the async delivery
+     status webhook — the sequence advanced as if the touch landed while the
+     lead got nothing (the real "every lead chase is silently failing",
+     08/09). handleWaWebhook's status handler below is what actually reverts
+     the stamp for that case, using the wamid: mapping written on send. */
+  const TEMPORARY = /131042/;
 
   for (const k of page.keys) {
     if (budget && budget.left <= 0) break;
@@ -654,18 +664,34 @@ async function chaseAbandonedLeads(env, dry, budget) {
         rec[stampField] = new Date().toISOString();
         rec[stampField + 'd'] = today;
         await save(phone, rec);
+        /* accepted now, might still fail delivery a few seconds later — the
+           status webhook needs to know which lead/stage this message id was
+           to revert the stamp instead of leaving a false "sent" */
+        if (wa.ok && wa.id && env.RATE) {
+          await env.RATE.put('wamid:' + wa.id, JSON.stringify({ leadPhone: phone, stampField }),
+            { expirationTtl: 3 * 86400 }).catch(() => {});
+        }
+      } else if (TEMPORARY.test(String(wa.error || ''))) {
+        /* the rare synchronous-rejection case — the alert itself is
+           rate-limited in the status handler / post(); this just stops THIS
+           sequence from re-attempting for the rest of today */
+        rec[stampField + 'defer'] = today;
+        await save(phone, rec);
       }
-      out.push({ type: 'lead_' + stampField, phone, sent: !!wa.ok, error: wa.error || '' });
+      out.push({ type: 'lead_' + stampField, phone, sent: !!wa.ok, error: wa.error || '',
+        deferred: !wa.ok && TEMPORARY.test(String(wa.error || '')) });
       return wa;
     };
 
     if (!rec.t1) {
+      if (rec.t1defer === today) continue;
       if (now - Date.parse(rec.at || 0) < LEAD_T1_MS) continue;
       if (dry) { out.push({ type: 'lead_t1', phone, name: rec.name }); continue; }
       await sendTouch('ishur_lo_siyem', 't1');
       continue;
     }
     if (!rec.t2) {
+      if (rec.t2defer === today) continue;
       if (today === rec.t1d || now - Date.parse(rec.t1) < LEAD_T2_MIN_MS) continue;
       if (dry) { out.push({ type: 'lead_t2', phone }); continue; }
       await sendTouch('ishur_lo_siyem_2', 't2');
@@ -681,10 +707,11 @@ async function chaseAbandonedLeads(env, dry, budget) {
       continue;
     }
     if (!rec.t3) {
+      if (rec.t3defer === today) continue;
       if (now - Date.parse(rec.t2) < LEAD_T3_MS) continue;
       if (dry) { out.push({ type: 'lead_t3', phone }); continue; }
-      await sendTouch('ishur_lo_siyem_3', 't3');
-      await settle(phone, 'done');
+      const wa3 = await sendTouch('ishur_lo_siyem_3', 't3');
+      if (wa3.ok || PERMANENT.test(String(wa3.error || ''))) await settle(phone, 'done');
     }
   }
   const sentNow = out.filter(o => o.sent).length;
@@ -2171,10 +2198,40 @@ async function handleWaWebhook(request, env, url) {
                 retry = ` · ניסיון ${n}/3 — יישלח שוב בפעימה הבאה`;
               }
             }
+            /* was this an abandoned-lead chase touch? Meta accepted it (a
+               message id came back, the stamp advanced) and only failed a
+               few seconds later — revert the stamp so the sequence does not
+               believe it landed. 131042 (billing) specifically defers to
+               tomorrow rather than retrying this tick; anything else just
+               un-stamps and the normal every-tick retry picks it back up. */
+            if (m && m.leadPhone && m.stampField) {
+              const lk = 'lead:' + m.leadPhone;
+              let lrec = null;
+              try { lrec = JSON.parse(await env.RATE.get(lk)); } catch {}
+              if (lrec && lrec[m.stampField]) {
+                delete lrec[m.stampField];
+                delete lrec[m.stampField + 'd'];
+                if (/131042/.test(String(err.code || ''))) lrec[m.stampField + 'defer'] = ilDate();
+                await env.RATE.put(lk, JSON.stringify(lrec), { expirationTtl: LEAD_TTL }).catch(() => {});
+                retry = ' · לא נמסרה ללקוח — הרצף לא התקדם, ' +
+                  (/131042/.test(String(err.code || '')) ? 'ינסה שוב מחר' : 'ינסה שוב בפעימה הבאה');
+              }
+            }
           } catch {}
           await logEvent(env, { area: 'ווצאפ', action: 'מטא לא הצליחה למסור הודעה', ok: false, review: true,
             phone: st.recipient_id || '', ref: String(st.id || '').slice(-12),
             detail: `${err.code || ''} ${err.title || ''} ${(err.error_data && err.error_data.details) || ''}`.trim() + retry });
+          /* billing (131042) fails EVERY send from 4499 while it's broken —
+             this is the path that actually fires for it (the send itself is
+             normally accepted, see above). The journal row above still
+             records every failure; only the Slack ping is throttled, one
+             per 6h instead of one per message. */
+          const isBillingErr = /131042/.test(String(err.code || ''));
+          if (isBillingErr && env.RATE) {
+            const bk = 'billingalert:client';
+            if (await env.RATE.get(bk)) continue;
+            await env.RATE.put(bk, '1', { expirationTtl: 6 * 3600 }).catch(() => {});
+          }
           await alert(env, 'ווצאפ', `הודעה ל-${st.recipient_id || '?'} לא נמסרה${retry}`, `${err.code || ''} ${err.title || ''}`);
         }
       }

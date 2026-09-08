@@ -217,7 +217,24 @@ async function post(env, body, channel, ctx) {
       }
     }
     if (!res.ok) {
-      await opsPing(env, 'שליחת וואטסאפ', res.error, `${body.type} → ${body.to}`);
+      /* Meta billing/eligibility on the client WABA (131042) fails EVERY
+         send while it's broken, and callers like chaseAbandonedLeads retry
+         every ten minutes — without this, that's a fresh Slack ping every
+         ten minutes for as long as the account stays restricted (08/09).
+         One alert per 6h instead; guests (Shir) is a separate WABA and
+         unaffected, so it keeps the normal per-failure alert. */
+      const isClientChannel = !(channel === 'guests' && guestsReady(env));
+      if (isClientChannel && /131042/.test(String(res.error || '')) && env.RATE) {
+        const k = 'billingalert:client';
+        if (!(await env.RATE.get(k))) {
+          await env.RATE.put(k, '1', { expirationTtl: 6 * 3600 });
+          await opsPing(env, 'תשלום WhatsApp (4499)',
+            'שליחות מהמספר של נועה נכשלות — בעיית חיוב מטא (131042). זה יחזור על עצמו עד שהחיוב יתוקן, ההתראה הבאה בעוד עד 6 שעות.',
+            `${body.type} → ${body.to}`);
+        }
+      } else {
+        await opsPing(env, 'שליחת וואטסאפ', res.error, `${body.type} → ${body.to}`);
+      }
     }
   } catch {}
   return res;
