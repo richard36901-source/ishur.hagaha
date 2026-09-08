@@ -32,7 +32,11 @@ binding = "AI"
 # 06:35 UTC = בוקר בישראל כל השנה (08:35 חורף / 09:35 קיץ)
 [triggers]
 # 06:35 UTC — the daily engine · 09/10/16 UTC Tue = 12:00/13:00/19:00 IL — team reminders
-crons = ["*/10 * * * *", "35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2","0 18 * * *"]
+# 17/18/19 UTC — Phase 7's daily-improve loop (20:00 IL) and the journal digest
+# (21:00 IL), both DST-safe: the code checks the actual Israel hour on every
+# one of these three ticks and only acts on the two that currently match —
+# 17+18 UTC = 20:00+21:00 IL in summer, 18+19 UTC = 20:00+21:00 IL in winter.
+crons = ["*/10 * * * *", "35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2", "0 17 * * *", "0 18 * * *", "0 19 * * *"]
 
 # ishur.io itself is on Bezeq's SecuringSam blocklist by exact name — the same
 # TLS handshake passes with any other subdomain. Customer-facing links move
