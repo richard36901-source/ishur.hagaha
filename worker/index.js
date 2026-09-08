@@ -657,6 +657,32 @@ async function leadReplied(env, phone, sinceIso) {
   return !!(c && c.last_dir === 'in' && c.last_ts && c.last_ts > Date.parse(sinceIso || '1970-01-01'));
 }
 
+/* Richard, 08/09: a failed touch gets exactly one retry, 30 minutes later —
+   not the full-day defer this used to be. A second failure gives up on
+   THIS stage for today only; the next stage (t2, t3, the call queue) still
+   fires on its own normal schedule regardless. Shared between the rare
+   synchronous-rejection path in chaseAbandonedLeads and the much more
+   common async delivery-failure revert in handleWaWebhook's status
+   handler, so both retry the exact same way. */
+const LEAD_RETRY_WAIT_MS = 30 * 60 * 1000;
+function markRetryOrDefer(rec, stampField, today) {
+  /* the count is scoped to today's date — a defer from yesterday must not
+     make tomorrow's very first attempt look like attempt #2 and skip
+     straight to giving up without ever retrying */
+  const dayKey = stampField + 'retryday';
+  const k = stampField + 'retrycount';
+  const n = (rec[dayKey] === today ? (rec[k] || 0) : 0) + 1;
+  rec[dayKey] = today;
+  rec[k] = n;
+  if (n >= 2) {
+    rec[stampField + 'defer'] = today;
+    delete rec[stampField + 'retryAt'];
+    return 'defer';
+  }
+  rec[stampField + 'retryAt'] = Date.now() + LEAD_RETRY_WAIT_MS;
+  return 'retry';
+}
+
 async function chaseAbandonedLeads(env, dry, budget) {
   if (!env.RATE) return [];
   const out = [];
@@ -723,9 +749,9 @@ async function chaseAbandonedLeads(env, dry, budget) {
         }
       } else if (TEMPORARY.test(String(wa.error || ''))) {
         /* the rare synchronous-rejection case — the alert itself is
-           rate-limited in the status handler / post(); this just stops THIS
-           sequence from re-attempting for the rest of today */
-        rec[stampField + 'defer'] = today;
+           rate-limited in the status handler / post(); one retry in 30
+           minutes, then give up on this stage until the next one */
+        markRetryOrDefer(rec, stampField, today);
         await save(phone, rec);
       }
       out.push({ type: 'lead_' + stampField, phone, sent: !!wa.ok, error: wa.error || '',
@@ -735,14 +761,16 @@ async function chaseAbandonedLeads(env, dry, budget) {
 
     if (!rec.t1) {
       if (rec.t1defer === today) continue;
-      if (now - Date.parse(rec.at || 0) < LEAD_T1_MS) continue;
+      if (rec.t1retryAt) { if (now < rec.t1retryAt) continue; }
+      else if (now - Date.parse(rec.at || 0) < LEAD_T1_MS) continue;
       if (dry) { out.push({ type: 'lead_t1', phone, name: rec.name }); continue; }
       await sendTouch('ishur_lo_siyem', 't1');
       continue;
     }
     if (!rec.t2) {
       if (rec.t2defer === today) continue;
-      if (today === rec.t1d || now - Date.parse(rec.t1) < LEAD_T2_MIN_MS) continue;
+      if (rec.t2retryAt) { if (now < rec.t2retryAt) continue; }
+      else if (today === rec.t1d || now - Date.parse(rec.t1) < LEAD_T2_MIN_MS) continue;
       if (dry) { out.push({ type: 'lead_t2', phone }); continue; }
       await sendTouch('ishur_lo_siyem_2', 't2');
       continue;
@@ -758,7 +786,8 @@ async function chaseAbandonedLeads(env, dry, budget) {
     }
     if (!rec.t3) {
       if (rec.t3defer === today) continue;
-      if (now - Date.parse(rec.t2) < LEAD_T3_MS) continue;
+      if (rec.t3retryAt) { if (now < rec.t3retryAt) continue; }
+      else if (now - Date.parse(rec.t2) < LEAD_T3_MS) continue;
       if (dry) { out.push({ type: 'lead_t3', phone }); continue; }
       const wa3 = await sendTouch('ishur_lo_siyem_3', 't3');
       if (wa3.ok || PERMANENT.test(String(wa3.error || ''))) await settle(phone, 'done');
@@ -2264,8 +2293,9 @@ async function handleWaWebhook(request, env, url) {
             /* was this an abandoned-lead chase touch? Meta accepted it (a
                message id came back, the stamp advanced) and only failed a
                few seconds later — revert the stamp so the sequence does not
-               believe it landed. 131042 (billing) specifically defers to
-               tomorrow rather than retrying this tick; anything else just
+               believe it landed. 131042 (billing) specifically gets one
+               retry in 30 minutes, then gives up on THIS stage for today —
+               the next stage still fires on schedule. Anything else just
                un-stamps and the normal every-tick retry picks it back up. */
             if (m && m.leadPhone && m.stampField) {
               const lk = 'lead:' + m.leadPhone;
@@ -2274,10 +2304,14 @@ async function handleWaWebhook(request, env, url) {
               if (lrec && lrec[m.stampField]) {
                 delete lrec[m.stampField];
                 delete lrec[m.stampField + 'd'];
-                if (/131042/.test(String(err.code || ''))) lrec[m.stampField + 'defer'] = ilDate();
+                if (/131042/.test(String(err.code || ''))) {
+                  const outcome = markRetryOrDefer(lrec, m.stampField, ilDate());
+                  retry = ' · לא נמסרה ללקוח — הרצף לא התקדם, ' +
+                    (outcome === 'defer' ? 'ניסיון שני נכשל, ינסה שוב רק בשלב הבא' : 'ינסה שוב בעוד 30 דקות');
+                } else {
+                  retry = ' · לא נמסרה ללקוח — הרצף לא התקדם, ינסה שוב בפעימה הבאה';
+                }
                 await env.RATE.put(lk, JSON.stringify(lrec), { expirationTtl: LEAD_TTL }).catch(() => {});
-                retry = ' · לא נמסרה ללקוח — הרצף לא התקדם, ' +
-                  (/131042/.test(String(err.code || '')) ? 'ינסה שוב מחר' : 'ינסה שוב בפעימה הבאה');
               }
             }
           } catch {}
