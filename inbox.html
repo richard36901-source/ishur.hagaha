@@ -73,6 +73,9 @@
   .cnum{font-weight:400;font-size:.68rem;color:var(--ink3);direction:ltr;unicode-bidi:isolate;margin:0 .3rem}  /* physical: the element's own ltr would flip a logical margin */
   .ch{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(15,76,53,.1);color:var(--ok);margin-inline-start:.3rem;white-space:nowrap}
   html[data-theme=dark] .ch{background:rgba(76,175,130,.14)}
+  /* nonrelevant tag (nr:<phone>) — grey, deliberately duller than .ch */
+  .nr{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(120,120,120,.14);color:var(--ink3);margin-inline-start:.3rem;white-space:nowrap}
+  html[data-theme=dark] .nr{background:rgba(255,255,255,.1)}
 
   .pane{flex:1;display:flex;flex-direction:column;min-width:0}
   .pane-h{padding:.55rem 1rem;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:flex-start;gap:.5rem}
@@ -175,7 +178,7 @@
     <div class="pane-h" hidden id="paneH">
       <button class="hbtn backb" id="backBtn" aria-label="חזרה לרשימת השיחות">→</button>
       <div class="pane-id">
-        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span></div>
+        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span><span class="nr" id="pNr" hidden>לא רלוונטי</span></div>
         <div class="pane-sub" id="pWa" hidden></div>
         <div class="pane-phone">
           <span class="p" id="pPhone"></span>
@@ -399,6 +402,7 @@
       b.innerHTML = '<b><span class="cname"><span dir="auto">' + esc(nm) + '</span>' +
         (unknown ? '<span class="cnum">' + esc(fmtPhone(c.phone)) + '</span>' : '') +
         (c.kind ? '<span class="ch">' + esc(c.kind) + '</span>' : '') +
+        (c.nonrelevant ? '<span class="nr">לא רלוונטי</span>' : '') +
         '</span><time>' + esc(listTime(c.last_ts)) + '</time></b>' +
         '<span class="prev">' + (c.last_dir === 'out' ? '↩ ' : '') + esc(c.last_text || '') + '</span>';
       b.addEventListener('click', function () { openConv(c); });
@@ -414,6 +418,7 @@
 
     $('pKind').textContent = c.kind || '';
     $('pKind').hidden = !c.kind;
+    $('pNr').hidden = !c.nonrelevant;
 
     var wa = (c.wa_name && String(c.wa_name).trim()) || '';
     var nm = (c.name && String(c.name).trim()) || '';
@@ -449,9 +454,10 @@
     var want = current;
     api({ phone: want }).then(function (d) {
       if (!d || !d.ok || current !== want) return;
-      /* the thread endpoint knows the freshest wa_name */
-      if (currentConv && typeof d.wa_name === 'string' && d.wa_name) {
-        currentConv.wa_name = d.wa_name;
+      /* the thread endpoint knows the freshest wa_name and nr: tag state */
+      if (currentConv && ((typeof d.wa_name === 'string' && d.wa_name) || currentConv.nonrelevant !== !!d.nonrelevant)) {
+        if (d.wa_name) currentConv.wa_name = d.wa_name;
+        currentConv.nonrelevant = !!d.nonrelevant;
         paintHeader(currentConv);
       }
       var host = $('thread'); host.innerHTML = '';
