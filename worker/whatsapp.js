@@ -92,11 +92,39 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
   await env.RATE.put(key, JSON.stringify(c)).catch(() => {});
 }
 
+/* Rule 6, enforced mechanically, not by habit: a guest-facing template can
+   only leave on Shir's WABA, a client/lead-facing one only on Noa's. Checked
+   by template NAME, not by the `channel` argument the caller happened to
+   pass — a wrong argument at a call site is exactly the bug this exists to
+   catch. Unrecognized/future template names (an admin ad-hoc send, "noop",
+   anything not in either list) are NOT guarded — this blocks a known
+   category sent through the wrong door, it does not gate everything.
+   NOTE (verify before trusting the source doc): PLAN-NOA-HARDENING.md lists
+   ishur_tzikoret_kovetz as guest-only; the actual code sends it with
+   sendClient() to a CLIENT who paid but hasn't uploaded their guest list
+   (index.js ~3069, ~3164) — categorized here by verified real usage. */
+const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_bitul\b|^ishur_dchiya\b/i;
+const CLIENT_ONLY_TEMPLATE_RE = /^ishur_lo_siyem|^ishur_kod\b|^ishur_heshbonit\b|^ishur_tashlum\b|^ishur_shidrug|^ishur_doch\b|^ishur_syum\b|^ishur_tzikoret_kovetz\b/i;
+
 async function post(env, body, channel, ctx) {
   /* Iron rule (Richard, 06/09): 4499 talks to clients and leads ONLY. Guest
      traffic leaves from Shir's WhatsApp number or it does not leave at all.
      The old "degrade to the client number" fallback sent a real wave from
      4499 on the first live run — never again. */
+  if (body.type === 'template') {
+    const tname = String((body.template || {}).name || '');
+    const wantsGuestChannel = channel === 'guests';
+    if (GUEST_ONLY_TEMPLATE_RE.test(tname) && !wantsGuestChannel) {
+      await logEvent(env, { area: 'שליחה', action: 'תבנית אורחים נשלחה בטעות מערוץ לקוחות — נחסם', ok: false, review: true,
+        phone: String(body.to || ''), detail: tname });
+      return { ok: false, error: 'wrong-channel' };
+    }
+    if (CLIENT_ONLY_TEMPLATE_RE.test(tname) && wantsGuestChannel) {
+      await logEvent(env, { area: 'שליחה', action: 'תבנית לקוחות נשלחה בטעות מערוץ אורחים — נחסם', ok: false, review: true,
+        phone: String(body.to || ''), detail: tname });
+      return { ok: false, error: 'wrong-channel' };
+    }
+  }
   if (channel === 'guests' && !guestsReady(env)) {
     try {
       const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
