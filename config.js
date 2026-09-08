@@ -342,7 +342,11 @@ window.ISHUR_CONFIG = (function () {
 
   var PROMO_KEY_STORE = 'ishur_promo';   // { promo, ts }
   var PROMO_REF_STORE = 'ishur_ref';     // { code, ts }
-  var PROMO_TTL_MS    = 60 * 24 * 60 * 60 * 1000;   // 60 days
+  var PROMO_TTL_MS    = 60 * 24 * 60 * 60 * 1000;   // 60 days — referral credit, and the promo "which group" flag
+  /* the code itself is shorter-lived on purpose (Phase 8 housekeeping): a
+     code typed or linked once should not quietly keep discounting a visit
+     two months later with no reminder it was ever applied */
+  var PROMO_CODE_TTL_MS = 7 * 24 * 60 * 60 * 1000;  // 7 days
 
   /* ══ SENDING RULES ════════════════════════════════════════════════════════
      Enforced in the date picker, so an impossible date cannot be chosen.
@@ -533,11 +537,13 @@ window.ISHUR_CONFIG = (function () {
   }
 
   /* The code this visitor is on: ?code= first, then whatever an earlier visit
-     pinned. A code in the url is pinned for the same 60 days as a promo. */
+     pinned. A code in the url is pinned for 7 days, not 60 — a code applied
+     once and forgotten should not keep quietly discounting a visit two
+     months later with no sign it was ever there. */
   function promoCode() {
     var fromUrl = normPromoCode(queryParam('code'));
     if (fromUrl) { stash(PROMO_CODE_STORE, fromUrl); return fromUrl; }
-    return normPromoCode(unstash(PROMO_CODE_STORE));
+    return normPromoCode(unstash(PROMO_CODE_STORE, PROMO_CODE_TTL_MS));
   }
 
   function rememberPromoCode(code) {
@@ -627,8 +633,8 @@ window.ISHUR_CONFIG = (function () {
     try { s.setItem(key, JSON.stringify({ v: value, ts: Date.now() })); } catch (e) {}
   }
 
-  /* a stashed value, or null once it is older than 60 days */
-  function unstash(key) {
+  /* a stashed value, or null once it is older than ttlMs (default 60 days) */
+  function unstash(key, ttlMs) {
     var s = store(); if (!s) return null;
     var raw = null;
     try { raw = s.getItem(key); } catch (e) { return null; }
@@ -636,7 +642,7 @@ window.ISHUR_CONFIG = (function () {
     var o = null;
     try { o = JSON.parse(raw); } catch (e) { return null; }
     if (!o || !o.v || !o.ts) return null;
-    if (Date.now() - o.ts > PROMO_TTL_MS) {
+    if (Date.now() - o.ts > (ttlMs || PROMO_TTL_MS)) {
       try { s.removeItem(key); } catch (e) {}
       return null;
     }

@@ -230,6 +230,13 @@ window.IshurLead = (function () {
 
   function paymentRedirect(f, url) {
     if (window.IshurTrack) {
+      /* the funnel's "pay" step only ever counted clicks on <a href> links
+         containing grow/pay (tracking.js's own click listener) — the popup
+         navigates with location.href instead, so a real checkout through it
+         never incremented today.pay. This is that step, fired here because
+         paymentRedirect always runs synchronously before the caller's
+         location.href, exactly like the direct-link click case. */
+      IshurTrack.beacon('pay');
       IshurTrack.setPending({
         session_id: getSession(),
         name: f.name || '', phone: normalizePhone(f.phone), email: f.email || '',
