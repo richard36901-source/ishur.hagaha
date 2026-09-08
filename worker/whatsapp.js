@@ -49,12 +49,28 @@ function pickToken(env, channel) {
 }
 
 /* failures and cap warnings go where Richard looks: Slack first, Telegram
-   only when the Slack webhook secret is missing */
-async function opsPing(env, where, what, detail) {
+   only when the Slack webhook secret is missing. Quiet hours (Phase 6, rule
+   9): duplicated from index.js's slackSend rather than imported — index.js
+   imports THIS module, so the reverse import would be circular. `urgent`
+   lets a caller (e.g. the 131042 billing ping) bypass the queue. */
+async function opsPing(env, where, what, detail, urgent) {
+  const text = `⚠️ *${where}*\n${what}${detail ? '\n' + detail : ''}`;
   if (env.SLACK_ALERT_HOOK) {
+    if (!urgent && env.RATE) {
+      const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date()));
+      if (hour < 9 || hour >= 21) {
+        let list = [];
+        try { list = JSON.parse(await env.RATE.get('slackq:list')) || []; } catch {}
+        if (!Array.isArray(list)) list = [];
+        list.push(text.slice(0, 500));
+        if (list.length > 200) list = list.slice(-200);
+        await env.RATE.put('slackq:list', JSON.stringify(list), { expirationTtl: 3 * 86400 }).catch(() => {});
+        return;
+      }
+    }
     await fetch(env.SLACK_ALERT_HOOK, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ text: `⚠️ *${where}*\n${what}${detail ? '\n' + detail : ''}` }),
+      body: JSON.stringify({ text }),
     }).catch(() => {});
     return;
   }
@@ -240,7 +256,7 @@ async function post(env, body, channel, ctx) {
         if (cap && cap.limit && st.tmpl >= cap.limit * 0.8 && !(await env.RATE.get('capalert:' + day))) {
           await env.RATE.put('capalert:' + day, '1', { expirationTtl: 2 * 86400 });
           await opsPing(env, 'תקרת וואטסאפ',
-            `נשלחו ${st.tmpl} תבניות היום, מעל 80% מתקרת מטא (${cap.limit})`, cap.tier || '');
+            `נשלחו ${st.tmpl} תבניות היום, מעל 80% מתקרת מטא (${cap.limit})`, cap.tier || '', true);
         }
       }
     }
@@ -258,7 +274,7 @@ async function post(env, body, channel, ctx) {
           await env.RATE.put(k, '1', { expirationTtl: 6 * 3600 });
           await opsPing(env, 'תשלום WhatsApp (4499)',
             'שליחות מהמספר של נועה נכשלות — בעיית חיוב מטא (131042). זה יחזור על עצמו עד שהחיוב יתוקן, ההתראה הבאה בעוד עד 6 שעות.',
-            `${body.type} → ${body.to}`);
+            `${body.type} → ${body.to}`, true);
         }
       } else {
         await opsPing(env, 'שליחת וואטסאפ', res.error, `${body.type} → ${body.to}`);

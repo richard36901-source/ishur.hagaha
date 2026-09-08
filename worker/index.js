@@ -96,9 +96,11 @@ function normPhone(raw) {
   return d;
 }
 
-/* Any failure anywhere → immediate ping to Richard in Slack (#ishur-hagaa via
-   incoming webhook). Telegram (ALERT_HOOK → Make) is only the fallback when
-   the Slack secret is missing — Richard asked for Slack-only, 30.8. */
+/* every failure anywhere → the journal always, Slack per quiet hours
+   (Phase 6): urgent categories ping now, everything else queues for the
+   09:00 window. Telegram (ALERT_HOOK → Make) is only the fallback when the
+   Slack secret is missing — Richard asked for Slack-only, 30.8. */
+const URGENT_ALERT_RE = /131042|מנוע היומי|לא רץ כבר|ניסיון לחלץ הוראות|פנייה מספק|שאלה על מתחרה|תקרת וואטסאפ/;
 async function alert(env, where, what, detail) {
   const what300 = String(what || '').slice(0, 300);
   const detail500 = String(detail || '').slice(0, 500);
@@ -106,7 +108,8 @@ async function alert(env, where, what, detail) {
   await logEvent(env, { area: where, action: what300, ok: false, review: true, detail: detail500 });
   /* Richard reads Slack alerts; a second ping on WhatsApp was noise (his call, 06/09) */
   if (env.SLACK_ALERT_HOOK) {
-    await slackPost(env, `⚠️ *${where}*\n${what300}${detail500 ? '\n' + detail500 : ''}`);
+    const urgent = URGENT_ALERT_RE.test(where + ' ' + what300 + ' ' + detail500);
+    await slackSend(env, `⚠️ *${where}*\n${what300}${detail500 ? '\n' + detail500 : ''}`, { urgent });
     return;
   }
   if (!env.ALERT_HOOK) return;
@@ -154,13 +157,60 @@ async function sendClient(env, phone, template, params, ctx) {
   return sendTemplate(env, p, template, params, '', 'he', undefined, ctx);
 }
 
-/* Anything the team should just SEE (purchases, milestones) — not failures. */
-async function slackPost(env, text) {
+/* ══ Slack quiet hours (Phase 6, rule 9) ══════════════════════════════════════
+   Nothing non-urgent lands in Slack before 09:00 or after 21:00 Israel time —
+   it queues (slackq:list) and flushes as ONE combined message at the 09:00
+   window instead. Urgent bypasses the queue and posts immediately, same as
+   before this phase. `now` is injectable so the decision is testable without
+   waiting on the real clock (see verify-loop check for this phase). */
+function slackQuietHours(now) {
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(now));
+  return hour < 9 || hour >= 21;
+}
+
+async function slackSend(env, text, opts = {}) {
   if (!env.SLACK_ALERT_HOOK) return;
+  const now = opts.now || new Date();
+  if (!opts.urgent && env.RATE && slackQuietHours(now)) {
+    const key = 'slackq:list';
+    let list = [];
+    try { list = JSON.parse(await env.RATE.get(key)) || []; } catch {}
+    if (!Array.isArray(list)) list = [];
+    list.push(String(text || '').slice(0, 500));
+    if (list.length > 200) list = list.slice(-200);
+    await env.RATE.put(key, JSON.stringify(list), { expirationTtl: 3 * 86400 }).catch(() => {});
+    return;
+  }
   await fetch(env.SLACK_ALERT_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ text }),
   }).catch(() => {});
+}
+
+/* Called once per Israel day once the 09:00 window opens (from the pacer,
+   which already ticks every 10 minutes — no new cron needed). Combines
+   whatever queued overnight into one message instead of replaying each line. */
+async function flushSlackQueue(env, now) {
+  if (!env.RATE || !env.SLACK_ALERT_HOOK) return { ok: false, why: 'not-configured' };
+  const key = 'slackq:list';
+  let list = [];
+  try { list = JSON.parse(await env.RATE.get(key)) || []; } catch {}
+  if (!Array.isArray(list) || !list.length) return { ok: true, flushed: 0 };
+  const text = `📋 *מה קרה בלילה* (${list.length})\n\n` + list.map((t, i) => `${i + 1}. ${t}`).join('\n\n');
+  await fetch(env.SLACK_ALERT_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ text }),
+  }).catch(() => {});
+  await env.RATE.delete(key).catch(() => {});
+  return { ok: true, flushed: list.length };
+}
+
+/* Anything the team should just SEE (purchases, milestones) — not failures.
+   Purchases specifically default to urgent (Richard wants to see money land
+   immediately — Phase 9 decision ב is still his to override if he'd rather
+   wait for the 09:00 window instead). */
+async function slackPost(env, text, opts = {}) {
+  await slackSend(env, text, { urgent: opts.urgent !== false, now: opts.now });
 }
 
 /* One tier credit per new paying customer whose first touch was a referral
@@ -2640,6 +2690,15 @@ async function computeServiceReply(env, from, text, who) {
       /* second attack within 24h flags the phone for review — it does NOT
          silence future attacks, which must always get the refusal line */
       if (n >= 2) await env.RATE.put('nr:' + phone, JSON.stringify({ at: new Date().toISOString(), label: 'prompt_attack' }), { expirationTtl: 30 * 86400 }).catch(() => {});
+      /* urgent per Phase 6 (agent misbehaving) — but ONE ping per phone per
+         6h, not one per message: a determined attacker sending a dozen
+         variants in a row (this exact plan's own 12-attack test) must not
+         turn into a dozen Slack pings */
+      const ak = 'attackalert:' + phone;
+      if (!(await env.RATE.get(ak))) {
+        await env.RATE.put(ak, '1', { expirationTtl: 6 * 3600 }).catch(() => {});
+        await slackSend(env, `⚠️ *ניסיון לחלץ הוראות מנועה* · ${phone}\n"${t.slice(0, 200)}"`, { urgent: true });
+      }
     }
     return { reply, label, silent: false };
   }
@@ -2684,6 +2743,9 @@ async function computeServiceReply(env, from, text, who) {
       if (!(await env.RATE.get(lk))) {
         await logEvent(env, { area: 'שירות AI', action: label === 'competitor' ? 'שאלה על מתחרה' : 'פנייה מספק/שותפות', ok: true, review: true, phone, detail: t.slice(0, 300) });
         await env.RATE.put(lk, '1', { expirationTtl: 7 * 86400 }).catch(() => {});
+        /* urgent per Phase 6 (agent misbehaving) — already deduped to once
+           per phone per 7 days by the same lk gate above */
+        await slackSend(env, `⚠️ *${label === 'competitor' ? 'שאלה על מתחרה' : 'פנייה מספק/שותפות'} לנועה* · ${phone}\n"${t.slice(0, 200)}"`, { urgent: true });
       }
       await env.RATE.put('nr:' + phone, JSON.stringify({ at: new Date().toISOString(), label }), { expirationTtl: 30 * 86400 }).catch(() => {});
     }
@@ -3883,6 +3945,18 @@ async function runPacer(env) {
   if (!env.RATE) return { ok: false, why: 'no-kv' };
   const today = ilDate();
   if (isNoContactDay(today)) return { ok: true, skipped: 'no-contact-day' };
+
+  /* Phase 6: flush last night's queued Slack alerts once the 09:00 window
+     opens. No new cron needed — the pacer already ticks every 10 minutes;
+     this just needs to notice the hour crossed 9 and hasn't flushed yet
+     today. Runs even while sending is paused — a paused system is exactly
+     when Richard still wants to see what queued overnight. */
+  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  if (ilHour >= 9 && await env.RATE.get('slackqflush:' + today) !== '1') {
+    await env.RATE.put('slackqflush:' + today, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+    await flushSlackQueue(env).catch(() => {});
+  }
+
   if (await sendingPaused(env)) return { ok: true, paused: true };
 
   const out = { date: today };
@@ -4382,6 +4456,36 @@ async function handleInboxReindex(request, env, origin) {
    Elhanan / Roey / off-topic scripts can run against the live deployed code
    as many times as needed. POST /api/test-inbound {admin_key, phone, text,
    who?: {kind:'client'|'lead', events?:[]}} → {ok, reply, label, silent}. */
+/* Phase 6 verification harness (admin-only): the plan's own pass condition
+   asks to "set the worker clock (pass now in a test hook)" — this IS that
+   hook. 'send' calls the real slackSend() with an injected `now`, so the
+   quiet-hours branch (queue, no fetch) is exercised for real, not simulated
+   — only an urgent:true call or a non-urgent call outside quiet hours
+   actually reaches Slack. 'peek'/'flush' inspect and drain the real queue. */
+async function handleTestSlackQueue(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const action = String(body.action || '');
+  const now = body.now ? new Date(body.now) : new Date();
+  if (isNaN(now.getTime())) return deny(400, 'bad-now', origin);
+  if (action === 'send') {
+    const urgent = !!body.urgent;
+    await slackSend(env, String(body.text || '[phase-6 test]'), { urgent, now });
+    return okJson({ ok: true, quiet_hours: slackQuietHours(now), queued: !urgent && slackQuietHours(now) }, origin);
+  }
+  if (action === 'peek') {
+    let list = [];
+    try { list = JSON.parse(await env.RATE.get('slackq:list')) || []; } catch {}
+    return okJson({ ok: true, queued: list }, origin);
+  }
+  if (action === 'flush') {
+    const r = await flushSlackQueue(env);
+    return okJson({ ok: true, ...r }, origin);
+  }
+  return deny(400, 'unknown-action', origin);
+}
+
 async function handleTestInbound(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -6841,6 +6945,9 @@ export default {
     }
     if (url.pathname === '/api/test-inbound' && request.method === 'POST') {
       return handleTestInbound(request, env, origin);
+    }
+    if (url.pathname === '/api/test-slack-queue' && request.method === 'POST') {
+      return handleTestSlackQueue(request, env, origin);
     }
     if (url.pathname === '/api/remind-run' && request.method === 'POST') {
       return handleRemindRun(request, env, origin);
