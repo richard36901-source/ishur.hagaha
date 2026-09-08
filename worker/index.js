@@ -4915,6 +4915,42 @@ async function voiceLlmId(env, agentId) {
   return (a && a.response_engine && a.response_engine.llm_id) || '';
 }
 
+/* Used by runDailyImprove's wording-fix auto-apply (handleVoicePrompt keeps
+   its own already-tested inline version of this, untouched, on purpose).
+   Found the hard way: runDailyImprove originally PATCHed Retell directly,
+   which worked (the change went live) but never touched vp:<key>:<n> — the
+   fix was invisible to /api/voice-prompt's own history and
+   rollback-by-number, recoverable only by that same run's in-memory
+   rollback if the regression check happened to fail in that same request. */
+async function saveVoicePromptVersion(env, key, newPrompt, note) {
+  const spec = VOICE_AGENTS[key];
+  if (!spec || !env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
+  const llm = await voiceLlmId(env, spec.agent);
+  if (!llm) return { ok: false, why: 'retell-unreachable' };
+
+  const metaKey = 'vpmeta:' + key;
+  let meta = { head: 0, list: [] };
+  try { meta = JSON.parse(await env.RATE.get(metaKey)) || meta; } catch {}
+  const now = new Date().toISOString();
+  const cur = ((await retellApi(env, '/get-retell-llm/' + llm)) || {}).general_prompt || '';
+  if (meta.head === 0 && cur) {
+    meta.head = 1;
+    await env.RATE.put('vp:' + key + ':1', JSON.stringify({ prompt: cur, at: now, note: 'בסיס — לפני מערכת הגרסאות' }));
+    meta.list.push({ n: 1, at: now, note: 'בסיס — לפני מערכת הגרסאות', chars: cur.length });
+  }
+
+  const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_prompt: newPrompt });
+  if (!applied) return { ok: false, why: 'retell-write-failed' };
+
+  const n = meta.head + 1;
+  await env.RATE.put('vp:' + key + ':' + n, JSON.stringify({ prompt: newPrompt, at: now, note }));
+  meta.head = n;
+  meta.list.push({ n, at: now, note, chars: newPrompt.length });
+  if (meta.list.length > 200) meta.list = meta.list.slice(-200);
+  await env.RATE.put(metaKey, JSON.stringify(meta));
+  return { ok: true, n, llm };
+}
+
 async function handleVoicePrompt(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -5244,14 +5280,13 @@ faq_additions ו-wording_fixes: רק דברים קונקרטיים שבאמת ק
     const before = voicePrompts[agent] || '';
     if (!before) { applied.wording.push({ ...fix, applied: false, why: 'no-live-prompt' }); continue; }
     const note = `\n\n## תיקון ניסוח, לולאת שיפור ${day}\nבמקום "${String(fix.before || '').slice(0, 200)}" עדיף "${String(fix.after || '').slice(0, 200)}" — ${String(fix.why || '').slice(0, 150)}`;
-    const llm = await voiceLlmId(env, VOICE_AGENTS[agent].agent);
-    const ok = llm ? await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_prompt: before + note }) : null;
-    if (ok) {
+    const saved = await saveVoicePromptVersion(env, agent, before + note, `לולאת שיפור ${day} — ${String(fix.why || '').slice(0, 100)}`);
+    if (saved.ok) {
       voicePrompts[agent] = before + note;
       rollback.voiceVersions[agent] = before; // exact prior text, for instant revert
-      applied.wording.push({ ...fix, applied: true });
+      applied.wording.push({ ...fix, applied: true, version: saved.n });
     } else {
-      applied.wording.push({ ...fix, applied: false, why: 'retell-write-failed' });
+      applied.wording.push({ ...fix, applied: false, why: saved.why || 'retell-write-failed' });
     }
   }
 
@@ -5274,8 +5309,10 @@ faq_additions ו-wording_fixes: רק דברים קונקרטיים שבאמת ק
       if (env.RATE) await env.RATE.delete('brain:cache').catch(() => {});
     }
     for (const [agent, priorText] of Object.entries(rollback.voiceVersions)) {
-      const llm = await voiceLlmId(env, VOICE_AGENTS[agent].agent);
-      if (llm) await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_prompt: priorText }).catch(() => {});
+      /* through the same versioned save as the apply, not a bare PATCH — the
+         rollback itself should be visible in the prompt's own history, not
+         just inferable from the fact that today's wording note vanished */
+      await saveVoicePromptVersion(env, agent, priorText, `שוחזר אוטומטית — בדיקת 12 התקיפות נכשלה אחרי תיקון הניסוח של ${day}`).catch(() => {});
     }
     applied.rolledBack = true;
   }
