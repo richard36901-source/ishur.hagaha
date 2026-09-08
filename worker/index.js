@@ -6625,6 +6625,37 @@ const MIRROR_HOST = 'go.ishur.io';
    ishur.io: moving them all was a decision to make, not one to assume. */
 const LINK_BASE = 'https://' + MIRROR_HOST;
 
+/* project 595055 lives on US Cloud — matches config.js's POSTHOG_HOST before
+   this proxy existed. If the project ever moves cloud, this is the one line
+   to change; the SDK side (config.js) never needs to know. */
+const POSTHOG_UPSTREAM = 'https://us.i.posthog.com';
+async function proxyPostHog(request, url, origin) {
+  const rest = url.pathname === '/ph' ? '/' : url.pathname.slice('/ph'.length);
+  const target = POSTHOG_UPSTREAM + rest + url.search;
+  const init = { method: request.method, headers: {}, redirect: 'follow' };
+  /* Content-Type carries the SDK's own request shape (JSON vs form-encoded
+     capture calls); Host/Origin/Cookie are dropped — this is a fresh
+     server-to-server request, not a browser one, and PostHog's own CORS
+     checks care about neither reaching it. */
+  const ct = request.headers.get('Content-Type');
+  if (ct) init.headers['Content-Type'] = ct;
+  /* without this every event arrives from Cloudflare's edge IP, not the
+     visitor's — PostHog's own geo-IP data would quietly go to "wherever
+     Cloudflare's data center is" for every single event */
+  const visitorIp = request.headers.get('CF-Connecting-IP');
+  if (visitorIp) init.headers['X-Forwarded-For'] = visitorIp;
+  if (request.method !== 'GET' && request.method !== 'HEAD') {
+    init.body = await request.arrayBuffer();
+  }
+  let up;
+  try { up = await fetch(target, init); }
+  catch { return new Response('posthog-unreachable', { status: 502, headers: cors(origin) }); }
+  const headers = new Headers(cors(origin));
+  const upCt = up.headers.get('Content-Type');
+  if (upCt) headers.set('Content-Type', upCt);
+  return new Response(await up.arrayBuffer(), { status: up.status, headers });
+}
+
 async function serveMirror(request, url) {
   if (request.method !== 'GET' && request.method !== 'HEAD') {
     return new Response('method-not-allowed', { status: 405 });
@@ -6772,6 +6803,15 @@ export default {
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
         !url.pathname.startsWith('/api/grow-ipn')) {
       request = await resolveAdminSession(request, env);
+    }
+    /* PostHog reverse proxy (Phase 8 housekeeping): ad-blockers that catch
+       "posthog"/analytics hostnames outright were costing 10-25% of events
+       (session recording switched on 07/09 made this worth fixing). The SDK
+       now points at go.ishur.io/ph/* instead of us.i.posthog.com directly;
+       this strips the /ph prefix and forwards everything else — path, query,
+       method, body, and PostHog's own response — through unchanged. */
+    if (url.pathname === '/ph' || url.pathname.startsWith('/ph/')) {
+      return proxyPostHog(request, url, origin);
     }
     /* on the mirror host, anything that is not an API call is the website */
     if (url.hostname === MIRROR_HOST &&

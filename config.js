@@ -43,7 +43,11 @@ window.ISHUR_CONFIG = (function () {
      like the pixels above. Project key from posthog.com → Project Settings.
      The project (595055) was created on US Cloud, so the host must match it. */
   var POSTHOG_KEY         = 'phc_ssZmdzSM6zeFfDjvygobpNUd5zNQUnPTnBQ4pbsmRoC7';
-  var POSTHOG_HOST        = 'https://us.i.posthog.com';   /* project 595055 lives on US Cloud */
+  /* go.ishur.io/ph/* reverse-proxies to us.i.posthog.com (project 595055,
+     US Cloud) through the Worker (Phase 8 housekeeping) — ad-blockers that
+     catch analytics hostnames by name were costing 10-25% of events, and a
+     first-party-looking path is not one of the names on those lists. */
+  var POSTHOG_HOST        = 'https://go.ishur.io/ph';
 
   /* Support line, 055-950-4499. This is the number leads and clients talk to:
      every "questions?" link on the site, the over-900 handoff, the upload
