@@ -1945,17 +1945,30 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
   for (const phone of Object.keys(queued)) {
     if (dialed.length >= max) break;
     if (await callBlocked(env, phone)) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    let q = null; try { q = JSON.parse(queued[phone]); } catch {}
+    /* Phase 4: a requested call waits for ITS scheduled time, not just the
+       next pacer tick — "מחר 11:00" must not ring the moment the pacer
+       happens to run. Existing abandoned-lead entries stamp `at` as "now"
+       at queue time, so this is always past for them — no behavior change. */
+    if (q && q.at && Date.parse(q.at) > Date.now()) continue;
     /* answered on WhatsApp after joining the queue = נועה already has the
        conversation in text. Ringing them on top of it reads as pressure. */
-    let q = null; try { q = JSON.parse(queued[phone]); } catch {}
     if (q && q.at && await leadReplied(env, phone, q.at)) {
       await env.RATE.delete('lq:' + phone).catch(() => {});
       continue;
     }
-    const row = rows.find(r => normPhone(r && r[2]) === phone);
-    if (!row) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
-    const lead = leadFromRow(row);
-    if (lead.paid) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    let lead;
+    if (q && q.requested) {
+      /* came from a WhatsApp "call me" request, not the abandoned-lead
+         sheet — a client asking for a call is not necessarily on that
+         sheet at all, so build the call straight from what was said */
+      lead = { kind: 'lead', phone, name: q.name || '', occasion: q.occ || 'אירוע', requested: true };
+    } else {
+      const row = rows.find(r => normPhone(r && r[2]) === phone);
+      if (!row) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+      lead = leadFromRow(row);
+      if (lead.paid) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+    }
     const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
@@ -1964,7 +1977,7 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
     }).catch(() => null);
     if (res && (res.status === 200 || res.status === 201)) {
       let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
-      await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name || '', kind: 'ליד (מכירה)', status: 'חויג ' + ilTime(), id: cid });
+      await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name || '', kind: lead.requested ? 'ליד (ביקש שיחה)' : 'ליד (מכירה)', status: 'חויג ' + ilTime(), id: cid });
       dialed.push(phone);
       await env.RATE.delete('lq:' + phone).catch(() => {});
       /* one sales call per lead, ever — a no-answer does not earn a redial */
@@ -2462,8 +2475,52 @@ const OFF_TOPIC_1 = 'זה לא משהו שאני עוזרת בו, אבל עם א
 const OFF_TOPIC_2 = 'אם זה יהיה רלוונטי בעתיד, בשמחה. עד אז לא אענה כאן.';
 const VENDOR_REPLY = 'תודה שפנית. אני כאן לעזור למי שמארגן אירוע, אז זה לא בשבילי. אם תרצה לשלוח הצעה, המייל באתר.';
 const INVOICE_NOT_CLIENT_REPLY = 'חשבונית יוצאת אחרי רכישה. אם כבר רכשת ממספר אחר, כתבי לי איזה ואבדוק.';
-/* interim line until Phase 4 (call-on-request) ships the real scheduling path */
-const CALL_REQUEST_REPLY = 'בשמחה 🙂 מתי נוח לך שאתקשר? תגידי שעה ואני אתקשר מהמספר שלנו.';
+const CALL_ASK_TIME_REPLY = 'בשמחה 🙂 עכשיו נוח, או לקבוע שעה? תכתבי למשל \'מחר 11:00\'.';
+const CALL_UNPARSED_REPLY = 'לא הבנתי בדיוק — אפשר למשל \'מחר ב-11:00\' או \'עכשיו\'?';
+
+/* Phase 4: tiny, deliberately-limited Hebrew time parser for "when should I
+   call you" — today/tomorrow (מחר/היום) + HH:MM, or עכשיו for right now. A
+   bare day word with no time, or anything else, returns null and Noa asks
+   again rather than guessing a wrong hour. */
+function parseRequestedCallTime(text, now) {
+  const t = String(text || '').trim();
+  if (/עכשיו|מיד|תיכף/.test(t)) return now.toISOString();
+  let dayOffset = null;
+  if (/מחר/.test(t)) dayOffset = 1;
+  else if (/היום/.test(t)) dayOffset = 0;
+  const hm = t.match(/(\d{1,2})[:.](\d{2})/);
+  const bareHour = !hm && t.match(/(?:^|בשעה\s*|ב-?)(\d{1,2})\s*$/);
+  if (!hm && !bareHour) return null;                 // no time at all — ambiguous
+  const hh = Number((hm || bareHour)[1]);
+  const mm = hm ? Number(hm[2]) : 0;
+  if (hh < 0 || hh > 23 || mm < 0 || mm > 59) return null;
+  if (dayOffset === null) dayOffset = 0;              // a bare time like "16:30" means today
+  /* Israel wall-clock (dayOffset, hh, mm) → the correct UTC instant, DST-safe:
+     guess naively, see what IL time that guess actually shows, correct by
+     the difference. Cheaper and more honest than hand-rolling IL's UTC
+     offset table for a feature that only ever needs "today" or "tomorrow". */
+  const base = new Date(ilDate(now) + 'T00:00:00Z');
+  base.setUTCDate(base.getUTCDate() + dayOffset);
+  const y = base.getUTCFullYear(), mo = base.getUTCMonth() + 1, d = base.getUTCDate();
+  let guess = new Date(Date.UTC(y, mo - 1, d, hh, mm));
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(guess);
+  const g = tp => Number((parts.find(p => p.type === tp) || {}).value);
+  const shown = Date.UTC(g('year'), g('month') - 1, g('day'), g('hour'), g('minute'));
+  const wanted = Date.UTC(y, mo - 1, d, hh, mm);
+  return new Date(guess.getTime() + (wanted - shown)).toISOString();
+}
+
+/* "מחר ב-11:00" / "היום ב-16:30" — for the confirmation line back to them */
+function formatIlTimeHuman(iso, now) {
+  const d = new Date(iso);
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(d);
+  const hh = (parts.find(p => p.type === 'hour') || {}).value || '';
+  const mm = (parts.find(p => p.type === 'minute') || {}).value || '';
+  const today = ilDate(now);
+  const dayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d);
+  const dayWord = dayIso === today ? 'היום' : (dayIso === ilDate(new Date(now.getTime() + 86400000)) ? 'מחר' : dayIso);
+  return `${dayWord} ב-${hh}:${mm}`;
+}
 
 /* regex tier — known jailbreak/extraction phrasing, no model call needed.
    English + Hebrew, matching the two real attacks from 07-08/09 verbatim. */
@@ -2531,6 +2588,25 @@ async function computeServiceReply(env, from, text, who) {
   const phone = normPhone(from);
   let reply = '';
 
+  /* Phase 4, mid-conversation state: Noa already asked "when works for you?"
+     and this message is the answer. Checked before classification — the
+     reply is a time, not a fresh intent to classify. */
+  if (env.RATE && await env.RATE.get('awaitcalltime:' + phone)) {
+    const now = new Date();
+    const when = parseRequestedCallTime(t, now);
+    if (when) {
+      await env.RATE.delete('awaitcalltime:' + phone).catch(() => {});
+      const name = (await env.RATE.get('waname:' + phone)) || '';
+      const occ = (who && who.events && who.events[0]) || 'האירוע שלכם';
+      await env.RATE.put('lq:' + phone, JSON.stringify({ name, occ, kind: (who && who.kind) || 'lead', at: when, requested: true }),
+        { expirationTtl: 14 * 86400 }).catch(() => {});
+      const isNow = /עכשיו|מיד|תיכף/.test(t);
+      const humanTime = isNow ? 'עכשיו' : formatIlTimeHuman(when, now);
+      return { reply: `מעולה, נועה תתקשר אלייך ${humanTime} מהמספר 055-507-7733.`, label: 'call_request', silent: false };
+    }
+    return { reply: CALL_UNPARSED_REPLY, label: 'call_request', silent: false };
+  }
+
   /* 1 · paid client asking for their link — deterministic, unchanged */
   if (/קישור|לינק|לא קיבלתי|שילמ|תשלום|רכשתי|קניתי|העלא|איפה ממשיכ/.test(t)) {
     const token = env.RATE ? await env.RATE.get('claimlink:' + phone) : null;
@@ -2596,7 +2672,10 @@ async function computeServiceReply(env, from, text, who) {
     return { reply, label, silent: false };
   }
 
-  if (label === 'call_request') return { reply: CALL_REQUEST_REPLY, label, silent: false };
+  if (label === 'call_request') {
+    if (env.RATE) await env.RATE.put('awaitcalltime:' + phone, '1', { expirationTtl: 3600 }).catch(() => {});
+    return { reply: CALL_ASK_TIME_REPLY, label, silent: false };
+  }
 
   if (label === 'vendor_or_partnership' || label === 'competitor') {
     reply = VENDOR_REPLY;

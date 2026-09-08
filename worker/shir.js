@@ -337,6 +337,9 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
          carries it: 'guest' (RSVP), 'lead' (sales), 'inbound' (they rang us),
          'callback' (we rang them back after a missed inbound). */
       kind,
+      /* 'requested' | 'abandoned' — only meaningful for kind:'lead', mirrors
+         retell_llm_dynamic_variables.why below into the call's own record */
+      ...(kind === 'lead' ? { why: guest.requested ? 'requested' : 'abandoned' } : {}),
     },
     retell_llm_dynamic_variables:
       kind === 'lead' ? leadVariables(guest)
@@ -366,11 +369,17 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
 /* The first sentence of the sales call, composed from data exactly like the
    inbound opener — Retell speaks it verbatim, so it can neither stall nor
    read out an empty variable. Noa, never Shir: this call crosses the
-   guest/client line and the persona must cross with it. */
+   guest/client line and the persona must cross with it.
+   Two openings, picked by WHY the call is happening (Phase 4): a lead who
+   never came back to checkout hears the abandoned-cart framing below; a
+   lead or client who asked for this call on WhatsApp hears that instead —
+   they are not being chased, they are being called back, and pushing them
+   toward a sale reads as tone-deaf when they are the one who reached out. */
 export function leadOpeningLine(lead) {
   const l = lead || {};
   const first = String(l.name || '').trim().split(/\s+/)[0] || '';
-  const hello = first ? `היי ${first}` : 'שלום';
+  const hello = first ? `היי ${first}` : 'היי';
+  if (l.requested) return `${hello}, זו נועה מאישורי הגעה, ביקשת שאתקשר.`;
   const occ = l.occasion && l.occasion !== 'אירוע' ? `ל${l.occasion}` : 'לאירוע שלכם';
   return `${hello}, מדברת נועה מאישורי הגעה. ראיתם אותנו באתר והתחלתם הזמנה ${occ}, ונעצרתם רגע לפני הסוף. רציתי לשאול אם משהו לא היה ברור, ואם אפשר לעזור.`;
 }
@@ -379,6 +388,10 @@ export function leadVariables(lead) {
   const l = lead || {};
   return {
     opening_line: leadOpeningLine(l),
+    /* 'requested' | 'abandoned' — lets the agent's own prompt branch tone:
+       a requested call has one job (answer, let them decide, no pushing),
+       an abandoned-cart call is the sales outreach it always was */
+    why: l.requested ? 'requested' : 'abandoned',
     lead_name: String(l.name || ''),
     lead_first_name: String(l.name || '').trim().split(/\s+/)[0] || '',
     occasion: String(l.occasion || 'אירוע'),
