@@ -6603,6 +6603,9 @@ export default {
     if (url.pathname === '/api/daily-run' && request.method === 'POST') {
       return handleDailyRun(request, env, origin);
     }
+    if (url.pathname === '/api/voice-prompt' && request.method === 'POST') {
+      return handleVoicePrompt(request, env, origin);
+    }
     if (url.pathname === '/api/brain-admin' && request.method === 'POST') {
       return handleBrainAdmin(request, env, origin);
     }
