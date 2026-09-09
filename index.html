@@ -389,6 +389,17 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .plan-opt-name{font-size:.88rem;font-weight:600;color:var(--ink);margin-bottom:.06rem}
 .plan-opt-note{font-size:.75rem;color:var(--ink3)}
 .plan-opt-price{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:700;color:var(--green)}
+/* the door: a real button in every package card (09/09) */
+.plan-go{flex:0 0 auto;margin-inline-start:auto;background:var(--green);color:#fff;font-size:.82rem;font-weight:600;padding:.42rem .85rem;border-radius:999px;white-space:nowrap;transition:transform .15s,background .2s}
+.plan-opt:hover{border-color:var(--green)}
+.plan-opt:hover .plan-go{transform:translateY(-1px)}
+.plan-opt.rec .plan-go{background:var(--gold,#B4884A)}
+@media(max-width:560px){.plan-opt{flex-wrap:wrap}.plan-go{width:100%;text-align:center;margin-top:.45rem;padding:.6rem}}
+/* the sticky bar on phones once a guest count is chosen */
+.sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.6rem .9rem calc(.6rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--bdr);box-shadow:0 -6px 22px rgba(0,0,0,.08);font-size:.9rem}
+.sticky-cta .sc-btn{padding:.55rem 1rem;font-size:.9rem;white-space:nowrap}
+@media(min-width:721px){.sticky-cta{display:none}}
+body.modal-open .sticky-cta{display:none}
 
 /* plan badge in steps */
 .plan-bdg{background:var(--green4);border:1.5px solid var(--bdr2);border-radius:8px;padding:.6rem 1rem;font-size:.82rem;color:var(--ink2);margin-bottom:1.3rem;font-family:'Heebo',sans-serif}
@@ -1872,10 +1883,14 @@ body.has-promo #nav{top:var(--promo-h,34px)}
            dead or spent code explains itself. -->
       <p id="pr-code-msg" class="promo-msg" role="status" aria-live="polite"></p>
 
-      <p class="pr-note">לחצו על חבילה כדי להתחיל. המחירים כוללים מע״מ.</p>
+      <p class="pr-note">לחצו על "בחירה" בחבילה שמתאימה לכם. המחירים כוללים מע״מ.</p>
     </div>
   </div>
 </section>
+<div class="sticky-cta" id="stickyCta" hidden>
+  <span class="sc-txt"></span>
+  <button type="button" class="btn btn-green sc-btn" id="stickyGo">התחילו עכשיו</button>
+</div>
 
 <!-- CTA -->
 <section id="cta">
@@ -2310,8 +2325,24 @@ function renderPlans(guests){
         : custom?'<b>הצעה אישית</b>'
         : `<span class="from">החל מ-</span><span class="cur">₪</span>${CFG.fromPrice(k)}`
       }</span>
+      <span class="plan-go">${custom?'לקבלת הצעה':(guests?'בחירה':'התחלה')}</span>
     </button>`;
   }).join('');
+  /* Richard, 09/09: four of the most engaged visitors in the recordings
+     picked a guest count, cycled through the packages, and left — the card
+     IS the button, and nobody read the grey line saying so. Every card now
+     carries a visible button, and on a phone a bar with the recommended
+     price sticks to the bottom once a count is chosen, so the next step is
+     never off-screen. */
+  const bar=document.getElementById('stickyCta');
+  if(bar){
+    if(guests&&!custom){
+      const k='basic', price=CFG.priceFor(guests,k);
+      bar.querySelector('.sc-txt').innerHTML=`${CFG.PLANS[k].name} · <b>₪${price}</b> לאירוע`;
+      bar.dataset.guests=guests;
+      bar.hidden=false;
+    } else bar.hidden=true;
+  }
   wrap.querySelectorAll('[data-plan]').forEach(b=>{
     b.addEventListener('click',()=>{
       /* the tapped package rides into the popup fixed; a chosen quantity rides along too */
@@ -2320,6 +2351,10 @@ function renderPlans(guests){
   });
 }
 buildPricing();
+(()=>{
+  const go=document.getElementById('stickyGo'), bar=document.getElementById('stickyCta');
+  if(go&&bar) go.addEventListener('click',()=>{ IshurPopup.open('sticky',{plan:'basic',guests:bar.dataset.guests||''}); });
+})();
 
 // ═══ NAV SCROLL ═══ cream over the hero, bottle green once past it
 (()=>{
