@@ -6006,6 +6006,16 @@ function reasonHe(raw, status) {
   return raw;
 }
 
+/* the board's verdict on a finished call, from Retell's disconnection reason */
+function callState(reason, status, cad) {
+  const r = String(reason || '').toLowerCase();
+  if (/dial_no_answer|no_answer|dial_busy|voicemail|machine_detected/.test(r)) return 'noanswer';
+  if (/user_hangup/.test(r)) return (cad && cad.got_answer) ? 'ok' : 'hangup';
+  if (/agent_hangup|inactivity|max_duration/.test(r)) return 'noanswer';
+  if (!r && status === 'ended') return 'noanswer';
+  return 'failed';
+}
+
 async function callBoard(env) {
   const win = callWindowState();
   const day = ilDate();
@@ -6097,7 +6107,14 @@ async function callBoard(env) {
           ? Math.round((c.end_timestamp - c.start_timestamp) / 1000) : null,
         status: c.call_status || '',
         outcome: String(cad.outcome || ''),
-        state: live ? 'running' : (okCall ? 'ok' : (cad.needs_review ? 'problem' : (st === 'ended' ? 'noanswer' : 'failed'))),
+        /* Richard, 09/09: "לא ענה זה לא נכשל". A phone that rang and was not
+           picked up, a busy line, a voicemail — those are the person's doing
+           and land in 'noanswer'. Somebody who picked up and hung up before
+           the agent got anywhere is 'hangup'. 'failed' is reserved for OUR
+           side or the carrier: bad number, provider down, agent error. The
+           old rule keyed on call_status alone, and Retell reports a no-answer
+           as not_connected, so every unanswered dial was painted red. */
+        state: live ? 'running' : (okCall ? 'ok' : (cad.needs_review ? 'problem' : callState(c.disconnection_reason, st, cad))),
         /* why it ended the way it did. Raw for the log, Hebrew for the board:
            "נכשל" without a reason tells you nothing you can act on, and the
            difference between a busy line, a rejected number and our own agent

@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=45"></script>
-<script src="assets/adminbar.js?v=5" defer></script>
+<script src="assets/adminbar.js?v=6" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
   :root{
@@ -418,6 +418,10 @@
     html[data-theme=dark] #rows tr.fresh td,
     html[data-theme=dark] #shirRows tr.fresh td{animation:none;background:rgba(199,174,122,.14)}
   }
+  /* the calls view: one page, two faces */
+  body[data-view="main"] .sec-calls{display:none}
+  body[data-view="calls"] #main > :not(.sec-calls){display:none}
+  .st.hangup{background:#EEE9DA;color:#6B5A2E}
 </style>
 </head>
 <body>
@@ -462,6 +466,13 @@
 </div>
 
 <main class="wrap" id="main" hidden>
+  <!-- Richard, 07/09 + 09/09: everything about calls lives on its own tab so
+       the main board stays readable. Same page, same code — the URL picks the
+       view (?view=calls) and CSS hides the other half. -->
+  <div class="sec-calls callshead">
+    <h1 style="margin:0 0 .2rem">מוקד שיחות</h1>
+    <p style="margin:0 0 1rem;color:var(--ink3);font-size:.78rem">שיר לאורחים, נועה ללידים וללקוחות. <a href="calls.html" style="color:var(--gold)">התור הידני של שיר →</a></p>
+  </div>
   <section class="ctl" id="ctl">
     <h2>שליטה</h2>
 
@@ -529,6 +540,7 @@
   <svg id="tchart" width="100%" height="120" viewBox="0 0 720 120" preserveAspectRatio="none" aria-label="מבקרים לפי יום" style="margin-top:.5rem"></svg>
   <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 0">מונה משלנו, לא גוגל ולא פייסבוק, כדי שחוסמי פרסומות לא יבלעו את המספר. נשמר גם בלשונית "תנועה יומית" בגיליון.</p>
 
+  <div class="sec-calls">
   <h2 class="fold-h">
     <button type="button" class="fold-btn" id="fb-board" aria-expanded="true" aria-controls="fold-board">
       <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
@@ -559,7 +571,9 @@
       </table>
     </div>
     <p class="empty" id="cbEmpty" hidden>אין כרגע שיחות בתור ולא יצאו שיחות לאחרונה.</p>
-    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">שורה אפורה = כבר קרה. ✓ ענו והשיחה עשתה את שלה · ⚠ לבדיקה · ✕ לא ענו או נכשל. שיר מדברת רק עם אורחים, נועה רק עם לידים ולקוחות.</p>
+    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">שורה אפורה = כבר קרה. ✓ ענו והשיחה עשתה את שלה · ⚠ לבדיקה · ✕ לא ענו / ניתק = הצד השני · ✕ נכשל = תקלה אצלנו או אצל הספק. שיר מדברת רק עם אורחים, נועה רק עם לידים ולקוחות.</p>
+  </div>
+
   </div>
 
   <h2>משפך הרכישה · 7 ימים</h2>
@@ -619,6 +633,7 @@
     <button id="aiTog" class="sw" role="switch" aria-checked="false" aria-label="מענה AI של נועה" disabled><i></i></button></span>
   </h2>
 
+  <div class="sec-calls">
   <h2 class="fold-h">
     <button type="button" class="fold-btn" id="fb-calls" aria-expanded="true" aria-controls="fold-calls">
       <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
@@ -671,6 +686,8 @@
       </table>
     </div>
     <p class="empty" id="shirEmpty" hidden>עוד לא היו שיחות. ברגע ששיר תתחיל לחייג — הכל יופיע כאן: משך, עלות, הקלטה ותמלול מלא.</p>
+  </div>
+
   </div>
 
   <h2>כספים · רווח והפסד</h2>
@@ -843,6 +860,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var adminKey = '';
 
+  var VIEW = new URLSearchParams(location.search).get('view') === 'calls' ? 'calls' : 'main';
+  document.body.dataset.view = VIEW;
+  if (VIEW === 'calls') document.title = 'מוקד שיחות · ishur.io';
   var qk = new URLSearchParams(location.search).get('key');
   if (qk) { localStorage.setItem('ishur_calls_key', qk); history.replaceState(null, '', location.pathname); }
   adminKey = localStorage.getItem('ishur_calls_key') || '';
@@ -1049,7 +1069,7 @@
 
   function fastTick() {
     if (liveBusy()) return;
-    loadShir();
+    if (VIEW === 'calls') loadShir();
     loadPause();
     if (slowDue && Date.now() >= slowDue) slowTick();
   }
@@ -1403,6 +1423,7 @@
     ok:       { t: '✓ בוצע',    c: 'ok' },
     problem:  { t: '⚠ לבדיקה',  c: 'problem' },
     noanswer: { t: '✕ לא ענו',  c: 'noanswer' },
+    hangup:   { t: '✕ ניתק',    c: 'hangup' },
     failed:   { t: '✕ נכשל',    c: 'failed' }
   };
   var CB_KIND = { guest: 'אורח', lead: 'ליד', client: 'לקוח', inbound: 'נכנסת', callback: 'חזרה' };

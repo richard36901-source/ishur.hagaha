@@ -31,7 +31,7 @@
   var INTERNAL = [
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
-    { href: 'calls.html', label: 'מוקד שיחות', icon: ic.calls },
+    { href: 'admin.html?view=calls', label: 'מוקד שיחות', icon: ic.calls },
     { href: 'automations.html', label: 'אוטומציות', icon: ic.flow },
     { href: 'brain.html', label: 'המוח', icon: ic.brain },
     { href: 'ops.html', label: 'שליטה', icon: ic.ops },
@@ -87,14 +87,33 @@
     if (external) { a.target = '_blank'; a.rel = 'noopener'; a.className = 'ext'; }
     a.innerHTML = item.icon + '<span>' + item.label + '</span>' +
       (external ? ic.out.replace('<svg ', '<svg class="arrow" ') : '');
-    if (!external && current === item.href) {
+    if (!external && current === item.href.split('?')[0] && (item.href.indexOf('?view=calls') > -1) === (location.search.indexOf('view=calls') > -1)) {
       a.className = 'on';
       a.setAttribute('aria-current', 'page');
     }
     return a;
   }
 
+  /* Richard, 09/09: one login, every page, every browser on the phone.
+     Pages keep the session in localStorage, which Safari and the in-app
+     browsers of Slack/WhatsApp do not share — so a link opened from Slack
+     asked for the code again. The session is mirrored into a cookie, which
+     those in-app browsers DO share with Safari; a page that wakes up with a
+     cookie and no localStorage copies it over and reloads once. */
+  function syncKey() {
+    var ls = null;
+    try { ls = localStorage.getItem('ishur_calls_key'); } catch (e) {}
+    var m = document.cookie.match(/(?:^|; )ishur_sess=([^;]+)/);
+    var ck = m ? decodeURIComponent(m[1]) : '';
+    if (ls && ls !== ck) {
+      document.cookie = 'ishur_sess=' + encodeURIComponent(ls) + '; Max-Age=31536000; Path=/; SameSite=Lax; Secure';
+    } else if (!ls && ck && !sessionStorage.getItem('ishur_keysync')) {
+      try { localStorage.setItem('ishur_calls_key', ck); sessionStorage.setItem('ishur_keysync', '1'); location.reload(); } catch (e) {}
+    }
+  }
+
   function mount() {
+    syncKey();
     var style = document.createElement('style');
     style.textContent = css;
     document.head.appendChild(style);
