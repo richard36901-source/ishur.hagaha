@@ -7174,8 +7174,13 @@ export default {
           clicks: Number(x.clicks) || 0,
           ctr: Number(x.ctr) || 0,
           cpc: Number(x.cpc) || 0,
-          leads: pick('lead') + pick('offsite_conversion.fb_pixel_lead'),
-          purchases: pick('purchase') + pick('offsite_conversion.fb_pixel_purchase'),
+          /* Meta lists the same conversion twice: 'lead' is the total across
+             every source, 'offsite_conversion.fb_pixel_lead' is the pixel's
+             share of it. Adding them showed 10 leads for 5 (Richard, 09/09).
+             The total is the number; the pixel line only fills in when Meta
+             omits the aggregate. */
+          leads: pick('lead') || pick('offsite_conversion.fb_pixel_lead'),
+          purchases: pick('purchase') || pick('offsite_conversion.fb_pixel_purchase'),
         };
       });
       /* one totals row per campaign, so the board can rank them without
