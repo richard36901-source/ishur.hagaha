@@ -7212,7 +7212,7 @@ export default {
         vid,
         path: url.searchParams.get('p') || '/',
         src: url.searchParams.get('s') || '',
-        kind: ['pay', 'popup', 'lead'].includes(url.searchParams.get('k')) ? url.searchParams.get('k') : 'view',
+        kind: ({ pay: 'pay', popup: 'popup', form: 'popup', lead: 'lead' })[url.searchParams.get('k')] || 'view',
       }).catch(() => {}));
       return okJson({ ok: true }, origin);
     }

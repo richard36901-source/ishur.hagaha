@@ -173,8 +173,11 @@ window.IshurLead = (function () {
 
   function popupOpen(where) {
     newSession();
-    /* funnel step 2: the form opened (first-party counter, see tracking.js) */
-    try { if (window.IshurTrack && IshurTrack.beacon) IshurTrack.beacon('popup'); } catch (e) {}
+    /* funnel step 2: the form opened (first-party counter, see tracking.js).
+       The kind is 'form', not 'popup': a URL with 'popup' in it trips the
+       generic rules in ad-blocker lists, and the beacon never left Richard's
+       own Chrome (09/09) while 'lead' and the pageview did. */
+    try { if (window.IshurTrack && IshurTrack.beacon) IshurTrack.beacon('form'); } catch (e) {}
     if (window.IshurTrack) {
       IshurTrack.conversion({
         key: 'vc_' + getSession(),
