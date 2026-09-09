@@ -390,10 +390,11 @@ select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/
 .plan-opt-note{font-size:.75rem;color:var(--ink3)}
 .plan-opt-price{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:700;color:var(--green)}
 /* the door: a real button in every package card (09/09) */
-.plan-go{flex:0 0 auto;margin-inline-start:auto;background:var(--green);color:#fff;font-size:.82rem;font-weight:600;padding:.42rem .85rem;border-radius:999px;white-space:nowrap;transition:transform .15s,background .2s}
+.plan-go{flex:0 0 auto;margin-inline-start:auto;background:transparent;color:var(--green);border:2px solid var(--green);font-size:.82rem;font-weight:600;padding:.4rem .85rem;border-radius:8px;white-space:nowrap;transition:background .15s,color .15s}
 .plan-opt:hover{border-color:var(--green)}
-.plan-opt:hover .plan-go{transform:translateY(-1px)}
-.plan-opt.rec .plan-go{background:var(--gold,#B4884A)}
+.plan-opt:hover .plan-go{background:var(--green);color:#fff}
+.plan-opt.rec .plan-go{color:var(--gold,#B4884A);border-color:var(--gold,#B4884A)}
+.plan-opt.rec:hover .plan-go{background:var(--gold,#B4884A);color:#fff}
 @media(max-width:560px){.plan-opt{flex-wrap:wrap}.plan-go{width:100%;text-align:center;margin-top:.45rem;padding:.6rem}}
 /* the sticky bar on phones once a guest count is chosen */
 .sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.6rem .9rem calc(.6rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--bdr);box-shadow:0 -6px 22px rgba(0,0,0,.08);font-size:.9rem}
