@@ -788,11 +788,11 @@
   <div class="fold" id="fold-cost" hidden>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th></tr></thead>
+        <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th><th>פרסום ₪</th><th>סה״כ ₪</th></tr></thead>
         <tbody id="costRows"></tbody>
       </table>
     </div>
-    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">עלות פר-אירוע נספרת מ-30.8.26 (שליחות ושיחות מוקדמות יותר לא שויכו לאירוע). המרה: ‎$1 = ₪3.7</p>
+    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">עלות פר-אירוע נספרת מ-30.8.26 (שליחות ושיחות מוקדמות יותר לא שויכו לאירוע). פרסום = הוצאת מטא לאותו יום, מחשבון המודעות. המרה: ‎$1 = ₪3.7</p>
   </div>
 
   <h2 class="fold-h">
@@ -1342,7 +1342,14 @@
       .catch(function () {});
   }
 
+  /* Richard, 09/09: ad spend belongs next to the other daily costs, so one
+     table shows what a day really cost. Per-day totals across campaigns,
+     kept here so the cost table can join on the date. */
+  var adByDay = {};
   function renderCampaigns(d) {
+    adByDay = {};
+    (d.rows || []).forEach(function (x) { adByDay[x.date] = (adByDay[x.date] || 0) + (Number(x.spend) || 0); });
+    renderCostTable();
     var totals = d.totals || [];
     var tb = $('campRows');
     if (!totals.length) { tb.innerHTML = ''; $('campEmpty').hidden = false; syncFolds(); return; }
@@ -1519,17 +1526,35 @@
         costEvents = d.events || [];
         costMap = {};
         costEvents.forEach(function (e) { costMap[e.token8] = e.cost_usd_cents; });
-        keepScroll($('costRows'), function () {
-          $('costRows').innerHTML = costDays.slice(-60).reverse().map(function (r) {
-            return '<tr><td>' + heDate(r.date) + '</td><td>' + r.wa_out + '</td><td>' + r.wa_tmpl +
-              '</td><td>' + (r.wa_fail || '') + '</td><td>' + (r.wa_cost_usd_cents / 100 * USD_ILS).toFixed(2) +
-              '</td><td>' + (r.shir_cost_usd_cents / 100 * USD_ILS).toFixed(2) + '</td></tr>';
-          }).join('');
-        });
+        renderCostTable();
         syncFolds();
         renderEventsTable();
         liveOk();
       }).catch(function () {});
+  }
+
+  /* a day's line: messages, calls, ads, and the sum. Days the ad account
+     knows but the message log does not (before 30.8) still get a row. */
+  function costLines() {
+    var seen = {};
+    var lines = costDays.map(function (r) { seen[r.date] = true; return r; });
+    Object.keys(adByDay).forEach(function (d) { if (!seen[d]) lines.push({ date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); });
+    lines.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    return lines.map(function (r) {
+      var wa = r.wa_cost_usd_cents / 100 * USD_ILS, shir = r.shir_cost_usd_cents / 100 * USD_ILS, ads = adByDay[r.date] || 0;
+      return { date: r.date, out: r.wa_out, tmpl: r.wa_tmpl, fail: r.wa_fail || '', wa: wa, shir: shir, ads: ads, total: wa + shir + ads };
+    });
+  }
+  function renderCostTable() {
+    if (!costDays.length && !Object.keys(adByDay).length) return;
+    keepScroll($('costRows'), function () {
+      $('costRows').innerHTML = costLines().slice(-60).reverse().map(function (l) {
+        return '<tr><td>' + heDate(l.date) + '</td><td>' + l.out + '</td><td>' + l.tmpl +
+          '</td><td>' + l.fail + '</td><td>' + l.wa.toFixed(2) +
+          '</td><td>' + l.shir.toFixed(2) + '</td><td>' + (l.ads ? l.ads.toFixed(2) : '') +
+          '</td><td><b>' + l.total.toFixed(2) + '</b></td></tr>';
+      }).join('');
+    });
   }
 
   function downloadCsv(name, header, rows) {
@@ -1542,10 +1567,9 @@
   }
   $('csvDays').addEventListener('click', function () {
     downloadCsv('ishur-costs-daily.csv',
-      ['תאריך', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪'],
-      costDays.map(function (r) {
-        return [r.date, r.wa_out, r.wa_tmpl, r.wa_fail,
-          (r.wa_cost_usd_cents / 100 * USD_ILS).toFixed(2), (r.shir_cost_usd_cents / 100 * USD_ILS).toFixed(2)];
+      ['תאריך', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪', 'פרסום ₪', 'סה״כ ₪'],
+      costLines().map(function (l) {
+        return [l.date, l.out, l.tmpl, l.fail, l.wa.toFixed(2), l.shir.toFixed(2), l.ads.toFixed(2), l.total.toFixed(2)];
       }));
   });
   $('csvEvents').addEventListener('click', function () {
