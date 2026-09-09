@@ -2044,9 +2044,19 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
       lead = { kind: 'lead', phone, name: q.name || '', occasion: q.occ || 'אירוע', requested: true };
     } else {
       const row = rows.find(r => normPhone(r && r[2]) === phone);
-      if (!row) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
-      lead = leadFromRow(row);
-      if (lead.paid) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+      if (row) {
+        lead = leadFromRow(row);
+        if (lead.paid) { await env.RATE.delete('lq:' + phone).catch(() => {}); continue; }
+      } else if (q && q.name) {
+        /* no sheet row, but the queue entry carries enough to still make
+           the call with the real abandoned-cart pitch (requested: false/
+           absent) rather than dropping it — same reasoning as the
+           requested:true branch above, just for the other opening line */
+        lead = { kind: 'lead', phone, name: q.name, occasion: q.occ || 'אירוע', requested: false };
+      } else {
+        await env.RATE.delete('lq:' + phone).catch(() => {});
+        continue;
+      }
     }
     const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
