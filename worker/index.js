@@ -6007,11 +6007,15 @@ function reasonHe(raw, status) {
 }
 
 /* the board's verdict on a finished call, from Retell's disconnection reason */
-function callState(reason, status, cad) {
+function callState(reason, status, cad, durationS) {
   const r = String(reason || '').toLowerCase();
+  const talked = Number(durationS) >= 10;
   if (/dial_no_answer|no_answer|dial_busy|voicemail|machine_detected/.test(r)) return 'noanswer';
+  /* the agent ending a call that lasted is a call that happened — a lead
+     pitch has no RSVP to record, so got_answer says nothing about it */
+  if (/agent_hangup/.test(r)) return talked ? 'ok' : 'noanswer';
   if (/user_hangup/.test(r)) return (cad && cad.got_answer) ? 'ok' : 'hangup';
-  if (/agent_hangup|inactivity|max_duration/.test(r)) return 'noanswer';
+  if (/inactivity|max_duration/.test(r)) return talked ? 'ok' : 'noanswer';
   if (!r && status === 'ended') return 'noanswer';
   return 'failed';
 }
@@ -6114,7 +6118,8 @@ async function callBoard(env) {
            side or the carrier: bad number, provider down, agent error. The
            old rule keyed on call_status alone, and Retell reports a no-answer
            as not_connected, so every unanswered dial was painted red. */
-        state: live ? 'running' : (okCall ? 'ok' : (cad.needs_review ? 'problem' : callState(c.disconnection_reason, st, cad))),
+        state: live ? 'running' : (okCall ? 'ok' : (cad.needs_review ? 'problem' : callState(c.disconnection_reason, st, cad,
+          c.start_timestamp && c.end_timestamp ? (c.end_timestamp - c.start_timestamp) / 1000 : 0))),
         /* why it ended the way it did. Raw for the log, Hebrew for the board:
            "נכשל" without a reason tells you nothing you can act on, and the
            difference between a busy line, a rejected number and our own agent
