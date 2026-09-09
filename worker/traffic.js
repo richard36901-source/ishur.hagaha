@@ -47,6 +47,8 @@ function emptyDay() {
     returning: 0,       // seen before today or earlier
     pages: {},          // path → views
     src: {},            // utm_source (or 'direct') → visitors
+    popup: 0,           // opened the order form (Richard, 09/09: the step between visit and lead)
+    lead: 0,            // typed a valid phone into it
     pay: 0,             // reached a payment page
     purchase: 0,        // paid (written by the payment path, not the browser)
     seen: {},           // vid → 1, so a second view is not a second visitor
@@ -93,6 +95,8 @@ export async function recordHit(env, { vid, path, src, kind }) {
   /* the day */
   const d = Object.assign(emptyDay(), await readJson(env, 't:d:' + day, null) || {});
   if (kind === 'pay') d.pay++;
+  else if (kind === 'popup') d.popup++;
+  else if (kind === 'lead') d.lead++;
   else {
     d.views++;
     d.pages[p] = (d.pages[p] || 0) + 1;
@@ -107,7 +111,7 @@ export async function recordHit(env, { vid, path, src, kind }) {
 
   /* all time */
   const all = await readJson(env, 't:all', { views: 0, visitors: 0, since: day });
-  if (kind !== 'pay') {
+  if (kind !== 'pay' && kind !== 'popup' && kind !== 'lead') {
     all.views++;
     if (!seenBefore) all.visitors++;
     if (!all.since) all.since = day;
@@ -148,6 +152,8 @@ export async function trafficReport(env, days = 14) {
       visitors: d ? d.visitors || 0 : 0,
       fresh: d ? d.fresh || 0 : 0,
       returning: d ? d.returning || 0 : 0,
+      popup: d ? d.popup || 0 : 0,
+      lead: d ? d.lead || 0 : 0,
       pay: d ? d.pay || 0 : 0,
       purchase: d ? d.purchase || 0 : 0,
       pages: d ? d.pages || {} : {},
@@ -158,8 +164,9 @@ export async function trafficReport(env, days = 14) {
   const sum = rows.reduce((a, r) => ({
     views: a.views + r.views, visitors: a.visitors + r.visitors,
     fresh: a.fresh + r.fresh, returning: a.returning + r.returning,
+    popup: a.popup + r.popup, lead: a.lead + r.lead,
     pay: a.pay + r.pay, purchase: a.purchase + r.purchase,
-  }), { views: 0, visitors: 0, fresh: 0, returning: 0, pay: 0, purchase: 0 });
+  }), { views: 0, visitors: 0, fresh: 0, returning: 0, popup: 0, lead: 0, pay: 0, purchase: 0 });
 
   const pages = {}, src = {};
   for (const r of rows) {
@@ -179,6 +186,8 @@ export async function trafficReport(env, days = 14) {
     all_time: all,
     funnel: {
       visitors: sum.visitors,
+      popup: sum.popup,
+      lead: sum.lead,
       pay: sum.pay,
       purchase: sum.purchase,
       visit_to_pay: pct(sum.pay, sum.visitors),

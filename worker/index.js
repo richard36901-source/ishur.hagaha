@@ -4000,6 +4000,15 @@ async function runPacer(env) {
     await env.RATE.put('slackqflush:' + today, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
     await flushSlackQueue(env).catch(() => {});
   }
+  /* ads health, once an hour inside Slack hours (the alert itself is
+     urgent, so quiet hours are respected by not asking at night) */
+  if (ilHour >= 9 && ilHour < 21) {
+    const hk = 'adshealth:' + today + ':' + ilHour;
+    if (await env.RATE.get(hk) !== '1') {
+      await env.RATE.put(hk, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+      await adsHealthAlert(env).catch(() => {});
+    }
+  }
 
   if (await sendingPaused(env)) return { ok: true, paused: true };
 
@@ -5884,6 +5893,66 @@ const META_PIXEL_ID = '1412366810814749';
 const META_AD_ACCOUNT = 'act_1944903292858482';
 const META_CAMPAIGN_ID = '120250009883070731';
 
+/* ── ads health ──────────────────────────────────────────────────────────
+   Richard, 09/09: "next time I want you to know before me and tell me in
+   Slack". Meta shows an error banner in Ads Manager; nobody looks there
+   hourly. This asks the API the same question — account standing, every
+   ad set and ad under the campaign, their effective status and Meta's own
+   issues_info — and returns the list of things a human would call "an
+   error". The pacer runs it once an hour inside Slack hours and pings
+   (urgent) for anything not already pinged in the last 24h. */
+const AD_BAD = /DISAPPROVED|WITH_ISSUES|PENDING_REVIEW|ADSET_PAUSED|CAMPAIGN_PAUSED|DELETED|ARCHIVED/;
+async function adsHealth(env) {
+  const out = { ok: true, checked_at: new Date().toISOString(), account: null, campaign: null, issues: [] };
+  const acct = await metaAds(env, `/${META_AD_ACCOUNT}?fields=account_status,disable_reason,name,funding_source_details{display_string}`);
+  if (acct && acct.ok && acct.data) {
+    const a = acct.data;
+    out.account = { status: a.account_status, disable_reason: a.disable_reason, funding: (a.funding_source_details || {}).display_string || '' };
+    if (Number(a.account_status) !== 1) out.issues.push({ level: 'account', name: a.name || META_AD_ACCOUNT, status: String(a.account_status), why: 'חשבון המודעות לא פעיל (' + (a.disable_reason || '') + ')' });
+  } else if (acct && !acct.ok) {
+    out.ok = false; out.error = JSON.stringify(acct.data || acct).slice(0, 300); return out;
+  }
+  const camp = await metaAds(env, `/${META_CAMPAIGN_ID}?fields=name,status,effective_status,issues_info`);
+  if (camp && camp.ok && camp.data) {
+    out.campaign = { name: camp.data.name, status: camp.data.status, effective_status: camp.data.effective_status };
+    for (const i of (camp.data.issues_info || [])) out.issues.push({ level: 'campaign', name: camp.data.name, status: camp.data.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
+  }
+  const ads = await metaAds(env, `/${META_CAMPAIGN_ID}/ads?fields=id,name,status,effective_status,configured_status,issues_info,adset{id,name,status,effective_status,issues_info}&limit=200`);
+  const list = (ads && ads.ok && ads.data && ads.data.data) || [];
+  out.ads = list.map(x => ({ id: x.id, name: x.name, status: x.status, effective: x.effective_status, adset: (x.adset || {}).name || '', adset_effective: (x.adset || {}).effective_status || '' }));
+  const seenAdset = {};
+  for (const x of list) {
+    const set = x.adset || {};
+    if (set.id && !seenAdset[set.id]) {
+      seenAdset[set.id] = 1;
+      for (const i of (set.issues_info || [])) out.issues.push({ level: 'adset', id: set.id, name: set.name, status: set.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
+    }
+    /* a paused ad is a choice; an ad the reviewer rejected or that Meta
+       flags is the error Richard saw. never-launched leftovers count too. */
+    for (const i of (x.issues_info || [])) out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
+    if (!(x.issues_info || []).length && x.status === 'ACTIVE' && AD_BAD.test(String(x.effective_status || '')) && !/PAUSED/.test(String(x.effective_status)))
+      out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: 'מודעה פעילה במצב ' + x.effective_status });
+  }
+  return out;
+}
+
+async function adsHealthAlert(env) {
+  if (!env.RATE || !env.META_ADS_TOKEN) return;
+  const h = await adsHealth(env);
+  if (!h.ok) { await slackSend(env, `⚠️ *מודעות*: לא הצלחתי לקרוא את מצב החשבון ממטא — ${h.error || ''}`, { urgent: true }); return; }
+  const fresh = [];
+  for (const i of h.issues) {
+    const key = 'adsalert:' + (i.id || i.level) + ':' + String(i.why || i.status).slice(0, 40).replace(/\s+/g, '_');
+    if (await env.RATE.get(key)) continue;
+    await env.RATE.put(key, '1', { expirationTtl: 86400 }).catch(() => {});
+    fresh.push(i);
+  }
+  if (!fresh.length) return;
+  const lines = fresh.map(i => `• ${i.level === 'account' ? 'חשבון' : i.level === 'campaign' ? 'קמפיין' : i.level === 'adset' ? 'סט' : 'מודעה'} *${i.name}* — ${i.status}${i.why ? ' · ' + i.why : ''}`);
+  await slackSend(env, `🚨 *שגיאה במודעות* (${fresh.length})\n${lines.join('\n')}\nלטיפול: business.facebook.com/adsmanager`, { urgent: true });
+}
+
+
 async function metaAds(env, path, method, payload) {
   if (!env.META_ADS_TOKEN) return null;
   const init = { method: method || 'GET', headers: { Authorization: 'Bearer ' + env.META_ADS_TOKEN } };
@@ -7143,7 +7212,7 @@ export default {
         vid,
         path: url.searchParams.get('p') || '/',
         src: url.searchParams.get('s') || '',
-        kind: url.searchParams.get('k') === 'pay' ? 'pay' : 'view',
+        kind: ['pay', 'popup', 'lead'].includes(url.searchParams.get('k')) ? url.searchParams.get('k') : 'view',
       }).catch(() => {}));
       return okJson({ ok: true }, origin);
     }
@@ -7158,7 +7227,7 @@ export default {
       const until = ilDate();
       const since = ilDate(new Date(Date.now() - (days - 1) * 86400e3));
       const range = encodeURIComponent(JSON.stringify({ since, until }));
-      const fields = 'campaign_id,campaign_name,spend,impressions,clicks,ctr,cpc,actions,date_start';
+      const fields = 'campaign_id,campaign_name,spend,impressions,clicks,inline_link_clicks,ctr,cpc,actions,date_start';
       const r = await metaAds(env,
         `/${META_AD_ACCOUNT}/insights?level=campaign&time_increment=1&time_range=${range}` +
         `&fields=${fields}&limit=500`, 'GET');
@@ -7172,6 +7241,10 @@ export default {
           spend: Number(x.spend) || 0,
           impressions: Number(x.impressions) || 0,
           clicks: Number(x.clicks) || 0,
+          /* the click that actually leaves for the site — 'clicks' also counts
+             likes, comments and profile taps, which is why 178 clicks turned
+             into ~65 visitors (09/09) */
+          link_clicks: Number(x.inline_link_clicks) || 0,
           ctr: Number(x.ctr) || 0,
           cpc: Number(x.cpc) || 0,
           /* Meta lists the same conversion twice: 'lead' is the total across
@@ -7189,7 +7262,7 @@ export default {
       for (const x of rows) {
         const k = x.campaign_id;
         by[k] = by[k] || { campaign_id: k, campaign: x.campaign, spend: 0, impressions: 0, clicks: 0, leads: 0, purchases: 0, days: 0 };
-        by[k].spend += x.spend; by[k].impressions += x.impressions; by[k].clicks += x.clicks;
+        by[k].spend += x.spend; by[k].impressions += x.impressions; by[k].clicks += x.clicks; by[k].link_clicks = (by[k].link_clicks || 0) + x.link_clicks;
         by[k].leads += x.leads; by[k].purchases += x.purchases; by[k].days++;
       }
       const totals = Object.values(by).map(t => ({
@@ -7324,6 +7397,32 @@ export default {
     }
     if (url.pathname === '/api/send-date' && request.method === 'POST') {
       return handleSendDate(request, env, origin);
+    }
+    /* delete ads by explicit id only — Richard, 09/09: "remove the old ones
+       we never launched". Irreversible on Meta's side, so the caller names
+       each id and the route refuses anything that ever spent money. */
+    if (url.pathname === '/api/ads-delete' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const ids = Array.isArray(b.ids) ? b.ids.map(String).filter(x => /^\d{6,}$/.test(x)).slice(0, 20) : [];
+      const done = [];
+      for (const id of ids) {
+        const ins = await metaAds(env, `/${id}/insights?fields=spend`);
+        const spend = Number((((ins || {}).data || {}).data || [])[0]?.spend || 0);
+        if (spend > 0) { done.push({ id, skipped: 'spent ' + spend }); continue; }
+        const r = await metaAds(env, `/${id}`, 'POST', { status: 'DELETED' });
+        done.push({ id, ok: !!(r && r.ok), res: r && r.data });
+      }
+      await logEvent(env, { area: 'מודעות', action: `נמחקו ${done.filter(d => d.ok).length} מודעות שמעולם לא רצו`, ok: true, detail: done.map(d => d.id + ':' + (d.ok ? 'ok' : (d.skipped || 'fail'))).join(' ') }).catch(() => {});
+      return okJson({ ok: true, done }, origin);
+    }
+    if (url.pathname === '/api/ads-health' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (b.alert) { await adsHealthAlert(env); }
+      return okJson(await adsHealth(env), origin);
     }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);

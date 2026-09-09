@@ -1307,6 +1307,8 @@
 
   function renderFunnel(f, last7) {
     var visitors = last7.reduce(function (a, r) { return a + (r.visitors || 0); }, 0);
+    var popup = last7.reduce(function (a, r) { return a + (r.popup || 0); }, 0);
+    var lead = last7.reduce(function (a, r) { return a + (r.lead || 0); }, 0);
     var pay = last7.reduce(function (a, r) { return a + (r.pay || 0); }, 0);
     var buy = last7.reduce(function (a, r) { return a + (r.purchase || 0); }, 0);
     var box = $('funnel');
@@ -1315,6 +1317,8 @@
 
     var steps = [
       { name: 'נכנסו לאתר', n: visitors },
+      { name: 'פתחו את הטופס', n: popup },
+      { name: 'השאירו טלפון', n: lead },
       { name: 'הגיעו לעמוד תשלום', n: pay },
       { name: 'שילמו', n: buy }
     ];

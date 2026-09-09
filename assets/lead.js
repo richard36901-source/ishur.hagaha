@@ -173,6 +173,8 @@ window.IshurLead = (function () {
 
   function popupOpen(where) {
     newSession();
+    /* funnel step 2: the form opened (first-party counter, see tracking.js) */
+    try { if (window.IshurTrack && IshurTrack.beacon) IshurTrack.beacon('popup'); } catch (e) {}
     if (window.IshurTrack) {
       IshurTrack.conversion({
         key: 'vc_' + getSession(),
@@ -188,6 +190,8 @@ window.IshurLead = (function () {
     if (partialSent) return false;
     if (!isValidPhone(f && f.phone)) return false;
     partialSent = true;
+    /* funnel step 3: a real phone number is in the form */
+    try { if (window.IshurTrack && IshurTrack.beacon) IshurTrack.beacon('lead'); } catch (e) {}
     var p = build('lead_partial', f);
     if (window.IshurTrack) {
       p.event_id = IshurTrack.eventId('lead_' + p.session_id);
