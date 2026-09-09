@@ -92,12 +92,20 @@ export async function recordHit(env, { vid, path, src, kind }) {
     await env.RATE.put('t:v:' + vid, day, { expirationTtl: VID_TTL }).catch(() => {});
   }
 
+  /* Funnel steps are one key per visitor per day, written blind. The day
+     record below is read-modify-write, and two beacons inside a second
+     (the form opening, then autofill putting a phone in it 800ms later)
+     raced on it: the second write carried a stale copy and the first step
+     vanished (09/09, seen on the first real click). A put has no race,
+     and one key per visitor also makes the number mean people, not taps. */
+  if (kind === 'pay' || kind === 'popup' || kind === 'lead') {
+    await env.RATE.put(`t:e:${day}:${kind}:${vid}`, '1', { expirationTtl: DAY_TTL }).catch(() => {});
+    return { ok: true };
+  }
+
   /* the day */
   const d = Object.assign(emptyDay(), await readJson(env, 't:d:' + day, null) || {});
-  if (kind === 'pay') d.pay++;
-  else if (kind === 'popup') d.popup++;
-  else if (kind === 'lead') d.lead++;
-  else {
+  {
     d.views++;
     d.pages[p] = (d.pages[p] || 0) + 1;
     if (!d.seen[vid]) {
@@ -111,7 +119,7 @@ export async function recordHit(env, { vid, path, src, kind }) {
 
   /* all time */
   const all = await readJson(env, 't:all', { views: 0, visitors: 0, since: day });
-  if (kind !== 'pay' && kind !== 'popup' && kind !== 'lead') {
+  {
     all.views++;
     if (!seenBefore) all.visitors++;
     if (!all.since) all.since = day;
@@ -146,15 +154,23 @@ export async function trafficReport(env, days = 14) {
   for (let i = n - 1; i >= 0; i--) {
     const day = ilDay(new Date(Date.now() - i * 86400e3));
     const d = await readJson(env, 't:d:' + day, null);
+    const stepCount = async (kind) => {
+      if (!env.RATE || !env.RATE.list) return 0;
+      const page = await env.RATE.list({ prefix: `t:e:${day}:${kind}:`, limit: 1000 }).catch(() => null);
+      return page ? page.keys.length : 0;
+    };
+    const [popupN, leadN, payN] = await Promise.all([stepCount('popup'), stepCount('lead'), stepCount('pay')]);
     rows.push({
       date: day,
       views: d ? d.views || 0 : 0,
       visitors: d ? d.visitors || 0 : 0,
       fresh: d ? d.fresh || 0 : 0,
       returning: d ? d.returning || 0 : 0,
-      popup: d ? d.popup || 0 : 0,
-      lead: d ? d.lead || 0 : 0,
-      pay: d ? d.pay || 0 : 0,
+      /* the per-visitor keys, plus whatever the old day record still holds
+         from before 09/09 (pay was counted there until then) */
+      popup: popupN + (d ? d.popup || 0 : 0),
+      lead: leadN + (d ? d.lead || 0 : 0),
+      pay: payN + (d ? d.pay || 0 : 0),
       purchase: d ? d.purchase || 0 : 0,
       pages: d ? d.pages || {} : {},
       src: d ? d.src || {} : {},
