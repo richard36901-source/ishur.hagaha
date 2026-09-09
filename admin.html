@@ -473,47 +473,6 @@
     <h1 style="margin:0 0 .2rem">מוקד שיחות</h1>
     <p style="margin:0 0 1rem;color:var(--ink3);font-size:.78rem">שיר לאורחים, נועה ללידים וללקוחות. <a href="calls.html" style="color:var(--gold)">התור הידני של שיר →</a></p>
   </div>
-  <section class="ctl" id="ctl">
-    <h2>שליטה</h2>
-
-    <div class="ctl-tiles">
-      <div class="cst" id="cs-send-t"><b id="cs-send">טוען…</b><span>שליחות</span></div>
-      <div class="cst" id="cs-noa-t"><b id="cs-noa">טוען…</b><span>נועה · מענה AI</span></div>
-      <div class="cst" id="cs-hold-t"><b id="cs-hold">…</b><span>אירועים מוקפאים</span></div>
-    </div>
-
-    <div class="ctl-row">
-      <div class="ctl-top">
-        <div>
-          <div class="ctl-label">שליחות פעילות</div>
-          <div class="ctl-note" id="pauseNote">בודקים את המצב מול השרת…</div>
-        </div>
-        <span class="sw-wrap"><span class="sw-state" id="pauseState">טוען…</span>
-        <button type="button" id="pauseTog" class="sw" role="switch" aria-checked="false" aria-label="שליחות פעילות" disabled><i></i></button></span>
-      </div>
-      <p class="ctl-alarm" id="pauseAlarm" hidden>כל השליחות מושהות: המנוע היומי, ההודעות ושיחות שיר</p>
-    </div>
-
-    <div class="ctl-row">
-      <div class="ctl-label">הוצאת מספר משליחה</div>
-      <div class="ctl-note">בדקו קודם מה המצב של המספר, ואז הוציאו אותו משליחה או החזירו אותו.</div>
-      <div class="ctl-line">
-        <input type="tel" id="phIn" dir="ltr" inputmode="tel" autocomplete="off" placeholder="0500000000" aria-label="מספר טלפון">
-        <button type="button" class="btn" id="phCheck">בדיקה</button>
-        <button type="button" class="btn btn-danger" id="phBlock" hidden>הוצאה משליחה</button>
-        <button type="button" class="btn btn-ok" id="phRelease" hidden>החזרה לשליחה</button>
-      </div>
-      <div class="ctl-res" id="phRes"></div>
-    </div>
-
-    <div class="ctl-row">
-      <div class="ctl-label">הקפאת אירוע</div>
-      <div class="ctl-note">בטבלת האירועים שלמטה יש עמודת "הקפאה". אירוע מוקפא לא מקבל אף שליחה, כולל תזכורות, עד שמשחררים אותו. שאר האירועים ממשיכים כרגיל.</div>
-    </div>
-
-    <p class="ctl-flash" id="ctlFlash" hidden></p>
-  </section>
-
   <div class="kpis">
     <div class="kpi money"><b id="k-rev">–</b><span>הכנסות ₪</span></div>
     <div class="kpi"><b id="k-leads">–</b><span>לידים</span></div>
@@ -815,6 +774,49 @@
   </div>
 
   <p class="foot"><a href="inbox.html">→ לאינבוקס</a> · <a href="calls.html">→ למוקד השיחות</a> · <a href="ad-report.html">→ לדוח הקמפיין</a> · הנתונים נקראים ישירות מהגיליון</p>
+  <!-- Richard, 09/09: the switches live at the bottom. Opening the board
+       should show what happened, not what can be toggled. -->
+  <section class="ctl" id="ctl">
+    <h2>שליטה</h2>
+
+    <div class="ctl-tiles">
+      <div class="cst" id="cs-send-t"><b id="cs-send">טוען…</b><span>שליחות</span></div>
+      <div class="cst" id="cs-noa-t"><b id="cs-noa">טוען…</b><span>נועה · מענה AI</span></div>
+      <div class="cst" id="cs-hold-t"><b id="cs-hold">…</b><span>אירועים מוקפאים</span></div>
+    </div>
+
+    <div class="ctl-row">
+      <div class="ctl-top">
+        <div>
+          <div class="ctl-label">שליחות פעילות</div>
+          <div class="ctl-note" id="pauseNote">בודקים את המצב מול השרת…</div>
+        </div>
+        <span class="sw-wrap"><span class="sw-state" id="pauseState">טוען…</span>
+        <button type="button" id="pauseTog" class="sw" role="switch" aria-checked="false" aria-label="שליחות פעילות" disabled><i></i></button></span>
+      </div>
+      <p class="ctl-alarm" id="pauseAlarm" hidden>כל השליחות מושהות: המנוע היומי, ההודעות ושיחות שיר</p>
+    </div>
+
+    <div class="ctl-row">
+      <div class="ctl-label">הוצאת מספר משליחה</div>
+      <div class="ctl-note">בדקו קודם מה המצב של המספר, ואז הוציאו אותו משליחה או החזירו אותו.</div>
+      <div class="ctl-line">
+        <input type="tel" id="phIn" dir="ltr" inputmode="tel" autocomplete="off" placeholder="0500000000" aria-label="מספר טלפון">
+        <button type="button" class="btn" id="phCheck">בדיקה</button>
+        <button type="button" class="btn btn-danger" id="phBlock" hidden>הוצאה משליחה</button>
+        <button type="button" class="btn btn-ok" id="phRelease" hidden>החזרה לשליחה</button>
+      </div>
+      <div class="ctl-res" id="phRes"></div>
+    </div>
+
+    <div class="ctl-row">
+      <div class="ctl-label">הקפאת אירוע</div>
+      <div class="ctl-note">בטבלת האירועים שלמטה יש עמודת "הקפאה". אירוע מוקפא לא מקבל אף שליחה, כולל תזכורות, עד שמשחררים אותו. שאר האירועים ממשיכים כרגיל.</div>
+    </div>
+
+    <p class="ctl-flash" id="ctlFlash" hidden></p>
+  </section>
+
 </main>
 
 <div class="dlg-bg" id="dlgBg" hidden>
