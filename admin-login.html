@@ -102,8 +102,24 @@
     }).then(function (r) { return r.json(); }).then(function (d) {
       if (d && d.ok && d.token) {
         try { localStorage.setItem('ishur_calls_key', d.token); } catch (e) {}
-        msg('נכנסתם! מעביר למרכז הבקרה…', 'ok');
-        setTimeout(function () { location.href = 'admin.html'; }, 700);
+        try { document.cookie = 'ishur_sess=' + encodeURIComponent(d.token) + '; Max-Age=31536000; Path=/; SameSite=Lax; Secure'; } catch (e) {}
+        /* Richard, 10/09: "it says correct, then the board shows the gate".
+           The session is written on one Cloudflare server and the board's
+           first request can land on another that has not seen it yet. So
+           we do not leave until the session actually answers, up to a
+           minute, instead of letting the board give up on the first 403. */
+        msg('נכנסתם! מאמת את הכניסה…', 'ok');
+        var tries = 0;
+        (function confirm() {
+          fetch(API + '/api/status', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ admin_key: d.token, admin: 'biz' })
+          }).then(function (r) {
+            if (r.status === 200) { location.href = 'admin.html'; return; }
+            if (++tries < 20) setTimeout(confirm, 3000);
+            else { $('go').disabled = false; msg('הכניסה אושרה אבל השרת עוד לא רואה אותה. נסו שוב בעוד דקה.', 'err'); }
+          }).catch(function () { if (++tries < 20) setTimeout(confirm, 3000); });
+        })();
       } else {
         $('go').disabled = false;
         msg('הקוד לא נכון או שפג תוקפו', 'err');

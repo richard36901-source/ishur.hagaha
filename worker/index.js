@@ -1482,11 +1482,28 @@ async function resolveAdminSession(request, env) {
   let body;
   try { body = JSON.parse(text); } catch { return request; }
   const tok = String(body.admin_key || '');
-  if (!/^sess\.[0-9a-f]{48}$/.test(tok) || !env.RATE || !env.ADMIN_KEY) return request;
-  const hit = await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null);
-  if (!hit) return request;
+  if (!env.ADMIN_KEY) return request;
+  let valid = false;
+  const signed = tok.match(/^sess\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
+  if (signed) {
+    /* signed session: verify locally, then honour a revocation if one exists */
+    valid = safeEqual(signed[2], await sessionSig(env, signed[1]));
+    if (valid && env.RATE && await env.RATE.get('adminrev:' + signed[1]).catch(() => null)) valid = false;
+  } else if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) {
+    /* sessions minted before 10/09 — KV only */
+    valid = !!(await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null));
+  }
+  if (!valid) return request;
   body.admin_key = env.ADMIN_KEY;
   return new Request(request, { body: JSON.stringify(body) });
+}
+
+/* HMAC-SHA256(ADMIN_KEY, 'sess:' + nonce), first 32 hex chars */
+async function sessionSig(env, nonce) {
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.ADMIN_KEY || '')),
+    { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('sess:' + nonce));
+  return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
 }
 
 async function handleAdminOtp(request, env, origin) {
@@ -1538,12 +1555,20 @@ async function handleAdminLogin(request, env, origin) {
     return deny(403, 'bad-login', origin);
   }
   await env.RATE.delete('adminotp:' + phone).catch(() => {});
-  const raw = crypto.getRandomValues(new Uint8Array(24));
-  const tok = [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
-  await env.RATE.put('adminsess:' + tok, JSON.stringify({ phone, at: new Date().toISOString() }),
-    { expirationTtl: 365 * 86400 });
+  /* Richard, 10/09: "I get the code, it says correct, then the board shows
+     the gate". The session used to live only in KV, and the board's first
+     request often lands on a Cloudflare server that has not seen the write
+     yet (KV is eventually consistent, up to a minute), so it got a 403 and
+     the page threw the key away. The token now carries its own signature:
+     any server can verify it with ADMIN_KEY and no lookup. KV keeps a row
+     per session for listing and revocation only. */
+  const raw = crypto.getRandomValues(new Uint8Array(16));
+  const nonce = [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
+  const sig = await sessionSig(env, nonce);
+  await env.RATE.put('adminsess:' + nonce, JSON.stringify({ phone, at: new Date().toISOString() }),
+    { expirationTtl: 365 * 86400 }).catch(() => {});
   await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`).catch(() => {});
-  return okJson({ ok: true, token: 'sess.' + tok }, origin);
+  return okJson({ ok: true, token: 'sess.' + nonce + '.' + sig }, origin);
 }
 
 async function handleShirWebhook(request, env) {

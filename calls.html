@@ -235,7 +235,7 @@
 
   function load() {
     api('status', {}).then(function (r) {
-      if (r.status === 403) { localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(load, 2500); return null; } localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
       return r.json();
     }).then(function (j) {
       if (!j) return;

@@ -186,7 +186,7 @@
     return fetch(API + '/api/ad-reports', {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body)
     }).then(function (r) {
-      if (r.status === 403) { try { localStorage.removeItem('ishur_calls_key'); } catch (e) {} gate('המפתח לא נכון'); throw new Error('403'); }
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); throw new Error('403-retry'); } try { localStorage.removeItem('ishur_calls_key'); } catch (e) {} gate('המפתח לא נכון'); throw new Error('403'); }
       return r.json();
     });
   }

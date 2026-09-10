@@ -1139,7 +1139,7 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
     }).then(function (r) {
-      if (r.status === 403) { localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { load(); }, 2500); return null; } localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
       return r.json();
     }).then(function (d) {
       if (!d) return;
