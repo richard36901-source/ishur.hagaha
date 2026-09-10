@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=47"></script>
+<script src="config.js?v=48"></script>
 <script src="assets/tracking.js?v=20"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=22"></script>
@@ -537,8 +537,24 @@
   </p>
 
   <!-- numbers -->
+  <!-- Richard, 10/09: the client must always see what will go out with the
+       invitation, and may swap it until 48h before the first send -->
+  <section class="card" id="mediaCard">
+    <div class="card-h">ההזמנה שלכם</div>
+    <div class="card-b" style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
+      <div id="mediaPrev" style="width:120px;height:120px;border-radius:12px;background:var(--bg2,#f2f2ee);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0"></div>
+      <div style="flex:1;min-width:200px">
+        <p id="mediaTxt" style="margin:0 0 .4rem"></p>
+        <p id="mediaNote" style="margin:0 0 .6rem;font-size:.8rem;color:var(--ink3)"></p>
+        <input type="file" id="mediaFile" accept="image/jpeg,image/png,image/webp,video/mp4" hidden>
+        <button type="button" class="btn" id="mediaBtn" hidden>החלפת התמונה / הווידאו</button>
+        <span id="mediaMsg" style="font-size:.8rem;margin-inline-start:.5rem"></span>
+      </div>
+    </div>
+  </section>
+
   <section class="card">
-    <div class="card-h">התמונה הנוכחית</div>
+    <div class="card-h">המצב</div>
     <div class="kpis" id="kpis"></div>
     <div class="prog" id="prog" hidden>
       <div class="prog-h"><span>אחוז מענה</span><span id="progTxt"></span></div>
@@ -810,7 +826,57 @@
 
   /* ── render ── */
 
+  function renderMedia() {
+    var m = (data && data.media) || null, card = $('mediaCard');
+    if (!card) return;
+    if (!m) { card.hidden = true; return; }
+    card.hidden = false;
+    var prev = $('mediaPrev'), txt = $('mediaTxt'), note = $('mediaNote'), btn = $('mediaBtn');
+    if (m.video_url) {
+      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:100%;object-fit:cover" muted playsinline controls></video>';
+      txt.innerHTML = '<b>מצורף וידאו</b> להזמנה. ההזמנה תישלח עם הווידאו.';
+    } else if (m.image_url) {
+      prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover">';
+      txt.innerHTML = '<b>מצורפת תמונה</b> להזמנה. כך היא תיראה אצל המוזמנים.';
+    } else {
+      prev.innerHTML = '<span style="font-size:2rem">🖼️</span>';
+      txt.innerHTML = '<b>אין תמונה או וידאו</b> להזמנה. ההזמנה תישלח כטקסט בלבד.';
+    }
+    var first = m.first_send ? new Date(m.first_send + 'T09:00:00+03:00') : null;
+    if (m.editable) {
+      btn.hidden = false;
+      note.textContent = first ? 'אפשר להחליף עד 48 שעות לפני השליחה הראשונה (' + first.toLocaleDateString('he-IL') + ').' : 'אפשר להחליף עד 48 שעות לפני השליחה הראשונה.';
+    } else {
+      btn.hidden = true;
+      note.textContent = first && first.getTime() > Date.now() ? 'נעול: פחות מ-48 שעות לשליחה הראשונה. לשינוי כתבו לנו.' : 'ההזמנות כבר יצאו, אי אפשר להחליף.';
+    }
+  }
+  (function () {
+    var btn = $('mediaBtn'), inp = $('mediaFile');
+    if (!btn || !inp) return;
+    btn.addEventListener('click', function () { inp.click(); });
+    inp.addEventListener('change', function () {
+      var f = inp.files[0]; if (!f) return;
+      var isVideo = /mp4/i.test(f.type + f.name);
+      if (isVideo && f.size > 16 * 1024 * 1024) { $('mediaMsg').textContent = 'וידאו עד 16MB'; return; }
+      if (!isVideo && f.size > 4 * 1024 * 1024) { $('mediaMsg').textContent = 'תמונה עד 4MB'; return; }
+      var fd = new FormData(); fd.append('token', token); fd.append(isVideo ? 'video' : 'image', f, f.name);
+      btn.disabled = true; $('mediaMsg').textContent = 'מעלים…';
+      fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); }).then(function (x) {
+        btn.disabled = false; inp.value = '';
+        if (x.j && x.j.ok) {
+          data.media = Object.assign(data.media || {}, x.j.video_url ? { video_url: x.j.video_url, image_url: '' } : { image_url: x.j.image_url, video_url: '' });
+          $('mediaMsg').textContent = 'הוחלף ✓'; renderMedia();
+        } else {
+          var why = (x.j && x.j.error) || '';
+          $('mediaMsg').textContent = why === 'too-late' ? 'פחות מ-48 שעות לשליחה, כתבו לנו' : why === 'already-sent' ? 'ההזמנות כבר יצאו' : 'לא הצליח, נסו שוב';
+        }
+      }).catch(function () { btn.disabled = false; $('mediaMsg').textContent = 'לא הצליח, נסו שוב'; });
+    });
+  })();
+
   function render() {
+    renderMedia();
     normalize(data);
     var ev = data.event || {};
     var t = data.totals || {};

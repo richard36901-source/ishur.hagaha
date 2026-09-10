@@ -7733,6 +7733,42 @@ export default {
       }
       return okJson({ ok: true, flags: out }, origin);
     }
+    /* swap the invitation image/video from the client dashboard (token auth) */
+    if (url.pathname === '/api/media' && request.method === 'POST') {
+      let form;
+      try { form = await request.formData(); } catch { return deny(400, 'bad-form', origin); }
+      const token = String(form.get('token') || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(token) || !env.RATE) return deny(400, 'bad-token', origin);
+      if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+      if (await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+      const rows = (raw && raw.events && raw.events.values) || [];
+      const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
+      if (idx < 0) return deny(404, 'unknown-token', origin);
+      const first = String((rows[idx] || [])[39] || '').trim().slice(0, 10);
+      if (first && Date.parse(first + 'T09:00:00+03:00') - Date.now() < 48 * 3600e3) return deny(409, 'too-late', origin);
+      const image = form.get('image'), video = form.get('video');
+      const out = {};
+      if (image && typeof image === 'object' && image.arrayBuffer) {
+        if (image.size > MAX_IMAGE_BYTES) return deny(413, 'image-too-large', origin);
+        const buf = await image.arrayBuffer();
+        const mime = sniffImage(new Uint8Array(buf.slice(0, 16)));
+        if (!mime) return deny(422, 'bad-image', origin);
+        await env.RATE.put('img:' + token, buf, { expirationTtl: TOKEN_TTL, metadata: { mime } });
+        out.image_url = 'https://' + url.hostname + '/img/' + token + '?v=' + Date.now().toString(36);
+        await sheetBatchWrite(env, [{ range: `אירועים!AS${idx + 2}`, values: [[out.image_url]] }]);
+        await env.RATE.delete('vid:' + token).catch(() => {}); await env.RATE.delete('vidok:' + token).catch(() => {});
+      } else if (video && typeof video === 'object' && video.arrayBuffer) {
+        if (video.size > 16 * 1024 * 1024) return deny(413, 'video-too-large', origin);
+        const vbuf = await video.arrayBuffer();
+        if (String.fromCharCode(...new Uint8Array(vbuf.slice(4, 8))) !== 'ftyp') return deny(422, 'bad-video', origin);
+        await env.RATE.put('vid:' + token, vbuf, { expirationTtl: TOKEN_TTL, metadata: { mime: 'video/mp4' } });
+        await env.RATE.put('vidok:' + token, '1', { expirationTtl: TOKEN_TTL });
+        out.video_url = 'https://' + url.hostname + '/vid/' + token;
+      } else return deny(400, 'no-file', origin);
+      await logEvent(env, { area: 'העלאה', action: out.video_url ? 'הלקוח החליף את ההזמנה לווידאו' : 'הלקוח החליף את תמונת ההזמנה', ok: true, token }).catch(() => {});
+      return okJson({ ok: true, ...out }, origin);
+    }
     if (url.pathname === '/api/human' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -7848,6 +7884,18 @@ export default {
         }
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* Richard, 10/09: the client must always see whether an invitation
+         image/video is attached, and may swap it until 48h before the
+         first send. Locked once wave 1 went out. */
+      try {
+        const evRow = ((raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === token) || [];
+        const imgUrl = String(evRow[44] || '').trim();
+        const hasVid = env.RATE ? !!(await env.RATE.get('vidok:' + token)) : false;
+        const first = String(evRow[39] || '').trim().slice(0, 10);
+        const firstMs = first ? Date.parse(first + 'T09:00:00+03:00') : NaN;
+        const editable = !sentWaves[1] && (isNaN(firstMs) || firstMs - Date.now() >= 48 * 3600e3);
+        snapshot.media = { image_url: imgUrl, video_url: hasVid ? 'https://' + url.hostname + '/vid/' + token : '', first_send: first, editable };
+      } catch {}
       if (!snapshot) return deny(404, 'event-not-found', origin);
       /* after the event: surface the review + testimonial links permanently */
       const evDate = String(snapshot.event.event_date || '').slice(0, 10);
