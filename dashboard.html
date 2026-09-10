@@ -416,7 +416,7 @@
     display:flex;align-items:center;gap:.7rem;padding:.5rem 1rem .4rem;margin-top:.4rem;
     font-size:.66rem;letter-spacing:.08em;color:var(--ink3);border-bottom:1px solid var(--bdr);
   }
-  .rows-h .a{flex:1}.rows-h .b{width:92px;text-align:center}.rows-h .c{width:3rem;text-align:center}
+  .rows-h .a{flex:1}.rows-h .b{width:92px;text-align:center}.rows-h .c{width:3rem;text-align:center}.rows-h .d{width:4.4rem;text-align:center}
   .pill{min-width:92px;text-align:center}
   .row-s{width:3rem;min-width:0}
 
@@ -556,7 +556,7 @@
       <button type="button" id="seatSave">שמירת שיבוץ שולחנות</button>
       <span id="seatMsg">מי שאישרו הגעה יקבלו ביום האירוע הודעה עם מספר השולחן</span>
     </div>
-    <div class="rows-h"><span class="a">רשומה</span><span class="b">סטטוס</span><span class="c">מוזמנים</span></div>
+    <div class="rows-h"><span class="a">רשומה</span><span class="b">סטטוס</span><span class="c">מוזמנים</span><span class="d" id="rowsHTbl" hidden>שולחן</span></div>
     <div class="rows" id="rows"></div>
   </section>
 
@@ -994,6 +994,11 @@
       return;
     }
     var over = eventIsOver();
+    /* Richard, 10/09: the columns drifted off the header. The table box (or
+       its spacer) is a 4th cell the 3-column header never had; it exists
+       only once somebody confirmed, and then the header grows with it. */
+    var anyConfirmedNow = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
+    if ($('rowsHTbl')) $('rowsHTbl').hidden = !anyConfirmedNow;
     $('rows').innerHTML = list.map(function (g) {
       var st = STATUS[g.status] || STATUS.pending;
       /* confirmed guests get a table box; the rest keep the layout aligned */
@@ -1001,9 +1006,9 @@
       var tbl = g.status === 'confirmed' && g.id
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
-        : '<span class="tbl-sp"></span>';
+        : (anyConfirmedNow ? '<span class="tbl-sp"></span>' : '');
       return '<div class="row">' +
-             '<span class="row-n">' + g.name + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+             '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
