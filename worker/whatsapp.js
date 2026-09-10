@@ -431,6 +431,18 @@ export function extractInbound(payload) {
           profileName: names[from] || '',
         });
       }
+      /* Coexistence: a message Richard types in the WhatsApp Business app on
+         the same number comes back here as an echo (field smb_message_echoes).
+         It is not inbound — it is a human taking the conversation. */
+      if (ch.field === 'smb_message_echoes') {
+        for (const m of v.message_echoes || []) {
+          out.push({
+            echo: true, from: String(m.from || ''), to: String(m.to || ''), msg: m,
+            phoneId: String((v.metadata && v.metadata.phone_number_id) || ''),
+            profileName: '',
+          });
+        }
+      }
     }
   }
   return out;
