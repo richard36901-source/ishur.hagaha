@@ -1078,7 +1078,8 @@ async function deleteGuestRows(env, token) {
     gid = String(found.properties.sheetId);
     if (env.RATE) await env.RATE.put('sheetid:guests', gid).catch(() => {});
   }
-  const vals = await evProxy(env, `spreadsheets/${SID}/values/${encodeURIComponent('אורחים!AC1:AC6000')}`);
+  /* the Make proxy takes Hebrew ranges raw — encoding them returns nothing */
+  const vals = await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC6000`);
   const col = (vals && vals.values) || [];
   const rows = [];
   col.forEach((r, i) => { if (String((r || [])[0] || '').trim() === token) rows.push(i); });
