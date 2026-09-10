@@ -1267,6 +1267,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     const head = new Uint8Array(vbuf.slice(4, 8));
     if (String.fromCharCode(...head) !== 'ftyp') return deny(422, 'bad-video', origin);
     await env.RATE.put('vid:' + token, vbuf, { expirationTtl: TOKEN_TTL, metadata: { mime: 'video/mp4' } });
+    await env.RATE.put('vidok:' + token, '1', { expirationTtl: TOKEN_TTL }).catch(() => {});
     out.video_url = 'https://' + url.hostname + '/vid/' + token;
   }
 
@@ -7681,6 +7682,56 @@ export default {
       if (del.ok && env.RATE) await env.RATE.delete('uploaded:' + tok).catch(() => {});
       await logEvent(env, { area: 'העלאה', action: `איפוס רשימת מוזמנים ע"י מנהל (${del.deleted || 0} שורות)`, ok: !!del.ok, token: tok, detail: del.why || '' }).catch(() => {});
       return okJson({ ok: !!del.ok, deleted: del.deleted || 0, why: del.why || '' }, origin);
+    }
+    /* Richard, 10/09: full control over a client from the admin — grant an
+       add-on for free, mark active/inactive. Same KV writes the paid path
+       makes, ref 'admin', no invoice. */
+    if (url.pathname === '/api/grant-addon' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !env.RATE) return deny(400, 'bad-token', origin);
+      const kind = String(b.kind || '');
+      if (kind === 'extrasend') {
+        await env.RATE.put('extrasend:' + tok, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+      } else if (kind === 'guests') {
+        const n = Math.min(Math.max(parseInt(b.n, 10) || 0, 1), 900);
+        let cur = { n: 0 }; try { cur = JSON.parse(await env.RATE.get('addon:' + tok)) || cur; } catch {}
+        let paid = null; try { paid = JSON.parse(await env.RATE.get('paid:' + tok)) || null; } catch {}
+        const before = paid ? Number(paid.tier) || 0 : 0, after = before + n;
+        await env.RATE.put('addon:' + tok, JSON.stringify({ n: (cur.n || 0) + n, ref: 'admin', at: new Date().toISOString(), before, after }), { expirationTtl: 200 * 86400 });
+        if (paid) { paid.tier = after; await env.RATE.put('paid:' + tok, JSON.stringify(paid), { expirationTtl: 400 * 86400 }); }
+        else await env.RATE.put('paid:' + tok, JSON.stringify({ tier: after, plan: '', planText: '', desc: 'תוספת מנהל' }), { expirationTtl: 400 * 86400 });
+      } else if (kind === 'calls') {
+        await env.RATE.put('callsaddon:' + tok, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+      } else return deny(400, 'bad-kind', origin);
+      await logEvent(env, { area: 'תשלום', action: `תוספת חינם ממנהל: ${kind}${b.n ? ' ×' + b.n : ''}`, ok: true, token: tok, detail: 'ריצ׳רד, מהעמוד לקוחות' }).catch(() => {});
+      return okJson({ ok: true, token: tok, kind }, origin);
+    }
+    if (url.pathname === '/api/client-active' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !env.RATE) return deny(400, 'bad-token', origin);
+      if (typeof b.active === 'boolean') {
+        if (b.active) await env.RATE.delete('inactive:' + tok); else await env.RATE.put('inactive:' + tok, new Date().toISOString());
+      }
+      return okJson({ ok: true, token: tok, active: !(await env.RATE.get('inactive:' + tok)) }, origin);
+    }
+    /* the flags the clients page shows next to each event, one call */
+    if (url.pathname === '/api/client-flags' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const toks = (Array.isArray(b.tokens) ? b.tokens : []).map(String).filter(t => /^[0-9a-f-]{36}$/.test(t)).slice(0, 200);
+      const out = {};
+      for (const t of toks) {
+        const [inactive, addon, extra, calls, wave, vid] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t].map(k => env.RATE.get(k).catch(() => null)));
+        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, video: !!vid };
+      }
+      return okJson({ ok: true, flags: out }, origin);
     }
     if (url.pathname === '/api/human' && request.method === 'POST') {
       let b = {};

@@ -1,0 +1,161 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>לקוחות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=47"></script>
+<script src="assets/adminbar.js?v=7" defer></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:1.4rem 1rem 4rem}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.6rem;margin:0 0 .2rem}
+  .sub{color:var(--ink3);font-size:.82rem;margin:0 0 1rem}
+  .bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem}
+  select,input[type=search]{font:inherit;padding:.45rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1rem;margin-bottom:.7rem}
+  .card.inactive{opacity:.55}
+  .top{display:flex;justify-content:space-between;gap:.8rem;flex-wrap:wrap;align-items:baseline}
+  .name{font-weight:700;font-size:1.05rem}
+  .meta{color:var(--ink2);font-size:.84rem}
+  .tags{display:flex;gap:.35rem;flex-wrap:wrap;margin:.45rem 0}
+  .tag{font-size:.72rem;padding:.1rem .5rem;border-radius:6px;background:var(--rail);color:var(--ink2)}
+  .tag.on{background:rgba(46,125,91,.13);color:var(--good)}
+  .tag.warn{background:rgba(168,64,47,.12);color:var(--warn)}
+  .acts{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem}
+  .btn{font:inherit;font-size:.82rem;padding:.4rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none}
+  .btn.p{background:var(--pine);color:#fff;border-color:var(--pine)}
+  .btn.g{border-color:var(--gold);color:var(--gold)}
+  .gate{max-width:340px;margin:4rem auto;text-align:center}
+  .gate input{width:100%;padding:.7rem;font:inherit;border:1px solid var(--line);border-radius:10px;text-align:center;direction:ltr;margin:.6rem 0}
+  .gate button{width:100%;padding:.7rem;font:inherit;border:none;border-radius:10px;background:var(--pine);color:#fff}
+  .empty{color:var(--ink3);text-align:center;padding:2rem}
+  .toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--pine);color:#fff;padding:.6rem 1rem;border-radius:10px;font-size:.85rem;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+  <p style="font-size:.75rem"><a href="admin-login.html" style="color:var(--gold)">או כניסה עם קוד</a></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <h1>לקוחות</h1>
+  <p class="sub">כל אירוע ששולם, החדש למעלה. מכאן נכנסים לדשבורד ולהעלאה של הלקוח, מחליפים רשימה, ונותנים תוספות בחינם.</p>
+  <div class="bar">
+    <select id="fActive"><option value="all">הכל</option><option value="active">פעילים</option><option value="inactive">לא פעילים</option></select>
+    <input type="search" id="q" placeholder="חיפוש: שם, טלפון, אירוע">
+    <span class="meta" id="count"></span>
+  </div>
+  <div id="list"></div>
+  <p class="empty" id="empty" hidden>אין אירועים.</p>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var adminKey = '';
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var events = [], flags = {};
+
+  function api(name, body) {
+    var payload = Object.assign({ admin_key: adminKey }, body || {});
+    return fetch(CFG.endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) });
+  }
+  function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(function () { el.classList.remove('on'); }, 1800); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function when(e) { var d = Date.parse(e.paid || ''); return isNaN(d) ? 0 : d; }
+  function heDate(iso) { var d = new Date(iso); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }); }
+
+  function load() {
+    api('status', { view: 'biz' }).then(function (r) {
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(load, 2500); return null; } localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
+      return r.json();
+    }).then(function (d) {
+      if (!d) return;
+      $('gate').hidden = true; $('main').hidden = false;
+      events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
+      return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
+    }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
+  }
+
+  function render() {
+    var f = $('fActive').value, q = ($('q').value || '').trim();
+    var rows = events.filter(function (e) {
+      var fl = flags[e.token] || { active: true };
+      if (f === 'active' && !fl.active) return false;
+      if (f === 'inactive' && fl.active) return false;
+      if (q && !((e.client || '') + ' ' + (e.name || '') + ' ' + (e.phone || '') + ' ' + (e.occasion || '')).includes(q)) return false;
+      return true;
+    });
+    $('count').textContent = rows.length + ' אירועים';
+    $('empty').hidden = !!rows.length;
+    $('list').innerHTML = rows.map(function (e) {
+      var fl = flags[e.token] || { active: true };
+      var t = e.token;
+      return '<div class="card' + (fl.active ? '' : ' inactive') + '" data-t="' + t + '">' +
+        '<div class="top"><span class="name">' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + '</span></span>' +
+        '<span class="meta">שולם ' + heDate(e.paid) + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + '</span></div>' +
+        '<div class="tags">' +
+          '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>' +
+          '<span class="tag ' + (e.file_uploaded ? 'on' : 'warn') + '">' + (e.file_uploaded ? 'רשימה הועלתה' : 'אין רשימה') + '</span>' +
+          (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : '<span class="tag">טרם נשלח</span>') +
+          (fl.video ? '<span class="tag on">וידאו</span>' : '') +
+          (fl.addon ? '<span class="tag">+' + fl.addon + ' מוזמנים</span>' : '') +
+          (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') +
+          (fl.calls ? '<span class="tag">סבב שיחות</span>' : '') +
+          (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
+        '</div>' +
+        '<div class="acts">' +
+          '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
+          '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
+          '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
+          '<button class="btn g" data-act="guests">+50 מוזמנים חינם</button>' +
+          '<button class="btn g" data-act="extrasend">שליחה נוספת חינם</button>' +
+          '<button class="btn g" data-act="calls">סבב שיחות חינם</button>' +
+          '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
+          '<span class="meta" dir="ltr">' + esc(e.phone || '') + '</span>' +
+        '</div></div>';
+    }).join('');
+  }
+
+  $('list').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-act]'); if (!b) return;
+    var t = b.closest('.card').dataset.t, act = b.dataset.act, fl = flags[t] || { active: true };
+    b.disabled = true;
+    var p;
+    if (act === 'reset') {
+      if (!confirm('למחוק את רשימת המוזמנים של האירוע כדי שהלקוח (או אתה) יעלה מחדש? אם ההזמנות כבר יצאו, זה ייחסם.')) { b.disabled = false; return; }
+      p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });
+    } else if (act === 'active') {
+      p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
+    } else {
+      var kind = act, n = act === 'guests' ? 50 : undefined;
+      if (!confirm('לתת ללקוח ' + b.textContent + '?')) { b.disabled = false; return; }
+      p = api('grant-addon', { token: t, kind: kind, n: n }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'ניתן' : 'לא הצליח'); return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); }); });
+    }
+    p.catch(function () { toast('שגיאה'); }).then(function () { b.disabled = false; });
+  });
+  $('fActive').addEventListener('change', render);
+  $('q').addEventListener('input', render);
+
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; localStorage.setItem('ishur_calls_key', adminKey); load(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  if (adminKey) load(); else gate();
+})();
+</script>
+</body>
+</html>
