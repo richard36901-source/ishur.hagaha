@@ -1257,6 +1257,18 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     await env.RATE.put('img:' + token, buf, { expirationTtl: TOKEN_TTL, metadata: { mime } });
     out.image_url = 'https://' + url.hostname + '/img/' + token;
   }
+  /* Richard, 10/09: a video invitation. Stored like the image (KV holds up
+     to 25MB), served at /vid/<token>. WhatsApp's video header takes MP4 up
+     to 16MB. The sender picks video over image when both exist (10.11). */
+  const video = form.get('video');
+  if (video && typeof video === 'object' && video.arrayBuffer) {
+    if (video.size > 16 * 1024 * 1024) return deny(413, 'video-too-large', origin);
+    const vbuf = await video.arrayBuffer();
+    const head = new Uint8Array(vbuf.slice(4, 8));
+    if (String.fromCharCode(...head) !== 'ftyp') return deny(422, 'bad-video', origin);
+    await env.RATE.put('vid:' + token, vbuf, { expirationTtl: TOKEN_TTL, metadata: { mime: 'video/mp4' } });
+    out.video_url = 'https://' + url.hostname + '/vid/' + token;
+  }
 
   const r = await fetch(target, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -1265,7 +1277,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
   if (out.host_roles) await writeHostRoles(env, token, out.host_roles);
   await slackSend(env, `⚙️ *הגדרות האירוע נשמרו* · אירוע ${token.slice(0, 8)}${out.title ? ' · ' + String(out.title).slice(0, 40) : ''}${out.event_date ? ' · ' + out.event_date : ''}${out.image_url ? ' · עם הזמנה' : ''}`, { urgent: true }).catch(() => {});
-  return okJson({ ok: true, image: !!out.image_url }, origin);
+  return okJson({ ok: true, image: !!out.image_url, video: !!out.video_url }, origin);
 }
 
 /* ── host roles → sheet ──────────────────────────────────────────────────────
@@ -7351,6 +7363,13 @@ export default {
     }
     if (url.pathname.startsWith('/img/') && request.method === 'GET') {
       return serveImage(env, url.pathname);
+    }
+    if (url.pathname.startsWith('/vid/') && request.method === 'GET') {
+      const tok = url.pathname.slice(5);
+      if (!env.RATE || !/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
+      const v = await env.RATE.get('vid:' + tok, { type: 'arrayBuffer' });
+      if (!v) return new Response('not-found', { status: 404 });
+      return new Response(v, { headers: { 'Content-Type': 'video/mp4', 'Cache-Control': 'public, max-age=3600', 'Accept-Ranges': 'bytes' } });
     }
     if (url.pathname === '/api/shir-webhook' && request.method === 'POST') {
       return handleShirWebhook(request, env);

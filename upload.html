@@ -497,8 +497,8 @@
         .imgchip button:hover{color:#A8402F}
       </style>
       <div class="frow full">
-        <label for="f-img">תמונה שתישלח עם ההזמנה <span class="fopt">לא חובה</span></label>
-        <input type="file" id="f-img" accept="image/jpeg,image/png,image/webp" hidden>
+        <label for="f-img">תמונה או וידאו שיישלחו עם ההזמנה <span class="fopt">לא חובה · JPG/PNG עד 4MB, MP4 עד 16MB</span></label>
+        <input type="file" id="f-img" accept="image/jpeg,image/png,image/webp,video/mp4" hidden>
         <button type="button" class="imgbtn" id="imgBtn">בחירת תמונה מהמכשיר</button>
         <div class="imgchip" id="imgChip" hidden>
           <img id="imgThumb" alt="תצוגה מקדימה של תמונת ההזמנה">
@@ -807,6 +807,8 @@
               'bad-file-type': 'סוג הקובץ לא נתמך — צריך Excel (xlsx/xls) או CSV.',
               'file-too-large': 'הקובץ גדול מדי (עד 8MB).',
               'bad-image': 'תמונת ההזמנה צריכה להיות JPG או PNG. אם שמרתם מקנבה, בחרו הורדה כ-JPG.',
+              'bad-video': 'הווידאו צריך להיות קובץ MP4.',
+              'video-too-large': 'הווידאו גדול מדי (עד 16MB).',
               'too-many-guests': 'יש יותר מ-2000 שורות — פצלו את הקובץ או כתבו לנו.',
               'guests-need-upload': 'רשימת המוזמנים נשלחת דרך הטופס הזה בלבד. רעננו את הדף ונסו שוב.',
             };
@@ -1359,14 +1361,19 @@
     var f = imgInput.files[0];
     if (!f) return;
     $('e-img').textContent = '';
-    if (!/^image\/(jpeg|png|webp)$/.test(f.type)) {
-      $('e-img').textContent = 'רק JPG, PNG או WebP.'; imgInput.value = ''; return;
+    /* Richard, 10/09: a video invitation too. WhatsApp takes MP4 up to 16MB. */
+    var isVideo = /^video\/mp4$/.test(f.type) || /\.mp4$/i.test(f.name);
+    if (!isVideo && !/^image\/(jpeg|png|webp)$/.test(f.type)) {
+      $('e-img').textContent = 'רק JPG, PNG, WebP או וידאו MP4.'; imgInput.value = ''; return;
     }
-    if (f.size > 4 * 1024 * 1024) {
+    if (!isVideo && f.size > 4 * 1024 * 1024) {
       $('e-img').textContent = 'התמונה גדולה מדי — עד 4MB.'; imgInput.value = ''; return;
     }
+    if (isVideo && f.size > 16 * 1024 * 1024) {
+      $('e-img').textContent = 'הווידאו גדול מדי — עד 16MB.'; imgInput.value = ''; return;
+    }
     imgFile = f;
-    $('imgThumb').src = URL.createObjectURL(f);
+    $('imgThumb').src = isVideo ? 'assets/video-chip.svg' : URL.createObjectURL(f);
     $('imgName').textContent = f.name;
     $('imgChip').hidden = false;
     $('imgBtn').hidden = true;
@@ -1462,7 +1469,7 @@
       var v = stamped[k];
       fd.append(k, (v && typeof v === 'object') ? JSON.stringify(v) : v);
     });
-    if (imgFile) fd.append('image', imgFile, imgFile.name);
+    if (imgFile) fd.append(/mp4/i.test(imgFile.type + imgFile.name) ? 'video' : 'image', imgFile, imgFile.name);
 
     fetch(endpoint, { method: 'POST', body: fd })
       .then(function (res) {
