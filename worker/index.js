@@ -2705,6 +2705,17 @@ async function computeServiceReply(env, from, text, who) {
   const t = String(text || '').trim();
   if (!t) return { reply: '', label: null, silent: true };
   const phone = normPhone(from);
+  /* Richard, 10/09: "stop responding to …5864, asap". A blocked phone gets
+     silence at the source — no classification, no fixed line, no pending
+     call-time state, no queued call — not a reply that the send layer then
+     refuses. */
+  if (await phoneBlocked(env, phone)) {
+    if (env.RATE) {
+      await env.RATE.delete('awaitcalltime:' + phone).catch(() => {});
+      await env.RATE.delete('lq:' + phone).catch(() => {});
+    }
+    return { reply: '', label: 'blocked', silent: true };
+  }
   let reply = '';
 
   /* Phase 4, mid-conversation state: Noa already asked "when works for you?"
