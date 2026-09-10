@@ -1064,6 +1064,31 @@ async function tierWithPromo(env, token, sheetTier) {
   } catch { return sheetTier; }
 }
 
+/* Remove every row of one event from אורחים (sheet rows, not KV). Reads the
+   tab straight from Sheets so the indices are exact, then deletes bottom-up
+   in one batchUpdate so nothing shifts under us. The tab's numeric id is
+   looked up once and cached. */
+async function deleteGuestRows(env, token) {
+  const SID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
+  let gid = env.RATE ? await env.RATE.get('sheetid:guests').catch(() => null) : null;
+  if (gid == null) {
+    const meta = await evProxy(env, `spreadsheets/${SID}`, { qk: 'fields', qv: 'sheets.properties' });
+    const found = ((meta && meta.sheets) || []).find(x => x.properties && x.properties.title === 'אורחים');
+    if (!found) return { ok: false, why: 'no-guests-tab' };
+    gid = String(found.properties.sheetId);
+    if (env.RATE) await env.RATE.put('sheetid:guests', gid).catch(() => {});
+  }
+  const vals = await evProxy(env, `spreadsheets/${SID}/values/${encodeURIComponent('אורחים!AC1:AC6000')}`);
+  const col = (vals && vals.values) || [];
+  const rows = [];
+  col.forEach((r, i) => { if (String((r || [])[0] || '').trim() === token) rows.push(i); });
+  if (!rows.length) return { ok: true, deleted: 0 };
+  const requests = rows.sort((a, b) => b - a).map(i => ({ deleteDimension: { range: { sheetId: Number(gid), dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }));
+  const r = await evProxy(env, `spreadsheets/${SID}:batchUpdate`, { method: 'POST', payload: { requests } });
+  if (!(r && r.replies)) return { ok: false, why: 'batchUpdate-failed' };
+  return { ok: true, deleted: rows.length };
+}
+
 /* Invitations, not people: one phone number is one invitation. */
 function countBillable(guests) {
   const seen = new Set();
@@ -1078,8 +1103,20 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
        Exception: a paid add-on (addon:<token>) opens ONE merge upload — new
        numbers are appended, numbers already on the list are skipped. */
     let addonRec = null; try { addonRec = JSON.parse(await env.RATE.get('addon:' + token)) || null; } catch {}
-    const merge = !!(await env.RATE.get('uploaded:' + token));
-    if (merge && !addonRec) return deny(409, 'already-uploaded', origin);
+    let merge = !!(await env.RATE.get('uploaded:' + token));
+    /* Richard, 10/09: "an option to resubmit the CSV if they made a mistake".
+       Allowed until the first wave has gone out — after that the numbers
+       already carry state (sent, answered, called) and only adding is safe.
+       replace=1 comes from the button the upload page shows on 409. */
+    const replace = String(form.get('replace') || '') === '1';
+    if (merge && !addonRec) {
+      if (!replace) return deny(409, 'already-uploaded', origin);
+      if (await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
+      const del = await deleteGuestRows(env, token);
+      if (!del.ok) { await alert(env, 'העלאה', 'החלפת רשימה נכשלה', token + ': ' + (del.why || '')); return deny(502, 'replace-failed', origin); }
+      await logEvent(env, { area: 'העלאה', action: `הלקוח החליף את רשימת המוזמנים (${del.deleted} שורות נמחקו)`, ok: true, token, phone: rec.phone || '' }).catch(() => {});
+      merge = false;
+    }
     if (file.size > MAX_FILE_BYTES) return deny(413, 'file-too-large', origin);
     if (!/\.(csv|xlsx|xls)$/i.test(file.name || '')) return deny(422, 'bad-file-type', origin);
 
@@ -7611,6 +7648,20 @@ export default {
       return handleRemindRun(request, env, origin);
     }
     /* hand a conversation back to Noa (or take it): {phone, human:true|false} */
+    /* wipe an event's guest list so the client can upload again (admin).
+       force:true ignores the "wave already sent" guard — support only. */
+    if (url.pathname === '/api/guests-reset' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{20,40}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (!b.force && env.RATE && await env.RATE.get('wave:' + tok + ':1')) return deny(409, 'already-sent', origin);
+      const del = await deleteGuestRows(env, tok);
+      if (del.ok && env.RATE) await env.RATE.delete('uploaded:' + tok).catch(() => {});
+      await logEvent(env, { area: 'העלאה', action: `איפוס רשימת מוזמנים ע"י מנהל (${del.deleted || 0} שורות)`, ok: !!del.ok, token: tok, detail: del.why || '' }).catch(() => {});
+      return okJson({ ok: !!del.ok, deleted: del.deleted || 0, why: del.why || '' }, origin);
+    }
     if (url.pathname === '/api/human' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

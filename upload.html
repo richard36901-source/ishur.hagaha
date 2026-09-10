@@ -599,6 +599,7 @@
     </span>
     <h2 id="errTitle">השליחה לא הצליחה</h2>
     <p id="errText">בדקו את החיבור ונסו שוב.</p>
+    <button type="button" class="btn" id="replaceBtn" hidden style="margin:.6rem 0 0">להחליף את הרשימה בקובץ הזה</button>
     <button class="retry" id="retryBtn">ניסיון נוסף</button>
   </section>
 
@@ -650,9 +651,20 @@
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
-  function fail(text, title) {
+  function fail(text, title, why) {
     $('errText').textContent = text;
     $('errTitle').textContent = title || 'השליחה לא הצליחה';
+    var rb = $('replaceBtn');
+    if (rb) {
+      rb.hidden = why !== 'already-uploaded';
+      rb.onclick = function () {
+        /* Richard, 10/09: they can fix a mistake themselves, until the first send */
+        if (!confirm('להחליף את הרשימה שהועלתה בקובץ הזה? הרשימה הקודמת תימחק.')) return;
+        replaceList = true;
+        show('formView');
+        sendFile(false);
+      };
+    }
     show('errView');
   }
 
@@ -754,6 +766,7 @@
     sendFile(false);
   });
 
+  var replaceList = false;   /* set by the 'replace the list' button on the 409 screen */
   /* the second click from the issues screen re-sends with confirm=1 */
   function sendFile(confirmAnyway) {
     var uploadUrl = CFG.endpoint('event');
@@ -763,6 +776,7 @@
     fd.append('source', location.href);
     fd.append('supports_preview', '1');
     if (confirmAnyway) fd.append('confirm', '1');
+    if (replaceList) fd.append('replace', '1');
     if (window.IshurGuard) {
       var st = IshurGuard.stamp({});
       Object.keys(st).forEach(function (k) { fd.append(k, st[k]); });
@@ -785,7 +799,9 @@
           return res.json()['catch'](function () { return {}; }).then(function (body) {
             var why = (body && (body.error || body.reason)) || '';
             var msgs = {
-              'already-uploaded': 'לאירוע הזה כבר הועלתה רשימה. להחלפת הקובץ — כתבו לנו בוואטסאפ ונסדר.',
+              'already-uploaded': 'לאירוע הזה כבר הועלתה רשימה.',
+              'already-sent': 'ההזמנות לרשימה הזאת כבר יצאו, אז אי אפשר להחליף אותה. אפשר להוסיף מוזמנים חדשים, כתבו לנו כאן מה צריך.',
+              'replace-failed': 'לא הצלחנו להחליף את הרשימה. נסו שוב בעוד רגע, ואם זה חוזר כתבו לנו.',
               'no-valid-guests': 'לא זיהינו שורות תקינות בקובץ. ודאו: עמודה A — שם, עמודה B — טלפון נייד (05X), בלי שורת כותרת חובה.',
               'unreadable-file': 'לא הצלחנו לקרוא את הקובץ. שמרו אותו מחדש כ-Excel (xlsx) או CSV ונסו שוב.',
               'bad-file-type': 'סוג הקובץ לא נתמך — צריך Excel (xlsx/xls) או CSV.',
@@ -801,7 +817,7 @@
               IshurLead.track('upload_error', { status: res.status, why: why });
               return;
             }
-            fail(msgs[why] || ('השרת החזיר שגיאה (' + res.status + '). נסו שוב בעוד רגע.'));
+            fail(msgs[why] || ('השרת החזיר שגיאה (' + res.status + '). נסו שוב בעוד רגע.'), null, why);
             IshurLead.track('upload_error', { status: res.status, why: why });
           });
         }
