@@ -259,7 +259,7 @@
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     }).then(function (r) {
-      if (r.status === 403) { gate('המפתח לא נכון'); return null; }
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); return null; } gate('המפתח לא נכון'); return null; }
       return r.status === 200 ? r.json() : null;
     }).catch(function () { return null; });
   }
