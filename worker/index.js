@@ -2369,8 +2369,22 @@ async function handleWaWebhook(request, env, url) {
       }
     }
   } catch {}
-  for (const { from, msg, phoneId, profileName } of extractInbound(payload)) {
+  for (const { from, msg, phoneId, profileName, echo, to } of extractInbound(payload)) {
     try {
+    /* Richard, 10/09: "if I start messaging from my phone on behalf of Noa,
+       she stops responding to that chat entirely". An echo is exactly that
+       signal. Only messages the worker did not send itself count: our own
+       sends are logged under their Meta id before the echo can arrive. */
+    if (echo) {
+      const peer = normPhone(to || '');
+      if (peer && env.RATE && !(msg.id && await env.RATE.get('wamid:' + msg.id).catch(() => null))) {
+        if (!await env.RATE.get('human:' + peer).catch(() => null)) {
+          await env.RATE.put('human:' + peer, JSON.stringify({ at: new Date().toISOString(), via: 'phone' }), { expirationTtl: 7 * 86400 }).catch(() => {});
+          await logEvent(env, { area: 'ווצאפ', action: 'ריצ׳רד ענה מהטלפון — נועה משתתקת בשיחה הזאת', ok: true, phone: peer, detail: 'שבוע, או עד "החזר לנועה"' }).catch(() => {});
+        }
+      }
+      continue;
+    }
     /* Meta retries a delivery until it gets a 200, and one slow reply is
        enough to earn a retry. Without this the guest is answered twice and
        the sheet is written twice. msg.id is Meta's stable per-message id. */
@@ -2715,6 +2729,17 @@ async function computeServiceReply(env, from, text, who) {
       await env.RATE.delete('lq:' + phone).catch(() => {});
     }
     return { reply: '', label: 'blocked', silent: true };
+  }
+  /* Richard, 10/09: the switch in מרכז שליטה only muted the model; the fixed
+     lines and the "we got your message" fallback kept going out. Off means
+     off: nothing automatic leaves on this channel. */
+  if (env.RATE && await env.RATE.get('noa:off').catch(() => null)) {
+    return { reply: '', label: 'noa_off', silent: true };
+  }
+  /* a human is in this conversation (typed from the phone app, or from the
+     inbox). Noa stays out until released. */
+  if (env.RATE && await env.RATE.get('human:' + phone).catch(() => null)) {
+    return { reply: '', label: 'human', silent: true };
   }
   let reply = '';
 
@@ -4877,6 +4902,12 @@ async function handleBrainToggle(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   if (typeof body.active === 'boolean') {
+    /* the KV flag is what actually silences her (computeServiceReply);
+       the sheet cell stays the human-readable record */
+    if (env.RATE) {
+      if (body.active) await env.RATE.delete('noa:off').catch(() => {});
+      else await env.RATE.put('noa:off', new Date().toISOString()).catch(() => {});
+    }
     const ok = await setBrainActive(env, body.active);
     if (!ok) return deny(502, 'sheet-write-failed', origin);
     /* KV delete is eventually consistent — answer from what we just wrote */
@@ -6709,6 +6740,10 @@ async function handleWaSend(request, env, origin) {
       break;
     }
     default:
+      /* a person typing in the inbox is a person taking the conversation */
+      if (env.RATE && String(body.channel || '') !== 'guests') {
+        await env.RATE.put('human:' + normPhone(to), JSON.stringify({ at: new Date().toISOString(), via: 'inbox' }), { expirationTtl: 7 * 86400 }).catch(() => {});
+      }
       res = await sendText(env, to, body.text || '');
   }
   return okJson(res, origin);
@@ -7501,6 +7536,19 @@ export default {
     }
     if (url.pathname === '/api/remind-run' && request.method === 'POST') {
       return handleRemindRun(request, env, origin);
+    }
+    /* hand a conversation back to Noa (or take it): {phone, human:true|false} */
+    if (url.pathname === '/api/human' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const p = normPhone(b.phone || '');
+      if (!p || !env.RATE) return deny(400, 'bad-phone', origin);
+      if (typeof b.human === 'boolean') {
+        if (b.human) await env.RATE.put('human:' + p, JSON.stringify({ at: new Date().toISOString(), via: 'admin' }), { expirationTtl: 7 * 86400 });
+        else await env.RATE.delete('human:' + p);
+      }
+      return okJson({ ok: true, phone: p, human: !!(await env.RATE.get('human:' + p)) }, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
