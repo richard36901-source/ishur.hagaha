@@ -7978,7 +7978,7 @@ export default {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sum: item.price, description: desc, token: tok, kind, scope, label: item.label, n: item.n,
-            name: String((await tokenRecord(env, tok) || {}).name || 'לקוח ishur'), phone: String((await tokenRecord(env, tok) || {}).phone || ''), email: String((await tokenRecord(env, tok) || {}).email || ''),
+            name: String((await tokenRecord(env, tok) || {}).name || 'לקוח ishur'), phone: String((await tokenRecord(env, tok) || {}).phone || ''), /* Grow's module refuses an empty email; the buyer can change it on the page */ email: String((await tokenRecord(env, tok) || {}).email || 'noreply@ishur.io'),
             successUrl: 'https://ishur.io/dashboard.html?t=' + tok + '&paid=' + kind,
             cancelUrl: 'https://ishur.io/dashboard.html?t=' + tok,
             cField1: tok, cField2: kind + ':' + scope,
