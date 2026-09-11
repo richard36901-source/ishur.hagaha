@@ -4642,16 +4642,24 @@ async function handleInbox(request, env, origin) {
     /* one thread, oldest first. Nothing expires any more, so an old customer
        coming back still finds everything that was ever said to them. */
     const names = (await kvKeys(env, 'log:' + phone + ':')).sort();
+    /* Richard, 11/09: "3-4 seconds from chat to chat". The reads were one
+       after the other; now they go out together. */
+    const [vals, waName, nrFlag, aiFlag, humanFlag] = await Promise.all([
+      Promise.all(names.slice(-400).map(n => env.RATE.get(n).catch(() => null))),
+      env.RATE ? env.RATE.get('waname:' + phone) : '',
+      env.RATE ? env.RATE.get('nr:' + phone) : null,
+      env.RATE ? env.RATE.get('aioff:' + phone) : null,
+      env.RATE ? env.RATE.get('human:' + phone) : null,
+    ]);
     const messages = [];
-    for (const n of names.slice(-400)) {
+    names.slice(-400).forEach((n, i) => {
       try {
-        const v = JSON.parse(await env.RATE.get(n));
+        const v = JSON.parse(vals[i]);
         if (v) messages.push({ ts: Number(n.split(':').pop()) || 0, ...v });
       } catch {}
-    }
-    const waName = env.RATE ? await env.RATE.get('waname:' + phone) : '';
-    const nonrelevant = !!(env.RATE && await env.RATE.get('nr:' + phone));
-    const aiOff = !!(env.RATE && ((await env.RATE.get('aioff:' + phone)) || (await env.RATE.get('human:' + phone))));
+    });
+    const nonrelevant = !!nrFlag;
+    const aiOff = !!(aiFlag || humanFlag);
     return okJson({ ok: true, phone, wa_name: waName || '', nonrelevant, ai_off: aiOff, messages }, origin);
   }
 
@@ -4660,9 +4668,11 @@ async function handleInbox(request, env, origin) {
      older threads vanished as volume grew. */
   const channel = String(body.channel || '').trim();   // '' | 'client' | 'guests'
   const list = [];
-  for (const k of await kvKeys(env, 'conv:')) {
+  const convKeys = await kvKeys(env, 'conv:');
+  const convVals = await Promise.all(convKeys.map(k => env.RATE.get(k).catch(() => null)));
+  for (const v of convVals) {
     try {
-      const c = JSON.parse(await env.RATE.get(k));
+      const c = JSON.parse(v);
       if (!c || !c.phone) continue;
       if (channel && !(c.ch || []).includes(channel)) continue;
       list.push({
@@ -4681,21 +4691,31 @@ async function handleInbox(request, env, origin) {
 
   /* the name, best source first: what they call themselves on WhatsApp, then
      the sheet. A number in no sheet at all still shows a person. */
-  for (const c of page) {
-    try { c.wa_name = (await env.RATE.get('waname:' + c.phone)) || ''; } catch {}
-    try { c.nonrelevant = !!(env.RATE && await env.RATE.get('nr:' + c.phone)); } catch {}
-  }
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
-  if (raw) {
-    const nameOf = {};
-    for (const ev of (raw.events && raw.events.values) || []) {
-      const p = normPhone(ev[3] || '');
-      if (p && !nameOf[p]) nameOf[p] = { name: String(ev[2] || '').trim(), kind: 'לקוח' };
-    }
-    for (const g of (raw.guests && raw.guests.values) || []) {
-      const p = normPhone(g[4] || '');
-      if (p && !nameOf[p]) nameOf[p] = { name: String(g[3] || '').trim(), kind: 'אורח' };
-    }
+  /* names and flags for the whole page in one round trip, and the sheet's
+     phone→name map cached 2 minutes so the list does not wait on the sheet */
+  const [waNames, nrs, nameOf] = await Promise.all([
+    Promise.all(page.map(c => env.RATE.get('waname:' + c.phone).catch(() => ''))),
+    Promise.all(page.map(c => env.RATE.get('nr:' + c.phone).catch(() => null))),
+    (async () => {
+      const hit = env.RATE ? await env.RATE.get('inboxnames:cache').catch(() => null) : null;
+      if (hit) { try { return JSON.parse(hit); } catch {} }
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      if (!raw) return null;
+      const m = {};
+      for (const ev of (raw.events && raw.events.values) || []) {
+        const p = normPhone(ev[3] || '');
+        if (p && !m[p]) m[p] = { name: String(ev[2] || '').trim(), kind: 'לקוח' };
+      }
+      for (const g of (raw.guests && raw.guests.values) || []) {
+        const p = normPhone(g[4] || '');
+        if (p && !m[p]) m[p] = { name: String(g[3] || '').trim(), kind: 'אורח' };
+      }
+      if (env.RATE) await env.RATE.put('inboxnames:cache', JSON.stringify(m), { expirationTtl: 120 }).catch(() => {});
+      return m;
+    })(),
+  ]);
+  page.forEach((c, i) => { c.wa_name = waNames[i] || ''; c.nonrelevant = !!nrs[i]; });
+  if (nameOf) {
     for (const c of page) {
       const hit = nameOf[c.phone];
       if (hit) { c.name = hit.name; c.kind = hit.kind; }

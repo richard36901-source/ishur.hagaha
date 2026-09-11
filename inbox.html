@@ -7,6 +7,7 @@
 <meta name="robots" content="noindex, nofollow">
 <title>אינבוקס · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=50"></script>
 <script src="assets/adminbar.js?v=7" defer></script>
@@ -257,7 +258,18 @@
     boot();
   });
 
-  function api(payload) {
+  /* stale-while-revalidate: the last list and each thread are kept in
+     sessionStorage, painted at once, and refreshed from the server behind */
+  function cacheKey(payload) { return 'ishur_inbox:' + (payload.phone || 'list:' + (payload.channel || '')); }
+  function cacheGet(payload) { try { var v = sessionStorage.getItem(cacheKey(payload)); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function cachePut(payload, d) { try { sessionStorage.setItem(cacheKey(payload), JSON.stringify(d)); } catch (e) {} }
+  function api(payload, onFresh) {
+    var cached = cacheGet(payload);
+    var net = apiNet(payload).then(function (d) { if (d && d.ok) { cachePut(payload, d); if (cached && onFresh) onFresh(d); } return d; });
+    if (cached && onFresh) return Promise.resolve(cached);
+    return net;
+  }
+  function apiNet(payload) {
     payload.admin_key = adminKey;
     return fetch(CFG.endpoint('inbox'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -368,20 +380,19 @@
      only response we trust for them is the unfiltered one. */
   function loadConvs() {
     var want = channel;
-    if (want === 'all') {
-      api({}).then(function (d) {
-        if (!d || !d.ok) return;
-        if (d.counts) { counts = d.counts; paintCounts(); }
-        if (channel === want) paintList(d.conversations || []);
-        shown();
-      });
-      return;
-    }
-    api({ channel: want }).then(function (d) {
+    var onAll = function (d) {
+      if (!d || !d.ok) return;
+      if (d.counts) { counts = d.counts; paintCounts(); }
+      if (channel === want) paintList(d.conversations || []);
+      shown();
+    };
+    if (want === 'all') { api({}, onAll).then(onAll); return; }
+    var onCh = function (d) {
       if (!d || !d.ok) return;
       if (channel === want) paintList(d.conversations || []);
       shown();
-    });
+    };
+    api({ channel: want }, onCh).then(onCh);
     api({}).then(function (d) {
       if (d && d.ok && d.counts) { counts = d.counts; paintCounts(); }
     });
@@ -456,7 +467,7 @@
   function loadThread() {
     if (!current) return;
     var want = current;
-    api({ phone: want }).then(function (d) {
+    var paint = function (d) {
       if (!d || !d.ok || current !== want) return;
       /* the thread endpoint knows the freshest wa_name and nr: tag state */
       if ($('aiSw')) { $('aiSw').checked = !d.ai_off; $('aiSw').disabled = false; }
@@ -489,7 +500,8 @@
         host.appendChild(el);
       });
       host.scrollTop = host.scrollHeight;
-    });
+    };
+    api({ phone: want }, paint).then(paint);
   }
 
   /* download a file the customer sent: the worker fetches it from Meta */
