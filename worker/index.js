@@ -438,7 +438,7 @@ async function processGrowPayment(env, flat) {
        dedups; when the tab never returns, this copy is the only one. */
     try { await capiPurchase(env, { phone, email, value: parseFloat(sum) || 0, ref }); } catch {}
     /* the funnel's last step, counted where the money actually lands */
-    try { await recordPurchase(env); } catch {}
+    try { await recordPurchase(env, ref); } catch {}
     /* a promo seat is only really taken once the money lands. Until here the
        code was on hold and would have expired back into the pool. */
     let promo = null;

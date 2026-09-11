@@ -131,12 +131,13 @@ export async function recordHit(env, { vid, path, src, kind }) {
 /* Purchases are counted by the Worker at the moment the money lands, never by
    the browser: thanks.html can be closed, blocked, or reloaded twice, and the
    funnel's last step is the one that must be exactly right. */
-export async function recordPurchase(env) {
+export async function recordPurchase(env, ref) {
   if (!env.RATE) return;
   const day = ilDay();
-  const d = Object.assign(emptyDay(), await readJson(env, 't:d:' + day, null) || {});
-  d.purchase++;
-  await env.RATE.put('t:d:' + day, JSON.stringify(d), { expirationTtl: DAY_TTL }).catch(() => {});
+  /* its own key per payment. The day record is read-modify-written by every
+     page hit, and a purchase landing in the same second was overwritten and
+     lost (גל's, 10/09: the funnel showed 0). */
+  await env.RATE.put(`t:e:${day}:purchase:${String(ref || Date.now())}`, '1', { expirationTtl: DAY_TTL }).catch(() => {});
 }
 
 /* ── the board ─────────────────────────────────────────────────────────────
@@ -159,7 +160,7 @@ export async function trafficReport(env, days = 14) {
       const page = await env.RATE.list({ prefix: `t:e:${day}:${kind}:`, limit: 1000 }).catch(() => null);
       return page ? page.keys.length : 0;
     };
-    const [popupN, leadN, payN] = await Promise.all([stepCount('popup'), stepCount('lead'), stepCount('pay')]);
+    const [popupN, leadN, payN, purchaseN] = await Promise.all([stepCount('popup'), stepCount('lead'), stepCount('pay'), stepCount('purchase')]);
     rows.push({
       date: day,
       views: d ? d.views || 0 : 0,
@@ -171,7 +172,7 @@ export async function trafficReport(env, days = 14) {
       popup: popupN + (d ? d.popup || 0 : 0),
       lead: leadN + (d ? d.lead || 0 : 0),
       pay: payN + (d ? d.pay || 0 : 0),
-      purchase: d ? d.purchase || 0 : 0,
+      purchase: purchaseN + (d ? d.purchase || 0 : 0),
       pages: d ? d.pages || {} : {},
       src: d ? d.src || {} : {},
     });
