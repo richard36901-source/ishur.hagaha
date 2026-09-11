@@ -705,11 +705,11 @@
   <h2>שורה תחתונה</h2>
   <div class="tblwrap">
     <table>
-      <thead><tr><th>תקופה</th><th>הכנסות ₪</th><th>סליקה 2.2%</th><th>וואטסאפ + שיחות</th><th>פרסום</th><th>קבועות</th><th>סה"כ הוצאות</th><th>רווח ₪</th><th>רווח אחרי מע"מ ₪</th></tr></thead>
+      <thead><tr><th>תקופה</th><th>הכנסות ₪</th><th>סליקה 2.2%</th><th>שיחות שיר+נועה + וואטסאפ</th><th>פרסום</th><th>קבועות (וורקר, מספרים, תוכנות)</th><th>סה"כ הוצאות</th><th>רווח ₪</th><th>מע"מ לתשלום ₪</th><th>רווח אחרי מע"מ ₪</th></tr></thead>
       <tbody id="blRows"></tbody>
     </table>
   </div>
-  <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 1rem">רווח אחרי מע"מ = (הכנסות − סליקה − פרסום − קבועות) ÷ 1.21 − וואטסאפ ושיחות (בדולר, בלי מע"מ). ההנחה: המחירים, הפרסום וההוצאות הקבועות כוללים מע"מ.</p>
+  <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 1rem">מע"מ לתשלום = מע"מ עסקאות (הכנסות × 21/121) פחות מע"מ תשומות על פרסום, קבועות וסליקה. רווח אחרי מע"מ = רווח − מע"מ לתשלום. שיחות ווואטסאפ בדולר, בלי מע"מ. הוצאות שאינן נמדדות אוטומטית (Cloudflare, Retell, Make, מספרים) מוסיפים ב"הוצאות קבועות חודשיות" ונכנסות לכאן.</p>
 
   <h2 class="fold-h">
     <button type="button" class="fold-btn" id="fb-plans" aria-expanded="false" aria-controls="fold-plans">
@@ -2181,9 +2181,10 @@
       });
       var wa = usdC / 100 * USD_ILS, ads = adSpendIls(p.from, p.to), fx = fixedSpendIls(p.from, p.to), grow = rev * 0.022;
       var cost = wa + ads + fx + grow, profit = rev - cost;
-      var afterVat = (rev - grow - ads - fx) / 1.21 - wa;
+      var vatDue = (rev - grow - ads - fx) * 21 / 121;
+      var afterVat = profit - vatDue;
       var col = function (v) { return 'style="font-weight:600;color:' + (v >= 0 ? '#0F4C35' : '#A8402F') + '"'; };
-      return '<tr' + (p.label === 'כל הזמן' ? ' style="font-weight:600"' : '') + '><td>' + p.label + '</td><td>' + f(rev) + '</td><td>' + f(grow) + '</td><td>' + f(wa) + '</td><td>' + f(ads) + '</td><td>' + f(fx) + '</td><td>' + f(cost) + '</td><td ' + col(profit) + '>' + f(profit) + '</td><td ' + col(afterVat) + '>' + f(afterVat) + '</td></tr>';
+      return '<tr' + (p.label === 'כל הזמן' ? ' style="font-weight:600"' : '') + '><td>' + p.label + '</td><td>' + f(rev) + '</td><td>' + f(grow) + '</td><td>' + f(wa) + '</td><td>' + f(ads) + '</td><td>' + f(fx) + '</td><td>' + f(cost) + '</td><td ' + col(profit) + '>' + f(profit) + '</td><td>' + f(vatDue) + '</td><td ' + col(afterVat) + '>' + f(afterVat) + '</td></tr>';
     }).join('');
   }
 
