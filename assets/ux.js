@@ -32,6 +32,40 @@
   }
   window.alert = function (m) { toast(m, 4000); };
 
+  /* ── a confirm dialog in the site's own style (Richard 11/09: nothing
+     unstyled, ever). askConfirm(text, {title, ok, cancel, danger}) → Promise<bool> */
+  var dlgCss = '.ux-dlg-bg{position:fixed;inset:0;background:rgba(15,46,34,.5);z-index:9000;opacity:0;transition:opacity .18s}.ux-dlg-bg.on{opacity:1}' +
+    '.ux-dlg{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%) scale(.96);z-index:9001;background:var(--card,#fff);color:var(--ink,#111827);border:1.5px solid var(--gold,#A8853C);border-radius:18px;padding:1.4rem 1.5rem 1.2rem;max-width:22rem;width:88vw;direction:rtl;text-align:center;box-shadow:0 16px 48px rgba(0,0,0,.18);opacity:0;transition:opacity .18s,transform .18s;font-family:inherit}' +
+    '.ux-dlg.on{opacity:1;transform:translate(-50%,-50%) scale(1)}' +
+    '.ux-dlg h3{font-size:1.05rem;margin:0 0 .4rem;font-weight:600}.ux-dlg p{font-size:.9rem;color:var(--ink2,#374151);margin:0 0 1.1rem;line-height:1.6}' +
+    '.ux-dlg .row{display:flex;gap:.5rem;justify-content:center}' +
+    '.ux-dlg button{font:inherit;font-size:.9rem;font-weight:600;padding:.6rem 1.2rem;border-radius:999px;cursor:pointer;border:1.5px solid var(--line,#e5e7eb);background:var(--card,#fff);color:var(--ink,#111827);min-width:6.5rem}' +
+    '.ux-dlg button.ok{background:var(--green,var(--pine,#0F4C35));color:#fff;border-color:transparent}.ux-dlg button.ok.danger{background:#A8402F}' +
+    '.ux-dlg button:active{transform:scale(.97)}';
+  var st2 = document.createElement('style'); st2.textContent = dlgCss; document.head.appendChild(st2);
+  function askConfirm(text, o) {
+    o = o || {};
+    return new Promise(function (resolve) {
+      var bg = document.createElement('div'); bg.className = 'ux-dlg-bg';
+      var box = document.createElement('div'); box.className = 'ux-dlg'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+      var h = document.createElement('h3'); h.textContent = o.title || 'רגע, לוודא';
+      var p = document.createElement('p'); p.textContent = String(text || '');
+      var row = document.createElement('div'); row.className = 'row';
+      var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ok' + (o.danger ? ' danger' : ''); ok.textContent = o.ok || 'כן, להמשיך';
+      var no = document.createElement('button'); no.type = 'button'; no.textContent = o.cancel || 'ביטול';
+      row.appendChild(ok); row.appendChild(no); box.appendChild(h); box.appendChild(p); box.appendChild(row);
+      document.body.appendChild(bg); document.body.appendChild(box);
+      requestAnimationFrame(function () { bg.classList.add('on'); box.classList.add('on'); ok.focus(); });
+      function done(v) { bg.classList.remove('on'); box.classList.remove('on'); setTimeout(function () { bg.remove(); box.remove(); }, 200); document.removeEventListener('keydown', onKey); resolve(v); }
+      function onKey(e) { if (e.key === 'Escape') done(false); if (e.key === 'Enter') done(true); }
+      ok.addEventListener('click', function () { done(true); });
+      no.addEventListener('click', function () { done(false); });
+      bg.addEventListener('click', function () { done(false); });
+      document.addEventListener('keydown', onKey);
+    });
+  }
+  window.askConfirm = askConfirm;
+
   /* ── skeletons ── */
   function skel() {
     var tiles = document.querySelectorAll('.kpi b, .stat b, .cac-main b');
@@ -114,5 +148,5 @@
       return Promise.resolve(new Response(cached, { status: 200, headers: { 'Content-Type': 'application/json' } }));
     } catch (e) { return origFetch(url, opts); }
   };
-  window.IshurUX = { toast: toast, clear: function () { try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ishur_swr:') === 0) sessionStorage.removeItem(k); }); } catch (e) {} } };
+  window.IshurUX = { toast: toast, confirm: askConfirm, clear: function () { try { Object.keys(sessionStorage).forEach(function (k) { if (k.indexOf('ishur_swr:') === 0) sessionStorage.removeItem(k); }); } catch (e) {} } };
 })();

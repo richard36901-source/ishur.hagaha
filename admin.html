@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=52"></script>
-<script src="assets/ux.js?v=1"></script>
+<script src="assets/ux.js?v=2"></script>
 <script src="assets/adminbar.js?v=7" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -1620,10 +1620,10 @@
       .then(function (d) { if (d && d.ok) { aiActive = !!d.active; paintAi(); } })
       .catch(function () {});
   }
-  $('aiTog').addEventListener('click', function () {
+  $('aiTog').addEventListener('click', async function () {
     if (aiActive === null) return;
     var next = !aiActive;
-    if (!next && !confirm('לכבות את נועה? הודעות נכנסות יקבלו רק קישור או מענה אנושי')) return;
+    if (!next && !(await askConfirm('הודעות נכנסות יקבלו רק קישור או מענה אנושי.', { title: 'לכבות את נועה?', ok: 'כן, לכבות', danger: true }))) return;
     var b = $('aiTog'); b.disabled = true; $('aiState').textContent = 'רגע…';
     b.setAttribute('aria-checked', next ? 'true' : 'false');
     fetch(CFG.endpoint('brain'), {

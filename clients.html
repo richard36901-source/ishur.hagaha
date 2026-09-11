@@ -8,7 +8,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=52"></script>
-<script src="assets/ux.js?v=1"></script>
+<script src="assets/ux.js?v=2"></script>
 <script src="assets/adminbar.js?v=7" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -133,19 +133,19 @@
     }).join('');
   }
 
-  $('list').addEventListener('click', function (ev) {
+  $('list').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button[data-act]'); if (!b) return;
     var t = b.closest('.card').dataset.t, act = b.dataset.act, fl = flags[t] || { active: true };
     b.disabled = true;
     var p;
     if (act === 'reset') {
-      if (!confirm('למחוק את רשימת המוזמנים של האירוע כדי שהלקוח (או אתה) יעלה מחדש? אם ההזמנות כבר יצאו, זה ייחסם.')) { b.disabled = false; return; }
+      if (!(await askConfirm('הלקוח (או אתה) יעלה רשימה מחדש. אם ההזמנות כבר יצאו, זה ייחסם.', { title: 'למחוק את רשימת המוזמנים?', ok: 'כן, למחוק', danger: true }))) { b.disabled = false; return; }
       p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {
       var kind = act, n = act === 'guests' ? 50 : undefined;
-      if (!confirm('לתת ללקוח ' + b.textContent + '?')) { b.disabled = false; return; }
+      if (!(await askConfirm('לתת ללקוח ' + b.textContent + '?', { title: 'תוספת חינם', ok: 'כן, לתת' }))) { b.disabled = false; return; }
       p = api('grant-addon', { token: t, kind: kind, n: n }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'ניתן' : 'לא הצליח'); return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); }); });
     }
     p.catch(function () { toast('שגיאה'); }).then(function () { b.disabled = false; });
