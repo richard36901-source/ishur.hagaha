@@ -7354,10 +7354,19 @@ export default {
         const isVid = String(b.format || '').toUpperCase() === 'VIDEO';
         const imgUrl = String(b.image_url || (isVid ? '' : 'https://ishur.io/logo.png'));
         if (isVid && !imgUrl) return deny(400, 'video_url-needed', origin);
-        const img = await fetch(imgUrl).catch(() => null);
-        if (!img || !img.ok) return okJson({ ok: false, step: 'fetch-image', status: img && img.status }, origin);
-        const buf = await img.arrayBuffer();
-        const type = img.headers.get('Content-Type') || 'image/png';
+        /* a Worker cannot fetch its own routes; the client's file lives in KV */
+        let buf, type;
+        const own = imgUrl.match(/\/(vid|img)\/([0-9a-f-]{36})/);
+        if (own) {
+          const got = await env.RATE.getWithMetadata((own[1] === 'vid' ? 'vid:' : 'img:') + own[2], { type: 'arrayBuffer' });
+          if (!got || !got.value) return okJson({ ok: false, step: 'fetch-image', status: 'not-in-kv' }, origin);
+          buf = got.value; type = (got.metadata && got.metadata.mime) || (own[1] === 'vid' ? 'video/mp4' : 'image/jpeg');
+        } else {
+          const img = await fetch(imgUrl).catch(() => null);
+          if (!img || !img.ok) return okJson({ ok: false, step: 'fetch-image', status: img && img.status }, origin);
+          buf = await img.arrayBuffer();
+          type = img.headers.get('Content-Type') || 'image/png';
+        }
         const s1 = await fetch(`https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buf.byteLength}&file_type=${encodeURIComponent(type)}&access_token=${tok}`, { method: 'POST' });
         const j1 = await s1.json().catch(() => ({}));
         if (!j1.id) return okJson({ ok: false, step: 'open-session', resp: j1 }, origin);
