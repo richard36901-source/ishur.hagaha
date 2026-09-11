@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>איך היה? · ishur.io</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=51"></script>
+<style>
+  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb}
+  *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .card{width:100%;max-width:480px;background:#fff;border:1px solid var(--bdr);border-radius:18px;padding:1.6rem 1.6rem 1.8rem;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.06);animation:rise .45s cubic-bezier(.22,.9,.24,1) both}
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1.2rem}
+  .brand img{width:28px;height:28px;object-fit:contain}
+  .brand-t{font-size:.92rem;font-weight:600}
+  h1{font-family:'Rubik',sans-serif;font-size:1.35rem;font-weight:600;margin-bottom:.35rem}
+  .lede{color:var(--ink2);font-size:.95rem;margin-bottom:1.3rem}
+  .q{text-align:start;margin-bottom:1.2rem}
+  .q label{display:block;font-weight:600;font-size:.95rem;margin-bottom:.5rem}
+  .scale{display:grid;grid-template-columns:repeat(10,1fr);gap:.3rem}
+  .scale button{font:inherit;font-size:.95rem;font-weight:600;padding:.55rem 0;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;color:var(--ink2);cursor:pointer;transition:transform .12s,background .15s,border-color .15s}
+  .scale button:active{transform:scale(.94)}
+  .scale button[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
+  .ends{display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3);margin-top:.3rem}
+  textarea{width:100%;min-height:120px;font:inherit;font-size:.95rem;padding:.7rem .8rem;border:1.5px solid var(--bdr);border-radius:12px;resize:vertical;background:#fff;color:var(--ink)}
+  textarea:focus{outline:none;border-color:var(--green)}
+  .btn{display:block;width:100%;font:inherit;font-size:1rem;font-weight:600;padding:.85rem 1rem;border-radius:12px;border:none;background:var(--green);color:#fff;cursor:pointer;text-decoration:none;margin-top:.6rem;transition:transform .12s,opacity .15s}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.sec{background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
+  .mark{width:64px;height:64px;margin:.4rem auto 1rem;border-radius:50%;background:var(--green4);border:1.5px solid var(--bdr2);display:flex;align-items:center;justify-content:center;font-size:1.8rem}
+  .fine{font-size:.78rem;color:var(--ink3);margin-top:1rem}
+  .err{color:#A8402F;font-size:.85rem;margin-top:.6rem;min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand"><img src="assets/logo-gold.png" alt=""><span class="brand-t">אישורי <span>הגעה</span></span></div>
+
+  <section id="s1">
+    <h1>איך היה? 🙂</h1>
+    <p class="lede" id="lede">שתי שאלות, עשר שניות. זה עוזר לנו להשתפר.</p>
+    <div class="q">
+      <label>כמה סביר שתמליצו עלינו לחברים?</label>
+      <div class="scale" id="nps"></div>
+      <div class="ends"><span>בכלל לא</span><span>בטוח שכן</span></div>
+    </div>
+    <div class="q">
+      <label>איך הייתה החוויה איתנו?</label>
+      <div class="scale" id="exp"></div>
+      <div class="ends"><span>גרועה</span><span>מצוינת</span></div>
+    </div>
+    <button class="btn" id="go" disabled>שליחה</button>
+    <p class="err" id="err"></p>
+    <p class="fine">התשובות אנונימיות כלפי חוץ ונשארות אצלנו בלבד.</p>
+  </section>
+
+  <section id="s-low" hidden>
+    <div class="mark">🙏</div>
+    <h1>תודה על הכנות</h1>
+    <p class="lede">מה לא היה בסדר, או מה היה עוזר לכם? כל הערה נקראת על ידי הצוות.</p>
+    <div class="q"><textarea id="note" placeholder="ספרו לנו על החוויה, הערות לשיפור, מה חסר…"></textarea></div>
+    <button class="btn" id="sendNote">שליחה</button>
+    <p class="err" id="err2"></p>
+  </section>
+
+  <section id="s-high" hidden>
+    <div class="mark">💚</div>
+    <h1>איזה כיף לשמוע!</h1>
+    <p class="lede">אם יש לכם דקה, ביקורת קצרה בגוגל עוזרת לנו יותר מכל דבר אחר.</p>
+    <a class="btn" id="review" href="#" target="_blank" rel="noopener">⭐ לכתוב ביקורת בגוגל</a>
+    <a class="btn sec" id="clip" href="#" target="_blank" rel="noopener">🎥 30 שניות של המלצה בווידאו</a>
+    <p class="fine">תודה מכל הלב, צוות ishur.io</p>
+  </section>
+
+  <section id="s-done" hidden>
+    <div class="mark">🙏</div>
+    <h1>תודה, קיבלנו</h1>
+    <p class="lede">קראנו כל מילה. תודה שעזרתם לנו להשתפר.</p>
+  </section>
+
+  <section id="s-bad" hidden>
+    <div class="mark">🤔</div>
+    <h1>הקישור לא תקין</h1>
+    <p class="lede">כתבו לנו בוואטסאפ ונעזור: <a href="https://wa.me/972559504499">055-950-4499</a></p>
+  </section>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('t') || '';
+  if (!/^[0-9a-f-]{20,40}$/.test(token)) { $('s1').hidden = true; $('s-bad').hidden = false; return; }
+  var ans = { nps: 0, exp: 0 };
+  function scale(id, key) {
+    var host = $(id);
+    for (var i = 1; i <= 10; i++) {
+      var b = document.createElement('button'); b.type = 'button'; b.textContent = i; b.setAttribute('aria-pressed', 'false');
+      b.addEventListener('click', (function (n, el) { return function () {
+        ans[key] = n;
+        Array.prototype.forEach.call(host.children, function (c) { c.setAttribute('aria-pressed', c === el ? 'true' : 'false'); });
+        $('go').disabled = !(ans.nps && ans.exp);
+      }; })(i, b));
+      host.appendChild(b);
+    }
+  }
+  scale('nps', 'nps'); scale('exp', 'exp');
+  function post(body) {
+    body.token = token;
+    return fetch(CFG.endpoint('feedback'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); });
+  }
+  $('go').addEventListener('click', function () {
+    $('go').disabled = true; $('err').textContent = '';
+    post({ nps: ans.nps, exp: ans.exp }).then(function (j) {
+      if (!j || !j.ok) { $('err').textContent = j && j.error === 'bad-token' ? 'הקישור לא תקין' : 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; return; }
+      $('s1').hidden = true;
+      if (j.route === 'high') {
+        $('review').href = j.review || 'https://g.page/r/CTGM0phWkiVyEBM/review';
+        if (j.clip) $('clip').href = j.clip; else $('clip').hidden = true;
+        $('s-high').hidden = false;
+      } else { $('s-low').hidden = false; $('note').focus(); }
+    }).catch(function () { $('err').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; });
+  });
+  $('sendNote').addEventListener('click', function () {
+    var t = $('note').value.trim();
+    if (!t) { $('err2').textContent = 'כתבו לנו משהו קצר 🙂'; return; }
+    $('sendNote').disabled = true;
+    post({ note: t }).then(function (j) {
+      if (!j || !j.ok) { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; return; }
+      $('s-low').hidden = true; $('s-done').hidden = false;
+    }).catch(function () { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; });
+  });
+})();
+</script>
+</body>
+</html>

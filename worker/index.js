@@ -3930,9 +3930,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       }
       continue;
     }
-    const wa = await sendClient(env, phone, 'ishur_syum', [
-      evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
-    ]);
+    const fbLink = 'https://ishur.io/feedback.html?t=' + token;
+    const useV3 = env.RATE && (await env.RATE.get('eoe:tmpl').catch(() => null)) === 'v3';
+    const wa = useV3
+      ? await sendClient(env, phone, 'ishur_syum_v3', [evName, fbLink])
+      : await sendClient(env, phone, 'ishur_syum', [
+        evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
+      ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_syum'));
     if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
@@ -7907,6 +7911,45 @@ export default {
     }
     /* download a file a customer sent on WhatsApp (admin). Meta keeps media
        ~30 days; we keep the id in the inbound log. */
+    /* end-of-event feedback gate (Richard 11/09): two 1-10 scores first; under
+       6 on either → "tell us what went wrong"; 6 and up → Google review, then
+       the video testimonial. Anonymous to the outside, named for us. */
+    if (url.pathname === '/api/feedback' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const token = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{20,40}$/.test(token)) return deny(400, 'bad-token', origin);
+      if (await overBudget(env, 'rl:fb:' + token, 20, 3600)) return deny(429, 'slow-down', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
+      if (!ev) return deny(404, 'bad-token', origin);
+      const name = String(ev[2] || '').trim(), phone = normPhone(ev[3] || '');
+      const occasion = String(ev[5] || '').trim();
+      const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || token.slice(0, 8));
+      const key = 'fb:' + token;
+      let rec = {}; try { rec = JSON.parse(await env.RATE.get(key)) || {}; } catch {}
+      if (typeof b.note === 'string' && b.note.trim()) {
+        rec.note = b.note.trim().slice(0, 1500); rec.note_at = new Date().toISOString();
+        await env.RATE.put(key, JSON.stringify(rec));
+        await logRow(env, 'feedback', { token: token.slice(0, 8), name, phone, nps: rec.nps || '', exp: rec.exp || '', route: 'הערה', note: rec.note });
+        await slackSend(env, `📝 *הערת משוב* · ${evName} · ${phone}
+ימליץ ${rec.nps || '?'}/10 · חוויה ${rec.exp || '?'}/10
+"${rec.note.slice(0, 600)}"`, { urgent: (Number(rec.nps) || 10) <= 3 });
+        return okJson({ ok: true }, origin);
+      }
+      const nps = Math.max(0, Math.min(10, parseInt(b.nps, 10) || 0));
+      const exp = Math.max(0, Math.min(10, parseInt(b.exp, 10) || 0));
+      if (!nps || !exp) return deny(400, 'bad-score', origin);
+      const route = Math.min(nps, exp) >= 6 ? 'high' : 'low';
+      rec = { ...rec, nps, exp, route, at: new Date().toISOString() };
+      await env.RATE.put(key, JSON.stringify(rec));
+      await logRow(env, 'feedback', { token: token.slice(0, 8), name, phone, nps, exp, route: route === 'high' ? 'לביקורת בגוגל' : 'לטופס הערות', note: '' });
+      await logEvent(env, { area: 'סוף-אירוע', action: `משוב: ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'גוגל' : 'הערות'}`, ok: true, token, phone }).catch(() => {});
+      await slackSend(env, `${route === 'high' ? '💚' : '🟠'} *משוב סוף אירוע* · ${evName} · ${phone}
+ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'נשלח לביקורת בגוגל' : 'התבקש לכתוב מה לא היה בסדר'}`, { urgent: false });
+      const brain = await getBrain(env);
+      return okJson({ ok: true, route, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
+    }
     if (url.pathname === '/api/media-dl' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

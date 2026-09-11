@@ -55,6 +55,9 @@ const TRF_COLS = ['date', 'views', 'visitors', 'fresh', 'returning', 'pay', 'pur
 
 /* the call queue as it stood, once a day: who was waiting, for whom, and how
    many tries were left. The board shows now; this tab shows what "now" was. */
+/* end-of-event feedback: who rated what, and where the gate sent them */
+const FB_HEADER = ['זמן', 'אירוע', 'שם', 'טלפון', 'ימליץ (1-10)', 'חוויה (1-10)', 'ניתוב', 'הערה'];
+const FB_COLS = ['at', 'token', 'name', 'phone', 'nps', 'exp', 'route', 'note'];
 const CQ_HEADER = ['תאריך', 'שעה', 'מצב', 'מי מתקשרת', 'סוג', 'שם', 'טלפון', 'אירוע', 'תאריך אירוע', 'חבילה', 'ניסיונות', 'סיבה', 'הערה'];
 const CQ_COLS = ['date', 'time', 'state', 'who', 'kind', 'name', 'phone', 'event', 'event_date', 'plan', 'tries', 'reason', 'note'];
 
@@ -66,6 +69,7 @@ export const TABS = {
   invoices: { title: 'חשבוניות', header: INV_HEADER, cols: INV_COLS, color: { red: 0.20, green: 0.45, blue: 0.40 } },
   traffic: { title: 'תנועה יומית', header: TRF_HEADER, cols: TRF_COLS, color: { red: 0.85, green: 0.60, blue: 0.20 } },
   callqueue: { title: 'תור שיחות', header: CQ_HEADER, cols: CQ_COLS, color: { red: 0.45, green: 0.55, blue: 0.75 } },
+  feedback: { title: 'משוב סוף אירוע', header: FB_HEADER, cols: FB_COLS, color: { red: 0.95, green: 0.75, blue: 0.30 } },
 };
 
 export function ilStamp(d = new Date()) {
