@@ -7984,13 +7984,17 @@ export default {
             cField1: tok, cField2: kind + ':' + scope,
           }),
         }).catch(() => null);
-        let mj = null; try { mj = mk ? await mk.json() : null; } catch {}
+        let mj = null, mtxt = '';
+        try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
         const mlink = mj && (mj.url || mj.link || (mj.data && mj.data.url));
         if (mlink && /^https?:\/\//.test(String(mlink))) {
           await logEvent(env, { area: 'תשלום', action: `קישור תשלום לתוספת נוצר (Make): ${item.label} · ₪${item.price}`, ok: true, token: tok }).catch(() => {});
           return okJson({ ok: true, url: String(mlink), price: item.price, desc }, origin);
         }
-        await alert(env, 'תוספות', 'Make לא החזיר קישור תשלום', tok.slice(0, 8) + ': ' + JSON.stringify(mj || {}).slice(0, 200));
+        await alert(env, 'תוספות', 'Make לא החזיר קישור תשלום', tok.slice(0, 8) + ': ' + (mk ? mk.status : 'no-response') + ' ' + mtxt.slice(0, 200));
+        if (!(env.GROW_API_KEY && env.GROW_PAGE_CODE && env.GROW_USER_ID)) {
+          return okJson({ ok: false, why: 'make-failed', make_status: mk ? mk.status : 0, make_body: mtxt.slice(0, 200), price: item.price, desc }, origin);
+        }
       }
       if (!(env.GROW_API_KEY && env.GROW_PAGE_CODE && env.GROW_USER_ID)) {
         return okJson({ ok: false, why: 'no-grow-api', price: item.price, desc }, origin);
