@@ -404,7 +404,7 @@ window.ISHUR_CONFIG = (function () {
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
-        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback'
+        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add'
       }[kind] || '/api/event');
     }
     return {

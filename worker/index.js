@@ -7882,6 +7882,65 @@ export default {
       if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
       return okJson(await addonQuote(env, tok), origin);
     }
+    /* Richard, 11/09: in the client dashboard, above the add-ons — name,
+       phone, party size, "send". Up to 10 per event, free. The row lands in
+       the guests sheet; if wave 1 already went out, the invitation goes to
+       this guest right now from Shir's number. */
+    if (url.pathname === '/api/guest-add' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:gadd:' + tok, 30, 3600)) return deny(429, 'slow-down', origin);
+      const LIMIT = ADDON_RATES.freeGuests;
+      const cntKey = 'gadd:' + tok;
+      const used = parseInt(await env.RATE.get(cntKey), 10) || 0;
+      if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT }, origin);
+      if (used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT }, origin);
+      const name = String(b.name || '').trim().slice(0, 60);
+      const phone = normPhone(b.phone || '');
+      const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
+      if (!name) return deny(400, 'bad-name', origin);
+      if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
+      if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used }, origin);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      const now = new Date().toISOString();
+      const row = new Array(29).fill('');
+      row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-' + (gRows.length + 1);
+      row[3] = name; row[4] = phone; row[5] = String(party);
+      row[24] = 'נוסף מהדשבורד'; row[25] = now; row[28] = tok;
+      const r = await fetch(env.HOOK_EVENTS, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_type: 'guests_file', token: tok, file_name: 'dashboard', guest_count: 1, skipped_count: 0, append_body: JSON.stringify({ values: [row] }) }),
+      }).catch(() => null);
+      if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+      await env.RATE.put(cntKey, String(used + 1));
+      await env.RATE.put('uploaded:' + tok, now).catch(() => {});
+      /* invitation now, only if the first wave already went out; otherwise
+         the guest simply rides the wave with everybody else */
+      let sent = false, why = 'with-wave';
+      if (ev && env.RATE && await env.RATE.get('wave:' + tok + ':1')) {
+        const occasion = String(ev[5] || '').trim() || 'אירוע';
+        const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+        const date = heDate(String(ev[6] || '').trim());
+        const time = String(ev[36] || '').trim() || 'בשעות הערב';
+        const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+        const inviteTmpl = (await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+        if (!(await phoneBlocked(env, phone))) {
+          const res = await sendTemplate(env, phone, inviteTmpl, [name, occasion, hosts, date, time, venue], '', 'he', 'guests', { occasion, wave: 1, token: tok, name });
+          sent = !!res.ok; why = res.ok ? 'sent' : (res.error || 'send-failed');
+          if (res.ok) {
+            await env.RATE.put(`wsent:${tok}:1:${phone}`, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+            await addEvCost(env, tok, msgCost(inviteTmpl));
+          }
+        } else why = 'blocked';
+      }
+      await logEvent(env, { area: 'העלאה', action: `הלקוח הוסיף מוזמן מהדשבורד (${used + 1}/${LIMIT})${sent ? ' — ההזמנה נשלחה' : ''}`, ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
+      return okJson({ ok: true, used: used + 1, left: LIMIT - used - 1, limit: LIMIT, sent, why }, origin);
+    }
     if (url.pathname === '/api/addon-pay' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -7892,6 +7951,26 @@ export default {
       const item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
       if (!item) return deny(400, 'bad-kind', origin);
       const desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+      /* Richard, 11/09: no Grow API — Make has a "create payment link" module.
+         GROW_LINK_HOOK is that scenario's webhook; it answers {url}. */
+      if (env.GROW_LINK_HOOK) {
+        const mk = await fetch(env.GROW_LINK_HOOK, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            sum: item.price, description: desc, token: tok, kind, scope, label: item.label, n: item.n,
+            successUrl: 'https://ishur.io/dashboard.html?t=' + tok + '&paid=' + kind,
+            cancelUrl: 'https://ishur.io/dashboard.html?t=' + tok,
+            cField1: tok, cField2: kind + ':' + scope,
+          }),
+        }).catch(() => null);
+        let mj = null; try { mj = mk ? await mk.json() : null; } catch {}
+        const mlink = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+        if (mlink && /^https?:\/\//.test(String(mlink))) {
+          await logEvent(env, { area: 'תשלום', action: `קישור תשלום לתוספת נוצר (Make): ${item.label} · ₪${item.price}`, ok: true, token: tok }).catch(() => {});
+          return okJson({ ok: true, url: String(mlink), price: item.price, desc }, origin);
+        }
+        await alert(env, 'תוספות', 'Make לא החזיר קישור תשלום', tok.slice(0, 8) + ': ' + JSON.stringify(mj || {}).slice(0, 200));
+      }
       if (!(env.GROW_API_KEY && env.GROW_PAGE_CODE && env.GROW_USER_ID)) {
         return okJson({ ok: false, why: 'no-grow-api', price: item.price, desc }, origin);
       }

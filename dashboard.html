@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=51"></script>
+<script src="config.js?v=52"></script>
 <script src="assets/tracking.js?v=20"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=22"></script>
@@ -104,6 +104,11 @@
     color:var(--green2);font-weight:600;
   }
   .card-b{padding:1rem}
+  .gadd{display:grid;grid-template-columns:1.3fr 1.3fr .7fr auto;gap:.45rem}
+  .gadd input{font:inherit;font-size:.9rem;padding:.55rem .6rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0}
+  .gadd input:focus{outline:none;border-color:var(--green)}
+  html[data-theme=dark] .gadd input{background:var(--card,#1A201C)}
+  @media (max-width:480px){.gadd{grid-template-columns:1fr 1fr}.gadd .buy{grid-column:1/-1}}
 
   /* headline numbers */
   .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr)}
@@ -637,6 +642,22 @@
     </div>
   </div>
 
+  <!-- add guests, one at a time, up to 10 free (Richard 11/09) -->
+  <section class="card" id="gaddCard">
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center"><span>הוספת מוזמנים</span><span id="gaddCount" style="font-size:.8rem;color:var(--ink3);font-weight:400">–</span></div>
+    <div class="card-b">
+      <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .7rem">שכחתם מישהו? עד 10 מוזמנים נוספים בחינם. ממלאים שם, טלפון וכמה מגיעים, ולוחצים שליחה. אם ההזמנות כבר יצאו, ההזמנה נשלחת אליהם מיד.</p>
+      <div class="gadd">
+        <input id="gaName" placeholder="שם" autocomplete="off">
+        <input id="gaPhone" placeholder="טלפון" inputmode="tel" autocomplete="off">
+        <input id="gaParty" type="number" min="1" max="20" value="1" placeholder="כמות" inputmode="numeric">
+        <button type="button" class="buy" id="gaSend">שליחה</button>
+      </div>
+      <p id="gaMsg" style="font-size:.82rem;margin:.5rem 0 0;min-height:1.2em;color:var(--ink2)"></p>
+      <div id="gaList" style="font-size:.82rem;color:var(--ink2);margin-top:.3rem"></div>
+    </div>
+  </section>
+
   <!-- add-ons -->
   <section class="card" id="addonsCard">
     <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
@@ -933,6 +954,7 @@
     renderRows();
     renderSends();
     renderAddons();
+    gaLoad();
     renderAfterParty();
     renderReferral();
     paintSwitcher();
@@ -1347,6 +1369,42 @@
     if (ap.review) { $('apReview').href = ap.review; $('apReview').hidden = false; }
     if (ap.clip) { $('apClip').href = ap.clip; $('apClip').hidden = false; }
   }
+
+  /* ── add a guest from the dashboard ── */
+  var gaLeft = null;
+  function gaPaint(j) {
+    if (!j) return;
+    gaLeft = j.left;
+    $('gaddCount').textContent = j.used + ' מתוך ' + j.limit;
+    var full = j.left <= 0;
+    ['gaName', 'gaPhone', 'gaParty', 'gaSend'].forEach(function (id) { $(id).disabled = full; });
+    if (full) $('gaMsg').textContent = 'הגעתם ל-' + j.limit + ' מוזמנים נוספים. לעוד מקומות, הגדלת חבילה בתוספות למטה.';
+  }
+  function gaLoad() {
+    if (!token || demo) { $('gaddCard').hidden = !!demo; return; }
+    fetch(CFG.endpoint('guest-add'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, query: true }) })
+      .then(function (r) { return r.json(); }).then(gaPaint).catch(function () {});
+  }
+  $('gaSend').addEventListener('click', function () {
+    var name = $('gaName').value.trim(), phone = $('gaPhone').value.trim(), party = Number($('gaParty').value) || 1;
+    if (!name) { $('gaMsg').textContent = 'חסר שם'; $('gaName').focus(); return; }
+    if (phone.replace(/\D/g, '').length < 9) { $('gaMsg').textContent = 'הטלפון לא נראה תקין'; $('gaPhone').focus(); return; }
+    $('gaSend').disabled = true; $('gaMsg').textContent = 'שולח…';
+    fetch(CFG.endpoint('guest-add'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, name: name, phone: phone, party: party }) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        $('gaSend').disabled = false;
+        if (!j || !j.ok) {
+          $('gaMsg').textContent = j && j.error === 'duplicate' ? 'המספר הזה כבר ברשימה' : j && j.error === 'limit' ? 'הגעתם למכסה' : j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא הצלחנו להוסיף, נסו שוב';
+          if (j && j.limit) gaPaint(j);
+          return;
+        }
+        $('gaMsg').textContent = j.sent ? 'נוסף וההזמנה נשלחה ✓' : 'נוסף ✓ ההזמנה תישלח עם כולם';
+        $('gaList').insertAdjacentHTML('afterbegin', '<div>✓ ' + name.replace(/</g, '&lt;') + ' · ' + phone.replace(/</g, '&lt;') + ' · ' + party + '</div>');
+        $('gaName').value = ''; $('gaPhone').value = ''; $('gaParty').value = '1'; $('gaName').focus();
+        gaPaint(j);
+        setTimeout(reloadData, 1500);
+      }).catch(function () { $('gaSend').disabled = false; $('gaMsg').textContent = 'לא הצלחנו להוסיף, נסו שוב'; });
+  });
 
   function renderAddons() {
     var ev = data.event || {};
