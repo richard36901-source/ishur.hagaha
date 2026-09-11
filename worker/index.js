@@ -5525,6 +5525,7 @@ async function runDailyImprove(env, opts = {}) {
     .filter(c => c.call_status === 'ended' && c.start_timestamp >= since && c.start_timestamp <= until && String(c.transcript || '').length > 100)
     .slice(0, 15)
     .map(c => ({ persona: String((c.direction || '').includes('inbound') ? c.to_number : c.from_number).includes('7733') ? 'נועה' : 'שיר',
+      agent_key: Object.keys(VOICE_AGENTS).find(k => VOICE_AGENTS[k].agent === c.agent_id) || '',
       kind: (c.metadata || {}).kind || 'guest', transcript: String(c.transcript || '').slice(0, 3000) }));
 
   const brain = await getBrain(env);
@@ -5548,7 +5549,9 @@ ${RICHARD_RULES_1_8}
 
 למטה כל שיחה מסומנת במספר [שיחה N]. עברי על כל שיחה בנפרד, אחת אחת, ובדקי אותה מול כל שמונת הכללים — אל תסתפקי בהפרה אחת בולטת ותעברי הלאה, יכולה להיות יותר מהפרה אחת גם באותה שיחה וגם בשיחות שונות. החזירי JSON בדיוק במבנה הזה, שום דבר מחוץ ל-JSON:
 {"score": {"noa": 1-10, "shir": 1-10}, "violations": [{"rule": "1-8", "quote": "ציטוט קצר מדויק", "phone": "אם ידוע"}], "faq_additions": [{"q": "שאלה שחזרה ולא הייתה לה תשובה טובה", "a": "תשובה קצרה ועובדתית"}], "wording_fixes": [{"agent": "noa_out|noa_in|shir_out|shir_in|whatsapp", "before": "מה שנאמר שלא עבד", "after": "ניסוח מוצע טוב יותר", "why": "משפט אחד"}]}
-faq_additions ו-wording_fixes: רק דברים קונקרטיים שבאמת קרו למטה, אל תמציאי. אם אין — מערך ריק. עד 8 violations, השאר הכי חמורים.`;
+faq_additions ו-wording_fixes: רק דברים קונקרטיים שבאמת קרו למטה, אל תמציאי. אם אין — מערך ריק. עד 8 violations, השאר הכי חמורים.
+הבהרה לכלל 3: ishur.io עצמו — האתר, הדפים, המחירים, החבילות, איך השירות עובד — הוא מידע שמותר ורצוי למסור, ולהפנות אליו זו לא הפרה. "מידע חיצוני" = חברות אחרות, מתחרים ונושאים שלא קשורים לשירות.
+לכל wording_fix: agent חייב להתאים לערוץ שבו הציטוט נאמר. ציטוט משיחת וואטסאפ → "whatsapp" תמיד, לעולם לא סוכן קולי. ציטוט משיחת טלפון → הסוכן הקולי של אותה שיחה.`;
 
   const body = 'שיחות וואטסאפ היום:\n\n' + threads.map((t, i) => `[שיחה ${i + 1} · ${t.ch} · ${t.phone}]\n${t.text}`).join('\n\n---\n\n') +
     '\n\nשיחות טלפון היום:\n\n' + calls.map((c, i) => `[שיחה ${threads.length + i + 1} · ${c.persona}/${c.kind}]\n${c.transcript}`).join('\n\n---\n\n');
@@ -5610,6 +5613,11 @@ faq_additions ו-wording_fixes: רק דברים קונקרטיים שבאמת ק
   for (const fix of wordingFixes) {
     const agent = String(fix.agent || '');
     if (!VOICE_AGENTS[agent]) { applied.wording.push({ ...fix, applied: false, why: 'not-a-voice-agent' }); continue; }
+    /* 10.2 (11/09): a finding is applied only to the channel it came from. If
+       no call ran with this agent today, the quote came from WhatsApp and
+       must not land in a voice prompt. */
+    const agentSpokeToday = calls.some(c => c.agent_key === agent);
+    if (!agentSpokeToday) { applied.wording.push({ ...fix, applied: false, why: 'agent-did-not-speak-today' }); continue; }
     const before = voicePrompts[agent] || '';
     if (!before) { applied.wording.push({ ...fix, applied: false, why: 'no-live-prompt' }); continue; }
     const note = `\n\n## תיקון ניסוח, לולאת שיפור ${day}\nבמקום "${String(fix.before || '').slice(0, 200)}" עדיף "${String(fix.after || '').slice(0, 200)}" — ${String(fix.why || '').slice(0, 150)}`;
