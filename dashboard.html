@@ -571,7 +571,7 @@
 
   <!-- guests -->
   <section class="card">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><a id="replaceLink" href="#" style="font-size:.78rem;font-weight:500;color:var(--green);text-decoration:none;border:1px solid var(--bdr2);border-radius:999px;padding:.2rem .7rem;background:var(--green4)">⟳ העלאת רשימה חדשה במקום הקיימת</a></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink">⟳ החלפת רשימת המוזמנים</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
     <p class="list-sum" id="listSum"></p>
@@ -1415,9 +1415,34 @@
   /* Richard, 11/09: replace the whole list from the dashboard — the upload
      page opens in replace mode (allowed until the first send) */
   (function () {
-    var a = $('replaceLink'); if (!a) return;
-    if (!token || demo) { a.hidden = true; return; }
-    a.href = 'upload.html?t=' + encodeURIComponent(token) + '&replace=1';
+    var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
+    if (!token || demo) { b.hidden = true; return; }
+    b.addEventListener('click', function () {
+      if (!confirm('להחליף את רשימת המוזמנים? הרשימה הקיימת תימחק והקובץ החדש ייכנס במקומה. שם | טלפון | כמות, בסדר הזה.')) return;
+      inp.value = ''; inp.click();
+    });
+    inp.addEventListener('change', function () {
+      var f = inp.files && inp.files[0]; if (!f) return;
+      b.disabled = true; msg.textContent = 'מעלה…';
+      var fd = new FormData();
+      fd.append('token', token); fd.append('file', f, f.name); fd.append('source', location.href);
+      fd.append('supports_preview', '1'); fd.append('confirm', '1'); fd.append('replace', '1');
+      try { var st = IshurGuard.stamp({}); Object.keys(st).forEach(function (k) { fd.append(k, st[k]); }); } catch (e) {}
+      fetch(CFG.endpoint('event'), { method: 'POST', body: fd })
+        .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+        .then(function (x) {
+          b.disabled = false;
+          if (x.s === 200 && x.j && x.j.ok) {
+            msg.textContent = 'הוחלף ✓ ' + (x.j.guests || '') + ' מוזמנים' + (x.j.skipped && x.j.skipped.length ? ' · ' + x.j.skipped.length + ' שורות דולגו' : '');
+            setTimeout(reloadData, 1200);
+            return;
+          }
+          var why = (x.j && x.j.error) || '';
+          msg.textContent = why === 'already-sent' ? 'ההזמנות כבר יצאו, אי אפשר להחליף. אפשר להוסיף מוזמנים למעלה' :
+            why === 'over-tier' ? 'הקובץ גדול מהחבילה (' + x.j.got + ' מול ' + x.j.allowed + ')' :
+            why === 'no-guests' || why === 'empty' ? 'לא נמצאו שורות תקינות בקובץ' : 'לא הצלחנו להחליף, נסו שוב';
+        }).catch(function () { b.disabled = false; msg.textContent = 'לא הצלחנו להחליף, נסו שוב'; });
+    });
   })();
 
   function renderAddons() {
