@@ -193,6 +193,11 @@
   .sw[aria-checked="true"] i{transform:translateX(-20px)}
   .sw[aria-checked="true"]:active:not(:disabled) i{transform:translateX(-24px)}
   .sw:disabled{opacity:.45;cursor:default}
+  /* plain buttons (rng, refresh, csv, save, add) used to fall back to the browser's default look */
+  .rng,#refresh,#keyGo,#ad-save,#fx-add,#csvDays,#csvEvents,button.plain{font:inherit;font-size:.74rem;font-weight:600;padding:.34rem .8rem;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;box-shadow:0 1px 2px rgba(0,0,0,.05);transition:background .15s,border-color .15s}
+  .rng:hover,#refresh:hover,#keyGo:hover,#ad-save:hover,#fx-add:hover,#csvDays:hover,#csvEvents:hover,button.plain:hover{background:var(--bg2,rgba(0,0,0,.04));border-color:var(--ink3)}
+  .rng[aria-pressed="true"],.rng.on{background:var(--ink);color:var(--card);border-color:var(--ink)}
+  #keyGo,#ad-save,#fx-add{background:var(--ink);color:var(--card);border-color:var(--ink)}
   button:not(:disabled):active{transform:scale(.97)}
   .sw:active{transform:none}
   @media (prefers-reduced-motion:reduce){.sw,.sw i,button{transition:none !important}}
@@ -696,6 +701,15 @@
       <tbody id="avgRows"></tbody>
     </table>
   </div>
+
+  <h2>שורה תחתונה</h2>
+  <div class="tblwrap">
+    <table>
+      <thead><tr><th>תקופה</th><th>הכנסות ₪</th><th>סליקה 2.2%</th><th>וואטסאפ + שיחות</th><th>פרסום</th><th>קבועות</th><th>סה"כ הוצאות</th><th>רווח ₪</th><th>רווח אחרי מע"מ ₪</th></tr></thead>
+      <tbody id="blRows"></tbody>
+    </table>
+  </div>
+  <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 1rem">רווח אחרי מע"מ = (הכנסות − סליקה − פרסום − קבועות) ÷ 1.21 − וואטסאפ ושיחות (בדולר, בלי מע"מ). ההנחה: המחירים, הפרסום וההוצאות הקבועות כוללים מע"מ.</p>
 
   <h2 class="fold-h">
     <button type="button" class="fold-btn" id="fb-plans" aria-expanded="false" aria-controls="fold-plans">
@@ -2063,6 +2077,7 @@
     var costIls = costUsdC / 100 * USD_ILS + adIls + fxIls;
     var profit = rev - costIls;
     renderAvgs();
+    renderBottomLine();
     $('p-rev').textContent = rev.toLocaleString('he-IL');
     $('p-pay').textContent = pay;
     $('p-cost').textContent = costIls.toFixed(costIls < 100 ? 1 : 0);
@@ -2139,6 +2154,36 @@
         cost.toFixed(cost < 100 ? 1 : 0) + '</td><td style="font-weight:600;color:' + (profit >= 0 ? '#0F4C35' : '#A8402F') + '">' +
         Math.round(profit).toLocaleString('he-IL') + '</td><td>' + (rev ? margin + '%' : '—') + '</td><td>' + pay +
         '</td><td>' + (pay ? Math.round(profit / pay).toLocaleString('he-IL') : '—') + '</td></tr>';
+    }).join('');
+  }
+
+  /* ── the bottom line: every cost, all-time and month by month (Richard 11/09) ── */
+  function renderBottomLine() {
+    if (!opsData || !$('blRows')) return;
+    var dates = opsData.series.map(function (s) { return s.date; }).filter(Boolean).sort();
+    var today = new Date().toISOString().slice(0, 10);
+    var first = dates[0] || today.slice(0, 7) + '-01';
+    var periods = [{ label: 'כל הזמן', from: first, to: today }];
+    var m = today.slice(0, 7);
+    while (m >= first.slice(0, 7)) {
+      var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
+      var last = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+      periods.push({ label: mo + '/' + y, from: m + '-01', to: last < today ? last : today });
+      mo -= 1; if (mo === 0) { mo = 12; y -= 1; }
+      m = y + '-' + String(mo).padStart(2, '0');
+    }
+    var f = function (n) { return Math.round(n).toLocaleString('he-IL'); };
+    $('blRows').innerHTML = periods.map(function (p) {
+      var rev = 0, usdC = 0;
+      opsData.series.forEach(function (s) {
+        if (s.date < p.from || s.date > p.to) return;
+        rev += s.revenue_ils; usdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
+      });
+      var wa = usdC / 100 * USD_ILS, ads = adSpendIls(p.from, p.to), fx = fixedSpendIls(p.from, p.to), grow = rev * 0.022;
+      var cost = wa + ads + fx + grow, profit = rev - cost;
+      var afterVat = (rev - grow - ads - fx) / 1.21 - wa;
+      var col = function (v) { return 'style="font-weight:600;color:' + (v >= 0 ? '#0F4C35' : '#A8402F') + '"'; };
+      return '<tr' + (p.label === 'כל הזמן' ? ' style="font-weight:600"' : '') + '><td>' + p.label + '</td><td>' + f(rev) + '</td><td>' + f(grow) + '</td><td>' + f(wa) + '</td><td>' + f(ads) + '</td><td>' + f(fx) + '</td><td>' + f(cost) + '</td><td ' + col(profit) + '>' + f(profit) + '</td><td ' + col(afterVat) + '>' + f(afterVat) + '</td></tr>';
     }).join('');
   }
 

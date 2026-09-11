@@ -2474,6 +2474,31 @@ async function handleWaWebhook(request, env, url) {
           await env.RATE.put('human:' + peer, JSON.stringify({ at: new Date().toISOString(), via: 'phone' }), { expirationTtl: 7 * 86400 }).catch(() => {});
           await logEvent(env, { area: 'ווצאפ', action: 'ריצ׳רד ענה מהטלפון — נועה משתתקת בשיחה הזאת', ok: true, phone: peer, detail: 'שבוע, או עד "החזר לנועה"' }).catch(() => {});
         }
+        /* Richard, 11/09: what he writes from the phone app must show in the
+           inbox (full conversation log) and in the messages sheet, like any
+           other outbound. Only the echoes we did not send ourselves get here. */
+        try {
+          const echoCh = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
+          const eParsed = parseInboundReply(msg);
+          const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
+          const ets = Date.now();
+          await env.RATE.put('log:' + peer + ':' + ets, JSON.stringify({
+            dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: 'ריצ׳רד (מהטלפון)', phone_app: true,
+            media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
+              ? { id: String(msg[msg.type].id), mime: String(msg[msg.type].mime_type || ''), name: String(msg[msg.type].filename || msg[msg.type].caption || '') }
+              : undefined,
+            at: new Date().toISOString(),
+          }));
+          await touchConversation(env, peer, { ts: ets, dir: 'out', text: eBody.slice(0, 80), ch: echoCh });
+          await logRow(env, echoCh === 'guests' ? 'msg_guests' : 'msg_clients', {
+            id: msg.id || '', dir: 'יוצאת', who: 'ריצ׳רד (מהטלפון)',
+            sent: 'כן ' + ilTime(), error: '',
+            name: (await env.RATE.get('waname:' + peer)) || '', phone: peer, text: eBody,
+            sender: echoCh === 'guests' ? '0559726673' : '0559504499',
+            type: msg.type === 'text' ? 'טקסט' : msg.type === 'image' ? 'תמונה' : msg.type,
+            tmpl: '', category: '',
+          });
+        } catch {}
       }
       continue;
     }

@@ -140,6 +140,7 @@
   .aisw{font-size:.72rem;font-weight:500;color:var(--ink2);margin-inline-start:.5rem;white-space:nowrap;cursor:pointer}
   .msg .media{margin-top:.3rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
   .msg .media .dl{font:inherit;font-size:.72rem;padding:.15rem .55rem;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer}
+  .msg .who{display:block;font-size:.66rem;opacity:.7;margin-top:.15rem}
 </style>
 </head>
 <body>
@@ -478,6 +479,7 @@
         if (media && !m.text) text = '';
         el.innerHTML = esc(text) + media +
           (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') +
+          (m.who ? '<small class="who">' + esc(m.who) + '</small>' : '') +
           '<time>' + esc(msgTime(m.ts)) + '</time>';
         host.appendChild(el);
       });
