@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=48"></script>
+<script src="config.js?v=49"></script>
 <script src="assets/tracking.js?v=20"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=22"></script>
@@ -1393,14 +1393,68 @@
              '<span class="addon-a">' + action + '</span></div>';
     }).join('');
 
+    /* Shalev, 10/09: the price is computed from the live list — 0.30 ₪ per
+       message + 20 ₪, 2 ₪ per AI call + 20 ₪ — shown as one number, and the
+       payment link is created on the spot. Extra send asks "everyone or only
+       those who did not answer" first. */
+    if (!addonQuote && !demo) {
+      fetch(CFG.endpoint('addon-quote'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+        .then(function (r) { return r.json(); }).then(function (q) { if (q && q.ok) { addonQuote = q; paintAddonPrices(); } }).catch(function () {});
+    } else paintAddonPrices();
+
     $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
       b.addEventListener('click', function () {
         var k = b.dataset.addon;
-        var url = guests ? CFG.addonLink(k, guests) : null;
-        IshurLead.track('addon_click', { addon: k, plan: plan, guests: guests, has_link: !!url, where: 'dashboard' });
-        location.href = url || CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
+        IshurLead.track('addon_click', { addon: k, plan: plan, guests: guests, where: 'dashboard' });
+        if (k === 'extra_send') return askScope();
+        if (k === 'calls') return payAddon('calls', 'all');
+        if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
+        location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
       });
     });
+  }
+  var addonQuote = null;
+  function priceOf(k, scope) {
+    if (!addonQuote) return null;
+    var it = addonQuote.items[k === 'extra_send' || k === 'extrasend' ? 'extrasend_' + (scope || 'all') : k];
+    return it ? it : null;
+  }
+  function paintAddonPrices() {
+    if (!addonQuote) return;
+    $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
+      var k = b.dataset.addon, it = priceOf(k, 'all');
+      if (it && it.price) b.textContent = 'הוספה · ₪' + it.price;
+    });
+  }
+  function askScope() {
+    var all = priceOf('extra_send', 'all'), un = priceOf('extra_send', 'unanswered');
+    if (!all) return location.href = CFG.waLink('היי, רציתי שליחה נוספת לאירוע שלי.');
+    var box = document.createElement('div');
+    box.className = 'dpop-wrap';
+    box.innerHTML = '<div class="dpop" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
+      '<p style="margin:0 0 .8rem;color:var(--ink2);font-size:.9rem">למי לשלוח את הסבב הנוסף?</p>' +
+      '<button type="button" class="buy" data-scope="all" style="width:100%;margin-bottom:.5rem">לכולם · ' + all.n + ' מוזמנים · ₪' + all.price + '</button>' +
+      (un.n ? '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '</button>' : '') +
+      '<button type="button" class="btn" data-scope="x" style="width:100%">ביטול</button></div>';
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+    box.querySelector('.dpop').style.cssText = 'background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%';
+    box.addEventListener('click', function (e) {
+      var b = e.target.closest('[data-scope]'); if (!b && e.target !== box) return;
+      var sc = b ? b.dataset.scope : 'x';
+      box.remove();
+      if (sc !== 'x') payAddon('extrasend', sc);
+    });
+    document.body.appendChild(box);
+  }
+  function payAddon(kind, scope) {
+    var it = priceOf(kind === 'extrasend' ? 'extra_send' : kind, scope);
+    fetch(CFG.endpoint('addon-pay'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, kind: kind, scope: scope }) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (j && j.ok && j.url) { location.href = j.url; return; }
+        /* no payment API yet: the exact price still travels in the message */
+        var txt = 'היי, רציתי להוסיף לאירוע שלי: ' + (j && j.desc ? j.desc : (it ? it.label : kind)) + (j && j.price ? ' (₪' + j.price + ')' : '') + '.';
+        location.href = CFG.waLink(txt);
+      }).catch(function () { location.href = CFG.waLink('היי, רציתי להוסיף תוספת לאירוע שלי.'); });
   }
 
   /* Never leave the page looking empty. Say what happened, and offer the

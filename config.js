@@ -295,7 +295,7 @@ window.ISHUR_CONFIG = (function () {
     },
     more_guests: {
       label: 'הגדלת כמות מוזמנים',
-      desc: 'מעבר למדרגה גבוהה יותר, עם אפשרות להעלות קובץ נוסף',
+      desc: 'עד 10 מוזמנים נוספים חינם. מעבר לזה, מעבר למדרגה גבוהה יותר',
       plans: []
     },
     postpone: {
@@ -404,7 +404,7 @@ window.ISHUR_CONFIG = (function () {
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
-        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media'
+        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay'
       }[kind] || '/api/event');
     }
     return {

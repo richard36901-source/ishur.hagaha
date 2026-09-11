@@ -957,10 +957,40 @@ function parsePaidDesc(desc) {
 
 /* "תוספת 50 מוזמנים" → {kind:'guests', n:50}; "שליחה נוספת" / "גל נוסף" →
    {kind:'extrasend'}. A plain package ("50 מוזמנים בסיס") is NOT an add-on. */
+/* Shalev, 10/09: 0.30 ₪ per message + 20 ₪ per round; 2 ₪ per AI call + 20 ₪;
+   postponement/cancellation 0.30 ₪ per guest; up to 10 extra guests free. */
+const ADDON_RATES = { msg: 0.30, call: 2, base: 20, freeGuests: 10 };
+async function addonQuote(env, token) {
+  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token);
+  const phones = new Set(), pendingPhones = new Set();
+  for (const g of gRows) {
+    const p = normPhone(g[4] || ''); if (!p) continue;
+    phones.add(p);
+    const rsvp = String(g[15] || '').trim();
+    if (!rsvp) pendingPhones.add(p);
+  }
+  const total = phones.size, unanswered = pendingPhones.size;
+  const R = ADDON_RATES, up = x => Math.ceil(x);
+  const items = {
+    extrasend_all:        { label: 'שליחה נוספת לכולם',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },
+    extrasend_unanswered: { label: 'שליחה נוספת ללא ענו', n: unanswered, price: unanswered ? up(R.msg * unanswered + R.base) : 0 },
+    calls:                { label: 'סבב שיחות AI ללא ענו', n: unanswered, price: unanswered ? up(R.call * unanswered + R.base) : 0 },
+    postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total) : 0 },
+    cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total) : 0 },
+  };
+  return { ok: true, token, total, unanswered, free_guests: R.freeGuests, items };
+}
+
 function parsePaidDesc_isAddon(d) { return /תוספת|הרחב|הוספת|add-?on|extra/i.test(d); }
 function parseAddonDesc(desc) {
   const d = String(desc || '');
-  if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', desc: d.slice(0, 80) };
+  const tokM = d.match(/·\s*([0-9a-f]{8})\s*$/);
+  const tok8 = tokM ? tokM[1] : '';
+  if (/סבב שיחות/.test(d)) return { kind: 'calls', tok8, desc: d.slice(0, 80) };
+  if (/הודעת דחייה|דחייה\/עדכון/.test(d)) return { kind: 'postpone', tok8, desc: d.slice(0, 80) };
+  if (/הודעת ביטול/.test(d)) return { kind: 'cancel', tok8, desc: d.slice(0, 80) };
+  if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', scope: /ללא ענו/.test(d) ? 'unanswered' : 'all', tok8, desc: d.slice(0, 80) };
   if (!parsePaidDesc_isAddon(d)) return null;
   const m = d.match(/(\d{1,4})\s*מוזמנים/);
   if (!m) return null;
@@ -1008,8 +1038,15 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
       await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
     }
   } catch {}
+  if (addon.kind === 'calls' || addon.kind === 'postpone' || addon.kind === 'cancel') {
+    const key = addon.kind === 'calls' ? 'callsaddon:' + token : 'msgaddon:' + token + ':' + addon.kind;
+    if (env.RATE) await env.RATE.put(key, JSON.stringify({ ref, at: new Date().toISOString(), sum }), { expirationTtl: 200 * 86400 });
+    await logEvent(env, { area: 'תשלום', action: `תוספת נרכשה: ${addon.desc}`, ok: true, phone, token, ref, detail: `₪${sum}` });
+    await slackSend(env, `💳 *תוספת ${addon.kind === 'calls' ? 'סבב שיחות' : addon.kind === 'postpone' ? 'הודעת דחייה' : 'הודעת ביטול'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${addon.kind !== 'calls' ? ' — לשלוח את ההודעה מלוח השליטה' : ' — הסבב ייצא בחלון הבא'}`, { urgent: true });
+    return { ok: true, token };
+  }
   if (addon.kind === 'extrasend') {
-    if (env.RATE) await env.RATE.put('extrasend:' + token, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+    if (env.RATE) await env.RATE.put('extrasend:' + token, JSON.stringify({ at: new Date().toISOString(), scope: addon.scope || 'all', ref }), { expirationTtl: 200 * 86400 });
     await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
     await slackPost(env, `💳 *תוסף שליחה נוספת* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — גל 3 ייצא בתאריך שבגיליון`);
     return { ok: true, token };
@@ -1160,7 +1197,8 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     /* the tier counts invitations, i.e. distinct phone numbers — a family on
        one number is one invitation, exactly as the waves dedupe them */
     const billable = countBillable(guests) + (merge ? mergeBase : 0);
-    if (tierNum && billable > tierNum) {
+    /* Shalev, 10/09: up to 10 guests over the package are free */
+    if (tierNum && billable > tierNum + ADDON_RATES.freeGuests) {
       await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} הזמנות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
       return new Response(JSON.stringify({
         ok: false, error: 'over-tier', allowed: tierNum, got: billable,
@@ -7768,6 +7806,45 @@ export default {
       } else return deny(400, 'no-file', origin);
       await logEvent(env, { area: 'העלאה', action: out.video_url ? 'הלקוח החליף את ההזמנה לווידאו' : 'הלקוח החליף את תמונת ההזמנה', ok: true, token }).catch(() => {});
       return okJson({ ok: true, ...out }, origin);
+    }
+    /* ── Shalev's add-on pricing (11.2–11.6) ──────────────────────────────
+       One price, computed by the system from the live list, paid through a
+       Grow link created on the spot (createPaymentProcess) — never "write
+       to Noa". While the Grow API credentials are not set, the dashboard
+       falls back to WhatsApp with the exact price in the text. */
+    if (url.pathname === '/api/addon-quote' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      return okJson(await addonQuote(env, tok), origin);
+    }
+    if (url.pathname === '/api/addon-pay' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      const q = await addonQuote(env, tok);
+      const kind = String(b.kind || ''), scope = String(b.scope || 'all') === 'unanswered' ? 'unanswered' : 'all';
+      const item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
+      if (!item) return deny(400, 'bad-kind', origin);
+      const desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+      if (!(env.GROW_API_KEY && env.GROW_PAGE_CODE && env.GROW_USER_ID)) {
+        return okJson({ ok: false, why: 'no-grow-api', price: item.price, desc }, origin);
+      }
+      const form = new URLSearchParams({
+        pageCode: env.GROW_PAGE_CODE, userId: env.GROW_USER_ID, apiKey: env.GROW_API_KEY,
+        sum: String(item.price), description: desc, paymentNum: '1', maxPaymentNum: '1',
+        successUrl: 'https://ishur.io/dashboard.html?t=' + tok + '&paid=' + kind,
+        cancelUrl: 'https://ishur.io/dashboard.html?t=' + tok,
+        cField1: tok, cField2: kind + ':' + scope,
+      });
+      const r = await fetch('https://secure.meshulam.co.il/api/light/server/1.0/createPaymentProcess', { method: 'POST', body: form }).catch(() => null);
+      let j = null; try { j = r ? await r.json() : null; } catch {}
+      const link = j && j.data && j.data.url;
+      if (!link) { await alert(env, 'תוספות', 'יצירת קישור תשלום נכשלה', tok.slice(0, 8) + ': ' + JSON.stringify(j || {}).slice(0, 200)); return okJson({ ok: false, why: 'grow-failed', price: item.price, desc }, origin); }
+      await logEvent(env, { area: 'תשלום', action: `קישור תשלום לתוספת נוצר: ${item.label} · ₪${item.price}`, ok: true, token: tok }).catch(() => {});
+      return okJson({ ok: true, url: link, price: item.price, desc }, origin);
     }
     if (url.pathname === '/api/human' && request.method === 'POST') {
       let b = {};
