@@ -571,7 +571,7 @@
 
   <!-- guests -->
   <section class="card">
-    <div class="card-h">המוזמנים</div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><a id="replaceLink" href="#" style="font-size:.78rem;font-weight:500;color:var(--green);text-decoration:none;border:1px solid var(--bdr2);border-radius:999px;padding:.2rem .7rem;background:var(--green4)">⟳ העלאת רשימה חדשה במקום הקיימת</a></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
     <p class="list-sum" id="listSum"></p>
@@ -1411,6 +1411,14 @@
         setTimeout(reloadData, 1500);
       }).catch(function () { $('gaSend').disabled = false; $('gaMsg').textContent = 'לא הצלחנו להוסיף, נסו שוב'; });
   });
+
+  /* Richard, 11/09: replace the whole list from the dashboard — the upload
+     page opens in replace mode (allowed until the first send) */
+  (function () {
+    var a = $('replaceLink'); if (!a) return;
+    if (!token || demo) { a.hidden = true; return; }
+    a.href = 'upload.html?t=' + encodeURIComponent(token) + '&replace=1';
+  })();
 
   function renderAddons() {
     var ev = data.event || {};

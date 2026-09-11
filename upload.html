@@ -769,6 +769,14 @@
   });
 
   var replaceList = false;   /* set by the 'replace the list' button on the 409 screen */
+  /* ?replace=1 from the dashboard: this upload replaces the current list */
+  if (new URLSearchParams(location.search).get('replace') === '1') {
+    replaceList = true;
+    document.addEventListener('DOMContentLoaded', function () {
+      var h = document.querySelector('#formView h1, #formView .h1, h1');
+      if (h) h.insertAdjacentHTML('afterend', '<p style="margin:.3rem 0 .8rem;padding:.5rem .8rem;border-radius:10px;background:#FFF6E5;color:#7A5A1E;font-size:.85rem">מצב החלפה: הקובץ שתעלו <b>יחליף</b> את רשימת המוזמנים הקיימת. אפשרי עד השליחה הראשונה.</p>');
+    });
+  }
   /* the second click from the issues screen re-sends with confirm=1 */
   function sendFile(confirmAnyway) {
     var uploadUrl = CFG.endpoint('event');
