@@ -20,7 +20,7 @@ NOA_INBOUND_AGENT = "agent_f86326fe9b9fd16233276ea951"
 NOA_LEADS = "on"
 
 # מי רשאי לקבל קוד כניסה לניהול בוואטסאפ (admin-login.html). פסיקים בין מספרים.
-ADMIN_PHONES = "972545764327"
+ADMIN_PHONES = "972545764327,972526979535"
 
 [[kv_namespaces]]
 binding = "RATE"
