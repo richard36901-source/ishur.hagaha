@@ -3380,7 +3380,9 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     /* a declined guest is out of the funnel for good: no reminder, no extra
        send, nothing. Only מגיע, מתלבט and people who never answered continue. */
     if (rsvp === 'לא מגיע') { skippedAnswered++; cursor = gi + 1; continue; }
-    if (wave.onlyUnanswered && answered) { skippedAnswered++; cursor = gi + 1; continue; }
+    /* Richard, 11/09: the reminder also goes to מתלבט — only a real answer
+       (מגיע / לא מגיע) takes a guest out of wave 2 */
+    if (wave.onlyUnanswered && answered && rsvp !== 'מתלבט') { skippedAnswered++; cursor = gi + 1; continue; }
     /* dry runs never touch KV state */
     if (dry) { sent++; if (budget) budget.left--; continue; }
     /* wsent: FIRST — it is one read and it is true for every guest a previous
