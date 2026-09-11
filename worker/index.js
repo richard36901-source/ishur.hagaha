@@ -4264,10 +4264,76 @@ const PACE_SENDS = 25;    // guest messages per tick — 63 ticks ≈ 1,500/day
 const PACE_CALLS = 6;     // dials per tick — 63 ticks ≈ 375/day
 const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 
+
+/* Meta template health, once an hour. Runs on no-contact days too: it only
+   reads Meta and flips flags, it never contacts anyone. */
+async function templateCheck(env, out) {
+  /* Meta approvals, checked once an hour: the image invitation and the invoice
+     template switch themselves on the moment they are approved. */
+  try {
+    const hourKey = 'tmplcheck:' + new Date().toISOString().slice(0, 13);
+    if (env.WA_TOKEN && !(await env.RATE.get(hourKey))) {
+      await env.RATE.put(hourKey, '1', { expirationTtl: 7200 });
+      /* Each template is checked on the WABA that will actually SEND it. The
+         invitation with the image header goes to guests, so it must be approved
+         on Shir's account (1378764257421712) — approval on the 4499 account
+         flipped the switch on 06/09 and every guest send died with 132001. The
+         invoice goes to clients from 4499. */
+      const checks = [
+        { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
+        { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        /* footer copies (11/09): approved → tmplf:<original> = <copy> */
+        ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
+          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
+        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_shidrug', 'ishur_shidrug_sichot']
+          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
+        /* live templates: watched for PAUSED / DISABLED / REJECTED only */
+        ...['hazmana_ishur_v2', 'hazmana_ishur', 'ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
+          .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
+        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3']
+          .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
+      ];
+      for (const c of checks) {
+        if (!c.tok) continue;
+        const r = await fetch(`https://graph.facebook.com/v21.0/${c.waba}/message_templates?name=${c.name}&fields=name,status,rejected_reason,quality_score`,
+          { headers: { Authorization: 'Bearer ' + c.tok } }).catch(() => null);
+        const j = r ? await r.json().catch(() => null) : null;
+        const t = ((j && j.data) || []).find(x => x.name === c.name);
+        const key = t ? c.key : null;
+        if (key && t.status === 'APPROVED' && !(await env.RATE.get(key))) {
+          await env.RATE.put(key, t.name);
+          await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
+          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`);
+        }
+        /* Richard, 11/09: any problem with a template → urgent Slack, and the
+           system steps back to the previous template on its own so no send
+           dies on it. Told once per template per status. */
+        if (t && t.status !== 'APPROVED' && t.status !== 'PENDING' && t.status !== 'IN_APPEAL') {
+          const seenKey = 'tmplbad:' + t.name + ':' + t.status;
+          if (!(await env.RATE.get(seenKey))) {
+            await env.RATE.put(seenKey, new Date().toISOString(), { expirationTtl: 30 * 86400 });
+            const live = await env.RATE.get(key);
+            if (live === t.name) { await env.RATE.delete(key); }
+            const reason = (t.rejected_reason && t.rejected_reason !== 'NONE') ? t.rejected_reason : (t.quality_score && t.quality_score.score) || '';
+            await logEvent(env, { area: 'מטא', action: `תבנית ${t.name}: ${t.status}${reason ? ' · ' + reason : ''}`, ok: false, review: true, ref: t.name, detail: live === t.name ? 'הוסרה מהשימוש, חזרה לתבנית הקודמת' : 'לא הייתה בשימוש' });
+            await slackSend(env, `🚨 *בעיה בתבנית וואטסאפ* · ${t.name}
+מצב: ${t.status}${reason ? ' · סיבה: ' + reason : ''}
+${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקודמת, השליחות ממשיכות.' : 'התבנית לא הייתה בשימוש, שום שליחה לא נפגעה.'}
+מה עכשיו: ${t.status === 'REJECTED' ? 'לתקן את הנוסח ולהגיש מחדש (אני אעשה כשתגיד)' : 'לבדוק ב-WhatsApp Manager למה מטא השהתה/השביתה'}`, { urgent: true });
+          }
+        }
+      }
+    }
+  } catch (e) {
+    out.tmplcheck = { ok: false, why: String(e && e.message) };
+  }
+}
+
 async function runPacer(env) {
   if (!env.RATE) return { ok: false, why: 'no-kv' };
   const today = ilDate();
-  if (isNoContactDay(today)) return { ok: true, skipped: 'no-contact-day' };
+  if (isNoContactDay(today)) { const quiet = { ok: true, skipped: 'no-contact-day' }; await templateCheck(env, quiet); return quiet; }
 
   /* Phase 6: flush last night's queued Slack alerts once the 09:00 window
      opens. No new cron needed — the pacer already ticks every 10 minutes;
@@ -4349,66 +4415,7 @@ async function runPacer(env) {
     out.calls = { dialed: 0, why: callWin.why };
     out.callbacks = { dialed: 0, why: callWin.why };
   }
-  /* Meta approvals, checked once an hour: the image invitation and the invoice
-     template switch themselves on the moment they are approved. */
-  try {
-    const hourKey = 'tmplcheck:' + new Date().toISOString().slice(0, 13);
-    if (env.WA_TOKEN && !(await env.RATE.get(hourKey))) {
-      await env.RATE.put(hourKey, '1', { expirationTtl: 7200 });
-      /* Each template is checked on the WABA that will actually SEND it. The
-         invitation with the image header goes to guests, so it must be approved
-         on Shir's account (1378764257421712) — approval on the 4499 account
-         flipped the switch on 06/09 and every guest send died with 132001. The
-         invoice goes to clients from 4499. */
-      const checks = [
-        { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
-        { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
-        { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
-        /* footer copies (11/09): approved → tmplf:<original> = <copy> */
-        ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
-          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
-        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_shidrug', 'ishur_shidrug_sichot']
-          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
-        /* live templates: watched for PAUSED / DISABLED / REJECTED only */
-        ...['hazmana_ishur_v2', 'hazmana_ishur', 'ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
-          .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
-        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3']
-          .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
-      ];
-      for (const c of checks) {
-        if (!c.tok) continue;
-        const r = await fetch(`https://graph.facebook.com/v21.0/${c.waba}/message_templates?name=${c.name}&fields=name,status,rejected_reason,quality_score`,
-          { headers: { Authorization: 'Bearer ' + c.tok } }).catch(() => null);
-        const j = r ? await r.json().catch(() => null) : null;
-        const t = ((j && j.data) || []).find(x => x.name === c.name);
-        const key = t ? c.key : null;
-        if (key && t.status === 'APPROVED' && !(await env.RATE.get(key))) {
-          await env.RATE.put(key, t.name);
-          await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`);
-        }
-        /* Richard, 11/09: any problem with a template → urgent Slack, and the
-           system steps back to the previous template on its own so no send
-           dies on it. Told once per template per status. */
-        if (t && t.status !== 'APPROVED' && t.status !== 'PENDING' && t.status !== 'IN_APPEAL') {
-          const seenKey = 'tmplbad:' + t.name + ':' + t.status;
-          if (!(await env.RATE.get(seenKey))) {
-            await env.RATE.put(seenKey, new Date().toISOString(), { expirationTtl: 30 * 86400 });
-            const live = await env.RATE.get(key);
-            if (live === t.name) { await env.RATE.delete(key); }
-            const reason = (t.rejected_reason && t.rejected_reason !== 'NONE') ? t.rejected_reason : (t.quality_score && t.quality_score.score) || '';
-            await logEvent(env, { area: 'מטא', action: `תבנית ${t.name}: ${t.status}${reason ? ' · ' + reason : ''}`, ok: false, review: true, ref: t.name, detail: live === t.name ? 'הוסרה מהשימוש, חזרה לתבנית הקודמת' : 'לא הייתה בשימוש' });
-            await slackSend(env, `🚨 *בעיה בתבנית וואטסאפ* · ${t.name}
-מצב: ${t.status}${reason ? ' · סיבה: ' + reason : ''}
-${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקודמת, השליחות ממשיכות.' : 'התבנית לא הייתה בשימוש, שום שליחה לא נפגעה.'}
-מה עכשיו: ${t.status === 'REJECTED' ? 'לתקן את הנוסח ולהגיש מחדש (אני אעשה כשתגיד)' : 'לבדוק ב-WhatsApp Manager למה מטא השהתה/השביתה'}`, { urgent: true });
-          }
-        }
-      }
-    }
-  } catch (e) {
-    out.tmplcheck = { ok: false, why: String(e && e.message) };
-  }
+  await templateCheck(env, out);
 
   /* the journal rides the same tick: everything buffered since the last one
      lands in the sheet as a single Sheets call */
