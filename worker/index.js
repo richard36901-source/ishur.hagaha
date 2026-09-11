@@ -3894,7 +3894,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     /* ishur_toda_orach — a thank-you to every guest who confirmed, the day
        after. A marketing template to hundreds of people, so הכל כלול only.
        Same per-guest markers + budget shape as the cancel notice. */
-    if (planKeyOf(ev) === 'premium' && !(env.RATE && await env.RATE.get('toda:' + token))) {
+    /* Richard, 11/09: the thank-you goes out on every package — it is our
+       spot for a word about ishur.io */
+    if (!(env.RATE && await env.RATE.get('toda:' + token))) {
       if (dry) { out.push({ token, type: 'guest_thanks', would_send: confirmed }); }
       else {
         let tsent = 0, tfail = 0, tcut = false; const tseen = new Set();
