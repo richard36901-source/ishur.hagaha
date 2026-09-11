@@ -8027,6 +8027,19 @@ export default {
       const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || token.slice(0, 8));
       const key = 'fb:' + token;
       let rec = {}; try { rec = JSON.parse(await env.RATE.get(key)) || {}; } catch {}
+      /* clicks on the review / video links, and leaving without clicking —
+         so the sheet says who recommended where and who dropped off */
+      if (b.click === 'review' || b.click === 'clip' || b.left === true) {
+        const what = b.click === 'review' ? 'לחץ: ביקורת בגוגל' : b.click === 'clip' ? 'לחץ: המלצת וידאו' : 'עזב בלי ללחוץ';
+        if (b.left === true && (rec.clicked_review || rec.clicked_clip)) return okJson({ ok: true }, origin);
+        if (b.click === 'review') rec.clicked_review = new Date().toISOString();
+        if (b.click === 'clip') rec.clicked_clip = new Date().toISOString();
+        if (b.left === true) rec.left = new Date().toISOString();
+        await env.RATE.put(key, JSON.stringify(rec));
+        await logRow(env, 'feedback', { token: token.slice(0, 8), name, phone, nps: rec.nps || '', exp: rec.exp || '', route: what, note: '' });
+        await logEvent(env, { area: 'סוף-אירוע', action: 'משוב: ' + what, ok: b.left !== true, token, phone }).catch(() => {});
+        return okJson({ ok: true }, origin);
+      }
       if (typeof b.note === 'string' && b.note.trim()) {
         rec.note = b.note.trim().slice(0, 1500); rec.note_at = new Date().toISOString();
         await env.RATE.put(key, JSON.stringify(rec));
@@ -8047,7 +8060,7 @@ export default {
       await slackSend(env, `${route === 'high' ? '💚' : '🟠'} *משוב סוף אירוע* · ${evName} · ${phone}
 ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'נשלח לביקורת בגוגל' : 'התבקש לכתוב מה לא היה בסדר'}`, { urgent: false });
       const brain = await getBrain(env);
-      return okJson({ ok: true, route, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
+      return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
     }
     if (url.pathname === '/api/media-dl' && request.method === 'POST') {
       let b = {};

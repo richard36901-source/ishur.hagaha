@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="config.js?v=52"></script>
+<script src="assets/tracking.js?v=20"></script>
 <style>
   :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb}
   *{margin:0;padding:0;box-sizing:border-box}
@@ -58,7 +59,6 @@
     </div>
     <button class="btn" id="go" disabled>שליחה</button>
     <p class="err" id="err"></p>
-    <p class="fine">התשובות אנונימיות כלפי חוץ ונשארות אצלנו בלבד.</p>
   </section>
 
   <section id="s-low" hidden>
@@ -99,6 +99,9 @@
   var token = new URLSearchParams(location.search).get('t') || '';
   if (!/^[0-9a-f-]{20,40}$/.test(token)) { $('s1').hidden = true; $('s-bad').hidden = false; return; }
   var ans = { nps: 0, exp: 0 };
+  function ph(ev, props) { try { if (window.posthog && posthog.capture) posthog.capture(ev, Object.assign({ token: token }, props || {})); } catch (e) {} }
+  try { if (window.posthog && posthog.identify) posthog.identify('event:' + token.slice(0, 8), { feedback_token: token }); } catch (e) {}
+  ph('feedback_opened');
   function scale(id, key) {
     var host = $(id);
     for (var i = 1; i <= 10; i++) {
@@ -122,6 +125,8 @@
     post({ nps: ans.nps, exp: ans.exp }).then(function (j) {
       if (!j || !j.ok) { $('err').textContent = j && j.error === 'bad-token' ? 'הקישור לא תקין' : 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; return; }
       $('s1').hidden = true;
+      ph('feedback_scored', { nps: ans.nps, exp: ans.exp, route: j.route });
+      try { if (window.posthog && posthog.identify) posthog.identify('event:' + token.slice(0, 8), { feedback_nps: ans.nps, feedback_exp: ans.exp, feedback_route: j.route, client_name: j.name || '' }); } catch (e) {}
       if (j.route === 'high') {
         $('review').href = j.review || 'https://g.page/r/CTGM0phWkiVyEBM/review';
         if (j.clip) $('clip').href = j.clip; else $('clip').hidden = true;
@@ -129,12 +134,26 @@
       } else { $('s-low').hidden = false; $('note').focus(); }
     }).catch(function () { $('err').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; });
   });
+  ['review', 'clip'].forEach(function (id) {
+    $(id).addEventListener('click', function () {
+      ph('feedback_click', { target: id });
+      try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify({ token: token, click: id })], { type: 'application/json' })); } catch (e) { post({ click: id }); }
+    });
+  });
+  /* left without clicking either link: one beacon on the way out */
+  var leftAt = 0;
+  document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState !== 'hidden' || $('s-high').hidden || leftAt) return;
+    leftAt = Date.now();
+    try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify({ token: token, left: true })], { type: 'application/json' })); } catch (e) {}
+  });
   $('sendNote').addEventListener('click', function () {
     var t = $('note').value.trim();
     if (!t) { $('err2').textContent = 'כתבו לנו משהו קצר 🙂'; return; }
     $('sendNote').disabled = true;
     post({ note: t }).then(function (j) {
       if (!j || !j.ok) { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; return; }
+      ph('feedback_note', { len: t.length });
       $('s-low').hidden = true; $('s-done').hidden = false;
     }).catch(function () { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; });
   });
