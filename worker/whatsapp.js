@@ -314,7 +314,11 @@ export function sendOtpTemplate(env, to, code) {
 
 /* The production path. `params` are the positional body variables; `imageUrl`
    fills a header of type IMAGE when the template has one. */
-export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel, ctx) {
+export async function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel, ctx) {
+  /* Richard, 11/09: every template gets the ishur.io footer. The footer
+     copies are submitted as <name>_f; the pacer writes tmplf:<name> once Meta
+     approves one, and from then on the copy goes out instead. */
+  try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {}
   const components = [];
   if (imageUrl) {
     /* an .mp4 link fills a VIDEO header; anything else an IMAGE header. The

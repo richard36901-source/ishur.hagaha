@@ -57,7 +57,7 @@ const TMPL_CATEGORY = {
   ishur_shulchan: 'utility', ishur_doch: 'utility', ishur_tzikoret_kovetz: 'utility',
   ishur_tashlum: 'utility',
   ishur_lo_siyem: 'marketing', ishur_lo_siyem_2: 'marketing', ishur_lo_siyem_3: 'marketing',
-  ishur_toda_orach: 'marketing', ishur_syum: 'marketing',
+  ishur_toda_orach: 'marketing', ishur_syum: 'marketing', ishur_toda_orach_f: 'marketing', ishur_syum_v3_f: 'marketing', ishur_hazmana_shuv_f: 'marketing',
   ishur_shidrug: 'marketing', ishur_shidrug_sichot: 'marketing',
   ishur_kod: 'auth',
 };
@@ -4350,6 +4350,11 @@ async function runPacer(env) {
         { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        /* footer copies (11/09): approved → tmplf:<original> = <copy> */
+        ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
+          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
+        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_shidrug', 'ishur_shidrug_sichot']
+          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
       ];
       for (const c of checks) {
         if (!c.tok) continue;
