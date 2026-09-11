@@ -95,6 +95,7 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
   var token = new URLSearchParams(location.search).get('t') || '';
   if (!/^[0-9a-f-]{20,40}$/.test(token)) { $('s1').hidden = true; $('s-bad').hidden = false; return; }
   var ans = { nps: 0, exp: 0 };
