@@ -8,7 +8,7 @@
 <title>אינבוקס · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=49"></script>
+<script src="config.js?v=50"></script>
 <script src="assets/adminbar.js?v=7" defer></script>
 <script>
   (function () {
@@ -137,6 +137,9 @@
   }
   button:not(:disabled):active{transform:scale(.97)}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+  .aisw{font-size:.72rem;font-weight:500;color:var(--ink2);margin-inline-start:.5rem;white-space:nowrap;cursor:pointer}
+  .msg .media{margin-top:.3rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .msg .media .dl{font:inherit;font-size:.72rem;padding:.15rem .55rem;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer}
 </style>
 </head>
 <body>
@@ -178,7 +181,7 @@
     <div class="pane-h" hidden id="paneH">
       <button class="hbtn backb" id="backBtn" aria-label="חזרה לרשימת השיחות">→</button>
       <div class="pane-id">
-        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span><span class="nr" id="pNr" hidden>לא רלוונטי</span></div>
+        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span><span class="nr" id="pNr" hidden>לא רלוונטי</span> <label class="aisw" title="כשכבוי, נועה לא עונה בשיחה הזאת אף פעם. עדכוני מערכת ממשיכים לצאת"><input type="checkbox" id="aiSw"> נועה עונה כאן</label></div>
         <div class="pane-sub" id="pWa" hidden></div>
         <div class="pane-phone">
           <span class="p" id="pPhone"></span>
@@ -455,6 +458,7 @@
     api({ phone: want }).then(function (d) {
       if (!d || !d.ok || current !== want) return;
       /* the thread endpoint knows the freshest wa_name and nr: tag state */
+      if ($('aiSw')) { $('aiSw').checked = !d.ai_off; $('aiSw').disabled = false; }
       if (currentConv && ((typeof d.wa_name === 'string' && d.wa_name) || currentConv.nonrelevant !== !!d.nonrelevant)) {
         if (d.wa_name) currentConv.wa_name = d.wa_name;
         currentConv.nonrelevant = !!d.nonrelevant;
@@ -467,7 +471,12 @@
         var el = document.createElement('div');
         el.className = 'msg ' + (m.dir === 'out' ? 'out' : 'in');
         var text = m.text || (m.type === 'template' ? 'תבנית' + (m.tmpl ? ' · ' + m.tmpl : '') : (m.type || ''));
-        el.innerHTML = esc(text) +
+        var media = m.media && m.media.id
+          ? '<div class="media"><span>📎 ' + esc(m.media.name || ({ document: 'קובץ', image: 'תמונה', video: 'סרטון', audio: 'הקלטה' }[m.type] || 'קובץ')) + (m.media.mime ? ' <small>' + esc(m.media.mime) + '</small>' : '') + '</span> ' +
+            '<button type="button" class="dl" data-id="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-name="' + esc(m.media.name || (m.type + '-' + m.ts)) + '">הורדה</button></div>'
+          : '';
+        if (media && !m.text) text = '';
+        el.innerHTML = esc(text) + media +
           (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') +
           '<time>' + esc(msgTime(m.ts)) + '</time>';
         host.appendChild(el);
@@ -475,6 +484,29 @@
       host.scrollTop = host.scrollHeight;
     });
   }
+
+  /* download a file the customer sent: the worker fetches it from Meta */
+  $('thread').addEventListener('click', function (e) {
+    var b = e.target.closest('button.dl'); if (!b) return;
+    b.disabled = true; b.textContent = 'מוריד…';
+    fetch(CFG.endpoint('mediadl'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, id: b.dataset.id, ch: b.dataset.ch }) })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(function (blob) {
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        var ext = (blob.type.split('/')[1] || 'bin').replace('vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx').replace('quicktime', 'mov');
+        a.download = /\.[a-z0-9]{2,5}$/i.test(b.dataset.name) ? b.dataset.name : b.dataset.name + '.' + ext;
+        document.body.appendChild(a); a.click(); a.remove();
+        b.disabled = false; b.textContent = 'הורדה';
+      }).catch(function () { b.disabled = false; b.textContent = 'לא זמין יותר'; });
+  });
+  /* the per-chat switch: Noa answers here, or never */
+  $('aiSw').addEventListener('change', function () {
+    if (!current) return;
+    var on = $('aiSw').checked; $('aiSw').disabled = true;
+    fetch(CFG.endpoint('human'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, phone: current, ai: on }) })
+      .then(function (r) { return r.json(); }).then(function (j) { $('aiSw').checked = !!(j && j.ai); $('aiSw').disabled = false; })
+      .catch(function () { $('aiSw').disabled = false; });
+  });
 
   $('backBtn').addEventListener('click', function () {
     document.body.classList.remove('open');

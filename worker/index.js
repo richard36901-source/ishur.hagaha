@@ -2497,6 +2497,11 @@ async function handleWaWebhook(request, env, url) {
         JSON.stringify({
           dir: 'in', type: msg.type, ch,
           text: body,
+          /* Richard, 11/09: files/videos a client sends must be visible and
+             downloadable from the inbox — keep Meta's media id */
+          media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
+            ? { id: String(msg[msg.type].id), mime: String(msg[msg.type].mime_type || ''), name: String(msg[msg.type].filename || msg[msg.type].caption || '') }
+            : undefined,
           at: new Date().toISOString(),
         })).catch(() => {});
       await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
@@ -2520,7 +2525,7 @@ async function handleWaWebhook(request, env, url) {
     if (ch === 'client' && env.RATE) {
       const p9 = normPhone(from);
       const off = await env.RATE.get('noa:off').catch(() => null);
-      const human = await env.RATE.get('human:' + p9).catch(() => null);
+      const human = (await env.RATE.get('human:' + p9).catch(() => null)) || (await env.RATE.get('aioff:' + p9).catch(() => null));
       const blocked = off ? null : await phoneBlocked(env, p9);
       if (off || human || blocked) {
         await logEvent(env, { area: 'ווצאפ', action: off ? 'נועה כבויה — הודעה נכנסה ולא נענתה' : human ? 'אדם בשיחה — נועה לא ענתה' : 'מספר חסום — לא נענה', ok: true, phone: p9, detail: (parsed ? textOf(parsed) : msg.type || '').slice(0, 120) }).catch(() => {});
@@ -2856,7 +2861,7 @@ async function computeServiceReply(env, from, text, who) {
   }
   /* a human is in this conversation (typed from the phone app, or from the
      inbox). Noa stays out until released. */
-  if (env.RATE && await env.RATE.get('human:' + phone).catch(() => null)) {
+  if (env.RATE && ((await env.RATE.get('human:' + phone).catch(() => null)) || (await env.RATE.get('aioff:' + phone).catch(() => null)))) {
     return { reply: '', label: 'human', silent: true };
   }
   let reply = '';
@@ -4621,7 +4626,8 @@ async function handleInbox(request, env, origin) {
     }
     const waName = env.RATE ? await env.RATE.get('waname:' + phone) : '';
     const nonrelevant = !!(env.RATE && await env.RATE.get('nr:' + phone));
-    return okJson({ ok: true, phone, wa_name: waName || '', nonrelevant, messages }, origin);
+    const aiOff = !!(env.RATE && ((await env.RATE.get('aioff:' + phone)) || (await env.RATE.get('human:' + phone))));
+    return okJson({ ok: true, phone, wa_name: waName || '', nonrelevant, ai_off: aiOff, messages }, origin);
   }
 
   /* One key per conversation instead of one per message. The old list walked
@@ -7846,6 +7852,21 @@ export default {
       await logEvent(env, { area: 'תשלום', action: `קישור תשלום לתוספת נוצר: ${item.label} · ₪${item.price}`, ok: true, token: tok }).catch(() => {});
       return okJson({ ok: true, url: link, price: item.price, desc }, origin);
     }
+    /* download a file a customer sent on WhatsApp (admin). Meta keeps media
+       ~30 days; we keep the id in the inbound log. */
+    if (url.pathname === '/api/media-dl' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const id = String(b.id || '');
+      if (!/^\d{6,40}$/.test(id)) return deny(400, 'bad-id', origin);
+      const tok = b.ch === 'guests' ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+      const meta = await fetch('https://graph.facebook.com/v21.0/' + id, { headers: { Authorization: 'Bearer ' + tok } }).then(r => r.json()).catch(() => null);
+      if (!meta || !meta.url) return deny(404, 'media-gone', origin);
+      const f = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+      if (!f || !f.ok) return deny(502, 'media-fetch-failed', origin);
+      return new Response(f.body, { headers: { 'Content-Type': meta.mime_type || 'application/octet-stream', 'Content-Disposition': 'attachment', ...cors(origin) } });
+    }
     if (url.pathname === '/api/human' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -7856,7 +7877,14 @@ export default {
         if (b.human) await env.RATE.put('human:' + p, JSON.stringify({ at: new Date().toISOString(), via: 'admin' }), { expirationTtl: 7 * 86400 });
         else await env.RATE.delete('human:' + p);
       }
-      return okJson({ ok: true, phone: p, human: !!(await env.RATE.get('human:' + p)) }, origin);
+      /* Richard, 11/09: a per-chat switch. ai:false = Noa never answers this
+         chat (no expiry); system updates and templates still go out. */
+      if (typeof b.ai === 'boolean') {
+        if (b.ai) await env.RATE.delete('aioff:' + p); else await env.RATE.put('aioff:' + p, new Date().toISOString());
+        if (b.ai) await env.RATE.delete('human:' + p).catch(() => {});
+        await logEvent(env, { area: 'שירות AI', action: b.ai ? 'נועה הודלקה בשיחה' : 'נועה כובתה בשיחה (קבוע)', ok: true, phone: p }).catch(() => {});
+      }
+      return okJson({ ok: true, phone: p, human: !!(await env.RATE.get('human:' + p)), ai: !(await env.RATE.get('aioff:' + p)) }, origin);
     }
     if (url.pathname === '/api/wa-send' && request.method === 'POST') {
       return handleWaSend(request, env, origin);
