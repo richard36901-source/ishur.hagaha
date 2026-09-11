@@ -306,13 +306,15 @@
   .retry:active{transform:scale(.972);transition-duration:100ms}
   .wa-link{display:inline-flex;align-items:center;gap:.4rem;margin-top:1rem;font-size:.87rem;color:var(--green2);text-decoration:underline;text-underline-offset:3px}
   .foot{text-align:center;margin-top:1.4rem;font-size:.71rem;color:var(--ink3);letter-spacing:.03em}
-  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .hp{position:absolute;top:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
 
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
     .spin,.bar i{animation-duration:.9s!important;animation-iteration-count:infinite!important}
     .drop:active,.btn:active,.retry:active,.idate-cell:active,.style-opt:active{transform:none}
   }
+  /* the page never scrolls sideways on a phone */
+  html,body{overflow-x:hidden;max-width:100%}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
 </head>

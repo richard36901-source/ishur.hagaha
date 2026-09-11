@@ -471,7 +471,7 @@
   .foot a{color:var(--green2)}
   .skel{background:linear-gradient(90deg,var(--bg3) 25%,#eceef1 37%,var(--bg3) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite;border-radius:6px;color:transparent}
   @keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}
-  .hp{position:absolute;left:-9999px;width:1px;height:1px;overflow:hidden}
+  .hp{position:absolute;top:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
 
   @media (prefers-reduced-motion:reduce){
     *,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}
@@ -480,6 +480,8 @@
   }
   button:not(:disabled):active{transform:scale(.97)}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+  /* the page never scrolls sideways on a phone */
+  html,body{overflow-x:hidden;max-width:100%}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
 <link rel="stylesheet" href="assets/picker.css?v=20">
