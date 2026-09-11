@@ -1433,7 +1433,7 @@
         .then(function (x) {
           b.disabled = false;
           if (x.s === 200 && x.j && x.j.ok) {
-            msg.textContent = 'הוחלף ✓ ' + (x.j.guests || '') + ' מוזמנים' + (x.j.skipped && x.j.skipped.length ? ' · ' + x.j.skipped.length + ' שורות דולגו' : '');
+            msg.textContent = 'הוחלף ✓ ' + (x.j.guests || '') + ' מוזמנים' + (x.j.skipped ? ' · ' + x.j.skipped + ' שורות דולגו' : '');
             setTimeout(reloadData, 1200);
             return;
           }
