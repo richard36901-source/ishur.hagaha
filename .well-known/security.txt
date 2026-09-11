@@ -1,0 +1,4 @@
+Contact: mailto:richardtomskiy@gmail.com
+Preferred-Languages: he, en
+Canonical: https://ishur.io/.well-known/security.txt
+Expires: 2027-09-11T00:00:00.000Z

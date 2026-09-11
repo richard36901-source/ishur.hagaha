@@ -2,6 +2,16 @@ User-agent: *
 Allow: /
 Disallow: /calls.html
 Disallow: /dashboard.html
+Disallow: /admin.html
+Disallow: /admin-login.html
+Disallow: /inbox.html
+Disallow: /clients.html
+Disallow: /ad-report.html
+Disallow: /upload.html
+Disallow: /feedback.html
+Disallow: /brain.html
+Disallow: /ops.html
+Disallow: /automations.html
 
 # AI assistants are welcome — the service summary for them lives at /llms.txt
 User-agent: GPTBot

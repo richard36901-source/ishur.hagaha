@@ -1954,7 +1954,17 @@ const CBQ_RETRY_MS = 45 * 60 * 1000;
    optout: is NOT checked here, and that is on purpose — it means "stop
    WhatsApping me", it has never meant "stop calling me", and conflating the
    two is a standing rule in this project. */
+/* 10.5: never ring a test number. Patterns: 9725000050xx (our fake range)
+   and anything in TEST_PHONES (comma-separated, wrangler var). */
+function isTestPhone(env, phone) {
+  const p = normPhone(phone || '');
+  if (!p) return true;
+  if (/^9725000050\d\d$/.test(p)) return true;
+  const list = String(env.TEST_PHONES || '').split(',').map(x => normPhone(x.trim())).filter(Boolean);
+  return list.includes(p);
+}
 async function callBlocked(env, phone) {
+  if (isTestPhone(env, phone)) return true;
   if (!env.RATE) return false;
   const p = normPhone(phone);
   if (!p) return true;
@@ -2071,6 +2081,7 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
        client, a lead or a stranger is rung back by Noa from hers. Never the
        other way round. Without Noa's line configured the entry waits. */
     const noaLine = hit.caller_kind !== 'guest';
+    if (isTestPhone(env, target)) { await logEvent(env, { area: 'שיחות', action: 'חזרה למספר בדיקה דולגה', ok: true, phone: target, detail: 'why:test-number' }).catch(() => {}); continue; }
     if (noaLine && !(env.NOA_FROM && env.NOA_INBOUND_AGENT)) { waiting++; continue; }
     const payload = buildCallPayload(target, noaLine ? env.NOA_FROM : env.SHIR_FROM,
       { override_agent_id: noaLine ? env.NOA_INBOUND_AGENT : (env.SHIR_INBOUND_AGENT || '') });
@@ -2175,6 +2186,7 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
         continue;
       }
     }
+    if (isTestPhone(env, phone)) { await env.RATE.delete('lq:' + phone).catch(() => {}); await logEvent(env, { area: 'שיחות', action: 'חיוג לליד במספר בדיקה דולג', ok: true, phone, detail: 'why:test-number' }).catch(() => {}); continue; }
     const res = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
@@ -6274,6 +6286,26 @@ async function metaAds(env, path, method, payload) {
   return { ok: r.ok, status: r.status, data: j };
 }
 
+/* 10.9: Lead and InitiateCheckout from the server, same event_id the pixel
+   used in the browser ('lead_<session>' / 'ic_<session>'), so Meta dedups and
+   a blocked pixel still leaves the event. */
+async function capiEvent(env, name, { phone, email, eventId, value }) {
+  if (!env.META_ADS_TOKEN || !eventId) return;
+  if (env.RATE && await seenOnce(env, 'capi:' + eventId)) return;
+  const user_data = {};
+  const ph = normPhone(phone);
+  if (ph) user_data.ph = [await sha256Hex(ph)];
+  const em = String(email || '').trim().toLowerCase();
+  if (em) user_data.em = [await sha256Hex(em)];
+  if (!user_data.ph && !user_data.em) return;
+  const ev = {
+    event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: String(eventId),
+    action_source: 'website', event_source_url: 'https://ishur.io/', user_data,
+    ...(value ? { custom_data: { value: Number(value) || 0, currency: 'ILS' } } : {}),
+  };
+  const r = await metaAds(env, `/${META_PIXEL_ID}/events`, 'POST', { data: [ev] });
+  if (!r || !r.ok) await logEvent(env, { area: 'מטא', action: `CAPI ${name} לא דווח`, ok: false, phone: ph, detail: JSON.stringify((r && r.data && r.data.error) || 'no-response').slice(0, 200) }).catch(() => {});
+}
 async function capiPurchase(env, { phone, email, value, ref }) {
   if (!env.META_ADS_TOKEN || !ref) return;
   const user_data = {};
@@ -7954,12 +7986,17 @@ export default {
         const time = String(ev[36] || '').trim() || 'בשעות הערב';
         const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
         const inviteTmpl = (await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+        /* same media choice as wave 1: video, else image, else text */
+        const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
+        const invite = String(ev[44] || '').trim();
+        const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
+        const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
         if (!(await phoneBlocked(env, phone))) {
-          const res = await sendTemplate(env, phone, inviteTmpl, [name, occasion, hosts, date, time, venue], '', 'he', 'guests', { occasion, wave: 1, token: tok, name });
+          const res = await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name });
           sent = !!res.ok; why = res.ok ? 'sent' : (res.error || 'send-failed');
           if (res.ok) {
             await env.RATE.put(`wsent:${tok}:1:${phone}`, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
-            await addEvCost(env, tok, msgCost(inviteTmpl));
+            await addEvCost(env, tok, msgCost(tmpl));
           }
         } else why = 'blocked';
       }
@@ -8303,6 +8340,13 @@ export default {
       await logEvent(env, { area: 'אתר', action: 'ליד מהטופס → מייק', ok: upstream.ok, review: !upstream.ok,
         phone: stampFields.phone || '', detail: `${stampFields.name || ''} · ${stampFields.occasion || ''} · HTTP ${upstream.status}` });
       if (upstream.ok) { try { await noteLead(env, stampFields); } catch {} }
+      /* server-side copy of the pixel's Lead / InitiateCheckout (10.9) */
+      try {
+        const et = String(stampFields.event_type || '');
+        const eid = String(stampFields.event_id || '');
+        if (eid && (et === 'lead_partial' || et === 'lead')) await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
+        if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
+      } catch {}
     }
 
     /* status has to answer, the other two only need their code passed back */
