@@ -472,11 +472,16 @@
         var el = document.createElement('div');
         el.className = 'msg ' + (m.dir === 'out' ? 'out' : 'in');
         var text = m.text || (m.type === 'template' ? 'תבנית' + (m.tmpl ? ' · ' + m.tmpl : '') : (m.type || ''));
-        var media = m.media && m.media.id
-          ? '<div class="media"><span>📎 ' + esc(m.media.name || ({ document: 'קובץ', image: 'תמונה', video: 'סרטון', audio: 'הקלטה' }[m.type] || 'קובץ')) + (m.media.mime ? ' <small>' + esc(m.media.mime) + '</small>' : '') + '</span> ' +
-            '<button type="button" class="dl" data-id="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-name="' + esc(m.media.name || (m.type + '-' + m.ts)) + '">הורדה</button></div>'
-          : '';
-        if (media && !m.text) text = '';
+        var KIND = { document: 'קובץ', image: 'תמונה', video: 'סרטון', audio: 'הקלטה', sticker: 'סטיקר' };
+        var media = '';
+        if (m.media && m.media.id) {
+          media = '<div class="media"><span>📎 ' + esc(m.media.name || KIND[m.type] || 'קובץ') + (m.media.mime ? ' <small>' + esc(m.media.mime) + '</small>' : '') + '</span> ' +
+            '<button type="button" class="dl" data-id="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-name="' + esc(m.media.name || (m.type + '-' + m.ts)) + '">הורדה</button></div>';
+        } else if (KIND[m.type]) {
+          /* sent before 11/09: the media id was not kept, so there is nothing to fetch */
+          media = '<div class="media"><span>📎 ' + KIND[m.type] + ' <small>לא זמין להורדה — נשלח לפני שהאינבוקס שמר קבצים</small></span></div>';
+        }
+        if (media && (!m.text || m.text === m.type)) text = '';
         el.innerHTML = esc(text) + media +
           (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') +
           (m.who ? '<small class="who">' + esc(m.who) + '</small>' : '') +
