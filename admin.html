@@ -9,6 +9,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=50"></script>
+<script src="assets/ux.js?v=1"></script>
 <script src="assets/adminbar.js?v=7" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -1134,6 +1135,7 @@
 
   /* A full pass over everything. quiet=true is a background pass: it may not
      wipe the screen or shout at anyone if a call fails. */
+  window.addEventListener('ishur:fresh', function () { load(true); });
   function load(quiet) {
     loadStatus(quiet);
     loadShir();

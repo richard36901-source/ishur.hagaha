@@ -8,6 +8,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=50"></script>
+<script src="assets/ux.js?v=1"></script>
 <script src="assets/adminbar.js?v=7" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
@@ -79,6 +80,7 @@
   function when(e) { var d = Date.parse(e.paid || ''); return isNaN(d) ? 0 : d; }
   function heDate(iso) { var d = new Date(iso); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }); }
 
+  window.addEventListener('ishur:fresh', function () { load(); });
   function load() {
     api('status', { view: 'biz' }).then(function (r) {
       if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(load, 2500); return null; } localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
