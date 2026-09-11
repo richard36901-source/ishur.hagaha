@@ -547,12 +547,12 @@
   <section class="card" id="mediaCard">
     <div class="card-h">ההזמנה שלכם</div>
     <div class="card-b" style="display:flex;gap:1rem;align-items:center;flex-wrap:wrap">
-      <div id="mediaPrev" style="width:120px;height:120px;border-radius:12px;background:var(--bg2,#f2f2ee);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0"></div>
+      <div id="mediaPrev" style="width:160px;max-width:40%;min-height:120px;border-radius:12px;background:var(--bg2,#f2f2ee);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0"></div>
       <div style="flex:1;min-width:200px">
         <p id="mediaTxt" style="margin:0 0 .4rem"></p>
         <p id="mediaNote" style="margin:0 0 .6rem;font-size:.8rem;color:var(--ink3)"></p>
         <input type="file" id="mediaFile" accept="image/jpeg,image/png,image/webp,video/mp4" hidden>
-        <button type="button" class="btn" id="mediaBtn" hidden>החלפת התמונה / הווידאו</button>
+        <button type="button" class="buy" id="mediaBtn" hidden>החלפת התמונה / הווידאו</button>
         <span id="mediaMsg" style="font-size:.8rem;margin-inline-start:.5rem"></span>
       </div>
     </div>
@@ -854,10 +854,14 @@
     card.hidden = false;
     var prev = $('mediaPrev'), txt = $('mediaTxt'), note = $('mediaNote'), btn = $('mediaBtn');
     if (m.video_url) {
-      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:100%;object-fit:cover" muted playsinline controls></video>';
+      /* no browser controls (their menu ignores the site's design): the clip
+         loops muted; a tap toggles sound; a tap on the preview opens it full */
+      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline autoplay loop title="לחיצה: קול / שקט"></video>';
+      var v = prev.querySelector('video');
+      v.addEventListener('click', function () { v.muted = !v.muted; if (v.paused) v.play(); });
       txt.innerHTML = '<b>מצורף וידאו</b> להזמנה. ההזמנה תישלח עם הווידאו.';
     } else if (m.image_url) {
-      prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:100%;object-fit:cover">';
+      prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
       txt.innerHTML = '<b>מצורפת תמונה</b> להזמנה. כך היא תיראה אצל המוזמנים.';
     } else {
       prev.innerHTML = '<span style="font-size:2rem">🖼️</span>';
