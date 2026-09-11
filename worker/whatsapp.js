@@ -317,7 +317,12 @@ export function sendOtpTemplate(env, to, code) {
 export function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel, ctx) {
   const components = [];
   if (imageUrl) {
-    components.push({ type: 'header', parameters: [{ type: 'image', image: { link: imageUrl } }] });
+    /* an .mp4 link fills a VIDEO header; anything else an IMAGE header. The
+       file goes exactly as uploaded — WhatsApp does not crop or re-cut it. */
+    const isVideo = /\/vid\/|\.mp4(\?|$)/i.test(String(imageUrl));
+    components.push(isVideo
+      ? { type: 'header', parameters: [{ type: 'video', video: { link: imageUrl } }] }
+      : { type: 'header', parameters: [{ type: 'image', image: { link: imageUrl } }] });
   }
   if (params.length) {
     components.push({

@@ -3322,6 +3322,11 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      key). With it, an event that uploaded artwork sends ONE message: picture
      + invitation + buttons — to cold guests too. */
   const imgTmpl = env.RATE ? await env.RATE.get('invitetmpl_img') : null;
+  /* the video the client uploaded (served at /vid/<token>), once Meta approved
+     the VIDEO-header template. Video beats image when both exist. */
+  const vidTmpl = env.RATE ? await env.RATE.get('invitetmpl_vid') : null;
+  const hasVideo = !!(vidTmpl && env.RATE && await env.RATE.get('vidok:' + token).catch(() => null));
+  const videoUrl = hasVideo ? 'https://go.ishur.io/vid/' + token : '';
   /* no guests number = nothing leaves. The wave stays open and untouched:
      no budget spent, no cursor moved, no flag written. It resumes on its own
      the moment the secrets exist. */
@@ -3392,9 +3397,10 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
        approved template does not have, and Meta rejects the whole send
        (132000) — so every client who uploaded artwork would have had their
        entire wave fail. The artwork goes as its own message right after. */
-    const useImg = !!(imgTmpl && invite && wave.key === 1);
-    const res = await sendTemplate(env, phone, useImg ? imgTmpl : inviteTmpl,
-      [name, occasion, hosts, date, time, venue], useImg ? invite : '', 'he', 'guests',
+    const useVid = !!(videoUrl && wave.key === 1);
+    const useImg = !useVid && !!(imgTmpl && invite && wave.key === 1);
+    const res = await sendTemplate(env, phone, useVid ? vidTmpl : useImg ? imgTmpl : inviteTmpl,
+      [name, occasion, hosts, date, time, venue], useVid ? videoUrl : useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token, name });
     if (budget) budget.left--;
     if (res.ok) {
@@ -4341,6 +4347,7 @@ async function runPacer(env) {
       const checks = [
         { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
       ];
       for (const c of checks) {
         if (!c.tok) continue;
@@ -7344,7 +7351,9 @@ export default {
         const waba = guests ? '1378764257421712' : '1060242146337688';
         if (!tok) return deny(503, 'wa-not-configured', origin);
         const appId = String(b.app_id || (guests ? '1084149031015902' : '1258746612804480'));
-        const imgUrl = String(b.image_url || 'https://ishur.io/logo.png');
+        const isVid = String(b.format || '').toUpperCase() === 'VIDEO';
+        const imgUrl = String(b.image_url || (isVid ? '' : 'https://ishur.io/logo.png'));
+        if (isVid && !imgUrl) return deny(400, 'video_url-needed', origin);
         const img = await fetch(imgUrl).catch(() => null);
         if (!img || !img.ok) return okJson({ ok: false, step: 'fetch-image', status: img && img.status }, origin);
         const buf = await img.arrayBuffer();
@@ -7356,9 +7365,9 @@ export default {
           headers: { Authorization: 'OAuth ' + tok, file_offset: '0', 'Content-Type': type }, body: buf });
         const j2 = await s2.json().catch(() => ({}));
         if (!j2.h) return okJson({ ok: false, step: 'upload', resp: j2 }, origin);
-        const name = String(b.name || 'hazmana_ishur_img');
+        const name = String(b.name || (isVid ? 'hazmana_ishur_vid' : 'hazmana_ishur_img'));
         const tpl = { name, language: 'he', category: 'UTILITY', components: [
-          { type: 'HEADER', format: 'IMAGE', example: { header_handle: [j2.h] } },
+          { type: 'HEADER', format: isVid ? 'VIDEO' : 'IMAGE', example: { header_handle: [j2.h] } },
           { type: 'BODY', text: 'שלום {{1}}! הוזמנתם ל{{2}} של {{3}}.\n\n📅 {{4}}\n🕐 קבלת פנים {{5}}\n📍 {{6}}\n\nנשמח לדעת אם תגיעו:',
             example: { body_text: [['דנה', 'חתונה', 'נועה ויונתן', '12.09.2026', '19:30', 'הגן הקסום, רמת גן']] } },
           { type: 'FOOTER', text: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' },
@@ -7366,7 +7375,7 @@ export default {
         const s3 = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST',
           headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) });
         const j3 = await s3.json().catch(() => ({}));
-        await logEvent(env, { area: 'מטא', action: 'תבנית הזמנה עם תמונה הוגשה לאישור', ok: !!j3.id, review: !j3.id, ref: name, detail: JSON.stringify(j3).slice(0, 200) });
+        await logEvent(env, { area: 'מטא', action: `תבנית הזמנה עם ${isVid ? 'וידאו' : 'תמונה'} הוגשה לאישור`, ok: !!j3.id, review: !j3.id, ref: name, detail: JSON.stringify(j3).slice(0, 200) });
         return okJson({ ok: !!j3.id, handle: j2.h.slice(0, 20) + '…', resp: j3 }, origin);
       })();
     }
