@@ -704,6 +704,15 @@
   </div>
 
   <h2>שורה תחתונה</h2>
+  <div style="background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.8rem 1rem;margin-bottom:.8rem">
+    <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;font-size:.8rem;color:var(--ink2)">
+      <span>תקופה:</span>
+      <select id="plPeriod" style="font:inherit;font-size:.78rem;padding:.2rem .4rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)"></select>
+      <span style="margin-inline-start:auto">הפרשה למס הכנסה</span>
+      <input id="plTax" type="number" min="0" max="60" step="1" style="font:inherit;font-size:.78rem;width:3.6rem;padding:.2rem .3rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)">%
+    </div>
+    <div id="plBody" style="font-size:.86rem"></div>
+  </div>
   <div class="tblwrap">
     <table>
       <thead><tr><th>תקופה</th><th>הכנסות ₪</th><th>סליקה 2.2%</th><th>שיחות שיר+נועה + וואטסאפ</th><th>פרסום</th><th>קבועות (וורקר, מספרים, תוכנות)</th><th>סה"כ הוצאות</th><th>רווח ₪</th><th>מע"מ לתשלום ₪</th><th>רווח אחרי מע"מ ₪</th></tr></thead>
@@ -1358,9 +1367,9 @@
   function loadCampaigns() {
     fetch(CFG.endpoint('campaigns'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_key: adminKey, days: 30 })
+      body: JSON.stringify({ admin_key: adminKey, days: 400 })
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
-      .then(function (d) { if (d && d.ok) renderCampaigns(d); })
+      .then(function (d) { if (d && d.ok) { renderCampaigns(d); renderOps(); } })
       .catch(function () {});
   }
 
@@ -2039,13 +2048,36 @@
     });
     return total;
   }
+  /* Richard, 13/09: ad spend is what Meta actually billed, day by day. The
+     manual monthly number only fills days Meta has no row for. */
   function adSpendIls(from, to) {
+    var real = 0, covered = false;
+    Object.keys(adByDay).forEach(function (d) { if (d >= from && d <= to) { real += adByDay[d]; covered = true; } });
+    if (covered) return real;
     return monthlyIls((opsData && opsData.adspend) || {}, from, to, function (v) { return Number(v) || 0; });
   }
+  /* the recurring list of a month: what was entered for it, else the latest
+     earlier month's list — a subscription does not stop because nobody
+     re-typed it. Returns [{name, ils}] */
+  function fixedItemsFor(m) {
+    var map = (opsData && opsData.fixedcost) || {};
+    if (map[m] && map[m].length) return map[m];
+    var prev = Object.keys(map).filter(function (k) { return k < m && map[k] && map[k].length; }).sort();
+    return prev.length ? map[prev[prev.length - 1]] : [];
+  }
   function fixedSpendIls(from, to) {
-    return monthlyIls((opsData && opsData.fixedcost) || {}, from, to, function (items) {
-      return (items || []).reduce(function (a, x) { return a + (Number(x.ils) || 0); }, 0);
-    });
+    var total = 0, m = from.slice(0, 7);
+    while (m <= to.slice(0, 7)) {
+      var items = fixedItemsFor(m);
+      var v = items.reduce(function (a, x) { return a + (Number(x.ils) || 0); }, 0);
+      var dim = new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)), 0).getDate();
+      var mStart = m + '-01', mEnd = m + '-' + String(dim).padStart(2, '0');
+      var sd = mStart > from ? mStart : from, ed = mEnd < to ? mEnd : to;
+      if (sd <= ed) total += v * (Math.round((Date.parse(ed) - Date.parse(sd)) / 864e5) + 1) / dim;
+      var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7)) + 1; if (mo > 12) { mo = 1; y++; }
+      m = y + '-' + String(mo).padStart(2, '0');
+    }
+    return total;
   }
 
   /* CAC this month, the premortem's headline gauge. Reads the worker's cac map
@@ -2160,8 +2192,70 @@
   }
 
   /* ── the bottom line: every cost, all-time and month by month (Richard 11/09) ── */
+  /* the statement: every expense line, revenue, profit, VAT, tax reserve, net */
+  function plPeriods() {
+    var dates = opsData.series.map(function (s) { return s.date; }).filter(Boolean).sort();
+    var today = new Date().toISOString().slice(0, 10);
+    var first = dates[0] || today.slice(0, 7) + '-01';
+    var list = [{ label: 'כל הזמן', from: first, to: today, key: 'all' }];
+    var m = today.slice(0, 7);
+    while (m >= first.slice(0, 7)) {
+      var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7));
+      var last = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+      list.push({ label: mo + '/' + y, from: m + '-01', to: last < today ? last : today, key: m });
+      mo -= 1; if (mo === 0) { mo = 12; y -= 1; }
+      m = y + '-' + String(mo).padStart(2, '0');
+    }
+    return list;
+  }
+  function renderStatement() {
+    if (!opsData || !$('plBody')) return;
+    var periods = plPeriods(), sel = $('plPeriod');
+    var want = sel.value || (function () { try { return localStorage.getItem('ishur_pl_period'); } catch (e) { return ''; } })() || periods[1] && periods[1].key || 'all';
+    sel.innerHTML = periods.map(function (p) { return '<option value="' + p.key + '"' + (p.key === want ? ' selected' : '') + '>' + p.label + '</option>'; }).join('');
+    var p = periods.filter(function (x) { return x.key === want; })[0] || periods[0];
+    var taxPct = Number($('plTax').value); if (!$('plTax').value) { try { taxPct = Number(localStorage.getItem('ishur_tax_pct')) || 25; } catch (e) { taxPct = 25; } $('plTax').value = taxPct; }
+    var rev = 0, waC = 0, callC = 0, pay = 0;
+    opsData.series.forEach(function (s) { if (s.date < p.from || s.date > p.to) return; rev += s.revenue_ils; pay += s.payments; waC += s.wa_cost_usd_cents; callC += s.shir_cost_usd_cents; });
+    var wa = waC / 100 * USD_ILS, calls = callC / 100 * USD_ILS, ads = adSpendIls(p.from, p.to), grow = rev * 0.022;
+    /* fixed lines: for one month the month's list in full; for all time each month's list summed */
+    var fixedLines = {};
+    if (p.key === 'all') {
+      var m = p.from.slice(0, 7);
+      while (m <= p.to.slice(0, 7)) { fixedItemsFor(m).forEach(function (x) { fixedLines[x.name] = (fixedLines[x.name] || 0) + (Number(x.ils) || 0); }); var y = Number(m.slice(0, 4)), mo = Number(m.slice(5, 7)) + 1; if (mo > 12) { mo = 1; y++; } m = y + '-' + String(mo).padStart(2, '0'); }
+    } else fixedItemsFor(p.key).forEach(function (x) { fixedLines[x.name] = (fixedLines[x.name] || 0) + (Number(x.ils) || 0); });
+    var fx = Object.keys(fixedLines).reduce(function (a, k) { return a + fixedLines[k]; }, 0);
+    var cost = fx + ads + wa + calls + grow, profit = rev - cost;
+    var vat = (rev - grow - ads - fx) * 21 / 121;
+    var afterVat = profit - vat;
+    var tax = Math.max(0, afterVat) * taxPct / 100;
+    var net = afterVat - tax;
+    var f = function (n) { return Math.round(n).toLocaleString('he-IL'); };
+    var line = function (l, v, cls) { return '<div style="display:flex;justify-content:space-between;padding:.28rem 0;border-bottom:1px solid var(--line)' + (cls || '') + '"><span>' + l + '</span><b style="font-variant-numeric:tabular-nums">' + f(v) + ' ₪</b></div>'; };
+    var html = '<div style="color:var(--ink3);font-size:.74rem;margin:.2rem 0">הוצאות</div>';
+    Object.keys(fixedLines).forEach(function (k) { html += line('&nbsp;&nbsp;' + k + ' <small style="color:var(--ink3)">קבוע</small>', fixedLines[k]); });
+    if (!Object.keys(fixedLines).length) html += line('&nbsp;&nbsp;<span style="color:var(--ink3)">אין הוצאות קבועות רשומות</span>', 0);
+    html += line('&nbsp;&nbsp;פרסום (מטא, לפי החיוב בפועל)', ads);
+    html += line('&nbsp;&nbsp;שיחות שיר ונועה', calls);
+    html += line('&nbsp;&nbsp;הודעות וואטסאפ', wa);
+    html += line('&nbsp;&nbsp;עמלת סליקה 2.2%', grow);
+    html += line('<b>סה"כ הוצאות</b>', cost, ';border-bottom:2px solid var(--line)');
+    html += '<div style="color:var(--ink3);font-size:.74rem;margin:.5rem 0 .2rem">הכנסות</div>';
+    html += line('הכנסות (' + pay + ' תשלומים)', rev);
+    html += line('<b>רווח</b>', profit, ';color:' + (profit >= 0 ? '#0F4C35' : '#A8402F'));
+    html += line('מע"מ לתשלום (להפריש)', vat);
+    html += line('<b>רווח אחרי מע"מ</b>', afterVat, ';color:' + (afterVat >= 0 ? '#0F4C35' : '#A8402F'));
+    html += line('הפרשה למס הכנסה ' + taxPct + '%', tax);
+    html += line('<b>נשאר בכיס</b>', net, ';border-bottom:none;font-size:1rem;color:' + (net >= 0 ? '#0F4C35' : '#A8402F'));
+    html += '<p style="font-size:.68rem;color:var(--ink3);margin:.5rem 0 0">להפריש בצד: מע"מ ' + f(vat) + ' ₪ + מס הכנסה ' + f(tax) + ' ₪ = <b>' + f(vat + tax) + ' ₪</b>. הוצאות קבועות שהוזנו לחודש אחד נמשכות לחודשים הבאים עד שמשנים.</p>';
+    $('plBody').innerHTML = html;
+  }
+  $('plPeriod').addEventListener('change', function () { try { localStorage.setItem('ishur_pl_period', $('plPeriod').value); } catch (e) {} renderStatement(); });
+  $('plTax').addEventListener('change', function () { try { localStorage.setItem('ishur_tax_pct', $('plTax').value); } catch (e) {} renderStatement(); });
+
   function renderBottomLine() {
     if (!opsData || !$('blRows')) return;
+    renderStatement();
     var dates = opsData.series.map(function (s) { return s.date; }).filter(Boolean).sort();
     var today = new Date().toISOString().slice(0, 10);
     var first = dates[0] || today.slice(0, 7) + '-01';
@@ -2181,7 +2275,8 @@
         if (s.date < p.from || s.date > p.to) return;
         rev += s.revenue_ils; usdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
       });
-      var wa = usdC / 100 * USD_ILS, ads = adSpendIls(p.from, p.to), fx = fixedSpendIls(p.from, p.to), grow = rev * 0.022;
+      var wa = usdC / 100 * USD_ILS, ads = adSpendIls(p.from, p.to), grow = rev * 0.022;
+      var fx = p.label === 'כל הזמן' ? fixedSpendIls(p.from.slice(0, 7) + '-01', p.to) : fixedItemsFor(p.from.slice(0, 7)).reduce(function (a, x) { return a + (Number(x.ils) || 0); }, 0);
       var cost = wa + ads + fx + grow, profit = rev - cost;
       var vatDue = (rev - grow - ads - fx) * 21 / 121;
       var afterVat = profit - vatDue;
