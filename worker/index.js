@@ -8140,6 +8140,22 @@ export default {
       const brain = await getBrain(env);
       return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
     }
+    /* admin: re-report a purchase to Meta (CAPI) with its original time — for
+       a payment whose first report did not land (max 7 days back) */
+    if (url.pathname === '/api/capi-resend' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const ph = normPhone(b.phone || ''); const ref = String(b.ref || '');
+      if (!ph || !ref) return deny(400, 'phone+ref', origin);
+      const user_data = { ph: [await sha256Hex(ph)] };
+      const em = String(b.email || '').trim().toLowerCase(); if (em) user_data.em = [await sha256Hex(em)];
+      const t = b.event_time ? Math.floor(new Date(b.event_time).getTime() / 1000) : Math.floor(Date.now() / 1000);
+      const ev = { event_name: 'Purchase', event_time: t, event_id: 'pur_' + ref + (b.suffix || ''), action_source: 'website', event_source_url: 'https://ishur.io/thanks.html', user_data, custom_data: { value: Number(b.value) || 0, currency: 'ILS' } };
+      const r = await metaAds(env, `/${META_PIXEL_ID}/events`, 'POST', { data: [ev] });
+      await logEvent(env, { area: 'מטא', action: `CAPI Purchase נשלח מחדש · ${ref}`, ok: !!(r && r.ok), phone: ph, detail: JSON.stringify((r && r.data) || {}).slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!(r && r.ok), resp: r && r.data }, origin);
+    }
     if (url.pathname === '/api/media-dl' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
