@@ -5293,6 +5293,21 @@ const VOICE_AGENTS = {
   shir_in: { agent: 'agent_c7d317f758ed084571630ce25e', name: 'שיר · נכנסת' },
 };
 
+/* Retell retired POST /v2/list-calls (notice 15/09/2026): v3 answers with
+   { items, pagination_key, has_more } instead of a bare array. One helper,
+   always an array back, so every caller keeps its shape. */
+async function retellListCalls(env, body) {
+  const r = await fetch('https://api.retellai.com/v3/list-calls', {
+    method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || { sort_order: 'descending', limit: 50 }),
+  }).catch(() => null);
+  if (!r || !r.ok) return null;
+  const j = await r.json().catch(() => null);
+  if (Array.isArray(j)) return j;
+  if (j && Array.isArray(j.items)) return j.items;
+  if (j && Array.isArray(j.calls)) return j.calls;
+  return null;
+}
 async function retellApi(env, path, method = 'GET', payload) {
   const init = { method, headers: { Authorization: 'Bearer ' + env.RETELL_KEY } };
   if (payload !== undefined && method !== 'GET') {
@@ -5447,7 +5462,7 @@ async function runDailyCallReview(env, opts = {}) {
 
   /* ── voice calls ── */
   const calls = [];
-  const listed = await retellApi(env, '/v2/list-calls', 'POST', { sort_order: 'descending', limit: 100 });
+  const listed = await retellListCalls(env, { sort_order: 'descending', limit: 100 });
   for (const c of Array.isArray(listed) ? listed : []) {
     if (c.call_status !== 'ended') continue;
     if (!c.start_timestamp || c.start_timestamp < since) continue;
@@ -5581,7 +5596,7 @@ async function runDailyImprove(env, opts = {}) {
   const until = since + 27 * 3600 * 1000;
 
   const threads = await gatherTodayText(env, since, until);
-  const listed = await retellApi(env, '/v2/list-calls', 'POST', { sort_order: 'descending', limit: 50 });
+  const listed = await retellListCalls(env, { sort_order: 'descending', limit: 50 });
   const calls = (Array.isArray(listed) ? listed : [])
     .filter(c => c.call_status === 'ended' && c.start_timestamp >= since && c.start_timestamp <= until && String(c.transcript || '').length > 100)
     .slice(0, 15)
@@ -5960,15 +5975,8 @@ const USD_ILS = 3.7;
 
 async function syncCallCosts(env, limit = 100) {
   if (!env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
-  const r = await fetch('https://api.retellai.com/v2/list-calls', {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
-    body: JSON.stringify({ limit, sort_order: 'descending' }),
-  }).catch(() => null);
-  if (!r || !r.ok) return { ok: false, why: 'retell-unreachable' };
-  let calls = null;
-  try { calls = await r.json(); } catch {}
-  if (!Array.isArray(calls)) return { ok: false, why: 'bad-response' };
+  const calls = await retellListCalls(env, { limit, sort_order: 'descending' });
+  if (!calls) return { ok: false, why: 'retell-unreachable' };
 
   let added = 0, skipped = 0, cents = 0;
   for (const c of calls) {
@@ -6515,13 +6523,8 @@ async function callBoard(env) {
      be read side by side instead of on two different pages */
   let done = [];
   try {
-    const r = await fetch('https://api.retellai.com/v2/list-calls', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ limit: 60, sort_order: 'descending' }),
-    }).catch(() => null);
-    const j = r && r.ok ? await r.json().catch(() => []) : [];
-    done = (Array.isArray(j) ? j : []).map(c => {
+    const j = (await retellListCalls(env, { limit: 60, sort_order: 'descending' })) || [];
+    done = j.map(c => {
       const from = String(c.from_number || '');
       const inbound = String(c.direction || c.call_type || '').includes('inbound');
       const kind = String((c.metadata || {}).kind || (inbound ? 'inbound' : 'guest'));
@@ -6939,15 +6942,11 @@ async function handleShirCalls(request, env, origin) {
 
   const auth = { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' };
   const [callsRes, concRes] = await Promise.all([
-    fetch('https://api.retellai.com/v2/list-calls', {
-      method: 'POST', headers: auth,
-      body: JSON.stringify({ sort_order: 'descending', limit: Math.min(Number(body.limit) || 30, 100) }),
-    }).catch(() => null),
+    retellListCalls(env, { sort_order: 'descending', limit: Math.min(Number(body.limit) || 30, 100) }),
     fetch('https://api.retellai.com/get-concurrency', { headers: auth }).catch(() => null),
   ]);
 
-  let calls = [];
-  if (callsRes && callsRes.ok) { try { calls = await callsRes.json(); } catch {} }
+  let calls = Array.isArray(callsRes) ? callsRes : [];
   if (!Array.isArray(calls)) calls = [];
   let conc = {};
   if (concRes && concRes.ok) { try { conc = await concRes.json(); } catch {} }
