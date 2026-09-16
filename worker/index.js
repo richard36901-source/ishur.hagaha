@@ -4328,6 +4328,23 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
   } catch (e) {
     out.tmplcheck = { ok: false, why: String(e && e.message) };
   }
+  /* 16/09: 4499 is moving to the Ishur.io portfolio. Meta first has to
+     approve the display name "ishur.io" on the number; tell Richard the
+     moment it flips, the migration (OTP) needs him on the phone. */
+  try {
+    if (env.WA_TOKEN && env.WA_PHONE_ID && !(await env.RATE.get('dispname:ok'))) {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID}?fields=new_display_name,new_name_status,name_status,verified_name`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
+      const j = r ? await r.json().catch(() => null) : null;
+      if (j && (j.new_name_status === 'APPROVED' || j.name_status === 'APPROVED' || j.name_status === 'AVAILABLE_WITHOUT_REVIEW')) {
+        await env.RATE.put('dispname:ok', new Date().toISOString());
+        await slackSend(env, `✅ מטא אישרה את שם התצוגה של נועה (${j.new_display_name || j.verified_name}). אפשר להעביר את 4499 לפורטפוליו Ishur.io — תגיד לי כשאתה ליד הטלפון לקוד.`, { urgent: true });
+        await logEvent(env, { area: 'מטא', action: 'שם תצוגה אושר ל-4499', ok: true, detail: JSON.stringify(j).slice(0, 200) });
+      } else if (j && j.new_name_status === 'DECLINED' && !(await env.RATE.get('dispname:declined'))) {
+        await env.RATE.put('dispname:declined', new Date().toISOString(), { expirationTtl: 7 * 86400 });
+        await slackSend(env, `🚨 מטא דחתה את שם התצוגה "${j.new_display_name}" ל-4499. צריך שם אחר (למשל "אישורי הגעה ishur.io").`, { urgent: true });
+      }
+    }
+  } catch {}
 }
 
 async function runPacer(env) {
