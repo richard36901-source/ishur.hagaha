@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>לוח שליחות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=53"></script>
+<script src="assets/ux.js?v=3"></script>
+<script src="assets/adminbar.js?v=8" defer></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--blue:#2F6FED}
+  html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--rail:#232A25}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:1.2rem 1rem 4rem}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.6rem;margin:0 0 .2rem}
+  .sub{color:var(--ink3);font-size:.82rem;margin:0 0 .9rem}
+  /* toolbar, Apple Calendar manners: month title, ‹ › , היום, segmented filter, search */
+  .tb{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem}
+  .mth{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem;min-width:9rem}
+  .nav{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .nav button{font:inherit;font-size:1rem;padding:.3rem .75rem;border:none;background:transparent;color:var(--ink);cursor:pointer}
+  .nav button+button{border-inline-start:1px solid var(--line)}
+  .nav button:hover{background:var(--rail)}
+  .seg{display:inline-flex;background:var(--rail);border-radius:10px;padding:3px;gap:2px}
+  .seg button{font:inherit;font-size:.8rem;font-weight:500;padding:.3rem .7rem;border:none;border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  input[type=search]{font:inherit;font-size:.86rem;padding:.4rem .8rem;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-width:14rem}
+  .lay{display:grid;grid-template-columns:1fr 360px;gap:1rem;align-items:start}
+  @media (max-width:900px){.lay{grid-template-columns:1fr}}
+  /* month grid */
+  .cal{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line)}
+  .dow span{padding:.45rem 0;text-align:center;font-size:.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .cell{min-height:96px;border-inline-end:1px solid var(--line);border-bottom:1px solid var(--line);padding:.35rem .4rem;cursor:pointer;position:relative;transition:background .12s}
+  .cell:nth-child(7n){border-inline-end:none}
+  .cell:hover{background:var(--rail)}
+  .cell.sel{background:rgba(15,76,53,.07);box-shadow:inset 0 0 0 2px var(--pine)}
+  .cell.out{opacity:.38}
+  .cell .d{display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:50%;font-size:.86rem;font-weight:600;color:var(--ink2)}
+  .cell.today .d{background:var(--pine);color:#fff}
+  .pill{display:block;font-size:.7rem;padding:.08rem .4rem;border-radius:5px;margin-top:.22rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .pill.sent{background:rgba(46,125,91,.15);color:var(--good)}
+  .pill.failed{background:rgba(168,64,47,.14);color:var(--warn)}
+  .pill.planned{background:rgba(47,111,237,.13);color:var(--blue)}
+  .pill.skipped{background:var(--rail);color:var(--ink3)}
+  html[data-theme=dark] .pill.sent{color:#7BC9A4}html[data-theme=dark] .pill.failed{color:#E58C7C}html[data-theme=dark] .pill.planned{color:#8FB0FF}
+  @media (max-width:600px){.cell{min-height:64px;padding:.25rem}.pill{font-size:.6rem;padding:.02rem .25rem}}
+  /* the day panel */
+  .pane{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem;position:sticky;top:.8rem;max-height:calc(100vh - 2rem);overflow:auto}
+  .pane h2{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 .15rem}
+  .pane .sum{font-size:.78rem;color:var(--ink3);margin:0 0 .6rem}
+  .chips{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.6rem}
+  .chip{font:inherit;font-size:.72rem;padding:.15rem .55rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink2);cursor:pointer}
+  .chip[aria-pressed=true]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+  .row{display:flex;gap:.6rem;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .dot{width:9px;height:9px;border-radius:50%;margin-top:.45rem;flex-shrink:0}
+  .dot.sent{background:var(--good)}.dot.failed{background:var(--warn)}.dot.planned{background:var(--blue)}.dot.skipped{background:var(--ink3)}.dot.done-earlier{background:var(--good)}
+  .row .b{flex:1;min-width:0}
+  .row .n{font-weight:600;font-size:.9rem}
+  .row .m{font-size:.76rem;color:var(--ink2)}
+  .row .m .ph{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:embed}
+  .row .e{font-size:.72rem;color:var(--ink3)}
+  .row .err{font-size:.72rem;color:var(--warn)}
+  .act{font:inherit;font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+  .act:hover{border-color:var(--ink3)}
+  .act.undo{color:var(--good)}
+  .empty{color:var(--ink3);font-size:.85rem;padding:1rem 0;text-align:center}
+  .legend{display:flex;gap:.9rem;font-size:.74rem;color:var(--ink3);margin:.5rem .2rem 0;flex-wrap:wrap}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-inline-end:.3rem;vertical-align:middle}
+  .gate{max-width:22rem;margin:4rem auto;text-align:center}
+  .gate input{font:inherit;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:10px;margin:.5rem 0}
+  .gate button{font:inherit;padding:.5rem 1.2rem;border-radius:999px;border:none;background:var(--pine);color:#fff;cursor:pointer}
+  .err{color:var(--warn);font-size:.82rem;min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <h1>לוח שליחות</h1>
+  <p class="sub">מה יצא, למי, ומה מתוכנן: הזמנות ותזכורות לאורחים, הודעות ללקוחות וללידים. לחיצה על יום פותחת את הרשימה.</p>
+  <div class="tb">
+    <span class="nav"><button id="prev" aria-label="חודש קודם">›</button><button id="todayBtn">היום</button><button id="next" aria-label="חודש הבא">‹</button></span>
+    <span class="mth" id="mth"></span>
+    <span class="seg" id="chSeg"><button data-ch="all" aria-pressed="true">הכל</button><button data-ch="guests" aria-pressed="false">אורחים · שיר</button><button data-ch="client" aria-pressed="false">לקוחות · נועה</button></span>
+    <input type="search" id="q" placeholder="חיפוש שם, טלפון או אירוע">
+  </div>
+  <div class="lay">
+    <div>
+      <div class="cal">
+        <div class="dow"><span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span></div>
+        <div class="grid" id="grid"></div>
+      </div>
+      <div class="legend"><span><i style="background:var(--good)"></i>נשלח</span><span><i style="background:var(--warn)"></i>נכשל</span><span><i style="background:var(--blue)"></i>מתוכנן</span><span><i style="background:var(--ink3)"></i>דילוג</span></div>
+    </div>
+    <aside class="pane" id="pane">
+      <h2 id="pTitle">בחרו יום</h2>
+      <p class="sum" id="pSum"></p>
+      <div class="chips" id="stChips"><button class="chip" data-st="all" aria-pressed="true">הכל</button><button class="chip" data-st="planned" aria-pressed="false">מתוכנן</button><button class="chip" data-st="sent" aria-pressed="false">נשלח</button><button class="chip" data-st="failed" aria-pressed="false">נכשל</button><button class="chip" data-st="skipped" aria-pressed="false">דילוג</button></div>
+      <div id="rows"><p class="empty">לחצו על יום בלוח</p></div>
+    </aside>
+  </div>
+</main>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var month = new Date().toISOString().slice(0, 7), data = null, sel = null, ch = 'all', st = 'all', q = '';
+  var HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmtPhone(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} load(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+
+  function api(path, body) {
+    body.admin_key = adminKey;
+    return fetch(CFG.endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); return null; } gate('המפתח לא נכון'); return null; } return r.json(); });
+  }
+  function load() {
+    if (!adminKey) { gate(''); return; }
+    $('mth').textContent = HE[Number(month.slice(5, 7)) - 1] + ' ' + month.slice(0, 4);
+    api('calendar', { month: month }).then(function (d) {
+      if (!d || !d.ok) return;
+      data = d; $('gate').hidden = true; $('main').hidden = false;
+      paint(); if (sel) paintDay();
+    });
+  }
+  window.addEventListener('ishur:fresh', load);
+
+  function match(e) {
+    if (ch !== 'all' && e.ch !== ch) return false;
+    if (q) { var s = (e.name + ' ' + e.phone + ' ' + fmtPhone(e.phone) + ' ' + e.event + ' ' + e.what).toLowerCase(); if (s.indexOf(q) < 0) return false; }
+    return true;
+  }
+  function counts(list) {
+    var c = { sent: 0, failed: 0, planned: 0, skipped: 0 };
+    (list || []).forEach(function (e) { if (!match(e)) return; var k = e.status === 'done-earlier' ? 'sent' : e.status; if (c[k] != null) c[k]++; });
+    return c;
+  }
+  function paint() {
+    var y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7));
+    var first = new Date(Date.UTC(y, m - 1, 1)), dow = first.getUTCDay(), dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
+    var prevDim = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
+    var html = '';
+    var total = dow + dim, cells = Math.ceil(total / 7) * 7;
+    for (var i = 0; i < cells; i++) {
+      var dnum, iso, out = false;
+      if (i < dow) { dnum = prevDim - dow + i + 1; out = true; iso = ''; }
+      else if (i >= dow + dim) { dnum = i - dow - dim + 1; out = true; iso = ''; }
+      else { dnum = i - dow + 1; iso = month + '-' + String(dnum).padStart(2, '0'); }
+      var c = iso ? counts(data.days[iso]) : null;
+      html += '<div class="cell' + (out ? ' out' : '') + (iso === data.today ? ' today' : '') + (iso && iso === sel ? ' sel' : '') + '" data-d="' + iso + '">' +
+        '<span class="d">' + dnum + '</span>' +
+        (c ? (c.sent ? '<span class="pill sent">✓ ' + c.sent + ' נשלחו</span>' : '') + (c.failed ? '<span class="pill failed">✕ ' + c.failed + ' נכשלו</span>' : '') + (c.planned ? '<span class="pill planned">◷ ' + c.planned + ' מתוכננים</span>' : '') + (c.skipped ? '<span class="pill skipped">' + c.skipped + ' דילוג</span>' : '') : '') +
+        '</div>';
+    }
+    $('grid').innerHTML = html;
+  }
+  $('grid').addEventListener('click', function (e) {
+    var cell = e.target.closest('.cell'); if (!cell || !cell.dataset.d) return;
+    sel = cell.dataset.d; paint(); paintDay();
+    if (window.innerWidth < 900) $('pane').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+  function paintDay() {
+    var list = (data.days[sel] || []).filter(match).filter(function (e) { if (st === 'all') return true; var k = e.status === 'done-earlier' ? 'sent' : e.status; return k === st; });
+    var d = new Date(sel + 'T12:00:00');
+    $('pTitle').textContent = d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+    var c = counts(data.days[sel]);
+    $('pSum').textContent = (c.sent ? c.sent + ' נשלחו · ' : '') + (c.failed ? c.failed + ' נכשלו · ' : '') + (c.planned ? c.planned + ' מתוכננים · ' : '') + (c.skipped ? c.skipped + ' דילוג' : '');
+    if (!list.length) { $('rows').innerHTML = '<p class="empty">אין שליחות ביום הזה' + (q || ch !== 'all' || st !== 'all' ? ' לפי הסינון' : '') + '</p>'; return; }
+    $('rows').innerHTML = list.map(function (e, i) {
+      var t = e.done ? new Date(e.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : 'בבוקר';
+      var canSkip = !e.done && e.k && e.k !== 'eoe';
+      var btn = canSkip ? (e.skipped ? '<button class="act undo" data-i="' + i + '" data-on="0">בטל דילוג</button>' : (e.status === 'done-earlier' ? '<span class="e">כבר נשלח</span>' : '<button class="act" data-i="' + i + '" data-on="1">דלג</button>')) : '';
+      return '<div class="row"><span class="dot ' + e.status + '"></span><div class="b">' +
+        '<div class="n">' + esc(e.name || 'ללא שם') + ' <span class="e">· ' + esc(e.kind) + '</span></div>' +
+        '<div class="m"><span class="ph">' + fmtPhone(e.phone) + '</span> · ' + esc(e.what) + ' · ' + t + '</div>' +
+        (e.event ? '<div class="e">' + esc(e.event) + '</div>' : '') +
+        (e.error ? '<div class="err">' + esc(e.error).slice(0, 120) + '</div>' : '') +
+        (e.done && e.text && !e.what.match(/^ishur_|^hazmana/) ? '<div class="e">' + esc(e.text).slice(0, 90) + '</div>' : '') +
+        '</div>' + btn + '</div>';
+    }).join('');
+    $('rows').querySelectorAll('button.act').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var e = list[Number(b.dataset.i)], on = b.dataset.on === '1';
+        var go = function () {
+          b.disabled = true;
+          api('skip', { token: e.token, phone: e.phone, kind: e.k, on: on }).then(function (j) {
+            if (!j || !j.ok) { b.disabled = false; IshurUX.toast('לא הצליח'); return; }
+            e.skipped = on; e.status = on ? 'skipped' : 'planned'; paint(); paintDay();
+            IshurUX.toast(on ? 'דילוג נשמר. ' + (e.name || fmtPhone(e.phone)) + ' לא יקבל את ' + e.what : 'הדילוג בוטל');
+          });
+        };
+        if (on) askConfirm((e.name || fmtPhone(e.phone)) + ' לא יקבל/תקבל את "' + e.what + '" ב-' + new Date(sel + 'T12:00:00').toLocaleDateString('he-IL') + '. שאר ההודעות ממשיכות כרגיל.', { title: 'לדלג על השליחה הזאת?', ok: 'כן, לדלג', danger: true }).then(function (y) { if (y) go(); });
+        else go();
+      });
+    });
+  }
+  function shift(n) { var y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)) + n; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } month = y + '-' + String(m).padStart(2, '0'); sel = null; $('rows').innerHTML = '<p class="empty">לחצו על יום בלוח</p>'; $('pTitle').textContent = 'בחרו יום'; $('pSum').textContent = ''; load(); }
+  $('prev').addEventListener('click', function () { shift(-1); });
+  $('next').addEventListener('click', function () { shift(1); });
+  $('todayBtn').addEventListener('click', function () { month = new Date().toISOString().slice(0, 7); sel = null; load(); });
+  $('chSeg').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; ch = b.dataset.ch; $('chSeg').querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); paint(); if (sel) paintDay(); });
+  $('stChips').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; st = b.dataset.st; $('stChips').querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); if (sel) paintDay(); });
+  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); paint(); if (sel) paintDay(); });
+  document.addEventListener('keydown', function (e) { if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return; if (e.key === 'ArrowLeft') shift(1); if (e.key === 'ArrowRight') shift(-1); });
+  load();
+})();
+</script>
+</body>
+</html>

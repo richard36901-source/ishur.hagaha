@@ -8155,6 +8155,103 @@ export default {
       await logEvent(env, { area: 'מטא', action: `CAPI Purchase נשלח מחדש · ${ref}`, ok: !!(r && r.ok), phone: ph, detail: JSON.stringify((r && r.data) || {}).slice(0, 200) }).catch(() => {});
       return okJson({ ok: !!(r && r.ok), resp: r && r.data }, origin);
     }
+    /* ── the sending calendar (Richard 16/09): one month, what went out and to
+       whom (from the message log) and what is scheduled (from the events
+       sheet), per day. Skips pre-set the per-guest marker the senders already
+       honour, so no sender changed. ─────────────────────────────────────── */
+    if (url.pathname === '/api/calendar' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : ilDate().slice(0, 7);
+      const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
+      const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+      const today = ilDate();
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const evRows = (raw && raw.events && raw.events.values) || [];
+      const gRows = (raw && raw.guests && raw.guests.values) || [];
+      const evByTok = {}; const nameByPhone = {};
+      for (const ev of evRows) {
+        const t = String(ev[1] || '').trim(); if (!t) continue;
+        const name = String(ev[2] || '').trim(); const occ = String(ev[5] || '').trim();
+        evByTok[t] = { token: t, tok8: t.slice(0, 8), client: name, phone: normPhone(ev[3] || ''), occasion: occ, event: (occ ? 'ה' + occ : 'האירוע') + ' של ' + (String(ev[34] || '').trim() || name),
+          date: String(ev[6] || '').trim().slice(0, 10), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן',
+          w: [String(ev[39] || '').trim().slice(0, 10), String(ev[40] || '').trim().slice(0, 10), String(ev[41] || '').trim().slice(0, 10)], fileUp: String(ev[43] || '').trim() === 'כן' };
+        if (evByTok[t].phone) nameByPhone[evByTok[t].phone] = { name, tok: t, kind: 'לקוח' };
+      }
+      let leadRows = [];
+      try {
+        const lr = env.BRAIN_HOOK ? await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }) }) : null;
+        if (lr && lr.ok) leadRows = (await lr.json()).valueRanges[0].values || [];
+      } catch {}
+      for (const l of leadRows) { const ph = normPhone(l[2] || ''); if (ph && !nameByPhone[ph]) nameByPhone[ph] = { name: String(l[1] || '').trim(), tok: '', kind: 'ליד' }; }
+      const guestsByTok = {};
+      for (const g of gRows) {
+        const t = String(g[28] || '').trim(); const ph = normPhone(g[4] || ''); if (!t || !ph) continue;
+        (guestsByTok[t] = guestsByTok[t] || []).push({ phone: ph, name: String(g[3] || '').trim(), rsvp: String(g[15] || '').trim(), table: String(g[30] || '').trim(), id: String(g[2] || '').trim() });
+        if (!nameByPhone[ph]) nameByPhone[ph] = { name: String(g[3] || '').trim(), tok: t, kind: 'אורח' };
+      }
+      const days = {};
+      const day = d => (days[d] = days[d] || []);
+      /* past: every log entry of the month */
+      const names = await kvKeys(env, 'log:', 60000);
+      const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
+      const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
+      const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
+      inMonth.forEach((n, i) => {
+        let v = null; try { v = JSON.parse(vals[i]); } catch {}
+        if (!v || v.dir !== 'out') return;
+        const phone = n.split(':')[1]; const ts = Number(n.split(':').pop());
+        const d = new Date(ts + 3 * 3600e3).toISOString().slice(0, 10);
+        const who = nameByPhone[phone] || {};
+        const tok = v.tok ? Object.keys(evByTok).find(t => t.startsWith(v.tok)) : who.tok;
+        day(d).push({ at: v.at || new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (v.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: v.ch || 'client',
+          token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
+          status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
+      });
+      /* future: what the engine will do, per event, per date in the month */
+      const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
+      const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
+      const skipChecks = [];
+      for (const t of Object.keys(evByTok)) {
+        const ev = evByTok[t]; if (!ev.paid || ev.cancelled) continue;
+        const gl = guestsByTok[t] || [];
+        const plan = (d, kind, list) => { if (!d || d < mFirst || d > mLast || d < today) return; for (const g of list) { const e = { at: d + 'T09:00:00', phone: g.phone, name: g.name, kind: 'אורח', ch: 'guests', token: t, event: ev.event, what: KINDS[kind], k: String(kind), status: 'planned', done: false, skipped: false }; day(d).push(e); skipChecks.push([e, markerOf(kind, t, g.phone)]); } };
+        const notDeclined = gl.filter(g => g.rsvp !== 'לא מגיע');
+        if (ev.w[0]) plan(ev.w[0], 1, notDeclined);
+        if (ev.w[1]) plan(ev.w[1], 2, gl.filter(g => g.rsvp === '' || g.rsvp === 'מתלבט'));
+        if (ev.w[2]) plan(ev.w[2], 3, notDeclined);
+        const conf = gl.filter(g => g.rsvp === 'מגיע');
+        if (ev.date) {
+          const dm1 = new Date(Date.parse(ev.date) - 864e5).toISOString().slice(0, 10);
+          const dp1 = new Date(Date.parse(ev.date) + 864e5).toISOString().slice(0, 10);
+          plan(dm1, 'daybefore', conf);
+          plan(ev.date, 'shulchan', conf.filter(g => g.table));
+          plan(dp1, 'toda', conf);
+          if (dp1 >= mFirst && dp1 <= mLast && dp1 >= today && ev.phone) day(dp1).push({ at: dp1 + 'T09:00:00', phone: ev.phone, name: ev.client, kind: 'לקוח', ch: 'client', token: t, event: ev.event, what: KINDS.eoe, k: 'eoe', status: 'planned', done: false });
+        }
+      }
+      /* which planned rows are already skipped (marker pre-set by the admin) */
+      const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
+      skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
+      for (const d of Object.keys(days)) days[d].sort((a, b) => a.at < b.at ? -1 : 1);
+      return okJson({ ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) }, origin);
+    }
+    /* skip / unskip one guest for one send kind: sets or clears the marker the
+       sender checks. {token, phone, kind: 1|2|3|daybefore|shulchan|toda, on} */
+    if (url.pathname === '/api/skip' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(); const ph = normPhone(b.phone || ''); const kind = String(b.kind || '');
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !ph || !/^(1|2|3|daybefore|shulchan|toda)$/.test(kind)) return deny(400, 'bad-request', origin);
+      const key = kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
+      const cur = await env.RATE.get(key);
+      if (b.on === false) { if (cur === 'skip') await env.RATE.delete(key); }
+      else if (!cur) await env.RATE.put(key, 'skip', { expirationTtl: 400 * 86400 });
+      await logEvent(env, { area: 'שליחה', action: `${b.on === false ? 'ביטול דילוג' : 'דילוג'} ידני · ${kind}`, ok: true, token: tok, phone: ph }).catch(() => {});
+      return okJson({ ok: true, key, was: cur || null, now: b.on === false ? (cur === 'skip' ? null : cur) : (cur || 'skip') }, origin);
+    }
     if (url.pathname === '/api/media-dl' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

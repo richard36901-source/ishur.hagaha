@@ -32,6 +32,7 @@
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
+    { href: 'calendar.html', label: 'לוח שליחות', icon: ic.calls },
     { href: 'admin.html?view=calls', label: 'מוקד שיחות', icon: ic.calls },
     { href: 'automations.html', label: 'אוטומציות', icon: ic.flow },
     { href: 'brain.html', label: 'המוח', icon: ic.brain },
