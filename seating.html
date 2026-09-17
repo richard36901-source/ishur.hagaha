@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 <script src="config.js?v=54"></script>
+<script src="assets/ux.js?v=3"></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
   :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb;--card:#fff;--warn:#A8402F;--ease:cubic-bezier(.22,.9,.24,1)}
@@ -117,7 +118,7 @@
   function capOf(t) { if (t.capManual) return t.capManual; var per = t.shape === 'round' ? Math.PI * (t.w + t.h) / 2 : 2 * (t.w + t.h); return Math.max(2, Math.round(per / SEAT_PX)); }
   function seatedAt(t) { return guests.filter(function (g) { return g.table === t.name; }).reduce(function (a, g) { return a + g.party; }, 0); }
   function initials(n) { return n.split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join(''); }
-  function toast(m) { var t = $('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 2200); }
+  function toast(m) { IshurUX.toast(m, 2200); }
   function markDirty() { dirty = true; $('save').disabled = false; }
 
   /* ── sidebar ── */
@@ -178,7 +179,7 @@
   }
   $('addRound').addEventListener('click', function () { addTable('round'); });
   $('addRect').addEventListener('click', function () { addTable('rect'); });
-  $('clear').addEventListener('click', function () { if (!confirm('לנקות את כל השיבוץ?')) return; guests.forEach(function (g) { g.table = ''; }); markDirty(); paintTables(); paintList(); });
+  $('clear').addEventListener('click', function () { askConfirm('כל האורחים יחזרו לרשימה בלי שולחן. השולחנות עצמם נשארים.', { title: 'לנקות את כל השיבוץ?', ok: 'כן, לנקות', danger: true }).then(function (y) { if (!y) return; guests.forEach(function (g) { g.table = ''; }); markDirty(); paintTables(); paintList(); }); });
   $('auto').addEventListener('click', function () {
     var left = guests.filter(function (g) { return !g.table; }).sort(function (a, b) { return b.party - a.party; });
     left.forEach(function (g) {
@@ -209,7 +210,13 @@
     var rz = e.target.closest('.rz');
     if (rz) { var t = tables.filter(function (x) { return x.id === rz.parentNode.dataset.id; })[0]; drag = { kind: 'resize', t: t, sx: e.clientX, sy: e.clientY, w: t.w, h: t.h }; e.preventDefault(); return; }
     var xb = e.target.closest('.x');
-    if (xb) { var tt = tables.filter(function (x) { return x.id === xb.parentNode.dataset.id; })[0]; if (seatedAt(tt) && !confirm('בשולחן יושבים אנשים. להסיר בכל זאת?')) return; guests.forEach(function (g) { if (g.table === tt.name) g.table = ''; }); tables = tables.filter(function (x) { return x !== tt; }); if (sel === tt.id) sel = null; markDirty(); paintTables(); paintList(); return; }
+    if (xb) {
+      var tt = tables.filter(function (x) { return x.id === xb.parentNode.dataset.id; })[0];
+      var removeIt = function () { guests.forEach(function (g) { if (g.table === tt.name) g.table = ''; }); tables = tables.filter(function (x) { return x !== tt; }); if (sel === tt.id) sel = null; markDirty(); paintTables(); paintList(); };
+      if (seatedAt(tt)) askConfirm('בשולחן ' + tt.name + ' יושבים ' + seatedAt(tt) + ' אנשים. הם יחזרו לרשימה.', { title: 'להסיר את השולחן?', ok: 'כן, להסיר', danger: true }).then(function (y) { if (y) removeIt(); });
+      else removeIt();
+      return;
+    }
     var tEl = e.target.closest('.tbl');
     if (tEl) { var t2 = tables.filter(function (x) { return x.id === tEl.dataset.id; })[0]; drag = { kind: 'table', t: t2, ox: e.clientX - t2.x, oy: e.clientY - t2.y, moved: false, el: tEl }; tEl.classList.add('drag'); tEl.setPointerCapture && tEl.setPointerCapture(e.pointerId); e.preventDefault(); return; }
     if (e.target.closest('.floor') && !e.target.closest('.pop') && !e.target.closest('.fab')) { sel = null; paintTables(); }
@@ -267,6 +274,14 @@
   });
   $('flt').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; flt = b.dataset.f; $('flt').querySelectorAll('button').forEach(function (x) { var on = x === b; x.style.background = on ? 'var(--green)' : ''; x.style.color = on ? '#fff' : ''; x.style.borderColor = on ? 'transparent' : ''; }); paintList(); });
   $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+  $('back').addEventListener('click', function (e) {
+    if (!dirty) return;
+    e.preventDefault();
+    askConfirm('יש שינויים שלא נשמרו. לשמור לפני שחוזרים ללוח?', { title: 'לשמור את הסידור?', ok: 'שמירה וחזרה', cancel: 'לצאת בלי לשמור' }).then(function (y) {
+      if (y) { $('save').click(); setTimeout(function () { if (!dirty) location.href = $('back').href; }, 1500); }
+      else { dirty = false; location.href = $('back').href; }
+    });
+  });
   window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
 
   function load() {
