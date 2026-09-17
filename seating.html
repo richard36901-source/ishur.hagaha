@@ -279,7 +279,7 @@
       var d = rs[0], p = rs[1];
       if (!d || d.ok === false) { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; return; }
       var ev = d.event || {};
-      $('sub').textContent = (ev.event_name || ev.name || '') + (ev.event_date ? ' · ' + new Date(ev.event_date).toLocaleDateString('he-IL') : '');
+      $('sub').textContent = (ev.occasion_label ? 'ה' + ev.occasion_label + ' של ' : '') + (ev.name1 || '') + (ev.event_date ? ' · ' + new Date(ev.event_date).toLocaleDateString('he-IL') : '');
       guests = (d.guests || []).filter(function (g) { return g.id && g.status !== 'declined'; }).map(function (g) { return { id: g.id, name: g.name || 'ללא שם', party: Number(g.seats) || 1, status: g.status || 'pending', table: String(g.table || '').trim() }; });
       guests.forEach(function (g) { origTable[g.id] = g.table; });
       tables = ((p && p.tables) || []).map(function (t, i) { return { id: 'T' + i, name: t.name || String(i + 1), shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, capManual: t.cap }; });
