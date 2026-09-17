@@ -197,6 +197,9 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         status,
         seats: Number(g(13)) || Number(g(5)) || 0,
         table: g(30),
+        /* came in through the public RSVP link (Richard 17/09): counted and
+           seatable, but no messages or calls until the client unlocks them */
+        self: /נרשם מהקישור/.test(g(24)),
       };
     });
 

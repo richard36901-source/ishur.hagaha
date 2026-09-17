@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=54"></script>
+<script src="config.js?v=55"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=20"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -105,6 +105,8 @@
     color:var(--green2);font-weight:600;
   }
   .card-b{padding:1rem}
+  .row.self{opacity:.62}
+  .self-tag{font-size:.68rem;font-weight:600;color:var(--ink3);background:var(--bg2);border:1px solid var(--bdr);border-radius:6px;padding:.05rem .4rem;vertical-align:middle}
   .tbl-chip{display:inline-block;font-size:.78rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2);border-radius:8px;padding:.15rem .55rem}
   .gadd{display:grid;grid-template-columns:1.3fr 1.3fr .7fr auto;gap:.45rem}
   .gadd input{font:inherit;font-size:.9rem;padding:.55rem .6rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0}
@@ -646,6 +648,28 @@
     </div>
   </div>
 
+  <!-- the public RSVP link for group chats + the navigation link (Richard 17/09) -->
+  <section class="card" id="shareCard">
+    <div class="card-h">קישור לקבוצה</div>
+    <div class="card-b">
+      <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .6rem">שלחו לקבוצת הוואטסאפ של המשפחה. מי שלוחץ "מגיע/ה" נכנס לרשימה ולסידור ההושבה. הודעות ותזכורות אליהם נפתחות בתוספת אחת קטנה.</p>
+      <textarea id="shareTxt" readonly style="width:100%;min-height:7.5rem;font:inherit;font-size:.9rem;padding:.6rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);resize:vertical"></textarea>
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;align-items:center">
+        <button type="button" class="buy" id="copyShare">העתקת ההודעה</button>
+        <a class="buy" id="waShare" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)">פתיחה בוואטסאפ</a>
+        <span id="shareMsg" style="font-size:.8rem;color:var(--ink3)"></span>
+      </div>
+      <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)">
+        <label for="navIn" style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור ניווט (Waze / Google Maps) · לא חובה</label>
+        <div style="display:flex;gap:.45rem">
+          <input id="navIn" placeholder="הדביקו כאן קישור מוויז או גוגל מפות" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0;direction:ltr;text-align:left">
+          <button type="button" class="buy" id="navSave">שמירה</button>
+        </div>
+        <p id="navMsg" style="font-size:.78rem;color:var(--ink3);margin:.35rem 0 0">יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.</p>
+      </div>
+    </div>
+  </section>
+
   <!-- add guests, one at a time, up to 10 free (Richard 11/09) -->
   <section class="card" id="gaddCard">
     <div class="card-h" style="display:flex;justify-content:space-between;align-items:center"><span>הוספת מוזמנים</span><span id="gaddCount" style="font-size:.8rem;color:var(--ink3);font-weight:400">–</span></div>
@@ -964,6 +988,7 @@
     renderSends();
     renderAddons();
     gaLoad();
+    if (window.__paintShare) window.__paintShare();
     renderAfterParty();
     renderReferral();
     paintSwitcher();
@@ -1107,8 +1132,8 @@
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : '');
-      return '<div class="row">' +
-             '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+      return '<div class="row' + (g.self ? ' self' : '') + '">' +
+             '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
@@ -1384,6 +1409,34 @@
     if (ap.review) { $('apReview').href = ap.review; $('apReview').hidden = false; }
     if (ap.clip) { $('apClip').href = ap.clip; $('apClip').hidden = false; }
   }
+
+  /* ── the group link + premade text, and the navigation link ── */
+  (function () {
+    if (!token || demo) { $('shareCard').hidden = true; return; }
+    var link = 'https://ishur.io/rsvp.html?t=' + token;
+    function shareText() {
+      var ev = (data && data.event) || {};
+      var occ = ev.occasion_label || ev.occasion || 'האירוע';
+      var d = ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
+      return 'היי כולם 🎉 מזמינים אתכם ל' + occ + (ev.name1 ? ' של ' + ev.name1 : '') + (d ? ', ' + d : '') + (ev.reception_time ? ' בשעה ' + ev.reception_time : '') + (ev.venue_name ? ', ' + ev.venue_name : '') + (ev.venue_city ? ' ' + ev.venue_city : '') + '.\n' +
+        'כדי שנדע לשמור לכם מקום, לחצו על הקישור ואשרו הגעה:\n' + link + '\n' + 'מחכים לראותכם 💚';
+    }
+    function paintShare() { $('shareTxt').value = shareText(); $('waShare').href = 'https://wa.me/?text=' + encodeURIComponent(shareText()); }
+    window.__paintShare = paintShare;
+    $('copyShare').addEventListener('click', function () {
+      var t = $('shareTxt').value;
+      (navigator.clipboard ? navigator.clipboard.writeText(t) : Promise.reject()).then(function () { $('shareMsg').textContent = 'הועתק ✓'; IshurUX.toast('ההודעה הועתקה, הדביקו בקבוצה'); }).catch(function () { $('shareTxt').select(); document.execCommand('copy'); $('shareMsg').textContent = 'הועתק ✓'; });
+    });
+    fetch(CFG.endpoint('navlink'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) }).then(function (r) { return r.json(); }).then(function (j) { if (j && j.url) $('navIn').value = j.url; }).catch(function () {});
+    $('navSave').addEventListener('click', function () {
+      var u = $('navIn').value.trim(); $('navSave').disabled = true; $('navMsg').textContent = 'שומר…';
+      fetch(CFG.endpoint('navlink'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, url: u }) }).then(function (r) { return r.json(); }).then(function (j) {
+        $('navSave').disabled = false;
+        if (j && j.ok) { $('navMsg').textContent = u ? 'נשמר ✓ יצורף להזמנה בקישור ולתזכורת של יום לפני' : 'הוסר'; }
+        else $('navMsg').textContent = j && j.error === 'not-a-map-link' ? 'זה לא קישור של Waze או Google Maps' : 'לא נשמר, נסו שוב';
+      }).catch(function () { $('navSave').disabled = false; $('navMsg').textContent = 'לא נשמר, נסו שוב'; });
+    });
+  })();
 
   /* ── add a guest from the dashboard ── */
   var gaLeft = null;

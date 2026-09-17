@@ -1,0 +1,149 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>הזמנה · אישורי הגעה</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=55"></script>
+<style>
+  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--gold2:#C7AE7A;--paper:#F8F4EA;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--warn:#A8402F;--ease:cubic-bezier(.22,.9,.24,1)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{min-height:100%}
+  body{font-family:'Heebo',sans-serif;background:var(--green2);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:1.2rem;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* ── the envelope ── */
+  .scene{position:relative;width:min(92vw,420px);perspective:1400px}
+  .env{position:relative;width:100%;aspect-ratio:1.45;cursor:pointer;transform-style:preserve-3d;transition:transform .8s var(--ease)}
+  .env .back,.env .front,.env .flap{position:absolute;inset:0;border-radius:14px}
+  .env .back{background:#E9DFC7}
+  .env .front{background:linear-gradient(180deg,#F5EEDC,#E9DFC7);clip-path:polygon(0 0,50% 55%,100% 0,100% 100%,0 100%);box-shadow:0 20px 50px rgba(0,0,0,.35);z-index:3}
+  .env .flap{background:linear-gradient(180deg,#EFE6CF,#DCCFAF);clip-path:polygon(0 0,100% 0,50% 58%);transform-origin:top;transition:transform .9s var(--ease);z-index:4;backface-visibility:hidden}
+  .env .seal{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#D4B86A,var(--gold) 60%,#8a6a2a);box-shadow:0 6px 16px rgba(0,0,0,.3);z-index:5;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;transition:opacity .4s,transform .6s var(--ease)}
+  .env .tap{position:absolute;bottom:-2.4rem;left:0;right:0;text-align:center;color:var(--gold2);font-size:.85rem;letter-spacing:.04em;animation:breathe 2.2s ease-in-out infinite}
+  @keyframes breathe{0%,100%{opacity:.55}50%{opacity:1}}
+  .scene.open .env .flap{transform:rotateX(180deg);z-index:1}
+  .scene.open .env .seal{opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  .scene.open .env .tap{display:none}
+  /* the card slides out of the envelope, then the envelope fades */
+  .card{position:absolute;left:4%;right:4%;top:6%;background:#fff;border-radius:16px;padding:1.4rem 1.3rem 1.2rem;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:2;transform:translateY(38%) scale(.92);opacity:0;transition:transform 1s var(--ease) .35s,opacity .6s ease .35s;border:1px solid var(--bdr)}
+  .scene.open .card{transform:translateY(-8%) scale(1);opacity:1;z-index:6}
+  .scene.done .env{opacity:0;transition:opacity .5s ease;pointer-events:none}
+  .scene.done{perspective:none}
+  .scene.done .card{position:relative;left:auto;right:auto;top:auto;transform:none;transition:none}
+  .rule{width:80px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.5rem auto .9rem}
+  .kicker{font-size:.78rem;letter-spacing:.14em;color:var(--gold);text-transform:uppercase}
+  h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.65rem;line-height:1.25;color:var(--green2);margin:.3rem 0 .2rem}
+  .occ{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--ink2)}
+  .media{margin:.9rem -1.3rem 0;overflow:hidden}
+  .media img,.media video{width:100%;display:block;max-height:340px;object-fit:contain;background:#000}
+  .details{display:grid;gap:.45rem;margin:1rem 0;font-size:.95rem;color:var(--ink2);text-align:right}
+  .details div{display:flex;gap:.55rem;align-items:flex-start}
+  .details b{color:var(--ink);font-weight:600;min-width:4.2rem}
+  .nav{display:inline-block;margin-top:.2rem;font-size:.86rem;color:var(--green);text-decoration:none;border:1px solid var(--bdr);border-radius:999px;padding:.25rem .8rem}
+  .btn{display:block;width:100%;font:inherit;font-size:1.02rem;font-weight:600;padding:.85rem 1rem;border-radius:12px;border:none;background:var(--green);color:#fff;cursor:pointer;margin-top:.5rem;transition:transform .12s}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.5}
+  .btn.sec{background:var(--green4);color:var(--green2);border:1.5px solid rgba(15,76,53,.2)}
+  form{display:grid;gap:.55rem;margin-top:.6rem;text-align:right}
+  input{font:inherit;font-size:1rem;padding:.7rem .8rem;border:1.5px solid var(--bdr);border-radius:10px;width:100%}
+  input:focus{outline:none;border-color:var(--green)}
+  .party{display:flex;align-items:center;gap:.6rem;justify-content:space-between;border:1.5px solid var(--bdr);border-radius:10px;padding:.35rem .5rem .35rem .8rem;font-size:.95rem}
+  .party button{font:inherit;width:36px;height:36px;border-radius:50%;border:1px solid var(--bdr);background:#fff;font-size:1.2rem;cursor:pointer}
+  .party b{min-width:1.5rem;text-align:center;font-size:1.1rem}
+  .err{color:var(--warn);font-size:.84rem;min-height:1.2em}
+  .fine{font-size:.74rem;color:var(--ink3);margin-top:.8rem}
+  .done{padding:.5rem 0}
+  .done .big{font-size:2.4rem}
+</style>
+</head>
+<body>
+<div class="scene" id="scene">
+  <div class="env" id="env" role="button" aria-label="פתיחת ההזמנה">
+    <div class="back"></div>
+    <div class="flap"></div>
+    <div class="front"></div>
+    <div class="seal">א</div>
+    <div class="tap">לחצו לפתיחה</div>
+  </div>
+  <div class="card" id="card">
+    <div class="kicker">הזמנה</div>
+    <h1 id="hosts">…</h1>
+    <div class="occ" id="occ"></div>
+    <div class="rule"></div>
+    <div class="media" id="media" hidden></div>
+    <div class="details" id="details"></div>
+    <section id="ask">
+      <button class="btn" id="yes">מגיע/ה 🎉</button>
+      <form id="f" hidden>
+        <input id="name" placeholder="שם מלא" autocomplete="name" maxlength="60">
+        <input id="phone" placeholder="טלפון נייד" inputmode="tel" autocomplete="tel">
+        <div class="party"><span>כמה מגיעים?</span><span style="display:flex;align-items:center;gap:.4rem"><button type="button" id="minus">−</button><b id="party">1</b><button type="button" id="plus">+</button></span></div>
+        <button class="btn" id="send" type="submit">אישור הגעה</button>
+        <p class="err" id="err"></p>
+      </form>
+      <p class="fine">אישרתם? נתראה שם. אפשר לעדכן בכל רגע דרך הקישור הזה.</p>
+    </section>
+    <section id="thanks" class="done" hidden>
+      <div class="big">💚</div>
+      <h1 style="font-size:1.35rem">נרשמתם, נתראה!</h1>
+      <p class="fine" id="thanksSub"></p>
+    </section>
+  </div>
+</div>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var party = 1, info = null;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function heDate(iso) { if (!iso) return ''; var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+  function open() {
+    var sc = $('scene'); if (sc.classList.contains('open')) return;
+    sc.classList.add('open');
+    setTimeout(function () { sc.classList.add('done'); }, 1500);
+  }
+  $('env').addEventListener('click', open);
+  $('env').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') open(); });
+  $('env').tabIndex = 0;
+  function paint(d) {
+    info = d;
+    var occ = d.occasion ? 'ה' + d.occasion : 'האירוע';
+    $('hosts').textContent = d.hosts || '';
+    $('occ').textContent = occ + (d.roles ? ' · ' + d.roles.replace(',', ' ו') : '');
+    document.title = occ + ' של ' + (d.hosts || '') + ' · הזמנה';
+    if (d.video_url) { $('media').innerHTML = '<video src="' + esc(d.video_url) + '" muted playsinline autoplay loop></video>'; $('media').hidden = false; }
+    else if (d.image_url) { $('media').innerHTML = '<img src="' + esc(d.image_url) + '" alt="">'; $('media').hidden = false; }
+    var where = [d.venue, d.address, d.city].filter(Boolean).join(', ');
+    $('details').innerHTML =
+      (d.date ? '<div><b>מתי</b><span>' + esc(heDate(d.date)) + (d.time ? ' · ' + esc(d.time) : '') + '</span></div>' : '') +
+      (where ? '<div><b>איפה</b><span>' + esc(where) + (d.nav_link ? '<br><a class="nav" href="' + esc(d.nav_link) + '" target="_blank" rel="noopener">🧭 ניווט</a>' : '') + '</span></div>' : '');
+  }
+  fetch(CFG.endpoint('rsvp-info'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+    .then(function (r) { return r.json(); })
+    .then(function (d) { if (!d || !d.ok) { $('hosts').textContent = 'ההזמנה לא נמצאה'; $('ask').hidden = true; return; } paint(d); })
+    .catch(function () { $('hosts').textContent = 'לא הצלחנו לטעון את ההזמנה'; $('ask').hidden = true; });
+  $('yes').addEventListener('click', function () { $('yes').hidden = true; $('f').hidden = false; $('name').focus(); });
+  $('minus').addEventListener('click', function () { party = Math.max(1, party - 1); $('party').textContent = party; });
+  $('plus').addEventListener('click', function () { party = Math.min(20, party + 1); $('party').textContent = party; });
+  $('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var name = $('name').value.trim(), phone = $('phone').value.trim();
+    if (!name) { $('err').textContent = 'חסר שם'; return; }
+    if (phone.replace(/\D/g, '').length < 9) { $('err').textContent = 'הטלפון לא נראה תקין'; return; }
+    $('send').disabled = true; $('err').textContent = '';
+    fetch(CFG.endpoint('rsvp-self'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, name: name, phone: phone, party: party }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) { $('send').disabled = false; $('err').textContent = j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא הצלחנו לשמור, נסו שוב'; return; }
+        $('ask').hidden = true; $('thanks').hidden = false;
+        $('thanksSub').textContent = name + ' · ' + party + (party === 1 ? ' מקום' : ' מקומות') + (info && info.date ? ' · ' + heDate(info.date) : '');
+      }).catch(function () { $('send').disabled = false; $('err').textContent = 'לא הצלחנו לשמור, נסו שוב'; });
+  });
+})();
+</script>
+</body>
+</html>

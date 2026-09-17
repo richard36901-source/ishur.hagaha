@@ -293,6 +293,11 @@ window.ISHUR_CONFIG = (function () {
          being offered at all rather than being sold and not delivered. */
       minDaysBefore: 7
     },
+    selfreg: {
+      label: 'הפעלת הודעות לנרשמים מהקישור',
+      desc: 'מי שאישר דרך הקישור הציבורי יקבל גם תזכורת, יום-לפני ושולחן',
+      plans: []
+    },
     more_guests: {
       label: 'הגדלת כמות מוזמנים',
       desc: 'עד 10 מוזמנים נוספים חינם. מעבר לזה, מעבר למדרגה גבוהה יותר',
@@ -404,7 +409,7 @@ window.ISHUR_CONFIG = (function () {
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
-        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan'
+        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink'
       }[kind] || '/api/event');
     }
     return {

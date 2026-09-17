@@ -971,6 +971,7 @@ async function addonQuote(env, token) {
     if (!rsvp) pendingPhones.add(p);
   }
   const total = phones.size, unanswered = pendingPhones.size;
+  const selfCount = gRows.filter(g => /נרשם מהקישור/.test(String(g[24] || ''))).length;
   const R = ADDON_RATES, up = x => Math.ceil(x);
   const items = {
     extrasend_all:        { label: 'שליחה נוספת לכולם',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },
@@ -978,6 +979,7 @@ async function addonQuote(env, token) {
     calls:                { label: 'סבב שיחות AI ללא ענו', n: unanswered, price: unanswered ? up(R.call * unanswered + R.base) : 0 },
     postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total) : 0 },
     cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total) : 0 },
+    selfreg:              { label: 'הפעלת הודעות לנרשמים מהקישור', n: selfCount, price: selfCount ? up(R.msg * selfCount * 3 + R.base) : 0 },
   };
   return { ok: true, token, total, unanswered, free_guests: R.freeGuests, items };
 }
@@ -988,6 +990,7 @@ function parseAddonDesc(desc) {
   const tokM = d.match(/·\s*([0-9a-f]{8})\s*$/);
   const tok8 = tokM ? tokM[1] : '';
   if (/סבב שיחות/.test(d)) return { kind: 'calls', tok8, desc: d.slice(0, 80) };
+  if (/נרשמים מהקישור/.test(d)) return { kind: 'selfreg', tok8, desc: d.slice(0, 80) };
   if (/הודעת דחייה|דחייה\/עדכון/.test(d)) return { kind: 'postpone', tok8, desc: d.slice(0, 80) };
   if (/הודעת ביטול/.test(d)) return { kind: 'cancel', tok8, desc: d.slice(0, 80) };
   if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', scope: /ללא ענו/.test(d) ? 'unanswered' : 'all', tok8, desc: d.slice(0, 80) };
@@ -1038,6 +1041,11 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
       await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
     }
   } catch {}
+  if (addon.kind === 'selfreg') {
+    if (env.RATE) await env.RATE.put('selfregpaid:' + token, JSON.stringify({ at: new Date().toISOString(), ref }));
+    await slackSend(env, `💳 *הפעלת הודעות לנרשמים מהקישור* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — מעכשיו הם מקבלים תזכורות, יום-לפני ושולחן`, { urgent: true });
+    return { ok: true, kind: 'selfreg' };
+  }
   if (addon.kind === 'calls' || addon.kind === 'postpone' || addon.kind === 'cancel') {
     const key = addon.kind === 'calls' ? 'callsaddon:' + token : 'msgaddon:' + token + ':' + addon.kind;
     if (env.RATE) await env.RATE.put(key, JSON.stringify({ ref, at: new Date().toISOString(), sum }), { expirationTtl: 200 * 86400 });
@@ -2002,7 +2010,11 @@ async function wrongNum(env, token, phone) {
   if (!env.RATE || !token) return false;
   const p = normPhone(phone);
   if (!p) return false;
-  return !!(await env.RATE.get('wrong:' + token + ':' + p));
+  if (await env.RATE.get('wrong:' + token + ':' + p)) return true;
+  /* self-registered through the public link: silent until the client buys
+     the unlock (selfregpaid:<token>). Same gate for every sender and caller. */
+  if (await env.RATE.get('selfreg:' + token + ':' + p)) return !(await env.RATE.get('selfregpaid:' + token));
+  return false;
 }
 
 async function cbqEnqueue(env, phone, why) {
@@ -4157,9 +4169,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (await phoneBlocked(env, phone)) continue;
         if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
-        const wa = await sendTemplate(env, phone, 'ishur_yom_lifnei',
-          [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
-          { occasion, wave: 'daybefore', token });
+        const navT = env.RATE ? await env.RATE.get('navtmpl') : null;
+        const navU = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
+        const wa = navU
+          ? await sendTemplate(env, phone, navT, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
+          : await sendTemplate(env, phone, 'ishur_yom_lifnei',
+            [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
+            { occasion, wave: 'daybefore', token });
         if (budget) budget.left--;
         if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
         else failed++;
@@ -4283,6 +4299,7 @@ async function templateCheck(env, out) {
         { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        { name: 'ishur_yom_lifnei_nav', key: 'navtmpl', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
@@ -7851,6 +7868,77 @@ export default {
     }
     /* the seating planner's layout (tables, positions, capacities) — the
        assignments themselves live in the sheet (column AE) via /api/seating */
+    /* ── the public RSVP link (Richard 17/09) ──
+       /rsvp.html?t=<token> shows the event; "I'm coming" adds the person to
+       the list as confirmed, marked "נרשם מהקישור": counted and seatable,
+       silent until the client buys the unlock. ─────────────────────────── */
+    if (url.pathname === '/api/rsvp-info' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:rsvpinfo:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
+      const c = i => String(ev[i] ?? '').trim();
+      const [vidOk, nav] = await Promise.all([env.RATE.get('vidok:' + tok), env.RATE.get('navlink:' + tok)]);
+      return okJson({ ok: true, occasion: c(5), hosts: c(34) || c(2), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37), address: c(38),
+        image_url: c(44) || '', video_url: vidOk ? 'https://go.ishur.io/vid/' + tok : '', nav_link: nav || '', roles: c(45) }, origin);
+    }
+    if (url.pathname === '/api/rsvp-self' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec) return deny(404, 'bad-token', origin);
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:rsvpself:' + ip, 10, 3600)) return deny(429, 'slow-down', origin);
+      const name = String(b.name || '').trim().slice(0, 60);
+      const phone = normPhone(b.phone || '');
+      const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
+      if (!name) return deny(400, 'bad-name', origin);
+      if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
+      const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
+      const existing = gRows.find(g => normPhone(g[4] || '') === phone);
+      if (existing) {
+        /* already on the list (invited by the hosts): this is simply their answer */
+        const guest = findGuestByPhone(raw, phone, ilDate());
+        if (guest) await writeGuestReply(env, guest, 'מגיע', party).catch(() => {});
+        await logEvent(env, { area: 'ווצאפ', action: 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
+        return okJson({ ok: true, existing: true }, origin);
+      }
+      const now = new Date().toISOString();
+      const row = new Array(29).fill('');
+      row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-L' + (gRows.length + 1);
+      row[3] = name; row[4] = phone; row[5] = String(party); row[13] = String(party); row[15] = 'מגיע'; row[14] = now;
+      row[24] = 'נרשם מהקישור · לא בהודעות'; row[25] = now; row[28] = tok;
+      const r = await fetch(env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ event_type: 'guests_file', token: tok, file_name: 'rsvp-link', guest_count: 1, skipped_count: 0, append_body: JSON.stringify({ values: [row] }) }) }).catch(() => null);
+      if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+      await env.RATE.put('selfreg:' + tok + ':' + phone, now);
+      await logEvent(env, { area: 'ווצאפ', action: 'נרשם מהקישור הציבורי (מגיע)', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
+      return okJson({ ok: true, added: true }, origin);
+    }
+    /* the client's navigation link (Waze / Google Maps), sent in the day-before
+       reminder once the template with the link is approved */
+    if (url.pathname === '/api/navlink' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (typeof b.url === 'string') {
+        const u = b.url.trim();
+        if (u && !/^https?:\/\/(www\.)?(waze\.com|ul\.waze\.com|maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|www\.google\.[a-z.]+\/maps)/i.test(u)) return okJson({ ok: false, error: 'not-a-map-link' }, origin);
+        if (u) await env.RATE.put('navlink:' + tok, u.slice(0, 300)); else await env.RATE.delete('navlink:' + tok);
+        return okJson({ ok: true, url: u.slice(0, 300) }, origin);
+      }
+      return okJson({ ok: true, url: (await env.RATE.get('navlink:' + tok)) || '' }, origin);
+    }
     if (url.pathname === '/api/seatplan' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
