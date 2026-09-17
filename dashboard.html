@@ -860,9 +860,10 @@
     if (m.video_url) {
       /* no browser controls (their menu ignores the site's design): the clip
          loops muted; a tap toggles sound; a tap on the preview opens it full */
-      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline autoplay loop title="לחיצה: קול / שקט"></video>';
+      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
+      /* no autoplay: a 3MB clip was holding the whole page load (31s on 17/09) */
       var v = prev.querySelector('video');
-      v.addEventListener('click', function () { v.muted = !v.muted; if (v.paused) v.play(); });
+      v.addEventListener('click', function () { if (v.paused) { v.muted = false; v.play(); } else v.pause(); });
       txt.innerHTML = '<b>מצורף וידאו</b> להזמנה. ההזמנה תישלח עם הווידאו.';
     } else if (m.image_url) {
       prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
@@ -1421,7 +1422,7 @@
      page opens in replace mode (allowed until the first send) */
   (function () {
     var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
-    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?t=' + encodeURIComponent(token); else sl.hidden = true; }
+    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=3&t=' + encodeURIComponent(token); else sl.hidden = true; }
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {
       askConfirm('הרשימה הקיימת תימחק והקובץ החדש ייכנס במקומה. הקובץ: שם | טלפון | כמות, בסדר הזה.', { title: 'להחליף את רשימת המוזמנים?', ok: 'כן, לבחור קובץ', danger: true })
