@@ -15,33 +15,38 @@
   html,body{min-height:100%}
   body{font-family:'Heebo',sans-serif;background:var(--green2);color:var(--ink);display:flex;align-items:center;justify-content:center;padding:1.2rem;-webkit-font-smoothing:antialiased;overflow-x:hidden}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
-  /* ── the envelope ── */
-  .scene{position:relative;width:min(92vw,420px);perspective:1400px}
-  .env{position:relative;width:100%;aspect-ratio:1.45;cursor:pointer;transform-style:preserve-3d;transition:transform .8s var(--ease)}
+  /* ── the envelope: flap opens, the letter slides out, envelope fades ── */
+  body{min-height:100dvh}
+  .scene{position:relative;width:min(92vw,440px);margin:auto}
+  .env{position:relative;width:100%;aspect-ratio:1.5;cursor:pointer;transform-style:preserve-3d;perspective:1200px}
   .env .back,.env .front,.env .flap{position:absolute;inset:0;border-radius:14px}
-  .env .back{background:#E9DFC7}
-  .env .front{background:linear-gradient(180deg,#F5EEDC,#E9DFC7);clip-path:polygon(0 0,50% 55%,100% 0,100% 100%,0 100%);box-shadow:0 20px 50px rgba(0,0,0,.35);z-index:3}
-  .env .flap{background:linear-gradient(180deg,#EFE6CF,#DCCFAF);clip-path:polygon(0 0,100% 0,50% 58%);transform-origin:top;transition:transform .9s var(--ease);z-index:4;backface-visibility:hidden}
-  .env .face{position:absolute;left:0;right:0;bottom:8%;z-index:4;text-align:center;pointer-events:none;padding:0 1rem}
-  .env .face .brand{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;margin-bottom:.35rem}
-  .env .face .brand img{width:16px;height:16px;object-fit:contain}
-  .env .face .f-occ{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--ink2)}
-  .env .face .f-hosts{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;color:var(--green2);line-height:1.2}
-  .env .face .f-date{font-size:.8rem;color:var(--ink3);margin-top:.2rem}
-  .scene.open .env .face{opacity:0;transition:opacity .3s}
-  .env .seal img{width:30px;height:30px;object-fit:contain;filter:brightness(0) invert(1)}
-  .env .seal{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#D4B86A,var(--gold) 60%,#8a6a2a);box-shadow:0 6px 16px rgba(0,0,0,.3);z-index:5;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;transition:opacity .4s,transform .6s var(--ease)}
-  .env .tap{position:absolute;bottom:-2.4rem;left:0;right:0;text-align:center;color:var(--gold2);font-size:.85rem;letter-spacing:.04em;animation:breathe 2.2s ease-in-out infinite}
+  .env .back{background:#E4D9BE;z-index:1}
+  .env .front{background:linear-gradient(180deg,#F6EFDD 0%,#E9DFC7 100%);clip-path:polygon(0 0,50% 56%,100% 0,100% 100%,0 100%);box-shadow:0 22px 50px rgba(0,0,0,.35);z-index:3}
+  .env .flap{background:linear-gradient(180deg,#F0E7D1,#D9CCAA);clip-path:polygon(0 0,100% 0,50% 58%);transform-origin:50% 0;transition:transform .8s var(--ease);z-index:4;backface-visibility:hidden}
+  .env .face{position:absolute;left:0;right:0;bottom:9%;z-index:5;text-align:center;pointer-events:none;padding:0 1rem;transition:opacity .25s}
+  .env .face .brand{display:inline-flex;align-items:center;gap:.35rem;font-size:.68rem;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;margin-bottom:.3rem}
+  .env .face .brand img{width:15px;height:15px;object-fit:contain}
+  .env .face .f-occ{font-family:'Frank Ruhl Libre',serif;font-size:1rem;color:var(--ink2)}
+  .env .face .f-hosts{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:clamp(1.15rem,5vw,1.5rem);color:var(--green2);line-height:1.2}
+  .env .face .f-date{font-size:.78rem;color:var(--ink3);margin-top:.15rem}
+  .env .seal{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);width:54px;height:54px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#D9BE72,var(--gold) 60%,#8a6a2a);box-shadow:0 6px 16px rgba(0,0,0,.3);z-index:6;display:flex;align-items:center;justify-content:center;transition:opacity .35s,transform .5s var(--ease)}
+  .env .seal img{width:28px;height:28px;object-fit:contain;filter:brightness(0) invert(1)}
+  .env .tap{position:absolute;bottom:-2.3rem;left:0;right:0;text-align:center;color:var(--gold2);font-size:.85rem;letter-spacing:.04em;animation:breathe 2.2s ease-in-out infinite}
   @keyframes breathe{0%,100%{opacity:.55}50%{opacity:1}}
-  .scene.open .env .flap{transform:rotateX(180deg);z-index:1}
-  .scene.open .env .seal{opacity:0;transform:translate(-50%,-50%) scale(.4)}
+  /* the letter lives inside the pocket: above the back, below the front */
+  .card{position:absolute;left:5%;right:5%;top:7%;height:86%;overflow:hidden;background:#fff;border-radius:12px;padding:1.4rem 1.3rem 1.2rem;text-align:center;box-shadow:0 10px 30px rgba(0,0,0,.18);z-index:2;border:1px solid var(--bdr);transition:transform 1s var(--ease),box-shadow 1s}
+  /* step 1: flap up, seal breaks */
+  .scene.open .env .flap{transform:rotateX(180deg)}
+  .scene.open .env .seal{opacity:0;transform:translate(-50%,-50%) scale(.3) rotate(-20deg)}
+  .scene.open .env .face{opacity:0}
   .scene.open .env .tap{display:none}
-  /* the card slides out of the envelope, then the envelope fades */
-  .card{position:absolute;left:4%;right:4%;top:6%;background:#fff;border-radius:16px;padding:1.4rem 1.3rem 1.2rem;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.35);z-index:2;transform:translateY(38%) scale(.92);opacity:0;transition:transform 1s var(--ease) .35s,opacity .6s ease .35s;border:1px solid var(--bdr)}
-  .scene.open .card{transform:translateY(-8%) scale(1);opacity:1;z-index:6}
-  .scene.done .env{opacity:0;transition:opacity .5s ease;pointer-events:none}
-  .scene.done{perspective:none}
-  .scene.done .card{position:relative;left:auto;right:auto;top:auto;transform:none;transition:none}
+  /* step 2: the letter rises out of the pocket */
+  .scene.rise .env .flap{z-index:0}
+  .scene.rise .card{transform:translateY(-62%);z-index:3;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  /* step 3: envelope gone, the letter is a normal page you can scroll */
+  .scene.done .env{opacity:0;transition:opacity .45s ease;pointer-events:none;position:absolute;inset:0}
+  .scene.done .card{position:relative;left:auto;right:auto;top:auto;height:auto;overflow:visible;transform:none;transition:none;animation:settle .5s var(--ease)}
+  @keyframes settle{from{transform:translateY(-14px);opacity:.7}to{transform:none;opacity:1}}
   .rule{width:80px;height:2px;background:linear-gradient(90deg,transparent,var(--gold),transparent);margin:.5rem auto .9rem}
   .kicker{font-size:.78rem;letter-spacing:.14em;color:var(--gold);text-transform:uppercase}
   h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.65rem;line-height:1.25;color:var(--green2);margin:.3rem 0 .2rem}
@@ -119,8 +124,9 @@
   function heDate(iso) { if (!iso) return ''; var d = new Date(iso + 'T12:00:00'); return d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
   function open() {
     var sc = $('scene'); if (sc.classList.contains('open')) return;
-    sc.classList.add('open');
-    setTimeout(function () { sc.classList.add('done'); }, 1500);
+    sc.classList.add('open');                                   /* flap */
+    setTimeout(function () { sc.classList.add('rise'); }, 650); /* letter out */
+    setTimeout(function () { sc.classList.add('done'); }, 1900); /* envelope away, page scrolls */
   }
   $('env').addEventListener('click', open);
   $('env').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') open(); });
