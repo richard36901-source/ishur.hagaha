@@ -22,7 +22,15 @@
   .env .back{background:#E9DFC7}
   .env .front{background:linear-gradient(180deg,#F5EEDC,#E9DFC7);clip-path:polygon(0 0,50% 55%,100% 0,100% 100%,0 100%);box-shadow:0 20px 50px rgba(0,0,0,.35);z-index:3}
   .env .flap{background:linear-gradient(180deg,#EFE6CF,#DCCFAF);clip-path:polygon(0 0,100% 0,50% 58%);transform-origin:top;transition:transform .9s var(--ease);z-index:4;backface-visibility:hidden}
-  .env .seal{position:absolute;left:50%;top:52%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#D4B86A,var(--gold) 60%,#8a6a2a);box-shadow:0 6px 16px rgba(0,0,0,.3);z-index:5;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;transition:opacity .4s,transform .6s var(--ease)}
+  .env .face{position:absolute;left:0;right:0;bottom:8%;z-index:4;text-align:center;pointer-events:none;padding:0 1rem}
+  .env .face .brand{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;letter-spacing:.12em;color:var(--gold);text-transform:uppercase;margin-bottom:.35rem}
+  .env .face .brand img{width:16px;height:16px;object-fit:contain}
+  .env .face .f-occ{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--ink2)}
+  .env .face .f-hosts{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;color:var(--green2);line-height:1.2}
+  .env .face .f-date{font-size:.8rem;color:var(--ink3);margin-top:.2rem}
+  .scene.open .env .face{opacity:0;transition:opacity .3s}
+  .env .seal img{width:30px;height:30px;object-fit:contain;filter:brightness(0) invert(1)}
+  .env .seal{position:absolute;left:50%;top:40%;transform:translate(-50%,-50%);width:58px;height:58px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#D4B86A,var(--gold) 60%,#8a6a2a);box-shadow:0 6px 16px rgba(0,0,0,.3);z-index:5;display:flex;align-items:center;justify-content:center;color:#fff;font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.1rem;transition:opacity .4s,transform .6s var(--ease)}
   .env .tap{position:absolute;bottom:-2.4rem;left:0;right:0;text-align:center;color:var(--gold2);font-size:.85rem;letter-spacing:.04em;animation:breathe 2.2s ease-in-out infinite}
   @keyframes breathe{0%,100%{opacity:.55}50%{opacity:1}}
   .scene.open .env .flap{transform:rotateX(180deg);z-index:1}
@@ -38,7 +46,7 @@
   .kicker{font-size:.78rem;letter-spacing:.14em;color:var(--gold);text-transform:uppercase}
   h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.65rem;line-height:1.25;color:var(--green2);margin:.3rem 0 .2rem}
   .occ{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--ink2)}
-  .media{margin:.9rem -1.3rem 0;overflow:hidden}
+  .media{margin:-1.4rem -1.3rem 1rem;overflow:hidden;border-radius:16px 16px 0 0}
   .media img,.media video{width:100%;display:block;max-height:340px;object-fit:contain;background:#000}
   .details{display:grid;gap:.45rem;margin:1rem 0;font-size:.95rem;color:var(--ink2);text-align:right}
   .details div{display:flex;gap:.55rem;align-items:flex-start}
@@ -66,15 +74,21 @@
     <div class="back"></div>
     <div class="flap"></div>
     <div class="front"></div>
-    <div class="seal">א</div>
-    <div class="tap">לחצו לפתיחה</div>
+    <div class="face">
+      <div class="brand"><img src="assets/logo-gold.png" alt=""><span>אישורי הגעה</span></div>
+      <div class="f-occ" id="fOcc"></div>
+      <div class="f-hosts" id="fHosts"></div>
+      <div class="f-date" id="fDate"></div>
+    </div>
+    <div class="seal"><img src="assets/logo-gold.png" alt=""></div>
+    <div class="tap">לחצו לפתיחת ההזמנה</div>
   </div>
   <div class="card" id="card">
+    <div class="media" id="media" hidden></div>
     <div class="kicker">הזמנה</div>
     <h1 id="hosts">…</h1>
     <div class="occ" id="occ"></div>
     <div class="rule"></div>
-    <div class="media" id="media" hidden></div>
     <div class="details" id="details"></div>
     <section id="ask">
       <button class="btn" id="yes">מגיע/ה 🎉</button>
@@ -113,6 +127,7 @@
     info = d;
     var occ = d.occasion ? 'ה' + d.occasion : 'האירוע';
     $('hosts').textContent = d.hosts || '';
+    $('fOcc').textContent = occ; $('fHosts').textContent = d.hosts || ''; $('fDate').textContent = d.date ? heDate(d.date) : '';
     $('occ').textContent = occ + (d.roles ? ' · ' + d.roles.replace(',', ' ו') : '');
     document.title = occ + ' של ' + (d.hosts || '') + ' · הזמנה';
     if (d.video_url) { $('media').innerHTML = '<video src="' + esc(d.video_url) + '" muted playsinline autoplay loop></video>'; $('media').hidden = false; }
