@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=53"></script>
+<script src="config.js?v=54"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=20"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -572,7 +572,7 @@
 
   <!-- guests -->
   <section class="card">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink">⟳ החלפת רשימת המוזמנים</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
     <p class="list-sum" id="listSum"></p>
@@ -1417,6 +1417,7 @@
      page opens in replace mode (allowed until the first send) */
   (function () {
     var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
+    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?t=' + encodeURIComponent(token); else sl.hidden = true; }
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {
       askConfirm('הרשימה הקיימת תימחק והקובץ החדש ייכנס במקומה. הקובץ: שם | טלפון | כמות, בסדר הזה.', { title: 'להחליף את רשימת המוזמנים?', ok: 'כן, לבחור קובץ', danger: true })

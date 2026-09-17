@@ -1,0 +1,297 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>סידור הושבה · אישורי הגעה</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=54"></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb;--card:#fff;--warn:#A8402F;--ease:cubic-bezier(.22,.9,.24,1)}
+  *{box-sizing:border-box;margin:0;padding:0}
+  html,body{height:100%}
+  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden;touch-action:none}
+  .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);height:56px}
+  .top h1{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
+  .top .sub{font-size:.78rem;color:var(--ink3)}
+  .top .sp{flex:1}
+  .btn{font:inherit;font-size:.84rem;font-weight:600;padding:.45rem .95rem;border-radius:999px;border:1.5px solid var(--bdr);background:var(--card);color:var(--ink);cursor:pointer;transition:transform .12s,background .15s}
+  .btn:active{transform:scale(.97)}
+  .btn.p{background:var(--green);color:#fff;border-color:transparent}
+  .btn:disabled{opacity:.45;cursor:default}
+  .lay{display:grid;grid-template-columns:300px 1fr;height:calc(100% - 56px)}
+  @media (max-width:760px){.lay{grid-template-columns:1fr;grid-template-rows:auto 1fr}.side{max-height:38vh}}
+  /* sidebar: the guest list, drag from here onto a table */
+  .side{background:var(--card);border-inline-end:1px solid var(--bdr);display:flex;flex-direction:column;min-height:0}
+  .side .hd{padding:.7rem .9rem .4rem;border-bottom:1px solid var(--bdr)}
+  .side .hd input{width:100%;font:inherit;font-size:.86rem;padding:.45rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2)}
+  .side .hd input:focus{outline:none;border-color:var(--green)}
+  .side .cnt{font-size:.74rem;color:var(--ink3);margin-top:.35rem}
+  .list{overflow:auto;padding:.4rem;flex:1;overscroll-behavior:contain}
+  .g{display:flex;align-items:center;gap:.55rem;padding:.5rem .6rem;border-radius:10px;cursor:grab;user-select:none;border:1px solid transparent;transition:background .12s}
+  .g:hover{background:var(--bg2)}
+  .g.dragging{opacity:.35}
+  .g.seated{opacity:.5}
+  .g .av{width:30px;height:30px;border-radius:50%;background:var(--green4);color:var(--green2);display:flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:700;flex-shrink:0}
+  .g .nm{font-size:.88rem;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .g .pp{font-size:.74rem;color:var(--ink3);white-space:nowrap}
+  .g .at{font-size:.7rem;color:var(--green);background:var(--green4);padding:.05rem .4rem;border-radius:6px}
+  /* the floor */
+  .floor{position:relative;overflow:hidden;background:
+    linear-gradient(var(--bdr) 1px,transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg,var(--bdr) 1px,transparent 1px) 0 0/24px 24px, #FBFAF7}
+  .floor.over{background-color:#f3f8f5}
+  .tbl{position:absolute;background:var(--card);border:2px solid var(--bdr);border-radius:50%;box-shadow:0 4px 14px rgba(0,0,0,.08);display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:grab;user-select:none;transition:box-shadow .15s,border-color .15s;touch-action:none}
+  .tbl.rect{border-radius:16px}
+  .tbl.drag{box-shadow:0 14px 34px rgba(0,0,0,.18);z-index:5}
+  .tbl.hot{border-color:var(--green);box-shadow:0 0 0 6px rgba(15,76,53,.14),0 8px 24px rgba(0,0,0,.12)}
+  .tbl.full{border-color:var(--warn)}
+  .tbl .tn{font-family:'Rubik',sans-serif;font-weight:600;font-size:.95rem;pointer-events:none}
+  .tbl .tc{font-size:.74rem;color:var(--ink3);pointer-events:none;font-variant-numeric:tabular-nums;direction:ltr}
+  .tbl .tc b{color:var(--ink)}
+  .tbl.full .tc b{color:var(--warn)}
+  /* the chairs around the table: one dot per seat, filled when taken */
+  .tbl .seat{position:absolute;width:10px;height:10px;border-radius:50%;background:var(--bdr);pointer-events:none;transition:background .15s,transform .15s}
+  .tbl .seat.on{background:var(--green);transform:scale(1.15)}
+  .tbl .rz{position:absolute;right:-7px;bottom:-7px;width:18px;height:18px;border-radius:50%;background:var(--card);border:2px solid var(--gold);cursor:nwse-resize;touch-action:none}
+  .tbl .rz::after{content:'';position:absolute;inset:4px;border-radius:50%;background:var(--gold)}
+  .tbl .x{position:absolute;top:-8px;left:-8px;width:20px;height:20px;border-radius:50%;background:var(--card);border:1.5px solid var(--bdr);font-size:.8rem;line-height:1;display:none;align-items:center;justify-content:center;cursor:pointer;color:var(--ink3)}
+  .tbl:hover .x{display:flex}
+  .tbl.sel{border-color:var(--gold)}
+  /* who sits at the selected table */
+  .pop{position:absolute;z-index:8;background:var(--card);border:1.5px solid var(--gold);border-radius:14px;box-shadow:0 12px 32px rgba(0,0,0,.14);padding:.6rem .7rem;min-width:190px;max-width:240px;font-size:.84rem}
+  .pop .ph{font-weight:600;margin-bottom:.3rem;display:flex;justify-content:space-between;align-items:center;gap:.4rem}
+  .pop .ph input{font:inherit;font-weight:600;width:6.5rem;border:none;border-bottom:1px dashed var(--bdr);background:transparent}
+  .pop .ph input:focus{outline:none;border-color:var(--green)}
+  .pop .pr{display:flex;justify-content:space-between;align-items:center;padding:.2rem 0;border-bottom:1px solid var(--bdr)}
+  .pop .pr:last-of-type{border-bottom:none}
+  .pop .pr small{color:var(--ink3)}
+  .pop .pr button{font:inherit;font-size:.72rem;border:none;background:none;color:var(--warn);cursor:pointer}
+  .pop .cap{display:flex;align-items:center;gap:.35rem;font-size:.76rem;color:var(--ink2);margin-top:.4rem}
+  .pop .cap input{width:3.2rem;font:inherit;padding:.15rem .3rem;border:1px solid var(--bdr);border-radius:6px}
+  .fab{position:absolute;bottom:1rem;inset-inline-start:1rem;display:flex;gap:.5rem;z-index:6}
+  .hint{position:absolute;top:.7rem;inset-inline-start:1rem;font-size:.76rem;color:var(--ink3);background:rgba(255,255,255,.85);padding:.25rem .6rem;border-radius:8px;pointer-events:none}
+  .ghost{position:fixed;z-index:50;pointer-events:none;background:var(--green);color:#fff;font-size:.82rem;font-weight:600;padding:.35rem .7rem;border-radius:999px;box-shadow:0 8px 20px rgba(0,0,0,.2);transform:translate(-50%,-50%)}
+  .toast{position:fixed;bottom:1.2rem;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:.6rem 1rem;border-radius:12px;font-size:.85rem;opacity:0;transition:.2s;z-index:99}
+  .toast.on{opacity:1;transform:translateX(-50%)}
+</style>
+</head>
+<body>
+<header class="top">
+  <a id="back" href="#" class="btn" style="padding:.35rem .7rem">→ ללוח</a><div><h1>סידור הושבה</h1><div class="sub" id="sub">טוען…</div></div>
+  <span class="sp"></span>
+  <button class="btn" id="addRound">+ שולחן עגול</button>
+  <button class="btn" id="addRect">+ שולחן ארוך</button>
+  <button class="btn p" id="save" disabled>שמירה</button>
+</header>
+<div class="lay">
+  <aside class="side">
+    <div class="hd">
+      <input type="search" id="q" placeholder="חיפוש אורח">
+      <div class="cnt" id="cnt"></div>
+      <div style="display:flex;gap:.3rem;margin-top:.4rem" id="flt"><button class="btn" data-f="all" style="padding:.15rem .6rem;font-size:.72rem;background:var(--green);color:#fff;border-color:transparent">הכל</button><button class="btn" data-f="confirmed" style="padding:.15rem .6rem;font-size:.72rem">אישרו</button><button class="btn" data-f="pending" style="padding:.15rem .6rem;font-size:.72rem">לא ענו</button></div>
+    </div>
+    <div class="list" id="list"></div>
+  </aside>
+  <div class="floor" id="floor">
+    <div class="hint">גררו אורח מהרשימה אל שולחן · גררו שולחן להזזה · הנקודה הזהובה מגדילה ומוסיפה מקומות</div>
+    <div class="fab"><button class="btn" id="auto">שיבוץ אוטומטי למי שנשאר</button><button class="btn" id="clear">ניקוי</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
+  var token = new URLSearchParams(location.search).get('t') || '';
+  var guests = [];   /* {id, name, party, status, table} from /api/status */
+  var flt = 'all';
+  var STL = { confirmed: 'אישרו', pending: 'לא ענו', awaiting_call: 'לא ענו', declined: 'סירבו' };
+  var tables = [];   /* {id, name, x, y, w, h, shape, cap} */
+  var dirty = false, sel = null;
+  var SEAT_PX = 70;  /* one seat per ~70px of circumference → capacity grows as you stretch the table */
+  function capOf(t) { if (t.capManual) return t.capManual; var per = t.shape === 'round' ? Math.PI * (t.w + t.h) / 2 : 2 * (t.w + t.h); return Math.max(2, Math.round(per / SEAT_PX)); }
+  function seatedAt(t) { return guests.filter(function (g) { return g.table === t.name; }).reduce(function (a, g) { return a + g.party; }, 0); }
+  function initials(n) { return n.split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join(''); }
+  function toast(m) { var t = $('toast'); t.textContent = m; t.classList.add('on'); clearTimeout(t._t); t._t = setTimeout(function () { t.classList.remove('on'); }, 2200); }
+  function markDirty() { dirty = true; $('save').disabled = false; }
+
+  /* ── sidebar ── */
+  function paintList() {
+    var q = ($('q').value || '').trim();
+    var left = guests.filter(function (g) { return !g.table; });
+    $('cnt').textContent = left.reduce(function (a, g) { return a + g.party; }, 0) + ' מוזמנים עדיין בלי שולחן · ' + guests.filter(function (g) { return g.table; }).length + ' משובצים';
+    $('list').innerHTML = guests.filter(function (g) { return (!q || g.name.indexOf(q) >= 0) && (flt === 'all' || (flt === 'pending' ? (g.status === 'pending' || g.status === 'awaiting_call') : g.status === flt)); }).sort(function (a, b) { return (a.table ? 1 : 0) - (b.table ? 1 : 0); }).map(function (g) {
+      return '<div class="g' + (g.table ? ' seated' : '') + '" data-id="' + g.id + '"><span class="av">' + initials(g.name) + '</span><span class="nm">' + g.name + '</span>' + (g.table ? '<span class="at">' + g.table + '</span>' : '') + '<span class="pp">' + g.party + (g.party === 1 ? ' מקום' : ' מקומות') + (g.status !== 'confirmed' ? ' · ' + (STL[g.status] || '') : '') + '</span></div>';
+    }).join('');
+  }
+  $('q').addEventListener('input', paintList);
+
+  /* ── floor ── */
+  function paintTables() {
+    var floor = $('floor');
+    floor.querySelectorAll('.tbl').forEach(function (el) { el.remove(); });
+    tables.forEach(function (t) {
+      var cap = capOf(t), used = seatedAt(t);
+      var el = document.createElement('div');
+      el.className = 'tbl ' + (t.shape === 'rect' ? 'rect' : '') + (used >= cap ? ' full' : '') + (sel === t.id ? ' sel' : '');
+      el.dataset.id = t.id;
+      el.style.cssText = 'left:' + t.x + 'px;top:' + t.y + 'px;width:' + t.w + 'px;height:' + t.h + 'px';
+      var seats = '';
+      for (var i = 0; i < cap; i++) {
+        var a = (i / cap) * Math.PI * 2 - Math.PI / 2, rx = t.w / 2 - 2, ry = t.h / 2 - 2;
+        var px, py;
+        if (t.shape === 'round') { px = t.w / 2 + Math.cos(a) * rx; py = t.h / 2 + Math.sin(a) * ry; }
+        else { /* around a rectangle: walk the perimeter */
+          var per = 2 * (t.w + t.h), d = (i / cap) * per;
+          if (d < t.w) { px = d; py = 0; } else if (d < t.w + t.h) { px = t.w; py = d - t.w; } else if (d < 2 * t.w + t.h) { px = t.w - (d - t.w - t.h); py = t.h; } else { px = 0; py = t.h - (d - 2 * t.w - t.h); }
+        }
+        seats += '<span class="seat' + (i < used ? ' on' : '') + '" style="left:' + (px - 5) + 'px;top:' + (py - 5) + 'px"></span>';
+      }
+      el.innerHTML = seats + '<span class="tn">' + t.name + '</span><span class="tc"><b>' + used + '</b> / ' + cap + '</span><span class="rz" title="גררו להגדלה"></span><span class="x" title="הסרת שולחן">×</span>';
+      floor.appendChild(el);
+    });
+    paintPop();
+  }
+  function paintPop() {
+    var old = $('floor').querySelector('.pop'); if (old) old.remove();
+    var t = tables.filter(function (x) { return x.id === sel; })[0]; if (!t) return;
+    var at = guests.filter(function (g) { return g.table === t.name; });
+    var p = document.createElement('div'); p.className = 'pop';
+    p.style.left = Math.min(t.x + t.w + 12, $('floor').clientWidth - 250) + 'px'; p.style.top = Math.max(8, t.y) + 'px';
+    p.innerHTML = '<div class="ph"><input id="tnm" value="' + t.name + '"><small style="color:var(--ink3)">' + seatedAt(t) + '/' + capOf(t) + '</small></div>' +
+      (at.length ? at.map(function (g) { return '<div class="pr"><span>' + g.name + ' <small>' + g.party + '</small></span><button data-un="' + g.id + '">הסרה</button></div>'; }).join('') : '<div style="color:var(--ink3);font-size:.78rem;padding:.3rem 0">גררו אורחים לכאן</div>') +
+      '<div class="cap">מקומות: <input type="number" id="tcap" min="2" max="40" value="' + capOf(t) + '"> <small>או משכו את הנקודה הזהובה</small></div>';
+    $('floor').appendChild(p);
+    p.querySelector('#tnm').addEventListener('change', function (e) { var nn = e.target.value.trim() || t.name; guests.forEach(function (g) { if (g.table === t.name) g.table = nn; }); t.name = nn; markDirty(); paintTables(); paintList(); });
+    p.querySelector('#tcap').addEventListener('change', function (e) { t.capManual = Math.max(2, Number(e.target.value) || 2); markDirty(); paintTables(); });
+    p.querySelectorAll('[data-un]').forEach(function (b) { b.addEventListener('click', function () { var g = guests.filter(function (x) { return x.id === b.dataset.un; })[0]; if (g) { g.table = ''; markDirty(); paintTables(); paintList(); } }); });
+  }
+  function addTable(shape) {
+    var n = tables.length + 1;
+    var t = { id: 'T' + Date.now(), name: String(n), shape: shape, x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: shape === 'round' ? 120 : 180, h: shape === 'round' ? 120 : 90 };
+    tables.push(t); sel = t.id; markDirty(); paintTables();
+  }
+  $('addRound').addEventListener('click', function () { addTable('round'); });
+  $('addRect').addEventListener('click', function () { addTable('rect'); });
+  $('clear').addEventListener('click', function () { if (!confirm('לנקות את כל השיבוץ?')) return; guests.forEach(function (g) { g.table = ''; }); markDirty(); paintTables(); paintList(); });
+  $('auto').addEventListener('click', function () {
+    var left = guests.filter(function (g) { return !g.table; }).sort(function (a, b) { return b.party - a.party; });
+    left.forEach(function (g) {
+      var t = tables.filter(function (x) { return capOf(x) - seatedAt(x) >= g.party; }).sort(function (a, b) { return (capOf(b) - seatedAt(b)) - (capOf(a) - seatedAt(a)); })[0];
+      if (t) g.table = t.name;
+    });
+    markDirty(); paintTables(); paintList();
+    var still = guests.filter(function (g) { return !g.table; }).length;
+    toast(still ? still + ' אורחים לא נכנסו, צריך עוד שולחן' : 'כולם משובצים');
+  });
+
+  /* ── pointer interactions: drag guest, drag table, resize ── */
+  var drag = null, ghost = null;
+  function ptTable(x, y) {
+    var els = document.elementsFromPoint(x, y);
+    for (var i = 0; i < els.length; i++) if (els[i].classList && els[i].classList.contains('tbl')) return tables.filter(function (t) { return t.id === els[i].dataset.id; })[0];
+    return null;
+  }
+  document.addEventListener('pointerdown', function (e) {
+    var gEl = e.target.closest('.g');
+    if (gEl) {
+      var g = guests.filter(function (x) { return x.id === gEl.dataset.id; })[0];
+      drag = { kind: 'guest', g: g, el: gEl }; gEl.classList.add('dragging');
+      ghost = document.createElement('div'); ghost.className = 'ghost'; ghost.textContent = g.name + ' · ' + g.party; document.body.appendChild(ghost);
+      ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+      e.preventDefault(); return;
+    }
+    var rz = e.target.closest('.rz');
+    if (rz) { var t = tables.filter(function (x) { return x.id === rz.parentNode.dataset.id; })[0]; drag = { kind: 'resize', t: t, sx: e.clientX, sy: e.clientY, w: t.w, h: t.h }; e.preventDefault(); return; }
+    var xb = e.target.closest('.x');
+    if (xb) { var tt = tables.filter(function (x) { return x.id === xb.parentNode.dataset.id; })[0]; if (seatedAt(tt) && !confirm('בשולחן יושבים אנשים. להסיר בכל זאת?')) return; guests.forEach(function (g) { if (g.table === tt.name) g.table = ''; }); tables = tables.filter(function (x) { return x !== tt; }); if (sel === tt.id) sel = null; markDirty(); paintTables(); paintList(); return; }
+    var tEl = e.target.closest('.tbl');
+    if (tEl) { var t2 = tables.filter(function (x) { return x.id === tEl.dataset.id; })[0]; drag = { kind: 'table', t: t2, ox: e.clientX - t2.x, oy: e.clientY - t2.y, moved: false, el: tEl }; tEl.classList.add('drag'); tEl.setPointerCapture && tEl.setPointerCapture(e.pointerId); e.preventDefault(); return; }
+    if (e.target.closest('.floor') && !e.target.closest('.pop') && !e.target.closest('.fab')) { sel = null; paintTables(); }
+  });
+  document.addEventListener('pointermove', function (e) {
+    if (!drag) return;
+    if (drag.kind === 'guest') {
+      ghost.style.left = e.clientX + 'px'; ghost.style.top = e.clientY + 'px';
+      var over = ptTable(e.clientX, e.clientY);
+      document.querySelectorAll('.tbl.hot').forEach(function (x) { x.classList.remove('hot'); });
+      if (over) { var el = document.querySelector('.tbl[data-id="' + over.id + '"]'); if (el) el.classList.add('hot'); }
+    } else if (drag.kind === 'table') {
+      drag.moved = true;
+      var fl = $('floor').getBoundingClientRect();
+      drag.t.x = Math.max(0, Math.min(fl.width - drag.t.w, e.clientX - drag.ox)); drag.t.y = Math.max(0, Math.min(fl.height - drag.t.h, e.clientY - drag.oy));
+      drag.el.style.left = drag.t.x + 'px'; drag.el.style.top = drag.t.y + 'px';
+    } else if (drag.kind === 'resize') {
+      var dw = e.clientX - drag.sx, dh = e.clientY - drag.sy;
+      if (drag.t.shape === 'round') { var s = Math.max(80, Math.min(320, drag.w + Math.max(dw, dh))); drag.t.w = s; drag.t.h = s; }
+      else { drag.t.w = Math.max(100, Math.min(420, drag.w + dw)); drag.t.h = Math.max(60, Math.min(240, drag.h + dh)); }
+      drag.t.capManual = 0; paintTables();
+    }
+  });
+  document.addEventListener('pointerup', function (e) {
+    if (!drag) return;
+    if (drag.kind === 'guest') {
+      var over = ptTable(e.clientX, e.clientY);
+      drag.el.classList.remove('dragging'); ghost.remove(); ghost = null;
+      document.querySelectorAll('.tbl.hot').forEach(function (x) { x.classList.remove('hot'); });
+      if (over) {
+        var free = capOf(over) - seatedAt(over) + (drag.g.table === over.name ? drag.g.party : 0);
+        if (free < drag.g.party) { toast('אין מקום בשולחן ' + over.name + ' (' + free + ' פנויים, צריך ' + drag.g.party + ')'); }
+        else { drag.g.table = over.name; sel = over.id; markDirty(); toast(drag.g.name + ' → שולחן ' + over.name); }
+      } else if (e.target.closest('.side')) { if (drag.g.table) { drag.g.table = ''; markDirty(); } }
+      paintTables(); paintList();
+    } else if (drag.kind === 'table') {
+      drag.el.classList.remove('drag');
+      if (drag.moved) markDirty(); else sel = (sel === drag.t.id ? null : drag.t.id);
+      paintTables();
+    } else if (drag.kind === 'resize') { markDirty(); paintTables(); }
+    drag = null;
+  });
+  var origTable = {};
+  $('save').addEventListener('click', function () {
+    var changed = guests.filter(function (g) { return (g.table || '') !== (origTable[g.id] || ''); }).map(function (g) { return { id: g.id, table: g.table || '' }; });
+    var plan = tables.map(function (t) { return { name: t.name, shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, cap: capOf(t) }; });
+    $('save').disabled = true; toast('שומרים…');
+    var p1 = fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, tables: plan }) }).then(function (r) { return r.json(); });
+    var p2 = changed.length ? fetch(CFG.endpoint('seating'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, assignments: changed }) }).then(function (r) { return r.json(); }) : Promise.resolve({ ok: true });
+    Promise.all([p1, p2]).then(function (rs) {
+      if (!rs[0] || !rs[0].ok || !rs[1] || !rs[1].ok) { $('save').disabled = false; toast('לא הצלחנו לשמור, נסו שוב'); return; }
+      guests.forEach(function (g) { origTable[g.id] = g.table || ''; });
+      dirty = false; toast('נשמר ✓ ' + (changed.length ? changed.length + ' שיבוצים עודכנו' : 'המפה נשמרה'));
+    }).catch(function () { $('save').disabled = false; toast('לא הצלחנו לשמור, נסו שוב'); });
+  });
+  $('flt').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; flt = b.dataset.f; $('flt').querySelectorAll('button').forEach(function (x) { var on = x === b; x.style.background = on ? 'var(--green)' : ''; x.style.color = on ? '#fff' : ''; x.style.borderColor = on ? 'transparent' : ''; }); paintList(); });
+  $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+  window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = ''; } });
+
+  function load() {
+    if (!/^[0-9a-f-]{36}$/.test(token)) { $('sub').textContent = 'קישור לא תקין'; return; }
+    var payload = { token: token };
+    Promise.all([
+      fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) }).then(function (r) { return r.json(); }),
+      fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) }).then(function (r) { return r.json(); })
+    ]).then(function (rs) {
+      var d = rs[0], p = rs[1];
+      if (!d || d.ok === false) { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; return; }
+      var ev = d.event || {};
+      $('sub').textContent = (ev.event_name || ev.name || '') + (ev.event_date ? ' · ' + new Date(ev.event_date).toLocaleDateString('he-IL') : '');
+      guests = (d.guests || []).filter(function (g) { return g.id && g.status !== 'declined'; }).map(function (g) { return { id: g.id, name: g.name || 'ללא שם', party: Number(g.seats) || 1, status: g.status || 'pending', table: String(g.table || '').trim() }; });
+      guests.forEach(function (g) { origTable[g.id] = g.table; });
+      tables = ((p && p.tables) || []).map(function (t, i) { return { id: 'T' + i, name: t.name || String(i + 1), shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, capManual: t.cap }; });
+      /* tables named in the sheet but missing from the map get a spot */
+      var known = {}; tables.forEach(function (t) { known[t.name] = 1; });
+      guests.forEach(function (g) { if (g.table && !known[g.table]) { known[g.table] = 1; var n = tables.length; tables.push({ id: 'T' + Date.now() + n, name: g.table, shape: 'round', x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: 120, h: 120 }); } });
+      if (!tables.length) { addTable('round'); addTable('round'); dirty = false; $('save').disabled = true; }
+      paintTables(); paintList();
+    }).catch(function () { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

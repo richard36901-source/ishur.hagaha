@@ -7849,6 +7849,27 @@ export default {
     if (url.pathname === '/api/adspend' && request.method === 'POST') {
       return handleAdspend(request, env, origin);
     }
+    /* the seating planner's layout (tables, positions, capacities) — the
+       assignments themselves live in the sheet (column AE) via /api/seating */
+    if (url.pathname === '/api/seatplan' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:seatplan:' + tok, 60, 3600)) return deny(429, 'slow-down', origin);
+      if (Array.isArray(b.tables)) {
+        const tables = b.tables.slice(0, 80).map(t => ({
+          name: String(t.name || '').slice(0, 12), shape: t.shape === 'rect' ? 'rect' : 'round',
+          x: Math.max(0, Math.min(4000, Number(t.x) || 0)), y: Math.max(0, Math.min(4000, Number(t.y) || 0)),
+          w: Math.max(60, Math.min(500, Number(t.w) || 120)), h: Math.max(50, Math.min(300, Number(t.h) || 120)),
+          cap: Math.max(1, Math.min(60, Number(t.cap) || 8)),
+        }));
+        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, at: new Date().toISOString() }));
+        return okJson({ ok: true, tables }, origin);
+      }
+      let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
+      return okJson({ ok: true, tables: (plan && plan.tables) || [] }, origin);
+    }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);
     }
