@@ -91,12 +91,11 @@
     <div class="rule"></div>
     <div class="details" id="details"></div>
     <section id="ask">
-      <button class="btn" id="yes">מגיע/ה 🎉</button>
-      <form id="f" hidden>
+      <form id="f">
         <input id="name" placeholder="שם מלא" autocomplete="name" maxlength="60">
         <input id="phone" placeholder="טלפון נייד" inputmode="tel" autocomplete="tel">
         <div class="party"><span>כמה מגיעים?</span><span style="display:flex;align-items:center;gap:.4rem"><button type="button" id="minus">−</button><b id="party">1</b><button type="button" id="plus">+</button></span></div>
-        <button class="btn" id="send" type="submit">אישור הגעה</button>
+        <button class="btn" id="send" type="submit">מגיע/ה 🎉</button>
         <p class="err" id="err"></p>
       </form>
       <p class="fine">אישרתם? נתראה שם. אפשר לעדכן בכל רגע דרך הקישור הזה.</p>
@@ -131,7 +130,7 @@
     var occ = d.occasion ? 'ה' + d.occasion : 'האירוע';
     $('hosts').textContent = d.hosts || '';
     $('fOcc').textContent = occ; $('fHosts').textContent = d.hosts || ''; $('fDate').textContent = d.date ? heDate(d.date) : '';
-    $('occ').textContent = occ + (d.roles ? ' · ' + d.roles.replace(',', ' ו') : '');
+    $('occ').textContent = occ;
     document.title = occ + ' של ' + (d.hosts || '') + ' · הזמנה';
     if (d.video_url) { $('media').innerHTML = '<video src="' + esc(d.video_url) + '" muted playsinline autoplay loop></video>'; $('media').hidden = false; $('media').querySelector('video').addEventListener('error', function () { $('media').hidden = true; }); }
     else if (d.image_url) { $('media').innerHTML = '<img src="' + esc(d.image_url) + '" alt="">'; $('media').hidden = false; $('media').querySelector('img').addEventListener('error', function () { $('media').hidden = true; }); }
@@ -144,7 +143,6 @@
     .then(function (r) { return r.json(); })
     .then(function (d) { if (!d || !d.ok) { $('hosts').textContent = 'ההזמנה לא נמצאה'; $('ask').hidden = true; return; } paint(d); })
     .catch(function () { $('hosts').textContent = 'לא הצלחנו לטעון את ההזמנה'; $('ask').hidden = true; });
-  $('yes').addEventListener('click', function () { $('yes').hidden = true; $('f').hidden = false; $('name').focus(); });
   $('minus').addEventListener('click', function () { party = Math.max(1, party - 1); $('party').textContent = party; });
   $('plus').addEventListener('click', function () { party = Math.min(20, party + 1); $('party').textContent = party; });
   $('f').addEventListener('submit', function (e) {

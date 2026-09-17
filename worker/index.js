@@ -7916,7 +7916,7 @@ export default {
       const c = i => String(ev[i] ?? '').trim();
       const [vidOk, nav] = await Promise.all([env.RATE.get('vidok:' + tok), env.RATE.get('navlink:' + tok)]);
       return okJson({ ok: true, occasion: c(5), hosts: c(34) || c(2), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37), address: c(38),
-        image_url: c(44) || '', video_url: vidOk ? 'https://go.ishur.io/vid/' + tok : '', nav_link: nav || '', roles: c(45) }, origin);
+        image_url: c(44) || '', video_url: vidOk ? 'https://go.ishur.io/vid/' + tok : '', nav_link: nav || '', roles: c(47) }, origin);
     }
     if (url.pathname === '/api/rsvp-self' && request.method === 'POST') {
       let b = {};
