@@ -24,6 +24,10 @@
   .btn:active{transform:scale(.97)}
   .btn.p{background:var(--green);color:#fff;border-color:transparent}
   .btn:disabled{opacity:.45;cursor:default}
+  .btn.p.ok:disabled{opacity:1;background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
+  .btn.p.saving{background:var(--gold);opacity:1}
+  .btn.p.dirty{background:var(--green)}
+  @keyframes pulse{0%,100%{opacity:1}50%{opacity:.55}}.btn.p.saving{animation:pulse 1s infinite}
   .lay{display:grid;grid-template-columns:300px 1fr;height:calc(100% - 56px)}
   @media (max-width:760px){.lay{grid-template-columns:1fr;grid-template-rows:auto 1fr}.side{max-height:38vh}}
   /* sidebar: the guest list, drag from here onto a table */
@@ -87,7 +91,7 @@
   <span class="sp"></span>
   <button class="btn" id="addRound">+ שולחן עגול</button>
   <button class="btn" id="addRect">+ שולחן ארוך</button>
-  <button class="btn p" id="save" disabled>שמירה</button>
+  <button class="btn p ok" id="save" disabled>נשמר ✓</button>
 </header>
 <div class="lay">
   <aside class="side">
@@ -127,7 +131,9 @@
   function seatedAt(t) { return guests.filter(function (g) { return g.table === t.name; }).reduce(function (a, g) { return a + g.party; }, 0); }
   function initials(n) { return n.split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join(''); }
   function toast(m) { IshurUX.toast(m, 2200); }
-  function markDirty() { dirty = true; $('save').disabled = false; }
+  var autoT = null, saving = false;
+  function setStatus(txt, cls) { var b = $('save'); b.textContent = txt; b.className = 'btn p ' + (cls || ''); }
+  function markDirty() { dirty = true; $('save').disabled = false; setStatus('שינויים לא נשמרו', 'dirty'); clearTimeout(autoT); autoT = setTimeout(function () { $('save').click(); }, 1500); }
 
   /* ── sidebar ── */
   function paintList() {
@@ -271,14 +277,16 @@
   $('save').addEventListener('click', function () {
     var changed = guests.filter(function (g) { return (g.table || '') !== (origTable[g.id] || ''); }).map(function (g) { return { id: g.id, table: g.table || '' }; });
     var plan = tables.map(function (t) { return { name: t.name, shape: t.shape, x: t.x, y: t.y, w: t.w, h: t.h, cap: capOf(t) }; });
-    $('save').disabled = true; toast('שומרים…');
+    if (saving) { clearTimeout(autoT); autoT = setTimeout(function () { $('save').click(); }, 800); return; }
+    saving = true; $('save').disabled = true; setStatus('שומר…', 'saving');
     var p1 = fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, tables: plan }) }).then(function (r) { return r.json(); });
     var p2 = changed.length ? fetch(CFG.endpoint('seating'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, assignments: changed }) }).then(function (r) { return r.json(); }) : Promise.resolve({ ok: true });
     Promise.all([p1, p2]).then(function (rs) {
-      if (!rs[0] || !rs[0].ok || !rs[1] || !rs[1].ok) { $('save').disabled = false; toast('לא הצלחנו לשמור, נסו שוב'); return; }
+      saving = false;
+      if (!rs[0] || !rs[0].ok || !rs[1] || !rs[1].ok) { $('save').disabled = false; setStatus('לא נשמר, לחצו לניסיון נוסף', 'dirty'); toast('לא הצלחנו לשמור'); return; }
       guests.forEach(function (g) { origTable[g.id] = g.table || ''; });
-      dirty = false; toast('נשמר ✓ ' + (changed.length ? changed.length + ' שיבוצים עודכנו' : 'המפה נשמרה'));
-    }).catch(function () { $('save').disabled = false; toast('לא הצלחנו לשמור, נסו שוב'); });
+      dirty = false; setStatus('נשמר ✓', 'ok'); $('save').disabled = true;
+    }).catch(function () { saving = false; $('save').disabled = false; setStatus('לא נשמר, לחצו לניסיון נוסף', 'dirty'); });
   });
   $('flt').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; flt = b.dataset.f; $('flt').querySelectorAll('button').forEach(function (x) { var on = x === b; x.style.background = on ? 'var(--green)' : ''; x.style.color = on ? '#fff' : ''; x.style.borderColor = on ? 'transparent' : ''; }); paintList(); });
   $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);

@@ -1372,6 +1372,9 @@
     if (demo || !token) return;
     loadData({ token: token }, false);
   }
+  /* ux.js paints the last cached answer first; when the fresh one differs
+     (a seat changed in the planner, a guest answered) repaint from it */
+  window.addEventListener('ishur:fresh', reloadData);
 
   function renderAfterParty() {
     var ap = data.after_party || null;
@@ -1422,7 +1425,7 @@
      page opens in replace mode (allowed until the first send) */
   (function () {
     var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
-    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=3&t=' + encodeURIComponent(token); else sl.hidden = true; }
+    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=4&t=' + encodeURIComponent(token); else sl.hidden = true; }
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {
       askConfirm('הרשימה הקיימת תימחק והקובץ החדש ייכנס במקומה. הקובץ: שם | טלפון | כמות, בסדר הזה.', { title: 'להחליף את רשימת המוזמנים?', ok: 'כן, לבחור קובץ', danger: true })
