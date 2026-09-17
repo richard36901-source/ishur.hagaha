@@ -105,6 +105,7 @@
     color:var(--green2);font-weight:600;
   }
   .card-b{padding:1rem}
+  .tbl-chip{display:inline-block;font-size:.78rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2);border-radius:8px;padding:.15rem .55rem}
   .gadd{display:grid;grid-template-columns:1.3fr 1.3fr .7fr auto;gap:.45rem}
   .gadd input{font:inherit;font-size:.9rem;padding:.55rem .6rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0}
   .gadd input:focus{outline:none;border-color:var(--green)}
@@ -1092,7 +1093,10 @@
     /* Richard, 10/09: the columns drifted off the header. The table box (or
        its spacer) is a 4th cell the 3-column header never had; it exists
        only once somebody confirmed, and then the header grows with it. */
-    var anyConfirmedNow = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
+    /* Richard, 17/09: the table column shows for everyone — the seating
+       planner seats people who have not answered yet, and hosts want to see
+       it here too. Confirmed guests can still type a table in place. */
+    var anyConfirmedNow = (data.guests || []).some(function (g) { return g.id; });
     if ($('rowsHTbl')) $('rowsHTbl').hidden = !anyConfirmedNow;
     $('rows').innerHTML = list.map(function (g) {
       var st = STATUS[g.status] || STATUS.pending;
@@ -1101,7 +1105,7 @@
       var tbl = g.status === 'confirmed' && g.id
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
-        : (anyConfirmedNow ? '<span class="tbl-sp"></span>' : '');
+        : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : '');
       return '<div class="row">' +
              '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
