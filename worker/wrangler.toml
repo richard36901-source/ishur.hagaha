@@ -17,7 +17,7 @@ SHIR_INBOUND_AGENT = "agent_c7d317f758ed084571630ce25e"
 NOA_FROM = "+972555077733"
 NOA_AGENT = "agent_dfc2c18968a9daea870caffbab"
 NOA_INBOUND_AGENT = "agent_f86326fe9b9fd16233276ea951"
-NOA_LEADS = "on"
+NOA_LEADS = "off"
 
 # מי רשאי לקבל קוד כניסה לניהול בוואטסאפ (admin-login.html). פסיקים בין מספרים.
 ADMIN_PHONES = "972545764327,972526979535"
