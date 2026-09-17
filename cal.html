@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>הוספה ליומן · אישורי הגעה</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=55"></script>
+<style>
+  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Heebo',sans-serif;background:var(--green2);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:1.2rem}
+  .card{width:min(92vw,420px);background:#fff;border-radius:18px;padding:1.6rem 1.4rem;text-align:center;box-shadow:0 18px 50px rgba(0,0,0,.35)}
+  .brand{display:inline-flex;align-items:center;gap:.4rem;font-size:.72rem;letter-spacing:.12em;color:var(--gold);text-transform:uppercase}
+  .brand img{width:18px;height:18px;object-fit:contain}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.45rem;color:var(--green2);margin:.5rem 0 .2rem}
+  .sub{color:var(--ink2);font-size:.92rem;margin-bottom:1.2rem}
+  .btn{display:flex;align-items:center;justify-content:center;gap:.5rem;width:100%;font:inherit;font-size:1rem;font-weight:600;padding:.85rem 1rem;border-radius:12px;border:none;background:var(--green);color:#fff;text-decoration:none;margin-top:.55rem}
+  .btn.sec{background:var(--green4);color:var(--green2);border:1.5px solid rgba(15,76,53,.2)}
+  .fine{font-size:.74rem;color:var(--ink3);margin-top:1rem}
+  .fine a{color:var(--green);text-decoration:none;font-weight:600}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="brand"><img src="assets/logo-gold.png" alt="">אישורי הגעה</div>
+  <h1 id="t">הוספה ליומן</h1>
+  <p class="sub" id="s">עם תזכורת יום לפני ו-3 שעות לפני</p>
+  <a class="btn" id="apple" href="#">📅 יומן אפל / אאוטלוק</a>
+  <a class="btn sec" id="google" href="#" target="_blank" rel="noopener">📆 יומן גוגל</a>
+  <p class="fine">אישורי הגעה בוואטסאפ לאירוע שלכם · <a href="https://ishur.io">ishur.io</a></p>
+</div>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var t = new URLSearchParams(location.search).get('t') || '';
+  if (!/^[0-9a-f-]{36}$/.test(t)) { $('t').textContent = 'הקישור לא תקין'; return; }
+  var base = CFG.endpoint('rsvp-info').replace(/\/api\/rsvp-info$/, '');
+  $('apple').href = base + '/cal/' + t + '.ics';
+  fetch(CFG.endpoint('rsvp-info'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: t }) })
+    .then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) return;
+      var occ = d.occasion ? 'ה' + d.occasion : 'האירוע', title = occ + ' של ' + (d.hosts || '');
+      $('t').textContent = title;
+      var tm = (d.time || '19:30').split(':'), st = new Date(d.date + 'T' + String(tm[0]).padStart(2, '0') + ':' + (tm[1] || '00') + ':00+03:00'), en = new Date(st.getTime() + 5 * 3600e3);
+      var f = function (x) { return x.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z'); };
+      var where = [d.venue, d.address, d.city].filter(Boolean).join(', ');
+      var details = title + (d.time ? ' · ' + d.time : '') + (where ? '\n📍 ' + where : '') + (d.nav_link ? '\n🧭 ' + d.nav_link : '') + '\n\nאישורי הגעה בוואטסאפ · ishur.io';
+      $('google').href = 'https://calendar.google.com/calendar/render?action=TEMPLATE&text=' + encodeURIComponent(title) + '&dates=' + f(st) + '/' + f(en) + '&location=' + encodeURIComponent(where) + '&details=' + encodeURIComponent(details);
+    }).catch(function () {});
+})();
+</script>
+</body>
+</html>

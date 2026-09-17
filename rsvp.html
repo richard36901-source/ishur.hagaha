@@ -47,7 +47,7 @@
   h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.65rem;line-height:1.25;color:var(--green2);margin:.3rem 0 .2rem}
   .occ{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem;color:var(--ink2)}
   .media{margin:-1.4rem -1.3rem 1rem;overflow:hidden;border-radius:16px 16px 0 0}
-  .media img,.media video{width:100%;display:block;max-height:340px;object-fit:contain;background:#000}
+  .media img,.media video{width:100%;display:block;max-height:340px;object-fit:contain;background:var(--green4)}
   .details{display:grid;gap:.45rem;margin:1rem 0;font-size:.95rem;color:var(--ink2);text-align:right}
   .details div{display:flex;gap:.55rem;align-items:flex-start}
   .details b{color:var(--ink);font-weight:600;min-width:4.2rem}
@@ -105,6 +105,9 @@
       <div class="big">💚</div>
       <h1 style="font-size:1.35rem">נרשמתם, נתראה!</h1>
       <p class="fine" id="thanksSub"></p>
+      <a class="btn" id="calApple" href="#" style="margin-top:.9rem">📅 להוסיף ליומן אפל</a>
+      <a class="btn sec" id="calGoogle" href="#" target="_blank" rel="noopener">📆 להוסיף ליומן גוגל</a>
+      <p class="fine">עם תזכורת יום לפני ו-3 שעות לפני · <a href="https://ishur.io" style="color:var(--green);text-decoration:none;font-weight:600">ishur.io</a></p>
     </section>
   </div>
 </div>
@@ -130,8 +133,8 @@
     $('fOcc').textContent = occ; $('fHosts').textContent = d.hosts || ''; $('fDate').textContent = d.date ? heDate(d.date) : '';
     $('occ').textContent = occ + (d.roles ? ' · ' + d.roles.replace(',', ' ו') : '');
     document.title = occ + ' של ' + (d.hosts || '') + ' · הזמנה';
-    if (d.video_url) { $('media').innerHTML = '<video src="' + esc(d.video_url) + '" muted playsinline autoplay loop></video>'; $('media').hidden = false; }
-    else if (d.image_url) { $('media').innerHTML = '<img src="' + esc(d.image_url) + '" alt="">'; $('media').hidden = false; }
+    if (d.video_url) { $('media').innerHTML = '<video src="' + esc(d.video_url) + '" muted playsinline autoplay loop></video>'; $('media').hidden = false; $('media').querySelector('video').addEventListener('error', function () { $('media').hidden = true; }); }
+    else if (d.image_url) { $('media').innerHTML = '<img src="' + esc(d.image_url) + '" alt="">'; $('media').hidden = false; $('media').querySelector('img').addEventListener('error', function () { $('media').hidden = true; }); }
     var where = [d.venue, d.address, d.city].filter(Boolean).join(', ');
     $('details').innerHTML =
       (d.date ? '<div><b>מתי</b><span>' + esc(heDate(d.date)) + (d.time ? ' · ' + esc(d.time) : '') + '</span></div>' : '') +
@@ -156,6 +159,9 @@
         if (!j || !j.ok) { $('send').disabled = false; $('err').textContent = j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא הצלחנו לשמור, נסו שוב'; return; }
         $('ask').hidden = true; $('thanks').hidden = false;
         $('thanksSub').textContent = name + ' · ' + party + (party === 1 ? ' מקום' : ' מקומות') + (info && info.date ? ' · ' + heDate(info.date) : '');
+        var base = CFG.endpoint('rsvp-info').replace(/\/api\/rsvp-info$/, '');
+        $('calApple').href = base + '/cal/' + token + '.ics';
+        $('calGoogle').href = 'cal.html?t=' + token;
       }).catch(function () { $('send').disabled = false; $('err').textContent = 'לא הצלחנו לשמור, נסו שוב'; });
   });
 })();

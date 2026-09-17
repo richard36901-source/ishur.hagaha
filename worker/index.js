@@ -2692,7 +2692,8 @@ async function handleWaWebhook(request, env, url) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
           await say(saved
-            ? `מעולה, רשמנו ${n} 🎉 נתראה בשמחות!`
+            ? `מעולה, רשמנו ${n} 🎉 נתראה בשמחות!
+שיזכיר לכם לבד: https://ishur.io/cal.html?t=${guest.token}`
             : 'קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
         }
@@ -2711,7 +2712,8 @@ async function handleWaWebhook(request, env, url) {
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        await say(saved ? `נרשם, ${parsed.party} מגיעים 🎉` : HOLD);
+        await say(saved ? `נרשם, ${parsed.party} מגיעים 🎉
+שיזכיר לכם לבד: https://ishur.io/cal.html?t=${guest.token}` : HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
         await say(saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
@@ -7586,6 +7588,35 @@ export default {
     }
     if (url.pathname.startsWith('/img/') && request.method === 'GET') {
       return serveImage(env, url.pathname);
+    }
+    /* the event as a calendar file (Richard 17/09): /cal/<token>.ics —
+       Apple Calendar opens it straight from WhatsApp/Safari, Google via the
+       cal.html page. Two reminders baked in, our line in the description. */
+    if (url.pathname.startsWith('/cal/') && request.method === 'GET') {
+      const tok = url.pathname.slice(5).replace(/\.ics$/, '');
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (!ev || String(ev[27] || '').trim() === 'כן') return new Response('not-found', { status: 404 });
+      const c = i => String(ev[i] ?? '').trim();
+      const date = c(6).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response('no-date', { status: 404 });
+      const tm = (c(36).match(/^(\d{1,2}):(\d{2})/) || [null, '19', '30']);
+      const start = new Date(`${date}T${String(tm[1]).padStart(2, '0')}:${tm[2]}:00+03:00`);
+      const end = new Date(start.getTime() + 5 * 3600e3);
+      const fmt = d => d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+      const occ = c(5) ? 'ה' + c(5) : 'האירוע', hosts = c(34) || c(2);
+      const title = `${occ} של ${hosts}`;
+      const where = [c(4), c(38), c(37)].filter(Boolean).join(', ');
+      const nav = await env.RATE.get('navlink:' + tok);
+      const esc = t => String(t).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\;');
+      const desc = [`${title}`, c(36) ? `קבלת פנים ${c(36)}` : '', where ? `📍 ${where}` : '', nav ? `🧭 ניווט: ${nav}` : '', '', 'אישורי הגעה בוואטסאפ · ishur.io', 'https://ishur.io'].filter(x => x !== null).join('\n');
+      const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//RSVP//HE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
+        'BEGIN:VEVENT', `UID:${tok}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${tok}`,
+        'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${esc('מחר: ' + title)}`, 'END:VALARM',
+        'BEGIN:VALARM', 'TRIGGER:-PT3H', 'ACTION:DISPLAY', `DESCRIPTION:${esc('בעוד 3 שעות: ' + title)}`, 'END:VALARM',
+        'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
+      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${tok.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
     }
     if (url.pathname.startsWith('/vid/') && request.method === 'GET') {
       const tok = url.pathname.slice(5);
