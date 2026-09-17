@@ -96,10 +96,18 @@
       <div class="cnt" id="cnt"></div>
       <div style="display:flex;gap:.3rem;margin-top:.4rem" id="flt"><button class="btn" data-f="all" style="padding:.15rem .6rem;font-size:.72rem;background:var(--green);color:#fff;border-color:transparent">הכל</button><button class="btn" data-f="confirmed" style="padding:.15rem .6rem;font-size:.72rem">אישרו</button><button class="btn" data-f="pending" style="padding:.15rem .6rem;font-size:.72rem">לא ענו</button></div>
     </div>
-    <div class="list" id="list"></div>
+    <div class="list" id="list">
+      <div class="g"><span class="av ux-skel">&nbsp;&nbsp;</span><span class="nm ux-skel">&nbsp;</span><span class="pp ux-skel">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+      <div class="g"><span class="av ux-skel">&nbsp;&nbsp;</span><span class="nm ux-skel">&nbsp;</span><span class="pp ux-skel">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+      <div class="g"><span class="av ux-skel">&nbsp;&nbsp;</span><span class="nm ux-skel">&nbsp;</span><span class="pp ux-skel">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+      <div class="g"><span class="av ux-skel">&nbsp;&nbsp;</span><span class="nm ux-skel">&nbsp;</span><span class="pp ux-skel">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+      <div class="g"><span class="av ux-skel">&nbsp;&nbsp;</span><span class="nm ux-skel">&nbsp;</span><span class="pp ux-skel">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+      <div class="g"><span class="av ux-skel">&nbsp;&nbsp;</span><span class="nm ux-skel">&nbsp;</span><span class="pp ux-skel">&nbsp;&nbsp;&nbsp;&nbsp;</span></div>
+    </div>
   </aside>
   <div class="floor" id="floor">
     <div class="hint">גררו אורח מהרשימה אל שולחן · גררו שולחן להזזה · הנקודה הזהובה מגדילה ומוסיפה מקומות</div>
+    <div id="floorLoad" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:var(--ink3);font-size:.9rem;gap:.5rem"><span class="ux-skel" style="display:inline-block;width:120px;height:120px;border-radius:50%"></span><span class="ux-skel" style="display:inline-block;width:120px;height:120px;border-radius:50%"></span></div>
     <div class="fab"><button class="btn" id="auto">שיבוץ אוטומטי למי שנשאר</button><button class="btn" id="clear">ניקוי</button></div>
   </div>
 </div>
@@ -179,7 +187,7 @@
   }
   $('addRound').addEventListener('click', function () { addTable('round'); });
   $('addRect').addEventListener('click', function () { addTable('rect'); });
-  $('clear').addEventListener('click', function () { askConfirm('כל האורחים יחזרו לרשימה בלי שולחן. השולחנות עצמם נשארים.', { title: 'לנקות את כל השיבוץ?', ok: 'כן, לנקות', danger: true }).then(function (y) { if (!y) return; guests.forEach(function (g) { g.table = ''; }); markDirty(); paintTables(); paintList(); }); });
+  $('clear').addEventListener('click', function () { askConfirm('כל האורחים יחזרו לרשימה בלי שולחן ונשמור מיד. השולחנות עצמם נשארים.', { title: 'לנקות את כל השיבוץ?', ok: 'כן, לנקות', danger: true }).then(function (y) { if (!y) return; guests.forEach(function (g) { g.table = ''; }); markDirty(); paintTables(); paintList(); $('save').click(); }); });
   $('auto').addEventListener('click', function () {
     var left = guests.filter(function (g) { return !g.table; }).sort(function (a, b) { return b.party - a.party; });
     left.forEach(function (g) {
@@ -292,7 +300,7 @@
       fetch(CFG.endpoint('seatplan'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) }).then(function (r) { return r.json(); })
     ]).then(function (rs) {
       var d = rs[0], p = rs[1];
-      if (!d || d.ok === false) { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; return; }
+      if (!d || d.ok === false) { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; var fl0 = $('floorLoad'); if (fl0) fl0.textContent = 'לא הצלחנו לטעון'; return; }
       var ev = d.event || {};
       $('sub').textContent = (ev.occasion_label ? 'ה' + ev.occasion_label + ' של ' : '') + (ev.name1 || '') + (ev.event_date ? ' · ' + new Date(ev.event_date).toLocaleDateString('he-IL') : '');
       guests = (d.guests || []).filter(function (g) { return g.id && g.status !== 'declined'; }).map(function (g) { return { id: g.id, name: g.name || 'ללא שם', party: Number(g.seats) || 1, status: g.status || 'pending', table: String(g.table || '').trim() }; });
@@ -302,8 +310,9 @@
       var known = {}; tables.forEach(function (t) { known[t.name] = 1; });
       guests.forEach(function (g) { if (g.table && !known[g.table]) { known[g.table] = 1; var n = tables.length; tables.push({ id: 'T' + Date.now() + n, name: g.table, shape: 'round', x: 60 + (n % 5) * 150, y: 80 + Math.floor(n / 5) * 160, w: 120, h: 120 }); } });
       if (!tables.length) { addTable('round'); addTable('round'); dirty = false; $('save').disabled = true; }
+      var fl = $('floorLoad'); if (fl) fl.remove();
       paintTables(); paintList();
-    }).catch(function () { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; });
+    }).catch(function () { $('sub').textContent = 'לא הצלחנו לטעון את האירוע'; var fl = $('floorLoad'); if (fl) fl.textContent = 'לא הצלחנו לטעון'; });
   }
   load();
 })();
