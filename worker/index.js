@@ -5467,7 +5467,10 @@ async function handleVoiceTools(request, env, origin) {
   if (body.action === 'apply') {
     if (!/^noa_/.test(key)) return deny(400, 'noa-only', origin);
     const tools = noaTools(env, key);
-    const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_tools: tools });
+    const patch = { general_tools: tools };
+    /* gpt-4o-mini was the live model on both Noa agents (22/09) — weak at Hebrew reasoning and at calling tools, part of why she deflected instead of transferring */
+    if (body.model) patch.model = String(body.model);
+    const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', patch);
     if (!applied) return deny(502, 'retell-write-failed', origin);
     await logEvent(env, { area: 'שיחות', action: `כלי העברה חמה הוחלו על ${spec.name}`, ok: true, detail: tools.map(t => t.name).join(', ') }).catch(() => {});
     return okJson({ ok: true, llm, tools: (applied.general_tools || []).map(t => ({ type: t.type, name: t.name })) }, origin);
