@@ -1207,7 +1207,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     const billable = countBillable(guests) + (merge ? mergeBase : 0);
     /* Shalev, 10/09: up to 10 guests over the package are free */
     if (tierNum && billable > tierNum + ADDON_RATES.freeGuests) {
-      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} הזמנות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
+      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} רשומות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
       return new Response(JSON.stringify({
         ok: false, error: 'over-tier', allowed: tierNum, got: billable,
       }), { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
@@ -1464,8 +1464,8 @@ async function waGuestFile(env, from, doc) {
   const tierNum = await tierWithPromo(env, token, tierOf(evRow));
   const billable = countBillable(guests);
   if (tierNum && billable > tierNum) {
-    await sendText(env, from, `הרשימה כוללת ${billable} הזמנות, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
-    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${billable} הזמנות מול חבילת ${tierNum}`);
+    await sendText(env, from, `הרשימה כוללת ${billable} רשומות, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
+    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${billable} רשומות מול חבילת ${tierNum}`);
     return;
   }
   const now = new Date().toISOString();
@@ -3210,8 +3210,8 @@ async function aiReply(env, from, text, who, historyIn) {
   /* lead branch only: a guest-count number should get a real price quote
      instead of the model inventing one or staying silent (Roey, 07-08/09) */
   const priceBlock = isClient ? '' :
-    '\n\nאם נאמר מספר מוזמנים בשיחה, ציטטי את מחיר חבילת הבסיס המתאימה (המספר הקרוב ביותר כלפי מעלה מתוך הטבלה):\n' +
-    Object.entries(PRICE_TABLE_BASIC).map(([g, p]) => g + ' מוזמנים → ' + p + ' ₪ (בסיס)').join('\n');
+    '\n\nאם נאמר מספר מוזמנים/רשומות בשיחה, ציטטי את מחיר חבילת הבסיס המתאימה. המונח שלנו הוא "רשומות": רשומה אחת = מספר טלפון אחד (משפחה על מספר אחד = רשומה אחת) (המספר הקרוב ביותר כלפי מעלה מתוך הטבלה):\n' +
+    Object.entries(PRICE_TABLE_BASIC).map(([g, p]) => g + ' רשומות → ' + p + ' ₪ (בסיס)').join('\n');
 
   const persona = brain.persona || 'את נציגת שירות חמה של ishur.io — שירות אישורי הגעה לאירועים בוואטסאפ.';
   const faqBlock = '\n\nידע (שאלה → תשובה):\n' + brain.faq.map(x => '• ' + x[0] + ' → ' + x[1]).join('\n');

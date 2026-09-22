@@ -49,7 +49,7 @@
         "priceCurrency": "ILS",
         "lowPrice": "50",
         "highPrice": "989",
-        "description": "תשלום חד-פעמי לאירוע לפי כמות הזמנות וחבילה, כולל מע\"מ"
+        "description": "תשלום חד-פעמי לאירוע לפי כמות רשומות וחבילה, כולל מע\"מ"
       }
     }
   ]
@@ -62,7 +62,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=55"></script>
+<script src="config.js?v=56"></script>
 <script src="assets/tracking.js?v=20"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=22"></script>
@@ -1870,11 +1870,11 @@ body.has-promo #nav{top:var(--promo-h,34px)}
       <span class="sec-tag">מחירון</span>
       <h2 class="sec-title">תשלום אחד לאירוע</h2>
       <div class="divider"></div>
-      <p class="sec-note">בחרו כמה הזמנות, והמחיר מתעדכן.<br><b>הזמנה אחת = מספר טלפון אחד.</b> משפחה על מספר אחד נספרת פעם אחת.</p>
+      <p class="sec-note">בחרו כמה רשומות, והמחיר מתעדכן.<br><b>רשומה אחת = מספר טלפון אחד.</b> משפחה על מספר אחד נספרת פעם אחת.</p>
     </div>
 
     <div class="price-pick fi">
-      <label for="pr-guests">כמות הזמנות</label>
+      <label for="pr-guests">כמות רשומות</label>
       <select id="pr-guests" data-isel></select>
       <div class="plan-opts" id="pr-plans"></div>
 
@@ -2025,10 +2025,10 @@ const IshurPromo=(()=>{
     {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   const planName=k=>(CFG.PLANS[k]&&CFG.PLANS[k].name)||'';
 
-  /* what the offer covers, in one phrase: "בסיס עד 300 מוזמנים ב-50 ש״ח" */
+  /* what the offer covers, in one phrase: "בסיס עד 300 רשומות ב-50 ש״ח" */
   function scope(){
     if(!offer) return '';
-    return `${esc(planName(offer.plan))} עד ${esc(offer.maxTier)} מוזמנים ב-${esc(offer.price)} ש״ח`;
+    return `${esc(planName(offer.plan))} עד ${esc(offer.maxTier)} רשומות ב-${esc(offer.price)} ש״ח`;
   }
 
   /* the bar line, assembled from what the Worker sent so it can never drift
@@ -2529,7 +2529,7 @@ window.addEventListener('load',()=>{
             <p class="ferr" id="e-occasion" aria-live="polite"></p>
           </div>
           <div class="frow full">
-            <label for="f-guests">כמות הזמנות <span class="req">*</span></label>
+            <label for="f-guests">כמות רשומות <span class="req">*</span></label>
             <select id="f-guests" data-isel aria-describedby="e-guests"></select>
             <p class="ferr" id="e-guests" aria-live="polite"></p>
           </div>

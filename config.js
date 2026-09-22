@@ -105,19 +105,19 @@ window.ISHUR_CONFIG = (function () {
      ─────────────────────────────────────────────────────────────────────── */
 
   /* A tier counts phone numbers, not people. One family on one number is one
-     invitation however many seats it covers, so the wording says הזמנות. */
+     invitation however many seats it covers, so the wording says רשומות (Richard 22/09). */
   var GUEST_TIERS = [
-    { value: '50',     label: 'עד 50 הזמנות' },
-    { value: '100',    label: 'עד 100 הזמנות' },
-    { value: '200',    label: 'עד 200 הזמנות' },
-    { value: '300',    label: 'עד 300 הזמנות' },
-    { value: '400',    label: 'עד 400 הזמנות' },
-    { value: '500',    label: 'עד 500 הזמנות' },
-    { value: '600',    label: 'עד 600 הזמנות' },
-    { value: '700',    label: 'עד 700 הזמנות' },
-    { value: '800',    label: 'עד 800 הזמנות' },
-    { value: '900',    label: 'עד 900 הזמנות' },
-    { value: 'custom', label: 'מעל 900 הזמנות' }
+    { value: '50',     label: 'עד 50 רשומות' },
+    { value: '100',    label: 'עד 100 רשומות' },
+    { value: '200',    label: 'עד 200 רשומות' },
+    { value: '300',    label: 'עד 300 רשומות' },
+    { value: '400',    label: 'עד 400 רשומות' },
+    { value: '500',    label: 'עד 500 רשומות' },
+    { value: '600',    label: 'עד 600 רשומות' },
+    { value: '700',    label: 'עד 700 רשומות' },
+    { value: '800',    label: 'עד 800 רשומות' },
+    { value: '900',    label: 'עד 900 רשומות' },
+    { value: 'custom', label: 'מעל 900 רשומות' }
   ];
 
   /* ══ PRICES ═══ ₪ per event, by guest tier × package ══════════════════════ */
