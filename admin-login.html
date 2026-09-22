@@ -111,9 +111,11 @@
         msg('נכנסתם! מאמת את הכניסה…', 'ok');
         var tries = 0;
         (function confirm() {
-          fetch(API + '/api/status', {
+          /* /api/status needs the page stamp; this one only needs the key
+             (22/09: Shalev's login spun here forever on a 403 missing-stamp) */
+          fetch(API + '/api/pause', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ admin_key: d.token, admin: 'biz' })
+            body: JSON.stringify({ admin_key: d.token })
           }).then(function (r) {
             if (r.status === 200) { location.href = 'admin.html'; return; }
             if (++tries < 20) setTimeout(confirm, 3000);
