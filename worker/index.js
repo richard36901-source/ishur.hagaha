@@ -616,8 +616,8 @@ async function noteLead(env, f) {
     let dirty = false;
     if (consent && !rec.consent) { rec.consent = true; dirty = true; }
     if (!rec.name && f.name) { rec.name = String(f.name).trim().slice(0, 60); dirty = true; }
-    if (!rec.occasion && (f.occasion || f.event_type)) {
-      rec.occasion = String(f.occasion || f.event_type).trim().slice(0, 40); dirty = true;
+    if (!rec.occasion && cleanOccasion(f.occasion || f.event_type)) {
+      rec.occasion = cleanOccasion(f.occasion || f.event_type); dirty = true;
     }
     if (dirty) await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
     return;
@@ -626,7 +626,7 @@ async function noteLead(env, f) {
   if (await env.RATE.get('leadchase:' + phone)) return;
   await env.RATE.put(key, JSON.stringify({
     name: String(f.name || f.fullName || f.full_name || '').trim().slice(0, 60),
-    occasion: String(f.occasion || f.event_type || f.sug || '').trim().slice(0, 40),
+    occasion: cleanOccasion(f.occasion || f.event_type || f.sug),
     at: new Date().toISOString(),
     consent,
   }), { expirationTtl: LEAD_TTL });
@@ -1711,6 +1711,22 @@ async function handleShirWebhook(request, env) {
         cost: action.cost_cents ? (action.cost_cents / 100).toFixed(2) : '', reason: String(call.disconnection_reason || ''), id: cid,
       };
       if (inbound) await logRow(env, 'calls', rec); else await logUpdate(env, 'calls', cid, rec);
+      /* asked for a human: did anybody pick up? */
+      const twc = Array.isArray(call.transcript_with_tool_calls) ? call.transcript_with_tool_calls : [];
+      const tried = twc.filter(u => u && u.role === 'tool_call_invocation' && /^transfer_to_/.test(String(u.name || ''))).map(u => String(u.name).replace('transfer_to_', ''));
+      if (isNoa && tried.length) {
+        const bridged = /call_transfer|transfer/.test(String(call.disconnection_reason || ''));
+        const who = cname || 'מתקשר ללא שם';
+        const ph = rec.phone;
+        if (bridged) {
+          await slackPost(env, `📞 *נועה העבירה שיחה* — ${who} (${ph}) חובר ל${tried[tried.length - 1] === 'shalev' ? 'שלו' : 'ריצ׳רד'}. ${dur ? dur + ' שנ׳' : ''}`).catch(() => {});
+        } else {
+          const msg = `📞 ${who} (${ph}) ביקש/ה נציג ונועה ניסתה להעביר (${tried.join(' → ')}) ואף אחד לא ענה. לחזור אליו/ה. סיכום: ${String(ca.call_summary || '').slice(0, 200)}`;
+          await slackPost(env, msg).catch(() => {});
+          for (const a of String(env.ADMIN_PHONES || '').split(',').map(x => normPhone(x.trim())).filter(Boolean)) await sendText(env, a, msg, 'client').catch(() => {});
+          await logEvent(env, { area: 'שיחות', action: 'בקשת נציג — ההעברה לא נענתה', ok: false, review: true, phone: ph, detail: tried.join(' → ') }).catch(() => {});
+        }
+      }
     }
   } catch {}
 
@@ -5322,6 +5338,16 @@ async function handleShirAdmin(request, env, origin) {
    pre-system baseline is never lost. brain.html drives this; the raw Retell
    proxy stays for plumbing, but prompt edits should come through here so
    nothing changes without a line in the log. */
+
+/* An occasion is something Noa can say out loud ("חתונה", "בר מצווה"). The
+   form also sends its tracking type (lead_partial, lead) in the same slots,
+   and that reached her opening line verbatim: "הזמנה לlead_partial".
+   Anything without a Hebrew letter is not an occasion. */
+function cleanOccasion(v) {
+  const t = String(v || '').trim().slice(0, 40);
+  return /[\u0590-\u05FF]/.test(t) ? t : '';
+}
+
 const VOICE_AGENTS = {
   noa_out: { agent: 'agent_dfc2c18968a9daea870caffbab', name: 'נועה · יוצאת (מכירות)' },
   noa_in: { agent: 'agent_f86326fe9b9fd16233276ea951', name: 'נועה · נכנסת' },
@@ -5394,6 +5420,76 @@ async function saveVoicePromptVersion(env, key, newPrompt, note) {
   if (meta.list.length > 200) meta.list = meta.list.slice(-200);
   await env.RATE.put(metaKey, JSON.stringify(meta));
   return { ok: true, n, llm };
+}
+
+/* ── נועה's tool belt (Retell general_tools) ────────────────────────────
+   Richard 22/09: "if someone asks for נציג → call me, if busy → Shalev,
+   explain name and who is waiting, connect, stay on the call to record".
+   Warm transfer: the caller hears hold music, Noa rings Richard privately,
+   briefs him (private_handoff_option), then bridges. If Richard does not
+   pick up within agent_detection_timeout_ms the tool reports failure and
+   the prompt sends her to transfer_to_shalev; if that fails too the
+   webhook below pings both on Slack + WhatsApp with the caller's number. */
+function noaTools(env, kind) {
+  const brief = `את נועה מאישורי הגעה. עכשיו את מדברת רק עם איש הצוות שענה (ריצ׳רד או שלו), לפני שהמתקשר מחובר. תני לו תדרוך של שניים-שלושה משפטים קצרים בעברית: מי על הקו (שם וטלפון: {{caller_name_for_transfer}}, {{caller_phone}}), מי הוא (מתעניין / לקוח משלם / אחר), מה הוא צריך, ומה כבר נאמר בשיחה. סיימי ב"מחברת אתכם עכשיו". בלי שאלות, בלי להמתין לתשובה.`;
+  const xfer = (name, number, whoHe) => ({
+    type: 'transfer_call', name,
+    description: `העברה חמה ל${whoHe} מהצוות. לקרוא כשמבקשים נציג / בן אדם / לדבר עם מישהו, אחרי שאמרת שאת מעבירה. ${name === 'transfer_to_shalev' ? 'רק אם transfer_to_richard נכשלה.' : 'תמיד קודם.'}`,
+    transfer_destination: { type: 'predefined', number },
+    transfer_option: {
+      type: 'warm_transfer',
+      show_transferee_as_caller: false,
+      agent_detection_timeout_ms: 30000,
+      on_hold_music: 'relaxing_sound',
+      private_handoff_option: { type: 'prompt', prompt: brief },
+      opt_out_human_detection: false,
+    },
+    speak_during_execution: true,
+    execution_message_description: 'משפט אחד: "רגע, מעבירה אתכם ל' + whoHe + ', שנייה על הקו."',
+  });
+  const list = [
+    { type: 'end_call', name: 'end_call', description: 'לסיים את השיחה מיד אחרי משפט פרידה.' },
+    xfer('transfer_to_richard', '+972545764327', 'ריצ׳רד'),
+    xfer('transfer_to_shalev', '+972526979535', 'שלו'),
+  ];
+  return list;
+}
+
+async function handleVoiceTools(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const key = String(body.agent || '');
+  const spec = VOICE_AGENTS[key];
+  if (!spec) return deny(400, 'bad-agent', origin);
+  const llm = await voiceLlmId(env, spec.agent);
+  if (!llm) return deny(502, 'retell-unreachable', origin);
+  if (body.action === 'apply') {
+    if (!/^noa_/.test(key)) return deny(400, 'noa-only', origin);
+    const tools = noaTools(env, key);
+    const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_tools: tools });
+    if (!applied) return deny(502, 'retell-write-failed', origin);
+    await logEvent(env, { area: 'שיחות', action: `כלי העברה חמה הוחלו על ${spec.name}`, ok: true, detail: tools.map(t => t.name).join(', ') }).catch(() => {});
+    return okJson({ ok: true, llm, tools: (applied.general_tools || []).map(t => ({ type: t.type, name: t.name })) }, origin);
+  }
+  if (body.action === 'testcall') {
+    /* rings one admin number only, as the abandoned-lead script */
+    const to = normPhone(body.to || '');
+    const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
+    if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
+    const lead = { kind: 'lead', phone: to, name: String(body.name || 'ריצ׳רד'), occasion: String(body.occ || 'חתונה'), requested: !!body.requested };
+    const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
+    payload.metadata.test = 'voice-tools';
+    const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
+    await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone: to, name: lead.name, kind: 'בדיקה (voice-tools)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
+    return okJson({ ok: true, call_id: j.call_id, variables: payload.retell_llm_dynamic_variables }, origin);
+  }
+  const cur = await retellApi(env, '/get-retell-llm/' + llm);
+  const agent = await retellApi(env, '/get-agent/' + spec.agent);
+  return okJson({ ok: true, llm, model: cur && cur.model, begin_message: cur && cur.begin_message, tools: ((cur && cur.general_tools) || []),
+    agent: agent && { voice_id: agent.voice_id, language: agent.language, interruption_sensitivity: agent.interruption_sensitivity, enable_backchannel: agent.enable_backchannel, webhook_url: agent.webhook_url, post_call_analysis_data: agent.post_call_analysis_data } }, origin);
 }
 
 async function handleVoicePrompt(request, env, origin) {
@@ -7823,6 +7919,7 @@ export default {
     if (url.pathname === '/api/daily-improve' && request.method === 'POST') {
       return handleDailyImprove(request, env, origin);
     }
+    if (url.pathname === '/api/voice-tools' && request.method === 'POST') return handleVoiceTools(request, env, origin);
     if (url.pathname === '/api/voice-prompt' && request.method === 'POST') {
       return handleVoicePrompt(request, env, origin);
     }

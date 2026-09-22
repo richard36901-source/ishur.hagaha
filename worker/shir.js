@@ -393,6 +393,8 @@ export function leadVariables(lead) {
        an abandoned-cart call is the sales outreach it always was */
     why: l.requested ? 'requested' : 'abandoned',
     lead_name: String(l.name || ''),
+    caller_name_for_transfer: String(l.name || 'לא נמסר שם'),
+    caller_phone: String(l.phone || '').replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3'),
     lead_first_name: String(l.name || '').trim().split(/\s+/)[0] || '',
     occasion: String(l.occasion || 'אירוע'),
     event_date_spoken: spokenDate(l.event_date || ''),
@@ -434,6 +436,8 @@ export function noaInboundVariables(hit) {
     opening_line: noaOpeningLine(h),
     caller_kind: String(h.caller_kind || 'unknown'),
     caller_name: String(h.name || ''),
+    caller_name_for_transfer: String(h.name || 'לא נמסר שם'),
+    caller_phone: String(h.phone || '').replace(/^\+?972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3'),
     known: h.caller_kind && h.caller_kind !== 'unknown' ? 'כן' : 'לא',
     occasion: String(ev.occasion || 'אירוע'),
     event_name: String(ev.event_name || ''),
