@@ -8409,6 +8409,17 @@ export default {
       await logEvent(env, { area: 'שליחה', action: `${b.on === false ? 'ביטול דילוג' : 'דילוג'} ידני · ${kind}`, ok: true, token: tok, phone: ph }).catch(() => {});
       return okJson({ ok: true, key, was: cur || null, now: b.on === false ? (cur === 'skip' ? null : cur) : (cur || 'skip') }, origin);
     }
+    /* admin: one call with its full transcript + recording (for reviews) */
+    if (url.pathname === '/api/call-get' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const id = String(b.id || '');
+      if (!/^call_[a-z0-9]{10,}$/.test(id)) return deny(400, 'bad-id', origin);
+      const c = await retellApi(env, '/v2/get-call/' + id);
+      if (!c) return deny(404, 'not-found', origin);
+      return okJson({ ok: true, id, direction: c.direction, from: c.from_number, to: c.to_number, agent_id: c.agent_id, duration_ms: c.duration_ms, reason: c.disconnection_reason, transcript: c.transcript || '', transcript_object: c.transcript_object || [], recording_url: c.recording_url || '', analysis: c.call_analysis || {}, dyn: c.retell_llm_dynamic_variables || {} }, origin);
+    }
     if (url.pathname === '/api/media-dl' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
