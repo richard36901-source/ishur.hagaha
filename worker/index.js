@@ -1719,7 +1719,7 @@ async function handleShirWebhook(request, env) {
         const who = cname || 'מתקשר ללא שם';
         const ph = rec.phone;
         if (bridged) {
-          await slackPost(env, `📞 *נועה העבירה שיחה* — ${who} (${ph}) חובר ל${tried[tried.length - 1] === 'shalev' ? 'שלו' : 'ריצ׳רד'}. ${dur ? dur + ' שנ׳' : ''}`).catch(() => {});
+          await slackPost(env, `📞 *נועה העבירה שיחה* — ${who} (${ph}) חובר ל${tried[tried.length - 1] === 'richard' ? 'ריצ׳רד' : 'שלו'}. ${dur ? dur + ' שנ׳' : ''}`).catch(() => {});
         } else {
           const msg = `📞 ${who} (${ph}) ביקש/ה נציג ונועה ניסתה להעביר (${tried.join(' → ')}) ואף אחד לא ענה. לחזור אליו/ה. סיכום: ${String(ca.call_summary || '').slice(0, 200)}`;
           await slackPost(env, msg).catch(() => {});
@@ -5434,7 +5434,7 @@ function noaTools(env, kind) {
   const brief = `את נועה מאישורי הגעה. עכשיו את מדברת רק עם איש הצוות שענה (ריצ׳רד או שלו), לפני שהמתקשר מחובר. תני לו תדרוך של שניים-שלושה משפטים קצרים בעברית: מי על הקו (שם וטלפון: {{caller_name_for_transfer}}, {{caller_phone}}), מי הוא (מתעניין / לקוח משלם / אחר), מה הוא צריך, ומה כבר נאמר בשיחה. סיימי ב"מחברת אתכם עכשיו". בלי שאלות, בלי להמתין לתשובה.`;
   const xfer = (name, number, whoHe) => ({
     type: 'transfer_call', name,
-    description: `העברה חמה ל${whoHe} מהצוות. לקרוא כשמבקשים נציג / בן אדם / לדבר עם מישהו, אחרי שאמרת שאת מעבירה. ${name === 'transfer_to_shalev' ? 'רק אם transfer_to_richard נכשלה.' : 'תמיד קודם.'}`,
+    description: `העברה חמה ל${whoHe} מהצוות. לקרוא כשמבקשים נציג / בן אדם / לדבר עם מישהו, אחרי שאמרת שאת מעבירה. ${name === 'transfer_to_richard' ? 'רק אם transfer_to_shalev נכשלה.' : 'תמיד קודם.'}`,
     transfer_destination: { type: 'predefined', number },
     transfer_option: {
       type: 'warm_transfer',
@@ -5449,8 +5449,9 @@ function noaTools(env, kind) {
   });
   const list = [
     { type: 'end_call', name: 'end_call', description: 'לסיים את השיחה מיד אחרי משפט פרידה.' },
-    xfer('transfer_to_richard', '+972545764327', 'ריצ׳רד'),
+    /* Richard 22/09: Shalev does the lead calls — he is first, Richard is the fallback */
     xfer('transfer_to_shalev', '+972526979535', 'שלו'),
+    xfer('transfer_to_richard', '+972545764327', 'ריצ׳רד'),
   ];
   return list;
 }
