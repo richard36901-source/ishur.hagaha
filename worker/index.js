@@ -607,29 +607,93 @@ async function noteLead(env, f) {
   if (await env.RATE.get('client:' + phone)) return;
   const key = 'lead:' + phone;
   const consent = f.marketing_consent === true || f.marketing_consent === 'true' || f.consent === true;
+  const now = new Date().toISOString();
+  /* what this submission tells us about them — later ones may know more
+     (a partial has a phone, the full form has guests and a plan) */
+  const facts = {
+    name: String(f.name || f.fullName || f.full_name || '').trim().slice(0, 60),
+    occasion: cleanOccasion(f.occasion || f.event_type || f.sug),
+    email: String(f.email || '').trim().slice(0, 80),
+    guests: String(f.guest_range || f.guests || '').trim().slice(0, 30),
+    plan: String(f.plan_name || f.plan || '').trim().slice(0, 30),
+    price: String(f.price || '').trim().slice(0, 10),
+    source: [f.utm_source, f.utm_medium, f.utm_campaign].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
+    page: String(f.page || '').replace(/^https?:\/\/(www\.)?/, '').split('?')[0].slice(0, 60),
+    type: String(f.event_type || '').trim().slice(0, 30),
+  };
   /* the first submission sets the clock; later ones only fill blanks. The
      updates checkbox is the exception: a yes that arrives on submission two
      still counts, because the person did tick it. */
   let rec = null;
   try { rec = JSON.parse(await env.RATE.get(key)); } catch {}
   if (rec) {
-    let dirty = false;
-    if (consent && !rec.consent) { rec.consent = true; dirty = true; }
-    if (!rec.name && f.name) { rec.name = String(f.name).trim().slice(0, 60); dirty = true; }
-    if (!rec.occasion && cleanOccasion(f.occasion || f.event_type)) {
-      rec.occasion = cleanOccasion(f.occasion || f.event_type); dirty = true;
-    }
-    if (dirty) await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
+    if (consent && !rec.consent) rec.consent = true;
+    for (const k of ['name', 'occasion', 'email', 'source', 'page']) if (!rec[k] && facts[k]) rec[k] = facts[k];
+    /* the newest guests/plan/price is the truth — they change their mind on the way to checkout */
+    for (const k of ['guests', 'plan', 'price']) if (facts[k]) rec[k] = facts[k];
+    rec.seen = (Number(rec.seen) || 1) + 1;
+    rec.lastAt = now;
+    rec.types = Array.from(new Set([...(rec.types || []), facts.type].filter(Boolean))).slice(-8);
+    await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
+    await armLeadPing(env, phone).catch(() => {});
     return;
   }
   /* someone who already went through the whole sequence starts nothing new */
   if (await env.RATE.get('leadchase:' + phone)) return;
-  await env.RATE.put(key, JSON.stringify({
-    name: String(f.name || f.fullName || f.full_name || '').trim().slice(0, 60),
-    occasion: cleanOccasion(f.occasion || f.event_type || f.sug),
-    at: new Date().toISOString(),
-    consent,
-  }), { expirationTtl: LEAD_TTL });
+  rec = { ...facts, at: now, lastAt: now, consent, seen: 1, types: facts.type ? [facts.type] : [] };
+  await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
+  await armLeadPing(env, phone).catch(() => {});
+}
+
+/* Richard 23/09: every new lead → Slack immediately, with everything Shalev
+   needs to pick up the phone: name, number, how many times they came, what
+   they looked at, where from. A returning lead is announced again, but not
+   more than once per 3 hours per number (partial → full → checkout inside one
+   sitting is one visit, not three pings). Test numbers never post. */
+/* Richard 23/09, second thought: not on the spot — "כדי שלא יצא מצב שאנחנו
+   מתקשרים והוא בעמוד תשלום". Every submission re-arms a 10-minute timer; the
+   ten-minute cron posts only once the timer expired with no newer activity
+   and no payment. So the ping lands 10–20 minutes after they went quiet. */
+const LEAD_PING_QUIET_MS = 10 * 60 * 1000;
+async function armLeadPing(env, phone) {
+  await env.RATE.put('leadping:' + phone, JSON.stringify({ due: Date.now() + LEAD_PING_QUIET_MS }), { expirationTtl: 86400 });
+}
+async function drainLeadPings(env) {
+  if (!env.RATE) return { posted: 0 };
+  const page = await env.RATE.list({ prefix: 'leadping:', limit: 200 }).catch(() => null);
+  let posted = 0;
+  for (const k of (page && page.keys) || []) {
+    const phone = k.name.slice('leadping:'.length);
+    let t = null; try { t = JSON.parse(await env.RATE.get(k.name)); } catch {}
+    if (!t) { await env.RATE.delete(k.name).catch(() => {}); continue; }
+    if (Date.now() < Number(t.due || 0)) continue;
+    await env.RATE.delete(k.name).catch(() => {});
+    /* paid meanwhile = a client, not a call */
+    if (await env.RATE.get('client:' + phone)) continue;
+    let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + phone)); } catch {}
+    if (!rec || (rec.types || []).includes('purchase')) continue;
+    const seenBefore = Number(await env.RATE.get('leadslack:' + phone).catch(() => 0)) || 0;
+    await leadToSlack(env, phone, rec, seenBefore ? 'returned' : 'new').catch(() => {});
+    await env.RATE.put('leadslack:' + phone, String(seenBefore + 1), { expirationTtl: LEAD_TTL }).catch(() => {});
+    posted++;
+  }
+  return { posted };
+}
+async function leadToSlack(env, phone, rec, why) {
+  if (isTestPhone(env, phone)) return;
+  const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+  const stage = t => ({ lead_partial: 'התחיל טופס', lead: 'שלח טופס', checkout: 'הגיע לתשלום', initiate_checkout: 'הגיע לתשלום', purchase: 'שילם' })[t] || t;
+  const conv = await env.RATE.get('conv:' + phone).then(v => { try { return JSON.parse(v); } catch { return null; } }).catch(() => null);
+  const lines = [
+    why === 'new' ? `🆕 *ליד חדש* — ${rec.name || 'ללא שם'}` : `🔁 *ליד חזר (פעם ${rec.seen})* — ${rec.name || 'ללא שם'}`,
+    `📞 ${local} · <https://wa.me/${phone}|וואטסאפ>${rec.email ? ' · ' + rec.email : ''}`,
+    `🎉 ${rec.occasion || 'סוג אירוע לא נבחר'}${rec.guests ? ' · ' + rec.guests : ''}${rec.plan ? ' · ' + rec.plan : ''}${rec.price ? ' · ₪' + rec.price : ''}`,
+    `📍 שלב: ${stage((rec.types || []).slice(-1)[0] || '')} · שקט מזה ${Math.max(10, Math.round((Date.now() - Date.parse(rec.lastAt || rec.at)) / 60000))} דק׳${rec.seen > 1 ? ` · נכנס ${rec.seen} פעמים (ראשון ${ilDate(rec.at)})` : ''}`,
+    `🔗 מקור: ${rec.source || 'ישיר'}${rec.page ? ' · ' + rec.page : ''}`,
+    `${rec.consent ? '✅ אישר עדכונים' : '⬜ לא סימן עדכונים'}${conv && conv.last_dir === 'in' ? ' · כבר כתב לנועה בוואטסאפ' : ''}`,
+    `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> נטש ולא שילם, אפשר להתקשר`,
+  ];
+  await slackPost(env, lines.join('\n'));
 }
 
 /* The abandoned-lead sequence, exactly as Richard specced it (01.09):
@@ -7426,6 +7490,7 @@ export default {
     /* the ten-minute pacer: a slice of the sends and a slice of the dials,
        spread across the contact window instead of one burst at 09:35 */
     if (String(event.cron || '').startsWith('*/10')) {
+      ctx.waitUntil(drainLeadPings(env).catch(() => {}));
       ctx.waitUntil(runPacer(env).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       return;
@@ -7922,6 +7987,12 @@ export default {
     }
     if (url.pathname === '/api/daily-improve' && request.method === 'POST') {
       return handleDailyImprove(request, env, origin);
+    }
+    if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (b.phone) { await env.RATE.put('leadping:' + normPhone(b.phone), JSON.stringify({ due: 0 }), { expirationTtl: 3600 }); }
+      return okJson({ ok: true, ...(await drainLeadPings(env)) }, origin);
     }
     if (url.pathname === '/api/voice-tools' && request.method === 'POST') return handleVoiceTools(request, env, origin);
     if (url.pathname === '/api/voice-prompt' && request.method === 'POST') {
