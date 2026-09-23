@@ -684,15 +684,27 @@ async function leadToSlack(env, phone, rec, why) {
   const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
   const stage = t => ({ lead_partial: 'התחיל טופס', lead: 'שלח טופס', checkout: 'הגיע לתשלום', initiate_checkout: 'הגיע לתשלום', purchase: 'שילם' })[t] || t;
   const conv = await env.RATE.get('conv:' + phone).then(v => { try { return JSON.parse(v); } catch { return null; } }).catch(() => null);
+  const kv = (k, v) => v ? `*${k}:* ${v}` : '';
   const lines = [
-    why === 'new' ? `🆕 *ליד חדש* — ${rec.name || 'ללא שם'}` : `🔁 *ליד חזר (פעם ${rec.seen})* — ${rec.name || 'ללא שם'}`,
-    `📞 ${local} · <https://wa.me/${phone}|וואטסאפ>${rec.email ? ' · ' + rec.email : ''}`,
-    `🎉 ${rec.occasion || 'סוג אירוע לא נבחר'}${rec.guests ? ' · ' + rec.guests : ''}${rec.plan ? ' · ' + rec.plan : ''}${rec.price ? ' · ₪' + rec.price : ''}`,
-    `📍 שלב: ${stage((rec.types || []).slice(-1)[0] || '')} · שקט מזה ${Math.max(10, Math.round((Date.now() - Date.parse(rec.lastAt || rec.at)) / 60000))} דק׳${rec.seen > 1 ? ` · נכנס ${rec.seen} פעמים (ראשון ${ilDate(rec.at)})` : ''}`,
-    `🔗 מקור: ${rec.source || 'ישיר'}${rec.page ? ' · ' + rec.page : ''}`,
-    `${rec.consent ? '✅ אישר עדכונים' : '⬜ לא סימן עדכונים'}${conv && conv.last_dir === 'in' ? ' · כבר כתב לנועה בוואטסאפ' : ''}`,
+    why === 'new' ? `🆕 *ליד חדש*` : `🔁 *ליד חזר (פעם ${rec.seen})*`,
+    '',
+    kv('שם', rec.name || 'לא נמסר'),
+    kv('טלפון', `${local} · <https://wa.me/${phone}|וואטסאפ>`),
+    kv('מייל', rec.email),
+    '',
+    kv('אירוע', rec.occasion || 'לא נבחר'),
+    kv('רשומות', rec.guests),
+    kv('חבילה', rec.plan + (rec.price ? ` · ₪${rec.price}` : '')),
+    '',
+    kv('שלב', stage((rec.types || []).slice(-1)[0] || '')),
+    kv('שקט מזה', `${Math.max(10, Math.round((Date.now() - Date.parse(rec.lastAt || rec.at)) / 60000))} דק׳`),
+    kv('כניסות', rec.seen > 1 ? `${rec.seen} (ראשונה ${ilDate(rec.at)})` : '1'),
+    kv('מקור', (rec.source || 'ישיר') + (rec.page ? ` · ${rec.page}` : '')),
+    kv('עדכונים', rec.consent ? 'אישר ✅' : 'לא סימן'),
+    kv('וואטסאפ', conv && conv.last_dir === 'in' ? 'כבר כתב לנועה' : ''),
+    '',
     `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> נטש ולא שילם, אפשר להתקשר`,
-  ];
+  ].filter((l, i, arr) => l !== '' || (arr[i - 1] !== '' && i !== arr.length - 1));
   await slackPost(env, lines.join('\n'));
 }
 
