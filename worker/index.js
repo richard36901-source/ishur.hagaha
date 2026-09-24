@@ -27,7 +27,7 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime
 import { proxy as evProxy } from './evlog.js';
 import { createInvoice } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
-import { mondayUpsertLead } from './monday.js';
+import { mondayUpsertLead, mondayGql } from './monday.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
@@ -8017,6 +8017,17 @@ export default {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       if (!env.MONDAY_API_TOKEN) return okJson({ ok: false, why: 'no-token' }, origin);
+      /* admin passthrough for fixing the board by hand (columns, dupes) */
+      if (b.gql) { try { return okJson({ ok: true, data: await mondayGql(env, b.gql, b.vars || {}) }, origin); } catch (e) { return okJson({ ok: false, why: String(e && e.message) }, origin); } }
+      if (b.debug) {
+        const tl = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
+        const tj = tl ? await tl.json().catch(() => null) : null;
+        const titles = ((tj && tj.sheets) || []).map(x => (x.properties || {}).title || '');
+        const tabTitle = titles.find(t => /לידים/.test(t)) || '';
+        const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
+        const vv = rr ? await rr.json().catch(() => null) : null;
+        return okJson({ titles, tabTitle, rows: ((vv && vv.valueRanges && vv.valueRanges[0] && vv.valueRanges[0].values) || []).length, raw: JSON.stringify(vv || null).slice(0, 300) }, origin);
+      }
       const phones = b.phone ? [normPhone(b.phone)] : Object.keys(await kvPrefix(env, 'lead:'));
       const out = [];
       /* retro: every row of the לידים sheet (older than KV's 45-day memory).
@@ -8033,7 +8044,8 @@ export default {
         const seen = new Set();
         for (const r of rows.slice(1)) {
           const c = i => String((r && r[i]) || '').trim();
-          const ph = normPhone(c(2));
+          const d9 = c(2).replace(/\D/g, '');
+          const ph = normPhone(/^5\d{8}$/.test(d9) ? '0' + d9 : d9);
           if (!ph || ph.length < 11 || seen.has(ph) || isTestPhone(env, ph)) continue;
           seen.add(ph);
           let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + ph)); } catch {}
