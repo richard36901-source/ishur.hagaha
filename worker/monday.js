@@ -1,0 +1,82 @@
+/* ── monday.com: the leads board ─────────────────────────────────────────────
+   Richard 24/09: "each time the sheet of leads gets updated we get it in
+   monday as well". Board 18432553641 (rthq-ops). One item per phone number,
+   upserted on every form event, so a lead's row on monday always mirrors the
+   latest we know. Dormant-safe: no MONDAY_API_TOKEN → every call is a no-op
+   that says so, nothing throws into the lead path. */
+
+const API = 'https://api.monday.com/v2';
+const BOARD = 18432553641;
+
+/* title → type. Columns are created on first use, ids cached in KV, so the
+   board can start empty and nobody has to hand-build it. */
+const COLUMNS = [
+  ['טלפון', 'phone'], ['מייל', 'email'], ['אירוע', 'text'], ['רשומות', 'text'], ['חבילה', 'text'],
+  ['מחיר', 'numbers'], ['שלב', 'text'], ['כניסות', 'numbers'], ['מקור', 'text'], ['עדכונים', 'text'],
+  ['נכנס לראשונה', 'date'], ['פעילות אחרונה', 'date'], ['הערות', 'long_text'],
+];
+
+async function gql(env, query, variables) {
+  const r = await fetch(API, {
+    method: 'POST',
+    headers: { Authorization: env.MONDAY_API_TOKEN, 'Content-Type': 'application/json', 'API-Version': '2026-07' },
+    body: JSON.stringify({ query, variables: variables || {} }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.errors) throw new Error('monday ' + r.status + ': ' + JSON.stringify(j.errors || j).slice(0, 300));
+  return j.data;
+}
+
+async function columnMap(env) {
+  let cached = null;
+  try { cached = JSON.parse(await env.RATE.get('monday:cols:' + BOARD)); } catch {}
+  if (cached && COLUMNS.every(([t]) => cached[t])) return cached;
+  const d = await gql(env, `query($b:[ID!]){ boards(ids:$b){ columns{ id title type } } }`, { b: [String(BOARD)] });
+  const have = {};
+  for (const c of ((d.boards && d.boards[0] && d.boards[0].columns) || [])) have[c.title] = c.id;
+  for (const [title, type] of COLUMNS) {
+    if (have[title]) continue;
+    const c = await gql(env, `mutation($b:ID!,$t:String!,$ty:ColumnType!){ create_column(board_id:$b,title:$t,column_type:$ty){ id } }`, { b: String(BOARD), t: title, ty: type });
+    have[title] = c.create_column.id;
+  }
+  await env.RATE.put('monday:cols:' + BOARD, JSON.stringify(have)).catch(() => {});
+  return have;
+}
+
+function values(cols, phone, rec) {
+  const local = phone.replace(/^972/, '0');
+  const stage = t => ({ lead_partial: 'התחיל טופס', lead: 'שלח טופס', checkout: 'הגיע לתשלום', initiate_checkout: 'הגיע לתשלום', purchase: 'שילם' })[t] || t || '';
+  const day = iso => (iso ? String(iso).slice(0, 10) : '');
+  const v = {};
+  v[cols['טלפון']] = { phone: local, countryShortName: 'IL' };
+  if (rec.email) v[cols['מייל']] = { email: rec.email, text: rec.email };
+  v[cols['אירוע']] = rec.occasion || '';
+  v[cols['רשומות']] = rec.guests || '';
+  v[cols['חבילה']] = rec.plan || '';
+  if (rec.price) v[cols['מחיר']] = String(rec.price);
+  v[cols['שלב']] = stage((rec.types || []).slice(-1)[0]);
+  v[cols['כניסות']] = String(rec.seen || 1);
+  v[cols['מקור']] = (rec.source || 'ישיר') + (rec.page ? ' · ' + rec.page : '');
+  v[cols['עדכונים']] = rec.consent ? 'אישר' : 'לא';
+  v[cols['נכנס לראשונה']] = { date: day(rec.at) };
+  v[cols['פעילות אחרונה']] = { date: day(rec.lastAt || rec.at) };
+  return v;
+}
+
+/* create-or-update by phone. Returns { ok, id, created } or { ok:false, why }. */
+export async function mondayUpsertLead(env, phone, rec) {
+  if (!env.MONDAY_API_TOKEN) return { ok: false, why: 'no-token' };
+  const cols = await columnMap(env);
+  const local = phone.replace(/^972/, '0');
+  const found = await gql(env, `query($b:ID!,$c:String!,$v:[String]!){ items_page_by_column_values(board_id:$b,limit:1,columns:[{column_id:$c,column_values:$v}]){ items{ id } } }`,
+    { b: String(BOARD), c: cols['טלפון'], v: [local] });
+  const hit = found.items_page_by_column_values && found.items_page_by_column_values.items[0];
+  const vals = JSON.stringify(values(cols, phone, rec));
+  if (hit) {
+    await gql(env, `mutation($b:ID!,$i:ID!,$v:JSON!){ change_multiple_column_values(board_id:$b,item_id:$i,column_values:$v){ id } }`, { b: String(BOARD), i: hit.id, v: vals });
+    return { ok: true, id: hit.id, created: false };
+  }
+  const c = await gql(env, `mutation($b:ID!,$n:String!,$v:JSON!){ create_item(board_id:$b,item_name:$n,column_values:$v){ id } }`,
+    { b: String(BOARD), n: rec.name || local, v: vals });
+  return { ok: true, id: c.create_item.id, created: true };
+}

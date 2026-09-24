@@ -27,6 +27,7 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime
 import { proxy as evProxy } from './evlog.js';
 import { createInvoice } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
+import { mondayUpsertLead } from './monday.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
@@ -636,6 +637,7 @@ async function noteLead(env, f) {
     rec.types = Array.from(new Set([...(rec.types || []), facts.type].filter(Boolean))).slice(-8);
     await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
     await armLeadPing(env, phone).catch(() => {});
+    await mirrorLeadToMonday(env, phone, rec);
     return;
   }
   /* someone who already went through the whole sequence starts nothing new */
@@ -643,6 +645,17 @@ async function noteLead(env, f) {
   rec = { ...facts, at: now, lastAt: now, consent, seen: 1, types: facts.type ? [facts.type] : [] };
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
   await armLeadPing(env, phone).catch(() => {});
+  await mirrorLeadToMonday(env, phone, rec);
+}
+
+async function mirrorLeadToMonday(env, phone, rec) {
+  if (isTestPhone(env, phone)) return;
+  try {
+    const r = await mondayUpsertLead(env, phone, rec);
+    if (!r.ok && r.why !== 'no-token') await logEvent(env, { area: 'לידים', action: 'ליד → מאנדיי נכשל', ok: false, review: true, phone, detail: r.why || '' });
+  } catch (e) {
+    await logEvent(env, { area: 'לידים', action: 'ליד → מאנדיי נכשל', ok: false, review: true, phone, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
+  }
 }
 
 /* Richard 23/09: every new lead → Slack immediately, with everything Shalev
@@ -7999,6 +8012,19 @@ export default {
     }
     if (url.pathname === '/api/daily-improve' && request.method === 'POST') {
       return handleDailyImprove(request, env, origin);
+    }
+    if (url.pathname === '/api/lead-monday' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.MONDAY_API_TOKEN) return okJson({ ok: false, why: 'no-token' }, origin);
+      const phones = b.phone ? [normPhone(b.phone)] : Object.keys(await kvPrefix(env, 'lead:'));
+      const out = [];
+      for (const ph of phones.slice(0, 200)) {
+        let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + ph)); } catch {}
+        if (!rec) { out.push({ phone: ph, why: 'no-record' }); continue; }
+        try { out.push({ phone: ph, ...(await mondayUpsertLead(env, ph, rec)) }); } catch (e) { out.push({ phone: ph, ok: false, why: String(e && e.message).slice(0, 200) }); }
+      }
+      return okJson({ ok: true, n: out.length, out }, origin);
     }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
