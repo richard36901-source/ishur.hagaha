@@ -8019,6 +8019,27 @@ export default {
       if (!env.MONDAY_API_TOKEN) return okJson({ ok: false, why: 'no-token' }, origin);
       const phones = b.phone ? [normPhone(b.phone)] : Object.keys(await kvPrefix(env, 'lead:'));
       const out = [];
+      /* retro: every row of the לידים sheet (older than KV's 45-day memory).
+         Columns: 1 שם · 2 טלפון · 3 מייל · 4 סוג · 5 כמות · 6 שלב · 7 שולם? · 11 מקור · 0 timestamp */
+      if (b.sheet) {
+        const snap = await snapshotCached(env).catch(() => null);
+        const rows = (snap && snap.leads && snap.leads.values) || [];
+        const seen = new Set();
+        for (const r of rows.slice(1)) {
+          const c = i => String((r && r[i]) || '').trim();
+          const ph = normPhone(c(2));
+          if (!ph || ph.length < 11 || seen.has(ph) || isTestPhone(env, ph)) continue;
+          seen.add(ph);
+          let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + ph)); } catch {}
+          const paid = c(7) === 'כן' || !!(await env.RATE.get('client:' + ph));
+          const ts = c(0) ? new Date(c(0)).toISOString().slice(0, 10) : '';
+          rec = rec || { name: c(1), occasion: cleanOccasion(c(4)), email: c(3), guests: c(5), plan: '', price: '', source: c(11), types: [paid ? 'purchase' : (c(6) ? 'lead' : 'lead_partial')], seen: 1, at: ts, lastAt: ts, consent: false };
+          if (paid) rec.types = Array.from(new Set([...(rec.types || []), 'purchase']));
+          try { out.push({ phone: ph, ...(await mondayUpsertLead(env, ph, rec)) }); } catch (e) { out.push({ phone: ph, ok: false, why: String(e && e.message).slice(0, 200) }); }
+          if (out.length >= 300) break;
+        }
+        return okJson({ ok: true, n: out.length, created: out.filter(o => o.created).length, updated: out.filter(o => o.ok && !o.created).length, failed: out.filter(o => !o.ok) }, origin);
+      }
       for (const ph of phones.slice(0, 200)) {
         let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + ph)); } catch {}
         if (!rec) { out.push({ phone: ph, why: 'no-record' }); continue; }
