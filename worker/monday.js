@@ -60,6 +60,8 @@ function values(cols, phone, rec) {
   v[cols['עדכונים']] = rec.consent ? 'אישר' : 'לא';
   v[cols['נכנס לראשונה']] = { date: day(rec.at) };
   v[cols['פעילות אחרונה']] = { date: day(rec.lastAt || rec.at) };
+  if (rec.notes) v[cols['הערות']] = { text: rec.notes };
+  for (const k of Object.keys(v)) if (v[k] && typeof v[k] === 'object' && 'date' in v[k] && !v[k].date) delete v[k];
   return v;
 }
 

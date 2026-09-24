@@ -8022,8 +8022,10 @@ export default {
       /* retro: every row of the לידים sheet (older than KV's 45-day memory).
          Columns: 1 שם · 2 טלפון · 3 מייל · 4 סוג · 5 כמות · 6 שלב · 7 שולם? · 11 מקור · 0 timestamp */
       if (b.sheet) {
-        const snap = await snapshotCached(env).catch(() => null);
-        const rows = (snap && snap.leads && snap.leads.values) || [];
+        const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'לידים - לא סגרו'!A1:AZ2000` }) }).catch(() => null);
+        const vv = rr ? await rr.json().catch(() => null) : null;
+        const rows = (vv && vv.valueRanges && vv.valueRanges[0] && vv.valueRanges[0].values) || [];
         const seen = new Set();
         for (const r of rows.slice(1)) {
           const c = i => String((r && r[i]) || '').trim();
@@ -8032,8 +8034,8 @@ export default {
           seen.add(ph);
           let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + ph)); } catch {}
           const paid = c(7) === 'כן' || !!(await env.RATE.get('client:' + ph));
-          const ts = c(0) ? new Date(c(0)).toISOString().slice(0, 10) : '';
-          rec = rec || { name: c(1), occasion: cleanOccasion(c(4)), email: c(3), guests: c(5), plan: '', price: '', source: c(11), types: [paid ? 'purchase' : (c(6) ? 'lead' : 'lead_partial')], seen: 1, at: ts, lastAt: ts, consent: false };
+          let ts = ''; try { const m = /^(\d{1,2})[./](\d{1,2})[./](\d{4})/.exec(c(0)); ts = m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : (c(0) && !isNaN(Date.parse(c(0))) ? new Date(c(0)).toISOString().slice(0, 10) : ''); } catch {}
+          rec = rec || { name: c(1), occasion: cleanOccasion(c(4)), email: c(3), guests: c(5), plan: c(13), price: '', source: c(11), types: [paid ? 'purchase' : (/תשלום/.test(c(6)) ? 'checkout' : c(6) ? 'lead' : 'lead_partial')], seen: Number(c(8)) || 1, at: ts, lastAt: ts, consent: false, notes: c(6) ? 'שלב נטישה: ' + c(6) : '' };
           if (paid) rec.types = Array.from(new Set([...(rec.types || []), 'purchase']));
           try { out.push({ phone: ph, ...(await mondayUpsertLead(env, ph, rec)) }); } catch (e) { out.push({ phone: ph, ok: false, why: String(e && e.message).slice(0, 200) }); }
           if (out.length >= 300) break;
