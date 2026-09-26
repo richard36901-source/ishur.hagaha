@@ -4446,19 +4446,21 @@ async function templateCheck(env, out) {
          flipped the switch on 06/09 and every guest send died with 132001. The
          invoice goes to clients from 4499. */
       const checks = [
-        { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: clientWaba(env), tok: clientToken(env) },
+        { name: clientOnPortfolio(env) ? 'ishur_heshbonit_n' : 'ishur_heshbonit', key: 'invoicetmpl', waba: clientWaba(env), tok: clientToken(env) },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'ishur_yom_lifnei_nav', key: 'navtmpl', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
-        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_shidrug', 'ishur_shidrug_sichot']
-          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: clientWaba(env), tok: clientToken(env) })),
+        ...(clientOnPortfolio(env) ? [] : ['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_shidrug', 'ishur_shidrug_sichot']
+          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: clientWaba(env), tok: clientToken(env) }))),
         /* live templates: watched for PAUSED / DISABLED / REJECTED only */
         ...['hazmana_ishur_v2', 'hazmana_ishur', 'ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
-        ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3']
+        ...(clientOnPortfolio(env)
+          ? ['ishur_syum_v3', 'ishur_doch_n', 'ishur_tzikoret_kovetz_n', 'ishur_tashlum_n', 'ishur_heshbonit_n', 'ishur_lo_siyem_n', 'ishur_lo_siyem_2_n', 'ishur_lo_siyem_3_n', 'ishur_shidrug_n', 'ishur_shidrug_sichot_n']
+          : ['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3'])
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: clientWaba(env), tok: clientToken(env) })),
       ];
       for (const c of checks) {

@@ -45,6 +45,7 @@ export function guestsReady(env) {
 export function clientOnPortfolio(env) {
   return String(env.CLIENT_PORTFOLIO || '') === 'on' && !!env.WA_PHONE_ID_CLIENT_NEW && !!env.WA_TOKEN_GUESTS;
 }
+const PORTFOLIO_RENAMED = new Set(['ishur_lo_siyem', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_tzikoret_kovetz', 'ishur_doch', 'ishur_shidrug', 'ishur_shidrug_sichot']);
 export function clientWaba(env) { return clientOnPortfolio(env) ? '2815615772154486' : '1060242146337688'; }
 export function clientToken(env) { return clientOnPortfolio(env) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN; }
 
@@ -328,7 +329,12 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   /* Richard, 11/09: every template gets the ishur.io footer. The footer
      copies are submitted as <name>_f; the pacer writes tmplf:<name> once Meta
      approves one, and from then on the copy goes out instead. */
-  try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {}
+  /* 26/09: on the ishur.io portfolio the client templates live under new
+     names (<name>_n, footer built in) because Meta locks a deleted name for
+     30 days. Portfolio + client channel → _n, and the _f switch is skipped. */
+  const isClient = !(channel === 'guests' && guestsReady(env));
+  if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
+  else { try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {} }
   const components = [];
   if (imageUrl) {
     /* an .mp4 link fills a VIDEO header; anything else an IMAGE header. The
