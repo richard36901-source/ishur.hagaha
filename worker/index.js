@@ -28,6 +28,7 @@ import { proxy as evProxy } from './evlog.js';
 import { createInvoice } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayUpsertLead, mondayGql } from './monday.js';
+import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
@@ -1504,7 +1505,7 @@ async function waGuestFile(env, from, doc) {
     return;
   }
   const meta = await fetch('https://graph.facebook.com/v21.0/' + doc.id, {
-    headers: { Authorization: 'Bearer ' + env.WA_TOKEN },
+    headers: { Authorization: 'Bearer ' + clientToken(env) },
   }).then(r => r.ok ? r.json() : null).catch(() => null);
   if (!meta || !meta.url) {
     await sendText(env, from, 'לא הצלחנו למשוך את הקובץ מוואטסאפ. נסו לשלוח שוב 🙂');
@@ -1516,7 +1517,7 @@ async function waGuestFile(env, from, doc) {
     await sendText(env, from, 'הקובץ גדול מדי לשליחה בוואטסאפ. אפשר להעלות דרך הקישור האישי: https://ishur.io/upload.html?t=' + token);
     return;
   }
-  const buf = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } })
+  const buf = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + clientToken(env) } })
     .then(r => r.ok ? r.arrayBuffer() : null).catch(() => null);
   if (!buf || buf.byteLength > MAX_FILE_BYTES) {
     await sendText(env, from, 'הקובץ גדול מדי או לא נקרא. אפשר להעלות דרך הקישור האישי: https://ishur.io/upload.html?t=' + token);
@@ -4445,7 +4446,7 @@ async function templateCheck(env, out) {
          flipped the switch on 06/09 and every guest send died with 132001. The
          invoice goes to clients from 4499. */
       const checks = [
-        { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: '1060242146337688', tok: env.WA_TOKEN },
+        { name: 'ishur_heshbonit', key: 'invoicetmpl', waba: clientWaba(env), tok: clientToken(env) },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'ishur_yom_lifnei_nav', key: 'navtmpl', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
@@ -4453,12 +4454,12 @@ async function templateCheck(env, out) {
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
         ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_shidrug', 'ishur_shidrug_sichot']
-          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
+          .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: clientWaba(env), tok: clientToken(env) })),
         /* live templates: watched for PAUSED / DISABLED / REJECTED only */
         ...['hazmana_ishur_v2', 'hazmana_ishur', 'ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
         ...['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3']
-          .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1060242146337688', tok: env.WA_TOKEN })),
+          .map(n => ({ name: n, key: 'tmpllive:' + n, waba: clientWaba(env), tok: clientToken(env) })),
       ];
       for (const c of checks) {
         if (!c.tok) continue;
@@ -4498,7 +4499,7 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
      approve the display name "ishur.io" on the number; tell Richard the
      moment it flips, the migration (OTP) needs him on the phone. */
   try {
-    if (env.WA_TOKEN && env.WA_PHONE_ID && !(await env.RATE.get('dispname:ok'))) {
+    if (!clientOnPortfolio(env) && env.WA_TOKEN && env.WA_PHONE_ID && !(await env.RATE.get('dispname:ok'))) {
       const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID}?fields=new_display_name,new_name_status,name_status,verified_name`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
       const j = r ? await r.json().catch(() => null) : null;
       if (j && (j.new_name_status === 'APPROVED' || j.name_status === 'APPROVED' || j.name_status === 'AVAILABLE_WITHOUT_REVIEW')) {
@@ -6485,7 +6486,7 @@ async function handleMetaAdmin(request, env, origin) {
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   /* channel:'guests' talks to Meta as Shir's number (the Ishur.io system-user
      token); default is the 4499 client token */
-  const tok = body.channel === 'guests' ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+  const tok = body.channel === 'guests' ? env.WA_TOKEN_GUESTS : body.channel === 'old' ? env.WA_TOKEN : clientToken(env);
   if (!tok) return deny(503, 'wa-not-configured', origin);
   const path = String(body.path || '');
   if (!path.startsWith('/')) return deny(400, 'bad-path', origin);
@@ -7686,7 +7687,7 @@ export default {
            default stays the 4499 account */
         const guests = b.channel === 'guests';
         const tok = guests ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
-        const waba = guests ? '1378764257421712' : '1060242146337688';
+        const waba = guests ? '1378764257421712' : clientWaba(env);
         if (!tok) return deny(503, 'wa-not-configured', origin);
         const appId = String(b.app_id || (guests ? '1084149031015902' : '1258746612804480'));
         const isVid = String(b.format || '').toUpperCase() === 'VIDEO';

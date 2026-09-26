@@ -38,14 +38,24 @@ export function guestsReady(env) {
   return !!(env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS);
 }
 
+/* 26/09: Noa's number (4499) moved into the ishur.io portfolio, next to
+   Shir's. CLIENT_PORTFOLIO="on" (wrangler.toml) routes the client channel
+   through the portfolio's phone id + token; off = the old business, so the
+   flip is one var and the rollback is the same var. */
+export function clientOnPortfolio(env) {
+  return String(env.CLIENT_PORTFOLIO || '') === 'on' && !!env.WA_PHONE_ID_CLIENT_NEW && !!env.WA_TOKEN_GUESTS;
+}
+export function clientWaba(env) { return clientOnPortfolio(env) ? '2815615772154486' : '1060242146337688'; }
+export function clientToken(env) { return clientOnPortfolio(env) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN; }
+
 function pickPhone(env, channel) {
   if (channel === 'guests') return guestsReady(env) ? env.WA_PHONE_ID_GUESTS : '';
-  return env.WA_PHONE_ID;
+  return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : env.WA_PHONE_ID;
 }
 
 function pickToken(env, channel) {
   if (channel === 'guests') return guestsReady(env) ? env.WA_TOKEN_GUESTS : '';
-  return env.WA_TOKEN;
+  return clientToken(env);
 }
 
 /* failures and cap warnings go where Richard looks: Slack first, Telegram

@@ -21,6 +21,9 @@ NOA_LEADS = "off"
 
 # מי רשאי לקבל קוד כניסה לניהול בוואטסאפ (admin-login.html). פסיקים בין מספרים.
 SLACK_SHALEV = "U0C33AKDF24"
+# 26/09: 4499 inside the ishur.io portfolio (phone id 1404834546041914, WABA 2815615772154486). Flip CLIENT_PORTFOLIO to "on" once the number is registered there; "off" = old business.
+CLIENT_PORTFOLIO = "off"
+WA_PHONE_ID_CLIENT_NEW = "1404834546041914"
 ADMIN_PHONES = "972545764327,972526979535"
 
 [[kv_namespaces]]
