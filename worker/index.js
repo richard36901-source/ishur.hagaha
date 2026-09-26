@@ -3180,7 +3180,49 @@ async function computeServiceReply(env, from, text, who) {
   return { reply, label, silent: false };
 }
 
+/* Richard 26/09: Noa on WhatsApp must not answer instantly, and only between
+   07:00 and 21:00 Israel time; anything later waits for the next morning "so
+   it feels human". Every inbound is queued per phone (several messages in a
+   row become one turn), and the ten-minute pacer sends what is due. Inside
+   the window the wait is 1.5–5 minutes plus the pacer's own tick. */
+const NOA_HOURS = { from: 7, to: 21 };
+function noaReplyDue(now = new Date()) {
+  const il = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
+  const h = il.getHours() + il.getMinutes() / 60;
+  const jitter = (90 + Math.floor(Math.random() * 210)) * 1000;
+  if (h >= NOA_HOURS.from && h < NOA_HOURS.to) return now.getTime() + jitter;
+  /* next 07:00 IL (+0–45 min so mornings don't all fire at once) */
+  const next = new Date(il); next.setHours(NOA_HOURS.from, 0, 0, 0);
+  if (h >= NOA_HOURS.to) next.setDate(next.getDate() + 1);
+  const offsetMs = now.getTime() - il.getTime();
+  return next.getTime() + offsetMs + Math.floor(Math.random() * 45 * 60 * 1000);
+}
 async function serviceReply(env, from, text, who, ch) {
+  const t = String(text || '').trim();
+  if (!t) return;
+  if (!env.RATE) return serviceReplyNow(env, from, t, who, ch);
+  const phone = normPhone(from);
+  const k = 'noaq:' + phone;
+  let q = null; try { q = JSON.parse(await env.RATE.get(k)); } catch {}
+  if (!q) q = { from, who, ch, texts: [], due: noaReplyDue() };
+  q.texts.push(t.slice(0, 1500));
+  await env.RATE.put(k, JSON.stringify(q), { expirationTtl: 2 * 86400 }).catch(() => {});
+}
+async function drainNoaQueue(env, { force = false } = {}) {
+  if (!env.RATE) return { sent: 0 };
+  const page = await env.RATE.list({ prefix: 'noaq:', limit: 100 }).catch(() => null);
+  let sent = 0;
+  for (const key of (page && page.keys) || []) {
+    let q = null; try { q = JSON.parse(await env.RATE.get(key.name)); } catch {}
+    if (!q) { await env.RATE.delete(key.name).catch(() => {}); continue; }
+    if (!force && Date.now() < Number(q.due || 0)) continue;
+    await env.RATE.delete(key.name).catch(() => {});
+    try { await serviceReplyNow(env, q.from, (q.texts || []).join('\n'), q.who, q.ch); sent++; }
+    catch (e) { await logEvent(env, { area: 'שירות AI', action: 'מענה מושהה נכשל', ok: false, review: true, phone: normPhone(q.from), detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+  }
+  return { sent };
+}
+async function serviceReplyNow(env, from, text, who, ch) {
   const t = String(text || '').trim();
   if (!t) return;
   const phone = normPhone(from);
@@ -7516,6 +7558,7 @@ export default {
        spread across the contact window instead of one burst at 09:35 */
     if (String(event.cron || '').startsWith('*/10')) {
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
+      ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(runPacer(env).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       return;
@@ -8065,6 +8108,13 @@ export default {
         try { out.push({ phone: ph, ...(await mondayUpsertLead(env, ph, rec)) }); } catch (e) { out.push({ phone: ph, ok: false, why: String(e && e.message).slice(0, 200) }); }
       }
       return okJson({ ok: true, n: out.length, out }, origin);
+    }
+    if (url.pathname === '/api/noa-queue' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const waiting = Object.entries(await kvPrefix(env, 'noaq:')).map(([k, v]) => { let q = {}; try { q = JSON.parse(v); } catch {} return { phone: k.slice(5), n: (q.texts || []).length, due: q.due ? new Date(q.due).toISOString() : '' }; });
+      const r = b.drain ? await drainNoaQueue(env, { force: !!b.force }) : {};
+      return okJson({ ok: true, waiting, ...r, nextDueIfNow: new Date(noaReplyDue()).toISOString() }, origin);
     }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
