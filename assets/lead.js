@@ -218,8 +218,9 @@ window.IshurLead = (function () {
     if (window.IshurTrack) {
       p.event_id = IshurTrack.eventId('ic_' + p.session_id);
       p.event_name = 'Lead';
+      p.lead_event_id = IshurTrack.eventId('leadfull_' + p.session_id);
       IshurTrack.conversion({
-        key: 'lead_' + p.session_id + '_full', eventId: IshurTrack.eventId('leadfull_' + p.session_id),
+        key: 'lead_' + p.session_id + '_full', eventId: p.lead_event_id,
         meta: 'Lead', tiktok: 'SubmitForm', ga: 'generate_lead', value: 0, contentName: 'lead_submitted'
       });
       IshurTrack.conversion({

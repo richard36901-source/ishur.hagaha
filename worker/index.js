@@ -9266,7 +9266,7 @@ export default {
         const eid = String(stampFields.event_id || '');
         /* 27/09: only a completed form is a Lead. Partials went out as Lead too, so Meta optimised toward people who type a phone and leave (and bots). */
         if (eid && et === 'lead_partial') await capiEvent(env, 'LeadStart', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
-        if (et === 'lead_submitted' && stampFields.session_id) await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: 'leadfull_' + stampFields.session_id });
+        if (et === 'lead_submitted' && stampFields.lead_event_id) await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: String(stampFields.lead_event_id) });
         if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
       } catch {}
     }
