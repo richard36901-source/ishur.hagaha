@@ -2517,6 +2517,21 @@ async function handleWaWebhook(request, env, url) {
             const stab = (env.WA_PHONE_ID_GUESTS && pid === env.WA_PHONE_ID_GUESTS) ? 'msg_guests' : 'msg_clients';
             const when = ilTime(st.timestamp ? new Date(Number(st.timestamp) * 1000) : new Date());
             const cat = st.pricing ? `${st.pricing.category || ''}${st.pricing.billable === false ? ' (לא בתשלום)' : ''}` : '';
+            /* the inbox bubble gets the same status (✓ / ✓✓ / read / failed) */
+            try {
+              const lk = st.id && env.RATE ? await env.RATE.get('wamid2log:' + st.id) : null;
+              if (lk) {
+                const cur = JSON.parse(await env.RATE.get(lk) || 'null');
+                if (cur) {
+                  const rank = { sent: 1, delivered: 2, read: 3, failed: 9 };
+                  if ((rank[st.status] || 0) >= (rank[cur.status] || 0)) {
+                    cur.status = st.status; cur.status_at = Number(st.timestamp) * 1000 || Date.now();
+                    if (st.status === 'failed') { const e0 = (st.errors && st.errors[0]) || {}; cur.error = `${e0.code || ''} ${e0.title || ''}`.trim(); }
+                    await env.RATE.put(lk, JSON.stringify(cur));
+                  }
+                }
+              }
+            } catch {}
             if (st.status === 'delivered') await logUpdate(env, stab, st.id, { delivered: 'כן ' + when, phone: st.recipient_id || '', category: cat });
             else if (st.status === 'read') await logUpdate(env, stab, st.id, { read: 'כן ' + when, phone: st.recipient_id || '', category: cat });
             else if (st.status === 'failed') {

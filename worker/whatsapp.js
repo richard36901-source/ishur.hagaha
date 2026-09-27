@@ -133,6 +133,34 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
 const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_bitul\b|^ishur_dchiya\b/i;
 const CLIENT_ONLY_TEMPLATE_RE = /^ishur_lo_siyem|^ishur_kod\b|^ishur_heshbonit\b|^ishur_tashlum\b|^ishur_shidrug|^ishur_doch\b|^ishur_syum\b|^ishur_tzikoret_kovetz\b/i;
 
+/* 27/09 (Richard: "show the actual message, not the template name"). The
+   template body comes from Meta once per name per week and is cached in KV;
+   the parameters are substituted in, so the inbox shows what the person
+   actually read. Falls back to "תבנית <name>" when Meta does not answer. */
+async function renderTemplateText(env, name, body, channel) {
+  try {
+    const guests = channel === 'guests' && guestsReady(env);
+    const waba = guests ? '1378764257421712' : clientWaba(env);
+    const token = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
+    const ck = 'tmplbody:' + waba + ':' + name;
+    let tpl = env.RATE ? await env.RATE.get(ck) : null;
+    if (!tpl && token) {
+      const r = await fetch(`${GRAPH}/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
+      const j = r && r.ok ? await r.json().catch(() => null) : null;
+      const t = ((j && j.data) || []).find(x => x.name === name);
+      const b = t && (t.components || []).find(c => c.type === 'BODY');
+      if (b && b.text) { tpl = b.text; if (env.RATE) await env.RATE.put(ck, tpl, { expirationTtl: 7 * 86400 }).catch(() => {}); }
+    }
+    if (!tpl) return '';
+    const comp = ((body.template || {}).components || []).find(c => c.type === 'body');
+    const params = ((comp && comp.parameters) || []).map(x => String(x.text ?? ''));
+    let out = tpl.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] ?? '');
+    const hdr = ((body.template || {}).components || []).find(c => c.type === 'header');
+    if (hdr) out = (hdr.parameters && hdr.parameters[0] && hdr.parameters[0].type === 'video' ? '🎬 ' : '🖼 ') + out;
+    return out;
+  } catch { return ''; }
+}
+
 async function post(env, body, channel, ctx) {
   /* Iron rule (Richard, 06/09): 4499 talks to clients and leads ONLY. Guest
      traffic leaves from Shir's WhatsApp number or it does not leave at all.
@@ -186,20 +214,23 @@ async function post(env, body, channel, ctx) {
   /* every outbound message is logged; every failure raises an alert */
   try {
     if (env.RATE) {
+      const rendered = body.type === 'template' ? await renderTemplateText(env, String((body.template || {}).name || ''), body, channel) : '';
       const summary =
         body.type === 'text' ? String((body.text || {}).body || '') :
         body.type === 'image' ? '🖼 ' + String((body.image || {}).caption || 'תמונה') :
-        body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type;
+        body.type === 'template' ? (rendered || 'תבנית ' + String((body.template || {}).name || '')) : body.type;
       /* ctx (template/occasion/wave/token) makes per-message performance
          measurable later: which text, for which event type, got answered */
       const ch = (channel === 'guests' && guestsReady(env)) ? 'guests' : 'client';
       const ts = Date.now();
       /* no TTL: the inbox is the record of what we said to a customer, and a
          customer who comes back after a year should not meet a blank thread */
-      await env.RATE.put('log:' + String(body.to || '') + ':' + ts,
+      const logKey = 'log:' + String(body.to || '') + ':' + ts;
+      if (res.ok && res.id) await env.RATE.put('wamid2log:' + res.id, logKey, { expirationTtl: 14 * 86400 }).catch(() => {});
+      await env.RATE.put(logKey,
         JSON.stringify({
-          dir: 'out', type: body.type, text: summary.slice(0, 300),
-          ok: res.ok, error: res.error || '', ch,
+          dir: 'out', type: body.type, text: summary.slice(0, 1000),
+          ok: res.ok, error: res.error || '', ch, id: res.id || '', status: res.ok ? 'sent' : 'failed',
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
           ...(ctx && typeof ctx === 'object' ? {
             occ: String(ctx.occasion || '').slice(0, 40),
