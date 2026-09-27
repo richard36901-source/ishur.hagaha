@@ -161,6 +161,9 @@
   .pill.yes{background:var(--green4);color:var(--green2)}
   .pill.no{background:var(--err-bg);color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
+  .sendst{flex-shrink:0;font-size:.64rem;color:var(--ink3);white-space:nowrap;margin-inline-start:.3rem}
+  .sendst.sent{color:var(--green2)}
+  .sendst.failed,.sendst.retrying,.sendst.none{color:var(--err)}
   .pill.maybe{background:#FBF3DF;color:#8A6D2F}
   html[data-theme=dark] .pill.maybe{background:#3A3120;color:#E2C98A}
   .row-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.85rem;color:var(--ink2);min-width:1.4rem;text-align:center}
@@ -1144,6 +1147,7 @@
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
              '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
+             (g.sent && g.sent !== 'none' ? '<span class="sendst ' + g.sent + '" title="' + (g.sent === 'sent' ? 'ההזמנה נשלחה' : g.sent === 'failed' ? 'ההזמנה לא נמסרה, נטפל בזה' : 'ההזמנה לא נמסרה, ננסה שוב') + '">' + (g.sent === 'sent' ? '✓ נשלח' : g.sent === 'failed' ? '✕ לא נשלח' : '↻ לא נשלח') + '</span>' : (data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; }) ? '<span class="sendst none">לא נשלח</span>' : '')) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });

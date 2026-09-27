@@ -8971,6 +8971,26 @@ export default {
         }
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* Richard 27/09: per guest, did the invitation actually go out.
+         wsent = Meta accepted and no failure came back; wfail = failed,
+         retrying; wdead = failed three times, needs a human. */
+      if (env.RATE && snapshot.guests && snapshot.guests.length) {
+        const w = 1;
+        const states = await Promise.all(snapshot.guests.map(async g => {
+          const ph = normPhone(g.phone || '');
+          if (!ph) return 'none';
+          const [ok, dead, fail] = await Promise.all([
+            env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
+            env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
+            env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
+          ]);
+          if (dead) return 'failed';
+          if (ok) return 'sent';
+          if (fail) return 'retrying';
+          return 'none';
+        }));
+        snapshot.guests.forEach((g, i) => { g.sent = states[i]; });
+      }
       /* Richard, 10/09: the client must always see whether an invitation
          image/video is attached, and may swap it until 48h before the
          first send. Locked once wave 1 went out. */
