@@ -116,12 +116,13 @@
 
   /* headline numbers */
   .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr)}
-  @media(min-width:520px){.kpis{grid-template-columns:repeat(4,1fr)}}
+  @media(min-width:520px){.kpis{grid-template-columns:repeat(5,1fr)}}
   .kpi{background:var(--card);padding:.9rem .6rem;text-align:center;animation:kfade .55s var(--ease) both}
   .kpi:nth-child(1){animation-delay:.05s}
   .kpi:nth-child(2){animation-delay:.15s}
   .kpi:nth-child(3){animation-delay:.25s}
   .kpi:nth-child(4){animation-delay:.35s}
+  .kpi:nth-child(5){animation-delay:.45s}
   @keyframes kfade{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
   /* the confirmed cell wears a gold frame: this is the number that matters */
   .kpi.hi{
@@ -160,6 +161,8 @@
   .pill.yes{background:var(--green4);color:var(--green2)}
   .pill.no{background:var(--err-bg);color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
+  .pill.maybe{background:#FBF3DF;color:#8A6D2F}
+  html[data-theme=dark] .pill.maybe{background:#3A3120;color:#E2C98A}
   .row-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.85rem;color:var(--ink2);min-width:1.4rem;text-align:center}
   .tbl-in{flex-shrink:0;width:4.4rem;font:inherit;font-size:.78rem;padding:.25rem .4rem;border:1px solid var(--bdr);border-radius:8px;text-align:center;background:var(--card);color:var(--ink)}
   .tbl-sp{flex-shrink:0;width:4.4rem}
@@ -718,6 +721,7 @@
   var STATUS = {
     confirmed: { label: 'אישרו', pill: 'yes' },
     declined:  { label: 'לא מגיעים', pill: 'no' },
+    undecided: { label: 'לא בטוחים', pill: 'maybe' },
     pending:   { label: 'לא ענו', pill: 'wait' }
   };
 
@@ -742,6 +746,8 @@
       t.confirmed_seats = sum('confirmed');
       t.declined_seats = sum('declined');
       t.pending_seats = sum('pending');
+      t.undecided_seats = sum('undecided');
+      t.undecided = d.guests.filter(function (g) { return g.status === 'undecided'; }).length;
       t.total_people = d.guests.reduce(function (s, g) { return s + (g.seats || 1); }, 0);
     }
   }
@@ -952,6 +958,7 @@
        with a partner or a whole family, and each person is counted. */
     var dv = t.declined_seats != null ? t.declined_seats : t.declined;
     var pv = t.pending_seats != null ? t.pending_seats : t.pending;
+    var uv = t.undecided_seats != null ? t.undecided_seats : (t.undecided || 0);
     var totalPeople = t.total_people != null ? t.total_people : t.invitations;
     /* a record is one row of the list: a name, a phone and the number of
        guests it covers. Confirmations count those guests, so they can, and
@@ -961,6 +968,7 @@
       kpi(recs, 'רשומות', '') +
       kpi(t.confirmed_seats, 'אישרו', '', true) +
       kpi(dv, 'לא מגיעים', '') +
+      kpi(uv, 'לא בטוחים', '') +
       kpi(pv, 'לא ענו', '');
 
     if (totalPeople) {
@@ -1077,6 +1085,7 @@
     var opts = [
       { k: 'all', l: 'הכל', n: recs('all', t.records) },
       { k: 'confirmed', l: 'אישרו', n: recs('confirmed', t.confirmed) },
+      { k: 'undecided', l: 'לא בטוחים', n: recs('undecided', t.undecided) },
       { k: 'pending', l: 'לא ענו', n: recs('pending', t.pending) },
       { k: 'declined', l: 'לא מגיעים', n: recs('declined', t.declined) }
     ];

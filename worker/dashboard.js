@@ -30,8 +30,9 @@ export function planMaxCallTries(planKey) {
 function guestStatus(rsvp, callFlag) {
   if (rsvp === 'מגיע') return 'confirmed';
   if (rsvp === 'לא מגיע') return 'declined';
+  if (rsvp === 'מתלבט') return 'undecided';   // Richard 27/09: "those who are not sure, mark not sure"
   if (callFlag) return 'awaiting_call';
-  return 'pending'; // includes מתלבט and everyone not yet answered
+  return 'pending';
 }
 
 /* Everyone across all events whose row says a call is needed, joined with the
@@ -203,7 +204,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       };
     });
 
-  const totals = { invitations: guests.length, confirmed: 0, confirmed_seats: 0, declined: 0, pending: 0, awaiting_call: 0 };
+  const totals = { invitations: guests.length, confirmed: 0, confirmed_seats: 0, declined: 0, undecided: 0, pending: 0, awaiting_call: 0 };
   for (const g of guests) {
     if (g.status === 'confirmed') { totals.confirmed++; totals.confirmed_seats += g.seats; }
     else totals[g.status]++;
