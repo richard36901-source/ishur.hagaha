@@ -545,7 +545,7 @@
           (m.media && m.media.kind === 'text' ? '' : (m.media && m.media.url ? '' : media)) +
           (m.footer ? '<span class="foot">' + esc(m.footer) + '</span>' : '') +
           (m.status === 'failed' || m.ok === false ? '<span class="fail">ⓘ ' + esc(explainErr(m.error)) + '</span>' + (canResend(m) ? '<button type="button" class="resend" data-ts="' + m.ts + '">↻ שלח שוב</button>' : '') : '') +
-          (m.who ? '<small class="who">' + esc(m.who) + '</small>' : '') +
+          (m.who && !/ריצ|נשלח שוב/.test(m.who) ? '<small class="who">' + esc(m.who) + '</small>' : '') +
           '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>';
         el.querySelectorAll('.resend').forEach(function (b) { b.addEventListener('click', function () { resend(m, b); }); });
         host.appendChild(el);
