@@ -2559,6 +2559,10 @@ async function handleWaWebhook(request, env, url) {
               } else {
                 await env.RATE.delete(m.gk);          // wsent: gone → next tick resends
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {}); // the wave is open again
+                /* 27/09: the pacer only runs the engine while pacer:pending says
+                   today — without this the reopened guests waited for tomorrow
+                   (Gal's wave, 131053, sat 3 hours) */
+                await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
                 retry = ` · ניסיון ${n}/3 — יישלח שוב בפעימה הבאה`;
               }
             }
