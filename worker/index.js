@@ -4482,8 +4482,11 @@ async function templateCheck(env, out) {
          invoice goes to clients from 4499. */
       const checks = [
         { name: clientOnPortfolio(env) ? 'ishur_heshbonit_n' : 'ishur_heshbonit', key: 'invoicetmpl', waba: clientWaba(env), tok: clientToken(env) },
-        { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
-        { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        /* 27/09: the _u copies are UTILITY (no per-user marketing cap, 131049); once approved they win the key */
+        { name: 'hazmana_ishur_img_u', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        { name: 'hazmana_ishur_vid_u', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
+        { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
         { name: 'ishur_yom_lifnei_nav', key: 'navtmpl', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
@@ -4505,7 +4508,12 @@ async function templateCheck(env, out) {
         const j = r ? await r.json().catch(() => null) : null;
         const t = ((j && j.data) || []).find(x => x.name === c.name);
         const key = t ? c.key : null;
-        if (key && t.status === 'APPROVED' && !(await env.RATE.get(key))) {
+        /* a UTILITY copy approved → it takes the key even if the marketing original holds it */
+        if (key && t.status === 'APPROVED' && /_u$/.test(t.name) && (await env.RATE.get(key)) !== t.name) {
+          await env.RATE.put(key, t.name);
+          await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} (UTILITY) אושרה — מחליפה את הגרסה השיווקית`, ok: true, ref: t.name });
+          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`);
+        } else if (key && t.status === 'APPROVED' && !c.fallbackOnly && !(await env.RATE.get(key))) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
           await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`);
@@ -7757,7 +7765,11 @@ export default {
         const j2 = await s2.json().catch(() => ({}));
         if (!j2.h) return okJson({ ok: false, step: 'upload', resp: j2 }, origin);
         const name = String(b.name || (isVid ? 'hazmana_ishur_vid' : 'hazmana_ishur_img'));
-        const tpl = { name, language: 'he', category: 'UTILITY', components: [
+        /* 27/09: Meta silently recategorised the invitations as MARKETING, and
+           per-user marketing caps (131049) started eating guests. An invitation
+           to an event they were invited to is a utility message; refuse the
+           recategorisation instead of accepting it. */
+        const tpl = { name, language: 'he', category: 'UTILITY', allow_category_change: b.allow_category_change === true, components: [
           { type: 'HEADER', format: isVid ? 'VIDEO' : 'IMAGE', example: { header_handle: [j2.h] } },
           { type: 'BODY', text: 'שלום {{1}}! הוזמנתם ל{{2}} של {{3}}.\n\n📅 {{4}}\n🕐 קבלת פנים {{5}}\n📍 {{6}}\n\nנשמח לדעת אם תגיעו:',
             example: { body_text: [['דנה', 'חתונה', 'נועה ויונתן', '12.09.2026', '19:30', 'הגן הקסום, רמת גן']] } },
