@@ -6619,6 +6619,32 @@ function verifyOk(env, t) {
   return (!!env.WA_VERIFY && t === env.WA_VERIFY) || (!!env.WA_VERIFY_GUESTS && t === env.WA_VERIFY_GUESTS);
 }
 
+/* 26/09: the number is already inside the ishur.io portfolio (phone id
+   WA_PHONE_ID_CLIENT_NEW) but not registered there until Meta sends an OTP
+   to the SIM. Meta's code server refused all day ("wait 1 hour"); Richard:
+   try once a day, not every ten minutes. Runs with the morning engine until
+   CLIENT_PORTFOLIO is on. When the SMS goes out, Richard hears about it on
+   WhatsApp (from Shir's number, the one that delivers) and Slack. */
+async function tryPortfolioOtp(env) {
+  if (clientOnPortfolio(env) || !env.WA_PHONE_ID_CLIENT_NEW || !env.WA_TOKEN_GUESTS) return { skipped: true };
+  const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_CLIENT_NEW}/request_code`, {
+    method: 'POST', headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ code_method: 'SMS', language: 'he' }),
+  }).catch(() => null);
+  const j = r ? await r.json().catch(() => null) : null;
+  const ok = !!(j && j.success);
+  const why = ok ? '' : String(((j || {}).error || {}).error_user_msg || ((j || {}).error || {}).message || 'no-response').slice(0, 160);
+  await logEvent(env, { area: 'וואטסאפ', action: ok ? 'קוד אימות נשלח ל-4499 (מעבר לפורטפוליו)' : 'בקשת קוד אימות ל-4499 נכשלה', ok, review: !ok, detail: why }).catch(() => {});
+  if (ok) {
+    const msg = '📲 מטא שלחה עכשיו SMS עם קוד אימות למספר 055-950-4499. שלח לי את 6 הספרות ואני מסיים את המעבר של נועה לפורטפוליו.';
+    await slackPost(env, msg).catch(() => {});
+    await sendText(env, '972545764327', msg, 'guests').catch(() => {});
+  } else {
+    await slackPost(env, `⏳ ניסיון יומי לקוד אימות ל-4499 נכשל: ${why}. ננסה מחר.`).catch(() => {});
+  }
+  return { ok, why };
+}
+
 async function handleMetaAdmin(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -7735,6 +7761,7 @@ export default {
            run keeps its planning half all year, but its send budget is zero
            while the window is closed, so the pacer (already armed via
            pacer:pending above) carries the first sends at 09:00. */
+    ctx.waitUntil(tryPortfolioOtp(env).catch(() => {}));
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
     ctx.waitUntil(runDailyEngine(env, false, null, { budget: morningBudget }).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
@@ -8367,6 +8394,16 @@ export default {
         }
       }
       return okJson({ ok: true, rows: rows.length, matched: seen, updated: n }, origin);
+    }
+    if (url.pathname === '/api/portfolio-otp' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const pid = env.WA_PHONE_ID_CLIENT_NEW, tok = env.WA_TOKEN_GUESTS;
+      const call = (path, payload) => fetch(`https://graph.facebook.com/v21.0/${pid}/${path}`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).then(async r => ({ status: r.status, data: await r.json().catch(() => null) })).catch(e => ({ status: 0, data: String(e) }));
+      if (b.action === 'request') return okJson({ ok: true, ...(await tryPortfolioOtp(env)) }, origin);
+      if (b.action === 'verify') return okJson(await call('verify_code', { code: String(b.code || '') }), origin);
+      if (b.action === 'register') return okJson(await call('register', { messaging_product: 'whatsapp', pin: String(b.pin || '') }), origin);
+      return deny(400, 'bad-action', origin);
     }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -9227,7 +9264,9 @@ export default {
       try {
         const et = String(stampFields.event_type || '');
         const eid = String(stampFields.event_id || '');
-        if (eid && (et === 'lead_partial' || et === 'lead')) await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
+        /* 27/09: only a completed form is a Lead. Partials went out as Lead too, so Meta optimised toward people who type a phone and leave (and bots). */
+        if (eid && et === 'lead') await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
+        if (eid && et === 'lead_partial') await capiEvent(env, 'LeadStart', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
         if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
       } catch {}
     }
