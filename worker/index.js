@@ -2882,6 +2882,37 @@ async function handleWaWebhook(request, env, url) {
   return new Response('ok', { status: 200 });
 }
 
+/* ── Linear: a guest question becomes a triage issue (Richard 27/09) ─────────
+   Team AutoScalehq, label "Ishur.io", customer "Ishur.io". Dormant without
+   LINEAR_API_KEY: returns { ok:false, why:'no-key' } and Slack still fires. */
+const LINEAR = { team: '7d28da64-7486-4eeb-8d29-db3e9ed1a76e', label: 'fa4faf6e-6280-4bfd-9e2c-2a2c4e4bc2eb', customer: 'a47e3ec0-074d-4ef6-a72b-11dd3d0c8837' };
+async function linearGql(env, query, variables) {
+  const r = await fetch('https://api.linear.app/graphql', { method: 'POST', headers: { Authorization: env.LINEAR_API_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ query, variables }) }).catch(() => null);
+  const j = r ? await r.json().catch(() => null) : null;
+  if (!r || !r.ok || !j || j.errors) throw new Error('linear: ' + JSON.stringify((j && j.errors) || (r && r.status)).slice(0, 200));
+  return j.data;
+}
+async function linearTriageIssue(env, title, body) {
+  if (!env.LINEAR_API_KEY) return { ok: false, why: 'no-key' };
+  try {
+    let stateId = env.RATE ? await env.RATE.get('linear:triage-state').catch(() => null) : null;
+    if (!stateId) {
+      const d = await linearGql(env, `query($t:String!){ team(id:$t){ states{ nodes{ id type } } } }`, { t: LINEAR.team });
+      stateId = ((d.team.states.nodes || []).find(x => x.type === 'triage') || {}).id || '';
+      if (stateId && env.RATE) await env.RATE.put('linear:triage-state', stateId, { expirationTtl: 30 * 86400 }).catch(() => {});
+    }
+    const input = { teamId: LINEAR.team, title: title.slice(0, 200), description: body, labelIds: [LINEAR.label] };
+    if (stateId) input.stateId = stateId;
+    const d = await linearGql(env, `mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue{ id identifier url } } }`, { i: input });
+    const issue = d.issueCreate.issue;
+    await linearGql(env, `mutation($n:CustomerNeedCreateInput!){ customerNeedCreate(input:$n){ success } }`, { n: { customerId: LINEAR.customer, issueId: issue.id, body: body.slice(0, 500) } }).catch(() => {});
+    return { ok: true, ...issue };
+  } catch (e) {
+    await logEvent(env, { area: 'לינאר', action: 'יצירת משימה נכשלה', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
+    return { ok: false, why: String(e && e.message).slice(0, 200) };
+  }
+}
+
 /* ── free text from a KNOWN guest on Shir's line (Richard 27/09) ─────────────
    "סליחה 5" after "6", "בסוף לא נגיע", "מה השעה?", "איפה זה?" — before this
    every such message fell into the (muted) service brain and got silence.
@@ -2935,7 +2966,10 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   if (/^(תודה|תודה רבה|סבבה|אוקיי|ok|👍|🙏|❤️|מזל טוב|בהצלחה)/i.test(t)) { await log('אורח הודה, בלי מענה'); return true; }
   /* anything else: acknowledge, and hand the hosts the message */
   await say('קיבלנו 🙂 מעבירים לבעלי השמחה.');
-  await slackPost(env, `💬 *הודעה מאורח לבעלי השמחה* · ${guest.name || from} (${from}) לאירוע של ${c(34) || c(2)}:\n"${t.slice(0, 300)}"`).catch(() => {});
+  const evName = c(34) || c(2);
+  const li = await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
+    `**אורח:** ${guest.name || ''} · ${from.replace(/^972/, '0')}\n**אירוע:** ${evName} (${c(5)}, ${heDate(c(6))})\n**לקוח:** ${c(2)} · ${String(ev[3] || '').replace(/^972/, '0')}\n**מצב אורח:** ${guest.rsvp || 'לא ענה'}${guest.party ? ' · ' + guest.party : ''}\n\n**ההודעה:**\n> ${t.slice(0, 1000)}\n\nלענות לאורח מהאינבוקס: https://ishur.io/inbox.html`);
+  await slackPost(env, `💬 *שאלת אורח לבעלי השמחה* <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}> <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>\n*אורח:* ${guest.name || from} (${from.replace(/^972/, '0')})\n*אירוע:* ${evName}\n*הודעה:* "${t.slice(0, 300)}"${li.ok ? `\n*לינאר:* <${li.url}|${li.identifier}>` : li.why === 'no-key' ? '\n_(לינאר: אין עדיין מפתח API)_' : ''}`).catch(() => {});
   await logEvent(env, { area: 'ווצאפ', action: 'הודעת אורח הועברה לבעלי השמחה', ok: true, review: true, phone: from, token: guest.token, detail: t.slice(0, 200) }).catch(() => {});
   return true;
 }
