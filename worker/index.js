@@ -8152,7 +8152,7 @@ export default {
         if (n >= (Number(b.max) || 500)) break;
         let v = null; try { v = JSON.parse(await env.RATE.get(k)); } catch {}
         scanned++;
-        if (!v || v.dir !== 'out' || v.type !== 'template' || !/^תבנית /.test(String(v.text || ''))) continue;
+        if (!v || v.dir !== 'out' || v.type !== 'template' || (!/^תבנית /.test(String(v.text || '')) && v.buttons)) continue;
         const name = String(v.tmpl || v.text.replace(/^תבנית /, '')).trim();
         const guests = v.ch === 'guests';
         const waba = guests ? '1378764257421712' : clientWaba(env);
@@ -8169,7 +8169,17 @@ export default {
         if (!tpl) continue;
         const phone = k.split(':')[1];
         const who = (await env.RATE.get('waname:' + phone).catch(() => '')) || '';
-        v.text = tpl.replace(/\{\{1\}\}/g, who || '…').replace(/\{\{\d+\}\}/g, '…');
+        if (/^תבנית /.test(String(v.text || ''))) v.text = tpl.replace(/\{\{1\}\}/g, who || '…').replace(/\{\{\d+\}\}/g, '…');
+        try {
+          const sr = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
+          const sj = sr && sr.ok ? await sr.json().catch(() => null) : null;
+          const st = ((sj && sj.data) || []).find(x => x.name === name);
+          const bt = st && (st.components || []).find(c => c.type === 'BUTTONS'); const ft = st && (st.components || []).find(c => c.type === 'FOOTER'); const hd = st && (st.components || []).find(c => c.type === 'HEADER');
+          v.buttons = ((bt && bt.buttons) || []).map(x => ({ type: x.type, text: x.text || '', url: x.url || '' }));
+          if (ft && ft.text) v.footer = ft.text;
+          if (hd && hd.format === 'VIDEO' && v.tok) v.media = { kind: 'video', url: 'https://go.ishur.io/vid/' + (await (async () => { const keys = await kvKeys(env, 'vid:' + v.tok); return keys[0] ? keys[0].slice(4) : ''; })()) };
+          if (v.media && v.media.kind === 'video' && !/\/vid\/[0-9a-f-]{36}$/.test(v.media.url)) delete v.media;
+        } catch {}
         v.rendered_late = true;
         await env.RATE.put(k, JSON.stringify(v));
         n++;

@@ -97,14 +97,32 @@
   .copyb svg{width:.78rem;height:.78rem;flex-shrink:0}
 
   .thread{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.45rem}
-  .msg{max-width:74%;border-radius:14px;padding:.5rem .8rem;font-size:.85rem;line-height:1.5;position:relative;border:1px solid var(--line);white-space:pre-wrap;overflow-wrap:anywhere}
-  .msg.out{background:var(--me);align-self:flex-start;border-bottom-inline-start-radius:4px}
-  .msg.in{background:var(--them);align-self:flex-end;border-bottom-inline-end-radius:4px}
-  .msg time{display:block;font-size:.62rem;color:var(--ink3);margin-top:.2rem}
-  .msg .fail{color:var(--warn);font-size:.68rem;font-weight:600}
-  .msg .tick{font-size:.7rem;margin-inline-start:.4rem;color:#8a8f98;letter-spacing:-.08em}
+  /* WhatsApp-style thread (27/09): tails, time + ticks inside the bubble, date chips, inline media, quick-reply rows */
+  .thread{background:var(--paper) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='1' fill='rgba(15,76,53,.06)'/></svg>")}
+  :root[data-theme="dark"] .thread{background-image:none}
+  .daychip{align-self:center;background:var(--card);border:1px solid var(--line);color:var(--ink3);font-size:.68rem;padding:.2rem .7rem;border-radius:999px;margin:.4rem 0;box-shadow:0 1px 1px rgba(0,0,0,.04)}
+  .msg{max-width:min(74%,460px);border-radius:12px;padding:.42rem .55rem .3rem;font-size:.86rem;line-height:1.5;position:relative;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 1px rgba(0,0,0,.06)}
+  .msg.out{background:var(--me);align-self:flex-start;border-top-inline-start-radius:3px}
+  .msg.in{background:var(--them);align-self:flex-end;border-top-inline-end-radius:3px}
+  .msg::before{content:"";position:absolute;top:0;width:0;height:0;border:6px solid transparent}
+  .msg.out::before{inset-inline-start:-7px;border-top-color:var(--me);border-inline-end-color:var(--me)}
+  .msg.in::before{inset-inline-end:-7px;border-top-color:var(--them);border-inline-start-color:var(--them)}
+  .msg .hdr{font-weight:700;margin-bottom:.15rem}
+  .msg .txt{display:block}
+  .msg .foot{display:block;font-size:.7rem;color:var(--ink3);margin-top:.25rem}
+  .msg .meta{display:flex;justify-content:flex-end;align-items:center;gap:.25rem;margin-top:.15rem;line-height:1;direction:ltr}
+  .msg time{font-size:.62rem;color:var(--ink3);margin:0}
+  .msg .tick{font-size:.72rem;color:#8a8f98;letter-spacing:-.12em;line-height:1}
   .msg .tick.read{color:#34B7F1}
-  .msg .tick.failed{color:var(--warn);font-weight:600;letter-spacing:0}
+  .msg .tick.failed{color:var(--warn);letter-spacing:0}
+  .msg .fail{display:block;color:var(--warn);font-size:.68rem;font-weight:600;margin-top:.2rem}
+  .msg .who{display:block;font-size:.64rem;color:var(--ink3);margin-top:.1rem}
+  .msg .vid,.msg .pic{display:block;width:100%;max-width:340px;border-radius:9px;margin:-.1rem 0 .35rem;background:#000}
+  .msg .pic{background:none;object-fit:cover;max-height:360px}
+  .btns{display:flex;flex-direction:column;gap:.2rem;max-width:min(74%,460px);align-self:flex-start;margin-top:-.2rem;width:100%}
+  .btns .btn{background:var(--card);border-radius:9px;padding:.42rem .6rem;text-align:center;font-size:.82rem;color:#1a8adf;font-weight:500;box-shadow:0 1px 1px rgba(0,0,0,.06);text-decoration:none}
+  :root[data-theme="dark"] .btns .btn{color:#53BDEB}
+  .btns .btn.reply::before{content:"↩ ";opacity:.6}
   .empty{margin:auto;color:var(--ink3);font-size:.9rem;text-align:center;padding:2rem}
 
   .composer{display:flex;gap:.5rem;padding:.7rem 1rem;border-top:1px solid var(--line);background:var(--card);flex-shrink:0}
@@ -487,31 +505,56 @@
       pendingOut.forEach(function (pm) { if (pm.to === want) msgs.push(pm); });
       msgs.sort(function (a, b) { return a.ts - b.ts; });
       if (!msgs.length) { host.innerHTML = '<div class="empty">אין הודעות בשיחה הזאת עדיין.</div>'; return; }
+      var lastDay = '';
       msgs.forEach(function (m) {
+        var day = new Date(m.ts).toDateString();
+        if (day !== lastDay) {
+          lastDay = day;
+          var chip = document.createElement('div'); chip.className = 'daychip';
+          var dd = new Date(m.ts), nn = new Date();
+          chip.textContent = dd.toDateString() === nn.toDateString() ? 'היום' : (nn - dd < 2 * 864e5 && dd.getDate() === nn.getDate() - 1) ? 'אתמול' : longDate(m.ts);
+          host.appendChild(chip);
+        }
         var el = document.createElement('div');
         el.className = 'msg ' + (m.dir === 'out' ? 'out' : 'in');
         var text = m.text || (m.type === 'template' ? 'תבנית' + (m.tmpl ? ' · ' + m.tmpl : '') : (m.type || ''));
         var KIND = { document: 'קובץ', image: 'תמונה', video: 'סרטון', audio: 'הקלטה', sticker: 'סטיקר' };
         var media = '';
-        if (m.media && m.media.id) {
+        if (m.media && m.media.url) {
+          if (m.media.kind === 'video') media = '<video class="vid" controls preload="metadata" src="' + esc(m.media.url) + '"></video>';
+          else if (m.media.kind === 'image') media = '<img class="pic" loading="lazy" src="' + esc(m.media.url) + '" alt="">';
+          else if (m.media.kind === 'document') media = '<div class="media"><a href="' + esc(m.media.url) + '" target="_blank" rel="noopener">📎 קובץ</a></div>';
+        } else if (m.media && m.media.id) {
           media = '<div class="media"><span>📎 ' + esc(m.media.name || KIND[m.type] || 'קובץ') + (m.media.mime ? ' <small>' + esc(m.media.mime) + '</small>' : '') + '</span> ' +
             '<button type="button" class="dl" data-id="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-name="' + esc(m.media.name || (m.type + '-' + m.ts)) + '">הורדה</button></div>';
         } else if (KIND[m.type]) {
-          /* sent before 11/09: the media id was not kept, so there is nothing to fetch */
-          media = '<div class="media"><span>📎 ' + KIND[m.type] + ' <small>לא זמין להורדה — נשלח לפני שהאינבוקס שמר קבצים</small></span></div>';
+          media = '<div class="media"><span>📎 ' + KIND[m.type] + ' <small>לא זמין להורדה, נשלח לפני שהאינבוקס שמר קבצים</small></span></div>';
         }
         if (media && (!m.text || m.text === m.type)) text = '';
+        var hdr = (m.media && m.media.kind === 'text' && m.media.text) ? '<span class="hdr">' + esc(m.media.text) + '</span>' : '';
         var tick = '';
         if (m.dir === 'out' && m.ok !== false) {
           var ST = { sent: ['✓', 'נשלחה'], delivered: ['✓✓', 'נמסרה'], read: ['✓✓', 'נקראה'], failed: ['✕', 'לא נמסרה'] };
           var st = ST[m.status] || (m.id ? ST.sent : null);
-          if (st) tick = '<span class="tick ' + esc(m.status || 'sent') + '" title="' + st[1] + (m.error ? ': ' + esc(m.error) : '') + '">' + st[0] + (m.status === 'failed' ? ' לא נמסרה' + (m.error ? ' · ' + esc(m.error) : '') : '') + '</span>';
+          if (st) tick = '<span class="tick ' + esc(m.status || 'sent') + '" title="' + st[1] + (m.error ? ': ' + esc(m.error) : '') + '">' + st[0] + '</span>';
         }
-        el.innerHTML = esc(text).replace(/\n/g, '<br>') + media +
-          (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') + tick +
+        el.innerHTML = (m.media && m.media.kind !== 'text' ? media : '') + hdr +
+          '<span class="txt">' + esc(text).replace(/\n/g, '<br>') + '</span>' +
+          (m.media && m.media.kind === 'text' ? '' : (m.media && m.media.url ? '' : media)) +
+          (m.footer ? '<span class="foot">' + esc(m.footer) + '</span>' : '') +
+          (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') +
+          (m.status === 'failed' ? '<span class="fail">✕ לא נמסרה' + (m.error ? ' · ' + esc(m.error) : '') + '</span>' : '') +
           (m.who ? '<small class="who">' + esc(m.who) + '</small>' : '') +
-          '<time>' + esc(msgTime(m.ts)) + '</time>';
+          '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>';
         host.appendChild(el);
+        if (m.buttons && m.buttons.length) {
+          var bx = document.createElement('div'); bx.className = 'btns';
+          bx.innerHTML = m.buttons.map(function (b) {
+            if (b.type === 'URL' && b.url) return '<a class="btn" href="' + esc(b.url) + '" target="_blank" rel="noopener">🔗 ' + esc(b.text) + '</a>';
+            return '<span class="btn reply">' + esc(b.text) + '</span>';
+          }).join('');
+          host.appendChild(bx);
+        }
       });
       host.scrollTop = host.scrollHeight;
     };

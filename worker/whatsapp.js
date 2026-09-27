@@ -137,28 +137,46 @@ const CLIENT_ONLY_TEMPLATE_RE = /^ishur_lo_siyem|^ishur_kod\b|^ishur_heshbonit\b
    template body comes from Meta once per name per week and is cached in KV;
    the parameters are substituted in, so the inbox shows what the person
    actually read. Falls back to "תבנית <name>" when Meta does not answer. */
-async function renderTemplateText(env, name, body, channel) {
-  try {
-    const guests = channel === 'guests' && guestsReady(env);
-    const waba = guests ? '1378764257421712' : clientWaba(env);
-    const token = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
-    const ck = 'tmplbody:' + waba + ':' + name;
-    let tpl = env.RATE ? await env.RATE.get(ck) : null;
-    if (!tpl && token) {
-      const r = await fetch(`${GRAPH}/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
-      const j = r && r.ok ? await r.json().catch(() => null) : null;
-      const t = ((j && j.data) || []).find(x => x.name === name);
-      const b = t && (t.components || []).find(c => c.type === 'BODY');
-      if (b && b.text) { tpl = b.text; if (env.RATE) await env.RATE.put(ck, tpl, { expirationTtl: 7 * 86400 }).catch(() => {}); }
+async function templateSpec(env, name, channel) {
+  const guests = channel === 'guests' && guestsReady(env);
+  const waba = guests ? '1378764257421712' : clientWaba(env);
+  const token = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
+  const ck = 'tmplspec:' + waba + ':' + name;
+  let spec = null;
+  try { spec = env.RATE ? JSON.parse(await env.RATE.get(ck)) : null; } catch {}
+  if (!spec && token) {
+    const r = await fetch(`${GRAPH}/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
+    const j = r && r.ok ? await r.json().catch(() => null) : null;
+    const t = ((j && j.data) || []).find(x => x.name === name);
+    if (t) {
+      const comps = t.components || [];
+      const bd = comps.find(c => c.type === 'BODY'); const ft = comps.find(c => c.type === 'FOOTER'); const hd = comps.find(c => c.type === 'HEADER'); const bt = comps.find(c => c.type === 'BUTTONS');
+      spec = { body: (bd && bd.text) || '', footer: (ft && ft.text) || '', header: hd ? { format: hd.format || 'TEXT', text: hd.text || '' } : null,
+        buttons: ((bt && bt.buttons) || []).map(x => ({ type: x.type, text: x.text || '', url: x.url || '' })) };
+      if (env.RATE) await env.RATE.put(ck, JSON.stringify(spec), { expirationTtl: 7 * 86400 }).catch(() => {});
     }
-    if (!tpl) return '';
-    const comp = ((body.template || {}).components || []).find(c => c.type === 'body');
+  }
+  return spec;
+}
+
+/* 27/09 (Richard: "show the actual message, the video, the buttons, like
+   GHL / WhatsApp"). The template spec comes from Meta once per name per
+   week and is cached; parameters are substituted in, the header media link
+   and the buttons ride along so the inbox can draw the bubble as the person
+   saw it. Falls back to "תבנית <name>" when Meta does not answer. */
+async function renderTemplate(env, name, body, channel) {
+  try {
+    const spec = await templateSpec(env, name, channel);
+    if (!spec) return null;
+    const comps = (body.template || {}).components || [];
+    const comp = comps.find(c => c.type === 'body');
     const params = ((comp && comp.parameters) || []).map(x => String(x.text ?? ''));
-    let out = tpl.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] ?? '');
-    const hdr = ((body.template || {}).components || []).find(c => c.type === 'header');
-    if (hdr) out = (hdr.parameters && hdr.parameters[0] && hdr.parameters[0].type === 'video' ? '🎬 ' : '🖼 ') + out;
-    return out;
-  } catch { return ''; }
+    const text = spec.body.replace(/\{\{(\d+)\}\}/g, (_, n) => params[Number(n) - 1] ?? '');
+    const hdr = comps.find(c => c.type === 'header');
+    const hp = hdr && hdr.parameters && hdr.parameters[0];
+    const media = hp ? { kind: hp.type, url: (hp[hp.type] || {}).link || '' } : (spec.header && spec.header.format === 'TEXT' && spec.header.text ? { kind: 'text', text: spec.header.text } : null);
+    return { text, footer: spec.footer, media, buttons: spec.buttons };
+  } catch { return null; }
 }
 
 async function post(env, body, channel, ctx) {
@@ -214,7 +232,8 @@ async function post(env, body, channel, ctx) {
   /* every outbound message is logged; every failure raises an alert */
   try {
     if (env.RATE) {
-      const rendered = body.type === 'template' ? await renderTemplateText(env, String((body.template || {}).name || ''), body, channel) : '';
+      const tr = body.type === 'template' ? await renderTemplate(env, String((body.template || {}).name || ''), body, channel) : null;
+      const rendered = tr ? tr.text : '';
       const summary =
         body.type === 'text' ? String((body.text || {}).body || '') :
         body.type === 'image' ? '🖼 ' + String((body.image || {}).caption || 'תמונה') :
@@ -231,6 +250,8 @@ async function post(env, body, channel, ctx) {
         JSON.stringify({
           dir: 'out', type: body.type, text: summary.slice(0, 1000),
           ok: res.ok, error: res.error || '', ch, id: res.id || '', status: res.ok ? 'sent' : 'failed',
+          ...(tr ? { footer: tr.footer || '', media: tr.media || null, buttons: tr.buttons || [] } : {}),
+          ...(body.type === 'image' ? { media: { kind: 'image', url: (body.image || {}).link || '' } } : {}),
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
           ...(ctx && typeof ctx === 'object' ? {
             occ: String(ctx.occasion || '').slice(0, 40),
