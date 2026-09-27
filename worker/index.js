@@ -2864,6 +2864,9 @@ async function handleWaWebhook(request, env, url) {
     }
     if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
     /* "בוצע AUT-123" closes a team reminder before the service brain answers */
+    if (parsed.kind === 'text' && guest && ch === 'guests') {
+      if (await guestFreeText(env, raw, guest, from, parsed.body, say)) continue;
+    }
     if (parsed.kind === 'text') {
       const done = await markTaskDone(env, parsed.body).catch(() => null);
       if (done) {
@@ -2877,6 +2880,64 @@ async function handleWaWebhook(request, env, url) {
     }
   }
   return new Response('ok', { status: 200 });
+}
+
+/* ── free text from a KNOWN guest on Shir's line (Richard 27/09) ─────────────
+   "סליחה 5" after "6", "בסוף לא נגיע", "מה השעה?", "איפה זה?" — before this
+   every such message fell into the (muted) service brain and got silence.
+   Deterministic, no model: corrections update the sheet and say so, event
+   questions are answered from the event row, anything else is acknowledged
+   and forwarded to Richard on Slack so the hosts hear about it. */
+function eventRowOf(raw, token) {
+  return ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === token) || null;
+}
+async function guestFreeText(env, raw, guest, from, text, say) {
+  const t = String(text || '').replace(/[‎‏]/g, '').trim();
+  if (!t) return false;
+  const ev = eventRowOf(raw, guest.token) || [];
+  const c = i => String(ev[i] ?? '').trim();
+  const n = partyFromText(t);
+  const saysNo = /(^|\s)(לא|אין)\s*(נגיע|מגיע|מגיעים|נוכל|נבוא|נצליח|נהיה)|^(בסוף\s*)?לא\.?$|לצערנו/.test(t);
+  const saysYes = /(בסוף|כן)\s*(כן|נגיע|מגיע|מגיעים|נבוא)|^(כן|מגיע|מגיעים|נגיע)\.?$/.test(t) && !/לא/.test(t);
+  const log = (action, detail) => logEvent(env, { area: 'ווצאפ', action, ok: true, phone: from, token: guest.token, detail: `${guest.name}: "${t.slice(0, 80)}"${detail ? ' · ' + detail : ''}` }).catch(() => {});
+
+  if (saysNo) {
+    const saved = await writeGuestReply(env, guest, 'לא מגיע');
+    await say(saved ? 'עדכנו שלא תגיעו, תודה שהודעתם 🙏' : 'קיבלנו, רגע רושמים 🙂');
+    await log('אורח שינה ללא מגיע בטקסט חופשי'); return true;
+  }
+  if (n && (guest.rsvp === 'מגיע' || !guest.rsvp || guest.rsvp === 'מתלבט')) {
+    const saved = await writeGuestReply(env, guest, 'מגיע', n);
+    if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
+    const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
+    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, 'guests', { who: 'שיר (מענה אוטומטי)' });
+    else await say('קיבלנו, רגע רושמים 🙂');
+    await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
+  }
+  if (saysYes) {
+    const saved = await writeGuestReply(env, guest, 'מגיע');
+    if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+    await say(saved ? 'איזה כיף! כמה תהיו בסך הכל?' : 'קיבלנו, רגע רושמים 🙂');
+    await log('אורח שינה למגיע בטקסט חופשי'); return true;
+  }
+  const when = c(6) ? `📅 ${heDate(c(6))}${c(36) ? ' בשעה ' + c(36) : ''}` : '';
+  const where = [c(4), c(38) && c(38) !== c(4) ? c(38) : '', c(37)].filter(Boolean).join(', ');
+  if (/(מתי|תאריך|איזה יום|באיזה יום|שעה|באיזו שעה|מה השעה)/.test(t) && when) {
+    await say(`${when}${where ? '\n📍 ' + where : ''}`); await log('שאלת מועד, נענתה'); return true;
+  }
+  if (/(איפה|כתובת|מיקום|וייז|waze|היכן|איך מגיעים|ניווט)/i.test(t) && where) {
+    const nav = env.RATE ? await env.RATE.get('navlink:' + guest.token).catch(() => '') : '';
+    await say(`📍 ${where}${nav ? '\nניווט: ' + nav : ''}`); await log('שאלת מיקום, נענתה'); return true;
+  }
+  if (/(מי זה|מי אתם|מי שולח|מאיפה|מה זה|למה אני)/.test(t)) {
+    await say(`זו הזמנה ל${c(5) || 'אירוע'} של ${c(34) || c(2)}, נשלחה דרך אישורי הגעה (ishur.io). אפשר לענות כאן מגיע / לא מגיע 🙂`); await log('שאלת מי זה, נענתה'); return true;
+  }
+  if (/^(תודה|תודה רבה|סבבה|אוקיי|ok|👍|🙏|❤️|מזל טוב|בהצלחה)/i.test(t)) { await log('אורח הודה, בלי מענה'); return true; }
+  /* anything else: acknowledge, and hand the hosts the message */
+  await say('קיבלנו 🙂 מעבירים לבעלי השמחה.');
+  await slackPost(env, `💬 *הודעה מאורח לבעלי השמחה* · ${guest.name || from} (${from}) לאירוע של ${c(34) || c(2)}:\n"${t.slice(0, 300)}"`).catch(() => {});
+  await logEvent(env, { area: 'ווצאפ', action: 'הודעת אורח הועברה לבעלי השמחה', ok: true, review: true, phone: from, token: guest.token, detail: t.slice(0, 200) }).catch(() => {});
+  return true;
 }
 
 /* ══ customer service — every message gets an answer ═════════════════════════
@@ -8233,6 +8294,17 @@ export default {
       }
       } catch (e) { return okJson({ ok: false, scanned, rewritten: n, error: String(e && e.stack || e).slice(0, 400) }, origin); }
       return okJson({ ok: true, scanned, rewritten: n }, origin);
+    }
+    if (url.pathname === '/api/guest-text' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const from = normPhone(b.phone || '');
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const guest = raw ? findGuestByPhone(raw, from, ilDate()) : null;
+      if (!guest) return okJson({ ok: false, why: 'not-a-guest' }, origin);
+      const say = (t) => sendText(env, from, t, 'guests', { who: 'שיר (מענה אוטומטי)' });
+      const handled = await guestFreeText(env, raw, guest, from, String(b.text || ''), say);
+      return okJson({ ok: true, handled, guest: { name: guest.name, rsvp: guest.rsvp, party: guest.party } }, origin);
     }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
