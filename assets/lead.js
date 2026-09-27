@@ -198,10 +198,13 @@ window.IshurLead = (function () {
     var p = build('lead_partial', f);
     if (window.IshurTrack) {
       p.event_id = IshurTrack.eventId('lead_' + p.session_id);
-      p.event_name = 'Lead';
+      /* 27/09: a typed phone is not a Lead. Meta optimised for 'Lead' and
+         chased people (and bots) who type a phone and leave. Partial =
+         custom LeadStart; the completed form below is the Lead. */
+      p.event_name = 'LeadStart';
       IshurTrack.conversion({
         key: 'lead_' + p.session_id, eventId: p.event_id,
-        meta: 'Lead', tiktok: 'SubmitForm', ga: 'generate_lead',
+        meta: 'LeadStart', tiktok: 'ViewContent', ga: 'lead_start',
         value: 0, contentName: 'lead_partial'
       });
     }
@@ -214,7 +217,11 @@ window.IshurLead = (function () {
     var p = build('lead_submitted', f);
     if (window.IshurTrack) {
       p.event_id = IshurTrack.eventId('ic_' + p.session_id);
-      p.event_name = 'InitiateCheckout';
+      p.event_name = 'Lead';
+      IshurTrack.conversion({
+        key: 'lead_' + p.session_id + '_full', eventId: IshurTrack.eventId('leadfull_' + p.session_id),
+        meta: 'Lead', tiktok: 'SubmitForm', ga: 'generate_lead', value: 0, contentName: 'lead_submitted'
+      });
       IshurTrack.conversion({
         key: 'ic_' + p.session_id, eventId: p.event_id,
         meta: 'InitiateCheckout', tiktok: 'InitiateCheckout', ga: 'begin_checkout',

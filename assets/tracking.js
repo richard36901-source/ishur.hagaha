@@ -213,7 +213,8 @@ window.IshurTrack = (function () {
   /* Meta standard events, with the event id that Make will reuse server-side */
   function meta(name, params, eid) {
     if (typeof fbq === 'undefined') return;
-    try { fbq('track', name, params || {}, eid ? { eventID: eid } : undefined); } catch (e) {}
+    var STD = /^(Lead|InitiateCheckout|Purchase|ViewContent|CompleteRegistration|Contact|AddToCart|Schedule|SubmitApplication|PageView)$/;
+    try { fbq(STD.test(name) ? 'track' : 'trackCustom', name, params || {}, eid ? { eventID: eid } : undefined); } catch (e) {}
   }
 
   function tiktok(name, params) {
