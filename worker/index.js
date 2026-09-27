@@ -2833,7 +2833,7 @@ async function handleWaWebhook(request, env, url) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
           await say(saved
-            ? `מעולה, רשמנו ${n} 🎉 נתראה בשמחות!
+            ? `מעולה, רשמנו ${n} 🎉 נתראה!
 שיזכיר לכם לבד: https://ishur.io/cal.html?t=${guest.token}`
             : 'קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
