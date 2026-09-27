@@ -7634,7 +7634,13 @@ export default {
         !url.pathname.startsWith('/api/') &&
         url.pathname !== '/px' &&
         !url.pathname.startsWith('/promo/') &&
-        !url.pathname.startsWith('/img/')) {
+        !url.pathname.startsWith('/img/') &&
+        /* 27/09: the invitation video and the calendar file are served by
+           this Worker at go.ishur.io too — the mirror swallowed them and
+           WhatsApp got the site's 404 page instead of the MP4 (131053, Gal's
+           wave 1 this morning) */
+        !url.pathname.startsWith('/vid/') &&
+        !url.pathname.startsWith('/cal/')) {
       return serveMirror(request, url);
     }
     if (url.pathname === '/api/grow-ipn' && request.method === 'POST') {
