@@ -7837,6 +7837,13 @@ export default {
           return okJson({ ok: !!(r && r.replies), r }, origin);
         }
         if (b.action === 'tabtail') return okJson(await readTabTail(env, String(b.tab || 'msg_guests'), Number(b.n) || 10), origin);
+        if (b.action === 'tabread') {
+          /* raw rows of one tab by its exact title (admin data checks) */
+          const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${String(b.tab || '')}'!A1:AZ${Math.min(5000, Number(b.max) || 2000)}` }) }).catch(() => null);
+          const v = rr ? await rr.json().catch(() => null) : null;
+          return okJson({ ok: true, rows: (v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || [] }, origin);
+        }
         if (b.action === 'clientrow') return okJson(await upsertClientRow(env, b), origin);
         if (b.action === 'tabs') {
           /* every tab with its header row and row count — the map of the sheet */

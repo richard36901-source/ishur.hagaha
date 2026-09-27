@@ -110,7 +110,8 @@
   .msg .hdr{font-weight:700;margin-bottom:.15rem}
   .msg .txt{display:block}
   .msg .foot{display:block;font-size:.7rem;color:var(--ink3);margin-top:.25rem}
-  .msg .meta{display:flex;justify-content:flex-end;align-items:center;gap:.25rem;margin-top:.15rem;line-height:1;direction:ltr}
+  .msg .meta{display:flex;justify-content:flex-start;align-items:center;gap:.3rem;margin-top:.15rem;line-height:1;direction:ltr;float:left;margin-inline-end:.4rem}
+  .msg::after{content:"";display:block;clear:both}
   .msg time{font-size:.62rem;color:var(--ink3);margin:0}
   .msg .tick{font-size:.72rem;color:#8a8f98;letter-spacing:-.12em;line-height:1}
   .msg .tick.read{color:#34B7F1}
@@ -122,6 +123,7 @@
   .msg .vid,.msg .pic{display:block;width:100%;max-width:340px;border-radius:9px;margin:-.1rem 0 .35rem;background:#000}
   .msg .pic{background:none;object-fit:cover;max-height:360px}
   .btns{display:flex;flex-direction:column;gap:.2rem;max-width:min(74%,460px);align-self:flex-start;margin-top:-.2rem;width:100%}
+  .btns.in{align-self:flex-end}
   .btns .btn{background:var(--card);border-radius:9px;padding:.42rem .6rem;text-align:center;font-size:.82rem;color:#1a8adf;font-weight:500;box-shadow:0 1px 1px rgba(0,0,0,.06);text-decoration:none}
   :root[data-theme="dark"] .btns .btn{color:#53BDEB}
   .btns .btn.reply::before{content:"↩ ";opacity:.6}
@@ -520,6 +522,13 @@
         var el = document.createElement('div');
         el.className = 'msg ' + (m.dir === 'out' ? 'out' : 'in');
         var text = m.text || (m.type === 'template' ? 'תבנית' + (m.tmpl ? ' · ' + m.tmpl : '') : (m.type || ''));
+        /* links become WhatsApp-style buttons under the bubble instead of raw URLs in the text */
+        var linkBtns = [];
+        text = String(text).replace(/https?:\/\/[^\s]+/g, function (u) {
+          var label = /cal\.html/.test(u) ? '📅 הוספה ליומן' : /upload\.html/.test(u) ? '📤 העלאת רשימת מוזמנים' : /dashboard\.html/.test(u) ? '📊 לוח הבקרה' : /seating\.html/.test(u) ? '🪑 סידור הושבה' : /feedback\.html/.test(u) ? '💬 משוב' : /rsvp\.html/.test(u) ? '💌 אישור הגעה' : /wa\.me/.test(u) ? '💬 וואטסאפ' : /grow|pay|meshulam/.test(u) ? '💳 תשלום' : '🔗 ' + u.replace(/^https?:\/\//, '').split('/')[0];
+          linkBtns.push({ type: 'URL', text: label, url: u });
+          return '';
+        }).replace(/[ \t]*[:：]\s*$/, '').replace(/\n{3,}/g, '\n\n').trim();
         var KIND = { document: 'קובץ', image: 'תמונה', video: 'סרטון', audio: 'הקלטה', sticker: 'סטיקר' };
         var media = '';
         if (m.media && m.media.url) {
@@ -549,9 +558,10 @@
           '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>';
         el.querySelectorAll('.resend').forEach(function (b) { b.addEventListener('click', function () { resend(m, b); }); });
         host.appendChild(el);
-        if (m.buttons && m.buttons.length) {
-          var bx = document.createElement('div'); bx.className = 'btns';
-          bx.innerHTML = m.buttons.map(function (b) {
+        var allBtns = (m.buttons || []).concat(linkBtns);
+        if (allBtns.length) {
+          var bx = document.createElement('div'); bx.className = 'btns' + (m.dir === 'in' ? ' in' : '');
+          bx.innerHTML = allBtns.map(function (b) {
             if (b.type === 'URL' && b.url) return '<a class="btn" href="' + esc(b.url) + '" target="_blank" rel="noopener">🔗 ' + esc(b.text) + '</a>';
             return '<span class="btn reply">' + esc(b.text) + '</span>';
           }).join('');
