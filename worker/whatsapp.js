@@ -251,6 +251,7 @@ async function post(env, body, channel, ctx) {
           dir: 'out', type: body.type, text: summary.slice(0, 1000),
           ok: res.ok, error: res.error || '', ch, id: res.id || '', status: res.ok ? 'sent' : 'failed',
           ...(tr ? { footer: tr.footer || '', media: tr.media || null, buttons: tr.buttons || [] } : {}),
+          ...(body.type === 'template' ? { params: (((body.template || {}).components || []).find(c => c.type === 'body') || { parameters: [] }).parameters.map(x => String(x.text ?? '')), lang: ((body.template || {}).language || {}).code || 'he' } : {}),
           ...(body.type === 'image' ? { media: { kind: 'image', url: (body.image || {}).link || '' } } : {}),
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
           ...(ctx && typeof ctx === 'object' ? {

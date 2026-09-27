@@ -8171,14 +8171,18 @@ export default {
         const who = (await env.RATE.get('waname:' + phone).catch(() => '')) || '';
         if (/^תבנית /.test(String(v.text || ''))) v.text = tpl.replace(/\{\{1\}\}/g, who || '…').replace(/\{\{\d+\}\}/g, '…');
         try {
-          const sr = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
-          const sj = sr && sr.ok ? await sr.json().catch(() => null) : null;
-          const st = ((sj && sj.data) || []).find(x => x.name === name);
+          globalThis.__specs = globalThis.__specs || {};
+          let st = globalThis.__specs[waba + ':' + name];
+          if (st === undefined) {
+            const sr = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
+            const sj = sr && sr.ok ? await sr.json().catch(() => null) : null;
+            st = ((sj && sj.data) || []).find(x => x.name === name) || null;
+            globalThis.__specs[waba + ':' + name] = st;
+          }
           const bt = st && (st.components || []).find(c => c.type === 'BUTTONS'); const ft = st && (st.components || []).find(c => c.type === 'FOOTER'); const hd = st && (st.components || []).find(c => c.type === 'HEADER');
           v.buttons = ((bt && bt.buttons) || []).map(x => ({ type: x.type, text: x.text || '', url: x.url || '' }));
           if (ft && ft.text) v.footer = ft.text;
-          if (hd && hd.format === 'VIDEO' && v.tok) v.media = { kind: 'video', url: 'https://go.ishur.io/vid/' + (await (async () => { const keys = await kvKeys(env, 'vid:' + v.tok); return keys[0] ? keys[0].slice(4) : ''; })()) };
-          if (v.media && v.media.kind === 'video' && !/\/vid\/[0-9a-f-]{36}$/.test(v.media.url)) delete v.media;
+
         } catch {}
         v.rendered_late = true;
         await env.RATE.put(k, JSON.stringify(v));

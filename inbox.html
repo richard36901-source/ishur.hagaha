@@ -116,6 +116,8 @@
   .msg .tick.read{color:#34B7F1}
   .msg .tick.failed{color:var(--warn);letter-spacing:0}
   .msg .fail{display:block;color:var(--warn);font-size:.68rem;font-weight:600;margin-top:.2rem}
+  .msg .resend{display:inline-block;margin-top:.25rem;font:inherit;font-size:.7rem;font-weight:600;padding:.18rem .55rem;border-radius:999px;border:1px solid var(--ok);background:var(--card);color:var(--ok);cursor:pointer}
+  .msg .resend:disabled{opacity:.5;cursor:default}
   .msg .who{display:block;font-size:.64rem;color:var(--ink3);margin-top:.1rem}
   .msg .vid,.msg .pic{display:block;width:100%;max-width:340px;border-radius:9px;margin:-.1rem 0 .35rem;background:#000}
   .msg .pic{background:none;object-fit:cover;max-height:360px}
@@ -542,10 +544,10 @@
           '<span class="txt">' + esc(text).replace(/\n/g, '<br>') + '</span>' +
           (m.media && m.media.kind === 'text' ? '' : (m.media && m.media.url ? '' : media)) +
           (m.footer ? '<span class="foot">' + esc(m.footer) + '</span>' : '') +
-          (m.dir === 'out' && m.ok === false ? '<span class="fail">✕ לא נשלחה' + (m.error ? ': ' + esc(m.error) : '') + '</span>' : '') +
-          (m.status === 'failed' ? '<span class="fail">✕ לא נמסרה' + (m.error ? ' · ' + esc(m.error) : '') + '</span>' : '') +
+          (m.status === 'failed' || m.ok === false ? '<span class="fail">ⓘ ' + esc(explainErr(m.error)) + '</span>' + (canResend(m) ? '<button type="button" class="resend" data-ts="' + m.ts + '">↻ שלח שוב</button>' : '') : '') +
           (m.who ? '<small class="who">' + esc(m.who) + '</small>' : '') +
           '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>';
+        el.querySelectorAll('.resend').forEach(function (b) { b.addEventListener('click', function () { resend(m, b); }); });
         host.appendChild(el);
         if (m.buttons && m.buttons.length) {
           var bx = document.createElement('div'); bx.className = 'btns';
@@ -638,6 +640,39 @@
   });
 
   /* ── free-text reply ── */
+  var ERR = {
+    '131042': 'בעיית תשלום בחשבון מטא של המספר השולח. ההודעה לא הגיעה.',
+    '131047': 'עברו יותר מ-24 שעות מההודעה האחרונה של הצד השני. אפשר לשלוח רק תבנית.',
+    '131053': 'מטא לא הצליחה לטעון את הקובץ/הסרטון המצורף.',
+    '131026': 'המספר לא בוואטסאפ, או שחסם אותנו.',
+    '131049': 'מטא הגבילה הודעות שיווקיות לאיש הקשר הזה כרגע.',
+    '130472': 'איש הקשר נמצא בניסוי של מטא ולא מקבל הודעות שיווקיות.',
+    '132001': 'התבנית לא קיימת או לא מאושרת בחשבון השולח.',
+    '132015': 'התבנית מושהית על ידי מטא.',
+    '131056': 'יותר מדי הודעות לאותו מספר בזמן קצר.',
+    '470': 'עברו יותר מ-24 שעות, צריך תבנית.',
+    '131000': 'תקלה זמנית אצל מטא.'
+  };
+  function explainErr(e) {
+    var s = String(e || ''); var code = (s.match(/\d{3,6}/) || [''])[0];
+    return 'לא נמסרה. ' + (ERR[code] || (s ? s : 'סיבה לא ידועה.'));
+  }
+  function canResend(m) { return m.dir === 'out' && (m.type === 'text' ? !!m.text : m.type === 'template' ? !!(m.tmpl && m.params) : false); }
+  function resend(m, btn) {
+    if (!current) return;
+    btn.disabled = true; btn.textContent = 'שולח…';
+    var payload = { admin_key: adminKey, to: current, channel: m.ch || 'client' };
+    if (m.type === 'template') { payload.mode = 'template'; payload.template = m.tmpl; payload.params = m.params || []; if (m.media && m.media.url && m.media.kind !== 'text') payload.image_url = m.media.url; if (m.lang) payload.lang = m.lang; }
+    else { payload.mode = 'text'; payload.text = m.text; }
+    fetch(CFG.endpoint('wasend'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.ok) {
+          pendingOut.push({ dir: 'out', type: m.type, text: m.text, tmpl: m.tmpl, params: m.params, media: m.media, buttons: m.buttons, footer: m.footer, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'נשלח שוב', to: current, ch: m.ch });
+          loadThread();
+        } else { btn.disabled = false; btn.textContent = '↻ שלח שוב'; window.IshurUX && IshurUX.toast ? IshurUX.toast('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '')) : null; }
+      }).catch(function () { btn.disabled = false; btn.textContent = '↻ שלח שוב'; });
+  }
   var pendingOut = [];
   function doSend() {
     var t = $('txt').value.trim();
