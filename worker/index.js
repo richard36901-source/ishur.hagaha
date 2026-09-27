@@ -8405,6 +8405,11 @@ export default {
       if (b.action === 'register') return okJson(await call('register', { messaging_product: 'whatsapp', pin: String(b.pin || '') }), origin);
       return deny(400, 'bad-action', origin);
     }
+    if (url.pathname === '/api/linear-test' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson({ hasKey: !!env.LINEAR_API_KEY, keyLooksReal: /^lin_api_/.test(String(env.LINEAR_API_KEY || '')), ...(b.create ? await linearTriageIssue(env, String(b.title || 'בדיקה · שאלת אורח'), String(b.body || 'בדיקת חיבור מהוורקר. אפשר לסגור.')) : {}) }, origin);
+    }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
