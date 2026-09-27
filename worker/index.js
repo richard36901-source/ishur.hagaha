@@ -2558,6 +2558,7 @@ async function handleWaWebhook(request, env, url) {
                   scope: 'גל ' + m.wave + ' של האירוע הזה', said: '', detail: `${err.code || ''} ${err.title || ''}`.trim() });
               } else {
                 await env.RATE.delete(m.gk);          // wsent: gone → next tick resends
+                await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {}); // the one-a-day guard must not block the retry of a message that never arrived
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {}); // the wave is open again
                 /* 27/09: the pacer only runs the engine while pacer:pending says
                    today — without this the reopened guests waited for tomorrow
