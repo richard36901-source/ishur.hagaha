@@ -8148,12 +8148,14 @@ export default {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const keys = await kvKeys(env, 'log:');
       let n = 0, scanned = 0;
+      try {
       for (const k of keys) {
         if (n >= (Number(b.max) || 500)) break;
         let v = null; try { v = JSON.parse(await env.RATE.get(k)); } catch {}
         scanned++;
         if (!v || v.dir !== 'out' || v.type !== 'template' || (!/^תבנית /.test(String(v.text || '')) && v.buttons)) continue;
-        const name = String(v.tmpl || v.text.replace(/^תבנית /, '')).trim();
+        const name = String(v.tmpl || String(v.text || '').replace(/^תבנית /, '')).trim();
+        if (!name) continue;
         const guests = v.ch === 'guests';
         const waba = guests ? '1378764257421712' : clientWaba(env);
         const token = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
@@ -8188,6 +8190,7 @@ export default {
         await env.RATE.put(k, JSON.stringify(v));
         n++;
       }
+      } catch (e) { return okJson({ ok: false, scanned, rewritten: n, error: String(e && e.stack || e).slice(0, 400) }, origin); }
       return okJson({ ok: true, scanned, rewritten: n }, origin);
     }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
