@@ -237,7 +237,8 @@ async function post(env, body, channel, ctx) {
       const summary =
         body.type === 'text' ? String((body.text || {}).body || '') :
         body.type === 'image' ? '🖼 ' + String((body.image || {}).caption || 'תמונה') :
-        body.type === 'template' ? (rendered || 'תבנית ' + String((body.template || {}).name || '')) : body.type;
+        body.type === 'template' ? (rendered || 'תבנית ' + String((body.template || {}).name || '')) :
+        body.type === 'interactive' ? String(((body.interactive || {}).body || {}).text || '') : body.type;
       /* ctx (template/occasion/wave/token) makes per-message performance
          measurable later: which text, for which event type, got answered */
       const ch = (channel === 'guests' && guestsReady(env)) ? 'guests' : 'client';
@@ -253,6 +254,7 @@ async function post(env, body, channel, ctx) {
           ...(tr ? { footer: tr.footer || '', media: tr.media || null, buttons: tr.buttons || [] } : {}),
           ...(body.type === 'template' ? { params: (((body.template || {}).components || []).find(c => c.type === 'body') || { parameters: [] }).parameters.map(x => String(x.text ?? '')), lang: ((body.template || {}).language || {}).code || 'he' } : {}),
           ...(body.type === 'image' ? { media: { kind: 'image', url: (body.image || {}).link || '' } } : {}),
+          ...(body.type === 'interactive' && (body.interactive || {}).type === 'cta_url' ? { buttons: [{ type: 'URL', text: body.interactive.action.parameters.display_text, url: body.interactive.action.parameters.url }] } : {}),
           tmpl: body.type === 'template' ? String((body.template || {}).name || '') : '',
           ...(ctx && typeof ctx === 'object' ? {
             occ: String(ctx.occasion || '').slice(0, 40),
@@ -346,6 +348,13 @@ async function post(env, body, channel, ctx) {
     }
   } catch {}
   return res;
+}
+
+/* A real WhatsApp button (interactive CTA URL) inside the 24h window — what a
+   guest sees as a tappable "הוספה ליומן" row, not a pasted link. */
+export function sendCtaUrl(env, to, text, label, url, channel, ctx) {
+  return post(env, { to: normPhone(to), type: 'interactive',
+    interactive: { type: 'cta_url', body: { text: String(text) }, action: { name: 'cta_url', parameters: { display_text: String(label).slice(0, 20), url: String(url) } } } }, channel, ctx);
 }
 
 export function sendText(env, to, text, channel, ctx) {

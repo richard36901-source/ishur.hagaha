@@ -29,6 +29,7 @@ import { createInvoice } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayUpsertLead, mondayGql } from './monday.js';
 import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
+import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
@@ -2832,10 +2833,8 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          await say(saved
-            ? `מעולה, רשמנו ${n} 🎉 נתראה!
-שיזכיר לכם לבד: https://ishur.io/cal.html?t=${guest.token}`
-            : 'קיבלנו, רגע רושמים ונחזור אליכם 🙂');
+          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, ch, { who: 'שיר (מענה אוטומטי)' });
+          else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
         }
       }
@@ -2853,8 +2852,8 @@ async function handleWaWebhook(request, env, url) {
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        await say(saved ? `נרשם, ${parsed.party} מגיעים 🎉
-שיזכיר לכם לבד: https://ishur.io/cal.html?t=${guest.token}` : HOLD);
+        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, ch, { who: 'שיר (מענה אוטומטי)' });
+        else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
         await say(saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
