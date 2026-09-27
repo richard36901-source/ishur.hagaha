@@ -8306,6 +8306,34 @@ export default {
       const handled = await guestFreeText(env, raw, guest, from, String(b.text || ''), say);
       return okJson({ ok: true, handled, guest: { name: guest.name, rsvp: guest.rsvp, party: guest.party } }, origin);
     }
+    /* 27/09 one-off: statuses of today's sends from the sheet log (delivered / read / failed) onto inbox lines that predate status tracking */
+    if (url.pathname === '/api/inbox-status-backfill' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${String(b.tab || 'אורחים לוג הודעות יוצאות')}'!A1:P3000` }) }).catch(() => null);
+      const v = rr ? await rr.json().catch(() => null) : null;
+      const rows = ((v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || []).slice(1);
+      const day = String(b.day || ilDate());
+      const dd = day.slice(8, 10) + '/' + day.slice(5, 7) + '/' + day.slice(0, 4);
+      let n = 0, seen = 0;
+      const parseT = t => { const m = /(\d{2})\/(\d{2})\/(\d{4}) (\d{2}):(\d{2}):(\d{2})/.exec(t); return m ? Date.parse(`${m[3]}-${m[2]}-${m[1]}T${m[4]}:${m[5]}:${m[6]}+03:00`) : 0; };
+      for (const r of rows) {
+        if (!String(r[1] || '').startsWith(dd)) continue;
+        const phone = normPhone(r[6] || ''); const ts = parseT(r[1]); if (!phone || !ts) continue;
+        const st = /נכשל/.test(String(r[2] || '')) ? 'failed' : /^כן/.test(String(r[4] || '')) ? 'read' : /^כן/.test(String(r[3] || '')) ? 'delivered' : '';
+        if (!st) continue;
+        seen++;
+        const keys = (await kvKeys(env, 'log:' + phone + ':')).filter(k => Math.abs(Number(k.split(':').pop()) - ts) < 90000);
+        for (const k of keys) {
+          let e = null; try { e = JSON.parse(await env.RATE.get(k)); } catch {}
+          if (!e || e.dir !== 'out' || e.status === st) continue;
+          e.status = st; if (st === 'failed') e.error = String(r[15] || r[14] || '').slice(0, 120) || '131053 Media upload error';
+          await env.RATE.put(k, JSON.stringify(e)); n++;
+        }
+      }
+      return okJson({ ok: true, rows: rows.length, matched: seen, updated: n }, origin);
+    }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
