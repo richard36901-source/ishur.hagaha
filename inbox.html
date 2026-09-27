@@ -481,7 +481,11 @@
         paintHeader(currentConv);
       }
       var host = $('thread'); host.innerHTML = '';
-      var msgs = d.messages || [];
+      var msgs = (d.messages || []).slice();
+      /* what we just sent, until the server's list catches up (KV lists lag their own writes by up to a minute) */
+      pendingOut = pendingOut.filter(function (pm) { return !msgs.some(function (sm) { return sm.id && sm.id === pm.id; }); });
+      pendingOut.forEach(function (pm) { if (pm.to === want) msgs.push(pm); });
+      msgs.sort(function (a, b) { return a.ts - b.ts; });
       if (!msgs.length) { host.innerHTML = '<div class="empty">אין הודעות בשיחה הזאת עדיין.</div>'; return; }
       msgs.forEach(function (m) {
         var el = document.createElement('div');
@@ -591,6 +595,7 @@
   });
 
   /* ── free-text reply ── */
+  var pendingOut = [];
   function doSend() {
     var t = $('txt').value.trim();
     if (!t || !current) return;
@@ -601,7 +606,7 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         $('send').disabled = false;
-        if (d && d.ok) { $('txt').value = ''; loadThread(); }
+        if (d && d.ok) { pendingOut.push({ dir: 'out', type: 'text', text: t, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'ריצ׳רד', to: current }); $('txt').value = ''; loadThread(); }
         else alert('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '') + '. אם עברו 24 שעות, שלחו תבנית.');
       }).catch(function () { $('send').disabled = false; });
   }
@@ -663,7 +668,8 @@
     if (!adminKey) { gate(); return; }
     loadConvs();
     clearInterval(timer);
-    timer = setInterval(function () { loadConvs(); loadThread(); }, 60000);
+    var tick = 0;
+    timer = setInterval(function () { tick++; loadThread(); if (tick % 3 === 0) loadConvs(); }, 10000);
   }
   boot();
 })();
