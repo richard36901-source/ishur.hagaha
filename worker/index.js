@@ -7342,6 +7342,9 @@ async function handleWaSend(request, env, origin) {
     case 'template':
       res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he', body.channel);
       break;
+    case 'cta':
+      res = await sendCtaUrl(env, to, body.text || '', body.label || 'פתיחה', body.url || '', body.channel, { who: 'ריצ׳רד' });
+      break;
     case 'image':
       res = await sendImage(env, to, body.image_url, body.caption || '', body.channel);
       break;
