@@ -2775,6 +2775,21 @@ async function handleWaWebhook(request, env, url) {
       await logEvent(env, { area: 'ווצאפ', action: 'אורח כתב למספר של נועה — הופנה למספר של שיר', ok: true, phone: from, token: guest.token });
       continue;
     }
+    if (ch === 'guests' && !guest && parsed.kind === 'rsvp') {
+      /* 27/09 (Richard): a button press from a number that is not on any
+         guest list (the invitation was forwarded, a spouse answered from
+         their own phone, a test send) still deserves the answer that button
+         promised, plus a request for the name so a human can match them.
+         Nothing is written to any sheet, nothing shows in a dashboard. */
+      const ask = 'לא מצאנו את המספר הזה ברשימת המוזמנים, כנראה ההזמנה הגיעה מטלפון אחר. כתבו לנו כאן את השם המלא כפי שמופיע בהזמנה ונרשום אתכם.';
+      const line = parsed.outcome === 'מגיע' ? 'איזה כיף! 🎉 ' + ask
+        : parsed.outcome === 'לא מגיע' ? 'תודה שעדכנתם 🙏 ' + ask
+        : 'אין לחץ, אפשר לעדכן בכל רגע 🙂 ' + ask;
+      await say(line);
+      await logEvent(env, { area: 'ווצאפ', action: 'לחיצת כפתור ממספר שלא ברשימת מוזמנים', ok: false, review: true, phone: from, detail: `תשובה: ${parsed.outcome}${parsed.party ? ' · ' + parsed.party : ''} · לשייך ידנית לאירוע` });
+      await slackPost(env, `🔎 *מספר לא מזוהה ענה על הזמנה* · ${from} לחץ "${parsed.outcome}". לא נמצא בשום רשימת מוזמנים, ביקשנו שם. לשייך ידנית.`).catch(() => {});
+      continue;
+    }
     if (ch === 'guests' && !guest && parsed.kind !== 'mistake' && parsed.kind !== 'optout' && parsed.kind !== 'nocall') {
       await say('היי 🙂 המספר הזה משמש לאישורי הגעה של מוזמנים בלבד. לשירות לקוחות כתבו לנועה: https://wa.me/972559504499');
       await logEvent(env, { area: 'ווצאפ', action: `${isClient ? 'לקוח' : 'ליד/לא מזוהה'} כתב למספר של שיר — הופנה לנועה`, ok: true, phone: from });
