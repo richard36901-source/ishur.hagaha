@@ -8140,6 +8140,42 @@ export default {
       const r = b.drain ? await drainNoaQueue(env, { force: !!b.force }) : {};
       return okJson({ ok: true, waiting, ...r, nextDueIfNow: new Date(noaReplyDue()).toISOString() }, origin);
     }
+    /* 27/09 one-off: older inbox lines say "תבנית <name>" — rewrite them with
+       the template body (parameters were not kept, so the wave's own text
+       fills what it can from the sheet-less record: name only) */
+    if (url.pathname === '/api/inbox-render' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const keys = await kvKeys(env, 'log:');
+      let n = 0, scanned = 0;
+      for (const k of keys) {
+        if (n >= (Number(b.max) || 500)) break;
+        let v = null; try { v = JSON.parse(await env.RATE.get(k)); } catch {}
+        scanned++;
+        if (!v || v.dir !== 'out' || v.type !== 'template' || !/^תבנית /.test(String(v.text || ''))) continue;
+        const name = String(v.tmpl || v.text.replace(/^תבנית /, '')).trim();
+        const guests = v.ch === 'guests';
+        const waba = guests ? '1378764257421712' : clientWaba(env);
+        const token = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
+        const ck = 'tmplbody:' + waba + ':' + name;
+        let tpl = await env.RATE.get(ck);
+        if (!tpl && token) {
+          const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,components`, { headers: { Authorization: 'Bearer ' + token } }).catch(() => null);
+          const j = r && r.ok ? await r.json().catch(() => null) : null;
+          const t = ((j && j.data) || []).find(x => x.name === name);
+          const bd = t && (t.components || []).find(c => c.type === 'BODY');
+          if (bd && bd.text) { tpl = bd.text; await env.RATE.put(ck, tpl, { expirationTtl: 7 * 86400 }).catch(() => {}); }
+        }
+        if (!tpl) continue;
+        const phone = k.split(':')[1];
+        const who = (await env.RATE.get('waname:' + phone).catch(() => '')) || '';
+        v.text = tpl.replace(/\{\{1\}\}/g, who || '…').replace(/\{\{\d+\}\}/g, '…');
+        v.rendered_late = true;
+        await env.RATE.put(k, JSON.stringify(v));
+        n++;
+      }
+      return okJson({ ok: true, scanned, rewritten: n }, origin);
+    }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
