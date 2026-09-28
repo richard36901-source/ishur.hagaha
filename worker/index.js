@@ -2550,7 +2550,10 @@ async function handleWaWebhook(request, env, url) {
             const m = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null;
             if (m && m.gk) {
               const fk = `wfail:${m.token}:${m.wave}:${m.phone}`;
-              const n = (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
+              const code = String(err.code || '');
+              await env.RATE.put(`wferr:${m.token}:${m.wave}:${m.phone}`, code, { expirationTtl: 30 * 86400 }).catch(() => {});
+              /* 131026 = not on WhatsApp / blocked us: retrying cannot help, the phone call round is the way */
+              const n = code === '131026' ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
               await env.RATE.put(fk, String(n), { expirationTtl: 7 * 86400 });
               if (n >= 3) {
                 await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, String(err.code || ''), { expirationTtl: 120 * 86400 });
@@ -3690,6 +3693,13 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     }
     if (await phoneBlocked(env, phone)) { skippedOptout++; cursor = gi + 1; continue; }
     if (await wrongNum(env, token, phone)) { skippedOptout++; cursor = gi + 1; continue; }
+    /* 27/09: Meta's per-user marketing cap (131049) and experiment holdout (130472)
+       fail the same way every time for a MARKETING template. Don't burn the last
+       attempt; wait until the UTILITY invitation copy is the live one. */
+    if (env.RATE && wave.key === 1) {
+      const lastErr = await env.RATE.get(`wferr:${token}:1:${normPhone(phone)}`).catch(() => null);
+      if ((lastErr === '131049' || lastErr === '130472') && !/_u$/.test(String(vidTmpl || imgTmpl || ''))) { deferred++; cursor = gi + 1; continue; }
+    }
     /* three delivery failures from Meta: stop retrying, it is in the journal red */
     if (env.RATE && await env.RATE.get(`wdead:${token}:${wave.key}:${normPhone(phone)}`)) { skippedOptout++; cursor = gi + 1; continue; }
     /* per-guest marker: the wave flag is only written after the whole loop, so
