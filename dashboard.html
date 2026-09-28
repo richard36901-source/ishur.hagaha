@@ -1210,7 +1210,7 @@
     function hide() { hideT = setTimeout(function () { pop.hidden = true; }, 150); }
     $('rows').addEventListener('mouseover', function (e) { var b = e.target.closest && e.target.closest('.info'); if (b) show(b); });
     $('rows').addEventListener('mouseout', function (e) { if (e.target.closest && e.target.closest('.info')) hide(); });
-    $('rows').addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.info'); if (!b) return; e.preventDefault(); if (pop.hidden) show(b); else pop.hidden = true; });
+    $('rows').addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.info'); if (!b) return; e.preventDefault(); show(b); });
     pop.addEventListener('mouseenter', function () { clearTimeout(hideT); });
     pop.addEventListener('mouseleave', hide);
     document.addEventListener('click', function (e) { if (!pop.hidden && !e.target.closest('.info') && !pop.contains(e.target)) pop.hidden = true; });
