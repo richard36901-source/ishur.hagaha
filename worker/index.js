@@ -8786,6 +8786,29 @@ export default {
        phone, party size, "send". Up to 10 per event, free. The row lands in
        the guests sheet; if wave 1 already went out, the invitation goes to
        this guest right now from Shir's number. */
+    /* Richard 28/09: the host marks a guest as coming (with a count) straight
+       from the dashboard — the aunt who confirmed by phone, the neighbour who
+       said yes at the grocery. Same write path as a WhatsApp reply. */
+    if (url.pathname === '/api/guest-rsvp' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:grsvp:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
+      const gid = String(b.guest_id || '').trim();
+      const outcome = b.outcome === 'לא מגיע' ? 'לא מגיע' : 'מגיע';
+      const party = outcome === 'מגיע' ? Math.max(1, Math.min(30, parseInt(b.party, 10) || 1)) : 0;
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
+      if (!row) return deny(404, 'unknown-guest', origin);
+      const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim() };
+      const saved = await writeGuestReply(env, guest, outcome, outcome === 'מגיע' ? party : undefined);
+      if (saved && env.RATE) await env.RATE.delete('awaitparty:' + gid).catch(() => {});
+      await logEvent(env, { area: 'לוח לקוח', action: 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
+      if (saved) await logRow(env, 'removals', { kind: 'אישור ידני מהלוח', channel: 'לוח הלקוח', phone: guest.phone, token: tok.slice(0, 8), scope: 'האירוע הזה', said: '', detail: `${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
+      return okJson({ ok: saved, outcome, party }, origin);
+    }
     if (url.pathname === '/api/guest-add' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

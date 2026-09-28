@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=56"></script>
+<script src="config.js?v=57"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=21"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -161,6 +161,13 @@
   .pill.yes{background:var(--green4);color:var(--green2)}
   .pill.no{background:var(--err-bg);color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
+  .pill.ok-wrap{display:inline-flex;align-items:center;gap:.35rem;padding-inline-end:.3rem}
+  .ok-btn{font:inherit;font-size:.66rem;font-weight:600;color:var(--green2);background:var(--card);border:1px solid var(--bdr2);border-radius:99px;padding:.05rem .45rem;cursor:pointer;line-height:1.4}
+  .ok-btn:hover{background:var(--green);color:#fff;border-color:var(--green)}
+  .ok-in{width:2.6rem;font:inherit;font-size:.78rem;text-align:center;padding:.08rem .2rem;border:1px solid var(--bdr);border-radius:6px;background:var(--card);color:var(--ink)}
+  .ok-go{font:inherit;font-size:.66rem;font-weight:600;color:#fff;background:var(--green);border:none;border-radius:99px;padding:.12rem .5rem;cursor:pointer}
+  .ok-x{font:inherit;font-size:.7rem;color:var(--ink3);background:none;border:none;cursor:pointer;padding:0 .1rem}
+  .row{--x:0}
   .sendst{flex-shrink:0;font-size:.64rem;color:var(--ink3);white-space:nowrap;margin-inline-start:.3rem;min-width:3.4rem;display:inline-flex;align-items:center;justify-content:center}
   .sendst.sent{color:var(--green2)}
   .sendst.failed,.sendst.retrying,.sendst.none{color:var(--err)}
@@ -1173,7 +1180,9 @@
         : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : '');
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
              '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
-             '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
+             (g.status !== 'confirmed' && g.status !== 'declined' && g.id && !over
+               ? '<span class="pill ' + st.pill + ' ok-wrap"><span class="ok-lbl">' + st.label + '</span><button type="button" class="ok-btn" data-id="' + esc(g.id) + '" title="לאשר הגעה ידנית">✓ אישור</button></span>'
+               : '<span class="pill ' + st.pill + '">' + st.label + '</span>') +
              sendBadge(g) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
@@ -1194,6 +1203,33 @@
 
   /* ── seating: collect edits, save in one call ── */
   var seatDirty = {};
+  /* manual confirmation from the host: ✓ אישור → count box → save */
+  $('rows').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.ok-btn');
+    if (!b || b.disabled) return;
+    var wrap = b.parentNode;
+    if (wrap.querySelector('.ok-in')) return;
+    wrap.innerHTML = '<input class="ok-in" type="number" min="1" max="30" value="1" aria-label="כמה מגיעים"><button type="button" class="ok-go" data-id="' + b.dataset.id + '">שמירה</button><button type="button" class="ok-x" aria-label="ביטול">✕</button>';
+    var inp = wrap.querySelector('.ok-in'); inp.focus(); inp.select();
+    inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') wrap.querySelector('.ok-go').click(); if (ev.key === 'Escape') wrap.querySelector('.ok-x').click(); });
+  });
+  $('rows').addEventListener('click', function (e) {
+    var x = e.target.closest && e.target.closest('.ok-x');
+    if (x) { renderRows(); return; }
+    var go = e.target.closest && e.target.closest('.ok-go');
+    if (!go) return;
+    var wrap = go.parentNode, n = Math.max(1, Math.min(30, parseInt(wrap.querySelector('.ok-in').value, 10) || 1)), id = go.dataset.id;
+    go.disabled = true; go.textContent = 'שומר…';
+    fetch(CFG.endpoint('guest-rsvp'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: id, outcome: 'מגיע', party: n }) })
+      .then(function (r) { return r.json(); })
+      .then(function (d) {
+        if (!d || !d.ok) { go.disabled = false; go.textContent = 'שמירה'; IshurUX.toast('לא נשמר, נסו שוב'); return; }
+        (data.guests || []).forEach(function (g) { if (g.id === id) { g.status = 'confirmed'; g.seats = n; } });
+        normalize(data); render();
+        IshurUX.toast('אושר, ' + n + ' מגיעים');
+        try { if (window.IshurUX && IshurUX.clear) IshurUX.clear(); } catch (err) {}
+      }).catch(function () { go.disabled = false; go.textContent = 'שמירה'; });
+  });
   /* the little i next to "לא נמסר": one explanation card, opens on hover or tap */
   (function () {
     var pop = document.createElement('div'); pop.className = 'whypop'; pop.hidden = true; document.body.appendChild(pop);
