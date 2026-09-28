@@ -5767,6 +5767,15 @@ async function handleVoiceTools(request, env, origin) {
     await logEvent(env, { area: 'שיחות', action: `כלי העברה חמה הוחלו על ${spec.name}`, ok: true, detail: tools.map(t => t.name).join(', ') }).catch(() => {});
     return okJson({ ok: true, llm, tools: (applied.general_tools || []).map(t => ({ type: t.type, name: t.name })) }, origin);
   }
+  if (body.action === 'schedule') {
+    const to = normPhone(body.to || '');
+    const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
+    if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
+    const at = String(body.at || '');
+    if (isNaN(Date.parse(at))) return deny(400, 'bad-time', origin);
+    await env.RATE.put('noacall:' + to, JSON.stringify({ at, name: body.name || 'ריצ׳רד', occ: body.occ || 'חתונה', requested: !!body.requested }), { expirationTtl: 3 * 86400 });
+    return okJson({ ok: true, to, at }, origin);
+  }
   if (body.action === 'testcall') {
     /* rings one admin number only, as the abandoned-lead script */
     const to = normPhone(body.to || '');
@@ -6691,6 +6700,31 @@ async function tryPortfolioOtp(env) {
     await slackPost(env, `⏳ ניסיון יומי לקוד אימות ל-4499 נכשל: ${why}. ננסה מחר.`).catch(() => {});
   }
   return { ok, why };
+}
+
+/* ── admin-scheduled Noa call ("make Noa call me at 20:00", Richard 28/09) ──
+   KV noacall:<phone> = { at, name, occ }. The ten-minute pacer places the
+   call once `at` has passed, admin numbers only, independent of NOA_LEADS. */
+async function drainAdminCalls(env) {
+  if (!env.RATE || !env.RETELL_KEY || !env.NOA_FROM || !env.NOA_AGENT) return { dialed: 0 };
+  const q = await kvPrefix(env, 'noacall:');
+  let dialed = 0;
+  for (const [phone, v] of Object.entries(q)) {
+    let j = {}; try { j = JSON.parse(v); } catch {}
+    if (Date.now() < Date.parse(j.at || 0)) continue;
+    await env.RATE.delete('noacall:' + phone).catch(() => {});
+    const admins = String(env.ADMIN_PHONES || '').split(',').map(x => normPhone(x.trim()));
+    if (!admins.includes(phone)) continue;
+    const lead = { kind: 'lead', phone, name: j.name || 'ריצ׳רד', occasion: j.occ || 'חתונה', requested: !!j.requested };
+    const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
+    payload.metadata.test = 'admin-scheduled';
+    const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    const ok = !!(r && r.ok);
+    await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name, kind: 'שיחה מתוזמנת (אדמין)', status: ok ? 'חויג ' + ilTime() : 'נכשל', id: '' }).catch(() => {});
+    await slackPost(env, ok ? `📞 נועה מתקשרת עכשיו ל-${lead.name} (${phone.replace(/^972/, '0')}), שיחה שתוזמנה.` : `⚠️ שיחה מתוזמנת של נועה ל-${phone} לא יצאה.`).catch(() => {});
+    if (ok) dialed++;
+  }
+  return { dialed };
 }
 
 async function handleMetaAdmin(request, env, origin) {
@@ -7776,6 +7810,7 @@ export default {
     if (String(event.cron || '').startsWith('*/10')) {
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
+      ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
       ctx.waitUntil(runPacer(env).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       return;
