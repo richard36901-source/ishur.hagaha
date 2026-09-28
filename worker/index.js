@@ -6280,15 +6280,10 @@ async function undeliveredByEvent(env, raw) {
   const names = {};
   for (const g of (raw && raw.guests && raw.guests.values) || []) { const p = normPhone(g[4] || ''); if (p) names[p] = String(g[3] || '').trim(); }
   const evName = {}; for (const e of (raw && raw.events && raw.events.values) || []) evName[String(e[1] || '').trim()] = String(e[34] || e[2] || '').trim();
-  const add = (k, v, kind) => {
-    const [, token, wave, phone] = k.split(':');
-    if (await_sent(env, token, wave, phone)) return;
-    (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind, code: v });
-  };
   const sentCache = {};
   async function await_sent(env, token, wave, phone) { const k = `wsent:${token}:${wave}:${phone}`; if (!(k in sentCache)) sentCache[k] = !!(await env.RATE.get(k).catch(() => null)); return sentCache[k]; }
-  for (const [k, v] of Object.entries(dead)) { const [, token, wave, phone] = k.split(':'); if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'dead', code: v }); }
-  for (const [k, v] of Object.entries(fails)) { const [, token, wave, phone] = k.split(':'); if (dead[`wdead:${token}:${wave}:${phone}`]) continue; if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'retry', code: await env.RATE.get(`wferr:${token}:${wave}:${phone}`).catch(() => '') || '' }); }
+  for (const [k, v] of Object.entries(dead)) { const [token, wave, phone] = k.split(':'); if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'dead', code: v }); }
+  for (const [k, v] of Object.entries(fails)) { const [token, wave, phone] = k.split(':'); if (dead[`${token}:${wave}:${phone}`]) continue; if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'retry', code: await env.RATE.get(`wferr:${token}:${wave}:${phone}`).catch(() => '') || '' }); }
   return out;
 }
 function undeliveredLines(byEv) {
@@ -9235,6 +9230,9 @@ export default {
           return 'none';
         }));
         snapshot.guests.forEach((g, i) => { g.sent = states[i]; });
+        /* when the next automatic attempt is: today while the send window is open, otherwise the next send day */
+        const nxt = (() => { const d = new Date(); for (let i = 0; i < 8; i++) { const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d); if (!isNoContactDay(iso) && (i > 0 || sendWindowState().open)) return iso; d.setDate(d.getDate() + 1); } return ''; })();
+        snapshot.next_attempt = nxt;
       }
       /* Richard, 10/09: the client must always see whether an invitation
          image/video is attached, and may swap it until 48h before the

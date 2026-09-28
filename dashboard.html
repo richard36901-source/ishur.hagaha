@@ -721,6 +721,7 @@
 
   $('wa').href = CFG.waLink('היי, לגבי האירוע שלי:');
 
+  function heDay(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] : iso; }
   var STATUS = {
     confirmed: { label: 'אישרו', pill: 'yes' },
     declined:  { label: 'לא מגיעים', pill: 'no' },
@@ -1147,7 +1148,7 @@
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
              '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
-             (g.sent && g.sent !== 'none' ? '<span class="sendst ' + g.sent + '" title="' + (g.sent === 'sent' ? 'ההזמנה נשלחה' : g.sent === 'failed' ? 'ההזמנה לא נמסרה, נטפל בזה' : 'ההזמנה לא נמסרה, ננסה שוב') + '">' + (g.sent === 'sent' ? '✓ נשלח' : g.sent === 'failed' ? '✕ לא נשלח' : '↻ לא נשלח') + '</span>' : (data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; }) ? '<span class="sendst none">לא נשלח</span>' : '')) +
+             (g.sent && g.sent !== 'none' ? '<span class="sendst ' + g.sent + '" title="' + (g.sent === 'sent' ? 'ההזמנה נשלחה' : g.sent === 'failed' ? 'ההזמנה לא נמסרה, נטפל בזה' : 'ההזמנה לא נמסרה, ננסה שוב') + '">' + (g.sent === 'sent' ? '✓ נשלח' : g.sent === 'failed' ? '✕ לא נמסר, נטפל ידנית' : '↻ לא נמסר, ננסה שוב' + (data.next_attempt ? ' ב-' + heDay(data.next_attempt) : '')) + '</span>' : (data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; }) ? '<span class="sendst none">לא נשלח</span>' : '')) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
