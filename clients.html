@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=57"></script>
+<script src="config.js?v=58"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/adminbar.js?v=8" defer></script>
 <script src="assets/guard.js?v=19"></script>
@@ -123,6 +123,8 @@
         '<div class="acts">' +
           '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
           '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
+          '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
+          '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
           '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
           '<button class="btn g" data-act="guests">+50 מוזמנים חינם</button>' +
           '<button class="btn g" data-act="extrasend">שליחה נוספת חינם</button>' +
@@ -138,7 +140,10 @@
     var t = b.closest('.card').dataset.t, act = b.dataset.act, fl = flags[t] || { active: true };
     b.disabled = true;
     var p;
-    if (act === 'reset') {
+    if (act === 'link-dashboard' || act === 'link-upload') {
+      var kind = act === 'link-upload' ? 'upload' : 'dashboard';
+      p = api('client-link', { token: t, kind: kind }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ללקוח בוואטסאפ (' + (j.via === 'button' ? 'עם כפתור' : 'תבנית') + ')' : 'לא נשלח' + (j.error ? ': ' + j.error : '')); });
+    } else if (act === 'reset') {
       if (!(await askConfirm('הלקוח (או אתה) יעלה רשימה מחדש. אם ההזמנות כבר יצאו, זה ייחסם.', { title: 'למחוק את רשימת המוזמנים?', ok: 'כן, למחוק', danger: true }))) { b.disabled = false; return; }
       p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });
     } else if (act === 'active') {

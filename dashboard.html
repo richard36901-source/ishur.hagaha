@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=57"></script>
+<script src="config.js?v=58"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=21"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -161,13 +161,15 @@
   .pill.yes{background:var(--green4);color:var(--green2)}
   .pill.no{background:var(--err-bg);color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
-  .pill.ok-wrap{display:inline-flex;align-items:center;gap:.35rem;padding-inline-end:.3rem}
-  .ok-btn{font:inherit;font-size:.66rem;font-weight:600;color:var(--green2);background:var(--card);border:1px solid var(--bdr2);border-radius:99px;padding:.05rem .45rem;cursor:pointer;line-height:1.4}
-  .ok-btn:hover{background:var(--green);color:#fff;border-color:var(--green)}
-  .ok-in{width:2.6rem;font:inherit;font-size:.78rem;text-align:center;padding:.08rem .2rem;border:1px solid var(--bdr);border-radius:6px;background:var(--card);color:var(--ink)}
-  .ok-go{font:inherit;font-size:.66rem;font-weight:600;color:#fff;background:var(--green);border:none;border-radius:99px;padding:.12rem .5rem;cursor:pointer}
-  .ok-x{font:inherit;font-size:.7rem;color:var(--ink3);background:none;border:none;cursor:pointer;padding:0 .1rem}
-  .row{--x:0}
+  .tbl-sp .more{font:inherit;font-size:1rem;line-height:1;letter-spacing:.05em;color:var(--ink3);background:none;border:1px solid transparent;border-radius:8px;padding:.1rem .35rem;cursor:pointer}
+  .tbl-sp .more:hover{border-color:var(--bdr);color:var(--ink)}
+  .gmenu{position:absolute;z-index:50;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:.35rem;box-shadow:0 8px 28px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:.2rem;min-width:9rem}
+  .gmenu button{font:inherit;font-size:.82rem;text-align:start;padding:.4rem .6rem;border:none;border-radius:8px;background:none;color:var(--ink);cursor:pointer}
+  .gmenu button:hover{background:var(--green4);color:var(--green2)}
+  .gmenu label{font-size:.72rem;color:var(--ink3);padding:.2rem .4rem 0}
+  .gmenu .gm-row{display:flex;gap:.3rem;align-items:center;padding:.1rem .3rem .2rem}
+  .gmenu .gm-n{width:3rem;font:inherit;font-size:.85rem;text-align:center;padding:.2rem;border:1px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink)}
+  .gmenu [data-do="save"]{background:var(--green);color:#fff}
   .sendst{flex-shrink:0;font-size:.64rem;color:var(--ink3);white-space:nowrap;margin-inline-start:.3rem;min-width:3.4rem;display:inline-flex;align-items:center;justify-content:center}
   .sendst.sent{color:var(--green2)}
   .sendst.failed,.sendst.retrying,.sendst.none{color:var(--err)}
@@ -1177,12 +1179,10 @@
       var tbl = g.status === 'confirmed' && g.id
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
-        : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : '');
+        : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
              '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
-             (g.status !== 'confirmed' && g.status !== 'declined' && g.id && !over
-               ? '<span class="pill ' + st.pill + ' ok-wrap"><span class="ok-lbl">' + st.label + '</span><button type="button" class="ok-btn" data-id="' + esc(g.id) + '" title="לאשר הגעה ידנית">✓ אישור</button></span>'
-               : '<span class="pill ' + st.pill + '">' + st.label + '</span>') +
+             '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
@@ -1203,33 +1203,48 @@
 
   /* ── seating: collect edits, save in one call ── */
   var seatDirty = {};
-  /* manual confirmation from the host: ✓ אישור → count box → save */
-  $('rows').addEventListener('click', function (e) {
-    var b = e.target.closest && e.target.closest('.ok-btn');
-    if (!b || b.disabled) return;
-    var wrap = b.parentNode;
-    if (wrap.querySelector('.ok-in')) return;
-    wrap.innerHTML = '<input class="ok-in" type="number" min="1" max="30" value="1" aria-label="כמה מגיעים"><button type="button" class="ok-go" data-id="' + b.dataset.id + '">שמירה</button><button type="button" class="ok-x" aria-label="ביטול">✕</button>';
-    var inp = wrap.querySelector('.ok-in'); inp.focus(); inp.select();
-    inp.addEventListener('keydown', function (ev) { if (ev.key === 'Enter') wrap.querySelector('.ok-go').click(); if (ev.key === 'Escape') wrap.querySelector('.ok-x').click(); });
-  });
-  $('rows').addEventListener('click', function (e) {
-    var x = e.target.closest && e.target.closest('.ok-x');
-    if (x) { renderRows(); return; }
-    var go = e.target.closest && e.target.closest('.ok-go');
-    if (!go) return;
-    var wrap = go.parentNode, n = Math.max(1, Math.min(30, parseInt(wrap.querySelector('.ok-in').value, 10) || 1)), id = go.dataset.id;
-    go.disabled = true; go.textContent = 'שומר…';
-    fetch(CFG.endpoint('guest-rsvp'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: id, outcome: 'מגיע', party: n }) })
-      .then(function (r) { return r.json(); })
-      .then(function (d) {
-        if (!d || !d.ok) { go.disabled = false; go.textContent = 'שמירה'; IshurUX.toast('לא נשמר, נסו שוב'); return; }
-        (data.guests || []).forEach(function (g) { if (g.id === id) { g.status = 'confirmed'; g.seats = n; } });
-        normalize(data); render();
-        IshurUX.toast('אושר, ' + n + ' מגיעים');
-        try { if (window.IshurUX && IshurUX.clear) IshurUX.clear(); } catch (err) {}
-      }).catch(function () { go.disabled = false; go.textContent = 'שמירה'; });
-  });
+  /* ⋯ in the table column: the host marks a guest coming (with a count) or not coming */
+  (function () {
+    var menu = document.createElement('div'); menu.className = 'gmenu'; menu.hidden = true; document.body.appendChild(menu);
+    var cur = null;
+    function place(btn) { var r = btn.getBoundingClientRect(); menu.style.top = (window.scrollY + r.bottom + 6) + 'px'; menu.style.left = Math.max(12, Math.min(window.innerWidth - menu.offsetWidth - 12, r.left + r.width / 2 - menu.offsetWidth / 2)) + 'px'; }
+    function open(btn) {
+      cur = btn.dataset.id;
+      menu.innerHTML = '<button type="button" data-do="yes">✓ מגיעים</button><button type="button" data-do="no">✕ לא מגיעים</button>';
+      menu.hidden = false; place(btn);
+    }
+    function askCount(btn) {
+      menu.innerHTML = '<label>כמה מגיעים?</label><span class="gm-row"><input type="number" min="1" max="30" value="2" class="gm-n"><button type="button" data-do="save">שמירה</button></span>';
+      place(btn); var inp = menu.querySelector('.gm-n'); inp.focus(); inp.select();
+      inp.addEventListener('keydown', function (e) { if (e.key === 'Enter') menu.querySelector('[data-do="save"]').click(); if (e.key === 'Escape') menu.hidden = true; });
+    }
+    function save(outcome, n, b) {
+      b.disabled = true; b.textContent = 'שומר…';
+      fetch(CFG.endpoint('guest-rsvp'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: cur, outcome: outcome, party: n }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.ok) { b.disabled = false; b.textContent = 'שמירה'; IshurUX.toast('לא נשמר, נסו שוב'); return; }
+          menu.hidden = true;
+          (data.guests || []).forEach(function (g) { if (g.id === cur) { g.status = outcome === 'מגיע' ? 'confirmed' : 'declined'; g.seats = outcome === 'מגיע' ? n : g.seats; } });
+          normalize(data); render();
+          IshurUX.toast(outcome === 'מגיע' ? 'אושר, ' + n + ' מגיעים' : 'סומן: לא מגיעים');
+        }).catch(function () { b.disabled = false; b.textContent = 'שמירה'; });
+    }
+    $('rows').addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.more');
+      if (!b) return;
+      e.preventDefault();
+      if (!menu.hidden && cur === b.dataset.id) { menu.hidden = true; return; }
+      open(b); menu._btn = b;
+    });
+    menu.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return;
+      if (b.dataset.do === 'yes') askCount(menu._btn);
+      else if (b.dataset.do === 'no') save('לא מגיע', 0, b);
+      else if (b.dataset.do === 'save') save('מגיע', Math.max(1, Math.min(30, parseInt(menu.querySelector('.gm-n').value, 10) || 1)), b);
+    });
+    document.addEventListener('click', function (e) { if (!menu.hidden && !e.target.closest('.more') && !menu.contains(e.target)) menu.hidden = true; });
+  })();
   /* the little i next to "לא נמסר": one explanation card, opens on hover or tap */
   (function () {
     var pop = document.createElement('div'); pop.className = 'whypop'; pop.hidden = true; document.body.appendChild(pop);

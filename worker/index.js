@@ -8491,6 +8491,39 @@ export default {
     if (url.pathname === '/api/shir-admin' && request.method === 'POST') {
       return handleShirAdmin(request, env, origin);
     }
+    /* Richard 28/09 (clients page): one click sends the client a WhatsApp with
+       the link to their dashboard, or to the upload/settings page. Free text
+       inside the 24h window, otherwise the matching template. */
+    if (url.pathname === '/api/client-link' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (!ev) return deny(404, 'unknown-token', origin);
+      const phone = normPhone(ev[3] || ''); const first = String(ev[2] || '').trim().split(/\s+/)[0] || '';
+      const evName = String(ev[34] || ev[5] || 'האירוע').trim();
+      const kind = b.kind === 'upload' ? 'upload' : 'dashboard';
+      const link = kind === 'upload' ? `https://go.ishur.io/upload.html?t=${tok}` : `https://go.ishur.io/dashboard.html?t=${tok}`;
+      const text = kind === 'upload'
+        ? `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע של ${evName}:\n${link}`
+        : `היי ${first}, הנה הקישור ללוח הבקרה של ${evName}, שם רואים בכל רגע מי אישר:\n${link}`;
+      const ctx = { who: 'ריצ׳רד', token: tok };
+      /* inside the 24h window a real button; otherwise a template */
+      let res = await sendCtaUrl(env, phone, text.split('\n')[0], kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה', link, 'client', ctx);
+      let via = 'button';
+      if (!res.ok) {
+        via = 'template';
+        if (kind === 'upload') res = await sendTemplate(env, phone, 'ishur_tzikoret_kovetz', [first, link], '', 'he', 'client', ctx);
+        else {
+          const snap = buildDashboard(tok, raw, 0, {});
+          const t = snap.totals || {};
+          res = await sendTemplate(env, phone, 'ishur_doch', [evName, String(t.confirmed || 0), String(t.confirmed_seats || 0), String(t.declined || 0), String(t.pending || 0), link], '', 'he', 'client', ctx);
+        }
+      }
+      await logEvent(env, { area: 'לקוחות', action: `נשלח ללקוח קישור ל${kind === 'upload' ? 'העלאה' : 'לוח'} (${via})`, ok: res.ok, phone, token: tok, detail: res.error || '' }).catch(() => {});
+      return okJson({ ok: res.ok, via, error: res.error || '' }, origin);
+    }
     if (url.pathname === '/api/resend' && request.method === 'POST') {
       return handleResend(request, env, origin);
     }
