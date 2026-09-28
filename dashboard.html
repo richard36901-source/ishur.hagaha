@@ -164,6 +164,12 @@
   .sendst{flex-shrink:0;font-size:.64rem;color:var(--ink3);white-space:nowrap;margin-inline-start:.3rem}
   .sendst.sent{color:var(--green2)}
   .sendst.failed,.sendst.retrying,.sendst.none{color:var(--err)}
+  .sendst .info{display:inline-flex;align-items:center;justify-content:center;width:1rem;height:1rem;margin-inline-start:.25rem;border-radius:50%;border:1px solid currentColor;background:none;color:inherit;font:600 .62rem/1 'Rubik',sans-serif;cursor:pointer;vertical-align:middle}
+  .sendst .info:hover{background:var(--err);color:#fff}
+  .whypop{position:absolute;z-index:50;max-width:280px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:.7rem .85rem;box-shadow:0 8px 28px rgba(0,0,0,.12);font-size:.8rem;line-height:1.5;color:var(--ink)}
+  .whypop b{display:block;font-size:.72rem;color:var(--ink3);margin-top:.35rem}
+  .whypop b:first-child{margin-top:0}
+  .whypop p{margin:.1rem 0 0}
   .pill.maybe{background:#FBF3DF;color:#8A6D2F}
   html[data-theme=dark] .pill.maybe{background:#3A3120;color:#E2C98A}
   .row-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.85rem;color:var(--ink2);min-width:1.4rem;text-align:center}
@@ -721,6 +727,26 @@
 
   $('wa').href = CFG.waLink('היי, לגבי האירוע שלי:');
 
+  /* why an invitation did not arrive, in the hosts' language, with what happens next */
+  var SEND_WHY = {
+    '131026': 'המספר לא פעיל בוואטסאפ, או שהגדרות הפרטיות שלו חוסמות הודעות ממי שלא שמור אצלו באנשי הקשר.',
+    '131049': 'וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים שלא שמורים אצלו. זה מצב זמני מצד וואטסאפ.',
+    '130472': 'וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים כרגע (מצב זמני מצד וואטסאפ).',
+    '131053': 'הסרטון או התמונה לא נטענו אצל וואטסאפ באותו רגע.',
+    '131042': 'תקלה זמנית בחיבור לוואטסאפ מצידנו.'
+  };
+  function sendBadge(g) {
+    var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
+    if (!g.sent || g.sent === 'none') return afterInvite && !g.self ? '<span class="sendst none">לא נשלח</span>' : '';
+    if (g.sent === 'sent') return '<span class="sendst sent" title="ההזמנה נמסרה">✓ נשלח</span>';
+    var calls = (data.event && (data.event.plan === 'premium' || data.event.plan === 'pro'));
+    var why = SEND_WHY[g.sent_code] || 'וואטסאפ לא הצליח למסור את ההודעה.';
+    var next = g.sent === 'retrying'
+      ? 'ננסה לשלוח שוב אוטומטית' + (data.next_attempt ? ' ב-' + heDay(data.next_attempt) : '') + '.'
+      : (calls ? 'ניסינו שלוש פעמים. ' + (g.sent_code === '131026' ? 'אין טעם לנסות שוב בוואטסאפ, ' : '') + 'שיר תתקשר אליהם בסבב השיחות.' : 'ניסינו שלוש פעמים. כדאי לשלוח להם את ההזמנה מהטלפון שלכם, או להוסיף שיחות טלפון לחבילה.');
+    var label = g.sent === 'retrying' ? '↻ לא נמסר עדיין' : '✕ לא נמסר';
+    return '<span class="sendst ' + g.sent + '">' + label + ' <button type="button" class="info" data-why="' + esc(why) + '" data-next="' + esc(next) + '" aria-label="למה?">i</button></span>';
+  }
   function heDay(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] : iso; }
   var STATUS = {
     confirmed: { label: 'אישרו', pill: 'yes' },
@@ -1148,7 +1174,7 @@
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
              '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
-             (g.sent && g.sent !== 'none' ? '<span class="sendst ' + g.sent + '" title="' + (g.sent === 'sent' ? 'ההזמנה נשלחה' : g.sent === 'failed' ? 'ההזמנה לא נמסרה, נטפל בזה' : 'ההזמנה לא נמסרה, ננסה שוב') + '">' + (g.sent === 'sent' ? '✓ נשלח' : g.sent === 'failed' ? '✕ לא נמסר, נטפל ידנית' : '↻ לא נמסר, ננסה שוב' + (data.next_attempt ? ' ב-' + heDay(data.next_attempt) : '')) + '</span>' : (data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; }) ? '<span class="sendst none">לא נשלח</span>' : '')) +
+             sendBadge(g) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
@@ -1168,6 +1194,27 @@
 
   /* ── seating: collect edits, save in one call ── */
   var seatDirty = {};
+  /* the little i next to "לא נמסר": one explanation card, opens on hover or tap */
+  (function () {
+    var pop = document.createElement('div'); pop.className = 'whypop'; pop.hidden = true; document.body.appendChild(pop);
+    var hideT;
+    function show(btn) {
+      clearTimeout(hideT);
+      pop.innerHTML = '<b>למה לא נמסר?</b><p>' + esc(btn.dataset.why) + '</p><b>מה קורה עכשיו</b><p>' + esc(btn.dataset.next) + '</p>';
+      pop.hidden = false;
+      var r = btn.getBoundingClientRect();
+      pop.style.top = (window.scrollY + r.bottom + 8) + 'px';
+      var left = Math.max(12, Math.min(window.innerWidth - pop.offsetWidth - 12, r.left + r.width / 2 - pop.offsetWidth / 2));
+      pop.style.left = left + 'px';
+    }
+    function hide() { hideT = setTimeout(function () { pop.hidden = true; }, 150); }
+    $('rows').addEventListener('mouseover', function (e) { var b = e.target.closest && e.target.closest('.info'); if (b) show(b); });
+    $('rows').addEventListener('mouseout', function (e) { if (e.target.closest && e.target.closest('.info')) hide(); });
+    $('rows').addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('.info'); if (!b) return; e.preventDefault(); if (pop.hidden) show(b); else pop.hidden = true; });
+    pop.addEventListener('mouseenter', function () { clearTimeout(hideT); });
+    pop.addEventListener('mouseleave', hide);
+    document.addEventListener('click', function (e) { if (!pop.hidden && !e.target.closest('.info') && !pop.contains(e.target)) pop.hidden = true; });
+  })();
   $('rows').addEventListener('input', function (e) {
     var t = e.target;
     if (!t.classList || !t.classList.contains('tbl-in')) return;

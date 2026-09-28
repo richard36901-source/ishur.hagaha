@@ -9219,17 +9219,16 @@ export default {
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          const [ok, dead, fail] = await Promise.all([
+          const [ok, dead, fail, code] = await Promise.all([
             env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
             env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
             env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
+            env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
           ]);
-          if (dead) return 'failed';
-          if (ok) return 'sent';
-          if (fail) return 'retrying';
-          return 'none';
+          const st = dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
+          return { st, code: st === 'sent' ? '' : String(code || dead || '') };
         }));
-        snapshot.guests.forEach((g, i) => { g.sent = states[i]; });
+        snapshot.guests.forEach((g, i) => { g.sent = states[i].st; g.sent_code = states[i].code; });
         /* when the next automatic attempt is: today while the send window is open, otherwise the next send day */
         const nxt = (() => { const d = new Date(); for (let i = 0; i < 8; i++) { const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d); if (!isNoContactDay(iso) && (i > 0 || sendWindowState().open)) return iso; d.setDate(d.getDate() + 1); } return ''; })();
         snapshot.next_attempt = nxt;
