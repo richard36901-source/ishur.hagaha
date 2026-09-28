@@ -737,7 +737,7 @@
   };
   function sendBadge(g) {
     var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
-    if (!g.sent || g.sent === 'none') return afterInvite && !g.self ? '<span class="sendst none">לא נשלח</span>' : '';
+    if (!g.sent || g.sent === 'none') return '<span class="sendst none">' + (afterInvite && !g.self ? 'לא נשלח' : '') + '</span>';
     if (g.sent === 'sent') return '<span class="sendst sent" title="ההזמנה נמסרה">✓ נשלח</span>';
     var calls = (data.event && (data.event.plan === 'premium' || data.event.plan === 'pro'));
     var why = SEND_WHY[g.sent_code] || 'וואטסאפ לא הצליח למסור את ההודעה.';
