@@ -112,7 +112,9 @@ async function alert(env, where, what, detail) {
   /* Richard reads Slack alerts; a second ping on WhatsApp was noise (his call, 06/09) */
   if (env.SLACK_ALERT_HOOK) {
     const urgent = URGENT_ALERT_RE.test(where + ' ' + what300 + ' ' + detail500);
-    await slackSend(env, `⚠️ *${where}*\n${what300}${detail500 ? '\n' + detail500 : ''}`, { urgent });
+    /* Richard 28/09: one line, organised; a newline only when the detail is long */
+    const oneLine = `⚠️ *${where}* · ${what300}`;
+    await slackSend(env, detail500 ? (detail500.length > 90 ? `${oneLine}\n${detail500}` : `${oneLine} · ${detail500}`) : oneLine, { urgent });
     return;
   }
   if (!env.ALERT_HOOK) return;
@@ -314,10 +316,15 @@ async function handleGrowIpn(request, env, url) {
     const missId = 'ipnmiss:' + Date.now();
     if (env.RATE) {
       await env.RATE.put(missId, flatDump.slice(0, 12000), { expirationTtl: 30 * 86400 }).catch(() => {});
+      /* Richard 28/09: say it once per payer+description (a recurring charge of
+         another business on the same Grow account pinged him every morning) */
+      const sig = 'ipnmiss-said:' + String(flat.payerPhone || flat.payerEmail || '') + ':' + String(flat.paymentDesc || '') + ':' + String(flat.paymentSum || '');
+      if (await env.RATE.get(sig)) return new Response('ignored-non-ishur', { status: 200 });
+      await env.RATE.put(sig, '1', { expirationTtl: 180 * 86400 }).catch(() => {});
     }
     await logEvent(env, { area: 'תשלום', action: 'תשלום לא זוהה כ-ishur — חונה, לא הופעל', ok: false, review: true,
       phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${missId} · ${String(flat.paymentDesc || '')} · להרצה: /api/ipn-replay` });
-    await alert(env, 'תשלום Grow לא זוהה',
+    await alert(env, 'תשלום Grow לא זוהה (נאמר פעם אחת)',
       `תשלום שלא זוהה כ-ishur לא הופעל (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו — שלח לי את המזהה ${missId} ואני מריץ אותו מיד`,
       flatDump.slice(0, 600));
     return new Response('ignored-non-ishur', { status: 200 });
@@ -2610,7 +2617,10 @@ async function handleWaWebhook(request, env, url) {
             if (await env.RATE.get(bk)) continue;
             await env.RATE.put(bk, '1', { expirationTtl: 6 * 3600 }).catch(() => {});
           }
-          await alert(env, 'ווצאפ', `הודעה ל-${st.recipient_id || '?'} לא נמסרה${retry}`, `${err.code || ''} ${err.title || ''}`);
+          const WHY = { '131049': 'מגבלת הודעות שיווקיות של מטא לאיש הקשר', '130472': 'איש הקשר בניסוי של מטא', '131026': 'המספר לא בוואטסאפ / חסם', '131053': 'הקובץ לא נטען אצל מטא', '131042': 'בעיית תשלום בחשבון מטא', '131047': 'עברו 24 שעות, נדרשת תבנית', '132001': 'תבנית לא קיימת/לא מאושרת', '131056': 'יותר מדי הודעות לאותו מספר' };
+          const who = st.recipient_id ? String(st.recipient_id).replace(/^972/, '0') : '?';
+          let gname = ''; try { const mm = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null; if (mm && mm.phone) gname = (await env.RATE.get('waname:' + mm.phone).catch(() => '')) || ''; } catch {}
+          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '');
         }
       }
     }
@@ -6260,6 +6270,37 @@ async function syncInvoices(env) {
   return { ok: true, written, waiting };
 }
 
+/* ── who did not get the invitation (per event) ─────────────────────────────
+   wfail = failed, retrying; wdead = gave up (3 fails or not on WhatsApp).
+   Used by the daily report and by /api/wave-retry. */
+async function undeliveredByEvent(env, raw) {
+  const out = {};
+  const fails = await kvPrefix(env, 'wfail:');
+  const dead = await kvPrefix(env, 'wdead:');
+  const names = {};
+  for (const g of (raw && raw.guests && raw.guests.values) || []) { const p = normPhone(g[4] || ''); if (p) names[p] = String(g[3] || '').trim(); }
+  const evName = {}; for (const e of (raw && raw.events && raw.events.values) || []) evName[String(e[1] || '').trim()] = String(e[34] || e[2] || '').trim();
+  const add = (k, v, kind) => {
+    const [, token, wave, phone] = k.split(':');
+    if (await_sent(env, token, wave, phone)) return;
+    (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind, code: v });
+  };
+  const sentCache = {};
+  async function await_sent(env, token, wave, phone) { const k = `wsent:${token}:${wave}:${phone}`; if (!(k in sentCache)) sentCache[k] = !!(await env.RATE.get(k).catch(() => null)); return sentCache[k]; }
+  for (const [k, v] of Object.entries(dead)) { const [, token, wave, phone] = k.split(':'); if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'dead', code: v }); }
+  for (const [k, v] of Object.entries(fails)) { const [, token, wave, phone] = k.split(':'); if (dead[`wdead:${token}:${wave}:${phone}`]) continue; if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'retry', code: await env.RATE.get(`wferr:${token}:${wave}:${phone}`).catch(() => '') || '' }); }
+  return out;
+}
+function undeliveredLines(byEv) {
+  const WHY = { '131049': 'מגבלת שיווק מטא', '130472': 'ניסוי מטא', '131026': 'לא בוואטסאפ', '131053': 'קובץ', '131042': 'תשלום מטא' };
+  const lines = [];
+  for (const ev of Object.values(byEv)) {
+    if (!ev.list.length) continue;
+    lines.push(`📵 *לא נמסרו · ${ev.name}* (${ev.list.length}): ` + ev.list.map(g => `${g.name || g.phone.replace(/^972/, '0')}${g.code ? ' (' + (WHY[g.code] || g.code) + ')' : ''}${g.kind === 'dead' ? ' ✕' : ''}`).join(', '));
+  }
+  return lines;
+}
+
 async function dailyJournalDigest(env) {
   const today = ilDate();
   const il = (iso) => iso;                                   // rows are already in IL time
@@ -6299,7 +6340,9 @@ async function dailyJournalDigest(env) {
     'מה יקרה מחר: המנוע רץ ב-06:35 UTC, הפייסר כל 10 דקות בחלון השליחה, הרופא בסוף כל פעימה. שורות אדומות שלא טופלו נשארות אדומות ביומן עד שתסמן אותן.',
     traffic,
   ].filter(Boolean).join('\n');
-  await slackPost(env, text);
+  let undl = '';
+  try { const raw = await snapshotCached(env).catch(() => null); undl = undeliveredLines(await undeliveredByEvent(env, raw)).join('\n'); } catch {}
+  await slackPost(env, undl ? text + '\n' + undl : text);
   await logEvent(env, { area: 'דוח', action: 'דוח יומי נשלח לסלאק', ok: true, detail: `${rows.length} פעולות · ${failed} נכשלו · ${red} אדומות · ${fixes.length} תיקוני רופא · ${builds.length} גרסאות` });
   return { rows: rows.length, ok, failed, red, fixes: fixes.length, builds: builds.length };
 }
@@ -7772,6 +7815,7 @@ export default {
            while the window is closed, so the pacer (already armed via
            pacer:pending above) carries the first sends at 09:00. */
     ctx.waitUntil(tryPortfolioOtp(env).catch(() => {}));
+    ctx.waitUntil((async () => { const raw = await snapshotCached(env).catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n')); })().catch(() => {}));
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
     ctx.waitUntil(runDailyEngine(env, false, null, { budget: morningBudget }).then(() => runBackup(env)).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
@@ -8419,6 +8463,19 @@ export default {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       return okJson({ hasKey: !!env.LINEAR_API_KEY, keyLooksReal: /^lin_api_/.test(String(env.LINEAR_API_KEY || '')), ...(b.create ? await linearTriageIssue(env, String(b.title || 'בדיקה · שאלת אורח'), String(b.body || 'בדיקת חיבור מהוורקר. אפשר לסגור.')) : {}) }, origin);
+    }
+    if (url.pathname === '/api/wave-retry' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const token = String(b.token || ''); const w = String(b.wave || '1');
+      const raw = await snapshotCached(env).catch(() => null);
+      const by = await undeliveredByEvent(env, raw);
+      const list = (by[token] && by[token].list.filter(g => g.wave === w)) || [];
+      for (const g of list) for (const k of [`wfail:${token}:${w}:${g.phone}`, `wdead:${token}:${w}:${g.phone}`, `wferr:${token}:${w}:${g.phone}`, `gday:${g.phone}:${ilDate()}`]) await env.RATE.delete(k).catch(() => {});
+      await env.RATE.delete(`wave:${token}:${w}`).catch(() => {});
+      await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+      const r = b.dry ? { dry: true } : await runDailyEngine(env, false, null, { budget: Number(b.budget) || 30 }).catch(e => ({ ok: false, error: String(e && e.message) }));
+      return okJson({ ok: true, retried: list.map(g => ({ name: g.name, phone: g.phone, code: g.code })), engine: r && { ok: r.ok, truncated: r.truncated, error: r.error } }, origin);
     }
     if (url.pathname === '/api/lead-pings' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
