@@ -8710,6 +8710,27 @@ export default {
       }
       return okJson({ ok: true, url: (await env.RATE.get('navlink:' + tok)) || '' }, origin);
     }
+    /* Richard 29/09: the client's budget planner (budget.html). One KV record per
+       event: items [{name, amount, notes}], gifts (total received). Prefill happens
+       on the page; here it is just a store, token-gated like the seating plan. */
+    if (url.pathname === '/api/budget' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:budget:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
+      if (Array.isArray(b.items)) {
+        const items = b.items.slice(0, 80).map(it => ({
+          key: String(it.key || '').slice(0, 24), name: String(it.name || '').slice(0, 40),
+          amount: Math.max(0, Math.min(5e6, Math.round(Number(it.amount) || 0))), notes: String(it.notes || '').slice(0, 120),
+        }));
+        const rec = { items, gifts: Math.max(0, Math.min(5e6, Math.round(Number(b.gifts) || 0))), gifts_n: Math.max(0, Math.min(5000, Math.round(Number(b.gifts_n) || 0))), at: new Date().toISOString() };
+        await env.RATE.put('budget:' + tok, JSON.stringify(rec));
+        return okJson({ ok: true, ...rec }, origin);
+      }
+      let rec = null; try { rec = JSON.parse(await env.RATE.get('budget:' + tok)); } catch {}
+      return okJson({ ok: true, items: (rec && rec.items) || null, gifts: (rec && rec.gifts) || 0, gifts_n: (rec && rec.gifts_n) || 0 }, origin);
+    }
     if (url.pathname === '/api/seatplan' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

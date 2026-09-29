@@ -247,6 +247,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       venue_name: c(4), venue_city: c(37),
       plan: c(31), guests_tier: c(32),
       image_url: c(44),
+      paid_sum: Number(String(c(8)).replace(/[^\d.]/g, '')) || 0,
     },
     totals,
     sends,

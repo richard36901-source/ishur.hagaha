@@ -1,0 +1,231 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>תקציב האירוע · אישורי הגעה</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=60"></script>
+<script src="assets/ux.js?v=3"></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb;--card:#fff;--warn:#A8402F;--err-bg:#FBEDEA}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:5}
+  .top h1{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
+  .top .sub{font-size:.78rem;color:var(--ink3)}
+  .top .sp{flex:1}
+  .btn{font:inherit;font-size:.84rem;font-weight:600;padding:.45rem .95rem;border-radius:999px;border:1.5px solid var(--bdr);background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none;white-space:nowrap}
+  .btn.p{background:var(--green);color:#fff;border-color:transparent}
+  .btn.p.ok{background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
+  .btn.p.saving{background:var(--gold)}
+  .wrap{max-width:860px;margin:0 auto;padding:1rem 1rem 4rem}
+  .sum{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:1rem}
+  @media(min-width:640px){.sum{grid-template-columns:repeat(4,1fr)}}
+  .k{background:var(--card);padding:.9rem .6rem;text-align:center}
+  .k b{display:block;font-family:'Rubik',sans-serif;font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .k span{font-size:.72rem;color:var(--ink3)}
+  .k.hi b{color:var(--green2)}
+  .k.bad b{color:var(--warn)}
+  .card{background:var(--card);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:1rem}
+  .card-h{padding:.75rem 1rem;border-bottom:1px solid var(--bdr);font-family:'Rubik',sans-serif;font-size:.8rem;font-weight:600;letter-spacing:.08em;color:var(--gold);display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+  .row{display:grid;grid-template-columns:1fr 7.2rem;gap:.5rem;align-items:center;padding:.55rem 1rem;border-bottom:1px solid var(--bdr)}
+  .row:last-child{border-bottom:none}
+  .row .nm{font-size:.92rem;font-weight:500;min-width:0}
+  .row .nm input{width:100%;font:inherit;font-size:.92rem;font-weight:500;border:none;background:transparent;color:var(--ink);padding:.15rem 0}
+  .row .nm input:focus{outline:none;border-bottom:1px solid var(--green)}
+  .row .nt{grid-column:1/-1;font-size:.78rem;color:var(--ink3)}
+  .row .nt input{width:100%;font:inherit;font-size:.78rem;border:none;background:transparent;color:var(--ink3);padding:0}
+  .row .nt input:focus{outline:none;color:var(--ink2)}
+  .amt{display:flex;align-items:center;gap:.25rem;direction:ltr;justify-content:flex-end}
+  .amt input{width:6rem;font:inherit;font-size:.95rem;font-weight:600;text-align:right;padding:.35rem .5rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);font-variant-numeric:tabular-nums}
+  .amt input:focus{outline:none;border-color:var(--green);background:var(--card)}
+  .amt i{font-style:normal;color:var(--ink3);font-size:.85rem}
+  .row.ours{background:var(--green4)}
+  .row.ours .amt input{background:var(--card)}
+  .row .x{position:absolute}
+  .rowwrap{position:relative}
+  .del{font:inherit;font-size:.9rem;color:var(--ink3);background:none;border:none;cursor:pointer;padding:0 .3rem;line-height:1}
+  .del:hover{color:var(--warn)}
+  .nm-line{display:flex;align-items:center;gap:.3rem}
+  .add{padding:.6rem 1rem}
+  .gift{display:grid;grid-template-columns:1fr 7.2rem;gap:.5rem;align-items:center;padding:.6rem 1rem;border-bottom:1px solid var(--bdr)}
+  .gift:last-child{border-bottom:none}
+  .gift .l{font-size:.9rem;font-weight:500}
+  .gift .l small{display:block;font-size:.74rem;color:var(--ink3);font-weight:400}
+  .note{font-size:.74rem;color:var(--ink3);padding:.6rem 1rem}
+  .skel{background:linear-gradient(90deg,var(--bdr) 25%,#f3f4f6 37%,var(--bdr) 63%);background-size:400% 100%;animation:sh 1.2s infinite;color:transparent!important;border-radius:6px}
+  @keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+  .bad-tok{padding:3rem 1rem;text-align:center;color:var(--ink3)}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="btn" id="back" href="#">→ ללוח</a>
+  <div><h1 id="title">תקציב האירוע</h1><div class="sub" id="sub">&nbsp;</div></div>
+  <span class="sp"></span>
+  <button type="button" class="btn p ok" id="save" disabled>נשמר</button>
+</div>
+
+<div class="wrap" id="main" hidden>
+  <div class="sum">
+    <div class="k"><b id="kTotal">₪0</b><span>סך ההוצאות</span></div>
+    <div class="k"><b id="kPeople">0</b><span id="kPeopleL">מוזמנים</span></div>
+    <div class="k hi"><b id="kPer">₪0</b><span>עלות למוזמן</span></div>
+    <div class="k" id="kNetBox"><b id="kNet">₪0</b><span id="kNetL">מאזן</span></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><span>הוצאות</span><span style="font-weight:400;letter-spacing:0;color:var(--ink3)">כתבו מחיר ליד כל סעיף. אפשר להוסיף, לשנות שם ולמחוק.</span></div>
+    <div id="rows"></div>
+    <div class="add"><button type="button" class="btn" id="addRow">+ סעיף</button></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><span>מתנות</span></div>
+    <div class="gift"><div class="l">סך המתנות שהתקבלו<small>עדכנו אחרי האירוע, או תוך כדי</small></div><div class="amt"><i>₪</i><input type="number" inputmode="numeric" min="0" id="gifts" placeholder="0"></div></div>
+    <div class="gift"><div class="l">כמה אנשים נתנו<small>לא חובה. נותן ממוצע מתנה לאדם</small></div><div class="amt"><input type="number" inputmode="numeric" min="0" id="giftsN" placeholder="0"></div></div>
+    <div class="note" id="giftNote"></div>
+  </div>
+
+  <div class="card">
+    <div class="card-h"><span>איך זה מחושב</span></div>
+    <div class="note">עלות למוזמן = סך ההוצאות חלקי מספר המוזמנים (מי שאישרו הגעה; עד שיש אישורים, לפי כמות המוזמנים ברשימה). המאזן = מתנות פחות הוצאות. הנתונים נשמרים אצלנו ורק אתם רואים אותם.</div>
+  </div>
+</div>
+<div class="bad-tok" id="bad" hidden>הקישור לא תקין. היכנסו מחדש דרך הלוח שלכם.</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
+  var token = new URLSearchParams(location.search).get('t') || '';
+  if (!/^[0-9a-f-]{36}$/.test(token)) { $('bad').hidden = false; return; }
+  $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+
+  /* the list every couple starts with. Only our own line arrives with a price. */
+  var DEFAULTS = [
+    { key: 'venue', name: 'אולם / גן אירועים', notes: 'כולל מנות, שתייה, בר' },
+    { key: 'food', name: 'קייטרינג / מנה לאדם', notes: 'אם לא כלול באולם' },
+    { key: 'photo', name: 'צלם וידאו וסטילס' },
+    { key: 'dj', name: 'DJ / להקה' },
+    { key: 'dress', name: 'שמלה' },
+    { key: 'suit', name: 'חליפה' },
+    { key: 'makeup', name: 'איפור ושיער' },
+    { key: 'rings', name: 'טבעות' },
+    { key: 'design', name: 'עיצוב ופרחים' },
+    { key: 'invites', name: 'הזמנות ועיצוב' },
+    { key: 'ishur', name: 'אישורי הגעה (ishur.io)', notes: 'הזמנות בוואטסאפ, תזכורות, שיחות, לוח בקרה', ours: true },
+    { key: 'transport', name: 'הסעות' },
+    { key: 'hotel', name: 'מלון / חדר' },
+    { key: 'rabbi', name: 'רב / חופה' },
+    { key: 'favors', name: 'מתנות לאורחים' },
+    { key: 'extras', name: 'אטרקציות (בר קוקטיילים, צילום מגנטים)' },
+    { key: 'misc', name: 'שונות' }
+  ];
+
+  var items = null, gifts = 0, giftsN = 0, people = 0, peopleLabel = 'מוזמנים', ourCost = 0, dirty = false, saveT = null;
+
+  function fmt(n) { return '₪' + Math.round(n || 0).toLocaleString('he-IL'); }
+  function total() { return items.reduce(function (a, it) { return a + (Number(it.amount) || 0); }, 0); }
+
+  function paintSum() {
+    var t = total();
+    $('kTotal').textContent = fmt(t);
+    $('kPeople').textContent = people.toLocaleString('he-IL');
+    $('kPeopleL').textContent = peopleLabel;
+    $('kPer').textContent = people ? fmt(t / people) : '—';
+    var net = (Number(gifts) || 0) - t;
+    $('kNet').textContent = (net >= 0 ? '+' : '−') + fmt(Math.abs(net));
+    $('kNetL').textContent = gifts ? (net >= 0 ? 'רווח (מתנות פחות הוצאות)' : 'הפסד (מתנות פחות הוצאות)') : 'מאזן, אחרי הזנת מתנות';
+    $('kNetBox').className = 'k ' + (gifts ? (net >= 0 ? 'hi' : 'bad') : '');
+    var gn = Number(giftsN) || 0;
+    $('giftNote').textContent = gifts && gn ? 'ממוצע מתנה: ' + fmt(gifts / gn) + ' לאדם · ' + (people ? 'עלות למוזמן: ' + fmt(t / people) : '') : (gifts && people ? 'מתנה ממוצעת נדרשת לכיסוי ההוצאות: ' + fmt(t / people) + ' לאדם' : '');
+  }
+
+  function paintRows() {
+    $('rows').innerHTML = items.map(function (it, i) {
+      return '<div class="row' + (it.ours ? ' ours' : '') + '" data-i="' + i + '">' +
+        '<div class="nm"><div class="nm-line">' + (it.ours ? '' : '<button type="button" class="del" data-i="' + i + '" aria-label="מחיקה">✕</button>') +
+        '<input class="f-name" value="' + esc(it.name) + '" ' + (it.ours ? 'readonly' : '') + ' placeholder="שם הסעיף"></div></div>' +
+        '<div class="amt"><i>₪</i><input class="f-amt" type="number" inputmode="numeric" min="0" value="' + (it.amount ? it.amount : '') + '" placeholder="0" ' + (it.ours ? 'readonly' : '') + '></div>' +
+        '<div class="nt"><input class="f-notes" value="' + esc(it.notes || '') + '" placeholder="הערות (ספק, מקדמה, מה כלול)"></div>' +
+        '</div>';
+    }).join('');
+  }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  function markDirty() {
+    dirty = true; $('save').disabled = false; $('save').className = 'btn p'; $('save').textContent = 'שינויים לא נשמרו';
+    clearTimeout(saveT); saveT = setTimeout(save, 900);
+  }
+  function save() {
+    if (!dirty) return;
+    $('save').className = 'btn p saving'; $('save').textContent = 'שומר…';
+    var body = { token: token, items: items.map(function (it) { return { key: it.key, name: it.name, amount: Number(it.amount) || 0, notes: it.notes || '' }; }), gifts: Number(gifts) || 0, gifts_n: Number(giftsN) || 0 };
+    fetch(CFG.endpoint('budget'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) throw new Error('save');
+        dirty = false; $('save').disabled = true; $('save').className = 'btn p ok'; $('save').textContent = 'נשמר';
+      }).catch(function () { $('save').className = 'btn p'; $('save').textContent = 'לא נשמר, נסו שוב'; IshurUX.toast('השמירה נכשלה, נסו שוב'); });
+  }
+  $('save').addEventListener('click', save);
+
+  $('rows').addEventListener('input', function (e) {
+    var row = e.target.closest('.row'); if (!row) return;
+    var it = items[Number(row.dataset.i)];
+    if (e.target.classList.contains('f-name')) it.name = e.target.value.slice(0, 40);
+    if (e.target.classList.contains('f-amt')) it.amount = Number(e.target.value) || 0;
+    if (e.target.classList.contains('f-notes')) it.notes = e.target.value.slice(0, 120);
+    paintSum(); markDirty();
+  });
+  $('rows').addEventListener('click', function (e) {
+    var b = e.target.closest('.del'); if (!b) return;
+    var i = Number(b.dataset.i);
+    var it = items[i];
+    var go = function () { items.splice(i, 1); paintRows(); paintSum(); markDirty(); };
+    if (it.amount) askConfirm('למחוק את "' + it.name + '"?', { title: 'מחיקת סעיף', ok: 'מחיקה', danger: true }).then(function (ok) { if (ok) go(); });
+    else go();
+  });
+  $('addRow').addEventListener('click', function () {
+    items.push({ key: 'c' + Date.now().toString(36), name: '', amount: 0, notes: '' });
+    paintRows(); paintSum(); markDirty();
+    var last = $('rows').querySelector('.row:last-child .f-name'); if (last) last.focus();
+  });
+  $('gifts').addEventListener('input', function () { gifts = Number($('gifts').value) || 0; paintSum(); markDirty(); });
+  $('giftsN').addEventListener('input', function () { giftsN = Number($('giftsN').value) || 0; paintSum(); markDirty(); });
+
+  /* ── load: the event (people count, our price) and the saved budget ── */
+  var payload = { token: token };
+  Promise.all([
+    fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) }).then(function (r) { return r.json(); }),
+    fetch(CFG.endpoint('budget'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) }).then(function (r) { return r.json(); })
+  ]).then(function (res) {
+    var d = res[0] || {}, b = res[1] || {};
+    if (!d.ok) { $('bad').hidden = false; return; }
+    var ev = d.event || {}, t = d.totals || {};
+    $('title').textContent = 'תקציב · ' + (ev.name1 || 'האירוע שלכם');
+    $('sub').textContent = [ev.occasion, ev.event_date ? ev.event_date.split('-').reverse().join('.') : ''].filter(Boolean).join(' · ');
+    var confirmedPeople = (d.guests || []).reduce(function (a, g) { return a + (g.status === 'confirmed' ? (g.seats || 1) : 0); }, 0);
+    var invitedPeople = (d.guests || []).reduce(function (a, g) { return a + (g.seats || 1); }, 0);
+    if (confirmedPeople > 0) { people = confirmedPeople; peopleLabel = 'אישרו הגעה'; } else { people = invitedPeople; peopleLabel = 'מוזמנים ברשימה'; }
+    ourCost = Number(ev.paid_sum) || 0;
+    items = (b.items && b.items.length) ? b.items : DEFAULTS.map(function (x) { return { key: x.key, name: x.name, amount: 0, notes: x.notes || '' }; });
+    /* our line always carries what they actually paid, and stays in the list */
+    var ours = items.filter(function (it) { return it.key === 'ishur'; })[0];
+    if (!ours) { ours = { key: 'ishur', name: 'אישורי הגעה (ishur.io)', amount: 0, notes: 'הזמנות בוואטסאפ, תזכורות, שיחות, לוח בקרה' }; items.splice(Math.min(10, items.length), 0, ours); }
+    ours.ours = true; if (ourCost) ours.amount = ourCost;
+    gifts = Number(b.gifts) || 0; giftsN = Number(b.gifts_n) || 0;
+    $('gifts').value = gifts || ''; $('giftsN').value = giftsN || '';
+    $('main').hidden = false;
+    paintRows(); paintSum();
+  }).catch(function () { $('bad').hidden = false; });
+})();
+</script>
+</body>
+</html>
