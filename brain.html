@@ -196,7 +196,7 @@
   })();
   if (qs('key')) { try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} }
 
-  var API = (CFG && CFG.USE_PROXY) ? 'https://ishur-webhooks.richardtomskiy.workers.dev' : '';
+  var API = (CFG && CFG.USE_PROXY) ? 'https://go.ishur.io' : '';
 
   function post(path, body) {
     body.admin_key = adminKey;

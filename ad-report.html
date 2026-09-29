@@ -161,7 +161,7 @@
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
-  var API = (CFG && CFG.endpoint) ? CFG.endpoint('ops').replace(/\/api\/ops-stats$/, '') : 'https://ishur-webhooks.richardtomskiy.workers.dev';
+  var API = (CFG && CFG.endpoint) ? CFG.endpoint('ops').replace(/\/api\/ops-stats$/, '') : 'https://go.ishur.io';
   var $ = function (id) { return document.getElementById(id); };
 
   var qk = new URLSearchParams(location.search).get('key');
