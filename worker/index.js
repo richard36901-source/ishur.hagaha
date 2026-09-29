@@ -627,7 +627,7 @@ async function noteLead(env, f) {
     guests: String(f.guest_range || f.guests || '').trim().slice(0, 30),
     plan: String(f.plan_name || f.plan || '').trim().slice(0, 30),
     price: String(f.price || '').trim().slice(0, 10),
-    source: [f.utm_source, f.utm_medium, f.utm_campaign].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
+    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
     page: String(f.page || '').replace(/^https?:\/\/(www\.)?/, '').split('?')[0].slice(0, 60),
     type: String(f.event_type || '').trim().slice(0, 30),
   };
@@ -6759,7 +6759,7 @@ async function handleMetaAdmin(request, env, origin) {
     init.headers['Content-Type'] = 'application/json';
     init.body = JSON.stringify(body.payload);
   }
-  const r = await fetch('https://graph.facebook.com/v21.0' + path, init).catch(() => null);
+  const r = await fetch('https://graph.facebook.com/' + (/^\/v\d+\.\d+\//.test(path) ? path.slice(1) : 'v21.0' + path), init).catch(() => null);
   if (!r) return deny(502, 'meta-unreachable', origin);
   let out = null;
   try { out = await r.json(); } catch { out = null; }

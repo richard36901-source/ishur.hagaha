@@ -85,7 +85,9 @@ window.IshurLead = (function () {
     return {
       utm_source: q.get('utm_source') || '',
       utm_medium: q.get('utm_medium') || '',
-      utm_campaign: q.get('utm_campaign') || ''
+      utm_campaign: q.get('utm_campaign') || '',
+      utm_content: q.get('utm_content') || '',
+      utm_term: q.get('utm_term') || ''
     };
   }
 

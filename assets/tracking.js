@@ -148,7 +148,13 @@ window.IshurTrack = (function () {
     !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
     /* eslint-enable */
     fbq('init', CFG.FB_PIXEL_ID);
-    fbq('track', 'PageView', {}, { eventID: eventId('pageview_' + location.pathname) });
+    /* 29/09 (ads review): PageView only after 3s on the page or the first
+       real interaction. Bounce-bots that leave in under a second never
+       fire it, so Meta stops learning from them. */
+    var fired = false;
+    function pv() { if (fired) return; fired = true; try { fbq('track', 'PageView', {}, { eventID: eventId('pageview_' + location.pathname) }); } catch (e) {} }
+    setTimeout(pv, 3000);
+    ['scroll', 'touchstart', 'keydown', 'pointerdown'].forEach(function (ev) { window.addEventListener(ev, pv, { once: true, passive: true }); });
   }
 
   function loadTikTok() {
