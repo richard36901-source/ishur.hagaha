@@ -21,7 +21,9 @@ window.ISHUR_CONFIG = (function () {
      request then goes through the proxy and the Make URLs can be deleted from
      this file, which is the only way to stop them being public. */
   var USE_PROXY  = true;
-  var PROXY_BASE = 'https://ishur-webhooks.richardtomskiy.workers.dev';
+  /* 29/09: a client on 4G could not load the dashboard — Israeli carriers
+     filter *.workers.dev. go.ishur.io is the same Worker on our own domain. */
+  var PROXY_BASE = 'https://go.ishur.io';
 
   var MAKE_STATUS_WEBHOOK = '';   // held by the Worker as a secret
                                          // dashboard reads event + guest status
