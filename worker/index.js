@@ -5776,6 +5776,22 @@ async function handleVoiceTools(request, env, origin) {
     await env.RATE.put('noacall:' + to, JSON.stringify({ at, name: body.name || 'ריצ׳רד', occ: body.occ || 'חתונה', requested: !!body.requested }), { expirationTtl: 3 * 86400 });
     return okJson({ ok: true, to, at }, origin);
   }
+  if (body.action === 'testcall' && body.agent === 'shir_out') {
+    /* Shir rings an admin number as if they were a wedding guest (demo data, no sheet row) */
+    const to = normPhone(body.to || '');
+    const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
+    if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
+    if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
+    const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
+      event_date: '2026-10-22', reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1 };
+    const payload = buildCallPayload(g, env.SHIR_FROM);
+    payload.metadata.test = 'voice-tools-shir';
+    const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
+    await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
+    return okJson({ ok: true, call_id: j.call_id }, origin);
+  }
   if (body.action === 'testcall') {
     /* rings one admin number only, as the abandoned-lead script */
     const to = normPhone(body.to || '');
