@@ -2410,7 +2410,7 @@ buildPricing();
   if(go) go.addEventListener('click',()=>{
     const sel=document.getElementById('pr-guests');
     push('addon_hostess_click',{guests:sel?sel.value:''});
-    IshurPopup.open('addon-hostess',{plan:'basic',guests:(sel&&sel.value!=='custom')?sel.value:'',hostess:true});
+    IshurPopup.open('addon-hostess',{guests:(sel&&sel.value!=='custom')?sel.value:'',hostess:true});
   });
   /* dedicated offer link for a lead who was quoted "package + hostesses":
      ?offer=hostess&guests=200&plan=basic opens the order fixed on that combo */
@@ -2544,8 +2544,9 @@ window.addEventListener('load',()=>{
       <div class="wiz-progress" aria-hidden="true">
         <div class="wiz-dot" id="wd1"></div>
         <div class="wiz-dot" id="wd2"></div>
+        <div class="wiz-dot" id="wd3"></div>
       </div>
-      <div class="wiz-step-lbl" id="wiz-lbl">שלב 1 מתוך 2 · הפרטים שלכם</div>
+      <div class="wiz-step-lbl" id="wiz-lbl">שלב 1 מתוך 3 · הפרטים שלכם</div>
 
       <!-- STEP 1 · details -->
       <div class="wiz-step active" id="ws1">
@@ -2609,6 +2610,17 @@ window.addEventListener('load',()=>{
         <div class="plan-opts" id="f-plans" role="radiogroup" aria-labelledby="plans-lbl"></div>
         <p class="ferr" id="e-plan" aria-live="polite"></p>
 
+        <p class="ferr" id="e-plan2" aria-live="polite"></p>
+        <div class="wiz-nav">
+          <button type="button" class="wiz-back" id="pop-back2">חזרה</button>
+          <button type="button" class="wiz-next" id="pop-next2">המשך</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 · hostesses + pay -->
+      <div class="wiz-step" id="ws3">
+        <h3 class="o-title">דיילות באירוע</h3>
+        <p class="pop-sub">תוספת לכל חבילה. אפשר להוסיף עכשיו או לדלג, ההזמנה לא משתנה.</p>
         <label class="addon-row" id="f-hostess-row" for="f-hostess" hidden>
           <input type="checkbox" id="f-hostess">
           <span class="consent-box" aria-hidden="true"></span>

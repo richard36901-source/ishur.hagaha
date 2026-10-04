@@ -408,13 +408,15 @@ window.IshurPopup = (function () {
       to.classList.toggle('from-prev', dir === 'back');
     }
 
-    var d1 = $('wd1'), d2 = $('wd2'), lbl = $('wiz-lbl');
+    var d1 = $('wd1'), d2 = $('wd2'), d3 = $('wd3'), lbl = $('wiz-lbl');
     if (d1) d1.classList.toggle('done', true);
     if (d2) d2.classList.toggle('done', n >= 2);
+    if (d3) d3.classList.toggle('done', n >= 3);
     if (lbl) lbl.textContent = S.quote ? ('הצעה אישית · מעל 900 הזמנות' +
                                           (S.plan && CFG.PLANS[S.plan] ? ' · חבילת ' + CFG.PLANS[S.plan].name : ''))
-                             : n === 1 ? 'שלב 1 מתוך 2 · הפרטים שלכם'
-                                       : 'שלב 2 מתוך 2 · פרטי האירוע';
+                             : n === 1 ? 'שלב 1 מתוך 3 · הפרטים שלכם'
+                             : n === 2 ? 'שלב 2 מתוך 3 · פרטי האירוע'
+                                       : 'שלב 3 מתוך 3 · דיילות ותשלום';
 
     var box = $('order-modal-box');
     if (box) box.scrollTop = 0;
@@ -449,7 +451,20 @@ window.IshurPopup = (function () {
     setStep(2, 'next');
   }
 
-  function back() { setStep(1, 'back'); }
+  function back() { setStep(Math.max(1, S.step - 1), 'back'); }
+
+  function next2() {
+    var ok = true;
+    if (!S.occasion && S.guests !== 'custom') { showError('occasion', MSG.occasion); ok = false; }
+    if (!S.guests) { showError('guests', MSG.guests); ok = false; }
+    if (!S.plan) { var pe = $('e-plan2'); if (pe) { pe.textContent = MSG.plan; pe.classList.add('on'); } ok = false; }
+    if (!ok) return;
+    var pe2 = $('e-plan2'); if (pe2) { pe2.textContent = ''; pe2.classList.remove('on'); }
+    if (S.guests === 'custom') { submit(); return; }
+    IshurLead.track('order_step3', { guests: S.guests, plan: S.plan });
+    setStep(3);
+    updateTotal();
+  }
 
   function submit() {
     var ok = true;
@@ -532,7 +547,7 @@ window.IshurPopup = (function () {
   function showQuoteOk() {
     var inner = $('order-modal-inner');
     if (!inner) return;
-    ['ws1', 'ws2'].forEach(function (id) {
+    ['ws1', 'ws2', 'ws3'].forEach(function (id) {
       var el = $(id); if (el) el.classList.remove('active');
     });
     var prog = inner.querySelector('.wiz-progress'); if (prog) prog.hidden = true;
@@ -570,7 +585,7 @@ window.IshurPopup = (function () {
     lastTrigger = document.activeElement;
     resetQuoteOk();
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false; S.hostess = false; S.hostessLocked = false;
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false; S.hostess = false; S.hostessLocked = false; S.hostessTouched = false;
     var hb = $('f-hostess'); if (hb) { hb.checked = false; hb.disabled = false; }
     var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
@@ -589,7 +604,9 @@ window.IshurPopup = (function () {
        quantity rides along too; over 900 collapses the flow to one step. */
     if (pre && pre.plan) {
       S.plan = pre.plan;
-      S.locked = true;
+      /* Richard 04/10: the tapped package is pre-selected, the others stay
+         visible so they can change their mind. Only a dedicated offer link locks. */
+      S.locked = !!pre.hostessLocked;
       if (pre.guests === 'custom') {
         S.guests = 'custom';
         S.quote = true;
@@ -603,6 +620,13 @@ window.IshurPopup = (function () {
           if (window.IshurSelect && gsel.dataset.enhanced) IshurSelect.refresh(gsel);
         }
       }
+    }
+
+    /* add-on card: a quantity without a package rides in, nothing locked */
+    if (pre && !pre.plan && pre.guests && pre.guests !== 'custom') {
+      S.guests = pre.guests;
+      var gsel0 = $('f-guests');
+      if (gsel0) { gsel0.value = pre.guests; if (window.IshurSelect && gsel0.dataset.enhanced) IshurSelect.refresh(gsel0); }
     }
 
     /* hostesses pre-ticked (pricing add-on card, or a dedicated offer link):
@@ -708,6 +732,10 @@ window.IshurPopup = (function () {
     if (nextBtn) nextBtn.addEventListener('click', next);
     var backBtn = $('pop-back');
     if (backBtn) backBtn.addEventListener('click', back);
+    var backBtn2 = $('pop-back2');
+    if (backBtn2) backBtn2.addEventListener('click', back);
+    var nextBtn2 = $('pop-next2');
+    if (nextBtn2) nextBtn2.addEventListener('click', next2);
     var subBtn = $('pop-submit');
     if (subBtn) subBtn.addEventListener('click', submit);
 
@@ -806,6 +834,7 @@ window.IshurPopup = (function () {
     var hbx = $('f-hostess');
     if (hbx) hbx.addEventListener('change', function () {
       S.hostess = hbx.checked;
+      S.hostessTouched = true;
       IshurLead.track('hostess_toggle', { on: S.hostess, guests: S.guests || '' });
       updateTotal();
     });
@@ -814,6 +843,12 @@ window.IshurPopup = (function () {
     if (g) g.addEventListener('change', function () {
       S.guests = g.value;
       clearError('guests');
+      /* Richard 04/10: big events get hostesses ticked by default (400+),
+         smaller ones start unticked. Never overrides a locked offer. */
+      if (!S.hostessLocked && !S.hostessTouched) {
+        S.hostess = parseInt(g.value, 10) >= 400;
+        var hb3 = $('f-hostess'); if (hb3) hb3.checked = S.hostess;
+      }
       /* over 900 picked mid-flow: the details from step 1 are already in
          hand, so the request goes out right here and the flow ends */
       if (g.value === 'custom') {
