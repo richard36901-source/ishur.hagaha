@@ -308,7 +308,7 @@ window.IshurPopup = (function () {
     if (hRow) {
       hRow.hidden = !(S.guests && S.guests !== 'custom' && hTier);
       var hp = $('f-hostess-price'), hl = $('f-hostess-tier');
-      if (hp) hp.textContent = hPrice ? '+₪' + hPrice : '';
+      if (hp) hp.textContent = hPrice ? '₪' + hPrice : '';
       if (hl) hl.textContent = hTier ? hTier.label + ' · עד ' + hTier.max + ' רשומות' : '';
     }
     var withHost = S.hostess && hPrice != null;
@@ -587,6 +587,9 @@ window.IshurPopup = (function () {
 
     S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false; S.hostess = false; S.hostessLocked = false; S.hostessTouched = false;
     var hb = $('f-hostess'); if (hb) { hb.checked = false; hb.disabled = false; }
+    var hy = $('f-hostess-yes'), hn = $('f-hostess-no');
+    if (hy) hy.setAttribute('aria-checked', 'false');
+    if (hn) { hn.setAttribute('aria-checked', 'true'); hn.disabled = false; }
     var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
 
@@ -636,6 +639,9 @@ window.IshurPopup = (function () {
       S.hostessLocked = !!pre.hostessLocked;
       var hb2 = $('f-hostess');
       if (hb2) { hb2.checked = true; hb2.disabled = S.hostessLocked; }
+      var y2 = $('f-hostess-yes'), n2 = $('f-hostess-no');
+      if (y2) y2.setAttribute('aria-checked', 'true');
+      if (n2) { n2.setAttribute('aria-checked', 'false'); n2.disabled = S.hostessLocked; }
     }
 
     /* locked quantity: the select steps aside for a read-only field that
@@ -827,17 +833,26 @@ window.IshurPopup = (function () {
       clearError('occasion');
       /* pre-select the package that fits this occasion, they can override —
          unless the package came fixed from the pricing block */
-      if (S.occasion && !S.locked) S.plan = CFG.recommendedPlan(S.occasion);
+      if (S.occasion && !S.locked && !S.plan) S.plan = CFG.recommendedPlan(S.occasion);
       renderPlans();
     });
 
     var hbx = $('f-hostess');
-    if (hbx) hbx.addEventListener('change', function () {
-      S.hostess = hbx.checked;
-      S.hostessTouched = true;
+    function setHost(on, touched) {
+      if (S.hostessLocked && !on) return;
+      S.hostess = !!on;
+      if (touched) S.hostessTouched = true;
+      if (hbx) hbx.checked = S.hostess;
+      var y = $('f-hostess-yes'), nn = $('f-hostess-no');
+      if (y) y.setAttribute('aria-checked', S.hostess ? 'true' : 'false');
+      if (nn) nn.setAttribute('aria-checked', S.hostess ? 'false' : 'true');
       IshurLead.track('hostess_toggle', { on: S.hostess, guests: S.guests || '' });
       updateTotal();
-    });
+    }
+    window.__setHost = setHost;
+    var yBtn = $('f-hostess-yes'), nBtn = $('f-hostess-no');
+    if (yBtn) yBtn.addEventListener('click', function () { setHost(true, true); });
+    if (nBtn) nBtn.addEventListener('click', function () { setHost(false, true); });
 
     var g = $('f-guests');
     if (g) g.addEventListener('change', function () {
@@ -848,6 +863,9 @@ window.IshurPopup = (function () {
       if (!S.hostessLocked && !S.hostessTouched) {
         S.hostess = parseInt(g.value, 10) >= 400;
         var hb3 = $('f-hostess'); if (hb3) hb3.checked = S.hostess;
+        var y3 = $('f-hostess-yes'), n3 = $('f-hostess-no');
+        if (y3) y3.setAttribute('aria-checked', S.hostess ? 'true' : 'false');
+        if (n3) n3.setAttribute('aria-checked', S.hostess ? 'false' : 'true');
       }
       /* over 900 picked mid-flow: the details from step 1 are already in
          hand, so the request goes out right here and the flow ends */

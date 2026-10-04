@@ -1639,6 +1639,18 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 .pr-addon td:last-child{text-align:left;font-family:'Rubik',sans-serif;font-weight:600;color:var(--ink)}
 .pr-addon .fine{font-size:.72rem;color:var(--ink3);line-height:1.45}
 .pr-addon .btn{align-self:flex-start;margin-top:.25rem;padding:.55rem 1rem;font-size:.85rem}
+
+.addon-q{border:1px solid var(--bdr);border-radius:12px;padding:.9rem 1rem;background:var(--bg2);margin-top:.4rem}
+.addon-q[hidden]{display:none}
+.addon-q-t{font-family:'Rubik',sans-serif;font-weight:600;font-size:1rem;color:var(--ink)}
+.addon-q-d{font-size:.8rem;color:var(--ink3);margin-top:.3rem;line-height:1.5}
+.addon-q-rec{font-size:.78rem;color:var(--green);margin-top:.35rem;font-weight:500}
+.addon-q-opts{display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap}
+.addon-q-opt{flex:1;min-width:140px;padding:.65rem .8rem;border:2px solid var(--bdr);border-radius:10px;background:#fff;font:inherit;font-size:.9rem;color:var(--ink);cursor:pointer;transition:border-color .2s,background .2s}
+.addon-q-opt[aria-checked="true"]{border-color:var(--green);background:var(--green4,#eaf3ee);font-weight:600}
+.addon-q-opt b{font-family:'Rubik',sans-serif;color:var(--green)}
+.addon-q-opt:disabled{opacity:.6;cursor:default}
+.addon-q-note{font-size:.72rem;color:var(--ink3);margin-top:.6rem;line-height:1.45}
 </style>
 </head>
 <body>
@@ -2621,16 +2633,17 @@ window.addEventListener('load',()=>{
       <div class="wiz-step" id="ws3">
         <h3 class="o-title">דיילות באירוע</h3>
         <p class="pop-sub">תוספת לכל חבילה. אפשר להוסיף עכשיו או לדלג, ההזמנה לא משתנה.</p>
-        <label class="addon-row" id="f-hostess-row" for="f-hostess" hidden>
-          <input type="checkbox" id="f-hostess">
-          <span class="consent-box" aria-hidden="true"></span>
-          <span class="ad-txt">
-            <span class="ad-name">דיילות באירוע</span>
-            <span class="ad-tier" id="f-hostess-tier"></span>
-            <span class="ad-note">מקבלות אורחים, מסמנות הגעה בלוח ומכוונות לשולחנות. נסיעות כלולות במרכז (אשקלון עד הרצליה). מחוץ למרכז +250 ₪ לדיילת, לפי כתובת האירוע.</span>
-          </span>
-          <span class="ad-price" id="f-hostess-price"></span>
-        </label>
+        <div class="addon-q" id="f-hostess-row" hidden>
+          <div class="addon-q-t">רוצים להוסיף דיילות לאירוע?</div>
+          <div class="addon-q-d">מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. <span id="f-hostess-tier"></span></div>
+          <div class="addon-q-rec">מומלץ לאירוע מעל 200 איש, או לאירוע קטן שרוצים לתת בו הרגשת פרמיום.</div>
+          <div class="addon-q-opts" role="radiogroup" aria-label="דיילות">
+            <button type="button" class="addon-q-opt" id="f-hostess-yes" role="radio" aria-checked="false">כן, להוסיף <b id="f-hostess-price"></b></button>
+            <button type="button" class="addon-q-opt" id="f-hostess-no" role="radio" aria-checked="true">לא, בלי דיילות</button>
+          </div>
+          <input type="checkbox" id="f-hostess" hidden>
+          <div class="addon-q-note">נסיעות כלולות במרכז (אשקלון עד הרצליה). מחוץ למרכז: תוספת 250 ₪ לדיילת, לפי כתובת האירוע.</div>
+        </div>
 
         <div class="pop-total" id="pop-total" hidden aria-live="polite"></div>
 

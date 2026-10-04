@@ -256,7 +256,7 @@ function looksIshur(flat, pages) {
   const dump = JSON.stringify(flat || {});
   const desc = String(flat.paymentDesc || flat.description || flat.productName || '');
   return (pages || []).some((id) => dump.includes(id)) ||
-    /מוזמנים|אישור/.test(desc) ||
+    /מוזמנים|רשומות|דיילות|אישור/.test(desc) ||
     dump.toLowerCase().includes('ishur') || dump.includes('אישורי הגעה');
 }
 
@@ -383,6 +383,11 @@ async function processGrowPayment(env, flat) {
 
   const token = crypto.randomUUID();
   const isNewClient = env.RATE ? !(await env.RATE.get('client:' + phone)) : true;
+  /* Richard 04/10: every payment, one line in Slack, at once */
+  try {
+    const local = String(phone || '').replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+    await slackPost(env, `💳 *תשלום חדש* · ₪${flat.paymentSum || flat.sum || '?'} · ${String(flat.paymentDesc || '').slice(0, 60)} · ${flat.payerName || flat.fullName || ''} ${local} · ${isNewClient ? 'לקוח חדש' : 'לקוח קיים'}`, { urgent: true, now: true });
+  } catch {}
 
   if (env.RATE) {
     /* ref→token lives 30 days so the thank-you page can claim it */
@@ -6841,6 +6846,47 @@ async function adsHealthAlert(env) {
 }
 
 
+
+/* ── ads account watchdog (Richard 04/10/26) ───────────────────────────────
+   Every 10 minutes, hourly on the wire: is the ad account allowed to spend,
+   and is anything that should run actually running? A changed verdict posts
+   to Slack once (not every tick) with what is wrong and what I can or cannot
+   do about it. Payment problems are his: a card can only be fixed by him. */
+const ADS_STATUS = { 1: 'ACTIVE', 2: 'DISABLED', 3: 'UNSETTLED', 7: 'PENDING_RISK_REVIEW', 8: 'PENDING_SETTLEMENT', 9: 'IN_GRACE_PERIOD', 100: 'PENDING_CLOSURE', 101: 'CLOSED', 201: 'ANY_ACTIVE', 202: 'ANY_CLOSED' };
+async function adsHealthWatch(env) {
+  if (!env.RATE || !env.META_ADS_TOKEN) return { skipped: true };
+  const hourKey = 'adswatch:' + new Date().toISOString().slice(0, 13);
+  if (await env.RATE.get(hourKey)) return { skipped: 'hour' };
+  await env.RATE.put(hourKey, '1', { expirationTtl: 2 * 3600 }).catch(() => {});
+  const acct = await metaAds(env, '/act_1944903292858482?fields=account_status,disable_reason,balance,amount_spent', 'GET');
+  const a = (acct && acct.data) || {};
+  const ads = await metaAds(env, '/act_1944903292858482/ads?fields=name,status,effective_status,issues_info{error_summary}&limit=50', 'GET');
+  const rows = ((ads && ads.data && ads.data.data) || []).filter(x => x.status === 'ACTIVE');
+  const broken = rows.filter(x => !['ACTIVE', 'IN_PROCESS', 'PENDING_REVIEW'].includes(x.effective_status));
+  const statusName = ADS_STATUS[a.account_status] || String(a.account_status || '?');
+  const verdict = `${statusName}|${broken.length}`;
+  const last = await env.RATE.get('adswatch:last');
+  if (last === verdict) return { same: true, verdict };
+  await env.RATE.put('adswatch:last', verdict).catch(() => {});
+  const billing = 'https://business.facebook.com/latest/billing_hub/accounts/details/?payment_account_id=1944903292858482&business_id=1888051741895896';
+  if (a.account_status === 1 && !broken.length) {
+    if (last) await slackPost(env, `✅ פרסום | חשבון המודעות חזר לפעול. ${rows.length} מודעות פעילות, אין שגיאות.`);
+    return { ok: true, verdict };
+  }
+  const lines = [];
+  if (a.account_status !== 1) {
+    const why = a.account_status === 3 ? 'תשלום לא עבר: צריך לאמת כרטיס ולשלם את היתרה' : a.account_status === 2 ? 'החשבון הושבת ע"י מטא (disable_reason ' + a.disable_reason + ')' : 'סטטוס ' + statusName;
+    lines.push(`🚨 פרסום | חשבון המודעות לא מציג: ${why}. יתרה ₪${(Number(a.balance || 0) / 100).toFixed(2)}.`);
+    lines.push(`זה כרטיס אשראי, רק אתה יכול: ${billing}`);
+  }
+  if (broken.length) {
+    lines.push(`⚠️ ${broken.length} מודעות פעילות לא מוצגות: ` + broken.map(x => `${x.name.replace(/[‎‏]/g, '').slice(0, 30)} (${(x.issues_info || []).map(i => i.error_summary).join(', ') || x.effective_status})`).join(' · '));
+  }
+  await slackPost(env, lines.join('\n'), { urgent: true });
+  await logEvent(env, { area: 'פרסום', action: 'חשבון מודעות: ' + verdict, ok: false, review: true, detail: lines.join(' ').slice(0, 300) }).catch(() => {});
+  return { ok: false, verdict };
+}
+
 async function metaAds(env, path, method, payload) {
   if (!env.META_ADS_TOKEN) return null;
   const init = { method: method || 'GET', headers: { Authorization: 'Bearer ' + env.META_ADS_TOKEN } };
@@ -7824,6 +7870,7 @@ export default {
     /* the ten-minute pacer: a slice of the sends and a slice of the dials,
        spread across the contact window instead of one burst at 09:35 */
     if (String(event.cron || '').startsWith('*/10')) {
+      ctx.waitUntil(adsHealthWatch(env).catch(() => {}));
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
@@ -8617,6 +8664,7 @@ export default {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       if (b.alert) { await adsHealthAlert(env); }
+      if (b.watch) { if (env.RATE) { await env.RATE.delete('adswatch:' + new Date().toISOString().slice(0, 13)).catch(() => {}); if (b.reset) await env.RATE.delete('adswatch:last').catch(() => {}); } return okJson(await adsHealthWatch(env), origin); }
       return okJson(await adsHealth(env), origin);
     }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {

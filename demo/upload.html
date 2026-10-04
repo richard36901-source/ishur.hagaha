@@ -1098,7 +1098,7 @@
         act.innerHTML = '<span class="addon-inc">כלול</span>';
       } else {
         var sum = H.travel * n;
-        tr.innerHTML = city + ' מחוץ למרכז: <b>נסיעות ₪' + H.travel + ' × ' + n + ' = ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
+        tr.innerHTML = city + ' מחוץ למרכז: <b>תוספת נסיעות ₪' + H.travel + ' × ' + n + ' = ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
         act.innerHTML = '<button type="button" class="addon-buy" id="hostessPay">₪' + sum + '</button>';
         var b = $('hostessPay');
         if (b) b.addEventListener('click', function () {
