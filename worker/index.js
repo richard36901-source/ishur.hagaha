@@ -9324,7 +9324,14 @@ export default {
     }
 
     const stampError = await checkStamp(stampFields, appKey);
-    if (stampError) return deny(403, stampError, origin);
+    /* 04/10: a client (0543015401) saw "הקישור לא פעיל" because her phone's
+       stamp failed (clock ahead, or an in-app browser without crypto.subtle),
+       not because her token was bad. A 36-char event token is already the
+       secret on /api/status, so a bad stamp there only costs the stamp's
+       replay protection, which the per-IP budget below still covers. */
+    const tokenRead = url.pathname === '/api/status' && /^[0-9a-f-]{36}$/.test(String(stampFields.token || ''));
+    if (stampError && !tokenRead) return deny(403, stampError, origin);
+    if (stampError) await logEvent(env, { area: 'לוח', action: 'חותמת דפדפן נכשלה, הטוקן תקין — הוגש בכל זאת', ok: true, token: String(stampFields.token).slice(0, 8), detail: stampError + ' · ' + (request.headers.get('User-Agent') || '').slice(0, 80) }).catch(() => {});
 
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const bucket = `${url.pathname}:${ip}`;
