@@ -1,0 +1,2683 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="facebook-domain-verification" content="sit2y0wo8hge473jshdqoh2czat1xb">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1">
+<title>אישורי הגעה לאירועים</title>
+<meta name="description" content="אישורי הגעה לאירועים בוואטסאפ: שולחים את ההזמנה לכל המוזמנים, אוספים אישורים אוטומטית, מתקשרים למי שלא ענה ורואים הכל בלוח בקרה חי. תשלום אחד לאירוע, החל מ-50 ₪.">
+<link rel="canonical" href="https://ishur.io/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="אישורי הגעה · ishur.io">
+<meta property="og:title" content="אישורי הגעה לאירועים בוואטסאפ">
+<meta property="og:description" content="הזמנות, אישורי הגעה, תזכורות ושיחות מעקב — הכל אוטומטי, הכל בוואטסאפ, עם לוח בקרה חי. תשלום אחד לאירוע.">
+<meta property="og:url" content="https://ishur.io/">
+<meta property="og:image" content="https://ishur.io/assets/logo.png">
+<meta property="og:locale" content="he_IL">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Organization",
+      "@id": "https://ishur.io/#org",
+      "name": "אישורי הגעה · ishur.io",
+      "url": "https://ishur.io/",
+      "logo": "https://ishur.io/assets/logo.png",
+      "vatID": "322414905",
+      "areaServed": "IL"
+    },
+    {
+      "@type": "WebSite",
+      "@id": "https://ishur.io/#site",
+      "url": "https://ishur.io/",
+      "name": "אישורי הגעה לאירועים",
+      "inLanguage": "he",
+      "publisher": { "@id": "https://ishur.io/#org" }
+    },
+    {
+      "@type": "Service",
+      "@id": "https://ishur.io/#service",
+      "name": "אישורי הגעה לאירועים בוואטסאפ",
+      "serviceType": "RSVP management / אישורי הגעה",
+      "description": "שליחת הזמנות לאירוע בוואטסאפ, איסוף אישורי הגעה אוטומטי, תזכורות למי שלא ענה, שיחות מעקב, ולוח בקרה חי עם כמות מגיעים מעודכנת. מתאים לחתונות, בר/בת מצווה, בריתות ואירועים עסקיים.",
+      "provider": { "@id": "https://ishur.io/#org" },
+      "areaServed": "IL",
+      "availableLanguage": "he",
+      "offers": {
+        "@type": "AggregateOffer",
+        "priceCurrency": "ILS",
+        "lowPrice": "50",
+        "highPrice": "989",
+        "description": "תשלום חד-פעמי לאירוע לפי כמות רשומות וחבילה, כולל מע\"מ"
+      }
+    }
+  ]
+}
+</script>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- config first: every id, link and price below comes from it -->
+<script src="config.js?v=61demo"></script>
+<script src="assets/tracking.js?v=22"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/lead.js?v=24"></script>
+<script src="assets/messages.js?v=19"></script>
+<script>IshurLead.init({ variant: 'v1' });</script>
+
+<style>
+/* ═══ TOKENS ═══ */
+:root{
+  --green:#0F4C35; --green2:#0A3826; --green3:#D9E7E0; --green4:#F3F8F5;
+  --ink:#111827; --ink2:#374151; --ink3:#6b7280;
+  --bg:#ffffff; --bg2:#f9fafb; --bg3:#f3f4f6;
+  --bdr:#e5e7eb; --bdr2:rgba(15,76,53,.2);
+  --sh:0 1px 3px rgba(0,0,0,.08),0 4px 16px rgba(0,0,0,.05);
+  --sh2:0 4px 12px rgba(0,0,0,.1),0 16px 48px rgba(0,0,0,.08);
+  --wa:#25d366; --wa2:#128c7e;
+  --r:8px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+  /* a display rule on a class must never beat the hidden attribute */
+  [hidden]{display:none!important}
+html{scroll-behavior:smooth}
+body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);font-weight:300;line-height:1.65;overflow-x:hidden;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+
+/* ═══ TYPE ═══ */
+h1,h2,h3,h4{font-family:'Rubik',sans-serif;font-weight:500;line-height:1.25}
+.rubik{font-family:'Rubik',sans-serif}
+
+/* ═══ NAV ═══ */
+#nav{position:fixed;inset:0 0 auto;z-index:300;height:60px;display:flex;align-items:center;justify-content:space-between;padding:0 1.5rem;background:rgba(255,255,255,.96);backdrop-filter:blur(16px);border-bottom:1px solid var(--bdr);transition:box-shadow .3s}
+#nav.sc{box-shadow:0 2px 16px rgba(0,0,0,.07)}
+.nav-logo{display:flex;align-items:center;gap:.6rem}
+.nav-logo-icon{width:48px;height:48px;background:transparent;border-radius:0;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.nav-logo-text{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:var(--ink);letter-spacing:-.01em}
+.nav-logo-text span{color:var(--green)}
+.nav-btn{height:38px;padding:0 1.2rem;background:var(--green);color:#fff;border:none;font-family:'Heebo',sans-serif;font-size:.82rem;font-weight:500;border-radius:6px;cursor:pointer;transition:background .2s;white-space:nowrap}
+.nav-btn:hover{background:var(--green2)}
+
+/* ═══ BUTTONS ═══ */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:.45rem;font-family:'Heebo',sans-serif;font-weight:500;border-radius:8px;cursor:pointer;transition:all .2s;text-decoration:none;border:none;white-space:nowrap}
+.btn-green{background:var(--green);color:#fff;padding:.85rem 1.8rem;font-size:.95rem;box-shadow:0 4px 14px rgba(15,76,53,.35)}
+.btn-green:hover{background:var(--green2);transform:translateY(-1px);box-shadow:0 6px 20px rgba(15,76,53,.4)}
+.btn-outline{background:#fff;color:var(--ink);border:1.5px solid var(--bdr);padding:.82rem 1.6rem;font-size:.95rem}
+.btn-outline:hover{border-color:var(--green);color:var(--green)}
+.btn-full{width:100%}
+
+/* ═══ LAYOUT ═══ */
+.sec{padding:3rem 1.5rem}
+@media(min-width:768px){.sec{padding:4rem 2rem}}
+.wrap{max-width:1080px;margin:0 auto}
+.wrap-sm{max-width:680px;margin:0 auto}
+.sec-hd{text-align:center;margin-bottom:1.8rem}
+.sec-tag{display:inline-block;font-size:.8rem;font-weight:600;letter-spacing:.12em;text-transform:uppercase;color:var(--green);background:var(--green3);padding:.25rem .75rem;border-radius:100px;margin-bottom:.5rem}
+.sec-title{font-size:clamp(1.5rem,3.5vw,2.1rem);color:var(--ink);margin-bottom:.4rem}
+.sec-note{color:var(--ink3);font-size:.9rem;max-width:480px;margin:.4rem auto 0;line-height:1.5}
+.divider{width:40px;height:3px;background:var(--green);border-radius:2px;margin:.7rem auto}
+
+/* ═══ HERO ═══ */
+#hero{min-height:85svh;display:flex;align-items:center;justify-content:center;text-align:center;padding:5rem 1.5rem 3rem;position:relative;overflow:hidden;background:linear-gradient(160deg,#E6EFEA 0%,#F3F8F5 50%,#E6EFEA 100%)}
+.hero-blob{position:absolute;border-radius:50%;pointer-events:none;filter:blur(60px);opacity:.5}
+.blob1{width:500px;height:500px;background:rgba(15,76,53,.18);top:-100px;right:-100px}
+.blob2{width:400px;height:400px;background:rgba(15,76,53,.14);bottom:-80px;left:-80px}
+.hero-inner{position:relative;z-index:1;max-width:660px;width:100%}
+.hero-badge{display:inline-flex;align-items:center;gap:.45rem;font-size:.75rem;font-weight:500;letter-spacing:.06em;color:var(--green2);border:1.5px solid var(--bdr2);padding:.38rem 1rem;border-radius:100px;margin-bottom:1.8rem;background:rgba(240,253,244,.9);opacity:0;animation:rise .6s .1s forwards}
+.hero-h1{font-family:'Rubik',sans-serif;font-size:clamp(2rem,6vw,3.4rem);font-weight:700;color:var(--ink);line-height:1.12;margin-bottom:.8rem;opacity:0;animation:rise .7s .25s forwards;letter-spacing:-.02em}
+.hero-h1 .accent{color:var(--green)}
+.hero-sub{font-size:clamp(.95rem,3vw,1.1rem);color:var(--ink2);max-width:500px;margin:0 auto 2.2rem;font-weight:300;opacity:0;animation:rise .7s .4s forwards;line-height:1.65}
+.hero-btns{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;margin-bottom:2.5rem;opacity:0;animation:rise .7s .55s forwards}
+.hero-trust{display:inline-flex;align-items:center;gap:.6rem;font-size:.82rem;color:var(--ink3);opacity:0;animation:rise .7s .7s forwards}
+.trust-avs{display:flex}.trust-avs span{width:26px;height:26px;border-radius:50%;background:var(--green3);display:inline-flex;align-items:center;justify-content:center;font-size:.65rem;margin-left:-6px;border:2px solid #fff}
+.hero-stats{display:flex;justify-content:center;gap:0;margin-top:1.5rem;opacity:0;animation:rise .7s .85s forwards;background:#fff;border:1px solid var(--bdr);border-radius:12px;overflow:hidden;box-shadow:var(--sh);max-width:480px;margin-left:auto;margin-right:auto;margin-top:1.5rem}
+.h-stat{flex:1;padding:.9rem .5rem;text-align:center;border-left:1px solid var(--bdr)}
+.h-stat:last-child{border-left:none}
+.h-stat-n{font-family:'Rubik',sans-serif;font-size:1.5rem;font-weight:700;color:var(--green);display:block;line-height:1}
+.h-stat-l{font-size:.68rem;color:var(--ink3);display:block;margin-top:.2rem}
+@keyframes rise{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+
+/* ═══ EVENT TYPES ═══ */
+#events{background:var(--bg2)}
+.event-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;max-width:700px;margin:0 auto}
+@media(min-width:560px){.event-grid{grid-template-columns:repeat(6,1fr)}}
+.ev-card{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:1.2rem .8rem;background:#fff;border:2px solid var(--bdr);border-radius:12px;cursor:pointer;transition:all .2s;text-align:center}
+.ev-card:hover,.ev-card.on{border-color:var(--green);background:var(--green4)}
+.ev-card.on{box-shadow:0 0 0 3px rgba(15,76,53,.15)}
+.ev-ico{font-size:1.8rem;line-height:1}
+.ev-lbl{font-size:.75rem;font-weight:500;color:var(--ink2)}
+.ev-card.on .ev-lbl{color:var(--green2)}
+
+/* ═══ HOW ═══ */
+#how{background:#fff}
+.steps-row{display:grid;grid-template-columns:1fr;gap:1rem}
+@media(min-width:560px){.steps-row{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:880px){.steps-row{grid-template-columns:repeat(4,1fr)}}
+.step{display:flex;flex-direction:column;align-items:flex-start;padding:1rem;background:var(--bg2);border-radius:12px;border:1px solid var(--bdr);gap:.5rem;opacity:0;transform:translateY(18px);transition:opacity .6s,transform .6s}
+.step.v{opacity:1;transform:none}
+.step:nth-child(2){transition-delay:.1s}.step:nth-child(3){transition-delay:.2s}.step:nth-child(4){transition-delay:.3s}
+.step-num{width:40px;height:40px;border-radius:10px;background:var(--green);color:#fff;display:flex;align-items:center;justify-content:center;font-family:'Rubik',sans-serif;font-size:1.1rem;font-weight:700;flex-shrink:0}
+.step h3{font-size:1rem;font-weight:600;color:var(--ink)}
+.step p{font-size:.85rem;color:var(--ink3);line-height:1.55}
+
+/* ═══ FEATURES ═══ */
+#features{background:var(--bg2)}
+.feat-grid{display:grid;grid-template-columns:1fr;gap:.9rem;max-width:680px;margin:0 auto}
+@media(min-width:560px){.feat-grid{grid-template-columns:1fr 1fr}}
+.feat{display:flex;align-items:flex-start;gap:.7rem;padding:.9rem 1rem;background:#fff;border:1px solid var(--bdr);border-radius:10px;opacity:0;transform:translateY(14px);transition:opacity .5s,transform .5s}
+.feat.v{opacity:1;transform:none}
+.feat:nth-child(2){transition-delay:.07s}.feat:nth-child(3){transition-delay:.14s}.feat:nth-child(4){transition-delay:.21s}.feat:nth-child(5){transition-delay:.28s}
+.feat-ico2{width:36px;height:36px;border-radius:9px;background:var(--green3);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.feat strong{display:block;font-size:.9rem;font-weight:600;color:var(--ink);margin-bottom:.12rem}
+.feat p{font-size:.83rem;color:var(--ink3);line-height:1.5}
+
+/* ═══ MSG STYLES SECTION ═══ */
+#msg-styles{background:#fff}
+.mtabs{display:flex;flex-wrap:wrap;gap:.5rem;justify-content:center;margin-bottom:1.3rem}
+.mtab{background:var(--bg2);border:1.5px solid var(--bdr);border-radius:100px;padding:.42rem 1rem;font-family:'Heebo',sans-serif;font-size:.8rem;font-weight:400;color:var(--ink3);cursor:pointer;transition:all .2s}
+.mtab.on{background:var(--green);border-color:var(--green);color:#fff}
+.msg-card{background:#fff;border:1.5px solid var(--bdr);border-radius:12px;padding:1.2rem;position:relative;overflow:hidden;max-width:600px;margin:0 auto;box-shadow:var(--sh)}
+.msg-card::before{content:'';position:absolute;top:0;inset-inline:0;height:4px;background:var(--green)}
+.msg-style-tag{font-size:.65rem;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--green);background:var(--green3);padding:.22rem .65rem;border-radius:5px;display:inline-block;margin-bottom:.8rem;font-family:'Heebo',sans-serif}
+.msg-text{font-size:.9rem;color:var(--ink2);line-height:1.7;direction:rtl}
+.msg-note-txt{text-align:center;font-size:.78rem;color:var(--ink3);margin-top:.8rem}
+
+/* ═══ PREVIEWS ═══ */
+#previews{background:#162236;overflow:hidden;position:relative}
+#previews::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(15,76,53,.08),transparent 70%);pointer-events:none}
+#previews .sec-tag{background:rgba(15,76,53,.15);color:#6ee7b7}
+#previews .sec-title{color:#fff}
+#previews .sec-note{color:rgba(255,255,255,.5)}
+#previews .divider{background:rgba(15,76,53,.5)}
+
+/* tabs */
+.ptabs2{display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:1.5rem}
+.ptab2{background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);color:rgba(255,255,255,.5);font-family:'Heebo',sans-serif;font-size:.82rem;font-weight:500;padding:.52rem 1.4rem;border-radius:100px;cursor:pointer;transition:all .22s}
+.ptab2.on{background:rgba(15,76,53,.18);border-color:rgba(15,76,53,.55);color:#2F6E52}
+
+/* iPhone shell */
+/* iPhone shell */
+.iphone{width:min(195px,60vw);background:#0a0a0a;border-radius:40px;padding:5px;box-shadow:0 40px 80px rgba(0,0,0,.7),0 0 0 1px rgba(255,255,255,.08);flex-shrink:0}
+.iph-notch{width:50px;height:12px;background:#0a0a0a;border-radius:0 0 8px 8px;margin:0 auto 3px;display:flex;align-items:center;justify-content:center}
+.iph-notch::after{content:'';width:5px;height:5px;border-radius:50%;background:#1c1c1e;margin-top:2px}
+.iph-screen{border-radius:34px;overflow:hidden}
+
+/* Mac browser */
+.mac-browser{background:#1e1e20;border-radius:12px;overflow:hidden;box-shadow:0 40px 90px rgba(0,0,0,.6),0 0 0 1px rgba(255,255,255,.07);width:100%;min-width:0}
+.mac-bar{background:#2a2a2c;padding:.6rem 1rem;display:flex;align-items:center;gap:.5rem;border-bottom:1px solid rgba(255,255,255,.06)}
+.mac-dots{display:flex;gap:.42rem}
+.mac-dot{width:11px;height:11px;border-radius:50%}
+.mac-dot.r{background:#ff5f57}.mac-dot.y{background:#febc2e}.mac-dot.g{background:#28c840}
+.mac-url{flex:1;background:rgba(255,255,255,.07);border-radius:5px;padding:.25rem .8rem;font-size:.65rem;color:rgba(255,255,255,.3);font-family:monospace;margin:0 .6rem;text-align:center}
+.mac-body{background:#111;overflow:hidden}
+.dash-layout{display:grid;grid-template-columns:148px 1fr}
+@media(max-width:520px){.dash-layout{grid-template-columns:1fr}.dash-side{display:none}}
+.dash-side{background:#0a0a0a;border-left:1px solid rgba(15,76,53,.1);padding:.9rem 0}
+.dash-couple{text-align:center;padding:0 .7rem .9rem;border-bottom:1px solid rgba(15,76,53,.08);margin-bottom:.5rem}
+.dash-av{width:38px;height:38px;border-radius:50%;background:linear-gradient(135deg,#2F6E52,var(--green));display:flex;align-items:center;justify-content:center;font-size:1rem;margin:0 auto .4rem}
+.dash-couple h4{font-family:'Rubik',sans-serif;font-size:.78rem;font-weight:500;color:#fff;margin-bottom:.06rem}
+.dash-couple span{font-size:.58rem;color:#2F6E52;letter-spacing:.04em}
+.dash-nav a{display:flex;align-items:center;gap:.4rem;padding:.44rem .85rem;font-size:.67rem;color:rgba(255,255,255,.32);cursor:pointer;border-right:2px solid transparent;font-family:'Heebo',sans-serif;text-decoration:none;transition:all .15s}
+.dash-nav a.on{color:#2F6E52;background:rgba(15,76,53,.08);border-right-color:var(--green)}
+.dash-main{padding:1rem}
+.dash-title{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:500;color:#fff;margin-bottom:.08rem}
+.dash-meta{font-size:.58rem;color:rgba(255,255,255,.28);margin-bottom:.75rem}
+.dash-cd{display:flex;align-items:center;gap:.35rem;background:rgba(15,76,53,.07);border:1px solid rgba(15,76,53,.15);border-radius:5px;padding:.42rem .6rem;font-size:.6rem;color:rgba(255,255,255,.45);margin-bottom:.7rem;font-family:'Heebo',sans-serif}
+.dash-cd strong{color:#2F6E52}
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.32rem;margin-bottom:.7rem}
+.kpi{background:rgba(255,255,255,.04);border:1px solid rgba(15,76,53,.1);border-radius:6px;padding:.5rem .35rem;text-align:center}
+.kpi.hi{background:rgba(15,76,53,.09);border-color:rgba(15,76,53,.28)}
+.kpi-v{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:600;color:#2F6E52;line-height:1}
+.kpi.hi .kpi-v{color:#2F6E52}
+.kpi-l{font-size:.5rem;color:rgba(255,255,255,.27);margin-top:.08rem;font-family:'Heebo',sans-serif}
+.prog-w{background:rgba(255,255,255,.03);border:1px solid rgba(15,76,53,.08);border-radius:5px;padding:.55rem;margin-bottom:.65rem}
+.prog-hd{display:flex;justify-content:space-between;font-size:.55rem;color:rgba(255,255,255,.28);margin-bottom:.35rem;font-family:'Heebo',sans-serif}
+.prog-bar{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.prog-fill{height:100%;border-radius:2px;background:linear-gradient(90deg,#2F6E52,#0F4C35);transition:width 1.4s cubic-bezier(.4,0,.2,1)}
+.dash-tbl{background:rgba(255,255,255,.025);border:1px solid rgba(15,76,53,.07);border-radius:5px;overflow:hidden}
+.tbl-hd{display:grid;grid-template-columns:1fr 62px 52px 64px;padding:.36rem .6rem;background:rgba(15,76,53,.04);font-size:.53rem;color:rgba(255,255,255,.2);letter-spacing:.05em;border-bottom:1px solid rgba(15,76,53,.06);font-family:'Heebo',sans-serif}
+.tbl-row{display:grid;grid-template-columns:1fr 62px 52px 64px;padding:.38rem .6rem;border-bottom:1px solid rgba(255,255,255,.02);font-size:.62rem;color:rgba(255,255,255,.58);font-family:'Heebo',sans-serif}
+.tbl-row:last-child{border-bottom:none}
+.ts-y{color:#2F6E52;font-size:.56rem}.ts-n{color:#f87171;font-size:.56rem}.ts-w{color:#fbbf24;font-size:.56rem}
+@media(max-width:640px){.tbl-hd,.tbl-row{grid-template-columns:1fr 58px 46px}.tbl-hd span:last-child,.tbl-row span:last-child{display:none}}
+
+/* iPhone dashboard */
+.id-screen{background:#111;min-height:310px;display:flex;flex-direction:column}
+.id-top{background:#0a0a0a;padding:.6rem .82rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid rgba(15,76,53,.1)}
+.id-top h4{font-family:'Rubik',sans-serif;font-size:.84rem;font-weight:500;color:#fff}
+.id-top span{font-size:.6rem;color:#2F6E52}
+.id-body{padding:.45rem;display:flex;flex-direction:column;gap:.3rem;overflow:hidden;flex:1}
+.id-cd{display:flex;align-items:center;gap:.38rem;background:rgba(15,76,53,.07);border:1px solid rgba(15,76,53,.15);border-radius:5px;padding:.3rem .5rem;font-size:.65rem;color:rgba(255,255,255,.45);font-family:'Heebo',sans-serif}
+.id-cd strong{color:#2F6E52}
+.id-kpis{display:grid;grid-template-columns:1fr 1fr;gap:.28rem}
+.id-k{background:rgba(255,255,255,.04);border:1px solid rgba(15,76,53,.1);border-radius:7px;padding:.35rem .5rem;text-align:center}
+.id-k.hi{background:rgba(15,76,53,.09);border-color:rgba(15,76,53,.28)}
+.id-kv{font-family:'Rubik',sans-serif;font-size:1.5rem;font-weight:700;color:#2F6E52;line-height:1}
+.id-k.hi .id-kv{color:#2F6E52}
+.id-kl{font-size:.57rem;color:rgba(255,255,255,.28);margin-top:.1rem;font-family:'Heebo',sans-serif}
+.id-prog{background:rgba(255,255,255,.03);border:1px solid rgba(15,76,53,.08);border-radius:6px;padding:.35rem}
+.id-prog-hd{display:flex;justify-content:space-between;font-size:.58rem;color:rgba(255,255,255,.28);margin-bottom:.22rem;font-family:'Heebo',sans-serif}
+.id-pb{height:4px;background:rgba(255,255,255,.06);border-radius:2px;overflow:hidden}
+.id-pfill{height:100%;border-radius:2px;background:linear-gradient(90deg,#2F6E52,#0F4C35);transition:width 1.4s cubic-bezier(.4,0,.2,1)}
+.id-tbl{background:rgba(255,255,255,.02);border:1px solid rgba(15,76,53,.07);border-radius:6px;overflow:hidden}
+.id-th{display:grid;grid-template-columns:1fr 54px 44px;padding:.22rem .45rem;background:rgba(15,76,53,.04);font-size:.54rem;color:rgba(255,255,255,.2);letter-spacing:.05em;border-bottom:1px solid rgba(15,76,53,.06);font-family:'Heebo',sans-serif}
+.id-tr{display:grid;grid-template-columns:1fr 54px 44px;padding:.18rem .45rem;border-bottom:1px solid rgba(255,255,255,.02);font-size:.66rem;color:rgba(255,255,255,.56);font-family:'Heebo',sans-serif}
+.id-tr:last-child{border-bottom:none}
+
+/* WA screen */
+.wa-screen{background:#e5ddd5;display:flex;flex-direction:column;max-height:420px}
+.wa-hdr{background:var(--wa2);padding:.28rem .5rem;display:flex;align-items:center;gap:.35rem}
+.wa-back{color:rgba(255,255,255,.7);font-size:1rem}
+.wa-av2{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#0F4C35,var(--wa));display:flex;align-items:center;justify-content:center;font-size:.6rem;flex-shrink:0}
+.wa-info2{flex:1;display:flex;flex-direction:column;justify-content:center}
+.wa-info2 h4{font-size:.62rem;color:#fff;font-weight:600;font-family:'Heebo',sans-serif;line-height:1.2}
+.wa-info2 span{font-size:.52rem;color:rgba(255,255,255,.7);font-family:'Heebo',sans-serif;line-height:1}
+.wa-chat2{flex:1;padding:.2rem .5rem;display:flex;flex-direction:column;gap:.15rem}
+.wa-day2{text-align:center;font-size:.55rem;color:rgba(0,0,0,.35);font-family:'Heebo',sans-serif;margin:.02rem 0}
+.bub{border-radius:8px 8px 8px 2px;padding:.25rem .55rem;max-width:90%;box-shadow:0 1px 2px rgba(0,0,0,.1);align-self:flex-start;background:#fff}
+.bub.out{background:#dcf8c6;border-radius:8px 8px 2px 8px;align-self:flex-end}
+.bub p{font-size:.66rem;color:#303030;font-family:'Heebo',sans-serif;line-height:1.35;direction:rtl}
+.bub .ts2{font-size:.5rem;color:rgba(0,0,0,.32);text-align:left;margin-top:.05rem;direction:ltr;font-family:'Heebo',sans-serif}
+.bub .ts2.r{text-align:right}
+.wa-acts2{display:flex;flex-direction:column;gap:.1rem;margin-top:.12rem;border-top:1px solid rgba(0,0,0,.07);padding-top:.12rem}
+.wa-act2{display:flex;align-items:center;justify-content:flex-end;gap:.3rem;padding:.3rem;border:none;border-radius:6px;font-family:'Heebo',sans-serif;font-size:.64rem;font-weight:600;cursor:pointer;width:100%}
+.wa-act2.y{background:#f0f0f0;color:#128c7e}
+.wa-act2.n{background:#f0f0f0;color:#128c7e}
+.wa-act2.m{background:#f0f0f0;color:#128c7e}
+.typing2{background:#fff;border-radius:20px;padding:.42rem .75rem;align-self:flex-start;display:flex;align-items:center;gap:3px;box-shadow:0 1px 2px rgba(0,0,0,.1)}
+.td2{width:6px;height:6px;border-radius:50%;background:#aaa;animation:typ .9s infinite}
+.td2:nth-child(2){animation-delay:.15s}.td2:nth-child(3){animation-delay:.3s}
+@keyframes typ{0%,60%,100%{transform:translateY(0)}30%{transform:translateY(-5px)}}
+
+/* side by side layout */
+.sbs{display:flex;gap:1.5rem;align-items:flex-start;justify-content:center;position:relative;z-index:1}
+.sbs-lbl{font-size:.65rem;letter-spacing:.12em;color:rgba(255,255,255,.3);text-transform:uppercase;text-align:center;margin-bottom:.7rem;font-family:'Heebo',sans-serif}
+.sbs-col{display:flex;flex-direction:column;align-items:center}
+.sbs-mac{flex:1;min-width:0;max-width:640px}
+.sbs-ph{flex:0 0 auto}.sbs-ph .iphone{width:min(185px,56vw)}
+@media(max-width:860px){.sbs{flex-direction:column;align-items:center;gap:2rem}.sbs-mac{width:100%;max-width:100%}.kpi-row{grid-template-columns:1fr 1fr}}
+
+/* ═══ PRICING ═══ */
+#pricing{background:var(--bg2)}
+.price-meta{display:flex;align-items:center;justify-content:center;gap:.8rem;margin-bottom:1.5rem;flex-wrap:wrap}
+.price-meta-note{font-size:.82rem;color:var(--ink3);background:#fff;border:1px solid var(--bdr);border-radius:100px;padding:.3rem .9rem}
+
+/* guest count selector in pricing */
+.guest-selector{display:flex;align-items:center;gap:.5rem;background:#fff;border:2px solid var(--bdr);border-radius:10px;padding:.45rem .55rem;cursor:pointer;transition:border-color .2s}
+.guest-selector:focus-within,.guest-selector:hover{border-color:var(--green)}
+.guest-selector select{border:none;background:transparent;font-family:'Heebo',sans-serif;font-size:.85rem;color:var(--ink);outline:none;cursor:pointer;-webkit-appearance:none;padding:.1rem .4rem}
+
+/* price cards */
+.price-grid{display:grid;grid-template-columns:repeat(3,1fr)!important;align-items:stretch;grid-template-columns:1fr;gap:1.2rem;max-width:880px;margin:0 auto}
+@media(min-width:640px){.price-grid{grid-template-columns:repeat(3,1fr);align-items:stretch}}
+.pc{background:#fff;border:2px solid var(--bdr);border-radius:14px;padding:1.4rem 1.2rem;text-align:center;position:relative;transition:all .25s;cursor:pointer;display:flex;flex-direction:column;align-items:center}
+.pc:hover{border-color:var(--green);transform:translateY(-3px);box-shadow:var(--sh2)}
+.pc.feat{border-color:var(--green);box-shadow:0 8px 32px rgba(15,76,53,.15);padding-top:2.2rem}
+@media(min-width:640px){.pc.feat:hover{transform:translateY(-3px)}}
+.pc.sel{border-color:var(--green)!important;box-shadow:0 0 0 3px rgba(15,76,53,.2),var(--sh2)!important}
+.pc.sel::after{content:'✓ נבחרה';position:absolute;top:10px;left:10px;font-size:.65rem;background:var(--green);color:#fff;padding:.18rem .55rem;border-radius:100px;font-family:'Heebo',sans-serif;font-weight:600}
+.pc-crown{position:absolute;top:-1px;left:50%;transform:translateX(-50%);background:var(--green);color:#fff;font-size:.65rem;font-weight:600;letter-spacing:.08em;padding:.25rem 1rem;border-radius:0 0 6px 6px;white-space:nowrap;font-family:'Heebo',sans-serif}
+.pc-tier{font-size:.68rem;font-weight:600;letter-spacing:.16em;color:var(--green);text-transform:uppercase;margin-bottom:.4rem;font-family:'Heebo',sans-serif}
+.pc-name{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:600;color:var(--ink);margin-bottom:.2rem}
+.pc-price{font-family:'Rubik',sans-serif;font-size:2rem;font-weight:700;color:var(--green);line-height:1;margin:.4rem 0 .15rem}
+.pc-price sup{font-size:1rem;font-weight:500}
+.pc-sub{font-size:.72rem;color:var(--ink3);margin-bottom:.9rem;line-height:1.4}
+.pc-ul{list-style:none;text-align:right;margin-bottom:1rem;flex:1;width:100%}
+.pc-ul li{font-size:.8rem;color:var(--ink2);padding:.26rem 0;border-bottom:1px solid var(--bg3);display:flex;align-items:center;gap:.4rem}
+.pc-ul li:last-child{border-bottom:none}
+.pc-ul li::before{content:'✓';color:var(--green);font-weight:700;font-size:.72rem;flex-shrink:0}
+.pc-ul li.off{color:var(--ink3);opacity:.5}
+.pc-ul li.off::before{content:'–';color:var(--ink3);font-weight:400}
+.pc-cta{width:100%;height:44px;background:transparent;border:2px solid var(--green);color:var(--green);font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:600;border-radius:8px;cursor:pointer;transition:all .22s;letter-spacing:.02em}
+.pc.feat .pc-cta,.pc.sel .pc-cta,.pc-cta:hover{background:var(--green);color:#fff}
+
+/* ═══ ORDER FLOW ═══ */
+#order{background:#fff}
+.order-wrap{max-width:640px;margin:0 auto}
+.flow-ind{display:flex;align-items:center;justify-content:center;gap:0;margin-bottom:2.5rem;position:relative}
+.flow-ind::before{content:'';position:absolute;top:17px;right:12%;left:12%;height:2px;background:var(--bg3);z-index:0}
+.flow-step{display:flex;flex-direction:column;align-items:center;gap:.35rem;flex:1;z-index:1}
+.fs-dot{width:34px;height:34px;border-radius:50%;border:2px solid var(--bdr);background:var(--bg);display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:500;color:var(--ink3);transition:all .28s}
+.fs-dot.active{background:#fff;border-color:var(--green);color:var(--green);box-shadow:0 0 0 4px rgba(15,76,53,.12)}
+.fs-dot.done{background:var(--green);border-color:var(--green);color:#fff}
+.fs-lbl{font-size:.62rem;color:var(--ink3);text-align:center;transition:color .28s}
+.fs-lbl.active{color:var(--green);font-weight:500}
+.opanel{display:none}.opanel.on{display:block}
+.ocard{background:#fff;border:1.5px solid var(--bdr);border-radius:14px;padding:1.4rem 1.2rem;box-shadow:var(--sh);position:relative;overflow:hidden}
+@media(min-width:540px){.ocard{padding:1.8rem 1.8rem}}
+.ocard::before{content:'';position:absolute;top:0;inset-inline:0;height:4px;background:linear-gradient(90deg,#2F6E52,var(--green))}
+.o-title{font-family:'Rubik',sans-serif;font-size:1.2rem;font-weight:600;color:var(--ink);margin-bottom:.25rem}
+.o-sub{font-size:.85rem;color:var(--ink3);margin-bottom:1.5rem}
+.fgrid{display:grid;grid-template-columns:1fr;gap:.7rem}
+@media(min-width:460px){.fgrid{grid-template-columns:1fr 1fr}}
+.frow{display:flex;flex-direction:column;gap:.35rem}
+.frow.full{grid-column:1/-1}
+label{font-size:.77rem;font-weight:500;color:var(--ink2);letter-spacing:.01em}
+.req{color:var(--green)}
+input,select,textarea{font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:300;color:var(--ink);background:var(--bg2);border:1.5px solid var(--bdr);border-radius:8px;padding:.7rem .9rem;transition:border-color .2s,box-shadow .2s;outline:none;width:100%;direction:rtl;-webkit-appearance:none;appearance:none}
+input:focus,select:focus,textarea:focus{border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.12);background:#fff}
+select{background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%2316a34a' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .9rem center;padding-left:2.4rem}
+
+/* event type in form */
+.ev-grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:.55rem;margin-top:.3rem}
+.ev-opt{display:flex;flex-direction:column;align-items:center;gap:.3rem;padding:.7rem .5rem;background:var(--bg2);border:2px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .2s;font-family:'Heebo',sans-serif}
+.ev-opt.on{border-color:var(--green);background:var(--green4);color:var(--green2)}
+.ev-opt-ico{font-size:1.3rem;line-height:1}
+.ev-opt-lbl{font-size:.7rem;font-weight:500;color:var(--ink3)}
+.ev-opt.on .ev-opt-lbl{color:var(--green2)}
+
+/* couple type */
+.couple-opts{display:flex;gap:.5rem;margin-top:.3rem;flex-wrap:wrap}
+.couple-opt{flex:1;min-width:120px;display:flex;align-items:center;gap:.5rem;padding:.65rem .9rem;background:var(--bg2);border:2px solid var(--bdr);border-radius:8px;cursor:pointer;transition:all .2s;font-family:'Heebo',sans-serif;font-size:.83rem;color:var(--ink2)}
+.couple-opt.on{border-color:var(--green);background:var(--green4);color:var(--green2)}
+.couple-opt input{display:none}
+
+/* guest custom */
+.custom-guests{display:none;margin-top:.5rem}
+.custom-guests.show{display:block}
+
+/* plan opts in order */
+.plan-opts{display:flex;flex-direction:column;gap:.5rem;margin-top:.3rem}
+.plan-opt{display:flex;align-items:center;gap:.75rem;padding:.72rem .95rem;background:var(--bg2);border:2px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .2s;position:relative}
+.plan-opt.on{border-color:var(--green);background:var(--green4)}
+.plan-opt input{display:none}
+.plan-chk{width:20px;height:20px;flex-shrink:0;border:2px solid var(--bdr);border-radius:5px;background:#fff;transition:all .2s;display:flex;align-items:center;justify-content:center;font-size:.8rem;font-weight:700;color:#fff}
+.plan-opt.on .plan-chk{background:var(--green);border-color:var(--green)}
+.plan-opt-name{font-size:.88rem;font-weight:600;color:var(--ink);margin-bottom:.06rem}
+.plan-opt-note{font-size:.75rem;color:var(--ink3)}
+.plan-opt-price{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:700;color:var(--green)}
+/* the door: a real button in every package card (09/09) */
+.plan-go{flex:0 0 auto;margin-inline-start:auto;background:transparent;color:var(--green);border:2px solid var(--green);font-size:.82rem;font-weight:600;padding:.4rem .85rem;border-radius:8px;white-space:nowrap;transition:background .15s,color .15s}
+.plan-opt:hover{border-color:var(--green)}
+.plan-opt:hover .plan-go{background:var(--green);color:#fff}
+.plan-opt.rec .plan-go{color:var(--gold,#B4884A);border-color:var(--gold,#B4884A)}
+.plan-opt.rec:hover .plan-go{background:var(--gold,#B4884A);color:#fff}
+@media(max-width:560px){.plan-opt{flex-wrap:wrap}.plan-go{width:100%;text-align:center;margin-top:.45rem;padding:.6rem}}
+/* the sticky bar on phones once a guest count is chosen */
+.sticky-cta{position:fixed;left:0;right:0;bottom:0;z-index:60;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.6rem .9rem calc(.6rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid var(--bdr);box-shadow:0 -6px 22px rgba(0,0,0,.08);font-size:.9rem}
+.sticky-cta .sc-btn{padding:.55rem 1rem;font-size:.9rem;white-space:nowrap}
+@media(min-width:721px){.sticky-cta{display:none}}
+body.modal-open .sticky-cta{display:none}
+
+/* plan badge in steps */
+.plan-bdg{background:var(--green4);border:1.5px solid var(--bdr2);border-radius:8px;padding:.6rem 1rem;font-size:.82rem;color:var(--ink2);margin-bottom:1.3rem;font-family:'Heebo',sans-serif}
+.plan-bdg b{color:var(--green)}
+
+/* csv */
+.csv-toggle{display:flex;gap:.5rem;margin-bottom:.6rem}
+.csv-opt2{flex:1;display:flex;align-items:center;justify-content:center;gap:.38rem;padding:.55rem;border:2px solid var(--bdr);border-radius:8px;font-size:.8rem;font-weight:400;color:var(--ink3);cursor:pointer;transition:all .2s;font-family:'Heebo',sans-serif}
+.csv-opt2.on{border-color:var(--green);background:var(--green4);color:var(--green2)}
+.csv-pane{display:none}.csv-pane.show{display:block}
+.fupload{border:2px dashed rgba(15,76,53,.3);border-radius:8px;padding:1.1rem;text-align:center;cursor:pointer;background:var(--green4);position:relative;transition:border-color .2s}
+.fupload:hover{border-color:var(--green)}
+.fupload input{position:absolute;inset:0;opacity:0;cursor:pointer;width:100%;height:100%}
+.fupload-ico{font-size:1.4rem;margin-bottom:.25rem;display:block}
+.fupload p{font-size:.78rem;color:var(--ink3)}
+.fupload strong{color:var(--green)}
+
+/* style picker */
+.style-picker{display:grid;grid-template-columns:repeat(3,1fr);gap:.45rem;margin-top:.3rem}
+.sp-opt{border:2px solid var(--bdr);border-radius:8px;padding:.65rem .4rem;text-align:center;cursor:pointer;transition:all .2s;background:var(--bg2)}
+.sp-opt.on{border-color:var(--green);background:var(--green4)}
+.sp-opt.locked{opacity:.45;cursor:not-allowed}
+.sp-ico{font-size:.95rem;display:block;margin-bottom:.18rem}
+.sp-lbl{font-size:.68rem;color:var(--ink3);font-family:'Heebo',sans-serif}
+.sp-opt.on .sp-lbl{color:var(--green2);font-weight:500}
+
+/* checks */
+.fdiv{height:1px;background:var(--bg3);margin:1.1rem 0}
+.checks{display:flex;flex-direction:column;gap:.55rem;margin-top:.3rem}
+.chk{display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;font-size:.85rem;color:var(--ink2)}
+.chk input{width:17px;height:17px;flex-shrink:0;margin-top:.16rem;cursor:pointer;appearance:none;-webkit-appearance:none;border:2px solid var(--bdr);border-radius:4px;background:#fff;transition:all .2s}
+.chk input:checked{background:var(--green);border-color:var(--green);background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 12 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5l3.5 3.5L11 1' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-size:75%;background-repeat:no-repeat;background-position:center}
+
+/* payment */
+.price-box{background:linear-gradient(135deg,var(--green4),rgba(243,248,245,.5));border:2px solid var(--bdr2);border-radius:10px;padding:1.2rem;text-align:center;margin:.5rem 0 1.2rem}
+.pb-lbl{font-size:.72rem;font-weight:500;letter-spacing:.08em;color:var(--green2);text-transform:uppercase;margin-bottom:.3rem}
+.pb-amount{font-family:'Rubik',sans-serif;font-size:2.5rem;font-weight:700;color:var(--green);line-height:1}
+.pb-breakdown{font-size:.75rem;color:var(--ink3);margin-top:.3rem}
+.pb-note{font-size:.72rem;color:var(--ink3);margin-top:.22rem}
+.pay-methods{display:flex;flex-direction:column;gap:.7rem;margin:1rem 0}
+.pay-opt{display:flex;align-items:center;gap:.85rem;padding:.92rem 1rem;border:2px solid var(--bdr);border-radius:10px;cursor:pointer;transition:all .2s;background:#fff}
+.pay-opt.on{border-color:var(--green);background:var(--green4)}
+.pay-opt input{width:18px;height:18px;flex-shrink:0;appearance:none;-webkit-appearance:none;border:2px solid var(--bdr);border-radius:5px;background:#fff;transition:all .2s;cursor:pointer}
+.pay-opt.on input,.pay-opt input:checked{background:var(--green);border-color:var(--green);background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 12 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5l3.5 3.5L11 1' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-size:75%;background-repeat:no-repeat;background-position:center}
+.terms-chk-wrap input{width:18px;height:18px;appearance:none;-webkit-appearance:none;border:2px solid var(--bdr);border-radius:5px;background:#fff;transition:all .2s;cursor:pointer;flex-shrink:0;margin-top:.18rem}
+.terms-chk-wrap input:checked{background:var(--green);border-color:var(--green);background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 12 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 5l3.5 3.5L11 1' stroke='white' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");background-size:75%;background-repeat:no-repeat;background-position:center}
+.pay-ico{font-size:1.2rem;flex-shrink:0}
+.pay-info strong{display:block;font-size:.88rem;font-weight:600;color:var(--ink)}
+.pay-info span{font-size:.75rem;color:var(--ink3)}
+.pay-secure{display:flex;align-items:center;justify-content:center;gap:.4rem;font-size:.72rem;color:var(--ink3);margin-top:.7rem}
+.terms-chk-wrap{background:var(--green4);border:1.5px solid var(--bdr2);border-radius:8px;padding:.82rem 1rem;display:flex;align-items:flex-start;gap:.65rem}
+.terms-chk-wrap input{width:16px;height:16px;accent-color:var(--green);flex-shrink:0;margin-top:.18rem}
+.terms-chk-wrap label{font-size:.8rem;color:var(--ink2);cursor:pointer;line-height:1.55}
+.terms-chk-wrap a{color:var(--green);text-decoration:none}
+
+/* sched */
+
+
+.cancel-note{font-size:.74rem;color:var(--green2);background:rgba(15,76,53,.08);border-right:3px solid var(--green);padding:.5rem .75rem;border-radius:0 4px 4px 0;margin-top:.7rem;line-height:1.5}
+
+/* flow nav */
+.flow-nav{display:flex;gap:.7rem;margin-top:1.3rem;flex-wrap:wrap}
+.btn-next{flex:1;height:50px;background:var(--green);color:#fff;border:none;font-family:'Heebo',sans-serif;font-size:.92rem;font-weight:600;letter-spacing:.02em;cursor:pointer;border-radius:8px;box-shadow:0 4px 14px rgba(15,76,53,.35);transition:all .22s}
+.btn-next:hover{background:var(--green2);transform:translateY(-1px)}
+.btn-next:disabled{opacity:.6;pointer-events:none;transform:none}
+.btn-back{height:50px;padding:0 1.2rem;background:#fff;border:2px solid var(--bdr);color:var(--ink3);font-family:'Heebo',sans-serif;font-size:.88rem;font-weight:400;cursor:pointer;border-radius:8px;transition:all .2s}
+.btn-back:hover{border-color:var(--ink3);color:var(--ink)}
+
+/* ok */
+.ok-box{display:none;text-align:center;padding:2.5rem 1rem}
+.ok-box.show{display:block}
+.ok-ico2{font-size:3rem;margin-bottom:.8rem}
+.ok-box h3{font-family:'Rubik',sans-serif;font-size:1.7rem;font-weight:600;margin-bottom:.7rem}
+.ok-box p{color:var(--ink3);font-size:.9rem;line-height:1.65}
+.ok-actions{display:flex;gap:.7rem;justify-content:center;margin-top:1.3rem;flex-wrap:wrap}
+
+/* ═══ REPORTS ═══ */
+#reports{background:var(--bg2)}
+.rep-grid{display:grid;grid-template-columns:1fr 1fr;gap:1rem;max-width:680px;margin:0 auto}
+@media(min-width:540px){.rep-grid{grid-template-columns:repeat(4,1fr)}}
+.rep-card{background:#fff;border:1px solid var(--bdr);border-radius:12px;padding:1rem .9rem;text-align:center;transition:all .22s;opacity:0;transform:translateY(14px);transition:opacity .5s,transform .5s}
+.rep-card.v{opacity:1;transform:none}
+.rep-ico2{font-size:1.6rem;display:block;margin-bottom:.5rem}
+.rep-card h4{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;margin-bottom:.28rem}
+.rep-card p{font-size:.78rem;color:var(--ink3)}
+
+/* ═══ CTA ═══ */
+#cta{background:linear-gradient(135deg,#052e16 0%,#14532d 60%,#166534 100%);text-align:center;padding:2.5rem 1.5rem;position:relative;overflow:hidden}
+#cta::before{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(15,76,53,.2),transparent 70%)}
+#cta h2{color:#fff;font-family:'Rubik',sans-serif;position:relative;font-size:clamp(1.8rem,5vw,3rem)}
+#cta h2 span{color:#2F6E52}
+#cta p{color:rgba(255,255,255,.6);font-size:.95rem;max-width:400px;margin:.8rem auto 2rem;position:relative}
+.cta-btns{display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;position:relative}
+.btn-white{display:inline-flex;align-items:center;height:50px;padding:0 1.8rem;background:#fff;color:var(--green2);border:none;font-family:'Heebo',sans-serif;font-size:.95rem;font-weight:600;border-radius:8px;cursor:pointer;box-shadow:0 4px 20px rgba(0,0,0,.2);transition:all .25s;text-decoration:none}
+.btn-white:hover{transform:translateY(-2px);box-shadow:0 8px 30px rgba(0,0,0,.25)}
+.btn-wa{display:inline-flex;align-items:center;gap:.4rem;height:50px;padding:0 1.8rem;background:var(--wa);color:#fff;border:none;font-family:'Heebo',sans-serif;font-size:.95rem;font-weight:600;border-radius:8px;cursor:pointer;transition:all .25s;text-decoration:none}
+.btn-wa:hover{background:#1fb855;transform:translateY(-2px)}
+
+/* ═══ FOOTER ═══ */
+footer{background:#0f172a;padding:1.5rem 1.5rem;text-align:center;border-top:1px solid rgba(255,255,255,.05)}
+.f-logo2{display:inline-flex;align-items:center;gap:.5rem;margin-bottom:1.1rem}
+.f-logo2-icon{width:28px;height:28px;background:var(--green);border-radius:7px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:.9rem}
+.f-logo2-text{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:rgba(255,255,255,.85)}
+.f-logo2-text span{color:#2F6E52}
+.f-links2{display:flex;gap:1.5rem;justify-content:center;flex-wrap:wrap;margin-bottom:.9rem}
+.f-links2 a{color:rgba(255,255,255,.4);text-decoration:none;font-size:.8rem;display:flex;align-items:center;gap:.3rem;transition:color .2s}
+.f-links2 a:hover{color:#2F6E52}
+.f-copy2{font-size:.7rem;color:rgba(255,255,255,.18)}
+
+/* ═══ TERMS ═══ */
+.terms-bar2{position:sticky;top:0;background:rgba(255,255,255,.97);backdrop-filter:blur(12px);border-bottom:1px solid var(--bdr);padding:.9rem 1.5rem;display:flex;align-items:center;justify-content:space-between}
+.terms-bar2 h3{font-family:'Rubik',sans-serif;font-size:1.1rem;font-weight:600}
+.terms-close2{background:none;border:none;font-size:1.4rem;color:var(--ink3);cursor:pointer;width:36px;height:36px;display:flex;align-items:center;justify-content:center;border-radius:50%;transition:background .2s}
+.terms-close2:hover{background:var(--bg3)}
+.terms-body2{max-width:680px;margin:0 auto;padding:2rem 1.5rem 4rem}
+.terms-body2 h1{font-family:'Rubik',sans-serif;font-size:1.8rem;font-weight:700;margin-bottom:.25rem}
+.tdate2{font-size:.78rem;color:var(--ink3);margin-bottom:1.8rem;display:block}
+.terms-body2 h2{font-family:'Rubik',sans-serif;font-size:1.1rem;font-weight:600;margin:1.6rem 0 .5rem;padding-right:.65rem;border-right:3px solid var(--green)}
+.terms-body2 p,.terms-body2 li{font-size:.88rem;color:var(--ink2);line-height:1.75;margin-bottom:.45rem}
+.terms-body2 ul{padding-right:1.2rem;margin-bottom:.8rem}
+.t-hl2{background:var(--green4);border:1.5px solid var(--bdr2);border-radius:8px;padding:.9rem 1rem;margin:1rem 0;font-size:.85rem;color:var(--ink2)}
+.t-hl2 strong{display:block;margin-bottom:.2rem;color:var(--ink);font-family:'Rubik',sans-serif}
+
+/* ═══ ANIMATIONS ═══ */
+.fi{opacity:0;transform:translateY(16px);transition:opacity .65s,transform .65s}
+.fi.v{opacity:1;transform:none}
+::-webkit-scrollbar{width:5px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:rgba(15,76,53,.3);border-radius:3px}
+
+/* ═══ SHAKE ANIMATION ═══ */
+@keyframes shake{0%,100%{transform:translateX(0)}10%,50%,90%{transform:translateX(-4px)}30%,70%{transform:translateX(4px)}}
+.shake-btn{animation:shake 2.5s ease-in-out infinite}
+.shake-btn:hover{animation:none}
+
+/* ═══ ORDER MODAL ═══ */
+#order-modal{position:fixed;inset:0;z-index:9000;display:none;align-items:center;justify-content:center;padding:1.5rem}
+#order-modal.open{display:flex}
+#order-modal-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(4px)}
+#order-modal-box{position:relative;background:#fff;border-radius:18px;width:100%;max-width:560px;max-height:88vh;overflow-y:auto;box-shadow:0 24px 80px rgba(0,0,0,.25);z-index:1}
+#order-modal-close{position:sticky;top:0;z-index:2;display:flex;justify-content:flex-end;padding:.6rem .8rem .2rem;background:#fff}
+#order-modal-close button{background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--ink3);line-height:1}
+#order-modal-inner{padding:.5rem 1.8rem 1.8rem}
+
+/* ═══ FEATURES ACCORDION ═══ */
+.feat-accordion{max-width:680px;margin:0 auto}
+.feat-acc-hdr{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:1rem 1.2rem;background:#fff;border:1.5px solid var(--bdr);border-radius:12px;font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:var(--ink);transition:all .2s;user-select:none}
+.feat-acc-hdr:hover{border-color:var(--green);color:var(--green)}
+.feat-acc-hdr .acc-arrow{transition:transform .25s;font-size:.75rem;color:var(--ink3)}
+.feat-acc-hdr.open{border-color:var(--green);border-radius:12px 12px 0 0;background:var(--green4)}
+.feat-acc-hdr.open .acc-arrow{transform:rotate(180deg);color:var(--green)}
+.feat-acc-body{display:none;border:1.5px solid var(--green);border-top:none;border-radius:0 0 12px 12px;padding:.8rem;background:#fff}
+.feat-acc-body.open{display:block}
+
+/* ═══ WIZARD STEPS ═══ */
+.wiz-step{display:none}.wiz-step.active{display:block}
+.wiz-progress{display:flex;gap:.35rem;margin-bottom:.8rem}
+.wiz-dot{flex:1;height:4px;border-radius:2px;background:var(--bg3);transition:background .3s}
+.wiz-dot.done{background:var(--green)}
+.wiz-nav{display:flex;align-items:center;justify-content:space-between;margin-top:1.1rem;gap:.6rem}
+.wiz-back{background:none;border:1.5px solid var(--bdr);border-radius:8px;padding:.5rem .9rem;font-family:'Heebo',sans-serif;font-size:.85rem;cursor:pointer;color:var(--ink3);transition:all .2s}
+.wiz-back:hover{border-color:var(--ink3)}
+.wiz-next{flex:1;height:44px;background:var(--green);color:#fff;border:none;border-radius:8px;font-family:'Heebo',sans-serif;font-size:.9rem;font-weight:600;cursor:pointer;transition:all .2s}
+.wiz-next:hover{background:var(--green2)}
+.wiz-step-lbl{font-size:.7rem;color:var(--ink3);margin-bottom:.7rem;text-align:center}
+
+/* ═══ COOKIE BANNER ═══ */
+#cookie-bar{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:#1e293b;color:#e2e8f0;border-radius:12px;padding:.75rem 1.2rem;display:flex;align-items:center;gap:1rem;z-index:9999;box-shadow:0 8px 30px rgba(0,0,0,.3);font-family:'Heebo',sans-serif;font-size:.82rem;max-width:500px;width:calc(100% - 2rem);transition:opacity .4s,transform .4s}
+#cookie-bar.hidden{opacity:0;transform:translateX(-50%) translateY(20px);pointer-events:none}
+#cookie-bar p{flex:1;margin:0;line-height:1.5}
+#cookie-accept{background:var(--green);color:#fff;border:none;border-radius:7px;padding:.42rem .9rem;font-family:'Heebo',sans-serif;font-size:.8rem;font-weight:600;cursor:pointer;white-space:nowrap}
+
+/* ═══ DYNAMIC ANIMATIONS ═══ */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes pulse-green{0%,100%{box-shadow:0 0 0 0 rgba(15,76,53,.4)}70%{box-shadow:0 0 0 10px rgba(15,76,53,0)}}
+.btn-green{animation:pulse-green 2.5s ease-in-out infinite}
+.btn-green:hover{animation:none}
+
+/* ═══ ORDER CTA BUTTON ═══ */
+.order-cta-btn{
+  animation:pulse-green 2.5s ease-in-out infinite,float 3s ease-in-out infinite;
+  transition:transform .2s,box-shadow .2s;
+}
+.order-cta-btn:hover{animation:none;transform:translateY(-3px) scale(1.03);box-shadow:0 8px 30px rgba(15,76,53,.45);}
+
+/* ═══ FLOATING ELEMENTS ═══ */
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+@keyframes fadeSlideIn{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+.wiz-step.active{animation:fadeSlideIn .3s ease forwards}
+
+/* ═══ SCHED NOTE COMPACT ═══ */
+
+/* ═══ PRICE ACCORDION ═══ */
+.price-accordion{max-width:600px;margin:0 auto;display:flex;flex-direction:column;gap:.7rem}
+.pac-item{border:2px solid var(--bdr);border-radius:14px;overflow:hidden;transition:border-color .2s,box-shadow .2s;position:relative}
+.pac-item:hover{border-color:var(--green)}
+.pac-featured{border-color:var(--green);box-shadow:0 4px 20px rgba(15,76,53,.15)}
+.pac-crown{background:var(--green);color:#fff;text-align:center;font-size:.65rem;font-weight:600;padding:.22rem .5rem;letter-spacing:.05em;font-family:'Heebo',sans-serif}
+.pac-hdr{display:flex;align-items:center;justify-content:space-between;padding:.8rem 1.2rem;cursor:pointer;background:#fff;user-select:none;transition:background .2s}
+.pac-hdr:hover{background:var(--green4)}
+.pac-hdr-left{display:flex;align-items:center;gap:.7rem}
+.pac-tier{font-size:.6rem;font-weight:700;letter-spacing:.14em;color:var(--green);text-transform:uppercase;background:var(--green3);padding:.18rem .55rem;border-radius:100px;font-family:'Heebo',sans-serif}
+.pac-name{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600;color:var(--ink)}
+.pac-hdr-right{display:flex;align-items:center;gap:.8rem}
+.pac-price-sm{font-family:'Rubik',sans-serif;font-size:1.4rem;font-weight:700;color:var(--green)}
+.pac-price-sm sup{font-size:.75rem;font-weight:500}
+.pac-arrow{font-size:.65rem;color:var(--ink3);transition:transform .25s}
+.pac-item.open .pac-arrow{transform:rotate(180deg);color:var(--green)}
+.pac-body{display:none;padding:.8rem 1.2rem 1rem;border-top:1px solid var(--bdr);background:#fafafa}
+.pac-item.open .pac-body{display:block;animation:fadeSlideIn .25s ease}
+.pac-item.open .pac-hdr{background:var(--green4)}
+.sched-note{background:var(--green4);border:1.5px solid var(--bdr2);border-radius:8px;padding:.55rem 1rem;font-size:.81rem;color:var(--ink2);margin-bottom:1rem;display:block;text-align:right;white-space:nowrap;overflow:hidden;direction:rtl}
+.sched-note strong{display:inline;font-weight:700;color:var(--ink)}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   v1 · order popup, pricing table, Apple-style motion
+   Appended last so it wins over the older rules above.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── press feedback ── instant, on pointer-down, never on release ───────── */
+.btn:active,.nav-btn:active,.btn-white:active,.btn-wa:active,
+.wiz-next:active,.wiz-back:active,.mtab:active,.ptab2:active,
+.ev-card:active,.plan-opt:active,.pr-row:active{
+  transform:scale(.972);
+  transition:transform 100ms cubic-bezier(.2,.8,.2,1);
+}
+.btn,.nav-btn,.btn-white,.wiz-next,.wiz-back,.plan-opt,.pr-row,.ev-card{
+  transition:transform 220ms cubic-bezier(.2,.8,.2,1),background .2s,border-color .2s,box-shadow .2s;
+  -webkit-tap-highlight-color:transparent;
+}
+:focus-visible{outline:2px solid var(--green);outline-offset:2px;border-radius:6px}
+
+/* ── translucent nav, content scrolls under ────────────────────────────── */
+#nav{background:rgba(255,255,255,.72);backdrop-filter:blur(20px) saturate(180%);-webkit-backdrop-filter:blur(20px) saturate(180%)}
+
+/* ── type ── tracking is size-specific, tighter as it grows ────────────── */
+.hero-h1{letter-spacing:-.022em}
+.sec-title{letter-spacing:-.015em}
+.o-title{letter-spacing:-.012em}
+
+/* ═══ PRICING ═══ picker + package rows, same shapes as the popup ════════ */
+.price-pick{max-width:540px;margin:0 auto}
+.price-pick > label{display:block;font-size:.85rem;font-weight:500;color:var(--ink2);margin-bottom:.4rem}
+.price-pick .plan-opts{margin-top:1rem;gap:.6rem}
+.price-pick .plan-opt{
+  width:100%;text-align:start;font-family:'Heebo',sans-serif;
+  padding:.95rem 1rem;background:#fff;
+}
+.price-pick .plan-opt:hover{border-color:var(--green);background:var(--green4)}
+.plan-opt-name i{font-style:normal;font-size:.62rem;letter-spacing:.09em;color:var(--green);font-weight:600;margin-inline-start:.3rem}
+.plan-opt-price{display:flex;flex-direction:column;align-items:flex-end;line-height:1.15}
+.plan-opt-price em{font-style:normal;font-size:.63rem;font-weight:400;color:var(--ink3);margin-top:.1rem}
+.plan-opt-price .from{font-size:.6rem;font-weight:400;color:var(--ink3)}
+.plan-opt-price b{font-size:.85rem;font-weight:600}
+.pr-note{text-align:center;font-size:.78rem;color:var(--ink3);margin-top:.9rem}
+
+/* ═══ ORDER POPUP ═════════════════════════════════════════════════════════ */
+#order-modal-bg{background:rgba(17,24,39,.5);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+#order-modal-box{will-change:transform}
+.sheet-grab{display:none}
+.pop-sub{font-size:.85rem;color:var(--ink3);margin:.15rem 0 1.1rem;line-height:1.55}
+.pop-fine{text-align:center;font-size:.7rem;color:var(--ink3);margin-top:.9rem;line-height:1.5}
+.fopt{font-size:.7rem;color:var(--ink3);font-weight:400;margin-inline-start:.3rem}
+
+.frow label{font-size:.82rem;font-weight:500;color:var(--ink2)}
+.frow input,.frow select{
+  width:100%;padding:.72rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+  font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);background:#fff;
+  transition:border-color .15s,box-shadow .15s;
+}
+.frow input:focus,.frow select:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
+.frow input.bad,.frow select.bad{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+.frow select{appearance:none;-webkit-appearance:none;cursor:pointer;padding-inline-end:2.2rem;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8' fill='none'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236b7280' stroke-width='1.8' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;background-position:left .85rem center;background-size:12px;
+}
+.ferr{font-size:.75rem;color:#dc2626;margin-top:.05rem;max-height:0;opacity:0;overflow:hidden;transition:max-height .18s ease,opacity .18s ease}
+.ferr.on{max-height:3em;opacity:1;margin-top:.2rem}
+
+.pop-plans-lbl{font-size:.82rem;font-weight:500;color:var(--ink2);margin:1rem 0 .4rem}
+.plan-opt{align-items:center;gap:.7rem;padding:.8rem .9rem;position:relative}
+.plan-opt.rec{border-color:var(--bdr2)}
+.plan-txt{flex:1;display:flex;flex-direction:column;gap:.1rem;min-width:0}
+.plan-opt-name{font-size:.9rem;font-weight:600;color:var(--ink)}
+.plan-opt-note{font-size:.74rem;color:var(--ink3);line-height:1.4}
+.plan-opt-price{font-family:'Rubik',sans-serif;font-size:1.15rem;font-weight:700;color:var(--green);white-space:nowrap;flex-shrink:0}
+.plan-opt-price .cur{font-size:.68em;font-weight:400;opacity:.8}
+.plan-rec{
+  position:absolute;top:-8px;inset-inline-start:.85rem;
+  background:var(--green);color:#fff;font-size:.6rem;font-weight:600;letter-spacing:.04em;
+  padding:.14rem .5rem;border-radius:99px;line-height:1.5;
+}
+.pop-total[hidden]{display:none}
+.pop-total{
+  display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+  background:var(--green4);border:1.5px solid var(--bdr2);border-radius:10px;
+  padding:.7rem 1rem;margin-top:.9rem;
+}
+.pop-total .pt-l{font-size:.8rem;color:var(--ink2)}
+.pop-total .pt-v{font-family:'Rubik',sans-serif;font-size:1.35rem;font-weight:700;color:var(--green)}
+.pop-total.quote{display:block;text-align:center;font-size:.82rem;color:var(--ink2);line-height:1.55}
+.wiz-next:disabled{opacity:.6;pointer-events:none}
+
+/* ── step transitions ── forward and back travel the same path, mirrored ── */
+.wiz-step{display:none}
+.wiz-step.active{display:block}
+.wiz-step.active.from-next{animation:stepInNext .34s cubic-bezier(.22,.9,.24,1) both}
+.wiz-step.active.from-prev{animation:stepInPrev .34s cubic-bezier(.22,.9,.24,1) both}
+@keyframes stepInNext{from{opacity:0;transform:translate3d(-14px,0,0)}to{opacity:1;transform:none}}
+@keyframes stepInPrev{from{opacity:0;transform:translate3d(14px,0,0)}to{opacity:1;transform:none}}
+.wiz-dot{background:var(--bg3);transition:background .28s cubic-bezier(.2,.8,.2,1)}
+.wiz-dot.done{background:var(--green)}
+
+/* ═══ MOBILE: the popup becomes a draggable sheet ═════════════════════════ */
+@media(max-width:640px){
+  #order-modal{padding:0;align-items:flex-end}
+  #order-modal-box{
+    max-width:none;width:100%;border-radius:20px 20px 0 0;max-height:94vh;
+    animation:sheetUp .4s cubic-bezier(.22,.9,.24,1) both;
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  @keyframes sheetUp{from{transform:translate3d(0,100%,0)}to{transform:none}}
+  .sheet-grab{
+    display:flex;align-items:center;justify-content:center;
+    padding:.55rem 0 .1rem;cursor:grab;touch-action:none;
+    position:sticky;top:0;background:#fff;z-index:3;
+  }
+  .sheet-grab span{display:block;width:38px;height:4px;border-radius:99px;background:var(--bdr)}
+  #order-modal-close{top:auto;padding:0 .8rem .2rem;margin-top:-1.6rem}
+  #order-modal-inner{padding:.4rem 1.25rem 1.5rem}
+  /* 16px minimum keeps iOS from zooming the page on focus */
+  .frow input,.frow select{font-size:16px}
+}
+
+/* the cookie bar sits at the bottom, exactly where the popup's primary
+   button lands on mobile. It steps aside while the popup is open. */
+body.modal-open #cookie-bar{
+  opacity:0;pointer-events:none;
+  transform:translateX(-50%) translateY(20px);
+}
+
+
+/* what still has to be done after paying, so nobody expects a same-day send */
+.next-up{
+  margin-top:1.1rem;padding:.85rem 1rem;
+  background:var(--bg2);border:1px solid var(--bdr);border-radius:10px;
+}
+.next-up-t{font-size:.78rem;font-weight:600;color:var(--ink2);margin-bottom:.45rem}
+.next-up-l{margin:0;padding-inline-start:1.15rem}
+.next-up-l li{font-size:.79rem;color:var(--ink3);line-height:1.6;padding-inline-start:.15rem}
+.next-up-l li::marker{color:var(--green)}
+.next-up-n{
+  font-size:.75rem;color:var(--ink2);line-height:1.55;
+  margin-top:.55rem;padding-top:.5rem;border-top:1px solid var(--bdr);
+}
+
+
+/* ═════════════════════════════════════════════════════════════════════════
+   PREVIEWS · a real iPhone showing real WhatsApp, and the real dashboard
+   ═══════════════════════════════════════════════════════════════════════ */
+.ptabs2{display:flex;gap:.4rem;justify-content:center;margin-bottom:1.6rem;flex-wrap:wrap}
+.ptab2{
+  background:#fff;border:1.5px solid var(--bdr);border-radius:99px;
+  padding:.5rem 1.1rem;font-family:'Heebo',sans-serif;font-size:.87rem;
+  color:var(--ink2);cursor:pointer;
+  transition:border-color .2s,background .2s,color .2s,transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.ptab2:hover{border-color:var(--green)}
+.ptab2:active{transform:scale(.96);transition-duration:100ms}
+.ptab2.on{background:var(--green);border-color:var(--green);color:#fff;font-weight:500}
+
+.phone-stage{display:flex;flex-direction:column;align-items:center}
+.stage-cap{text-align:center;font-size:.82rem;color:var(--ink3);margin-top:1.1rem;max-width:24rem}
+
+/* the handset */
+.iph{
+  width:min(310px,84vw);
+  background:#1c1c1e;
+  border-radius:44px;
+  padding:9px;
+  box-shadow:0 2px 4px rgba(0,0,0,.3),0 18px 46px rgba(0,0,0,.22),inset 0 0 0 1.5px #3a3a3c;
+  position:relative;
+}
+.iph::after{
+  /* the pill */
+  content:'';position:absolute;top:20px;left:50%;transform:translateX(-50%);
+  width:86px;height:24px;background:#000;border-radius:99px;z-index:5;
+}
+.iph-screen{
+  position:relative;background:#fff;border-radius:36px;overflow:hidden;
+  aspect-ratio:9/19.5;display:flex;flex-direction:column;
+}
+
+/* ios status bar */
+.ios-status{
+  flex-shrink:0;height:46px;display:flex;align-items:flex-end;justify-content:space-between;
+  padding:0 22px 4px;font-size:12.5px;font-weight:600;color:#000;
+  background:#F6F6F6;position:relative;z-index:4;letter-spacing:.01em;
+}
+.ios-status.dark{background:#fff}
+.ios-right{display:flex;align-items:center;gap:4px}
+.ios-right svg{display:block}
+
+/* whatsapp chat header */
+.wa-bar{
+  flex-shrink:0;display:flex;align-items:center;gap:7px;
+  padding:5px 11px 8px;background:#F6F6F6;
+  border-bottom:.5px solid rgba(0,0,0,.14);color:#007AFF;
+}
+.wa-back{display:flex;flex-shrink:0}
+.wa-av{
+  width:31px;height:31px;border-radius:50%;background:#fff;flex-shrink:0;
+  display:flex;align-items:center;justify-content:center;overflow:hidden;
+  border:.5px solid rgba(0,0,0,.08);
+}
+.wa-av img{width:24px;height:24px;object-fit:contain}
+.wa-who{flex:1;min-width:0;display:flex;flex-direction:column;line-height:1.2}
+.wa-who b{font-size:12.5px;font-weight:600;color:#000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wa-who i{font-size:10.5px;font-style:normal;color:#8E8E93}
+.wa-icons{display:flex;gap:13px;flex-shrink:0;color:#007AFF}
+
+/* the chat itself */
+.wa-chat{
+  flex:1;overflow:hidden;padding:8px 8px 4px;
+  background-color:#EFE7DE;
+  background-image:
+    radial-gradient(rgba(0,0,0,.035) 1px, transparent 1px),
+    radial-gradient(rgba(0,0,0,.028) 1px, transparent 1px);
+  background-size:22px 22px, 34px 34px;
+  background-position:0 0, 11px 17px;
+  display:flex;flex-direction:column;gap:5px;
+}
+.wa-day{
+  align-self:center;background:#E2F0F7;color:#54656F;
+  font-size:10px;padding:3px 10px;border-radius:7px;margin-bottom:2px;
+  box-shadow:0 1px .5px rgba(0,0,0,.07);
+}
+.wa-msg{display:flex;flex-direction:column;align-items:flex-start;max-width:85%}
+.wa-msg.out{align-self:flex-end;align-items:flex-end}
+.wa-bub{
+  position:relative;padding:5px 8px 4px;border-radius:8px;
+  box-shadow:0 1px .5px rgba(0,0,0,.13);
+}
+.wa-bub.in{background:#fff;border-start-start-radius:0}
+.wa-bub.out{background:#D9FDD3;border-start-end-radius:0}
+.wa-txt{font-size:12.3px;line-height:1.42;color:#111B21;white-space:pre-line}
+.wa-txt b{font-weight:600}
+.wa-foot{
+  font-size:10px;line-height:1.45;color:#667781;
+  margin-top:6px;padding-top:5px;border-top:.5px solid rgba(0,0,0,.09);
+}
+.wa-meta{display:block;text-align:end;font-size:9.5px;color:#667781;margin-top:1px}
+.wa-meta .rr{font-style:normal;color:#53BDEB}
+
+/* the reply buttons wa sends with a template */
+.wa-btns{
+  width:100%;margin-top:2px;background:#fff;border-radius:8px;overflow:hidden;
+  box-shadow:0 1px .5px rgba(0,0,0,.13);
+}
+.wa-btns button{
+  width:100%;background:none;border:none;cursor:pointer;
+  font-family:'Heebo',sans-serif;font-size:12.3px;color:#0A7CFF;font-weight:400;
+  padding:8px 6px;display:flex;align-items:center;justify-content:center;gap:5px;
+  border-bottom:.5px solid rgba(0,0,0,.09);
+  transition:background .15s;
+}
+.wa-btns button:last-child{border-bottom:none}
+.wa-btns button:hover{background:#F5F6F6}
+.wa-btns button:active{background:#EBECEC}
+
+/* the compose bar */
+.wa-input{
+  flex-shrink:0;display:flex;align-items:center;gap:8px;
+  padding:6px 10px 16px;background:#F6F6F6;border-top:.5px solid rgba(0,0,0,.12);
+}
+.wa-field{
+  flex:1;background:#fff;border:.5px solid rgba(0,0,0,.12);border-radius:16px;
+  padding:5px 11px;font-size:12px;color:#8E8E93;
+}
+.wa-mic{color:#8E8E93;display:flex;flex-shrink:0}
+
+/* the dashboard, running for real inside the handset */
+.dash-frame{
+  flex:1;width:100%;border:0;display:block;background:#f9fafb;
+  pointer-events:none;
+}
+
+/* ═══ ACCESSIBILITY PREFERENCES ═══════════════════════════════════════════ */
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}
+  .wiz-step.active.from-next,.wiz-step.active.from-prev{animation:fadeOnly .18s ease both}
+  @keyframes fadeOnly{from{opacity:0}to{opacity:1}}
+  #order-modal-box{animation:none}
+  .btn:active,.wiz-next:active,.plan-opt:active,.pr-row:active{transform:none}
+}
+@media (prefers-reduced-transparency:reduce){
+  #nav{background:#fff;backdrop-filter:none;-webkit-backdrop-filter:none}
+  #order-modal-bg{background:rgba(17,24,39,.85);backdrop-filter:none;-webkit-backdrop-filter:none}
+}
+@media (prefers-contrast:more){
+  .frow input,.frow select{border-color:var(--ink3)}
+  .plan-opt{border-color:var(--ink3)}
+}
+
+/* ═══ SELECT ═══ the panel is the field continuing downward ═══════════════ */
+.isel{position:relative}
+.isel-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
+.isel-btn{
+  width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  padding:.72rem .85rem;min-height:46px;
+  border:1.5px solid var(--bdr);border-radius:9px;background:#fff;
+  font-family:'Heebo',sans-serif;font-size:1rem;font-weight:400;color:var(--ink);
+  text-align:start;cursor:pointer;
+  transition:border-color .15s,box-shadow .15s,border-radius .16s;
+}
+.isel-btn:hover{border-color:var(--ink3)}
+.isel-btn:focus-visible{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
+.isel[data-placeholder="true"] .isel-val{color:var(--ink3)}
+.isel-arrow{color:var(--ink3);display:flex;flex-shrink:0;transition:transform .22s cubic-bezier(.2,.8,.2,1)}
+.isel[data-open="true"] .isel-arrow{transform:rotate(180deg);color:var(--green)}
+.isel.bad .isel-btn{border-color:#dc2626;box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+
+/* open: one continuous outline, split by a hairline where they meet */
+.isel[data-open="true"] .isel-btn{
+  border-color:var(--green);
+  border-bottom-color:var(--bdr);
+  border-radius:9px 9px 0 0;
+  box-shadow:none;
+}
+.isel-panel{
+  position:absolute;top:100%;inset-inline-start:0;inset-inline-end:0;z-index:40;
+  background:#fff;
+  border:1.5px solid var(--green);border-top:none;
+  border-radius:0 0 9px 9px;
+  max-height:min(268px,44vh);overflow-y:auto;
+  box-shadow:0 14px 30px rgba(0,0,0,.10);
+  -webkit-overflow-scrolling:touch;overscroll-behavior:contain;
+  animation:iselOpen .22s cubic-bezier(.22,.9,.24,1) both;
+}
+/* unfurls out of the field's own line, no scaling so the text never distorts */
+@keyframes iselOpen{
+  from{opacity:.4;clip-path:inset(0 0 100% 0)}
+  to{opacity:1;clip-path:inset(0 0 0 0)}
+}
+.isel[data-open="false"] .isel-panel{animation:iselClose .15s cubic-bezier(.4,0,1,1) both}
+@keyframes iselClose{
+  from{opacity:1;clip-path:inset(0 0 0 0)}
+  to{opacity:0;clip-path:inset(0 0 100% 0)}
+}
+.isel-opt{
+  padding:.66rem .85rem;font-size:.97rem;color:var(--ink);cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+  border-bottom:1px solid var(--bg3);
+}
+.isel-opt:last-child{border-bottom:none}
+.isel-opt.active{background:var(--bg2)}
+.isel-opt.on{color:var(--green2);font-weight:500;background:var(--green4)}
+.isel-opt.on::after{content:'✓';font-size:.85rem;color:var(--green)}
+
+/* ═══ CONSENT ═════════════════════════════════════════════════════════════ */
+.consent{display:flex;align-items:flex-start;gap:.6rem;cursor:pointer;padding:.15rem 0;margin-top:.15rem}
+.consent input{position:absolute;opacity:0;width:1px;height:1px}
+.consent-box{
+  flex-shrink:0;width:20px;height:20px;margin-top:1px;
+  border:1.5px solid var(--bdr);border-radius:6px;background:#fff;
+  display:flex;align-items:center;justify-content:center;
+  transition:background .16s cubic-bezier(.2,.8,.2,1),border-color .16s,transform .16s;
+}
+.consent-box::after{
+  content:'';width:10px;height:6px;
+  /* physical sides on purpose: a checkmark must not mirror in RTL */
+  border-left:2px solid #fff;border-bottom:2px solid #fff;
+  transform:rotate(-45deg) scale(.4);opacity:0;
+  transition:transform .18s cubic-bezier(.2,.9,.3,1.3),opacity .12s;
+  margin-bottom:2px;
+}
+.consent input:checked + .consent-box,.addon-row input:checked + .consent-box{background:var(--green);border-color:var(--green)}
+.consent input:checked + .consent-box::after,.addon-row input:checked + .consent-box::after{transform:rotate(-45deg) scale(1);opacity:1}
+.consent:active .consent-box{transform:scale(.9)}
+.consent input:focus-visible + .consent-box{outline:2px solid var(--green);outline-offset:2px}
+.consent-txt{font-size:.79rem;color:var(--ink3);line-height:1.5}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   LUXURY LAYER
+   Pine and navy carry the weight, gold is the only ornament, and the display
+   face turns serif. Appended last so it wins over the older rules.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root{
+  --pine:#0F2E22;
+  --pine-deep:#0A2119;
+  --pine-lift:#17402F;
+  --navy:#16233A;
+  --navy-lift:#20335A;
+  --navy-deep:#0E1726;
+  --gold:#A8853C;
+  --gold-soft:#C7AE7A;
+  --gold-pale:rgba(199,174,122,.28);
+  --paper:#F8F4EA;
+}
+
+/* ── display face ───────────────────────────────────────────────────────── */
+.hero-h1,.sec-title,#cta h2,.pac-name,.plan-opt-name,.o-title{
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;
+}
+.hero-h1{letter-spacing:-.025em;line-height:1.1}
+.sec-title{letter-spacing:-.018em}
+
+/* ── the eyebrow becomes a gold rule ────────────────────────────────────── */
+.sec-tag{
+  background:none;border:none;padding:0;color:var(--gold);
+  font-size:.72rem;font-weight:500;letter-spacing:.22em;text-transform:uppercase;
+}
+/* the plain bar under a heading turns into the invitation flourish */
+.divider{
+  width:132px;height:9px;background:none;border-radius:0;margin:.9rem auto 0;
+  background-image:
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    radial-gradient(circle,var(--gold) 2.6px,transparent 2.7px);
+  background-size:52px 1px,52px 1px,100% 9px;
+  background-position:left center,right center,center center;
+  background-repeat:no-repeat;
+}
+
+/* ── hero: the dark stage ───────────────────────────────────────────────── */
+#hero{
+  background:
+    radial-gradient(120% 95% at 50% -8%, var(--pine-lift) 0%, var(--pine) 55%, var(--pine-deep) 100%);
+  color:var(--paper);
+}
+.hero-blob{display:none}
+#hero::after{
+  /* a hairline frame, the way an invitation is bordered */
+  content:'';position:absolute;inset:22px;pointer-events:none;
+  border:1px solid rgba(199,174,122,.16);border-radius:4px;
+}
+@media(max-width:640px){#hero::after{inset:12px}}
+.hero-badge{
+  background:rgba(248,244,234,.06);border:1px solid var(--gold-pale);
+  color:var(--gold-soft);backdrop-filter:blur(6px);
+  letter-spacing:.06em;font-size:.76rem;
+}
+.hero-h1{color:var(--paper)}
+.hero-h1 .accent{color:var(--gold)}
+.hero-sub{color:rgba(248,244,234,.72);font-weight:300}
+.hero-trust{color:rgba(248,244,234,.5)}
+.trust-avs span{border-color:rgba(248,244,234,.25);background:rgba(248,244,234,.08)}
+
+/* the numbers sit on glass rather than a white card */
+.hero-stats{
+  background:rgba(248,244,234,.05);
+  border:1px solid rgba(199,174,122,.18);
+  backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  box-shadow:none;
+}
+.h-stat{border-color:rgba(199,174,122,.16)!important}
+.h-stat-n{color:var(--gold);font-family:'Frank Ruhl Libre',serif}
+.h-stat-l{color:rgba(248,244,234,.55)}
+
+/* ── two tiers, unmistakably different ──────────────────────────────────── */
+#hero .btn-green{
+  background:var(--gold);color:#1B1508;font-weight:600;letter-spacing:.01em;
+  padding:1rem 2.4rem;border-radius:10px;
+  box-shadow:0 10px 30px rgba(168,133,60,.34);
+}
+#hero .btn-green:hover{background:#B8933F;box-shadow:0 12px 34px rgba(168,133,60,.42)}
+#hero .btn-outline{
+  background:transparent;color:var(--paper);
+  border:1px solid rgba(199,174,122,.45);
+  padding:1rem 2rem;border-radius:10px;font-weight:400;
+}
+#hero .btn-outline:hover{border-color:var(--gold-soft);background:rgba(199,174,122,.09);color:var(--paper)}
+
+/* ── nav ── dark glass, so the bar frames the page rather than sitting on it */
+#nav{
+  background:rgba(8,28,20,.75);
+  backdrop-filter:blur(20px) saturate(170%);
+  -webkit-backdrop-filter:blur(20px) saturate(170%);
+  border-bottom:1px solid rgba(168,133,60,.18);
+}
+#nav.sc{background:rgba(7,23,17,.93);box-shadow:0 6px 24px rgba(0,0,0,.18)}
+.nav-logo-text{color:var(--paper)}
+.nav-logo-text span{color:var(--gold)}
+.nav-btn{
+  background:var(--gold);color:#1B1508;font-weight:600;letter-spacing:.02em;
+  box-shadow:0 4px 16px rgba(168,133,60,.3);
+}
+.nav-btn:hover{background:#B8933F}
+
+/* ── surfaces get a gold hairline on approach ───────────────────────────── */
+.price-pick .plan-opt,.ev-card,.feat-acc-hdr,.rep-card{transition:border-color .22s,box-shadow .22s,transform .22s cubic-bezier(.2,.8,.2,1)}
+.price-pick .plan-opt:hover,.ev-card:hover{border-color:var(--gold-soft);background:#fff;box-shadow:0 10px 30px rgba(15,46,34,.07)}
+.price-pick .plan-opt.rec{border-color:var(--gold-soft)}
+.plan-rec{background:var(--gold);color:#1B1508;letter-spacing:.08em;font-size:.58rem;text-transform:uppercase}
+.plan-opt-name i{color:var(--gold)}
+.plan-opt-price{color:var(--pine)}
+.plan-opt-price .cur{color:var(--gold)}
+.ev-card.on{border-color:var(--gold-soft);background:#FBF8F1;color:var(--pine)}
+.ev-card.on .ev-lbl{color:var(--pine)}
+
+/* ── closing panel and footer, the dark bookend ─────────────────────────── */
+#cta{
+  background:radial-gradient(110% 130% at 50% 0%, var(--pine-lift) 0%, var(--pine) 50%, var(--pine-deep) 100%);
+}
+#cta::before,#cta::after{display:none}
+#cta h2{color:var(--paper)}
+#cta h2 span{color:var(--gold)}
+#cta p{color:rgba(248,244,234,.7)}
+.btn-white{background:var(--gold);color:#1B1508;font-weight:600}
+.btn-white:hover{background:#B8933F}
+.btn-wa{border-color:rgba(199,174,122,.4);color:var(--paper)}
+.btn-wa:hover{background:rgba(199,174,122,.1);border-color:var(--gold-soft)}
+footer{background:var(--navy-deep);border-top:1px solid rgba(168,133,60,.14)}
+.f-logo2-text span{color:var(--gold)}
+.f-links2 a:hover{color:var(--gold-soft)}
+
+/* ── the phone keeps its own light, it is a screenshot ──────────────────── */
+.ptab2.on{background:var(--pine);border-color:var(--pine)}
+.ptab2:hover{border-color:var(--gold-soft)}
+
+@media (prefers-reduced-transparency:reduce){
+  .hero-stats,.hero-badge{backdrop-filter:none;background:rgba(10,33,25,.85)}
+}
+
+/* ── what's included: gold plates on a pine header ──────────────────────── */
+.feat-accordion{border-color:var(--gold-pale);border-radius:14px;overflow:hidden;box-shadow:0 10px 34px rgba(15,46,34,.07)}
+.feat-acc-hdr{
+  background:linear-gradient(135deg,var(--pine) 0%,var(--navy) 100%);
+  color:var(--paper);border-bottom:1px solid rgba(199,174,122,.22);
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.05rem;letter-spacing:-.01em;
+}
+.feat-acc-hdr:hover{background:linear-gradient(135deg,var(--pine-lift) 0%,var(--navy) 100%)}
+.acc-arrow{color:var(--gold-soft)}
+.feat-acc-body{background:#fff}
+.feat{
+  border:1px solid var(--bdr);border-radius:12px;background:#fff;
+  transition:border-color .22s,box-shadow .22s,transform .22s cubic-bezier(.2,.8,.2,1);
+}
+.feat:hover{border-color:var(--gold-soft);box-shadow:0 8px 26px rgba(15,46,34,.07)}
+.feat-ico2{
+  background:linear-gradient(140deg,var(--pine) 0%,var(--navy) 100%);
+  color:var(--gold-soft);
+  border:1px solid rgba(199,174,122,.3);
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  width:40px;height:40px;border-radius:10px;font-size:0;
+}
+.feat-ico2 svg{width:20px;height:20px;display:block}
+.feat strong{font-family:'Frank Ruhl Libre',serif;font-weight:700}
+
+/* ── package names read as a pair, Hebrew leading ───────────────────────── */
+.plan-opt-name{font-size:1.15rem;line-height:1.25}
+.plan-opt-name i{
+  display:block;font-size:.66rem;letter-spacing:.16em;font-weight:600;
+  color:var(--gold);margin:.15rem 0 0;font-family:'Heebo',sans-serif;
+}
+.price-pick .plan-opt{padding:1.05rem 1.1rem}
+
+/* ── closing: one gold action, one quiet one, same family ───────────────── */
+.cta-btns{gap:.7rem}
+.btn-wa{
+  background:transparent;border:1px solid rgba(199,174,122,.45);color:var(--paper);
+  font-weight:400;border-radius:10px;padding:1rem 1.7rem;
+}
+.btn-wa svg{color:var(--gold-soft)}
+.btn-wa:hover{background:rgba(199,174,122,.1);border-color:var(--gold-soft);color:var(--paper)}
+.btn-white{border-radius:10px;padding:1rem 2.2rem}
+#cta{padding:4rem 1.5rem 3.4rem}
+
+/* ── footer: all gold, and less of it ───────────────────────────────────── */
+footer{padding:1.9rem 1.5rem 1.6rem}
+.f-logo2{margin-bottom:.7rem}
+.f-logo2-text{color:var(--gold-soft);font-family:'Frank Ruhl Libre',serif}
+.f-logo2-text span{color:var(--gold)}
+.f-links2{margin-bottom:.6rem;gap:1.4rem}
+.f-links2 a{color:var(--gold-soft);opacity:.85}
+.f-links2 a svg{color:var(--gold)}
+.f-links2 a:hover{color:var(--gold);opacity:1}
+.f-copy2{color:rgba(199,174,122,.45);font-size:.72rem}
+
+/* ── every section eyebrow behaves the same, previews included ──────────── */
+.sec-hd .sec-tag,#previews .sec-tag{
+  display:inline-block;background:none!important;border:none!important;
+  padding:0!important;border-radius:0!important;
+  color:var(--gold)!important;font-size:.72rem;font-weight:500;
+  letter-spacing:.22em;text-transform:uppercase;
+}
+
+
+/* ── the accordion is a control, not a banner ───────────────────────────── */
+.feat-acc-hdr{
+  background:#fff;
+  border:1px solid var(--bdr);
+  border-bottom:1px solid var(--bdr);
+  color:var(--green);
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.05rem;
+  border-radius:12px;
+  transition:border-color .2s,box-shadow .2s;
+}
+.feat-acc-hdr:hover{background:#fff;border-color:var(--gold-soft);box-shadow:0 6px 20px rgba(15,46,34,.06)}
+.feat-acc-hdr.open{border-radius:12px 12px 0 0;border-bottom-color:var(--gold-pale)}
+.feat-acc-hdr .acc-arrow{color:var(--gold)}
+.feat-accordion{border:none;box-shadow:none;overflow:visible}
+.feat-acc-body{background:transparent}
+
+/* ── tighter vertical rhythm: both dark panels were mostly air ──────────── */
+#hero{min-height:auto;padding:6.2rem 1.5rem 2.6rem}
+@media(min-width:768px){#hero{padding:6.8rem 2rem 3rem}}
+.hero-badge{margin-bottom:1rem}
+.hero-h1{margin-bottom:.9rem}
+.hero-sub{margin-bottom:1.6rem}
+.hero-trust{margin-top:1.4rem}
+.hero-stats{margin-top:1.4rem}
+#hero::after{inset:16px}
+@media(max-width:640px){#hero{padding:5.6rem 1.25rem 2.2rem}#hero::after{inset:10px}}
+
+#cta{padding:2.9rem 1.5rem 3rem}
+#cta h2{margin-bottom:.7rem}
+#cta p{margin-bottom:1.5rem}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   POLISH v2 · navy and gold carry every dark panel, the page reveals itself
+   in stages on scroll. Appended last so it wins.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── the dark preview panel joins the navy family, green tint out ───────── */
+#previews{background:var(--navy)}
+#previews::before{background:radial-gradient(ellipse 70% 60% at 50% 50%,rgba(168,133,60,.07),transparent 70%)}
+#previews .sec-note{color:rgba(248,244,234,.55)}
+#previews .stage-cap{color:rgba(248,244,234,.6)}
+#previews .divider{display:none}
+.ptab2.on{background:var(--gold);border-color:var(--gold);color:#1B1508;font-weight:600}
+.ptab2:hover{border-color:var(--gold-soft)}
+
+/* ── the gold action pulses gold, never green, on the dark stages ───────── */
+@keyframes pulse-gold{0%,100%{box-shadow:0 0 0 0 rgba(168,133,60,.45)}70%{box-shadow:0 0 0 12px rgba(168,133,60,0)}}
+#hero .btn-green{animation:pulse-gold 2.6s ease-in-out infinite}
+#hero .btn-green:hover{animation:none}
+.btn-white{animation:pulse-gold 2.6s ease-in-out infinite}
+.btn-white:hover{animation:none}
+
+/* ── closing panel: two actions, one size, centred to the text ──────────── */
+.cta-btns{gap:.8rem;justify-content:center;align-items:stretch}
+.btn-white,.btn-wa{
+  height:54px;min-width:216px;padding:0 1.6rem;
+  display:inline-flex;align-items:center;justify-content:center;gap:.5rem;
+  font-size:.95rem;border-radius:10px;box-sizing:border-box;
+}
+@media(max-width:520px){
+  .cta-btns{flex-direction:column;align-items:center}
+  .btn-white,.btn-wa{width:min(300px,100%);min-width:0}
+}
+
+/* ── the little circles by the trust line: clear, ringed in gold ────────── */
+.trust-avs span{
+  width:32px;height:32px;font-size:.9rem;margin-left:-9px;
+  background:var(--pine-lift);
+  border:1.5px solid rgba(199,174,122,.55);
+  box-shadow:0 2px 8px rgba(0,0,0,.35);
+}
+.trust-avs span:first-child{margin-left:-9px}
+.hero-trust{gap:.75rem}
+
+/* ── bottle green leads, navy is a touch, the light rooms turn cream ────── */
+footer{background:var(--pine-deep);border-top:1px solid rgba(168,133,60,.14)}
+#events,#features,#pricing{background:#FAF8F1}
+.mtab{background:#FAF8F1}
+.ev-card,.feat,.price-pick .plan-opt{border-color:#EAE4D6}
+
+/* ── what's included: this room's accent is navy, not green ─────────────── */
+#features .feat-acc-hdr{color:var(--navy)}
+#features .feat-acc-hdr:hover{border-color:var(--navy);color:var(--navy);box-shadow:0 6px 20px rgba(22,35,58,.08)}
+#features .feat-acc-hdr.open{background:#EEF1F7;border-color:var(--navy);border-bottom-color:rgba(22,35,58,.25)}
+#features .feat-acc-hdr .acc-arrow{color:var(--navy)}
+#features .feat-acc-body{border-color:var(--navy)}
+#features .feat-ico2{background:linear-gradient(140deg,var(--navy) 0%,var(--navy-deep) 100%);border-color:rgba(199,174,122,.3)}
+#features .feat:hover{border-color:rgba(22,35,58,.4);box-shadow:0 8px 26px rgba(22,35,58,.08)}
+
+/* ── nav: cream over the hero, bottle green once past it ────────────────── */
+#nav{
+  background:rgba(248,244,234,.94);
+  border-bottom:1px solid rgba(168,133,60,.25);
+  transition:background .35s,box-shadow .35s,border-color .35s;
+}
+#nav .nav-logo-text{color:var(--pine);transition:color .35s}
+#nav .nav-logo-text span{color:var(--gold);transition:color .35s}
+#nav.sc{
+  background:rgba(12,40,29,.96);
+  border-bottom-color:rgba(168,133,60,.2);
+  box-shadow:0 6px 24px rgba(0,0,0,.18);
+}
+#nav.sc .nav-logo-text,#nav.sc .nav-logo-text span{color:#fff}
+
+/* ── the footer becomes one quiet line ──────────────────────────────────── */
+footer{
+  display:flex;align-items:center;justify-content:center;flex-wrap:wrap;
+  gap:.3rem 1.8rem;padding:.85rem 1.5rem;
+}
+.f-logo2{margin-bottom:0}
+.f-logo2-icon img{width:22px!important;height:22px!important}
+.f-logo2-text{font-size:.88rem}
+.f-links2{margin-bottom:0;gap:1.1rem}
+.f-links2 a{font-size:.75rem}
+.f-links2 a svg{width:12px;height:12px}
+.f-copy2{font-size:.68rem}
+
+/* ── hero numbers: each one rises in turn, then counts up ───────────────── */
+.h-stat-n{font-variant-numeric:tabular-nums}
+.h-stat{opacity:0;animation:rise .55s cubic-bezier(.22,.9,.24,1) forwards}
+.h-stat:nth-child(1){animation-delay:.95s}
+.h-stat:nth-child(2){animation-delay:1.1s}
+.h-stat:nth-child(3){animation-delay:1.25s}
+.h-stat:nth-child(4){animation-delay:1.4s}
+
+/* ── event cards fly in from both sides and meet as one row ─────────────── */
+.event-grid .ev-card{
+  opacity:0;
+  transition:opacity .85s cubic-bezier(.22,.9,.24,1),transform .85s cubic-bezier(.2,.95,.3,1.06),
+             border-color .2s,background .2s,box-shadow .2s;
+}
+/* RTL: the first three enter from the right edge, the last three from the left */
+.event-grid .ev-card:nth-child(-n+3){transform:translateX(min(160px,18vw))}
+.event-grid .ev-card:nth-child(n+4){transform:translateX(max(-160px,-18vw))}
+.event-grid.v .ev-card{opacity:1;transform:none}
+/* the outer cards land first, the middle pair closes the row */
+.event-grid.v .ev-card:nth-child(1),.event-grid.v .ev-card:nth-child(6){transition-delay:0s}
+.event-grid.v .ev-card:nth-child(2),.event-grid.v .ev-card:nth-child(5){transition-delay:.14s}
+.event-grid.v .ev-card:nth-child(3),.event-grid.v .ev-card:nth-child(4){transition-delay:.28s}
+/* press feedback survives the entrance */
+.event-grid.v .ev-card:active{transform:scale(.972);transition-delay:0s}
+
+/* ── the three packages step in one after the other ─────────────────────── */
+.price-pick .plan-opt{opacity:0;transform:translateY(20px)}
+.price-pick .plan-opt{transition:opacity .6s cubic-bezier(.22,.9,.24,1),transform .6s cubic-bezier(.22,.9,.24,1),
+                      border-color .22s,box-shadow .22s,background .2s}
+.price-pick.v .plan-opt{opacity:1;transform:none}
+.price-pick.v .plan-opt:nth-child(1){transition-delay:.05s}
+.price-pick.v .plan-opt:nth-child(2){transition-delay:.18s}
+.price-pick.v .plan-opt:nth-child(3){transition-delay:.31s}
+.price-pick.v .plan-opt:active{transform:scale(.972);transition-delay:0s}
+
+/* ── the page reveals itself in stages ──────────────────────────────────── */
+.fi{opacity:0;transform:translateY(26px) scale(.985);transition:opacity .8s cubic-bezier(.22,.9,.24,1),transform .8s cubic-bezier(.22,.9,.24,1)}
+.fi.v{opacity:1;transform:none}
+.fi.d1{transition-delay:.12s}
+.fi.d2{transition-delay:.24s}
+
+/* ── air between the chapters, the way an invitation breathes ───────────── */
+.sec{padding:3.6rem 1.5rem}
+@media(min-width:768px){.sec{padding:4.6rem 2rem}}
+.sec-hd{margin-bottom:2.1rem}
+
+/* ── a field whose value is already decided reads as settled, not editable ─ */
+.fixed-field{
+  width:100%;min-height:46px;display:flex;align-items:center;gap:.5rem;
+  padding:.72rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+  background:var(--bg2);font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink2);
+}
+.fixed-field::after{content:'✓';margin-inline-start:auto;color:var(--green);font-size:.85rem;font-weight:700}
+.fixed-field[hidden]{display:none}
+
+/* ── over-900: the quote confirmation inside the popup ──────────────────── */
+.quote-ok{text-align:center;padding:1.4rem 0 .6rem;animation:fadeSlideIn .3s ease both}
+.quote-ok[hidden]{display:none}
+.quote-ok .qo-ico{
+  width:56px;height:56px;border-radius:50%;margin:0 auto .9rem;
+  background:var(--green4);border:1.5px solid var(--bdr2);color:var(--green);
+  display:flex;align-items:center;justify-content:center;font-size:1.5rem;font-weight:700;
+}
+.quote-ok h3{font-family:'Frank Ruhl Libre',serif;font-size:1.4rem;color:var(--ink);margin-bottom:.45rem}
+.quote-ok p{font-size:.9rem;color:var(--ink3);line-height:1.65;margin-bottom:1.3rem}
+.quote-ok .wiz-next{max-width:220px;margin:0 auto;display:block;width:100%}
+
+@media (prefers-reduced-motion:reduce){
+  .event-grid .ev-card{opacity:1;transform:none}
+  .price-pick .plan-opt,.h-stat{opacity:1;transform:none;animation:none}
+  #hero .btn-green,.btn-white{animation:none}
+}
+/* ── the dashboard preview, drawn in place ──────────────────────────────── */
+.dpv{flex:1;min-height:0;overflow:hidden;background:#FAF8F1;display:flex;flex-direction:column;text-align:right}
+.dpv-top{
+  background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,#0F2E22 60%,#0A2119 100%);
+  border-bottom:1px solid rgba(199,174,122,.22);
+  padding:.7rem .6rem .8rem;text-align:center;position:relative;flex:0 0 auto;
+}
+.dpv-top::after{content:'';position:absolute;inset:5px;border:1px solid rgba(199,174,122,.18);border-radius:4px}
+.dpv-brand{display:flex;align-items:center;justify-content:center;gap:.3rem;margin-bottom:.35rem}
+.dpv-brand img{width:17px;height:17px;object-fit:contain}
+.dpv-brand span{font-family:'Rubik',sans-serif;font-size:.6rem;font-weight:600;color:#F8F4EA}
+.dpv-brand i{font-style:normal;color:#A8853C}
+.dpv-h1{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600;color:#F8F4EA;letter-spacing:-.01em}
+.dpv-rule{
+  width:64px;height:7px;margin:.28rem auto 0;
+  background-image:linear-gradient(rgba(199,174,122,.6),rgba(199,174,122,.6)),
+    linear-gradient(rgba(199,174,122,.6),rgba(199,174,122,.6)),
+    radial-gradient(circle,#A8853C 1.7px,transparent 1.8px);
+  background-size:24px 1px,24px 1px,100% 7px;
+  background-position:left center,right center,center center;background-repeat:no-repeat;
+}
+.dpv-sub{font-size:.58rem;color:rgba(248,244,234,.6);margin-top:.22rem}
+.dpv-cd{
+  display:inline-block;margin-top:.32rem;font-size:.55rem;
+  background:rgba(248,244,234,.07);border:1px solid rgba(199,174,122,.3);
+  color:#C7AE7A;border-radius:99px;padding:.12rem .5rem;
+}
+.dpv-card{background:#fff;border:1px solid #e5e7eb;border-radius:9px;margin:.42rem .45rem 0;overflow:hidden;flex:0 0 auto}
+.dpv-card:last-child{min-height:0;flex:1 1 auto}
+.dpv-ch{padding:.34rem .55rem;border-bottom:1px solid #e5e7eb;font-size:.5rem;letter-spacing:.08em;color:#0A3826;font-weight:600}
+.dpv-kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:#e5e7eb}
+.dpv-kpi{background:#fff;padding:.35rem .2rem;text-align:center}
+.dpv-kpi b{font-family:'Rubik',sans-serif;font-size:.88rem;font-weight:600;color:#111827;display:block;line-height:1.15}
+.dpv-kpi span{font-size:.5rem;color:#6b7280;display:block}
+.dpv-kpi.hi{background:#FBF8F1;box-shadow:inset 0 0 0 1.5px #A8853C}
+.dpv-kpi.hi b{color:#0A3826;font-weight:700}
+.dpv-kpi.hi span{color:#8A6D2F;font-weight:600}
+.dpv-prog{padding:.35rem .55rem;border-top:1px solid #e5e7eb}
+.dpv-ph{display:flex;justify-content:space-between;font-size:.5rem;color:#6b7280;margin-bottom:.22rem}
+.dpv-pb{height:5px;background:#f3f4f6;border-radius:99px;overflow:hidden;display:flex}
+.dpv-pb i{display:block;height:100%}
+.dpv-pb .y{width:64%;background:#0F4C35}
+.dpv-pb .n{width:12%;background:#d1d5db}
+.dpv-row{display:flex;align-items:center;gap:.35rem;padding:.3rem .55rem;border-bottom:1px solid #e5e7eb}
+.dpv-row:last-child{border-bottom:none}
+.dpv-n{flex:1;min-width:0;font-size:.58rem;color:#111827;line-height:1.3}
+.dpv-n i{font-style:normal;font-size:.5rem;color:#6b7280;direction:ltr;display:inline-block}
+.dpv-p{flex-shrink:0;font-size:.5rem;font-weight:500;border-radius:99px;padding:.06rem .32rem;white-space:nowrap}
+.dpv-p.y{background:#F3F8F5;color:#0A3826}
+.dpv-p.n{background:#fef2f2;color:#dc2626}
+.dpv-p.w{background:#f3f4f6;color:#6b7280}
+.dpv-s{flex-shrink:0;font-family:'Rubik',sans-serif;font-size:.58rem;color:#374151;width:.9rem;text-align:center}
+
+/* ═════════════════════════════════════════════════════════════════════════
+   PROMO LAYER
+   A thin bar at the very top, one popup per visit, and a struck price in the
+   pricing block. Same pine, gold and cream as everything above it.
+   Display only: nothing here changes what Grow charges.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+/* ── the bar ────────────────────────────────────────────────────────────── */
+#promo-bar{
+  position:fixed;inset:0 0 auto;z-index:320;
+  display:flex;align-items:center;justify-content:center;
+  min-height:34px;padding:.32rem 2.6rem;
+  background:linear-gradient(90deg,var(--pine-deep) 0%,var(--pine-lift) 50%,var(--pine-deep) 100%);
+  border-bottom:1px solid var(--gold-pale);
+  color:var(--paper);font-family:'Heebo',sans-serif;
+  font-size:.76rem;font-weight:300;line-height:1.4;text-align:center;
+}
+#promo-bar b{color:var(--gold-soft);font-weight:600}
+#promo-bar i{font-style:normal;color:var(--gold);margin:0 .28rem}
+/* The bar is fixed, so the nav and the page both step down behind it. The
+   campaign label comes from KV and can be any length, so the step is the bar's
+   measured height (--promo-h, set in JS); the literal is the one-line fallback
+   for the moment before the measurement lands. */
+body.has-promo{padding-top:var(--promo-h,34px)}
+body.has-promo #nav{top:var(--promo-h,34px)}
+#promo-bar-x{
+  position:absolute;inset-inline-start:.4rem;top:50%;transform:translateY(-50%);
+  width:26px;height:26px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:6px;cursor:pointer;
+  color:var(--gold-soft);font-size:.9rem;line-height:1;padding:0;
+  transition:background .2s,color .2s;
+}
+#promo-bar-x:hover{background:rgba(199,174,122,.16);color:var(--paper)}
+#promo-bar-x:focus-visible{outline:2px solid var(--gold-soft);outline-offset:1px}
+@media(max-width:560px){
+  #promo-bar{font-size:.7rem;min-height:40px;padding:.35rem 2.4rem}
+  body.has-promo{padding-top:var(--promo-h,40px)}
+  body.has-promo #nav{top:var(--promo-h,40px)}
+}
+
+/* ── the popup ──────────────────────────────────────────────────────────── */
+#promo-modal{
+  position:fixed;inset:0;z-index:9998;
+  display:flex;align-items:center;justify-content:center;padding:1.2rem;
+}
+#promo-modal-bg{
+  position:absolute;inset:0;background:rgba(10,33,25,.62);
+  backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);
+}
+#promo-card{
+  position:relative;width:100%;max-width:400px;
+  background:#FBF8F1;color:var(--pine);
+  border:1px solid var(--gold-pale);border-radius:16px;
+  padding:1.9rem 1.5rem 1.4rem;text-align:center;
+  box-shadow:0 24px 70px rgba(10,33,25,.34);
+  animation:promoIn .38s cubic-bezier(.22,.9,.24,1) both;
+}
+.promo-rule{
+  width:104px;height:9px;margin:0 auto .95rem;
+  background-image:
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    linear-gradient(var(--gold-soft),var(--gold-soft)),
+    radial-gradient(circle,var(--gold) 2.2px,transparent 2.3px);
+  background-size:38px 1px,38px 1px,100% 9px;
+  background-position:left center,right center,center center;
+  background-repeat:no-repeat;
+}
+#promo-title{
+  font-family:'Frank Ruhl Libre',serif;font-weight:700;
+  font-size:1.55rem;line-height:1.2;letter-spacing:-.022em;
+  color:var(--pine);margin-bottom:.7rem;
+}
+.plan-was,.pop-total s{
+  color:var(--ink2);font-size:.78em;font-weight:400;
+  margin-inline-end:.34rem;text-decoration-thickness:1px;opacity:.75
+}
+.plan-opt-price.cut .cur,.plan-opt-price.cut{color:var(--gold)}
+.pop-total.cut .pt-v{color:var(--gold)}
+.pt-save{
+  font-style:normal;font-size:.8em;font-weight:600;color:var(--gold);
+  margin-inline-start:.4rem
+}
+#promo-label{
+  display:inline-block;background:var(--gold);color:#1B1508;
+  font-family:'Heebo',sans-serif;font-size:.71rem;font-weight:600;
+  letter-spacing:.04em;border-radius:100px;padding:.26rem .85rem;
+  margin-bottom:.9rem;
+}
+#promo-greeting{
+  font-family:'Heebo',sans-serif;font-size:.89rem;font-weight:300;
+  line-height:1.75;color:#2E4238;margin:0 0 1.25rem;
+}
+#promo-ok{
+  width:100%;background:var(--pine);color:var(--paper);
+  border:none;border-radius:10px;padding:.85rem 1.2rem;
+  font-family:'Heebo',sans-serif;font-size:.95rem;font-weight:600;
+  cursor:pointer;transition:background .2s,transform .18s;
+}
+#promo-ok:hover{background:var(--pine-lift)}
+#promo-ok:active{transform:scale(.978)}
+#promo-ok:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+#promo-x{
+  position:absolute;top:.45rem;inset-inline-start:.45rem;
+  width:32px;height:32px;display:flex;align-items:center;justify-content:center;
+  background:none;border:none;border-radius:8px;cursor:pointer;padding:0;
+  color:#7B8B82;font-size:.95rem;line-height:1;transition:background .2s,color .2s;
+}
+#promo-x:hover{background:rgba(15,46,34,.07);color:var(--pine)}
+#promo-x:focus-visible{outline:2px solid var(--gold);outline-offset:1px}
+@keyframes promoIn{from{opacity:0;transform:translateY(14px) scale(.972)}to{opacity:1;transform:none}}
+
+/* ── the struck price in the pricing block ──────────────────────────────── */
+.plan-opt-price .was{
+  font-size:.72rem;font-weight:400;color:var(--ink3);
+  text-decoration:line-through;text-decoration-thickness:1px;
+  line-height:1.2;opacity:.8;
+}
+.plan-opt-price .was .cur{color:inherit;font-size:.72rem}
+.plan-opt-price .now{color:var(--gold);font-weight:700}
+.plan-opt-price .now .cur{color:var(--gold)}
+.promo-save{
+  display:inline-block;margin-top:.22rem;
+  background:rgba(168,133,60,.12);border:1px solid var(--gold-pale);
+  color:#7A5F27;border-radius:100px;padding:.06rem .45rem;
+  font-family:'Heebo',sans-serif;font-size:.6rem;font-weight:600;
+  letter-spacing:0;white-space:nowrap;
+}
+
+/* ── the beta note in the popup ─────────────────────────────────────────── */
+#promo-beta{
+  display:block;margin:0 0 .9rem;
+  background:rgba(168,133,60,.12);border:1px solid var(--gold-pale);
+  color:#7A5F27;border-radius:10px;padding:.55rem .75rem;
+  font-family:'Heebo',sans-serif;font-size:.76rem;font-weight:500;line-height:1.6;
+}
+
+/* ── "יש לי קוד" ── the codes go out in a WhatsApp group, so plenty of
+      people arrive without the link and type theirs in by hand ──────────── */
+.promo-row{display:flex;gap:.5rem;align-items:stretch}
+
+/* one line, and empty until we actually know something */
+.promo-msg{
+  font-family:'Heebo',sans-serif;font-size:.79rem;font-weight:400;line-height:1.6;
+  color:var(--ink3);margin-top:.5rem;
+}
+.promo-msg:empty{display:none}
+.promo-msg.ok{color:#2E4238}
+.promo-msg.ok b{color:var(--gold);font-weight:600}
+.promo-msg.err{color:#9A3412}
+.promo-msg .promo-beta-chip{
+  display:inline-block;margin-inline-start:.35rem;
+  background:rgba(168,133,60,.12);border:1px solid var(--gold-pale);
+  color:#7A5F27;border-radius:100px;padding:.06rem .5rem;
+  font-size:.66rem;font-weight:600;white-space:nowrap;
+}
+@media(max-width:340px){
+  .promo-row{flex-wrap:wrap}
+}
+
+/* ── a browser set to dark must not repaint any of this ─────────────────── */
+@media(prefers-color-scheme:dark){
+  #promo-bar,#promo-modal,#promo-card{color-scheme:light}
+  #promo-bar{color:var(--paper)}
+  #promo-card{background:#FBF8F1;color:var(--pine);border-color:var(--gold-pale)}
+  #promo-title{color:var(--pine)}
+  #promo-greeting{color:#2E4238}
+  #promo-ok{background:var(--pine);color:var(--paper)}
+  .promo-save{background:rgba(168,133,60,.14);color:#7A5F27}
+  #promo-beta{background:rgba(168,133,60,.14);color:#7A5F27;border-color:var(--gold-pale)}
+  .promo-msg{color:var(--ink3)}
+  .promo-msg.ok{color:#2E4238}
+  .promo-msg.err{color:#9A3412}
+  .promo-msg .promo-beta-chip{background:rgba(168,133,60,.14);color:#7A5F27}
+}
+
+@media(prefers-reduced-motion:reduce){
+  #promo-card{animation:none}
+  #promo-ok,#promo-x,#promo-bar-x{transition:none}
+  #promo-ok:active{transform:none}
+}
+
+
+/* ── hostess add-on (demo) ── */
+.addon-row{display:flex;align-items:flex-start;gap:.75rem;padding:.8rem .95rem;background:var(--bg2);border:2px solid var(--bdr);border-radius:10px;margin-top:.7rem;cursor:pointer;transition:border-color .2s}
+.addon-row:has(input:checked){border-color:var(--green)}
+.addon-row input{position:absolute;opacity:0;width:0;height:0}
+.addon-row .consent-box{margin-top:.15rem;flex-shrink:0}
+.addon-row .ad-txt{flex:1;min-width:0}
+.addon-row .ad-name{display:block;font-weight:600;font-size:.92rem;color:var(--ink)}
+.addon-row .ad-tier{display:block;font-size:.76rem;color:var(--ink3);margin-top:.15rem}
+.addon-row .ad-note{display:block;font-size:.72rem;color:var(--ink3);margin-top:.3rem;line-height:1.45}
+.addon-row .ad-price{font-family:'Rubik',sans-serif;font-weight:700;color:var(--green);font-size:1.05rem;white-space:nowrap}
+.addon-row[hidden]{display:none}
+.addon-row input:disabled~.consent-box{opacity:.6}
+.pr-addons{max-width:720px;margin:2.2rem auto 0}
+.pr-addons-t{text-align:center;font-family:'Rubik',sans-serif;font-weight:600;font-size:1.05rem;color:var(--ink);margin-bottom:.9rem}
+.pr-addons-g{display:grid;grid-template-columns:1fr;gap:.9rem}
+@media(min-width:640px){.pr-addons-g{grid-template-columns:1fr 1fr}}
+.pr-addon{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:1.1rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}
+.pr-addon h4{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:.5rem}
+.pr-addon .soon{font-size:.68rem;font-weight:500;color:var(--green);border:1px solid var(--green);border-radius:999px;padding:.1rem .5rem}
+.pr-addon p{font-size:.84rem;color:var(--ink3);line-height:1.55}
+.pr-addon table{width:100%;border-collapse:collapse;font-size:.84rem}
+.pr-addon td{padding:.35rem 0;border-bottom:1px dashed var(--bdr);color:var(--ink2)}
+.pr-addon td:last-child{text-align:left;font-family:'Rubik',sans-serif;font-weight:600;color:var(--ink)}
+.pr-addon .fine{font-size:.72rem;color:var(--ink3);line-height:1.45}
+.pr-addon .btn{align-self:flex-start;margin-top:.25rem;padding:.55rem 1rem;font-size:.85rem}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="nav-logo">
+    <div class="nav-logo-icon">
+      <img src="assets/logo-light.png" style="width:48px;height:48px;object-fit:contain;display:block;" alt="לוגו">
+    </div>
+    <div class="nav-logo-text">אישורי <span>הגעה</span></div>
+  </div>
+  <button class="nav-btn shake-btn" data-order="nav" id="nav-order-btn">הזמינו עכשיו</button>
+</nav>
+
+<!-- HERO -->
+<section id="hero">
+  <div class="hero-blob blob1"></div>
+  <div class="hero-blob blob2"></div>
+  <div class="hero-inner">
+    <div class="hero-badge">✓ &nbsp; אישורי הגעה חכמים לכל אירוע</div>
+    <h1 class="hero-h1">אישורי הגעה<br><span class="accent">אוטומטיים לאירועים</span></h1>
+    <p class="hero-sub">שולחים הודעה לכל מוזמן, אוספים תשובות, מזכירים למי ששכח. אתם מקבלים מספר מדויק.</p>
+    <div class="hero-btns">
+      <button class="btn btn-green" data-order="hero">התחילו עכשיו</button>
+      <button class="btn btn-outline" onclick="goTo('previews')">ראו איך זה עובד</button>
+    </div>
+    <div class="hero-trust">
+      <div class="trust-avs"><span>👰</span><span>🎉</span><span>💍</span></div>
+      מאות אירועים כבר השתמשו בשירות
+    </div>
+    <div class="hero-stats">
+      <div class="h-stat"><span class="h-stat-n">500+</span><span class="h-stat-l">אירועים</span></div>
+      <div class="h-stat"><span class="h-stat-n">98%</span><span class="h-stat-l">שביעות רצון</span></div>
+      <div class="h-stat"><span class="h-stat-n">24/7</span><span class="h-stat-l">מעקב</span></div>
+      <div class="h-stat"><span class="h-stat-n">2 דק׳</span><span class="h-stat-l">להגדרה</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- EVENT TYPES -->
+<section id="events" class="sec">
+  <div class="wrap">
+    <div class="sec-hd fi">
+      <span class="sec-tag">לכל אירוע</span>
+      <h2 class="sec-title">לא רק חתונות</h2>
+      <div class="divider"></div>
+      <p class="sec-note">השירות מתאים לכל סוג אירוע שצריך אישורי הגעה מסודרים</p>
+    </div>
+    <div class="event-grid">
+      <div class="ev-card on" data-ev="wedding" onclick="toggleEv(this)"><span class="ev-ico">💍</span><span class="ev-lbl">חתונה</span></div>
+      <div class="ev-card" data-ev="bar" onclick="toggleEv(this)"><span class="ev-ico">🎉</span><span class="ev-lbl">בר מצווה</span></div>
+      <div class="ev-card" data-ev="bat" onclick="toggleEv(this)"><span class="ev-ico">🎀</span><span class="ev-lbl">בת מצווה</span></div>
+      <div class="ev-card" data-ev="brit" onclick="toggleEv(this)"><span class="ev-ico">👶</span><span class="ev-lbl">ברית/ה</span></div>
+      <div class="ev-card" data-ev="bday" onclick="toggleEv(this)"><span class="ev-ico">🎂</span><span class="ev-lbl">יום הולדת</span></div>
+      <div class="ev-card" data-ev="biz" onclick="toggleEv(this)"><span class="ev-ico">💼</span><span class="ev-lbl">אירוע עסקי</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section id="features" class="sec">
+  <div class="wrap">
+    <div class="sec-hd fi">
+      <span class="sec-tag">מה מקבלים</span>
+      <h2 class="sec-title">כל מה שצריך, במקום אחד</h2>
+      <div class="divider"></div>
+    </div>
+    <div class="feat-accordion">
+      <div class="feat-acc-hdr" onclick="toggleAcc(this)">
+        <span>מה כלול בשירות</span>
+        <span class="acc-arrow">▼</span>
+      </div>
+      <div class="feat-acc-body">
+        <div class="feat-grid" style="margin-top:.6rem">
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1Z"/><path d="m3.5 6.5 8.5 6 8.5-6"/></svg></div><div><strong>הודעות אישיות</strong><p>לכל מוזמן בנפרד עם שמו האישי וקישור לאישור</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><div><strong>מעקב תשובות</strong><p>כן, לא, וכמה מגיעים. הכל מתועד ומסודר</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7Z"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><div><strong>תזכורות אוטומטיות</strong><p>למי שלא ענה, בלי שתצטרכו לבקש</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><path d="M15 4.5h2.5A1.5 1.5 0 0 1 19 6v13.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="M8.5 11h7M8.5 15h4.5"/></svg></div><div><strong>דוחות שוטפים</strong><p>כל כמה ימים ישירות לוואטסאפ שלכם</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></div><div><strong>דיילות ביום האירוע</strong><p>תוספת לכל חבילה: מקבלות אורחים, מסמנות הגעה בלוח ומכוונות לשולחנות</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></div><div><strong>סיכום ביום האירוע</strong><p>כמה מגיעים וכמה לא, ברור ונקי</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 1.1 4.2 2 2 0 0 1 3.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2Z"/></svg></div><div><strong>שיחת טלפון מסוכן AI</strong><p>למוזמנים שלא ענו, סוכנת ה-AI שלנו מתקשרת ומאשרת בשמם</p></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- MSG STYLES -->
+<section id="msg-styles" class="sec">
+  <div class="wrap">
+    <div class="sec-hd fi">
+      <span class="sec-tag">סגנונות הודעה</span>
+      <h2 class="sec-title">בחרו את הסגנון שמתאים לאירוע</h2>
+      <div class="divider"></div>
+    </div>
+    <div class="mtabs fi">
+      <button class="mtab on" onclick="showMsg('happy',this)">😊 שמחה</button>
+      <button class="mtab" onclick="showMsg('serious',this)">🎩 רשמי</button>
+      <button class="mtab" onclick="showMsg('respectful',this)">🙏 מכובד</button>
+      <button class="mtab" onclick="showMsg('playful',this)">🎉 שובב</button>
+      <button class="mtab" onclick="showMsg('postponed',this)">📅 דחייה/עדכון</button>
+      <button class="mtab" onclick="showMsg('canceled',this)">⚠️ ביטול</button>
+    </div>
+    <div class="msg-card wrap-sm fi d1">
+      <div id="msg-body"></div>
+    </div>
+    <p class="msg-note-txt" id="msg-note"></p>
+  </div>
+</section>
+
+<!-- PREVIEWS -->
+<section id="previews" class="sec">
+  <div class="wrap">
+    <div class="sec-hd fi">
+      <span class="sec-tag">תצוגה מקדימה</span>
+      <h2 class="sec-title">ככה זה נראה בפועל</h2>
+      <div class="divider"></div>
+      <p class="sec-note">מה שהמוזמן מקבל בוואטסאפ, ומה שאתם רואים בלוח הבקרה</p>
+    </div>
+
+    <div class="ptabs2 fi">
+      <button class="ptab2 on" id="ptab-wa" onclick="showPrev('wa')">ההודעה שהמוזמן מקבל</button>
+      <button class="ptab2" id="ptab-dash" onclick="showPrev('dash')">לוח הבקרה שלכם</button>
+    </div>
+
+    <!-- ══ the guest's phone ══ -->
+    <div id="prev-wa" class="phone-stage">
+      <div class="iph">
+        <div class="iph-screen">
+          <div class="ios-status">
+            <span class="ios-time">9:41</span>
+            <span class="ios-right">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.5" y="5.5" width="3" height="5.5" rx="1"/><rect x="9" y="3" width="3" height="8" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+              <svg width="16" height="11" viewBox="0 0 16 11" fill="currentColor"><path d="M8 9.6 6.1 7.7a2.7 2.7 0 0 1 3.8 0L8 9.6Zm-3.3-3.3a5.3 5.3 0 0 1 6.6 0l1.3-1.3a7.2 7.2 0 0 0-9.2 0l1.3 1.3ZM1.5 3.1a9.8 9.8 0 0 1 13 0l1.3-1.4a11.7 11.7 0 0 0-15.6 0l1.3 1.4Z"/></svg>
+              <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/><path d="M23 4.2v3.6a2 2 0 0 0 0-3.6Z" fill="currentColor" opacity=".5"/></svg>
+            </span>
+          </div>
+
+          <div class="wa-bar">
+            <span class="wa-back" aria-hidden="true">
+              <svg width="11" height="18" viewBox="0 0 11 18" fill="none"><path d="M9.5 1.5 2 9l7.5 7.5" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+            <span class="wa-av"><img src="assets/logo.png" alt=""></span>
+            <span class="wa-who"><b>נועה ויונתן</b><i>אישורי הגעה</i></span>
+            <span class="wa-icons" aria-hidden="true">
+              <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2"/></svg>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2Z"/></svg>
+            </span>
+          </div>
+
+          <div class="wa-chat">
+            <div class="wa-day">היום</div>
+
+            <div class="wa-msg">
+              <div class="wa-bub in">
+                <p class="wa-txt" id="wa-preview-txt"></p>
+                <span class="wa-meta">10:14</span>
+              </div>
+              <div class="wa-btns">
+                <button type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                  מגיע/ה
+                </button>
+                <button type="button">
+                  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M9 10 4 15l5 5"/><path d="M20 4v7a4 4 0 0 1-4 4H4"/></svg>
+                  לא מגיע/ה
+                </button>
+              </div>
+            </div>
+
+            <div class="wa-msg out">
+              <div class="wa-bub out"><p class="wa-txt">מגיע/ה</p><span class="wa-meta">10:17 <i class="rr">✓✓</i></span></div>
+            </div>
+
+            <div class="wa-msg">
+              <div class="wa-bub in"><p class="wa-txt">מעולה. כמה אתם מגיעים?</p><span class="wa-meta">10:17</span></div>
+            </div>
+
+            <div class="wa-msg out">
+              <div class="wa-bub out"><p class="wa-txt">4</p><span class="wa-meta">10:18 <i class="rr">✓✓</i></span></div>
+            </div>
+
+            <div class="wa-msg">
+              <div class="wa-bub in"><p class="wa-txt">רשמנו 4 מקומות. נתראה! 🤍</p><span class="wa-meta">10:18</span></div>
+            </div>
+          </div>
+
+          <div class="wa-input">
+            <span class="wa-field">הודעה</span>
+            <span class="wa-mic" aria-hidden="true">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Z"/><path d="M18 11a1 1 0 1 0-2 0 4 4 0 0 1-8 0 1 1 0 1 0-2 0 6 6 0 0 0 5 5.9V19h-2a1 1 0 1 0 0 2h6a1 1 0 1 0 0-2h-2v-2.1A6 6 0 0 0 18 11Z"/></svg>
+            </span>
+          </div>
+        </div>
+      </div>
+      <p class="stage-cap">הכפתורים אמיתיים. המוזמן לוחץ, והתשובה נרשמת מיד.</p>
+    </div>
+
+    <!-- ══ the real dashboard ══ -->
+    <div id="prev-dash" class="phone-stage" style="display:none">
+      <div class="iph">
+        <div class="iph-screen">
+          <div class="ios-status dark">
+            <span class="ios-time">9:41</span>
+            <span class="ios-right">
+              <svg width="17" height="11" viewBox="0 0 17 11" fill="currentColor"><rect x="0" y="7.5" width="3" height="3.5" rx="1"/><rect x="4.5" y="5.5" width="3" height="5.5" rx="1"/><rect x="9" y="3" width="3" height="8" rx="1"/><rect x="13.5" y="0" width="3" height="11" rx="1"/></svg>
+              <svg width="25" height="12" viewBox="0 0 25 12" fill="none"><rect x=".5" y=".5" width="21" height="11" rx="3" stroke="currentColor" opacity=".4"/><rect x="2" y="2" width="16" height="8" rx="1.6" fill="currentColor"/></svg>
+            </span>
+          </div>
+          <!-- Drawn here rather than embedded: an iframe negotiates its own
+               height on iOS and lands on empty page, and this only ever has
+               to show what the dashboard looks like. -->
+          <div class="dpv" aria-label="לוח הבקרה, תצוגה לדוגמה">
+            <div class="dpv-top">
+              <div class="dpv-brand"><img src="assets/logo-gold.png" alt=""><span>אישורי <i>הגעה</i></span></div>
+              <div class="dpv-h1">נועה ויונתן</div>
+              <div class="dpv-rule"></div>
+              <div class="dpv-sub">אולם הגן הקסום, רמת גן</div>
+              <div class="dpv-cd">נותרו 38 ימים לאירוע</div>
+            </div>
+            <div class="dpv-card">
+              <div class="dpv-ch">התמונה הנוכחית</div>
+              <div class="dpv-kpis">
+                <div class="dpv-kpi"><b>78</b><span>מוזמנים</span></div>
+                <div class="dpv-kpi hi"><b>50</b><span>אישרו</span></div>
+                <div class="dpv-kpi"><b>9</b><span>לא מגיעים</span></div>
+                <div class="dpv-kpi"><b>19</b><span>לא ענו</span></div>
+              </div>
+              <div class="dpv-prog">
+                <div class="dpv-ph"><span>אחוז מענה</span><span>59 / 78 · 76%</span></div>
+                <div class="dpv-pb"><i class="y"></i><i class="n"></i></div>
+              </div>
+            </div>
+            <div class="dpv-card">
+              <div class="dpv-ch">המוזמנים</div>
+              <div class="dpv-row"><span class="dpv-n">משפחת כהן<br><i>052-2234501</i></span><span class="dpv-p y">אישרו</span><span class="dpv-s">4</span></div>
+              <div class="dpv-row"><span class="dpv-n">דנה לוי<br><i>052-2234638</i></span><span class="dpv-p y">אישרו</span><span class="dpv-s">2</span></div>
+              <div class="dpv-row"><span class="dpv-n">אורי בר<br><i>054-3456789</i></span><span class="dpv-p n">לא מגיעים</span><span class="dpv-s">1</span></div>
+              <div class="dpv-row"><span class="dpv-n">יוסי מזרחי<br><i>050-6789012</i></span><span class="dpv-p w">לא ענו</span><span class="dpv-s">1</span></div>
+              <div class="dpv-row"><span class="dpv-n">משפחת פרץ<br><i>053-4567890</i></span><span class="dpv-p y">אישרו</span><span class="dpv-s">5</span></div>
+              <div class="dpv-row"><span class="dpv-n">רות אברהם<br><i>052-7890123</i></span><span class="dpv-p y">אישרו</span><span class="dpv-s">3</span></div>
+              <div class="dpv-row"><span class="dpv-n">משפחת אלון<br><i>050-1112233</i></span><span class="dpv-p w">לא ענו</span><span class="dpv-s">3</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <p class="stage-cap">כך נראה לוח הבקרה שלכם, עם נתוני דוגמה. נפתח מהקישור שנשלח אליכם.</p>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section id="pricing" class="sec">
+  <div class="wrap">
+    <div class="sec-hd fi">
+      <span class="sec-tag">מחירון</span>
+      <h2 class="sec-title">תשלום אחד לאירוע</h2>
+      <div class="divider"></div>
+      <p class="sec-note">בחרו כמה רשומות, והמחיר מתעדכן.<br><b>רשומה אחת = מספר טלפון אחד.</b> משפחה על מספר אחד נספרת פעם אחת.</p>
+    </div>
+
+    <div class="price-pick fi">
+      <label for="pr-guests">כמות רשומות</label>
+      <select id="pr-guests" data-isel></select>
+      <div class="plan-opts" id="pr-plans"></div>
+
+      <!-- No "I have a code" field on purpose. A code arrives as a link, and a
+           box on a public pricing page mostly teaches strangers that codes
+           exist and are worth hunting for. The status line stays: it is how a
+           dead or spent code explains itself. -->
+      <p id="pr-code-msg" class="promo-msg" role="status" aria-live="polite"></p>
+
+      <p class="pr-note">לחצו על "בחירה" בחבילה שמתאימה לכם. המחירים כוללים מע״מ.</p>
+    </div>
+
+    <div class="pr-addons fi" id="pr-addons">
+      <div class="pr-addons-t">תוספות לאירוע</div>
+      <div class="pr-addons-g">
+        <div class="pr-addon" id="addon-hostess">
+          <h4>דיילות באירוע</h4>
+          <p id="addon-hostess-desc"></p>
+          <table id="addon-hostess-tbl"></table>
+          <p class="fine" id="addon-hostess-fine"></p>
+          <button type="button" class="btn btn-green" id="addon-hostess-go">הוסיפו דיילות להזמנה</button>
+        </div>
+        <div class="pr-addon" id="addon-gifts">
+          <h4>מתנות באשראי <span class="soon">בקרוב</span></h4>
+          <p id="addon-gifts-desc"></p>
+          <p class="fine">ללא עלות לבעלי האירוע. האורח משלם דמי סליקה קטנים, כמו בכל אתר תשלומים.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+<div class="sticky-cta" id="stickyCta" hidden>
+  <span class="sc-txt"></span>
+  <button type="button" class="btn btn-green sc-btn" id="stickyGo">התחילו עכשיו</button>
+</div>
+
+<!-- CTA -->
+<section id="cta">
+  <div class="wrap fi" style="position:relative;z-index:1">
+    <h2>תנו לנו לטפל<br><span>בזה בשבילכם</span></h2>
+    <p>אתם גם ככה עסוקים מספיק...<br>את אישורי ההגעה תשאירו לנו.</p>
+    <div class="cta-btns">
+      <button class="btn-white" data-order="cta">התחילו עכשיו</button>
+      <a href="#" data-wa class="btn-wa" target="_blank" rel="noopener">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+        שאלות? וואטסאפ
+      </a>
+    </div>
+  </div>
+</section>
+
+<!-- FOOTER -->
+<footer>
+  <div class="f-logo2">
+    <div class="f-logo2-icon" style="background:transparent;border-radius:5px;padding:2px;display:flex;align-items:center;justify-content:center;"><img src="assets/logo-gold.png" style="width:36px;height:36px;object-fit:contain;" alt="לוגו"></div>
+    <div class="f-logo2-text">אישורי <span>הגעה</span></div>
+  </div>
+  <div class="f-links2">
+    <a href="#" data-wa target="_blank" rel="noopener">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+      וואטסאפ
+    </a>
+    
+    <a href="terms.html">תנאי שימוש</a>
+    <a href="faq.html">שאלות נפוצות</a>
+    <a href="terms.html#privacy">פרטיות</a>
+  </div>
+  <div class="f-links2" style="flex-wrap:wrap;max-width:640px;margin-inline:auto;font-size:.72rem;opacity:.85">
+    <a href="hatuna.html">חתונה</a>
+    <a href="bar-mitzvah.html">בר/בת מצווה</a>
+    <a href="tel-aviv.html">תל אביב</a>
+    <a href="jerusalem.html">ירושלים</a>
+    <a href="haifa.html">חיפה</a>
+    <a href="rishon-lezion.html">ראשון לציון</a>
+    <a href="petah-tikva.html">פתח תקווה</a>
+    <a href="netanya.html">נתניה</a>
+    <a href="beer-sheva.html">באר שבע</a>
+    <a href="ramat-gan.html">רמת גן</a>
+  </div>
+  <div class="f-copy2">© 2026 אישורי הגעה · ishur.io · כל הזכויות שמורות</div>
+</footer>
+
+<script>
+// ═══ HELPERS ═══
+const CFG=window.ISHUR_CONFIG;
+function goTo(id){document.getElementById(id)?.scrollIntoView({behavior:'smooth'})}
+function push(e,p={}){IshurLead.track(e,p)}
+function pxc(e,p={}){typeof fbq!=='undefined'&&fbq('trackCustom',e,p)}
+
+// ═══ PAGE STATE ═══ (preview only, the order popup keeps its own)
+const S={evType:'wedding'};
+
+// ═══ MSG PREVIEWS ═══
+const MSGS_BY_EVENT=ISHUR_MESSAGES.BY_EVENT;
+
+function showMsg(key,btn){
+  document.querySelectorAll('.mtab').forEach(b=>b.classList.remove('on'));
+  if(btn) btn.classList.add('on');
+  const m=ISHUR_MESSAGES.sample(S.evType||'wedding', key);
+  if(!m) return;
+  document.getElementById('msg-body').innerHTML=m.html;
+  document.getElementById('msg-note').textContent=m.note||'';
+  renderWaPreview();
+}
+showMsg('happy');
+
+// ═══ EVENT TYPES ═══
+function toggleEv(card){
+  document.querySelectorAll('.ev-card').forEach(c=>c.classList.remove('on'));
+  card.classList.add('on');
+  const ev=card.dataset.ev;
+  if(ev) S.evType=ev;
+  const activeTab=document.querySelector('.mtab.on');
+  const activeKey=activeTab?.getAttribute('onclick')?.match(/showMsg\('(\w+)'/)?.[1]||'happy';
+  showMsg(activeKey, activeTab||undefined);
+}
+
+// ═══ PREVIEW TABS ═══
+function showPrev(tab){
+  document.getElementById('ptab-wa').classList.toggle('on',tab==='wa');
+  document.getElementById('ptab-dash').classList.toggle('on',tab==='dash');
+  document.getElementById('prev-wa').style.display=tab==='wa'?'flex':'none';
+  document.getElementById('prev-dash').style.display=tab==='dash'?'flex':'none';
+  push('preview_tab',{tab});
+}
+
+// the bubble shows the message that actually goes out, footer included
+function renderWaPreview(){
+  const m=ISHUR_MESSAGES.sample(S.evType||'wedding', currentStyleKey());
+  const box=document.getElementById('wa-preview-txt');
+  if(!box||!m) return;
+  const tmp=document.createElement('div');
+  tmp.innerHTML=m.html;
+  const t=tmp.querySelector('.msg-text');
+  box.innerHTML=t?t.innerHTML:'';
+}
+function currentStyleKey(){
+  const a=document.querySelector('.mtab.on');
+  const k=a?.getAttribute('onclick')?.match(/showMsg\('(\w+)'/)?.[1]||'happy';
+  /* the phone always shows an invitation. Postpone and cancel are situational,
+     and the reply buttons underneath make no sense on them. */
+  return ISHUR_MESSAGES.SITUATIONAL.indexOf(k)>-1 ? 'happy' : k;
+}
+
+// ═══ PROMO ═══ A code buys a cheaper price, and neither the price nor its
+// payment link is anywhere in this repo — the Worker holds both and releases
+// them only against a code that is real, unused and still has a seat. See the
+// PROMO CODES note in config.js.
+//
+// The order matters: the cards below render at full price first, and only move
+// after /promo/check has answered ok. So a dead network, a Worker that is down
+// or a code that has been spent all leave 299 standing. Showing 49 and
+// charging 299 is the one direction of mismatch we must never ship.
+const IshurPromo=(()=>{
+  const SEEN='ishur_promo_seen', BAR_OFF='ishur_promo_bar_off';
+  /* resolved the moment the script runs, so ?code= is pinned before anything
+     below can ask for it. The DOM half waits for the document. */
+  let code=null; try{ code=CFG.promoCode()||null; }catch(e){ code=null; }
+  let offer=null, lastFocus=null;
+
+  function flag(k){ try{ return sessionStorage.getItem(k)==='1'; }catch(e){ return false; } }
+  function setFlag(k){ try{ sessionStorage.setItem(k,'1'); }catch(e){} }
+
+  /* label and greeting are written by an admin into KV, not by this page */
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>(
+    {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const planName=k=>(CFG.PLANS[k]&&CFG.PLANS[k].name)||'';
+
+  /* what the offer covers, in one phrase: "בסיס עד 300 רשומות ב-50 ש״ח" */
+  function scope(){
+    if(!offer) return '';
+    return `${esc(planName(offer.plan))} עד ${esc(offer.maxTier)} רשומות ב-${esc(offer.price)} ש״ח`;
+  }
+
+  /* the bar line, assembled from what the Worker sent so it can never drift
+     away from the campaign in KV */
+  function barLine(){
+    if(!offer) return '';
+    /* `label` is an admin field — "מבצע בעלי עסקים", "בדיקת קצה לקצה". It is
+       how WE name the campaign, not how the visitor should hear about it, and
+       a test name once made it onto the live bar. What matters to them is that
+       they got a discount and what it covers. */
+    /* offer.beta is an internal flag (post-event feedback ask). Richard,
+       01.09: a buyer never reads בטא/הרצה/התנסות anywhere. From their side
+       there is exactly one fact, they got a discount. */
+    const bits=['<b>קיבלתם הנחה 🎉</b>', scope()];
+    if(offer.left!=null) bits.push(`נשארו ${esc(offer.left)} מקומות`);
+    return bits.join(' <i>·</i> ');
+  }
+
+  /* ── the message under the code field ─────────────────────────────────── */
+  function msg(text,kind){
+    const el=document.getElementById('pr-code-msg');
+    if(!el) return;
+    el.className='promo-msg'+(kind?' '+kind:'');
+    el.textContent=text||'';
+  }
+
+  function msgOffer(){
+    const el=document.getElementById('pr-code-msg');
+    if(!el||!offer) return;
+    el.className='promo-msg ok';
+    let html=`הקוד <b>${esc(code)}</b> תקף · ${scope()}`;
+    if(offer.left!=null) html+=` · נשארו ${esc(offer.left)} מקומות`;
+    el.innerHTML=html;
+  }
+
+  /* Anything we do not have words for — a failed fetch, a Worker that is down —
+     gets no message at all, and the full price simply stands. */
+  function msgReason(reason){ msg(CFG.promoReason(reason),'err'); }
+
+  /* ── the popup ────────────────────────────────────────────────────────── */
+  function focusables(box){
+    return [...box.querySelectorAll('button:not([disabled]),[href],input,select,textarea,[tabindex]:not([tabindex="-1"])')]
+      .filter(el=>el.offsetParent!==null||el===document.activeElement);
+  }
+
+  function onKey(e){
+    const modal=document.getElementById('promo-modal');
+    if(!modal||modal.hidden) return;
+    if(e.key==='Escape'){ e.preventDefault(); closeModal(); return; }
+    if(e.key!=='Tab') return;
+    /* basic trap: Tab off either end wraps back inside the card */
+    const f=focusables(document.getElementById('promo-card'));
+    if(!f.length) return;
+    const first=f[0], last=f[f.length-1];
+    if(e.shiftKey&&document.activeElement===first){ e.preventDefault(); last.focus(); }
+    else if(!e.shiftKey&&document.activeElement===last){ e.preventDefault(); first.focus(); }
+  }
+
+  function openModal(){
+    const modal=document.getElementById('promo-modal');
+    if(!modal||!offer) return;
+    /* never the campaign's admin label. "מבצע בעלי עסקים" is how WE file it;
+       "בדיקת קצה לקצה" is a test name that reached a real screen once. From
+       the visitor's side there is one fact: they got a discount. */
+    document.getElementById('promo-label').textContent='קיבלתם הנחה 🎉';
+    document.getElementById('promo-greeting').textContent=offer.greeting||'';
+    /* the beta note is gone for good; the element stays, permanently hidden */
+    const beta=document.getElementById('promo-beta');
+    if(beta){ beta.hidden=true; beta.textContent=''; }
+    lastFocus=document.activeElement;
+    modal.hidden=false;
+    document.addEventListener('keydown',onKey);
+    const ok=document.getElementById('promo-ok');
+    if(ok) ok.focus();
+    setFlag(SEEN);
+    push('promo_popup',{promo:offer.campaign||'',beta:!!offer.beta});
+  }
+
+  function closeModal(){
+    const modal=document.getElementById('promo-modal');
+    if(!modal||modal.hidden) return;
+    modal.hidden=true;
+    document.removeEventListener('keydown',onKey);
+    /* back where they were, and never left sitting on a hidden button */
+    if(lastFocus&&lastFocus!==document.body&&lastFocus.focus) lastFocus.focus();
+    else if(document.activeElement&&document.activeElement.blur) document.activeElement.blur();
+  }
+
+  /* the label is campaign text, so on a narrow screen the bar can wrap to two
+     lines. Measure it rather than guess, or the nav sits under it. */
+  function sizeBar(){
+    const bar=document.getElementById('promo-bar');
+    if(!bar||bar.hidden) return;
+    const h=Math.ceil(bar.getBoundingClientRect().height);
+    if(h>0) document.documentElement.style.setProperty('--promo-h',h+'px');
+  }
+
+  function showBar(){
+    const bar=document.getElementById('promo-bar');
+    if(!bar||!offer||flag(BAR_OFF)) return;
+    const line=barLine();
+    /* an empty green band across the top is worse than no band — Richard
+       screenshotted exactly that. No text, no bar. */
+    if(!line) return;
+    document.getElementById('promo-bar-txt').innerHTML=line;
+    bar.hidden=false;
+    document.body.classList.add('has-promo');
+    sizeBar();
+    window.addEventListener('resize',sizeBar,{passive:true});
+  }
+
+  function hideBar(){
+    const bar=document.getElementById('promo-bar');
+    if(bar) bar.hidden=true;
+    document.body.classList.remove('has-promo');
+    window.removeEventListener('resize',sizeBar);
+    document.documentElement.style.removeProperty('--promo-h');
+  }
+
+  function dismissBar(){ hideBar(); setFlag(BAR_OFF); }
+
+  /* ── the Worker ───────────────────────────────────────────────────────── */
+  /* read-only, burns nothing. 'unreachable' has no words in PROMO_REASONS on
+     purpose: we could not ask, so we say nothing and charge full price. */
+  function check(c){
+    const url=CFG.promoCheckUrl(c);
+    if(!url) return Promise.resolve({ok:false,reason:'bad-code'});
+    return fetch(url,{method:'GET',cache:'no-store',credentials:'omit'})
+      .then(r=>r.json())
+      .then(j=>(j&&typeof j.ok==='boolean')?j:{ok:false,reason:'unreachable'})
+      .catch(()=>({ok:false,reason:'unreachable'}));
+  }
+
+  function apply(res){
+    offer=(res&&res.ok)?res:null;
+    if(offer){
+      CFG.rememberPromoCode(code);
+      showBar();
+      msgOffer();
+      if(!flag(SEEN)){ celebrate(); openModal(); }
+    }else{
+      /* 'closed' and 'sold-out' are about the campaign, not this code, so the
+         pin survives: the same code works once the campaign opens. A code that
+         does not exist or is already spent is not worth carrying for 60 days. */
+      const why=res&&res.reason;
+      if(why==='bad-code'||why==='used'){ CFG.forgetPromoCode(); }
+      hideBar();
+      msgReason(why);
+    }
+    /* the only place a price is allowed to move, and only ever after this */
+    const sel=document.getElementById('pr-guests');
+    renderPlans(sel?sel.value:'');
+    /* the checkout popup is a separate script that may already have drawn its
+       plan cards at the old price — the answer from the Worker arrives after
+       it. This is how it learns to redraw. */
+    try{ document.dispatchEvent(new CustomEvent('ishur:offer',{detail:offer})); }catch(e){}
+  }
+
+  /* A short burst of confetti on arrival, once per session. Somebody who
+     followed a code link should know in the first second that it worked —
+     a line of text at the top of a long page does not do that. */
+  function celebrate(){
+    let quiet=false;
+    try{ quiet=window.matchMedia('(prefers-reduced-motion: reduce)').matches; }catch(e){}
+    if(quiet) return;
+    const cv=document.createElement('canvas');
+    cv.setAttribute('aria-hidden','true');
+    cv.style.cssText='position:fixed;inset:0;width:100%;height:100%;pointer-events:none;z-index:9999';
+    document.body.appendChild(cv);
+    const ctx=cv.getContext('2d');
+    const dpr=Math.min(window.devicePixelRatio||1,2);
+    const W=cv.width=innerWidth*dpr, H=cv.height=innerHeight*dpr;
+    ctx.scale(dpr,dpr);
+    const COLORS=['#A8853C','#C7AE7A','#0F2E22','#2F7A55','#F8F4EA','#D9B44A'];
+    const bits=[];
+    for(let i=0;i<130;i++){
+      bits.push({
+        x:innerWidth*(0.15+Math.random()*0.7),
+        y:-20-Math.random()*innerHeight*0.4,
+        w:5+Math.random()*7, h:8+Math.random()*8,
+        vy:2.4+Math.random()*3.4, vx:(Math.random()-0.5)*2.2,
+        rot:Math.random()*Math.PI, vr:(Math.random()-0.5)*0.22,
+        c:COLORS[(Math.random()*COLORS.length)|0],
+      });
+    }
+    const started=performance.now(), LIFE=2600;
+    (function frame(now){
+      const t=now-started;
+      ctx.clearRect(0,0,W,H);
+      /* fade the whole burst out rather than letting pieces vanish mid-air */
+      ctx.globalAlpha=t>LIFE-700?Math.max(0,(LIFE-t)/700):1;
+      let live=0;
+      for(const b of bits){
+        b.x+=b.vx; b.y+=b.vy; b.rot+=b.vr; b.vy+=0.045;
+        if(b.y<innerHeight+40) live++;
+        ctx.save();
+        ctx.translate(b.x,b.y); ctx.rotate(b.rot);
+        ctx.fillStyle=b.c;
+        ctx.fillRect(-b.w/2,-b.h/2,b.w,b.h);
+        ctx.restore();
+      }
+      if(t<LIFE&&live) requestAnimationFrame(frame);
+      else cv.remove();
+    })(started);
+  }
+
+  /* /promo/go bounces a code it refused back to ?promo_error=<reason> */
+  function urlError(){
+    try{
+      const m=/[?&]promo_error=([^&#]*)/.exec(location.search||'');
+      return m?decodeURIComponent(m[1].replace(/\+/g,' ')):'';
+    }catch(e){ return ''; }
+  }
+
+  /* so a refresh does not replay an error the visitor already read */
+  function scrubUrl(){
+    try{
+      if(!history.replaceState) return;
+      const u=new URL(location.href);
+      u.searchParams.delete('promo_error');
+      history.replaceState(null,'',u.pathname+u.search+u.hash);
+    }catch(e){}
+  }
+
+  function boot(){
+    const x=document.getElementById('promo-bar-x');
+    if(x) x.addEventListener('click',dismissBar);
+    document.querySelectorAll('[data-promo-close]').forEach(el=>el.addEventListener('click',closeModal));
+
+    const err=urlError();
+    if(err){
+      /* a spent or unknown code is not worth carrying to the next visit */
+      if(err==='used'||err==='bad-code'){ CFG.forgetPromoCode(); code=null; }
+      msgReason(err);
+      scrubUrl();
+      return;                    // the Worker just answered; do not ask again
+    }
+    if(!code) return;            // nothing pinned, nothing to ask about
+    msg('בודקים את הקוד…','');
+    check(code).then(apply);
+  }
+
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
+  else boot();
+
+  /* The buy button for the package this offer actually covers. Everything
+     else keeps its ordinary Grow link. '' means "pay the normal way". */
+  function goUrl(guests,plan,phone){
+    if(!offer||!code) return '';
+    if(!CFG.offerPrice(offer,guests,plan).applies) return '';
+    return CFG.promoGoUrl(code,phone);
+  }
+
+  return { code:()=>code, offer:()=>offer, goUrl:goUrl, open:openModal, close:closeModal };
+})();
+/* popup.js is a separate classic script, and a top-level const is not a
+   window property. This is how the checkout reaches the offer. */
+window.IshurPromo=IshurPromo;
+
+// ═══ PRICING ═══ a guest picker and the three packages, priced live
+function buildPricing(){
+  const sel=document.getElementById('pr-guests');
+  if(!sel) return;
+  sel.appendChild(new Option('בחרו כמות','') );
+  CFG.GUEST_TIERS.forEach(t=>sel.appendChild(new Option(t.label,t.value)));
+  sel.addEventListener('change',()=>{ renderPlans(sel.value); push('pricing_guests',{guests:sel.value}); });
+  renderPlans('');
+  /* select.js loads at the end of the body, so enhancement waits for it */
+  const skin=()=>window.IshurSelect ? IshurSelect.enhance(sel) : setTimeout(skin,50);
+  skin();
+}
+
+function renderPlans(guests){
+  const wrap=document.getElementById('pr-plans');
+  if(!wrap) return;
+  const custom=guests==='custom';
+  /* Only an offer the Worker has just validated may strike a price here, and
+     only on the package it covers. Before that answer arrives, and if it never
+     arrives, every card prints its full PRICE_TABLE number. */
+  const offer=(typeof IshurPromo!=='undefined')?IshurPromo.offer():null;
+  wrap.innerHTML=CFG.PLAN_ORDER.map(k=>{
+    const p=CFG.PLANS[k];
+    const price=(guests&&!custom)?CFG.priceFor(guests,k):null;
+    const pr=(offer&&price!=null)?CFG.offerPrice(offer,guests,k):null;
+    const cut=!!(pr&&pr.applies);
+    return `<button type="button" class="plan-opt${k==='pro'?' rec':''}" data-plan="${k}">
+      ${k==='pro'?'<span class="plan-rec">המומלץ ביותר</span>':''}
+      <span class="plan-txt">
+        <span class="plan-opt-name">${p.name} <i>${p.label}</i></span>
+        <span class="plan-opt-note">${p.desc}</span>
+      </span>
+      <span class="plan-opt-price">${
+        cut?`<span class="was"><span class="cur">₪</span>${pr.original}</span><span class="now"><span class="cur">₪</span>${pr.final}</span><em>לאירוע אחד</em><span class="promo-save">חסכתם ${pr.saved} ש״ח</span>`
+        : price?`<span class="cur">₪</span>${price}<em>לאירוע אחד</em>`
+        : custom?'<b>הצעה אישית</b>'
+        : `<span class="from">החל מ-</span><span class="cur">₪</span>${CFG.fromPrice(k)}`
+      }</span>
+      <span class="plan-go">${custom?'לקבלת הצעה':(guests?'בחירה':'התחלה')}</span>
+    </button>`;
+  }).join('');
+  /* Richard, 09/09: four of the most engaged visitors in the recordings
+     picked a guest count, cycled through the packages, and left — the card
+     IS the button, and nobody read the grey line saying so. Every card now
+     carries a visible button, and on a phone a bar with the recommended
+     price sticks to the bottom once a count is chosen, so the next step is
+     never off-screen. */
+  const bar=document.getElementById('stickyCta');
+  if(bar){
+    if(guests&&!custom){
+      const k='basic', price=CFG.priceFor(guests,k);
+      bar.querySelector('.sc-txt').innerHTML=`${CFG.PLANS[k].name} · <b>₪${price}</b> לאירוע`;
+      bar.dataset.guests=guests;
+      bar.hidden=false;
+    } else bar.hidden=true;
+  }
+  wrap.querySelectorAll('[data-plan]').forEach(b=>{
+    b.addEventListener('click',()=>{
+      /* the tapped package rides into the popup fixed; a chosen quantity rides along too */
+      IshurPopup.open('pricing-'+b.dataset.plan,{plan:b.dataset.plan,guests:guests||''});
+    });
+  });
+}
+buildPricing();
+// ═══ ADD-ONS (demo) ═══ hostess card from CFG.HOSTESS, gifts card from CFG.GIFTS
+(()=>{
+  const H=CFG.HOSTESS, G=CFG.GIFTS;
+  const d=document.getElementById('addon-hostess-desc'); if(d) d.textContent=H.desc;
+  const t=document.getElementById('addon-hostess-tbl');
+  if(t) t.innerHTML=H.tiers.map((x,i)=>{const from=i?H.tiers[i-1].max+1:0; const rng=i?`${from}–${x.max} רשומות`:`עד ${x.max} רשומות`; return `<tr><td>${x.label} · ${rng}</td><td>₪${x.price.toLocaleString('he-IL')}</td></tr>`;}).join('');
+  const f=document.getElementById('addon-hostess-fine'); if(f) f.textContent=H.travelNote+' המחירים כוללים מע״מ ומתווספים לחבילה.';
+  const gd=document.getElementById('addon-gifts-desc'); if(gd) gd.textContent=G.desc;
+  const go=document.getElementById('addon-hostess-go');
+  if(go) go.addEventListener('click',()=>{
+    const sel=document.getElementById('pr-guests');
+    push('addon_hostess_click',{guests:sel?sel.value:''});
+    IshurPopup.open('addon-hostess',{plan:'basic',guests:(sel&&sel.value!=='custom')?sel.value:'',hostess:true});
+  });
+  /* dedicated offer link for a lead who was quoted "package + hostesses":
+     ?offer=hostess&guests=200&plan=basic opens the order fixed on that combo */
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.get('offer')==='hostess'){
+      const guests=q.get('guests')||'200', plan=q.get('plan')||'basic';
+      setTimeout(()=>IshurPopup.open('offer-hostess',{plan,guests,hostess:true,hostessLocked:true}),600);
+    }
+  }catch(e){}
+})();
+(()=>{
+  const go=document.getElementById('stickyGo'), bar=document.getElementById('stickyCta');
+  if(go&&bar) go.addEventListener('click',()=>{ IshurPopup.open('sticky',{plan:'basic',guests:bar.dataset.guests||''}); });
+})();
+
+// ═══ NAV SCROLL ═══ cream over the hero, bottle green once past it
+(()=>{
+  const nav=document.getElementById('nav');
+  const heroEl=document.getElementById('hero');
+  const logoImg=document.querySelector('.nav-logo-icon img');
+  const GOLD='assets/logo-gold.png', LIGHT='assets/logo-light.png';
+  let was=null;
+  function navState(){
+    const sc=scrollY>(heroEl?heroEl.offsetHeight-60:30);
+    if(sc===was) return;
+    was=sc;
+    nav.classList.toggle('sc',sc);
+    if(logoImg) logoImg.src=sc?LIGHT:GOLD;
+  }
+  window.addEventListener('scroll',navState,{passive:true});
+  navState();
+})();
+
+// ═══ SCROLL DEPTH ═══
+const depths=new Set();
+window.addEventListener('scroll',()=>{
+  const p=Math.round(scrollY/(document.body.scrollHeight-innerHeight)*100);
+  [25,50,75,90].forEach(m=>{if(p>=m&&!depths.has(m)){depths.add(m);push('scroll_depth',{depth:m});}});
+},{passive:true});
+
+// ═══ SCROLL ANIMATIONS ═══
+const obs=new IntersectionObserver(entries=>entries.forEach(el=>{
+  if(el.isIntersecting) el.target.classList.add('v');
+}),{threshold:.08,rootMargin:'0px 0px -20px 0px'});
+document.querySelectorAll('.fi,.step,.feat,.rep-card').forEach(el=>obs.observe(el));
+
+// the event cards fly in from both sides once the grid is on screen
+const evGrid=document.querySelector('.event-grid');
+if(evGrid){
+  const gObs=new IntersectionObserver(es=>es.forEach(e=>{
+    if(e.isIntersecting){evGrid.classList.add('v');gObs.disconnect();}
+  }),{threshold:.25});
+  gObs.observe(evGrid);
+}
+
+// ═══ HERO STATS COUNT-UP ═══ the numbers climb to their value on arrival
+(()=>{
+  if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const els=document.querySelectorAll('.h-stat-n');
+  let done=false;
+  function run(){
+    if(done) return; done=true;
+    els.forEach(el=>{
+      const txt=el.textContent.trim();
+      const m=txt.match(/^(\d+)(.*)$/);
+      if(!m||+m[1]<3) return;            // "2 דק׳" stays as it is
+      const target=+m[1],suffix=m[2],dur=1500,t0=performance.now();
+      function tick(t){
+        const p=Math.min((t-t0)/dur,1);
+        const ease=1-Math.pow(1-p,3);
+        el.textContent=Math.round(target*ease)+suffix;
+        if(p<1) requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    });
+  }
+  // the stats card fades in at .85s, so the climb starts as it lands
+  const stats=document.querySelector('.hero-stats');
+  if(stats){
+    const sObs2=new IntersectionObserver(es=>es.forEach(e=>{
+      if(e.isIntersecting){setTimeout(run,650);sObs2.disconnect();}
+    }),{threshold:.4});
+    sObs2.observe(stats);
+  }
+})();
+
+// ═══ SECTION VIEWS ═══
+const sObs=new IntersectionObserver(e=>e.forEach(el=>{if(el.isIntersecting&&el.target.id) push('section_view',{section:el.target.id});}),{threshold:.35});
+['hero','events','features','msg-styles','previews','pricing','cta'].forEach(id=>{
+  const el=document.getElementById(id); if(el) sObs.observe(el);
+});
+
+// ═══ CONTACT LINKS FROM CONFIG ═══
+(()=>{
+  const q=new URLSearchParams(location.search);
+  const utm=['utm_source','utm_medium','utm_campaign'].map(k=>q.get(k)?k+'='+q.get(k):'').filter(Boolean);
+  document.querySelectorAll('[data-wa]').forEach(a=>{
+    const url=new URL(CFG.waLink(a.getAttribute('data-wa')||undefined));
+    utm.forEach(p=>{const[k,v]=p.split('=');url.searchParams.set(k,v);});
+    a.href=url.toString();
+  });
+})();
+
+// ═══ ACCORDIONS ═══
+function toggleAcc(hdr){
+  hdr.classList.toggle('open');
+  const body=hdr.nextElementSibling;
+  if(body) body.classList.toggle('open');
+}
+
+// ═══ COOKIE ═══
+function acceptCookies(){
+  localStorage.setItem('cookies_ok','1');
+  document.getElementById('cookie-bar').classList.add('hidden');
+}
+window.addEventListener('load',()=>{
+  if(localStorage.getItem('cookies_ok')) document.getElementById('cookie-bar').classList.add('hidden');
+});
+
+</script>
+
+<!-- ORDER POPUP -->
+<div id="order-modal" role="dialog" aria-modal="true" aria-labelledby="pop-title">
+  <div id="order-modal-bg"></div>
+  <div id="order-modal-box">
+    <div class="sheet-grab" data-sheet-handle aria-hidden="true"><span></span></div>
+    <div id="order-modal-close"><button type="button" data-pop-close aria-label="סגירת החלון">✕</button></div>
+    <div id="order-modal-inner">
+
+      <div class="wiz-progress" aria-hidden="true">
+        <div class="wiz-dot" id="wd1"></div>
+        <div class="wiz-dot" id="wd2"></div>
+      </div>
+      <div class="wiz-step-lbl" id="wiz-lbl">שלב 1 מתוך 2 · הפרטים שלכם</div>
+
+      <!-- STEP 1 · details -->
+      <div class="wiz-step active" id="ws1">
+        <h3 class="o-title" id="pop-title">נעים להכיר</h3>
+        <p class="pop-sub">שלושה שדות ואפשר להמשיך.</p>
+
+        <div class="fgrid">
+          <div class="frow full">
+            <label for="f-name">שם מלא <span class="req">*</span></label>
+            <input type="text" id="f-name" name="name" autocomplete="name"
+                   placeholder="ישראל ישראלי" enterkeyhint="next" aria-describedby="e-name">
+            <p class="ferr" id="e-name" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-phone">טלפון <span class="req">*</span></label>
+            <input type="tel" id="f-phone" name="tel" autocomplete="tel" inputmode="tel"
+                   placeholder="050-0000000" enterkeyhint="next" aria-describedby="e-phone">
+            <p class="ferr" id="e-phone" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-email">אימייל <span class="fopt">לא חובה</span></label>
+            <input type="email" id="f-email" name="email" autocomplete="email" inputmode="email"
+                   placeholder="you@example.com" enterkeyhint="done" aria-describedby="e-email">
+            <p class="ferr" id="e-email" aria-live="polite"></p>
+          </div>
+
+          <div class="frow full">
+            <label class="consent" for="f-consent">
+              <input type="checkbox" id="f-consent">
+              <span class="consent-box" aria-hidden="true"></span>
+              <span class="consent-txt">כן, שלחו לי טיפים לארגון האירוע והטבות.</span>
+            </label>
+          </div>
+        </div>
+
+        <div class="wiz-nav">
+          <button type="button" class="wiz-next" id="pop-next">המשך</button>
+        </div>
+        <p class="pop-fine">הפרטים משמשים לשליחת אישור ההזמנה ולתמיכה. לא נשלח פרסומות.</p>
+      </div>
+
+      <!-- STEP 2 · event + package -->
+      <div class="wiz-step" id="ws2">
+        <h3 class="o-title">על האירוע</h3>
+        <p class="pop-sub">בחרו סוג וכמות, ונסמן את החבילה שמתאימה.</p>
+
+        <div class="fgrid">
+          <div class="frow full">
+            <label for="f-occasion">סוג האירוע <span class="req">*</span></label>
+            <select id="f-occasion" data-isel aria-describedby="e-occasion"></select>
+            <p class="ferr" id="e-occasion" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-guests">כמות רשומות <span class="req">*</span></label>
+            <select id="f-guests" data-isel aria-describedby="e-guests"></select>
+            <p class="ferr" id="e-guests" aria-live="polite"></p>
+          </div>
+        </div>
+
+        <div class="pop-plans-lbl" id="plans-lbl">חבילה <span class="req">*</span></div>
+        <div class="plan-opts" id="f-plans" role="radiogroup" aria-labelledby="plans-lbl"></div>
+        <p class="ferr" id="e-plan" aria-live="polite"></p>
+
+        <label class="addon-row" id="f-hostess-row" for="f-hostess" hidden>
+          <input type="checkbox" id="f-hostess">
+          <span class="consent-box" aria-hidden="true"></span>
+          <span class="ad-txt">
+            <span class="ad-name">דיילות באירוע</span>
+            <span class="ad-tier" id="f-hostess-tier"></span>
+            <span class="ad-note">מקבלות אורחים, מסמנות הגעה בלוח ומכוונות לשולחנות. מחוץ למרכז +250 ₪ נסיעות לדיילת, בנפרד.</span>
+          </span>
+          <span class="ad-price" id="f-hostess-price"></span>
+        </label>
+
+        <div class="pop-total" id="pop-total" hidden aria-live="polite"></div>
+
+        <div class="next-up">
+          <p class="next-up-t">מה קורה אחרי התשלום</p>
+          <ol class="next-up-l">
+            <li>מגיע קישור בוואטסאפ להעלאת רשימת המוזמנים</li>
+            <li>בוחרים את סגנון ההודעה ואת תאריכי השליחה</li>
+            <li>ממלאים את פרטי האירוע: תאריך, שעה ומקום</li>
+          </ol>
+        </div>
+
+        <div class="frow full" style="margin-top:.4rem">
+          <label class="consent" for="f-terms">
+            <input type="checkbox" id="f-terms">
+            <span class="consent-box" aria-hidden="true"></span>
+            <span class="consent-txt">קראתי ואני מסכימ/ה ל<a href="terms.html" target="_blank" rel="noopener">תקנון ולתנאי השימוש</a> <span class="req">*</span></span>
+          </label>
+          <p class="ferr" id="e-terms" aria-live="polite"></p>
+        </div>
+
+        <div class="wiz-nav">
+          <button type="button" class="wiz-back" id="pop-back">חזרה</button>
+          <button type="button" class="wiz-next" id="pop-submit">המשך לתשלום</button>
+        </div>
+        <p class="pop-fine">תשלום מאובטח דרך Grow · Visa · Mastercard · bit<br>החיוב מופיע על שם <b>ריצארד טומסקי</b> — זה אנחנו 🙂</p>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- PROMO BAR -->
+<!-- hidden until the promo script decides there is one; [hidden] is !important -->
+<div id="promo-bar" role="region" aria-label="מבצע פעיל" hidden>
+  <button type="button" id="promo-bar-x" aria-label="סגירת הודעת המבצע">✕</button>
+  <span id="promo-bar-txt"></span>
+</div>
+
+<!-- PROMO POPUP -->
+<div id="promo-modal" role="dialog" aria-modal="true" aria-labelledby="promo-title" hidden>
+  <div id="promo-modal-bg" data-promo-close></div>
+  <div id="promo-card">
+    <button type="button" id="promo-x" data-promo-close aria-label="סגירת החלון">✕</button>
+    <div class="promo-rule" aria-hidden="true"></div>
+    <h2 id="promo-title">קיבלתם הנחה</h2>
+    <span id="promo-label"></span>
+    <p id="promo-beta" hidden></p>
+    <p id="promo-greeting"></p>
+    <button type="button" id="promo-ok" data-promo-close>מעולה, קדימה</button>
+  </div>
+</div>
+
+<!-- COOKIE BANNER -->
+<div id="cookie-bar">
+  <p>🍪 האתר משתמש בעוגיות לשיפור חוויית הגלישה.</p>
+  <button id="cookie-accept" onclick="acceptCookies()">הבנתי</button>
+</div>
+
+<script src="assets/select.js?v=19"></script>
+<script src="assets/popup.js?v=24demo"></script>
+</body>
+</html>
