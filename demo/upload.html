@@ -1,0 +1,1574 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="facebook-domain-verification" content="sit2y0wo8hge473jshdqoh2czat1xb">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>הגדרת האירוע · אישורי הגעה</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="config.js?v=61demo&x=60"></script>
+<script src="assets/ux.js?v=3"></script>
+<script src="assets/tracking.js?v=22"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/lead.js?v=24"></script>
+<script src="assets/messages.js?v=19"></script>
+<script>IshurLead.init({ variant: 'v1' });</script>
+
+<style>
+  :root{
+    --green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;
+    --ink:#111827;--ink2:#374151;--ink3:#6b7280;
+    --bg:#fff;--bg2:#f9fafb;--bg3:#f3f4f6;
+    --bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);
+    --err:#dc2626;--warn:#b45309;
+    --ease:cubic-bezier(.22,.9,.24,1);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  /* a display rule on a class must never beat the hidden attribute */
+  [hidden]{display:none!important}
+  body{
+    font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);
+    min-height:100vh;display:flex;align-items:flex-start;justify-content:center;
+    padding:24px 16px 60px;line-height:1.65;
+    -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
+  }
+  .card{
+    width:100%;max-width:520px;background:#fff;border:1px solid var(--bdr);
+    border-radius:16px;padding:0 1.5rem 1.6rem;margin-top:1rem;overflow:hidden;
+    box-shadow:0 1px 3px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.07);
+    animation:rise .45s var(--ease) both;
+  }
+  @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem}
+  .lux-head{margin:0 -1.5rem 1.4rem}
+  .brand img{width:32px;height:32px;object-fit:contain}
+  .brand-t{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600}
+  .brand-t span{color:var(--green)}
+
+  .steps-bar{display:flex;gap:.3rem;margin-bottom:.55rem}
+  .steps-bar i{flex:1;height:3px;border-radius:99px;background:var(--bg3);transition:background .3s var(--ease)}
+  .steps-bar i.on{background:var(--green)}
+  .step-lbl{text-align:center;font-size:.7rem;color:var(--ink3);margin-bottom:1.1rem}
+
+  h1{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:600;letter-spacing:-.015em;text-align:center;margin-bottom:.3rem}
+  .event{text-align:center;color:var(--green2);font-size:.9rem;font-weight:500;margin-bottom:.4rem}
+  .lede{text-align:center;font-size:.87rem;color:var(--ink3);margin-bottom:1.3rem;line-height:1.6}
+
+  /* ── column contract ── the file is read by position, so this is the spec ── */
+  .cols{border:1px solid var(--bdr);border-radius:11px;overflow:hidden;margin-bottom:1.1rem}
+  .cols-h{background:var(--bg2);border-bottom:1px solid var(--bdr);padding:.5rem .85rem;font-size:.76rem;font-weight:600;color:var(--ink2)}
+  .col{display:flex;align-items:flex-start;gap:.7rem;padding:.65rem .85rem;border-bottom:1px solid var(--bdr)}
+  .col:last-child{border-bottom:none}
+  .col-l{
+    flex-shrink:0;width:26px;height:26px;border-radius:6px;background:var(--green);
+    color:#fff;font-family:'Rubik',sans-serif;font-size:.8rem;font-weight:600;
+    display:flex;align-items:center;justify-content:center;align-self:center;
+  }
+  .col-b{flex:1;min-width:0}
+  .col-t{display:block;font-size:.88rem;font-weight:500;color:var(--ink);margin-bottom:.15rem}
+  .col-n{display:block;font-size:.78rem;color:var(--ink3);line-height:1.55}
+  .col-n b{color:var(--ink2);font-weight:500}
+  .cols-f{background:var(--green4);padding:.55rem .85rem;font-size:.76rem;color:var(--ink2);line-height:1.55}
+  .cols-f b{color:var(--ink)}
+
+  .drop{
+    border:1.5px dashed var(--bdr);border-radius:12px;background:var(--bg2);
+    padding:1.8rem 1.2rem;text-align:center;cursor:pointer;width:100%;font-family:inherit;
+    transition:border-color .18s,background .18s,transform .22s var(--ease);
+  }
+  .drop:hover,.drop.over{border-color:var(--green);background:var(--green4)}
+  .drop:active{transform:scale(.985);transition-duration:100ms}
+  .drop:focus-visible{outline:2px solid var(--green);outline-offset:2px}
+  .drop-ico{color:var(--green);margin-bottom:.5rem;display:flex;justify-content:center}
+  .drop-t{font-size:.94rem;font-weight:500;color:var(--ink)}
+  .drop-s{font-size:.79rem;color:var(--ink3);margin-top:.15rem}
+
+  .chip{display:none;align-items:center;gap:.8rem;background:var(--green4);border:1px solid var(--bdr2);border-radius:12px;padding:.8rem 1rem}
+  .chip.on{display:flex}
+  .chip-ico{flex-shrink:0;color:var(--green)}
+  .chip-meta{flex:1;min-width:0}
+  .chip-n{font-size:.88rem;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;direction:ltr;text-align:right}
+  .chip-s{font-size:.77rem;color:var(--ink3)}
+  .chip button{flex-shrink:0;background:none;border:none;cursor:pointer;font-family:inherit;font-size:.79rem;color:var(--green2);text-decoration:underline;text-underline-offset:3px;padding:.3rem}
+
+  .btn{
+    width:100%;margin-top:1.1rem;height:50px;background:var(--green);color:#fff;
+    border:none;border-radius:10px;font-family:inherit;font-size:1rem;font-weight:600;
+    cursor:pointer;box-shadow:0 4px 14px rgba(15,76,53,.3);
+    transition:background .2s,transform .22s var(--ease),opacity .2s;
+  }
+  .btn:hover{background:var(--green2)}
+  .btn:active{transform:scale(.972);transition-duration:100ms}
+  .btn:disabled{opacity:.45;box-shadow:none;pointer-events:none}
+  .spin{display:inline-block;width:15px;height:15px;vertical-align:-2px;margin-inline-start:.5rem;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .bar{height:3px;background:var(--bg3);border-radius:99px;overflow:hidden;margin-top:.9rem;display:none}
+  .bar.on{display:block}
+  .bar i{display:block;height:100%;background:var(--green);width:30%;border-radius:99px;animation:slide 1.1s var(--ease) infinite}
+  @keyframes slide{0%{transform:translateX(120%)}100%{transform:translateX(-320%)}}
+
+  .tmpl{text-align:center;margin-top:.9rem;font-size:.81rem;color:var(--ink3)}
+  .tmpl a{color:var(--green2);text-decoration:underline;text-underline-offset:3px}
+
+  .view{display:none}
+  .view.on{display:block}
+
+  /* ── setup form ─────────────────────────────────────────────────────────── */
+  .sec{margin-bottom:1.4rem}
+  .sec-h{
+    font-size:.72rem;letter-spacing:.1em;color:var(--green2);font-weight:600;
+    text-transform:uppercase;margin-bottom:.6rem;padding-bottom:.35rem;
+    border-bottom:1px solid var(--bdr);
+  }
+  .fgrid{display:grid;grid-template-columns:1fr;gap:.8rem}
+  @media(min-width:460px){.fgrid.two{grid-template-columns:1fr 1fr}}
+  .frow{display:flex;flex-direction:column;gap:.3rem;min-width:0}
+  .frow.full{grid-column:1/-1}
+  .frow label{font-size:.81rem;font-weight:500;color:var(--ink2)}
+  .req{color:var(--green)}
+  .fopt{font-size:.7rem;color:var(--ink3);font-weight:400;margin-inline-start:.3rem}
+  .frow input[type=text],.frow input[type=time]{
+    width:100%;padding:.7rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+    font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);background:#fff;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .frow input:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
+  .frow input.bad{border-color:var(--err);box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+  /* host name + role side by side: the role select keeps the field skin */
+  .hpair{display:flex;gap:.5rem;align-items:stretch;min-width:0}
+  .hpair input[type=text]{flex:1 1 auto;min-width:0}
+  .hpair .hrole{flex:0 0 9.5rem;min-width:0}
+  .hpair .hrole[hidden]{display:none}
+  @media(max-width:359px){.hpair{flex-direction:column}.hpair .hrole{flex-basis:auto}}
+  .ferr{font-size:.75rem;color:var(--err);max-height:0;opacity:0;overflow:hidden;transition:max-height .18s,opacity .18s}
+  .ferr.on{max-height:4em;opacity:1;margin-top:.15rem}
+
+  /* select + calendar share one skin */
+  .isel{position:relative}
+  .isel-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
+  .isel-btn{
+    width:100%;display:flex;align-items:center;justify-content:space-between;gap:.5rem;
+    padding:.7rem .85rem;min-height:46px;border:1.5px solid var(--bdr);border-radius:9px;
+    background:#fff;font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);
+    text-align:start;cursor:pointer;
+    transition:border-color .15s,box-shadow .15s,border-radius .16s;
+  }
+  .isel-btn:hover{border-color:var(--ink3)}
+  .isel-btn:focus-visible{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
+  .isel[data-placeholder="true"] .isel-val{color:var(--ink3)}
+  .isel-arrow{color:var(--ink3);display:flex;flex-shrink:0;transition:transform .22s var(--ease)}
+  .isel:not(.idate)[data-open="true"] .isel-arrow{transform:rotate(180deg);color:var(--green)}
+  .idate[data-open="true"] .isel-arrow{color:var(--green)}
+  .isel.bad .isel-btn{border-color:var(--err);box-shadow:0 0 0 3px rgba(220,38,38,.1)}
+  .isel[data-open="true"] .isel-btn{border-color:var(--green);border-bottom-color:var(--bdr);border-radius:9px 9px 0 0;box-shadow:none}
+  .isel-panel{
+    position:absolute;top:100%;inset-inline-start:0;inset-inline-end:0;z-index:40;
+    background:#fff;border:1.5px solid var(--green);border-top:none;border-radius:0 0 9px 9px;
+    max-height:min(300px,52vh);overflow-y:auto;overscroll-behavior:contain;
+    box-shadow:0 14px 30px rgba(0,0,0,.1);
+    animation:iselOpen .22s var(--ease) both;
+  }
+  @keyframes iselOpen{from{opacity:.4;clip-path:inset(0 0 100% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+  .isel[data-open="false"] .isel-panel{animation:iselClose .15s cubic-bezier(.4,0,1,1) both}
+  @keyframes iselClose{from{opacity:1;clip-path:inset(0 0 0 0)}to{opacity:0;clip-path:inset(0 0 100% 0)}}
+  .isel-opt{padding:.64rem .85rem;font-size:.95rem;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:.5rem;border-bottom:1px solid var(--bg3)}
+  .isel-opt:last-child{border-bottom:none}
+  .isel-opt.active{background:var(--bg2)}
+  .isel-opt.on{color:var(--green2);font-weight:500;background:var(--green4)}
+  .isel-opt.on::after{content:'✓';font-size:.85rem;color:var(--green)}
+
+  /* calendar */
+  .idate-panel{padding:.6rem .55rem .5rem;max-height:none}
+  .idate-head{display:flex;align-items:center;justify-content:space-between;padding:.1rem .25rem .5rem}
+  .idate-title{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600;color:var(--ink)}
+  .idate-nav{
+    background:none;border:1px solid var(--bdr);border-radius:8px;cursor:pointer;
+    width:30px;height:30px;display:flex;align-items:center;justify-content:center;
+    color:var(--ink2);transition:border-color .2s,color .2s,transform .2s var(--ease);
+  }
+  .idate-nav:hover:not(:disabled){border-color:var(--green);color:var(--green)}
+  .idate-nav:active:not(:disabled){transform:scale(.92)}
+  .idate-nav:disabled{opacity:.3;cursor:default}
+  .idate-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+  .idate-dow{text-align:center;font-size:.7rem;color:var(--ink3);padding:.2rem 0 .35rem;font-weight:500}
+  .idate-dow.off{color:#cbd0d6}
+  .idate-cell{
+    aspect-ratio:1;min-height:36px;border:none;background:none;cursor:pointer;
+    border-radius:8px;font-family:'Heebo',sans-serif;font-size:.88rem;color:var(--ink);
+    display:flex;align-items:center;justify-content:center;position:relative;
+    transition:background .15s,color .15s,transform .18s var(--ease);
+  }
+  .idate-cell.empty{pointer-events:none}
+  .idate-cell:hover:not(:disabled){background:var(--green4);color:var(--green2)}
+  .idate-cell:active:not(:disabled){transform:scale(.9)}
+  .idate-cell.on{background:var(--green);color:#fff;font-weight:600}
+  .idate-cell.off{color:#cbd0d6;cursor:default;text-decoration:line-through;text-decoration-thickness:1px}
+  .idate-cell.cut::after{
+    content:'';position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
+    width:4px;height:4px;border-radius:50%;background:var(--warn);
+  }
+  .idate-cell.on.cut::after{background:#fff}
+  .idate-legend{font-size:.71rem;color:var(--ink3);line-height:1.5;padding:.55rem .35rem .1rem;border-top:1px solid var(--bdr);margin-top:.4rem}
+  .idate-note{font-size:.73rem;color:var(--warn);margin-top:.2rem}
+
+  /* style picker + live preview */
+  .styles{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+  @media(min-width:460px){.styles{grid-template-columns:repeat(4,1fr)}}
+  .style-opt{
+    border:1.5px solid var(--bdr);border-radius:10px;background:#fff;cursor:pointer;
+    padding:.6rem .4rem;text-align:center;font-family:inherit;
+    transition:border-color .2s,background .2s,transform .22s var(--ease);
+  }
+  .style-opt:hover{border-color:var(--green)}
+  .style-opt:active{transform:scale(.97);transition-duration:100ms}
+  .style-opt.on{border-color:var(--green);background:var(--green4)}
+  .style-t{font-size:.87rem;font-weight:500;color:var(--ink);display:block}
+  .style-n{font-size:.68rem;color:var(--ink3);display:block;line-height:1.35;margin-top:.1rem}
+  .preview{margin-top:.75rem;background:#e5ddd5;border-radius:12px;padding:.85rem}
+  .bubble{background:#fff;border-radius:10px 10px 10px 3px;padding:.7rem .85rem;box-shadow:0 1px 1px rgba(0,0,0,.1);max-width:95%}
+  .msg-style-tag{display:none}
+  .msg-text{font-size:.86rem;color:#111b21;line-height:1.6}
+  .preview-cap{font-size:.71rem;color:var(--ink3);text-align:center;margin-top:.45rem}
+
+
+  /* the sends laid out in order, so the whole plan is visible at once */
+  .timeline{margin-top:.9rem;border:1px solid var(--bdr);border-radius:11px;overflow:hidden}
+  .tl-row{display:flex;align-items:flex-start;gap:.7rem;padding:.6rem .85rem;border-bottom:1px solid var(--bdr);background:#fff}
+  .tl-row:last-child{border-bottom:none}
+  .tl-row.auto{background:var(--bg2)}
+  .tl-dot{flex-shrink:0;width:9px;height:9px;border-radius:50%;background:var(--green);margin-top:.42rem}
+  .tl-row.auto .tl-dot{background:var(--bdr);border:1.5px solid var(--ink3);box-sizing:border-box}
+  .tl-b{flex:1;min-width:0}
+  .tl-t{font-size:.86rem;color:var(--ink);font-weight:500}
+  .tl-d{font-size:.78rem;color:var(--ink3);line-height:1.5}
+  .tl-tag{font-size:.68rem;color:var(--ink3);background:var(--bg3);border-radius:99px;padding:.1rem .45rem;white-space:nowrap;align-self:center}
+
+  /* the footer is part of the same message, not a second one */
+  .bubble-foot{margin-top:.6rem;padding-top:.5rem;border-top:1px solid #e9edef}
+  .fine-l{display:block;font-size:.72rem;color:#667781;line-height:1.5}
+
+  /* what the package covers, and what is a paid extra */
+  .addons{border:1px solid var(--bdr);border-radius:11px;overflow:hidden}
+  .addon{display:flex;align-items:flex-start;gap:.7rem;padding:.7rem .85rem;border-bottom:1px solid var(--bdr)}
+  .addon:last-child{border-bottom:none}
+  .addon.locked{background:var(--bg2)}
+  .addon.locked .addon-t,.addon.locked .addon-d{opacity:.62}
+  .addon.late{background:var(--bg2);opacity:.72}
+  .addon-m{flex-shrink:0;margin-top:.15rem}
+  .addon-b{flex:1;min-width:0}
+  .addon-t{font-size:.87rem;font-weight:500;color:var(--ink)}
+  .addon-d{font-size:.77rem;color:var(--ink3);line-height:1.5}
+  .addon-a{flex-shrink:0;align-self:center}
+  .addon-buy{
+    background:var(--green);color:#fff;border:none;border-radius:8px;cursor:pointer;
+    font-family:inherit;font-size:.79rem;font-weight:600;padding:.42rem .8rem;white-space:nowrap;
+    transition:background .2s,transform .22s var(--ease);
+  }
+  .addon-buy:hover{background:var(--green2)}
+  .addon-buy:active{transform:scale(.95);transition-duration:100ms}
+  .addon-inc{font-size:.74rem;color:var(--green2);font-weight:600;white-space:nowrap}
+  .addon-no{font-size:.72rem;color:var(--ink3);white-space:nowrap}
+
+  .chosen{
+    display:flex;align-items:center;justify-content:space-between;gap:.6rem;
+    background:var(--green4);border:1.5px solid var(--bdr2);border-radius:9px;
+    padding:.7rem .85rem;font-size:1rem;color:var(--ink);font-weight:500;
+  }
+  .chosen button{
+    background:none;border:none;cursor:pointer;font-family:inherit;font-size:.79rem;
+    color:var(--green2);text-decoration:underline;text-underline-offset:3px;padding:.2rem;
+  }
+  .frow textarea{
+    width:100%;padding:.7rem .85rem;border:1.5px solid var(--bdr);border-radius:9px;
+    font-family:'Heebo',sans-serif;font-size:1rem;color:var(--ink);background:#fff;resize:vertical;
+    transition:border-color .15s,box-shadow .15s;
+  }
+  .frow textarea:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.14)}
+  .hint-s{font-size:.74rem;color:var(--ink3);line-height:1.5;margin-top:.2rem}
+  /* the add-on title and its line need air between them */
+  .addon-t{display:block;margin-bottom:.2rem}
+  .note{background:var(--green4);border:1px solid var(--bdr2);border-radius:10px;padding:.7rem .9rem;font-size:.8rem;color:var(--ink2);line-height:1.6}
+  .note b{color:var(--ink)}
+  .note.warn{background:#fffbeb;border-color:#fcd34d}
+
+  .msg{text-align:center;padding:.5rem 0}
+  .msg-ico{margin-bottom:.9rem;display:flex;justify-content:center}
+  .msg h2{font-family:'Rubik',sans-serif;font-size:1.2rem;font-weight:600;margin-bottom:.5rem}
+  .msg p{font-size:.9rem;color:var(--ink3);line-height:1.7}
+  .msg.err h2{color:var(--err)}
+  .retry{margin-top:1.1rem;background:none;border:1px solid var(--bdr);border-radius:9px;padding:.6rem 1.3rem;font-family:inherit;font-size:.87rem;color:var(--ink2);cursor:pointer;transition:border-color .2s,transform .22s var(--ease)}
+  .retry:hover{border-color:var(--ink3)}
+  .retry:active{transform:scale(.972);transition-duration:100ms}
+  .wa-link{display:inline-flex;align-items:center;gap:.4rem;margin-top:1rem;font-size:.87rem;color:var(--green2);text-decoration:underline;text-underline-offset:3px}
+  .foot{text-align:center;margin-top:1.4rem;font-size:.71rem;color:var(--ink3);letter-spacing:.03em}
+  .hp{position:absolute;top:0;left:0;width:1px;height:1px;overflow:hidden;opacity:0;pointer-events:none;clip:rect(0 0 0 0)}
+
+  @media (prefers-reduced-motion:reduce){
+    *,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}
+    .spin,.bar i{animation-duration:.9s!important;animation-iteration-count:infinite!important}
+    .drop:active,.btn:active,.retry:active,.idate-cell:active,.style-opt:active{transform:none}
+  }
+  /* the page never scrolls sideways on a phone */
+  html,body{overflow-x:hidden;max-width:100%}
+</style>
+<link rel="stylesheet" href="assets/lux.css?v=19">
+</head>
+<body>
+
+<main class="card">
+  <div class="lux-head">
+    <div class="brand">
+      <img src="assets/logo-gold.png" alt="">
+      <span class="brand-t">אישורי <span>הגעה</span></span>
+    </div>
+    <div class="lux-rule" aria-hidden="true"></div>
+  </div>
+
+  <div class="steps-bar" id="stepsBar" hidden><i id="sb1"></i><i id="sb2"></i></div>
+  <p class="step-lbl" id="stepLbl" hidden></p>
+
+  <!-- ══ step 1 · file ══════════════════════════════════════════════════ -->
+  <section class="view" id="formView">
+    <h1>העלאת רשימת המוזמנים</h1>
+    <p class="event" id="eventName" hidden></p>
+    <p class="lede">קובץ Excel או CSV. הקובץ נקרא לפי סדר העמודות, לא לפי הכותרות.</p>
+
+    <div class="cols">
+      <div class="cols-h">סדר העמודות בקובץ</div>
+      <div class="col">
+        <span class="col-l">A</span>
+        <span class="col-b">
+          <span class="col-t">שם</span>
+          <span class="col-n">שם המוזמן כפי שיופיע בהודעה. משפחה נרשמת בשם אחד, למשל <b>משפחת לוי</b>.</span>
+        </span>
+      </div>
+      <div class="col">
+        <span class="col-l">B</span>
+        <span class="col-b">
+          <span class="col-t">טלפון</span>
+          <span class="col-n">נייד ישראלי, 05X. עם מקפים או בלי, שניהם בסדר.</span>
+        </span>
+      </div>
+      <div class="col">
+        <span class="col-l">C</span>
+        <span class="col-b">
+          <span class="col-t">כמות מוזמנים</span>
+          <span class="col-n">כמה אנשים ההזמנה מכסה.</span>
+        </span>
+      </div>
+      <div class="cols-f">
+        שורת כותרות בראש הקובץ זה בסדר, נזהה אותה לבד.
+        <b>הסדר חייב להישמר: A שם, B טלפון, C כמות.</b>
+        <br>אחרי ההעלאה תגיע אליכם הודעה בוואטסאפ שהקובץ תקין ונקלט.
+      </div>
+    </div>
+
+    <button type="button" class="drop" id="drop">
+      <span class="drop-ico">
+        <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+        </svg>
+      </span>
+      <span class="drop-t">לחצו לבחירת קובץ</span>
+      <span class="drop-s">או גררו אותו לכאן · עד <span id="maxmb">10</span>MB</span>
+    </button>
+
+    <div class="chip" id="chip">
+      <span class="chip-ico">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>
+        </svg>
+      </span>
+      <span class="chip-meta"><span class="chip-n" id="chipName"></span><span class="chip-s" id="chipSize"></span></span>
+      <button type="button" id="chipReplace">החלפה</button>
+    </div>
+
+    <input type="file" id="fileInput" accept=".csv,.xlsx,.xls" hidden>
+    <div class="hp" aria-hidden="true"><input type="text" id="website" tabindex="-1" autocomplete="off"></div>
+
+    <button class="btn" id="sendBtn" disabled>העלאה והמשך להגדרות</button>
+    <div class="bar" id="bar"><i></i></div>
+    <p class="tmpl" id="tmplRow" hidden>אין קובץ מוכן? <a id="tmplLink" href="#" target="_blank" rel="noopener">להורדת קובץ לדוגמה</a></p>
+  </section>
+
+  <!-- ══ step 2 · event setup ═══════════════════════════════════════════ -->
+  <section class="view" id="setupView">
+    <h1>הגדרת האירוע</h1>
+    <p class="lede">הפרטים האלה נכנסים להודעה שהמוזמנים מקבלים.</p>
+    <p id="planLine" hidden style="text-align:center;font-size:.82rem;background:rgba(15,76,53,.07);border:1px solid rgba(15,76,53,.25);border-radius:99px;padding:.3rem 1rem;display:inline-block;margin:0 auto .6rem;color:#0F4C35;font-weight:600"></p>
+
+    <div class="sec">
+      <div class="sec-h">האירוע</div>
+      <div class="fgrid two">
+        <div class="frow full" id="occRow" hidden>
+          <label for="f-occasion">סוג האירוע <span class="req">*</span></label>
+          <select id="f-occasion" data-isel></select>
+          <p class="ferr" id="e-occasion" aria-live="polite"></p>
+        </div>
+        <div class="frow full" id="occFixed" hidden>
+          <label>סוג האירוע</label>
+          <div class="chosen"><span id="occFixedTxt"></span></div>
+        </div>
+        <div class="frow full" id="titleRow" hidden>
+          <label for="f-title" id="titleLbl">שם האירוע <span class="req">*</span></label>
+          <input type="text" id="f-title" placeholder="כנס לקוחות שנתי">
+          <p class="ferr" id="e-title" aria-live="polite"></p>
+        </div>
+        <div class="frow" id="name1Row">
+          <label for="f-name1" id="name1Lbl">שם בן/בת הזוג <span class="req">*</span></label>
+          <div class="hpair">
+            <input type="text" id="f-name1" autocomplete="off" placeholder="נועה">
+            <div class="hrole" id="role1Wrap"><select id="f-role1" data-isel aria-label="תפקיד באירוע"></select></div>
+          </div>
+          <p class="ferr" id="e-name1" aria-live="polite"></p>
+        </div>
+        <div class="frow" id="name2Row">
+          <label for="f-name2" id="name2Lbl">שם בן/בת הזוג השני/ה <span class="req">*</span></label>
+          <div class="hpair">
+            <input type="text" id="f-name2" autocomplete="off" placeholder="יונתן">
+            <div class="hrole" id="role2Wrap"><select id="f-role2" data-isel aria-label="תפקיד באירוע"></select></div>
+          </div>
+        </div>
+        <div class="frow full">
+          <label for="f-edate">תאריך האירוע <span class="req">*</span></label>
+          <input type="text" id="f-edate" data-idate="event" data-placeholder="בחרו תאריך">
+          <p class="ferr" id="e-edate" aria-live="polite"></p>
+        </div>
+        <div class="frow">
+          <label for="f-time">שעת קבלת פנים <span class="req">*</span></label>
+          <select id="f-time" data-isel data-typeable data-accept="time" data-placeholder="19:30"></select>
+          <p class="ferr" id="e-time" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h">המקום</div>
+      <div class="fgrid two">
+        <div class="frow full">
+          <label for="f-venue">שם האולם או הגן <span class="req">*</span></label>
+          <input type="text" id="f-venue" placeholder="אולם הגן הקסום">
+          <p class="ferr" id="e-venue" aria-live="polite"></p>
+        </div>
+        <div class="frow">
+          <label for="f-addr">כתובת <span class="req">*</span></label>
+          <input type="text" id="f-addr" placeholder="רחוב ומספר">
+          <p class="ferr" id="e-addr" aria-live="polite"></p>
+        </div>
+        <div class="frow">
+          <label for="f-city">עיר <span class="req">*</span></label>
+          <input type="text" id="f-city" placeholder="רמת גן">
+          <p class="ferr" id="e-city" aria-live="polite"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec" id="hostessSec" hidden>
+      <div class="sec-h">דיילות באירוע</div>
+      <div class="addons">
+        <div class="addon" id="hostessRow">
+          <div class="addon-m">👩‍💼</div>
+          <div class="addon-b">
+            <div class="addon-t" id="hostessT">דיילות</div>
+            <div class="addon-d" id="hostessD">מגיעות שעה לפני קבלת הפנים, עם הלוח שלנו ביד.</div>
+            <div class="addon-d" id="hostessTravel" style="margin-top:.4rem"></div>
+          </div>
+          <div id="hostessAct"></div>
+        </div>
+      </div>
+      <p class="hint-s">הנסיעות נקבעות לפי העיר שהזנתם למעלה. במרכז (אשקלון עד הרצליה) הן כלולות.</p>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h" id="styleHead">סגנון ההודעה</div>
+      <div id="stylesWrap">
+        <div class="styles" id="styles"></div>
+      </div>
+      <div class="frow full" id="extraRow" hidden>
+        <label for="f-extra">תיאור האירוע <span class="req">*</span></label>
+        <textarea id="f-extra" rows="3" placeholder="ערב של הרצאות ונטוורקינג. חניה חינם במקום."></textarea>
+        <p class="hint-s">התיאור נכנס להודעה שהמוזמנים מקבלים. התאריך, המקום והכפתורים נוספים אוטומטית.</p>
+      </div>
+      <div class="preview">
+        <div class="bubble">
+          <div id="preview"></div>
+          <div class="bubble-foot" id="previewFoot"></div>
+        </div>
+      </div>
+      <p class="preview-cap">כך ההודעה תיראה אצל המוזמן</p>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h">תמונת ההזמנה</div>
+      <style>
+        .imgbtn{display:inline-flex;align-items:center;gap:.45rem;border:1px dashed #B9B4A4;background:#FDFCF8;border-radius:10px;padding:.65rem 1.1rem;font:inherit;font-size:.88rem;cursor:pointer;color:#3D4A42}
+        .imgbtn:hover{border-color:#A8853C;color:#0F2E22}
+        .imgchip{display:flex;align-items:center;gap:.6rem;border:1px solid #E3E1D8;background:#fff;border-radius:10px;padding:.45rem .6rem}
+        .imgchip img{width:96px;height:96px;object-fit:cover;border-radius:9px;border:1px solid var(--bdr)}
+        .imgchip span{font-size:.83rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;direction:ltr;text-align:right}
+        .imgchip button{border:none;background:none;font-size:1.1rem;cursor:pointer;color:#8A9382;padding:.2rem .4rem}
+        .imgchip button:hover{color:#A8402F}
+      </style>
+      <div class="frow full">
+        <label for="f-img">תמונה או וידאו שיישלחו עם ההזמנה <span class="fopt">לא חובה · JPG/PNG עד 4MB, MP4 עד 16MB</span></label>
+        <input type="file" id="f-img" accept="image/jpeg,image/png,image/webp,video/mp4" hidden>
+        <button type="button" class="imgbtn" id="imgBtn">בחירת תמונה מהמכשיר</button>
+        <div class="imgchip" id="imgChip" hidden>
+          <img id="imgThumb" alt="תצוגה מקדימה של תמונת ההזמנה">
+          <span id="imgName"></span>
+          <button type="button" id="imgClear" aria-label="הסרת התמונה">×</button>
+        </div>
+        <p class="ferr" id="e-img" aria-live="polite"></p>
+        <p class="hint-s">JPG, PNG או WebP עד 4MB. התמונה מצורפת להודעת ההזמנה שהמוזמנים מקבלים.</p>
+      </div>
+    </div>
+
+    <div class="sec">
+      <div class="sec-h">מתי שולחים</div>
+
+      <p class="note" id="schedHint">בחרו קודם את תאריך האירוע ונציע לוח שליחות.</p>
+
+      <div id="schedAuto" hidden>
+        <div class="note warn" id="schedAutoTxt"></div>
+      </div>
+
+      <div id="schedManual" hidden>
+        <div class="fgrid two">
+          <div class="frow full">
+            <label for="f-sd1">שליחה ראשונה <span class="req">*</span></label>
+            <input type="text" id="f-sd1" data-idate data-placeholder="בחרו תאריך">
+            <p class="ferr" id="e-sd1" aria-live="polite"></p>
+          </div>
+          <div class="frow full">
+            <label for="f-sd2">תזכורת למי שלא ענה <span class="fopt">לא חובה</span></label>
+            <input type="text" id="f-sd2" data-idate data-placeholder="בחרו תאריך">
+            <p class="ferr" id="e-sd2" aria-live="polite"></p>
+          </div>
+        </div>
+      </div>
+
+      <div class="timeline" id="timeline" hidden></div>
+
+      <div class="note warn" style="margin-top:.8rem">
+        השליחה יוצאת בבוקר. כדי שההודעות יצאו ביום מסוים צריך לסיים את ההגדרה
+        <b>עד 06:00 באותו יום</b>, אחרת המועד הראשון האפשרי הוא למחרת.
+        <b>בשבת לא שולחים כלל</b>, וביום שישי השליחה יוצאת עד <b>15:00</b>.
+      </div>
+
+    </div>
+
+    <div class="sec">
+      <div class="sec-h">תוספות</div>
+      <div class="addons" id="addons"></div>
+      <div id="extraSendWrap" hidden>
+        <div class="frow full" style="padding:.9rem 1rem 0">
+          <label for="f-sd3">תאריך השליחה הנוספת <span class="req">*</span></label>
+          <input type="text" id="f-sd3" data-idate data-placeholder="בחרו תאריך">
+          <p class="ferr" id="e-sd3" aria-live="polite"></p>
+          <p class="hint-s">תזכורת נוספת לכל הרשימה, לא יאוחר מיום האירוע.</p>
+          <div class="note warn" style="margin-top:.6rem">
+            שומרים קודם את כל ההגדרות, ומיד אחרי זה עוברים לתשלום על התוספת.
+            <b>אם התשלום לא יושלם, התזכורת הנוספת פשוט לא תישלח</b> ושאר השליחות יוצאות כרגיל.
+          </div>
+        </div>
+      </div>
+      <p class="tmpl" style="margin-top:.6rem">שינויים ותוספות אחרות אפשר לעשות בלוח הבקרה, אחרי שההגדרות נשמרות.</p>
+    </div>
+
+    <button class="btn" id="saveBtn">שמירה והפעלת השליחה</button>
+    <p class="hint-s" id="saveHint" style="text-align:center;margin-top:.5rem"></p>
+    <div class="bar" id="bar2"><i></i></div>
+    <p class="tmpl">אפשר לשנות תאריכים עתידיים בוואטסאפ, עד 06:00 ביום המשלוח.</p>
+  </section>
+
+  <!-- ══ done ═══════════════════════════════════════════════════════════ -->
+  <section class="view msg" id="okView">
+    <span class="msg-ico">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="m8.5 12.5 2.5 2.5 5-5.5"/>
+      </svg>
+    </span>
+    <h2>הכל מוגדר</h2>
+    <p id="okText">קיבלנו את הרשימה ואת פרטי האירוע.<br>אישור עם סיכום יגיע אליכם בוואטסאפ בדקות הקרובות.</p>
+    <a class="wa-link" id="okWa" href="#" target="_blank" rel="noopener">יש שינוי? כתבו לנו</a>
+  </section>
+
+  <section class="view msg err" id="deadView">
+    <span class="msg-ico">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="12" cy="12" r="10"/><path d="M15 9l-6 6M9 9l6 6"/>
+      </svg>
+    </span>
+    <h2>הקישור הזה כבר לא פעיל</h2>
+    <p>ייתכן שהוחלף בקישור חדש, או שהאירוע נסגר.<br>כתבו לנו ונשלח קישור עדכני.</p>
+    <a class="wa-link" id="deadWa" href="#" target="_blank" rel="noopener">לפנייה בוואטסאפ</a>
+  </section>
+
+  <section class="view msg err" id="errView">
+    <span class="msg-ico">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </span>
+    <h2 id="errTitle">השליחה לא הצליחה</h2>
+    <p id="errText">בדקו את החיבור ונסו שוב.</p>
+    <button type="button" class="btn" id="replaceBtn" hidden style="margin:.6rem 0 0">להחליף את הרשימה בקובץ הזה</button>
+    <button class="retry" id="retryBtn">ניסיון נוסף</button>
+  </section>
+
+  <section class="view msg" id="issuesView">
+    <span class="msg-ico">
+      <svg width="46" height="46" viewBox="0 0 24 24" fill="none" stroke="#A8853C" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/>
+      </svg>
+    </span>
+    <h2>כמה שורות בקובץ צריכות תשומת לב</h2>
+    <div id="issuesList" style="text-align:right;max-height:260px;overflow:auto;background:#F6F5F1;border:1px solid #E3E1D8;border-radius:10px;padding:.8rem 1rem;font-size:.82rem;line-height:1.7;margin:.8rem 0"></div>
+    <p id="issuesSummary" style="font-size:.85rem"></p>
+    <button class="retry" id="issuesUpload" style="background:#0F4C35;color:#fff">להעלות כך בכל זאת</button>
+    <button class="retry" id="issuesFix" style="margin-top:.5rem">אתקן את הקובץ ואעלה שוב</button>
+  </section>
+
+  <div aria-live="polite" class="hp" id="live"></div>
+  <p class="foot">ishur.io · אישורי הגעה בוואטסאפ</p>
+</main>
+
+<script src="assets/select.js?v=19"></script>
+<script src="assets/datepicker.js?v=19"></script>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var MSG = window.ISHUR_MESSAGES;
+
+  var qs = new URLSearchParams(location.search);
+  var token = (qs.get('t') || '').trim();
+  var eventName = (qs.get('n') || '').trim();
+  var occasionHint = (qs.get('e') || '').trim();
+
+  var $ = function (id) { return document.getElementById(id); };
+  var VIEWS = ['formView', 'setupView', 'okView', 'deadView', 'errView', 'issuesView'];
+  var returnTo = 'formView';
+
+  function show(v) {
+    VIEWS.forEach(function (n) { $(n).classList.toggle('on', n === v); });
+    var isStep = v === 'formView' || v === 'setupView';
+    $('stepsBar').hidden = !isStep;
+    $('stepLbl').hidden = !isStep;
+    if (isStep) {
+      $('sb1').classList.add('on');
+      $('sb2').classList.toggle('on', v === 'setupView');
+      $('stepLbl').textContent = v === 'formView'
+        ? 'שלב 1 מתוך 2 · רשימת המוזמנים'
+        : 'שלב 2 מתוך 2 · פרטי האירוע';
+    }
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+
+  function fail(text, title, why) {
+    $('errText').textContent = text;
+    $('errTitle').textContent = title || 'השליחה לא הצליחה';
+    var rb = $('replaceBtn');
+    if (rb) {
+      rb.hidden = why !== 'already-uploaded';
+      rb.onclick = function () {
+        /* Richard, 10/09: they can fix a mistake themselves, until the first send */
+        askConfirm('הרשימה הקודמת תימחק והקובץ הזה ייכנס במקומה.', { title: 'להחליף את הרשימה?', ok: 'כן, להחליף', danger: true }).then(function (yes) {
+          if (!yes) return;
+          replaceList = true;
+          show('formView');
+          sendFile(false);
+        });
+      };
+    }
+    show('errView');
+  }
+
+  $('maxmb').textContent = CFG.UPLOAD.maxMB;
+  $('deadWa').href = CFG.waLink('היי, הקישור להעלאת רשימת המוזמנים כבר לא פעיל. אפשר קישור חדש?');
+  $('okWa').href = CFG.waLink('היי, רציתי לעדכן משהו בהגדרות האירוע.');
+  if (eventName) { $('eventName').textContent = eventName; $('eventName').hidden = false; }
+  if (CFG.isSet(CFG.TEMPLATE_URL)) { $('tmplLink').href = CFG.TEMPLATE_URL; $('tmplRow').hidden = false; }
+
+  /* no token means there is nothing to upload against, and the form never
+     renders, so a guessed URL cannot reach it */
+  if (!token) {
+    show('deadView');
+    IshurLead.track('upload_dead_link', { reason: 'no_token' });
+  } else {
+    show('formView');
+    IshurLead.track('upload_page_view', {});
+  }
+
+  /* ══ step 1 · file ══════════════════════════════════════════════════════ */
+
+  var file = null;
+  var drop = $('drop'), input = $('fileInput'), chip = $('chip'), sendBtn = $('sendBtn'), bar = $('bar');
+
+  function fmtSize(b) {
+    return b < 1048576 ? Math.round(b / 1024) + ' KB' : (b / 1048576).toFixed(1) + ' MB';
+  }
+
+  function setFile(f) {
+    var ext = (f.name.split('.').pop() || '').toLowerCase();
+    if (CFG.UPLOAD.allowed.indexOf(ext) === -1) {
+      returnTo = 'formView';
+      fail('סוג הקובץ לא נתמך. העלו Excel (xlsx) או CSV.', 'הקובץ לא מתאים');
+      return;
+    }
+    if (f.size > CFG.UPLOAD.maxMB * 1048576) {
+      returnTo = 'formView';
+      fail('הקובץ גדול מ-' + CFG.UPLOAD.maxMB + 'MB. רשימת מוזמנים לא אמורה להתקרב לזה, בדקו שזה הקובץ הנכון.', 'הקובץ גדול מדי');
+      return;
+    }
+    file = f;
+    $('chipName').textContent = f.name;
+    $('chipSize').textContent = fmtSize(f.size);
+    drop.style.display = 'none';
+    chip.classList.add('on');
+    sendBtn.disabled = false;
+    $('live').textContent = 'נבחר קובץ ' + f.name;
+  }
+
+  function clearFile() {
+    file = null; input.value = '';
+    chip.classList.remove('on'); drop.style.display = '';
+    sendBtn.disabled = true;
+  }
+
+  drop.addEventListener('click', function () { input.click(); });
+  input.addEventListener('change', function () { if (input.files[0]) setFile(input.files[0]); });
+  $('chipReplace').addEventListener('click', function () { clearFile(); input.click(); });
+  ['dragover', 'dragenter'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.add('over'); });
+  });
+  ['dragleave', 'drop'].forEach(function (e) {
+    drop.addEventListener(e, function (ev) { ev.preventDefault(); drop.classList.remove('over'); });
+  });
+  drop.addEventListener('drop', function (e) {
+    var f = e.dataTransfer && e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+  $('retryBtn').addEventListener('click', function () { show(returnTo); });
+
+  sendBtn.addEventListener('click', function () {
+    if (!file || !token) return;
+    /* honeypot: a bot filled a field no human can see */
+    if ($('website').value) { show('okView'); return; }
+
+    var uploadUrl = CFG.endpoint('event');
+    if (!CFG.isSet(uploadUrl)) {
+      returnTo = 'formView';
+      fail('ההעלאה עדיין לא מחוברת. שלחו לנו את הקובץ בוואטסאפ ונטפל בזה.', 'רגע אחד');
+      IshurLead.track('upload_not_configured', {});
+      return;
+    }
+
+    /* rate-cap only — real duplicate protection lives in the Worker (409),
+       so a failed attempt here never blocks the retry */
+    var v = window.IshurGuard ? IshurGuard.allow('upload') : { ok: true };
+    if (!v.ok) {
+      returnTo = 'formView';
+      fail('נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.', 'רגע אחד');
+      return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = 'מעלה<span class="spin" aria-hidden="true"></span>';
+    bar.classList.add('on');
+    $('live').textContent = 'מעלה את הקובץ';
+    IshurLead.track('upload_started', { size: file.size });
+
+    sendFile(false);
+  });
+
+  var replaceList = false;   /* set by the 'replace the list' button on the 409 screen */
+  /* ?replace=1 from the dashboard: this upload replaces the current list */
+  if (new URLSearchParams(location.search).get('replace') === '1') {
+    replaceList = true;
+    document.addEventListener('DOMContentLoaded', function () {
+      var h = document.querySelector('#formView h1, #formView .h1, h1');
+      if (h) h.insertAdjacentHTML('afterend', '<p style="margin:.3rem 0 .8rem;padding:.5rem .8rem;border-radius:10px;background:#FFF6E5;color:#7A5A1E;font-size:.85rem">מצב החלפה: הקובץ שתעלו <b>יחליף</b> את רשימת המוזמנים הקיימת. אפשרי עד השליחה הראשונה.</p>');
+    });
+  }
+  /* the second click from the issues screen re-sends with confirm=1 */
+  function sendFile(confirmAnyway) {
+    var uploadUrl = CFG.endpoint('event');
+    var fd = new FormData();
+    fd.append('token', token);
+    fd.append('file', file, file.name);
+    fd.append('source', location.href);
+    fd.append('supports_preview', '1');
+    if (confirmAnyway) fd.append('confirm', '1');
+    if (replaceList) fd.append('replace', '1');
+    if (window.IshurGuard) {
+      var st = IshurGuard.stamp({});
+      Object.keys(st).forEach(function (k) { fd.append(k, st[k]); });
+    }
+
+    fetch(uploadUrl, { method: 'POST', body: fd })
+      .then(function (res) {
+        if (res.status === 200) {
+          return res.json()['catch'](function () { return { ok: true }; }).then(function (d) {
+            if (d && d.preview) { renderIssues(d); return; }
+            IshurLead.track('upload_success', {});
+            $('live').textContent = 'הקובץ נקלט, ממשיכים להגדרות';
+            show('setupView');
+          });
+        } else if (res.status === 403 || res.status === 404) {
+          show('deadView');
+          IshurLead.track('upload_dead_link', { reason: 'status_' + res.status });
+        } else {
+          returnTo = 'formView';
+          return res.json()['catch'](function () { return {}; }).then(function (body) {
+            var why = (body && (body.error || body.reason)) || '';
+            var msgs = {
+              'already-uploaded': 'לאירוע הזה כבר הועלתה רשימה.',
+              'already-sent': 'ההזמנות לרשימה הזאת כבר יצאו, אז אי אפשר להחליף אותה. אפשר להוסיף מוזמנים חדשים, כתבו לנו כאן מה צריך.',
+              'replace-failed': 'לא הצלחנו להחליף את הרשימה. נסו שוב בעוד רגע, ואם זה חוזר כתבו לנו.',
+              'no-valid-guests': 'לא זיהינו שורות תקינות בקובץ. ודאו: עמודה A — שם, עמודה B — טלפון נייד (05X), בלי שורת כותרת חובה.',
+              'unreadable-file': 'לא הצלחנו לקרוא את הקובץ. שמרו אותו מחדש כ-Excel (xlsx) או CSV ונסו שוב.',
+              'bad-file-type': 'סוג הקובץ לא נתמך — צריך Excel (xlsx/xls) או CSV.',
+              'file-too-large': 'הקובץ גדול מדי (עד 8MB).',
+              'bad-image': 'תמונת ההזמנה צריכה להיות JPG או PNG. אם שמרתם מקנבה, בחרו הורדה כ-JPG.',
+              'bad-video': 'הווידאו צריך להיות קובץ MP4.',
+              'video-too-large': 'הווידאו גדול מדי (עד 16MB).',
+              'too-many-guests': 'יש יותר מ-2000 שורות — פצלו את הקובץ או כתבו לנו.',
+              'guests-need-upload': 'רשימת המוזמנים נשלחת דרך הטופס הזה בלבד. רעננו את הדף ונסו שוב.',
+            };
+            if (why === 'over-tier') {
+              fail('הרשימה כוללת ' + (body.got || '') + ' הזמנות, והחבילה שרכשתם מכסה עד ' +
+                (body.allowed || '') + '. אפשר להגדיל את החבילה — כתבו לנו בוואטסאפ ונשלח קישור, ' +
+                'או העלו קובץ בגודל המתאים. (הזמנה = מספר טלפון אחד, גם אם מגיעים כמה אנשים)');
+              IshurLead.track('upload_error', { status: res.status, why: why });
+              return;
+            }
+            fail(msgs[why] || ('השרת החזיר שגיאה (' + res.status + '). נסו שוב בעוד רגע.'), null, why);
+            IshurLead.track('upload_error', { status: res.status, why: why });
+          });
+        }
+      })
+      ['catch'](function () {
+        returnTo = 'formView';
+        fail('לא הצלחנו להשלים את ההעלאה. בדקו את החיבור ונסו שוב.');
+        IshurLead.track('upload_error', { status: 'network' });
+      })
+      ['finally'](function () {
+        sendBtn.disabled = false;
+        sendBtn.textContent = 'העלאה והמשך להגדרות';
+        bar.classList.remove('on');
+      });
+  }
+
+  function renderIssues(d) {
+    var list = $('issuesList'); list.innerHTML = '';
+    (d.skipped || []).forEach(function (x) {
+      var li = document.createElement('div');
+      li.textContent = '✗ שורה ' + x.row + (x.name ? ' (' + x.name + ')' : '') + ': ' + x.why +
+        (x.phone ? ' — ' + x.phone : '') + ' · לא תיקלט';
+      list.appendChild(li);
+    });
+    (d.warnings || []).forEach(function (x) {
+      var li = document.createElement('div');
+      li.textContent = '⚠ שורה ' + x.row + (x.name ? ' (' + x.name + ')' : '') + ': ' + x.why;
+      list.appendChild(li);
+    });
+    $('issuesSummary').textContent = 'ייקלטו ' + d.guests + ' אורחים' +
+      ((d.skipped || []).length ? ' · ' + d.skipped.length + ' שורות לא ייקלטו' : '');
+    IshurLead.track('upload_issues', { guests: d.guests, skipped: (d.skipped || []).length, warnings: (d.warnings || []).length });
+    show('issuesView');
+  }
+
+  $('issuesUpload').addEventListener('click', function () {
+    $('issuesUpload').disabled = true;
+    sendFile(true);
+    setTimeout(function () { $('issuesUpload').disabled = false; }, 3000);
+  });
+  $('issuesFix').addEventListener('click', function () { clearFile(); show('formView'); });
+
+  /* ══ step 2 · event setup ═══════════════════════════════════════════════ */
+
+  var S = { occasion: occasionHint || 'wedding', style: 'happy' };
+
+  var TO = CFG.TIME_OPTIONS;
+  function mins(t) { var p = t.split(':'); return +p[0] * 60 + +p[1]; }
+  function hhmm(m) { return String(Math.floor(m / 60)).padStart(2, '0') + ':' + String(m % 60).padStart(2, '0'); }
+
+  var tsel = $('f-time');
+  tsel.appendChild(new Option('', ''));
+  var fineA = mins(TO.fineFrom), fineB = mins(TO.fineTo);
+  for (var m = mins(TO.from); m <= mins(TO.to); ) {
+    tsel.appendChild(new Option(hhmm(m), hhmm(m)));
+    m += (m >= fineA && m < fineB) ? TO.fineStep : TO.step;
+  }
+
+  var occ = $('f-occasion');
+  occ.appendChild(new Option('בחרו סוג אירוע', ''));
+  CFG.OCCASIONS.forEach(function (o) { occ.appendChild(new Option(o.label, o.value)); });
+  occ.value = S.occasion;
+
+  /* who each host is — chosen per name, so two brides or two grooms are just
+     two picks. Shown only for the couple occasions (two names, no family
+     hint, no free title); everywhere else the config label stands as is. */
+  var HOST_ROLES = ['כלה', 'חתן', 'בעל השמחה', 'בעלת השמחה', 'חוגג', 'חוגגת'];
+  var roleSels = [$('f-role1'), $('f-role2')];
+  roleSels.forEach(function (sel) {
+    HOST_ROLES.forEach(function (r) { sel.appendChild(new Option(r, r)); });
+  });
+  function rolesOn() {
+    var o = CFG.occasion(S.occasion);
+    var pair = CFG.occasionNames(S.occasion);
+    return !!(o && pair[1] && !o.familyHint && !o.title);
+  }
+  function roleLabel(role) {
+    return (role.indexOf('בעל') === 0 ? 'שם ' : 'שם ה') + role;
+  }
+  function syncRoleLabels() {
+    if (!rolesOn()) return;
+    $('name1Lbl').innerHTML = roleLabel(roleSels[0].value) + ' <span class="req">*</span>';
+    $('name2Lbl').innerHTML = roleLabel(roleSels[1].value) + ' <span class="req">*</span>';
+  }
+  function hostRoles() {
+    return rolesOn() ? roleSels[0].value + ',' + roleSels[1].value : '';
+  }
+  roleSels.forEach(function (sel) {
+    sel.addEventListener('change', function () { syncRoleLabels(); renderPreview(); });
+  });
+
+  function syncOccasion() {
+    var o = CFG.occasion(S.occasion);
+    var pair = CFG.occasionNames(S.occasion);
+
+    $('name1Lbl').innerHTML = pair[0] + ' <span class="req">*</span>';
+    var two = !!pair[1];
+    $('name2Row').style.display = two ? '' : 'none';
+    if (two) $('name2Lbl').innerHTML = pair[1] + ' <span class="req">*</span>';
+
+    var on = rolesOn();
+    $('role1Wrap').hidden = !on;
+    $('role2Wrap').hidden = !on;
+    /* with a role beside it the name needs the full row, not half a grid */
+    $('name1Row').classList.toggle('full', on);
+    $('name2Row').classList.toggle('full', on);
+    if (on) {
+      roleSels[0].value = 'כלה'; roleSels[1].value = 'חתן';
+      roleSels.forEach(function (sel) { IshurSelect.refresh(sel); });
+      syncRoleLabels();
+    }
+
+    /* a brit is usually written as one family name, so say so rather than
+       leaving someone guessing which parent goes first */
+    var hint = $('nameHint');
+    if (o && o.familyHint) {
+      if (!hint) {
+        hint = document.createElement('p');
+        hint.className = 'hint-s'; hint.id = 'nameHint';
+        $('name1Row').appendChild(hint);
+      }
+      hint.textContent = 'אפשר גם שם משפחה אחד, למשל משפחת לוי.';
+    } else if (hint) hint.remove();
+
+    /* occasions a template cannot guess get a line for what the event is */
+    /* biz and other have no canned wording, so they write their own and the
+       tone tabs stop applying */
+    var free = !!(o && o.title);
+    $('titleRow').hidden = !free;
+    if (free) $('titleLbl').innerHTML = o.title + ' <span class="req">*</span>';
+    $('extraRow').hidden = !free;
+    $('stylesWrap').hidden = free;
+  }
+
+  function renderStyles() {
+    $('styles').innerHTML = MSG.STYLES.map(function (s) {
+      return '<button type="button" class="style-opt' + (S.style === s.key ? ' on' : '') + '"' +
+             ' data-style="' + s.key + '" aria-pressed="' + (S.style === s.key) + '">' +
+             '<span class="style-t">' + s.label + '</span>' +
+             '<span class="style-n">' + s.note + '</span></button>';
+    }).join('');
+    $('styles').querySelectorAll('[data-style]').forEach(function (b) {
+      b.addEventListener('click', function () {
+        S.style = b.dataset.style;
+        renderStyles();
+        renderPreview();
+      });
+    });
+  }
+
+  function renderPreview() {
+    var o = CFG.occasion(S.occasion);
+    if (o && o.title) {
+      /* their own wording, wrapped in the same frame every message gets */
+      var title = ($('f-title').value || '').trim() || o.title;
+      var body = ($('f-extra').value || '').trim() || 'כאן ייכנס תיאור האירוע שתכתבו למעלה.';
+      var when = $('f-edate').value ? IshurDate.pretty($('f-edate').value) : 'תאריך האירוע';
+      var time = $('f-time').value ? ' בשעה ' + $('f-time').value : '';
+      var where = [$('f-venue').value.trim(), $('f-city').value.trim()].filter(Boolean).join(', ') || 'מקום האירוע';
+      $('preview').innerHTML =
+        '<p class="msg-text">שלום [שם],<br><br><b>' + esc(title) + '</b><br><br>' +
+        esc(body).replace(/\n/g, '<br>') + '<br><br>' +
+        '📅 ' + esc(when) + esc(time) + '<br>📍 ' + esc(where) + '</p>';
+      $('styleHead').textContent = 'תיאור האירוע';
+      $('previewFoot').innerHTML = footHtml();
+      return;
+    }
+    $('styleHead').textContent = 'סגנון ההודעה';
+    var m = MSG.sample(S.occasion, S.style);
+    $('preview').innerHTML = m ? m.html : '';
+    $('previewFoot').innerHTML = footHtml();
+  }
+
+  function esc(t) {
+    return String(t).replace(/[&<>]/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c];
+    });
+  }
+
+  function footHtml() {
+    var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
+    var F = CFG.MESSAGE_FOOTER;
+    return '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
+           '<span class="fine-l">' + F.optOut + '</span>';
+  }
+  ['f-name1', 'f-name2', 'f-extra', 'f-title', 'f-venue', 'f-city'].forEach(function (id) {
+    var el = $(id);
+    if (el) el.addEventListener('input', renderPreview);
+  });
+
+  $('f-time').addEventListener('change', function () {
+    clearErr('time');
+    renderTimeline();
+  });
+
+  occ.addEventListener('change', function () {
+    S.occasion = occ.value || 'wedding';
+    clearErr('occasion');
+    syncOccasion();
+    renderPreview();
+  });
+
+  /* the occasion was captured with the lead and arrives on the link, so it is
+     shown as settled. The picker only appears if the link somehow lacks it. */
+  if (occasionHint && CFG.occasion(occasionHint)) {
+    occ.value = occasionHint;
+    S.occasion = occasionHint;
+    $('occFixed').hidden = false;
+    $('occFixedTxt').textContent = CFG.occasionLabel(occasionHint);
+  } else {
+    $('occRow').hidden = false;
+  }
+
+  syncOccasion();
+  renderStyles();
+  renderPreview();
+
+  IshurSelect.enhanceAll();
+  IshurDate.enhanceAll();
+  renderAddons();
+
+  /* ══ add-ons ════════════════════════════════════════════════════════════
+     The package the customer bought comes in on the token link. Anything the
+     package does not cover shows a buy button; anything that has run out of
+     lead time is shown as unavailable rather than sold.
+     ───────────────────────────────────────────────────────────────────── */
+
+  var plan = (qs.get('p') || '').trim() || 'basic';
+  /* ── hostesses (demo): ?h=<count> says the customer bought them with the
+     package. The travel fee follows the city typed above. ── */
+  (function () {
+    var n = parseInt(qs.get('h') || '0', 10);
+    var sec = $('hostessSec'); if (!sec || !n || !CFG.HOSTESS) return;
+    sec.hidden = false;
+    var H = CFG.HOSTESS;
+    $('hostessT').textContent = (n === 1 ? 'דיילת אחת' : n + ' דיילות') + ' · כלול בהזמנה';
+    function draw() {
+      var city = ($('f-city').value || '').trim();
+      var center = CFG.hostessIsCenter(city);
+      var tr = $('hostessTravel'), act = $('hostessAct');
+      if (!city) { tr.textContent = 'הזינו עיר כדי לדעת אם יש תוספת נסיעות.'; act.innerHTML = ''; return; }
+      if (center) {
+        tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + city + ' באזור המרכז';
+        act.innerHTML = '<span class="addon-inc">כלול</span>';
+      } else {
+        var sum = H.travel * n;
+        tr.innerHTML = city + ' מחוץ למרכז: <b>נסיעות ₪' + H.travel + ' × ' + n + ' = ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
+        act.innerHTML = '<button type="button" class="addon-buy" id="hostessPay">₪' + sum + '</button>';
+        var b = $('hostessPay');
+        if (b) b.addEventListener('click', function () {
+          var url = H.travelLink;
+          IshurLead.track('hostess_travel_click', { city: city, n: n, sum: sum });
+          location.href = url ? url : CFG.waLink('היי, האירוע שלי ב' + city + ' ואני צריך/ה לשלם נסיעות לדיילות (₪' + sum + ').');
+        });
+      }
+    }
+    $('f-city').addEventListener('input', draw);
+    $('f-city').addEventListener('blur', draw);
+    draw();
+    S.hostess = n;
+  })();
+  var guests = (qs.get('g') || '').trim();
+
+  /* the WhatsApp link carries only the token, so the real package comes from
+     the server: token → event → plan name (Hebrew) → plan key. The ?p= value
+     stays as a fallback for the old links. */
+  (function () {
+    if (!token) return;
+    var payload = { token: token };
+    fetch(CFG.endpoint('status'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (!d || !d.event) return;
+        var byName = {};
+        Object.keys(CFG.PLANS || {}).forEach(function (k) { byName[CFG.PLANS[k].name] = k; });
+        var key = byName[String(d.event.plan || '').trim()];
+        if (key) plan = key;
+        if (d.event.guests_tier) guests = String(d.event.guests_tier);
+        var line = $('planLine');
+        if (line && (key || d.event.plan)) {
+          line.hidden = false;
+          line.textContent = 'החבילה שלכם: ' + (d.event.plan || key) +
+            (guests ? ' · עד ' + guests + ' מוזמנים' : '');
+        }
+        renderAddons();
+      }).catch(function () {});
+  })();
+
+  function renderAddons() {
+    var ed = $('f-edate').value;
+    var dte = ed ? daysUntil(ed) : null;
+
+    var keys = Object.keys(CFG.ADDONS).filter(function (k) { return CFG.ADDONS[k].inForm; });
+    $('addons').innerHTML = keys.map(function (k) {
+      var a = CFG.ADDONS[k];
+      var state = CFG.addonState(k, plan, dte);
+      var price = guests ? CFG.addonPrice(k, guests) : null;
+
+      var mark, action, cls = '';
+      if (state === 'included') {
+        cls = '';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
+        action = '<span class="addon-inc">כלול</span>';
+      } else if (state === 'too-late') {
+        cls = ' late';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
+        action = '<span class="addon-no">נסגר, פחות מ-' + a.minDaysBefore + ' יום לאירוע</span>';
+      } else {
+        cls = ' locked';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+        var isExtra = k === 'extra_send';
+        action = '<button type="button" class="addon-buy" data-addon="' + k + '">' +
+                 (isExtra ? (extraSend ? 'הסרה' : 'הוספה')
+                          : (price ? 'הוספה · ₪' + price : 'לפרטים')) + '</button>';
+      }
+
+      return '<div class="addon' + cls + '">' +
+             '<span class="addon-m">' + mark + '</span>' +
+             '<span class="addon-b"><span class="addon-t">' + a.label + '</span>' +
+             '<span class="addon-d">' + a.desc + '</span></span>' +
+             '<span class="addon-a">' + action + '</span></div>';
+    }).join('');
+
+    $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
+      b.addEventListener('click', function () { buyAddon(b.dataset.addon); });
+    });
+  }
+
+  var extraSend = false;
+
+  function toggleExtraSend() {
+    extraSend = !extraSend;
+    $('extraSendWrap').hidden = !extraSend;
+    if (extraSend && !$('f-sd3').dataset.enhanced) IshurDate.enhance($('f-sd3'));
+    $('saveBtn').textContent = extraSend ? 'שמירה ומעבר לתשלום' : 'שמירה והפעלת השליחה';
+    $('saveHint').textContent = extraSend
+      ? 'ההגדרות נשמרות קודם. התשלום הוא על השליחה הנוספת בלבד.'
+      : '';
+    renderAddons();
+    renderTimeline();
+  }
+
+  function buyAddon(key) {
+    /* the extra send is the one add-on set up here, so it opens its date
+       instead of leaving for a payment page */
+    if (key === 'extra_send') { toggleExtraSend(); return; }
+    var a = CFG.ADDONS[key];
+    var url = guests ? CFG.addonLink(key, guests) : null;
+    IshurLead.track('addon_click', { addon: key, plan: plan, guests: guests, has_link: !!url });
+    if (url) { location.href = url; return; }
+    /* no link configured yet: hand it to support rather than a dead button */
+    location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + a.label + '.');
+  }
+
+  /* ══ schedule ═══════════════════════════════════════════════════════════
+     The event date drives everything. Far enough out and the customer picks
+     the two sends; too close and the plan is fixed for them, because there is
+     no room left to spread it.
+     ───────────────────────────────────────────────────────────────────── */
+
+  var SCH = CFG.SCHEDULE;
+
+  function dayMs(d) { var x = new Date(d.getTime()); x.setHours(0, 0, 0, 0); return x.getTime(); }
+  function today0() { return dayMs(new Date()); }
+  function shift(isoStr, days) {
+    var d = IshurDate.parse(isoStr);
+    if (!d) return '';
+    return IshurDate.iso(new Date(d.getTime() + days * 864e5));
+  }
+  function daysUntil(isoStr) {
+    var d = IshurDate.parse(isoStr);
+    return d ? Math.round((dayMs(d) - today0()) / 864e5) : null;
+  }
+
+  /* walk backwards off a Saturday, and off anything already past the cutoff */
+  function nearestSendable(isoStr) {
+    var d = IshurDate.parse(isoStr);
+    if (!d) return '';
+    var floor = IshurDate.minDate();
+    for (var i = 0; i < 14; i++) {
+      var c = new Date(d.getTime() - i * 864e5);
+      if (dayMs(c) < dayMs(floor)) break;
+      if (IshurDate.valid(IshurDate.iso(c))) return IshurDate.iso(c);
+    }
+    /* nothing earlier works, take the first sendable day going forward */
+    for (var j = 0; j < 14; j++) {
+      var f = new Date(dayMs(floor) + j * 864e5);
+      if (IshurDate.valid(IshurDate.iso(f))) return IshurDate.iso(f);
+    }
+    return '';
+  }
+
+  /* An address reminder is only useful if it arrives before people leave.
+     A reception at 19:00 gets it that morning; one at 12:00 gets it the
+     evening before, because the same morning is already too late. */
+  function autoSend(a, ed) {
+    var t = $('f-time').value;
+    var early = a.earlyBefore && t && t < a.earlyBefore;
+    return {
+      date: shift(ed, early ? a.earlyOffset : a.offset),
+      label: early ? (a.earlyLabel || a.label) : a.label
+    };
+  }
+
+  function autoMode() {
+    var n = daysUntil($('f-edate').value);
+    return n != null && n <= SCH.autoUnderDays;
+  }
+
+  /* With the event this close there is no room to spread anything: the
+     invitation goes out on the first day we are allowed to send, which for an
+     event tomorrow is the morning of the event itself. */
+  function autoFirstSend() {
+    var ed = $('f-edate').value;
+    var earliest = IshurDate.iso(IshurDate.minDate());
+    return earliest > ed ? ed : earliest;
+  }
+
+  function renderTimeline() {
+    var ed = $('f-edate').value;
+    var tl = $('timeline');
+    if (!ed) { tl.hidden = true; return; }
+
+    var rows = [];
+    var auto = autoMode();
+    var firstSend = auto ? autoFirstSend() : $('f-sd1').value;
+
+    if (auto) {
+      rows.push({ t: 'ההזמנה ואישור ההגעה', d: firstSend, tag: 'לכל הרשימה' });
+    } else {
+      if ($('f-sd1').value) rows.push({ t: 'ההזמנה ואישור ההגעה', d: $('f-sd1').value, tag: 'לכל הרשימה' });
+      if ($('f-sd2').value) rows.push({ t: 'תזכורת', d: $('f-sd2').value, tag: 'למי שלא ענה' });
+      if (extraSend && $('f-sd3').value) rows.push({ t: 'תזכורת נוספת', d: $('f-sd3').value, tag: 'לכל הרשימה' });
+    }
+
+    SCH.auto.forEach(function (a) {
+      var res = autoSend(a, ed);
+      /* an automatic send only happens if there is still a day left for it,
+         and never on the day the invitation itself goes out */
+      if (res.date < IshurDate.iso(IshurDate.minDate())) return;
+      if (auto && res.date <= firstSend) return;
+      rows.push({ t: res.label, d: res.date, tag: a.to, auto: true });
+    });
+
+    rows.sort(function (x, y) { return x.d < y.d ? -1 : 1; });
+
+    tl.innerHTML = rows.map(function (r) {
+      return '<div class="tl-row' + (r.auto ? ' auto' : '') + '">' +
+             '<span class="tl-dot"></span>' +
+             '<span class="tl-b"><span class="tl-t">' + r.t + '</span>' +
+             '<span class="tl-d">' + IshurDate.pretty(r.d) + '</span></span>' +
+             '<span class="tl-tag">' + (r.auto ? 'אוטומטי' : r.tag) + '</span></div>';
+    }).join('');
+    tl.hidden = false;
+  }
+
+  /* first send about five weeks out, the chase a week later and around two
+     weeks before the event. Both pulled onto a sendable day. */
+  function suggestDates() {
+    var ed = $('f-edate').value;
+    if (!ed) return;
+    var s1 = nearestSendable(shift(ed, -SCH.firstSendDaysBefore));
+    var s2 = nearestSendable(shift(ed, -SCH.secondSendDaysBefore));
+    if (s1 && s2 && daysUntil(s2) - daysUntil(s1) < SCH.minGapDays) {
+      s2 = nearestSendable(shift(s1, SCH.minGapDays));
+    }
+    if (s1 && s1 < ed) $('f-sd1').value = s1;
+    if (s2 && s2 < ed && s2 > $('f-sd1').value) $('f-sd2').value = s2;
+    [$('f-sd1'), $('f-sd2')].forEach(function (el) {
+      if (el && el._idate) el._idate.syncLabel();
+    });
+  }
+
+  function renderSchedule() {
+    var ed = $('f-edate').value;
+    var auto = autoMode();
+    $('schedHint').hidden = !!ed;
+    $('schedAuto').hidden = !(ed && auto);
+    if (ed && auto) {
+      var n = daysUntil(ed);
+      var first = autoFirstSend();
+      $('schedAutoTxt').innerHTML = n <= 1
+        ? 'האירוע מחר, אז אין מקום לפרוס שליחות. ההזמנה יוצאת <b>בבוקר האירוע</b>, ' +
+          'ויום אחריו יוצאת הודעת התודה. שווה לוודא שהרשימה מעודכנת.'
+        : 'האירוע קרוב, אז לוח השליחות נקבע אוטומטית. ההזמנה יוצאת ' +
+          '<b>' + IshurDate.pretty(first) + '</b>, ואחריה ההודעות של יום האירוע.';
+    }
+    $('schedManual').hidden = !(ed && !auto);
+    if (ed && !auto && !$('f-sd1').value) suggestDates();
+    if (auto) { $('f-sd1').value = ''; $('f-sd2').value = ''; }
+    renderTimeline();
+    renderAddons();
+  }
+
+  /* ── validation ── */
+  function shell(el) { return (el.closest && el.closest('.isel')) || el; }
+  function showErr(f, t) {
+    var e = $('e-' + f), i = $('f-' + f);
+    if (e) { e.textContent = t; e.classList.add('on'); }
+    if (i) shell(i).classList.add('bad');
+  }
+  function clearErr(f) {
+    var e = $('e-' + f), i = $('f-' + f);
+    if (e) { e.textContent = ''; e.classList.remove('on'); }
+    if (i) shell(i).classList.remove('bad');
+  }
+  ['name1', 'venue', 'addr', 'city', 'time'].forEach(function (f) {
+    var el = $('f-' + f);
+    if (el) el.addEventListener('input', function () { clearErr(f); });
+  });
+  ['edate', 'sd1', 'sd2'].forEach(function (f) {
+    var el = $('f-' + f);
+    if (el) el.addEventListener('change', function () {
+      clearErr(f); clearErr('sd2');
+      if (f === 'edate') {
+        $('f-sd1').value = ''; $('f-sd2').value = '';
+        ['f-sd1', 'f-sd2', 'f-sd3'].forEach(function (id) {
+          var d = $(id); if (d) d.dataset.maxIso = $('f-edate').value || '';
+        });
+        renderSchedule();
+      }
+      else renderTimeline();
+    });
+  });
+  renderSchedule();
+
+  function validate() {
+    var ok = true;
+    var req = [
+      ['occasion', occ.value, 'בחרו סוג אירוע'],
+      ['name1', $('f-name1').value.trim(), 'צריך שם'],
+      ['edate', $('f-edate').value, 'בחרו את תאריך האירוע'],
+      ['time', $('f-time').value, 'צריך שעת קבלת פנים'],
+      ['venue', $('f-venue').value.trim(), 'צריך שם אולם או גן'],
+      ['addr', $('f-addr').value.trim(), 'צריך כתובת'],
+      ['city', $('f-city').value.trim(), 'צריך עיר']
+    ];
+    if (!autoMode()) req.push(['sd1', $('f-sd1').value, 'בחרו מתי יוצאת השליחה הראשונה']);
+    var oc = CFG.occasion(S.occasion);
+    if (oc && oc.title) {
+      req.push(['title', $('f-title').value.trim(), 'צריך ' + oc.title]);
+      req.push(['extra', $('f-extra').value.trim(), 'כתבו תיאור קצר לאירוע']);
+    }
+    if (extraSend) req.push(['sd3', $('f-sd3').value, 'בחרו תאריך לשליחה הנוספת']);
+    req.forEach(function (r) {
+      if (!r[1]) { showErr(r[0], r[2]); ok = false; } else clearErr(r[0]);
+    });
+
+    var ed = $('f-edate').value, s1 = $('f-sd1').value, s2 = $('f-sd2').value;
+
+    /* a send after the event is useless, so it is caught here rather than
+       discovered later */
+    if (ed && s1 && s1 >= ed) {
+      showErr('sd1', 'השליחה חייבת לצאת לפני האירוע'); ok = false;
+    }
+    if (s2) {
+      if (s1 && s2 <= s1) { showErr('sd2', 'התזכורת צריכה לצאת אחרי השליחה הראשונה'); ok = false; }
+      else if (ed && s2 >= ed) { showErr('sd2', 'התזכורת חייבת לצאת לפני האירוע'); ok = false; }
+    }
+    var s3 = extraSend ? $('f-sd3').value : '';
+    if (s3 && ed && s3 > ed) { showErr('sd3', 'השליחה הנוספת לא יכולה לצאת אחרי האירוע'); ok = false; }
+    return ok;
+  }
+
+  /* ── invitation image, optional ── validated here, stored by the Worker ── */
+  var imgFile = null;
+  var imgInput = $('f-img');
+  $('imgBtn').addEventListener('click', function () { imgInput.click(); });
+  imgInput.addEventListener('change', function () {
+    var f = imgInput.files[0];
+    if (!f) return;
+    $('e-img').textContent = '';
+    /* Richard, 10/09: a video invitation too. WhatsApp takes MP4 up to 16MB. */
+    var isVideo = /^video\/mp4$/.test(f.type) || /\.mp4$/i.test(f.name);
+    if (!isVideo && !/^image\/(jpeg|png|webp)$/.test(f.type)) {
+      $('e-img').textContent = 'רק JPG, PNG, WebP או וידאו MP4.'; imgInput.value = ''; return;
+    }
+    if (!isVideo && f.size > 4 * 1024 * 1024) {
+      $('e-img').textContent = 'התמונה גדולה מדי — עד 4MB.'; imgInput.value = ''; return;
+    }
+    if (isVideo && f.size > 16 * 1024 * 1024) {
+      $('e-img').textContent = 'הווידאו גדול מדי — עד 16MB.'; imgInput.value = ''; return;
+    }
+    imgFile = f;
+    $('imgThumb').src = isVideo ? 'assets/video-chip.svg' : URL.createObjectURL(f);
+    $('imgName').textContent = f.name;
+    $('imgChip').hidden = false;
+    $('imgBtn').hidden = true;
+    IshurLead.track('image_selected', { size: f.size });
+  });
+  $('imgClear').addEventListener('click', function () {
+    imgFile = null; imgInput.value = '';
+    $('imgChip').hidden = true; $('imgBtn').hidden = false;
+  });
+
+  $('saveBtn').addEventListener('click', function () {
+    if (!validate()) {
+      var bad = document.querySelector('#setupView .bad');
+      if (bad) bad.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      return;
+    }
+
+    var endpoint = CFG.endpoint('event');
+    if (!endpoint) {
+      returnTo = 'setupView';
+      fail('ההגדרות עדיין לא מחוברות. שלחו לנו את הפרטים בוואטסאפ ונטפל בזה.', 'רגע אחד');
+      IshurLead.track('setup_not_configured', {});
+      return;
+    }
+
+    /* resaving settings is always allowed — the write is idempotent */
+    var gv = window.IshurGuard ? IshurGuard.allow('setup') : { ok: true };
+    if (!gv.ok) {
+      returnTo = 'setupView';
+      fail('נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.', 'רגע אחד');
+      return;
+    }
+
+    var btn = $('saveBtn');
+    btn.disabled = true;
+    btn.innerHTML = (extraSend ? 'שומר ומעביר לתשלום' : 'שומר') + '<span class="spin" aria-hidden="true"></span>';
+    $('bar2').classList.add('on');
+
+    var payload = {
+      event_type: 'event_setup',
+      token: token,
+      occasion: S.occasion,
+      occasion_label: CFG.occasionLabel(S.occasion),
+      name1: $('f-name1').value.trim(),
+      name2: ($('f-name2').value || '').trim(),
+      host_roles: hostRoles(),
+      /* column 34 (event title) is the only host field the sender reads, and
+         Make prefers event_title over name1 — so both hosts must be joined
+         here or every wedding invitation goes out with one name */
+      event_title: (function () {
+        var t = ($('f-title') && $('f-title').value || '').trim();
+        if (t) return t;
+        var a = $('f-name1').value.trim(), b = ($('f-name2').value || '').trim();
+        return b ? a + ' ו' + b : a;
+      })(),
+      event_date: $('f-edate').value,
+      reception_time: $('f-time').value,
+      venue_name: $('f-venue').value.trim(),
+      venue_addr: $('f-addr').value.trim(),
+      venue_city: $('f-city').value.trim(),
+      hostess_count: S.hostess || 0,
+      hostess_center: S.hostess ? CFG.hostessIsCenter($('f-city').value.trim()) : null,
+      style: S.style,
+      plan: plan,
+      event_description: ($('f-extra').value || '').trim(),
+      send_date_3: extraSend ? $('f-sd3').value : '',
+      schedule_mode: autoMode() ? 'auto' : 'manual',
+      send_date_1: autoMode() ? autoFirstSend() : $('f-sd1').value,
+      send_date_2: autoMode() ? '' : ($('f-sd2').value || ''),
+      auto_sends: CFG.SCHEDULE.auto
+        .map(function (a) {
+          var res = autoSend(a, $('f-edate').value);
+          return { key: a.key, date: res.date };
+        })
+        .filter(function (x) {
+          if (x.date < IshurDate.iso(IshurDate.minDate())) return false;
+          if (autoMode() && x.date <= autoFirstSend()) return false;
+          return true;
+        }),
+      source: location.href,
+      ts: new Date().toISOString()
+    };
+
+    /* auto_sends holds the event-day reminder and the day-after wrap-up. Those
+       are computed by the engine from the event date itself, so writing them
+       into the wave columns sent an RSVP invitation ON the event day and the
+       day after it. The wave columns stay empty in auto mode. */
+
+    IshurLead.track('setup_submitted', { occasion: S.occasion, style: S.style, has_image: !!imgFile });
+
+    /* multipart, so the invitation image rides along with the fields */
+    var stamped = window.IshurGuard ? IshurGuard.stamp(payload) : payload;
+    var fd = new FormData();
+    Object.keys(stamped).forEach(function (k) {
+      var v = stamped[k];
+      fd.append(k, (v && typeof v === 'object') ? JSON.stringify(v) : v);
+    });
+    if (imgFile) fd.append(/mp4/i.test(imgFile.type + imgFile.name) ? 'video' : 'image', imgFile, imgFile.name);
+
+    fetch(endpoint, { method: 'POST', body: fd })
+      .then(function (res) {
+        if (res.status === 200) {
+          IshurLead.track('setup_success', { extra_send: extraSend });
+          if (extraSend) {
+            /* everything is saved first, so an abandoned payment costs only the
+               extra reminder and leaves the rest of the schedule standing */
+            var url = guests ? CFG.addonLink('extra_send', guests) : null;
+            IshurLead.track('addon_checkout', { addon: 'extra_send', has_link: !!url });
+            location.href = url || CFG.waLink(
+              'היי, הוספתי שליחה נוספת בתאריך ' + $('f-sd3').value + ' ורציתי להשלים את התשלום.');
+            return;
+          }
+          /* straight into the dashboard, same tab */
+          location.href = 'dashboard.html?t=' + encodeURIComponent(token);
+          return;
+        } else if (res.status === 403 || res.status === 404) {
+          show('deadView');
+        } else {
+          returnTo = 'setupView';
+          fail('השרת החזיר שגיאה (' + res.status + '). נסו שוב בעוד רגע.');
+        }
+      })
+      ['catch'](function () {
+        returnTo = 'setupView';
+        fail('לא הצלחנו לשמור את ההגדרות. בדקו את החיבור ונסו שוב.');
+      })
+      ['finally'](function () {
+        btn.disabled = false;
+        btn.textContent = extraSend ? 'שמירה ומעבר לתשלום' : 'שמירה והפעלת השליחה';
+        $('bar2').classList.remove('on');
+      });
+  });
+})();
+</script>
+</body>
+</html>

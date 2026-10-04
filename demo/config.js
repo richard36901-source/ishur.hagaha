@@ -332,7 +332,11 @@ window.ISHUR_CONFIG = (function () {
       { max: 900, count: 3, price: 3090, label: '3 דיילות' }
     ],
     travel: 250,
-    travelNote: 'באזור המרכז (גדרה עד חדרה, ירושלים ומודיעין) הנסיעות כלולות. מחוץ למרכז: +250 ₪ נסיעות לכל דיילת, בתשלום נפרד.'
+    travelNote: 'באזור המרכז (אשקלון עד הרצליה) הנסיעות כלולות. מחוץ למרכז: +250 ₪ נסיעות לכל דיילת, לפי כתובת האירוע, בתשלום נפרד.',
+    /* "center" = Ashkelon to Herzliya (Richard 04/10). Matched by substring on
+       the city the client types in setup; anything else is "outside". */
+    centerCities: ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשל"צ','חולון','בת ים','תל אביב','ת"א','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פ"ת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'],
+    travelLink: ''   /* single Grow link, ₪250, quantity = hostesses */
   };
   /* Grow links for package + hostesses, keyed '<guests>_<plan>'. An empty
      entry routes the order to WhatsApp instead of a dead end. */
@@ -347,6 +351,15 @@ window.ISHUR_CONFIG = (function () {
     return null;
   }
   function hostessPrice(guests) { var t = hostessTier(guests); return t ? t.price : null; }
+  function hostessIsCenter(city) {
+    var c = String(city || '').replace(/[\u200e\u200f'"]/g, '').trim();
+    if (!c) return null;
+    for (var i = 0; i < HOSTESS.centerCities.length; i++) {
+      var n = HOSTESS.centerCities[i].replace(/"/g, '');
+      if (c.indexOf(n) > -1 || n.indexOf(c) > -1) return true;
+    }
+    return false;
+  }
   function hostessLink(guests, plan) {
     if (!guests || guests === 'custom' || !plan) return null;
     return HOSTESS_LINKS[guests + '_' + plan] || null;
@@ -808,7 +821,7 @@ window.ISHUR_CONFIG = (function () {
     TIME_OPTIONS: TIME_OPTIONS,
     MESSAGE_FOOTER: MESSAGE_FOOTER,
     ADDONS: ADDONS,
-    HOSTESS: HOSTESS, HOSTESS_LINKS: HOSTESS_LINKS, hostessTier: hostessTier, hostessPrice: hostessPrice, hostessLink: hostessLink,
+    HOSTESS: HOSTESS, HOSTESS_LINKS: HOSTESS_LINKS, hostessTier: hostessTier, hostessPrice: hostessPrice, hostessLink: hostessLink, hostessIsCenter: hostessIsCenter,
     GIFTS: GIFTS,
     ADDON_PRICES: ADDON_PRICES,
     ADDON_LINKS: ADDON_LINKS,
