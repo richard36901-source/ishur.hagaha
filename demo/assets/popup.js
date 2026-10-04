@@ -858,10 +858,10 @@ window.IshurPopup = (function () {
     if (g) g.addEventListener('change', function () {
       S.guests = g.value;
       clearError('guests');
-      /* Richard 04/10: big events get hostesses ticked by default (400+),
+      /* Richard 04/10: big events get hostesses ticked by default (300+),
          smaller ones start unticked. Never overrides a locked offer. */
       if (!S.hostessLocked && !S.hostessTouched) {
-        S.hostess = parseInt(g.value, 10) >= 400;
+        S.hostess = parseInt(g.value, 10) >= 300;
         var hb3 = $('f-hostess'); if (hb3) hb3.checked = S.hostess;
         var y3 = $('f-hostess-yes'), n3 = $('f-hostess-no');
         if (y3) y3.setAttribute('aria-checked', S.hostess ? 'true' : 'false');
