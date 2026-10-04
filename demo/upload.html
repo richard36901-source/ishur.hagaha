@@ -694,6 +694,9 @@
   $('okWa').href = CFG.waLink('היי, רציתי לעדכן משהו בהגדרות האירוע.');
   if (eventName) { $('eventName').textContent = eventName; $('eventName').hidden = false; }
   if (CFG.isSet(CFG.TEMPLATE_URL)) { $('tmplLink').href = CFG.TEMPLATE_URL; $('tmplRow').hidden = false; }
+  /* DEMO ONLY: ?step=2 jumps straight to the event-setup view so the form
+     can be reviewed without uploading a list. Not in production. */
+  if (qs.get('step') === '2') { setTimeout(function () { show('setupView'); }, 50); }
 
   /* no token means there is nothing to upload against, and the form never
      renders, so a guessed URL cannot reach it */
