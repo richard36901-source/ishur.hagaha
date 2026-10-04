@@ -281,6 +281,11 @@ window.ISHUR_CONFIG = (function () {
      ─────────────────────────────────────────────────────────────────────── */
 
   var ADDONS = {
+    hostess: {
+      label: 'דיילות באירוע',
+      desc: 'מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. מומלץ מעל 200 איש. מחוץ למרכז: תוספת 250 ₪ נסיעות לדיילת',
+      plans: []
+    },
     extra_send: {
       label: 'שליחה נוספת',
       desc: 'תזכורת נוספת לכל הרשימה בתאריך שתבחרו, למשל שבוע לפני האירוע',
@@ -327,9 +332,9 @@ window.ISHUR_CONFIG = (function () {
     short: 'דיילות',
     desc: 'דיילות מצוות ishur עם הלוח שלנו ביד: מקבלות אורחים, מסמנות הגעה בזמן אמת ומכוונות לשולחנות.',
     tiers: [
-      { max: 200, count: 1, price: 1790, label: 'דיילת אחת' },
-      { max: 500, count: 2, price: 2390, label: '2 דיילות' },
-      { max: 900, count: 3, price: 3090, label: '3 דיילות' }
+      { max: 200, count: 1, price: 1790, label: 'דיילת אחת', link: 'https://pay.grow.link/NTY2OTg~8aa5bfc13392e609223168761043b5ee-NDA3Nzc0MA' },
+      { max: 500, count: 2, price: 2390, label: '2 דיילות', link: 'https://pay.grow.link/NTY2OTg~9ebc7cea776b48b10bcf7e6dda923f51-NDA3Nzc0MQ' },
+      { max: 900, count: 3, price: 3090, label: '3 דיילות', link: 'https://pay.grow.link/NTY2OTg~da9a5c8551b03d56c23c74d32db521fb-NDA3Nzc0NA' }
     ],
     travel: 250,
     travelNote: 'באזור המרכז (אשקלון עד הרצליה) הנסיעות כלולות. מחוץ למרכז: תוספת 250 ₪ נסיעות לכל דיילת, לפי כתובת האירוע, בתשלום נפרד.',

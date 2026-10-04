@@ -1636,7 +1636,7 @@
     $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
       var a = CFG.ADDONS[k];
       var state = CFG.addonState(k, plan, dte);
-      var price = guests ? CFG.addonPrice(k, guests) : null;
+      var price = guests ? (k === 'hostess' && CFG.hostessPrice ? CFG.hostessPrice(guests) : CFG.addonPrice(k, guests)) : null;
 
       /* the call round is the one that shows how many people it would reach,
          so the value is visible before the button is pressed */
@@ -1687,6 +1687,11 @@
       b.addEventListener('click', function () {
         var k = b.dataset.addon;
         IshurLead.track('addon_click', { addon: k, plan: plan, guests: guests, where: 'dashboard' });
+        if (k === 'hostess') {
+          var tier = CFG.hostessTier && CFG.hostessTier(guests);
+          if (tier && tier.link) { location.href = tier.link; return; }
+          location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי.'); return;
+        }
         if (k === 'extra_send') return askScope();
         if (k === 'calls') return payAddon('calls', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
