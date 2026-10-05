@@ -407,7 +407,8 @@ async function processGrowPayment(env, flat) {
          the hostesses. Never blocks the payment path. */
       if (bought && bought.hostess) {
         let req = null; try { req = JSON.parse(await env.RATE.get('hostessreq:' + phone) || 'null'); } catch {}
-        const travelIn = (bought.desc.match(/נסיעות\s*(\d{3})/) || [])[1];
+        const cf2 = String(flat.cField2 || flat.cfield2 || flat.customField2 || '');
+        const travelIn = (cf2.match(/travel:(\d{1,3})/) || bought.desc.match(/נסיעות\s*(\d{3})/) || [])[1];
         await env.RATE.put('hostess:' + token, JSON.stringify({ n: bought.hostess, at: new Date().toISOString(), ref,
           date: req ? req.date : '', city: req ? req.city : '', travel_included: travelIn ? Number(travelIn) : (req && req.center ? 0 : null) }), { expirationTtl: 400 * 86400 }).catch(() => {});
         try { await slackPost(env, `🧑‍💼 *נרכשו ${bought.hostess === 1 ? 'דיילת אחת' : bought.hostess + ' דיילות'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ${bought.desc}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות, הנסיעות נקבעות בהגדרת האירוע לפי העיר`, { urgent: true, now: true }); } catch {}
@@ -8849,7 +8850,9 @@ export default {
       const phone = normPhone(b.phone || '');
       const name = String(b.name || '').trim().slice(0, 60);
       const total = PRICES[guests][plan] + hostessPrice + travel;
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} + דיילות${travel ? ' + נסיעות ' + travel : ''}`;
+      /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות/3 דיילות", travel
+         is inside the sum and travels in cField2 (read back at payment) */
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}`;
       let payUrl = '';
       if (available && env.GROW_LINK_HOOK) {
         try {
@@ -8857,7 +8860,7 @@ export default {
             body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
               successUrl: 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: 'https://ishur.io/#pricing',
-              cField1: date, cField2: 'hostess:' + n + ':' + city }) }).catch(() => null);
+              cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city }) }).catch(() => null);
           let mj = null; try { mj = mk ? JSON.parse(await mk.text()) : null; } catch {}
           const u = mj && (mj.url || mj.link || (mj.data && mj.data.url));
           if (u && /^https?:\/\//.test(String(u))) payUrl = String(u);
