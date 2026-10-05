@@ -347,7 +347,9 @@ window.IshurPopup = (function () {
     hdate:    'באיזה תאריך האירוע?',
     hcity:    'באיזו עיר האירוע?',
     hcheck:   'רגע, בודקים זמינות דיילת…',
-    hbusy:    'אין דיילות פנויות בתאריך הזה. אפשר להמשיך בלי דיילות.'
+    hbusy:    'אין דיילות פנויות בתאריך הזה. אפשר להמשיך בלי דיילות.',
+    hlink:    'רגע, מכינים לכם קישור תשלום…',
+    hfail:    'לא הצלחנו להכין קישור תשלום. שלחו לנו הודעה ונשלים את זה בוואטסאפ.'
   };
 
   function shell(f) {
@@ -526,7 +528,7 @@ window.IshurPopup = (function () {
 
     /* one link for package + hostesses + travel when the server minted it;
        otherwise the static package+hostess link (travel paid at setup) */
-    var url = S.hostess ? (S.hostessPay || CFG.hostessLink(S.guests, S.plan)) : CFG.growLink(S.guests, S.plan);
+    var url = S.hostess ? S.hostessPay : CFG.growLink(S.guests, S.plan);
 
     /* A validated promo code swaps the LINK, never the price shown. The cheap
        Grow link is not in this repo at all: /promo/go holds a seat and 302s to
@@ -950,6 +952,9 @@ window.IshurPopup = (function () {
       if (!ok) return false;
       if (S.hostessAvail === false) { if (!quiet) setAvail(MSG.hbusy, 'bad'); return false; }
       if (S.hostessAvail !== true) { if (!quiet) setAvail(MSG.hcheck, 'wait'); return false; }
+      /* the price the customer saw must be the price on the Grow page: only
+         the per-customer link (package + hostesses + travel) is allowed */
+      if (!S.hostessPay) { if (!quiet) { setAvail(MSG.hlink, 'wait'); hostessCheck(); } return false; }
       return true;
     }
     function paintPayBtn() {
@@ -976,10 +981,12 @@ window.IshurPopup = (function () {
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (seq !== hostessSeq) return;
-          if (!j || !j.ok) { S.hostessAvail = true; setAvail('נסיעות ייקבעו לפי העיר בהגדרת האירוע.', ''); paintPayBtn(); updateTotal(); return; }
+          if (!j || !j.ok) { S.hostessAvail = null; S.hostessPay = ''; setAvail(MSG.hfail, 'bad'); paintPayBtn(); updateTotal(); return; }
           S.hostessAvail = !!j.available;
           if (j.available) {
             S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
+            if (!S.hostessPay) { S.hostessTries = (S.hostessTries || 0) + 1; if (S.hostessTries < 3) { setTimeout(hostessCheck, 1500); setAvail(MSG.hlink, 'wait'); paintPayBtn(); updateTotal(); return; } setAvail(MSG.hfail, 'bad'); paintPayBtn(); updateTotal(); return; }
+            S.hostessTries = 0;
             var nH = (CFG.hostessTier(S.guests) || {}).count || Number(j.n) || 1;
             setAvail('✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.'), 'ok');
           } else {
@@ -988,7 +995,7 @@ window.IshurPopup = (function () {
           IshurLead.track('hostess_check', { available: !!j.available, travel: j.travel || 0, city: S.hCity, date: S.hDate });
           paintPayBtn(); updateTotal();
         })
-        .catch(function () { if (seq !== hostessSeq) return; S.hostessAvail = true; setAvail('נסיעות ייקבעו לפי העיר בהגדרת האירוע.', ''); paintPayBtn(); updateTotal(); });
+        .catch(function () { if (seq !== hostessSeq) return; S.hostessAvail = null; S.hostessPay = ''; setAvail(MSG.hfail, 'bad'); paintPayBtn(); updateTotal(); });
     }
     (function () {
       var el = $('f-hcity'); if (!el) return;
