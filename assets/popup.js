@@ -670,6 +670,8 @@ window.IshurPopup = (function () {
       if (pre.hDate && window.__setHDate) window.__setHDate(pre.hDate);
       if (pre.hCity && $('f-hcity')) $('f-hcity').value = pre.hCity;
       var ex0 = $('f-hostess-extra'); if (ex0) ex0.hidden = !S.hostess;
+      /* date + city already known: price the travel right away, on step 1 */
+      if (S.hostess && pre.hDate && pre.hCity && window.__hostessCheck) setTimeout(window.__hostessCheck, 80);
     }
 
     /* locked quantity: the select steps aside for a read-only field that
