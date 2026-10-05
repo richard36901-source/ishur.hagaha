@@ -406,7 +406,10 @@ async function processGrowPayment(env, flat) {
          the travel step from this), and one loud Slack line so somebody books
          the hostesses. Never blocks the payment path. */
       if (bought && bought.hostess) {
-        await env.RATE.put('hostess:' + token, JSON.stringify({ n: bought.hostess, at: new Date().toISOString(), ref }), { expirationTtl: 400 * 86400 }).catch(() => {});
+        let req = null; try { req = JSON.parse(await env.RATE.get('hostessreq:' + phone) || 'null'); } catch {}
+        const travelIn = (bought.desc.match(/נסיעות\s*(\d{3})/) || [])[1];
+        await env.RATE.put('hostess:' + token, JSON.stringify({ n: bought.hostess, at: new Date().toISOString(), ref,
+          date: req ? req.date : '', city: req ? req.city : '', travel_included: travelIn ? Number(travelIn) : (req && req.center ? 0 : null) }), { expirationTtl: 400 * 86400 }).catch(() => {});
         try { await slackPost(env, `🧑‍💼 *נרכשו ${bought.hostess === 1 ? 'דיילת אחת' : bought.hostess + ' דיילות'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ${bought.desc}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות, הנסיעות נקבעות בהגדרת האירוע לפי העיר`, { urgent: true, now: true }); } catch {}
       }
     } catch {}
@@ -8792,6 +8795,80 @@ export default {
       await logEvent(env, { area: 'ווצאפ', action: 'נרשם מהקישור הציבורי (מגיע)', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
       return okJson({ ok: true, added: true }, origin);
     }
+    /* Richard 05/10: דיילות before payment. The order popup asks for the event
+       date and city once "yes" is clicked; this answers (a) is a hostess free on
+       that date, read from Richard's Google Calendar (secret HOSTESS_CAL_ICS =
+       the calendar's private iCal address; any event on that day = booked;
+       no secret = always free, with a Slack note), (b) the travel fee by city
+       (centre = Ashkelon to Herzliya: 0; else 250 for one hostess, 500 for 2-3),
+       and (c) ONE Grow link for package + hostesses + travel, minted through
+       the same Make webhook the dashboard add-ons use. Never blocks the sale:
+       when the link cannot be minted the page falls back to the static links. */
+    if (url.pathname === '/api/hostess-check' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (await overBudget(env, 'rl:hcheck:' + (request.headers.get('CF-Connecting-IP') || 'x'), 40, 3600)) return deny(429, 'slow-down', origin);
+      const date = String(b.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < ilDate()) return okJson({ ok: false, why: 'bad-date' }, origin);
+      const city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
+      if (city.length < 2) return okJson({ ok: false, why: 'bad-city' }, origin);
+      const guests = parseInt(String(b.guests || ''), 10) || 0;
+      const plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
+      const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
+      const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
+      if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
+      const n = guests <= 200 ? 1 : guests <= 500 ? 2 : 3;
+      const hostessPrice = n === 1 ? 1790 : n === 2 ? 2390 : 3090;
+      const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
+      const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
+      const travel = center ? 0 : (n >= 2 ? 500 : 250);
+      /* calendar: cached 5 minutes, one fetch per worker instance window */
+      let available = true, calNote = '';
+      if (env.HOSTESS_CAL_ICS) {
+        try {
+          let ics = env.RATE ? await env.RATE.get('hostesscal:ics') : null;
+          if (!ics) {
+            const r = await fetch(env.HOSTESS_CAL_ICS, { headers: { 'User-Agent': 'ishur-worker' } });
+            ics = r.ok ? await r.text() : '';
+            if (ics && env.RATE) await env.RATE.put('hostesscal:ics', ics, { expirationTtl: 300 }).catch(() => {});
+          }
+          const day = date.replace(/-/g, '');
+          /* a VEVENT whose DTSTART falls on that day (all-day or timed, any TZ) */
+          const busy = (ics.match(/BEGIN:VEVENT[\s\S]*?END:VEVENT/g) || []).some(ev => {
+            const m = ev.match(/DTSTART[^:]*:(\d{8})/); if (!m) return false;
+            const e = ev.match(/DTEND[^:]*:(\d{8})/);
+            const cancelled = /STATUS:CANCELLED/.test(ev);
+            if (cancelled) return false;
+            if (!e) return m[1] === day;
+            /* multi-day all-day events: DTEND is exclusive */
+            return m[1] <= day && (e[1] > day || e[1] === m[1]);
+          });
+          available = !busy;
+        } catch (e) { calNote = 'calendar-unreachable'; }
+      } else calNote = 'no-calendar';
+      const phone = normPhone(b.phone || '');
+      const name = String(b.name || '').trim().slice(0, 60);
+      const total = PRICES[guests][plan] + hostessPrice + travel;
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} + דיילות${travel ? ' + נסיעות ' + travel : ''}`;
+      let payUrl = '';
+      if (available && env.GROW_LINK_HOOK) {
+        try {
+          const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
+              name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
+              successUrl: 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: 'https://ishur.io/#pricing',
+              cField1: date, cField2: 'hostess:' + n + ':' + city }) }).catch(() => null);
+          let mj = null; try { mj = mk ? JSON.parse(await mk.text()) : null; } catch {}
+          const u = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+          if (u && /^https?:\/\//.test(String(u))) payUrl = String(u);
+        } catch {}
+      }
+      if (phone && env.RATE) await env.RATE.put('hostessreq:' + phone, JSON.stringify({ date, city, n, travel, center, available, guests, plan, at: new Date().toISOString() }), { expirationTtl: 14 * 86400 }).catch(() => {});
+      await logEvent(env, { area: 'דיילות', action: available ? 'בדיקת זמינות: פנוי' : 'בדיקת זמינות: תפוס', ok: available, review: !available, phone,
+        detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
+      if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok' }, origin);
+    }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before
        reminder once the template with the link is approved */
     if (url.pathname === '/api/navlink' && request.method === 'POST') {
@@ -9511,7 +9588,7 @@ export default {
           env.RATE.get('hostesstravel:' + token), env.RATE.get('giftlinks:' + token),
         ]);
         const bought = hb ? JSON.parse(hb) : null, plan = hp ? JSON.parse(hp) : null, trav = ht ? JSON.parse(ht) : null;
-        if (bought || plan) snapshot.hostess = { n: (bought && bought.n) || (plan && plan.n) || 0, center: plan ? !!plan.center : null, city: plan ? plan.city : '', travel_paid: trav ? Number(trav.paid) || 0 : 0 };
+        if (bought || plan) snapshot.hostess = { n: (bought && bought.n) || (plan && plan.n) || 0, center: plan ? !!plan.center : null, city: (plan && plan.city) || (bought && bought.city) || '', date: bought ? bought.date || '' : '', travel_included: bought ? bought.travel_included : null, travel_paid: trav ? Number(trav.paid) || 0 : 0 };
         snapshot.gifts = gl ? JSON.parse(gl) : { bit: '', paybox: '', on: false };
       } catch {}
       /* after the event: surface the review + testimonial links permanently */

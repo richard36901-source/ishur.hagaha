@@ -315,10 +315,12 @@ window.IshurPopup = (function () {
     if (pr.final != null) {
       t.hidden = false;
       t.className = 'pop-total' + (pr.applies ? ' cut' : '');
-      var total = pr.final + (withHost ? hPrice : 0);
+      var hTravel = withHost && S.hostessTravel ? S.hostessTravel : 0;
+      var total = pr.final + (withHost ? hPrice : 0) + hTravel;
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +
                     CFG.guestLabel(S.guests) +
                     (withHost ? ' · ' + hTier.label : '') +
+                    (hTravel ? ' · נסיעות ₪' + hTravel : '') +
                     (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' : '') +
                     '</span>' +
                     '<span class="pt-v">' +
@@ -341,7 +343,11 @@ window.IshurPopup = (function () {
     email:    'כתובת המייל לא תקינה',
     occasion: 'בחרו סוג אירוע',
     guests:   'בחרו כמות מוזמנים',
-    plan:     'בחרו חבילה'
+    plan:     'בחרו חבילה',
+    hdate:    'באיזה תאריך האירוע?',
+    hcity:    'באיזו עיר האירוע?',
+    hcheck:   'רגע, בודקים זמינות דיילת…',
+    hbusy:    'אין דיילת פנויה בתאריך הזה. אפשר להמשיך בלי דיילות.'
   };
 
   function shell(f) {
@@ -392,6 +398,7 @@ window.IshurPopup = (function () {
   /* ══ steps ════════════════════════════════════════════════════════════════ */
 
   function setStep(n, dir) {
+    if (n === 3 && window.__hostessCheck) setTimeout(window.__hostessCheck, 0);
     var from = $('ws' + S.step), to = $('ws' + n);
     if (!to) return;
     S.step = n;
@@ -483,13 +490,19 @@ window.IshurPopup = (function () {
       if (te) { te.textContent = 'כדי להמשיך צריך לאשר את התקנון'; te.classList.add('on'); }
       ok = false;
     }
+    /* דיילות: date + city must be in, and the date must be free */
+    if (S.hostess && S.guests !== 'custom' && window.__hostessReady) {
+      if (!window.__hostessReady(false)) ok = false;
+    }
     if (!ok) return;
 
     var fields = {
       name: S.name, phone: S.phone, email: S.email,
       occasion: S.occasion, guests: S.guests, plan: S.plan,
       consent: S.consent,
-      hostess: S.hostess ? (CFG.hostessTier(S.guests) || {}).count || 1 : 0
+      hostess: S.hostess ? (CFG.hostessTier(S.guests) || {}).count || 1 : 0,
+      event_date: S.hostess ? S.hDate || '' : '',
+      venue_city: S.hostess ? S.hCity || '' : ''
     };
 
     /* timestamped consent record — lands as its own line in the lead history */
@@ -511,7 +524,9 @@ window.IshurPopup = (function () {
       return;
     }
 
-    var url = S.hostess ? CFG.hostessLink(S.guests, S.plan) : CFG.growLink(S.guests, S.plan);
+    /* one link for package + hostesses + travel when the server minted it;
+       otherwise the static package+hostess link (travel paid at setup) */
+    var url = S.hostess ? (S.hostessPay || CFG.hostessLink(S.guests, S.plan)) : CFG.growLink(S.guests, S.plan);
 
     /* A validated promo code swaps the LINK, never the price shown. The cheap
        Grow link is not in this repo at all: /promo/go holds a seat and 302s to
@@ -846,10 +861,79 @@ window.IshurPopup = (function () {
       var y = $('f-hostess-yes'), nn = $('f-hostess-no');
       if (y) y.setAttribute('aria-checked', S.hostess ? 'true' : 'false');
       if (nn) nn.setAttribute('aria-checked', S.hostess ? 'false' : 'true');
+      /* Richard 05/10: "yes" opens two questions (date, city) right below;
+         the pay button stays dim until both are in and the date is free */
+      var ex = $('f-hostess-extra');
+      if (ex) ex.hidden = !S.hostess;
+      if (!S.hostess) { S.hostessPay = ''; S.hostessTravel = 0; S.hostessAvail = null; clearError('hdate'); clearError('hcity'); setAvail(''); }
+      else hostessCheck();
       IshurLead.track('hostess_toggle', { on: S.hostess, guests: S.guests || '' });
       updateTotal();
+      paintPayBtn();
     }
     window.__setHost = setHost;
+    window.__hostessReady = function (quiet) { return hostessReady(quiet); };
+    window.__hostessCheck = function () { if (S.hostess) hostessCheck(); paintPayBtn(); };
+
+    function setAvail(text, cls) {
+      var a = $('f-hostess-avail'); if (!a) return;
+      a.textContent = text || ''; a.className = 'addon-q-avail' + (cls ? ' ' + cls : '');
+      a.hidden = !text;
+    }
+    /* true when the hostess questions are complete and the date is free.
+       quiet=true only reads; otherwise it marks the missing field in red. */
+    function hostessReady(quiet) {
+      if (!S.hostess) return true;
+      var d = ($('f-hdate') && $('f-hdate').value) || '', c = (($('f-hcity') && $('f-hcity').value) || '').trim();
+      var ok = true;
+      if (!d) { if (!quiet) showError('hdate', MSG.hdate); ok = false; } else clearError('hdate');
+      if (c.length < 2) { if (!quiet) showError('hcity', MSG.hcity); ok = false; } else clearError('hcity');
+      if (!ok) return false;
+      if (S.hostessAvail === false) { if (!quiet) setAvail(MSG.hbusy, 'bad'); return false; }
+      if (S.hostessAvail !== true) { if (!quiet) setAvail(MSG.hcheck, 'wait'); return false; }
+      return true;
+    }
+    function paintPayBtn() {
+      var btn = $('pop-submit'); if (!btn) return;
+      btn.classList.toggle('dim', S.hostess && !hostessReady(true));
+    }
+    var hostessSeq = 0;
+    function hostessCheck() {
+      S.hDate = ($('f-hdate') && $('f-hdate').value) || '';
+      S.hCity = (($('f-hcity') && $('f-hcity').value) || '').trim();
+      S.hostessAvail = null; S.hostessPay = ''; S.hostessTravel = 0;
+      if (!S.hDate || S.hCity.length < 2 || !S.guests || S.guests === 'custom' || !S.plan) { setAvail(''); paintPayBtn(); updateTotal(); return; }
+      var seq = ++hostessSeq;
+      setAvail(MSG.hcheck, 'wait'); paintPayBtn();
+      fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: S.name || '', phone: S.phone || '', occasion: S.occasion || '' }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (seq !== hostessSeq) return;
+          if (!j || !j.ok) { S.hostessAvail = true; setAvail('נסיעות ייקבעו לפי העיר בהגדרת האירוע.', ''); paintPayBtn(); updateTotal(); return; }
+          S.hostessAvail = !!j.available;
+          if (j.available) {
+            S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
+            setAvail('✓ יש דיילת פנויה ב-' + S.hDate.split('-').reverse().join('.') + ' · נסיעות ' + (j.travel ? '₪' + j.travel + ' (' + S.hCity + ' מחוץ למרכז)' : 'כלולות'), 'ok');
+          } else {
+            setAvail(MSG.hbusy, 'bad');
+          }
+          IshurLead.track('hostess_check', { available: !!j.available, travel: j.travel || 0, city: S.hCity, date: S.hDate });
+          paintPayBtn(); updateTotal();
+        })
+        .catch(function () { if (seq !== hostessSeq) return; S.hostessAvail = true; setAvail('נסיעות ייקבעו לפי העיר בהגדרת האירוע.', ''); paintPayBtn(); updateTotal(); });
+    }
+    ['f-hdate', 'f-hcity'].forEach(function (id) {
+      var el = $(id); if (!el) return;
+      el.addEventListener('change', hostessCheck);
+      el.addEventListener('blur', hostessCheck);
+      el.addEventListener('input', function () { clearError(id.replace('f-', '')); });
+    });
+    var skipBtn = $('f-hostess-skip');
+    if (skipBtn) skipBtn.addEventListener('click', function () { setHost(false, true); });
+    /* the dim button still listens: a hover or a click explains what is missing */
+    var payBtn = $('pop-submit');
+    if (payBtn) payBtn.addEventListener('mouseenter', function () { if (S.hostess) hostessReady(false); });
     var yBtn = $('f-hostess-yes'), nBtn = $('f-hostess-no');
     if (yBtn) yBtn.addEventListener('click', function () { setHost(true, true); });
     if (nBtn) nBtn.addEventListener('click', function () { setHost(false, true); });

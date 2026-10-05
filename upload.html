@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=62"></script>
+<script src="config.js?v=63"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -1078,9 +1078,24 @@
   var plan = (qs.get('p') || '').trim() || 'basic';
   /* ── hostesses (demo): ?h=<count> says the customer bought them with the
      package. The travel fee follows the city typed above. ── */
-  function initHostess(n) {
+  function initHostess(n, h) {
     var sec = $('hostessSec'); if (!sec || !n || !CFG.HOSTESS || sec.dataset.on) return;
     sec.dataset.on = '1';
+    h = h || {};
+    /* Richard 05/10: what was typed in the order comes back here, editable */
+    try {
+      if (h.date && $('f-edate') && !$('f-edate').value) $('f-edate').value = h.date;
+      if (h.city && $('f-city') && !$('f-city').value) $('f-city').value = h.city;
+    } catch (e) {}
+    /* travel already inside the one payment link: say so, no second charge */
+    if (h.travel_included !== null && h.travel_included !== undefined) {
+      sec.hidden = false;
+      $('hostessT').textContent = (n === 1 ? 'דיילת אחת' : n + ' דיילות') + ' · כלול בהזמנה';
+      $('hostessTravel').innerHTML = h.travel_included ? '<b style="color:var(--green)">נסיעות שולמו</b> · ₪' + h.travel_included : '<b style="color:var(--green)">נסיעות כלולות</b>';
+      $('hostessAct').innerHTML = '<span class="addon-inc">כלול</span>';
+      S.hostess = n;
+      return;
+    }
     sec.hidden = false;
     var H = CFG.HOSTESS;
     $('hostessT').textContent = (n === 1 ? 'דיילת אחת' : n + ' דיילות') + ' · כלול בהזמנה';
@@ -1093,12 +1108,12 @@
         tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + city + ' באזור המרכז';
         act.innerHTML = '<span class="addon-inc">כלול</span>';
       } else {
-        var sum = H.travel; /* Richard 05/10: flat 250, not per hostess */
-        tr.innerHTML = city + ' מחוץ למרכז: <b>תוספת נסיעות חד-פעמית ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
+        var sum = H.travelFor ? H.travelFor(n) : H.travel; /* Richard 05/10: 250 for one hostess, 500 for 2 or 3 */
+        tr.innerHTML = city + ' מחוץ למרכז: <b>תוספת נסיעות ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
         act.innerHTML = '<button type="button" class="addon-buy" id="hostessPay">₪' + sum + '</button>';
         var b = $('hostessPay');
         if (b) b.addEventListener('click', function () {
-          var url = H.travelLink;
+          var url = (H.travelLinks && H.travelLinks[sum]) || (sum === H.travel ? H.travelLink : '');
           IshurLead.track('hostess_travel_click', { city: city, n: n, sum: sum });
           location.href = url ? url : CFG.waLink('היי, האירוע שלי ב' + city + ' ואני צריך/ה לשלם נסיעות לדיילות (₪' + sum + ').');
         });
@@ -1124,7 +1139,7 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.event) return;
-        if (d.hostess && d.hostess.n) initHostess(d.hostess.n);
+        if (d.hostess && d.hostess.n) initHostess(d.hostess.n, d.hostess);
         var byName = {};
         Object.keys(CFG.PLANS || {}).forEach(function (k) { byName[CFG.PLANS[k].name] = k; });
         var key = byName[String(d.event.plan || '').trim()];
