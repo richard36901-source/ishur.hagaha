@@ -309,7 +309,7 @@ window.IshurPopup = (function () {
       hRow.hidden = !(S.guests && S.guests !== 'custom' && hTier);
       var hp = $('f-hostess-price'), hl = $('f-hostess-tier');
       if (hp) hp.textContent = hPrice ? '₪' + hPrice : '';
-      if (hl) hl.textContent = hTier ? hTier.label + ' · עד ' + hTier.max + ' רשומות' : '';
+      if (hl) hl.textContent = hTier ? hTier.label : '';
     }
     var withHost = S.hostess && hPrice != null;
     if (pr.final != null) {

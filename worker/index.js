@@ -8885,7 +8885,8 @@ export default {
     if (url.pathname === '/api/hostess-check' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      if (await overBudget(env, 'rl:hcheck:' + (request.headers.get('CF-Connecting-IP') || 'x'), 40, 3600)) return deny(429, 'slow-down', origin);
+      /* generous: the page re-checks on every field change and retries quietly */
+      if (await overBudget(env, 'rl:hcheck:' + (request.headers.get('CF-Connecting-IP') || 'x'), 400, 3600)) return deny(429, 'slow-down', origin);
       const date = String(b.date || '').slice(0, 10);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < ilDate()) return okJson({ ok: false, why: 'bad-date' }, origin);
       const city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
