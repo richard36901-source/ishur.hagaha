@@ -347,7 +347,7 @@ window.IshurPopup = (function () {
     hdate:    'באיזה תאריך האירוע?',
     hcity:    'באיזו עיר האירוע?',
     hcheck:   'רגע, בודקים זמינות דיילת…',
-    hbusy:    'אין דיילת פנויה בתאריך הזה. אפשר להמשיך בלי דיילות.'
+    hbusy:    'אין דיילות פנויות בתאריך הזה. אפשר להמשיך בלי דיילות.'
   };
 
   function shell(f) {
@@ -980,7 +980,8 @@ window.IshurPopup = (function () {
           S.hostessAvail = !!j.available;
           if (j.available) {
             S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
-            setAvail('✓ יש דיילת פנויה ב-' + S.hDate.split('-').reverse().join('.') + (j.travel ? ' · ' + S.hCity + ' מחוץ למרכז, הנסיעות כבר בסכום' : ''), 'ok');
+            var nH = (CFG.hostessTier(S.guests) || {}).count || Number(j.n) || 1;
+            setAvail('✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.') + (j.travel ? ' · ' + S.hCity + ' מחוץ למרכז, הנסיעות כבר בסכום' : ''), 'ok');
           } else {
             setAvail(MSG.hbusy, 'bad');
           }
