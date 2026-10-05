@@ -348,8 +348,8 @@ window.IshurPopup = (function () {
     hcity:    'באיזו עיר האירוע?',
     hcheck:   'רגע, בודקים זמינות דיילת…',
     hbusy:    'אין דיילות פנויות בתאריך הזה. אפשר להמשיך בלי דיילות.',
-    hlink:    'רגע, מכינים לכם קישור תשלום…',
-    hfail:    'לא הצלחנו להכין קישור תשלום. שלחו לנו הודעה ונשלים את זה בוואטסאפ.'
+    hlink:    'רגע, מכינים לכם את התשלום…',
+    hfail:    'נשלים את זה איתכם בוואטסאפ, לחצו על הכפתור.'
   };
 
   function shell(f) {
@@ -529,6 +529,11 @@ window.IshurPopup = (function () {
     /* one link for package + hostesses + travel when the server minted it;
        otherwise the static package+hostess link (travel paid at setup) */
     var url = S.hostess ? S.hostessPay : CFG.growLink(S.guests, S.plan);
+    if (S.hostess && !url) {
+      IshurLead.track('hostess_pay_whatsapp', { guests: S.guests, plan: S.plan, city: S.hCity, date: S.hDate });
+      location.href = CFG.waLink('היי, רוצה לסגור ' + CFG.PLANS[S.plan].name + ' ל' + CFG.guestLabel(S.guests) + ' עם ' + ((CFG.hostessTier(S.guests) || {}).label || 'דיילות') + ' לאירוע ב-' + (S.hCity || '') + ' בתאריך ' + (S.hDate || '') + '. אפשר קישור לתשלום?');
+      return;
+    }
 
     /* A validated promo code swaps the LINK, never the price shown. The cheap
        Grow link is not in this repo at all: /promo/go holds a seat and 302s to
@@ -882,7 +887,7 @@ window.IshurPopup = (function () {
          the pay button stays dim until both are in and the date is free */
       var ex = $('f-hostess-extra');
       if (ex) ex.hidden = !S.hostess;
-      if (!S.hostess) { S.hostessPay = ''; S.hostessTravel = 0; S.hostessAvail = null; clearError('hdate'); clearError('hcity'); setAvail(''); }
+      if (!S.hostess) { S.hostessPay = ''; S.hostessTravel = 0; S.hostessAvail = null; S.hostessTries = 0; S.hostessWa = false; clearError('hdate'); clearError('hcity'); setAvail(''); }
       else hostessCheck();
       IshurLead.track('hostess_toggle', { on: S.hostess, guests: S.guests || '' });
       updateTotal();
@@ -954,12 +959,21 @@ window.IshurPopup = (function () {
       if (S.hostessAvail !== true) { if (!quiet) setAvail(MSG.hcheck, 'wait'); return false; }
       /* the price the customer saw must be the price on the Grow page: only
          the per-customer link (package + hostesses + travel) is allowed */
-      if (!S.hostessPay) { if (!quiet) { setAvail(MSG.hlink, 'wait'); hostessCheck(); } return false; }
+      if (!S.hostessPay && !S.hostessWa) { if (!quiet) { setAvail(MSG.hlink, 'wait'); hostessCheck(); } return false; }
       return true;
     }
     function paintPayBtn() {
       var btn = $('pop-submit'); if (!btn) return;
       btn.classList.toggle('dim', S.hostess && !hostessReady(true));
+    }
+    /* no link yet: keep a calm line, retry quietly a few times, and if it still
+       fails hand the customer to WhatsApp with the order ready. Never an error. */
+    function hostessSoft() {
+      S.hostessTries = (S.hostessTries || 0) + 1;
+      S.hostessPay = '';
+      if (S.hostessTries < 6) { S.hostessAvail = null; setAvail(MSG.hlink, 'wait'); setTimeout(hostessCheck, 2000); }
+      else { S.hostessAvail = true; S.hostessWa = true; setAvail(MSG.hfail, ''); }
+      paintPayBtn(); updateTotal();
     }
     var hostessSeq = 0;
     function hostessCheck() {
@@ -981,11 +995,11 @@ window.IshurPopup = (function () {
         .then(function (r) { return r.json(); })
         .then(function (j) {
           if (seq !== hostessSeq) return;
-          if (!j || !j.ok) { S.hostessAvail = null; S.hostessPay = ''; setAvail(MSG.hfail, 'bad'); paintPayBtn(); updateTotal(); return; }
+          if (!j || !j.ok) { hostessSoft(); return; }
           S.hostessAvail = !!j.available;
           if (j.available) {
             S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
-            if (!S.hostessPay) { S.hostessTries = (S.hostessTries || 0) + 1; if (S.hostessTries < 3) { setTimeout(hostessCheck, 1500); setAvail(MSG.hlink, 'wait'); paintPayBtn(); updateTotal(); return; } setAvail(MSG.hfail, 'bad'); paintPayBtn(); updateTotal(); return; }
+            if (!S.hostessPay) { hostessSoft(); return; }
             S.hostessTries = 0;
             var nH = (CFG.hostessTier(S.guests) || {}).count || Number(j.n) || 1;
             setAvail('✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.'), 'ok');
@@ -995,7 +1009,7 @@ window.IshurPopup = (function () {
           IshurLead.track('hostess_check', { available: !!j.available, travel: j.travel || 0, city: S.hCity, date: S.hDate });
           paintPayBtn(); updateTotal();
         })
-        .catch(function () { if (seq !== hostessSeq) return; S.hostessAvail = null; S.hostessPay = ''; setAvail(MSG.hfail, 'bad'); paintPayBtn(); updateTotal(); });
+        .catch(function () { if (seq !== hostessSeq) return; hostessSoft(); });
     }
     (function () {
       var el = $('f-hcity'); if (!el) return;
