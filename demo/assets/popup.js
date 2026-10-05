@@ -320,7 +320,7 @@ window.IshurPopup = (function () {
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +
                     CFG.guestLabel(S.guests) +
                     (withHost ? ' · ' + hTier.label : '') +
-                    (hTravel ? ' · נסיעות ₪' + hTravel : '') +
+
                     (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' : '') +
                     '</span>' +
                     '<span class="pt-v">' +
@@ -980,7 +980,7 @@ window.IshurPopup = (function () {
           S.hostessAvail = !!j.available;
           if (j.available) {
             S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
-            setAvail('✓ יש דיילת פנויה ב-' + S.hDate.split('-').reverse().join('.') + ' · נסיעות ' + (j.travel ? '₪' + j.travel + ' (' + S.hCity + ' מחוץ למרכז)' : 'כלולות'), 'ok');
+            setAvail('✓ יש דיילת פנויה ב-' + S.hDate.split('-').reverse().join('.') + (j.travel ? ' · ' + S.hCity + ' מחוץ למרכז, הנסיעות כבר בסכום' : ''), 'ok');
           } else {
             setAvail(MSG.hbusy, 'bad');
           }
