@@ -8229,6 +8229,33 @@ export default {
     if (url.pathname.startsWith('/img/') && request.method === 'GET') {
       return serveImage(env, url.pathname);
     }
+    /* Richard 05/10: every hostess booking becomes a calendar slot: arrival one
+       hour before the reception, plus travel (45 min inside the centre, 90 min
+       outside), until five hours after the reception. The slots are published
+       as an iCal feed at /cal/hostess-<key>.ics that Richard subscribes to once
+       in Google Calendar (it shows under the "דיילות" calendar list as its own
+       calendar), and the availability check counts them instantly. */
+    if (url.pathname.startsWith('/cal/hostess-') && request.method === 'GET') {
+      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      if (url.pathname !== '/cal/hostess-' + key.slice(0, 24) + '.ics') return new Response('not found', { status: 404 });
+      const rows = [];
+      if (env.RATE) {
+        const page = await env.RATE.list({ prefix: 'hostessbook:', limit: 500 });
+        for (const k of page.keys) { try { const b = JSON.parse(await env.RATE.get(k.name) || 'null'); if (b && b.date) rows.push({ ...b, id: k.name.slice(12) }); } catch {} }
+      }
+      const esc = t => String(t || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => '\\' + m);
+      const stamp = t => String(t).replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+      const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//hostesses//HE', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:ishur · דיילות (הזמנות)', 'X-WR-TIMEZONE:Asia/Jerusalem'];
+      for (const b of rows) {
+        lines.push('BEGIN:VEVENT', 'UID:hostess-' + b.id + '@ishur.io', 'DTSTAMP:' + stamp(new Date(b.at || Date.now()).toISOString()),
+          'DTSTART:' + stamp(b.start), 'DTEND:' + stamp(b.end),
+          'SUMMARY:' + esc((b.n === 1 ? 'דיילת' : b.n + ' דיילות') + ' · ' + (b.client || '') + (b.city ? ' · ' + b.city : '')),
+          'DESCRIPTION:' + esc('הגעה שעה לפני קבלת הפנים (' + (b.reception || '?') + ') + נסיעה ' + (b.center ? '45' : '90') + ' דק׳. אירוע ' + String(b.id).slice(0, 8) + (b.phone ? ' · ' + b.phone : '')),
+          'LOCATION:' + esc(b.venue || b.city || ''), 'END:VEVENT');
+      }
+      lines.push('END:VCALENDAR');
+      return new Response(lines.join('\r\n') + '\r\n', { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-cache' } });
+    }
     /* the event as a calendar file (Richard 17/09): /cal/<token>.ics —
        Apple Calendar opens it straight from WhatsApp/Safari, Google via the
        cal.html page. Two reminders baked in, our line in the description. */
@@ -8825,33 +8852,6 @@ export default {
        and (c) ONE Grow link for package + hostesses + travel, minted through
        the same Make webhook the dashboard add-ons use. Never blocks the sale:
        when the link cannot be minted the page falls back to the static links. */
-    /* Richard 05/10: every hostess booking becomes a calendar slot: arrival one
-       hour before the reception, plus travel (45 min inside the centre, 90 min
-       outside), until five hours after the reception. The slots are published
-       as an iCal feed at /cal/hostess-<key>.ics that Richard subscribes to once
-       in Google Calendar (it shows under the "דיילות" calendar list as its own
-       calendar), and the availability check counts them instantly. */
-    if (url.pathname.startsWith('/cal/hostess-') && request.method === 'GET') {
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
-      if (url.pathname !== '/cal/hostess-' + key.slice(0, 24) + '.ics') return new Response('not found', { status: 404 });
-      const rows = [];
-      if (env.RATE) {
-        const page = await env.RATE.list({ prefix: 'hostessbook:', limit: 500 });
-        for (const k of page.keys) { try { const b = JSON.parse(await env.RATE.get(k.name) || 'null'); if (b && b.date) rows.push({ ...b, id: k.name.slice(12) }); } catch {} }
-      }
-      const esc = t => String(t || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => '\\' + m);
-      const stamp = t => String(t).replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-      const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//hostesses//HE', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:ishur · דיילות (הזמנות)', 'X-WR-TIMEZONE:Asia/Jerusalem'];
-      for (const b of rows) {
-        lines.push('BEGIN:VEVENT', 'UID:hostess-' + b.id + '@ishur.io', 'DTSTAMP:' + stamp(new Date(b.at || Date.now()).toISOString()),
-          'DTSTART:' + stamp(b.start), 'DTEND:' + stamp(b.end),
-          'SUMMARY:' + esc((b.n === 1 ? 'דיילת' : b.n + ' דיילות') + ' · ' + (b.client || '') + (b.city ? ' · ' + b.city : '')),
-          'DESCRIPTION:' + esc('הגעה שעה לפני קבלת הפנים (' + (b.reception || '?') + ') + נסיעה ' + (b.center ? '45' : '90') + ' דק׳. אירוע ' + String(b.id).slice(0, 8) + (b.phone ? ' · ' + b.phone : '')),
-          'LOCATION:' + esc(b.venue || b.city || ''), 'END:VEVENT');
-      }
-      lines.push('END:VCALENDAR');
-      return new Response(lines.join('\r\n') + '\r\n', { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-cache' } });
-    }
     if (url.pathname === '/api/hostess-ics-url' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
