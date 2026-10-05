@@ -62,7 +62,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=64"></script>
+<script src="config.js?v=65"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -2452,7 +2452,8 @@ buildPricing();
          opens the order with the lead's details typed in; with a plan the combo is
          locked, without one he picks the package and whether he wants hostesses */
       const guests=q.get('guests')||'200', plan=q.get('plan')||'';
-      const pre={guests,hostess:true,hostessLocked:!!plan,name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
+      /* 05/10: a plan in the link is pre-selected, the other packages stay visible; hostesses pre-ticked but changeable */
+      const pre={guests,hostess:true,hostessLocked:false,name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
       if(plan) pre.plan=plan;
       setTimeout(()=>IshurPopup.open('offer-hostess',pre),600);
     }
