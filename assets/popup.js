@@ -991,11 +991,22 @@ window.IshurPopup = (function () {
       updateTotal();
       var seq = ++hostessSeq;
       setAvail(MSG.hcheck, 'wait'); paintPayBtn();
-      fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: S.name || '', phone: S.phone || '', occasion: S.occasion || '' }) })
-        .then(function (r) { return r.json(); })
+      var body = { date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
+      var call = function (withLink) { return fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ link: withLink }, body)) }).then(function (r) { return r.json(); }); };
+      /* step 1: availability + price, fast. step 2: the link, quietly. */
+      S.hostessPending = true;
+      call(false)
         .then(function (j) {
-          if (seq !== hostessSeq) return;
+          if (seq !== hostessSeq) return null;
+          if (j && j.ok && j.available) {
+            S.hostessAvail = true; S.hostessTravel = Number(j.travel) || 0; setAvail(availText(), 'ok'); paintPayBtn(); updateTotal();
+            return call(true);
+          }
+          return j;
+        })
+        .then(function (j) {
+          if (seq !== hostessSeq || j === null) return;
+          S.hostessPending = false;
           if (!j || !j.ok) { hostessSoft(); return; }
           S.hostessAvail = !!j.available;
           if (j.available) {
@@ -1009,7 +1020,7 @@ window.IshurPopup = (function () {
           IshurLead.track('hostess_check', { available: !!j.available, travel: j.travel || 0, city: S.hCity, date: S.hDate });
           paintPayBtn(); updateTotal();
         })
-        .catch(function () { if (seq !== hostessSeq) return; hostessSoft(); });
+        .catch(function () { if (seq !== hostessSeq) return; S.hostessPending = false; hostessSoft(S.hostessAvail === true); });
     }
     (function () {
       var el = $('f-hcity'); if (!el) return;
