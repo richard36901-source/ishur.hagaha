@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=62"></script>
+<script src="config.js?v=61demo&x=60"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -1546,7 +1546,7 @@
   (function () {
     /* demo: show the card with a sample link so the navigation + gift
        boxes can be reviewed; saving is disabled without a real token */
-    if (!token || demo) { $('shareCard').hidden = true; return; }
+    if (!token && !demo) { $('shareCard').hidden = true; return; }
     var link = 'https://ishur.io/rsvp.html?t=' + (token || 'demo');
     function shareText() {
       var ev = (data && data.event) || {};
@@ -2163,7 +2163,7 @@
     showApp();
     loadData({ token: token }, false);
   } else if (demo) {
-    if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
+    if (preview || demo || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
     else showGate();
   } else {
     var saved = null;

@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=62"></script>
+<script src="config.js?v=61demo&x=60"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -694,6 +694,10 @@
   $('okWa').href = CFG.waLink('היי, רציתי לעדכן משהו בהגדרות האירוע.');
   if (eventName) { $('eventName').textContent = eventName; $('eventName').hidden = false; }
   if (CFG.isSet(CFG.TEMPLATE_URL)) { $('tmplLink').href = CFG.TEMPLATE_URL; $('tmplRow').hidden = false; }
+  /* DEMO ONLY: ?step=2 jumps straight to the event-setup view so the form
+     can be reviewed without uploading a list. Not in production. */
+  if (qs.get('step') === '2') { setTimeout(function () { show('setupView'); }, 50); }
+
   /* no token means there is nothing to upload against, and the form never
      renders, so a guessed URL cannot reach it */
   if (!token) {
