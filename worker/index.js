@@ -8938,8 +8938,13 @@ export default {
           for (const k of page.keys) { const bk = JSON.parse(await env.RATE.get(k.name) || 'null'); if (bk && bk.date === date) { available = false; break; } }
         } catch {}
       }
-      const phone = normPhone(b.phone || '');
-      const name = String(b.name || '').trim().slice(0, 60);
+      let phone = normPhone(b.phone || '');
+      let name = String(b.name || '').trim().slice(0, 60);
+      /* from the client dashboard: the event token says who is buying */
+      if (/^[0-9a-f-]{36}$/.test(String(b.token || ''))) {
+        const tr = await tokenRecord(env, String(b.token));
+        if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
+      }
       const total = PRICES[guests][plan] + hostessPrice + travel;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות/3 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment) */
@@ -8952,7 +8957,7 @@ export default {
           const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
-              successUrl: 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: 'https://ishur.io/#pricing',
+              successUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token + '&paid=hostess' : 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token : 'https://ishur.io/#pricing',
               cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city }) }).catch(() => null);
           let mj = null; try { mj = mk ? JSON.parse(await mk.text()) : null; } catch {}
           const u = mj && (mj.url || mj.link || (mj.data && mj.data.url));
