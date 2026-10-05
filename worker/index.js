@@ -1432,6 +1432,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     if (hc > 0 && env.RATE) {
       const center = String(form.get('hostess_center') || '') === 'true';
       await env.RATE.put('hostessplan:' + token, JSON.stringify({ n: hc, center, city: out.venue_city || '', date: out.event_date || '', at: new Date().toISOString() }), { expirationTtl: TOKEN_TTL });
+      await writeHostessBooking(env, token, { n: hc, center, city: out.venue_city || '', date: out.event_date || '', reception: out.reception_time || '', venue: out.venue_name || '', client: out.event_title || out.name1 || '', phone: rec && rec.phone ? rec.phone : '' });
       hostessNote = ` · 🧑‍💼 ${hc === 1 ? 'דיילת אחת' : hc + ' דיילות'} · ${out.venue_city || '?'} (${center ? 'מרכז, נסיעות כלולות' : 'מחוץ למרכז, נסיעות ₪250×' + hc + ' בתשלום נפרד'})`;
     }
   } catch {}
@@ -7741,6 +7742,25 @@ function deny(status, reason, origin) {
   });
 }
 
+/* hostess calendar slot for one event: arrival 60 min before the reception,
+   plus travel (45 inside the centre, 90 outside), until reception + 5h.
+   Times are Israel local; stored as UTC ISO for the iCal feed. */
+async function writeHostessBooking(env, token, b) {
+  if (!env.RATE || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))) return;
+  const rec = /^(\d{1,2}):(\d{2})$/.exec(String(b.reception || '')) || [null, '19', '00'];
+  const travel = b.center ? 45 : 90;
+  const local = (h, m) => {
+    /* Israel offset for that date: +03 in summer, +02 in winter */
+    const probe = new Date(Date.UTC(+b.date.slice(0, 4), +b.date.slice(5, 7) - 1, +b.date.slice(8, 10), 12));
+    const off = (new Date(probe.toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })) - new Date(probe.toLocaleString('en-US', { timeZone: 'UTC' }))) / 60000;
+    return new Date(Date.UTC(+b.date.slice(0, 4), +b.date.slice(5, 7) - 1, +b.date.slice(8, 10), h, m) - off * 60000);
+  };
+  const recMin = Number(rec[1]) * 60 + Number(rec[2]);
+  const startMin = recMin - 60 - travel, endMin = recMin + 5 * 60;
+  const start = local(Math.floor(startMin / 60), ((startMin % 60) + 60) % 60), end = local(Math.floor(endMin / 60), endMin % 60);
+  await env.RATE.put('hostessbook:' + token, JSON.stringify({ ...b, reception: rec[1] + ':' + rec[2], start: start.toISOString(), end: end.toISOString(), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+}
+
 async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
@@ -8805,6 +8825,39 @@ export default {
        and (c) ONE Grow link for package + hostesses + travel, minted through
        the same Make webhook the dashboard add-ons use. Never blocks the sale:
        when the link cannot be minted the page falls back to the static links. */
+    /* Richard 05/10: every hostess booking becomes a calendar slot: arrival one
+       hour before the reception, plus travel (45 min inside the centre, 90 min
+       outside), until five hours after the reception. The slots are published
+       as an iCal feed at /cal/hostess-<key>.ics that Richard subscribes to once
+       in Google Calendar (it shows under the "דיילות" calendar list as its own
+       calendar), and the availability check counts them instantly. */
+    if (url.pathname.startsWith('/cal/hostess-') && request.method === 'GET') {
+      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      if (url.pathname !== '/cal/hostess-' + key.slice(0, 24) + '.ics') return new Response('not found', { status: 404 });
+      const rows = [];
+      if (env.RATE) {
+        const page = await env.RATE.list({ prefix: 'hostessbook:', limit: 500 });
+        for (const k of page.keys) { try { const b = JSON.parse(await env.RATE.get(k.name) || 'null'); if (b && b.date) rows.push({ ...b, id: k.name.slice(12) }); } catch {} }
+      }
+      const esc = t => String(t || '').replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/[,;]/g, m => '\\' + m);
+      const stamp = t => String(t).replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+      const lines = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//hostesses//HE', 'CALSCALE:GREGORIAN', 'X-WR-CALNAME:ishur · דיילות (הזמנות)', 'X-WR-TIMEZONE:Asia/Jerusalem'];
+      for (const b of rows) {
+        lines.push('BEGIN:VEVENT', 'UID:hostess-' + b.id + '@ishur.io', 'DTSTAMP:' + stamp(new Date(b.at || Date.now()).toISOString()),
+          'DTSTART:' + stamp(b.start), 'DTEND:' + stamp(b.end),
+          'SUMMARY:' + esc((b.n === 1 ? 'דיילת' : b.n + ' דיילות') + ' · ' + (b.client || '') + (b.city ? ' · ' + b.city : '')),
+          'DESCRIPTION:' + esc('הגעה שעה לפני קבלת הפנים (' + (b.reception || '?') + ') + נסיעה ' + (b.center ? '45' : '90') + ' דק׳. אירוע ' + String(b.id).slice(0, 8) + (b.phone ? ' · ' + b.phone : '')),
+          'LOCATION:' + esc(b.venue || b.city || ''), 'END:VEVENT');
+      }
+      lines.push('END:VCALENDAR');
+      return new Response(lines.join('\r\n') + '\r\n', { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Cache-Control': 'no-cache' } });
+    }
+    if (url.pathname === '/api/hostess-ics-url' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      return okJson({ ok: true, url: 'https://go.ishur.io/cal/hostess-' + key.slice(0, 24) + '.ics' }, origin);
+    }
     if (url.pathname === '/api/hostess-check' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -8847,6 +8900,13 @@ export default {
           available = !busy;
         } catch (e) { calNote = 'calendar-unreachable'; }
       } else calNote = 'no-calendar';
+      /* bookings the worker itself holds (paid, set up) count too, instantly */
+      if (available && env.RATE) {
+        try {
+          const page = await env.RATE.list({ prefix: 'hostessbook:', limit: 500 });
+          for (const k of page.keys) { const bk = JSON.parse(await env.RATE.get(k.name) || 'null'); if (bk && bk.date === date) { available = false; break; } }
+        } catch {}
+      }
       const phone = normPhone(b.phone || '');
       const name = String(b.name || '').trim().slice(0, 60);
       const total = PRICES[guests][plan] + hostessPrice + travel;
