@@ -1544,8 +1544,10 @@
 
   /* ── the group link + premade text, and the navigation link ── */
   (function () {
-    if (!token || demo) { $('shareCard').hidden = true; return; }
-    var link = 'https://ishur.io/rsvp.html?t=' + token;
+    /* demo: show the card with a sample link so the navigation + gift
+       boxes can be reviewed; saving is disabled without a real token */
+    if (!token && !demo) { $('shareCard').hidden = true; return; }
+    var link = 'https://ishur.io/rsvp.html?t=' + (token || 'demo');
     function shareText() {
       var ev = (data && data.event) || {};
       var occ = ev.occasion_label || ev.occasion || 'האירוע';
