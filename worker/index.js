@@ -2725,7 +2725,10 @@ async function handleWaWebhook(request, env, url) {
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
       const ts = Date.now();
-      const body = (parsed ? textOf(parsed) : '').slice(0, 300);
+      /* the raw words always win: for הסר / טעות / לא להתקשר the parser keeps
+         only the kind, and the inbox showed an empty bubble (Richard 05/10) */
+      const rawIn = String((msg.text && msg.text.body) || (msg.button && msg.button.text) || (msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.title) || '').trim();
+      const body = ((parsed ? textOf(parsed) : '') || rawIn).slice(0, 300);
       /* kept forever, on purpose: this is the record of the conversation */
       await env.RATE.put('log:' + from + ':' + ts,
         JSON.stringify({
@@ -3614,6 +3617,9 @@ async function aiReply(env, from, text, who, historyIn) {
 /* The invitation artwork, sent the first time a guest replies — that reply
    opens the 24h window a free-form image needs. Once per guest per event. */
 async function sendArtworkOnReply(env, raw, guest, from) {
+  /* Richard 05/10: off. The invitation template (hazmana_ishur_img_u / _vid)
+     already shows the artwork, so this was a duplicate image after "מגיע". */
+  return;
   try {
     if (!guest || !guest.token || !raw) return;
     const ev = ((raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === guest.token);

@@ -1686,6 +1686,13 @@
       if (state === 'included') {
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         action = '<span class="inc">כלול</span>';
+      } else if (k === 'hostess' && dte != null && dte < 14 && !over) {
+        /* Richard 05/10: less than two weeks out, hostesses are a WhatsApp
+           request that he checks by hand, not a purchase */
+        cls = ' locked';
+        mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>';
+        action = '<button type="button" class="buy" data-addon="hostess-wa">פנייה בוואטסאפ</button>';
+        extra += ' · פחות משבועיים לאירוע, נבדוק זמינות ידנית';
       } else if (state === 'too-late') {
         cls = ' late';
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>';
@@ -1724,10 +1731,24 @@
       b.addEventListener('click', function () {
         var k = b.dataset.addon;
         IshurLead.track('addon_click', { addon: k, plan: plan, guests: guests, where: 'dashboard' });
+        if (k === 'hostess-wa') {
+          location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר לבדוק זמינות?'); return;
+        }
         if (k === 'hostess') {
-          var tier = CFG.hostessTier && CFG.hostessTier(guests);
-          if (tier && tier.link) { location.href = tier.link; return; }
-          location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי.'); return;
+          /* the same per-event link as the order flow: date + city are known
+             here, so availability and travel are checked before Grow */
+          b.disabled = true; b.textContent = 'בודקים זמינות…';
+          var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
+          if (demo) { wa(); return; }
+          fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ link: true, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan, name: ev.client_name || ev.name1 || '', phone: ev.phone || '' }) })
+            .then(function (r) { return r.json(); })
+            .then(function (j) {
+              if (j && j.ok && j.available && j.url) { location.href = j.url; return; }
+              if (j && j.ok && !j.available) { b.disabled = false; b.textContent = 'פנייה בוואטסאפ'; b.dataset.addon = 'hostess-wa'; IshurUX.toast('התאריך תפוס אצל הדיילות, נבדוק אפשרות ידנית'); return; }
+              wa();
+            }).catch(wa);
+          return;
         }
         if (k === 'extra_send') return askScope();
         if (k === 'calls') return payAddon('calls', 'all');
