@@ -3614,6 +3614,9 @@ async function aiReply(env, from, text, who, historyIn) {
 /* The invitation artwork, sent the first time a guest replies — that reply
    opens the 24h window a free-form image needs. Once per guest per event. */
 async function sendArtworkOnReply(env, raw, guest, from) {
+  /* Richard 05/10: off. The invitation template (hazmana_ishur_img_u / _vid)
+     already shows the artwork, so this was a duplicate image after "מגיע". */
+  return;
   try {
     if (!guest || !guest.token || !raw) return;
     const ev = ((raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === guest.token);
