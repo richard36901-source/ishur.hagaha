@@ -1741,7 +1741,7 @@
           var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
           if (demo) { wa(); return; }
           fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ link: true, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan, name: ev.client_name || ev.name1 || '', phone: ev.phone || '' }) })
+            body: JSON.stringify({ link: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
             .then(function (r) { return r.json(); })
             .then(function (j) {
               if (j && j.ok && j.available && j.url) { location.href = j.url; return; }
