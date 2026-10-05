@@ -688,6 +688,22 @@
         </div>
         <p id="navMsg" style="font-size:.78rem;color:var(--ink3);margin:.35rem 0 0">יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.</p>
       </div>
+      <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)" id="giftBox">
+        <label style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור למתנה (ביט / פייבוקס) · חינם, לא חובה</label>
+        <p style="font-size:.78rem;color:var(--ink3);margin:0 0 .5rem">אורח ששואל איך לתת מתנה יקבל את הקישור אוטומטית. כבוי כברירת מחדל.</p>
+        <div style="display:flex;gap:.45rem;margin-bottom:.4rem">
+          <input id="giftBit" placeholder="קישור ביט (bit.co.il)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
+        </div>
+        <div style="display:flex;gap:.45rem;margin-bottom:.5rem">
+          <input id="giftPaybox" placeholder="קישור פייבוקס (payboxapp.com)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
+        </div>
+        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.86rem;cursor:pointer"><input type="checkbox" id="giftOn" style="width:1.1rem;height:1.1rem"> לשלוח את הקישור לאורחים</label>
+          <button type="button" class="buy" id="giftSave">שמירה</button>
+          <span id="giftMsg" style="font-size:.78rem;color:var(--ink3)"></span>
+        </div>
+        <p style="font-size:.74rem;color:var(--ink3);margin:.4rem 0 0">בקרוב: מתנה באשראי דרכנו.</p>
+      </div>
     </div>
   </section>
 
@@ -1551,6 +1567,25 @@
         if (j && j.ok) { $('navMsg').textContent = u ? 'נשמר ✓ יצורף להזמנה בקישור ולתזכורת של יום לפני' : 'הוסר'; }
         else $('navMsg').textContent = j && j.error === 'not-a-map-link' ? 'זה לא קישור של Waze או Google Maps' : 'לא נשמר, נסו שוב';
       }).catch(function () { $('navSave').disabled = false; $('navMsg').textContent = 'לא נשמר, נסו שוב'; });
+    });
+  })();
+
+  /* ── gift links (Bit / PayBox), under the navigation link ── */
+  (function () {
+    if (!$('giftBox')) return;
+    function paint(j) { if (!j) return; $('giftBit').value = j.bit || ''; $('giftPaybox').value = j.paybox || ''; $('giftOn').checked = !!j.on; }
+    fetch(CFG.endpoint('giftlinks'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+      .then(function (r) { return r.json(); }).then(paint).catch(function () {});
+    $('giftSave').addEventListener('click', function () {
+      var bit = $('giftBit').value.trim(), pb = $('giftPaybox').value.trim(), on = $('giftOn').checked;
+      if (on && !bit && !pb) { $('giftMsg').textContent = 'כדי להפעיל צריך לפחות קישור אחד'; return; }
+      $('giftSave').disabled = true; $('giftMsg').textContent = 'שומר…';
+      fetch(CFG.endpoint('giftlinks'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, bit: bit, paybox: pb, on: on }) })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          $('giftSave').disabled = false; paint(j);
+          if (j && j.ok) $('giftMsg').textContent = j.on ? 'נשמר ✓ הקישור יישלח לאורחים ששואלים על מתנה' : 'נשמר ✓ (כבוי, לא נשלח לאורחים)';
+          else $('giftMsg').textContent = j && j.error === 'not-a-gift-link' ? 'זה לא קישור של ביט או פייבוקס' : 'לא נשמר, נסו שוב';
+        }).catch(function () { $('giftSave').disabled = false; $('giftMsg').textContent = 'לא נשמר, נסו שוב'; });
     });
   })();
 

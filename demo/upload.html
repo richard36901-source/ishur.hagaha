@@ -1082,9 +1082,9 @@
   var plan = (qs.get('p') || '').trim() || 'basic';
   /* ── hostesses (demo): ?h=<count> says the customer bought them with the
      package. The travel fee follows the city typed above. ── */
-  (function () {
-    var n = parseInt(qs.get('h') || '0', 10);
-    var sec = $('hostessSec'); if (!sec || !n || !CFG.HOSTESS) return;
+  function initHostess(n) {
+    var sec = $('hostessSec'); if (!sec || !n || !CFG.HOSTESS || sec.dataset.on) return;
+    sec.dataset.on = '1';
     sec.hidden = false;
     var H = CFG.HOSTESS;
     $('hostessT').textContent = (n === 1 ? 'דיילת אחת' : n + ' דיילות') + ' · כלול בהזמנה';
@@ -1112,7 +1112,8 @@
     $('f-city').addEventListener('blur', draw);
     draw();
     S.hostess = n;
-  })();
+  }
+  initHostess(parseInt(qs.get('h') || '0', 10));
   var guests = (qs.get('g') || '').trim();
 
   /* the WhatsApp link carries only the token, so the real package comes from
@@ -1127,6 +1128,7 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.event) return;
+        if (d.hostess && d.hostess.n) initHostess(d.hostess.n);
         var byName = {};
         Object.keys(CFG.PLANS || {}).forEach(function (k) { byName[CFG.PLANS[k].name] = k; });
         var key = byName[String(d.event.plan || '').trim()];

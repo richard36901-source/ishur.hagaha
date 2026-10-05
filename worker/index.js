@@ -402,6 +402,13 @@ async function processGrowPayment(env, flat) {
     try {
       const bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || '');
       if (bought) await env.RATE.put('paid:' + token, JSON.stringify({ ...bought, sum: String(sum || ''), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+      /* דיילות bought with the package: remembered per event (upload.html shows
+         the travel step from this), and one loud Slack line so somebody books
+         the hostesses. Never blocks the payment path. */
+      if (bought && bought.hostess) {
+        await env.RATE.put('hostess:' + token, JSON.stringify({ n: bought.hostess, at: new Date().toISOString(), ref }), { expirationTtl: 400 * 86400 }).catch(() => {});
+        try { await slackPost(env, `🧑‍💼 *נרכשו ${bought.hostess === 1 ? 'דיילת אחת' : bought.hostess + ' דיילות'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ${bought.desc}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות, הנסיעות נקבעות בהגדרת האירוע לפי העיר`, { urgent: true, now: true }); } catch {}
+      }
     } catch {}
     /* they paid — they are not an abandoned lead any more, in either
        direction: no chase message, and no lead call queued behind it */
@@ -451,7 +458,7 @@ async function processGrowPayment(env, flat) {
     /* the closed customer is reported back to Meta server-side (CAPI). The
        browser fires the same event_id ('pur_<ref>') from thanks.html, so Meta
        dedups; when the tab never returns, this copy is the only one. */
-    try { await capiPurchase(env, { phone, email, value: parseFloat(sum) || 0, ref }); } catch {}
+    if (!flat._simulated) { try { await capiPurchase(env, { phone, email, value: parseFloat(sum) || 0, ref }); } catch {} }
     /* the funnel's last step, counted where the money actually lands */
     try { await recordPurchase(env, ref); } catch {}
     /* a promo seat is only really taken once the money lands. Until here the
@@ -485,7 +492,7 @@ async function processGrowPayment(env, flat) {
        package, the amount, the payment method and the terms on it */
     if (!invoiceUrl) {
       let bought = null; try { bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); } catch {}
-      const inv = await createInvoice(env, {
+      const inv = flat._simulated ? { ok: false, why: 'not-configured' } : await createInvoice(env, {
         name, phone, email, sum, ref, payMethod,
         taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
         plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0,
@@ -1048,14 +1055,18 @@ function okJson(payload, origin) {
    sheet stays the authority. */
 function parsePaidDesc(desc) {
   const d = String(desc || '');
-  const m = d.match(/(\d{2,4})\s*מוזמנים/);
+  /* Richard 04/10: the hostess pages in Grow are named "<N> רשומות <plan> + דיילות";
+     "רשומות" is the house term now, so both words count. */
+  const m = d.match(/(\d{2,4})\s*(?:מוזמנים|רשומות)/);
   const tier = m ? parseInt(m[1], 10) : 0;
+  /* דיילות: 1 up to 200 records, 2 up to 500, 3 above (pricing agreed 04/10) */
+  const hostess = /דייל/.test(d) ? (tier && tier <= 200 ? 1 : tier && tier <= 500 ? 2 : 3) : 0;
   let plan = '', planText = '';
   if (/הכל|premium|all/i.test(d)) { plan = 'premium'; planText = 'הכל כלול'; }
   else if (/בסיס|basic|base/i.test(d)) { plan = 'basic'; planText = 'בסיס'; }
   else if (/פרמיום|פרימיום|pro|premium/i.test(d)) { plan = 'pro'; planText = 'פרמיום'; }
   if (!tier && !plan) return null;
-  return { tier, plan, planText, desc: d.slice(0, 80) };
+  return { tier, plan, planText, desc: d.slice(0, 80), hostess };
 }
 
 /* "תוספת 50 מוזמנים" → {kind:'guests', n:50}; "שליחה נוספת" / "גל נוסף" →
@@ -1092,6 +1103,7 @@ function parseAddonDesc(desc) {
   const d = String(desc || '');
   const tokM = d.match(/·\s*([0-9a-f]{8})\s*$/);
   const tok8 = tokM ? tokM[1] : '';
+  if (/נסיע/.test(d) && /דייל/.test(d)) return { kind: 'hostess_travel', tok8, desc: d.slice(0, 80) };
   if (/סבב שיחות/.test(d)) return { kind: 'calls', tok8, desc: d.slice(0, 80) };
   if (/נרשמים מהקישור/.test(d)) return { kind: 'selfreg', tok8, desc: d.slice(0, 80) };
   if (/הודעת דחייה|דחייה\/עדכון/.test(d)) return { kind: 'postpone', tok8, desc: d.slice(0, 80) };
@@ -1144,6 +1156,16 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
       await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
     }
   } catch {}
+  if (addon.kind === 'hostess_travel') {
+    /* ₪250 per hostess, paid once per hostess from upload.html. Only a note and
+       a Slack line: nothing in the sheet changes. */
+    const token = ev.token;
+    let prev = 0; try { prev = Number(JSON.parse(await env.RATE.get('hostesstravel:' + token) || '{}').paid || 0); } catch {}
+    await env.RATE.put('hostesstravel:' + token, JSON.stringify({ paid: prev + 1, lastSum: sum, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+    await logEvent(env, { area: 'תשלום', action: 'נסיעות דיילת שולמו', ok: true, phone, token, ref, detail: `₪${sum} · תשלום ${prev + 1}` });
+    await slackSend(env, `🚗 *נסיעות דיילת שולמו* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} (תשלום ${prev + 1})${flat._simulated ? ' · [בדיקה]' : ''}`, { urgent: true });
+    return { ok: true };
+  }
   if (addon.kind === 'selfreg') {
     if (env.RATE) await env.RATE.put('selfregpaid:' + token, JSON.stringify({ at: new Date().toISOString(), ref }));
     await slackSend(env, `💳 *הפעלת הודעות לנרשמים מהקישור* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — מעכשיו הם מקבלים תזכורות, יום-לפני ושולחן`, { urgent: true });
@@ -1396,6 +1418,19 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   /* host_roles: "כלה,חתן" — one role per host name, from a fixed list. Anything
      else is dropped rather than written into the sheet. */
   if (out.host_roles !== undefined && !hostRolesOk(out.host_roles)) delete out.host_roles;
+  /* Richard 04/10: דיילות. Count + whether the city is in the centre (Ashkelon
+     to Herzliya) come from the form; kept in KV, not in the sheet, and told to
+     Slack so the hostesses get booked. Travel (₪250 each) is paid on its own
+     Grow page from the same form when the city is outside the centre. */
+  let hostessNote = '';
+  try {
+    const hc = parseInt(String(form.get('hostess_count') || '0'), 10) || 0;
+    if (hc > 0 && env.RATE) {
+      const center = String(form.get('hostess_center') || '') === 'true';
+      await env.RATE.put('hostessplan:' + token, JSON.stringify({ n: hc, center, city: out.venue_city || '', date: out.event_date || '', at: new Date().toISOString() }), { expirationTtl: TOKEN_TTL });
+      hostessNote = ` · 🧑‍💼 ${hc === 1 ? 'דיילת אחת' : hc + ' דיילות'} · ${out.venue_city || '?'} (${center ? 'מרכז, נסיעות כלולות' : 'מחוץ למרכז, נסיעות ₪250×' + hc + ' בתשלום נפרד'})`;
+    }
+  } catch {}
 
   const image = form.get('image');
   if (image && typeof image === 'object' && image.arrayBuffer) {
@@ -1426,7 +1461,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   }).catch(() => null);
   if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
   if (out.host_roles) await writeHostRoles(env, token, out.host_roles);
-  await slackSend(env, `⚙️ *הגדרות האירוע נשמרו* · אירוע ${token.slice(0, 8)}${out.title ? ' · ' + String(out.title).slice(0, 40) : ''}${out.event_date ? ' · ' + out.event_date : ''}${out.image_url ? ' · עם הזמנה' : ''}`, { urgent: true }).catch(() => {});
+  await slackSend(env, `⚙️ *הגדרות האירוע נשמרו* · אירוע ${token.slice(0, 8)}${out.title ? ' · ' + String(out.title).slice(0, 40) : ''}${out.event_date ? ' · ' + out.event_date : ''}${out.image_url ? ' · עם הזמנה' : ''}${hostessNote}`, { urgent: true }).catch(() => {});
   return okJson({ ok: true, image: !!out.image_url, video: !!out.video_url }, origin);
 }
 
@@ -2973,6 +3008,12 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   const where = [c(4), c(38) && c(38) !== c(4) ? c(38) : '', c(37)].filter(Boolean).join(', ');
   if (/(מתי|תאריך|איזה יום|באיזה יום|שעה|באיזו שעה|מה השעה)/.test(t) && when) {
     await say(`${when}${where ? '\n📍 ' + where : ''}`); await log('שאלת מועד, נענתה'); return true;
+  }
+  if (/(מתנה|ביט|פייבוקס|paybox|\bbit\b|צ'?ק|לתת כסף|להעביר כסף)/i.test(t)) {
+    let gl = null; try { gl = env.RATE ? JSON.parse(await env.RATE.get('giftlinks:' + guest.token) || 'null') : null; } catch {}
+    if (gl && gl.on && (gl.bit || gl.paybox)) {
+      await say(`🎁 מתנה לבעלי השמחה:${gl.bit ? '\nביט: ' + gl.bit : ''}${gl.paybox ? '\nפייבוקס: ' + gl.paybox : ''}`); await log('שאלת מתנה, נשלחו קישורים'); return true;
+    }
   }
   if (/(איפה|כתובת|מיקום|וייז|waze|היכן|איך מגיעים|ניווט)/i.test(t) && where) {
     const nav = env.RATE ? await env.RATE.get('navlink:' + guest.token).catch(() => '') : '';
@@ -4844,9 +4885,17 @@ async function runDoctor(env, out, sendWin, callWin) {
         stuck++;
       }
     }
-    if (stuck && await onceADay(env, 'ipnmiss')) {
-      await alert(env, 'רופא · תשלומים שחנו', `${stuck} תשלומי Grow עדיין חונים ולא זוהו כ-ishur. אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת`, '');
-      rep.alerted++;
+    /* Richard, 05/10: the parked Grow payments are other businesses on the
+       same Grow account. Say it ONCE per payment, never a daily reminder:
+       only keys that were never announced trigger the Slack line. */
+    if (stuck) {
+      let told = []; try { told = JSON.parse(await env.RATE.get('doctor:ipnmiss-told') || '[]'); } catch {}
+      const fresh = page.keys.map(k => k.name).filter(n => !told.includes(n));
+      if (fresh.length) {
+        await alert(env, 'רופא · תשלומים שחנו', `${fresh.length} תשלומי Grow חדשים חונים ולא זוהו כ-ishur (סה"כ ${stuck}). אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת. לא אזכיר שוב.`, '');
+        rep.alerted++;
+        await env.RATE.put('doctor:ipnmiss-told', JSON.stringify(told.concat(fresh).slice(-200))).catch(() => {});
+      }
     }
   } catch (e) { rep.notes.push('ipnmiss-err'); }
 
@@ -8758,6 +8807,30 @@ export default {
       }
       return okJson({ ok: true, url: (await env.RATE.get('navlink:' + tok)) || '' }, origin);
     }
+    /* Richard 05/10: gift links (Bit / PayBox), free for every package. Off by
+       default; only sent to guests when the client switched it on AND typed a
+       link. Lives next to the navigation link on the dashboard. Credit-card
+       gifts (our own) come later and will sit in the same record. */
+    if (url.pathname === '/api/giftlinks' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:gifts:' + tok, 60, 3600)) return deny(429, 'slow-down', origin);
+      let cur = { bit: '', paybox: '', on: false };
+      try { cur = { ...cur, ...JSON.parse(await env.RATE.get('giftlinks:' + tok) || '{}') }; } catch {}
+      if (typeof b.bit === 'string' || typeof b.paybox === 'string' || typeof b.on === 'boolean') {
+        const okLink = u => !u || /^https?:\/\/(www\.)?(bit\.co\.il|bitpay\.co\.il|paybox\.co\.il|payboxapp\.com|links\.payboxapp\.com|app\.bitpay\.co\.il)\//i.test(u);
+        const bit = typeof b.bit === 'string' ? b.bit.trim().slice(0, 300) : cur.bit;
+        const paybox = typeof b.paybox === 'string' ? b.paybox.trim().slice(0, 300) : cur.paybox;
+        if (!okLink(bit) || !okLink(paybox)) return deny(422, 'not-a-gift-link', origin);
+        const on = typeof b.on === 'boolean' ? b.on : cur.on;
+        cur = { bit, paybox, on: on && !!(bit || paybox) };
+        await env.RATE.put('giftlinks:' + tok, JSON.stringify(cur));
+        await logEvent(env, { area: 'לוח', action: 'קישורי מתנה עודכנו', ok: true, token: tok, detail: `${cur.on ? 'פעיל' : 'כבוי'} · ביט ${bit ? 'כן' : 'לא'} · פייבוקס ${paybox ? 'כן' : 'לא'}` }).catch(() => {});
+      }
+      return okJson({ ok: true, ...cur }, origin);
+    }
     /* Richard 29/09: the client's budget planner (budget.html). One KV record per
        event: items [{name, amount, notes}], gifts (total received). Prefill happens
        on the page; here it is just a store, token-gated like the seating plan. */
@@ -9429,6 +9502,18 @@ export default {
         snapshot.media = { image_url: imgUrl, video_url: hasVid ? 'https://' + url.hostname + '/vid/' + token : '', first_send: first, editable };
       } catch {}
       if (!snapshot) return deny(404, 'event-not-found', origin);
+      /* דיילות bought with the package (+ what the setup form said) and the
+         gift links, so upload.html / dashboard.html render from the server
+         instead of from URL parameters */
+      try {
+        const [hb, hp, ht, gl] = await Promise.all([
+          env.RATE.get('hostess:' + token), env.RATE.get('hostessplan:' + token),
+          env.RATE.get('hostesstravel:' + token), env.RATE.get('giftlinks:' + token),
+        ]);
+        const bought = hb ? JSON.parse(hb) : null, plan = hp ? JSON.parse(hp) : null, trav = ht ? JSON.parse(ht) : null;
+        if (bought || plan) snapshot.hostess = { n: (bought && bought.n) || (plan && plan.n) || 0, center: plan ? !!plan.center : null, city: plan ? plan.city : '', travel_paid: trav ? Number(trav.paid) || 0 : 0 };
+        snapshot.gifts = gl ? JSON.parse(gl) : { bit: '', paybox: '', on: false };
+      } catch {}
       /* after the event: surface the review + testimonial links permanently */
       const evDate = String(snapshot.event.event_date || '').slice(0, 10);
       if (/^\d{4}-\d{2}-\d{2}$/.test(evDate) && evDate < ilDate()) {
