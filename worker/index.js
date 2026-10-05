@@ -8953,6 +8953,7 @@ export default {
       if (phone && env.RATE) await env.RATE.put('hostessreq:' + phone, JSON.stringify({ date, city, n, travel, center, available, guests, plan, at: new Date().toISOString() }), { expirationTtl: 14 * 86400 }).catch(() => {});
       await logEvent(env, { area: 'דיילות', action: available ? 'בדיקת זמינות: פנוי' : 'בדיקת זמינות: תפוס', ok: available, review: !available, phone,
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
+      if (available && env.GROW_LINK_HOOK && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
       return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok' }, origin);
     }
