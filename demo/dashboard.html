@@ -2161,7 +2161,7 @@
     showApp();
     loadData({ token: token }, false);
   } else if (demo) {
-    if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
+    if (preview || demo || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
     else showGate();
   } else {
     var saved = null;
