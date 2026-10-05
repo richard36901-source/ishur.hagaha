@@ -981,7 +981,7 @@ window.IshurPopup = (function () {
           if (j.available) {
             S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
             var nH = (CFG.hostessTier(S.guests) || {}).count || Number(j.n) || 1;
-            setAvail('✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.') + (j.travel ? ' · ' + S.hCity + ' מחוץ למרכז, הנסיעות כבר בסכום' : ''), 'ok');
+            setAvail('✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.'), 'ok');
           } else {
             setAvail(MSG.hbusy, 'bad');
           }
