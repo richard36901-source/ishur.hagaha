@@ -346,7 +346,7 @@ window.IshurPopup = (function () {
     plan:     'בחרו חבילה',
     hdate:    'באיזה תאריך האירוע?',
     hcity:    'באיזו עיר האירוע?',
-    hcheck:   'רגע, בודקים זמינות דיילת…',
+    hcheck:   'בודקים זמינות לתאריך…',
     hbusy:    'אין דיילות פנויות בתאריך הזה. אפשר להמשיך בלי דיילות.',
     hlink:    'רגע, מכינים לכם את התשלום…',
     hfail:    'נשלים את זה איתכם בוואטסאפ, לחצו על הכפתור.'
@@ -959,7 +959,7 @@ window.IshurPopup = (function () {
       if (S.hostessAvail !== true) { if (!quiet) setAvail(MSG.hcheck, 'wait'); return false; }
       /* the price the customer saw must be the price on the Grow page: only
          the per-customer link (package + hostesses + travel) is allowed */
-      if (!S.hostessPay && !S.hostessWa) { if (!quiet) { setAvail(MSG.hlink, 'wait'); hostessCheck(); } return false; }
+      if (!S.hostessPay && !S.hostessWa) { if (!quiet) { setAvail(MSG.hlink, 'wait'); if (!S.hostessPending) hostessCheck(); } return false; }
       return true;
     }
     function paintPayBtn() {
@@ -968,10 +968,11 @@ window.IshurPopup = (function () {
     }
     /* no link yet: keep a calm line, retry quietly a few times, and if it still
        fails hand the customer to WhatsApp with the order ready. Never an error. */
-    function hostessSoft() {
+    function availText() { var nH = (CFG.hostessTier(S.guests) || {}).count || 1; return '✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.'); }
+    function hostessSoft(knownFree) {
       S.hostessTries = (S.hostessTries || 0) + 1;
       S.hostessPay = '';
-      if (S.hostessTries < 6) { S.hostessAvail = null; setAvail(MSG.hlink, 'wait'); setTimeout(hostessCheck, 2000); }
+      if (S.hostessTries < 6) { S.hostessAvail = knownFree ? true : null; setAvail(knownFree ? availText() : MSG.hcheck, knownFree ? 'ok' : 'wait'); setTimeout(hostessCheck, 2000); }
       else { S.hostessAvail = true; S.hostessWa = true; setAvail(MSG.hfail, ''); }
       paintPayBtn(); updateTotal();
     }
@@ -999,10 +1000,9 @@ window.IshurPopup = (function () {
           S.hostessAvail = !!j.available;
           if (j.available) {
             S.hostessTravel = Number(j.travel) || 0; S.hostessPay = j.url || '';
-            if (!S.hostessPay) { hostessSoft(); return; }
+            if (!S.hostessPay) { hostessSoft(true); return; }
             S.hostessTries = 0;
-            var nH = (CFG.hostessTier(S.guests) || {}).count || Number(j.n) || 1;
-            setAvail('✓ ' + (nH === 1 ? 'יש דיילת פנויה' : 'יש ' + nH + ' דיילות פנויות') + ' ב-' + S.hDate.split('-').reverse().join('.'), 'ok');
+            setAvail(availText(), 'ok');
           } else {
             setAvail(MSG.hbusy, 'bad');
           }
