@@ -659,6 +659,19 @@ window.IshurPopup = (function () {
       if (n2) { n2.setAttribute('aria-checked', 'false'); n2.disabled = S.hostessLocked; }
     }
 
+    /* Richard 05/10: a quoted lead arrives with everything typed for him
+       (name, phone, date, city); he only picks the package and yes/no hostesses.
+       Every field stays editable. */
+    if (pre) {
+      if (pre.name && $('f-name')) $('f-name').value = pre.name;
+      if (pre.phone && $('f-phone')) $('f-phone').value = pre.phone;
+      if (pre.email && $('f-email')) $('f-email').value = pre.email;
+      if (pre.occasion && $('f-occasion')) { S.occasion = pre.occasion; $('f-occasion').value = pre.occasion; if (window.IshurSelect && $('f-occasion').dataset.enhanced) IshurSelect.refresh($('f-occasion')); }
+      if (pre.hDate && window.__setHDate) window.__setHDate(pre.hDate);
+      if (pre.hCity && $('f-hcity')) $('f-hcity').value = pre.hCity;
+      var ex0 = $('f-hostess-extra'); if (ex0) ex0.hidden = !S.hostess;
+    }
+
     /* locked quantity: the select steps aside for a read-only field that
        shows the number they chose */
     (function () {
@@ -875,6 +888,50 @@ window.IshurPopup = (function () {
     window.__hostessReady = function (quiet) { return hostessReady(quiet); };
     window.__hostessCheck = function () { if (S.hostess) hostessCheck(); paintPayBtn(); };
 
+    /* ── date picker, styled like the rest of the form (no native widget) ── */
+    var HE_MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+    var HE_DAYS = ['א','ב','ג','ד','ה','ו','ש'];
+    function hdateIso() { var f = $('f-hdate'); return (f && f.dataset.iso) || ''; }
+    function setHDate(iso) {
+      var f = $('f-hdate'); if (!f) return;
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(iso || '')) { f.dataset.iso = ''; f.value = ''; return; }
+      f.dataset.iso = iso;
+      var p = iso.split('-'); f.value = p[2] + '.' + p[1] + '.' + p[0];
+      clearError('hdate');
+    }
+    window.__setHDate = setHDate;
+    (function () {
+      var f = $('f-hdate'), dp = $('f-hdate-dp'); if (!f || !dp) return;
+      var view = new Date(); view.setDate(1);
+      function pad(n) { return (n < 10 ? '0' : '') + n; }
+      function todayIso() { var t = new Date(); return t.getFullYear() + '-' + pad(t.getMonth() + 1) + '-' + pad(t.getDate()); }
+      function draw() {
+        var y = view.getFullYear(), m = view.getMonth();
+        var first = new Date(y, m, 1).getDay(), days = new Date(y, m + 1, 0).getDate();
+        var cur = hdateIso(), tod = todayIso();
+        var h = '<div class="dp-h"><button type="button" class="dp-nav" data-d="-1" aria-label="חודש קודם">‹</button><span>' + HE_MONTHS[m] + ' ' + y + '</span><button type="button" class="dp-nav" data-d="1" aria-label="חודש הבא">›</button></div><div class="dp-g">';
+        for (var i = 0; i < 7; i++) h += '<span class="dp-dn">' + HE_DAYS[i] + '</span>';
+        for (var b = 0; b < first; b++) h += '<span></span>';
+        for (var d = 1; d <= days; d++) {
+          var iso = y + '-' + pad(m + 1) + '-' + pad(d);
+          var dis = iso < tod;
+          h += '<button type="button" class="dp-d' + (iso === cur ? ' on' : '') + (iso === tod ? ' today' : '') + '" data-iso="' + iso + '"' + (dis ? ' disabled' : '') + '>' + d + '</button>';
+        }
+        dp.innerHTML = h + '</div>';
+      }
+      function openDp() { var c = hdateIso(); if (c) { view = new Date(c.slice(0, 4), Number(c.slice(5, 7)) - 1, 1); } draw(); dp.hidden = false; f.setAttribute('aria-expanded', 'true'); }
+      function closeDp() { dp.hidden = true; f.setAttribute('aria-expanded', 'false'); }
+      f.addEventListener('click', function () { dp.hidden ? openDp() : closeDp(); });
+      f.addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); dp.hidden ? openDp() : closeDp(); } if (e.key === 'Escape') closeDp(); });
+      dp.addEventListener('click', function (e) {
+        var nav = e.target.closest('.dp-nav');
+        if (nav) { view.setMonth(view.getMonth() + Number(nav.dataset.d)); draw(); return; }
+        var d = e.target.closest('.dp-d');
+        if (d && !d.disabled) { setHDate(d.dataset.iso); closeDp(); hostessCheck(); }
+      });
+      document.addEventListener('click', function (e) { if (!dp.hidden && !dp.contains(e.target) && e.target !== f) closeDp(); });
+    })();
+
     function setAvail(text, cls) {
       var a = $('f-hostess-avail'); if (!a) return;
       a.textContent = text || ''; a.className = 'addon-q-avail' + (cls ? ' ' + cls : '');
@@ -884,7 +941,7 @@ window.IshurPopup = (function () {
        quiet=true only reads; otherwise it marks the missing field in red. */
     function hostessReady(quiet) {
       if (!S.hostess) return true;
-      var d = ($('f-hdate') && $('f-hdate').value) || '', c = (($('f-hcity') && $('f-hcity').value) || '').trim();
+      var d = hdateIso(), c = (($('f-hcity') && $('f-hcity').value) || '').trim();
       var ok = true;
       if (!d) { if (!quiet) showError('hdate', MSG.hdate); ok = false; } else clearError('hdate');
       if (c.length < 2) { if (!quiet) showError('hcity', MSG.hcity); ok = false; } else clearError('hcity');
@@ -899,7 +956,7 @@ window.IshurPopup = (function () {
     }
     var hostessSeq = 0;
     function hostessCheck() {
-      S.hDate = ($('f-hdate') && $('f-hdate').value) || '';
+      S.hDate = hdateIso();
       S.hCity = (($('f-hcity') && $('f-hcity').value) || '').trim();
       S.hostessAvail = null; S.hostessPay = '';
       if (!S.hDate || S.hCity.length < 2 || !S.guests || S.guests === 'custom' || !S.plan) { setAvail(''); paintPayBtn(); updateTotal(); return; }
@@ -930,12 +987,12 @@ window.IshurPopup = (function () {
         })
         .catch(function () { if (seq !== hostessSeq) return; S.hostessAvail = true; setAvail('נסיעות ייקבעו לפי העיר בהגדרת האירוע.', ''); paintPayBtn(); updateTotal(); });
     }
-    ['f-hdate', 'f-hcity'].forEach(function (id) {
-      var el = $(id); if (!el) return;
+    (function () {
+      var el = $('f-hcity'); if (!el) return;
       el.addEventListener('change', hostessCheck);
       el.addEventListener('blur', hostessCheck);
-      el.addEventListener('input', function () { clearError(id.replace('f-', '')); });
-    });
+      el.addEventListener('input', function () { clearError('hcity'); });
+    })();
     var skipBtn = $('f-hostess-skip');
     if (skipBtn) skipBtn.addEventListener('click', function () { setHost(false, true); });
     /* the dim button still listens: a hover or a click explains what is missing */

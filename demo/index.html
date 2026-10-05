@@ -1658,6 +1658,18 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 .addon-q-avail.wait{color:var(--ink3)}
 .addon-q-skip{margin-top:.5rem;background:none;border:0;color:var(--ink3);text-decoration:underline;font:inherit;font-size:.84rem;cursor:pointer}
 .wiz-next.dim{opacity:.55;cursor:not-allowed}
+.addon-q-extra .frow{position:relative}
+.dp{position:absolute;z-index:30;top:calc(100% - .4rem);right:0;width:300px;max-width:100%;background:#fff;border:1.5px solid var(--bdr);border-radius:12px;box-shadow:0 12px 32px rgba(0,0,0,.14);padding:.6rem;direction:rtl}
+.dp-h{display:flex;align-items:center;justify-content:space-between;font-weight:600;margin-bottom:.4rem}
+.dp-nav{background:none;border:0;font-size:1.3rem;line-height:1;padding:.2rem .6rem;cursor:pointer;color:var(--green);border-radius:8px}
+.dp-nav:hover{background:var(--green4,#eaf3ee)}
+.dp-g{display:grid;grid-template-columns:repeat(7,1fr);gap:2px}
+.dp-dn{font-size:.72rem;color:var(--ink3);text-align:center;padding:.2rem 0}
+.dp-d{border:0;background:none;font:inherit;font-size:.92rem;padding:.42rem 0;border-radius:8px;cursor:pointer;color:var(--ink)}
+.dp-d:hover:not(:disabled){background:var(--green4,#eaf3ee)}
+.dp-d.today{font-weight:700;color:var(--green)}
+.dp-d.on{background:var(--green);color:#fff;font-weight:600}
+.dp-d:disabled{color:#c8c8c8;cursor:default}
 .addon-q-note{font-size:.72rem;color:var(--ink3);margin-top:.6rem;line-height:1.45}
 </style>
 </head>
@@ -2437,8 +2449,13 @@ buildPricing();
   try{
     const q=new URLSearchParams(location.search);
     if(q.get('offer')==='hostess'){
-      const guests=q.get('guests')||'200', plan=q.get('plan')||'basic';
-      setTimeout(()=>IshurPopup.open('offer-hostess',{plan,guests,hostess:true,hostessLocked:true}),600);
+      /* Richard 05/10: ?offer=hostess&guests=600&name=&phone=&date=YYYY-MM-DD&city=
+         opens the order with the lead's details typed in; with a plan the combo is
+         locked, without one he picks the package and whether he wants hostesses */
+      const guests=q.get('guests')||'200', plan=q.get('plan')||'';
+      const pre={guests,hostess:true,hostessLocked:!!plan,name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
+      if(plan) pre.plan=plan;
+      setTimeout(()=>IshurPopup.open('offer-hostess',pre),600);
     }
   }catch(e){}
 })();
@@ -2653,7 +2670,8 @@ window.addEventListener('load',()=>{
           <div class="addon-q-extra" id="f-hostess-extra" hidden>
             <div class="frow">
               <label for="f-hdate">תאריך האירוע</label>
-              <input type="date" id="f-hdate" autocomplete="off">
+              <input type="text" id="f-hdate" readonly placeholder="בחרו תאריך" autocomplete="off" role="combobox" aria-haspopup="dialog" aria-expanded="false" style="cursor:pointer">
+              <div class="dp" id="f-hdate-dp" hidden></div>
               <p class="ferr" id="e-hdate" aria-live="polite"></p>
             </div>
             <div class="frow">
@@ -2726,6 +2744,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=27demo"></script>
+<script src="assets/popup.js?v=28demo"></script>
 </body>
 </html>
