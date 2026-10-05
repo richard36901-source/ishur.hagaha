@@ -62,7 +62,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=62"></script>
+<script src="config.js?v=63"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -1649,6 +1649,14 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 .addon-q-opt[aria-checked="true"]{border-color:var(--green);background:var(--green4,#eaf3ee);font-weight:600}
 .addon-q-opt b{font-family:'Rubik',sans-serif;color:var(--green)}
 .addon-q-opt:disabled{opacity:.6;cursor:default}
+.addon-q-extra{margin-top:.8rem;padding:.8rem;border:1.5px dashed var(--bdr);border-radius:12px;background:#fff}
+.addon-q-extra .frow{margin-bottom:.5rem}
+.addon-q-avail{margin:.4rem 0 0;font-size:.86rem;font-weight:600}
+.addon-q-avail.ok{color:var(--green)}
+.addon-q-avail.bad{color:#b42318}
+.addon-q-avail.wait{color:var(--ink3)}
+.addon-q-skip{margin-top:.5rem;background:none;border:0;color:var(--ink3);text-decoration:underline;font:inherit;font-size:.84rem;cursor:pointer}
+.wiz-next.dim{opacity:.55;cursor:not-allowed}
 .addon-q-note{font-size:.72rem;color:var(--ink3);margin-top:.6rem;line-height:1.45}
 </style>
 </head>
@@ -2641,6 +2649,20 @@ window.addEventListener('load',()=>{
             <button type="button" class="addon-q-opt" id="f-hostess-no" role="radio" aria-checked="true">לא, בלי דיילות</button>
           </div>
           <input type="checkbox" id="f-hostess" hidden>
+          <div class="addon-q-extra" id="f-hostess-extra" hidden>
+            <div class="frow">
+              <label for="f-hdate">תאריך האירוע</label>
+              <input type="date" id="f-hdate" autocomplete="off">
+              <p class="ferr" id="e-hdate" aria-live="polite"></p>
+            </div>
+            <div class="frow">
+              <label for="f-hcity">עיר האירוע</label>
+              <input type="text" id="f-hcity" placeholder="למשל: רעננה" autocomplete="address-level2">
+              <p class="ferr" id="e-hcity" aria-live="polite"></p>
+            </div>
+            <p class="addon-q-avail" id="f-hostess-avail" hidden aria-live="polite"></p>
+            <button type="button" class="addon-q-skip" id="f-hostess-skip">להמשיך בלי דיילות</button>
+          </div>
           <div class="addon-q-note">נסיעות כלולות במרכז (אשקלון עד הרצליה). מחוץ למרכז: תוספת נסיעות 250 ₪ לדיילת אחת, 500 ₪ ל-2 או 3 דיילות, לפי כתובת האירוע.</div>
         </div>
 
@@ -2703,6 +2725,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=25"></script>
+<script src="assets/popup.js?v=26"></script>
 </body>
 </html>
