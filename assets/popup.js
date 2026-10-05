@@ -901,8 +901,15 @@ window.IshurPopup = (function () {
     function hostessCheck() {
       S.hDate = ($('f-hdate') && $('f-hdate').value) || '';
       S.hCity = (($('f-hcity') && $('f-hcity').value) || '').trim();
-      S.hostessAvail = null; S.hostessPay = ''; S.hostessTravel = 0;
+      S.hostessAvail = null; S.hostessPay = '';
       if (!S.hDate || S.hCity.length < 2 || !S.guests || S.guests === 'custom' || !S.plan) { setAvail(''); paintPayBtn(); updateTotal(); return; }
+      /* price first, from the city, before the server answers: the client sees
+         the travel line in the total the moment the city is typed */
+      try {
+        var tierN = (CFG.hostessTier(S.guests) || {}).count || 1;
+        S.hostessTravel = CFG.hostessIsCenter(S.hCity) ? 0 : (CFG.HOSTESS.travelFor ? CFG.HOSTESS.travelFor(tierN) : CFG.HOSTESS.travel);
+      } catch (e) {}
+      updateTotal();
       var seq = ++hostessSeq;
       setAvail(MSG.hcheck, 'wait'); paintPayBtn();
       fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
