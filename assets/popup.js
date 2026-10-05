@@ -67,7 +67,7 @@ window.IshurPopup = (function () {
 
   /* ══ state ════════════════════════════════════════════════════════════════ */
 
-  var S = { step: 1, name: '', phone: '', email: '', occasion: '', guests: '', plan: '', consent: false };
+  var S = { step: 1, name: '', phone: '', email: '', occasion: '', guests: '', plan: '', consent: false, hostess: false, hostessLocked: false };
   var open = false;
   var lastTrigger = null;
   var cancelSheet = null;
@@ -303,16 +303,27 @@ window.IshurPopup = (function () {
     if (fine) fine.hidden = false;
     btn.textContent = 'המשך לתשלום';
     var pr = priceOf(S.guests, S.plan);
+    /* the hostess line follows the quantity: its tier and price redraw here */
+    var hRow = $('f-hostess-row'), hTier = CFG.hostessTier(S.guests), hPrice = hTier ? hTier.price : null;
+    if (hRow) {
+      hRow.hidden = !(S.guests && S.guests !== 'custom' && hTier);
+      var hp = $('f-hostess-price'), hl = $('f-hostess-tier');
+      if (hp) hp.textContent = hPrice ? '₪' + hPrice : '';
+      if (hl) hl.textContent = hTier ? hTier.label + ' · עד ' + hTier.max + ' רשומות' : '';
+    }
+    var withHost = S.hostess && hPrice != null;
     if (pr.final != null) {
       t.hidden = false;
       t.className = 'pop-total' + (pr.applies ? ' cut' : '');
+      var total = pr.final + (withHost ? hPrice : 0);
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +
                     CFG.guestLabel(S.guests) +
+                    (withHost ? ' · ' + hTier.label : '') +
                     (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' : '') +
                     '</span>' +
                     '<span class="pt-v">' +
-                      (pr.applies ? '<s>₪' + pr.original + '</s> ' : '') +
-                      '₪' + pr.final +
+                      (pr.applies ? '<s>₪' + (pr.original + (withHost ? hPrice : 0)) + '</s> ' : '') +
+                      '₪' + total +
                     '</span>';
     } else {
       t.hidden = true;
@@ -397,13 +408,15 @@ window.IshurPopup = (function () {
       to.classList.toggle('from-prev', dir === 'back');
     }
 
-    var d1 = $('wd1'), d2 = $('wd2'), lbl = $('wiz-lbl');
+    var d1 = $('wd1'), d2 = $('wd2'), d3 = $('wd3'), lbl = $('wiz-lbl');
     if (d1) d1.classList.toggle('done', true);
     if (d2) d2.classList.toggle('done', n >= 2);
+    if (d3) d3.classList.toggle('done', n >= 3);
     if (lbl) lbl.textContent = S.quote ? ('הצעה אישית · מעל 900 הזמנות' +
                                           (S.plan && CFG.PLANS[S.plan] ? ' · חבילת ' + CFG.PLANS[S.plan].name : ''))
-                             : n === 1 ? 'שלב 1 מתוך 2 · הפרטים שלכם'
-                                       : 'שלב 2 מתוך 2 · פרטי האירוע';
+                             : n === 1 ? 'שלב 1 מתוך 3 · הפרטים שלכם'
+                             : n === 2 ? 'שלב 2 מתוך 3 · פרטי האירוע'
+                                       : 'שלב 3 מתוך 3 · דיילות ותשלום';
 
     var box = $('order-modal-box');
     if (box) box.scrollTop = 0;
@@ -438,7 +451,20 @@ window.IshurPopup = (function () {
     setStep(2, 'next');
   }
 
-  function back() { setStep(1, 'back'); }
+  function back() { setStep(Math.max(1, S.step - 1), 'back'); }
+
+  function next2() {
+    var ok = true;
+    if (!S.occasion && S.guests !== 'custom') { showError('occasion', MSG.occasion); ok = false; }
+    if (!S.guests) { showError('guests', MSG.guests); ok = false; }
+    if (!S.plan) { var pe = $('e-plan2'); if (pe) { pe.textContent = MSG.plan; pe.classList.add('on'); } ok = false; }
+    if (!ok) return;
+    var pe2 = $('e-plan2'); if (pe2) { pe2.textContent = ''; pe2.classList.remove('on'); }
+    if (S.guests === 'custom') { submit(); return; }
+    IshurLead.track('order_step3', { guests: S.guests, plan: S.plan });
+    setStep(3);
+    updateTotal();
+  }
 
   function submit() {
     var ok = true;
@@ -462,7 +488,8 @@ window.IshurPopup = (function () {
     var fields = {
       name: S.name, phone: S.phone, email: S.email,
       occasion: S.occasion, guests: S.guests, plan: S.plan,
-      consent: S.consent
+      consent: S.consent,
+      hostess: S.hostess ? (CFG.hostessTier(S.guests) || {}).count || 1 : 0
     };
 
     /* timestamped consent record — lands as its own line in the lead history */
@@ -484,7 +511,7 @@ window.IshurPopup = (function () {
       return;
     }
 
-    var url = CFG.growLink(S.guests, S.plan);
+    var url = S.hostess ? CFG.hostessLink(S.guests, S.plan) : CFG.growLink(S.guests, S.plan);
 
     /* A validated promo code swaps the LINK, never the price shown. The cheap
        Grow link is not in this repo at all: /promo/go holds a seat and 302s to
@@ -505,7 +532,9 @@ window.IshurPopup = (function () {
       /* no link configured for this combination: never a dead end */
       IshurLead.track('payment_link_missing', { tier: S.guests + '_' + S.plan });
       location.href = CFG.waLink('היי, רציתי לשלם על חבילת ' + CFG.PLANS[S.plan].name +
-                                 ' ל' + CFG.guestLabel(S.guests) + ' ולא הצלחתי להשלים באתר.');
+                                 ' ל' + CFG.guestLabel(S.guests) +
+                                 (S.hostess ? ' עם ' + (CFG.hostessTier(S.guests) || {}).label : '') +
+                                 ' ולא הצלחתי להשלים באתר.');
       return;
     }
 
@@ -518,7 +547,7 @@ window.IshurPopup = (function () {
   function showQuoteOk() {
     var inner = $('order-modal-inner');
     if (!inner) return;
-    ['ws1', 'ws2'].forEach(function (id) {
+    ['ws1', 'ws2', 'ws3'].forEach(function (id) {
       var el = $(id); if (el) el.classList.remove('active');
     });
     var prog = inner.querySelector('.wiz-progress'); if (prog) prog.hidden = true;
@@ -556,7 +585,11 @@ window.IshurPopup = (function () {
     lastTrigger = document.activeElement;
     resetQuoteOk();
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false;
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false; S.hostess = false; S.hostessLocked = false; S.hostessTouched = false;
+    var hb = $('f-hostess'); if (hb) { hb.checked = false; hb.disabled = false; }
+    var hy = $('f-hostess-yes'), hn = $('f-hostess-no');
+    if (hy) hy.setAttribute('aria-checked', 'false');
+    if (hn) { hn.setAttribute('aria-checked', 'true'); hn.disabled = false; }
     var cb = $('f-consent'); if (cb) cb.checked = false;
     ['name', 'phone', 'email', 'occasion', 'guests', 'plan'].forEach(clearError);
 
@@ -574,7 +607,9 @@ window.IshurPopup = (function () {
        quantity rides along too; over 900 collapses the flow to one step. */
     if (pre && pre.plan) {
       S.plan = pre.plan;
-      S.locked = true;
+      /* Richard 04/10: the tapped package is pre-selected, the others stay
+         visible so they can change their mind. Only a dedicated offer link locks. */
+      S.locked = !!pre.hostessLocked;
       if (pre.guests === 'custom') {
         S.guests = 'custom';
         S.quote = true;
@@ -588,6 +623,25 @@ window.IshurPopup = (function () {
           if (window.IshurSelect && gsel.dataset.enhanced) IshurSelect.refresh(gsel);
         }
       }
+    }
+
+    /* add-on card: a quantity without a package rides in, nothing locked */
+    if (pre && !pre.plan && pre.guests && pre.guests !== 'custom') {
+      S.guests = pre.guests;
+      var gsel0 = $('f-guests');
+      if (gsel0) { gsel0.value = pre.guests; if (window.IshurSelect && gsel0.dataset.enhanced) IshurSelect.refresh(gsel0); }
+    }
+
+    /* hostesses pre-ticked (pricing add-on card, or a dedicated offer link):
+       the box arrives checked, and on an offer it cannot be unchecked */
+    if (pre && pre.hostess) {
+      S.hostess = true;
+      S.hostessLocked = !!pre.hostessLocked;
+      var hb2 = $('f-hostess');
+      if (hb2) { hb2.checked = true; hb2.disabled = S.hostessLocked; }
+      var y2 = $('f-hostess-yes'), n2 = $('f-hostess-no');
+      if (y2) y2.setAttribute('aria-checked', 'true');
+      if (n2) { n2.setAttribute('aria-checked', 'false'); n2.disabled = S.hostessLocked; }
     }
 
     /* locked quantity: the select steps aside for a read-only field that
@@ -684,6 +738,10 @@ window.IshurPopup = (function () {
     if (nextBtn) nextBtn.addEventListener('click', next);
     var backBtn = $('pop-back');
     if (backBtn) backBtn.addEventListener('click', back);
+    var backBtn2 = $('pop-back2');
+    if (backBtn2) backBtn2.addEventListener('click', back);
+    var nextBtn2 = $('pop-next2');
+    if (nextBtn2) nextBtn2.addEventListener('click', next2);
     var subBtn = $('pop-submit');
     if (subBtn) subBtn.addEventListener('click', submit);
 
@@ -775,14 +833,33 @@ window.IshurPopup = (function () {
       clearError('occasion');
       /* pre-select the package that fits this occasion, they can override —
          unless the package came fixed from the pricing block */
-      if (S.occasion && !S.locked) S.plan = CFG.recommendedPlan(S.occasion);
+      if (S.occasion && !S.locked && !S.plan) S.plan = CFG.recommendedPlan(S.occasion);
       renderPlans();
     });
+
+    var hbx = $('f-hostess');
+    function setHost(on, touched) {
+      if (S.hostessLocked && !on) return;
+      S.hostess = !!on;
+      if (touched) S.hostessTouched = true;
+      if (hbx) hbx.checked = S.hostess;
+      var y = $('f-hostess-yes'), nn = $('f-hostess-no');
+      if (y) y.setAttribute('aria-checked', S.hostess ? 'true' : 'false');
+      if (nn) nn.setAttribute('aria-checked', S.hostess ? 'false' : 'true');
+      IshurLead.track('hostess_toggle', { on: S.hostess, guests: S.guests || '' });
+      updateTotal();
+    }
+    window.__setHost = setHost;
+    var yBtn = $('f-hostess-yes'), nBtn = $('f-hostess-no');
+    if (yBtn) yBtn.addEventListener('click', function () { setHost(true, true); });
+    if (nBtn) nBtn.addEventListener('click', function () { setHost(false, true); });
 
     var g = $('f-guests');
     if (g) g.addEventListener('change', function () {
       S.guests = g.value;
       clearError('guests');
+      /* Richard 04/10: hostesses start on "no" for every size; the customer opts in. */
+
       /* over 900 picked mid-flow: the details from step 1 are already in
          hand, so the request goes out right here and the flow ends */
       if (g.value === 'custom') {

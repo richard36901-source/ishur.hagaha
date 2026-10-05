@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=60"></script>
+<script src="config.js?v=62"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -469,6 +469,22 @@
       </div>
     </div>
 
+    <div class="sec" id="hostessSec" hidden>
+      <div class="sec-h">דיילות באירוע</div>
+      <div class="addons">
+        <div class="addon" id="hostessRow">
+          <div class="addon-m">👩‍💼</div>
+          <div class="addon-b">
+            <div class="addon-t" id="hostessT">דיילות</div>
+            <div class="addon-d" id="hostessD">מגיעות שעה לפני קבלת הפנים, עם הלוח שלנו ביד.</div>
+            <div class="addon-d" id="hostessTravel" style="margin-top:.4rem"></div>
+          </div>
+          <div id="hostessAct"></div>
+        </div>
+      </div>
+      <p class="hint-s">הנסיעות נקבעות לפי העיר שהזנתם למעלה. במרכז (אשקלון עד הרצליה) הן כלולות.</p>
+    </div>
+
     <div class="sec">
       <div class="sec-h" id="styleHead">סגנון ההודעה</div>
       <div id="stylesWrap">
@@ -678,7 +694,6 @@
   $('okWa').href = CFG.waLink('היי, רציתי לעדכן משהו בהגדרות האירוע.');
   if (eventName) { $('eventName').textContent = eventName; $('eventName').hidden = false; }
   if (CFG.isSet(CFG.TEMPLATE_URL)) { $('tmplLink').href = CFG.TEMPLATE_URL; $('tmplRow').hidden = false; }
-
   /* no token means there is nothing to upload against, and the form never
      renders, so a guessed URL cannot reach it */
   if (!token) {
@@ -1061,6 +1076,40 @@
      ───────────────────────────────────────────────────────────────────── */
 
   var plan = (qs.get('p') || '').trim() || 'basic';
+  /* ── hostesses (demo): ?h=<count> says the customer bought them with the
+     package. The travel fee follows the city typed above. ── */
+  function initHostess(n) {
+    var sec = $('hostessSec'); if (!sec || !n || !CFG.HOSTESS || sec.dataset.on) return;
+    sec.dataset.on = '1';
+    sec.hidden = false;
+    var H = CFG.HOSTESS;
+    $('hostessT').textContent = (n === 1 ? 'דיילת אחת' : n + ' דיילות') + ' · כלול בהזמנה';
+    function draw() {
+      var city = ($('f-city').value || '').trim();
+      var center = CFG.hostessIsCenter(city);
+      var tr = $('hostessTravel'), act = $('hostessAct');
+      if (!city) { tr.textContent = 'הזינו עיר כדי לדעת אם יש תוספת נסיעות.'; act.innerHTML = ''; return; }
+      if (center) {
+        tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + city + ' באזור המרכז';
+        act.innerHTML = '<span class="addon-inc">כלול</span>';
+      } else {
+        var sum = H.travel; /* Richard 05/10: flat 250, not per hostess */
+        tr.innerHTML = city + ' מחוץ למרכז: <b>תוספת נסיעות חד-פעמית ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
+        act.innerHTML = '<button type="button" class="addon-buy" id="hostessPay">₪' + sum + '</button>';
+        var b = $('hostessPay');
+        if (b) b.addEventListener('click', function () {
+          var url = H.travelLink;
+          IshurLead.track('hostess_travel_click', { city: city, n: n, sum: sum });
+          location.href = url ? url : CFG.waLink('היי, האירוע שלי ב' + city + ' ואני צריך/ה לשלם נסיעות לדיילות (₪' + sum + ').');
+        });
+      }
+    }
+    $('f-city').addEventListener('input', draw);
+    $('f-city').addEventListener('blur', draw);
+    draw();
+    S.hostess = n;
+  }
+  initHostess(parseInt(qs.get('h') || '0', 10));
   var guests = (qs.get('g') || '').trim();
 
   /* the WhatsApp link carries only the token, so the real package comes from
@@ -1075,6 +1124,7 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.event) return;
+        if (d.hostess && d.hostess.n) initHostess(d.hostess.n);
         var byName = {};
         Object.keys(CFG.PLANS || {}).forEach(function (k) { byName[CFG.PLANS[k].name] = k; });
         var key = byName[String(d.event.plan || '').trim()];
@@ -1447,6 +1497,8 @@
       venue_name: $('f-venue').value.trim(),
       venue_addr: $('f-addr').value.trim(),
       venue_city: $('f-city').value.trim(),
+      hostess_count: S.hostess || 0,
+      hostess_center: S.hostess ? CFG.hostessIsCenter($('f-city').value.trim()) : null,
       style: S.style,
       plan: plan,
       event_description: ($('f-extra').value || '').trim(),

@@ -62,7 +62,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=60"></script>
+<script src="config.js?v=62"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -977,8 +977,8 @@ body.modal-open #cookie-bar{
   transition:transform .18s cubic-bezier(.2,.9,.3,1.3),opacity .12s;
   margin-bottom:2px;
 }
-.consent input:checked + .consent-box{background:var(--green);border-color:var(--green)}
-.consent input:checked + .consent-box::after{transform:rotate(-45deg) scale(1);opacity:1}
+.consent input:checked + .consent-box,.addon-row input:checked + .consent-box{background:var(--green);border-color:var(--green)}
+.consent input:checked + .consent-box::after,.addon-row input:checked + .consent-box::after{transform:rotate(-45deg) scale(1);opacity:1}
 .consent:active .consent-box{transform:scale(.9)}
 .consent input:focus-visible + .consent-box{outline:2px solid var(--green);outline-offset:2px}
 .consent-txt{font-size:.79rem;color:var(--ink3);line-height:1.5}
@@ -1612,6 +1612,44 @@ body.has-promo #nav{top:var(--promo-h,34px)}
   #promo-ok:active{transform:none}
 }
 
+
+/* ── hostess add-on (demo) ── */
+.addon-row{display:flex;align-items:flex-start;gap:.75rem;padding:.8rem .95rem;background:var(--bg2);border:2px solid var(--bdr);border-radius:10px;margin-top:.7rem;cursor:pointer;transition:border-color .2s}
+.addon-row:has(input:checked){border-color:var(--green)}
+.addon-row input{position:absolute;opacity:0;width:0;height:0}
+.addon-row .consent-box{margin-top:.15rem;flex-shrink:0}
+.addon-row .ad-txt{flex:1;min-width:0}
+.addon-row .ad-name{display:block;font-weight:600;font-size:.92rem;color:var(--ink)}
+.addon-row .ad-tier{display:block;font-size:.76rem;color:var(--ink3);margin-top:.15rem}
+.addon-row .ad-note{display:block;font-size:.72rem;color:var(--ink3);margin-top:.3rem;line-height:1.45}
+.addon-row .ad-price{font-family:'Rubik',sans-serif;font-weight:700;color:var(--green);font-size:1.05rem;white-space:nowrap}
+.addon-row[hidden]{display:none}
+.addon-row input:disabled~.consent-box{opacity:.6}
+.pr-addons{max-width:720px;margin:2.2rem auto 0}
+.pr-addons-t{text-align:center;font-family:'Rubik',sans-serif;font-weight:600;font-size:1.05rem;color:var(--ink);margin-bottom:.9rem}
+.pr-addons-g{display:grid;grid-template-columns:1fr;gap:.9rem}
+@media(min-width:640px){.pr-addons-g{grid-template-columns:1fr 1fr}}
+.pr-addon{background:var(--bg2);border:1px solid var(--bdr);border-radius:14px;padding:1.1rem 1.15rem;display:flex;flex-direction:column;gap:.55rem}
+.pr-addon h4{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:.5rem}
+.pr-addon .soon{font-size:.68rem;font-weight:500;color:var(--green);border:1px solid var(--green);border-radius:999px;padding:.1rem .5rem}
+.pr-addon p{font-size:.84rem;color:var(--ink3);line-height:1.55}
+.pr-addon table{width:100%;border-collapse:collapse;font-size:.84rem}
+.pr-addon td{padding:.35rem 0;border-bottom:1px dashed var(--bdr);color:var(--ink2)}
+.pr-addon td:last-child{text-align:left;font-family:'Rubik',sans-serif;font-weight:600;color:var(--ink)}
+.pr-addon .fine{font-size:.72rem;color:var(--ink3);line-height:1.45}
+.pr-addon .btn{align-self:flex-start;margin-top:.25rem;padding:.55rem 1rem;font-size:.85rem}
+
+.addon-q{border:1px solid var(--bdr);border-radius:12px;padding:.9rem 1rem;background:var(--bg2);margin-top:.4rem}
+.addon-q[hidden]{display:none}
+.addon-q-t{font-family:'Rubik',sans-serif;font-weight:600;font-size:1rem;color:var(--ink)}
+.addon-q-d{font-size:.8rem;color:var(--ink3);margin-top:.3rem;line-height:1.5}
+.addon-q-rec{font-size:.78rem;color:var(--green);margin-top:.35rem;font-weight:500}
+.addon-q-opts{display:flex;gap:.5rem;margin-top:.7rem;flex-wrap:wrap}
+.addon-q-opt{flex:1;min-width:140px;padding:.65rem .8rem;border:2px solid var(--bdr);border-radius:10px;background:#fff;font:inherit;font-size:.9rem;color:var(--ink);cursor:pointer;transition:border-color .2s,background .2s}
+.addon-q-opt[aria-checked="true"]{border-color:var(--green);background:var(--green4,#eaf3ee);font-weight:600}
+.addon-q-opt b{font-family:'Rubik',sans-serif;color:var(--green)}
+.addon-q-opt:disabled{opacity:.6;cursor:default}
+.addon-q-note{font-size:.72rem;color:var(--ink3);margin-top:.6rem;line-height:1.45}
 </style>
 </head>
 <body>
@@ -1691,6 +1729,7 @@ body.has-promo #nav{top:var(--promo-h,34px)}
           <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg></div><div><strong>מעקב תשובות</strong><p>כן, לא, וכמה מגיעים. הכל מתועד ומסודר</p></div></div>
           <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 6-3 7-3 7h18s-3-1-3-7Z"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div><div><strong>תזכורות אוטומטיות</strong><p>למי שלא ענה, בלי שתצטרכו לבקש</p></div></div>
           <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6v3H9z"/><path d="M15 4.5h2.5A1.5 1.5 0 0 1 19 6v13.5A1.5 1.5 0 0 1 17.5 21h-11A1.5 1.5 0 0 1 5 19.5V6a1.5 1.5 0 0 1 1.5-1.5H9"/><path d="M8.5 11h7M8.5 15h4.5"/></svg></div><div><strong>דוחות שוטפים</strong><p>כל כמה ימים ישירות לוואטסאפ שלכם</p></div></div>
+          <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="3.5"/><path d="M4 21v-1a6 6 0 0 1 6-6h4a6 6 0 0 1 6 6v1"/></svg></div><div><strong>דיילות ביום האירוע</strong><p>תוספת לכל חבילה: מקבלות אורחים, מסמנות הגעה בלוח ומכוונות לשולחנות</p></div></div>
           <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><circle cx="12" cy="12" r="4.5"/><circle cx="12" cy="12" r="1"/></svg></div><div><strong>סיכום ביום האירוע</strong><p>כמה מגיעים וכמה לא, ברור ונקי</p></div></div>
           <div class="feat fi"><div class="feat-ico2"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 1.1 4.2 2 2 0 0 1 3.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L7.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.5 2.8.6a2 2 0 0 1 1.7 2Z"/></svg></div><div><strong>שיחת טלפון מסוכן AI</strong><p>למוזמנים שלא ענו, סוכנת ה-AI שלנו מתקשרת ומאשרת בשמם</p></div></div>
         </div>
@@ -1884,7 +1923,25 @@ body.has-promo #nav{top:var(--promo-h,34px)}
            dead or spent code explains itself. -->
       <p id="pr-code-msg" class="promo-msg" role="status" aria-live="polite"></p>
 
-      <p class="pr-note">לחצו על "בחירה" בחבילה שמתאימה לכם. המחירים כוללים מע״מ.</p>
+      <p class="pr-note">לחצו על "בחירה" בחבילה שמתאימה לכם. המחירים כוללים מע״מ. <b>סידורי הושבה כלולים חינם בכל החבילות.</b></p>
+    </div>
+
+    <div class="pr-addons fi" id="pr-addons">
+      <div class="pr-addons-t">תוספות לאירוע</div>
+      <div class="pr-addons-g">
+        <div class="pr-addon" id="addon-hostess">
+          <h4>דיילות באירוע</h4>
+          <p id="addon-hostess-desc"></p>
+          <table id="addon-hostess-tbl"></table>
+          <p class="fine" id="addon-hostess-fine"></p>
+          <button type="button" class="btn btn-green" id="addon-hostess-go">הוסיפו דיילות להזמנה</button>
+        </div>
+        <div class="pr-addon" id="addon-gifts">
+          <h4>מתנות באשראי <span class="soon">בקרוב</span></h4>
+          <p id="addon-gifts-desc"></p>
+          <p class="fine">ללא עלות לבעלי האירוע. האורח משלם דמי סליקה קטנים, כמו בכל אתר תשלומים.</p>
+        </div>
+      </div>
     </div>
   </div>
 </section>
@@ -2352,6 +2409,30 @@ function renderPlans(guests){
   });
 }
 buildPricing();
+// ═══ ADD-ONS (demo) ═══ hostess card from CFG.HOSTESS, gifts card from CFG.GIFTS
+(()=>{
+  const H=CFG.HOSTESS, G=CFG.GIFTS;
+  const d=document.getElementById('addon-hostess-desc'); if(d) d.textContent=H.desc;
+  const t=document.getElementById('addon-hostess-tbl');
+  if(t) t.innerHTML=H.tiers.map((x,i)=>{const from=i?H.tiers[i-1].max+1:0; const rng=i?`${from}–${x.max} רשומות`:`עד ${x.max} רשומות`; return `<tr><td>${x.label} · ${rng}</td><td>₪${x.price.toLocaleString('he-IL')}</td></tr>`;}).join('');
+  const f=document.getElementById('addon-hostess-fine'); if(f) f.textContent=H.travelNote+' המחירים כוללים מע״מ ומתווספים לחבילה.';
+  const gd=document.getElementById('addon-gifts-desc'); if(gd) gd.textContent=G.desc;
+  const go=document.getElementById('addon-hostess-go');
+  if(go) go.addEventListener('click',()=>{
+    const sel=document.getElementById('pr-guests');
+    push('addon_hostess_click',{guests:sel?sel.value:''});
+    IshurPopup.open('addon-hostess',{guests:(sel&&sel.value!=='custom')?sel.value:'',hostess:true});
+  });
+  /* dedicated offer link for a lead who was quoted "package + hostesses":
+     ?offer=hostess&guests=200&plan=basic opens the order fixed on that combo */
+  try{
+    const q=new URLSearchParams(location.search);
+    if(q.get('offer')==='hostess'){
+      const guests=q.get('guests')||'200', plan=q.get('plan')||'basic';
+      setTimeout(()=>IshurPopup.open('offer-hostess',{plan,guests,hostess:true,hostessLocked:true}),600);
+    }
+  }catch(e){}
+})();
 (()=>{
   const go=document.getElementById('stickyGo'), bar=document.getElementById('stickyCta');
   if(go&&bar) go.addEventListener('click',()=>{ IshurPopup.open('sticky',{plan:'basic',guests:bar.dataset.guests||''}); });
@@ -2474,8 +2555,9 @@ window.addEventListener('load',()=>{
       <div class="wiz-progress" aria-hidden="true">
         <div class="wiz-dot" id="wd1"></div>
         <div class="wiz-dot" id="wd2"></div>
+        <div class="wiz-dot" id="wd3"></div>
       </div>
-      <div class="wiz-step-lbl" id="wiz-lbl">שלב 1 מתוך 2 · הפרטים שלכם</div>
+      <div class="wiz-step-lbl" id="wiz-lbl">שלב 1 מתוך 3 · הפרטים שלכם</div>
 
       <!-- STEP 1 · details -->
       <div class="wiz-step active" id="ws1">
@@ -2539,6 +2621,29 @@ window.addEventListener('load',()=>{
         <div class="plan-opts" id="f-plans" role="radiogroup" aria-labelledby="plans-lbl"></div>
         <p class="ferr" id="e-plan" aria-live="polite"></p>
 
+        <p class="ferr" id="e-plan2" aria-live="polite"></p>
+        <div class="wiz-nav">
+          <button type="button" class="wiz-back" id="pop-back2">חזרה</button>
+          <button type="button" class="wiz-next" id="pop-next2">המשך</button>
+        </div>
+      </div>
+
+      <!-- STEP 3 · hostesses + pay -->
+      <div class="wiz-step" id="ws3">
+        <h3 class="o-title">דיילות באירוע</h3>
+        <p class="pop-sub">תוספת לכל חבילה. אפשר להוסיף עכשיו או לדלג, ההזמנה לא משתנה.</p>
+        <div class="addon-q" id="f-hostess-row" hidden>
+          <div class="addon-q-t">רוצים להוסיף דיילות לאירוע?</div>
+          <div class="addon-q-d">מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. <span id="f-hostess-tier"></span></div>
+          <div class="addon-q-rec">מומלץ לאירוע מעל 200 איש, או לאירוע קטן שרוצים לתת בו הרגשת פרמיום.</div>
+          <div class="addon-q-opts" role="radiogroup" aria-label="דיילות">
+            <button type="button" class="addon-q-opt" id="f-hostess-yes" role="radio" aria-checked="false">כן, להוסיף <b id="f-hostess-price"></b></button>
+            <button type="button" class="addon-q-opt" id="f-hostess-no" role="radio" aria-checked="true">לא, בלי דיילות</button>
+          </div>
+          <input type="checkbox" id="f-hostess" hidden>
+          <div class="addon-q-note">נסיעות כלולות במרכז (אשקלון עד הרצליה). מחוץ למרכז: תוספת נסיעות חד-פעמית 250 ₪, לפי כתובת האירוע.</div>
+        </div>
+
         <div class="pop-total" id="pop-total" hidden aria-live="polite"></div>
 
         <div class="next-up">
@@ -2598,6 +2703,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=23"></script>
+<script src="assets/popup.js?v=25"></script>
 </body>
 </html>

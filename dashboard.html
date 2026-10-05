@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=60"></script>
+<script src="config.js?v=62"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -598,7 +598,7 @@
   <section class="card">
     <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
-    <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם או טלפון"></div>
+    <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>
     <p class="list-sum" id="listSum"></p>
     <div class="seat-bar" id="seatBar" hidden>
       <button type="button" id="seatSave">שמירת שיבוץ שולחנות</button>
@@ -687,6 +687,22 @@
           <button type="button" class="buy" id="navSave">שמירה</button>
         </div>
         <p id="navMsg" style="font-size:.78rem;color:var(--ink3);margin:.35rem 0 0">יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.</p>
+      </div>
+      <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)" id="giftBox">
+        <label style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור למתנה (ביט / פייבוקס) · חינם, לא חובה</label>
+        <p style="font-size:.78rem;color:var(--ink3);margin:0 0 .5rem">אורח ששואל איך לתת מתנה יקבל את הקישור אוטומטית. כבוי כברירת מחדל.</p>
+        <div style="display:flex;gap:.45rem;margin-bottom:.4rem">
+          <input id="giftBit" placeholder="קישור ביט (bit.co.il)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
+        </div>
+        <div style="display:flex;gap:.45rem;margin-bottom:.5rem">
+          <input id="giftPaybox" placeholder="קישור פייבוקס (payboxapp.com)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
+        </div>
+        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:.4rem;font-size:.86rem;cursor:pointer"><input type="checkbox" id="giftOn" style="width:1.1rem;height:1.1rem"> לשלוח את הקישור לאורחים</label>
+          <button type="button" class="buy" id="giftSave">שמירה</button>
+          <span id="giftMsg" style="font-size:.78rem;color:var(--ink3)"></span>
+        </div>
+        <p style="font-size:.74rem;color:var(--ink3);margin:.4rem 0 0">בקרוב: מתנה באשראי דרכנו.</p>
       </div>
     </div>
   </section>
@@ -1149,6 +1165,10 @@
       if (!needle) return true;
       var digits = needle.replace(/\D/g, '');
       if ((g.name || '').toLowerCase().indexOf(needle) > -1) return true;
+      /* Richard 04/10: table search. "5" finds table 5 exactly, "שולחן 5" too */
+      var tbl = String(g.table || '').trim().toLowerCase();
+      var tq = needle.replace(/^שולחן\s*/, '');
+      if (tbl && tq && (tbl === tq || tbl.indexOf(tq) > -1)) return true;
       return !!digits && String(g.phone || '').replace(/\D/g, '').indexOf(digits) > -1;
     });
     var sum = list.reduce(function (a, g) { return a + (g.seats || 1); }, 0);
@@ -1524,8 +1544,10 @@
 
   /* ── the group link + premade text, and the navigation link ── */
   (function () {
+    /* demo: show the card with a sample link so the navigation + gift
+       boxes can be reviewed; saving is disabled without a real token */
     if (!token || demo) { $('shareCard').hidden = true; return; }
-    var link = 'https://ishur.io/rsvp.html?t=' + token;
+    var link = 'https://ishur.io/rsvp.html?t=' + (token || 'demo');
     function shareText() {
       var ev = (data && data.event) || {};
       var occ = ev.occasion_label || ev.occasion || 'האירוע';
@@ -1547,6 +1569,25 @@
         if (j && j.ok) { $('navMsg').textContent = u ? 'נשמר ✓ יצורף להזמנה בקישור ולתזכורת של יום לפני' : 'הוסר'; }
         else $('navMsg').textContent = j && j.error === 'not-a-map-link' ? 'זה לא קישור של Waze או Google Maps' : 'לא נשמר, נסו שוב';
       }).catch(function () { $('navSave').disabled = false; $('navMsg').textContent = 'לא נשמר, נסו שוב'; });
+    });
+  })();
+
+  /* ── gift links (Bit / PayBox), under the navigation link ── */
+  (function () {
+    if (!$('giftBox')) return;
+    function paint(j) { if (!j) return; $('giftBit').value = j.bit || ''; $('giftPaybox').value = j.paybox || ''; $('giftOn').checked = !!j.on; }
+    fetch(CFG.endpoint('giftlinks'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+      .then(function (r) { return r.json(); }).then(paint).catch(function () {});
+    $('giftSave').addEventListener('click', function () {
+      var bit = $('giftBit').value.trim(), pb = $('giftPaybox').value.trim(), on = $('giftOn').checked;
+      if (on && !bit && !pb) { $('giftMsg').textContent = 'כדי להפעיל צריך לפחות קישור אחד'; return; }
+      $('giftSave').disabled = true; $('giftMsg').textContent = 'שומר…';
+      fetch(CFG.endpoint('giftlinks'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, bit: bit, paybox: pb, on: on }) })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          $('giftSave').disabled = false; paint(j);
+          if (j && j.ok) $('giftMsg').textContent = j.on ? 'נשמר ✓ הקישור יישלח לאורחים ששואלים על מתנה' : 'נשמר ✓ (כבוי, לא נשלח לאורחים)';
+          else $('giftMsg').textContent = j && j.error === 'not-a-gift-link' ? 'זה לא קישור של ביט או פייבוקס' : 'לא נשמר, נסו שוב';
+        }).catch(function () { $('giftSave').disabled = false; $('giftMsg').textContent = 'לא נשמר, נסו שוב'; });
     });
   })();
 
@@ -1632,7 +1673,7 @@
     $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
       var a = CFG.ADDONS[k];
       var state = CFG.addonState(k, plan, dte);
-      var price = guests ? CFG.addonPrice(k, guests) : null;
+      var price = guests ? (k === 'hostess' && CFG.hostessPrice ? CFG.hostessPrice(guests) : CFG.addonPrice(k, guests)) : null;
 
       /* the call round is the one that shows how many people it would reach,
          so the value is visible before the button is pressed */
@@ -1683,6 +1724,11 @@
       b.addEventListener('click', function () {
         var k = b.dataset.addon;
         IshurLead.track('addon_click', { addon: k, plan: plan, guests: guests, where: 'dashboard' });
+        if (k === 'hostess') {
+          var tier = CFG.hostessTier && CFG.hostessTier(guests);
+          if (tier && tier.link) { location.href = tier.link; return; }
+          location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי.'); return;
+        }
         if (k === 'extra_send') return askScope();
         if (k === 'calls') return payAddon('calls', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');

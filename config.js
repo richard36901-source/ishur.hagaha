@@ -66,7 +66,7 @@ window.ISHUR_CONFIG = (function () {
   var PLANS = {
     basic: {
       key: 'basic', name: 'בסיס', label: 'BASE',
-      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני',
+      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + סידורי הושבה חינם',
       features: [
         'הזמנה דיגיטלית לאורחים',
         '2 הודעות אישורי הגעה בוואטסאפ',
@@ -77,7 +77,7 @@ window.ISHUR_CONFIG = (function () {
     },
     pro: {
       key: 'pro', name: 'פרמיום', label: 'PREMIUM',
-      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + סבב שיחות אחד',
+      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + סבב שיחות אחד + סידורי הושבה חינם',
       features: [
         'כל מה שבחבילת בסיס',
         'סבב שיחות מסוכן AI למי שלא ענה',
@@ -87,7 +87,7 @@ window.ISHUR_CONFIG = (function () {
     },
     premium: {
       key: 'premium', name: 'הכל כלול', label: 'ALL INCLUSIVE',
-      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + 3 סבבי שיחות + הודעת דחייה או ביטול + הודעת תודה יום אחרי האירוע',
+      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + 3 סבבי שיחות + הודעת דחייה או ביטול + הודעת תודה יום אחרי האירוע + סידורי הושבה חינם',
       features: [
         'כל מה שבחבילת פרמיום',
         '3 סבבי שיחות מסוכן AI',
@@ -281,6 +281,11 @@ window.ISHUR_CONFIG = (function () {
      ─────────────────────────────────────────────────────────────────────── */
 
   var ADDONS = {
+    hostess: {
+      label: 'דיילות באירוע',
+      desc: 'מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. מומלץ מעל 200 איש. מחוץ למרכז: תוספת נסיעות חד-פעמית 250 ₪',
+      plans: []
+    },
     extra_send: {
       label: 'שליחה נוספת',
       desc: 'תזכורת נוספת לכל הרשימה בתאריך שתבחרו, למשל שבוע לפני האירוע',
@@ -315,6 +320,95 @@ window.ISHUR_CONFIG = (function () {
       desc: 'הודעה לכל הרשימה על ביטול',
       plans: ['premium']
     }
+  };
+
+  /* ══ HOSTESSES (דיילות) ═══ add-on on top of any package, priced by tier ══
+     Agreed 04/10/26. Prices include VAT. The tier is decided by the guest
+     count the customer already picked, never by the package. Travel outside
+     the center (+250 per hostess) is billed through one separate Grow link
+     after the order, so it never multiplies the link table. */
+  var HOSTESS = {
+    label: 'דיילות באירוע',
+    short: 'דיילות',
+    desc: 'דיילות מצוות ishur עם הלוח שלנו ביד: מקבלות אורחים, מסמנות הגעה בזמן אמת ומכוונות לשולחנות.',
+    tiers: [
+      { max: 200, count: 1, price: 1790, label: 'דיילת אחת', link: 'https://pay.grow.link/NTY2OTg~8aa5bfc13392e609223168761043b5ee-NDA3Nzc0MA' },
+      { max: 500, count: 2, price: 2390, label: '2 דיילות', link: 'https://pay.grow.link/NTY2OTg~9ebc7cea776b48b10bcf7e6dda923f51-NDA3Nzc0MQ' },
+      { max: 900, count: 3, price: 3090, label: '3 דיילות', link: 'https://pay.grow.link/NTY2OTg~da9a5c8551b03d56c23c74d32db521fb-NDA3Nzc0NA' }
+    ],
+    travel: 250,
+    travelNote: 'באזור המרכז (אשקלון עד הרצליה) הנסיעות כלולות. מחוץ למרכז: תוספת נסיעות חד-פעמית 250 ₪ (לא לפי דיילת), לפי כתובת האירוע, בתשלום נפרד.',
+    /* "center" = Ashkelon to Herzliya (Richard 04/10). Matched by substring on
+       the city the client types in setup; anything else is "outside". */
+    centerCities: ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשל"צ','חולון','בת ים','תל אביב','ת"א','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פ"ת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'],
+    travelLink: 'https://pay.grow.link/NTY2OTg~505b29a18711e1d7714eef22a530a0d6-NDA3NzY1Mg'   /* ₪250 per hostess, pay N times */
+  };
+  /* Grow links for package + hostesses, keyed '<guests>_<plan>'. An empty
+     entry routes the order to WhatsApp instead of a dead end. */
+  var HOSTESS_LINKS = {
+    '50_basic': 'https://pay.grow.link/NTY2OTg~241654276db29e9eb91c12fc00b3649f-NDA3NzQ2OQ',
+    '50_pro': 'https://pay.grow.link/NTY2OTg~f63e7b8c481787c51cf1a188a8b26137-NDA3NzQ3MQ',
+    '50_premium': 'https://pay.grow.link/NTY2OTg~c03e14c2afd5b9b26e1462cd153fdebc-NDA3NzQ3NA',
+    '100_basic': 'https://pay.grow.link/NTY2OTg~41a7de1c1eb2cf6d6328d8b0740411d8-NDA3NzQ3Ng',
+    '100_pro': 'https://pay.grow.link/NTY2OTg~ede6a34fde8c884d575cbf823726bd8a-NDA3NzQ3OA',
+    '100_premium': 'https://pay.grow.link/NTY2OTg~4a8544cda3e952343fce432cb5bc106f-NDA3NzQ4Mg',
+    '200_basic': 'https://pay.grow.link/NTY2OTg~f13a966ae2a4c4ad2ce2208c7ac3cf40-NDA3NzQ4NA',
+    '200_pro': 'https://pay.grow.link/NTY2OTg~f64bbeb5fff61704e43faf9deb5b36e0-NDA3NzQ4OA',
+    '200_premium': 'https://pay.grow.link/NTY2OTg~c445905645eb38d0d22ebcf4f7282196-NDA3NzQ5MA',
+    '300_basic': 'https://pay.grow.link/NTY2OTg~7a08145b5dec8c17a96c993d8a63ac2f-NDA3NzQ5Mg',
+    '300_pro': 'https://pay.grow.link/NTY2OTg~2c22da449eafc827345a10547a3ddab1-NDA3NzQ5NA',
+    '300_premium': 'https://pay.grow.link/NTY2OTg~0432829b451cbebf3669c22062e5dbcf-NDA3NzQ5OA',
+    '400_basic': 'https://pay.grow.link/NTY2OTg~0f272692e8b402a8f2e028cdd1bbb02f-NDA3NzUwMg',
+    '400_pro': 'https://pay.grow.link/NTY2OTg~ea7ebcdd1b4ec2a4ae8193984adab0d8-NDA3NzU0MQ',
+    '400_premium': 'https://pay.grow.link/NTY2OTg~28d29ab37b1b72d3dceac55b73440e4d-NDA3NzUxMw',
+    '500_basic': 'https://pay.grow.link/NTY2OTg~3eb9b27187aca5b34e9f8264b98a0b16-NDA3NzU3Mg',
+    '500_pro': 'https://pay.grow.link/NTY2OTg~7c77e2e248750a7c6680f7f1ebc13e64-NDA3NzU4Mw',
+    '500_premium': 'https://pay.grow.link/NTY2OTg~82d7ac132171dfddd30ae3cc2be7db51-NDA3NzU4OA',
+    '600_basic': 'https://pay.grow.link/NTY2OTg~0b6ed379154c4c9c885ec49054d2cb23-NDA3NzU4OQ',
+    '600_pro': 'https://pay.grow.link/NTY2OTg~496785f5e2e74919596226799db427b3-NDA3NzU5Mg',
+    '600_premium': 'https://pay.grow.link/NTY2OTg~8e43d3600dcfe57c13c90c47e92c22e7-NDA3NzU5Mw',
+    '700_basic': 'https://pay.grow.link/NTY2OTg~af37e6b9da25e366581686f2239e4b1a-NDA3NzU5OQ',
+    '700_pro': 'https://pay.grow.link/NTY2OTg~066ba6054f97362603f8757aa260dd17-NDA3NzYwMg',
+    '700_premium': 'https://pay.grow.link/NTY2OTg~305d048e9b970e25d018196ede787c82-NDA3NzY2Mw',
+    '800_basic': 'https://pay.grow.link/NTY2OTg~f21996fa78d5931da5a8297b469bce2e-NDA3NzYxNg',
+    '800_pro': 'https://pay.grow.link/NTY2OTg~d1ef326c199d53c32b4642fd651414f8-NDA3NzYyMA',
+    '800_premium': 'https://pay.grow.link/NTY2OTg~a8ab0ac29e978906286e4a95af2117f1-NDA3NzY0Mw',
+    '900_basic': 'https://pay.grow.link/NTY2OTg~e262facb2b49b24d80852688a79eb8a7-NDA3NzQzMg',
+    '900_pro': 'https://pay.grow.link/NTY2OTg~2b50ae9c729e3128ea91d4cfa27229a0-NDA3NzQ0NQ',
+    '900_premium': 'https://pay.grow.link/NTY2OTg~66fbd0abbddbabe0687d09d439dbab0b-NDA3NzYyNA',
+  };
+
+  function hostessTier(guests) {
+    var n = parseInt(guests, 10);
+    if (!n) return null;
+    for (var i = 0; i < HOSTESS.tiers.length; i++) {
+      if (n <= HOSTESS.tiers[i].max) return HOSTESS.tiers[i];
+    }
+    return null;
+  }
+  function hostessPrice(guests) { var t = hostessTier(guests); return t ? t.price : null; }
+  function hostessIsCenter(city) {
+    var c = String(city || '').replace(/[\u200e\u200f'"]/g, '').trim();
+    if (!c) return null;
+    for (var i = 0; i < HOSTESS.centerCities.length; i++) {
+      var n = HOSTESS.centerCities[i].replace(/"/g, '');
+      if (c.indexOf(n) > -1 || n.indexOf(c) > -1) return true;
+    }
+    return false;
+  }
+  function hostessLink(guests, plan) {
+    if (!guests || guests === 'custom' || !plan) return null;
+    return HOSTESS_LINKS[guests + '_' + plan] || null;
+  }
+
+  /* ══ GIFTS (מתנות באשראי) ═══ coming soon, display only ═══════════════════ */
+  var GIFTS = {
+    label: 'מתנות באשראי',
+    desc: 'האורחים נותנים מתנה באשראי או בביט ישירות מההזמנה. בעלי האירוע מקבלים דוח מי נתן כמה, והכסף מועבר תוך 3 ימי עסקים.',
+    coupleFee: 0,
+    guestPct: 3.5,
+    guestFixed: 3,
+    live: false
   };
 
   var ADDON_PRICES = {};   // '<addon>_<guests>': 120
@@ -411,7 +505,7 @@ window.ISHUR_CONFIG = (function () {
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
-        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink'
+        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink', giftlinks: '/api/giftlinks'
       }[kind] || '/api/event');
     }
     return {
@@ -763,6 +857,8 @@ window.ISHUR_CONFIG = (function () {
     TIME_OPTIONS: TIME_OPTIONS,
     MESSAGE_FOOTER: MESSAGE_FOOTER,
     ADDONS: ADDONS,
+    HOSTESS: HOSTESS, HOSTESS_LINKS: HOSTESS_LINKS, hostessTier: hostessTier, hostessPrice: hostessPrice, hostessLink: hostessLink, hostessIsCenter: hostessIsCenter,
+    GIFTS: GIFTS,
     ADDON_PRICES: ADDON_PRICES,
     ADDON_LINKS: ADDON_LINKS,
 
