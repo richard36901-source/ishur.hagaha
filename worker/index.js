@@ -7759,6 +7759,30 @@ async function writeHostessBooking(env, token, b) {
   const startMin = recMin - 60 - travel, endMin = recMin + 5 * 60;
   const start = local(Math.floor(startMin / 60), ((startMin % 60) + 60) % 60), end = local(Math.floor(endMin / 60), endMin % 60);
   await env.RATE.put('hostessbook:' + token, JSON.stringify({ ...b, reception: rec[1] + ':' + rec[2], start: start.toISOString(), end: end.toISOString(), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  /* Richard 05/10: the monday board "אירועים עם דיילות - אישור הגעה" (18433947622)
+     gets one row per hostess event; the דיילת column links to the roster
+     board. Updated in place when the setup form is saved again. */
+  if (env.MONDAY_API_TOKEN) {
+    try {
+      const hm = String(startMin >= 0 ? Math.floor(startMin / 60) : 0).padStart(2, '0') + ':' + String(((startMin % 60) + 60) % 60).padStart(2, '0');
+      const cols = {
+        date_mm7v6acr: { date: b.date }, text_mm7vthvt: b.city || '', text_mm7v9mmm: rec[1] + ':' + rec[2], text_mm7vxcq8: hm + (b.center ? ' (מרכז, נסיעה 45 דק׳)' : ' (מחוץ למרכז, נסיעה 90 דק׳)'),
+        numeric_mm7vyqaz: String(b.n || 1), text_mm7vqv3p: b.client || '', text_mm7vqac2: b.venue || '',
+        phone_mm7vzkpy: b.phone ? { phone: String(b.phone).replace(/^972/, '0'), countryShortName: 'IL' } : null,
+        color_mm7vyb98: { label: 'ממתין לשיבוץ' },
+      };
+      const cv = JSON.stringify(Object.fromEntries(Object.entries(cols).filter(([, v]) => v !== null)));
+      const existing = await env.RATE.get('hostessmon:' + token);
+      const name = (b.client || 'אירוע') + ' · ' + b.date + ' · ' + (b.city || '');
+      if (existing) {
+        await mondayGql(env, 'mutation($b: ID!, $i: ID!, $v: JSON!) { change_multiple_column_values(board_id: $b, item_id: $i, column_values: $v) { id } }', { b: '18433947622', i: existing, v: cv });
+      } else {
+        const r = await mondayGql(env, 'mutation($b: ID!, $n: String!, $v: JSON!) { create_item(board_id: $b, item_name: $n, column_values: $v) { id } }', { b: '18433947622', n: name, v: cv });
+        const id = r && r.create_item && r.create_item.id;
+        if (id) await env.RATE.put('hostessmon:' + token, String(id), { expirationTtl: 400 * 86400 });
+      }
+    } catch (e) { await logEvent(env, { area: 'דיילות', action: 'עדכון לוח monday נכשל', ok: false, token, detail: String(e && e.message || e).slice(0, 120) }).catch(() => {}); }
+  }
 }
 
 async function sha256Hex(text) {
