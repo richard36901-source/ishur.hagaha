@@ -158,7 +158,8 @@ export async function trafficReport(env, days = 14) {
     const stepCount = async (kind) => {
       if (!env.RATE || !env.RATE.list) return 0;
       const page = await env.RATE.list({ prefix: `t:e:${day}:${kind}:`, limit: 1000 }).catch(() => null);
-      return page ? page.keys.length : 0;
+      /* test payments (TEST-… refs) never count as real buyers (06/10) */
+      return page ? page.keys.filter(k => !/:TEST-/i.test(k.name)).length : 0;
     };
     const [popupN, leadN, payN, purchaseN] = await Promise.all([stepCount('popup'), stepCount('lead'), stepCount('pay'), stepCount('purchase')]);
     rows.push({
