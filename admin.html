@@ -481,7 +481,7 @@
   </div>
   <div class="kpis">
     <div class="kpi money"><b id="k-rev">–</b><span>הכנסות ₪</span></div>
-    <div class="kpi"><b id="k-leads">–</b><span>לידים</span></div>
+    <div class="kpi"><b id="k-leads">–</b><span>לידים פתוחים</span></div>
     <div class="kpi"><b id="k-conv">–</b><span>% המרה</span></div>
     <div class="kpi"><b id="k-events">–</b><span>אירועים בתשלום</span></div>
     <div class="kpi"><b id="k-guests">–</b><span>אורחים במערכת</span></div>
@@ -497,7 +497,7 @@
   <div class="kpis">
     <div class="kpi"><b id="t-today">–</b><span>כניסות היום</span></div>
     <div class="kpi"><b id="t-vis">–</b><span>מבקרים היום</span></div>
-    <div class="kpi"><b id="t-week">–</b><span>מבקרים ב-7 ימים</span></div>
+    <div class="kpi"><b id="t-week">–</b><span>ביקורים יומיים · 7 ימים</span></div>
     <div class="kpi"><b id="t-new">–</b><span>חדשים ב-7 ימים</span></div>
     <div class="kpi"><b id="t-ret">–</b><span>חוזרים ב-7 ימים</span></div>
     <div class="kpi money"><b id="t-all">–</b><span>כניסות מאז ומעולם</span></div>
@@ -541,7 +541,7 @@
 
   </div>
 
-  <h2>משפך הרכישה · 7 ימים</h2>
+  <h2>משפך הרכישה · <span id="funLbl">30 ימים</span> <button class="rng" data-fd="7" type="button">7</button><button class="rng on" data-fd="30" type="button">30</button></h2>
   <div class="funnel" id="funnel"></div>
   <p class="empty" id="funEmpty" hidden>עדיין אין מספיק תנועה כדי להראות משפך.</p>
 
@@ -559,6 +559,7 @@
     <div class="tblwrap tall">
       <table>
         <thead><tr><th>קמפיין</th><th>ימים</th><th>הוצאה ₪</th><th>קליקים</th><th>CPC ₪</th><th>CTR %</th><th>לידים</th><th>עלות לליד ₪</th><th>רכישות</th><th>CAC ₪</th></tr></thead>
+        <caption style="caption-side:top;text-align:start;font-size:.72rem;color:var(--ink3);padding:.2rem 0">מתחילת הקמפיין</caption>
         <tbody id="campRows"></tbody>
       </table>
     </div>
@@ -1173,6 +1174,8 @@
       $('k-leads').textContent = d.funnel.leads;
       $('k-conv').textContent = d.funnel.conversion + '%';
       $('k-events').textContent = d.funnel.paid_events;
+      bizPaid = d.funnel.paid_events;
+      if (lastCamp) renderCampaigns(lastCamp);
       $('k-guests').textContent = d.guests.total;
       $('k-calls').textContent = d.guests.awaiting_call;
       $('gen').textContent = 'נתוני הגיליון: ' + new Date(d.generated_at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
@@ -1283,7 +1286,7 @@
   function loadTraffic() {
     fetch(CFG.endpoint('traffic'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_key: adminKey, days: 14 })
+      body: JSON.stringify({ admin_key: adminKey, days: 30 })
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) { if (d && d.ok) renderTraffic(d); })
       .catch(function () {});
@@ -1306,7 +1309,7 @@
     /* visitors per day: new stacked under returning, so the shape says
        whether the ads are bringing anyone the site has not already met */
     var svg = $('tchart'); svg.innerHTML = '';
-    var days = d.days || [];
+    var days = (d.days || []).slice(-14);
     var max = 1;
     days.forEach(function (r) { max = Math.max(max, r.visitors || 0); });
     var W = 720, H = 120, bw = Math.max(3, W / Math.max(days.length, 1) - 3);
@@ -1327,8 +1330,22 @@
       svg.appendChild(rn);
     });
 
-    renderFunnel(d.funnel || {}, last7);
+    lastTraffic = d;
+    drawFunnel();
   }
+  var lastTraffic = null, funDays = 30;
+  function drawFunnel() {
+    if (!lastTraffic) return;
+    $('funLbl').textContent = funDays + ' ימים';
+    renderFunnel(lastTraffic.funnel || {}, (lastTraffic.days || []).slice(-funDays));
+  }
+  document.querySelectorAll('[data-fd]').forEach(function (b) {
+    b.addEventListener('click', function () {
+      funDays = Number(b.getAttribute('data-fd')) || 30;
+      document.querySelectorAll('[data-fd]').forEach(function (x) { x.classList.toggle('on', x === b); });
+      drawFunnel();
+    });
+  });
 
   function renderFunnel(f, last7) {
     var visitors = last7.reduce(function (a, r) { return a + (r.visitors || 0); }, 0);
@@ -1377,7 +1394,20 @@
      table shows what a day really cost. Per-day totals across campaigns,
      kept here so the cost table can join on the date. */
   var adByDay = {};
+  var bizPaid = null, lastCamp = null;
   function renderCampaigns(d) {
+    lastCamp = d;
+    /* real buyers come from the sheet (paid, not cancelled, not test), not the
+       pixel; with one campaign they all belong to it, with several the split
+       is unknown so the sheet total goes on the top spender */
+    var totals0 = d.totals || [];
+    if (bizPaid != null && totals0.length) {
+      var top = totals0.reduce(function (a, b) { return (b.spend || 0) > (a.spend || 0) ? b : a; });
+      totals0.forEach(function (t) {
+        t.purchases = t === top ? bizPaid : 0;
+        t.cac = t.purchases ? Math.round((t.spend || 0) / t.purchases) : 0;
+      });
+    }
     adByDay = {};
     (d.rows || []).forEach(function (x) { adByDay[x.date] = (adByDay[x.date] || 0) + (Number(x.spend) || 0); });
     renderCostTable();
@@ -1986,6 +2016,7 @@
 
   /* ── money board ── */
   var USD_ILS = 3.7;
+  function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   var opsData = null;
   var rangeDays = 30;
 
@@ -2026,8 +2057,8 @@
   function rangeBounds() {
     if (rangeFrom && rangeTo && rangeFrom <= rangeTo) return { from: rangeFrom, to: rangeTo };
     return {
-      from: new Date(Date.now() - (rangeDays - 1) * 864e5).toISOString().slice(0, 10),
-      to: new Date().toISOString().slice(0, 10),
+      from: new Date(Date.parse(ilToday()) - (rangeDays - 1) * 864e5).toISOString().slice(0, 10),
+      to: ilToday(),
     };
   }
 
@@ -2084,10 +2115,15 @@
      (spend ÷ paying customers this calendar month) and colours by verdict. */
   function renderCac() {
     var tile = $('cacTile');
-    if (!tile || !opsData || !opsData.cac) { if (tile) tile.hidden = true; return; }
-    var mo = new Date().toISOString().slice(0, 7);
-    var c = opsData.cac[mo];
-    if (!c || (!c.spend && !c.buyers)) { tile.hidden = true; return; }
+    if (!tile || !opsData) { if (tile) tile.hidden = true; return; }
+    var today = ilToday(), mo = today.slice(0, 7);
+    /* spend = what Meta billed this IL month; buyers = paid events this month */
+    var spend = Math.round(adSpendIls(mo + '-01', today));
+    var buyers = (opsData.series || []).reduce(function (a, s) { return a + (s.date.slice(0, 7) === mo ? (s.payments || 0) : 0); }, 0);
+    var cac = buyers ? Math.round(spend / buyers) : null;
+    var c = { spend: spend, buyers: buyers, cac_ils: cac,
+      verdict: buyers ? (cac <= 150 ? 'green' : cac <= 240 ? 'amber' : 'red') : (spend ? 'no-buyers-yet' : 'idle') };
+    if (!c.spend && !c.buyers) { tile.hidden = true; return; }
     tile.hidden = false;
     tile.className = 'cac-tile cac-' + (c.verdict || 'idle');
     $('cac-val').textContent = c.cac_ils != null ? c.cac_ils.toLocaleString('he-IL') : '—';
@@ -2108,7 +2144,7 @@
     });
     var adIls = adSpendIls(b.from, b.to);
     var fxIls = fixedSpendIls(b.from, b.to);
-    var costIls = costUsdC / 100 * USD_ILS + adIls + fxIls;
+    var costIls = costUsdC / 100 * USD_ILS + adIls + fxIls + rev * 0.022;
     var profit = rev - costIls;
     renderAvgs();
     renderBottomLine();
@@ -2172,9 +2208,9 @@
       { label: 'שבוע', d: 7 }, { label: 'חודש', d: 30 },
       { label: 'רבעון', d: 90 }, { label: 'שנה', d: 365 },
     ];
-    var to = new Date().toISOString().slice(0, 10);
+    var to = ilToday();
     $('avgRows').innerHTML = periods.map(function (p) {
-      var from = new Date(Date.now() - (p.d - 1) * 864e5).toISOString().slice(0, 10);
+      var from = new Date(Date.parse(ilToday()) - (p.d - 1) * 864e5).toISOString().slice(0, 10);
       var rev = 0, pay = 0, costUsdC = 0;
       opsData.series.forEach(function (s) {
         if (s.date < from || s.date > to) return;
@@ -2195,7 +2231,7 @@
   /* the statement: every expense line, revenue, profit, VAT, tax reserve, net */
   function plPeriods() {
     var dates = opsData.series.map(function (s) { return s.date; }).filter(Boolean).sort();
-    var today = new Date().toISOString().slice(0, 10);
+    var today = ilToday();
     var first = dates[0] || today.slice(0, 7) + '-01';
     var list = [{ label: 'כל הזמן', from: first, to: today, key: 'all' }];
     var m = today.slice(0, 7);
@@ -2257,7 +2293,7 @@
     if (!opsData || !$('blRows')) return;
     renderStatement();
     var dates = opsData.series.map(function (s) { return s.date; }).filter(Boolean).sort();
-    var today = new Date().toISOString().slice(0, 10);
+    var today = ilToday();
     var first = dates[0] || today.slice(0, 7) + '-01';
     var periods = [{ label: 'כל הזמן', from: first, to: today }];
     var m = today.slice(0, 7);
@@ -2288,7 +2324,7 @@
   }
 
   /* ── fixed monthly overheads editor ── */
-  $('fx-month').value = new Date().toISOString().slice(0, 7);
+  $('fx-month').value = ilToday().slice(0, 7);
   function fxItems() {
     var m = $('fx-month').value;
     return ((opsData && opsData.fixedcost) || {})[m] || [];
@@ -2329,7 +2365,7 @@
   });
 
   /* ── ad spend save ── */
-  $('ad-month').value = new Date().toISOString().slice(0, 7);
+  $('ad-month').value = ilToday().slice(0, 7);
   function paintAdCur() {
     var m = $('ad-month').value;
     var v = opsData && opsData.adspend && opsData.adspend[m];
