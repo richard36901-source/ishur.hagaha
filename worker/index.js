@@ -22,7 +22,7 @@
    ========================================================================== */
 
 import { parseGuestFile, guestsFromRows } from './parse.js';
-import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
+import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy } from './evlog.js';
 import { createInvoice } from './invoice.js';
@@ -2157,6 +2157,7 @@ function isTestPhone(env, phone) {
   const p = normPhone(phone || '');
   if (!p) return true;
   if (/^9725000050\d\d$/.test(p)) return true;
+  if (['972500005201', '972500000000', '972578888888'].includes(p)) return true;
   const list = String(env.TEST_PHONES || '').split(',').map(x => normPhone(x.trim())).filter(Boolean);
   return list.includes(p);
 }
@@ -5555,7 +5556,7 @@ async function handleCostLog(request, env, origin) {
     row.wa_out += Number(st.out) || 0;
     row.wa_tmpl += Number(st.tmpl) || 0;
     row.wa_fail += Number(st.fail) || 0;
-    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.02 * 100) / 100;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
 
@@ -5563,7 +5564,7 @@ async function handleCostLog(request, env, origin) {
   for (const ev of (raw && raw.events && raw.events.values) || []) {
     const token = String(ev[1] || '').trim();
     const paid = String(ev[7] || '').trim() === 'כן';
-    if (!token || !paid) continue;
+    if (!token || !paid || isTestEventRow(ev)) continue;
     const t8 = token.slice(0, 8);
     events.push({
       token8: t8,
@@ -7208,6 +7209,8 @@ async function callBoard(env) {
       const st = String(c.call_status || '');
       const live = st === 'ongoing' || st === 'registered';
       const ended = !live;
+      const otherParty = (inbound ? c.from_number : c.to_number) || '';
+      if (otherParty && isTestPhone(env, otherParty)) return null;
       /* green only when the call actually reached a person and did its job;
          everything else is amber or red, never a silent pass */
       const okCall = ended && !!cad.got_answer && !cad.needs_review;
@@ -7242,7 +7245,7 @@ async function callBoard(env) {
         reason_he: reasonHe(c.disconnection_reason, st),
         id: c.call_id || '',
       };
-    });
+    }).filter(Boolean);
   } catch {}
 
   return {
@@ -7518,7 +7521,7 @@ async function handleOpsStats(request, env, origin) {
     const paid = String(ev[7] || '').trim() === 'כן';
     const cancelled = String(ev[27] || '').trim() === 'כן';
     const m = String(ev[25] || '').match(/\d{4}-\d{2}-\d{2}/);
-    if (!paid || cancelled || !m) continue;
+    if (!paid || cancelled || !m || isTestEventRow(ev)) continue;
     const d = day(m[0]);
     d.revenue_ils += Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0;
     d.payments += 1;
@@ -7528,7 +7531,7 @@ async function handleOpsStats(request, env, origin) {
     const row = day(d);
     row.wa_msgs += Number(st.out) || 0;
     /* utility template ≈ $0.0053; free-form service messages cost nothing */
-    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.02 * 100) / 100;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) {
     day(d).shir_cost_usd_cents += Number(v) || 0;

@@ -107,6 +107,18 @@ export function callOutcome(outcome, tries, maxTries = 3) {
   }
 }
 
+/* Test/demo events never count toward business numbers: name/notes say
+   "בדיקה", the token starts with TEST-, or the client phone is one of ours. */
+const TEST_EVENT_PHONES = ['0500005201', '0500000000', '0578888888'];
+export function isTestEventRow(r) {
+  const t = s => String(s ?? '').trim();
+  if (/בדיקה/.test(t(r[2])) || /בדיקה/.test(t(r[34]))) return true;
+  if (/^TEST-/i.test(t(r[1]))) return true;
+  let ph = t(r[3]).replace(/\D/g, '');
+  if (ph.startsWith('972')) ph = '0' + ph.slice(3);
+  return TEST_EVENT_PHONES.includes(ph);
+}
+
 /* The owner's business view: the funnel from leads to money, per-event RSVP
    progress, and totals. Reads the same snapshot plus the לידים sheet.
    לידים columns: 1 שם · 2 טלפון · 4 סוג · 6 שלב נטישה · 7 שולם? · 11 מקור · 14 זמן */
@@ -119,7 +131,7 @@ export function buildBizStats(raw) {
   const leads = leadRows.filter(r => t(r[2]));
   const leadsPaid = leads.filter(r => t(r[7]) === 'כן').length;
 
-  const events = evRows.filter(r => t(r[1]));
+  const events = evRows.filter(r => t(r[1]) && !isTestEventRow(r));
   let revenue = 0;
   const perEvent = [];
   const guestsByToken = {};
@@ -136,21 +148,24 @@ export function buildBizStats(raw) {
     /* revenue and paid_events use the SAME definition: paid and not cancelled */
     if (paid && !isCancelled) revenue += sum;
     const gl = guestsByToken[tok] || [];
-    let confirmed = 0, declined = 0, seats = 0, needCall = 0;
+    let confirmed = 0, declined = 0, undecided = 0, seats = 0, needCall = 0;
     for (const g of gl) {
       const rsvp = t(g[15]);
       if (rsvp === 'מגיע') { confirmed++; seats += Number(t(g[13])) || Number(t(g[5])) || 0; }
       else if (rsvp === 'לא מגיע') declined++;
+      else if (rsvp === 'מתלבט') undecided++;
       if (t(g[21]) === 'נדרשת שיחה') needCall++;
     }
     perEvent.push({
       token: tok, client: t(ev[2]), name: t(ev[34]) || t(ev[2]),
       occasion: t(ev[5]), date: t(ev[6]), paid, sum,
+      paid_at: (t(ev[25]).match(/\d{4}-\d{2}-\d{2}/) || [''])[0],
+      phone: t(ev[3]),
       plan: t(ev[31]), tier: t(ev[32]),
       invoice: t(ev[9]),
       file_uploaded: t(ev[43]) === 'כן',
-      guests: gl.length, confirmed, declined,
-      pending: Math.max(0, gl.length - confirmed - declined),
+      guests: gl.length, confirmed, declined, undecided,
+      pending: Math.max(0, gl.length - confirmed - declined - undecided),
       seats, need_call: needCall,
       cancelled: isCancelled,
     });
@@ -166,7 +181,7 @@ export function buildBizStats(raw) {
       leads_paid: leadsPaid,
       events: events.length,
       paid_events: paidEvents.length,
-      conversion: leads.length ? Math.round(100 * leadsPaid / leads.length) : 0,
+      conversion: (leads.length + paidEvents.length) ? Math.round(100 * paidEvents.length / (leads.length + paidEvents.length)) : 0,
     },
     money: { revenue_ils: revenue },
     guests: {
