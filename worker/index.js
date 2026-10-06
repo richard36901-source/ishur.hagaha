@@ -113,8 +113,8 @@ async function alert(env, where, what, detail) {
   if (env.SLACK_ALERT_HOOK) {
     const urgent = URGENT_ALERT_RE.test(where + ' ' + what300 + ' ' + detail500);
     /* Richard 28/09: one line, organised; a newline only when the detail is long */
-    const oneLine = `⚠️ *${where}* · ${what300}`;
-    await slackSend(env, detail500 ? (detail500.length > 90 ? `${oneLine}\n${detail500}` : `${oneLine} · ${detail500}`) : oneLine, { urgent });
+    /* Richard 06/10: title line, then the facts on their own lines */
+    await slackSend(env, `⚠️ *${where}*\n\n${what300}` + (detail500 ? `\n\n${detail500}` : ''), { urgent });
     return;
   }
   if (!env.ALERT_HOOK) return;
@@ -173,8 +173,38 @@ function slackQuietHours(now) {
   return hour < 9 || hour >= 21;
 }
 
+/* Richard 06/10: Slack must be readable. Every message gets a bold title on
+   its own line, one fact per line with a blank line between, and alerts end
+   with whether he has to act, plus what the system does about it. */
+const SLACK_FOOTERS = [
+  [/131042|בעיית תשלום בחשבון מטא/, '🔴 *נדרשת פעולה ממך:* להוסיף אמצעי תשלום ב-WhatsApp Manager. עד אז נועה (4499) לא יכולה לשלוח הודעות.'],
+  [/131026|לא בוואטסאפ \/ חסם/, '✅ *לא נדרשת פעולה ממך.* המספר לא בוואטסאפ או חסם אותנו. המערכת מנסה עד 3 פעמים ואז מפסיקה לשלוח אליו.'],
+  [/130472|בניסוי של מטא/, '✅ *לא נדרשת פעולה ממך.* מטא מגבילה זמנית את המספר הזה. המערכת תנסה שוב לבד.'],
+  [/131049|מגבלת הודעות שיווקיות/, '✅ *לא נדרשת פעולה ממך.* מטא הגבילה הודעות שיווקיות לאיש הקשר הזה. אין מה לעשות מצדנו.'],
+  [/131047|עברו 24 שעות/, 'ℹ️ *לא נדרשת פעולה ממך.* עברו 24 שעות מאז שהאדם כתב לנו, אז מטא דורשת תבנית מאושרת. רשום אצל קלוד לתיקון.'],
+  [/WITH_ISSUES|ADSET_PAUSED/, '✅ *לא נדרשת פעולה ממך.* אלה מודעות מושהות או כפולות. הן לא מוציאות כסף.'],
+  [/תשלומים שחנו/, '✅ *לא נדרשת פעולה ממך.* אלה תשלומים של עסק אחר באותו חשבון Grow.'],
+  [/קוד אימות/, '✅ *לא נדרשת פעולה ממך.* תקלה זמנית בצד מטא. המערכת תנסה שוב מחר.'],
+];
+function slackFormat(text) {
+  let t = String(text || '').trim();
+  if (!t) return t;
+  if (!t.includes('\n') && t.includes(' · ')) {
+    const parts = t.split(' · ').map(x => x.trim()).filter(Boolean);
+    t = parts[0] + '\n\n' + parts.slice(1).map(x => '• ' + x).join('\n\n');
+  } else if (t.includes('\n') && !/\n\n/.test(t)) {
+    t = t.replace(/\n/g, '\n\n');
+  }
+  if (/נדרשת פעולה ממך|ייתכן שנדרשת בדיקה/.test(t)) return t;
+  const hit = SLACK_FOOTERS.find(([re]) => re.test(t));
+  if (hit) return t + '\n\n───\n' + hit[1];
+  if (/^(⚠️|:warning:|🚨|:rotating_light:)/.test(t)) return t + '\n\n───\n🔶 *ייתכן שנדרשת בדיקה.* כתוב לקלוד "בדוק את ההתראה הזו" והוא יטפל.';
+  return t;
+}
+
 async function slackSend(env, text, opts = {}) {
   if (!env.SLACK_ALERT_HOOK) return;
+  text = slackFormat(text);
   const now = opts.now || new Date();
   if (!opts.urgent && env.RATE && slackQuietHours(now)) {
     const key = 'slackq:list';
@@ -4903,7 +4933,10 @@ async function runDoctor(env, out, sendWin, callWin) {
       let told = []; try { told = JSON.parse(await env.RATE.get('doctor:ipnmiss-told') || '[]'); } catch {}
       const fresh = page.keys.map(k => k.name).filter(n => !told.includes(n));
       if (fresh.length) {
-        await alert(env, 'רופא · תשלומים שחנו', `${fresh.length} תשלומי Grow חדשים חונים ולא זוהו כ-ishur (סה"כ ${stuck}). אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת. לא אזכיר שוב.`, '');
+        /* info, not a red row: the nightly report must not re-list it (Richard 06/10) */
+        const ipnMsg = `${fresh.length} תשלומי Grow חדשים חונים ולא זוהו כ-ishur (סה"כ ${stuck}). אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת. לא אזכיר שוב.`;
+        await logEvent(env, { area: 'רופא · תשלומים שחנו', action: ipnMsg, ok: true, review: false }).catch(() => {});
+        if (env.SLACK_ALERT_HOOK) await slackSend(env, 'ℹ️ *רופא · תשלומים שחנו* · ' + ipnMsg, { urgent: false }).catch(() => {});
         rep.alerted++;
         await env.RATE.put('doctor:ipnmiss-told', JSON.stringify(told.concat(fresh).slice(-200))).catch(() => {});
       }
@@ -4989,6 +5022,9 @@ async function runTeamReminders(env, hourUtc, dry) {
       if (dry) { out.push({ to, would_send: msg.slice(0, 80) }); continue; }
       const res = await sendText(env, to, msg);
       out.push({ to, sent: res.ok });
+      /* free text dies after 24h of silence (131047): the reminder still has to land,
+         so it goes to Slack instead of vanishing (06/10) */
+      if (!res.ok) await slackPost(env, `:alarm_clock: *תזכורת צוות ל${r.who || to}* (לא נמסרה בוואטסאפ, חלון 24ש)\n${msg}`).catch(() => {});
     }
   }
   return { ok: true, date: today, hour: hourUtc, results: out };
