@@ -503,6 +503,8 @@
     <div class="kpi money"><b id="t-all">–</b><span>כניסות מאז ומעולם</span></div>
   </div>
   <svg id="tchart" width="100%" height="120" viewBox="0 0 720 120" preserveAspectRatio="none" aria-label="מבקרים לפי יום" style="margin-top:.5rem"></svg>
+<div style="font-size:12px;color:#5d6b63;margin-top:6px;display:flex;gap:14px;justify-content:flex-end"><span><span style="display:inline-block;width:10px;height:10px;background:#0F4C35;border-radius:2px;vertical-align:middle"></span> חדשים</span><span><span style="display:inline-block;width:10px;height:10px;background:#9FB8AC;border-radius:2px;vertical-align:middle"></span> חוזרים (ביקרו כבר בעבר)</span></div>
+<div id="ttip" style="position:fixed;display:none;z-index:9999;background:#13241c;color:#fff;font-size:13px;line-height:1.5;padding:8px 10px;border-radius:8px;white-space:pre;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.25)"></div>
   <p style="font-size:.68rem;color:var(--ink3);margin:.2rem 0 0">מונה משלנו, לא גוגל ולא פייסבוק, כדי שחוסמי פרסומות לא יבלעו את המספר. נשמר גם בלשונית "תנועה יומית" בגיליון.</p>
 
   <div class="sec-calls">
@@ -1328,6 +1330,13 @@
       ttl.textContent = r.date + ' · ' + total + ' מבקרים (' + (r.fresh || 0) + ' חדשים)';
       rn.appendChild(ttl);
       svg.appendChild(rn);
+      /* hover anywhere on the column → exact numbers (Richard 07/10) */
+      var hit = svgEl('rect', { x: x, y: 0, width: bw, height: H, fill: 'transparent', style: 'cursor:pointer' });
+      var dd = r.date.split('-'), lbl = dd[2] + '.' + dd[1];
+      var tipTxt = lbl + '\n' + total + ' מבקרים\n' + (r.fresh || 0) + ' חדשים · ' + (r.returning || Math.max(0, total - (r.fresh || 0))) + ' חוזרים' + (r.views != null ? '\n' + r.views + ' כניסות' : '');
+      hit.addEventListener('mousemove', function (ev) { var t = $('ttip'); t.textContent = tipTxt; t.style.display = 'block'; t.style.left = (ev.clientX + 12) + 'px'; t.style.top = (ev.clientY - 10) + 'px'; });
+      hit.addEventListener('mouseleave', function () { $('ttip').style.display = 'none'; });
+      svg.appendChild(hit);
     });
 
     lastTraffic = d;
