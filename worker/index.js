@@ -178,6 +178,7 @@ function slackQuietHours(now) {
    its own line, one fact per line with a blank line between, and alerts end
    with whether he has to act, plus what the system does about it. */
 const SLACK_FOOTERS = [
+  [/בדיקת יתרות וחיוב|יתרת שיחות נגמרה/, '🔴 *נדרשת פעולה ממך:* לטעון יתרה. Telnyx: portal.telnyx.com/#/app/billing · Retell: dashboard.retellai.com · WhatsApp: business.facebook.com/billing_hub'],
   [/131042|בעיית תשלום בחשבון מטא/, '🔴 *נדרשת פעולה ממך:* להוסיף אמצעי תשלום ב-WhatsApp Manager. עד אז נועה (4499) לא יכולה לשלוח הודעות.'],
   [/131026|לא בוואטסאפ \/ חסם/, '✅ *לא נדרשת פעולה ממך.* המספר לא בוואטסאפ או חסם אותנו. המערכת מנסה עד 3 פעמים ואז מפסיקה לשלוח אליו.'],
   [/130472|בניסוי של מטא/, '✅ *לא נדרשת פעולה ממך.* מטא מגבילה זמנית את המספר הזה. המערכת תנסה שוב לבד.'],
@@ -2076,6 +2077,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM)),
     }).catch(() => null);
+    await retellBillingGuard(env, r);
     if (r && (r.status === 200 || r.status === 201)) {
       let cid = ''; try { cid = String(((await r.clone().json()) || {}).call_id || ''); } catch {}
       await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: g.phone, name: g.name || '', kind: 'אורח (אישור הגעה)',
@@ -2349,6 +2351,7 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }).catch(() => null);
+    await retellBillingGuard(env, res);
     if (res && (res.status === 200 || res.status === 201)) {
       let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
       await logRow(env, 'calls', { agent: noaLine ? 'נועה' : 'שיר', dir: 'יוצאת (חזרה)', phone: r.phone, name: (hit && hit.name) || '', kind: noaLine ? `חזרה ללקוח/ליד (${hit.caller_kind})` : 'חזרה למי שהתקשר',
@@ -2447,6 +2450,7 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
       body: JSON.stringify(buildCallPayload(lead, env.NOA_FROM,
         { override_agent_id: env.NOA_AGENT })),
     }).catch(() => null);
+    await retellBillingGuard(env, res);
     if (res && (res.status === 200 || res.status === 201)) {
       let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
       await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name || '', kind: lead.requested ? 'ליד (ביקש שיחה)' : 'ליד (מכירה)', status: 'חויג ' + ilTime(), id: cid });
@@ -5941,6 +5945,7 @@ async function handleVoiceTools(request, env, origin) {
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    await retellBillingGuard(env, r);
     const j = r ? await r.json().catch(() => null) : null;
     if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
     await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
@@ -5955,6 +5960,7 @@ async function handleVoiceTools(request, env, origin) {
     const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
     payload.metadata.test = 'voice-tools';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    await retellBillingGuard(env, r);
     const j = r ? await r.json().catch(() => null) : null;
     if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
     await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone: to, name: lead.name, kind: 'בדיקה (voice-tools)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
@@ -6712,6 +6718,116 @@ async function handleBlockPhone(request, env, origin) {
    ─────────────────────────────────────────────────────────────────────────── */
 const TELNYX_CONNECTION_ID = '3038128441548342863'; // FQDN connection "retell-shir"
 
+/* ══ Billing / balance guard (11/10) ═════════════════════════════════════════
+   Once a day from the 04:00 UTC cron: Telnyx balance, both WhatsApp numbers'
+   health + tier. Retell has no balance API — its create-phone-call failures
+   are caught by retellBillingGuard() at each dial site instead.
+   ─────────────────────────────────────────────────────────────────────────── */
+const BILL_WA_OK_CODES = new Set(['141010', '138024', '138025']);
+function billNum(v) { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : null; }
+async function checkBilling(env, opts = {}) {
+  const dry = !!opts.dry;
+  const findings = [];
+  const add = (vendor, level, msg) => findings.push({ vendor, level, msg });
+  const telnyx = {};
+  /* ── Telnyx ── */
+  if (env.TELNYX_KEY) {
+    let j = null, st = 0;
+    try {
+      const r = await fetch('https://api.telnyx.com/v2/balance', { headers: { Authorization: 'Bearer ' + env.TELNYX_KEY } });
+      st = r.status; if (r.ok) j = await r.json();
+    } catch {}
+    const d = (j && j.data) || null;
+    if (!d) {
+      let n = 0; try { n = parseInt(await env.RATE.get('billfail:telnyx') || '0', 10) || 0; } catch {}
+      n++;
+      if (env.RATE && !dry) await env.RATE.put('billfail:telnyx', String(n), { expirationTtl: 7 * 86400 }).catch(() => {});
+      telnyx.readFails = n;
+      if (n >= 2) add('Telnyx', 'warn', `לא הצלחתי לקרוא את היתרה ${n} פעמים ברצף (status ${st || 'unreachable'})`);
+    } else {
+      if (env.RATE && !dry) await env.RATE.delete('billfail:telnyx').catch(() => {});
+      telnyx.balance = billNum(d.balance); telnyx.available = billNum(d.available_credit); telnyx.credit_limit = billNum(d.credit_limit);
+      const av = telnyx.available != null ? telnyx.available : telnyx.balance;
+      if (av != null && av < 3) add('Telnyx', 'urgent', `יתרה זמינה $${av.toFixed(2)} (מתחת ל-$3). שיחות של שיר ייעצרו.`);
+      else if (av != null && av < 10) add('Telnyx', 'warn', `יתרה זמינה $${av.toFixed(2)} (מתחת ל-$10).`);
+    }
+  }
+  /* ── WhatsApp, both numbers ── */
+  let ydTmpl = 0;
+  try {
+    const yd = new Date(Date.parse(ilDate()) - 864e5).toISOString().slice(0, 10);
+    ydTmpl = Number((JSON.parse(await env.RATE.get('wastat:' + yd) || '{}') || {}).tmpl) || 0;
+  } catch {}
+  const wa = [];
+  for (const n of [
+    { name: 'שיר 6673', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, guests: true },
+    { name: 'נועה 4499', waba: '1060242146337688', tok: clientToken(env) },
+  ]) {
+    let j = null;
+    try {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${n.waba}/phone_numbers?fields=display_phone_number,messaging_limit_tier,quality_rating,health_status`,
+        { headers: { Authorization: 'Bearer ' + n.tok } });
+      if (r.ok) j = await r.json();
+    } catch {}
+    const rows = (j && j.data) || null;
+    if (!rows || !rows.length) { add('WhatsApp', 'urgent', `${n.name}: אין תשובה ממטא על המספר`); wa.push({ name: n.name, ok: false }); continue; }
+    for (const p of rows) {
+      const q = String(p.quality_rating || '');
+      const tier = String(p.messaging_limit_tier || '');
+      const codes = [];
+      const walk = (o) => { if (!o || typeof o !== 'object') return; if (Array.isArray(o)) return o.forEach(walk);
+        for (const [k, v] of Object.entries(o)) { if (k === 'error_code' && v != null) codes.push(String(v)); else walk(v); } };
+      walk(p.health_status);
+      const bad = [...new Set(codes.filter(c => !BILL_WA_OK_CODES.has(c)))];
+      wa.push({ name: n.name, phone: p.display_phone_number, quality: q, tier, codes });
+      if (q && q !== 'GREEN') add('WhatsApp', q === 'RED' ? 'urgent' : 'warn', `${n.name}: דירוג איכות ${q}`);
+      if (bad.length) add('WhatsApp', bad.includes('131042') ? 'urgent' : 'warn',
+        `${n.name}: קודי שגיאה בבריאות המספר ${bad.join(', ')}${bad.includes('131042') ? ' (131042 בעיית תשלום בחשבון מטא)' : ''}`);
+      if (n.guests && tier === 'TIER_250' && ydTmpl > 200) add('WhatsApp', 'warn', `${n.name}: מדרגה TIER_250 ואתמול נשלחו ${ydTmpl} תבניות. מחר עלול לחסום.`);
+    }
+  }
+  const out = { ok: true, dry, telnyx, wa, ydTmpl, findings };
+  if (!findings.length || dry) return out;
+  /* ── one Slack message ── */
+  const urgent = findings.some(f => f.level === 'urgent');
+  const text = `💳 *בדיקת יתרות וחיוב*\n\n` + findings.map(f => `${f.level === 'urgent' ? '🔴' : '🟠'} ${f.vendor}: ${f.msg}`).join('\n\n');
+  await slackSend(env, text, { urgent }).catch(() => {});
+  out.slack = true;
+  /* ── Linear: urgent only, once per vendor per 3 days ── */
+  out.linear = [];
+  for (const v of [...new Set(findings.filter(f => f.level === 'urgent').map(f => f.vendor))]) {
+    const k = 'billlinear:' + v;
+    if (env.RATE && await env.RATE.get(k).catch(() => null)) continue;
+    if (env.RATE) await env.RATE.put(k, '1', { expirationTtl: 3 * 86400 }).catch(() => {});
+    const r = await linearTriageIssue(env, `לטעון יתרה: ${v}`, findings.filter(f => f.vendor === v).map(f => '- ' + f.msg).join('\n')).catch(() => null);
+    out.linear.push({ vendor: v, ok: !!(r && r.ok) });
+  }
+  return out;
+}
+
+/* Retell has no balance API: a failed create-phone-call that smells of
+   billing is the only signal. Throttled to one alert per 6h. Never throws. */
+async function retellBillingGuard(env, r) {
+  try {
+    if (!r || r.ok) return false;
+    let body = ''; try { body = await r.clone().text(); } catch {}
+    if (!(r.status === 402 || /balance|credit|payment|insufficient/i.test(body))) return false;
+    if (env.RATE && await env.RATE.get('billretell')) return false;
+    if (env.RATE) await env.RATE.put('billretell', '1', { expirationTtl: 6 * 3600 });
+    await alert(env, 'Retell', 'יתרת שיחות נגמרה / בעיית חיוב', String(r.status));
+    return true;
+  } catch { return false; }
+}
+
+async function handleBillingCheck(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const res = await checkBilling(env, { dry: body.dry !== false }).catch(e => ({ ok: false, error: String(e && e.message) }));
+  return okJson(res, origin);
+}
+/* ══ end billing guard ══ */
+
 async function checkTelnyx(env) {
   if (!env.TELNYX_KEY) return { ok: false, why: 'no-key' };
   if (env.RATE && await env.RATE.get('telnyxdone')) return { ok: true, why: 'already-wired' };
@@ -6889,6 +7005,7 @@ async function drainAdminCalls(env) {
     const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
     payload.metadata.test = 'admin-scheduled';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    await retellBillingGuard(env, r);
     const ok = !!(r && r.ok);
     await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name, kind: 'שיחה מתוזמנת (אדמין)', status: ok ? 'חויג ' + ilTime() : 'נכשל', id: '' }).catch(() => {});
     await slackPost(env, ok ? `📞 נועה מתקשרת עכשיו ל-${lead.name} (${phone.replace(/^972/, '0')}), שיחה שתוזמנה.` : `⚠️ שיחה מתוזמנת של נועה ל-${phone} לא יצאה.`).catch(() => {});
@@ -8034,6 +8151,10 @@ export default {
     if (String(event.cron || '').startsWith('0 4 ')) {
       ctx.waitUntil((async () => {
         await checkTelnyx(env).catch(() => {});
+        if (env.RATE && !(await env.RATE.get('billcheck:' + ilDate()).catch(() => null))) {
+          await env.RATE.put('billcheck:' + ilDate(), '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+          await checkBilling(env).catch(() => {});
+        }
         if (!env.RATE) return;
         const last = await env.RATE.get('engine:lastrun').catch(() => null);
         const age = last ? (Date.now() - Date.parse(JSON.parse(last).at || 0)) / 36e5 : 999;
@@ -8861,6 +8982,9 @@ export default {
     }
     if (url.pathname === '/api/block-phone' && request.method === 'POST') {
       return handleBlockPhone(request, env, origin);
+    }
+    if (url.pathname === '/api/billing-check' && request.method === 'POST') {
+      return handleBillingCheck(request, env, origin);
     }
     if (url.pathname === '/api/telnyx-check' && request.method === 'POST') {
       return handleTelnyxCheck(request, env, origin);
