@@ -34,6 +34,7 @@ import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseIn
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
+import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -290,6 +291,53 @@ function looksIshur(flat, pages) {
     dump.toLowerCase().includes('ishur') || dump.includes('אישורי הגעה');
 }
 
+async function handleDesignPaid(env, flat) {
+  const ref = String(flat.asmachta || flat.transactionId || flat.transactionToken || flat.paymentId || '').trim();
+  if (ref && env.RATE) {
+    if (await env.RATE.get('grow:' + ref)) return new Response('duplicate', { status: 200 });
+    await env.RATE.put('grow:' + ref, 'design', { expirationTtl: 30 * 86400 }).catch(() => {});
+  }
+  const token = designTokenOf(flat);
+  const phone = normPhone(flat.payerPhone || flat.phone || '');
+  const name = String(flat.fullName || flat.payerName || '').trim();
+  const sum = String(flat.paymentSum || flat.sum || '').trim();
+  if (token && env.RATE) {
+    await env.RATE.put('design:' + token, JSON.stringify({ status: 'paid', ref, phone, sum, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  }
+  const local = String(phone || '').replace(/^972/, '0');
+  try { await slackSend(env, `💳 שולם עיצוב הזמנה · ₪${sum || '?'} · ${name} ${local} · ${token ? 'אירוע ' + token.slice(0, 8) : 'בלי טוקן אירוע — לשייך ידנית'}`, { urgent: true, now: true }); } catch {}
+  await logEvent(env, { area: 'תשלום', action: 'שולם עיצוב הזמנה', ok: true, review: !token, phone, ref, token, detail: `₪${sum} · ${String(flat.paymentDesc || '').slice(0, 80)}` }).catch(() => {});
+  return new Response('design-paid', { status: 200 });
+}
+
+/* design.html → one item on the Monday design board + a Slack line */
+async function handleDesignBrief(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const stampError = await checkStamp(body, env.APP_KEY);
+  if (stampError) return deny(403, stampError, origin);
+  if (await overBudget(env, 'rl:design:' + (request.headers.get('CF-Connecting-IP') || 'x'), 10, 3600)) return deny(429, 'slow-down', origin);
+  const v = validateDesignBrief(body);
+  if (!v.ok) return okJson({ ok: false, why: v.why }, origin);
+  const br = v.brief;
+  let itemId = null, mErr = '';
+  try { itemId = await createDesignItem(mondayGql, env, br); } catch (e) { mErr = String(e && e.message || e).slice(0, 300); }
+  let paid = '';
+  if (br.token && env.RATE) {
+    try { const d = JSON.parse(await env.RATE.get('design:' + br.token) || 'null'); paid = d && d.status === 'paid' ? 'שולם' : 'לא נמצא תשלום'; } catch {}
+    await env.RATE.put('designbrief:' + br.token, JSON.stringify({ ...br, itemId, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  }
+  const local = br.phone.replace(/^972/, '0');
+  try {
+    await slackSend(env, `🎨 *בריף עיצוב הזמנה* · ${designItemName(br)} · ${local}${paid ? ' · ' + paid : ''}` +
+      (itemId ? ' · נפתח במאנדיי' : `\n⚠️ לא נפתח פריט במאנדיי — לפתוח ידנית. ${mErr}`), { urgent: true, now: true });
+  } catch {}
+  await logEvent(env, { area: 'עיצוב הזמנה', action: itemId ? 'בריף התקבל ונפתח במאנדיי' : 'בריף התקבל, מאנדיי נכשל', ok: !!itemId, review: !itemId,
+    phone: br.phone, token: br.token, detail: itemId ? 'item ' + itemId : mErr }).catch(() => {});
+  /* the brief is safe in KV + Slack even when Monday failed, so the client hears "received" */
+  return okJson({ ok: true }, origin);
+}
+
 async function handleGrowIpn(request, env, url) {
   if ((url.searchParams.get('k') || '') !== env.GROW_KEY) {
     return new Response('forbidden', { status: 403 });
@@ -337,6 +385,10 @@ async function handleGrowIpn(request, env, url) {
      so the page-id list above never could have matched, and the very first
      real customer was parked as "not ishur". Every ishur payment page is
      named "<N> מוזמנים <plan>", so the description is the reliable signal. */
+  /* עיצוב הזמנה (₪79): its own Grow page, not a package and not a
+     guests add-on. Tied to the event by cField1=<token> on the link. */
+  if (isDesignPayment(flat)) return handleDesignPaid(env, flat);
+
   const isIshur = looksIshur(flat, ISHUR_GROW_PAGES);
   if (!isIshur) {
     /* The matcher has never seen a real Grow payload, so a miss here could be
@@ -8933,6 +8985,9 @@ export default {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
       return okJson({ ok: true, url: 'https://go.ishur.io/cal/hostess-' + key.slice(0, 24) + '.ics' }, origin);
+    }
+    if (url.pathname === '/api/design-brief' && request.method === 'POST') {
+      return handleDesignBrief(request, env, origin);
     }
     if (url.pathname === '/api/hostess-check' && request.method === 'POST') {
       let b = {};
