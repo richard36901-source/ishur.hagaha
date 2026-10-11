@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=68"></script>
+<script src="config.js?v=69"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -526,6 +526,29 @@
         </div>
         <p class="ferr" id="e-img" aria-live="polite"></p>
         <p class="hint-s">JPG, PNG או WebP עד 4MB. התמונה מצורפת להודעת ההזמנה שהמוזמנים מקבלים.</p>
+      </div>
+      <style>
+        .dsgn{margin-top:.8rem;border-top:1px dashed var(--bdr);padding-top:.8rem}
+        .dsgn-btn{display:inline-flex;align-items:center;gap:.45rem;border:1px solid var(--bdr2);background:var(--green4);color:var(--green);border-radius:10px;padding:.6rem 1rem;font:inherit;font-size:.88rem;font-weight:500;cursor:pointer;text-decoration:none}
+        .dsgn-btn:hover{border-color:var(--green)}
+        .dsgn details{margin-top:.45rem;font-size:.78rem;color:var(--ink3)}
+        .dsgn summary{cursor:pointer;width:max-content}
+        .dsgn ul{margin:.35rem 1.1rem 0 0;padding:0;line-height:1.6}
+      </style>
+      <div class="dsgn" id="dsgnWrap" hidden>
+        <a class="dsgn-btn" id="dsgnBtn" href="#">אין לכם הזמנה? תעצבו לי הזמנה · ₪<span id="dsgnPrice">79</span></a>
+        <details>
+          <summary>תנאים</summary>
+          <ul>
+            <li>המחיר כולל עיצוב אחד ועד 2 סבבי תיקונים.</li>
+            <li>סבב תיקונים נוסף בתוספת תשלום של ₪30 לסבב.</li>
+            <li>שינוי מהותי (סגנון חדש או עיצוב מאפס) ייחשב כעיצוב חדש.</li>
+            <li>העיצוב מתחיל לאחר קבלת כל הפרטים.</li>
+            <li>מרגע התשלום לא יינתן החזר כספי, מאחר שהעבודה מתחילה עם התשלום, בין אם נשלחו הפרטים לעיצוב ובין אם לא.</li>
+            <li>באחריות הלקוח לבדוק את נכונות הפרטים בעיצוב לפני האישור.</li>
+            <li>מסירה תוך 3 ימי עסקים מקבלת כל הפרטים.</li>
+          </ul>
+        </details>
       </div>
     </div>
 
@@ -1430,6 +1453,19 @@
     if (s3 && ed && s3 > ed) { showErr('sd3', 'השליחה הנוספת לא יכולה לצאת אחרי האירוע'); ok = false; }
     return ok;
   }
+
+  /* ── invitation design add-on: Grow link + the event token as cField1 ── */
+  (function () {
+    var link = CFG.DESIGN_LINK;
+    if (!link || !token) return;
+    var u = link + (link.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token);
+    $('dsgnBtn').href = u;
+    $('dsgnPrice').textContent = CFG.DESIGN_PRICE || 79;
+    $('dsgnWrap').hidden = false;
+    $('dsgnBtn').addEventListener('click', function () {
+      IshurLead.track('addon_click', { addon: 'design', plan: plan, guests: guests, has_link: true });
+    });
+  })();
 
   /* ── invitation image, optional ── validated here, stored by the Worker ── */
   var imgFile = null;

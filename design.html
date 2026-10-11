@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>עיצוב הזמנה · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=69"></script>
+<script src="assets/tracking.js?v=22"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/lead.js?v=24"></script>
+<script>IshurLead.init({ variant: 'v1' });</script>
+<style>
+  :root{
+    --green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;
+    --ink:#111827;--ink2:#374151;--ink3:#6b7280;
+    --bg:#fff;--bg2:#f9fafb;--bg3:#f3f4f6;
+    --bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);
+    --ease:cubic-bezier(.22,.9,.24,1);
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);min-height:100vh;
+    display:flex;justify-content:center;padding:1.25rem 1rem 3rem;-webkit-font-smoothing:antialiased}
+  .card{width:100%;max-width:520px;background:#fff;border:1px solid var(--bdr);border-radius:18px;padding:1.6rem 1.3rem}
+  .brand-t{font-family:'Rubik',sans-serif;font-size:.92rem;font-weight:600;text-align:center;margin-bottom:1rem}
+  .brand-t span{color:var(--green)}
+  h1{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:600;text-align:center;margin-bottom:.3rem}
+  .sub{text-align:center;color:var(--ink3);font-size:.9rem;margin-bottom:1.1rem}
+  .terms{background:var(--green4);border:1px solid var(--bdr2);border-radius:12px;padding:.8rem 1rem;font-size:.8rem;color:var(--ink2);margin-bottom:1.3rem}
+  .terms b{display:block;margin-bottom:.3rem;color:var(--green)}
+  .terms ul{margin-right:1.1rem;line-height:1.65}
+  .frow{margin-bottom:.95rem}
+  label{display:block;font-size:.86rem;font-weight:500;margin-bottom:.3rem}
+  .fopt{color:var(--ink3);font-weight:400;font-size:.76rem}
+  input,select,textarea{width:100%;font:inherit;font-size:16px;border:1px solid var(--bdr);border-radius:10px;padding:.6rem .75rem;background:#fff;color:var(--ink)}
+  input:focus,select:focus,textarea:focus{outline:none;border-color:var(--green)}
+  textarea{min-height:96px;resize:vertical}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .chips{display:flex;flex-wrap:wrap;gap:.4rem}
+  .chip{border:1px solid var(--bdr);background:#fff;border-radius:99px;padding:.4rem .85rem;font:inherit;font-size:.84rem;cursor:pointer;color:var(--ink2)}
+  .chip.on{background:var(--green);border-color:var(--green);color:#fff}
+  .hint-s{font-size:.76rem;color:var(--ink3);margin-top:.3rem}
+  .ferr{font-size:.78rem;color:#b45309;min-height:0;margin-top:.25rem}
+  .btn{width:100%;border:none;background:var(--green);color:#fff;font:inherit;font-size:1rem;font-weight:600;border-radius:12px;padding:.85rem;cursor:pointer;margin-top:.4rem}
+  .btn:disabled{opacity:.6;cursor:default}
+  .done{text-align:center;padding:1.5rem .5rem}
+  .done h2{font-family:'Rubik',sans-serif;font-size:1.2rem;margin-bottom:.4rem;color:var(--green)}
+  .done p{color:var(--ink2);font-size:.92rem}
+  .hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand-t">ishur<span>.io</span></div>
+
+  <div id="formWrap">
+    <h1>בואו נעצב לכם הזמנה</h1>
+    <p class="sub">כמה פרטים קצרים, ואנחנו מתחילים לעבוד.</p>
+
+    <div class="terms">
+      <b>תנאים</b>
+      <ul>
+        <li>המחיר כולל עיצוב אחד ועד 2 סבבי תיקונים.</li>
+        <li>סבב תיקונים נוסף בתוספת תשלום של ₪30 לסבב.</li>
+        <li>שינוי מהותי (סגנון חדש או עיצוב מאפס) ייחשב כעיצוב חדש.</li>
+        <li>העיצוב מתחיל לאחר קבלת כל הפרטים.</li>
+        <li>מרגע התשלום לא יינתן החזר כספי, מאחר שהעבודה מתחילה עם התשלום, בין אם נשלחו הפרטים לעיצוב ובין אם לא.</li>
+        <li>באחריות הלקוח לבדוק את נכונות הפרטים בעיצוב לפני האישור.</li>
+        <li>מסירה תוך 3 ימי עסקים מקבלת כל הפרטים.</li>
+      </ul>
+    </div>
+
+    <form id="f" novalidate>
+      <input class="hp" type="text" id="f-hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <div class="frow">
+        <label for="f-names">שמות על ההזמנה</label>
+        <input id="f-names" maxlength="120" placeholder="למשל: נועה ואיתי">
+        <p class="ferr" id="e-names"></p>
+      </div>
+      <div class="frow">
+        <label for="f-type">סוג האירוע</label>
+        <select id="f-type">
+          <option value="">בחרו</option>
+          <option>חתונה</option><option>חינה</option><option>בר מצווה</option><option>בת מצווה</option>
+          <option>ברית / בריתה</option><option>יום הולדת</option><option>אירוע חברה</option><option>אחר</option>
+        </select>
+        <p class="ferr" id="e-type"></p>
+      </div>
+      <div class="two">
+        <div class="frow">
+          <label for="f-date">תאריך</label>
+          <input id="f-date" type="date">
+          <p class="ferr" id="e-date"></p>
+        </div>
+        <div class="frow">
+          <label for="f-time">שעה</label>
+          <input id="f-time" type="time">
+        </div>
+      </div>
+      <div class="frow">
+        <label for="f-venue">מקום האירוע וכתובת</label>
+        <input id="f-venue" maxlength="200" placeholder="שם האולם, רחוב, עיר">
+      </div>
+      <div class="frow">
+        <label for="f-wording">נוסח ההזמנה <span class="fopt">מה תרצו שיהיה כתוב</span></label>
+        <textarea id="f-wording" maxlength="2000" placeholder="למשל: שמחים להזמינכם לחגוג איתנו..."></textarea>
+      </div>
+      <div class="frow">
+        <label>סגנון וצבעים</label>
+        <div class="chips" id="chips"></div>
+        <input id="f-colors" maxlength="120" placeholder="צבעים שאתם אוהבים (לא חובה)" style="margin-top:.5rem">
+      </div>
+      <div class="frow">
+        <label for="f-link">קישור להשראה <span class="fopt">לא חובה</span></label>
+        <input id="f-link" type="url" dir="ltr" maxlength="500" placeholder="https://">
+        <p class="hint-s">יש לכם תמונה להשראה? שלחו לנו בוואטסאפ ל-055-950-4499.</p>
+        <p class="ferr" id="e-link"></p>
+      </div>
+      <div class="frow">
+        <label for="f-phone">טלפון ליצירת קשר</label>
+        <input id="f-phone" type="tel" dir="ltr" maxlength="20" placeholder="05X-XXXXXXX">
+        <p class="ferr" id="e-phone"></p>
+      </div>
+      <button class="btn" id="sendBtn" type="submit">שליחת הפרטים</button>
+    </form>
+  </div>
+
+  <div class="done" id="done" hidden>
+    <h2 id="doneT">תודה, קיבלנו!</h2>
+    <p id="doneP">מתחילים לעבוד על ההזמנה. נשלח לכם את העיצוב בוואטסאפ.</p>
+  </div>
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search);
+  var token = (qs.get('t') || qs.get('cField1') || '').trim();
+  var STYLES = ['קלאסי', 'מודרני', 'מינימליסטי', 'צבעוני', 'זהב/שמנפניה', 'אחר'];
+  var picked = {};
+
+  $('chips').innerHTML = STYLES.map(function (s) {
+    return '<button type="button" class="chip" data-s="' + s + '">' + s + '</button>';
+  }).join('');
+  $('chips').addEventListener('click', function (e) {
+    var b = e.target.closest('.chip'); if (!b) return;
+    picked[b.dataset.s] = !picked[b.dataset.s];
+    b.classList.toggle('on', !!picked[b.dataset.s]);
+  });
+
+  function track(n, p) { try { IshurLead.track(n, p || {}); } catch (e) {} }
+  track('design_brief_open', { has_token: !!token });
+
+  /* prefill from the event, quietly; an empty form is fine too */
+  if (token && CFG.endpoint) {
+    Promise.resolve(window.IshurGuard && IshurGuard.whenReady ? IshurGuard.whenReady() : null).then(function () {
+      var payload = { token: token };
+      return fetch(CFG.endpoint('status'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
+      });
+    }).then(function (r) { return r && r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        var ev = d && d.event; if (!ev) return;
+        function put(id, v) { if (v && !$(id).value) $(id).value = String(v); }
+        put('f-names', ev.names || ev.event_name || ev.couple);
+        var dt = String(ev.event_date || '').slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(dt)) put('f-date', dt);
+        put('f-time', /^\d{1,2}:\d{2}$/.test(String(ev.event_time || '')) ? ev.event_time : '');
+        put('f-venue', [ev.venue, ev.address || ev.city].filter(Boolean).join(', '));
+        put('f-phone', ev.phone);
+        var occ = String(ev.occasion || '');
+        if (occ) [].forEach.call($('f-type').options, function (o) { if (o.value && occ.indexOf(o.value.split(' ')[0]) > -1 && !$('f-type').value) $('f-type').value = o.value; });
+      }).catch(function () {});
+  }
+
+  function err(id, msg) { $('e-' + id).textContent = msg || ''; }
+  function phoneOk(p) { var d = String(p).replace(/\D/g, ''); return /^(05\d{8}|9725\d{8})$/.test(d); }
+
+  function collect() {
+    return {
+      token: token,
+      names: $('f-names').value.trim(),
+      event_type: $('f-type').value,
+      date: $('f-date').value,
+      time: $('f-time').value,
+      venue: $('f-venue').value.trim(),
+      wording: $('f-wording').value.trim(),
+      styles: STYLES.filter(function (s) { return picked[s]; }),
+      colors: $('f-colors').value.trim(),
+      link: $('f-link').value.trim(),
+      phone: $('f-phone').value.trim(),
+      hp: $('f-hp').value
+    };
+  }
+
+  function check(b) {
+    var ok = true;
+    ['names', 'type', 'date', 'phone', 'link'].forEach(function (k) { err(k, ''); });
+    if (b.names.length < 2) { err('names', 'כתבו את השמות שיופיעו על ההזמנה'); ok = false; }
+    if (!b.event_type) { err('type', 'בחרו את סוג האירוע'); ok = false; }
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(b.date)) { err('date', 'בחרו תאריך'); ok = false; }
+    if (!phoneOk(b.phone)) { err('phone', 'נשמח למספר נייד, למשל 050-1234567'); ok = false; }
+    if (b.link && !/^https?:\/\/\S+$/i.test(b.link)) { err('link', 'הקישור צריך להתחיל ב-https://'); ok = false; }
+    return ok;
+  }
+
+  function finish(soft) {
+    $('formWrap').hidden = true;
+    $('done').hidden = false;
+    if (soft) { $('doneT').textContent = 'קיבלנו, ניצור קשר בוואטסאפ'; $('doneP').textContent = 'נחזור אליכם בהקדם להשלים את הפרטים.'; }
+    window.scrollTo(0, 0);
+  }
+
+  function post(b) {
+    return Promise.resolve(window.IshurGuard && IshurGuard.whenReady ? IshurGuard.whenReady() : null).then(function () {
+      return fetch(CFG.endpoint('design-brief'), {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(b) : b)
+      });
+    }).then(function (r) { if (!r.ok) throw new Error('s' + r.status); return r.json(); });
+  }
+
+  $('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    var b = collect();
+    if (!check(b)) return;
+    var btn = $('sendBtn'); btn.disabled = true; btn.textContent = 'שולחים...';
+    track('design_brief_submit', { has_token: !!token, has_link: !!b.link });
+    post(b).then(function () { finish(false); })
+      .catch(function () {
+        /* one quiet retry, then the soft landing; the worker alerts Slack on its side */
+        return new Promise(function (r) { setTimeout(r, 1500); }).then(function () { return post(b); })
+          .then(function () { finish(false); })
+          .catch(function () { track('design_brief_fail', {}); finish(true); });
+      });
+  });
+})();
+</script>
+</body>
+</html>
