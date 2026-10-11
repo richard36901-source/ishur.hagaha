@@ -314,6 +314,35 @@
     .spin,.bar i{animation-duration:.9s!important;animation-iteration-count:infinite!important}
     .drop:active,.btn:active,.retry:active,.idate-cell:active,.style-opt:active{transform:none}
   }
+  /* ── guest-list helpers (assets/guestlist.js) ── */
+  .gl-tpl{margin-top:.9rem;text-align:center}
+  .gl-btn{display:inline-flex;align-items:center;justify-content:center;gap:.4rem;min-height:44px;padding:.55rem 1.1rem;border:1px solid var(--bdr2);border-radius:10px;background:var(--bg);color:var(--green2);font-family:inherit;font-size:.88rem;font-weight:500;cursor:pointer}
+  .gl-btn:active{transform:scale(.972)}
+  .gl-help{font-size:.79rem;color:var(--ink3);line-height:1.6;margin-top:.45rem}
+  .gl-box{margin-top:1.3rem;border:1px solid var(--bdr);border-radius:12px;padding:1rem .9rem;background:var(--bg2)}
+  .gl-box h2{font-family:'Rubik',sans-serif;font-size:1rem;font-weight:600;margin-bottom:.35rem}
+  .gl-row{display:flex;flex-wrap:wrap;gap:.5rem;margin-top:.6rem}
+  .gl-row .gl-btn{flex:1 1 150px}
+  .gl-note{margin-top:.6rem;padding:.55rem .75rem;border-radius:10px;background:#FFF6E5;color:#7A5A1E;font-size:.83rem;line-height:1.55}
+  .gl-box details{margin-top:.8rem;font-size:.82rem;color:var(--ink2)}
+  .gl-box summary{cursor:pointer;color:var(--green2);font-weight:500;padding:.3rem 0}
+  .gl-box ol{padding-inline-start:1.2rem;margin:.3rem 0 .6rem;line-height:1.65}
+  .gl-box h3{font-size:.84rem;font-weight:600;margin-top:.5rem}
+  .gl-review{margin-top:1rem}
+  .gl-count{font-size:.86rem;font-weight:600;color:var(--ink)}
+  .gl-sk{font-size:.76rem;color:var(--ink3)}
+  .gl-wrap{max-height:300px;overflow-y:auto;border:1px solid var(--bdr);border-radius:10px;background:var(--bg);margin-top:.5rem;-webkit-overflow-scrolling:touch}
+  .gl-wrap table{width:100%;border-collapse:collapse;font-size:.84rem}
+  .gl-wrap th{position:sticky;top:0;background:var(--bg2);font-weight:600;font-size:.75rem;color:var(--ink2);padding:.4rem .35rem;text-align:start}
+  .gl-wrap td{border-top:1px solid var(--bdr);padding:.25rem .3rem;vertical-align:middle}
+  .gl-in{width:100%;min-width:0;border:1px solid transparent;border-radius:6px;background:transparent;font-family:inherit;font-size:16px;padding:.3rem .25rem;color:var(--ink)}
+  .gl-in:focus{border-color:var(--green);outline:none;background:var(--bg)}
+  .gl-n{width:3.2rem;text-align:center}
+  .gl-ph{direction:ltr;text-align:right;white-space:nowrap;font-size:.8rem;color:var(--ink2)}
+  .gl-x{width:32px;height:32px;border:none;background:none;color:var(--ink3);font-size:1.2rem;cursor:pointer;border-radius:6px}
+  .gl-scroll{font-size:.76rem;color:var(--green2);margin-top:.35rem}
+  .gl-chk{display:flex;gap:.5rem;align-items:flex-start;margin-top:.7rem;font-size:.86rem;color:var(--ink);line-height:1.5}
+  .gl-chk input{width:20px;height:20px;flex-shrink:0;accent-color:var(--green)}
   /* the page never scrolls sideways on a phone */
   html,body{overflow-x:hidden;max-width:100%}
 </style>
@@ -395,6 +424,61 @@
     <button class="btn" id="sendBtn" disabled>העלאה והמשך להגדרות</button>
     <div class="bar" id="bar"><i></i></div>
     <p class="tmpl" id="tmplRow" hidden>אין קובץ מוכן? <a id="tmplLink" href="#" target="_blank" rel="noopener">להורדת קובץ לדוגמה</a></p>
+
+    <div class="gl-tpl">
+      <button type="button" class="gl-btn" id="glTemplateBtn">הורדת קובץ למילוי</button>
+      <p class="gl-help">הורידו, מלאו שם, טלפון וכמה מגיעים מכל רשומה, ושמרו. מי שכבר יש לו קובץ פשוט מעלה אותו.</p>
+      <p class="gl-note" id="glTplNote" hidden></p>
+    </div>
+
+    <div class="gl-box" id="glContacts">
+      <h2>יש לכם את המוזמנים באנשי הקשר?</h2>
+      <p class="gl-help">בוחרים אנשי קשר, עוברים על הרשימה, ואנחנו הופכים אותה לקובץ.</p>
+      <div class="gl-row">
+        <button type="button" class="gl-btn" id="glPickBtn" hidden>בחירה מאנשי הקשר</button>
+        <button type="button" class="gl-btn" id="glVcfBtn">העלאת קובץ אנשי קשר (vcf)</button>
+      </div>
+      <input type="file" id="glVcfInput" accept=".vcf,.vcard,text/vcard,text/x-vcard" hidden>
+      <p class="gl-note" id="glNote" hidden></p>
+
+      <details>
+        <summary>איך מוציאים קובץ אנשי קשר מהטלפון?</summary>
+        <h3>אייפון, הדרך המהירה (iOS 16 ומעלה)</h3>
+        <ol>
+          <li>באפליקציית אנשי הקשר: רשימות ← הוספת רשימה (למשל "חתונה").</li>
+          <li>מוסיפים לרשימה את המוזמנים.</li>
+          <li>לחיצה ארוכה על הרשימה ← "ייצוא" ← שמירה בקבצים.</li>
+          <li>חוזרים לכאן ומעלים את הקובץ.</li>
+        </ol>
+        <h3>אייפון, הדרך שעובדת תמיד (מהמחשב)</h3>
+        <ol>
+          <li>נכנסים ל-iCloud.com ← אנשי קשר.</li>
+          <li>מסמנים את המוזמנים (Cmd/Ctrl + קליק, או ⌘A לכל הרשימה).</li>
+          <li>⚙ / שיתוף ← "ייצוא vCard".</li>
+          <li>מעלים כאן את קובץ ה-vcf.</li>
+        </ol>
+        <h3>אנדרואיד</h3>
+        <ol>
+          <li>הכי פשוט: הכפתור "בחירה מאנשי הקשר" למעלה.</li>
+          <li>או באפליקציית אנשי הקשר: מסמנים ← שיתוף ← קובץ vcf, ומעלים כאן.</li>
+        </ol>
+      </details>
+
+      <div class="gl-review" id="glReview" hidden>
+        <p class="gl-count" id="glCount"></p>
+        <p class="gl-sk" id="glSkipped"></p>
+        <div class="gl-wrap" id="glTableWrap" tabindex="0" aria-label="רשימת אנשי הקשר לבדיקה">
+          <table>
+            <thead><tr><th>שם</th><th>טלפון</th><th>כמה מגיעים</th><th><span class="hp">הסרה</span></th></tr></thead>
+            <tbody id="glTbody"></tbody>
+          </table>
+        </div>
+        <p class="gl-scroll" id="glScrollHint">גללו עד סוף הרשימה כדי להמשיך</p>
+        <label class="gl-chk"><input type="checkbox" id="glChk"> עברתי על כל הרשימה ומאשר/ת</label>
+        <button type="button" class="btn" id="glConfirm" disabled>אישור והמשך</button>
+        <div class="gl-row"><button type="button" class="gl-btn" id="glExcel">הורדה כאקסל</button></div>
+      </div>
+    </div>
   </section>
 
   <!-- ══ step 2 · event setup ═══════════════════════════════════════════ -->
@@ -664,6 +748,7 @@
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/datepicker.js?v=19"></script>
+<script src="assets/guestlist.js?v=1"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -777,6 +862,8 @@
     if (f) setFile(f);
   });
   $('retryBtn').addEventListener('click', function () { show(returnTo); });
+  /* assets/guestlist.js hands contact-built CSVs through the same path */
+  window.IshurUpload = { setFile: setFile, send: function () { sendBtn.click(); } };
 
   sendBtn.addEventListener('click', function () {
     if (!file || !token) return;
