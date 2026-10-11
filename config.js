@@ -417,7 +417,7 @@ window.ISHUR_CONFIG = (function () {
   /* ══ INVITATION DESIGN (עיצוב הזמנה) ═══ one Grow page, fixed price ══════
      Empty link hides the button on upload.html. The event token rides along
      as cField1 so the worker can tie the payment to the event. */
-  var DESIGN_LINK = '';
+  var DESIGN_LINK = 'https://pay.grow.link/NTY2OTg~9ea1ad8e8ceaa6c871674aa2dce7c53a-NDExNDMxMQ';
   var DESIGN_PRICE = 79;
 
   var ADDON_PRICES = {};   // '<addon>_<guests>': 120
