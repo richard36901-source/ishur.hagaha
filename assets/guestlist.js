@@ -180,17 +180,14 @@
     var aoa = [HEADERS.slice()];
     if (rows && rows.length) {
       rows.forEach(function (r) { aoa.push([r.name, r.phone, Number(r.count) || 1]); });
-    } else {
-      aoa[0].push('', 'דוגמה - למחוק (לא נקלט)', '', '');
-      EXAMPLES.forEach(function (e) { aoa.push(['', '', '', '', e[0], e[1], e[2]]); });
-    }
+    }  /* blank template: headers only, no examples (Richard 11/10) */
     var ws = XLSX.utils.aoa_to_sheet(aoa);
     /* phone column as text so Excel keeps the leading zero */
     for (var r = 1; r <= Math.max(aoa.length, 300); r++) {
       var a = 'B' + (r + 1);
       if (ws[a]) { ws[a].t = 's'; ws[a].z = '@'; }
     }
-    ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 14 }, { wch: 4 }, { wch: 30 }, { wch: 16 }, { wch: 12 }];
+    ws['!cols'] = [{ wch: 28 }, { wch: 16 }, { wch: 14 }];
     var wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'רשימת מוזמנים');
     wb.Workbook = { Views: [{ RTL: true }] };
