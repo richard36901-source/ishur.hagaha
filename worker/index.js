@@ -1058,7 +1058,9 @@ async function handleIpnReplay(request, env, origin) {
     if (!raw) return deny(404, 'not-found', origin);
     try { flat = JSON.parse(raw); } catch { return deny(422, 'bad-payload', origin); }
   }
-  const res = await processGrowPayment(env, flat);
+  /* design payments have their own handler; the replay must take the same
+     fork as the live IPN or a ₪79 design looks like a package (11/10 bug) */
+  const res = isDesignPayment(flat) ? await handleDesignPaid(env, flat) : await processGrowPayment(env, flat);
   const text = await res.text().catch(() => '');
   await logEvent(env, { area: 'תשלום', action: 'הרצה ידנית של תשלום שחנה (ipn-replay)', ok: res.status === 200,
     phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${id} → ${text}` });
