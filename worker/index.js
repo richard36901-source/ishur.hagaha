@@ -7002,7 +7002,7 @@ async function metaAds(env, path, method, payload) {
 /* 10.9: Lead and InitiateCheckout from the server, same event_id the pixel
    used in the browser ('lead_<session>' / 'ic_<session>'), so Meta dedups and
    a blocked pixel still leaves the event. */
-async function capiEvent(env, name, { phone, email, eventId, value }) {
+async function capiEvent(env, name, { phone, email, eventId, value, fbp, fbc, ua, ip }) {
   if (!env.META_ADS_TOKEN || !eventId) return;
   if (env.RATE && await seenOnce(env, 'capi:' + eventId)) return;
   const user_data = {};
@@ -7011,6 +7011,13 @@ async function capiEvent(env, name, { phone, email, eventId, value }) {
   const em = String(email || '').trim().toLowerCase();
   if (em) user_data.em = [await sha256Hex(em)];
   if (!user_data.ph && !user_data.em) return;
+  /* Meta match-quality (06/10 recommendation, +7): browser id, click id,
+     external id, UA and IP lift how many leads Meta can tie back to an ad */
+  if (ph) user_data.external_id = [await sha256Hex(ph)];
+  if (fbp) user_data.fbp = String(fbp);
+  if (fbc) user_data.fbc = String(fbc);
+  if (ua) user_data.client_user_agent = String(ua).slice(0, 400);
+  if (ip) user_data.client_ip_address = String(ip);
   const ev = {
     event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: String(eventId),
     action_source: 'website', event_source_url: 'https://ishur.io/', user_data,
@@ -9820,9 +9827,10 @@ export default {
         const et = String(stampFields.event_type || '');
         const eid = String(stampFields.event_id || '');
         /* 27/09: only a completed form is a Lead. Partials went out as Lead too, so Meta optimised toward people who type a phone and leave (and bots). */
-        if (eid && et === 'lead_partial') await capiEvent(env, 'LeadStart', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
-        if (et === 'lead_submitted' && stampFields.lead_event_id) await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: String(stampFields.lead_event_id) });
-        if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
+        const capiX = { fbp: stampFields.fbp, fbc: stampFields.fbc, ua: stampFields.user_agent || request.headers.get('User-Agent'), ip: request.headers.get('CF-Connecting-IP') };
+        if (eid && et === 'lead_partial') await capiEvent(env, 'LeadStart', { ...capiX, phone: stampFields.phone, email: stampFields.email, eventId: eid });
+        if (et === 'lead_submitted' && stampFields.lead_event_id) await capiEvent(env, 'Lead', { ...capiX, phone: stampFields.phone, email: stampFields.email, eventId: String(stampFields.lead_event_id) });
+        if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { ...capiX, phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
       } catch {}
     }
 
