@@ -1839,7 +1839,8 @@
     var ev = data.event || {};
     var T = CFG.PRICE_TABLE, RANK = { basic: 0, pro: 1, premium: 2 };
     var NAMES = { basic: 'בסיס · הודעות בלבד', pro: 'פרמיום · הודעות + שיחה', premium: 'הכל כלול · הודעות + 3 סבבי שיחות' };
-    var curPlan = planKeyHe(ev.plan), curTier = parseInt(ev.guests_tier, 10) || 50;
+    var curPlan = planKeyHe(ev.plan), curTier = parseInt(String(ev.guests_tier || '').replace(/\D/g, ''), 10) || 50;
+    if (!T[curTier]) { var below = Object.keys(T).map(Number).filter(function (t) { return t <= curTier; }); curTier = below.length ? Math.max.apply(null, below) : 50; }
     var tiers = Object.keys(T).map(Number).filter(function (t) { return t >= curTier; });
     var baseRow = T[curTier] || T[tiers[0]] || T[50];
     var box = document.createElement('div');
