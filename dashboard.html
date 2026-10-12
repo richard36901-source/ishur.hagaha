@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=68"></script>
+<script src="config.js?v=69"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -1744,7 +1744,7 @@
         action = over
           ? '<span class="no-a" title="' + OVER_HINT + '">האירוע הסתיים</span>'
           : '<button type="button" class="buy" data-addon="' + k + '">' +
-            (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
+            (k === 'more_guests' ? 'שדרוג' : price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
       }
 
       return '<div class="addon' + cls + '">' +
@@ -1787,6 +1787,7 @@
           return;
         }
         if (k === 'extra_send') return askScope();
+        if (k === 'more_guests') return askUpgrade();
         if (k === 'calls') return payAddon('calls', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
         location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
@@ -1825,6 +1826,64 @@
       if (sc !== 'x') payAddon('extrasend', sc);
     });
     document.body.appendChild(box);
+  }
+  /* Richard 12/10: more guests and/or a higher plan, in one popup, paying
+     only the difference. Upgrades only — never a smaller list or a lower plan. */
+  function planKeyHe(p) {
+    p = String(p || '');
+    if (/הכל|premium/i.test(p)) return 'premium';
+    if (/בסיס|basic/i.test(p)) return 'basic';
+    return 'pro';
+  }
+  function askUpgrade() {
+    var ev = data.event || {};
+    var T = CFG.PRICE_TABLE, RANK = { basic: 0, pro: 1, premium: 2 };
+    var NAMES = { basic: 'בסיס · הודעות בלבד', pro: 'פרמיום · הודעות + שיחה', premium: 'הכל כלול · הודעות + 3 סבבי שיחות' };
+    var curPlan = planKeyHe(ev.plan), curTier = parseInt(ev.guests_tier, 10) || 50;
+    var tiers = Object.keys(T).map(Number).filter(function (t) { return t >= curTier; });
+    var baseRow = T[curTier] || T[tiers[0]] || T[50];
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+    box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:380px">' +
+      '<h3 style="margin:0 0 .3rem">שדרוג החבילה</h3>' +
+      '<p style="margin:0 0 .9rem;color:var(--ink2);font-size:.86rem">היום: ' + curTier + ' מוזמנים · ' + NAMES[curPlan].split(' · ')[0] + '. משלמים רק את ההפרש.</p>' +
+      '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">כמות מוזמנים</label>' +
+      '<select id="upT" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.8rem">' +
+      tiers.map(function (t) { return '<option value="' + t + '">' + (t === 900 ? 'עד 899' : 'עד ' + t) + ' מוזמנים' + (t === curTier ? ' (היום)' : '') + '</option>'; }).join('') + '</select>' +
+      '<div style="font-size:.82rem;margin-bottom:.3rem">מסלול</div>' +
+      ['basic', 'pro', 'premium'].filter(function (p) { return RANK[p] >= RANK[curPlan]; }).map(function (p) {
+        return '<label style="display:flex;gap:.5rem;align-items:center;padding:.45rem 0;font-size:.88rem"><input type="radio" name="upP" value="' + p + '"' + (p === curPlan ? ' checked' : '') + '> ' + NAMES[p] + (p === curPlan ? ' (היום)' : '') + '</label>';
+      }).join('') +
+      '<div id="upPrice" style="margin:.8rem 0;font-weight:600"></div>' +
+      '<button type="button" class="buy" id="upGo" style="width:100%;margin-bottom:.5rem">לתשלום</button>' +
+      '<button type="button" class="btn" id="upX" style="width:100%">ביטול</button></div>';
+    document.body.appendChild(box);
+    var pick = function () {
+      var t = parseInt(box.querySelector('#upT').value, 10);
+      var p = (box.querySelector('input[name=upP]:checked') || {}).value || curPlan;
+      return { t: t, p: p, diff: Math.max(0, (T[t] || {})[p] - baseRow[curPlan]) };
+    };
+    var paint = function () {
+      var x = pick(), go = box.querySelector('#upGo');
+      var same = x.t === curTier && x.p === curPlan;
+      box.querySelector('#upPrice').textContent = same ? 'בחרו כמות או מסלול גבוהים יותר' : 'להשלמה: ₪' + x.diff;
+      go.disabled = same || !x.diff;
+    };
+    box.addEventListener('change', paint); paint();
+    box.querySelector('#upX').addEventListener('click', function () { box.remove(); });
+    box.addEventListener('click', function (e) { if (e.target === box) box.remove(); });
+    box.querySelector('#upGo').addEventListener('click', function () {
+      var x = pick(), go = this;
+      IshurLead.track('addon_click', { addon: 'upgrade', tier: x.t, plan: x.p, where: 'dashboard' });
+      if (demo) { box.remove(); IshurUX.toast('במצב הדגמה לא עוברים לתשלום'); return; }
+      go.disabled = true; go.textContent = 'מכינים קישור…';
+      fetch(CFG.endpoint('addon-pay'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, kind: 'upgrade', tier: x.t, plan: x.p }) })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.ok && j.url) { location.href = j.url; return; }
+          location.href = CFG.waLink('היי, רציתי לשדרג את החבילה ל-' + x.t + ' מוזמנים, ' + NAMES[x.p].split(' · ')[0] + '.');
+        }).catch(function () { location.href = CFG.waLink('היי, רציתי לשדרג את החבילה שלי.'); });
+    });
   }
   function payAddon(kind, scope) {
     var it = priceOf(kind === 'extrasend' ? 'extra_send' : kind, scope);
