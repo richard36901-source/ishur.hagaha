@@ -31,6 +31,7 @@
   var INTERNAL = [
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
+    { href: 'leads.html', label: 'לידים', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
     { href: 'calendar.html', label: 'לוח שליחות', icon: ic.calls },
     { href: 'admin.html?view=calls', label: 'מוקד שיחות', icon: ic.calls },
