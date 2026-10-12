@@ -254,7 +254,8 @@ export function openingLine(hit, opts = {}) {
     return `${hello}, ${w}. ראיתי שהתקשרתם אלינו ולא הספקנו לדבר, אז חזרתי אליכם. איך אפשר לעזור?`;
   }
   if (h.caller_kind === 'guest') {
-    const at = ev.occasion ? `ל${ev.occasion}${ev.client_name ? ' של ' + ev.client_name : ''}` : '';
+    const hosts = ev.event_name || ev.client_name || '';
+    const at = ev.occasion ? `ל${ev.occasion}${hosts ? ' של ' + hosts : ''}` : '';
     if (h.rsvp === 'מגיע') {
       return `${hello}, ${who}. רשומים אצלי כמגיעים ${at}. איך אפשר לעזור?`;
     }
@@ -283,7 +284,7 @@ export function inboundVariables(hit, opts = {}) {
     guest_name: h.caller_kind === 'guest' ? String(h.name || '') : '',
     current_rsvp: String(h.rsvp || ''),
     party_size_invited: String(h.party || ''),
-    host_name: String(ev.client_name || ''),
+    host_name: String(ev.event_name || ev.client_name || ''),
     occasion: String(ev.occasion || 'אירוע'),
     event_name: String(ev.event_name || ''),
     event_date_spoken: spokenDate(ev.event_date || ''),
@@ -346,7 +347,8 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
         : kind === 'callback' ? inboundVariables(guest.hit || guest, { callback: true })
           : {
             guest_name: String(guest.name || ''),
-            host_name: String(guest.client_name || ''),
+            /* both hosts, so the other side's guests recognise it too (Richard 12/10) */
+            host_name: String(guest.event_name || guest.client_name || ''),
             occasion: String(guest.occasion || 'אירוע'),
             event_name: String(guest.event_name || ''),
             event_date_spoken: spokenDate(guest.event_date),
