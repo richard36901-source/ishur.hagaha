@@ -1163,6 +1163,28 @@ function parsePaidDesc(desc) {
 /* Shalev, 10/09: 0.30 ₪ per message + 20 ₪ per round; 2 ₪ per AI call + 20 ₪;
    postponement/cancellation 0.30 ₪ per guest; up to 10 extra guests free. */
 const ADDON_RATES = { msg: 0.30, call: 2, base: 20, freeGuests: 10 };
+/* package prices — mirrors config.js PRICE_TABLE; keep the two in sync */
+const PKG_PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
+const PLAN_RANK = { basic: 0, pro: 1, premium: 2 };
+const PLAN_HE = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
+/* Upgrade quote (Richard 12/10): a bigger tier and/or a higher plan, never
+   down on either, priced as the difference between the two packages. */
+async function upgradeQuote(env, token, wantTier, wantPlan) {
+  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
+  if (!ev) return { ok: false, why: 'no-event' };
+  const curPlan = planKeyOf(ev);
+  const curTier = await tierWithPromo(env, token, tierOf(ev));
+  const tier = parseInt(wantTier, 10), plan = String(wantPlan || '');
+  if (!PKG_PRICES[tier] || !(plan in PLAN_RANK)) return { ok: false, why: 'bad-package' };
+  if (tier < curTier || PLAN_RANK[plan] < PLAN_RANK[curPlan]) return { ok: false, why: 'downgrade' };
+  if (tier === curTier && plan === curPlan) return { ok: false, why: 'same' };
+  const curRow = PKG_PRICES[curTier] || PKG_PRICES[Object.keys(PKG_PRICES).map(Number).find(t => t >= curTier) || 50];
+  const price = Math.max(0, PKG_PRICES[tier][plan] - curRow[curPlan]);
+  if (!price) return { ok: false, why: 'no-difference' };
+  return { ok: true, cur: { tier: curTier, plan: curPlan }, tier, plan, price,
+    label: `שדרוג חבילה ל-${tier} מוזמנים ${PLAN_HE[plan]}` };
+}
 async function addonQuote(env, token) {
   const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
   const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token);
@@ -1197,6 +1219,10 @@ function parseAddonDesc(desc) {
   if (/נרשמים מהקישור/.test(d)) return { kind: 'selfreg', tok8, desc: d.slice(0, 80) };
   if (/הודעת דחייה|דחייה\/עדכון/.test(d)) return { kind: 'postpone', tok8, desc: d.slice(0, 80) };
   if (/הודעת ביטול/.test(d)) return { kind: 'cancel', tok8, desc: d.slice(0, 80) };
+  if (/שדרוג חבילה/.test(d)) {
+    const m = d.match(/ל-(\d{2,4})\s*מוזמנים\s*(בסיס|פרמיום|הכל כלול)/);
+    if (m) return { kind: 'upgrade', tier: parseInt(m[1], 10), plan: m[2] === 'בסיס' ? 'basic' : m[2] === 'פרמיום' ? 'pro' : 'premium', tok8, desc: d.slice(0, 80) };
+  }
   if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', scope: /ללא ענו/.test(d) ? 'unanswered' : 'all', tok8, desc: d.slice(0, 80) };
   if (!parsePaidDesc_isAddon(d)) return null;
   const m = d.match(/(\d{1,4})\s*מוזמנים/);
@@ -1212,7 +1238,9 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   const mine = eventsForPhone(raw, phone)
     .filter(e => !e.event_date || String(e.event_date).slice(0, 10) >= today)
     .sort((a, b) => String(a.event_date || '9').localeCompare(String(b.event_date || '9')));
-  const ev = mine[0];
+  /* the description carries the event's first 8 token chars: a client with
+     two events gets the add-on on the one they bought it for */
+  const ev = (addon.tok8 && mine.find(e => String(e.token || '').startsWith(addon.tok8))) || mine[0];
   const idx = ev ? rows.findIndex(r => String(r[1] || '').trim() === ev.token) : -1;
   if (!ev || idx < 0) {
     if (env.RATE) await env.RATE.put('addonpark:' + ref, JSON.stringify({ phone, name, sum, ref, addon, at: new Date().toISOString() }), { expirationTtl: 60 * 86400 });
@@ -1225,7 +1253,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   /* an add-on is money too: same invoice-receipt, same terms, same WhatsApp */
   try {
     const inv = await createInvoice(env, { name, phone, sum, ref, payMethod: String(flat.paymentType || flat.paymentMethod || '').trim(),
-      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
+      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
     if (inv.ok) {
       const email = String(flat.payerEmail || flat.email || '').trim();
       let wa = { ok: true, skipped: 'email' };
@@ -1237,7 +1265,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
       await logEvent(env, { area: 'חשבוניות', action: `חשבונית ${inv.number} לתוספת הופקה`, ok: true, phone, token, ref,
         detail: `₪${sum} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — ווצאפ ' + (wa.ok ? 'נשלח' : wa.error)} · ${inv.url}` });
       await logRow(env, 'invoices', { number: inv.number, kind: 'תוספת', name, phone, email, token: String(token).slice(0, 8),
-        plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
+        plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
       if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true }), { expirationTtl: 400 * 86400 });
       await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
       await upsertClientRow(env, { clientId: 'C-' + String(phone).slice(-9), name, phone, token, eventName: ev.event_name || '', invoice: `${inv.number} · ${inv.url}` }).catch(() => {});
@@ -1266,6 +1294,31 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
     await logEvent(env, { area: 'תשלום', action: `תוספת נרכשה: ${addon.desc}`, ok: true, phone, token, ref, detail: `₪${sum}` });
     await slackSend(env, `💳 *תוספת ${addon.kind === 'calls' ? 'סבב שיחות' : addon.kind === 'postpone' ? 'הודעת דחייה' : 'הודעת ביטול'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${addon.kind !== 'calls' ? ' — לשלוח את ההודעה מלוח השליטה' : ' — הסבב ייצא בחלון הבא'}`, { urgent: true });
     return { ok: true, token };
+  }
+  if (addon.kind === 'upgrade') {
+    const before = await tierWithPromo(env, token, tierOf(evRow));
+    const beforePlan = planKeyOf(evRow);
+    /* never let a stale payment move the event backwards */
+    const tier = Math.max(addon.tier, before);
+    const plan = PLAN_RANK[addon.plan] >= PLAN_RANK[beforePlan] ? addon.plan : beforePlan;
+    const okw = await sheetBatchWrite(env, [
+      { range: `אירועים!AF${row}`, values: [[PLAN_HE[plan]]] },
+      { range: `אירועים!AG${row}`, values: [[String(tier)]] },
+      { range: `אירועים!Z${row}`, values: [[String(evRow[25] || '').trim() + `\nשדרוג · ${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum} · ${new Date().toISOString().slice(0, 16)}`]] },
+    ]);
+    if (env.RATE) {
+      if (tier > before) {
+        /* more seats: one merge upload opens, same as the guests add-on */
+        await env.RATE.put('addon:' + token, JSON.stringify({ n: tier - before, ref, at: new Date().toISOString(), before, after: tier }), { expirationTtl: 200 * 86400 });
+      }
+      let paid = null; try { paid = JSON.parse(await env.RATE.get('paid:' + token)) || null; } catch {}
+      paid = Object.assign(paid || { planText: '', desc: addon.desc }, { tier, plan: PLAN_HE[plan] });
+      await env.RATE.put('paid:' + token, JSON.stringify(paid), { expirationTtl: 400 * 86400 });
+    }
+    await logEvent(env, { area: 'תשלום', action: 'שדרוג חבילה נרכש', ok: !!okw, review: !okw, phone, token, ref,
+      detail: `${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : ' · כתיבה לגיליון נכשלה, לעדכן ידנית'}` });
+    await slackSend(env, `⬆️ *שדרוג חבילה* · ${name || phone} · אירוע ${token.slice(0, 8)}\n\n${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : '\n\n🔴 *נדרשת פעולה ממך:* הכתיבה לגיליון נכשלה, לעדכן חבילה וכמות ידנית'}`, { urgent: !okw });
+    return { ok: true, token, before, after: tier };
   }
   if (addon.kind === 'extrasend') {
     if (env.RATE) await env.RATE.put('extrasend:' + token, JSON.stringify({ at: new Date().toISOString(), scope: addon.scope || 'all', ref }), { expirationTtl: 200 * 86400 });
@@ -9586,11 +9639,20 @@ export default {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       const tok = String(b.token || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
-      const q = await addonQuote(env, tok);
       const kind = String(b.kind || ''), scope = String(b.scope || 'all') === 'unanswered' ? 'unanswered' : 'all';
-      const item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
-      if (!item) return deny(400, 'bad-kind', origin);
-      const desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+      let item, desc;
+      if (kind === 'upgrade') {
+        const u = await upgradeQuote(env, tok, b.tier, b.plan);
+        if (!u.ok) return okJson({ ok: false, why: u.why }, origin);
+        item = { label: u.label, n: u.tier, price: u.price };
+        desc = `תוספת: ${u.label} · ${tok.slice(0, 8)}`;
+        if (b.quote) return okJson({ ok: true, quote: true, price: u.price, cur: u.cur, desc }, origin);
+      } else {
+        const q = await addonQuote(env, tok);
+        item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
+        if (!item) return deny(400, 'bad-kind', origin);
+        desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+      }
       /* Richard, 11/09: no Grow API — Make has a "create payment link" module.
          GROW_LINK_HOOK is that scenario's webhook; it answers {url}. */
       if (env.GROW_LINK_HOOK) {
