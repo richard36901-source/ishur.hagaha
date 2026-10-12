@@ -46,6 +46,33 @@
     { href: 'https://ishur.io', label: 'האתר', icon: ic.site },
   ];
 
+  /* Richard 12/10: every outside tool that keeps the product running, one
+     click away — grouped behind "כלים" so the rail stays one line */
+  var M = 'https://rthq-ops.monday.com/boards/';
+  var TOOLS = [
+    { group: 'לידים ותפעול' },
+    { href: M + '18432553641', label: 'לידים · מאנדיי' },
+    { href: M + '18434975667', label: 'עיצובי הזמנות · מאנדיי' },
+    { href: M + '18433947622', label: 'דיילות · מאנדיי' },
+    { href: 'https://linear.app/autoscalehq/project/ishurio', label: 'משימות · Linear' },
+    { group: 'וואטסאפ ומטא' },
+    { href: 'https://business.facebook.com/latest/whatsapp_manager/overview?business_id=2361932944259784&asset_id=1060242146337688', label: 'נועה 4499 · WhatsApp Manager' },
+    { href: 'https://business.facebook.com/latest/whatsapp_manager/overview?business_id=1888051741895896', label: 'שיר 6673 · WhatsApp Manager' },
+    { href: 'https://adsmanager.facebook.com/adsmanager/manage/campaigns?act=1944903292858482', label: 'מנהל המודעות' },
+    { href: 'https://business.facebook.com/latest/billing_hub/accounts?business_id=2361932944259784', label: 'חיובי מטא' },
+    { group: 'שיחות וקול' },
+    { href: 'https://dashboard.retellai.com/', label: 'Retell · סוכני הקול' },
+    { href: 'https://portal.telnyx.com/#/app/numbers/my-numbers', label: 'Telnyx · מספרים ויתרה' },
+    { href: 'https://elevenlabs.io/app/home', label: 'ElevenLabs · קולות' },
+    { group: 'כסף' },
+    { href: 'https://grow.business/', label: 'Grow · תשלומים' },
+    { href: 'https://app.greeninvoice.co.il/', label: 'מורנינג · חשבוניות' },
+    { group: 'תשתית' },
+    { href: 'https://dash.cloudflare.com/', label: 'Cloudflare · הוורקר' },
+    { href: 'https://github.com/', label: 'GitHub · האתר' },
+    { href: 'https://search.google.com/search-console', label: 'Google Search Console' },
+  ];
+
   var css = '' +
     /* translucent chrome: content scrolls under the rail, iOS-material style */
     '.ibar{position:sticky;top:0;z-index:60;background:rgba(10,33,25,.85);-webkit-backdrop-filter:blur(20px) saturate(180%);backdrop-filter:blur(20px) saturate(180%);border-bottom:1px solid rgba(199,174,122,.32);flex-shrink:0}' +
@@ -63,6 +90,14 @@
     '.ibar-sep{width:1px;background:rgba(199,174,122,.25);margin:.55rem .35rem;flex-shrink:0}' +
     '.ibar .ext svg.arrow{width:10px;height:10px;opacity:.55;margin-inline-start:-.15rem}' +
     '.ibar-more{display:none}' +
+    '.ibar-tools{display:flex;align-items:center;gap:.35rem;background:none;border:none;border-bottom:2px solid transparent;font:inherit;font-size:.78rem;color:rgba(248,244,234,.78);padding:.55rem .7rem;cursor:pointer;white-space:nowrap}' +
+    '.ibar-tools:hover,.ibar-tools[aria-expanded=true]{color:#F8F4EA}' +
+    '.ibar-tools svg{width:14px;height:14px}' +
+    '.ibar-tmenu{display:none;position:fixed;z-index:61;background:#0F2E22;border:1px solid rgba(199,174,122,.4);border-radius:14px;padding:.35rem;box-shadow:0 8px 30px rgba(0,0,0,.35);min-width:15rem;max-height:75vh;overflow:auto}' +
+    '.ibar-tmenu.on{display:block}' +
+    '.ibar-tmenu .g{font-size:.66rem;letter-spacing:.06em;color:#C7AE7A;padding:.55rem .8rem .2rem}' +
+    '.ibar-tmenu a,.ibar-menu .tl{display:block;padding:.5rem .8rem;font-size:.82rem;color:rgba(248,244,234,.85);text-decoration:none;border-radius:10px}' +
+    '.ibar-tmenu a:hover{background:rgba(199,174,122,.12);color:#F8F4EA}' +
     '.ibar-menu{display:none;position:fixed;z-index:61;left:.6rem;bottom:calc(60px + env(safe-area-inset-bottom));background:#0F2E22;border:1px solid rgba(199,174,122,.4);border-radius:14px;padding:.3rem;box-shadow:0 8px 30px rgba(0,0,0,.35);min-width:11rem}' +
     '.ibar-menu.on{display:block}' +
     '.ibar-menu a{display:flex;align-items:center;gap:.5rem;padding:.6rem .8rem;font-size:.82rem;color:rgba(248,244,234,.85);text-decoration:none;border-radius:10px}' +
@@ -73,7 +108,7 @@
     '@media (max-width:640px){' +
       '.ibar{position:fixed;top:auto;bottom:0;left:0;right:0;border-bottom:none;border-top:1px solid rgba(199,174,122,.35);padding-bottom:env(safe-area-inset-bottom)}' +
       '.ibar-in{justify-content:space-around;gap:0;padding:0 .3rem}' +
-      '.ibar a.ibar-brand,.ibar-sep,.ibar a.ext{display:none}' +
+      '.ibar a.ibar-brand,.ibar-sep,.ibar a.ext,.ibar-tools{display:none}' +
       '.ibar-more{display:flex;background:none;border:none;font:inherit;cursor:pointer}' +
       '.ibar a,.ibar-more{flex-direction:column;gap:.18rem;align-items:center;font-size:.6rem;color:rgba(248,244,234,.75);padding:.45rem .5rem .35rem;border-bottom:none;border-top:2px solid transparent}' +
       '.ibar a svg,.ibar-more svg{width:19px;height:19px}' +
@@ -139,6 +174,32 @@
     inner.appendChild(sep);
     EXTERNAL.forEach(function (i) { inner.appendChild(link(i, current)); });
 
+    var tools = document.createElement('button');
+    tools.type = 'button';
+    tools.className = 'ibar-tools';
+    tools.setAttribute('aria-haspopup', 'true');
+    tools.setAttribute('aria-expanded', 'false');
+    tools.innerHTML = ic.ops + '<span>כלים</span>';
+    inner.appendChild(tools);
+    var tmenu = document.createElement('div');
+    tmenu.className = 'ibar-tmenu';
+    var fill = function (box) {
+      TOOLS.forEach(function (t) {
+        if (t.group) { var g = document.createElement('div'); g.className = 'g'; g.textContent = t.group; box.appendChild(g); return; }
+        var a = document.createElement('a'); a.href = t.href; a.target = '_blank'; a.rel = 'noopener'; a.className = 'tl'; a.textContent = t.label; box.appendChild(a);
+      });
+    };
+    fill(tmenu);
+    tools.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var r = tools.getBoundingClientRect();
+      tmenu.style.top = (r.bottom + 4) + 'px';
+      tmenu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+      var on = tmenu.classList.toggle('on');
+      tools.setAttribute('aria-expanded', on ? 'true' : 'false');
+    });
+    document.addEventListener('click', function () { tmenu.classList.remove('on'); tools.setAttribute('aria-expanded', 'false'); });
+
     /* phone-only "עוד": the external links live behind it */
     var more = document.createElement('button');
     more.type = 'button';
@@ -150,6 +211,8 @@
     var menu = document.createElement('div');
     menu.className = 'ibar-menu';
     EXTERNAL.forEach(function (i) { menu.appendChild(link(i, current)); });
+    menu.style.maxHeight = '70vh'; menu.style.overflow = 'auto';
+    fill(menu);
 
     more.addEventListener('click', function (e) {
       e.stopPropagation();
@@ -160,6 +223,7 @@
     nav.appendChild(inner);
     document.body.insertBefore(nav, document.body.firstChild);
     document.body.appendChild(menu);
+    document.body.appendChild(tmenu);
   }
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
