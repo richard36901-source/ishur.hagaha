@@ -267,7 +267,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
       const start = d.toISOString().slice(0, 10);
       const queued = guests.filter(g => g.status === 'awaiting_call').length;
-      const called = guests.filter(g => g.tries > 0 || /ענה/.test(g.call_ans) && g.call_ans !== 'לא ענה להודעות').length;
+      /* a phone round happened only if somebody was dialed or answered BY PHONE
+         ('ענה' / 'ענה - מתלבט' / 'לא ענה'); 'ענה בוואטסאפ' is a message answer */
+      const byPhone = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
+      const called = guests.filter(g => g.tries > 0 || byPhone(g) || (sent.dialed && sent.dialed.has(g.id))).length;
       const status = start > todayIso ? 'scheduled' : queued ? 'running' : called ? 'sent' : 'scheduled';
       sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
     }

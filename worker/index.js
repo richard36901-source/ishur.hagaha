@@ -1179,7 +1179,8 @@ async function upgradeQuote(env, token, wantTier, wantPlan) {
   if (!PKG_PRICES[tier] || !(plan in PLAN_RANK)) return { ok: false, why: 'bad-package' };
   if (tier < curTier || PLAN_RANK[plan] < PLAN_RANK[curPlan]) return { ok: false, why: 'downgrade' };
   if (tier === curTier && plan === curPlan) return { ok: false, why: 'same' };
-  const curRow = PKG_PRICES[curTier] || PKG_PRICES[Object.keys(PKG_PRICES).map(Number).find(t => t >= curTier) || 50];
+  const tiersAsc = Object.keys(PKG_PRICES).map(Number).sort((x, y) => x - y);
+  const curRow = PKG_PRICES[curTier] || PKG_PRICES[tiersAsc.filter(t => t <= curTier).pop() || 50];
   const price = Math.max(0, PKG_PRICES[tier][plan] - curRow[curPlan]);
   if (!price) return { ok: false, why: 'no-difference' };
   return { ok: true, cur: { tier: curTier, plan: curPlan }, tier, plan, price,
@@ -1343,6 +1344,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
           pick = e.toISOString().slice(0, 10);
         }
         if (pick > floor) await sheetBatchWrite(env, [{ range: `אירועים!AP${row}`, values: [[pick]] }]).catch(() => {});
+        else await slackPost(env, `⚠️ *שליחה נוספת* · אירוע ${token.slice(0, 8)}: שולם, אבל אין יום פנוי בין התזכורת לאירוע. לקבוע תאריך ידנית בגיליון (AP).`).catch(() => {});
       }
     }
     await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
@@ -1477,9 +1479,7 @@ function countBillable(guests) {
   return seen.size;
 }
 
-async function handleEventForm(form, rec, token, env, origin, target, url) {
-  const file = form.get('file');
-  if (file && typeof file === 'object' && file.arrayBuffer) {
+async function handleGuestFile(form, file, rec, token, env, origin, target, st) {
     /* one guest list per event; replacements go through support on purpose.
        Exception: a paid add-on (addon:<token>) opens ONE merge upload — new
        numbers are appended, numbers already on the list are skipped. */
@@ -1498,11 +1498,6 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
       await logEvent(env, { area: 'העלאה', action: `הלקוח החליף את רשימת המוזמנים (${del.deleted} שורות נמחקו)`, ok: true, token, phone: rec.phone || '' }).catch(() => {});
       merge = false;
     }
-    /* one upload at a time per event: a double tap or a client retry sent
-       the same file twice and the writer appended it twice (Esti, 12/10:
-       53 numbers became 106 rows with the same guest ids) */
-    if (await env.RATE.get('uplock:' + token)) return deny(409, 'upload-in-progress', origin);
-    await env.RATE.put('uplock:' + token, '1', { expirationTtl: 120 });
     if (file.size > MAX_FILE_BYTES) return deny(413, 'file-too-large', origin);
     if (!/\.(csv|xlsx|xls)$/i.test(file.name || '')) return deny(422, 'bad-file-type', origin);
 
@@ -1595,7 +1590,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
         append_body: JSON.stringify({ values }),
       }),
     }).catch(() => null);
-    if (!r || r.status !== 200) { await env.RATE.delete('uplock:' + token).catch(() => {}); return deny(502, 'writer-failed', origin); }
+    if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
 
     await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
     await env.RATE.delete('pend:' + token).catch(() => {});
@@ -1604,11 +1599,29 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
       await logEvent(env, { area: 'העלאה', action: 'קובץ תוספת מוזג לרשימה', ok: true, token, phone: rec.phone || '',
         detail: `${guests.length} חדשים נוספו · ${duplicates.length} כפולים דולגו · היו ${existingRows} שורות · מכסה ${tierNum || '∞'}` });
       await slackPost(env, `📎 *תוספת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} חדשים · ${duplicates.length} כפולים סוננו`);
-      return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
+      st.written = true; return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
     }
     /* Richard, 10/09: "update me once she filled the form" */
     await slackSend(env, `📋 *רשימת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} מוזמנים${skipped.length ? ' · ' + skipped.length + ' שורות דולגו' : ''} · ${file.name || ''}`, { urgent: true }).catch(() => {});
-    return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
+    st.written = true; return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
+}
+
+async function handleEventForm(form, rec, token, env, origin, target, url) {
+  const file = form.get('file');
+  if (file && typeof file === 'object' && file.arrayBuffer) {
+    /* one upload at a time per event: a double tap or a browser retry wrote
+       the same file twice (Esti, 12/10: 53 numbers became 106 rows). The lock
+       is taken before anything destructive (the replace flow deletes rows)
+       and dropped on every exit except a successful write, so a preview →
+       confirm round trip or a fix-and-retry is never refused. */
+    if (await env.RATE.get('uplock:' + token)) return deny(409, 'upload-in-progress', origin);
+    await env.RATE.put('uplock:' + token, '1', { expirationTtl: 120 });
+    const st = { written: false };
+    try {
+      return await handleGuestFile(form, file, rec, token, env, origin, target, st);
+    } finally {
+      if (!st.written) await env.RATE.delete('uplock:' + token).catch(() => {});
+    }
   }
 
   /* setup step — text fields, plus the invitation image when one was chosen.
