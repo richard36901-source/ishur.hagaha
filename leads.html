@@ -1,0 +1,237 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>לידים · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=60"></script>
+<script src="assets/ux.js?v=3"></script>
+<script src="assets/adminbar.js?v=10" defer></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--blue:#2F6FED}
+  html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--rail:#232A25}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:1.2rem 1rem 4rem}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.6rem;margin:0 0 .2rem}
+  .sub{color:var(--ink3);font-size:.82rem;margin:0 0 .9rem}
+  .demo{display:inline-block;font-size:.7rem;font-weight:600;padding:.1rem .5rem;border-radius:999px;background:rgba(180,136,74,.16);color:var(--gold);vertical-align:middle;margin-inline-start:.4rem}
+  /* status counters: one tile per status, tap filters */
+  .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:.5rem;margin-bottom:.9rem}
+  .tile{font:inherit;text-align:start;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.55rem .75rem;cursor:pointer;color:var(--ink);transition:border-color .12s}
+  .tile:hover{border-color:var(--ink3)}
+  .tile[aria-pressed=true]{border-color:var(--pine);box-shadow:inset 0 0 0 1px var(--pine)}
+  .tile b{display:block;font-family:'Frank Ruhl Libre',serif;font-size:1.35rem;line-height:1.1}
+  .tile span{font-size:.74rem;color:var(--ink3)}
+  .tile.due b{color:var(--warn)}
+  .tb{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem}
+  .seg{display:inline-flex;background:var(--rail);border-radius:10px;padding:3px;gap:2px;flex-wrap:wrap}
+  .seg button{font:inherit;font-size:.8rem;font-weight:500;padding:.3rem .7rem;border:none;border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  input[type=search]{font:inherit;font-size:.86rem;padding:.4rem .8rem;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-width:14rem;flex:1}
+  .meta{font-size:.76rem;color:var(--ink3);margin-inline-start:auto}
+  /* the list */
+  .list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .hd,.lead{display:grid;grid-template-columns:1.4fr 1fr 1fr .9fr .8fr 1fr 1fr 1.2fr auto;gap:.6rem;align-items:center;padding:.55rem .9rem}
+  .hd{font-size:.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--rail)}
+  .lead{border-bottom:1px solid var(--line);font-size:.86rem}
+  .lead:last-of-type{border-bottom:none}
+  .lead.won{background:rgba(46,125,91,.06)}
+  .lead .n{font-weight:600;cursor:pointer}
+  .lead .n small{display:block;font-weight:400;font-size:.72rem;color:var(--ink3)}
+  .ph{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:embed;white-space:nowrap}
+  .e{font-size:.74rem;color:var(--ink3)}
+  .pill{display:inline-block;font-size:.7rem;padding:.08rem .5rem;border-radius:5px;font-weight:600;white-space:nowrap}
+  .pill.won{background:rgba(46,125,91,.15);color:var(--good)}
+  .pill.src{background:var(--rail);color:var(--ink2);font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis}
+  select.st,input.fu{font:inherit;font-size:.8rem;padding:.25rem .45rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);max-width:100%}
+  select.st.s-חדש{border-color:var(--blue)}select.st.s-בטיפול{border-color:var(--gold)}select.st.s-סגר{border-color:var(--good)}select.st.s-לא\ רלוונטי{color:var(--ink3)}
+  input.fu.due{border-color:var(--warn);color:var(--warn)}
+  .note{font-size:.78rem;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .note time{color:var(--ink3);font-size:.7rem}
+  .acts{display:flex;gap:.3rem;white-space:nowrap}
+  .act{display:inline-flex;align-items:center;justify-content:center;font:inherit;font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none}
+  .act:hover{border-color:var(--ink3)}
+  .act.wa{color:var(--good)}.act.ev{color:var(--pine)}
+  /* expanded notes */
+  .more{display:none;padding:.4rem .9rem .9rem;border-bottom:1px solid var(--line);background:var(--rail)}
+  .more.on{display:block}
+  .more ul{list-style:none;margin:0 0 .5rem;padding:0;font-size:.82rem}
+  .more li{padding:.25rem 0;border-bottom:1px dashed var(--line)}
+  .more li time{color:var(--ink3);font-size:.7rem;margin-inline-start:.4rem}
+  .more .facts{font-size:.76rem;color:var(--ink3);margin:0 0 .5rem}
+  .add{display:flex;gap:.4rem}
+  .add input{font:inherit;font-size:.84rem;flex:1;padding:.4rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink)}
+  .add button{font:inherit;font-size:.8rem;font-weight:600;padding:.4rem .9rem;border-radius:999px;border:none;background:var(--pine);color:#fff;cursor:pointer}
+  .empty{color:var(--ink3);font-size:.85rem;padding:1.2rem;text-align:center}
+  @media (max-width:900px){
+    .hd{display:none}
+    .lead{grid-template-columns:1fr 1fr;gap:.35rem .6rem;padding:.7rem .9rem}
+    .lead .n{grid-column:1/-1}
+    .lead .acts{grid-column:1/-1;justify-content:flex-start}
+    .lead .cell:before{content:attr(data-l) ' · ';color:var(--ink3);font-size:.7rem}
+    .note{white-space:normal}
+  }
+  .gate{max-width:22rem;margin:4rem auto;text-align:center}
+  .gate input{font:inherit;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:10px;margin:.5rem 0}
+  .gate button{font:inherit;padding:.5rem 1.2rem;border-radius:999px;border:none;background:var(--pine);color:#fff;cursor:pointer}
+  .err{color:var(--warn);font-size:.82rem;min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <h1>לידים <span class="demo" id="demoTag" hidden>דמו</span></h1>
+  <p class="sub">כל מי שהתחיל טופס ולא שילם, מהגיליון. סטטוס, מעקב והערות נשמרים כאן; מי ששילם נסגר לבד.</p>
+  <div class="tiles" id="tiles"></div>
+  <div class="tb">
+    <span class="seg" id="srcSeg"></span>
+    <input type="search" id="q" placeholder="חיפוש שם או טלפון">
+    <span class="meta" id="meta"></span>
+  </div>
+  <div class="list">
+    <div class="hd"><span>שם</span><span>טלפון</span><span>אירוע</span><span>תאריך</span><span>מקור</span><span>סטטוס</span><span>מעקב</span><span>הערה</span><span></span></div>
+    <div id="rows"><p class="empty">טוען…</p></div>
+  </div>
+</main>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var DEMO = /(^|[?&])demo=1/.test(location.search);
+  var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var STATUSES = ['חדש', 'בטיפול', 'סגר', 'לא רלוונטי'];
+  var SOURCES = ['הכל', 'מטא', 'גוגל', 'הפניה', 'ישיר', 'אחר'];
+  var leads = [], st = 'all', src = 'הכל', q = '', open = {};
+  var today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmtPhone(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
+  function heDate(iso) { if (!iso) return ''; var p = iso.split('-'); return p.length === 3 ? p[2] + '.' + p[1] + '.' + p[0].slice(2) : iso; }
+  function heTime(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} load(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+
+  /* config.js maps unknown kinds to /api/event; derive the two new paths
+     from a kind it does know */
+  function apiUrl(path) { return CFG.endpoint('calendar').replace(/\/api\/calendar$/, '/api/' + path); }
+  function api(path, body) {
+    body.admin_key = adminKey;
+    return fetch(apiUrl(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); return null; } gate('המפתח לא נכון'); return null; } return r.json(); });
+  }
+
+  /* ── demo: sample rows, updates stay in memory ── */
+  var DEMO_LEADS = [
+    { phone: '972521111111', name: 'דנה לוי', occasion: 'חתונה', guests: '200', stage: 'הגיע לתשלום', source: 'fb / paid / AS04', sourceKind: 'מטא', plan: 'עד 300', date: '2026-10-10', firstAt: '2026-10-09', seen: 3, status: 'בטיפול', followup: '2026-10-11', notes: [{ at: '2026-10-10T08:12:00Z', text: 'דיברנו, רוצה לראות דוגמה של ההזמנה' }], won: false, token: '', eventDate: '' },
+    { phone: '972522222222', name: 'יוסי כהן', occasion: 'בר מצווה', guests: '120', stage: 'שלח טופס', source: 'google / cpc', sourceKind: 'גוגל', plan: 'עד 150', date: '2026-10-11', firstAt: '2026-10-11', seen: 1, status: 'חדש', followup: '', notes: [], won: false, token: '', eventDate: '' },
+    { phone: '972523333333', name: 'מיכל אברהם', occasion: 'חינה', guests: '80', stage: 'שילם', source: 'referral:a1b2c3d4', sourceKind: 'הפניה', plan: 'עד 100', date: '2026-10-05', firstAt: '2026-10-05', seen: 2, status: 'סגר', followup: '', notes: [], won: true, token: 'demo-token-0001', eventDate: '2026-12-18' },
+    { phone: '972524444444', name: 'רות שמעוני', occasion: 'ברית', guests: '60', stage: 'התחיל טופס', source: '', sourceKind: 'ישיר', plan: '', date: '2026-10-08', firstAt: '2026-10-08', seen: 1, status: 'חדש', followup: '2026-10-14', notes: [{ at: '2026-10-08T15:40:00Z', text: 'לא ענתה, לנסות שוב' }], won: false, token: '', eventDate: '' },
+    { phone: '972525555555', name: '', occasion: 'יום הולדת', guests: '40', stage: 'התחיל טופס', source: 'ig / story', sourceKind: 'מטא', plan: '', date: '2026-09-28', firstAt: '2026-09-28', seen: 1, status: 'לא רלוונטי', followup: '', notes: [{ at: '2026-09-29T09:00:00Z', text: 'קטן מדי, הפנינו לחלופה' }], won: false, token: '', eventDate: '' }
+  ];
+  function withLast(list) { list.forEach(function (l) { l.notes = l.notes || []; l.lastNote = l.notes.length ? l.notes[l.notes.length - 1] : null; }); return list; }
+
+  function load() {
+    if (DEMO) { $('demoTag').hidden = false; leads = withLast(DEMO_LEADS); $('gate').hidden = true; $('main').hidden = false; paint(); return; }
+    if (!adminKey) { gate(''); return; }
+    api('leads', {}).then(function (d) {
+      if (!d || !d.ok) { if (d && d.error) IshurUX.toast('לא הצליח: ' + d.error); return; }
+      leads = withLast(d.leads || []); if (d.statuses && d.statuses.length) STATUSES = d.statuses;
+      $('gate').hidden = true; $('main').hidden = false;
+      $('meta').textContent = d.sheetOk ? d.sheetRows + ' שורות בגיליון' : 'הגיליון לא נקרא';
+      paint();
+    });
+  }
+  window.addEventListener('ishur:fresh', load);
+
+  function match(l) {
+    if (st !== 'all' && st !== 'due' && l.status !== st) return false;
+    if (st === 'due' && !(l.followup && l.followup <= today)) return false;
+    if (src !== 'הכל' && l.sourceKind !== src) return false;
+    if (q) { var s = (l.name + ' ' + l.phone + ' ' + fmtPhone(l.phone) + ' ' + l.occasion).toLowerCase(); if (s.indexOf(q) < 0) return false; }
+    return true;
+  }
+  function paintTiles() {
+    var c = { all: leads.length, due: 0 }; STATUSES.forEach(function (s) { c[s] = 0; });
+    leads.forEach(function (l) { if (c[l.status] != null) c[l.status]++; if (l.followup && l.followup <= today) c.due++; });
+    var tiles = [['all', 'הכל'], ['due', 'מעקב להיום']].concat(STATUSES.map(function (s) { return [s, s]; }));
+    $('tiles').innerHTML = tiles.map(function (t) { return '<button class="tile' + (t[0] === 'due' ? ' due' : '') + '" data-st="' + esc(t[0]) + '" aria-pressed="' + (st === t[0]) + '"><b>' + (c[t[0]] || 0) + '</b><span>' + esc(t[1]) + '</span></button>'; }).join('');
+    $('srcSeg').innerHTML = SOURCES.map(function (s) { return '<button data-src="' + esc(s) + '" aria-pressed="' + (src === s) + '">' + esc(s) + '</button>'; }).join('');
+  }
+  function paint() {
+    paintTiles();
+    var list = leads.filter(match);
+    if (!list.length) { $('rows').innerHTML = '<p class="empty">אין לידים' + (q || st !== 'all' || src !== 'הכל' ? ' לפי הסינון' : '') + '</p>'; return; }
+    $('rows').innerHTML = list.map(function (l) {
+      var due = l.followup && l.followup <= today;
+      var evLink = l.won && l.token ? '<a class="act ev" href="dashboard.html?t=' + esc(l.token) + '" target="_blank" rel="noopener">האירוע</a>' : '';
+      return '<div class="lead' + (l.won ? ' won' : '') + '" data-p="' + esc(l.phone) + '">' +
+        '<div class="n" data-tog="' + esc(l.phone) + '">' + esc(l.name || 'ללא שם') + (l.won ? ' <span class="pill won">שילם</span>' : '') + '<small>' + esc(l.stage) + (l.guests ? ' · ' + esc(l.guests) + ' רשומות' : '') + (l.plan ? ' · ' + esc(l.plan) : '') + '</small></div>' +
+        '<div class="cell" data-l="טלפון"><span class="ph">' + fmtPhone(l.phone) + '</span></div>' +
+        '<div class="cell" data-l="אירוע">' + esc(l.occasion || '—') + '</div>' +
+        '<div class="cell" data-l="תאריך"><span title="' + (l.eventDate ? 'תאריך האירוע' : 'נכנס') + '">' + heDate(l.eventDate || l.date) + '</span>' + (l.eventDate ? '<div class="e">נכנס ' + heDate(l.date) + '</div>' : '') + '</div>' +
+        '<div class="cell" data-l="מקור"><span class="pill src" title="' + esc(l.source) + '">' + esc(l.sourceKind) + '</span></div>' +
+        '<div class="cell" data-l="סטטוס"><select class="st s-' + esc(l.status) + '" data-p="' + esc(l.phone) + '"' + (l.won ? ' disabled title="נסגר לבד: שילם"' : '') + '>' + STATUSES.map(function (s) { return '<option' + (s === l.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="cell" data-l="מעקב"><input type="date" class="fu' + (due ? ' due' : '') + '" data-p="' + esc(l.phone) + '" value="' + esc(l.followup) + '"></div>' +
+        '<div class="cell note" data-l="הערה">' + (l.lastNote ? esc(l.lastNote.text) + ' <time>' + heTime(l.lastNote.at) + '</time>' : '<span class="e">אין הערות</span>') + '</div>' +
+        '<div class="acts"><a class="act wa" href="https://wa.me/' + esc(l.phone) + '" target="_blank" rel="noopener">וואטסאפ</a><a class="act" href="tel:+' + esc(l.phone) + '">חיוג</a>' + evLink + '<button class="act" data-tog="' + esc(l.phone) + '">הערות' + (l.notes.length ? ' · ' + l.notes.length : '') + '</button></div>' +
+        '</div>' +
+        '<div class="more' + (open[l.phone] ? ' on' : '') + '" id="more-' + esc(l.phone) + '">' +
+        '<p class="facts">' + esc(l.stage) + (l.seen > 1 ? ' · ' + l.seen + ' כניסות (ראשונה ' + heDate(l.firstAt) + ')' : '') + (l.email ? ' · ' + esc(l.email) : '') + (l.source ? ' · מקור: ' + esc(l.source) : '') + (l.existingClient ? ' · לקוח קיים: ' + esc(l.existingClient) : '') + '</p>' +
+        '<ul>' + (l.notes.length ? l.notes.slice().reverse().map(function (n) { return '<li>' + esc(n.text) + '<time>' + heTime(n.at) + '</time></li>'; }).join('') : '<li class="e">עדיין אין הערות</li>') + '</ul>' +
+        '<div class="add"><input type="text" placeholder="הערה חדשה…" maxlength="600" data-p="' + esc(l.phone) + '"><button type="button" data-add="' + esc(l.phone) + '">הוספה</button></div>' +
+        '</div>';
+    }).join('');
+  }
+  function byPhone(p) { for (var i = 0; i < leads.length; i++) if (leads[i].phone === p) return leads[i]; return null; }
+  function update(p, body, done) {
+    var l = byPhone(p); if (!l) return;
+    if (DEMO) {
+      if (body.status !== undefined) l.status = body.status;
+      if (body.followup !== undefined) l.followup = body.followup;
+      if (body.note !== undefined) l.notes.push({ at: new Date().toISOString(), text: body.note });
+      l.lastNote = l.notes.length ? l.notes[l.notes.length - 1] : null;
+      done(true); return;
+    }
+    body.phone = p;
+    api('lead-update', body).then(function (j) {
+      if (!j || !j.ok) { IshurUX.toast('לא נשמר' + (j && j.error ? ': ' + j.error : '')); done(false); return; }
+      l.status = j.lead.status || l.status; l.followup = j.lead.followup || ''; l.notes = j.lead.notes || l.notes; l.lastNote = j.lead.lastNote || null;
+      done(true);
+    });
+  }
+  $('rows').addEventListener('change', function (e) {
+    var t = e.target, p = t.dataset.p; if (!p) return;
+    if (t.classList.contains('st')) { t.disabled = true; update(p, { status: t.value }, function (ok) { t.disabled = false; if (ok) { IshurUX.toast('סטטוס: ' + t.value); paint(); } }); }
+    if (t.classList.contains('fu')) { update(p, { followup: t.value }, function (ok) { if (ok) { IshurUX.toast(t.value ? 'מעקב ' + heDate(t.value) : 'המעקב בוטל'); paint(); } }); }
+  });
+  function addNote(p, input) {
+    var text = input.value.trim(); if (!text) return;
+    input.disabled = true;
+    update(p, { note: text }, function (ok) { input.disabled = false; if (ok) { input.value = ''; open[p] = true; IshurUX.toast('ההערה נשמרה'); paint(); } });
+  }
+  $('rows').addEventListener('click', function (e) {
+    var tog = e.target.closest('[data-tog]');
+    if (tog) { var p = tog.dataset.tog; open[p] = !open[p]; $('more-' + p).classList.toggle('on', !!open[p]); if (open[p]) { var inp = $('more-' + p).querySelector('input'); if (inp && window.innerWidth > 900) inp.focus(); } return; }
+    var add = e.target.closest('[data-add]');
+    if (add) addNote(add.dataset.add, add.parentNode.querySelector('input'));
+  });
+  $('rows').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.closest('.add')) { e.preventDefault(); addNote(e.target.dataset.p, e.target); } });
+  $('tiles').addEventListener('click', function (e) { var b = e.target.closest('.tile'); if (!b) return; st = b.dataset.st; paint(); });
+  $('srcSeg').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; src = b.dataset.src; paint(); });
+  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); paint(); });
+  load();
+})();
+</script>
+</body>
+</html>
