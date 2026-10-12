@@ -623,16 +623,28 @@ function costOf(call) {
 
 /* HMAC check for X-Retell-Signature (hex HMAC-SHA256 of the raw body,
    keyed with the API key). Re-verified against a real webhook on demo day. */
-export async function verifyRetellSignature(rawBody, signature, apiKey) {
+export async function verifyRetellSignature(rawBody, signature, apiKey, now = Date.now()) {
   if (!signature || !apiKey) return false;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', enc.encode(apiKey),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody));
-  const hex = [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('');
+  const hmac = async msg => [...new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(msg)))]
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  const same = (x, y) => {
+    if (x.length !== y.length) return false;
+    let diff = 0;
+    for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+    return diff === 0;
+  };
+  /* Retell's current header is "v=<ms timestamp>,d=<hex>", the digest taken
+     over body + timestamp. The old check compared the whole header to an
+     HMAC of the body alone, so every webhook got a 403 and no call result
+     (12/10: 15 unanswered calls, tries still 0) ever reached the sheet. */
+  const m = /^v=(\d+),d=([0-9a-f]+)$/i.exec(String(signature).trim());
+  if (m) {
+    if (Math.abs(now - Number(m[1])) > 5 * 60 * 1000) return false;
+    return same(await hmac(rawBody + m[1]), m[2].toLowerCase());
+  }
   const given = String(signature).replace(/^v=|^sha256=/, '').toLowerCase();
-  if (hex.length !== given.length) return false;
-  let diff = 0;
-  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ given.charCodeAt(i);
-  return diff === 0;
+  return same(await hmac(rawBody), given);
 }

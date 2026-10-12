@@ -216,6 +216,9 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         /* came in through the public RSVP link (Richard 17/09): counted and
            seatable, but no messages or calls until the client unlocks them */
         self: /נרשם מהקישור/.test(g(24)),
+        /* the phone round, for the send board's results line */
+        tries: Number(g(29)) || 0,
+        call_ans: g(22),
       };
     });
 
@@ -251,6 +254,23 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled' });
   if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled' });
   if (c(41) && (sent.extraPaid || sent[3])) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled' });
+  /* Shir's phone round (Richard 12/10: "they should know when there is also
+     a call"). It starts the morning after the last planned send, for whoever
+     still has not answered; בסיס has no calls. */
+  if (planMaxCallTries(planKeyOf(ev)) > 0) {
+    const last = [c(39), c(40), sent.extraPaid || sent[3] ? c(41) : '']
+      .map(d => d.slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+    if (last) {
+      const d = new Date(last + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() + 1);
+      if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
+      const start = d.toISOString().slice(0, 10);
+      const queued = guests.filter(g => g.status === 'awaiting_call').length;
+      const called = guests.filter(g => g.tries > 0 || /ענה/.test(g.call_ans) && g.call_ans !== 'לא ענה להודעות').length;
+      const status = start > todayIso ? 'scheduled' : queued ? 'running' : called ? 'sent' : 'scheduled';
+      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
+    }
+  }
   if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: 'scheduled', auto: true });
 
   return {

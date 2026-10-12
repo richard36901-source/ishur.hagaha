@@ -207,6 +207,14 @@
   .send-edit:hover{border-color:var(--green);color:var(--green2)}
   .send-edit:active{transform:scale(.95);transition-duration:100ms}
   .send-tag{font-size:.72rem;color:var(--ink3)}
+  .send-t,.send-w{display:block}
+  .send-tag.done{color:var(--green2);font-weight:500}
+  .send-tag.run{color:var(--ink2);font-weight:500}
+  .send-i{background:none;border:1px solid var(--bdr);border-radius:50%;width:22px;height:22px;flex-shrink:0;
+    cursor:pointer;font:italic 600 .72rem/1 Georgia,serif;color:var(--ink3);padding:0}
+  .send-i[aria-expanded="true"]{border-color:var(--green);color:var(--green2)}
+  .send-x{flex-basis:100%;font-size:.76rem;color:var(--ink2);padding:.15rem 0 0 0;margin-inline-start:calc(8px + .7rem)}
+  .send{flex-wrap:wrap}
 
   /* add-ons */
   .addon{display:flex;align-items:flex-start;gap:.7rem;padding:.75rem 1rem;border-bottom:1px solid var(--bdr)}
@@ -839,6 +847,7 @@
     guests.forEach(function (g, i) {
       g.phone = '05' + (21234501 + i * 137 % 9000000 + 1000000);
       g.id = 'demo-g' + i;   /* an id is what turns a row into a seatable one */
+      g.sent = 'sent';
     });
 
     var totals = { invitations: guests.length, confirmed: 0, confirmed_seats: 0, declined: 0, pending: 0, awaiting_call: 0 };
@@ -870,6 +879,7 @@
       sends: [
         { key: 'invite', label: 'ההזמנה ואישור ההגעה', date: iso(new Date(ev - 30 * 864e5)), status: 'sent' },
         wave('reminder', 'תזכורת למי שלא ענה', new Date(ev - 7 * 864e5)),
+        { key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: iso(new Date(ev - 6 * 864e5)), status: 'scheduled', auto: true },
         { key: 'event_day', label: 'תזכורת עם הכתובת',   date: iso(ev), status: 'scheduled', auto: true },
         { key: 'day_after', label: 'הודעת תודה',         date: iso(new Date(+ev + 864e5)), status: 'scheduled', auto: true }
       ],
@@ -1362,6 +1372,31 @@
     return !!token && CFG.isSet(CFG.endpoint('senddate'));
   }
 
+  /* the ⓘ on each round: what happened so far (Richard 12/10). A round that
+     has not started yet has nothing to report. */
+  var openInfo = {};
+  function sendInfo(s) {
+    var gs = (data.guests || []).filter(function (g) { return !g.self; });
+    if (!gs.length || s.key === 'event_day') return '';
+    var n = function (f) { return gs.filter(f).length; };
+    if (s.key === 'calls') {
+      if (s.status === 'scheduled') return '';
+      var called = n(function (g) { return g.tries > 0 || (/ענה/.test(g.call_ans || '') && g.call_ans !== 'לא ענה להודעות'); });
+      var talked = n(function (g) { return /^ענה/.test(g.call_ans || ''); });
+      return 'חויגו ' + called + ' · ענו בשיחה ' + talked + ' · ממתינים לשיחה ' + (s.queued || 0) +
+             ' · מגיעים ' + n(function (g) { return g.status === 'confirmed'; }) +
+             ' · לא מגיעים ' + n(function (g) { return g.status === 'declined'; });
+    }
+    if (s.status !== 'sent') return '';
+    var out = s.key === 'invite' ? n(function (g) { return g.sent === 'sent'; }) : null;
+    return (out != null ? 'נשלחו ' + out + ' · ' : '') +
+           'ענו עד עכשיו ' + n(function (g) { return g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided'; }) +
+           ' · מגיעים ' + n(function (g) { return g.status === 'confirmed'; }) +
+           ' · לא מגיעים ' + n(function (g) { return g.status === 'declined'; }) +
+           ' · מתלבטים ' + n(function (g) { return g.status === 'undecided'; }) +
+           ' · עוד לא ענו ' + n(function (g) { return g.status === 'pending' || g.status === 'awaiting_call'; });
+  }
+
   function renderSends() {
     var sends = data.sends || [];
     if (!sends.length) { $('sends').innerHTML = '<div class="empty">לוח השליחות ייקבע אחרי ההגדרה.</div>'; return; }
@@ -1374,19 +1409,28 @@
     $('sends').innerHTML = sends.map(function (s, i) {
       var sent = s.status === 'sent';
       var passed = s.status === 'passed';
-      var open = !sent && !passed && !s.auto && s.editable === true && movable;
+      var running = s.status === 'running';
+      var open = !sent && !passed && !running && !s.auto && s.editable === true && movable;
       var act;
-      if (sent) act = '<span class="send-tag">יצא</span>';
+      if (sent) act = '<span class="send-tag done">בוצע ✓</span>';
+      else if (running) act = '<span class="send-tag run">בתהליך</span>';
       else if (passed) act = '<span class="send-tag">עבר</span>';
       else if (open) act = '<button type="button" class="send-edit" data-i="' + i + '">שינוי תאריך</button>';
       else if (over && s.editable === true && !s.auto) act = '<span class="send-tag" title="' + OVER_HINT + '">האירוע הסתיים</span>';
       else act = '<span class="send-tag">' + (s.auto ? 'אוטומטי' : 'נעול') + '</span>';
+      var info = sendInfo(s);
+      var shown = info && openInfo[s.key];
       return '<div class="send' + (sent ? ' sent' : '') + (open ? '' : ' locked') + '">' +
              '<span class="send-d"></span>' +
              '<span class="send-b"><span class="send-t">' + esc(s.label) + '</span>' +
              '<span class="send-w">' + esc(IshurDate.pretty(s.date) || s.date) + '</span></span>' +
-             '<span class="send-a">' + act + '</span></div>';
+             (info ? '<button type="button" class="send-i" data-info="' + esc(s.key) + '" aria-expanded="' + (shown ? 'true' : 'false') + '" aria-label="תוצאות הסבב">i</button>' : '') +
+             '<span class="send-a">' + act + '</span>' +
+             (shown ? '<div class="send-x">' + esc(info) + '</div>' : '') + '</div>';
     }).join('');
+    $('sends').querySelectorAll('[data-info]').forEach(function (b) {
+      b.addEventListener('click', function () { openInfo[b.dataset.info] = !openInfo[b.dataset.info]; renderSends(); });
+    });
     $('sends').querySelectorAll('[data-i]').forEach(function (b) {
       b.addEventListener('click', function () { editSend(+b.dataset.i); });
     });
