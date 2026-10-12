@@ -28,7 +28,7 @@ import { proxy as evProxy } from './evlog.js';
 import { createInvoice } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayUpsertLead, mondayGql } from './monday.js';
-import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, LEAD_STATUSES } from './leads.js';
+import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, LEAD_STATUSES, LEAD_OWNERS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
@@ -9801,7 +9801,7 @@ export default {
       if (leadRes && leadRes.ok) { try { rows = (await leadRes.json()).valueRanges[0].values || []; } catch {} }
       const events = eventsFromSnapshot((raw && raw.events && raw.events.values) || []);
       const leads = sortLeads(mergeLeads(rows, states, events)).filter(l => !isTestPhone(env, l.phone));
-      return okJson({ ok: true, leads, counts: countByStatus(leads), statuses: LEAD_STATUSES, sheetRows: rows.length, sheetOk: !!(leadRes && leadRes.ok) }, origin);
+      return okJson({ ok: true, leads, counts: countByStatus(leads), statuses: LEAD_STATUSES, owners: LEAD_OWNERS, sheetRows: rows.length, sheetOk: !!(leadRes && leadRes.ok) }, origin);
     }
     if (url.pathname === '/api/lead-update' && request.method === 'POST') {
       let b = {};
@@ -9814,7 +9814,7 @@ export default {
       const r = applyLeadUpdate(prev, b, new Date().toISOString());
       if (r.error) return deny(400, r.error, origin);
       await env.RATE.put('leadx:' + phone, JSON.stringify(r.state));
-      const what = [b.status !== undefined ? 'סטטוס: ' + r.state.status : '', b.followup !== undefined ? 'מעקב: ' + (r.state.followup || 'בוטל') : '', b.note !== undefined ? 'הערה' : ''].filter(Boolean).join(' · ');
+      const what = [b.status !== undefined ? 'סטטוס: ' + r.state.status : '', b.owner !== undefined ? 'טיפול: ' + (r.state.owner || 'ללא') : '', b.followup !== undefined ? 'מעקב: ' + (r.state.followup || 'בוטל') : '', b.note !== undefined ? 'הערה' : ''].filter(Boolean).join(' · ');
       await logEvent(env, { area: 'לידים', action: 'עדכון ליד · ' + what, ok: true, phone, detail: b.note !== undefined ? String(b.note).slice(0, 200) : '' });
       return okJson({ ok: true, lead: { phone, ...r.state, lastNote: r.state.notes.length ? r.state.notes[r.state.notes.length - 1] : null } }, origin);
     }

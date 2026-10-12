@@ -12,7 +12,11 @@
    (the humans own it after that), שלב is the funnel stage text. The status
    options here are those two plus the two every human board grows anyway. */
 
-export const LEAD_STATUSES = ['חדש', 'בטיפול', 'סגר', 'לא רלוונטי'];
+/* the monday board's own labels (board 18432553641, read 12/10), so the page
+   is a drop-in replacement; 'בטיפול' kept as an alias of 'שיחה חוזרת' for rows
+   saved before this list existed */
+export const LEAD_STATUSES = ['חדש', 'נשלח פרטים', 'לא ענה', 'שיחה חוזרת', 'סגר', 'סגר במקום אחר', 'לא רלוונטי'];
+export const LEAD_OWNERS = ['ריצארד', 'נועה', 'שלו'];
 export const STAGES = { lead_partial: 'התחיל טופס', lead: 'שלח טופס', checkout: 'הגיע לתשלום', initiate_checkout: 'הגיע לתשלום', purchase: 'שילם' };
 
 /* same rule as index.js normPhone, plus the bare "5XXXXXXXX" the sheet holds
@@ -99,7 +103,8 @@ export function parseLeadState(raw) {
   if (!s || typeof s !== 'object') s = {};
   const notes = Array.isArray(s.notes) ? s.notes.filter(n => n && n.text).map(n => ({ at: String(n.at || ''), text: String(n.text).slice(0, 600) })) : [];
   return {
-    status: LEAD_STATUSES.includes(s.status) ? s.status : '',
+    status: LEAD_STATUSES.includes(s.status) ? s.status : s.status === 'בטיפול' ? 'שיחה חוזרת' : '',
+    owner: LEAD_OWNERS.includes(s.owner) ? s.owner : '',
     notes,
     followup: /^\d{4}-\d{2}-\d{2}$/.test(String(s.followup || '')) ? String(s.followup) : '',
     token: String(s.token || ''),
@@ -138,6 +143,7 @@ export function mergeLeads(rows, states, events) {
     const ev = won.get(l.phone);
     l.status = st.status || (l.paidSheet ? 'סגר' : 'חדש');
     l.notes = st.notes;
+    l.owner = st.owner;
     l.followup = st.followup;
     l.updatedAt = st.updatedAt;
     l.token = st.token;
@@ -196,6 +202,11 @@ export function applyLeadUpdate(prev, body, nowIso) {
     if (state.notes.length > 100) state.notes = state.notes.slice(-100);
   }
   if (b.token !== undefined) { state.token = String(b.token || '').trim(); changed = true; }
+  if (b.owner !== undefined) {
+    const o = String(b.owner || '').trim();
+    if (o && !LEAD_OWNERS.includes(o)) return { error: 'bad-owner' };
+    state.owner = o; changed = true;
+  }
   if (!changed) return { error: 'nothing-to-update' };
   state.updatedAt = nowIso;
   return { state };
