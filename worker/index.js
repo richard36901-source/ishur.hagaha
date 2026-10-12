@@ -1377,6 +1377,11 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
       await logEvent(env, { area: 'העלאה', action: `הלקוח החליף את רשימת המוזמנים (${del.deleted} שורות נמחקו)`, ok: true, token, phone: rec.phone || '' }).catch(() => {});
       merge = false;
     }
+    /* one upload at a time per event: a double tap or a client retry sent
+       the same file twice and the writer appended it twice (Esti, 12/10:
+       53 numbers became 106 rows with the same guest ids) */
+    if (await env.RATE.get('uplock:' + token)) return deny(409, 'upload-in-progress', origin);
+    await env.RATE.put('uplock:' + token, '1', { expirationTtl: 120 });
     if (file.size > MAX_FILE_BYTES) return deny(413, 'file-too-large', origin);
     if (!/\.(csv|xlsx|xls)$/i.test(file.name || '')) return deny(422, 'bad-file-type', origin);
 
@@ -1469,7 +1474,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
         append_body: JSON.stringify({ values }),
       }),
     }).catch(() => null);
-    if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
+    if (!r || r.status !== 200) { await env.RATE.delete('uplock:' + token).catch(() => {}); return deny(502, 'writer-failed', origin); }
 
     await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
     await env.RATE.delete('pend:' + token).catch(() => {});
@@ -6903,6 +6908,11 @@ async function handleSendDate(request, env, origin) {
   const date = String(body.date || '').trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return deny(400, 'bad-date', origin);
 
+  /* the extra send is a paid add-on — no date until Grow confirmed it */
+  if (spec.n === 3 && env.RATE && !(await env.RATE.get('extrasend:' + token))) {
+    return deny(402, 'extra-not-paid', origin);
+  }
+
   /* a wave that already went out cannot be moved */
   if (env.RATE && await env.RATE.get(`wave:${token}:${spec.n}`)) {
     return deny(409, 'already-sent', origin);
@@ -9871,6 +9881,9 @@ export default {
         for (const n of [1, 2, 3]) {
           sentWaves[n] = !!(await env.RATE.get(`wave:${token}:${n}`));
         }
+        /* wave 3 is a paid add-on: the dashboard shows it only once Grow
+           confirmed the payment (Richard 12/10) */
+        sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
       /* Richard 27/09: per guest, did the invitation actually go out.
