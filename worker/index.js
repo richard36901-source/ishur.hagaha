@@ -1349,6 +1349,51 @@ async function deleteGuestRows(env, token) {
   return { ok: true, deleted: rows.length };
 }
 
+/* One-off sheet repairs, admin-gated, dry by default (Richard 12/10):
+   dedupe-guests — an event whose list was written twice keeps the first row
+     of every guest id and loses the copies (Esti 96b7dec2: 106 → 53);
+   delete-event — a stray אירועים row, e.g. the one an add-on payment opened
+     as a new event (Avraham 4bb1edfc). */
+async function sheetTabId(env, SID, title) {
+  const meta = await evProxy(env, `spreadsheets/${SID}`, { qk: 'fields', qv: 'sheets.properties' });
+  const found = ((meta && meta.sheets) || []).find(x => x.properties && x.properties.title === title);
+  return found ? Number(found.properties.sheetId) : null;
+}
+async function handleSheetCleanup(request, env, origin) {
+  let b = {};
+  try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const SID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
+  const token = String(b.token || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
+  const dry = b.dry !== false;
+  let tab, rows = [];
+  if (b.action === 'dedupe-guests') {
+    tab = 'אורחים';
+    const ids = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!C1:C6000`) || {}).values || [];
+    const toks = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC6000`) || {}).values || [];
+    const seen = new Set();
+    toks.forEach((r, i) => {
+      if (String((r || [])[0] || '').trim() !== token) return;
+      const id = String((ids[i] || [])[0] || '').trim();
+      if (!id) return;
+      if (seen.has(id)) rows.push(i); else seen.add(id);
+    });
+  } else if (b.action === 'delete-event') {
+    tab = 'אירועים';
+    const col = (await evProxy(env, `spreadsheets/${SID}/values/אירועים!B1:B3000`) || {}).values || [];
+    col.forEach((r, i) => { if (String((r || [])[0] || '').trim() === token) rows.push(i); });
+  } else return deny(400, 'bad-action', origin);
+  if (dry || !rows.length) return okJson({ ok: true, dry, tab, rows: rows.map(i => i + 1) }, origin);
+  const gid = await sheetTabId(env, SID, tab);
+  if (gid == null) return deny(502, 'no-tab', origin);
+  const requests = rows.sort((x, y) => y - x).map(i => ({ deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }));
+  const r = await evProxy(env, `spreadsheets/${SID}:batchUpdate`, { method: 'POST', payload: { requests } });
+  if (!(r && r.replies)) return deny(502, 'batchUpdate-failed', origin);
+  await logEvent(env, { area: 'גיליון', action: `ניקוי ${b.action}: ${rows.length} שורות נמחקו מ${tab}`, ok: true, token }).catch(() => {});
+  return okJson({ ok: true, dry: false, tab, deleted: rows.length }, origin);
+}
+
 /* Invitations, not people: one phone number is one invitation. */
 function countBillable(guests) {
   const seen = new Set();
@@ -8941,6 +8986,7 @@ export default {
     if (url.pathname === '/api/voice-prompt' && request.method === 'POST') {
       return handleVoicePrompt(request, env, origin);
     }
+    if (url.pathname === '/api/sheet-cleanup' && request.method === 'POST') return handleSheetCleanup(request, env, origin);
     if (url.pathname === '/api/brain-admin' && request.method === 'POST') {
       return handleBrainAdmin(request, env, origin);
     }
