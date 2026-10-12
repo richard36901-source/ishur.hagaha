@@ -9867,7 +9867,7 @@ export default {
           planned.sort((x, y) => (STAGE[x.e.k] ?? 9) - (STAGE[y.e.k] ?? 9) || x.i - y.i);
           let used = 0;
           for (const { e } of planned) {
-            if (used >= cap) { slot += 10; cap = PACE_SENDS; used = 0; }
+            if (used >= cap) { slot = Math.floor(slot / 10) * 10 + 10; cap = PACE_SENDS; used = 0; }   // next pacer tick (:00, :10, :20…)
             if (slot > close) { e.late = true; e.at = d + 'T' + String(Math.floor(close / 60)).padStart(2, '0') + ':' + String(close % 60).padStart(2, '0') + ':00'; continue; }
             e.at = d + 'T' + String(Math.floor(slot / 60)).padStart(2, '0') + ':' + String(slot % 60).padStart(2, '0') + ':00';
             e.est = true; used++;
