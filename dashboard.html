@@ -1376,25 +1376,17 @@
      has not started yet has nothing to report. */
   var openInfo = {};
   function sendInfo(s) {
-    var gs = (data.guests || []).filter(function (g) { return !g.self; });
-    if (!gs.length || s.key === 'event_day') return '';
-    var n = function (f) { return gs.filter(f).length; };
+    var t = s.stats;
+    if (!t) return '';
     if (s.key === 'calls') {
-      if (s.status === 'scheduled') return '';
-      var called = n(function (g) { return g.tries > 0 || (/ענה/.test(g.call_ans || '') && g.call_ans !== 'לא ענה להודעות'); });
-      var talked = n(function (g) { return /^ענה/.test(g.call_ans || ''); });
-      return 'חויגו ' + called + ' · ענו בשיחה ' + talked + ' · ממתינים לשיחה ' + (s.queued || 0) +
-             ' · מגיעים ' + n(function (g) { return g.status === 'confirmed'; }) +
-             ' · לא מגיעים ' + n(function (g) { return g.status === 'declined'; });
+      if (!t.dialed && !t.waiting) return '';
+      return 'חויגו ' + t.dialed + ' · ענו בשיחה ' + t.answered + ' (מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
+             (t.undecided ? ' · מתלבטים ' + t.undecided : '') + ') · לא ענו ' + t.no_answer +
+             (t.waiting ? ' · עוד לא חויגו ' + t.waiting : '');
     }
     if (s.status !== 'sent') return '';
-    var out = s.key === 'invite' ? n(function (g) { return g.sent === 'sent'; }) : null;
-    return (out != null ? 'נשלחו ' + out + ' · ' : '') +
-           'ענו עד עכשיו ' + n(function (g) { return g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided'; }) +
-           ' · מגיעים ' + n(function (g) { return g.status === 'confirmed'; }) +
-           ' · לא מגיעים ' + n(function (g) { return g.status === 'declined'; }) +
-           ' · מתלבטים ' + n(function (g) { return g.status === 'undecided'; }) +
-           ' · עוד לא ענו ' + n(function (g) { return g.status === 'pending' || g.status === 'awaiting_call'; });
+    return 'ענו בסבב הזה ' + t.answered + ' · מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
+           (t.undecided ? ' · מתלבטים ' + t.undecided : '');
   }
 
   function renderSends() {

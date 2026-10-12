@@ -1269,6 +1269,29 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   }
   if (addon.kind === 'extrasend') {
     if (env.RATE) await env.RATE.put('extrasend:' + token, JSON.stringify({ at: new Date().toISOString(), scope: addon.scope || 'all', ref }), { expirationTtl: 200 * 86400 });
+    /* the paid round needs a sane date: after the reminder, before the event,
+       not on Shabbat. A date left over from the setup form (Esti 12/10: the
+       18/10 she picked sat BEFORE her 20/10 invitation) is replaced; she can
+       still move it from the dashboard. */
+    {
+      const d10 = i => String(evRow[i] || '').trim().slice(0, 10);
+      const okIso = x => /^\d{4}-\d{2}-\d{2}$/.test(x);
+      const inv = d10(39), rem = d10(40), cur = d10(41), evd = d10(6), today = ilDate();
+      const floor = [inv, rem, today].filter(okIso).sort().pop();
+      const fine = okIso(cur) && cur > floor && (!okIso(evd) || cur < evd);
+      if (!fine && floor) {
+        const d = new Date(floor + 'T12:00:00Z');
+        d.setUTCDate(d.getUTCDate() + 2);
+        if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+        let pick = d.toISOString().slice(0, 10);
+        if (okIso(evd) && pick >= evd) {
+          const e = new Date(evd + 'T12:00:00Z'); e.setUTCDate(e.getUTCDate() - 1);
+          if (e.getUTCDay() === 6) e.setUTCDate(e.getUTCDate() - 1);
+          pick = e.toISOString().slice(0, 10);
+        }
+        if (pick > floor) await sheetBatchWrite(env, [{ range: `אירועים!AP${row}`, values: [[pick]] }]).catch(() => {});
+      }
+    }
     await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
     await slackPost(env, `💳 *תוסף שליחה נוספת* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — גל 3 ייצא בתאריך שבגיליון`);
     return { ok: true, token };
@@ -2135,6 +2158,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
       await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: g.phone, name: g.name || '', kind: 'אורח (אישור הגעה)',
         token: String(g.token || '').slice(0, 8), status: 'חויג ' + ilTime(), id: cid, outcome: `ניסיון ${(Number(g.tries) || 0) + 1}/${g.max_tries || 3}` });
       await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
+      await env.RATE.put('dialed:' + g.guest_id, day, { expirationTtl: 120 * 86400 });
       await env.RATE.put('calldate:' + g.token, day, { expirationTtl: 60 * 86400 });
       dialed.push(g.guest_id);
     }
@@ -9930,6 +9954,14 @@ export default {
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
+        /* who Shir already dialed, so the board can tell "did not answer" from
+           "still waiting for a call" */
+        sentWaves.dialed = new Set();
+        const waitIds = ((raw.guests && raw.guests.values) || [])
+          .filter(r => String(r[28] || '').trim() === token && String(r[21] || '').trim() === 'נדרשת שיחה')
+          .map(r => String(r[2] || '').trim()).filter(Boolean);
+        const hits = await Promise.all(waitIds.map(id => env.RATE.get('dialed:' + id).catch(() => null)));
+        waitIds.forEach((id, i) => { if (hits[i]) sentWaves.dialed.add(id); });
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
       /* Richard 27/09: per guest, did the invitation actually go out.

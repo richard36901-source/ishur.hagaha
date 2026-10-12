@@ -219,6 +219,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         /* the phone round, for the send board's results line */
         tries: Number(g(29)) || 0,
         call_ans: g(22),
+        at: g(25).slice(0, 10),
       };
     });
 
@@ -272,6 +273,39 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     }
   }
   if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: 'scheduled', auto: true });
+
+  /* Each round owns only the answers it brought in (Richard 12/10): a call
+     answer belongs to the calls, a WhatsApp answer to the last message round
+     that went out on or before the day it came in. "Waiting for a call" is only
+     whoever Shir has not dialed yet; dialed and silent is "did not answer". */
+  const dialed = sent.dialed || new Set();
+  const viaCall = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
+  const answered = g => g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
+  const waveDates = sends.filter(x => x.key !== 'calls' && x.key !== 'event_day').map(x => ({ key: x.key, d: String(x.date).slice(0, 10) }))
+    .sort((x, y) => x.d < y.d ? -1 : 1);
+  const tally = () => ({ answered: 0, confirmed: 0, declined: 0, undecided: 0 });
+  const per = {};
+  for (const x of sends) per[x.key] = tally();
+  per.calls = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0 });
+  for (const g of guests) {
+    if (g.self) continue;
+    const isCall = viaCall(g) || dialed.has(g.id) || g.tries > 0;
+    if (per.calls && isCall) per.calls.dialed++;
+    if (!answered(g)) {
+      if (g.status === 'awaiting_call') { if (isCall) per.calls.no_answer++; else per.calls.waiting++; }
+      continue;
+    }
+    let key;
+    if (viaCall(g) && /^ענה/.test(g.call_ans)) key = 'calls';
+    else {
+      key = waveDates.length ? waveDates[0].key : null;
+      for (const w of waveDates) if (g.at && w.d <= g.at) key = w.key;
+    }
+    const t = key && per[key];
+    if (!t) continue;
+    t.answered++; t[g.status]++;
+  }
+  for (const x of sends) if (per[x.key] && x.key !== 'event_day') x.stats = per[x.key];
 
   return {
     ok: true,
