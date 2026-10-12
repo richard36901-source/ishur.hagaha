@@ -28,6 +28,7 @@ import { proxy as evProxy } from './evlog.js';
 import { createInvoice } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayUpsertLead, mondayGql } from './monday.js';
+import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, LEAD_STATUSES } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
@@ -4897,7 +4898,7 @@ async function templateCheck(env, out) {
         ...['hazmana_ishur_v2', 'hazmana_ishur', 'ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
         ...(clientOnPortfolio(env)
-          ? ['ishur_syum_v3', 'ishur_doch_n', 'ishur_tzikoret_kovetz_n', 'ishur_tashlum_n', 'ishur_heshbonit_n', 'ishur_lo_siyem_n', 'ishur_lo_siyem_2_n', 'ishur_lo_siyem_3_n', 'ishur_shidrug_n', 'ishur_shidrug_sichot_n']
+          ? ['ishur_syum_v3', 'ishur_kod', 'ishur_doch_n', 'ishur_tzikoret_kovetz_n', 'ishur_tashlum_n', 'ishur_heshbonit_n', 'ishur_lo_siyem_n', 'ishur_lo_siyem_2_n', 'ishur_lo_siyem_3_n', 'ishur_shidrug_n', 'ishur_shidrug_sichot_n']
           : ['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3'])
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: clientWaba(env), tok: clientToken(env) })),
       ];
@@ -6903,7 +6904,7 @@ async function checkBilling(env, opts = {}) {
   const wa = [];
   for (const n of [
     { name: 'שיר 6673', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, guests: true },
-    { name: 'נועה 4499', waba: '1060242146337688', tok: clientToken(env) },
+    { name: 'נועה 4499', waba: clientWaba(env), tok: clientToken(env) },
   ]) {
     let j = null;
     try {
@@ -8477,10 +8478,11 @@ export default {
         /* channel:'guests' submits on Shir's WABA with the Ishur.io app + token;
            default stays the 4499 account */
         const guests = b.channel === 'guests';
-        const tok = guests ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+        const tok = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
         const waba = guests ? '1378764257421712' : clientWaba(env);
         if (!tok) return deny(503, 'wa-not-configured', origin);
-        const appId = String(b.app_id || (guests ? '1084149031015902' : '1258746612804480'));
+        /* the app must match the WABA's portfolio: ishur-ads on the Ishur.io side */
+        const appId = String(b.app_id || (guests || clientOnPortfolio(env) ? '1084149031015902' : '1258746612804480'));
         const isVid = String(b.format || '').toUpperCase() === 'VIDEO';
         const imgUrl = String(b.image_url || (isVid ? '' : 'https://ishur.io/logo.png'));
         if (isVid && !imgUrl) return deny(400, 'video_url-needed', origin);
@@ -9782,6 +9784,40 @@ export default {
        whom (from the message log) and what is scheduled (from the events
        sheet), per day. Skips pre-set the per-guest marker the senders already
        honour, so no sender changed. ─────────────────────────────────────── */
+    /* ── leads.html: the board that replaces monday ─────────────────────────
+       The sheet (written by Make) is the record of who came in; KV
+       leadx:<phone> holds what the humans add (status, notes, follow-up); a
+       paid event on the same phone wins the lead by itself. Logic in leads.js. */
+    if (url.pathname === '/api/leads' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const [raw, leadRes, states] = await Promise.all([
+        fetchSnapshot(env.HOOK_STATUS),
+        env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
+        kvPrefix(env, 'leadx:'),
+      ]);
+      let rows = [];
+      if (leadRes && leadRes.ok) { try { rows = (await leadRes.json()).valueRanges[0].values || []; } catch {} }
+      const events = eventsFromSnapshot((raw && raw.events && raw.events.values) || []);
+      const leads = sortLeads(mergeLeads(rows, states, events)).filter(l => !isTestPhone(env, l.phone));
+      return okJson({ ok: true, leads, counts: countByStatus(leads), statuses: LEAD_STATUSES, sheetRows: rows.length, sheetOk: !!(leadRes && leadRes.ok) }, origin);
+    }
+    if (url.pathname === '/api/lead-update' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const phone = normPhone(b.phone || '');
+      if (!phone || phone.length < 11) return deny(400, 'bad-phone', origin);
+      if (!env.RATE) return deny(503, 'no-kv', origin);
+      let prev = null; try { prev = JSON.parse(await env.RATE.get('leadx:' + phone)); } catch {}
+      const r = applyLeadUpdate(prev, b, new Date().toISOString());
+      if (r.error) return deny(400, r.error, origin);
+      await env.RATE.put('leadx:' + phone, JSON.stringify(r.state));
+      const what = [b.status !== undefined ? 'סטטוס: ' + r.state.status : '', b.followup !== undefined ? 'מעקב: ' + (r.state.followup || 'בוטל') : '', b.note !== undefined ? 'הערה' : ''].filter(Boolean).join(' · ');
+      await logEvent(env, { area: 'לידים', action: 'עדכון ליד · ' + what, ok: true, phone, detail: b.note !== undefined ? String(b.note).slice(0, 200) : '' });
+      return okJson({ ok: true, lead: { phone, ...r.state, lastNote: r.state.notes.length ? r.state.notes[r.state.notes.length - 1] : null } }, origin);
+    }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -9922,7 +9958,7 @@ export default {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const id = String(b.id || '');
       if (!/^\d{6,40}$/.test(id)) return deny(400, 'bad-id', origin);
-      const tok = b.ch === 'guests' ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+      const tok = b.ch === 'guests' ? env.WA_TOKEN_GUESTS : clientToken(env);
       const meta = await fetch('https://graph.facebook.com/v21.0/' + id, { headers: { Authorization: 'Bearer ' + tok } }).then(r => r.json()).catch(() => null);
       if (!meta || !meta.url) return deny(404, 'media-gone', origin);
       const f = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
