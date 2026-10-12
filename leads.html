@@ -37,7 +37,7 @@
   .meta{font-size:.76rem;color:var(--ink3);margin-inline-start:auto}
   /* the list */
   .list{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
-  .hd,.lead{display:grid;grid-template-columns:1.4fr 1fr 1fr .9fr .8fr 1fr 1fr 1.2fr auto;gap:.6rem;align-items:center;padding:.55rem .9rem}
+  .hd,.lead{display:grid;grid-template-columns:1.4fr 1fr 1fr .9fr .8fr 1fr .8fr 1fr 1.2fr auto;gap:.6rem;align-items:center;padding:.55rem .9rem}
   .hd{font-size:.7rem;font-weight:600;color:var(--ink3);text-transform:uppercase;border-bottom:1px solid var(--line);background:var(--rail)}
   .lead{border-bottom:1px solid var(--line);font-size:.86rem}
   .lead:last-of-type{border-bottom:none}
@@ -50,7 +50,8 @@
   .pill.won{background:rgba(46,125,91,.15);color:var(--good)}
   .pill.src{background:var(--rail);color:var(--ink2);font-weight:500;max-width:100%;overflow:hidden;text-overflow:ellipsis}
   select.st,input.fu{font:inherit;font-size:.8rem;padding:.25rem .45rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);max-width:100%}
-  select.st.s-חדש{border-color:var(--blue)}select.st.s-בטיפול{border-color:var(--gold)}select.st.s-סגר{border-color:var(--good)}select.st.s-לא\ רלוונטי{color:var(--ink3)}
+  select.st.s-חדש{border-color:var(--blue)}select.st.s-שיחה\ חוזרת,select.st.s-נשלח\ פרטים{border-color:var(--gold)}select.st.s-לא\ ענה{border-color:var(--warn)}select.st.s-סגר{border-color:var(--good)}select.st.s-לא\ רלוונטי,select.st.s-סגר\ במקום\ אחר{color:var(--ink3)}
+  select.ow{font:inherit;font-size:.8rem;border:1px solid var(--line);border-radius:8px;padding:.25rem .4rem;background:var(--card);color:var(--ink)}
   input.fu.due{border-color:var(--warn);color:var(--warn)}
   .note{font-size:.78rem;color:var(--ink2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .note time{color:var(--ink3);font-size:.7rem}
@@ -100,7 +101,7 @@
     <span class="meta" id="meta"></span>
   </div>
   <div class="list">
-    <div class="hd"><span>שם</span><span>טלפון</span><span>אירוע</span><span>תאריך</span><span>מקור</span><span>סטטוס</span><span>מעקב</span><span>הערה</span><span></span></div>
+    <div class="hd"><span>שם</span><span>טלפון</span><span>אירוע</span><span>תאריך</span><span>מקור</span><span>סטטוס</span><span>טיפול</span><span>מעקב</span><span>הערה</span><span></span></div>
     <div id="rows"><p class="empty">טוען…</p></div>
   </div>
 </main>
@@ -109,7 +110,8 @@
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var DEMO = /(^|[?&])demo=1/.test(location.search);
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
-  var STATUSES = ['חדש', 'בטיפול', 'סגר', 'לא רלוונטי'];
+  var STATUSES = ['חדש', 'נשלח פרטים', 'לא ענה', 'שיחה חוזרת', 'סגר', 'סגר במקום אחר', 'לא רלוונטי'];
+  var OWNERS = ['ריצארד', 'נועה', 'שלו'];
   var SOURCES = ['הכל', 'מטא', 'גוגל', 'הפניה', 'ישיר', 'אחר'];
   var leads = [], st = 'all', src = 'הכל', q = '', open = {};
   var today = new Date(Date.now() + 3 * 3600e3).toISOString().slice(0, 10);
@@ -146,7 +148,7 @@
     if (!adminKey) { gate(''); return; }
     api('leads', {}).then(function (d) {
       if (!d || !d.ok) { if (d && d.error) IshurUX.toast('לא הצליח: ' + d.error); return; }
-      leads = withLast(d.leads || []); if (d.statuses && d.statuses.length) STATUSES = d.statuses;
+      leads = withLast(d.leads || []); if (d.statuses && d.statuses.length) STATUSES = d.statuses; if (d.owners && d.owners.length) OWNERS = d.owners;
       $('gate').hidden = true; $('main').hidden = false;
       $('meta').textContent = d.sheetOk ? d.sheetRows + ' שורות בגיליון' : 'הגיליון לא נקרא';
       paint();
@@ -182,6 +184,7 @@
         '<div class="cell" data-l="תאריך"><span title="' + (l.eventDate ? 'תאריך האירוע' : 'נכנס') + '">' + heDate(l.eventDate || l.date) + '</span>' + (l.eventDate ? '<div class="e">נכנס ' + heDate(l.date) + '</div>' : '') + '</div>' +
         '<div class="cell" data-l="מקור"><span class="pill src" title="' + esc(l.source) + '">' + esc(l.sourceKind) + '</span></div>' +
         '<div class="cell" data-l="סטטוס"><select class="st s-' + esc(l.status) + '" data-p="' + esc(l.phone) + '"' + (l.won ? ' disabled title="נסגר לבד: שילם"' : '') + '>' + STATUSES.map(function (s) { return '<option' + (s === l.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></div>' +
+        '<div class="cell" data-l="טיפול"><select class="ow" data-p="' + esc(l.phone) + '"><option value="">טיפול</option>' + OWNERS.map(function (o) { return '<option' + (o === l.owner ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></div>' +
         '<div class="cell" data-l="מעקב"><input type="date" class="fu' + (due ? ' due' : '') + '" data-p="' + esc(l.phone) + '" value="' + esc(l.followup) + '"></div>' +
         '<div class="cell note" data-l="הערה">' + (l.lastNote ? esc(l.lastNote.text) + ' <time>' + heTime(l.lastNote.at) + '</time>' : '<span class="e">אין הערות</span>') + '</div>' +
         '<div class="acts"><a class="act wa" href="https://wa.me/' + esc(l.phone) + '" target="_blank" rel="noopener">וואטסאפ</a><a class="act" href="tel:+' + esc(l.phone) + '">חיוג</a>' + evLink + '<button class="act" data-tog="' + esc(l.phone) + '">הערות' + (l.notes.length ? ' · ' + l.notes.length : '') + '</button></div>' +
@@ -199,6 +202,7 @@
     if (DEMO) {
       if (body.status !== undefined) l.status = body.status;
       if (body.followup !== undefined) l.followup = body.followup;
+      if (body.owner !== undefined) l.owner = body.owner;
       if (body.note !== undefined) l.notes.push({ at: new Date().toISOString(), text: body.note });
       l.lastNote = l.notes.length ? l.notes[l.notes.length - 1] : null;
       done(true); return;
@@ -206,13 +210,14 @@
     body.phone = p;
     api('lead-update', body).then(function (j) {
       if (!j || !j.ok) { IshurUX.toast('לא נשמר' + (j && j.error ? ': ' + j.error : '')); done(false); return; }
-      l.status = j.lead.status || l.status; l.followup = j.lead.followup || ''; l.notes = j.lead.notes || l.notes; l.lastNote = j.lead.lastNote || null;
+      l.status = j.lead.status || l.status; l.owner = j.lead.owner || ''; l.followup = j.lead.followup || ''; l.notes = j.lead.notes || l.notes; l.lastNote = j.lead.lastNote || null;
       done(true);
     });
   }
   $('rows').addEventListener('change', function (e) {
     var t = e.target, p = t.dataset.p; if (!p) return;
     if (t.classList.contains('st')) { t.disabled = true; update(p, { status: t.value }, function (ok) { t.disabled = false; if (ok) { IshurUX.toast('סטטוס: ' + t.value); paint(); } }); }
+    if (t.classList.contains('ow')) { update(p, { owner: t.value }, function (ok) { if (ok) { IshurUX.toast(t.value ? 'טיפול: ' + t.value : 'ללא מטפל'); } }); }
     if (t.classList.contains('fu')) { update(p, { followup: t.value }, function (ok) { if (ok) { IshurUX.toast(t.value ? 'מעקב ' + heDate(t.value) : 'המעקב בוטל'); paint(); } }); }
   });
   function addNote(p, input) {
