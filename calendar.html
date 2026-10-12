@@ -183,7 +183,10 @@
     $('pSum').textContent = (c.sent ? c.sent + ' נשלחו · ' : '') + (c.failed ? c.failed + ' נכשלו · ' : '') + (c.planned ? c.planned + ' מתוכננים · ' : '') + (c.skipped ? c.skipped + ' דילוג' : '');
     if (!list.length) { $('rows').innerHTML = '<p class="empty">אין שליחות ביום הזה' + (q || ch !== 'all' || st !== 'all' ? ' לפי הסינון' : '') + '</p>'; return; }
     $('rows').innerHTML = list.map(function (e, i) {
-      var t = e.done ? new Date(e.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }) : 'בבוקר';
+      var t = e.done ? new Date(e.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
+            : e.late ? 'לא ייכנס היום, יעבור למחרת'
+            : e.est ? '<span title="זמן משוער לפי קצב השליחה: 25 הודעות כל 10 דקות מ-09:00">משוער ~' + e.at.slice(11, 16) + '</span>'
+            : 'מ-09:00';
       var canSkip = !e.done && e.k && e.k !== 'eoe';
       var btn = canSkip ? (e.skipped ? '<button class="act undo" data-i="' + i + '" data-on="0">בטל דילוג</button>' : (e.status === 'done-earlier' ? '<span class="e">כבר נשלח</span>' : '<button class="act" data-i="' + i + '" data-on="1">דלג</button>')) : '';
       return '<div class="row"><span class="dot ' + e.status + '"></span><div class="b">' +

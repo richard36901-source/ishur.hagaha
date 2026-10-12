@@ -9844,7 +9844,37 @@ export default {
       /* which planned rows are already skipped (marker pre-set by the admin) */
       const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
       skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
-      for (const d of Object.keys(days)) days[d].sort((a, b) => a.at < b.at ? -1 : 1);
+      /* Richard 12/10: "if it's planned I want to know for what time". The
+         engine does not fire everything at 09:00: the morning run sends its
+         first slice when the window is open (09:35 IL in summer, 50 messages),
+         and the 10-minute pacer carries 25 per tick from 09:00 onwards. The
+         time below walks that schedule in the engine's own order (waves per
+         event first, then day-before / table / thanks / client summary), so
+         it is an estimate, marked as one on the page. */
+      const STAGE = { 1: 0, 2: 0, 3: 0, daybefore: 1, shulchan: 2, toda: 3, eoe: 4 };
+      const ilHourAt = (d, hUtc, mUtc) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(`${d}T${String(hUtc).padStart(2, '0')}:${String(mUtc).padStart(2, '0')}:00Z`)));
+      const nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()); const g = t => Number((p.find(x => x.type === t) || {}).value || 0); return g('hour') * 60 + g('minute'); })();
+      for (const d of Object.keys(days)) {
+        const rows = days[d];
+        const planned = rows.map((e, i) => ({ e, i })).filter(x => x.e.status === 'planned');
+        if (planned.length) {
+          const dow = new Date(d + 'T12:00:00Z').getUTCDay();
+          const close = dow === 5 ? 13 * 60 : 20 * 60 + 30;
+          /* summer: the 06:35 UTC morning run lands inside the window and sends 50 at 09:35; winter: it lands at 08:35, sends nothing, and the pacer starts at 09:00 */
+          const summer = ilHourAt(d, 6, 35) === 9;
+          let slot = summer ? 9 * 60 + 35 : 9 * 60, cap = summer ? PACE_SENDS * 2 : PACE_SENDS;
+          if (d === today && nowMin > slot) { slot = Math.ceil(nowMin / 10) * 10; cap = PACE_SENDS; }
+          planned.sort((x, y) => (STAGE[x.e.k] ?? 9) - (STAGE[y.e.k] ?? 9) || x.i - y.i);
+          let used = 0;
+          for (const { e } of planned) {
+            if (used >= cap) { slot += 10; cap = PACE_SENDS; used = 0; }
+            if (slot > close) { e.late = true; e.at = d + 'T' + String(Math.floor(close / 60)).padStart(2, '0') + ':' + String(close % 60).padStart(2, '0') + ':00'; continue; }
+            e.at = d + 'T' + String(Math.floor(slot / 60)).padStart(2, '0') + ':' + String(slot % 60).padStart(2, '0') + ':00';
+            e.est = true; used++;
+          }
+        }
+        rows.sort((a, b) => a.at < b.at ? -1 : 1);
+      }
       return okJson({ ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) }, origin);
     }
     /* skip / unskip one guest for one send kind: sets or clears the marker the
