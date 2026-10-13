@@ -5073,12 +5073,13 @@ async function runPacer(env) {
 
   /* then the dial slice */
   const callWin = callWindowState();
+  /* results of calls that already ended are collected at any hour */
+  await reconcileShirCalls(env).catch(() => {});
   if (callWin.open) {
     /* Whoever just rang US is the hottest lead in the system: somebody who
        wanted to talk to us badly enough to dial. The callback queue therefore
        empties BEFORE the guest queue — and out of the same per-tick budget,
        so a busy inbound hour cannot quietly blow the concurrency limit. */
-    await reconcileShirCalls(env).catch(() => {});
     const cb = await runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) }).catch(e => {
       return { dialed: 0, why: String((e && e.message) || e) };
     });
