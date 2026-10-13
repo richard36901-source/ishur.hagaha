@@ -2046,7 +2046,19 @@ async function handleShirWebhook(request, env) {
   }
   const rawBody = await request.text();
   const sig = request.headers.get('X-Retell-Signature') || '';
-  if (!(await verifyRetellSignature(rawBody, sig, env.RETELL_KEY))) {
+  /* Retell signs with the API key that carries the "webhook" badge in its
+     dashboard, which need not be the key we call the API with (13/10: every
+     call result was refused for a week). RETELL_WEBHOOK_KEY is that key; the
+     API key stays accepted so a single-key account keeps working. */
+  const keys = [env.RETELL_WEBHOOK_KEY, env.RETELL_KEY].filter(Boolean);
+  let okSig = false;
+  for (const k of keys) if (await verifyRetellSignature(rawBody, sig, k)) { okSig = true; break; }
+  if (!okSig) {
+    /* say why, without leaking anything: header shape, body size, age */
+    const m = /^v=(\d+),d=([0-9a-f]+)$/i.exec(sig.trim());
+    const age = m ? Math.round((Date.now() - Number(m[1])) / 1000) + 's' : 'n/a';
+    await logEvent(env, { area: 'שיחות', action: 'דיווח שיחה מרטל נדחה: חתימה לא תואמת', ok: false, review: true,
+      detail: `header=${m ? 'v,d (' + m[2].length + ' hex)' : sig ? 'other (' + sig.length + ')' : 'missing'} · body=${rawBody.length} · age=${age} · keys=${keys.length}${env.RETELL_WEBHOOK_KEY ? ' (webhook key set)' : ' (api key only)'}` }).catch(() => {});
     return new Response('bad-signature', { status: 403 });
   }
   let body;
