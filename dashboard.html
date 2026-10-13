@@ -1034,7 +1034,7 @@
        17 rows when it is 11 rows covering 17 invited people */
     var rc = function (n) { return n != null ? n + ' רשומות' : ''; };
     $('kpis').innerHTML =
-      kpi(recs, 'רשומות', totalPeople && totalPeople !== recs ? totalPeople + ' אנשים' : '') +
+      kpi(totalPeople || recs, 'מוזמנים', totalPeople && totalPeople !== recs ? recs + ' רשומות' : '') +
       kpi(t.confirmed_seats, 'אישרו', rc(t.confirmed), true) +
       kpi(dv, 'לא מגיעים', rc(t.declined)) +
       kpi(uv, 'לא בטוחים', rc(t.undecided)) +
