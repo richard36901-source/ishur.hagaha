@@ -7255,6 +7255,10 @@ async function handleMetaAdmin(request, env, origin) {
 const META_PIXEL_ID = '1412366810814749';
 const META_AD_ACCOUNT = 'act_1944903292858482';
 const META_CAMPAIGN_ID = '120250009883070731';
+/* campaigns somebody else runs on the same account (Shalev, 12/10): read for
+   the comparison in the report, never written to — no budget, no status, no
+   ad changes go through here for these ids */
+const META_OTHER_CAMPAIGNS = [{ id: '120250670197650731', who: 'שלו' }];
 
 /* ── ads health ──────────────────────────────────────────────────────────
    Richard, 09/09: "next time I want you to know before me and tell me in
@@ -7672,6 +7676,21 @@ async function runAdReview(env, opts = {}) {
   const insR = await metaAds(env, `/${META_CAMPAIGN_ID}/insights?level=adset&fields=adset_name,spend,impressions,clicks,ctr,frequency,actions&time_range=${range}`);
   const rows = (insR && insR.ok && insR.data && insR.data.data) || [];
   const monthR = await metaAds(env, `/${META_AD_ACCOUNT}/insights?fields=spend&time_range=${encodeURIComponent(JSON.stringify({ since: today.slice(0, 7) + '-01', until: today }))}`);
+  /* the other campaigns on the account, same period, campaign level only */
+  const others = [];
+  for (const oc of META_OTHER_CAMPAIGNS) {
+    const t = await metaAds(env, `/${oc.id}?fields=name,status,effective_status,created_time,daily_budget,adsets.limit(10){daily_budget,status}`).catch(() => null);
+    const ins = await metaAds(env, `/${oc.id}/insights?fields=spend,impressions,clicks,ctr,frequency,actions&time_range=${range}`).catch(() => null);
+    const row = (ins && ins.ok && ins.data && ins.data.data && ins.data.data[0]) || {};
+    const td = (t && t.ok && t.data) || {};
+    const budget = td.daily_budget != null ? Number(td.daily_budget) / 100
+      : ((td.adsets && td.adsets.data) || []).reduce((n, a) => n + (a.status === 'ACTIVE' && a.daily_budget ? Number(a.daily_budget) / 100 : 0), 0) || null;
+    let leads = 0; for (const a of row.actions || []) if (a.action_type === 'offsite_conversion.fb_pixel_lead' || a.action_type === 'lead') leads = Math.max(leads, Number(a.value) || 0);
+    const spend = Number(row.spend) || 0;
+    others.push({ id: oc.id, who: oc.who, name: td.name || oc.id, status: td.status || '', effective_status: td.effective_status || '', since_created: String(td.created_time || '').slice(0, 10),
+      daily_budget: budget, spend: Math.round(spend), impressions: Number(row.impressions) || 0, clicks: Number(row.clicks) || 0, ctr: row.ctr != null ? Number(row.ctr) : null, frequency: row.frequency != null ? Number(row.frequency) : null,
+      leads, cpl: leads ? Math.round(spend / leads) : null });
+  }
 
   const leadsOf = (r) => {
     let n = 0;
@@ -7792,11 +7811,12 @@ async function runAdReview(env, opts = {}) {
     inactive_adsets: treeSets.filter(a => !adsetRows.some(r => r.name === a.name)).map(a => ({ name: a.name, status: a.status, daily_budget: a.daily_budget != null ? Number(a.daily_budget) / 100 : null })),
     totals: { spend: Math.round(tot.spend), impressions: tot.imp, clicks: tot.clicks, leads: tot.leads }, cpl,
     month: mo, month_spend: monthSpend, cac: cm || null,
+    others,
     flags, changes, next: nextDate, text,
   };
   await env.RATE.put('adlog:' + today, JSON.stringify(snapshot), { expirationTtl: 200 * 86400 }).catch(() => {});
 
-  return { ok: true, since, until: today, totals: tot, cpl, flags, changes, sends, report: text };
+  return { ok: true, since, until: today, totals: tot, cpl, flags, changes, sends, others, report: text };
 }
 
 /* POST /api/ad-reports {admin_key, date?} — the archive behind ad-report.html.
@@ -9868,6 +9888,56 @@ export default {
       const events = eventsFromSnapshot((raw && raw.events && raw.events.values) || []);
       const leads = sortLeads(mergeLeads(rows, states, events)).filter(l => !isTestPhone(env, l.phone));
       return okJson({ ok: true, leads, counts: countByStatus(leads), statuses: LEAD_STATUSES, owners: LEAD_OWNERS, groups: groupsOf(leads), sheetRows: rows.length, sheetOk: !!(leadRes && leadRes.ok) }, origin);
+    }
+    /* Richard 13/10: "pull data and notes from monday, status as well". One
+       admin call reads the leads board and seeds leadx:<phone> with what
+       monday knows: status (only its own labels), owner (טיפול), the notes
+       column and every update as dated notes. Never overwrites a note that
+       is already here; status/owner from monday win only when ours is empty
+       unless force is set. Dry by default. */
+    if (url.pathname === '/api/leads-import-monday' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'no-kv', origin);
+      const dry = b.dry !== false, force = !!b.force;
+      const items = [];
+      let cursor = null;
+      for (let page = 0; page < 20; page++) {
+        const q = cursor
+          ? 'query($c:String!){ next_items_page(limit:100,cursor:$c){ cursor items{ id name column_values(ids:["status","phone_mm7g3mjv","color_mm7g6y7g","long_text_mm7gh65j"]){ id text } updates(limit:20){ body created_at creator{ name } } } } }'
+          : 'query($b:[ID!]){ boards(ids:$b){ items_page(limit:100){ cursor items{ id name column_values(ids:["status","phone_mm7g3mjv","color_mm7g6y7g","long_text_mm7gh65j"]){ id text } updates(limit:20){ body created_at creator{ name } } } } } }';
+        const r = await mondayGql(env, q, cursor ? { c: cursor } : { b: ['18432553641'] }).catch(() => null);
+        const pg = r && (cursor ? r.next_items_page : r.boards && r.boards[0] && r.boards[0].items_page);
+        if (!pg) break;
+        items.push(...(pg.items || []));
+        cursor = pg.cursor; if (!cursor) break;
+      }
+      const strip = h => String(h || '').replace(/<[^>]+>/g, ' ').replace(/[\uFEFF\u200e\u200f]/g, '').replace(/\s+/g, ' ').trim();
+      const out = [];
+      for (const it of items) {
+        const col = id => String(((it.column_values || []).find(c => c.id === id) || {}).text || '').trim();
+        const phone = normPhone(col('phone_mm7g3mjv'));
+        if (!phone || phone.length < 11) { out.push({ name: it.name, skipped: 'no-phone' }); continue; }
+        let prev = null; try { prev = JSON.parse(await env.RATE.get('leadx:' + phone)); } catch {}
+        const cur = prev && typeof prev === 'object' ? prev : {};
+        const notes = Array.isArray(cur.notes) ? cur.notes.slice() : [];
+        const have = new Set(notes.map(n => n.text));
+        const add = (text, at) => { const t = String(text || '').trim().slice(0, 600); if (t && !have.has(t)) { notes.push({ at: at || new Date().toISOString(), text: t }); have.add(t); } };
+        const noteCol = col('long_text_mm7gh65j'); if (noteCol) add('מאנדיי: ' + noteCol, '2026-10-13T00:00:00.000Z');
+        for (const u of (it.updates || []).slice().reverse()) add(strip(u.body) + (u.creator && u.creator.name ? ' · ' + u.creator.name : ''), u.created_at);
+        notes.sort((x, y) => String(x.at).localeCompare(String(y.at)));
+        const status = col('status'), owner = col('color_mm7g6y7g');
+        const next = { ...cur, notes: notes.slice(-100) };
+        if (status && LEAD_STATUSES.includes(status) && (force || !cur.status)) next.status = status;
+        if (owner && LEAD_OWNERS.includes(owner) && (force || !cur.owner)) next.owner = owner;
+        if (!next.updatedAt) next.updatedAt = new Date().toISOString();
+        next.mondayId = String(it.id);
+        const changed = JSON.stringify(next) !== JSON.stringify(cur);
+        out.push({ name: it.name, phone, status: next.status || '', owner: next.owner || '', notes: notes.length, changed });
+        if (!dry && changed) await env.RATE.put('leadx:' + phone, JSON.stringify(next));
+      }
+      if (!dry) await logEvent(env, { area: 'לידים', action: 'ייבוא ממאנדיי', ok: true, detail: `${out.filter(x => x.changed).length} לידים עודכנו מתוך ${items.length}` }).catch(() => {});
+      return okJson({ ok: true, dry, items: items.length, changed: out.filter(x => x.changed).length, leads: out }, origin);
     }
     if (url.pathname === '/api/lead-update' && request.method === 'POST') {
       let b = {};
