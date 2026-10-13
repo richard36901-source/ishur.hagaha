@@ -2191,7 +2191,7 @@ async function processRetellEvent(env, body) {
   if (action.kind === 'end-untracked') return okJsonPlain({ ok: true });
 
   if (action.kind === 'end') {
-    await writeCallResult(env, action.guest_id, action.result);
+    await writeCallResult(env, action.guest_id, action.result, action.party_size);
   } else if (action.kind === 'end-no-outcome') {
     if (!toolRanHere) await writeCallResult(env, action.guest_id, action.result);
   }
@@ -2203,7 +2203,7 @@ async function processRetellEvent(env, body) {
    (no shirdone:end marker) runs through processRetellEvent exactly as its
    webhook would have. Idempotent: the marker is set inside. Only calls that
    Retell has already analysed count, so the outcome is final. */
-async function reconcileShirCalls(env, { limit = 40 } = {}) {
+async function reconcileShirCalls(env, { limit = 40, force = false } = {}) {
   if (!env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
   const calls = (await retellListCalls(env, { sort_order: 'descending', limit })) || [];
   let applied = 0, skipped = 0;
@@ -2212,7 +2212,8 @@ async function reconcileShirCalls(env, { limit = 40 } = {}) {
     if (!c || c.call_status !== 'ended' || !c.call_analysis || !meta.guest_id) { skipped++; continue; }
     /* inbound / callback / lead calls keep their own webhook-only handling */
     if (meta.kind && meta.kind !== 'guest') { skipped++; continue; }
-    if (await env.RATE.get('shirdone:end:' + c.call_id)) { skipped++; continue; }
+    if (force) await env.RATE.delete('shirdone:end:' + c.call_id).catch(() => {});
+    else if (await env.RATE.get('shirdone:end:' + c.call_id)) { skipped++; continue; }
     /* older than 3 days: the markers would have expired anyway, leave it */
     if (c.end_timestamp && Date.now() - Number(c.end_timestamp) > 3 * 86400e3) { skipped++; continue; }
     try {
@@ -2315,7 +2316,7 @@ async function handleShirDispatch(request, env, origin) {
     return okJson(await runShirLeadDial(env, { max: Math.min(Number(body.max) || 3, 10) }), origin);
   }
   if (body.reconcile) {
-    return okJson(await reconcileShirCalls(env, { limit: Math.min(Number(body.limit) || 40, 100) }), origin);
+    return okJson(await reconcileShirCalls(env, { limit: Math.min(Number(body.limit) || 40, 100), force: !!body.force }), origin);
   }
   const res = await runShirDispatch(env, { max: body.max, force: !!body.force });
   if (res.why === 'not-configured') return deny(503, 'shir-not-configured', origin);

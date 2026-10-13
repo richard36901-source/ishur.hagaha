@@ -551,6 +551,23 @@ export function retellToCallResult(body) {
       return { kind: 'skip', why: 'inbound-no-outcome', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
     }
     const tries = base + 1;
+    /* The mid-call tool is the primary record; Retell's post-call analysis
+       (custom_analysis_data.outcome, same enum) is the backup when the tool
+       never reached us (13/10: a week of refused webhooks). 'לא ברור' stays
+       a no-outcome; 'לא ענה' from the analysis means they picked up and said
+       nothing usable, which is the same thing. */
+    const cad = (call.call_analysis && call.call_analysis.custom_analysis_data) || {};
+    const ao = String(cad.outcome || '').trim();
+    if (ao && ao !== 'לא ברור' && ao !== 'לא ענה') {
+      const cap = Number(meta.max_tries) || 3;
+      const r = callOutcome(ao, base, cap);
+      if (r) {
+        r.tries = tries;
+        if (r.call_status === 'נדרשת שיחה' && r.tries >= cap) r.call_status = '';
+        const ps = Number(cad.party_size);
+        return { kind: 'end', call_id: callId, guest_id: String(meta.guest_id), result: r, party_size: ps > 0 ? ps : undefined, cost_cents: costOf(call), from_analysis: true };
+      }
+    }
     return {
       kind: 'end-no-outcome', call_id: callId, guest_id: String(meta.guest_id),
       result: {
