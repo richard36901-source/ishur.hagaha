@@ -17,6 +17,11 @@
    saved before this list existed */
 export const LEAD_STATUSES = ['חדש', 'נשלח פרטים', 'לא ענה', 'שיחה חוזרת', 'סגר', 'סגר במקום אחר', 'לא רלוונטי'];
 export const LEAD_OWNERS = ['ריצארד', 'נועה', 'שלו'];
+/* board groups, like monday's: the working list first, the paid ones and the
+   archive at the bottom, collapsed. A lead that paid moves to 'סגרו' on its
+   own; any other name typed on the page becomes a group too. */
+export const LEAD_GROUPS = ['פעילים', 'חם', 'להמשך', 'סגרו', 'ארכיון'];
+export const GROUP_WON = 'סגרו', GROUP_ARCHIVE = 'ארכיון', GROUP_DEFAULT = 'פעילים';
 export const STAGES = { lead_partial: 'התחיל טופס', lead: 'שלח טופס', checkout: 'הגיע לתשלום', initiate_checkout: 'הגיע לתשלום', purchase: 'שילם' };
 
 /* same rule as index.js normPhone, plus the bare "5XXXXXXXX" the sheet holds
@@ -45,8 +50,10 @@ function isoDay(s) {
 export function sourceKind(src) {
   const s = String(src || '').trim();
   if (!s || /^ישיר/.test(s)) return 'ישיר';
-  if (/^referral:/.test(s) || /הפניה/.test(s)) return 'הפניה';
-  if (/\b(fb|facebook|ig|instagram|meta)\b|פייסבוק|אינסטגרם/i.test(s)) return 'מטא';
+  /* referral:<short hex> is a client's share link; referral:<campaign code>
+     (leads_sep26 and friends) is the ads campaign's UTM, i.e. Meta */
+  if (/^referral:[0-9a-f]{6,8}$/i.test(s) || /^referral:rsvp/i.test(s) || /הפניה/.test(s)) return 'הפניה';
+  if (/^referral:/i.test(s) || /\b(fb|facebook|ig|instagram|meta)\b|פייסבוק|אינסטגרם/i.test(s)) return 'מטא';
   if (/google|gclid|גוגל/i.test(s)) return 'גוגל';
   if (/tiktok|טיקטוק/i.test(s)) return 'טיקטוק';
   return 'אחר';
@@ -105,6 +112,7 @@ export function parseLeadState(raw) {
   return {
     status: LEAD_STATUSES.includes(s.status) ? s.status : s.status === 'בטיפול' ? 'שיחה חוזרת' : '',
     owner: LEAD_OWNERS.includes(s.owner) ? s.owner : '',
+    group: String(s.group || '').trim().slice(0, 30),
     notes,
     followup: /^\d{4}-\d{2}-\d{2}$/.test(String(s.followup || '')) ? String(s.followup) : '',
     token: String(s.token || ''),
@@ -144,6 +152,7 @@ export function mergeLeads(rows, states, events) {
     l.status = st.status || (l.paidSheet ? 'סגר' : 'חדש');
     l.notes = st.notes;
     l.owner = st.owner;
+    l.group = st.group;
     l.followup = st.followup;
     l.updatedAt = st.updatedAt;
     l.token = st.token;
@@ -154,6 +163,9 @@ export function mergeLeads(rows, states, events) {
       if (!l.occasion) l.occasion = ev.occasion;
       if (!l.name) l.name = ev.client;
     }
+    /* paid → the closed group, unless somebody archived it by hand */
+    if (l.won && l.group !== GROUP_ARCHIVE) l.group = GROUP_WON;
+    if (!l.group) l.group = GROUP_DEFAULT;
     l.lastNote = l.notes.length ? l.notes[l.notes.length - 1] : null;
     out.push(l);
   }
@@ -202,6 +214,10 @@ export function applyLeadUpdate(prev, body, nowIso) {
     if (state.notes.length > 100) state.notes = state.notes.slice(-100);
   }
   if (b.token !== undefined) { state.token = String(b.token || '').trim(); changed = true; }
+  if (b.group !== undefined) {
+    const g = String(b.group || '').trim().slice(0, 30);
+    state.group = g; changed = true;
+  }
   if (b.owner !== undefined) {
     const o = String(b.owner || '').trim();
     if (o && !LEAD_OWNERS.includes(o)) return { error: 'bad-owner' };
@@ -210,4 +226,11 @@ export function applyLeadUpdate(prev, body, nowIso) {
   if (!changed) return { error: 'nothing-to-update' };
   state.updatedAt = nowIso;
   return { state };
+}
+
+/* every group in use plus the defaults, defaults first */
+export function groupsOf(leads) {
+  const used = new Set(LEAD_GROUPS);
+  for (const l of leads || []) if (l.group) used.add(l.group);
+  return [...used];
 }

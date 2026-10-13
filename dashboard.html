@@ -1029,12 +1029,16 @@
        guests it covers. Confirmations count those guests, so they can, and
        usually do, run higher than the number of records. */
     var recs = t.records != null ? t.records : t.invitations;
+    /* Richard 13/10: the big number is people (what the hall needs); the
+       small line under it is records, so "17 didn't answer" is never read as
+       17 rows when it is 11 rows covering 17 invited people */
+    var rc = function (n) { return n != null ? n + ' רשומות' : ''; };
     $('kpis').innerHTML =
-      kpi(recs, 'רשומות', '') +
-      kpi(t.confirmed_seats, 'אישרו', '', true) +
-      kpi(dv, 'לא מגיעים', '') +
-      kpi(uv, 'לא בטוחים', '') +
-      kpi(pv, 'לא ענו', '');
+      kpi(recs, 'רשומות', totalPeople && totalPeople !== recs ? totalPeople + ' אנשים' : '') +
+      kpi(t.confirmed_seats, 'אישרו', rc(t.confirmed), true) +
+      kpi(dv, 'לא מגיעים', rc(t.declined)) +
+      kpi(uv, 'לא בטוחים', rc(t.undecided)) +
+      kpi(pv, 'לא ענו', rc(t.pending != null && t.awaiting_call != null ? t.pending + t.awaiting_call : t.pending));
 
     if (totalPeople) {
       $('prog').hidden = false;
