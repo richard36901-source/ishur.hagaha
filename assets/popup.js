@@ -317,6 +317,18 @@ window.IshurPopup = (function () {
       t.className = 'pop-total' + (pr.applies ? ' cut' : '');
       var hTravel = withHost && S.hostessTravel ? S.hostessTravel : 0;
       var total = pr.final + (withHost ? hPrice : 0) + hTravel;
+      /* special bundle: one agreed number for package + hostesses, the table
+         total struck through beside it; travel outside the centre stays on top */
+      var bun = S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost) ? S.bundle : null;
+      if (bun) {
+        var wasTotal = pr.original + hPrice;
+        t.className = 'pop-total cut';
+        t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' + CFG.guestLabel(S.guests) + ' · ' + hTier.label +
+                      ' <em class="pt-save">' + (bun.note || 'מחיר מיוחד') + ' · חסכתם ₪' + (wasTotal - bun.total) + '</em>' +
+                      (hTravel ? '<br><small>+ נסיעות ₪' + hTravel + '</small>' : '') + '</span>' +
+                      '<span class="pt-v"><s>₪' + wasTotal + '</s> ₪' + (bun.total + hTravel) + '</span>';
+        return;
+      }
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +
                     CFG.guestLabel(S.guests) +
                     (withHost ? ' · ' + hTier.label : '') +
@@ -656,6 +668,9 @@ window.IshurPopup = (function () {
 
     /* hostesses pre-ticked (pricing add-on card, or a dedicated offer link):
        the box arrives checked, and on an offer it cannot be unchecked */
+    /* a special bundle link: remembered for the price line and for the server */
+    S.bundle = (pre && pre.offer && CFG.bundleFor) ? CFG.bundleFor(pre.offer) : null;
+    S.bundleKey = S.bundle ? pre.offer : '';
     if (pre && pre.hostess) {
       S.hostess = true;
       S.hostessLocked = !!pre.hostessLocked;
@@ -991,7 +1006,7 @@ window.IshurPopup = (function () {
       updateTotal();
       var seq = ++hostessSeq;
       setAvail(MSG.hcheck, 'wait'); paintPayBtn();
-      var body = { date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
+      var body = { offer: S.bundleKey || '', date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
       var call = function (withLink) { return fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ link: withLink }, body)) }).then(function (r) { return r.json(); }); };
       /* step 1: availability + price, fast. step 2: the link, quietly. */
       S.hostessPending = true;

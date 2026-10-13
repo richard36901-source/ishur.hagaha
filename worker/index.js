@@ -9279,6 +9279,12 @@ export default {
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
       const n = guests <= 200 ? 1 : guests <= 500 ? 2 : 3;
       const hostessPrice = n === 1 ? 1790 : n === 2 ? 2390 : 3090;
+      /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
+         rides in from the ?offer= link; it only applies to the plan and the
+         quantities it names, otherwise the table price stands. */
+      const BUNDLES = { vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' } };
+      const bundle = BUNDLES[String(b.offer || '')] || null;
+      const bundleOn = !!(bundle && bundle.plan === plan && bundle.guests.includes(guests) && bundle.hostesses === n);
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
       const travel = center ? 0 : (n >= 2 ? 500 : 250);
@@ -9320,10 +9326,13 @@ export default {
         const tr = await tokenRecord(env, String(b.token));
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
-      const total = PRICES[guests][plan] + hostessPrice + travel;
+      const listTotal = PRICES[guests][plan] + hostessPrice + travel;
+      const total = bundleOn ? bundle.total + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות/3 דיילות", travel
-         is inside the sum and travels in cField2 (read back at payment) */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}`;
+         is inside the sum and travels in cField2 (read back at payment).
+         parsePaidDesc reads tier / plan / hostesses from the same words, so a
+         bundle keeps them and only adds its tag at the end. */
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}`;
       let payUrl = '';
       /* two-step from the page: first call answers availability + price at once
          (no Grow round-trip), the second (link:true) mints the payment link */
@@ -9344,7 +9353,8 @@ export default {
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
-      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok' }, origin);
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok',
+        ...(bundleOn ? { bundle: { key: String(b.offer), list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before
        reminder once the template with the link is approved */

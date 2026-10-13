@@ -141,6 +141,21 @@ window.ISHUR_CONFIG = (function () {
     900: { basic: 899, pro: 1049, premium: 1179 }
   };
 
+  /* ══ SPECIAL BUNDLES ═══ a dedicated link (?offer=<key>) that opens the order
+     pre-filled and prices package + hostesses at one agreed number. The real
+     total from the tables is struck through next to it. The Worker holds the
+     same table and is the one that actually prices the Grow link. ═══════════ */
+  var BUNDLES = {
+    vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות', note: 'מחיר מיוחד' }
+  };
+  function bundleFor(key) { return (key && BUNDLES[key]) || null; }
+  /* does the bundle cover what is on screen? plan + quantity in its range */
+  function bundleApplies(b, guests, plan, hostess) {
+    if (!b || !hostess) return false;
+    var n = parseInt(guests, 10);
+    return plan === b.plan && b.guests.indexOf(n) > -1;
+  }
+
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
 
   var GROW_LINKS = {
@@ -834,7 +849,7 @@ window.ISHUR_CONFIG = (function () {
     promoCheckUrl: promoCheckUrl,
     promoGoUrl: promoGoUrl,
     promoReason: promoReason,
-    offerPrice: offerPrice,
+    offerPrice: offerPrice, BUNDLES: BUNDLES, bundleFor: bundleFor, bundleApplies: bundleApplies,
 
     MAKE_LEAD_WEBHOOK: MAKE_LEAD_WEBHOOK,
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,

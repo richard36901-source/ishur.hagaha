@@ -63,7 +63,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=68"></script>
+<script src="config.js?v=69"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -2448,7 +2448,15 @@ buildPricing();
      ?offer=hostess&guests=200&plan=basic opens the order fixed on that combo */
   try{
     const q=new URLSearchParams(location.search);
-    if(q.get('offer')==='hostess'){
+    /* Richard 13/10: ?offer=vip1990 — a bundle at one agreed price (package +
+       hostesses), everything pre-chosen and still editable; details may ride
+       along like the hostess link: &guests=400&date=2026-12-13&occasion=wedding&name=&phone=&city= */
+    if(q.get('offer')&&CFG.bundleFor&&CFG.bundleFor(q.get('offer'))){
+      const b=CFG.bundleFor(q.get('offer'));
+      const pre={offer:q.get('offer'),guests:q.get('guests')||String(b.guests[Math.floor(b.guests.length/2)]),plan:b.plan,hostess:true,hostessLocked:false,
+        name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
+      setTimeout(()=>IshurPopup.open('offer-bundle',pre),600);
+    } else if(q.get('offer')==='hostess'){
       /* Richard 05/10: ?offer=hostess&guests=600&name=&phone=&date=YYYY-MM-DD&city=
          opens the order with the lead's details typed in; with a plan the combo is
          locked, without one he picks the package and whether he wants hostesses */
@@ -2745,6 +2753,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=37"></script>
+<script src="assets/popup.js?v=38"></script>
 </body>
 </html>
