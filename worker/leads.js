@@ -165,7 +165,8 @@ export function mergeLeads(rows, states, events) {
     }
     /* paid → the closed group, unless somebody archived it by hand */
     if (l.won && l.group !== GROUP_ARCHIVE) l.group = GROUP_WON;
-    if (!l.group) l.group = GROUP_DEFAULT;
+    /* closed-type statuses leave the working list on their own too */
+    if (!l.group) l.group = l.status === 'סגר' || l.status === 'סגר במקום אחר' ? GROUP_WON : l.status === 'לא רלוונטי' ? GROUP_ARCHIVE : GROUP_DEFAULT;
     l.lastNote = l.notes.length ? l.notes[l.notes.length - 1] : null;
     out.push(l);
   }
