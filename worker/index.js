@@ -2063,7 +2063,15 @@ async function handleShirWebhook(request, env) {
   }
   let body;
   try { body = JSON.parse(rawBody); } catch { return new Response('bad-json', { status: 400 }); }
+  return processRetellEvent(env, body);
+}
 
+/* The webhook's body, as a function, so the same handling can run on a call
+   fetched from Retell's API. Richard 13/10: "it's all connected, if we see
+   the answer in the dashboard show it to the client as well" — the call
+   board already reads outcomes from Retell directly; reconcileShirCalls
+   feeds those same calls through here when the webhook did not arrive. */
+async function processRetellEvent(env, body) {
   const action = retellToCallResult(body);
   if (!action) return okJsonPlain({ ok: true });
   /* the calls log: mid-call outcome → update; end of call → update the dial
@@ -2190,6 +2198,36 @@ async function handleShirWebhook(request, env) {
   return okJsonPlain({ ok: true });
 }
 
+/* Pull-side safety net for the webhook: every pacer tick, the last ended
+   calls are fetched from Retell and any guest call that was never processed
+   (no shirdone:end marker) runs through processRetellEvent exactly as its
+   webhook would have. Idempotent: the marker is set inside. Only calls that
+   Retell has already analysed count, so the outcome is final. */
+async function reconcileShirCalls(env, { limit = 40 } = {}) {
+  if (!env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
+  const calls = (await retellListCalls(env, { sort_order: 'descending', limit })) || [];
+  let applied = 0, skipped = 0;
+  for (const c of calls) {
+    const meta = (c && c.metadata) || {};
+    if (!c || c.call_status !== 'ended' || !c.call_analysis || !meta.guest_id) { skipped++; continue; }
+    /* inbound / callback / lead calls keep their own webhook-only handling */
+    if (meta.kind && meta.kind !== 'guest') { skipped++; continue; }
+    if (await env.RATE.get('shirdone:end:' + c.call_id)) { skipped++; continue; }
+    /* older than 3 days: the markers would have expired anyway, leave it */
+    if (c.end_timestamp && Date.now() - Number(c.end_timestamp) > 3 * 86400e3) { skipped++; continue; }
+    try {
+      await processRetellEvent(env, { event: 'call_analyzed', call: c });
+      applied++;
+      await logEvent(env, { area: 'שיחות', action: 'תוצאת שיחה נקלטה מרטל (השלמה, בלי וובהוק)', ok: true,
+        phone: String(c.to_number || '').replace('+', ''), token: String(meta.token || '').slice(0, 8), ref: String(c.call_id || '').slice(-12),
+        detail: String(((c.call_analysis || {}).custom_analysis_data || {}).outcome || c.disconnection_reason || '') }).catch(() => {});
+    } catch (e) {
+      await logEvent(env, { area: 'שיחות', action: 'השלמת תוצאת שיחה נכשלה', ok: false, review: true, ref: String(c.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {});
+    }
+  }
+  return { ok: true, applied, skipped, seen: calls.length };
+}
+
 /* The dialling itself, with no HTTP around it, so the morning cron can run it.
    Until this existed, every guest queued for a call sat there forever: the
    only caller was an admin POST that nobody was making. */
@@ -2275,6 +2313,9 @@ async function handleShirDispatch(request, env, origin) {
      than asserted: with SHIR_LEADS unset it answers skipped and dials nobody. */
   if (body.leads) {
     return okJson(await runShirLeadDial(env, { max: Math.min(Number(body.max) || 3, 10) }), origin);
+  }
+  if (body.reconcile) {
+    return okJson(await reconcileShirCalls(env, { limit: Math.min(Number(body.limit) || 40, 100) }), origin);
   }
   const res = await runShirDispatch(env, { max: body.max, force: !!body.force });
   if (res.why === 'not-configured') return deny(503, 'shir-not-configured', origin);
@@ -5037,6 +5078,7 @@ async function runPacer(env) {
        wanted to talk to us badly enough to dial. The callback queue therefore
        empties BEFORE the guest queue — and out of the same per-tick budget,
        so a busy inbound hour cannot quietly blow the concurrency limit. */
+    await reconcileShirCalls(env).catch(() => {});
     const cb = await runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) }).catch(e => {
       return { dialed: 0, why: String((e && e.message) || e) };
     });
