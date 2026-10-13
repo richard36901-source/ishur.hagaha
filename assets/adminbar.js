@@ -40,11 +40,10 @@
     { href: 'ops.html', label: 'שליטה', icon: ic.ops },
     { href: 'ad-report.html', label: 'דוח קמפיין', icon: ic.ads },
   ];
+  /* Richard 13/10: the rail must fit one line; the rest lives under כלים */
   var EXTERNAL = [
     { href: SHEET_URL, label: 'האקסל', icon: ic.sheet },
     { href: MAKE_URL, label: 'Make', icon: ic.make },
-    { href: RULES_URL, label: 'החוקים', icon: ic.rules },
-    { href: 'https://ishur.io', label: 'האתר', icon: ic.site },
   ];
 
   /* Richard 12/10: every outside tool that keeps the product running, one
@@ -68,6 +67,9 @@
     { group: 'כסף' },
     { href: 'https://grow.business/', label: 'Grow · תשלומים' },
     { href: 'https://app.greeninvoice.co.il/', label: 'מורנינג · חשבוניות' },
+    { group: 'שלנו' },
+    { href: RULES_URL, label: 'החוקים · Linear' },
+    { href: 'https://ishur.io', label: 'האתר' },
     { group: 'תשתית' },
     { href: 'https://dash.cloudflare.com/', label: 'Cloudflare · הוורקר' },
     { href: 'https://github.com/', label: 'GitHub · האתר' },
