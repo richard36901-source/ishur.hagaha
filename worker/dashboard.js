@@ -271,11 +271,15 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
          ('ענה' / 'ענה - מתלבט' / 'לא ענה'); 'ענה בוואטסאפ' is a message answer */
       const byPhone = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
       const called = guests.filter(g => g.tries > 0 || byPhone(g) || (sent.dialed && sent.dialed.has(g.id))).length;
-      const status = start > todayIso ? 'scheduled' : queued ? 'running' : called ? 'sent' : 'scheduled';
+      /* once the event day has passed the round is over whatever is still flagged */
+      const over = /^\d{4}-\d{2}-\d{2}$/.test(c(6)) && c(6).slice(0, 10) < todayIso;
+      const status = start > todayIso ? 'scheduled' : over ? (called ? 'sent' : 'passed') : queued ? 'running' : called ? 'sent' : 'scheduled';
       sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
     }
   }
-  if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: 'scheduled', auto: true });
+  /* the event-day message: 'sent' once the engine stamped it (s5t markers),
+     'passed' when the day is behind us without one, otherwise scheduled */
+  if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: sent.eventDay ? 'sent' : (c(6).slice(0, 10) < todayIso ? 'passed' : 'scheduled'), auto: true });
 
   /* Each round owns only the answers it brought in (Richard 12/10): a call
      answer belongs to the calls, a WhatsApp answer to the last message round

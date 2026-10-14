@@ -10231,6 +10231,11 @@ export default {
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
+        /* did the event-day message go out to anybody */
+        try {
+          const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);
+          sentWaves.eventDay = !!((a.keys && a.keys.length) || (b2.keys && b2.keys.length));
+        } catch {}
         /* who Shir already dialed, so the board can tell "did not answer" from
            "still waiting for a call" */
         sentWaves.dialed = new Set();
