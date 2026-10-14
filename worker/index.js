@@ -247,7 +247,13 @@ async function flushSlackQueue(env, now) {
    Purchases specifically default to urgent (Richard wants to see money land
    immediately — Phase 9 decision ב is still his to override if he'd rather
    wait for the 09:00 window instead). */
+/* Richard 14/10: "יותר מדי התראות, מבולגן". Two tiers now: the default is
+   something a human should see (money, a lead, a failure, a question); quiet
+   is housekeeping that only matters when debugging. Quiet posts are dropped
+   unless SLACK_VERBOSE=1, and still land in the journal via logEvent where
+   the call site already does that. */
 async function slackPost(env, text, opts = {}) {
+  if (opts.quiet && String(env.SLACK_VERBOSE || '') !== '1') return;
   await slackSend(env, text, { urgent: opts.urgent !== false, now: opts.now });
 }
 
@@ -801,6 +807,77 @@ async function drainLeadPings(env) {
   }
   return { posted };
 }
+/* ══ Meta instant-form leads (Richard 14/10) ════════════════════════════════
+   Shalev's campaign sends people to a Facebook/Instagram instant form, which
+   never touched the website — so nothing reached the sheet, Monday or Slack.
+   Every pacer tick this asks Meta for new form leads on every ad whose ad set
+   has a lead-form destination, and runs each one through the exact path a
+   website lead takes: the leads sheet via the Make hook, noteLead (KV +
+   Monday), and a Slack post right away (the form is complete, nobody is
+   mid-checkout, so no 10-minute wait). mlead:<leadgen id> is the dedupe. */
+async function pullMetaFormLeads(env, { dry = false, since = null } = {}) {
+  if (!env.RATE || !env.META_ADS_TOKEN) return { ok: false, why: 'no-token' };
+  const out = { ok: true, found: 0, leads: [], errors: [] };
+  const ads = await metaAds(env, `/${META_AD_ACCOUNT}/ads?fields=id,name,campaign{name},adset{destination_type}&limit=200`);
+  if (!ads || !ads.ok) { out.ok = false; out.why = JSON.stringify((ads && ads.data) || ads).slice(0, 300); return out; }
+  const last = since || (await env.RATE.get('metaleads:since')) || new Date(Date.now() - 14 * 86400e3).toISOString();
+  const sinceTs = Math.floor(Date.parse(last) / 1000);
+  let newest = sinceTs;
+  const filt = encodeURIComponent(JSON.stringify([{ field: 'time_created', operator: 'GREATER_THAN', value: sinceTs - 120 }]));
+  for (const ad of (ads.data && ads.data.data) || []) {
+    if (!/LEAD_FORM/.test(String((ad.adset || {}).destination_type || ''))) continue;
+    const r = await metaAds(env, `/${ad.id}/leads?fields=id,created_time,field_data,form_id,is_organic&filtering=${filt}&limit=100`);
+    if (!r || !r.ok) { out.errors.push({ ad: ad.id, err: JSON.stringify((r && r.data) || r).slice(0, 200) }); continue; }
+    for (const l of (r.data && r.data.data) || []) {
+      out.found++;
+      const key = 'mlead:' + l.id;
+      if (await env.RATE.get(key)) continue;
+      const f = {};
+      for (const fd of l.field_data || []) f[String(fd.name || '').toLowerCase()] = String((fd.values || [])[0] || '').trim();
+      const pick = re => { for (const [k, v] of Object.entries(f)) if (re.test(k) && v) return v; return ''; };
+      const phone = normPhone(pick(/phone|טלפון|נייד/));
+      const name = pick(/full_name|^name$|שם/) || [f.first_name, f.last_name].filter(Boolean).join(' ');
+      const email = pick(/email|מייל/);
+      const occasion = pick(/occasion|event|אירוע|סוג/);
+      const extra = Object.entries(f).filter(([k]) => !/phone|name|email|טלפון|שם|מייל/.test(k)).map(([k, v]) => `${k}: ${v}`).join(' · ').slice(0, 300);
+      const lead = { id: l.id, at: l.created_time, phone, name, email, occasion, extra, ad: ad.name, campaign: (ad.campaign || {}).name || '', organic: !!l.is_organic };
+      out.leads.push(lead);
+      const ts = Math.floor(Date.parse(l.created_time) / 1000); if (ts > newest) newest = ts;
+      if (dry) continue;
+      await env.RATE.put(key, l.created_time, { expirationTtl: 180 * 86400 });
+      if (!phone) { await slackPost(env, `📋 *ליד מטופס מטא בלי טלפון* · ${name || '?'} · ${email || ''} · ${ad.name}`); continue; }
+      const fields = {
+        name, phone, email, occasion: cleanOccasion(occasion), notes: extra, event_type: 'lead',
+        source: 'meta_leadform', utm_source: 'meta', utm_medium: 'leadform', utm_campaign: lead.campaign, utm_content: ad.name,
+        page: 'instant-form', marketing_consent: true, first_source: 'referral:leadform',
+      };
+      let sheetOk = false;
+      if (env.HOOK_LEADS) {
+        const u = await fetch(env.HOOK_LEADS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).catch(() => null);
+        sheetOk = !!(u && u.ok);
+      }
+      await logEvent(env, { area: 'לידים', action: 'ליד מטופס מטא', ok: sheetOk, review: !sheetOk, phone, detail: `${name} · ${ad.name}${sheetOk ? '' : ' · הגיליון לא עודכן'}` }).catch(() => {});
+      try { await noteLead(env, fields); } catch {}
+      await env.RATE.delete('leadping:' + phone).catch(() => {});
+      await env.RATE.put('leadslack:' + phone, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
+      const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+      await slackPost(env, [
+        '🆕 *ליד חדש מטופס מטא*', '',
+        `*שם:* ${name || 'לא נמסר'}`,
+        `*טלפון:* ${local} · <https://wa.me/${phone}|וואטסאפ>`,
+        email ? `*מייל:* ${email}` : '',
+        occasion ? `*אירוע:* ${occasion}` : '',
+        extra ? `*פרטים:* ${extra}` : '', '',
+        `*מודעה:* ${ad.name} · ${lead.campaign}`,
+        sheetOk ? '' : '⚠️ לא נרשם בגיליון הלידים (מאנדיי כן)', '',
+        `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> ליד חם, להתקשר`,
+      ].filter(Boolean).join('\n'));
+    }
+  }
+  if (!dry && newest > sinceTs) await env.RATE.put('metaleads:since', new Date(newest * 1000).toISOString());
+  return out;
+}
+
 async function leadToSlack(env, phone, rec, why) {
   if (isTestPhone(env, phone)) return;
   const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
@@ -997,7 +1074,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
     const bits = [];
     if (sentNow) bits.push(`${sentNow} הודעות המשך ללידים שנטשו`);
     if (queuedNow) bits.push(`${queuedNow} נכנסו לתור שיחות המכירה`);
-    await slackPost(env, `📨 *${bits.join(' · ')}.*`);
+    await slackPost(env, `📨 *${bits.join(' · ')}.*`, { quiet: true });
   }
   return out;
 }
@@ -1029,7 +1106,7 @@ async function handleEventFlag(request, env, origin) {
     const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${idx + 2}`, values: [[body.on ? 'כן' : '']] }]);
     await logEvent(env, { area: 'אירוע', action: body.on ? 'האירוע סומן כמבוטל (בוטל? = כן)' : 'ביטול האירוע הוסר', ok: okw, review: !okw, token,
       detail: `${String(rows[idx][34] || rows[idx][2] || '').trim()} · ${String(body.reason || 'מלוח הבקרה')}` });
-    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`);
+    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`, { quiet: true });
     return okJson({ ok: okw, flag, on: body.on }, origin);
   }
   if (typeof body.on !== 'boolean') {
@@ -1037,7 +1114,7 @@ async function handleEventFlag(request, env, origin) {
   }
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
-  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`);
+  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`, { quiet: true });
   return okJson({ ok: true, flag, on: body.on }, origin);
 }
 
@@ -1599,7 +1676,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
       await env.RATE.delete('addon:' + token).catch(() => {});
       await logEvent(env, { area: 'העלאה', action: 'קובץ תוספת מוזג לרשימה', ok: true, token, phone: rec.phone || '',
         detail: `${guests.length} חדשים נוספו · ${duplicates.length} כפולים דולגו · היו ${existingRows} שורות · מכסה ${tierNum || '∞'}` });
-      await slackPost(env, `📎 *תוספת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} חדשים · ${duplicates.length} כפולים סוננו`);
+      await slackPost(env, `📎 *תוספת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} חדשים · ${duplicates.length} כפולים סוננו`, { quiet: true });
       st.written = true; return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
     }
     /* Richard, 10/09: "update me once she filled the form" */
@@ -1867,7 +1944,7 @@ async function waGuestFile(env, from, doc) {
   await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
   await env.RATE.delete('pend:' + token).catch(() => {});
   await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}`);
-  await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`);
+  await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`, { quiet: true });
 }
 
 /* ══ שיר — the AI caller ═════════════════════════════════════════════════════
@@ -2035,7 +2112,7 @@ async function handleAdminLogin(request, env, origin) {
   const sig = await sessionSig(env, nonce);
   await env.RATE.put('adminsess:' + nonce, JSON.stringify({ phone, at: new Date().toISOString() }),
     { expirationTtl: 365 * 86400 }).catch(() => {});
-  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`).catch(() => {});
+  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`, { quiet: true }).catch(() => {});
   return okJson({ ok: true, token: 'sess.' + nonce + '.' + sig }, origin);
 }
 
@@ -2247,7 +2324,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
     if (queue.length && !quiet) {
-      await slackPost(env, `🕐 ${queue.length} אורחים ממתינים לשיחה, אבל חלון החיוג סגור (${win.why}). ננסה בהזדמנות הבאה.`);
+      await slackPost(env, `🕐 ${queue.length} אורחים ממתינים לשיחה, אבל חלון החיוג סגור (${win.why}). ננסה בהזדמנות הבאה.`, { quiet: true });
     }
     return { ok: true, dialed: 0, closed: win.why, queued: queue.length };
   }
@@ -2285,7 +2362,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   if (queue.length && !dialed.length && !blocked && !quiet) {
     await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`);
   } else if (dialed.length && !quiet) {
-    await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`);
+    await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`, { quiet: true });
   }
   if (dialed.length) await logEvent(env, { area: 'שיחות', action: 'שיר חייגה (סבב)', ok: true,
     detail: `${dialed.length} חיוגים · בתור ${queue.length} · דולגו ${blocked}` });
@@ -2566,7 +2643,7 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
     }
   }
   if (dialed.length) {
-    await slackPost(env, `📲 שיר חזרה ל-${dialed.length} מי שהתקשרו אלינו ולא ענינו.`);
+    await slackPost(env, `📲 שיר חזרה ל-${dialed.length} מי שהתקשרו אלינו ולא ענינו.`, { quiet: true });
   }
   return { dialed: dialed.length, phones: dialed, queued: rows.length, waiting, skipped };
 }
@@ -3147,7 +3224,7 @@ async function handleWaWebhook(request, env, url) {
       if (guest && guest.token && env.RATE) {
         await env.RATE.put('wrong:' + guest.token + ':' + normPhone(from),
           new Date().toISOString(), { expirationTtl: 400 * 86400 });
-        await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`);
+        await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`, { quiet: true });
         await logEvent(env, { area: 'ווצאפ', action: 'אורח סימן "טעות" — הושתק לאירוע', ok: true, phone: from, token: guest.token });
       }
       await bumpRemoveRate(env, 'mistake');
@@ -4135,7 +4212,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   if (isNoContactDay(today) && !dry && !opts.force) {
     if (env.RATE && !(await env.RATE.get('holnote:' + today))) {
       await env.RATE.put('holnote:' + today, '1', { expirationTtl: 3 * 86400 });
-      await slackPost(env, `🕯️ *${today} מסומן כיום ללא יצירת קשר.* לא נשלחו הודעות ולא בוצעו שיחות. הכל ימשיך מחר.`);
+      await slackPost(env, `🕯️ *${today} מסומן כיום ללא יצירת קשר.* לא נשלחו הודעות ולא בוצעו שיחות. הכל ימשיך מחר.`, { quiet: true });
     }
     return { ok: true, date: today, skipped: 'no-contact-day' };
   }
@@ -4856,7 +4933,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             if (wa.ok && env.RATE) await env.RATE.put('upsell:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
               await addEvCost(env, token, msgCost('ishur_shidrug'));
-              await slackPost(env, `💡 *הצעת שדרוג נשלחה* · ${name} (בסיס): ${silent}/${total} לא ענו להודעות — הוצעו שיחות של שיר`);
+              await slackPost(env, `💡 *הצעת שדרוג נשלחה* · ${name} (בסיס): ${silent}/${total} לא ענו להודעות — הוצעו שיחות של שיר`, { quiet: true });
             }
             out.push({ token, type: 'upsell_basic', sent: wa.ok });
           }
@@ -4882,7 +4959,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             if (wa.ok && env.RATE) await env.RATE.put('upsell2:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
               await addEvCost(env, token, msgCost('ishur_shidrug_sichot'));
-              await slackPost(env, `💡 *הצעת הכל כלול נשלחה* · ${name} (פרמיום): ${silent}/${tried.length} לא נענו לסבב השיחות`);
+              await slackPost(env, `💡 *הצעת הכל כלול נשלחה* · ${name} (פרמיום): ${silent}/${tried.length} לא נענו לסבב השיחות`, { quiet: true });
             }
             out.push({ token, type: 'upsell_pro', sent: wa.ok });
           }
@@ -4972,11 +5049,11 @@ async function templateCheck(env, out) {
         if (key && t.status === 'APPROVED' && /_u$/.test(t.name) && (await env.RATE.get(key)) !== t.name) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} (UTILITY) אושרה — מחליפה את הגרסה השיווקית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`);
+          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`, { quiet: true });
         } else if (key && t.status === 'APPROVED' && !c.fallbackOnly && !(await env.RATE.get(key))) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`);
+          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`, { quiet: true });
         }
         /* Richard, 11/09: any problem with a template → urgent Slack, and the
            system steps back to the previous template on its own so no send
@@ -6246,7 +6323,7 @@ async function handleVoicePrompt(request, env, origin) {
   meta.list.push({ n, at: now, note, chars: newPrompt.length });
   if (meta.list.length > 200) meta.list = meta.list.slice(-200);
   await env.RATE.put(metaKey, JSON.stringify(meta));
-  await slackPost(env, `🎓 *${spec.name}* · גרסה ${n} הוחלה — ${note}`).catch(() => {});
+  await slackPost(env, `🎓 *${spec.name}* · גרסה ${n} הוחלה — ${note}`, { quiet: true }).catch(() => {});
   return okJson({ ok: true, agent: key, version: n, note }, origin);
 }
 
@@ -7217,7 +7294,7 @@ async function drainAdminCalls(env) {
     await retellBillingGuard(env, r);
     const ok = !!(r && r.ok);
     await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name, kind: 'שיחה מתוזמנת (אדמין)', status: ok ? 'חויג ' + ilTime() : 'נכשל', id: '' }).catch(() => {});
-    await slackPost(env, ok ? `📞 נועה מתקשרת עכשיו ל-${lead.name} (${phone.replace(/^972/, '0')}), שיחה שתוזמנה.` : `⚠️ שיחה מתוזמנת של נועה ל-${phone} לא יצאה.`).catch(() => {});
+    await slackPost(env, ok ? `📞 נועה מתקשרת עכשיו ל-${lead.name} (${phone.replace(/^972/, '0')}), שיחה שתוזמנה.` : `⚠️ שיחה מתוזמנת של נועה ל-${phone} לא יצאה.`, { quiet: true }).catch(() => {});
     if (ok) dialed++;
   }
   return { dialed };
@@ -8423,6 +8500,7 @@ export default {
     if (String(event.cron || '').startsWith('*/10')) {
       ctx.waitUntil(adsHealthWatch(env).catch(() => {}));
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
+      ctx.waitUntil(pullMetaFormLeads(env).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
       ctx.waitUntil(runPacer(env).catch(e =>
@@ -8952,6 +9030,13 @@ export default {
           detail: `${path} · ${JSON.stringify((r && r.data) || {}).slice(0, 200)}` });
       }
       return okJson(r || { ok: false, why: 'no-token' }, origin);
+    }
+    /* Meta instant-form leads on demand: {dry, since} — dry lists what Meta
+       has without writing anything */
+    if (url.pathname === '/api/meta-leads' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson(await pullMetaFormLeads(env, { dry: b.dry === true || b.dry === 1 || b.dry === 'true', since: b.since || null }), origin);
     }
     if (url.pathname === '/api/ad-review' && request.method === 'POST') {
       let b = {};
