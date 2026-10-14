@@ -4591,12 +4591,16 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const review = String(brain.reviewLink || '').trim();
     const clip = String(brain.testimonialLink || '').trim();
 
+    /* v3 carries only the feedback link; the Google review is gone from the
+       flow (Richard 14/10), so only the clip link is required there */
+    const useV3 = env.RATE && (await env.RATE.get('eoe:tmpl').catch(() => null)) === 'v3';
+    const linksMissing = useV3 ? !clip : !(review && clip);
     if (dry) {
       out.push({ token, type: 'end_of_event', daysAfter, confirmed, diners, declined, pending,
-        links_missing: !(review && clip), would_send_to: phone });
+        links_missing: linksMissing, would_send_to: phone });
       continue;
     }
-    if (!review || !clip) {
+    if (linksMissing) {
       if (!(env.RATE && await env.RATE.get('eoelink:' + token))) {
         await alert(env, 'סוף-אירוע',
           'חסרים קישורי ביקורת/המלצה (מוח שירות D1/D2) — הודעת הסיום ממתינה', token.slice(0, 8));
@@ -4605,7 +4609,6 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       continue;
     }
     const fbLink = 'https://ishur.io/feedback.html?t=' + token;
-    const useV3 = env.RATE && (await env.RATE.get('eoe:tmpl').catch(() => null)) === 'v3';
     const wa = useV3
       ? await sendClient(env, phone, 'ishur_syum_v3', [evName, fbLink])
       : await sendClient(env, phone, 'ishur_syum', [

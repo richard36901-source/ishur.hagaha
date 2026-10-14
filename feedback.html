@@ -73,9 +73,8 @@
   <section id="s-high" hidden>
     <div class="mark">💚</div>
     <h1>איזה כיף לשמוע!</h1>
-    <p class="lede">אם יש לכם דקה, ביקורת קצרה בגוגל עוזרת לנו יותר מכל דבר אחר.</p>
-    <a class="btn" id="review" href="#" target="_blank" rel="noopener">⭐ לכתוב ביקורת בגוגל</a>
-    <a class="btn sec" id="clip" href="#" target="_blank" rel="noopener">🎥 30 שניות של המלצה בווידאו</a>
+    <p class="lede">אם יש לכם דקה, 30 שניות של המלצה בווידאו או באודיו עוזרות לנו יותר מכל דבר אחר.</p>
+    <a class="btn" id="clip" href="#" target="_blank" rel="noopener">🎥 להקליט המלצה קצרה</a>
     <p class="fine">תודה מכל הלב, צוות ishur.io</p>
   </section>
 
@@ -128,13 +127,12 @@
       ph('feedback_scored', { nps: ans.nps, exp: ans.exp, route: j.route });
       try { if (window.posthog && posthog.identify) posthog.identify('event:' + token.slice(0, 8), { feedback_nps: ans.nps, feedback_exp: ans.exp, feedback_route: j.route, client_name: j.name || '' }); } catch (e) {}
       if (j.route === 'high') {
-        $('review').href = j.review || 'https://g.page/r/CTGM0phWkiVyEBM/review';
         if (j.clip) $('clip').href = j.clip; else $('clip').hidden = true;
         $('s-high').hidden = false;
       } else { $('s-low').hidden = false; $('note').focus(); }
     }).catch(function () { $('err').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; });
   });
-  ['review', 'clip'].forEach(function (id) {
+  ['clip'].forEach(function (id) {
     $(id).addEventListener('click', function () {
       ph('feedback_click', { target: id });
       try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify({ token: token, click: id })], { type: 'application/json' })); } catch (e) { post({ click: id }); }
