@@ -634,10 +634,8 @@
         האירוע מאחוריכם. נשמח אם תקדישו דקה, זה עוזר לזוגות הבאים למצוא אותנו:
       </p>
       <div style="display:flex;gap:.6rem;flex-wrap:wrap">
-        <a id="apReview" target="_blank" rel="noopener" hidden
-           style="flex:1;min-width:10rem;text-align:center;background:#0F4C35;color:#fff;border-radius:10px;padding:.65rem 1rem;text-decoration:none;font-weight:600;font-size:.9rem">⭐ ביקורת בגוגל</a>
         <a id="apClip" target="_blank" rel="noopener" hidden
-           style="flex:1;min-width:10rem;text-align:center;background:var(--card);color:#0F4C35;border:1.5px solid #0F4C35;border-radius:10px;padding:.65rem 1rem;text-decoration:none;font-weight:600;font-size:.9rem">🎥 המלצת וידאו קצרה</a>
+           style="flex:1;min-width:10rem;text-align:center;background:#0F4C35;color:#fff;border-radius:10px;padding:.65rem 1rem;text-decoration:none;font-weight:600;font-size:.9rem">🎥 המלצה קצרה בווידאו או באודיו</a>
       </div>
     </div>
   </section>
@@ -1575,11 +1573,11 @@
 
   function renderAfterParty() {
     var ap = data.after_party || null;
-    var has = ap && (ap.review || ap.clip);
+    /* Richard 14/10: no Google review here, a short video or audio clip only */
+    var has = !!(ap && ap.clip);
     $('afterCard').hidden = !has;
     if (!has) return;
-    if (ap.review) { $('apReview').href = ap.review; $('apReview').hidden = false; }
-    if (ap.clip) { $('apClip').href = ap.clip; $('apClip').hidden = false; }
+    $('apClip').href = ap.clip; $('apClip').hidden = false;
   }
 
   /* ── the group link + premade text, and the navigation link ── */
