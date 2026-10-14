@@ -10238,6 +10238,8 @@ export default {
         try {
           const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);
           sentWaves.eventDay = !!((a.keys && a.keys.length) || (b2.keys && b2.keys.length));
+          const c3 = await env.RATE.list({ prefix: `s3t:${token}:`, limit: 1 });
+          sentWaves.dayAfter = !!(c3.keys && c3.keys.length) || !!(await env.RATE.get('toda:' + token));
         } catch {}
         /* who Shir already dialed, so the board can tell "did not answer" from
            "still waiting for a call" */

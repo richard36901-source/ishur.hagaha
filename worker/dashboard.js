@@ -280,6 +280,12 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   /* the event-day message: 'sent' once the engine stamped it (s5t markers),
      'passed' when the day is behind us without one, otherwise scheduled */
   if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: sent.eventDay ? 'sent' : (c(6).slice(0, 10) < todayIso ? 'passed' : 'scheduled'), auto: true });
+  /* the day after: a thank-you to everyone who came (every package) */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(c(6).slice(0, 10))) {
+    const d = new Date(c(6).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);
+    const dayAfter = d.toISOString().slice(0, 10);
+    sends.push({ key: 'day_after', label: 'הודעת תודה לאורחים', date: dayAfter, status: sent.dayAfter ? 'sent' : (dayAfter < todayIso ? 'passed' : 'scheduled'), auto: true });
+  }
 
   /* Each round owns only the answers it brought in (Richard 12/10): a call
      answer belongs to the calls, a WhatsApp answer to the last message round
@@ -288,7 +294,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const dialed = sent.dialed || new Set();
   const viaCall = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
   const answered = g => g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
-  const waveDates = sends.filter(x => x.key !== 'calls' && x.key !== 'event_day').map(x => ({ key: x.key, d: String(x.date).slice(0, 10) }))
+  const waveDates = sends.filter(x => x.key !== 'calls' && x.key !== 'event_day' && x.key !== 'day_after').map(x => ({ key: x.key, d: String(x.date).slice(0, 10) }))
     .sort((x, y) => x.d < y.d ? -1 : 1);
   const tally = () => ({ answered: 0, confirmed: 0, declined: 0, undecided: 0 });
   const per = {};
@@ -312,7 +318,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     if (!t) continue;
     t.answered++; t[g.status]++;
   }
-  for (const x of sends) if (per[x.key] && x.key !== 'event_day') x.stats = per[x.key];
+  for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after') x.stats = per[x.key];
 
   return {
     ok: true,
