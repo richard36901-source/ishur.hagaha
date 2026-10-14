@@ -106,12 +106,13 @@ function normPhone(raw) {
    09:00 window. Telegram (ALERT_HOOK → Make) is only the fallback when the
    Slack secret is missing — Richard asked for Slack-only, 30.8. */
 const URGENT_ALERT_RE = /131042|מנוע היומי|לא רץ כבר|ניסיון לחלץ הוראות|פנייה מספק|שאלה על מתחרה|תקרת וואטסאפ/;
-async function alert(env, where, what, detail) {
+async function alert(env, where, what, detail, opts = {}) {
   const what300 = String(what || '').slice(0, 300);
   const detail500 = String(detail || '').slice(0, 500);
   /* the journal is the record; Slack is the notification */
   await logEvent(env, { area: where, action: what300, ok: false, review: true, detail: detail500 });
   /* Richard reads Slack alerts; a second ping on WhatsApp was noise (his call, 06/09) */
+  if (opts.quiet && String(env.SLACK_VERBOSE || '') !== '1') return;
   if (env.SLACK_ALERT_HOOK) {
     const urgent = URGENT_ALERT_RE.test(where + ' ' + what300 + ' ' + detail500);
     /* Richard 28/09: one line, organised; a newline only when the detail is long */
@@ -2188,7 +2189,6 @@ async function processRetellEvent(env, body) {
         } else {
           const msg = `📞 ${who} (${ph}) ביקש/ה נציג ונועה ניסתה להעביר (${tried.join(' → ')}) ואף אחד לא ענה. לחזור אליו/ה. סיכום: ${String(ca.call_summary || '').slice(0, 200)}`;
           await slackPost(env, msg).catch(() => {});
-          for (const a of String(env.ADMIN_PHONES || '').split(',').map(x => normPhone(x.trim())).filter(Boolean)) await sendText(env, a, msg, 'client').catch(() => {});
           await logEvent(env, { area: 'שיחות', action: 'בקשת נציג — ההעברה לא נענתה', ok: false, review: true, phone: ph, detail: tried.join(' → ') }).catch(() => {});
         }
       }
@@ -3026,7 +3026,7 @@ async function handleWaWebhook(request, env, url) {
           const WHY = { '131049': 'מגבלת הודעות שיווקיות של מטא לאיש הקשר', '130472': 'איש הקשר בניסוי של מטא', '131026': 'המספר לא בוואטסאפ / חסם', '131053': 'הקובץ לא נטען אצל מטא', '131042': 'בעיית תשלום בחשבון מטא', '131047': 'עברו 24 שעות, נדרשת תבנית', '132001': 'תבנית לא קיימת/לא מאושרת', '131056': 'יותר מדי הודעות לאותו מספר' };
           const who = st.recipient_id ? String(st.recipient_id).replace(/^972/, '0') : '?';
           let gname = ''; try { const mm = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null; if (mm && mm.phone) gname = (await env.RATE.get('waname:' + mm.phone).catch(() => '')) || ''; } catch {}
-          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '');
+          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '', { quiet: /^(131049|130472|131026|131047)$/.test(String(err.code || '')) });
         }
       }
     }
@@ -7267,7 +7267,6 @@ async function tryPortfolioOtp(env) {
   if (ok) {
     const msg = '📲 מטא שלחה עכשיו SMS עם קוד אימות למספר 055-950-4499. שלח לי את 6 הספרות ואני מסיים את המעבר של נועה לפורטפוליו.';
     await slackPost(env, msg).catch(() => {});
-    await sendText(env, '972545764327', msg, 'guests').catch(() => {});
   } else {
     await slackPost(env, `⏳ ניסיון יומי לקוד אימות ל-4499 נכשל: ${why}. ננסה מחר.`).catch(() => {});
   }
@@ -7378,7 +7377,10 @@ async function adsHealth(env) {
     }
     /* a paused ad is a choice; an ad the reviewer rejected or that Meta
        flags is the error Richard saw. never-launched leftovers count too. */
-    for (const i of (x.issues_info || [])) out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
+    /* 14/10: a paused ad (or an ad in a paused set) with a review flag is a
+       leftover, not an outage — it spends nothing, so it stays off Slack */
+    const running = !/PAUSED|ARCHIVED|DELETED/.test(String(x.effective_status || '')) && !/PAUSED|ARCHIVED|DELETED/.test(String(set.effective_status || ''));
+    if (running) for (const i of (x.issues_info || [])) out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
     if (!(x.issues_info || []).length && x.status === 'ACTIVE' && AD_BAD.test(String(x.effective_status || '')) && !/PAUSED/.test(String(x.effective_status)))
       out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: 'מודעה פעילה במצב ' + x.effective_status });
   }
@@ -7869,14 +7871,9 @@ async function runAdReview(env, opts = {}) {
     `הדוח הבא: ${nextDate} (אוטומטי מהענן, כל 4 ימים)`,
   ].join('\n\n');
 
-  /* the report goes out from Noa's number to every admin phone + Slack copy */
-  const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim())).filter(Boolean);
+  /* Richard 14/10: Slack only — the WhatsApp copy to the admin phones was a
+     duplicate of the same text */
   const sends = [];
-  for (const p of admins) {
-    let sent = false;
-    try { const r = await sendText(env, p, text); sent = !!r; } catch {}
-    sends.push({ to: p.slice(-4), sent });
-  }
   await slackPost(env, text).catch(() => {});
 
   await env.RATE.put('adrev:last', new Date(now).toISOString()).catch(() => {});
