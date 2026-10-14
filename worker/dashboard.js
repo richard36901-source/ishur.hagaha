@@ -328,6 +328,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       event_date: c(6), reception_time: c(36),
       venue_name: c(4), venue_city: c(37),
       plan: c(31), guests_tier: c(32),
+      cancelled: c(27) === 'כן',
       image_url: c(44),
       paid_sum: Number(String(c(8)).replace(/[^\d.]/g, '')) || 0,
     },

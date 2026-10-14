@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=69"></script>
+<script src="config.js?v=70"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/tracking.js?v=22"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -515,6 +515,7 @@
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
   /* the page never scrolls sideways on a phone */
   html,body{overflow-x:hidden;max-width:100%}
+  .buy.danger{background:#A8402F}
 </style>
 <link rel="stylesheet" href="assets/lux.css?v=19">
 <link rel="stylesheet" href="assets/picker.css?v=20">
@@ -1008,6 +1009,13 @@
     $('title').textContent = names || 'האירוע שלכם';
     $('title').classList.remove('skel');
     $('sub').textContent = [ev.venue_name, ev.venue_city].filter(Boolean).join(', ');
+
+    /* a cancelled event says so at the top, with the way back */
+    var cb = $('cancelBanner');
+    if (!cb) { cb = document.createElement('div'); cb.id = 'cancelBanner'; cb.className = 'card'; cb.style.cssText = 'padding:.8rem 1rem;border-color:#A8402F;background:#FBEAE6;color:#7A2E22;font-size:.9rem;display:flex;gap:.6rem;align-items:center;flex-wrap:wrap'; $('sendsCard').parentNode.insertBefore(cb, $('sendsCard')); }
+    cb.hidden = !ev.cancelled;
+    if (ev.cancelled) cb.innerHTML = '<span style="flex:1">האירוע מסומן כמבוטל. ' + ((data.changes || {}).cancel_notice_sent ? 'הודעת הביטול יצאה לאורחים.' : 'הודעת הביטול תצא לאורחים בדקות הקרובות.') + '</span><button type="button" class="buy" data-restore>החזרת האירוע</button>';
+    var rb = cb.querySelector('[data-restore]'); if (rb) rb.addEventListener('click', function () { eventChange('cancel'); });
 
     if (ev.event_date) {
       var n = daysUntil(ev.event_date);
@@ -1721,7 +1729,21 @@
       }
 
       var mark, action, cls = '';
-      if (state === 'included') {
+      var isChange = k === 'postpone' || k === 'cancel';
+      var chg = data.changes || {};
+      var allowed = state === 'included' || (k === 'postpone' ? chg.postpone_paid : chg.cancel_paid);
+      if (isChange && !over) {
+        /* Richard 14/10: the client cancels or postpones from here. Included on
+           הכל כלול, otherwise the add-on is paid first and the button unlocks. */
+        mark = allowed
+          ? '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>'
+          : '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#9ca3af" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="10.5" width="16" height="10" rx="2"/><path d="M8 10.5V7a4 4 0 0 1 8 0v3.5"/></svg>';
+        var lbl = k === 'postpone' ? 'דחיית האירוע' : (ev.cancelled ? 'החזרת האירוע' : 'ביטול האירוע');
+        action = allowed
+          ? '<button type="button" class="buy' + (k === 'cancel' && !ev.cancelled ? ' danger' : '') + '" data-change="' + k + '">' + lbl + '</button>'
+          : '<button type="button" class="buy" data-addon="' + k + '">' + (price ? 'הוספה · ₪' + price : 'לפרטים') + '</button>';
+        if (!allowed) cls = ' locked';
+      } else if (state === 'included') {
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         action = '<span class="inc">כלול</span>';
       } else if (k === 'hostess' && dte != null && dte < 14 && !over) {
@@ -1765,6 +1787,9 @@
         .then(function (r) { return r.json(); }).then(function (q) { if (q && q.ok) { addonQuote = q; paintAddonPrices(); } }).catch(function () {});
     } else paintAddonPrices();
 
+    $('addons').querySelectorAll('[data-change]').forEach(function (b) {
+      b.addEventListener('click', function () { eventChange(b.dataset.change); });
+    });
     $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
       b.addEventListener('click', function () {
         var k = b.dataset.addon;
@@ -1829,6 +1854,79 @@
     });
     document.body.appendChild(box);
   }
+  /* ── cancel / postpone / restore, by the client (Richard 14/10) ──
+     Every step asks first. The guests hear about it from the engine within
+     minutes; a cancelled event keeps a "restore" button, and restoring after
+     the notice went out sends everyone the date again. */
+  function changeBox(html) {
+    closeDpop(false);
+    var bg = document.createElement('div'); bg.className = 'dpop-bg'; bg.id = 'dpopBg';
+    var box = document.createElement('div'); box.className = 'dpop'; box.id = 'dpop';
+    box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true');
+    box.innerHTML = html;
+    document.body.appendChild(bg); document.body.appendChild(box);
+    document.addEventListener('keydown', dpopKey, true);
+    bg.addEventListener('click', function () { closeDpop(true); });
+    var x = box.querySelector('#dpopX'); if (x) x.addEventListener('click', function () { closeDpop(true); });
+    return box;
+  }
+  function postChange(body, box, okMsg) {
+    var btn = box.querySelector('#dpopOk'); if (btn) { btn.disabled = true; btn.textContent = 'רגע…'; }
+    body.token = token;
+    if (demo) { closeDpop(true); IshurUX.toast('במצב הדגמה לא משנים אירוע'); return; }
+    fetch(CFG.endpoint('event-change'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) {
+          var why = j && (j.why || j.error) || '';
+          var err = box.querySelector('#dpopErr');
+          if (err) err.textContent = why === 'needs-addon' ? 'זה לא כלול בחבילה. אפשר להוסיף מהתוספות למטה.' : why === 'shabbat' ? 'לא בשבת. בחרו יום אחר.' : why === 'bad-date' ? 'בחרו תאריך עתידי.' : 'לא הצלחנו לעדכן, נסו שוב בעוד רגע.';
+          if (btn) { btn.disabled = false; btn.textContent = 'אישור'; }
+          return;
+        }
+        closeDpop(true);
+        IshurUX.toast(okMsg + (j.renotify ? ' האורחים יקבלו הודעת עדכון.' : ''));
+        IshurLead.track('event_change', { action: body.action });
+        setTimeout(reloadData, 800);
+      })
+      .catch(function () { var err = box.querySelector('#dpopErr'); if (err) err.textContent = 'לא הצלחנו לעדכן, נסו שוב בעוד רגע.'; if (btn) { btn.disabled = false; btn.textContent = 'אישור'; } });
+  }
+  function eventChange(k) {
+    var ev = data.event || {};
+    if (k === 'cancel' && ev.cancelled) {
+      var b1 = changeBox('<h3 id="dpopT">להחזיר את האירוע?</h3>' +
+        '<p class="cur">האירוע יחזור להיות פעיל והשליחות ימשיכו לפי הלוח.' + ((data.changes || {}).cancel_notice_sent ? ' האורחים כבר קיבלו הודעת ביטול, אז הם יקבלו הודעת עדכון עם התאריך.' : '') + '</p>' +
+        '<p class="dpop-err" id="dpopErr" role="alert"></p>' +
+        '<div class="dpop-row"><button type="button" class="dpop-ok" id="dpopOk">כן, להחזיר</button><button type="button" class="dpop-x" id="dpopX">ביטול</button></div>');
+      b1.querySelector('#dpopOk').addEventListener('click', function () { postChange({ action: 'restore' }, b1, 'האירוע חזר להיות פעיל.'); });
+      return;
+    }
+    if (k === 'cancel') {
+      var b2 = changeBox('<h3 id="dpopT">לבטל את האירוע?</h3>' +
+        '<p class="cur">בטוחים? כל מי שהוזמן יקבל הודעת ביטול תוך דקות, וכל השליחות ייעצרו. אם בסוף האירוע כן מתקיים, אפשר להחזיר אותו מכאן.</p>' +
+        '<label style="display:flex;gap:.5rem;align-items:center;font-size:.86rem;margin:.6rem 0"><input type="checkbox" id="dpopSure"> אני מבין/ה שהאורחים יקבלו הודעת ביטול</label>' +
+        '<p class="dpop-err" id="dpopErr" role="alert"></p>' +
+        '<div class="dpop-row"><button type="button" class="dpop-ok" id="dpopOk" disabled style="background:#A8402F">כן, לבטל את האירוע</button><button type="button" class="dpop-x" id="dpopX">לא, להשאיר</button></div>');
+      b2.querySelector('#dpopSure').addEventListener('change', function (e) { b2.querySelector('#dpopOk').disabled = !e.target.checked; });
+      b2.querySelector('#dpopOk').addEventListener('click', function () { postChange({ action: 'cancel' }, b2, 'האירוע בוטל. הודעת הביטול תצא לאורחים תוך דקות.'); });
+      return;
+    }
+    /* postpone: a new date, tomorrow at the earliest, not Shabbat */
+    var min = shiftDay(ilToday(), 1);
+    var b3 = changeBox('<h3 id="dpopT">דחיית האירוע</h3>' +
+      '<p class="cur">התאריך היום: ' + esc(IshurDate.pretty(ev.event_date) || ev.event_date || '') + '. בחרו את התאריך החדש; כל מי שכבר הוזמן יקבל הודעת עדכון תוך דקות, ושליחות שנפלו אחרי התאריך החדש יוקדמו.</p>' +
+      '<input type="date" id="dpopIn" min="' + esc(min) + '" aria-labelledby="dpopT">' +
+      '<p class="dpop-err" id="dpopErr" role="alert"></p>' +
+      '<div class="dpop-row"><button type="button" class="dpop-ok" id="dpopOk">אישור הדחייה</button><button type="button" class="dpop-x" id="dpopX">ביטול</button></div>');
+    b3.querySelector('#dpopOk').addEventListener('click', function () {
+      var d = b3.querySelector('#dpopIn').value;
+      if (!d) { b3.querySelector('#dpopErr').textContent = 'בחרו תאריך.'; return; }
+      if (new Date(d + 'T12:00:00Z').getUTCDay() === 6) { b3.querySelector('#dpopErr').textContent = 'לא בשבת. בחרו יום אחר.'; return; }
+      postChange({ action: 'postpone', date: d }, b3, 'התאריך עודכן ל-' + (IshurDate.pretty(d) || d) + '.');
+    });
+    b3.querySelector('#dpopIn').focus();
+  }
+
   /* Richard 12/10: more guests and/or a higher plan, in one popup, paying
      only the difference. Upgrades only — never a smaller list or a lower plan. */
   function planKeyHe(p) {

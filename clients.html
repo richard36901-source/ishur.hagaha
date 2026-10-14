@@ -121,7 +121,7 @@
           (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') +
           (fl.calls ? '<span class="tag">סבב שיחות</span>' : '') +
           (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
-          (fl.hold ? '<span class="tag warn">שליחות מושהות</span>' : '') +
+          (fl.hold ? '<span class="tag warn">מבוטל · אין שליחות</span>' : '') +
         '</div>' +
         '<div class="acts">' +
           '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
@@ -133,8 +133,7 @@
           '<button class="btn g" data-act="extrasend">שליחה נוספת חינם</button>' +
           '<button class="btn g" data-act="calls">סבב שיחות חינם</button>' +
           '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
-          '<button class="btn" data-act="hold">' + (fl.hold ? 'חידוש שליחות' : 'השהיית שליחות') + '</button>' +
-          '<button class="btn' + (e.cancelled ? '' : ' d') + '" data-act="cancel">' + (e.cancelled ? 'החזרת האירוע' : 'ביטול האירוע') + '</button>' +
+          '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button>' +
           '<span class="meta" dir="ltr">' + esc(e.phone || '') + '</span>' +
         '</div></div>';
     }).join('');
@@ -155,12 +154,8 @@
     } else if (act === 'hold') {
       /* Richard 14/10: stop every send and call for this event without touching the sheet; reversible */
       var toHold = !fl.hold;
-      if (toHold && !(await askConfirm('שום הודעה או שיחה לא תצא לאירוע הזה עד שתחדש. הרשימה והתאריכים נשארים.', { title: 'להשהות את השליחות?', ok: 'כן, להשהות' }))) { b.disabled = false; return; }
-      p = api('event-flag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'השליחות הושהו' : 'השליחות חודשו'); render(); } else toast('לא הצליח'); });
-    } else if (act === 'cancel') {
-      var toCancel = !e.cancelled;
-      if (toCancel && !(await askConfirm('האירוע יסומן כמבוטל בגיליון: לא יצאו עוד הודעות ושיחות. בחבילת הכל כלול האורחים שאישרו יקבלו הודעת ביטול בריצה הבאה.', { title: 'לבטל את האירוע?', ok: 'כן, לבטל', danger: true }))) { b.disabled = false; return; }
-      p = api('event-flag', { token: t, flag: 'cancel', on: toCancel, reason: 'מעמוד הלקוחות' }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { e.cancelled = toCancel; toast(toCancel ? 'האירוע בוטל' : 'האירוע הוחזר'); render(); } else toast('לא הצליח'); });
+      if (toHold && !(await askConfirm('כל השליחות והשיחות לאירוע הזה נעצרות, כולל הודעות לאורחים. שום דבר לא יוצא עד שתחדש. הרשימה והתאריכים נשארים.', { title: 'לבטל את הלקוח?', ok: 'כן, לבטל', danger: true }))) { b.disabled = false; return; }
+      p = api('event-flag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {

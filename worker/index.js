@@ -4705,7 +4705,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (cancelled) {
       if (!invited || date < today) continue;
       if (env.RATE && await env.RATE.get('cancelmsg:' + token)) continue;
-      if (plan !== 'premium') {
+      const cancelPaid = env.RATE && await env.RATE.get('msgaddon:' + token + ':cancel');
+      if (plan !== 'premium' && !cancelPaid) {
         if (dry) { out.push({ token, type: 'cancel_note_would_alert' }); continue; }
         if (env.RATE && !(await env.RATE.get('cancelnote:' + token))) {
           await alert(env, 'אירוע בוטל',
@@ -4746,7 +4747,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
     const sentDate = env.RATE ? await env.RATE.get('sentdate:' + token) : null;
     if (invited && sentDate && sentDate !== date && date >= today) {
-      if (plan === 'premium') {
+      const postponePaid = env.RATE && await env.RATE.get('msgaddon:' + token + ':postpone');
+      if (plan === 'premium' || postponePaid) {
         if (dry) { out.push({ token, type: 'postpone_notice', would_send: guests.length, from: sentDate, to: date }); }
         else {
           /* Per-guest markers keyed to the NEW date, so a second postponement
@@ -9898,6 +9900,74 @@ export default {
        column and every update as dated notes. Never overwrites a note that
        is already here; status/owner from monday win only when ours is empty
        unless force is set. Dry by default. */
+    /* Richard 14/10: the client cancels, postpones or restores the event from
+       the dashboard. The engine already knows how to tell the guests (stage 5:
+       AB='כן' → ishur_bitul, a new date → ishur_dchiya); this route only
+       writes the sheet, and only when the plan includes the message or the
+       add-on was bought. Restore clears AB; if the cancel notice already went
+       out, sentdate: is dropped so the next run sends everyone the date again. */
+    if (url.pathname === '/api/event-change' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const token = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(token) || !(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:evchange:' + token, 10, 3600)) return deny(429, 'slow-down', origin);
+      const action = String(b.action || '');
+      if (!['cancel', 'restore', 'postpone'].includes(action)) return deny(400, 'bad-action', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      if (!raw) return deny(502, 'reader-failed', origin);
+      const evRows = (raw.events && raw.events.values) || [];
+      const idx = evRows.findIndex(r => String((r || [])[1] || '').trim() === token);
+      if (idx < 0) return deny(404, 'event-not-found', origin);
+      const ev = evRows[idx], row = idx + 2;
+      const plan = planKeyOf(ev), today = ilDate();
+      const evName = String(ev[34] || ev[2] || '').trim();
+      const paidFor = async kind => plan === 'premium' || !!(env.RATE && await env.RATE.get('msgaddon:' + token + ':' + kind));
+      if (action === 'cancel') {
+        if (!(await paidFor('cancel'))) return okJson({ ok: false, why: 'needs-addon' }, origin);
+        if (String(ev[27] || '').trim() === 'כן') return okJson({ ok: true, already: true }, origin);
+        const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['כן']] }]);
+        if (!okw) return deny(502, 'sheet-write-failed', origin);
+        await logEvent(env, { area: 'אירוע', action: 'הלקוח ביטל את האירוע מהדשבורד', ok: true, token, detail: evName }).catch(() => {});
+        await slackSend(env, `❌ *הלקוח ביטל את האירוע* · ${evName} · ${token.slice(0, 8)}\n\nהודעת הביטול לאורחים תצא בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+        return okJson({ ok: true, action }, origin);
+      }
+      if (action === 'restore') {
+        if (String(ev[27] || '').trim() !== 'כן') return okJson({ ok: true, already: true }, origin);
+        const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['']] }]);
+        if (!okw) return deny(502, 'sheet-write-failed', origin);
+        let renotify = false;
+        if (env.RATE && await env.RATE.get('cancelmsg:' + token)) {
+          /* the guests heard "cancelled": make the engine tell them the date again */
+          renotify = true;
+          await env.RATE.delete('cancelmsg:' + token).catch(() => {});
+          await env.RATE.delete('sentdate:' + token).catch(() => {});
+          try { let cur; do { const pg = await env.RATE.list({ prefix: `s5c:${token}:`, cursor: cur }); for (const k of pg.keys || []) await env.RATE.delete(k.name); cur = pg.list_complete ? null : pg.cursor; } while (cur); } catch {}
+        }
+        await logEvent(env, { area: 'אירוע', action: 'הלקוח החזיר את האירוע מהדשבורד', ok: true, token, detail: evName + (renotify ? ' · האורחים יקבלו הודעת עדכון' : '') }).catch(() => {});
+        await slackSend(env, `↩️ *האירוע חזר* · ${evName} · ${token.slice(0, 8)}${renotify ? '\n\nהאורחים כבר קיבלו הודעת ביטול, לכן תצא להם הודעת עדכון עם התאריך.' : ''}\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+        return okJson({ ok: true, action, renotify }, origin);
+      }
+      /* postpone */
+      if (!(await paidFor('postpone'))) return okJson({ ok: false, why: 'needs-addon' }, origin);
+      const date = String(b.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date <= today) return deny(422, 'bad-date', origin);
+      if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) return deny(422, 'shabbat', origin);
+      const oldDate = String(ev[6] || '').trim().slice(0, 10);
+      if (date === oldDate) return okJson({ ok: true, already: true }, origin);
+      const writes = [{ range: `אירועים!G${row}`, values: [[date]] }];
+      /* a send that now falls on or after the new date moves to the day before it */
+      const dayBefore = (() => { const d = new Date(date + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+      for (const [i, col] of [[39, 'AN'], [40, 'AO'], [41, 'AP']]) {
+        const v = String(ev[i] || '').trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= date && !(env.RATE && await env.RATE.get(`wave:${token}:${i - 38}`))) writes.push({ range: `אירועים!${col}${row}`, values: [[dayBefore > today ? dayBefore : '']] });
+      }
+      const okw = await sheetBatchWrite(env, writes);
+      if (!okw) return deny(502, 'sheet-write-failed', origin);
+      if (String(ev[27] || '').trim() === 'כן') await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['']] }]).catch(() => {});
+      await logEvent(env, { area: 'אירוע', action: 'הלקוח דחה את האירוע מהדשבורד', ok: true, token, detail: `${evName} · ${oldDate} → ${date}` }).catch(() => {});
+      await slackSend(env, `📅 *האירוע נדחה* · ${evName} · ${token.slice(0, 8)}\n\n${oldDate} → ${date}. האורחים שהוזמנו יקבלו הודעת עדכון בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+      return okJson({ ok: true, action, date, moved: writes.length - 1 }, origin);
+    }
     if (url.pathname === '/api/leads-import-monday' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -10272,6 +10342,12 @@ export default {
         /* when the next automatic attempt is: today while the send window is open, otherwise the next send day */
         const nxt = (() => { const d = new Date(); for (let i = 0; i < 8; i++) { const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d); if (!isNoContactDay(iso) && (i > 0 || sendWindowState().open)) return iso; d.setDate(d.getDate() + 1); } return ''; })();
         snapshot.next_attempt = nxt;
+      }
+      /* event changes from the dashboard (Richard 14/10): cancel / postpone /
+         restore. What is allowed, what already went out. */
+      if (env.RATE) {
+        const [cp, pp, cm, sd] = await Promise.all(['msgaddon:' + token + ':cancel', 'msgaddon:' + token + ':postpone', 'cancelmsg:' + token, 'sentdate:' + token].map(k => env.RATE.get(k).catch(() => null)));
+        snapshot.changes = { cancel_paid: !!cp, postpone_paid: !!pp, cancel_notice_sent: !!cm, invited_for: sd || '' };
       }
       /* Richard, 10/09: the client must always see whether an invitation
          image/video is attached, and may swap it until 48h before the
