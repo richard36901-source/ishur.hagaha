@@ -9,7 +9,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=60"></script>
 <script src="assets/ux.js?v=3"></script>
-<script src="assets/adminbar.js?v=11" defer></script>
+<script src="assets/adminbar.js?v=12" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
@@ -155,7 +155,7 @@
       /* Richard 14/10: stop every send and call for this event without touching the sheet; reversible */
       var toHold = !fl.hold;
       if (toHold && !(await askConfirm('כל השליחות והשיחות לאירוע הזה נעצרות, כולל הודעות לאורחים. שום דבר לא יוצא עד שתחדש. הרשימה והתאריכים נשארים.', { title: 'לבטל את הלקוח?', ok: 'כן, לבטל', danger: true }))) { b.disabled = false; return; }
-      p = api('event-flag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
+      p = api('eventflag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {
