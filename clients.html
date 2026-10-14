@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=60"></script>
+<script src="config.js?v=70"></script>
 <script src="assets/ux.js?v=3"></script>
 <script src="assets/adminbar.js?v=12" defer></script>
 <script src="assets/guard.js?v=19"></script>
@@ -41,6 +41,9 @@
   .toast.on{opacity:1}
   .btn.d{color:#A8402F;border-color:rgba(168,64,47,.45)}
   .btn.d:hover{border-color:#A8402F}
+  .fbx{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .5rem}
+  .fbi{font-size:.78rem;background:#FBF3DF;color:#5A4A1E;border-radius:8px;padding:.25rem .55rem}
+  .fbi small{color:#8A7A4E}
 </style>
 </head>
 <body>
@@ -65,6 +68,7 @@
 <div class="toast" id="toast"></div>
 <script>
 (function () {
+  var fb = {};
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var adminKey = '';
   var qk = new URLSearchParams(location.search).get('key');
@@ -91,6 +95,7 @@
       if (!d) return;
       $('gate').hidden = true; $('main').hidden = false;
       events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
+      api('feedback-list', {}).then(function (r) { return r.json(); }).then(function (f) { fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
       return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
     }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
   }
@@ -123,8 +128,15 @@
           (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
           (fl.hold ? '<span class="tag warn">מבוטל · אין שליחות</span>' : '') +
         '</div>' +
+        ((fb[t] || []).length ? '<div class="fbx">' + fb[t].map(function (x) {
+          return '<span class="fbi"><b>' + (x.who === 2 ? 'בן/בת זוג' : 'הלקוח') + '</b> ' +
+            (x.nps ? 'ימליץ ' + x.nps + '/10 · חוויה ' + x.exp + '/10' : 'פתח/ה את הטופס') +
+            (x.clicked_clip ? ' · לחץ על המלצה' : '') + (x.note ? ' · "' + esc(x.note.slice(0, 160)) + '"' : '') +
+            (x.at ? ' <small>' + esc(String(x.at).slice(0, 10).split('-').reverse().join('.')) + '</small>' : '') + '</span>';
+        }).join('') + '</div>' : '') +
         '<div class="acts">' +
           '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
+          '<button class="btn" data-act="fblinks">קישורי משוב</button>' +
           '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
           '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
           '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
@@ -151,6 +163,10 @@
     } else if (act === 'reset') {
       if (!(await askConfirm('הלקוח (או אתה) יעלה רשימה מחדש. אם ההזמנות כבר יצאו, זה ייחסם.', { title: 'למחוק את רשימת המוזמנים?', ok: 'כן, למחוק', danger: true }))) { b.disabled = false; return; }
       p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });
+    } else if (act === 'fblinks') {
+      var l1 = 'https://ishur.io/feedback.html?t=' + t, l2 = l1 + '&p=2';
+      try { await navigator.clipboard.writeText('משוב: ' + l1 + '\nבן/בת הזוג: ' + l2); toast('שני הקישורים הועתקו'); } catch (e2) { prompt('קישורי המשוב', l1 + '  |  ' + l2); }
+      b.disabled = false; return;
     } else if (act === 'hold') {
       /* Richard 14/10: stop every send and call for this event without touching the sheet; reversible */
       var toHold = !fl.hold;

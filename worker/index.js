@@ -9818,8 +9818,11 @@ export default {
       const name = String(ev[2] || '').trim(), phone = normPhone(ev[3] || '');
       const occasion = String(ev[5] || '').trim();
       const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || token.slice(0, 8));
-      const key = 'fb:' + token;
+      /* Richard 14/10: both hosts can answer; the second one's link carries p=2 */
+      const who = String(b.who || '') === '2' ? '2' : '';
+      const key = 'fb:' + token + (who ? ':2' : '');
       let rec = {}; try { rec = JSON.parse(await env.RATE.get(key)) || {}; } catch {}
+      if (who) rec.who = 2;
       /* clicks on the review / video links, and leaving without clicking —
          so the sheet says who recommended where and who dropped off */
       if (b.click === 'review' || b.click === 'clip' || b.left === true) {
@@ -9906,6 +9909,27 @@ export default {
        writes the sheet, and only when the plan includes the message or the
        add-on was bought. Restore clears AB; if the cancel notice already went
        out, sentdate: is dropped so the next run sends everyone the date again. */
+    /* admin: every end-of-event answer, joined with the event (Richard 14/10) */
+    if (url.pathname === '/api/feedback-list' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+      const evs = {}; for (const r of ((raw && raw.events && raw.events.values) || [])) { const t = String(r[1] || '').trim(); if (t) evs[t] = { name: String(r[34] || r[2] || '').trim(), client: String(r[2] || '').trim(), occasion: String(r[5] || '').trim(), date: String(r[6] || '').trim().slice(0, 10), plan: String(r[31] || '').trim() }; }
+      const out = [];
+      let cursor;
+      do {
+        const pg = await env.RATE.list({ prefix: 'fb:', cursor });
+        for (const k of pg.keys || []) {
+          let v = null; try { v = JSON.parse(await env.RATE.get(k.name)); } catch {}
+          if (!v) continue;
+          const [, token, who] = k.name.split(':');
+          out.push({ token, who: who === '2' ? 2 : 1, ...(evs[token] || {}), nps: v.nps || null, exp: v.exp || null, route: v.route || '', note: v.note || '', at: v.at || v.note_at || '', clicked_clip: v.clicked_clip || '', clicked_review: v.clicked_review || '', left: v.left || '' });
+        }
+        cursor = pg.list_complete ? null : pg.cursor;
+      } while (cursor);
+      out.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+      return okJson({ ok: true, feedback: out }, origin);
+    }
     if (url.pathname === '/api/event-change' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       const token = String(b.token || '').trim();
