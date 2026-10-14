@@ -113,7 +113,7 @@
         '<div class="top"><span class="name">' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + '</span></span>' +
         '<span class="meta">שולם ' + heDate(e.paid) + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + '</span></div>' +
         '<div class="tags">' +
-          '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>' +
+          (fl.hold ? '' : '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>') +
           '<span class="tag ' + (e.file_uploaded ? 'on' : 'warn') + '">' + (e.file_uploaded ? 'רשימה הועלתה' : 'אין רשימה') + '</span>' +
           (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : '<span class="tag">טרם נשלח</span>') +
           (fl.video ? '<span class="tag on">וידאו</span>' : '') +
@@ -155,7 +155,7 @@
       /* Richard 14/10: stop every send and call for this event without touching the sheet; reversible */
       var toHold = !fl.hold;
       if (toHold && !(await askConfirm('כל השליחות והשיחות לאירוע הזה נעצרות, כולל הודעות לאורחים. שום דבר לא יוצא עד שתחדש. הרשימה והתאריכים נשארים.', { title: 'לבטל את הלקוח?', ok: 'כן, לבטל', danger: true }))) { b.disabled = false; return; }
-      p = api('eventflag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
+      p = api('eventflag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on, active: !j.on }); api('client-active', { token: t, active: !j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {
