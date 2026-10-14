@@ -9598,8 +9598,8 @@ export default {
       const toks = (Array.isArray(b.tokens) ? b.tokens : []).map(String).filter(t => /^[0-9a-f-]{36}$/.test(t)).slice(0, 200);
       const out = {};
       for (const t of toks) {
-        const [inactive, addon, extra, calls, wave, vid] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t].map(k => env.RATE.get(k).catch(() => null)));
-        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, video: !!vid };
+        const [inactive, addon, extra, calls, wave, vid, hold] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t].map(k => env.RATE.get(k).catch(() => null)));
+        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, video: !!vid, hold: !!hold };
       }
       return okJson({ ok: true, flags: out }, origin);
     }
