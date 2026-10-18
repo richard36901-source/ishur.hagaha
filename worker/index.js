@@ -2965,6 +2965,25 @@ async function handleWaWebhook(request, env, url) {
               const fk = `wfail:${m.token}:${m.wave}:${m.phone}`;
               const code = String(err.code || '');
               await env.RATE.put(`wferr:${m.token}:${m.wave}:${m.phone}`, code, { expirationTtl: 30 * 86400 }).catch(() => {});
+              /* 18/10: 131048 / 130429 = the NUMBER hit Meta's cap (250 business-
+                 initiated conversations per 24h on an unverified business), not
+                 this guest. Counting it as an attempt killed guests who never got
+                 a message. Reopen them without a strike, raise one cap marker
+                 that holds every wave until Meta's health check clears, and
+                 tell Slack once — not 200 times. */
+              const capHit = code === '131048' || code === '130429';
+              if (capHit) {
+                await env.RATE.delete(m.gk);
+                await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {});
+                await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {});
+                await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+                if (!await env.RATE.get('wacap:guests')) {
+                  await env.RATE.put('wacap:guests', new Date().toISOString(), { expirationTtl: 24 * 3600 });
+                  await alert(env, 'תקרת וואטסאפ', 'המספר של שיר הגיע לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
+                }
+                retry = ' · תקרת שיחות של מטא — ימתין וישלח שוב כשתיפתח';
+                continue;
+              }
               /* 131026 = not on WhatsApp / blocked us: retrying cannot help, the phone call round is the way */
               const n = code === '131026' ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
               await env.RATE.put(fk, String(n), { expirationTtl: 7 * 86400 });
@@ -3026,7 +3045,7 @@ async function handleWaWebhook(request, env, url) {
           const WHY = { '131049': 'מגבלת הודעות שיווקיות של מטא לאיש הקשר', '130472': 'איש הקשר בניסוי של מטא', '131026': 'המספר לא בוואטסאפ / חסם', '131053': 'הקובץ לא נטען אצל מטא', '131042': 'בעיית תשלום בחשבון מטא', '131047': 'עברו 24 שעות, נדרשת תבנית', '132001': 'תבנית לא קיימת/לא מאושרת', '131056': 'יותר מדי הודעות לאותו מספר' };
           const who = st.recipient_id ? String(st.recipient_id).replace(/^972/, '0') : '?';
           let gname = ''; try { const mm = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null; if (mm && mm.phone) gname = (await env.RATE.get('waname:' + mm.phone).catch(() => '')) || ''; } catch {}
-          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '', { quiet: /^(131049|130472|131026|131047)$/.test(String(err.code || '')) });
+          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '', { quiet: /^(131049|130472|131026|131047|131048|130429)$/.test(String(err.code || '')) });
         }
       }
     }
@@ -4033,6 +4052,17 @@ function heDate(iso) {
 
 /* one sending wave to the guests of one event. Guests are skipped when they
    opted out, and (for reminders) when they already answered. */
+/* true when Meta's health check no longer reports the business-initiated
+   conversation cap on the guests number (fail-closed: unreadable = still capped) */
+async function guestsCapCleared(env) {
+  if (!env.WA_PHONE_ID_GUESTS || !env.WA_TOKEN_GUESTS) return false;
+  const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+  const j = r ? await r.json().catch(() => null) : null;
+  const ents = (j && j.health_status && j.health_status.entities) || [];
+  if (!ents.length) return false;
+  return !ents.some(e => (e.errors || []).some(x => /business-initiated conversations/i.test(String(x.error_description || ''))));
+}
+
 async function sendWave(env, ev, token, guests, wave, dry, budget) {
   const today = ilDate();
   const occasion = String(ev[5] || '').trim() || 'אירוע';
@@ -4067,6 +4097,15 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
   if (!dry && !guestsReady(env)) {
     await sendTemplate(env, '000', 'noop', [], '', 'he', 'guests');   // trips the once-a-day journal row
     return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: false, held: true };
+  }
+  /* 18/10: once the number hit Meta's 24h conversation cap, every send until
+     the window rolls is a guaranteed failure — hold the wave and re-ask Meta's
+     health endpoint each tick; the marker drops the moment it says AVAILABLE. */
+  if (!dry && env.RATE && await env.RATE.get('wacap:guests')) {
+    const free = await guestsCapCleared(env);
+    if (!free) return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: true, held: true, capped: true };
+    await env.RATE.delete('wacap:guests').catch(() => {});
+    await slackPost(env, '▶️ *תקרת הוואטסאפ של שיר נפתחה* — הגלים ממשיכים מאיפה שנעצרו.').catch(() => {});
   }
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0; let deferred = 0;
   let truncated = false;
