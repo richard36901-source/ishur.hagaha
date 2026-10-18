@@ -8500,7 +8500,11 @@ export default {
         if (!env.RATE) return;
         const last = await env.RATE.get('engine:lastrun').catch(() => null);
         const age = last ? (Date.now() - Date.parse(JSON.parse(last).at || 0)) / 36e5 : 999;
-        if (age > 30) {
+        /* 18/10: Friday closes at 13:00 and Shabbat sends nothing, so a Sunday
+           07:00 check always saw "45 hours" — a weekend gap is not an outage */
+        const dow = new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Jerusalem', weekday: 'short' });
+        const limit = dow === 'Sun' ? 72 : dow === 'Sat' ? 48 : 30;
+        if (age > limit) {
           await alert(env, 'המנוע היומי',
             last ? `לא רץ כבר ${Math.round(age)} שעות` : 'אין תיעוד שרץ אי פעם', '');
         }
