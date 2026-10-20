@@ -35,6 +35,9 @@ cd ~/ishur.io && git worktree add /tmp/m main && cp <files> /tmp/m/ && cd /tmp/m
 | קובץ | שורות | תחום |
 |---|---|---|
 | `index.js` | ~10.7k | הראוטר (`fetch`), הקרונים (`scheduled`), וכל הזרימות. חלוקה לפי כותרות `/* ══ … ══ */` (ראו סעיף 4) |
+| `lib.js` | 120 | עזרים משותפים: `normPhone`, `isAdmin`, `okJson/deny/cors`, `kvPrefix`, `seenOnce`, `sha256Hex`, `isTestPhone`, `sendingPaused` |
+| `slack.js` | 130 | סלאק: `slackPost` (עם שכבת quiet), `slackSend`, שעות שקט ותור לילה, `alert` |
+| `ads.js` | 230 | מטא: בריאות חשבון המודעות, CAPI, `metaAds`, דוחות; הקמפיין של שלו קריאה בלבד |
 | `whatsapp.js` | 600 | שליחה/קבלה בוואטסאפ, בחירת מספר (`clientOnPortfolio`, `pickPhone`), פענוח תשובות אורח |
 | `shir.js` | 670 | שיר: חלונות שליחה/חיוג, payload לרטל, פתיחים, אימות חתימת webhook |
 | `dashboard.js` | 340 | בניית snapshot ללוח הלקוח + סטטיסטיקות עסק (`buildBizStats`) — פונקציות טהורות, ניתנות לבדיקה ב-node |
@@ -74,6 +77,7 @@ cd ~/ishur.io && git worktree add /tmp/m main && cp <files> /tmp/m/ && cd /tmp/m
 |---|---|
 | השהיית כל השליחות / חידוש | `POST /api/pause {paused:true|false}` |
 | ביקורת שליחות | `POST /api/wave-audit` — לכל אירוע חי: נשלחו/ענו/מתים/חסרים |
+| תקרת 24 שעות (שיר) | `POST /api/cap-status` — used/limit, מתי נפתח (`bic:*` ב-KV) |
 | תשלום שלא נכתב לגיליון | `POST /api/ipn-replay {payload:{...grow fields, _force:true, _token:"<token>"}}` (שומר את הטוקן שהלקוח קיבל) |
 | חשבונית שלא הופקה | `POST /api/evlog {action:"invoice-make", token, phone, name, sum, ref, plan, tier, send:false}` |
 | בדיקת מורנינג | `POST /api/evlog {action:"morning-check"}` |

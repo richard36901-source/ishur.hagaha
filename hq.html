@@ -144,14 +144,18 @@
     var todo = [];
     function pushTodo(kind, t, s, href, label) { todo.push({ kind: kind, t: t, s: s, href: href, label: label }); }
 
-    /* 1 · sending: paused? cap? held events with a wave due */
-    Promise.all([api('pause', {}), api('wave-audit', {})]).then(function (r) {
-      var paused = r[0] && r[0].paused, au = r[1] || {}, evs = au.events || [];
+    /* 1 · sending: paused? cap? held events with a wave due · plus the
+       24h conversation gauge (Richard 20/10: "כמה שלחנו היום מתוך ההגבלה") */
+    Promise.all([api('pause', {}), api('wave-audit', {}), api('cap-status', {}).catch(function () { return null; })]).then(function (r) {
+      var paused = r[0] && r[0].paused, au = r[1] || {}, evs = au.events || [], cap = r[2] || null;
       var missing = evs.filter(function (e) { return e.missing_n > 0 && !e.held; });
       var held = evs.filter(function (e) { return e.held; });
-      if (paused) setSt('s-send', 'bad', 'מושהה', 'כל השליחות עצורות ידנית');
-      else if (missing.length) setSt('s-send', 'warn', missing.length + ' אירועים חסרים', 'יש מוזמנים שלא קיבלו הזמנה');
-      else setSt('s-send', 'ok', 'כל ההזמנות יצאו', evs.length + ' אירועים חיים · 0 חסרים');
+      var hhmm = function (iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); };
+      var gauge = cap && cap.limit ? cap.used + ' / ' + cap.limit + ' שיחות ב-24 שעות' + (cap.capped ? ' · ממתין, נפתח ' + hhmm(cap.frees_at || cap.oldest_expires_at) : cap.oldest_expires_at ? ' · הראשונה משתחררת ' + hhmm(cap.oldest_expires_at) : '') : '';
+      if (paused) setSt('s-send', 'bad', 'מושהה', 'כל השליחות עצורות ידנית' + (gauge ? ' · ' + gauge : ''));
+      else if (cap && cap.capped) setSt('s-send', 'warn', 'תקרה · ' + cap.used + '/' + cap.limit, 'הגל ממתין, נפתח ' + hhmm(cap.frees_at || cap.oldest_expires_at));
+      else if (missing.length) setSt('s-send', 'warn', missing.length + ' אירועים חסרים', 'יש מוזמנים שלא קיבלו הזמנה' + (gauge ? ' · ' + gauge : ''));
+      else setSt('s-send', 'ok', cap && cap.limit ? cap.used + ' / ' + cap.limit : 'כל ההזמנות יצאו', (cap && cap.limit ? 'שיחות ב-24 שעות' + (cap.oldest_expires_at ? ' · הראשונה משתחררת ' + hhmm(cap.oldest_expires_at) : '') + ' · ' : '') + evs.length + ' אירועים חיים · 0 חסרים');
       missing.forEach(function (e) { pushTodo('bad', e.name + ' — ' + e.missing_n + ' מוזמנים בלי הזמנה', 'גל 1 היה אמור לצאת ב-' + e.wave1, 'calendar.html', 'ללוח'); });
       held.forEach(function (e) { if (e.missing_n) pushTodo('amber', e.name + ' בהשהיה — ' + e.missing_n + ' מוזמנים מחכים', 'שחרור מדף הלקוחות (חידוש הלקוח)', 'clients.html', 'ללקוחות'); });
       renderEvents(evs);

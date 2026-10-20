@@ -412,10 +412,20 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
       parameters: params.map(p => ({ type: 'text', text: String(p ?? '') })),
     });
   }
-  return post(env, {
+  const res = await post(env, {
     to: normPhone(to), type: 'template',
     template: { name, language: { code: lang }, ...(components.length ? { components } : {}) },
   }, channel, ctx);
+  /* 20/10: the cap gauge. Meta allows TIER_250 business-initiated
+     conversations per rolling 24h on the guests number; a template to a
+     guest who had none in the last 24h opens one. bic:<ts>:<phone> lives
+     exactly 24h, so a count of the prefix IS the number Meta is counting,
+     and the oldest key says when the next slot frees. One key per phone per
+     24h (the gday guard already keeps it to one send per guest per day). */
+  if (res && res.ok && channel === 'guests' && env.RATE && !ctx?.probe) {
+    try { await env.RATE.put('bic:' + Date.now() + ':' + normPhone(to), '1', { expirationTtl: 86400 }); } catch {}
+  }
+  return res;
 }
 
 /* ── inbound ── a guest replied: a template button, or free text ──────────

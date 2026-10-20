@@ -8981,6 +8981,27 @@ export default {
        wave 1 date has passed: how many guests got the invitation (sheet
        column I or wsent:), how many are dead (3 strikes / not on WhatsApp),
        opted out, and who is still missing with no reason. {admin_key} */
+    /* 20/10: how much of Meta's rolling-24h conversation cap the guests
+       number has used, and when the oldest conversation ages out. */
+    if (url.pathname === '/api/cap-status' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const keys = await kvKeys(env, 'bic:', 20000);
+      const now = Date.now();
+      const stamps = keys.map(k => Number(k.split(':')[1])).filter(t => Number.isFinite(t) && now - t < 86400e3).sort((a, b2) => a - b2);
+      let tier = 250, tierName = 'TIER_250';
+      try {
+        const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=messaging_limit_tier`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+        const j = await r.json(); tierName = j.messaging_limit_tier || tierName;
+        tier = ({ TIER_50: 50, TIER_250: 250, TIER_1K: 1000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: 0 })[tierName] ?? 250;
+      } catch {}
+      const used = stamps.length, left = tier ? Math.max(0, tier - used) : null;
+      const capped = !!(env.RATE && await env.RATE.get('wacap:guests'));
+      /* when the (used - tier + 1)-th oldest conversation ages out, a slot frees */
+      const freesAt = tier && used >= tier ? new Date(stamps[used - tier] + 86400e3).toISOString() : null;
+      const windowOpensAt = stamps.length ? new Date(stamps[0] + 86400e3).toISOString() : null;
+      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z' }, origin);
+    }
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -9836,6 +9857,12 @@ export default {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : ilDate().slice(0, 7);
+      /* 20/10: scanning every log: key took ~18s per open; a 90-second cache
+         keeps the page instant while the pages refresh every 5 minutes anyway */
+      if (env.RATE && !b.force) {
+        let hit = null; try { hit = JSON.parse(await env.RATE.get('calcache:' + month)); } catch {}
+        if (hit && hit.at && Date.now() - hit.at < 90e3) return okJson({ ...hit.data, cached: true }, origin);
+      }
       const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
       const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
       const today = ilDate();
@@ -9937,7 +9964,9 @@ export default {
         }
         rows.sort((a, b) => a.at < b.at ? -1 : 1);
       }
-      return okJson({ ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) }, origin);
+      const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
+      if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), data: calOut }), { expirationTtl: 600 }).catch(() => {});
+      return okJson(calOut, origin);
     }
     /* skip / unskip one guest for one send kind: sets or clears the marker the
        sender checks. {token, phone, kind: 1|2|3|daybefore|shulchan|toda, on} */
