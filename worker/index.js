@@ -8096,6 +8096,116 @@ async function serveMirror(request, url) {
   return new Response(html, { status: up.status, headers });
 }
 
+/* 20/10: the month view is built here so the pacer can keep it warm every
+   10 minutes (calcache:<month>); the route only serves the cache or builds
+   on a miss. Scanning every log: key is what used to take ~18s per open. */
+async function buildCalendarMonth(env, month) {
+  const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
+  const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+  const today = ilDate();
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const evRows = (raw && raw.events && raw.events.values) || [];
+  const gRows = (raw && raw.guests && raw.guests.values) || [];
+  const evByTok = {}; const nameByPhone = {};
+  for (const ev of evRows) {
+    const t = String(ev[1] || '').trim(); if (!t) continue;
+    const name = String(ev[2] || '').trim(); const occ = String(ev[5] || '').trim();
+    evByTok[t] = { token: t, tok8: t.slice(0, 8), client: name, phone: normPhone(ev[3] || ''), occasion: occ, event: (occ ? 'ה' + occ : 'האירוע') + ' של ' + (String(ev[34] || '').trim() || name),
+      date: String(ev[6] || '').trim().slice(0, 10), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן',
+      w: [String(ev[39] || '').trim().slice(0, 10), String(ev[40] || '').trim().slice(0, 10), String(ev[41] || '').trim().slice(0, 10)], fileUp: String(ev[43] || '').trim() === 'כן' };
+    if (evByTok[t].phone) nameByPhone[evByTok[t].phone] = { name, tok: t, kind: 'לקוח' };
+  }
+  let leadRows = [];
+  try {
+    const lr = env.BRAIN_HOOK ? await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }) }) : null;
+    if (lr && lr.ok) leadRows = (await lr.json()).valueRanges[0].values || [];
+  } catch {}
+  for (const l of leadRows) { const ph = normPhone(l[2] || ''); if (ph && !nameByPhone[ph]) nameByPhone[ph] = { name: String(l[1] || '').trim(), tok: '', kind: 'ליד' }; }
+  const guestsByTok = {};
+  for (const g of gRows) {
+    const t = String(g[28] || '').trim(); const ph = normPhone(g[4] || ''); if (!t || !ph) continue;
+    (guestsByTok[t] = guestsByTok[t] || []).push({ phone: ph, name: String(g[3] || '').trim(), rsvp: String(g[15] || '').trim(), table: String(g[30] || '').trim(), id: String(g[2] || '').trim() });
+    if (!nameByPhone[ph]) nameByPhone[ph] = { name: String(g[3] || '').trim(), tok: t, kind: 'אורח' };
+  }
+  const days = {};
+  const day = d => (days[d] = days[d] || []);
+  /* past: every log entry of the month */
+  const names = await kvKeys(env, 'log:', 60000);
+  const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
+  const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
+  const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
+  inMonth.forEach((n, i) => {
+    let v = null; try { v = JSON.parse(vals[i]); } catch {}
+    if (!v || v.dir !== 'out') return;
+    const phone = n.split(':')[1]; const ts = Number(n.split(':').pop());
+    const d = new Date(ts + 3 * 3600e3).toISOString().slice(0, 10);
+    const who = nameByPhone[phone] || {};
+    const tok = v.tok ? Object.keys(evByTok).find(t => t.startsWith(v.tok)) : who.tok;
+    day(d).push({ at: v.at || new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (v.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: v.ch || 'client',
+      token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
+      status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
+  });
+  /* future: what the engine will do, per event, per date in the month */
+  const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
+  const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
+  const skipChecks = [];
+  for (const t of Object.keys(evByTok)) {
+    const ev = evByTok[t]; if (!ev.paid || ev.cancelled) continue;
+    const gl = guestsByTok[t] || [];
+    const plan = (d, kind, list) => { if (!d || d < mFirst || d > mLast || d < today) return; for (const g of list) { const e = { at: d + 'T09:00:00', phone: g.phone, name: g.name, kind: 'אורח', ch: 'guests', token: t, event: ev.event, what: KINDS[kind], k: String(kind), status: 'planned', done: false, skipped: false }; day(d).push(e); skipChecks.push([e, markerOf(kind, t, g.phone)]); } };
+    const notDeclined = gl.filter(g => g.rsvp !== 'לא מגיע');
+    if (ev.w[0]) plan(ev.w[0], 1, notDeclined);
+    if (ev.w[1]) plan(ev.w[1], 2, gl.filter(g => g.rsvp === '' || g.rsvp === 'מתלבט'));
+    if (ev.w[2]) plan(ev.w[2], 3, notDeclined);
+    const conf = gl.filter(g => g.rsvp === 'מגיע');
+    if (ev.date) {
+      const dm1 = new Date(Date.parse(ev.date) - 864e5).toISOString().slice(0, 10);
+      const dp1 = new Date(Date.parse(ev.date) + 864e5).toISOString().slice(0, 10);
+      plan(dm1, 'daybefore', conf);
+      plan(ev.date, 'shulchan', conf.filter(g => g.table));
+      plan(dp1, 'toda', conf);
+      if (dp1 >= mFirst && dp1 <= mLast && dp1 >= today && ev.phone) day(dp1).push({ at: dp1 + 'T09:00:00', phone: ev.phone, name: ev.client, kind: 'לקוח', ch: 'client', token: t, event: ev.event, what: KINDS.eoe, k: 'eoe', status: 'planned', done: false });
+    }
+  }
+  /* which planned rows are already skipped (marker pre-set by the admin) */
+  const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
+  skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
+  /* Richard 12/10: "if it's planned I want to know for what time". The
+     engine does not fire everything at 09:00: the morning run sends its
+     first slice when the window is open (09:35 IL in summer, 50 messages),
+     and the 10-minute pacer carries 25 per tick from 09:00 onwards. The
+     time below walks that schedule in the engine's own order (waves per
+     event first, then day-before / table / thanks / client summary), so
+     it is an estimate, marked as one on the page. */
+  const STAGE = { 1: 0, 2: 0, 3: 0, daybefore: 1, shulchan: 2, toda: 3, eoe: 4 };
+  const ilHourAt = (d, hUtc, mUtc) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(`${d}T${String(hUtc).padStart(2, '0')}:${String(mUtc).padStart(2, '0')}:00Z`)));
+  const nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()); const g = t => Number((p.find(x => x.type === t) || {}).value || 0); return g('hour') * 60 + g('minute'); })();
+  for (const d of Object.keys(days)) {
+    const rows = days[d];
+    const planned = rows.map((e, i) => ({ e, i })).filter(x => x.e.status === 'planned');
+    if (planned.length) {
+      const dow = new Date(d + 'T12:00:00Z').getUTCDay();
+      const close = dow === 5 ? 13 * 60 : 20 * 60 + 30;
+      /* summer: the 06:35 UTC morning run lands inside the window and sends 50 at 09:35; winter: it lands at 08:35, sends nothing, and the pacer starts at 09:00 */
+      const summer = ilHourAt(d, 6, 35) === 9;
+      let slot = summer ? 9 * 60 + 35 : 9 * 60, cap = summer ? PACE_SENDS * 2 : PACE_SENDS;
+      if (d === today && nowMin > slot) { slot = Math.ceil(nowMin / 10) * 10; cap = PACE_SENDS; }
+      planned.sort((x, y) => (STAGE[x.e.k] ?? 9) - (STAGE[y.e.k] ?? 9) || x.i - y.i);
+      let used = 0;
+      for (const { e } of planned) {
+        if (used >= cap) { slot = Math.floor(slot / 10) * 10 + 10; cap = PACE_SENDS; used = 0; }   // next pacer tick (:00, :10, :20…)
+        if (slot > close) { e.late = true; e.at = d + 'T' + String(Math.floor(close / 60)).padStart(2, '0') + ':' + String(close % 60).padStart(2, '0') + ':00'; continue; }
+        e.at = d + 'T' + String(Math.floor(slot / 60)).padStart(2, '0') + ':' + String(slot % 60).padStart(2, '0') + ':00';
+        e.est = true; used++;
+      }
+    }
+    rows.sort((a, b) => a.at < b.at ? -1 : 1);
+  }
+  const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
+  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), data: calOut }), { expirationTtl: 1200 }).catch(() => {});
+  return calOut;
+}
+
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
@@ -8155,6 +8265,7 @@ export default {
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
       ctx.waitUntil(pullMetaFormLeads(env).catch(() => {}));
       ctx.waitUntil(drainPartyNudges(env).catch(() => {}));
+      ctx.waitUntil(buildCalendarMonth(env, ilDate().slice(0, 7)).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
       ctx.waitUntil(runPacer(env).catch(e =>
@@ -9861,112 +9972,9 @@ export default {
          keeps the page instant while the pages refresh every 5 minutes anyway */
       if (env.RATE && !b.force) {
         let hit = null; try { hit = JSON.parse(await env.RATE.get('calcache:' + month)); } catch {}
-        if (hit && hit.at && Date.now() - hit.at < 90e3) return okJson({ ...hit.data, cached: true }, origin);
+        if (hit && hit.at && Date.now() - hit.at < 11 * 60e3) return okJson({ ...hit.data, cached: true }, origin);
       }
-      const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
-      const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
-      const today = ilDate();
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
-      const evRows = (raw && raw.events && raw.events.values) || [];
-      const gRows = (raw && raw.guests && raw.guests.values) || [];
-      const evByTok = {}; const nameByPhone = {};
-      for (const ev of evRows) {
-        const t = String(ev[1] || '').trim(); if (!t) continue;
-        const name = String(ev[2] || '').trim(); const occ = String(ev[5] || '').trim();
-        evByTok[t] = { token: t, tok8: t.slice(0, 8), client: name, phone: normPhone(ev[3] || ''), occasion: occ, event: (occ ? 'ה' + occ : 'האירוע') + ' של ' + (String(ev[34] || '').trim() || name),
-          date: String(ev[6] || '').trim().slice(0, 10), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן',
-          w: [String(ev[39] || '').trim().slice(0, 10), String(ev[40] || '').trim().slice(0, 10), String(ev[41] || '').trim().slice(0, 10)], fileUp: String(ev[43] || '').trim() === 'כן' };
-        if (evByTok[t].phone) nameByPhone[evByTok[t].phone] = { name, tok: t, kind: 'לקוח' };
-      }
-      let leadRows = [];
-      try {
-        const lr = env.BRAIN_HOOK ? await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }) }) : null;
-        if (lr && lr.ok) leadRows = (await lr.json()).valueRanges[0].values || [];
-      } catch {}
-      for (const l of leadRows) { const ph = normPhone(l[2] || ''); if (ph && !nameByPhone[ph]) nameByPhone[ph] = { name: String(l[1] || '').trim(), tok: '', kind: 'ליד' }; }
-      const guestsByTok = {};
-      for (const g of gRows) {
-        const t = String(g[28] || '').trim(); const ph = normPhone(g[4] || ''); if (!t || !ph) continue;
-        (guestsByTok[t] = guestsByTok[t] || []).push({ phone: ph, name: String(g[3] || '').trim(), rsvp: String(g[15] || '').trim(), table: String(g[30] || '').trim(), id: String(g[2] || '').trim() });
-        if (!nameByPhone[ph]) nameByPhone[ph] = { name: String(g[3] || '').trim(), tok: t, kind: 'אורח' };
-      }
-      const days = {};
-      const day = d => (days[d] = days[d] || []);
-      /* past: every log entry of the month */
-      const names = await kvKeys(env, 'log:', 60000);
-      const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
-      const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
-      const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
-      inMonth.forEach((n, i) => {
-        let v = null; try { v = JSON.parse(vals[i]); } catch {}
-        if (!v || v.dir !== 'out') return;
-        const phone = n.split(':')[1]; const ts = Number(n.split(':').pop());
-        const d = new Date(ts + 3 * 3600e3).toISOString().slice(0, 10);
-        const who = nameByPhone[phone] || {};
-        const tok = v.tok ? Object.keys(evByTok).find(t => t.startsWith(v.tok)) : who.tok;
-        day(d).push({ at: v.at || new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (v.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: v.ch || 'client',
-          token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
-          status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
-      });
-      /* future: what the engine will do, per event, per date in the month */
-      const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
-      const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
-      const skipChecks = [];
-      for (const t of Object.keys(evByTok)) {
-        const ev = evByTok[t]; if (!ev.paid || ev.cancelled) continue;
-        const gl = guestsByTok[t] || [];
-        const plan = (d, kind, list) => { if (!d || d < mFirst || d > mLast || d < today) return; for (const g of list) { const e = { at: d + 'T09:00:00', phone: g.phone, name: g.name, kind: 'אורח', ch: 'guests', token: t, event: ev.event, what: KINDS[kind], k: String(kind), status: 'planned', done: false, skipped: false }; day(d).push(e); skipChecks.push([e, markerOf(kind, t, g.phone)]); } };
-        const notDeclined = gl.filter(g => g.rsvp !== 'לא מגיע');
-        if (ev.w[0]) plan(ev.w[0], 1, notDeclined);
-        if (ev.w[1]) plan(ev.w[1], 2, gl.filter(g => g.rsvp === '' || g.rsvp === 'מתלבט'));
-        if (ev.w[2]) plan(ev.w[2], 3, notDeclined);
-        const conf = gl.filter(g => g.rsvp === 'מגיע');
-        if (ev.date) {
-          const dm1 = new Date(Date.parse(ev.date) - 864e5).toISOString().slice(0, 10);
-          const dp1 = new Date(Date.parse(ev.date) + 864e5).toISOString().slice(0, 10);
-          plan(dm1, 'daybefore', conf);
-          plan(ev.date, 'shulchan', conf.filter(g => g.table));
-          plan(dp1, 'toda', conf);
-          if (dp1 >= mFirst && dp1 <= mLast && dp1 >= today && ev.phone) day(dp1).push({ at: dp1 + 'T09:00:00', phone: ev.phone, name: ev.client, kind: 'לקוח', ch: 'client', token: t, event: ev.event, what: KINDS.eoe, k: 'eoe', status: 'planned', done: false });
-        }
-      }
-      /* which planned rows are already skipped (marker pre-set by the admin) */
-      const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
-      skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
-      /* Richard 12/10: "if it's planned I want to know for what time". The
-         engine does not fire everything at 09:00: the morning run sends its
-         first slice when the window is open (09:35 IL in summer, 50 messages),
-         and the 10-minute pacer carries 25 per tick from 09:00 onwards. The
-         time below walks that schedule in the engine's own order (waves per
-         event first, then day-before / table / thanks / client summary), so
-         it is an estimate, marked as one on the page. */
-      const STAGE = { 1: 0, 2: 0, 3: 0, daybefore: 1, shulchan: 2, toda: 3, eoe: 4 };
-      const ilHourAt = (d, hUtc, mUtc) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(`${d}T${String(hUtc).padStart(2, '0')}:${String(mUtc).padStart(2, '0')}:00Z`)));
-      const nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()); const g = t => Number((p.find(x => x.type === t) || {}).value || 0); return g('hour') * 60 + g('minute'); })();
-      for (const d of Object.keys(days)) {
-        const rows = days[d];
-        const planned = rows.map((e, i) => ({ e, i })).filter(x => x.e.status === 'planned');
-        if (planned.length) {
-          const dow = new Date(d + 'T12:00:00Z').getUTCDay();
-          const close = dow === 5 ? 13 * 60 : 20 * 60 + 30;
-          /* summer: the 06:35 UTC morning run lands inside the window and sends 50 at 09:35; winter: it lands at 08:35, sends nothing, and the pacer starts at 09:00 */
-          const summer = ilHourAt(d, 6, 35) === 9;
-          let slot = summer ? 9 * 60 + 35 : 9 * 60, cap = summer ? PACE_SENDS * 2 : PACE_SENDS;
-          if (d === today && nowMin > slot) { slot = Math.ceil(nowMin / 10) * 10; cap = PACE_SENDS; }
-          planned.sort((x, y) => (STAGE[x.e.k] ?? 9) - (STAGE[y.e.k] ?? 9) || x.i - y.i);
-          let used = 0;
-          for (const { e } of planned) {
-            if (used >= cap) { slot = Math.floor(slot / 10) * 10 + 10; cap = PACE_SENDS; used = 0; }   // next pacer tick (:00, :10, :20…)
-            if (slot > close) { e.late = true; e.at = d + 'T' + String(Math.floor(close / 60)).padStart(2, '0') + ':' + String(close % 60).padStart(2, '0') + ':00'; continue; }
-            e.at = d + 'T' + String(Math.floor(slot / 60)).padStart(2, '0') + ':' + String(slot % 60).padStart(2, '0') + ':00';
-            e.est = true; used++;
-          }
-        }
-        rows.sort((a, b) => a.at < b.at ? -1 : 1);
-      }
-      const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
-      if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), data: calOut }), { expirationTtl: 600 }).catch(() => {});
-      return okJson(calOut, origin);
+      return okJson(await buildCalendarMonth(env, month), origin);
     }
     /* skip / unskip one guest for one send kind: sets or clears the marker the
        sender checks. {token, phone, kind: 1|2|3|daybefore|shulchan|toda, on} */
