@@ -29,6 +29,7 @@
   };
 
   var INTERNAL = [
+    { href: 'hq.html', label: 'HQ', icon: ic.board },
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
     { href: 'leads.html', label: 'לידים', icon: ic.board },
