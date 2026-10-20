@@ -9402,6 +9402,42 @@ export default {
       await logEvent(env, { area: 'מודעות', action: `נמחקו ${done.filter(d => d.ok).length} מודעות שמעולם לא רצו`, ok: true, detail: done.map(d => d.id + ':' + (d.ok ? 'ok' : (d.skipped || 'fail'))).join(' ') }).catch(() => {});
       return okJson({ ok: true, done }, origin);
     }
+    /* 20/10: send audit — for every paid, uploaded, not-cancelled event whose
+       wave 1 date has passed: how many guests got the invitation (sheet
+       column I or wsent:), how many are dead (3 strikes / not on WhatsApp),
+       opted out, and who is still missing with no reason. {admin_key} */
+    if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      if (!raw) return deny(502, 'reader-failed', origin);
+      const today = ilDate();
+      const gByTok = {};
+      for (const g of (raw.guests && raw.guests.values) || []) { const t = String(g[28] || '').trim(); if (t) (gByTok[t] = gByTok[t] || []).push(g); }
+      const out = [];
+      for (const ev of (raw.events && raw.events.values) || []) {
+        const token = String(ev[1] || '').trim(); if (!token || isTestEventRow(ev)) continue;
+        const paid = String(ev[7] || '').trim() === 'כן', cancelled = String(ev[27] || '').trim() === 'כן', fileUp = String(ev[43] || '').trim() === 'כן';
+        const w1 = String(ev[39] || '').trim().slice(0, 10);
+        if (!paid || cancelled || !fileUp || !w1 || w1 > today) continue;
+        const held = env.RATE ? !!(await env.RATE.get('hold:' + token)) : false;
+        const gl = gByTok[token] || [];
+        const r = { token: token.slice(0, 8), name: String(ev[34] || ev[2] || '').trim(), date: String(ev[6] || '').slice(0, 10), wave1: w1, held, guests: gl.length, sent: 0, answered: 0, dead: 0, optout: 0, missing: [] };
+        for (const g of gl) {
+          const phone = normPhone(g[4] || ''); if (!phone) continue;
+          const rsvp = String(g[15] || '').trim(); if (rsvp) r.answered++;
+          const sentCol = String(g[8] || '').trim();
+          const [ws, wd, oo] = env.RATE ? await Promise.all([env.RATE.get(`wsent:${token}:1:${phone}`), env.RATE.get(`wdead:${token}:1:${phone}`), env.RATE.get('optout:' + phone)]) : [null, null, null];
+          if (sentCol || ws) r.sent++;
+          else if (wd) r.dead++;
+          else if (oo) r.optout++;
+          else if (!rsvp) r.missing.push({ name: String(g[3] || '').trim(), phone: phone.replace(/^972/, '0') });
+        }
+        r.missing_n = r.missing.length; r.missing = r.missing.slice(0, 40);
+        out.push(r);
+      }
+      return okJson({ ok: true, today, events: out }, origin);
+    }
     if (url.pathname === '/api/ads-health' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
