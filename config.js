@@ -298,7 +298,7 @@ window.ISHUR_CONFIG = (function () {
   var ADDONS = {
     hostess: {
       label: 'דיילות באירוע',
-      desc: 'מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. מומלץ מעל 200 איש. ניתן להוסיף עד שבועיים לפני האירוע. מחוץ למרכז: תוספת נסיעות 250 ₪ (דיילת אחת) או 500 ₪ (2-3 דיילות)',
+      desc: 'מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. דיילת אחת עד 300 מוזמנים, 2 דיילות מעל. ניתן להוסיף עד שבועיים לפני האירוע. מחוץ למרכז: תוספת נסיעות 250 ₪ (דיילת אחת) או 500 ₪ (2 דיילות)',
       plans: []
     },
     extra_send: {
@@ -347,15 +347,15 @@ window.ISHUR_CONFIG = (function () {
     short: 'דיילות',
     desc: 'דיילות מצוות ishur עם הלוח שלנו ביד: מקבלות אורחים, מסמנות הגעה בזמן אמת ומכוונות לשולחנות.',
     tiers: [
-      { max: 200, count: 1, price: 1790, label: 'דיילת אחת', link: 'https://pay.grow.link/NTY2OTg~8aa5bfc13392e609223168761043b5ee-NDA3Nzc0MA' },
-      { max: 500, count: 2, price: 2390, label: '2 דיילות', link: 'https://pay.grow.link/NTY2OTg~9ebc7cea776b48b10bcf7e6dda923f51-NDA3Nzc0MQ' },
-      { max: 900, count: 3, price: 3090, label: '3 דיילות', link: 'https://pay.grow.link/NTY2OTg~da9a5c8551b03d56c23c74d32db521fb-NDA3Nzc0NA' }
+      /* Richard 20/10: 1 hostess up to 300 guests, 2 above that. No third tier. */
+      { max: 300, count: 1, price: 1790, label: 'דיילת אחת', link: 'https://pay.grow.link/NTY2OTg~8aa5bfc13392e609223168761043b5ee-NDA3Nzc0MA' },
+      { max: 900, count: 2, price: 1990, label: '2 דיילות', link: 'https://pay.grow.link/NTY2OTg~9ebc7cea776b48b10bcf7e6dda923f51-NDA3Nzc0MQ' }
     ],
     travel: 250,
-    /* Richard 05/10: travel is per booking, not per hostess: 1 hostess ₪250, 2 or 3 hostesses ₪500 */
+    /* Richard 05/10: travel is per booking, not per hostess: 1 hostess ₪250, 2 hostesses ₪500 */
     travelFor: function (n) { return n >= 2 ? 500 : 250; },
     travelLinks: { 250: 'https://pay.grow.link/NTY2OTg~505b29a18711e1d7714eef22a530a0d6-NDA3NzY1Mg', 500: '' },
-    travelNote: 'באזור המרכז (אשקלון עד הרצליה) הנסיעות כלולות. מחוץ למרכז: תוספת נסיעות: 250 ₪ לדיילת אחת, 500 ₪ ל-2 או 3 דיילות, לפי כתובת האירוע, בתשלום נפרד.',
+    travelNote: 'באזור המרכז (אשקלון עד הרצליה) הנסיעות כלולות. מחוץ למרכז: תוספת נסיעות: 250 ₪ לדיילת אחת, 500 ₪ ל-2 דיילות, לפי כתובת האירוע, בתשלום נפרד.',
     /* "center" = Ashkelon to Herzliya (Richard 04/10). Matched by substring on
        the city the client types in setup; anything else is "outside". */
     centerCities: ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשל"צ','חולון','בת ים','תל אביב','ת"א','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פ"ת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'],
