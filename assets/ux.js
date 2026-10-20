@@ -162,7 +162,7 @@
      visible, and the moment you come back to a tab that sat hidden for more
      than 2 minutes. A small "עודכן HH:MM" stamp (bottom corner) says how old
      what you see is. Client pages (dashboard/upload) are left alone. */
-  var ADMIN_PAGE = /^\/(admin|clients|leads|calendar|calls|inbox|ops|brain|ad-report|automations|budget)(\.html)?$/.test(location.pathname) || /^\/?$/.test(location.pathname) && document.querySelector('script[src*="adminbar"]');
+  var ADMIN_PAGE = /^\/(hq|admin|clients|leads|calendar|calls|inbox|ops|brain|ad-report|automations|budget)(\.html)?$/.test(location.pathname) || /^\/?$/.test(location.pathname) && document.querySelector('script[src*="adminbar"]');
   if (ADMIN_PAGE) {
     var lastRefresh = Date.now(), hiddenAt = 0;
     var stamp = document.createElement('div');
