@@ -9423,15 +9423,23 @@ export default {
         const held = env.RATE ? !!(await env.RATE.get('hold:' + token)) : false;
         const gl = gByTok[token] || [];
         const r = { token: token.slice(0, 8), name: String(ev[34] || ev[2] || '').trim(), date: String(ev[6] || '').slice(0, 10), wave1: w1, held, guests: gl.length, sent: 0, answered: 0, dead: 0, optout: 0, missing: [] };
-        for (const g of gl) {
-          const phone = normPhone(g[4] || ''); if (!phone) continue;
-          const rsvp = String(g[15] || '').trim(); if (rsvp) r.answered++;
-          const sentCol = String(g[8] || '').trim();
-          const [ws, wd, oo] = env.RATE ? await Promise.all([env.RATE.get(`wsent:${token}:1:${phone}`), env.RATE.get(`wdead:${token}:1:${phone}`), env.RATE.get('optout:' + phone)]) : [null, null, null];
-          if (sentCol || ws) r.sent++;
-          else if (wd) r.dead++;
-          else if (oo) r.optout++;
-          else if (!rsvp) r.missing.push({ name: String(g[3] || '').trim(), phone: phone.replace(/^972/, '0') });
+        /* KV in parallel, 40 guests at a time — sequential reads took 18s on 800 guests */
+        const rows = gl.map(g => ({ g, phone: normPhone(g[4] || ''), rsvp: String(g[15] || '').trim(), sentCol: String(g[8] || '').trim() })).filter(x => x.phone);
+        for (let i = 0; i < rows.length; i += 40) {
+          const chunk = rows.slice(i, i + 40);
+          const st = await Promise.all(chunk.map(async x => {
+            if (x.sentCol || !env.RATE) return { ws: x.sentCol, wd: null, oo: null };
+            const [ws, wd, oo] = await Promise.all([env.RATE.get(`wsent:${token}:1:${x.phone}`), env.RATE.get(`wdead:${token}:1:${x.phone}`), env.RATE.get('optout:' + x.phone)]);
+            return { ws, wd, oo };
+          }));
+          chunk.forEach((x, j) => {
+            if (x.rsvp) r.answered++;
+            const { ws, wd, oo } = st[j];
+            if (x.sentCol || ws) r.sent++;
+            else if (wd) r.dead++;
+            else if (oo) r.optout++;
+            else if (!x.rsvp) r.missing.push({ name: String(x.g[3] || '').trim(), phone: x.phone.replace(/^972/, '0') });
+          });
         }
         r.missing_n = r.missing.length; r.missing = r.missing.slice(0, 40);
         out.push(r);
