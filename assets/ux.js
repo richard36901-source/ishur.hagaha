@@ -157,6 +157,28 @@
     try { window.dispatchEvent(new CustomEvent('ishur:fresh')); } catch (e) {}
     toast('מרענן…', 1200);
   }
+  /* ── Richard 20/10: "the boards are not always updated" ──
+     Back-office pages refresh themselves: every 5 minutes while the tab is
+     visible, and the moment you come back to a tab that sat hidden for more
+     than 2 minutes. A small "עודכן HH:MM" stamp (bottom corner) says how old
+     what you see is. Client pages (dashboard/upload) are left alone. */
+  var ADMIN_PAGE = /^\/(admin|clients|leads|calendar|calls|inbox|ops|brain|ad-report|automations|budget)(\.html)?$/.test(location.pathname) || /^\/?$/.test(location.pathname) && document.querySelector('script[src*="adminbar"]');
+  if (ADMIN_PAGE) {
+    var lastRefresh = Date.now(), hiddenAt = 0;
+    var stamp = document.createElement('div');
+    stamp.id = 'ux-stamp';
+    stamp.style.cssText = 'position:fixed;bottom:.6rem;inset-inline-start:.8rem;font:500 .7rem/1 Heebo,system-ui,sans-serif;color:#7F8C86;background:rgba(255,255,255,.75);backdrop-filter:blur(6px);padding:.3rem .55rem;border-radius:999px;z-index:900;cursor:pointer;user-select:none';
+    stamp.title = 'לחיצה = רענון (או R)';
+    function stampNow() { var d = new Date(); stamp.textContent = 'עודכן ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); lastRefresh = Date.now(); }
+    stamp.addEventListener('click', refreshPage);
+    (document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', function () { document.body.appendChild(stamp); stampNow(); }) : (document.body.appendChild(stamp), stampNow()));
+    window.addEventListener('ishur:fresh', stampNow);
+    setInterval(function () { if (!document.hidden && Date.now() - lastRefresh > 5 * 60 * 1000) refreshPage(); }, 30 * 1000);
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) { hiddenAt = Date.now(); return; }
+      if (hiddenAt && Date.now() - hiddenAt > 2 * 60 * 1000) refreshPage();
+    });
+  }
   document.addEventListener('keydown', function (e) {
     var inField = /^(INPUT|TEXTAREA|SELECT)$/.test((e.target && e.target.tagName) || '') || (e.target && e.target.isContentEditable);
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
