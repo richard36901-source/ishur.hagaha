@@ -3286,8 +3286,10 @@ async function handleWaWebhook(request, env, url) {
       /* never confirm what the sheet did not take */
       const HOLD = 'קיבלנו את התשובה, רגע רושמים ונחזור אליכם 🙂';
       if (parsed.outcome === 'מגיע' && !parsed.party) {
-        const saved = await writeGuestReply(env, guest, 'מגיע');
-        if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+        /* Richard 20/10: count them as 1 right away (the host sees a number,
+           not a blank), ask once now, nudge twice more inside the 24h window */
+        const saved = await writeGuestReply(env, guest, 'מגיע', 1);
+        if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
         await say(saved
           ? 'איזה כיף! כמה תהיו בסך הכל?'
           : HOLD);
@@ -3387,8 +3389,8 @@ async function guestFreeText(env, raw, guest, from, text, say) {
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
   }
   if (saysYes) {
-    const saved = await writeGuestReply(env, guest, 'מגיע');
-    if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+    const saved = await writeGuestReply(env, guest, 'מגיע', 1);
+    if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
     await say(saved ? 'איזה כיף! כמה תהיו בסך הכל?' : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
@@ -4015,6 +4017,39 @@ async function sendArtworkOnReply(env, raw, guest, from) {
 /* An RSVP from WhatsApp resolves the guest without touching the call fields */
 /* Returns whether the sheet actually took the answer. The guest is only told
    "נרשם" when it did — otherwise we keep the reply and say we are on it. */
+/* ══ "כמה תהיו?" nudges (Richard 20/10) ═══════════════════════════════════
+   A guest who says "מגיע" without a count is written as 1 and asked once on
+   the spot. If no number comes back, the pacer sends one reminder after 2h
+   and a last one after 6h — all inside Meta's 24h service window, so plain
+   text is allowed. awaitparty:<guest_id> now holds {at, phone, ch, token,
+   nudges}; a number in any form clears it (see the inbound handler). */
+const PARTY_NUDGES = [
+  { afterMs: 2 * 3600e3, text: 'רק מוודאים 🙂 כמה תגיעו בסך הכל? אפשר לענות רק במספר.' },
+  { afterMs: 6 * 3600e3, text: 'כדי שבעלי השמחה יוכלו להיערך — כמה תהיו? מספר אחד וסיימנו 🙏' },
+];
+async function armPartyNudge(env, guest, from, ch) {
+  await env.RATE.put('awaitparty:' + guest.guest_id, JSON.stringify({ at: Date.now(), phone: normPhone(from), ch, token: guest.token, nudges: 0 }), { expirationTtl: 86400 });
+}
+async function drainPartyNudges(env) {
+  if (!env.RATE) return { sent: 0 };
+  if (!sendWindowState().open) return { sent: 0, closed: true };
+  const page = await env.RATE.list({ prefix: 'awaitparty:', limit: 500 }).catch(() => null);
+  let sent = 0;
+  for (const k of (page && page.keys) || []) {
+    let st = null; try { st = JSON.parse(await env.RATE.get(k.name)); } catch {}
+    if (!st || !st.phone) continue;                       // legacy '1' markers from before 20/10
+    const n = Number(st.nudges) || 0;
+    const step = PARTY_NUDGES[n];
+    if (!step || Date.now() - Number(st.at) < step.afterMs) continue;
+    const r = await sendText(env, st.phone, step.text, st.ch || 'guests', { who: 'שיר (מענה אוטומטי)', token: st.token }).catch(() => null);
+    st.nudges = n + 1;
+    await env.RATE.put(k.name, JSON.stringify(st), { expirationTtl: 86400 }).catch(() => {});
+    if (r && r.ok) sent++;
+    await logEvent(env, { area: 'ווצאפ', action: `תזכורת כמות ${n + 1}/2 לאורח`, ok: !!(r && r.ok), phone: st.phone, token: st.token || '', detail: r && r.ok ? '' : String((r && r.error) || 'send-failed').slice(0, 200) }).catch(() => {});
+  }
+  return { sent };
+}
+
 async function writeGuestReply(env, guest, outcome, party) {
   const r = await fetch(env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -8541,6 +8576,7 @@ export default {
       ctx.waitUntil(adsHealthWatch(env).catch(() => {}));
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
       ctx.waitUntil(pullMetaFormLeads(env).catch(() => {}));
+      ctx.waitUntil(drainPartyNudges(env).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
       ctx.waitUntil(runPacer(env).catch(e =>
@@ -9479,8 +9515,9 @@ export default {
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
-      const n = guests <= 200 ? 1 : guests <= 500 ? 2 : 3;
-      const hostessPrice = n === 1 ? 1790 : n === 2 ? 2390 : 3090;
+      /* Richard 20/10: one hostess up to 300 guests, two above; no third tier */
+      const n = guests <= 300 ? 1 : 2;
+      const hostessPrice = n === 1 ? 1790 : 1990;
       /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
          rides in from the ?offer= link; it only applies to the plan and the
          quantities it names, otherwise the table price stands. */
@@ -9530,7 +9567,7 @@ export default {
       }
       const listTotal = PRICES[guests][plan] + hostessPrice + travel;
       const total = bundleOn ? bundle.total + travel : listTotal;
-      /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות/3 דיילות", travel
+      /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
          bundle keeps them and only adds its tag at the end. */
