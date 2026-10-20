@@ -454,7 +454,10 @@ async function processGrowPayment(env, flat) {
 
   /* dedupe: one event per receipt, forever */
   const seen = env.RATE ? await env.RATE.get('grow:' + ref) : null;
-  if (seen) {
+  /* 20/10: an admin replay (ipn-replay with _force + _token) re-runs a payment
+     whose sheet write was lost, keeping the token the client already holds */
+  const forced = !!(flat._simulated && flat._force);
+  if (seen && !forced) {
     await logEvent(env, { area: 'תשלום', action: 'IPN כפול — כבר טופל', ok: true, phone, ref });
     return new Response('duplicate', { status: 200 });
   }
@@ -472,7 +475,7 @@ async function processGrowPayment(env, flat) {
     return new Response(ar.ok ? 'addon-applied' : 'addon-parked', { status: 200 });
   }
 
-  const token = crypto.randomUUID();
+  const token = (forced && /^[0-9a-f-]{36}$/.test(String(flat._token || ''))) ? String(flat._token) : crypto.randomUUID();
   const isNewClient = env.RATE ? !(await env.RATE.get('client:' + phone)) : true;
   /* Richard 04/10: every payment, one line in Slack, at once */
   try {
@@ -10503,6 +10506,13 @@ export default {
         waitIds.forEach((id, i) => { if (hits[i]) sentWaves.dialed.add(id); });
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* 20/10: a paid token whose event row never reached the sheet (Make
+         write failed) made the page throw 1101 instead of saying so. The
+         client sees the "still setting up" screen; we see it in the journal. */
+      if (!snapshot || !snapshot.ok || !snapshot.event) {
+        await logEvent(env, { area: 'לוח', action: 'טוקן תקין בלי שורת אירוע בגיליון', ok: false, review: true, token: token.slice(0, 8), detail: 'הכתיבה למייק לא הגיעה לגיליון — להריץ ipn-replay' }).catch(() => {});
+        return deny(404, 'event-not-found', origin);
+      }
       /* Richard 27/09: per guest, did the invitation actually go out.
          wsent = Meta accepted and no failure came back; wfail = failed,
          retrying; wdead = failed three times, needs a human. */
