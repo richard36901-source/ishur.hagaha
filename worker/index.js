@@ -3857,6 +3857,70 @@ async function sendArtworkOnReply(env, raw, guest, from) {
 /* An RSVP from WhatsApp resolves the guest without touching the call fields */
 /* Returns whether the sheet actually took the answer. The guest is only told
    "נרשם" when it did — otherwise we keep the reply and say we are on it. */
+/* ══ Event-day blast (Richard 20/10) ══════════════════════════════════════
+   A one-off template to everyone who confirmed (and everyone who got the
+   day-before reminder) on the morning of the event, with the client's own
+   wording and the navigation link — no guest name, for lists whose names
+   are garbage. Job lives in KV edblast:<token> {at, time, what, address,
+   nav, template}; the pacer runs it once the date arrives and the send
+   window is open, only if Meta has APPROVED the template. s5e:<token>:<phone>
+   is the per-guest marker. */
+async function eventDayRecipients(env, token, raw) {
+  const gRows = (raw && raw.guests && raw.guests.values) || [];
+  const s5d = await kvPrefix(env, `s5d:${token}:`);
+  const seen = new Set(); const out = [];
+  for (const g of gRows) {
+    if (String(g[28] || '').trim() !== token) continue;
+    const phone = normPhone(g[4] || ''); if (!phone || seen.has(phone)) continue;
+    const confirmed = String(g[15] || '').trim() === 'מגיע';
+    if (!confirmed && !s5d[phone]) continue;
+    seen.add(phone); out.push({ phone, name: String(g[3] || '').trim() });
+  }
+  return out;
+}
+async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
+  if (!env.RATE) return { ok: false };
+  const jobs = await kvPrefix(env, 'edblast:');
+  const today = ilDate();
+  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  const res = [];
+  for (const [token, rawJob] of Object.entries(jobs)) {
+    if (only && token !== only) continue;
+    let job = null; try { job = JSON.parse(rawJob); } catch {}
+    if (!job) continue;
+    const due = today >= String(job.at || '');
+    if (!dry && (!due || ilHour < 9 || !sendWindowState().open || await sendingPaused(env))) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
+    /* the template must be live */
+    let approved = false;
+    try {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${job.template}&fields=name,status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+      const j = await r.json(); approved = ((j.data || [])[0] || {}).status === 'APPROVED';
+    } catch {}
+    const raw = await snapshotCached(env);
+    const people = await eventDayRecipients(env, token, raw);
+    if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
+    if (!approved) {
+      if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8));
+      res.push({ token: token.slice(0, 8), approved: false }); continue;
+    }
+    let sent = 0, failed = 0, skipped = 0;
+    for (const p of people) {
+      const mk = `s5e:${token}:${p.phone}`;
+      if (await env.RATE.get(mk)) { skipped++; continue; }
+      if (await phoneBlocked(env, p.phone) || await wrongNum(env, token, p.phone)) { skipped++; continue; }
+      const wa = await sendTemplate(env, p.phone, job.template, [job.time, job.what, job.address, job.nav], '', 'he', 'guests', { wave: 'eventday', token });
+      if (wa.ok) { sent++; await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
+    }
+    if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
+    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}` }).catch(() => {});
+    if (!failed) await env.RATE.delete('edblast:' + token).catch(() => {});
+    await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}`).catch(() => {});
+    res.push({ token: token.slice(0, 8), sent, failed, skipped });
+  }
+  return { ok: true, jobs: res };
+}
+function clientWabaFor(channel) { return channel === 'guests' ? '1378764257421712' : clientWaba({}); }
+
 /* ══ "כמה תהיו?" nudges (Richard 20/10) ═══════════════════════════════════
    A guest who says "מגיע" without a count is written as 1 and asked once on
    the spot. If no number comes back, the pacer sends one reminder after 2h
@@ -8265,6 +8329,7 @@ export default {
       ctx.waitUntil(drainLeadPings(env).catch(() => {}));
       ctx.waitUntil(pullMetaFormLeads(env).catch(() => {}));
       ctx.waitUntil(drainPartyNudges(env).catch(() => {}));
+      ctx.waitUntil(runEventDayBlasts(env).catch(() => {}));
       ctx.waitUntil(buildCalendarMonth(env, ilDate().slice(0, 7)).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
@@ -9094,6 +9159,20 @@ export default {
        opted out, and who is still missing with no reason. {admin_key} */
     /* 20/10: how much of Meta's rolling-24h conversation cap the guests
        number has used, and when the oldest conversation ages out. */
+    /* event-day blast: {token, action:"set"|"dry"|"run"|"clear", time, what, address, nav, template, at} */
+    if (url.pathname === '/api/event-day' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (b.action === 'set') {
+        const job = { at: String(b.at || ilDate()), time: String(b.time || ''), what: String(b.what || ''), address: String(b.address || ''), nav: String(b.nav || ''), template: String(b.template || 'ishur_yom_haerua'), set_at: new Date().toISOString() };
+        await env.RATE.put('edblast:' + tok, JSON.stringify(job), { expirationTtl: 14 * 86400 });
+        return okJson({ ok: true, job }, origin);
+      }
+      if (b.action === 'clear') { await env.RATE.delete('edblast:' + tok); return okJson({ ok: true }, origin); }
+      return okJson(await runEventDayBlasts(env, { dry: b.action !== 'run', only: tok }), origin);
+    }
     if (url.pathname === '/api/cap-status' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
