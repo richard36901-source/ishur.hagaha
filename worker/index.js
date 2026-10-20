@@ -25,7 +25,7 @@ import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy } from './evlog.js';
-import { createInvoice } from './invoice.js';
+import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
@@ -8753,21 +8753,17 @@ export default {
           return okJson({ inv, wa }, origin);
         }
         if (b.action === 'morning-get') {
-          const tr = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: env.MORNING_ID || '', secret: env.MORNING_SECRET || '' }) }).catch(() => null);
-          const tj = tr ? await tr.json().catch(() => ({})) : {};
-          if (!tj.token) return okJson({ ok: false, why: 'auth' }, origin);
+          const mt = await morningToken(env);
+          if (!mt) return okJson({ ok: false, why: 'auth' }, origin);
           const rr = await fetch('https://api.greeninvoice.co.il/api/v1' + String(b.path || '/'), {
-            headers: { Authorization: 'Bearer ' + tj.token } }).catch(() => null);
+            headers: { Authorization: 'Bearer ' + mt } }).catch(() => null);
           const jj = rr ? await rr.json().catch(() => ({})) : {};
           return okJson({ ok: !!(rr && rr.ok), status: rr && rr.status, data: jj }, origin);
         }
         if (b.action === 'morning-check') {
           /* login only, nothing is created */
-          const r = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: env.MORNING_ID || '', secret: env.MORNING_SECRET || '' }) }).catch(() => null);
-          const j = r ? await r.json().catch(() => ({})) : {};
-          return okJson({ ok: !!(r && r.ok && j.token), status: r && r.status, configured: !!(env.MORNING_ID && env.MORNING_SECRET), err: j.errorMessage || j.errorCode || '' }, origin);
+          const mt = await morningToken(env);
+          return okJson({ ok: !!mt, configured: !!(env.MORNING_ID && env.MORNING_SECRET), auth: 'oauth2 api.morning.co' }, origin);
         }
         if (b.action === 'setcell' && /^[^!]+![A-Z]{1,2}\d{1,5}$/.test(String(b.range || ''))) {
           return okJson({ ok: await sheetBatchWrite(env, [{ range: String(b.range), values: [[String(b.value ?? '')]] }]) }, origin);

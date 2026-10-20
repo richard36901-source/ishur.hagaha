@@ -50,14 +50,21 @@ export function invoiceTerms({ tier, plan } = {}) {
   ].join('\n');
 }
 
-async function token(env) {
-  const r = await fetch(API + '/account/token', {
+/* 20/10/2026: Morning moved authentication to OAuth2 client-credentials on
+   a new host. The old /account/token on api.greeninvoice.co.il now 404s;
+   documents/clients still live under API. The API key id/secret from
+   app.greeninvoice.co.il/settings/developers/api are the client_id/secret.
+   Token is good for 1 hour; we fetch one per invoice, no caching needed. */
+const AUTH = 'https://api.morning.co/idp/v1/oauth/token';
+export async function token(env) {
+  const r = await fetch(AUTH, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: env.MORNING_ID, secret: env.MORNING_SECRET }),
+    body: JSON.stringify({ grant_type: 'client_credentials', client_id: env.MORNING_ID, client_secret: env.MORNING_SECRET }),
   }).catch(() => null);
   if (!r) return null;
   const j = await r.json().catch(() => ({}));
-  return r.ok && j.token ? j.token : null;
+  const t = j.accessToken || j.access_token || j.token;
+  return r.ok && t ? t : null;
 }
 
 /* → {ok, url, number, id} | {ok:false, why, detail} */
