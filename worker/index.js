@@ -4318,6 +4318,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       const token = String(ev[1] || '').trim();
       if (!token || String(ev[7] || '').trim() !== 'כן') continue;
       const planEmpty = !String(ev[31] || '').trim(), tierEmpty = !String(ev[32] || '').trim();
+      /* J (invoice) is filled whenever it is empty and Morning has one — even
+         after the plan/tier fill already ran (Richard 21/10: Shilat showed "חסרה") */
+      if (!String(ev[9] || '').trim()) {
+        try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); if (inv && inv.url) fills.push({ range: `אירועים!J${i + 2}`, values: [[inv.number ? `${inv.number} · ${inv.url}` : inv.url]] }); } catch {}
+      }
       if (!planEmpty && !tierEmpty) continue;
       if (await env.RATE.get('planfill:' + token)) continue;
       let paid = null; try { paid = JSON.parse((await env.RATE.get('paid:' + token)) || 'null'); } catch {}
@@ -10420,7 +10425,19 @@ export default {
         if (!isAdmin(env, admin)) return deny(403, 'bad-admin-key', origin);
         const raw = await fetchSnapshot(target);
         if (!raw) return deny(502, 'reader-failed', origin);
-        if (stampFields.view === 'biz') return okJson(buildBizStats(raw), origin);
+        if (stampFields.view === 'biz') {
+          /* Richard 21/10: the invoice lives in KV from the moment Morning
+             issues it; the sheet's J column lags (engine fills it nightly).
+             The board must never say "חסרה" for an invoice that exists. */
+          const biz = buildBizStats(raw);
+          if (env.RATE && Array.isArray(biz.events)) {
+            await Promise.all(biz.events.map(async e => {
+              if (e.invoice || !e.token) return;
+              try { const inv = JSON.parse((await env.RATE.get('invoice:' + e.token)) || 'null'); if (inv && inv.url) e.invoice = (inv.number ? inv.number + ' · ' : '') + inv.url; } catch {}
+            }));
+          }
+          return okJson(biz, origin);
+        }
         return okJson(buildCallQueue(raw), origin);
       }
       const token = String(stampFields.token || '').trim();
