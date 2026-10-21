@@ -22,7 +22,10 @@
 
   /* ── phones ── any Israeli mobile spelling → 05XXXXXXXX, anything else → '' */
   function normIL(raw) {
-    var d = String(raw || '').replace(/\D/g, '');
+    var s = String(raw || '').trim();
+    var intl = /^(\+|00)/.test(s) && !/^(\+|00)972/.test(s);   // a foreign number written with its country code
+    var d = s.replace(/\D/g, '');
+    if (intl) { if (d.indexOf('00') === 0) d = d.slice(2); return /^[1-9]\d{8,14}$/.test(d) ? '+' + d : ''; } // Richard 21/10: abroad = WhatsApp only
     if (d.indexOf('00972') === 0) d = d.slice(5);
     else if (d.indexOf('972') === 0) d = d.slice(3);
     if (d.charAt(0) === '0') d = d.slice(1);       // +972 (0)54...
@@ -264,7 +267,7 @@
         var res;
         try { res = parseVcf(String(fr.result || '')); } catch (e) { res = null; }
         if (!res || !res.total) { soft(); track('vcf_unreadable', {}); return; }
-        if (!res.contacts.length) { soft('לא מצאנו בקובץ מספרי נייד ישראליים. אפשר לנסות קובץ אחר או ' + WA_LINK + '.'); return; }
+        if (!res.contacts.length) { soft('לא מצאנו בקובץ מספרי נייד. אפשר לנסות קובץ אחר או ' + WA_LINK + '.'); return; }
         track('vcf_loaded', { total: res.total, kept: res.contacts.length });
         addContacts(res);
       };
@@ -286,7 +289,7 @@
         rows.push({ name: c.name, phone: c.phone, count: 1 });
       });
       var skipped = res.noPhone + res.dup + (res.contacts.length - added);
-      $('glSkipped').textContent = skipped ? skipped + ' רשומות בלי נייד ישראלי או כפולות לא נכנסו' : '';
+      $('glSkipped').textContent = skipped ? skipped + ' רשומות בלי נייד או כפולות לא נכנסו' : '';
       reachedEnd = false; chk.checked = false;
       $('glReview').hidden = false;   /* visible first, so scroll sizes are real */
       wrap.scrollTop = 0;
