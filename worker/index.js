@@ -10452,7 +10452,10 @@ export default {
             env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
             env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
           ]);
-          const st = dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
+          /* Richard 21/10: an answer proves the message arrived. A reply after
+             a failed attempt must not keep showing "not delivered". */
+          const answered = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
+          const st = answered ? 'sent' : dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
           return { st, code: st === 'sent' ? '' : String(code || dead || '') };
         }));
         snapshot.guests.forEach((g, i) => { g.sent = states[i].st; g.sent_code = states[i].code; });
