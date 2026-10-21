@@ -9684,6 +9684,61 @@ export default {
     /* Richard 28/09: the host marks a guest as coming (with a count) straight
        from the dashboard — the aunt who confirmed by phone, the neighbour who
        said yes at the grocery. Same write path as a WhatsApp reply. */
+    /* Richard 21/10: the host fixes a guest's name or phone from the list.
+       Direct cell writes (D = name, E = phone), same path as seating. */
+    if (url.pathname === '/api/guest-edit' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:gedit:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
+      const gid = String(b.guest_id || '').trim();
+      const name = String(b.name || '').trim().slice(0, 60);
+      const phone = b.phone != null ? normPhone(b.phone || '') : '';
+      if (!name) return deny(400, 'bad-name', origin);
+      if (b.phone != null && !/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const gRows = ((raw && raw.guests && raw.guests.values) || []);
+      let rowIdx = -1;
+      gRows.forEach((g, i) => { if (String((g || [])[2] || '').trim() === gid && String(g[28] || '').trim() === tok) rowIdx = i; });
+      if (rowIdx < 0) return deny(404, 'unknown-guest', origin);
+      const before = { name: String(gRows[rowIdx][3] || '').trim(), phone: normPhone(gRows[rowIdx][4] || '') };
+      if (phone && phone !== before.phone && gRows.some((g, i) => i !== rowIdx && String(g[28] || '').trim() === tok && normPhone(g[4] || '') === phone)) {
+        return okJson({ ok: false, error: 'duplicate' }, origin);
+      }
+      const row = rowIdx + 2;
+      const data = [{ range: `אורחים!D${row}`, values: [[name]] }];
+      if (phone) data.push({ range: `אורחים!E${row}`, values: [[phone]] });
+      const okw = await sheetBatchWrite(env, data);
+      if (!okw) return deny(502, 'writer-failed', origin);
+      await logEvent(env, { area: 'לוח לקוח', action: 'המארח ערך פרטי אורח', ok: true, phone: phone || before.phone, token: tok,
+        detail: `${before.name} · ${before.phone} → ${name} · ${phone || before.phone}` }).catch(() => {});
+      return okJson({ ok: true, name, phone: phone || before.phone }, origin);
+    }
+    /* Richard 21/10: demand signal for gifts-by-credit. One count per
+       person (browser id), Slack on every new person with the running total. */
+    if (url.pathname === '/api/interest' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const kind = String(b.kind || '').replace(/[^a-z_]/g, '').slice(0, 30);
+      const vid = String(b.vid || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (!kind || !vid || !env.RATE) return deny(400, 'bad-request', origin);
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      if (await overBudget(env, 'rl:interest:' + ip, 20, 3600)) return deny(429, 'slow-down', origin);
+      const seenKey = `interest:${kind}:${vid}`;
+      const labels = { gift_credit: 'מתנות באשראי' };
+      if (await env.RATE.get(seenKey)) {
+        const n0 = parseInt(await env.RATE.get('interestcount:' + kind), 10) || 0;
+        return okJson({ ok: true, counted: false, total: n0 }, origin);
+      }
+      await env.RATE.put(seenKey, new Date().toISOString(), { expirationTtl: 400 * 86400 });
+      const n = (parseInt(await env.RATE.get('interestcount:' + kind), 10) || 0) + 1;
+      await env.RATE.put('interestcount:' + kind, String(n));
+      const where = String(b.where || '').slice(0, 40);
+      await logEvent(env, { area: 'ביקוש', action: `לחיצה "מעניין אותי" · ${labels[kind] || kind}`, ok: true, token: String(b.token || '').slice(0, 8), detail: `${where} · סה"כ ${n} אנשים שונים` }).catch(() => {});
+      await slackPost(env, `💳 *${labels[kind] || kind} · מישהו לחץ "מעניין אותי"*${where ? ' · ' + where : ''}\nסה"כ עד עכשיו: *${n}* אנשים שונים`).catch(() => {});
+      return okJson({ ok: true, counted: true, total: n }, origin);
+    }
     if (url.pathname === '/api/guest-rsvp' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -9710,7 +9765,7 @@ export default {
       const tok = String(b.token || '').trim();
       const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec) return deny(404, 'unknown-token', origin);
-      if (await overBudget(env, 'rl:gadd:' + tok, 30, 3600)) return deny(429, 'slow-down', origin);
+      if (await overBudget(env, 'rl:gadd:' + tok, 90, 3600)) return deny(429, 'slow-down', origin);
       const LIMIT = ADDON_RATES.freeGuests;
       const cntKey = 'gadd:' + tok;
       const used = parseInt(await env.RATE.get(cntKey), 10) || 0;
@@ -9791,7 +9846,10 @@ export default {
         item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
         if (!item) return deny(400, 'bad-kind', origin);
         desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+        if (b.quote) return okJson({ ok: true, quote: true, price: item.price, n: item.n, desc }, origin);
       }
+      /* Grow refuses a 0 price ("מחיר מוצר חובה"); say so instead of paging Slack */
+      if (!(Number(item.price) > 0)) return okJson({ ok: false, why: 'nothing-to-buy', price: 0, n: item.n || 0, desc }, origin);
       /* Richard, 11/09: no Grow API — Make has a "create payment link" module.
          GROW_LINK_HOOK is that scenario's webhook; it answers {url}. */
       if (env.GROW_LINK_HOOK) {
@@ -10342,6 +10400,14 @@ export default {
         const bought = hb ? JSON.parse(hb) : null, plan = hp ? JSON.parse(hp) : null, trav = ht ? JSON.parse(ht) : null;
         if (bought || plan) snapshot.hostess = { n: (bought && bought.n) || (plan && plan.n) || 0, center: plan ? !!plan.center : null, city: (plan && plan.city) || (bought && bought.city) || '', date: bought ? bought.date || '' : '', travel_included: bought ? bought.travel_included : null, travel_paid: trav ? Number(trav.paid) || 0 : 0 };
         snapshot.gifts = gl ? JSON.parse(gl) : { bit: '', paybox: '', on: false };
+        /* Richard 21/10: the Morning invoice is downloadable from the board */
+        try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
+        /* a direct-link buyer's row has no tier until the engine fills it;
+           the payment record knows, so add-on prices never fall back to "לפרטים" */
+        if (snapshot.event && !String(snapshot.event.guests_tier || '').trim()) {
+          try { const t = await tierWithPromo(env, token, 0); if (t) snapshot.event.guests_tier = String(t); } catch {}
+          try { if (!String(snapshot.event.plan || '').trim()) { const paid = JSON.parse((await env.RATE.get('paid:' + token)) || 'null'); if (paid && paid.planText) snapshot.event.plan = paid.planText; } } catch {}
+        }
       } catch {}
       /* after the event: surface the review + testimonial links permanently */
       const evDate = String(snapshot.event.event_date || '').slice(0, 10);
