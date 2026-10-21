@@ -1416,7 +1416,16 @@
 
   function renderSends() {
     var sends = data.sends || [];
-    if (!sends.length) { $('sends').innerHTML = '<div class="empty">לוח השליחות ייקבע אחרי ההגדרה.</div>'; return; }
+    if (!sends.length) {
+      /* Richard 21/10: no schedule because the event is not set up yet → one
+         button straight to the settings step (the list is already here) */
+      var evx = data.event || {};
+      var unset = !evx.event_date && token && !demo;
+      $('sends').innerHTML = '<div class="empty">' + (unset
+        ? 'עוד לא הוגדרו פרטי האירוע (תאריך, מקום, שעה). לוח השליחות ייקבע מיד אחרי ההגדרה.<br><a class="buy" style="display:inline-block;margin-top:.7rem;text-decoration:none" href="upload.html?t=' + encodeURIComponent(token) + '&step=2">הגדרת האירוע</a>'
+        : 'לוח השליחות ייקבע אחרי ההגדרה.') + '</div>';
+      return;
+    }
     var movable = canMoveSends();
     var over = eventIsOver();
     /* a redraw must not pull the keyboard out from under whoever is using it */
