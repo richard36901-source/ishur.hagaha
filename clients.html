@@ -140,6 +140,7 @@
           '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
           '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
           '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
+          '<button class="btn" data-act="copy-upload">📋 העתק קישור להעלאה</button>' +
           '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
           '<button class="btn g" data-act="guests">+50 מוזמנים חינם</button>' +
           '<button class="btn g" data-act="extrasend">שליחה נוספת חינם</button>' +
@@ -163,6 +164,11 @@
     } else if (act === 'reset') {
       if (!(await askConfirm('הלקוח (או אתה) יעלה רשימה מחדש. אם ההזמנות כבר יצאו, זה ייחסם.', { title: 'למחוק את רשימת המוזמנים?', ok: 'כן, למחוק', danger: true }))) { b.disabled = false; return; }
       p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });
+    } else if (act === 'copy-upload') {
+      var first = String(e.client || '').trim().split(/\s+/)[0] || '';
+      var msg = 'היי ' + first + ', הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע' + (e.name ? ' של ' + e.name : '') + ':\nhttps://go.ishur.io/upload.html?t=' + t;
+      try { await navigator.clipboard.writeText(msg); toast('ההודעה הועתקה, הדבק בוואטסאפ'); } catch (e3) { prompt('העתק:', msg); }
+      b.disabled = false; return;
     } else if (act === 'fblinks') {
       var l1 = 'https://ishur.io/feedback.html?t=' + t, l2 = l1 + '&p=2';
       try { await navigator.clipboard.writeText('משוב: ' + l1 + '\nבן/בת הזוג: ' + l2); toast('שני הקישורים הועתקו'); } catch (e2) { prompt('קישורי המשוב', l1 + '  |  ' + l2); }
