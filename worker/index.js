@@ -3935,6 +3935,45 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
 }
 function clientWabaFor(channel) { return channel === 'guests' ? '1378764257421712' : clientWaba({}); }
 
+/* ══ extra call round on a chosen day (Richard 21/10) ═══════════════════════
+   callround:<token> = { at, guest_ids, note, set_at, done }. On the day, from
+   09:00, the listed rows get V = נדרשת שיחה and AD (tries) = 0, so Shir's
+   queue picks them up in the call window. Nothing is dialed before the day. */
+async function drainCallRounds(env, { dry = false, only = '' } = {}) {
+  if (!env.RATE) return { ok: false };
+  const jobs = await kvPrefix(env, 'callround:');
+  const today = ilDate();
+  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  const res = [];
+  for (const [k, rawJob] of Object.entries(jobs)) {
+    const token = k.slice('callround:'.length);
+    if (only && token !== only) continue;
+    let job = null; try { job = JSON.parse(rawJob); } catch {}
+    if (!job || job.done) continue;
+    const due = today >= String(job.at || '');
+    if (!dry && (!due || ilHour < 9)) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
+    const raw = await fetchSnapshot(env.HOOK_STATUS);
+    const gRows = ((raw && raw.guests && raw.guests.values) || []);
+    const want = new Set(job.guest_ids || []);
+    const data = [];
+    gRows.forEach((g, i) => {
+      if (String((g || [])[28] || '').trim() !== token || !want.has(String(g[2] || '').trim())) return;
+      const rsvp = String(g[15] || '').trim();
+      if (rsvp === 'מגיע' || rsvp === 'לא מגיע') return;   // answered meanwhile — leave them alone
+      const row = i + 2;
+      data.push({ range: `אורחים!V${row}`, values: [['נדרשת שיחה']] }, { range: `אורחים!AD${row}`, values: [['0']] });
+    });
+    const n = data.length / 2;
+    if (dry) { res.push({ token: token.slice(0, 8), due, would_flag: n, at: job.at }); continue; }
+    const okw = n ? await sheetBatchWrite(env, data) : true;
+    if (okw) { job.done = new Date().toISOString(); job.flagged = n; await env.RATE.put(k, JSON.stringify(job), { expirationTtl: 60 * 86400 }); }
+    await logEvent(env, { area: 'שיחות', action: 'סבב שיחות נוסף נפתח', ok: !!okw, review: !okw, token, detail: `${n} אורחים הוחזרו לתור של שיר · ${job.note || ''}` }).catch(() => {});
+    await slackPost(env, `📞 *סבב שיחות נוסף* · אירוע ${token.slice(0, 8)}: ${n} אורחים חזרו לתור של שיר${job.note ? ' · ' + job.note : ''}`).catch(() => {});
+    res.push({ token: token.slice(0, 8), flagged: n, ok: !!okw });
+  }
+  return { ok: true, jobs: res };
+}
+
 /* ══ "כמה תהיו?" nudges (Richard 20/10) ═══════════════════════════════════
    A guest who says "מגיע" without a count is written as 1 and asked once on
    the spot. If no number comes back, the pacer sends one reminder after 2h
@@ -8345,6 +8384,7 @@ export default {
       ctx.waitUntil(pullMetaFormLeads(env).catch(() => {}));
       ctx.waitUntil(drainPartyNudges(env).catch(() => {}));
       ctx.waitUntil(runEventDayBlasts(env).catch(() => {}));
+      ctx.waitUntil(drainCallRounds(env).catch(() => {}));
       ctx.waitUntil(buildCalendarMonth(env, ilDate().slice(0, 7)).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
@@ -9184,6 +9224,20 @@ export default {
     /* 20/10: how much of Meta's rolling-24h conversation cap the guests
        number has used, and when the oldest conversation ages out. */
     /* event-day blast: {token, action:"set"|"dry"|"run"|"clear", time, what, address, nav, template, at} */
+    /* extra call round: {token, action:"set"|"dry"|"run"|"clear", at, guest_ids, note} */
+    if (url.pathname === '/api/call-round' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (b.action === 'set') {
+        const job = { at: String(b.at || ilDate()), guest_ids: [].concat(b.guest_ids || []).map(String).slice(0, 900), note: String(b.note || '').slice(0, 120), set_at: new Date().toISOString() };
+        await env.RATE.put('callround:' + tok, JSON.stringify(job), { expirationTtl: 60 * 86400 });
+        return okJson({ ok: true, job }, origin);
+      }
+      if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
+      return okJson(await drainCallRounds(env, { dry: b.action !== 'run', only: tok }), origin);
+    }
     if (url.pathname === '/api/event-day' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -10368,6 +10422,7 @@ export default {
         } catch {}
         /* who Shir already dialed, so the board can tell "did not answer" from
            "still waiting for a call" */
+        try { const cr = JSON.parse((await env.RATE.get('callround:' + token)) || 'null'); if (cr) sentWaves.callRound = { at: cr.at, n: (cr.guest_ids || []).length, done: !!cr.done, flagged: cr.flagged || 0 }; } catch {}
         sentWaves.dialed = new Set();
         const waitIds = ((raw.guests && raw.guests.values) || [])
           .filter(r => String(r[28] || '').trim() === token && String(r[21] || '').trim() === 'נדרשת שיחה')

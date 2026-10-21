@@ -37,6 +37,7 @@ function guestStatus(rsvp, callFlag) {
 
 /* Everyone across all events whose row says a call is needed, joined with the
    event details the caller reads from the script. Column 29 (AD) counts tries. */
+function queued2(guests) { return guests.filter(g => g.status === 'awaiting_call').length; }
 export function buildCallQueue(raw, maxTries = 3) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
@@ -275,6 +276,12 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       const over = /^\d{4}-\d{2}-\d{2}$/.test(c(6)) && c(6).slice(0, 10) < todayIso;
       const status = start > todayIso ? 'scheduled' : over ? (called ? 'sent' : 'passed') : queued ? 'running' : called ? 'sent' : 'scheduled';
       sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
+    }
+    /* Richard 21/10: an extra round booked by hand shows as its own row */
+    if (sent.callRound && sent.callRound.at) {
+      const cr = sent.callRound;
+      const st = cr.done ? (queued2(guests) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');
+      sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });
     }
   }
   /* the event-day message: 'sent' once the engine stamped it (s5t markers),
