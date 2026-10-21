@@ -27,7 +27,7 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime
 import { proxy as evProxy } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
-import { mondayUpsertLead, mondayGql } from './monday.js';
+import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
@@ -446,6 +446,13 @@ async function processGrowPayment(env, flat) {
         (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : '') +
       `\n${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'} · אסמכתא ${ref}`);
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
+    /* Richard 21/10: the lead in Monday closes itself the moment money lands */
+    if (!flat._simulated && !isTestPhone(env, phone)) {
+      try {
+        const mw = await mondayMarkWon(env, phone, `שילם ₪${sum || '?'} · אסמכתא ${ref} · ${new Date().toISOString().slice(0, 10)}`);
+        if (!mw.ok && mw.why !== 'no-token') await logEvent(env, { area: 'לידים', action: 'סימון "סגר" במאנדיי נכשל', ok: false, review: true, phone, token, detail: mw.why || '' });
+      } catch (e) { await logEvent(env, { area: 'לידים', action: 'סימון "סגר" במאנדיי נכשל', ok: false, review: true, phone, token, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+    }
     /* the stuck-client stage nudges whoever still hasn't uploaded a day later */
     if (env.RATE) await env.RATE.put('pend:' + token,
       JSON.stringify({ phone, name, at: new Date().toISOString() }), { expirationTtl: 7 * 86400 });
@@ -8866,6 +8873,15 @@ export default {
     }
     /* Meta instant-form leads on demand: {dry, since} — dry lists what Meta
        has without writing anything */
+    if (url.pathname === '/api/monday-won' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const out = [];
+      for (const ph of [].concat(b.phones || b.phone || []).map(normPhone).filter(Boolean)) {
+        try { out.push({ phone: ph, ...(await mondayMarkWon(env, ph, b.note || '')) }); } catch (e) { out.push({ phone: ph, ok: false, why: String(e && e.message).slice(0, 200) }); }
+      }
+      return okJson({ ok: true, out }, origin);
+    }
     if (url.pathname === '/api/meta-leads' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

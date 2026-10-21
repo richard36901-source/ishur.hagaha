@@ -85,3 +85,20 @@ export async function mondayUpsertLead(env, phone, rec) {
     { b: String(BOARD), n: rec.name || local, v: vals });
   return { ok: true, id: c.create_item.id, created: true };
 }
+
+/* Richard 21/10: a payment closes the lead everywhere. The humans own סטטוס
+   after creation, except this one transition: money in → "סגר". Phone is
+   the join key, same as mondayUpsertLead. { ok, id } or { ok:false, why }. */
+export async function mondayMarkWon(env, phone, note) {
+  if (!env.MONDAY_API_TOKEN) return { ok: false, why: 'no-token' };
+  const cols = await columnMap(env);
+  const local = String(phone || '').replace(/^972/, '0');
+  const found = await gql(env, `query($b:ID!,$c:String!,$v:[String]!){ items_page_by_column_values(board_id:$b,limit:1,columns:[{column_id:$c,column_values:$v}]){ items{ id } } }`,
+    { b: String(BOARD), c: cols['טלפון'], v: [local] });
+  const hit = found.items_page_by_column_values && found.items_page_by_column_values.items[0];
+  if (!hit) return { ok: false, why: 'not-found' };
+  const v = {}; v[cols['סטטוס']] = { label: 'סגר' }; v[cols['שלב']] = 'שילם';
+  if (note && cols['הערות']) v[cols['הערות']] = { text: note };
+  await gql(env, `mutation($b:ID!,$i:ID!,$v:JSON!){ change_multiple_column_values(board_id:$b,item_id:$i,column_values:$v){ id } }`, { b: String(BOARD), i: hit.id, v: JSON.stringify(v) });
+  return { ok: true, id: hit.id };
+}
