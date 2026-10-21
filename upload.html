@@ -1249,6 +1249,13 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.event) return;
+        /* Richard 21/10: a list that already exists (we built it, or they
+           uploaded) skips straight to the settings step; ?step=2 forces it */
+        var haveList = d.totals && Number(d.totals.invitations) > 0;
+        if ((qs.get('step') === '2' || haveList) && !$('setupView').classList.contains('on')) {
+          show('setupView');
+          IshurLead.track('upload_skip_to_setup', { guests: haveList ? d.totals.invitations : 0 });
+        }
         if (d.hostess && d.hostess.n) initHostess(d.hostess.n, d.hostess);
         var byName = {};
         Object.keys(CFG.PLANS || {}).forEach(function (k) { byName[CFG.PLANS[k].name] = k; });
