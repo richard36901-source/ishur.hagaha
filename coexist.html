@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>חיבור נועה · ishur.io</title>
+<style>
+  :root { --ink:#163a2c; --bg:#f6f7f4; --card:#fff; --acc:#1f5f3f; }
+  body { margin:0; font:16px/1.6 -apple-system, system-ui, "Segoe UI", Arial, sans-serif; background:var(--bg); color:var(--ink); }
+  main { max-width:560px; margin:48px auto; padding:0 16px; }
+  .card { background:var(--card); border-radius:14px; padding:24px; box-shadow:0 1px 3px rgba(0,0,0,.06); }
+  h1 { font-size:1.3rem; margin:0 0 .5rem; }
+  p { margin:.4rem 0; color:#44524b; }
+  button { font:inherit; background:var(--acc); color:#fff; border:0; border-radius:10px; padding:.8rem 1.4rem; cursor:pointer; margin-top:1rem; }
+  button:disabled { opacity:.5; cursor:default; }
+  pre { background:#f0f3ef; border-radius:8px; padding:12px; white-space:pre-wrap; direction:ltr; text-align:left; font-size:.82rem; }
+  .ok { color:#1f5f3f; font-weight:600; }
+  .err { color:#a3321f; font-weight:600; }
+</style>
+</head>
+<body>
+<main>
+  <div class="card">
+    <h1>חיבור המספר של נועה (4499) ל-API</h1>
+    <p>מסלול coexistence של מטא: המספר נשאר באפליקציית WhatsApp Business בטלפון, וה-API מתווסף במקביל.</p>
+    <p>בלחיצה נפתח חלון של מטא. שם בוחרים <b>"מספר מאפליקציית WhatsApp Business"</b>, מתחברים לתיק Ishur.io, ומטא מציגה QR. סורקים אותו מהטלפון: WhatsApp Business → הגדרות → מכשירים מקושרים → קישור מכשיר.</p>
+    <button id="go" disabled>טוען…</button>
+    <p id="status"></p>
+    <pre id="out" hidden></pre>
+  </div>
+</main>
+<script>
+  var APP_ID = '1084149031015902', CONFIG_ID = '1584184826275706';
+  var st = document.getElementById('status'), out = document.getElementById('out'), go = document.getElementById('go');
+  function show(cls, t) { st.className = cls; st.textContent = t; }
+  function dump(o) { out.hidden = false; out.textContent += JSON.stringify(o, null, 2) + '\n'; }
+  window.fbAsyncInit = function () {
+    FB.init({ appId: APP_ID, autoLogAppEvents: true, xfbml: true, version: 'v21.0' });
+    go.disabled = false; go.textContent = 'התחלת חיבור';
+  };
+  window.addEventListener('message', function (e) {
+    if (!/facebook\.com$/.test(new URL(e.origin).hostname)) return;
+    try {
+      var d = JSON.parse(e.data);
+      if (d.type === 'WA_EMBEDDED_SIGNUP') {
+        dump(d);
+        if (d.event === 'FINISH' || d.event === 'FINISH_WHATSAPP_BUSINESS_APP_ONBOARDING') {
+          show('ok', 'המספר חובר. phone_number_id: ' + (d.data && d.data.phone_number_id) + ' · waba_id: ' + (d.data && d.data.waba_id));
+          fetch('https://go.ishur.io/api/coexist-done', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(d.data || {}) }).catch(function () {});
+        } else if (d.event === 'CANCEL') show('err', 'החלון נסגר בשלב: ' + (d.data && d.data.current_step));
+        else if (d.event === 'ERROR') show('err', 'שגיאה: ' + (d.data && d.data.error_message));
+      }
+    } catch (err) {}
+  });
+  go.addEventListener('click', function () {
+    show('', 'נפתח חלון מטא…');
+    FB.login(function (r) { dump(r); }, {
+      config_id: CONFIG_ID,
+      response_type: 'code',
+      override_default_response_type: true,
+      extras: { setup: {}, featureType: 'whatsapp_business_app_onboarding', sessionInfoVersion: '3' }
+    });
+  });
+</script>
+<script async defer crossorigin="anonymous" src="https://connect.facebook.net/he_IL/sdk.js"></script>
+</body>
+</html>
