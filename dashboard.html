@@ -1844,7 +1844,7 @@
      page opens in replace mode (allowed until the first send) */
   (function () {
     var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
-    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=4&t=' + encodeURIComponent(token); else sl.hidden = true; }
+    var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=5&t=' + encodeURIComponent(token); else sl.hidden = true; }
     var bl = $('budgetLink'); if (bl) { if (token && !demo) bl.href = 'budget.html?v=1&t=' + encodeURIComponent(token); else bl.hidden = true; }
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {
