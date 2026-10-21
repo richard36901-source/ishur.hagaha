@@ -3943,6 +3943,81 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
 }
 function clientWabaFor(channel) { return channel === 'guests' ? '1378764257421712' : clientWaba({}); }
 
+/* ══ custom invitation text per event (Richard 21/10) ══════════════════════
+   customtmpl:<token> = { name, text, status: PENDING|APPROVED|REJECTED, id,
+   header: IMAGE|NONE, reason, at, checked }. The client's own words become a
+   UTILITY template on Shir's WABA with the same RSVP buttons; wave 1 (and
+   late additions) use it once Meta approves, otherwise the house template. */
+async function metaHeaderHandle(env, imgUrl, appId, tok) {
+  let buf, type;
+  const own = String(imgUrl || '').match(/\/(vid|img)\/([0-9a-f-]{36})/);
+  if (own) {
+    const got = await env.RATE.getWithMetadata((own[1] === 'vid' ? 'vid:' : 'img:') + own[2], { type: 'arrayBuffer' });
+    if (!got || !got.value) return null;
+    buf = got.value; type = (got.metadata && got.metadata.mime) || (own[1] === 'vid' ? 'video/mp4' : 'image/jpeg');
+  } else {
+    const img = await fetch(imgUrl).catch(() => null);
+    if (!img || !img.ok) return null;
+    buf = await img.arrayBuffer(); type = img.headers.get('Content-Type') || 'image/jpeg';
+  }
+  const s1 = await fetch(`https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buf.byteLength}&file_type=${encodeURIComponent(type)}&access_token=${tok}`, { method: 'POST' });
+  const j1 = await s1.json().catch(() => ({}));
+  if (!j1.id) return null;
+  const s2 = await fetch(`https://graph.facebook.com/v21.0/${j1.id}`, { method: 'POST', headers: { Authorization: 'OAuth ' + tok, file_offset: '0', 'Content-Type': type }, body: buf });
+  const j2 = await s2.json().catch(() => ({}));
+  return j2.h ? { handle: j2.h, video: /^video/.test(type) } : null;
+}
+async function customTemplateSubmit(env, token, text, ev) {
+  const tok = env.WA_TOKEN_GUESTS, waba = '1378764257421712', appId = '1084149031015902';
+  if (!tok) return { ok: false, why: 'wa-not-configured' };
+  let prev = null; try { prev = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); } catch {}
+  const n = (prev && prev.n ? prev.n : 0) + 1;
+  const name = `ishur_c_${token.slice(0, 8).replace(/-/g, '')}_${n}`;
+  const invite = ev ? String(ev[44] || '').trim() : '';
+  const components = [];
+  let header = 'NONE';
+  if (invite) {
+    const h = await metaHeaderHandle(env, invite, appId, tok);
+    if (h) { components.push({ type: 'HEADER', format: h.video ? 'VIDEO' : 'IMAGE', example: { header_handle: [h.handle] } }); header = h.video ? 'VIDEO' : 'IMAGE'; }
+  }
+  components.push({ type: 'BODY', text });
+  components.push({ type: 'FOOTER', text: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' });
+  components.push({ type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'מגיע/ה' }, { type: 'QUICK_REPLY', text: 'לא מגיע/ה' }, { type: 'QUICK_REPLY', text: 'עדיין לא ידוע' }] });
+  const tpl = { name, language: 'he', category: 'UTILITY', allow_category_change: false, components };
+  const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) }).catch(() => null);
+  const j = r ? await r.json().catch(() => ({})) : {};
+  const rec = { n, name, text, status: j.id ? (String(j.status || 'PENDING').toUpperCase()) : 'FAILED', id: j.id || '', header, reason: j.id ? '' : String((j.error && j.error.error_user_msg) || (j.error && j.error.message) || 'submit-failed').slice(0, 200), at: new Date().toISOString(), checked: '' };
+  await env.RATE.put('customtmpl:' + token, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+  await logEvent(env, { area: 'מטא', action: rec.status === 'FAILED' ? 'תבנית בהתאמה אישית נדחתה בהגשה' : 'תבנית בהתאמה אישית הוגשה לאישור', ok: rec.status !== 'FAILED', review: rec.status === 'FAILED', token, ref: name, detail: rec.reason || text.slice(0, 120) });
+  await slackPost(env, `📝 *נוסח הזמנה בהתאמה אישית* · אירוע ${token.slice(0, 8)} · ${rec.status === 'FAILED' ? '⛔ לא התקבל: ' + rec.reason : 'הוגש למטא (' + name + ')'}\n${text.slice(0, 300)}`).catch(() => {});
+  return { ok: rec.status !== 'FAILED', rec };
+}
+async function checkCustomTemplates(env) {
+  if (!env.RATE || !env.WA_TOKEN_GUESTS) return { checked: 0 };
+  const all = await kvPrefix(env, 'customtmpl:');
+  let checked = 0;
+  for (const [k, raw] of Object.entries(all)) {
+    let rec = null; try { rec = JSON.parse(raw); } catch {}
+    if (!rec || rec.status !== 'PENDING' || !rec.name) continue;
+    const r = await fetch(`https://graph.facebook.com/v21.0/1378764257421712/message_templates?name=${rec.name}&fields=name,status,rejected_reason`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    const t = ((j.data || [])[0]) || null; checked++;
+    if (!t) continue;
+    const st = String(t.status || '').toUpperCase();
+    if (st === 'PENDING' || st === rec.status) { rec.checked = new Date().toISOString(); await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 }); continue; }
+    rec.status = st; rec.reason = st === 'REJECTED' ? String(t.rejected_reason || '') : ''; rec.checked = new Date().toISOString();
+    await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+    const token = k.slice('customtmpl:'.length);
+    await logEvent(env, { area: 'מטא', action: st === 'APPROVED' ? 'תבנית בהתאמה אישית אושרה' : `תבנית בהתאמה אישית: ${st}`, ok: st === 'APPROVED', review: st !== 'APPROVED', token, ref: rec.name, detail: rec.reason || '' });
+    await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}`).catch(() => {});
+  }
+  return { checked };
+}
+async function customTemplateFor(env, token) {
+  if (!env.RATE) return null;
+  try { const rec = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); return rec && rec.status === 'APPROVED' ? rec : null; } catch { return null; }
+}
+
 /* ══ extra call round on a chosen day (Richard 21/10) ═══════════════════════
    callround:<token> = { at, guest_ids, note, set_at, done }. On the day, from
    09:00, the listed rows get V = נדרשת שיחה and AD (tries) = 0, so Shir's
@@ -4183,7 +4258,11 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
        entire wave fail. The artwork goes as its own message right after. */
     const useVid = !!(videoUrl && wave.key === 1);
     const useImg = !useVid && !!(imgTmpl && invite && wave.key === 1);
-    const res = await sendTemplate(env, phone, useVid ? vidTmpl : useImg ? imgTmpl : inviteTmpl,
+    /* Richard 21/10: the client's own approved wording replaces the house invitation */
+    const custom = wave.key === 1 ? await customTemplateFor(env, token) : null;
+    const res = custom
+      ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
+      : await sendTemplate(env, phone, useVid ? vidTmpl : useImg ? imgTmpl : inviteTmpl,
       [name, occasion, hosts, date, time, venue], useVid ? videoUrl : useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token, name });
     if (budget) budget.left--;
@@ -8406,6 +8485,7 @@ export default {
       ctx.waitUntil(drainPartyNudges(env).catch(() => {}));
       ctx.waitUntil(runEventDayBlasts(env).catch(() => {}));
       ctx.waitUntil(drainCallRounds(env).catch(() => {}));
+      ctx.waitUntil(checkCustomTemplates(env).catch(() => {}));
       ctx.waitUntil(buildCalendarMonth(env, ilDate().slice(0, 7)).catch(() => {}));
       ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
       ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
@@ -9271,6 +9351,24 @@ export default {
       if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
       return okJson(await drainCallRounds(env, { dry: b.action !== 'run', only: tok }), origin);
     }
+    /* custom invitation wording: {token, action:'get'|'set', text} (client or admin) */
+    if (url.pathname === '/api/custom-template' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec0 = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec0 && !isAdmin(env, b.admin_key)) return deny(404, 'unknown-token', origin);
+      let cur = null; try { cur = JSON.parse((await env.RATE.get('customtmpl:' + tok)) || 'null'); } catch {}
+      if (b.action !== 'set') return okJson({ ok: true, custom: cur }, origin);
+      if (await overBudget(env, 'rl:ctmpl:' + tok, 6, 86400)) return deny(429, 'slow-down', origin);
+      const text = String(b.text || '').replace(/\r/g, '').trim().slice(0, 1024);
+      if (text.length < 20) return deny(400, 'text-too-short', origin);
+      if (/\{\{|\}\}/.test(text)) return deny(400, 'no-placeholders', origin);
+      if (env.RATE && await env.RATE.get('wave:' + tok + ':1')) return okJson({ ok: false, error: 'already-sent' }, origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok) || null;
+      const out = await customTemplateSubmit(env, tok, text, ev);
+      return okJson({ ok: out.ok, custom: out.rec, why: out.why || '' }, origin);
+    }
     if (url.pathname === '/api/event-day' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -9968,8 +10066,11 @@ export default {
         const invite = String(ev[44] || '').trim();
         const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
         const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
+        const custom = await customTemplateFor(env, tok);
         if (!(await phoneBlocked(env, phone))) {
-          const res = await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name });
+          const res = custom
+            ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : media, 'he', 'guests', { occasion, wave: 1, token: tok, name })
+            : await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name });
           sent = !!res.ok; why = res.ok ? 'sent' : (res.error || 'send-failed');
           if (res.ok) {
             await env.RATE.put(`wsent:${tok}:1:${phone}`, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
@@ -10583,6 +10684,7 @@ export default {
           (snapshot.guests || []).forEach(g => { const v = parseInt(arr[`arrived:${token}:${g.id}`], 10) || 0; g.arrived = v; if (v) { total += v; people++; } });
           snapshot.checkin = { enabled, hostess: hasHostess, event_day: evDate === today, arrived_total: total, arrived_people: people };
         } catch { snapshot.checkin = { enabled: false }; }
+        try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header } : null; } catch { snapshot.custom_template = null; }
         /* Richard 21/10: the Morning invoice is downloadable from the board */
         try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
         /* a direct-link buyer's row has no tier until the engine fills it;

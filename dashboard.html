@@ -73,6 +73,15 @@
     -webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent;
   }
   .wrap{max-width:620px;margin:0 auto;padding:0 1rem}
+  /* desktop table of contents, Notion-style, pinned at the start side (Richard 21/10) */
+  .toc{display:none}
+  @media (min-width:1100px){
+    .toc{display:block;position:fixed;top:5.6rem;inset-inline-start:max(1rem,calc(50% - 310px - 230px));width:200px;z-index:4;font-size:.84rem}
+    .toc a{display:block;padding:.3rem .6rem;border-inline-start:2px solid var(--bdr);color:var(--ink3);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+    .toc a:hover{color:var(--ink)}
+    .toc a.on{color:var(--green2);border-color:var(--green);font-weight:600}
+    body.preview .toc{display:none}
+  }
 
   .top{
     background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,#0F2E22 60%,#0A2119 100%);
@@ -585,6 +594,7 @@
   </div>
 </div>
 
+<nav class="toc" id="toc" aria-label="תוכן הלוח" hidden></nav>
 <div class="wrap" id="main" hidden>
 
   <!-- the event is behind them: the page turns into a record of it -->
@@ -607,6 +617,16 @@
         <button type="button" class="buy" id="mediaBtn" hidden>החלפת התמונה / הווידאו</button>
         <span id="mediaMsg" style="font-size:.8rem;margin-inline-start:.5rem"></span>
       </div>
+    </div>
+    <!-- Richard 21/10: the client's own wording, submitted to Meta for approval -->
+    <div class="card-b" id="ctBlock" style="border-top:1px solid var(--bdr)">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
+        <b style="font-size:.9rem">נוסח ההזמנה</b>
+        <span id="ctStatus" style="font-size:.78rem"></span>
+      </div>
+      <pre id="ctText" style="white-space:pre-wrap;font:inherit;font-size:.86rem;background:var(--bg2,#f2f2ee);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;color:var(--ink2)"></pre>
+      <p id="ctNote" style="margin:0 0 .5rem;font-size:.78rem;color:var(--ink3)"></p>
+      <button type="button" class="buy" id="ctBtn" style="background:var(--green4);color:var(--green2)">נוסח בהתאמה אישית</button>
     </div>
   </section>
 
@@ -1036,7 +1056,78 @@
     });
   })();
 
+  var DEFAULT_INVITE = function () {
+    var ev = data.event || {};
+    var hosts = ev.name1 || 'בעלי השמחה', occ = ev.occasion_label || ev.occasion || 'אירוע';
+    var date = ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL') : 'התאריך';
+    return 'שלום {שם האורח}! הוזמנתם ל' + occ + ' של ' + hosts + '.\n\n📅 ' + date + '\n🕐 קבלת פנים ' + (ev.reception_time || 'השעה') + '\n📍 ' + [ev.venue_name, ev.venue_city].filter(Boolean).join(', ') + '\n\nנשמח לדעת אם תגיעו:';
+  };
+  function renderCustomText() {
+    var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
+    if (!st) return;
+    var sent = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
+    if (ct && ct.status === 'APPROVED') { st.innerHTML = '<span style="color:var(--green2)">✓ נוסח אישי מאושר</span>'; tx.textContent = ct.text; nt.textContent = 'זה הנוסח שהמוזמנים מקבלים, עם כפתורי האישור למטה.'; }
+    else if (ct && ct.status === 'PENDING') { st.innerHTML = '<span style="color:#9A5B00">⏳ ממתין לאישור וואטסאפ</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ בודקים נוסחים חדשים, בדרך כלל תוך שעה. עד האישור נשלח הנוסח הרגיל.'; }
+    else if (ct && (ct.status === 'REJECTED' || ct.status === 'FAILED')) { st.innerHTML = '<span style="color:var(--warn,#a3321f)">✕ הנוסח לא אושר</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ לא אישרו את הנוסח' + (ct.reason ? ' (' + ct.reason + ')' : '') + '. אפשר לנסות נוסח אחר; בינתיים נשלח הנוסח הרגיל.'; }
+    else { st.textContent = 'הנוסח הרגיל'; tx.textContent = DEFAULT_INVITE(); nt.textContent = 'רוצים ניסוח משלכם? כותבים אותו, אנחנו מגישים לאישור וואטסאפ, וברגע שמאושר ההזמנה יוצאת בניסוח שלכם.'; }
+    b.hidden = !!sent || demo;
+    if (sent) nt.textContent = 'ההזמנות כבר יצאו, הנוסח נעול.';
+  }
+  (function () {
+    var b = $('ctBtn'); if (!b) return;
+    b.addEventListener('click', function () {
+      var ct = data.custom_template || null;
+      var box = document.createElement('div');
+      box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+      box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:440px">' +
+        '<h3 style="margin:0 0 .3rem">נוסח ההזמנה שלכם</h3>' +
+        '<p style="margin:0 0 .6rem;font-size:.84rem;color:var(--ink2)">כתבו את ההודעה כמו שתרצו שהמוזמנים יקבלו. כפתורי "מגיע / לא מגיע / עדיין לא ידוע" מתווספים אוטומטית. בלי שם האורח (אי אפשר להכניס שדות).</p>' +
+        '<textarea id="ctArea" rows="9" style="width:100%;font:inherit;font-size:.9rem;padding:.6rem;border:1px solid var(--bdr);border-radius:10px;resize:vertical"></textarea>' +
+        '<p id="ctErr" style="margin:.3rem 0 .6rem;font-size:.8rem;color:var(--warn,#a3321f);min-height:1.2em"></p>' +
+        '<button type="button" class="buy" id="ctSend" style="width:100%;margin-bottom:.5rem">הגשה לאישור וואטסאפ</button>' +
+        '<button type="button" class="btn" id="ctX" style="width:100%">ביטול</button></div>';
+      document.body.appendChild(box);
+      box.querySelector('#ctArea').value = ct && ct.text ? ct.text : '';
+      box.querySelector('#ctX').addEventListener('click', function () { box.remove(); });
+      box.addEventListener('click', function (e) { if (e.target === box) box.remove(); });
+      box.querySelector('#ctSend').addEventListener('click', function () {
+        var text = box.querySelector('#ctArea').value.trim(), err = box.querySelector('#ctErr'), sb = box.querySelector('#ctSend');
+        if (text.length < 20) { err.textContent = 'קצר מדי'; return; }
+        if (/\{\{|\}\}/.test(text)) { err.textContent = 'בלי סוגריים מסולסלים'; return; }
+        sb.disabled = true; sb.textContent = 'מגישים…';
+        IshurLead.track('custom_template_submit', {});
+        fetch(CFG.endpoint('custom-template'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, action: 'set', text: text }) })
+          .then(function (r) { return r.json(); }).then(function (j) {
+            if (!j || !j.ok) { sb.disabled = false; sb.textContent = 'הגשה לאישור וואטסאפ'; err.textContent = j && j.error === 'already-sent' ? 'ההזמנות כבר יצאו' : (j && j.custom && j.custom.reason) || 'לא הצלחנו להגיש, נסו שוב'; return; }
+            data.custom_template = { status: j.custom.status, text: j.custom.text, reason: j.custom.reason || '' };
+            box.remove(); renderCustomText(); IshurUX.toast('הוגש לאישור וואטסאפ');
+          }).catch(function () { sb.disabled = false; sb.textContent = 'הגשה לאישור וואטסאפ'; err.textContent = 'לא הצלחנו להגיש, נסו שוב'; });
+      });
+    });
+  })();
+  function renderToc() {
+    var nav = $('toc'); if (!nav) return;
+    var items = [];
+    document.querySelectorAll('#main section.card').forEach(function (sec, i) {
+      if (sec.hidden) return;
+      var h = sec.querySelector('.card-h'); if (!h) return;
+      var label = (h.querySelector('span') ? h.querySelector('span').textContent : h.textContent).trim().split('\n')[0].slice(0, 28);
+      if (!label) return;
+      if (!sec.id) sec.id = 'sec-' + i;
+      items.push({ id: sec.id, label: label });
+    });
+    nav.hidden = items.length < 3;
+    nav.innerHTML = items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
+    nav.onclick = function (e) { var a = e.target.closest('a'); if (!a) return; e.preventDefault(); var el = document.getElementById(a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    if (window.IntersectionObserver && !renderToc._io) {
+      renderToc._io = new IntersectionObserver(function (es) {
+        es.forEach(function (en) { if (en.isIntersecting) { nav.querySelectorAll('a').forEach(function (a) { a.classList.toggle('on', a.dataset.sec === en.target.id); }); } });
+      }, { rootMargin: '-20% 0px -70% 0px' });
+    }
+    if (renderToc._io) { renderToc._io.disconnect(); items.forEach(function (it) { var el = document.getElementById(it.id); if (el) renderToc._io.observe(el); }); }
+  }
   function render() {
+    renderCustomText(); setTimeout(renderToc, 50);
     renderMedia();
     normalize(data);
     var ev = data.event || {};
