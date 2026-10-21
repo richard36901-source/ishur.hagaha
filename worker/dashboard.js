@@ -288,8 +288,8 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   /* the event-day message: 'sent' once the engine stamped it (s5t markers),
      'passed' when the day is behind us without one, otherwise scheduled */
   if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: sent.eventDay ? 'sent' : (c(6).slice(0, 10) < todayIso ? 'passed' : 'scheduled'), auto: true });
-  /* the day after: a thank-you to everyone who came (every package) */
-  if (/^\d{4}-\d{2}-\d{2}$/.test(c(6).slice(0, 10))) {
+  /* the day after: a thank-you to everyone who came (פרמיום and up, Richard 21/10) */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(c(6).slice(0, 10)) && planKeyOf(ev) !== 'basic') {
     const d = new Date(c(6).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);
     const dayAfter = d.toISOString().slice(0, 10);
     sends.push({ key: 'day_after', label: 'הודעת תודה לאורחים', date: dayAfter, status: sent.dayAfter ? 'sent' : (dayAfter < todayIso ? 'passed' : 'scheduled'), auto: true });

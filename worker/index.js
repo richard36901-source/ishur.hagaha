@@ -4674,7 +4674,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
        Same per-guest markers + budget shape as the cancel notice. */
     /* Richard, 11/09: the thank-you goes out on every package — it is our
        spot for a word about ishur.io */
-    if (!(env.RATE && await env.RATE.get('toda:' + token))) {
+    /* Richard 21/10: thank-you is פרמיום and up; בסיס gets none */
+    if (planKeyOf(ev) !== 'basic' && !(env.RATE && await env.RATE.get('toda:' + token))) {
       if (dry) { out.push({ token, type: 'guest_thanks', would_send: confirmed }); }
       else {
         let tsent = 0, tfail = 0, tcut = false; const tseen = new Set();
