@@ -6882,6 +6882,15 @@ async function undeliveredByEvent(env, raw) {
   async function await_sent(env, token, wave, phone) { const k = `wsent:${token}:${wave}:${phone}`; if (!(k in sentCache)) sentCache[k] = !!(await env.RATE.get(k).catch(() => null)); return sentCache[k]; }
   for (const [k, v] of Object.entries(dead)) { const [token, wave, phone] = k.split(':'); if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'dead', code: v }); }
   for (const [k, v] of Object.entries(fails)) { const [token, wave, phone] = k.split(':'); if (dead[`${token}:${wave}:${phone}`]) continue; if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'retry', code: await env.RATE.get(`wferr:${token}:${wave}:${phone}`).catch(() => '') || '' }); }
+  /* Richard 21/10 (Hadar, 100 guests): a send refused by Meta's daily cap
+     (131048) left only wferr behind, so the retry list never saw it and the
+     wave closed over it. Count every wferr without a wsent as undelivered. */
+  const errs = await kvPrefix(env, 'wferr:');
+  for (const [k, v] of Object.entries(errs)) {
+    const [token, wave, phone] = k.split(':');
+    if (dead[`${token}:${wave}:${phone}`] || fails[`${token}:${wave}:${phone}`]) continue;
+    if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'held', code: v || '' });
+  }
   return out;
 }
 function undeliveredLines(byEv) {
