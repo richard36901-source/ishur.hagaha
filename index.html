@@ -1962,7 +1962,13 @@ body.has-promo #nav{top:var(--promo-h,34px)}
           <p id="addon-gifts-desc"></p>
           <p class="fine">ללא עלות לבעלי האירוע. האורח משלם דמי סליקה קטנים, כמו בכל אתר תשלומים.</p>
           <button type="button" class="btn btn-green" id="addon-gifts-interest" style="margin-top:.6rem">מעניין אותי, עדכנו אותי כשזה עולה</button>
-          <p class="fine" id="addon-gifts-thanks" hidden>תודה, רשמנו. תקבלו עדכון ראשונים כשהשירות עולה.</p>
+          <div id="addon-gifts-form" hidden style="margin-top:.6rem;display:grid;gap:.4rem;max-width:360px">
+            <input id="agf-name" placeholder="שם" autocomplete="name" style="font:inherit;padding:.55rem .7rem;border:1.5px solid #d9d4c7;border-radius:10px">
+            <input id="agf-phone" placeholder="טלפון נייד" inputmode="tel" autocomplete="tel" style="font:inherit;padding:.55rem .7rem;border:1.5px solid #d9d4c7;border-radius:10px">
+            <input id="agf-email" placeholder="מייל (לא חובה)" inputmode="email" autocomplete="email" style="font:inherit;padding:.55rem .7rem;border:1.5px solid #d9d4c7;border-radius:10px">
+            <button type="button" class="btn btn-green" id="agf-send">עדכנו אותי כשזה עולה</button>
+          </div>
+          <p class="fine" id="addon-gifts-thanks" hidden>תודה, רשמנו. תקבלו הודעה ראשונים כשהשירות עולה.</p>
         </div>
       </div>
     </div>
@@ -2441,13 +2447,22 @@ buildPricing();
   const f=document.getElementById('addon-hostess-fine'); if(f) f.textContent=H.travelNote+' המחירים כוללים מע״מ ומתווספים לחבילה.';
   const gd=document.getElementById('addon-gifts-desc'); if(gd) gd.textContent=G.desc;
   /* Richard 21/10: demand counter for gifts-by-credit, one per browser */
-  const gi=document.getElementById('addon-gifts-interest');
+  const gi=document.getElementById('addon-gifts-interest'), gf=document.getElementById('addon-gifts-form');
+  const vidOf=()=>{ let vid=''; try{ vid=localStorage.getItem('ishur_vid')||''; if(!vid){ vid='v'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); localStorage.setItem('ishur_vid',vid);} }catch(e){ vid='v'+Date.now().toString(36); } return vid; };
   if(gi) gi.addEventListener('click',()=>{
-    let vid=''; try{ vid=localStorage.getItem('ishur_vid')||''; if(!vid){ vid='v'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); localStorage.setItem('ishur_vid',vid);} }catch(e){ vid='v'+Date.now().toString(36); }
-    gi.disabled=true; push('gift_interest',{});
-    fetch(CFG.endpoint('interest'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'gift_credit',vid,where:'site'})})
-      .then(r=>r.json()).then(()=>{ gi.hidden=true; const th=document.getElementById('addon-gifts-thanks'); if(th) th.hidden=false; })
-      .catch(()=>{ gi.disabled=false; });
+    /* the click itself counts (Slack + counter); details follow in the mini form */
+    push('gift_interest',{});
+    fetch(CFG.endpoint('interest'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'gift_credit',vid:vidOf(),where:'site'})}).catch(()=>{});
+    gi.hidden=true; if(gf) gf.hidden=false; const ph=document.getElementById('agf-phone'); if(ph) ph.focus();
+  });
+  const gs=document.getElementById('agf-send');
+  if(gs) gs.addEventListener('click',()=>{
+    const name=(document.getElementById('agf-name').value||'').trim(), phone=(document.getElementById('agf-phone').value||'').trim(), email=(document.getElementById('agf-email').value||'').trim();
+    if(phone.replace(/\D/g,'').length<9 && !/@/.test(email)){ alert('צריך טלפון או מייל כדי שנוכל לעדכן אתכם'); return; }
+    gs.disabled=true;
+    fetch(CFG.endpoint('interest'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'gift_credit',vid:vidOf(),where:'site',name,phone,email})})
+      .then(r=>r.json()).then(()=>{ gf.hidden=true; const th=document.getElementById('addon-gifts-thanks'); if(th) th.hidden=false; })
+      .catch(()=>{ gs.disabled=false; });
   });
   const go=document.getElementById('addon-hostess-go');
   if(go) go.addEventListener('click',()=>{

@@ -3968,6 +3968,7 @@ async function drainPartyNudges(env) {
   return { sent };
 }
 
+function b_isAdminish(f) { return !!(f && f.preview_checkin); }
 async function writeGuestReply(env, guest, outcome, party) {
   const r = await fetch(env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -9725,19 +9726,53 @@ export default {
       if (!kind || !vid || !env.RATE) return deny(400, 'bad-request', origin);
       const ip = request.headers.get('cf-connecting-ip') || '';
       if (await overBudget(env, 'rl:interest:' + ip, 20, 3600)) return deny(429, 'slow-down', origin);
-      const seenKey = `interest:${kind}:${vid}`;
       const labels = { gift_credit: 'מתנות באשראי' };
-      if (await env.RATE.get(seenKey)) {
+      const where = String(b.where || '').slice(0, 40);
+      /* who: a logged-in client (token) is known; a site visitor leaves details */
+      let who = { name: String(b.name || '').trim().slice(0, 60), phone: normPhone(b.phone || ''), email: String(b.email || '').trim().slice(0, 80) };
+      const tok = /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? String(b.token) : '';
+      if (tok) { const rec = await tokenRecord(env, tok); if (rec) who = { name: who.name || rec.name || '', phone: who.phone || normPhone(rec.phone || ''), email: who.email || rec.email || '' }; }
+      /* one person = one phone when we have it, else one browser */
+      const pid = who.phone || vid;
+      const seenKey = `interest:${kind}:${pid}`;
+      const existed = await env.RATE.get(seenKey);
+      const recKey = `interestrec:${kind}:${pid}`;
+      let prev = null; try { prev = JSON.parse((await env.RATE.get(recKey)) || 'null'); } catch {}
+      const record = { ...(prev || {}), kind, vid, name: who.name || (prev && prev.name) || '', phone: who.phone || (prev && prev.phone) || '', email: who.email || (prev && prev.email) || '', where, token: tok.slice(0, 8), at: (prev && prev.at) || new Date().toISOString(), updated: new Date().toISOString(), notified: (prev && prev.notified) || '' };
+      await env.RATE.put(recKey, JSON.stringify(record), { expirationTtl: 400 * 86400 });
+      if (existed) {
         const n0 = parseInt(await env.RATE.get('interestcount:' + kind), 10) || 0;
-        return okJson({ ok: true, counted: false, total: n0 }, origin);
+        return okJson({ ok: true, counted: false, total: n0, saved: !!(who.phone || who.email) }, origin);
       }
       await env.RATE.put(seenKey, new Date().toISOString(), { expirationTtl: 400 * 86400 });
       const n = (parseInt(await env.RATE.get('interestcount:' + kind), 10) || 0) + 1;
       await env.RATE.put('interestcount:' + kind, String(n));
-      const where = String(b.where || '').slice(0, 40);
-      await logEvent(env, { area: 'ביקוש', action: `לחיצה "מעניין אותי" · ${labels[kind] || kind}`, ok: true, token: String(b.token || '').slice(0, 8), detail: `${where} · סה"כ ${n} אנשים שונים` }).catch(() => {});
-      await slackPost(env, `💳 *${labels[kind] || kind} · מישהו לחץ "מעניין אותי"*${where ? ' · ' + where : ''}\nסה"כ עד עכשיו: *${n}* אנשים שונים`).catch(() => {});
-      return okJson({ ok: true, counted: true, total: n }, origin);
+      const whoTxt = [record.name, record.phone ? record.phone.replace(/^972/, '0') : '', record.email].filter(Boolean).join(' · ') || 'ללא פרטים';
+      await logEvent(env, { area: 'ביקוש', action: `"מעניין אותי" · ${labels[kind] || kind}`, ok: true, phone: record.phone, token: tok.slice(0, 8), detail: `${whoTxt} · ${where} · סה"כ ${n} אנשים שונים` }).catch(() => {});
+      await slackPost(env, `💳 *${labels[kind] || kind} · מישהו לחץ "מעניין אותי"*${where ? ' · ' + where : ''}\n${whoTxt}\nסה"כ עד עכשיו: *${n}* אנשים שונים`).catch(() => {});
+      return okJson({ ok: true, counted: true, total: n, saved: !!(who.phone || who.email) }, origin);
+    }
+    /* admin: everyone who asked for a coming feature */
+    if (url.pathname === '/api/interest-list' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const kind = String(b.kind || 'gift_credit').replace(/[^a-z_]/g, '');
+      const all = await kvPrefix(env, `interestrec:${kind}:`);
+      const list = Object.values(all).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean).sort((a, c) => String(a.at).localeCompare(String(c.at)));
+      return okJson({ ok: true, kind, total: list.length, list }, origin);
+    }
+    /* Richard 21/10: hostess check-in on event day. arrived:<token>:<gid> = n */
+    if (url.pathname === '/api/checkin' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec || !env.RATE) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:checkin:' + tok, 2000, 3600)) return deny(429, 'slow-down', origin);
+      const gid = String(b.guest_id || '').trim(); if (!gid) return deny(400, 'bad-guest', origin);
+      const n = Math.max(0, Math.min(99, parseInt(b.arrived, 10) || 0));
+      const key = `arrived:${tok}:${gid}`;
+      if (n > 0) await env.RATE.put(key, String(n), { expirationTtl: 120 * 86400 }); else await env.RATE.delete(key).catch(() => {});
+      return okJson({ ok: true, guest_id: gid, arrived: n }, origin);
     }
     if (url.pathname === '/api/guest-rsvp' && request.method === 'POST') {
       let b = {};
@@ -10400,6 +10435,19 @@ export default {
         const bought = hb ? JSON.parse(hb) : null, plan = hp ? JSON.parse(hp) : null, trav = ht ? JSON.parse(ht) : null;
         if (bought || plan) snapshot.hostess = { n: (bought && bought.n) || (plan && plan.n) || 0, center: plan ? !!plan.center : null, city: (plan && plan.city) || (bought && bought.city) || '', date: bought ? bought.date || '' : '', travel_included: bought ? bought.travel_included : null, travel_paid: trav ? Number(trav.paid) || 0 : 0 };
         snapshot.gifts = gl ? JSON.parse(gl) : { bit: '', paybox: '', on: false };
+        /* Richard 21/10: on the event day, with hostesses booked, the list
+           becomes a check-in sheet: who arrived and how many */
+        try {
+          const evDate = String((snapshot.event || {}).event_date || '').slice(0, 10);
+          const hasHostess = !!(snapshot.hostess && snapshot.hostess.n > 0);
+          const today = ilDate();
+          /* ?checkin=1 on the board previews the sheet before the day (demo to a client, hostess rehearsal) */
+          const enabled = (hasHostess && evDate === today) || b_isAdminish(stampFields);
+          const arr = (hasHostess || b_isAdminish(stampFields)) ? await kvPrefix(env, `arrived:${token}:`) : {};
+          let total = 0, people = 0;
+          (snapshot.guests || []).forEach(g => { const v = parseInt(arr[`arrived:${token}:${g.id}`], 10) || 0; g.arrived = v; if (v) { total += v; people++; } });
+          snapshot.checkin = { enabled, hostess: hasHostess, event_day: evDate === today, arrived_total: total, arrived_people: people };
+        } catch { snapshot.checkin = { enabled: false }; }
         /* Richard 21/10: the Morning invoice is downloadable from the board */
         try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
         /* a direct-link buyer's row has no tier until the engine fills it;
