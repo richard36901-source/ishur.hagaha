@@ -4552,7 +4552,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
         for (const g of guests) {
-          const answered = String(g[15] || '').trim() !== '';
+          /* Richard 21/10: "מתלבט" is not an answer for the call round — Shir
+             calls them too, to close it one way or the other */
+          const rsvp = String(g[15] || '').trim();
+          const answered = rsvp !== '' && rsvp !== 'מתלבט';
           const gid = String(g[2] || '').trim();
           const callStatus = String(g[21] || '').trim();
           if (answered || !gid || callStatus) continue;
@@ -4567,7 +4570,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             body: JSON.stringify({
               event_type: 'call_result', guest_id: gid,
               rsvp: '__keep__', call_status: 'נדרשת שיחה',
-              answer: 'לא ענה להודעות', tries: '__keep__', party: '__keep__',
+              answer: rsvp === 'מתלבט' ? 'מתלבט - לבדוק בשיחה' : 'לא ענה להודעות', tries: '__keep__', party: '__keep__',
               ts: new Date().toISOString(),
             }),
           }).catch(() => null);

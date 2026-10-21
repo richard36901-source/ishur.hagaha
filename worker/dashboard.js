@@ -96,13 +96,14 @@ export function callOutcome(outcome, tries, maxTries = 3) {
     case 'מגיע':     return { rsvp: 'מגיע',     call_status: '',            answer: 'ענה',  tries: t };
     case 'לא מגיע':  return { rsvp: 'לא מגיע',  call_status: '',            answer: 'ענה',  tries: t };
     case 'מתלבט':    return { rsvp: 'מתלבט',    call_status: 'נדרשת שיחה', answer: 'ענה - מתלבט', tries: t };
-    case 'לחייג שוב': return { rsvp: '',        call_status: 'נדרשת שיחה', answer: 'לחייג שוב',   tries: t };
-    case 'לא להתקשר': return { rsvp: '',        call_status: '',            answer: 'ביקש לא להתקשר יותר', tries: t };
+    /* Richard 21/10: a silent call must not erase an earlier "מתלבט" */
+    case 'לחייג שוב': return { rsvp: '__keep__', call_status: 'נדרשת שיחה', answer: 'לחייג שוב',   tries: t };
+    case 'לא להתקשר': return { rsvp: '__keep__', call_status: '',            answer: 'ביקש לא להתקשר יותר', tries: t };
     case 'לא ענה': {
       const n = t + 1;
       return n >= maxTries
-        ? { rsvp: '', call_status: '', answer: 'לא ענה - מוצו הנסיונות', tries: n }
-        : { rsvp: '', call_status: 'נדרשת שיחה', answer: 'לא ענה', tries: n };
+        ? { rsvp: '__keep__', call_status: '', answer: 'לא ענה - מוצו הנסיונות', tries: n }
+        : { rsvp: '__keep__', call_status: 'נדרשת שיחה', answer: 'לא ענה', tries: n };
     }
     default: return null;
   }

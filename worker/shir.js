@@ -357,6 +357,8 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
             venue_city: String(guest.venue_city || ''),
             party_size_invited: String(guest.party || ''),
             rsvp_deadline: spokenDate(guest.event_date),
+            /* Richard 21/10: "מתלבט" guests are called too; Shir opens differently */
+            guest_state: String(guest.rsvp || '') === 'מתלבט' ? 'מתלבט' : 'לא ענה',
           },
   };
   /* one number, several scripts: the agent is chosen per call, not per number */
@@ -571,7 +573,7 @@ export function retellToCallResult(body) {
     return {
       kind: 'end-no-outcome', call_id: callId, guest_id: String(meta.guest_id),
       result: {
-        rsvp: '', call_status: tries >= (Number(meta.max_tries) || 3) ? '' : 'נדרשת שיחה',
+        rsvp: '__keep__', call_status: tries >= (Number(meta.max_tries) || 3) ? '' : 'נדרשת שיחה',
         answer: 'שיחה ללא תוצאה ברורה', tries,
       },
       cost_cents: costOf(call),
