@@ -76,7 +76,7 @@
   /* desktop table of contents, Notion-style, pinned at the start side (Richard 21/10) */
   .toc{display:none}
   @media (min-width:1100px){
-    .toc{display:block;position:fixed;top:var(--toc-top,7rem);inset-inline-start:max(1rem,calc(50% - 310px - 232px));width:208px;z-index:4;font-size:.8rem;background:var(--card,#fff);border:1px solid var(--bdr);border-radius:14px;padding:.5rem .4rem;box-shadow:0 2px 10px rgba(0,0,0,.05)}
+    .toc{display:block;position:fixed;top:var(--toc-top,7rem);transition:top .15s ease-out;inset-inline-start:max(1rem,calc(50% - 310px - 232px));width:208px;z-index:4;font-size:.8rem;background:var(--card,#fff);border:1px solid var(--bdr);border-radius:14px;padding:.5rem .4rem;box-shadow:0 2px 10px rgba(0,0,0,.05)}
     .toc .tt{font-size:.68rem;letter-spacing:.06em;color:var(--ink3);padding:.1rem .6rem .35rem;text-transform:uppercase}
     .toc a{display:block;padding:.3rem .6rem;border-inline-start:2px solid transparent;border-radius:6px;color:var(--ink3);text-decoration:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.5}
     .toc a:hover{color:var(--ink);background:var(--bg2)}
@@ -1124,9 +1124,10 @@
     });
     nav.hidden = items.length < 3;
     nav.innerHTML = '<div class="tt">בלוח</div>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
-    /* sit just under the dark header, whatever its height */
-    var top = document.querySelector('.top'); if (top) document.documentElement.style.setProperty('--toc-top', (top.getBoundingClientRect().bottom + 14) + 'px');
-    if (!renderToc._rs) { renderToc._rs = true; window.addEventListener('resize', function () { var t2 = document.querySelector('.top'); if (t2) document.documentElement.style.setProperty('--toc-top', (t2.getBoundingClientRect().bottom + 14) + 'px'); }); }
+    /* sit just under the dark header while it is on screen, then hug the top */
+    function placeToc() { var t2 = document.querySelector('.top'); if (!t2) return; var b = t2.getBoundingClientRect().bottom; document.documentElement.style.setProperty('--toc-top', Math.max(16, b + 14) + 'px'); }
+    placeToc();
+    if (!renderToc._rs) { renderToc._rs = true; var tick = null; var onMove = function () { if (tick) return; tick = requestAnimationFrame(function () { tick = null; placeToc(); }); }; window.addEventListener('resize', onMove); window.addEventListener('scroll', onMove, { passive: true }); window.addEventListener('load', placeToc); }
     nav.onclick = function (e) { var a = e.target.closest('a'); if (!a) return; e.preventDefault(); var el = document.getElementById(a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     if (window.IntersectionObserver && !renderToc._io) {
       renderToc._io = new IntersectionObserver(function (es) {
