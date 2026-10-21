@@ -30,6 +30,7 @@
 
   var INTERNAL = [
     { href: 'hq.html', label: 'HQ', icon: ic.board },
+    { href: 'live.html', label: 'לוג חי', icon: ic.ops },
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
     { href: 'leads.html', label: 'לידים', icon: ic.board },
