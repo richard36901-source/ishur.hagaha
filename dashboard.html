@@ -763,7 +763,7 @@
 
   <!-- add-ons -->
   <section class="card" id="addonsCard">
-    <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
+    <div class="card-h acc" id="addonsHead"><span>שדרוגים ותוספות</span><span class="arr">▼</span></div>
     <div class="acc-body" id="addonsBody"><div id="addons"></div></div>
   </section>
 
@@ -1881,7 +1881,7 @@
     if (!token || demo) { c.hidden = true; return; }
     c.hidden = false;
     $('invoiceBody').innerHTML = inv && inv.url
-      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">חשבונית מס/קבלה' + (inv.number ? ' מס׳ ' + String(inv.number).replace(/</g, '') : '') + ' הופקה ב-Morning (חשבונית ירוקה).</p>' +
+      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">חשבונית מס/קבלה' + (inv.number ? ' מס׳ ' + String(inv.number).replace(/</g, '') : '') + ' הופקה.</p>' +
         '<a class="buy" style="display:inline-block;text-decoration:none" href="' + String(inv.url).replace(/"/g, '') + '" target="_blank" rel="noopener">הורדת החשבונית (PDF)</a>'
       : '<p style="margin:0;font-size:.9rem;color:var(--ink2)">החשבונית תופיע כאן ברגע שתופק. אם שילמתם ועדיין לא רואים אותה, <a href="#" id="invoiceWa">כתבו לנו</a>.</p>';
     var w = $('invoiceWa'); if (w) w.href = CFG.waLink('היי, שילמתי ואני לא רואה חשבונית בלוח הבקרה.');
