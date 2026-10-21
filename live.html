@@ -86,7 +86,7 @@
 </div>
 <script>
 (function () {
-  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
   var BASE = CFG.endpoint('status').replace(/\/api\/status$/, '');
   function api(path, body) {
