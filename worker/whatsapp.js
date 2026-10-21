@@ -210,6 +210,14 @@ async function post(env, body, channel, ctx) {
     } catch {}
     return { ok: false, error: 'guests-number-not-connected', held: true };
   }
+  /* 21/10: Noa's number is off Meta's API (133010) while it moves WABA.
+     Every caller that retries each pacer tick (lead chase, client links)
+     would alert Slack 6x an hour. One real attempt per hour, one alert per
+     6h, everything else is held quietly. */
+  const clientCh = !(channel === 'guests' && guestsReady(env));
+  if (clientCh && env.RATE && await env.RATE.get('noa:unreg').catch(() => null)) {
+    return { ok: false, error: '133010: account not registered (held)', held: true };
+  }
   const phoneId = pickPhone(env, channel);
   const token = pickToken(env, channel);
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
@@ -334,7 +342,16 @@ async function post(env, body, channel, ctx) {
          One alert per 6h instead; guests (Shir) is a separate WABA and
          unaffected, so it keeps the normal per-failure alert. */
       const isClientChannel = !(channel === 'guests' && guestsReady(env));
-      if (isClientChannel && /131042/.test(String(res.error || '')) && env.RATE) {
+      if (isClientChannel && /133010/.test(String(res.error || '')) && env.RATE) {
+        await env.RATE.put('noa:unreg', '1', { expirationTtl: 3600 }).catch(() => {});
+        const k = 'unregalert:client';
+        if (!(await env.RATE.get(k))) {
+          await env.RATE.put(k, '1', { expirationTtl: 6 * 3600 });
+          await opsPing(env, 'המספר של נועה (4499) לא רשום ב-API',
+            'מטא מחזירה 133010. שליחות ללקוחות ולידים מוחזקות ונבדקות שוב פעם בשעה; ההתראה הבאה בעוד עד 6 שעות. לתקן: לסרוק QR לחיבור המספר ל-WABA החדש.',
+            `${body.type} → ${body.to}`, true);
+        }
+      } else if (isClientChannel && /131042/.test(String(res.error || '')) && env.RATE) {
         const k = 'billingalert:client';
         if (!(await env.RATE.get(k))) {
           await env.RATE.put(k, '1', { expirationTtl: 6 * 3600 });
