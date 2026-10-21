@@ -3936,7 +3936,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
     await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}` }).catch(() => {});
     if (!failed) await env.RATE.delete('edblast:' + token).catch(() => {});
-    await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}`).catch(() => {});
+    if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}`).catch(() => {});
     res.push({ token: token.slice(0, 8), sent, failed, skipped });
   }
   return { ok: true, jobs: res };
