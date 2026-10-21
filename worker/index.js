@@ -9714,17 +9714,24 @@ export default {
       const LIMIT = ADDON_RATES.freeGuests;
       const cntKey = 'gadd:' + tok;
       const used = parseInt(await env.RATE.get(cntKey), 10) || 0;
-      if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT }, origin);
-      if (used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT }, origin);
+      /* Richard 21/10: two separate pools. "tier" = seats the package already
+         covers (175 of 200 uploaded → 25 more, one by one, no counter).
+         Default = the 10 free extras on top of the package. */
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      const cap = await tierWithPromo(env, tok, tierOf(ev));
+      const tier = { cap, used: gRows.length, left: cap ? Math.max(0, cap - gRows.length) : 0 };
+      const mode = b.mode === 'tier' && tier.left > 0 ? 'tier' : 'free';
+      if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
+      if (b.mode === 'tier' && tier.left <= 0) return okJson({ ok: false, error: 'tier-full', used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
+      if (mode === 'free' && used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT, tier }, origin);
       const name = String(b.name || '').trim().slice(0, 60);
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
       if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
-      const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
-      if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used }, origin);
-      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used, tier }, origin);
       const now = new Date().toISOString();
       const row = new Array(29).fill('');
       row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-' + (gRows.length + 1);
@@ -9735,7 +9742,8 @@ export default {
         body: JSON.stringify({ event_type: 'guests_file', token: tok, file_name: 'dashboard', guest_count: 1, skipped_count: 0, append_body: JSON.stringify({ values: [row] }) }),
       }).catch(() => null);
       if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
-      await env.RATE.put(cntKey, String(used + 1));
+      if (mode === 'free') await env.RATE.put(cntKey, String(used + 1));
+      else { tier.used++; tier.left = Math.max(0, tier.left - 1); }
       await env.RATE.put('uploaded:' + tok, now).catch(() => {});
       /* invitation now, only if the first wave already went out; otherwise
          the guest simply rides the wave with everybody else */
@@ -9762,7 +9770,8 @@ export default {
         } else why = 'blocked';
       }
       await logEvent(env, { area: 'העלאה', action: `הלקוח הוסיף מוזמן מהדשבורד (${used + 1}/${LIMIT})${sent ? ' — ההזמנה נשלחה' : ''}`, ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
-      return okJson({ ok: true, used: used + 1, left: LIMIT - used - 1, limit: LIMIT, sent, why }, origin);
+      const usedNow = mode === 'free' ? used + 1 : used;
+      return okJson({ ok: true, used: usedNow, left: LIMIT - usedNow, limit: LIMIT, tier, mode, sent, why }, origin);
     }
     if (url.pathname === '/api/addon-pay' && request.method === 'POST') {
       let b = {};
