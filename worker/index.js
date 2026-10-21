@@ -9263,6 +9263,16 @@ export default {
       if (b.watch) { if (env.RATE) { await env.RATE.delete('adswatch:' + new Date().toISOString().slice(0, 13)).catch(() => {}); if (b.reset) await env.RATE.delete('adswatch:last').catch(() => {}); } return okJson(await adsHealthWatch(env), origin); }
       return okJson(await adsHealth(env), origin);
     }
+    /* coexist.html posts Meta's Embedded Signup FINISH payload here, so the
+       new phone_number_id / waba_id are in the log even if the tab closes */
+    if (url.pathname === '/api/coexist-done' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      const detail = `phone_number_id=${b.phone_number_id || '?'} · waba_id=${b.waba_id || '?'} · business_id=${b.business_id || '?'}`;
+      if (env.RATE) await env.RATE.put('coexist:last', JSON.stringify({ ...b, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
+      await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
+      await slackPost(env, `🔗 *נועה חוברה ל-API (coexistence)*\n${detail}`).catch(() => {});
+      return okJson({ ok: true }, origin);
+    }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
     }
