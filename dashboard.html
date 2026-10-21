@@ -165,6 +165,20 @@
   .pill.wait{background:var(--bg3);color:var(--ink3)}
   .tbl-sp .more{font:inherit;font-size:1rem;line-height:1;letter-spacing:.05em;color:var(--ink3);background:none;border:1px solid transparent;border-radius:8px;padding:.1rem .35rem;cursor:pointer}
   .tbl-sp .more:hover{border-color:var(--bdr);color:var(--ink)}
+  .chk{flex:none;margin-inline-end:.5rem;min-width:3.2rem;height:2.1rem;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;font:inherit;font-size:.82rem;cursor:pointer;color:var(--ink2)}
+  .chk.on{background:var(--green4);border-color:var(--green2);color:var(--green2);font-weight:700}
+  .kpad{position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:flex-end;justify-content:center;z-index:95}
+  .kpad .kp{background:var(--card,#fff);border-radius:18px 18px 0 0;padding:1rem 1rem 1.4rem;width:100%;max-width:420px}
+  .kpad h3{margin:0 0 .2rem;font-size:1rem}
+  .kpad .kp-sub{margin:0 0 .8rem;font-size:.82rem;color:var(--ink3)}
+  .kpad .kp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem}
+  .kpad .kp-grid button{font:inherit;font-size:1.35rem;padding:.8rem 0;border-radius:12px;border:1.5px solid var(--bdr);background:#fff;cursor:pointer}
+  .kpad .kp-grid button:active{transform:scale(.97)}
+  .kpad .kp-grid button.sel{background:var(--green4);border-color:var(--green2);color:var(--green2);font-weight:700}
+  .kpad .kp-grid button.no{color:#a3321f;font-size:.95rem}
+  .kpad .kp-grid button.more{font-size:.95rem}
+  .kpad .kp-row{display:flex;gap:.5rem;margin-top:.6rem}
+  .kpad .kp-row input{flex:1;font:inherit;font-size:1.1rem;padding:.6rem;border:1.5px solid var(--bdr);border-radius:10px;text-align:center}
   .gmenu{position:absolute;z-index:50;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:.35rem;box-shadow:0 8px 28px rgba(0,0,0,.12);display:flex;flex-direction:column;gap:.2rem;min-width:9rem}
   .gmenu button{font:inherit;font-size:.82rem;text-align:start;padding:.4rem .6rem;border:none;border-radius:8px;background:none;color:var(--ink);cursor:pointer}
   .gmenu button:hover{background:var(--green4);color:var(--green2)}
@@ -1235,6 +1249,10 @@
        planner seats people who have not answered yet, and hosts want to see
        it here too. Confirmed guests can still type a table in place. */
     var anyConfirmedNow = (data.guests || []).some(function (g) { return g.id; });
+    if (data.checkin && data.checkin.enabled) {
+      var ckSum = $('listSum');
+      if (ckSum) ckSum.insertAdjacentHTML('afterbegin', '<b style="color:var(--green2)">הגיעו ' + (data.checkin.arrived_total || 0) + ' אנשים (' + (data.checkin.arrived_people || 0) + ' רשומות)</b> · ');
+    }
     if ($('rowsHTbl')) $('rowsHTbl').hidden = !anyConfirmedNow;
     $('rows').innerHTML = list.map(function (g) {
       var st = STATUS[g.status] || STATUS.pending;
@@ -1244,7 +1262,10 @@
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
-      return '<div class="row' + (g.self ? ' self' : '') + '">' +
+      var ck = data.checkin && data.checkin.enabled && g.id
+        ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + g.arrived : 'הגיע?') + '</button>'
+        : '';
+      return '<div class="row' + (g.self ? ' self' : '') + '">' + ck +
              '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
@@ -1294,6 +1315,45 @@
           IshurUX.toast(outcome === 'מגיע' ? 'אושר, ' + n + ' מגיעים' : 'סומן: לא מגיעים');
         }).catch(function () { b.disabled = false; b.textContent = 'שמירה'; });
     }
+    /* Richard 21/10: event-day check-in by the hostess. Phone-style keypad:
+       1-9 in a grid, 0 = did not arrive, and a free number for bigger parties. */
+    function openKeypad(gid, btn) {
+      var g = (data.guests || []).filter(function (x) { return x.id === gid; })[0]; if (!g) return;
+      var box = document.createElement('div'); box.className = 'kpad';
+      var cur = g.arrived || 0;
+      var cells = [1, 2, 3, 4, 5, 6, 7, 8, 9].map(function (n) { return '<button type="button" data-n="' + n + '"' + (cur === n ? ' class="sel"' : '') + '>' + n + '</button>'; }).join('');
+      box.innerHTML = '<div class="kp">' +
+        '<h3>' + String(g.name || 'ללא שם').replace(/</g, '') + '</h3>' +
+        '<p class="kp-sub">כמה הגיעו בפועל? ' + (g.seats ? 'אישרו ' + g.seats + ' · ' : '') + (cur ? 'סומן ' + cur : 'עוד לא סומן') + '</p>' +
+        '<div class="kp-grid">' + cells +
+        '<button type="button" class="no" data-n="0">לא הגיע</button>' +
+        '<button type="button" data-n="' + (g.seats || 1) + '" class="more">כמו שאישרו</button>' +
+        '<button type="button" class="more" data-n="x">ביטול</button></div>' +
+        '<div class="kp-row"><input type="number" inputmode="numeric" min="0" max="99" placeholder="מספר אחר"><button type="button" class="buy" data-n="custom">שמירה</button></div></div>';
+      document.body.appendChild(box);
+      box.addEventListener('click', function (e) {
+        if (e.target === box) { box.remove(); return; }
+        var b = e.target.closest('[data-n]'); if (!b) return;
+        var v = b.dataset.n;
+        if (v === 'x') { box.remove(); return; }
+        var n = v === 'custom' ? parseInt(box.querySelector('input').value, 10) : parseInt(v, 10);
+        if (isNaN(n) || n < 0) { IshurUX.toast('מספר לא תקין'); return; }
+        b.disabled = true;
+        fetch(CFG.endpoint('checkin'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: gid, arrived: n }) })
+          .then(function (r) { return r.json(); }).then(function (j) {
+            if (!j || !j.ok) { b.disabled = false; IshurUX.toast('לא נשמר, נסו שוב'); return; }
+            g.arrived = n;
+            var tot = 0, ppl = 0; (data.guests || []).forEach(function (x) { if (x.arrived) { tot += x.arrived; ppl++; } });
+            data.checkin.arrived_total = tot; data.checkin.arrived_people = ppl;
+            box.remove(); render();
+            IshurUX.toast(n ? 'סומן: הגיעו ' + n : 'סומן: לא הגיע');
+          }).catch(function () { b.disabled = false; IshurUX.toast('לא נשמר, נסו שוב'); });
+      });
+    }
+    $('rows').addEventListener('click', function (e) {
+      var b = e.target.closest && e.target.closest('.chk'); if (!b) return;
+      e.preventDefault(); openKeypad(b.dataset.ck, b);
+    });
     /* Richard 21/10: tap the name → edit name + phone, confirm before saving */
     $('rows').addEventListener('click', function (e) {
       var nm = e.target.closest && e.target.closest('.row-n');
@@ -2367,6 +2427,8 @@
       fail('לוח הבקרה עדיין לא מחובר לנתונים.<br>הוא יתמלא מעצמו ברגע שנחבר אותו.', true);
       return;
     }
+    /* ?checkin=1 previews the hostess check-in sheet before the event day */
+    try { if (new URLSearchParams(location.search).get('checkin') === '1') payload.preview_checkin = 1; } catch (e) {}
     fetch(CFG.endpoint('status'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
