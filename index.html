@@ -1961,6 +1961,8 @@ body.has-promo #nav{top:var(--promo-h,34px)}
           <h4>מתנות באשראי <span class="soon">בקרוב</span></h4>
           <p id="addon-gifts-desc"></p>
           <p class="fine">ללא עלות לבעלי האירוע. האורח משלם דמי סליקה קטנים, כמו בכל אתר תשלומים.</p>
+          <button type="button" class="btn btn-green" id="addon-gifts-interest" style="margin-top:.6rem">מעניין אותי, עדכנו אותי כשזה עולה</button>
+          <p class="fine" id="addon-gifts-thanks" hidden>תודה, רשמנו. תקבלו עדכון ראשונים כשהשירות עולה.</p>
         </div>
       </div>
     </div>
@@ -2438,6 +2440,15 @@ buildPricing();
   if(t) t.innerHTML=H.tiers.map((x,i)=>{const from=i?H.tiers[i-1].max+1:0; const rng=i?`${from}–${x.max} רשומות`:`עד ${x.max} רשומות`; return `<tr><td>${x.label} · ${rng}</td><td>₪${x.price.toLocaleString('he-IL')}</td></tr>`;}).join('');
   const f=document.getElementById('addon-hostess-fine'); if(f) f.textContent=H.travelNote+' המחירים כוללים מע״מ ומתווספים לחבילה.';
   const gd=document.getElementById('addon-gifts-desc'); if(gd) gd.textContent=G.desc;
+  /* Richard 21/10: demand counter for gifts-by-credit, one per browser */
+  const gi=document.getElementById('addon-gifts-interest');
+  if(gi) gi.addEventListener('click',()=>{
+    let vid=''; try{ vid=localStorage.getItem('ishur_vid')||''; if(!vid){ vid='v'+Date.now().toString(36)+Math.random().toString(36).slice(2,10); localStorage.setItem('ishur_vid',vid);} }catch(e){ vid='v'+Date.now().toString(36); }
+    gi.disabled=true; push('gift_interest',{});
+    fetch(CFG.endpoint('interest'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({kind:'gift_credit',vid,where:'site'})})
+      .then(r=>r.json()).then(()=>{ gi.hidden=true; const th=document.getElementById('addon-gifts-thanks'); if(th) th.hidden=false; })
+      .catch(()=>{ gi.disabled=false; });
+  });
   const go=document.getElementById('addon-hostess-go');
   if(go) go.addEventListener('click',()=>{
     const sel=document.getElementById('pr-guests');

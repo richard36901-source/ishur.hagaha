@@ -156,6 +156,8 @@
   .row{display:flex;align-items:center;gap:.7rem;padding:.6rem 1rem;border-bottom:1px solid var(--bdr)}
   .row:last-child{border-bottom:none}
   .row-n{flex:1;min-width:0;font-size:.88rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .row-n.editable{cursor:pointer}
+  .row-n.editable:hover{text-decoration:underline dotted;text-underline-offset:3px}
   .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
   .pill{flex-shrink:0;font-size:.72rem;font-weight:500;border-radius:99px;padding:.12rem .55rem;white-space:nowrap}
   .pill.yes{background:var(--green4);color:var(--green2)}
@@ -724,7 +726,7 @@
           <button type="button" class="buy" id="giftSave">שמירה</button>
           <span id="giftMsg" style="font-size:.78rem;color:var(--ink3)"></span>
         </div>
-        <p style="font-size:.74rem;color:var(--ink3);margin:.4rem 0 0">בקרוב: מתנה באשראי דרכנו.</p>
+        <p style="font-size:.74rem;color:var(--ink3);margin:.4rem 0 0">בקרוב: מתנה באשראי דרכנו. <button type="button" class="btn" id="giftInterest" style="font-size:.74rem;padding:.2rem .6rem;margin-inline-start:.3rem">מעניין אותי</button></p>
       </div>
     </div>
   </section>
@@ -749,6 +751,12 @@
   <section class="card" id="addonsCard">
     <div class="card-h acc" id="addonsHead"><span>תוספות</span><span class="arr">▼</span></div>
     <div class="acc-body" id="addonsBody"><div id="addons"></div></div>
+  </section>
+
+  <!-- Richard 21/10: the Morning (חשבונית ירוקה) invoice, downloadable here -->
+  <section class="card" id="invoiceCard" hidden>
+    <div class="card-h">חשבונית</div>
+    <div class="card-b" id="invoiceBody"></div>
   </section>
 
   <p class="foot">
@@ -1085,6 +1093,7 @@
     renderRows();
     renderSends();
     renderAddons();
+    renderInvoice();
     gaLoad();
     if (window.__paintShare) window.__paintShare();
     renderAfterParty();
@@ -1236,7 +1245,7 @@
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
-             '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
@@ -1285,6 +1294,42 @@
           IshurUX.toast(outcome === 'מגיע' ? 'אושר, ' + n + ' מגיעים' : 'סומן: לא מגיעים');
         }).catch(function () { b.disabled = false; b.textContent = 'שמירה'; });
     }
+    /* Richard 21/10: tap the name → edit name + phone, confirm before saving */
+    $('rows').addEventListener('click', function (e) {
+      var nm = e.target.closest && e.target.closest('.row-n');
+      if (!nm || e.target.closest('.more')) return;
+      var gid = nm.dataset.gid; if (!gid || demo || eventIsOver()) return;
+      var g = (data.guests || []).filter(function (x) { return x.id === gid; })[0]; if (!g) return;
+      var box = document.createElement('div');
+      box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+      box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:360px">' +
+        '<h3 style="margin:0 0 .6rem">עריכת רשומה</h3>' +
+        '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">שם</label><input id="geName" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.7rem">' +
+        '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">טלפון</label><input id="gePhone" inputmode="tel" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.9rem">' +
+        '<button type="button" class="buy" id="geSave" style="width:100%;margin-bottom:.5rem">שמירה</button>' +
+        '<button type="button" class="btn" id="geX" style="width:100%">ביטול</button></div>';
+      document.body.appendChild(box);
+      box.querySelector('#geName').value = g.name || '';
+      box.querySelector('#gePhone').value = (g.phone || '').replace(/^972/, '0');
+      box.querySelector('#geX').addEventListener('click', function () { box.remove(); });
+      box.addEventListener('click', function (ev2) { if (ev2.target === box) box.remove(); });
+      box.querySelector('#geSave').addEventListener('click', function () {
+        var name = box.querySelector('#geName').value.trim(), phone = box.querySelector('#gePhone').value.trim();
+        if (!name) { IshurUX.toast('חסר שם'); return; }
+        if (phone.replace(/\D/g, '').length < 9) { IshurUX.toast('הטלפון לא נראה תקין'); return; }
+        var same = name === (g.name || '') && phone.replace(/\D/g, '').replace(/^0/, '972') === String(g.phone || '').replace(/\D/g, '');
+        if (same) { box.remove(); return; }
+        askConfirm('לשנות את הרשומה ל: ' + name + ' · ' + phone + '?', { title: 'לשמור את השינוי?', ok: 'כן, לשמור' }).then(function (yes) {
+          if (!yes) return;
+          var sb = box.querySelector('#geSave'); sb.disabled = true; sb.textContent = 'שומר…';
+          fetch(CFG.endpoint('guest-edit'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: gid, name: name, phone: phone }) })
+            .then(function (r) { return r.json(); }).then(function (j) {
+              if (!j || !j.ok) { sb.disabled = false; sb.textContent = 'שמירה'; IshurUX.toast(j && j.error === 'duplicate' ? 'המספר הזה כבר ברשימה' : j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא נשמר, נסו שוב'); return; }
+              g.name = j.name; g.phone = j.phone; box.remove(); render(); IshurUX.toast('נשמר ✓');
+            }).catch(function () { sb.disabled = false; sb.textContent = 'שמירה'; IshurUX.toast('לא נשמר, נסו שוב'); });
+        });
+      });
+    });
     $('rows').addEventListener('click', function (e) {
       var b = e.target.closest && e.target.closest('.more');
       if (!b) return;
@@ -1692,12 +1737,23 @@
   function gaPaint(j) {
     if (!j) return;
     if (j.tier) taPaint(j.tier);
+    if (j.used == null || j.limit == null) return;   /* an error/limit reply carries no counters */
     gaLeft = j.left;
     $('gaddCount').textContent = j.used + ' מתוך ' + j.limit;
     var full = j.left <= 0;
     ['gaName', 'gaPhone', 'gaParty', 'gaSend'].forEach(function (id) { $(id).disabled = full; });
     if (full) $('gaMsg').textContent = 'הגעתם ל-' + j.limit + ' מוזמנים נוספים. לעוד מקומות, הגדלת חבילה בתוספות למטה.';
   }
+  (function () {
+    var b = $('giftInterest'); if (!b) return;
+    b.addEventListener('click', function () {
+      var vid = ''; try { vid = localStorage.getItem('ishur_vid') || ''; if (!vid) { vid = 'v' + Date.now().toString(36) + Math.random().toString(36).slice(2, 10); localStorage.setItem('ishur_vid', vid); } } catch (e) { vid = 'v' + Date.now().toString(36); }
+      b.disabled = true;
+      fetch(CFG.endpoint('interest'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'gift_credit', vid: vid, token: token || '', where: 'dashboard' }) })
+        .then(function (r) { return r.json(); }).then(function () { b.textContent = 'תודה, רשמנו ✓'; })
+        .catch(function () { b.disabled = false; });
+    });
+  })();
   function gaLoad() {
     if (!token || demo) { $('gaddCard').hidden = !!demo; return; }
     fetch(CFG.endpoint('guest-add'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, query: true }) })
@@ -1759,6 +1815,17 @@
     });
   })();
 
+  function renderInvoice() {
+    var c = $('invoiceCard'); if (!c) return;
+    var inv = data.invoice;
+    if (!token || demo) { c.hidden = true; return; }
+    c.hidden = false;
+    $('invoiceBody').innerHTML = inv && inv.url
+      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">חשבונית מס/קבלה' + (inv.number ? ' מס׳ ' + String(inv.number).replace(/</g, '') : '') + ' הופקה ב-Morning (חשבונית ירוקה).</p>' +
+        '<a class="buy" style="display:inline-block;text-decoration:none" href="' + String(inv.url).replace(/"/g, '') + '" target="_blank" rel="noopener">הורדת החשבונית (PDF)</a>'
+      : '<p style="margin:0;font-size:.9rem;color:var(--ink2)">החשבונית תופיע כאן ברגע שתופק. אם שילמתם ועדיין לא רואים אותה, <a href="#" id="invoiceWa">כתבו לנו</a>.</p>';
+    var w = $('invoiceWa'); if (w) w.href = CFG.waLink('היי, שילמתי ואני לא רואה חשבונית בלוח הבקרה.');
+  }
   function renderAddons() {
     var ev = data.event || {};
     var t = data.totals || {};
@@ -1867,6 +1934,7 @@
         if (k === 'extra_send') return askScope();
         if (k === 'more_guests') return askUpgrade();
         if (k === 'calls') return payAddon('calls', 'all');
+        if (k === 'selfreg') return payAddon('selfreg', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
         location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
       });
@@ -2042,6 +2110,7 @@
     fetch(CFG.endpoint('addon-pay'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, kind: kind, scope: scope }) })
       .then(function (r) { return r.json(); }).then(function (j) {
         if (j && j.ok && j.url) { location.href = j.url; return; }
+        if (j && j.why === 'nothing-to-buy') { IshurUX.toast('אין כרגע למי לשלוח, אין מה לרכוש'); return; }
         /* no payment API yet: the exact price still travels in the message */
         var txt = 'היי, רציתי להוסיף לאירוע שלי: ' + (j && j.desc ? j.desc : (it ? it.label : kind)) + (j && j.price ? ' (₪' + j.price + ')' : '') + '.';
         location.href = CFG.waLink(txt);
