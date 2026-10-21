@@ -9648,11 +9648,16 @@ export default {
           w: Math.max(60, Math.min(500, Number(t.w) || 120)), h: Math.max(50, Math.min(300, Number(t.h) || 120)),
           cap: Math.max(1, Math.min(60, Number(t.cap) || 8)),
         }));
-        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, at: new Date().toISOString() }));
-        return okJson({ ok: true, tables }, origin);
+        /* Richard 21/10: guest groups (משפחה / חברים / …) live with the plan */
+        let groups = {};
+        if (b.groups && typeof b.groups === 'object') {
+          for (const [gid, lbl] of Object.entries(b.groups).slice(0, 2000)) { const l = String(lbl || '').trim().slice(0, 24); if (l) groups[String(gid).slice(0, 40)] = l; }
+        } else { try { groups = (JSON.parse(await env.RATE.get('seatplan:' + tok)) || {}).groups || {}; } catch {} }
+        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, at: new Date().toISOString() }));
+        return okJson({ ok: true, tables, groups }, origin);
       }
       let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
-      return okJson({ ok: true, tables: (plan && plan.tables) || [] }, origin);
+      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {} }, origin);
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);
