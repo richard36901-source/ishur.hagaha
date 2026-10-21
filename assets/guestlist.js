@@ -201,7 +201,10 @@
   /* ══ UI ═══════════════════════════════════════════════════════════════════ */
   var doc = root.document;
   var $ = function (id) { return doc.getElementById(id); };
-  var SOFT = 'לא הצלחנו לקרוא את הקובץ הזה, אפשר לנסות שוב או לשלוח לנו בוואטסאפ 055-950-4499';
+  /* Richard 21/10: no phone number in the warning, one tap opens the chat */
+  var WA_HELP = 'https://wa.me/972559504499?text=' + encodeURIComponent('היי, לא הצלחתי להעלות את רשימת המוזמנים');
+  var WA_LINK = '<a href="' + WA_HELP + '" target="_blank" rel="noopener">לפתוח קריאה בוואטסאפ</a>';
+  var SOFT = 'לא הצלחנו לקרוא את הקובץ, אפשר לנסות שוב או ' + WA_LINK + '.';
 
   function track(ev, p) { try { root.IshurLead && IshurLead.track(ev, p || {}); } catch (e) {} }
 
@@ -222,14 +225,14 @@
     return loadSheetJS().then(function (X) {
       X.writeFile(buildWorkbook(X, rows), name, { bookType: 'xlsx' });
     })['catch'](function () {
-      if (noteEl) { noteEl.textContent = 'ההורדה לא נפתחה כרגע, אפשר לנסות שוב בעוד רגע או לכתוב לנו בוואטסאפ 055-950-4499'; noteEl.hidden = false; }
+      if (noteEl) { noteEl.innerHTML = 'ההורדה לא נפתחה כרגע, אפשר לנסות שוב בעוד רגע או ' + WA_LINK + '.'; noteEl.hidden = false; }
     });
   }
 
   function init() {
     if (!$('glTemplateBtn')) return;
     var note = $('glNote');
-    function soft(msg) { note.textContent = msg || SOFT; note.hidden = false; }
+    function soft(msg) { note.innerHTML = msg || SOFT; note.hidden = false; }
 
     $('glTemplateBtn').addEventListener('click', function () {
       track('template_download', {});
@@ -244,7 +247,7 @@
           if (!list || !list.length) return;
           track('contacts_picker', { n: list.length });
           addContacts(fromPicker(list));
-        })['catch'](function () { soft('לא הצלחנו לפתוח את אנשי הקשר, אפשר לנסות שוב או לשלוח לנו בוואטסאפ 055-950-4499'); });
+        })['catch'](function () { soft('לא הצלחנו לפתוח את אנשי הקשר, אפשר לנסות שוב או ' + WA_LINK + '.'); });
       });
     }
 
@@ -261,7 +264,7 @@
         var res;
         try { res = parseVcf(String(fr.result || '')); } catch (e) { res = null; }
         if (!res || !res.total) { soft(); track('vcf_unreadable', {}); return; }
-        if (!res.contacts.length) { soft('לא מצאנו בקובץ מספרי נייד ישראליים. אפשר לנסות קובץ אחר או לשלוח לנו בוואטסאפ 055-950-4499'); return; }
+        if (!res.contacts.length) { soft('לא מצאנו בקובץ מספרי נייד ישראליים. אפשר לנסות קובץ אחר או ' + WA_LINK + '.'); return; }
         track('vcf_loaded', { total: res.total, kept: res.contacts.length });
         addContacts(res);
       };
