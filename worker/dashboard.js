@@ -305,7 +305,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     const isCall = viaCall(g) || dialed.has(g.id) || g.tries > 0;
     if (per.calls && isCall) per.calls.dialed++;
     if (!answered(g)) {
-      if (g.status === 'awaiting_call') { if (isCall) per.calls.no_answer++; else per.calls.waiting++; }
+      /* Richard 21/10: dialed and still silent is "לא ענו" whatever the
+         status column says (after 3 tries the sheet flips it back to pending) */
+      if (isCall) per.calls.no_answer++;
+      else if (g.status === 'awaiting_call') per.calls.waiting++;
       continue;
     }
     let key;
