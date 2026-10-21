@@ -260,6 +260,11 @@
   }
   .buy:hover{background:var(--green2)}
   .buy:active{transform:scale(.95);transition-duration:100ms}
+  /* secondary button, same shape as .buy (popups: ביטול, סגירה) */
+  .btn{background:var(--green4);color:var(--green2);border:1px solid var(--bdr2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:600;padding:.42rem .8rem;white-space:nowrap;transition:background .2s,transform .22s var(--ease)}
+  .btn:hover{background:var(--bdr2)}
+  .btn:active{transform:scale(.95);transition-duration:100ms}
+  .dpop .buy,.dpop .btn{padding:.6rem 1rem;font-size:.86rem;border-radius:10px}
   .inc{font-size:.74rem;color:var(--green2);font-weight:600;white-space:nowrap}
   .no-a{font-size:.72rem;color:var(--ink3);white-space:nowrap;max-width:9rem;text-align:center;line-height:1.4}
 
