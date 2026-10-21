@@ -10,6 +10,15 @@ export function normPhone(raw) {
   if (d.startsWith('0')) return '972' + d.slice(1);
   return d;
 }
+/* Richard 21/10: guests abroad get WhatsApp (any E.164 number written with
+   its country code), Shir dials Israeli mobiles only. */
+export function isIlMobile(p) { return /^9725\d{8}$/.test(String(p || '')); }
+export function isWaPhone(p) {
+  const d = String(p || '');
+  if (isIlMobile(d)) return true;
+  if (d.startsWith('972')) return false;                 // IL landline / malformed
+  return /^[1-9]\d{8,14}$/.test(d);                      // foreign number with country code
+}
 
 /* ══ The master switch ═══════════════════════════════════════════════════════
    One key, checked before anything leaves the system. Set it and the whole

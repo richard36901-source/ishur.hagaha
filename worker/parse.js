@@ -20,6 +20,14 @@ export function normPhone(raw) {
   if (/^5\d{8}$/.test(d)) return '972' + d;
   return d;
 }
+/* Richard 21/10: a foreign number written with its country code (+43…, +1…)
+   is a WhatsApp number too. Israeli landlines stay out; Shir never dials abroad. */
+export function isWaPhone(d) {
+  d = String(d || '');
+  if (/^9725\d{8}$/.test(d)) return true;
+  if (d.startsWith('972')) return false;
+  return /^[1-9]\d{8,14}$/.test(d);
+}
 
 /* ── cp1255 fallback ── old Hebrew Excel saves CSV in windows-1255, which the
    Workers runtime's TextDecoder does not know. Single-byte map, done by hand. */
@@ -111,7 +119,7 @@ export function guestsFromRows(rows) {
     const rawPhone = String(r[1] ?? '').trim();
     if (!name && !rawPhone) continue;
     const phone = normPhone(rawPhone);
-    const mobile = /^9725\d{8}$/.test(phone);
+    const mobile = isWaPhone(phone);
     if (i === 0 && !mobile) continue; // header row is welcome, silently skipped
     /* a bad row never kills the file — it lands in the report to the client */
     if (!mobile) { skipped.push({ row: i + 1, name, phone: rawPhone, why: 'מספר הטלפון לא תקין' }); continue; }

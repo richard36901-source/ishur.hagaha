@@ -36,7 +36,7 @@ import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
-import { normPhone, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 
@@ -3960,6 +3960,7 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
       if (String((g || [])[28] || '').trim() !== token || !want.has(String(g[2] || '').trim())) return;
       const rsvp = String(g[15] || '').trim();
       if (rsvp === 'מגיע' || rsvp === 'לא מגיע') return;   // answered meanwhile — leave them alone
+      if (!isIlMobile(normPhone(g[4] || ''))) return;       // abroad: WhatsApp only
       const row = i + 2;
       data.push({ range: `אורחים!V${row}`, values: [['נדרשת שיחה']] }, { range: `אורחים!AD${row}`, values: [['0']] });
     });
@@ -4559,6 +4560,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           const gid = String(g[2] || '').trim();
           const callStatus = String(g[21] || '').trim();
           if (answered || !gid || callStatus) continue;
+          if (!isIlMobile(normPhone(g[4] || ''))) continue;   // abroad: WhatsApp only, no call
           if (dry) { queued++; continue; }
           /* per-guest marker: a guest whose queue-write already landed is not
              posted again on the retry, so a half-finished escalation costs
@@ -9383,7 +9385,7 @@ export default {
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
-      if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      if (!isWaPhone(phone)) return deny(400, 'bad-phone', origin);
       const raw = await fetchSnapshot(env.HOOK_STATUS);
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
@@ -9756,7 +9758,7 @@ export default {
       const name = String(b.name || '').trim().slice(0, 60);
       const phone = b.phone != null ? normPhone(b.phone || '') : '';
       if (!name) return deny(400, 'bad-name', origin);
-      if (b.phone != null && !/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      if (b.phone != null && !isWaPhone(phone)) return deny(400, 'bad-phone', origin);
       const raw = await fetchSnapshot(env.HOOK_STATUS);
       const gRows = ((raw && raw.guests && raw.guests.values) || []);
       let rowIdx = -1;
@@ -9878,7 +9880,7 @@ export default {
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
-      if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      if (!isWaPhone(phone)) return deny(400, 'bad-phone', origin);
       if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used, tier }, origin);
       const now = new Date().toISOString();
       const row = new Array(29).fill('');

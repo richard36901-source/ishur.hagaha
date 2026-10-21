@@ -51,6 +51,7 @@ export function buildCallQueue(raw, maxTries = 3) {
     const g = i => String(r[i] ?? '').trim();
     if (g(21) !== 'נדרשת שיחה') continue;
     if (!g(2) || !g(4)) continue; // a row without a guest id or phone is noise
+    if (!/^9725\d{8}$/.test(g(4).replace(/\D/g, ''))) continue; // abroad: never dialed (Richard 21/10)
     const tries = Number(g(29)) || 0;
     const token = g(28);
     /* no event row means no plan and no date: never dial into the unknown */
