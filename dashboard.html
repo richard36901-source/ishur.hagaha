@@ -615,6 +615,21 @@
     </div>
     <div class="rows-h"><span class="a">רשומה</span><span class="b">סטטוס</span><span class="c">מוזמנים</span><span class="d" id="rowsHTbl" hidden>שולחן</span></div>
     <div class="rows" id="rows"></div>
+    <!-- Richard 21/10: seats the package still covers, added one by one
+         right under the list; disappears when the package is full -->
+    <div id="tierAdd" hidden style="margin-top:.8rem;padding:.8rem;border:1.5px dashed var(--bdr);border-radius:12px">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.5rem">
+        <b style="font-size:.9rem">הוספת מוזמן</b>
+        <span id="tierAddCount" style="font-size:.8rem;color:var(--ink3)"></span>
+      </div>
+      <div class="gadd">
+        <input id="taName" placeholder="שם" autocomplete="off">
+        <input id="taPhone" placeholder="טלפון" inputmode="tel" autocomplete="off">
+        <input id="taParty" type="number" min="1" max="20" value="1" placeholder="כמות" inputmode="numeric">
+        <button type="button" class="buy" id="taSend">הוספה</button>
+      </div>
+      <p id="taMsg" style="font-size:.82rem;margin:.5rem 0 0;min-height:1.2em;color:var(--ink2)"></p>
+    </div>
   </section>
 
   <!-- schedule -->
@@ -1639,8 +1654,35 @@
 
   /* ── add a guest from the dashboard ── */
   var gaLeft = null;
+  function taPaint(t) {
+    var box = $('tierAdd'); if (!box) return;
+    if (!t || !t.cap || t.left <= 0 || demo) { box.hidden = true; return; }
+    box.hidden = false;
+    $('tierAddCount').textContent = t.used + ' מתוך ' + t.cap + ' בחבילה · נותרו ' + t.left;
+  }
+  $('taSend').addEventListener('click', function () {
+    var name = $('taName').value.trim(), phone = $('taPhone').value.trim(), party = Number($('taParty').value) || 1;
+    if (!name) { $('taMsg').textContent = 'חסר שם'; $('taName').focus(); return; }
+    if (phone.replace(/\D/g, '').length < 9) { $('taMsg').textContent = 'הטלפון לא נראה תקין'; $('taPhone').focus(); return; }
+    $('taSend').disabled = true; $('taMsg').textContent = 'מוסיף…';
+    IshurLead.track('tier_add', {});
+    fetch(CFG.endpoint('guest-add'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, mode: 'tier', name: name, phone: phone, party: party }) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        $('taSend').disabled = false;
+        if (!j || !j.ok) {
+          $('taMsg').textContent = j && j.error === 'duplicate' ? 'המספר הזה כבר ברשימה' : j && j.error === 'tier-full' ? 'החבילה מלאה' : j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא הצלחנו להוסיף, נסו שוב';
+          if (j && j.tier) taPaint(j.tier);
+          return;
+        }
+        $('taMsg').textContent = j.sent ? 'נוסף וההזמנה נשלחה ✓' : 'נוסף ✓ ההזמנה תישלח עם כולם';
+        $('taName').value = ''; $('taPhone').value = ''; $('taParty').value = '1'; $('taName').focus();
+        taPaint(j.tier);
+        setTimeout(reloadData, 1500);
+      }).catch(function () { $('taSend').disabled = false; $('taMsg').textContent = 'לא הצלחנו להוסיף, נסו שוב'; });
+  });
   function gaPaint(j) {
     if (!j) return;
+    if (j.tier) taPaint(j.tier);
     gaLeft = j.left;
     $('gaddCount').textContent = j.used + ' מתוך ' + j.limit;
     var full = j.left <= 0;
