@@ -33,7 +33,7 @@ import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
-import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
+import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
@@ -2090,6 +2090,11 @@ async function processRetellEvent(env, body) {
   if (action.call_id && await seenOnce(env, 'shirdone:end:' + action.call_id)) {
     return okJsonPlain({ ok: true });
   }
+  try {
+    const c0 = body.call || {}, ca0 = c0.call_analysis || {};
+    const dur0 = c0.start_timestamp && c0.end_timestamp ? Math.round((c0.end_timestamp - c0.start_timestamp) / 1000) : null;
+    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 שיחה הסתיימה · ' + String(c0.to_number || '').replace('+', '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + (action.result && action.result.answer ? ' · ' + action.result.answer : ''), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(ca0.call_summary || '').slice(0, 500), extra: { call_id: action.call_id, outcome: action.result ? action.result.rsvp : '', sentiment: ca0.user_sentiment || '' } }).catch(() => {});
+  } catch {}
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
     await addEvCost(env, action.guest_id, action.cost_cents);
@@ -2968,6 +2973,7 @@ async function handleWaWebhook(request, env, url) {
             : undefined,
           at: new Date().toISOString(),
         })).catch(() => {});
+      stream(env, { kind: 'wa_in', area: ch === 'guests' ? 'שיר' : 'נועה', action: '📥 ' + from + (profileName ? ' · ' + profileName : ''), ok: true, phone: from, detail: body }).catch(() => {});
       await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
       await logRow(env, ch === 'guests' ? 'msg_guests' : 'msg_clients', {
         id: msg.id || '', dir: 'נכנסת', who: ch === 'guests' ? 'אורח' : 'לקוח / ליד',
@@ -8457,6 +8463,18 @@ export default {
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
         !url.pathname.startsWith('/api/grow-ipn')) {
       request = await resolveAdminSession(request, env);
+      /* live stream: every admin API call (Richard 21/10 — "כל בדיקה שלך") */
+      if (url.pathname !== '/api/stream' && env.RATE) {
+        try {
+          const peek = await request.clone().json().catch(() => null);
+          if (peek && peek.admin_key && isAdmin(env, peek.admin_key)) {
+            const ua = String(request.headers.get('User-Agent') || '');
+            const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
+            const keys = Object.keys(peek).filter(k => !/admin_key|sig|nonce|stamp_ts|app/.test(k));
+            ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: `${who} · ${url.pathname.replace('/api/', '')}${peek.action ? ' · ' + peek.action : ''}`, ok: true, token: String(peek.token || ''), phone: String(peek.phone || ''), detail: keys.map(k => k + '=' + String(typeof peek[k] === 'object' ? JSON.stringify(peek[k]) : peek[k]).slice(0, 60)).join(' · ').slice(0, 500) }));
+          }
+        } catch {}
+      }
     }
     /* PostHog reverse proxy (Phase 8 housekeeping): ad-blockers that catch
        "posthog"/analytics hostnames outright were costing 10-25% of events
@@ -9337,6 +9355,32 @@ export default {
       await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
       await slackPost(env, `🔗 *נועה חוברה ל-API (coexistence)*\n${detail}`).catch(() => {});
       return okJson({ ok: true }, origin);
+    }
+    /* the live stream (Richard 21/10): everything, newest first, filters */
+    if (url.pathname === '/api/stream' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return okJson({ ok: true, items: [] }, origin);
+      const days = Math.max(1, Math.min(7, parseInt(b.days, 10) || 2));
+      const limit = Math.max(50, Math.min(2000, parseInt(b.limit, 10) || 600));
+      const since = Number(b.since) || 0;
+      const items = [];
+      for (let d = 0; d < days; d++) {
+        const dt = new Date(Date.now() - d * 86400e3);
+        const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(dt).replace(/-/g, '');
+        let cursor; let pages = 0;
+        do {
+          const page = await env.RATE.list({ prefix: `stream:${day}:`, limit: 1000, cursor }).catch(() => null);
+          if (!page) break;
+          const keys = page.keys.filter(k => Number(k.name.split(':')[2]) > since);
+          const vals = await Promise.all(keys.map(k => env.RATE.get(k.name).catch(() => null)));
+          vals.forEach((v, i) => { if (v) { try { items.push({ id: keys[i].name, ts: Number(keys[i].name.split(':')[2]), ...JSON.parse(v) }); } catch {} } });
+          cursor = page.list_complete ? null : page.cursor; pages++;
+        } while (cursor && pages < 5);
+        if (items.length >= limit) break;
+      }
+      items.sort((a, c) => c.ts - a.ts);
+      return okJson({ ok: true, items: items.slice(0, limit), now: Date.now() }, origin);
     }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);

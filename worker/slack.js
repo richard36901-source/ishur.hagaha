@@ -6,7 +6,7 @@
    slackPost (the normal call, with the quiet tier), flushSlackQueue (09:00
    digest of what queued overnight), alert (journal row + Slack).
    ========================================================================== */
-import { logEvent } from './evlog.js';
+import { logEvent, stream } from './evlog.js';
 
 /* ══ Slack quiet hours (Phase 6, rule 9) ══════════════════════════════════════
    Nothing non-urgent lands in Slack before 09:00 or after 21:00 Israel time —
@@ -52,6 +52,7 @@ export function slackFormat(text) {
 export async function slackSend(env, text, opts = {}) {
   if (!env.SLACK_ALERT_HOOK) return;
   text = slackFormat(text);
+  stream(env, { kind: 'slack', area: 'סלאק', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: String(text || '').slice(0, 600), ok: true }).catch(() => {});
   const now = opts.now || new Date();
   if (!opts.urgent && env.RATE && slackQuietHours(now)) {
     const key = 'slackq:list';

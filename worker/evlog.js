@@ -42,9 +42,35 @@ function ilStamp(d = new Date()) {
   return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}:${g('second')}`;
 }
 
+/* ── the live stream (Richard 21/10): EVERYTHING, 7 days, for live.html ────
+   stream:<YYYYMMDD>:<ms>:<rand> so one day lists in order. Journal events,
+   every WhatsApp in/out, every Slack line, every call, every admin API call. */
+const STREAM_TTL = 7 * 86400;
+export async function stream(env, rec) {
+  if (!env || !env.RATE) return;
+  try {
+    const now = new Date();
+    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(now).replace(/-/g, '');
+    const r = {
+      at: now.toISOString(),
+      kind: String(rec.kind || 'event').slice(0, 12),
+      area: String(rec.area || '').slice(0, 30),
+      action: String(rec.action || '').slice(0, 120),
+      ok: rec.ok === undefined ? null : !!rec.ok,
+      review: !!rec.review,
+      phone: String(rec.phone || '').slice(0, 20),
+      token: String(rec.token || '').slice(0, 8),
+      detail: String(rec.detail || '').slice(0, 600),
+      ...(rec.extra && typeof rec.extra === 'object' ? { extra: rec.extra } : {}),
+    };
+    await env.RATE.put(`stream:${day}:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`, JSON.stringify(r), { expirationTtl: STREAM_TTL });
+  } catch {}
+}
+
 /* ── write one event. Never throws, never blocks the caller for long. ─────── */
 export async function logEvent(env, e) {
   if (!env || !env.RATE) return;
+  stream(env, { kind: 'event', ...e }).catch(() => {});
   try {
     const rec = {
       at: new Date().toISOString(),

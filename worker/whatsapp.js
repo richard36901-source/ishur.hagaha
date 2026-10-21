@@ -15,7 +15,7 @@
    ========================================================================== */
 
 import { logRow } from './sheetlogs.js';
-import { logEvent } from './evlog.js';
+import { logEvent, stream } from './evlog.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -271,6 +271,7 @@ async function post(env, body, channel, ctx) {
           } : {}),
           at: new Date().toISOString(),
         }));
+      stream(env, { kind: 'wa_out', area: ch === 'guests' ? 'שיר' : 'נועה', action: (res.ok ? '📤 ' : '⛔ ') + (body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type === 'text' ? 'הודעה' : body.type) + ' → ' + String(body.to || ''), ok: res.ok, phone: String(body.to || ''), token: ctx && ctx.token ? String(ctx.token) : '', detail: (res.ok ? '' : String(res.error || '') + ' · ') + summary.slice(0, 400) }).catch(() => {});
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
       });
