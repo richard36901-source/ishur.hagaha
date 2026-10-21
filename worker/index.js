@@ -3922,7 +3922,9 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       const mk = `s5e:${token}:${p.phone}`;
       if (await env.RATE.get(mk)) { skipped++; continue; }
       if (await phoneBlocked(env, p.phone) || await wrongNum(env, token, p.phone)) { skipped++; continue; }
-      const wa = await sendTemplate(env, p.phone, job.template, [job.time, job.what, job.address, job.nav], '', 'he', 'guests', { wave: 'eventday', token });
+      /* job.params: an explicit parameter list for a fallback template (21/10, when the day's own template is still pending at Meta) */
+      const params = Array.isArray(job.params) && job.params.length ? job.params : [job.time, job.what, job.address, job.nav];
+      const wa = await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
       if (wa.ok) { sent++; await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
@@ -9250,7 +9252,7 @@ export default {
       const tok = String(b.token || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
       if (b.action === 'set') {
-        const job = { at: String(b.at || ilDate()), time: String(b.time || ''), what: String(b.what || ''), address: String(b.address || ''), nav: String(b.nav || ''), template: String(b.template || 'ishur_yom_haerua'), set_at: new Date().toISOString() };
+        const job = { at: String(b.at || ilDate()), time: String(b.time || ''), what: String(b.what || ''), address: String(b.address || ''), nav: String(b.nav || ''), template: String(b.template || 'ishur_yom_haerua'), params: Array.isArray(b.params) ? b.params.map(String) : undefined, set_at: new Date().toISOString() };
         await env.RATE.put('edblast:' + tok, JSON.stringify(job), { expirationTtl: 14 * 86400 });
         return okJson({ ok: true, job }, origin);
       }
