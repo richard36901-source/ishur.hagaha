@@ -10503,8 +10503,9 @@ export default {
           const hasHostess = !!(snapshot.hostess && snapshot.hostess.n > 0);
           const today = ilDate();
           /* ?checkin=1 on the board previews the sheet before the day (demo to a client, hostess rehearsal) */
-          const enabled = (hasHostess && evDate === today) || b_isAdminish(stampFields);
-          const arr = (hasHostess || b_isAdminish(stampFields)) ? await kvPrefix(env, `arrived:${token}:`) : {};
+          /* Richard 21/10: check-in is for everyone on the event day (some hosts do it themselves) */
+          const enabled = evDate === today || b_isAdminish(stampFields);
+          const arr = (evDate === today || evDate < today || b_isAdminish(stampFields)) ? await kvPrefix(env, `arrived:${token}:`) : {};
           let total = 0, people = 0;
           (snapshot.guests || []).forEach(g => { const v = parseInt(arr[`arrived:${token}:${g.id}`], 10) || 0; g.arrived = v; if (v) { total += v; people++; } });
           snapshot.checkin = { enabled, hostess: hasHostess, event_day: evDate === today, arrived_total: total, arrived_people: people };
