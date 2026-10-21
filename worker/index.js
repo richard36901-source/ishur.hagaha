@@ -31,7 +31,7 @@ import { mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -3211,10 +3211,17 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   const ev = eventRowOf(raw, guest.token) || [];
   const c = i => String(ev[i] ?? '').trim();
   const n = partyFromText(t);
-  const saysNo = /(^|\s)(לא|אין)\s*(נגיע|מגיע|מגיעים|נוכל|נבוא|נצליח|נהיה)|^(בסוף\s*)?לא\.?$|לצערנו/.test(t);
-  const saysYes = /(בסוף|כן)\s*(כן|נגיע|מגיע|מגיעים|נבוא)|^(כן|מגיע|מגיעים|נגיע)\.?$/.test(t) && !/לא/.test(t);
+  const intent = guestIntent(t);
+  const saysNo = intent === 'no', saysYes = intent === 'yes';
   const log = (action, detail) => logEvent(env, { area: 'ווצאפ', action, ok: true, phone: from, token: guest.token, detail: `${guest.name}: "${t.slice(0, 80)}"${detail ? ' · ' + detail : ''}` }).catch(() => {});
 
+  if (intent === 'unsure' && !n) {
+    /* "לא מודע כרגע", "עוד לא יודעים": undecided, stop asking how many */
+    const saved = await writeGuestReply(env, guest, 'מתלבט');
+    if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
+    await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : 'קיבלנו, רגע רושמים 🙂');
+    await log('אורח עדיין לא יודע, סומן מתלבט', `${guest.rsvp || 'לא ענה'} → מתלבט`); return true;
+  }
   if (saysNo) {
     const saved = await writeGuestReply(env, guest, 'לא מגיע');
     await say(saved ? 'עדכנו שלא תגיעו, תודה שהודעתם 🙏' : 'קיבלנו, רגע רושמים 🙂');

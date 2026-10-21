@@ -505,6 +505,21 @@ export function partyFromText(text) {
   return null;
 }
 
+/* Free-text intent of a known guest (Richard 21/10): "בסוף לא מסתדר לי
+   להגיע" is a no, "לא מודע כרגע" is unsure, not "forward to the hosts".
+   Order matters: unsure before no, because "לא יודע" contains "לא". */
+const UNSURE_RE = /(לא\s*(יודע|יודעת|יודעים|בטוח|בטוחה|בטוחים|מודע|מודעת|סגור|סגורה|סגורים|החלטנו|החלטתי)|עדיין לא|עוד לא|אעדכן|נעדכן|אבדוק|נבדוק|אולי|יכול להיות|נראה לי ש|לא ברור|תלוי|מתלבט|מתלבטת|מתלבטים|צריך לבדוק|צריכה לבדוק)/;
+const NO_RE = /((^|\s)(לא|אין)\s*(נגיע|מגיע|מגיעה|מגיעים|נוכל|נבוא|נצליח|נהיה|אגיע|אבוא|אהיה|אוכל|יכול|יכולה|יכולים|אצליח|מסתדר|מסתדרת|יוצא|יוצאת|מתאפשר)|לא[^.!?]{0,25}(להגיע|לבוא|להיות שם|להשתתף)|אי אפשר|^(בסוף\s*)?לא\.?$|לצערנו|לצערי|לא נגיע|מוותרים|נוותר)/;
+const YES_RE = /((בסוף|כן)\s*(כן|נגיע|מגיע|מגיעה|מגיעים|נבוא|אגיע|אבוא)|^(כן|מגיע|מגיעה|מגיעים|נגיע|אגיע|נהיה שם|אהיה שם|בטח|ברור)[\s.!]*$)/;
+export function guestIntent(text) {
+  const t = String(text || '').replace(/[‎‏]/g, '').trim();
+  if (!t) return null;
+  if (UNSURE_RE.test(t)) return 'unsure';
+  if (NO_RE.test(t)) return 'no';
+  if (YES_RE.test(t) && !/לא/.test(t)) return 'yes';
+  return null;
+}
+
 /* Pull the reply messages out of Meta's webhook envelope */
 export function extractInbound(payload) {
   const out = [];
