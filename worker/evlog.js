@@ -24,6 +24,8 @@
    by ensureLogSheet(). No per-row formatting calls.
    ========================================================================== */
 
+import { record } from './audit.js';
+
 export const SHEET_ID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
 export const LOG_TAB = 'יומן מערכת';
 const HEADER = ['זמן', 'תחום', 'פעולה', 'סטטוס', 'דורש בדיקה', 'טלפון', 'אירוע', 'מזהה', 'פירוט'];
@@ -45,26 +47,10 @@ function ilStamp(d = new Date()) {
 /* ── the live stream (Richard 21/10): EVERYTHING, 7 days, for live.html ────
    stream:<YYYYMMDD>:<ms>:<rand> so one day lists in order. Journal events,
    every WhatsApp in/out, every Slack line, every call, every admin API call. */
-const STREAM_TTL = 7 * 86400;
 export async function stream(env, rec) {
-  if (!env || !env.RATE) return;
-  try {
-    const now = new Date();
-    const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(now).replace(/-/g, '');
-    const r = {
-      at: now.toISOString(),
-      kind: String(rec.kind || 'event').slice(0, 12),
-      area: String(rec.area || '').slice(0, 30),
-      action: String(rec.action || '').slice(0, 120),
-      ok: rec.ok === undefined ? null : !!rec.ok,
-      review: !!rec.review,
-      phone: String(rec.phone || '').slice(0, 20),
-      token: String(rec.token || '').slice(0, 8),
-      detail: String(rec.detail || '').slice(0, 600),
-      ...(rec.extra && typeof rec.extra === 'object' ? { extra: rec.extra } : {}),
-    };
-    await env.RATE.put(`stream:${day}:${Date.now()}:${Math.random().toString(36).slice(2, 6)}`, JSON.stringify(r), { expirationTtl: STREAM_TTL });
-  } catch {}
+  /* 22/10: the writer moved to audit.js (ids, hashes, request context,
+     400-day retention). This stays as the name every tap already uses. */
+  return record(env, rec);
 }
 
 /* ── write one event. Never throws, never blocks the caller for long. ─────── */
@@ -194,6 +180,33 @@ export async function flushEventLog(env) {
   if (!res || !Array.isArray(res.replies)) return { ok: false, why: 'append-failed', pending: rows.length };
   for (const k of keys) await env.RATE.delete(k).catch(() => {});
   return { ok: true, flushed: rows.length };
+}
+
+/* ── 22/10: a second tab, "ביקורת", mirrors the audit log every hour ─────────
+   ensureTab(title, header) + appendTab(title, rows): the same proxy path as
+   the journal, parameterised, so audit.js never touches Sheets itself. */
+export async function ensureTab(env, title, header) {
+  if (!env.RATE) return null;
+  const ck = 'evlog:tab:' + title;
+  const cached = await env.RATE.get(ck);
+  if (cached) return Number(cached);
+  const meta = await proxy(env, `spreadsheets/${SHEET_ID}`, { qk: 'fields', qv: 'sheets.properties' });
+  const found = ((meta && meta.sheets) || []).find(s => s.properties && s.properties.title === title);
+  let sheetId = found ? found.properties.sheetId : null;
+  if (sheetId == null) {
+    const res = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 }, tabColor: { red: 0.2, green: 0.4, blue: 0.7 } } } }] } });
+    sheetId = res && res.replies && res.replies[0] && res.replies[0].addSheet && res.replies[0].addSheet.properties.sheetId;
+    if (sheetId == null) return null;
+    await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests: [{ updateCells: { start: { sheetId, rowIndex: 0, columnIndex: 0 }, rows: [{ values: header.map(h => ({ userEnteredValue: { stringValue: h }, userEnteredFormat: { textFormat: { bold: true } } })) }], fields: 'userEnteredValue,userEnteredFormat.textFormat' } }] } });
+  }
+  await env.RATE.put(ck, String(sheetId));
+  return sheetId;
+}
+export async function appendTab(env, title, header, rows) {
+  const sheetId = await ensureTab(env, title, header);
+  if (sheetId == null) return false;
+  const res = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests: [{ appendCells: { sheetId, rows: rows.map(r => ({ values: r.map(v => ({ userEnteredValue: { stringValue: String(v ?? '').slice(0, 49000) } })) })), fields: 'userEnteredValue' } }] } });
+  return !!(res && Array.isArray(res.replies));
 }
 
 /* the last rows of the tab, for the admin endpoint / verification */

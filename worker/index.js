@@ -21,10 +21,11 @@
    Then set USE_PROXY to true and PROXY_BASE to the deployed URL in config.js.
    ========================================================================== */
 
+import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
-import { proxy as evProxy } from './evlog.js';
+import { proxy as evProxy, appendTab } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
@@ -236,6 +237,8 @@ async function handleGrowIpn(request, env, url) {
   } catch { return new Response('bad-body', { status: 400 }); }
 
   const flat = { ...(typeof p.data === 'object' ? p.data : {}), ...p };
+  /* 22/10: every payment notification, raw, before any matching happens */
+  stream(env, { kind: 'pay', area: 'תשלום', action: '💳 Grow IPN · ' + String(flat.sum || flat.amount || flat.transactionSum || '') + ' ₪ · ' + String(flat.fullName || flat.payerName || flat.name || ''), ok: true, phone: String(flat.phone || flat.payerPhone || ''), req: request, detail: JSON.stringify(flat).slice(0, 1500), data: { ipn: flat } }).catch(() => {});
 
   /* Richard clears OTHER businesses through the same Grow account, and the
      Grow webhook fires on every transaction. Only payments made on one of
@@ -2093,7 +2096,10 @@ async function processRetellEvent(env, body) {
   try {
     const c0 = body.call || {}, ca0 = c0.call_analysis || {};
     const dur0 = c0.start_timestamp && c0.end_timestamp ? Math.round((c0.end_timestamp - c0.start_timestamp) / 1000) : null;
-    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 שיחה הסתיימה · ' + String(c0.to_number || '').replace('+', '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + (action.result && action.result.answer ? ' · ' + action.result.answer : ''), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(ca0.call_summary || '').slice(0, 500), extra: { call_id: action.call_id, outcome: action.result ? action.result.rsvp : '', sentiment: ca0.user_sentiment || '' } }).catch(() => {});
+    /* 22/10: the recording and the full transcript are kept by us (Retell
+       deletes them), and the live log shows them in Hebrew. */
+    const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
+    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 שיחה הסתיימה · ' + String(c0.to_number || '').replace('+', '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + (action.result && action.result.answer ? ' · ' + action.result.answer : ''), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, outcome: action.result ? action.result.rsvp : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' } }).catch(() => {});
   } catch {}
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
@@ -2767,6 +2773,14 @@ async function handleWaWebhook(request, env, url) {
 
   let payload;
   try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
+  /* 22/10: anything Meta tells us that is not a message/status (template
+     approvals, number quality, account limits) goes to the audit log verbatim */
+  try {
+    for (const entry of (payload && payload.entry) || []) for (const ch of entry.changes || []) {
+      const f = String(ch.field || ''); const v = ch.value || {};
+      if (f && f !== 'messages') stream(env, { kind: 'meta', area: 'מטא', action: '🟦 ' + f + (v.event ? ' · ' + v.event : '') + (v.message_template_name ? ' · ' + v.message_template_name : '') + (v.current_limit ? ' · ' + v.current_limit : ''), ok: !/REJECTED|FLAGGED|RED|DISABLED|RESTRICT/i.test(JSON.stringify(v)), review: /REJECTED|FLAGGED|RED|DISABLED|RESTRICT/i.test(JSON.stringify(v)), detail: JSON.stringify(v).slice(0, 1500), data: { field: f, value: v } }).catch(() => {});
+    }
+  } catch {}
 
   /* Meta also posts delivery STATUSES here (sent/delivered/read/failed). We
      never read them, so a template Meta accepted and then failed to deliver
@@ -2797,6 +2811,19 @@ async function handleWaWebhook(request, env, url) {
                   }
                 }
               }
+            } catch {}
+            /* 22/10 Richard: the dashboard shows נשלח / התקבל / נקרא per guest,
+               and a Meta refusal is never shown as "sent". wst:<token>:<wave>:<phone> */
+            try {
+              const m2 = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null;
+              if (m2 && m2.token && m2.phone) {
+                const rank = { sent: 1, delivered: 2, read: 3, failed: 9 };
+                const k2 = `wst:${m2.token}:${m2.wave || 1}:${m2.phone}`;
+                const cur2 = await env.RATE.get(k2).catch(() => null);
+                if ((rank[st.status] || 0) >= (rank[cur2] || 0)) await env.RATE.put(k2, st.status, { expirationTtl: 120 * 86400 }).catch(() => {});
+              }
+              const e1 = (st.errors && st.errors[0]) || {};
+              stream(env, { kind: 'wa_status', area: stab === 'msg_guests' ? 'שיר' : 'נועה', action: (st.status === 'read' ? '👁 נקרא' : st.status === 'delivered' ? '✓✓ נמסר' : st.status === 'failed' ? '⛔ נכשל' : '✓ ' + st.status) + ' · ' + String(st.recipient_id || ''), ok: st.status !== 'failed', review: st.status === 'failed', phone: String(st.recipient_id || ''), token: m2 && m2.token ? m2.token : '', detail: st.status === 'failed' ? `${e1.code || ''} ${e1.title || ''} ${(e1.error_data && e1.error_data.details) || ''}`.trim() : (cat || ''), data: { wamid: st.id, status: st.status, meta_ts: st.timestamp, wave: m2 ? m2.wave : '', pricing: st.pricing || null } }).catch(() => {});
             } catch {}
             if (st.status === 'delivered') await logUpdate(env, stab, st.id, { delivered: 'כן ' + when, phone: st.recipient_id || '', category: cat });
             else if (st.status === 'read') await logUpdate(env, stab, st.id, { read: 'כן ' + when, phone: st.recipient_id || '', category: cat });
@@ -3991,6 +4018,51 @@ async function customTemplateSubmit(env, token, text, ev) {
   await logEvent(env, { area: 'מטא', action: rec.status === 'FAILED' ? 'תבנית בהתאמה אישית נדחתה בהגשה' : 'תבנית בהתאמה אישית הוגשה לאישור', ok: rec.status !== 'FAILED', review: rec.status === 'FAILED', token, ref: name, detail: rec.reason || text.slice(0, 120) });
   await slackPost(env, `📝 *נוסח הזמנה בהתאמה אישית* · אירוע ${token.slice(0, 8)} · ${rec.status === 'FAILED' ? '⛔ לא התקבל: ' + rec.reason : 'הוגש למטא (' + name + ')'}\n${text.slice(0, 300)}`).catch(() => {});
   return { ok: rec.status !== 'FAILED', rec };
+}
+/* ══ client audit trail (Richard 22/10) ═══════════════════════════════════
+   audit:<token>:<ms>:<rand> = { at, ts, path, what, token, ip, country, ua,
+   body, prev, hash }. hash = sha256(prev + canonical record) → a chain per
+   event; /api/audit-export re-verifies the chain so an export can be shown
+   as untampered. Kept 400 days. */
+const AUDIT_WHAT = {
+  '/api/send-date': 'שינוי מועד שליחה', '/api/custom-template': 'נוסח הזמנה בהתאמה אישית', '/api/seatplan': 'סידור הושבה',
+  '/api/media': 'תמונת/וידאו הזמנה', '/api/guest-edit': 'עריכת פרטי אורח', '/api/interest': 'התעניינות במתנות באשראי',
+  '/api/checkin': 'סימון הגעה ביום האירוע', '/api/guest-rsvp': 'אורח ענה דרך הקישור', '/api/guest-add': 'הוספת אורח',
+  '/api/addon-pay': 'רכישת תוספת/שדרוג', '/api/guests-upload': 'העלאת רשימת מוזמנים', '/api/settings': 'שמירת הגדרות האירוע',
+  '/api/cancel': 'ביטול', '/api/referral': 'הפניית חבר',
+};
+async function auditClient(env, request, path, body) {
+  if (!env.RATE) return;
+  const token = String(body.token || '');
+  const now = Date.now();
+  const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key)$/.test(k)) clean[k] = body[k]; });
+  let prev = ''; try { prev = (await env.RATE.get('auditlast:' + token)) || ''; } catch {}
+  const rec = {
+    at: new Date(now).toISOString(), ts: now, path, what: (AUDIT_WHAT[path] || path.replace('/api/', '')) + (body.action ? ' · ' + String(body.action).slice(0, 30) : ''),
+    token, ip: request.headers.get('cf-connecting-ip') || '', country: request.headers.get('cf-ipcountry') || '',
+    ua: String(request.headers.get('user-agent') || '').slice(0, 240), body: JSON.stringify(clean).slice(0, 4000), prev,
+  };
+  rec.hash = await sha256Hex(prev + '|' + JSON.stringify({ at: rec.at, path: rec.path, token: rec.token, ip: rec.ip, ua: rec.ua, body: rec.body }));
+  const key = `audit:${token}:${now}:${Math.random().toString(36).slice(2, 6)}`;
+  await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+  await env.RATE.put('auditlast:' + token, rec.hash, { expirationTtl: 400 * 86400 });
+  stream(env, { kind: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'guest' : 'client', area: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'אורח' : 'לקוח', action: '👤 ' + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash } }).catch(() => {});
+}
+async function auditExport(env, token, format) {
+  const all = await kvPrefix(env, 'audit:' + token + ':');
+  const rows = Object.values(all).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean).sort((a, b) => a.ts - b.ts);
+  let prev = '', broken = 0;
+  for (const r of rows) {
+    const h = await sha256Hex(prev + '|' + JSON.stringify({ at: r.at, path: r.path, token: r.token, ip: r.ip, ua: r.ua, body: r.body }));
+    r.verified = h === r.hash && r.prev === prev; if (!r.verified) broken++; prev = r.hash;
+  }
+  if (format === 'csv') {
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const head = ['at_utc', 'at_israel', 'token', 'action', 'path', 'ip', 'country', 'user_agent', 'body', 'hash', 'prev_hash', 'verified'];
+    const lines = [head.join(',')].concat(rows.map(r => [r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.token, r.what, r.path, r.ip, r.country, r.ua, r.body, r.hash, r.prev, r.verified ? 'yes' : 'NO'].map(esc).join(',')));
+    return '\ufeff' + lines.join('\n');
+  }
+  return { ok: true, token, count: rows.length, chain_ok: broken === 0, broken, exported_at: new Date().toISOString(), rows };
 }
 async function checkCustomTemplates(env) {
   if (!env.RATE || !env.WA_TOKEN_GUESTS) return { checked: 0 };
@@ -8478,39 +8550,45 @@ export default {
        Israel hour right now and dispatches on THAT, so whichever cron
        string happens to line up with 20:00 or 21:00 this season does the
        work; the other two are silent no-ops until the clocks change. */
+    /* 22/10: the day's audit root, anchored in Slack (the latest of the three evening crons) */
+    if (String(event.cron || '').startsWith('0 19 ')) {
+      ctx.waitUntil(audit.job(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``).catch(() => {}); return r; }).catch(() => {}));
+    }
     if (String(event.cron || '').startsWith('0 17 ') || String(event.cron || '').startsWith('0 18 ') || String(event.cron || '').startsWith('0 19 ')) {
       const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now())));
       if (ilHour === 20) {
-        ctx.waitUntil(runDailyImprove(env).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
+        ctx.waitUntil(audit.job(env, 'runDailyImprove', () => runDailyImprove(env)).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
       } else if (ilHour === 21) {
-        ctx.waitUntil(snapshotTraffic(env).catch(() => {}));
-        ctx.waitUntil(dailyJournalDigest(env).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
+        ctx.waitUntil(audit.job(env, 'snapshotTraffic', () => snapshotTraffic(env)).catch(() => {}));
+        ctx.waitUntil(audit.job(env, 'dailyJournalDigest', () => dailyJournalDigest(env)).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
       }
       return;
     }
     if (String(event.cron || '').startsWith('0 9,10,16')) {
       const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
-      ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'runTeamReminders', () => runTeamReminders(env, hourUtc, false)).catch(() => {}));
       return;
     }
     /* the ten-minute pacer: a slice of the sends and a slice of the dials,
        spread across the contact window instead of one burst at 09:35 */
     if (String(event.cron || '').startsWith('*/10')) {
-      ctx.waitUntil(adsHealthWatch(env).catch(() => {}));
-      ctx.waitUntil(drainLeadPings(env).catch(() => {}));
-      ctx.waitUntil(pullMetaFormLeads(env).catch(() => {}));
-      ctx.waitUntil(drainPartyNudges(env).catch(() => {}));
-      ctx.waitUntil(runEventDayBlasts(env).catch(() => {}));
-      ctx.waitUntil(drainCallRounds(env).catch(() => {}));
-      ctx.waitUntil(checkCustomTemplates(env).catch(() => {}));
-      ctx.waitUntil(buildCalendarMonth(env, ilDate().slice(0, 7)).catch(() => {}));
-      ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
-      ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
-      ctx.waitUntil(runPacer(env).catch(e =>
+      ctx.waitUntil(audit.job(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
+      /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
+      if (new Date().getUTCMinutes() < 10) ctx.waitUntil(audit.job(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'runPacer', () => runPacer(env)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       return;
     }
-    ctx.waitUntil(syncCallCosts(env).catch(() => {}));
+    ctx.waitUntil(audit.job(env, 'syncCallCosts', () => syncCallCosts(env)).catch(() => {}));
     /* Dialling belongs to the pacer now — it runs every ten minutes through
        the whole window instead of emptying 25 calls into the first minute of
        it. This cron keeps only the planning half of the morning. */
@@ -8569,11 +8647,26 @@ export default {
       if (url.pathname !== '/api/stream' && env.RATE) {
         try {
           const peek = await request.clone().json().catch(() => null);
+          /* Richard 22/10: every client/guest action is kept as a verifiable
+             audit record (server time, IP, UA, full body, hash chain per
+             event) so we can prove later what a client did and when. */
+          if (peek && !peek.admin_key && /^[0-9a-f-]{36}$/.test(String(peek.token || '')) && !/\/api\/(stream|lead|lead-ping|track)$/.test(url.pathname)) {
+            if (url.pathname === '/api/status') {
+              /* every dashboard open/refresh (Richard 22/10): one record per view, at most one a minute per token+ip */
+              const ipk = 'dview:' + String(peek.token).slice(0, 8) + ':' + (request.headers.get('cf-connecting-ip') || '');
+              if (!(await env.RATE.get(ipk).catch(() => null))) {
+                await env.RATE.put(ipk, '1', { expirationTtl: 60 }).catch(() => {});
+                ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '' } }));
+              }
+            } else {
+              ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
+            }
+          }
           if (peek && peek.admin_key && isAdmin(env, peek.admin_key)) {
             const ua = String(request.headers.get('User-Agent') || '');
             const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
             const keys = Object.keys(peek).filter(k => !/admin_key|sig|nonce|stamp_ts|app/.test(k));
-            ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: `${who} · ${url.pathname.replace('/api/', '')}${peek.action ? ' · ' + peek.action : ''}`, ok: true, token: String(peek.token || ''), phone: String(peek.phone || ''), detail: keys.map(k => k + '=' + String(typeof peek[k] === 'object' ? JSON.stringify(peek[k]) : peek[k]).slice(0, 60)).join(' · ').slice(0, 500) }));
+            ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: `${who} · ${url.pathname.replace('/api/', '')}${peek.action ? ' · ' + peek.action : ''}`, ok: true, token: String(peek.token || ''), phone: String(peek.phone || ''), req: request, detail: keys.map(k => k + '=' + String(typeof peek[k] === 'object' ? JSON.stringify(peek[k]) : peek[k]).slice(0, 60)).join(' · ').slice(0, 500) }));
           }
         } catch {}
       }
@@ -8708,6 +8801,8 @@ export default {
           await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן — שורה שדורשת בדיקה', ok: false, review: true, detail: 'אמורה להיות אדומה' });
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
+        if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
+        if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
         if (b.action === 'invoice-make') {
           /* recovery: issue an invoice for a payment whose first attempt
@@ -9487,27 +9582,52 @@ export default {
     if (url.pathname === '/api/stream' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      if (!env.RATE) return okJson({ ok: true, items: [] }, origin);
-      const days = Math.max(1, Math.min(7, parseInt(b.days, 10) || 2));
-      const limit = Math.max(50, Math.min(2000, parseInt(b.limit, 10) || 600));
-      const since = Number(b.since) || 0;
-      const items = [];
-      for (let d = 0; d < days; d++) {
-        const dt = new Date(Date.now() - d * 86400e3);
-        const day = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(dt).replace(/-/g, '');
-        let cursor; let pages = 0;
-        do {
-          const page = await env.RATE.list({ prefix: `stream:${day}:`, limit: 1000, cursor }).catch(() => null);
-          if (!page) break;
-          const keys = page.keys.filter(k => Number(k.name.split(':')[2]) > since);
-          const vals = await Promise.all(keys.map(k => env.RATE.get(k.name).catch(() => null)));
-          vals.forEach((v, i) => { if (v) { try { items.push({ id: keys[i].name, ts: Number(keys[i].name.split(':')[2]), ...JSON.parse(v) }); } catch {} } });
-          cursor = page.list_complete ? null : page.cursor; pages++;
-        } while (cursor && pages < 5);
-        if (items.length >= limit) break;
+      const items = await audit.query(env, { days: b.days || 2, limit: b.limit || 600, since: b.since, kind: b.kind, token: b.token, phone: b.phone, q: b.q });
+      return okJson({ ok: true, items, now: Date.now(), kinds: audit.KIND_INFO }, origin);
+    }
+    /* 22/10: per-event delivery report from the message log (sent/delivered/read/failed per guest) */
+    if (url.pathname === '/api/delivery-report' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(); if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      const since = Number(b.since) || (Date.now() - 3 * 86400e3);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const guests = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === tok).map(g => ({ name: String(g[3] || '').trim(), phone: normPhone(g[4] || ''), id: String(g[2] || '').trim() }));
+      const out = [];
+      for (const g of guests) {
+        if (!g.phone) continue;
+        const page = await env.RATE.list({ prefix: 'log:' + g.phone + ':', limit: 200 }).catch(() => null);
+        const keys = ((page && page.keys) || []).map(k => k.name).filter(n => (Number(n.split(':')[2]) || 0) >= since);
+        let last = null;
+        for (const k of keys) { try { const v = JSON.parse(await env.RATE.get(k) || 'null'); if (v && v.dir === 'out') { if (!last || (Number(k.split(':')[2]) || 0) > last.ts) last = { ts: Number(k.split(':')[2]) || 0, status: v.status || 'sent', error: v.error || '', text: String(v.text || v.type || '').slice(0, 40) }; } } catch {} }
+        out.push({ ...g, msg: last });
       }
-      items.sort((a, c) => c.ts - a.ts);
-      return okJson({ ok: true, items: items.slice(0, limit), now: Date.now() }, origin);
+      const tally = {}; out.forEach(o => { const k = o.msg ? o.msg.status : 'no-message'; tally[k] = (tally[k] || 0) + 1; });
+      return okJson({ ok: true, token: tok, since: new Date(since).toISOString(), guests: out.length, tally, rows: out }, origin);
+    }
+    if (url.pathname.startsWith('/rec/') && request.method === 'GET') {
+      const k = url.searchParams.get('key') || '';
+      return audit.serveRecording(env, url, !!(k && isAdmin(env, k)));
+    }
+    /* 22/10: the full audit log, filtered; CSV or JSON, every row re-verified */
+    if (url.pathname === '/api/audit' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const rows = await audit.verifyRows(await audit.query(env, { days: b.days, from: b.from, to: b.to, kind: b.kind, token: b.token, phone: b.phone, q: b.q, limit: b.limit, since: b.since }));
+      if (b.format === 'csv') {
+        await logEvent(env, { area: 'אדמין', action: 'ייצוא יומן ביקורת', ok: true, token: String(b.token || ''), detail: `${rows.length} שורות · ${b.kind || 'הכל'} · ${b.days || ''} ימים` }).catch(() => {});
+        return new Response(audit.toCsv(rows), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${ilDate()}${b.token ? '-' + String(b.token).slice(0, 8) : ''}${b.kind ? '-' + b.kind : ''}.csv"` } });
+      }
+      return okJson({ ok: true, count: rows.length, unverified: rows.filter(r => r.verified === false).length, kinds: audit.KIND_INFO, items: rows, now: Date.now() }, origin);
+    }
+    if (url.pathname === '/api/audit-export' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      await logEvent(env, { area: 'אדמין', action: 'ייצוא יומן ביקורת של לקוח', ok: true, token: tok, detail: String(b.format || 'json') }).catch(() => {});
+      if (b.format === 'csv') return new Response(await auditExport(env, tok, 'csv'), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${tok.slice(0, 8)}.csv"` } });
+      return okJson(await auditExport(env, tok, 'json'), origin);
     }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
@@ -10647,19 +10767,22 @@ export default {
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          const [ok, dead, fail, code] = await Promise.all([
+          const [ok, dead, fail, code, dlv] = await Promise.all([
             env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
             env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
             env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
             env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
+            env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
           ]);
           /* Richard 21/10: an answer proves the message arrived. A reply after
              a failed attempt must not keep showing "not delivered". */
           const answered = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
           const st = answered ? 'sent' : dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
-          return { st, code: st === 'sent' ? '' : String(code || dead || '') };
+          /* delivery: 'read' (blue ticks) > 'delivered' > 'sent'. A reply proves read. */
+          const delivery = st !== 'sent' ? '' : (answered || dlv === 'read') ? 'read' : dlv === 'delivered' ? 'delivered' : 'sent';
+          return { st, code: st === 'sent' ? '' : String(code || dead || ''), delivery };
         }));
-        snapshot.guests.forEach((g, i) => { g.sent = states[i].st; g.sent_code = states[i].code; });
+        snapshot.guests.forEach((g, i) => { g.sent = states[i].st; g.sent_code = states[i].code; g.delivery = states[i].delivery; });
         /* when the next automatic attempt is: today while the send window is open, otherwise the next send day */
         const nxt = (() => { const d = new Date(); for (let i = 0; i < 8; i++) { const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d); if (!isNoContactDay(iso) && (i > 0 || sendWindowState().open)) return iso; d.setDate(d.getDate() + 1); } return ''; })();
         snapshot.next_attempt = nxt;

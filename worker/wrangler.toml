@@ -53,3 +53,8 @@ custom_domain = true
 # The doctor writes "a new build went live" to the journal once per version.
 [version_metadata]
 binding = "CF_VERSION_METADATA"
+
+# 22/10: call recordings + audit exports (audit.js)
+[[r2_buckets]]
+binding = "AUDIT_R2"
+bucket_name = "ishur-audit"
