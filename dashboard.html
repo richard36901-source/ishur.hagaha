@@ -1112,7 +1112,9 @@
     else if (ct && (ct.status === 'REJECTED' || ct.status === 'FAILED')) { st.innerHTML = '<span style="color:var(--warn,#a3321f)">✕ הנוסח לא אושר</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ לא אישרו את הנוסח' + (ct.reason ? ' (' + ct.reason + ')' : '') + '. ערכו אותו כאן ואנחנו מגישים אוטומטית נוסח חדש לאישור; בינתיים יוצא הנוסח הרגיל.'; b.textContent = 'עריכה והגשה מחדש'; }
     else { st.textContent = 'הנוסח הרגיל'; tx.textContent = DEFAULT_INVITE(); nt.textContent = 'רוצים ניסוח משלכם? כותבים אותו, אנחנו מגישים לאישור וואטסאפ, וברגע שמאושר ההזמנה יוצאת בניסוח שלכם.'; }
     b.hidden = !!sent || demo;
-    if (sent) nt.textContent = 'ההזמנות כבר יצאו, הנוסח נעול.';
+    if (sent && ct && ct.status === 'PENDING') nt.innerHTML += '<br>ההזמנה הראשונה כבר יצאה בנוסח הרגיל. ברגע שהנוסח יאושר, התזכורות ייצאו בנוסח שלכם.';
+    else if (sent && ct && ct.status === 'APPROVED') nt.textContent = 'ההזמנה הראשונה יצאה בנוסח הרגיל; התזכורות יוצאות בנוסח שלכם.';
+    else if (sent) nt.textContent = 'ההזמנות כבר יצאו, הנוסח נעול.';
   }
   (function () {
     var b = $('ctBtn'); if (!b) return;
