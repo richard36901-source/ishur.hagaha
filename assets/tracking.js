@@ -259,10 +259,29 @@ window.IshurTrack = (function () {
   /* ══ init ═════════════════════════════════════════════════════════════════ */
 
   capture();
-  loadGTM();
-  loadMeta();
-  loadTikTok();
-  loadGA4();
+  /* ══ consent (Richard 22/10) ═══════════════════════════════════════════
+     Advertising pixels (Meta, TikTok, GTM/GA4) load only after the visitor
+     taps "אישור" in the bar. PostHog is first-party measurement through our
+     own proxy with inputs masked, disclosed in the privacy policy, and loads
+     regardless. The choice is remembered for 12 months. */
+  var CONSENT_KEY = 'ishur_consent_v1';
+  function consent() { try { var v = JSON.parse(localStorage.getItem(CONSENT_KEY) || 'null'); return v && v.until > Date.now() ? v.choice : ''; } catch (e) { return ''; } }
+  function setConsent(choice) { try { localStorage.setItem(CONSENT_KEY, JSON.stringify({ choice: choice, at: new Date().toISOString(), until: Date.now() + 365 * 86400e3 })); } catch (e) {} }
+  function loadMarketing() { loadGTM(); loadMeta(); loadTikTok(); loadGA4(); }
+  function consentBar() {
+    if (document.getElementById('ishur-consent')) return;
+    var bar = document.createElement('div'); bar.id = 'ishur-consent'; bar.setAttribute('role', 'dialog'); bar.setAttribute('aria-label', 'עוגיות');
+    bar.style.cssText = 'position:fixed;inset-inline:12px;bottom:12px;z-index:9998;max-width:560px;margin-inline:auto;background:#1B2620;color:#F4F1EA;border-radius:14px;padding:.8rem 1rem;font:14px/1.45 Heebo,system-ui,sans-serif;direction:rtl;box-shadow:0 10px 30px rgba(0,0,0,.25);display:flex;gap:.6rem;align-items:center;flex-wrap:wrap';
+    bar.innerHTML = '<span style="flex:1;min-width:220px">האתר משתמש בעוגיות למדידה ולפרסום (Meta, Google, TikTok). <a href="terms.html#cookies" style="color:#C7AE7A">מה זה אומר</a></span>' +
+      '<button type="button" id="ishur-consent-ok" style="background:#C7AE7A;color:#1B2620;border:0;border-radius:10px;padding:.5rem .9rem;font:inherit;font-weight:600;cursor:pointer">אישור</button>' +
+      '<button type="button" id="ishur-consent-no" style="background:transparent;color:#F4F1EA;border:1px solid rgba(255,255,255,.35);border-radius:10px;padding:.5rem .9rem;font:inherit;cursor:pointer">רק הכרחי</button>';
+    document.body.appendChild(bar);
+    bar.querySelector('#ishur-consent-ok').addEventListener('click', function () { setConsent('all'); bar.remove(); loadMarketing(); });
+    bar.querySelector('#ishur-consent-no').addEventListener('click', function () { setConsent('essential'); bar.remove(); });
+  }
+  var ch = consent();
+  if (ch === 'all') loadMarketing();
+  else if (!ch) { if (document.body) consentBar(); else document.addEventListener('DOMContentLoaded', consentBar); }
   loadPostHog();
 
   /* ══ pending order ════════════════════════════════════════════════════════
