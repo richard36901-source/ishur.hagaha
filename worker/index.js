@@ -3324,7 +3324,9 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   /* anything else: acknowledge, and hand the hosts the message */
   await say('קיבלנו 🙂 מעבירים לבעלי השמחה.');
   const evName = c(34) || c(2);
-  const li = await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
+  /* Richard 22/10: no more Linear issue per guest question (30 of them clogged
+     triage); Slack + the live log carry it. Set GUEST_Q_LINEAR=on to restore. */
+  const li = String(env.GUEST_Q_LINEAR || '') !== 'on' ? { ok: false, why: 'off' } : await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
     `**אורח:** ${guest.name || ''} · ${from.replace(/^972/, '0')}\n**אירוע:** ${evName} (${c(5)}, ${heDate(c(6))})\n**לקוח:** ${c(2)} · ${String(ev[3] || '').replace(/^972/, '0')}\n**מצב אורח:** ${guest.rsvp || 'לא ענה'}${guest.party ? ' · ' + guest.party : ''}\n\n**ההודעה:**\n> ${t.slice(0, 1000)}\n\nלענות לאורח מהאינבוקס: https://ishur.io/inbox.html`);
   await slackPost(env, `💬 *שאלת אורח לבעלי השמחה* <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}> <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>\n*אורח:* ${guest.name || from} (${from.replace(/^972/, '0')})\n*אירוע:* ${evName}\n*הודעה:* "${t.slice(0, 300)}"${li.ok ? `\n*לינאר:* <${li.url}|${li.identifier}>` : li.why === 'no-key' ? '\n_(לינאר: אין עדיין מפתח API)_' : ''}`).catch(() => {});
   await logEvent(env, { area: 'ווצאפ', action: 'הודעת אורח הועברה לבעלי השמחה', ok: true, review: true, phone: from, token: guest.token, detail: t.slice(0, 200) }).catch(() => {});
