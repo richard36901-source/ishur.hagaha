@@ -1068,13 +1068,48 @@
     var date = ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL') : 'התאריך';
     return 'שלום {שם האורח}! הוזמנתם ל' + occ + ' של ' + hosts + '.\n\n📅 ' + date + '\n🕐 קבלת פנים ' + (ev.reception_time || 'השעה') + '\n📍 ' + [ev.venue_name, ev.venue_city].filter(Boolean).join(', ') + '\n\nנשמח לדעת אם תגיעו:';
   };
+  /* Richard 22/10: Meta usually approves within an hour but can take 24h, so
+     the first day whose 09:00 send is ≥ 25h after submission is the safe one. */
+  var CT_HOURS = 25;
+  function ctSafeDate() {
+    var ct = data.custom_template || null;
+    if (!ct || ct.status !== 'PENDING' || !ct.at) return '';
+    var ready = new Date(new Date(ct.at).getTime() + CT_HOURS * 3600e3);
+    var d = isoDay(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(ready));
+    var h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(ready));
+    if (h >= 9) d = shiftDay(d, 1);
+    return d;
+  }
+  var CT_WARN = 'הנוסח האישי שלכם עדיין בבדיקה של וואטסאפ. אם לא יאושר עד מועד השליחה, תישלח ההזמנה הרגילה (הנוסח שמוצג בלוח תחת "הנוסח הרגיל"). וואטסאפ בדרך כלל מאשרים תוך שעה, אבל זה יכול לקחת עד 24 שעות, לכן מומלץ לקבוע את השליחה לפחות 25 שעות אחרי ההגשה.';
+  function ctWarnIfSoon(date, onChange, onAccept) {
+    var safe = ctSafeDate();
+    if (!safe || !date || date >= safe) { onAccept(false); return; }
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:95;padding:1rem';
+    box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:440px">' +
+      '<h3 style="margin:0 0 .4rem">⏳ הנוסח עדיין בבדיקה</h3>' +
+      '<p style="margin:0 0 .5rem;font-size:.86rem;color:var(--ink2)">' + CT_WARN + '</p>' +
+      '<p style="margin:0 0 .8rem;font-size:.86rem"><b>המועד המומלץ:</b> ' + esc(IshurDate.pretty(safe) || safe) + '<br><span style="color:var(--ink3);font-size:.8rem">באחריותכם לוודא לפני מועד השליחה שהנוסח מופיע בלוח כ"מאושר".</span></p>' +
+      '<button type="button" class="buy" id="ctwMove" style="width:100%;margin-bottom:.5rem">שינוי מועד ל-' + esc(IshurDate.pretty(safe) || safe) + '</button>' +
+      '<button type="button" class="btn" id="ctwGo" style="width:100%">מאשר/ת, להמשיך במועד שבחרתי</button></div>';
+    document.body.appendChild(box);
+    box.querySelector('#ctwMove').addEventListener('click', function () { box.remove(); onChange(safe); });
+    box.querySelector('#ctwGo').addEventListener('click', function () { box.remove(); IshurLead.track('custom_template_ack_soon', { date: date }); onAccept(true); });
+  }
   function renderCustomText() {
     var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
     if (!st) return;
     var sent = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
+    var inv = (data.sends || []).filter(function (x) { return x.key === 'invite'; })[0];
+    b.textContent = 'נוסח בהתאמה אישית';
     if (ct && ct.status === 'APPROVED') { st.innerHTML = '<span style="color:var(--green2)">✓ נוסח אישי מאושר</span>'; tx.textContent = ct.text; nt.textContent = 'זה הנוסח שהמוזמנים מקבלים, עם כפתורי האישור למטה.'; }
-    else if (ct && ct.status === 'PENDING') { st.innerHTML = '<span style="color:#9A5B00">⏳ ממתין לאישור וואטסאפ</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ בודקים נוסחים חדשים, בדרך כלל תוך שעה. עד האישור נשלח הנוסח הרגיל.'; }
-    else if (ct && (ct.status === 'REJECTED' || ct.status === 'FAILED')) { st.innerHTML = '<span style="color:var(--warn,#a3321f)">✕ הנוסח לא אושר</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ לא אישרו את הנוסח' + (ct.reason ? ' (' + ct.reason + ')' : '') + '. אפשר לנסות נוסח אחר; בינתיים נשלח הנוסח הרגיל.'; }
+    else if (ct && ct.status === 'PENDING') {
+      var safe = ctSafeDate(), soon = safe && inv && inv.status === 'scheduled' && isoDay(inv.date) < safe;
+      st.innerHTML = '<span style="color:#9A5B00">⏳ ממתין לאישור וואטסאפ</span>'; tx.textContent = ct.text;
+      nt.innerHTML = 'הוגש ' + esc(IshurDate.pretty(isoDay(ct.at)) || '') + '. וואטסאפ בדרך כלל מאשרים תוך שעה, לפעמים עד 24 שעות. עד האישור יוצא הנוסח הרגיל.' + (safe ? ' <b>מומלץ לשלוח מ-' + esc(IshurDate.pretty(safe) || safe) + ' ואילך.</b>' : '') + ' באחריותכם לוודא לפני מועד השליחה שכתוב כאן "מאושר".' +
+        (soon ? '<br><span style="color:var(--warn,#a3321f)">⚠ ההזמנה מתוזמנת ל-' + esc(IshurDate.pretty(inv.date) || inv.date) + ', לפני המועד המומלץ. אם הנוסח לא יאושר עד אז, תצא ההזמנה הרגילה.</span>' : '');
+    }
+    else if (ct && (ct.status === 'REJECTED' || ct.status === 'FAILED')) { st.innerHTML = '<span style="color:var(--warn,#a3321f)">✕ הנוסח לא אושר</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ לא אישרו את הנוסח' + (ct.reason ? ' (' + ct.reason + ')' : '') + '. ערכו אותו כאן ואנחנו מגישים אוטומטית נוסח חדש לאישור; בינתיים יוצא הנוסח הרגיל.'; b.textContent = 'עריכה והגשה מחדש'; }
     else { st.textContent = 'הנוסח הרגיל'; tx.textContent = DEFAULT_INVITE(); nt.textContent = 'רוצים ניסוח משלכם? כותבים אותו, אנחנו מגישים לאישור וואטסאפ, וברגע שמאושר ההזמנה יוצאת בניסוח שלכם.'; }
     b.hidden = !!sent || demo;
     if (sent) nt.textContent = 'ההזמנות כבר יצאו, הנוסח נעול.';
@@ -1105,8 +1140,10 @@
         fetch(CFG.endpoint('custom-template'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, action: 'set', text: text }) })
           .then(function (r) { return r.json(); }).then(function (j) {
             if (!j || !j.ok) { sb.disabled = false; sb.textContent = 'הגשה לאישור וואטסאפ'; err.textContent = j && j.error === 'already-sent' ? 'ההזמנות כבר יצאו' : (j && j.custom && j.custom.reason) || 'לא הצלחנו להגיש, נסו שוב'; return; }
-            data.custom_template = { status: j.custom.status, text: j.custom.text, reason: j.custom.reason || '' };
+            data.custom_template = { status: j.custom.status, text: j.custom.text, reason: j.custom.reason || '', at: j.custom.at, id: j.custom.id || '' };
             box.remove(); renderCustomText(); IshurUX.toast('הוגש לאישור וואטסאפ');
+            var invIdx = (data.sends || []).map(function (x) { return x.key; }).indexOf('invite'), inv = invIdx >= 0 ? data.sends[invIdx] : null;
+            if (inv && inv.status === 'scheduled') ctWarnIfSoon(isoDay(inv.date), function (safe) { editSend(invIdx); var di = $('dpopIn'); if (di) di.value = safe; }, function (acked) { if (acked) ctAckRecord(inv.key, isoDay(inv.date)); });
           }).catch(function () { sb.disabled = false; sb.textContent = 'הגשה לאישור וואטסאפ'; err.textContent = 'לא הצלחנו להגיש, נסו שוב'; });
       });
     });
@@ -1750,10 +1787,16 @@
     if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) { err.textContent = SEND_ERR.shabbat; inp.focus(); return; }
 
     err.textContent = '';
-    saveSendDate(i, date);
+    ctWarnIfSoon(date, function (safe) { inp.value = safe; }, function (acked) { saveSendDate(i, date, acked); });
+  }
+  /* a consent record for "send before approval", kept server-side with a timestamp */
+  function ctAckRecord(sendKey, date) {
+    var ct = data.custom_template || {};
+    var payload = { token: token, send: sendKey, date: date, ack_pending: true, template_id: ct.id || '', shown: CT_WARN };
+    fetch(CFG.endpoint('senddate'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })['catch'](function () {});
   }
 
-  function saveSendDate(i, date) {
+  function saveSendDate(i, date, acked) {
     var s = data.sends[i];
     var box = $('dpop');
     var ok = box.querySelector('#dpopOk');
@@ -1772,6 +1815,7 @@
     }
 
     var payload = { token: token, send: s.key, date: date };
+    if (acked) { var ct0 = data.custom_template || {}; payload.ack_pending = true; payload.template_id = ct0.id || ''; payload.shown = CT_WARN; }
     fetch(CFG.endpoint('senddate'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)

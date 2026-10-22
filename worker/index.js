@@ -3996,7 +3996,8 @@ async function checkCustomTemplates(env) {
   if (!env.RATE || !env.WA_TOKEN_GUESTS) return { checked: 0 };
   const all = await kvPrefix(env, 'customtmpl:');
   let checked = 0;
-  for (const [k, raw] of Object.entries(all)) {
+  for (const [tok, raw] of Object.entries(all)) {
+    const k = 'customtmpl:' + tok;   /* kvPrefix strips the prefix */
     let rec = null; try { rec = JSON.parse(raw); } catch {}
     if (!rec || rec.status !== 'PENDING' || !rec.name) continue;
     const r = await fetch(`https://graph.facebook.com/v21.0/1378764257421712/message_templates?name=${rec.name}&fields=name,status,rejected_reason`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
@@ -4009,7 +4010,7 @@ async function checkCustomTemplates(env) {
     await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
     const token = k.slice('customtmpl:'.length);
     await logEvent(env, { area: 'מטא', action: st === 'APPROVED' ? 'תבנית בהתאמה אישית אושרה' : `תבנית בהתאמה אישית: ${st}`, ok: st === 'APPROVED', review: st !== 'APPROVED', token, ref: rec.name, detail: rec.reason || '' });
-    await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}`).catch(() => {});
+    await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}${st === 'APPROVED' ? '' : '\nהלקוח רואה את זה בלוח ויכול לערוך ולהגיש שוב בעצמו; עד אז יוצא הנוסח הרגיל.'}`).catch(() => {});
   }
   return { checked };
 }
@@ -4028,8 +4029,8 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
   const today = ilDate();
   const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
   const res = [];
-  for (const [k, rawJob] of Object.entries(jobs)) {
-    const token = k.slice('callround:'.length);
+  for (const [token, rawJob] of Object.entries(jobs)) {
+    const k = 'callround:' + token;   /* kvPrefix strips the prefix */
     if (only && token !== only) continue;
     let job = null; try { job = JSON.parse(rawJob); } catch {}
     if (!job || job.done) continue;
@@ -7373,6 +7374,13 @@ async function handleSendDate(request, env, origin) {
   let out = null;
   try { out = await r.json(); } catch {}
   if (!out || !out.totalUpdatedCells) return deny(502, 'sheet-write-failed', origin);
+  /* Richard 22/10: the client knowingly scheduled before their custom wording
+     is approved. Keep a verifiable record (like marketing-consent), no Slack. */
+  if (body.ack_pending === true) {
+    const ack = { at: new Date().toISOString(), send: body.send, date, template_id: String(body.template_id || ''), shown: String(body.shown || '').slice(0, 600), ip: request.headers.get('cf-connecting-ip') || '', ua: String(request.headers.get('user-agent') || '').slice(0, 200), country: request.headers.get('cf-ipcountry') || '' };
+    if (env.RATE) await env.RATE.put('ctack:' + token + ':' + Date.now(), JSON.stringify(ack), { expirationTtl: 400 * 86400 }).catch(() => {});
+    await logEvent(env, { area: 'לוח', action: 'הלקוח אישר מועד שליחה לפני אישור הנוסח האישי', ok: true, token, ref: body.send, detail: `${date} · ${ack.ip}` }).catch(() => {});
+  }
   return okJson({ ok: true, send: body.send, date }, origin);
 }
 
@@ -9367,6 +9375,13 @@ export default {
       const rec0 = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec0 && !isAdmin(env, b.admin_key)) return deny(404, 'unknown-token', origin);
       let cur = null; try { cur = JSON.parse((await env.RATE.get('customtmpl:' + tok)) || 'null'); } catch {}
+      if (b.action === 'check' && isAdmin(env, b.admin_key) && cur && cur.id) {
+        const r = await fetch(`https://graph.facebook.com/v21.0/${cur.id}?fields=name,status,rejected_reason,category`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        const st = String(j.status || '').toUpperCase();
+        if (st && st !== cur.status) { cur.status = st; cur.reason = String(j.rejected_reason || ''); cur.checked = new Date().toISOString(); await env.RATE.put('customtmpl:' + tok, JSON.stringify(cur), { expirationTtl: 400 * 86400 }); }
+        return okJson({ ok: true, custom: cur, meta: j }, origin);
+      }
       if (b.action !== 'set') return okJson({ ok: true, custom: cur }, origin);
       if (await overBudget(env, 'rl:ctmpl:' + tok, 6, 86400)) return deny(429, 'slow-down', origin);
       const text = String(b.text || '').replace(/\r/g, '').trim().slice(0, 1024);
@@ -10693,7 +10708,7 @@ export default {
           (snapshot.guests || []).forEach(g => { const v = parseInt(arr[`arrived:${token}:${g.id}`], 10) || 0; g.arrived = v; if (v) { total += v; people++; } });
           snapshot.checkin = { enabled, hostess: hasHostess, event_day: evDate === today, arrived_total: total, arrived_people: people };
         } catch { snapshot.checkin = { enabled: false }; }
-        try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header } : null; } catch { snapshot.custom_template = null; }
+        try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header, id: ct.id || '', n: ct.n || 1 } : null; } catch { snapshot.custom_template = null; }
         /* Richard 21/10: the Morning invoice is downloadable from the board */
         try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
         /* a direct-link buyer's row has no tier until the engine fills it;
