@@ -1104,7 +1104,9 @@ function parsePaidDesc(desc) {
   const m = d.match(/(\d{2,4})\s*(?:מוזמנים|רשומות)/);
   const tier = m ? parseInt(m[1], 10) : 0;
   /* דיילות: 1 up to 200 records, 2 up to 500, 3 above (pricing agreed 04/10) */
-  const hostess = /דייל/.test(d) ? (tier && tier <= 200 ? 1 : tier && tier <= 500 ? 2 : 3) : 0;
+  /* 22/10: an explicit count in the name wins ("דיילת אחת" / "2 דיילות" / "3 דיילות") */
+  const hx = d.match(/(\d)\s*דיילות/);
+  const hostess = /דיילת אחת|דיילת 1\b|1 דיילת/.test(d) ? 1 : hx ? Math.min(3, parseInt(hx[1], 10)) : /דייל/.test(d) ? (tier && tier <= 200 ? 1 : tier && tier <= 500 ? 2 : 3) : 0;
   let plan = '', planText = '';
   if (/הכל|premium|all/i.test(d)) { plan = 'premium'; planText = 'הכל כלול'; }
   else if (/בסיס|basic|base/i.test(d)) { plan = 'basic'; planText = 'בסיס'; }
@@ -9657,6 +9659,51 @@ export default {
         return new Response(audit.toCsv(rows), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${ilDate()}${b.token ? '-' + String(b.token).slice(0, 8) : ''}${b.kind ? '-' + b.kind : ''}.csv"` } });
       }
       return okJson({ ok: true, count: rows.length, unverified: rows.filter(r => r.verified === false).length, kinds: audit.KIND_INFO, items: rows, now: Date.now() }, origin);
+    }
+    /* 22/10 Richard: a one-off price for a special client. The description
+       keeps the house format "<N> רשומות <plan>[ + דיילות]" so the IPN opens
+       the event exactly like a catalogue purchase. */
+    /* 22/10 Richard: Monday updates (Shalev's notes on leads, status changes)
+       land in the audit log. Monday posts {challenge} once on creation, then
+       {event:{type, pulseId, pulseName, columnTitle, value, textBody, userId…}}. */
+    if (url.pathname === '/api/monday-hook' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return okJson({ ok: false }, origin); }
+      if (b.challenge) return new Response(JSON.stringify({ challenge: b.challenge }), { headers: { 'Content-Type': 'application/json' } });
+      if ((url.searchParams.get('k') || '') !== (env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '')) return deny(403, 'bad-key', origin);
+      const e = b.event || {};
+      const t = String(e.type || '');
+      const name = String(e.pulseName || e.itemName || '').trim();
+      const who = String(e.userName || e.userId || '');
+      let action = '', detail = '';
+      if (t === 'create_update' || t === 'edit_update') { action = `📝 עדכון בליד · ${name}`; detail = String(e.textBody || e.body || '').replace(/<[^>]+>/g, '').slice(0, 1500); }
+      else if (t === 'change_column_value' || t === 'change_status_column_value' || t === 'change_specific_column_value') { const v = e.value && typeof e.value === 'object' ? (e.value.label && e.value.label.text) || e.value.text || e.value.name || JSON.stringify(e.value) : String(e.value || ''); const pv = e.previousValue && typeof e.previousValue === 'object' ? (e.previousValue.label && e.previousValue.label.text) || e.previousValue.text || '' : String(e.previousValue || ''); action = `🔁 ${e.columnTitle || e.columnId || 'עמודה'}: ${pv ? pv + ' → ' : ''}${v} · ${name}`; detail = `${e.columnTitle || e.columnId || ''} = ${String(v).slice(0, 300)}`; }
+      else if (t === 'create_pulse' || t === 'create_item') { action = `➕ ליד חדש במאנדיי · ${name}`; }
+      else if (t === 'update_name') { action = `✏️ שם ליד שונה · ${e.previousValue || ''} → ${name}`; }
+      else { action = `מאנדיי · ${t} · ${name}`; detail = JSON.stringify(e).slice(0, 800); }
+      /* phone from the item, cached per item id so one Monday read per lead */
+      let phone = '';
+      try { const pk = 'mphone:' + String(e.pulseId || ''); phone = (await env.RATE.get(pk).catch(() => null)) || ''; if (!phone && e.pulseId) { const r = await mondayGql(env, `query($i:[ID!]){items(ids:$i){column_values{id text type}}}`, { i: [String(e.pulseId)] }).catch(() => null); const cols = (((r || {}).data || {}).items || [])[0]; const pc = cols && cols.column_values.find(c => c.type === 'phone' || /phone|טלפון/i.test(c.id)); phone = pc ? normPhone(pc.text || '') : ''; if (phone) await env.RATE.put(pk, phone, { expirationTtl: 30 * 86400 }).catch(() => {}); } } catch {}
+      await stream(env, { kind: 'lead', area: 'מאנדיי', action, ok: true, phone, detail, data: { monday: { type: t, item_id: e.pulseId, board: e.boardId, user: who, column: e.columnTitle || e.columnId || '', value: e.value, previous: e.previousValue, update_id: e.updateId } } }).catch(() => {});
+      return okJson({ ok: true }, origin);
+    }
+    if (url.pathname === '/api/pay-link' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook' }, origin);
+      const sum = Number(b.sum) || 0; if (sum <= 0) return deny(400, 'bad-sum', origin);
+      const tier = Number(b.tier) || 0, planText = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[String(b.plan || '')] || '';
+      const hn = Number(b.hostess) || (b.hostess ? 2 : 0);
+      const description = String(b.description || `${tier} רשומות ${planText}${hn === 1 ? ' + דיילת אחת' : hn > 1 ? ` + ${hn} דיילות` : ''}`).trim();
+      const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        sum, description, token: '', kind: 'special', scope: 'all', label: description, n: tier,
+        name: String(b.name || 'לקוח ishur'), phone: String(b.phone || '').replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
+        successUrl: 'https://ishur.io/thanks.html', cancelUrl: 'https://ishur.io/',
+        cField1: String(b.note || 'special'), cField2: String(b.occasion || ''),
+      }) }).catch(() => null);
+      let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
+      const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+      await logEvent(env, { area: 'תשלום', action: `קישור תשלום מיוחד: ${description} · ₪${sum}`, ok: !!link, review: !link, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!link, url: link || '', description, sum, make: link ? undefined : mtxt.slice(0, 200) }, origin);
     }
     if (url.pathname === '/api/audit-export' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
