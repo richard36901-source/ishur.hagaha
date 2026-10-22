@@ -12,11 +12,14 @@
 <script src="assets/adminbar.js?v=14" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
+  /* ── the full audit log, live (Richard 22/10): every record has an id and a
+     hash; rows open to the full detail, transcript and recording; everything
+     shown can be exported as CSV; the legend explains each kind ── */
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--pine-s:rgba(15,76,53,.09);--gold:#B4884A;--warn:#A8402F;--warn-s:rgba(168,64,47,.10);--good:#2E7D5B;--good-s:rgba(46,125,91,.12);--amber:#9A5B00;--amber-s:rgba(154,91,0,.12)}
   html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--pine-s:rgba(123,201,164,.14);--good:#7BC9A4;--warn:#E58C7C;--amber:#E3AA4C}
   *{box-sizing:border-box}
   body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:14px;line-height:1.45}
-  .wrap{max-width:1180px;margin:0 auto;padding:1rem 1rem 4rem}
+  .wrap{max-width:1240px;margin:0 auto;padding:1rem 1rem 4rem}
   h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.5rem;margin:0}
   .top{display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap;margin-bottom:.7rem}
   .live{display:inline-flex;align-items:center;gap:.4rem;font-size:.8rem;color:var(--ink3)}
@@ -32,26 +35,36 @@
   .q{flex:1;min-width:180px;border:1px solid var(--line);border-radius:10px;padding:.4rem .7rem;font:inherit;background:var(--card);color:var(--ink)}
   .btn{border:1px solid var(--line);background:var(--card);border-radius:10px;padding:.4rem .8rem;font:inherit;font-size:.82rem;cursor:pointer;color:var(--ink)}
   .btn.on{background:var(--amber-s);border-color:var(--amber);color:var(--amber)}
+  select.btn,input.btn{padding:.35rem .5rem}
   .list{margin-top:.6rem}
-  .row{display:grid;grid-template-columns:5.2rem 4.6rem 1fr auto;gap:.6rem;align-items:start;padding:.45rem .6rem;border-bottom:1px solid var(--line);cursor:pointer}
+  .row{display:grid;grid-template-columns:5.2rem 5rem 1fr auto;gap:.6rem;align-items:start;padding:.45rem .6rem;border-bottom:1px solid var(--line);cursor:pointer}
   .row:hover{background:var(--card)}
   .row.bad{background:var(--warn-s)}
   .row.review{border-inline-start:3px solid var(--amber)}
   .t{color:var(--ink3);font-variant-numeric:tabular-nums;font-size:.8rem;white-space:nowrap}
   .k{font-size:.72rem;font-weight:600;border-radius:6px;padding:.1rem .4rem;text-align:center;white-space:nowrap}
-  .k.event{background:var(--pine-s);color:var(--pine)} .k.wa_out{background:#E8F1FB;color:#1D4ED8} .k.wa_in{background:#EAF7EE;color:#1E6B3C} .k.slack{background:#F3EBFB;color:#6B21A8} .k.call{background:#FFF1E6;color:#9A4B00} .k.admin{background:#EEF0EF;color:#555}
+  .k.event{background:var(--pine-s);color:var(--pine)} .k.wa_out{background:#E8F1FB;color:#1D4ED8} .k.wa_in{background:#EAF7EE;color:#1E6B3C} .k.wa_status{background:#E6F4F1;color:#0B6E5C} .k.slack{background:#F3EBFB;color:#6B21A8} .k.call{background:#FFF1E6;color:#9A4B00} .k.admin{background:#EEF0EF;color:#555} .k.client{background:#FDF0E0;color:#8A4B00} .k.guest{background:#F1F7E6;color:#3F6B10} .k.pay{background:#E9F5EC;color:#1F6B3A} .k.meta{background:#E8EEFB;color:#2B3F9E} .k.cron{background:#F0F0F4;color:#4B4B6B} .k.system{background:#F6E9E9;color:#7A2E2E}
   .a{min-width:0}
   .a .h{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .a .d{color:var(--ink3);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .row.open .a .h,.row.open .a .d{white-space:pre-wrap;overflow:visible}
+  .full{margin-top:.4rem;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:.6rem .7rem;font-size:.8rem;display:grid;grid-template-columns:7rem 1fr;gap:.25rem .6rem}
+  .full b{color:var(--ink3);font-weight:500}
+  .full .v{direction:ltr;text-align:left;word-break:break-all;unicode-bidi:plaintext}
+  .full .he{direction:rtl;text-align:right;white-space:pre-wrap;word-break:normal}
+  .full audio{grid-column:1/-1;width:100%;margin-top:.3rem}
   .tags{display:flex;gap:.3rem;flex-wrap:wrap;justify-content:flex-end}
   .tag{font-size:.72rem;color:var(--ink3);border:1px solid var(--line);border-radius:6px;padding:0 .35rem;direction:ltr;cursor:pointer}
   .tag:hover{border-color:var(--pine);color:var(--pine)}
+  .tag.id{cursor:copy;font-variant-numeric:tabular-nums}
   .empty{color:var(--ink3);padding:2rem;text-align:center}
   .new{animation:flash 1.4s ease-out}
   @keyframes flash{from{background:var(--good-s)}to{background:transparent}}
   .cnt{font-size:.78rem;color:var(--ink3)}
-  @media (max-width:600px){.row{grid-template-columns:4.2rem 1fr}.k{grid-row:2}.tags{grid-column:1/-1;justify-content:flex-start}}
+  .legend{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.7rem .9rem;margin:.6rem 0;display:none;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.4rem .9rem;font-size:.8rem}
+  .legend.on{display:grid}
+  .legend div b{display:inline-block;min-width:3.4rem}
+  @media (max-width:600px){.row{grid-template-columns:4.2rem 1fr}.k{grid-row:2}.tags{grid-column:1/-1;justify-content:flex-start}.full{grid-template-columns:1fr}}
   .gate{max-width:360px;margin:4rem auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.2rem}
   .gate input{width:100%;font:inherit;padding:.6rem;border:1px solid var(--line);border-radius:10px;margin:.5rem 0}
 </style>
@@ -60,20 +73,20 @@
 <div class="wrap">
   <div class="top">
     <div><h1>לוג חי</h1><div class="cnt" id="cnt">—</div></div>
-    <div style="display:flex;gap:.5rem;align-items:center">
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
       <span class="live" id="liveDot"><i></i><span id="liveTxt">מתעדכן כל 5 שנ׳</span></span>
       <button class="btn" id="pause">הקפאה</button>
+      <button class="btn" id="legendBtn" title="מה זה כל סוג">? מקרא</button>
+      <button class="btn" id="exportBtn" title="ייצוא מה שמסונן כ-CSV (עם hash לכל שורה)">⬇ ייצוא CSV</button>
     </div>
   </div>
+  <div class="legend" id="legend"></div>
   <div class="bar" id="bar">
-    <input class="q" id="q" type="search" placeholder="חיפוש: טלפון, טוקן, שם, טקסט…">
-    <button class="chip on" data-k="">הכל <b id="n_all">0</b></button>
-    <button class="chip" data-k="wa_out">📤 יוצאות <b id="n_wa_out">0</b></button>
-    <button class="chip" data-k="wa_in">📥 נכנסות <b id="n_wa_in">0</b></button>
-    <button class="chip" data-k="call">📞 שיחות <b id="n_call">0</b></button>
-    <button class="chip" data-k="slack">💬 סלאק <b id="n_slack">0</b></button>
-    <button class="chip" data-k="event">📒 יומן <b id="n_event">0</b></button>
-    <button class="chip" data-k="admin">🛠 אדמין <b id="n_admin">0</b></button>
+    <input class="q" id="q" type="search" placeholder="חיפוש: טלפון, טוקן, שם, טקסט, מזהה…">
+    <select class="btn" id="days" title="טווח">
+      <option value="2">48 שעות</option><option value="7">7 ימים</option><option value="30">30 יום</option><option value="90">90 יום</option>
+    </select>
+    <span id="chips"></span>
     <button class="chip" data-bad="1">⛔ כשלים <b id="n_bad">0</b></button>
     <span id="pin"></span>
   </div>
@@ -95,53 +108,88 @@
       .then(function (r) { if (r.status === 403) throw new Error('403'); return r.json(); });
   }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  var KIND_HE = { event: 'יומן', wa_out: 'יוצאת', wa_in: 'נכנסת', slack: 'סלאק', call: 'שיחה', admin: 'אדמין' };
+  /* order of the chips; names/explanations come from the worker (audit.js KIND_INFO) */
+  var KIND_ORDER = ['client', 'guest', 'wa_out', 'wa_status', 'wa_in', 'call', 'pay', 'meta', 'cron', 'admin', 'slack', 'event', 'system'];
+  var KIND_ICON = { client: '👤', guest: '🙋', wa_out: '📤', wa_status: '✓✓', wa_in: '📥', call: '📞', pay: '💳', meta: '🟦', cron: '⚙️', admin: '🛠', slack: '💬', event: '📒', system: '🧩' };
+  var KINDS = {};
 
-  var items = [], byId = {}, kind = '', bad = false, pin = null, q = '', paused = false, lastTs = 0, timer = null, openIds = {};
+  var items = [], byId = {}, kind = '', bad = false, pin = null, q = '', paused = false, lastTs = 0, timer = null, openIds = {}, days = 2;
 
   function hhmm(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' }); }
   function dayLbl(iso) { var d = new Date(iso); return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }); }
+  function phoneOf(it) { var p = it.phone; if (p && typeof p === 'object') p = p.phone || p.number || ''; return String(p || ''); }
   function match(it) {
     if (kind && it.kind !== kind) return false;
     if (bad && !(it.ok === false || it.review)) return false;
-    if (pin) { if (pin.type === 'token' && it.token !== pin.v) return false; if (pin.type === 'phone' && it.phone !== pin.v) return false; }
-    if (q) { var hay = (it.action + ' ' + it.detail + ' ' + it.phone + ' ' + it.token + ' ' + it.area).toLowerCase(); if (hay.indexOf(q) < 0) return false; }
+    if (pin) { if (pin.type === 'token' && String(it.token || '').slice(0, 8) !== pin.v.slice(0, 8)) return false; if (pin.type === 'phone' && phoneOf(it) !== pin.v) return false; }
+    if (q) { var hay = (it.id + ' ' + it.action + ' ' + it.detail + ' ' + phoneOf(it) + ' ' + it.token + ' ' + it.area + ' ' + (it.data ? JSON.stringify(it.data) : '')).toLowerCase(); if (hay.indexOf(q) < 0) return false; }
     return true;
   }
   function counts() {
-    var c = { all: 0, wa_out: 0, wa_in: 0, call: 0, slack: 0, event: 0, admin: 0, bad: 0 };
-    items.forEach(function (it) { if (pin && !(pin.type === 'token' ? it.token === pin.v : it.phone === pin.v)) return; c.all++; if (c[it.kind] != null) c[it.kind]++; if (it.ok === false || it.review) c.bad++; });
+    var c = { all: 0, bad: 0 }; KIND_ORDER.forEach(function (k) { c[k] = 0; });
+    items.forEach(function (it) { if (pin && !(pin.type === 'token' ? String(it.token || '').slice(0, 8) === pin.v.slice(0, 8) : phoneOf(it) === pin.v)) return; c.all++; if (c[it.kind] != null) c[it.kind]++; else c[it.kind] = 1; if (it.ok === false || it.review) c.bad++; });
     Object.keys(c).forEach(function (k) { var el = $('n_' + k); if (el) el.textContent = c[k]; });
+  }
+  function renderChips() {
+    $('chips').innerHTML = '<button class="chip' + (kind ? '' : ' on') + '" data-k="">הכל <b id="n_all">0</b></button>' + KIND_ORDER.map(function (k) {
+      var inf = KINDS[k] || {};
+      return '<button class="chip' + (kind === k ? ' on' : '') + '" data-k="' + k + '" title="' + esc(inf.desc || '') + '">' + (KIND_ICON[k] || '') + ' ' + esc(inf.he || k) + ' <b id="n_' + k + '">0</b></button>';
+    }).join('');
+  }
+  function renderLegend() {
+    $('legend').innerHTML = KIND_ORDER.map(function (k) { var inf = KINDS[k] || {}; return '<div><span class="k ' + k + '">' + esc(inf.he || k) + '</span> ' + esc(inf.desc || '') + '</div>'; }).join('') +
+      '<div style="grid-column:1/-1;color:var(--ink3)">לכל רשומה יש מזהה (לחיצה מעתיקה) ו-hash SHA-256 של התוכן; בסוף כל יום שורש של כל הרשומות נשלח לסלאק. ייצוא CSV מאמת כל שורה מחדש. הנתונים נשמרים 400 יום ומשוכפלים לטאב "ביקורת" בגיליון הראשי כל שעה.</div>';
+  }
+  function fullView(it) {
+    var d = it.data || it.extra || {};
+    var rows = [];
+    rows.push(['מזהה', '<span class="v">' + esc(it.id) + '</span>']);
+    rows.push(['זמן', '<span class="v">' + esc(it.at) + '</span>']);
+    if (it.token) rows.push(['אירוע', '<span class="v">' + esc(it.token) + '</span>']);
+    if (phoneOf(it)) rows.push(['טלפון', '<span class="v">' + esc(phoneOf(it)) + '</span>']);
+    if (it.ip) rows.push(['IP', '<span class="v">' + esc(it.ip) + (it.country ? ' · ' + esc(it.country) : '') + '</span>']);
+    if (it.ua) rows.push(['דפדפן', '<span class="v">' + esc(it.ua) + '</span>']);
+    if (it.kind === 'call') {
+      if (d.summary) rows.push(['סיכום', '<span class="he">' + esc(d.summary) + '</span>']);
+      if (d.outcome) rows.push(['תוצאה', '<span class="he">' + esc(d.outcome) + (d.duration_s != null ? ' · ' + d.duration_s + ' שנ׳' : '') + '</span>']);
+      rows.push(['תמלול', '<span class="he">' + esc(it.detail || '(אין תמלול)') + '</span>']);
+      if (d.recording) rows.push(['הקלטה', '<a href="' + esc(BASE + d.recording + '?key=' + encodeURIComponent(adminKey)) + '" download="' + esc(d.recording_name || 'call.wav') + '">⬇ ' + esc(d.recording_name || 'הורדה') + '</a><audio controls preload="none" src="' + esc(BASE + d.recording + '?key=' + encodeURIComponent(adminKey)) + '"></audio>']);
+    } else if (it.detail) rows.push(['פירוט', '<span class="he">' + esc(it.detail) + '</span>']);
+    if (d && Object.keys(d).length && it.kind !== 'call') rows.push(['נתונים', '<span class="v">' + esc(JSON.stringify(d, null, 1)) + '</span>']);
+    if (it.hash) rows.push(['hash', '<span class="v">' + esc(it.hash) + '</span>']);
+    return '<div class="full">' + rows.map(function (r) { return '<b>' + r[0] + '</b><span>' + r[1] + '</span>'; }).join('') + '</div>';
   }
   function render(newIds) {
     counts();
-    var shown = items.filter(match).slice(0, 700);
-    $('cnt').textContent = shown.length + ' מתוך ' + items.length + ' אירועים ב-48 השעות האחרונות' + (paused ? ' · מוקפא' : '');
+    var shown = items.filter(match).slice(0, 800);
+    $('cnt').textContent = shown.length + ' מתוך ' + items.length + ' רשומות ב-' + (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות' + (paused ? ' · מוקפא' : '');
     if (!shown.length) { $('list').innerHTML = '<div class="empty">אין מה להציג עם הסינון הזה.</div>'; return; }
     var lastDay = '';
     $('list').innerHTML = shown.map(function (it) {
       var day = dayLbl(it.at), head = '';
       if (day !== lastDay) { lastDay = day; head = '<div class="cnt" style="padding:.6rem .6rem .2rem">' + day + '</div>'; }
       var cls = 'row' + (it.ok === false ? ' bad' : '') + (it.review ? ' review' : '') + (openIds[it.id] ? ' open' : '') + (newIds && newIds[it.id] ? ' new' : '');
-      var tags = '';
-      if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '">' + esc(it.token) + '</span>';
-      if (it.phone) tags += '<span class="tag" data-pin="phone" data-v="' + esc(it.phone) + '">' + esc(String(it.phone).replace(/^972/, '0')) + '</span>';
-      var extra = openIds[it.id] && it.extra ? '<div class="d" style="margin-top:.3rem;direction:ltr;text-align:left">' + esc(JSON.stringify(it.extra)) + '</div>' : '';
+      var tags = '<span class="tag id" data-copy="' + esc(it.id) + '" title="העתקת המזהה">#' + esc(String(it.id).slice(-9)) + '</span>';
+      if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '">' + esc(String(it.token).slice(0, 8)) + '</span>';
+      var ph = phoneOf(it);
+      if (ph) tags += '<span class="tag" data-pin="phone" data-v="' + esc(ph) + '">' + esc(ph.replace(/^972/, '0')) + '</span>';
+      var inf = KINDS[it.kind] || {};
       return head + '<div class="' + cls + '" data-id="' + esc(it.id) + '">' +
         '<span class="t">' + hhmm(it.at) + '</span>' +
-        '<span class="k ' + esc(it.kind) + '">' + (KIND_HE[it.kind] || it.kind) + (it.area ? ' · ' + esc(it.area) : '') + '</span>' +
-        '<span class="a"><div class="h">' + esc(it.action) + '</div>' + (it.detail ? '<div class="d">' + esc(it.detail) + '</div>' : '') + extra + '</span>' +
+        '<span class="k ' + esc(it.kind) + '" title="' + esc(inf.desc || '') + '">' + esc(inf.he || it.kind) + (it.area ? ' · ' + esc(it.area) : '') + '</span>' +
+        '<span class="a"><div class="h">' + esc(it.action) + '</div>' + (it.detail && !openIds[it.id] ? '<div class="d">' + esc(it.detail) + '</div>' : '') + (openIds[it.id] ? fullView(it) : '') + '</span>' +
         '<span class="tags">' + tags + '</span></div>';
     }).join('');
   }
   function load(full) {
-    if (paused && !full) return;
-    return api('stream', full ? { days: 2, limit: 1500 } : { days: 1, limit: 300, since: lastTs }).then(function (j) {
+    if (paused && !full) return Promise.resolve();
+    return api('stream', full ? { days: days, limit: days > 7 ? 5000 : 2000 } : { days: 1, limit: 300, since: lastTs }).then(function (j) {
       if (!j || !j.ok) return;
+      if (j.kinds) { KINDS = j.kinds; if (!$('chips').children.length) { renderChips(); renderLegend(); } }
       var fresh = {};
       (j.items || []).forEach(function (it) { if (!byId[it.id]) { byId[it.id] = it; items.push(it); if (!full) fresh[it.id] = 1; } if (it.ts > lastTs) lastTs = it.ts; });
       items.sort(function (a, b) { return b.ts - a.ts; });
-      if (items.length > 3000) items.length = 3000;
+      if (items.length > 6000) items.length = 6000;
       render(fresh);
       $('liveDot').className = 'live' + (paused ? ' off' : '');
     }).catch(function (e) { if (String(e.message) === '403') { $('gate').hidden = false; } $('liveDot').className = 'live off'; $('liveTxt').textContent = 'לא מתעדכן'; });
@@ -149,21 +197,39 @@
   $('bar').addEventListener('click', function (e) {
     var b = e.target.closest('.chip'); if (!b) return;
     if (b.dataset.bad) { bad = !bad; b.classList.toggle('on', bad); render(); return; }
+    if (b.id === 'unpin') return;
     kind = b.dataset.k || '';
     $('bar').querySelectorAll('.chip[data-k]').forEach(function (c) { c.classList.toggle('on', c.dataset.k === kind); });
     render();
   });
   $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); render(); });
+  $('days').addEventListener('change', function () { days = +$('days').value; items = []; byId = {}; lastTs = 0; $('list').innerHTML = '<div class="empty">טוען…</div>'; load(true); });
   $('pause').addEventListener('click', function () { paused = !paused; $('pause').classList.toggle('on', paused); $('pause').textContent = paused ? 'המשך' : 'הקפאה'; $('liveTxt').textContent = paused ? 'מוקפא' : 'מתעדכן כל 5 שנ׳'; render(); });
+  $('legendBtn').addEventListener('click', function () { $('legend').classList.toggle('on'); });
+  /* export: the same filter, server-side, verified, as a CSV download */
+  $('exportBtn').addEventListener('click', function () {
+    var body = { admin_key: adminKey, days: days, format: 'csv', limit: 20000 };
+    if (kind) body.kind = kind; if (q) body.q = q;
+    if (pin) { if (pin.type === 'token') body.token = pin.v; else body.phone = pin.v; }
+    fetch(BASE + '/api/audit', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(body) : body) })
+      .then(function (r) { return r.blob(); }).then(function (b) { var a = document.createElement('a'); a.href = URL.createObjectURL(b); a.download = 'ishur-audit' + (pin ? '-' + (pin.type === 'token' ? pin.v.slice(0, 8) : pin.v) : '') + (kind ? '-' + kind : '') + '.csv'; a.click(); });
+  });
   $('list').addEventListener('click', function (e) {
+    var cp = e.target.closest('[data-copy]');
+    if (cp) { try { navigator.clipboard.writeText(cp.dataset.copy); } catch (x) {} if (window.IshurUX && IshurUX.toast) IshurUX.toast('המזהה הועתק'); e.stopPropagation(); return; }
     var tg = e.target.closest('.tag');
-    if (tg) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v) + '</button>'; render(); return; }
+    if (tg) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; render(); return; }
+    if (e.target.closest('audio') || e.target.closest('a')) return;
     var row = e.target.closest('.row'); if (!row) return;
     openIds[row.dataset.id] = !openIds[row.dataset.id]; render();
   });
   $('pin').addEventListener('click', function () { pin = null; $('pin').innerHTML = ''; render(); });
   $('go').addEventListener('click', function () { adminKey = $('key').value.trim(); try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} $('gate').hidden = true; load(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(false); });
+  /* deep links: live.html?t=<token> or ?phone=972… open pinned */
+  var sp = new URLSearchParams(location.search);
+  if (sp.get('t')) pin = { type: 'token', v: sp.get('t') }; else if (sp.get('phone')) pin = { type: 'phone', v: sp.get('phone') };
+  if (pin) $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>';
   load(true).then(function () { timer = setInterval(function () { load(false); }, 5000); });
 })();
 </script>

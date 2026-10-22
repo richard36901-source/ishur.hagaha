@@ -198,6 +198,8 @@
   .gmenu [data-do="save"]{background:var(--green);color:#fff}
   .sendst{flex-shrink:0;font-size:.64rem;color:var(--ink3);white-space:nowrap;margin-inline-start:.3rem;min-width:3.4rem;display:inline-flex;align-items:center;justify-content:center}
   .sendst.sent{color:var(--green2)}
+  .sendst.sent.one{color:var(--ink3)}
+  .sendst.sent.read{color:#1D6FD8}
   .sendst.failed,.sendst.retrying,.sendst.none{color:var(--err)}
   .sendst .info{display:inline-flex;align-items:center;justify-content:center;width:1.15rem;height:1.15rem;margin-inline-start:.25rem;border-radius:50%;border:1px solid currentColor;background:none;color:inherit;font:600 .62rem/1 'Rubik',sans-serif;cursor:pointer;vertical-align:middle}
   .sendst .info:hover{background:var(--err);color:#fff}
@@ -833,7 +835,13 @@
   function sendBadge(g) {
     var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
     if (!g.sent || g.sent === 'none') return '<span class="sendst none">' + (afterInvite && !g.self ? 'לא נשלח' : '') + '</span>';
-    if (g.sent === 'sent' || g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided') return '<span class="sendst sent" title="ההזמנה נמסרה">✓ נשלח</span>';
+    if (g.sent === 'sent' || g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided') {
+      /* Richard 22/10: נשלח (Meta accepted) → התקבל (delivered) → נקרא (blue ticks / replied) */
+      var dv = g.delivery || (g.status !== 'pending' ? 'read' : 'sent');
+      if (dv === 'read') return '<span class="sendst sent read" title="ההודעה נקראה (וי כחול)">✓✓ נקרא</span>';
+      if (dv === 'delivered') return '<span class="sendst sent" title="ההודעה הגיעה לטלפון">✓✓ התקבל</span>';
+      return '<span class="sendst sent one" title="וואטסאפ קיבל את ההודעה, עדיין לא נמסרה לטלפון">✓ נשלח</span>';
+    }
     var calls = (data.event && (data.event.plan === 'premium' || data.event.plan === 'pro'));
     var why = SEND_WHY[g.sent_code] || 'וואטסאפ לא הצליח למסור את ההודעה.';
     var next = g.sent === 'retrying'
