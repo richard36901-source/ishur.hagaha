@@ -43,7 +43,7 @@
   .row.review{border-inline-start:3px solid var(--amber)}
   .t{color:var(--ink3);font-variant-numeric:tabular-nums;font-size:.8rem;white-space:nowrap}
   .k{font-size:.72rem;font-weight:600;border-radius:6px;padding:.1rem .4rem;text-align:center;white-space:nowrap}
-  .k.event{background:var(--pine-s);color:var(--pine)} .k.wa_out{background:#E8F1FB;color:#1D4ED8} .k.wa_in{background:#EAF7EE;color:#1E6B3C} .k.wa_status{background:#E6F4F1;color:#0B6E5C} .k.slack{background:#F3EBFB;color:#6B21A8} .k.call{background:#FFF1E6;color:#9A4B00} .k.admin{background:#EEF0EF;color:#555} .k.client{background:#FDF0E0;color:#8A4B00} .k.guest{background:#F1F7E6;color:#3F6B10} .k.pay{background:#E9F5EC;color:#1F6B3A} .k.meta{background:#E8EEFB;color:#2B3F9E} .k.cron{background:#F0F0F4;color:#4B4B6B} .k.system{background:#F6E9E9;color:#7A2E2E}
+  .k.event{background:var(--pine-s);color:var(--pine)} .k.wa_out{background:#E8F1FB;color:#1D4ED8} .k.wa_in{background:#EAF7EE;color:#1E6B3C} .k.wa_status{background:#E6F4F1;color:#0B6E5C} .k.slack{background:#F3EBFB;color:#6B21A8} .k.call{background:#FFF1E6;color:#9A4B00} .k.admin{background:#EEF0EF;color:#555} .k.client{background:#FDF0E0;color:#8A4B00} .k.guest{background:#F1F7E6;color:#3F6B10} .k.pay{background:#E9F5EC;color:#1F6B3A} .k.meta{background:#E8EEFB;color:#2B3F9E} .k.cron{background:#F0F0F4;color:#4B4B6B} .k.system{background:#F6E9E9;color:#7A2E2E} .k.lead{background:#FFF4D6;color:#8A5A00}
   .a{min-width:0}
   .a .h{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .a .d{color:var(--ink3);font-size:.8rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -109,8 +109,8 @@
   }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   /* order of the chips; names/explanations come from the worker (audit.js KIND_INFO) */
-  var KIND_ORDER = ['client', 'guest', 'wa_out', 'wa_status', 'wa_in', 'call', 'pay', 'meta', 'cron', 'admin', 'slack', 'event', 'system'];
-  var KIND_ICON = { client: '👤', guest: '🙋', wa_out: '📤', wa_status: '✓✓', wa_in: '📥', call: '📞', pay: '💳', meta: '🟦', cron: '⚙️', admin: '🛠', slack: '💬', event: '📒', system: '🧩' };
+  var KIND_ORDER = ['client', 'guest', 'lead', 'wa_out', 'wa_status', 'wa_in', 'call', 'pay', 'meta', 'cron', 'admin', 'slack', 'event', 'system'];
+  var KIND_ICON = { lead: '🧲', client: '👤', guest: '🙋', wa_out: '📤', wa_status: '✓✓', wa_in: '📥', call: '📞', pay: '💳', meta: '🟦', cron: '⚙️', admin: '🛠', slack: '💬', event: '📒', system: '🧩' };
   var KINDS = {};
 
   var items = [], byId = {}, kind = '', bad = false, pin = null, q = '', paused = false, lastTs = 0, timer = null, openIds = {}, days = 2;
