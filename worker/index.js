@@ -30,7 +30,7 @@ import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
-import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
+import { clientWaba, clientToken, clientOnPortfolio, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
@@ -2794,7 +2794,7 @@ async function handleWaWebhook(request, env, url) {
              read, failed ('sent' is already the row itself) */
           try {
             const pid = String(((ch.value || {}).metadata || {}).phone_number_id || '');
-            const stab = (env.WA_PHONE_ID_GUESTS && pid === env.WA_PHONE_ID_GUESTS) ? 'msg_guests' : 'msg_clients';
+            const stab = isGuestPhone(env, pid) ? 'msg_guests' : 'msg_clients';
             const when = ilTime(st.timestamp ? new Date(Number(st.timestamp) * 1000) : new Date());
             const cat = st.pricing ? `${st.pricing.category || ''}${st.pricing.billable === false ? ' (לא בתשלום)' : ''}` : '';
             /* the inbox bubble gets the same status (✓ / ✓✓ / read / failed) */
@@ -2856,9 +2856,17 @@ async function handleWaWebhook(request, env, url) {
                 await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {});
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {});
                 await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
-                if (!await env.RATE.get('wacap:guests')) {
+                const pidHit = (await env.RATE.get('wamidpid:' + st.id).catch(() => null)) || '';
+                const ids = guestPhoneIds(env);
+                if (pidHit && ids.length > 1) await env.RATE.put('wacap:' + pidHit, new Date().toISOString(), { expirationTtl: 24 * 3600 }).catch(() => {});
+                /* the global hold only when every number is capped (or there is just one) */
+                const allHeld = ids.length <= 1 || (await Promise.all(ids.map(id => env.RATE.get('wacap:' + id).catch(() => null)))).every(Boolean);
+                if (allHeld && !await env.RATE.get('wacap:guests')) {
                   await env.RATE.put('wacap:guests', new Date().toISOString(), { expirationTtl: 24 * 3600 });
-                  await alert(env, 'תקרת וואטסאפ', 'המספר של שיר הגיע לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
+                  await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
+                } else if (!allHeld) {
+                  await env.RATE.delete(m.gk).catch(() => {});   /* resend via another number next tick */
+                  await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true }).catch(() => {});
                 }
                 retry = ' · תקרת שיחות של מטא — ימתין וישלח שוב כשתיפתח';
                 continue;
@@ -2946,7 +2954,7 @@ async function handleWaWebhook(request, env, url) {
            inbox (full conversation log) and in the messages sheet, like any
            other outbound. Only the echoes we did not send ourselves get here. */
         try {
-          const echoCh = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
+          const echoCh = isGuestPhone(env, phoneId) ? 'guests' : 'client';
           const eParsed = parseInboundReply(msg);
           const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
           const ets = Date.now();
@@ -2978,7 +2986,7 @@ async function handleWaWebhook(request, env, url) {
     /* which of our two numbers received this. Every reply below goes back out on
        the SAME number: a guest who wrote to Shir's line is answered from Shir's
        line, never from 4499 (iron rule 06/09). The inbox filters on it too. */
-    const ch = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
+    const ch = isGuestPhone(env, phoneId) ? 'guests' : 'client';
     const say = (t) => sendText(env, from, t, ch, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
@@ -3179,9 +3187,11 @@ async function handleWaWebhook(request, env, url) {
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
+        if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" after a no */
         await say(saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
       } else {
         const saved = await writeGuestReply(env, guest, 'מתלבט');
+        if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" to an undecided guest */
         await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
       }
     }
@@ -3264,6 +3274,7 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   }
   if (saysNo) {
     const saved = await writeGuestReply(env, guest, 'לא מגיע');
+    if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     await say(saved ? 'עדכנו שלא תגיעו, תודה שהודעתם 🙏' : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה ללא מגיע בטקסט חופשי'); return true;
   }
@@ -4149,12 +4160,21 @@ async function drainPartyNudges(env) {
   if (!sendWindowState().open) return { sent: 0, closed: true };
   const page = await env.RATE.list({ prefix: 'awaitparty:', limit: 500 }).catch(() => null);
   let sent = 0;
+  const rawPN = (page && page.keys && page.keys.length) ? await fetchSnapshot(env.HOOK_STATUS) : null;
+  const gRowsPN = ((rawPN && rawPN.guests && rawPN.guests.values) || []);
   for (const k of (page && page.keys) || []) {
     let st = null; try { st = JSON.parse(await env.RATE.get(k.name)); } catch {}
     if (!st || !st.phone) continue;                       // legacy '1' markers from before 20/10
     const n = Number(st.nudges) || 0;
     const step = PARTY_NUDGES[n];
     if (!step || Date.now() - Number(st.at) < step.afterMs) continue;
+    /* Richard 22/10: the sheet is the truth. Only "מגיע" with no count (0/1
+       default) is asked; anyone who meanwhile said מתלבט / לא מגיע / a number is left alone. */
+    const gid = k.name.slice('awaitparty:'.length);
+    const row = gRowsPN.find(g => String(g[2] || '').trim() === gid);
+    const rsvpNow = row ? String(row[15] || '').trim() : '';
+    const partyNow = row ? Number(row[16]) || 0 : 0;
+    if (!row || rsvpNow !== 'מגיע' || partyNow > 1) { await env.RATE.delete(k.name).catch(() => {}); continue; }
     const r = await sendText(env, st.phone, step.text, st.ch || 'guests', { who: 'שיר (מענה אוטומטי)', token: st.token }).catch(() => null);
     st.nudges = n + 1;
     await env.RATE.put(k.name, JSON.stringify(st), { expirationTtl: 86400 }).catch(() => {});
@@ -4251,6 +4271,13 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
   /* 18/10: once the number hit Meta's 24h conversation cap, every send until
      the window rolls is a guaranteed failure — hold the wave and re-ask Meta's
      health endpoint each tick; the marker drops the moment it says AVAILABLE. */
+  if (!dry && env.RATE) for (const id of guestPhoneIds(env)) {   /* per-number holds lift on their own after Meta's window rolls */
+    if (await env.RATE.get('wacap:' + id).catch(() => null)) {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      if (j.health_status && String(j.health_status.can_send_message || '') === 'AVAILABLE') await env.RATE.delete('wacap:' + id).catch(() => {});
+    }
+  }
   if (!dry && env.RATE && await env.RATE.get('wacap:guests')) {
     const free = await guestsCapCleared(env);
     if (!free) return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: true, held: true, capped: true };
@@ -7954,16 +7981,15 @@ async function waCapInfo(env) {
   const capPhone = guestsReady ? env.WA_PHONE_ID_GUESTS : env.WA_PHONE_ID;
   const capToken = guestsReady ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
   if (!capToken || !capPhone) return null;
-  const r = await fetch(`https://graph.facebook.com/v21.0/${capPhone}?fields=messaging_limit_tier,quality_rating`, {
-    headers: { Authorization: 'Bearer ' + capToken },
-  }).catch(() => null);
-  if (!r || !r.ok) return null;
-  const j = await r.json().catch(() => null);
-  if (!j || !j.messaging_limit_tier) return null;
+  const ids = guestsReady ? guestPhoneIds(env) : [capPhone];
+  const infos = await Promise.all(ids.map(async id => { const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=messaging_limit_tier,quality_rating,display_phone_number`, { headers: { Authorization: 'Bearer ' + capToken } }).catch(() => null); return r && r.ok ? await r.json().catch(() => null) : null; }));
+  const good = infos.filter(j => j && j.messaging_limit_tier);
+  if (!good.length) return null;
   cached = {
-    tier: j.messaging_limit_tier,
-    limit: TIERS[j.messaging_limit_tier] ?? 250,
-    quality: j.quality_rating || '',
+    tier: good[0].messaging_limit_tier,
+    limit: good.reduce((n, j) => n + (TIERS[j.messaging_limit_tier] ?? 250), 0),
+    quality: good.map(j => j.quality_rating || '').join('/'),
+    numbers: good.map(j => ({ phone: j.display_phone_number || '', tier: j.messaging_limit_tier, quality: j.quality_rating || '' })),
   };
   if (env.RATE) await env.RATE.put('wa:cap', JSON.stringify(cached), { expirationTtl: 6 * 3600 }).catch(() => {});
   return cached;

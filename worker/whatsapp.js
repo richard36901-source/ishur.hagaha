@@ -49,6 +49,33 @@ const PORTFOLIO_RENAMED = new Set(['ishur_lo_siyem', 'ishur_lo_siyem_2', 'ishur_
 export function clientWaba(env) { return clientOnPortfolio(env) ? '2815615772154486' : '1060242146337688'; }
 export function clientToken(env) { return clientOnPortfolio(env) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN; }
 
+/* ── 22/10 Richard: more than one number for Shir ─────────────────────────
+   WA_PHONE_IDS_GUESTS = "id1,id2,id3" (all on the same WABA, same token).
+   Each number has its own 250/24h cap while the business is unverified, so
+   three numbers = 750. The sender picks the number with the fewest sends
+   today that is not cap-held (wacap:<phoneId>). Counters: gsend:<id>:<day>. */
+export function guestPhoneIds(env) {
+  const extra = String(env.WA_PHONE_IDS_GUESTS || '').split(',').map(x => x.trim()).filter(Boolean);
+  const all = [env.WA_PHONE_ID_GUESTS, ...extra].filter(Boolean);
+  return [...new Set(all)];
+}
+export function isGuestPhone(env, pid) { return !!pid && guestPhoneIds(env).includes(String(pid)); }
+function ilDayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+export async function pickGuestPhone(env) {
+  const ids = guestPhoneIds(env);
+  if (!guestsReady(env) || !ids.length) return '';
+  if (ids.length === 1 || !env.RATE) return ids[0];
+  const day = ilDayKey();
+  const rows = await Promise.all(ids.map(async id => ({ id, n: Number(await env.RATE.get(`gsend:${id}:${day}`).catch(() => 0)) || 0, held: !!(await env.RATE.get('wacap:' + id).catch(() => null)) })));
+  const open = rows.filter(r => !r.held).sort((a, b) => a.n - b.n);
+  return (open[0] || rows.sort((a, b) => a.n - b.n)[0]).id;
+}
+export async function bumpGuestSend(env, pid) {
+  if (!env.RATE || !pid) return;
+  const k = `gsend:${pid}:${ilDayKey()}`;
+  const n = Number(await env.RATE.get(k).catch(() => 0)) || 0;
+  await env.RATE.put(k, String(n + 1), { expirationTtl: 2 * 86400 }).catch(() => {});
+}
 function pickPhone(env, channel) {
   if (channel === 'guests') return guestsReady(env) ? env.WA_PHONE_ID_GUESTS : '';
   return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : env.WA_PHONE_ID;
@@ -218,7 +245,7 @@ async function post(env, body, channel, ctx) {
   if (clientCh && env.RATE && await env.RATE.get('noa:unreg').catch(() => null)) {
     return { ok: false, error: '133010: account not registered (held)', held: true };
   }
-  const phoneId = pickPhone(env, channel);
+  const phoneId = channel === 'guests' ? await pickGuestPhone(env) : pickPhone(env, channel);
   const token = pickToken(env, channel);
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
   const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
@@ -255,6 +282,7 @@ async function post(env, body, channel, ctx) {
          customer who comes back after a year should not meet a blank thread */
       const logKey = 'log:' + String(body.to || '') + ':' + ts;
       if (res.ok && res.id) await env.RATE.put('wamid2log:' + res.id, logKey, { expirationTtl: 14 * 86400 }).catch(() => {});
+      if (res.ok && channel === 'guests') { await bumpGuestSend(env, phoneId); if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
       await env.RATE.put(logKey,
         JSON.stringify({
           dir: 'out', type: body.type, text: summary.slice(0, 1000),
@@ -271,7 +299,7 @@ async function post(env, body, channel, ctx) {
           } : {}),
           at: new Date().toISOString(),
         }));
-      stream(env, { kind: 'wa_out', area: ch === 'guests' ? 'שיר' : 'נועה', action: (res.ok ? '📤 ' : '⛔ ') + (body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type === 'text' ? 'הודעה' : body.type) + ' → ' + String(body.to || ''), ok: res.ok, phone: String(body.to || ''), token: ctx && ctx.token ? String(ctx.token) : '', detail: (res.ok ? '' : String(res.error || '') + ' · ') + summary.slice(0, 400) }).catch(() => {});
+      stream(env, { kind: 'wa_out', area: ch === 'guests' ? 'שיר' : 'נועה', data: { phone_id: phoneId, wamid: res.id || '', template: body.type === 'template' ? String((body.template || {}).name || '') : '', error: res.error || '' }, action: (res.ok ? '📤 ' : '⛔ ') + (body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type === 'text' ? 'הודעה' : body.type) + ' → ' + String(body.to || ''), ok: res.ok, phone: String(body.to || ''), token: ctx && ctx.token ? String(ctx.token) : '', detail: (res.ok ? '' : String(res.error || '') + ' · ') + summary.slice(0, 400) }).catch(() => {});
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
       });
