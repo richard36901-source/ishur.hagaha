@@ -2109,7 +2109,7 @@ async function processRetellEvent(env, body) {
     const who0 = (gName0 ? gName0 + ' · ' : '') + String(c0.to_number || '').replace('+', '').replace(/^972/, '0');
     const outcome0 = action.result ? (action.result.answer || action.result.rsvp || '') : '';
     const no0 = /dial_no_answer|dial_busy|voicemail/.test(String(c0.disconnection_reason || ''));
-    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' } }).catch(() => {});
+    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' }, cost: action.cost_cents ? Math.round(action.cost_cents * 3.7) / 100 : 0 }).catch(() => {});
   } catch {}
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
@@ -2833,7 +2833,7 @@ async function handleWaWebhook(request, env, url) {
                 if ((rank[st.status] || 0) >= (rank[cur2] || 0)) await env.RATE.put(k2, st.status, { expirationTtl: 120 * 86400 }).catch(() => {});
               }
               const e1 = (st.errors && st.errors[0]) || {};
-              stream(env, { kind: 'wa_status', area: stab === 'msg_guests' ? 'שיר' : 'נועה', action: (st.status === 'read' ? '👁 נקרא' : st.status === 'delivered' ? '✓✓ נמסר' : st.status === 'failed' ? '⛔ נכשל' : '✓ ' + st.status) + ' · ' + String(st.recipient_id || ''), ok: st.status !== 'failed', review: st.status === 'failed', phone: String(st.recipient_id || ''), token: m2 && m2.token ? m2.token : '', detail: st.status === 'failed' ? `${e1.code || ''} ${e1.title || ''} ${(e1.error_data && e1.error_data.details) || ''}`.trim() : (cat || ''), data: { wamid: st.id, status: st.status, meta_ts: st.timestamp, wave: m2 ? m2.wave : '', pricing: st.pricing || null } }).catch(() => {});
+              stream(env, { kind: 'wa_status', area: stab === 'msg_guests' ? 'שיר' : 'נועה', action: (st.status === 'read' ? '👁 נקרא' : st.status === 'delivered' ? '✓✓ נמסר' : st.status === 'failed' ? '⛔ נכשל' : '✓ ' + st.status) + ' · ' + String(st.recipient_id || ''), ok: st.status !== 'failed', review: st.status === 'failed', phone: String(st.recipient_id || ''), token: m2 && m2.token ? m2.token : '', detail: st.status === 'failed' ? `${e1.code || ''} ${e1.title || ''} ${(e1.error_data && e1.error_data.details) || ''}`.trim() : (cat || ''), data: { wamid: st.id, status: st.status, meta_ts: st.timestamp, wave: m2 ? m2.wave : '', pricing: st.pricing || null }, cost: st.status === 'delivered' && st.pricing && st.pricing.billable !== false ? ({ utility: 0.02, marketing: 0.13, authentication: 0.05, service: 0 }[String(st.pricing.category || '').toLowerCase()] ?? 0.02) : 0 }).catch(() => {});
             } catch {}
             if (st.status === 'delivered') await logUpdate(env, stab, st.id, { delivered: 'כן ' + when, phone: st.recipient_id || '', category: cat });
             else if (st.status === 'read') await logUpdate(env, stab, st.id, { read: 'כן ' + when, phone: st.recipient_id || '', category: cat });
@@ -4067,7 +4067,7 @@ async function auditClient(env, request, path, body) {
   const key = `audit:${token}:${now}:${Math.random().toString(36).slice(2, 6)}`;
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
   await env.RATE.put('auditlast:' + token, rec.hash, { expirationTtl: 400 * 86400 });
-  stream(env, { kind: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'guest' : 'client', area: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'אורח' : 'לקוח', action: '👤 ' + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash } }).catch(() => {});
+  stream(env, { kind: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'guest' : 'client', area: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'אורח' : 'לקוח', action: '👤 ' + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80) } }).catch(() => {});
 }
 async function auditExport(env, token, format) {
   const all = await kvPrefix(env, 'audit:' + token + ':');
@@ -5368,6 +5368,27 @@ async function runPacer(env) {
   /* messages first: they are cheaper and they warm the 24h window a call
      lands in more gracefully than a cold ring does */
   const sendWin = sendWindowState();
+  /* 22/10 Richard: guests whose invitation failed (130472/131049/131026, not
+     yet 3 strikes) are retried automatically once per send day; before this
+     it only happened when someone ran /api/wave-retry by hand. */
+  if (sendWin.open && !(await env.RATE.get('autoretry:' + today).catch(() => null))) {
+    await env.RATE.put('autoretry:' + today, '1', { expirationTtl: 86400 }).catch(() => {});
+    try {
+      const raw = await snapshotCached(env).catch(() => null);
+      const by = await undeliveredByEvent(env, raw);
+      let n = 0, evs = 0;
+      for (const [token, ev] of Object.entries(by || {})) {
+        const list = (ev.list || []).filter(g => !g.dead);
+        if (!list.length) continue;
+        evs++;
+        const waves = new Set(list.map(g => g.wave));
+        for (const g of list) { n++; for (const k of [`wfail:${token}:${g.wave}:${g.phone}`, `wferr:${token}:${g.wave}:${g.phone}`, `gday:${g.phone}:${today}`]) await env.RATE.delete(k).catch(() => {}); }
+        for (const w of waves) await env.RATE.delete(`wave:${token}:${w}`).catch(() => {});
+      }
+      if (n) { await env.RATE.put('pacer:pending', today, { expirationTtl: 86400 }).catch(() => {}); await logEvent(env, { area: 'שליחה', action: `ניסיון חוזר אוטומטי: ${n} אורחים ב-${evs} אירועים`, ok: true }).catch(() => {}); }
+      out.autoretry = { guests: n, events: evs };
+    } catch (e) { out.autoretry = { error: String(e && e.message) }; }
+  }
   if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
     const r = await runDailyEngine(env, false, null, { budget: PACE_SENDS }).catch(e => {
       return { ok: false, error: String((e && e.message) || e) };
@@ -8695,7 +8716,7 @@ export default {
               if (botUa) ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: 'Claude · בדיקת סטטוס אירוע', ok: true, token: String(peek.token), req: request }));
               else if (!(await env.RATE.get(ipk).catch(() => null))) {
                 await env.RATE.put(ipk, '1', { expirationTtl: 60 }).catch(() => {});
-                ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '' } }));
+                ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80) } }));
               }
             } else {
               ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
@@ -10169,11 +10190,15 @@ export default {
       const row = rowIdx + 2;
       const data = [{ range: `אורחים!D${row}`, values: [[name]] }];
       if (phone) data.push({ range: `אורחים!E${row}`, values: [[phone]] });
+      /* Richard 22/10: the party size is editable from the same popup (column N, what the dashboard counts) */
+      const seats = b.seats != null && b.seats !== '' ? Math.max(0, Math.min(99, parseInt(b.seats, 10) || 0)) : null;
+      const beforeSeats = String(gRows[rowIdx][13] || gRows[rowIdx][5] || '').trim();
+      if (seats != null) data.push({ range: `אורחים!N${row}`, values: [[String(seats)]] });
       const okw = await sheetBatchWrite(env, data);
       if (!okw) return deny(502, 'writer-failed', origin);
       await logEvent(env, { area: 'לוח לקוח', action: 'המארח ערך פרטי אורח', ok: true, phone: phone || before.phone, token: tok,
-        detail: `${before.name} · ${before.phone} → ${name} · ${phone || before.phone}` }).catch(() => {});
-      return okJson({ ok: true, name, phone: phone || before.phone }, origin);
+        detail: `${before.name} · ${before.phone}${beforeSeats ? ' · ' + beforeSeats : ''} → ${name} · ${phone || before.phone}${seats != null ? ' · ' + seats + ' מקומות' : ''}` }).catch(() => {});
+      return okJson({ ok: true, name, phone: phone || before.phone, seats: seats != null ? seats : undefined }, origin);
     }
     /* Richard 21/10: demand signal for gifts-by-credit. One count per
        person (browser id), Slack on every new person with the running total. */

@@ -138,7 +138,7 @@
   }
   function renderLegend() {
     $('legend').innerHTML = KIND_ORDER.map(function (k) { var inf = KINDS[k] || {}; return '<div><span class="k ' + k + '">' + esc(inf.he || k) + '</span> ' + esc(inf.desc || '') + '</div>'; }).join('') +
-      '<div style="grid-column:1/-1;color:var(--ink3)">לכל רשומה יש מזהה (לחיצה מעתיקה) ו-hash SHA-256 של התוכן; בסוף כל יום שורש של כל הרשומות נשלח לסלאק. ייצוא CSV מאמת כל שורה מחדש. הנתונים נשמרים 400 יום ומשוכפלים לטאב "ביקורת" בגיליון הראשי כל שעה.</div>';
+      '<div style="grid-column:1/-1;color:var(--ink3)">עלות: ₪ על כל מסירת תבנית וואטסאפ (לפי קטגוריה של מטא) ועל כל שיחה (לפי Retell). לכל רשומה יש מזהה (לחיצה מעתיקה) ו-hash SHA-256 של התוכן; בסוף כל יום שורש של כל הרשומות נשלח לסלאק. ייצוא CSV מאמת כל שורה מחדש. הנתונים נשמרים 400 יום ומשוכפלים לטאב "ביקורת" בגיליון הראשי כל שעה.</div>';
   }
   function fullView(it) {
     var d = it.data || it.extra || {};
@@ -159,13 +159,16 @@
       if (d.recording) rows.push(['הקלטה', '<a href="' + esc(BASE + d.recording + '?key=' + encodeURIComponent(adminKey)) + '" download="' + esc(d.recording_name || 'call.wav') + '">⬇ ' + esc(d.recording_name || 'הורדה') + '</a><audio controls preload="none" src="' + esc(BASE + d.recording + '?key=' + encodeURIComponent(adminKey)) + '"></audio>']);
     } else if (it.detail) rows.push(['פירוט', '<span class="he">' + esc(it.detail) + '</span>']);
     if (d && Object.keys(d).length && it.kind !== 'call') rows.push(['נתונים', '<span class="v">' + esc(JSON.stringify(d, null, 1)) + '</span>']);
+    if (Number(it.cost) > 0) rows.push(['עלות', '<span class="he">₪' + Number(it.cost).toFixed(2) + ' <span style="color:var(--ink3)">(מסירת תבנית / דקות שיחה; טוקנים של Claude לא נמדדים כאן)</span></span>']);
+    if (d && d.posthog) rows.push(['PostHog', '<a href="https://us.posthog.com/project/595055/person/' + encodeURIComponent(d.posthog) + '" target="_blank" rel="noopener">פרופיל + הקלטת סשן של המבקר</a>' + (d.session ? ' · <a href="https://us.posthog.com/project/595055/replay/' + encodeURIComponent(d.session) + '" target="_blank" rel="noopener">הסשן הזה</a>' : '')]);
     if (it.hash) rows.push(['hash', '<span class="v">' + esc(it.hash) + '</span>']);
     return '<div class="full">' + rows.map(function (r) { return '<b>' + r[0] + '</b><span>' + r[1] + '</span>'; }).join('') + '</div>';
   }
   function render(newIds) {
     counts();
     var shown = items.filter(match).slice(0, 800);
-    $('cnt').textContent = shown.length + ' מתוך ' + items.length + ' רשומות ב-' + (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות' + (paused ? ' · מוקפא' : '');
+    var costSum = 0; items.forEach(function (it) { if (match(it)) costSum += Number(it.cost) || 0; });
+    $('cnt').textContent = shown.length + ' מתוך ' + items.length + ' רשומות ב-' + (days === 2 ? '48 השעות' : days + ' הימים') + ' האחרונות' + (costSum ? ' · עלות ישירה ₪' + costSum.toFixed(2) : '') + (paused ? ' · מוקפא' : '');
     if (!shown.length) { $('list').innerHTML = '<div class="empty">אין מה להציג עם הסינון הזה.</div>'; return; }
     var lastDay = '';
     $('list').innerHTML = shown.map(function (it) {
@@ -173,6 +176,7 @@
       if (day !== lastDay) { lastDay = day; head = '<div class="cnt" style="padding:.6rem .6rem .2rem">' + day + '</div>'; }
       var cls = 'row' + (it.ok === false ? ' bad' : '') + (it.review ? ' review' : '') + (openIds[it.id] ? ' open' : '') + (newIds && newIds[it.id] ? ' new' : '');
       var tags = '<span class="tag id" data-copy="' + esc(it.id) + '" title="העתקת המזהה">#' + esc(String(it.id).slice(-9)) + '</span>';
+      if (Number(it.cost) > 0) tags += '<span class="tag" style="direction:rtl;color:var(--amber)" title="עלות ישירה של הפעולה (מטא/שיחה)">₪' + Number(it.cost).toFixed(2) + '</span>';
       if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '" title="' + esc(it.token) + '">' + esc(it.event && it.event.event ? it.event.event : String(it.token).slice(0, 8)) + '</span>';
       if (it.guest && it.guest.name) tags += '<span class="tag" style="direction:rtl">' + esc(it.guest.name) + '</span>';
       if (it.geo) tags += '<span class="tag" style="direction:rtl" title="מיקום לפי IP">' + esc(it.geo.split(' · ')[0]) + '</span>';

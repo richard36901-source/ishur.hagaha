@@ -78,7 +78,7 @@ function ilDay(d = new Date()) {
 /* the hash covers everything except the hash itself; field order is fixed so
    a verifier can recompute it from an export */
 export function hashInput(r) {
-  return JSON.stringify([r.id, r.at, r.kind, r.area, r.action, r.ok, r.review, r.token, r.phone, r.ip, r.country, r.ua, r.detail, r.data, r.event || null, r.guest || null, r.geo || '']);
+  return JSON.stringify([r.id, r.at, r.kind, r.area, r.action, r.ok, r.review, r.token, r.phone, r.ip, r.country, r.ua, r.detail, r.data, r.event || null, r.guest || null, r.geo || '', r.cost || 0]);
 }
 
 /* ── §1b enrichment (Richard 22/10: "איזה אירוע, איזה לקוח, איזה אורח") ─────
@@ -137,6 +137,7 @@ export async function record(env, rec) {
       phone: String(rec.phone || '').slice(0, 20),
       ip: ctx.ip, country: ctx.country, ua: ctx.ua, geo: ctx.geo || '',
       detail: String(rec.detail || '').slice(0, 2000),
+      cost: Number(rec.cost) > 0 ? Math.round(Number(rec.cost) * 100) / 100 : 0,   /* ₪, what this action cost us (WhatsApp template delivery, call minutes) */
       data: data ? JSON.parse(JSON.stringify(data).slice(0, 12000).replace(/[^\]}"]*$/, '') || 'null') : null,
     };
     if (data && r.data === null) { try { r.data = JSON.parse(JSON.stringify(data)); } catch { r.data = null; } }
@@ -274,13 +275,13 @@ export async function verifyRows(rows) {
   return rows;
 }
 
-const CSV_HEAD = ['id', 'at_utc', 'at_israel', 'kind', 'kind_he', 'area', 'action', 'ok', 'review', 'token', 'event', 'occasion', 'event_date', 'client', 'client_phone', 'phone', 'guest_name', 'guest_id', 'guest_rsvp', 'guest_seats', 'ip', 'country', 'location', 'user_agent', 'detail', 'data', 'hash', 'verified'];
+const CSV_HEAD = ['id', 'at_utc', 'at_israel', 'kind', 'kind_he', 'area', 'action', 'ok', 'review', 'token', 'event', 'occasion', 'event_date', 'client', 'client_phone', 'phone', 'guest_name', 'guest_id', 'guest_rsvp', 'guest_seats', 'ip', 'country', 'location', 'user_agent', 'detail', 'data', 'cost_ils', 'hash', 'verified'];
 export function toCsv(rows) {
   const esc = v => '"' + String(v == null ? '' : (typeof v === 'object' ? JSON.stringify(v) : v)).replace(/"/g, '""') + '"';
   const lines = [CSV_HEAD.join(',')];
   for (const r of rows) {
     const e = r.event || {}, g = r.guest || {};
-    lines.push([r.id, r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.kind, (KIND_INFO[r.kind] || {}).he || r.kind, r.area, r.action, r.ok, r.review, r.token, e.event, e.occasion, e.date, e.client, e.client_phone, r.phone, g.name, g.id, g.rsvp, g.seats, r.ip, r.country, r.geo, r.ua, r.detail, r.data, r.hash, r.verified === null ? 'n/a' : (r.verified ? 'yes' : 'NO')].map(esc).join(','));
+    lines.push([r.id, r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.kind, (KIND_INFO[r.kind] || {}).he || r.kind, r.area, r.action, r.ok, r.review, r.token, e.event, e.occasion, e.date, e.client, e.client_phone, r.phone, g.name, g.id, g.rsvp, g.seats, r.ip, r.country, r.geo, r.ua, r.detail, r.data, r.cost || 0, r.hash, r.verified === null ? 'n/a' : (r.verified ? 'yes' : 'NO')].map(esc).join(','));
   }
   return '﻿' + lines.join('\n');
 }
@@ -300,13 +301,13 @@ export async function dailyRoot(env, day) {
    Appends every record since the last mirror to the "ביקורת" tab. The caller
    passes the sheet writer (so this file stays free of Make/Sheets details). */
 export const MIRROR_TAB = 'ביקורת';
-export const MIRROR_HEAD = ['מזהה', 'זמן (ישראל)', 'סוג', 'תחום', 'פעולה', 'תקין', 'לבדיקה', 'טוקן', 'אירוע', 'סוג אירוע', 'תאריך אירוע', 'לקוח', 'טלפון לקוח', 'טלפון', 'אורח', 'מזהה אורח', 'מצב אורח', 'כמות', 'IP', 'מדינה', 'מיקום', 'דפדפן', 'פירוט', 'נתונים', 'hash'];
+export const MIRROR_HEAD = ['מזהה', 'זמן (ישראל)', 'סוג', 'תחום', 'פעולה', 'תקין', 'לבדיקה', 'טוקן', 'אירוע', 'סוג אירוע', 'תאריך אירוע', 'לקוח', 'טלפון לקוח', 'טלפון', 'אורח', 'מזהה אורח', 'מצב אורח', 'כמות', 'IP', 'מדינה', 'מיקום', 'דפדפן', 'פירוט', 'נתונים', 'עלות ₪', 'hash'];
 export async function mirrorRows(env, appendFn) {
   const day = ilDay();
   const since = Number(await env.RATE.get('auditmirror:' + day).catch(() => '0')) || 0;
   const rows = (await query(env, { from: day, to: day, since, limit: 2000 })).sort((a, b) => a.ts - b.ts);
   if (!rows.length) return { appended: 0 };
-  const values = rows.map(r => { const e = r.event || {}, g = r.guest || {}; return [r.id, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), (KIND_INFO[r.kind] || {}).he || r.kind, r.area, r.action, r.ok === null ? '' : (r.ok ? 'כן' : 'לא'), r.review ? 'כן' : '', r.token, e.event || '', e.occasion || '', e.date || '', e.client || '', e.client_phone || '', r.phone, g.name || '', g.id || '', g.rsvp || '', g.seats || '', r.ip, r.country, r.geo || '', r.ua, r.detail, r.data ? JSON.stringify(r.data).slice(0, 5000) : '', r.hash || '']; });
+  const values = rows.map(r => { const e = r.event || {}, g = r.guest || {}; return [r.id, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), (KIND_INFO[r.kind] || {}).he || r.kind, r.area, r.action, r.ok === null ? '' : (r.ok ? 'כן' : 'לא'), r.review ? 'כן' : '', r.token, e.event || '', e.occasion || '', e.date || '', e.client || '', e.client_phone || '', r.phone, g.name || '', g.id || '', g.rsvp || '', g.seats || '', r.ip, r.country, r.geo || '', r.ua, r.detail, r.data ? JSON.stringify(r.data).slice(0, 5000) : '', r.cost || 0, r.hash || '']; });
   const ok = await appendFn(MIRROR_TAB, values);
   if (ok) await env.RATE.put('auditmirror:' + day, String(rows[rows.length - 1].ts), { expirationTtl: 3 * 86400 }).catch(() => {});
   return { appended: ok ? rows.length : 0, ok };

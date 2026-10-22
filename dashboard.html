@@ -1513,27 +1513,31 @@
       box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:360px">' +
         '<h3 style="margin:0 0 .6rem">עריכת רשומה</h3>' +
         '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">שם</label><input id="geName" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.7rem">' +
-        '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">טלפון</label><input id="gePhone" inputmode="tel" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.9rem">' +
+        '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">טלפון</label><input id="gePhone" inputmode="tel" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.7rem">' +
+        '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">כמה מגיעים</label><input id="geSeats" inputmode="numeric" pattern="[0-9]*" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.9rem">' +
         '<button type="button" class="buy" id="geSave" style="width:100%;margin-bottom:.5rem">שמירה</button>' +
         '<button type="button" class="btn" id="geX" style="width:100%">ביטול</button></div>';
       document.body.appendChild(box);
       box.querySelector('#geName').value = g.name || '';
       box.querySelector('#gePhone').value = (g.phone || '').replace(/^972/, '0');
+      box.querySelector('#geSeats').value = g.seats != null ? g.seats : '';
       box.querySelector('#geX').addEventListener('click', function () { box.remove(); });
       box.addEventListener('click', function (ev2) { if (ev2.target === box) box.remove(); });
       box.querySelector('#geSave').addEventListener('click', function () {
-        var name = box.querySelector('#geName').value.trim(), phone = box.querySelector('#gePhone').value.trim();
+        var name = box.querySelector('#geName').value.trim(), phone = box.querySelector('#gePhone').value.trim(), seatsRaw = box.querySelector('#geSeats').value.trim();
         if (!name) { IshurUX.toast('חסר שם'); return; }
+        if (seatsRaw && !/^\d{1,2}$/.test(seatsRaw)) { IshurUX.toast('כמות: מספר בין 0 ל-99'); return; }
         if (phone.replace(/\D/g, '').length < 9) { IshurUX.toast('הטלפון לא נראה תקין'); return; }
-        var same = name === (g.name || '') && phone.replace(/\D/g, '').replace(/^0/, '972') === String(g.phone || '').replace(/\D/g, '');
+        var seatsChanged = seatsRaw !== '' && parseInt(seatsRaw, 10) !== Number(g.seats || 0);
+        var same = name === (g.name || '') && phone.replace(/\D/g, '').replace(/^0/, '972') === String(g.phone || '').replace(/\D/g, '') && !seatsChanged;
         if (same) { box.remove(); return; }
-        askConfirm('לשנות את הרשומה ל: ' + name + ' · ' + phone + '?', { title: 'לשמור את השינוי?', ok: 'כן, לשמור' }).then(function (yes) {
+        askConfirm('לשנות את הרשומה ל: ' + name + ' · ' + phone + (seatsRaw !== '' ? ' · ' + seatsRaw + ' מגיעים' : '') + '?', { title: 'לשמור את השינוי?', ok: 'כן, לשמור' }).then(function (yes) {
           if (!yes) return;
           var sb = box.querySelector('#geSave'); sb.disabled = true; sb.textContent = 'שומר…';
-          fetch(CFG.endpoint('guest-edit'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: gid, name: name, phone: phone }) })
+          fetch(CFG.endpoint('guest-edit'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: gid, name: name, phone: phone, seats: seatsRaw === '' ? null : parseInt(seatsRaw, 10), ph: (window.posthog && posthog.get_distinct_id) ? posthog.get_distinct_id() : '' }) })
             .then(function (r) { return r.json(); }).then(function (j) {
               if (!j || !j.ok) { sb.disabled = false; sb.textContent = 'שמירה'; IshurUX.toast(j && j.error === 'duplicate' ? 'המספר הזה כבר ברשימה' : j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא נשמר, נסו שוב'); return; }
-              g.name = j.name; g.phone = j.phone; box.remove(); render(); IshurUX.toast('נשמר ✓');
+              g.name = j.name; g.phone = j.phone; if (j.seats != null) g.seats = j.seats; box.remove(); render(); IshurUX.toast('נשמר ✓');
             }).catch(function () { sb.disabled = false; sb.textContent = 'שמירה'; IshurUX.toast('לא נשמר, נסו שוב'); });
         });
       });
@@ -2584,6 +2588,7 @@
     }
     /* ?checkin=1 previews the hostess check-in sheet before the event day */
     try { if (new URLSearchParams(location.search).get('checkin') === '1') payload.preview_checkin = 1; } catch (e) {}
+    try { if (window.posthog && posthog.get_distinct_id) { payload.ph = posthog.get_distinct_id(); payload.ph_session = posthog.get_session_id ? posthog.get_session_id() : ''; } } catch (e) {}
     fetch(CFG.endpoint('status'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
