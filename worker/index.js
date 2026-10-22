@@ -9673,16 +9673,29 @@ export default {
       const e = b.event || {};
       const t = String(e.type || '');
       const name = String(e.pulseName || e.itemName || '').trim();
-      const who = String(e.userName || e.userId || '');
+      let who = String(e.userName || e.userId || '');
+      /* Monday sends only the user id; resolve once, cache 30 days */
+      try { if (/^\d+$/.test(who)) { const uk = 'muser:' + who; const cu = await env.RATE.get(uk).catch(() => null); if (cu) who = cu; else { const r = await mondayGql(env, `query($i:[ID!]){users(ids:$i){name}}`, { i: [who] }).catch(() => null); const u = (((r || {}).data || {}).users || [])[0]; if (u && u.name) { who = u.name; await env.RATE.put(uk, who, { expirationTtl: 30 * 86400 }).catch(() => {}); } } } } catch {}
       let action = '', detail = '';
-      if (t === 'create_update' || t === 'edit_update') { action = `📝 עדכון בליד · ${name}`; detail = String(e.textBody || e.body || '').replace(/<[^>]+>/g, '').slice(0, 1500); }
-      else if (t === 'change_column_value' || t === 'change_status_column_value' || t === 'change_specific_column_value') { const v = e.value && typeof e.value === 'object' ? (e.value.label && e.value.label.text) || e.value.text || e.value.name || JSON.stringify(e.value) : String(e.value || ''); const pv = e.previousValue && typeof e.previousValue === 'object' ? (e.previousValue.label && e.previousValue.label.text) || e.previousValue.text || '' : String(e.previousValue || ''); action = `🔁 ${e.columnTitle || e.columnId || 'עמודה'}: ${pv ? pv + ' → ' : ''}${v} · ${name}`; detail = `${e.columnTitle || e.columnId || ''} = ${String(v).slice(0, 300)}`; }
+      if (t === 'create_update' || t === 'edit_update') { action = `📝 ${who} כתב/ה על ליד · ${name}`; detail = String(e.textBody || e.body || '').replace(/<[^>]+>/g, '').slice(0, 1500); }
+      else if (t === 'change_column_value' || t === 'change_status_column_value' || t === 'change_specific_column_value') { const v = e.value && typeof e.value === 'object' ? (e.value.label && e.value.label.text) || e.value.text || e.value.name || JSON.stringify(e.value) : String(e.value || ''); const pv = e.previousValue && typeof e.previousValue === 'object' ? (e.previousValue.label && e.previousValue.label.text) || e.previousValue.text || '' : String(e.previousValue || ''); action = `🔁 ${who}: ${e.columnTitle || e.columnId || 'עמודה'} ${pv ? pv + ' → ' : ''}${v} · ${name}`; detail = `${e.columnTitle || e.columnId || ''} = ${String(v).slice(0, 300)}`; }
       else if (t === 'create_pulse' || t === 'create_item') { action = `➕ ליד חדש במאנדיי · ${name}`; }
       else if (t === 'update_name') { action = `✏️ שם ליד שונה · ${e.previousValue || ''} → ${name}`; }
       else { action = `מאנדיי · ${t} · ${name}`; detail = JSON.stringify(e).slice(0, 800); }
       /* phone from the item, cached per item id so one Monday read per lead */
-      let phone = '';
-      try { const pk = 'mphone:' + String(e.pulseId || ''); phone = (await env.RATE.get(pk).catch(() => null)) || ''; if (!phone && e.pulseId) { const r = await mondayGql(env, `query($i:[ID!]){items(ids:$i){column_values{id text type}}}`, { i: [String(e.pulseId)] }).catch(() => null); const cols = (((r || {}).data || {}).items || [])[0]; const pc = cols && cols.column_values.find(c => c.type === 'phone' || /phone|טלפון/i.test(c.id)); phone = pc ? normPhone(pc.text || '') : ''; if (phone) await env.RATE.put(pk, phone, { expirationTtl: 30 * 86400 }).catch(() => {}); } } catch {}
+      /* name + phone from the item (update events carry neither), cached per item */
+      let phone = '', iname = name;
+      try {
+        const pk = 'mitem:' + String(e.pulseId || '');
+        let cached = null; try { cached = JSON.parse((await env.RATE.get(pk)) || 'null'); } catch {}
+        if ((!cached || !cached.phone || !cached.name) && e.pulseId) {
+          const r = await mondayGql(env, `query($i:[ID!]){items(ids:$i){name column_values{id text type}}}`, { i: [String(e.pulseId)] }).catch(() => null);
+          const it = (((r || {}).data || {}).items || [])[0];
+          if (it) { const pc = it.column_values.find(c => c.type === 'phone' || /phone|טלפון/i.test(c.id)); cached = { name: String(it.name || ''), phone: pc ? normPhone(pc.text || '') : '' }; await env.RATE.put(pk, JSON.stringify(cached), { expirationTtl: 30 * 86400 }).catch(() => {}); }
+        }
+        if (cached) { phone = cached.phone || ''; if (!iname) iname = cached.name || ''; }
+      } catch {}
+      if (!name && iname) action = action.replace(/ · $/, '') + (action.endsWith('·') ? ' ' + iname : ' · ' + iname);
       await stream(env, { kind: 'lead', area: 'מאנדיי', action, ok: true, phone, detail, data: { monday: { type: t, item_id: e.pulseId, board: e.boardId, user: who, column: e.columnTitle || e.columnId || '', value: e.value, previous: e.previousValue, update_id: e.updateId } } }).catch(() => {});
       return okJson({ ok: true }, origin);
     }
