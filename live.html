@@ -148,6 +148,9 @@
     if (it.token) rows.push(['אירוע', '<span class="v">' + esc(it.token) + '</span>']);
     if (phoneOf(it)) rows.push(['טלפון', '<span class="v">' + esc(phoneOf(it)) + '</span>']);
     if (it.ip) rows.push(['IP', '<span class="v">' + esc(it.ip) + (it.country ? ' · ' + esc(it.country) : '') + '</span>']);
+    if (it.geo) rows.push(['מיקום', '<span class="he">' + esc(it.geo) + ' <span style="color:var(--ink3)">(לפי IP, רמת עיר)</span></span>']);
+    if (it.event) rows.push(['אירוע', '<span class="he">' + esc([it.event.event, it.event.occasion, it.event.date].filter(Boolean).join(' · ')) + (it.event.client ? ' · לקוח: ' + esc(it.event.client) + (it.event.client_phone ? ' ' + esc(it.event.client_phone) : '') : '') + '</span>']);
+    if (it.guest) rows.push(['אורח', '<span class="he">' + esc([it.guest.name, it.guest.id, it.guest.rsvp, it.guest.seats ? it.guest.seats + ' מקומות' : ''].filter(Boolean).join(' · ')) + '</span>']);
     if (it.ua) rows.push(['דפדפן', '<span class="v">' + esc(it.ua) + '</span>']);
     if (it.kind === 'call') {
       if (d.summary) rows.push(['סיכום', '<span class="he">' + esc(d.summary) + '</span>']);
@@ -170,7 +173,9 @@
       if (day !== lastDay) { lastDay = day; head = '<div class="cnt" style="padding:.6rem .6rem .2rem">' + day + '</div>'; }
       var cls = 'row' + (it.ok === false ? ' bad' : '') + (it.review ? ' review' : '') + (openIds[it.id] ? ' open' : '') + (newIds && newIds[it.id] ? ' new' : '');
       var tags = '<span class="tag id" data-copy="' + esc(it.id) + '" title="העתקת המזהה">#' + esc(String(it.id).slice(-9)) + '</span>';
-      if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '">' + esc(String(it.token).slice(0, 8)) + '</span>';
+      if (it.token) tags += '<span class="tag" data-pin="token" data-v="' + esc(it.token) + '" title="' + esc(it.token) + '">' + esc(it.event && it.event.event ? it.event.event : String(it.token).slice(0, 8)) + '</span>';
+      if (it.guest && it.guest.name) tags += '<span class="tag" style="direction:rtl">' + esc(it.guest.name) + '</span>';
+      if (it.geo) tags += '<span class="tag" style="direction:rtl" title="מיקום לפי IP">' + esc(it.geo.split(' · ')[0]) + '</span>';
       var ph = phoneOf(it);
       if (ph) tags += '<span class="tag" data-pin="phone" data-v="' + esc(ph) + '">' + esc(ph.replace(/^972/, '0')) + '</span>';
       var inf = KINDS[it.kind] || {};

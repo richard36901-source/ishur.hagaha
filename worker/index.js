@@ -2099,7 +2099,15 @@ async function processRetellEvent(env, body) {
     /* 22/10: the recording and the full transcript are kept by us (Retell
        deletes them), and the live log shows them in Hebrew. */
     const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
-    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 שיחה הסתיימה · ' + String(c0.to_number || '').replace('+', '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + (action.result && action.result.answer ? ' · ' + action.result.answer : ''), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, outcome: action.result ? action.result.rsvp : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' } }).catch(() => {});
+    /* Richard 22/10: the line says who was called and for which event */
+    const dv0 = c0.retell_llm_dynamic_variables || {};
+    const gName0 = String(dv0.guest_name || dv0.lead_name || dv0.caller_name || dv0.name || '').trim();
+    let evName0 = String(dv0.event_name || dv0.host_name || '').trim();
+    if (!evName0 && meta0.token && env.RATE) { try { const em = JSON.parse((await env.RATE.get('evmeta:' + meta0.token)) || 'null'); if (em) evName0 = em.event || ''; } catch {} }
+    const who0 = (gName0 ? gName0 + ' · ' : '') + String(c0.to_number || '').replace('+', '').replace(/^972/, '0');
+    const outcome0 = action.result ? (action.result.answer || action.result.rsvp || '') : '';
+    const no0 = /dial_no_answer|dial_busy|voicemail/.test(String(c0.disconnection_reason || ''));
+    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' } }).catch(() => {});
   } catch {}
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
@@ -4049,7 +4057,7 @@ async function auditClient(env, request, path, body) {
   const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key)$/.test(k)) clean[k] = body[k]; });
   let prev = ''; try { prev = (await env.RATE.get('auditlast:' + token)) || ''; } catch {}
   const rec = {
-    at: new Date(now).toISOString(), ts: now, path, what: (AUDIT_WHAT[path] || path.replace('/api/', '')) + (body.action ? ' · ' + String(body.action).slice(0, 30) : ''),
+    at: new Date(now).toISOString(), ts: now, path, what: (path === '/api/guest-add' && body.query ? 'בדיקת מכסה להוספת אורחים' : (AUDIT_WHAT[path] || path.replace('/api/', ''))) + (body.action ? ' · ' + String(body.action).slice(0, 30) : '') + (body.name ? ' · ' + String(body.name).slice(0, 40) : '') + (body.phone ? ' · ' + String(body.phone).slice(0, 16) : '') + (body.seats || body.party ? ' · ' + (body.seats || body.party) + ' מקומות' : '') + (body.date ? ' · ' + String(body.date).slice(0, 10) : '') + (body.send ? ' · ' + body.send : '') + (body.gid || body.guest_id ? ' · ' + (body.gid || body.guest_id) : ''),
     token, ip: request.headers.get('cf-connecting-ip') || '', country: request.headers.get('cf-ipcountry') || '',
     ua: String(request.headers.get('user-agent') || '').slice(0, 240), body: JSON.stringify(clean).slice(0, 4000), prev,
   };
@@ -8608,6 +8616,7 @@ export default {
       ctx.waitUntil(audit.job(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
       /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(audit.job(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'runPacer', () => runPacer(env)).catch(e =>
@@ -8680,7 +8689,9 @@ export default {
             if (url.pathname === '/api/status') {
               /* every dashboard open/refresh (Richard 22/10): one record per view, at most one a minute per token+ip */
               const ipk = 'dview:' + String(peek.token).slice(0, 8) + ':' + (request.headers.get('cf-connecting-ip') || '');
-              if (!(await env.RATE.get(ipk).catch(() => null))) {
+              const botUa = /curl|python|node|wget/i.test(String(request.headers.get('user-agent') || ''));
+              if (botUa) ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: 'Claude · בדיקת סטטוס אירוע', ok: true, token: String(peek.token), req: request }));
+              else if (!(await env.RATE.get(ipk).catch(() => null))) {
                 await env.RATE.put(ipk, '1', { expirationTtl: 60 }).catch(() => {});
                 ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '' } }));
               }
@@ -8827,6 +8838,7 @@ export default {
           await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן — שורה שדורשת בדיקה', ok: false, review: true, detail: 'אמורה להיות אדומה' });
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
+        if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS)), origin);
         if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
         if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
