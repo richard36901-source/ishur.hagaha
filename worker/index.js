@@ -10888,17 +10888,30 @@ export default {
          wsent = Meta accepted and no failure came back; wfail = failed,
          retrying; wdead = failed three times, needs a human. */
       if (env.RATE && snapshot.guests && snapshot.guests.length) {
-        const w = 1;
+        /* Richard 25/10: a guest's state is the best of every wave, not wave 1
+           alone. The daily auto-retry clears the wave-1 failure keys and the
+           retry goes out as the reminder (wave 2); when THAT fails too, the
+           failure lives under wave 2 and wave 1 reads as "never sent". */
+        const WAVES = [1, 2, 3];
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          const [ok, dead, fail, code, dlv] = await Promise.all([
-            env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
-          ]);
+          const per = await Promise.all(WAVES.map(async w => {
+            const [ok, dead, fail, code, dlv] = await Promise.all([
+              env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
+            ]);
+            return { ok, dead, fail, code, dlv };
+          }));
+          const rank = { read: 3, delivered: 2, sent: 1 };
+          const ok = per.some(x => x.ok);
+          const dlv = per.map(x => x.dlv).filter(Boolean).sort((a, b) => (rank[b] || 0) - (rank[a] || 0))[0] || null;
+          /* a failure only counts when no wave got through; the newest wave's reason wins */
+          const failed = [...per].reverse().find(x => x.dead || x.fail) || {};
+          const dead = failed.dead || null, fail = failed.fail || null, code = failed.code || null;
           /* Richard 21/10: an answer proves the message arrived. A reply after
              a failed attempt must not keep showing "not delivered". */
           const answered = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
