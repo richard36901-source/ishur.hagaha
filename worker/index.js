@@ -6207,8 +6207,10 @@ async function handleCostLog(request, env, origin) {
     row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
-  /* ₪ truth from the rebuilt logs (wacost:<day>), when it exists */
-  for (const [d, v] of Object.entries(await kvPrefix(env, 'wacost:'))) day(d).wa_cost_ils = Number(v) || 0;
+  /* 25/10: ₪ truth per day from the message log (wacost:<day>, written by the
+     cost rebuild) replaces the flat 0.53 estimate. Kept in the old field as
+     USD cents so every board formula (×USD_ILS/100) still lands on ₪. */
+  for (const [d, v] of Object.entries(await kvPrefix(env, 'wacost:'))) { const r = day(d); r.wa_cost_ils = Number(v) || 0; r.wa_cost_usd_cents = Math.round(r.wa_cost_ils * 100 / USD_ILS * 100) / 100; }
 
   const events = [];
   for (const ev of (raw && raw.events && raw.events.values) || []) {
@@ -8117,6 +8119,7 @@ async function handleOpsStats(request, env, origin) {
     /* utility template ≈ $0.0053; free-form service messages cost nothing */
     row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
+  for (const [d, v] of Object.entries(await kvPrefix(env, 'wacost:'))) { const r = day(d); r.wa_cost_ils = Number(v) || 0; r.wa_cost_usd_cents = Math.round(r.wa_cost_ils * 100 / USD_ILS * 100) / 100; }
   for (const [d, v] of Object.entries(shirDays)) {
     day(d).shir_cost_usd_cents += Number(v) || 0;
   }

@@ -1683,7 +1683,8 @@
         costDays = d.days || [];
         costEvents = d.events || [];
         costMap = {};
-        costEvents.forEach(function (e) { costMap[e.token8] = e.cost_usd_cents; });
+        /* 25/10: the worker now sends ₪ per event (cost_ils). costMap keeps it as agorot × USD_ILS so the old formula still yields ₪ */
+      costEvents.forEach(function (e) { costMap[e.token8] = e.cost_ils != null ? e.cost_ils * 100 / USD_ILS : e.cost_usd_cents; });
         renderCostTable();
         syncFolds();
         renderEventsTable();
@@ -2237,7 +2238,7 @@
     var rev = 0, pay = 0, costUsdC = 0;
     rows.forEach(function (s) {
       rev += s.revenue_ils; pay += s.payments;
-      costUsdC += s.wa_cost_usd_cents + s.shir_cost_usd_cents;
+      costUsdC += (s.wa_cost_ils != null ? s.wa_cost_ils * 100 / USD_ILS : s.wa_cost_usd_cents) + s.shir_cost_usd_cents;
     });
     var adIls = adSpendIls(b.from, b.to);
     var fxIls = fixedSpendIls(b.from, b.to);
