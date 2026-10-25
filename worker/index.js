@@ -10896,7 +10896,9 @@ export default {
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          const per = await Promise.all(WAVES.map(async w => {
+          /* KV reads are capped per request; a big list already spends ~5 per
+             guest on wave 1, so waves 2–3 are read only when wave 1 is silent. */
+          const readWave = async w => {
             const [ok, dead, fail, code, dlv] = await Promise.all([
               env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
               env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
@@ -10905,9 +10907,14 @@ export default {
               env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
             ]);
             return { ok, dead, fail, code, dlv };
-          }));
+          };
+          const per = [await readWave(1)];
+          if (!per[0].ok && !per[0].dead && !per[0].fail) for (const w of WAVES.slice(1)) { const r = await readWave(w); per.push(r); if (r.ok || r.dead || r.fail) break; }
           const rank = { read: 3, delivered: 2, sent: 1 };
           const ok = per.some(x => x.ok);
+          /* a pending guest's ticks may belong to the reminder (wave 2): one more read, pending only */
+          const answered0 = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
+          if (ok && !answered0 && per.length === 1) per.push({ dlv: await env.RATE.get(`wst:${token}:2:${ph}`).catch(() => null) });
           const dlv = per.map(x => x.dlv).filter(Boolean).sort((a, b) => (rank[b] || 0) - (rank[a] || 0))[0] || null;
           /* a failure only counts when no wave got through; the newest wave's reason wins */
           const failed = [...per].reverse().find(x => x.dead || x.fail) || {};
