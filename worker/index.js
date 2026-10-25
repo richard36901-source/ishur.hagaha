@@ -286,6 +286,7 @@ async function handleGrowIpn(request, env, url) {
     }
     await logEvent(env, { area: 'תשלום', action: 'תשלום לא זוהה כ-ishur — חונה, לא הופעל', ok: false, review: true,
       phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${missId} · ${String(flat.paymentDesc || '')} · להרצה: /api/ipn-replay` });
+    if (/תמיכה חודשית|ריטיינר/.test(String(flat.paymentDesc || ''))) return new Response('ignored-non-ishur', { status: 200 });
     await alert(env, 'תשלום Grow לא זוהה (נאמר פעם אחת)',
       `תשלום שלא זוהה כ-ishur לא הופעל (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו — שלח לי את המזהה ${missId} ואני מריץ אותו מיד`,
       flatDump.slice(0, 600));
@@ -4838,7 +4839,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
-    if (!wa.ok) await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה', token + ': ' + wa.error);
+    if (!wa.ok && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -4935,7 +4936,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_syum'));
-    if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
+    if (!wa.ok && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
 
