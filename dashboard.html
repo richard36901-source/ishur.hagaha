@@ -833,7 +833,7 @@
     '131042': 'תקלה זמנית בחיבור לוואטסאפ מצידנו.'
   };
   function sendBadge(g) {
-    var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
+    var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); });
     if (!g.sent || g.sent === 'none') return '<span class="sendst none">' + (afterInvite && !g.self ? 'לא נשלח' : '') + '</span>';
     if (g.sent === 'sent' || g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided') {
       /* Richard 22/10: נשלח (Meta accepted) → התקבל (delivered) → נקרא (blue ticks / replied) */
