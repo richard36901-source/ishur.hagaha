@@ -8237,7 +8237,7 @@ async function handleWaSend(request, env, origin) {
   let res;
   switch (String(body.mode || 'text')) {
     case 'template':
-      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he', body.channel);
+      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he', body.channel, body.ctx && typeof body.ctx === 'object' ? body.ctx : undefined);
       break;
     case 'cta':
       res = await sendCtaUrl(env, to, body.text || '', body.label || 'פתיחה', body.url || '', body.channel, { who: 'ריצ׳רד' });
