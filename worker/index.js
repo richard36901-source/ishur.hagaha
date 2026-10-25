@@ -4371,9 +4371,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     const useVid = !!(videoUrl && wave.key === 1);
     const useImg = !useVid && !!(imgTmpl && invite && wave.key === 1);
     /* Richard 21/10: the client's own approved wording replaces the house invitation */
-    /* Richard 25/10: the client's approved wording is THE invitation, so the
-       reminder to the unanswered (wave 2) carries it too, not the house text. */
-    const custom = (wave.key === 1 || wave.key === 2) ? await customTemplateFor(env, token) : null;
+    const custom = wave.key === 1 ? await customTemplateFor(env, token) : null;
     const res = custom
       ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
       : await sendTemplate(env, phone, useVid ? vidTmpl : useImg ? imgTmpl : inviteTmpl,
