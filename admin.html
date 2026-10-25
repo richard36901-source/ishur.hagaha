@@ -242,6 +242,10 @@
   tr.row-hold td{background:rgba(168,64,47,.07)}
   html[data-theme=dark] tr.row-hold td{background:rgba(240,138,138,.08)}
   tr.row-hold td:first-child{color:var(--warn)}
+  tr.row-done td{opacity:.62}
+  tr.row-done td:first-child{opacity:1}
+  .pill.p-done{background:rgba(15,76,53,.10);color:#0F4C35}
+  html[data-theme=dark] .pill.p-done{background:rgba(120,200,160,.14);color:#9fd9bb}
 
   /* confirm dialog: custom, because the browser one cannot explain anything */
   .dlg-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);backdrop-filter:blur(3px);z-index:60;display:flex;align-items:center;justify-content:center;padding:1rem}
@@ -1210,6 +1214,13 @@
     syncFolds();
   }
 
+  /* an event is over the morning after its date (Israel time) */
+  function isDone(e) {
+    if (!e || !e.date || e.cancelled) return false;
+    var d = new Date(e.date + 'T23:59:59+03:00');
+    return isFinite(d) && Date.now() > d.getTime();
+  }
+
   function paintEventsTable(rows) {
     rows.innerHTML = '';
     var shown = bizEvents.filter(function (e) { return e.paid; });
@@ -1227,7 +1238,7 @@
       else if (e.cancelled) invPill = '<span class="pill p-warn">—</span>';
       else { invPill = '<span class="pill p-no">חסרה</span>'; missingInv++; }
       tr.innerHTML =
-        '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + '</td>' +
+        '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + (isDone(e) ? ' <span class="pill p-done">הסתיים</span>' : '') + '</td>' +
         '<td>' + holdCell(e) + '</td>' +
         '<td>' + heDate(e.date) + '</td>' +
         '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
@@ -1242,6 +1253,7 @@
         '<td>' + e.pending + '</td>' +
         '<td>' + (e.need_call || '') + '</td>';
       var cls = [];
+      if (isDone(e)) cls.push('row-done');
       if (e.token && holdMap[e.token]) cls.push('row-hold');
       if (isFresh(freshEvents, eventId(e))) cls.push('fresh');
       if (cls.length) tr.className = cls.join(' ');
