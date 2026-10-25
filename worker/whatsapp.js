@@ -48,6 +48,9 @@ export function clientOnPortfolio(env) {
 const PORTFOLIO_RENAMED = new Set(['ishur_lo_siyem', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_tzikoret_kovetz', 'ishur_doch', 'ishur_shidrug', 'ishur_shidrug_sichot']);
 export function clientWaba(env) { return clientOnPortfolio(env) ? '2815615772154486' : '1060242146337688'; }
 export function clientToken(env) { return clientOnPortfolio(env) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN; }
+/* 25/10: 4499 re-registered via coexistence (QR) under WABA 1060242146337688 with a
+   new phone id. WA_PHONE_ID_CLIENT (wrangler var) overrides the old WA_PHONE_ID secret. */
+export function clientPhoneId(env) { return env.WA_PHONE_ID_CLIENT || env.WA_PHONE_ID; }
 
 /* ── 22/10 Richard: more than one number for Shir ─────────────────────────
    WA_PHONE_IDS_GUESTS = "id1,id2,id3" (all on the same WABA, same token).
@@ -78,7 +81,7 @@ export async function bumpGuestSend(env, pid) {
 }
 function pickPhone(env, channel) {
   if (channel === 'guests') return guestsReady(env) ? env.WA_PHONE_ID_GUESTS : '';
-  return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : env.WA_PHONE_ID;
+  return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : clientPhoneId(env);
 }
 
 function pickToken(env, channel) {

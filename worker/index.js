@@ -30,7 +30,7 @@ import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
-import { clientWaba, clientToken, clientOnPortfolio, isGuestPhone, guestPhoneIds } from './whatsapp.js';
+import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
@@ -3079,6 +3079,30 @@ async function handleWaWebhook(request, env, url) {
       if (profileName) {
         await env.RATE.put('waname:' + from, profileName.slice(0, 60)).catch(() => {});
       }
+      /* 25/10 Richard: "מספר חדש פנה לווצאפ → ליד במאנדיי וסלאק". A number that
+         writes to Noa's line and is neither a client nor a known lead becomes a
+         lead right away: KV + Monday through noteLead, and Slack now (no
+         10-minute quiet wait — they are on WhatsApp, not mid-checkout). */
+      if (ch === 'client' && !echo) {
+        try {
+          const p9 = normPhone(from);
+          const known = (await env.RATE.get('client:' + p9)) || (await env.RATE.get('lead:' + p9)) || (await env.RATE.get('leadchase:' + p9));
+          if (!known && !isTestPhone(env, p9) && !String(env.ADMIN_PHONES || '').split(',').includes(p9)) {
+            await noteLead(env, { phone: p9, name: profileName || '', page: 'whatsapp', first_source: 'וואטסאפ נכנס', event_type: 'whatsapp_in' });
+            await env.RATE.delete('leadping:' + p9).catch(() => {});
+            await env.RATE.put('leadslack:' + p9, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
+            const local = p9.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            await slackPost(env, [
+              '🆕 *ליד חדש מוואטסאפ (נועה 4499)*', '',
+              `*שם:* ${profileName || 'לא ידוע'}`,
+              `*טלפון:* ${local} · <https://wa.me/${p9}|וואטסאפ>`,
+              body ? `*כתב/ה:* ${body.slice(0, 300)}` : '', '',
+              'נוסף למאנדיי אוטומטית · לענות מהאינבוקס: https://ishur.io/inbox.html',
+              `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>`,
+            ].filter(Boolean).join('\n')).catch(() => {});
+          }
+        } catch (e) { await logEvent(env, { area: 'לידים', action: 'ליד מוואטסאפ נכשל', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+      }
     }
     /* Richard, 10/09 19:20: "Noa still answers in the 5864 chat" — the file
        handler below answered גל on its own while a human had the chat. One
@@ -5314,7 +5338,8 @@ async function templateCheck(env, out) {
         { name: 'hazmana_ishur_vid_u', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
-        { name: 'ishur_yom_lifnei_nav', key: 'navtmpl', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        /* 25/10 Richard ("החלף"): the nav copy is billed MARKETING (₪0.12); the plain
+           ishur_yom_lifnei is UTILITY (₪0.02). navtmpl stays unset on purpose. */
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
@@ -5371,8 +5396,8 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
      approve the display name "ishur.io" on the number; tell Richard the
      moment it flips, the migration (OTP) needs him on the phone. */
   try {
-    if (!clientOnPortfolio(env) && env.WA_TOKEN && env.WA_PHONE_ID && !(await env.RATE.get('dispname:ok'))) {
-      const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID}?fields=new_display_name,new_name_status,name_status,verified_name`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
+    if (!clientOnPortfolio(env) && env.WA_TOKEN && clientPhoneId(env) && !(await env.RATE.get('dispname:ok'))) {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${clientPhoneId(env)}?fields=new_display_name,new_name_status,name_status,verified_name`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
       const j = r ? await r.json().catch(() => null) : null;
       if (j && (j.new_name_status === 'APPROVED' || j.name_status === 'APPROVED' || j.name_status === 'AVAILABLE_WITHOUT_REVIEW')) {
         await env.RATE.put('dispname:ok', new Date().toISOString());
@@ -8064,7 +8089,7 @@ async function waCapInfo(env) {
   if (cached) return cached;
   /* the cap that matters is the SENDING number's — guests once fully wired */
   const guestsReady = !!(env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS);
-  const capPhone = guestsReady ? env.WA_PHONE_ID_GUESTS : env.WA_PHONE_ID;
+  const capPhone = guestsReady ? env.WA_PHONE_ID_GUESTS : clientPhoneId(env);
   const capToken = guestsReady ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
   if (!capToken || !capPhone) return null;
   const ids = guestsReady ? guestPhoneIds(env) : [capPhone];
@@ -8934,6 +8959,25 @@ export default {
         if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS)), origin);
         if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
         if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
+        /* 25/10: one event row from the sheet, by token prefix — admin debugging */
+        if (b.action === 'ev-row') {
+          const pre = String(b.token || '').trim();
+          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const head = ((raw && raw.events && raw.events.values) || [])[0] || [];
+          const rows = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').startsWith(pre));
+          return okJson({ ok: true, head, rows }, origin);
+        }
+        /* 25/10: admin fix of one cell on an event row (plan/tier a payment left blank) */
+        if (b.action === 'ev-set') {
+          const tok = String(b.token || '').trim(), col = String(b.col || '').toUpperCase();
+          if (!/^[0-9a-f-]{36}$/.test(tok) || !/^[A-Z]{1,2}$/.test(col)) return deny(400, 'bad-args', origin);
+          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const idx = ((raw && raw.events && raw.events.values) || []).findIndex(r => String((r || [])[1] || '').trim() === tok);
+          if (idx < 0) return deny(404, 'event-not-found', origin);
+          const okw = await sheetBatchWrite(env, [{ range: `אירועים!${col}${idx + 2}`, values: [[String(b.value == null ? '' : b.value)]] }]);
+          await logEvent(env, { area: 'אירוע', action: `תא ${col} עודכן ע"י מנהל → ${String(b.value || '')}`, ok: !!okw, token: tok }).catch(() => {});
+          return okJson({ ok: !!okw, row: idx + 2, col }, origin);
+        }
         if (b.action === 'evcost-rebuild') return okJson(await rebuildEventCosts(env, { dry: b.dry === true }), origin);
         if (b.action === 'set-occasion') {
           const tok = String(b.token || '').trim(), occ = cleanOccasion(b.occasion);
@@ -9799,6 +9843,26 @@ export default {
       } catch {}
       if (!name && iname) action = action.replace(/ · $/, '') + (action.endsWith('·') ? ' ' + iname : ' · ' + iname);
       await stream(env, { kind: 'lead', area: 'מאנדיי', action, ok: true, phone, detail, data: { monday: { type: t, item_id: e.pulseId, board: e.boardId, user: who, column: e.columnTitle || e.columnId || '', value: e.value, previous: e.previousValue, update_id: e.updateId } } }).catch(() => {});
+      /* 25/10 Richard: "הודעה לסלאק על כל ליד חדש שנכנס למונדי". Leads the
+         worker itself created (site / Meta form / WhatsApp) already post via
+         their own pipeline, so only items that reached Monday some other way
+         (Shalev by hand, Make, imports) are announced here. Once per item. */
+      if ((t === 'create_pulse' || t === 'create_item') && e.pulseId && env.RATE) {
+        const ours = phone ? await env.RATE.get('lead:' + phone).catch(() => null) : null;
+        const slacked = phone ? await env.RATE.get('leadslack:' + phone).catch(() => null) : null;
+        if (!ours && !slacked && !(await seenOnce(env, 'mnew:' + e.pulseId))) {
+          const local = phone ? phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : '';
+          await slackPost(env, [
+            '🆕 *ליד חדש במאנדיי*', '',
+            `*שם:* ${iname || name || 'ללא שם'}`,
+            phone ? `*טלפון:* ${local} · <https://wa.me/${phone}|וואטסאפ>` : '*טלפון:* לא מולא',
+            `*נוסף ע"י:* ${who || 'לא ידוע'}`,
+            `*כרטיס:* <https://richard366723.monday.com/boards/${e.boardId || '18432553641'}/pulses/${e.pulseId}|פתיחה במאנדיי>`, '',
+            `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> ליד חדש, להתקשר`,
+          ].join('\n')).catch(() => {});
+          if (phone) await env.RATE.put('leadslack:' + phone, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
+        }
+      }
       return okJson({ ok: true }, origin);
     }
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
