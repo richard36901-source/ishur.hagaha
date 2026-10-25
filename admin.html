@@ -599,6 +599,28 @@
     <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
   </div>
 
+  <h2 class="fold-h">
+    <button type="button" class="fold-btn" id="fb-feedback" aria-expanded="false" aria-controls="fold-feedback">
+      <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      <span class="fold-t">משוב · מי ענה, מה נתן ולאן הלך</span>
+      <span class="fold-n" id="fn-feedback">–</span>
+      <span class="fold-new" id="fnew-feedback" hidden>חדש</span>
+      <span class="fold-sp"></span>
+    </button>
+  </h2>
+  <div class="fold" id="fold-feedback" hidden>
+    <div class="tblwrap">
+      <table id="fbTbl">
+        <thead><tr>
+          <th>אירוע</th><th>לקוח</th><th>מי</th><th>ענה ב</th><th>ימליץ</th><th>חוויה</th><th>הופנה ל</th><th>וידאו</th><th>גוגל</th><th>הערה</th>
+        </tr></thead>
+        <tbody id="fbRows"></tbody>
+      </table>
+    </div>
+    <p class="empty" id="fbEmpty" hidden>עדיין אין משובים. הקישור נשלח ללקוח בהודעת הסיום (feedback.html?t=…).</p>
+    <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">ציון 6+ בשניהם → הדף מציע להקליט וידאו / לכתוב בגוגל. נמוך יותר → טופס הערה שמגיע רק אלינו. "עזב" = פתח את הדף ולא לחץ על כלום.</p>
+  </div>
+
   <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
     <span>נועה · מענה AI</span>
     <span class="sw-wrap"><span class="sw-state" id="aiState">טוען…</span>
@@ -915,6 +937,7 @@
   var FOLD_KEY = 'ishur_admin_folds';
   var FOLDS = [
     { key: 'events', tbody: 'rows' },
+    { key: 'feedback', tbody: 'fbRows' },
     { key: 'calls',  tbody: 'shirRows' },
     { key: 'plans',  tbody: 'planRows' },
     { key: 'cost',   tbody: 'costRows' },
@@ -1154,6 +1177,7 @@
   window.addEventListener('ishur:fresh', function () { load(true); });
   function load(quiet) {
     loadStatus(quiet);
+    loadFeedback();
     loadShir();
     loadOps();
     loadBrain();
@@ -1162,6 +1186,58 @@
     loadTraffic();
     loadCampaigns();
     loadBoard();
+  }
+
+  /* ── feedback: every answer to feedback.html, who recommended where ── */
+  function loadFeedback() {
+    fetch(CFG.endpoint('feedback-list'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey })
+    }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.ok) return;
+      renderFeedback(d.feedback || []);
+    }).catch(function () {});
+  }
+  function fbWhen(iso) {
+    if (!iso) return '';
+    var d = new Date(iso); if (!isFinite(d)) return '';
+    return d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' });
+  }
+  function fbScore(n) {
+    if (n == null || n === '') return '<span style="color:var(--ink3)">—</span>';
+    var c = n >= 9 ? '#0F4C35' : n >= 6 ? '#8a6d1f' : '#A8402F';
+    return '<b style="color:' + c + '">' + n + '</b>';
+  }
+  function fbClick(iso, yes) {
+    return iso ? '<span class="pill p-ok" title="' + fbWhen(iso) + '">' + yes + '</span>' : '<span style="color:var(--ink3)">—</span>';
+  }
+  function renderFeedback(list) {
+    var rows = $('fbRows'); if (!rows) return;
+    keepScroll(rows, function () {
+      rows.innerHTML = '';
+      $('fbEmpty').hidden = list.length > 0;
+      list.forEach(function (f) {
+        var tr = document.createElement('tr');
+        var route = f.route === 'high' ? '<span class="pill p-ok">המלצה</span>'
+                  : f.route === 'low' ? '<span class="pill p-warn">הערה אלינו</span>'
+                  : '<span style="color:var(--ink3)">לא דירג</span>';
+        var note = f.note ? '<span title="' + String(f.note).replace(/"/g, '&quot;') + '">' + String(f.note).slice(0, 80) + (f.note.length > 80 ? '…' : '') + '</span>' : (f.left ? '<span style="color:var(--ink3)">עזב בלי ללחוץ</span>' : '');
+        tr.innerHTML =
+          '<td>' + (f.name || (f.token || '').slice(0, 8)) + (f.occasion ? ' · ' + f.occasion : '') + '</td>' +
+          '<td>' + (f.client || '—') + '</td>' +
+          '<td>' + (f.who === 2 ? 'בן/בת הזוג' : 'בעל השמחה') + '</td>' +
+          '<td>' + (fbWhen(f.at) || '—') + '</td>' +
+          '<td>' + fbScore(f.nps) + '</td>' +
+          '<td>' + fbScore(f.exp) + '</td>' +
+          '<td>' + route + '</td>' +
+          '<td>' + fbClick(f.clicked_clip, '🎥 לחץ') + '</td>' +
+          '<td>' + fbClick(f.clicked_review, 'G לחץ') + '</td>' +
+          '<td>' + note + '</td>';
+        if (f.nps != null && f.nps <= 3) tr.className = 'row-hold';
+        rows.appendChild(tr);
+      });
+    });
+    syncFolds();
   }
 
   /* the sheet read: headline KPIs, the events table, the plan breakdown */
