@@ -24,7 +24,7 @@
 import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
-import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
+import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
@@ -1857,6 +1857,9 @@ async function trackCallCost(env, cents) {
 /* Per-event running cost, USD cents, keyed by the token's first 8 characters —
    guest ids carry the same prefix (G-<tok8>-N), so Shir's call costs join the
    same bucket as the WhatsApp sends. Feeds the per-event profit column. */
+/* Richard 25/10: evcost:<t8> is ₪ in agorot. msgCost() is ₪ per template, so
+   it is ×100 here; Retell call costs arrive in USD cents and are ×USD_ILS.
+   Before this the two were summed as-is and the board showed fiction. */
 async function addEvCost(env, tokenOrGuestId, cents) {
   if (!env.RATE || !cents) return;
   let t8 = String(tokenOrGuestId || '');
@@ -1864,7 +1867,51 @@ async function addEvCost(env, tokenOrGuestId, cents) {
   if (!/^[0-9a-f]{8}$/.test(t8)) return;
   const key = 'evcost:' + t8;
   const cur = Number(await env.RATE.get(key)) || 0;
-  await env.RATE.put(key, String(Math.round((cur + cents) * 100) / 100), { expirationTtl: 400 * 86400 });
+  /* a template: msgCost ₪ (0.02..0.13) → agorot. A call: USD cents (≥1) → agorot */
+  const agorot = cents < 1 ? cents * 100 : cents * USD_ILS;
+  await env.RATE.put(key, String(Math.round((cur + agorot) * 100) / 100), { expirationTtl: 400 * 86400 });
+}
+
+/* Rebuild every event's cost from the two logs that know the truth:
+   'אורחים לוג הודעות יוצאות' (delivered? + Meta category + event + wave per
+   message) and 'לוג שיחות' (₪ per call + event). ₪ by the category Meta billed
+   (utility 0.02, marketing 0.12, auth 0.05; service/free text 0). Writes
+   evcost:<t8> in agorot and wacost:<day> ₪ for the daily board. */
+async function rebuildEventCosts(env, { dry = false } = {}) {
+  const CAT = { utility: 0.02, marketing: 0.12, authentication: 0.05, auth: 0.05, service: 0 };
+  const [mg, mc, calls] = await Promise.all([readTabAll(env, 'msg_guests'), readTabAll(env, 'msg_clients'), readTabAll(env, 'calls')]);
+  const per = {}, days = {}, detail = {};
+  const add = (t8, ils, kind) => { if (!t8) return; per[t8] = (per[t8] || 0) + ils; detail[t8] = detail[t8] || { wa: 0, wa_n: 0, calls: 0, calls_n: 0 }; detail[t8][kind] += ils; detail[t8][kind + '_n'] += 1; };
+  const dayOf = s => { const m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+  for (const tab of [mg, mc]) {
+    for (const r of (tab && tab.rows) || []) {
+      /* 0 id, 1 time, 2 sent?, 3 delivered?, 4 read?, ... 10 dir, 12 type, 13 template, 14 event, 15 wave, 16 error, 17 meta category */
+      if (String(r[10] || '') !== 'יוצאת') continue;
+      const delivered = /^כן/.test(String(r[3] || '')) || /^כן/.test(String(r[4] || ''));
+      if (!delivered) continue;
+      const cat = String(r[17] || '').toLowerCase();
+      const tmpl = String(r[13] || '');
+      const ils = cat ? (CAT[cat] ?? 0.02) : (String(r[12] || '') === 'תבנית' ? (CAT_COST[TMPL_CATEGORY[tmpl] || 'utility'] || 0.02) : 0);
+      if (!ils) continue;
+      const d = dayOf(r[1]); if (d) days[d] = (days[d] || 0) + ils;
+      add(String(r[14] || '').trim().slice(0, 8), ils, 'wa');
+    }
+  }
+  for (const r of (calls && calls.rows) || []) {
+    /* 0 time, 1 agent, 2 dir, 3 phone, 4 name, 5 kind, 6 event, ... 12 cost. The
+       column says ₪ but the writer puts Retell's USD there (cost_cents/100). */
+    const ils = (Number(String(r[12] || '').replace(/[^\d.]/g, '')) || 0) * USD_ILS;
+    if (!ils) continue;
+    add(String(r[6] || '').trim().slice(0, 8), ils, 'calls');
+  }
+  const out = { ok: true, dry, events: {}, days: Object.keys(days).length, rows: { guests: (mg && mg.rows.length) || 0, clients: (mc && mc.rows.length) || 0, calls: (calls && calls.rows.length) || 0 } };
+  for (const [t8, ils] of Object.entries(per)) {
+    if (!/^[0-9a-f]{8}$/.test(t8)) continue;
+    out.events[t8] = { ils: Math.round(ils * 100) / 100, ...detail[t8] };
+    if (!dry && env.RATE) await env.RATE.put('evcost:' + t8, String(Math.round(ils * 100)), { expirationTtl: 400 * 86400 });
+  }
+  if (!dry && env.RATE) for (const [d, ils] of Object.entries(days)) await env.RATE.put('wacost:' + d, String(Math.round(ils * 100) / 100), { expirationTtl: 400 * 86400 });
+  return out;
 }
 
 
@@ -6160,6 +6207,8 @@ async function handleCostLog(request, env, origin) {
     row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
+  /* ₪ truth from the rebuilt logs (wacost:<day>), when it exists */
+  for (const [d, v] of Object.entries(await kvPrefix(env, 'wacost:'))) day(d).wa_cost_ils = Number(v) || 0;
 
   const events = [];
   for (const ev of (raw && raw.events && raw.events.values) || []) {
@@ -6176,6 +6225,7 @@ async function handleCostLog(request, env, origin) {
       plan: String(ev[31] || '').trim(),
       sum_ils: Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0,
       cost_usd_cents: Number(evCosts[t8]) || 0,
+      cost_ils: Math.round(Number(evCosts[t8]) || 0) / 100,   /* evcost is ₪ agorot since 25/10 */
       invoice: String(ev[9] || '').trim(),
       cancelled: String(ev[27] || '').trim() === 'כן',
     });
@@ -8867,6 +8917,17 @@ export default {
         if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS)), origin);
         if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
         if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
+        if (b.action === 'evcost-rebuild') return okJson(await rebuildEventCosts(env, { dry: b.dry === true }), origin);
+        if (b.action === 'set-occasion') {
+          const tok = String(b.token || '').trim(), occ = cleanOccasion(b.occasion);
+          if (!/^[0-9a-f-]{36}$/.test(tok) || !occ) return deny(400, 'bad-args', origin);
+          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const idx = ((raw && raw.events && raw.events.values) || []).findIndex(r => String((r || [])[1] || '').trim() === tok);
+          if (idx < 0) return deny(404, 'event-not-found', origin);
+          const okw = await sheetBatchWrite(env, [{ range: `אירועים!F${idx + 2}`, values: [[occ]] }]);
+          await logEvent(env, { area: 'אירוע', action: 'סוג האירוע עודכן ע"י מנהל → ' + occ, ok: !!okw, token: tok }).catch(() => {});
+          return okJson({ ok: !!okw, row: idx + 2, occasion: occ }, origin);
+        }
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
         if (b.action === 'invoice-make') {
           /* recovery: issue an invoice for a payment whose first attempt
