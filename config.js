@@ -216,6 +216,8 @@ window.ISHUR_CONFIG = (function () {
       names: ['שם ההורה', 'שם ההורה השני'], familyHint: true },
     { value: 'bday',       label: 'יום הולדת',          rec: 'basic',
       names: ['שם החוגג/ת', null] },
+    { value: 'chalaka',    label: 'חלאקה',              rec: 'basic',
+      names: ['שם הילד', null], familyHint: true },
     { value: 'biz',        label: 'אירוע עסקי',         rec: 'pro',
       names: ['שם החברה', null], title: 'שם האירוע' },
     { value: 'other',      label: 'אחר',                rec: 'pro',
