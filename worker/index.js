@@ -8130,10 +8130,24 @@ async function handleOpsStats(request, env, origin) {
   if (leadsRes && leadsRes.ok) {
     try { leadRows = (await leadsRes.json()).valueRanges[0].values || []; } catch {}
   }
-  for (const r of leadRows) {
-    if (!String((r || [])[2] || '').trim()) continue;
-    const src = String(r[11] || '').trim() || 'ישיר / לא ידוע';
-    utm[src] = (utm[src] || 0) + 1;
+  /* Richard 25/10: per source, how many actually closed (paid). Same merge the
+     leads page uses, so "סגר" here equals "סגר" there. */
+  const closedBy = {};
+  try {
+    const states = await kvPrefix(env, 'leadx:');
+    const evs = eventsFromSnapshot((raw && raw.events && raw.events.values) || []);
+    for (const l of mergeLeads(leadRows, states, evs)) {
+      if (isTestPhone(env, l.phone)) continue;
+      const src = String(l.source || '').trim() || 'ישיר / לא ידוע';
+      utm[src] = (utm[src] || 0) + 1;
+      if (l.won || l.status === 'סגר') closedBy[src] = (closedBy[src] || 0) + 1;
+    }
+  } catch {
+    for (const r of leadRows) {
+      if (!String((r || [])[2] || '').trim()) continue;
+      const src = String(r[11] || '').trim() || 'ישיר / לא ידוע';
+      utm[src] = (utm[src] || 0) + 1;
+    }
   }
 
   /* today's business-initiated sends against Meta's ceiling */
@@ -8182,7 +8196,7 @@ async function handleOpsStats(request, env, origin) {
   return okJson({
     ok: true,
     series: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
-    utm: Object.entries(utm).sort((a, b) => b[1] - a[1]),
+    utm: Object.entries(utm).sort((a, b) => b[1] - a[1]).map(([k, n]) => [k, n, closedBy[k] || 0]),
     leads_total: leadRows.filter(r => String((r || [])[2] || '').trim()).length,
     wa_cap: cap ? { ...cap, used_today: usedToday } : null,
     adspend,

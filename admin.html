@@ -819,7 +819,7 @@
   <div class="fold" id="fold-utm" hidden>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>מקור</th><th>לידים</th><th>%</th></tr></thead>
+        <thead><tr><th>מקור</th><th>לידים</th><th>%</th><th>סגרו</th><th>% סגירה</th></tr></thead>
         <tbody id="utmRows"></tbody>
       </table>
     </div>
@@ -2143,7 +2143,8 @@
         d.utm.forEach(function (u) {
           var tr = document.createElement('tr');
           var pct = d.leads_total ? Math.round(u[1] / d.leads_total * 100) : 0;
-          tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td>';
+          var closed = u[2] || 0, cr = u[1] ? Math.round(closed / u[1] * 100) : 0;
+          tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td><td style="font-weight:600;color:' + (closed ? '#0F4C35' : 'var(--ink3)') + '">' + closed + '</td><td>' + (closed ? cr + '%' : '—') + '</td>';
           rows.appendChild(tr);
         });
         syncFolds();
