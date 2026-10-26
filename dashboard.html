@@ -1531,9 +1531,11 @@
         var seatsChanged = seatsRaw !== '' && parseInt(seatsRaw, 10) !== Number(g.seats || 0);
         var same = name === (g.name || '') && phone.replace(/\D/g, '').replace(/^0/, '972') === String(g.phone || '').replace(/\D/g, '') && !seatsChanged;
         if (same) { box.remove(); return; }
-        askConfirm('לשנות את הרשומה ל: ' + name + ' · ' + phone + (seatsRaw !== '' ? ' · ' + seatsRaw + ' מגיעים' : '') + '?', { title: 'לשמור את השינוי?', ok: 'כן, לשמור' }).then(function (yes) {
+        /* Richard 26/10: no second "are you sure" — Tomer could not save (the
+           confirm resolved as cancel on his phone). One tap on שמירה saves. */
+        Promise.resolve(true).then(function (yes) {
           if (!yes) return;
-          var sb = box.querySelector('#geSave'); sb.disabled = true; sb.textContent = 'שומר…';
+          var sb = box.querySelector('#geSave'); if (sb.disabled) return; sb.disabled = true; sb.textContent = 'שומר…';
           fetch(CFG.endpoint('guest-edit'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, guest_id: gid, name: name, phone: phone, seats: seatsRaw === '' ? null : parseInt(seatsRaw, 10), ph: (window.posthog && posthog.get_distinct_id) ? posthog.get_distinct_id() : '' }) })
             .then(function (r) { return r.json(); }).then(function (j) {
               if (!j || !j.ok) { sb.disabled = false; sb.textContent = 'שמירה'; IshurUX.toast(j && j.error === 'duplicate' ? 'המספר הזה כבר ברשימה' : j && j.error === 'bad-phone' ? 'הטלפון לא תקין' : 'לא נשמר, נסו שוב'); return; }
