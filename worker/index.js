@@ -399,6 +399,11 @@ async function processGrowPayment(env, flat) {
     kind: 'payment', ref, token, phone, sum, name, email, payMethod,
     /* what was bought, as Grow names the page — the invoice line item */
     plan: String(flat.paymentDesc || flat.description || '').trim(),
+    /* 27/10: what was actually PAID, for the event row's AF/AG. Make used to
+       copy plan/tier from the lead row (what they looked at on the site), so
+       Mor paid for 500 and got a 300 cap. */
+    planText: (() => { try { const b = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); return b ? b.planText : ''; } catch { return ''; } })(),
+    tier: (() => { try { const b = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); return b && b.tier ? String(b.tier) : ''; } catch { return ''; } })(),
     taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
     clientId: 'C-' + phone.slice(-9),
     isNewClient: isNewClient ? 'yes' : 'no',
