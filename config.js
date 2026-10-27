@@ -218,6 +218,8 @@ window.ISHUR_CONFIG = (function () {
       names: ['שם החוגג/ת', null] },
     { value: 'chalaka',    label: 'חלאקה',              rec: 'basic',
       names: ['שם הילד', null], familyHint: true },
+    { value: 'chala',      label: 'הפרשת חלה',          rec: 'basic',
+      names: ['שם הכלה', null] },
     { value: 'biz',        label: 'אירוע עסקי',         rec: 'pro',
       names: ['שם החברה', null], title: 'שם האירוע' },
     { value: 'other',      label: 'אחר',                rec: 'pro',

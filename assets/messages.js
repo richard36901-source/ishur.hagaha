@@ -60,6 +60,22 @@ window.ISHUR_MESSAGES = (function () {
     postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>מסיבת יום ההולדת של רינה <b>נדחתה</b>.<br>📅 <b>תאריך חדש: 1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
     canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול אירוע יום ההולדת שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
   },
+  hina:{
+    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🌿<br><br>נועה ויונתן מזמינים אתכם לחינה שלהם!<br>📅 15 בספטמבר 2025 | 📍 גן האירועים הקסום<br><br>נשמח מאוד לראותכם! 🤍</p>`,note:''},
+    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🌿 חינה לנועה ויונתן<br><br>אנו שמחים להזמינכם לחגוג איתנו את ערב החינה<br>15/09/2025 | גן האירועים הקסום, רמת גן<br><br>בברכה, המשפחות</p>`,note:''},
+    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכם לחגיגת החינה של נועה ויונתן.<br>📅 15 בספטמבר 2025 | 📍 גן האירועים הקסום<br><br>בהוקרה, המשפחות</p>`,note:''},
+    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">חינה! 🌿💃 נועה ויונתן חוגגים ואתם מוזמנים!<br><br>15.9.2025 | גן האירועים הקסום, רמת גן<br><br>בואו עם שמלות צבעוניות 🥳</p>`,note:''},
+    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>החינה של נועה ויונתן <b>נדחתה</b>.<br>📅 <b>תאריך חדש: 1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
+    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול החינה שתוכננה ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
+  },
+  chala:{
+    happy:{tag:'😊 שמחה',html:`<div class="msg-style-tag">סגנון שמחה</div><p class="msg-text">שלום [שם]! 🍞<br><br>נועה מזמינה אתכן לערב הפרשת חלה לכבוד חתונתה!<br>📅 15 בספטמבר 2025 | 📍 בית משפחת כהן, רמת גן<br><br>נשמח לראותכן! 🤍</p>`,note:''},
+    serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🍞 הפרשת חלה לכבוד נועה<br><br>הנכן מוזמנות לערב הפרשת חלה וברכה לקראת החתונה<br>15/09/2025 | בית משפחת כהן, רמת גן<br><br>בברכה, משפחת כהן</p>`,note:''},
+    respectful:{tag:'🙏 מכובד',html:`<div class="msg-style-tag">סגנון מכובד</div><p class="msg-text">שלום רב, 🙏<br><br>הננו מתכבדים להזמינכן לערב הפרשת חלה לכבוד הכלה נועה.<br>📅 15 בספטמבר 2025 | 📍 בית משפחת כהן<br><br>בהוקרה, משפחת כהן</p>`,note:''},
+    playful:{tag:'🎉 שובב',html:`<div class="msg-style-tag">סגנון שובב</div><p class="msg-text">ערב של חלות, ברכות ואהבה 🍞💕<br>נועה מתחתנת ומפרישה חלה, ואתן מוזמנות!<br><br>15.9.2025 | בית משפחת כהן, רמת גן<br><br>בואו רעבות 😉</p>`,note:''},
+    postponed:{tag:'📅 דחייה',html:`<div class="msg-style-tag">הודעת דחייה</div><p class="msg-text">שלום,<br><br>ערב הפרשת החלה של נועה <b>נדחה</b>.<br>📅 <b>תאריך חדש: 1 בנובמבר 2025</b><br><br>מצטערים על אי הנוחות 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'},
+    canceled:{tag:'⚠️ ביטול',html:`<div class="msg-style-tag">הודעת ביטול</div><p class="msg-text">שלום,<br><br>מצטערים להודיע על ביטול ערב הפרשת החלה שתוכנן ל-15 בספטמבר.<br><br>תודה על ההבנה 🙏</p>`,note:'⚠️ זמין בחבילת "הכל כלול" בלבד'}
+  },
   biz:{
     happy:{tag:'😊 ידידותי',html:`<div class="msg-style-tag">סגנון ידידותי</div><p class="msg-text">שלום [שם]! 🎊<br><br>אנחנו שמחים להזמינכם לכנס השנתי של חברת אלפא!<br>📅 15 בספטמבר 2025 | 📍 מלון הילטון, תל אביב<br><br>נשמח לראותכם!</p>`,note:''},
     serious:{tag:'🎩 רשמי',html:`<div class="msg-style-tag">סגנון רשמי</div><p class="msg-text">🏢 כנס שנתי – חברת אלפא<br><br>אנו מזמינים אתכם לאירוע השנתי שלנו<br>15/09/2025 | מלון הילטון, תל אביב<br><br>בברכה, הנהלת חברת אלפא</p>`,note:''},
@@ -71,7 +87,7 @@ window.ISHUR_MESSAGES = (function () {
 };
 
   /* occasions added later fall back to the wedding wording */
-  var ALIAS = { hina: 'wedding', other: 'wedding' };
+  var ALIAS = { chalaka: 'bar', other: 'wedding' };
 
   function forEvent(key) {
     return BY_EVENT[key] || BY_EVENT[ALIAS[key]] || BY_EVENT.wedding;
