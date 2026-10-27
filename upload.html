@@ -726,6 +726,7 @@
     <h2 id="errTitle">השליחה לא הצליחה</h2>
     <p id="errText">בדקו את החיבור ונסו שוב.</p>
     <button type="button" class="btn" id="replaceBtn" hidden style="margin:.6rem 0 0">להחליף את הרשימה בקובץ הזה</button>
+    <button type="button" class="retry" id="upgradeBtn" hidden style="margin:.6rem 0 0">שדרוג החבילה</button>
     <button class="retry" id="retryBtn">ניסיון נוסף</button>
   </section>
 
@@ -778,9 +779,18 @@
     window.scrollTo({ top: 0, behavior: 'instant' });
   }
 
-  function fail(text, title, why) {
+  function fail(text, title, why, extra) {
     $('errText').textContent = text;
     $('errTitle').textContent = title || 'השליחה לא הצליחה';
+    /* Richard 27/10: over the package cap → two real ways out, right here:
+       upgrade the package (pay only the difference, like the add-ons) or go
+       back and upload a smaller file. */
+    var ub = $('upgradeBtn'), rb0 = $('retryBtn');
+    if (ub) {
+      ub.hidden = why !== 'over-tier';
+      ub.onclick = function () { askUpgrade((extra && extra.got) || 0); };
+    }
+    if (rb0) rb0.textContent = why === 'over-tier' ? 'חזרה — להעלות קובץ אחר' : 'ניסיון נוסף';
     var rb = $('replaceBtn');
     if (rb) {
       rb.hidden = why !== 'already-uploaded';
@@ -861,7 +871,7 @@
     var f = e.dataTransfer && e.dataTransfer.files[0];
     if (f) setFile(f);
   });
-  $('retryBtn').addEventListener('click', function () { show(returnTo); });
+  $('retryBtn').addEventListener('click', function () { if (!$('upgradeBtn').hidden) clearFile(); show(returnTo); });
   /* assets/guestlist.js hands contact-built CSVs through the same path */
   window.IshurUpload = { setFile: setFile, send: function () { sendBtn.click(); } };
 
@@ -952,8 +962,9 @@
             };
             if (why === 'over-tier') {
               fail('הרשימה כוללת ' + (body.got || '') + ' הזמנות, והחבילה שרכשתם מכסה עד ' +
-                (body.allowed || '') + '. אפשר להגדיל את החבילה — כתבו לנו בוואטסאפ ונשלח קישור, ' +
-                'או העלו קובץ בגודל המתאים. (הזמנה = מספר טלפון אחד, גם אם מגיעים כמה אנשים)');
+                (body.allowed || '') + '. אפשר לשדרג את החבילה כאן ולשלם רק את ההפרש, ' +
+                'או לחזור ולהעלות קובץ בגודל המתאים. (הזמנה = מספר טלפון אחד, גם אם מגיעים כמה אנשים)',
+                'הרשימה גדולה מהחבילה', 'over-tier', { got: body.got, allowed: body.allowed });
               IshurLead.track('upload_error', { status: res.status, why: why });
               return;
             }
@@ -1272,6 +1283,59 @@
       }).catch(function () {});
   })();
 
+  /* Richard 27/10: upgrade from the upload page — the same picker as the
+     dashboard (more guests and/or a higher plan, pay the difference), with the
+     guest count pre-selected to the smallest tier that fits the file. */
+  function askUpgrade(need) {
+    var T = CFG.PRICE_TABLE, RANK = { basic: 0, pro: 1, premium: 2 };
+    var NAMES = { basic: 'בסיס · הודעות בלבד', pro: 'פרמיום · הודעות + שיחה', premium: 'הכל כלול · הודעות + 3 סבבי שיחות' };
+    var curPlan = RANK[plan] != null ? plan : 'pro';
+    var curTier = parseInt(String(guests || '').replace(/\D/g, ''), 10) || 50;
+    if (!T[curTier]) { var below = Object.keys(T).map(Number).filter(function (t) { return t <= curTier; }); curTier = below.length ? Math.max.apply(null, below) : 50; }
+    var tiers = Object.keys(T).map(Number).filter(function (t) { return t >= curTier; });
+    var fit = tiers.filter(function (t) { return t >= (need || 0); })[0] || tiers[tiers.length - 1];
+    var baseRow = T[curTier] || T[50];
+    var box = document.createElement('div');
+    box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+    box.innerHTML = '<div style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:380px;text-align:right">' +
+      '<h3 style="margin:0 0 .3rem">שדרוג החבילה</h3>' +
+      '<p style="margin:0 0 .9rem;color:var(--ink2);font-size:.86rem">היום: ' + curTier + ' מוזמנים · ' + NAMES[curPlan].split(' · ')[0] + (need ? '. הקובץ שלכם: ' + need + ' הזמנות' : '') + '. משלמים רק את ההפרש.</p>' +
+      '<label style="display:block;font-size:.82rem;margin-bottom:.3rem">כמות מוזמנים</label>' +
+      '<select id="upT" style="width:100%;padding:.55rem;border:1px solid var(--bdr);border-radius:8px;font:inherit;margin-bottom:.8rem">' +
+      tiers.map(function (t) { return '<option value="' + t + '"' + (t === fit ? ' selected' : '') + '>' + (t === 900 ? 'עד 899' : 'עד ' + t) + ' מוזמנים' + (t === curTier ? ' (היום)' : '') + '</option>'; }).join('') + '</select>' +
+      '<div style="font-size:.82rem;margin-bottom:.3rem">מסלול</div>' +
+      ['basic', 'pro', 'premium'].filter(function (p) { return RANK[p] >= RANK[curPlan]; }).map(function (p) {
+        return '<label style="display:flex;gap:.5rem;align-items:center;padding:.45rem 0;font-size:.88rem"><input type="radio" name="upP" value="' + p + '"' + (p === curPlan ? ' checked' : '') + '> ' + NAMES[p] + (p === curPlan ? ' (היום)' : '') + '</label>';
+      }).join('') +
+      '<div id="upPrice" style="margin:.8rem 0;font-weight:600"></div>' +
+      '<button type="button" class="retry" id="upGo" style="width:100%;margin-bottom:.5rem">לתשלום</button>' +
+      '<button type="button" class="btn" id="upX" style="width:100%">ביטול</button></div>';
+    document.body.appendChild(box);
+    var pick = function () {
+      var t = parseInt(box.querySelector('#upT').value, 10);
+      var p = (box.querySelector('input[name=upP]:checked') || {}).value || curPlan;
+      return { t: t, p: p, diff: Math.max(0, (T[t] || {})[p] - baseRow[curPlan]) };
+    };
+    var paint = function () {
+      var x = pick(), go = box.querySelector('#upGo'), same = x.t === curTier && x.p === curPlan;
+      box.querySelector('#upPrice').textContent = same ? 'בחרו כמות או מסלול גבוהים יותר' : 'להשלמה: ₪' + x.diff;
+      go.disabled = same || !x.diff;
+    };
+    box.addEventListener('change', paint); paint();
+    box.querySelector('#upX').addEventListener('click', function () { box.remove(); });
+    box.addEventListener('click', function (e) { if (e.target === box) box.remove(); });
+    box.querySelector('#upGo').addEventListener('click', function () {
+      var x = pick(), go = this;
+      IshurLead.track('addon_click', { addon: 'upgrade', tier: x.t, plan: x.p, where: 'upload' });
+      go.disabled = true; go.textContent = 'מכינים קישור…';
+      fetch(CFG.endpoint('addon-pay'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: token, kind: 'upgrade', tier: x.t, plan: x.p }) })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          if (j && j.ok && j.url) { location.href = j.url; return; }
+          location.href = CFG.waLink('היי, רציתי לשדרג את החבילה ל-' + x.t + ' מוזמנים, ' + NAMES[x.p].split(' · ')[0] + '.');
+        })['catch'](function () { location.href = CFG.waLink('היי, רציתי לשדרג את החבילה שלי.'); });
+    });
+  }
   function renderAddons() {
     var ed = $('f-edate').value;
     var dte = ed ? daysUntil(ed) : null;
