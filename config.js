@@ -533,7 +533,7 @@ window.ISHUR_CONFIG = (function () {
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
         'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add', 'guest-edit': '/api/guest-edit', 'custom-template': '/api/custom-template', checkin: '/api/checkin', interest: '/api/interest', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink', giftlinks: '/api/giftlinks', 'hostess-check': '/api/hostess-check', 'design-brief': '/api/design-brief', 'event-change': '/api/event-change', 'feedback-list': '/api/feedback-list', leads: '/api/leads', 'lead-update': '/api/lead-update'
-      }[kind] || '/api/event');
+      }[kind] || ('/api/' + String(kind || 'event'))); /* 27/10: a key missing here used to post to /api/event and fail as "לא נשמר" (guest-edit, custom-template, checkin, interest). Now it 404s as unknown-route, visible in the worker log. */
     }
     return {
       lead: MAKE_LEAD_WEBHOOK,
