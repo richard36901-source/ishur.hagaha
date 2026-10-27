@@ -726,7 +726,7 @@
     <h2 id="errTitle">השליחה לא הצליחה</h2>
     <p id="errText">בדקו את החיבור ונסו שוב.</p>
     <button type="button" class="btn" id="replaceBtn" hidden style="margin:.6rem 0 0">להחליף את הרשימה בקובץ הזה</button>
-    <button type="button" class="retry" id="upgradeBtn" hidden style="margin:.6rem 0 0">שדרוג החבילה</button>
+    <button type="button" class="btn" id="upgradeBtn" hidden style="margin:.6rem 0 0">שדרוג החבילה</button>
     <button class="retry" id="retryBtn">ניסיון נוסף</button>
   </section>
 
@@ -1308,8 +1308,8 @@
         return '<label style="display:flex;gap:.5rem;align-items:center;padding:.45rem 0;font-size:.88rem"><input type="radio" name="upP" value="' + p + '"' + (p === curPlan ? ' checked' : '') + '> ' + NAMES[p] + (p === curPlan ? ' (היום)' : '') + '</label>';
       }).join('') +
       '<div id="upPrice" style="margin:.8rem 0;font-weight:600"></div>' +
-      '<button type="button" class="retry" id="upGo" style="width:100%;margin-bottom:.5rem">לתשלום</button>' +
-      '<button type="button" class="btn" id="upX" style="width:100%">ביטול</button></div>';
+      '<button type="button" class="btn" id="upGo" style="width:100%;margin-bottom:.5rem">לתשלום</button>' +
+      '<button type="button" class="retry" id="upX" style="width:100%">ביטול</button></div>';
     document.body.appendChild(box);
     var pick = function () {
       var t = parseInt(box.querySelector('#upT').value, 10);
