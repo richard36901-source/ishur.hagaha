@@ -2363,7 +2363,13 @@
     var sub = 'החודש: הכנסות ' + Math.round(m.rev).toLocaleString('he-IL') + ' ₪ מול פרסום ' + m.spend.toLocaleString('he-IL') + ' ₪ · ' + m.pay + ' לקוחות';
     sub += ' · 30 יום: ' + (d30.roas != null ? '×' + (Math.round(d30.roas * 10) / 10) : '—') + ' (' + Math.round(d30.rev).toLocaleString('he-IL') + ' ₪ / ' + d30.spend.toLocaleString('he-IL') + ' ₪)';
     if (r != null && r < 3 && m.spend) sub += ' · חסר ' + Math.round(3 * m.spend - m.rev).toLocaleString('he-IL') + ' ₪ הכנסות כדי להגיע ל-×3';
+    /* 29/10 (Richard): the whole story, not just the month — every shekel of
+       Meta spend since day one against every shekel that came in */
+    var all = calc('2000-01-01', today);
+    var allVat = Math.round(all.spend * 1.18);
+    sub += '\nמאז ומעולם: הכנסות ' + Math.round(all.rev).toLocaleString('he-IL') + ' ₪ מול פרסום ' + all.spend.toLocaleString('he-IL') + ' ₪ (≈' + allVat.toLocaleString('he-IL') + ' ₪ עם מע"מ בחיוב הכרטיס) · ' + all.pay + ' לקוחות · ROAS ' + (all.roas != null ? '×' + (Math.round(all.roas * 10) / 10) : '—') + ' · ' + (all.rev - all.spend >= 0 ? 'רווח גולמי על הפרסום ' : 'עדיין בהפסד על הפרסום ') + Math.abs(Math.round(all.rev - all.spend)).toLocaleString('he-IL') + ' ₪';
     $('roas-sub').textContent = sub;
+    $('roas-sub').style.whiteSpace = 'pre-line';
   }
 
 
