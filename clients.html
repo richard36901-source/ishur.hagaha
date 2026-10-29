@@ -116,7 +116,7 @@
       var t = e.token;
       return '<div class="card' + (fl.active ? '' : ' inactive') + '" data-t="' + t + '">' +
         '<div class="top"><span class="name">' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + '</span></span>' +
-        '<span class="meta">שולם ' + heDate(e.paid) + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + '</span></div>' +
+        '<span class="meta">שולם ' + heDate(e.paid_at || '') + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + '</span></div>' +
         '<div class="tags">' +
           (fl.hold ? '' : '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>') +
           '<span class="tag ' + (e.file_uploaded ? 'on' : 'warn') + '">' + (e.file_uploaded ? 'רשימה הועלתה' : 'אין רשימה') + '</span>' +
