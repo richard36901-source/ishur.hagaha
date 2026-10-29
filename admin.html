@@ -10,7 +10,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=72"></script>
 <script src="assets/ux.js?v=4"></script>
-<script src="assets/adminbar.js?v=14" defer></script>
+<script src="assets/adminbar.js?v=15" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <style>
   :root{
@@ -429,6 +429,61 @@
     html[data-theme=dark] #rows tr.fresh td,
     html[data-theme=dark] #shirRows tr.fresh td{animation:none;background:rgba(199,174,122,.14)}
   }
+
+  /* ══ 29/10: HQ merged into the board — status strip, needs-you, upcoming ══ */
+  #hqtop{--good:#2E7D5B;--amber:#9A5B00;--rail:#F0EFE9}
+  html[data-theme=dark] #hqtop{--good:#7BC9A4;--amber:#E3AA4C;--rail:#232A25}
+  #hqtop h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.7rem;margin:0;letter-spacing:-.01em}
+  html[data-theme=dark] #hqtop h1{color:var(--gold-soft)}
+  #hqtop .sub{color:var(--ink3);font-size:.84rem;margin:.15rem 0 1rem}
+  #hqtop h2{font-size:.78rem;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin:1.4rem 0 .55rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}
+  #hqtop h2 a{color:var(--ink3);text-decoration:none;font-weight:500;letter-spacing:0;text-transform:none;font-size:.78rem}
+  #hqtop h2 a:hover{color:var(--pine)}
+  #hqtop .strip{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:.6rem}
+  #hqtop .st{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.75rem .9rem;display:flex;flex-direction:column;gap:.15rem;min-height:4.6rem}
+  #hqtop .st .l{font-size:.74rem;color:var(--ink3)}
+  #hqtop .st .v{font-size:1.05rem;font-weight:600;display:flex;align-items:center;gap:.45rem}
+  #hqtop .st .d{width:9px;height:9px;border-radius:50%;flex-shrink:0;background:var(--ink3)}
+  #hqtop .st.ok .d{background:var(--good)}#hqtop .st.warn .d{background:var(--amber)}#hqtop .st.bad .d{background:var(--warn)}
+  #hqtop .st .m{font-size:.74rem;color:var(--ink2)}
+  #hqtop .todo{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  #hqtop .todo .row{display:flex;gap:.7rem;align-items:flex-start;padding:.7rem .95rem;border-bottom:1px solid var(--line)}
+  #hqtop .todo .row:last-child{border-bottom:none}
+  #hqtop .todo .k{width:8px;height:8px;border-radius:50%;margin-top:.5rem;flex-shrink:0;background:var(--warn)}
+  #hqtop .todo .k.amber{background:var(--amber)}
+  #hqtop .todo .t{font-weight:600;font-size:.92rem}
+  #hqtop .todo .s{font-size:.78rem;color:var(--ink2)}
+  #hqtop .todo .a{margin-inline-start:auto;flex-shrink:0}
+  #hqtop .todo .empty{padding:1.1rem;text-align:center;color:var(--ink3);font-size:.86rem}
+  #hqtop .hbtn{font:inherit;font-size:.78rem;font-weight:600;padding:.32rem .7rem;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);text-decoration:none;cursor:pointer;white-space:nowrap}
+  #hqtop .evgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:.55rem}
+  #hqtop .ev{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.8rem .95rem;display:grid;grid-template-columns:1fr auto;gap:.3rem .8rem}
+  #hqtop .ev .n{font-weight:600}
+  #hqtop .ev .w{font-size:.78rem;color:var(--ink2)}
+  #hqtop .ev .date{font-size:.8rem;color:var(--ink3);text-align:left;white-space:nowrap}
+  #hqtop .ev .date b{display:block;font-size:1.05rem;color:var(--ink);font-weight:600}
+  #hqtop .bar{grid-column:1/-1;height:7px;border-radius:999px;background:var(--rail);overflow:hidden;display:flex}
+  #hqtop .bar i{display:block;height:100%}
+  #hqtop .bar .c{background:var(--good)}#hqtop .bar .d{background:var(--warn)}#hqtop .bar .u{background:var(--gold)}
+  #hqtop .legend{grid-column:1/-1;font-size:.72rem;color:var(--ink3);display:flex;gap:.9rem;flex-wrap:wrap}
+  #hqtop .legend i{display:inline-block;width:8px;height:8px;border-radius:50%;margin-inline-end:.3rem;vertical-align:middle}
+  #hqtop .skel{color:transparent;background:linear-gradient(90deg,var(--rail),var(--line),var(--rail));background-size:200% 100%;animation:hsh 1.2s infinite;border-radius:6px}
+  @keyframes hsh{to{background-position:-200% 0}}
+  @media (prefers-reduced-motion:reduce){#hqtop .skel{animation:none}}
+  /* ══ growth: this month vs last, 12-week revenue vs ad spend ══ */
+  #growth .gk{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.55rem}
+  #growth .g{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.65rem .8rem}
+  #growth .g b{display:block;font-size:1.35rem;font-weight:600;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+  #growth .g span{font-size:.72rem;color:var(--ink3);display:block}
+  #growth .g .delta{font-size:.74rem;font-weight:600;margin-top:.15rem}
+  #growth .up{color:#0F4C35}#growth .down{color:#A8402F}#growth .flat{color:var(--ink3)}
+  html[data-theme=dark] #growth .up{color:#7BC9A4}
+  #growth .plan{background:var(--card);border:1px solid var(--line);border-inline-start:5px solid var(--gold);border-radius:12px;padding:.8rem 1rem;font-size:.86rem;line-height:1.6;margin-top:.6rem}
+  #growth .plan b{color:var(--pine)}
+  html[data-theme=dark] #growth .plan b{color:var(--gold-soft)}
+  #growth .chartbox{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.6rem .4rem;margin-top:.6rem}
+  #growth .lg{font-size:.72rem;color:var(--ink3);display:flex;gap:1rem;justify-content:flex-end;padding:0 .5rem .2rem}
+  #growth .lg i{display:inline-block;width:10px;height:10px;border-radius:2px;vertical-align:middle;margin-inline-end:.3rem}
   /* the calls view: one page, two faces */
   body[data-view="main"] .sec-calls{display:none}
   body[data-view="calls"] #main > :not(.sec-calls){display:none}
@@ -484,6 +539,34 @@
     <h1 style="margin:0 0 .2rem">מוקד שיחות</h1>
     <p style="margin:0 0 1rem;color:var(--ink3);font-size:.78rem">שיר לאורחים, נועה ללידים וללקוחות. <a href="calls.html" style="color:var(--gold)">התור הידני של שיר →</a></p>
   </div>
+
+  <div id="hqtop">
+    <h1 id="hello">בוקר טוב</h1>
+    <p class="sub" id="today"></p>
+    <div class="strip" id="strip">
+      <div class="st" id="s-send"><span class="l">שליחות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
+      <div class="st" id="s-shir"><span class="l">שיר · שיחות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
+      <div class="st" id="s-noa"><span class="l">נועה · לקוחות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
+      <div class="st" id="s-ads"><span class="l">מודעות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
+      <div class="st" id="s-leads"><span class="l">לידים</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
+    </div>
+    <h2>דורש אותך <a href="ops.html">יומן מלא ›</a></h2>
+    <div class="todo" id="todo"><div class="empty skel">טוען</div></div>
+    <h2>אירועים קרובים <a href="calendar.html">לוח שליחות ›</a><a href="clients.html">כל הלקוחות ›</a></h2>
+    <div class="evgrid" id="hqevents"></div>
+  </div>
+
+  <div id="growth">
+    <h2 style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">צמיחה · החודש מול חודש שעבר <span style="font-size:.72rem;font-weight:500;color:var(--ink3)" id="g-lbl"></span></h2>
+    <div class="gk" id="gk"></div>
+    <div class="plan" id="gplan" hidden></div>
+    <div class="chartbox">
+      <div class="lg"><span><i style="background:#0F4C35"></i>הכנסות</span><span><i style="background:#B4884A"></i>הוצאת מודעות</span><span><i style="background:#9FB8AC"></i>לידים</span></div>
+      <svg id="gchart" width="100%" height="190" viewBox="0 0 720 190" preserveAspectRatio="none" aria-label="הכנסות מול מודעות לפי שבוע"></svg>
+    </div>
+  </div>
+
+  <h2 style="margin-top:1.4rem">סיכום מצטבר</h2>
   <div class="kpis">
     <div class="kpi money"><b id="k-rev">–</b><span>הכנסות ₪</span></div>
     <div class="kpi"><b id="k-leads">–</b><span>לידים פתוחים</span></div>
@@ -1148,6 +1231,7 @@
     loadTraffic();
     loadCampaigns();
     loadBoard();
+    hqLoad();
   }
 
   function liveStart() {
@@ -1185,6 +1269,7 @@
   window.addEventListener('ishur:fresh', function () { load(true); });
   function load(quiet) {
     loadStatus(quiet);
+    hqLoad();
     loadFeedback();
     loadShir();
     loadOps();
@@ -1400,7 +1485,7 @@
   function loadTraffic() {
     fetch(CFG.endpoint('traffic'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ admin_key: adminKey, days: 30 })
+      body: JSON.stringify({ admin_key: adminKey, days: 90 })
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) { if (d && d.ok) renderTraffic(d); })
       .catch(function () {});
@@ -1453,6 +1538,7 @@
 
     lastTraffic = d;
     drawFunnel();
+    renderGrowth();
   }
   var lastTraffic = null, funDays = 30;
   function drawFunnel() {
@@ -2280,6 +2366,197 @@
     $('roas-sub').textContent = sub;
   }
 
+
+  /* ══ 29/10: HQ merged in. Same reads hq.html did, same todo logic. ══ */
+  function hqApi(path, body) {
+    var payload = Object.assign({ admin_key: adminKey }, body || {});
+    var base = CFG.endpoint('status').replace(/\/api\/status$/, '');
+    return fetch(base + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
+      .then(function (r) { if (r.status === 403) throw new Error('403'); return r.json(); });
+  }
+  function hqEsc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function hqDay(iso) { var d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString('he-IL', { weekday: 'short', day: 'numeric', month: 'short' }); }
+  function hqDaysTo(iso) { var d = new Date(iso + 'T12:00:00'), n = new Date(); n.setHours(12, 0, 0, 0); return Math.round((d - n) / 864e5); }
+  function setSt(id, cls, v, m) { var el = $(id); if (!el) return; el.className = 'st ' + cls; el.querySelector('.v').innerHTML = '<i class="d"></i>' + hqEsc(v); el.querySelector('.m').textContent = m || ''; }
+  function hqGreet() { var h = new Date().getHours(); return h < 5 ? 'לילה טוב' : h < 12 ? 'בוקר טוב' : h < 17 ? 'צהריים טובים' : h < 21 ? 'ערב טוב' : 'לילה טוב'; }
+  var hqLeadCounts = null;
+  function hqLoad() {
+    if (!$('hqtop')) return;
+    $('hello').textContent = hqGreet() + ', ריצארד';
+    $('today').textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+    var todo = [];
+    function pushTodo(kind, t, s, href, label) { todo.push({ kind: kind, t: t, s: s, href: href, label: label }); }
+    var pending = 3;
+    function doneOne() { if (--pending <= 0) renderTodo(todo); }
+    Promise.all([hqApi('pause', {}), hqApi('wave-audit', {}), hqApi('cap-status', {}).catch(function () { return null; })]).then(function (r) {
+      var paused = r[0] && r[0].paused, au = r[1] || {}, evs = au.events || [], cap = r[2] || null;
+      var missing = evs.filter(function (e) { return e.missing_n > 0 && !e.held; });
+      var held = evs.filter(function (e) { return e.held; });
+      var hhmm = function (iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); };
+      var gauge = cap && cap.limit ? cap.used + ' / ' + cap.limit + ' שיחות ב-24 שעות' : '';
+      if (paused) setSt('s-send', 'bad', 'מושהה', 'כל השליחות עצורות ידנית' + (gauge ? ' · ' + gauge : ''));
+      else if (cap && cap.capped) setSt('s-send', 'warn', 'תקרה · ' + cap.used + '/' + cap.limit, 'הגל ממתין, נפתח ' + hhmm(cap.frees_at || cap.oldest_expires_at));
+      else if (missing.length) setSt('s-send', 'warn', missing.length + ' אירועים חסרים', 'יש מוזמנים שלא קיבלו הזמנה' + (gauge ? ' · ' + gauge : ''));
+      else setSt('s-send', 'ok', cap && cap.limit ? cap.used + ' / ' + cap.limit : 'כל ההזמנות יצאו', (cap && cap.limit ? 'שיחות ב-24 שעות · ' : '') + evs.length + ' אירועים חיים');
+      missing.forEach(function (e) { pushTodo('bad', e.name + ' — ' + e.missing_n + ' מוזמנים בלי הזמנה', 'גל 1 היה אמור לצאת ב-' + e.wave1, 'calendar.html', 'ללוח'); });
+      held.forEach(function (e) { if (e.missing_n) pushTodo('amber', e.name + ' בהשהיה — ' + e.missing_n + ' מוזמנים מחכים', 'שחרור מדף הלקוחות', 'clients.html', 'ללקוחות'); });
+      renderHqEvents(evs);
+    }).catch(function () { setSt('s-send', 'warn', 'לא נטען', ''); }).then(doneOne);
+    hqApi('call-board', {}).then(function (b) {
+      var w = (b.waiting || []).length, done = b.done || [];
+      var today = new Date().toDateString();
+      var td = done.filter(function (c) { return c.at && new Date(c.at).toDateString() === today; });
+      var ans = td.filter(function (c) { return c.outcome && c.outcome !== 'לא ברור'; }).length;
+      var win = b.window && b.window.open === false ? 'חלון חיוג סגור' : 'חלון חיוג פתוח';
+      setSt('s-shir', 'ok', w + ' בתור', td.length + ' שיחות היום · ' + ans + ' עם תשובה · ' + win);
+    }).catch(function () { setSt('s-shir', 'warn', 'לא נטען', ''); });
+    Promise.all([hqApi('evlog', { n: 400 }), hqApi('ads-health', {})]).then(function (r) {
+      var rows = (r[0] && r[0].rows) || [], ah = r[1] || {};
+      var d = new Date(), stamp = String(d.getDate()).padStart(2, '0') + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + d.getFullYear();
+      var todayRows = rows.filter(function (x) { return String(x[0] || '').indexOf(stamp) === 0; });
+      var noa131042 = todayRows.filter(function (x) { return /131042/.test(x.join(' ')); }).length;
+      var inbound = todayRows.filter(function (x) { return /נועה כבויה/.test(x[2] || ''); }).length;
+      if (noa131042) setSt('s-noa', 'bad', 'חסומה', 'חשבון התשלום של מטא · ' + inbound + ' הודעות נכנסו היום ולא נענו');
+      else setSt('s-noa', 'ok', 'שולחת', inbound + ' הודעות נכנסו היום');
+      var issues = (ah.issues || []).length, acct = ah.account || {};
+      if (!ah.ok) setSt('s-ads', 'warn', 'לא נטען', '');
+      else if (Number(acct.status) !== 1 || issues) setSt('s-ads', 'bad', issues ? issues + ' בעיות' : 'חשבון לא פעיל', (ah.campaign || {}).name || '');
+      else setSt('s-ads', 'ok', 'רץ', ((ah.campaign || {}).effective_status || '') + ' · ' + (acct.funding || ''));
+      var seen = {};
+      todayRows.filter(function (x) { return x[4] === 'כן'; }).reverse().forEach(function (x) {
+        var key = (x[1] || '') + '|' + String(x[2] || '').slice(0, 40);
+        if (seen[key]) return; seen[key] = 1;
+        if (/131049|130472|131026|131047|131048/.test(x.join(' '))) return;
+        pushTodo('amber', (x[1] || '') + ' · ' + (x[2] || ''), String(x[8] || '').slice(0, 120) + ' · ' + String(x[0] || '').slice(11, 16), 'ops.html', 'ליומן');
+      });
+    }).catch(function () { setSt('s-noa', 'warn', 'לא נטען', ''); setSt('s-ads', 'warn', 'לא נטען', ''); }).then(doneOne);
+    hqApi('leads', {}).then(function (d) {
+      var c = d.counts || {};
+      hqLeadCounts = c;
+      var fresh = c['חדש'] || 0, due = c.followupDue || 0;
+      setSt('s-leads', fresh ? 'warn' : 'ok', fresh + ' חדשים', (c['לא ענה'] || 0) + ' לא ענו · ' + due + ' מעקב להיום · ' + (c['סגר'] || 0) + ' סגרו');
+      if (fresh) pushTodo('amber', fresh + ' לידים חדשים מחכים לשיחה', 'לוח הלידים · סטטוס "חדש"', 'leads.html', 'ללידים');
+      if (due) pushTodo('amber', due + ' מעקבי לידים להיום', 'לוח הלידים · מעקב', 'leads.html', 'ללידים');
+      renderGrowth();
+    }).catch(function () { setSt('s-leads', 'warn', 'לא נטען', ''); }).then(doneOne);
+  }
+  function renderTodo(list) {
+    var el = $('todo'); if (!el) return;
+    if (!list.length) { el.innerHTML = '<div class="empty">שקט. שום דבר לא מחכה לך עכשיו.</div>'; return; }
+    var order = { bad: 0, amber: 1 };
+    list.sort(function (a, b) { return (order[a.kind] || 0) - (order[b.kind] || 0); });
+    el.innerHTML = list.slice(0, 12).map(function (t) {
+      return '<div class="row"><i class="k ' + (t.kind === 'amber' ? 'amber' : '') + '"></i><div><div class="t">' + hqEsc(t.t) + '</div><div class="s">' + hqEsc(t.s) + '</div></div>' +
+        (t.href ? '<a class="hbtn a" href="' + t.href + '">' + hqEsc(t.label || 'פתח') + '</a>' : '') + '</div>';
+    }).join('');
+  }
+  function renderHqEvents(evs) {
+    var el = $('hqevents'); if (!el) return;
+    var up = evs.filter(function (e) { return e.date && hqDaysTo(e.date) >= -1; }).sort(function (a, b) { return a.date < b.date ? -1 : 1; }).slice(0, 8);
+    if (!up.length) { el.innerHTML = '<div class="ev" style="color:var(--ink3)">אין אירועים קרובים עם רשימה.</div>'; return; }
+    el.innerHTML = up.map(function (e) {
+      var g = e.guests || 0, c = e.answered || 0, dead = e.dead || 0, un = Math.max(0, (e.sent || 0) - c), dt = hqDaysTo(e.date);
+      var pc = function (n) { return g ? Math.round(n / g * 100) : 0; };
+      return '<div class="ev"><div><div class="n">' + hqEsc(e.name) + (e.held ? ' <span style="font-size:.72rem;color:var(--amber)">· בהשהיה</span>' : '') + '</div>' +
+        '<div class="w">' + g + ' מוזמנים · ' + c + ' ענו (' + pc(c) + '%) · ' + (e.sent || 0) + ' קיבלו הזמנה' + (e.missing_n ? ' · <b style="color:var(--warn)">' + e.missing_n + ' לא קיבלו</b>' : '') + '</div></div>' +
+        '<div class="date"><b>' + (dt === 0 ? 'היום' : dt === 1 ? 'מחר' : 'בעוד ' + dt + ' ימים') + '</b>' + hqDay(e.date) + '</div>' +
+        '<div class="bar"><i class="c" style="width:' + pc(c) + '%"></i><i class="u" style="width:' + pc(un) + '%"></i><i class="d" style="width:' + pc(dead) + '%"></i></div>' +
+        '<div class="legend"><span><i style="background:var(--good)"></i>ענו</span><span><i style="background:var(--gold)"></i>קיבלו, טרם ענו</span><span><i style="background:var(--warn)"></i>לא בוואטסאפ</span></div></div>';
+    }).join('');
+  }
+
+  /* ══ growth: month vs last month + 12 weeks of revenue vs ad spend vs leads.
+     Revenue/payments: ops series (sheet, by Grow stamp). Spend: Meta by day
+     (all campaigns). Leads/visitors: the site counter (traffic days). ══ */
+  function renderGrowth() {
+    var box = $('gk'); if (!box || !opsData) return;
+    var today = ilToday(), mo = today.slice(0, 7);
+    var dom = Number(today.slice(8, 10));
+    var prev = new Date(Date.parse(mo + '-01T12:00:00Z') - 864e5).toISOString().slice(0, 7);
+    var prevEnd = new Date(Date.parse(mo + '-01T12:00:00Z') - 864e5).toISOString().slice(0, 10);
+    var prevSame = prev + '-' + String(Math.min(dom, Number(prevEnd.slice(8, 10)))).padStart(2, '0');
+    var tdays = (lastTraffic && lastTraffic.days) || [];
+    function agg(from, to) {
+      var o = { rev: 0, pay: 0, spend: 0, leads: 0, vis: 0 };
+      (opsData.series || []).forEach(function (s) { if (s.date >= from && s.date <= to) { o.rev += s.revenue_ils || 0; o.pay += s.payments || 0; } });
+      o.spend = Math.round(adSpendIls(from, to));
+      tdays.forEach(function (d) { if (d.date >= from && d.date <= to) { o.leads += d.lead || 0; o.vis += d.visitors || 0; } });
+      o.ticket = o.pay ? o.rev / o.pay : 0; o.roas = o.spend ? o.rev / o.spend : null; o.cac = o.pay ? o.spend / o.pay : null; o.cpl = o.leads ? o.spend / o.leads : null;
+      o.conv = o.leads ? 100 * o.pay / o.leads : null; o.v2l = o.vis ? 100 * o.leads / o.vis : null;
+      return o;
+    }
+    var cur = agg(mo + '-01', today), last = agg(prev + '-01', prevSame), lastFull = agg(prev + '-01', prevEnd);
+    $('g-lbl').textContent = '1–' + dom + ' בחודש, מול אותם ימים בחודש שעבר · חודש שעבר מלא: ₪' + Math.round(lastFull.rev).toLocaleString('he-IL') + ' / ' + lastFull.pay + ' לקוחות';
+    function fmt(v, kind) { if (v == null) return '—'; if (kind === 'x') return '×' + (Math.round(v * 10) / 10); if (kind === '%') return (Math.round(v * 10) / 10) + '%'; return Math.round(v).toLocaleString('he-IL'); }
+    function delta(a, b, lowerBetter) {
+      if (b == null || a == null || !b) return '<div class="delta flat">—</div>';
+      var p = Math.round(100 * (a - b) / Math.abs(b)); var good = lowerBetter ? p < 0 : p > 0;
+      return '<div class="delta ' + (p === 0 ? 'flat' : good ? 'up' : 'down') + '">' + (p > 0 ? '+' : '') + p + '% מול חודש שעבר</div>';
+    }
+    var cards = [
+      ['₪' + fmt(cur.rev), 'הכנסות', delta(cur.rev, last.rev)],
+      [fmt(cur.pay), 'לקוחות ששילמו', delta(cur.pay, last.pay)],
+      ['₪' + fmt(cur.ticket), 'ממוצע לעסקה', delta(cur.ticket, last.ticket)],
+      ['₪' + fmt(cur.spend), 'הוצאת מודעות', delta(cur.spend, last.spend, true)],
+      [fmt(cur.roas, 'x'), 'ROAS · יעד ×3', delta(cur.roas, last.roas)],
+      ['₪' + fmt(cur.cac), 'עלות ללקוח (CAC)', delta(cur.cac, last.cac, true)],
+      [fmt(cur.leads), 'לידים מהאתר', delta(cur.leads, last.leads)],
+      ['₪' + fmt(cur.cpl), 'עלות לליד', delta(cur.cpl, last.cpl, true)],
+      [fmt(cur.vis), 'מבקרים', delta(cur.vis, last.vis)],
+      [fmt(cur.v2l, '%'), 'מבקר → ליד', delta(cur.v2l, last.v2l)],
+      [fmt(cur.conv, '%'), 'ליד → לקוח', delta(cur.conv, last.conv)],
+    ];
+    box.innerHTML = cards.map(function (c) { return '<div class="g"><b>' + c[0] + '</b><span>' + c[1] + '</span>' + c[2] + '</div>'; }).join('');
+
+    /* what has to change to grow: the numbers behind a ×3 ROAS */
+    var plan = $('gplan');
+    if (cur.spend && cur.ticket) {
+      var needRev = 3 * cur.spend, needPay = Math.ceil(needRev / cur.ticket), gap = needPay - cur.pay;
+      var cacMax = Math.round(cur.ticket / 3);
+      var convNeed = cur.leads ? Math.round(100 * needPay / cur.leads) : null;
+      plan.hidden = false;
+      plan.innerHTML = '<b>כדי להגיע ל-×3 על ₪' + fmt(cur.spend) + ' שהוצאת החודש:</b> צריך ₪' + fmt(needRev) + ' הכנסות = <b>' + needPay + ' לקוחות</b> בממוצע של ₪' + fmt(cur.ticket) + ' לעסקה (יש ' + cur.pay + (gap > 0 ? ', חסרים ' + gap : ', עמדת ביעד') + ').' +
+        ' שתי ידיות: <b>CAC עד ₪' + cacMax + '</b> (עכשיו ' + (cur.cac != null ? '₪' + fmt(cur.cac) : '—') + ') או <b>עסקה ממוצעת גבוהה יותר</b> (הכל כלול + דיילות מעלים אותה).' +
+        (convNeed != null ? ' מהלידים הנוכחיים (' + cur.leads + ') זה המרה של ' + convNeed + '% (עכשיו ' + fmt(cur.conv, '%') + ').' : '') +
+        (cur.leads && cur.cpl != null ? ' כל ליד עולה ₪' + fmt(cur.cpl) + ' — כל 1% המרה נוסף שווה ~₪' + fmt(cur.leads * 0.01 * cur.ticket) + ' בחודש.' : '');
+    } else plan.hidden = true;
+
+    /* 12 weeks: revenue vs ad spend (bars) + leads (line) */
+    var svg = $('gchart'); if (!svg) return;
+    svg.innerHTML = '';
+    var W = 720, H = 190, padB = 18, padT = 14, weeks = [];
+    var t0 = new Date(today + 'T12:00:00Z'); var dow = (t0.getUTCDay() + 7) % 7; /* week starts Sunday */
+    var wkStart = new Date(t0.getTime() - dow * 864e5);
+    for (var i = 11; i >= 0; i--) {
+      var s = new Date(wkStart.getTime() - i * 7 * 864e5), e = new Date(s.getTime() + 6 * 864e5);
+      var from = s.toISOString().slice(0, 10), to = e.toISOString().slice(0, 10);
+      if (to > today) to = today;
+      var a = agg(from, to); a.from = from; weeks.push(a);
+    }
+    var max = 1; weeks.forEach(function (w) { max = Math.max(max, w.rev, w.spend); });
+    var maxL = 1; weeks.forEach(function (w) { maxL = Math.max(maxL, w.leads); });
+    var slot = W / weeks.length, bw = slot * 0.3;
+    function txt(x, y, str, size, color, anchor) { var t = document.createElementNS('http://www.w3.org/2000/svg', 'text'); t.setAttribute('x', x); t.setAttribute('y', y); t.setAttribute('font-size', size); t.setAttribute('fill', color || '#5F6B63'); t.setAttribute('text-anchor', anchor || 'middle'); t.setAttribute('font-family', 'inherit'); t.textContent = str; return t; }
+    function rect(x, y, w, h, fill, title) { var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect'); r.setAttribute('x', x); r.setAttribute('y', y); r.setAttribute('width', w); r.setAttribute('height', h); r.setAttribute('rx', 2); r.setAttribute('fill', fill); if (title) { var t = document.createElementNS('http://www.w3.org/2000/svg', 'title'); t.textContent = title; r.appendChild(t); } return r; }
+    var pts = [];
+    weeks.forEach(function (w, i) {
+      var x0 = i * slot + slot * 0.15;
+      var hr = w.rev ? Math.max(2, (w.rev / max) * (H - padB - padT)) : 0;
+      var hs = w.spend ? Math.max(2, (w.spend / max) * (H - padB - padT)) : 0;
+      var lbl = w.from.slice(8, 10) + '/' + w.from.slice(5, 7);
+      if (hr) { svg.appendChild(rect(x0, H - padB - hr, bw, hr, '#0F4C35', 'שבוע ' + lbl + ' · הכנסות ₪' + Math.round(w.rev) + ' · ' + w.pay + ' לקוחות')); svg.appendChild(txt(x0 + bw / 2, H - padB - hr - 3, Math.round(w.rev), 8, '#0F4C35')); }
+      if (hs) { svg.appendChild(rect(x0 + bw + 2, H - padB - hs, bw, hs, '#B4884A', 'שבוע ' + lbl + ' · מודעות ₪' + w.spend)); svg.appendChild(txt(x0 + bw + 2 + bw / 2, H - padB - hs - 3, w.spend, 8, '#B4884A')); }
+      if (!hr && !hs) svg.appendChild(rect(x0, H - padB - 2, bw * 2 + 2, 2, '#E3E1D8'));
+      svg.appendChild(txt(i * slot + slot / 2, H - 4, lbl, 8));
+      pts.push([i * slot + slot / 2, H - padB - (w.leads / maxL) * (H - padB - padT) * 0.9, w.leads]);
+    });
+    var pl = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    pl.setAttribute('points', pts.map(function (p) { return p[0] + ',' + p[1]; }).join(' '));
+    pl.setAttribute('fill', 'none'); pl.setAttribute('stroke', '#9FB8AC'); pl.setAttribute('stroke-width', 2); svg.appendChild(pl);
+    pts.forEach(function (p) { var c = document.createElementNS('http://www.w3.org/2000/svg', 'circle'); c.setAttribute('cx', p[0]); c.setAttribute('cy', p[1]); c.setAttribute('r', 3); c.setAttribute('fill', '#9FB8AC'); svg.appendChild(c); if (p[2]) svg.appendChild(txt(p[0], p[1] - 5, p[2], 7, '#5F7A6A')); });
+  }
+
   function renderOps() {
     if (!opsData) return;
     var b = rangeBounds();
@@ -2303,6 +2580,7 @@
     $('rngLbl').textContent = heDate(b.from) + ' – ' + heDate(b.to);
     renderCac();
     renderRoas();
+    renderGrowth();
 
     /* bar chart: revenue per day, cost overlaid as a darker base bar */
     var svg = $('chart'); svg.innerHTML = '';
