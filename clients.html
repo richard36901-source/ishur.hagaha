@@ -136,7 +136,7 @@
         }).join('') + '</div>' : '') +
         '<div class="acts">' +
           '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
-          '<button class="btn" data-act="fblinks">קישורי משוב</button>' +
+          '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button>' +
           '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
           '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
           '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
@@ -170,8 +170,12 @@
       try { await navigator.clipboard.writeText(msg); toast('ההודעה הועתקה, הדבק בוואטסאפ'); } catch (e3) { prompt('העתק:', msg); }
       b.disabled = false; return;
     } else if (act === 'fblinks') {
-      var l1 = 'https://ishur.io/feedback.html?t=' + t, l2 = l1 + '&p=2';
-      try { await navigator.clipboard.writeText('משוב: ' + l1 + '\nבן/בת הזוג: ' + l2); toast('שני הקישורים הועתקו'); } catch (e2) { prompt('קישורי המשוב', l1 + '  |  ' + l2); }
+      /* 29/10: copies the full end-of-event message (template ishur_syum_v3) with this
+         event's feedback link, ready to paste in WhatsApp */
+      var fbMsg = 'איזה כיף שהיה! 🎉 ' + (e.name || 'האירוע') + ' מאחוריכם, ותודה שסמכתם עלינו ברגע הכי חשוב.\n\n' +
+        'נשמח לעשר שניות מכם: שתי שאלות קצרות על איך היה איתנו. זה עוזר לנו להשתפר לזוגות הבאים 💚\n' +
+        'https://ishur.io/feedback.html?t=' + t + '\n\nמזל טוב מכל הלב,\nצוות ishur.io';
+      try { await navigator.clipboard.writeText(fbMsg); toast('הודעת המשוב הועתקה, הדבק בוואטסאפ'); } catch (e2) { prompt('העתק:', fbMsg); }
       b.disabled = false; return;
     } else if (act === 'hold') {
       /* Richard 14/10: stop every send and call for this event without touching the sheet; reversible */
