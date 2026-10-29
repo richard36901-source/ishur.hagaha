@@ -712,6 +712,13 @@
     <div class="cac-sub" id="cac-sub"></div>
     <div class="cac-note">זה המדד להחלטות תקציב, לא ה-CPL. ירוק עד 150 · כתום עד 240 · אדום מעל התרומה לאירוע (~225).</div>
   </div>
+  <!-- Richard 29/10: return on ad spend — revenue from paid events ÷ Meta spend
+       across every campaign on the account (Shalev's included). Goal 3–4×. -->
+  <div id="roasTile" class="cac-tile" hidden>
+    <div class="cac-main"><b id="roas-val">–</b><span>החזר על פרסום (ROAS) החודש · יעד ×3–4</span></div>
+    <div class="cac-sub" id="roas-sub"></div>
+    <div class="cac-note" id="roas-note">הכנסות מאירועים ששולמו ÷ הוצאת מטא על כל הקמפיינים. ירוק מ-×3 · כתום ×2–3 · אדום מתחת ל-×2. מתעדכן כל דקה.</div>
+  </div>
   <div class="tblwrap" style="padding:.6rem .4rem;background:var(--card);border:1px solid var(--line);border-radius:12px">
     <svg id="chart" width="100%" height="180" viewBox="0 0 720 180" preserveAspectRatio="none" aria-label="הכנסות לפי יום"></svg>
   </div>
@@ -2249,6 +2256,30 @@
     $('cac-sub').textContent = sub;
   }
 
+  function renderRoas() {
+    var tile = $('roasTile');
+    if (!tile || !opsData) { if (tile) tile.hidden = true; return; }
+    var today = ilToday(), mo = today.slice(0, 7);
+    var from30 = new Date(Date.parse(today) - 29 * 864e5).toISOString().slice(0, 10);
+    function calc(from, to) {
+      var rev = 0, pay = 0;
+      (opsData.series || []).forEach(function (s) { if (s.date >= from && s.date <= to) { rev += s.revenue_ils || 0; pay += s.payments || 0; } });
+      var spend = Math.round(adSpendIls(from, to));
+      return { rev: rev, pay: pay, spend: spend, roas: spend ? rev / spend : null };
+    }
+    var m = calc(mo + '-01', today), d30 = calc(from30, today);
+    if (!m.spend && !m.rev && !d30.spend) { tile.hidden = true; return; }
+    tile.hidden = false;
+    var r = m.roas;
+    var verdict = r == null ? (m.spend ? 'red' : 'idle') : r >= 3 ? 'green' : r >= 2 ? 'amber' : 'red';
+    tile.className = 'cac-tile cac-' + verdict;
+    $('roas-val').textContent = r != null ? '×' + (Math.round(r * 10) / 10).toLocaleString('he-IL') : (m.spend ? '×0' : '—');
+    var sub = 'החודש: הכנסות ' + Math.round(m.rev).toLocaleString('he-IL') + ' ₪ מול פרסום ' + m.spend.toLocaleString('he-IL') + ' ₪ · ' + m.pay + ' לקוחות';
+    sub += ' · 30 יום: ' + (d30.roas != null ? '×' + (Math.round(d30.roas * 10) / 10) : '—') + ' (' + Math.round(d30.rev).toLocaleString('he-IL') + ' ₪ / ' + d30.spend.toLocaleString('he-IL') + ' ₪)';
+    if (r != null && r < 3 && m.spend) sub += ' · חסר ' + Math.round(3 * m.spend - m.rev).toLocaleString('he-IL') + ' ₪ הכנסות כדי להגיע ל-×3';
+    $('roas-sub').textContent = sub;
+  }
+
   function renderOps() {
     if (!opsData) return;
     var b = rangeBounds();
@@ -2271,6 +2302,7 @@
     $('p-avg').textContent = pay ? Math.round(profit / pay).toLocaleString('he-IL') : '–';
     $('rngLbl').textContent = heDate(b.from) + ' – ' + heDate(b.to);
     renderCac();
+    renderRoas();
 
     /* bar chart: revenue per day, cost overlaid as a darker base bar */
     var svg = $('chart'); svg.innerHTML = '';
