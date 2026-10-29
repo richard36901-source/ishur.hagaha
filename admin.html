@@ -2311,12 +2311,30 @@
     var span = Math.min(730, Math.round((Date.parse(b.to) - Date.parse(b.from)) / 864e5));
     for (var i = span; i >= 0; i--) days.push(new Date(Date.parse(b.to) - i * 864e5).toISOString().slice(0, 10));
     var max = 1; days.forEach(function (d) { var s = byDate[d]; if (s) max = Math.max(max, s.revenue_ils); });
-    var W = 720, H = 180, pad = 4, bw = Math.max(2, W / days.length - 2);
+    /* 29/10: numbers on the bars and dates on the axis — a bar with no
+       value is a picture, not a report */
+    var W = 720, H = 180, pad = 16, bw = Math.max(2, W / days.length - 2);
+    var slot = W / days.length;
+    var dense = days.length > 45;
+    var fs = Math.max(6, Math.min(10, slot * 0.6));
+    function txt(x, y, str, size, anchor, color) {
+      var e = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      e.setAttribute('x', x); e.setAttribute('y', y); e.setAttribute('font-size', size);
+      e.setAttribute('text-anchor', anchor || 'middle'); e.setAttribute('fill', color || '#5F6B63');
+      e.setAttribute('font-family', 'inherit'); e.setAttribute('font-variant-numeric', 'tabular-nums');
+      e.textContent = str; return e;
+    }
+    var lastLabelX = -1e9, labelEvery = Math.max(1, Math.ceil(days.length / 14));
     days.forEach(function (d, i) {
       var s = byDate[d];
-      var x = i * (W / days.length) + 1;
+      var x = i * slot + 1;
+      var cx = x + bw / 2;
+      if (!dense || i % labelEvery === 0 || i === days.length - 1) {
+        var dd = d.slice(8, 10) + '/' + d.slice(5, 7);
+        if (cx - lastLabelX > 22) { svg.appendChild(txt(cx, H - 3, dd, 8)); lastLabelX = cx; }
+      }
       if (s && s.revenue_ils > 0) {
-        var h = Math.max(3, (s.revenue_ils / max) * (H - 30));
+        var h = Math.max(3, (s.revenue_ils / max) * (H - 42));
         var r = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         r.setAttribute('x', x); r.setAttribute('y', H - pad - h);
         r.setAttribute('width', bw); r.setAttribute('height', h);
@@ -2324,6 +2342,8 @@
         var t = document.createElementNS('http://www.w3.org/2000/svg', 'title');
         t.textContent = heDate(d) + ' · ₪' + s.revenue_ils.toLocaleString('he-IL') + ' · ' + s.payments + ' תשלומים';
         r.appendChild(t); svg.appendChild(r);
+        var val = s.revenue_ils >= 1000 && dense ? (Math.round(s.revenue_ils / 100) / 10) + 'K' : Math.round(s.revenue_ils).toLocaleString('he-IL');
+        svg.appendChild(txt(cx, H - pad - h - 3, val, fs, 'middle', '#0F4C35'));
       } else {
         var b = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
         b.setAttribute('x', x); b.setAttribute('y', H - pad - 2);
