@@ -12,6 +12,7 @@
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=15" defer></script>
 <script src="assets/guard.js?v=19"></script>
+<script src="assets/playbook.js?v=1"></script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--line2:#EEF0EB;--pine:#0F4C35;--pine-s:#E7F0EB;--gold:#B4884A;--warn:#A8402F;--warn-s:#FBEAE6;--good:#2E7D5B;--rail:#F3F2EE;--ease:cubic-bezier(.16,1,.3,1)}
   html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--line2:#232A25;--pine:#7BC9A4;--pine-s:#1C2E25;--warn:#E58C7C;--warn-s:#3A2320;--rail:#1F2622}
@@ -141,6 +142,10 @@
 </div>
 <main class="wrap" id="main" hidden>
   <div class="top"><h1>לידים</h1><span class="meta" id="meta"></span><span class="demo" id="demoTag" hidden>דמו</span></div>
+  <details class="pbfold" id="pbfold" style="margin:.2rem 0 1rem">
+    <summary style="cursor:pointer;font-weight:600;font-size:.92rem;padding:.55rem .8rem;border:1px solid var(--line,#E3E1D8);border-radius:12px;background:var(--card,#fff);list-style:none;display:flex;align-items:center;gap:.5rem">📞 תשריט שיחה, מקרים, התנגדויות וקישורי סליקה <span style="font-size:.72rem;font-weight:500;color:var(--ink3,#7A847C)">לחיצה פותחת · נשמר יחד עם מרכז הבקרה</span></summary>
+    <section id="sales" style="margin-top:.6rem"></section>
+  </details>
   <div class="bar">
     <div class="chips" id="tiles"></div>
     <div class="row2">
@@ -154,6 +159,7 @@
   </div>
 </main>
 <script>
+  (function(){ var f=document.getElementById('pbfold'); try { if (localStorage.getItem('ishur_pbfold')==='1') f.open=true; } catch(e){} f.addEventListener('toggle',function(){ try { localStorage.setItem('ishur_pbfold', f.open?'1':'0'); } catch(e){} }); })();
 (function () {
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var DEMO = /(^|[?&])demo=1/.test(location.search);
@@ -200,6 +206,7 @@
       if (!d || !d.ok) { if (d && d.error) IshurUX.toast('לא הצליח: ' + d.error); return; }
       leads = withLast(d.leads || []); if (d.statuses && d.statuses.length) STATUSES = d.statuses; if (d.owners && d.owners.length) OWNERS = d.owners; if (d.groups && d.groups.length) GROUPS = d.groups;
       $('gate').hidden = true; $('main').hidden = false;
+      if (window.IshurPlaybook) IshurPlaybook.mount('sales', adminKey);
       $('meta').textContent = d.sheetOk ? leads.length + ' לידים' : 'הגיליון לא נקרא';
       paint();
     });
