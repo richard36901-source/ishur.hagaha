@@ -43,6 +43,8 @@ import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment,
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
+import { handleFloor, handleFloorNote } from './floor.js';   /* 02/11 floor/dial routes */
+import { handleDial } from './dial.js';                       /* 02/11 floor/dial routes */
 /* 01/11 A/B on guest copy + template performance (docs/SPEC-ab-testing.md) */
 import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js';
 import * as ab from './ab.js';
@@ -9410,6 +9412,16 @@ export default {
         byDay[day] = byDay[day] || {};
         for (const e of (d.data || [])) { const k = String(e.value || e.event || '?'); byDay[day][k] = (byDay[day][k] || 0) + Number(e.count || 0); }
       }
+    /* ── 02/11 floor/dial routes (noa-chase R7+R9) ─────────────────────────
+       המוקד: floor.html polls /api/floor every 3 s; /api/floor-note writes a
+       lesson straight into <agent>-memory. /dial is the Monday click-to-call
+       (behind DIAL_ENABLED). Everything lives in floor.js / dial.js; the
+       webhook hooks (noteLiveCall, dialOnEnded) are wired by the webhook owner. */
+    if (url.pathname === '/api/floor' && request.method === 'POST') return handleFloor(request, env, origin);
+    if (url.pathname === '/api/floor-note' && request.method === 'POST') return handleFloorNote(request, env, origin);
+    /* /api/dial: go.ishur.io mirrors every non-/api/ path to the website, so the
+       link column uses /api/dial; /dial still works on the workers.dev host */
+    if ((url.pathname === '/api/dial' || url.pathname === '/dial') && request.method === 'GET') return handleDial(request, env, url);
       return okJson({ ok: !!(r && r.ok), days: byDay, raw: r && !r.ok ? r.data : undefined }, origin);
     }
     /* admin passthrough to the ads API, for turning the campaign on and off

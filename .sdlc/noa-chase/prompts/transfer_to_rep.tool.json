@@ -1,0 +1,27 @@
+{
+  "_note": "R5 · one warm-transfer tool for noa_out replacing transfer_to_shalev + transfer_to_richard. NOT applied. The numbers come from Worker env — fill before PATCH /update-retell-llm (general_tools): REP_LINE = env.NOA_REP_LINE (+972559504499, the 4499 line), SHALEV_PERSONAL = env.SHALEV_PHONE, RICHARD = env.RICHARD_PHONE. Retell tries the list in order; a number that does not pick up within agent_detection_timeout_ms falls to the next. Never the word הנחה anywhere near Noa.",
+  "type": "transfer_call",
+  "name": "transfer_to_rep",
+  "description": "העברה חמה לנציג מהצוות. לקרוא כשמבקשים נציג / בן אדם / לדבר עם מישהו / לסגור בטלפון, מיד אחרי שאמרת \"רגע, אני מחברת את שלו\". פעם אחת בלבד — הכלי מנסה לבד: הקו של שלו, האישי של שלו, ואז ריצארד.",
+  "speak_during_execution": true,
+  "execution_message_description": "משפט אחד בלבד: \"רגע, אני מחברת את שלו, שנייה על הקו.\"",
+  "speak_after_execution": true,
+  "transfer_destination": {
+    "type": "predefined",
+    "number": "{{env.NOA_REP_LINE}}",
+    "_fallback_numbers_in_order": ["{{env.NOA_REP_LINE}}", "{{env.SHALEV_PHONE}}", "{{env.RICHARD_PHONE}}"],
+    "_how": "Retell's transfer_call takes ONE destination. The order 4499 → Shalev personal → Richard is done by Retell's own `transfer_option.warm_transfer` retry when the first leg is not answered only if the account has sequential dialing enabled; otherwise keep three tools (transfer_to_rep_1/2/3) with identical settings and the prompt's step 2 says: call them in order until one connects. Decide at apply time; the prompt text (noa_out_v2.md) already says 'הכלי מנסה לבד לפי הסדר'."
+  },
+  "transfer_option": {
+    "type": "warm_transfer",
+    "agent_detection_timeout_ms": 20000,
+    "on_hold_music": "relaxing_sound",
+    "opt_out_human_detection": false,
+    "show_transferee_as_caller": false,
+    "enable_bridge_audio_cue": true,
+    "private_handoff_option": {
+      "type": "prompt",
+      "prompt": "את נועה מאישורי הגעה. עכשיו את מדברת רק עם איש הצוות שענה, לפני שהמתקשר מחובר. משפט אחד: \"על הקו {{caller_name_for_transfer}}, {{caller_phone}}, לגבי {{occasion}} — מחברת.\" בלי שאלות, בלי להמתין לתשובה."
+    }
+  }
+}
