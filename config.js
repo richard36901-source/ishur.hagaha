@@ -149,14 +149,17 @@ window.ISHUR_CONFIG = (function () {
   var BUNDLES = {
     vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות', note: 'מחיר מיוחד' },
     /* 01/11: winter deal — the same ₪1,990 all the way up to 800 records */
-    winter1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף' }
+    /* anyPlan: whatever package they tick, with hostesses the price is capped at
+       the bundle total and they get הכל כלול for it (Richard 01/11) */
+    winter1990: { plan: 'premium', anyPlan: true, hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף' },
+    winter1790: { plan: 'premium', anyPlan: true, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300 רשומות', note: 'מבצע חורף' }
   };
   function bundleFor(key) { return (key && BUNDLES[key]) || null; }
   /* does the bundle cover what is on screen? plan + quantity in its range */
   function bundleApplies(b, guests, plan, hostess) {
     if (!b || !hostess) return false;
     var n = parseInt(guests, 10);
-    return plan === b.plan && b.guests.indexOf(n) > -1;
+    return (b.anyPlan || plan === b.plan) && b.guests.indexOf(n) > -1;
   }
 
   /* ══ PAYMENT ═══ Grow links, keyed '<guests>_<plan>' ══════════════════════ */
