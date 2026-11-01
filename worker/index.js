@@ -6733,11 +6733,16 @@ async function handleVoicePrompt(request, env, origin) {
     note = String(body.note || '').trim().slice(0, 140) || 'עדכון ללא הערה';
   }
 
-  const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_prompt: newPrompt });
+  /* 02/11: begin_message is spoken verbatim before the prompt gets a say —
+     Shir's still carried the long 09/26 opener, so guests hung up on it.
+     Pass begin_message (empty string = wait for "הלו", then the prompt opens). */
+  const patch = { general_prompt: newPrompt };
+  if (typeof body.begin_message === 'string') patch.begin_message = body.begin_message;
+  const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', patch);
   if (!applied) return deny(502, 'retell-write-failed', origin);
 
   const n = meta.head + 1;
-  await env.RATE.put('vp:' + key + ':' + n, JSON.stringify({ prompt: newPrompt, at: now, note }));
+  await env.RATE.put('vp:' + key + ':' + n, JSON.stringify({ prompt: newPrompt, at: now, note, begin_message: patch.begin_message }));
   meta.head = n;
   meta.list.push({ n, at: now, note, chars: newPrompt.length });
   if (meta.list.length > 200) meta.list = meta.list.slice(-200);
