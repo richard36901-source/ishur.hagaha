@@ -363,6 +363,11 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
   };
   /* one number, several scripts: the agent is chosen per call, not per number */
   if (opts.override_agent_id) payload.override_agent_id = String(opts.override_agent_id);
+  /* 02/11 (noa-chase R8): what the agent learned from earlier calls, rendered
+     by noa.js memoryBlock(). Always present — a prompt that references
+     {{memory}} must never read literal braces out loud — and empty when the
+     caller did not pass one, so every existing call site is unchanged. */
+  payload.retell_llm_dynamic_variables.memory = String(opts.memory || '');
   return payload;
 }
 

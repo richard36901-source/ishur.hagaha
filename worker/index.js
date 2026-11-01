@@ -49,6 +49,9 @@ import { handleDial } from './dial.js';                       /* 02/11 floor/dia
 import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js';
 import * as ab from './ab.js';
 import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 outreach routes (B2B venues) */
+/* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
+import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
+import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -2172,6 +2175,22 @@ async function processRetellEvent(env, body) {
     const outcome0 = action.result ? (action.result.answer || action.result.rsvp || '') : '';
     const no0 = /dial_no_answer|dial_busy|voicemail/.test(String(c0.disconnection_reason || ''));
     stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' }, cost: action.cost_cents ? Math.round(action.cost_cents * 3.7) / 100 : 0 }).catch(() => {});
+    /* 02/11 noa-chase R8+R11: every ended שיר/נועה call (outbound guest or
+       lead; inbound/callback keep their own path) goes through the reviewer.
+       Rules may auto-fix the sheet (only with NOA_CHASE=on), the model only
+       suggests. A chase call (metadata.why='chase') also records its attempt
+       and writes back to monday. Nothing here may break the webhook. */
+    if (String(env.NOA_CHASE || '') === 'on' && (meta0.kind === 'guest' || meta0.kind === 'lead' || !meta0.kind) && !String(c0.direction || '').includes('inbound')) {
+      try {
+        const qa = callFromRetell(c0, action, { event: evName0 });
+        qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
+        const review = await reviewCall(env, qa);
+        await applyReview(env, qa, review, { writeCallResult: (gid, res, party) => writeCallResult(env, gid, res, party) });
+      } catch (e) { await logEvent(env, { area: 'בקרה', action: 'בקרת שיחה נפלה', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
+      if (meta0.why === 'chase') {
+        try { await noaChaseCallEnded(env, c0); } catch (e) { await logEvent(env, { area: 'נועה', action: 'סיום שיחת רדיפה נפל', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
+      }
+    }
   } catch {}
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
@@ -2285,7 +2304,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM)),
+      /* 02/11 noa-chase R8: Shir's own lessons ({{memory}}) when the feature is on */
+      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM, { memory: String(env.NOA_CHASE || '') === 'on' ? await memoryBlock(env, 'שיר').catch(() => '') : '' })),
     }).catch(() => null);
     await retellBillingGuard(env, r);
     if (r && (r.status === 200 || r.status === 201)) {
@@ -2652,7 +2672,8 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(buildCallPayload(lead, env.NOA_FROM,
-        { override_agent_id: env.NOA_AGENT })),
+        /* 02/11 noa-chase R8: {{memory}} rides on every Noa call when the feature is on */
+        { override_agent_id: env.NOA_AGENT, memory: String(env.NOA_CHASE || '') === 'on' ? await memoryBlock(env, 'נועה').catch(() => '') : '' })),
     }).catch(() => null);
     await retellBillingGuard(env, res);
     if (res && (res.status === 200 || res.status === 201)) {
@@ -8822,6 +8843,13 @@ export default {
       ctx.waitUntil(audit.job(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
+      /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
+         drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
+      if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(audit.job(env, 'noaChaseTick', () => noaChaseTick(env, {
+        leadRows: async () => (((await snapshotCached(env)) || {}).leads || {}).values || [],
+        callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
+        retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),
+      })).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
       /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(audit.job(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
@@ -9384,6 +9412,16 @@ export default {
     if (url.pathname === '/api/outreach' && request.method === 'POST') {
       return handleOutreach(request, env, origin, { isAdmin, okJson, deny, stream, sendWindowState, sendTemplate, clientToken, slackSend });
     }
+    /* ── 02/11 floor/dial routes (noa-chase R7+R9) ─────────────────────────
+       המוקד: floor.html polls /api/floor every 3 s; /api/floor-note writes a
+       lesson straight into <agent>-memory. /dial is the Monday click-to-call
+       (behind DIAL_ENABLED). Everything lives in floor.js / dial.js; the
+       webhook hooks (noteLiveCall, dialOnEnded) are wired by the webhook owner. */
+    if (url.pathname === '/api/floor' && request.method === 'POST') return handleFloor(request, env, origin);
+    if (url.pathname === '/api/floor-note' && request.method === 'POST') return handleFloorNote(request, env, origin);
+    /* /api/dial: go.ishur.io mirrors every non-/api/ path to the website, so the
+       link column uses /api/dial; /dial still works on the workers.dev host */
+    if ((url.pathname === '/api/dial' || url.pathname === '/dial') && request.method === 'GET') return handleDial(request, env, url);
     if (url.pathname === '/api/call-board' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -9412,16 +9450,6 @@ export default {
         byDay[day] = byDay[day] || {};
         for (const e of (d.data || [])) { const k = String(e.value || e.event || '?'); byDay[day][k] = (byDay[day][k] || 0) + Number(e.count || 0); }
       }
-    /* ── 02/11 floor/dial routes (noa-chase R7+R9) ─────────────────────────
-       המוקד: floor.html polls /api/floor every 3 s; /api/floor-note writes a
-       lesson straight into <agent>-memory. /dial is the Monday click-to-call
-       (behind DIAL_ENABLED). Everything lives in floor.js / dial.js; the
-       webhook hooks (noteLiveCall, dialOnEnded) are wired by the webhook owner. */
-    if (url.pathname === '/api/floor' && request.method === 'POST') return handleFloor(request, env, origin);
-    if (url.pathname === '/api/floor-note' && request.method === 'POST') return handleFloorNote(request, env, origin);
-    /* /api/dial: go.ishur.io mirrors every non-/api/ path to the website, so the
-       link column uses /api/dial; /dial still works on the workers.dev host */
-    if ((url.pathname === '/api/dial' || url.pathname === '/dial') && request.method === 'GET') return handleDial(request, env, url);
       return okJson({ ok: !!(r && r.ok), days: byDay, raw: r && !r.ok ? r.data : undefined }, origin);
     }
     /* admin passthrough to the ads API, for turning the campaign on and off
