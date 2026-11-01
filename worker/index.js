@@ -7838,7 +7838,10 @@ async function callBoard(env) {
     const raw = await snapshotCached(env);
     if (raw) {
       const { queue } = buildCallQueue(raw);
-      guests = (queue || []).map(q => ({
+      /* 02/11 (Richard): the dialler already skips past events (shouldDial);
+         the board must not show them as waiting either */
+      const todayIl = ilDate();
+      guests = (queue || []).filter(q => !(q.event_date && q.event_date < todayIl)).map(q => ({
         kind: 'guest',
         who: 'שיר',
         from: '+972555074446',
