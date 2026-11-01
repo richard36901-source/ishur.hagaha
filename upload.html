@@ -574,6 +574,15 @@
       <div id="stylesWrap">
         <div class="styles" id="styles"></div>
       </div>
+      <!-- 01/11: "נוסח משלכם" — the client's own wording, submitted to WhatsApp for
+           approval right after setup. Approval takes up to 24h, so while this is
+           selected the first send is locked to at least two days out. -->
+      <div class="frow full" id="customRow" hidden>
+        <label for="f-custom">הנוסח שלכם <span class="req">*</span></label>
+        <textarea id="f-custom" rows="6" placeholder="שששש… זה סוד! 🤫&#10;&#10;אתי חוגגת 50 ונשמח שתגיעו לחגוג איתנו ❤️&#10;📍 The Beach | 17.11 | 19:00&#10;&#10;נשמח לאישורי הגעה!"></textarea>
+        <p class="hint-s">כותבים את ההודעה בדיוק כמו שתגיע למוזמנים (בלי [שם], הכפתורים והתמונה נוספים אוטומטית). וואטסאפ צריכים לאשר את הנוסח, בדרך כלל תוך שעה ועד 24 שעות, ולכן <b>השליחה הראשונה נקבעת לכל המוקדם מחרתיים</b>. עד האישור אפשר לעקוב בלוח הבקרה.</p>
+        <p class="hint-s" id="customErr" style="color:var(--warn,#A8402F)" hidden></p>
+      </div>
       <div class="frow full" id="extraRow" hidden>
         <label for="f-extra">תיאור האירוע <span class="req">*</span></label>
         <textarea id="f-extra" rows="3" placeholder="ערב של הרצאות ונטוורקינג. חניה חינם במקום."></textarea>
@@ -648,6 +657,7 @@
       <div id="schedManual" hidden>
         <div class="fgrid two">
           <div class="frow full">
+            <p class="hint-s" id="customLock" style="grid-column:1/-1;margin:0 0 .4rem;color:var(--ink2)" hidden></p>
             <label for="f-sd1">שליחה ראשונה <span class="req">*</span></label>
             <input type="text" id="f-sd1" data-idate data-placeholder="בחרו תאריך">
             <p class="ferr" id="e-sd1" aria-live="polite"></p>
@@ -1103,8 +1113,17 @@
     $('stylesWrap').hidden = free;
   }
 
+  var CUSTOM_STYLE = { key: 'custom', label: 'נוסח משלכם', note: 'אתם כותבים, וואטסאפ מאשרים (עד 24 שעות)' };
+  function isCustom() { return S.style === 'custom'; }
+  /* the earliest first send while a custom wording waits for approval:
+     the day after tomorrow, on a sendable day */
+  function customMinSend() {
+    var d = new Date(IshurDate.minDate().getTime() + 2 * 864e5);
+    for (var i = 0; i < 10; i++) { var c = IshurDate.iso(new Date(d.getTime() + i * 864e5)); if (IshurDate.valid(c)) return c; }
+    return IshurDate.iso(d);
+  }
   function renderStyles() {
-    $('styles').innerHTML = MSG.STYLES.map(function (s) {
+    $('styles').innerHTML = MSG.STYLES.concat([CUSTOM_STYLE]).map(function (s) {
       return '<button type="button" class="style-opt' + (S.style === s.key ? ' on' : '') + '"' +
              ' data-style="' + s.key + '" aria-pressed="' + (S.style === s.key) + '">' +
              '<span class="style-t">' + s.label + '</span>' +
@@ -1115,8 +1134,11 @@
         S.style = b.dataset.style;
         renderStyles();
         renderPreview();
+        renderSchedule();
+        if (isCustom()) { $('f-custom').focus(); IshurLead.track('custom_style_picked', {}); }
       });
     });
+    $('customRow').hidden = !isCustom();
   }
 
   function renderPreview() {
@@ -1137,10 +1159,20 @@
       return;
     }
     $('styleHead').textContent = 'סגנון ההודעה';
+    if (isCustom()) {
+      var ct = ($('f-custom').value || '').trim();
+      $('preview').innerHTML = '<p class="msg-text">' + (ct ? esc(ct).replace(/\n/g, '<br>') : '<span style="color:var(--ink3)">כאן תופיע ההודעה שתכתבו למעלה, בדיוק כמו שתגיע למוזמנים.</span>') + '</p>';
+      $('previewFoot').innerHTML = footHtml();
+      return;
+    }
     var m = MSG.sample(S.occasion, S.style);
     $('preview').innerHTML = m ? m.html : '';
     $('previewFoot').innerHTML = footHtml();
   }
+  document.addEventListener('DOMContentLoaded', function () {
+    var ta = $('f-custom'); if (!ta) return;
+    ta.addEventListener('input', function () { $('customErr').hidden = true; if (isCustom()) renderPreview(); });
+  });
 
   function esc(t) {
     return String(t).replace(/[&<>]/g, function (c) {
@@ -1538,6 +1570,15 @@
     $('schedManual').hidden = !(ed && !auto);
     if (ed && !auto && !$('f-sd1').value) suggestDates();
     if (auto) { $('f-sd1').value = ''; $('f-sd2').value = ''; }
+    /* custom wording: the first send cannot come before WhatsApp had a day to
+       approve it. Pushed forward silently here; validate() explains if the
+       client drags it back. */
+    var lock = $('customLock');
+    if (isCustom() && ed && !auto) {
+      var minC = customMinSend();
+      if ($('f-sd1').value && $('f-sd1').value < minC && minC < ed) { $('f-sd1').value = minC; if ($('f-sd1')._idate) $('f-sd1')._idate.syncLabel(); }
+      if (lock) { lock.hidden = false; lock.innerHTML = 'בחרתם נוסח משלכם, ולכן השליחה הראשונה נקבעת לכל המוקדם <b>' + IshurDate.pretty(minC) + '</b>, אחרי שוואטסאפ מאשרים את הנוסח.'; }
+    } else if (lock) lock.hidden = true;
     renderTimeline();
     renderAddons();
   }
@@ -1597,6 +1638,17 @@
     });
 
     var ed = $('f-edate').value, s1 = $('f-sd1').value, s2 = $('f-sd2').value;
+
+    if (isCustom()) {
+      var ct = ($('f-custom').value || '').trim();
+      var cerr = '';
+      if (ct.length < 20) cerr = 'כתבו את ההודעה המלאה (לפחות 20 תווים), או בחרו סגנון מוכן.';
+      else if (/\{\{|\}\}/.test(ct)) cerr = 'בלי סוגריים מסולסלים בנוסח.';
+      else if (autoMode()) cerr = 'האירוע קרוב מדי: אין זמן לאישור וואטסאפ. בחרו סגנון מוכן.';
+      else if (s1 && s1 < customMinSend()) cerr = 'עם נוסח משלכם השליחה הראשונה יכולה לצאת לכל המוקדם ' + IshurDate.pretty(customMinSend()) + '.';
+      if (cerr) { $('customErr').textContent = cerr; $('customErr').hidden = false; $('customRow').scrollIntoView({ block: 'center', behavior: 'smooth' }); ok = false; }
+      else $('customErr').hidden = true;
+    }
 
     /* a send after the event is useless, so it is caught here rather than
        discovered later */
@@ -1708,7 +1760,8 @@
       venue_city: $('f-city').value.trim(),
       hostess_count: S.hostess || 0,
       hostess_center: S.hostess ? CFG.hostessIsCenter($('f-city').value.trim()) : null,
-      style: S.style,
+      style: isCustom() ? 'happy' : S.style,
+      custom_text: isCustom() ? 'yes' : '',
       plan: plan,
       event_description: ($('f-extra').value || '').trim(),
       send_date_3: extraSend ? $('f-sd3').value : '',
@@ -1757,6 +1810,16 @@
             location.href = url || CFG.waLink(
               'היי, הוספתי שליחה נוספת בתאריך ' + $('f-sd3').value + ' ורציתי להשלים את התשלום.');
             return;
+          }
+          /* custom wording: hand it to WhatsApp for approval now, with the
+             artwork that was just saved. The dashboard shows the status. */
+          if (isCustom()) {
+            var ctext = ($('f-custom').value || '').trim();
+            IshurLead.track('custom_template_submit', { from: 'upload' });
+            return fetch(CFG.endpoint('custom-template'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ token: token, action: 'set', text: ctext, from: 'upload' }) })
+              .then(function (r) { return r.json(); })['catch'](function () { return null; })
+              .then(function () { location.href = 'dashboard.html?t=' + encodeURIComponent(token) + '&ct=1'; });
           }
           /* straight into the dashboard, same tab */
           location.href = 'dashboard.html?t=' + encodeURIComponent(token);
