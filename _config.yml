@@ -1,0 +1,16 @@
+# GitHub Pages (Jekyll) — files that must never be served from ishur.io.
+# The site is static HTML; nothing here changes how pages render.
+exclude:
+  - worker
+  - agent
+  - docs
+  - .sdlc
+  - .claude
+  - HANDOFF.md
+  - README.md
+  - SENDING-LOGIC.md
+  - TASKS.md
+  - node_modules
+  - "*.fixture.json"
+include:
+  - .well-known
