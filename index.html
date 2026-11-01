@@ -2482,7 +2482,7 @@ buildPricing();
        along like the hostess link: &guests=400&date=2026-12-13&occasion=wedding&name=&phone=&city= */
     if(q.get('offer')&&CFG.bundleFor&&CFG.bundleFor(q.get('offer'))){
       const b=CFG.bundleFor(q.get('offer'));
-      const pre={offer:q.get('offer'),guests:q.get('guests')||String(b.guests[Math.floor(b.guests.length/2)]),plan:b.plan,hostess:true,hostessLocked:false,
+      const pre={offer:q.get('offer'),guests:q.get('guests')||'',plan:b.plan,hostess:true,hostessLocked:false,
         name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
       setTimeout(()=>IshurPopup.open('offer-bundle',pre),600);
     } else if(q.get('offer')==='hostess'){
