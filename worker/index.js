@@ -4100,7 +4100,10 @@ async function customTemplateSubmit(env, token, text, ev) {
   let prev = null; try { prev = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); } catch {}
   const n = (prev && prev.n ? prev.n : 0) + 1;
   const name = `ishur_c_${token.slice(0, 8).replace(/-/g, '')}_${n}`;
-  const invite = ev ? String(ev[44] || '').trim() : '';
+  let invite = ev ? String(ev[44] || '').trim() : '';
+  /* 01/11: submitted from the upload screen seconds after setup — the sheet
+     row may not carry the artwork yet, but KV already does */
+  if (!invite && env.RATE) { try { if (await env.RATE.get('img:' + token, 'stream')) invite = 'https://go.ishur.io/img/' + token; } catch {} }
   const components = [];
   let header = 'NONE';
   if (invite) {
