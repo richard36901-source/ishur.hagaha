@@ -1006,6 +1006,8 @@ window.IshurPopup = (function () {
       try {
         var tierN = (CFG.hostessTier(S.guests) || {}).count || 1;
         S.hostessTravel = CFG.hostessIsCenter(S.hCity) ? 0 : (CFG.HOSTESS.travelFor ? CFG.HOSTESS.travelFor(tierN) : CFG.HOSTESS.travel);
+        /* a bundle with its own travel figure (winter: ₪250 flat, 1 or 2 hostesses) */
+        if (S.hostessTravel && S.bundle && S.bundle.travel != null && CFG.bundleLive && CFG.bundleLive(S.bundle)) S.hostessTravel = Math.min(S.hostessTravel, S.bundle.travel);
       } catch (e) {}
       updateTotal();
       var seq = ++hostessSeq;

@@ -151,8 +151,8 @@ window.ISHUR_CONFIG = (function () {
     /* 01/11: winter deal — the same ₪1,990 all the way up to 800 records */
     /* anyPlan: whatever package they tick, with hostesses the price is capped at
        the bundle total and they get הכל כלול for it (Richard 01/11) */
-    winter1990: { plan: 'premium', anyPlan: true, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
-    winter1790: { plan: 'premium', anyPlan: true, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'הכל כלול + דיילת אחת עד 300 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' }
+    winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
+    winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'הכל כלול + דיילת אחת עד 300 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' }
   };
   function bundleFor(key) { return (key && BUNDLES[key]) || null; }
   /* a dated bundle stops applying the second its clock runs out (Richard 01/11:
