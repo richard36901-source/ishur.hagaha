@@ -515,7 +515,11 @@ export function parseInboundReply(msg) {
      unlike הסר: the same phone may be a real guest at somebody else's wedding
      next month. Anchored like the opt-out, or "בטעות" inside a sentence about
      something else would silence a legitimate guest. */
-  if (/^\s*(טעות|זו טעות|זאת טעות|הגיע בטעות|הגיעה בטעות|קיבלתי בטעות|לא מכיר|לא מכירה|מספר שגוי|מספר לא נכון)(\s|$|[.!,?׃־])/.test(clean)) {
+  if (/^\s*(טעות|זו טעות|זאת טעות|הגיע בטעות|הגיעה בטעות|קיבלתי בטעות|לא מכיר|לא מכירה|מספר שגוי|מספר לא נכון)(\s|$|[.!,?׃־])/.test(clean) &&
+      /* 02/11: "טעות, 2 מגיעים" / "טעות - לא מגיעים" is a guest CORRECTING their
+         answer, not a wrong number. A digit or an RSVP word after "טעות" means
+         fall through to the normal parsing below. */
+      !/^\s*(טעות|זו טעות|זאת טעות)[\s.!,?׃־-]+.*(\d|מגיע|נגיע|נהיה|כן\b|לא\b)/.test(clean)) {
     return { kind: 'mistake' };
   }
 
