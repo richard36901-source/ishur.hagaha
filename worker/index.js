@@ -42,6 +42,7 @@ import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS,
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
+import { handleCallsLog } from './calls-log.js';
 /* 01/11 A/B on guest copy + template performance (docs/SPEC-ab-testing.md) */
 import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js';
 import * as ab from './ab.js';
@@ -9843,6 +9844,16 @@ export default {
         isAdmin, okJson, deny, snapshotCached,
         auditQuery: (e, q) => audit.query(e, q),
         isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds,
+      });
+    }
+    /* 02/11: every call ever — one merged calls view (F.4/F.5), cursor-paged per audit day, CSV. No KV writes. */
+    if (url.pathname === '/api/calls-log' && request.method === 'POST') {
+      return handleCallsLog(request, env, origin, {
+        isAdmin, okJson, deny, cors,
+        auditQuery: (e, q) => audit.query(e, q),
+        ilDate, callWindowState,
+        fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS),
+        buildCallQueue, kvPrefix, readTabAll,
       });
     }
     if (url.pathname === '/api/ads-health' && request.method === 'POST') {
