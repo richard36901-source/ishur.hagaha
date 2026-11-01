@@ -322,11 +322,15 @@ window.IshurPopup = (function () {
       var bun = S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost) ? S.bundle : null;
       if (bun) {
         var wasTotal = pr.original + hPrice;
+        /* anyPlan bundle: they ticked בסיס or פרמיום, they still pay the bundle
+           total and get its package — move the tick so the screen says so */
+        if (bun.anyPlan && S.plan !== bun.plan) { S.plan = bun.plan; renderPlans(); pr = priceOf(S.guests, S.plan); }
+        if (wasTotal < bun.total) wasTotal = pr.original + hPrice;
         t.className = 'pop-total cut';
         t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' + CFG.guestLabel(S.guests) + ' · ' + hTier.label +
-                      ' <em class="pt-save">' + (bun.note || 'מחיר מיוחד') + ' · חסכתם ₪' + (wasTotal - bun.total) + '</em>' +
+                      ' <em class="pt-save">' + (bun.note || 'מחיר מיוחד') + (wasTotal > bun.total ? ' · חסכתם ₪' + (wasTotal - bun.total) : '') + (bun.anyPlan ? ' · כל חבילה עם דיילות = ' + CFG.PLANS[bun.plan].name + ' ב-₪' + bun.total : '') + '</em>' +
                       (hTravel ? '<br><small>+ נסיעות ₪' + hTravel + '</small>' : '') + '</span>' +
-                      '<span class="pt-v"><s>₪' + wasTotal + '</s> ₪' + (bun.total + hTravel) + '</span>';
+                      '<span class="pt-v">' + (wasTotal > bun.total ? '<s>₪' + wasTotal + '</s> ' : '') + '₪' + (Math.min(bun.total, wasTotal) + hTravel) + '</span>';
         return;
       }
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +

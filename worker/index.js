@@ -10021,7 +10021,7 @@ export default {
       const city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
       if (city.length < 2) return okJson({ ok: false, why: 'bad-city' }, origin);
       const guests = parseInt(String(b.guests || ''), 10) || 0;
-      const plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
+      let plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
@@ -10033,10 +10033,15 @@ export default {
          quantities it names, otherwise the table price stands. */
       const BUNDLES = {
         vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
-        winter1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800' },
+        winter1990: { plan: 'premium', anyPlan: true, hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800' },
+        winter1790: { plan: 'premium', anyPlan: true, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300' },
       };
       const bundle = BUNDLES[String(b.offer || '')] || null;
-      const bundleOn = !!(bundle && bundle.plan === plan && bundle.guests.includes(guests) && bundle.hostesses === n);
+      /* anyPlan (01/11): any package + hostesses in range → the bundle price,
+         and the package becomes the bundle's (הכל כלול); the hostess count
+         follows the tier rule (1 up to 300), not the bundle's number */
+      const bundleOn = !!(bundle && (bundle.anyPlan || (bundle.plan === plan && bundle.hostesses === n)) && bundle.guests.includes(guests));
+      if (bundleOn && bundle.anyPlan) plan = bundle.plan;
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
       const travel = center ? 0 : (n >= 2 ? 500 : 250);
@@ -10079,7 +10084,7 @@ export default {
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
       const listTotal = PRICES[guests][plan] + hostessPrice + travel;
-      const total = bundleOn ? bundle.total + travel : listTotal;
+      const total = bundleOn ? Math.min(bundle.total, PRICES[guests][plan] + hostessPrice) + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
