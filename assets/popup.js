@@ -328,7 +328,7 @@ window.IshurPopup = (function () {
         if (wasTotal < bun.total) wasTotal = pr.original + hPrice;
         t.className = 'pop-total cut';
         t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' + CFG.guestLabel(S.guests) + ' · ' + hTier.label +
-                      ' <em class="pt-save">' + (bun.note || 'מחיר מיוחד') + (wasTotal > bun.total ? ' · חסכתם ₪' + (wasTotal - bun.total) : '') + (bun.anyPlan ? ' · כל חבילה עם דיילות = ' + CFG.PLANS[bun.plan].name + ' ב-₪' + bun.total : '') + '</em>' +
+                      ' <em class="pt-save">' + (bun.note || 'מחיר מיוחד') + (wasTotal > bun.total ? ' · חסכתם ₪' + (wasTotal - bun.total) : '') + (bun.anyPlan ? ' · כל חבילה עם דיילות = ' + CFG.PLANS[bun.plan].name + ' ב-₪' + bun.total : '') + (bun.until ? ' · עד ' + new Date(bun.until).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) : '') + '</em>' +
                       (hTravel ? '<br><small>+ נסיעות ₪' + hTravel + '</small>' : '') + '</span>' +
                       '<span class="pt-v">' + (wasTotal > bun.total ? '<s>₪' + wasTotal + '</s> ' : '') + '₪' + (Math.min(bun.total, wasTotal) + hTravel) + '</span>';
         return;

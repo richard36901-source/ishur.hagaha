@@ -63,7 +63,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=78"></script>
+<script src="config.js?v=79"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -2356,6 +2356,9 @@ const IshurPromo=(()=>{
       return;                    // the Worker just answered; do not ask again
     }
     if(!code) return;            // nothing pinned, nothing to ask about
+    /* a bundle link carries its own price and its own bar; a remembered promo
+       code must not stack a "קיבלתם הנחה" on top of it (Richard 01/11) */
+    try{ if(new URLSearchParams(location.search).get('offer')) return; }catch(e){}
     msg('בודקים את הקוד…','');
     check(code).then(apply);
   }
@@ -2482,6 +2485,31 @@ buildPricing();
        along like the hostess link: &guests=400&date=2026-12-13&occasion=wedding&name=&phone=&city= */
     if(q.get('offer')&&CFG.bundleFor&&CFG.bundleFor(q.get('offer'))){
       const b=CFG.bundleFor(q.get('offer'));
+      /* 01/11: the bundle bar — what the deal is and a live clock to its end.
+         Past the end: no popup, no deal, the plain site (Richard: a real end). */
+      const bar=document.getElementById('promo-bar'), txt=document.getElementById('promo-bar-txt');
+      const live=!CFG.bundleLive||CFG.bundleLive(b);
+      if(bar&&txt){
+        const pad=n=>String(n).padStart(2,'0');
+        const paint=()=>{
+          let clock='';
+          if(b.until){
+            const ms=Date.parse(b.until)-Date.now();
+            if(ms<=0){ txt.innerHTML='<b>'+(b.note||'המבצע')+' הסתיים</b> <i>·</i> המחירים הרגילים בתוקף'; return false; }
+            const d=Math.floor(ms/864e5), h=Math.floor(ms%864e5/36e5), m=Math.floor(ms%36e5/6e4), s=Math.floor(ms%6e4/1e3);
+            clock=' <i>·</i> נגמר בעוד '+(d?d+' ימים ':'')+pad(h)+':'+pad(m)+':'+pad(s);
+          }
+          txt.innerHTML='<b>'+(b.note||'מחיר מיוחד')+' ❄️</b> <i>·</i> '+b.label+' ב-₪'+b.total.toLocaleString('he-IL')+clock;
+          return true;
+        };
+        paint();
+        bar.hidden=false; document.body.classList.add('has-promo');
+        const size=()=>document.documentElement.style.setProperty('--promo-h',bar.offsetHeight+'px');
+        size(); window.addEventListener('resize',size,{passive:true});
+        const bx=document.getElementById('promo-bar-x'); if(bx) bx.hidden=true;
+        if(live){ const tick=setInterval(()=>{ if(!paint()) clearInterval(tick); },1000); }
+      }
+      if(!live) return;
       const pre={offer:q.get('offer'),guests:q.get('guests')||'',plan:b.plan,hostess:true,hostessLocked:false,
         name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
       setTimeout(()=>IshurPopup.open('offer-bundle',pre),600);
@@ -2782,6 +2810,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=39"></script>
+<script src="assets/popup.js?v=40"></script>
 </body>
 </html>
