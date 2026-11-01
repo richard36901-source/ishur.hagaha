@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>ביצועי תבניות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=72"></script>
+<script src="assets/adminbar.js?v=15" defer></script>
+<style>
+  :root{
+    --pine:#0F2E22; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --ok-bg:#E4F1EA; --warn:#A8402F; --warn-bg:#FBE9E5; --mute-bg:#EFEDE6;
+    --bar:#E9E6DC; --dot:#0F2E22;
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#7BC9A4;--ok-bg:#16342A;--warn:#F08A8A;--warn-bg:#3A1F1C;--mute-bg:#232A25;
+    --bar:#2A322C;--dot:#7BC9A4;--pine:#7BC9A4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding:0 16px 4rem}
+  .wrap{max-width:1100px;margin:0 auto}
+  header.top{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;padding:1.2rem 0 .8rem}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;color:var(--pine);margin-inline-end:auto}
+  .ctl{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+  select,button,input{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:.4rem .8rem}
+  button{cursor:pointer;font-weight:600}
+  button:hover{border-color:var(--ink3)}
+  .banner{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:.6rem .9rem;margin:.4rem 0 .9rem;font-size:.86rem;color:var(--ink2)}
+  .banner.fx{border-color:var(--gold-soft);background:color-mix(in srgb,var(--gold-soft) 18%,var(--card))}
+  .banner.err{border-color:var(--warn);color:var(--warn)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:.6rem;margin-bottom:1.2rem}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.7rem .8rem}
+  .kpi span{display:block;font-size:.75rem;color:var(--ink3)}
+  .kpi b{font-size:1.35rem;font-variant-numeric:tabular-nums;color:var(--pine)}
+  h2{font-size:1.05rem;margin:1.3rem 0 .6rem;color:var(--pine);display:flex;gap:.5rem;align-items:baseline}
+  h2 small{font-size:.78rem;color:var(--ink3);font-weight:400}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:.75rem}
+  @media (max-width:420px){.grid{grid-template-columns:1fr}}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:.9rem 1rem;display:flex;flex-direction:column;gap:.55rem;min-width:0}
+  .card .hd{display:flex;align-items:flex-start;gap:.5rem;justify-content:space-between}
+  .tname{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.82rem;direction:ltr;text-align:left;word-break:break-all;color:var(--ink)}
+  .rank{font-size:.72rem;color:var(--ink3)}
+  .pill{flex:none;font-size:.78rem;font-weight:700;border-radius:99px;padding:.15rem .7rem;white-space:nowrap}
+  .pill.keep{background:var(--ok-bg);color:var(--ok)}
+  .pill.swap{background:var(--warn-bg);color:var(--warn)}
+  .pill.few{background:var(--mute-bg);color:var(--ink2)}
+  .why{font-size:.83rem;color:var(--ink2)}
+  .rate{display:flex;align-items:baseline;gap:.5rem}
+  .rate b{font-size:1.5rem;font-variant-numeric:tabular-nums}
+  .rate span{font-size:.78rem;color:var(--ink3)}
+  .ci{position:relative;height:10px;background:var(--bar);border-radius:99px;overflow:hidden}
+  .ci i{position:absolute;top:0;bottom:0;background:color-mix(in srgb,var(--dot) 35%,transparent);border-radius:99px}
+  .ci em{position:absolute;top:-1px;width:3px;height:12px;background:var(--dot);border-radius:2px}
+  .nums{display:grid;grid-template-columns:repeat(4,1fr);gap:.3rem;text-align:center}
+  .nums div{background:var(--bg);border-radius:10px;padding:.35rem .2rem}
+  .nums span{display:block;font-size:.68rem;color:var(--ink3)}
+  .nums b{font-size:.95rem;font-variant-numeric:tabular-nums}
+  .chips{display:flex;flex-wrap:wrap;gap:.3rem}
+  .chip{font-size:.72rem;border:1px solid var(--line);border-radius:99px;padding:.08rem .55rem;color:var(--ink2);background:var(--bg)}
+  .chip.bad{border-color:color-mix(in srgb,var(--warn) 45%,var(--line));color:var(--warn)}
+  details.rule{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.7rem 1rem;margin-top:1.6rem;font-size:.86rem;color:var(--ink2)}
+  details.rule summary{cursor:pointer;font-weight:600;color:var(--ink)}
+  details.rule ol{padding-inline-start:1.2rem;margin-top:.5rem;display:grid;gap:.25rem}
+  .gate{max-width:360px;margin:3rem auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.2rem;display:grid;gap:.6rem}
+  .muted{color:var(--ink3);font-size:.8rem}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<div class="wrap">
+  <header class="top">
+    <h1>ביצועי תבניות</h1>
+    <div class="ctl">
+      <label class="muted" for="days">טווח</label>
+      <select id="days">
+        <option value="7">7 ימים</option>
+        <option value="14">14 ימים</option>
+        <option value="30">30 ימים</option>
+        <option value="60" selected>60 ימים</option>
+      </select>
+      <button id="refresh" type="button">רענון</button>
+      <button id="theme" type="button" aria-label="מצב לילה">◐</button>
+    </div>
+  </header>
+
+  <div id="gate" class="gate" hidden>
+    <b>מפתח אדמין</b>
+    <input id="key" type="password" autocomplete="off" placeholder="admin key" dir="ltr">
+    <button id="keyGo" type="button">כניסה</button>
+    <div id="gateMsg" class="muted"></div>
+  </div>
+
+  <main id="app" hidden>
+    <div id="banner" class="banner" hidden></div>
+    <div id="kpis" class="kpis"></div>
+    <div id="groups"></div>
+    <details class="rule">
+      <summary>איך נקבעת ההמלצה</summary>
+      <ol id="ruleList"></ol>
+      <p class="muted" style="margin-top:.5rem">מקור: יומן הביקורת (הודעות יוצאות, דיווחי מסירה של מטא, הודעות נכנסות). תשובה נזקפת לתבנית האחרונה שנשלחה לאותו מספר, אם הגיעה תוך 72 שעות. "לחיצה" = תשובה שהיא מגיע / לא מגיע / מתלבט / מספר אורחים — ביומן אין הבדל בין לחיצת כפתור להקלדה של אותה מילה. הפירוט המלא: docs/SPEC-ab-testing.md.</p>
+    </details>
+  </main>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
+  var BASE = (CFG && CFG.endpoint) ? CFG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+  var qs = new URLSearchParams(location.search);
+  var qk = qs.get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname + (qs.get('fixture') ? '?fixture=1' : '')); }
+  var adminKey = '';
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var FORCE_FIXTURE = qs.get('fixture') === '1';
+
+  var FAIL_HE = { '131048': 'תקרת מטא', '130429': 'תקרת מטא', '131026': 'לא בוואטסאפ / חסם', '131049': 'מגבלת שיווק של מטא', '130472': 'ניסוי של מטא', '131042': 'בעיית תשלום', '133010': 'מספר לא רשום', '?': 'אחר' };
+  var TYPE_ORDER = ['invite', 'reminder', 'extra', 'resend', 'daybefore', 'eventday', 'table', 'thanks', 'cancel', 'postpone', 'client', 'other'];
+
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function pct(x) { return (Math.round((x || 0) * 1000) / 10) + '%'; }
+  function num(n) { return Number(n || 0).toLocaleString('he-IL'); }
+  function ils(n) { return '₪' + (Math.round((n || 0) * 100) / 100).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+
+  function gate(msg) { $('app').hidden = true; $('gate').hidden = false; $('gateMsg').textContent = msg || ''; }
+  $('keyGo').onclick = function () { var k = $('key').value.trim(); if (!k) return; adminKey = k; try { localStorage.setItem('ishur_calls_key', k); } catch (e) {} load(); };
+  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  $('refresh').onclick = function () { load(); };
+  $('days').onchange = function () { load(); };
+  $('theme').onclick = function () {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', 'dark');
+    try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
+  };
+
+  function banner(text, cls) { var b = $('banner'); b.className = 'banner' + (cls ? ' ' + cls : ''); b.textContent = text; b.hidden = !text; }
+
+  function fixture(why) {
+    return fetch('templates.fixture.json', { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (d) {
+      render(d);
+      banner('נתוני דוגמה אמיתיים מ-' + new Date(d.generated_at).toLocaleDateString('he-IL') + ' (יומן 22/10–01/11). ' + why, 'fx');
+    });
+  }
+
+  var tries = 0;
+  function load() {
+    $('gate').hidden = true; $('app').hidden = false;
+    if (FORCE_FIXTURE) return fixture('מצב תצוגה (?fixture=1).');
+    if (!adminKey) return gate();
+    banner('טוען…');
+    var days = Number($('days').value) || 60;
+    return fetch(BASE + '/api/template-stats', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, days: days })
+    }).then(function (r) {
+      if (r.status === 403) { try { localStorage.removeItem('ishur_calls_key'); } catch (e) {} adminKey = ''; gate('המפתח לא נכון'); return null; }
+      if (r.status === 404) { fixture('הנתיב /api/template-stats עוד לא פרוס.'); return null; }
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      return r.json();
+    }).then(function (d) {
+      if (!d) return;
+      if (!d.ok) throw new Error(d.error || 'שגיאה');
+      render(d);
+      if (d.partial && tries < 25) {
+        tries++;
+        banner('טוען את היומן יום אחר יום… נשארו ' + d.missing_days.length + ' ימים');
+        setTimeout(load, 400);
+      } else { tries = 0; banner(''); }
+    }).catch(function (e) {
+      fixture('לא הצלחתי לקרוא מהשרת (' + e.message + ').');
+    });
+  }
+
+  function render(d) {
+    var t = d.totals || {};
+    $('kpis').innerHTML = [
+      ['נשלחו', num(t.sends)], ['נמסרו', num(t.delivered)], ['נקראו', num(t.read)],
+      ['ענו תוך 72ש׳', num(t.replies72)], ['טעות / הסר', num((t.mistake || 0) + (t.optout || 0))], ['עלות', ils(t.cost)]
+    ].map(function (k) { return '<div class="kpi"><span>' + k[0] + '</span><b>' + k[1] + '</b></div>'; }).join('');
+
+    var rule = d.rule || {};
+    $('ruleList').innerHTML = [
+      'פחות מ-' + (rule.MIN_N || 100) + ' הודעות שנמסרו ועברו 72 שעות → <b>מעט נתונים</b>.',
+      'יותר מ-' + pct(rule.OPTOUT_MAX || 0.02) + ' כתבו "טעות" או "הסר" → <b>החלף</b>.',
+      'פחות מ-' + pct(rule.DELIVERY_MIN || 0.85) + ' נמסרו (לא כולל חסימות תקרה של המספר) → <b>החלף</b>.',
+      'בהזמנות ותזכורות: תבנית אחרת מאותו סוג עונים לה יותר, וההפרש מובהק (95%) → <b>החלף</b>.',
+      'אחרת → <b>שמור</b>. הודעות מידע (יום לפני, שולחן, תודה) לא נשפטות לפי תשובות.'
+    ].map(function (x) { return '<li>' + x + '</li>'; }).join('');
+
+    var by = {};
+    (d.rows || []).forEach(function (r) { (by[r.type] = by[r.type] || []).push(r); });
+    var html = '';
+    TYPE_ORDER.filter(function (k) { return by[k]; }).forEach(function (type) {
+      var list = by[type].slice().sort(function (a, b) {
+        var fa = a.rec === 'מעט נתונים' ? 1 : 0, fb = b.rec === 'מעט נתונים' ? 1 : 0;
+        return fa - fb || b.reply_rate - a.reply_rate || b.delivered - a.delivered;
+      });
+      html += '<h2>' + esc(list[0].type_he) + ' <small>' + (list[0].goal === 'reply' ? 'מדורג לפי אחוז תשובה' : 'הודעת מידע') + '</small></h2><div class="grid">';
+      list.forEach(function (r, i) { html += card(r, i + 1); });
+      html += '</div>';
+    });
+    $('groups').innerHTML = html || '<p class="muted">אין תבניות בטווח הזה.</p>';
+  }
+
+  function card(r, rank) {
+    var cls = r.rec === 'החלף' ? 'swap' : r.rec === 'שמור' ? 'keep' : 'few';
+    var lo = Math.max(0, r.reply_lo * 100), hi = Math.min(100, r.reply_hi * 100), p = r.reply_rate * 100;
+    var fails = Object.keys(r.failed_codes || {}).map(function (c) {
+      var cap = c === '131048' || c === '130429';
+      return '<span class="chip' + (cap ? '' : ' bad') + '">' + esc(FAIL_HE[c] || ('קוד ' + c)) + ' · ' + num(r.failed_codes[c]) + '</span>';
+    }).join('');
+    var rs = r.rsvp || {};
+    return '<article class="card">' +
+      '<div class="hd"><div><div class="rank">#' + rank + ' · ' + num(r.events) + ' אירועים</div><div class="tname">' + esc(r.template) + '</div></div>' +
+      '<span class="pill ' + cls + '">' + esc(r.rec) + '</span></div>' +
+      '<div class="why">' + esc(r.why) + '</div>' +
+      '<div class="rate"><b>' + pct(r.reply_rate) + '</b><span>ענו תוך 72ש׳ · ' + num(r.reply_k) + '/' + num(r.reply_n) + ' · טווח ' + pct(r.reply_lo) + '–' + pct(r.reply_hi) + ' · תוך 24ש׳ ' + pct(r.reply24_rate) + '</span></div>' +
+      '<div class="ci" role="img" aria-label="טווח ביטחון 95% של אחוז התשובה"><i style="right:' + lo + '%;width:' + Math.max(0.5, hi - lo) + '%"></i><em style="right:calc(' + p + '% - 1.5px)"></em></div>' +
+      '<div class="nums">' +
+        '<div><span>נשלחו</span><b>' + num(r.sends) + '</b></div>' +
+        '<div><span>נמסרו</span><b>' + pct(r.delivery_rate) + '</b></div>' +
+        '<div><span>נקראו</span><b>' + pct(r.read_rate) + '</b></div>' +
+        '<div><span>עלות</span><b>' + ils(r.cost) + '</b></div>' +
+      '</div>' +
+      '<div class="chips">' +
+        '<span class="chip">מגיע ' + num(rs['מגיע']) + '</span><span class="chip">לא מגיע ' + num(rs['לא מגיע']) + '</span><span class="chip">מתלבט ' + num(rs['מתלבט']) + '</span>' +
+        '<span class="chip' + ((r.mistake + r.optout) ? ' bad' : '') + '">טעות ' + num(r.mistake) + ' · הסר ' + num(r.optout) + '</span>' +
+        (r.rejected ? '<span class="chip bad">נדחו בשליחה ' + num(r.rejected) + '</span>' : '') +
+        fails +
+      '</div>' +
+    '</article>';
+  }
+
+  load();
+})();
+</script>
+</body>
+</html>
