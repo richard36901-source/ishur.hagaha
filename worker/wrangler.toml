@@ -27,6 +27,8 @@ CLIENT_PORTFOLIO = "off"
 WA_PHONE_ID_CLIENT_NEW = "1404834546041914"
 # 25/10: 4499 re-registered by coexistence QR, new phone id (WABA 1060242146337688, business AutoScale). Overrides the stale WA_PHONE_ID secret.
 WA_PHONE_ID_CLIENT = "1218978741299669"
+# 01/11: second guests number 055-3089799 on the same WABA 1378764257421712 — doubles the daily 250 cap; the Worker spreads guest sends across all ids here.
+WA_PHONE_IDS_GUESTS = "1409632775565601"
 ADMIN_PHONES = "972545764327,972526979535"
 
 [[kv_namespaces]]

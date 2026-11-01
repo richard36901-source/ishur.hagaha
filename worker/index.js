@@ -66,7 +66,7 @@ const TMPL_CATEGORY = {
   ishur_shulchan: 'utility', ishur_doch: 'utility', ishur_tzikoret_kovetz: 'utility',
   ishur_tashlum: 'utility',
   ishur_lo_siyem: 'marketing', ishur_lo_siyem_2: 'marketing', ishur_lo_siyem_3: 'marketing',
-  ishur_toda_orach: 'marketing', ishur_syum: 'marketing', ishur_toda_orach_f: 'marketing', ishur_syum_v3_f: 'marketing', ishur_hazmana_shuv_f: 'marketing',
+  ishur_toda_orach: 'marketing', ishur_toda_orach_v2: 'marketing', ishur_syum: 'marketing', ishur_toda_orach_f: 'marketing', ishur_syum_v3_f: 'marketing', ishur_hazmana_shuv_f: 'marketing',
   ishur_shidrug: 'marketing', ishur_shidrug_sichot: 'marketing',
   ishur_kod: 'auth',
 };
@@ -2918,6 +2918,9 @@ async function handleWaWebhook(request, env, url) {
                 await env.RATE.delete(m.gk);
                 await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {});
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {});
+                /* lifecycle sends close their event flag on "accepted"; reopen it too (01/11) */
+                const lifeFlag = { daybefore: 'daybefore:', seating: 'seat:' }[m.wave];
+                if (lifeFlag) await env.RATE.delete(lifeFlag + m.token).catch(() => {});
                 await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
                 const pidHit = (await env.RATE.get('wamidpid:' + st.id).catch(() => null)) || '';
                 const ids = guestPhoneIds(env);
@@ -4012,7 +4015,7 @@ async function sendArtworkOnReply(env, raw, guest, from) {
    nav, template}; the pacer runs it once the date arrives and the send
    window is open, only if Meta has APPROVED the template. s5e:<token>:<phone>
    is the per-guest marker. */
-async function eventDayRecipients(env, token, raw) {
+async function eventDayRecipients(env, token, raw, job = {}) {
   const gRows = (raw && raw.guests && raw.guests.values) || [];
   const s5d = await kvPrefix(env, `s5d:${token}:`);
   const seen = new Set(); const out = [];
@@ -4021,9 +4024,34 @@ async function eventDayRecipients(env, token, raw) {
     const phone = normPhone(g[4] || ''); if (!phone || seen.has(phone)) continue;
     const confirmed = String(g[15] || '').trim() === 'מגיע';
     if (!confirmed && !s5d[phone]) continue;
+    /* 01/11: job.no_table — guests with a table already get ishur_shulchan today; one message per guest */
+    if (job.no_table && String(g[30] || '').trim()) continue;
     seen.add(phone); out.push({ phone, name: String(g[3] || '').trim() });
   }
   return out;
+}
+
+/* 01/11: the lifecycle sends (table, day-before, event-day, postpone) used to
+   set their per-guest marker on Meta's "accepted" and never record the wamid,
+   so a cap hit (131048) could not reopen them — 244 of Hadar's reminders
+   silently stayed "sent". Same record the waves write. */
+
+/* APPROVED at Meta? cached 10 min in KV so the engine does not ask per guest */
+async function templateApproved(env, name) {
+  const ck = 'tmplok:' + name;
+  const c = env.RATE ? await env.RATE.get(ck).catch(() => null) : null;
+  if (c) return c === '1';
+  let ok = false;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${name}&fields=name,status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+    const j = await r.json(); ok = ((j.data || [])[0] || {}).status === 'APPROVED';
+  } catch {}
+  if (env.RATE) await env.RATE.put(ck, ok ? '1' : '0', { expirationTtl: 600 }).catch(() => {});
+  return ok;
+}
+async function noteGuestSend(env, wa, token, wave, phone, gk) {
+  if (!env.RATE || !wa || !wa.ok || !wa.id) return;
+  await env.RATE.put('wamid:' + wa.id, JSON.stringify({ token, wave, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
 }
 async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
   if (!env.RATE) return { ok: false };
@@ -4044,7 +4072,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       const j = await r.json(); approved = ((j.data || [])[0] || {}).status === 'APPROVED';
     } catch {}
     const raw = await snapshotCached(env);
-    const people = await eventDayRecipients(env, token, raw);
+    const people = await eventDayRecipients(env, token, raw, job);
     if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
     if (!approved) {
       if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8));
@@ -4058,7 +4086,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       /* job.params: an explicit parameter list for a fallback template (21/10, when the day's own template is still pending at Meta) */
       const params = Array.isArray(job.params) && job.params.length ? job.params : [job.time, job.what, job.address, job.nav];
       const wa = await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
-      if (wa.ok) { sent++; await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
+      if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'eventday', p.phone, mk); await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
     await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}` }).catch(() => {});
@@ -4965,6 +4993,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (dry) { out.push({ token, type: 'guest_thanks', would_send: confirmed }); }
       else {
         let tsent = 0, tfail = 0, tcut = false; const tseen = new Set();
+        /* 01/11 (Richard): the thank-you carries a soft "want this for your
+           event?" line + site button. v2 is used only once Meta approved it. */
+        const todaTmpl = await templateApproved(env, 'ishur_toda_orach_v2') ? 'ishur_toda_orach_v2' : 'ishur_toda_orach';
         for (const g of gRows) {
           if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
           if (budget && budget.left <= 0) { tcut = true; break; }
@@ -4975,7 +5006,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           if (await phoneBlocked(env, gp)) continue;
           if (await wrongNum(env, token, gp)) continue;
           const gname = String(g[3] || '').trim() || 'אורח יקר';
-          const wa = await sendTemplate(env, gp, 'ishur_toda_orach', [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          const wa = await sendTemplate(env, gp, todaTmpl, [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
           if (budget) budget.left--;
           if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); }
           else tfail++;
@@ -5058,7 +5089,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       const gname = String(g[3] || '').trim() || 'אורח יקר';
       const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
       if (budget) budget.left--;
-      if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
+      if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'seating', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
       else failed++;
     }
     if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
@@ -5169,7 +5200,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             const wa = await sendTemplate(env, phone, 'ishur_dchiya',
               [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
             if (budget) budget.left--;
-            if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
+            if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'postpone', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
             else failed++;
           }
           if (sent) await addEvCost(env, token, sent * msgCost('ishur_dchiya'));
@@ -5221,7 +5252,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
             { occasion, wave: 'daybefore', token });
         if (budget) budget.left--;
-        if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
+        if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'daybefore', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
         else failed++;
       }
       if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
@@ -8825,7 +8856,9 @@ export default {
               ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
             }
           }
-          if (peek && peek.admin_key && isAdmin(env, peek.admin_key)) {
+          /* 01/11: the board polls hold/extra state every few seconds; a READ (no 'on') is not an action and was flooding the journal */
+          const readOnlyFlag = url.pathname === '/api/event-flag' && peek && typeof peek.on !== 'boolean';
+          if (peek && peek.admin_key && !readOnlyFlag && isAdmin(env, peek.admin_key)) {
             const ua = String(request.headers.get('User-Agent') || '');
             const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
             const keys = Object.keys(peek).filter(k => !/admin_key|sig|nonce|stamp_ts|app/.test(k));
@@ -9688,7 +9721,7 @@ export default {
       const tok = String(b.token || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
       if (b.action === 'set') {
-        const job = { at: String(b.at || ilDate()), time: String(b.time || ''), what: String(b.what || ''), address: String(b.address || ''), nav: String(b.nav || ''), template: String(b.template || 'ishur_yom_haerua'), params: Array.isArray(b.params) ? b.params.map(String) : undefined, set_at: new Date().toISOString() };
+        const job = { at: String(b.at || ilDate()), time: String(b.time || ''), what: String(b.what || ''), address: String(b.address || ''), nav: String(b.nav || ''), template: String(b.template || 'ishur_yom_haerua'), no_table: !!b.no_table, params: Array.isArray(b.params) ? b.params.map(String) : undefined, set_at: new Date().toISOString() };
         await env.RATE.put('edblast:' + tok, JSON.stringify(job), { expirationTtl: 14 * 86400 });
         return okJson({ ok: true, job }, origin);
       }
