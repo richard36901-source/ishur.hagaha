@@ -42,6 +42,9 @@ import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS,
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
+/* 01/11 A/B on guest copy + template performance (docs/SPEC-ab-testing.md) */
+import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js';
+import * as ab from './ab.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -4038,6 +4041,24 @@ async function eventDayRecipients(env, token, raw, job = {}) {
    so a cap hit (131048) could not reopen them — 244 of Hadar's reminders
    silently stayed "sent". Same record the waves write. */
 
+/* A/B engine dependencies (ab.js evaluate). One audit day per query: a
+   multi-day audit.query silently drops days (measured 01/11). */
+function abDeps(env) {
+  return {
+    queryRows: (e, since) => tstatsRows(e, Math.min(60, Math.ceil((Date.now() - since) / 864e5) + 1),
+      { queryDay: (e2, day) => audit.query(e2, { from: day, to: day, limit: 20000 }), budget: 3 }),
+    isApproved: (name) => templateApproved(env, name),
+    numberQuality: () => Promise.all(guestPhoneIds(env).map(async id => {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=quality_rating`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      return { id, quality: String(j.quality_rating || 'UNKNOWN') };
+    })),
+    notify: (t) => slackPost(env, t).catch(() => {}),
+    /* only with AB_AUTOROTATE=on; the invitation is the one type with its own KV switch */
+    promote: async (msgType, name) => { if (msgType === 'invite' && env.RATE) await env.RATE.put('invitetmpl', name); },
+  };
+}
+
 /* APPROVED at Meta? cached 10 min in KV so the engine does not ask per guest */
 async function templateApproved(env, name) {
   const ck = 'tmplok:' + name;
@@ -4374,6 +4395,9 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      Editing the live template instead would have parked it in review and
      silenced every wave meanwhile. */
   const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+  /* A/B: a reminder winner becomes the reminder's control (ab:control:reminder),
+     only when Richard switched AB_AUTOROTATE on. Otherwise = the invitation. */
+  const remindTmpl = (String(env.AB_AUTOROTATE || '') === 'on' && env.RATE && await env.RATE.get('ab:control:reminder')) || inviteTmpl;
   /* the image-header variant, once Meta approves it (the pacer flips this
      key). With it, an event that uploaded artwork sends ONE message: picture
      + invitation + buttons — to cold guests too. */
@@ -4482,9 +4506,15 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     const useImg = !useVid && !!(imgTmpl && invite && wave.key === 1);
     /* Richard 21/10: the client's own approved wording replaces the house invitation */
     const custom = wave.key === 1 ? await customTemplateFor(env, token) : null;
+    /* A/B (ab.js): swaps the name only when the engine would have sent the
+       test's control anyway; off unless AB_ENABLED=on. The challenger has the
+       same six variables and the same buttons. */
+    const chosenTmpl = useVid ? vidTmpl : useImg ? imgTmpl : (wave.key === 2 ? remindTmpl : inviteTmpl);
+    const abType = wave.key === 2 ? 'reminder' : wave.key === 3 ? 'extra' : 'invite';
+    const abv = custom ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
     const res = custom
       ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
-      : await sendTemplate(env, phone, useVid ? vidTmpl : useImg ? imgTmpl : inviteTmpl,
+      : await sendTemplate(env, phone, abv ? abv.template : chosenTmpl,
       [name, occasion, hosts, date, time, venue], useVid ? videoUrl : useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token, name });
     if (budget) budget.left--;
@@ -4496,6 +4526,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
          this id, the webhook uses this to reopen exactly this guest. */
       if (env.RATE && res.id) await env.RATE.put('wamid:' + res.id,
         JSON.stringify({ token, wave: wave.key, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
+      if (abv && abv.test_id && res.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: res.id, phone, token, msg_type: abType });
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
       if (env.RATE) await env.RATE.put(`gday:${normPhone(phone)}:${today}`, token, { expirationTtl: 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
@@ -5008,7 +5039,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           if (await phoneBlocked(env, gp)) continue;
           if (await wrongNum(env, token, gp)) continue;
           const gname = String(g[3] || '').trim() || 'אורח יקר';
-          const wa = await sendTemplate(env, gp, todaTmpl, [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          const abv = await ab.pickVariant(env, 'thanks', gp, token, { current: todaTmpl });
+          const wa = await sendTemplate(env, gp, abv.template, [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone: gp, token, msg_type: 'thanks' });
           if (budget) budget.left--;
           if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); }
           else tfail++;
@@ -5248,13 +5281,15 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const navT = env.RATE ? await env.RATE.get('navtmpl') : null;
         const navU = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
+        const abv = await ab.pickVariant(env, 'daybefore', phone, token, { current: navU ? navT : 'ishur_yom_lifnei' });
         const wa = navU
-          ? await sendTemplate(env, phone, navT, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
-          : await sendTemplate(env, phone, 'ishur_yom_lifnei',
+          ? await sendTemplate(env, phone, abv.template, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
+          : await sendTemplate(env, phone, abv.template,
             [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
             { occasion, wave: 'daybefore', token });
         if (budget) budget.left--;
         if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'daybefore', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
+        if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone, token, msg_type: 'daybefore' });
         else failed++;
       }
       if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
@@ -8783,6 +8818,10 @@ export default {
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(audit.job(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'runPacer', () => runPacer(env)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
+      /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
+         evaluate() keeps an ab:eval:<day> guard, so six ticks = one run) */
+      if (String(env.AB_ENABLED || '') === 'on' && Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now()))) === 6)
+        ctx.waitUntil(audit.job(env, 'abEvaluate', () => ab.evaluate(env, abDeps(env))).catch(() => {}));
       return;
     }
     ctx.waitUntil(audit.job(env, 'syncCallCosts', () => syncCallCosts(env)).catch(() => {}));
@@ -9971,6 +10010,11 @@ export default {
     }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
+    }
+    /* 01/11: per-template performance from the audit log (templates.html) */
+    if (url.pathname === '/api/template-stats' && request.method === 'POST') {
+      return handleTemplateStats(request, env, origin, { isAdmin, okJson, deny,
+        queryDay: (e, day) => audit.query(e, { from: day, to: day, limit: 20000 }) });
     }
     if (url.pathname === '/api/msg-stats' && request.method === 'POST') {
       return handleMsgStats(request, env, origin);
