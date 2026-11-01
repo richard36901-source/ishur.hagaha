@@ -40,6 +40,8 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_A
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
+import { handleAutomations } from './automations.js';
+import { handleSendBoard } from './send-board.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -9790,6 +9792,15 @@ export default {
       }
       return okJson({ ok: true, today, events: out }, origin);
     }
+    /* 01/11: send board — נמסרו X / נשלחו Y / מתוך Z per event per message type (calendar/admin).
+       Reads only, except a 5-min sendboard:* cache key. */
+    if (url.pathname === '/api/send-board' && request.method === 'POST') {
+      return handleSendBoard(request, env, origin, {
+        isAdmin, okJson, deny, snapshotCached,
+        auditQuery: (e, q) => audit.query(e, q),
+        isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds,
+      });
+    }
     if (url.pathname === '/api/ads-health' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -9840,6 +9851,11 @@ export default {
       return audit.serveRecording(env, url, !!(k && isAdmin(env, k)));
     }
     /* 22/10: the full audit log, filtered; CSV or JSON, every row re-verified */
+    /* 01/11: automations registry + live state + 7-day read-only projection (automations.html).
+       Deliberately not given runDailyEngine/runEventDayBlasts/snapshotCached: their dry paths write KV. */
+    if (url.pathname === '/api/automations' && request.method === 'POST') {
+      return handleAutomations(request, env, origin, { fetchSnapshot });
+    }
     if (url.pathname === '/api/audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
