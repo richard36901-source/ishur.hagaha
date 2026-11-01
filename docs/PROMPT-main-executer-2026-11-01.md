@@ -78,6 +78,12 @@ Positioning copy: say what the data proves. Compute from the sheet snapshot (rea
 
 Reviews: there are 2 real ones. **Do not invent reviews or ratings** — fake Review/AggregateRating markup is a Google manual-action and a legal exposure, and the assistants cross-check. Instead write `docs/SPEC-reviews.md`: an automated review request to the host 2 days after the event (WhatsApp from 4499, after the thank-you, one message, link to Google Business Profile + a one-tap in-dashboard testimonial form with consent to publish name + event type), expected yield at the current event volume, and the display of real testimonials on the site with Review JSON-LD only for consented ones. The sending part is tier 🔴 — spec and template text only, Richard approves.
 
+### F.4 — all calls ever (Richard 02/11 00:07)
+The calls view shows only the last 30. Richard wants **every call ever** visible: server-side pagination over the audit `call` kind (and the older `calls` sheet tab via `logRow`, if the audit log starts later than the sheet), date-range picker, filters (agent, outcome, event, "לבדיקה"), CSV export, and a count header "N שיחות · M לבדיקה". Keep the page fast: 100 rows per page, cursor pagination, no full reload on filter change.
+
+### F.5 — one calls view, not two (Richard 02/11 00:08)
+`admin.html?view=calls` today stacks two separate sections: the queue board (מצב/מי מתקשרת/ניסיונות) and below it "שיר · שיחות" (the last 30 with recordings). Merge them into ONE table: every row is a person (guest or lead) with columns: סוכנת, שם, טלפון, אירוע/ליד, מצב (בתור / בוצע / נכשל / לבדיקה / מיצה), ניסיונות X/Y, שיחה אחרונה (time, duration, outcome, recording play + transcript open), הערה, and the next-attempt time. Filters: agent (שיר/נועה), kind (אורחים/לידים/נכנסות), state, date range, "לבדיקה". The KPI tiles on top stay (merge the two tile rows into one). This is the same work as F.2 + F.4 — do it as one page.
+
 ## Also, if time remains (read-only analysis, report only)
 
 - Template performance for the last 60 days from `/api/stream` / `/api/audit` (kinds `wa_out`,`wa_status`,`wa_in`) → which templates get replies, which get "טעות"/blocks; feed it into C.2.
