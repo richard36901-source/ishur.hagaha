@@ -2487,9 +2487,8 @@ buildPricing();
       const b=CFG.bundleFor(q.get('offer'));
       /* 01/11: the bundle bar — what the deal is and a live clock to its end.
          Past the end: no popup, no deal, the plain site (Richard: a real end). */
-      const bar=document.getElementById('promo-bar'), txt=document.getElementById('promo-bar-txt');
       const live=!CFG.bundleLive||CFG.bundleLive(b);
-      if(bar&&txt){
+      const showBundleBar=()=>{ const bar=document.getElementById('promo-bar'), txt=document.getElementById('promo-bar-txt'); if(!bar||!txt) return;
         const pad=n=>String(n).padStart(2,'0');
         const paint=()=>{
           let clock='';
@@ -2508,7 +2507,9 @@ buildPricing();
         size(); window.addEventListener('resize',size,{passive:true});
         const bx=document.getElementById('promo-bar-x'); if(bx) bx.hidden=true;
         if(live){ const tick=setInterval(()=>{ if(!paint()) clearInterval(tick); },1000); }
-      }
+      };
+      /* the bar sits at the end of the body, after this script */
+      if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',showBundleBar); else showBundleBar();
       if(!live) return;
       const pre={offer:q.get('offer'),guests:q.get('guests')||'',plan:b.plan,hostess:true,hostessLocked:false,
         name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
