@@ -12,6 +12,7 @@
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=15" defer></script>
 <script src="assets/guard.js?v=19"></script>
+<script src="assets/sendboard.js?v=1"></script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--blue:#2F6FED}
   html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--rail:#232A25}
@@ -79,6 +80,9 @@
   .gate input{font:inherit;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:10px;margin:.5rem 0}
   .gate button{font:inherit;padding:.5rem 1.2rem;border-radius:999px;border:none;background:var(--pine);color:#fff;cursor:pointer}
   .err{color:var(--warn);font-size:.82rem;min-height:1.2em}
+  .sbsec{margin:0 0 1.1rem}
+  .sbsec h2{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--pine);margin:0 0 .45rem;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+  .sbsec h2 small{font-family:Heebo,sans-serif;font-weight:400;font-size:.76rem;color:var(--ink3)}
 </style>
 </head>
 <body>
@@ -91,6 +95,10 @@
 <main class="wrap" id="main" hidden>
   <h1>לוח שליחות</h1>
   <p class="sub">מה יצא, למי, ומה מתוכנן: הזמנות ותזכורות לאורחים, הודעות ללקוחות וללידים. לחיצה על יום פותחת את הרשימה.</p>
+  <section class="sbsec" aria-labelledby="sbH">
+    <h2 id="sbH">נשלחו מתוך כמה <small>לפי אירוע וסוג הודעה · נמסר = מטא אישרה מסירה, לא רק קבלה · ⓘ לשמות</small></h2>
+    <div id="sendboard"></div>
+  </section>
   <div class="tb">
     <span class="nav"><button id="prev" aria-label="חודש קודם">›</button><button id="todayBtn">היום</button><button id="next" aria-label="חודש הבא">‹</button></span>
     <span class="mth" id="mth"></span>
@@ -117,6 +125,7 @@
 (function () {
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var sbMounted = false;
   var month = new Date().toISOString().slice(0, 7), data = null, sel = null, ch = 'all', st = 'all', q = '';
   var HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -137,6 +146,7 @@
       if (!d || !d.ok) return;
       data = d; $('gate').hidden = true; $('main').hidden = false;
       paint(); if (sel) paintDay();
+      if (!sbMounted && window.IshurSendBoard) { sbMounted = true; IshurSendBoard.mount($('sendboard'), { api: api }); }
     });
   }
   window.addEventListener('ishur:fresh', load);

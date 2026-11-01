@@ -12,6 +12,7 @@
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=15" defer></script>
 <script src="assets/guard.js?v=19"></script>
+<script src="assets/callboard.js?v=1"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --navy:#16233A;
@@ -81,6 +82,9 @@
     <div class="kpi"><b id="k-events">–</b><span>אירועים</span></div>
     <div class="kpi"><b id="k-done">0</b><span>טופלו עכשיו</span></div>
   </div>
+  <h2 class="ev-h">לוח שיחות לפי אירוע <small>בתור · חויגו · ענו · תוצאות · עלות · הקלטות</small></h2>
+  <div id="cboard"></div>
+  <h2 class="ev-h">ממתינים לשיחה ידנית</h2>
   <div id="list"></div>
   <p class="foot">ishur.io · הדף כותב ישירות לגיליון האורחים</p>
 </main>
@@ -94,6 +98,7 @@
   var MAX_TRIES = 3;
   var adminKey = '';
   var handled = 0;
+  var cbMounted = false;
 
   /* ── access key: URL once, localStorage afterwards ── */
   var qk = new URLSearchParams(location.search).get('key');
@@ -244,6 +249,7 @@
       MAX_TRIES = j.max_tries || 3;
       $('gate').hidden = true; $('main').hidden = false;
       render(j.queue || []);
+      if (window.IshurCallBoard && !cbMounted) { cbMounted = true; IshurCallBoard.mount($('cboard'), { adminKey: adminKey, api: function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }).then(function (r) { return r.ok ? r.json() : null; }); } }); }
     }).catch(function () {
       $('main').hidden = false;
       $('list').innerHTML = '<div class="empty"><b>לא הצלחנו לטעון</b>רעננו את הדף ונסו שוב.</div>';
