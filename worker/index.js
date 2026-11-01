@@ -10033,10 +10033,11 @@ export default {
          quantities it names, otherwise the table price stands. */
       const BUNDLES = {
         vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
-        winter1990: { plan: 'premium', anyPlan: true, hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800' },
-        winter1790: { plan: 'premium', anyPlan: true, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300' },
+        winter1990: { plan: 'premium', anyPlan: true, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
+        winter1790: { plan: 'premium', anyPlan: true, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300', until: '2026-11-30T23:59:59+02:00' },
       };
-      const bundle = BUNDLES[String(b.offer || '')] || null;
+      const bundle0 = BUNDLES[String(b.offer || '')] || null;
+      const bundle = bundle0 && (!bundle0.until || Date.now() <= Date.parse(bundle0.until)) ? bundle0 : null;
       /* anyPlan (01/11): any package + hostesses in range → the bundle price,
          and the package becomes the bundle's (הכל כלול); the hostess count
          follows the tier rule (1 up to 300), not the bundle's number */
