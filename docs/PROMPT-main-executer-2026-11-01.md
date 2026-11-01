@@ -63,6 +63,21 @@ Richard's ask tonight: "איפה אני רואה כמה נשלחו מתוך כמ
 
 Read-only audit + a plan, then the site changes as a patch on the branch (site only, no Worker). Use the `seo-geo` agent/skill if available. Check `llms.txt`, `robots.txt` (GPTBot, ClaudeBot, PerplexityBot, Google-Extended must be allowed), structured data (Organization, Product/Service, FAQ, Review with real ratings only), the city pages (`tel-aviv.html` … `beer-sheva.html`), `faq.html`, `hashvaa.html` (comparison), `why.html`. Deliver `docs/GEO-PLAN-2026-11.md`: (1) what the five assistants (ChatGPT, Gemini, Claude, Perplexity, Google AI Overviews) see today — test the actual prompts in Hebrew ("אישורי הגעה בוואטסאפ", "אישור הגעה לחתונה מחיר", "מערכת אישורי הגעה מומלצת") and record whether ishur.io is cited; (2) the 10 highest-leverage changes, each with the exact page/JSON-LD patch; (3) the off-site list: where to get cited (Hebrew wedding forums, Reddit r/Israel threads, vendor directories, Google Business Profile, a comparison article) with draft texts — **no "הנחה"**, prices "מ-50 ₪", never "עד 899". Apply the on-site patches on the branch; do not post anything off-site.
 
+### G.1 — Richard's targeting + positioning (added 23:55)
+
+Intents to own, each with a dedicated landing page (create if missing, Hebrew, RTL, same design system as `index.html`, each with FAQ + JSON-LD Service/Offer + a primary CTA to order on-site and a secondary CTA to WhatsApp 055-950-4499):
+- אישורי הגעה בוואטסאפ (home + `hatuna.html`, `bar-mitzvah.html`)
+- דיילות לאירוע (hostess tiers exist: 1/2/3 דיילות ₪1,790/2,390/3,090 + ₪250 נסיעות — confirm in `config.js`)
+- סידורי הושבה (`seating.html`)
+- מתנות באשראי / ביט / פייבוקס (gifts: 3.5% + ₪3 from the guest — confirm in `config.js`; if the gifts product is not live yet, the page says "בקרוב" and collects a lead, nothing more)
+- שיחות למוזמנים (Shir, `calls.html` is internal — make a public page)
+- קישור הזמנה לקבוצה ("מעטפה": `rsvp.html?t=` — a public explainer page: the host shares one link in the family group, each guest opens an envelope and confirms, lands in the host's dashboard)
+Promotions: add a machine-readable "current offers" block — a `/offers.json` + an "Offers" section in `llms.txt` + JSON-LD `Offer` with `validThrough` — so assistants can state the live promo; today's promo is "מבצע חורף" (never "הנחה"). Make `config.js` the single source so changing the promo updates the site, llms.txt and offers.json together.
+
+Positioning copy: say what the data proves. Compute from the sheet snapshot (read-only, `snapshotCached`/`/api/audit`): number of events served, guests messaged, RSVP reply rate, calls made — and write "שנתיים בתחום · X אירועים · Y מוזמנים · Z% מענה". "מובילים בתחום" is fine as a claim; do **not** write "עקפנו את כל הוותיקים" or any comparative claim we cannot evidence (Israeli consumer-protection law + Meta/Google policies). Put the strongest true number first.
+
+Reviews: there are 2 real ones. **Do not invent reviews or ratings** — fake Review/AggregateRating markup is a Google manual-action and a legal exposure, and the assistants cross-check. Instead write `docs/SPEC-reviews.md`: an automated review request to the host 2 days after the event (WhatsApp from 4499, after the thank-you, one message, link to Google Business Profile + a one-tap in-dashboard testimonial form with consent to publish name + event type), expected yield at the current event volume, and the display of real testimonials on the site with Review JSON-LD only for consented ones. The sending part is tier 🔴 — spec and template text only, Richard approves.
+
 ## Also, if time remains (read-only analysis, report only)
 
 - Template performance for the last 60 days from `/api/stream` / `/api/audit` (kinds `wa_out`,`wa_status`,`wa_in`) → which templates get replies, which get "טעות"/blocks; feed it into C.2.
