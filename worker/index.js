@@ -9870,6 +9870,22 @@ export default {
       }
       return okJson({ ok: true }, origin);
     }
+    /* 01/11: the sales playbook (script, branches, objections, notes, quick
+       pay presets) — one JSON blob in KV, edited from the admin board */
+    if (url.pathname === '/api/playbook' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      if (b.set && typeof b.set === 'object') {
+        const txt = JSON.stringify(b.set);
+        if (txt.length > 200000) return deny(413, 'too-big', origin);
+        await env.RATE.put('playbook', txt);
+        await env.RATE.put('playbook:bak:' + new Date().toISOString().slice(0, 10), txt, { expirationTtl: 90 * 86400 }).catch(() => {});
+        await logEvent(env, { area: 'אדמין', action: 'תשריט המכירות עודכן', ok: true, detail: txt.length + ' תווים' }).catch(() => {});
+      }
+      let cur = null; try { cur = JSON.parse(await env.RATE.get('playbook')); } catch {}
+      return okJson({ ok: true, playbook: cur || null }, origin);
+    }
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
