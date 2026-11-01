@@ -147,7 +147,9 @@ window.ISHUR_CONFIG = (function () {
      total from the tables is struck through next to it. The Worker holds the
      same table and is the one that actually prices the Grow link. ═══════════ */
   var BUNDLES = {
-    vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות', note: 'מחיר מיוחד' }
+    vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות', note: 'מחיר מיוחד' },
+    /* 01/11: winter deal — the same ₪1,990 all the way up to 800 records */
+    winter1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף' }
   };
   function bundleFor(key) { return (key && BUNDLES[key]) || null; }
   /* does the bundle cover what is on screen? plan + quantity in its range */

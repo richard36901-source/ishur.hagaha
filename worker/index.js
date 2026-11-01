@@ -10031,7 +10031,10 @@ export default {
       /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
          rides in from the ?offer= link; it only applies to the plan and the
          quantities it names, otherwise the table price stands. */
-      const BUNDLES = { vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' } };
+      const BUNDLES = {
+        vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
+        winter1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800' },
+      };
       const bundle = BUNDLES[String(b.offer || '')] || null;
       const bundleOn = !!(bundle && bundle.plan === plan && bundle.guests.includes(guests) && bundle.hostesses === n);
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
