@@ -10033,8 +10033,8 @@ export default {
          quantities it names, otherwise the table price stands. */
       const BUNDLES = {
         vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
-        winter1990: { plan: 'premium', anyPlan: true, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
-        winter1790: { plan: 'premium', anyPlan: true, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300', until: '2026-11-30T23:59:59+02:00' },
+        winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
+        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300', until: '2026-11-30T23:59:59+02:00' },
       };
       const bundle0 = BUNDLES[String(b.offer || '')] || null;
       const bundle = bundle0 && (!bundle0.until || Date.now() <= Date.parse(bundle0.until)) ? bundle0 : null;
@@ -10045,7 +10045,9 @@ export default {
       if (bundleOn && bundle.anyPlan) plan = bundle.plan;
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
-      const travel = center ? 0 : (n >= 2 ? 500 : 250);
+      const travel0 = center ? 0 : (n >= 2 ? 500 : 250);
+      /* bundle travel (01/11): the winter deals carry ₪250 flat whatever the hostess count */
+      const travel = travel0 && bundle && bundle.travel != null && bundle.guests.includes(guests) ? Math.min(travel0, bundle.travel) : travel0;
       /* calendar: cached 5 minutes, one fetch per worker instance window */
       let available = true, calNote = '';
       if (env.HOSTESS_CAL_ICS) {
