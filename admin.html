@@ -15,6 +15,7 @@
 <script src="assets/playbook.js?v=1"></script>
 <script src="assets/sendboard.js?v=1"></script>
 <script src="assets/callboard.js?v=1"></script>
+<script src="assets/callslog.js?v=1"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -491,6 +492,9 @@
   /* the calls view: one page, two faces */
   body[data-view="main"] .sec-calls{display:none}
   body[data-view="calls"] #main > :not(.sec-calls){display:none}
+  /* 02/11 F.5: one merged calls table; ?view=calls&old=1 shows the previous two sections */
+  body.unified[data-view="calls"] .sec-calls:not(.callshead):not(#callsUnified){display:none}
+  body:not(.unified) #callsUnified{display:none}
   .st.hangup{background:#EEE9DA;color:#6B5A2E}
 </style>
 </head>
@@ -543,6 +547,7 @@
     <h1 style="margin:0 0 .2rem">מוקד שיחות</h1>
     <p style="margin:0 0 1rem;color:var(--ink3);font-size:.78rem">שיר לאורחים, נועה ללידים וללקוחות. <a href="calls.html" style="color:var(--gold)">התור הידני של שיר →</a></p>
   </div>
+  <div class="sec-calls" id="callsUnified"></div>
 
   <div id="hqtop">
     <h1 id="hello">בוקר טוב</h1>
@@ -1019,6 +1024,9 @@
   var VIEW = new URLSearchParams(location.search).get('view') === 'calls' ? 'calls' : 'main';
   document.body.dataset.view = VIEW;
   if (VIEW === 'calls') document.title = 'מוקד שיחות · ishur.io';
+  var UNIFIED = VIEW === 'calls' && !new URLSearchParams(location.search).get('old');
+  if (UNIFIED) document.body.classList.add('unified');
+  var unifiedMounted = false;
   var qk = new URLSearchParams(location.search).get('key');
   if (qk) { localStorage.setItem('ishur_calls_key', qk); history.replaceState(null, '', location.pathname); }
   adminKey = localStorage.getItem('ishur_calls_key') || '';
@@ -1226,7 +1234,7 @@
 
   function fastTick() {
     if (liveBusy()) return;
-    if (VIEW === 'calls') loadShir();
+    if (VIEW === 'calls' && !UNIFIED) loadShir();
     loadPause();
     if (slowDue && Date.now() >= slowDue) slowTick();
   }
@@ -1282,7 +1290,12 @@
     hqLoad();
     if (window.IshurPlaybook) IshurPlaybook.mount('sales', adminKey);
     loadFeedback();
-    loadShir();
+    if (!UNIFIED) loadShir();
+    if (UNIFIED && !unifiedMounted && window.IshurCallsLog) {
+      unifiedMounted = true;
+      var rawApi = function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }); };
+      IshurCallsLog.mount($('callsUnified'), { adminKey: adminKey, raw: rawApi, api: function (p, b) { return rawApi(p, b).then(function (r) { return r.ok ? r.json() : null; }); } });
+    }
     loadOps();
     loadBrain();
     loadCost();

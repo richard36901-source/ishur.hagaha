@@ -12,7 +12,7 @@
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=15" defer></script>
 <script src="assets/guard.js?v=19"></script>
-<script src="assets/callboard.js?v=1"></script>
+<script src="assets/callslog.js?v=1"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --navy:#16233A;
@@ -54,6 +54,8 @@
   .empty b{display:block;font-family:'Frank Ruhl Libre',serif;font-size:1.2rem;color:var(--pine);margin-bottom:.3rem}
   .toast{position:fixed;bottom:1rem;right:50%;transform:translateX(50%);background:var(--pine);color:var(--paper);border-radius:99px;padding:.5rem 1.2rem;font-size:.85rem;opacity:0;transition:opacity .25s;pointer-events:none}
   .toast.on{opacity:1}
+  /* the merged calls table needs more than the 640px card column: break out of it */
+  #cboard{width:min(96vw,1180px);margin-inline:calc(50% - min(48vw,590px))}
   .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
   .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr}
   .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
@@ -82,7 +84,7 @@
     <div class="kpi"><b id="k-events">–</b><span>אירועים</span></div>
     <div class="kpi"><b id="k-done">0</b><span>טופלו עכשיו</span></div>
   </div>
-  <h2 class="ev-h">לוח שיחות לפי אירוע <small>בתור · חויגו · ענו · תוצאות · עלות · הקלטות</small></h2>
+  <h2 class="ev-h">כל השיחות <small>אותה טבלה כמו מוקד השיחות במרכז הבקרה</small></h2>
   <div id="cboard"></div>
   <h2 class="ev-h">ממתינים לשיחה ידנית</h2>
   <div id="list"></div>
@@ -249,7 +251,7 @@
       MAX_TRIES = j.max_tries || 3;
       $('gate').hidden = true; $('main').hidden = false;
       render(j.queue || []);
-      if (window.IshurCallBoard && !cbMounted) { cbMounted = true; IshurCallBoard.mount($('cboard'), { adminKey: adminKey, api: function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }).then(function (r) { return r.ok ? r.json() : null; }); } }); }
+      if (window.IshurCallsLog && !cbMounted) { cbMounted = true; var rawApi = function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }); }; IshurCallsLog.mount($('cboard'), { adminKey: adminKey, raw: rawApi, api: function (p, b) { return rawApi(p, b).then(function (r) { return r.ok ? r.json() : null; }); } }); }
     }).catch(function () {
       $('main').hidden = false;
       $('list').innerHTML = '<div class="empty"><b>לא הצלחנו לטעון</b>רעננו את הדף ונסו שוב.</div>';
