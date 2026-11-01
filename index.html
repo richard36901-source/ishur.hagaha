@@ -2235,7 +2235,7 @@ const IshurPromo=(()=>{
     /* offer.beta is an internal flag (post-event feedback ask). Richard,
        01.09: a buyer never reads בטא/הרצה/התנסות anywhere. From their side
        there is exactly one fact, they got a discount. */
-    const bits=['<b>קיבלתם הנחה 🎉</b>', scope()];
+    const bits=['<b>קיבלתם הטבה 🎉</b>', scope()];
     if(offer.left!=null) bits.push(`נשארו ${esc(offer.left)} מקומות`);
     return bits.join(' <i>·</i> ');
   }
@@ -2286,7 +2286,7 @@ const IshurPromo=(()=>{
     /* never the campaign's admin label. "מבצע בעלי עסקים" is how WE file it;
        "בדיקת קצה לקצה" is a test name that reached a real screen once. From
        the visitor's side there is one fact: they got a discount. */
-    document.getElementById('promo-label').textContent='קיבלתם הנחה 🎉';
+    document.getElementById('promo-label').textContent='קיבלתם הטבה 🎉';
     document.getElementById('promo-greeting').textContent=offer.greeting||'';
     /* the beta note is gone for good; the element stays, permanently hidden */
     const beta=document.getElementById('promo-beta');
@@ -2900,7 +2900,7 @@ window.addEventListener('load',()=>{
   <div id="promo-card">
     <button type="button" id="promo-x" data-promo-close aria-label="סגירת החלון">✕</button>
     <div class="promo-rule" aria-hidden="true"></div>
-    <h2 id="promo-title">קיבלתם הנחה</h2>
+    <h2 id="promo-title">קיבלתם הטבה</h2>
     <span id="promo-label"></span>
     <p id="promo-beta" hidden></p>
     <p id="promo-greeting"></p>
