@@ -2,20 +2,21 @@
 
 ## בקצרה (לריצארד)
 
-כל שבעת התוצרים (A–G) בנויים ונבדקו מקומית, והכול יושב כ-commits על הענף `main-executer`. **שום דבר לא נפרס** (גם לא `agent/`, כי אין לו פרטי גישה), **לא נשלחה אף הודעה** לאורחים, ללקוחות או ללידים, ו-**`/api/wave-retry` לא נקרא**.
+כל שבעת התוצרים (A–G), וגם F.4/F.5 שנוספו בלילה, בנויים ונבדקו מקומית, והכול יושב כ-commits על הענף `main-executer`. **שום דבר לא נפרס** (גם לא `agent/`, כי אין לו פרטי גישה), **לא נשלחה אף הודעה** לאורחים, ללקוחות או ללידים, ו-**`/api/wave-retry` לא נקרא**.
 
 מה צריך לדעת לפני החתונה של הדר ויצחק מחר:
 - **"החזק" לא עוצר את הודעת יום האירוע.** `runEventDayBlasts` לא בודק את `hold:`. כדי לעצור אותה צריך `/api/event-day` עם `action:"clear"`.
 - **הודעת יום-לפני של הדר:** נמסרו 25 / נשלחו 271. ‏242 ממתינות ונפתחו מחדש (224 מהן חסומות בגלל תקרת המספר, 131048). זה לא 27/244 כמו בבריף, וההסבר בסעיף F.
-- **גל גלילי `tries:0`:** זו לא תקלה. האירוע היה ב-13/10, ושיר לא מחייגת לאירועים שעברו. בינתיים תוקן ב-`de121f4` גם לוח השיחות, שלא יציג אותם.
+- **גל גלילי `tries:0`:** זו לא תקלה. האירוע היה ב-13/10, ושיר לא מחייגת לאירועים שעברו. בינתיים תוקן ב-`2a8efcd` גם לוח השיחות, שלא יציג אותם.
 
 תיקונים לבריף:
 - **`/api/wave-retry {dry:true}` ו-`/api/daily-run {dry:true}` כותבים ל-RATE**, ו-wave-retry גם מוחק מפתחות. "יבש" שם לא באמת יבש.
 - **כל קריאה עם admin_key ל-`/api/*` כותבת שורת יומן ל-RATE**, חוץ מ-`/api/stream`. כלומר קריאות "קריאה בלבד" הלילה יצרו כ-100 שורות יומן. הפירוט בסעיף "אירועים".
 
 ממצאים שכדאי לטפל בהם:
-- **באג אמיתי:** התשובה "טעות 2 מגיעים" (תיקון מספר מגיעים) מתפרשת כ"מספר שגוי" (`whatsapp.js:518-519`), והאורח מושתק לכל האירוע.
+- **באג אמיתי:** התשובה "טעות 2 מגיעים" (תיקון מספר מגיעים) התפרשה כ"מספר שגוי" (`whatsapp.js:518-519`), והאורח הושתק לכל האירוע. סשן אחר כבר תיקן את זה ב-`fb28a1a` (לא נפרס).
 - **עלות:** הודעת יום-לפני עוברת דרך `ishur_yom_lifnei_f`, שמסווגת שיווקית (₪0.13), במקום `ishur_yom_lifnei` שמסווגת כ-utility (₪0.02).
+- **מפתחות לקוחות:** 5 טוקנים אמיתיים של אירועים (מפתחות לוח הבקרה) נכנסו ל-commits בענף. הענף לא נדחף, אז הם לא יצאו מהמחשב. ניקיתי את ההיסטוריה, והפירוט באירוע 6.
 - **פרטיות:** GitHub Pages מגיש את כל הריפו. ‏`/docs/`, `/worker/` ו-`HANDOFF.md` פתוחים לכל אחד. ‏robots.txt לא עוצר קריאה.
 
 מחכה לאישור שלך: פריסה (Fable), "מאשר" לכל צעד שליחה, ההחלטות שבסוף המסמך.
@@ -34,13 +35,18 @@ All on `main-executer`, branched from `a1c3d8a` (tonight's hotfix, deployed as 1
 | `39c9164` | A: automations registry, `/api/automations` module, `automations.html` |
 | `1fdc72a` | G + G.1: GEO plan, site patches, 5 landing pages, offers.json |
 | `83377bc` | site: promo popup now says "קיבלתם הטבה" (banned-word house rule) |
-| `bf761d4` | C: A/B spec, `ab.js`, `template-stats.js`, `templates.html`, tests |
-| `0107c2b` | F: send board + calls board, scrubbed fixture |
-| `cdeef5c` | **worker wiring 1:** `/api/automations` + `/api/send-board` routes |
-| `73f2f6b` | **worker wiring 2:** A/B hooks + `/api/template-stats` (inert unless `AB_ENABLED=on`) |
-| `4a29f56` | registry: every index.js anchor on its exact line |
+| `b53662b` | C: A/B spec, `ab.js`, `template-stats.js`, `templates.html`, tests |
+| `db6ebf0` | F: send board + calls board, scrubbed fixture |
+| `b3d880f` | **worker wiring 1:** `/api/automations` + `/api/send-board` routes |
+| `c9a6f6d` | **worker wiring 2:** A/B hooks + `/api/template-stats` (inert unless `AB_ENABLED=on`) |
+| `49f0209` | registry: every index.js anchor on its exact line |
+| `883c3e6` | this review |
+| `ada00d5` | F.4 + F.5: one merged calls view (every call ever); fixtures and tests scrubbed of real event tokens |
+| `a757abc` | **worker wiring 3:** `/api/calls-log` route |
 
-Other sessions also committed on this branch tonight. Those commits are not part of this review: `7e737dc` `60cda49` `e69094a` `ebf51b4` (`.sdlc/noa-chase/*`) and `de121f4` (call board drops past-event guests, `worker/index.js` +4/−1).
+Other sessions also committed on this branch tonight. Those commits are not part of this review: `7e737dc` `6bfafcc` `1b110d1` `db3fc78` (`.sdlc/noa-chase/*`), `2a8efcd` (call board drops past-event guests, `worker/index.js` +4/−1), `d6fb27a` `0cff7d7`, and `fb28a1a` (fixes the "טעות 2 מגיעים" parse from C's finding).
+
+**SHAs were rewritten once** (incident 6). Commit *messages* written before the rewrite still name the old SHAs; the old→new map is: bf761d4→b53662b · 60cda49→6bfafcc · de121f4→2a8efcd · e69094a→1b110d1 · 0107c2b→db6ebf0 · cdeef5c→b3d880f · ebf51b4→db3fc78 · 73f2f6b→c9a6f6d · f068200→d6fb27a · 4a29f56→49f0209 · 2438117→0cff7d7 · 4823d68→883c3e6 · 100bd3b→8129da0 · 8468416→fb28a1a · 9404798→ada00d5 · c36c6b2→a757abc. Earlier commits (up to `83377bc`) kept their SHAs.
 
 ### Final check run (after the last commit)
 
@@ -50,7 +56,7 @@ Other sessions also committed on this branch tonight. Those commits are not part
 | `node -e 'import("./index.js")'` (in worker/) | `import ok, default keys: scheduled,fetch` |
 | `node worker/scripts/check-registry.mjs` | `check-registry: OK — 189 anchors, 54 nodes, 7 crons, window ±3` |
 | exact-line audit of registry | `exact: 175 / 175` (index.js anchors) |
-| `cd worker && node --test test/*.test.mjs` | `pass 49 · fail 0` (ab, template-stats, send-board, call-board) |
+| `cd worker && node --test test/*.test.mjs` | `pass 61 · fail 0` (ab, template-stats, send-board, call-board, calls-log) |
 | `cd agent && node --test test/*.test.mjs` | `pass 42 · fail 0` |
 | `node scripts/build-offers.mjs --check` | `up to date` ×3, exit 0 |
 | site validator (scratchpad `validate.py`) | `RESULT PASS failures= 0` before C's spec landed. Its later FAIL was C's spec containing the banned word, since reworded |
@@ -72,12 +78,19 @@ What this does NOT prove: none of the new routes has run inside a Worker or agai
    These are journal rows, not engine state, but they are RATE writes. After the discovery, all agents were limited to `/api/stream`.
 4. **Guest PII nearly committed to the public repo.** F's `send-board.fixture.json` was built from live data and held 769 real guest phones and 747 names. It was scrubbed before commit with the new `worker/scripts/scrub-fixture.mjs`, which maps them to stable fakes (`9725000xxxxx`, "אורח N") and renames events "אירוע <short>". The real file stays only in the session scratchpad. One real-looking phone in `worker/test/call-board.test.mjs` was also replaced. **Rule for next time:** run `build-send-board-fixture.mjs`, then `scrub-fixture.mjs`, then commit.
 5. **No sends, no Meta submissions, no deploys, no RATE writes by our own code paths** (apart from the side effects in 2 and 3).
+6. **Real event tokens (client dashboard keys) were committed, then scrubbed from history.** A token is the only secret `/api/status` checks. Five full tokens (Hadar ec9f3b84, c1c5fcf5, 395962fa, e045522a, 505cd735) were in `send-board.fixture.json` (pre-rewrite `0107c2b`) and in 3 test files (pre-rewrite `bf761d4`). The F agent caught it during F.4.
+   - **Never left the machine:** `main-executer` was never pushed (no upstream, not on origin), and none of the tokens is on `origin/main`.
+   - **Working tree fixed:** fixtures re-scrubbed, and `scrub-fixture.mjs` now replaces tokens too. Test tokens became fakes with the same 8-char prefix.
+   - **History rewritten:** `git filter-branch --tree-filter` over `a1c3d8a..main-executer` (26 commits), in a separate worktree. Then a compare-and-swap `git update-ref` moved the branch only if nobody had committed meanwhile.
+   - **Verified:** real tokens in new history `0`, in old history `8`. Final tree identical to the pre-rewrite HEAD. 26→26 commits, messages identical.
+   - **Backup:** the pre-rewrite history is kept locally at `refs/backup/main-executer-pre-scrub` (still contains the tokens; not under `refs/heads`, so `git push --all` won't send it). Delete it once the branch is confirmed: `git update-ref -d refs/backup/main-executer-pre-scrub`. Never `git push --mirror` before that.
+   - **Other sessions on this branch:** their commits now have new SHAs, same content.
 
 ---
 
 ## A — Automations map
 
-**Status:** built, wired (`cdeef5c`), not deployed.
+**Status:** built, wired (`b3d880f`), not deployed.
 
 - `worker/automations-registry.js`: 54 nodes, 55 edges, 7 crons. Every node and claim is pinned to a `file:line:symbol`. `wave_retry` and `d_engine` are marked `mutates_on_dry`.
 - `worker/scripts/check-registry.mjs` checks every anchor (±3) and the cron list against `wrangler.toml`. The new `worker/scripts/repin-registry.mjs [base]` re-pins after edits to `index.js`, using the git diff line map.
@@ -91,7 +104,7 @@ What this does NOT prove: none of the new routes has run inside a Worker or agai
 - Browser at 375px, dark mode: no horizontal scroll.
 - Hold with a mocked fetch: cancel made 0 calls, confirm made exactly 1.
 
-**Attempts:** registry 2 (syntax error in a comment). The committed `39c9164` had 2 anchors slightly off (`wa:cap` by 4 lines, `waCapInfo` by 1); both are fixed in `4a29f56`.
+**Attempts:** registry 2 (syntax error in a comment). The committed `39c9164` had 2 anchors slightly off (`wa:cap` by 4 lines, `waCapInfo` by 1); both are fixed in `49f0209`.
 
 **Not proven:**
 - The handler has never run in a Worker. A full audit day is about 7k rows (21 s via `/api/stream`), so expect a slow first load.
@@ -105,7 +118,7 @@ What this does NOT prove: none of the new routes has run inside a Worker or agai
 - **Party-size nudges ignore `paused` and `hold`.**
 - **Client messages have no send-window check.** The week-before report, wrap-up, file reminder and upgrade offer can go out at 08:35 Israel time in winter.
 
-**Rollback:** `git revert cdeef5c` (the route returns 404 and the page falls back to the fixture).
+**Rollback:** `git revert b3d880f` (the route returns 404 and the page falls back to the fixture).
 
 ---
 
@@ -132,7 +145,7 @@ Tiers are enforced in code (`agent/src/gate.js`): 🟢 read-only runs immediatel
 
 ## C — A/B testing on guest copy
 
-**Status:** built (`bf761d4`), wired (`73f2f6b`), **inert**: everything is off unless `AB_ENABLED=on`. Challengers drafted, **not submitted**.
+**Status:** built (`b53662b`), wired (`c9a6f6d`), **inert**: everything is off unless `AB_ENABLED=on`. Challengers drafted, **not submitted**.
 
 **Built:**
 - `docs/SPEC-ab-testing.md`: intent, spec, plan, analysis (C.2), stopping rule, challengers.
@@ -144,7 +157,7 @@ Tiers are enforced in code (`agent/src/gate.js`): 🟢 read-only runs immediatel
 - **Stopping rule:** each arm needs ≥200 delivered sends that are ≥72h old. A winner needs |z| ≥ 2.24·√(1000/n). At 1000 per arm with no winner, the control stays.
 - **Guardrails:** opt-out (+0.5pt); every guest number must be GREEN quality. Today 9799 is UNKNOWN, so marketing challengers are blocked.
 
-**Wiring (`73f2f6b`):** hooks in `sendWave`, thank-you and day-before; a 06:00 IL evaluate hook inside the `*/10` cron; the `/api/template-stats` route. The hooks are inert when off:
+**Wiring (`c9a6f6d`):** hooks in `sendWave`, thank-you and day-before; a 06:00 IL evaluate hook inside the `*/10` cron; the `/api/template-stats` route. The hooks are inert when off:
 - `pickVariant` returns the engine's own template without touching KV.
 - `remindTmpl` equals `inviteTmpl` unless `AB_AUTOROTATE=on`.
 - I gated the evaluate hook on `AB_ENABLED` in `index.js` too, so the off state writes no journal rows. Before that, `audit.job` would have logged 6 rows a day.
@@ -175,7 +188,7 @@ Tiers are enforced in code (`agent/src/gate.js`): 🟢 read-only runs immediatel
 - That Meta keeps the challengers as utility.
 - Button press vs. typed reply can't be told apart; replies use last-touch attribution.
 
-**Rollback:** `git revert 73f2f6b` (independent of `cdeef5c`).
+**Rollback:** `git revert c9a6f6d` (independent of `b3d880f`).
 
 ---
 
@@ -203,7 +216,7 @@ Also: `autoscale.co.il` does not resolve.
 
 ## F — Send board + calls board
 
-**Status:** built (`0107c2b`), `/api/send-board` wired (`cdeef5c`), not deployed. The pages fall back to the scrubbed fixture.
+**Status:** built (`db6ebf0`), `/api/send-board` wired (`b3d880f`), not deployed. The pages fall back to the scrubbed fixture.
 
 **Built:**
 - `worker/send-board.js`: per event × message type, it shows **"נמסרו X / נשלחו Y / מתוך Z"** with ⓘ drill-downs: per guest, Meta code, Hebrew reason, sending number.
@@ -231,7 +244,7 @@ Why the brief said 27: `/api/delivery-report` tallies each guest's *last outgoin
 **גל גלילי c2f63d20 `tries: 0`:**
 - None of the 38 calls on 01/11 were for it; the event date is 13/10.
 - The dialer skips past events (`shir.js:116`).
-- The call queue never dropped past events (`dashboard.js:41-85`) and labelled them "waiting". This is now fixed in `de121f4`, made by another session.
+- The call queue never dropped past events (`dashboard.js:41-85`) and labelled them "waiting". This is now fixed in `2a8efcd`, made by another session.
 - Before 13/10, voicemail didn't count as a try (`shir.js:529-532`). This can't be checked because the audit log starts 22/10.
 
 **Other finding:** inbound call records store *our* number as the guest's phone (`to_number`, index.js ~2165).
@@ -250,7 +263,43 @@ Why the brief said 27: `/api/delivery-report` tallies each guest's *last outgoin
 - Event-day type (no job data read).
 - The recording button.
 
-**Rollback:** `git revert 0107c2b` for the pages; the route goes with `cdeef5c`.
+**Rollback:** `git revert db6ebf0` for the pages; the route goes with `b3d880f`.
+
+---
+
+## F.4 + F.5 — every call ever, one calls view
+
+**Status:** built (`ada00d5`), `/api/calls-log` wired (`a757abc`), not deployed. The page falls back to the scrubbed `calls-log.fixture.json`.
+
+**Built:**
+- `worker/calls-log.js`: `POST /api/calls-log`. It has **no KV puts or deletes and no cache** (`grep -nE "\.(put|delete)\(" worker/calls-log.js` finds nothing).
+  - **Paging:** cursor `day|ts|id` over audit kind `call`, one Israel day per query (multi-day queries drop days), at most 4 days per request.
+  - **Filters (server-side):** agent, kind, state, לבדיקה, event, outcome, free text.
+  - **CSV:** `format:'csv'` returns up to 2000 rows, with the next cursor in `X-Next-Cursor`.
+  - **Header counts:** `count_day` counts one day; the page runs 3 at a time.
+  - **Queue:** `queue:true` returns the people waiting, with tries X/Y and the next attempt time.
+- `assets/callslog.js`: **one table, one row per person** — סוכנת · שם · טלפון · אירוע/ליד · מצב · ניסיונות X/Y · שיחה אחרונה (▶ recording, transcript) · הערה · ניסיון הבא.
+  - One merged KPI row, all filters, a date range, "טען עוד 100" without a reload, CSV export, and the header "N שיחות · M לבדיקה".
+- **Pages:** `admin.html?view=calls` shows only this table; `calls.html` reuses the same module. **Rollback:** the old two sections stay at `?view=calls&old=1`.
+
+**Ran:**
+- **Tests:** `node --test` → calls-log 10/10 first run (cursor across day boundaries, newest first, each row once; a filter that empties a page gives `rows: []` plus a cursor, then `null`; CSV quoting and formula guard; zero KV writes). The worker suite total is now 61/61.
+- **My own browser check:** fresh origin `localhost:4190` with no stored key, 375px dark.
+  - The header read `38 שיחות · 27 לבדיקה` (default range: last 7 days).
+  - No horizontal scroll.
+  - Network log: only localhost GETs (page, scripts, `calls-log.fixture.json`), **zero requests to go.ishur.io**.
+- **F's browser check:** on its own port, with the range set from 22/10, the header read `85 שיחות · 47 לבדיקה`. "רק לבדיקה" gave 47 · 47. Agent נועה showed 14 lead rows. The "אירוע עבר" state shows the Gal guests as "לא יחויג". CSV in fixture mode came out as header plus 85 lines.
+- **Live calls for F.4/F.5:** none (not even `/api/stream`).
+
+**Not proven:**
+- The cursor walk, server CSV and recording playback against the live audit log.
+- **KV read cost:** one audit day is about 2–9k KV reads, so the 4-day cap may still be too much for one request.
+
+**Decisions:**
+- **"לבדיקה" is our own rule.** Retell's needs_review flag isn't stored in the audit record, so we flag connected calls with no usable answer, failures on our side, and negative sentiment. That flags 47 of 85. Confirm or adjust `classifyCall`.
+- **The old "לוג שיחות" sheet tab** (calls before 22/10) is read only with `sheet:true`, through `readTabAll` (Make proxy, writes nothing, costs one Make operation). Not run live.
+- **Inbound calls show "לא נשמר" for the caller.** The webhook stores our own number (`to_number`, index.js ~2165).
+- **Each page open fires 7 or more requests.** Every request to `/api/calls-log` still writes one admin audit row through the shared middleware. Optional: exempt it like `/api/stream` (`url.pathname !== '/api/calls-log'` in the middleware condition). Not applied, because that changes the audit policy.
 
 ---
 
@@ -330,11 +379,13 @@ Button: dynamic URL `https://go.ishur.io/nav/{{1}}` (per-event nav redirect, a r
 ## Needs Richard / Fable (action footer)
 
 **Fable — deploy decisions**
-- [ ] Review `cdeef5c` (2 read-only routes) and `73f2f6b` (A/B hooks, inert). Deploy after the wedding, **not before 03/11**.
+- [ ] Review `b3d880f` + `a757abc` (3 read-only routes) and `c9a6f6d` (A/B hooks, inert). Deploy after the wedding, **not before 03/11**.
 - [ ] Accept or drop the `sendboard:*` 5-min cache write in `worker/send-board.js`.
 - [ ] Fix `/api/wave-retry` so `b.dry` is checked before any KV delete/put. Make `runDailyEngine` dry truly read-only.
 - [ ] Decide whether `/api/*` admin audit rows should skip reads (they're why "read-only" isn't).
-- [ ] Fix the "טעות 2 מגיעים" parse (`whatsapp.js:518-519`).
+- [ ] Review `fb28a1a` (another session's fix for the "טעות 2 מגיעים" parse), and `b3d880f` + `a757abc` (the read-only routes).
+- [ ] Decide on exempting `/api/calls-log` (and other pure reads) from the admin audit row.
+- [ ] After confirming the branch: `git update-ref -d refs/backup/main-executer-pre-scrub` (local backup still holds the real tokens).
 - [ ] Event-day blast: check `hold:`; resend 131048 failures.
 - [ ] Add `{ href: 'templates.html', label: 'תבניות' }` to `assets/adminbar.js`.
 
@@ -346,3 +397,4 @@ Button: dynamic URL `https://go.ishur.io/nav/{{1}}` (per-event nav redirect, a r
 - [ ] Meta: add the business address to the ticket, send it, do the Security Center clicks.
 - [ ] Repo is public: move the site to a folder or branch with only public files (`/docs`, `/worker` are readable today).
 - [ ] G.1: give a source for the positioning numbers; confirm the hostess tiers; confirm the "להעביר לריצארד" label for calls with no outcome.
+- [ ] F.4: confirm the "לבדיקה" rule (47 of 85 calls flagged).
