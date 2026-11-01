@@ -46,6 +46,7 @@ import { handleCallsLog } from './calls-log.js';
 /* 01/11 A/B on guest copy + template performance (docs/SPEC-ab-testing.md) */
 import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js';
 import * as ab from './ab.js';
+import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 outreach routes (B2B venues) */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -8926,6 +8927,12 @@ export default {
     if (url.pathname === '/ph' || url.pathname.startsWith('/ph/')) {
       return proxyPostHog(request, url, origin);
     }
+    /* 02/11 outreach routes — email open pixel + click redirect (outreach.js).
+       Mounted BEFORE the mirror guard below, or go.ishur.io would serve the
+       website for /px/ and /r/. Public by design: the token is an HMAC. */
+    if ((url.pathname.startsWith('/px/') || url.pathname.startsWith('/r/')) && request.method === 'GET') {
+      return handleOutreachTrack(request, env, url, { stream });
+    }
     /* on the mirror host, anything that is not an API call is the website */
     if (url.hostname === MIRROR_HOST &&
         !url.pathname.startsWith('/api/') &&
@@ -9369,6 +9376,12 @@ export default {
        Every row says which persona owns it, because the iron rule of this
        business is that Shir never speaks to a client and Noa never to a
        guest, and a board that blurs the two would hide a real failure. */
+    /* 02/11 outreach routes — B2B venues: import / plan / send / stats (outreach.js).
+       Sends only when OUTREACH_ENABLED = "on"; email needs the EMAIL binding
+       and `wrangler email sending enable ishur.io`. Never called from a cron. */
+    if (url.pathname === '/api/outreach' && request.method === 'POST') {
+      return handleOutreach(request, env, origin, { isAdmin, okJson, deny, stream, sendWindowState, sendTemplate, clientToken, slackSend });
+    }
     if (url.pathname === '/api/call-board' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
