@@ -2954,7 +2954,16 @@ async function handleWaWebhook(request, env, url) {
                 await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
                 const pidHit = (await env.RATE.get('wamidpid:' + st.id).catch(() => null)) || '';
                 const ids = guestPhoneIds(env);
-                if (pidHit && ids.length > 1) await env.RATE.put('wacap:' + pidHit, new Date().toISOString(), { expirationTtl: 24 * 3600 }).catch(() => {});
+                /* 02/11: hold the number with a growing backoff (10m → 20m → 40m … ≤ 6h); the
+                   health check may not lift it before `wacapuntil` — Meta says AVAILABLE and then
+                   rejects the very next burst with 131048 */
+                if (pidHit) {
+                  const nHits = (Number(await env.RATE.get('wacapn:' + pidHit).catch(() => 0)) || 0) + 1;
+                  const backoff = Math.min(6 * 3600, 600 * Math.pow(2, nHits - 1));
+                  await env.RATE.put('wacapn:' + pidHit, String(nHits), { expirationTtl: 24 * 3600 }).catch(() => {});
+                  await env.RATE.put('wacapuntil:' + pidHit, String(Date.now() + backoff * 1000), { expirationTtl: backoff + 60 }).catch(() => {});
+                  await env.RATE.put('wacap:' + pidHit, new Date().toISOString(), { expirationTtl: 24 * 3600 }).catch(() => {});
+                }
                 /* the global hold only when every number is capped (or there is just one) */
                 const allHeld = ids.length <= 1 || (await Promise.all(ids.map(id => env.RATE.get('wacap:' + id).catch(() => null)))).every(Boolean);
                 if (allHeld && !await env.RATE.get('wacap:guests')) {
@@ -4128,12 +4137,14 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     let job = null; try { job = JSON.parse(rawJob); } catch {}
     if (!job) continue;
     const due = today >= String(job.at || '');
-    if (!dry && (!due || ilHour < 9 || !sendWindowState().open || await sendingPaused(env))) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
+    if (!dry && (!due || ilHour < 9 || !sendWindowState().open || await sendingPaused(env) || await env.RATE.get('wacap:guests').catch(() => null))) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
     /* the template must be live */
     let approved = false;
     try {
-      const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${job.template}&fields=name,status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
-      const j = await r.json(); approved = ((j.data || [])[0] || {}).status === 'APPROVED';
+      const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${job.template}&fields=name,status,category`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+      const j = await r.json(); const t0 = ((j.data || [])[0] || {}); approved = t0.status === 'APPROVED';
+      /* 02/11: a MARKETING template to guests who already got messages dies on 131049 — refuse it */
+      if (approved && t0.category === 'MARKETING' && !job.allow_marketing) { approved = false; await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} שיווקית — לא נשלחת לאורחים (131049). צריך תבנית utility.`, token.slice(0, 8)); }
     } catch {}
     const raw = await snapshotCached(env);
     const people = await eventDayRecipients(env, token, raw, job);
@@ -4460,6 +4471,8 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      health endpoint each tick; the marker drops the moment it says AVAILABLE. */
   if (!dry && env.RATE) for (const id of guestPhoneIds(env)) {   /* per-number holds lift on their own after Meta's window rolls */
     if (await env.RATE.get('wacap:' + id).catch(() => null)) {
+      const until = Number(await env.RATE.get('wacapuntil:' + id).catch(() => 0)) || 0;
+      if (until > Date.now()) continue;   /* 02/11: backoff first, health second */
       const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
       const j = r ? await r.json().catch(() => ({})) : {};
       if (j.health_status && String(j.health_status.can_send_message || '') === 'AVAILABLE') await env.RATE.delete('wacap:' + id).catch(() => {});

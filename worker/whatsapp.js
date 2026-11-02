@@ -67,11 +67,22 @@ function ilDayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/
 export async function pickGuestPhone(env) {
   const ids = guestPhoneIds(env);
   if (!guestsReady(env) || !ids.length) return '';
-  if (ids.length === 1 || !env.RATE) return ids[0];
+  if (!env.RATE) return ids[0];
   const day = ilDayKey();
   const rows = await Promise.all(ids.map(async id => ({ id, n: Number(await env.RATE.get(`gsend:${id}:${day}`).catch(() => 0)) || 0, held: !!(await env.RATE.get('wacap:' + id).catch(() => null)) })));
-  const open = rows.filter(r => !r.held).sort((a, b) => a.n - b.n);
-  return (open[0] || rows.sort((a, b) => a.n - b.n)[0]).id;
+  /* 02/11 incident: retries burned 2,081 conversations against two 250 caps
+     and Meta blocked both numbers for 24h. A number that already sent its
+     budget today is simply not offered — no Meta call, no 131048. */
+  const budget = guestDailyBudget(env);
+  const open = rows.filter(r => !r.held && r.n < budget).sort((a, b) => a.n - b.n);
+  return open.length ? open[0].id : '';
+}
+export function guestDailyBudget(env) { const n = Number(env && env.GUEST_DAILY_BUDGET); return n > 0 ? n : 230; }
+export async function guestBudgetLeft(env) {
+  if (!env.RATE) return 0;
+  const day = ilDayKey(); const b = guestDailyBudget(env); let left = 0;
+  for (const id of guestPhoneIds(env)) { const n = Number(await env.RATE.get(`gsend:${id}:${day}`).catch(() => 0)) || 0; const held = await env.RATE.get('wacap:' + id).catch(() => null); if (!held) left += Math.max(0, b - n); }
+  return left;
 }
 export async function bumpGuestSend(env, pid) {
   if (!env.RATE || !pid) return;
@@ -250,6 +261,7 @@ async function post(env, body, channel, ctx) {
   }
   const phoneId = channel === 'guests' ? await pickGuestPhone(env) : pickPhone(env, channel);
   const token = pickToken(env, channel);
+  if (channel === 'guests' && token && !phoneId) return { ok: false, error: 'guests-daily-budget', held: true };
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
   const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
     method: 'POST',
