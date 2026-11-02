@@ -32,7 +32,7 @@ import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, guestUsage, guestPortfolioBudget, guestDailyBudget, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -52,6 +52,7 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
+import { navLinkOk, giftLinkOk } from './links.js';   /* 02/11 audit: links that reach guests */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -907,7 +908,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
     if (await leadReplied(env, phone, rec.at)) { if (!dry) await settle(phone, 'answered'); continue; }
 
     const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
-    const occ = rec.occasion || 'האירוע שלכם';
+    const occ = cleanOccasion(rec.occasion) || 'אירוע שלכם';   /* 02/11 audit: the templates read "ל{{2}}" — "להאירוע שלכם" went out (live log) */
     const sendTouch = async (tmpl, stampField) => {
       if (budget) budget.left--;
       const wa = await sendClient(env, phone, tmpl, [first, occ]);
@@ -983,7 +984,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
    flipped without a deploy: extrasend (unlocks wave 3, the paid add-on) and
    hold (freezes every guest send for one event).
    POST {admin_key, token, flag:'extrasend'|'hold', on:bool}; omit `on` to read. */
-const EVENT_FLAGS = ['extrasend', 'hold', 'cancel'];
+const EVENT_FLAGS = ['extrasend', 'hold', 'cancel', 'postponeok'];
 async function handleEventFlag(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -1011,6 +1012,17 @@ async function handleEventFlag(request, env, origin) {
   }
   if (typeof body.on !== 'boolean') {
     return okJson({ ok: true, flag, on: !!(await env.RATE.get(key)) }, origin);
+  }
+  /* 02/11 audit: postponeok = "the date in column G is a real postponement,
+     tell the guests" — stored as THAT date, so a later edit needs a new OK */
+  if (flag === 'postponeok' && body.on) {
+    const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
+    const d = ev ? String(ev[6] || '').trim().slice(0, 10) : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(404, 'event-date-not-found', origin);
+    await env.RATE.put(key, d, { expirationTtl: 200 * 86400 });
+    await logEvent(env, { area: 'אירוע', action: 'אושרה הודעת דחייה לאורחים', ok: true, token, detail: d }).catch(() => {});
+    return okJson({ ok: true, flag, on: true, date: d }, origin);
   }
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
@@ -2943,7 +2955,20 @@ async function handleWaWebhook(request, env, url) {
                  a message. Reopen them without a strike, raise one cap marker
                  that holds every wave until Meta's health check clears, and
                  tell Slack once — not 200 times. */
-              const capHit = code === '131048' || code === '130429';
+              /* 02/11 audit: 131042 (payment/eligibility on the WABA) is the
+                 account, not the guest — no strike either, hold like a cap */
+              const capHit = code === '131048' || code === '130429' || code === '131042';
+              /* 02/11 audit: a cap hit used to reopen the same guest without
+                 limit — one phone was accepted 28 times in a day, 2,091 of
+                 2,350 templates failed. Three cap-reopens per guest per stage
+                 (rolling 3 days), then it stops and waits for a human. */
+              const capN = capHit ? (parseInt(await env.RATE.get(`wcapn:${m.token}:${m.wave}:${m.phone}`).catch(() => '0') || '0', 10) || 0) + 1 : 0;
+              if (capHit) await env.RATE.put(`wcapn:${m.token}:${m.wave}:${m.phone}`, String(capN), { expirationTtl: 3 * 86400 }).catch(() => {});
+              if (capHit && capN > 3) {
+                await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, code, { expirationTtl: 120 * 86400 }).catch(() => {});
+                retry = ' · נחסם 3 פעמים בתקרה — נעצר, דורש טיפול ידני';
+                continue;
+              }
               if (capHit) {
                 await env.RATE.delete(m.gk);
                 await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {});
@@ -2971,13 +2996,22 @@ async function handleWaWebhook(request, env, url) {
                   await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
                 } else if (!allHeld) {
                   await env.RATE.delete(m.gk).catch(() => {});   /* resend via another number next tick */
-                  await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true }).catch(() => {});
+                  /* once per number per hour, not once per failed message (02/11: hundreds) */
+                  if (!(await seenOnce(env, `capslack:${pidHit || '?'}:${new Date().toISOString().slice(0, 13)}`))) await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true }).catch(() => {});
                 }
                 retry = ' · תקרת שיחות של מטא — ימתין וישלח שוב כשתיפתח';
                 continue;
               }
               /* 131026 = not on WhatsApp / blocked us: retrying cannot help, the phone call round is the way */
-              const n = code === '131026' ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
+              /* 02/11 audit: for the one-day lifecycle messages (table, day-before,
+                 event-day, postpone, resend) Meta's per-user marketing cap (131049),
+                 the marketing experiment holdout (130472) and "stopped marketing"
+                 (131050) fail identically on every retry the same day — three
+                 retries ten minutes apart only spent three more budget slots.
+                 Waves keep their own 131049 defer (sendWave). */
+              const lifecycle = !/^[123]$/.test(String(m.wave));
+              const terminal = code === '131026' || (lifecycle && /^(131049|130472|131050)$/.test(code));
+              const n = terminal ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
               await env.RATE.put(fk, String(n), { expirationTtl: 7 * 86400 });
               if (n >= 3) {
                 await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, String(err.code || ''), { expirationTtl: 120 * 86400 });
@@ -3097,6 +3131,9 @@ async function handleWaWebhook(request, env, url) {
        the GUEST logic for it (RSVP, party size, table), never the lead/client
        flow — but answer on the same number the guest is talking to. */
     const sendCh = ch;
+    /* 02/11 audit: remember which guest number this person is talking to — a
+       free-form reply is only deliverable from that number (131047) */
+    if (sendCh === 'guests' && env.RATE) await env.RATE.put('gin:' + normPhone(from), String(phoneId), { expirationTtl: 86400 }).catch(() => {});
     if (ch === 'client' && env.RATE && await env.RATE.get('x4499:' + normPhone(from)).catch(() => null)) ch = 'guests';
     const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
     /* full inbound log — every message from every number, always */
@@ -3297,7 +3334,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, ch, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
         }
@@ -3318,7 +3355,7 @@ async function handleWaWebhook(request, env, url) {
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, ch, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
@@ -3333,7 +3370,7 @@ async function handleWaWebhook(request, env, url) {
     if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
     /* "בוצע AUT-123" closes a team reminder before the service brain answers */
     if (parsed.kind === 'text' && guest && ch === 'guests') {
-      if (await guestFreeText(env, raw, guest, from, parsed.body, say)) continue;
+      if (await guestFreeText(env, raw, guest, from, parsed.body, say, sendCh)) continue;
     }
     if (parsed.kind === 'text') {
       const done = await markTaskDone(env, parsed.body).catch(() => null);
@@ -3390,17 +3427,20 @@ async function linearTriageIssue(env, title, body) {
 function eventRowOf(raw, token) {
   return ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === token) || null;
 }
-async function guestFreeText(env, raw, guest, from, text, say) {
+async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests') {
   const t = String(text || '').replace(/[‎‏]/g, '').trim();
   if (!t) return false;
   const ev = eventRowOf(raw, guest.token) || [];
   const c = i => String(ev[i] ?? '').trim();
-  const n = partyFromText(t);
+  /* 02/11 audit: a question is never a head count ("באיזו שעה? 19:30?" was
+     written as מגיע 19), and "אולי 2" / "לא יודע, אולי 3" is undecided, not
+     a confirmed 2 — the number used to win over the doubt. */
+  const n = isQuestion(t) ? null : partyFromText(t);
   const intent = guestIntent(t);
   const saysNo = intent === 'no', saysYes = intent === 'yes';
   const log = (action, detail) => logEvent(env, { area: 'ווצאפ', action, ok: true, phone: from, token: guest.token, detail: `${guest.name}: "${t.slice(0, 80)}"${detail ? ' · ' + detail : ''}` }).catch(() => {});
 
-  if (intent === 'unsure' && !n) {
+  if (intent === 'unsure') {
     /* "לא מודע כרגע", "עוד לא יודעים": undecided, stop asking how many */
     const saved = await writeGuestReply(env, guest, 'מתלבט');
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
@@ -3417,13 +3457,13 @@ async function guestFreeText(env, raw, guest, from, text, say) {
     const saved = await writeGuestReply(env, guest, 'מגיע', n);
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
-    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, 'guests', { who: 'שיר (מענה אוטומטי)' });
+    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
   }
   if (saysYes) {
     const saved = await writeGuestReply(env, guest, 'מגיע', 1);
-    if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
+    if (saved && env.RATE) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
     await say(saved ? 'איזה כיף! כמה תהיו בסך הכל?' : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
@@ -3434,21 +3474,22 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   }
   if (/(מתנה|ביט|פייבוקס|paybox|\bbit\b|צ'?ק|לתת כסף|להעביר כסף)/i.test(t)) {
     let gl = null; try { gl = env.RATE ? JSON.parse(await env.RATE.get('giftlinks:' + guest.token) || 'null') : null; } catch {}
+    if (gl) { if (gl.bit && !giftLinkOk(gl.bit)) gl.bit = ''; if (gl.paybox && !giftLinkOk(gl.paybox)) gl.paybox = ''; }
     if (gl && gl.on && (gl.bit || gl.paybox)) {
       await say(`🎁 מתנה לבעלי השמחה:${gl.bit ? '\nביט: ' + gl.bit : ''}${gl.paybox ? '\nפייבוקס: ' + gl.paybox : ''}`); await log('שאלת מתנה, נשלחו קישורים'); return true;
     }
   }
   if (/(איפה|כתובת|מיקום|וייז|waze|היכן|איך מגיעים|ניווט)/i.test(t) && where) {
-    const nav = env.RATE ? await env.RATE.get('navlink:' + guest.token).catch(() => '') : '';
+    const navRaw = env.RATE ? await env.RATE.get('navlink:' + guest.token).catch(() => '') : ''; const nav = navRaw && navLinkOk(navRaw) ? navRaw : '';
     await say(`📍 ${where}${nav ? '\nניווט: ' + nav : ''}`); await log('שאלת מיקום, נענתה'); return true;
   }
   if (/(מי זה|מי אתם|מי שולח|מאיפה|מה זה|למה אני)/.test(t)) {
-    await say(`זו הזמנה ל${c(5) || 'אירוע'} של ${c(34) || c(2)}, נשלחה דרך אישורי הגעה (ishur.io). אפשר לענות כאן מגיע / לא מגיע 🙂`); await log('שאלת מי זה, נענתה'); return true;
+    await say(`זו הזמנה ל${guestEventName(ev, { article: false })}, נשלחה דרך אישורי הגעה (ishur.io). אפשר לענות כאן מגיע / לא מגיע 🙂`); await log('שאלת מי זה, נענתה'); return true;
   }
   if (/^(תודה|תודה רבה|סבבה|אוקיי|ok|👍|🙏|❤️|מזל טוב|בהצלחה)/i.test(t)) { await log('אורח הודה, בלי מענה'); return true; }
   /* anything else: acknowledge, and hand the hosts the message */
   await say('קיבלנו 🙂 מעבירים לבעלי השמחה.');
-  const evName = c(34) || c(2);
+  const evName = c(34) || ('לקוח ' + c(2));   /* internal (Slack) only */
   /* Richard 22/10: no more Linear issue per guest question (30 of them clogged
      triage); Slack + the live log carry it. Set GUEST_Q_LINEAR=on to restore. */
   const li = String(env.GUEST_Q_LINEAR || '') !== 'on' ? { ok: false, why: 'off' } : await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
@@ -4116,11 +4157,94 @@ async function templateApproved(env, name) {
 /* 02/11 incident: 245 table messages said "החתונה של Eleonora" (the client's
    name, ev[2]) instead of the hosts (ev[34]). EVERY guest-facing event name
    goes through here. Column 34 = בעלי השמחה, 2 = the paying client's name. */
+/* CLIENT-facing name (reports to the client, Slack, feedback): may fall back to
+   the client's own name — the client reading it IS that person. */
 export function eventDisplayName(ev, { article = true, fallback = 'האירוע' } = {}) {
   const hosts = String((ev && (ev[34] || ev[2])) || '').trim();
   const occasion = String((ev && ev[5]) || '').trim();
   if (!occasion) return hosts || fallback;
   return (article ? 'ה' : '') + occasion + (hosts ? ' של ' + hosts : '');
+}
+/* GUEST-facing name. 02/11 audit: eventDisplayName's ev[2] fallback is the
+   incident one level down — an event whose hosts cell (AI) is empty would
+   still tell 300 guests "של <the paying client>". A guest never sees column
+   C: no hosts → no "של …" at all. Every guest template goes through here
+   (lint: test/guest-names.test.mjs). */
+export function eventHosts(ev) { return String((ev && ev[34]) || '').trim(); }
+export function guestEventName(ev, { article = true } = {}) {
+  const hosts = eventHosts(ev);
+  const occasion = String((ev && ev[5]) || '').trim();
+  if (!occasion) return hosts || (article ? 'האירוע' : 'אירוע');
+  return (article ? 'ה' : '') + occasion + (hosts ? ' של ' + hosts : '');
+}
+/* ── a guest the client added AFTER wave 1 went out (dashboard guest-add) ──
+   02/11 audit: this used to send the invitation the second the client hit
+   "add" — at 23:40, on Shabbat, on a holiday, while sending was paused or
+   the event on hold, after the event — and without the wamid record, so a
+   Meta failure could never reopen it. Now the same gates as the waves; when
+   one is closed (or the budget is out) the guest waits in lateinv:<tok>:<phone>
+   and the pacer sends it inside the window. */
+async function lateInvite(env, ev, tok, name, phone) {
+  const p = normPhone(phone);
+  if (!ev || !env.RATE || !p) return { sent: false, why: 'with-wave' };
+  const qk = `lateinv:${tok}:${p}`;
+  const drop = async (why) => { await env.RATE.delete(qk).catch(() => {}); return { sent: false, why }; };
+  if (await env.RATE.get(`wsent:${tok}:1:${p}`)) return drop('already-sent');
+  if (await phoneBlocked(env, p)) return drop('blocked');
+  if (await wrongNum(env, tok, p)) return drop('wrong-number');
+  if (String(ev[27] || '').trim() === 'כן') return drop('cancelled');
+  const evDay = String(ev[6] || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < ilDate()) return drop('event-passed');
+  const queue = async (why) => { await env.RATE.put(qk, JSON.stringify({ name, at: new Date().toISOString(), why }), { expirationTtl: 7 * 86400 }).catch(() => {}); return { sent: false, why: 'queued:' + why }; };
+  if (!sendWindowState().open) return queue('outside-hours');
+  if (isNoContactDay(ilDate())) return queue('no-contact-day');
+  if (await sendingPaused(env)) return queue('paused');
+  if (await env.RATE.get('hold:' + tok)) return queue('hold');
+  const occasion = String(ev[5] || '').trim() || 'אירוע';
+  const hosts = eventHosts(ev) || 'בעלי השמחה';
+  const date = heDate(String(ev[6] || '').trim());
+  const time = String(ev[36] || '').trim() || 'בשעות הערב';
+  const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+  const inviteTmpl = (await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+  /* same media choice as wave 1: video, else image, else text */
+  const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
+  const invite = String(ev[44] || '').trim();
+  const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
+  const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
+  const custom = await customTemplateFor(env, tok);
+  const gname = String(name || '').trim() || 'אורח יקר';
+  const res = custom
+    ? await sendTemplate(env, p, custom.name, [], custom.header === 'NONE' ? '' : media, 'he', 'guests', { occasion, wave: 1, token: tok, name: gname })
+    : await sendTemplate(env, p, tmpl, [gname, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name: gname });
+  if (res.held) return queue('budget');
+  if (!res.ok) { await env.RATE.delete(qk).catch(() => {}); return { sent: false, why: res.error || 'send-failed' }; }
+  const gk = `wsent:${tok}:1:${p}`;
+  await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+  await noteGuestSend(env, res, tok, 1, p, gk);
+  await addEvCost(env, tok, msgCost(tmpl)).catch(() => {});
+  await env.RATE.delete(qk).catch(() => {});
+  return { sent: true, why: 'sent' };
+}
+async function drainLateInvites(env) {
+  if (!env.RATE || !sendWindowState().open) return { sent: 0, closed: true };
+  const q = await kvPrefix(env, 'lateinv:');
+  const keys = Object.keys(q);
+  if (!keys.length) return { sent: 0 };
+  const raw = await snapshotCached(env);
+  const evRows = (raw && raw.events && raw.events.values) || [];
+  let sent = 0, tried = 0;
+  for (const k of keys) {
+    if (tried >= 10) break;
+    const [tok, phone] = k.split(':');
+    let rec = {}; try { rec = JSON.parse(q[k]) || {}; } catch {}
+    const ev = evRows.find(r => String((r || [])[1] || '').trim() === tok);
+    if (!ev) { await env.RATE.delete('lateinv:' + k).catch(() => {}); continue; }
+    tried++;
+    const r = await lateInvite(env, ev, tok, rec.name, phone);
+    if (r.sent) sent++;
+    if (/^queued:budget/.test(r.why)) break;   /* the budget is out — the rest waits */
+  }
+  return { sent, tried, queued: keys.length };
 }
 async function noteGuestSend(env, wa, token, wave, phone, gk) {
   if (!env.RATE || !wa || !wa.ok || !wa.id) return;
@@ -4161,6 +4285,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       /* job.params: an explicit parameter list for a fallback template (21/10, when the day's own template is still pending at Meta) */
       const params = Array.isArray(job.params) && job.params.length ? job.params : [job.time, job.what, job.address, job.nav];
       const wa = await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
+      if (wa.held || wa.permanent) { failed++; break; }   /* 02/11 audit: budget out / empty job field → stop, retry next tick */
       if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'eventday', p.phone, mk); await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
@@ -4431,7 +4556,7 @@ async function guestsCapCleared(env) {
 async function sendWave(env, ev, token, guests, wave, dry, budget) {
   const today = ilDate();
   const occasion = String(ev[5] || '').trim() || 'אירוע';
-  const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+  const hosts = eventHosts(ev) || 'בעלי השמחה';   /* 02/11 audit: never the paying client's name (C) */
   const date = heDate(String(ev[6] || '').trim());
   const time = String(ev[36] || '').trim() || 'בשעות הערב';
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
@@ -4571,6 +4696,18 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
       : await sendTemplate(env, phone, abv ? abv.template : chosenTmpl,
       [name, occasion, hosts, date, time, venue], useVid ? videoUrl : useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token, name });
+    /* 02/11 audit: the budget (or a missing number) is out — stop HERE and
+       leave the cursor on this guest. Before, every remaining guest of the
+       list was "failed" one by one without a Meta call, and the tick logged
+       a wall of failures for a batch that was simply queued. */
+    if (res.held) { truncated = true; break; }
+    /* an empty variable is the EVENT's data (date/venue cell), the same for
+       every guest: stop, keep the wave open, the journal says which {{n}} */
+    if (res.permanent) {
+      failed++; truncated = true;
+      await logEvent(env, { area: 'שליחה', action: 'גל נעצר — חסר נתון בשורת האירוע', ok: false, review: true, token, detail: `גל ${wave.key} · ${res.error}` }).catch(() => {});
+      break;
+    }
     if (budget) budget.left--;
     if (res.ok) {
       sent++;
@@ -4621,7 +4758,19 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
 async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   /* how many guest messages this invocation may send before it stops and
      leaves the rest for the next tick. null = no ceiling (the nightly run). */
-  const budget = opts.budget != null ? { left: Number(opts.budget) } : null;
+  /* 02/11 audit: the contact window was only enforced by the CALLERS (cron
+     budget 0 before 09:00, pacer gate). A manual /api/daily-run without a
+     budget at 22:00 sent every due wave + lifecycle message at night, and
+     the client stages (report, wrap-up, nudges, upsell) had no window at all
+     (automations-registry warning). Now: window closed → guest budget 0 and
+     client templates wait; `force` (admin test) still overrides. */
+  const windowOpen = !!(dry || opts.force || sendWindowState().open);
+  const budget = !windowOpen ? { left: 0 } : (opts.budget != null ? { left: Number(opts.budget) } : null);
+  let clientWaiting = false;
+  const sendClientE = async (...a) => {
+    if (!windowOpen) { clientWaiting = true; return { ok: false, error: 'outside-hours', held: true }; }
+    return sendClient(...a);
+  };
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
     await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
@@ -4680,7 +4829,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (ageDays < 1) continue;
         if (dry) { out.push({ token, type: 'stuck_client', would_send_to: v.phone }); continue; }
         const first = (String(v.name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-        const wa = await sendClient(env, v.phone, 'ishur_tzikoret_kovetz',
+        const wa = await sendClientE(env, v.phone, 'ishur_tzikoret_kovetz',
           [first, 'https://ishur.io/upload.html?t=' + token], { token });
         if (wa.ok) {
           await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
@@ -4780,7 +4929,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('nosetup:' + token)) continue;
     if (dry) { out.push({ token, type: 'no_setup', would_send_to: phone }); continue; }
     const first = (String(ev[2] || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-    const wa = await sendClient(env, phone, 'ishur_tzikoret_kovetz',
+    const wa = await sendClientE(env, phone, 'ishur_tzikoret_kovetz',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) {
       await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
@@ -5019,21 +5168,19 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[34] || ev[2] || '').trim();
-    const occasion = String(ev[5] || '').trim();
     const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע שלכם' });
 
     if (dry) {
       out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
       continue;
     }
-    const wa = await sendClient(env, phone, 'ishur_doch', [
+    const wa = await sendClientE(env, phone, 'ishur_doch', [
       evName, String(confirmed), String(diners), String(declined), String(pending),
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
-    if (!wa.ok && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
+    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -5066,9 +5213,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[34] || ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = eventDisplayName(ev, { article: false, fallback: 'האירוע שלכם' });
+    /* 02/11 audit: 4425386 meant to drop the article for the TABLE message but
+       landed here, on the thank-you + wrap-up stage, which had used the
+       article since launch. Restored; the table stage below gets article:false.
+       Guests never read "שלכם" (that is the client's word). */
+    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע שלכם' });   /* client: ishur_syum */
+    const guestEvName = guestEventName(ev, { article: true });                       /* guests: ishur_toda_orach */
 
     /* ishur_toda_orach — a thank-you to every guest who confirmed, the day
        after. A marketing template to hundreds of people, so הכל כלול only.
@@ -5094,7 +5245,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           if (await wrongNum(env, token, gp)) continue;
           const gname = String(g[3] || '').trim() || 'אורח יקר';
           const abv = await ab.pickVariant(env, 'thanks', gp, token, { current: todaTmpl });
-          const wa = await sendTemplate(env, gp, abv.template, [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          const wa = await sendTemplate(env, gp, abv.template, [gname, guestEvName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          if (wa.held) { tcut = true; break; }
+          if (wa.permanent) { tfail++; tcut = true; break; }   /* empty event data: same for every guest */
           if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone: gp, token, msg_type: 'thanks' });
           if (budget) budget.left--;
           if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); }
@@ -5129,13 +5282,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     }
     const fbLink = 'https://ishur.io/feedback.html?t=' + token;
     const wa = useV3
-      ? await sendClient(env, phone, 'ishur_syum_v3', [evName, fbLink])
-      : await sendClient(env, phone, 'ishur_syum', [
+      ? await sendClientE(env, phone, 'ishur_syum_v3', [evName, fbLink])
+      : await sendClientE(env, phone, 'ishur_syum', [
         evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
       ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_syum'));
-    if (!wa.ok && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
+    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -5153,9 +5306,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
-    const name = String(ev[34] || ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע' });
+    /* 02/11: the table template reads "מחכים לראותכם היום ב{{2}}" — with the
+       article it went out as "בהחתונה של הדר ויצחק" (live log, 16:33 IL) */
+    const evName = guestEventName(ev, { article: false });
 
     let sent = 0, failed = 0, would = 0;
     /* same discipline as the waves (review finding #5): per-guest marker,
@@ -5176,7 +5330,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (await phoneBlocked(env, phone)) continue;
       if (await wrongNum(env, token, phone)) continue;
       const gname = String(g[3] || '').trim() || 'אורח יקר';
-      const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
+      const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests', { occasion, wave: 'seating', token });
+      if (wa.held) { cut = true; break; }
+      if (wa.permanent) { failed++; cut = true; break; }
       if (budget) budget.left--;
       if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'seating', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
       else failed++;
@@ -5214,9 +5370,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       await env.RATE.put('plannote:' + token, today, { expirationTtl: 60 * 86400 });
     }
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
-    const name = String(ev[34] || ev[2] || '').trim();
+    /* `name` feeds the CLIENT upsell greeting + Slack only: the paying client's
+       own name (C), never the hosts (02/11 audit — it greeted the client with
+       the bride's first name). Guests get evName. */
+    const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע' });
+    const evName = guestEventName(ev, { article: true });   /* guests: bitul / dchiya / yom_lifnei */
     const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
     const time = String(ev[36] || '').trim() || 'בשעות הערב';
     const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ');
@@ -5252,6 +5411,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_bitul', [gname, evName], '', 'he', 'guests', { occasion, token });
+        if (wa.held) { cut = true; break; }
+        if (wa.permanent) { failed++; cut = true; break; }
         if (budget) budget.left--;
         if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 30 * 86400 }).catch(() => {}); }
         else failed++;
@@ -5267,7 +5428,21 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const sentDate = env.RATE ? await env.RATE.get('sentdate:' + token) : null;
     if (invited && sentDate && sentDate !== date && date >= today) {
       const postponePaid = env.RATE && await env.RATE.get('msgaddon:' + token + ':postpone');
-      if (plan === 'premium' || postponePaid) {
+      /* 02/11 audit: ANY edit of column G (a typo fix, a reformat, a sync from
+         Make) used to fire "האירוע נדחה" at every guest. A postpone notice now
+         needs an explicit decision for exactly this date: postponeok:<token>
+         = the new date, written by /api/event-change (the client's postpone /
+         restore buttons) or by an admin (/api/event-flag flag:'postponeok').
+         Without it: one alert, nothing sent. */
+      const confirmed = env.RATE ? (await env.RATE.get('postponeok:' + token).catch(() => null)) === date : false;
+      if ((plan === 'premium' || postponePaid) && !confirmed) {
+        if (dry) out.push({ token, type: 'postpone_unconfirmed', from: sentDate, to: date });
+        else if (env.RATE && !(await env.RATE.get(`postponeask:${token}:${date}`))) {
+          await env.RATE.put(`postponeask:${token}:${date}`, today, { expirationTtl: 60 * 86400 });
+          await alert(env, 'תאריך האירוע השתנה בגיליון',
+            `${evName}: ${sentDate} → ${date}. הודעת דחייה לאורחים לא נשלחה — לא ברור אם זו דחייה אמיתית או תיקון. לשליחה: /api/event-flag {token, flag:'postponeok', on:true}`, token.slice(0, 8));
+        }
+      } else if (plan === 'premium' || postponePaid) {
         if (dry) { out.push({ token, type: 'postpone_notice', would_send: guests.length, from: sentDate, to: date }); }
         else {
           /* Per-guest markers keyed to the NEW date, so a second postponement
@@ -5287,7 +5462,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             if (await wrongNum(env, token, phone)) continue;
             const gname = String(g[3] || '').trim() || 'אורח יקר';
             const wa = await sendTemplate(env, phone, 'ishur_dchiya',
-              [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
+              [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, wave: 'postpone', token });
+            if (wa.held) { cut = true; break; }
+            if (wa.permanent) { failed++; cut = true; break; }
             if (budget) budget.left--;
             if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'postpone', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
             else failed++;
@@ -5334,17 +5511,23 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const navT = env.RATE ? await env.RATE.get('navtmpl') : null;
-        const navU = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
+        const navRaw = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
+        const navU = navRaw && navLinkOk(navRaw) ? navRaw : null;   /* 02/11 audit: links stored before the allowlist are re-checked at send time */
         const abv = await ab.pickVariant(env, 'daybefore', phone, token, { current: navU ? navT : 'ishur_yom_lifnei' });
         const wa = navU
           ? await sendTemplate(env, phone, abv.template, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
           : await sendTemplate(env, phone, abv.template,
             [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
             { occasion, wave: 'daybefore', token });
+        if (wa.held) { cut = true; break; }
+        if (wa.permanent) { failed++; cut = true; break; }
         if (budget) budget.left--;
         if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'daybefore', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
-        if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone, token, msg_type: 'daybefore' });
+        /* 02/11 audit: the `else failed++` used to hang off the A/B `if` below,
+           so EVERY plain successful send counted as a failure — the day-before
+           flag never closed and "N שליחות נכשלו" fired every tick */
         else failed++;
+        if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone, token, msg_type: 'daybefore' });
       }
       if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
       else {
@@ -5372,7 +5555,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           const first = (name.split(' ')[0] || '').trim() || 'שלום';
           if (dry) out.push({ token, type: 'upsell_basic', silent, total });
           else if (phone) {
-            const wa = await sendClient(env, phone, 'ishur_shidrug',
+            const wa = await sendClientE(env, phone, 'ishur_shidrug',
               [first, evName, `${silent} מתוך ${total}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
@@ -5398,7 +5581,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           const first = (name.split(' ')[0] || '').trim() || 'שלום';
           if (dry) out.push({ token, type: 'upsell_pro', silent, tried: tried.length });
           else if (phone) {
-            const wa = await sendClient(env, phone, 'ishur_shidrug_sichot',
+            const wa = await sendClientE(env, phone, 'ishur_shidrug_sichot',
               [first, evName, `${silent} מתוך ${tried.length}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell2:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
@@ -5418,12 +5601,16 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     /* did the budget cut this run short? The pacer reads this to decide
        whether the next tick has anything to do at all, which is what keeps
        144 daily ticks from costing 144 Make operations. */
-    const cut = out.some(o => o && o.truncated);
+    const cut = clientWaiting || out.some(o => o && o.truncated);   /* client messages held for the window keep the pacer armed */
     if (cut) await env.RATE.put('pacer:pending', today, { expirationTtl: 2 * 86400 });
     else if (budget) await env.RATE.delete('pacer:pending');
   }
   return { ok: true, date: today, events: out, truncated: out.some(o => o && o.truncated) };
 }
+
+/* test-only handles (02/11 audit): the lifecycle stages are exercised end to
+   end against a fake sheet + fake Meta in test/audit-send-pipeline.test.mjs */
+export { runDailyEngine as _runDailyEngine, lateInvite as _lateInvite, resendInvitation as _resendInvitation };
 
 /* ══ the pacer ═══════════════════════════════════════════════════════════════
    Everything used to happen in one burst at 09:35: every wave for every event,
@@ -7330,10 +7517,17 @@ async function resendInvitation(env, guestPhone) {
   const ev = evRows.find(r => String((r || [])[1] || '').trim() === String(guest.token || '').trim());
   if (!ev) return { ok: false, why: 'event-not-found' };
   if (String(ev[27] || '').trim() === 'כן') return { ok: false, why: 'cancelled' };
+  /* 02/11 audit: findGuestByPhone falls back to the most recent row — for a
+     guest whose only event is behind them that re-sent an invitation (with
+     RSVP buttons) to an event that already happened. And never at night. */
+  const evDay = String(ev[6] || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < ilDate()) return { ok: false, why: 'event-passed' };
+  if (await wrongNum(env, guest.token, phone)) return { ok: false, why: 'wrong-number' };
+  if (!sendWindowState().open) return { ok: false, why: 'outside-hours' };
 
   const gname = String(guest.name || '').trim() || 'אורח יקר';
   const occasion = String(ev[5] || '').trim() || 'אירוע';
-  const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+  const hosts = eventHosts(ev) || 'בעלי השמחה';
   const date = heDate(String(ev[6] || '').trim());
   const time = String(ev[36] || '').trim() || 'בשעות הערב';
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
@@ -8867,6 +9061,7 @@ export default {
       ctx.waitUntil(audit.job(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
       ctx.waitUntil(audit.job(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
@@ -9900,7 +10095,13 @@ export default {
       /* when the (used - tier + 1)-th oldest conversation ages out, a slot frees */
       const freesAt = tier && used >= tier ? new Date(stamps[used - tier] + 86400e3).toISOString() : null;
       const windowOpensAt = stamps.length ? new Date(stamps[0] + 86400e3).toISOString() : null;
-      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z' }, origin);
+      /* 02/11 audit: what OUR budget says (the gate that runs before Meta) next
+         to what Meta's tier says — "how many more can go out today" on one screen */
+      const numbers = await guestUsage(env).catch(() => []);
+      const pf = guestPortfolioBudget(env), usedB = numbers.reduce((t, r) => t + r.n, 0);
+      const lateQ = Object.keys(await kvPrefix(env, 'lateinv:').catch(() => ({}))).length;
+      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z',
+        budget: { portfolio_limit: pf, per_number_limit: guestDailyBudget(env), used: usedB, left: Math.max(0, pf - usedB), numbers, late_invites_waiting: lateQ } }, origin);
     }
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -10342,7 +10543,7 @@ export default {
       if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
       if (typeof b.url === 'string') {
         const u = b.url.trim();
-        if (u && !/^https?:\/\/(www\.)?(waze\.com|ul\.waze\.com|maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|www\.google\.[a-z.]+\/maps)/i.test(u)) return okJson({ ok: false, error: 'not-a-map-link' }, origin);
+        if (u && !navLinkOk(u)) return okJson({ ok: false, error: 'not-a-map-link' }, origin);   /* 02/11 audit: hostname allowlist, https, no user@ */
         if (u) await env.RATE.put('navlink:' + tok, u.slice(0, 300)); else await env.RATE.delete('navlink:' + tok);
         return okJson({ ok: true, url: u.slice(0, 300) }, origin);
       }
@@ -10361,7 +10562,7 @@ export default {
       let cur = { bit: '', paybox: '', on: false };
       try { cur = { ...cur, ...JSON.parse(await env.RATE.get('giftlinks:' + tok) || '{}') }; } catch {}
       if (typeof b.bit === 'string' || typeof b.paybox === 'string' || typeof b.on === 'boolean') {
-        const okLink = u => !u || /^https?:\/\/(www\.)?(bit\.co\.il|bitpay\.co\.il|paybox\.co\.il|payboxapp\.com|links\.payboxapp\.com|app\.bitpay\.co\.il)\//i.test(u);
+        const okLink = u => !u || giftLinkOk(u);   /* 02/11 audit: parsed hostname, https only, no spaces */
         const bit = typeof b.bit === 'string' ? b.bit.trim().slice(0, 300) : cur.bit;
         const paybox = typeof b.paybox === 'string' ? b.paybox.trim().slice(0, 300) : cur.paybox;
         if (!okLink(bit) || !okLink(paybox)) return deny(422, 'not-a-gift-link', origin);
@@ -10719,28 +10920,8 @@ export default {
          the guest simply rides the wave with everybody else */
       let sent = false, why = 'with-wave';
       if (ev && env.RATE && await env.RATE.get('wave:' + tok + ':1')) {
-        const occasion = String(ev[5] || '').trim() || 'אירוע';
-        const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
-        const date = heDate(String(ev[6] || '').trim());
-        const time = String(ev[36] || '').trim() || 'בשעות הערב';
-        const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
-        const inviteTmpl = (await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
-        /* same media choice as wave 1: video, else image, else text */
-        const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
-        const invite = String(ev[44] || '').trim();
-        const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
-        const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
-        const custom = await customTemplateFor(env, tok);
-        if (!(await phoneBlocked(env, phone))) {
-          const res = custom
-            ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : media, 'he', 'guests', { occasion, wave: 1, token: tok, name })
-            : await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name });
-          sent = !!res.ok; why = res.ok ? 'sent' : (res.error || 'send-failed');
-          if (res.ok) {
-            await env.RATE.put(`wsent:${tok}:1:${phone}`, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
-            await addEvCost(env, tok, msgCost(tmpl));
-          }
-        } else why = 'blocked';
+        const li = await lateInvite(env, ev, tok, name, phone);
+        sent = li.sent; why = li.why;
       }
       await logEvent(env, { area: 'העלאה', action: `הלקוח הוסיף מוזמן מהדשבורד (${used + 1}/${LIMIT})${sent ? ' — ההזמנה נשלחה' : ''}`, ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
       const usedNow = mode === 'free' ? used + 1 : used;
@@ -10973,7 +11154,13 @@ export default {
           /* the guests heard "cancelled": make the engine tell them the date again */
           renotify = true;
           await env.RATE.delete('cancelmsg:' + token).catch(() => {});
-          await env.RATE.delete('sentdate:' + token).catch(() => {});
+          /* 02/11 audit: deleting sentdate: made the postpone stage's
+             `sentDate &&` false forever — the promised "date again" message
+             never left. A sentinel that differs from the real date + an
+             explicit OK for that date makes stage 5 send ishur_dchiya once. */
+          const curDate = String(ev[6] || '').trim().slice(0, 10);
+          await env.RATE.put('sentdate:' + token, 'restored', { expirationTtl: 200 * 86400 }).catch(() => {});
+          if (/^\d{4}-\d{2}-\d{2}$/.test(curDate)) await env.RATE.put('postponeok:' + token, curDate, { expirationTtl: 200 * 86400 }).catch(() => {});
           try { let cur; do { const pg = await env.RATE.list({ prefix: `s5c:${token}:`, cursor: cur }); for (const k of pg.keys || []) await env.RATE.delete(k.name); cur = pg.list_complete ? null : pg.cursor; } while (cur); } catch {}
         }
         await logEvent(env, { area: 'אירוע', action: 'הלקוח החזיר את האירוע מהדשבורד', ok: true, token, detail: evName + (renotify ? ' · האורחים יקבלו הודעת עדכון' : '') }).catch(() => {});
@@ -10996,6 +11183,8 @@ export default {
       }
       const okw = await sheetBatchWrite(env, writes);
       if (!okw) return deny(502, 'sheet-write-failed', origin);
+      /* the client pressed "postpone" for exactly this date → the engine may tell the guests (02/11 audit) */
+      if (env.RATE) await env.RATE.put('postponeok:' + token, date, { expirationTtl: 200 * 86400 }).catch(() => {});
       if (String(ev[27] || '').trim() === 'כן') await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['']] }]).catch(() => {});
       await logEvent(env, { area: 'אירוע', action: 'הלקוח דחה את האירוע מהדשבורד', ok: true, token, detail: `${evName} · ${oldDate} → ${date}` }).catch(() => {});
       await slackSend(env, `📅 *האירוע נדחה* · ${evName} · ${token.slice(0, 8)}\n\n${oldDate} → ${date}. האורחים שהוזמנו יקבלו הודעת עדכון בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});

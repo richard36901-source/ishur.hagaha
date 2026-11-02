@@ -64,32 +64,119 @@ export function guestPhoneIds(env) {
 }
 export function isGuestPhone(env, pid) { return !!pid && guestPhoneIds(env).includes(String(pid)); }
 function ilDayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+
+/* ── 02/11 audit: the guest budget ─────────────────────────────────────────
+   Meta's messaging limit is "unique customers reached with a business-
+   initiated (template) message in a ROLLING 24h", not "sends per Israeli
+   calendar day". Three things the day counter alone got wrong:
+     1. midnight reset: 230 at 20:00 + 230 at 09:00 = 460 inside Meta's 24h;
+     2. KV allows one write per second per key, so a 25-send tick lost
+        increments and the counter under-counted exactly when it mattered;
+     3. service replies (free text inside a guest's 24h window) do not count
+        toward the limit, but they were counted AND blocked once the budget
+        ran out — Shir would go silent to a guest asking for the address.
+   So: per-number usage = max(calendar-day counter, rolling-24h hourly
+   buckets); an isolate-local tally that never goes below what this isolate
+   itself sent; unique recipients only (gbic:<phone>, 24h); templates only.
+   Portfolio cap: GUEST_PORTFOLIO_BUDGET (all numbers together). Unset, it is
+   per-number budget × numbers — the pre-audit behaviour. See
+   docs/AUDIT-SEND-PIPELINE-2026-11-02.md: on 02/11 the two numbers together
+   delivered to ~250 unique people, which is what ONE shared TIER_250 looks
+   like (Meta moved messaging limits to the business portfolio in Oct 2025). */
+const MEM_DAY = new Map();   // `gsend:<pid>:<day>` → count this isolate knows
+const MEM_24 = new Map();    // pid → { 'YYYY-MM-DDTHH': n } (UTC hours)
+function hourKeyOf(ms) { return new Date(ms).toISOString().slice(0, 13); }
+function prune24(obj, now = Date.now()) {
+  const out = {}; const floor = hourKeyOf(now - 23 * 3600e3);
+  for (const [h, n] of Object.entries(obj || {})) if (h >= floor && Number(n) > 0) out[h] = Number(n);
+  return out;
+}
+function merge24(a, b) { const out = { ...(a || {}) }; for (const [h, n] of Object.entries(b || {})) out[h] = Math.max(Number(out[h]) || 0, Number(n) || 0); return out; }
+function sum24(obj) { return Object.values(obj || {}).reduce((t, n) => t + (Number(n) || 0), 0); }
+async function read24(env, pid) {
+  let kv = {}; try { kv = JSON.parse(await env.RATE.get('gsend24:' + pid)) || {}; } catch {}
+  const m = prune24(merge24(kv, MEM_24.get(pid)));
+  MEM_24.set(pid, m);
+  return m;
+}
+async function readDay(env, pid, day) {
+  const k = `gsend:${pid}:${day}`;
+  const kv = Number(await env.RATE.get(k).catch(() => 0)) || 0;
+  return Math.max(kv, MEM_DAY.get(k) || 0);
+}
+export function guestDailyBudget(env) { const n = Number(env && env.GUEST_DAILY_BUDGET); return n > 0 ? n : 230; }
+export function guestPortfolioBudget(env) {
+  const n = Number(env && env.GUEST_PORTFOLIO_BUDGET);
+  return n > 0 ? n : guestDailyBudget(env) * Math.max(1, guestPhoneIds(env || {}).length);
+}
+/* one row per guest number: used = max(day counter, rolling 24h), held */
+export async function guestUsage(env) {
+  const day = ilDayKey();
+  return Promise.all(guestPhoneIds(env).map(async id => {
+    const [d, r, held, until] = await Promise.all([readDay(env, id, day), read24(env, id),
+      env.RATE.get('wacap:' + id).catch(() => null), env.RATE.get('wacapuntil:' + id).catch(() => null)]);
+    return { id, day: d, rolling: sum24(r), n: Math.max(d, sum24(r)), held: !!held, held_until: Number(until) || 0 };
+  }));
+}
 export async function pickGuestPhone(env) {
   const ids = guestPhoneIds(env);
   if (!guestsReady(env) || !ids.length) return '';
   if (!env.RATE) return ids[0];
-  const day = ilDayKey();
-  const rows = await Promise.all(ids.map(async id => ({ id, n: Number(await env.RATE.get(`gsend:${id}:${day}`).catch(() => 0)) || 0, held: !!(await env.RATE.get('wacap:' + id).catch(() => null)) })));
+  const rows = await guestUsage(env);
   /* 02/11 incident: retries burned 2,081 conversations against two 250 caps
      and Meta blocked both numbers for 24h. A number that already sent its
-     budget today is simply not offered — no Meta call, no 131048. */
+     budget is simply not offered — no Meta call, no 131048. Same for the
+     portfolio as a whole. */
   const budget = guestDailyBudget(env);
+  const used = rows.reduce((t, r) => t + r.n, 0);
+  if (used >= guestPortfolioBudget(env)) return '';
   const open = rows.filter(r => !r.held && r.n < budget).sort((a, b) => a.n - b.n);
   return open.length ? open[0].id : '';
 }
-export function guestDailyBudget(env) { const n = Number(env && env.GUEST_DAILY_BUDGET); return n > 0 ? n : 230; }
 export async function guestBudgetLeft(env) {
   if (!env.RATE) return 0;
-  const day = ilDayKey(); const b = guestDailyBudget(env); let left = 0;
-  for (const id of guestPhoneIds(env)) { const n = Number(await env.RATE.get(`gsend:${id}:${day}`).catch(() => 0)) || 0; const held = await env.RATE.get('wacap:' + id).catch(() => null); if (!held) left += Math.max(0, b - n); }
-  return left;
+  const rows = await guestUsage(env); const b = guestDailyBudget(env);
+  const perNumber = rows.reduce((t, r) => t + (r.held ? 0 : Math.max(0, b - r.n)), 0);
+  const portfolio = Math.max(0, guestPortfolioBudget(env) - rows.reduce((t, r) => t + r.n, 0));
+  return Math.min(perNumber, portfolio);
+}
+/* a business-initiated (template) message was accepted for `phone` on `pid`.
+   Counted once per recipient per rolling 24h — that is Meta's unit. */
+export async function noteGuestTemplate(env, pid, phone) {
+  if (!env.RATE || !pid) return false;
+  const p = normPhone(phone);
+  if (p) {
+    if (await env.RATE.get('gbic:' + p).catch(() => null)) return false;
+    await env.RATE.put('gbic:' + p, String(pid), { expirationTtl: 86400 }).catch(() => {});
+  }
+  await bumpGuestSend(env, pid);
+  return true;
 }
 export async function bumpGuestSend(env, pid) {
   if (!env.RATE || !pid) return;
-  const k = `gsend:${pid}:${ilDayKey()}`;
-  const n = Number(await env.RATE.get(k).catch(() => 0)) || 0;
-  await env.RATE.put(k, String(n + 1), { expirationTtl: 2 * 86400 }).catch(() => {});
+  const day = ilDayKey();
+  const k = `gsend:${pid}:${day}`;
+  const n = (await readDay(env, pid, day)) + 1;
+  MEM_DAY.set(k, n);
+  await env.RATE.put(k, String(n), { expirationTtl: 2 * 86400 }).catch(() => {});
+  const r = await read24(env, pid); const h = hourKeyOf(Date.now());
+  r[h] = (Number(r[h]) || 0) + 1;
+  MEM_24.set(pid, r);
+  await env.RATE.put('gsend24:' + pid, JSON.stringify(r), { expirationTtl: 2 * 86400 }).catch(() => {});
 }
+/* a free-form (non-template) guest message must leave from the number the
+   guest wrote to: the 24h customer-service window is per business number.
+   gin:<phone> is written by the inbound webhook. 02/11: 28 replies died on
+   131047 because they left from the "least used" number instead. Service
+   messages do not count toward Meta's limit, so no budget gate here. */
+export async function guestReplyPhone(env, to) {
+  const ids = guestPhoneIds(env);
+  if (!guestsReady(env) || !ids.length) return '';
+  const pin = env.RATE ? await env.RATE.get('gin:' + normPhone(to)).catch(() => null) : null;
+  if (pin && ids.includes(String(pin))) return String(pin);
+  return ids[0];
+}
+export function _resetBudgetMemory() { MEM_DAY.clear(); MEM_24.clear(); }
 function pickPhone(env, channel) {
   if (channel === 'guests') return guestsReady(env) ? env.WA_PHONE_ID_GUESTS : '';
   return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : clientPhoneId(env);
@@ -259,9 +346,26 @@ async function post(env, body, channel, ctx) {
   if (clientCh && env.RATE && await env.RATE.get('noa:unreg').catch(() => null)) {
     return { ok: false, error: '133010: account not registered (held)', held: true };
   }
-  const phoneId = channel === 'guests' ? await pickGuestPhone(env) : pickPhone(env, channel);
+  /* 02/11 audit: only business-initiated (template) messages spend Meta's
+     limit and the budget; a free-form reply goes out on the number the guest
+     wrote to, budget or not. */
+  const isTmpl = body.type === 'template';
+  const phoneId = channel === 'guests'
+    ? (isTmpl ? await pickGuestPhone(env) : await guestReplyPhone(env, body.to))
+    : pickPhone(env, channel);
   const token = pickToken(env, channel);
-  if (channel === 'guests' && token && !phoneId) return { ok: false, error: 'guests-daily-budget', held: true };
+  if (channel === 'guests' && token && !phoneId) {
+    /* one journal line a day, not one per guest: the batch stops, the rest waits */
+    try {
+      const dk = 'gbudgetnote:' + ilDayKey();
+      if (env.RATE && !(await env.RATE.get(dk))) {
+        await env.RATE.put(dk, '1', { expirationTtl: 86400 });
+        await logEvent(env, { area: 'שליחה', action: 'תקציב השליחה היומי לאורחים נוצל — השליחות ממתינות', ok: false, review: true,
+          detail: `תקרה ${guestPortfolioBudget(env)} ל-24 שעות (כל המספרים) · ${guestDailyBudget(env)} למספר · היתר נשלח כשהחלון מתגלגל` });
+      }
+    } catch {}
+    return { ok: false, error: 'guests-daily-budget', held: true };
+  }
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
   const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
     method: 'POST',
@@ -297,7 +401,7 @@ async function post(env, body, channel, ctx) {
          customer who comes back after a year should not meet a blank thread */
       const logKey = 'log:' + String(body.to || '') + ':' + ts;
       if (res.ok && res.id) await env.RATE.put('wamid2log:' + res.id, logKey, { expirationTtl: 14 * 86400 }).catch(() => {});
-      if (res.ok && channel === 'guests') { await bumpGuestSend(env, phoneId); if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
+      if (res.ok && channel === 'guests') { if (isTmpl && !(ctx && ctx.probe)) await noteGuestTemplate(env, phoneId, body.to); if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
       await env.RATE.put(logKey,
         JSON.stringify({
           dir: 'out', type: body.type, text: summary.slice(0, 1000),
@@ -446,6 +550,19 @@ export function sendOtpTemplate(env, to, code) {
   });
 }
 
+/* One template body variable, the way Meta accepts it: no CR/LF/tab (132018),
+   no run of more than 4 spaces, no control characters, no stray unbalanced
+   quote at the edges (a lead named `"הבוטח` was greeted `היי "הבוטח`), at
+   most 300 characters. Hebrew gershayim (״) and inner quotes are kept. */
+export function cleanParam(v) {
+  let s = String(v ?? '').replace(new RegExp('[\\r\\n\\t\\u2028\\u2029]+', 'g'), ' ').replace(new RegExp('[\\u0000-\\u001f\\u007f]', 'g'), '');
+  s = s.replace(/ {2,}/g, ' ').trim();
+  const q = /["“”]/g;
+  if (((s.match(q) || []).length % 2) === 1) s = s.replace(/^["“”]+|["“”]+$/g, '').trim();
+  if (s.length > 300) s = s.slice(0, 299).trim() + '…';
+  return s;
+}
+
 /* The production path. `params` are the positional body variables; `imageUrl`
    fills a header of type IMAGE when the template has one. */
 export async function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel, ctx) {
@@ -458,6 +575,23 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   const isClient = !(channel === 'guests' && guestsReady(env));
   if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
   else { try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {} }
+  /* 02/11 audit: Meta refuses a body variable with a newline / tab / more
+     than 4 spaces in a row (132018) and an empty one (131008) — and a refused
+     send was retried every tick. Clean every variable here, once, for every
+     caller; refuse an empty one before Meta sees it (permanent: retrying the
+     same sheet data cannot help, a human has to fill the cell). */
+  params = (params || []).map(cleanParam);
+  const emptyAt = params.findIndex(p => !p);
+  if (emptyAt >= 0) {
+    try {
+      const ek = `emptyparam:${name}:${String((ctx && ctx.token) || '').slice(0, 8)}:${ilDayKey()}`;
+      if (!env.RATE || !(await env.RATE.get(ek))) {
+        if (env.RATE) await env.RATE.put(ek, '1', { expirationTtl: 86400 });
+        await logEvent(env, { area: 'שליחה', action: 'תבנית לא נשלחה — משתנה ריק', ok: false, review: true, phone: normPhone(to), token: ctx && ctx.token ? String(ctx.token) : '', detail: `${name} · משתנה {{${emptyAt + 1}}} ריק` });
+      }
+    } catch {}
+    return { ok: false, error: `empty-param:{{${emptyAt + 1}}}`, permanent: true };
+  }
   const components = [];
   if (imageUrl) {
     /* an .mp4 link fills a VIDEO header; anything else an IMAGE header. The
@@ -541,7 +675,14 @@ export function parseInboundReply(msg) {
     return { kind: 'party', party: Number(bare) };
   }
 
-  const yes = /^(מגיע|מגיעה|מגיע\/ה|מגיעים|כן|נגיע|בטח|אשמח|נהיה שם)/.test(clean);
+  /* 02/11 audit: "בטח שלא" and "אשמח לדעת מה הכתובת" used to be written to the
+     sheet as מגיע. בטח/אשמח/ברור count only when followed by an arrival word
+     or nothing; any yes-prefix with a negation later in the text is left to
+     the free-text path, which reads the whole sentence. */
+  const yesStrong = /^(מגיע|מגיעה|מגיע\/ה|מגיעים|כן|נגיע|נהיה שם)/.test(clean);
+  const yesSoft = /^(בטח|אשמח|ברור)(?!\s*ש?לא)(?=[\s,.!]*(נגיע|מגיע|מגיעה|מגיעים|נבוא|להגיע|לבוא|$|[^֐-׿\w]*$))/.test(clean);
+  const negated = /(^|[\s,.\-])(ש?לא|אין)([\s,.!?]|$)/.test(clean.replace(/^(כן|מגיע\S*|נגיע|בטח|אשמח|ברור)/, ''));
+  const yes = (yesStrong || yesSoft) && !negated;
   const no = /^(לא מגיע|לא מגיעה|לא מגיע\/ה|לא מגיעים|לא נגיע|לא נוכל|לצערנו|לא נספיק)|^לא\s*$|^לא[.!]/.test(clean);
   const maybe = /(עדיין לא|לא ידוע|מתלבט|נעדכן|לא בטוח|לא יודע|לא סגרנו|אולי)/.test(clean);
 
@@ -550,10 +691,30 @@ export function parseInboundReply(msg) {
   if (maybe) return { kind: 'rsvp', outcome: 'מתלבט' };
   if (no) return { kind: 'rsvp', outcome: 'לא מגיע' };
   if (yes) {
-    const m = clean.match(/(\d{1,2})/);
-    return { kind: 'rsvp', outcome: 'מגיע', party: m ? Number(m[1]) : undefined };
+    /* a time ("מגיעים ב-19:30") or a date is not a head count */
+    const n = partyDigits(clean);
+    return { kind: 'rsvp', outcome: 'מגיע', party: n || undefined };
   }
   return { kind: 'text', body: text };
+}
+
+/* digits that can be a head count: times (19:30), dates (5/11, 05.11.2026),
+   long numbers (phones, years, money) and "בשעה 8"-style hours are removed
+   first; 1..30 only. 02/11 audit: "נגיע בסביבות 20:00" was written as 20
+   guests, "באיזו שעה מתחיל? 19:30?" as 19. */
+function stripNonCounts(s) {
+  return String(s || '')
+    .replace(/\d{1,2}[:.]\d{2}/g, ' ')
+    .replace(/\d{1,2}[./-]\d{1,2}([./-]\d{2,4})?/g, ' ')
+    .replace(/\d{3,}/g, ' ')
+    .replace(/(בשעה|שעה|בסביבות|סביבות|עד|אחרי|לפני|ב-)\s*-?\s*\d{1,2}/g, ' ')
+    .replace(/\d+\s*(₪|ש"ח|שח|שקל|שקלים|%)/g, ' ');
+}
+function partyDigits(s) {
+  const m = stripNonCounts(s).match(/(^|[^\d])(\d{1,2})(?!\d)/);
+  if (!m) return null;
+  const n = Number(m[2]);
+  return n >= 1 && n <= 30 ? n : null;
 }
 
 /* Hebrew words people answer "how many of you?" with, plus a loose digit
@@ -564,10 +725,19 @@ const HE_COUNT = { 'לבד': 1, 'רק אני': 1, 'אחד': 1, 'אחת': 1, 'ש�
 export function partyFromText(text) {
   const clean = String(text || '').replace(/[‎‏]/g, '').trim();
   if (!clean) return null;
-  const m = clean.match(/\b(\d{1,2})\b/);
-  if (m) { const n = Number(m[1]); if (n >= 1 && n <= 99) return n; }
-  for (const w of Object.keys(HE_COUNT)) if (clean.includes(w)) return HE_COUNT[w];
+  const n = partyDigits(clean);
+  if (n) return n;
+  /* a digit that was a time/date/phone is not a count — and then a stray
+     "אחד"/"שתיים" in the same sentence is not one either */
+  if (/\d/.test(clean)) return null;
+  for (const w of Object.keys(HE_COUNT)) if (new RegExp('(^|[\\s,.])' + w + '($|[\\s,.!])').test(clean)) return HE_COUNT[w];
   return null;
+}
+/* free text that is a question ("באיזו שעה? 19:30?", "מתי זה, ב-5?") must not
+   be read as an RSVP or a head count */
+export function isQuestion(text) {
+  const t = String(text || '').trim();
+  return /\?|？/.test(t) || /^(מה|מתי|איפה|איך|למה|מי|האם|כמה|באיזו|באיזה|היכן|אפשר)(\s|$)/.test(t);
 }
 
 /* Free-text intent of a known guest (Richard 21/10): "בסוף לא מסתדר לי
