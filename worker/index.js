@@ -10097,7 +10097,10 @@ export default {
       /* when the (used - tier + 1)-th oldest conversation ages out, a slot frees */
       const freesAt = tier && used >= tier ? new Date(stamps[used - tier] + 86400e3).toISOString() : null;
       const windowOpensAt = stamps.length ? new Date(stamps[0] + 86400e3).toISOString() : null;
-      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z' }, origin);
+      /* 02/11: what the scheduler actually enforces (budget.js) — per number, scope, room */
+      await waCapInfo(env).catch(() => null);
+      const budget = await guestCapacity(env).catch(() => null);
+      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
     }
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -10146,6 +10149,7 @@ export default {
         isAdmin, okJson, deny, snapshotCached,
         auditQuery: (e, q) => audit.query(e, q),
         isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds,
+        guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); },
       });
     }
     /* 02/11: every call ever — one merged calls view (F.4/F.5), cursor-paged per audit day, CSV. No KV writes. */

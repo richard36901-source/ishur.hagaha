@@ -27,6 +27,9 @@
      §2 handleSendBoard(request, env, origin, deps) ← the route; I/O via deps
    ========================================================================== */
 
+import { planVsCapacity } from './budget.js';
+import { giftActive } from './gifts.js';
+
 /* ── §1a message types, in board order ─────────────────────────────────── */
 export const TYPES = [
   { key: 'w1', he: 'הזמנה · גל 1', marker: (t, p) => `wsent:${t}:1:${p}`, wave: '1' },
@@ -36,7 +39,11 @@ export const TYPES = [
   { key: 'table', he: 'שולחן', marker: (t, p) => `s5t:${t}:${p}`, wave: 'seating' },
   { key: 'eventday', he: 'יום-האירוע', marker: (t, p) => `s5e:${t}:${p}`, wave: 'eventday' },
   { key: 'thanks', he: 'תודה', marker: (t, p) => `s3t:${t}:${p}`, wave: '' },
+  /* 02/11: the gift message to declined guests (decline reply or /api/gift-blast) */
+  { key: 'gift', he: 'מתנה (לא מגיעים)', marker: (t, p) => `gift:${t}:${p}`, wave: 'gift' },
 ];
+/* 02/11 (Richard): failures broken out by these codes on the board, always */
+export const BOARD_CODES = ['131048', '131049', '131047', '131042', '130472'];
 const TYPE_BY_KEY = Object.fromEntries(TYPES.map(t => [t.key, t]));
 /* the sends whose failure the status webhook can reopen (index.js:2905-2960:
    it needs a wamid:<id> record with gk; waves write it at index.js:4495, the
@@ -100,10 +107,14 @@ export function typeOf({ template, wave, at }, ev) {
   if (w === 'daybefore') return 'daybefore';
   if (w === 'seating') return 'table';
   if (w === 'eventday') return 'eventday';
+  if (w === 'gift') return 'gift';
   const t = String(template || '');
   if (!t) return null;
   if (/^ishur_yom_lifnei/.test(t)) return 'daybefore';
-  if (t === 'ishur_shulchan') return 'table';
+  /* _f (footer copy) and _matana (gift twin) are the same table message */
+  if (/^ishur_shulchan/.test(t)) return 'table';
+  if (/^ishur_matana/.test(t)) return 'gift';
+  if (/^ishur_toda_matana/.test(t)) return 'thanks';
   if (/^ishur_toda_orach/.test(t)) return 'thanks';
   if (ev && ev.eventday_template && t === ev.eventday_template) return 'eventday';
   if (/^ishur_yom_haerua|^ishur_eventday/.test(t)) return 'eventday';
@@ -128,6 +139,7 @@ function inAudience(type, g, ev) {
     case 'table': return r === 'מגיע' && !!g.table;
     case 'eventday': return !!ev.eventday && r === 'מגיע' && !(ev.eventday.no_table && g.table);
     case 'thanks': return ev.plan !== 'basic' && r === 'מגיע';
+    case 'gift': return !!ev.gift_on && r === 'לא מגיע';
     default: return false;
   }
 }
@@ -142,11 +154,34 @@ function dueDate(type, ev) {
     case 'table': return ev.date || null;
     case 'eventday': return ev.eventday ? (ev.eventday.at || ev.date) : null;
     case 'thanks': return ev.plan === 'basic' ? null : add(ev.date, 1);
+    case 'gift': return ev.gift_on ? add(ev.date, 1) : null;
     default: return null;
   }
 }
 
 const RANK = { sent: 1, delivered: 2, read: 3 };
+function bumpCode(row, code) { const k = String(code || '?'); row.failed.codes[k] = (row.failed.codes[k] || 0) + 1; }
+
+/* ── §1h what is planned to leave on each of the next days (02/11) ─────────
+   due today or overdue: everything still waiting that the engine will try
+   (queue, window, cap, reopened) — an event on hold is not counted, it will
+   not leave until someone lifts the hold. due later: the scheduled ones. */
+export function plannedByDay(events, today, days = 3) {
+  const last = new Date(Date.parse(today + 'T12:00:00Z') + (days - 1) * 864e5).toISOString().slice(0, 10);
+  const out = {};
+  for (const ev of events || []) for (const t of ev.types || []) {
+    const p = t.pending || {};
+    if (t.due && t.due <= today) { const n = (p.queue || 0) + (p.window || 0) + (p.cap || 0) + (p.reopened || 0); if (n) out[today] = (out[today] || 0) + n; }
+    else if (t.due && t.due <= last && p.scheduled) out[t.due] = (out[t.due] || 0) + p.scheduled;
+  }
+  return out;
+}
+/* per-number cap rows for the board (labels + reset times) */
+export function capBoard(cap, plan, labels = {}) {
+  if (!cap) return null;
+  const numbers = (cap.numbers || []).map(n => ({ ...n, label: phoneLabel(n.id, labels) }));
+  return { scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining, all_held: !!cap.all_held, numbers, plan, warning: (plan || []).some(d => d.over) };
+}
 
 /* ── §1f THE aggregation. Pure: same input → same output. ──────────────────
    input = {
@@ -233,7 +268,7 @@ export function aggregateSendBoard(input) {
     for (const T of TYPES) {
       const due = dueDate(T.key, ev);
       const row = { key: T.key, he: T.he, due, audience: 0, sent: 0, delivered: 0, read: 0, no_status: 0, answered: 0,
-        failed: { total: 0, cap: 0, notwa: 0, blocked: 0, experiment: 0, other: 0 },
+        failed: { total: 0, cap: 0, notwa: 0, blocked: 0, experiment: 0, other: 0, codes: {} },
         pending: { total: 0, reopened: 0, hold: 0, cap: 0, window: 0, scheduled: 0, queue: 0 },
         skipped: 0, unknown: 0, last_at: 0, inferred: 0, sources: { audit: 0, kv: 0 } };
       const people = detail ? { delivered: [], read: [], no_status: [], failed: [], pending: [], answered: [], skipped: [], unknown: [] } : null;
@@ -274,7 +309,7 @@ export function aggregateSendBoard(input) {
               else if (++row.inferred) reopened = REOPENABLE.has(T.key) && !!lst && (CAP_CODES.has(code) || (code !== '131026' && nonCap < 3));
               const info = { at: lst ? lst.ts : last.ts, number: num, status: 'failed', code, why: failHe(code), group: failGroup(code) };
               if (reopened) { row.pending.total++; row.pending.reopened++; push('pending', g, { ...info, reason: 'reopened', reason_he: 'נכשל (' + FAIL_GROUPS[failGroup(code)] + ') ונפתח לשליחה חוזרת' }); }
-              else { row.failed.total++; row.failed[failGroup(code)]++; push('failed', g, info); }
+              else { row.failed.total++; row.failed[failGroup(code)]++; bumpCode(row, code); push('failed', g, info); }
             }
           }
           /* answered: an RSVP on the sheet (invites) or a WhatsApp reply after the first send */
@@ -291,7 +326,7 @@ export function aggregateSendBoard(input) {
           else if (mk.wst === 'failed' || mk.err || mk.dead) {
             const code = String(mk.err || mk.dead || ''); row.sent++;
             if (!mk.m && !mk.dead) { row.pending.total++; row.pending.reopened++; push('pending', g, { status: 'failed', code, why: failHe(code), reason: 'reopened', reason_he: 'נכשל (' + FAIL_GROUPS[failGroup(code)] + ') ונפתח לשליחה חוזרת', src: 'kv' }); }
-            else { row.failed.total++; row.failed[failGroup(code)]++; push('failed', g, { status: 'failed', code, why: failHe(code), group: failGroup(code), src: 'kv' }); }
+            else { row.failed.total++; row.failed[failGroup(code)]++; bumpCode(row, code); push('failed', g, { status: 'failed', code, why: failHe(code), group: failGroup(code), src: 'kv' }); }
           } else { row.sent++; row.no_status++; push('no_status', g, { status: 'sent', src: 'kv' }); }
           if (T.key[0] === 'w' && g.rsvp) { row.answered++; push('answered', g, { rsvp: g.rsvp }); }
           continue;
@@ -357,7 +392,15 @@ export async function handleSendBoard(request, env, origin, deps) {
   const days = Math.max(1, Math.min(10, Number(b.days) || 3));
   const detail = b.detail !== false;
   const ck = `sendboard:${token.slice(0, 8) || 'all'}:${days}:${detail ? 1 : 0}`;
-  if (env.RATE && !b.force) { try { const hit = JSON.parse((await env.RATE.get(ck)) || 'null'); if (hit && Date.now() - hit.at < 5 * 60e3) return deps.okJson({ ...hit.data, cached: true }, origin); } catch {} }
+  /* the cap is never served from the cache: it moves with every send */
+  const withCap = async (data) => {
+    if (!deps.guestCapacity) return data;
+    const cap = await deps.guestCapacity(env).catch(() => null);
+    if (!cap) return data;
+    const plan = planVsCapacity(plannedByDay(data.events, data.today, 3), { today: data.today, remainingNow: cap.remaining, limit: cap.limit, days: 3 });
+    return { ...data, cap: capBoard(cap, plan), cap_at: new Date().toISOString() };
+  };
+  if (env.RATE && !b.force) { try { const hit = JSON.parse((await env.RATE.get(ck)) || 'null'); if (hit && Date.now() - hit.at < 5 * 60e3) return deps.okJson({ ...(await withCap(hit.data)), cached: true }, origin); } catch {} }
 
   const today = deps.ilDate();
   const raw = await deps.snapshotCached(env);
@@ -371,6 +414,7 @@ export async function handleSendBoard(request, env, origin, deps) {
     ev.held = !!(await env.RATE.get('hold:' + ev.token).catch(() => null));
     try { const j = JSON.parse(edJobs[ev.token] || 'null'); if (j) { ev.eventday = { at: String(j.at || ''), no_table: !!j.no_table }; ev.eventday_template = String(j.template || ''); } } catch {}
     try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + ev.token)) || 'null'); if (ct && ct.name) ev.custom_template = ct.name; } catch {}
+    try { ev.gift_on = giftActive(JSON.parse((await env.RATE.get('giftlinks:' + ev.token)) || 'null')); } catch { ev.gift_on = false; }
   }));
   const ids = deps.guestPhoneIds(env);
   const capIds = await Promise.all(ids.map(id => env.RATE.get('wacap:' + id).catch(() => null)));
@@ -394,7 +438,8 @@ export async function handleSendBoard(request, env, origin, deps) {
       if (!g.phone || seen.has(g.phone)) continue; seen.add(g.phone);
       for (const T of TYPES) {
         const due = dueDate(T.key, ev);
-        if (!due || due > today) continue;
+        /* gift markers are written by the decline reply BEFORE the event — read them whenever links are on */
+        if (!(T.key === 'gift' && ev.gift_on) && (!due || due > today)) continue;
         jobs.push(async () => {
           const isWave = T.key[0] === 'w';
           const [m, wst, err, dead] = await Promise.all([
@@ -415,6 +460,7 @@ export async function handleSendBoard(request, env, origin, deps) {
   data.window_days = days;
   data.oldest_row_at = rows.length ? rows[rows.length - 1].at : null;
   data.gates = gates;
+  data.codes = BOARD_CODES.map(c => ({ code: c, he: failHe(c) }));
   if (env.RATE) await env.RATE.put(ck, JSON.stringify({ at: Date.now(), data }), { expirationTtl: 600 }).catch(() => {});
-  return deps.okJson(data, origin);
+  return deps.okJson(await withCap(data), origin);
 }
