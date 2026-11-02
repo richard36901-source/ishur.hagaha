@@ -4097,6 +4097,16 @@ async function templateApproved(env, name) {
   if (env.RATE) await env.RATE.put(ck, ok ? '1' : '0', { expirationTtl: 600 }).catch(() => {});
   return ok;
 }
+
+/* 02/11 incident: 245 table messages said "החתונה של Eleonora" (the client's
+   name, ev[2]) instead of the hosts (ev[34]). EVERY guest-facing event name
+   goes through here. Column 34 = בעלי השמחה, 2 = the paying client's name. */
+export function eventDisplayName(ev, { article = true, fallback = 'האירוע' } = {}) {
+  const hosts = String((ev && (ev[34] || ev[2])) || '').trim();
+  const occasion = String((ev && ev[5]) || '').trim();
+  if (!occasion) return hosts || fallback;
+  return (article ? 'ה' : '') + occasion + (hosts ? ' של ' + hosts : '');
+}
 async function noteGuestSend(env, wa, token, wave, phone, gk) {
   if (!env.RATE || !wa || !wa.ok || !wa.id) return;
   await env.RATE.put('wamid:' + wa.id, JSON.stringify({ token, wave, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
@@ -4990,9 +5000,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
+    const name = String(ev[34] || ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע שלכם' });
 
     if (dry) {
       out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
@@ -5037,10 +5047,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
+    const name = String(ev[34] || ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    /* 02/11: the table template reads "ב{{2}}" — no definite article here, or it says "בהחתונה" */
-    const evName = occasion ? occasion + (name ? ' של ' + name : '') : (name || 'אירוע שלכם');
+    const evName = eventDisplayName(ev, { article: false, fallback: 'האירוע שלכם' });
 
     /* ishur_toda_orach — a thank-you to every guest who confirmed, the day
        after. A marketing template to hundreds of people, so הכל כלול only.
@@ -5125,9 +5134,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
-    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
+    const name = String(ev[34] || ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
+    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע' });
 
     let sent = 0, failed = 0, would = 0;
     /* same discipline as the waves (review finding #5): per-guest marker,
@@ -5186,9 +5195,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       await env.RATE.put('plannote:' + token, today, { expirationTtl: 60 * 86400 });
     }
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
-    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
+    const name = String(ev[34] || ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
+    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע' });
     const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
     const time = String(ev[36] || '').trim() || 'בשעות הערב';
     const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ');
@@ -10775,7 +10784,7 @@ export default {
       if (!ev) return deny(404, 'bad-token', origin);
       const name = String(ev[2] || '').trim(), phone = normPhone(ev[3] || '');
       const occasion = String(ev[5] || '').trim();
-      const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || token.slice(0, 8));
+      const evName = eventDisplayName(ev, { fallback: name || token.slice(0, 8) });
       /* Richard 14/10: both hosts can answer; the second one's link carries p=2 */
       const who = String(b.who || '') === '2' ? '2' : '';
       const key = 'fb:' + token + (who ? ':2' : '');
