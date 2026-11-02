@@ -147,6 +147,9 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
   c.phone = phone;
   c.msgs = (c.msgs || 0) + 1;
   if (!c.first_ts) c.first_ts = ts;
+  /* 02/11: the last INBOUND survives an echo/outbound that comes after it —
+     the lead chase asks "did they ever write to us", not "who spoke last" */
+  if (dir === 'in' && !(ts < (c.last_in_ts || 0))) c.last_in_ts = ts;
   if (!(ts < (c.last_ts || 0))) {
     c.last_ts = ts;
     c.last_dir = dir;

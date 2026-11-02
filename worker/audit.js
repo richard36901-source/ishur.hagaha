@@ -144,7 +144,9 @@ export async function record(env, rec) {
     r.event = null; r.guest = null;
     await enrich(env, r);
     r.hash = await sha256Hex(hashInput(r));
-    await env.RATE.put(`stream:${day}:${ms}:${rand}`, JSON.stringify(r), { expirationTtl: AUDIT_TTL });
+    /* 02/11: kind/phone/token ride as list() metadata, so a filtered read
+       (kind:'wa_in', phone:…) skips non-matching records without a get() */
+    await env.RATE.put(`stream:${day}:${ms}:${rand}`, JSON.stringify(r), { expirationTtl: AUDIT_TTL, metadata: streamMeta(r) });
     return r;
   } catch { return null; }
 }
@@ -223,13 +225,40 @@ export async function job(env, name, fn) {
 }
 
 /* ── §5 export ─────────────────────────────────────────────────────────────
-   query: { days (1..400), from 'YYYYMMDD', to 'YYYYMMDD', kind, token, phone, q, limit }
-   Reads day by day (newest first) and stops at limit. Each row re-hashed. */
+   query: { days (1..400), from 'YYYYMMDD', to 'YYYYMMDD', kind, token, phone, q, limit, since, budget }
+   Newest first, and it stops at limit.
+
+   02/11 (Richard: "why can't you see what is written on 4499?"): the old
+   reader listed a day oldest→newest and get()-ed EVERY record before it
+   filtered by kind. A Worker invocation gets ~10,000 KV operations; on a
+   heavy day (10,949 records on 02/11) every get() past that budget threw,
+   the .catch turned it into null, and the newest ~1,000 records — everything
+   after 14:33Z, including the 17:46 conversation — vanished from the answer
+   without a word. Now:
+     · the whole day's key list is read first (1 op per 1,000 keys),
+     · records are fetched NEWEST first, so a cut drops the oldest, not the
+       latest — the thing somebody is looking at right now,
+     · kind/phone/token are taken from list() metadata when the record has it
+       (written by record() since 02/11), so filtered reads cost no get(),
+     · an explicit op budget, and the answer SAYS when it was cut
+       (queryEx → { items, truncated, ops, oldest_ts, failed }). */
+export function streamMeta(r) {
+  return { k: String(r.kind || ''), p: String(r.phone || '').slice(0, 20), t: String(r.token || '').slice(0, 8) };
+}
+const keyTs = k => Number(String(k.name || '').split(':')[2]) || 0;
+export const QUERY_BUDGET = 9000;
+
 export async function query(env, qy = {}) {
+  return (await queryEx(env, qy)).items;
+}
+
+export async function queryEx(env, qy = {}) {
+  const res = { items: [], truncated: false, ops: 0, oldest_ts: null, failed: 0 };
+  if (!env.RATE) return res;
   const out = [];
-  if (!env.RATE) return out;
   const limit = Math.max(1, Math.min(20000, Number(qy.limit) || 2000));
   const days = Math.max(1, Math.min(400, Number(qy.days) || 2));
+  const budget = Math.max(50, Math.min(QUERY_BUDGET, Number(qy.budget) || QUERY_BUDGET));
   const dayList = [];
   if (qy.from && qy.to) {
     let d = new Date(`${qy.from.slice(0, 4)}-${qy.from.slice(4, 6)}-${qy.from.slice(6, 8)}T12:00:00Z`);
@@ -241,30 +270,54 @@ export async function query(env, qy = {}) {
   }
   const tokPrefix = qy.token ? String(qy.token).slice(0, 8) : '';
   const needle = qy.q ? String(qy.q).toLowerCase() : '';
+  const since = Number(qy.since) || 0;
+  /* a record whose metadata already says "not this kind/phone/token" is skipped unread */
+  const metaSkip = (m) => {
+    if (!m || typeof m !== 'object') return false;
+    if (qy.kind && m.k && m.k !== qy.kind) return true;
+    if (qy.phone && m.p !== undefined && m.p !== String(qy.phone)) return true;
+    if (tokPrefix && m.t !== undefined && m.t !== tokPrefix) return true;
+    return false;
+  };
   for (const day of dayList) {
+    const keys = [];
     let cursor; let pages = 0;
     do {
+      if (res.ops >= budget) { res.truncated = true; break; }
+      res.ops++;
       const page = await env.RATE.list({ prefix: `stream:${day}:`, limit: 1000, cursor }).catch(() => null);
-      if (!page) break;
-      const keys = page.keys.filter(k => !qy.since || Number(k.name.split(':')[2]) > Number(qy.since));
-      const vals = await Promise.all(keys.map(k => env.RATE.get(k.name).catch(() => null)));
-      for (let i = 0; i < vals.length; i++) {
-        if (!vals[i]) continue;
-        let r; try { r = JSON.parse(vals[i]); } catch { continue; }
-        if (!r.id) { const p = keys[i].name.split(':'); r.id = `${p[1]}-${p[2]}-${p[3]}`; r.ts = Number(p[2]); }
-        if (!r.ts) r.ts = Number(keys[i].name.split(':')[2]) || 0;
+      if (!page) { res.truncated = true; cursor = null; break; }
+      for (const k of page.keys || []) keys.push(k);
+      cursor = page.list_complete ? null : page.cursor; pages++;
+    } while (cursor && pages < 100);
+    if (cursor) res.truncated = true;
+    const cand = keys.filter(k => (!since || keyTs(k) > since) && !metaSkip(k.metadata)).sort((a, b) => keyTs(b) - keyTs(a));
+    for (let i = 0; i < cand.length && out.length < limit; i += 50) {
+      const room = budget - res.ops;
+      if (room <= 0) { res.truncated = true; break; }
+      const batch = cand.slice(i, i + Math.min(50, room));
+      res.ops += batch.length;
+      const vals = await Promise.all(batch.map(k => env.RATE.get(k.name).catch(() => undefined)));
+      for (let j = 0; j < vals.length; j++) {
+        res.oldest_ts = keyTs(batch[j]);
+        if (vals[j] === undefined) { res.failed++; res.truncated = true; continue; }
+        if (!vals[j]) continue;
+        let r; try { r = JSON.parse(vals[j]); } catch { continue; }
+        if (!r.id) { const p = batch[j].name.split(':'); r.id = `${p[1]}-${p[2]}-${p[3]}`; r.ts = Number(p[2]); }
+        if (!r.ts) r.ts = keyTs(batch[j]);
         if (qy.kind && r.kind !== qy.kind) continue;
         if (tokPrefix && String(r.token || '').slice(0, 8) !== tokPrefix) continue;
         if (qy.phone && String(r.phone || '') !== String(qy.phone)) continue;
         if (needle && (JSON.stringify(r).toLowerCase().indexOf(needle) < 0)) continue;
         out.push(r);
       }
-      cursor = page.list_complete ? null : page.cursor; pages++;
-    } while (cursor && pages < 20);
-    if (out.length >= limit) break;
+      if (batch.length < 50 && i + batch.length < cand.length) { res.truncated = true; break; }
+    }
+    if (out.length >= limit || res.truncated) break;
   }
   out.sort((a, b) => b.ts - a.ts);
-  return out.slice(0, limit);
+  res.items = out.slice(0, limit);
+  return res;
 }
 
 export async function verifyRows(rows) {

@@ -28,11 +28,12 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClien
 import { proxy as evProxy, appendTab } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
-import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
+import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
+import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -652,22 +653,24 @@ async function noteLead(env, f) {
     rec.types = Array.from(new Set([...(rec.types || []), facts.type].filter(Boolean))).slice(-8);
     await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
     await armLeadPing(env, phone).catch(() => {});
-    await mirrorLeadToMonday(env, phone, rec);
-    return;
+    return await mirrorLeadToMonday(env, phone, rec);
   }
   /* someone who already went through the whole sequence starts nothing new */
   if (await env.RATE.get('leadchase:' + phone)) return;
   rec = { ...facts, at: now, lastAt: now, consent, seen: 1, types: facts.type ? [facts.type] : [] };
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
   await armLeadPing(env, phone).catch(() => {});
-  await mirrorLeadToMonday(env, phone, rec);
+  return await mirrorLeadToMonday(env, phone, rec);
 }
 
+/* returns mondayUpsertLead's { ok, id, created } (or undefined) so a caller can
+   tell "new on Monday" from "Richard already had this person" (02/11) */
 async function mirrorLeadToMonday(env, phone, rec) {
   if (isTestPhone(env, phone)) return;
   try {
     const r = await mondayUpsertLead(env, phone, rec);
     if (!r.ok && r.why !== 'no-token') await logEvent(env, { area: 'לידים', action: 'ליד → מאנדיי נכשל', ok: false, review: true, phone, detail: r.why || '' });
+    return r;
   } catch (e) {
     await logEvent(env, { area: 'לידים', action: 'ליד → מאנדיי נכשל', ok: false, review: true, phone, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
   }
@@ -756,13 +759,19 @@ async function pullMetaFormLeads(env, { dry = false, since = null } = {}) {
         const u = await fetch(env.HOOK_LEADS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).catch(() => null);
         sheetOk = !!(u && u.ok);
       }
-      await logEvent(env, { area: 'לידים', action: 'ליד מטופס מטא', ok: sheetOk, review: !sheetOk, phone, detail: `${name} · ${ad.name}${sheetOk ? '' : ' · הגיליון לא עודכן'}` }).catch(() => {});
-      try { await noteLead(env, fields); } catch {}
+      /* 02/11: Maya filled the form AND wrote on WhatsApp; the WhatsApp path
+         had already made her a lead (10:24), the form pull announced her
+         again as "ליד חדש" at 16:39. Say what we already know. */
+      const knownAs = (await env.RATE.get('client:' + phone).catch(() => null)) ? 'client'
+        : ((await env.RATE.get('lead:' + phone).catch(() => null)) || (await env.RATE.get('leadchase:' + phone).catch(() => null)) || (await env.RATE.get('leadslack:' + phone).catch(() => null))) ? 'lead' : '';
+      await logEvent(env, { area: 'לידים', action: 'ליד מטופס מטא', ok: sheetOk, review: !sheetOk, phone, detail: `${name} · ${ad.name}${sheetOk ? '' : ' · הגיליון לא עודכן'}${knownAs ? ' · כבר מוכר (' + knownAs + ')' : ''}` }).catch(() => {});
+      let mon = null;
+      try { mon = await noteLead(env, fields); } catch {}
       await env.RATE.delete('leadping:' + phone).catch(() => {});
       await env.RATE.put('leadslack:' + phone, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
       const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
       await slackPost(env, [
-        '🆕 *ליד חדש מטופס מטא*', '',
+        leadAlertHeader('meta', knownAs || (mon && mon.ok && mon.created === false ? 'monday' : '')), '',
         `*שם:* ${name || 'לא נמסר'}`,
         `*טלפון:* ${local} · <https://wa.me/${phone}|וואטסאפ>`,
         email ? `*מייל:* ${email}` : '',
@@ -829,7 +838,9 @@ const LEAD_T3_MS = 3 * 86400 * 1000;
 async function leadReplied(env, phone, sinceIso) {
   let c = null;
   try { c = JSON.parse(await env.RATE.get('conv:' + normPhone(phone))); } catch {}
-  return !!(c && c.last_dir === 'in' && c.last_ts && c.last_ts > Date.parse(sinceIso || '1970-01-01'));
+  /* 02/11: last_in_ts survives a later echo; the old last_dir check did not */
+  const inTs = lastInboundTs(c);
+  return !!(inTs && inTs > Date.parse(sinceIso || '1970-01-01'));
 }
 
 /* Richard, 08/09: a failed touch gets exactly one retry, 30 minutes later —
@@ -903,8 +914,16 @@ async function chaseAbandonedLeads(env, dry, budget) {
     if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
     if (await phoneBlocked(env, phone)) { if (!dry) await settle(phone, 'blocked'); continue; }
     /* answered = theirs now. Any inbound message after the form died means a
-       human (or נועה) is already talking to them; more templates would nag. */
-    if (await leadReplied(env, phone, rec.at)) { if (!dry) await settle(phone, 'answered'); continue; }
+       human (or נועה) is already talking to them; more templates would nag.
+       02/11: also a lead who wrote to US first on WhatsApp (Maya, Anat got
+       "ראינו שהתחלתם להזמין … ולא סיימתם" 40 minutes after their own first
+       message), and a chat a human took from the phone (human:/aioff:). */
+    {
+      let conv = null; try { conv = JSON.parse(await env.RATE.get('conv:' + phone)); } catch {}
+      const human = (await env.RATE.get('human:' + phone).catch(() => null)) || (await env.RATE.get('aioff:' + phone).catch(() => null));
+      const stop = chaseStopReason({ rec, conv, human });
+      if (stop) { if (!dry) await settle(phone, stop === 'whatsapp-first' || stop === 'human' ? 'answered:' + stop : 'answered'); else out.push({ type: 'lead_stop', phone, why: stop }); continue; }
+    }
 
     const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
     const occ = rec.occasion || 'האירוע שלכם';
@@ -3051,7 +3070,12 @@ async function handleWaWebhook(request, env, url) {
     if (echo) {
       const peer = normPhone(to || '');
       if (peer && env.RATE && !(msg.id && await env.RATE.get('wamid:' + msg.id).catch(() => null))) {
-        if (!await env.RATE.get('human:' + peer).catch(() => null)) {
+        /* 02/11: the WhatsApp Business app's own away message is an echo too
+           (it fires ~0.5 s before the inbound that triggered it). It is not
+           Richard: it must not mute Noa and must not show as "ריצ׳רד". */
+        const echoBody0 = String((msg.text && msg.text.body) || '');
+        const appAuto = isAppAutoReply(echoBody0, env);
+        if (!appAuto && !await env.RATE.get('human:' + peer).catch(() => null)) {
           await env.RATE.put('human:' + peer, JSON.stringify({ at: new Date().toISOString(), via: 'phone' }), { expirationTtl: 7 * 86400 }).catch(() => {});
           await logEvent(env, { area: 'ווצאפ', action: 'ריצ׳רד ענה מהטלפון — נועה משתתקת בשיחה הזאת', ok: true, phone: peer, detail: 'שבוע, או עד "החזר לנועה"' }).catch(() => {});
         }
@@ -3064,7 +3088,7 @@ async function handleWaWebhook(request, env, url) {
           const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
           const ets = Date.now();
           await env.RATE.put('log:' + peer + ':' + ets, JSON.stringify({
-            dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: 'ריצ׳רד (מהטלפון)', phone_app: true,
+            dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)', phone_app: true, app_auto: appAuto || undefined,
             media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
               ? { id: String(msg[msg.type].id), mime: String(msg[msg.type].mime_type || ''), name: String(msg[msg.type].filename || msg[msg.type].caption || '') }
               : undefined,
@@ -3072,7 +3096,7 @@ async function handleWaWebhook(request, env, url) {
           }));
           await touchConversation(env, peer, { ts: ets, dir: 'out', text: eBody.slice(0, 80), ch: echoCh });
           await logRow(env, echoCh === 'guests' ? 'msg_guests' : 'msg_clients', {
-            id: msg.id || '', dir: 'יוצאת', who: 'ריצ׳רד (מהטלפון)',
+            id: msg.id || '', dir: 'יוצאת', who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)',
             sent: 'כן ' + ilTime(), error: '',
             name: (await env.RATE.get('waname:' + peer)) || '', phone: peer, text: eBody,
             sender: echoCh === 'guests' ? '0559726673' : '0559504499',
@@ -3140,13 +3164,25 @@ async function handleWaWebhook(request, env, url) {
         try {
           const p9 = normPhone(from);
           const known = (await env.RATE.get('client:' + p9)) || (await env.RATE.get('lead:' + p9)) || (await env.RATE.get('leadchase:' + p9));
-          if (!known && !isTestPhone(env, p9) && !String(env.ADMIN_PHONES || '').split(',').includes(p9)) {
-            await noteLead(env, { phone: p9, name: profileName || '', page: 'whatsapp', first_source: 'וואטסאפ נכנס', event_type: 'whatsapp_in' });
+          /* 02/11: KV only knows clients who paid through Grow. A client whose
+             event Richard opened by hand (bank transfer, cash) has no client:
+             marker, and a guest of an upcoming event writing to Noa is a guest
+             (the separation rule below redirects them). Neither is a new lead:
+             no Monday item, no "ליד חדש" ping, no "לא סיימת" chase. */
+          let notLead = '';
+          if (!known) {
+            const snapL = await Promise.race([snapshotCached(env).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+            if (snapL && eventsForPhone(snapL, p9).length) notLead = 'client';
+            else if (snapL) { const gL = findGuestByPhone(snapL, p9, ilDate()); if (gL && gL.upcoming) notLead = 'guest'; }
+            if (notLead) await logEvent(env, { area: 'לידים', action: notLead === 'client' ? 'לקוח (אירוע בגיליון) כתב לנועה — לא נפתח ליד' : 'אורח של אירוע קרוב כתב לנועה — לא נפתח ליד', ok: true, phone: p9, detail: body.slice(0, 120) }).catch(() => {});
+          }
+          if (!known && !notLead && !isTestPhone(env, p9) && !String(env.ADMIN_PHONES || '').split(',').includes(p9)) {
+            const mon = await noteLead(env, { phone: p9, name: profileName || '', page: 'whatsapp', first_source: 'וואטסאפ נכנס', event_type: 'whatsapp_in' });
             await env.RATE.delete('leadping:' + p9).catch(() => {});
             await env.RATE.put('leadslack:' + p9, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
             const local = p9.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
             await slackPost(env, [
-              '🆕 *ליד חדש מוואטסאפ (נועה 4499)*', '',
+              leadAlertHeader('whatsapp', mon && mon.ok && mon.created === false ? 'monday' : ''), '',
               `*שם:* ${profileName || 'לא ידוע'}`,
               `*טלפון:* ${local} · <https://wa.me/${p9}|וואטסאפ>`,
               body ? `*כתב/ה:* ${body.slice(0, 300)}` : '', '',
@@ -9532,6 +9568,12 @@ export default {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       if (!env.MONDAY_API_TOKEN) return okJson({ ok: false, why: 'no-token' }, origin);
+      /* 02/11: read-only lookup. Before this, {action:'find', phone} fell
+         through to the upsert below and WROTE the KV record over the item. */
+      if (b.action === 'find') {
+        try { return okJson({ ok: true, ...(await mondayFindLead(env, normPhone(b.phone || ''))) }, origin); }
+        catch (e) { return okJson({ ok: false, why: String(e && e.message).slice(0, 300) }, origin); }
+      }
       /* admin passthrough for fixing the board by hand (columns, dupes) */
       if (b.gql) { try { return okJson({ ok: true, data: await mondayGql(env, b.gql, b.vars || {}) }, origin); } catch (e) { return okJson({ ok: false, why: String(e && e.message) }, origin); } }
       if (b.debug) {
@@ -9983,8 +10025,11 @@ export default {
     if (url.pathname === '/api/stream' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch {}
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const items = await audit.query(env, { days: b.days || 2, limit: b.limit || 600, since: b.since, kind: b.kind, token: b.token, phone: b.phone, q: b.q });
-      return okJson({ ok: true, items, now: Date.now(), kinds: audit.KIND_INFO }, origin);
+      /* 02/11: queryEx says when the answer was cut (KV op budget) instead of
+         silently dropping the newest records — the 17:46 "blind spot" */
+      const qx = await audit.queryEx(env, { days: b.days || 2, limit: b.limit || 600, since: b.since, kind: b.kind, token: b.token, phone: b.phone, q: b.q });
+      return okJson({ ok: true, items: qx.items, truncated: qx.truncated, ops: qx.ops, failed: qx.failed,
+        oldest_scanned: qx.oldest_ts ? new Date(qx.oldest_ts).toISOString() : null, now: Date.now(), kinds: audit.KIND_INFO }, origin);
     }
     /* 22/10: per-event delivery report from the message log (sent/delivered/read/failed per guest) */
     if (url.pathname === '/api/delivery-report' && request.method === 'POST') {
@@ -10041,7 +10086,7 @@ export default {
       const name = String(e.pulseName || e.itemName || '').trim();
       let who = String(e.userName || e.userId || '');
       /* Monday sends only the user id; resolve once, cache 30 days */
-      try { if (/^\d+$/.test(who)) { const uk = 'muser:' + who; const cu = await env.RATE.get(uk).catch(() => null); if (cu) who = cu; else { const r = await mondayGql(env, `query($i:[ID!]){users(ids:$i){name}}`, { i: [who] }).catch(() => null); const u = (((r || {}).data || {}).users || [])[0]; if (u && u.name) { who = u.name; await env.RATE.put(uk, who, { expirationTtl: 30 * 86400 }).catch(() => {}); } } } } catch {}
+      try { if (/^\d+$/.test(who)) { const uk = 'muser:' + who; const cu = await env.RATE.get(uk).catch(() => null); if (cu) who = cu; else { const r = await mondayGql(env, `query($i:[ID!]){users(ids:$i){name}}`, { i: [who] }).catch(() => null); const u = ((((r || {}).data) || r || {}).users || [])[0]; if (u && u.name) { who = u.name; await env.RATE.put(uk, who, { expirationTtl: 30 * 86400 }).catch(() => {}); } } } } catch {}
       let action = '', detail = '';
       if (t === 'create_update' || t === 'edit_update') { action = `📝 ${who} כתב/ה על ליד · ${name}`; detail = String(e.textBody || e.body || '').replace(/<[^>]+>/g, '').slice(0, 1500); }
       else if (t === 'change_column_value' || t === 'change_status_column_value' || t === 'change_specific_column_value') { const v = e.value && typeof e.value === 'object' ? (e.value.label && e.value.label.text) || e.value.text || e.value.name || JSON.stringify(e.value) : String(e.value || ''); const pv = e.previousValue && typeof e.previousValue === 'object' ? (e.previousValue.label && e.previousValue.label.text) || e.previousValue.text || '' : String(e.previousValue || ''); action = `🔁 ${who}: ${e.columnTitle || e.columnId || 'עמודה'} ${pv ? pv + ' → ' : ''}${v} · ${name}`; detail = `${e.columnTitle || e.columnId || ''} = ${String(v).slice(0, 300)}`; }
@@ -10056,7 +10101,10 @@ export default {
         let cached = null; try { cached = JSON.parse((await env.RATE.get(pk)) || 'null'); } catch {}
         if ((!cached || !cached.phone || !cached.name) && e.pulseId) {
           const r = await mondayGql(env, `query($i:[ID!]){items(ids:$i){name column_values{id text type}}}`, { i: [String(e.pulseId)] }).catch(() => null);
-          const it = (((r || {}).data || {}).items || [])[0];
+          /* mondayGql returns `data` already unwrapped — reading r.data here
+             left every hook record without name/phone and announced the
+             worker's own new items a second time as "ליד חדש במאנדיי" (02/11) */
+          const it = ((((r || {}).data) || r || {}).items || [])[0];
           if (it) { const pc = it.column_values.find(c => c.type === 'phone' || /phone|טלפון/i.test(c.id)); cached = { name: String(it.name || ''), phone: pc ? normPhone(pc.text || '') : '' }; await env.RATE.put(pk, JSON.stringify(cached), { expirationTtl: 30 * 86400 }).catch(() => {}); }
         }
         if (cached) { phone = cached.phone || ''; if (!iname) iname = cached.name || ''; }
