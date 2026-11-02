@@ -1,0 +1,26 @@
+{
+  "_note": "02/11 gift twin of ishur_yom_haerua (event-day message, events WITHOUT seating). Body = the live ishur_yom_haerua text (read from the wa_out log 02/11; it already carries the Waze URL in {{4}} and was approved + delivered) + one static gift line before the closing line. Gift link = URL button on our domain, dynamic suffix = first 8 chars of the token. Same 4 body params as today, so edblast jobs need no change. Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_yom_haerua_matana",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי, היום בשעה {{1}} חוגגים את {{2}}! 🎉\n📍 הכתובת: {{3}}\n🧭 ניווט: {{4}}\n🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בביט או בפייבוקס בכפתור למטה.\nמחכים לראותכם!",
+        "example": { "body_text": [["19:30", "החתונה של הדר ויצחק", "אולמי Sky Garden, היוזמה 6, יקנעם עילית", "https://waze.com/ul?q=Sky%20Garden&navigate=yes"]] }
+      },
+      { "type": "FOOTER", "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\"" },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          { "type": "URL", "text": "מתנה בביט / פייבוקס", "url": "https://go.ishur.io/gift/{{1}}", "example": ["https://go.ishur.io/gift/c1c5fcf5"] }
+        ]
+      }
+    ]
+  }
+}
