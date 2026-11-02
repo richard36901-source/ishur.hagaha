@@ -2,7 +2,7 @@
 
 Branch `feat-gifts-sendboard`, based on `main-executer` @ c3c9604. **Not deployed. No KV written. No message sent. No template submitted.**
 
-Tests: `cd worker && node --test test/*.test.mjs` (Node 24 rejects the bare directory form `node --test test/`). Result on this branch: **151 / 151 pass** (baseline was 113 / 113).
+Tests: `cd worker && node --test test/*.test.mjs` (Node 24 rejects the bare directory form `node --test test/`). Result on this branch: **158 / 158 pass** (baseline was 113 / 113).
 
 ---
 
@@ -36,7 +36,24 @@ New config vars (all optional, none set):
 | `GUEST_CAP_SCOPE` | `portfolio` | `number` = the per-number limits add up |
 | `GUEST_PORTFOLIO_BUDGET` | portfolio tier from `wa:cap`, else 250 | hard shared ceiling |
 | `GUEST_DAILY_BUDGET` | number's tier from `wa:cap`, else 230 | per-number ceiling (unchanged meaning) |
-| `GUEST_BUDGET_MARGIN` | 0 | subtracted from the shared room |
+| `GUEST_BUDGET_MARGIN` | **20** (Richard, 02/11) | subtracted from the shared room only (not per number). With TIER_250 the scheduler stops at 230 conversations per rolling 24h. |
+
+Decisions (02/11 evening): keep 250 shared (portfolio), marketing category accepted for the two thank-you/gift templates, shared margin 20.
+
+### Replies leave from the number the guest wrote to (follow-up commit)
+
+A free-text reply is legal only inside the 24h window the guest opened **with that specific number**; from the other number it fails with 131047. Before this commit every reply went from the "least used" number.
+
+- The webhook stores `gph:<guest phone>` = `metadata.phone_number_id` (guest numbers only, 120d) and passes it as `phone_id` to `say()`.
+- `pickGuestPhone` uses the guest's number for every non-template send. That covers every reply in the inbound handler, `sendCtaUrl`, the decline-gift line and inbox replies.
+- It uses it even when the cap is full or the number is held, because replies are not capped.
+- Templates prefer the guest's number while it has room; otherwise they take the least-used number.
+- The first successful template to a guest with no known number pins the number it went from.
+- `4499` is never stored as a guest number.
+
+Test: `test/reply-number.test.mjs`. A guest presses "לא מגיע/ה" on 9799 through the real webhook while 6673 has fewer sends; the gift reply leaves from 9799.
+
+The four tests in `test/guest-budget.test.mjs` (02/11 hotfix) were written for the per-number model (230 each, summed, no margin). They now set `GUEST_CAP_SCOPE=number` and `GUEST_BUDGET_MARGIN=0` explicitly. **Their assertions are unchanged.** The new default (shared, margin 20) is asserted in `test/budget.test.mjs`.
 
 ---
 
@@ -199,7 +216,7 @@ To undo the hold afterwards, use the same call with `"on":false`.
 
 - Meta behaviour is stubbed everywhere. Nothing proves the four templates will be **approved**, or approved in the category they were submitted under.
 - "Portfolio-shared" comes from Meta's docs, not from a measurement on these two numbers.
-- Nothing ran against production KV. `wa:cap` with ids only appears after the next `waCapInfo` refresh (6h cache) or the first `/api/cap-status` / `/api/send-board` call after deploy. Until then tiers are unknown, which falls back to 230 per number and 250 shared.
+- Nothing ran against production KV. `wa:cap` with ids only appears after the next `waCapInfo` refresh (6h cache) or the first `/api/cap-status` / `/api/send-board` call after deploy. Until then tiers are unknown, which falls back to 230 per number and 250 shared (minus the margin of 20).
 - `gift-blast-route.test.mjs` depends on the clock. Outside 09:00–20:30 its two send-path tests accept the window refusal instead of exercising the send.
 - The rolling counter starts empty on deploy. For the first 24h after deploy `used` is the old day counter only.
 - `worker/scripts/check-registry.mjs` was already failing at base (stale line anchors). It is still failing and was not re-pinned.

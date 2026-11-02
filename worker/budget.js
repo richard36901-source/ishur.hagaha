@@ -67,11 +67,12 @@ export function capacity(numbers, { scope = 'portfolio', portfolioLimit = 0, mar
   const used = per.reduce((n, x) => n + x.used, 0);
   if (scope === 'number') {
     const limit = per.reduce((n, x) => n + x.limit, 0);
-    return { scope, limit, used, remaining: sumPer, numbers: per, all_held: per.length > 0 && per.every(x => x.held) };
+    const remaining = Math.min(sumPer, Math.max(0, limit - (Number(margin) || 0) - used));
+    return { scope, limit, used, margin: Number(margin) || 0, remaining, numbers: per, all_held: per.length > 0 && per.every(x => x.held) };
   }
   const limit = Number(portfolioLimit) || Math.max(0, ...per.map(x => x.limit));
   const shared = Math.max(0, limit - (Number(margin) || 0) - used);
-  return { scope, limit, used, remaining: Math.min(shared, sumPer), numbers: per, all_held: per.length > 0 && per.every(x => x.held) };
+  return { scope, limit, used, margin: Number(margin) || 0, remaining: Math.min(shared, sumPer), numbers: per, all_held: per.length > 0 && per.every(x => x.held) };
 }
 
 /* a batch never starts bigger than the room left: send what fits, hold the rest */

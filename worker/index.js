@@ -31,7 +31,7 @@ import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, bu
 import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
-import { sendCtaUrl, guestCapacity, guestCapScope } from './whatsapp.js';
+import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone } from './whatsapp.js';
 import { fitBatch } from './budget.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml } from './gifts.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
@@ -3102,7 +3102,12 @@ async function handleWaWebhook(request, env, url) {
        flow — but answer on the same number the guest is talking to. */
     const sendCh = ch;
     if (ch === 'client' && env.RATE && await env.RATE.get('x4499:' + normPhone(from)).catch(() => null)) ch = 'guests';
-    const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
+    /* 02/11 (Richard): the guest opened a 24h window with THIS guest number —
+       remember it (gph:<phone>) so every reply below, and every other free
+       text to them (sendCtaUrl, the decline-gift line…), leaves from it and
+       not from the least-used one (131047 otherwise) */
+    if (sendCh === 'guests') await pinGuestPhone(env, from, phoneId);
+    const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)', ...(sendCh === 'guests' ? { phone_id: phoneId } : {}) });
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */

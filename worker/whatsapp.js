@@ -87,7 +87,8 @@ export async function guestCapacity(env) {
   const day = ilDayKey(); const now = Date.now();
   const tiers = await cachedTiers(env.RATE);
   const override = Number(env.GUEST_DAILY_BUDGET) > 0 ? Number(env.GUEST_DAILY_BUDGET) : 0;
-  const margin = Math.max(0, Number(env.GUEST_BUDGET_MARGIN) || 0);
+  /* 02/11 (Richard): a shared safety margin of 20 below the limit; per number none */
+  const margin = env.GUEST_BUDGET_MARGIN != null && env.GUEST_BUDGET_MARGIN !== '' ? Math.max(0, Number(env.GUEST_BUDGET_MARGIN) || 0) : 20;
   const rows = await Promise.all(ids.map(async id => {
     const [n, held, until, buckets] = await Promise.all([
       env.RATE.get(`gsend:${id}:${day}`).catch(() => 0), env.RATE.get('wacap:' + id).catch(() => null),
@@ -96,16 +97,34 @@ export async function guestCapacity(env) {
     const tl = t ? tierLimit(t.tier, 0) : 0;
     /* explicit override > the number's real tier > the post-incident 230 */
     const limit = override || (tl && Number.isFinite(tl) ? tl : 0) || guestDailyBudget(env);
-    return numberState({ id, tier: t ? t.tier : '', limit, dayUsed: Number(n) || 0, rolling: rollingUsed(buckets, now), held: !!held, heldUntil: Number(until) || 0, now, margin, freeAt: nextFreeAt(buckets, now) });
+    return numberState({ id, tier: t ? t.tier : '', limit, dayUsed: Number(n) || 0, rolling: rollingUsed(buckets, now), held: !!held, heldUntil: Number(until) || 0, now, margin: 0, freeAt: nextFreeAt(buckets, now) });
   }));
   const knownTier = tiers.map(x => tierLimit(x.tier, 0)).find(v => v && Number.isFinite(v)) || 0;
   const portfolioLimit = Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? Number(env.GUEST_PORTFOLIO_BUDGET) : (knownTier || 250);
   return capacity(rows, { scope: guestCapScope(env), portfolioLimit, margin });
 }
-export async function pickGuestPhone(env, { template = true } = {}) {
+/* 02/11 (Richard): the guest's number. A free-text reply is only legal inside
+   the 24h window the guest opened WITH THAT NUMBER — answered from the other
+   one it dies on 131047. gph:<phone> = the guest phone id the guest last wrote
+   to (webhook metadata.phone_number_id), or the one that last sent them a
+   template. Replies always go from it; templates prefer it while it has room. */
+export async function guestPinnedPhone(env, to) {
+  if (!env.RATE || !to) return '';
+  const v = await env.RATE.get('gph:' + normPhone(to)).catch(() => null);
+  return v && isGuestPhone(env, v) ? String(v) : '';
+}
+export async function pinGuestPhone(env, to, pid) {
+  if (!env.RATE || !to || !isGuestPhone(env, pid)) return;
+  await env.RATE.put('gph:' + normPhone(to), String(pid), { expirationTtl: 120 * 86400 }).catch(() => {});
+}
+export async function pickGuestPhone(env, { template = true, to = '', pinned = '' } = {}) {
   const ids = guestPhoneIds(env);
   if (!guestsReady(env) || !ids.length) return '';
   if (!env.RATE) return ids[0];
+  const pin = (pinned && isGuestPhone(env, pinned)) ? String(pinned) : await guestPinnedPhone(env, to);
+  /* a reply inside the guest's window: the number they wrote to, no matter
+     how busy it is — the reply is free and not counted by Meta */
+  if (!template && pin) return pin;
   /* 02/11 incident: retries burned 2,081 conversations against the cap and
      Meta blocked both numbers for 24h. A template is only offered a number
      while there is room — no Meta call, no 131048. */
@@ -113,9 +132,11 @@ export async function pickGuestPhone(env, { template = true } = {}) {
   if (template) {
     if (cap.remaining <= 0) return '';
     const open = cap.numbers.filter(r => !r.held && r.remaining > 0).sort((a, b) => a.used - b.used);
+    /* keep the thread on one number while that number has room */
+    if (pin && open.some(r => r.id === pin)) return pin;
     return open.length ? open[0].id : '';
   }
-  /* a reply inside the guest's window: any number not held, else the least used */
+  /* a reply with no known number: any number not held, else the least used */
   const byUse = cap.numbers.slice().sort((a, b) => a.used - b.used);
   return ((byUse.find(r => !r.held) || byUse[0]) || { id: ids[0] }).id;
 }
@@ -302,7 +323,7 @@ async function post(env, body, channel, ctx) {
   if (clientCh && env.RATE && await env.RATE.get('noa:unreg').catch(() => null)) {
     return { ok: false, error: '133010: account not registered (held)', held: true };
   }
-  const phoneId = channel === 'guests' ? await pickGuestPhone(env, { template: body.type === 'template' }) : pickPhone(env, channel);
+  const phoneId = channel === 'guests' ? await pickGuestPhone(env, { template: body.type === 'template', to: body.to, pinned: ctx && ctx.phone_id }) : pickPhone(env, channel);
   const token = pickToken(env, channel);
   if (channel === 'guests' && token && !phoneId) return { ok: false, error: 'guests-daily-budget', held: true };
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
@@ -340,7 +361,7 @@ async function post(env, body, channel, ctx) {
          customer who comes back after a year should not meet a blank thread */
       const logKey = 'log:' + String(body.to || '') + ':' + ts;
       if (res.ok && res.id) await env.RATE.put('wamid2log:' + res.id, logKey, { expirationTtl: 14 * 86400 }).catch(() => {});
-      if (res.ok && channel === 'guests') { if (body.type === 'template') await bumpGuestSend(env, phoneId); if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
+      if (res.ok && channel === 'guests') { if (body.type === 'template') { await bumpGuestSend(env, phoneId); if (!(await guestPinnedPhone(env, body.to))) await pinGuestPhone(env, body.to, phoneId); } if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
       await env.RATE.put(logKey,
         JSON.stringify({
           dir: 'out', type: body.type, text: summary.slice(0, 1000),

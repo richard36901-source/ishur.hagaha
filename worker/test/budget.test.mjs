@@ -70,17 +70,27 @@ test('plan vs capacity: today uses the room left, later days the full limit; ove
     ['2026-11-03', 300, 40, true, 260], ['2026-11-04', 120, 250, false, 0], ['2026-11-05', 260, 250, true, 10]]);
 });
 
-test('whatsapp: real tiers from wa:cap, portfolio default → 250 shared across both numbers', async () => {
-  const e = env({ 'wa:cap': tiers(), [`gsend:A:${day}`]: '200', [`gsend:B:${day}`]: '40' });
+test('whatsapp: real tiers from wa:cap, portfolio default → 250 shared, minus the default margin of 20', async () => {
+  const e = env({ 'wa:cap': tiers(), [`gsend:A:${day}`]: '180', [`gsend:B:${day}`]: '40' });
   const c = await guestCapacity(e);
-  assert.equal(c.scope, 'portfolio'); assert.equal(c.limit, 250); assert.equal(c.remaining, 10);
+  assert.equal(c.scope, 'portfolio'); assert.equal(c.limit, 250); assert.equal(c.margin, 20);
+  assert.equal(c.remaining, 250 - 20 - 220);
+  assert.equal(await pickGuestPhone(e), 'B');
+  const full = env({ 'wa:cap': tiers(), [`gsend:A:${day}`]: '200', [`gsend:B:${day}`]: '30' });
+  assert.equal((await guestCapacity(full)).remaining, 0, '230 used = the margin line');
+  assert.equal(await pickGuestPhone(full), '');
+  assert.equal((await guestCapacity(env({ 'wa:cap': tiers(), [`gsend:A:${day}`]: '200', [`gsend:B:${day}`]: '30' }, { GUEST_BUDGET_MARGIN: '0' }))).remaining, 20);
+});
+
+test('whatsapp: a portfolio number that spent its share is skipped, the other still offered', async () => {
+  const e = env({ 'wa:cap': tiers(), [`gsend:A:${day}`]: '200', [`gsend:B:${day}`]: '5' });
   assert.equal(await pickGuestPhone(e), 'B');
 });
 
-test('whatsapp: GUEST_CAP_SCOPE=number → 500 total from two TIER_250 numbers', async () => {
+test('whatsapp: GUEST_CAP_SCOPE=number → 500 total from two TIER_250 numbers (margin 20 off the total)', async () => {
   const e = env({ 'wa:cap': tiers(), [`gsend:A:${day}`]: '200', [`gsend:B:${day}`]: '40' }, { GUEST_CAP_SCOPE: 'number' });
   const c = await guestCapacity(e);
-  assert.equal(c.limit, 500); assert.equal(c.remaining, 50 + 210);
+  assert.equal(c.limit, 500); assert.equal(c.remaining, 500 - 20 - 240);
 });
 
 test('whatsapp: no room → no number for a template, but a reply still gets one', async () => {
