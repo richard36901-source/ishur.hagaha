@@ -9,7 +9,7 @@ import {
   pickGuestPhone, guestBudgetLeft, noteGuestTemplate, guestPortfolioBudget, _resetBudgetMemory,
 } from '../whatsapp.js';
 import { navLinkOk, giftLinkOk } from '../links.js';
-import { guestEventName, eventDisplayName, _runDailyEngine, _lateInvite } from '../index.js';
+import { guestEventName, eventDisplayName, _runDailyEngine, _lateInvite, _eventDayRecipients, _runEventDayBlasts } from '../index.js';
 
 /* ── fakes ─────────────────────────────────────────────────────────────── */
 function kv(init = {}, { failPutsOn = null } = {}) {
@@ -329,6 +329,47 @@ test('late invitation outside the window is queued, not sent at night', async ()
     assert.ok(await env.RATE.get(`lateinv:${T.wave}:972508888888`));
   }
 });
+/* the same two gates with the clock pinned to Monday 02/11/2026 23:30 IL
+   (21:30 UTC) — deterministic, whatever time the suite runs */
+test('clock at 23:30 IL: engine sends nothing, a late invitation is queued', async (t) => {
+  t.mock.timers.enable({ apis: ['Date'], now: Date.parse('2026-11-02T21:30:00Z') });
+  try {
+    const ev = eventRow({ token: T.wave, date: '2026-11-12', hosts: 'רון ושיר' });
+    const env = baseEnv({ [`wave:${T.wave}:1`]: '2026-11-01' });
+    const r = await _lateInvite(env, ev, T.wave, 'דני', '0508888888');
+    assert.equal(r.sent, false); assert.equal(r.why, 'queued:outside-hours');
+    assert.ok(await env.RATE.get(`lateinv:${T.wave}:972508888888`));
+    snapshot = { events: { values: [eventRow({ token: T.today, date: '2026-11-02' }), eventRow({ token: T.wave, date: '2026-11-12', w1: '2026-11-02' })] },
+      guests: { values: [guestRow({ token: T.today, id: 'g1', name: 'דנה', phone: '0501111111', rsvp: 'מגיע', table: '7' }), guestRow({ token: T.wave, id: 'g5', name: 'רותי', phone: '0505555555' })] } };
+    const env2 = baseEnv();
+    const res = await _runDailyEngine(env2, false, null, {});
+    assert.equal(res.ok, true);
+    assert.equal(sent.length, 0, 'nothing may leave at 23:30: ' + sent.map(s => s.body.template && s.body.template.name).join(','));
+    assert.equal(res.truncated, true, 'the work stays pending for the pacer');
+  } finally { t.mock.timers.reset(); }
+});
+
+/* ── P0: event-day blast ───────────────────────────────────────────────── */
+test('event-day blast never goes to a guest who declined after the day-before reminder', async () => {
+  const raw = { guests: { values: [
+    guestRow({ token: T.today, id: 'g1', name: 'דנה', phone: '0501111111', rsvp: 'מגיע' }),
+    guestRow({ token: T.today, id: 'g2', name: 'יוסי', phone: '0502222222', rsvp: 'לא מגיע' }),
+  ] } };
+  const env = baseEnv({ [`s5d:${T.today}:972502222222`]: '1', [`s5d:${T.today}:972501111111`]: '1' });
+  const people = await _eventDayRecipients(env, T.today, raw, {});
+  assert.deepEqual(people.map(p => p.phone), ['972501111111']);
+});
+
+test('event-day blast holds for a cancelled event', async () => {
+  const { sendWindowState } = await import('../shir.js');
+  snapshot = { events: { values: [eventRow({ token: T.today, date: ilDay(), cancelled: 'כן' })] },
+    guests: { values: [guestRow({ token: T.today, id: 'g1', name: 'דנה', phone: '0501111111', rsvp: 'מגיע' })] } };
+  const env = baseEnv({ [`edblast:${T.today}`]: JSON.stringify({ at: ilDay(), time: '19:30', what: 'החתונה', address: 'אולם', nav: 'https://waze.com/ul/x', template: 'ishur_yom_haerua' }) });
+  const r = await _runEventDayBlasts(env, {});
+  assert.equal(sent.length, 0);
+  if (sendWindowState().open) assert.equal(r.jobs[0].skipped, 'cancelled-or-hold');
+});
+
 test('late invitation for an event that already happened is dropped', async () => {
   const ev = eventRow({ token: T.wave, date: plusDays(-2) });
   const env = baseEnv({ [`wave:${T.wave}:1`]: ilDay() });

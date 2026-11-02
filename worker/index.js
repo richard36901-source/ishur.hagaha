@@ -4108,7 +4108,11 @@ async function eventDayRecipients(env, token, raw, job = {}) {
   for (const g of gRows) {
     if (String(g[28] || '').trim() !== token) continue;
     const phone = normPhone(g[4] || ''); if (!phone || seen.has(phone)) continue;
-    const confirmed = String(g[15] || '').trim() === 'מגיע';
+    const rsvp = String(g[15] || '').trim();
+    const confirmed = rsvp === 'מגיע';
+    /* 02/11 audit: "got the day-before reminder" also matched a guest who
+       answered לא מגיע AFTER it — they were told "today we celebrate". */
+    if (rsvp === 'לא מגיע') continue;
     if (!confirmed && !s5d[phone]) continue;
     /* 01/11: job.no_table — guests with a table already get ishur_shulchan today; one message per guest */
     if (job.no_table && String(g[30] || '').trim()) continue;
@@ -4261,7 +4265,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     let job = null; try { job = JSON.parse(rawJob); } catch {}
     if (!job) continue;
     const due = today >= String(job.at || '');
-    if (!dry && (!due || ilHour < 9 || !sendWindowState().open || await sendingPaused(env) || await env.RATE.get('wacap:guests').catch(() => null))) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
+    if (!dry && (!due || ilHour < 9 || !sendWindowState().open || isNoContactDay(today) || await sendingPaused(env) || await env.RATE.get('wacap:guests').catch(() => null))) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
     /* the template must be live */
     let approved = false;
     try {
@@ -4271,6 +4275,13 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       if (approved && t0.category === 'MARKETING' && !job.allow_marketing) { approved = false; await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} שיווקית — לא נשלחת לאורחים (131049). צריך תבנית utility.`, token.slice(0, 8)); }
     } catch {}
     const raw = await snapshotCached(env);
+    /* 02/11 audit: the job is a KV record set by hand; the event can be
+       cancelled or put on hold after it was set — never blast those */
+    const evRow = eventRowOf(raw, token);
+    if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
+      if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8));
+      res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
+    }
     const people = await eventDayRecipients(env, token, raw, job);
     if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
     if (!approved) {
@@ -5610,7 +5621,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
 /* test-only handles (02/11 audit): the lifecycle stages are exercised end to
    end against a fake sheet + fake Meta in test/audit-send-pipeline.test.mjs */
-export { runDailyEngine as _runDailyEngine, lateInvite as _lateInvite, resendInvitation as _resendInvitation };
+export { runDailyEngine as _runDailyEngine, lateInvite as _lateInvite, resendInvitation as _resendInvitation, eventDayRecipients as _eventDayRecipients, runEventDayBlasts as _runEventDayBlasts };
 
 /* ══ the pacer ═══════════════════════════════════════════════════════════════
    Everything used to happen in one burst at 09:35: every wave for every event,
