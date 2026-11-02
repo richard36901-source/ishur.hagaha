@@ -5039,7 +5039,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
     const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+    /* 02/11: the table template reads "ב{{2}}" — no definite article here, or it says "בהחתונה" */
+    const evName = occasion ? occasion + (name ? ' של ' + name : '') : (name || 'אירוע שלכם');
 
     /* ishur_toda_orach — a thank-you to every guest who confirmed, the day
        after. A marketing template to hundreds of people, so הכל כלול only.
