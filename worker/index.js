@@ -4154,21 +4154,25 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8));
       res.push({ token: token.slice(0, 8), approved: false }); continue;
     }
-    let sent = 0, failed = 0, skipped = 0;
+    let sent = 0, failed = 0, skipped = 0, heldCap = 0;
+    /* 02/11: the event-day blast had no budget at all — it now stops at the room Meta still gives */
+    let room = (await guestCapacity(env).catch(() => ({ remaining: 0 }))).remaining;
     for (const p of people) {
       const mk = `s5e:${token}:${p.phone}`;
       if (await env.RATE.get(mk)) { skipped++; continue; }
       if (await phoneBlocked(env, p.phone) || await wrongNum(env, token, p.phone)) { skipped++; continue; }
+      if (room <= 0) { heldCap++; continue; }
+      room--;
       /* job.params: an explicit parameter list for a fallback template (21/10, when the day's own template is still pending at Meta) */
       const params = Array.isArray(job.params) && job.params.length ? job.params : [job.time, job.what, job.address, job.nav];
       const wa = await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
       if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'eventday', p.phone, mk); await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
-    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}` }).catch(() => {});
-    if (!failed) await env.RATE.delete('edblast:' + token).catch(() => {});
-    if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}`).catch(() => {});
-    res.push({ token: token.slice(0, 8), sent, failed, skipped });
+    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
+    if (!failed && !heldCap) await env.RATE.delete('edblast:' + token).catch(() => {});
+    if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`).catch(() => {});
+    res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap });
   }
   return { ok: true, jobs: res };
 }
@@ -4622,7 +4626,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
 async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   /* how many guest messages this invocation may send before it stops and
      leaves the rest for the next tick. null = no ceiling (the nightly run). */
-  const budget = opts.budget != null ? { left: Number(opts.budget) } : null;
+  let budget = opts.budget != null ? { left: Number(opts.budget) } : null;
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
     await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
@@ -4660,6 +4664,29 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
   /* keep Meta's cap cached so the 80% alert has a number during the waves */
   await waCapInfo(env).catch(() => null);
+
+  /* 02/11 (Richard): "never send a batch that will be refused because the cap
+     is reached — if there's no room, don't send, queue." The tick's guest
+     budget is cut to the room Meta still gives us BEFORE the first send; the
+     waves stop at budget.left = 0 and keep their cursor, so the rest is
+     simply the next tick's queue. */
+  if (!dry && env.RATE) {
+    const cap = await guestCapacity(env).catch(() => null);
+    if (cap && cap.numbers.length) {
+      const wanted = budget ? budget.left : cap.remaining;
+      const fit = fitBatch(cap.remaining, wanted);
+      if (budget) budget.left = fit.send; else budget = { left: fit.send };
+      out.push({ type: 'cap', scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining, batch: wanted, send: fit.send, held: fit.held });
+      if (fit.held > 0) {
+        const hk = `capheld:${today}:${new Date().getUTCHours()}`;
+        if (!(await env.RATE.get(hk).catch(() => null))) {
+          await env.RATE.put(hk, '1', { expirationTtl: 2 * 3600 }).catch(() => {});
+          await logEvent(env, { area: 'שליחה', action: 'held: cap — המנה קוצרה לפני שליחה', ok: true,
+            detail: `נשארו ${cap.remaining} מתוך ${cap.limit} (${cap.scope}) · מנה ${wanted} → יוצאות ${fit.send}, בתור ${fit.held}` }).catch(() => {});
+        }
+      }
+    }
+  }
 
   /* ── stage 0.4: left a phone, never paid ────────────────────────────────
      Preview only. The live chase runs from the pacer every ten minutes; doing
