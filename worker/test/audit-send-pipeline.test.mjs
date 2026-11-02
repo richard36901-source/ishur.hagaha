@@ -264,6 +264,9 @@ test('parser: "בטח שלא" / "אשמח לדעת…" are not a yes', () => {
   assert.notEqual(P('אשמח אבל לא נוכל').outcome, 'מגיע');
   assert.equal(P('אשמח להגיע').outcome, 'מגיע');
   assert.equal(P('בטח!').outcome, 'מגיע');
+  /* a yes-word with a negation later goes to the free-text reader, which says no */
+  assert.notEqual(P('כן, לא נוכל להגיע בסוף').outcome, 'מגיע');
+  assert.equal(guestIntent('כן, לא נוכל להגיע בסוף'), 'no');
 });
 test('parser: a time or a date is not a head count', () => {
   assert.equal(P('מגיעים ב-19:30').party, undefined);
