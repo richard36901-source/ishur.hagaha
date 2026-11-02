@@ -9763,6 +9763,29 @@ export default {
     if (url.pathname === '/api/billing-check' && request.method === 'POST') {
       return handleBillingCheck(request, env, origin);
     }
+    /* 02/11 emergency: SMS to guests when both WhatsApp numbers are throttled
+       (131048). Explicit list only, admin key, Telnyx Messages API, dry by
+       default. From = env.TELNYX_SMS_FROM (an SMS-capable Telnyx number). */
+    if (url.pathname === '/api/sms-blast' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.TELNYX_KEY) return deny(503, 'no-telnyx-key', origin);
+      const from = String(b.from || env.TELNYX_SMS_FROM || '');
+      const list = Array.isArray(b.list) ? b.list.slice(0, 500) : [];
+      if (!from || !list.length) return deny(400, 'need-from-and-list', origin);
+      const out = [];
+      for (const it of list) {
+        const to = '+' + normPhone(it.phone || ''); const text = String(it.text || '').slice(0, 480);
+        if (!/^\+9725\d{8}$/.test(to) || !text) { out.push({ phone: it.phone, ok: false, why: 'bad-input' }); continue; }
+        if (b.dry) { out.push({ phone: to, ok: true, dry: true }); continue; }
+        const r = await fetch('https://api.telnyx.com/v2/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + env.TELNYX_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, text }) }).catch(() => null);
+        const j = r ? await r.json().catch(() => null) : null;
+        const ok = !!(r && r.ok && j && j.data && j.data.id);
+        out.push({ phone: to, ok, id: ok ? j.data.id : '', error: ok ? '' : JSON.stringify((j && j.errors) || r && r.status).slice(0, 160) });
+        stream(env, { kind: 'wa_out', area: 'SMS', action: (ok ? '📤 SMS → ' : '⛔ SMS נכשל → ') + to.slice(1), ok, phone: to.slice(1), token: String(b.token || ''), detail: text, data: { channel: 'sms', from, id: ok ? j.data.id : '', error: ok ? '' : String((j && j.errors && j.errors[0] && j.errors[0].detail) || '') } }).catch(() => {});
+      }
+      return okJson({ ok: true, from, sent: out.filter(x => x.ok && !x.dry).length, dry: !!b.dry, results: out }, origin);
+    }
     if (url.pathname === '/api/telnyx-check' && request.method === 'POST') {
       return handleTelnyxCheck(request, env, origin);
     }
