@@ -1,0 +1,25 @@
+{
+  "_note": "02/11 gift-only message, to guests who DECLINED (/api/gift-blast) and did not already get the links in their in-window decline reply (gift:<token>:<phone>). Plural address, no 'הנחה'. MARKETING (see ishur_toda_matana). Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_matana",
+    "language": "he",
+    "category": "MARKETING",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי {{1}}, חבל שלא יכולתם להגיע ל{{2}} 🙏\nבמידה ותרצו לתת מתנה לבעלי השמחה, תוכלו לבצע זאת בביט או בפייבוקס בכפתור למטה.",
+        "example": { "body_text": [["דנה", "חתונה של הדר ויצחק"]] }
+      },
+      { "type": "FOOTER", "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\"" },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          { "type": "URL", "text": "מתנה בביט / פייבוקס", "url": "https://go.ishur.io/gift/{{1}}", "example": ["https://go.ishur.io/gift/c1c5fcf5"] }
+        ]
+      }
+    ]
+  }
+}
