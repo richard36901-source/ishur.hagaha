@@ -3082,8 +3082,14 @@ async function handleWaWebhook(request, env, url) {
     /* which of our two numbers received this. Every reply below goes back out on
        the SAME number: a guest who wrote to Shir's line is answered from Shir's
        line, never from 4499 (iron rule 06/09). The inbox filters on it too. */
-    const ch = isGuestPhone(env, phoneId) ? 'guests' : 'client';
-    const say = (t) => sendText(env, from, t, ch, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
+    let ch = isGuestPhone(env, phoneId) ? 'guests' : 'client';
+    /* 02/11 (Richard): when a guest message was sent FROM 4499 (x4499:<phone>
+       marker, emergency capacity), the guest's reply lands on Noa's line. Run
+       the GUEST logic for it (RSVP, party size, table), never the lead/client
+       flow — but answer on the same number the guest is talking to. */
+    const sendCh = ch;
+    if (ch === 'client' && env.RATE && await env.RATE.get('x4499:' + normPhone(from)).catch(() => null)) ch = 'guests';
+    const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
