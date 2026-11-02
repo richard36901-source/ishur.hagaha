@@ -1,0 +1,339 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>מוקד · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=72"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/adminbar.js?v=15" defer></script>
+<style>
+  /* same tokens as admin.html / brain.html — one house, one look */
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --warn:#A8402F; --chip:#F1EEE4;
+    --noa:#33578C; --noa-bg:rgba(74,111,165,.14); --shir:#0F4C35; --shir-bg:rgba(15,76,53,.12); --brain:#7A5A1E; --brain-bg:rgba(168,133,60,.16);
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;--chip:#222A24;
+    --noa:#8FB0E8;--shir:#7BC9A4;--brain:#D9BE7A;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.5;padding-bottom:3rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1rem 1rem 1.1rem;text-align:center;border-bottom:1px solid var(--gold-pale);position:relative}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.74rem;color:rgba(248,244,234,.65)}
+  .livedot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#C9CCC5;margin-inline-end:.35rem;vertical-align:middle}
+  .livedot.on{background:#2E7D5B;box-shadow:0 0 0 0 rgba(46,125,91,.55);animation:lpulse 2s infinite}
+  @keyframes lpulse{70%{box-shadow:0 0 0 7px rgba(46,125,91,0)}100%{box-shadow:0 0 0 0 rgba(46,125,91,0)}}
+  @media (prefers-reduced-motion:reduce){.livedot.on{animation:none}}
+  .wrap{max-width:min(97vw,1440px);margin:0 auto;padding:0 .8rem}
+  .gate{max-width:360px;margin:3rem auto;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1.4rem;text-align:center}
+  .gate h2{font-family:'Frank Ruhl Libre',serif;color:var(--pine);margin-bottom:.8rem}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.6rem .8rem;font:inherit;background:var(--bg);color:var(--ink);margin-bottom:.6rem}
+  .gate .err{color:var(--warn);font-size:.78rem;min-height:1rem}
+  .btn{border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.5rem 1.1rem;font:inherit;font-weight:600;font-size:.82rem;cursor:pointer}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn.ghost{background:var(--card);color:var(--ink2);border:1px solid var(--line)}
+  button:not(:disabled):active{transform:scale(.97)}
+
+  .floor{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.8rem;margin:1rem 0}
+  @media (max-width:980px){.floor{grid-template-columns:1fr}}
+  .col{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;min-height:320px}
+  .col-h{display:flex;align-items:center;justify-content:space-between;gap:.5rem;padding:.75rem .95rem;border-bottom:1px solid var(--line)}
+  .col-h b{font-family:'Frank Ruhl Libre',serif;font-size:1.05rem}
+  .col.noa .col-h b{color:var(--noa)} .col.shir .col-h b{color:var(--shir)} .col.brain .col-h b{color:var(--brain)}
+  .pill{display:inline-flex;align-items:center;gap:.35rem;font-size:.7rem;font-weight:700;border-radius:99px;padding:.15rem .6rem;background:var(--chip);color:var(--ink3);white-space:nowrap}
+  .pill.in_call{background:rgba(46,125,91,.14);color:var(--ok)}
+  .pill.queued{background:rgba(180,136,74,.18);color:#8A6420}
+  html[data-theme=dark] .pill.queued{color:#D9BE7A}
+  .sec{padding:.6rem .95rem;border-bottom:1px solid var(--line)}
+  .sec:last-child{border-bottom:none}
+  .sec h3{font-size:.7rem;font-weight:600;color:var(--gold);letter-spacing:.02em;margin-bottom:.4rem;display:flex;justify-content:space-between;align-items:baseline}
+  .sec h3 em{font-style:normal;font-weight:400;color:var(--ink3)}
+  .empty{font-size:.76rem;color:var(--ink3);padding:.2rem 0}
+
+  /* live transcript: bubbles, agent on the right (RTL start), caller on the left */
+  .tx{display:flex;flex-direction:column;gap:.3rem;max-height:260px;overflow:auto;padding:.2rem 0;scroll-behavior:smooth}
+  .bub{max-width:88%;font-size:.8rem;line-height:1.5;padding:.38rem .65rem;border-radius:12px;white-space:pre-wrap;word-break:break-word}
+  .bub.agent{align-self:flex-start;background:var(--chip);color:var(--ink);border-start-start-radius:3px}
+  .bub.user{align-self:flex-end;background:rgba(74,111,165,.12);color:var(--ink);border-start-end-radius:3px}
+  .col.shir .bub.user{background:rgba(15,76,53,.12)}
+  .bub.tool{align-self:center;font-size:.68rem;color:var(--ink3);background:transparent;border:1px dashed var(--line);border-radius:8px;padding:.2rem .55rem}
+  .since{font-size:.72rem;color:var(--ink2);margin-bottom:.35rem}
+  .since b{color:var(--ink)}
+  .tools{display:flex;flex-wrap:wrap;gap:.3rem}
+  .tool{font-size:.68rem;border:1px solid var(--line);border-radius:7px;padding:.1rem .45rem;color:var(--ink2);background:var(--bg);font-variant-numeric:tabular-nums}
+  .tool b{color:var(--ink)}
+
+  /* last calls */
+  .calls{list-style:none;display:flex;flex-direction:column}
+  .call{display:grid;grid-template-columns:auto 1fr auto;gap:.5rem;align-items:center;padding:.38rem 0;border-top:1px solid var(--line);font-size:.76rem}
+  .call:first-child{border-top:none}
+  .call .t{color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap;font-size:.7rem}
+  .call .n{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .call .n small{color:var(--ink3)}
+  .call .r{display:flex;align-items:center;gap:.3rem;white-space:nowrap}
+  .chip{display:inline-block;font-size:.66rem;font-weight:700;padding:.05rem .45rem;border-radius:6px;background:var(--chip);color:var(--ink2)}
+  .chip.ok{background:rgba(46,125,91,.14);color:var(--ok)}
+  .chip.no{background:rgba(168,64,47,.1);color:var(--warn)}
+  .chip.mid{background:rgba(180,136,74,.18);color:#8A6420}
+  html[data-theme=dark] .chip.mid{color:#D9BE7A}
+  .chip.qa{border:1px solid var(--line);background:transparent;color:var(--ink3);font-weight:600}
+  .chip.qa.ok{color:var(--ok);border-color:rgba(46,125,91,.4)} .chip.qa.no{color:var(--warn);border-color:rgba(168,64,47,.4)}
+  .play{display:inline-flex;align-items:center;justify-content:center;width:24px;height:24px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--pine);text-decoration:none;font-size:.7rem;cursor:pointer}
+  .play[aria-pressed="true"]{background:var(--pine);color:#fff;border-color:var(--pine)}
+  html[data-theme=dark] .play{color:#7BC9A4}
+  audio.inline{width:100%;height:30px;margin:.25rem 0 .1rem}
+
+  /* lessons */
+  .lessons{list-style:none;display:flex;flex-direction:column;gap:.3rem;max-height:220px;overflow:auto}
+  .lesson{display:flex;gap:.45rem;align-items:flex-start;font-size:.78rem;background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:.4rem .6rem}
+  .lesson p{flex:1;min-width:0;line-height:1.45}
+  .lesson small{display:block;color:var(--ink3);font-size:.66rem;margin-top:.1rem}
+  .lesson .x{border:none;background:transparent;color:var(--ink3);cursor:pointer;font-size:.9rem;line-height:1;padding:.05rem .2rem;border-radius:6px}
+  .lesson .x:hover{color:var(--warn);background:var(--chip)}
+  .note{display:flex;gap:.4rem;align-items:flex-end;margin-top:.45rem}
+  .note textarea{flex:1;min-height:2.6rem;max-height:7rem;border:1px solid var(--line);border-radius:10px;padding:.45rem .65rem;font:inherit;font-size:.8rem;background:var(--bg);color:var(--ink);resize:vertical}
+  .note-st{font-size:.72rem;color:var(--ink3);min-height:1rem;margin-top:.25rem}
+  .note-st.ok{color:var(--ok)} .note-st.err{color:var(--warn)}
+
+  /* brain */
+  .kv{display:grid;grid-template-columns:repeat(2,1fr);gap:.5rem}
+  .kv div{background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:.5rem .6rem;text-align:center}
+  .kv b{display:block;font-size:1.25rem;color:var(--pine);font-variant-numeric:tabular-nums}
+  html[data-theme=dark] .kv b{color:#7BC9A4}
+  .kv span{font-size:.66rem;color:var(--ink3)}
+  .sug{font-size:.78rem;background:var(--bg);border:1px solid var(--line);border-inline-start:3px solid var(--gold);border-radius:10px;padding:.5rem .7rem;margin-bottom:.35rem}
+  .sug small{display:block;color:var(--ink3);font-size:.66rem}
+  .links a{display:inline-block;font-size:.76rem;color:var(--gold);margin-inline-end:.8rem;text-decoration:none;border-bottom:1px dotted var(--gold-soft)}
+  .foot{font-size:.7rem;color:var(--ink3);text-align:center;margin-top:.6rem}
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<header class="head">
+  <h1>ishur<i>.io</i> · מוקד</h1>
+  <p><span class="livedot" id="dot"></span><span id="dotTxt">מתחבר…</span></p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button class="btn" id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+  <div class="floor" id="floor">
+    <section class="col noa" id="col-noa"></section>
+    <section class="col shir" id="col-shir"></section>
+    <section class="col brain" id="col-brain"></section>
+  </div>
+  <p class="foot" id="foot"></p>
+</main>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG || {};
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search);
+  /* ?fixture=floor.fixture.json renders a saved /api/floor answer: the
+     offline check, and a way to look at the page without a live key */
+  var FIXTURE = qs.get('fixture') || '';
+  var qk = qs.get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var API = (CFG.USE_PROXY && CFG.endpoint) ? CFG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+  var BY = ''; try { BY = localStorage.getItem('ishur_floor_by') || ''; } catch (e) {}
+
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function hhmm(ts) { if (!ts) return ''; var d = new Date(typeof ts === 'number' ? ts : Date.parse(ts)); return isNaN(d) ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' }); }
+  function dayShort(ts) { if (!ts) return ''; var d = new Date(typeof ts === 'number' ? ts : Date.parse(ts)); if (isNaN(d)) return ''; var now = new Date(); var same = d.toDateString() === now.toDateString(); return same ? '' : d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric', timeZone: 'Asia/Jerusalem' }) + ' '; }
+  function api(path, body) {
+    var payload = Object.assign({ admin_key: adminKey }, body || {});
+    return fetch(API + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
+      .then(function (r) { if (r.status === 403) throw new Error('403'); return r.json(); });
+  }
+
+  /* ── outcome → chip colour. Result words are the agents' own enums. ── */
+  function outcomeCls(o) {
+    o = String(o || '');
+    if (!o) return '';
+    if (/^(מגיע|סגר|נקבע|שיחה חוזרת|להעביר)/.test(o)) return 'ok';
+    if (/^(לא ענה|תא קולי|ניתוק|לא רלוונטי|לא להתקשר|לא מגיע)/.test(o)) return 'no';
+    return 'mid';
+  }
+  function verdictCls(v) { v = String(v || ''); if (!v) return ''; if (/תואם|תקין|ok/i.test(v) && !/לא תואם/.test(v)) return 'ok'; if (/לא תואם|פער|תוקן|לבדיקה/.test(v)) return 'no'; return ''; }
+  function stateHe(col) {
+    if (col.state === 'in_call') return 'בשיחה' + (col.current_call && col.current_call.with ? ' עם ' + col.current_call.with : '') + (col.current_call && col.current_call.since ? ' מאז ' + hhmm(col.current_call.since) : '');
+    if (col.state === 'queued') return 'בתור ' + col.queue_n;
+    return 'פנויה';
+  }
+
+  var openAudio = {};   /* call_id → true while its player is open */
+  function renderAgent(key, col) {
+    var el = $('col-' + key);
+    var cc = col.current_call;
+    var h = '<div class="col-h"><b>' + esc(col.name) + '</b><span class="pill ' + esc(col.state) + '">' + (col.state === 'in_call' ? '<span class="livedot on"></span>' : '') + esc(stateHe(col)) + '</span></div>';
+
+    /* live transcript */
+    h += '<div class="sec"><h3>תמליל חי' + (cc ? '<em>' + esc(cc.kind === 'lead' ? 'ליד' : cc.kind === 'inbound' ? 'נכנסת' : cc.kind === 'callback' ? 'חזרה' : 'אורח') + (cc.event_name ? ' · ' + esc(cc.event_name) : '') + '</em>' : '') + '</h3>';
+    if (!cc) h += '<p class="empty">אין שיחה עכשיו.</p>';
+    else {
+      h += '<div class="since">עם <b>' + esc(cc.with || '—') + '</b> מאז ' + esc(hhmm(cc.since)) + '</div><div class="tx" id="tx-' + key + '">';
+      var tail = cc.transcript_tail || [];
+      if (!tail.length) h += '<p class="empty">מחכה למילים הראשונות…</p>';
+      tail.forEach(function (l) { h += '<div class="bub ' + (l.role === 'user' ? 'user' : 'agent') + '">' + esc(l.text) + '</div>'; });
+      h += '</div>';
+    }
+    h += '</div>';
+
+    /* tools fired */
+    h += '<div class="sec"><h3>כלים שהופעלו</h3>';
+    var tools = (cc && cc.tools_fired) || [];
+    if (!tools.length) h += '<p class="empty">' + (cc ? 'עדיין לא.' : '—') + '</p>';
+    else { h += '<div class="tools">'; tools.forEach(function (t) { var a = t.args && typeof t.args === 'object' ? Object.keys(t.args).map(function (k) { return k + '=' + String(t.args[k]); }).join(' · ') : ''; h += '<span class="tool"><b>' + esc(t.name) + '</b>' + (a ? ' ' + esc(a) : '') + '</span>'; }); h += '</div>'; }
+    h += '</div>';
+
+    /* last calls */
+    h += '<div class="sec"><h3>10 שיחות אחרונות</h3>';
+    var calls = col.last_calls || [];
+    if (!calls.length) h += '<p class="empty">אין שיחות ב-4 הימים האחרונים.</p>';
+    else {
+      h += '<ul class="calls">';
+      calls.forEach(function (c) {
+        var oc = outcomeCls(c.outcome);
+        h += '<li class="call"><span class="t">' + esc(dayShort(c.at) + hhmm(c.at)) + (c.duration_s != null ? ' · ' + c.duration_s + '״' : '') + '</span>' +
+          '<span class="n">' + esc(c.name || c.phone || '—') + (c.event ? ' <small>· ' + esc(c.event) + '</small>' : '') + '</span>' +
+          '<span class="r">' + (c.outcome ? '<span class="chip ' + oc + '">' + esc(c.outcome) + '</span>' : '<span class="chip">ללא תוצאה</span>') +
+          (c.verdict ? '<span class="chip qa ' + verdictCls(c.verdict) + '" title="' + esc(c.verdict_note || '') + '">QA ' + esc(c.verdict) + '</span>' : '') +
+          (c.recording ? '<button class="play" type="button" data-rec="' + esc(c.recording) + '" data-id="' + esc(c.id) + '" aria-pressed="' + (openAudio[c.id] ? 'true' : 'false') + '" title="הקלטה">▶</button>' : '') + '</span>';
+        if (openAudio[c.id] && c.recording) h += '<audio class="inline" controls preload="none" src="' + esc(API + c.recording + '?k=' + encodeURIComponent(adminKey)) + '" style="grid-column:1/-1"></audio>';
+        h += '</li>';
+      });
+      h += '</ul>';
+    }
+    h += '</div>';
+
+    /* lessons + note */
+    h += '<div class="sec"><h3>לקחים בזיכרון<em>' + (col.memory_n || 0) + '</em></h3>';
+    var ls = col.lessons || [];
+    if (!ls.length) h += '<p class="empty">הזיכרון ריק. ההערה הראשונה שלך נכנסת מיד.</p>';
+    else {
+      h += '<ul class="lessons">';
+      ls.forEach(function (l) { h += '<li class="lesson"><p>' + esc(l.text) + '<small>' + esc([l.by, l.source === 'floor' ? 'מהמוקד' : l.source === 'call' ? 'משיחה' : l.source, hhmm(l.at) ? dayShort(l.at) + hhmm(l.at) : ''].filter(Boolean).join(' · ')) + '</small></p><button class="x" type="button" title="מחיקה" data-del-agent="' + key + '" data-at="' + esc(l.at) + '" data-text="' + esc(l.text) + '">✕</button></li>'; });
+      h += '</ul>';
+    }
+    h += '<div class="note"><textarea id="note-' + key + '" placeholder="הערה ל' + esc(col.name) + ' — נכנסת לשיחה הבאה"></textarea><button class="btn" type="button" data-note="' + key + '">שמירה</button></div><p class="note-st" id="note-st-' + key + '"></p></div>';
+
+    el.innerHTML = h;
+    var tx = $('tx-' + key); if (tx) tx.scrollTop = tx.scrollHeight;
+  }
+
+  function renderBrain(b, reps) {
+    var el = $('col-brain');
+    var h = '<div class="col-h"><b>' + esc(b.name || 'המוח') + '</b><span class="pill' + (b.pending_n ? ' queued' : '') + '">' + (b.pending_n ? b.pending_n + ' ממתינים' : 'מעודכן') + '</span></div>';
+    h += '<div class="sec"><h3>זיכרון</h3><div class="kv"><div><b>' + (b.memory.noa || 0) + '</b><span>לקחים · נועה (עד ' + b.memory.max + ')</span></div><div><b>' + (b.memory.shir || 0) + '</b><span>לקחים · שיר (עד ' + b.memory.max + ')</span></div></div></div>';
+    h += '<div class="sec"><h3>לקחים בהמתנה לאישור<em>' + (b.pending_n || 0) + '</em></h3>';
+    if (!(b.pending || []).length) h += '<p class="empty">אין. כל שיחה שמסתיימת מוסיפה לכאן.</p>';
+    else (b.pending || []).forEach(function (p) { h += '<div class="sug">' + esc(p.text || p.lesson || JSON.stringify(p)) + '<small>' + esc([p.agent === 'noa' ? 'נועה' : p.agent === 'shir' ? 'שיר' : p.agent, hhmm(p.at) ? dayShort(p.at) + hhmm(p.at) : ''].filter(Boolean).join(' · ')) + '</small></div>'; });
+    h += '</div>';
+    h += '<div class="sec"><h3>הצעת פרומפט שבועית</h3>';
+    var anyS = false;
+    ['noa_out', 'shir_out'].forEach(function (k) { var s = b.suggestions && b.suggestions[k]; if (!s) return; anyS = true; h += '<div class="sug"><b>' + (k === 'noa_out' ? 'נועה' : 'שיר') + '</b> · ' + esc(s.note || s.title || '') + '<small>' + esc(hhmm(s.at) ? dayShort(s.at) + hhmm(s.at) : '') + ' · לאישור ב<a href="brain.html" style="color:var(--gold)">המוח</a></small></div>'; });
+    if (!anyS) h += '<p class="empty">אין הצעה פתוחה.</p>';
+    h += '</div>';
+    h += '<div class="sec"><h3>גרסת פרומפט חיה</h3><div class="kv"><div><b>' + (b.prompts.noa_out.head || '—') + '</b><span>נועה · ' + esc(b.prompts.noa_out.note || '') + '</span></div><div><b>' + (b.prompts.shir_out.head || '—') + '</b><span>שיר · ' + esc(b.prompts.shir_out.note || '') + '</span></div></div></div>';
+    if (reps && reps.length) {
+      h += '<div class="sec"><h3>שיחות מוקלטות של שלו / ריצארד</h3><ul class="calls">';
+      reps.forEach(function (c) { h += '<li class="call"><span class="t">' + esc(dayShort(c.at) + hhmm(c.at)) + (c.duration_s != null ? ' · ' + c.duration_s + '״' : '') + '</span><span class="n">' + esc(c.name || c.phone) + ' <small>· ' + esc(c.agent === 'richard' ? 'ריצארד' : 'שלו') + '</small></span><span class="r">' + (c.recording ? '<a class="play" href="' + esc(API + c.recording + '?k=' + encodeURIComponent(adminKey)) + '" target="_blank" rel="noopener">▶</a>' : '') + '</span></li>'; });
+      h += '</ul></div>';
+    }
+    h += '<div class="sec links"><a href="brain.html">המוח — פרומפטים וגרסאות</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="live.html">לוג חי</a></div>';
+    el.innerHTML = h;
+  }
+
+  var last = null;
+  function render(d) {
+    last = d;
+    renderAgent('noa', d.agents.noa);
+    renderAgent('shir', d.agents.shir);
+    renderBrain(d.agents.brain, d.reps);
+    $('foot').textContent = 'מתרענן כל 3 שניות · עודכן ' + hhmm(d.now || Date.now()) + (FIXTURE ? ' · נתוני דוגמה' : '');
+    /* keep what is being typed across refreshes */
+  }
+  function gate(msg) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = msg || ''; $('dotTxt').textContent = 'נדרש מפתח'; }
+
+  var drafts = {};
+  document.addEventListener('input', function (e) { var t = e.target; if (t && t.id && t.id.indexOf('note-') === 0) drafts[t.id] = t.value; });
+  function restoreDrafts() { Object.keys(drafts).forEach(function (id) { var el = $(id); if (el && el.value !== drafts[id]) el.value = drafts[id]; }); }
+
+  var busy = false, timer = null;
+  function load() {
+    if (busy) return; busy = true;
+    var p = FIXTURE ? fetch(FIXTURE).then(function (r) { return r.json(); }) : api('floor', {});
+    p.then(function (d) {
+      if (!d || !d.ok) throw new Error((d && d.error) || 'no-data');
+      $('gate').hidden = true; $('main').hidden = false;
+      $('dot').className = 'livedot on'; $('dotTxt').textContent = 'חי';
+      render(d); restoreDrafts();
+    }).catch(function (e) {
+      if (String(e && e.message) === '403') { try { localStorage.removeItem('ishur_calls_key'); } catch (x) {} gate('המפתח לא נכון'); return; }
+      $('dot').className = 'livedot'; $('dotTxt').textContent = 'אין חיבור · מנסה שוב';
+    }).then(function () { busy = false; });
+  }
+  function start() { load(); clearInterval(timer); timer = setInterval(function () { if (!document.hidden) load(); }, 3000); }
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
+
+  /* clicks: play, delete lesson, save note */
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest('button'); if (!b) return;
+    if (b.dataset.rec) { openAudio[b.dataset.id] = !openAudio[b.dataset.id]; if (last) render(last); return; }
+    if (b.dataset.delAgent) {
+      var ag = b.dataset.delAgent; var at = b.dataset.at; var tx = b.dataset.text;
+      if (!confirm('למחוק את הלקח הזה מהזיכרון של ' + (ag === 'noa' ? 'נועה' : 'שיר') + '?')) return;
+      b.disabled = true;
+      (FIXTURE ? Promise.resolve({ ok: true }) : api('floor-note', { agent: ag, action: 'delete', at: at, text: tx })).then(function (r) {
+        var st = $('note-st-' + ag); st.className = 'note-st ' + (r && r.ok ? 'ok' : 'err'); st.textContent = r && r.ok ? 'נמחק' : 'המחיקה נכשלה';
+        if (r && r.ok && last) { last.agents[ag].lessons = last.agents[ag].lessons.filter(function (l) { return !(l.at === at && l.text === tx); }); render(last); }
+      }).catch(function () { b.disabled = false; });
+      return;
+    }
+    if (b.dataset.note) {
+      var k = b.dataset.note; var ta = $('note-' + k); var text = (ta.value || '').trim(); var st2 = $('note-st-' + k);
+      if (!text) { st2.className = 'note-st err'; st2.textContent = 'כתבו משהו קודם'; return; }
+      if (!BY) { var who = ''; try { who = prompt('מי כותב? (שם, פעם אחת)') || ''; } catch (x) { who = 'מוקד'; } BY = who.trim().slice(0, 24); if (!BY) return; try { localStorage.setItem('ishur_floor_by', BY); } catch (x) {} }
+      b.disabled = true; st2.className = 'note-st'; st2.textContent = 'שומר…';
+      (FIXTURE ? Promise.resolve({ ok: true, msg: 'נשמר · ייכנס לשיחה הבאה', entry: { text: text, at: new Date().toISOString(), source: 'floor', by: BY } }) : api('floor-note', { agent: k, text: text, by: BY })).then(function (r) {
+        b.disabled = false;
+        if (r && r.ok) { ta.value = ''; delete drafts['note-' + k]; st2.className = 'note-st ok'; st2.textContent = r.msg || 'נשמר · ייכנס לשיחה הבאה'; if (last && r.entry) { last.agents[k].lessons.unshift(r.entry); last.agents[k].memory_n = (last.agents[k].memory_n || 0) + 1; render(last); $('note-st-' + k).className = 'note-st ok'; $('note-st-' + k).textContent = r.msg || 'נשמר · ייכנס לשיחה הבאה'; } }
+        else { st2.className = 'note-st err'; st2.textContent = 'לא נשמר: ' + ((r && r.error) || '?'); }
+      }).catch(function () { b.disabled = false; st2.className = 'note-st err'; st2.textContent = 'לא נשמר — אין חיבור'; });
+    }
+  });
+
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} start(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  if (adminKey || FIXTURE) start(); else gate();
+})();
+</script>
+</body>
+</html>

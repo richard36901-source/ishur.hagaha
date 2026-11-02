@@ -13,6 +13,9 @@
 <script src="assets/adminbar.js?v=15" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/playbook.js?v=1"></script>
+<script src="assets/sendboard.js?v=1"></script>
+<script src="assets/callboard.js?v=1"></script>
+<script src="assets/callslog.js?v=1"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -489,6 +492,9 @@
   /* the calls view: one page, two faces */
   body[data-view="main"] .sec-calls{display:none}
   body[data-view="calls"] #main > :not(.sec-calls){display:none}
+  /* 02/11 F.5: one merged calls table; ?view=calls&old=1 shows the previous two sections */
+  body.unified[data-view="calls"] .sec-calls:not(.callshead):not(#callsUnified){display:none}
+  body:not(.unified) #callsUnified{display:none}
   .st.hangup{background:#EEE9DA;color:#6B5A2E}
 </style>
 </head>
@@ -541,6 +547,7 @@
     <h1 style="margin:0 0 .2rem">מוקד שיחות</h1>
     <p style="margin:0 0 1rem;color:var(--ink3);font-size:.78rem">שיר לאורחים, נועה ללידים וללקוחות. <a href="calls.html" style="color:var(--gold)">התור הידני של שיר →</a></p>
   </div>
+  <div class="sec-calls" id="callsUnified"></div>
 
   <div id="hqtop">
     <h1 id="hello">בוקר טוב</h1>
@@ -556,6 +563,8 @@
     <div class="todo" id="todo"><div class="empty skel">טוען</div></div>
     <h2>אירועים קרובים <a href="calendar.html">לוח שליחות ›</a><a href="clients.html">כל הלקוחות ›</a></h2>
     <div class="evgrid" id="hqevents"></div>
+    <h3 style="font-size:.92rem;margin:.9rem 0 .4rem">נשלחו מתוך כמה · לפי סוג הודעה <a href="calendar.html" style="font-size:.74rem;font-weight:500">פירוט מלא ›</a></h3>
+    <div id="hqsendboard"></div>
   </div>
 
   <div id="growth">
@@ -607,6 +616,8 @@
     </button>
   </h2>
   <div class="fold" id="fold-board">
+    <h3 style="font-size:.92rem;margin:.2rem 0 .3rem">לפי אירוע · ניסיונות, תוצאות, עלות, הקלטות</h3>
+    <div id="cbEvents"></div>
     <p class="cb-win" id="cbWin">בודקים את חלון החיוג…</p>
     <div class="kpis" style="grid-template-columns:repeat(3,1fr)">
       <div class="kpi"><b id="cb-g">–</b><span>אורחים ממתינים לשיר</span></div>
@@ -919,7 +930,7 @@
     <p class="empty" id="utmEmpty" hidden>עוד אין לידים לניתוח מקורות.</p>
   </div>
 
-  <p class="foot"><a href="inbox.html">→ לאינבוקס</a> · <a href="calls.html">→ למוקד השיחות</a> · <a href="ad-report.html">→ לדוח הקמפיין</a> · הנתונים נקראים ישירות מהגיליון</p>
+  <p class="foot"><a href="inbox.html">→ לאינבוקס</a> · <a href="calls.html">→ למוקד השיחות</a> · <a href="outreach.html">→ אולמות</a> · <a href="ad-report.html">→ לדוח הקמפיין</a> · הנתונים נקראים ישירות מהגיליון</p>
   <!-- Richard, 09/09: the switches live at the bottom. Opening the board
        should show what happened, not what can be toggled. -->
 
@@ -1013,6 +1024,9 @@
   var VIEW = new URLSearchParams(location.search).get('view') === 'calls' ? 'calls' : 'main';
   document.body.dataset.view = VIEW;
   if (VIEW === 'calls') document.title = 'מוקד שיחות · ishur.io';
+  var UNIFIED = VIEW === 'calls' && !new URLSearchParams(location.search).get('old');
+  if (UNIFIED) document.body.classList.add('unified');
+  var unifiedMounted = false;
   var qk = new URLSearchParams(location.search).get('key');
   if (qk) { localStorage.setItem('ishur_calls_key', qk); history.replaceState(null, '', location.pathname); }
   adminKey = localStorage.getItem('ishur_calls_key') || '';
@@ -1220,7 +1234,7 @@
 
   function fastTick() {
     if (liveBusy()) return;
-    if (VIEW === 'calls') loadShir();
+    if (VIEW === 'calls' && !UNIFIED) loadShir();
     loadPause();
     if (slowDue && Date.now() >= slowDue) slowTick();
   }
@@ -1276,7 +1290,12 @@
     hqLoad();
     if (window.IshurPlaybook) IshurPlaybook.mount('sales', adminKey);
     loadFeedback();
-    loadShir();
+    if (!UNIFIED) loadShir();
+    if (UNIFIED && !unifiedMounted && window.IshurCallsLog) {
+      unifiedMounted = true;
+      var rawApi = function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }); };
+      IshurCallsLog.mount($('callsUnified'), { adminKey: adminKey, raw: rawApi, api: function (p, b) { return rawApi(p, b).then(function (r) { return r.ok ? r.json() : null; }); } });
+    }
     loadOps();
     loadBrain();
     loadCost();
@@ -1708,12 +1727,13 @@
   };
   var CB_KIND = { guest: 'אורח', lead: 'ליד', client: 'לקוח', inbound: 'נכנסת', callback: 'חזרה' };
 
+  var cbEvMounted = false;
   function loadBoard() {
     fetch(CFG.endpoint('callboard'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ admin_key: adminKey })
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
-      .then(function (d) { if (d && d.ok) { cbData = d; renderBoard(); } })
+      .then(function (d) { if (d && d.ok) { cbData = d; renderBoard(); if (window.IshurCallBoard && $('cbEvents') && !cbEvMounted) { cbEvMounted = true; IshurCallBoard.mount($('cbEvents'), { board: d, adminKey: adminKey, api: function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }).then(function (r) { return r.ok ? r.json() : null; }); } }); } } })
       .catch(function () {});
   }
 
@@ -2413,6 +2433,7 @@
       missing.forEach(function (e) { pushTodo('bad', e.name + ' — ' + e.missing_n + ' מוזמנים בלי הזמנה', 'גל 1 היה אמור לצאת ב-' + e.wave1, 'calendar.html', 'ללוח'); });
       held.forEach(function (e) { if (e.missing_n) pushTodo('amber', e.name + ' בהשהיה — ' + e.missing_n + ' מוזמנים מחכים', 'שחרור מדף הלקוחות', 'clients.html', 'ללקוחות'); });
       renderHqEvents(evs);
+      if (window.IshurSendBoard && $('hqsendboard')) IshurSendBoard.mount($('hqsendboard'), { api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); }, compact: true });
     }).catch(function () { setSt('s-send', 'warn', 'לא נטען', ''); }).then(doneOne);
     hqApi('call-board', {}).then(function (b) {
       var w = (b.waiting || []).length, done = b.done || [];

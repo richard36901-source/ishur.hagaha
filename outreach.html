@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>פנייה לאולמות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=72"></script>
+<script src="assets/adminbar.js?v=15" defer></script>
+<style>
+  :root{
+    --pine:#0F2E22; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8;
+    --ok:#0F4C35; --ok-bg:#E4F1EA; --warn:#A8402F; --warn-bg:#FBE9E5; --mute-bg:#EFEDE6;
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
+    --gold:#C7AE7A;--ok:#7BC9A4;--ok-bg:#16342A;--warn:#F08A8A;--warn-bg:#3A1F1C;--mute-bg:#232A25;--pine:#7BC9A4;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.55;padding:0 16px 4rem}
+  .wrap{max-width:1180px;margin:0 auto}
+  header.top{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem 1rem;padding:1.2rem 0 .8rem}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;color:var(--pine);margin-inline-end:auto}
+  .ctl{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+  select,button,input{font:inherit;font-size:.85rem;border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:9px;padding:.4rem .8rem}
+  button{cursor:pointer;font-weight:600}
+  button:hover{border-color:var(--ink3)}
+  button.primary{background:var(--pine);color:#F8F4EA;border-color:var(--pine)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  .banner{border:1px solid var(--line);background:var(--card);border-radius:12px;padding:.6rem .9rem;margin:.4rem 0 .9rem;font-size:.86rem;color:var(--ink2)}
+  .banner.warn{border-color:var(--warn);color:var(--warn);background:var(--warn-bg)}
+  .banner.ok{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.6rem;margin-bottom:1rem}
+  .kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.7rem .8rem}
+  .kpi span{display:block;font-size:.75rem;color:var(--ink3)}
+  .kpi b{font-size:1.35rem;font-variant-numeric:tabular-nums;color:var(--pine)}
+  .kpi small{display:block;font-size:.72rem;color:var(--ink2)}
+  .kpi.lead{border-color:var(--gold-soft);background:color-mix(in srgb,var(--gold-soft) 14%,var(--card))}
+  h2{font-size:1.05rem;margin:1.3rem 0 .6rem;color:var(--pine);display:flex;gap:.5rem;align-items:baseline;flex-wrap:wrap}
+  h2 small{font-size:.78rem;color:var(--ink3);font-weight:400}
+  .bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin:.5rem 0 1rem}
+  .bar .muted{font-size:.8rem}
+  table{width:100%;border-collapse:collapse;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden;font-size:.84rem}
+  th,td{padding:.45rem .6rem;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+  th{font-size:.74rem;color:var(--ink3);font-weight:600;background:var(--bg)}
+  tr:last-child td{border-bottom:0}
+  .chip{display:inline-block;font-size:.72rem;border:1px solid var(--line);border-radius:99px;padding:.05rem .5rem;color:var(--ink2);background:var(--bg);margin-inline-end:.25rem;white-space:nowrap}
+  .chip.on{border-color:color-mix(in srgb,var(--ok) 45%,var(--line));color:var(--ok);background:var(--ok-bg)}
+  .chip.off{opacity:.5}
+  .st{font-weight:700;border-radius:99px;padding:.05rem .55rem;font-size:.74rem;white-space:nowrap}
+  .st.new{background:var(--mute-bg);color:var(--ink2)}
+  .st.sent{background:color-mix(in srgb,var(--gold-soft) 30%,var(--card));color:var(--gold)}
+  .st.replied{background:var(--ok-bg);color:var(--ok)}
+  .st.optout,.st.bounced{background:var(--warn-bg);color:var(--warn)}
+  .tick{color:var(--ok);font-weight:700}
+  .dim{color:var(--ink3)}
+  .mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;direction:ltr;text-align:left;font-size:.78rem;unicode-bidi:isolate}
+  .plan{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.8rem 1rem;margin:.6rem 0;font-size:.85rem}
+  .plan ol{padding-inline-start:1.3rem;display:grid;gap:.15rem;margin-top:.4rem}
+  .gate{max-width:360px;margin:3rem auto;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:1.2rem;display:grid;gap:.6rem}
+  .muted{color:var(--ink3);font-size:.8rem}
+  .import{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  [hidden]{display:none!important}
+  @media (max-width:640px){ table{font-size:.78rem} th,td{padding:.35rem .4rem} .hide-sm{display:none} }
+</style>
+</head>
+<body>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<div class="wrap">
+  <header class="top">
+    <h1>פנייה לאולמות</h1>
+    <div class="ctl">
+      <a href="admin.html" class="muted">← מרכז הבקרה</a>
+      <button id="refresh" type="button">רענון</button>
+      <button id="theme" type="button" aria-label="מצב לילה">◐</button>
+    </div>
+  </header>
+
+  <div id="gate" class="gate" hidden>
+    <b>מפתח אדמין</b>
+    <input id="key" type="password" autocomplete="off" placeholder="admin key" dir="ltr">
+    <button id="keyGo" type="button">כניסה</button>
+    <div id="gateMsg" class="muted"></div>
+  </div>
+
+  <main id="app" hidden>
+    <div id="banner" class="banner" hidden></div>
+    <div id="kpis" class="kpis"></div>
+
+    <h2>מנה הבאה <small>מייל 10/יום בשבוע הראשון ואז 20 · וואטסאפ 15/יום · א׳–ה׳ 10:00–16:00</small></h2>
+    <div class="bar">
+      <select id="channel">
+        <option value="email">מייל</option>
+        <option value="wa">וואטסאפ (נועה 4499)</option>
+      </select>
+      <input id="limit" type="number" min="1" max="50" placeholder="כמות" style="width:5.5rem" dir="ltr">
+      <button id="planBtn" type="button">תכנן מנה</button>
+      <button id="sendBtn" type="button" class="primary" disabled>שלח מנה</button>
+      <span id="sendWhy" class="muted"></span>
+    </div>
+    <div id="plan" class="plan" hidden></div>
+
+    <h2>אולמות <small id="count"></small></h2>
+    <div class="bar import">
+      <input id="csv" type="file" accept=".csv,text/csv">
+      <button id="importBtn" type="button" disabled>ייבוא CSV</button>
+      <span class="muted">עמודות: name, city, email, phone_whatsapp, contact_name, website, source_url, notes · אותו אולם פעמיים = עדכון, לא כפילות</span>
+    </div>
+    <div style="overflow:auto">
+    <table id="tbl">
+      <thead><tr>
+        <th>אולם</th><th class="hide-sm">עיר</th><th>סטטוס</th><th>ערוצים</th><th>נוסח</th><th>נפתח</th><th>קליק</th><th class="hide-sm">תשובה</th><th>פעולה אחרונה</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    </div>
+    <p class="muted" style="margin-top:.6rem">נוסח A = שם האולם בלבד · נוסח B = "שם האולם — מספר סופי לכל אירוע". השיוך קבוע לפי האולם. "נפתח" = פיקסל במייל (לא קיים בוואטסאפ). תשובה "לא רלוונטי" או "הסר" = חסימה לצמיתות.</p>
+  </main>
+</div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
+  var BASE = (CFG && CFG.endpoint) ? CFG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+  var qs = new URLSearchParams(location.search);
+  var qk = qs.get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  var adminKey = '';
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var status = null, lastPlan = null;
+
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function when(iso) { if (!iso) return ''; var d = new Date(iso); return isNaN(d) ? iso : d.toLocaleString('he-IL', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' }); }
+  function gate(msg) { $('app').hidden = true; $('gate').hidden = false; $('gateMsg').textContent = msg || ''; }
+  $('keyGo').onclick = function () { var k = $('key').value.trim(); if (!k) return; adminKey = k; try { localStorage.setItem('ishur_calls_key', k); } catch (e) {} load(); };
+  $('key').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  $('theme').onclick = function () {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    if (dark) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', 'dark');
+    try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
+  };
+  $('refresh').onclick = load;
+
+  /* same shape as admin.html's hqApi: admin_key in the body, guard stamp when present */
+  function hqApi(path, body) {
+    var payload = Object.assign({ admin_key: adminKey }, body || {});
+    return fetch(BASE + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
+      .then(function (r) {
+        if (r.status === 403) { try { localStorage.removeItem('ishur_calls_key'); } catch (e) {} adminKey = ''; gate('המפתח לא נכון'); throw new Error('403'); }
+        return r.json();
+      });
+  }
+  var api = function (body) { return hqApi('outreach', body); };
+
+  function banner(text, cls) { var b = $('banner'); b.hidden = !text; b.className = 'banner ' + (cls || ''); b.textContent = text || ''; }
+
+  function kpi(label, val, sub, cls) { return '<div class="kpi ' + (cls || '') + '"><span>' + esc(label) + '</span><b>' + esc(val) + '</b>' + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>'; }
+  function pct(a, b) { return b ? Math.round(a / b * 100) + '%' : '—'; }
+  function renderKpis(stats) {
+    var by = stats.by, h = '';
+    var e = by.email.all, w = by.wa.all;
+    h += kpi('אולמות', stats.total, Object.keys(stats.statuses).map(function (k) { return ({ new: 'חדש', sent: 'נשלח', replied: 'ענו', optout: 'הוסרו', bounced: 'חזר' })[k] + ' ' + stats.statuses[k]; }).join(' · '));
+    h += kpi('מייל · נשלחו', e.sent, 'נפתחו ' + pct(e.opened, e.sent) + ' · קליק ' + pct(e.clicked, e.sent) + ' · ענו ' + pct(e.replied, e.sent) + (e.failed ? ' · נכשלו ' + e.failed : ''));
+    h += kpi('וואטסאפ · נשלחו', w.sent, 'ענו ' + pct(w.replied, w.sent) + ' · הוסרו ' + w.optout + (w.failed ? ' · נכשלו ' + w.failed : ''));
+    (stats.subjects || []).forEach(function (s) {
+      var lead = stats.leading && stats.leading.variant === s.variant;
+      h += kpi('נוסח ' + s.variant + (lead ? ' · מוביל' : ''), s.sent, 'נפתחו ' + (s.open_rate == null ? '—' : s.open_rate + '%') + ' · קליק ' + (s.click_rate == null ? '—' : s.click_rate + '%') + ' · ענו ' + (s.reply_rate == null ? '—' : s.reply_rate + '%'), lead ? 'lead' : '');
+    });
+    $('kpis').innerHTML = h;
+  }
+
+  function renderRows(venues) {
+    $('count').textContent = venues.length ? venues.length + ' אולמות' : 'עדיין אין אולמות — ייבאו CSV';
+    $('rows').innerHTML = venues.map(function (v) {
+      var oe = v.out.email, ow = v.out.wa;
+      var chips = '<span class="chip ' + (v.email ? (oe && oe.at ? 'on' : '') : 'off') + '" title="' + esc(v.email || 'אין מייל') + '">מייל' + (oe && oe.at ? ' ✓' : '') + (oe && oe.error ? ' ✗' : '') + '</span>'
+        + '<span class="chip ' + (v.whatsapp ? (ow && ow.at ? 'on' : '') : 'off') + '" title="' + esc(v.whatsapp || 'אין וואטסאפ') + '">וואטסאפ' + (ow && ow.at ? ' ✓' : '') + (ow && ow.error ? ' ✗' : '') + '</span>';
+      var last = [oe && oe.at ? 'מייל ' + when(oe.at) : '', ow && ow.at ? 'וואטסאפ ' + when(ow.at) : '', v.replied_at ? 'ענה ' + when(v.replied_at) : '', v.optout_at ? 'הוסר ' + when(v.optout_at) : '', oe && oe.error ? 'שגיאה: ' + oe.error : '', ow && ow.error ? 'שגיאה: ' + ow.error : ''].filter(Boolean).join(' · ');
+      var stHe = ({ new: 'חדש', sent: 'נשלח', replied: 'ענה', optout: 'הוסר', bounced: 'חזר' })[v.status] || v.status;
+      return '<tr><td><b>' + esc(v.name) + '</b>' + (v.contact ? '<div class="dim">' + esc(v.contact) + '</div>' : '') + '</td>'
+        + '<td class="hide-sm">' + esc(v.city) + '</td>'
+        + '<td><span class="st ' + esc(v.status) + '">' + esc(stHe) + '</span></td>'
+        + '<td>' + chips + '</td>'
+        + '<td>' + esc(v.variant) + (oe && oe.subject ? '<div class="dim" title="' + esc(oe.subject) + '">' + esc(oe.subject).slice(0, 40) + '</div>' : '') + '</td>'
+        + '<td>' + (oe && oe.opened_at ? '<span class="tick" title="' + esc(when(oe.opened_at)) + '">✓</span>' : '<span class="dim">—</span>') + '</td>'
+        + '<td>' + (oe && oe.clicked_at ? '<span class="tick" title="' + esc(when(oe.clicked_at)) + '">✓' + (oe.clicks > 1 ? ' ×' + oe.clicks : '') + '</span>' : '<span class="dim">—</span>') + '</td>'
+        + '<td class="hide-sm">' + esc(v.last_reply || '') + '</td>'
+        + '<td class="dim">' + esc(last) + '</td></tr>';
+    }).join('');
+  }
+
+  function renderStatus() {
+    var s = status; if (!s) return;
+    var parts = [];
+    parts.push(s.enabled ? 'שליחה: פעילה (OUTREACH_ENABLED=on)' : 'שליחה: כבויה (OUTREACH_ENABLED=off) — אפשר רק לתכנן');
+    parts.push(s.email_binding ? 'מייל: binding מחובר' : 'מייל: אין EMAIL binding');
+    parts.push('תבנית ' + s.template.name + ': ' + (s.template.approved ? 'מאושרת' : s.template.status));
+    parts.push('חלון מייל: ' + (s.window.email.open ? 'פתוח' : 'סגור (' + s.window.email.why + ')') + ' · חלון וואטסאפ: ' + (s.window.wa.open ? 'פתוח' : 'סגור (' + s.window.wa.why + ')'));
+    parts.push('היום נשלחו: מייל ' + s.sent_today.email + ' · וואטסאפ ' + s.sent_today.wa);
+    banner(parts.join(' · '), s.enabled ? 'ok' : 'warn');
+    updateSendBtn();
+  }
+  function updateSendBtn() {
+    var ch = $('channel').value, why = '';
+    if (!status) why = '';
+    else if (!status.enabled) why = 'OUTREACH_ENABLED כבוי';
+    else if (ch === 'email' && !status.email_binding) why = 'אין EMAIL binding';
+    else if (ch === 'wa' && !status.template.approved) why = 'התבנית עדיין ' + status.template.status;
+    else if (!status.window[ch].open) why = 'מחוץ לחלון (' + status.window[ch].why + ')';
+    else if (!lastPlan || lastPlan.channel !== ch || !lastPlan.batch.length) why = 'קודם "תכנן מנה"';
+    $('sendBtn').disabled = !!why;
+    $('sendWhy').textContent = why;
+  }
+  $('channel').onchange = function () { lastPlan = null; $('plan').hidden = true; updateSendBtn(); };
+
+  function renderPlan(p, sent) {
+    var box = $('plan'); box.hidden = false;
+    var head = (sent ? 'נשלחו ' + (p.sent || []).length + (p.failed && p.failed.length ? ' · נכשלו ' + p.failed.length : '') : 'מנה מתוכננת: ' + p.batch.length)
+      + ' · תקרה היום ' + p.cap + ' (כבר ' + p.sent_today + ') · זמינים ' + p.eligible + ' · דולגו: סטטוס ' + p.skipped.status + ', בלי כתובת ' + p.skipped.no_address + ', כבר נשלח ' + p.skipped.already
+      + (p.blocked ? ' · חסום: ' + p.blocked : '') + (p.error ? ' · שגיאה: ' + p.error : '');
+    var items = sent ? (p.sent || []).map(function (s) { return '<li>' + esc(s.name) + ' <span class="mono">' + esc(s.to) + '</span> · נוסח ' + esc(s.variant) + '</li>'; }).concat((p.failed || []).map(function (f) { return '<li style="color:var(--warn)">' + esc(f.name) + ' · ' + esc(f.error) + ' ' + esc(f.detail || '') + '</li>'; }))
+      : p.batch.map(function (b) { return '<li>' + esc(b.name) + (b.city ? ' (' + esc(b.city) + ')' : '') + ' <span class="mono">' + esc(b.to) + '</span> · נוסח ' + esc(b.variant) + (b.subject ? ' · נושא: "' + esc(b.subject) + '"' : '') + '</li>'; });
+    box.innerHTML = '<b>' + esc(head) + '</b><ol>' + items.join('') + '</ol>';
+  }
+
+  $('planBtn').onclick = function () {
+    var ch = $('channel').value, lim = Number($('limit').value) || undefined;
+    $('planBtn').disabled = true;
+    api({ action: 'plan', channel: ch, limit: lim }).then(function (p) {
+      $('planBtn').disabled = false;
+      if (!p.ok) return banner('שגיאה: ' + (p.error || '?'), 'warn');
+      lastPlan = p; renderPlan(p, false); updateSendBtn();
+    }).catch(function () { $('planBtn').disabled = false; });
+  };
+  $('sendBtn').onclick = function () {
+    var ch = $('channel').value;
+    if (!lastPlan || !lastPlan.batch.length) return;
+    var n = lastPlan.batch.length;
+    if (!confirm('לשלוח עכשיו ' + n + ' ' + (ch === 'email' ? 'מיילים' : 'הודעות וואטסאפ מהמספר של נועה') + '?\n\n' + lastPlan.batch.map(function (b) { return '• ' + b.name + ' — ' + b.to; }).join('\n') + '\n\nזה יוצא באמת. אין ביטול.')) return;
+    $('sendBtn').disabled = true;
+    api({ action: 'send', channel: ch, limit: n, dry: false }).then(function (p) {
+      lastPlan = null; renderPlan(p, true); load();
+    }).catch(function () { $('sendBtn').disabled = false; });
+  };
+
+  /* CSV → rows (quoted fields, commas inside quotes, CRLF) */
+  function parseCsv(text) {
+    var rows = [], row = [], f = '', q = false;
+    for (var i = 0; i < text.length; i++) {
+      var c = text[i];
+      if (q) { if (c === '"') { if (text[i + 1] === '"') { f += '"'; i++; } else q = false; } else f += c; }
+      else if (c === '"') q = true;
+      else if (c === ',') { row.push(f); f = ''; }
+      else if (c === '\n' || c === '\r') { if (c === '\r' && text[i + 1] === '\n') i++; row.push(f); rows.push(row); row = []; f = ''; }
+      else f += c;
+    }
+    if (f || row.length) { row.push(f); rows.push(row); }
+    rows = rows.filter(function (r) { return r.some(function (x) { return x.trim(); }); });
+    if (!rows.length) return [];
+    var head = rows[0].map(function (h) { return h.trim().replace(/^﻿/, ''); });
+    return rows.slice(1).map(function (r) { var o = {}; head.forEach(function (h, i) { o[h] = r[i] || ''; }); return o; });
+  }
+  $('csv').onchange = function () { $('importBtn').disabled = !$('csv').files.length; };
+  $('importBtn').onclick = function () {
+    var f = $('csv').files[0]; if (!f) return;
+    f.text().then(function (t) {
+      var rows = parseCsv(t);
+      if (!rows.length) return banner('הקובץ ריק או בלי כותרות', 'warn');
+      if (!confirm('לייבא ' + rows.length + ' שורות מ-' + f.name + '?')) return;
+      return api({ action: 'import', rows: rows, source: f.name }).then(function (r) {
+        banner(r.ok ? 'ייבוא: ' + r.added + ' חדשים · ' + r.updated + ' עודכנו · ' + r.skipped + ' דולגו (בלי שם או בלי כתובת)' : 'שגיאה בייבוא', r.ok ? 'ok' : 'warn');
+        $('csv').value = ''; $('importBtn').disabled = true;
+        load(true);
+      });
+    });
+  };
+
+  function load(keepBanner) {
+    if (!adminKey) return gate();
+    $('gate').hidden = true; $('app').hidden = false;
+    Promise.all([api({ action: 'status' }), api({ action: 'list' })]).then(function (r) {
+      status = r[0]; var list = r[1];
+      if (!list.ok) return banner('שגיאה: ' + (list.error || '?'), 'warn');
+      renderKpis(list.stats); renderRows(list.venues);
+      if (!keepBanner) renderStatus(); else updateSendBtn();
+    }).catch(function (e) { if (String(e.message) !== '403') banner('השרת לא ענה', 'warn'); });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

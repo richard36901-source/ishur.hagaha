@@ -36,6 +36,7 @@
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
     { href: 'calendar.html', label: 'לוח שליחות', icon: ic.calls },
     { href: 'admin.html?view=calls', label: 'מוקד שיחות', icon: ic.calls },
+    { href: 'floor.html', label: 'מוקד', icon: ic.calls },
     { href: 'automations.html', label: 'אוטומציות', icon: ic.flow },
     { href: 'brain.html', label: 'המוח', icon: ic.brain },
     { href: 'ops.html', label: 'שליטה', icon: ic.ops },
