@@ -148,6 +148,6 @@ test('lint: the table message never gets a definite article (template says ב{{2
   const src = readFileSync(new URL('../index.js', import.meta.url), 'utf8');
   const i = src.indexOf("'ishur_shulchan', [gname, evName, table]");
   const before = src.slice(Math.max(0, i - 4000), i);
-  const line = before.split('\n').filter(l => /const evName = eventDisplayName/.test(l)).pop();
+  const line = before.split('\n').filter(l => /const evName = (?:guestEventName|eventDisplayName)\(/.test(l))   /* integration 02/11: audit P0 swapped in guestEventName (no client-name fallback) */.pop();
   assert.ok(line && /article: false/.test(line), line);
 });

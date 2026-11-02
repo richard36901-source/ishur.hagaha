@@ -106,10 +106,14 @@ export async function readHourBuckets(kv, pid, nowMs = Date.now()) {
   const b = {}; hs.forEach((h, i) => { const n = Number(vals[i]) || 0; if (n) b[h] = n; });
   return b;
 }
-export async function bumpHourBucket(kv, pid, nowMs = Date.now()) {
+/* floor = what the caller's isolate already knows this bucket holds: a KV
+   write rejected under load (1 write/sec/key) must not make the next read
+   forget it. Returns the new count. */
+export async function bumpHourBucket(kv, pid, nowMs = Date.now(), floor = 0) {
   const k = `gsendh:${pid}:${epochHour(nowMs)}`;
-  const n = Number(await kv.get(k).catch(() => 0)) || 0;
-  await kv.put(k, String(n + 1), { expirationTtl: 26 * 3600 }).catch(() => {});
+  const n = Math.max(Number(await kv.get(k).catch(() => 0)) || 0, Number(floor) || 0) + 1;
+  await kv.put(k, String(n), { expirationTtl: 26 * 3600 }).catch(() => {});
+  return n;
 }
 /* the per-number tiers cached by waCapInfo (wa:cap, 6h) */
 export async function cachedTiers(kv) {
