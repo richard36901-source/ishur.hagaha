@@ -4990,7 +4990,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[2] || '').trim();
+    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
     const occasion = String(ev[5] || '').trim();
     const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
 
@@ -5037,7 +5037,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[2] || '').trim();
+    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
     const occasion = String(ev[5] || '').trim();
     const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
 
@@ -5124,7 +5124,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
-    const name = String(ev[2] || '').trim();
+    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
     const occasion = String(ev[5] || '').trim();
     const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
 
@@ -5185,7 +5185,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       await env.RATE.put('plannote:' + token, today, { expirationTtl: 60 * 86400 });
     }
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
-    const name = String(ev[2] || '').trim();
+    const name = String(ev[34] || ev[2] || '').trim();   /* 02/11: hosts column, not the client's name — 245 table messages said "של Eleonora" */
     const occasion = String(ev[5] || '').trim();
     const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
     const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
