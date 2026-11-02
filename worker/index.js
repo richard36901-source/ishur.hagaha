@@ -31,7 +31,8 @@ import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, bu
 import { mondayMarkWon, mondayUpsertLead, mondayGql } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
-import { sendCtaUrl } from './whatsapp.js';
+import { sendCtaUrl, guestCapacity, guestCapScope } from './whatsapp.js';
+import { fitBatch } from './budget.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, touchConversation, guestsReady } from './whatsapp.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
@@ -8232,13 +8233,17 @@ async function waCapInfo(env) {
   if (!capToken || !capPhone) return null;
   const ids = guestsReady ? guestPhoneIds(env) : [capPhone];
   const infos = await Promise.all(ids.map(async id => { const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=messaging_limit_tier,quality_rating,display_phone_number`, { headers: { Authorization: 'Bearer ' + capToken } }).catch(() => null); return r && r.ok ? await r.json().catch(() => null) : null; }));
+  infos.forEach((j, i) => { if (j) j.__id = ids[i]; });
   const good = infos.filter(j => j && j.messaging_limit_tier);
   if (!good.length) return null;
   cached = {
     tier: good[0].messaging_limit_tier,
-    limit: good.reduce((n, j) => n + (TIERS[j.messaging_limit_tier] ?? 250), 0),
+    /* 02/11: Meta shares the limit across the portfolio (budget.js) — the
+       per-number sum is kept only for scope=number */
+    limit: guestCapScope(env) === 'number' ? good.reduce((n, j) => n + (TIERS[j.messaging_limit_tier] ?? 250), 0) : Math.max(...good.map(j => TIERS[j.messaging_limit_tier] ?? 250)),
     quality: good.map(j => j.quality_rating || '').join('/'),
-    numbers: good.map(j => ({ phone: j.display_phone_number || '', tier: j.messaging_limit_tier, quality: j.quality_rating || '' })),
+    /* id: budget.js matches each number's tier by phone id */
+    numbers: good.map(j => ({ id: String(j.__id || j.id || ''), phone: j.display_phone_number || '', tier: j.messaging_limit_tier, quality: j.quality_rating || '' })),
   };
   if (env.RATE) await env.RATE.put('wa:cap', JSON.stringify(cached), { expirationTtl: 6 * 3600 }).catch(() => {});
   return cached;
