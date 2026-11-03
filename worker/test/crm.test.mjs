@@ -276,7 +276,7 @@ test('notes + reminders + agenda (overdue first) + brain crm_overdue', async () 
   await post(e, '/api/crm/notes/pin', { entity_type: 'lead', entity_id: 'L972501234567', id: n.note.id, pinned: true });
   assert.equal((await (await get(e, '/api/crm/notes?entity_type=lead&entity_id=L972501234567')).json()).notes[0].pinned, true);
   const today = ilDay();
-  const past = new Date(Date.now() - 2 * 864e5).toISOString(), later = new Date(Date.parse(today + 'T20:00:00Z') - 3 * 3600e3).toISOString();
+  const past = new Date(Date.now() - 2 * 864e5).toISOString(), later = new Date(Date.now() + 3 * 3600e3).toISOString(); /* always in the future, whatever the hour the suite runs */
   const r1 = await (await post(e, '/api/crm/reminders', { entity_type: 'lead', entity_id: 'L972501234567', due_at: past, text: 'לחזור לדנה' })).json();
   await post(e, '/api/crm/reminders', { entity_type: 'client', entity_id: TOK, due_at: later, text: 'לוודא העלאה' });
   assert.equal((await post(e, '/api/crm/reminders', { entity_type: 'lead', entity_id: 'x', due_at: 'never' })).status, 400);
