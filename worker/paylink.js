@@ -45,6 +45,8 @@ export function bundleTable(records) { return Number(records) >= BIG_FROM ? { 2:
 export function coerceHostesses(records, n) {
   n = Number(n) || 0;
   if (n <= 0) return { n: 0, note: '' };
+  /* Richard 03/11 20:25: from 300 records two hostesses are mandatory (one is only for smaller events) */
+  if (n === 1 && Number(records) >= HOSTESS_TWO_FROM && Number(records) < BIG_FROM) return { n: 2, note: 'מ-300 רשומות חובה 2 דיילות: עודכן ל-2' };
   if (bundleTable(records)[n]) return { n, note: '' };
   if (Number(records) >= BIG_FROM) return { n: 2, note: 'מעל 700 רשומות: מינימום 2 דיילות' };
   return { n: 2, note: '3 דיילות רק מעל 700 רשומות: עודכן ל-2' };

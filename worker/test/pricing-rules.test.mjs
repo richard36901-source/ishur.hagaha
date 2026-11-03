@@ -14,7 +14,8 @@ function expected(records, h, calls, design) {
   if (!tier) return { refused: true };
   if (h) {
     const tb = tier > 700 ? { 2: 2390, 3: 2590 } : { 1: 1790, 2: 1990 };
-    const n = tb[h] ? h : 2;
+    /* Richard 03/11 20:25: from 300 records two hostesses are mandatory */
+    const n = (h === 1 && tier >= 300) ? 2 : (tb[h] ? h : 2);
     return { sum: tb[n], plan: 'premium', hostesses: n, coerced: n !== h };
   }
   const plan = planFor(calls);

@@ -42,8 +42,10 @@ test('priceQuote: sum from the tables, human description, machine code', () => {
   assert.equal(r.quote.code, 'pkg:premium:100;design:1;host:2;travel:0;wave:0;calls:0');
   assert.equal(r.quote.phone, '972501234567');
   const t = priceQuote({ plan: 'premium', records: 300, addons: { hostesses: 1, travel: true, extra_wave: true, calls: true }, name: 'אבי', phone: '0521111111' });
-  /* bundle ₪1,790 (1 hostess, up to 700); calls included; wave = ceil(0.3*300+20)=110; winter travel 250 */
-  assert.equal(t.quote.sum, 1790 + 250 + 110);
+  /* Richard 03/11 20:25: from 300 records two hostesses are mandatory → bundle ₪1,990 (coerced from 1);
+     calls included; wave = ceil(0.3*300+20)=110; winter travel for 2 hostesses = 500 */
+  assert.equal(t.quote.hostesses, 2);
+  assert.equal(t.quote.sum, 1990 + 500 + 110);
   assert.equal(t.quote.calls, false);
   assert.equal(priceQuote({ plan: 'basic', records: 200, addons: { calls: true }, name: 'אבי', phone: '0521111111' }).quote.sum, 199 + Math.ceil(2 * 200 + 20));
 });
