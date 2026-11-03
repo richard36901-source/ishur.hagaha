@@ -526,7 +526,7 @@ window.ISHUR_CONFIG = (function () {
   var RAFFLE = {
     on: false,
     prize_he: '₪1,000 או PlayStation 5 חדש',
-    draw_at: '2027-05-03T15:00:00Z',
+    draw_at: '2027-06-01T15:00:00Z',
     google_review_url: '',
     video_url: '',
     video_max_sec: 60

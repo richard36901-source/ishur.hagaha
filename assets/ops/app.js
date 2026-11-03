@@ -112,7 +112,7 @@ export const ROUTES = [
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
   { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' }, { id: 'control', he: 'שליטה', key: 'x' },
   { id: 'finance', he: 'כספים', key: 'f' }, { id: 'ads', he: 'פרסום', key: 'p' }, { id: 'templates', he: 'תבניות', key: 'n' }, { id: 'feedback', he: 'פידבקים', key: 'v' },
-  { id: 'notify', he: 'התראות', key: 'e' },
+  { id: 'notify', he: 'התראות', key: 'q' },
   { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 't', dir: 'crm' },
 ];
 const screens = {};

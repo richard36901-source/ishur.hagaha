@@ -31,7 +31,7 @@ import { lastInboundTs } from './inbound.js';
 export const RAFFLE = {
   on: false,
   prize_he: '₪1,000 או PlayStation 5 חדש',
-  draw_at: '2027-05-03T15:00:00Z',
+  draw_at: '2027-06-01T15:00:00Z',
   google_review_url: '',   // '' → the brain sheet's reviewLink at runtime; still empty → Google step hidden
   video_url: '',           // '' → the brain sheet's testimonialLink (VideoAsk) at runtime
   video_max_sec: 60,

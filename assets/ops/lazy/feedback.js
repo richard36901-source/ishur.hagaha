@@ -20,7 +20,7 @@ ${d.feedback.map((f) => `<tr><td class="num">${esc(f.at ? fmtDate(f.at) : '—')
 }
 const pad = (n) => String(n).padStart(2, '0');
 function left(iso) { const s = Math.max(0, Math.floor((Date.parse(iso) - Date.now()) / 1000)); return `${Math.floor(s / 86400)} ימים ${pad(Math.floor(s % 86400 / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`; }
-const chk = (e, f) => e[f + '_claimed_at'] ? `<label class="sub"><input type="checkbox" data-act="rf-verify" data-id="${esc(e.id)}" data-f="${f}" ${e[f + '_verified'] ? 'checked' : ''}> אומת</label>` : '<span class="muted">—</span>';
+const chk = (e, f) => e[f + '_claimed_at'] ? `<button type="button" class="chip${e[f + '_verified'] ? ' on' : ''}" role="checkbox" aria-checked="${e[f + '_verified'] ? 'true' : 'false'}" data-act="rf-verify" data-id="${esc(e.id)}" data-f="${f}">${e[f + '_verified'] ? '✓ אומת' : 'לאמת'}</button>` : '<span class="muted">—</span>';
 export function raffleView(r) {
   const c = r.config, n = r.counts, w = r.winner;
   const status = !c.on ? '<p class="muted">ההגרלה כבויה (RAFFLE.on=false). הדף מציג את הזרימה הישנה.</p>' : '';
