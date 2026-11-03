@@ -45,19 +45,26 @@ export function invoiceTerms({ tier, plan } = {}) {
     '2. תשלום וביטול: השירות דיגיטלי ואספקתו מתחילה מיד עם התשלום (פתיחת האירוע ושליחת קישור אישי). לא יינתן החזר לאחר מכן, מכל סיבה, כולל ביטול, דחייה או אי-שימוש. אושר בתיבת ההסכמה ברכישה לפי סעיף 14ג(ד) לחוק הגנת הצרכן.',
     '3. הרשימה: הלקוח אחראי לדיוק השמות, המספרים והכמויות, ולכך שהמספרים נאספו כדין. מספר שגוי או כפול אינו מזכה בהחזר.',
     '4. מועדי שליחה: ההודעות יוצאות בחלון הבוקר, לא בשבת, בשישי עד 15:00. הודעה שיצאה אינה ניתנת לביטול.',
-    '5. מגבלות: השירות פועל על גבי וואטסאפ וכפוף למגבלותיה. אחריות ishur.io מוגבלת לסכום ששולם עבור האירוע.',
+    '5. מגבלות והגבלת אחריות: השירות פועל על גבי תשתיות צד שלישי (WhatsApp/Meta, טלפוניה) שאינן בשליטת ishur.io; אין התחייבות למסירת כל הודעה או למועדה. אי-מסירה חלקית או שיבוש אינם מקנים החזר; ishur.io תפעל לתיקון ולשליחה חוזרת ככל שהפלטפורמה מאפשרת. האחריות מוגבלת לסכום ששולם, ללא נזק עקיף (תקנון סעיף 5).',
     '6. פרטיות: פרטי האירוע והרשימה משמשים לאירוע הזה בלבד ונמחקים עד 90 יום אחריו.',
   ].join('\n');
 }
 
-async function token(env) {
-  const r = await fetch(API + '/account/token', {
+/* 20/10/2026: Morning moved authentication to OAuth2 client-credentials on
+   a new host. The old /account/token on api.greeninvoice.co.il now 404s;
+   documents/clients still live under API. The API key id/secret from
+   app.greeninvoice.co.il/settings/developers/api are the client_id/secret.
+   Token is good for 1 hour; we fetch one per invoice, no caching needed. */
+const AUTH = 'https://api.morning.co/idp/v1/oauth/token';
+export async function token(env) {
+  const r = await fetch(AUTH, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ id: env.MORNING_ID, secret: env.MORNING_SECRET }),
+    body: JSON.stringify({ grant_type: 'client_credentials', client_id: env.MORNING_ID, client_secret: env.MORNING_SECRET }),
   }).catch(() => null);
   if (!r) return null;
   const j = await r.json().catch(() => ({}));
-  return r.ok && j.token ? j.token : null;
+  const t = j.accessToken || j.access_token || j.token;
+  return r.ok && t ? t : null;
 }
 
 /* → {ok, url, number, id} | {ok:false, why, detail} */

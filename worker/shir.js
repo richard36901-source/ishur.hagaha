@@ -254,7 +254,8 @@ export function openingLine(hit, opts = {}) {
     return `${hello}, ${w}. ראיתי שהתקשרתם אלינו ולא הספקנו לדבר, אז חזרתי אליכם. איך אפשר לעזור?`;
   }
   if (h.caller_kind === 'guest') {
-    const at = ev.occasion ? `ל${ev.occasion}${ev.client_name ? ' של ' + ev.client_name : ''}` : '';
+    const hosts = ev.event_name || ev.client_name || '';
+    const at = ev.occasion ? `ל${ev.occasion}${hosts ? ' של ' + hosts : ''}` : '';
     if (h.rsvp === 'מגיע') {
       return `${hello}, ${who}. רשומים אצלי כמגיעים ${at}. איך אפשר לעזור?`;
     }
@@ -283,7 +284,7 @@ export function inboundVariables(hit, opts = {}) {
     guest_name: h.caller_kind === 'guest' ? String(h.name || '') : '',
     current_rsvp: String(h.rsvp || ''),
     party_size_invited: String(h.party || ''),
-    host_name: String(ev.client_name || ''),
+    host_name: String(ev.event_name || ev.client_name || ''),
     occasion: String(ev.occasion || 'אירוע'),
     event_name: String(ev.event_name || ''),
     event_date_spoken: spokenDate(ev.event_date || ''),
@@ -346,7 +347,8 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
         : kind === 'callback' ? inboundVariables(guest.hit || guest, { callback: true })
           : {
             guest_name: String(guest.name || ''),
-            host_name: String(guest.client_name || ''),
+            /* both hosts, so the other side's guests recognise it too (Richard 12/10) */
+            host_name: String(guest.event_name || guest.client_name || ''),
             occasion: String(guest.occasion || 'אירוע'),
             event_name: String(guest.event_name || ''),
             event_date_spoken: spokenDate(guest.event_date),
@@ -355,10 +357,17 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
             venue_city: String(guest.venue_city || ''),
             party_size_invited: String(guest.party || ''),
             rsvp_deadline: spokenDate(guest.event_date),
+            /* Richard 21/10: "מתלבט" guests are called too; Shir opens differently */
+            guest_state: String(guest.rsvp || '') === 'מתלבט' ? 'מתלבט' : 'לא ענה',
           },
   };
   /* one number, several scripts: the agent is chosen per call, not per number */
   if (opts.override_agent_id) payload.override_agent_id = String(opts.override_agent_id);
+  /* 02/11 (noa-chase R8): what the agent learned from earlier calls, rendered
+     by noa.js memoryBlock(). Always present — a prompt that references
+     {{memory}} must never read literal braces out loud — and empty when the
+     caller did not pass one, so every existing call site is unchanged. */
+  payload.retell_llm_dynamic_variables.memory = String(opts.memory || '');
   return payload;
 }
 
@@ -549,10 +558,27 @@ export function retellToCallResult(body) {
       return { kind: 'skip', why: 'inbound-no-outcome', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
     }
     const tries = base + 1;
+    /* The mid-call tool is the primary record; Retell's post-call analysis
+       (custom_analysis_data.outcome, same enum) is the backup when the tool
+       never reached us (13/10: a week of refused webhooks). 'לא ברור' stays
+       a no-outcome; 'לא ענה' from the analysis means they picked up and said
+       nothing usable, which is the same thing. */
+    const cad = (call.call_analysis && call.call_analysis.custom_analysis_data) || {};
+    const ao = String(cad.outcome || '').trim();
+    if (ao && ao !== 'לא ברור' && ao !== 'לא ענה') {
+      const cap = Number(meta.max_tries) || 3;
+      const r = callOutcome(ao, base, cap);
+      if (r) {
+        r.tries = tries;
+        if (r.call_status === 'נדרשת שיחה' && r.tries >= cap) r.call_status = '';
+        const ps = Number(cad.party_size);
+        return { kind: 'end', call_id: callId, guest_id: String(meta.guest_id), result: r, party_size: ps > 0 ? ps : undefined, cost_cents: costOf(call), from_analysis: true };
+      }
+    }
     return {
       kind: 'end-no-outcome', call_id: callId, guest_id: String(meta.guest_id),
       result: {
-        rsvp: '', call_status: tries >= (Number(meta.max_tries) || 3) ? '' : 'נדרשת שיחה',
+        rsvp: '__keep__', call_status: tries >= (Number(meta.max_tries) || 3) ? '' : 'נדרשת שיחה',
         answer: 'שיחה ללא תוצאה ברורה', tries,
       },
       cost_cents: costOf(call),
@@ -623,16 +649,28 @@ function costOf(call) {
 
 /* HMAC check for X-Retell-Signature (hex HMAC-SHA256 of the raw body,
    keyed with the API key). Re-verified against a real webhook on demo day. */
-export async function verifyRetellSignature(rawBody, signature, apiKey) {
+export async function verifyRetellSignature(rawBody, signature, apiKey, now = Date.now()) {
   if (!signature || !apiKey) return false;
   const enc = new TextEncoder();
   const key = await crypto.subtle.importKey('raw', enc.encode(apiKey),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', key, enc.encode(rawBody));
-  const hex = [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('');
+  const hmac = async msg => [...new Uint8Array(await crypto.subtle.sign('HMAC', key, enc.encode(msg)))]
+    .map(b => b.toString(16).padStart(2, '0')).join('');
+  const same = (x, y) => {
+    if (x.length !== y.length) return false;
+    let diff = 0;
+    for (let i = 0; i < x.length; i++) diff |= x.charCodeAt(i) ^ y.charCodeAt(i);
+    return diff === 0;
+  };
+  /* Retell's current header is "v=<ms timestamp>,d=<hex>", the digest taken
+     over body + timestamp. The old check compared the whole header to an
+     HMAC of the body alone, so every webhook got a 403 and no call result
+     (12/10: 15 unanswered calls, tries still 0) ever reached the sheet. */
+  const m = /^v=(\d+),d=([0-9a-f]+)$/i.exec(String(signature).trim());
+  if (m) {
+    if (Math.abs(now - Number(m[1])) > 5 * 60 * 1000) return false;
+    return same(await hmac(rawBody + m[1]), m[2].toLowerCase());
+  }
   const given = String(signature).replace(/^v=|^sha256=/, '').toLowerCase();
-  if (hex.length !== given.length) return false;
-  let diff = 0;
-  for (let i = 0; i < hex.length; i++) diff |= hex.charCodeAt(i) ^ given.charCodeAt(i);
-  return diff === 0;
+  return same(await hmac(rawBody), given);
 }

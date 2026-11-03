@@ -1,0 +1,25 @@
+{
+  "_note": "02/11 thank-you + gift, to guests who CONFIRMED, after the event (/api/gift-blast). ishur_toda_orach / _v2 cannot carry the links (no variable for them, v2's button is a fixed ishur.io marketing URL), so this is a new template. Submitted honestly as MARKETING: a thank-you with a gift ask is not utility, and a wrong UTILITY claim is the most common rejection. MARKETING to guests can fail per guest on 131049 / 130472 — the blast reports those per guest. Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_toda_matana",
+    "language": "he",
+    "category": "MARKETING",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי {{1}}, תודה שהייתם איתנו ב{{2}} 🤍\nהיה שמח יותר בזכותכם.\n🎁 אם תרצו לתת מתנה לבעלי השמחה, אפשר בביט או בפייבוקס בכפתור למטה.",
+        "example": { "body_text": [["דנה", "חתונה של הדר ויצחק"]] }
+      },
+      { "type": "FOOTER", "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\"" },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          { "type": "URL", "text": "מתנה בביט / פייבוקס", "url": "https://go.ishur.io/gift/{{1}}", "example": ["https://go.ishur.io/gift/c1c5fcf5"] }
+        ]
+      }
+    ]
+  }
+}

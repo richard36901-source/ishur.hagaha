@@ -1,0 +1,285 @@
+{
+ "ok": true,
+ "now": 1793572032977,
+ "agents": {
+  "noa": {
+   "name": "נועה",
+   "state": "in_call",
+   "current_call": {
+    "call_id": "call_live_demo_noa",
+    "with": "דנה",
+    "since": "2026-11-01T22:26:24.888Z",
+    "event_name": "",
+    "kind": "lead",
+    "transcript_tail": [
+     {
+      "role": "agent",
+      "text": "היי, מדברת נועה מאישורי הגעה, לגבי האירוע ששאלתם עליו — תפסתי רגע טוב?"
+     },
+     {
+      "role": "user",
+      "text": "כן, רגע. זה לגבי החתונה?"
+     },
+     {
+      "role": "agent",
+      "text": "כן. התחלתם הזמנה באתר ועצרתם לפני הסוף. משהו לא היה ברור?"
+     },
+     {
+      "role": "user",
+      "text": "כמה זה עולה למאתיים אנשים?"
+     },
+     {
+      "role": "agent",
+      "text": "עד מאתיים רשומות — רשומה זה מספר טלפון אחד — בסיס מאה תשעים ותשעה, פרמיום מאתיים שבעים ותשעה, הכל כלול שלוש מאות שלושים ותשעה."
+     },
+     {
+      "role": "user",
+      "text": "אוקיי, אני צריכה לדבר עם בן הזוג."
+     }
+    ],
+    "tools_fired": [
+     {
+      "name": "record_outcome",
+      "args": {
+       "outcome": "שיחה חוזרת",
+       "when": "מחר בערב"
+      },
+      "at": null
+     }
+    ]
+   },
+   "queue_n": 1,
+   "last_calls": [],
+   "lessons": [
+    {
+     "text": "להגיד \"רשומות\" ולהסביר במשפט מה זה לפני שמצטטים מחיר",
+     "at": "2026-11-01T21:02:00Z",
+     "source": "floor",
+     "by": "ריצארד"
+    },
+    {
+     "text": "כשאומרים \"צריך להתייעץ\" — לא לחזור על המחיר, לסיים יפה",
+     "at": "2026-11-01T20:11:00Z",
+     "source": "call",
+     "by": "callqa"
+    }
+   ],
+   "memory_n": 2
+  },
+  "shir": {
+   "name": "שיר",
+   "state": "idle",
+   "current_call": null,
+   "queue_n": 0,
+   "last_calls": [
+    {
+     "id": "call_4d5c22c7b238c28a0ef4efc8715",
+     "agent": "shir",
+     "at": 1793531522231,
+     "name": "אילן",
+     "phone": "0555074446",
+     "event": "אורי יצחק קריאף",
+     "kind": "inbound",
+     "live": false,
+     "duration_s": 0,
+     "outcome": "ניתוק בפתיח",
+     "reason": "user_hangup",
+     "recording": "",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_b25cf7541dac79488edd1db8b65",
+     "agent": "shir",
+     "at": 1793523161959,
+     "name": "שירן ומיכאל",
+     "phone": "0543307330",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 21,
+     "outcome": "לא מגיע",
+     "reason": "user_hangup",
+     "recording": "/rec/call_b25cf7541dac79488edd1db8b65",
+     "verdict": "תואם",
+     "verdict_note": "התוצאה תואמת לתמליל"
+    },
+    {
+     "id": "call_1d3b4dcc51f910b45e939cbf74c",
+     "agent": "shir",
+     "at": 1793523151762,
+     "name": "אוריה וליזה",
+     "phone": "0545381981",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 22,
+     "outcome": "לא מגיע",
+     "reason": "user_hangup",
+     "recording": "/rec/call_1d3b4dcc51f910b45e939cbf74c",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_e95cf502f7dd4ce17ddfd13a9a5",
+     "agent": "shir",
+     "at": 1793523148331,
+     "name": "שלום ואדרה",
+     "phone": "0524230843",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 12,
+     "outcome": "לא ברור",
+     "reason": "user_hangup",
+     "recording": "/rec/call_e95cf502f7dd4ce17ddfd13a9a5",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_67b4d07657aa1cc942d5f8f1d59",
+     "agent": "shir",
+     "at": 1793523142293,
+     "name": "בטי",
+     "phone": "0534444439",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 22,
+     "outcome": "לא ברור",
+     "reason": "user_hangup",
+     "recording": "/rec/call_67b4d07657aa1cc942d5f8f1d59",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_db5f537bbba405058e4de39029a",
+     "agent": "shir",
+     "at": 1793522599512,
+     "name": "מלכה",
+     "phone": "0548840500",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 0,
+     "outcome": "לא ענה",
+     "reason": "dial_no_answer",
+     "recording": "",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_4599bafb6e9c56c8908d0bee019",
+     "agent": "shir",
+     "at": 1793522580511,
+     "name": "נועה",
+     "phone": "0522903370",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 9,
+     "outcome": "לא ברור",
+     "reason": "user_hangup",
+     "recording": "/rec/call_4599bafb6e9c56c8908d0bee019",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_741a1c0c0bb763b221aa281d9fd",
+     "agent": "shir",
+     "at": 1793522579923,
+     "name": "טל",
+     "phone": "0548158051",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 7,
+     "outcome": "לא ברור",
+     "reason": "user_hangup",
+     "recording": "/rec/call_741a1c0c0bb763b221aa281d9fd",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_b4b2d4a42032b13161a7f40fd00",
+     "agent": "shir",
+     "at": 1793522576935,
+     "name": "יוסי וליאת",
+     "phone": "0529536566",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 18,
+     "outcome": "לא ברור",
+     "reason": "user_hangup",
+     "recording": "/rec/call_b4b2d4a42032b13161a7f40fd00",
+     "verdict": "",
+     "verdict_note": ""
+    },
+    {
+     "id": "call_f128567e39bd697204771c9d83b",
+     "agent": "shir",
+     "at": 1793522573950,
+     "name": "אן ובר",
+     "phone": "0543396959",
+     "event": "אורי יצחק קריאף",
+     "kind": "guest",
+     "live": false,
+     "duration_s": 20,
+     "outcome": "לא מגיע",
+     "reason": "user_hangup",
+     "recording": "/rec/call_f128567e39bd697204771c9d83b",
+     "verdict": "",
+     "verdict_note": ""
+    }
+   ],
+   "lessons": [
+    {
+     "text": "\"לא יודע\" = מתלבט, לא ללא תוצאה",
+     "at": "2026-11-01T22:40:00Z",
+     "source": "call",
+     "by": "callqa"
+    }
+   ],
+   "memory_n": 1
+  },
+  "brain": {
+   "name": "המוח",
+   "memory": {
+    "noa": 2,
+    "shir": 1,
+    "max": 40
+   },
+   "pending": [
+    {
+     "text": "להציע לשלוח את הקישור שוב לפני שמסיימים",
+     "agent": "noa",
+     "at": "2026-11-02T00:40:00Z",
+     "source": "call_x"
+    }
+   ],
+   "pending_n": 1,
+   "prompts": {
+    "noa_out": {
+     "head": 10,
+     "at": "2026-09-22T14:17:46.520Z",
+     "note": "22/09: מונח רשומות"
+    },
+    "shir_out": {
+     "head": 6,
+     "at": "2026-10-21T13:40:16.515Z",
+     "note": "21/10 ריצ׳רד: מתלבטים נכנסים לסבב השיחות"
+    }
+   },
+   "suggestions": {
+    "noa_out": null,
+    "shir_out": {
+     "at": "2026-11-02T00:50:00Z",
+     "note": "begin_message ריק; פתיח מהפרומפט",
+     "text": "…"
+    }
+   }
+  }
+ },
+ "reps": []
+}

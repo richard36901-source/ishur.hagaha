@@ -30,6 +30,14 @@
     '.sbx .sb-c.wait{background:rgba(180,136,74,.16);color:#8A5A00}html[data-theme=dark] .sbx .sb-c.wait{color:#E3AA4C}' +
     '.sbx .sb-c.inf{border:1px dashed var(--sb-mute);background:transparent}' +
     '.sbx .sb-empty{color:var(--sb-mute);font-size:.82rem;padding:.6rem 0}' +
+    /* 02/11 the cap panel */
+    '.sbx .sb-cap{background:var(--card,#fff);border:1px solid var(--line,#E1E4DE);border-radius:14px;padding:.7rem .9rem;margin:0 0 .7rem}' +
+    '.sbx .sb-cap.warn{border-color:var(--sb-bad);box-shadow:inset 0 0 0 1px var(--sb-bad)}' +
+    '.sbx .sb-caph{display:flex;flex-wrap:wrap;gap:.3rem .8rem;align-items:baseline;font-variant-numeric:tabular-nums}.sbx .sb-caph b{font-size:1rem}' +
+    '.sbx .sb-nums{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:.4rem;margin:.5rem 0}' +
+    '.sbx .sb-num{background:var(--sb-rail);border-radius:10px;padding:.4rem .6rem;font-size:.78rem;font-variant-numeric:tabular-nums}.sbx .sb-num .ph{direction:ltr;unicode-bidi:embed;font-weight:600}' +
+    '.sbx .sb-plan{width:100%;border-collapse:collapse;font-size:.78rem;font-variant-numeric:tabular-nums}.sbx .sb-plan td,.sbx .sb-plan th{padding:.25rem .3rem;border-top:1px solid var(--line,#E1E4DE);text-align:right}' +
+    '.sbx .sb-plan tr.over td{color:var(--sb-bad);font-weight:600}.sbx .sb-alert{color:var(--sb-bad);font-weight:600;font-size:.8rem;margin:.3rem 0 0}' +
     /* the ⓘ sheet */
     '.sb-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:90}' +
     '.sb-sh{background:var(--card,#fff);color:var(--ink,#1B2620);border:1px solid var(--line,#E1E4DE);border-radius:16px;width:100%;max-width:640px;max-height:84vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.3)}' +
@@ -50,6 +58,27 @@
   ];
   var FAIL_HE = { cap: 'תקרה', notwa: 'לא בוואטסאפ', blocked: 'חסם', experiment: 'ניסוי מטא', other: 'אחר' };
   var PEND_HE = { reopened: 'נפתח מחדש', hold: 'השהיה', cap: 'תקרה', window: 'חלון', scheduled: 'מתוכנן', queue: 'בתור' };
+  var CODE_HE = { 131048: 'תקרת שליחה של מטא (Spam rate limit)', 131049: 'מטא עצרה — מגבלת שיווק לאורח', 131047: 'עברו 24 שעות — רק תבנית', 131042: 'בעיית תשלום בחשבון מטא', 130472: 'המספר בניסוי של מטא' };
+
+  /* 02/11 (Richard): the cap, per number, and the next 3 days vs the room */
+  function hm(ms) { if (!ms) return ''; var d = new Date(ms); return isNaN(d) ? '' : d.toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' }); }
+  function capHtml(c) {
+    if (!c) return '';
+    var scope = c.scope === 'number' ? 'לכל מספר בנפרד' : 'משותפת לכל המספרים (תיק עסקי אחד)';
+    var nums = (c.numbers || []).map(function (n) {
+      return '<div class="sb-num"><span class="ph">' + esc(n.label || n.id) + '</span> · ' + esc(n.tier || 'דרגה לא ידועה') + ' (' + n.limit + ')<br>' +
+        'היום ' + n.day_used + ' · 24 שעות ' + n.rolling_used + ' · נשאר <b>' + n.remaining + '</b>' +
+        (n.held ? '<br><span style="color:var(--sb-bad)">בתקרה' + (n.held_until ? ' עד ' + esc(hm(n.held_until)) : ' (עד שמטא תשחרר)') + '</span>' : '') +
+        (n.frees_at ? '<br><span style="color:var(--sb-mute)">המקום הבא מתפנה ' + esc(hm(n.frees_at)) + '</span>' : '') + '</div>';
+    }).join('');
+    var rows = (c.plan || []).map(function (d) {
+      return '<tr class="' + (d.over ? 'over' : '') + '"><td>' + dmy(d.day) + '</td><td>' + d.planned + '</td><td>' + d.capacity + '</td><td>' + (d.over ? 'חסרים ' + d.short_by + ' — יחכו בתור' : 'נכנס') + '</td></tr>';
+    }).join('');
+    return '<div class="sb-cap' + (c.warning ? ' warn' : '') + '"><div class="sb-caph"><b>תקרת שליחה לאורחים</b><span>נשארו <b>' + c.remaining + '</b> מתוך ' + c.limit + ' · נוצלו ' + c.used + ' ב-24 שעות</span><span style="color:var(--sb-mute);font-size:.74rem">' + scope + '</span></div>' +
+      '<div class="sb-nums">' + nums + '</div>' +
+      '<table class="sb-plan"><thead><tr><th>יום</th><th>מתוכנן</th><th>מקום</th><th></th></tr></thead><tbody>' + rows + '</tbody></table>' +
+      (c.warning ? '<p class="sb-alert">⚠ מתוכנן יותר ממה שנכנס בתקרה. המערכת לא תשלח מעבר — השאר נשאר בתור ויוצא כשמתפנה מקום.</p>' : '') + '</div>';
+  }
 
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function ph(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
@@ -80,12 +109,18 @@
     if (t.failed.total) {
       var parts = Object.keys(FAIL_HE).filter(function (k) { return t.failed[k]; }).map(function (k) { return FAIL_HE[k] + ' ' + t.failed[k]; });
       chips.push('<span class="sb-c bad">נכשל ' + t.failed.total + ' · ' + parts.join(' · ') + '</span>');
+      /* 02/11: by Meta code — the five Richard named always first */
+      var codes = t.failed.codes || {}, named = ['131048', '131049', '131047', '131042', '130472'];
+      named.forEach(function (c) { if (codes[c]) chips.push('<span class="sb-c bad" title="' + esc(CODE_HE[c] || '') + '">' + c + ' ×' + codes[c] + '</span>'); });
+      var rest = Object.keys(codes).filter(function (c) { return named.indexOf(c) < 0; }).reduce(function (n, c) { return n + codes[c]; }, 0);
+      if (rest) chips.push('<span class="sb-c bad" title="' + esc(Object.keys(codes).filter(function (c) { return named.indexOf(c) < 0; }).join(', ')) + '">קודים אחרים ×' + rest + '</span>');
     } else chips.push('<span class="sb-c">נכשל 0</span>');
     if (t.pending.total) {
       var pp = Object.keys(PEND_HE).filter(function (k) { return t.pending[k]; }).map(function (k) { return PEND_HE[k] + ' ' + t.pending[k] + (k === 'scheduled' && t.due ? ' (' + dmy(t.due) + ')' : ''); });
       chips.push('<span class="sb-c wait">ממתין ' + t.pending.total + ' · ' + pp.join(' · ') + '</span>');
     }
     chips.push('<span class="sb-c">ענו ' + t.answered + '</span>');
+    if (t.due) chips.push('<span class="sb-c" title="מועד השליחה המתוכנן">מועד ' + dmy(t.due) + '</span>');
     if (t.skipped) chips.push('<span class="sb-c">דילוג ' + t.skipped + '</span>');
     if (t.unknown) chips.push('<span class="sb-c inf" title="נשלח לפני שיומן הביקורת התחיל, או מחוץ לחלון — אין נתון מסירה">לא ידוע ' + t.unknown + '</span>');
     if (t.inferred) chips.push('<span class="sb-c inf" title="בלי סמני KV: נפתח-מחדש מול נכשל-סופי הוסק מכללי הקוד">' + t.inferred + ' מוסקים</span>');
@@ -132,8 +167,15 @@
     var note = '';
     if (d.__fixture) note = '<p class="sb-note"><b>נתוני דוגמה</b> · הנתיב /api/send-board עוד לא פרוס, אז מוצג קובץ שנבנה מנתונים חיים ב-' + esc(when(d.fixture && d.fixture.built_at)) + '. ' + esc((d.fixture && d.fixture.note) || '') + '</p>';
     else note = '<p class="sb-note">מקור: סטטוסי מסירה של מטא (wa_status) מול ההודעות שיצאו (wa_out), לפי מזהה ההודעה · ' + esc(d.window_days || '') + ' ימי יומן' + (d.cached ? ' · מהמטמון' : '') + ' · עודכן ' + esc(when(d.generated_at)) + '</p>';
-    if (!evs.length) { el.innerHTML = note + '<p class="sb-empty">אין אירועים פעילים עם שליחות.</p>'; return; }
-    el.innerHTML = note + '<div class="sb-grid">' + evs.map(function (ev, ei) {
+    note += capHtml(d.cap);
+    /* 03/11: linked sub-events (שבת חתן): one message type each, own markers */
+    var subs = (d.subevents || []).filter(function (x) { return !opt.token || x.token.slice(0, 8) === String(opt.token).slice(0, 8) || x.parent.slice(0, 8) === String(opt.token).slice(0, 8); });
+    var subHtml = subs.length ? '<div class="sb-grid">' + subs.map(function (x) {
+      return '<div class="sb-ev"><div class="sb-evh"><span class="n">' + esc(x.name) + ' · תת-אירוע</span><span class="d">' + esc(x.template) + ' · אורח ' + esc(x.parent.slice(0, 8)) + '</span></div>' +
+        x.types.map(function (t) { return '<p class="sb-note"><b>' + esc(t.he) + '</b> · נשלחו ' + t.sent + ' מתוך ' + t.invited + ' · נמסרו ' + t.delivered + ' · נקראו ' + t.read + ' · נכשלו ' + t.failed + ' · ממתינים ' + t.pending + ' · ענו ' + t.replied + (x.empty_phone_rows ? ' · <span style="color:var(--sb-bad)">' + x.empty_phone_rows + ' שורות בלי טלפון</span>' : '') + '</p>'; }).join('') + '</div>';
+    }).join('') + '</div>' : '';
+    if (!evs.length) { el.innerHTML = note + (subHtml || '<p class="sb-empty">אין אירועים פעילים עם שליחות.</p>'); return; }
+    el.innerHTML = note + subHtml + '<div class="sb-grid">' + evs.map(function (ev, ei) {
       var types = opt.compact ? ev.types.filter(function (t) { return t.sent || t.pending.reopened || t.pending.queue || t.pending.window || t.pending.cap || t.pending.hold; }) : ev.types;
       if (opt.compact && !types.length) types = ev.types.slice(0, 1);
       return '<div class="sb-ev" data-tok="' + esc(ev.short) + '"><div class="sb-evh"><span class="n">' + esc(ev.name) + (ev.held ? ' · <span style="color:var(--sb-bad)">בהשהיה</span>' : '') + '</span><span class="d">' + dmy(ev.date) + ' · ' + ev.invited + ' מוזמנים</span></div>' +

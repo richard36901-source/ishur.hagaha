@@ -24,6 +24,8 @@
    by ensureLogSheet(). No per-row formatting calls.
    ========================================================================== */
 
+import { record } from './audit.js';
+
 export const SHEET_ID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
 export const LOG_TAB = 'יומן מערכת';
 const HEADER = ['זמן', 'תחום', 'פעולה', 'סטטוס', 'דורש בדיקה', 'טלפון', 'אירוע', 'מזהה', 'פירוט'];
@@ -42,9 +44,19 @@ function ilStamp(d = new Date()) {
   return `${g('day')}/${g('month')}/${g('year')} ${g('hour')}:${g('minute')}:${g('second')}`;
 }
 
+/* ── the live stream (Richard 21/10): EVERYTHING, 7 days, for live.html ────
+   stream:<YYYYMMDD>:<ms>:<rand> so one day lists in order. Journal events,
+   every WhatsApp in/out, every Slack line, every call, every admin API call. */
+export async function stream(env, rec) {
+  /* 22/10: the writer moved to audit.js (ids, hashes, request context,
+     400-day retention). This stays as the name every tap already uses. */
+  return record(env, rec);
+}
+
 /* ── write one event. Never throws, never blocks the caller for long. ─────── */
 export async function logEvent(env, e) {
   if (!env || !env.RATE) return;
+  stream(env, { kind: 'event', ...e }).catch(() => {});
   try {
     const rec = {
       at: new Date().toISOString(),
@@ -168,6 +180,33 @@ export async function flushEventLog(env) {
   if (!res || !Array.isArray(res.replies)) return { ok: false, why: 'append-failed', pending: rows.length };
   for (const k of keys) await env.RATE.delete(k).catch(() => {});
   return { ok: true, flushed: rows.length };
+}
+
+/* ── 22/10: a second tab, "ביקורת", mirrors the audit log every hour ─────────
+   ensureTab(title, header) + appendTab(title, rows): the same proxy path as
+   the journal, parameterised, so audit.js never touches Sheets itself. */
+export async function ensureTab(env, title, header) {
+  if (!env.RATE) return null;
+  const ck = 'evlog:tab:' + title;
+  const cached = await env.RATE.get(ck);
+  if (cached) return Number(cached);
+  const meta = await proxy(env, `spreadsheets/${SHEET_ID}`, { qk: 'fields', qv: 'sheets.properties' });
+  const found = ((meta && meta.sheets) || []).find(s => s.properties && s.properties.title === title);
+  let sheetId = found ? found.properties.sheetId : null;
+  if (sheetId == null) {
+    const res = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests: [{ addSheet: { properties: { title, gridProperties: { frozenRowCount: 1 }, tabColor: { red: 0.2, green: 0.4, blue: 0.7 } } } }] } });
+    sheetId = res && res.replies && res.replies[0] && res.replies[0].addSheet && res.replies[0].addSheet.properties.sheetId;
+    if (sheetId == null) return null;
+    await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests: [{ updateCells: { start: { sheetId, rowIndex: 0, columnIndex: 0 }, rows: [{ values: header.map(h => ({ userEnteredValue: { stringValue: h }, userEnteredFormat: { textFormat: { bold: true } } })) }], fields: 'userEnteredValue,userEnteredFormat.textFormat' } }] } });
+  }
+  await env.RATE.put(ck, String(sheetId));
+  return sheetId;
+}
+export async function appendTab(env, title, header, rows) {
+  const sheetId = await ensureTab(env, title, header);
+  if (sheetId == null) return false;
+  const res = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests: [{ appendCells: { sheetId, rows: rows.map(r => ({ values: r.map(v => ({ userEnteredValue: { stringValue: String(v ?? '').slice(0, 49000) } })) })), fields: 'userEnteredValue' } }] } });
+  return !!(res && Array.isArray(res.replies));
 }
 
 /* the last rows of the tab, for the admin endpoint / verification */

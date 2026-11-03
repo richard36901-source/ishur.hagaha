@@ -1,0 +1,26 @@
+# ishur-agent — the always-on Slack agent (Deliverable B, 01/11/2026)
+# Separate Worker from ishur-webhooks. It has NO WhatsApp/Meta/Retell tokens of
+# its own; every action goes through go.ishur.io/api/* with AGENT_ADMIN_KEY.
+name = "ishur-agent"
+main = "src/index.js"
+compatibility_date = "2026-08-01"
+
+[vars]
+# Writes (yellow + red tools) are OFF. Turning them on is a deliberate act:
+#   change to "on" here and redeploy (Richard's decision, after review).
+AGENT_WRITE = "off"
+RICHARD_SLACK_ID = "U0BTHU91Z3N"   # worker/index.js:3411 (SLACK_RICHARD default)
+SHALEV_SLACK_ID = "U0C33AKDF24"    # worker/index.js:761 (SLACK_SHALEV default)
+ALLOWED_CHANNELS = "C0BTL7C6CTC"   # #ishur-hagaa (docs/AGENT.md)
+ISHUR_BASE = "https://go.ishur.io"
+
+# The agent's OWN KV (event dedupe, known threads, approvals).
+# NOT the engine's RATE namespace (05a171c6...). Create it once:
+#   npx wrangler kv namespace create AGENT_KV
+# and paste the printed id below.
+[[kv_namespaces]]
+binding = "AGENT_KV"
+id = "REPLACE_WITH_AGENT_KV_ID"
+
+# Secrets (wrangler secret put <NAME>): SLACK_BOT_TOKEN, SLACK_SIGNING_SECRET,
+# ANTHROPIC_API_KEY, AGENT_ADMIN_KEY. Optional: LINEAR_API_KEY, LINEAR_TEAM_ID.

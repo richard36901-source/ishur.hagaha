@@ -15,7 +15,8 @@
    ========================================================================== */
 
 import { logRow } from './sheetlogs.js';
-import { logEvent } from './evlog.js';
+import { logEvent, stream } from './evlog.js';
+import { capacity, numberState, rollingUsed, nextFreeAt, readHourBuckets, bumpHourBucket, cachedTiers, tierLimit, epochHour } from './budget.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 
@@ -48,10 +49,165 @@ export function clientOnPortfolio(env) {
 const PORTFOLIO_RENAMED = new Set(['ishur_lo_siyem', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_tzikoret_kovetz', 'ishur_doch', 'ishur_shidrug', 'ishur_shidrug_sichot']);
 export function clientWaba(env) { return clientOnPortfolio(env) ? '2815615772154486' : '1060242146337688'; }
 export function clientToken(env) { return clientOnPortfolio(env) ? env.WA_TOKEN_GUESTS : env.WA_TOKEN; }
+/* 25/10: 4499 re-registered via coexistence (QR) under WABA 1060242146337688 with a
+   new phone id. WA_PHONE_ID_CLIENT (wrangler var) overrides the old WA_PHONE_ID secret. */
+export function clientPhoneId(env) { return env.WA_PHONE_ID_CLIENT || env.WA_PHONE_ID; }
 
+/* ── 22/10 Richard: more than one number for Shir ─────────────────────────
+   WA_PHONE_IDS_GUESTS = "id1,id2,id3" (all on the same WABA, same token).
+   Each number has its own 250/24h cap while the business is unverified, so
+   three numbers = 750. The sender picks the number with the fewest sends
+   today that is not cap-held (wacap:<phoneId>). Counters: gsend:<id>:<day>. */
+export function guestPhoneIds(env) {
+  const extra = String(env.WA_PHONE_IDS_GUESTS || '').split(',').map(x => x.trim()).filter(Boolean);
+  const all = [env.WA_PHONE_ID_GUESTS, ...extra].filter(Boolean);
+  return [...new Set(all)];
+}
+export function isGuestPhone(env, pid) { return !!pid && guestPhoneIds(env).includes(String(pid)); }
+function ilDayKey() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+/* 02/11 (Richard): budget = the numbers' real tiers, Meta's rolling 24h,
+   portfolio scope by default — the math lives in budget.js. Only TEMPLATES
+   count: a free-text reply inside the guest's own 24h window is not limited
+   by Meta and must never be blocked by our counter ("לא מגיע" deserves an
+   answer even after 250 invitations went out).
+   Integration 02/11 (feat-gifts-sendboard + audit-send-pipeline): this is
+   the single model. Ported from the audit branch on top of it:
+     · an isolate-local floor under every counter — KV allows one write per
+       second per key, so a 25-send tick had its increments rejected and the
+       counter under-counted exactly when it mattered; what this isolate
+       itself sent is never forgotten (floorFor);
+     · unique recipients: Meta counts unique users per rolling 24h, so a
+       second template to the same guest inside 24h is not a second slot
+       (gbic:<phone>, noteGuestTemplate);
+     · GUEST_PORTFOLIO_BUDGET = the shared limit when set explicitly. */
+const capMemo = new WeakMap();   /* kv → Map(pid → {at, buckets}); 20s per isolate */
+function memoFor(kv) { let m = capMemo.get(kv); if (!m) { m = new Map(); capMemo.set(kv, m); } return m; }
+let floorMemo = new WeakMap();   /* kv → { day: Map(gsend key → n), hours: Map(pid → {epochHour: n}) } */
+function floorFor(kv) { let f = floorMemo.get(kv); if (!f) { f = { day: new Map(), hours: new Map() }; floorMemo.set(kv, f); } return f; }
+export function _resetBudgetMemory() { floorMemo = new WeakMap(); }
+function withFloor(kv, pid, buckets) {
+  const fl = floorFor(kv).hours.get(pid);
+  if (!fl) return buckets;
+  const out = { ...(buckets || {}) };
+  for (const [h, n] of Object.entries(fl)) out[h] = Math.max(Number(out[h]) || 0, Number(n) || 0);
+  return out;
+}
+async function bucketsFor(env, pid) {
+  const m = memoFor(env.RATE); const hit = m.get(pid);
+  if (hit && Date.now() - hit.at < 20e3) return withFloor(env.RATE, pid, hit.buckets);
+  const buckets = await readHourBuckets(env.RATE, pid);
+  m.set(pid, { at: Date.now(), buckets });
+  return withFloor(env.RATE, pid, buckets);
+}
+async function readDayUsed(env, pid, day) {
+  const k = `gsend:${pid}:${day}`;
+  const n = Number(await env.RATE.get(k).catch(() => 0)) || 0;
+  return Math.max(n, floorFor(env.RATE).day.get(k) || 0);
+}
+export function guestCapScope(env) { return String((env && env.GUEST_CAP_SCOPE) || '').toLowerCase() === 'number' ? 'number' : 'portfolio'; }
+export function guestDailyBudget(env) { const n = Number(env && env.GUEST_DAILY_BUDGET); return n > 0 ? n : 230; }
+/* 02/11 (Richard): a shared safety margin of 20 below the limit; per number none */
+export function guestBudgetMargin(env) { return env && env.GUEST_BUDGET_MARGIN != null && env.GUEST_BUDGET_MARGIN !== '' ? Math.max(0, Number(env.GUEST_BUDGET_MARGIN) || 0) : 20; }
+/* the shared (portfolio) limit before the margin: GUEST_PORTFOLIO_BUDGET when
+   set, else 250 (TIER_250). At run time guestCapacity prefers the real tier
+   cached in wa:cap over the 250 default; the explicit env always wins. */
+export function guestPortfolioBudget(env) { const n = Number(env && env.GUEST_PORTFOLIO_BUDGET); return n > 0 ? n : 250; }
+/* the whole picture: every guest number + the shared room. Read-only. */
+export async function guestCapacity(env) {
+  const ids = guestPhoneIds(env);
+  if (!env.RATE || !ids.length) return capacity([], { scope: guestCapScope(env), portfolioLimit: 0 });
+  const day = ilDayKey(); const now = Date.now();
+  const tiers = await cachedTiers(env.RATE);
+  const override = Number(env.GUEST_DAILY_BUDGET) > 0 ? Number(env.GUEST_DAILY_BUDGET) : 0;
+  const margin = guestBudgetMargin(env);
+  const rows = await Promise.all(ids.map(async id => {
+    const [n, held, until, buckets] = await Promise.all([
+      readDayUsed(env, id, day), env.RATE.get('wacap:' + id).catch(() => null),
+      env.RATE.get('wacapuntil:' + id).catch(() => 0), bucketsFor(env, id)]);
+    const t = tiers.find(x => String(x.id || '') === String(id));
+    const tl = t ? tierLimit(t.tier, 0) : 0;
+    /* explicit override > the number's real tier > the post-incident 230 */
+    const limit = override || (tl && Number.isFinite(tl) ? tl : 0) || guestDailyBudget(env);
+    return numberState({ id, tier: t ? t.tier : '', limit, dayUsed: Number(n) || 0, rolling: rollingUsed(buckets, now), held: !!held, heldUntil: Number(until) || 0, now, margin: 0, freeAt: nextFreeAt(buckets, now) });
+  }));
+  const knownTier = tiers.map(x => tierLimit(x.tier, 0)).find(v => v && Number.isFinite(v)) || 0;
+  const portfolioLimit = Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? Number(env.GUEST_PORTFOLIO_BUDGET) : (knownTier || 250);
+  return capacity(rows, { scope: guestCapScope(env), portfolioLimit, margin });
+}
+/* 02/11 (Richard): the guest's number. A free-text reply is only legal inside
+   the 24h window the guest opened WITH THAT NUMBER — answered from the other
+   one it dies on 131047 (02/11: 28 replies did). gph:<phone> = the guest phone
+   id the guest last wrote to (webhook metadata.phone_number_id), or the one
+   that last sent them a template. Replies always go from it; templates prefer
+   it while it has room. (The audit branch's gin:<phone> pin is folded into
+   this one — one key, written by the webhook via pinGuestPhone.) */
+export async function guestPinnedPhone(env, to) {
+  if (!env.RATE || !to) return '';
+  const v = await env.RATE.get('gph:' + normPhone(to)).catch(() => null);
+  return v && isGuestPhone(env, v) ? String(v) : '';
+}
+export async function pinGuestPhone(env, to, pid) {
+  if (!env.RATE || !to || !isGuestPhone(env, pid)) return;
+  await env.RATE.put('gph:' + normPhone(to), String(pid), { expirationTtl: 120 * 86400 }).catch(() => {});
+}
+export async function pickGuestPhone(env, { template = true, to = '', pinned = '' } = {}) {
+  const ids = guestPhoneIds(env);
+  if (!guestsReady(env) || !ids.length) return '';
+  if (!env.RATE) return ids[0];
+  const pin = (pinned && isGuestPhone(env, pinned)) ? String(pinned) : await guestPinnedPhone(env, to);
+  /* a reply inside the guest's window: the number they wrote to, no matter
+     how busy it is — the reply is free and not counted by Meta */
+  if (!template && pin) return pin;
+  /* 02/11 incident: retries burned 2,081 conversations against the cap and
+     Meta blocked both numbers for 24h. A template is only offered a number
+     while there is room — no Meta call, no 131048. */
+  const cap = await guestCapacity(env);
+  if (template) {
+    if (cap.remaining <= 0) return '';
+    const open = cap.numbers.filter(r => !r.held && r.remaining > 0).sort((a, b) => a.used - b.used);
+    /* keep the thread on one number while that number has room */
+    if (pin && open.some(r => r.id === pin)) return pin;
+    return open.length ? open[0].id : '';
+  }
+  /* a reply with no known number: any number not held, else the least used */
+  const byUse = cap.numbers.slice().sort((a, b) => a.used - b.used);
+  return ((byUse.find(r => !r.held) || byUse[0]) || { id: ids[0] }).id;
+}
+export async function guestBudgetLeft(env) {
+  if (!env.RATE) return 0;
+  return (await guestCapacity(env)).remaining;
+}
+/* a business-initiated (template) message was accepted for `phone` on `pid`.
+   Counted once per recipient per rolling 24h — that is Meta's unit. */
+export async function noteGuestTemplate(env, pid, phone) {
+  if (!env.RATE || !pid) return false;
+  const p = normPhone(phone);
+  if (p) {
+    if (await env.RATE.get('gbic:' + p).catch(() => null)) return false;
+    await env.RATE.put('gbic:' + p, String(pid), { expirationTtl: 86400 }).catch(() => {});
+  }
+  await bumpGuestSend(env, pid);
+  return true;
+}
+export async function bumpGuestSend(env, pid) {
+  if (!env.RATE || !pid) return;
+  const fl = floorFor(env.RATE);
+  const day = ilDayKey();
+  const k = `gsend:${pid}:${day}`;
+  const n = (await readDayUsed(env, pid, day)) + 1;
+  fl.day.set(k, n);
+  await env.RATE.put(k, String(n), { expirationTtl: 2 * 86400 }).catch(() => {});
+  const h = epochHour(Date.now());
+  const hours = fl.hours.get(pid) || {};
+  for (const x of Object.keys(hours)) if (Number(x) < h - 24) delete hours[x];
+  hours[h] = await bumpHourBucket(env.RATE, pid, Date.now(), hours[h] || 0);
+  fl.hours.set(pid, hours);
+  const hit = memoFor(env.RATE).get(pid);
+  if (hit) hit.buckets[h] = Math.max(hit.buckets[h] || 0, hours[h]);
+}
 function pickPhone(env, channel) {
   if (channel === 'guests') return guestsReady(env) ? env.WA_PHONE_ID_GUESTS : '';
-  return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : env.WA_PHONE_ID;
+  return clientOnPortfolio(env) ? env.WA_PHONE_ID_CLIENT_NEW : clientPhoneId(env);
 }
 
 function pickToken(env, channel) {
@@ -106,6 +262,9 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
   c.phone = phone;
   c.msgs = (c.msgs || 0) + 1;
   if (!c.first_ts) c.first_ts = ts;
+  /* 02/11: the last INBOUND survives an echo/outbound that comes after it —
+     the lead chase asks "did they ever write to us", not "who spoke last" */
+  if (dir === 'in' && !(ts < (c.last_in_ts || 0))) c.last_in_ts = ts;
   if (!(ts < (c.last_ts || 0))) {
     c.last_ts = ts;
     c.last_dir = dir;
@@ -130,7 +289,7 @@ export async function touchConversation(env, phone, { ts, dir, text, ch }) {
    ishur_tzikoret_kovetz as guest-only; the actual code sends it with
    sendClient() to a CLIENT who paid but hasn't uploaded their guest list
    (index.js ~3069, ~3164) — categorized here by verified real usage. */
-const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_bitul\b|^ishur_dchiya\b/i;
+const GUEST_ONLY_TEMPLATE_RE = /^hazmana_|^ishur_hazmana|^ishur_yom_lifnei|^ishur_shulchan|^ishur_toda_orach|^ishur_toda_matana|^ishur_matana|^ishur_yom_haerua_matana|^ishur_bitul\b|^ishur_dchiya\b/i;
 const CLIENT_ONLY_TEMPLATE_RE = /^ishur_lo_siyem|^ishur_kod\b|^ishur_heshbonit\b|^ishur_tashlum\b|^ishur_shidrug|^ishur_doch\b|^ishur_syum\b|^ishur_tzikoret_kovetz\b/i;
 
 /* 27/09 (Richard: "show the actual message, not the template name"). The
@@ -210,8 +369,32 @@ async function post(env, body, channel, ctx) {
     } catch {}
     return { ok: false, error: 'guests-number-not-connected', held: true };
   }
-  const phoneId = pickPhone(env, channel);
+  /* 21/10: Noa's number is off Meta's API (133010) while it moves WABA.
+     Every caller that retries each pacer tick (lead chase, client links)
+     would alert Slack 6x an hour. One real attempt per hour, one alert per
+     6h, everything else is held quietly. */
+  const clientCh = !(channel === 'guests' && guestsReady(env));
+  if (clientCh && env.RATE && await env.RATE.get('noa:unreg').catch(() => null)) {
+    return { ok: false, error: '133010: account not registered (held)', held: true };
+  }
+  /* 02/11: only business-initiated (template) messages spend Meta's limit
+     and the budget; a free-form reply goes out on the number the guest wrote
+     to (gph: pin or the webhook's phone_id), budget or not. */
+  const isTmpl = body.type === 'template';
+  const phoneId = channel === 'guests' ? await pickGuestPhone(env, { template: isTmpl, to: body.to, pinned: ctx && ctx.phone_id }) : pickPhone(env, channel);
   const token = pickToken(env, channel);
+  if (channel === 'guests' && token && !phoneId) {
+    /* one journal line a day, not one per guest: the batch stops, the rest waits */
+    try {
+      const dk = 'gbudgetnote:' + ilDayKey();
+      if (env.RATE && !(await env.RATE.get(dk))) {
+        await env.RATE.put(dk, '1', { expirationTtl: 86400 });
+        await logEvent(env, { area: 'שליחה', action: 'תקציב השליחה היומי לאורחים נוצל — השליחות ממתינות', ok: false, review: true,
+          detail: `תקרה ${guestPortfolioBudget(env)} ל-24 שעות (${guestCapScope(env) === 'number' ? 'לכל מספר' : 'משותפת לכל המספרים'}) · מרווח ${guestBudgetMargin(env)} · היתר נשלח כשהחלון מתגלגל` });
+      }
+    } catch {}
+    return { ok: false, error: 'guests-daily-budget', held: true };
+  }
   if (!token || !phoneId) return { ok: false, error: 'wa-not-configured' };
   const r = await fetch(`${GRAPH}/${phoneId}/messages`, {
     method: 'POST',
@@ -247,6 +430,8 @@ async function post(env, body, channel, ctx) {
          customer who comes back after a year should not meet a blank thread */
       const logKey = 'log:' + String(body.to || '') + ':' + ts;
       if (res.ok && res.id) await env.RATE.put('wamid2log:' + res.id, logKey, { expirationTtl: 14 * 86400 }).catch(() => {});
+      /* counted once per recipient per 24h (noteGuestTemplate); a probe send is not counted */
+      if (res.ok && channel === 'guests') { if (isTmpl) { if (!(ctx && ctx.probe)) await noteGuestTemplate(env, phoneId, body.to); if (!(await guestPinnedPhone(env, body.to))) await pinGuestPhone(env, body.to, phoneId); } if (res.id) await env.RATE.put('wamidpid:' + res.id, phoneId, { expirationTtl: 3 * 86400 }).catch(() => {}); }
       await env.RATE.put(logKey,
         JSON.stringify({
           dir: 'out', type: body.type, text: summary.slice(0, 1000),
@@ -263,6 +448,7 @@ async function post(env, body, channel, ctx) {
           } : {}),
           at: new Date().toISOString(),
         }));
+      stream(env, { kind: 'wa_out', area: ch === 'guests' ? 'שיר' : 'נועה', data: { phone_id: phoneId, wamid: res.id || '', template: body.type === 'template' ? String((body.template || {}).name || '') : '', error: res.error || '' }, action: (res.ok ? '📤 ' : '⛔ ') + (body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type === 'text' ? 'הודעה' : body.type) + ' → ' + String(body.to || ''), ok: res.ok, phone: String(body.to || ''), token: ctx && ctx.token ? String(ctx.token) : '', detail: (res.ok ? '' : String(res.error || '') + ' · ') + summary.slice(0, 400) }).catch(() => {});
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
       });
@@ -334,7 +520,16 @@ async function post(env, body, channel, ctx) {
          One alert per 6h instead; guests (Shir) is a separate WABA and
          unaffected, so it keeps the normal per-failure alert. */
       const isClientChannel = !(channel === 'guests' && guestsReady(env));
-      if (isClientChannel && /131042/.test(String(res.error || '')) && env.RATE) {
+      if (isClientChannel && /133010/.test(String(res.error || '')) && env.RATE) {
+        await env.RATE.put('noa:unreg', '1', { expirationTtl: 3600 }).catch(() => {});
+        const k = 'unregalert:client';
+        if (!(await env.RATE.get(k))) {
+          await env.RATE.put(k, '1', { expirationTtl: 6 * 3600 });
+          await opsPing(env, 'המספר של נועה (4499) לא רשום ב-API',
+            'מטא מחזירה 133010. שליחות ללקוחות ולידים מוחזקות ונבדקות שוב פעם בשעה; ההתראה הבאה בעוד עד 6 שעות. לתקן: לסרוק QR לחיבור המספר ל-WABA החדש.',
+            `${body.type} → ${body.to}`, true);
+        }
+      } else if (isClientChannel && /131042/.test(String(res.error || '')) && env.RATE) {
         const k = 'billingalert:client';
         if (!(await env.RATE.get(k))) {
           await env.RATE.put(k, '1', { expirationTtl: 6 * 3600 });
@@ -385,6 +580,19 @@ export function sendOtpTemplate(env, to, code) {
   });
 }
 
+/* One template body variable, the way Meta accepts it: no CR/LF/tab (132018),
+   no run of more than 4 spaces, no control characters, no stray unbalanced
+   quote at the edges (a lead named `"הבוטח` was greeted `היי "הבוטח`), at
+   most 300 characters. Hebrew gershayim (״) and inner quotes are kept. */
+export function cleanParam(v) {
+  let s = String(v ?? '').replace(new RegExp('[\\r\\n\\t\\u2028\\u2029]+', 'g'), ' ').replace(new RegExp('[\\u0000-\\u001f\\u007f]', 'g'), '');
+  s = s.replace(/ {2,}/g, ' ').trim();
+  const q = /["“”]/g;
+  if (((s.match(q) || []).length % 2) === 1) s = s.replace(/^["“”]+|["“”]+$/g, '').trim();
+  if (s.length > 300) s = s.slice(0, 299).trim() + '…';
+  return s;
+}
+
 /* The production path. `params` are the positional body variables; `imageUrl`
    fills a header of type IMAGE when the template has one. */
 export async function sendTemplate(env, to, name, params = [], imageUrl = '', lang = 'he', channel, ctx) {
@@ -397,6 +605,23 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   const isClient = !(channel === 'guests' && guestsReady(env));
   if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
   else { try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {} }
+  /* 02/11 audit: Meta refuses a body variable with a newline / tab / more
+     than 4 spaces in a row (132018) and an empty one (131008) — and a refused
+     send was retried every tick. Clean every variable here, once, for every
+     caller; refuse an empty one before Meta sees it (permanent: retrying the
+     same sheet data cannot help, a human has to fill the cell). */
+  params = (params || []).map(cleanParam);
+  const emptyAt = params.findIndex(p => !p);
+  if (emptyAt >= 0) {
+    try {
+      const ek = `emptyparam:${name}:${String((ctx && ctx.token) || '').slice(0, 8)}:${ilDayKey()}`;
+      if (!env.RATE || !(await env.RATE.get(ek))) {
+        if (env.RATE) await env.RATE.put(ek, '1', { expirationTtl: 86400 });
+        await logEvent(env, { area: 'שליחה', action: 'תבנית לא נשלחה — משתנה ריק', ok: false, review: true, phone: normPhone(to), token: ctx && ctx.token ? String(ctx.token) : '', detail: `${name} · משתנה {{${emptyAt + 1}}} ריק` });
+      }
+    } catch {}
+    return { ok: false, error: `empty-param:{{${emptyAt + 1}}}`, permanent: true };
+  }
   const components = [];
   if (imageUrl) {
     /* an .mp4 link fills a VIDEO header; anything else an IMAGE header. The
@@ -412,10 +637,22 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
       parameters: params.map(p => ({ type: 'text', text: String(p ?? '') })),
     });
   }
-  return post(env, {
+  /* 02/11: extra components (a dynamic URL button's suffix, e.g. the gift page) */
+  if (ctx && Array.isArray(ctx.components)) for (const c of ctx.components) if (c && c.type) components.push(c);
+  const res = await post(env, {
     to: normPhone(to), type: 'template',
     template: { name, language: { code: lang }, ...(components.length ? { components } : {}) },
   }, channel, ctx);
+  /* 20/10: the cap gauge. Meta allows TIER_250 business-initiated
+     conversations per rolling 24h on the guests number; a template to a
+     guest who had none in the last 24h opens one. bic:<ts>:<phone> lives
+     exactly 24h, so a count of the prefix IS the number Meta is counting,
+     and the oldest key says when the next slot frees. One key per phone per
+     24h (the gday guard already keeps it to one send per guest per day). */
+  if (res && res.ok && channel === 'guests' && env.RATE && !ctx?.probe) {
+    try { await env.RATE.put('bic:' + Date.now() + ':' + normPhone(to), '1', { expirationTtl: 86400 }); } catch {}
+  }
+  return res;
 }
 
 /* ── inbound ── a guest replied: a template button, or free text ──────────
@@ -456,7 +693,11 @@ export function parseInboundReply(msg) {
      unlike הסר: the same phone may be a real guest at somebody else's wedding
      next month. Anchored like the opt-out, or "בטעות" inside a sentence about
      something else would silence a legitimate guest. */
-  if (/^\s*(טעות|זו טעות|זאת טעות|הגיע בטעות|הגיעה בטעות|קיבלתי בטעות|לא מכיר|לא מכירה|מספר שגוי|מספר לא נכון)(\s|$|[.!,?׃־])/.test(clean)) {
+  if (/^\s*(טעות|זו טעות|זאת טעות|הגיע בטעות|הגיעה בטעות|קיבלתי בטעות|לא מכיר|לא מכירה|מספר שגוי|מספר לא נכון)(\s|$|[.!,?׃־])/.test(clean) &&
+      /* 02/11: "טעות, 2 מגיעים" / "טעות - לא מגיעים" is a guest CORRECTING their
+         answer, not a wrong number. A digit or an RSVP word after "טעות" means
+         fall through to the normal parsing below. */
+      !/^\s*(טעות|זו טעות|זאת טעות)[\s.!,?׃־-]+.*(\d|מגיע|נגיע|נהיה|כן\b|לא\b)/.test(clean)) {
     return { kind: 'mistake' };
   }
 
@@ -466,7 +707,14 @@ export function parseInboundReply(msg) {
     return { kind: 'party', party: Number(bare) };
   }
 
-  const yes = /^(מגיע|מגיעה|מגיע\/ה|מגיעים|כן|נגיע|בטח|אשמח|נהיה שם)/.test(clean);
+  /* 02/11 audit: "בטח שלא" and "אשמח לדעת מה הכתובת" used to be written to the
+     sheet as מגיע. בטח/אשמח/ברור count only when followed by an arrival word
+     or nothing; any yes-prefix with a negation later in the text is left to
+     the free-text path, which reads the whole sentence. */
+  const yesStrong = /^(מגיע|מגיעה|מגיע\/ה|מגיעים|כן|נגיע|נהיה שם)/.test(clean);
+  const yesSoft = /^(בטח|אשמח|ברור)(?!\s*ש?לא)(?=[\s,.!]*(נגיע|מגיע|מגיעה|מגיעים|נבוא|להגיע|לבוא|$|[^֐-׿\w]*$))/.test(clean);
+  const negated = /(^|[\s,.\-])(ש?לא|אין)([\s,.!?]|$)/.test(clean.replace(/^(כן|מגיע\S*|נגיע|בטח|אשמח|ברור)/, ''));
+  const yes = (yesStrong || yesSoft) && !negated;
   const no = /^(לא מגיע|לא מגיעה|לא מגיע\/ה|לא מגיעים|לא נגיע|לא נוכל|לצערנו|לא נספיק)|^לא\s*$|^לא[.!]/.test(clean);
   const maybe = /(עדיין לא|לא ידוע|מתלבט|נעדכן|לא בטוח|לא יודע|לא סגרנו|אולי)/.test(clean);
 
@@ -475,10 +723,30 @@ export function parseInboundReply(msg) {
   if (maybe) return { kind: 'rsvp', outcome: 'מתלבט' };
   if (no) return { kind: 'rsvp', outcome: 'לא מגיע' };
   if (yes) {
-    const m = clean.match(/(\d{1,2})/);
-    return { kind: 'rsvp', outcome: 'מגיע', party: m ? Number(m[1]) : undefined };
+    /* a time ("מגיעים ב-19:30") or a date is not a head count */
+    const n = partyDigits(clean);
+    return { kind: 'rsvp', outcome: 'מגיע', party: n || undefined };
   }
   return { kind: 'text', body: text };
+}
+
+/* digits that can be a head count: times (19:30), dates (5/11, 05.11.2026),
+   long numbers (phones, years, money) and "בשעה 8"-style hours are removed
+   first; 1..30 only. 02/11 audit: "נגיע בסביבות 20:00" was written as 20
+   guests, "באיזו שעה מתחיל? 19:30?" as 19. */
+function stripNonCounts(s) {
+  return String(s || '')
+    .replace(/\d{1,2}[:.]\d{2}/g, ' ')
+    .replace(/\d{1,2}[./-]\d{1,2}([./-]\d{2,4})?/g, ' ')
+    .replace(/\d{3,}/g, ' ')
+    .replace(/(בשעה|שעה|בסביבות|סביבות|עד|אחרי|לפני|ב-)\s*-?\s*\d{1,2}/g, ' ')
+    .replace(/\d+\s*(₪|ש"ח|שח|שקל|שקלים|%)/g, ' ');
+}
+function partyDigits(s) {
+  const m = stripNonCounts(s).match(/(^|[^\d])(\d{1,2})(?!\d)/);
+  if (!m) return null;
+  const n = Number(m[2]);
+  return n >= 1 && n <= 30 ? n : null;
 }
 
 /* Hebrew words people answer "how many of you?" with, plus a loose digit
@@ -489,9 +757,33 @@ const HE_COUNT = { 'לבד': 1, 'רק אני': 1, 'אחד': 1, 'אחת': 1, 'ש�
 export function partyFromText(text) {
   const clean = String(text || '').replace(/[‎‏]/g, '').trim();
   if (!clean) return null;
-  const m = clean.match(/\b(\d{1,2})\b/);
-  if (m) { const n = Number(m[1]); if (n >= 1 && n <= 99) return n; }
-  for (const w of Object.keys(HE_COUNT)) if (clean.includes(w)) return HE_COUNT[w];
+  const n = partyDigits(clean);
+  if (n) return n;
+  /* a digit that was a time/date/phone is not a count — and then a stray
+     "אחד"/"שתיים" in the same sentence is not one either */
+  if (/\d/.test(clean)) return null;
+  for (const w of Object.keys(HE_COUNT)) if (new RegExp('(^|[\\s,.])' + w + '($|[\\s,.!])').test(clean)) return HE_COUNT[w];
+  return null;
+}
+/* free text that is a question ("באיזו שעה? 19:30?", "מתי זה, ב-5?") must not
+   be read as an RSVP or a head count */
+export function isQuestion(text) {
+  const t = String(text || '').trim();
+  return /\?|？/.test(t) || /^(מה|מתי|איפה|איך|למה|מי|האם|כמה|באיזו|באיזה|היכן|אפשר)(\s|$)/.test(t);
+}
+
+/* Free-text intent of a known guest (Richard 21/10): "בסוף לא מסתדר לי
+   להגיע" is a no, "לא מודע כרגע" is unsure, not "forward to the hosts".
+   Order matters: unsure before no, because "לא יודע" contains "לא". */
+const UNSURE_RE = /(לא\s*(יודע|יודעת|יודעים|בטוח|בטוחה|בטוחים|מודע|מודעת|סגור|סגורה|סגורים|החלטנו|החלטתי)|עדיין לא|עוד לא|אעדכן|נעדכן|אבדוק|נבדוק|אולי|יכול להיות|נראה לי ש|לא ברור|תלוי|מתלבט|מתלבטת|מתלבטים|צריך לבדוק|צריכה לבדוק)/;
+const NO_RE = /((^|\s)(לא|אין)\s*(נגיע|מגיע|מגיעה|מגיעים|נוכל|נבוא|נצליח|נהיה|אגיע|אבוא|אהיה|אוכל|יכול|יכולה|יכולים|אצליח|מסתדר|מסתדרת|יוצא|יוצאת|מתאפשר)|לא[^.!?]{0,25}(להגיע|לבוא|להיות שם|להשתתף)|אי אפשר|^(בסוף\s*)?לא\.?$|לצערנו|לצערי|לא נגיע|מוותרים|נוותר)/;
+const YES_RE = /((בסוף|כן)\s*(כן|נגיע|מגיע|מגיעה|מגיעים|נבוא|אגיע|אבוא)|^(כן|מגיע|מגיעה|מגיעים|נגיע|אגיע|נהיה שם|אהיה שם|בטח|ברור)[\s.!]*$)/;
+export function guestIntent(text) {
+  const t = String(text || '').replace(/[‎‏]/g, '').trim();
+  if (!t) return null;
+  if (UNSURE_RE.test(t)) return 'unsure';
+  if (NO_RE.test(t)) return 'no';
+  if (YES_RE.test(t) && !/לא/.test(t)) return 'yes';
   return null;
 }
 

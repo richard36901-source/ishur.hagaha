@@ -1104,6 +1104,42 @@
     box.querySelector('#ctwMove').addEventListener('click', function () { box.remove(); onChange(safe); });
     box.querySelector('#ctwGo').addEventListener('click', function () { box.remove(); IshurLead.track('custom_template_ack_soon', { date: date }); onAccept(true); });
   }
+  /* 03/11: linked sub-events (שבת חתן) — a small card on the parent board */
+  function escH(x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function renderSubLinks() {
+    var subs = (data && data.subevents) || [], box = $('subLinkCard');
+    if (!subs.length) { if (box) box.hidden = true; return; }
+    if (!box) { box = document.createElement('section'); box.id = 'subLinkCard'; box.className = 'card'; $('sendsCard').parentNode.insertBefore(box, $('sendsCard')); }
+    box.hidden = false;
+    box.innerHTML = '<div class="card-h">אירועים מקושרים</div><div class="card-b">' + subs.map(function (x) {
+      return '<p style="margin:.3rem 0"><a href="dashboard.html?t=' + encodeURIComponent(x.token) + '">' + escH(x.name || x.kind_he) + '</a> · אותה רשימת מוזמנים, תשובות נפרדות</p>';
+    }).join('') + '</div>';
+  }
+  /* 03/11: the sub-event's own board (token = the sub-event) */
+  function renderSubevent(sv) {
+    showApp();
+    var main = $('main'), c = sv.counts || {};
+    var tile = function (label, a, b) { return '<div style="flex:1 1 140px;border:1px solid var(--line,#ddd);border-radius:12px;padding:.7rem .8rem"><div style="font-size:.8rem;opacity:.75">' + label + '</div><div style="font-size:1.5rem;font-weight:700">' + a + '</div>' + (b ? '<div style="font-size:.8rem;opacity:.75">' + b + '</div>' : '') + '</div>'; };
+    var rows = (sv.guests || []).map(function (g) { return '<tr><td>' + escH(g.name) + '</td><td>' + escH(g.status_he) + '</td><td>' + (g.n || '') + '</td></tr>'; }).join('');
+    main.innerHTML = '<section class="card"><div class="card-h">' + escH(sv.name || sv.kind_he) + '</div><div class="card-b">' +
+      '<p style="margin:0 0 .6rem">אותה רשימת מוזמנים של האירוע הראשי, הודעה אחת ותשובות נפרדות. <a href="dashboard.html?t=' + encodeURIComponent(sv.parent) + '">חזרה לאירוע הראשי</a></p>' +
+      '<div style="display:flex;flex-wrap:wrap;gap:.6rem">' +
+      tile('מגיעים עם לינה', (c.with_stay || {}).people || 0, ((c.with_stay || {}).guests || 0) + ' מוזמנים') +
+      tile('מגיעים בלי לינה', (c.no_stay || {}).people || 0, ((c.no_stay || {}).guests || 0) + ' מוזמנים') +
+      tile('לא מגיעים', (c.no || {}).guests || 0, 'מוזמנים') +
+      tile('מתלבטים', (c.undecided || {}).guests || 0, 'ענו ועוד לא החליטו') +
+      tile('לא ענו', (c.no_reply || {}).guests || 0, 'מתוך ' + (c.total || 0)) +
+      '</div></div></section>' +
+      '<section class="card"><div class="card-h">המוזמנים</div><div class="card-b" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:right">שם</th><th style="text-align:right">תשובה</th><th style="text-align:right">כמה</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+    try { document.title = (sv.name || 'תת-אירוע') + ' · ishur.io'; } catch (e) {}
+  }
+  function trySubevent(tok) {
+    return fetch(CFG.endpoint('status').replace(/\/api\/status$/, '/api/subevent-summary') + '?token=' + encodeURIComponent(tok))
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) { if (j && j.ok && j.subevent) { renderSubevent(j.subevent); return true; } return false; })
+      ['catch'](function () { return false; });
+  }
+
   function renderCustomText() {
     var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
     if (!st) return;
@@ -1185,6 +1221,7 @@
   }
   function render() {
     renderCustomText(); setTimeout(renderToc, 50);
+    renderSubLinks();
     renderMedia();
     normalize(data);
     var ev = data.event || {};
@@ -2633,6 +2670,12 @@
         IshurLead.track('dashboard_view', {});
       })
       ['catch'](function (e) {
+        if (e && e.dead && !fromGate && payload.token && !payload.__subtried) {
+          /* 03/11: a sub-event token is not in the events sheet — its own board */
+          payload.__subtried = 1;
+          trySubevent(payload.token).then(function (ok) { if (!ok) { showApp(); fail('הקישור הזה כבר לא פעיל.<br>כתבו לנו ונשלח קישור עדכני.', false); } });
+          return;
+        }
         if (e && e.dead) {
           if (fromGate) {
             localStorage.removeItem('ishur_dash');

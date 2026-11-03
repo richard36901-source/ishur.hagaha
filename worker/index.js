@@ -21,19 +21,43 @@
    Then set USE_PROXY to true and PROXY_BASE to the deployed URL in config.js.
    ========================================================================== */
 
+import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows } from './parse.js';
-import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf } from './dashboard.js';
-import { logRow, logUpdate, flushSheetLogs, readTabTail, upsertClientRow, ilTime } from './sheetlogs.js';
-import { proxy as evProxy } from './evlog.js';
-import { createInvoice } from './invoice.js';
+import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
+import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
+import { proxy as evProxy, appendTab } from './evlog.js';
+import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
-import { mondayUpsertLead, mondayGql } from './monday.js';
-import { clientWaba, clientToken, clientOnPortfolio } from './whatsapp.js';
-import { sendCtaUrl } from './whatsapp.js';
-import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, touchConversation, guestsReady } from './whatsapp.js';
+import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead } from './monday.js';
+import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
+import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
+import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
+import { fitBatch } from './budget.js';
+import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml } from './gifts.js';
+import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
+import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
-import { logEvent, flushEventLog, readLogTail, OWNER_PHONE } from './evlog.js';
+import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
+import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
+import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
+import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
+import { handleAutomations } from './automations.js';
+import { handleSendBoard } from './send-board.js';
+import { handleCallsLog } from './calls-log.js';
+import { handleFloor, handleFloorNote } from './floor.js';   /* 02/11 floor/dial routes */
+import { handleDial } from './dial.js';                       /* 02/11 floor/dial routes */
+/* 01/11 A/B on guest copy + template performance (docs/SPEC-ab-testing.md) */
+import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js';
+import * as ab from './ab.js';
+import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 outreach routes (B2B venues) */
+/* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
+import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
+import { reviewCall, applyReview, callFromRetell } from './callqa.js';
+import { navLinkOk, giftLinkOk } from './links.js';
+import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
+import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -60,8 +84,10 @@ const TMPL_CATEGORY = {
   ishur_shulchan: 'utility', ishur_doch: 'utility', ishur_tzikoret_kovetz: 'utility',
   ishur_tashlum: 'utility',
   ishur_lo_siyem: 'marketing', ishur_lo_siyem_2: 'marketing', ishur_lo_siyem_3: 'marketing',
-  ishur_toda_orach: 'marketing', ishur_syum: 'marketing', ishur_toda_orach_f: 'marketing', ishur_syum_v3_f: 'marketing', ishur_hazmana_shuv_f: 'marketing',
+  ishur_toda_orach: 'marketing', ishur_toda_orach_v2: 'marketing', ishur_syum: 'marketing', ishur_toda_orach_f: 'marketing', ishur_syum_v3_f: 'marketing', ishur_hazmana_shuv_f: 'marketing',
   ishur_shidrug: 'marketing', ishur_shidrug_sichot: 'marketing',
+  /* 02/11 gift templates — submitted UTILITY; the thank-you ones costed as marketing (Meta may re-categorise) */
+  ishur_shulchan_matana: 'utility', ishur_yom_haerua_matana: 'utility', ishur_toda_matana: 'marketing', ishur_matana: 'marketing', ishur_toda_matana2: 'utility', ishur_matana2: 'utility',
   ishur_kod: 'auth',
 };
 const CAT_COST = { utility: 0.02, marketing: 0.12, auth: 0.05 };
@@ -92,50 +118,8 @@ async function sheetBatchWrite(env, data) {
    clean flat payload to the Make writer scenario.
    ─────────────────────────────────────────────────────────────────────────── */
 
-function normPhone(raw) {
-  let d = String(raw || '').replace(/\D/g, '');
-  if (d.startsWith('972')) return d;
-  if (d.startsWith('0')) return '972' + d.slice(1);
-  return d;
-}
 
-/* every failure anywhere → the journal always, Slack per quiet hours
-   (Phase 6): urgent categories ping now, everything else queues for the
-   09:00 window. Telegram (ALERT_HOOK → Make) is only the fallback when the
-   Slack secret is missing — Richard asked for Slack-only, 30.8. */
-const URGENT_ALERT_RE = /131042|מנוע היומי|לא רץ כבר|ניסיון לחלץ הוראות|פנייה מספק|שאלה על מתחרה|תקרת וואטסאפ/;
-async function alert(env, where, what, detail) {
-  const what300 = String(what || '').slice(0, 300);
-  const detail500 = String(detail || '').slice(0, 500);
-  /* the journal is the record; Slack is the notification */
-  await logEvent(env, { area: where, action: what300, ok: false, review: true, detail: detail500 });
-  /* Richard reads Slack alerts; a second ping on WhatsApp was noise (his call, 06/09) */
-  if (env.SLACK_ALERT_HOOK) {
-    const urgent = URGENT_ALERT_RE.test(where + ' ' + what300 + ' ' + detail500);
-    /* Richard 28/09: one line, organised; a newline only when the detail is long */
-    const oneLine = `⚠️ *${where}* · ${what300}`;
-    await slackSend(env, detail500 ? (detail500.length > 90 ? `${oneLine}\n${detail500}` : `${oneLine} · ${detail500}`) : oneLine, { urgent });
-    return;
-  }
-  if (!env.ALERT_HOOK) return;
-  await fetch(env.ALERT_HOOK, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      where, what: what300,
-      detail: detail500, ts: new Date().toISOString(),
-    }),
-  }).catch(() => {});
-}
 
-/* ══ The master switch ═══════════════════════════════════════════════════════
-   One key, checked before anything leaves the system. Set it and the whole
-   business goes quiet within seconds, without a deploy and without touching
-   the sheet. Nothing else in the engine needs to know about it.
-   ─────────────────────────────────────────────────────────────────────────── */
-async function sendingPaused(env) {
-  if (!env.RATE) return false;
-  return !!(await env.RATE.get('paused'));
-}
 
 /* A phone Richard pulled out of sending by hand, for any reason: a wrong
    number, a family that asked him directly, a guest in mourning. Same effect
@@ -162,61 +146,6 @@ async function sendClient(env, phone, template, params, ctx) {
   return sendTemplate(env, p, template, params, '', 'he', undefined, ctx);
 }
 
-/* ══ Slack quiet hours (Phase 6, rule 9) ══════════════════════════════════════
-   Nothing non-urgent lands in Slack before 09:00 or after 21:00 Israel time —
-   it queues (slackq:list) and flushes as ONE combined message at the 09:00
-   window instead. Urgent bypasses the queue and posts immediately, same as
-   before this phase. `now` is injectable so the decision is testable without
-   waiting on the real clock (see verify-loop check for this phase). */
-function slackQuietHours(now) {
-  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(now));
-  return hour < 9 || hour >= 21;
-}
-
-async function slackSend(env, text, opts = {}) {
-  if (!env.SLACK_ALERT_HOOK) return;
-  const now = opts.now || new Date();
-  if (!opts.urgent && env.RATE && slackQuietHours(now)) {
-    const key = 'slackq:list';
-    let list = [];
-    try { list = JSON.parse(await env.RATE.get(key)) || []; } catch {}
-    if (!Array.isArray(list)) list = [];
-    list.push(String(text || '').slice(0, 500));
-    if (list.length > 200) list = list.slice(-200);
-    await env.RATE.put(key, JSON.stringify(list), { expirationTtl: 3 * 86400 }).catch(() => {});
-    return;
-  }
-  await fetch(env.SLACK_ALERT_HOOK, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  }).catch(() => {});
-}
-
-/* Called once per Israel day once the 09:00 window opens (from the pacer,
-   which already ticks every 10 minutes — no new cron needed). Combines
-   whatever queued overnight into one message instead of replaying each line. */
-async function flushSlackQueue(env, now) {
-  if (!env.RATE || !env.SLACK_ALERT_HOOK) return { ok: false, why: 'not-configured' };
-  const key = 'slackq:list';
-  let list = [];
-  try { list = JSON.parse(await env.RATE.get(key)) || []; } catch {}
-  if (!Array.isArray(list) || !list.length) return { ok: true, flushed: 0 };
-  const text = `📋 *מה קרה בלילה* (${list.length})\n\n` + list.map((t, i) => `${i + 1}. ${t}`).join('\n\n');
-  await fetch(env.SLACK_ALERT_HOOK, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
-  }).catch(() => {});
-  await env.RATE.delete(key).catch(() => {});
-  return { ok: true, flushed: list.length };
-}
-
-/* Anything the team should just SEE (purchases, milestones) — not failures.
-   Purchases specifically default to urgent (Richard wants to see money land
-   immediately — Phase 9 decision ב is still his to override if he'd rather
-   wait for the 09:00 window instead). */
-async function slackPost(env, text, opts = {}) {
-  await slackSend(env, text, { urgent: opts.urgent !== false, now: opts.now });
-}
 
 /* One tier credit per new paying customer whose first touch was a referral
    link. The code sits in the lead row (column L, "referral:<tok8>"). */
@@ -260,6 +189,53 @@ function looksIshur(flat, pages) {
     dump.toLowerCase().includes('ishur') || dump.includes('אישורי הגעה');
 }
 
+async function handleDesignPaid(env, flat) {
+  const ref = String(flat.asmachta || flat.transactionId || flat.transactionToken || flat.paymentId || '').trim();
+  if (ref && env.RATE) {
+    if (await env.RATE.get('grow:' + ref)) return new Response('duplicate', { status: 200 });
+    await env.RATE.put('grow:' + ref, 'design', { expirationTtl: 30 * 86400 }).catch(() => {});
+  }
+  const token = designTokenOf(flat);
+  const phone = normPhone(flat.payerPhone || flat.phone || '');
+  const name = String(flat.fullName || flat.payerName || '').trim();
+  const sum = String(flat.paymentSum || flat.sum || '').trim();
+  if (token && env.RATE) {
+    await env.RATE.put('design:' + token, JSON.stringify({ status: 'paid', ref, phone, sum, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  }
+  const local = String(phone || '').replace(/^972/, '0');
+  try { await slackSend(env, `💳 שולם עיצוב הזמנה · ₪${sum || '?'} · ${name} ${local} · ${token ? 'אירוע ' + token.slice(0, 8) : 'בלי טוקן אירוע — לשייך ידנית'}`, { urgent: true, now: true }); } catch {}
+  await logEvent(env, { area: 'תשלום', action: 'שולם עיצוב הזמנה', ok: true, review: !token, phone, ref, token, detail: `₪${sum} · ${String(flat.paymentDesc || '').slice(0, 80)}` }).catch(() => {});
+  return new Response('design-paid', { status: 200 });
+}
+
+/* design.html → one item on the Monday design board + a Slack line */
+async function handleDesignBrief(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const stampError = await checkStamp(body, env.APP_KEY);
+  if (stampError) return deny(403, stampError, origin);
+  if (await overBudget(env, 'rl:design:' + (request.headers.get('CF-Connecting-IP') || 'x'), 10, 3600)) return deny(429, 'slow-down', origin);
+  const v = validateDesignBrief(body);
+  if (!v.ok) return okJson({ ok: false, why: v.why }, origin);
+  const br = v.brief;
+  let itemId = null, mErr = '';
+  try { itemId = await createDesignItem(mondayGql, env, br); } catch (e) { mErr = String(e && e.message || e).slice(0, 300); }
+  let paid = '';
+  if (br.token && env.RATE) {
+    try { const d = JSON.parse(await env.RATE.get('design:' + br.token) || 'null'); paid = d && d.status === 'paid' ? 'שולם' : 'לא נמצא תשלום'; } catch {}
+    await env.RATE.put('designbrief:' + br.token, JSON.stringify({ ...br, itemId, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  }
+  const local = br.phone.replace(/^972/, '0');
+  try {
+    await slackSend(env, `🎨 *בריף עיצוב הזמנה* · ${designItemName(br)} · ${local}${paid ? ' · ' + paid : ''}` +
+      (itemId ? ' · נפתח במאנדיי' : `\n⚠️ לא נפתח פריט במאנדיי — לפתוח ידנית. ${mErr}`), { urgent: true, now: true });
+  } catch {}
+  await logEvent(env, { area: 'עיצוב הזמנה', action: itemId ? 'בריף התקבל ונפתח במאנדיי' : 'בריף התקבל, מאנדיי נכשל', ok: !!itemId, review: !itemId,
+    phone: br.phone, token: br.token, detail: itemId ? 'item ' + itemId : mErr }).catch(() => {});
+  /* the brief is safe in KV + Slack even when Monday failed, so the client hears "received" */
+  return okJson({ ok: true }, origin);
+}
+
 async function handleGrowIpn(request, env, url) {
   if ((url.searchParams.get('k') || '') !== env.GROW_KEY) {
     return new Response('forbidden', { status: 403 });
@@ -281,6 +257,8 @@ async function handleGrowIpn(request, env, url) {
   } catch { return new Response('bad-body', { status: 400 }); }
 
   const flat = { ...(typeof p.data === 'object' ? p.data : {}), ...p };
+  /* 22/10: every payment notification, raw, before any matching happens */
+  stream(env, { kind: 'pay', area: 'תשלום', action: '💳 Grow IPN · ' + String(flat.sum || flat.amount || flat.transactionSum || '') + ' ₪ · ' + String(flat.fullName || flat.payerName || flat.name || ''), ok: true, phone: String(flat.phone || flat.payerPhone || ''), req: request, detail: JSON.stringify(flat).slice(0, 1500), data: { ipn: flat } }).catch(() => {});
 
   /* Richard clears OTHER businesses through the same Grow account, and the
      Grow webhook fires on every transaction. Only payments made on one of
@@ -307,6 +285,10 @@ async function handleGrowIpn(request, env, url) {
      so the page-id list above never could have matched, and the very first
      real customer was parked as "not ishur". Every ishur payment page is
      named "<N> מוזמנים <plan>", so the description is the reliable signal. */
+  /* עיצוב הזמנה (₪79): its own Grow page, not a package and not a
+     guests add-on. Tied to the event by cField1=<token> on the link. */
+  if (isDesignPayment(flat)) return handleDesignPaid(env, flat);
+
   const isIshur = looksIshur(flat, ISHUR_GROW_PAGES);
   if (!isIshur) {
     /* The matcher has never seen a real Grow payload, so a miss here could be
@@ -324,6 +306,7 @@ async function handleGrowIpn(request, env, url) {
     }
     await logEvent(env, { area: 'תשלום', action: 'תשלום לא זוהה כ-ishur — חונה, לא הופעל', ok: false, review: true,
       phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${missId} · ${String(flat.paymentDesc || '')} · להרצה: /api/ipn-replay` });
+    if (/תמיכה חודשית|ריטיינר/.test(String(flat.paymentDesc || ''))) return new Response('ignored-non-ishur', { status: 200 });
     await alert(env, 'תשלום Grow לא זוהה (נאמר פעם אחת)',
       `תשלום שלא זוהה כ-ishur לא הופעל (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו — שלח לי את המזהה ${missId} ואני מריץ אותו מיד`,
       flatDump.slice(0, 600));
@@ -363,7 +346,10 @@ async function processGrowPayment(env, flat) {
 
   /* dedupe: one event per receipt, forever */
   const seen = env.RATE ? await env.RATE.get('grow:' + ref) : null;
-  if (seen) {
+  /* 20/10: an admin replay (ipn-replay with _force + _token) re-runs a payment
+     whose sheet write was lost, keeping the token the client already holds */
+  const forced = !!(flat._simulated && flat._force);
+  if (seen && !forced) {
     await logEvent(env, { area: 'תשלום', action: 'IPN כפול — כבר טופל', ok: true, phone, ref });
     return new Response('duplicate', { status: 200 });
   }
@@ -381,7 +367,7 @@ async function processGrowPayment(env, flat) {
     return new Response(ar.ok ? 'addon-applied' : 'addon-parked', { status: 200 });
   }
 
-  const token = crypto.randomUUID();
+  const token = (forced && /^[0-9a-f-]{36}$/.test(String(flat._token || ''))) ? String(flat._token) : crypto.randomUUID();
   const isNewClient = env.RATE ? !(await env.RATE.get('client:' + phone)) : true;
   /* Richard 04/10: every payment, one line in Slack, at once */
   try {
@@ -433,6 +419,11 @@ async function processGrowPayment(env, flat) {
     kind: 'payment', ref, token, phone, sum, name, email, payMethod,
     /* what was bought, as Grow names the page — the invoice line item */
     plan: String(flat.paymentDesc || flat.description || '').trim(),
+    /* 27/10: what was actually PAID, for the event row's AF/AG. Make used to
+       copy plan/tier from the lead row (what they looked at on the site), so
+       Mor paid for 500 and got a 300 cap. */
+    planText: (() => { try { const b = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); return b ? b.planText : ''; } catch { return ''; } })(),
+    tier: (() => { try { const b = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); return b && b.tier ? String(b.tier) : ''; } catch { return ''; } })(),
     taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
     clientId: 'C-' + phone.slice(-9),
     isNewClient: isNewClient ? 'yes' : 'no',
@@ -464,7 +455,7 @@ async function processGrowPayment(env, flat) {
        dedups; when the tab never returns, this copy is the only one. */
     if (!flat._simulated) { try { await capiPurchase(env, { phone, email, value: parseFloat(sum) || 0, ref }); } catch {} }
     /* the funnel's last step, counted where the money actually lands */
-    try { await recordPurchase(env, ref); } catch {}
+    if (!flat._simulated && !/^TEST-/i.test(String(ref || '')) && !isTestPhone(env, phone)) { try { await recordPurchase(env, ref); } catch {} }
     /* a promo seat is only really taken once the money lands. Until here the
        code was on hold and would have expired back into the pool. */
     let promo = null;
@@ -484,6 +475,13 @@ async function processGrowPayment(env, flat) {
         (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : '') +
       `\n${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'} · אסמכתא ${ref}`);
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
+    /* Richard 21/10: the lead in Monday closes itself the moment money lands */
+    if (!flat._simulated && !isTestPhone(env, phone)) {
+      try {
+        const mw = await mondayMarkWon(env, phone, `שילם ₪${sum || '?'} · אסמכתא ${ref} · ${new Date().toISOString().slice(0, 10)}`);
+        if (!mw.ok && mw.why !== 'no-token') await logEvent(env, { area: 'לידים', action: 'סימון "סגר" במאנדיי נכשל', ok: false, review: true, phone, token, detail: mw.why || '' });
+      } catch (e) { await logEvent(env, { area: 'לידים', action: 'סימון "סגר" במאנדיי נכשל', ok: false, review: true, phone, token, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+    }
     /* the stuck-client stage nudges whoever still hasn't uploaded a day later */
     if (env.RATE) await env.RATE.put('pend:' + token,
       JSON.stringify({ phone, name, at: new Date().toISOString() }), { expirationTtl: 7 * 86400 });
@@ -662,22 +660,24 @@ async function noteLead(env, f) {
     rec.types = Array.from(new Set([...(rec.types || []), facts.type].filter(Boolean))).slice(-8);
     await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
     await armLeadPing(env, phone).catch(() => {});
-    await mirrorLeadToMonday(env, phone, rec);
-    return;
+    return await mirrorLeadToMonday(env, phone, rec);
   }
   /* someone who already went through the whole sequence starts nothing new */
   if (await env.RATE.get('leadchase:' + phone)) return;
   rec = { ...facts, at: now, lastAt: now, consent, seen: 1, types: facts.type ? [facts.type] : [] };
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
   await armLeadPing(env, phone).catch(() => {});
-  await mirrorLeadToMonday(env, phone, rec);
+  return await mirrorLeadToMonday(env, phone, rec);
 }
 
+/* returns mondayUpsertLead's { ok, id, created } (or undefined) so a caller can
+   tell "new on Monday" from "Richard already had this person" (02/11) */
 async function mirrorLeadToMonday(env, phone, rec) {
   if (isTestPhone(env, phone)) return;
   try {
     const r = await mondayUpsertLead(env, phone, rec);
     if (!r.ok && r.why !== 'no-token') await logEvent(env, { area: 'לידים', action: 'ליד → מאנדיי נכשל', ok: false, review: true, phone, detail: r.why || '' });
+    return r;
   } catch (e) {
     await logEvent(env, { area: 'לידים', action: 'ליד → מאנדיי נכשל', ok: false, review: true, phone, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
   }
@@ -717,6 +717,83 @@ async function drainLeadPings(env) {
   }
   return { posted };
 }
+/* ══ Meta instant-form leads (Richard 14/10) ════════════════════════════════
+   Shalev's campaign sends people to a Facebook/Instagram instant form, which
+   never touched the website — so nothing reached the sheet, Monday or Slack.
+   Every pacer tick this asks Meta for new form leads on every ad whose ad set
+   has a lead-form destination, and runs each one through the exact path a
+   website lead takes: the leads sheet via the Make hook, noteLead (KV +
+   Monday), and a Slack post right away (the form is complete, nobody is
+   mid-checkout, so no 10-minute wait). mlead:<leadgen id> is the dedupe. */
+async function pullMetaFormLeads(env, { dry = false, since = null } = {}) {
+  if (!env.RATE || !env.META_ADS_TOKEN) return { ok: false, why: 'no-token' };
+  const out = { ok: true, found: 0, leads: [], errors: [] };
+  const ads = await metaAds(env, `/${META_AD_ACCOUNT}/ads?fields=id,name,campaign{name},adset{destination_type}&limit=200`);
+  if (!ads || !ads.ok) { out.ok = false; out.why = JSON.stringify((ads && ads.data) || ads).slice(0, 300); return out; }
+  const last = since || (await env.RATE.get('metaleads:since')) || new Date(Date.now() - 14 * 86400e3).toISOString();
+  const sinceTs = Math.floor(Date.parse(last) / 1000);
+  let newest = sinceTs;
+  const filt = encodeURIComponent(JSON.stringify([{ field: 'time_created', operator: 'GREATER_THAN', value: sinceTs - 120 }]));
+  for (const ad of (ads.data && ads.data.data) || []) {
+    if (!/LEAD_FORM/.test(String((ad.adset || {}).destination_type || ''))) continue;
+    const r = await metaAds(env, `/${ad.id}/leads?fields=id,created_time,field_data,form_id,is_organic&filtering=${filt}&limit=100`);
+    if (!r || !r.ok) { out.errors.push({ ad: ad.id, err: JSON.stringify((r && r.data) || r).slice(0, 200) }); continue; }
+    for (const l of (r.data && r.data.data) || []) {
+      out.found++;
+      const key = 'mlead:' + l.id;
+      if (await env.RATE.get(key)) continue;
+      const f = {};
+      for (const fd of l.field_data || []) f[String(fd.name || '').toLowerCase()] = String((fd.values || [])[0] || '').trim();
+      const pick = re => { for (const [k, v] of Object.entries(f)) if (re.test(k) && v) return v; return ''; };
+      const phone = normPhone(pick(/phone|טלפון|נייד/));
+      const name = pick(/full_name|^name$|שם/) || [f.first_name, f.last_name].filter(Boolean).join(' ');
+      const email = pick(/email|מייל/);
+      const occasion = pick(/occasion|event|אירוע|סוג/);
+      const extra = Object.entries(f).filter(([k]) => !/phone|name|email|טלפון|שם|מייל/.test(k)).map(([k, v]) => `${k}: ${v}`).join(' · ').slice(0, 300);
+      const lead = { id: l.id, at: l.created_time, phone, name, email, occasion, extra, ad: ad.name, campaign: (ad.campaign || {}).name || '', organic: !!l.is_organic };
+      out.leads.push(lead);
+      const ts = Math.floor(Date.parse(l.created_time) / 1000); if (ts > newest) newest = ts;
+      if (dry) continue;
+      await env.RATE.put(key, l.created_time, { expirationTtl: 180 * 86400 });
+      if (!phone) { await slackPost(env, `📋 *ליד מטופס מטא בלי טלפון* · ${name || '?'} · ${email || ''} · ${ad.name}`); continue; }
+      const fields = {
+        name, phone, email, occasion: cleanOccasion(occasion), notes: extra, event_type: 'lead',
+        source: 'meta_leadform', utm_source: 'meta', utm_medium: 'leadform', utm_campaign: lead.campaign, utm_content: ad.name,
+        page: 'instant-form', marketing_consent: true, first_source: 'referral:leadform',
+      };
+      let sheetOk = false;
+      if (env.HOOK_LEADS) {
+        const u = await fetch(env.HOOK_LEADS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).catch(() => null);
+        sheetOk = !!(u && u.ok);
+      }
+      /* 02/11: Maya filled the form AND wrote on WhatsApp; the WhatsApp path
+         had already made her a lead (10:24), the form pull announced her
+         again as "ליד חדש" at 16:39. Say what we already know. */
+      const knownAs = (await env.RATE.get('client:' + phone).catch(() => null)) ? 'client'
+        : ((await env.RATE.get('lead:' + phone).catch(() => null)) || (await env.RATE.get('leadchase:' + phone).catch(() => null)) || (await env.RATE.get('leadslack:' + phone).catch(() => null))) ? 'lead' : '';
+      await logEvent(env, { area: 'לידים', action: 'ליד מטופס מטא', ok: sheetOk, review: !sheetOk, phone, detail: `${name} · ${ad.name}${sheetOk ? '' : ' · הגיליון לא עודכן'}${knownAs ? ' · כבר מוכר (' + knownAs + ')' : ''}` }).catch(() => {});
+      let mon = null;
+      try { mon = await noteLead(env, fields); } catch {}
+      await env.RATE.delete('leadping:' + phone).catch(() => {});
+      await env.RATE.put('leadslack:' + phone, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
+      const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+      await slackPost(env, [
+        leadAlertHeader('meta', knownAs || (mon && mon.ok && mon.created === false ? 'monday' : '')), '',
+        `*שם:* ${name || 'לא נמסר'}`,
+        `*טלפון:* ${local} · <https://wa.me/${phone}|וואטסאפ>`,
+        email ? `*מייל:* ${email}` : '',
+        occasion ? `*אירוע:* ${occasion}` : '',
+        extra ? `*פרטים:* ${extra}` : '', '',
+        `*מודעה:* ${ad.name} · ${lead.campaign}`,
+        sheetOk ? '' : '⚠️ לא נרשם בגיליון הלידים (מאנדיי כן)', '',
+        `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> ליד חם, להתקשר`,
+      ].filter(Boolean).join('\n'));
+    }
+  }
+  if (!dry && newest > sinceTs) await env.RATE.put('metaleads:since', new Date(newest * 1000).toISOString());
+  return out;
+}
+
 async function leadToSlack(env, phone, rec, why) {
   if (isTestPhone(env, phone)) return;
   const local = phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
@@ -768,7 +845,9 @@ const LEAD_T3_MS = 3 * 86400 * 1000;
 async function leadReplied(env, phone, sinceIso) {
   let c = null;
   try { c = JSON.parse(await env.RATE.get('conv:' + normPhone(phone))); } catch {}
-  return !!(c && c.last_dir === 'in' && c.last_ts && c.last_ts > Date.parse(sinceIso || '1970-01-01'));
+  /* 02/11: last_in_ts survives a later echo; the old last_dir check did not */
+  const inTs = lastInboundTs(c);
+  return !!(inTs && inTs > Date.parse(sinceIso || '1970-01-01'));
 }
 
 /* Richard, 08/09: a failed touch gets exactly one retry, 30 minutes later —
@@ -842,11 +921,19 @@ async function chaseAbandonedLeads(env, dry, budget) {
     if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
     if (await phoneBlocked(env, phone)) { if (!dry) await settle(phone, 'blocked'); continue; }
     /* answered = theirs now. Any inbound message after the form died means a
-       human (or נועה) is already talking to them; more templates would nag. */
-    if (await leadReplied(env, phone, rec.at)) { if (!dry) await settle(phone, 'answered'); continue; }
+       human (or נועה) is already talking to them; more templates would nag.
+       02/11: also a lead who wrote to US first on WhatsApp (Maya, Anat got
+       "ראינו שהתחלתם להזמין … ולא סיימתם" 40 minutes after their own first
+       message), and a chat a human took from the phone (human:/aioff:). */
+    {
+      let conv = null; try { conv = JSON.parse(await env.RATE.get('conv:' + phone)); } catch {}
+      const human = (await env.RATE.get('human:' + phone).catch(() => null)) || (await env.RATE.get('aioff:' + phone).catch(() => null));
+      const stop = chaseStopReason({ rec, conv, human });
+      if (stop) { if (!dry) await settle(phone, stop === 'whatsapp-first' || stop === 'human' ? 'answered:' + stop : 'answered'); else out.push({ type: 'lead_stop', phone, why: stop }); continue; }
+    }
 
     const first = (String(rec.name || '').split(' ')[0] || '').trim() || 'היי';
-    const occ = rec.occasion || 'האירוע שלכם';
+    const occ = cleanOccasion(rec.occasion) || 'אירוע שלכם';   /* 02/11 audit: the templates read "ל{{2}}" — "להאירוע שלכם" went out (live log) */
     const sendTouch = async (tmpl, stampField) => {
       if (budget) budget.left--;
       const wa = await sendClient(env, phone, tmpl, [first, occ]);
@@ -913,7 +1000,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
     const bits = [];
     if (sentNow) bits.push(`${sentNow} הודעות המשך ללידים שנטשו`);
     if (queuedNow) bits.push(`${queuedNow} נכנסו לתור שיחות המכירה`);
-    await slackPost(env, `📨 *${bits.join(' · ')}.*`);
+    await slackPost(env, `📨 *${bits.join(' · ')}.*`, { quiet: true });
   }
   return out;
 }
@@ -922,7 +1009,7 @@ async function chaseAbandonedLeads(env, dry, budget) {
    flipped without a deploy: extrasend (unlocks wave 3, the paid add-on) and
    hold (freezes every guest send for one event).
    POST {admin_key, token, flag:'extrasend'|'hold', on:bool}; omit `on` to read. */
-const EVENT_FLAGS = ['extrasend', 'hold', 'cancel'];
+const EVENT_FLAGS = ['extrasend', 'hold', 'cancel', 'postponeok'];
 async function handleEventFlag(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -945,15 +1032,26 @@ async function handleEventFlag(request, env, origin) {
     const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${idx + 2}`, values: [[body.on ? 'כן' : '']] }]);
     await logEvent(env, { area: 'אירוע', action: body.on ? 'האירוע סומן כמבוטל (בוטל? = כן)' : 'ביטול האירוע הוסר', ok: okw, review: !okw, token,
       detail: `${String(rows[idx][34] || rows[idx][2] || '').trim()} · ${String(body.reason || 'מלוח הבקרה')}` });
-    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`);
+    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`, { quiet: true });
     return okJson({ ok: okw, flag, on: body.on }, origin);
   }
   if (typeof body.on !== 'boolean') {
     return okJson({ ok: true, flag, on: !!(await env.RATE.get(key)) }, origin);
   }
+  /* 02/11 audit: postponeok = "the date in column G is a real postponement,
+     tell the guests" — stored as THAT date, so a later edit needs a new OK */
+  if (flag === 'postponeok' && body.on) {
+    const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
+    const d = ev ? String(ev[6] || '').trim().slice(0, 10) : '';
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(404, 'event-date-not-found', origin);
+    await env.RATE.put(key, d, { expirationTtl: 200 * 86400 });
+    await logEvent(env, { area: 'אירוע', action: 'אושרה הודעת דחייה לאורחים', ok: true, token, detail: d }).catch(() => {});
+    return okJson({ ok: true, flag, on: true, date: d }, origin);
+  }
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
-  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`);
+  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`, { quiet: true });
   return okJson({ ok: true, flag, on: body.on }, origin);
 }
 
@@ -975,7 +1073,9 @@ async function handleIpnReplay(request, env, origin) {
     if (!raw) return deny(404, 'not-found', origin);
     try { flat = JSON.parse(raw); } catch { return deny(422, 'bad-payload', origin); }
   }
-  const res = await processGrowPayment(env, flat);
+  /* design payments have their own handler; the replay must take the same
+     fork as the live IPN or a ₪79 design looks like a package (11/10 bug) */
+  const res = isDesignPayment(flat) ? await handleDesignPaid(env, flat) : await processGrowPayment(env, flat);
   const text = await res.text().catch(() => '');
   await logEvent(env, { area: 'תשלום', action: 'הרצה ידנית של תשלום שחנה (ipn-replay)', ok: res.status === 200,
     phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${id} → ${text}` });
@@ -1046,11 +1146,6 @@ function sniffImage(bytes) {
   return null;
 }
 
-function okJson(payload, origin) {
-  return new Response(JSON.stringify(payload), {
-    status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
-  });
-}
 
 /* The purchased tier, from the event row (col 32, e.g. "עד 300"). 0 = unknown,
    which lets the upload through and leaves the sheet as the source of truth. */
@@ -1064,7 +1159,9 @@ function parsePaidDesc(desc) {
   const m = d.match(/(\d{2,4})\s*(?:מוזמנים|רשומות)/);
   const tier = m ? parseInt(m[1], 10) : 0;
   /* דיילות: 1 up to 200 records, 2 up to 500, 3 above (pricing agreed 04/10) */
-  const hostess = /דייל/.test(d) ? (tier && tier <= 200 ? 1 : tier && tier <= 500 ? 2 : 3) : 0;
+  /* 22/10: an explicit count in the name wins ("דיילת אחת" / "2 דיילות" / "3 דיילות") */
+  const hx = d.match(/(\d)\s*דיילות/);
+  const hostess = /דיילת אחת|דיילת 1\b|1 דיילת/.test(d) ? 1 : hx ? Math.min(3, parseInt(hx[1], 10)) : /דייל/.test(d) ? (tier && tier <= 200 ? 1 : tier && tier <= 500 ? 2 : 3) : 0;
   let plan = '', planText = '';
   if (/הכל|premium|all/i.test(d)) { plan = 'premium'; planText = 'הכל כלול'; }
   else if (/בסיס|basic|base/i.test(d)) { plan = 'basic'; planText = 'בסיס'; }
@@ -1078,6 +1175,29 @@ function parsePaidDesc(desc) {
 /* Shalev, 10/09: 0.30 ₪ per message + 20 ₪ per round; 2 ₪ per AI call + 20 ₪;
    postponement/cancellation 0.30 ₪ per guest; up to 10 extra guests free. */
 const ADDON_RATES = { msg: 0.30, call: 2, base: 20, freeGuests: 10 };
+/* package prices — mirrors config.js PRICE_TABLE; keep the two in sync */
+const PKG_PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
+const PLAN_RANK = { basic: 0, pro: 1, premium: 2 };
+const PLAN_HE = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
+/* Upgrade quote (Richard 12/10): a bigger tier and/or a higher plan, never
+   down on either, priced as the difference between the two packages. */
+async function upgradeQuote(env, token, wantTier, wantPlan) {
+  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
+  if (!ev) return { ok: false, why: 'no-event' };
+  const curPlan = planKeyOf(ev);
+  const curTier = await tierWithPromo(env, token, tierOf(ev));
+  const tier = parseInt(wantTier, 10), plan = String(wantPlan || '');
+  if (!PKG_PRICES[tier] || !(plan in PLAN_RANK)) return { ok: false, why: 'bad-package' };
+  if (tier < curTier || PLAN_RANK[plan] < PLAN_RANK[curPlan]) return { ok: false, why: 'downgrade' };
+  if (tier === curTier && plan === curPlan) return { ok: false, why: 'same' };
+  const tiersAsc = Object.keys(PKG_PRICES).map(Number).sort((x, y) => x - y);
+  const curRow = PKG_PRICES[curTier] || PKG_PRICES[tiersAsc.filter(t => t <= curTier).pop() || 50];
+  const price = Math.max(0, PKG_PRICES[tier][plan] - curRow[curPlan]);
+  if (!price) return { ok: false, why: 'no-difference' };
+  return { ok: true, cur: { tier: curTier, plan: curPlan }, tier, plan, price,
+    label: `שדרוג חבילה ל-${tier} מוזמנים ${PLAN_HE[plan]}` };
+}
 async function addonQuote(env, token) {
   const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
   const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token);
@@ -1112,6 +1232,10 @@ function parseAddonDesc(desc) {
   if (/נרשמים מהקישור/.test(d)) return { kind: 'selfreg', tok8, desc: d.slice(0, 80) };
   if (/הודעת דחייה|דחייה\/עדכון/.test(d)) return { kind: 'postpone', tok8, desc: d.slice(0, 80) };
   if (/הודעת ביטול/.test(d)) return { kind: 'cancel', tok8, desc: d.slice(0, 80) };
+  if (/שדרוג חבילה/.test(d)) {
+    const m = d.match(/ל-(\d{2,4})\s*מוזמנים\s*(בסיס|פרמיום|הכל כלול)/);
+    if (m) return { kind: 'upgrade', tier: parseInt(m[1], 10), plan: m[2] === 'בסיס' ? 'basic' : m[2] === 'פרמיום' ? 'pro' : 'premium', tok8, desc: d.slice(0, 80) };
+  }
   if (/שליחה נוספת|גל נוסף|גל שלישי|extra.?send/i.test(d)) return { kind: 'extrasend', scope: /ללא ענו/.test(d) ? 'unanswered' : 'all', tok8, desc: d.slice(0, 80) };
   if (!parsePaidDesc_isAddon(d)) return null;
   const m = d.match(/(\d{1,4})\s*מוזמנים/);
@@ -1127,7 +1251,9 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   const mine = eventsForPhone(raw, phone)
     .filter(e => !e.event_date || String(e.event_date).slice(0, 10) >= today)
     .sort((a, b) => String(a.event_date || '9').localeCompare(String(b.event_date || '9')));
-  const ev = mine[0];
+  /* the description carries the event's first 8 token chars: a client with
+     two events gets the add-on on the one they bought it for */
+  const ev = (addon.tok8 && mine.find(e => String(e.token || '').startsWith(addon.tok8))) || mine[0];
   const idx = ev ? rows.findIndex(r => String(r[1] || '').trim() === ev.token) : -1;
   if (!ev || idx < 0) {
     if (env.RATE) await env.RATE.put('addonpark:' + ref, JSON.stringify({ phone, name, sum, ref, addon, at: new Date().toISOString() }), { expirationTtl: 60 * 86400 });
@@ -1140,7 +1266,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   /* an add-on is money too: same invoice-receipt, same terms, same WhatsApp */
   try {
     const inv = await createInvoice(env, { name, phone, sum, ref, payMethod: String(flat.paymentType || flat.paymentMethod || '').trim(),
-      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
+      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
     if (inv.ok) {
       const email = String(flat.payerEmail || flat.email || '').trim();
       let wa = { ok: true, skipped: 'email' };
@@ -1152,7 +1278,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
       await logEvent(env, { area: 'חשבוניות', action: `חשבונית ${inv.number} לתוספת הופקה`, ok: true, phone, token, ref,
         detail: `₪${sum} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — ווצאפ ' + (wa.ok ? 'נשלח' : wa.error)} · ${inv.url}` });
       await logRow(env, 'invoices', { number: inv.number, kind: 'תוספת', name, phone, email, token: String(token).slice(0, 8),
-        plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
+        plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
       if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true }), { expirationTtl: 400 * 86400 });
       await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
       await upsertClientRow(env, { clientId: 'C-' + String(phone).slice(-9), name, phone, token, eventName: ev.event_name || '', invoice: `${inv.number} · ${inv.url}` }).catch(() => {});
@@ -1182,8 +1308,57 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
     await slackSend(env, `💳 *תוספת ${addon.kind === 'calls' ? 'סבב שיחות' : addon.kind === 'postpone' ? 'הודעת דחייה' : 'הודעת ביטול'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${addon.kind !== 'calls' ? ' — לשלוח את ההודעה מלוח השליטה' : ' — הסבב ייצא בחלון הבא'}`, { urgent: true });
     return { ok: true, token };
   }
+  if (addon.kind === 'upgrade') {
+    const before = await tierWithPromo(env, token, tierOf(evRow));
+    const beforePlan = planKeyOf(evRow);
+    /* never let a stale payment move the event backwards */
+    const tier = Math.max(addon.tier, before);
+    const plan = PLAN_RANK[addon.plan] >= PLAN_RANK[beforePlan] ? addon.plan : beforePlan;
+    const okw = await sheetBatchWrite(env, [
+      { range: `אירועים!AF${row}`, values: [[PLAN_HE[plan]]] },
+      { range: `אירועים!AG${row}`, values: [[String(tier)]] },
+      { range: `אירועים!Z${row}`, values: [[String(evRow[25] || '').trim() + `\nשדרוג · ${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum} · ${new Date().toISOString().slice(0, 16)}`]] },
+    ]);
+    if (env.RATE) {
+      if (tier > before) {
+        /* more seats: one merge upload opens, same as the guests add-on */
+        await env.RATE.put('addon:' + token, JSON.stringify({ n: tier - before, ref, at: new Date().toISOString(), before, after: tier }), { expirationTtl: 200 * 86400 });
+      }
+      let paid = null; try { paid = JSON.parse(await env.RATE.get('paid:' + token)) || null; } catch {}
+      paid = Object.assign(paid || { planText: '', desc: addon.desc }, { tier, plan: PLAN_HE[plan] });
+      await env.RATE.put('paid:' + token, JSON.stringify(paid), { expirationTtl: 400 * 86400 });
+    }
+    await logEvent(env, { area: 'תשלום', action: 'שדרוג חבילה נרכש', ok: !!okw, review: !okw, phone, token, ref,
+      detail: `${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : ' · כתיבה לגיליון נכשלה, לעדכן ידנית'}` });
+    await slackSend(env, `⬆️ *שדרוג חבילה* · ${name || phone} · אירוע ${token.slice(0, 8)}\n\n${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : '\n\n🔴 *נדרשת פעולה ממך:* הכתיבה לגיליון נכשלה, לעדכן חבילה וכמות ידנית'}`, { urgent: !okw });
+    return { ok: true, token, before, after: tier };
+  }
   if (addon.kind === 'extrasend') {
     if (env.RATE) await env.RATE.put('extrasend:' + token, JSON.stringify({ at: new Date().toISOString(), scope: addon.scope || 'all', ref }), { expirationTtl: 200 * 86400 });
+    /* the paid round needs a sane date: after the reminder, before the event,
+       not on Shabbat. A date left over from the setup form (Esti 12/10: the
+       18/10 she picked sat BEFORE her 20/10 invitation) is replaced; she can
+       still move it from the dashboard. */
+    {
+      const d10 = i => String(evRow[i] || '').trim().slice(0, 10);
+      const okIso = x => /^\d{4}-\d{2}-\d{2}$/.test(x);
+      const inv = d10(39), rem = d10(40), cur = d10(41), evd = d10(6), today = ilDate();
+      const floor = [inv, rem, today].filter(okIso).sort().pop();
+      const fine = okIso(cur) && cur > floor && (!okIso(evd) || cur < evd);
+      if (!fine && floor) {
+        const d = new Date(floor + 'T12:00:00Z');
+        d.setUTCDate(d.getUTCDate() + 2);
+        if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+        let pick = d.toISOString().slice(0, 10);
+        if (okIso(evd) && pick >= evd) {
+          const e = new Date(evd + 'T12:00:00Z'); e.setUTCDate(e.getUTCDate() - 1);
+          if (e.getUTCDay() === 6) e.setUTCDate(e.getUTCDate() - 1);
+          pick = e.toISOString().slice(0, 10);
+        }
+        if (pick > floor) await sheetBatchWrite(env, [{ range: `אירועים!AP${row}`, values: [[pick]] }]).catch(() => {});
+        else await slackPost(env, `⚠️ *שליחה נוספת* · אירוע ${token.slice(0, 8)}: שולם, אבל אין יום פנוי בין התזכורת לאירוע. לקבוע תאריך ידנית בגיליון (AP).`).catch(() => {});
+      }
+    }
     await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
     await slackPost(env, `💳 *תוסף שליחה נוספת* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — גל 3 ייצא בתאריך שבגיליון`);
     return { ok: true, token };
@@ -1264,6 +1439,51 @@ async function deleteGuestRows(env, token) {
   return { ok: true, deleted: rows.length };
 }
 
+/* One-off sheet repairs, admin-gated, dry by default (Richard 12/10):
+   dedupe-guests — an event whose list was written twice keeps the first row
+     of every guest id and loses the copies (Esti 96b7dec2: 106 → 53);
+   delete-event — a stray אירועים row, e.g. the one an add-on payment opened
+     as a new event (Avraham 4bb1edfc). */
+async function sheetTabId(env, SID, title) {
+  const meta = await evProxy(env, `spreadsheets/${SID}`, { qk: 'fields', qv: 'sheets.properties' });
+  const found = ((meta && meta.sheets) || []).find(x => x.properties && x.properties.title === title);
+  return found ? Number(found.properties.sheetId) : null;
+}
+async function handleSheetCleanup(request, env, origin) {
+  let b = {};
+  try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const SID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
+  const token = String(b.token || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
+  const dry = b.dry !== false;
+  let tab, rows = [];
+  if (b.action === 'dedupe-guests') {
+    tab = 'אורחים';
+    const ids = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!C1:C6000`) || {}).values || [];
+    const toks = (await evProxy(env, `spreadsheets/${SID}/values/אורחים!AC1:AC6000`) || {}).values || [];
+    const seen = new Set();
+    toks.forEach((r, i) => {
+      if (String((r || [])[0] || '').trim() !== token) return;
+      const id = String((ids[i] || [])[0] || '').trim();
+      if (!id) return;
+      if (seen.has(id)) rows.push(i); else seen.add(id);
+    });
+  } else if (b.action === 'delete-event') {
+    tab = 'אירועים';
+    const col = (await evProxy(env, `spreadsheets/${SID}/values/אירועים!B1:B3000`) || {}).values || [];
+    col.forEach((r, i) => { if (String((r || [])[0] || '').trim() === token) rows.push(i); });
+  } else return deny(400, 'bad-action', origin);
+  if (dry || !rows.length) return okJson({ ok: true, dry, tab, rows: rows.map(i => i + 1) }, origin);
+  const gid = await sheetTabId(env, SID, tab);
+  if (gid == null) return deny(502, 'no-tab', origin);
+  const requests = rows.sort((x, y) => y - x).map(i => ({ deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }));
+  const r = await evProxy(env, `spreadsheets/${SID}:batchUpdate`, { method: 'POST', payload: { requests } });
+  if (!(r && r.replies)) return deny(502, 'batchUpdate-failed', origin);
+  await logEvent(env, { area: 'גיליון', action: `ניקוי ${b.action}: ${rows.length} שורות נמחקו מ${tab}`, ok: true, token }).catch(() => {});
+  return okJson({ ok: true, dry: false, tab, deleted: rows.length }, origin);
+}
+
 /* Invitations, not people: one phone number is one invitation. */
 function countBillable(guests) {
   const seen = new Set();
@@ -1271,9 +1491,7 @@ function countBillable(guests) {
   return seen.size;
 }
 
-async function handleEventForm(form, rec, token, env, origin, target, url) {
-  const file = form.get('file');
-  if (file && typeof file === 'object' && file.arrayBuffer) {
+async function handleGuestFile(form, file, rec, token, env, origin, target, st) {
     /* one guest list per event; replacements go through support on purpose.
        Exception: a paid add-on (addon:<token>) opens ONE merge upload — new
        numbers are appended, numbers already on the list are skipped. */
@@ -1392,12 +1610,30 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
       await env.RATE.delete('addon:' + token).catch(() => {});
       await logEvent(env, { area: 'העלאה', action: 'קובץ תוספת מוזג לרשימה', ok: true, token, phone: rec.phone || '',
         detail: `${guests.length} חדשים נוספו · ${duplicates.length} כפולים דולגו · היו ${existingRows} שורות · מכסה ${tierNum || '∞'}` });
-      await slackPost(env, `📎 *תוספת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} חדשים · ${duplicates.length} כפולים סוננו`);
-      return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
+      await slackPost(env, `📎 *תוספת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} חדשים · ${duplicates.length} כפולים סוננו`, { quiet: true });
+      st.written = true; return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
     }
     /* Richard, 10/09: "update me once she filled the form" */
     await slackSend(env, `📋 *רשימת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} מוזמנים${skipped.length ? ' · ' + skipped.length + ' שורות דולגו' : ''} · ${file.name || ''}`, { urgent: true }).catch(() => {});
-    return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
+    st.written = true; return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
+}
+
+async function handleEventForm(form, rec, token, env, origin, target, url) {
+  const file = form.get('file');
+  if (file && typeof file === 'object' && file.arrayBuffer) {
+    /* one upload at a time per event: a double tap or a browser retry wrote
+       the same file twice (Esti, 12/10: 53 numbers became 106 rows). The lock
+       is taken before anything destructive (the replace flow deletes rows)
+       and dropped on every exit except a successful write, so a preview →
+       confirm round trip or a fix-and-retry is never refused. */
+    if (await env.RATE.get('uplock:' + token)) return deny(409, 'upload-in-progress', origin);
+    await env.RATE.put('uplock:' + token, '1', { expirationTtl: 120 });
+    const st = { written: false };
+    try {
+      return await handleGuestFile(form, file, rec, token, env, origin, target, st);
+    } finally {
+      if (!st.written) await env.RATE.delete('uplock:' + token).catch(() => {});
+    }
   }
 
   /* setup step — text fields, plus the invitation image when one was chosen.
@@ -1642,7 +1878,7 @@ async function waGuestFile(env, from, doc) {
   await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
   await env.RATE.delete('pend:' + token).catch(() => {});
   await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}`);
-  await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`);
+  await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`, { quiet: true });
 }
 
 /* ══ שיר — the AI caller ═════════════════════════════════════════════════════
@@ -1675,6 +1911,9 @@ async function trackCallCost(env, cents) {
 /* Per-event running cost, USD cents, keyed by the token's first 8 characters —
    guest ids carry the same prefix (G-<tok8>-N), so Shir's call costs join the
    same bucket as the WhatsApp sends. Feeds the per-event profit column. */
+/* Richard 25/10: evcost:<t8> is ₪ in agorot. msgCost() is ₪ per template, so
+   it is ×100 here; Retell call costs arrive in USD cents and are ×USD_ILS.
+   Before this the two were summed as-is and the board showed fiction. */
 async function addEvCost(env, tokenOrGuestId, cents) {
   if (!env.RATE || !cents) return;
   let t8 = String(tokenOrGuestId || '');
@@ -1682,30 +1921,58 @@ async function addEvCost(env, tokenOrGuestId, cents) {
   if (!/^[0-9a-f]{8}$/.test(t8)) return;
   const key = 'evcost:' + t8;
   const cur = Number(await env.RATE.get(key)) || 0;
-  await env.RATE.put(key, String(Math.round((cur + cents) * 100) / 100), { expirationTtl: 400 * 86400 });
+  /* a template: msgCost ₪ (0.02..0.13) → agorot. A call: USD cents (≥1) → agorot */
+  const agorot = cents < 1 ? cents * 100 : cents * USD_ILS;
+  await env.RATE.put(key, String(Math.round((cur + agorot) * 100) / 100), { expirationTtl: 400 * 86400 });
 }
 
-/* Retell retries webhooks and fires several events per call — each (call, stage)
-   is processed exactly once. */
-async function seenOnce(env, key) {
-  if (!env.RATE) return false;
-  if (await env.RATE.get(key)) return true;
-  await env.RATE.put(key, '1', { expirationTtl: 3 * 86400 });
-  return false;
+/* Rebuild every event's cost from the two logs that know the truth:
+   'אורחים לוג הודעות יוצאות' (delivered? + Meta category + event + wave per
+   message) and 'לוג שיחות' (₪ per call + event). ₪ by the category Meta billed
+   (utility 0.02, marketing 0.12, auth 0.05; service/free text 0). Writes
+   evcost:<t8> in agorot and wacost:<day> ₪ for the daily board. */
+async function rebuildEventCosts(env, { dry = false } = {}) {
+  const CAT = { utility: 0.02, marketing: 0.12, authentication: 0.05, auth: 0.05, service: 0 };
+  const [mg, mc, calls] = await Promise.all([readTabAll(env, 'msg_guests'), readTabAll(env, 'msg_clients'), readTabAll(env, 'calls')]);
+  const per = {}, days = {}, detail = {};
+  const add = (t8, ils, kind) => { if (!t8) return; per[t8] = (per[t8] || 0) + ils; detail[t8] = detail[t8] || { wa: 0, wa_n: 0, calls: 0, calls_n: 0 }; detail[t8][kind] += ils; detail[t8][kind + '_n'] += 1; };
+  const dayOf = s => { const m = String(s || '').match(/(\d{2})\/(\d{2})\/(\d{4})/); return m ? `${m[3]}-${m[2]}-${m[1]}` : ''; };
+  for (const tab of [mg, mc]) {
+    for (const r of (tab && tab.rows) || []) {
+      /* 0 id, 1 time, 2 sent?, 3 delivered?, 4 read?, ... 10 dir, 12 type, 13 template, 14 event, 15 wave, 16 error, 17 meta category */
+      if (String(r[10] || '') !== 'יוצאת') continue;
+      const delivered = /^כן/.test(String(r[3] || '')) || /^כן/.test(String(r[4] || ''));
+      if (!delivered) continue;
+      const cat = String(r[17] || '').toLowerCase();
+      const tmpl = String(r[13] || '');
+      const ils = cat ? (CAT[cat] ?? 0.02) : (String(r[12] || '') === 'תבנית' ? (CAT_COST[TMPL_CATEGORY[tmpl] || 'utility'] || 0.02) : 0);
+      if (!ils) continue;
+      const d = dayOf(r[1]); if (d) days[d] = (days[d] || 0) + ils;
+      add(String(r[14] || '').trim().slice(0, 8), ils, 'wa');
+    }
+  }
+  for (const r of (calls && calls.rows) || []) {
+    /* 0 time, 1 agent, 2 dir, 3 phone, 4 name, 5 kind, 6 event, ... 12 cost. The
+       column says ₪ but the writer puts Retell's USD there (cost_cents/100). */
+    const ils = (Number(String(r[12] || '').replace(/[^\d.]/g, '')) || 0) * USD_ILS;
+    if (!ils) continue;
+    add(String(r[6] || '').trim().slice(0, 8), ils, 'calls');
+  }
+  const out = { ok: true, dry, events: {}, days: Object.keys(days).length, rows: { guests: (mg && mg.rows.length) || 0, clients: (mc && mc.rows.length) || 0, calls: (calls && calls.rows.length) || 0 } };
+  for (const [t8, ils] of Object.entries(per)) {
+    if (!/^[0-9a-f]{8}$/.test(t8)) continue;
+    out.events[t8] = { ils: Math.round(ils * 100) / 100, ...detail[t8] };
+    if (!dry && env.RATE) await env.RATE.put('evcost:' + t8, String(Math.round(ils * 100)), { expirationTtl: 400 * 86400 });
+  }
+  if (!dry && env.RATE) for (const [d, ils] of Object.entries(days)) await env.RATE.put('wacost:' + d, String(Math.round(ils * 100) / 100), { expirationTtl: 400 * 86400 });
+  return out;
 }
+
 
 const okJsonPlain = payload => new Response(JSON.stringify(payload), {
   status: 200, headers: { 'Content-Type': 'application/json' },
 });
 
-/* Two personal admin keys — Richard's and Shalev's — each revocable alone */
-function isAdmin(env, key) {
-  const k = String(key || '');
-  if (!k) return false;
-  if (env.ADMIN_KEY && safeEqual(k, env.ADMIN_KEY)) return true;
-  if (env.ADMIN_KEY2 && safeEqual(k, env.ADMIN_KEY2)) return true;
-  return false;
-}
 
 /* ══ iPad-friendly admin sessions ════════════════════════════════════════════
    Typing a 48-character key on a tablet once was the whole login story. Now:
@@ -1810,7 +2077,7 @@ async function handleAdminLogin(request, env, origin) {
   const sig = await sessionSig(env, nonce);
   await env.RATE.put('adminsess:' + nonce, JSON.stringify({ phone, at: new Date().toISOString() }),
     { expirationTtl: 365 * 86400 }).catch(() => {});
-  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`).catch(() => {});
+  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`, { quiet: true }).catch(() => {});
   return okJson({ ok: true, token: 'sess.' + nonce + '.' + sig }, origin);
 }
 
@@ -1821,12 +2088,32 @@ async function handleShirWebhook(request, env) {
   }
   const rawBody = await request.text();
   const sig = request.headers.get('X-Retell-Signature') || '';
-  if (!(await verifyRetellSignature(rawBody, sig, env.RETELL_KEY))) {
+  /* Retell signs with the API key that carries the "webhook" badge in its
+     dashboard, which need not be the key we call the API with (13/10: every
+     call result was refused for a week). RETELL_WEBHOOK_KEY is that key; the
+     API key stays accepted so a single-key account keeps working. */
+  const keys = [env.RETELL_WEBHOOK_KEY, env.RETELL_KEY].filter(Boolean);
+  let okSig = false;
+  for (const k of keys) if (await verifyRetellSignature(rawBody, sig, k)) { okSig = true; break; }
+  if (!okSig) {
+    /* say why, without leaking anything: header shape, body size, age */
+    const m = /^v=(\d+),d=([0-9a-f]+)$/i.exec(sig.trim());
+    const age = m ? Math.round((Date.now() - Number(m[1])) / 1000) + 's' : 'n/a';
+    await logEvent(env, { area: 'שיחות', action: 'דיווח שיחה מרטל נדחה: חתימה לא תואמת', ok: false, review: true,
+      detail: `header=${m ? 'v,d (' + m[2].length + ' hex)' : sig ? 'other (' + sig.length + ')' : 'missing'} · body=${rawBody.length} · age=${age} · keys=${keys.length}${env.RETELL_WEBHOOK_KEY ? ' (webhook key set)' : ' (api key only)'}` }).catch(() => {});
     return new Response('bad-signature', { status: 403 });
   }
   let body;
   try { body = JSON.parse(rawBody); } catch { return new Response('bad-json', { status: 400 }); }
+  return processRetellEvent(env, body);
+}
 
+/* The webhook's body, as a function, so the same handling can run on a call
+   fetched from Retell's API. Richard 13/10: "it's all connected, if we see
+   the answer in the dashboard show it to the client as well" — the call
+   board already reads outcomes from Retell directly; reconcileShirCalls
+   feeds those same calls through here when the webhook did not arrive. */
+async function processRetellEvent(env, body) {
   const action = retellToCallResult(body);
   if (!action) return okJsonPlain({ ok: true });
   /* the calls log: mid-call outcome → update; end of call → update the dial
@@ -1866,7 +2153,6 @@ async function handleShirWebhook(request, env) {
         } else {
           const msg = `📞 ${who} (${ph}) ביקש/ה נציג ונועה ניסתה להעביר (${tried.join(' → ')}) ואף אחד לא ענה. לחזור אליו/ה. סיכום: ${String(ca.call_summary || '').slice(0, 200)}`;
           await slackPost(env, msg).catch(() => {});
-          for (const a of String(env.ADMIN_PHONES || '').split(',').map(x => normPhone(x.trim())).filter(Boolean)) await sendText(env, a, msg, 'client').catch(() => {});
           await logEvent(env, { area: 'שיחות', action: 'בקשת נציג — ההעברה לא נענתה', ok: false, review: true, phone: ph, detail: tried.join(' → ') }).catch(() => {});
         }
       }
@@ -1911,6 +2197,38 @@ async function handleShirWebhook(request, env) {
   if (action.call_id && await seenOnce(env, 'shirdone:end:' + action.call_id)) {
     return okJsonPlain({ ok: true });
   }
+  try {
+    const c0 = body.call || {}, ca0 = c0.call_analysis || {};
+    const dur0 = c0.start_timestamp && c0.end_timestamp ? Math.round((c0.end_timestamp - c0.start_timestamp) / 1000) : null;
+    /* 22/10: the recording and the full transcript are kept by us (Retell
+       deletes them), and the live log shows them in Hebrew. */
+    const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
+    /* Richard 22/10: the line says who was called and for which event */
+    const dv0 = c0.retell_llm_dynamic_variables || {};
+    const gName0 = String(dv0.guest_name || dv0.lead_name || dv0.caller_name || dv0.name || '').trim();
+    let evName0 = String(dv0.event_name || dv0.host_name || '').trim();
+    if (!evName0 && meta0.token && env.RATE) { try { const em = JSON.parse((await env.RATE.get('evmeta:' + meta0.token)) || 'null'); if (em) evName0 = em.event || ''; } catch {} }
+    const who0 = (gName0 ? gName0 + ' · ' : '') + String(c0.to_number || '').replace('+', '').replace(/^972/, '0');
+    const outcome0 = action.result ? (action.result.answer || action.result.rsvp || '') : '';
+    const no0 = /dial_no_answer|dial_busy|voicemail/.test(String(c0.disconnection_reason || ''));
+    stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' }, cost: action.cost_cents ? Math.round(action.cost_cents * 3.7) / 100 : 0 }).catch(() => {});
+    /* 02/11 noa-chase R8+R11: every ended שיר/נועה call (outbound guest or
+       lead; inbound/callback keep their own path) goes through the reviewer.
+       Rules may auto-fix the sheet (only with NOA_CHASE=on), the model only
+       suggests. A chase call (metadata.why='chase') also records its attempt
+       and writes back to monday. Nothing here may break the webhook. */
+    if (String(env.NOA_CHASE || '') === 'on' && (meta0.kind === 'guest' || meta0.kind === 'lead' || !meta0.kind) && !String(c0.direction || '').includes('inbound')) {
+      try {
+        const qa = callFromRetell(c0, action, { event: evName0 });
+        qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
+        const review = await reviewCall(env, qa);
+        await applyReview(env, qa, review, { writeCallResult: (gid, res, party) => writeCallResult(env, gid, res, party) });
+      } catch (e) { await logEvent(env, { area: 'בקרה', action: 'בקרת שיחה נפלה', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
+      if (meta0.why === 'chase') {
+        try { await noaChaseCallEnded(env, c0); } catch (e) { await logEvent(env, { area: 'נועה', action: 'סיום שיחת רדיפה נפל', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
+      }
+    }
+  } catch {}
   if (action.cost_cents) {
     await trackCallCost(env, action.cost_cents);
     await addEvCost(env, action.guest_id, action.cost_cents);
@@ -1946,11 +2264,42 @@ async function handleShirWebhook(request, env) {
   if (action.kind === 'end-untracked') return okJsonPlain({ ok: true });
 
   if (action.kind === 'end') {
-    await writeCallResult(env, action.guest_id, action.result);
+    await writeCallResult(env, action.guest_id, action.result, action.party_size);
   } else if (action.kind === 'end-no-outcome') {
     if (!toolRanHere) await writeCallResult(env, action.guest_id, action.result);
   }
   return okJsonPlain({ ok: true });
+}
+
+/* Pull-side safety net for the webhook: every pacer tick, the last ended
+   calls are fetched from Retell and any guest call that was never processed
+   (no shirdone:end marker) runs through processRetellEvent exactly as its
+   webhook would have. Idempotent: the marker is set inside. Only calls that
+   Retell has already analysed count, so the outcome is final. */
+async function reconcileShirCalls(env, { limit = 40, force = false } = {}) {
+  if (!env.RETELL_KEY || !env.RATE) return { ok: false, why: 'not-configured' };
+  const calls = (await retellListCalls(env, { sort_order: 'descending', limit })) || [];
+  let applied = 0, skipped = 0;
+  for (const c of calls) {
+    const meta = (c && c.metadata) || {};
+    if (!c || c.call_status !== 'ended' || !c.call_analysis || !meta.guest_id) { skipped++; continue; }
+    /* inbound / callback / lead calls keep their own webhook-only handling */
+    if (meta.kind && meta.kind !== 'guest') { skipped++; continue; }
+    if (force) await env.RATE.delete('shirdone:end:' + c.call_id).catch(() => {});
+    else if (await env.RATE.get('shirdone:end:' + c.call_id)) { skipped++; continue; }
+    /* older than 3 days: the markers would have expired anyway, leave it */
+    if (c.end_timestamp && Date.now() - Number(c.end_timestamp) > 3 * 86400e3) { skipped++; continue; }
+    try {
+      await processRetellEvent(env, { event: 'call_analyzed', call: c });
+      applied++;
+      await logEvent(env, { area: 'שיחות', action: 'תוצאת שיחה נקלטה מרטל (השלמה, בלי וובהוק)', ok: true,
+        phone: String(c.to_number || '').replace('+', ''), token: String(meta.token || '').slice(0, 8), ref: String(c.call_id || '').slice(-12),
+        detail: String(((c.call_analysis || {}).custom_analysis_data || {}).outcome || c.disconnection_reason || '') }).catch(() => {});
+    } catch (e) {
+      await logEvent(env, { area: 'שיחות', action: 'השלמת תוצאת שיחה נכשלה', ok: false, review: true, ref: String(c.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {});
+    }
+  }
+  return { ok: true, applied, skipped, seen: calls.length };
 }
 
 /* The dialling itself, with no HTTP around it, so the morning cron can run it.
@@ -1971,7 +2320,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
     if (queue.length && !quiet) {
-      await slackPost(env, `🕐 ${queue.length} אורחים ממתינים לשיחה, אבל חלון החיוג סגור (${win.why}). ננסה בהזדמנות הבאה.`);
+      await slackPost(env, `🕐 ${queue.length} אורחים ממתינים לשיחה, אבל חלון החיוג סגור (${win.why}). ננסה בהזדמנות הבאה.`, { quiet: true });
     }
     return { ok: true, dialed: 0, closed: win.why, queued: queue.length };
   }
@@ -1992,13 +2341,16 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
-      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM)),
+      /* 02/11 noa-chase R8: Shir's own lessons ({{memory}}) when the feature is on */
+      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM, { memory: String(env.NOA_CHASE || '') === 'on' ? await memoryBlock(env, 'שיר').catch(() => '') : '' })),
     }).catch(() => null);
+    await retellBillingGuard(env, r);
     if (r && (r.status === 200 || r.status === 201)) {
       let cid = ''; try { cid = String(((await r.clone().json()) || {}).call_id || ''); } catch {}
       await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: g.phone, name: g.name || '', kind: 'אורח (אישור הגעה)',
         token: String(g.token || '').slice(0, 8), status: 'חויג ' + ilTime(), id: cid, outcome: `ניסיון ${(Number(g.tries) || 0) + 1}/${g.max_tries || 3}` });
       await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
+      await env.RATE.put('dialed:' + g.guest_id, day, { expirationTtl: 120 * 86400 });
       await env.RATE.put('calldate:' + g.token, day, { expirationTtl: 60 * 86400 });
       dialed.push(g.guest_id);
     }
@@ -2007,7 +2359,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   if (queue.length && !dialed.length && !blocked && !quiet) {
     await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`);
   } else if (dialed.length && !quiet) {
-    await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`);
+    await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`, { quiet: true });
   }
   if (dialed.length) await logEvent(env, { area: 'שיחות', action: 'שיר חייגה (סבב)', ok: true,
     detail: `${dialed.length} חיוגים · בתור ${queue.length} · דולגו ${blocked}` });
@@ -2036,6 +2388,9 @@ async function handleShirDispatch(request, env, origin) {
      than asserted: with SHIR_LEADS unset it answers skipped and dials nobody. */
   if (body.leads) {
     return okJson(await runShirLeadDial(env, { max: Math.min(Number(body.max) || 3, 10) }), origin);
+  }
+  if (body.reconcile) {
+    return okJson(await reconcileShirCalls(env, { limit: Math.min(Number(body.limit) || 40, 100), force: !!body.force }), origin);
   }
   const res = await runShirDispatch(env, { max: body.max, force: !!body.force });
   if (res.why === 'not-configured') return deny(503, 'shir-not-configured', origin);
@@ -2121,15 +2476,6 @@ const CBQ_RETRY_MS = 45 * 60 * 1000;
    optout: is NOT checked here, and that is on purpose — it means "stop
    WhatsApping me", it has never meant "stop calling me", and conflating the
    two is a standing rule in this project. */
-/* 10.5: never ring a test number. Patterns: 9725000050xx (our fake range)
-   and anything in TEST_PHONES (comma-separated, wrangler var). */
-function isTestPhone(env, phone) {
-  const p = normPhone(phone || '');
-  if (!p) return true;
-  if (/^9725000050\d\d$/.test(p)) return true;
-  const list = String(env.TEST_PHONES || '').split(',').map(x => normPhone(x.trim())).filter(Boolean);
-  return list.includes(p);
-}
 async function callBlocked(env, phone) {
   if (isTestPhone(env, phone)) return true;
   if (!env.RATE) return false;
@@ -2266,6 +2612,7 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(payload),
     }).catch(() => null);
+    await retellBillingGuard(env, res);
     if (res && (res.status === 200 || res.status === 201)) {
       let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
       await logRow(env, 'calls', { agent: noaLine ? 'נועה' : 'שיר', dir: 'יוצאת (חזרה)', phone: r.phone, name: (hit && hit.name) || '', kind: noaLine ? `חזרה ללקוח/ליד (${hit.caller_kind})` : 'חזרה למי שהתקשר',
@@ -2283,7 +2630,7 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
     }
   }
   if (dialed.length) {
-    await slackPost(env, `📲 שיר חזרה ל-${dialed.length} מי שהתקשרו אלינו ולא ענינו.`);
+    await slackPost(env, `📲 שיר חזרה ל-${dialed.length} מי שהתקשרו אלינו ולא ענינו.`, { quiet: true });
   }
   return { dialed: dialed.length, phones: dialed, queued: rows.length, waiting, skipped };
 }
@@ -2362,8 +2709,10 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       body: JSON.stringify(buildCallPayload(lead, env.NOA_FROM,
-        { override_agent_id: env.NOA_AGENT })),
+        /* 02/11 noa-chase R8: {{memory}} rides on every Noa call when the feature is on */
+        { override_agent_id: env.NOA_AGENT, memory: String(env.NOA_CHASE || '') === 'on' ? await memoryBlock(env, 'נועה').catch(() => '') : '' })),
     }).catch(() => null);
+    await retellBillingGuard(env, res);
     if (res && (res.status === 200 || res.status === 201)) {
       let cid = ''; try { cid = String(((await res.clone().json()) || {}).call_id || ''); } catch {}
       await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name || '', kind: lead.requested ? 'ליד (ביקש שיחה)' : 'ליד (מכירה)', status: 'חויג ' + ilTime(), id: cid });
@@ -2554,6 +2903,14 @@ async function handleWaWebhook(request, env, url) {
 
   let payload;
   try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
+  /* 22/10: anything Meta tells us that is not a message/status (template
+     approvals, number quality, account limits) goes to the audit log verbatim */
+  try {
+    for (const entry of (payload && payload.entry) || []) for (const ch of entry.changes || []) {
+      const f = String(ch.field || ''); const v = ch.value || {};
+      if (f && f !== 'messages') stream(env, { kind: 'meta', area: 'מטא', action: '🟦 ' + f + (v.event ? ' · ' + v.event : '') + (v.message_template_name ? ' · ' + v.message_template_name : '') + (v.current_limit ? ' · ' + v.current_limit : ''), ok: !/REJECTED|FLAGGED|RED|DISABLED|RESTRICT/i.test(JSON.stringify(v)), review: /REJECTED|FLAGGED|RED|DISABLED|RESTRICT/i.test(JSON.stringify(v)), detail: JSON.stringify(v).slice(0, 1500), data: { field: f, value: v } }).catch(() => {});
+    }
+  } catch {}
 
   /* Meta also posts delivery STATUSES here (sent/delivered/read/failed). We
      never read them, so a template Meta accepted and then failed to deliver
@@ -2567,7 +2924,7 @@ async function handleWaWebhook(request, env, url) {
              read, failed ('sent' is already the row itself) */
           try {
             const pid = String(((ch.value || {}).metadata || {}).phone_number_id || '');
-            const stab = (env.WA_PHONE_ID_GUESTS && pid === env.WA_PHONE_ID_GUESTS) ? 'msg_guests' : 'msg_clients';
+            const stab = isGuestPhone(env, pid) ? 'msg_guests' : 'msg_clients';
             const when = ilTime(st.timestamp ? new Date(Number(st.timestamp) * 1000) : new Date());
             const cat = st.pricing ? `${st.pricing.category || ''}${st.pricing.billable === false ? ' (לא בתשלום)' : ''}` : '';
             /* the inbox bubble gets the same status (✓ / ✓✓ / read / failed) */
@@ -2584,6 +2941,19 @@ async function handleWaWebhook(request, env, url) {
                   }
                 }
               }
+            } catch {}
+            /* 22/10 Richard: the dashboard shows נשלח / התקבל / נקרא per guest,
+               and a Meta refusal is never shown as "sent". wst:<token>:<wave>:<phone> */
+            try {
+              const m2 = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null;
+              if (m2 && m2.token && m2.phone) {
+                const rank = { sent: 1, delivered: 2, read: 3, failed: 9 };
+                const k2 = `wst:${m2.token}:${m2.wave || 1}:${m2.phone}`;
+                const cur2 = await env.RATE.get(k2).catch(() => null);
+                if ((rank[st.status] || 0) >= (rank[cur2] || 0)) await env.RATE.put(k2, st.status, { expirationTtl: 120 * 86400 }).catch(() => {});
+              }
+              const e1 = (st.errors && st.errors[0]) || {};
+              stream(env, { kind: 'wa_status', area: stab === 'msg_guests' ? 'שיר' : 'נועה', action: (st.status === 'read' ? '👁 נקרא' : st.status === 'delivered' ? '✓✓ נמסר' : st.status === 'failed' ? '⛔ נכשל' : '✓ ' + st.status) + ' · ' + String(st.recipient_id || ''), ok: st.status !== 'failed', review: st.status === 'failed', phone: String(st.recipient_id || ''), token: m2 && m2.token ? m2.token : '', detail: st.status === 'failed' ? `${e1.code || ''} ${e1.title || ''} ${(e1.error_data && e1.error_data.details) || ''}`.trim() : (cat || ''), data: { wamid: st.id, status: st.status, meta_ts: st.timestamp, wave: m2 ? m2.wave : '', pricing: st.pricing || null }, cost: st.status === 'delivered' && st.pricing && st.pricing.billable !== false ? ({ utility: 0.02, marketing: 0.13, authentication: 0.05, service: 0 }[String(st.pricing.category || '').toLowerCase()] ?? 0.02) : 0 }).catch(() => {});
             } catch {}
             if (st.status === 'delivered') await logUpdate(env, stab, st.id, { delivered: 'כן ' + when, phone: st.recipient_id || '', category: cat });
             else if (st.status === 'read') await logUpdate(env, stab, st.id, { read: 'כן ' + when, phone: st.recipient_id || '', category: cat });
@@ -2604,8 +2974,69 @@ async function handleWaWebhook(request, env, url) {
               const fk = `wfail:${m.token}:${m.wave}:${m.phone}`;
               const code = String(err.code || '');
               await env.RATE.put(`wferr:${m.token}:${m.wave}:${m.phone}`, code, { expirationTtl: 30 * 86400 }).catch(() => {});
+              /* 18/10: 131048 / 130429 = the NUMBER hit Meta's cap (250 business-
+                 initiated conversations per 24h on an unverified business), not
+                 this guest. Counting it as an attempt killed guests who never got
+                 a message. Reopen them without a strike, raise one cap marker
+                 that holds every wave until Meta's health check clears, and
+                 tell Slack once — not 200 times. */
+              /* 02/11 audit: 131042 (payment/eligibility on the WABA) is the
+                 account, not the guest — no strike either, hold like a cap */
+              const capHit = code === '131048' || code === '130429' || code === '131042';
+              /* 02/11 audit: a cap hit used to reopen the same guest without
+                 limit — one phone was accepted 28 times in a day, 2,091 of
+                 2,350 templates failed. Three cap-reopens per guest per stage
+                 (rolling 3 days), then it stops and waits for a human. */
+              const capN = capHit ? (parseInt(await env.RATE.get(`wcapn:${m.token}:${m.wave}:${m.phone}`).catch(() => '0') || '0', 10) || 0) + 1 : 0;
+              if (capHit) await env.RATE.put(`wcapn:${m.token}:${m.wave}:${m.phone}`, String(capN), { expirationTtl: 3 * 86400 }).catch(() => {});
+              if (capHit && capN > 3) {
+                await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, code, { expirationTtl: 120 * 86400 }).catch(() => {});
+                retry = ' · נחסם 3 פעמים בתקרה — נעצר, דורש טיפול ידני';
+                continue;
+              }
+              if (capHit) {
+                await env.RATE.delete(m.gk);
+                await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {});
+                await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {});
+                /* lifecycle sends close their event flag on "accepted"; reopen it too (01/11) */
+                const lifeFlag = { daybefore: 'daybefore:', seating: 'seat:' }[m.wave];
+                if (lifeFlag) await env.RATE.delete(lifeFlag + m.token).catch(() => {});
+                await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+                const pidHit = (await env.RATE.get('wamidpid:' + st.id).catch(() => null)) || '';
+                const ids = guestPhoneIds(env);
+                /* 02/11: hold the number with a growing backoff (10m → 20m → 40m … ≤ 6h); the
+                   health check may not lift it before `wacapuntil` — Meta says AVAILABLE and then
+                   rejects the very next burst with 131048 */
+                if (pidHit) {
+                  const nHits = (Number(await env.RATE.get('wacapn:' + pidHit).catch(() => 0)) || 0) + 1;
+                  const backoff = Math.min(6 * 3600, 600 * Math.pow(2, nHits - 1));
+                  await env.RATE.put('wacapn:' + pidHit, String(nHits), { expirationTtl: 24 * 3600 }).catch(() => {});
+                  await env.RATE.put('wacapuntil:' + pidHit, String(Date.now() + backoff * 1000), { expirationTtl: backoff + 60 }).catch(() => {});
+                  await env.RATE.put('wacap:' + pidHit, new Date().toISOString(), { expirationTtl: 24 * 3600 }).catch(() => {});
+                }
+                /* the global hold only when every number is capped (or there is just one) */
+                const allHeld = ids.length <= 1 || (await Promise.all(ids.map(id => env.RATE.get('wacap:' + id).catch(() => null)))).every(Boolean);
+                if (allHeld && !await env.RATE.get('wacap:guests')) {
+                  await env.RATE.put('wacap:guests', new Date().toISOString(), { expirationTtl: 24 * 3600 });
+                  await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
+                } else if (!allHeld) {
+                  await env.RATE.delete(m.gk).catch(() => {});   /* resend via another number next tick */
+                  /* once per number per hour, not once per failed message (02/11: hundreds) */
+                  if (!(await seenOnce(env, `capslack:${pidHit || '?'}:${new Date().toISOString().slice(0, 13)}`))) await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true }).catch(() => {});
+                }
+                retry = ' · תקרת שיחות של מטא — ימתין וישלח שוב כשתיפתח';
+                continue;
+              }
               /* 131026 = not on WhatsApp / blocked us: retrying cannot help, the phone call round is the way */
-              const n = code === '131026' ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
+              /* 02/11 audit: for the one-day lifecycle messages (table, day-before,
+                 event-day, postpone, resend) Meta's per-user marketing cap (131049),
+                 the marketing experiment holdout (130472) and "stopped marketing"
+                 (131050) fail identically on every retry the same day — three
+                 retries ten minutes apart only spent three more budget slots.
+                 Waves keep their own 131049 defer (sendWave). */
+              const lifecycle = !/^[123]$/.test(String(m.wave));
+              const terminal = code === '131026' || (lifecycle && /^(131049|130472|131050)$/.test(code));
+              const n = terminal ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
               await env.RATE.put(fk, String(n), { expirationTtl: 7 * 86400 });
               if (n >= 3) {
                 await env.RATE.put(`wdead:${m.token}:${m.wave}:${m.phone}`, String(err.code || ''), { expirationTtl: 120 * 86400 });
@@ -2665,7 +3096,7 @@ async function handleWaWebhook(request, env, url) {
           const WHY = { '131049': 'מגבלת הודעות שיווקיות של מטא לאיש הקשר', '130472': 'איש הקשר בניסוי של מטא', '131026': 'המספר לא בוואטסאפ / חסם', '131053': 'הקובץ לא נטען אצל מטא', '131042': 'בעיית תשלום בחשבון מטא', '131047': 'עברו 24 שעות, נדרשת תבנית', '132001': 'תבנית לא קיימת/לא מאושרת', '131056': 'יותר מדי הודעות לאותו מספר' };
           const who = st.recipient_id ? String(st.recipient_id).replace(/^972/, '0') : '?';
           let gname = ''; try { const mm = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null; if (mm && mm.phone) gname = (await env.RATE.get('waname:' + mm.phone).catch(() => '')) || ''; } catch {}
-          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '');
+          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '', { quiet: /^(131049|130472|131026|131047|131048|130429)$/.test(String(err.code || '')) });
         }
       }
     }
@@ -2679,7 +3110,12 @@ async function handleWaWebhook(request, env, url) {
     if (echo) {
       const peer = normPhone(to || '');
       if (peer && env.RATE && !(msg.id && await env.RATE.get('wamid:' + msg.id).catch(() => null))) {
-        if (!await env.RATE.get('human:' + peer).catch(() => null)) {
+        /* 02/11: the WhatsApp Business app's own away message is an echo too
+           (it fires ~0.5 s before the inbound that triggered it). It is not
+           Richard: it must not mute Noa and must not show as "ריצ׳רד". */
+        const echoBody0 = String((msg.text && msg.text.body) || '');
+        const appAuto = isAppAutoReply(echoBody0, env);
+        if (!appAuto && !await env.RATE.get('human:' + peer).catch(() => null)) {
           await env.RATE.put('human:' + peer, JSON.stringify({ at: new Date().toISOString(), via: 'phone' }), { expirationTtl: 7 * 86400 }).catch(() => {});
           await logEvent(env, { area: 'ווצאפ', action: 'ריצ׳רד ענה מהטלפון — נועה משתתקת בשיחה הזאת', ok: true, phone: peer, detail: 'שבוע, או עד "החזר לנועה"' }).catch(() => {});
         }
@@ -2687,12 +3123,12 @@ async function handleWaWebhook(request, env, url) {
            inbox (full conversation log) and in the messages sheet, like any
            other outbound. Only the echoes we did not send ourselves get here. */
         try {
-          const echoCh = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
+          const echoCh = isGuestPhone(env, phoneId) ? 'guests' : 'client';
           const eParsed = parseInboundReply(msg);
           const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
           const ets = Date.now();
           await env.RATE.put('log:' + peer + ':' + ets, JSON.stringify({
-            dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: 'ריצ׳רד (מהטלפון)', phone_app: true,
+            dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)', phone_app: true, app_auto: appAuto || undefined,
             media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
               ? { id: String(msg[msg.type].id), mime: String(msg[msg.type].mime_type || ''), name: String(msg[msg.type].filename || msg[msg.type].caption || '') }
               : undefined,
@@ -2700,7 +3136,7 @@ async function handleWaWebhook(request, env, url) {
           }));
           await touchConversation(env, peer, { ts: ets, dir: 'out', text: eBody.slice(0, 80), ch: echoCh });
           await logRow(env, echoCh === 'guests' ? 'msg_guests' : 'msg_clients', {
-            id: msg.id || '', dir: 'יוצאת', who: 'ריצ׳רד (מהטלפון)',
+            id: msg.id || '', dir: 'יוצאת', who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)',
             sent: 'כן ' + ilTime(), error: '',
             name: (await env.RATE.get('waname:' + peer)) || '', phone: peer, text: eBody,
             sender: echoCh === 'guests' ? '0559726673' : '0559504499',
@@ -2719,8 +3155,19 @@ async function handleWaWebhook(request, env, url) {
     /* which of our two numbers received this. Every reply below goes back out on
        the SAME number: a guest who wrote to Shir's line is answered from Shir's
        line, never from 4499 (iron rule 06/09). The inbox filters on it too. */
-    const ch = (env.WA_PHONE_ID_GUESTS && phoneId === env.WA_PHONE_ID_GUESTS) ? 'guests' : 'client';
-    const say = (t) => sendText(env, from, t, ch, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)' });
+    let ch = isGuestPhone(env, phoneId) ? 'guests' : 'client';
+    /* 02/11 (Richard): when a guest message was sent FROM 4499 (x4499:<phone>
+       marker, emergency capacity), the guest's reply lands on Noa's line. Run
+       the GUEST logic for it (RSVP, party size, table), never the lead/client
+       flow — but answer on the same number the guest is talking to. */
+    const sendCh = ch;
+    if (ch === 'client' && env.RATE && await env.RATE.get('x4499:' + normPhone(from)).catch(() => null)) ch = 'guests';
+    /* 02/11 (Richard): the guest opened a 24h window with THIS guest number —
+       remember it (gph:<phone>) so every reply below, and every other free
+       text to them (sendCtaUrl, the decline-gift line…), leaves from it and
+       not from the least-used one (131047 otherwise) */
+    if (sendCh === 'guests') await pinGuestPhone(env, from, phoneId);
+    const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)', ...(sendCh === 'guests' ? { phone_id: phoneId } : {}) });
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
@@ -2741,6 +3188,7 @@ async function handleWaWebhook(request, env, url) {
             : undefined,
           at: new Date().toISOString(),
         })).catch(() => {});
+      stream(env, { kind: 'wa_in', area: ch === 'guests' ? 'שיר' : 'נועה', action: '📥 ' + from + (profileName ? ' · ' + profileName : ''), ok: true, phone: from, detail: body }).catch(() => {});
       await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
       await logRow(env, ch === 'guests' ? 'msg_guests' : 'msg_clients', {
         id: msg.id || '', dir: 'נכנסת', who: ch === 'guests' ? 'אורח' : 'לקוח / ליד',
@@ -2752,6 +3200,42 @@ async function handleWaWebhook(request, env, url) {
       /* the WhatsApp profile name, refreshed on every inbound */
       if (profileName) {
         await env.RATE.put('waname:' + from, profileName.slice(0, 60)).catch(() => {});
+      }
+      /* 25/10 Richard: "מספר חדש פנה לווצאפ → ליד במאנדיי וסלאק". A number that
+         writes to Noa's line and is neither a client nor a known lead becomes a
+         lead right away: KV + Monday through noteLead, and Slack now (no
+         10-minute quiet wait — they are on WhatsApp, not mid-checkout). */
+      if (ch === 'client' && !echo) {
+        try {
+          const p9 = normPhone(from);
+          const known = (await env.RATE.get('client:' + p9)) || (await env.RATE.get('lead:' + p9)) || (await env.RATE.get('leadchase:' + p9));
+          /* 02/11: KV only knows clients who paid through Grow. A client whose
+             event Richard opened by hand (bank transfer, cash) has no client:
+             marker, and a guest of an upcoming event writing to Noa is a guest
+             (the separation rule below redirects them). Neither is a new lead:
+             no Monday item, no "ליד חדש" ping, no "לא סיימת" chase. */
+          let notLead = '';
+          if (!known) {
+            const snapL = await Promise.race([snapshotCached(env).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+            if (snapL && eventsForPhone(snapL, p9).length) notLead = 'client';
+            else if (snapL) { const gL = findGuestByPhone(snapL, p9, ilDate()); if (gL && gL.upcoming) notLead = 'guest'; }
+            if (notLead) await logEvent(env, { area: 'לידים', action: notLead === 'client' ? 'לקוח (אירוע בגיליון) כתב לנועה — לא נפתח ליד' : 'אורח של אירוע קרוב כתב לנועה — לא נפתח ליד', ok: true, phone: p9, detail: body.slice(0, 120) }).catch(() => {});
+          }
+          if (!known && !notLead && !isTestPhone(env, p9) && !String(env.ADMIN_PHONES || '').split(',').includes(p9)) {
+            const mon = await noteLead(env, { phone: p9, name: profileName || '', page: 'whatsapp', first_source: 'וואטסאפ נכנס', event_type: 'whatsapp_in' });
+            await env.RATE.delete('leadping:' + p9).catch(() => {});
+            await env.RATE.put('leadslack:' + p9, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
+            const local = p9.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
+            await slackPost(env, [
+              leadAlertHeader('whatsapp', mon && mon.ok && mon.created === false ? 'monday' : ''), '',
+              `*שם:* ${profileName || 'לא ידוע'}`,
+              `*טלפון:* ${local} · <https://wa.me/${p9}|וואטסאפ>`,
+              body ? `*כתב/ה:* ${body.slice(0, 300)}` : '', '',
+              'נוסף למאנדיי אוטומטית · לענות מהאינבוקס: https://ishur.io/inbox.html',
+              `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>`,
+            ].filter(Boolean).join('\n')).catch(() => {});
+          }
+        } catch (e) { await logEvent(env, { area: 'לידים', action: 'ליד מוואטסאפ נכשל', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
       }
     }
     /* Richard, 10/09 19:20: "Noa still answers in the 5864 chat" — the file
@@ -2814,6 +3298,25 @@ async function handleWaWebhook(request, env, url) {
       continue;
     }
 
+    /* 03/11: a reply to a linked sub-event's one message (שבת חתן) is handled
+       there and never touches the parent's RSVP columns. Routed by the quoted
+       message (shwamid:) first, then by the open conversation (shctx:). */
+    if (ch === 'guests' && env.RATE && parsed.kind !== 'mistake') {
+      try {
+        const cid = msg.context && msg.context.id ? String(msg.context.id) : '';
+        const [ctxSub, ctxOther, openSub] = await Promise.all([
+          cid ? env.RATE.get('shwamid:' + cid).catch(() => null) : null,
+          cid ? env.RATE.get('wamid:' + cid).catch(() => null) : null,
+          env.RATE.get('shctx:' + normPhone(from)).catch(() => null),
+        ]);
+        const subTok = routeToSub({ ctxSub, ctxOther: ctxOther && !ctxSub ? (() => { try { return JSON.parse(ctxOther).wave !== 'shabbat'; } catch { return true; } })() : false, openSub, type: msg.type });
+        if (subTok && await getSub(env, subTok)) {
+          const subText = String((msg.text && msg.text.body) || (msg.button && (msg.button.text || msg.button.payload)) || (msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.title) || '');
+          if (await handleShabbatInbound(env, { sub: subTok, from, text: subText, say, normPhone, logEvent })) continue;
+        }
+      } catch (e) { await logEvent(env, { area: 'ווצאפ', action: 'תת-אירוע: טיפול בתשובה נכשל', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+    }
+
     const raw = await fetchSnapshot(env.HOOK_STATUS);
     /* WHO is this, in Richard's order of precedence. An event OWNER is a
        client even when their own number also sits in a guest row (his test
@@ -2863,7 +3366,7 @@ async function handleWaWebhook(request, env, url) {
       if (guest && guest.token && env.RATE) {
         await env.RATE.put('wrong:' + guest.token + ':' + normPhone(from),
           new Date().toISOString(), { expirationTtl: 400 * 86400 });
-        await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`);
+        await slackPost(env, `↩️ מספר סומן "טעות" · ${from} · אירוע ${guest.token.slice(0, 8)} — הושתק לאירוע הזה בלבד (הודעות ושיחות)`, { quiet: true });
         await logEvent(env, { area: 'ווצאפ', action: 'אורח סימן "טעות" — הושתק לאירוע', ok: true, phone: from, token: guest.token });
       }
       await bumpRemoveRate(env, 'mistake');
@@ -2894,7 +3397,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, ch, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
         }
@@ -2906,27 +3409,32 @@ async function handleWaWebhook(request, env, url) {
       /* never confirm what the sheet did not take */
       const HOLD = 'קיבלנו את התשובה, רגע רושמים ונחזור אליכם 🙂';
       if (parsed.outcome === 'מגיע' && !parsed.party) {
-        const saved = await writeGuestReply(env, guest, 'מגיע');
-        if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+        /* Richard 20/10: count them as 1 right away (the host sees a number,
+           not a blank), ask once now, nudge twice more inside the 24h window */
+        const saved = await writeGuestReply(env, guest, 'מגיע', 1);
+        if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
         await say(saved
           ? 'איזה כיף! כמה תהיו בסך הכל?'
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, ch, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
-        await say(saved ? 'חבל שלא תהיו, תודה שעדכנתם 🙏' : HOLD);
+        if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" after a no */
+        if (saved) await sayDeclined(env, guest, from, say, 'חבל שלא תהיו, תודה שעדכנתם 🙏');
+        else await say(HOLD);
       } else {
         const saved = await writeGuestReply(env, guest, 'מתלבט');
+        if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" to an undecided guest */
         await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
       }
     }
     if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
     /* "בוצע AUT-123" closes a team reminder before the service brain answers */
     if (parsed.kind === 'text' && guest && ch === 'guests') {
-      if (await guestFreeText(env, raw, guest, from, parsed.body, say)) continue;
+      if (await guestFreeText(env, raw, guest, from, parsed.body, say, sendCh)) continue;
     }
     if (parsed.kind === 'text') {
       const done = await markTaskDone(env, parsed.body).catch(() => null);
@@ -2980,35 +3488,64 @@ async function linearTriageIssue(env, title, body) {
    Deterministic, no model: corrections update the sheet and say so, event
    questions are answered from the event row, anything else is acknowledged
    and forwarded to Richard on Slack so the hosts hear about it. */
+/* 02/11 (Richard): a guest who says "לא מגיע" and whose event has gift links
+   gets them in the same reply — inside their own 24h window, free text, no
+   template. Exactly once per guest (gift:<token>:<phone>, set only when the
+   reply really left). No links / switched off → the plain thank-you. */
+export async function sayDeclined(env, guest, from, say, plain) {
+  let gl = null;
+  try { gl = env.RATE ? JSON.parse((await env.RATE.get('giftlinks:' + guest.token)) || 'null') : null; } catch {}
+  const txt = declineGiftText(gl);
+  const k = giftKey(guest.token, normPhone(from));
+  if (!txt || !env.RATE || await env.RATE.get(k).catch(() => null)) return say(plain);
+  const r = await say(txt);
+  if (r && r.ok) {
+    await env.RATE.put(k, JSON.stringify({ at: new Date().toISOString(), via: 'decline' }), { expirationTtl: 120 * 86400 }).catch(() => {});
+    await logEvent(env, { area: 'ווצאפ', action: 'אורח לא מגיע — נשלחו קישורי מתנה', ok: true, phone: from, token: guest.token }).catch(() => {});
+  }
+  return r;
+}
 function eventRowOf(raw, token) {
   return ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === token) || null;
 }
-async function guestFreeText(env, raw, guest, from, text, say) {
+async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests') {
   const t = String(text || '').replace(/[‎‏]/g, '').trim();
   if (!t) return false;
   const ev = eventRowOf(raw, guest.token) || [];
   const c = i => String(ev[i] ?? '').trim();
-  const n = partyFromText(t);
-  const saysNo = /(^|\s)(לא|אין)\s*(נגיע|מגיע|מגיעים|נוכל|נבוא|נצליח|נהיה)|^(בסוף\s*)?לא\.?$|לצערנו/.test(t);
-  const saysYes = /(בסוף|כן)\s*(כן|נגיע|מגיע|מגיעים|נבוא)|^(כן|מגיע|מגיעים|נגיע)\.?$/.test(t) && !/לא/.test(t);
+  /* 02/11 audit: a question is never a head count ("באיזו שעה? 19:30?" was
+     written as מגיע 19), and "אולי 2" / "לא יודע, אולי 3" is undecided, not
+     a confirmed 2 — the number used to win over the doubt. */
+  const n = isQuestion(t) ? null : partyFromText(t);
+  const intent = guestIntent(t);
+  const saysNo = intent === 'no', saysYes = intent === 'yes';
   const log = (action, detail) => logEvent(env, { area: 'ווצאפ', action, ok: true, phone: from, token: guest.token, detail: `${guest.name}: "${t.slice(0, 80)}"${detail ? ' · ' + detail : ''}` }).catch(() => {});
 
+  if (intent === 'unsure') {
+    /* "לא מודע כרגע", "עוד לא יודעים": undecided, stop asking how many */
+    const saved = await writeGuestReply(env, guest, 'מתלבט');
+    if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
+    await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : 'קיבלנו, רגע רושמים 🙂');
+    await log('אורח עדיין לא יודע, סומן מתלבט', `${guest.rsvp || 'לא ענה'} → מתלבט`); return true;
+  }
   if (saysNo) {
     const saved = await writeGuestReply(env, guest, 'לא מגיע');
-    await say(saved ? 'עדכנו שלא תגיעו, תודה שהודעתם 🙏' : 'קיבלנו, רגע רושמים 🙂');
+    if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
+    if (saved) await sayDeclined(env, guest, from, say, 'עדכנו שלא תגיעו, תודה שהודעתם 🙏');
+    else await say('קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה ללא מגיע בטקסט חופשי'); return true;
   }
   if (n && (guest.rsvp === 'מגיע' || !guest.rsvp || guest.rsvp === 'מתלבט')) {
     const saved = await writeGuestReply(env, guest, 'מגיע', n);
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
-    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, 'guests', { who: 'שיר (מענה אוטומטי)' });
+    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
   }
   if (saysYes) {
-    const saved = await writeGuestReply(env, guest, 'מגיע');
-    if (saved && env.RATE) await env.RATE.put('awaitparty:' + guest.guest_id, '1', { expirationTtl: 86400 });
+    const saved = await writeGuestReply(env, guest, 'מגיע', 1);
+    if (saved && env.RATE) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
     await say(saved ? 'איזה כיף! כמה תהיו בסך הכל?' : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
@@ -3019,22 +3556,25 @@ async function guestFreeText(env, raw, guest, from, text, say) {
   }
   if (/(מתנה|ביט|פייבוקס|paybox|\bbit\b|צ'?ק|לתת כסף|להעביר כסף)/i.test(t)) {
     let gl = null; try { gl = env.RATE ? JSON.parse(await env.RATE.get('giftlinks:' + guest.token) || 'null') : null; } catch {}
+    if (gl) { if (gl.bit && !giftLinkOk(gl.bit)) gl.bit = ''; if (gl.paybox && !giftLinkOk(gl.paybox)) gl.paybox = ''; }
     if (gl && gl.on && (gl.bit || gl.paybox)) {
       await say(`🎁 מתנה לבעלי השמחה:${gl.bit ? '\nביט: ' + gl.bit : ''}${gl.paybox ? '\nפייבוקס: ' + gl.paybox : ''}`); await log('שאלת מתנה, נשלחו קישורים'); return true;
     }
   }
   if (/(איפה|כתובת|מיקום|וייז|waze|היכן|איך מגיעים|ניווט)/i.test(t) && where) {
-    const nav = env.RATE ? await env.RATE.get('navlink:' + guest.token).catch(() => '') : '';
+    const navRaw = env.RATE ? await env.RATE.get('navlink:' + guest.token).catch(() => '') : ''; const nav = navRaw && navLinkOk(navRaw) ? navRaw : '';
     await say(`📍 ${where}${nav ? '\nניווט: ' + nav : ''}`); await log('שאלת מיקום, נענתה'); return true;
   }
   if (/(מי זה|מי אתם|מי שולח|מאיפה|מה זה|למה אני)/.test(t)) {
-    await say(`זו הזמנה ל${c(5) || 'אירוע'} של ${c(34) || c(2)}, נשלחה דרך אישורי הגעה (ishur.io). אפשר לענות כאן מגיע / לא מגיע 🙂`); await log('שאלת מי זה, נענתה'); return true;
+    await say(`זו הזמנה ל${guestEventName(ev, { article: false })}, נשלחה דרך אישורי הגעה (ishur.io). אפשר לענות כאן מגיע / לא מגיע 🙂`); await log('שאלת מי זה, נענתה'); return true;
   }
   if (/^(תודה|תודה רבה|סבבה|אוקיי|ok|👍|🙏|❤️|מזל טוב|בהצלחה)/i.test(t)) { await log('אורח הודה, בלי מענה'); return true; }
   /* anything else: acknowledge, and hand the hosts the message */
   await say('קיבלנו 🙂 מעבירים לבעלי השמחה.');
-  const evName = c(34) || c(2);
-  const li = await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
+  const evName = c(34) || ('לקוח ' + c(2));   /* internal (Slack) only */
+  /* Richard 22/10: no more Linear issue per guest question (30 of them clogged
+     triage); Slack + the live log carry it. Set GUEST_Q_LINEAR=on to restore. */
+  const li = String(env.GUEST_Q_LINEAR || '') !== 'on' ? { ok: false, why: 'off' } : await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
     `**אורח:** ${guest.name || ''} · ${from.replace(/^972/, '0')}\n**אירוע:** ${evName} (${c(5)}, ${heDate(c(6))})\n**לקוח:** ${c(2)} · ${String(ev[3] || '').replace(/^972/, '0')}\n**מצב אורח:** ${guest.rsvp || 'לא ענה'}${guest.party ? ' · ' + guest.party : ''}\n\n**ההודעה:**\n> ${t.slice(0, 1000)}\n\nלענות לאורח מהאינבוקס: https://ishur.io/inbox.html`);
   await slackPost(env, `💬 *שאלת אורח לבעלי השמחה* <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}> <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>\n*אורח:* ${guest.name || from} (${from.replace(/^972/, '0')})\n*אירוע:* ${evName}\n*הודעה:* "${t.slice(0, 300)}"${li.ok ? `\n*לינאר:* <${li.url}|${li.identifier}>` : li.why === 'no-key' ? '\n_(לינאר: אין עדיין מפתח API)_' : ''}`).catch(() => {});
   await logEvent(env, { area: 'ווצאפ', action: 'הודעת אורח הועברה לבעלי השמחה', ok: true, review: true, phone: from, token: guest.token, detail: t.slice(0, 200) }).catch(() => {});
@@ -3635,6 +4175,580 @@ async function sendArtworkOnReply(env, raw, guest, from) {
 /* An RSVP from WhatsApp resolves the guest without touching the call fields */
 /* Returns whether the sheet actually took the answer. The guest is only told
    "נרשם" when it did — otherwise we keep the reply and say we are on it. */
+/* ══ Event-day blast (Richard 20/10) ══════════════════════════════════════
+   A one-off template to everyone who confirmed (and everyone who got the
+   day-before reminder) on the morning of the event, with the client's own
+   wording and the navigation link — no guest name, for lists whose names
+   are garbage. Job lives in KV edblast:<token> {at, time, what, address,
+   nav, template}; the pacer runs it once the date arrives and the send
+   window is open, only if Meta has APPROVED the template. s5e:<token>:<phone>
+   is the per-guest marker. */
+async function eventDayRecipients(env, token, raw, job = {}) {
+  const gRows = (raw && raw.guests && raw.guests.values) || [];
+  const s5d = await kvPrefix(env, `s5d:${token}:`);
+  const seen = new Set(); const out = [];
+  for (const g of gRows) {
+    if (String(g[28] || '').trim() !== token) continue;
+    const phone = normPhone(g[4] || ''); if (!phone || seen.has(phone)) continue;
+    const rsvp = String(g[15] || '').trim();
+    const confirmed = rsvp === 'מגיע';
+    /* 02/11 audit: "got the day-before reminder" also matched a guest who
+       answered לא מגיע AFTER it — they were told "today we celebrate". */
+    if (rsvp === 'לא מגיע') continue;
+    if (!confirmed && !s5d[phone]) continue;
+    /* 01/11: job.no_table — guests with a table already get ishur_shulchan today; one message per guest */
+    if (job.no_table && String(g[30] || '').trim()) continue;
+    seen.add(phone); out.push({ phone, name: String(g[3] || '').trim() });
+  }
+  return out;
+}
+
+/* 01/11: the lifecycle sends (table, day-before, event-day, postpone) used to
+   set their per-guest marker on Meta's "accepted" and never record the wamid,
+   so a cap hit (131048) could not reopen them — 244 of Hadar's reminders
+   silently stayed "sent". Same record the waves write. */
+
+/* A/B engine dependencies (ab.js evaluate). One audit day per query: a
+   multi-day audit.query silently drops days (measured 01/11). */
+function abDeps(env) {
+  return {
+    queryRows: (e, since) => tstatsRows(e, Math.min(60, Math.ceil((Date.now() - since) / 864e5) + 1),
+      { queryDay: (e2, day) => audit.query(e2, { from: day, to: day, limit: 20000 }), budget: 3 }),
+    isApproved: (name) => templateApproved(env, name),
+    numberQuality: () => Promise.all(guestPhoneIds(env).map(async id => {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=quality_rating`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      return { id, quality: String(j.quality_rating || 'UNKNOWN') };
+    })),
+    notify: (t) => slackPost(env, t).catch(() => {}),
+    /* only with AB_AUTOROTATE=on; the invitation is the one type with its own KV switch */
+    promote: async (msgType, name) => { if (msgType === 'invite' && env.RATE) await env.RATE.put('invitetmpl', name); },
+  };
+}
+
+/* APPROVED at Meta? cached 10 min in KV so the engine does not ask per guest */
+async function templateApproved(env, name) {
+  const ck = 'tmplok:' + name;
+  const c = env.RATE ? await env.RATE.get(ck).catch(() => null) : null;
+  if (c) return c === '1';
+  let ok = false;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${name}&fields=name,status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+    const j = await r.json(); ok = ((j.data || [])[0] || {}).status === 'APPROVED';
+  } catch {}
+  if (env.RATE) await env.RATE.put(ck, ok ? '1' : '0', { expirationTtl: 600 }).catch(() => {});
+  return ok;
+}
+
+/* 03/11: status + body/footer/buttons of one template on the guests WABA
+   (read-only GET; the sub-event dry run renders the exact text from it) */
+async function templateDetails(env, name) {
+  const out = { status: '', body: '', footer: '', buttons: [] };
+  if (!env.WA_TOKEN_GUESTS) return out;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${encodeURIComponent(name)}&fields=name,status,components`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+    const j = await r.json(); const t = ((j.data || []).find(x => x.name === name)) || {};
+    out.status = String(t.status || '');
+    for (const c of t.components || []) {
+      if (c.type === 'BODY') out.body = String(c.text || '');
+      else if (c.type === 'FOOTER') out.footer = String(c.text || '');
+      else if (c.type === 'BUTTONS') out.buttons = (c.buttons || []).map(b => String(b.text || ''));
+    }
+  } catch {}
+  return out;
+}
+function subeventDeps() {
+  return { isAdmin, okJson, deny, logEvent, eventRowOf, ilDate, normPhone, cleanParam, phoneBlocked, wrongNum, guestCapacity, sendingPaused, sendWindowState, isNoContactDay,
+    sendTemplate, noteGuestSend, templateDetails, kvPrefix, fetchSnapshot: (env) => fetchSnapshot(env.HOOK_STATUS), snapshotCached: (env) => snapshotCached(env) };
+}
+
+/* 02/11: status AND category, cached 10 min. A gift variant (*_matana) is only
+   used once Meta APPROVED it as UTILITY — if Meta re-categorised it MARKETING
+   it would die on 131049 for guests who already got messages, so the plain
+   template goes out instead. */
+async function templateInfo(env, name) {
+  const ck = 'tmplinfo:' + name;
+  try { const c = env.RATE ? JSON.parse((await env.RATE.get(ck)) || 'null') : null; if (c) return c; } catch {}
+  let info = { status: '', category: '' };
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${encodeURIComponent(name)}&fields=name,status,category`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+    const j = await r.json(); const t = ((j.data || []).find(x => x.name === name)) || {};
+    info = { status: String(t.status || ''), category: String(t.category || '') };
+  } catch {}
+  if (env.RATE) await env.RATE.put(ck, JSON.stringify(info), { expirationTtl: 600 }).catch(() => {});
+  return info;
+}
+async function giftVariantUsable(env, name, { allowMarketing = false } = {}) {
+  if (!name || !env.WA_TOKEN_GUESTS) return false;
+  const t = await templateInfo(env, name);
+  return t.status === 'APPROVED' && (t.category === 'UTILITY' || (allowMarketing && t.category === 'MARKETING'));
+}
+/* 03/11 (Richard): two variants of each gift template are at Meta (the
+   MARKETING originals and UTILITY "…2" copies). Whichever Meta approves first
+   is the one that goes out. Exported for tests. */
+export const GIFT_VARIANTS = { thanks: ['ishur_toda_matana', 'ishur_toda_matana2'], declined: ['ishur_matana', 'ishur_matana2'] };
+async function giftTemplateFor(env, kind) {
+  for (const name of GIFT_VARIANTS[kind] || []) {
+    if (await giftVariantUsable(env, name, { allowMarketing: true })) return name;
+  }
+  return '';
+}
+async function giftLinksOf(env, token) {
+  try { return env.RATE ? JSON.parse((await env.RATE.get('giftlinks:' + token)) || 'null') : null; } catch { return null; }
+}
+
+/* 02/11 incident: 245 table messages said "החתונה של Eleonora" (the client's
+   name, ev[2]) instead of the hosts (ev[34]). EVERY guest-facing event name
+   goes through here. Column 34 = בעלי השמחה, 2 = the paying client's name. */
+/* CLIENT-facing name (reports to the client, Slack, feedback): may fall back to
+   the client's own name — the client reading it IS that person. */
+export function eventDisplayName(ev, { article = true, fallback = 'האירוע' } = {}) {
+  const hosts = String((ev && (ev[34] || ev[2])) || '').trim();
+  const occasion = String((ev && ev[5]) || '').trim();
+  if (!occasion) return hosts || fallback;
+  return (article ? 'ה' : '') + occasion + (hosts ? ' של ' + hosts : '');
+}
+/* GUEST-facing name. 02/11 audit: eventDisplayName's ev[2] fallback is the
+   incident one level down — an event whose hosts cell (AI) is empty would
+   still tell 300 guests "של <the paying client>". A guest never sees column
+   C: no hosts → no "של …" at all. Every guest template goes through here
+   (lint: test/guest-names.test.mjs). */
+export function eventHosts(ev) { return String((ev && ev[34]) || '').trim(); }
+export function guestEventName(ev, { article = true } = {}) {
+  const hosts = eventHosts(ev);
+  const occasion = String((ev && ev[5]) || '').trim();
+  if (!occasion) return hosts || (article ? 'האירוע' : 'אירוע');
+  return (article ? 'ה' : '') + occasion + (hosts ? ' של ' + hosts : '');
+}
+/* ── a guest the client added AFTER wave 1 went out (dashboard guest-add) ──
+   02/11 audit: this used to send the invitation the second the client hit
+   "add" — at 23:40, on Shabbat, on a holiday, while sending was paused or
+   the event on hold, after the event — and without the wamid record, so a
+   Meta failure could never reopen it. Now the same gates as the waves; when
+   one is closed (or the budget is out) the guest waits in lateinv:<tok>:<phone>
+   and the pacer sends it inside the window. */
+async function lateInvite(env, ev, tok, name, phone) {
+  const p = normPhone(phone);
+  if (!ev || !env.RATE || !p) return { sent: false, why: 'with-wave' };
+  const qk = `lateinv:${tok}:${p}`;
+  const drop = async (why) => { await env.RATE.delete(qk).catch(() => {}); return { sent: false, why }; };
+  if (await env.RATE.get(`wsent:${tok}:1:${p}`)) return drop('already-sent');
+  if (await phoneBlocked(env, p)) return drop('blocked');
+  if (await wrongNum(env, tok, p)) return drop('wrong-number');
+  if (String(ev[27] || '').trim() === 'כן') return drop('cancelled');
+  const evDay = String(ev[6] || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < ilDate()) return drop('event-passed');
+  const queue = async (why) => { await env.RATE.put(qk, JSON.stringify({ name, at: new Date().toISOString(), why }), { expirationTtl: 7 * 86400 }).catch(() => {}); return { sent: false, why: 'queued:' + why }; };
+  if (!sendWindowState().open) return queue('outside-hours');
+  if (isNoContactDay(ilDate())) return queue('no-contact-day');
+  if (await sendingPaused(env)) return queue('paused');
+  if (await env.RATE.get('hold:' + tok)) return queue('hold');
+  const occasion = String(ev[5] || '').trim() || 'אירוע';
+  const hosts = eventHosts(ev) || 'בעלי השמחה';
+  const date = heDate(String(ev[6] || '').trim());
+  const time = String(ev[36] || '').trim() || 'בשעות הערב';
+  const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+  const inviteTmpl = (await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+  /* same media choice as wave 1: video, else image, else text */
+  const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
+  const invite = String(ev[44] || '').trim();
+  const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
+  const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
+  const custom = await customTemplateFor(env, tok);
+  const gname = String(name || '').trim() || 'אורח יקר';
+  const res = custom
+    ? await sendTemplate(env, p, custom.name, [], custom.header === 'NONE' ? '' : media, 'he', 'guests', { occasion, wave: 1, token: tok, name: gname })
+    : await sendTemplate(env, p, tmpl, [gname, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name: gname });
+  if (res.held) return queue('budget');
+  if (!res.ok) { await env.RATE.delete(qk).catch(() => {}); return { sent: false, why: res.error || 'send-failed' }; }
+  const gk = `wsent:${tok}:1:${p}`;
+  await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
+  await noteGuestSend(env, res, tok, 1, p, gk);
+  await addEvCost(env, tok, msgCost(tmpl)).catch(() => {});
+  await env.RATE.delete(qk).catch(() => {});
+  return { sent: true, why: 'sent' };
+}
+async function drainLateInvites(env) {
+  if (!env.RATE || !sendWindowState().open) return { sent: 0, closed: true };
+  const q = await kvPrefix(env, 'lateinv:');
+  const keys = Object.keys(q);
+  if (!keys.length) return { sent: 0 };
+  const raw = await snapshotCached(env);
+  const evRows = (raw && raw.events && raw.events.values) || [];
+  let sent = 0, tried = 0;
+  for (const k of keys) {
+    if (tried >= 10) break;
+    const [tok, phone] = k.split(':');
+    let rec = {}; try { rec = JSON.parse(q[k]) || {}; } catch {}
+    const ev = evRows.find(r => String((r || [])[1] || '').trim() === tok);
+    if (!ev) { await env.RATE.delete('lateinv:' + k).catch(() => {}); continue; }
+    tried++;
+    const r = await lateInvite(env, ev, tok, rec.name, phone);
+    if (r.sent) sent++;
+    if (/^queued:budget/.test(r.why)) break;   /* the budget is out — the rest waits */
+  }
+  return { sent, tried, queued: keys.length };
+}
+async function noteGuestSend(env, wa, token, wave, phone, gk) {
+  if (!env.RATE || !wa || !wa.ok || !wa.id) return;
+  await env.RATE.put('wamid:' + wa.id, JSON.stringify({ token, wave, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
+}
+async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
+  if (!env.RATE) return { ok: false };
+  const jobs = await kvPrefix(env, 'edblast:');
+  const today = ilDate();
+  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  const res = [];
+  for (const [token, rawJob] of Object.entries(jobs)) {
+    if (only && token !== only) continue;
+    let job = null; try { job = JSON.parse(rawJob); } catch {}
+    if (!job) continue;
+    const due = today >= String(job.at || '');
+    if (!dry && (!due || ilHour < 9 || !sendWindowState().open || isNoContactDay(today) || await sendingPaused(env) || await env.RATE.get('wacap:guests').catch(() => null))) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
+    /* the template must be live */
+    let approved = false;
+    try {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${job.template}&fields=name,status,category`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+      const j = await r.json(); const t0 = ((j.data || [])[0] || {}); approved = t0.status === 'APPROVED';
+      /* 02/11: a MARKETING template to guests who already got messages dies on 131049 — refuse it */
+      if (approved && t0.category === 'MARKETING' && !job.allow_marketing) { approved = false; await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} שיווקית — לא נשלחת לאורחים (131049). צריך תבנית utility.`, token.slice(0, 8)); }
+    } catch {}
+    const raw = await snapshotCached(env);
+    /* 02/11 audit: the job is a KV record set by hand; the event can be
+       cancelled or put on hold after it was set — never blast those */
+    const evRow = eventRowOf(raw, token);
+    if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
+      if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8));
+      res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
+    }
+    const people = await eventDayRecipients(env, token, raw, job);
+    if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
+    if (!approved) {
+      if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8));
+      res.push({ token: token.slice(0, 8), approved: false }); continue;
+    }
+    /* 02/11 gift line: an event WITHOUT seating carries it on this message
+       (the table message carries it otherwise — never both). Only the house
+       template has a gift twin; a job with its own template/params goes as is. */
+    const edVariant = giftVariantName(job.template);
+    const edGift = edVariant && eventDayGiftSlot({ giftOn: giftActive(await giftLinksOf(env, token)), hasSeating: eventHasSeating((raw && raw.guests && raw.guests.values) || [], token) }) === 'eventday'
+      && await giftVariantUsable(env, edVariant) ? edVariant : '';
+    let sent = 0, failed = 0, skipped = 0, heldCap = 0;
+    /* 02/11: the event-day blast had no budget at all — it now stops at the room Meta still gives */
+    let room = (await guestCapacity(env).catch(() => ({ remaining: 0 }))).remaining;
+    for (const p of people) {
+      const mk = `s5e:${token}:${p.phone}`;
+      if (await env.RATE.get(mk)) { skipped++; continue; }
+      if (await phoneBlocked(env, p.phone) || await wrongNum(env, token, p.phone)) { skipped++; continue; }
+      if (room <= 0) { heldCap++; continue; }
+      room--;
+      /* job.params: an explicit parameter list for a fallback template (21/10, when the day's own template is still pending at Meta) */
+      const params = Array.isArray(job.params) && job.params.length ? job.params : [job.time, job.what, job.address, job.nav];
+      const wa = edGift
+        ? await sendTemplate(env, p.phone, edGift, params, '', 'he', 'guests', { wave: 'eventday', token, components: [giftButtonComponent(token)] })
+        : await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
+      if (wa.held || wa.permanent) { failed++; break; }   /* 02/11 audit: budget out / empty job field → stop, retry next tick */
+      if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'eventday', p.phone, mk); await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
+    }
+    if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
+    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
+    if (!failed && !heldCap) await env.RATE.delete('edblast:' + token).catch(() => {});
+    if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`).catch(() => {});
+    res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap });
+  }
+  return { ok: true, jobs: res };
+}
+function clientWabaFor(channel) { return channel === 'guests' ? '1378764257421712' : clientWaba({}); }
+
+/* ══ /api/gift-blast (Richard 02/11, the Kriaf one-off on 03/11) ═══════════
+   After the event: confirmed guests get "thank you + gift" (ishur_toda_matana),
+   declined guests get the gift message (ishur_matana). Dry-run by default; a
+   full per-guest list either way. Refuses on the event day itself, before it,
+   more than 7 days after, outside 09:00–21:00 / the send window, with the
+   links off, or while sending is paused. Never more than the cap room left
+   (guestCapacity) or `max`. One message per guest: gift:<token>:<phone>, and a
+   confirmed guest who already got the day-after thank-you (s3t:) is skipped. */
+async function handleGiftBlast(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const token = String(b.token || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
+  const dry = b.dry !== false;
+  const max = Math.max(1, Math.min(500, Number(b.max) || 50));
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  if (!raw) return deny(502, 'reader-failed', origin);
+  const ev = eventRowOf(raw, token);
+  if (!ev) return deny(404, 'unknown-token', origin);
+  const today = ilDate();
+  const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  const paused = await sendingPaused(env).catch(() => false);
+  const win = sendWindowState();
+  const windowOpen = win.open && !isNoContactDay(today) && !paused;
+  const gl = await giftLinksOf(env, token);
+  const evName = eventDisplayName(ev, { article: false, fallback: 'אירוע' });   /* "ב{{2}}" / "ל{{2}}" */
+  const guests = []; const seen = new Set();
+  for (const g of (raw.guests && raw.guests.values) || []) {
+    if (String(g[28] || '').trim() !== token) continue;
+    const phone = normPhone(g[4] || ''); if (!phone || seen.has(phone)) continue; seen.add(phone);
+    guests.push({ phone, name: String(g[3] || '').trim(), rsvp: String(g[15] || '').trim() });
+  }
+  const sentMarks = new Set(), blocked = new Set();
+  for (let i = 0; i < guests.length; i += 25) {
+    await Promise.all(guests.slice(i, i + 25).map(async g => {
+      if (g.rsvp !== 'מגיע' && g.rsvp !== 'לא מגיע') return;
+      const [gm, th] = await Promise.all([env.RATE.get(giftKey(token, g.phone)).catch(() => null), g.rsvp === 'מגיע' ? env.RATE.get(`s3t:${token}:${g.phone}`).catch(() => null) : null]);
+      if (gm || th) sentMarks.add(g.phone);
+      if (await phoneBlocked(env, g.phone) || await wrongNum(env, token, g.phone)) blocked.add(g.phone);
+    }));
+  }
+  const [thanksTmpl, declinedTmpl, cap] = await Promise.all([
+    giftTemplateFor(env, 'thanks'),
+    giftTemplateFor(env, 'declined'),
+    guestCapacity(env).catch(() => ({ remaining: 0, limit: 0, used: 0, scope: '' })),
+  ]);
+  const thanksOk = !!thanksTmpl, declinedOk = !!declinedTmpl;
+  const plan = planGiftBlast({ today, eventDate: String(ev[6] || '').trim().slice(0, 10), hour, windowOpen, gl, guests, sentMarks, blocked,
+    room: cap.remaining, max, templates: { thanks: thanksTmpl, declined: declinedTmpl } });
+  const head = { token: token.slice(0, 8), event: eventDisplayName(ev), event_date: String(ev[6] || '').slice(0, 10), today, hour, dry, max,
+    window: { ...win, paused, no_contact_day: isNoContactDay(today) }, gift_links: { on: !!(gl && gl.on), bit: !!(gl && gl.bit), paybox: !!(gl && gl.paybox), page: giftActive(gl) ? 'https://go.ishur.io/gift/' + giftSlug(token) : '' },
+    templates: { thanks: thanksTmpl || 'not approved', declined: declinedTmpl || 'not approved' },
+    cap: { scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining } };
+  if (plan.refuse) return okJson({ ok: false, refused: plan.why, ...head }, origin);
+  const mask = p => p.replace(/^972/, '0').replace(/(\d{3})\d{4}(\d{3})$/, '$1-****-$2');
+  if (dry) return okJson({ ok: true, ...head, counts: plan.counts, guests: plan.list.map(x => ({ ...x, phone: mask(x.phone) })) }, origin);
+  let sent = 0, failed = 0;
+  const results = [];
+  for (const x of plan.list) {
+    if (x.action !== 'send') { results.push({ ...x, phone: mask(x.phone) }); continue; }
+    const gname = x.name || 'אורחים יקרים';
+    const wa = await sendTemplate(env, x.phone, x.template, [gname, evName], '', 'he', 'guests', { token, wave: 'gift', name: gname, who: 'שיר (מתנה)', components: [giftButtonComponent(token)] });
+    if (wa.ok) {
+      sent++;
+      const gk = giftKey(token, x.phone);
+      await env.RATE.put(gk, JSON.stringify({ at: new Date().toISOString(), via: 'blast', tmpl: x.template }), { expirationTtl: 120 * 86400 }).catch(() => {});
+      await noteGuestSend(env, wa, token, 'gift', x.phone, gk);
+      /* a confirmed guest's thank-you is THIS message — the day-after stage must not send another */
+      if (x.kind === 'thanks') await env.RATE.put(`s3t:${token}:${x.phone}`, today, { expirationTtl: 60 * 86400 }).catch(() => {});
+      await addEvCost(env, token, msgCost(x.template)).catch(() => {});
+      results.push({ ...x, phone: mask(x.phone), result: 'sent', wamid: wa.id || '' });
+    } else {
+      failed++;
+      results.push({ ...x, phone: mask(x.phone), result: wa.held ? 'held' : 'failed', error: String(wa.error || '').slice(0, 160) });
+      if (wa.held) break;   /* the cap closed under us — stop, the rest stays for later */
+    }
+  }
+  await logEvent(env, { area: 'שליחה', action: 'מתנה לאורחים אחרי האירוע (gift-blast)', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · ממתינים ${plan.counts.hold} · דולגו ${plan.counts.skip}` }).catch(() => {});
+  if (sent || failed) await slackPost(env, `🎁 *מתנה לאורחים* · ${head.event}: נשלחו ${sent}${failed ? ` · נכשלו ${failed}` : ''}${plan.counts.hold ? ` · ממתינים ${plan.counts.hold}` : ''}`).catch(() => {});
+  return okJson({ ok: true, ...head, counts: { ...plan.counts, sent, failed }, guests: results }, origin);
+}
+
+/* ══ custom invitation text per event (Richard 21/10) ══════════════════════
+   customtmpl:<token> = { name, text, status: PENDING|APPROVED|REJECTED, id,
+   header: IMAGE|NONE, reason, at, checked }. The client's own words become a
+   UTILITY template on Shir's WABA with the same RSVP buttons; wave 1 (and
+   late additions) use it once Meta approves, otherwise the house template. */
+async function metaHeaderHandle(env, imgUrl, appId, tok) {
+  let buf, type;
+  const own = String(imgUrl || '').match(/\/(vid|img)\/([0-9a-f-]{36})/);
+  if (own) {
+    const got = await env.RATE.getWithMetadata((own[1] === 'vid' ? 'vid:' : 'img:') + own[2], { type: 'arrayBuffer' });
+    if (!got || !got.value) return null;
+    buf = got.value; type = (got.metadata && got.metadata.mime) || (own[1] === 'vid' ? 'video/mp4' : 'image/jpeg');
+  } else {
+    const img = await fetch(imgUrl).catch(() => null);
+    if (!img || !img.ok) return null;
+    buf = await img.arrayBuffer(); type = img.headers.get('Content-Type') || 'image/jpeg';
+  }
+  const s1 = await fetch(`https://graph.facebook.com/v21.0/${appId}/uploads?file_length=${buf.byteLength}&file_type=${encodeURIComponent(type)}&access_token=${tok}`, { method: 'POST' });
+  const j1 = await s1.json().catch(() => ({}));
+  if (!j1.id) return null;
+  const s2 = await fetch(`https://graph.facebook.com/v21.0/${j1.id}`, { method: 'POST', headers: { Authorization: 'OAuth ' + tok, file_offset: '0', 'Content-Type': type }, body: buf });
+  const j2 = await s2.json().catch(() => ({}));
+  return j2.h ? { handle: j2.h, video: /^video/.test(type) } : null;
+}
+async function customTemplateSubmit(env, token, text, ev) {
+  const tok = env.WA_TOKEN_GUESTS, waba = '1378764257421712', appId = '1084149031015902';
+  if (!tok) return { ok: false, why: 'wa-not-configured' };
+  let prev = null; try { prev = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); } catch {}
+  const n = (prev && prev.n ? prev.n : 0) + 1;
+  const name = `ishur_c_${token.slice(0, 8).replace(/-/g, '')}_${n}`;
+  let invite = ev ? String(ev[44] || '').trim() : '';
+  /* 01/11: submitted from the upload screen seconds after setup — the sheet
+     row may not carry the artwork yet, but KV already does */
+  if (!invite && env.RATE) { try { if (await env.RATE.get('img:' + token, 'stream')) invite = 'https://go.ishur.io/img/' + token; } catch {} }
+  const components = [];
+  let header = 'NONE';
+  if (invite) {
+    const h = await metaHeaderHandle(env, invite, appId, tok);
+    if (h) { components.push({ type: 'HEADER', format: h.video ? 'VIDEO' : 'IMAGE', example: { header_handle: [h.handle] } }); header = h.video ? 'VIDEO' : 'IMAGE'; }
+  }
+  components.push({ type: 'BODY', text });
+  components.push({ type: 'FOOTER', text: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' });
+  components.push({ type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'מגיע/ה' }, { type: 'QUICK_REPLY', text: 'לא מגיע/ה' }, { type: 'QUICK_REPLY', text: 'עדיין לא ידוע' }] });
+  const tpl = { name, language: 'he', category: 'UTILITY', allow_category_change: false, components };
+  const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(tpl) }).catch(() => null);
+  const j = r ? await r.json().catch(() => ({})) : {};
+  const rec = { n, name, text, status: j.id ? (String(j.status || 'PENDING').toUpperCase()) : 'FAILED', id: j.id || '', header, reason: j.id ? '' : String((j.error && j.error.error_user_msg) || (j.error && j.error.message) || 'submit-failed').slice(0, 200), at: new Date().toISOString(), checked: '' };
+  await env.RATE.put('customtmpl:' + token, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+  await logEvent(env, { area: 'מטא', action: rec.status === 'FAILED' ? 'תבנית בהתאמה אישית נדחתה בהגשה' : 'תבנית בהתאמה אישית הוגשה לאישור', ok: rec.status !== 'FAILED', review: rec.status === 'FAILED', token, ref: name, detail: rec.reason || text.slice(0, 120) });
+  await slackPost(env, `📝 *נוסח הזמנה בהתאמה אישית* · אירוע ${token.slice(0, 8)} · ${rec.status === 'FAILED' ? '⛔ לא התקבל: ' + rec.reason : 'הוגש למטא (' + name + ')'}\n${text.slice(0, 300)}`).catch(() => {});
+  return { ok: rec.status !== 'FAILED', rec };
+}
+/* ══ client audit trail (Richard 22/10) ═══════════════════════════════════
+   audit:<token>:<ms>:<rand> = { at, ts, path, what, token, ip, country, ua,
+   body, prev, hash }. hash = sha256(prev + canonical record) → a chain per
+   event; /api/audit-export re-verifies the chain so an export can be shown
+   as untampered. Kept 400 days. */
+const AUDIT_WHAT = {
+  '/api/send-date': 'שינוי מועד שליחה', '/api/custom-template': 'נוסח הזמנה בהתאמה אישית', '/api/seatplan': 'סידור הושבה',
+  '/api/media': 'תמונת/וידאו הזמנה', '/api/guest-edit': 'עריכת פרטי אורח', '/api/interest': 'התעניינות במתנות באשראי',
+  '/api/checkin': 'סימון הגעה ביום האירוע', '/api/guest-rsvp': 'אורח ענה דרך הקישור', '/api/guest-add': 'הוספת אורח',
+  '/api/addon-pay': 'רכישת תוספת/שדרוג', '/api/guests-upload': 'העלאת רשימת מוזמנים', '/api/settings': 'שמירת הגדרות האירוע',
+  '/api/cancel': 'ביטול', '/api/referral': 'הפניית חבר',
+};
+async function auditClient(env, request, path, body) {
+  if (!env.RATE) return;
+  const token = String(body.token || '');
+  const now = Date.now();
+  const clean = {}; Object.keys(body).forEach(k => { if (!/^(sig|nonce|stamp_ts|app|admin_key)$/.test(k)) clean[k] = body[k]; });
+  let prev = ''; try { prev = (await env.RATE.get('auditlast:' + token)) || ''; } catch {}
+  const rec = {
+    at: new Date(now).toISOString(), ts: now, path, what: (path === '/api/guest-add' && body.query ? 'בדיקת מכסה להוספת אורחים' : (AUDIT_WHAT[path] || path.replace('/api/', ''))) + (body.action ? ' · ' + String(body.action).slice(0, 30) : '') + (body.name ? ' · ' + String(body.name).slice(0, 40) : '') + (body.phone ? ' · ' + String(body.phone).slice(0, 16) : '') + (body.seats || body.party ? ' · ' + (body.seats || body.party) + ' מקומות' : '') + (body.date ? ' · ' + String(body.date).slice(0, 10) : '') + (body.send ? ' · ' + body.send : '') + (body.gid || body.guest_id ? ' · ' + (body.gid || body.guest_id) : ''),
+    token, ip: request.headers.get('cf-connecting-ip') || '', country: request.headers.get('cf-ipcountry') || '',
+    ua: String(request.headers.get('user-agent') || '').slice(0, 240), body: JSON.stringify(clean).slice(0, 4000), prev,
+  };
+  rec.hash = await sha256Hex(prev + '|' + JSON.stringify({ at: rec.at, path: rec.path, token: rec.token, ip: rec.ip, ua: rec.ua, body: rec.body }));
+  const key = `audit:${token}:${now}:${Math.random().toString(36).slice(2, 6)}`;
+  await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+  await env.RATE.put('auditlast:' + token, rec.hash, { expirationTtl: 400 * 86400 });
+  stream(env, { kind: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'guest' : 'client', area: path === '/api/guest-rsvp' || path === '/api/rsvp-self' ? 'אורח' : 'לקוח', action: '👤 ' + rec.what, ok: true, token, phone: String(body.phone || ''), req: request, detail: rec.body.slice(0, 1500), data: { path, body: clean, chain_hash: rec.hash, posthog: String(body.ph || '').slice(0, 80) } }).catch(() => {});
+}
+async function auditExport(env, token, format) {
+  const all = await kvPrefix(env, 'audit:' + token + ':');
+  const rows = Object.values(all).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean).sort((a, b) => a.ts - b.ts);
+  let prev = '', broken = 0;
+  for (const r of rows) {
+    const h = await sha256Hex(prev + '|' + JSON.stringify({ at: r.at, path: r.path, token: r.token, ip: r.ip, ua: r.ua, body: r.body }));
+    r.verified = h === r.hash && r.prev === prev; if (!r.verified) broken++; prev = r.hash;
+  }
+  if (format === 'csv') {
+    const esc = v => '"' + String(v == null ? '' : v).replace(/"/g, '""') + '"';
+    const head = ['at_utc', 'at_israel', 'token', 'action', 'path', 'ip', 'country', 'user_agent', 'body', 'hash', 'prev_hash', 'verified'];
+    const lines = [head.join(',')].concat(rows.map(r => [r.at, new Date(r.ts).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem' }), r.token, r.what, r.path, r.ip, r.country, r.ua, r.body, r.hash, r.prev, r.verified ? 'yes' : 'NO'].map(esc).join(',')));
+    return '\ufeff' + lines.join('\n');
+  }
+  return { ok: true, token, count: rows.length, chain_ok: broken === 0, broken, exported_at: new Date().toISOString(), rows };
+}
+async function checkCustomTemplates(env) {
+  if (!env.RATE || !env.WA_TOKEN_GUESTS) return { checked: 0 };
+  const all = await kvPrefix(env, 'customtmpl:');
+  let checked = 0;
+  for (const [tok, raw] of Object.entries(all)) {
+    const k = 'customtmpl:' + tok;   /* kvPrefix strips the prefix */
+    let rec = null; try { rec = JSON.parse(raw); } catch {}
+    if (!rec || rec.status !== 'PENDING' || !rec.name) continue;
+    const r = await fetch(`https://graph.facebook.com/v21.0/1378764257421712/message_templates?name=${rec.name}&fields=name,status,rejected_reason`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    const t = ((j.data || [])[0]) || null; checked++;
+    if (!t) continue;
+    const st = String(t.status || '').toUpperCase();
+    if (st === 'PENDING' || st === rec.status) { rec.checked = new Date().toISOString(); await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 }); continue; }
+    rec.status = st; rec.reason = st === 'REJECTED' ? String(t.rejected_reason || '') : ''; rec.checked = new Date().toISOString();
+    await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+    const token = k.slice('customtmpl:'.length);
+    await logEvent(env, { area: 'מטא', action: st === 'APPROVED' ? 'תבנית בהתאמה אישית אושרה' : `תבנית בהתאמה אישית: ${st}`, ok: st === 'APPROVED', review: st !== 'APPROVED', token, ref: rec.name, detail: rec.reason || '' });
+    await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}${st === 'APPROVED' ? '' : '\nהלקוח רואה את זה בלוח ויכול לערוך ולהגיש שוב בעצמו; עד אז יוצא הנוסח הרגיל.'}`).catch(() => {});
+  }
+  return { checked };
+}
+async function customTemplateFor(env, token) {
+  if (!env.RATE) return null;
+  try { const rec = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); return rec && rec.status === 'APPROVED' ? rec : null; } catch { return null; }
+}
+
+/* ══ extra call round on a chosen day (Richard 21/10) ═══════════════════════
+   callround:<token> = { at, guest_ids, note, set_at, done }. On the day, from
+   09:00, the listed rows get V = נדרשת שיחה and AD (tries) = 0, so Shir's
+   queue picks them up in the call window. Nothing is dialed before the day. */
+async function drainCallRounds(env, { dry = false, only = '' } = {}) {
+  if (!env.RATE) return { ok: false };
+  const jobs = await kvPrefix(env, 'callround:');
+  const today = ilDate();
+  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  const res = [];
+  for (const [token, rawJob] of Object.entries(jobs)) {
+    const k = 'callround:' + token;   /* kvPrefix strips the prefix */
+    if (only && token !== only) continue;
+    let job = null; try { job = JSON.parse(rawJob); } catch {}
+    if (!job || job.done) continue;
+    const due = today >= String(job.at || '');
+    if (!dry && (!due || ilHour < 9)) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
+    const raw = await fetchSnapshot(env.HOOK_STATUS);
+    const gRows = ((raw && raw.guests && raw.guests.values) || []);
+    const want = new Set(job.guest_ids || []);
+    const data = [];
+    gRows.forEach((g, i) => {
+      if (String((g || [])[28] || '').trim() !== token || !want.has(String(g[2] || '').trim())) return;
+      const rsvp = String(g[15] || '').trim();
+      if (rsvp === 'מגיע' || rsvp === 'לא מגיע') return;   // answered meanwhile — leave them alone
+      if (!isIlMobile(normPhone(g[4] || ''))) return;       // abroad: WhatsApp only
+      const row = i + 2;
+      data.push({ range: `אורחים!V${row}`, values: [['נדרשת שיחה']] }, { range: `אורחים!AD${row}`, values: [['0']] });
+    });
+    const n = data.length / 2;
+    if (dry) { res.push({ token: token.slice(0, 8), due, would_flag: n, at: job.at }); continue; }
+    const okw = n ? await sheetBatchWrite(env, data) : true;
+    if (okw) { job.done = new Date().toISOString(); job.flagged = n; await env.RATE.put(k, JSON.stringify(job), { expirationTtl: 60 * 86400 }); }
+    await logEvent(env, { area: 'שיחות', action: 'סבב שיחות נוסף נפתח', ok: !!okw, review: !okw, token, detail: `${n} אורחים הוחזרו לתור של שיר · ${job.note || ''}` }).catch(() => {});
+    await slackPost(env, `📞 *סבב שיחות נוסף* · אירוע ${token.slice(0, 8)}: ${n} אורחים חזרו לתור של שיר${job.note ? ' · ' + job.note : ''}`).catch(() => {});
+    res.push({ token: token.slice(0, 8), flagged: n, ok: !!okw });
+  }
+  return { ok: true, jobs: res };
+}
+
+/* ══ "כמה תהיו?" nudges (Richard 20/10) ═══════════════════════════════════
+   A guest who says "מגיע" without a count is written as 1 and asked once on
+   the spot. If no number comes back, the pacer sends one reminder after 2h
+   and a last one after 6h — all inside Meta's 24h service window, so plain
+   text is allowed. awaitparty:<guest_id> now holds {at, phone, ch, token,
+   nudges}; a number in any form clears it (see the inbound handler). */
+const PARTY_NUDGES = [
+  { afterMs: 2 * 3600e3, text: 'רק מוודאים 🙂 כמה תגיעו בסך הכל? אפשר לענות רק במספר.' },
+  { afterMs: 6 * 3600e3, text: 'כדי שבעלי השמחה יוכלו להיערך — כמה תהיו? מספר אחד וסיימנו 🙏' },
+];
+async function armPartyNudge(env, guest, from, ch) {
+  await env.RATE.put('awaitparty:' + guest.guest_id, JSON.stringify({ at: Date.now(), phone: normPhone(from), ch, token: guest.token, nudges: 0 }), { expirationTtl: 86400 });
+}
+async function drainPartyNudges(env) {
+  if (!env.RATE) return { sent: 0 };
+  if (!sendWindowState().open) return { sent: 0, closed: true };
+  const page = await env.RATE.list({ prefix: 'awaitparty:', limit: 500 }).catch(() => null);
+  let sent = 0;
+  const rawPN = (page && page.keys && page.keys.length) ? await fetchSnapshot(env.HOOK_STATUS) : null;
+  const gRowsPN = ((rawPN && rawPN.guests && rawPN.guests.values) || []);
+  for (const k of (page && page.keys) || []) {
+    let st = null; try { st = JSON.parse(await env.RATE.get(k.name)); } catch {}
+    if (!st || !st.phone) continue;                       // legacy '1' markers from before 20/10
+    const n = Number(st.nudges) || 0;
+    const step = PARTY_NUDGES[n];
+    if (!step || Date.now() - Number(st.at) < step.afterMs) continue;
+    /* Richard 22/10: the sheet is the truth. Only "מגיע" with no count (0/1
+       default) is asked; anyone who meanwhile said מתלבט / לא מגיע / a number is left alone. */
+    const gid = k.name.slice('awaitparty:'.length);
+    const row = gRowsPN.find(g => String(g[2] || '').trim() === gid);
+    const rsvpNow = row ? String(row[15] || '').trim() : '';
+    const partyNow = row ? Number(row[16]) || 0 : 0;
+    if (!row || rsvpNow !== 'מגיע' || partyNow > 1) { await env.RATE.delete(k.name).catch(() => {}); continue; }
+    const r = await sendText(env, st.phone, step.text, st.ch || 'guests', { who: 'שיר (מענה אוטומטי)', token: st.token }).catch(() => null);
+    st.nudges = n + 1;
+    await env.RATE.put(k.name, JSON.stringify(st), { expirationTtl: 86400 }).catch(() => {});
+    if (r && r.ok) sent++;
+    await logEvent(env, { area: 'ווצאפ', action: `תזכורת כמות ${n + 1}/2 לאורח`, ok: !!(r && r.ok), phone: st.phone, token: st.token || '', detail: r && r.ok ? '' : String((r && r.error) || 'send-failed').slice(0, 200) }).catch(() => {});
+  }
+  return { sent };
+}
+
+function b_isAdminish(f) { return !!(f && f.preview_checkin); }
 async function writeGuestReply(env, guest, outcome, party) {
   const r = await fetch(env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -3672,10 +4786,21 @@ function heDate(iso) {
 
 /* one sending wave to the guests of one event. Guests are skipped when they
    opted out, and (for reminders) when they already answered. */
+/* true when Meta's health check no longer reports the business-initiated
+   conversation cap on the guests number (fail-closed: unreadable = still capped) */
+async function guestsCapCleared(env) {
+  if (!env.WA_PHONE_ID_GUESTS || !env.WA_TOKEN_GUESTS) return false;
+  const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+  const j = r ? await r.json().catch(() => null) : null;
+  const ents = (j && j.health_status && j.health_status.entities) || [];
+  if (!ents.length) return false;
+  return !ents.some(e => (e.errors || []).some(x => /business-initiated conversations/i.test(String(x.error_description || ''))));
+}
+
 async function sendWave(env, ev, token, guests, wave, dry, budget) {
   const today = ilDate();
   const occasion = String(ev[5] || '').trim() || 'אירוע';
-  const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+  const hosts = eventHosts(ev) || 'בעלי השמחה';   /* 02/11 audit: never the paying client's name (C) */
   const date = heDate(String(ev[6] || '').trim());
   const time = String(ev[36] || '').trim() || 'בשעות הערב';
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
@@ -3691,6 +4816,9 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
      Editing the live template instead would have parked it in review and
      silenced every wave meanwhile. */
   const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+  /* A/B: a reminder winner becomes the reminder's control (ab:control:reminder),
+     only when Richard switched AB_AUTOROTATE on. Otherwise = the invitation. */
+  const remindTmpl = (String(env.AB_AUTOROTATE || '') === 'on' && env.RATE && await env.RATE.get('ab:control:reminder')) || inviteTmpl;
   /* the image-header variant, once Meta approves it (the pacer flips this
      key). With it, an event that uploaded artwork sends ONE message: picture
      + invitation + buttons — to cold guests too. */
@@ -3706,6 +4834,24 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
   if (!dry && !guestsReady(env)) {
     await sendTemplate(env, '000', 'noop', [], '', 'he', 'guests');   // trips the once-a-day journal row
     return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: false, held: true };
+  }
+  /* 18/10: once the number hit Meta's 24h conversation cap, every send until
+     the window rolls is a guaranteed failure — hold the wave and re-ask Meta's
+     health endpoint each tick; the marker drops the moment it says AVAILABLE. */
+  if (!dry && env.RATE) for (const id of guestPhoneIds(env)) {   /* per-number holds lift on their own after Meta's window rolls */
+    if (await env.RATE.get('wacap:' + id).catch(() => null)) {
+      const until = Number(await env.RATE.get('wacapuntil:' + id).catch(() => 0)) || 0;
+      if (until > Date.now()) continue;   /* 02/11: backoff first, health second */
+      const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=health_status`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      if (j.health_status && String(j.health_status.can_send_message || '') === 'AVAILABLE') await env.RATE.delete('wacap:' + id).catch(() => {});
+    }
+  }
+  if (!dry && env.RATE && await env.RATE.get('wacap:guests')) {
+    const free = await guestsCapCleared(env);
+    if (!free) return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: true, held: true, capped: true };
+    await env.RATE.delete('wacap:guests').catch(() => {});
+    await slackPost(env, '▶️ *תקרת הוואטסאפ של שיר נפתחה* — הגלים ממשיכים מאיפה שנעצרו.').catch(() => {});
   }
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0; let deferred = 0;
   let truncated = false;
@@ -3781,9 +4927,31 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
        entire wave fail. The artwork goes as its own message right after. */
     const useVid = !!(videoUrl && wave.key === 1);
     const useImg = !useVid && !!(imgTmpl && invite && wave.key === 1);
-    const res = await sendTemplate(env, phone, useVid ? vidTmpl : useImg ? imgTmpl : inviteTmpl,
+    /* Richard 21/10: the client's own approved wording replaces the house invitation */
+    const custom = wave.key === 1 ? await customTemplateFor(env, token) : null;
+    /* A/B (ab.js): swaps the name only when the engine would have sent the
+       test's control anyway; off unless AB_ENABLED=on. The challenger has the
+       same six variables and the same buttons. */
+    const chosenTmpl = useVid ? vidTmpl : useImg ? imgTmpl : (wave.key === 2 ? remindTmpl : inviteTmpl);
+    const abType = wave.key === 2 ? 'reminder' : wave.key === 3 ? 'extra' : 'invite';
+    const abv = custom ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
+    const res = custom
+      ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
+      : await sendTemplate(env, phone, abv ? abv.template : chosenTmpl,
       [name, occasion, hosts, date, time, venue], useVid ? videoUrl : useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token, name });
+    /* 02/11 audit: the budget (or a missing number) is out — stop HERE and
+       leave the cursor on this guest. Before, every remaining guest of the
+       list was "failed" one by one without a Meta call, and the tick logged
+       a wall of failures for a batch that was simply queued. */
+    if (res.held) { truncated = true; break; }
+    /* an empty variable is the EVENT's data (date/venue cell), the same for
+       every guest: stop, keep the wave open, the journal says which {{n}} */
+    if (res.permanent) {
+      failed++; truncated = true;
+      await logEvent(env, { area: 'שליחה', action: 'גל נעצר — חסר נתון בשורת האירוע', ok: false, review: true, token, detail: `גל ${wave.key} · ${res.error}` }).catch(() => {});
+      break;
+    }
     if (budget) budget.left--;
     if (res.ok) {
       sent++;
@@ -3793,6 +4961,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
          this id, the webhook uses this to reopen exactly this guest. */
       if (env.RATE && res.id) await env.RATE.put('wamid:' + res.id,
         JSON.stringify({ token, wave: wave.key, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
+      if (abv && abv.test_id && res.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: res.id, phone, token, msg_type: abType });
       if (env.RATE) await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
       if (env.RATE) await env.RATE.put(`gday:${normPhone(phone)}:${today}`, token, { expirationTtl: 86400 }).catch(() => {});
       /* the artwork the client uploaded, as its own message. A failure here
@@ -3833,7 +5002,20 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
 async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   /* how many guest messages this invocation may send before it stops and
      leaves the rest for the next tick. null = no ceiling (the nightly run). */
-  const budget = opts.budget != null ? { left: Number(opts.budget) } : null;
+  /* 02/11 audit: the contact window was only enforced by the CALLERS (cron
+     budget 0 before 09:00, pacer gate). A manual /api/daily-run without a
+     budget at 22:00 sent every due wave + lifecycle message at night, and
+     the client stages (report, wrap-up, nudges, upsell) had no window at all
+     (automations-registry warning). Now: window closed → guest budget 0 and
+     client templates wait; `force` (admin test) still overrides.
+     `let`: the cap cut below (fitBatch) may replace a null budget. */
+  const windowOpen = !!(dry || opts.force || sendWindowState().open);
+  let budget = !windowOpen ? { left: 0 } : (opts.budget != null ? { left: Number(opts.budget) } : null);
+  let clientWaiting = false;
+  const sendClientE = async (...a) => {
+    if (!windowOpen) { clientWaiting = true; return { ok: false, error: 'outside-hours', held: true }; }
+    return sendClient(...a);
+  };
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
     await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
@@ -3851,7 +5033,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   if (isNoContactDay(today) && !dry && !opts.force) {
     if (env.RATE && !(await env.RATE.get('holnote:' + today))) {
       await env.RATE.put('holnote:' + today, '1', { expirationTtl: 3 * 86400 });
-      await slackPost(env, `🕯️ *${today} מסומן כיום ללא יצירת קשר.* לא נשלחו הודעות ולא בוצעו שיחות. הכל ימשיך מחר.`);
+      await slackPost(env, `🕯️ *${today} מסומן כיום ללא יצירת קשר.* לא נשלחו הודעות ולא בוצעו שיחות. הכל ימשיך מחר.`, { quiet: true });
     }
     return { ok: true, date: today, skipped: 'no-contact-day' };
   }
@@ -3871,6 +5053,29 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
   /* keep Meta's cap cached so the 80% alert has a number during the waves */
   await waCapInfo(env).catch(() => null);
+
+  /* 02/11 (Richard): "never send a batch that will be refused because the cap
+     is reached — if there's no room, don't send, queue." The tick's guest
+     budget is cut to the room Meta still gives us BEFORE the first send; the
+     waves stop at budget.left = 0 and keep their cursor, so the rest is
+     simply the next tick's queue. */
+  if (!dry && env.RATE) {
+    const cap = await guestCapacity(env).catch(() => null);
+    if (cap && cap.numbers.length) {
+      const wanted = budget ? budget.left : cap.remaining;
+      const fit = fitBatch(cap.remaining, wanted);
+      if (budget) budget.left = fit.send; else budget = { left: fit.send };
+      out.push({ type: 'cap', scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining, batch: wanted, send: fit.send, held: fit.held });
+      if (fit.held > 0) {
+        const hk = `capheld:${today}:${new Date().getUTCHours()}`;
+        if (!(await env.RATE.get(hk).catch(() => null))) {
+          await env.RATE.put(hk, '1', { expirationTtl: 2 * 3600 }).catch(() => {});
+          await logEvent(env, { area: 'שליחה', action: 'held: cap — המנה קוצרה לפני שליחה', ok: true,
+            detail: `נשארו ${cap.remaining} מתוך ${cap.limit} (${cap.scope}) · מנה ${wanted} → יוצאות ${fit.send}, בתור ${fit.held}` }).catch(() => {});
+        }
+      }
+    }
+  }
 
   /* ── stage 0.4: left a phone, never paid ────────────────────────────────
      Preview only. The live chase runs from the pacer every ten minutes; doing
@@ -3892,7 +5097,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (ageDays < 1) continue;
         if (dry) { out.push({ token, type: 'stuck_client', would_send_to: v.phone }); continue; }
         const first = (String(v.name || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-        const wa = await sendClient(env, v.phone, 'ishur_tzikoret_kovetz',
+        const wa = await sendClientE(env, v.phone, 'ishur_tzikoret_kovetz',
           [first, 'https://ishur.io/upload.html?t=' + token], { token });
         if (wa.ok) {
           await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
@@ -3916,6 +5121,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       const token = String(ev[1] || '').trim();
       if (!token || String(ev[7] || '').trim() !== 'כן') continue;
       const planEmpty = !String(ev[31] || '').trim(), tierEmpty = !String(ev[32] || '').trim();
+      /* J (invoice) is filled whenever it is empty and Morning has one — even
+         after the plan/tier fill already ran (Richard 21/10: Shilat showed "חסרה") */
+      if (!String(ev[9] || '').trim()) {
+        try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); if (inv && inv.url) fills.push({ range: `אירועים!J${i + 2}`, values: [[inv.number ? `${inv.number} · ${inv.url}` : inv.url]] }); } catch {}
+      }
       if (!planEmpty && !tierEmpty) continue;
       if (await env.RATE.get('planfill:' + token)) continue;
       let paid = null; try { paid = JSON.parse((await env.RATE.get('paid:' + token)) || 'null'); } catch {}
@@ -3987,7 +5197,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('nosetup:' + token)) continue;
     if (dry) { out.push({ token, type: 'no_setup', would_send_to: phone }); continue; }
     const first = (String(ev[2] || '').split(' ')[0] || '').trim() || 'לקוח יקר';
-    const wa = await sendClient(env, phone, 'ishur_tzikoret_kovetz',
+    const wa = await sendClientE(env, phone, 'ishur_tzikoret_kovetz',
       [first, 'https://ishur.io/upload.html?t=' + token], { token });
     if (wa.ok) {
       await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
@@ -4159,10 +5369,14 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
         for (const g of guests) {
-          const answered = String(g[15] || '').trim() !== '';
+          /* Richard 21/10: "מתלבט" is not an answer for the call round — Shir
+             calls them too, to close it one way or the other */
+          const rsvp = String(g[15] || '').trim();
+          const answered = rsvp !== '' && rsvp !== 'מתלבט';
           const gid = String(g[2] || '').trim();
           const callStatus = String(g[21] || '').trim();
           if (answered || !gid || callStatus) continue;
+          if (!isIlMobile(normPhone(g[4] || ''))) continue;   // abroad: WhatsApp only, no call
           if (dry) { queued++; continue; }
           /* per-guest marker: a guest whose queue-write already landed is not
              posted again on the retry, so a half-finished escalation costs
@@ -4174,7 +5388,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             body: JSON.stringify({
               event_type: 'call_result', guest_id: gid,
               rsvp: '__keep__', call_status: 'נדרשת שיחה',
-              answer: 'לא ענה להודעות', tries: '__keep__', party: '__keep__',
+              answer: rsvp === 'מתלבט' ? 'מתלבט - לבדוק בשיחה' : 'לא ענה להודעות', tries: '__keep__', party: '__keep__',
               ts: new Date().toISOString(),
             }),
           }).catch(() => null);
@@ -4222,21 +5436,19 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[2] || '').trim();
-    const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע שלכם' });
 
     if (dry) {
       out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
       continue;
     }
-    const wa = await sendClient(env, phone, 'ishur_doch', [
+    const wa = await sendClientE(env, phone, 'ishur_doch', [
       evName, String(confirmed), String(diners), String(declined), String(pending),
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
-    if (!wa.ok) await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה', token + ': ' + wa.error);
+    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -4269,19 +5481,31 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       else pending += 1;
     }
 
-    const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע שלכם');
+    /* 02/11 audit: 4425386 meant to drop the article for the TABLE message but
+       landed here, on the thank-you + wrap-up stage, which had used the
+       article since launch. Restored; the table stage below gets article:false.
+       Guests never read "שלכם" (that is the client's word). */
+    const evName = eventDisplayName(ev, { article: true, fallback: 'האירוע שלכם' });   /* client: ishur_syum */
+    const guestEvName = guestEventName(ev, { article: true });                       /* guests: ishur_toda_orach */
 
     /* ishur_toda_orach — a thank-you to every guest who confirmed, the day
        after. A marketing template to hundreds of people, so הכל כלול only.
        Same per-guest markers + budget shape as the cancel notice. */
     /* Richard, 11/09: the thank-you goes out on every package — it is our
        spot for a word about ishur.io */
-    if (!(env.RATE && await env.RATE.get('toda:' + token))) {
+    /* Richard 21/10: thank-you is פרמיום and up; בסיס gets none */
+    if (planKeyOf(ev) !== 'basic' && !(env.RATE && await env.RATE.get('toda:' + token))) {
       if (dry) { out.push({ token, type: 'guest_thanks', would_send: confirmed }); }
       else {
         let tsent = 0, tfail = 0, tcut = false; const tseen = new Set();
+        /* 01/11 (Richard): the thank-you carries a soft "want this for your
+           event?" line + site button. v2 is used only once Meta approved it. */
+        const todaTmpl = await templateApproved(env, 'ishur_toda_orach_v2') ? 'ishur_toda_orach_v2' : 'ishur_toda_orach';
+        /* 02/11 (Richard): gift links on → the thank-you IS the gift message
+           (ishur_toda_matana, once approved); one message, no A/B swap */
+        const todaGiftTmpl = giftActive(await giftLinksOf(env, token)) ? await giftTemplateFor(env, 'thanks') : '';
+        const todaGift = !!todaGiftTmpl;
         for (const g of gRows) {
           if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
           if (budget && budget.left <= 0) { tcut = true; break; }
@@ -4292,7 +5516,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           if (await phoneBlocked(env, gp)) continue;
           if (await wrongNum(env, token, gp)) continue;
           const gname = String(g[3] || '').trim() || 'אורח יקר';
-          const wa = await sendTemplate(env, gp, 'ishur_toda_orach', [gname, evName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)' });
+          const abv = todaGift ? { template: todaGiftTmpl } : await ab.pickVariant(env, 'thanks', gp, token, { current: todaTmpl });
+          const wa = await sendTemplate(env, gp, abv.template, [gname, guestEvName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)', ...(todaGift ? { components: [giftButtonComponent(token)] } : {}) });
+          if (wa.held) { tcut = true; break; }
+          if (wa.permanent) { tfail++; tcut = true; break; }   /* empty event data: same for every guest */
+          if (wa.ok && todaGift && env.RATE) await env.RATE.put(giftKey(token, normPhone(gp)), JSON.stringify({ at: new Date().toISOString(), via: 'thanks' }), { expirationTtl: 120 * 86400 }).catch(() => {});
+          if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone: gp, token, msg_type: 'thanks' });
           if (budget) budget.left--;
           if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); }
           else tfail++;
@@ -4307,12 +5536,16 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const review = String(brain.reviewLink || '').trim();
     const clip = String(brain.testimonialLink || '').trim();
 
+    /* v3 carries only the feedback link; the Google review is gone from the
+       flow (Richard 14/10), so only the clip link is required there */
+    const useV3 = env.RATE && (await env.RATE.get('eoe:tmpl').catch(() => null)) === 'v3';
+    const linksMissing = useV3 ? !clip : !(review && clip);
     if (dry) {
       out.push({ token, type: 'end_of_event', daysAfter, confirmed, diners, declined, pending,
-        links_missing: !(review && clip), would_send_to: phone });
+        links_missing: linksMissing, would_send_to: phone });
       continue;
     }
-    if (!review || !clip) {
+    if (linksMissing) {
       if (!(env.RATE && await env.RATE.get('eoelink:' + token))) {
         await alert(env, 'סוף-אירוע',
           'חסרים קישורי ביקורת/המלצה (מוח שירות D1/D2) — הודעת הסיום ממתינה', token.slice(0, 8));
@@ -4321,15 +5554,14 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       continue;
     }
     const fbLink = 'https://ishur.io/feedback.html?t=' + token;
-    const useV3 = env.RATE && (await env.RATE.get('eoe:tmpl').catch(() => null)) === 'v3';
     const wa = useV3
-      ? await sendClient(env, phone, 'ishur_syum_v3', [evName, fbLink])
-      : await sendClient(env, phone, 'ishur_syum', [
+      ? await sendClientE(env, phone, 'ishur_syum_v3', [evName, fbLink])
+      : await sendClientE(env, phone, 'ishur_syum', [
         evName, String(confirmed), String(diners), String(declined), String(pending), review, clip,
       ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_syum'));
-    if (!wa.ok) await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה', token + ': ' + wa.error);
+    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -4347,9 +5579,15 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('seat:' + token)) continue;
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
 
-    const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
+    /* 02/11: the table template reads "מחכים לראותכם היום ב{{2}}" — with the
+       article it went out as "בהחתונה של הדר ויצחק" (live log, 16:33 IL);
+       guestEventName never falls back to the paying client's name */
+    const evName = guestEventName(ev, { article: false });
+    /* 02/11 gift line: an event WITH seating carries it here, never on the
+       event-day message too (eventDayGiftSlot) */
+    const tableGift = !dry && eventDayGiftSlot({ giftOn: giftActive(await giftLinksOf(env, token)), hasSeating: eventHasSeating(gRows, token) }) === 'table'
+      && await giftVariantUsable(env, 'ishur_shulchan_matana');
 
     let sent = 0, failed = 0, would = 0;
     /* same discipline as the waves (review finding #5): per-guest marker,
@@ -4370,9 +5608,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (await phoneBlocked(env, phone)) continue;
       if (await wrongNum(env, token, phone)) continue;
       const gname = String(g[3] || '').trim() || 'אורח יקר';
-      const wa = await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests');
+      const wa = tableGift
+        ? await sendTemplate(env, phone, 'ishur_shulchan_matana', [gname, evName, table], '', 'he', 'guests', { occasion, wave: 'seating', token, components: [giftButtonComponent(token)] })
+        : await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests', { occasion, wave: 'seating', token });
+      if (wa.held) { cut = true; break; }
+      if (wa.permanent) { failed++; cut = true; break; }
       if (budget) budget.left--;
-      if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
+      if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'seating', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
       else failed++;
     }
     if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
@@ -4408,9 +5650,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       await env.RATE.put('plannote:' + token, today, { expirationTtl: 60 * 86400 });
     }
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
+    /* `name` feeds the CLIENT upsell greeting + Slack only: the paying client's
+       own name (C), never the hosts (02/11 audit — it greeted the client with
+       the bride's first name). Guests get evName. */
     const name = String(ev[2] || '').trim();
     const occasion = String(ev[5] || '').trim();
-    const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || 'האירוע');
+    const evName = guestEventName(ev, { article: true });   /* guests: bitul / dchiya / yom_lifnei */
     const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
     const time = String(ev[36] || '').trim() || 'בשעות הערב';
     const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ');
@@ -4418,7 +5663,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (cancelled) {
       if (!invited || date < today) continue;
       if (env.RATE && await env.RATE.get('cancelmsg:' + token)) continue;
-      if (plan !== 'premium') {
+      const cancelPaid = env.RATE && await env.RATE.get('msgaddon:' + token + ':cancel');
+      if (plan !== 'premium' && !cancelPaid) {
         if (dry) { out.push({ token, type: 'cancel_note_would_alert' }); continue; }
         if (env.RATE && !(await env.RATE.get('cancelnote:' + token))) {
           await alert(env, 'אירוע בוטל',
@@ -4445,6 +5691,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const wa = await sendTemplate(env, phone, 'ishur_bitul', [gname, evName], '', 'he', 'guests', { occasion, token });
+        if (wa.held) { cut = true; break; }
+        if (wa.permanent) { failed++; cut = true; break; }
         if (budget) budget.left--;
         if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 30 * 86400 }).catch(() => {}); }
         else failed++;
@@ -4459,7 +5707,22 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
     const sentDate = env.RATE ? await env.RATE.get('sentdate:' + token) : null;
     if (invited && sentDate && sentDate !== date && date >= today) {
-      if (plan === 'premium') {
+      const postponePaid = env.RATE && await env.RATE.get('msgaddon:' + token + ':postpone');
+      /* 02/11 audit: ANY edit of column G (a typo fix, a reformat, a sync from
+         Make) used to fire "האירוע נדחה" at every guest. A postpone notice now
+         needs an explicit decision for exactly this date: postponeok:<token>
+         = the new date, written by /api/event-change (the client's postpone /
+         restore buttons) or by an admin (/api/event-flag flag:'postponeok').
+         Without it: one alert, nothing sent. */
+      const confirmed = env.RATE ? (await env.RATE.get('postponeok:' + token).catch(() => null)) === date : false;
+      if ((plan === 'premium' || postponePaid) && !confirmed) {
+        if (dry) out.push({ token, type: 'postpone_unconfirmed', from: sentDate, to: date });
+        else if (env.RATE && !(await env.RATE.get(`postponeask:${token}:${date}`))) {
+          await env.RATE.put(`postponeask:${token}:${date}`, today, { expirationTtl: 60 * 86400 });
+          await alert(env, 'תאריך האירוע השתנה בגיליון',
+            `${evName}: ${sentDate} → ${date}. הודעת דחייה לאורחים לא נשלחה — לא ברור אם זו דחייה אמיתית או תיקון. לשליחה: /api/event-flag {token, flag:'postponeok', on:true}`, token.slice(0, 8));
+        }
+      } else if (plan === 'premium' || postponePaid) {
         if (dry) { out.push({ token, type: 'postpone_notice', would_send: guests.length, from: sentDate, to: date }); }
         else {
           /* Per-guest markers keyed to the NEW date, so a second postponement
@@ -4479,9 +5742,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             if (await wrongNum(env, token, phone)) continue;
             const gname = String(g[3] || '').trim() || 'אורח יקר';
             const wa = await sendTemplate(env, phone, 'ishur_dchiya',
-              [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, token });
+              [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests', { occasion, wave: 'postpone', token });
+            if (wa.held) { cut = true; break; }
+            if (wa.permanent) { failed++; cut = true; break; }
             if (budget) budget.left--;
-            if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
+            if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'postpone', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 60 * 86400 }).catch(() => {}); }
             else failed++;
           }
           if (sent) await addEvCost(env, token, sent * msgCost('ishur_dchiya'));
@@ -4526,15 +5791,23 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
         const navT = env.RATE ? await env.RATE.get('navtmpl') : null;
-        const navU = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
+        const navRaw = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
+        const navU = navRaw && navLinkOk(navRaw) ? navRaw : null;   /* 02/11 audit: links stored before the allowlist are re-checked at send time */
+        const abv = await ab.pickVariant(env, 'daybefore', phone, token, { current: navU ? navT : 'ishur_yom_lifnei' });
         const wa = navU
-          ? await sendTemplate(env, phone, navT, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
-          : await sendTemplate(env, phone, 'ishur_yom_lifnei',
+          ? await sendTemplate(env, phone, abv.template, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
+          : await sendTemplate(env, phone, abv.template,
             [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
             { occasion, wave: 'daybefore', token });
+        if (wa.held) { cut = true; break; }
+        if (wa.permanent) { failed++; cut = true; break; }
         if (budget) budget.left--;
-        if (wa.ok) { sent++; if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
+        if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'daybefore', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); }
+        /* 02/11 audit: the `else failed++` used to hang off the A/B `if` below,
+           so EVERY plain successful send counted as a failure — the day-before
+           flag never closed and "N שליחות נכשלו" fired every tick */
         else failed++;
+        if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone, token, msg_type: 'daybefore' });
       }
       if (dry) { if (would) out.push({ token, type: 'day_before', would_send: would }); }
       else {
@@ -4562,12 +5835,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           const first = (name.split(' ')[0] || '').trim() || 'שלום';
           if (dry) out.push({ token, type: 'upsell_basic', silent, total });
           else if (phone) {
-            const wa = await sendClient(env, phone, 'ishur_shidrug',
+            const wa = await sendClientE(env, phone, 'ishur_shidrug',
               [first, evName, `${silent} מתוך ${total}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
               await addEvCost(env, token, msgCost('ishur_shidrug'));
-              await slackPost(env, `💡 *הצעת שדרוג נשלחה* · ${name} (בסיס): ${silent}/${total} לא ענו להודעות — הוצעו שיחות של שיר`);
+              await slackPost(env, `💡 *הצעת שדרוג נשלחה* · ${name} (בסיס): ${silent}/${total} לא ענו להודעות — הוצעו שיחות של שיר`, { quiet: true });
             }
             out.push({ token, type: 'upsell_basic', sent: wa.ok });
           }
@@ -4588,12 +5861,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           const first = (name.split(' ')[0] || '').trim() || 'שלום';
           if (dry) out.push({ token, type: 'upsell_pro', silent, tried: tried.length });
           else if (phone) {
-            const wa = await sendClient(env, phone, 'ishur_shidrug_sichot',
+            const wa = await sendClientE(env, phone, 'ishur_shidrug_sichot',
               [first, evName, `${silent} מתוך ${tried.length}`], { occasion, token });
             if (wa.ok && env.RATE) await env.RATE.put('upsell2:' + token, today, { expirationTtl: 120 * 86400 });
             if (wa.ok) {
               await addEvCost(env, token, msgCost('ishur_shidrug_sichot'));
-              await slackPost(env, `💡 *הצעת הכל כלול נשלחה* · ${name} (פרמיום): ${silent}/${tried.length} לא נענו לסבב השיחות`);
+              await slackPost(env, `💡 *הצעת הכל כלול נשלחה* · ${name} (פרמיום): ${silent}/${tried.length} לא נענו לסבב השיחות`, { quiet: true });
             }
             out.push({ token, type: 'upsell_pro', sent: wa.ok });
           }
@@ -4608,12 +5881,16 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     /* did the budget cut this run short? The pacer reads this to decide
        whether the next tick has anything to do at all, which is what keeps
        144 daily ticks from costing 144 Make operations. */
-    const cut = out.some(o => o && o.truncated);
+    const cut = clientWaiting || out.some(o => o && o.truncated);   /* client messages held for the window keep the pacer armed */
     if (cut) await env.RATE.put('pacer:pending', today, { expirationTtl: 2 * 86400 });
     else if (budget) await env.RATE.delete('pacer:pending');
   }
   return { ok: true, date: today, events: out, truncated: out.some(o => o && o.truncated) };
 }
+
+/* test-only handles (02/11 audit): the lifecycle stages are exercised end to
+   end against a fake sheet + fake Meta in test/audit-send-pipeline.test.mjs */
+export { runDailyEngine as _runDailyEngine, lateInvite as _lateInvite, resendInvitation as _resendInvitation, eventDayRecipients as _eventDayRecipients, runEventDayBlasts as _runEventDayBlasts };
 
 /* ══ the pacer ═══════════════════════════════════════════════════════════════
    Everything used to happen in one burst at 09:35: every wave for every event,
@@ -4658,7 +5935,8 @@ async function templateCheck(env, out) {
         { name: 'hazmana_ishur_vid_u', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_img', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
-        { name: 'ishur_yom_lifnei_nav', key: 'navtmpl', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
+        /* 25/10 Richard ("החלף"): the nav copy is billed MARKETING (₪0.12); the plain
+           ishur_yom_lifnei is UTILITY (₪0.02). navtmpl stays unset on purpose. */
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
@@ -4668,7 +5946,7 @@ async function templateCheck(env, out) {
         ...['hazmana_ishur_v2', 'hazmana_ishur', 'ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
         ...(clientOnPortfolio(env)
-          ? ['ishur_syum_v3', 'ishur_doch_n', 'ishur_tzikoret_kovetz_n', 'ishur_tashlum_n', 'ishur_heshbonit_n', 'ishur_lo_siyem_n', 'ishur_lo_siyem_2_n', 'ishur_lo_siyem_3_n', 'ishur_shidrug_n', 'ishur_shidrug_sichot_n']
+          ? ['ishur_syum_v3', 'ishur_kod', 'ishur_doch_n', 'ishur_tzikoret_kovetz_n', 'ishur_tashlum_n', 'ishur_heshbonit_n', 'ishur_lo_siyem_n', 'ishur_lo_siyem_2_n', 'ishur_lo_siyem_3_n', 'ishur_shidrug_n', 'ishur_shidrug_sichot_n']
           : ['ishur_syum_v3', 'ishur_doch', 'ishur_tzikoret_kovetz', 'ishur_tashlum', 'ishur_heshbonit', 'ishur_kod', 'ishur_lo_siyem_2', 'ishur_lo_siyem_3'])
           .map(n => ({ name: n, key: 'tmpllive:' + n, waba: clientWaba(env), tok: clientToken(env) })),
       ];
@@ -4683,11 +5961,11 @@ async function templateCheck(env, out) {
         if (key && t.status === 'APPROVED' && /_u$/.test(t.name) && (await env.RATE.get(key)) !== t.name) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} (UTILITY) אושרה — מחליפה את הגרסה השיווקית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`);
+          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`, { quiet: true });
         } else if (key && t.status === 'APPROVED' && !c.fallbackOnly && !(await env.RATE.get(key))) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`);
+          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`, { quiet: true });
         }
         /* Richard, 11/09: any problem with a template → urgent Slack, and the
            system steps back to the previous template on its own so no send
@@ -4715,8 +5993,8 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
      approve the display name "ishur.io" on the number; tell Richard the
      moment it flips, the migration (OTP) needs him on the phone. */
   try {
-    if (!clientOnPortfolio(env) && env.WA_TOKEN && env.WA_PHONE_ID && !(await env.RATE.get('dispname:ok'))) {
-      const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID}?fields=new_display_name,new_name_status,name_status,verified_name`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
+    if (!clientOnPortfolio(env) && env.WA_TOKEN && clientPhoneId(env) && !(await env.RATE.get('dispname:ok'))) {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${clientPhoneId(env)}?fields=new_display_name,new_name_status,name_status,verified_name`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN } }).catch(() => null);
       const j = r ? await r.json().catch(() => null) : null;
       if (j && (j.new_name_status === 'APPROVED' || j.name_status === 'APPROVED' || j.name_status === 'AVAILABLE_WITHOUT_REVIEW')) {
         await env.RATE.put('dispname:ok', new Date().toISOString());
@@ -4762,6 +6040,30 @@ async function runPacer(env) {
   /* messages first: they are cheaper and they warm the 24h window a call
      lands in more gracefully than a cold ring does */
   const sendWin = sendWindowState();
+  /* 22/10 Richard: guests whose invitation failed (130472/131049/131026, not
+     yet 3 strikes) are retried automatically once per send day; before this
+     it only happened when someone ran /api/wave-retry by hand. */
+  if (sendWin.open && !(await env.RATE.get('autoretry:' + today).catch(() => null))) {
+    await env.RATE.put('autoretry:' + today, '1', { expirationTtl: 86400 }).catch(() => {});
+    try {
+      const raw = await snapshotCached(env).catch(() => null);
+      const by = await undeliveredByEvent(env, raw);
+      let n = 0, evs = 0;
+      for (const [token, ev] of Object.entries(by || {})) {
+        const list = (ev.list || []).filter(g => !g.dead);
+        if (!list.length) continue;
+        evs++;
+        const waves = new Set(list.map(g => g.wave));
+        /* 02/11 decision D5 (integration default): 3 attempts per guest per wave
+           for the wave's whole life — the daily retry reopens the guest but keeps
+           the wfail:<…> strike count (it used to delete it: 3 a day, up to 9) */
+        for (const g of list) { n++; for (const k of [`wferr:${token}:${g.wave}:${g.phone}`, `gday:${g.phone}:${today}`]) await env.RATE.delete(k).catch(() => {}); }
+        for (const w of waves) await env.RATE.delete(`wave:${token}:${w}`).catch(() => {});
+      }
+      if (n) { await env.RATE.put('pacer:pending', today, { expirationTtl: 86400 }).catch(() => {}); await logEvent(env, { area: 'שליחה', action: `ניסיון חוזר אוטומטי: ${n} אורחים ב-${evs} אירועים`, ok: true }).catch(() => {}); }
+      out.autoretry = { guests: n, events: evs };
+    } catch (e) { out.autoretry = { error: String(e && e.message) }; }
+  }
   if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
     const r = await runDailyEngine(env, false, null, { budget: PACE_SENDS }).catch(e => {
       return { ok: false, error: String((e && e.message) || e) };
@@ -4790,6 +6092,8 @@ async function runPacer(env) {
 
   /* then the dial slice */
   const callWin = callWindowState();
+  /* results of calls that already ended are collected at any hour */
+  await reconcileShirCalls(env).catch(() => {});
   if (callWin.open) {
     /* Whoever just rang US is the hottest lead in the system: somebody who
        wanted to talk to us badly enough to dial. The callback queue therefore
@@ -4903,7 +6207,10 @@ async function runDoctor(env, out, sendWin, callWin) {
       let told = []; try { told = JSON.parse(await env.RATE.get('doctor:ipnmiss-told') || '[]'); } catch {}
       const fresh = page.keys.map(k => k.name).filter(n => !told.includes(n));
       if (fresh.length) {
-        await alert(env, 'רופא · תשלומים שחנו', `${fresh.length} תשלומי Grow חדשים חונים ולא זוהו כ-ishur (סה"כ ${stuck}). אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת. לא אזכיר שוב.`, '');
+        /* info, not a red row: the nightly report must not re-list it (Richard 06/10) */
+        const ipnMsg = `${fresh.length} תשלומי Grow חדשים חונים ולא זוהו כ-ishur (סה"כ ${stuck}). אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת. לא אזכיר שוב.`;
+        await logEvent(env, { area: 'רופא · תשלומים שחנו', action: ipnMsg, ok: true, review: false }).catch(() => {});
+        if (env.SLACK_ALERT_HOOK) await slackSend(env, 'ℹ️ *רופא · תשלומים שחנו* · ' + ipnMsg, { urgent: false }).catch(() => {});
         rep.alerted++;
         await env.RATE.put('doctor:ipnmiss-told', JSON.stringify(told.concat(fresh).slice(-200))).catch(() => {});
       }
@@ -4989,6 +6296,9 @@ async function runTeamReminders(env, hourUtc, dry) {
       if (dry) { out.push({ to, would_send: msg.slice(0, 80) }); continue; }
       const res = await sendText(env, to, msg);
       out.push({ to, sent: res.ok });
+      /* free text dies after 24h of silence (131047): the reminder still has to land,
+         so it goes to Slack instead of vanishing (06/10) */
+      if (!res.ok) await slackPost(env, `:alarm_clock: *תזכורת צוות ל${r.who || to}* (לא נמסרה בוואטסאפ, חלון 24ש)\n${msg}`).catch(() => {});
     }
   }
   return { ok: true, date: today, hour: hourUtc, results: out };
@@ -5519,15 +6829,19 @@ async function handleCostLog(request, env, origin) {
     row.wa_out += Number(st.out) || 0;
     row.wa_tmpl += Number(st.tmpl) || 0;
     row.wa_fail += Number(st.fail) || 0;
-    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.02 * 100) / 100;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
   for (const [d, v] of Object.entries(shirDays)) day(d).shir_cost_usd_cents += Number(v) || 0;
+  /* 25/10: ₪ truth per day from the message log (wacost:<day>, written by the
+     cost rebuild) replaces the flat 0.53 estimate. Kept in the old field as
+     USD cents so every board formula (×USD_ILS/100) still lands on ₪. */
+  for (const [d, v] of Object.entries(await kvPrefix(env, 'wacost:'))) { const r = day(d); r.wa_cost_ils = Number(v) || 0; r.wa_cost_usd_cents = Math.round(r.wa_cost_ils * 100 / USD_ILS * 100) / 100; }
 
   const events = [];
   for (const ev of (raw && raw.events && raw.events.values) || []) {
     const token = String(ev[1] || '').trim();
     const paid = String(ev[7] || '').trim() === 'כן';
-    if (!token || !paid) continue;
+    if (!token || !paid || isTestEventRow(ev)) continue;
     const t8 = token.slice(0, 8);
     events.push({
       token8: t8,
@@ -5538,6 +6852,7 @@ async function handleCostLog(request, env, origin) {
       plan: String(ev[31] || '').trim(),
       sum_ils: Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0,
       cost_usd_cents: Number(evCosts[t8]) || 0,
+      cost_ils: Math.round(Number(evCosts[t8]) || 0) / 100,   /* evcost is ₪ agorot since 25/10 */
       invoice: String(ev[9] || '').trim(),
       cancelled: String(ev[27] || '').trim() === 'כן',
     });
@@ -5848,10 +7163,13 @@ async function handleVoiceTools(request, env, origin) {
     if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
     const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
-      event_date: '2026-10-22', reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1 };
+      event_date: '2026-10-22', reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
+      /* body.rsvp = 'מתלבט' rehearses the undecided opener (21/10) */
+      rsvp: body.rsvp === 'מתלבט' ? 'מתלבט' : '' };
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    await retellBillingGuard(env, r);
     const j = r ? await r.json().catch(() => null) : null;
     if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
     await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
@@ -5866,6 +7184,7 @@ async function handleVoiceTools(request, env, origin) {
     const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
     payload.metadata.test = 'voice-tools';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    await retellBillingGuard(env, r);
     const j = r ? await r.json().catch(() => null) : null;
     if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
     await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone: to, name: lead.name, kind: 'בדיקה (voice-tools)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
@@ -5938,16 +7257,21 @@ async function handleVoicePrompt(request, env, origin) {
     note = String(body.note || '').trim().slice(0, 140) || 'עדכון ללא הערה';
   }
 
-  const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', { general_prompt: newPrompt });
+  /* 02/11: begin_message is spoken verbatim before the prompt gets a say —
+     Shir's still carried the long 09/26 opener, so guests hung up on it.
+     Pass begin_message (empty string = wait for "הלו", then the prompt opens). */
+  const patch = { general_prompt: newPrompt };
+  if (typeof body.begin_message === 'string') patch.begin_message = body.begin_message;
+  const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', patch);
   if (!applied) return deny(502, 'retell-write-failed', origin);
 
   const n = meta.head + 1;
-  await env.RATE.put('vp:' + key + ':' + n, JSON.stringify({ prompt: newPrompt, at: now, note }));
+  await env.RATE.put('vp:' + key + ':' + n, JSON.stringify({ prompt: newPrompt, at: now, note, begin_message: patch.begin_message }));
   meta.head = n;
   meta.list.push({ n, at: now, note, chars: newPrompt.length });
   if (meta.list.length > 200) meta.list = meta.list.slice(-200);
   await env.RATE.put(metaKey, JSON.stringify(meta));
-  await slackPost(env, `🎓 *${spec.name}* · גרסה ${n} הוחלה — ${note}`).catch(() => {});
+  await slackPost(env, `🎓 *${spec.name}* · גרסה ${n} הוחלה — ${note}`, { quiet: true }).catch(() => {});
   return okJson({ ok: true, agent: key, version: n, note }, origin);
 }
 
@@ -6374,6 +7698,15 @@ async function undeliveredByEvent(env, raw) {
   async function await_sent(env, token, wave, phone) { const k = `wsent:${token}:${wave}:${phone}`; if (!(k in sentCache)) sentCache[k] = !!(await env.RATE.get(k).catch(() => null)); return sentCache[k]; }
   for (const [k, v] of Object.entries(dead)) { const [token, wave, phone] = k.split(':'); if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'dead', code: v }); }
   for (const [k, v] of Object.entries(fails)) { const [token, wave, phone] = k.split(':'); if (dead[`${token}:${wave}:${phone}`]) continue; if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'retry', code: await env.RATE.get(`wferr:${token}:${wave}:${phone}`).catch(() => '') || '' }); }
+  /* Richard 21/10 (Hadar, 100 guests): a send refused by Meta's daily cap
+     (131048) left only wferr behind, so the retry list never saw it and the
+     wave closed over it. Count every wferr without a wsent as undelivered. */
+  const errs = await kvPrefix(env, 'wferr:');
+  for (const [k, v] of Object.entries(errs)) {
+    const [token, wave, phone] = k.split(':');
+    if (dead[`${token}:${wave}:${phone}`] || fails[`${token}:${wave}:${phone}`]) continue;
+    if (!(await await_sent(env, token, wave, phone))) (out[token] = out[token] || { name: evName[token] || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'held', code: v || '' });
+  }
   return out;
 }
 function undeliveredLines(byEv) {
@@ -6467,10 +7800,17 @@ async function resendInvitation(env, guestPhone) {
   const ev = evRows.find(r => String((r || [])[1] || '').trim() === String(guest.token || '').trim());
   if (!ev) return { ok: false, why: 'event-not-found' };
   if (String(ev[27] || '').trim() === 'כן') return { ok: false, why: 'cancelled' };
+  /* 02/11 audit: findGuestByPhone falls back to the most recent row — for a
+     guest whose only event is behind them that re-sent an invitation (with
+     RSVP buttons) to an event that already happened. And never at night. */
+  const evDay = String(ev[6] || '').trim().slice(0, 10);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < ilDate()) return { ok: false, why: 'event-passed' };
+  if (await wrongNum(env, guest.token, phone)) return { ok: false, why: 'wrong-number' };
+  if (!sendWindowState().open) return { ok: false, why: 'outside-hours' };
 
   const gname = String(guest.name || '').trim() || 'אורח יקר';
   const occasion = String(ev[5] || '').trim() || 'אירוע';
-  const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
+  const hosts = eventHosts(ev) || 'בעלי השמחה';
   const date = heDate(String(ev[6] || '').trim());
   const time = String(ev[36] || '').trim() || 'בשעות הערב';
   const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
@@ -6623,6 +7963,116 @@ async function handleBlockPhone(request, env, origin) {
    ─────────────────────────────────────────────────────────────────────────── */
 const TELNYX_CONNECTION_ID = '3038128441548342863'; // FQDN connection "retell-shir"
 
+/* ══ Billing / balance guard (11/10) ═════════════════════════════════════════
+   Once a day from the 04:00 UTC cron: Telnyx balance, both WhatsApp numbers'
+   health + tier. Retell has no balance API — its create-phone-call failures
+   are caught by retellBillingGuard() at each dial site instead.
+   ─────────────────────────────────────────────────────────────────────────── */
+const BILL_WA_OK_CODES = new Set(['141010', '138024', '138025']);
+function billNum(v) { const n = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return Number.isFinite(n) ? n : null; }
+async function checkBilling(env, opts = {}) {
+  const dry = !!opts.dry;
+  const findings = [];
+  const add = (vendor, level, msg) => findings.push({ vendor, level, msg });
+  const telnyx = {};
+  /* ── Telnyx ── */
+  if (env.TELNYX_KEY) {
+    let j = null, st = 0;
+    try {
+      const r = await fetch('https://api.telnyx.com/v2/balance', { headers: { Authorization: 'Bearer ' + env.TELNYX_KEY } });
+      st = r.status; if (r.ok) j = await r.json();
+    } catch {}
+    const d = (j && j.data) || null;
+    if (!d) {
+      let n = 0; try { n = parseInt(await env.RATE.get('billfail:telnyx') || '0', 10) || 0; } catch {}
+      n++;
+      if (env.RATE && !dry) await env.RATE.put('billfail:telnyx', String(n), { expirationTtl: 7 * 86400 }).catch(() => {});
+      telnyx.readFails = n;
+      if (n >= 2) add('Telnyx', 'warn', `לא הצלחתי לקרוא את היתרה ${n} פעמים ברצף (status ${st || 'unreachable'})`);
+    } else {
+      if (env.RATE && !dry) await env.RATE.delete('billfail:telnyx').catch(() => {});
+      telnyx.balance = billNum(d.balance); telnyx.available = billNum(d.available_credit); telnyx.credit_limit = billNum(d.credit_limit);
+      const av = telnyx.available != null ? telnyx.available : telnyx.balance;
+      if (av != null && av < 3) add('Telnyx', 'urgent', `יתרה זמינה $${av.toFixed(2)} (מתחת ל-$3). שיחות של שיר ייעצרו.`);
+      else if (av != null && av < 10) add('Telnyx', 'warn', `יתרה זמינה $${av.toFixed(2)} (מתחת ל-$10).`);
+    }
+  }
+  /* ── WhatsApp, both numbers ── */
+  let ydTmpl = 0;
+  try {
+    const yd = new Date(Date.parse(ilDate()) - 864e5).toISOString().slice(0, 10);
+    ydTmpl = Number((JSON.parse(await env.RATE.get('wastat:' + yd) || '{}') || {}).tmpl) || 0;
+  } catch {}
+  const wa = [];
+  for (const n of [
+    { name: 'שיר 6673', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, guests: true },
+    { name: 'נועה 4499', waba: clientWaba(env), tok: clientToken(env) },
+  ]) {
+    let j = null;
+    try {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${n.waba}/phone_numbers?fields=display_phone_number,messaging_limit_tier,quality_rating,health_status`,
+        { headers: { Authorization: 'Bearer ' + n.tok } });
+      if (r.ok) j = await r.json();
+    } catch {}
+    const rows = (j && j.data) || null;
+    if (!rows || !rows.length) { add('WhatsApp', 'urgent', `${n.name}: אין תשובה ממטא על המספר`); wa.push({ name: n.name, ok: false }); continue; }
+    for (const p of rows) {
+      const q = String(p.quality_rating || '');
+      const tier = String(p.messaging_limit_tier || '');
+      const codes = [];
+      const walk = (o) => { if (!o || typeof o !== 'object') return; if (Array.isArray(o)) return o.forEach(walk);
+        for (const [k, v] of Object.entries(o)) { if (k === 'error_code' && v != null) codes.push(String(v)); else walk(v); } };
+      walk(p.health_status);
+      const bad = [...new Set(codes.filter(c => !BILL_WA_OK_CODES.has(c)))];
+      wa.push({ name: n.name, phone: p.display_phone_number, quality: q, tier, codes });
+      if (q && q !== 'GREEN') add('WhatsApp', q === 'RED' ? 'urgent' : 'warn', `${n.name}: דירוג איכות ${q}`);
+      if (bad.length) add('WhatsApp', bad.includes('131042') ? 'urgent' : 'warn',
+        `${n.name}: קודי שגיאה בבריאות המספר ${bad.join(', ')}${bad.includes('131042') ? ' (131042 בעיית תשלום בחשבון מטא)' : ''}`);
+      if (n.guests && tier === 'TIER_250' && ydTmpl > 200) add('WhatsApp', 'warn', `${n.name}: מדרגה TIER_250 ואתמול נשלחו ${ydTmpl} תבניות. מחר עלול לחסום.`);
+    }
+  }
+  const out = { ok: true, dry, telnyx, wa, ydTmpl, findings };
+  if (!findings.length || dry) return out;
+  /* ── one Slack message ── */
+  const urgent = findings.some(f => f.level === 'urgent');
+  const text = `💳 *בדיקת יתרות וחיוב*\n\n` + findings.map(f => `${f.level === 'urgent' ? '🔴' : '🟠'} ${f.vendor}: ${f.msg}`).join('\n\n');
+  await slackSend(env, text, { urgent }).catch(() => {});
+  out.slack = true;
+  /* ── Linear: urgent only, once per vendor per 3 days ── */
+  out.linear = [];
+  for (const v of [...new Set(findings.filter(f => f.level === 'urgent').map(f => f.vendor))]) {
+    const k = 'billlinear:' + v;
+    if (env.RATE && await env.RATE.get(k).catch(() => null)) continue;
+    if (env.RATE) await env.RATE.put(k, '1', { expirationTtl: 3 * 86400 }).catch(() => {});
+    const r = await linearTriageIssue(env, `לטעון יתרה: ${v}`, findings.filter(f => f.vendor === v).map(f => '- ' + f.msg).join('\n')).catch(() => null);
+    out.linear.push({ vendor: v, ok: !!(r && r.ok) });
+  }
+  return out;
+}
+
+/* Retell has no balance API: a failed create-phone-call that smells of
+   billing is the only signal. Throttled to one alert per 6h. Never throws. */
+async function retellBillingGuard(env, r) {
+  try {
+    if (!r || r.ok) return false;
+    let body = ''; try { body = await r.clone().text(); } catch {}
+    if (!(r.status === 402 || /balance|credit|payment|insufficient/i.test(body))) return false;
+    if (env.RATE && await env.RATE.get('billretell')) return false;
+    if (env.RATE) await env.RATE.put('billretell', '1', { expirationTtl: 6 * 3600 });
+    await alert(env, 'Retell', 'יתרת שיחות נגמרה / בעיית חיוב', String(r.status));
+    return true;
+  } catch { return false; }
+}
+
+async function handleBillingCheck(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
+  const res = await checkBilling(env, { dry: body.dry !== false }).catch(e => ({ ok: false, error: String(e && e.message) }));
+  return okJson(res, origin);
+}
+/* ══ end billing guard ══ */
+
 async function checkTelnyx(env) {
   if (!env.TELNYX_KEY) return { ok: false, why: 'no-key' };
   if (env.RATE && await env.RATE.get('telnyxdone')) return { ok: true, why: 'already-wired' };
@@ -6696,6 +8146,11 @@ async function handleSendDate(request, env, origin) {
   const date = String(body.date || '').trim().slice(0, 10);
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return deny(400, 'bad-date', origin);
 
+  /* the extra send is a paid add-on — no date until Grow confirmed it */
+  if (spec.n === 3 && env.RATE && !(await env.RATE.get('extrasend:' + token))) {
+    return deny(402, 'extra-not-paid', origin);
+  }
+
   /* a wave that already went out cannot be moved */
   if (env.RATE && await env.RATE.get(`wave:${token}:${spec.n}`)) {
     return deny(409, 'already-sent', origin);
@@ -6741,6 +8196,13 @@ async function handleSendDate(request, env, origin) {
   let out = null;
   try { out = await r.json(); } catch {}
   if (!out || !out.totalUpdatedCells) return deny(502, 'sheet-write-failed', origin);
+  /* Richard 22/10: the client knowingly scheduled before their custom wording
+     is approved. Keep a verifiable record (like marketing-consent), no Slack. */
+  if (body.ack_pending === true) {
+    const ack = { at: new Date().toISOString(), send: body.send, date, template_id: String(body.template_id || ''), shown: String(body.shown || '').slice(0, 600), ip: request.headers.get('cf-connecting-ip') || '', ua: String(request.headers.get('user-agent') || '').slice(0, 200), country: request.headers.get('cf-ipcountry') || '' };
+    if (env.RATE) await env.RATE.put('ctack:' + token + ':' + Date.now(), JSON.stringify(ack), { expirationTtl: 400 * 86400 }).catch(() => {});
+    await logEvent(env, { area: 'לוח', action: 'הלקוח אישר מועד שליחה לפני אישור הנוסח האישי', ok: true, token, ref: body.send, detail: `${date} · ${ack.ip}` }).catch(() => {});
+  }
   return okJson({ ok: true, send: body.send, date }, origin);
 }
 
@@ -6776,7 +8238,6 @@ async function tryPortfolioOtp(env) {
   if (ok) {
     const msg = '📲 מטא שלחה עכשיו SMS עם קוד אימות למספר 055-950-4499. שלח לי את 6 הספרות ואני מסיים את המעבר של נועה לפורטפוליו.';
     await slackPost(env, msg).catch(() => {});
-    await sendText(env, '972545764327', msg, 'guests').catch(() => {});
   } else {
     await slackPost(env, `⏳ ניסיון יומי לקוד אימות ל-4499 נכשל: ${why}. ננסה מחר.`).catch(() => {});
   }
@@ -6800,9 +8261,10 @@ async function drainAdminCalls(env) {
     const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
     payload.metadata.test = 'admin-scheduled';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+    await retellBillingGuard(env, r);
     const ok = !!(r && r.ok);
     await logRow(env, 'calls', { agent: 'נועה', dir: 'יוצאת', phone, name: lead.name, kind: 'שיחה מתוזמנת (אדמין)', status: ok ? 'חויג ' + ilTime() : 'נכשל', id: '' }).catch(() => {});
-    await slackPost(env, ok ? `📞 נועה מתקשרת עכשיו ל-${lead.name} (${phone.replace(/^972/, '0')}), שיחה שתוזמנה.` : `⚠️ שיחה מתוזמנת של נועה ל-${phone} לא יצאה.`).catch(() => {});
+    await slackPost(env, ok ? `📞 נועה מתקשרת עכשיו ל-${lead.name} (${phone.replace(/^972/, '0')}), שיחה שתוזמנה.` : `⚠️ שיחה מתוזמנת של נועה ל-${phone} לא יצאה.`, { quiet: true }).catch(() => {});
     if (ok) dialed++;
   }
   return { dialed };
@@ -6831,179 +8293,13 @@ async function handleMetaAdmin(request, env, origin) {
   return okJson({ ok: r.ok, status: r.status, data: out }, origin);
 }
 
-/* ══ Meta ads: server-side purchases + the 4-day campaign review ═════════════
-   META_ADS_TOKEN is a system-user token that never expires. It does three jobs:
-   1) capiPurchase — every Grow payment is reported back to Meta server-side
-      with event_id 'pur_<ref>'; the browser fires the same id from thanks.html
-      so Meta dedups, and closed customers keep teaching the ads algorithm.
-   2) runAdReview — every 4 days (worker cron, no chat session involved) pull
-      campaign structure + insights, apply the stop-rules from the campaign
-      doc, diff against the previous snapshot, refresh adspend:<month> so the
-      CAC gauge feeds itself, and WhatsApp the report from Noa's number.
-   3) /api/ad-review — the same review on demand, admin-gated.
-   ─────────────────────────────────────────────────────────────────────────── */
-const META_PIXEL_ID = '1412366810814749';
-const META_AD_ACCOUNT = 'act_1944903292858482';
-const META_CAMPAIGN_ID = '120250009883070731';
-
-/* ── ads health ──────────────────────────────────────────────────────────
-   Richard, 09/09: "next time I want you to know before me and tell me in
-   Slack". Meta shows an error banner in Ads Manager; nobody looks there
-   hourly. This asks the API the same question — account standing, every
-   ad set and ad under the campaign, their effective status and Meta's own
-   issues_info — and returns the list of things a human would call "an
-   error". The pacer runs it once an hour inside Slack hours and pings
-   (urgent) for anything not already pinged in the last 24h. */
-const AD_BAD = /DISAPPROVED|WITH_ISSUES|PENDING_REVIEW|ADSET_PAUSED|CAMPAIGN_PAUSED|DELETED|ARCHIVED/;
-async function adsHealth(env) {
-  const out = { ok: true, checked_at: new Date().toISOString(), account: null, campaign: null, issues: [] };
-  const acct = await metaAds(env, `/${META_AD_ACCOUNT}?fields=account_status,disable_reason,name,funding_source_details{display_string}`);
-  if (acct && acct.ok && acct.data) {
-    const a = acct.data;
-    out.account = { status: a.account_status, disable_reason: a.disable_reason, funding: (a.funding_source_details || {}).display_string || '' };
-    if (Number(a.account_status) !== 1) out.issues.push({ level: 'account', name: a.name || META_AD_ACCOUNT, status: String(a.account_status), why: 'חשבון המודעות לא פעיל (' + (a.disable_reason || '') + ')' });
-  } else if (acct && !acct.ok) {
-    out.ok = false; out.error = JSON.stringify(acct.data || acct).slice(0, 300); return out;
-  }
-  const camp = await metaAds(env, `/${META_CAMPAIGN_ID}?fields=name,status,effective_status,issues_info`);
-  if (camp && camp.ok && camp.data) {
-    out.campaign = { name: camp.data.name, status: camp.data.status, effective_status: camp.data.effective_status };
-    for (const i of (camp.data.issues_info || [])) out.issues.push({ level: 'campaign', name: camp.data.name, status: camp.data.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
-  }
-  const ads = await metaAds(env, `/${META_CAMPAIGN_ID}/ads?fields=id,name,status,effective_status,configured_status,issues_info,adset{id,name,status,effective_status,issues_info}&limit=200`);
-  const list = (ads && ads.ok && ads.data && ads.data.data) || [];
-  out.ads = list.map(x => ({ id: x.id, name: x.name, status: x.status, effective: x.effective_status, adset: (x.adset || {}).name || '', adset_effective: (x.adset || {}).effective_status || '' }));
-  const seenAdset = {};
-  for (const x of list) {
-    const set = x.adset || {};
-    if (set.id && !seenAdset[set.id]) {
-      seenAdset[set.id] = 1;
-      for (const i of (set.issues_info || [])) out.issues.push({ level: 'adset', id: set.id, name: set.name, status: set.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
-    }
-    /* a paused ad is a choice; an ad the reviewer rejected or that Meta
-       flags is the error Richard saw. never-launched leftovers count too. */
-    for (const i of (x.issues_info || [])) out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: i.error_summary || i.error_message || i.error_type || '' });
-    if (!(x.issues_info || []).length && x.status === 'ACTIVE' && AD_BAD.test(String(x.effective_status || '')) && !/PAUSED/.test(String(x.effective_status)))
-      out.issues.push({ level: 'ad', id: x.id, name: x.name, status: x.effective_status, why: 'מודעה פעילה במצב ' + x.effective_status });
-  }
-  return out;
-}
-
-async function adsHealthAlert(env) {
-  if (!env.RATE || !env.META_ADS_TOKEN) return;
-  const h = await adsHealth(env);
-  if (!h.ok) { await slackSend(env, `⚠️ *מודעות*: לא הצלחתי לקרוא את מצב החשבון ממטא — ${h.error || ''}`, { urgent: true }); return; }
-  const fresh = [];
-  for (const i of h.issues) {
-    const key = 'adsalert:' + (i.id || i.level) + ':' + String(i.why || i.status).slice(0, 40).replace(/\s+/g, '_');
-    if (await env.RATE.get(key)) continue;
-    await env.RATE.put(key, '1', { expirationTtl: 86400 }).catch(() => {});
-    fresh.push(i);
-  }
-  if (!fresh.length) return;
-  const lines = fresh.map(i => `• ${i.level === 'account' ? 'חשבון' : i.level === 'campaign' ? 'קמפיין' : i.level === 'adset' ? 'סט' : 'מודעה'} *${i.name}* — ${i.status}${i.why ? ' · ' + i.why : ''}`);
-  await slackSend(env, `🚨 *שגיאה במודעות* (${fresh.length})\n${lines.join('\n')}\nלטיפול: business.facebook.com/adsmanager`, { urgent: true });
-}
 
 
 
-/* ── ads account watchdog (Richard 04/10/26) ───────────────────────────────
-   Every 10 minutes, hourly on the wire: is the ad account allowed to spend,
-   and is anything that should run actually running? A changed verdict posts
-   to Slack once (not every tick) with what is wrong and what I can or cannot
-   do about it. Payment problems are his: a card can only be fixed by him. */
-const ADS_STATUS = { 1: 'ACTIVE', 2: 'DISABLED', 3: 'UNSETTLED', 7: 'PENDING_RISK_REVIEW', 8: 'PENDING_SETTLEMENT', 9: 'IN_GRACE_PERIOD', 100: 'PENDING_CLOSURE', 101: 'CLOSED', 201: 'ANY_ACTIVE', 202: 'ANY_CLOSED' };
-async function adsHealthWatch(env) {
-  if (!env.RATE || !env.META_ADS_TOKEN) return { skipped: true };
-  const hourKey = 'adswatch:' + new Date().toISOString().slice(0, 13);
-  if (await env.RATE.get(hourKey)) return { skipped: 'hour' };
-  await env.RATE.put(hourKey, '1', { expirationTtl: 2 * 3600 }).catch(() => {});
-  const acct = await metaAds(env, '/act_1944903292858482?fields=account_status,disable_reason,balance,amount_spent', 'GET');
-  const a = (acct && acct.data) || {};
-  const ads = await metaAds(env, '/act_1944903292858482/ads?fields=name,status,effective_status,issues_info{error_summary}&limit=50', 'GET');
-  const rows = ((ads && ads.data && ads.data.data) || []).filter(x => x.status === 'ACTIVE');
-  const broken = rows.filter(x => !['ACTIVE', 'IN_PROCESS', 'PENDING_REVIEW'].includes(x.effective_status));
-  const statusName = ADS_STATUS[a.account_status] || String(a.account_status || '?');
-  const verdict = `${statusName}|${broken.length}`;
-  const last = await env.RATE.get('adswatch:last');
-  if (last === verdict) return { same: true, verdict };
-  await env.RATE.put('adswatch:last', verdict).catch(() => {});
-  const billing = 'https://business.facebook.com/latest/billing_hub/accounts/details/?payment_account_id=1944903292858482&business_id=1888051741895896';
-  if (a.account_status === 1 && !broken.length) {
-    if (last) await slackPost(env, `✅ פרסום | חשבון המודעות חזר לפעול. ${rows.length} מודעות פעילות, אין שגיאות.`);
-    return { ok: true, verdict };
-  }
-  const lines = [];
-  if (a.account_status !== 1) {
-    const why = a.account_status === 3 ? 'תשלום לא עבר: צריך לאמת כרטיס ולשלם את היתרה' : a.account_status === 2 ? 'החשבון הושבת ע"י מטא (disable_reason ' + a.disable_reason + ')' : 'סטטוס ' + statusName;
-    lines.push(`🚨 פרסום | חשבון המודעות לא מציג: ${why}. יתרה ₪${(Number(a.balance || 0) / 100).toFixed(2)}.`);
-    lines.push(`זה כרטיס אשראי, רק אתה יכול: ${billing}`);
-  }
-  if (broken.length) {
-    lines.push(`⚠️ ${broken.length} מודעות פעילות לא מוצגות: ` + broken.map(x => `${x.name.replace(/[‎‏]/g, '').slice(0, 30)} (${(x.issues_info || []).map(i => i.error_summary).join(', ') || x.effective_status})`).join(' · '));
-  }
-  await slackPost(env, lines.join('\n'), { urgent: true });
-  await logEvent(env, { area: 'פרסום', action: 'חשבון מודעות: ' + verdict, ok: false, review: true, detail: lines.join(' ').slice(0, 300) }).catch(() => {});
-  return { ok: false, verdict };
-}
 
-async function metaAds(env, path, method, payload) {
-  if (!env.META_ADS_TOKEN) return null;
-  const init = { method: method || 'GET', headers: { Authorization: 'Bearer ' + env.META_ADS_TOKEN } };
-  if (payload && init.method !== 'GET') {
-    const b = new URLSearchParams();
-    for (const [k, v] of Object.entries(payload)) b.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
-    init.body = b;
-  }
-  const r = await fetch('https://graph.facebook.com/v21.0' + path, init).catch(() => null);
-  if (!r) return null;
-  let j = null;
-  try { j = await r.json(); } catch {}
-  return { ok: r.ok, status: r.status, data: j };
-}
 
-/* 10.9: Lead and InitiateCheckout from the server, same event_id the pixel
-   used in the browser ('lead_<session>' / 'ic_<session>'), so Meta dedups and
-   a blocked pixel still leaves the event. */
-async function capiEvent(env, name, { phone, email, eventId, value }) {
-  if (!env.META_ADS_TOKEN || !eventId) return;
-  if (env.RATE && await seenOnce(env, 'capi:' + eventId)) return;
-  const user_data = {};
-  const ph = normPhone(phone);
-  if (ph) user_data.ph = [await sha256Hex(ph)];
-  const em = String(email || '').trim().toLowerCase();
-  if (em) user_data.em = [await sha256Hex(em)];
-  if (!user_data.ph && !user_data.em) return;
-  const ev = {
-    event_name: name, event_time: Math.floor(Date.now() / 1000), event_id: String(eventId),
-    action_source: 'website', event_source_url: 'https://ishur.io/', user_data,
-    ...(value ? { custom_data: { value: Number(value) || 0, currency: 'ILS' } } : {}),
-  };
-  const r = await metaAds(env, `/${META_PIXEL_ID}/events`, 'POST', { data: [ev] });
-  if (!r || !r.ok) await logEvent(env, { area: 'מטא', action: `CAPI ${name} לא דווח`, ok: false, phone: ph, detail: JSON.stringify((r && r.data && r.data.error) || 'no-response').slice(0, 200) }).catch(() => {});
-}
-async function capiPurchase(env, { phone, email, value, ref }) {
-  if (!env.META_ADS_TOKEN || !ref) return;
-  const user_data = {};
-  const ph = normPhone(phone);
-  if (ph) user_data.ph = [await sha256Hex(ph)];
-  const em = String(email || '').trim().toLowerCase();
-  if (em) user_data.em = [await sha256Hex(em)];
-  const ev = {
-    event_name: 'Purchase',
-    event_time: Math.floor(Date.now() / 1000),
-    event_id: 'pur_' + String(ref),
-    action_source: 'website',
-    event_source_url: 'https://ishur.io/thanks.html',
-    user_data,
-    custom_data: { value: Number(value) || 0, currency: 'ILS' },
-  };
-  const r = await metaAds(env, `/${META_PIXEL_ID}/events`, 'POST', { data: [ev] });
-  if (!r || !r.ok) {
-    await slackPost(env, `⚠️ CAPI: רכישה ${ref} לא דווחה למטא — ` +
-      JSON.stringify((r && r.data && r.data.error) || 'no-response').slice(0, 220)).catch(() => {});
-  }
-}
+
+
 
 /* One row a day in the 'תנועה יומית' tab: what the site did and what the ads
    cost, side by side. KV keeps 400 days; the sheet keeps it forever and can be
@@ -7115,7 +8411,10 @@ async function callBoard(env) {
     const raw = await snapshotCached(env);
     if (raw) {
       const { queue } = buildCallQueue(raw);
-      guests = (queue || []).map(q => ({
+      /* 02/11 (Richard): the dialler already skips past events (shouldDial);
+         the board must not show them as waiting either */
+      const todayIl = ilDate();
+      guests = (queue || []).filter(q => !(q.event_date && q.event_date < todayIl)).map(q => ({
         kind: 'guest',
         who: 'שיר',
         from: '+972555074446',
@@ -7172,6 +8471,8 @@ async function callBoard(env) {
       const st = String(c.call_status || '');
       const live = st === 'ongoing' || st === 'registered';
       const ended = !live;
+      const otherParty = (inbound ? c.from_number : c.to_number) || '';
+      if (otherParty && isTestPhone(env, otherParty)) return null;
       /* green only when the call actually reached a person and did its job;
          everything else is amber or red, never a silent pass */
       const okCall = ended && !!cad.got_answer && !cad.needs_review;
@@ -7206,7 +8507,7 @@ async function callBoard(env) {
         reason_he: reasonHe(c.disconnection_reason, st),
         id: c.call_id || '',
       };
-    });
+    }).filter(Boolean);
   } catch {}
 
   return {
@@ -7253,6 +8554,21 @@ async function runAdReview(env, opts = {}) {
   const insR = await metaAds(env, `/${META_CAMPAIGN_ID}/insights?level=adset&fields=adset_name,spend,impressions,clicks,ctr,frequency,actions&time_range=${range}`);
   const rows = (insR && insR.ok && insR.data && insR.data.data) || [];
   const monthR = await metaAds(env, `/${META_AD_ACCOUNT}/insights?fields=spend&time_range=${encodeURIComponent(JSON.stringify({ since: today.slice(0, 7) + '-01', until: today }))}`);
+  /* the other campaigns on the account, same period, campaign level only */
+  const others = [];
+  for (const oc of META_OTHER_CAMPAIGNS) {
+    const t = await metaAds(env, `/${oc.id}?fields=name,status,effective_status,created_time,daily_budget,adsets.limit(10){daily_budget,status}`).catch(() => null);
+    const ins = await metaAds(env, `/${oc.id}/insights?fields=spend,impressions,clicks,ctr,frequency,actions&time_range=${range}`).catch(() => null);
+    const row = (ins && ins.ok && ins.data && ins.data.data && ins.data.data[0]) || {};
+    const td = (t && t.ok && t.data) || {};
+    const budget = td.daily_budget != null ? Number(td.daily_budget) / 100
+      : ((td.adsets && td.adsets.data) || []).reduce((n, a) => n + (a.status === 'ACTIVE' && a.daily_budget ? Number(a.daily_budget) / 100 : 0), 0) || null;
+    let leads = 0; for (const a of row.actions || []) if (a.action_type === 'offsite_conversion.fb_pixel_lead' || a.action_type === 'lead') leads = Math.max(leads, Number(a.value) || 0);
+    const spend = Number(row.spend) || 0;
+    others.push({ id: oc.id, who: oc.who, name: td.name || oc.id, status: td.status || '', effective_status: td.effective_status || '', since_created: String(td.created_time || '').slice(0, 10),
+      daily_budget: budget, spend: Math.round(spend), impressions: Number(row.impressions) || 0, clicks: Number(row.clicks) || 0, ctr: row.ctr != null ? Number(row.ctr) : null, frequency: row.frequency != null ? Number(row.frequency) : null,
+      leads, cpl: leads ? Math.round(spend / leads) : null });
+  }
 
   const leadsOf = (r) => {
     let n = 0;
@@ -7349,14 +8665,9 @@ async function runAdReview(env, opts = {}) {
     `הדוח הבא: ${nextDate} (אוטומטי מהענן, כל 4 ימים)`,
   ].join('\n\n');
 
-  /* the report goes out from Noa's number to every admin phone + Slack copy */
-  const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim())).filter(Boolean);
+  /* Richard 14/10: Slack only — the WhatsApp copy to the admin phones was a
+     duplicate of the same text */
   const sends = [];
-  for (const p of admins) {
-    let sent = false;
-    try { const r = await sendText(env, p, text); sent = !!r; } catch {}
-    sends.push({ to: p.slice(-4), sent });
-  }
   await slackPost(env, text).catch(() => {});
 
   await env.RATE.put('adrev:last', new Date(now).toISOString()).catch(() => {});
@@ -7373,60 +8684,15 @@ async function runAdReview(env, opts = {}) {
     inactive_adsets: treeSets.filter(a => !adsetRows.some(r => r.name === a.name)).map(a => ({ name: a.name, status: a.status, daily_budget: a.daily_budget != null ? Number(a.daily_budget) / 100 : null })),
     totals: { spend: Math.round(tot.spend), impressions: tot.imp, clicks: tot.clicks, leads: tot.leads }, cpl,
     month: mo, month_spend: monthSpend, cac: cm || null,
+    others,
     flags, changes, next: nextDate, text,
   };
   await env.RATE.put('adlog:' + today, JSON.stringify(snapshot), { expirationTtl: 200 * 86400 }).catch(() => {});
 
-  return { ok: true, since, until: today, totals: tot, cpl, flags, changes, sends, report: text };
+  return { ok: true, since, until: today, totals: tot, cpl, flags, changes, sends, others, report: text };
 }
 
-/* POST /api/ad-reports {admin_key, date?} — the archive behind ad-report.html.
-   Without a date: every stored report date, newest first. With one: that
-   report. Entries written before the structured snapshot are plain text and
-   come back as { legacy: true, text } so the page can still show them. */
-async function handleAdReports(request, env, origin) {
-  let b = {};
-  try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-  if (!env.RATE) return deny(500, 'no-kv', origin);
 
-  const dates = [];
-  let cursor;
-  do {
-    const page = await env.RATE.list({ prefix: 'adlog:', cursor });
-    for (const k of page.keys || []) dates.push(k.name.slice('adlog:'.length));
-    cursor = page.list_complete ? null : page.cursor;
-  } while (cursor);
-  dates.sort().reverse();
-
-  const date = String(b.date || '').trim();
-  if (!date) return okJson({ ok: true, dates }, origin);
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return deny(400, 'bad-date', origin);
-  const raw = await env.RATE.get('adlog:' + date);
-  if (raw == null) return deny(404, 'no-report', origin);
-  let report;
-  try { report = JSON.parse(raw); } catch { report = null; }
-  if (!report || typeof report !== 'object') report = { legacy: true, date, text: raw };
-  return okJson({ ok: true, dates, date, report }, origin);
-}
-
-/* ══ Money & sources board ═══════════════════════════════════════════════════
-   Admin-gated: revenue per day (from the events sheet), messaging + call costs
-   per day (from KV counters), and lead sources (utm) from the leads sheet.
-   ─────────────────────────────────────────────────────────────────────────── */
-async function kvPrefix(env, prefix) {
-  const out = {};
-  if (!env.RATE || !env.RATE.list) return out;
-  let cursor;
-  for (let i = 0; i < 10; i++) {
-    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null);
-    if (!page) break;
-    for (const k of page.keys) out[k.name.slice(prefix.length)] = await env.RATE.get(k.name);
-    if (page.list_complete) break;
-    cursor = page.cursor;
-  }
-  return out;
-}
 
 /* Meta's daily business-initiated-conversation ceiling for the sending number.
    Cached 6 hours — the tier only moves when Meta bumps it. The whatsapp.js
@@ -7438,19 +8704,22 @@ async function waCapInfo(env) {
   if (cached) return cached;
   /* the cap that matters is the SENDING number's — guests once fully wired */
   const guestsReady = !!(env.WA_PHONE_ID_GUESTS && env.WA_TOKEN_GUESTS);
-  const capPhone = guestsReady ? env.WA_PHONE_ID_GUESTS : env.WA_PHONE_ID;
+  const capPhone = guestsReady ? env.WA_PHONE_ID_GUESTS : clientPhoneId(env);
   const capToken = guestsReady ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
   if (!capToken || !capPhone) return null;
-  const r = await fetch(`https://graph.facebook.com/v21.0/${capPhone}?fields=messaging_limit_tier,quality_rating`, {
-    headers: { Authorization: 'Bearer ' + capToken },
-  }).catch(() => null);
-  if (!r || !r.ok) return null;
-  const j = await r.json().catch(() => null);
-  if (!j || !j.messaging_limit_tier) return null;
+  const ids = guestsReady ? guestPhoneIds(env) : [capPhone];
+  const infos = await Promise.all(ids.map(async id => { const r = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=messaging_limit_tier,quality_rating,display_phone_number`, { headers: { Authorization: 'Bearer ' + capToken } }).catch(() => null); return r && r.ok ? await r.json().catch(() => null) : null; }));
+  infos.forEach((j, i) => { if (j) j.__id = ids[i]; });
+  const good = infos.filter(j => j && j.messaging_limit_tier);
+  if (!good.length) return null;
   cached = {
-    tier: j.messaging_limit_tier,
-    limit: TIERS[j.messaging_limit_tier] ?? 250,
-    quality: j.quality_rating || '',
+    tier: good[0].messaging_limit_tier,
+    /* 02/11: Meta shares the limit across the portfolio (budget.js) — the
+       per-number sum is kept only for scope=number */
+    limit: guestCapScope(env) === 'number' ? good.reduce((n, j) => n + (TIERS[j.messaging_limit_tier] ?? 250), 0) : Math.max(...good.map(j => TIERS[j.messaging_limit_tier] ?? 250)),
+    quality: good.map(j => j.quality_rating || '').join('/'),
+    /* id: budget.js matches each number's tier by phone id */
+    numbers: good.map(j => ({ id: String(j.__id || j.id || ''), phone: j.display_phone_number || '', tier: j.messaging_limit_tier, quality: j.quality_rating || '' })),
   };
   if (env.RATE) await env.RATE.put('wa:cap', JSON.stringify(cached), { expirationTtl: 6 * 3600 }).catch(() => {});
   return cached;
@@ -7482,7 +8751,7 @@ async function handleOpsStats(request, env, origin) {
     const paid = String(ev[7] || '').trim() === 'כן';
     const cancelled = String(ev[27] || '').trim() === 'כן';
     const m = String(ev[25] || '').match(/\d{4}-\d{2}-\d{2}/);
-    if (!paid || cancelled || !m) continue;
+    if (!paid || cancelled || !m || isTestEventRow(ev)) continue;
     const d = day(m[0]);
     d.revenue_ils += Number(String(ev[8] || '').replace(/[^\d.]/g, '')) || 0;
     d.payments += 1;
@@ -7492,8 +8761,9 @@ async function handleOpsStats(request, env, origin) {
     const row = day(d);
     row.wa_msgs += Number(st.out) || 0;
     /* utility template ≈ $0.0053; free-form service messages cost nothing */
-    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.02 * 100) / 100;
+    row.wa_cost_usd_cents += Math.round((Number(st.tmpl) || 0) * 0.53 * 100) / 100;
   }
+  for (const [d, v] of Object.entries(await kvPrefix(env, 'wacost:'))) { const r = day(d); r.wa_cost_ils = Number(v) || 0; r.wa_cost_usd_cents = Math.round(r.wa_cost_ils * 100 / USD_ILS * 100) / 100; }
   for (const [d, v] of Object.entries(shirDays)) {
     day(d).shir_cost_usd_cents += Number(v) || 0;
   }
@@ -7504,10 +8774,24 @@ async function handleOpsStats(request, env, origin) {
   if (leadsRes && leadsRes.ok) {
     try { leadRows = (await leadsRes.json()).valueRanges[0].values || []; } catch {}
   }
-  for (const r of leadRows) {
-    if (!String((r || [])[2] || '').trim()) continue;
-    const src = String(r[11] || '').trim() || 'ישיר / לא ידוע';
-    utm[src] = (utm[src] || 0) + 1;
+  /* Richard 25/10: per source, how many actually closed (paid). Same merge the
+     leads page uses, so "סגר" here equals "סגר" there. */
+  const closedBy = {};
+  try {
+    const states = await kvPrefix(env, 'leadx:');
+    const evs = eventsFromSnapshot((raw && raw.events && raw.events.values) || []);
+    for (const l of mergeLeads(leadRows, states, evs)) {
+      if (isTestPhone(env, l.phone)) continue;
+      const src = String(l.source || '').trim() || 'ישיר / לא ידוע';
+      utm[src] = (utm[src] || 0) + 1;
+      if (l.won || l.status === 'סגר') closedBy[src] = (closedBy[src] || 0) + 1;
+    }
+  } catch {
+    for (const r of leadRows) {
+      if (!String((r || [])[2] || '').trim()) continue;
+      const src = String(r[11] || '').trim() || 'ישיר / לא ידוע';
+      utm[src] = (utm[src] || 0) + 1;
+    }
   }
 
   /* today's business-initiated sends against Meta's ceiling */
@@ -7556,7 +8840,7 @@ async function handleOpsStats(request, env, origin) {
   return okJson({
     ok: true,
     series: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
-    utm: Object.entries(utm).sort((a, b) => b[1] - a[1]),
+    utm: Object.entries(utm).sort((a, b) => b[1] - a[1]).map(([k, n]) => [k, n, closedBy[k] || 0]),
     leads_total: leadRows.filter(r => String((r || [])[2] || '').trim()).length,
     wa_cap: cap ? { ...cap, used_today: usedToday } : null,
     adspend,
@@ -7665,7 +8949,7 @@ async function handleWaSend(request, env, origin) {
   let res;
   switch (String(body.mode || 'text')) {
     case 'template':
-      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he', body.channel);
+      res = await sendTemplate(env, to, body.template, body.params || [], body.image_url || '', body.lang || 'he', body.channel, body.ctx && typeof body.ctx === 'object' ? body.ctx : undefined);
       break;
     case 'cta':
       res = await sendCtaUrl(env, to, body.text || '', body.label || 'פתיחה', body.url || '', body.channel, { who: 'ריצ׳רד' });
@@ -7717,36 +9001,11 @@ async function serveImage(env, pathname) {
   });
 }
 
-const ALLOWED_ORIGINS = [
-  'https://ishur.io',
-  'https://www.ishur.io',
-  /* the mirror. Serving the pages from go.ishur.io was only half the job: the
-     browser still refused every API call from them, because this list did not
-     know the host. The page loaded and nothing on it worked. */
-  'https://go.ishur.io',
-  'http://localhost:4180',
-];
 
 const MAX_STAMP_AGE_MS = 24 * 60 * 60 * 1000;
 const MAX_BODY_BYTES = 12 * 1024 * 1024;   // the upload cap plus headroom
 
-function cors(origin) {
-  const allow = ALLOWED_ORIGINS.includes(origin) ? origin : ALLOWED_ORIGINS[0];
-  return {
-    'Access-Control-Allow-Origin': allow,
-    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type',
-    'Access-Control-Max-Age': '86400',
-    'Vary': 'Origin',
-  };
-}
 
-function deny(status, reason, origin) {
-  return new Response(JSON.stringify({ ok: false, error: reason }), {
-    status,
-    headers: { 'Content-Type': 'application/json', ...cors(origin) },
-  });
-}
 
 /* hostess calendar slot for one event: arrival 60 min before the reception,
    plus travel (45 inside the centre, 90 outside), until reception + 5h.
@@ -7791,18 +9050,7 @@ async function writeHostessBooking(env, token, b) {
   }
 }
 
-async function sha256Hex(text) {
-  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
-  return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
-}
 
-/* constant time, so a wrong signature cannot be narrowed down by timing */
-function safeEqual(a, b) {
-  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
-  let diff = 0;
-  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
-  return diff === 0;
-}
 
 async function checkStamp(fields, appKey) {
   const { app, nonce, stamp_ts, sig } = fields;
@@ -7926,6 +9174,116 @@ async function serveMirror(request, url) {
   return new Response(html, { status: up.status, headers });
 }
 
+/* 20/10: the month view is built here so the pacer can keep it warm every
+   10 minutes (calcache:<month>); the route only serves the cache or builds
+   on a miss. Scanning every log: key is what used to take ~18s per open. */
+async function buildCalendarMonth(env, month) {
+  const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
+  const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
+  const today = ilDate();
+  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const evRows = (raw && raw.events && raw.events.values) || [];
+  const gRows = (raw && raw.guests && raw.guests.values) || [];
+  const evByTok = {}; const nameByPhone = {};
+  for (const ev of evRows) {
+    const t = String(ev[1] || '').trim(); if (!t) continue;
+    const name = String(ev[2] || '').trim(); const occ = String(ev[5] || '').trim();
+    evByTok[t] = { token: t, tok8: t.slice(0, 8), client: name, phone: normPhone(ev[3] || ''), occasion: occ, event: (occ ? 'ה' + occ : 'האירוע') + ' של ' + (String(ev[34] || '').trim() || name),
+      date: String(ev[6] || '').trim().slice(0, 10), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן',
+      w: [String(ev[39] || '').trim().slice(0, 10), String(ev[40] || '').trim().slice(0, 10), String(ev[41] || '').trim().slice(0, 10)], fileUp: String(ev[43] || '').trim() === 'כן' };
+    if (evByTok[t].phone) nameByPhone[evByTok[t].phone] = { name, tok: t, kind: 'לקוח' };
+  }
+  let leadRows = [];
+  try {
+    const lr = env.BRAIN_HOOK ? await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }) }) : null;
+    if (lr && lr.ok) leadRows = (await lr.json()).valueRanges[0].values || [];
+  } catch {}
+  for (const l of leadRows) { const ph = normPhone(l[2] || ''); if (ph && !nameByPhone[ph]) nameByPhone[ph] = { name: String(l[1] || '').trim(), tok: '', kind: 'ליד' }; }
+  const guestsByTok = {};
+  for (const g of gRows) {
+    const t = String(g[28] || '').trim(); const ph = normPhone(g[4] || ''); if (!t || !ph) continue;
+    (guestsByTok[t] = guestsByTok[t] || []).push({ phone: ph, name: String(g[3] || '').trim(), rsvp: String(g[15] || '').trim(), table: String(g[30] || '').trim(), id: String(g[2] || '').trim() });
+    if (!nameByPhone[ph]) nameByPhone[ph] = { name: String(g[3] || '').trim(), tok: t, kind: 'אורח' };
+  }
+  const days = {};
+  const day = d => (days[d] = days[d] || []);
+  /* past: every log entry of the month */
+  const names = await kvKeys(env, 'log:', 60000);
+  const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
+  const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
+  const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
+  inMonth.forEach((n, i) => {
+    let v = null; try { v = JSON.parse(vals[i]); } catch {}
+    if (!v || v.dir !== 'out') return;
+    const phone = n.split(':')[1]; const ts = Number(n.split(':').pop());
+    const d = new Date(ts + 3 * 3600e3).toISOString().slice(0, 10);
+    const who = nameByPhone[phone] || {};
+    const tok = v.tok ? Object.keys(evByTok).find(t => t.startsWith(v.tok)) : who.tok;
+    day(d).push({ at: v.at || new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (v.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: v.ch || 'client',
+      token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
+      status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
+  });
+  /* future: what the engine will do, per event, per date in the month */
+  const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
+  const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
+  const skipChecks = [];
+  for (const t of Object.keys(evByTok)) {
+    const ev = evByTok[t]; if (!ev.paid || ev.cancelled) continue;
+    const gl = guestsByTok[t] || [];
+    const plan = (d, kind, list) => { if (!d || d < mFirst || d > mLast || d < today) return; for (const g of list) { const e = { at: d + 'T09:00:00', phone: g.phone, name: g.name, kind: 'אורח', ch: 'guests', token: t, event: ev.event, what: KINDS[kind], k: String(kind), status: 'planned', done: false, skipped: false }; day(d).push(e); skipChecks.push([e, markerOf(kind, t, g.phone)]); } };
+    const notDeclined = gl.filter(g => g.rsvp !== 'לא מגיע');
+    if (ev.w[0]) plan(ev.w[0], 1, notDeclined);
+    if (ev.w[1]) plan(ev.w[1], 2, gl.filter(g => g.rsvp === '' || g.rsvp === 'מתלבט'));
+    if (ev.w[2]) plan(ev.w[2], 3, notDeclined);
+    const conf = gl.filter(g => g.rsvp === 'מגיע');
+    if (ev.date) {
+      const dm1 = new Date(Date.parse(ev.date) - 864e5).toISOString().slice(0, 10);
+      const dp1 = new Date(Date.parse(ev.date) + 864e5).toISOString().slice(0, 10);
+      plan(dm1, 'daybefore', conf);
+      plan(ev.date, 'shulchan', conf.filter(g => g.table));
+      plan(dp1, 'toda', conf);
+      if (dp1 >= mFirst && dp1 <= mLast && dp1 >= today && ev.phone) day(dp1).push({ at: dp1 + 'T09:00:00', phone: ev.phone, name: ev.client, kind: 'לקוח', ch: 'client', token: t, event: ev.event, what: KINDS.eoe, k: 'eoe', status: 'planned', done: false });
+    }
+  }
+  /* which planned rows are already skipped (marker pre-set by the admin) */
+  const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
+  skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
+  /* Richard 12/10: "if it's planned I want to know for what time". The
+     engine does not fire everything at 09:00: the morning run sends its
+     first slice when the window is open (09:35 IL in summer, 50 messages),
+     and the 10-minute pacer carries 25 per tick from 09:00 onwards. The
+     time below walks that schedule in the engine's own order (waves per
+     event first, then day-before / table / thanks / client summary), so
+     it is an estimate, marked as one on the page. */
+  const STAGE = { 1: 0, 2: 0, 3: 0, daybefore: 1, shulchan: 2, toda: 3, eoe: 4 };
+  const ilHourAt = (d, hUtc, mUtc) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(`${d}T${String(hUtc).padStart(2, '0')}:${String(mUtc).padStart(2, '0')}:00Z`)));
+  const nowMin = (() => { const p = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date()); const g = t => Number((p.find(x => x.type === t) || {}).value || 0); return g('hour') * 60 + g('minute'); })();
+  for (const d of Object.keys(days)) {
+    const rows = days[d];
+    const planned = rows.map((e, i) => ({ e, i })).filter(x => x.e.status === 'planned');
+    if (planned.length) {
+      const dow = new Date(d + 'T12:00:00Z').getUTCDay();
+      const close = dow === 5 ? 13 * 60 : 20 * 60 + 30;
+      /* summer: the 06:35 UTC morning run lands inside the window and sends 50 at 09:35; winter: it lands at 08:35, sends nothing, and the pacer starts at 09:00 */
+      const summer = ilHourAt(d, 6, 35) === 9;
+      let slot = summer ? 9 * 60 + 35 : 9 * 60, cap = summer ? PACE_SENDS * 2 : PACE_SENDS;
+      if (d === today && nowMin > slot) { slot = Math.ceil(nowMin / 10) * 10; cap = PACE_SENDS; }
+      planned.sort((x, y) => (STAGE[x.e.k] ?? 9) - (STAGE[y.e.k] ?? 9) || x.i - y.i);
+      let used = 0;
+      for (const { e } of planned) {
+        if (used >= cap) { slot = Math.floor(slot / 10) * 10 + 10; cap = PACE_SENDS; used = 0; }   // next pacer tick (:00, :10, :20…)
+        if (slot > close) { e.late = true; e.at = d + 'T' + String(Math.floor(close / 60)).padStart(2, '0') + ':' + String(close % 60).padStart(2, '0') + ':00'; continue; }
+        e.at = d + 'T' + String(Math.floor(slot / 60)).padStart(2, '0') + ':' + String(slot % 60).padStart(2, '0') + ':00';
+        e.est = true; used++;
+      }
+    }
+    rows.sort((a, b) => a.at < b.at ? -1 : 1);
+  }
+  const calOut = { ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) };
+  if (env.RATE) await env.RATE.put('calcache:' + month, JSON.stringify({ at: Date.now(), data: calOut }), { expirationTtl: 1200 }).catch(() => {});
+  return calOut;
+}
+
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
@@ -7936,10 +9294,18 @@ export default {
     if (String(event.cron || '').startsWith('0 4 ')) {
       ctx.waitUntil((async () => {
         await checkTelnyx(env).catch(() => {});
+        if (env.RATE && !(await env.RATE.get('billcheck:' + ilDate()).catch(() => null))) {
+          await env.RATE.put('billcheck:' + ilDate(), '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+          await checkBilling(env).catch(() => {});
+        }
         if (!env.RATE) return;
         const last = await env.RATE.get('engine:lastrun').catch(() => null);
         const age = last ? (Date.now() - Date.parse(JSON.parse(last).at || 0)) / 36e5 : 999;
-        if (age > 30) {
+        /* 18/10: Friday closes at 13:00 and Shabbat sends nothing, so a Sunday
+           07:00 check always saw "45 hours" — a weekend gap is not an outage */
+        const dow = new Date().toLocaleDateString('en-US', { timeZone: 'Asia/Jerusalem', weekday: 'short' });
+        const limit = dow === 'Sun' ? 72 : dow === 'Sat' ? 48 : 30;
+        if (age > limit) {
           await alert(env, 'המנוע היומי',
             last ? `לא רץ כבר ${Math.round(age)} שעות` : 'אין תיעוד שרץ אי פעם', '');
         }
@@ -7955,33 +9321,58 @@ export default {
        Israel hour right now and dispatches on THAT, so whichever cron
        string happens to line up with 20:00 or 21:00 this season does the
        work; the other two are silent no-ops until the clocks change. */
+    /* 22/10: the day's audit root, anchored in Slack (the latest of the three evening crons) */
+    if (String(event.cron || '').startsWith('0 19 ')) {
+      ctx.waitUntil(audit.job(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``).catch(() => {}); return r; }).catch(() => {}));
+    }
     if (String(event.cron || '').startsWith('0 17 ') || String(event.cron || '').startsWith('0 18 ') || String(event.cron || '').startsWith('0 19 ')) {
       const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now())));
       if (ilHour === 20) {
-        ctx.waitUntil(runDailyImprove(env).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
+        ctx.waitUntil(audit.job(env, 'runDailyImprove', () => runDailyImprove(env)).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
       } else if (ilHour === 21) {
-        ctx.waitUntil(snapshotTraffic(env).catch(() => {}));
-        ctx.waitUntil(dailyJournalDigest(env).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
+        ctx.waitUntil(audit.job(env, 'snapshotTraffic', () => snapshotTraffic(env)).catch(() => {}));
+        ctx.waitUntil(audit.job(env, 'dailyJournalDigest', () => dailyJournalDigest(env)).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
       }
       return;
     }
     if (String(event.cron || '').startsWith('0 9,10,16')) {
       const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
-      ctx.waitUntil(runTeamReminders(env, hourUtc, false).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'runTeamReminders', () => runTeamReminders(env, hourUtc, false)).catch(() => {}));
       return;
     }
     /* the ten-minute pacer: a slice of the sends and a slice of the dials,
        spread across the contact window instead of one burst at 09:35 */
     if (String(event.cron || '').startsWith('*/10')) {
-      ctx.waitUntil(adsHealthWatch(env).catch(() => {}));
-      ctx.waitUntil(drainLeadPings(env).catch(() => {}));
-      ctx.waitUntil(drainNoaQueue(env).catch(() => {}));
-      ctx.waitUntil(drainAdminCalls(env).catch(() => {}));
-      ctx.waitUntil(runPacer(env).catch(e =>
+      ctx.waitUntil(audit.job(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
+      /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
+         drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
+      if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(audit.job(env, 'noaChaseTick', () => noaChaseTick(env, {
+        leadRows: async () => (((await snapshotCached(env)) || {}).leads || {}).values || [],
+        callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
+        retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),
+      })).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
+      /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
+      if (new Date().getUTCMinutes() < 10) ctx.waitUntil(audit.job(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
+      ctx.waitUntil(audit.job(env, 'runPacer', () => runPacer(env)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
+      /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
+         evaluate() keeps an ab:eval:<day> guard, so six ticks = one run) */
+      if (String(env.AB_ENABLED || '') === 'on' && Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now()))) === 6)
+        ctx.waitUntil(audit.job(env, 'abEvaluate', () => ab.evaluate(env, abDeps(env))).catch(() => {}));
       return;
     }
-    ctx.waitUntil(syncCallCosts(env).catch(() => {}));
+    ctx.waitUntil(audit.job(env, 'syncCallCosts', () => syncCallCosts(env)).catch(() => {}));
     /* Dialling belongs to the pacer now — it runs every ten minutes through
        the whole window instead of emptying 25 calls into the first minute of
        it. This cron keeps only the planning half of the morning. */
@@ -8036,6 +9427,37 @@ export default {
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
         !url.pathname.startsWith('/api/grow-ipn')) {
       request = await resolveAdminSession(request, env);
+      /* live stream: every admin API call (Richard 21/10 — "כל בדיקה שלך") */
+      if (url.pathname !== '/api/stream' && env.RATE) {
+        try {
+          const peek = await request.clone().json().catch(() => null);
+          /* Richard 22/10: every client/guest action is kept as a verifiable
+             audit record (server time, IP, UA, full body, hash chain per
+             event) so we can prove later what a client did and when. */
+          if (peek && !peek.admin_key && /^[0-9a-f-]{36}$/.test(String(peek.token || '')) && !/\/api\/(stream|lead|lead-ping|track)$/.test(url.pathname)) {
+            if (url.pathname === '/api/status') {
+              /* every dashboard open/refresh (Richard 22/10): one record per view, at most one a minute per token+ip */
+              const ipk = 'dview:' + String(peek.token).slice(0, 8) + ':' + (request.headers.get('cf-connecting-ip') || '');
+              const botUa = /curl|python|node|wget/i.test(String(request.headers.get('user-agent') || ''));
+              if (botUa) ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: 'Claude · בדיקת סטטוס אירוע', ok: true, token: String(peek.token), req: request }));
+              else if (!(await env.RATE.get(ipk).catch(() => null))) {
+                await env.RATE.put(ipk, '1', { expirationTtl: 60 }).catch(() => {});
+                ctx.waitUntil(stream(env, { kind: 'client', area: 'לקוח', action: '👁 צפייה בלוח הבקרה', ok: true, token: String(peek.token), req: request, data: { path: url.pathname, referer: request.headers.get('referer') || '', posthog: String(peek.ph || '').slice(0, 80), session: String(peek.ph_session || '').slice(0, 80) } }));
+              }
+            } else {
+              ctx.waitUntil(auditClient(env, request, url.pathname, peek).catch(() => {}));
+            }
+          }
+          /* 01/11: the board polls hold/extra state every few seconds; a READ (no 'on') is not an action and was flooding the journal */
+          const readOnlyFlag = url.pathname === '/api/event-flag' && peek && typeof peek.on !== 'boolean';
+          if (peek && peek.admin_key && !readOnlyFlag && isAdmin(env, peek.admin_key)) {
+            const ua = String(request.headers.get('User-Agent') || '');
+            const who = /curl|python|node/i.test(ua) ? 'Claude' : 'דפדפן';
+            const keys = Object.keys(peek).filter(k => !/admin_key|sig|nonce|stamp_ts|app/.test(k));
+            ctx.waitUntil(stream(env, { kind: 'admin', area: 'אדמין', action: `${who} · ${url.pathname.replace('/api/', '')}${peek.action ? ' · ' + peek.action : ''}`, ok: true, token: String(peek.token || ''), phone: String(peek.phone || ''), req: request, detail: keys.map(k => k + '=' + String(typeof peek[k] === 'object' ? JSON.stringify(peek[k]) : peek[k]).slice(0, 60)).join(' · ').slice(0, 500) }));
+          }
+        } catch {}
+      }
     }
     /* PostHog reverse proxy (Phase 8 housekeeping): ad-blockers that catch
        "posthog"/analytics hostnames outright were costing 10-25% of events
@@ -8045,6 +9467,25 @@ export default {
        method, body, and PostHog's own response — through unchanged. */
     if (url.pathname === '/ph' || url.pathname.startsWith('/ph/')) {
       return proxyPostHog(request, url, origin);
+    }
+    /* 02/11 outreach routes — email open pixel + click redirect (outreach.js).
+       Mounted BEFORE the mirror guard below, or go.ishur.io would serve the
+       website for /px/ and /r/. Public by design: the token is an HMAC. */
+    if ((url.pathname.startsWith('/px/') || url.pathname.startsWith('/r/')) && request.method === 'GET') {
+      return handleOutreachTrack(request, env, url, { stream });
+    }
+    /* 02/11: the gift page behind the *_matana templates' URL button —
+       go.ishur.io/gift/<first 8 of the token>. Lists the event's Bit / PayBox
+       links (giftlinks:<token>); never shows the full token or anything else. */
+    if (url.pathname.startsWith('/gift/') && request.method === 'GET') {
+      const slug = url.pathname.slice('/gift/'.length).replace(/[^0-9a-f]/gi, '').toLowerCase();
+      const html = (s, st = 200) => new Response(s, { status: st, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
+      if (slug.length !== 8) return html(giftPageHtml(null, ''), 404);
+      const raw = await snapshotCached(env).catch(() => null);
+      const hits = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').trim().slice(0, 8) === slug);
+      if (hits.length !== 1) return html(giftPageHtml(null, ''), 404);
+      const tok = String(hits[0][1]).trim();
+      return html(giftPageHtml(await giftLinksOf(env, tok), String(hits[0][34] || hits[0][2] || '').trim()));
     }
     /* on the mirror host, anything that is not an API call is the website */
     if (url.hostname === MIRROR_HOST &&
@@ -8111,10 +9552,11 @@ export default {
         /* channel:'guests' submits on Shir's WABA with the Ishur.io app + token;
            default stays the 4499 account */
         const guests = b.channel === 'guests';
-        const tok = guests ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+        const tok = guests ? env.WA_TOKEN_GUESTS : clientToken(env);
         const waba = guests ? '1378764257421712' : clientWaba(env);
         if (!tok) return deny(503, 'wa-not-configured', origin);
-        const appId = String(b.app_id || (guests ? '1084149031015902' : '1258746612804480'));
+        /* the app must match the WABA's portfolio: ishur-ads on the Ishur.io side */
+        const appId = String(b.app_id || (guests || clientOnPortfolio(env) ? '1084149031015902' : '1258746612804480'));
         const isVid = String(b.format || '').toUpperCase() === 'VIDEO';
         const imgUrl = String(b.image_url || (isVid ? '' : 'https://ishur.io/logo.png'));
         if (isVid && !imgUrl) return deny(400, 'video_url-needed', origin);
@@ -8166,6 +9608,39 @@ export default {
           await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן — שורה שדורשת בדיקה', ok: false, review: true, detail: 'אמורה להיות אדומה' });
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
+        if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS)), origin);
+        if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
+        if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
+        /* 25/10: one event row from the sheet, by token prefix — admin debugging */
+        if (b.action === 'ev-row') {
+          const pre = String(b.token || '').trim();
+          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const head = ((raw && raw.events && raw.events.values) || [])[0] || [];
+          const rows = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').startsWith(pre));
+          return okJson({ ok: true, head, rows }, origin);
+        }
+        /* 25/10: admin fix of one cell on an event row (plan/tier a payment left blank) */
+        if (b.action === 'ev-set') {
+          const tok = String(b.token || '').trim(), col = String(b.col || '').toUpperCase();
+          if (!/^[0-9a-f-]{36}$/.test(tok) || !/^[A-Z]{1,2}$/.test(col)) return deny(400, 'bad-args', origin);
+          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const idx = ((raw && raw.events && raw.events.values) || []).findIndex(r => String((r || [])[1] || '').trim() === tok);
+          if (idx < 0) return deny(404, 'event-not-found', origin);
+          const okw = await sheetBatchWrite(env, [{ range: `אירועים!${col}${idx + 2}`, values: [[String(b.value == null ? '' : b.value)]] }]);
+          await logEvent(env, { area: 'אירוע', action: `תא ${col} עודכן ע"י מנהל → ${String(b.value || '')}`, ok: !!okw, token: tok }).catch(() => {});
+          return okJson({ ok: !!okw, row: idx + 2, col }, origin);
+        }
+        if (b.action === 'evcost-rebuild') return okJson(await rebuildEventCosts(env, { dry: b.dry === true }), origin);
+        if (b.action === 'set-occasion') {
+          const tok = String(b.token || '').trim(), occ = cleanOccasion(b.occasion);
+          if (!/^[0-9a-f-]{36}$/.test(tok) || !occ) return deny(400, 'bad-args', origin);
+          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const idx = ((raw && raw.events && raw.events.values) || []).findIndex(r => String((r || [])[1] || '').trim() === tok);
+          if (idx < 0) return deny(404, 'event-not-found', origin);
+          const okw = await sheetBatchWrite(env, [{ range: `אירועים!F${idx + 2}`, values: [[occ]] }]);
+          await logEvent(env, { area: 'אירוע', action: 'סוג האירוע עודכן ע"י מנהל → ' + occ, ok: !!okw, token: tok }).catch(() => {});
+          return okJson({ ok: !!okw, row: idx + 2, occasion: occ }, origin);
+        }
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
         if (b.action === 'invoice-make') {
           /* recovery: issue an invoice for a payment whose first attempt
@@ -8186,21 +9661,17 @@ export default {
           return okJson({ inv, wa }, origin);
         }
         if (b.action === 'morning-get') {
-          const tr = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: env.MORNING_ID || '', secret: env.MORNING_SECRET || '' }) }).catch(() => null);
-          const tj = tr ? await tr.json().catch(() => ({})) : {};
-          if (!tj.token) return okJson({ ok: false, why: 'auth' }, origin);
+          const mt = await morningToken(env);
+          if (!mt) return okJson({ ok: false, why: 'auth' }, origin);
           const rr = await fetch('https://api.greeninvoice.co.il/api/v1' + String(b.path || '/'), {
-            headers: { Authorization: 'Bearer ' + tj.token } }).catch(() => null);
+            headers: { Authorization: 'Bearer ' + mt } }).catch(() => null);
           const jj = rr ? await rr.json().catch(() => ({})) : {};
           return okJson({ ok: !!(rr && rr.ok), status: rr && rr.status, data: jj }, origin);
         }
         if (b.action === 'morning-check') {
           /* login only, nothing is created */
-          const r = await fetch('https://api.greeninvoice.co.il/api/v1/account/token', { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ id: env.MORNING_ID || '', secret: env.MORNING_SECRET || '' }) }).catch(() => null);
-          const j = r ? await r.json().catch(() => ({})) : {};
-          return okJson({ ok: !!(r && r.ok && j.token), status: r && r.status, configured: !!(env.MORNING_ID && env.MORNING_SECRET), err: j.errorMessage || j.errorCode || '' }, origin);
+          const mt = await morningToken(env);
+          return okJson({ ok: !!mt, configured: !!(env.MORNING_ID && env.MORNING_SECRET), auth: 'oauth2 api.morning.co' }, origin);
         }
         if (b.action === 'setcell' && /^[^!]+![A-Z]{1,2}\d{1,5}$/.test(String(b.range || ''))) {
           return okJson({ ok: await sheetBatchWrite(env, [{ range: String(b.range), values: [[String(b.value ?? '')]] }]) }, origin);
@@ -8459,6 +9930,22 @@ export default {
        Every row says which persona owns it, because the iron rule of this
        business is that Shir never speaks to a client and Noa never to a
        guest, and a board that blurs the two would hide a real failure. */
+    /* 02/11 outreach routes — B2B venues: import / plan / send / stats (outreach.js).
+       Sends only when OUTREACH_ENABLED = "on"; email needs the EMAIL binding
+       and `wrangler email sending enable ishur.io`. Never called from a cron. */
+    if (url.pathname === '/api/outreach' && request.method === 'POST') {
+      return handleOutreach(request, env, origin, { isAdmin, okJson, deny, stream, sendWindowState, sendTemplate, clientToken, slackSend });
+    }
+    /* ── 02/11 floor/dial routes (noa-chase R7+R9) ─────────────────────────
+       המוקד: floor.html polls /api/floor every 3 s; /api/floor-note writes a
+       lesson straight into <agent>-memory. /dial is the Monday click-to-call
+       (behind DIAL_ENABLED). Everything lives in floor.js / dial.js; the
+       webhook hooks (noteLiveCall, dialOnEnded) are wired by the webhook owner. */
+    if (url.pathname === '/api/floor' && request.method === 'POST') return handleFloor(request, env, origin);
+    if (url.pathname === '/api/floor-note' && request.method === 'POST') return handleFloorNote(request, env, origin);
+    /* /api/dial: go.ishur.io mirrors every non-/api/ path to the website, so the
+       link column uses /api/dial; /dial still works on the workers.dev host */
+    if ((url.pathname === '/api/dial' || url.pathname === '/dial') && request.method === 'GET') return handleDial(request, env, url);
     if (url.pathname === '/api/call-board' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -8504,6 +9991,22 @@ export default {
       }
       return okJson(r || { ok: false, why: 'no-token' }, origin);
     }
+    /* Meta instant-form leads on demand: {dry, since} — dry lists what Meta
+       has without writing anything */
+    if (url.pathname === '/api/monday-won' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const out = [];
+      for (const ph of [].concat(b.phones || b.phone || []).map(normPhone).filter(Boolean)) {
+        try { out.push({ phone: ph, ...(await mondayMarkWon(env, ph, b.note || '')) }); } catch (e) { out.push({ phone: ph, ok: false, why: String(e && e.message).slice(0, 200) }); }
+      }
+      return okJson({ ok: true, out }, origin);
+    }
+    if (url.pathname === '/api/meta-leads' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      return okJson(await pullMetaFormLeads(env, { dry: b.dry === true || b.dry === 1 || b.dry === 'true', since: b.since || null }), origin);
+    }
     if (url.pathname === '/api/ad-review' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -8524,6 +10027,12 @@ export default {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       if (!env.MONDAY_API_TOKEN) return okJson({ ok: false, why: 'no-token' }, origin);
+      /* 02/11: read-only lookup. Before this, {action:'find', phone} fell
+         through to the upsert below and WROTE the KV record over the item. */
+      if (b.action === 'find') {
+        try { return okJson({ ok: true, ...(await mondayFindLead(env, normPhone(b.phone || ''))) }, origin); }
+        catch (e) { return okJson({ ok: false, why: String(e && e.message).slice(0, 300) }, origin); }
+      }
       /* admin passthrough for fixing the board by hand (columns, dupes) */
       if (b.gql) { try { return okJson({ ok: true, data: await mondayGql(env, b.gql, b.vars || {}) }, origin); } catch (e) { return okJson({ ok: false, why: String(e && e.message) }, origin); } }
       if (b.debug) {
@@ -8710,6 +10219,7 @@ export default {
     if (url.pathname === '/api/voice-prompt' && request.method === 'POST') {
       return handleVoicePrompt(request, env, origin);
     }
+    if (url.pathname === '/api/sheet-cleanup' && request.method === 'POST') return handleSheetCleanup(request, env, origin);
     if (url.pathname === '/api/brain-admin' && request.method === 'POST') {
       return handleBrainAdmin(request, env, origin);
     }
@@ -8764,6 +10274,32 @@ export default {
     if (url.pathname === '/api/block-phone' && request.method === 'POST') {
       return handleBlockPhone(request, env, origin);
     }
+    if (url.pathname === '/api/billing-check' && request.method === 'POST') {
+      return handleBillingCheck(request, env, origin);
+    }
+    /* 02/11 emergency: SMS to guests when both WhatsApp numbers are throttled
+       (131048). Explicit list only, admin key, Telnyx Messages API, dry by
+       default. From = env.TELNYX_SMS_FROM (an SMS-capable Telnyx number). */
+    if (url.pathname === '/api/sms-blast' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.TELNYX_KEY) return deny(503, 'no-telnyx-key', origin);
+      const from = String(b.from || env.TELNYX_SMS_FROM || '');
+      const list = Array.isArray(b.list) ? b.list.slice(0, 500) : [];
+      if (!from || !list.length) return deny(400, 'need-from-and-list', origin);
+      const out = [];
+      for (const it of list) {
+        const to = '+' + normPhone(it.phone || ''); const text = String(it.text || '').slice(0, 480);
+        if (!/^\+9725\d{8}$/.test(to) || !text) { out.push({ phone: it.phone, ok: false, why: 'bad-input' }); continue; }
+        if (b.dry) { out.push({ phone: to, ok: true, dry: true }); continue; }
+        const r = await fetch('https://api.telnyx.com/v2/messages', { method: 'POST', headers: { Authorization: 'Bearer ' + env.TELNYX_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify({ from, to, text }) }).catch(() => null);
+        const j = r ? await r.json().catch(() => null) : null;
+        const ok = !!(r && r.ok && j && j.data && j.data.id);
+        out.push({ phone: to, ok, id: ok ? j.data.id : '', error: ok ? '' : JSON.stringify((j && j.errors) || r && r.status).slice(0, 160) });
+        stream(env, { kind: 'wa_out', area: 'SMS', action: (ok ? '📤 SMS → ' : '⛔ SMS נכשל → ') + to.slice(1), ok, phone: to.slice(1), token: String(b.token || ''), detail: text, data: { channel: 'sms', from, id: ok ? j.data.id : '', error: ok ? '' : String((j && j.errors && j.errors[0] && j.errors[0].detail) || '') } }).catch(() => {});
+      }
+      return okJson({ ok: true, from, sent: out.filter(x => x.ok && !x.dry).length, dry: !!b.dry, results: out }, origin);
+    }
     if (url.pathname === '/api/telnyx-check' && request.method === 'POST') {
       return handleTelnyxCheck(request, env, origin);
     }
@@ -8789,6 +10325,161 @@ export default {
       await logEvent(env, { area: 'מודעות', action: `נמחקו ${done.filter(d => d.ok).length} מודעות שמעולם לא רצו`, ok: true, detail: done.map(d => d.id + ':' + (d.ok ? 'ok' : (d.skipped || 'fail'))).join(' ') }).catch(() => {});
       return okJson({ ok: true, done }, origin);
     }
+    /* 20/10: send audit — for every paid, uploaded, not-cancelled event whose
+       wave 1 date has passed: how many guests got the invitation (sheet
+       column I or wsent:), how many are dead (3 strikes / not on WhatsApp),
+       opted out, and who is still missing with no reason. {admin_key} */
+    /* 20/10: how much of Meta's rolling-24h conversation cap the guests
+       number has used, and when the oldest conversation ages out. */
+    /* event-day blast: {token, action:"set"|"dry"|"run"|"clear", time, what, address, nav, template, at} */
+    /* extra call round: {token, action:"set"|"dry"|"run"|"clear", at, guest_ids, note} */
+    if (url.pathname === '/api/call-round' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (b.action === 'set') {
+        const job = { at: String(b.at || ilDate()), guest_ids: [].concat(b.guest_ids || []).map(String).slice(0, 900), note: String(b.note || '').slice(0, 120), set_at: new Date().toISOString() };
+        await env.RATE.put('callround:' + tok, JSON.stringify(job), { expirationTtl: 60 * 86400 });
+        return okJson({ ok: true, job }, origin);
+      }
+      if (b.action === 'clear') { await env.RATE.delete('callround:' + tok); return okJson({ ok: true }, origin); }
+      return okJson(await drainCallRounds(env, { dry: b.action !== 'run', only: tok }), origin);
+    }
+    /* custom invitation wording: {token, action:'get'|'set', text} (client or admin) */
+    if (url.pathname === '/api/custom-template' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec0 = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec0 && !isAdmin(env, b.admin_key)) return deny(404, 'unknown-token', origin);
+      let cur = null; try { cur = JSON.parse((await env.RATE.get('customtmpl:' + tok)) || 'null'); } catch {}
+      if (b.action === 'check' && isAdmin(env, b.admin_key) && cur && cur.id) {
+        const r = await fetch(`https://graph.facebook.com/v21.0/${cur.id}?fields=name,status,rejected_reason,category`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        const st = String(j.status || '').toUpperCase();
+        if (st && st !== cur.status) { cur.status = st; cur.reason = String(j.rejected_reason || ''); cur.checked = new Date().toISOString(); await env.RATE.put('customtmpl:' + tok, JSON.stringify(cur), { expirationTtl: 400 * 86400 }); }
+        return okJson({ ok: true, custom: cur, meta: j }, origin);
+      }
+      if (b.action !== 'set') return okJson({ ok: true, custom: cur }, origin);
+      if (await overBudget(env, 'rl:ctmpl:' + tok, 6, 86400)) return deny(429, 'slow-down', origin);
+      const text = String(b.text || '').replace(/\r/g, '').trim().slice(0, 1024);
+      if (text.length < 20) return deny(400, 'text-too-short', origin);
+      if (/\{\{|\}\}/.test(text)) return deny(400, 'no-placeholders', origin);
+      if (env.RATE && await env.RATE.get('wave:' + tok + ':1')) return okJson({ ok: false, error: 'already-sent' }, origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok) || null;
+      const out = await customTemplateSubmit(env, tok, text, ev);
+      return okJson({ ok: out.ok, custom: out.rec, why: out.why || '' }, origin);
+    }
+    /* 02/11: post-event gift message (dry by default) — handleGiftBlast */
+    if (url.pathname === '/api/gift-blast' && request.method === 'POST') {
+      return handleGiftBlast(request, env, origin);
+    }
+    /* 03/11: linked sub-events (שבת חתן) — subevent.js */
+    if (url.pathname === '/api/subevent' && request.method === 'POST') return handleSubeventCreate(request, env, origin, subeventDeps());
+    if (url.pathname === '/api/subevent-send' && request.method === 'POST') return handleSubeventSend(request, env, origin, subeventDeps());
+    if (url.pathname === '/api/subevent-summary' && request.method === 'GET') return handleSubeventSummary(request, env, origin, subeventDeps());
+    if (url.pathname === '/api/event-day' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (b.action === 'set') {
+        const job = { at: String(b.at || ilDate()), time: String(b.time || ''), what: String(b.what || ''), address: String(b.address || ''), nav: String(b.nav || ''), template: String(b.template || 'ishur_yom_haerua'), no_table: !!b.no_table, params: Array.isArray(b.params) ? b.params.map(String) : undefined, set_at: new Date().toISOString() };
+        await env.RATE.put('edblast:' + tok, JSON.stringify(job), { expirationTtl: 14 * 86400 });
+        return okJson({ ok: true, job }, origin);
+      }
+      if (b.action === 'clear') { await env.RATE.delete('edblast:' + tok); return okJson({ ok: true }, origin); }
+      return okJson(await runEventDayBlasts(env, { dry: b.action !== 'run', only: tok }), origin);
+    }
+    if (url.pathname === '/api/cap-status' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const keys = await kvKeys(env, 'bic:', 20000);
+      const now = Date.now();
+      const stamps = keys.map(k => Number(k.split(':')[1])).filter(t => Number.isFinite(t) && now - t < 86400e3).sort((a, b2) => a - b2);
+      let tier = 250, tierName = 'TIER_250';
+      try {
+        const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=messaging_limit_tier`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+        const j = await r.json(); tierName = j.messaging_limit_tier || tierName;
+        tier = ({ TIER_50: 50, TIER_250: 250, TIER_1K: 1000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: 0 })[tierName] ?? 250;
+      } catch {}
+      const used = stamps.length, left = tier ? Math.max(0, tier - used) : null;
+      const capped = !!(env.RATE && await env.RATE.get('wacap:guests'));
+      /* when the (used - tier + 1)-th oldest conversation ages out, a slot frees */
+      const freesAt = tier && used >= tier ? new Date(stamps[used - tier] + 86400e3).toISOString() : null;
+      const windowOpensAt = stamps.length ? new Date(stamps[0] + 86400e3).toISOString() : null;
+      /* 02/11: what the scheduler actually enforces (budget.js) — per number,
+         scope, room — next to what Meta's tier says, on one screen. The
+         audit branch's fields (portfolio_limit, per_number_limit, left,
+         late_invites_waiting) ride on the same object. */
+      await waCapInfo(env).catch(() => null);
+      const cap = await guestCapacity(env).catch(() => null);
+      const lateQ = Object.keys(await kvPrefix(env, 'lateinv:').catch(() => ({}))).length;
+      const budget = cap ? { ...cap, portfolio_limit: cap.scope === 'number' ? cap.limit : (Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? guestPortfolioBudget(env) : cap.limit),
+        per_number_limit: cap.numbers.length ? Math.max(...cap.numbers.map(n => n.limit)) : 0, left: cap.remaining, late_invites_waiting: lateQ } : { late_invites_waiting: lateQ };
+      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
+    }
+    if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      if (!raw) return deny(502, 'reader-failed', origin);
+      const today = ilDate();
+      const gByTok = {};
+      for (const g of (raw.guests && raw.guests.values) || []) { const t = String(g[28] || '').trim(); if (t) (gByTok[t] = gByTok[t] || []).push(g); }
+      const out = [];
+      for (const ev of (raw.events && raw.events.values) || []) {
+        const token = String(ev[1] || '').trim(); if (!token || isTestEventRow(ev)) continue;
+        const paid = String(ev[7] || '').trim() === 'כן', cancelled = String(ev[27] || '').trim() === 'כן', fileUp = String(ev[43] || '').trim() === 'כן';
+        const w1 = String(ev[39] || '').trim().slice(0, 10);
+        if (!paid || cancelled || !fileUp || !w1 || w1 > today) continue;
+        const held = env.RATE ? !!(await env.RATE.get('hold:' + token)) : false;
+        const gl = gByTok[token] || [];
+        const r = { token: token.slice(0, 8), name: String(ev[34] || ev[2] || '').trim(), date: String(ev[6] || '').slice(0, 10), wave1: w1, held, guests: gl.length, sent: 0, answered: 0, dead: 0, optout: 0, missing: [] };
+        /* KV in parallel, 40 guests at a time — sequential reads took 18s on 800 guests */
+        const rows = gl.map(g => ({ g, phone: normPhone(g[4] || ''), rsvp: String(g[15] || '').trim(), sentCol: String(g[8] || '').trim() })).filter(x => x.phone);
+        for (let i = 0; i < rows.length; i += 40) {
+          const chunk = rows.slice(i, i + 40);
+          const st = await Promise.all(chunk.map(async x => {
+            if (x.sentCol || !env.RATE) return { ws: x.sentCol, wd: null, oo: null };
+            const [ws, wd, oo] = await Promise.all([env.RATE.get(`wsent:${token}:1:${x.phone}`), env.RATE.get(`wdead:${token}:1:${x.phone}`), env.RATE.get('optout:' + x.phone)]);
+            return { ws, wd, oo };
+          }));
+          chunk.forEach((x, j) => {
+            if (x.rsvp) r.answered++;
+            const { ws, wd, oo } = st[j];
+            if (x.sentCol || ws) r.sent++;
+            else if (wd) r.dead++;
+            else if (oo) r.optout++;
+            else if (!x.rsvp) r.missing.push({ name: String(x.g[3] || '').trim(), phone: x.phone.replace(/^972/, '0') });
+          });
+        }
+        r.missing_n = r.missing.length; r.missing = r.missing.slice(0, 40);
+        out.push(r);
+      }
+      return okJson({ ok: true, today, events: out }, origin);
+    }
+    /* 01/11: send board — נמסרו X / נשלחו Y / מתוך Z per event per message type (calendar/admin).
+       Reads only, except a 5-min sendboard:* cache key. */
+    if (url.pathname === '/api/send-board' && request.method === 'POST') {
+      return handleSendBoard(request, env, origin, {
+        isAdmin, okJson, deny, snapshotCached,
+        auditQuery: (e, q) => audit.query(e, q),
+        isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
+        guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); },
+      });
+    }
+    /* 02/11: every call ever — one merged calls view (F.4/F.5), cursor-paged per audit day, CSV. No KV writes. */
+    if (url.pathname === '/api/calls-log' && request.method === 'POST') {
+      return handleCallsLog(request, env, origin, {
+        isAdmin, okJson, deny, cors,
+        auditQuery: (e, q) => audit.query(e, q),
+        ilDate, callWindowState,
+        fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS),
+        buildCallQueue, kvPrefix, readTabAll,
+      });
+    }
     if (url.pathname === '/api/ads-health' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -8797,8 +10488,179 @@ export default {
       if (b.watch) { if (env.RATE) { await env.RATE.delete('adswatch:' + new Date().toISOString().slice(0, 13)).catch(() => {}); if (b.reset) await env.RATE.delete('adswatch:last').catch(() => {}); } return okJson(await adsHealthWatch(env), origin); }
       return okJson(await adsHealth(env), origin);
     }
+    /* coexist.html posts Meta's Embedded Signup FINISH payload here, so the
+       new phone_number_id / waba_id are in the log even if the tab closes */
+    if (url.pathname === '/api/coexist-done' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      const detail = `phone_number_id=${b.phone_number_id || '?'} · waba_id=${b.waba_id || '?'} · business_id=${b.business_id || '?'}`;
+      if (env.RATE) await env.RATE.put('coexist:last', JSON.stringify({ ...b, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
+      await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
+      await slackPost(env, `🔗 *נועה חוברה ל-API (coexistence)*\n${detail}`).catch(() => {});
+      return okJson({ ok: true }, origin);
+    }
+    /* the live stream (Richard 21/10): everything, newest first, filters */
+    if (url.pathname === '/api/stream' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      /* 02/11: queryEx says when the answer was cut (KV op budget) instead of
+         silently dropping the newest records — the 17:46 "blind spot" */
+      const qx = await audit.queryEx(env, { days: b.days || 2, limit: b.limit || 600, since: b.since, kind: b.kind, token: b.token, phone: b.phone, q: b.q });
+      return okJson({ ok: true, items: qx.items, truncated: qx.truncated, ops: qx.ops, failed: qx.failed,
+        oldest_scanned: qx.oldest_ts ? new Date(qx.oldest_ts).toISOString() : null, now: Date.now(), kinds: audit.KIND_INFO }, origin);
+    }
+    /* 22/10: per-event delivery report from the message log (sent/delivered/read/failed per guest) */
+    if (url.pathname === '/api/delivery-report' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(); if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      const since = Number(b.since) || (Date.now() - 3 * 86400e3);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const guests = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === tok).map(g => ({ name: String(g[3] || '').trim(), phone: normPhone(g[4] || ''), id: String(g[2] || '').trim() }));
+      const out = [];
+      for (const g of guests) {
+        if (!g.phone) continue;
+        const page = await env.RATE.list({ prefix: 'log:' + g.phone + ':', limit: 200 }).catch(() => null);
+        const keys = ((page && page.keys) || []).map(k => k.name).filter(n => (Number(n.split(':')[2]) || 0) >= since);
+        let last = null;
+        for (const k of keys) { try { const v = JSON.parse(await env.RATE.get(k) || 'null'); if (v && v.dir === 'out') { if (!last || (Number(k.split(':')[2]) || 0) > last.ts) last = { ts: Number(k.split(':')[2]) || 0, status: v.status || 'sent', error: v.error || '', text: String(v.text || v.type || '').slice(0, 40) }; } } catch {} }
+        out.push({ ...g, msg: last });
+      }
+      const tally = {}; out.forEach(o => { const k = o.msg ? o.msg.status : 'no-message'; tally[k] = (tally[k] || 0) + 1; });
+      return okJson({ ok: true, token: tok, since: new Date(since).toISOString(), guests: out.length, tally, rows: out }, origin);
+    }
+    if (url.pathname.startsWith('/rec/') && request.method === 'GET') {
+      const k = url.searchParams.get('key') || '';
+      return audit.serveRecording(env, url, !!(k && isAdmin(env, k)));
+    }
+    /* 22/10: the full audit log, filtered; CSV or JSON, every row re-verified */
+    /* 01/11: automations registry + live state + 7-day read-only projection (automations.html).
+       Deliberately not given runDailyEngine/runEventDayBlasts/snapshotCached: their dry paths write KV. */
+    if (url.pathname === '/api/automations' && request.method === 'POST') {
+      return handleAutomations(request, env, origin, { fetchSnapshot });
+    }
+    if (url.pathname === '/api/audit' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const rows = await audit.verifyRows(await audit.query(env, { days: b.days, from: b.from, to: b.to, kind: b.kind, token: b.token, phone: b.phone, q: b.q, limit: b.limit, since: b.since }));
+      if (b.format === 'csv') {
+        await logEvent(env, { area: 'אדמין', action: 'ייצוא יומן ביקורת', ok: true, token: String(b.token || ''), detail: `${rows.length} שורות · ${b.kind || 'הכל'} · ${b.days || ''} ימים` }).catch(() => {});
+        return new Response(audit.toCsv(rows), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${ilDate()}${b.token ? '-' + String(b.token).slice(0, 8) : ''}${b.kind ? '-' + b.kind : ''}.csv"` } });
+      }
+      return okJson({ ok: true, count: rows.length, unverified: rows.filter(r => r.verified === false).length, kinds: audit.KIND_INFO, items: rows, now: Date.now() }, origin);
+    }
+    /* 22/10 Richard: a one-off price for a special client. The description
+       keeps the house format "<N> רשומות <plan>[ + דיילות]" so the IPN opens
+       the event exactly like a catalogue purchase. */
+    /* 22/10 Richard: Monday updates (Shalev's notes on leads, status changes)
+       land in the audit log. Monday posts {challenge} once on creation, then
+       {event:{type, pulseId, pulseName, columnTitle, value, textBody, userId…}}. */
+    if (url.pathname === '/api/monday-hook' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return okJson({ ok: false }, origin); }
+      if (b.challenge) return new Response(JSON.stringify({ challenge: b.challenge }), { headers: { 'Content-Type': 'application/json' } });
+      if ((url.searchParams.get('k') || '') !== (env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '')) return deny(403, 'bad-key', origin);
+      const e = b.event || {};
+      const t = String(e.type || '');
+      const name = String(e.pulseName || e.itemName || '').trim();
+      let who = String(e.userName || e.userId || '');
+      /* Monday sends only the user id; resolve once, cache 30 days */
+      try { if (/^\d+$/.test(who)) { const uk = 'muser:' + who; const cu = await env.RATE.get(uk).catch(() => null); if (cu) who = cu; else { const r = await mondayGql(env, `query($i:[ID!]){users(ids:$i){name}}`, { i: [who] }).catch(() => null); const u = ((((r || {}).data) || r || {}).users || [])[0]; if (u && u.name) { who = u.name; await env.RATE.put(uk, who, { expirationTtl: 30 * 86400 }).catch(() => {}); } } } } catch {}
+      let action = '', detail = '';
+      if (t === 'create_update' || t === 'edit_update') { action = `📝 ${who} כתב/ה על ליד · ${name}`; detail = String(e.textBody || e.body || '').replace(/<[^>]+>/g, '').slice(0, 1500); }
+      else if (t === 'change_column_value' || t === 'change_status_column_value' || t === 'change_specific_column_value') { const v = e.value && typeof e.value === 'object' ? (e.value.label && e.value.label.text) || e.value.text || e.value.name || JSON.stringify(e.value) : String(e.value || ''); const pv = e.previousValue && typeof e.previousValue === 'object' ? (e.previousValue.label && e.previousValue.label.text) || e.previousValue.text || '' : String(e.previousValue || ''); action = `🔁 ${who}: ${e.columnTitle || e.columnId || 'עמודה'} ${pv ? pv + ' → ' : ''}${v} · ${name}`; detail = `${e.columnTitle || e.columnId || ''} = ${String(v).slice(0, 300)}`; }
+      else if (t === 'create_pulse' || t === 'create_item') { action = `➕ ליד חדש במאנדיי · ${name}`; }
+      else if (t === 'update_name') { action = `✏️ שם ליד שונה · ${e.previousValue || ''} → ${name}`; }
+      else { action = `מאנדיי · ${t} · ${name}`; detail = JSON.stringify(e).slice(0, 800); }
+      /* phone from the item, cached per item id so one Monday read per lead */
+      /* name + phone from the item (update events carry neither), cached per item */
+      let phone = '', iname = name;
+      try {
+        const pk = 'mitem:' + String(e.pulseId || '');
+        let cached = null; try { cached = JSON.parse((await env.RATE.get(pk)) || 'null'); } catch {}
+        if ((!cached || !cached.phone || !cached.name) && e.pulseId) {
+          const r = await mondayGql(env, `query($i:[ID!]){items(ids:$i){name column_values{id text type}}}`, { i: [String(e.pulseId)] }).catch(() => null);
+          /* mondayGql returns `data` already unwrapped — reading r.data here
+             left every hook record without name/phone and announced the
+             worker's own new items a second time as "ליד חדש במאנדיי" (02/11) */
+          const it = ((((r || {}).data) || r || {}).items || [])[0];
+          if (it) { const pc = it.column_values.find(c => c.type === 'phone' || /phone|טלפון/i.test(c.id)); cached = { name: String(it.name || ''), phone: pc ? normPhone(pc.text || '') : '' }; await env.RATE.put(pk, JSON.stringify(cached), { expirationTtl: 30 * 86400 }).catch(() => {}); }
+        }
+        if (cached) { phone = cached.phone || ''; if (!iname) iname = cached.name || ''; }
+      } catch {}
+      if (!name && iname) action = action.replace(/ · $/, '') + (action.endsWith('·') ? ' ' + iname : ' · ' + iname);
+      await stream(env, { kind: 'lead', area: 'מאנדיי', action, ok: true, phone, detail, data: { monday: { type: t, item_id: e.pulseId, board: e.boardId, user: who, column: e.columnTitle || e.columnId || '', value: e.value, previous: e.previousValue, update_id: e.updateId } } }).catch(() => {});
+      /* 25/10 Richard: "הודעה לסלאק על כל ליד חדש שנכנס למונדי". Leads the
+         worker itself created (site / Meta form / WhatsApp) already post via
+         their own pipeline, so only items that reached Monday some other way
+         (Shalev by hand, Make, imports) are announced here. Once per item. */
+      if ((t === 'create_pulse' || t === 'create_item') && e.pulseId && env.RATE) {
+        const ours = phone ? await env.RATE.get('lead:' + phone).catch(() => null) : null;
+        const slacked = phone ? await env.RATE.get('leadslack:' + phone).catch(() => null) : null;
+        if (!ours && !slacked && !(await seenOnce(env, 'mnew:' + e.pulseId))) {
+          const local = phone ? phone.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3') : '';
+          await slackPost(env, [
+            '🆕 *ליד חדש במאנדיי*', '',
+            `*שם:* ${iname || name || 'ללא שם'}`,
+            phone ? `*טלפון:* ${local} · <https://wa.me/${phone}|וואטסאפ>` : '*טלפון:* לא מולא',
+            `*נוסף ע"י:* ${who || 'לא ידוע'}`,
+            `*כרטיס:* <https://richard366723.monday.com/boards/${e.boardId || '18432553641'}/pulses/${e.pulseId}|פתיחה במאנדיי>`, '',
+            `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> ליד חדש, להתקשר`,
+          ].join('\n')).catch(() => {});
+          if (phone) await env.RATE.put('leadslack:' + phone, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
+        }
+      }
+      return okJson({ ok: true }, origin);
+    }
+    /* 01/11: the sales playbook (script, branches, objections, notes, quick
+       pay presets) — one JSON blob in KV, edited from the admin board */
+    if (url.pathname === '/api/playbook' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      if (b.set && typeof b.set === 'object') {
+        const txt = JSON.stringify(b.set);
+        if (txt.length > 200000) return deny(413, 'too-big', origin);
+        await env.RATE.put('playbook', txt);
+        await env.RATE.put('playbook:bak:' + new Date().toISOString().slice(0, 10), txt, { expirationTtl: 90 * 86400 }).catch(() => {});
+        await logEvent(env, { area: 'אדמין', action: 'תשריט המכירות עודכן', ok: true, detail: txt.length + ' תווים' }).catch(() => {});
+      }
+      let cur = null; try { cur = JSON.parse(await env.RATE.get('playbook')); } catch {}
+      return okJson({ ok: true, playbook: cur || null }, origin);
+    }
+    if (url.pathname === '/api/pay-link' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook' }, origin);
+      const sum = Number(b.sum) || 0; if (sum <= 0) return deny(400, 'bad-sum', origin);
+      const tier = Number(b.tier) || 0, planText = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[String(b.plan || '')] || '';
+      const hn = Number(b.hostess) || (b.hostess ? 2 : 0);
+      const description = String(b.description || `${tier} רשומות ${planText}${hn === 1 ? ' + דיילת אחת' : hn > 1 ? ` + ${hn} דיילות` : ''}`).trim();
+      const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        sum, description, token: '', kind: 'special', scope: 'all', label: description, n: tier,
+        name: String(b.name || 'לקוח ishur'), phone: String(b.phone || '').replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
+        successUrl: 'https://ishur.io/thanks.html', cancelUrl: 'https://ishur.io/',
+        cField1: String(b.note || 'special'), cField2: String(b.occasion || ''),
+      }) }).catch(() => null);
+      let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
+      const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+      await logEvent(env, { area: 'תשלום', action: `קישור תשלום מיוחד: ${description} · ₪${sum}`, ok: !!link, review: !link, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!link, url: link || '', description, sum, make: link ? undefined : mtxt.slice(0, 200) }, origin);
+    }
+    if (url.pathname === '/api/audit-export' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      await logEvent(env, { area: 'אדמין', action: 'ייצוא יומן ביקורת של לקוח', ok: true, token: tok, detail: String(b.format || 'json') }).catch(() => {});
+      if (b.format === 'csv') return new Response(await auditExport(env, tok, 'csv'), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${tok.slice(0, 8)}.csv"` } });
+      return okJson(await auditExport(env, tok, 'json'), origin);
+    }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
+    }
+    /* 01/11: per-template performance from the audit log (templates.html) */
+    if (url.pathname === '/api/template-stats' && request.method === 'POST') {
+      return handleTemplateStats(request, env, origin, { isAdmin, okJson, deny,
+        queryDay: (e, day) => audit.query(e, { from: day, to: day, limit: 20000 }) });
     }
     if (url.pathname === '/api/msg-stats' && request.method === 'POST') {
       return handleMsgStats(request, env, origin);
@@ -8848,7 +10710,7 @@ export default {
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
-      if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
+      if (!isWaPhone(phone)) return deny(400, 'bad-phone', origin);
       const raw = await fetchSnapshot(env.HOOK_STATUS);
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
@@ -8888,6 +10750,9 @@ export default {
       const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
       return okJson({ ok: true, url: 'https://go.ishur.io/cal/hostess-' + key.slice(0, 24) + '.ics' }, origin);
     }
+    if (url.pathname === '/api/design-brief' && request.method === 'POST') {
+      return handleDesignBrief(request, env, origin);
+    }
     if (url.pathname === '/api/hostess-check' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -8898,15 +10763,33 @@ export default {
       const city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
       if (city.length < 2) return okJson({ ok: false, why: 'bad-city' }, origin);
       const guests = parseInt(String(b.guests || ''), 10) || 0;
-      const plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
+      let plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
-      const n = guests <= 200 ? 1 : guests <= 500 ? 2 : 3;
-      const hostessPrice = n === 1 ? 1790 : n === 2 ? 2390 : 3090;
+      /* Richard 20/10: one hostess up to 300 guests, two above; no third tier */
+      const n = guests <= 300 ? 1 : 2;
+      const hostessPrice = n === 1 ? 1790 : 1990;
+      /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
+         rides in from the ?offer= link; it only applies to the plan and the
+         quantities it names, otherwise the table price stands. */
+      const BUNDLES = {
+        vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
+        winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
+        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300', until: '2026-11-30T23:59:59+02:00' },
+      };
+      const bundle0 = BUNDLES[String(b.offer || '')] || null;
+      const bundle = bundle0 && (!bundle0.until || Date.now() <= Date.parse(bundle0.until)) ? bundle0 : null;
+      /* anyPlan (01/11): any package + hostesses in range → the bundle price,
+         and the package becomes the bundle's (הכל כלול); the hostess count
+         follows the tier rule (1 up to 300), not the bundle's number */
+      const bundleOn = !!(bundle && (bundle.anyPlan || (bundle.plan === plan && bundle.hostesses === n)) && bundle.guests.includes(guests));
+      if (bundleOn && bundle.anyPlan) plan = bundle.plan;
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
-      const travel = center ? 0 : (n >= 2 ? 500 : 250);
+      const travel0 = center ? 0 : (n >= 2 ? 500 : 250);
+      /* bundle travel (01/11): the winter deals carry ₪250 flat whatever the hostess count */
+      const travel = travel0 && bundle && bundle.travel != null && bundle.guests.includes(guests) ? Math.min(travel0, bundle.travel) : travel0;
       /* calendar: cached 5 minutes, one fetch per worker instance window */
       let available = true, calNote = '';
       if (env.HOSTESS_CAL_ICS) {
@@ -8945,10 +10828,13 @@ export default {
         const tr = await tokenRecord(env, String(b.token));
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
-      const total = PRICES[guests][plan] + hostessPrice + travel;
-      /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות/3 דיילות", travel
-         is inside the sum and travels in cField2 (read back at payment) */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}`;
+      const listTotal = PRICES[guests][plan] + hostessPrice + travel;
+      const total = bundleOn ? Math.min(bundle.total, PRICES[guests][plan] + hostessPrice) + travel : listTotal;
+      /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
+         is inside the sum and travels in cField2 (read back at payment).
+         parsePaidDesc reads tier / plan / hostesses from the same words, so a
+         bundle keeps them and only adds its tag at the end. */
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}`;
       let payUrl = '';
       /* two-step from the page: first call answers availability + price at once
          (no Grow round-trip), the second (link:true) mints the payment link */
@@ -8969,7 +10855,8 @@ export default {
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
-      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok' }, origin);
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok',
+        ...(bundleOn ? { bundle: { key: String(b.offer), list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before
        reminder once the template with the link is approved */
@@ -8980,7 +10867,7 @@ export default {
       if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
       if (typeof b.url === 'string') {
         const u = b.url.trim();
-        if (u && !/^https?:\/\/(www\.)?(waze\.com|ul\.waze\.com|maps\.app\.goo\.gl|goo\.gl\/maps|google\.[a-z.]+\/maps|maps\.google\.[a-z.]+|www\.google\.[a-z.]+\/maps)/i.test(u)) return okJson({ ok: false, error: 'not-a-map-link' }, origin);
+        if (u && !navLinkOk(u)) return okJson({ ok: false, error: 'not-a-map-link' }, origin);   /* 02/11 audit: hostname allowlist, https, no user@ */
         if (u) await env.RATE.put('navlink:' + tok, u.slice(0, 300)); else await env.RATE.delete('navlink:' + tok);
         return okJson({ ok: true, url: u.slice(0, 300) }, origin);
       }
@@ -8999,7 +10886,7 @@ export default {
       let cur = { bit: '', paybox: '', on: false };
       try { cur = { ...cur, ...JSON.parse(await env.RATE.get('giftlinks:' + tok) || '{}') }; } catch {}
       if (typeof b.bit === 'string' || typeof b.paybox === 'string' || typeof b.on === 'boolean') {
-        const okLink = u => !u || /^https?:\/\/(www\.)?(bit\.co\.il|bitpay\.co\.il|paybox\.co\.il|payboxapp\.com|links\.payboxapp\.com|app\.bitpay\.co\.il)\//i.test(u);
+        const okLink = u => !u || giftLinkOk(u);   /* 02/11 audit: parsed hostname, https only, no spaces */
         const bit = typeof b.bit === 'string' ? b.bit.trim().slice(0, 300) : cur.bit;
         const paybox = typeof b.paybox === 'string' ? b.paybox.trim().slice(0, 300) : cur.paybox;
         if (!okLink(bit) || !okLink(paybox)) return deny(422, 'not-a-gift-link', origin);
@@ -9044,11 +10931,16 @@ export default {
           w: Math.max(60, Math.min(500, Number(t.w) || 120)), h: Math.max(50, Math.min(300, Number(t.h) || 120)),
           cap: Math.max(1, Math.min(60, Number(t.cap) || 8)),
         }));
-        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, at: new Date().toISOString() }));
-        return okJson({ ok: true, tables }, origin);
+        /* Richard 21/10: guest groups (משפחה / חברים / …) live with the plan */
+        let groups = {};
+        if (b.groups && typeof b.groups === 'object') {
+          for (const [gid, lbl] of Object.entries(b.groups).slice(0, 2000)) { const l = String(lbl || '').trim().slice(0, 24); if (l) groups[String(gid).slice(0, 40)] = l; }
+        } else { try { groups = (JSON.parse(await env.RATE.get('seatplan:' + tok)) || {}).groups || {}; } catch {} }
+        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, at: new Date().toISOString() }));
+        return okJson({ ok: true, tables, groups }, origin);
       }
       let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
-      return okJson({ ok: true, tables: (plan && plan.tables) || [] }, origin);
+      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {} }, origin);
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);
@@ -9134,8 +11026,8 @@ export default {
       const toks = (Array.isArray(b.tokens) ? b.tokens : []).map(String).filter(t => /^[0-9a-f-]{36}$/.test(t)).slice(0, 200);
       const out = {};
       for (const t of toks) {
-        const [inactive, addon, extra, calls, wave, vid] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t].map(k => env.RATE.get(k).catch(() => null)));
-        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, video: !!vid };
+        const [inactive, addon, extra, calls, wave, vid, hold] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t].map(k => env.RATE.get(k).catch(() => null)));
+        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, video: !!vid, hold: !!hold };
       }
       return okJson({ ok: true, flags: out }, origin);
     }
@@ -9194,6 +11086,99 @@ export default {
     /* Richard 28/09: the host marks a guest as coming (with a count) straight
        from the dashboard — the aunt who confirmed by phone, the neighbour who
        said yes at the grocery. Same write path as a WhatsApp reply. */
+    /* Richard 21/10: the host fixes a guest's name or phone from the list.
+       Direct cell writes (D = name, E = phone), same path as seating. */
+    if (url.pathname === '/api/guest-edit' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:gedit:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
+      const gid = String(b.guest_id || '').trim();
+      const name = String(b.name || '').trim().slice(0, 60);
+      const phone = b.phone != null ? normPhone(b.phone || '') : '';
+      if (!name) return deny(400, 'bad-name', origin);
+      if (b.phone != null && !isWaPhone(phone)) return deny(400, 'bad-phone', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const gRows = ((raw && raw.guests && raw.guests.values) || []);
+      let rowIdx = -1;
+      gRows.forEach((g, i) => { if (String((g || [])[2] || '').trim() === gid && String(g[28] || '').trim() === tok) rowIdx = i; });
+      if (rowIdx < 0) return deny(404, 'unknown-guest', origin);
+      const before = { name: String(gRows[rowIdx][3] || '').trim(), phone: normPhone(gRows[rowIdx][4] || '') };
+      if (phone && phone !== before.phone && gRows.some((g, i) => i !== rowIdx && String(g[28] || '').trim() === tok && normPhone(g[4] || '') === phone)) {
+        return okJson({ ok: false, error: 'duplicate' }, origin);
+      }
+      const row = rowIdx + 2;
+      const data = [{ range: `אורחים!D${row}`, values: [[name]] }];
+      if (phone) data.push({ range: `אורחים!E${row}`, values: [[phone]] });
+      /* Richard 22/10: the party size is editable from the same popup (column N, what the dashboard counts) */
+      const seats = b.seats != null && b.seats !== '' ? Math.max(0, Math.min(99, parseInt(b.seats, 10) || 0)) : null;
+      const beforeSeats = String(gRows[rowIdx][13] || gRows[rowIdx][5] || '').trim();
+      if (seats != null) data.push({ range: `אורחים!N${row}`, values: [[String(seats)]] });
+      const okw = await sheetBatchWrite(env, data);
+      if (!okw) return deny(502, 'writer-failed', origin);
+      await logEvent(env, { area: 'לוח לקוח', action: 'המארח ערך פרטי אורח', ok: true, phone: phone || before.phone, token: tok,
+        detail: `${before.name} · ${before.phone}${beforeSeats ? ' · ' + beforeSeats : ''} → ${name} · ${phone || before.phone}${seats != null ? ' · ' + seats + ' מקומות' : ''}` }).catch(() => {});
+      return okJson({ ok: true, name, phone: phone || before.phone, seats: seats != null ? seats : undefined }, origin);
+    }
+    /* Richard 21/10: demand signal for gifts-by-credit. One count per
+       person (browser id), Slack on every new person with the running total. */
+    if (url.pathname === '/api/interest' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const kind = String(b.kind || '').replace(/[^a-z_]/g, '').slice(0, 30);
+      const vid = String(b.vid || '').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64);
+      if (!kind || !vid || !env.RATE) return deny(400, 'bad-request', origin);
+      const ip = request.headers.get('cf-connecting-ip') || '';
+      if (await overBudget(env, 'rl:interest:' + ip, 20, 3600)) return deny(429, 'slow-down', origin);
+      const labels = { gift_credit: 'מתנות באשראי' };
+      const where = String(b.where || '').slice(0, 40);
+      /* who: a logged-in client (token) is known; a site visitor leaves details */
+      let who = { name: String(b.name || '').trim().slice(0, 60), phone: normPhone(b.phone || ''), email: String(b.email || '').trim().slice(0, 80) };
+      const tok = /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? String(b.token) : '';
+      if (tok) { const rec = await tokenRecord(env, tok); if (rec) who = { name: who.name || rec.name || '', phone: who.phone || normPhone(rec.phone || ''), email: who.email || rec.email || '' }; }
+      /* one person = one phone when we have it, else one browser */
+      const pid = who.phone || vid;
+      const seenKey = `interest:${kind}:${pid}`;
+      const existed = await env.RATE.get(seenKey);
+      const recKey = `interestrec:${kind}:${pid}`;
+      let prev = null; try { prev = JSON.parse((await env.RATE.get(recKey)) || 'null'); } catch {}
+      const record = { ...(prev || {}), kind, vid, name: who.name || (prev && prev.name) || '', phone: who.phone || (prev && prev.phone) || '', email: who.email || (prev && prev.email) || '', where, token: tok.slice(0, 8), at: (prev && prev.at) || new Date().toISOString(), updated: new Date().toISOString(), notified: (prev && prev.notified) || '' };
+      await env.RATE.put(recKey, JSON.stringify(record), { expirationTtl: 400 * 86400 });
+      if (existed) {
+        const n0 = parseInt(await env.RATE.get('interestcount:' + kind), 10) || 0;
+        return okJson({ ok: true, counted: false, total: n0, saved: !!(who.phone || who.email) }, origin);
+      }
+      await env.RATE.put(seenKey, new Date().toISOString(), { expirationTtl: 400 * 86400 });
+      const n = (parseInt(await env.RATE.get('interestcount:' + kind), 10) || 0) + 1;
+      await env.RATE.put('interestcount:' + kind, String(n));
+      const whoTxt = [record.name, record.phone ? record.phone.replace(/^972/, '0') : '', record.email].filter(Boolean).join(' · ') || 'ללא פרטים';
+      await logEvent(env, { area: 'ביקוש', action: `"מעניין אותי" · ${labels[kind] || kind}`, ok: true, phone: record.phone, token: tok.slice(0, 8), detail: `${whoTxt} · ${where} · סה"כ ${n} אנשים שונים` }).catch(() => {});
+      await slackPost(env, `💳 *${labels[kind] || kind} · מישהו לחץ "מעניין אותי"*${where ? ' · ' + where : ''}\n${whoTxt}\nסה"כ עד עכשיו: *${n}* אנשים שונים`).catch(() => {});
+      return okJson({ ok: true, counted: true, total: n, saved: !!(who.phone || who.email) }, origin);
+    }
+    /* admin: everyone who asked for a coming feature */
+    if (url.pathname === '/api/interest-list' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const kind = String(b.kind || 'gift_credit').replace(/[^a-z_]/g, '');
+      const all = await kvPrefix(env, `interestrec:${kind}:`);
+      const list = Object.values(all).map(v => { try { return JSON.parse(v); } catch { return null; } }).filter(Boolean).sort((a, c) => String(a.at).localeCompare(String(c.at)));
+      return okJson({ ok: true, kind, total: list.length, list }, origin);
+    }
+    /* Richard 21/10: hostess check-in on event day. arrived:<token>:<gid> = n */
+    if (url.pathname === '/api/checkin' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
+      if (!rec || !env.RATE) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:checkin:' + tok, 2000, 3600)) return deny(429, 'slow-down', origin);
+      const gid = String(b.guest_id || '').trim(); if (!gid) return deny(400, 'bad-guest', origin);
+      const n = Math.max(0, Math.min(99, parseInt(b.arrived, 10) || 0));
+      const key = `arrived:${tok}:${gid}`;
+      if (n > 0) await env.RATE.put(key, String(n), { expirationTtl: 120 * 86400 }); else await env.RATE.delete(key).catch(() => {});
+      return okJson({ ok: true, guest_id: gid, arrived: n }, origin);
+    }
     if (url.pathname === '/api/guest-rsvp' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -9220,21 +11205,28 @@ export default {
       const tok = String(b.token || '').trim();
       const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec) return deny(404, 'unknown-token', origin);
-      if (await overBudget(env, 'rl:gadd:' + tok, 30, 3600)) return deny(429, 'slow-down', origin);
+      if (await overBudget(env, 'rl:gadd:' + tok, 90, 3600)) return deny(429, 'slow-down', origin);
       const LIMIT = ADDON_RATES.freeGuests;
       const cntKey = 'gadd:' + tok;
       const used = parseInt(await env.RATE.get(cntKey), 10) || 0;
-      if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT }, origin);
-      if (used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT }, origin);
+      /* Richard 21/10: two separate pools. "tier" = seats the package already
+         covers (175 of 200 uploaded → 25 more, one by one, no counter).
+         Default = the 10 free extras on top of the package. */
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      const cap = await tierWithPromo(env, tok, tierOf(ev));
+      const tier = { cap, used: gRows.length, left: cap ? Math.max(0, cap - gRows.length) : 0 };
+      const mode = b.mode === 'tier' && tier.left > 0 ? 'tier' : 'free';
+      if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
+      if (b.mode === 'tier' && tier.left <= 0) return okJson({ ok: false, error: 'tier-full', used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
+      if (mode === 'free' && used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT, tier }, origin);
       const name = String(b.name || '').trim().slice(0, 60);
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
-      if (!/^9725\d{8}$/.test(phone)) return deny(400, 'bad-phone', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
-      const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
-      if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used }, origin);
-      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (!isWaPhone(phone)) return deny(400, 'bad-phone', origin);
+      if (gRows.some(g => normPhone(g[4] || '') === phone)) return okJson({ ok: false, error: 'duplicate', used, left: LIMIT - used, tier }, origin);
       const now = new Date().toISOString();
       const row = new Array(29).fill('');
       row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-' + (gRows.length + 1);
@@ -9245,45 +11237,42 @@ export default {
         body: JSON.stringify({ event_type: 'guests_file', token: tok, file_name: 'dashboard', guest_count: 1, skipped_count: 0, append_body: JSON.stringify({ values: [row] }) }),
       }).catch(() => null);
       if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
-      await env.RATE.put(cntKey, String(used + 1));
+      if (mode === 'free') await env.RATE.put(cntKey, String(used + 1));
+      else { tier.used++; tier.left = Math.max(0, tier.left - 1); }
       await env.RATE.put('uploaded:' + tok, now).catch(() => {});
       /* invitation now, only if the first wave already went out; otherwise
          the guest simply rides the wave with everybody else */
       let sent = false, why = 'with-wave';
       if (ev && env.RATE && await env.RATE.get('wave:' + tok + ':1')) {
-        const occasion = String(ev[5] || '').trim() || 'אירוע';
-        const hosts = String(ev[34] || ev[2] || '').trim() || 'בעלי השמחה';
-        const date = heDate(String(ev[6] || '').trim());
-        const time = String(ev[36] || '').trim() || 'בשעות הערב';
-        const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
-        const inviteTmpl = (await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
-        /* same media choice as wave 1: video, else image, else text */
-        const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
-        const invite = String(ev[44] || '').trim();
-        const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
-        const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
-        if (!(await phoneBlocked(env, phone))) {
-          const res = await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], media, 'he', 'guests', { occasion, wave: 1, token: tok, name });
-          sent = !!res.ok; why = res.ok ? 'sent' : (res.error || 'send-failed');
-          if (res.ok) {
-            await env.RATE.put(`wsent:${tok}:1:${phone}`, '1', { expirationTtl: 120 * 86400 }).catch(() => {});
-            await addEvCost(env, tok, msgCost(tmpl));
-          }
-        } else why = 'blocked';
+        const li = await lateInvite(env, ev, tok, name, phone);
+        sent = li.sent; why = li.why;
       }
       await logEvent(env, { area: 'העלאה', action: `הלקוח הוסיף מוזמן מהדשבורד (${used + 1}/${LIMIT})${sent ? ' — ההזמנה נשלחה' : ''}`, ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
-      return okJson({ ok: true, used: used + 1, left: LIMIT - used - 1, limit: LIMIT, sent, why }, origin);
+      const usedNow = mode === 'free' ? used + 1 : used;
+      return okJson({ ok: true, used: usedNow, left: LIMIT - usedNow, limit: LIMIT, tier, mode, sent, why }, origin);
     }
     if (url.pathname === '/api/addon-pay' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       const tok = String(b.token || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
-      const q = await addonQuote(env, tok);
       const kind = String(b.kind || ''), scope = String(b.scope || 'all') === 'unanswered' ? 'unanswered' : 'all';
-      const item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
-      if (!item) return deny(400, 'bad-kind', origin);
-      const desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+      let item, desc;
+      if (kind === 'upgrade') {
+        const u = await upgradeQuote(env, tok, b.tier, b.plan);
+        if (!u.ok) return okJson({ ok: false, why: u.why }, origin);
+        item = { label: u.label, n: u.tier, price: u.price };
+        desc = `תוספת: ${u.label} · ${tok.slice(0, 8)}`;
+        if (b.quote) return okJson({ ok: true, quote: true, price: u.price, cur: u.cur, desc }, origin);
+      } else {
+        const q = await addonQuote(env, tok);
+        item = q.items[kind === 'extrasend' ? 'extrasend_' + scope : kind];
+        if (!item) return deny(400, 'bad-kind', origin);
+        desc = `תוספת: ${item.label} · ${item.n} מוזמנים · ${tok.slice(0, 8)}`;
+        if (b.quote) return okJson({ ok: true, quote: true, price: item.price, n: item.n, desc }, origin);
+      }
+      /* Grow refuses a 0 price ("מחיר מוצר חובה"); say so instead of paging Slack */
+      if (!(Number(item.price) > 0)) return okJson({ ok: false, why: 'nothing-to-buy', price: 0, n: item.n || 0, desc }, origin);
       /* Richard, 11/09: no Grow API — Make has a "create payment link" module.
          GROW_LINK_HOOK is that scenario's webhook; it answers {url}. */
       if (env.GROW_LINK_HOOK) {
@@ -9342,9 +11331,12 @@ export default {
       if (!ev) return deny(404, 'bad-token', origin);
       const name = String(ev[2] || '').trim(), phone = normPhone(ev[3] || '');
       const occasion = String(ev[5] || '').trim();
-      const evName = occasion ? 'ה' + occasion + (name ? ' של ' + name : '') : (name || token.slice(0, 8));
-      const key = 'fb:' + token;
+      const evName = eventDisplayName(ev, { fallback: name || token.slice(0, 8) });
+      /* Richard 14/10: both hosts can answer; the second one's link carries p=2 */
+      const who = String(b.who || '') === '2' ? '2' : '';
+      const key = 'fb:' + token + (who ? ':2' : '');
       let rec = {}; try { rec = JSON.parse(await env.RATE.get(key)) || {}; } catch {}
+      if (who) rec.who = 2;
       /* clicks on the review / video links, and leaving without clicking —
          so the sheet says who recommended where and who dropped off */
       if (b.click === 'review' || b.click === 'clip' || b.left === true) {
@@ -9400,83 +11392,199 @@ export default {
        whom (from the message log) and what is scheduled (from the events
        sheet), per day. Skips pre-set the per-guest marker the senders already
        honour, so no sender changed. ─────────────────────────────────────── */
+    /* ── leads.html: the board that replaces monday ─────────────────────────
+       The sheet (written by Make) is the record of who came in; KV
+       leadx:<phone> holds what the humans add (status, notes, follow-up); a
+       paid event on the same phone wins the lead by itself. Logic in leads.js. */
+    if (url.pathname === '/api/leads' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const [raw, leadRes, states] = await Promise.all([
+        fetchSnapshot(env.HOOK_STATUS),
+        env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
+        kvPrefix(env, 'leadx:'),
+      ]);
+      let rows = [];
+      if (leadRes && leadRes.ok) { try { rows = (await leadRes.json()).valueRanges[0].values || []; } catch {} }
+      const events = eventsFromSnapshot((raw && raw.events && raw.events.values) || []);
+      const leads = sortLeads(mergeLeads(rows, states, events)).filter(l => !isTestPhone(env, l.phone));
+      return okJson({ ok: true, leads, counts: countByStatus(leads), statuses: LEAD_STATUSES, owners: LEAD_OWNERS, groups: groupsOf(leads), sheetRows: rows.length, sheetOk: !!(leadRes && leadRes.ok) }, origin);
+    }
+    /* Richard 13/10: "pull data and notes from monday, status as well". One
+       admin call reads the leads board and seeds leadx:<phone> with what
+       monday knows: status (only its own labels), owner (טיפול), the notes
+       column and every update as dated notes. Never overwrites a note that
+       is already here; status/owner from monday win only when ours is empty
+       unless force is set. Dry by default. */
+    /* Richard 14/10: the client cancels, postpones or restores the event from
+       the dashboard. The engine already knows how to tell the guests (stage 5:
+       AB='כן' → ishur_bitul, a new date → ishur_dchiya); this route only
+       writes the sheet, and only when the plan includes the message or the
+       add-on was bought. Restore clears AB; if the cancel notice already went
+       out, sentdate: is dropped so the next run sends everyone the date again. */
+    /* admin: every end-of-event answer, joined with the event (Richard 14/10) */
+    if (url.pathname === '/api/feedback-list' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+      const evs = {}; for (const r of ((raw && raw.events && raw.events.values) || [])) { const t = String(r[1] || '').trim(); if (t) evs[t] = { name: String(r[34] || r[2] || '').trim(), client: String(r[2] || '').trim(), occasion: String(r[5] || '').trim(), date: String(r[6] || '').trim().slice(0, 10), plan: String(r[31] || '').trim() }; }
+      const out = [];
+      let cursor;
+      do {
+        const pg = await env.RATE.list({ prefix: 'fb:', cursor });
+        for (const k of pg.keys || []) {
+          let v = null; try { v = JSON.parse(await env.RATE.get(k.name)); } catch {}
+          if (!v) continue;
+          const [, token, who] = k.name.split(':');
+          out.push({ token, who: who === '2' ? 2 : 1, ...(evs[token] || {}), nps: v.nps || null, exp: v.exp || null, route: v.route || '', note: v.note || '', at: v.at || v.note_at || '', clicked_clip: v.clicked_clip || '', clicked_review: v.clicked_review || '', left: v.left || '' });
+        }
+        cursor = pg.list_complete ? null : pg.cursor;
+      } while (cursor);
+      out.sort((x, y) => String(y.at).localeCompare(String(x.at)));
+      return okJson({ ok: true, feedback: out }, origin);
+    }
+    if (url.pathname === '/api/event-change' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const token = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(token) || !(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:evchange:' + token, 10, 3600)) return deny(429, 'slow-down', origin);
+      const action = String(b.action || '');
+      if (!['cancel', 'restore', 'postpone'].includes(action)) return deny(400, 'bad-action', origin);
+      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      if (!raw) return deny(502, 'reader-failed', origin);
+      const evRows = (raw.events && raw.events.values) || [];
+      const idx = evRows.findIndex(r => String((r || [])[1] || '').trim() === token);
+      if (idx < 0) return deny(404, 'event-not-found', origin);
+      const ev = evRows[idx], row = idx + 2;
+      const plan = planKeyOf(ev), today = ilDate();
+      const evName = String(ev[34] || ev[2] || '').trim();
+      const paidFor = async kind => plan === 'premium' || !!(env.RATE && await env.RATE.get('msgaddon:' + token + ':' + kind));
+      if (action === 'cancel') {
+        if (!(await paidFor('cancel'))) return okJson({ ok: false, why: 'needs-addon' }, origin);
+        if (String(ev[27] || '').trim() === 'כן') return okJson({ ok: true, already: true }, origin);
+        const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['כן']] }]);
+        if (!okw) return deny(502, 'sheet-write-failed', origin);
+        await logEvent(env, { area: 'אירוע', action: 'הלקוח ביטל את האירוע מהדשבורד', ok: true, token, detail: evName }).catch(() => {});
+        await slackSend(env, `❌ *הלקוח ביטל את האירוע* · ${evName} · ${token.slice(0, 8)}\n\nהודעת הביטול לאורחים תצא בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+        return okJson({ ok: true, action }, origin);
+      }
+      if (action === 'restore') {
+        if (String(ev[27] || '').trim() !== 'כן') return okJson({ ok: true, already: true }, origin);
+        const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['']] }]);
+        if (!okw) return deny(502, 'sheet-write-failed', origin);
+        let renotify = false;
+        if (env.RATE && await env.RATE.get('cancelmsg:' + token)) {
+          /* the guests heard "cancelled": make the engine tell them the date again */
+          renotify = true;
+          await env.RATE.delete('cancelmsg:' + token).catch(() => {});
+          /* 02/11 audit: deleting sentdate: made the postpone stage's
+             `sentDate &&` false forever — the promised "date again" message
+             never left. A sentinel that differs from the real date + an
+             explicit OK for that date makes stage 5 send ishur_dchiya once. */
+          const curDate = String(ev[6] || '').trim().slice(0, 10);
+          await env.RATE.put('sentdate:' + token, 'restored', { expirationTtl: 200 * 86400 }).catch(() => {});
+          if (/^\d{4}-\d{2}-\d{2}$/.test(curDate)) await env.RATE.put('postponeok:' + token, curDate, { expirationTtl: 200 * 86400 }).catch(() => {});
+          try { let cur; do { const pg = await env.RATE.list({ prefix: `s5c:${token}:`, cursor: cur }); for (const k of pg.keys || []) await env.RATE.delete(k.name); cur = pg.list_complete ? null : pg.cursor; } while (cur); } catch {}
+        }
+        await logEvent(env, { area: 'אירוע', action: 'הלקוח החזיר את האירוע מהדשבורד', ok: true, token, detail: evName + (renotify ? ' · האורחים יקבלו הודעת עדכון' : '') }).catch(() => {});
+        await slackSend(env, `↩️ *האירוע חזר* · ${evName} · ${token.slice(0, 8)}${renotify ? '\n\nהאורחים כבר קיבלו הודעת ביטול, לכן תצא להם הודעת עדכון עם התאריך.' : ''}\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+        return okJson({ ok: true, action, renotify }, origin);
+      }
+      /* postpone */
+      if (!(await paidFor('postpone'))) return okJson({ ok: false, why: 'needs-addon' }, origin);
+      const date = String(b.date || '').slice(0, 10);
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date <= today) return deny(422, 'bad-date', origin);
+      if (new Date(date + 'T12:00:00Z').getUTCDay() === 6) return deny(422, 'shabbat', origin);
+      const oldDate = String(ev[6] || '').trim().slice(0, 10);
+      if (date === oldDate) return okJson({ ok: true, already: true }, origin);
+      const writes = [{ range: `אירועים!G${row}`, values: [[date]] }];
+      /* a send that now falls on or after the new date moves to the day before it */
+      const dayBefore = (() => { const d = new Date(date + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() - 1); if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() - 1); return d.toISOString().slice(0, 10); })();
+      for (const [i, col] of [[39, 'AN'], [40, 'AO'], [41, 'AP']]) {
+        const v = String(ev[i] || '').trim().slice(0, 10);
+        if (/^\d{4}-\d{2}-\d{2}$/.test(v) && v >= date && !(env.RATE && await env.RATE.get(`wave:${token}:${i - 38}`))) writes.push({ range: `אירועים!${col}${row}`, values: [[dayBefore > today ? dayBefore : '']] });
+      }
+      const okw = await sheetBatchWrite(env, writes);
+      if (!okw) return deny(502, 'sheet-write-failed', origin);
+      /* the client pressed "postpone" for exactly this date → the engine may tell the guests (02/11 audit) */
+      if (env.RATE) await env.RATE.put('postponeok:' + token, date, { expirationTtl: 200 * 86400 }).catch(() => {});
+      if (String(ev[27] || '').trim() === 'כן') await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['']] }]).catch(() => {});
+      await logEvent(env, { area: 'אירוע', action: 'הלקוח דחה את האירוע מהדשבורד', ok: true, token, detail: `${evName} · ${oldDate} → ${date}` }).catch(() => {});
+      await slackSend(env, `📅 *האירוע נדחה* · ${evName} · ${token.slice(0, 8)}\n\n${oldDate} → ${date}. האורחים שהוזמנו יקבלו הודעת עדכון בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+      return okJson({ ok: true, action, date, moved: writes.length - 1 }, origin);
+    }
+    if (url.pathname === '/api/leads-import-monday' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'no-kv', origin);
+      const dry = b.dry !== false, force = !!b.force;
+      const items = [];
+      let cursor = null;
+      for (let page = 0; page < 20; page++) {
+        const q = cursor
+          ? 'query($c:String!){ next_items_page(limit:100,cursor:$c){ cursor items{ id name column_values(ids:["status","phone_mm7g3mjv","color_mm7g6y7g","long_text_mm7gh65j"]){ id text } updates(limit:20){ body created_at creator{ name } } } } }'
+          : 'query($b:[ID!]){ boards(ids:$b){ items_page(limit:100){ cursor items{ id name column_values(ids:["status","phone_mm7g3mjv","color_mm7g6y7g","long_text_mm7gh65j"]){ id text } updates(limit:20){ body created_at creator{ name } } } } } }';
+        const r = await mondayGql(env, q, cursor ? { c: cursor } : { b: ['18432553641'] }).catch(() => null);
+        const pg = r && (cursor ? r.next_items_page : r.boards && r.boards[0] && r.boards[0].items_page);
+        if (!pg) break;
+        items.push(...(pg.items || []));
+        cursor = pg.cursor; if (!cursor) break;
+      }
+      const strip = h => String(h || '').replace(/<[^>]+>/g, ' ').replace(/[\uFEFF\u200e\u200f]/g, '').replace(/\s+/g, ' ').trim();
+      const out = [];
+      for (const it of items) {
+        const col = id => String(((it.column_values || []).find(c => c.id === id) || {}).text || '').trim();
+        const phone = normPhone(col('phone_mm7g3mjv'));
+        if (!phone || phone.length < 11) { out.push({ name: it.name, skipped: 'no-phone' }); continue; }
+        let prev = null; try { prev = JSON.parse(await env.RATE.get('leadx:' + phone)); } catch {}
+        const cur = prev && typeof prev === 'object' ? prev : {};
+        const notes = Array.isArray(cur.notes) ? cur.notes.slice() : [];
+        const have = new Set(notes.map(n => n.text));
+        const add = (text, at) => { const t = String(text || '').trim().slice(0, 600); if (t && !have.has(t)) { notes.push({ at: at || new Date().toISOString(), text: t }); have.add(t); } };
+        const noteCol = col('long_text_mm7gh65j'); if (noteCol) add('מאנדיי: ' + noteCol, '2026-10-13T00:00:00.000Z');
+        for (const u of (it.updates || []).slice().reverse()) add(strip(u.body) + (u.creator && u.creator.name ? ' · ' + u.creator.name : ''), u.created_at);
+        notes.sort((x, y) => String(x.at).localeCompare(String(y.at)));
+        const status = col('status'), owner = col('color_mm7g6y7g');
+        const next = { ...cur, notes: notes.slice(-100) };
+        if (status && LEAD_STATUSES.includes(status) && (force || !cur.status)) next.status = status;
+        if (owner && LEAD_OWNERS.includes(owner) && (force || !cur.owner)) next.owner = owner;
+        if (!next.updatedAt) next.updatedAt = new Date().toISOString();
+        next.mondayId = String(it.id);
+        const changed = JSON.stringify(next) !== JSON.stringify(cur);
+        out.push({ name: it.name, phone, status: next.status || '', owner: next.owner || '', notes: notes.length, changed });
+        if (!dry && changed) await env.RATE.put('leadx:' + phone, JSON.stringify(next));
+      }
+      if (!dry) await logEvent(env, { area: 'לידים', action: 'ייבוא ממאנדיי', ok: true, detail: `${out.filter(x => x.changed).length} לידים עודכנו מתוך ${items.length}` }).catch(() => {});
+      return okJson({ ok: true, dry, items: items.length, changed: out.filter(x => x.changed).length, leads: out }, origin);
+    }
+    if (url.pathname === '/api/lead-update' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const phone = normPhone(b.phone || '');
+      if (!phone || phone.length < 11) return deny(400, 'bad-phone', origin);
+      if (!env.RATE) return deny(503, 'no-kv', origin);
+      let prev = null; try { prev = JSON.parse(await env.RATE.get('leadx:' + phone)); } catch {}
+      const r = applyLeadUpdate(prev, b, new Date().toISOString());
+      if (r.error) return deny(400, r.error, origin);
+      await env.RATE.put('leadx:' + phone, JSON.stringify(r.state));
+      const what = [b.status !== undefined ? 'סטטוס: ' + r.state.status : '', b.group !== undefined ? 'קבוצה: ' + (r.state.group || 'פעילים') : '', b.owner !== undefined ? 'טיפול: ' + (r.state.owner || 'ללא') : '', b.followup !== undefined ? 'מעקב: ' + (r.state.followup || 'בוטל') : '', b.note !== undefined ? 'הערה' : ''].filter(Boolean).join(' · ');
+      await logEvent(env, { area: 'לידים', action: 'עדכון ליד · ' + what, ok: true, phone, detail: b.note !== undefined ? String(b.note).slice(0, 200) : '' });
+      return okJson({ ok: true, lead: { phone, ...r.state, lastNote: r.state.notes.length ? r.state.notes[r.state.notes.length - 1] : null } }, origin);
+    }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : ilDate().slice(0, 7);
-      const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
-      const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
-      const today = ilDate();
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
-      const evRows = (raw && raw.events && raw.events.values) || [];
-      const gRows = (raw && raw.guests && raw.guests.values) || [];
-      const evByTok = {}; const nameByPhone = {};
-      for (const ev of evRows) {
-        const t = String(ev[1] || '').trim(); if (!t) continue;
-        const name = String(ev[2] || '').trim(); const occ = String(ev[5] || '').trim();
-        evByTok[t] = { token: t, tok8: t.slice(0, 8), client: name, phone: normPhone(ev[3] || ''), occasion: occ, event: (occ ? 'ה' + occ : 'האירוע') + ' של ' + (String(ev[34] || '').trim() || name),
-          date: String(ev[6] || '').trim().slice(0, 10), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן',
-          w: [String(ev[39] || '').trim().slice(0, 10), String(ev[40] || '').trim().slice(0, 10), String(ev[41] || '').trim().slice(0, 10)], fileUp: String(ev[43] || '').trim() === 'כן' };
-        if (evByTok[t].phone) nameByPhone[evByTok[t].phone] = { name, tok: t, kind: 'לקוח' };
+      /* 20/10: scanning every log: key took ~18s per open; a 90-second cache
+         keeps the page instant while the pages refresh every 5 minutes anyway */
+      if (env.RATE && !b.force) {
+        let hit = null; try { hit = JSON.parse(await env.RATE.get('calcache:' + month)); } catch {}
+        if (hit && hit.at && Date.now() - hit.at < 11 * 60e3) return okJson({ ...hit.data, cached: true }, origin);
       }
-      let leadRows = [];
-      try {
-        const lr = env.BRAIN_HOOK ? await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }) }) : null;
-        if (lr && lr.ok) leadRows = (await lr.json()).valueRanges[0].values || [];
-      } catch {}
-      for (const l of leadRows) { const ph = normPhone(l[2] || ''); if (ph && !nameByPhone[ph]) nameByPhone[ph] = { name: String(l[1] || '').trim(), tok: '', kind: 'ליד' }; }
-      const guestsByTok = {};
-      for (const g of gRows) {
-        const t = String(g[28] || '').trim(); const ph = normPhone(g[4] || ''); if (!t || !ph) continue;
-        (guestsByTok[t] = guestsByTok[t] || []).push({ phone: ph, name: String(g[3] || '').trim(), rsvp: String(g[15] || '').trim(), table: String(g[30] || '').trim(), id: String(g[2] || '').trim() });
-        if (!nameByPhone[ph]) nameByPhone[ph] = { name: String(g[3] || '').trim(), tok: t, kind: 'אורח' };
-      }
-      const days = {};
-      const day = d => (days[d] = days[d] || []);
-      /* past: every log entry of the month */
-      const names = await kvKeys(env, 'log:', 60000);
-      const fromTs = Date.parse(mFirst + 'T00:00:00+03:00'), toTs = Date.parse(mLast + 'T23:59:59+03:00');
-      const inMonth = names.filter(n => { const ts = Number(n.split(':').pop()); return ts >= fromTs && ts <= toTs; });
-      const vals = await Promise.all(inMonth.map(n => env.RATE.get(n).catch(() => null)));
-      inMonth.forEach((n, i) => {
-        let v = null; try { v = JSON.parse(vals[i]); } catch {}
-        if (!v || v.dir !== 'out') return;
-        const phone = n.split(':')[1]; const ts = Number(n.split(':').pop());
-        const d = new Date(ts + 3 * 3600e3).toISOString().slice(0, 10);
-        const who = nameByPhone[phone] || {};
-        const tok = v.tok ? Object.keys(evByTok).find(t => t.startsWith(v.tok)) : who.tok;
-        day(d).push({ at: v.at || new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (v.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: v.ch || 'client',
-          token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
-          status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
-      });
-      /* future: what the engine will do, per event, per date in the month */
-      const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
-      const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
-      const skipChecks = [];
-      for (const t of Object.keys(evByTok)) {
-        const ev = evByTok[t]; if (!ev.paid || ev.cancelled) continue;
-        const gl = guestsByTok[t] || [];
-        const plan = (d, kind, list) => { if (!d || d < mFirst || d > mLast || d < today) return; for (const g of list) { const e = { at: d + 'T09:00:00', phone: g.phone, name: g.name, kind: 'אורח', ch: 'guests', token: t, event: ev.event, what: KINDS[kind], k: String(kind), status: 'planned', done: false, skipped: false }; day(d).push(e); skipChecks.push([e, markerOf(kind, t, g.phone)]); } };
-        const notDeclined = gl.filter(g => g.rsvp !== 'לא מגיע');
-        if (ev.w[0]) plan(ev.w[0], 1, notDeclined);
-        if (ev.w[1]) plan(ev.w[1], 2, gl.filter(g => g.rsvp === '' || g.rsvp === 'מתלבט'));
-        if (ev.w[2]) plan(ev.w[2], 3, notDeclined);
-        const conf = gl.filter(g => g.rsvp === 'מגיע');
-        if (ev.date) {
-          const dm1 = new Date(Date.parse(ev.date) - 864e5).toISOString().slice(0, 10);
-          const dp1 = new Date(Date.parse(ev.date) + 864e5).toISOString().slice(0, 10);
-          plan(dm1, 'daybefore', conf);
-          plan(ev.date, 'shulchan', conf.filter(g => g.table));
-          plan(dp1, 'toda', conf);
-          if (dp1 >= mFirst && dp1 <= mLast && dp1 >= today && ev.phone) day(dp1).push({ at: dp1 + 'T09:00:00', phone: ev.phone, name: ev.client, kind: 'לקוח', ch: 'client', token: t, event: ev.event, what: KINDS.eoe, k: 'eoe', status: 'planned', done: false });
-        }
-      }
-      /* which planned rows are already skipped (marker pre-set by the admin) */
-      const marks = await Promise.all(skipChecks.map(([, k]) => env.RATE.get(k).catch(() => null)));
-      skipChecks.forEach(([e], i) => { if (marks[i]) { e.skipped = true; e.status = marks[i] === 'skip' ? 'skipped' : 'done-earlier'; } });
-      for (const d of Object.keys(days)) days[d].sort((a, b) => a.at < b.at ? -1 : 1);
-      return okJson({ ok: true, month, today, days, events: Object.values(evByTok).map(e => ({ token: e.token, tok8: e.tok8, client: e.client, event: e.event, date: e.date })) }, origin);
+      return okJson(await buildCalendarMonth(env, month), origin);
     }
     /* skip / unskip one guest for one send kind: sets or clears the marker the
        sender checks. {token, phone, kind: 1|2|3|daybefore|shulchan|toda, on} */
@@ -9510,7 +11618,7 @@ export default {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const id = String(b.id || '');
       if (!/^\d{6,40}$/.test(id)) return deny(400, 'bad-id', origin);
-      const tok = b.ch === 'guests' ? env.WA_TOKEN_GUESTS : env.WA_TOKEN;
+      const tok = b.ch === 'guests' ? env.WA_TOKEN_GUESTS : clientToken(env);
       const meta = await fetch('https://graph.facebook.com/v21.0/' + id, { headers: { Authorization: 'Bearer ' + tok } }).then(r => r.json()).catch(() => null);
       if (!meta || !meta.url) return deny(404, 'media-gone', origin);
       const f = await fetch(meta.url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
@@ -9600,7 +11708,24 @@ export default {
         if (!isAdmin(env, admin)) return deny(403, 'bad-admin-key', origin);
         const raw = await fetchSnapshot(target);
         if (!raw) return deny(502, 'reader-failed', origin);
-        if (stampFields.view === 'biz') return okJson(buildBizStats(raw), origin);
+        if (stampFields.view === 'biz') {
+          /* Richard 21/10: the invoice lives in KV from the moment Morning
+             issues it; the sheet's J column lags (engine fills it nightly).
+             The board must never say "חסרה" for an invoice that exists. */
+          const biz = buildBizStats(raw);
+          if (env.RATE && Array.isArray(biz.events)) {
+            await Promise.all(biz.events.map(async e => {
+              if (e.invoice || !e.token) return;
+              try { const inv = JSON.parse((await env.RATE.get('invoice:' + e.token)) || 'null'); if (inv && inv.url) e.invoice = (inv.number ? inv.number + ' · ' : '') + inv.url; } catch {}
+            }));
+          }
+          /* 03/11: linked sub-events (שבת חתן) — their own rows on the admin clients page */
+          try {
+            const all = await kvPrefix(env, 'subevent:');
+            biz.subevents = Object.entries(all).map(([sub, v]) => { try { const r = JSON.parse(v); return r && r.parent ? { token: sub, parent: r.parent, name: r.name, kind: r.kind, kind_he: (SUBEVENT_KINDS[r.kind] || {}).he || '', template: r.template, created: r.created || '' } : null; } catch { return null; } }).filter(Boolean);
+          } catch { biz.subevents = []; }
+          return okJson(biz, origin);
+        }
         return okJson(buildCallQueue(raw), origin);
       }
       const token = String(stampFields.token || '').trim();
@@ -9644,29 +11769,87 @@ export default {
         for (const n of [1, 2, 3]) {
           sentWaves[n] = !!(await env.RATE.get(`wave:${token}:${n}`));
         }
+        /* wave 3 is a paid add-on: the dashboard shows it only once Grow
+           confirmed the payment (Richard 12/10) */
+        sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
+        /* did the event-day message go out to anybody */
+        try {
+          const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);
+          sentWaves.eventDay = !!((a.keys && a.keys.length) || (b2.keys && b2.keys.length));
+          const c3 = await env.RATE.list({ prefix: `s3t:${token}:`, limit: 1 });
+          sentWaves.dayAfter = !!(c3.keys && c3.keys.length) || !!(await env.RATE.get('toda:' + token));
+        } catch {}
+        /* who Shir already dialed, so the board can tell "did not answer" from
+           "still waiting for a call" */
+        try { const cr = JSON.parse((await env.RATE.get('callround:' + token)) || 'null'); if (cr) sentWaves.callRound = { at: cr.at, n: (cr.guest_ids || []).length, done: !!cr.done, flagged: cr.flagged || 0 }; } catch {}
+        sentWaves.dialed = new Set();
+        const waitIds = ((raw.guests && raw.guests.values) || [])
+          .filter(r => String(r[28] || '').trim() === token && String(r[21] || '').trim() === 'נדרשת שיחה')
+          .map(r => String(r[2] || '').trim()).filter(Boolean);
+        const hits = await Promise.all(waitIds.map(id => env.RATE.get('dialed:' + id).catch(() => null)));
+        waitIds.forEach((id, i) => { if (hits[i]) sentWaves.dialed.add(id); });
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* 20/10: a paid token whose event row never reached the sheet (Make
+         write failed) made the page throw 1101 instead of saying so. The
+         client sees the "still setting up" screen; we see it in the journal. */
+      if (!snapshot || !snapshot.ok || !snapshot.event) {
+        await logEvent(env, { area: 'לוח', action: 'טוקן תקין בלי שורת אירוע בגיליון', ok: false, review: true, token: token.slice(0, 8), detail: 'הכתיבה למייק לא הגיעה לגיליון — להריץ ipn-replay' }).catch(() => {});
+        return deny(404, 'event-not-found', origin);
+      }
       /* Richard 27/09: per guest, did the invitation actually go out.
          wsent = Meta accepted and no failure came back; wfail = failed,
          retrying; wdead = failed three times, needs a human. */
       if (env.RATE && snapshot.guests && snapshot.guests.length) {
-        const w = 1;
+        /* Richard 25/10: a guest's state is the best of every wave, not wave 1
+           alone. The daily auto-retry clears the wave-1 failure keys and the
+           retry goes out as the reminder (wave 2); when THAT fails too, the
+           failure lives under wave 2 and wave 1 reads as "never sent". */
+        const WAVES = [1, 2, 3];
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          const [ok, dead, fail, code] = await Promise.all([
-            env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
-            env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
-          ]);
-          const st = dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
-          return { st, code: st === 'sent' ? '' : String(code || dead || '') };
+          /* KV reads are capped per request; a big list already spends ~5 per
+             guest on wave 1, so waves 2–3 are read only when wave 1 is silent. */
+          const readWave = async w => {
+            const [ok, dead, fail, code, dlv] = await Promise.all([
+              env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
+              env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
+            ]);
+            return { ok, dead, fail, code, dlv };
+          };
+          const per = [await readWave(1)];
+          if (!per[0].ok && !per[0].dead && !per[0].fail) for (const w of WAVES.slice(1)) { const r = await readWave(w); per.push(r); if (r.ok || r.dead || r.fail) break; }
+          const rank = { read: 3, delivered: 2, sent: 1 };
+          const ok = per.some(x => x.ok);
+          /* a pending guest's ticks may belong to the reminder (wave 2): one more read, pending only */
+          const answered0 = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
+          if (ok && !answered0 && per.length === 1) per.push({ dlv: await env.RATE.get(`wst:${token}:2:${ph}`).catch(() => null) });
+          const dlv = per.map(x => x.dlv).filter(Boolean).sort((a, b) => (rank[b] || 0) - (rank[a] || 0))[0] || null;
+          /* a failure only counts when no wave got through; the newest wave's reason wins */
+          const failed = [...per].reverse().find(x => x.dead || x.fail) || {};
+          const dead = failed.dead || null, fail = failed.fail || null, code = failed.code || null;
+          /* Richard 21/10: an answer proves the message arrived. A reply after
+             a failed attempt must not keep showing "not delivered". */
+          const answered = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
+          const st = answered ? 'sent' : dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
+          /* delivery: 'read' (blue ticks) > 'delivered' > 'sent'. A reply proves read. */
+          const delivery = st !== 'sent' ? '' : (answered || dlv === 'read') ? 'read' : dlv === 'delivered' ? 'delivered' : 'sent';
+          return { st, code: st === 'sent' ? '' : String(code || dead || ''), delivery };
         }));
-        snapshot.guests.forEach((g, i) => { g.sent = states[i].st; g.sent_code = states[i].code; });
+        snapshot.guests.forEach((g, i) => { g.sent = states[i].st; g.sent_code = states[i].code; g.delivery = states[i].delivery; });
         /* when the next automatic attempt is: today while the send window is open, otherwise the next send day */
         const nxt = (() => { const d = new Date(); for (let i = 0; i < 8; i++) { const iso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d); if (!isNoContactDay(iso) && (i > 0 || sendWindowState().open)) return iso; d.setDate(d.getDate() + 1); } return ''; })();
         snapshot.next_attempt = nxt;
+      }
+      /* event changes from the dashboard (Richard 14/10): cancel / postpone /
+         restore. What is allowed, what already went out. */
+      if (env.RATE) {
+        const [cp, pp, cm, sd] = await Promise.all(['msgaddon:' + token + ':cancel', 'msgaddon:' + token + ':postpone', 'cancelmsg:' + token, 'sentdate:' + token].map(k => env.RATE.get(k).catch(() => null)));
+        snapshot.changes = { cancel_paid: !!cp, postpone_paid: !!pp, cancel_notice_sent: !!cm, invited_for: sd || '' };
       }
       /* Richard, 10/09: the client must always see whether an invitation
          image/video is attached, and may swap it until 48h before the
@@ -9692,6 +11875,31 @@ export default {
         const bought = hb ? JSON.parse(hb) : null, plan = hp ? JSON.parse(hp) : null, trav = ht ? JSON.parse(ht) : null;
         if (bought || plan) snapshot.hostess = { n: (bought && bought.n) || (plan && plan.n) || 0, center: plan ? !!plan.center : null, city: (plan && plan.city) || (bought && bought.city) || '', date: bought ? bought.date || '' : '', travel_included: bought ? bought.travel_included : null, travel_paid: trav ? Number(trav.paid) || 0 : 0 };
         snapshot.gifts = gl ? JSON.parse(gl) : { bit: '', paybox: '', on: false };
+        /* Richard 21/10: on the event day, with hostesses booked, the list
+           becomes a check-in sheet: who arrived and how many */
+        try {
+          const evDate = String((snapshot.event || {}).event_date || '').slice(0, 10);
+          const hasHostess = !!(snapshot.hostess && snapshot.hostess.n > 0);
+          const today = ilDate();
+          /* ?checkin=1 on the board previews the sheet before the day (demo to a client, hostess rehearsal) */
+          /* Richard 21/10: check-in is for everyone on the event day (some hosts do it themselves) */
+          const enabled = evDate === today || b_isAdminish(stampFields);
+          const arr = (evDate === today || evDate < today || b_isAdminish(stampFields)) ? await kvPrefix(env, `arrived:${token}:`) : {};
+          let total = 0, people = 0;
+          (snapshot.guests || []).forEach(g => { const v = parseInt(arr[`arrived:${token}:${g.id}`], 10) || 0; g.arrived = v; if (v) { total += v; people++; } });
+          snapshot.checkin = { enabled, hostess: hasHostess, event_day: evDate === today, arrived_total: total, arrived_people: people };
+        } catch { snapshot.checkin = { enabled: false }; }
+        /* 03/11: linked sub-events → a small card on the parent board */
+        try { const subs = await subsOf(env, token); snapshot.subevents = (await Promise.all(subs.map(s => getSub(env, s)))).filter(Boolean).map(r => ({ token: r.token, name: r.name, kind: r.kind, kind_he: (SUBEVENT_KINDS[r.kind] || {}).he || '' })); } catch { snapshot.subevents = []; }
+        try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header, id: ct.id || '', n: ct.n || 1 } : null; } catch { snapshot.custom_template = null; }
+        /* Richard 21/10: the Morning invoice is downloadable from the board */
+        try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
+        /* a direct-link buyer's row has no tier until the engine fills it;
+           the payment record knows, so add-on prices never fall back to "לפרטים" */
+        if (snapshot.event && !String(snapshot.event.guests_tier || '').trim()) {
+          try { const t = await tierWithPromo(env, token, 0); if (t) snapshot.event.guests_tier = String(t); } catch {}
+          try { if (!String(snapshot.event.plan || '').trim()) { const paid = JSON.parse((await env.RATE.get('paid:' + token)) || 'null'); if (paid && paid.planText) snapshot.event.plan = paid.planText; } } catch {}
+        }
       } catch {}
       /* after the event: surface the review + testimonial links permanently */
       const evDate = String(snapshot.event.event_date || '').slice(0, 10);
@@ -9781,9 +11989,10 @@ export default {
         const et = String(stampFields.event_type || '');
         const eid = String(stampFields.event_id || '');
         /* 27/09: only a completed form is a Lead. Partials went out as Lead too, so Meta optimised toward people who type a phone and leave (and bots). */
-        if (eid && et === 'lead_partial') await capiEvent(env, 'LeadStart', { phone: stampFields.phone, email: stampFields.email, eventId: eid });
-        if (et === 'lead_submitted' && stampFields.lead_event_id) await capiEvent(env, 'Lead', { phone: stampFields.phone, email: stampFields.email, eventId: String(stampFields.lead_event_id) });
-        if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
+        const capiX = { fbp: stampFields.fbp, fbc: stampFields.fbc, ua: stampFields.user_agent || request.headers.get('User-Agent'), ip: request.headers.get('CF-Connecting-IP') };
+        if (eid && et === 'lead_partial') await capiEvent(env, 'LeadStart', { ...capiX, phone: stampFields.phone, email: stampFields.email, eventId: eid });
+        if (et === 'lead_submitted' && stampFields.lead_event_id) await capiEvent(env, 'Lead', { ...capiX, phone: stampFields.phone, email: stampFields.email, eventId: String(stampFields.lead_event_id) });
+        if (eid && /checkout/i.test(et)) await capiEvent(env, 'InitiateCheckout', { ...capiX, phone: stampFields.phone, email: stampFields.email, eventId: eid, value: stampFields.price || stampFields.sum || 0 });
       } catch {}
     }
 

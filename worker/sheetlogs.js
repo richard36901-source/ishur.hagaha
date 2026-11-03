@@ -244,6 +244,14 @@ export async function flushSheetLogs(env) {
 }
 
 /* the tail of one tab, for verification */
+/* the whole tab, for rebuilds (cost per event). Rows as arrays, header first. */
+export async function readTabAll(env, tab, maxRows = 20000) {
+  const def = TABS[tab]; if (!def) return null;
+  const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${def.title}'!A1:R${maxRows}` });
+  const values = (res && res.valueRanges && res.valueRanges[0] && res.valueRanges[0].values) || [];
+  return { tab: def.title, header: values[0] || [], rows: values.slice(1) };
+}
+
 export async function readTabTail(env, tab, n = 10) {
   const def = TABS[tab]; if (!def) return null;
   const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${def.title}'!A1:R5000` });

@@ -18,6 +18,10 @@ NOA_FROM = "+972555077733"
 NOA_AGENT = "agent_dfc2c18968a9daea870caffbab"
 NOA_INBOUND_AGENT = "agent_f86326fe9b9fd16233276ea951"
 NOA_LEADS = "off"
+# 02/11 נועה רודפת (noa-chase): לידים "לא ענה" במאנדיי → תור nq: + קדנציה של 5 ניסיונות,
+# בקרת איכות אחרי כל שיחה (תיקון RSVP אוטומטי לשלושת המקרים החד-משמעיים), זיכרון {{memory}}.
+# "off" = אין סריקה, אין חיוג, אין כתיבה למאנדיי ואין תיקונים — הכל נשאר קריאה בלבד.
+NOA_CHASE = "off"
 
 # מי רשאי לקבל קוד כניסה לניהול בוואטסאפ (admin-login.html). פסיקים בין מספרים.
 SLACK_SHALEV = "U0C33AKDF24"
@@ -25,7 +29,15 @@ SLACK_RICHARD = "U0BTHU91Z3N"
 # 26/09: 4499 inside the ishur.io portfolio (phone id 1404834546041914, WABA 2815615772154486). Flip CLIENT_PORTFOLIO to "on" once the number is registered there; "off" = old business.
 CLIENT_PORTFOLIO = "off"
 WA_PHONE_ID_CLIENT_NEW = "1404834546041914"
+# 25/10: 4499 re-registered by coexistence QR, new phone id (WABA 1060242146337688, business AutoScale). Overrides the stale WA_PHONE_ID secret.
+WA_PHONE_ID_CLIENT = "1218978741299669"
+# 01/11: second guests number 055-3089799 on the same WABA 1378764257421712 — doubles the daily 250 cap; the Worker spreads guest sends across all ids here.
+WA_PHONE_IDS_GUESTS = "1409632775565601"
 ADMIN_PHONES = "972545764327,972526979535"
+# 02/11: B2B outreach to venues (outreach.js). "off" = plan only, nothing leaves.
+# Flip to "on" only after `npx wrangler email sending enable ishur.io` and after
+# approving the first `plan` output on outreach.html.
+OUTREACH_ENABLED = "off"
 
 [[kv_namespaces]]
 binding = "RATE"
@@ -53,3 +65,13 @@ custom_domain = true
 # The doctor writes "a new build went live" to the journal once per version.
 [version_metadata]
 binding = "CF_VERSION_METADATA"
+
+# 22/10: call recordings + audit exports (audit.js)
+[[r2_buckets]]
+binding = "AUDIT_R2"
+bucket_name = "ishur-audit"
+
+# 02/11: Email Sending binding for outreach.js (richard@ishur.io). The ishur.io
+# domain must be enabled once: `npx wrangler email sending enable ishur.io`.
+[[send_email]]
+name = "EMAIL"

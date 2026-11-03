@@ -37,6 +37,7 @@ function guestStatus(rsvp, callFlag) {
 
 /* Everyone across all events whose row says a call is needed, joined with the
    event details the caller reads from the script. Column 29 (AD) counts tries. */
+function queued2(guests) { return guests.filter(g => g.status === 'awaiting_call').length; }
 export function buildCallQueue(raw, maxTries = 3) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
@@ -50,6 +51,7 @@ export function buildCallQueue(raw, maxTries = 3) {
     const g = i => String(r[i] ?? '').trim();
     if (g(21) !== 'נדרשת שיחה') continue;
     if (!g(2) || !g(4)) continue; // a row without a guest id or phone is noise
+    if (!/^9725\d{8}$/.test(g(4).replace(/\D/g, ''))) continue; // abroad: never dialed (Richard 21/10)
     const tries = Number(g(29)) || 0;
     const token = g(28);
     /* no event row means no plan and no date: never dial into the unknown */
@@ -95,16 +97,29 @@ export function callOutcome(outcome, tries, maxTries = 3) {
     case 'מגיע':     return { rsvp: 'מגיע',     call_status: '',            answer: 'ענה',  tries: t };
     case 'לא מגיע':  return { rsvp: 'לא מגיע',  call_status: '',            answer: 'ענה',  tries: t };
     case 'מתלבט':    return { rsvp: 'מתלבט',    call_status: 'נדרשת שיחה', answer: 'ענה - מתלבט', tries: t };
-    case 'לחייג שוב': return { rsvp: '',        call_status: 'נדרשת שיחה', answer: 'לחייג שוב',   tries: t };
-    case 'לא להתקשר': return { rsvp: '',        call_status: '',            answer: 'ביקש לא להתקשר יותר', tries: t };
+    /* Richard 21/10: a silent call must not erase an earlier "מתלבט" */
+    case 'לחייג שוב': return { rsvp: '__keep__', call_status: 'נדרשת שיחה', answer: 'לחייג שוב',   tries: t };
+    case 'לא להתקשר': return { rsvp: '__keep__', call_status: '',            answer: 'ביקש לא להתקשר יותר', tries: t };
     case 'לא ענה': {
       const n = t + 1;
       return n >= maxTries
-        ? { rsvp: '', call_status: '', answer: 'לא ענה - מוצו הנסיונות', tries: n }
-        : { rsvp: '', call_status: 'נדרשת שיחה', answer: 'לא ענה', tries: n };
+        ? { rsvp: '__keep__', call_status: '', answer: 'לא ענה - מוצו הנסיונות', tries: n }
+        : { rsvp: '__keep__', call_status: 'נדרשת שיחה', answer: 'לא ענה', tries: n };
     }
     default: return null;
   }
+}
+
+/* Test/demo events never count toward business numbers: name/notes say
+   "בדיקה", the token starts with TEST-, or the client phone is one of ours. */
+const TEST_EVENT_PHONES = ['0500005201', '0500000000', '0578888888'];
+export function isTestEventRow(r) {
+  const t = s => String(s ?? '').trim();
+  if (/בדיקה/.test(t(r[2])) || /בדיקה/.test(t(r[34]))) return true;
+  if (/^TEST-/i.test(t(r[1]))) return true;
+  let ph = t(r[3]).replace(/\D/g, '');
+  if (ph.startsWith('972')) ph = '0' + ph.slice(3);
+  return TEST_EVENT_PHONES.includes(ph);
 }
 
 /* The owner's business view: the funnel from leads to money, per-event RSVP
@@ -119,7 +134,7 @@ export function buildBizStats(raw) {
   const leads = leadRows.filter(r => t(r[2]));
   const leadsPaid = leads.filter(r => t(r[7]) === 'כן').length;
 
-  const events = evRows.filter(r => t(r[1]));
+  const events = evRows.filter(r => t(r[1]) && !isTestEventRow(r));
   let revenue = 0;
   const perEvent = [];
   const guestsByToken = {};
@@ -136,21 +151,24 @@ export function buildBizStats(raw) {
     /* revenue and paid_events use the SAME definition: paid and not cancelled */
     if (paid && !isCancelled) revenue += sum;
     const gl = guestsByToken[tok] || [];
-    let confirmed = 0, declined = 0, seats = 0, needCall = 0;
+    let confirmed = 0, declined = 0, undecided = 0, seats = 0, needCall = 0;
     for (const g of gl) {
       const rsvp = t(g[15]);
       if (rsvp === 'מגיע') { confirmed++; seats += Number(t(g[13])) || Number(t(g[5])) || 0; }
       else if (rsvp === 'לא מגיע') declined++;
+      else if (rsvp === 'מתלבט') undecided++;
       if (t(g[21]) === 'נדרשת שיחה') needCall++;
     }
     perEvent.push({
       token: tok, client: t(ev[2]), name: t(ev[34]) || t(ev[2]),
       occasion: t(ev[5]), date: t(ev[6]), paid, sum,
+      paid_at: (t(ev[25]).match(/\d{4}-\d{2}-\d{2}/) || [''])[0],
+      phone: t(ev[3]),
       plan: t(ev[31]), tier: t(ev[32]),
       invoice: t(ev[9]),
       file_uploaded: t(ev[43]) === 'כן',
-      guests: gl.length, confirmed, declined,
-      pending: Math.max(0, gl.length - confirmed - declined),
+      guests: gl.length, confirmed, declined, undecided,
+      pending: Math.max(0, gl.length - confirmed - declined - undecided),
       seats, need_call: needCall,
       cancelled: isCancelled,
     });
@@ -166,7 +184,7 @@ export function buildBizStats(raw) {
       leads_paid: leadsPaid,
       events: events.length,
       paid_events: paidEvents.length,
-      conversion: leads.length ? Math.round(100 * leadsPaid / leads.length) : 0,
+      conversion: (leads.length + paidEvents.length) ? Math.round(100 * paidEvents.length / (leads.length + paidEvents.length)) : 0,
     },
     money: { revenue_ils: revenue },
     guests: {
@@ -201,6 +219,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         /* came in through the public RSVP link (Richard 17/09): counted and
            seatable, but no messages or calls until the client unlocks them */
         self: /נרשם מהקישור/.test(g(24)),
+        /* the phone round, for the send board's results line */
+        tries: Number(g(29)) || 0,
+        call_ans: g(22),
+        at: g(25).slice(0, 10),
       };
     });
 
@@ -235,8 +257,80 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const state = (n, date) => (sent[n] ? 'sent' : (date && date.slice(0, 10) < todayIso ? 'passed' : 'scheduled'));
   if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled' });
   if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled' });
-  if (c(41)) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled' });
-  if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: 'scheduled', auto: true });
+  if (c(41) && (sent.extraPaid || sent[3])) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled' });
+  /* Shir's phone round (Richard 12/10: "they should know when there is also
+     a call"). It starts the morning after the last planned send, for whoever
+     still has not answered; בסיס has no calls. */
+  if (planMaxCallTries(planKeyOf(ev)) > 0) {
+    const last = [c(39), c(40), sent.extraPaid || sent[3] ? c(41) : '']
+      .map(d => d.slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
+    if (last) {
+      const d = new Date(last + 'T12:00:00Z');
+      d.setUTCDate(d.getUTCDate() + 1);
+      if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
+      const start = d.toISOString().slice(0, 10);
+      const queued = guests.filter(g => g.status === 'awaiting_call').length;
+      /* a phone round happened only if somebody was dialed or answered BY PHONE
+         ('ענה' / 'ענה - מתלבט' / 'לא ענה'); 'ענה בוואטסאפ' is a message answer */
+      const byPhone = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
+      const called = guests.filter(g => g.tries > 0 || byPhone(g) || (sent.dialed && sent.dialed.has(g.id))).length;
+      /* once the event day has passed the round is over whatever is still flagged */
+      const over = /^\d{4}-\d{2}-\d{2}$/.test(c(6)) && c(6).slice(0, 10) < todayIso;
+      const status = start > todayIso ? 'scheduled' : over ? (called ? 'sent' : 'passed') : queued ? 'running' : called ? 'sent' : 'scheduled';
+      sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
+    }
+    /* Richard 21/10: an extra round booked by hand shows as its own row */
+    if (sent.callRound && sent.callRound.at) {
+      const cr = sent.callRound;
+      const st = cr.done ? (queued2(guests) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');
+      sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });
+    }
+  }
+  /* the event-day message: 'sent' once the engine stamped it (s5t markers),
+     'passed' when the day is behind us without one, otherwise scheduled */
+  if (c(6)) sends.push({ key: 'event_day', label: 'תזכורת עם הכתובת', date: c(6), status: sent.eventDay ? 'sent' : (c(6).slice(0, 10) < todayIso ? 'passed' : 'scheduled'), auto: true });
+  /* the day after: a thank-you to everyone who came (פרמיום and up, Richard 21/10) */
+  if (/^\d{4}-\d{2}-\d{2}$/.test(c(6).slice(0, 10)) && planKeyOf(ev) !== 'basic') {
+    const d = new Date(c(6).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);
+    const dayAfter = d.toISOString().slice(0, 10);
+    sends.push({ key: 'day_after', label: 'הודעת תודה לאורחים', date: dayAfter, status: sent.dayAfter ? 'sent' : (dayAfter < todayIso ? 'passed' : 'scheduled'), auto: true });
+  }
+
+  /* Each round owns only the answers it brought in (Richard 12/10): a call
+     answer belongs to the calls, a WhatsApp answer to the last message round
+     that went out on or before the day it came in. "Waiting for a call" is only
+     whoever Shir has not dialed yet; dialed and silent is "did not answer". */
+  const dialed = sent.dialed || new Set();
+  const viaCall = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);
+  const answered = g => g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
+  const waveDates = sends.filter(x => x.key !== 'calls' && x.key !== 'event_day' && x.key !== 'day_after').map(x => ({ key: x.key, d: String(x.date).slice(0, 10) }))
+    .sort((x, y) => x.d < y.d ? -1 : 1);
+  const tally = () => ({ answered: 0, confirmed: 0, declined: 0, undecided: 0 });
+  const per = {};
+  for (const x of sends) per[x.key] = tally();
+  per.calls = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0 });
+  for (const g of guests) {
+    if (g.self) continue;
+    const isCall = viaCall(g) || dialed.has(g.id) || g.tries > 0;
+    if (per.calls && isCall) per.calls.dialed++;
+    if (!answered(g)) {
+      /* Richard 21/10: dialed and still silent is "לא ענו" whatever the
+         status column says (after 3 tries the sheet flips it back to pending) */
+      if (isCall) per.calls.no_answer++;
+      else if (g.status === 'awaiting_call') per.calls.waiting++;
+      continue;
+    }
+    let key;
+    if (viaCall(g) && /^ענה/.test(g.call_ans)) key = 'calls';
+    else {
+      key = waveDates.length ? waveDates[0].key : null;
+      for (const w of waveDates) if (g.at && w.d <= g.at) key = w.key;
+    }
+    const t = key && per[key];
+    if (!t) continue;
+    t.answered++; t[g.status]++;
+  }
+  for (const x of sends) if (per[x.key] && x.key !== 'event_day' && x.key !== 'day_after') x.stats = per[x.key];
 
   return {
     ok: true,
@@ -246,6 +340,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       event_date: c(6), reception_time: c(36),
       venue_name: c(4), venue_city: c(37),
       plan: c(31), guests_tier: c(32),
+      cancelled: c(27) === 'כן',
       image_url: c(44),
       paid_sum: Number(String(c(8)).replace(/[^\d.]/g, '')) || 0,
     },
