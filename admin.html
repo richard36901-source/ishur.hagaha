@@ -935,6 +935,21 @@
   <!-- Richard, 09/09: the switches live at the bottom. Opening the board
        should show what happened, not what can be toggled. -->
 
+  <!-- 03/11: invitation design flow, our side (docs/DESIGN-FLOW-PWA-2026-11-03.md) -->
+  <section class="ctl" id="designAdm">
+    <h2>🎨 עיצוב הזמנה · העלאת גרסה</h2>
+    <div class="ctl-row">
+      <div style="display:grid;gap:.5rem;max-width:560px">
+        <input id="dzTok" placeholder="טוקן האירוע (מהקישור dashboard.html?t=…)" dir="ltr" style="padding:.5rem;border:1px solid #ddd;border-radius:8px;font:inherit">
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap"><button type="button" id="dzLoad">טעינת מצב</button><button type="button" id="dzDone">סימון "בוצע"</button></div>
+        <div id="dzState" style="font-size:.85rem;white-space:pre-wrap;background:#f7f7f4;border-radius:8px;padding:.5rem .7rem">—</div>
+        <input type="file" id="dzFile" accept="image/jpeg,image/png,image/webp,application/pdf">
+        <input id="dzNote" placeholder="הערה ללקוח (לא חובה)" style="padding:.5rem;border:1px solid #ddd;border-radius:8px;font:inherit">
+        <button type="button" id="dzUp">העלאת גרסה ללקוח</button>
+        <span id="dzMsg" style="font-size:.85rem"></span>
+      </div>
+    </div>
+  </section>
   <section id="sales"></section>
   <section class="ctl" id="ctl">
     <h2>שליטה</h2>
@@ -3678,6 +3693,37 @@
   }
 
   if (adminKey) boot(); else gate();
+})();
+</script>
+<script>
+/* 03/11 design flow admin: POST /api/media (purpose=design_version) → POST /api/design-version */
+(function () {
+  function $(i) { return document.getElementById(i); }
+  if (!$('dzUp')) return;
+  function key() { try { return (window.adminKey) || localStorage.getItem('ishur_calls_key') || ''; } catch (e) { return ''; } }
+  function tok() { return ($('dzTok').value.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i) || [''])[0].toLowerCase(); }
+  var HE = { new: 'מחכה לגרסה ראשונה', awaiting_client: 'מחכה ללקוח', changes_requested: 'הלקוח ביקש תיקונים', approved: 'אושר — לסמן בוצע', done: 'בוצע' };
+  function show(j) {
+    if (!j || j.ok === false && !j.status) { $('dzState').textContent = 'שגיאה: ' + ((j && j.why) || '?'); return; }
+    var b = j.brief ? ('בריף: ' + j.brief.text + (j.brief.refs && j.brief.refs.length ? '\nהשראה: ' + j.brief.refs.map(function (r) { return r.url; }).join('\n') : '')) : 'אין בריף עדיין';
+    var c = (j.comments || []).map(function (x) { return 'הערה לגרסה ' + x.v + ': ' + x.text; }).join('\n');
+    $('dzState').textContent = (j.paid ? 'עיצוב שולם' : '⚠️ עיצוב לא שולם') + ' · ' + (HE[j.status] || j.status) + ' · גרסאות ' + (j.versions || []).length + ' · סבבים ' + j.rounds_used + '/' + j.rounds_total + '\n' + b + (c ? '\n' + c : '') + (j.why ? '\n⚠️ ' + j.why : '');
+  }
+  function call(body) {
+    return fetch(CFG.endpoint('design-version'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: key(), token: tok() }, body)) }).then(function (r) { return r.json(); });
+  }
+  $('dzLoad').onclick = function () { if (!tok()) { $('dzMsg').textContent = 'חסר טוקן'; return; } call({ action: 'state' }).then(show); };
+  $('dzDone').onclick = function () { call({ action: 'done' }).then(function (j) { show(j); $('dzMsg').textContent = j.ok ? 'סומן בוצע' : 'לא סומן: ' + (j.why || ''); }); };
+  $('dzUp').onclick = function () {
+    var f = $('dzFile').files[0]; if (!f || !tok()) { $('dzMsg').textContent = 'חסר טוקן או קובץ'; return; }
+    var fd = new FormData(); fd.append('token', tok()); fd.append('purpose', 'design_version'); fd.append('admin_key', key()); fd.append('file', f, f.name);
+    $('dzMsg').textContent = 'מעלים…';
+    fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (m) {
+      if (!m || !m.ok) throw new Error((m && (m.error || m.why)) || 'upload');
+      return call({ media: m.media, note: $('dzNote').value });
+    }).then(function (j) { show(j); $('dzMsg').textContent = j.ok ? 'הגרסה עלתה, הלקוח רואה אותה בלוח הבקרה' : 'לא עלה: ' + (j.why || ''); $('dzFile').value = ''; $('dzNote').value = ''; })
+      ['catch'](function (e) { $('dzMsg').textContent = 'שגיאה: ' + e.message; });
+  };
 })();
 </script>
 </body>
