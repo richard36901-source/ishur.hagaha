@@ -372,7 +372,7 @@ export function eventsFromRaw(raw, today, { token = '', isTestEventRow = () => f
     if (c(7) !== 'כן' || c(27) === 'כן' || c(43) !== 'כן') continue;
     const date = c(6).slice(0, 10);
     if (!token && from && date < from) continue;
-    evs.push({ token: tok, name: c(34) || c(2), date, plan: planKeyOf(ev), waves: { 1: c(39).slice(0, 10), 2: c(40).slice(0, 10), 3: c(41).slice(0, 10) }, held: false, eventday: null });
+    evs.push({ token: tok, name: c(34) || c(2), date, plan: planKeyOf(ev), waves: { 1: c(39).slice(0, 10), 2: c(40).slice(0, 10), 3: c(41).slice(0, 10) }, held: false, eventday: null, occasion: c(5), time: c(36), client_id: c(0) });
     guests[tok] = (gByTok[tok] || []).map(g => ({ name: String(g[3] || '').trim(), phone: norm(g[4]), id: String(g[2] || '').trim(), rsvp: String(g[15] || '').trim(), table: String(g[30] || '').trim() }));
   }
   return { events: evs, guests };
@@ -390,6 +390,13 @@ export async function handleSendBoard(request, env, origin, deps) {
   if (!deps.isAdmin(env, b.admin_key)) return deps.deny(403, 'bad-admin-key', origin);
   const token = String(b.token || '').trim();
   if (token && !/^[0-9a-f-]{8,36}$/.test(token)) return deps.deny(400, 'bad-token', origin);
+  const r = await sendBoardData(env, deps, b);
+  if (!r) return deps.deny(502, 'reader-failed', origin);
+  return deps.okJson(r, origin);
+}
+/* 03/11 ops calendar: the same board as data (no Response), so /api/ops/calendar reuses it + its cache */
+export async function sendBoardData(env, deps, b = {}) {
+  const token = String(b.token || '').trim();
   const days = Math.max(1, Math.min(10, Number(b.days) || 3));
   const detail = b.detail !== false;
   const ck = `sendboard:${token.slice(0, 8) || 'all'}:${days}:${detail ? 1 : 0}`;
@@ -401,11 +408,11 @@ export async function handleSendBoard(request, env, origin, deps) {
     const plan = planVsCapacity(plannedByDay(data.events, data.today, 3), { today: data.today, remainingNow: cap.remaining, limit: cap.limit, days: 3 });
     return { ...data, cap: capBoard(cap, plan), cap_at: new Date().toISOString() };
   };
-  if (env.RATE && !b.force) { try { const hit = JSON.parse((await env.RATE.get(ck)) || 'null'); if (hit && Date.now() - hit.at < 5 * 60e3) return deps.okJson({ ...(await withCap(hit.data)), cached: true }, origin); } catch {} }
+  if (env.RATE && !b.force) { try { const hit = JSON.parse((await env.RATE.get(ck)) || 'null'); if (hit && Date.now() - hit.at < 5 * 60e3) return { ...(await withCap(hit.data)), cached: true }; } catch {} }
 
   const today = deps.ilDate();
   const raw = await deps.snapshotCached(env);
-  if (!raw) return deps.deny(502, 'reader-failed', origin);
+  if (!raw) return null;
   const from = new Date(Date.parse(today + 'T12:00:00Z') - 2 * 864e5).toISOString().slice(0, 10);
   const { events, guests } = eventsFromRaw(raw, today, { token, isTestEventRow: deps.isTestEventRow, planKeyOf: deps.planKeyOf, from });
 
@@ -465,5 +472,5 @@ export async function handleSendBoard(request, env, origin, deps) {
   /* 03/11: linked sub-events (שבת חתן) — their ONE message type, from their own markers */
   try { data.subevents = await subeventBoard(env, raw, { kvPrefix: deps.kvPrefix, normPhone: deps.normPhone || (x => String(x || '').replace(/\D/g, '').replace(/^0/, '972')), token }); } catch { data.subevents = []; }
   if (env.RATE) await env.RATE.put(ck, JSON.stringify({ at: Date.now(), data }), { expirationTtl: 600 }).catch(() => {});
-  return deps.okJson(await withCap(data), origin);
+  return withCap(data);
 }
