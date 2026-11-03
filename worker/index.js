@@ -10046,6 +10046,8 @@ const WORKER = {
            WhatsApp got the site's 404 page instead of the MP4 (131053, Gal's
            wave 1 this morning) */
         !url.pathname.startsWith('/vid/') &&
+        /* 03/11: recordingLink() signs go.ishur.io/rec/<id> links (emails, the ops call center) — the mirror ate them too */
+        !url.pathname.startsWith('/rec/') &&
         !url.pathname.startsWith('/cal/')) {
       return serveMirror(request, url);
     }
