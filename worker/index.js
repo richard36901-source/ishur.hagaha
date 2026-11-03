@@ -55,7 +55,9 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { navLinkOk, giftLinkOk } from './links.js';   /* 02/11 audit: links that reach guests */
+import { navLinkOk, giftLinkOk } from './links.js';
+import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
+import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -3296,6 +3298,25 @@ async function handleWaWebhook(request, env, url) {
       continue;
     }
 
+    /* 03/11: a reply to a linked sub-event's one message (שבת חתן) is handled
+       there and never touches the parent's RSVP columns. Routed by the quoted
+       message (shwamid:) first, then by the open conversation (shctx:). */
+    if (ch === 'guests' && env.RATE && parsed.kind !== 'mistake') {
+      try {
+        const cid = msg.context && msg.context.id ? String(msg.context.id) : '';
+        const [ctxSub, ctxOther, openSub] = await Promise.all([
+          cid ? env.RATE.get('shwamid:' + cid).catch(() => null) : null,
+          cid ? env.RATE.get('wamid:' + cid).catch(() => null) : null,
+          env.RATE.get('shctx:' + normPhone(from)).catch(() => null),
+        ]);
+        const subTok = routeToSub({ ctxSub, ctxOther: ctxOther && !ctxSub ? (() => { try { return JSON.parse(ctxOther).wave !== 'shabbat'; } catch { return true; } })() : false, openSub, type: msg.type });
+        if (subTok && await getSub(env, subTok)) {
+          const subText = String((msg.text && msg.text.body) || (msg.button && (msg.button.text || msg.button.payload)) || (msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.title) || '');
+          if (await handleShabbatInbound(env, { sub: subTok, from, text: subText, say, normPhone, logEvent })) continue;
+        }
+      } catch (e) { await logEvent(env, { area: 'ווצאפ', action: 'תת-אירוע: טיפול בתשובה נכשל', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+    }
+
     const raw = await fetchSnapshot(env.HOOK_STATUS);
     /* WHO is this, in Richard's order of precedence. An event OWNER is a
        client even when their own number also sits in a guest row (his test
@@ -4217,6 +4238,28 @@ async function templateApproved(env, name) {
   } catch {}
   if (env.RATE) await env.RATE.put(ck, ok ? '1' : '0', { expirationTtl: 600 }).catch(() => {});
   return ok;
+}
+
+/* 03/11: status + body/footer/buttons of one template on the guests WABA
+   (read-only GET; the sub-event dry run renders the exact text from it) */
+async function templateDetails(env, name) {
+  const out = { status: '', body: '', footer: '', buttons: [] };
+  if (!env.WA_TOKEN_GUESTS) return out;
+  try {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${encodeURIComponent(name)}&fields=name,status,components`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+    const j = await r.json(); const t = ((j.data || []).find(x => x.name === name)) || {};
+    out.status = String(t.status || '');
+    for (const c of t.components || []) {
+      if (c.type === 'BODY') out.body = String(c.text || '');
+      else if (c.type === 'FOOTER') out.footer = String(c.text || '');
+      else if (c.type === 'BUTTONS') out.buttons = (c.buttons || []).map(b => String(b.text || ''));
+    }
+  } catch {}
+  return out;
+}
+function subeventDeps() {
+  return { isAdmin, okJson, deny, logEvent, eventRowOf, ilDate, normPhone, cleanParam, phoneBlocked, wrongNum, guestCapacity, sendingPaused, sendWindowState, isNoContactDay,
+    sendTemplate, noteGuestSend, templateDetails, kvPrefix, fetchSnapshot: (env) => fetchSnapshot(env.HOOK_STATUS), snapshotCached: (env) => snapshotCached(env) };
 }
 
 /* 02/11: status AND category, cached 10 min. A gift variant (*_matana) is only
@@ -10332,6 +10375,10 @@ export default {
     if (url.pathname === '/api/gift-blast' && request.method === 'POST') {
       return handleGiftBlast(request, env, origin);
     }
+    /* 03/11: linked sub-events (שבת חתן) — subevent.js */
+    if (url.pathname === '/api/subevent' && request.method === 'POST') return handleSubeventCreate(request, env, origin, subeventDeps());
+    if (url.pathname === '/api/subevent-send' && request.method === 'POST') return handleSubeventSend(request, env, origin, subeventDeps());
+    if (url.pathname === '/api/subevent-summary' && request.method === 'GET') return handleSubeventSummary(request, env, origin, subeventDeps());
     if (url.pathname === '/api/event-day' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -10419,7 +10466,7 @@ export default {
       return handleSendBoard(request, env, origin, {
         isAdmin, okJson, deny, snapshotCached,
         auditQuery: (e, q) => audit.query(e, q),
-        isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds,
+        isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
         guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); },
       });
     }
@@ -11837,6 +11884,8 @@ export default {
           (snapshot.guests || []).forEach(g => { const v = parseInt(arr[`arrived:${token}:${g.id}`], 10) || 0; g.arrived = v; if (v) { total += v; people++; } });
           snapshot.checkin = { enabled, hostess: hasHostess, event_day: evDate === today, arrived_total: total, arrived_people: people };
         } catch { snapshot.checkin = { enabled: false }; }
+        /* 03/11: linked sub-events → a small card on the parent board */
+        try { const subs = await subsOf(env, token); snapshot.subevents = (await Promise.all(subs.map(s => getSub(env, s)))).filter(Boolean).map(r => ({ token: r.token, name: r.name, kind: r.kind, kind_he: (SUBEVENT_KINDS[r.kind] || {}).he || '' })); } catch { snapshot.subevents = []; }
         try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header, id: ct.id || '', n: ct.n || 1 } : null; } catch { snapshot.custom_template = null; }
         /* Richard 21/10: the Morning invoice is downloadable from the board */
         try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }

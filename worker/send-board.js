@@ -29,6 +29,7 @@
 
 import { planVsCapacity } from './budget.js';
 import { giftActive } from './gifts.js';
+import { subeventBoard } from './subevent.js';   /* 03/11 linked sub-events */
 
 /* ── §1a message types, in board order ─────────────────────────────────── */
 export const TYPES = [
@@ -461,6 +462,8 @@ export async function handleSendBoard(request, env, origin, deps) {
   data.oldest_row_at = rows.length ? rows[rows.length - 1].at : null;
   data.gates = gates;
   data.codes = BOARD_CODES.map(c => ({ code: c, he: failHe(c) }));
+  /* 03/11: linked sub-events (שבת חתן) — their ONE message type, from their own markers */
+  try { data.subevents = await subeventBoard(env, raw, { kvPrefix: deps.kvPrefix, normPhone: deps.normPhone || (x => String(x || '').replace(/\D/g, '').replace(/^0/, '972')), token }); } catch { data.subevents = []; }
   if (env.RATE) await env.RATE.put(ck, JSON.stringify({ at: Date.now(), data }), { expirationTtl: 600 }).catch(() => {});
   return deps.okJson(await withCap(data), origin);
 }
