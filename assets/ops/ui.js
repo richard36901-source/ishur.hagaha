@@ -14,6 +14,9 @@ export const fmtMoney = (n, cur = 'USD') => (n == null ? '—' : new Intl.Number
 const pad = (x) => String(x).padStart(2, '0');
 const IL = (d) => new Date(new Date(d).toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' }));
 export const fmtTime = (d) => { if (!d) return '—'; const x = IL(d); return pad(x.getHours()) + ':' + pad(x.getMinutes()); };
+export const fmtTimeS = (d) => { if (!d) return '—'; const x = IL(d); return pad(x.getHours()) + ':' + pad(x.getMinutes()) + ':' + pad(x.getSeconds()); };
+/* a live Israel-time clock (HH:MM:SS), ticking every second while the element is in the DOM */
+export function liveClock(el) { if (!el) return; const tick = () => { if (!el.isConnected) return clearInterval(t); el.textContent = fmtTimeS(new Date()); }; tick(); const t = setInterval(tick, 1000); return t; }
 export const fmtDate = (d) => { if (!d) return '—'; const x = IL(d); return pad(x.getDate()) + '/' + pad(x.getMonth() + 1); };
 export const fmtDT = (d) => (d ? fmtDate(d) + ' ' + fmtTime(d) : '—');
 export function relTime(d, now = Date.now()) {

@@ -1,7 +1,7 @@
 /* ishur ops · app: router, data layer (fetch + cache + poll), auth, shortcuts, palette.
    ?mock=1 → fixtures/ops/*.json through mock adapters; otherwise POST go.ishur.io/api/ops/*
    with admin_key + IshurGuard.stamp, the same way live.html / admin.html authenticate. */
-import { esc, icon, Button, Skeleton, KeyHints, toast, Drawer, init as uiInit, relTime } from './ui.js';
+import { esc, icon, Button, Skeleton, KeyHints, toast, Drawer, init as uiInit, relTime, liveClock } from './ui.js';
 import { adapt } from './adapt.js';
 
 const Q = new URLSearchParams(location.search);
@@ -220,6 +220,7 @@ function showGate(msg = '') {
 let sideFeed = null;
 async function mountSide() {
   const shell = $('.shell');
+  liveClock($('#side-clock'));
   let off = false; try { off = localStorage.getItem('ops:side') === 'off'; } catch (e) {}
   shell.classList.toggle('side-off', off);
   if (off || matchMedia('(max-width:1180px)').matches) return;

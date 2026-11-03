@@ -263,3 +263,6 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font)}
   .hide-m{display:none}
   .drawer{width:100vw}
 }
+
+/* live clock in the side-panel header */
+.side-h .clock{margin-inline-start:8px;font-size:12px;color:var(--fg-3,#8a8f98);letter-spacing:.02em;font-variant-numeric:tabular-nums}

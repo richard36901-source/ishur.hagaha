@@ -8,7 +8,7 @@
 <title>מרכז שליטה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <script>try{var t=localStorage.getItem('ishur_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
-<link rel="stylesheet" href="assets/ops/ops.css?v=1">
+<link rel="stylesheet" href="assets/ops/ops.css?v=2">
 <link rel="modulepreload" href="assets/ops/ui.js">
 <link rel="modulepreload" href="assets/ops/adapt.js">
 <link rel="modulepreload" href="assets/ops/screens/overview.js">
@@ -49,7 +49,7 @@
     </div>
   </main>
   <aside class="side" aria-label="לוג חי">
-    <div class="side-h"><span class="dot good pulse" aria-hidden="true"></span>לוג חי<span class="sp" style="flex:1"></span><a class="btn ghost sm" href="#/live">מסך מלא</a></div>
+    <div class="side-h"><span class="dot good pulse" aria-hidden="true"></span>לוג חי<span class="clock num mono" id="side-clock" aria-label="שעון זמן אמת"></span><span class="sp" style="flex:1"></span><a class="btn ghost sm" href="#/live">מסך מלא</a></div>
     <div class="feed" id="side-feed"></div>
   </aside>
 </div>

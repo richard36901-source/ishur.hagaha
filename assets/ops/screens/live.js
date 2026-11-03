@@ -1,9 +1,9 @@
 /* Live log: 3 s poll with a since-cursor, filters by kind / number / event, pauses on hover.
    feed() is reused by the side panel in the shell. */
-import { esc, fmtTime, Select, Button, Skeleton, icon } from '../ui.js';
+import { esc, fmtTime, fmtTimeS, liveClock, Select, Button, Skeleton, icon } from '../ui.js';
 
 export const KIND_HE = { run: 'ריצה', wa_out: 'נשלח', wa_status: 'סטטוס', wa_in: 'נכנס', call: 'שיחה', cron: 'ריצה', admin: 'אדמין', slack: 'סלאק', pay: 'תשלום', lead: 'ליד', event: 'אירוע', system: 'מערכת', brain: 'מוח' };
-export const row = (x) => `<div class="feed-row${x.level === 'error' ? ' err' : x.level === 'warn' ? ' warn' : ''}" data-id="${esc(x.id)}"><time datetime="${esc(x.at)}">${esc(fmtTime(x.at))}</time><span><span class="badge">${esc(KIND_HE[x.kind] || x.kind)}</span>${x.number ? ` <span class="sub mono">${esc(x.number)}</span>` : ''}${x.event ? ` <span class="sub">${esc(x.event)}</span>` : ''}</span><span class="m">${esc(x.msg)}</span></div>`;
+export const row = (x) => `<div class="feed-row${x.level === 'error' ? ' err' : x.level === 'warn' ? ' warn' : ''}" data-id="${esc(x.id)}"><time datetime="${esc(x.at)}" class="num">${esc(fmtTimeS(x.at))}</time><span><span class="badge">${esc(KIND_HE[x.kind] || x.kind)}</span>${x.number ? ` <span class="sub mono">${esc(x.number)}</span>` : ''}${x.event ? ` <span class="sub">${esc(x.event)}</span>` : ''}</span><span class="m">${esc(x.msg)}</span></div>`;
 export const match = (x, f) => (!f.kind || x.kind === f.kind) && (!f.number || x.number === f.number) && (!f.q || ((x.event || '') + ' ' + x.msg).includes(f.q));
 
 export function feed(el, { compact = false, filters = {}, onCount } = {}) {
@@ -50,9 +50,10 @@ export default {
     el.innerHTML = `<div class="bar">${Select({ name: 'kind', value: '', options: [{ value: '', label: 'כל הסוגים' }, ...Object.entries(KIND_HE).map(([value, label]) => ({ value, label }))] })}
 ${Select({ name: 'number', value: '', options: [{ value: '', label: 'כל האזורים' }, { value: 'שיר', label: 'שיר · אורחים' }, { value: 'נועה', label: 'נועה · לקוחות' }, { value: 'שיחות', label: 'שיחות' }, { value: 'וורקר', label: 'וורקר' }, { value: 'אדמין', label: 'אדמין' }] })}
 <div class="search">${icon('search')}<input class="in" data-search placeholder="אירוע או טקסט" aria-label="סינון לפי אירוע"></div>
-${Button(icon('pause') + '<span>להשהות</span>', { act: 'live-pause', kbd: 'p' })}<span class="sp" style="flex:1"></span><span class="sub" id="lv-st" aria-live="polite"></span></div>
+${Button(icon('pause') + '<span>להשהות</span>', { act: 'live-pause', kbd: 'p' })}<span class="sp" style="flex:1"></span><span class="sub" id="lv-st" aria-live="polite"></span><span class="clock num mono" id="lv-clock" aria-label="שעון זמן אמת" style="margin-inline-start:12px;font-variant-numeric:tabular-nums"></span></div>
 <div class="card flush"><div id="lv-feed" style="max-height:calc(100dvh - 190px);overflow-y:auto"></div></div>`;
     const st = el.querySelector('#lv-st');
+    liveClock(el.querySelector('#lv-clock'));
     const fd = feed(el.querySelector('#lv-feed'), { filters: f, onCount: (n, buf, p) => { st.textContent = p ? (buf ? `מושהה · ${buf} חדשים מחכים` : 'מושהה') : `${n} שורות · מתעדכן כל 3 שניות`; } });
     fd.start((n, b) => ctx.api.get(n, b, { cache: false }));
     const btn = el.querySelector('[data-act=live-pause]');
