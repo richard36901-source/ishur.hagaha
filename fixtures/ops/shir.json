@@ -1,0 +1,123 @@
+{
+ "ok": true,
+ "agent": "shir_out",
+ "name": "שיר · יוצאת (אורחים)",
+ "agent_id": "agent_fa5c86723f7c49960f7f4076be",
+ "head": 14,
+ "history": [
+  {
+   "n": 14,
+   "at": "2026-11-01T15:58:23.540Z",
+   "note": "בלי לחזור על התאריך",
+   "chars": 5681
+  },
+  {
+   "n": 13,
+   "at": "2026-10-30T15:58:23.540Z",
+   "note": "שאלת כמות אחרי \"מגיע\"",
+   "chars": 5644
+  },
+  {
+   "n": 12,
+   "at": "2026-10-28T15:58:23.540Z",
+   "note": "פתיחה קצרה יותר",
+   "chars": 5607
+  },
+  {
+   "n": 11,
+   "at": "2026-10-26T15:58:23.540Z",
+   "note": "בסיס — לפני מערכת הגרסאות",
+   "chars": 5570
+  },
+  {
+   "n": 10,
+   "at": "2026-10-24T15:58:23.540Z",
+   "note": "תא קולי: לנתק מיד",
+   "chars": 5533
+  },
+  {
+   "n": 9,
+   "at": "2026-10-22T15:58:23.540Z",
+   "note": "בלי לחזור על התאריך",
+   "chars": 5496
+  },
+  {
+   "n": 8,
+   "at": "2026-10-20T15:58:23.540Z",
+   "note": "שאלת כמות אחרי \"מגיע\"",
+   "chars": 5459
+  },
+  {
+   "n": 7,
+   "at": "2026-10-18T15:58:23.540Z",
+   "note": "פתיחה קצרה יותר",
+   "chars": 5422
+  },
+  {
+   "n": 6,
+   "at": "2026-10-16T15:58:23.540Z",
+   "note": "בסיס — לפני מערכת הגרסאות",
+   "chars": 5385
+  },
+  {
+   "n": 5,
+   "at": "2026-10-14T15:58:23.540Z",
+   "note": "תא קולי: לנתק מיד",
+   "chars": 5348
+  },
+  {
+   "n": 4,
+   "at": "2026-10-12T15:58:23.540Z",
+   "note": "בלי לחזור על התאריך",
+   "chars": 5311
+  },
+  {
+   "n": 3,
+   "at": "2026-10-10T15:58:23.540Z",
+   "note": "שאלת כמות אחרי \"מגיע\"",
+   "chars": 5274
+  },
+  {
+   "n": 2,
+   "at": "2026-10-08T15:58:23.540Z",
+   "note": "פתיחה קצרה יותר",
+   "chars": 5237
+  },
+  {
+   "n": 1,
+   "at": "2026-10-06T15:58:23.540Z",
+   "note": "בסיס — לפני מערכת הגרסאות",
+   "chars": 5200
+  }
+ ],
+ "edit_via": "/api/voice-prompt",
+ "retell": true,
+ "llm_id": "llm_fx",
+ "model": "gpt-4.1",
+ "begin_message": "",
+ "prompt": "את שיר מ\"אישורי הגעה\"…",
+ "prompt_chars": 22,
+ "live_matches_head": true,
+ "voice": {
+  "voice_id": "11labs-Shir-he",
+  "voice_model": "eleven_turbo_v2_5",
+  "voice_temperature": 0.7,
+  "voice_speed": 1.05,
+  "volume": 1,
+  "language": "he-IL",
+  "responsiveness": 0.9,
+  "interruption_sensitivity": 0.8,
+  "enable_backchannel": true,
+  "ambient_sound": "call-center",
+  "max_call_duration_ms": 300000,
+  "end_call_after_silence_ms": 20000
+ },
+ "analysis_fields": [
+  "outcome",
+  "party_size",
+  "got_answer",
+  "needs_review",
+  "agent_quality"
+ ],
+ "fixture": true
+}
