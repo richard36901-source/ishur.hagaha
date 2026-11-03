@@ -358,6 +358,25 @@ export const AUTOMATIONS = [
     source: S(9616, "url.pathname === '/api/wave-retry'"),
     evidence: [E(9623, 'for (const g of list) for (const k of [`wfail:${token}:${w}:${g.phone}`', 'מחיקות לפני בדיקת dry'), E(9624, 'await env.RATE.delete(`wave:${token}:${w}`)', 'פתיחת הגל'), E(9625, "await env.RATE.put('pacer:pending'", 'חימוש'), E(9626, 'const r = b.dry ? { dry: true }', 'dry נבדק רק כאן')] },
 
+  /* ═════════════ 03/11 ops center: jobs the 10-minute tick runs that had no node ═════════════ */
+  { id: 'late_invites', name_he: 'הזמנות מאוחרות (אורחים שנוספו אחרי הגל)', layer: 2, from: ['t_cron10'], kind: 'send_guest',
+    conditions: ['תור lateinv:<token>:<phone>', 'paused / hold עוצרים'], audience: 'אורחים שנוספו לרשימה אחרי שגל 1 יצא',
+    kv_markers: { per_guest: ['lateinv:<token>:<phone>'] }, live: { jobs: ['drainLateInvites'] }, source: S(4390, 'async function drainLateInvites') },
+  { id: 'calendar_build', name_he: 'בניית מטמון לוח שנה', layer: 2, from: ['t_cron10'], kind: 'internal',
+    conditions: ['כל פעימה, החודש הנוכחי'], audience: '—', live: { jobs: ['buildCalendarMonth'] }, source: S(9223, 'async function buildCalendarMonth') },
+  { id: 'noa_chase', name_he: 'נועה רודפת (לידים "לא ענה" במאנדיי)', layer: 2, from: ['t_cron10'], kind: 'call',
+    conditions: ['NOA_CHASE="on" בלבד (כרגע off)', 'חלון שיחות'], audience: 'לידים', live: { jobs: ['noaChaseTick'] }, source: S(481, 'export async function noaChaseTick', 'worker/noa.js') },
+  { id: 'audit_meta', name_he: 'יומן ביקורת · רענון מטא-דאטה + מראה לגיליון', layer: 2, from: ['t_cron10'], kind: 'internal',
+    conditions: ['כל פעימה: evmeta/gmap', 'פעם בשעה: מראה לטאב "ביקורת"'], audience: '—', live: { jobs: ['auditMeta', 'auditMirror'] }, source: S(89, 'export async function refreshMeta', 'worker/audit.js') },
+  { id: 'ab_evaluate', name_he: 'A/B · בחירת תבנית מנצחת', layer: 2, from: ['t_cron10'], kind: 'internal',
+    conditions: ['AB_ENABLED="on"', '06:00 בישראל'], audience: '—', live: { jobs: ['abEvaluate'] }, source: S(241, 'export async function evaluate', 'worker/ab.js') },
+  { id: 'call_cost_sync', name_he: 'סנכרון עלויות שיחה מ-Retell', layer: 2, from: ['t_morning'], kind: 'internal',
+    conditions: ['קרון בוקר'], audience: '—', live: { jobs: ['syncCallCosts'] }, source: S(7904, 'async function syncCallCosts') },
+  { id: 'manual_blasts', name_he: 'שליחות ידניות (מתנה · אירוע-בן · SMS · ניסיון חוזר · שליחה חוזרת)', layer: 3, from: [], kind: 'send_guest', mutating: true,
+    trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/gift-blast · /api/subevent-send · /api/sms-blast · /api/wave-retry · /api/resend' },
+    conditions: ['אדמין בלבד', 'כבוי (auto:off:manual_blasts) → כל המסלולים מחזירים 423 לפני כל קריאה החוצה; /api/wave-retry חסום גם ב-dry כי הוא משנה מצב'],
+    audience: 'אורחים של אירוע אחד', source: S(4491, 'async function handleGiftBlast') },
+
   /* ═════════════ layer 3 · reactions ═════════════ */
   { id: 'wa_fail', name_he: 'כשל מסירה ממטא → פתיחה מחדש', layer: 3, from: ['t_wa_status'], kind: 'internal',
     trigger: { cron: '', il: 'מיידי', via: 'handleWaWebhook — status failed' },
@@ -378,3 +397,91 @@ export function edges() {
 
 /* template name as sent → registry name (footer _f and portfolio _n copies) */
 export function baseTemplate(name) { return String(name || '').replace(/_(f|n)$/, ''); }
+
+/* ═════════════ 03/11 · ops center metadata (docs/OPS-CENTER-PLAN-2026-11-03.md §3a) ═════════════
+   Per node, on top of the description above:
+     owner         who answers for it
+     side_effects  wa_guest | wa_client | call | sms | email | sheet | kv | monday | slack | money | meta
+     kill_switch   { key: 'auto:off:<id>', wired: true } — wired = the code checks the key before acting
+                   (index.js, look for isOff(env, '<id>')); null = no per-automation switch (only `paused`)
+     depends_on    upstream ids (defaults to from[])
+     risk          high | medium | low
+     desc_he       plain Hebrew, one sentence
+     code          { file, symbol } — the function shown by /api/ops/code (defaults to source);
+                   worker/registry-code.json holds the resolved lines (scripts/ops-snapshot-code.mjs) */
+export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges'];
+const KS = id => ({ key: 'auto:off:' + id, wired: true });
+const C = (symbol, file = IX) => ({ file, symbol });
+const OPS_OVERRIDES = {
+  t_cron10:   { code: C('async scheduled(event, env, ctx)'), desc_he: 'השעון של הכל: כל 10 דקות מריץ את המשימות ואת הפייסר.' },
+  t_morning:  { code: C('async scheduled(event, env, ctx)'), desc_he: 'קרון הבוקר: מחמש את היום ומריץ את המנוע היומי.' },
+  t_0400:     { code: C('async scheduled(event, env, ctx)'), desc_he: 'בדיקת דופק בוקר: המנוע רץ? יתרות טלניקס וחיוב.' },
+  t_evening:  { code: C('async scheduled(event, env, ctx)'), desc_he: 'קרונות ערב: לולאת שיפור ב-20:00 ודוח יומי ב-21:00.' },
+  t_tue:      { code: C('async scheduled(event, env, ctx)'), desc_he: 'שלישי: תזכורות לצוות הדיילות.' },
+  t_wa_status:{ side_effects: ['kv', 'wa_guest', 'slack'], risk: 'high', desc_he: 'כל דיווח של מטא על הודעה (נמסרה/נכשלה) ותשובה נכנסת עובר כאן.' },
+  d_pacer:    { kill_switch: KS('d_pacer'), side_effects: ['wa_guest', 'wa_client', 'call', 'kv', 'slack', 'sheet'], risk: 'high',
+                desc_he: 'הפייסר: כל 10 דקות שולח פרוסה של הודעות (25) וחיוגים (6), מריץ ניסיון חוזר, רדיפת לידים ובדיקות.' },
+  d_engine:   { side_effects: ['wa_guest', 'wa_client', 'kv', 'sheet', 'slack'], risk: 'high', desc_he: 'המנוע היומי: מחליט לכל אירוע מה יוצא היום (גלים, יום-לפני, שולחן, תודה, דוחות ללקוח).' },
+  wave1:      { kill_switch: KS('wave1'), code: C('async function sendWave'), risk: 'high', desc_he: 'גל 1: ההזמנה הראשונה לכל האורחים של האירוע.' },
+  wave2:      { kill_switch: KS('wave2'), code: C('async function sendWave'), risk: 'high', desc_he: 'גל 2: תזכורת למי שלא ענה או מתלבט.' },
+  wave3:      { kill_switch: KS('wave3'), code: C('async function sendWave'), risk: 'high', desc_he: 'גל 3: שליחה נוספת (תוסף בתשלום).' },
+  autoretry:  { kill_switch: KS('autoretry'), side_effects: ['kv', 'wa_guest'], risk: 'high', code: C('async function runPacer'),
+                desc_he: 'פעם ביום בחלון השליחה: פותח מחדש אורחים שההזמנה שלהם לא נמסרה, כדי שהגל ישלח להם שוב.' },
+  lead_chase: { side_effects: ['wa_client', 'kv'], risk: 'medium', code: C('async function chaseAbandonedLeads') },
+  shir_callbacks: { kill_switch: KS('shir_callbacks'), side_effects: ['call', 'kv', 'money'], risk: 'high', code: C('async function runShirCallbacks'),
+                desc_he: 'שיר מחזירה שיחה למי שהתקשר אלינו ולא נענה.' },
+  shir_dispatch:  { depends_on: ['d_pacer'], kill_switch: KS('shir_dispatch'), side_effects: ['call', 'kv', 'sheet', 'money'], risk: 'high', code: C('async function runShirDispatch'),
+                desc_he: 'שיר מחייגת לאורחים שלא ענו בוואטסאפ (תור "נדרשת שיחה").' },
+  noa_lead_dial:  { side_effects: ['call', 'money'], code: C('async function runShirLeadDial') },
+  reconcile_calls:{ side_effects: ['sheet', 'kv'], code: C('async function reconcileShirCalls') },
+  template_check: { side_effects: ['meta', 'kv', 'slack'], code: C('async function templateCheck') },
+  doctor:     { side_effects: ['kv', 'slack'], code: C('async function runDoctor') },
+  event_day_blast: { kill_switch: KS('event_day_blast'), risk: 'high', code: C('async function runEventDayBlasts'),
+                desc_he: 'ביום האירוע מ-09:00: ההודעה שהלקוח קבע לאורחים שמגיעים.' },
+  call_rounds:{ code: C('async function drainCallRounds') },
+  party_nudges: { kill_switch: KS('party_nudges'), risk: 'medium', code: C('async function drainPartyNudges'),
+                desc_he: 'שואל אורח שענה "מגיע" כמה יגיעו, כשלא כתב מספר.' },
+  lead_pings: { code: C('async function drainLeadPings') },
+  meta_form_leads: { side_effects: ['sheet', 'monday', 'slack'], code: C('async function pullMetaFormLeads') },
+  custom_tmpl:{ code: C('async function checkCustomTemplates') },
+  noa_queue:  { side_effects: ['wa_client'], code: C('async function drainNoaQueue'), desc_he: 'תשובות מושהות של נועה ה-AI. כבוי בהחלטה — לא להדליק.' },
+  admin_calls:{ code: C('async function drainAdminCalls') },
+  ads_watch:  { code: C('export async function adsHealthWatch', 'worker/ads.js') },
+  backup:     { side_effects: ['kv'], code: C('async function runBackup') },
+  perf_digest:{ code: C('async function msgPerformanceDigest') },
+  heartbeat:  { side_effects: ['slack', 'meta'], code: C('async function checkBilling') },
+  daily_improve: { code: C('async function runDailyImprove') },
+  journal_digest:{ code: C('async function dailyJournalDigest') },
+  audit_root: { code: C('export async function dailyRoot', 'worker/audit.js') },
+  team_reminders:{ side_effects: ['wa_client'], code: C('async function runTeamReminders') },
+  wave_retry: { side_effects: ['kv', 'wa_guest'], risk: 'high', kill_switch: { key: 'auto:off:manual_blasts', wired: true, via: 'manual_blasts' } },
+  wa_fail:    { side_effects: ['kv'], risk: 'high', code: C('async function handleWaWebhook') },
+  late_invites: { risk: 'medium' },
+  manual_blasts:{ kill_switch: KS('manual_blasts'), side_effects: ['wa_guest', 'sms', 'kv'], risk: 'high',
+                desc_he: 'כל השליחות הידניות לאורחים: קישורי מתנה, אירוע-בן (שבת חתן), SMS חירום, ניסיון חוזר לגל, שליחה חוזרת.' },
+};
+const SIDE_BY_KIND = { send_guest: ['wa_guest', 'kv'], send_client: ['wa_client', 'kv'], call: ['call', 'kv'], slack: ['slack'], internal: ['kv'], trigger: [] };
+const RISK_BY_KIND = { send_guest: 'medium', send_client: 'medium', call: 'medium', slack: 'low', internal: 'low', trigger: 'low' };
+export function opsMeta(n) {
+  const o = OPS_OVERRIDES[n.id] || {};
+  return {
+    owner: o.owner || 'richard',
+    side_effects: o.side_effects || SIDE_BY_KIND[n.kind] || [],
+    kill_switch: o.kill_switch || null,
+    depends_on: o.depends_on || (n.from || []).slice(),
+    risk: o.risk || RISK_BY_KIND[n.kind] || 'low',
+    desc_he: o.desc_he || [n.name_he, (n.conditions || [])[0]].filter(Boolean).join(' — '),
+    code: o.code || (n.source ? { file: n.source.file, symbol: n.source.symbol } : null),
+  };
+}
+/* audit.job name → registry id (the ledger's automation_id) */
+export const JOB_TO_ID = {
+  runPacer: 'd_pacer', adsHealthWatch: 'ads_watch', drainLeadPings: 'lead_pings', pullMetaFormLeads: 'meta_form_leads',
+  drainPartyNudges: 'party_nudges', runEventDayBlasts: 'event_day_blast', drainLateInvites: 'late_invites', drainCallRounds: 'call_rounds',
+  checkCustomTemplates: 'custom_tmpl', buildCalendarMonth: 'calendar_build', drainNoaQueue: 'noa_queue', drainAdminCalls: 'admin_calls',
+  noaChaseTick: 'noa_chase', auditMeta: 'audit_meta', auditMirror: 'audit_meta', abEvaluate: 'ab_evaluate', syncCallCosts: 'call_cost_sync',
+  auditDailyRoot: 'audit_root', runDailyImprove: 'daily_improve', snapshotTraffic: 'journal_digest', dailyJournalDigest: 'journal_digest',
+  runTeamReminders: 'team_reminders',
+};
+/* balance thresholds (/api/ops/balances): status 'low' when amount < low (null = no threshold) */
+export const BALANCE_LOW = { telnyx: 10, meta_ads: 50, cloudflare: null, meta_wa: null, retell: 20, anthropic: 10 };
