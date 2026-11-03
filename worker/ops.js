@@ -904,6 +904,7 @@ export async function handleOps(request, env, origin, url, d) {
   const q = k => body[k] ?? url.searchParams.get(k);
   const json = (o, status = 200) => status === 200 ? d.okJson(o, origin) : new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json', ...d.cors(origin) } });
   try {
+    if (/^(notifications(\/mark|\/push-pull)?|notify-settings|overview)$/.test(path) || (path === 'edit' && String(body.id || '').startsWith('notify:'))) return (await import('./notify.js')).handleNotify(request, env, url, d, body, json, path);   /* 03/11 Phase 5 notifications + overview */
     switch (path) {
       case 'realtime': return json(await buildRealtime(env, d));
       case 'capacity': return json(await buildCapacity(env, d, Date.now(), Math.max(1, Math.min(28, Number(q('days')) || 14))));
