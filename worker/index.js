@@ -66,6 +66,7 @@ import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledge
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns } from './ops.js';
+import { handleRaffle } from './raffle.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
@@ -9966,6 +9967,8 @@ const WORKER = {
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
+    /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
+    if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps());
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */

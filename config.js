@@ -519,6 +519,19 @@ window.ISHUR_CONFIG = (function () {
     ]
   };
 
+  /* Review raffle (Richard 03/11): feedback.html → "מגישים = נכנסים להגרלה".
+     Keep equal to worker/raffle.js RAFFLE (a test checks). Empty links → the
+     worker uses the brain sheet's reviewLink / testimonialLink at runtime;
+     no Google link → the Google step is hidden. on:false hides everything. */
+  var RAFFLE = {
+    on: false,
+    prize_he: '₪1,000 או PlayStation 5 חדש',
+    draw_at: '2027-05-03T15:00:00Z',
+    google_review_url: '',
+    video_url: '',
+    video_max_sec: 60
+  };
+
   var SEND_RULES = {
     /* The daily batch leaves at 06:00. To go out on a given day the event has
        to be set up before 06:00 that morning, so tomorrow is available right up
@@ -545,7 +558,7 @@ window.ISHUR_CONFIG = (function () {
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
-        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'guest-add': '/api/guest-add', 'guest-edit': '/api/guest-edit', 'custom-template': '/api/custom-template', checkin: '/api/checkin', interest: '/api/interest', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink', giftlinks: '/api/giftlinks', 'hostess-check': '/api/hostess-check', 'design-brief': '/api/design-brief', 'event-change': '/api/event-change', 'feedback-list': '/api/feedback-list', leads: '/api/leads', 'lead-update': '/api/lead-update'
+        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'raffle-config': '/api/raffle/config', 'raffle-enter': '/api/raffle/enter', 'raffle-claim': '/api/raffle/claim-google', 'guest-add': '/api/guest-add', 'guest-edit': '/api/guest-edit', 'custom-template': '/api/custom-template', checkin: '/api/checkin', interest: '/api/interest', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink', giftlinks: '/api/giftlinks', 'hostess-check': '/api/hostess-check', 'design-brief': '/api/design-brief', 'event-change': '/api/event-change', 'feedback-list': '/api/feedback-list', leads: '/api/leads', 'lead-update': '/api/lead-update'
       }[kind] || ('/api/' + String(kind || 'event'))); /* 27/10: a key missing here used to post to /api/event and fail as "לא נשמר" (guest-edit, custom-template, checkin, interest). Now it 404s as unknown-route, visible in the worker log. */
     }
     return {
@@ -897,6 +910,7 @@ window.ISHUR_CONFIG = (function () {
     DEFAULT_PLAN: DEFAULT_PLAN,
     UPLOAD: UPLOAD,
     SEND_RULES: SEND_RULES,
+    RAFFLE: RAFFLE,
     SCHEDULE: SCHEDULE,
     GUARD: GUARD,
     TIME_OPTIONS: TIME_OPTIONS,
