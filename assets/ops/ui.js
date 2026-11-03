@@ -48,6 +48,8 @@ const P = {
   ext: 'M14 4h6v6m0-6-9 9M18 14v6H4V6h6',
   pause: 'M8 5v14m8-14v14',
   play: 'M7 5l12 7-12 7z',
+  cal: 'M4 6h16v14H4zM4 10h16M8 3v4m8-4v4',
+  copy: 'M9 9h11v11H9zM5 15V4h11',
 };
 export const icon = (n, cls = '') => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="${cls}"><path d="${P[n] || ''}"/></svg>`;
 
@@ -68,9 +70,27 @@ export function Select({ name, value, options, label = '' }) {
 <script type="application/json">${JSON.stringify(options).replace(/</g, '\\u003c')}</script></div>`;
 }
 
-/* ── Tabs / segmented ── */
-export const Tabs = ({ name, value, items }) =>
-  `<div class="seg" role="tablist" data-tabs="${esc(name)}">${items.map((i) => `<button type="button" role="tab" data-v="${esc(i.value)}" aria-selected="${String(i.value) === String(value)}">${esc(i.label)}${i.count != null ? ` <span class="muted num">${fmtN(i.count)}</span>` : ''}</button>`).join('')}</div>`;
+/* ── Tabs: segmented filter (ops:change) or, with item.href, page tabs that are deep links ── */
+export const Tabs = ({ name, value, items, label = '' }) => items.some((i) => i.href)
+  ? `<nav class="ptabs" role="tablist" aria-label="${esc(label || name)}">${items.map((i) => `<a role="tab" href="${esc(i.href)}" data-v="${esc(i.value)}" aria-selected="${String(i.value) === String(value)}">${esc(i.label)}${i.count ? ` <span class="badge crit num">${fmtN(i.count)}</span>` : ''}</a>`).join('')}</nav>`
+  : `<div class="seg" role="tablist" data-tabs="${esc(name)}">${items.map((i) => `<button type="button" role="tab" data-v="${esc(i.value)}" aria-selected="${String(i.value) === String(value)}">${esc(i.label)}${i.count != null ? ` <span class="muted num">${fmtN(i.count)}</span>` : ''}</button>`).join('')}</div>`;
+
+/* ── people + events: a phone anywhere opens the person drawer; an event name opens the client card ── */
+const pDig = (p) => { let d = String(p || '').replace(/\D/g, ''); if (/^0\d{8,9}$/.test(d)) d = '972' + d.slice(1); return d; };
+export const phoneFmt = (p) => { const d = pDig(p); return /^972\d{9}$/.test(d) ? '0' + d.slice(3, 5) + '-' + d.slice(5) : String(p || ''); };
+export function Phone(p, { name = '', icons = true } = {}) {
+  const d = pDig(p); if (!d) return '<span class="muted">—</span>';
+  const masked = /\*/.test(String(p));
+  return `<span class="ph"><button type="button" class="ph-n" data-person="${esc(masked ? '' : d)}" data-name="${esc(name)}" title="פתיחת כרטיס האיש">${esc(masked ? p : phoneFmt(d))}</button>${icons && !masked ? `<a class="wa" href="https://wa.me/${d}" target="_blank" rel="noopener" aria-label="וואטסאפ" title="וואטסאפ"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 20l1.3-4A8 8 0 1 1 8 18.7z"/></svg></a><a href="tel:+${d}" aria-label="חיוג" title="חיוג">${icon('call')}</a>` : ''}</span>`;
+}
+export const EventLink = (name, tok) => (tok ? `<a class="evl" href="#/clients/${esc(tok)}" title="כרטיס הלקוח">${esc(name || String(tok).slice(0, 8))}</a>` : esc(name || '—'));
+
+/* ── DatePicker (no native date inputs): button + hidden ISO input; the calendar popover is lazy/kit2.js ── */
+export function DatePicker({ value = '', label = 'תאריך', attr = {}, time = false, id = '' }) {
+  const v = String(value || ''), d = v.slice(0, 10), t = time ? v.slice(11, 16) : '';
+  const shown = d ? d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4) : 'בחירת תאריך';
+  return `<span class="dp${time ? ' dp-t' : ''}" data-dp><input type="hidden"${attrs({ id: id || null, ...attr })} value="${esc(v)}"><button type="button" class="in dp-btn${d ? '' : ' dp-empty'}" data-act="dp-open" aria-haspopup="dialog" aria-label="${esc(label)}">${icon('cal')}<span>${esc(shown)}</span></button>${time ? `<input class="in dp-time num" inputmode="numeric" maxlength="5" placeholder="שעה" aria-label="שעה" value="${esc(t)}" dir="ltr">` : ''}</span>`;
+}
 
 /* ── Badge / status ── */
 const ST = {
@@ -108,33 +128,48 @@ export function StatTile({ label, value, unit = '', sub = '', status = '', href 
   return `<${tag} class="tile"${href ? ` href="${esc(href)}"` : ''}><span class="l">${status ? statusDot(status) : ''}${esc(label)}</span><span class="v">${value}${unit ? ` <small>${esc(unit)}</small>` : ''}</span>${sub ? `<span class="s">${sub}</span>` : ''}${m}${spark ? `<span class="spark">${spark}</span>` : ''}</${tag}>`;
 }
 
-/* ── Table (string; rows over `virtualAt` use mountVirtual) ── */
-export function Table({ columns, rows, rowKey = (r) => r.id, empty = 'אין נתונים', groupBy = null, selected = null }) {
+/* ── Table: sticky header, zebra, every labelled column sorts asc/desc (saved per table id in localStorage) ── */
+const stripT = (h) => String(h).replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
+export const sortVal = (v) => { if (v == null) return ''; if (typeof v === 'number') return v; const t = String(v); const m = /^[^\d-]{0,2}(-?[\d,]+(?:\.\d+)?)/.exec(t.replace(/[₪$]/g, '')); return m && !/^\d\d\/\d\d/.test(t) && !/^0\d{1,2}-/.test(t) ? Number(m[1].replace(/,/g, '')) : t.toLowerCase(); };
+export const cmp = (a, b) => (typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), 'he', { numeric: true }));
+export function savedSort(id) { try { return JSON.parse(localStorage.getItem('ops:sort:' + id) || 'null'); } catch (e) { return null; } }
+const svOf = (c, r) => (c.sort ? c.sort(r) : c.key ? r[c.key] : stripT(c.render ? c.render(r) : ''));
+export const thSort = (label, i, st, cls = '') => `<th class="srt ${cls}" scope="col" data-col="${i}"${st && st.col === i ? ` aria-sort="${st.dir === 'desc' ? 'descending' : 'ascending'}"` : ''}><button type="button" class="th-s" data-act="sort" data-col="${i}">${esc(label)}<span class="ar" aria-hidden="true"></span></button></th>`;
+const sortRows = (rows, columns, st) => (st && columns[st.col] && columns[st.col].label ? rows.map((r, i) => [sortVal(svOf(columns[st.col], r)), i, r]).sort((a, b) => cmp(a[0], b[0]) * (st.dir === 'desc' ? -1 : 1) || a[1] - b[1]).map((x) => x[2]) : rows);
+const cls = (c) => `${c.num ? 'n' : ''}${c.hideM ? ' hide-m' : ''}`;
+export function Table({ columns, rows, rowKey = (r) => r.id, empty = 'אין נתונים', groupBy = null, selected = null, id = '' }) {
   if (!rows.length) return `<div class="empty">${esc(empty)}</div>`;
-  const head = `<thead><tr>${columns.map((c) => `<th class="${c.num ? 'n' : ''}${c.hideM ? ' hide-m' : ''}" scope="col">${esc(c.label)}</th>`).join('')}</tr></thead>`;
+  id = id || 't:' + columns.map((c) => c.label).join('|');
+  const st = groupBy ? null : savedSort(id);
+  rows = sortRows(rows, columns, st);
+  const head = `<thead><tr>${columns.map((c, i) => (!groupBy && c.label ? thSort(c.label, i, st, cls(c)) : `<th class="${cls(c)}" scope="col">${esc(c.label)}</th>`)).join('')}</tr></thead>`;
   let last = null;
   const body = rows.map((r) => {
     let g = '';
     if (groupBy) { const k = groupBy(r); if (k !== last) { last = k; g = `<tr class="grp"><td colspan="${columns.length}">${k}</td></tr>`; } }
     const key = rowKey(r);
-    return g + `<tr data-row="${esc(key)}"${selected === key ? ' class="sel"' : ''} tabindex="-1">${columns.map((c) => `<td class="${c.num ? 'n' : ''}${c.hideM ? ' hide-m' : ''}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join('')}</tr>`;
+    return g + `<tr data-row="${esc(key)}"${selected === key ? ' class="sel"' : ''} tabindex="-1">${columns.map((c) => `<td class="${cls(c)}"${c.sort || c.key ? ` data-sv="${esc(svOf(c, r))}"` : ''}>${c.render ? c.render(r) : esc(r[c.key])}</td>`).join('')}</tr>`;
   }).join('');
-  return `<div class="tbl-wrap"><table class="tbl">${head}<tbody>${body}</tbody></table></div>`;
+  return `<div class="tbl-wrap"><table class="tbl"${groupBy ? '' : ` data-sort-id="${esc(id)}"`}>${head}<tbody>${body}</tbody></table></div>`;
 }
-/* Virtual rows: fixed row height, renders only the visible slice + overscan. */
-export function mountVirtual(el, { columns, rows, rowH = 40, height = 560, rowKey = (r) => r.id }) {
-  el.innerHTML = `<div class="tbl-wrap" style="height:${height}px"><table class="tbl"><thead><tr>${columns.map((c) => `<th class="${c.num ? 'n' : ''}${c.hideM ? ' hide-m' : ''}">${esc(c.label)}</th>`).join('')}</tr></thead><tbody></tbody></table></div>`;
+/* Virtual rows: fixed row height, renders only the visible slice + overscan; header sort re-sorts the data. */
+export function mountVirtual(el, { columns, rows, rowH = 48, height = 560, rowKey = (r) => r.id, id = '' }) {
+  id = id || 'v:' + columns.map((c) => c.label).join('|');
+  let orig = rows, st = savedSort(id);
+  rows = sortRows(orig, columns, st);
+  el.innerHTML = `<div class="tbl-wrap" style="height:${height}px"><table class="tbl" data-sort-id="${esc(id)}" data-sort-virtual><thead><tr>${columns.map((c, i) => (c.label ? thSort(c.label, i, st, cls(c)) : `<th class="${cls(c)}"></th>`)).join('')}</tr></thead><tbody></tbody></table></div>`;
   const wrap = el.firstElementChild, tb = wrap.querySelector('tbody');
   let raf = 0;
   const paint = () => {
     raf = 0;
     const top = wrap.scrollTop, start = Math.max(0, Math.floor(top / rowH) - 10), end = Math.min(rows.length, start + Math.ceil(height / rowH) + 20);
-    const cell = (r) => `<tr data-row="${esc(rowKey(r))}" tabindex="-1" style="height:${rowH}px">${columns.map((c) => `<td class="${c.num ? 'n' : ''}${c.hideM ? ' hide-m' : ''}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join('')}</tr>`;
+    const cell = (r) => `<tr data-row="${esc(rowKey(r))}" tabindex="-1" style="height:${rowH}px">${columns.map((c) => `<td class="${cls(c)}">${c.render ? c.render(r) : esc(r[c.key])}</td>`).join('')}</tr>`;
     tb.innerHTML = `<tr style="height:${start * rowH}px" aria-hidden="true"></tr>` + rows.slice(start, end).map(cell).join('') + `<tr style="height:${(rows.length - end) * rowH}px" aria-hidden="true"></tr>`;
   };
   wrap.addEventListener('scroll', () => { if (!raf) raf = requestAnimationFrame(paint); }, { passive: true });
+  el.addEventListener('ops:sort', (e) => { st = e.detail; rows = sortRows(orig, columns, st); paint(); });
   paint();
-  return { update(next) { rows = next; paint(); }, scrollToIndex(i) { wrap.scrollTop = Math.max(0, i * rowH - height / 3); } };
+  return { update(next) { orig = next; rows = sortRows(orig, columns, st); paint(); }, scrollToIndex(i) { wrap.scrollTop = Math.max(0, i * rowH - height / 3); } };
 }
 
 /* ── KeyHints ── */
@@ -144,6 +179,9 @@ export const KeyHints = (pairs) => `<div class="keys">${pairs.map(([k, d]) => `<
 export function Code({ file, start, line, lines }) {
   return `<div class="code" dir="ltr"><pre>${lines.map((l, i) => `<span class="ln${start + i === line ? ' hl' : ''}" data-n="${start + i}">${esc(l) || ' '}</span>`).join('')}</pre></div><div class="sub mono" dir="ltr">${esc(file)}:${line || start}</div>`;
 }
+
+/* app.js registers its api here so lazy kit modules (person drawer) can read data without re-importing app.js */
+export const hooks = {};
 
 /* ═══ DOM behaviour (browser only) ═══════════════════════════════════════ */
 const D = typeof document !== 'undefined' ? document : null;
@@ -170,12 +208,12 @@ function trap(el) {
 
 export const Drawer = {
   el: null,
-  open(title, html, { onClose } = {}) {
+  open(title, html, { onClose, modal = false } = {}) {
     if (!D) return;
     if (!this.el) lastFocus = D.activeElement;
     this.close(true);
     const s = D.createElement('div'); s.className = 'scrim'; s.dataset.act = 'drawer-close';
-    const d = D.createElement('aside'); d.className = 'drawer'; d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-label', title);
+    const d = D.createElement('aside'); d.className = 'drawer' + (modal ? ' modal' : ''); d.setAttribute('role', 'dialog'); d.setAttribute('aria-modal', 'true'); d.setAttribute('aria-label', title);
     d.innerHTML = `<div class="drawer-h"><h2>${esc(title)}</h2>${Button(icon('close'), { variant: 'ghost', size: 'icon', act: 'drawer-close', title: 'סגירה (Esc)' })}</div><div class="drawer-b">${html}</div>`;
     layer().append(s, d); trap(d); this.el = d; this.scrim = s; this.onClose = onClose;
     d.querySelector('.btn').focus();
@@ -261,7 +299,13 @@ export function init() {
     const tab = e.target.closest('[data-tabs] [role=tab]');
     if (tab) { const g = tab.parentElement; g.querySelectorAll('[role=tab]').forEach((t) => t.setAttribute('aria-selected', String(t === tab))); g.dispatchEvent(new CustomEvent('ops:change', { bubbles: true, detail: { name: g.dataset.tabs, value: tab.dataset.v } })); return; }
     if (e.target.closest('[data-act=drawer-close]')) Drawer.close();
+    const k = e.target.closest('[data-act=sort],[data-person],[data-act=dp-open]');
+    if (k && k.dataset.person !== '') { e.preventDefault(); import('./lazy/kit2.js').then((m) => m.handle(k, e)); }
   });
+  /* DatePicker time field keeps the hidden ISO value in step */
+  D.addEventListener('input', (e) => { const t = e.target; if (!t.matches || !t.matches('.dp-time')) return; const w = t.closest('[data-dp]'), h = w.querySelector('input[type=hidden]'), d = h.value.slice(0, 10); if (d && /^\d\d:\d\d$/.test(t.value)) { h.value = d + 'T' + t.value; h.dispatchEvent(new Event('input', { bubbles: true })); } });
+  /* hand-built tables (data-sort-dom) get their saved sort re-applied whenever they are (re)rendered */
+  new MutationObserver(() => { const ts = D.querySelectorAll('table[data-sort-dom]:not([data-sorted])'); if (!ts.length) return; ts.forEach((t) => t.setAttribute('data-sorted', '')); if ([...ts].some((t) => savedSort(t.dataset.sortId))) import('./lazy/kit2.js').then((m) => ts.forEach(m.applySaved)); }).observe(D.body, { childList: true, subtree: true });
   let tip = null;
   D.addEventListener('pointerover', (e) => {
     const t = e.target.closest('[data-tip]'); if (!t) return;

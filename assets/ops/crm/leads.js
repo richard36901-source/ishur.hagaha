@@ -1,7 +1,7 @@
 /* ishur ops · לידים: kanban by status (custom pointer drag, touch long-press, arrow keys) + table
    with bulk status/tag; filters (status, source, date range, owner, tag) + search; lead drawer with
    contact buttons, next action, quick close, tags, notes timeline, activity. All data via crm/adapt.js. */
-import { esc, fmtN, Select, Tabs, Table, Badge, Skeleton, Drawer, Button, icon, toast, relTime } from '../ui.js';
+import { esc, fmtN, Select, Tabs, Table, Badge, Skeleton, Drawer, Button, icon, toast, relTime, DatePicker, Phone } from '../ui.js';
 import { crm, adaptCrm, STATUSES, STATUS_HE, SOURCE_HE, OWNER_HE, OWNERS } from './adapt.js';
 import { money, dayHe, phoneHe, contactBtns, Check, tagChips, dueBadge, notesBlock, timeline, bindNotes, actionBar } from './kit.js';
 
@@ -31,18 +31,19 @@ export function board(leads, f) {
 
 export function table(leads, sel) {
   const all = leads.length && leads.every((l) => sel.has(l.id));
+  const last = (l) => l.last_in || l.updated_at || l.created_at;
   const cols = [
     { label: '', render: (l) => Check({ on: sel.has(l.id), act: 'sel', id: l.id, label: 'בחירה' }) },
-    { label: 'שם', render: (l) => `<b dir="auto">${esc(l.name || '—')}</b><div class="sub mono" dir="ltr">${esc(phoneHe(l.phone))}</div>` },
-    { label: 'סטטוס', render: (l) => statusBadge(l.status) },
-    { label: 'אירוע', hideM: true, render: (l) => esc(l.occasion_he) + (l.event_date ? ` <span class="muted num">${esc(dayHe(l.event_date))}</span>` : '') },
-    { label: 'רשומות', num: true, hideM: true, render: (l) => (l.records ? fmtN(l.records) : '—') },
-    { label: 'מקור', hideM: true, render: (l) => esc(l.source_he) },
-    { label: 'אחראי', hideM: true, render: (l) => esc(l.owner_he) },
-    { label: 'פעולה הבאה', render: (l) => dueBadge(l) || '<span class="muted">—</span>' },
-    { label: 'תגיות', hideM: true, render: (l) => tagChips(l.tags) },
+    { label: 'שם', sort: (l) => l.name || '', render: (l) => `<b dir="auto">${esc(l.name || '—')}</b>` },
+    { label: 'טלפון', sort: (l) => l.phone, render: (l) => Phone(l.phone, { name: l.name }) },
+    { label: 'סטטוס', sort: (l) => STATUSES.findIndex((s) => s.id === l.status), render: (l) => statusBadge(l.status) },
+    { label: 'אירוע ותאריך', hideM: true, sort: (l) => l.event_date || '9999', render: (l) => esc(l.occasion_he) + (l.event_date ? ` <span class="muted num">${esc(dayHe(l.event_date))}</span>` : '') },
+    { label: 'רשומות', num: true, hideM: true, sort: (l) => l.records || 0, render: (l) => (l.records ? fmtN(l.records) : '—') },
+    { label: 'מקור', hideM: true, sort: (l) => l.source_he, render: (l) => `<span class="chip src">${esc(l.source_he)}</span>` },
+    { label: 'פעילות אחרונה', hideM: true, sort: (l) => Date.parse(last(l)) || 0, render: (l) => `<span class="sub">${esc(relTime(last(l)))}</span>` },
+    { label: 'פעולה הבאה', sort: (l) => (l.next_at ? Date.parse(l.next_at) : 9e15), render: (l) => dueBadge(l) || '<span class="muted">—</span>' },
   ];
-  return `<div class="tbl-head-sel">${Check({ on: all, act: 'sel-all', label: 'בחירת הכל' })}<span class="sub">בחירת הכל</span></div>` + Table({ columns: cols, rows: leads, rowKey: (l) => l.id, empty: 'אין לידים שמתאימים לסינון' });
+  return `<div class="tbl-head-sel">${Check({ on: all, act: 'sel-all', label: 'בחירת הכל' })}<span class="sub">בחירת הכל</span></div>` + Table({ id: 'leads', columns: cols, rows: leads, rowKey: (l) => l.id, empty: 'אין לידים שמתאימים לסינון' });
 }
 
 export function bulkBar(n, tags) {
@@ -57,12 +58,12 @@ export function drawerView(d) {
   return `${l.status === 'closed' && l.client_token ? `<div class="okbox"><span aria-hidden="true">✓</span><span>סגר · <a href="#/clients/${esc(l.client_token)}">לכרטיס הלקוח</a></span></div>` : ''}
 <header class="crm-head"><div><div class="bar">${statusBadge(l.status)}<span class="chip src">${esc(l.source_he)}</span>${l.window_open ? '<span class="badge good">כתב/ה ' + esc(relTime(l.last_in)) + '</span>' : ''}</div>
 <p class="sub">${esc([l.occasion_he, l.event_date ? 'תאריך ' + dayHe(l.event_date) : 'בלי תאריך', l.records ? 'כ-' + l.records + ' רשומות' : '', 'נכנס ' + relTime(l.created_at)].filter(Boolean).join(' · '))}</p>
-<p class="mono" dir="ltr" style="margin:0">${esc(phoneHe(l.phone))}</p></div><div class="bar">${contactBtns(l.phone)}</div></header>
+<p style="margin:6px 0 0">${Phone(l.phone, { name: l.name, icons: false })}</p></div><div class="bar">${contactBtns(l.phone)}</div></header>
 <section class="crm-sec"><div class="grid2">
 <div class="f-row"><span class="f-l">סטטוס</span><div class="f-v">${Select({ name: 'ld_status', value: l.status, options: STATUSES.map((s) => ({ value: s.id, label: s.he })) })}</div></div>
 <div class="f-row"><span class="f-l">אחראי</span><div class="f-v">${Select({ name: 'ld_owner', value: l.owner, options: [...new Set([...OWNERS, ...(l.owner ? [l.owner] : [])])].map((o) => ({ value: o, label: OWNER_HE[o] || o })) })}</div></div></div></section>
 <section class="crm-sec" aria-label="פעולה הבאה"><div class="sec-h"><h3 class="h2">פעולה הבאה</h3>${dueBadge(l)}</div>
-<div class="next-row"><input class="in" type="datetime-local" data-next-at aria-label="מתי" value="${esc(l.next_at ? toLocal(l.next_at) : '')}"><input class="in grow" data-next-text placeholder="מה לעשות" aria-label="מה לעשות" value="${esc(l.next_text)}" dir="auto">${Button('שמירה', { act: 'next-save' })}</div></section>
+<div class="next-row">${DatePicker({ time: true, value: l.next_at ? toLocal(l.next_at) : '', label: 'מתי', attr: { 'data-next-at': '' } })}<input class="in grow" data-next-text placeholder="מה לעשות" aria-label="מה לעשות" value="${esc(l.next_text)}" dir="auto">${Button('שמירה', { act: 'next-save' })}</div></section>
 <div id="qc-host">${Skeleton.card(5)}</div>
 <section class="crm-sec" aria-label="תגיות"><h3 class="h2">תגיות</h3><div class="chips">${tagChips(l.tags, true)}<span class="tag-add"><input class="in sm" data-tag-new placeholder="תגית" aria-label="תגית חדשה">${Button('+', { size: 'sm', act: 'tag-add', title: 'הוספת תגית' })}</span></div></section>
 <div id="ld-notes">${notesBlock(d.notes)}</div>
@@ -180,6 +181,7 @@ export default {
         if (a === 'bulk-tag') { const t = el.querySelector('[data-bulk-tag]').value.trim(); if (!t || !sel.size) return; const ids = [...sel]; ids.forEach((id) => { const l = leads.find((x) => x.id === id); if (l && !l.tags.includes(t)) l.tags.push(t); }); paint(); try { await api.bulk(ids, { add_tag: t }); toast('התגית נוספה ל-' + ids.length); } catch (x) { toast('לא נשמר', 'crit'); load(); } return; }
         if (a === 'ld-retry') return load();
       }
+      if (e.target.closest('.ph')) return;
       const c = e.target.closest('.kb-card,tr[data-row]'); if (c) ctx.nav('leads/' + (c.dataset.id || c.dataset.row));
     });
     ctx.on(el, 'keydown', (e) => { if (e.key === 'Enter' && e.target.matches('.kb-card')) ctx.nav('leads/' + e.target.dataset.id); });
@@ -190,7 +192,7 @@ export default {
   async onArg(id, ctx) {
     if (!id) { Drawer.close(); return; }
     const api = crm(ctx), self = this;
-    const b = Drawer.open('ליד', Skeleton.lines(10), { onClose: () => { if (location.hash.startsWith('#/leads/')) history.replaceState(null, '', '#/leads'); self.reload && self.reload(); } });
+    const b = Drawer.open('ליד', Skeleton.lines(10), { modal: true, onClose: () => { if (location.hash.startsWith('#/leads/')) history.replaceState(null, '', '#/leads'); self.reload && self.reload(); } });
     Drawer.el.classList.add('crm-drawer');
     let d;
     const paint = async () => {

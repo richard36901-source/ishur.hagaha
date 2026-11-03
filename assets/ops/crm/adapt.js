@@ -2,7 +2,7 @@
    worker/crm.js). Fixtures: masked live GETs (scripts/crm-fixtures-from-live.mjs). Screens render view-models only.
    Reads: GET via app.js raw opts.qs (query + X-Admin-Key header, never the key in the URL). Writes: POST bodies per
    the doc; opts.soft returns {ok:false} answers (send) instead of throwing. Lazy; pure + a thin caller. */
-if (typeof document !== 'undefined' && !document.getElementById('crm-css')) document.head.insertAdjacentHTML('beforeend', '<link id="crm-css" rel="stylesheet" href="assets/ops/crm.css?v=1">');
+if (typeof document !== 'undefined' && !document.getElementById('crm-css')) document.head.insertAdjacentHTML('beforeend', '<link id="crm-css" rel="stylesheet" href="assets/ops/crm.css?v=2">');
 
 const enc = encodeURIComponent;
 /* logical op → server path (app.js raw() sends any name with "/" to /api/<name>) */
@@ -75,7 +75,7 @@ export function client(c) {
   const n = c.counts || {}, status = c.status === 'held' ? 'hold' : c.status, st = CLIENT_ST[status] || ['', c.status || '—'], ad = c.addons || {};
   const host = ad.hostesses && typeof ad.hostesses === 'object' ? Number(ad.hostesses.n) || 0 : Number(ad.hostesses) || 0;
   return {
-    token: c.token, tok8: c.tok8 || String(c.token || '').slice(0, 8), name: c.names || c.client || '', phone: c.phone || '', occasion_he: OCC_HE[c.occasion] || c.occasion || '',
+    token: c.token, tok8: c.tok8 || String(c.token || '').slice(0, 8), name: c.names || c.client || '', name1: c.name1 || '', name2: c.name2 || '', phone: c.phone || '', occasion: c.occasion || '', occasion_he: OCC_HE[c.occasion] || c.occasion || '',
     event_date: nz(c.date), event_time: '', venue: '', plan: c.plan, plan_he: c.plan_he || PLAN_HE[c.plan] || c.plan || '—', records: c.records || 0,
     status, status_tone: st[0], status_he: st[1], guests: n.invited || 0, confirmed: n.confirmed || 0, declined: n.declined || 0, pending: n.pending || 0,
     sent: n.sent || 0, delivered: n.delivered ?? null, need_call: n.need_call || 0,
@@ -211,6 +211,9 @@ export function crm(ctx) {
     clients: () => get('clients'),
     client: (token) => get('client', {}, { cache: false }, token),
     async clientAction() { throw notYet('הפעולה'); },
+    /* in-place edit of the client card (names / phone / occasion / date). POST crm/clients/:token; the Worker
+       route is not deployed yet (see docs/OPS-DESIGN-2026-11-03.md): a 404 surfaces as "not yet" in the toast. */
+    clientUpdate: (token, p) => post('client', strip({ names: p.names, name1: p.name1, name2: p.name2, phone: p.phone, occasion: p.occasion, date: p.date, who: 'ops' }), token),
     async hostesses() {
       const [h, a, c] = await Promise.all([read(PATH.hostesses, { limit: 200 }), read(PATH.assignments, { limit: 500 }), read(PATH.clients).catch(() => ({ clients: [] }))]);
       return adaptCrm('hostesses', { hostesses: h.items || [], assignments: a.items || [], clients: c.clients || [] });

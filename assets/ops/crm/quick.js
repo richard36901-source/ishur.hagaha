@@ -4,7 +4,7 @@
    and the Worker use); per-add-on prices are differences of that same function. The server's sum is
    the one on the link. Layout follows Richard's 03/11 form rule: one field per row, label above,
    order name → phone → occasion → date → package → records → add-ons → total → action. */
-import { esc, Select, Button, busy, toast, confirmTyped } from '../ui.js';
+import { esc, Select, Button, busy, toast, confirmTyped, DatePicker } from '../ui.js';
 import { money, phoneHe } from './kit.js';
 import { PLAN_HE } from './adapt.js';
 
@@ -44,7 +44,7 @@ export function qcView(q, lead, cfg, G, { now = Date.now() } = {}) {
   let out = `<section class="crm-sec qc" id="qc" aria-label="סגירה מהירה"><div class="sec-h"><h3 class="h2">סגירה מהירה</h3><span class="sp"></span>${lead.window_open ? '<span class="badge good"><span aria-hidden="true">●</span>בחלון 24 שעות</span>' : '<span class="badge warn" title="אין הודעה נכנסת ב-24 השעות האחרונות"><span aria-hidden="true">◐</span>מחוץ לחלון · תבנית</span>'}</div>
 <div class="form">
 ${row('שם הלקוח', ro(lead.name))}${row('טלפון', `<div class="f-ro mono" dir="ltr">${esc(phoneHe(lead.phone))}</div>`)}${row('סוג אירוע', ro(lead.occasion_he))}
-${row('תאריך האירוע', `<input id="qc-date" class="in" type="date" data-q="event_date" value="${esc(q.event_date || '')}">`, 'qc-date')}
+${row('תאריך האירוע', DatePicker({ id: 'qc-date', value: q.event_date || '', label: 'תאריך האירוע', attr: { 'data-q': 'event_date' } }), 'qc-date')}
 ${row('חבילה', Select({ name: 'q_plan', value: q.plan, options: ['basic', 'pro', 'premium'].map((k) => ({ value: k, label: PLAN_HE[k] + ' · ' + money(((cfg.PRICE_TABLE || {})[q.records] || {})[k]) })) }))}
 ${row('רשומות', Select({ name: 'q_records', value: q.records, options: ts.map((n) => ({ value: n, label: 'עד ' + n + ' רשומות' })) }))}
 <div class="f-row"><span class="f-l" id="qc-add-l">תוספות</span><div class="f-v checklist" role="group" aria-labelledby="qc-add-l">

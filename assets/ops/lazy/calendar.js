@@ -3,7 +3,8 @@
    rounds, closed purchases, used vs capacity per day. Week view for phones.
    Lazy module: app.js imports it only on #/calendar, so it sits outside the counted JS budget
    (scripts/ops-ui-smoke.mjs A2), the same way mock.js does. */
-import { esc, fmtN, fmtDate, fmtDT, Skeleton, Button, Select, Drawer } from '../ui.js';
+import { esc, fmtN, fmtDate, fmtDT, Skeleton, Button, Select, Drawer, icon } from '../ui.js';
+if (typeof document !== 'undefined' && !document.getElementById('cal-css')) document.head.insertAdjacentHTML('beforeend', '<link id="cal-css" rel="stylesheet" href="assets/ops/cal.css?v=1">');
 
 export const DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
 const DOW1 = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'ש׳'];
@@ -43,7 +44,7 @@ export function chip(it, { full = false } = {}) {
   /* count first: the cell truncates from the end, the number must survive */
   let txt, extra = '';
   if (it.kind === 'closed') txt = `₪${it.sum ? fmtN(it.sum) : ''} · ${esc(it.event)}`;
-  else if (it.kind === 'call') txt = `☎ ${n}${it.state === 'done' ? ` (${fmtN(it.answered)} ענו) ✓` : ''} · ${esc(it.event)}`;
+  else if (it.kind === 'call') txt = `<b class="num">${n}</b>${it.state === 'done' ? ` (${fmtN(it.answered)} ענו) ✓` : ''} · ${esc(it.event)}`;
   else {
     const pre = it.state === 'done' ? `✓ ${n}` : it.state === 'partial' ? `${n}${it.of ? '/' + fmtN(it.of) : ''}` : it.state === 'rolled' ? `${n} <span class="cc-tag">↪ מ-${esc(fmtDate(it.from_day))}</span>` : it.state === 'ghost' ? `${n} →` : it.state === 'held' ? `⏸ ${n}` : n;
     txt = `<b class="num">${pre}</b> ${esc(it.type_he)} · ${esc(it.event)}`;
@@ -51,7 +52,7 @@ export function chip(it, { full = false } = {}) {
   }
   const sub = full && it.kind === 'send' && it.state === 'done' ? ` <span class="muted">נמסרו ${fmtN(it.delivered)} · נכשלו ${fmtN(it.failed)}</span>` : '';
   const comp = it.state === 'partial' && it.completion_day ? ` <span class="cc-tag">השלמה מתוכננת ${esc(fmtDate(it.completion_day))}</span>` : '';
-  return `<button type="button" class="cc s-${esc(it.state)} k-${esc(it.kind)}" data-chip="${esc(it.id)}" title="${esc(STATE_HE[it.state] || '')}">${txt}${extra}${full ? comp + sub : ''}</button>`;
+  return `<button type="button" class="cc s-${esc(it.state)} k-${esc(it.kind)}" data-chip="${esc(it.id)}" title="${esc(STATE_HE[it.state] || '')}">${it.kind === 'closed' ? '' : icon(it.kind === 'call' ? 'call' : 'msg', 'cc-ic')}${txt}${extra}${full ? comp + sub : ''}</button>`;
 }
 
 function bar(d) {
@@ -63,7 +64,7 @@ const closedTag = (d) => (d.closed_reason === 'shabbat' ? '<span class="cal-x">�
 
 export function cellHtml(d, st, { max = 4 } = {}) {
   const v = visible(d, st), n = Number(d.date.slice(8));
-  const evs = v.events.map((e) => `<div class="cal-ev" title="${esc(e.type)}">◆ ${esc(e.name)}${e.time ? ` <span class="muted num">${esc(e.time)}</span>` : ''}${e.type ? ` <span class="muted">${esc(e.type)}</span>` : ''}</div>`).join('');
+  const evs = v.events.map((e) => `<div class="cal-ev" title="${esc(e.type)}">${esc(e.name)}${e.time ? ` <span class="muted num">${esc(e.time)}</span>` : ''}${e.type ? ` <span class="muted">${esc(e.type)}</span>` : ''}</div>`).join('');
   const chips = v.items.slice(0, max).map((it) => chip(it)).join('') + (v.items.length > max ? `<span class="cal-more">+${v.items.length - max}</span>` : '');
   return `<div class="cal-d${d.today ? ' today' : ''}${d.open ? '' : ' closed'}${d.limited ? ' limited' : ''}${d.past ? ' past' : ''}" role="gridcell" tabindex="0" data-day="${esc(d.date)}" aria-label="${esc(DOW[d.dow] + ' ' + fmtDate(d.date))}"><div class="cal-h"><b class="num">${n}</b><span class="cal-dow">${esc(DOW1[d.dow])}</span>${closedTag(d)}</div>${evs}<div class="cal-chips">${chips}</div><div class="cal-f">${bar(d)}</div></div>`;
 }

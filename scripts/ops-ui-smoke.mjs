@@ -338,7 +338,7 @@ if (!process.argv.includes('--no-browser')) {
         await page.keyboard.press('Escape');
         await page.keyboard.press('g'); await page.keyboard.press('r');
         await page.waitForTimeout(500);
-        ok((await page.evaluate(() => location.hash)) === '#/runs', 'g r navigates to runs');
+        ok((await page.evaluate(() => location.hash)) === '#/system?tab=runs' && !!(await page.$('.ptabs a[data-v=runs][aria-selected=true]')), 'g r navigates to runs (מערכת › ריצות tab)');
         await page.keyboard.press('g'); await page.keyboard.press('d');
         await page.waitForSelector('#main .cal-d[data-day]', { timeout: 4000 });
         ok((await page.evaluate(() => location.hash)) === '#/calendar', 'g d navigates to the calendar');
@@ -365,7 +365,7 @@ if (!process.argv.includes('--no-browser')) {
         /* change log: g h, kind chip filter, deploy drawer with commits, typed-confirm revert */
         await page.keyboard.press('g'); await page.keyboard.press('h');
         await page.waitForSelector('#main .chg-row', { timeout: 4000 });
-        ok((await page.evaluate(() => location.hash)) === '#/changes', 'g h navigates to the change log');
+        ok((await page.evaluate(() => location.hash)) === '#/system?tab=changes', 'g h navigates to the change log (מערכת › שינויים)');
         const nRows = await page.$$eval('#main .chg-row', (x) => x.length);
         ok(nRows === RAW.changes.items.length && (await page.$$eval('#main .chg-day', (x) => x.length)) === days.length, 'change log renders every entry grouped by day', nRows + ' rows');
         await page.click('#main [data-act=chg-k][data-k=deploy]');
@@ -421,7 +421,7 @@ if (!process.argv.includes('--no-browser')) {
       await pp.screenshot({ path: join(shotDir, 'messaging-replies-light.png') });
       await pp.keyboard.press('g'); await pp.keyboard.press('i');
       await pp.waitForSelector('#main .conv', { timeout: 6000 });
-      ok((await pp.evaluate(() => location.hash)) === '#/inbox' && (await pp.$$eval('#main .conv', (x) => x.length)) === P4.inbox.items.length, 'g i opens the inbox with every conversation');
+      ok((await pp.evaluate(() => location.hash)) === '#/messages' && (await pp.$$eval('#main .conv', (x) => x.length)) === P4.inbox.items.length, 'g i opens הודעות on the inbox (its first tab) with every conversation');
       const c0 = P4.inbox.items.find((c) => c.window_open && c.ch.includes('client'));
       await pp.click(`#main .conv[data-phone="${c0.phone}"]`);
       await pp.waitForSelector('#main .bub', { timeout: 4000 });
@@ -446,7 +446,7 @@ if (!process.argv.includes('--no-browser')) {
       await pp.screenshot({ path: join(shotDir, 'inbox-light.png') });
       await pp.keyboard.press('g'); await pp.keyboard.press('x');
       await pp.waitForSelector('#main .ctl-grid', { timeout: 6000 });
-      ok((await pp.evaluate(() => location.hash)) === '#/control', 'g x opens שליטה');
+      ok((await pp.evaluate(() => location.hash)) === '#/system?tab=control', 'g x opens שליטה ידנית (מערכת tab)');
       await pp.click('#main [data-act=ctl][data-a=pause]'); await pp.waitForSelector('.dialog #dlg-in');
       ok((await pp.$eval('#layer .dialog', (d) => d.innerText)).includes('אף הודעה') && (await pp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'pause: blast radius shown, disabled until the word is typed');
       await pp.fill('.dialog #dlg-in', 'עצור'); await pp.click('.dialog [data-act=dlg-yes]');
@@ -602,8 +602,8 @@ if (!process.argv.includes('--no-browser')) {
       await mp2.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
     }
     const tabs = await mp2.$$eval('.tabbar a,.tabbar button', (xs) => xs.map((x) => [x.innerText.trim(), Math.round(x.getBoundingClientRect().height)]));
-    ok(tabs.map((t) => t[0]).join('|') === 'סקירה|לידים|לקוחות|לוח שנה|עוד' && tabs.every((t) => t[1] >= 44), 'phone tab bar: סקירה/לידים/לקוחות/לוח שנה/עוד, each ≥ 44 px', tabs.map((t) => t[1]).join(','));
-    ok(await mp2.$$eval('.tabbar a', (xs) => xs.some((x) => x.getAttribute('href') === '#/calendar' && x.dataset.r === 'calendar') && !document.querySelector('a[href="calendar.html"]')), 'phone tab bar + nav: לוח שנה routes to the in-app #/calendar (no calendar.html link)');
+    ok(tabs.map((t) => t[0]).join('|') === 'סקירה|לידים|לקוחות|הודעות|עוד' && tabs.every((t) => t[1] >= 44), 'phone tab bar: סקירה/לידים/לקוחות/הודעות/עוד (§11), each ≥ 44 px', tabs.map((t) => t[1]).join(','));
+    ok(await mp2.$$eval('.nav a', (xs) => xs.some((x) => x.getAttribute('href') === '#/calendar' && x.dataset.r === 'calendar') && !document.querySelector('a[href="calendar.html"]')), 'nav ("עוד" sheet on phones): לוח שנה routes to the in-app #/calendar (no calendar.html link)');
     await mp2.tap('#tb-more'); await mp2.waitForTimeout(300);
     ok(await mp2.$eval('.shell>.nav', (n) => getComputedStyle(n).display !== 'none' && n.querySelectorAll('a[data-r]').length >= 12), '"עוד" opens the full nav as a sheet');
     await mp2.screenshot({ path: join(shotDir, 'more-sheet-mobile.png') });
