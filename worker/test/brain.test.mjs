@@ -388,3 +388,56 @@ test('buildBrain: shape the Brain screen reads (findings open/resolved, pending,
   assert.ok(!JSON.stringify(b).includes('972528888888'), 'no unmasked phone');
   assert.ok(!('data' in b.findings.open[0]), 'playbook data is server-side only');
 });
+
+/* ── 04/11 call_round_not_dialing: שילת ושי (395962fa…, 73 guests, free round 03/11) must dial at 10:00 ── */
+const SHILAT = '395962fa-0000-4000-8000-0000000000cc';
+const WED1030 = Date.parse('2026-11-04T08:30:00Z');   /* 10:30 Israel */
+function callHarness({ kvx = {}, at = WED1030, dx = {} } = {}) {
+  const ev = Array(40).fill(''); ev[1] = SHILAT; ev[6] = '2026-11-12'; ev[7] = 'כן'; ev[31] = 'בסיס'; ev[34] = 'שילת ושי';
+  const queue = Array.from({ length: 73 }, (_, i) => ({ token: SHILAT, guest_id: 'G' + i, phone: '97250' + String(1000000 + i), event_date: '2026-11-12' }));
+  const h = harness({ kvInit: { ['callround:' + SHILAT]: J({ at: '2026-11-04', guest_ids: queue.map(g => g.guest_id), done: '2026-11-04T07:00:00Z', flagged: 73 }), ...kvx },
+    snap: { events: { values: [ev] }, guests: { values: [] } }, env: { RETELL_KEY: 'r', SHIR_FROM: '+972' },
+    d: { buildCallQueue: () => ({ queue }), planKeyOf: e => (/בסיס/.test(e[31]) ? 'basic' : 'pro'), callWindowState: () => ({ open: true }), isNoContactDay: () => false, dailyCallCap: () => 0,
+      runShirDispatch: async (e, o) => { h.kicks = (h.kicks || []).concat(o); return { ok: true, dialed: 6, queued: 73 }; }, ...dx } });
+  return { h, at };
+}
+
+test('call_round_not_dialing: 10:30, 73 queued, 0 dials → P1 finding with the reason, Slack line, pending call_round_kick (not auto)', async () => {
+  const { h, at } = callHarness({ kvx: { 'auto:off:shir_dispatch': '1' } });
+  await h.run({ now: at, only: 'call_round_not_dialing' });
+  const f = finding(h, 'call_round_not_dialing:395962fa');
+  assert.ok(f, 'finding exists'); assert.equal(f.status, 'fail'); assert.equal(f.severity, 'P1'); assert.equal(f.playbook, 'call_round_kick');
+  assert.match(f.title_he, /שילת ושי.*73 בתור ו-0 חיוגים/);
+  assert.match(f.detail, /מתג כיבוי: shir_dispatch/);
+  assert.ok(h.slack.some(s => /שילת ושי/.test(s.t) && s.urgent), 'urgent Slack line');
+  const p = pendings(h).filter(x => x.playbook_id === 'call_round_kick' || x.playbook === 'call_round_kick');
+  assert.equal(p.length, 1, 'kick waits for approval'); assert.equal(h.kicks, undefined, 'nothing dialed by the check');
+});
+
+test('call_round_not_dialing: stays quiet when a dial happened <60 min ago, before 10:20, after 19:00, on Saturday, or when everyone was tried today', async () => {
+  const quiet = async (o, at) => { const { h } = callHarness(o); await h.run({ now: at || WED1030, only: 'call_round_not_dialing' }); return finding(h, 'call_round_not_dialing:395962fa'); };
+  assert.equal(await quiet({ kvx: { ['calllast:' + SHILAT]: new Date(WED1030 - 20 * MIN).toISOString() } }), null);
+  assert.equal(await quiet({}, Date.parse('2026-11-04T08:10:00Z')), null);   /* 10:10 */
+  assert.equal(await quiet({}, Date.parse('2026-11-04T17:10:00Z')), null);   /* 19:10 */
+  assert.equal(await quiet({}, Date.parse('2026-11-07T08:30:00Z')), null);   /* Saturday */
+  const tried = Object.fromEntries(Array.from({ length: 73 }, (_, i) => [`shirtry:G${i}:2026-11-04`, '1']));
+  assert.equal(await quiet({ kvx: tried }), null);
+  /* a stale dial (>60 min) fires again; unknown reason is said out loud */
+  const f = await quiet({ kvx: { ['calllast:' + SHILAT]: new Date(WED1030 - 90 * MIN).toISOString() } });
+  assert.ok(f && /סיבה לא ידועה/.test(f.detail), f && f.detail);
+  /* no round, no addon, basic plan → not this check's business */
+  const { h } = callHarness({}); h.env.RATE.m.delete('callround:' + SHILAT); await h.run({ now: WED1030, only: 'call_round_not_dialing' });
+  assert.equal(finding(h, 'call_round_not_dialing:395962fa'), null);
+});
+
+test('call_round_kick: approved → runShirDispatch (max 6); dry → preview only', async () => {
+  const { h } = callHarness();
+  const pb = PLAYBOOKS.find(p => p.id === 'call_round_kick');
+  assert.equal(pb.auto, false);
+  const c = { env: h.env, d: h.d, now: WED1030 };
+  const f = { data: { token: SHILAT, queued: 73, dialable: 73, reasons: ['x'] } };
+  const dry = await pb.run(c, f, { dry: true, log: () => {} });
+  assert.equal(dry.ok, true); assert.equal(h.kicks, undefined);
+  const real = await pb.run(c, f, { dry: false, log: () => {} });
+  assert.equal(real.ok, true); assert.deepEqual(h.kicks, [{ max: 6, quiet: true }]);
+});

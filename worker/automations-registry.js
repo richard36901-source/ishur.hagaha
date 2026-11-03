@@ -386,17 +386,33 @@ export const AUTOMATIONS = [
   { id: 'brain_health', name_he: 'המוח · בדיקות בריאות (כל 10 דקות)', layer: 2, from: ['t_cron10'], kind: 'slack', added: '2026-11-03',
     trigger: { cron: '*/10 * * * *', il: 'כל 10 דקות (כל בדיקה לפי every_min שלה)', via: 'scheduled → runBrain · POST /api/ops/brain-run' }, routes: ['/api/ops/brain-run'],
     conditions: ['BRAIN_ENABLED != "off"', 'כל בדיקה רצה רק כשעבר every_min מהריצה הקודמת שלה'], audience: 'ריצ׳רד (סלאק + מסך המוח)',
-    checks: ['template_watch', 'cap_hold_stale', 'pacer_tick', 'snapshot_fail', 'noa_billing', 'telnyx_order', 'lead_monday', 'reply_wrong_number', 'capacity_overflow', 'noa_unanswered', 'balances_low', 'crm_overdue', 'd1_ledger', 'failed_runs', 'biz_verification', 'gift_blast', 'wedding_day'],
+    checks: ['template_watch', 'cap_hold_stale', 'pacer_tick', 'snapshot_fail', 'noa_billing', 'telnyx_order', 'lead_monday', 'reply_wrong_number', 'capacity_overflow', 'noa_unanswered', 'balances_low', 'crm_overdue', 'd1_ledger', 'failed_runs', 'biz_verification', 'gift_blast', 'wedding_day', 'call_round_not_dialing'],
     source: S(504, 'export async function runBrain', 'worker/brain.js'), evidence: [E(9787, 'ctx.waitUntil(runBrain(env', 'הקרון של 10 הדקות מריץ את המוח')] },
   { id: 'brain_fix', name_he: 'המוח · פלייבוקים (תיקון אוטומטי או באישור)', layer: 3, from: ['brain_health'], kind: 'internal', added: '2026-11-03',
     trigger: { cron: '', il: 'כשבדיקה מוצאת ממצא עם פלייבוק', via: 'execPlaybook · POST /api/ops/brain-decision' }, routes: ['/api/ops/brain-decision'],
     conditions: ['auto:true → רץ מיד (cooldown לכל ממצא)', 'auto:false → פעולה ממתינה לאישור עם מילת אישור', 'כל ביצוע נרשם ביומן השינויים (kind brain)'], audience: 'לפי הפלייבוק',
-    playbooks: ['cap_probe_release', 'snapshot_retry', 'lead_monday_create', 'capacity_warning', 'template_variant', 'event_hold', 'eventday_retry', 'gift_blast_resume', 'requeue_reply', 'telnyx_nudge'],
+    playbooks: ['cap_probe_release', 'snapshot_retry', 'lead_monday_create', 'capacity_warning', 'template_variant', 'event_hold', 'eventday_retry', 'gift_blast_resume', 'requeue_reply', 'telnyx_nudge', 'call_round_kick'],
     source: S(567, 'export async function execPlaybook', 'worker/brain.js') },
   { id: 'brain_agent', name_he: 'המוח · הסלמה לסוכן חיצוני', layer: 3, from: ['brain_health'], kind: 'slack', added: '2026-11-03',
     trigger: { cron: '', il: 'ממצא בלי פלייבוק', via: 'escalate → claude.ai routine trigger' },
     conditions: ['רק ממצאים שאף פלייבוק לא מטפל בהם', 'הסוכן כותב את ההיגיון שלו ל-/api/ops/run-log'], audience: 'סוכן חיצוני + סלאק',
     source: S(606, 'async function escalate(env, d, c, f, parentRun)', 'worker/brain.js') },
+  { id: 'subevent_continue', name_he: 'אירוע-בן · המשך שליחה אוטומטי עד הסוף', layer: 2, from: ['d_pacer', 'manual_blasts'], kind: 'send_guest', added: '2026-11-04',
+    trigger: { cron: '*/10 * * * *', il: 'כל פעימת פייסר בתוך חלון השליחה', via: "runPacer step('subevent_continue') → continueSubevents" },
+    conditions: ['רק תת-אירוע שהתחיל ידנית ("שלח" של ריצ׳רד = started_at, או סימון shsent קיים) — אף פעם לא מתחיל לבד', 'בלי completed_at', 'חלון שליחה פתוח, לא paused, לא חג, יש מקום בתקרה',
+      'פרוסה = min(25, מקום בתקרה); תקרה 0 → מוחזק', 'פרוסה שלא השאירה ממתינים/כשלים → completed_at + יומן שינויים + סלאק "<שם>: הושלם, נשלחו X"', 'אורח שנכשל 3 פעמים (shfail) מדולג', 'מתג כיבוי auto:off:subevent_continue'],
+    templates: ['ishur_shabat_hatan_zaguri'], audience: 'אורחי אירוע-האב (שורות חיות, בלי העתקה)',
+    kv_markers: { per_guest: ['shsent:<sub>:<phone>', 'shfail:<sub>:<phone>'], per_event: ['subevent:<sub>.started_at', 'subevent:<sub>.completed_at'] },
+    budget: 'min(25, guestCapacity.remaining) לכל פעימה', live: { pacer: 'subevents' },
+    source: S(290, 'export async function continueSubevents', 'worker/subevent.js'),
+    evidence: [E(291, "isOff(env, 'subevent_continue')", 'מתג הכיבוי נבדק ראשון', 'worker/subevent.js'), E(313, 'completed_at: new Date', 'סימון הושלם', 'worker/subevent.js'), E(6500, "step('subevent_continue'", 'הפייסר מריץ אותו בחלון השליחה')] },
+  { id: 'call_round_watch', name_he: 'המוח · סבב שיחות לא מחייג (+ הפעלה מחדש באישור)', layer: 3, from: ['brain_health', 'call_rounds', 'shir_dispatch'], kind: 'slack', added: '2026-11-04',
+    trigger: { cron: '*/10 * * * *', il: '10:00–19:00 (מ-10:20), כל 10 דקות', via: 'brain check call_round_not_dialing → playbook call_round_kick (auto:false)' },
+    conditions: ['אירוע עם סבב שיחות פעיל: callround:<token> / callsaddon:<token> / מסלול שכולל שיחות (לא בסיס)', 'יש בתור אורחים שאפשר לחייג היום (לא shirtry היום)', '0 חיוגים לאירוע ב-60 הדקות האחרונות (calllast:<token>)',
+      'ממצא P1 עם הסיבה: שעות / חג / paused / מתג כיבוי / hold / callstop / תקרה יומית / Retell', 'ההתראה לסלאק יוצאת מהמוח; הפלייבוק call_round_kick מריץ runShirDispatch רק אחרי אישור'],
+    audience: 'ריצ׳רד (סלאק + מסך המוח)', kv_markers: { per_event: ['calllast:<token>', 'callround:<token>', 'callsaddon:<token>'] },
+    source: S(285, "{ id: 'call_round_not_dialing'", 'worker/brain.js'),
+    evidence: [E(471, "{ id: 'call_round_kick'", 'auto:false — מחייג רק באישור', 'worker/brain.js')] },
   { id: 'crm_lead_send', name_he: 'CRM · הודעה מהירה לליד מנועה 4499', layer: 3, from: [], kind: 'send_client', mutating: true, added: '2026-11-03',
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/crm/leads {id, action:"send", text, confirm:true}' }, routes: ['/api/crm/leads'],
     conditions: ['רק בתוך חלון 24 השעות של הליד (אחרת needs_template)', 'לא 21:00–09:00 ולא בשבת', 'בלי confirm:true → תצוגה מקדימה בלבד'], audience: 'ליד אחד',
@@ -458,7 +474,7 @@ export function baseTemplate(name) { return String(name || '').replace(/_(f|n)$/
      desc_he       plain Hebrew, one sentence
      code          { file, symbol } — the function shown by /api/ops/code (defaults to source);
                    worker/registry-code.json holds the resolved lines (scripts/ops-snapshot-code.mjs) */
-export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges'];
+export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue'];
 const KS = id => ({ key: 'auto:off:' + id, wired: true });
 const C = (symbol, file = IX) => ({ file, symbol });
 const OPS_OVERRIDES = {
@@ -488,6 +504,8 @@ const OPS_OVERRIDES = {
   event_day_blast: { kill_switch: KS('event_day_blast'), risk: 'high', code: C('async function runEventDayBlasts'),
                 desc_he: 'ביום האירוע מ-09:00: ההודעה שהלקוח קבע לאורחים שמגיעים.' },
   call_rounds:{ code: C('async function drainCallRounds') },
+  subevent_continue: { kill_switch: KS('subevent_continue'), side_effects: ['wa_guest', 'kv', 'slack'], risk: 'high', code: C('export async function continueSubevents', 'worker/subevent.js'),
+                desc_he: 'ממשיך תת-אירוע (שבת חתן) שריצ׳רד התחיל: 25 בכל פעימה בתוך התקרה עד שכולם קיבלו, ואז "הושלם" לסלאק.' },
   party_nudges: { kill_switch: KS('party_nudges'), risk: 'medium', code: C('async function drainPartyNudges'),
                 desc_he: 'שואל אורח שענה "מגיע" כמה יגיעו, כשלא כתב מספר.' },
   lead_pings: { code: C('async function drainLeadPings') },

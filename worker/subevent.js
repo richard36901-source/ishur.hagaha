@@ -187,7 +187,9 @@ export async function handleSubeventCreate(request, env, origin, d) {
   return d.okJson({ ok: true, token: sub, ...rec, dashboard: 'https://ishur.io/dashboard.html?t=' + sub }, origin);
 }
 
-/* POST /api/subevent-send {admin_key, token, dry=true, max=50} */
+/* POST /api/subevent-send {admin_key, token, dry=true, max=50} — Richard's "שלח" is the START:
+   the first real (dry:false) call stamps subevent:<token>.started_at; from then on the
+   pacer (continueSubevents) finishes the rest without an open chat session. */
 export async function handleSubeventSend(request, env, origin, d) {
   let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
   if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
@@ -195,10 +197,27 @@ export async function handleSubeventSend(request, env, origin, d) {
   if (!sub) return d.deny(404, 'unknown-subevent', origin);
   const dry = b.dry !== false;
   const max = Math.max(1, Math.min(500, Number(b.max) || 50));
+  const r = await runSubeventSend(env, sub, { dry, max }, d);
+  if (r.deny) return d.deny(r.deny, r.error, origin);
+  if (!dry && !r.refused && !sub.started_at) await markSub(env, sub, { started_at: new Date().toISOString(), started_by: 'manual' });
+  return d.okJson(r, origin);
+}
+
+async function markSub(env, sub, patch) {
+  let cur = {}; try { cur = JSON.parse((await env.RATE.get('subevent:' + sub.token)) || '{}') || {}; } catch {}
+  const next = { ...cur, ...patch };
+  await env.RATE.put('subevent:' + sub.token, JSON.stringify(next)).catch(() => {});
+  Object.assign(sub, patch);
+  return next;
+}
+const FAIL_STRIKES = 3;   /* a guest whose send failed (not held) 3 times is skipped by the plan, so the pacer does not retry a dead number forever */
+
+/* the shared send core (route + pacer). Returns the response body; {deny, error} on a hard error. */
+export async function runSubeventSend(env, sub, { dry = true, max = 50 } = {}, d) {
   const raw = await d.fetchSnapshot(env);
-  if (!raw) return d.deny(502, 'reader-failed', origin);
+  if (!raw) return { deny: 502, error: 'reader-failed' };
   const ev = d.eventRowOf(raw, sub.parent);
-  if (!ev) return d.deny(404, 'unknown-parent', origin);
+  if (!ev) return { deny: 404, error: 'unknown-parent' };
   const today = d.ilDate();
   const evDate = String(ev[6] || '').trim().slice(0, 10);
   const cancelled = String(ev[27] || '').trim() === 'כן';
@@ -210,6 +229,7 @@ export async function handleSubeventSend(request, env, origin, d) {
       if (!g.phone) return;
       if (await env.RATE.get(`shsent:${sub.token}:${g.phone}`).catch(() => null)) sentMarks.add(g.phone);
       if (await d.phoneBlocked(env, g.phone) || await d.wrongNum(env, sub.parent, g.phone)) blocked.add(g.phone);
+      if ((Number(await env.RATE.get(`shfail:${sub.token}:${g.phone}`).catch(() => 0)) || 0) >= FAIL_STRIKES) blocked.add(g.phone);
     }));
   }
   const [tpl, cap, paused, capAll] = await Promise.all([
@@ -226,14 +246,14 @@ export async function handleSubeventSend(request, env, origin, d) {
   const head = { token: sub.token, parent: sub.parent.slice(0, 8), name: sub.name, kind: sub.kind, template: sub.template, template_status: tpl.status || 'unknown', dry, max,
     window: { ...win, paused, no_contact_day: d.isNoContactDay(today), cap_all: !!capAll }, cap: { scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining },
     parent_hold: held, parent_cancelled: cancelled, empty_phone_rows: plan.empty_phone || [] };
-  if (plan.refuse) return d.okJson({ ok: false, refused: plan.why, ...head, empty_phone_rows: plan.empty_phone || head.empty_phone_rows }, origin);
+  if (plan.refuse) return { ok: false, refused: plan.why, ...head, empty_phone_rows: plan.empty_phone || head.empty_phone_rows };
   if (dry) {
     const preview = plan.list.slice(0, 5).map(x => { const params = shabbatParams(x, d.cleanParam); return { name: x.name, params, body: renderBody(tpl.body, params) }; });
-    return d.okJson({ ok: true, ...head, would_refuse_real: !approved ? 'template-not-approved' : (plan.empty_phone || []).length ? 'guest-rows-with-empty-phone' : !windowOpen ? 'send-window-closed' : '',
+    return { ok: true, ...head, would_refuse_real: !approved ? 'template-not-approved' : (plan.empty_phone || []).length ? 'guest-rows-with-empty-phone' : !windowOpen ? 'send-window-closed' : '',
       preview: { body_template: tpl.body || '', footer: tpl.footer || '', buttons: tpl.buttons && tpl.buttons.length ? tpl.buttons : SHABBAT_BUTTONS, guests: preview },
-      counts: plan.counts, guests: plan.list.map(x => ({ ...x, phone: mask(x.phone) })) }, origin);
+      counts: plan.counts, guests: plan.list.map(x => ({ ...x, phone: mask(x.phone) })) };
   }
-  let sent = 0, failed = 0; const results = [];
+  let sent = 0, failed = 0, heldStop = false; const results = [];
   for (const x of plan.list) {
     if (x.action !== 'send') { results.push({ ...x, phone: mask(x.phone) }); continue; }
     const gk = `shsent:${sub.token}:${x.phone}`;
@@ -250,11 +270,54 @@ export async function handleSubeventSend(request, env, origin, d) {
     } else {
       failed++;
       results.push({ ...x, phone: mask(x.phone), result: wa.held ? 'held' : 'failed', error: String(wa.error || '').slice(0, 160) });
-      if (wa.held) break;
+      if (wa.held) { heldStop = true; break; }
+      const fk = `shfail:${sub.token}:${x.phone}`;
+      await env.RATE.put(fk, String((Number(await env.RATE.get(fk).catch(() => 0)) || 0) + 1), { expirationTtl: 30 * 86400 }).catch(() => {});
     }
   }
   await d.logEvent(env, { area: 'שליחה', action: 'תת-אירוע ' + SUBEVENT_KINDS[sub.kind].he + ' · הודעה אחת', ok: !failed, review: !!failed, token: sub.parent, detail: `${sub.name} · נשלחו ${sent} · נכשלו ${failed} · ממתינים ${plan.counts.hold} · דולגו ${plan.counts.skip}` }).catch(() => {});
-  return d.okJson({ ok: true, ...head, counts: { ...plan.counts, sent, failed }, guests: results }, origin);
+  return { ok: true, ...head, counts: { ...plan.counts, sent, failed }, held_stop: heldStop, guests: results };
+}
+
+/* ── the pacer half (04/11 "nothing depends on an open Claude session") ────
+   Every pacer tick inside the send window: each sub-event that was STARTED by
+   hand (started_at, or any shsent mark from before that field existed) and is
+   not completed gets one more slice: max = min(25, cap room). When a slice
+   leaves nothing held or failed (everyone left is sent/skipped) → completed_at,
+   a change-log row and one Slack line. Never starts a sub-event on its own.
+   Kill switch: auto:off:subevent_continue. */
+export const SUB_SLICE = 25;
+export async function continueSubevents(env, d) {
+  if (await d.isOff(env, 'subevent_continue')) return { ok: true, skipped: 'off:subevent_continue' };
+  const win = d.sendWindowState();
+  if (!win.open || d.isNoContactDay(d.ilDate())) return { ok: true, skipped: 'window-closed', why: win.why || 'no-contact-day' };
+  const all = await d.kvPrefix(env, 'subevent:').catch(() => ({}));
+  const out = [];
+  for (const [token, v] of Object.entries(all)) {
+    let rec = null; try { rec = JSON.parse(v); } catch {}
+    if (!rec || !rec.parent || rec.completed_at) continue;
+    const sub = { token, ...rec };
+    let started = !!rec.started_at;
+    if (!started) started = Object.keys(await d.kvPrefix(env, `shsent:${token}:`).catch(() => ({}))).length > 0;
+    if (!started) { out.push({ token: token.slice(0, 8), skipped: 'not-started' }); continue; }
+    const cap = await d.guestCapacity(env).catch(() => ({ remaining: 0 }));
+    const room = Math.max(0, Number(cap.remaining) || 0);
+    if (!room) { out.push({ token: token.slice(0, 8), held: 'cap', remaining: 0 }); continue; }
+    const r = await runSubeventSend(env, sub, { dry: false, max: Math.min(SUB_SLICE, room) }, d);
+    if (r.deny || r.refused) { out.push({ token: token.slice(0, 8), refused: r.refused || r.error }); continue; }
+    const c = r.counts || {};
+    const row = { token: token.slice(0, 8), sent: c.sent || 0, failed: c.failed || 0, hold: c.hold || 0 };
+    if (!rec.started_at) await markSub(env, sub, { started_at: new Date().toISOString(), started_by: 'legacy-marks' });
+    if (!c.hold && !c.failed && !r.held_stop) {
+      const total = Object.keys(await d.kvPrefix(env, `shsent:${token}:`).catch(() => ({}))).length;
+      await markSub(env, sub, { completed_at: new Date().toISOString(), completed_sent: total });
+      await d.recordChange(env, { kind: 'subevent', actor: 'system', summary_he: `${sub.name}: הושלם, נשלחו ${total}`, details: { token, parent: sub.parent, template: sub.template, sent: total } }).catch(() => {});
+      await d.slackPost(env, `${sub.name}: הושלם, נשלחו ${total}`).catch(() => {});
+      row.completed = true; row.total = total;
+    }
+    out.push(row);
+  }
+  return { ok: true, subs: out };
 }
 
 /* GET /api/subevent-summary?token=<sub> — client-safe (the token is the key,

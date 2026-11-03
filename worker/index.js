@@ -60,7 +60,7 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { navLinkOk, giftLinkOk } from './links.js';
-import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
+import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
@@ -2675,6 +2675,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
       await env.RATE.put(dayKey, '1', { expirationTtl: 2 * 86400 });
       await env.RATE.put('dialed:' + g.guest_id, day, { expirationTtl: 120 * 86400 });
       await env.RATE.put('calldate:' + g.token, day, { expirationTtl: 60 * 86400 });
+      /* 04/11 brain call_round_not_dialing: when did this event last get a dial */
+      await env.RATE.put('calllast:' + g.token, new Date().toISOString(), { expirationTtl: 30 * 86400 }).catch(() => {});
       dialed.push(g.guest_id);
     }
   }
@@ -4603,7 +4605,9 @@ async function templateDetails(env, name) {
 }
 function subeventDeps() {
   return { isAdmin, okJson, deny, logEvent, eventRowOf, ilDate, normPhone, cleanParam, phoneBlocked, wrongNum, guestCapacity, sendingPaused, sendWindowState, isNoContactDay,
-    sendTemplate, noteGuestSend, templateDetails, kvPrefix, fetchSnapshot: (env) => fetchSnapshot(env.HOOK_STATUS), snapshotCached: (env) => snapshotCached(env) };
+    sendTemplate, noteGuestSend, templateDetails, kvPrefix, fetchSnapshot: (env) => fetchSnapshot(env.HOOK_STATUS), snapshotCached: (env) => snapshotCached(env),
+    /* 04/11 the pacer half (continueSubevents) */
+    isOff, recordChange: (e, x) => recordChange(e, x), slackPost: (e, t, o) => slackPost(e, t, o) };
 }
 
 /* 02/11: status AND category, cached 10 min. A gift variant (*_matana) is only
@@ -6489,6 +6493,11 @@ async function runPacer(env, run = null) {
   } else {
     out.sends = { ran: false, why: sendWin.open ? 'nothing-pending' : sendWin.why };
   }
+
+  /* 04/11: a sub-event Richard started ("שלח") keeps going by itself, one
+     capped slice per tick, until everyone is sent → completed_at + Slack.
+     Never starts one that was not started by hand. auto:off:subevent_continue. */
+  if (sendWin.open) out.subevents = await step('subevent_continue', () => continueSubevents(env, subeventDeps())).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
 
   /* Chasing an abandoned lead does not need the sheet, only KV, so it runs on
      every tick rather than waiting for the nightly engine. Without this the
@@ -9751,6 +9760,8 @@ function opsDeps() {
     trafficReport: (e, n) => trafficReport(e, n), sendClient: (e, p, t, a, c) => sendClient(e, p, t, a, c), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid),
     /* 03/11 Phase 4b call center (ops-calls.js): Retell reads, voice agents, the call_result writer the calls page uses */
     retellApi: (e, p) => retellApi(e, p), voiceAgents: VOICE_AGENTS,
+    /* 04/11 brain call_round_not_dialing / call_round_kick */
+    runShirDispatch: (e, o) => runShirDispatch(e, o), dailyCallCap: (e) => dailyCallCap(e),
     markCallResult: async (e, gid, outcome, tries) => { const res = callOutcome(outcome, tries); if (!res) return null; return { ok: await writeCallResult(e, gid, res, null), ...res }; } };
 }
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */

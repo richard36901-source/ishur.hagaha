@@ -218,3 +218,77 @@ test('admin clients view (status view:biz) lists the sub-event linked to its par
   const html = readFileSync(new URL('../../clients.html', import.meta.url), 'utf8');
   assert.ok(/function subRows/.test(html) && /dashboard\.html\?t=' \+ encodeURIComponent\(x\.token\)/.test(html));
 });
+
+/* ── 04/11 the pacer half: continueSubevents (no chat session needed) ── */
+import { continueSubevents, SUB_SLICE } from '../subevent.js';
+function contHarness({ guests = 108, presend = 0, started = true, room = 230, open = true, off = false } = {}) {
+  const rows = Array.from({ length: guests }, (_, i) => ({ phone: '9725' + String(10000000 + i), name: 'G' + i }));
+  const rec = { parent: PARENT, kind: 'shabbat', template: 'ishur_shabat_hatan_zaguri', name: 'שבת חתן · זגורי', created: 'x', ...(started ? { started_at: '2026-11-03T10:00:00Z' } : {}) };
+  const init = { ['subevent:' + SUB]: JSON.stringify(rec) };
+  for (let i = 0; i < presend; i++) init[`shsent:${SUB}:${rows[i].phone}`] = '{}';
+  const e = { RATE: kv(init) };
+  const out = { sends: [], slack: [], changes: [], used: 0 };
+  const ev = Array(50).fill(''); ev[1] = PARENT; ev[6] = ilDay(new Date(Date.now() + 30 * 864e5)); ev[7] = 'כן';
+  const raw = { events: { values: [ev] }, guests: { values: rows.map(r => { const g = Array(31).fill(''); g[28] = PARENT; g[3] = r.name; g[4] = r.phone; return g; }) } };
+  const d = {
+    isOff: async (env, id) => off && id === 'subevent_continue', sendWindowState: () => (open ? { open: true } : { open: false, why: 'evening' }), isNoContactDay: () => false, ilDate: () => ilDay(),
+    kvPrefix: async (env, prefix) => Object.fromEntries([...env.RATE.m.entries()].filter(([k]) => k.startsWith(prefix)).map(([k, v]) => [k.slice(prefix.length), v])),
+    guestCapacity: async () => ({ remaining: Math.max(0, room - out.used), limit: room, used: out.used, scope: 'guests' }),
+    fetchSnapshot: async () => raw, eventRowOf: (r, t) => r.events.values.find(x => x[1] === t), normPhone: p => String(p), cleanParam: s => s,
+    phoneBlocked: async () => false, wrongNum: async () => false, templateDetails: async () => ({ status: 'APPROVED', body: 'שלום {{1}}' }), sendingPaused: async () => false,
+    sendTemplate: async (env, to, tpl, params) => { out.sends.push({ to, tpl, params }); out.used++; return { ok: true, id: 'wamid.C' + out.sends.length }; },
+    noteGuestSend: async () => {}, logEvent: async () => {},
+    recordChange: async (env, x) => { out.changes.push(x); return x; }, slackPost: async (env, t) => { out.slack.push(t); },
+  };
+  return { e, d, out, rec: () => JSON.parse(e.RATE.m.get('subevent:' + SUB)) };
+}
+
+test('pacer: started sub-event with 108 left, cap 230 → 25 per tick … → completes with change-log + Slack', async () => {
+  const h = contHarness({ guests: 120, presend: 12 });   /* 12 already sent by hand, 108 left */
+  const perTick = [];
+  for (let i = 0; i < 8; i++) { const before = h.out.sends.length; await continueSubevents(h.e, h.d); perTick.push(h.out.sends.length - before); if (h.rec().completed_at) break; }
+  assert.deepEqual(perTick, [25, 25, 25, 25, 8]);
+  assert.equal(SUB_SLICE, 25);
+  const r = h.rec();
+  assert.ok(r.completed_at, 'completed_at set'); assert.equal(r.completed_sent, 120);
+  assert.deepEqual(h.out.slack, ['שבת חתן · זגורי: הושלם, נשלחו 120']);
+  assert.equal(h.out.changes.length, 1); assert.equal(h.out.changes[0].kind, 'subevent');
+  /* after completion: nothing more, ever */
+  const n = h.out.sends.length; await continueSubevents(h.e, h.d); assert.equal(h.out.sends.length, n); assert.equal(h.out.slack.length, 1);
+  assert.ok(h.out.sends.every(s => s.tpl === 'ishur_shabat_hatan_zaguri' && s.params.length === 1));
+});
+
+test('pacer: cap room 0 → held, nothing sent, not completed', async () => {
+  const h = contHarness({ room: 0 });
+  const r = await continueSubevents(h.e, h.d);
+  assert.equal(h.out.sends.length, 0); assert.equal(r.subs[0].held, 'cap'); assert.ok(!h.rec().completed_at);
+  /* small room → slice = room */
+  const s = contHarness({ room: 7 }); await continueSubevents(s.e, s.d); assert.equal(s.out.sends.length, 7); assert.ok(!s.rec().completed_at);
+});
+
+test('pacer: send window closed → nothing (no reads of guests, no sends)', async () => {
+  const h = contHarness({ open: false });
+  const r = await continueSubevents(h.e, h.d);
+  assert.equal(r.skipped, 'window-closed'); assert.equal(h.out.sends.length, 0);
+});
+
+test('pacer: a sub-event never started by hand is never started; kill switch stops a started one', async () => {
+  const h = contHarness({ started: false, presend: 0 });
+  const r = await continueSubevents(h.e, h.d);
+  assert.equal(r.subs[0].skipped, 'not-started'); assert.equal(h.out.sends.length, 0); assert.ok(!h.rec().started_at);
+  /* legacy: no started_at but shsent marks exist → it was started → continues */
+  const l = contHarness({ started: false, presend: 3, guests: 10 });
+  await continueSubevents(l.e, l.d); assert.equal(l.out.sends.length, 7); assert.ok(l.rec().started_at && l.rec().completed_at);
+  const k = contHarness({ off: true });
+  assert.equal((await continueSubevents(k.e, k.d)).skipped, 'off:subevent_continue'); assert.equal(k.out.sends.length, 0);
+});
+
+test('route: the first real /api/subevent-send stamps started_at; a dry run does not', async () => {
+  sent = []; emptyRow = false; tplStatus = 'APPROVED';
+  const e = env();
+  await post(e, '/api/subevent-send', { token: SUB });
+  assert.ok(!JSON.parse(e.RATE.m.get('subevent:' + SUB)).started_at, 'dry never starts');
+  const r = await post(e, '/api/subevent-send', { token: SUB, dry: false });
+  if (r.refused) { assert.ok(CLOCK.includes(r.refused), r.refused); assert.ok(!JSON.parse(e.RATE.m.get('subevent:' + SUB)).started_at); console.log('# SKIPPED-BY-CLOCK'); return; }
+  assert.ok(JSON.parse(e.RATE.m.get('subevent:' + SUB)).started_at);
+});

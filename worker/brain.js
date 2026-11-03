@@ -28,6 +28,7 @@
    ========================================================================== */
 import { withRun, listRuns } from './ops-run.js';
 import { recordChange, actorOf } from './changes.js';   /* 03/11 change log */
+import { shouldDial } from './shir.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -276,6 +277,71 @@ export const CHECKS = [
     }
     return out;
   } },
+
+  /* 04/11: the last chat-side watcher, moved here. An event with an active call round
+     (callround:/callsaddon: key, or a plan that includes calls) inside dial hours
+     10:00–19:00 IL, with dialable guests queued and no dial for 60 minutes → P1 with
+     the reason. calllast:<token> is written by runShirDispatch on every dial. */
+  { id: 'call_round_not_dialing', name_he: 'סבב שיחות: יש תור ואין חיוגים 60 דקות', every_min: 10, async run(c) {
+    const clock = ilClock(c.now);
+    if (clock.dow === 'Sat' || clock.h < 10 || clock.h >= 19) return [];
+    const sinceOpen = (clock.h - 10) * 60 + clock.m;   /* minutes since 10:00 — the first ticks of the day are not a stall */
+    if (sinceOpen < 20 || !c.d.buildCallQueue) return [];
+    const raw = await c.snapshot(); if (!raw) return [];
+    const { queue = [] } = c.d.buildCallQueue(raw) || {};
+    const byTok = {};
+    for (const g of queue) { const t = String(g.token || ''); if (t) (byTok[t] = byTok[t] || []).push(g); }
+    if (!Object.keys(byTok).length) return [];
+    const evRow = t => ((raw.events && raw.events.values) || []).find(e => String(e[1] || '').trim() === t) || null;
+    const out = [];
+    let shared = null;
+    for (const [tok, gs] of Object.entries(byTok)) {
+      const ev = evRow(tok);
+      const [roundRaw, addon] = await Promise.all([kget(c.env, 'callround:' + tok), kget(c.env, 'callsaddon:' + tok)]);
+      let round = null; try { round = JSON.parse(roundRaw || 'null'); } catch {}
+      const planCalls = !!(ev && c.d.planKeyOf && c.d.planKeyOf(ev) !== 'basic');
+      if (!round && !addon && !planCalls) continue;
+      if (round && String(round.at || '') > c.today) continue;   /* the round is for a later day */
+      const dialable = [];
+      for (const g of gs) { if (!shouldDial(g, c.today)) continue; if (g.guest_id && await kget(c.env, `shirtry:${g.guest_id}:${c.today}`)) continue; dialable.push(g); }
+      if (!dialable.length) continue;   /* everyone queued was already tried today — nothing to dial */
+      const last = Date.parse((await kget(c.env, 'calllast:' + tok)) || '') || 0;
+      if (last && c.now - last < 60 * MIN) continue;
+      if (!shared) {
+        const pacer = (await kjson(c.env, 'pacer:last')) || {};
+        const win = c.d.callWindowState ? c.d.callWindowState() : { open: true };
+        shared = {
+          paused: await c.d.sendingPaused(c.env).catch(() => false),
+          noContact: c.d.isNoContactDay ? !!c.d.isNoContactDay(c.today) : false,
+          win, calls: pacer.calls || {}, pacerAt: pacer.at || '',
+          killDispatch: !!(await kget(c.env, 'auto:off:shir_dispatch')), killPacer: !!(await kget(c.env, 'auto:off:d_pacer')),
+          retell: !!(await kget(c.env, 'billretell')), noRetell: !c.env.RETELL_KEY || !c.env.SHIR_FROM,
+          cap: c.d.dailyCallCap ? c.d.dailyCallCap(c.env) : 0, dialsToday: Number(await kget(c.env, 'dials:day:' + c.today)) || 0,
+        };
+      }
+      const s = shared, why = [];
+      if (s.noContact) why.push('יום ללא פניות (חג)');
+      if (s.win && s.win.open === false) why.push('חלון החיוג סגור (' + (s.win.why || 'שעות') + ')');
+      if (s.paused) why.push('paused — העצירה הכללית פעילה');
+      if (s.killPacer) why.push('מתג כיבוי: d_pacer');
+      if (s.killDispatch) why.push('מתג כיבוי: shir_dispatch');
+      if (await kget(c.env, 'hold:' + tok)) why.push('האירוע מוחזק (hold)');
+      if (await kget(c.env, 'callstop:' + tok)) why.push('הסבב נעצר ידנית (callstop)');
+      if (s.cap && s.dialsToday >= s.cap) why.push(`תקרת חיוגים יומית (${s.dialsToday}/${s.cap})`);
+      if (s.calls.why === 'callbacks-took-the-slice') why.push('החזרות שיחה לקחו את כל הפרוסה');
+      if (s.retell) why.push('Retell: בעיית חיוב/יתרה (billretell)');
+      if (s.noRetell) why.push('Retell לא מוגדר (RETELL_KEY / SHIR_FROM)');
+      if (s.calls.why && !why.length && !/callbacks/.test(s.calls.why)) why.push('Retell/חייגן: ' + String(s.calls.why).slice(0, 80));
+      if (!why.length) why.push('סיבה לא ידועה — החייגן רץ ולא חייג');
+      const name = ev ? String(ev[34] || '').trim() : '';
+      const lastTxt = last ? `חיוג אחרון ${Math.round((c.now - last) / MIN)} דק׳ לפני` : 'אין חיוג היום';
+      out.push({ id: 'call_round_not_dialing:' + tok.slice(0, 8), status: 'fail', severity: 'P1', playbook: 'call_round_kick',
+        title_he: `סבב שיחות ${name || tok.slice(0, 8)}: ${dialable.length} בתור ו-0 חיוגים ב-60 דקות`, detail: 'סיבה: ' + why.join(' · '),
+        evidence: [`queued=${gs.length}`, `dialable=${dialable.length}`, lastTxt, round ? `callround.at=${round.at || '—'}` : addon ? 'callsaddon' : 'plan=' + (c.d.planKeyOf ? c.d.planKeyOf(ev) : '?'), `pacer.calls=${JSON.stringify(s.calls).slice(0, 120)}`],
+        data: { token: tok, queued: gs.length, dialable: dialable.length, reasons: why } });
+    }
+    return out;
+  } },
 ];
 
 /* ══ playbooks ═════════════════════════════════════════════════════════════ */
@@ -398,6 +464,17 @@ export const PLAYBOOKS = [
       log(`${p.phone}: ${r && r.ok ? 'נשלח' : 'נכשל ' + ((r && r.error) || '')}`); if (r && r.ok) sent++;
     }
     return { ok: true, did: `resent ${sent}` };
+  } },
+
+  /* 04/11: re-trigger the dialler for a stalled round. Not auto: it rings people (money).
+     runShirDispatch itself re-checks the kill switch, paused, the holiday list and the call window. */
+  { id: 'call_round_kick', name_he: 'הפעלה מחדש של החייגן לסבב שתקוע', auto: false, messages: false, cooldown_ms: 30 * MIN, async run(c, f, { dry, log }) {
+    const why = (f.data && f.data.reasons) || [];
+    if (dry) return { ok: true, preview: { token: String(f.data.token || '').slice(0, 8), queued: f.data.queued, dialable: f.data.dialable, reasons: why, will: 'runShirDispatch max 6' } };
+    if (!c.d.runShirDispatch) return { ok: false, did: 'no runShirDispatch dep' };
+    const r = await c.d.runShirDispatch(c.env, { max: 6, quiet: true });
+    log(`runShirDispatch(max 6): ${JSON.stringify(r).slice(0, 300)}`);
+    return { ok: !!(r && r.ok !== false && r.dialed), did: `dialed ${(r && r.dialed) || 0}${r && (r.why || r.skipped || r.closed) ? ' · ' + (r.why || r.skipped || r.closed) : ''}` };
   } },
 
   { id: 'telnyx_nudge', name_he: 'הודעת דחיפה להזמנת מספר בטלניקס', auto: false, messages: false, cooldown_ms: 24 * H, async run(c, f, { dry, log }) {
