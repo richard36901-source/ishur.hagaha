@@ -54,7 +54,7 @@
 
   var BUCKETS = [
     ['delivered', 'נמסר, לא נקרא'], ['read', 'נמסר ונקרא'], ['no_status', 'נשלח, בלי סטטוס'], ['failed', 'נכשל'],
-    ['pending', 'ממתין'], ['answered', 'ענו'], ['skipped', 'דילוג'], ['unknown', 'לא ידוע']
+    ['pending', 'ממתין'], ['answered', 'ענו'], ['skipped', 'דילוג'], ['dropped', 'דולג (לא נשלח באיחור)'], ['unknown', 'לא ידוע']
   ];
   var FAIL_HE = { cap: 'תקרה', notwa: 'לא בוואטסאפ', blocked: 'חסם', experiment: 'ניסוי מטא', other: 'אחר' };
   var PEND_HE = { reopened: 'נפתח מחדש', hold: 'השהיה', cap: 'תקרה', window: 'חלון', scheduled: 'מתוכנן', queue: 'בתור' };
@@ -122,6 +122,7 @@
     chips.push('<span class="sb-c">ענו ' + t.answered + '</span>');
     if (t.due) chips.push('<span class="sb-c" title="מועד השליחה המתוכנן">מועד ' + dmy(t.due) + '</span>');
     if (t.skipped) chips.push('<span class="sb-c">דילוג ' + t.skipped + '</span>');
+    if (t.dropped) chips.push('<span class="sb-c inf" title="יום-לפני שלא יצא עד יום האירוע — לא נשלח באיחור; האורח מקבל רק את הודעת יום האירוע">דולג ' + t.dropped + '</span>');
     if (t.unknown) chips.push('<span class="sb-c inf" title="נשלח לפני שיומן הביקורת התחיל, או מחוץ לחלון — אין נתון מסירה">לא ידוע ' + t.unknown + '</span>');
     if (t.inferred) chips.push('<span class="sb-c inf" title="בלי סמני KV: נפתח-מחדש מול נכשל-סופי הוסק מכללי הקוד">' + t.inferred + ' מוסקים</span>');
     var aud = t.audience !== Z ? ' <span style="color:var(--sb-mute);font-size:.74rem">(קהל ההודעה: ' + t.audience + ')</span>' : '';

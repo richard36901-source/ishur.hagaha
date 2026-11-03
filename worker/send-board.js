@@ -119,6 +119,9 @@ export function typeOf({ template, wave, at }, ev) {
   if (/^ishur_toda_orach/.test(t)) return 'thanks';
   if (ev && ev.eventday_template && t === ev.eventday_template) return 'eventday';
   if (/^ishur_yom_haerua|^ishur_eventday/.test(t)) return 'eventday';
+  /* 03/11 the one event-day message: with a table it IS the table message */
+  if (/^ishur_yom_combo_tg?$/.test(t)) return 'table';
+  if (t === 'ishur_yom_combo_g') return 'eventday';
   const isInvite = /hazmana/.test(t) || (ev && ev.custom_template && t === ev.custom_template);
   if (!isInvite) return null;
   /* the three waves share one template (index.js:4484), so the date decides */
@@ -138,7 +141,8 @@ function inAudience(type, g, ev) {
     case 'w2': return !r || r === 'מתלבט';
     case 'daybefore': return r === 'מגיע';
     case 'table': return r === 'מגיע' && !!g.table;
-    case 'eventday': return !!ev.eventday && r === 'מגיע' && !(ev.eventday.no_table && g.table);
+    /* 03/11 R2: a guest with a table gets ONE event-day message — the table one */
+    case 'eventday': return !!ev.eventday && r === 'מגיע' && !g.table;
     case 'thanks': return ev.plan !== 'basic' && r === 'מגיע';
     case 'gift': return !!ev.gift_on && r === 'לא מגיע';
     default: return false;
@@ -271,8 +275,11 @@ export function aggregateSendBoard(input) {
       const row = { key: T.key, he: T.he, due, audience: 0, sent: 0, delivered: 0, read: 0, no_status: 0, answered: 0,
         failed: { total: 0, cap: 0, notwa: 0, blocked: 0, experiment: 0, other: 0, codes: {} },
         pending: { total: 0, reopened: 0, hold: 0, cap: 0, window: 0, scheduled: 0, queue: 0 },
+        dropped: 0,   /* 03/11 R1: day-before not sent by the event day — never sent late */
         skipped: 0, unknown: 0, last_at: 0, inferred: 0, sources: { audit: 0, kv: 0 } };
-      const people = detail ? { delivered: [], read: [], no_status: [], failed: [], pending: [], answered: [], skipped: [], unknown: [] } : null;
+      const people = detail ? { delivered: [], read: [], no_status: [], failed: [], pending: [], answered: [], skipped: [], unknown: [], dropped: [] } : null;
+      const dropDay = T.key === 'daybefore' && !!ev.date && today >= ev.date;
+      const DROP_HE = 'דולג — האירוע היום/עבר; יום-לפני לא נשלח באיחור';
       const push = (b, g, extra) => { if (people) people[b].push({ name: g.name || '', phone: g.phone, ...extra }); };
 
       for (const g of list) {
@@ -309,7 +316,8 @@ export function aggregateSendBoard(input) {
               if (mk) reopened = !mk.m && !mk.dead;                 /* the engine's own marker decides */
               else if (++row.inferred) reopened = REOPENABLE.has(T.key) && !!lst && (CAP_CODES.has(code) || (code !== '131026' && nonCap < 3));
               const info = { at: lst ? lst.ts : last.ts, number: num, status: 'failed', code, why: failHe(code), group: failGroup(code) };
-              if (reopened) { row.pending.total++; row.pending.reopened++; push('pending', g, { ...info, reason: 'reopened', reason_he: 'נכשל (' + FAIL_GROUPS[failGroup(code)] + ') ונפתח לשליחה חוזרת' }); }
+              if (reopened && dropDay) { row.dropped++; push('dropped', g, { ...info, reason: 'dropped', reason_he: DROP_HE }); }
+              else if (reopened) { row.pending.total++; row.pending.reopened++; push('pending', g, { ...info, reason: 'reopened', reason_he: 'נכשל (' + FAIL_GROUPS[failGroup(code)] + ') ונפתח לשליחה חוזרת' }); }
               else { row.failed.total++; row.failed[failGroup(code)]++; bumpCode(row, code); push('failed', g, info); }
             }
           }
@@ -326,7 +334,8 @@ export function aggregateSendBoard(input) {
           if (mk.wst === 'read' || mk.wst === 'delivered') { row.sent++; row.delivered++; if (mk.wst === 'read') { row.read++; push('read', g, { status: 'read', src: 'kv' }); } else push('delivered', g, { status: 'delivered', src: 'kv' }); }
           else if (mk.wst === 'failed' || mk.err || mk.dead) {
             const code = String(mk.err || mk.dead || ''); row.sent++;
-            if (!mk.m && !mk.dead) { row.pending.total++; row.pending.reopened++; push('pending', g, { status: 'failed', code, why: failHe(code), reason: 'reopened', reason_he: 'נכשל (' + FAIL_GROUPS[failGroup(code)] + ') ונפתח לשליחה חוזרת', src: 'kv' }); }
+            if (!mk.m && !mk.dead && dropDay) { row.dropped++; push('dropped', g, { status: 'failed', code, why: failHe(code), reason: 'dropped', reason_he: DROP_HE, src: 'kv' }); }
+            else if (!mk.m && !mk.dead) { row.pending.total++; row.pending.reopened++; push('pending', g, { status: 'failed', code, why: failHe(code), reason: 'reopened', reason_he: 'נכשל (' + FAIL_GROUPS[failGroup(code)] + ') ונפתח לשליחה חוזרת', src: 'kv' }); }
             else { row.failed.total++; row.failed[failGroup(code)]++; bumpCode(row, code); push('failed', g, { status: 'failed', code, why: failHe(code), group: failGroup(code), src: 'kv' }); }
           } else { row.sent++; row.no_status++; push('no_status', g, { status: 'sent', src: 'kv' }); }
           if (T.key[0] === 'w' && g.rsvp) { row.answered++; push('answered', g, { rsvp: g.rsvp }); }
@@ -338,6 +347,7 @@ export function aggregateSendBoard(input) {
         if (!mk && due && coverageFrom && due < coverageFrom) { row.unknown++; push('unknown', g, { reason_he: 'נשלח לפני תחילת היומן — אין נתון מסירה' }); continue; }
         if (!mk && !markers && due && due < today) { row.unknown++; push('unknown', g, { reason_he: 'לא נמצא ביומן; בלי סמני KV אי אפשר לדעת אם יצא' }); continue; }
         /* never sent: why not */
+        if (dropDay) { row.dropped++; push('dropped', g, { reason: 'dropped', reason_he: DROP_HE }); continue; }
         let reason, reason_he;
         if (!due || due > today) { reason = 'scheduled'; reason_he = due ? 'מתוכנן ל-' + due.slice(8, 10) + '/' + due.slice(5, 7) : 'לא חל על האירוע'; }
         else if (ev.held || gates.paused) { reason = 'hold'; reason_he = ev.held ? 'האירוע בהשהיה' : 'כל השליחות מושהות'; }

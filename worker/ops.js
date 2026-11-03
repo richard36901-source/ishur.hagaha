@@ -205,9 +205,15 @@ export function projectItems({ events, guests, flags = {}, today, days = 14, isN
       push(d, 'w' + k, uniq(gl, g => k === 2 ? (!g.rsvp || g.rsvp === 'מתלבט') : g.rsvp !== 'לא מגיע'));
     }
     if (!ev.date) continue;
-    if (!f.daybefore) { const d = firstEngineDay(addDays(ev.date, -1) > today ? addDays(ev.date, -1) : today, ev.date, isNoContactDay); push(d, 'daybefore', uniq(gl, g => g.rsvp === 'מגיע')); }
+    /* 03/11 R1: the day-before goes out on D-1 only. Not sent by then (cap,
+       hold, window, a Saturday D-1) → dropped, never moved onto the event day */
+    if (!f.daybefore) {
+      const db = addDays(ev.date, -1);
+      if (db >= today && engineDay(db, isNoContactDay)) push(db, 'daybefore', uniq(gl, g => g.rsvp === 'מגיע'));
+      else if (ev.date >= today && ev.date <= last) { const n = uniq(gl, g => g.rsvp === 'מגיע'); if (n > 0) items.push({ day: ev.date, token: ev.token, tok8: ev.token.slice(0, 8), name: ev.name || '', type: 'daybefore', count: n, held: !!f.hold, upper_bound: true, dropped: true }); }
+    }
     if (!f.seat && engineDay(ev.date, isNoContactDay)) push(ev.date, 'table', uniq(gl, g => g.rsvp === 'מגיע' && g.table));
-    if (f.eventday) { const at = f.eventday.at && f.eventday.at > today ? f.eventday.at : today; if (at >= ev.date || !ev.date || at >= today) push(at, 'eventday', uniq(gl, g => g.rsvp === 'מגיע' && !(f.eventday.no_table && g.table))); }
+    if (f.eventday) { const at = f.eventday.at && f.eventday.at > today ? f.eventday.at : today; if (at >= ev.date || !ev.date || at >= today) push(at, 'eventday', uniq(gl, g => g.rsvp === 'מגיע' && !g.table)); }   /* 03/11 R2: table guests' one message is counted under 'table' */
     if (!f.toda && ev.plan !== 'basic') { const d = firstEngineDay(addDays(ev.date, 1) > today ? addDays(ev.date, 1) : today, addDays(ev.date, 14), isNoContactDay); push(d, 'thanks', uniq(gl, g => g.rsvp === 'מגיע')); }
   }
   return items;
@@ -217,11 +223,12 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
   const dayList = Array.from({ length: days }, (_, i) => addDays(today, i));
   const per = Math.max(0, Number(model.capacity_per_day) || 0);
   const capOf = d => !engineDay(d, isNoContactDay) ? 0 : d === today ? Math.max(0, Math.min(per, Number(model.today_remaining ?? per))) : per;
-  const rows = dayList.map(d => ({ day: d, open: engineDay(d, isNoContactDay), planned: 0, held_planned: 0, capacity: capOf(d), overflow: 0, by_event: [] }));
+  const rows = dayList.map(d => ({ day: d, open: engineDay(d, isNoContactDay), planned: 0, held_planned: 0, dropped: 0, capacity: capOf(d), overflow: 0, by_event: [] }));
   const byDay = Object.fromEntries(rows.map(r => [r.day, r]));
   const sorted = items.slice().sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : a.token < b.token ? -1 : a.token > b.token ? 1 : a.type < b.type ? -1 : 1);
   for (const it of sorted) {
     const r = byDay[it.day]; if (!r) continue;
+    if (it.dropped) { r.dropped += it.count; r.by_event.push({ token: it.token, tok8: it.tok8, name: it.name, type: it.type, type_he: (PLAN_TYPES[it.type] || it.type) + ' · דולג', count: it.count, held: !!it.held, dropped: true, status: 'dropped' }); continue; }
     r.by_event.push({ token: it.token, tok8: it.tok8, name: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, count: it.count, held: !!it.held, upper_bound: !!it.upper_bound });
     if (it.held) r.held_planned += it.count; else r.planned += it.count;
   }
@@ -229,7 +236,7 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
   /* recommendations: each event's per-day batch, earliest day it fits whole */
   const free = Object.fromEntries(rows.map(r => [r.day, r.capacity]));
   const events = {};
-  for (const it of sorted) { if (it.held) continue; const e = events[it.token] = events[it.token] || { token: it.token, tok8: it.tok8, name: it.name, first: it.day, batches: {} }; e.batches[it.day] = (e.batches[it.day] || 0) + it.count; }
+  for (const it of sorted) { if (it.held || it.dropped) continue; const e = events[it.token] = events[it.token] || { token: it.token, tok8: it.tok8, name: it.name, first: it.day, batches: {} }; e.batches[it.day] = (e.batches[it.day] || 0) + it.count; }
   const recs = [];
   const evList = Object.values(events).sort((a, b) => a.first < b.first ? -1 : a.first > b.first ? 1 : a.token < b.token ? -1 : 1);
   for (const e of evList) {
