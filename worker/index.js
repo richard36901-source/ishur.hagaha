@@ -61,7 +61,9 @@ import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
-import { handleOps } from './ops.js';
+import { handleOps, brainFns } from './ops.js';
+import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
+import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID } from './automations-registry.js';
 
 const ROUTES = {
@@ -6297,7 +6299,7 @@ async function runPacer(env, run = null) {
     } catch (e) { out.autoretry = { error: String(e && e.message) }; }
   }
   if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
-    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: PACE_SENDS })).catch(e => {
+    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: paceSends(env, PACE_SENDS) })).catch(e => {
       return { ok: false, error: String((e && e.message) || e) };
     });
     out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated } : { ran: false, error: r && r.error };
@@ -6335,13 +6337,17 @@ async function runPacer(env, run = null) {
       return { dialed: 0, why: String((e && e.message) || e) };
     });
     out.callbacks = cb;
-    const left = Math.max(0, PACE_CALLS - ((cb && cb.dialed) || 0));
+    /* 03/11 cfg:daily_call_cap (0 = none): guest dials today, counted here */
+    const callCap = dailyCallCap(env), dayKey = 'dials:day:' + ilDate();
+    const dialedToday = callCap ? (Number(await env.RATE.get(dayKey).catch(() => 0)) || 0) : 0;
+    const left = Math.max(0, Math.min(PACE_CALLS - ((cb && cb.dialed) || 0), callCap ? callCap - dialedToday : Infinity));
     const r = left
       ? await step('shir_dispatch', () => runShirDispatch(env, { max: left, quiet: true })).catch(e => {
         return { ok: false, why: String((e && e.message) || e) };
       })
       : { dialed: 0, why: 'callbacks-took-the-slice' };
-    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why };
+    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why || (callCap && dialedToday >= callCap ? 'daily-call-cap' : undefined) };
+    if (callCap && out.calls.dialed) await env.RATE.put(dayKey, String(dialedToday + out.calls.dialed), { expirationTtl: 2 * 86400 }).catch(() => {});
     /* נועה's slice: sales calls to leads who went silent. Small on purpose —
        two per tick is 12 an hour, plenty for the queue this funnel produces,
        and it can never crowd out the guest calls that were paid for. */
@@ -9536,7 +9542,33 @@ function opsDeps() {
     sendingPaused, snapshotCached, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), waCapInfo, guestCapacity, guestPhoneIds, clientPhoneId,
     clientWaba, clientToken, kvPrefix, normPhone, isTestEventRow, planKeyOf, buildCallQueue, retellListCalls, metaAds,
     auditQuery: (e, q) => audit.query(e, q), auditQueryEx: (e, q) => audit.queryEx(e, q), auditRecord: (e, r) => audit.record(e, r),
-    slackPost: (e, t, o) => slackPost(e, t, o), PACE_SENDS, PACE_CALLS, PACE_CALLBACKS };
+    slackPost: (e, t, o) => slackPost(e, t, o), PACE_SENDS, PACE_CALLS, PACE_CALLBACKS,
+    /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
+    slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
+    mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
+    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
+}
+/* brain playbook gift_blast_resume → the real /api/gift-blast handler (same refusals, same caps) */
+async function brainGiftBlast(env, token, { dry = true, max = 50 } = {}) {
+  if (!dry && await isOff(env, 'manual_blasts')) return { ok: false, refused: 'off:manual_blasts' };
+  const req = new Request('https://go.ishur.io/api/gift-blast', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: env.ADMIN_KEY, token, dry, max }) });
+  const r = await handleGiftBlast(req, env, '');
+  return r.json().catch(() => ({ ok: false }));
+}
+/* brain playbook cap_probe_release: one real template to OUR number when BRAIN_PROBE_TEMPLATE +
+   BRAIN_PROBE_TO are set; otherwise Meta's health_status alone (no message leaves). */
+async function brainWaProbe(env, pid) {
+  const tok = env.WA_TOKEN_GUESTS; if (!tok) return { ok: false, mode: 'none', detail: 'no WA_TOKEN_GUESTS' };
+  if (env.BRAIN_PROBE_TEMPLATE && env.BRAIN_PROBE_TO) {
+    const r = await fetch(`https://graph.facebook.com/v21.0/${pid}/messages`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ messaging_product: 'whatsapp', to: String(env.BRAIN_PROBE_TO).replace(/\D/g, ''), type: 'template', template: { name: env.BRAIN_PROBE_TEMPLATE, language: { code: env.BRAIN_PROBE_LANG || 'he' } } }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => ({})) : {};
+    return { ok: !!(r && r.ok), mode: 'template', detail: r && r.ok ? 'accepted ' + ((j.messages && j.messages[0] && j.messages[0].id) || '') : ((j.error && j.error.code) || (r ? r.status : 'unreachable')) + '' };
+  }
+  const r = await fetch(`https://graph.facebook.com/v21.0/${pid}?fields=health_status`, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+  const j = r ? await r.json().catch(() => ({})) : {};
+  const can = String((j.health_status && j.health_status.can_send_message) || '');
+  return { ok: can === 'AVAILABLE', mode: 'health', detail: 'can_send_message=' + (can || '?') };
 }
 export { runPacer as _runPacer, sendWave as _sendWave, drainPartyNudges as _drainPartyNudges, runShirDispatch as _runShirDispatch, runShirCallbacks as _runShirCallbacks };
 
@@ -9544,9 +9576,12 @@ export { runPacer as _runPacer, sendWave as _sendWave, drainPartyNudges as _drai
    audit.js cron row it always had (audit.job), joined by data.run_id */
 function opsJob(env, name, fn, extra = {}) { return withRun(env, JOB_TO_ID[name] || name, fn, { job: name, triggered_by: 'cron', ...extra }); }
 
+const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
+    /* 03/11 edit-in-place: cfg:<key> overrides (send window, margin, pacer batch, call cap, noa chase) */
+    env = await withCfg(env).catch(() => env);
     /* the Tuesday reminder crons carry their own schedule string */
     /* 04:00 UTC = 07:00 in Israel through the summer. Telnyx is done, so this
        slot now carries the heartbeat: if the engine has not run in 30 hours,
@@ -9625,6 +9660,8 @@ export default {
       ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
       /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(opsJob(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
+      /* 03/11 ops brain: health checks + deterministic playbooks (brain.js); BRAIN_ENABLED="off" stops it */
+      if (String(env.BRAIN_ENABLED || 'on') !== 'off') ctx.waitUntil(runBrain(env, opsDeps(), { fns: brainFns() }).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
@@ -9683,6 +9720,8 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
+    /* 03/11 edit-in-place: the cron-driven settings also bind the ops routes and the manual send routes */
+    if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
     /* iPad sessions: a valid sess. token becomes the real admin key before any

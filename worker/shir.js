@@ -55,7 +55,15 @@ export function callWindowState(now = new Date()) {
    just calls. Sending starts an hour before the phones do, because a message
    waits politely and a phone call does not.
    Sun-Thu 09:00-20:30 · Fri 09:00-13:00 · Sat: nothing. */
+/* 03/11 ops brain · edit-in-place: cfg:send_window narrows the guest window
+   (cfg.js validates: start 09:00–12:00, end 13:00–20:30, Friday end 10:00–13:00 —
+   it can never widen it). null = the defaults below. Set per isolate by withCfg(). */
+let WINDOW_OVERRIDE = null;
+export function setSendWindow(w) { WINDOW_OVERRIDE = w && typeof w === 'object' ? w : null; }
+const hm = (s, dflt) => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '')); return m ? Number(m[1]) * 60 + Number(m[2]) : dflt; };
 export function sendWindowState(now = new Date()) {
+  const W = WINDOW_OVERRIDE || {};
+  const start = hm(W.start, 9 * 60), end = hm(W.end, 20 * 60 + 30), friEnd = hm(W.fri_end, 13 * 60);
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: 'Asia/Jerusalem', weekday: 'short',
     hour: '2-digit', minute: '2-digit', hour12: false,
@@ -65,10 +73,10 @@ export function sendWindowState(now = new Date()) {
   const mins = Number(get('hour')) * 60 + Number(get('minute'));
   if (day === 'Sat') return { open: false, why: 'shabbat' };
   if (day === 'Fri') {
-    return mins >= 9 * 60 && mins <= 13 * 60
+    return mins >= start && mins <= friEnd
       ? { open: true } : { open: false, why: 'friday-window' };
   }
-  return mins >= 9 * 60 && mins <= 20 * 60 + 30
+  return mins >= start && mins <= end
     ? { open: true } : { open: false, why: 'hours' };
 }
 

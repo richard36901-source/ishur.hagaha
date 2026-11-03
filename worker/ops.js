@@ -16,6 +16,11 @@
      GET  /api/ops/live?since=     newest audit + ledger rows (≤200, cursor = ts)
      GET  /api/ops/runs            ledger (filters automation_id, status, from, to, cursor, limit)
      GET  /api/ops/run?id=         one run + children + linked audit rows
+     GET  /api/ops/brain?since=    findings, pending actions, playbooks, brain runs, live log lines (brain.js)
+     POST /api/ops/brain-run       run every check now (withRun brain_health, triggered_by manual)
+     POST /api/ops/brain-decision  {id, approve, confirm} — approve/reject a pending playbook action
+     POST /api/ops/run-log         {run_id, line|lines[], automation_id?} — an external agent streams its reasoning
+     POST /api/ops/edit            {id, field, value, confirm} — whitelisted settings (cfg.js); blast radius first
 
    Read-only except: toggle (with confirm), POST balances (manual value), and
    the caches bal:cache (10 min) and biz:verif (6 h).
@@ -35,6 +40,8 @@ import { subeventBoard } from './subevent.js';
 import { tierLimit } from './budget.js';
 import { isOff, offState, OFF_PREFIX, listRuns, getRun, runStats } from './ops-run.js';
 import CODE from './registry-code.json' with { type: 'json' };
+import { runBrain, buildBrain, decide, runLogAppend } from './brain.js';
+import { SETTINGS, validateEdit, confirmWord, writeSetting, loadCfg, effective, editableFor, NOA_CHASE_ON_CONFIRM } from './cfg.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -531,14 +538,14 @@ export function codeRef(id) {
 }
 export async function buildRegistry(env, now = Date.now()) {
   const since = new Date(now - 864e5).toISOString();
-  const [stats, offs] = await Promise.all([runStats(env, since), Promise.all(KILL_SWITCH_IDS.map(async id => [id, await offState(env, id)]))]);
+  const [stats, offs, cfgVals] = await Promise.all([runStats(env, since), Promise.all(KILL_SWITCH_IDS.map(async id => [id, await offState(env, id)])), loadCfg(env, { fresh: true }).catch(() => ({}))]);
   const off = Object.fromEntries(offs);
   const nodes = AUTOMATIONS.map(n => {
     const m = opsMeta(n);
     const sid = switchFor(n.id);
     const st = stats.stats[n.id] || null;
     return { id: n.id, name_he: n.name_he, layer: n.layer, kind: n.kind, from: n.from || [], trigger: n.trigger || null, conditions: n.conditions || [], templates: n.templates || [],
-      audience: n.audience || '', warnings: n.warnings || [], ...m, code_ref: codeRef(n.id),
+      audience: n.audience || '', warnings: n.warnings || [], ...m, code_ref: codeRef(n.id), editable: editableFor(n.id, cfgVals),
       state: { enabled: sid ? !off[sid] : true, switch_id: sid, off: sid ? off[sid] : null, last_run_at: st ? st.last_started_at : null, runs_24h: st ? st.runs_24h : 0, by_status_24h: st ? st.by_status : {}, next_fire: nextFire(n, new Date(now)) } };
   });
   return { ok: true, at: new Date(now).toISOString(), ledger_source: stats.source, kill_switches: KILL_SWITCH_IDS, code_snapshot: { at: CODE.generated_at, git: CODE.git }, nodes };
@@ -571,6 +578,43 @@ export async function toggle(env, d, b, now = Date.now()) {
   return { status: 200, body: { ...base, applied: true, enabled_now: b.enabled } };
 }
 
+/* ── edit-in-place (cfg.js) ──────────────────────────────────────────────── */
+/* what an edit changes, computed before the confirm (like toggle's blast radius) */
+async function editRadius(env, d, id, field, before, after, now) {
+  const today = d.ilDate(new Date(now)); const effects = [];
+  let inp = null; try { inp = await projectionInputs(env, d, today, 7); } catch {}
+  const items = inp ? projectItems({ events: inp.events, guests: inp.guests, flags: inp.flags, today, days: 7, isNoContactDay: d.isNoContactDay }) : [];
+  const todayPlanned = items.filter(x => x.day === today && !x.held).reduce((n, x) => n + x.count, 0);
+  const winMin = w => { const t = s => { const [h, m] = String(s).split(':').map(Number); return h * 60 + m; }; return { wk: t(w.end) - t(w.start), fri: t(w.fri_end) - t(w.start) }; };
+  if (id === 'pacer_batch_size') { effects.push({ label: 'הודעות לפעימה', before, after }); effects.push({ label: 'מקסימום ליום (≈69 פעימות בחלון)', before: before * 69, after: after * 69 }); effects.push({ label: 'מתוכנן להיום', count: todayPlanned }); }
+  if (id === 'send_window') { const a = winMin(before), b = winMin(after); effects.push({ label: 'דקות שליחה ביום חול', before: a.wk, after: b.wk }); effects.push({ label: 'דקות שליחה בשישי', before: a.fri, after: b.fri }); effects.push({ label: 'פעימות שנעלמות ביום חול', count: Math.max(0, Math.round((a.wk - b.wk) / 10)) }); effects.push({ label: 'מתוכנן להיום', count: todayPlanned }); }
+  if (id === 'guest_budget_margin') { const cap = await d.guestCapacity(env).catch(() => null); if (cap) { effects.push({ label: 'נשאר היום בתקרה', before: Math.max(0, cap.limit - cap.used - before), after: Math.max(0, cap.limit - cap.used - after) }); } effects.push({ label: 'מתוכנן להיום', count: todayPlanned }); }
+  if (id === 'daily_call_cap') { const q = inp ? (d.buildCallQueue(inp.raw).queue || []).filter(g => !g.capped).length : 0; effects.push({ label: 'חיוגים בתור', count: q }); effects.push({ label: 'תקרה ליום', before: before || 'בלי', after: after || 'בלי' }); }
+  if (id === 'noa_chase') effects.push({ label: after === 'on' ? 'נועה מתחילה לחייג ללידים "לא ענה" (2 לפעימה, בחלון שיחות) וכותבת למאנדיי' : 'נועה מפסיקה לחייג ללידים', count: after === 'on' ? 2 : 0 });
+  if (id === 'event_hold') { const mine = items.filter(x => x.token === field); effects.push({ label: after ? 'הודעות שנעצרות ב-7 ימים לאירוע' : 'הודעות שחוזרות ב-7 ימים לאירוע', count: mine.reduce((n, x) => n + x.count, 0) }); }
+  return { setting: id, field: field || '', horizon_days: 7, effects };
+}
+export async function editSetting(env, d, b, now = Date.now()) {
+  const id = String(b.id || ''); const field = String(b.field || '');
+  const s = SETTINGS[id];
+  if (!s) return { status: 404, body: { ok: false, error: 'unknown-setting', settings: Object.keys(SETTINGS) } };
+  const vals = await loadCfg(env, { fresh: true }); const eff = effective(vals);
+  const cur = s.per ? !!(await kget(env, 'hold:' + field)) : eff[id];
+  const v = validateEdit(id, field, b.value, cur);
+  if (!v.ok) return { status: 400, body: { ok: false, error: 'invalid', why: v.why } };
+  const word = confirmWord(id, v.value);
+  const radius = await editRadius(env, d, id, field, cur, v.value, now).catch(() => ({ setting: id, effects: [] }));
+  const base = { ok: true, id, field, before: cur, after: v.value, blast_radius: radius, confirm_required: word };
+  if (b.confirm !== word) return { status: 200, body: { ...base, applied: false, he: id === 'noa_chase' && v.value === 'on' ? `נועה רודפת נשארת כבויה עד שריצ'ארד מקליד "${NOA_CHASE_ON_CONFIRM}"` : `כדי לשמור, לשלוח שוב עם confirm: "${word}"` } };
+  const who = String(b.who || 'admin').slice(0, 40), reason = String(b.reason || '').slice(0, 300);
+  const w = await writeSetting(env, id, field, v.value, { who, reason, now });
+  const show = x => (x && typeof x === 'object' ? Object.values(x).join('–') : String(x));
+  const msg = `✏️ ${s.he}${field && s.per ? ' · ' + field.slice(0, 8) : ''}: ${show(w.before)} → ${show(w.after)}${reason ? ' · ' + reason : ''}`;
+  await d.auditRecord(env, { kind: 'admin', area: 'מרכז בקרה', action: msg, ok: true, review: true, data: { setting: id, field, before: w.before, after: w.after, who, reason, blast: radius.effects } }).catch(() => {});
+  await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg} · ${who}`).catch(() => {});
+  return { status: 200, body: { ...base, applied: true } };
+}
+
 /* ── live / runs ─────────────────────────────────────────────────────────── */
 export function mergeLive(auditRows, runRows, limit = 200) {
   const a = (auditRows || []).map(r => ({ type: 'audit', ts: r.ts, at: r.at, id: r.id, kind: r.kind, area: r.area, action: r.action, ok: r.ok, token: r.token ? String(r.token).slice(0, 8) : '', detail: String(r.detail || '').slice(0, 300), data: r.data && r.data.job ? { job: r.data.job, ms: r.data.ms, run_id: r.data.run_id || null } : null }));
@@ -578,6 +622,9 @@ export function mergeLive(auditRows, runRows, limit = 200) {
   const all = [...a, ...b].sort((x, y) => y.ts - x.ts).slice(0, limit);
   return { items: all, cursor: all.length ? Math.max(...all.map(x => x.ts)) : null };
 }
+
+/* what the brain's capacity/balances checks call (ops.js owns them) */
+export const brainFns = () => ({ buildCapacity: (env, d, now, days) => buildCapacity(env, d, now, days), buildBalances: (env, d, o) => buildBalances(env, d, o) });
 
 /* ══ the router ════════════════════════════════════════════════════════════ */
 export async function handleOps(request, env, origin, url, d) {
@@ -637,7 +684,25 @@ export async function handleOps(request, env, origin, url, d) {
           .sort((a, b) => a.ts - b.ts).slice(0, 500);
         return json({ ok: true, source: r.source, run: r.run, children: r.children, audit: linked, audit_window: { from: new Date(t0).toISOString(), to: new Date(t1).toISOString(), token: tok || null } });
       }
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run'] }, 404);
+      case 'brain': return json(await buildBrain(env, { since: Number(q('since')) || 0 }));
+      case 'brain-run': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await runBrain(env, d, { force: true, only: body.only || null, triggered_by: 'manual:' + String(body.who || 'admin').slice(0, 40), fns: brainFns() });
+        return json({ ok: true, ...r });
+      }
+      case 'brain-decision': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await decide(env, d, body); return json(r.body, r.status);
+      }
+      case 'run-log': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await runLogAppend(env, body); return json(r.body, r.status);
+      }
+      case 'edit': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await editSetting(env, d, body); return json(r.body, r.status);
+      }
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);
