@@ -177,7 +177,8 @@ console.log('A3c money screens (lazy/finance, ads, templates, feedback)');
   check('finance.view', () => M.finance.view(FX.finance, { range: '90d', month: '', vendor: 'cloudflare' }));
   check('finance.view empty', () => M.finance.view({ ...FX.finance, events: [], invoices: [], revenue: { ...FX.finance.revenue, entries: [] } }, { range: '90d', vendor: 'monday' }));
   check('ads.view', () => M.ads.view(FX.ads, { range: '30d', open: new Set(FX.ads.campaigns.map((c) => c.id)) }));
-  ok(!/data-act="(?!ads-open|mny-range)[^"]+"/.test(M.ads.view(FX.ads, { range: '30d', open: new Set() })), 'ads screen has no write actions (Shalev read-only)');
+  ok(!/data-act="(?!ads-open|mny-range|sort")[^"]+"/.test(M.ads.view(FX.ads, { range: '30d', open: new Set() })), 'ads screen has no write actions (Shalev read-only; header sort is view-only)');
+  { const h = M.ads.view(FX.ads, { range: '30d', open: new Set(FX.ads.campaigns.map((c) => c.id)) }); ok(M.ads.COLS.length === 12 && (h.match(/class="srt/g) || []).length === 12 && /<tfoot><tr class="tot">/.test(h) && (h.match(/<tr data-row=/g) || []).length === FX.ads.campaigns.length, 'ads comparison: 12 sortable columns (spend → ROAS), one row per campaign, totals row'); }
   check('templates.view', () => M.templates.view(FX.templates, { waba: '', status: '', q: '' }));
   ok(M.templates.view(FX.templates, { waba: 'old', status: '', q: '' }).split('data-act="tp-variant"').length - 1 === FX.templates.templates.filter((t) => t.waba === 'old').length, 'templates WABA filter');
   check('feedback.view', () => M.feedback.view(FX.feedback));

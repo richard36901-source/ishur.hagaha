@@ -415,3 +415,4 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font-body)}
 .dp-f{display:flex;justify-content:space-between;margin-top:8px;padding-top:8px;border-top:1px solid var(--border)}
 .page>.ptabs{margin-bottom:-4px}
 @media (max-width:760px){.dp-pop{position:fixed;inset-inline:12px;inset-block:auto 12px;width:auto}.dp-g button{height:44px}.dp{flex-wrap:wrap}}
+.tbl tfoot td{height:var(--row-h);padding:6px 14px;font-weight:600;background:var(--cream);border-top:1px solid var(--gold-soft)}
