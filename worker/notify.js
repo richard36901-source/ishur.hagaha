@@ -418,6 +418,7 @@ export async function runNotify(env, d, { now = Date.now(), fns = {} } = {}) {
     return [{ rule: 'weekly_digest', entity: 'week:' + today, title_he: digestText(s), deep_link: '#/overview', data: s }];
   });
   for (const cnd of cands) { const n = await deliver(env, d, cnd, { settings, now }).catch(() => null); if (n) out.fired.push({ id: n.id, rule: n.rule, severity: n.severity, channels: n.channels }); }
+  if (d.auditQueryEx && env.RATE) { try { const { backfillCounters } = await import('./counters.js'); out.counters = await backfillCounters(env, d, { now, converge: ilClock(now).m < 10 }); } catch (e) { out.errors.push('counters: ' + String(e && e.message || e).slice(0, 80)); } }
   await kput(env, TICK_KEY, { at: new Date(now).toISOString(), fired: out.fired.length, errors: out.errors });
   return out;
 }
@@ -500,6 +501,7 @@ export async function buildOverview(env, d, { now = Date.now(), fns = {} } = {})
     .map(c => { const f = c.entity.startsWith('finding:') ? findings.find(x => 'finding:' + x.id === c.entity) : null; const p = f ? pending.find(x => x.finding_id === f.id) : null;
       return { severity: c.severity || RULE[c.rule].sev, rule: c.rule, title_he: c.title_he, href: c.deep_link, action: p ? { type: 'brain-decision', id: p.id, confirm: p.confirm || p.id, label_he: 'לאשר תיקון' } : { type: 'nav', href: c.deep_link, label_he: 'לפתוח' } }; })
     .sort((a, b) => sevRank(a.severity) - sevRank(b.severity)).slice(0, 8);
+  const extras = await overviewExtras(env, d, { now, clients, leads }).catch(e => ({ error: String(e && e.message || e) }));
   const changesSince = v(8, { items: [] }).items || [];
   const nt = v(9, { items: [], unread: 0 });
   return {
@@ -509,12 +511,133 @@ export async function buildOverview(env, d, { now = Date.now(), fns = {} } = {})
     changes: { since: lastSeen ? lastSeen.at : new Date(now - 24 * H).toISOString(), count: changesSince.length, items: changesSince.slice(0, 12).map(c => ({ id: c.id, at: c.at, kind: c.kind, actor: c.actor, summary_he: c.summary_he })) },
     balances: { low: ((bal && bal.vendors) || []).filter(x => x.status === 'low').map(x => ({ vendor: x.vendor, amount: x.amount ?? null, currency: x.currency || '', status: x.status })), checked_at: bal ? bal.at : null },
     notifications: { unread: nt.unread, latest: nt.items },
+    ...extras,
     errors,
   };
 }
 
+
+/* ══ §6b money / series / ads / traffic (Richard 03/11: real numbers or an honest "אין נתונים עדיין") ══ */
+export const GROW_FROM = '2026-10-22';   /* Grow IPN pay rows exist in the audit from this day */
+export const RANGES = { week: 7, month: 30, '3m': 90, year: 365 };
+/* every sale once: Grow pay rows (from 22/10) + the sheet's paid events + invoices.
+   pay rows win (exact sum + time); a sheet event with the same tok8 only adds its source.
+   A sheet event without a pay row counts on its paid date, else the invoice date, else it is "undated"
+   (in the totals, not on the chart). */
+export function mergeRevenue({ pay = [], clients = [], invoices = {} } = {}) {
+  const sales = [], byTok = {};
+  for (const p of pay) { const s = { key: p.tok8 ? 'tok:' + p.tok8 : 'ref:' + p.ref, day: p.day, sum: Number(p.sum) || 0, tok8: p.tok8 || '', event: p.event || '', sources: ['grow'] }; sales.push(s); if (p.tok8) byTok[p.tok8] = s; }
+  for (const c of clients) {
+    if (!c.paid && !(c.paid_sum > 0)) continue;
+    const ex = byTok[c.tok8];
+    if (ex) { if (!ex.sources.includes('sheet')) ex.sources.push('sheet'); if (!ex.sum && c.paid_sum) ex.sum = c.paid_sum; continue; }
+    const inv = invoices[c.tok8] || invoices[c.token];
+    const day = /^\d{4}-\d{2}-\d{2}/.test(c.paid_at || '') ? c.paid_at.slice(0, 10) : inv && inv.at ? ilDay(Date.parse(inv.at)) : '';
+    const s = { key: 'tok:' + c.tok8, day, sum: Number(c.paid_sum) || 0, tok8: c.tok8, event: c.names || '', sources: inv ? ['sheet', 'invoice'] : ['sheet'] };
+    sales.push(s); byTok[c.tok8] = s;
+  }
+  for (const [tok, inv] of Object.entries(invoices)) { const t8 = tok.slice(0, 8); if (byTok[t8] || !inv || !inv.at) continue; const s = { key: 'tok:' + t8, day: ilDay(Date.parse(inv.at)), sum: Number(inv.sum) || 0, tok8: t8, event: '', sources: ['invoice'] }; sales.push(s); byTok[t8] = s; }
+  return sales;
+}
+export function windowOf(range, offset, today) {
+  const n = RANGES[range] || 30, end = addDays(today, -n * Math.max(0, Number(offset) || 0)), start = addDays(end, -(n - 1));
+  return { range: RANGES[range] ? range : 'month', n, start, end, group: n > 90 ? 'month' : 'day' };
+}
+export function bucketsOf(w) {
+  if (w.group === 'day') { const b = []; for (let d = w.start; d <= w.end; d = addDays(d, 1)) b.push(d); return b; }
+  const b = []; for (let d = w.start.slice(0, 7); d <= w.end.slice(0, 7); ) { b.push(d); const [y, m] = d.split('-').map(Number); d = m === 12 ? `${y + 1}-01` : `${y}-${String(m + 1).padStart(2, '0')}`; } return b;
+}
+const bucketKey = (day, w) => (w.group === 'day' ? day : day.slice(0, 7));
+function sumInto(buckets, w, rows, valueOf) { const m = Object.fromEntries(buckets.map(b => [b, 0])); for (const r of rows) { if (!r.day || r.day < w.start || r.day > w.end) continue; const k = bucketKey(r.day, w); if (k in m) m[k] += valueOf(r); } return buckets.map(b => m[b]); }
+
+async function invoiceMap(env, d) { const raw = d.kvPrefix ? await d.kvPrefix(env, 'invoice:').catch(() => ({})) : {}; const out = {}; for (const [k, v] of Object.entries(raw)) { if (!/^[0-9a-f-]{36}$/.test(k)) continue; try { out[k] = JSON.parse(v); } catch {} } return out; }
+async function salesAll(env, d, clients, fromDay, now) {
+  const from = fromDay > GROW_FROM ? fromDay : GROW_FROM, today = ilDay(now);
+  const pr = d.auditQueryEx ? await d.auditQueryEx(env, { from: from.replace(/-/g, ''), to: today.replace(/-/g, ''), kind: 'pay', limit: 5000, budget: 2000 }).catch(() => ({ items: [] })) : { items: [] };
+  const { closedFromPay } = await import('./ops.js');
+  const pay = closedFromPay(pr.items || [], { parsePaidDesc: d.parsePaidDesc || (() => null), events: clients.map(c => ({ client_id: c.phone ? 'C-' + String(c.phone).slice(-9) : '', token: c.token, name: c.names })) });
+  return mergeRevenue({ pay, clients, invoices: await invoiceMap(env, d) });
+}
+/* Meta ads insights for a window (one Graph call, KV cache 15 min). null = no token / unreadable */
+export function parseInsights(rows) {
+  const lead = a => (a || []).filter(x => /lead/.test(x.action_type)).reduce((s, x) => Math.max(s, Number(x.value) || 0), 0);
+  const purch = a => (a || []).filter(x => /purchase/.test(x.action_type)).reduce((s, x) => Math.max(s, Number(x.value) || 0), 0);
+  return (rows || []).map(r => ({ day: r.date_start, spend: Number(r.spend) || 0, leads: lead(r.actions), purchases: purch(r.actions), value: purch(r.action_values) }));
+}
+export async function adsWindow(env, d, from, to, inc = '1') {
+  const ck = `ovw:ads:${from}:${to}:${inc}`; const c = await kjson(env, ck); if (c) return c;
+  if (!d.metaAds) return null;
+  const { META_AD_ACCOUNT } = await import('./ads.js');
+  const j = await d.metaAds(env, `/${META_AD_ACCOUNT}/insights?fields=spend,actions,action_values&time_increment=${inc}&time_range=${encodeURIComponent(JSON.stringify({ since: from, until: to }))}&limit=400`).catch(() => null);
+  if (!j || !Array.isArray(j.data)) return null;
+  const rows = parseInsights(j.data); await kput(env, ck, rows, 900); return rows;
+}
+export function adsSummary(rows, today) {
+  if (!rows) return null;
+  const sumR = from => { const xs = rows.filter(r => r.day >= from && r.day <= today); const s = xs.reduce((a, r) => ({ spend: a.spend + r.spend, leads: a.leads + r.leads, value: a.value + r.value, purchases: a.purchases + r.purchases }), { spend: 0, leads: 0, value: 0, purchases: 0 }); return { ...s, spend: Math.round(s.spend * 100) / 100, cpl: s.leads ? Math.round(s.spend / s.leads * 10) / 10 : null, roas: s.spend ? Math.round(s.value / s.spend * 100) / 100 : null }; };
+  return { today: sumR(today), d7: sumR(addDays(today, -6)), d30: sumR(addDays(today, -29)) };
+}
+
+export async function buildSeries(env, d, { range = 'month', offset = 0, now = Date.now() } = {}) {
+  const today = ilDay(now), w = windowOf(range, offset, today), buckets = bucketsOf(w);
+  const prev = windowOf(range, (Number(offset) || 0) + 1, today);
+  const { readCounters, readMonths } = await import('./counters.js');
+  const { leads, store } = await storeLeads(env);
+  const clients = await clientRows(env, d, store, now).catch(() => []);
+  const sales = await salesAll(env, d, clients, prev.start, now);
+  const cnt = w.group === 'day' ? await readCounters(env, w.start, w.end, ['wa_out', 'wa_fail', 'call']) : await readMonths(env, buckets, ['wa_out', 'wa_fail', 'call']);
+  let traffic = null, trafficWhy = '';
+  if (w.n <= 30 && !(Number(offset) > 0)) { try { const { trafficReport } = await import('./traffic.js'); traffic = await trafficReport(env, w.n); } catch (e) { trafficWhy = 'traffic-unreadable'; } } else trafficWhy = 'traffic-30d-only';
+  const ads = await adsWindow(env, d, w.start, w.end, w.group === 'day' ? '1' : 'monthly').catch(() => null);
+  const leadRows = leads.map(l => ({ day: l.created_at ? ilDay(Date.parse(l.created_at)) : '', closed: l.status === 'closed' }));
+  const tRows = traffic ? traffic.days || [] : [];
+  const tot = (rows, f, win) => rows.filter(r => r.day && r.day >= win.start && r.day <= win.end).reduce((a, r) => a + f(r), 0);
+  const series = {
+    revenue: sumInto(buckets, w, sales, r => r.sum), orders: sumInto(buckets, w, sales, () => 1),
+    leads: sumInto(buckets, w, leadRows, () => 1), closed: sumInto(buckets, w, leadRows, r => (r.closed ? 1 : 0)),
+    sends: cnt.series.wa_out, fails: cnt.series.wa_fail, calls: cnt.series.call,
+    visits: traffic ? buckets.map(b => (tRows.find(r => r.date === b) || {}).visitors || 0) : null,
+    ad_spend: ads ? sumInto(buckets, w, ads, r => r.spend) : null, ad_leads: ads ? sumInto(buckets, w, ads, r => r.leads) : null,
+  };
+  const why = {
+    revenue: sales.length ? '' : 'אין מכירות במקורות (Grow מ-22/10, הגיליון, חשבוניות)',
+    sends: series.sends.some(Boolean) ? '' : 'המונים היומיים נבנים מעכשיו; ההיסטוריה ממולאת מהלוג ברקע (עד 30 יום)',
+    calls: series.calls.some(Boolean) ? '' : 'אין שיחות בטווח, או שהמונים עוד ממולאים',
+    visits: traffic ? '' : trafficWhy === 'traffic-30d-only' ? 'תנועה באתר זמינה ל-30 הימים האחרונים בלבד' : 'לא הצלחנו לקרוא את מונה התנועה',
+    ads: ads ? '' : env.META_ADS_TOKEN ? 'מטא לא החזירה נתונים' : 'אין מפתח META_ADS_TOKEN בוורקר',
+  };
+  return { ok: true, at: new Date(now).toISOString(), window: w, buckets, series, why,
+    totals: { revenue: tot(sales, r => r.sum, w), orders: tot(sales, () => 1, w), leads: tot(leadRows, () => 1, w) },
+    prev_totals: { revenue: tot(sales, r => r.sum, prev), orders: tot(sales, () => 1, prev), leads: tot(leadRows, () => 1, prev) },
+    undated_sales: sales.filter(s => !s.day).length };
+}
+
+/* compact extras for the overview: ads, traffic, funnel, cumulative totals */
+export async function overviewExtras(env, d, { now = Date.now(), clients = [], leads = [] } = {}) {
+  const today = ilDay(now);
+  const [adsRows, traffic, sales] = await Promise.all([
+    adsWindow(env, d, addDays(today, -29), today).catch(() => null),
+    import('./traffic.js').then(m => m.trafficReport(env, 7)).catch(() => null),
+    salesAll(env, d, clients, addDays(today, -400), now).catch(() => []),
+  ]);
+  const ads = adsSummary(adsRows, today);
+  const tsum = traffic && traffic.window ? traffic.window : traffic ? (traffic.days || []).reduce((a, r) => ({ visitors: a.visitors + r.visitors, lead: a.lead + r.lead, pay: a.pay + r.pay, purchase: a.purchase + r.purchase }), { visitors: 0, lead: 0, pay: 0, purchase: 0 }) : null;
+  const src = traffic ? Object.entries((traffic.days || []).reduce((m, r) => { for (const [k, v] of Object.entries(r.src || {})) m[k] = (m[k] || 0) + v; return m; }, {})).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([k, v]) => ({ src: k, n: v })) : [];
+  const pct = (a, b) => (b ? Math.round(1000 * a / b) / 10 : null);
+  const month = today.slice(0, 7), lastMonth = (() => { const [y, m] = month.split('-').map(Number); return m === 1 ? `${y - 1}-12` : `${y}-${String(m - 1).padStart(2, '0')}`; })();
+  const mRev = mo => sales.filter(s => s.day && s.day.startsWith(mo)).reduce((a, s) => a + s.sum, 0);
+  const ls = leads;
+  return {
+    ads: ads ? { ...ads, spark: (adsRows || []).slice(-7).map(r => r.spend) } : { why: env.META_ADS_TOKEN ? 'מטא לא החזירה נתונים' : 'אין מפתח META_ADS_TOKEN בוורקר' },
+    traffic: traffic ? { visitors_7d: tsum.visitors, live_now: traffic.live_now ?? null, spark: (traffic.days || []).map(r => r.visitors), top_sources: src, lead_pct: pct(tsum.lead, tsum.visitors), purchase_pct: pct(tsum.purchase, tsum.visitors) } : { why: 'לא הצלחנו לקרוא את מונה התנועה' },
+    funnel: { visitors_7d: tsum ? tsum.visitors : null, leads: ls.length, quoted: ls.filter(l => ['quoted', 'closed'].includes(l.status) || l.quote_id).length, closed: ls.filter(l => l.status === 'closed').length },
+    growth: { month: mRev(month), last_month: mRev(lastMonth), mom_pct: mRev(lastMonth) ? Math.round(100 * (mRev(month) - mRev(lastMonth)) / mRev(lastMonth)) : null },
+    totals: { revenue: sales.reduce((a, s) => a + s.sum, 0), sales: sales.length, undated: sales.filter(s => !s.day).length, events: clients.length, guests: clients.reduce((a, c) => a + ((c.counts || {}).invited || 0), 0) },
+  };
+}
+
 /* ══ §7 router (mounted from ops.js handleOps) ═════════════════════════════ */
-export const NOTIFY_ROUTE = /^(notifications(\/mark|\/push-pull)?|notify-settings|overview)$/;
+export const NOTIFY_ROUTE = /^(notifications(\/mark|\/push-pull)?|notify-settings|overview|overview-series)$/;
 export async function handleNotify(request, env, url, d, body, json, path) {
   const q = k => body[k] ?? url.searchParams.get(k);
   const isPost = request.method === 'POST';
@@ -545,6 +668,7 @@ export async function handleNotify(request, env, url, d, body, json, path) {
     const s = await loadSettings(env);
     return json({ ok: true, severities: SEVERITIES, channels: CHANNELS, quiet_hours: { from: '21:00', to: '09:00' }, rules: RULES.map(r => ({ id: r.id, he: r.he, default_severity: r.sev, dedupe_min: Math.round(r.window / MIN), defaults: defaultCfg(r.id), ...s[r.id] })) });
   }
+  if (path === 'overview-series') return json(await buildSeries(env, d, { range: String(q('range') || 'month'), offset: Number(q('offset')) || 0 }));
   if (path === 'overview') {
     if (isPost && body.seen) { const at = new Date().toISOString(); await kput(env, LASTSEEN_KEY, { at, by: who }); return json({ ok: true, last_seen: at }); }
     return json(await buildOverview(env, d));

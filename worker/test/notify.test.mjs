@@ -191,3 +191,54 @@ test('overview payload shape (empty world, every section present)', async () => 
   assert.equal(o.money.spark.length, 7); assert.equal(o.spark_days.length, 7);
   assert.ok(Array.isArray(o.waiting) && Array.isArray(o.events) && Array.isArray(o.changes.items));
 });
+
+/* ── revenue merge + daily counters (coordinator 03/11) ── */
+import * as CNT from '../counters.js';
+test('mergeRevenue: Grow pay + sheet paid events + invoices, each sale once', () => {
+  const pay = [{ day: '2026-10-25', sum: 790, ref: 'G1', tok8: 'aaaaaaaa', event: 'א' }, { day: '2026-10-26', sum: 390, ref: 'G2', tok8: '', event: 'בלי טוקן' }];
+  const clients = [{ tok8: 'aaaaaaaa', token: 'aaaaaaaa-1', paid: true, paid_sum: 790, paid_at: '2026-10-25' },
+    { tok8: 'bbbbbbbb', token: 'bbbbbbbb-1', paid: true, paid_sum: 1290, paid_at: '2026-09-14', names: 'ב' },
+    { tok8: 'cccccccc', token: 'cccccccc-1', paid: true, paid_sum: 590, paid_at: '' },
+    { tok8: 'dddddddd', token: 'dddddddd-1', paid: true, paid_sum: 450, paid_at: '' },
+    { tok8: 'eeeeeeee', paid: false, paid_sum: 0 }];
+  const invoices = { 'cccccccc-1': { at: '2026-10-02T10:00:00Z' }, 'ffffffff-1': { at: '2026-10-03T10:00:00Z', sum: 200 } };
+  const s = N.mergeRevenue({ pay, clients, invoices });
+  assert.equal(s.length, 6, s.map(x => x.key).join(','));
+  assert.deepEqual(s.find(x => x.tok8 === 'aaaaaaaa').sources, ['grow', 'sheet'], 'same tok8 → one sale, both sources');
+  assert.equal(s.find(x => x.tok8 === 'bbbbbbbb').day, '2026-09-14', 'sheet sale before Grow existed keeps its paid date');
+  assert.equal(s.find(x => x.tok8 === 'cccccccc').day, '2026-10-02', 'no paid date → invoice date');
+  assert.equal(s.find(x => x.tok8 === 'dddddddd').day, '', 'no date at all → undated');
+  assert.equal(s.reduce((a, x) => a + x.sum, 0), 790 + 390 + 1290 + 590 + 450 + 200);
+});
+test('windows + buckets: week/month/3m by day, year by month, offset steps back', () => {
+  const w = N.windowOf('week', 0, '2026-11-03'); assert.deepEqual([w.start, w.end, w.n], ['2026-10-28', '2026-11-03', 7]);
+  const w1 = N.windowOf('month', 1, '2026-11-03'); assert.equal(w1.end, '2026-10-04');
+  assert.equal(N.bucketsOf(w).length, 7); assert.equal(N.bucketsOf(N.windowOf('3m', 0, '2026-11-03')).length, 90);
+  const y = N.windowOf('year', 0, '2026-11-03'); assert.equal(y.group, 'month'); assert.equal(N.bucketsOf(y).length, 13);
+});
+test('daily counters: audit rows bump cnt:<day>:<kind> + month rollup, backfill rebuilds a day, truncated read never writes', async () => {
+  const e = { RATE: kv() };
+  const ts = Date.parse('2026-11-03T10:00:00+02:00');
+  await CNT.bumpFromAudit(e, { kind: 'wa_out', ok: true, ts }); await CNT.bumpFromAudit(e, { kind: 'wa_out', ok: false, ts }); await CNT.bumpFromAudit(e, { kind: 'call', ts }); await CNT.bumpFromAudit(e, { kind: 'wa_in', ts });
+  assert.equal(await e.RATE.get('cnt:2026-11-03:wa_out'), '1'); assert.equal(await e.RATE.get('cnt:2026-11-03:wa_fail'), '1'); assert.equal(await e.RATE.get('cnt:2026-11-03:call'), '1'); assert.equal(await e.RATE.get('cnt:m:2026-11:wa_out'), '1');
+  const r = await CNT.readCounters(e, '2026-11-02', '2026-11-03', ['wa_out']); assert.deepEqual(r.series.wa_out, [0, 1]);
+  const rows = Array.from({ length: 5 }, (_, i) => ({ kind: 'wa_out', ok: true, ts: Date.parse('2026-10-20T12:00:00+03:00') + i }));
+  const d = { auditQueryEx: async (_, q) => ({ items: q.kind === 'wa_out' ? rows : [], truncated: false }) };
+  assert.equal((await CNT.backfillDay(e, d, '2026-10-20')).ok, true); assert.equal(await e.RATE.get('cnt:2026-10-20:wa_out'), '5');
+  const dT = { auditQueryEx: async () => ({ items: [], truncated: true }) };
+  assert.equal((await CNT.backfillDay(e, dT, '2026-10-20')).ok, false); assert.equal(await e.RATE.get('cnt:2026-10-20:wa_out'), '5', 'a truncated audit read leaves the counter alone');
+  const bf = await CNT.backfillCounters(e, d, { now: ts, perRun: 2, converge: false }); assert.equal(bf.length, 2); assert.ok(await e.RATE.get('cnt:bf:' + bf[0].day));
+});
+test('ads insights parse + summary (CPL, ROAS)', () => {
+  const rows = N.parseInsights([{ date_start: '2026-11-03', spend: '100', actions: [{ action_type: 'lead', value: '4' }, { action_type: 'onsite_conversion.lead_grouped', value: '4' }], action_values: [{ action_type: 'purchase', value: '790' }] }]);
+  const s = N.adsSummary(rows, '2026-11-03'); assert.equal(s.today.cpl, 25); assert.equal(s.today.roas, 7.9); assert.equal(N.adsSummary(null, 'x'), null);
+});
+test('overview-series route: shape + honest reasons', async () => {
+  const e = wenv();
+  const o = await (await get(e, '/api/ops/overview-series?range=week')).json();
+  assert.equal(o.ok, true, JSON.stringify(o).slice(0, 200)); assert.equal(o.buckets.length, 7);
+  for (const k of ['revenue', 'orders', 'leads', 'sends', 'fails', 'calls']) assert.equal(o.series[k].length, 7, k);
+  assert.match(o.why.ads, /META_ADS_TOKEN/); assert.ok('prev_totals' in o);
+  const ov = await (await get(e, '/api/ops/overview')).json();
+  for (const k of ['ads', 'traffic', 'funnel', 'growth', 'totals']) assert.ok(k in ov, k);
+});
