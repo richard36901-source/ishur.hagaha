@@ -24,10 +24,10 @@ const ec = (o) => {
   return { base, quoted: o.quoted ?? null, closed: cl, close: o.close_rate_pct ?? (base ? Math.round(1000 * cl / base) / 10 : null),
     cpc: o.cost_per_closed ?? (cl ? o.spend / cl : null), deal: o.avg_deal ?? (cl && o.revenue != null ? o.revenue / cl : null), gross: o.avg_gross ?? null, roas: o.roas ?? o.roas_attributed ?? null };
 };
-export const COLS = ['קמפיין', 'הוצאה', 'חשיפות', 'קליקים', 'לידים (מטא)', 'CPL', 'לידים → הצעה → סגירה', 'אחוז סגירה', 'עלות ללקוח שסגר', 'עסקה ממוצעת', 'רווח גולמי ללקוח', 'ROAS'];
+export const COLS = ['קמפיין', 'הוצאה', 'חשיפות', 'קליקים', 'לידים (מטא)', 'CPL', 'לידים ← הצעה ← סגירה', 'אחוז סגירה', 'עלות ללקוח שסגר', 'עסקה ממוצעת', 'רווח גולמי ללקוח', 'ROAS'];
 const cells = (o, name) => { const e = ec(o); return [
   [name, o.name], [esc(ils(o.spend)), o.spend], [esc(fmtN(o.impressions)), o.impressions], [esc(fmtN(o.clicks)), o.clicks], [esc(fmtN(o.leads)), o.leads], [esc(ils(o.cpl)), o.cpl ?? ''],
-  [o.crm_leads != null ? `<span class="num">${fmtN(e.base)} → ${e.quoted == null ? '—' : fmtN(e.quoted)} → ${fmtN(e.closed)}</span>` : '—', e.closed], [esc(pct(e.close)), e.close ?? ''],
+  [o.crm_leads != null ? `<span class="num">${fmtN(e.base)} ← ${e.quoted == null ? '—' : fmtN(e.quoted)} ← ${fmtN(e.closed)}</span>` : '—', e.closed], [esc(pct(e.close)), e.close ?? ''],
   [esc(ils(e.cpc)), e.cpc ?? ''], [esc(ils(e.deal)), e.deal ?? ''], [esc(ils(e.gross)), e.gross ?? ''], [e.roas == null ? '—' : `<span class="badge ${roasTone(e.roas)}">${esc(roasTxt(e.roas))}</span>`, e.roas ?? '']]; };
 const tr = (o, name, lvl, key) => `<tr${key ? ` data-row="${esc(key)}"` : ''} class="lvl-${lvl}">${cells(o, name).map(([h, v], i) => `<td class="${i ? 'n' : ''}" data-sv="${esc(v == null ? '' : v)}"${!i && lvl ? ` style="padding-inline-start:${14 + lvl * 18}px"` : ''}>${h}</td>`).join('')}</tr>`;
 export function treeTable(d, open) {

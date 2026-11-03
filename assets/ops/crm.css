@@ -53,6 +53,7 @@
 .qc-out{display:flex;flex-direction:column;gap:14px;margin-top:6px;padding-top:16px;border-top:1px solid var(--border);max-width:560px}
 .link-box{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:var(--radius-md);background:var(--bg-2);border:1px solid var(--border);word-break:break-all}
 .link-box .mono{flex:1}
+.link-box a{display:inline-flex;gap:6px;align-items:center;font-weight:500}.link-box a svg{width:15px;height:15px}
 .in.ta{height:auto;min-height:var(--control-h);padding:12px 14px;line-height:1.6;width:100%;resize:vertical;font:inherit}
 .tpl-list{display:flex;flex-direction:column;gap:8px}
 .tpl{display:flex;flex-direction:column;gap:3px;text-align:start;padding:12px 14px;border:var(--border-w) solid var(--border);border-radius:var(--radius-md);background:var(--surface);cursor:pointer;font-size:14px}

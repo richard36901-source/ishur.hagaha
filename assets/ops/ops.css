@@ -356,7 +356,7 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font-body)}
   .btn,.btn.sm,.btn.lg,.sel>button,.in{height:var(--control-h);min-width:var(--control-h)}.seg button{height:40px}
   .btn.sm.icon{width:var(--control-h)}
   .tile .v{font-size:25px}.tile{min-height:100px;padding:14px}
-  .mode-mock{inset-block-start:14px;inset-block-end:auto;inset-inline-start:auto;inset-inline-end:60px}
+  .mode-mock{inset-block-end:calc(72px + env(safe-area-inset-bottom));inset-inline-start:12px}
   .hide-m{display:none}.ph a{width:var(--control-h);height:var(--control-h)}.ph-n{min-height:var(--control-h);display:inline-flex;align-items:center}
   .ptabs{width:100%}.ptabs a{height:40px;padding:0 14px}
   .cm details>summary{grid-template-columns:64px minmax(0,1fr) 78px;gap:10px}.cm-ev{margin-inline-start:0}

@@ -18,12 +18,12 @@ const RD = { ok: ['good', '✓'], missing: ['crit', '✕'], unknown: ['', '?'] }
 
 const CSS = `
 .ov2 .card{margin:0}
-.ov2{display:flex;flex-direction:column;gap:16px}
+.ov2{display:flex;flex-direction:column;gap:24px}
 .ov2 .wait li,.ov2 .inc li,.ov2 .chg li{display:flex;gap:10px;align-items:center;padding:10px 0;border-bottom:1px solid var(--line)}
 .ov2 ul{list-style:none;margin:0;padding:0}
 .ov2 li:last-child{border-bottom:0}
 .ov2 .wait .tx,.ov2 .inc .tx,.ov2 .chg .tx{flex:1;min-width:0;font-size:14px;line-height:1.45}
-.ov2 .wait .ic{width:30px;height:30px;border-radius:9px;display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-2);flex:none;font-size:15px}
+.ov2 .wait .ic{width:32px;height:32px;border-radius:var(--radius-sm);display:grid;place-items:center;background:var(--brand-soft);color:var(--brand-2);flex:none;font-size:15px}
 .ov2 .ev{display:grid;grid-template-columns:76px 1fr;gap:4px 12px;padding:10px 0;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
 .ov2 .ev:last-child{border-bottom:0}
 .ov2 .ev .dd{font-weight:650;font-size:13px}
@@ -33,7 +33,7 @@ const CSS = `
 .ov2 .ev .rd i{width:8px;height:8px;border-radius:50%;background:var(--ink-3);display:inline-block}
 .ov2 .ev .rd i.good{background:var(--good)}.ov2 .ev .rd i.crit{background:var(--crit)}
 .ov2 .ev .sub2{grid-column:2;font-size:12px;color:var(--ink-3)}
-.ov2 .hello{font-size:15px;color:var(--ink-2);margin:0}
+.ov2 .hello{font:500 1.15rem/1.5 var(--font-body);color:var(--ink-2);margin:0}
 .ov2 .hello b{color:var(--ink)}
 .ov2 .tile .s{line-height:1.4}
 .ov2 .g-tiles{grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
@@ -44,7 +44,7 @@ const CSS = `
 .ov2 .chart{position:relative;width:100%;margin-top:12px;touch-action:pan-y}
 .ov2 .chart svg{display:block;width:100%;height:auto;overflow:visible}
 .ov2 .chart .ax{font:11px var(--font-num);fill:var(--ink-3)}
-.ov2 .chart .tip{position:absolute;pointer-events:none;background:var(--raise);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:8px;padding:6px 9px;font-size:12.5px;white-space:nowrap;transform:translate(50%,-100%);z-index:2}
+.ov2 .chart .tip{position:absolute;pointer-events:none;background:var(--raise);border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--radius-sm);padding:7px 10px;font-size:12.5px;white-space:nowrap;transform:translate(50%,-100%);z-index:2}
 .ov2 .chart .tip b{font:600 14px var(--font-num)}
 .ov2 .tsum{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px;font-size:13px;color:var(--ink-2)}
 .ov2 .tsum b{font:650 18px var(--font-num);color:var(--ink);display:block}

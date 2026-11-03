@@ -130,7 +130,7 @@ export function StatTile({ label, value, unit = '', sub = '', status = '', href 
 
 /* ── Table: sticky header, zebra, every labelled column sorts asc/desc (saved per table id in localStorage) ── */
 const stripT = (h) => String(h).replace(/<[^>]*>/g, ' ').replace(/&[a-z#0-9]+;/gi, ' ').replace(/\s+/g, ' ').trim();
-export const sortVal = (v) => { if (v == null) return ''; if (typeof v === 'number') return v; const t = String(v); const m = /^[^\d-]{0,2}(-?[\d,]+(?:\.\d+)?)/.exec(t.replace(/[₪$]/g, '')); return m && !/^\d\d\/\d\d/.test(t) && !/^0\d{1,2}-/.test(t) ? Number(m[1].replace(/,/g, '')) : t.toLowerCase(); };
+export const sortVal = (v) => { if (v == null) return ''; if (typeof v === 'number') return v; const t = String(v); const m = /^[^\d-]{0,2}(-?[\d,]+(?:\.\d+)?)/.exec(t.replace(/[₪$]/g, '')); return m && !/^\d\d\/\d\d/.test(t) && !/^\d{4}-\d\d/.test(t) && !/^0\d{1,2}-/.test(t) ? Number(m[1].replace(/,/g, '')) : t.toLowerCase(); };
 export const cmp = (a, b) => (typeof a === 'number' && typeof b === 'number' ? a - b : String(a).localeCompare(String(b), 'he', { numeric: true }));
 export function savedSort(id) { try { return JSON.parse(localStorage.getItem('ops:sort:' + id) || 'null'); } catch (e) { return null; } }
 const svOf = (c, r) => (c.sort ? c.sort(r) : c.key ? r[c.key] : stripT(c.render ? c.render(r) : ''));
@@ -313,4 +313,5 @@ export function init() {
     const r = t.getBoundingClientRect(); tip.style.top = Math.max(8, r.top - tip.offsetHeight - 8) + 'px'; tip.style.left = Math.min(innerWidth - tip.offsetWidth - 8, Math.max(8, r.left + r.width / 2 - tip.offsetWidth / 2)) + 'px';
   });
   D.addEventListener('pointerout', (e) => { if (tip && e.target.closest('[data-tip]')) tip.remove(); });
+  addEventListener('hashchange', () => { if (tip) tip.remove(); });
 }
