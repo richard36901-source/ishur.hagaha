@@ -152,7 +152,7 @@ window.ISHUR_CONFIG = (function () {
     /* anyPlan: whatever package they tick, with hostesses the price is capped at
        the bundle total and they get הכל כלול for it (Richard 01/11) */
     winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
-    winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'הכל כלול + דיילת אחת עד 300 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' }
+    winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, label: 'הכל כלול + דיילת אחת עד 200 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' }
   };
   function bundleFor(key) { return (key && BUNDLES[key]) || null; }
   /* a dated bundle stops applying the second its clock runs out (Richard 01/11:
@@ -162,6 +162,9 @@ window.ISHUR_CONFIG = (function () {
   function bundleApplies(b, guests, plan, hostess) {
     if (!b || !hostess || !bundleLive(b)) return false;
     var n = parseInt(guests, 10);
+    /* 03/11: the bundle's hostess count must match the size rule (300+ → 2) */
+    var t = hostessTier(n);
+    if (b.hostesses && t && t.count !== b.hostesses) return false;
     return (b.anyPlan || plan === b.plan) && b.guests.indexOf(n) > -1;
   }
 
@@ -311,7 +314,7 @@ window.ISHUR_CONFIG = (function () {
   var ADDONS = {
     hostess: {
       label: 'דיילות באירוע',
-      desc: 'מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. דיילת אחת עד 300 מוזמנים, 2 דיילות מעל. ניתן להוסיף עד שבועיים לפני האירוע. מחוץ למרכז: תוספת נסיעות 250 ₪ (דיילת אחת) או 500 ₪ (2 דיילות)',
+      desc: 'מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. דיילת אחת מתחת ל-300 רשומות, 2 דיילות מ-300 ומעלה. ניתן להוסיף עד שבועיים לפני האירוע. מחוץ למרכז: תוספת נסיעות 250 ₪ (דיילת אחת) או 500 ₪ (2 דיילות)',
       plans: []
     },
     extra_send: {
@@ -360,8 +363,8 @@ window.ISHUR_CONFIG = (function () {
     short: 'דיילות',
     desc: 'דיילות מצוות ishur עם הלוח שלנו ביד: מקבלות אורחים, מסמנות הגעה בזמן אמת ומכוונות לשולחנות.',
     tiers: [
-      /* Richard 20/10: 1 hostess up to 300 guests, 2 above that. No third tier. */
-      { max: 300, count: 1, price: 1790, label: 'דיילת אחת', link: 'https://pay.grow.link/NTY2OTg~8aa5bfc13392e609223168761043b5ee-NDA3Nzc0MA' },
+      /* Richard 03/11 (global): under 300 records 1 hostess, 300 and up 2. No third tier. */
+      { max: 299, count: 1, price: 1790, label: 'דיילת אחת', link: 'https://pay.grow.link/NTY2OTg~8aa5bfc13392e609223168761043b5ee-NDA3Nzc0MA' },
       { max: 900, count: 2, price: 1990, label: '2 דיילות', link: 'https://pay.grow.link/NTY2OTg~9ebc7cea776b48b10bcf7e6dda923f51-NDA3Nzc0MQ' }
     ],
     travel: 250,

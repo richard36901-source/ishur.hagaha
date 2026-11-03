@@ -28,7 +28,7 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClien
 import { proxy as evProxy, appendTab } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
-import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead } from './monday.js';
+import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
@@ -45,7 +45,8 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
-import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
+import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE } from './paylink.js';   /* 03/11 pay links v2 */
+import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -203,20 +204,68 @@ function looksIshur(flat, pages) {
 /* 03/11 pay links v2: structured quote → server-priced Grow link. The quote
    lives 30 days in KV under quote:<id>; cField1 carries "q:<id>|<code>" so the
    IPN can read what was bought even if the KV row is gone. */
-async function handlePayLinkV2(env, b, origin) {
-  const r = await makePayLinkV2(env, b);
-  if (!r.ok && r.why && r.why !== 'no-hook' && !r.id) return deny(400, r.why, origin);
-  if (r.why === 'no-hook') return okJson({ ok: false, why: 'no-hook', quote: r.quote }, origin);
-  return okJson({ ok: r.ok, url: r.url, id: r.id, description: r.description, sum: r.sum, code: r.code, lines: r.lines, make: r.make }, origin);
+/* ── 03/11 sales flow glue (salesflow.js is pure; the Worker gives it hands) ── */
+async function isClientPhone(env, phone) {
+  if (!env.RATE) return false;
+  if (await env.RATE.get('client:' + phone).catch(() => null)) return true;
+  const snap = await Promise.race([snapshotCached(env).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+  if (!snap) return false;
+  if (eventsForPhone(snap, phone).length) return true;
+  const g = findGuestByPhone(snap, phone, ilDate());
+  return !!(g && g.upcoming);
 }
-/* the same, as data: /api/crm/leads/:id/quote builds its link here */
-async function makePayLinkV2(env, b) {
+async function salesCtx(env, phone, text, name, sfCtx) {
+  const c = { phone, text, name: name || '', ...(sfCtx || {}) };
+  if (c.isClient) return c;
+  let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + phone) || 'null'); } catch {}
+  /* a Meta-form lead's first inbound starts the flow too */
+  if (rec && (rec.page === 'instant-form' || /leadform/.test(String(rec.source || '')))) { c.isMetaLead = true; c.occasion = c.occasion || rec.occasion || ''; c.name = c.name || rec.name || ''; }
+  if (rec && rec.guests && !c.guests) c.guests = parseInt(rec.guests, 10) || 0;
+  /* the flow never runs for a client, a phone with an event, or a guest */
+  if (sfCtx && sfCtx.isNewLead) return c;
+  if ((sfCtx && sfCtx.known) || c.isMetaLead || await sfState(env, phone)) c.isClient = await isClientPhone(env, phone);
+  return c;
+}
+function salesDeps(env) {
+  return {
+    send: async (phone, text) => { try { const r = await sendText(env, phone, text, 'client', { who: 'נועה (זרימת מכירה)' }); return { ok: !!(r && r.ok) }; } catch { return { ok: false }; } },
+    slack: (t) => slackPost(env, t).catch(() => {}),
+    log: (o) => logEvent(env, { area: 'לידים', ok: o.ok !== false, ...o }).catch(() => {}),
+    isClient: (phone) => isClientPhone(env, phone),
+    /* Monday notes + updates and the CRM (leadx:) notes, cached 10 min per lead */
+    humanNotes: async (phone) => {
+      const ck = 'sfmon:' + phone;
+      let mon = null; try { mon = JSON.parse(await env.RATE.get(ck) || 'null'); } catch {}
+      if (!mon) {
+        try { mon = await mondayLeadNotes(env, phone); } catch (e) { mon = { found: false, notes: '', updates: [], err: String(e && e.message).slice(0, 80) }; }
+        await env.RATE.put(ck, JSON.stringify(mon), { expirationTtl: 600 }).catch(() => {});
+      }
+      let lx = null; try { lx = JSON.parse(await env.RATE.get('leadx:' + phone) || 'null'); } catch {}
+      const crm = ((lx && lx.notes) || []).map(n => ({ at: Date.parse(n.at) || 0, text: String(n.text || '') }));
+      return { notes: mon.notes || '', updates: mon.updates || [], crm };
+    },
+    markQuoted: async (phone, quote, link, { fallback } = {}) => {
+      const nowIso = new Date().toISOString();
+      /* the CRM row (leads board) — status + a note with the offer */
+      let prev = null; try { prev = JSON.parse(await env.RATE.get('leadx:' + phone)); } catch {}
+      let r = applyLeadUpdate(prev, { status: 'נשלח פרטים' }, nowIso);
+      if (r.state) r = applyLeadUpdate(r.state, { note: `הצעה מזרימת המכירה${fallback ? ' (ברירת מחדל)' : ''}: ${quote.description} · ₪${quote.sum} · ${link}` }, nowIso);
+      if (r.state) await env.RATE.put('leadx:' + phone, JSON.stringify(r.state)).catch(() => {});
+      /* and the lead: record itself */
+      try { const rec = JSON.parse(await env.RATE.get('lead:' + phone) || 'null'); if (rec) await env.RATE.put('lead:' + phone, JSON.stringify({ ...rec, sf_status: 'quoted', sf_sum: quote.sum, sf_at: nowIso }), { expirationTtl: LEAD_TTL }); } catch {}
+    },
+  };
+}
+
+/* one place mints a server-priced Grow link from a structured quote:
+   the admin pay link (v2) and the site's prefilled popup both come here */
+async function createQuoteLink(env, b, { src = 'admin' } = {}) {
   const pq = priceQuote(b);
-  if (!pq.ok) return { ok: false, why: pq.why };
+  if (!pq.ok) return { ok: false, status: 400, why: pq.why };
   const q = pq.quote;
   const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
   const cField1 = `q:${id}|${q.code}`;
-  if (!env.GROW_LINK_HOOK) return { ok: false, why: 'no-hook', id, sum: q.sum, description: q.description, code: q.code, lines: q.lines, quote: { id, ...q } };
+  if (!env.GROW_LINK_HOOK) return { ok: false, why: 'no-hook', id, q };
   const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     sum: q.sum, description: q.description, token: '', kind: 'special', scope: 'all', label: q.description, n: q.records,
     name: q.name, phone: q.phone.replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
@@ -225,9 +274,39 @@ async function makePayLinkV2(env, b) {
   }) }).catch(() => null);
   let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
   const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
-  if (env.RATE) await env.RATE.put('quote:' + id, JSON.stringify({ id, ...q, url: link || '', at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
-  await logEvent(env, { area: 'תשלום', action: `קישור תשלום v2: ${q.description} · ₪${q.sum}`, ok: !!link, review: !link, phone: q.phone, ref: 'q:' + id, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
-  return { ok: !!link, url: link || '', id, description: q.description, sum: q.sum, code: q.code, lines: q.lines, make: link ? undefined : mtxt.slice(0, 200) };
+  if (env.RATE) await env.RATE.put('quote:' + id, JSON.stringify({ id, ...q, src, url: link || '', at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
+  await logEvent(env, { area: 'תשלום', action: `קישור תשלום v2${src !== 'admin' ? ' (' + src + ')' : ''}: ${q.description} · ₪${q.sum}`, ok: !!link, review: !link, phone: q.phone, ref: 'q:' + id, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
+  return { ok: !!link, url: link || '', id, q, mtxt };
+}
+
+/* 03/11 site prefill (?plan=…): the popup asks the server to price + mint the
+   link, so add-ons ride in cField1 like an admin pay link and are granted on
+   payment. Public, stamped like the other site forms, rate-limited per IP. */
+async function handleQuoteFromSite(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const stampError = await checkStamp(b, env.APP_KEY);
+  if (stampError) return deny(403, stampError, origin);
+  if (await overBudget(env, 'rl:qsite:' + (request.headers.get('CF-Connecting-IP') || 'x'), 8, 3600)) return deny(429, 'slow-down', origin);
+  const body = { plan: b.plan, records: Number(b.records), phone: b.phone, name: b.name, email: b.email, occasion: b.occasion, event_date: b.event_date || '',
+    addons: { hostesses: Number(b.hostesses) || 0, design: !!b.design, travel: false, extra_wave: false, calls: false } };
+  const r = await createQuoteLink(env, body, { src: String(b.src || 'site').replace(/[^a-z0-9_-]/gi, '').slice(0, 20) || 'site' });
+  if (r.status === 400) return okJson({ ok: false, why: r.why }, origin);
+  return okJson({ ok: r.ok, url: r.url || '', id: r.id || '', sum: r.q ? r.q.sum : null, description: r.q ? r.q.description : '', why: r.ok ? undefined : (r.why || 'no-link') }, origin);
+}
+
+async function handlePayLinkV2(env, b, origin) {
+  const r0 = await createQuoteLink(env, b);
+  if (r0.status === 400) return deny(400, r0.why, origin);
+  if (r0.why === 'no-hook') return okJson({ ok: false, why: 'no-hook', quote: { id: r0.id, ...r0.q } }, origin);
+  return okJson({ ok: r0.ok, url: r0.url, id: r0.id, description: r0.q.description, sum: r0.q.sum, code: r0.q.code, lines: r0.q.lines, make: r0.url ? undefined : r0.mtxt.slice(0, 200) }, origin);
+}
+/* integ's data shape over the shared minter: /api/crm/leads/:id/quote (crm.js quoteLead) uses it */
+async function makePayLinkV2(env, b) {
+  const r = await createQuoteLink(env, b);
+  if (r.status === 400) return { ok: false, why: r.why };
+  const q = r.q;
+  if (r.why === 'no-hook') return { ok: false, why: 'no-hook', id: r.id, sum: q.sum, description: q.description, code: q.code, lines: q.lines, quote: { id: r.id, ...q } };
+  return { ok: r.ok, url: r.url, id: r.id, description: q.description, sum: q.sum, code: q.code, lines: q.lines, make: r.url ? undefined : r.mtxt.slice(0, 200) };
 }
 
 /* what a package payment bought besides the package: the stored quote first,
@@ -3406,6 +3485,8 @@ async function handleWaWebhook(request, env, url) {
        not from the least-used one (131047 otherwise) */
     if (sendCh === 'guests') await pinGuestPhone(env, from, phoneId);
     const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)', ...(sendCh === 'guests' ? { phone_id: phoneId } : {}) });
+    /* 03/11 sales flow: what the lead block below learned about this number */
+    let sfCtx = null;
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
@@ -3460,8 +3541,11 @@ async function handleWaWebhook(request, env, url) {
             else if (snapL) { const gL = findGuestByPhone(snapL, p9, ilDate()); if (gL && gL.upcoming) notLead = 'guest'; }
             if (notLead) await logEvent(env, { area: 'לידים', action: notLead === 'client' ? 'לקוח (אירוע בגיליון) כתב לנועה — לא נפתח ליד' : 'אורח של אירוע קרוב כתב לנועה — לא נפתח ליד', ok: true, phone: p9, detail: body.slice(0, 120) }).catch(() => {});
           }
+          if (notLead) sfCtx = { isClient: true };
+          else if (known) sfCtx = { known: true };
           if (!known && !notLead && !isTestPhone(env, p9) && !String(env.ADMIN_PHONES || '').split(',').includes(p9)) {
             const mon = await noteLead(env, { phone: p9, name: profileName || '', page: 'whatsapp', first_source: 'וואטסאפ נכנס', event_type: 'whatsapp_in' });
+            sfCtx = { isNewLead: true };
             await env.RATE.delete('leadping:' + p9).catch(() => {});
             await env.RATE.put('leadslack:' + p9, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
             const local = p9.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
@@ -3519,6 +3603,19 @@ async function handleWaWebhook(request, env, url) {
     }
 
     /* stop the calls, keep the messages */
+    /* 03/11 sales flow (cfg sales_flow, default off): deterministic questions
+       → one priced offer with a prefilled site link. Leads only. When it
+       handles the message nothing else answers (Noa AI stays off anyway). */
+    if (ch === 'client' && !echo && env.RATE && sfEnabled(env) && parsed.kind !== 'optout' && parsed.kind !== 'nocall') {
+      try {
+        const p9 = normPhone(from);
+        const sfr = await salesInbound(env, await salesCtx(env, p9, textOf(parsed), profileName, sfCtx), salesDeps(env));
+        if (sfr.handled) continue;
+      } catch (e) { await logEvent(env, { area: 'לידים', action: 'זרימת מכירה נכשלה', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+    }
+    if (parsed.kind === 'optout' && ch === 'client' && env.RATE) {
+      try { const st0 = await sfState(env, normPhone(from)); if (st0 && st0.step !== 'stopped') await env.RATE.put('sf:' + st0.phone, JSON.stringify({ ...st0, step: 'stopped', why: 'optout' }), { expirationTtl: 7 * 86400 }); } catch {}
+    }
     if (parsed.kind === 'nocall') {
       if (env.RATE) await env.RATE.put('nocall:' + normPhone(from), new Date().toISOString());
       await logEvent(env, { area: 'ווצאפ', action: 'אורח ביקש לא להתקשר', ok: true, phone: from });
@@ -9732,6 +9829,7 @@ export default {
       ctx.waitUntil(opsJob(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
+      if (sfEnabled(env)) ctx.waitUntil(opsJob(env, 'salesTick', () => salesTick(env, salesDeps(env))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
@@ -11030,6 +11128,20 @@ export default {
       let cur = null; try { cur = JSON.parse(await env.RATE.get('playbook')); } catch {}
       return okJson({ ok: true, playbook: cur || null }, origin);
     }
+    if (url.pathname === '/api/quote-from-site' && request.method === 'POST') return handleQuoteFromSite(request, env, origin);
+    /* 03/11: Richard resumes a sales flow that a human note paused */
+    if (url.pathname === '/api/sales-flow-resume' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      const p = normPhone(b.phone || '');
+      const st = p ? await sfState(env, p) : null;
+      if (b.peek) return okJson({ ok: true, flow: st }, origin);
+      await env.RATE.delete('sfmon:' + p).catch(() => {});
+      const r = await salesResume(env, p, salesDeps(env));
+      await logEvent(env, { area: 'לידים', action: r.ok ? 'זרימת מכירה חודשה ידנית' : 'חידוש זרימת מכירה נכשל', ok: r.ok, phone: p, detail: r.why || r.step || '' }).catch(() => {});
+      return okJson(r, origin);
+    }
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -11172,8 +11284,8 @@ export default {
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
-      /* Richard 20/10: one hostess up to 300 guests, two above; no third tier */
-      const n = guests <= 300 ? 1 : 2;
+      /* Richard 03/11 (global): hostesses wanted → under 300 records one, 300+ two (paylink.hostessesFor) */
+      const n = hostessesFor(guests, true);
       const hostessPrice = n === 1 ? 1790 : 1990;
       /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
          rides in from the ?offer= link; it only applies to the plan and the
@@ -11181,14 +11293,18 @@ export default {
       const BUNDLES = {
         vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
         winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
-        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300', until: '2026-11-30T23:59:59+02:00' },
+        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 200', until: '2026-11-30T23:59:59+02:00' },
       };
       const bundle0 = BUNDLES[String(b.offer || '')] || null;
       const bundle = bundle0 && (!bundle0.until || Date.now() <= Date.parse(bundle0.until)) ? bundle0 : null;
       /* anyPlan (01/11): any package + hostesses in range → the bundle price,
          and the package becomes the bundle's (הכל כלול); the hostess count
          follows the tier rule (1 up to 300), not the bundle's number */
-      const bundleOn = !!(bundle && (bundle.anyPlan || (bundle.plan === plan && bundle.hostesses === n)) && bundle.guests.includes(guests));
+      /* 03/11: the bundle's hostess count must match the size rule too (300 → 2 → not winter1790) */
+      const bundleOn = !!(bundle && (bundle.anyPlan || bundle.plan === plan) && bundle.hostesses === n && bundle.guests.includes(guests));
+      /* 03/11: invitation design rides along — free with a bundle, ₪79 otherwise */
+      const withDesign = !!b.design;
+      const designPrice = withDesign && !bundleOn ? DESIGN_PRICE : 0;
       if (bundleOn && bundle.anyPlan) plan = bundle.plan;
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
@@ -11233,13 +11349,15 @@ export default {
         const tr = await tokenRecord(env, String(b.token));
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
-      const listTotal = PRICES[guests][plan] + hostessPrice + travel;
+      const listTotal = PRICES[guests][plan] + hostessPrice + travel + designPrice;
       const total = bundleOn ? Math.min(bundle.total, PRICES[guests][plan] + hostessPrice) + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
          bundle keeps them and only adds its tag at the end. */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}`;
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
+      /* a design order carries the structured code (paylink.js) so the IPN grants it */
+      const pkgCode = withDesign ? '|' + buildCode({ plan, records: guests, design: true, hostesses: n, travel: travel > 0, extra_wave: false, calls: false }) : '';
       let payUrl = '';
       /* two-step from the page: first call answers availability + price at once
          (no Grow round-trip), the second (link:true) mints the payment link */
@@ -11249,7 +11367,7 @@ export default {
             body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
               successUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token + '&paid=hostess' : 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token : 'https://ishur.io/#pricing',
-              cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city }) }).catch(() => null);
+              cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city + pkgCode }) }).catch(() => null);
           let mj = null; try { mj = mk ? JSON.parse(await mk.text()) : null; } catch {}
           const u = mj && (mj.url || mj.link || (mj.data && mj.data.url));
           if (u && /^https?:\/\//.test(String(u))) payUrl = String(u);
@@ -11260,7 +11378,7 @@ export default {
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
-      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok',
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
         ...(bundleOn ? { bundle: { key: String(b.offer), list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before

@@ -199,6 +199,9 @@ window.IshurPopup = (function () {
   /* {original, final, saved, applies} for one package */
   function priceOf(guests, plan) {
     if (guests === 'custom') return { original: null, final: null, saved: 0, applies: false };
+    /* 03/11 prefill link (?plan=…): the server prices the Grow link from the
+       list table, so the screen shows that table too (no promo overlay) */
+    if (S.prefill) return CFG.offerPrice(null, guests, plan);
     return CFG.offerPrice(offerNow(), guests, plan);
   }
 
@@ -312,11 +315,17 @@ window.IshurPopup = (function () {
       if (hl) hl.textContent = hTier ? hTier.label : '';
     }
     var withHost = S.hostess && hPrice != null;
+    /* 03/11 design add-on (prefill links): ₪79, or free inside a bundle */
+    var dRow = $('f-design-row');
+    if (dRow) dRow.hidden = !(S.prefill || S.design) || !S.guests || S.guests === 'custom';
+    var bunNow = S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost);
+    var dPrice = S.design ? (bunNow ? 0 : CFG.DESIGN_PRICE) : 0;
+    var dp = $('f-design-price'); if (dp) dp.textContent = bunNow ? 'במתנה' : '₪' + CFG.DESIGN_PRICE;
     if (pr.final != null) {
       t.hidden = false;
       t.className = 'pop-total' + (pr.applies ? ' cut' : '');
       var hTravel = withHost && S.hostessTravel ? S.hostessTravel : 0;
-      var total = pr.final + (withHost ? hPrice : 0) + hTravel;
+      var total = pr.final + (withHost ? hPrice : 0) + hTravel + dPrice;
       /* special bundle: one agreed number for package + hostesses, the table
          total struck through beside it; travel outside the centre stays on top */
       var bun = S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost) ? S.bundle : null;
@@ -329,13 +338,14 @@ window.IshurPopup = (function () {
         t.className = 'pop-total cut';
         t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' + CFG.guestLabel(S.guests) + ' · ' + hTier.label +
                       ' <em class="pt-save">' + (bun.note || 'מחיר מיוחד') + (wasTotal > bun.total ? ' · חסכתם ₪' + (wasTotal - bun.total) : '') + (bun.anyPlan ? ' · כל חבילה עם דיילות = ' + CFG.PLANS[bun.plan].name + ' ב-₪' + bun.total : '') + (bun.until ? ' · עד ' + new Date(bun.until).toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) : '') + '</em>' +
-                      (hTravel ? '<br><small>+ נסיעות ₪' + hTravel + '</small>' : '') + '</span>' +
+                      (hTravel ? '<br><small>+ נסיעות ₪' + hTravel + '</small>' : '') + (S.design ? '<br><small>עיצוב ההזמנה במתנה</small>' : '') + '</span>' +
                       '<span class="pt-v">' + (wasTotal > bun.total ? '<s>₪' + wasTotal + '</s> ' : '') + '₪' + (Math.min(bun.total, wasTotal) + hTravel) + '</span>';
         return;
       }
       t.innerHTML = '<span class="pt-l">' + CFG.PLANS[S.plan].name + ' · ' +
                     CFG.guestLabel(S.guests) +
                     (withHost ? ' · ' + hTier.label : '') +
+                    (S.design ? ' · עיצוב הזמנה' : '') +
 
                     (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' : '') +
                     '</span>' +
@@ -519,6 +529,7 @@ window.IshurPopup = (function () {
       occasion: S.occasion, guests: S.guests, plan: S.plan,
       consent: S.consent,
       hostess: S.hostess ? (CFG.hostessTier(S.guests) || {}).count || 1 : 0,
+      design: S.design ? 1 : 0, src: S.src || '',
       event_date: S.hostess ? S.hDate || '' : '',
       venue_city: S.hostess ? S.hCity || '' : ''
     };
@@ -541,6 +552,11 @@ window.IshurPopup = (function () {
       showQuoteOk();
       return;
     }
+
+    /* 03/11: a design order without hostesses cannot use a fixed Grow page —
+       the server prices it (paylink.js) and mints a link whose cField1 code
+       grants the design on payment and closes the lead */
+    if (!S.hostess && S.design) { payViaQuote(fields); return; }
 
     /* one link for package + hostesses + travel when the server minted it;
        otherwise the static package+hostess link (travel paid at setup) */
@@ -579,6 +595,26 @@ window.IshurPopup = (function () {
     if (btn) { btn.disabled = true; btn.textContent = 'מעבירים לתשלום'; }
     IshurLead.paymentRedirect(fields, url);
     location.href = url;
+  }
+
+  function payViaQuote(fields) {
+    var btn = $('pop-submit');
+    if (btn) { btn.disabled = true; btn.textContent = 'מכינים את התשלום…'; }
+    var body = { plan: S.plan, records: Number(S.guests), hostesses: 0, design: true, name: fields.name || '', phone: fields.phone || '', email: fields.email || '',
+      occasion: S.occasion || '', event_date: S.hDate || (($('f-hdate') && $('f-hdate').dataset.iso) || ''), src: S.src || 'site' };
+    try { if (window.IshurGuard && IshurGuard.stamp) body = IshurGuard.stamp(body); } catch (e) {}
+    var wa = function () {
+      IshurLead.track('quote_link_whatsapp', { guests: S.guests, plan: S.plan });
+      location.href = CFG.waLink('היי, רוצה לסגור ' + CFG.PLANS[S.plan].name + ' ל' + CFG.guestLabel(S.guests) + ' עם עיצוב הזמנה. אפשר קישור לתשלום?');
+    };
+    fetch(CFG.endpoint('quote-from-site'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok || !/^https?:\/\//.test(String(j.url || ''))) { if (btn) { btn.disabled = false; btn.textContent = 'המשך לתשלום'; } wa(); return; }
+        IshurLead.paymentRedirect(fields, j.url);
+        location.href = j.url;
+      })
+      .catch(function () { if (btn) { btn.disabled = false; btn.textContent = 'המשך לתשלום'; } wa(); });
   }
 
   /* the over-900 confirmation: the steps step aside, a thank-you takes over */
@@ -623,7 +659,7 @@ window.IshurPopup = (function () {
     lastTrigger = document.activeElement;
     resetQuoteOk();
 
-    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false; S.hostess = false; S.hostessLocked = false; S.hostessTouched = false;
+    S.step = 1; S.plan = ''; S.occasion = ''; S.guests = ''; S.consent = false; S.locked = false; S.quote = false; S.guestsLocked = false; S.hostess = false; S.hostessLocked = false; S.hostessTouched = false; S.design = false; S.prefill = false; S.src = '';
     var hb = $('f-hostess'); if (hb) { hb.checked = false; hb.disabled = false; }
     var hy = $('f-hostess-yes'), hn = $('f-hostess-no');
     if (hy) hy.setAttribute('aria-checked', 'false');
@@ -643,6 +679,9 @@ window.IshurPopup = (function () {
 
     /* opened from a package button: that package rides in fixed. A chosen
        quantity rides along too; over 900 collapses the flow to one step. */
+    /* 03/11 prefill link: every field filled from the conversation, none locked */
+    if (pre && pre.prefill) { S.prefill = true; S.src = String(pre.src || ''); }
+    if (pre) { S.src = S.src || String(pre.src || ''); if (pre.design) S.design = true; }
     if (pre && pre.plan) {
       S.plan = pre.plan;
       /* Richard 04/10: the tapped package is pre-selected, the others stay
@@ -652,9 +691,10 @@ window.IshurPopup = (function () {
         S.guests = 'custom';
         S.quote = true;
       } else if (pre.guests) {
-        /* the quantity they picked on the pricing block is final too */
+        /* the quantity they picked on the pricing block is final too
+           (a prefill link keeps it editable) */
         S.guests = pre.guests;
-        S.guestsLocked = true;
+        S.guestsLocked = !S.prefill;
         var gsel = $('f-guests');
         if (gsel) {
           gsel.value = pre.guests;
@@ -696,6 +736,9 @@ window.IshurPopup = (function () {
       if (pre.hDate && window.__setHDate) window.__setHDate(pre.hDate);
       if (pre.hCity && $('f-hcity')) $('f-hcity').value = pre.hCity;
       var ex0 = $('f-hostess-extra'); if (ex0) ex0.hidden = !S.hostess;
+      var dy0 = $('f-design-yes'), dn0 = $('f-design-no');
+      if (dy0) dy0.setAttribute('aria-checked', S.design ? 'true' : 'false');
+      if (dn0) dn0.setAttribute('aria-checked', S.design ? 'false' : 'true');
       /* date + city already known: price the travel right away, on step 1 */
       if (S.hostess && pre.hDate && pre.hCity && window.__hostessCheck) setTimeout(window.__hostessCheck, 80);
     }
@@ -915,6 +958,20 @@ window.IshurPopup = (function () {
     window.__setHost = setHost;
     window.__hostessReady = function (quiet) { return hostessReady(quiet); };
     window.__hostessCheck = function () { if (S.hostess) hostessCheck(); paintPayBtn(); };
+    /* 03/11 design yes/no (shown on prefill links) */
+    function setDesign(on) {
+      S.design = !!on;
+      var y = $('f-design-yes'), nn = $('f-design-no');
+      if (y) y.setAttribute('aria-checked', S.design ? 'true' : 'false');
+      if (nn) nn.setAttribute('aria-checked', S.design ? 'false' : 'true');
+      IshurLead.track('design_toggle', { on: S.design, guests: S.guests || '' });
+      if (S.hostess) hostessCheck();   /* the hostess link carries the design code */
+      updateTotal();
+    }
+    window.__setDesign = setDesign;
+    var dy = $('f-design-yes'), dn = $('f-design-no');
+    if (dy) dy.addEventListener('click', function () { setDesign(true); });
+    if (dn) dn.addEventListener('click', function () { setDesign(false); });
 
     /* ── date picker, styled like the rest of the form (no native widget) ── */
     var HE_MONTHS = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
@@ -1012,7 +1069,7 @@ window.IshurPopup = (function () {
       updateTotal();
       var seq = ++hostessSeq;
       setAvail(MSG.hcheck, 'wait'); paintPayBtn();
-      var body = { offer: S.bundleKey || '', date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
+      var body = { design: !!S.design, offer: S.bundleKey || '', date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
       var call = function (withLink) { return fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ link: withLink }, body)) }).then(function (r) { return r.json(); }); };
       /* step 1: availability + price, fast. step 2: the link, quietly. */
       S.hostessPending = true;

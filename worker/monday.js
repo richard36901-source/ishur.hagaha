@@ -176,3 +176,16 @@ export async function mondayMarkWon(env, phone, note) {
   await gql(env, `mutation($b:ID!,$i:ID!,$v:JSON!){ change_multiple_column_values(board_id:$b,item_id:$i,column_values:$v){ id } }`, { b: String(BOARD), i: hit.id, v: JSON.stringify(v) });
   return { ok: true, id: hit.id };
 }
+
+/* 03/11 sales flow: what a human wrote about this lead on Monday — the notes
+   column (no timestamp; the flow compares it with its own snapshot) and the
+   item's updates (timestamped). { found, notes, updates:[{at, text}] } */
+export async function mondayLeadNotes(env, phone) {
+  if (!env.MONDAY_API_TOKEN) return { found: false, why: 'no-token', notes: '', updates: [] };
+  const cols = await columnMap(env);
+  const hit = await findItemByPhone(env, cols, phone);
+  if (!hit) return { found: false, notes: '', updates: [] };
+  const d = await gql(env, `query($i:[ID!]){ items(ids:$i){ updates(limit:10){ created_at text_body } } }`, { i: [hit.id] });
+  const ups = (((d && d.items) || [])[0] || {}).updates || [];
+  return { found: true, id: hit.id, notes: hit.notes || '', updates: ups.map(u => ({ at: Date.parse(u.created_at) || 0, text: String(u.text_body || '').slice(0, 500) })) };
+}

@@ -12,6 +12,8 @@
      · pacer_batch_size ≤ 25 (the per-tick number the window math assumes).
      · noa_chase stays "off" unless the request carries Richard's own typed
        confirm "noa_chase:on:richard" — no other confirm turns it on.
+     · sales_flow / sales_followups (03/11) default off; Richard switches them
+       here. Typed confirm = the setting id.
      · event_hold writes the existing hold:<token> key (the per-event freeze the
        engine, waves, calls and event-day blast already honour).
    ========================================================================== */
@@ -33,6 +35,10 @@ export const SETTINGS = {
   pacer_batch_size: { he: 'הודעות לפעימה (כל 10 דקות)', node: 'd_pacer', type: 'int', default: 25, validate: intIn(1, 25) },
   daily_call_cap: { he: 'תקרת חיוגים יומית (0 = בלי תקרה)', node: 'shir_dispatch', type: 'int', default: 0, validate: intIn(0, 2000) },
   noa_chase: { he: 'נועה רודפת לידים', node: 'noa_chase', type: 'onoff', default: 'off', env: 'NOA_CHASE' },
+  /* 03/11 lead qualification on 4499 (salesflow.js); Richard switches it on */
+  sales_flow: { he: 'זרימת מכירה ללידים בנועה (4499) · עונה רק להודעה נכנסת', node: 'sales_flow', type: 'onoff', default: 'off', env: 'SALES_FLOW' },
+  /* the flow's own follow-ups: step nudges, the no-reply fallback offer, the two post-offer check-ins */
+  sales_followups: { he: 'זרימת מכירה · תזכורות והצעת ברירת מחדל (יוזמה שלנו)', node: 'sales_flow', type: 'onoff', default: 'off', env: 'SALES_FOLLOWUPS' },
   event_hold: { he: 'עצירת אירוע (hold)', node: 'd_engine', type: 'bool', per: 'token' },
 };
 
@@ -92,6 +98,8 @@ export async function withCfg(env, opts = {}) {
   const out = { ...env, __cfg: vals };
   if (vals.guest_budget_margin !== undefined) out.GUEST_BUDGET_MARGIN = String(vals.guest_budget_margin);
   if (vals.noa_chase !== undefined) out.NOA_CHASE = vals.noa_chase === 'on' ? 'on' : 'off';
+  if (vals.sales_flow !== undefined) out.SALES_FLOW = vals.sales_flow === 'on' ? 'on' : 'off';
+  if (vals.sales_followups !== undefined) out.SALES_FOLLOWUPS = vals.sales_followups === 'on' ? 'on' : 'off';
   return out;
 }
 export const paceSends = (env, dflt = 25) => { const v = env && env.__cfg && env.__cfg.pacer_batch_size; return Number.isInteger(v) ? Math.max(1, Math.min(dflt, v)) : dflt; };
@@ -122,7 +130,7 @@ export function editableFor(nodeId, vals = {}) {
   for (const [id, s] of Object.entries(SETTINGS)) {
     if (s.node !== nodeId || s.per) continue;
     if (s.type === 'window') for (const [f, fd] of Object.entries(s.fields)) rows.push({ setting: id, field: f, label_he: s.he + ' · ' + fd.he, value: eff[id][f], type: 'time', min: fd.lo, max: fd.hi });
-    else rows.push({ setting: id, field: '', label_he: s.he, value: eff[id], type: s.type, confirm: s.type === 'onoff' ? NOA_CHASE_ON_CONFIRM : id });
+    else rows.push({ setting: id, field: '', label_he: s.he, value: eff[id], type: s.type, confirm: s.type === 'onoff' ? confirmWord(id, 'on') : id });
   }
   return rows.length ? rows : null;
 }
