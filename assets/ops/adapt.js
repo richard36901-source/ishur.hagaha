@@ -179,7 +179,16 @@ function toggle(t) {
   return { ...t, needs_confirm: !t.applied && !!t.confirm_required, blast: { downstream: (br.downstream || []).map((d) => ({ id: d.id, name: d.name_he + (d.fully_stopped === false ? ' · חלקית' : '') })), impact } };
 }
 
-const MAP = { registry, realtime, capacity, balances, runs, run: runOne, live, code, toggle };
+/* ── brain (worker brain.js buildBrain) ── */
+export function brain(b) {
+  const fs = b.findings || {}, pbs = b.playbooks || [], nm = Object.fromEntries(pbs.map((p) => [p.id, p.name_he])), pend = Object.fromEntries((b.pending || []).map((p) => [p.finding_id, p]));
+  return { ...b,
+    findings: [...(fs.open || []), ...(fs.resolved || [])].map((f) => ({ id: f.id, at: f.last_seen, check_id: f.check_id, severity: f.severity, status: f.state, title: f.title_he, detail: f.detail || '', playbook: f.playbook ? nm[f.playbook] || f.playbook : 'סוכן / ידני', pa: pend[f.id] || null })),
+    playbooks: pbs.map((p) => ({ id: p.id, name: p.name_he, status: p.auto ? 'active' : 'approval', runs_7d: p.runs_7d || 0, last_run: p.last_run })),
+    stream: (b.stream || []).map((l) => ({ ...l, text: (l.src === 'agent' ? '🤖 ' : '') + l.text })) };
+}
+
+const MAP = { registry, realtime, capacity, balances, runs, run: runOne, live, code, toggle, brain };
 /* adapt(name, data, aux) · aux.names = {automation_id: name_he} from the cached registry */
 export function adapt(name, data, aux = {}) {
   const f = MAP[name];

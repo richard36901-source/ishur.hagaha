@@ -63,7 +63,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "t_morning",
@@ -108,7 +109,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T06:35:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "t_0400",
@@ -150,7 +152,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T04:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "t_evening",
@@ -192,7 +195,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T17:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "t_tue",
@@ -234,7 +238,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T16:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "t_wa_status",
@@ -280,7 +285,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": null
-   }
+   },
+   "editable": null
   },
   {
    "id": "d_pacer",
@@ -342,7 +348,52 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": [
+    {
+     "setting": "send_window",
+     "field": "start",
+     "label_he": "חלון שליחה לאורחים (שעון ישראל) · פתיחה",
+     "value": "09:00",
+     "type": "time",
+     "min": "09:00",
+     "max": "12:00"
+    },
+    {
+     "setting": "send_window",
+     "field": "end",
+     "label_he": "חלון שליחה לאורחים (שעון ישראל) · סגירה",
+     "value": "20:30",
+     "type": "time",
+     "min": "13:00",
+     "max": "20:30"
+    },
+    {
+     "setting": "send_window",
+     "field": "fri_end",
+     "label_he": "חלון שליחה לאורחים (שעון ישראל) · סגירה בשישי",
+     "value": "13:00",
+     "type": "time",
+     "min": "10:00",
+     "max": "13:00"
+    },
+    {
+     "setting": "guest_budget_margin",
+     "field": "",
+     "label_he": "מרווח ביטחון בתקרה היומית",
+     "value": 20,
+     "type": "int",
+     "confirm": "guest_budget_margin"
+    },
+    {
+     "setting": "pacer_batch_size",
+     "field": "",
+     "label_he": "הודעות לפעימה (כל 10 דקות)",
+     "value": 25,
+     "type": "int",
+     "confirm": "pacer_batch_size"
+    }
+   ]
   },
   {
    "id": "d_engine",
@@ -404,7 +455,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "stuck_client",
@@ -458,7 +510,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "no_setup",
@@ -512,7 +565,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "health_alert",
@@ -558,7 +612,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "watchdog",
@@ -606,7 +661,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "ad_review",
@@ -652,7 +708,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "wave1",
@@ -717,7 +774,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "wave2",
@@ -775,7 +833,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "wave3",
@@ -833,7 +892,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "escalation",
@@ -881,7 +941,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "report7",
@@ -934,7 +995,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "toda",
@@ -989,7 +1051,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "syum",
@@ -1041,7 +1104,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "seating",
@@ -1094,7 +1158,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "cancel",
@@ -1146,7 +1211,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "postpone",
@@ -1196,7 +1262,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "day_before",
@@ -1249,7 +1316,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "upsell_basic",
@@ -1300,7 +1368,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "upsell_pro",
@@ -1351,7 +1420,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "autoretry",
@@ -1405,7 +1475,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "lead_chase",
@@ -1466,7 +1537,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "shir_callbacks",
@@ -1524,7 +1596,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "shir_dispatch",
@@ -1587,7 +1660,17 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": [
+    {
+     "setting": "daily_call_cap",
+     "field": "",
+     "label_he": "תקרת חיוגים יומית (0 = בלי תקרה)",
+     "value": 0,
+     "type": "int",
+     "confirm": "daily_call_cap"
+    }
+   ]
   },
   {
    "id": "noa_lead_dial",
@@ -1639,7 +1722,8 @@
      "skipped": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "reconcile_calls",
@@ -1689,7 +1773,8 @@
      "skipped": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "template_check",
@@ -1741,7 +1826,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "doctor",
@@ -1793,7 +1879,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "slack_flush",
@@ -1839,7 +1926,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "event_day_blast",
@@ -1905,7 +1993,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "call_rounds",
@@ -1960,7 +2049,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "party_nudges",
@@ -2020,7 +2110,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "lead_pings",
@@ -2069,7 +2160,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "meta_form_leads",
@@ -2119,7 +2211,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "custom_tmpl",
@@ -2167,7 +2260,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "noa_queue",
@@ -2215,7 +2309,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "admin_calls",
@@ -2265,7 +2360,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "ads_watch",
@@ -2314,7 +2410,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "morning_undelivered",
@@ -2360,7 +2457,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T06:35:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "backup",
@@ -2406,7 +2504,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T06:35:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "perf_digest",
@@ -2453,7 +2552,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T06:35:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "heartbeat",
@@ -2501,7 +2601,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T04:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "daily_improve",
@@ -2548,7 +2649,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T17:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "journal_digest",
@@ -2594,7 +2696,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T17:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "audit_root",
@@ -2640,7 +2743,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T17:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "team_reminders",
@@ -2688,7 +2792,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T16:00:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "wave_retry",
@@ -2741,7 +2846,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": null
-   }
+   },
+   "editable": null
   },
   {
    "id": "late_invites",
@@ -2791,7 +2897,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "calendar_build",
@@ -2839,7 +2946,8 @@
      "ok": 1
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "noa_chase",
@@ -2887,7 +2995,17 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": [
+    {
+     "setting": "noa_chase",
+     "field": "",
+     "label_he": "נועה רודפת לידים",
+     "value": "off",
+     "type": "onoff",
+     "confirm": "noa_chase:on:richard"
+    }
+   ]
   },
   {
    "id": "audit_meta",
@@ -2936,7 +3054,8 @@
      "ok": 2
     },
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "ab_evaluate",
@@ -2983,7 +3102,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-03T12:10:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "call_cost_sync",
@@ -3029,7 +3149,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": "2026-11-04T06:35:00.000Z"
-   }
+   },
+   "editable": null
   },
   {
    "id": "manual_blasts",
@@ -3081,7 +3202,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": null
-   }
+   },
+   "editable": null
   },
   {
    "id": "wa_fail",
@@ -3132,7 +3254,8 @@
     "runs_24h": 0,
     "by_status_24h": {},
     "next_fire": null
-   }
+   },
+   "editable": null
   }
  ]
 }

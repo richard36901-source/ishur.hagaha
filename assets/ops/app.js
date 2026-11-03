@@ -35,8 +35,6 @@ function cachePut(key, data) {
   const v = { at: Date.now(), data }; mem.set(key, v);
   try { const s = JSON.stringify(v); if (s.length < 400000) localStorage.setItem(LS + key, s); } catch (e) { /* quota */ }
 }
-let fixtureCache = {};
-const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fixtures/ops/${name}.json?v=${VER}`).then((r) => { if (!r.ok) throw new HttpError(r.status); return r.json(); }));
 let reqCount = 0;
 export const stats = () => ({ requests: reqCount });
 
@@ -45,7 +43,7 @@ function names() { const r = cacheGet('registry'); return r && r.data && r.data.
 async function raw(name, body = {}) {
   reqCount++;
   let j;
-  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await mockApi(name, body); }
+  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await (await import('./mock.js')).mockApi(name, body, VER); }
   else {
     await ensureLive();
     const payload = Object.assign({ admin_key: adminKey }, body);
@@ -88,56 +86,6 @@ export function poll(fn, ms) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) polls.forEach((p) => p.kick()); });
 
-/* ── mock adapters: make the (real-shaped) fixtures behave like the endpoints ── */
-const mockState = { off: {}, liveTs: 0, brainStep: 2 };
-async function mockApi(name, body) {
-  const now = new Date().toISOString();
-  if (name === 'registry') {
-    const r = structuredClone(await fixture('registry'));
-    r.nodes.forEach((n) => { const o = mockState.off[n.id]; if (o !== undefined) n.state = { ...n.state, enabled: !o, off: o }; });
-    return r;
-  }
-  if (name === 'runs') {
-    const r = await fixture('runs');
-    const items = r.items.filter((x) => (!body.automation_id || x.automation_id === body.automation_id) && (!body.status || x.status === body.status) && (!body.triggered_by || x.triggered_by.startsWith(body.triggered_by)) && (!body.q || (x.automation_id + x.id + (x.error || '')).includes(body.q)));
-    const off = body.cursor ? +body.cursor : 0, lim = body.limit || 50;
-    return { ok: true, fixture: true, source: r.source, items: items.slice(off, off + lim), next_cursor: off + lim < items.length ? String(off + lim) : null };
-  }
-  if (name === 'run') {
-    const d = await fixture('run');
-    if (!body.id || (d.run && body.id === d.run.id)) return d;
-    const run = (await fixture('runs')).items.find((x) => x.id === body.id);
-    return run ? { ok: true, fixture: true, source: 'kv', run, children: [], audit: [], audit_window: { from: run.started_at, to: run.ended_at, token: null } } : { ok: false, error: 'not-found' };
-  }
-  if (name === 'live') {
-    const f = await fixture('live');
-    if (!body.since) { mockState.liveTs = f.cursor; return f; }
-    const n = Math.random() < 0.35 ? 0 : 1 + Math.floor(Math.random() * 2);
-    const items = Array.from({ length: n }, () => { const t = f.items[Math.floor(Math.random() * f.items.length)]; const ts = Math.max(Date.now(), ++mockState.liveTs); mockState.liveTs = ts; return { ...t, ts, id: t.id + '-m' + ts, at: new Date(ts).toISOString() }; });
-    return { ok: true, fixture: true, items, cursor: mockState.liveTs, now: Date.now() };
-  }
-  if (name === 'code') { const c = (await fixture('code')).by_id[body.id]; return c || { ok: false, error: 'no-code-snapshot' }; }
-  if (name === 'brain') {
-    const b = await fixture('brain');
-    if (!body.since) { mockState.brainStep = 3; return { ...b, stream: b.stream.slice(0, 3), cursor: b.stream[2].id }; }
-    const nx = b.stream[mockState.brainStep % b.stream.length]; mockState.brainStep++;
-    return { ok: true, fixture: true, findings: b.findings, playbooks: b.playbooks, stream: [{ ...nx, id: 1000 + mockState.brainStep, at: now }], cursor: 1000 + mockState.brainStep };
-  }
-  if (name === 'toggle') {
-    const reg = await fixture('registry'), node = reg.nodes.find((n) => n.id === body.id);
-    if (!node) return { ok: false, error: 'unknown-id' };
-    const sw = node.kill_switch ? (node.kill_switch.via || node.id) : null;
-    if (!sw) return { ok: false, error: 'no-kill-switch' };
-    if (body.confirm !== body.id && body.confirm !== sw) {
-      const t = body.enabled === false ? (await fixture('toggle')).by_id[sw] : null;
-      return t ? { ...t, id: body.id } : { ok: true, id: body.id, switch_id: sw, requested_enabled: body.enabled, blast_radius: null, confirm_required: sw, applied: false };
-    }
-    mockState.off[body.id] = body.enabled ? null : { at: now, by: body.who || 'richard', reason: body.reason || 'כובה מלוח הבקרה (דמה)' };
-    return { ok: true, id: body.id, switch_id: sw, applied: true };
-  }
-  if (['edit', 'brain-decision'].includes(name)) return { ok: true, fixture: true, saved: body };
-  return fixture(name);
-}
 
 /* ── as-of indicator ── */
 let lastOk = 0;

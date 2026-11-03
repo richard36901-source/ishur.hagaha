@@ -1,171 +1,975 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T11:40:00.000Z",
- "findings": [
+ "fixture_from": "local runBrain + live capacity/balances (https://go.ishur.io)",
+ "ok": true,
+ "at": "2026-11-03T13:40:40.303Z",
+ "last_check_at": "2026-11-03T13:40:40.278Z",
+ "last_check_run_id": "rmw0qju1ij8z0tw",
+ "checks": [
   {
-   "id": "f1",
-   "at": "2026-11-03T11:25:00.000Z",
-   "check_id": "template_pending",
-   "severity": "P2",
-   "status": "handling",
-   "title": "תבנית wave1_n ממתינה לאישור 26 שעות",
-   "playbook": 1,
-   "run_id": "rb1"
+   "id": "template_watch",
+   "name_he": "תבניות: ממתינות מעל 24 שעות או נדחו",
+   "every_min": 60,
+   "last": {
+    "at": 1793713240278,
+    "status": "warn",
+    "n": 1
+   }
   },
   {
-   "id": "f2",
-   "at": "2026-11-03T06:40:00.000Z",
-   "check_id": "snapshot_fail",
-   "severity": "P1",
-   "status": "resolved",
-   "title": "קובץ האורחים של שירה ודניאל לא נטען",
-   "playbook": 3,
-   "run_id": "rb2"
+   "id": "cap_hold_stale",
+   "name_he": "עצירת תקרה ישנה על מספר אורחים",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
   },
   {
-   "id": "f3",
-   "at": "2026-11-03T08:40:00.000Z",
-   "check_id": "quality_drop",
-   "severity": "P2",
-   "status": "needs_approval",
-   "title": "דירוג 4499 ירד לצהוב. להעביר תנועה?",
-   "playbook": 9,
-   "run_id": "rb3"
+   "id": "pacer_tick",
+   "name_he": "הפייסר לא רץ מעל 25 דקות",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "fail",
+    "n": 1
+   }
   },
   {
-   "id": "f4",
-   "at": "2026-11-02T11:40:00.000Z",
-   "check_id": "wrong_number",
-   "severity": "P3",
-   "status": "resolved",
-   "title": "אורח כתב ל-4499, נענה מ-6673",
-   "playbook": 7,
-   "run_id": "rb4"
+   "id": "snapshot_fail",
+   "name_he": "קובץ האורחים לא נטען (no-snapshot) פעמיים ב-30 דקות",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "noa_billing",
+   "name_he": "נועה 4499: שגיאת חיוב 131042",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "telnyx_order",
+   "name_he": "הזמנת מספר בטלניקס ממתינה",
+   "every_min": 60,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "lead_monday",
+   "name_he": "ליד בלי פריט במאנדיי",
+   "every_min": 30,
+   "last": {
+    "at": 1793713240278,
+    "status": "warn",
+    "n": 1
+   }
+  },
+  {
+   "id": "reply_wrong_number",
+   "name_he": "תשובה מהמספר הלא נכון (131047) היום",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "warn",
+    "n": 1
+   }
+  },
+  {
+   "id": "capacity_overflow",
+   "name_he": "חריגת קיבולת ב-3 הימים הקרובים",
+   "every_min": 30,
+   "last": {
+    "at": 1793713240278,
+    "status": "warn",
+    "n": 2
+   }
+  },
+  {
+   "id": "noa_unanswered",
+   "name_he": "פנייה של לקוח/ליד ל-4499 בלי מענה מעל שעתיים",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "balances_low",
+   "name_he": "יתרה נמוכה אצל ספק",
+   "every_min": 60,
+   "last": {
+    "at": 1793713240278,
+    "status": "warn",
+    "n": 1
+   }
+  },
+  {
+   "id": "d1_ledger",
+   "name_he": "יומן הריצות ב-D1 לא זמין",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "warn",
+    "n": 1
+   }
+  },
+  {
+   "id": "failed_runs",
+   "name_he": "ריצות שנכשלו בשעה האחרונה",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "biz_verification",
+   "name_he": "שינוי בסטטוס אימות העסק במטא",
+   "every_min": 60,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "gift_blast",
+   "name_he": "מתנה לאורחים: כשלים או ממתינים",
+   "every_min": 30,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
+  },
+  {
+   "id": "wedding_day",
+   "name_he": "יום האירוע: הודעה לא יצאה או אירוע מוחזק",
+   "every_min": 10,
+   "last": {
+    "at": 1793713240278,
+    "status": "ok",
+    "n": 0
+   }
   }
  ],
+ "findings": {
+  "open": [
+   {
+    "id": "template_watch:pending:ishur_wave1_f:he",
+    "check_id": "template_watch",
+    "status": "warn",
+    "severity": "P2",
+    "state": "needs_approval",
+    "title_he": "תבנית ishur_wave1_f ממתינה לאישור 26 שעות",
+    "detail": "guests · MARKETING",
+    "evidence": [
+     "status=PENDING",
+     "since=2026-11-02T11:40:40.277Z"
+    ],
+    "playbook": "template_variant",
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": null,
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "pacer_tick",
+    "check_id": "pacer_tick",
+    "status": "fail",
+    "severity": "P1",
+    "state": "open",
+    "title_he": "הפייסר לא רץ 38 דקות",
+    "detail": "pacer:last ישן",
+    "evidence": [
+     "pacer:last.at=2026-11-03T13:02:40.277Z"
+    ],
+    "playbook": null,
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": "2026-11-03T13:40:40.278Z",
+    "escalated_at": null,
+    "pb_at": null,
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "fail",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "lead_monday",
+    "check_id": "lead_monday",
+    "status": "warn",
+    "severity": "P3",
+    "state": "handling",
+    "title_he": "1 לידים בלי פריט מאנדיי ידוע",
+    "detail": "lead:<phone> without leadx.mondayId / brain:monday",
+    "evidence": [
+     "97252****001"
+    ],
+    "playbook": "lead_monday_create",
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": "2026-11-03T13:40:40.278Z",
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "reply_wrong_number",
+    "check_id": "reply_wrong_number",
+    "status": "warn",
+    "severity": "P3",
+    "state": "needs_approval",
+    "title_he": "1 הודעות נכשלו היום ב-131047 (נשלחו מהמספר הלא נכון / חלון 24 שעות)",
+    "detail": "1 נמענים",
+    "evidence": [
+     "97252****002"
+    ],
+    "playbook": "requeue_reply",
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": null,
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "capacity_overflow:2026-11-03",
+    "check_id": "capacity_overflow",
+    "status": "warn",
+    "severity": "P1",
+    "state": "handling",
+    "title_he": "קיבולת 2026-11-03: מתוכנן 176 מול תקרה 68 (חריגה 108)",
+    "detail": "אירוע א אירוע-בן 176",
+    "evidence": [
+     "planned=176",
+     "capacity=68"
+    ],
+    "playbook": "capacity_warning",
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": "2026-11-03T13:40:40.278Z",
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "capacity_overflow:2026-11-04",
+    "check_id": "capacity_overflow",
+    "status": "warn",
+    "severity": "P2",
+    "state": "handling",
+    "title_he": "קיבולת 2026-11-04: מתוכנן 507 מול תקרה 230 (חריגה 277)",
+    "detail": "אירוע ב גל 1 507",
+    "evidence": [
+     "planned=507",
+     "capacity=230"
+    ],
+    "playbook": "capacity_warning",
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": "2026-11-03T13:40:40.278Z",
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "balances_low:telnyx",
+    "check_id": "balances_low",
+    "status": "warn",
+    "severity": "P2",
+    "state": "open",
+    "title_he": "יתרה נמוכה: telnyx 4.29 USD",
+    "detail": "https://portal.telnyx.com/#/app/account/billing",
+    "evidence": [
+     "low_threshold=10",
+     "source=api"
+    ],
+    "playbook": null,
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": null,
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   },
+   {
+    "id": "d1_ledger",
+    "check_id": "d1_ledger",
+    "status": "warn",
+    "severity": "P3",
+    "state": "open",
+    "title_he": "D1 לא מחובר: יומן הריצות על KV (3 ימים בלבד)",
+    "detail": "OPS_DB binding missing — bash worker/scripts/ops-d1-setup.sh",
+    "evidence": [
+     "env.OPS_DB undefined"
+    ],
+    "playbook": null,
+    "first_seen": "2026-11-03T13:40:40.278Z",
+    "last_seen": "2026-11-03T13:40:40.278Z",
+    "resolved_at": null,
+    "alerted_at": null,
+    "escalated_at": null,
+    "pb_at": null,
+    "history": [
+     {
+      "at": "2026-11-03T13:40:40.278Z",
+      "status": "warn",
+      "note": "new"
+     }
+    ]
+   }
+  ],
+  "resolved": []
+ },
+ "pending": [
+  {
+   "id": "pa_104z72e_mw0qju1i",
+   "finding_id": "reply_wrong_number",
+   "playbook": "requeue_reply",
+   "name_he": "שליחה חוזרת של תשובה מהמספר הנכון",
+   "messages": true,
+   "title_he": "1 הודעות נכשלו היום ב-131047 (נשלחו מהמספר הלא נכון / חלון 24 שעות)",
+   "preview": [
+    {
+     "phone": "97252****002",
+     "channel": "guests",
+     "action": "send",
+     "text": "תודה, רשמנו 2 מגיעים 🙂"
+    }
+   ],
+   "state": "pending",
+   "created_at": "2026-11-03T13:40:40.278Z",
+   "confirm_word": "requeue_reply",
+   "decided_at": null,
+   "decided_by": null,
+   "run_id": null
+  },
+  {
+   "id": "pa_nau1a_mw0qju1i",
+   "finding_id": "template_watch:pending:ishur_wave1_f:he",
+   "playbook": "template_variant",
+   "name_he": "הגשת וריאנט לתבנית שממתינה מעל 24 שעות",
+   "messages": false,
+   "title_he": "תבנית ishur_wave1_f ממתינה לאישור 26 שעות",
+   "preview": {
+    "name": "ishur_wave1_f_v2",
+    "language": "he",
+    "category": "UTILITY",
+    "components": [
+     {
+      "type": "BODY",
+      "text": "שלום {{1}}, הוזמנתם ל{{2}}"
+     }
+    ]
+   },
+   "state": "pending",
+   "created_at": "2026-11-03T13:40:40.278Z",
+   "confirm_word": "template_variant",
+   "decided_at": null,
+   "decided_by": null,
+   "run_id": null
+  }
+ ],
+ "decided": [],
  "playbooks": [
   {
-   "id": 1,
-   "name": "תבנית ממתינה או נדחתה",
-   "status": "active",
-   "runs_7d": 9,
-   "last_run": "2026-10-31T17:40:00.000Z"
-  },
-  {
-   "id": 2,
-   "name": "עצירה ישנה",
-   "status": "active",
-   "runs_7d": 7,
-   "last_run": "2026-10-31T19:40:00.000Z"
-  },
-  {
-   "id": 3,
-   "name": "קובץ אורחים לא נטען",
-   "status": "active",
-   "runs_7d": 8,
-   "last_run": "2026-11-03T10:40:00.000Z"
-  },
-  {
-   "id": 4,
-   "name": "בעיית תשלום במספר (131042)",
-   "status": "active",
-   "runs_7d": 7,
-   "last_run": "2026-11-02T05:40:00.000Z"
-  },
-  {
-   "id": 5,
-   "name": "Telnyx: הזמנה או יתרה",
-   "status": "active",
-   "runs_7d": 6,
-   "last_run": "2026-11-02T06:40:00.000Z"
-  },
-  {
-   "id": 6,
-   "name": "ליד בלי פריט במאנדיי",
-   "status": "active",
-   "runs_7d": 9,
-   "last_run": "2026-11-03T06:40:00.000Z"
-  },
-  {
-   "id": 7,
-   "name": "הודעה למספר הלא נכון",
-   "status": "active",
+   "id": "cap_probe_release",
+   "name_he": "שחרור עצירת תקרה ישנה אחרי בדיקה",
+   "auto": true,
+   "messages": false,
    "runs_7d": 0,
-   "last_run": "2026-10-31T15:40:00.000Z"
+   "last_run": null,
+   "last_status": null
   },
   {
-   "id": 8,
-   "name": "גל לא יצא עד 12:00",
-   "status": "active",
-   "runs_7d": 5,
-   "last_run": "2026-11-02T11:40:00.000Z"
+   "id": "snapshot_retry",
+   "name_he": "ניסיון חוזר לקובץ האורחים + התראה",
+   "auto": true,
+   "messages": false,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
   },
   {
-   "id": 9,
-   "name": "שיעור ספאם עולה",
-   "status": "approval",
-   "runs_7d": 8,
-   "last_run": "2026-11-03T08:40:00.000Z"
+   "id": "lead_monday_create",
+   "name_he": "יצירת פריט מאנדיי לליד חסר",
+   "auto": true,
+   "messages": false,
+   "runs_7d": 1,
+   "last_run": "2026-11-03T13:40:40.301Z",
+   "last_status": "ok"
   },
   {
-   "id": 10,
-   "name": "מנוע תקוע או חיוב Retell",
-   "status": "active",
-   "runs_7d": 9,
-   "last_run": "2026-11-02T15:40:00.000Z"
+   "id": "capacity_warning",
+   "name_he": "התראת קיבולת לסלאק עם תוכנית",
+   "auto": true,
+   "messages": false,
+   "runs_7d": 2,
+   "last_run": "2026-11-03T13:40:40.302Z",
+   "last_status": "ok"
+  },
+  {
+   "id": "template_variant",
+   "name_he": "הגשת וריאנט לתבנית שממתינה מעל 24 שעות",
+   "auto": false,
+   "messages": false,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
+  },
+  {
+   "id": "event_hold",
+   "name_he": "עצירה / שחרור של אירוע (hold)",
+   "auto": false,
+   "messages": false,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
+  },
+  {
+   "id": "eventday_retry",
+   "name_he": "שליחה חוזרת של הודעת יום האירוע",
+   "auto": false,
+   "messages": true,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
+  },
+  {
+   "id": "gift_blast_resume",
+   "name_he": "המשך שליחת מתנה לאורחים שנשארו",
+   "auto": false,
+   "messages": true,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
+  },
+  {
+   "id": "requeue_reply",
+   "name_he": "שליחה חוזרת של תשובה מהמספר הנכון",
+   "auto": false,
+   "messages": true,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
+  },
+  {
+   "id": "telnyx_nudge",
+   "name_he": "הודעת דחיפה להזמנת מספר בטלניקס",
+   "auto": false,
+   "messages": false,
+   "runs_7d": 0,
+   "last_run": null,
+   "last_status": null
+  }
+ ],
+ "runs": [
+  {
+   "id": "rmw0qju268lde9i",
+   "automation_id": "brain_fix:capacity_warning",
+   "started_at": "2026-11-03T13:40:40.302Z",
+   "ended_at": "2026-11-03T13:40:40.302Z",
+   "status": "ok",
+   "triggered_by": "brain",
+   "counts": {
+    "ok": 1,
+    "ms": 0
+   }
+  },
+  {
+   "id": "rmw0qju264ggx3k",
+   "automation_id": "brain_fix:capacity_warning",
+   "started_at": "2026-11-03T13:40:40.302Z",
+   "ended_at": "2026-11-03T13:40:40.302Z",
+   "status": "ok",
+   "triggered_by": "brain",
+   "counts": {
+    "ok": 1,
+    "ms": 0
+   }
+  },
+  {
+   "id": "rmw0qju25k4xq0f",
+   "automation_id": "brain_fix:lead_monday_create",
+   "started_at": "2026-11-03T13:40:40.301Z",
+   "ended_at": "2026-11-03T13:40:40.301Z",
+   "status": "ok",
+   "triggered_by": "brain",
+   "counts": {
+    "ok": 1,
+    "ms": 0
+   }
+  },
+  {
+   "id": "rmw0qju1ij8z0tw",
+   "automation_id": "brain_health",
+   "started_at": "2026-11-03T13:40:40.278Z",
+   "ended_at": "2026-11-03T13:40:40.302Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "checks": 16,
+    "new": 8,
+    "pending": 2,
+    "alerted": 1,
+    "fixed": 3,
+    "ms": 24
+   }
   }
  ],
  "stream": [
   {
-   "id": 900,
-   "at": "2026-11-03T11:37:40.000Z",
-   "run_id": "rb1",
+   "id": 1793713240301000,
+   "seq": 1,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju25k4xq0f",
    "step": 1,
-   "text": "בדיקה: template_pending · wave1_n במצב PENDING מאתמול 11:20"
+   "text": "פלייבוק lead_monday_create · יצירת פריט מאנדיי לליד חסר · ממצא lead_monday",
+   "src": "worker"
   },
   {
-   "id": 901,
-   "at": "2026-11-03T11:38:00.000Z",
-   "run_id": "rb1",
+   "id": 1793713240301001,
+   "seq": 2,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju25k4xq0f",
    "step": 2,
-   "text": "סוג ידוע, פלייבוק 1. לא צריך מודל שפה."
+   "text": "97252****001: נוצר פריט 1800000001",
+   "src": "worker"
   },
   {
-   "id": 902,
-   "at": "2026-11-03T11:38:20.000Z",
-   "run_id": "rb1",
+   "id": 1793713240301002,
+   "seq": 3,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju25k4xq0f",
    "step": 3,
-   "text": "בודק אם יש וריאנט קיים: wave1_n_v2 לא קיים"
+   "text": "תוצאה: ok · found 0, created 1, failed 0",
+   "src": "worker"
   },
   {
-   "id": 903,
-   "at": "2026-11-03T11:38:40.000Z",
-   "run_id": "rb1",
+   "id": 1793713240302000,
+   "seq": 1,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju268lde9i",
+   "step": 1,
+   "text": "פלייבוק capacity_warning · התראת קיבולת לסלאק עם תוכנית · ממצא capacity_overflow:2026-11-03",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302001,
+   "seq": 2,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju268lde9i",
+   "step": 2,
+   "text": "התראה נשלחה לסלאק",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302002,
+   "seq": 3,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju268lde9i",
+   "step": 3,
+   "text": "תוצאה: ok · slack",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302003,
+   "seq": 1,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju264ggx3k",
+   "step": 1,
+   "text": "פלייבוק capacity_warning · התראת קיבולת לסלאק עם תוכנית · ממצא capacity_overflow:2026-11-04",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302004,
+   "seq": 2,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju264ggx3k",
+   "step": 2,
+   "text": "התראה נשלחה לסלאק",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302005,
+   "seq": 3,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju264ggx3k",
+   "step": 3,
+   "text": "תוצאה: ok · slack",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302006,
+   "seq": 1,
+   "at": "2026-11-03T13:40:40.293Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 1,
+   "text": "בדיקות שרצות עכשיו: template_watch, cap_hold_stale, pacer_tick, snapshot_fail, noa_billing, telnyx_order, lead_monday, reply_wrong_number, capacity_overflow, noa_unanswered, balances_low, d1_ledger, failed_runs, biz_verification, gift_blast, wedding_day",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302007,
+   "seq": 2,
+   "at": "2026-11-03T13:40:40.295Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 2,
+   "text": "template_watch: warn · תבנית ishur_wave1_f ממתינה לאישור 26 שעות",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302008,
+   "seq": 3,
+   "at": "2026-11-03T13:40:40.295Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 3,
+   "text": "cap_hold_stale: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302009,
+   "seq": 4,
+   "at": "2026-11-03T13:40:40.295Z",
+   "run_id": "rmw0qju1ij8z0tw",
    "step": 4,
-   "text": "מגיש וריאנט wave1_n_v2 עם אותו טקסט, קטגוריה UTILITY"
+   "text": "pacer_tick: fail · הפייסר לא רץ 38 דקות",
+   "src": "worker"
   },
   {
-   "id": 904,
-   "at": "2026-11-03T11:39:00.000Z",
-   "run_id": "rb1",
+   "id": 1793713240302010,
+   "seq": 5,
+   "at": "2026-11-03T13:40:40.296Z",
+   "run_id": "rmw0qju1ij8z0tw",
    "step": 5,
-   "text": "מטא החזיר מזהה חדש, סטטוס PENDING"
+   "text": "snapshot_fail: ok",
+   "src": "worker"
   },
   {
-   "id": 905,
-   "at": "2026-11-03T11:39:20.000Z",
-   "run_id": "rb1",
+   "id": 1793713240302011,
+   "seq": 6,
+   "at": "2026-11-03T13:40:40.296Z",
+   "run_id": "rmw0qju1ij8z0tw",
    "step": 6,
-   "text": "גל 1 של מאיה ועומר משתמש ב-wave1_f (מאושרת), אין השפעה על שליחה היום"
+   "text": "noa_billing: ok",
+   "src": "worker"
   },
   {
-   "id": 906,
-   "at": "2026-11-03T11:39:40.000Z",
-   "run_id": "rb1",
+   "id": 1793713240302012,
+   "seq": 7,
+   "at": "2026-11-03T13:40:40.296Z",
+   "run_id": "rmw0qju1ij8z0tw",
    "step": 7,
-   "text": "כתבתי התראה P2 לסלאק עם הסבר. אבדוק שוב בעוד שעה."
+   "text": "telnyx_order: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302013,
+   "seq": 8,
+   "at": "2026-11-03T13:40:40.296Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 8,
+   "text": "lead_monday: warn · 1 לידים בלי פריט מאנדיי ידוע",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302014,
+   "seq": 9,
+   "at": "2026-11-03T13:40:40.297Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 9,
+   "text": "reply_wrong_number: warn · 1 הודעות נכשלו היום ב-131047 (נשלחו מהמספר הלא נכון / חלון 24 שעות)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302015,
+   "seq": 10,
+   "at": "2026-11-03T13:40:40.297Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 10,
+   "text": "capacity_overflow: warn · קיבולת 2026-11-03: מתוכנן 176 מול תקרה 68 (חריגה 108) | warn · קיבולת 2026-11-04: מתוכנן 507 מול תקרה 230 (חריגה 277)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302016,
+   "seq": 11,
+   "at": "2026-11-03T13:40:40.298Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 11,
+   "text": "noa_unanswered: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302017,
+   "seq": 12,
+   "at": "2026-11-03T13:40:40.298Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 12,
+   "text": "balances_low: warn · יתרה נמוכה: telnyx 4.29 USD",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302018,
+   "seq": 13,
+   "at": "2026-11-03T13:40:40.298Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 13,
+   "text": "d1_ledger: warn · D1 לא מחובר: יומן הריצות על KV (3 ימים בלבד)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302019,
+   "seq": 14,
+   "at": "2026-11-03T13:40:40.298Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 14,
+   "text": "failed_runs: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302020,
+   "seq": 15,
+   "at": "2026-11-03T13:40:40.299Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 15,
+   "text": "biz_verification: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302021,
+   "seq": 16,
+   "at": "2026-11-03T13:40:40.299Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 16,
+   "text": "gift_blast: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302022,
+   "seq": 17,
+   "at": "2026-11-03T13:40:40.299Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 17,
+   "text": "wedding_day: ok",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302023,
+   "seq": 18,
+   "at": "2026-11-03T13:40:40.300Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 18,
+   "text": "ממצא חדש (warn/P2): תבנית ishur_wave1_f ממתינה לאישור 26 שעות",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302024,
+   "seq": 19,
+   "at": "2026-11-03T13:40:40.300Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 19,
+   "text": "נוצרה פעולה לאישור pa_nau1a_mw0qju1i (template_variant)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302025,
+   "seq": 20,
+   "at": "2026-11-03T13:40:40.300Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 20,
+   "text": "ממצא חדש (fail/P1): הפייסר לא רץ 38 דקות",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302026,
+   "seq": 21,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 21,
+   "text": "התראה לסלאק",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302027,
+   "seq": 22,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 22,
+   "text": "ממצא חדש (warn/P3): 1 לידים בלי פריט מאנדיי ידוע",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302028,
+   "seq": 23,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 23,
+   "text": "פלייבוק lead_monday_create: הצליח · found 0, created 1, failed 0 (ריצה rmw0qju25k4xq0f)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302029,
+   "seq": 24,
+   "at": "2026-11-03T13:40:40.301Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 24,
+   "text": "ממצא חדש (warn/P3): 1 הודעות נכשלו היום ב-131047 (נשלחו מהמספר הלא נכון / חלון 24 שעות)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302030,
+   "seq": 25,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 25,
+   "text": "נוצרה פעולה לאישור pa_104z72e_mw0qju1i (requeue_reply)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302031,
+   "seq": 26,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 26,
+   "text": "ממצא חדש (warn/P1): קיבולת 2026-11-03: מתוכנן 176 מול תקרה 68 (חריגה 108)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302032,
+   "seq": 27,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 27,
+   "text": "פלייבוק capacity_warning: הצליח · slack (ריצה rmw0qju268lde9i)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302033,
+   "seq": 28,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 28,
+   "text": "ממצא חדש (warn/P2): קיבולת 2026-11-04: מתוכנן 507 מול תקרה 230 (חריגה 277)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302034,
+   "seq": 29,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 29,
+   "text": "פלייבוק capacity_warning: הצליח · slack (ריצה rmw0qju264ggx3k)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302035,
+   "seq": 30,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 30,
+   "text": "ממצא חדש (warn/P2): יתרה נמוכה: telnyx 4.29 USD",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302036,
+   "seq": 31,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 31,
+   "text": "ממצא חדש (warn/P3): D1 לא מחובר: יומן הריצות על KV (3 ימים בלבד)",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302037,
+   "seq": 32,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 32,
+   "text": "סיכום: 8 פתוחים (1 חמורים), 16 בדיקות",
+   "src": "worker"
+  },
+  {
+   "id": 1793713240302038,
+   "seq": 33,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 33,
+   "text": "(סוכן) קראתי את הממצאים הפתוחים דרך /api/ops/brain",
+   "src": "agent"
+  },
+  {
+   "id": 1793713240302039,
+   "seq": 34,
+   "at": "2026-11-03T13:40:40.302Z",
+   "run_id": "rmw0qju1ij8z0tw",
+   "step": 34,
+   "text": "(סוכן) הפייסר: pacer:last ישן — בודק את ריצות d_pacer בשעה האחרונה",
+   "src": "agent"
   }
  ],
- "cursor": 906
+ "cursor": 1793713240302039,
+ "autofix": true,
+ "agent_hook": false
 }

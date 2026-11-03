@@ -4,7 +4,8 @@
    Read-only: GETs every endpoint, and POST /api/ops/toggle WITHOUT confirm (blast radius only).
    ishur.io is public, so before writing it masks guest/client phones (our own business numbers
    6673 / 9799 / 4499 stay), replaces event names with pseudonyms, and hides message bodies and
-   contact names in the live feed. brain.json is not touched (no backend endpoint yet).
+   contact names in the live feed. brain.json: read live from /api/ops/brain once it is deployed
+   (until then scripts/build-brain-fixture.mjs builds it from the real brain.js locally).
    runs/run: when the live ledger is empty, a run fixture is synthesized in the real run shape
    from the live feed's cron rows and flagged "synthetic": true. */
 import { writeFileSync } from 'node:fs';
@@ -77,4 +78,8 @@ write('code', { ok: true, by_id: code });
 const toggle = {};
 for (const id of registry.kill_switches) { const t = await post('toggle', { id, enabled: false }); if (t.applied) throw new Error('toggle applied?! ' + id); toggle[id] = scrub(t); }
 write('toggle', { ok: true, by_id: toggle });
+
+/* brain: only when the endpoint exists (the deployed Worker has brain.js) */
+const brainLive = await fetch(BASE + '/api/ops/brain', { headers: { 'X-Admin-Key': KEY } }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+if (brainLive && brainLive.ok) write('brain', scrub(brainLive)); else console.log('  brain.json kept (no /api/ops/brain on ' + BASE + ' yet — run scripts/build-brain-fixture.mjs)');
 console.log('done · ' + evName.size + ' event names pseudonymized');

@@ -100,8 +100,7 @@ ${(n.conditions || []).length ? `<ul style="margin:10px 0 0;padding-inline-start
 ${(n.warnings || []).length ? `<section class="card" style="background:var(--warn-bg);border-color:transparent"><h3 class="h2">פערים שנמצאו בקוד</h3><ul style="margin:6px 0 0;padding-inline-start:18px">${n.warnings.map((w) => `<li>${esc(typeof w === 'string' ? w : w.he || w.claim || JSON.stringify(w))}</li>`).join('')}</ul></section>` : ''}
 <section><h3 class="h2">תלויות</h3>${depGraph(n, nodes)}</section>
 <section><div class="sec-h"><h3 class="h2">הקוד</h3><span class="sp"></span>${n.code_ref ? `<span class="sub mono" dir="ltr">${esc(n.code_ref.ref)}</span>` : ''}</div><div id="au-code">${n.code ? Code(n.code) : n.code_ref ? Skeleton.lines(4) : '<p class="sub">אין קוד ברשומה לאוטומציה הזו.</p>'}</div></section>
-<section><div class="sec-h"><h3 class="h2">עריכה</h3><span class="sp"></span><span class="sub">שלב 2: נשמר עם גרסה וכפתור החזרה</span></div>
-${n.editable ? `<div class="bar">${Object.entries(n.editable).map(([k, v]) => `<label class="sub">${esc({ il_time: 'שעה', budget: 'תקציב יומי' }[k] || k)} <input class="in num" data-edit="${esc(k)}" value="${esc(v)}" dir="ltr" style="width:90px"></label>`).join('')}${Button('שמירה', { variant: 'primary', size: 'sm', act: 'edit-save', attr: { 'data-id': n.id } })}</div>` : '<p class="sub">לאוטומציה הזו אין שדות לעריכה ברשומה.</p>'}</section>
+<section><h3 class="h2">עריכה</h3>${(n.editable || []).map((x) => `<div class="bar"><label class="sub" style="flex:1">${esc(x.label_he)} <input class="in num" data-edit="${esc(x.setting)}" data-field="${esc(x.field)}" value="${esc(x.value)}" dir="ltr" style="width:96px"></label>${Button('שמירה', { size: 'sm', act: 'edit-save', attr: { 'data-setting': x.setting, 'data-field': x.field } })}</div>`).join('') || '<p class="sub">לאוטומציה הזו אין שדות לעריכה ברשומה.</p>'}</section>
 <section><div class="sec-h"><h3 class="h2">היסטוריית ריצות</h3><span class="sp"></span><a class="btn ghost sm" href="#/runs?automation_id=${esc(n.id)}">הכל</a></div><div id="au-runs">${Skeleton.lines(5)}</div></section>`;
 }
 
@@ -140,7 +139,7 @@ export default {
     this._drawerClick = (e) => {
       const sw = e.target.closest('.drawer [data-act=toggle]'); if (sw) { this.toggle(sw.dataset.id, ctx, refresh); return; }
       const save = e.target.closest('.drawer [data-act=edit-save]');
-      if (save) { const vals = Object.fromEntries([...document.querySelectorAll('.drawer [data-edit]')].map((i) => [i.dataset.edit, i.value])); busy(save, () => ctx.api.post('edit', { id: save.dataset.id, overrides: vals })).then(() => toast('נשמר' + (ctx.MOCK ? ' (דמה)' : ''))).catch((er) => toast(er.message, 'crit')); }
+      if (save) { this.edit(save, ctx, refresh); return; }
       const r = e.target.closest('.drawer #au-runs tr[data-row]'); if (r) ctx.nav('runs/' + r.dataset.row);
     };
     ctx.on(document, 'click', this._drawerClick);
@@ -158,6 +157,15 @@ export default {
     try { const r = await ctx.api.get('runs', { automation_id: id, limit: 30 }, { cache: false }); const box = body.querySelector('#au-runs'); if (box) box.innerHTML = runsTable(r.items); }
     catch (e) { const box = body.querySelector('#au-runs'); if (box) box.innerHTML = ctx.errorBox(e, 'noop'); }
     await codeP;
+  },
+  async edit(btn, ctx, refresh) { /* POST /api/ops/edit: blast radius → typed confirm → write */
+    const { setting: id, field } = btn.dataset, v = document.querySelector(`.drawer [data-edit="${id}"][data-field="${field}"]`).value.trim(), value = /^\d+$/.test(v) ? +v : v;
+    try {
+      const f = await ctx.api.post('edit', { id, field, value });
+      const body = (f.blast_radius.effects || []).map((x) => `<p class="sub">${esc(x.label)}: <b class="num">${esc(x.count ?? x.before + ' → ' + x.after)}</b></p>`).join('');
+      if (!(await confirmTyped({ title: 'לשמור ' + id + '?', body, word: f.confirm_required, action: 'לשמור', danger: false }))) return;
+      await ctx.api.post('edit', { id, field, value, confirm: f.confirm_required }); toast('נשמר. נרשם ביומן.'); refresh();
+    } catch (er) { toast(er.message, 'crit'); }
   },
   async toggle(id, ctx, refresh) {
     const reg = this._reg(), n = reg.nodes.find((x) => x.id === id), on = n.state.enabled !== false;
