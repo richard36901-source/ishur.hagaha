@@ -33,6 +33,8 @@ export const SETTINGS = {
   pacer_batch_size: { he: 'הודעות לפעימה (כל 10 דקות)', node: 'd_pacer', type: 'int', default: 25, validate: intIn(1, 25) },
   daily_call_cap: { he: 'תקרת חיוגים יומית (0 = בלי תקרה)', node: 'shir_dispatch', type: 'int', default: 0, validate: intIn(0, 2000) },
   noa_chase: { he: 'נועה רודפת לידים', node: 'noa_chase', type: 'onoff', default: 'off', env: 'NOA_CHASE' },
+  /* 03/11 lead qualification on 4499 (salesflow.js); Richard switches it on */
+  sales_flow: { he: 'זרימת מכירה ללידים בנועה (4499)', node: 'sales_flow', type: 'onoff', default: 'off', env: 'SALES_FLOW' },
   event_hold: { he: 'עצירת אירוע (hold)', node: 'd_engine', type: 'bool', per: 'token' },
 };
 
@@ -92,6 +94,7 @@ export async function withCfg(env, opts = {}) {
   const out = { ...env, __cfg: vals };
   if (vals.guest_budget_margin !== undefined) out.GUEST_BUDGET_MARGIN = String(vals.guest_budget_margin);
   if (vals.noa_chase !== undefined) out.NOA_CHASE = vals.noa_chase === 'on' ? 'on' : 'off';
+  if (vals.sales_flow !== undefined) out.SALES_FLOW = vals.sales_flow === 'on' ? 'on' : 'off';
   return out;
 }
 export const paceSends = (env, dflt = 25) => { const v = env && env.__cfg && env.__cfg.pacer_batch_size; return Number.isInteger(v) ? Math.max(1, Math.min(dflt, v)) : dflt; };
@@ -122,7 +125,7 @@ export function editableFor(nodeId, vals = {}) {
   for (const [id, s] of Object.entries(SETTINGS)) {
     if (s.node !== nodeId || s.per) continue;
     if (s.type === 'window') for (const [f, fd] of Object.entries(s.fields)) rows.push({ setting: id, field: f, label_he: s.he + ' · ' + fd.he, value: eff[id][f], type: 'time', min: fd.lo, max: fd.hi });
-    else rows.push({ setting: id, field: '', label_he: s.he, value: eff[id], type: s.type, confirm: s.type === 'onoff' ? NOA_CHASE_ON_CONFIRM : id });
+    else rows.push({ setting: id, field: '', label_he: s.he, value: eff[id], type: s.type, confirm: s.type === 'onoff' ? confirmWord(id, 'on') : id });
   }
   return rows.length ? rows : null;
 }

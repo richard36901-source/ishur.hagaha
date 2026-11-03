@@ -46,6 +46,7 @@ import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS,
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
 import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
+import { salesInbound, salesTick, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -202,13 +203,56 @@ function looksIshur(flat, pages) {
 /* 03/11 pay links v2: structured quote → server-priced Grow link. The quote
    lives 30 days in KV under quote:<id>; cField1 carries "q:<id>|<code>" so the
    IPN can read what was bought even if the KV row is gone. */
-async function handlePayLinkV2(env, b, origin) {
+/* ── 03/11 sales flow glue (salesflow.js is pure; the Worker gives it hands) ── */
+async function isClientPhone(env, phone) {
+  if (!env.RATE) return false;
+  if (await env.RATE.get('client:' + phone).catch(() => null)) return true;
+  const snap = await Promise.race([snapshotCached(env).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+  if (!snap) return false;
+  if (eventsForPhone(snap, phone).length) return true;
+  const g = findGuestByPhone(snap, phone, ilDate());
+  return !!(g && g.upcoming);
+}
+async function salesCtx(env, phone, text, name, sfCtx) {
+  const c = { phone, text, name: name || '', ...(sfCtx || {}) };
+  if (c.isClient) return c;
+  let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + phone) || 'null'); } catch {}
+  /* a Meta-form lead's first inbound starts the flow too */
+  if (rec && (rec.page === 'instant-form' || /leadform/.test(String(rec.source || '')))) { c.isMetaLead = true; c.occasion = c.occasion || rec.occasion || ''; c.name = c.name || rec.name || ''; }
+  if (rec && rec.guests && !c.guests) c.guests = parseInt(rec.guests, 10) || 0;
+  /* the flow never runs for a client, a phone with an event, or a guest */
+  if (sfCtx && sfCtx.isNewLead) return c;
+  if ((sfCtx && sfCtx.known) || c.isMetaLead || await sfState(env, phone)) c.isClient = await isClientPhone(env, phone);
+  return c;
+}
+function salesDeps(env) {
+  return {
+    send: async (phone, text) => { try { const r = await sendText(env, phone, text, 'client', { who: 'נועה (זרימת מכירה)' }); return { ok: !!(r && r.ok) }; } catch { return { ok: false }; } },
+    slack: (t) => slackPost(env, t).catch(() => {}),
+    log: (o) => logEvent(env, { area: 'לידים', ok: o.ok !== false, ...o }).catch(() => {}),
+    isClient: (phone) => isClientPhone(env, phone),
+    markQuoted: async (phone, quote, link, { fallback } = {}) => {
+      const nowIso = new Date().toISOString();
+      /* the CRM row (leads board) — status + a note with the offer */
+      let prev = null; try { prev = JSON.parse(await env.RATE.get('leadx:' + phone)); } catch {}
+      let r = applyLeadUpdate(prev, { status: 'נשלח פרטים' }, nowIso);
+      if (r.state) r = applyLeadUpdate(r.state, { note: `הצעה מזרימת המכירה${fallback ? ' (ברירת מחדל)' : ''}: ${quote.description} · ₪${quote.sum} · ${link}` }, nowIso);
+      if (r.state) await env.RATE.put('leadx:' + phone, JSON.stringify(r.state)).catch(() => {});
+      /* and the lead: record itself */
+      try { const rec = JSON.parse(await env.RATE.get('lead:' + phone) || 'null'); if (rec) await env.RATE.put('lead:' + phone, JSON.stringify({ ...rec, sf_status: 'quoted', sf_sum: quote.sum, sf_at: nowIso }), { expirationTtl: LEAD_TTL }); } catch {}
+    },
+  };
+}
+
+/* one place mints a server-priced Grow link from a structured quote:
+   the admin pay link (v2) and the site's prefilled popup both come here */
+async function createQuoteLink(env, b, { src = 'admin' } = {}) {
   const pq = priceQuote(b);
-  if (!pq.ok) return deny(400, pq.why, origin);
+  if (!pq.ok) return { ok: false, status: 400, why: pq.why };
   const q = pq.quote;
   const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
   const cField1 = `q:${id}|${q.code}`;
-  if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook', quote: { id, ...q } }, origin);
+  if (!env.GROW_LINK_HOOK) return { ok: false, why: 'no-hook', id, q };
   const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     sum: q.sum, description: q.description, token: '', kind: 'special', scope: 'all', label: q.description, n: q.records,
     name: q.name, phone: q.phone.replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
@@ -217,11 +261,32 @@ async function handlePayLinkV2(env, b, origin) {
   }) }).catch(() => null);
   let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
   const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
-  if (env.RATE) await env.RATE.put('quote:' + id, JSON.stringify({ id, ...q, url: link || '', at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
-  await logEvent(env, { area: 'תשלום', action: `קישור תשלום v2: ${q.description} · ₪${q.sum}`, ok: !!link, review: !link, phone: q.phone, ref: 'q:' + id, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
-  return okJson({ ok: !!link, url: link || '', id, description: q.description, sum: q.sum, code: q.code, lines: q.lines, make: link ? undefined : mtxt.slice(0, 200) }, origin);
+  if (env.RATE) await env.RATE.put('quote:' + id, JSON.stringify({ id, ...q, src, url: link || '', at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
+  await logEvent(env, { area: 'תשלום', action: `קישור תשלום v2${src !== 'admin' ? ' (' + src + ')' : ''}: ${q.description} · ₪${q.sum}`, ok: !!link, review: !link, phone: q.phone, ref: 'q:' + id, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
+  return { ok: !!link, url: link || '', id, q, mtxt };
 }
 
+/* 03/11 site prefill (?plan=…): the popup asks the server to price + mint the
+   link, so add-ons ride in cField1 like an admin pay link and are granted on
+   payment. Public, stamped like the other site forms, rate-limited per IP. */
+async function handleQuoteFromSite(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const stampError = await checkStamp(b, env.APP_KEY);
+  if (stampError) return deny(403, stampError, origin);
+  if (await overBudget(env, 'rl:qsite:' + (request.headers.get('CF-Connecting-IP') || 'x'), 8, 3600)) return deny(429, 'slow-down', origin);
+  const body = { plan: b.plan, records: Number(b.records), phone: b.phone, name: b.name, email: b.email, occasion: b.occasion, event_date: b.event_date || '',
+    addons: { hostesses: Number(b.hostesses) || 0, design: !!b.design, travel: false, extra_wave: false, calls: false } };
+  const r = await createQuoteLink(env, body, { src: String(b.src || 'site').replace(/[^a-z0-9_-]/gi, '').slice(0, 20) || 'site' });
+  if (r.status === 400) return okJson({ ok: false, why: r.why }, origin);
+  return okJson({ ok: r.ok, url: r.url || '', id: r.id || '', sum: r.q ? r.q.sum : null, description: r.q ? r.q.description : '', why: r.ok ? undefined : (r.why || 'no-link') }, origin);
+}
+
+async function handlePayLinkV2(env, b, origin) {
+  const r0 = await createQuoteLink(env, b);
+  if (r0.status === 400) return deny(400, r0.why, origin);
+  if (r0.why === 'no-hook') return okJson({ ok: false, why: 'no-hook', quote: { id: r0.id, ...r0.q } }, origin);
+  return okJson({ ok: r0.ok, url: r0.url, id: r0.id, description: r0.q.description, sum: r0.q.sum, code: r0.q.code, lines: r0.q.lines, make: r0.url ? undefined : r0.mtxt.slice(0, 200) }, origin);
+}
 /* what a package payment bought besides the package: the stored quote first,
    then the code in cField1, then the words (the old free-form links). */
 async function purchaseOf(env, flat) {
@@ -3395,6 +3460,8 @@ async function handleWaWebhook(request, env, url) {
        not from the least-used one (131047 otherwise) */
     if (sendCh === 'guests') await pinGuestPhone(env, from, phoneId);
     const say = (t) => sendText(env, from, t, sendCh, { who: ch === 'guests' ? 'שיר (מענה אוטומטי)' : 'נועה (מענה אוטומטי)', ...(sendCh === 'guests' ? { phone_id: phoneId } : {}) });
+    /* 03/11 sales flow: what the lead block below learned about this number */
+    let sfCtx = null;
     /* full inbound log — every message from every number, always */
     if (env.RATE) {
       /* which of our two numbers received this — the inbox filters on it */
@@ -3448,8 +3515,11 @@ async function handleWaWebhook(request, env, url) {
             else if (snapL) { const gL = findGuestByPhone(snapL, p9, ilDate()); if (gL && gL.upcoming) notLead = 'guest'; }
             if (notLead) await logEvent(env, { area: 'לידים', action: notLead === 'client' ? 'לקוח (אירוע בגיליון) כתב לנועה — לא נפתח ליד' : 'אורח של אירוע קרוב כתב לנועה — לא נפתח ליד', ok: true, phone: p9, detail: body.slice(0, 120) }).catch(() => {});
           }
+          if (notLead) sfCtx = { isClient: true };
+          else if (known) sfCtx = { known: true };
           if (!known && !notLead && !isTestPhone(env, p9) && !String(env.ADMIN_PHONES || '').split(',').includes(p9)) {
             const mon = await noteLead(env, { phone: p9, name: profileName || '', page: 'whatsapp', first_source: 'וואטסאפ נכנס', event_type: 'whatsapp_in' });
+            sfCtx = { isNewLead: true };
             await env.RATE.delete('leadping:' + p9).catch(() => {});
             await env.RATE.put('leadslack:' + p9, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
             const local = p9.replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
@@ -3507,6 +3577,19 @@ async function handleWaWebhook(request, env, url) {
     }
 
     /* stop the calls, keep the messages */
+    /* 03/11 sales flow (cfg sales_flow, default off): deterministic questions
+       → one priced offer with a prefilled site link. Leads only. When it
+       handles the message nothing else answers (Noa AI stays off anyway). */
+    if (ch === 'client' && !echo && env.RATE && sfEnabled(env) && parsed.kind !== 'optout' && parsed.kind !== 'nocall') {
+      try {
+        const p9 = normPhone(from);
+        const sfr = await salesInbound(env, await salesCtx(env, p9, textOf(parsed), profileName, sfCtx), salesDeps(env));
+        if (sfr.handled) continue;
+      } catch (e) { await logEvent(env, { area: 'לידים', action: 'זרימת מכירה נכשלה', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
+    }
+    if (parsed.kind === 'optout' && ch === 'client' && env.RATE) {
+      try { const st0 = await sfState(env, normPhone(from)); if (st0 && st0.step !== 'stopped') await env.RATE.put('sf:' + st0.phone, JSON.stringify({ ...st0, step: 'stopped', why: 'optout' }), { expirationTtl: 7 * 86400 }); } catch {}
+    }
     if (parsed.kind === 'nocall') {
       if (env.RATE) await env.RATE.put('nocall:' + normPhone(from), new Date().toISOString());
       await logEvent(env, { area: 'ווצאפ', action: 'אורח ביקש לא להתקשר', ok: true, phone: from });
@@ -9708,6 +9791,7 @@ export default {
       ctx.waitUntil(opsJob(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
+      if (sfEnabled(env)) ctx.waitUntil(opsJob(env, 'salesTick', () => salesTick(env, salesDeps(env))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
@@ -11010,6 +11094,7 @@ export default {
       let cur = null; try { cur = JSON.parse(await env.RATE.get('playbook')); } catch {}
       return okJson({ ok: true, playbook: cur || null }, origin);
     }
+    if (url.pathname === '/api/quote-from-site' && request.method === 'POST') return handleQuoteFromSite(request, env, origin);
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

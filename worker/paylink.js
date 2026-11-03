@@ -109,3 +109,48 @@ export function closeMessage({ name, phone, occasion, event_date, plan, records,
   const list = (addons || []).length ? addons.join(', ') : 'ללא';
   return `🎉 נסגר: ${name || 'ללא שם'} · ${local} · ${occ} ${fmtDate(event_date) || 'תאריך טרם'} · חבילה ${PLAN_HE[plan] || plan || '?'} · ${records || '?'} רשומות · תוספות: ${list} · ₪${sum || '?'} · https://ishur.io/dashboard.html?t=${token} · https://ishur.io/upload.html?t=${token}`;
 }
+
+/* ══ sales flow + site prefill (03/11) ══════════════════════════════════════
+   Richard's plan rule: no call round → basic, one round → pro, three → premium.
+   Hostesses and design never move the plan; they are add-ons on top. */
+export function recommendPlan({ calls_rounds = 0 } = {}) {
+  const c = Number(calls_rounds) || 0;
+  return c >= 3 ? 'premium' : c >= 1 ? 'pro' : 'basic';
+}
+/* the no-reply fallback offer is never premium (Richard 03/11) */
+export function fallbackPlan({ calls_rounds = 0 } = {}) {
+  return (Number(calls_rounds) || 0) >= 1 ? 'pro' : 'basic';
+}
+/* Richard 03/11, global: hostesses wanted → under 300 records one, 300+ two */
+export const HOSTESS_TWO_FROM = 300;
+export function hostessesFor(records, wanted = true) {
+  if (!wanted) return 0;
+  const n = Number(records) || 0;
+  return n >= HOSTESS_TWO_FROM ? 2 : 1;
+}
+/* a guest count → the next records tier up (650 → 700); null above the table */
+export function tierFor(n) {
+  const g = Math.ceil(Number(n) || 0);
+  if (g <= 0) return null;
+  return RECORD_TIERS.find(t => t >= g) || null;
+}
+
+/* the editable site prefill link (index.html reads exactly these params) */
+export const SITE_PARAMS = ['plan', 'guests', 'hostess', 'design', 'calls', 'occasion', 'date', 'city', 'name', 'phone', 'src'];
+export function siteLink(p, base = 'https://ishur.io/') {
+  const u = new URL(base);
+  const set = (k, v) => { if (v !== undefined && v !== null && v !== '' && v !== false) u.searchParams.set(k, String(v)); };
+  set('plan', PLAN_HE[p.plan] ? p.plan : '');
+  set('guests', PKG_PRICES[p.records] ? p.records : '');
+  set('hostess', p.hostesses ? Number(p.hostesses) : '');
+  set('design', p.design ? 1 : '');
+  set('calls', p.calls_rounds ? 1 : '');
+  set('occasion', OCCASION_HE[p.occasion] ? p.occasion : '');
+  set('date', /^\d{4}-\d{2}-\d{2}$/.test(String(p.event_date || '')) ? p.event_date : '');
+  set('city', String(p.city || '').slice(0, 30));
+  set('name', String(p.name || '').slice(0, 60));
+  const local = String(p.phone || '').replace(/\D/g, '').replace(/^972/, '0');
+  set('phone', /^05\d{8}$/.test(local) ? local : '');
+  set('src', String(p.src || '').replace(/[^a-z0-9_-]/gi, '').slice(0, 20));
+  return u.toString();
+}
