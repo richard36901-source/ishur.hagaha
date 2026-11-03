@@ -207,3 +207,14 @@ test('real send (stubbed Meta): params exactly [name], idempotent — second run
   assert.equal(s.subevent.counts.no_reply.guests, 2);
   assert.ok(!JSON.stringify(s).includes('97250'), 'no phones in the client summary');
 });
+
+test('admin clients view (status view:biz) lists the sub-event linked to its parent; clients.html renders its own row + dashboard link', async () => {
+  const { createHash } = await import('node:crypto');
+  const ts = String(Date.now()), nonce = 'n' + ts;
+  const sig = createHash('sha256').update(`ak|${nonce}|${ts}`).digest('hex');
+  const r = await post({ ...env(), APP_KEY: 'ak' }, '/api/status', { view: 'biz', app: 'dash', nonce, stamp_ts: ts, sig });
+  assert.ok(Array.isArray(r.subevents), JSON.stringify(r).slice(0, 200));
+  assert.deepEqual(r.subevents.map(x => [x.token, x.parent, x.kind_he]), [[SUB, PARENT, 'שבת חתן']]);
+  const html = readFileSync(new URL('../../clients.html', import.meta.url), 'utf8');
+  assert.ok(/function subRows/.test(html) && /dashboard\.html\?t=' \+ encodeURIComponent\(x\.token\)/.test(html));
+});

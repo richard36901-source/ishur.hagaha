@@ -11719,6 +11719,11 @@ export default {
               try { const inv = JSON.parse((await env.RATE.get('invoice:' + e.token)) || 'null'); if (inv && inv.url) e.invoice = (inv.number ? inv.number + ' · ' : '') + inv.url; } catch {}
             }));
           }
+          /* 03/11: linked sub-events (שבת חתן) — their own rows on the admin clients page */
+          try {
+            const all = await kvPrefix(env, 'subevent:');
+            biz.subevents = Object.entries(all).map(([sub, v]) => { try { const r = JSON.parse(v); return r && r.parent ? { token: sub, parent: r.parent, name: r.name, kind: r.kind, kind_he: (SUBEVENT_KINDS[r.kind] || {}).he || '', template: r.template, created: r.created || '' } : null; } catch { return null; } }).filter(Boolean);
+          } catch { biz.subevents = []; }
           return okJson(biz, origin);
         }
         return okJson(buildCallQueue(raw), origin);

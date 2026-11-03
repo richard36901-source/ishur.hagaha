@@ -75,7 +75,7 @@ curl -s -X POST https://go.ishur.io/api/subevent-send -H 'Content-Type: applicat
 # 4. summary (client-safe, same as the dashboard)
 curl -s "https://go.ishur.io/api/subevent-summary?token=$S"
 ```
-Dashboard: `https://ishur.io/dashboard.html?t=$S`. The parent board shows an "אירועים מקושרים"
+Dashboard URL pattern: `https://ishur.io/dashboard.html?t=<subtoken>`, the same page as every event. `/api/status` answers 404 for a sub token, so the page falls back to `GET /api/subevent-summary` and renders the summary view. The admin clients page (`clients.html`, from `/api/status` `view:'biz'` → `subevents`) shows each sub-event as its own row, "שבת חתן · <client>", under its parent, with both dashboard links. The parent board shows an "אירועים מקושרים"
 card. The admin send-board lists the sub-event with its single message type.
 
 Step 1 is idempotent: the same parent, kind and template returns the existing sub (`existed:true`).
