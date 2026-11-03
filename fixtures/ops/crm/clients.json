@@ -1,0 +1,615 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T09:00:00+02:00",
+ "items": [
+  {
+   "token": "a0000003-0000-4000-8000-000000000000",
+   "name": "עומר מזרחי",
+   "phone": "972500001003",
+   "occasion": "hina",
+   "event_date": "2026-11-23",
+   "event_time": "19:30",
+   "venue": "אולם הגן",
+   "plan": "premium",
+   "records": 500,
+   "status": "active",
+   "counts": {
+    "guests": 1000,
+    "confirmed": 90,
+    "declined": 273,
+    "pending": 637
+   },
+   "paid": 2659,
+   "paid_at": "2026-10-29T12:00:00.000Z",
+   "lead_id": "ld_003",
+   "addons": {
+    "design": null,
+    "hostesses": 2,
+    "calls": true,
+    "extra_wave": true
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000003-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000003-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000008-0000-4000-8000-000000000000",
+   "name": "אבי גבאי",
+   "phone": "972500001008",
+   "occasion": "bday",
+   "event_date": "2026-12-13",
+   "event_time": "19:30",
+   "venue": "בית החווה",
+   "plan": "premium",
+   "records": 300,
+   "status": "active",
+   "counts": {
+    "guests": 600,
+    "confirmed": 373,
+    "declined": 68,
+    "pending": 159
+   },
+   "paid": 528,
+   "paid_at": "2026-10-28T12:00:00.000Z",
+   "lead_id": "ld_008",
+   "addons": {
+    "design": "approved",
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000008-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000008-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000015-0000-4000-8000-000000000000",
+   "name": "דנה אזולאי",
+   "phone": "972500001015",
+   "occasion": "wedding",
+   "event_date": "2026-11-03",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "premium",
+   "records": 400,
+   "status": "active",
+   "counts": {
+    "guests": 800,
+    "confirmed": 154,
+    "declined": 193,
+    "pending": 453
+   },
+   "paid": 559,
+   "paid_at": "2026-10-27T12:00:00.000Z",
+   "lead_id": "ld_015",
+   "addons": {
+    "design": null,
+    "hostesses": 1,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000015-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000015-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000020-0000-4000-8000-000000000000",
+   "name": "גיל פרידמן",
+   "phone": "972500001020",
+   "occasion": "brit",
+   "event_date": "2026-10-24",
+   "event_time": "19:30",
+   "venue": "אולם הגן",
+   "plan": "basic",
+   "records": 500,
+   "status": "done",
+   "counts": {
+    "guests": 1000,
+    "confirmed": 800,
+    "declined": 60,
+    "pending": 140
+   },
+   "paid": 2489,
+   "paid_at": "2026-10-26T12:00:00.000Z",
+   "lead_id": "ld_020",
+   "addons": {
+    "design": null,
+    "hostesses": 2,
+    "calls": false,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000020-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000020-0000-4000-8000-000000000000",
+    "feedback": "https://ishur.io/feedback.html?t=a0000020-0000-4000-8000-000000000000"
+   }
+  },
+  {
+   "token": "a0000027-0000-4000-8000-000000000000",
+   "name": "רוני דהן",
+   "phone": "972500001027",
+   "occasion": "bar",
+   "event_date": "2026-11-29",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "basic",
+   "records": 400,
+   "status": "setup",
+   "counts": {
+    "guests": 800,
+    "confirmed": 66,
+    "declined": 220,
+    "pending": 514
+   },
+   "paid": 399,
+   "paid_at": "2026-10-25T12:00:00.000Z",
+   "lead_id": "ld_027",
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": false,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000027-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000027-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000032-0000-4000-8000-000000000000",
+   "name": "עומר אזולאי",
+   "phone": "972500001032",
+   "occasion": "brit",
+   "event_date": "2026-11-03",
+   "event_time": "19:30",
+   "venue": "אולם הגן",
+   "plan": "basic",
+   "records": 300,
+   "status": "active",
+   "counts": {
+    "guests": 600,
+    "confirmed": 274,
+    "declined": 97,
+    "pending": 229
+   },
+   "paid": 378,
+   "paid_at": "2026-10-24T12:00:00.000Z",
+   "lead_id": "ld_032",
+   "addons": {
+    "design": "revision",
+    "hostesses": 0,
+    "calls": false,
+    "extra_wave": true
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000032-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000032-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000039-0000-4000-8000-000000000000",
+   "name": "מאיה אוחיון",
+   "phone": "972500001039",
+   "occasion": "bday",
+   "event_date": "2026-12-15",
+   "event_time": "19:30",
+   "venue": "אולם הגן",
+   "plan": "premium",
+   "records": 400,
+   "status": "active",
+   "counts": {
+    "guests": 800,
+    "confirmed": 381,
+    "declined": 125,
+    "pending": 294
+   },
+   "paid": 2549,
+   "paid_at": "2026-10-23T12:00:00.000Z",
+   "lead_id": "ld_039",
+   "addons": {
+    "design": null,
+    "hostesses": 2,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000039-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000039-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000100-0000-4000-8000-000000000000",
+   "name": "נועם דהן",
+   "phone": "972500001200",
+   "occasion": "brit",
+   "event_date": "2026-12-01",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "pro",
+   "records": 400,
+   "status": "hold",
+   "counts": {
+    "guests": 800,
+    "confirmed": 226,
+    "declined": 172,
+    "pending": 402
+   },
+   "paid": 489,
+   "paid_at": "2026-10-22T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000100-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000100-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000101-0000-4000-8000-000000000000",
+   "name": "יעל לוי",
+   "phone": "972500001201",
+   "occasion": "wedding",
+   "event_date": "2026-12-01",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "premium",
+   "records": 400,
+   "status": "active",
+   "counts": {
+    "guests": 800,
+    "confirmed": 492,
+    "declined": 92,
+    "pending": 216
+   },
+   "paid": 559,
+   "paid_at": "2026-10-21T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000101-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000101-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000102-0000-4000-8000-000000000000",
+   "name": "רוני כהן",
+   "phone": "972500001202",
+   "occasion": "wedding",
+   "event_date": "2026-11-18",
+   "event_time": "19:30",
+   "venue": "אחוזת השקמים",
+   "plan": "premium",
+   "records": 300,
+   "status": "active",
+   "counts": {
+    "guests": 600,
+    "confirmed": 408,
+    "declined": 57,
+    "pending": 135
+   },
+   "paid": 2318,
+   "paid_at": "2026-10-20T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": "brief",
+    "hostesses": 1,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000102-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000102-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000103-0000-4000-8000-000000000000",
+   "name": "יעל פרידמן",
+   "phone": "972500001203",
+   "occasion": "bat",
+   "event_date": "2026-12-27",
+   "event_time": "19:30",
+   "venue": "בית החווה",
+   "plan": "pro",
+   "records": 100,
+   "status": "setup",
+   "counts": {
+    "guests": 200,
+    "confirmed": 99,
+    "declined": 30,
+    "pending": 71
+   },
+   "paid": 149,
+   "paid_at": "2026-10-19T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": true
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000103-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000103-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000104-0000-4000-8000-000000000000",
+   "name": "איתי אוחיון",
+   "phone": "972500001204",
+   "occasion": "bar",
+   "event_date": "2026-12-25",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "pro",
+   "records": 400,
+   "status": "active",
+   "counts": {
+    "guests": 800,
+    "confirmed": 102,
+    "declined": 209,
+    "pending": 489
+   },
+   "paid": 489,
+   "paid_at": "2026-10-18T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000104-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000104-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000105-0000-4000-8000-000000000000",
+   "name": "רות גבאי",
+   "phone": "972500001205",
+   "occasion": "wedding",
+   "event_date": "2026-12-16",
+   "event_time": "19:30",
+   "venue": "בית החווה",
+   "plan": "premium",
+   "records": 200,
+   "status": "active",
+   "counts": {
+    "guests": 400,
+    "confirmed": 209,
+    "declined": 57,
+    "pending": 134
+   },
+   "paid": 2129,
+   "paid_at": "2026-10-17T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 1,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000105-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000105-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000106-0000-4000-8000-000000000000",
+   "name": "מאיה ביטון",
+   "phone": "972500001206",
+   "occasion": "hina",
+   "event_date": "2026-11-13",
+   "event_time": "19:30",
+   "venue": "אולם הגן",
+   "plan": "pro",
+   "records": 500,
+   "status": "active",
+   "counts": {
+    "guests": 1000,
+    "confirmed": 531,
+    "declined": 140,
+    "pending": 329
+   },
+   "paid": 668,
+   "paid_at": "2026-10-16T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": "revision",
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000106-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000106-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000107-0000-4000-8000-000000000000",
+   "name": "עידו דהן",
+   "phone": "972500001207",
+   "occasion": "bat",
+   "event_date": "2026-12-27",
+   "event_time": "19:30",
+   "venue": "בית החווה",
+   "plan": "premium",
+   "records": 100,
+   "status": "active",
+   "counts": {
+    "guests": 200,
+    "confirmed": 1,
+    "declined": 59,
+    "pending": 140
+   },
+   "paid": 199,
+   "paid_at": "2026-10-15T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000107-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000107-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000108-0000-4000-8000-000000000000",
+   "name": "רות אברהם",
+   "phone": "972500001208",
+   "occasion": "brit",
+   "event_date": "2026-12-01",
+   "event_time": "19:30",
+   "venue": "אחוזת השקמים",
+   "plan": "premium",
+   "records": 200,
+   "status": "active",
+   "counts": {
+    "guests": 400,
+    "confirmed": 240,
+    "declined": 48,
+    "pending": 112
+   },
+   "paid": 2129,
+   "paid_at": "2026-10-14T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 1,
+    "calls": true,
+    "extra_wave": true
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000108-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000108-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000109-0000-4000-8000-000000000000",
+   "name": "קרן דהן",
+   "phone": "972500001209",
+   "occasion": "wedding",
+   "event_date": "2026-12-15",
+   "event_time": "19:30",
+   "venue": "אולם הגן",
+   "plan": "premium",
+   "records": 300,
+   "status": "setup",
+   "counts": {
+    "guests": 600,
+    "confirmed": 152,
+    "declined": 134,
+    "pending": 314
+   },
+   "paid": 449,
+   "paid_at": "2026-10-13T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 0,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000109-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000109-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000110-0000-4000-8000-000000000000",
+   "name": "אורי לוי",
+   "phone": "972500001210",
+   "occasion": "bar",
+   "event_date": "2026-11-21",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "basic",
+   "records": 500,
+   "status": "active",
+   "counts": {
+    "guests": 1000,
+    "confirmed": 55,
+    "declined": 283,
+    "pending": 662
+   },
+   "paid": 578,
+   "paid_at": "2026-10-12T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": "draft",
+    "hostesses": 0,
+    "calls": false,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000110-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000110-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  },
+  {
+   "token": "a0000111-0000-4000-8000-000000000000",
+   "name": "עידו אברהם",
+   "phone": "972500001211",
+   "occasion": "wedding",
+   "event_date": "2026-11-20",
+   "event_time": "19:30",
+   "venue": "גני התערוכה",
+   "plan": "pro",
+   "records": 400,
+   "status": "active",
+   "counts": {
+    "guests": 800,
+    "confirmed": 6,
+    "declined": 238,
+    "pending": 556
+   },
+   "paid": 2479,
+   "paid_at": "2026-10-11T12:00:00.000Z",
+   "lead_id": null,
+   "addons": {
+    "design": null,
+    "hostesses": 2,
+    "calls": true,
+    "extra_wave": false
+   },
+   "links": {
+    "dashboard": "https://ishur.io/dashboard.html?t=a0000111-0000-4000-8000-000000000000",
+    "upload": "https://ishur.io/upload.html?t=a0000111-0000-4000-8000-000000000000",
+    "feedback": null
+   }
+  }
+ ]
+}
