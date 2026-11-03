@@ -14,6 +14,7 @@
    Every send returns {ok, id|error} and the caller logs the cost.
    ========================================================================== */
 
+import { crmTouch } from './crm.js';
 import { logRow } from './sheetlogs.js';
 import { logEvent, stream } from './evlog.js';
 import { capacity, numberState, rollingUsed, nextFreeAt, readHourBuckets, bumpHourBucket, cachedTiers, tierLimit, epochHour } from './budget.js';
@@ -452,6 +453,8 @@ async function post(env, body, channel, ctx) {
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
       });
+      /* 03/11 CRM: every 4499 outbound lands on the lead/client timeline (never creates a lead) */
+      if (ch === 'client') await crmTouch(env, String(body.to || ''), { dir: 'out', text: summary, ch, at: new Date(ts).toISOString(), ok: res.ok, template: body.type === 'template' ? String((body.template || {}).name || '') : '', who: ctx && ctx.who ? String(ctx.who) : '', id: res.id ? 'wa:' + res.id : undefined }).catch(() => {});
       /* the sheet line (Richard 06/09: every message, with its status). The
          delivered/read columns are filled by the status webhook via the id. */
       try {
