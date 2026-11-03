@@ -168,8 +168,14 @@
     if (d.__fixture) note = '<p class="sb-note"><b>נתוני דוגמה</b> · הנתיב /api/send-board עוד לא פרוס, אז מוצג קובץ שנבנה מנתונים חיים ב-' + esc(when(d.fixture && d.fixture.built_at)) + '. ' + esc((d.fixture && d.fixture.note) || '') + '</p>';
     else note = '<p class="sb-note">מקור: סטטוסי מסירה של מטא (wa_status) מול ההודעות שיצאו (wa_out), לפי מזהה ההודעה · ' + esc(d.window_days || '') + ' ימי יומן' + (d.cached ? ' · מהמטמון' : '') + ' · עודכן ' + esc(when(d.generated_at)) + '</p>';
     note += capHtml(d.cap);
-    if (!evs.length) { el.innerHTML = note + '<p class="sb-empty">אין אירועים פעילים עם שליחות.</p>'; return; }
-    el.innerHTML = note + '<div class="sb-grid">' + evs.map(function (ev, ei) {
+    /* 03/11: linked sub-events (שבת חתן): one message type each, own markers */
+    var subs = (d.subevents || []).filter(function (x) { return !opt.token || x.token.slice(0, 8) === String(opt.token).slice(0, 8) || x.parent.slice(0, 8) === String(opt.token).slice(0, 8); });
+    var subHtml = subs.length ? '<div class="sb-grid">' + subs.map(function (x) {
+      return '<div class="sb-ev"><div class="sb-evh"><span class="n">' + esc(x.name) + ' · תת-אירוע</span><span class="d">' + esc(x.template) + ' · אורח ' + esc(x.parent.slice(0, 8)) + '</span></div>' +
+        x.types.map(function (t) { return '<p class="sb-note"><b>' + esc(t.he) + '</b> · נשלחו ' + t.sent + ' מתוך ' + t.invited + ' · נמסרו ' + t.delivered + ' · נקראו ' + t.read + ' · נכשלו ' + t.failed + ' · ממתינים ' + t.pending + ' · ענו ' + t.replied + (x.empty_phone_rows ? ' · <span style="color:var(--sb-bad)">' + x.empty_phone_rows + ' שורות בלי טלפון</span>' : '') + '</p>'; }).join('') + '</div>';
+    }).join('') + '</div>' : '';
+    if (!evs.length) { el.innerHTML = note + (subHtml || '<p class="sb-empty">אין אירועים פעילים עם שליחות.</p>'); return; }
+    el.innerHTML = note + subHtml + '<div class="sb-grid">' + evs.map(function (ev, ei) {
       var types = opt.compact ? ev.types.filter(function (t) { return t.sent || t.pending.reopened || t.pending.queue || t.pending.window || t.pending.cap || t.pending.hold; }) : ev.types;
       if (opt.compact && !types.length) types = ev.types.slice(0, 1);
       return '<div class="sb-ev" data-tok="' + esc(ev.short) + '"><div class="sb-evh"><span class="n">' + esc(ev.name) + (ev.held ? ' · <span style="color:var(--sb-bad)">בהשהיה</span>' : '') + '</span><span class="d">' + dmy(ev.date) + ' · ' + ev.invited + ' מוזמנים</span></div>' +
