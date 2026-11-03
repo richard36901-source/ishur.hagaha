@@ -86,3 +86,9 @@ name = "EMAIL"
 # database_name = "ishur-ops"
 # database_id = "REPLACE_WITH_ID_FROM_ops-d1-setup.sh"
 # migrations_dir = "migrations"
+
+# 03/11 change log: every `wrangler deploy` (and deploy.sh) first writes
+# build-info.json {version_tag, commit, branch, date, commits since the last
+# deploy}; the Worker bundles it and logs `deploy:<version>` (changes.js).
+[build]
+command = "node scripts/build-info.mjs"

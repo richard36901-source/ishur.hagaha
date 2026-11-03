@@ -4,5 +4,10 @@
   "type": "module",
   "dependencies": {
     "xlsx": "0.18.5"
+  },
+  "scripts": {
+    "build-info": "node scripts/build-info.mjs",
+    "predeploy": "node scripts/build-info.mjs",
+    "deploy": "wrangler deploy"
   }
 }

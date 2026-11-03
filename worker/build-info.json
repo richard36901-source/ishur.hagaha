@@ -1,0 +1,91 @@
+{
+  "version_tag": "20261103-a98c66c-dirty",
+  "commit": "a98c66c722e3",
+  "branch": "ops-changelog",
+  "date": "2026-11-03T15:06:48.185Z",
+  "by": "AutoScale",
+  "since": null,
+  "dirty": true,
+  "commits": [
+    {
+      "hash": "cd1a898",
+      "subject": "CRM backend: /api/crm/* (leads, quick close, clients, hostesses, notes, reminders, agenda, stats), store.js D1/KV repository, 0003_crm.sql, "
+    },
+    {
+      "hash": "06e5968",
+      "subject": "docs: smoke count; screenshots"
+    },
+    {
+      "hash": "cb34ae1",
+      "subject": "docs: ops calendar (UI + API) and the capacity rolled plan"
+    },
+    {
+      "hash": "8092f0c",
+      "subject": "ops smoke: calendar + rolled-chart checks (fixture contract, filters, drawers, nav, 375 px); screenshots"
+    },
+    {
+      "hash": "3e5cd68",
+      "subject": "ops UI: calendar screen (g d) — month/week grid, state chips, filters persisted, per-event + search, day/chip drawers; lazy-loaded outside t"
+    },
+    {
+      "hash": "9c82cc9",
+      "subject": "docs: EVENTDAY-ONE-MESSAGE-2026-11-03"
+    },
+    {
+      "hash": "9ac8134",
+      "subject": "ops UI capacity chart: rolled plan as primary bars, original due as outline, tooltip with per-event split and deferred-from"
+    },
+    {
+      "hash": "b7bd90c",
+      "subject": "test: R1/R2/fallback/mark/planner/send-board/nav for the one event-day message; event-day blast reads the hour from Date (pinnable)"
+    },
+    {
+      "hash": "747c2ab",
+      "subject": "ops calendar: one ghost chip per original day; fixture builder + calendar.json, rolled on capacity.json"
+    },
+    {
+      "hash": "d513b97",
+      "subject": "docs: phase 3 — ops center as the full CRM workplace"
+    },
+    {
+      "hash": "c8710ce",
+      "subject": "planner + send-board: day-before on/after the event date shows as dropped, event-day audience excludes table guests"
+    },
+    {
+      "hash": "2b9df63",
+      "subject": "eventday: one message per guest (ed: mark, combo resolver in table stage + event-day blast), day-before D-1 only, /nav/<slug>"
+    },
+    {
+      "hash": "d1ef181",
+      "subject": "ops: GET /api/ops/calendar (month grid: events, send chips, rolled+ghost, calls, closed purchases) + tests"
+    },
+    {
+      "hash": "1394dc7",
+      "subject": "eventday: pure one-message resolver + 3 combo template JSONs (not submitted)"
+    },
+    {
+      "hash": "2c3ebbf",
+      "subject": "ops capacity: rolled plan per day (FIFO over open days, Friday window cap, unplaced) + tests"
+    },
+    {
+      "hash": "c4cbc3c",
+      "subject": "send-board: sendBoardData() returns the board as data; events carry occasion/time/client_id"
+    },
+    {
+      "hash": "231f5b0",
+      "subject": "ops UI: Brain screen on real data, drawer edit-in-place, brain fixture from the real shape"
+    },
+    {
+      "hash": "1dee75a",
+      "subject": "ops brain: health checks + playbooks in the */10 cron, edit-in-place settings"
+    },
+    {
+      "hash": "c87aa72",
+      "subject": "ops: live log shows seconds + real-time clock (side panel and full screen)"
+    },
+    {
+      "hash": "cc967b2",
+      "subject": "design terms: 1 round + 1 free extra, ₪49 per further round"
+    }
+  ]
+}

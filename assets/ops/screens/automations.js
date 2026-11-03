@@ -32,7 +32,7 @@ export function listView(nodes, f = {}) {
   return Table({
     rows, rowKey: (n) => n.id, groupBy: (n) => esc(label[n.daypart] || 'אחר'), empty: 'אין אוטומציה שמתאימה לסינון',
     columns: [
-      { label: 'אוטומציה', render: (n) => `<span style="display:inline-flex;gap:8px;align-items:center">${statusDot(nodeStatus(n), n.daypart === 'continuous' && n.state.enabled !== false)}<span><b>${esc(n.name_he)}</b><br><span class="sub mono" dir="ltr">${esc(n.id)}</span></span></span>` },
+      { label: 'אוטומציה', render: (n) => `<span style="display:inline-flex;gap:8px;align-items:center">${statusDot(nodeStatus(n), n.daypart === 'continuous' && n.state.enabled !== false)}<span><b>${esc(n.name_he)}</b>${n.is_new ? ' <span class="badge info" title="נוסף לרישום ב-7 הימים האחרונים">חדש</span>' : ''}<br><span class="sub mono" dir="ltr">${esc(n.id)}</span></span></span>` },
       { label: 'סוג', hideM: true, render: (n) => `<span class="badge">${esc(KIND_HE[n.kind] || n.kind)}</span>` },
       { label: 'הבא', render: (n) => (n.state.enabled === false ? '<span class="muted">כבוי</span>' : n.next_fire ? `<span class="num">${esc(fmtTime(n.next_fire))}</span>` : `<span class="muted">${esc(n.daypart === 'event' ? 'לפי אירוע' : '—')}</span>`) },
       { label: 'ריצות 24ש׳', hideM: true, render: (n) => `<span style="display:inline-flex;gap:8px;align-items:center">${Sparkline(n.stats.spark_24h, { fails: n.stats.spark_fail_24h, w: 96, h: 22 })}<span class="num">${fmtN(n.stats.runs_24h)}</span></span>` },

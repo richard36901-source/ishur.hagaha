@@ -22,6 +22,9 @@
      POST /api/ops/brain-decision  {id, approve, confirm} — approve/reject a pending playbook action
      POST /api/ops/run-log         {run_id, line|lines[], automation_id?} — an external agent streams its reasoning
      POST /api/ops/edit            {id, field, value, confirm} — whitelisted settings (cfg.js); blast radius first
+     GET  /api/ops/changes         change log (changes.js): from, to, kind (comma list), actor, cursor, limit
+     POST /api/ops/revert          {id, confirm} — undo one change: edit → previous value, toggle/pause → flip back,
+                                   deploy → Cloudflare rollback (CF_API_TOKEN) or the exact wrangler command
 
    Read-only except: toggle (with confirm), POST balances (manual value), and
    the caches bal:cache (10 min) and biz:verif (6 h).
@@ -43,6 +46,7 @@ import { isOff, offState, OFF_PREFIX, listRuns, getRun, runStats } from './ops-r
 import CODE from './registry-code.json' with { type: 'json' };
 import { runBrain, buildBrain, decide, runLogAppend } from './brain.js';
 import { SETTINGS, validateEdit, confirmWord, writeSetting, loadCfg, effective, editableFor, NOA_CHASE_ON_CONFIRM } from './cfg.js';
+import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -740,7 +744,7 @@ export function codeRef(id) {
 }
 export async function buildRegistry(env, now = Date.now()) {
   const since = new Date(now - 864e5).toISOString();
-  const [stats, offs, cfgVals] = await Promise.all([runStats(env, since), Promise.all(KILL_SWITCH_IDS.map(async id => [id, await offState(env, id)])), loadCfg(env, { fresh: true }).catch(() => ({}))]);
+  const [stats, offs, cfgVals, firstSeen] = await Promise.all([runStats(env, since), Promise.all(KILL_SWITCH_IDS.map(async id => [id, await offState(env, id)])), loadCfg(env, { fresh: true }).catch(() => ({})), registryFirstSeen(env).catch(() => ({}))]);
   const off = Object.fromEntries(offs);
   const nodes = AUTOMATIONS.map(n => {
     const m = opsMeta(n);
@@ -748,6 +752,7 @@ export async function buildRegistry(env, now = Date.now()) {
     const st = stats.stats[n.id] || null;
     return { id: n.id, name_he: n.name_he, layer: n.layer, kind: n.kind, from: n.from || [], trigger: n.trigger || null, conditions: n.conditions || [], templates: n.templates || [],
       audience: n.audience || '', warnings: n.warnings || [], ...m, code_ref: codeRef(n.id), editable: editableFor(n.id, cfgVals),
+      added_at: n.added || firstSeen[n.id] || null, is_new: isNew(n.added || firstSeen[n.id], now),
       state: { enabled: sid ? !off[sid] : true, switch_id: sid, off: sid ? off[sid] : null, last_run_at: st ? st.last_started_at : null, runs_24h: st ? st.runs_24h : 0, by_status_24h: st ? st.by_status : {}, next_fire: nextFire(n, new Date(now)) } };
   });
   return { ok: true, at: new Date(now).toISOString(), ledger_source: stats.source, kill_switches: KILL_SWITCH_IDS, code_snapshot: { at: CODE.generated_at, git: CODE.git }, nodes };
@@ -777,7 +782,10 @@ export async function toggle(env, d, b, now = Date.now()) {
   const msg = `${b.enabled ? '🟢 הופעל' : '🔴 כובה'} · ${BY_ID[sid].name_he} (${sid})${reason ? ' · ' + reason : ''}${!b.enabled ? ` · נעצרות ${radius.messages_next_days.total} הודעות ב-7 ימים, ${radius.events_affected.length} אירועים` : ''}`;
   await d.auditRecord(env, { kind: 'admin', area: 'מרכז בקרה', action: msg, ok: true, review: !b.enabled, data: { switch: sid, enabled: b.enabled, before, who, reason, blast: b.enabled ? null : { messages: radius.messages_next_days.total, events: radius.events_affected.length } } }).catch(() => {});
   await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg}`).catch(() => {});
-  return { status: 200, body: { ...base, applied: true, enabled_now: b.enabled } };
+  const chg = await recordChange(env, { kind: 'toggle', who, summary_he: `${b.enabled ? 'הופעל' : 'כובה'}: ${BY_ID[sid].name_he} (${sid})${reason ? ' · ' + reason : ''}`,
+    details: { switch: sid, id, enabled: b.enabled, before_off: before, who, reason, reverts: b.reverts || null, blast: b.enabled ? null : { messages: radius.messages_next_days.total, events: radius.events_affected.length } },
+    revert: { possible: true, how: 'toggle', payload: { id: sid, enabled: !b.enabled } } }, now);
+  return { status: 200, body: { ...base, applied: true, enabled_now: b.enabled, change_id: chg ? chg.id : null } };
 }
 
 /* ── edit-in-place (cfg.js) ──────────────────────────────────────────────── */
@@ -814,7 +822,60 @@ export async function editSetting(env, d, b, now = Date.now()) {
   const msg = `✏️ ${s.he}${field && s.per ? ' · ' + field.slice(0, 8) : ''}: ${show(w.before)} → ${show(w.after)}${reason ? ' · ' + reason : ''}`;
   await d.auditRecord(env, { kind: 'admin', area: 'מרכז בקרה', action: msg, ok: true, review: true, data: { setting: id, field, before: w.before, after: w.after, who, reason, blast: radius.effects } }).catch(() => {});
   await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg} · ${who}`).catch(() => {});
-  return { status: 200, body: { ...base, applied: true } };
+  const chg = await recordChange(env, { kind: s.per ? 'hold' : 'edit', who, summary_he: msg.replace(/^✏️ /, ''),
+    details: { setting: id, field, from: w.before, to: w.after, who, reason, reverts: b.reverts || null, blast: radius.effects },
+    revert: { possible: true, how: 'edit', payload: { id, field, value: w.before } } }, now);
+  return { status: 200, body: { ...base, applied: true, change_id: chg ? chg.id : null } };
+}
+
+/* ── change log revert ───────────────────────────────────────────────────── */
+/* POST /api/ops/revert {id, confirm, who}. Without the typed confirm: a preview (what would happen).
+   The confirm is `revert:<id>`, or `rollback:<previous version id>` for a deploy. Reverting an edit
+   back to noa_chase "on" still needs Richard's own word (cfg.js rule), never the generic one. */
+export async function revertChange(env, d, b, now = Date.now(), { fetchFn = fetch } = {}) {
+  const id = String(b.id || '');
+  const e = await getChange(env, id);
+  if (!e) return { status: 404, body: { ok: false, error: 'unknown-change' } };
+  if (!e.revert || !e.revert.possible) return { status: 409, body: { ok: false, error: 'not-revertible', change: e } };
+  if (e.reverted_at) return { status: 409, body: { ok: false, error: 'already-reverted', reverted_at: e.reverted_at, reverted_by: e.reverted_by } };
+  const p = e.revert.payload || {};
+  const who = String(b.who || 'admin').slice(0, 40);
+  let word = revertWord(e);
+  if (e.revert.how === 'edit' && p.id === 'noa_chase' && p.value === 'on') word = NOA_CHASE_ON_CONFIRM;
+  const preview = e.revert.how === 'edit' ? { setting: p.id, field: p.field || '', back_to: p.value, now: (e.details || {}).to }
+    : e.revert.how === 'toggle' ? (p.pause !== undefined ? { pause: p.pause } : { switch: p.id, enabled: p.enabled })
+    : { version_id: p.version_id, from_version: p.from_version || null, command: `cd worker && npx wrangler rollback ${p.version_id} --name ${p.script || 'ishur-webhooks'}`, api: !!(env.CF_API_TOKEN && env.CF_ACCOUNT_ID) };
+  const base = { ok: true, id, how: e.revert.how, preview, confirm_required: word };
+  if (b.confirm !== word) return { status: 200, body: { ...base, applied: false, he: `כדי לשחזר, לשלוח שוב עם confirm: "${word}"` } };
+  const reason = `שחזור ${id}`;
+  let r = null, newId = null;
+  if (e.revert.how === 'edit') {
+    const v = validateEdit(p.id, p.field || '', p.value, null);
+    if (!v.ok) return { status: 409, body: { ok: false, error: 'previous-value-invalid-now', why: v.why } };
+    r = await editSetting(env, d, { id: p.id, field: p.field || '', value: p.value, confirm: confirmWord(p.id, v.value), who, reason, reverts: id }, now);
+    if (r.body && r.body.applied) newId = r.body.change_id;
+    else return { status: r.status || 409, body: { ok: false, error: 'edit-not-applied', result: r.body } };
+  } else if (e.revert.how === 'toggle' && p.pause !== undefined) {
+    if (p.pause) await env.RATE.put('paused', new Date(now).toISOString());
+    else { await env.RATE.delete('paused'); await env.RATE.put('pacer:pending', d.ilDate(new Date(now)), { expirationTtl: 2 * 86400 }).catch(() => {}); }
+    await d.slackPost(env, `🎛️ *מרכז בקרה* · שחזור: ${p.pause ? '⏸️ כל השליחות הושהו' : '▶️ השליחות חזרו לפעול'} · ${who}`).catch(() => {});
+    const c = await recordChange(env, { kind: 'pause', who, summary_he: `${p.pause ? 'עצירה כללית הופעלה' : 'עצירה כללית בוטלה'} (שחזור)`, details: { paused: p.pause, reverts: id, who }, revert: { possible: true, how: 'toggle', payload: { pause: !p.pause } } }, now);
+    newId = c ? c.id : null; r = { body: { paused: p.pause } };
+  } else if (e.revert.how === 'toggle') {
+    r = await toggle(env, d, { id: p.id, enabled: !!p.enabled, confirm: p.id, who, reason, reverts: id }, now);
+    if (r.body && r.body.applied) newId = r.body.change_id;
+    else return { status: r.status || 409, body: { ok: false, error: 'toggle-not-applied', result: r.body } };
+  } else if (e.revert.how === 'rollback') {
+    const api = await cfRollback(env, p.version_id, { message: `ops center rollback ${id} by ${who}`, fetchFn });
+    if (!api.ok) return { status: 200, body: { ...base, applied: false, manual: true, api, he: api.manual ? 'אין CF_API_TOKEN בוורקר: להריץ את הפקודה במחשב' : 'Cloudflare סירב: להריץ את הפקודה במחשב', command: preview.command } };
+    await d.auditRecord(env, { kind: 'admin', area: 'בנייה', action: `↩️ שחזור גרסה ל-${String(p.version_id).slice(0, 8)} (מרכז בקרה)`, ok: true, review: true, data: { change: id, version_id: p.version_id, who } }).catch(() => {});
+    await d.slackPost(env, `🎛️ *מרכז בקרה* · ↩️ הוורקר הוחזר לגרסה ${String(p.version_id).slice(0, 8)} · ${who}`).catch(() => {});
+    const c = await recordChange(env, { kind: 'revert', who, summary_he: `הוורקר הוחזר לגרסה ${String(p.version_id).slice(0, 8)}`, details: { reverts: id, version_id: p.version_id, from_version: p.from_version || null, deployment_id: api.deployment_id },
+      revert: p.from_version ? { possible: true, how: 'rollback', payload: { version_id: p.from_version, script: p.script, from_version: p.version_id } } : null }, now);
+    newId = c ? c.id : null; r = { body: api };
+  }
+  await markReverted(env, e, newId, now);
+  return { status: 200, body: { ...base, applied: true, revert_change_id: newId, result: r && r.body } };
 }
 
 /* ── live / runs ─────────────────────────────────────────────────────────── */
@@ -905,7 +966,17 @@ export async function handleOps(request, env, origin, url, d) {
         if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
         const r = await editSetting(env, d, body); return json(r.body, r.status);
       }
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit'] }, 404);
+      case 'changes': {
+        const actor = String(q('actor') || '');
+        if (actor && !ACTORS.includes(actor)) return json({ ok: false, error: 'bad-actor', actors: ACTORS }, 400);
+        const r = await listChanges(env, { from: q('from') || '', to: q('to') || '', kind: q('kind') || '', actor, cursor: q('cursor') || '', limit: Number(q('limit')) || 100 });
+        return json({ ok: true, kinds: KINDS, actors: ACTORS, ...r });
+      }
+      case 'revert': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await revertChange(env, d, body); return json(r.body, r.status);
+      }
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);
