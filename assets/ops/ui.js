@@ -1,6 +1,6 @@
 /* ishur ops · component kit. Renderers return HTML strings (testable in plain node);
    behaviour is attached by delegation in init() so re-rendering never leaks listeners.
-   No native <select>, checkbox, alert/confirm/prompt anywhere. */
+   No native select elements, checkboxes or browser alert dialogs anywhere. */
 
 const ESC = { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' };
 export const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ESC[c]);

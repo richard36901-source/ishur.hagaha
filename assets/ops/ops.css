@@ -238,7 +238,6 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font)}
 @keyframes pop{from{opacity:0;transform:scale(.97)}}
 @keyframes slide-in{from{transform:translateX(-100%)}}
 @keyframes slide-out{to{transform:translateX(-100%)}}
-[dir=ltr] .drawer{animation-name:slide-in-ltr}
 @keyframes pulse{0%{box-shadow:0 0 0 0 color-mix(in srgb,var(--good) 60%,transparent)}100%{box-shadow:0 0 0 7px transparent}}
 @keyframes blink{50%{opacity:0}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important}}

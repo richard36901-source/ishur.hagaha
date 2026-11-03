@@ -130,7 +130,7 @@ async function mockApi(name, body) {
     mockState.off[body.id] = body.enabled ? { enabled: true } : { enabled: false, disabled_by: 'richard', disabled_at: now, reason: body.reason || 'כובה מלוח הבקרה' };
     return { ok: true, state: mockState.off[body.id] };
   }
-  if (name === 'edit') return { ok: true, fixture: true, saved: body };
+  if (['edit', 'brain-decision'].includes(name)) return { ok: true, fixture: true, saved: body };
   return fixture(name);
 }
 
@@ -158,12 +158,11 @@ export const ROUTES = [
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
 ];
 const screens = {};
-const loadScreen = (id) => (screens[id] = screens[id] || import(`./screens/${id}.js?v=${VER}`).then((m) => m.default));
-const keep = (h) => h + (MOCK ? '' : '');
+const loadScreen = (id) => (screens[id] = screens[id] || import(`./screens/${id}.js`).then((m) => m.default));
 export const href = (path) => '#/' + path;
 
 let current = null;
-function parseHash() { const [id, ...rest] = (location.hash.replace(/^#\/?/, '') || 'overview').split('/'); return { id: ROUTES.some((r) => r.id === id) ? id : 'overview', arg: rest.length ? decodeURIComponent(rest.join('/')) : null }; }
+function parseHash() { const [id, ...rest] = (location.hash.replace(/^#\/?/, '').split('?')[0] || 'overview').split('/'); return { id: ROUTES.some((r) => r.id === id) ? id : 'overview', arg: rest.length ? decodeURIComponent(rest.join('/')) : null }; }
 
 async function route() {
   const { id, arg } = parseHash();
@@ -171,7 +170,6 @@ async function route() {
   if (current && current.id === id && current.screen.onArg) { current.arg = arg; current.screen.onArg(arg, current.ctx); return; }
   if (current) { current.ctx.dispose(); }
   const r = ROUTES.find((x) => x.id === id);
-  document.querySelectorAll('.nav a[data-r]').forEach((a) => a.toggleAttribute('aria-current', a.dataset.r === id) || a.removeAttribute('aria-current'));
   document.querySelectorAll('.nav a[data-r]').forEach((a) => { if (a.dataset.r === id) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
   $('#title').textContent = r.he;
   document.title = r.he + ' · מרכז שליטה · ishur.io';
@@ -181,6 +179,7 @@ async function route() {
   const ctx = {
     id, arg, api, poll: (fn, ms) => { const p = poll(fn, ms); disposers.push(() => p.stop()); return p; },
     on: (el, ev, fn) => { el.addEventListener(ev, fn); disposers.push(() => el.removeEventListener(ev, fn)); },
+    onDispose: (fn) => disposers.push(fn),
     dispose: () => { disposers.splice(0).forEach((f) => f()); Drawer.close(true); },
     nav: (p) => { location.hash = '#/' + p; }, toast, page, MOCK,
     errorBox, setBadge,
@@ -222,7 +221,7 @@ async function mountSide() {
   const m = await loadScreen('live');
   sideFeed = m.feed($('#side-feed'), { compact: true });
   /* first live fetch waits for the page's own data so load stays at ≤3 requests */
-  setTimeout(() => sideFeed.start(), 2500);
+  setTimeout(() => sideFeed && sideFeed.start((n, b) => api.get(n, b, { cache: false })), 2500);
 }
 function toggleSide() {
   const shell = $('.shell'), off = !shell.classList.contains('side-off');
