@@ -151,13 +151,28 @@ window.ISHUR_CONFIG = (function () {
     /* 01/11: winter deal — the same ₪1,990 all the way up to 800 records */
     /* anyPlan: whatever package they tick, with hostesses the price is capped at
        the bundle total and they get הכל כלול for it (Richard 01/11) */
-    winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'הכל כלול + 2 דיילות עד 800 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
-    winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, label: 'הכל כלול + דיילת אחת עד 200 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' }
+    /* Richard 03/11 20:20 (final): with hostesses it is ALWAYS a bundle. Up to
+       700 records: 1 hostess ₪1,790, 2 hostesses ₪1,990. Above 700: 2 hostesses
+       ₪2,390, 3 hostesses ₪2,590. Mirrors worker/paylink.js BUNDLES. */
+    winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [50, 100, 200, 300, 400, 500, 600, 700], total: 1990, label: 'הכל כלול + 2 דיילות עד 700 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
+    winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300, 400, 500, 600, 700], total: 1790, label: 'הכל כלול + דיילת אחת עד 700 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
+    winter2390: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [800, 900], total: 2390, label: 'הכל כלול + 2 דיילות מעל 700 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' },
+    winter2590: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 3, guests: [800, 900], total: 2590, label: 'הכל כלול + 3 דיילות מעל 700 רשומות', note: 'מבצע חורף', until: '2026-11-30T23:59:59+02:00' }
   };
   function bundleFor(key) { return (key && BUNDLES[key]) || null; }
   /* a dated bundle stops applying the second its clock runs out (Richard 01/11:
      "after it ends we really do not discount") */
   function bundleLive(b) { return !!b && (!b.until || Date.now() <= Date.parse(b.until)); }
+  /* 03/11 20:20: the live bundle for a records tier + hostess count (any plan),
+     the same order as worker/paylink.js pickBundle */
+  function bundlePick(guests, n) {
+    var g = parseInt(guests, 10), order = ['vip1990', 'winter1990', 'winter1790', 'winter2390', 'winter2590'];
+    for (var i = 0; i < order.length; i++) { var b = BUNDLES[order[i]]; if (b && bundleLive(b) && b.hostesses === n && b.guests.indexOf(g) > -1) return b; }
+    return null;
+  }
+  function bundleKeyOf(b) { for (var k in BUNDLES) if (BUNDLES[k] === b) return k; return ''; }
+  /* hostess counts per tier + their bundle price (3 only above 700) */
+  function bundleTable(guests) { return parseInt(guests, 10) > 700 ? { 2: 2390, 3: 2590 } : { 1: 1790, 2: 1990 }; }
   /* does the bundle cover what is on screen? plan + quantity in its range */
   function bundleApplies(b, guests, plan, hostess) {
     if (!b || !hostess || !bundleLive(b)) return false;
@@ -883,7 +898,7 @@ window.ISHUR_CONFIG = (function () {
     promoCheckUrl: promoCheckUrl,
     promoGoUrl: promoGoUrl,
     promoReason: promoReason,
-    offerPrice: offerPrice, BUNDLES: BUNDLES, bundleFor: bundleFor, bundleLive: bundleLive, bundleApplies: bundleApplies,
+    offerPrice: offerPrice, BUNDLES: BUNDLES, bundleFor: bundleFor, bundlePick: bundlePick, bundleKeyOf: bundleKeyOf, bundleTable: bundleTable, bundleLive: bundleLive, bundleApplies: bundleApplies,
 
     MAKE_LEAD_WEBHOOK: MAKE_LEAD_WEBHOOK,
     MAKE_UPLOAD_WEBHOOK: MAKE_UPLOAD_WEBHOOK,

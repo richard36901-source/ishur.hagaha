@@ -63,7 +63,10 @@ test('/api/hostess-check: 300 records → 2 hostesses; a design order carries th
   assert.equal(j.total, 1990, 'bundle total, design free'); assert.equal(j.design_price, 0);
   assert.match(hook.at(-1).cField2, /\|pkg:premium:700;design:1;host:2;/); assert.match(hook.at(-1).description, /עיצוב הזמנה במתנה/);
   j = await (await post(e, '/api/hostess-check', { design: true, date: d, city: 'תל אביב', guests: '200', plan: 'basic', link: false })).json();
-  assert.equal(j.total, 199 + 1790 + 79, 'no bundle → design ₪79 on top'); assert.equal(j.n, 1);
+  /* Richard 03/11 20:20: hostesses → always the bundle, even without ?offer=: ₪1,790, design free */
+  assert.equal(j.total, 1790, 'auto bundle, design free'); assert.equal(j.design_price, 0); assert.equal(j.n, 1); assert.equal(j.bundle.key, 'winter1790');
+  j = await (await post(e, '/api/hostess-check', { date: d, city: 'תל אביב', guests: '800', plan: 'basic', link: false })).json();
+  assert.equal(j.total, 2390, 'above 700: 2 hostesses ₪2,390'); assert.equal(j.n, 2);
 });
 
 test('inbound on 4499: flag off → the flow never answers; flag on → a new lead gets the questions', async () => {

@@ -16,17 +16,39 @@
   function travelFor(cfg, n) { return cfg.HOSTESS && cfg.HOSTESS.travelFor ? cfg.HOSTESS.travelFor(n) : (n >= 2 ? 500 : 250); }
   function tiers(cfg) { return Object.keys(cfg.PRICE_TABLE || {}).map(Number).sort(function (a, b) { return a - b; }); }
 
+  /* Richard 03/11 20:20 (final rules, same as worker/paylink.js priceQuote):
+     hostesses → ALWAYS the bundle (הכל כלול + hostesses, one price; "בלי שיחות"
+     keeps the price, plan basic). Up to 700: 1 ₪1,790 / 2 ₪1,990; above 700:
+     2 ₪2,390 / 3 ₪2,590. Design and calls inside a bundle are "כלול" ₪0. */
+  function bundleTable(cfg, records) { return cfg.bundleTable ? cfg.bundleTable(records) : (Number(records) > 700 ? { 2: 2390, 3: 2590 } : { 1: 1790, 2: 1990 }); }
+  function coerce(cfg, records, n) {
+    n = Number(n) || 0; if (!n) return { n: 0, note: '' };
+    if (bundleTable(cfg, records)[n]) return { n: n, note: '' };
+    return { n: 2, note: Number(records) > 700 ? 'מעל 700 רשומות: מינימום 2 דיילות' : '3 דיילות רק מעל 700 רשומות: עודכן ל-2' };
+  }
   function price(s, cfg) {
     var lines = [], pt = (cfg.PRICE_TABLE || {})[s.records];
-    if (!pt || !pt[s.plan]) return { lines: [], total: 0 };
+    if (!pt) return { lines: [], total: 0 };
+    var co = coerce(cfg, s.records, s.hostesses), h = co.n;
+    var b = h && cfg.bundlePick ? cfg.bundlePick(s.records, h) : null;
+    var wave = Math.ceil(RATES.msg * s.records + RATES.base);
+    if (b) {
+      var hl = h === 1 ? 'דיילת אחת' : h + ' דיילות', plan = s.no_calls ? 'basic' : 'premium';
+      lines.push({ label: s.records + ' רשומות · ' + (s.no_calls ? 'חבילה + דיילות, בלי שיחות (' + hl + ')' : 'הכל כלול + ' + hl), price: b.total });
+      if (s.design) lines.push({ label: 'עיצוב ההזמנה במתנה', price: 0, incl: true });
+      if (s.travel) lines.push({ label: 'נסיעות דיילות', price: b.travel != null ? b.travel : travelFor(cfg, h) });
+      if (s.extra_wave) lines.push({ label: 'גל תזכורת שלישי', price: wave });
+      return { lines: lines, total: lines.reduce(function (a, l) { return a + l.price; }, 0), bundle: cfg.bundleKeyOf ? cfg.bundleKeyOf(b) : 'bundle', bundleTotal: b.total, plan: plan, hostesses: h, note: co.note };
+    }
+    if (!pt[s.plan]) return { lines: [], total: 0 };
     lines.push({ label: s.records + ' רשומות ' + PLAN_HE[s.plan], price: pt[s.plan] });
     if (s.design) lines.push({ label: 'עיצוב הזמנה', price: cfg.DESIGN_PRICE || 79 });
     var hp = hostessPrices(cfg);
-    if (s.hostesses && hp[s.hostesses]) lines.push({ label: s.hostesses === 1 ? 'דיילת אחת' : s.hostesses + ' דיילות', price: hp[s.hostesses] });
-    if (s.travel && s.hostesses) lines.push({ label: 'נסיעות דיילות', price: travelFor(cfg, s.hostesses) });
-    if (s.extra_wave) lines.push({ label: 'גל תזכורת שלישי', price: Math.ceil(RATES.msg * s.records + RATES.base) });
+    if (h && hp[h]) lines.push({ label: h === 1 ? 'דיילת אחת' : h + ' דיילות', price: hp[h] });
+    if (s.travel && h) lines.push({ label: 'נסיעות דיילות', price: travelFor(cfg, h) });
+    if (s.extra_wave) lines.push({ label: 'גל תזכורת שלישי', price: wave });
     if (s.calls && !CALLS_INCLUDED[s.plan]) lines.push({ label: 'שיחות AI למי שלא ענה', price: Math.ceil(RATES.call * s.records + RATES.base) });
-    return { lines: lines, total: lines.reduce(function (a, l) { return a + l.price; }, 0) };
+    return { lines: lines, total: lines.reduce(function (a, l) { return a + l.price; }, 0), plan: s.plan, hostesses: h, note: co.note };
   }
   function phoneOk(p) { var d = String(p || '').replace(/\D/g, ''); return /^05\d{8}$/.test(d) || /^9725\d{8}$/.test(d); }
   function problems(s) {
@@ -64,9 +86,11 @@
   function render(s, cfg) {
     var pr = price(s, cfg), hp = hostessPrices(cfg), recs = tiers(cfg);
     var occ = (cfg.OCCASIONS || []).map(function (o) { return { v: o.value, t: o.label }; });
+    var bt = bundleTable(cfg, s.records), big = Number(s.records) > 700;
     var hostOpts = [0, 1, 2, 3].map(function (n) {
-      return { v: n, t: n === 0 ? 'בלי דיילות' : (n === 1 ? 'דיילת אחת' : n + ' דיילות') + (hp[n] ? ' · ' + money(hp[n]) : ' · לא מתומחר'), off: n > 0 && !hp[n] };
+      return { v: n, t: n === 0 ? 'בלי דיילות' : (n === 1 ? 'דיילת אחת' : n + ' דיילות') + (bt[n] ? ' · הכל כלול ' + money(bt[n]) : (n === 3 ? ' · רק מעל 700 רשומות' : ' · מעל 700 מינימום 2')), off: n > 0 && !bt[n] };
     });
+    var inB = !!pr.bundle;
     var miss = problems(s);
     var wave = Math.ceil(RATES.msg * s.records + RATES.base), callsP = Math.ceil(RATES.call * s.records + RATES.base);
     return '<div class="plg">' +
@@ -74,14 +98,17 @@
       field('טלפון *', '<input data-in="phone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" value="' + esc(s.phone) + '">') +
       dd('occasion', 'סוג אירוע *', s.occasion, occ, s.open === 'occasion') +
       field('תאריך האירוע (לא חובה)', '<input data-in="event_date" type="date" value="' + esc(s.event_date) + '">') +
-      dd('plan', 'חבילה', s.plan, ['basic', 'pro', 'premium'].map(function (k) { return { v: k, t: PLAN_HE[k] }; }), s.open === 'plan') +
+      (inB ? '<div class="plg-f"><span class="lbl">חבילה</span><div class="plg-list">' + tg('no_calls', 'בלי שיחות בכלל (אותו מחיר, חבילת בסיס)', s.no_calls, s.no_calls ? 'חבילה + דיילות' : 'הכל כלול') + '</div></div>'
+        : dd('plan', 'חבילה', s.plan, ['basic', 'pro', 'premium'].map(function (k) { return { v: k, t: PLAN_HE[k] }; }), s.open === 'plan')) +
       dd('records', 'רשומות', s.records, recs.map(function (n) { return { v: n, t: 'עד ' + n + ' רשומות' }; }), s.open === 'records') +
       '<div class="plg-f"><span class="lbl">תוספות</span><div class="plg-list">' +
-        '<div class="plg-li">' + dd('hostesses', 'דיילות באירוע', s.hostesses, hostOpts, s.open === 'hostesses') + '<b>' + (s.hostesses && hp[s.hostesses] ? money(hp[s.hostesses]) : '') + '</b></div>' +
-        tg('design', 'עיצוב הזמנה', s.design, money(cfg.DESIGN_PRICE || 79)) +
-        tg('travel', 'נסיעות (מחוץ למרכז)', s.travel && s.hostesses, s.hostesses ? money(travelFor(cfg, s.hostesses)) : 'רק עם דיילות', !s.hostesses) +
+        '<div class="plg-li">' + dd('hostesses', 'דיילות באירוע', s.hostesses, hostOpts, s.open === 'hostesses') + '<b>' + (inB ? money(pr.bundleTotal) : (s.hostesses && hp[s.hostesses] ? money(hp[s.hostesses]) : '')) + '</b></div>' +
+        (pr.note ? '<div class="plg-li"><span class="plg-miss">' + esc(pr.note) + '</span></div>' : '') +
+        tg('design', inB ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה', s.design, inB ? 'כלול · ' + money(0) : money(cfg.DESIGN_PRICE || 79)) +
+        tg('travel', 'נסיעות (מחוץ למרכז)', s.travel && s.hostesses, s.hostesses ? money(inB && cfg.bundlePick(s.records, pr.hostesses).travel != null ? cfg.bundlePick(s.records, pr.hostesses).travel : travelFor(cfg, pr.hostesses || s.hostesses)) : 'רק עם דיילות', !s.hostesses) +
         tg('extra_wave', 'גל תזכורת שלישי', s.extra_wave, money(wave)) +
-        tg('calls', 'סבב שיחות AI', s.calls && !CALLS_INCLUDED[s.plan], CALLS_INCLUDED[s.plan] ? 'כלול בחבילה' : money(callsP), !!CALLS_INCLUDED[s.plan]) +
+        (inB ? (s.no_calls ? '' : tg('calls', 'סבב שיחות AI', false, 'כלול · ' + money(0), true))
+          : tg('calls', 'סבב שיחות AI', s.calls && !CALLS_INCLUDED[s.plan], CALLS_INCLUDED[s.plan] ? 'כלול בחבילה' : money(callsP), !!CALLS_INCLUDED[s.plan])) +
       '</div></div>' +
       '<div class="plg-sum">' + pr.lines.map(function (l) { return '<div><span>' + esc(l.label) + '</span><span>' + money(l.price) + '</span></div>'; }).join('') +
         '<div class="tot"><span>סה"כ</span><span>' + money(pr.total) + '</span></div>' +
@@ -123,10 +150,13 @@
     '.plg-saved{border-top:1px solid var(--ln);padding-top:1rem}.plg-saved h3{font-size:.95rem;margin:0 0 .5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:baseline}.plg-saved h3 span{font-size:.72rem;font-weight:500;color:var(--ink3,#7F8C86)}' +
     '.plg-card .lk{border-radius:12px;border-inline-start-width:4px}.plg-card .lk input{height:36px;border-radius:8px}';
 
-  function fresh() { return { plan: 'basic', records: 100, hostesses: 0, design: false, travel: false, extra_wave: false, calls: false, name: '', phone: '', occasion: '', event_date: '', open: '', busy: false, url: '', err: '' }; }
-  function payload(s) {
-    return { plan: s.plan, records: Number(s.records), name: String(s.name).trim(), phone: String(s.phone).trim(), occasion: s.occasion, event_date: s.event_date || '',
-      addons: { design: !!s.design, hostesses: Number(s.hostesses) || 0, travel: !!(s.travel && s.hostesses), extra_wave: !!s.extra_wave, calls: !!(s.calls && !CALLS_INCLUDED[s.plan]) } };
+  function fresh() { return { plan: 'basic', records: 100, hostesses: 0, no_calls: false, design: false, travel: false, extra_wave: false, calls: false, name: '', phone: '', occasion: '', event_date: '', open: '', busy: false, url: '', err: '' }; }
+  function payload(s, cfg) {
+    cfg = cfg || root.ISHUR_CONFIG || {};
+    var pr = price(s, cfg), h = pr.hostesses != null ? pr.hostesses : (Number(s.hostesses) || 0), plan = pr.bundle ? pr.plan : s.plan;
+    return { plan: plan, records: Number(s.records), name: String(s.name).trim(), phone: String(s.phone).trim(), occasion: s.occasion, event_date: s.event_date || '',
+      no_calls: !!(pr.bundle && s.no_calls),
+      addons: { design: !!s.design, hostesses: h, travel: !!(s.travel && h), extra_wave: !!s.extra_wave, calls: !!(!pr.bundle && s.calls && !CALLS_INCLUDED[plan]) } };
   }
 
   function mount(id, key) {
@@ -144,7 +174,7 @@
       if (b.dataset.set) {
         var k = b.dataset.set, v = b.dataset.v;
         s[k] = (k === 'records' || k === 'hostesses') ? Number(v) : v;
-        if (k === 'hostesses' && !s.hostesses) s.travel = false;
+        if (k === 'hostesses' && !s.hostesses) { s.travel = false; s.no_calls = false; }
         s.open = ''; changed(); draw(); return;
       }
       if (b.dataset.tg) { s[b.dataset.tg] = !s[b.dataset.tg]; changed(); draw(); return; }
@@ -156,7 +186,7 @@
       if (b.dataset.plg === 'make') {
         if (problems(s).length) return;
         s.busy = true; s.err = ''; draw();
-        var body = Object.assign({ admin_key: key }, payload(s));
+        var body = Object.assign({ admin_key: key }, payload(s, cfg));
         root.fetch(BASE + '/api/pay-link', { method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(root.IshurGuard ? root.IshurGuard.stamp(body) : body) })
           .then(function (r) { return r.json().catch(function () { return { ok: false, why: 'http-' + r.status }; }); })
@@ -180,7 +210,7 @@
     draw();
   }
 
-  var api = { mount: mount, render: render, price: price, problems: problems, payload: payload, waText: waText, waHref: waHref, fresh: fresh };
+  var api = { mount: mount, render: render, price: price, coerce: coerce, problems: problems, payload: payload, waText: waText, waHref: waHref, fresh: fresh };
   root.IshurPayLinkGen = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

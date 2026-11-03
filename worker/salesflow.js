@@ -18,7 +18,7 @@
      · "ריצארד" / "נציג" / "תתקשרו אליי" / a question we cannot read → stop,
        Slack "ליד מבקש אדם", reply once
    ========================================================================== */
-import { priceQuote, recommendPlan, fallbackPlan, hostessesFor, tierFor, siteLink, pickBundle, bundleLive, BUNDLES, BUNDLE_CAP, PLAN_HE, PKG_PRICES, HOSTESS_PRICE, DESIGN_PRICE } from './paylink.js';
+import { priceQuote, recommendPlan, fallbackPlan, hostessesFor, tierFor, siteLink, pickBundle, bundleLive, bundleTable, BUNDLES, BUNDLE_NO_CALLS, PLAN_HE, PKG_PRICES, HOSTESS_PRICE, DESIGN_PRICE } from './paylink.js';
 import { clientHoursOpen } from './brain.js';
 
 export const SF_PREFIX = 'sf:';
@@ -146,7 +146,7 @@ export function offerText(q, link, { calls_rounds = 0, fallback = false, proof =
   if (q.bundle) {
     const b = BUNDLES[q.bundle] || {};
     const deal = /^winter/.test(q.bundle) ? 'מבצע החורף' : 'המבצע';
-    const what = `${PLAN_HE[q.plan]} + ${q.hostesses === 1 ? 'דיילת אחת' : q.hostesses + ' דיילות'}`;
+    const what = q.no_calls ? `${BUNDLE_NO_CALLS} (${q.hostesses === 1 ? 'דיילת אחת' : q.hostesses + ' דיילות'})` : `${PLAN_HE[q.plan]} + ${q.hostesses === 1 ? 'דיילת אחת' : q.hostesses + ' דיילות'}`;
     /* price last, with the bundle label; the end date only when config has one */
     const price = `לפי מה שבחרתם, הכי משתלם לכם ${deal}: ${what} ב-${nis(q.sum)}.` + (q.design ? '\nועיצוב ההזמנה במתנה 🎁' : '') +
       (b.until ? '\n' + OFFER_COPY.urgency(deal, ddmm(b.until)) : '');
@@ -305,8 +305,9 @@ export function priceAnswer(kind, guests) {
   if (kind === 'design') return `עיצוב הזמנה: ${nis(DESIGN_PRICE)}.`;
   if (kind === 'hostess') {
     if (!tier) return `דיילת אחת: ${nis(HOSTESS_PRICE[1])} (מ-300 רשומות ומעלה 2 דיילות: ${nis(HOSTESS_PRICE[2])}).`;
+    /* 03/11 20:20: hostesses come as the bundle (הכל כלול + hostesses, one price) */
     const n = hostessesFor(tier, true);
-    return `${n === 1 ? 'דיילת אחת' : n + ' דיילות'} ${rec}: ${nis(HOSTESS_PRICE[n])}.`;
+    return `${n === 1 ? 'דיילת אחת' : n + ' דיילות'} ${rec}: ${nis(bundleTable(tier)[n])}.`;
   }
   return null;
 }
@@ -388,14 +389,13 @@ export function buildOffer(st, { fallback = false, now = Date.now(), proof = 0 }
   const design = !!st.design;
   /* hostesses wanted → the live bundle is the offer (top plan, design free) */
   const bundle = hostesses ? pickBundle(records, hostesses, now) : '';
-  /* while the bundles run, an offer never goes above ₪1,990: hostesses with no
-     bundle for that size (900 records) is a quote for a person */
+  /* while the bundles run, hostesses with no bundle for that size is a quote for a person */
   if (hostesses && !bundle && anyBundleLive(now)) return { ok: false, why: 'no-bundle' };
   const plan = bundle ? BUNDLES[bundle].plan : fallback ? fallbackPlan(a) : recommendPlan(a);
   const pq = priceQuote({ plan, records, bundle, now, phone: st.phone, name: safeName.length >= 2 ? safeName : 'לקוח ishur', occasion: st.occasion || '', event_date: a.date || '', addons: { hostesses, design } });
   if (!pq.ok) return { ok: false, why: pq.why };
   const q = pq.quote;
-  if (anyBundleLive(now) && q.sum > BUNDLE_CAP) return { ok: false, why: 'over-cap' };
+  if (q.bundle && q.sum > BUNDLES[q.bundle].total) return { ok: false, why: 'over-cap' };
   const link = siteLink({ bundle, plan, records, hostesses, design, calls_rounds: bundle ? 0 : a.calls_rounds, occasion: st.occasion, event_date: a.date, city: a.city, name: safeName, phone: st.phone, src: 'noa' });
   return { ok: true, quote: q, link, text: offerText(q, link, { calls_rounds: a.calls_rounds, fallback, proof }) };
 }

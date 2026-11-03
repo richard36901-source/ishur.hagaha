@@ -29,8 +29,8 @@ export const qcTotal = (q, cfg, G) => priceOf(q, cfg, G).total;
 const addPrice = (q, cfg, G, patch) => priceOf({ ...q, hostesses: 0, design: false, calls: false, extra_wave: false, ...patch }, cfg, G).total - priceOf({ ...q, hostesses: 0, design: false, calls: false, extra_wave: false }, cfg, G).total;
 export function suggested(lead, q, url) {
   const first = (lead.name || '').split(' ')[0];
-  const extras = [q.hostesses ? (q.hostesses === 1 ? 'דיילת' : q.hostesses + ' דיילות') : '', q.design ? 'עיצוב הזמנה' : '', q.extra_wave ? 'גל תזכורת נוסף' : ''].filter(Boolean);
-  return `היי${first ? ' ' + first : ''}, בהמשך לשיחה שלנו, זה הקישור לתשלום על ${PLAN_HE[q.plan] || q.plan} עד ${q.records} רשומות${extras.length ? ' + ' + extras.join(' + ') : ''}:\n${url}\nמיד אחרי התשלום מגיע קישור להעלאת הרשימה.`;
+  const extras = [q.hostesses ? (q.hostesses === 1 ? 'דיילת' : q.hostesses + ' דיילות') : '', q.design ? (q.hostesses ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה') : '', q.extra_wave ? 'גל תזכורת נוסף' : ''].filter(Boolean);
+  return `היי${first ? ' ' + first : ''}, בהמשך לשיחה שלנו, זה הקישור לתשלום על ${q.hostesses ? 'הכל כלול' : PLAN_HE[q.plan] || q.plan} עד ${q.records} רשומות${extras.length ? ' + ' + extras.join(' + ') : ''}:\n${url}\nמיד אחרי התשלום מגיע קישור להעלאת הרשימה.`;
 }
 
 const row = (label, field, id = '') => `<div class="f-row"><label class="f-l"${id ? ` for="${id}"` : ''}>${esc(label)}</label><div class="f-v">${field}</div></div>`;
@@ -38,9 +38,9 @@ const ro = (v) => `<div class="f-ro" dir="auto">${esc(v || '—')}</div>`;
 const tg = (k, label, on, price, disabled = false) => `<button type="button" class="ck-row" role="checkbox" aria-checked="${on && !disabled ? 'true' : 'false'}" data-act="qc-tg" data-k="${k}"${disabled ? ' aria-disabled="true"' : ''}><span class="ck" aria-hidden="true"><span>${on && !disabled ? '✓' : ''}</span></span><span class="lbl">${esc(label)}</span><span class="price num">${price}</span></button>`;
 
 export function qcView(q, lead, cfg, G, { now = Date.now() } = {}) {
-  const ts = tiers(cfg), hp = {}; ((cfg.HOSTESS && cfg.HOSTESS.tiers) || []).forEach((t) => (hp[t.count] = t.price));
-  const callsP = addPrice(q, cfg, G, { calls: true }), total = qcTotal(q, cfg, G), quiet = quietHours(now);
-  const hostSeg = `<div class="seg qc-host" role="radiogroup" aria-label="דיילות">${[0, 1, 2].map((n) => `<button type="button" role="radio" data-act="qc-host" data-n="${n}" aria-checked="${q.hostesses === n}" aria-selected="${q.hostesses === n}"${n && !hp[n] ? ' aria-disabled="true"' : ''}>${n === 0 ? 'בלי' : n === 1 ? 'דיילת' : '2 דיילות'}</button>`).join('')}</div>`;
+  const ts = tiers(cfg), bt = cfg.bundleTable(q.records), pr = priceOf(q, cfg, G), inB = !!pr.bundle;
+  const callsP = !inB && addPrice(q, cfg, G, { calls: true }), total = pr.total, quiet = quietHours(now);
+  const hostSeg = `<div class="seg qc-host" role="radiogroup" aria-label="דיילות">${[0, ...Object.keys(bt)].map((n) => `<button type="button" role="radio" data-act="qc-host" data-n="${n}" aria-checked="${pr.hostesses == n}" aria-selected="${pr.hostesses == n}">${n == 0 ? 'בלי' : n == 1 ? 'דיילת' : n + ' דיילות'}</button>`).join('')}</div>`;
   let out = `<section class="crm-sec qc" id="qc" aria-label="סגירה מהירה"><div class="sec-h"><h3 class="h2">סגירה מהירה</h3><span class="sp"></span>${lead.window_open ? '<span class="badge good"><span aria-hidden="true">●</span>בחלון 24 שעות</span>' : '<span class="badge warn" title="אין הודעה נכנסת ב-24 השעות האחרונות"><span aria-hidden="true">◐</span>מחוץ לחלון · תבנית</span>'}</div>
 <div class="form">
 ${row('שם הלקוח', ro(lead.name))}${row('טלפון', `<div class="f-ro mono" dir="ltr">${esc(phoneHe(lead.phone))}</div>`)}${row('סוג אירוע', ro(lead.occasion_he))}
@@ -48,8 +48,9 @@ ${row('תאריך האירוע', `<input id="qc-date" class="in" type="date" dat
 ${row('חבילה', Select({ name: 'q_plan', value: q.plan, options: ['basic', 'pro', 'premium'].map((k) => ({ value: k, label: PLAN_HE[k] + ' · ' + money(((cfg.PRICE_TABLE || {})[q.records] || {})[k]) })) }))}
 ${row('רשומות', Select({ name: 'q_records', value: q.records, options: ts.map((n) => ({ value: n, label: 'עד ' + n + ' רשומות' })) }))}
 <div class="f-row"><span class="f-l" id="qc-add-l">תוספות</span><div class="f-v checklist" role="group" aria-labelledby="qc-add-l">
-<div class="ck-row static"><span class="lbl">דיילות באירוע</span>${hostSeg}<span class="price num">${q.hostesses ? money(hp[q.hostesses]) : '—'}</span></div>
-${tg('design', 'עיצוב הזמנה', q.design, money(addPrice(q, cfg, G, { design: true })))}
+<div class="ck-row static"><span class="lbl">דיילות באירוע</span>${hostSeg}<span class="price num">${inB ? money(pr.bundleTotal) : '—'}</span></div>
+${pr.note ? `<div class="sub">${esc(pr.note)}</div>` : ''}
+${tg('design', inB ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה', q.design, inB ? 'כלול' : money(addPrice(q, cfg, G, { design: true })))}
 ${tg('calls', 'סבב שיחות AI למי שלא ענה', q.calls, callsP ? money(callsP) : 'כלול בחבילה', !callsP)}
 ${tg('extra_wave', 'גל תזכורת שלישי', q.extra_wave, money(addPrice(q, cfg, G, { extra_wave: true })))}
 </div></div>

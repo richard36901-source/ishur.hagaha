@@ -240,7 +240,7 @@ check('crm leads.drawerView', () => CL.drawerView(LD));
 const vm = await import('node:vm'); const sb = { console }; sb.window = sb; sb.globalThis = sb; vm.createContext(sb);
 vm.runInContext(readFileSync(join(ROOT, 'config.js'), 'utf8'), sb); vm.runInContext(readFileSync(join(ROOT, 'assets/paylink-gen.js'), 'utf8'), sb);
 const q0 = { ...CQ.qcState(LD.lead, sb.ISHUR_CONFIG), plan: 'basic', records: 100, design: true, hostesses: 2 };
-ok(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen) === 99 + 79 + 1990, 'quick close: basic 100 + design + 2 hostesses = ₪2,168', String(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen)));
+ok(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen) === 1990, 'quick close: basic 100 + design + 2 hostesses = bundle ₪1,990, design free (Richard 03/11 20:20)', String(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen)));
 check('crm quick.qcView', () => CQ.qcView(q0, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T10:00:00Z') }));
 const NT = CA.adaptCrm('send', CR.templates);
 ok(NT.needs_template && NT.templates.length === 3 && NT.templates[0].label, 'send: needs_template answer adapts with its templates');
@@ -563,7 +563,7 @@ if (!process.argv.includes('--no-browser')) {
     await pickSel('q_plan', 'basic'); await pickSel('q_records', '100');
     await cp.click('.drawer [data-act=qc-tg][data-k=design]'); await cp.click('.drawer [data-act=qc-host][data-n="2"]');
     const tot = await cp.$eval('.drawer [data-qc-total]', (b) => b.textContent);
-    ok(tot.replace(/[^0-9]/g, '') === '2168', 'quick close computes the live total (basic 100 + design + 2 hostesses)', tot);
+    ok(tot.replace(/[^0-9]/g, '') === '1990', 'quick close computes the live total (basic 100 + design + 2 hostesses = bundle ₪1,990)', tot);
     await cp.screenshot({ path: join(shotDir, 'lead-drawer-light.png') });
     await cp.click('.drawer [data-act=qc-make]'); await cp.waitForSelector('.drawer #qc-msg', { timeout: 5000 });
     const msg = await cp.$eval('.drawer #qc-msg', (t) => t.value);

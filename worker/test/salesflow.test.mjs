@@ -156,15 +156,16 @@ test('demo: 650 guests, 1 call round, hostesses yes, design yes → מבצע 199
   /* the Grow code still carries design so it is granted on payment */
   assert.ok(o.quote.code.includes('design:1') && o.quote.code.includes('host:2'));
 });
-test('bundles: 300 records + hostesses → 2 hostesses, vip1990; under 300 → winter1790; 900 + hostesses → a person; after 30/11 → table prices', () => {
+test('bundles: 300 records + hostesses → 2 hostesses, vip1990; under 300 → winter1790; 900 + hostesses → winter2390; after 30/11 → table prices', () => {
   const st = { phone: P, name: 'דנה', guests: 300, answers: { calls_rounds: 0, hostess: true }, design: false };
   let o = buildOffer(st, { now: NOW }); assert.equal(o.quote.bundle, 'vip1990'); assert.equal(o.quote.sum, 1990); assert.ok(o.text.includes('הכי משתלם לכם המבצע: הכל כלול + 2 דיילות ב-₪1,990.'));
   o = buildOffer({ ...st, guests: 180 }, { now: NOW }); assert.equal(o.quote.bundle, 'winter1790'); assert.equal(o.quote.hostesses, 1); assert.equal(o.quote.sum, 1790);
-  assert.equal(buildOffer({ ...st, guests: 850 }, { now: NOW }).why, 'no-bundle');
+  /* 03/11 20:20: above 700 the bundle is 2 hostesses ₪2,390 */
+  o = buildOffer({ ...st, guests: 850 }, { now: NOW }); assert.equal(o.quote.bundle, 'winter2390'); assert.equal(o.quote.hostesses, 2); assert.equal(o.quote.sum, 2390);
   const later = Date.parse('2026-12-05T08:00:00Z');
   o = buildOffer({ ...st, guests: 650 }, { now: later }); assert.equal(o.quote.bundle, undefined); assert.equal(o.quote.plan, 'basic'); assert.equal(o.quote.sum, 699 + 1990);
   assert.equal(priceQuote({ plan: 'basic', records: 200, phone: P, name: 'דנה', bundle: 'winter1790', addons: { hostesses: 1 } }).ok, true, 'paylink accepts the bundle it names');
-  assert.equal(priceQuote({ plan: 'basic', records: 300, phone: P, name: 'דנה', bundle: 'winter1990', addons: { hostesses: 2 } }).why, 'bundle-mismatch');
+  assert.equal(priceQuote({ plan: 'basic', records: 300, phone: P, name: 'דנה', bundle: 'winter1990', addons: { hostesses: 2 } }).quote.sum, 1990, '03/11 20:20: the rule picks the bundle, any plan → ₪1,990');
   assert.equal(priceQuote({ plan: 'basic', records: 400, phone: P, name: 'דנה', bundle: 'winter1990', now: later, addons: { hostesses: 2 } }).why, 'bundle-off');
 });
 

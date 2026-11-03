@@ -45,7 +45,7 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
-import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE } from './paylink.js';   /* 03/11 pay links v2 */
+import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handleSendBoard, sendBoardData } from './send-board.js';
@@ -11363,26 +11363,19 @@ const WORKER = {
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
       /* Richard 03/11 (global): hostesses wanted → under 300 records one, 300+ two (paylink.hostessesFor) */
       const n = hostessesFor(guests, true);
-      const hostessPrice = n === 1 ? 1790 : 1990;
-      /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
-         rides in from the ?offer= link; it only applies to the plan and the
-         quantities it names, otherwise the table price stands. */
-      const BUNDLES = {
-        vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
-        winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
-        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 200', until: '2026-11-30T23:59:59+02:00' },
-      };
-      const bundle0 = BUNDLES[String(b.offer || '')] || null;
-      const bundle = bundle0 && (!bundle0.until || Date.now() <= Date.parse(bundle0.until)) ? bundle0 : null;
-      /* anyPlan (01/11): any package + hostesses in range → the bundle price,
-         and the package becomes the bundle's (הכל כלול); the hostess count
-         follows the tier rule (1 up to 300), not the bundle's number */
-      /* 03/11: the bundle's hostess count must match the size rule too (300 → 2 → not winter1790) */
-      const bundleOn = !!(bundle && (bundle.anyPlan || bundle.plan === plan) && bundle.hostesses === n && bundle.guests.includes(guests));
+      const hostessPrice = HOSTESS_PRICE[n] || HOSTESS_PRICE[2];
+      /* Richard 03/11 20:20: with hostesses it is ALWAYS a bundle (paylink.js BUNDLES,
+         the single source): the ?offer= key when it covers this size + count,
+         else the live bundle for it. Design free, plan becomes הכל כלול. */
+      const bundle0 = PL_BUNDLES[String(b.offer || '')] || null;
+      const named = bundle0 && bundleLive(bundle0) && bundle0.hostesses === n && bundle0.guests.includes(guests) ? String(b.offer) : '';
+      const bundleKey = named || pickBundle(guests, n);
+      const bundle = bundleKey ? PL_BUNDLES[bundleKey] : null;
+      const bundleOn = !!bundle;
       /* 03/11: invitation design rides along — free with a bundle, ₪79 otherwise */
       const withDesign = !!b.design;
       const designPrice = withDesign && !bundleOn ? DESIGN_PRICE : 0;
-      if (bundleOn && bundle.anyPlan) plan = bundle.plan;
+      if (bundleOn) plan = bundle.plan;
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
       const travel0 = center ? 0 : (n >= 2 ? 500 : 250);
@@ -11427,12 +11420,12 @@ const WORKER = {
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
       const listTotal = PRICES[guests][plan] + hostessPrice + travel + designPrice;
-      const total = bundleOn ? Math.min(bundle.total, PRICES[guests][plan] + hostessPrice) + travel : listTotal;
+      const total = bundleOn ? bundle.total + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
          bundle keeps them and only adds its tag at the end. */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + bundleKey : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
       /* a design order carries the structured code (paylink.js) so the IPN grants it */
       const pkgCode = withDesign ? '|' + buildCode({ plan, records: guests, design: true, hostesses: n, travel: travel > 0, extra_wave: false, calls: false }) : '';
       let payUrl = '';
@@ -11456,7 +11449,7 @@ const WORKER = {
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
       return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
-        ...(bundleOn ? { bundle: { key: String(b.offer), list_total: listTotal, total } } : {}) }, origin);
+        ...(bundleOn ? { bundle: { key: bundleKey, list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before
        reminder once the template with the link is approved */

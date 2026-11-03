@@ -48,16 +48,32 @@ ok(/data-v="3" disabled/.test(hostOpen), '3 hostesses shown but disabled (no pri
 console.log('pricing');
 const s1 = { ...s0, plan: 'basic', records: 100, design: true, hostesses: 2, name: 'דנה כהן', phone: '050-1234567', occasion: 'wedding' };
 const p1 = G.price(s1, CFG);
-ok(p1.total === 99 + 79 + 1990, 'basic 100 + design + 2 hostesses = 2168', String(p1.total));
+/* Richard 03/11 20:20: hostesses → the bundle, design free */
+ok(p1.total === 1990, 'basic 100 + design + 2 hostesses = bundle ₪1,990, design free', String(p1.total));
+ok(p1.lines.some((l) => l.label === 'עיצוב ההזמנה במתנה' && l.price === 0), 'design line is "עיצוב ההזמנה במתנה" ₪0');
 const h1 = G.render(s1, CFG);
 ok(clean(h1) && !/data-plg="make"[^>]*disabled/.test(h1), 'filled form enables "צור קישור"');
-ok(h1.includes('₪2,168') || h1.includes('₪2168'), 'total shown', h1.match(/סה"כ<\/span><span>[^<]*/)?.[0]);
+ok(h1.includes('₪1,990') || h1.includes('₪1990'), 'total shown', h1.match(/סה"כ<\/span><span>[^<]*/)?.[0]);
 const s2 = { ...s1, plan: 'premium', records: 300, design: false, hostesses: 1, travel: true, extra_wave: true, calls: true };
-ok(G.price(s2, CFG).total === 449 + 1790 + 250 + 110, 'premium 300 + 1 hostess + travel + wave, calls included = 2599', String(G.price(s2, CFG).total));
-ok(/כלול בחבילה/.test(G.render(s2, CFG)), 'calls toggle says included for premium');
-const pl = G.payload(s2);
+ok(G.price(s2, CFG).total === 1790 + 250 + 110, 'premium 300 + 1 hostess + travel + wave = bundle 1790 + winter travel 250 + wave 110 = 2150', String(G.price(s2, CFG).total));
+ok(/כלול · ₪0/.test(G.render(s2, CFG)), 'calls row says כלול ₪0 inside a bundle');
+ok(/כלול בחבילה/.test(G.render({ ...s2, hostesses: 0 }, CFG)), 'calls toggle says included for premium (no hostesses)');
+/* the screenshot case: בסיס 50 + 2 דיילות + design + calls + wave was 2,274 */
+const shot = { ...s1, plan: 'basic', records: 50, hostesses: 2, design: true, calls: true, extra_wave: false };
+ok(G.price(shot, CFG).total === 1990, 'screenshot case = ₪1,990', String(G.price(shot, CFG).total));
+ok(G.price({ ...shot, extra_wave: true }, CFG).total === 1990 + 35, 'screenshot case + third wave = ₪2,025', String(G.price({ ...shot, extra_wave: true }, CFG).total));
+ok(!G.price(shot, CFG).lines.some((l) => /שיחות AI/.test(l.label)), 'no calls add-on line inside a bundle');
+const big = G.render({ ...s0, records: 800, open: 'hostesses' }, CFG);
+ok(/data-v="1" disabled/.test(big) && !/data-v="3" disabled/.test(big), '800 records: 1 hostess off, 3 hostesses on');
+ok(G.price({ ...s1, records: 800, hostesses: 3 }, CFG).total === 2590 && G.price({ ...s1, records: 800, hostesses: 2 }, CFG).total === 2390, '800: 2 → 2390, 3 → 2590');
+const c650 = G.price({ ...s1, records: 700, hostesses: 3 }, CFG);
+ok(c650.hostesses === 2 && c650.total === 1990 && !!c650.note, '3 hostesses at 700 → coerced to 2 with a note');
+const nc = G.payload({ ...shot, no_calls: true }, CFG);
+ok(nc.plan === 'basic' && nc.no_calls === true && G.price({ ...shot, no_calls: true }, CFG).total === 1990, 'no calls: plan basic, same bundle price');
+ok(G.payload(shot, CFG).plan === 'premium' && G.payload(shot, CFG).addons.calls === false, 'bundle payload: plan premium, calls not an add-on');
+const pl = G.payload(s2, CFG);
 ok(pl.addons.calls === false && pl.addons.travel === true && pl.records === 300 && pl.phone === '050-1234567', 'payload: no calls on premium, travel kept, records numeric');
-ok(G.payload({ ...s1, travel: true, hostesses: 0 }).addons.travel === false, 'payload: travel dropped without hostesses');
+ok(G.payload({ ...s1, travel: true, hostesses: 0 }, CFG).addons.travel === false, 'payload: travel dropped without hostesses');
 ok(G.problems({ ...s1, phone: '03-1234567' }).length === 1, 'landline rejected');
 
 console.log('result + whatsapp');

@@ -36,13 +36,14 @@ const tokenOf = (e, ref) => e.RATE.m.get('grow:' + ref);
 test('priceQuote: sum from the tables, human description, machine code', () => {
   const r = priceQuote({ plan: 'basic', records: 100, addons: { design: true, hostesses: 2 }, name: 'דנה כהן', phone: '050-1234567', occasion: 'wedding' });
   assert.equal(r.ok, true);
-  assert.equal(r.quote.sum, 99 + 79 + 1990);
-  assert.equal(r.quote.description, '100 רשומות בסיס + עיצוב הזמנה + 2 דיילות');
-  assert.equal(r.quote.code, 'pkg:basic:100;design:1;host:2;travel:0;wave:0;calls:0');
+  /* Richard 03/11 20:20: hostesses → the bundle (הכל כלול + 2 דיילות ₪1,990), design free */
+  assert.equal(r.quote.sum, 1990);
+  assert.equal(r.quote.description, '100 רשומות הכל כלול כולל 2 דיילות · מבצע 1990 · הכל כלול + 2 דיילות + עיצוב ההזמנה במתנה');
+  assert.equal(r.quote.code, 'pkg:premium:100;design:1;host:2;travel:0;wave:0;calls:0');
   assert.equal(r.quote.phone, '972501234567');
   const t = priceQuote({ plan: 'premium', records: 300, addons: { hostesses: 1, travel: true, extra_wave: true, calls: true }, name: 'אבי', phone: '0521111111' });
-  /* calls are already in premium → not charged; wave = ceil(0.3*300+20)=110; travel 1 hostess = 250 */
-  assert.equal(t.quote.sum, 449 + 1790 + 250 + 110);
+  /* bundle ₪1,790 (1 hostess, up to 700); calls included; wave = ceil(0.3*300+20)=110; winter travel 250 */
+  assert.equal(t.quote.sum, 1790 + 250 + 110);
   assert.equal(t.quote.calls, false);
   assert.equal(priceQuote({ plan: 'basic', records: 200, addons: { calls: true }, name: 'אבי', phone: '0521111111' }).quote.sum, 199 + Math.ceil(2 * 200 + 20));
 });
@@ -52,7 +53,9 @@ test('priceQuote: refuses what it cannot price or trust', () => {
   assert.equal(priceQuote({ ...base, records: 150 }).why, 'bad-records');
   assert.equal(priceQuote({ ...base, phone: '12345' }).why, 'bad-phone');
   assert.equal(priceQuote({ ...base, phone: '' }).why, 'bad-phone');
-  assert.equal(priceQuote({ ...base, addons: { hostesses: 3 } }).why, 'hostesses-unpriced');
+  /* 3 hostesses only above 700 records: coerced to 2 with a note (Richard 03/11 20:20) */
+  const h3 = priceQuote({ ...base, addons: { hostesses: 3 } }).quote;
+  assert.equal(h3.hostesses, 2); assert.equal(h3.sum, 1990); assert.ok(h3.note);
   assert.equal(priceQuote({ ...base, addons: { travel: true } }).why, 'travel-without-hostesses');
   assert.equal(priceQuote({ ...base, event_date: '2026-13-40' }).why, 'bad-date');
   assert.equal(priceQuote({ ...base, sum: 1 }).quote.sum, 99, 'a client sum is ignored');
@@ -62,10 +65,10 @@ test('priceQuote: refuses what it cannot price or trust', () => {
 test('/api/pay-link structured: stores quote:<id> for 30 days and sends q:<id>|code in cField1', async () => {
   const e = env();
   const j = await (await post(e, '/api/pay-link', { admin_key: 'k', plan: 'basic', records: 100, addons: { design: true, hostesses: 2 }, name: 'דנה כהן', phone: '0501234567', occasion: 'wedding', event_date: '2026-12-20', sum: 5 })).json();
-  assert.equal(j.ok, true); assert.equal(j.url, 'https://pay.grow.link/TEST-LINK'); assert.equal(j.sum, 2168);
+  assert.equal(j.ok, true); assert.equal(j.url, 'https://pay.grow.link/TEST-LINK'); assert.equal(j.sum, 1990);
   const sent = JSON.parse(calls.find(c => c.u === 'https://hook.test/grow-link').body);
-  assert.equal(sent.sum, 2168); assert.equal(sent.cField1, `q:${j.id}|pkg:basic:100;design:1;host:2;travel:0;wave:0;calls:0`);
-  assert.equal(sent.phone, '0501234567'); assert.equal(sent.description, '100 רשומות בסיס + עיצוב הזמנה + 2 דיילות');
+  assert.equal(sent.sum, 1990); assert.equal(sent.cField1, `q:${j.id}|pkg:premium:100;design:1;host:2;travel:0;wave:0;calls:0`);
+  assert.equal(sent.phone, '0501234567'); assert.equal(sent.description, '100 רשומות הכל כלול כולל 2 דיילות · מבצע 1990 · הכל כלול + 2 דיילות + עיצוב ההזמנה במתנה');
   const q = JSON.parse(e.RATE.m.get('quote:' + j.id));
   assert.equal(q.event_date, '2026-12-20'); assert.equal(q.hostesses, 2); assert.equal(q.url, j.url);
   assert.equal((await post(e, '/api/pay-link', { admin_key: 'k', plan: 'basic', records: 100, name: 'דנה', phone: '' })).status, 400);
@@ -120,11 +123,11 @@ test('(c) a quote with 2 hostesses records them on the event; design + wave gran
   assert.equal(JSON.parse(e.RATE.m.get('design:' + token)).status, 'paid');
   assert.ok(e.RATE.m.get('extrasend:' + token));
   const paid = JSON.parse(e.RATE.m.get('paid:' + token));
-  assert.equal(paid.tier, 400); assert.equal(paid.plan, 'pro'); assert.equal(paid.hostess, 2);
+  assert.equal(paid.tier, 400); assert.equal(paid.plan, 'premium'); assert.equal(paid.hostess, 2);
   assert.equal(JSON.parse(e.RATE.m.get('quotepaid:' + j.id)).token, token);
   const close = slackTexts().find(t => t.includes('נסגר'));
   assert.ok(close, 'close line posted');
-  for (const part of ['דנה כהן', '0501234567', 'חתונה 20/12/2026', 'חבילה פרמיום', '400 רשומות', 'עיצוב הזמנה, 2 דיילות, נסיעות, גל שלישי', `₪${j.sum}`, 'dashboard.html?t=' + token, 'upload.html?t=' + token])
+  for (const part of ['דנה כהן', '0501234567', 'חתונה 20/12/2026', 'חבילה הכל כלול', '400 רשומות', 'עיצוב הזמנה, 2 דיילות, נסיעות, גל שלישי', `₪${j.sum}`, 'dashboard.html?t=' + token, 'upload.html?t=' + token])
     assert.ok(close.includes(part), 'close line has ' + part + '\n' + close);
 });
 test('quote id lost from KV: the code in cField1 alone still grants', async () => {

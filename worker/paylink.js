@@ -12,8 +12,8 @@
 export const PKG_PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
 export const RECORD_TIERS = Object.keys(PKG_PRICES).map(Number);
 export const PLAN_HE = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
-/* config.js HOSTESS.tiers: 1 hostess ₪1,790, 2 hostesses ₪1,990 (Richard 20/10:
-   "no third tier"). A count with no price here is refused, never guessed. */
+/* config.js HOSTESS.tiers list prices, used only when no bundle is live (after
+   the winter end date). A count with no price here is refused, never guessed. */
 export const HOSTESS_PRICE = { 1: 1790, 2: 1990 };
 /* config.js HOSTESS.travelFor: per booking, ₪250 for one hostess, ₪500 for two+ */
 export const travelFor = n => (n >= 2 ? 500 : 250);
@@ -24,22 +24,41 @@ export const RATES = { msg: 0.30, call: 2, base: 20 };
 const CALLS_INCLUDED = ['pro', 'premium'];
 export const OCCASION_HE = { wedding: 'חתונה', hina: 'חינה', bar: 'בר מצווה', bat: 'בת מצווה', brit: 'ברית / בריתה', bday: 'יום הולדת', chalaka: 'חלאקה', chala: 'הפרשת חלה', biz: 'אירוע עסקי', other: 'אחר' };
 
-/* config.js BUNDLES mirror (and the hostess-check route's copy). Keep in sync.
-   Richard 03/11: with hostesses the offer IS the bundle (top plan, one price,
-   never above ₪1,990) and the invitation design comes free with it. */
+/* config.js BUNDLES mirror (and the hostess-check route reads these). Keep in sync.
+   Richard 03/11 20:20 (final): with hostesses the deal IS a bundle = הכל כלול
+   (3 call rounds) + hostesses at one price, design free. Price by records:
+   up to 700 → 1 hostess ₪1,790 / 2 hostesses ₪1,990; above 700 → 2 hostesses
+   ₪2,390 / 3 hostesses ₪2,590 (3 exist only above 700). */
+const UP_TO_700 = [50, 100, 200, 300, 400, 500, 600, 700], ABOVE_700 = [800, 900];
+const WINTER_END = '2026-11-30T23:59:59+02:00';
 export const BUNDLES = {
   vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, name: 'מבצע 1990 · הכל כלול + 2 דיילות' },
-  winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, name: 'מבצע 1990 · הכל כלול + 2 דיילות', until: '2026-11-30T23:59:59+02:00' },
-  winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, name: 'מבצע 1790 · הכל כלול + דיילת אחת', until: '2026-11-30T23:59:59+02:00' },
+  winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: UP_TO_700, total: 1990, name: 'מבצע 1990 · הכל כלול + 2 דיילות', until: WINTER_END },
+  winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: UP_TO_700, total: 1790, name: 'מבצע 1790 · הכל כלול + דיילת אחת', until: WINTER_END },
+  winter2390: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: ABOVE_700, total: 2390, name: 'מבצע 2390 · הכל כלול + 2 דיילות', until: WINTER_END },
+  winter2590: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 3, guests: ABOVE_700, total: 2590, name: 'מבצע 2590 · הכל כלול + 3 דיילות', until: WINTER_END },
 };
-export const BUNDLE_CAP = 1990;
+export const BIG_FROM = 701;
+/* the hostess counts a records tier can take, and their bundle price */
+export function bundleTable(records) { return Number(records) >= BIG_FROM ? { 2: 2390, 3: 2590 } : { 1: 1790, 2: 1990 }; }
+/* a requested count → one the tier allows, with a note when it had to move */
+export function coerceHostesses(records, n) {
+  n = Number(n) || 0;
+  if (n <= 0) return { n: 0, note: '' };
+  if (bundleTable(records)[n]) return { n, note: '' };
+  if (Number(records) >= BIG_FROM) return { n: 2, note: 'מעל 700 רשומות: מינימום 2 דיילות' };
+  return { n: 2, note: '3 דיילות רק מעל 700 רשומות: עודכן ל-2' };
+}
+export const BUNDLE_CAP = 2590;
 export const bundleLive = (b, now = Date.now()) => !!b && (!b.until || now <= Date.parse(b.until));
 /* the live bundle for records + hostess count; the dated winter deals first */
 export function pickBundle(records, hostesses, now = Date.now()) {
-  const order = ['winter1990', 'winter1790', 'vip1990'];
+  const order = ['vip1990', 'winter1990', 'winter1790', 'winter2390', 'winter2590'];
   for (const k of order) { const b = BUNDLES[k]; if (bundleLive(b, now) && b.hostesses === hostesses && b.guests.includes(Number(records))) return k; }
   return '';
 }
+export const BUNDLE_NO_CALLS = 'חבילה + דיילות, בלי שיחות';
+export const DESIGN_GIFT = 'עיצוב ההזמנה במתנה';
 
 export function ilPhone(v) {
   const d = String(v || '').replace(/\D/g, '');
@@ -51,7 +70,8 @@ export function ilPhone(v) {
 /* body → { ok, quote } | { ok:false, why }. Pure; the route adds id + link. */
 export function priceQuote(b) {
   b = b || {};
-  const plan = String(b.plan || '');
+  /* no plan given: Richard's calls rule picks it (0 → basic, 1 → pro, 3 → premium) */
+  const plan = !b.plan && b.calls_rounds != null ? recommendPlan({ calls_rounds: b.calls_rounds }) : String(b.plan || '');
   if (!PLAN_HE[plan]) return { ok: false, why: 'bad-plan' };
   const records = Number(b.records);
   if (!PKG_PRICES[records]) return { ok: false, why: 'bad-records' };
@@ -63,27 +83,37 @@ export function priceQuote(b) {
   const event_date = String(b.event_date || '').trim();
   if (event_date && (!/^\d{4}-\d{2}-\d{2}$/.test(event_date) || isNaN(Date.parse(event_date + 'T00:00:00Z')))) return { ok: false, why: 'bad-date' };
   const a = b.addons || {};
-  const hostesses = a.hostesses == null ? 0 : Number(a.hostesses);
-  if (!Number.isInteger(hostesses) || hostesses < 0 || hostesses > 3) return { ok: false, why: 'bad-hostesses' };
-  if (hostesses && !HOSTESS_PRICE[hostesses]) return { ok: false, why: 'hostesses-unpriced' };
+  const h0 = a.hostesses == null ? 0 : Number(a.hostesses);
+  if (!Number.isInteger(h0) || h0 < 0 || h0 > 3) return { ok: false, why: 'bad-hostesses' };
   const travel = !!a.travel;
-  if (travel && !hostesses) return { ok: false, why: 'travel-without-hostesses' };
+  if (travel && !h0) return { ok: false, why: 'travel-without-hostesses' };
   const design = !!a.design, extra_wave = !!a.extra_wave;
-  const calls = !!a.calls && !CALLS_INCLUDED.includes(plan);
+  const now = b.now || Date.now();
+  if (b.bundle && BUNDLES[String(b.bundle)] && !bundleLive(BUNDLES[String(b.bundle)], now)) return { ok: false, why: 'bundle-off' };
 
-  /* a bundle: one agreed price for package + hostesses, design free */
-  if (b.bundle) {
-    const bk = String(b.bundle), bd = BUNDLES[bk];
-    if (!bd || !bundleLive(bd, b.now || Date.now())) return { ok: false, why: 'bundle-off' };
-    if (!bd.guests.includes(records) || hostesses !== bd.hostesses || (!bd.anyPlan && plan !== bd.plan)) return { ok: false, why: 'bundle-mismatch' };
-    if (travel || extra_wave || calls) return { ok: false, why: 'bundle-extras' };
-    const bplan = bd.plan;
-    const blines = [{ key: 'bundle', label: `${records} רשומות ${PLAN_HE[bplan]} כולל ${hostesses === 1 ? 'דיילת' : hostesses + ' דיילות'} · ${bd.name}`, price: bd.total }];
-    if (design) blines.push({ key: 'design', label: 'עיצוב הזמנה במתנה', price: 0 });
-    const code = buildCode({ plan: bplan, records, design, hostesses, travel: false, extra_wave: false, calls: false });
-    return { ok: true, quote: { plan: bplan, records, design, hostesses, travel: false, extra_wave: false, calls: false, bundle: bk, bundle_name: bd.name, name, phone, occasion, event_date,
-      lines: blines, sum: bd.total, description: blines.map(l => l.label).join(' + '), code } };
+  /* Richard 03/11 20:20: hostesses → always the bundle. הכל כלול unless the lead
+     explicitly wants no calls at all (same price, plan basic). Design free,
+     calls never an add-on; a third wave and travel may ride on top. */
+  const co = coerceHostesses(records, h0);
+  const bk = h0 ? pickBundle(records, co.n, now) : '';
+  if (bk) {
+    const bd = BUNDLES[bk], hostesses = co.n, noCalls = !!(b.no_calls || a.no_calls);
+    const bplan = noCalls ? 'basic' : bd.plan;
+    const hl = hostesses === 1 ? 'דיילת' : hostesses + ' דיילות';
+    const blines = [{ key: 'bundle', label: noCalls ? `${records} רשומות · ${BUNDLE_NO_CALLS} (${hl})` : `${records} רשומות ${PLAN_HE[bplan]} כולל ${hl} · ${bd.name}`, price: bd.total }];
+    if (design) blines.push({ key: 'design', label: DESIGN_GIFT, price: 0 });
+    if (travel) blines.push({ key: 'travel', label: 'נסיעות דיילות', price: bd.travel != null ? bd.travel : travelFor(hostesses) });
+    if (extra_wave) blines.push({ key: 'wave', label: 'גל תזכורת שלישי', price: Math.ceil(RATES.msg * records + RATES.base) });
+    const sum = blines.reduce((s2, l) => s2 + l.price, 0);
+    const code = buildCode({ plan: bplan, records, design, hostesses, travel, extra_wave, calls: false });
+    return { ok: true, quote: { plan: bplan, records, design, hostesses, travel, extra_wave, calls: false, no_calls: noCalls, bundle: bk, bundle_name: noCalls ? BUNDLE_NO_CALLS : bd.name, bundle_price: bd.total,
+      ...(co.note ? { note: co.note, hostesses_asked: h0 } : {}), name, phone, occasion, event_date,
+      lines: blines, sum, description: blines.map(l => l.label).join(' + '), code } };
   }
+  /* no live bundle (after the winter end date): list prices, 1-2 hostesses only */
+  const hostesses = h0;
+  if (hostesses && !HOSTESS_PRICE[hostesses]) return { ok: false, why: 'hostesses-unpriced' };
+  const calls = !!a.calls && !CALLS_INCLUDED.includes(plan);
 
   const lines = [{ key: 'pkg', label: `${records} רשומות ${PLAN_HE[plan]}`, price: PKG_PRICES[records][plan] }];
   if (design) lines.push({ key: 'design', label: 'עיצוב הזמנה', price: DESIGN_PRICE });

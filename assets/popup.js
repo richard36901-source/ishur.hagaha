@@ -311,14 +311,19 @@ window.IshurPopup = (function () {
     if (hRow) {
       hRow.hidden = !(S.guests && S.guests !== 'custom' && hTier);
       var hp = $('f-hostess-price'), hl = $('f-hostess-tier');
-      if (hp) hp.textContent = hPrice ? '₪' + hPrice : '';
+      var hb = hTier && CFG.bundlePick ? CFG.bundlePick(S.guests, hTier.count) : null;
+      if (hp) hp.textContent = hb ? 'הכל כלול + ' + hTier.label + ' ₪' + hb.total : (hPrice ? '₪' + hPrice : '');
       if (hl) hl.textContent = hTier ? hTier.label : '';
     }
     var withHost = S.hostess && hPrice != null;
     /* 03/11 design add-on (prefill links): ₪79, or free inside a bundle */
     var dRow = $('f-design-row');
     if (dRow) dRow.hidden = !(S.prefill || S.design) || !S.guests || S.guests === 'custom';
-    var bunNow = S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost);
+    /* Richard 03/11 20:20: with hostesses it is ALWAYS a bundle — the ?offer= one
+       when it covers the screen, else the live bundle for this size */
+    var bunPick = !withHost ? null : (S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost)) ? S.bundle : (CFG.bundlePick ? CFG.bundlePick(S.guests, hTier.count) : null);
+    S.bundleAuto = bunPick && bunPick !== S.bundle && CFG.bundleKeyOf ? CFG.bundleKeyOf(bunPick) : '';
+    var bunNow = !!bunPick;
     var dPrice = S.design ? (bunNow ? 0 : CFG.DESIGN_PRICE) : 0;
     var dp = $('f-design-price'); if (dp) dp.textContent = bunNow ? 'במתנה' : '₪' + CFG.DESIGN_PRICE;
     if (pr.final != null) {
@@ -328,7 +333,7 @@ window.IshurPopup = (function () {
       var total = pr.final + (withHost ? hPrice : 0) + hTravel + dPrice;
       /* special bundle: one agreed number for package + hostesses, the table
          total struck through beside it; travel outside the centre stays on top */
-      var bun = S.bundle && CFG.bundleApplies && CFG.bundleApplies(S.bundle, S.guests, S.plan, withHost) ? S.bundle : null;
+      var bun = bunPick;
       if (bun) {
         var wasTotal = pr.original + hPrice;
         /* anyPlan bundle: they ticked בסיס or פרמיום, they still pay the bundle
@@ -1069,7 +1074,7 @@ window.IshurPopup = (function () {
       updateTotal();
       var seq = ++hostessSeq;
       setAvail(MSG.hcheck, 'wait'); paintPayBtn();
-      var body = { design: !!S.design, offer: S.bundleKey || '', date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
+      var body = { design: !!S.design, offer: S.bundleKey || S.bundleAuto || '', date: S.hDate, city: S.hCity, guests: S.guests, plan: S.plan, name: ($('f-name') && $('f-name').value) || S.name || '', phone: ($('f-phone') && $('f-phone').value) || S.phone || '', occasion: S.occasion || '' };
       var call = function (withLink) { return fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ link: withLink }, body)) }).then(function (r) { return r.json(); }); };
       /* step 1: availability + price, fast. step 2: the link, quietly. */
       S.hostessPending = true;
