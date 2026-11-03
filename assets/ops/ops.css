@@ -422,5 +422,7 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font)}
   .crm-filters{gap:6px}
   .crm-filters .sel>button{min-width:0;padding:0 10px}
   .funnel li{grid-template-columns:72px 1fr 40px 36px}
+  .qc-host button,.ck-l,.seg button{min-height:var(--h-touch)}
+  .ck-row.static{grid-template-columns:1fr auto;row-gap:8px;padding-block:10px}.ck-row.static .seg{grid-column:1/-1;grid-row:2}
 }
 @keyframes sheet-in{from{transform:translateY(16px);opacity:0}}

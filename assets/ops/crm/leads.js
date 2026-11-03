@@ -142,20 +142,24 @@ export default {
     const paint = () => {
       const xs = leads.filter((l) => match(l, f)).sort((a, b) => (b.due_today - a.due_today) || Date.parse(b.created_at) - Date.parse(a.created_at));
       el.querySelector('#ld-count').textContent = fmtN(xs.length) + ' לידים' + (leads.filter((l) => l.due_today).length ? ' · ' + leads.filter((l) => l.due_today).length + ' להיום' : '');
-      const keepScroll = body.querySelector('.kb') ? body.querySelector('.kb').scrollLeft : 0;
+      const keepScroll = body.querySelector('.kb') ? body.querySelector('.kb').scrollLeft : 0, ae = document.activeElement, keepFocus = ae && body.contains(ae) && ae.dataset ? ae.dataset.id : null;
       body.innerHTML = view === 'board' ? board(xs, f) : table(xs, sel);
       if (keepScroll && body.querySelector('.kb')) body.querySelector('.kb').scrollLeft = keepScroll;
+      if (keepFocus) { const c = body.querySelector(`.kb-card[data-id="${CSS.escape(keepFocus)}"]`); if (c) c.focus({ preventScroll: true }); } /* a background reload must not steal keyboard focus */
       el.querySelector('#ld-bulk').innerHTML = view === 'table' ? bulkBar(sel.size, [...new Set(leads.flatMap((l) => l.tags))]) : '';
       ctx.setBadge('leads', leads.filter((l) => l.due_today || l.overdue).length);
     };
-    const load = async () => { try { leads = (await api.leads()).items; filters(); paint(); } catch (e) { body.innerHTML = ctx.errorBox(e, 'ld-retry'); } };
+    /* optimistic moves still in flight win over any list that was fetched before they landed */
+    const pending = new Map();
+    const load = async () => { try { leads = (await api.leads()).items; leads.forEach((l) => { if (pending.has(l.id)) l.status = pending.get(l.id); }); filters(); paint(); } catch (e) { body.innerHTML = ctx.errorBox(e, 'ld-retry'); } };
     this.reload = load;
     const move = async (id, status, kbd) => {
       const l = leads.find((x) => x.id === id); if (!l || l.status === status) return;
       const prev = l.status; l.status = status; paint();
       if (kbd) { const c = body.querySelector(`.kb-card[data-id="${CSS.escape(id)}"]`); c && c.focus(); }
       toast((l.name || 'הליד') + ' → ' + STATUS_HE[status]);
-      try { await api.updateLead(id, { status }); } catch (e) { l.status = prev; paint(); toast('לא נשמר, הכרטיס חזר ל' + STATUS_HE[prev], 'crit'); }
+      pending.set(id, status);
+      try { await api.updateLead(id, { status }); } catch (e) { const cur = leads.find((x) => x.id === id); if (cur) cur.status = prev; paint(); toast('לא נשמר, הכרטיס חזר ל' + STATUS_HE[prev], 'crit'); } finally { if (pending.get(id) === status) pending.delete(id); }
     };
     ctx.onDispose(dnd(body, move));
     let qT = 0;
@@ -163,7 +167,7 @@ export default {
     ctx.on(el, 'ops:change', async (e) => {
       const { name, value } = e.detail;
       if (name === 'view') { view = value; try { localStorage.setItem('ops:leads:view', view); } catch (x) {} paint(); return; }
-      if (name === 'bulk_status') { if (!value || !sel.size) return; const ids = [...sel]; ids.forEach((id) => { const l = leads.find((x) => x.id === id); if (l) l.status = value; }); paint(); try { await api.bulk(ids, { status: value }); toast(ids.length + ' לידים → ' + STATUS_HE[value]); } catch (x) { toast('השינוי נכשל', 'crit'); load(); } return; }
+      if (name === 'bulk_status') { if (!value || !sel.size) return; const ids = [...sel]; ids.forEach((id) => { const l = leads.find((x) => x.id === id); if (l) l.status = value; pending.set(id, value); }); paint(); try { await api.bulk(ids, { status: value }); toast(ids.length + ' לידים → ' + STATUS_HE[value]); } catch (x) { toast('השינוי נכשל', 'crit'); ids.forEach((id) => pending.delete(id)); load(); } finally { ids.forEach((id) => pending.get(id) === value && pending.delete(id)); } return; }
       if (name in f) { f[name] = value; paint(); }
     });
     ctx.on(el, 'click', async (e) => {
