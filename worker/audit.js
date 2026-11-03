@@ -212,14 +212,14 @@ export async function serveRecording(env, url, isAdmin) {
 /* ── §4 cron jobs ──────────────────────────────────────────────────────────
    job(env, 'runPacer', () => runPacer(env)) → one record on finish:
    name, duration, ok/error, and whatever the job returned (trimmed). */
-export async function job(env, name, fn) {
+export async function job(env, name, fn, extra = null) {
   const t0 = Date.now();
   let out = null, err = null;
   try { out = await fn(); } catch (e) { err = e; }
   const ms = Date.now() - t0;
   let summary = '';
   try { summary = out === undefined ? '' : JSON.stringify(out).slice(0, 1500); } catch { summary = String(out).slice(0, 300); }
-  await record(env, { kind: 'cron', area: 'וורקר', action: `⚙️ ${name} · ${ms} ms${err ? ' · נפל' : ''}`, ok: !err, review: !!err, detail: err ? String(err && err.stack || err).slice(0, 1500) : summary, data: { job: name, ms, ok: !err } });
+  await record(env, { kind: 'cron', area: 'וורקר', action: `⚙️ ${name} · ${ms} ms${err ? ' · נפל' : ''}`, ok: !err, review: !!err, detail: err ? String(err && err.stack || err).slice(0, 1500) : summary, data: { job: name, ms, ok: !err, ...(extra && typeof extra === 'object' ? extra : {}) } });
   if (err) throw err;
   return out;
 }
