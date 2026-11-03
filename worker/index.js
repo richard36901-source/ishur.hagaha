@@ -58,6 +58,9 @@ import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
+import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
+import { handleOps } from './ops.js';
+import { JOB_TO_ID } from './automations-registry.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -1982,6 +1985,20 @@ const okJsonPlain = payload => new Response(JSON.stringify(payload), {
    The router below swaps a valid session token for the real admin key before
    any handler parses the body — so every admin endpoint accepts it with zero
    call-site changes, and revoking a device is deleting one KV key. */
+/* 03/11: the same two key forms resolveAdminSession accepts, for a key that
+   arrives in a header (GET /api/ops/*) instead of a JSON body */
+async function adminKeyOk(env, key) {
+  const tok = String(key || '');
+  if (isAdmin(env, tok)) return true;
+  if (!env.ADMIN_KEY) return false;
+  const signed = tok.match(/^sess\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
+  if (signed) {
+    if (!safeEqual(signed[2], await sessionSig(env, signed[1]))) return false;
+    return !(env.RATE && await env.RATE.get('adminrev:' + signed[1]).catch(() => null));
+  }
+  if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) return !!(await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null));
+  return false;
+}
 async function resolveAdminSession(request, env) {
   const ct = String(request.headers.get('Content-Type') || '');
   if (!ct.includes('application/json')) return request;
@@ -2306,6 +2323,7 @@ async function reconcileShirCalls(env, { limit = 40, force = false } = {}) {
    Until this existed, every guest queued for a call sat there forever: the
    only caller was an admin POST that nobody was making. */
 async function runShirDispatch(env, { max = 25, force = false, quiet = false } = {}) {
+  if (await isOff(env, 'shir_dispatch')) return { ok: true, dialed: 0, skipped: 'off:shir_dispatch' };
   if (!env.RETELL_KEY || !env.SHIR_FROM) return { ok: false, why: 'not-configured' };
   if (await sendingPaused(env)) return { ok: true, dialed: 0, paused: true };
   /* a holiday is not a closed window, it is a closed day */
@@ -2555,6 +2573,7 @@ async function cbqClear(env, phone) {
    so "we sent you an invitation and saw no reply" is the wrong sentence.
    That is what override_agent_id is for. */
 async function runShirCallbacks(env, { max = 3, force = false } = {}) {
+  if (await isOff(env, 'shir_callbacks')) return { dialed: 0, skipped: 'off:shir_callbacks' };
   if (!env.RETELL_KEY || !env.SHIR_FROM || !env.RATE) return { dialed: 0, why: 'not-configured' };
   if (await sendingPaused(env)) return { dialed: 0, why: 'paused' };
   const today = ilDate();
@@ -4395,6 +4414,7 @@ async function noteGuestSend(env, wa, token, wave, phone, gk) {
 }
 async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
   if (!env.RATE) return { ok: false };
+  if (!dry && await isOff(env, 'event_day_blast')) return { ok: true, skipped: 'off:event_day_blast' };
   const jobs = await kvPrefix(env, 'edblast:');
   const today = ilDate();
   const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
@@ -4721,6 +4741,7 @@ async function armPartyNudge(env, guest, from, ch) {
 }
 async function drainPartyNudges(env) {
   if (!env.RATE) return { sent: 0 };
+  if (await isOff(env, 'party_nudges')) return { sent: 0, skipped: 'off:party_nudges' };
   if (!sendWindowState().open) return { sent: 0, closed: true };
   const page = await env.RATE.list({ prefix: 'awaitparty:', limit: 500 }).catch(() => null);
   let sent = 0;
@@ -4798,6 +4819,8 @@ async function guestsCapCleared(env) {
 }
 
 async function sendWave(env, ev, token, guests, wave, dry, budget) {
+  /* 03/11 ops center: auto:off:wave<k> — held, so the caller keeps the wave open (no flag, nothing sent) */
+  if (!dry && await isOff(env, 'wave' + wave.key)) return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: false, held: true, skipped: 'off:wave' + wave.key };
   const today = ilDate();
   const occasion = String(ev[5] || '').trim() || 'אירוע';
   const hosts = eventHosts(ev) || 'בעלי השמחה';   /* 02/11 audit: never the paying client's name (C) */
@@ -6008,8 +6031,12 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
   } catch {}
 }
 
-async function runPacer(env) {
+async function runPacer(env, run = null) {
   if (!env.RATE) return { ok: false, why: 'no-kv' };
+  /* 03/11 ops center kill switch: nothing below runs, not even the Slack flush */
+  if (await isOff(env, 'd_pacer')) return { ok: true, skipped: 'off:d_pacer' };
+  /* child runs in the ledger (one row per sub-step) when the caller passed a run */
+  const step = (id, fn) => run ? run.child(id, fn) : fn();
   const today = ilDate();
   if (isNoContactDay(today)) { const quiet = { ok: true, skipped: 'no-contact-day' }; await templateCheck(env, quiet); return quiet; }
 
@@ -6043,7 +6070,9 @@ async function runPacer(env) {
   /* 22/10 Richard: guests whose invitation failed (130472/131049/131026, not
      yet 3 strikes) are retried automatically once per send day; before this
      it only happened when someone ran /api/wave-retry by hand. */
-  if (sendWin.open && !(await env.RATE.get('autoretry:' + today).catch(() => null))) {
+  /* 03/11: auto:off:autoretry skips it WITHOUT burning autoretry:<day>, so switching it back on the same day still runs it */
+  if (sendWin.open && await isOff(env, 'autoretry')) out.autoretry = { skipped: 'off:autoretry' };
+  else if (sendWin.open && !(await env.RATE.get('autoretry:' + today).catch(() => null))) {
     await env.RATE.put('autoretry:' + today, '1', { expirationTtl: 86400 }).catch(() => {});
     try {
       const raw = await snapshotCached(env).catch(() => null);
@@ -6065,7 +6094,7 @@ async function runPacer(env) {
     } catch (e) { out.autoretry = { error: String(e && e.message) }; }
   }
   if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
-    const r = await runDailyEngine(env, false, null, { budget: PACE_SENDS }).catch(e => {
+    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: PACE_SENDS })).catch(e => {
       return { ok: false, error: String((e && e.message) || e) };
     });
     out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated } : { ran: false, error: r && r.error };
@@ -6086,26 +6115,26 @@ async function runPacer(env) {
      somebody who asked about their wedding this afternoon is a different
      product. Cheap: one KV list, no Make operation. */
   if (sendWin.open) {
-    const chased = await chaseAbandonedLeads(env, false, { left: 10 }).catch(() => []);
+    const chased = await step('lead_chase', () => chaseAbandonedLeads(env, false, { left: 10 })).catch(() => []);
     out.leads = chased.filter(c => c.sent).length;
   }
 
   /* then the dial slice */
   const callWin = callWindowState();
   /* results of calls that already ended are collected at any hour */
-  await reconcileShirCalls(env).catch(() => {});
+  await step('reconcile_calls', () => reconcileShirCalls(env)).catch(() => {});
   if (callWin.open) {
     /* Whoever just rang US is the hottest lead in the system: somebody who
        wanted to talk to us badly enough to dial. The callback queue therefore
        empties BEFORE the guest queue — and out of the same per-tick budget,
        so a busy inbound hour cannot quietly blow the concurrency limit. */
-    const cb = await runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) }).catch(e => {
+    const cb = await step('shir_callbacks', () => runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) })).catch(e => {
       return { dialed: 0, why: String((e && e.message) || e) };
     });
     out.callbacks = cb;
     const left = Math.max(0, PACE_CALLS - ((cb && cb.dialed) || 0));
     const r = left
-      ? await runShirDispatch(env, { max: left, quiet: true }).catch(e => {
+      ? await step('shir_dispatch', () => runShirDispatch(env, { max: left, quiet: true })).catch(e => {
         return { ok: false, why: String((e && e.message) || e) };
       })
       : { dialed: 0, why: 'callbacks-took-the-slice' };
@@ -6113,13 +6142,13 @@ async function runPacer(env) {
     /* נועה's slice: sales calls to leads who went silent. Small on purpose —
        two per tick is 12 an hour, plenty for the queue this funnel produces,
        and it can never crowd out the guest calls that were paid for. */
-    const lead = await runShirLeadDial(env, { max: 2 }).catch(() => ({ dialed: 0, skipped: 'error' }));
+    const lead = await step('noa_lead_dial', () => runShirLeadDial(env, { max: 2 })).catch(() => ({ dialed: 0, skipped: 'error' }));
     out.leadCalls = lead;
   } else {
     out.calls = { dialed: 0, why: callWin.why };
     out.callbacks = { dialed: 0, why: callWin.why };
   }
-  await templateCheck(env, out);
+  await step('template_check', async () => { await templateCheck(env, out); return out.tmplcheck || { ok: true }; }).catch(() => {});
 
   /* the journal rides the same tick: everything buffered since the last one
      lands in the sheet as a single Sheets call */
@@ -6129,7 +6158,7 @@ async function runPacer(env) {
 
   /* the doctor: looks at what this tick produced, fixes what it can, and
      shouts once a day about what it cannot. Never throws into the pacer. */
-  try { out.doctor = await runDoctor(env, out, sendWin, callWin); } catch (e) { out.doctor = { ok: false, why: String(e && e.message) }; }
+  try { out.doctor = await step('doctor', () => runDoctor(env, out, sendWin, callWin)); } catch (e) { out.doctor = { ok: false, why: String(e && e.message) }; }
 
   /* a heartbeat worth having: "the pacer is alive" is otherwise invisible
      until the day somebody notices nothing went out */
@@ -6964,6 +6993,20 @@ async function handleBrainAdmin(request, env, origin) {
   if (env.RATE) await env.RATE.delete('brain:cache').catch(() => {});
   return okJson({ ok: true, wrote: data.map(d => d.range) }, origin);
 }
+
+/* 03/11 ops center: auto:off:manual_blasts closes the manual guest-send routes
+   (423) before any read or send. Dry previews stay open, except wave-retry,
+   whose dry path still deletes markers (see the registry node wave_retry). */
+async function manualBlastsOff(request, env, origin, { blockDry = false } = {}) {
+  if (!(await isOff(env, 'manual_blasts'))) return null;
+  let b = {}; try { b = await request.clone().json(); } catch {}
+  if (!isAdmin(env, b.admin_key)) return null;   /* the route itself answers 403 */
+  const dry = request.url.includes('/api/sms-blast') ? b.dry === true : b.dry !== false;
+  if (dry && !blockDry) return null;
+  return new Response(JSON.stringify({ ok: false, skipped: 'off:manual_blasts', error: 'automation-off' }), { status: 423, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+}
+/* manual routes listed in the registry → one ledger row each (triggered_by manual) */
+function manualRun(env, id, fn) { return withRun(env, id, fn, { triggered_by: 'manual' }); }
 
 async function handleDailyRun(request, env, origin) {
   let body = {};
@@ -9284,6 +9327,20 @@ async function buildCalendarMonth(env, month) {
   return calOut;
 }
 
+/* 03/11 ops center: index.js internals handed to ops.js (it cannot import us) */
+function opsDeps() {
+  return { isAdmin, adminKeyOk: (env, k) => adminKeyOk(env, k), okJson, deny, cors, ilDate, sendWindowState, callWindowState, isNoContactDay,
+    sendingPaused, snapshotCached, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), waCapInfo, guestCapacity, guestPhoneIds, clientPhoneId,
+    clientWaba, clientToken, kvPrefix, normPhone, isTestEventRow, planKeyOf, buildCallQueue, retellListCalls, metaAds,
+    auditQuery: (e, q) => audit.query(e, q), auditQueryEx: (e, q) => audit.queryEx(e, q), auditRecord: (e, r) => audit.record(e, r),
+    slackPost: (e, t, o) => slackPost(e, t, o), PACE_SENDS, PACE_CALLS, PACE_CALLBACKS };
+}
+export { runPacer as _runPacer, sendWave as _sendWave, drainPartyNudges as _drainPartyNudges, runShirDispatch as _runShirDispatch, runShirCallbacks as _runShirCallbacks };
+
+/* 03/11 ops center: every scheduled job → one ledger row (ops-run.js) AND the
+   audit.js cron row it always had (audit.job), joined by data.run_id */
+function opsJob(env, name, fn, extra = {}) { return withRun(env, JOB_TO_ID[name] || name, fn, { job: name, triggered_by: 'cron', ...extra }); }
+
 export default {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
@@ -9292,7 +9349,7 @@ export default {
        slot now carries the heartbeat: if the engine has not run in 30 hours,
        say so, because a silent engine is the failure nobody notices. */
     if (String(event.cron || '').startsWith('0 4 ')) {
-      ctx.waitUntil((async () => {
+      ctx.waitUntil(withRun(env, 'heartbeat', async () => {
         await checkTelnyx(env).catch(() => {});
         if (env.RATE && !(await env.RATE.get('billcheck:' + ilDate()).catch(() => null))) {
           await env.RATE.put('billcheck:' + ilDate(), '1', { expirationTtl: 2 * 86400 }).catch(() => {});
@@ -9309,7 +9366,8 @@ export default {
           await alert(env, 'המנוע היומי',
             last ? `לא רץ כבר ${Math.round(age)} שעות` : 'אין תיעוד שרץ אי פעם', '');
         }
-      })().catch(() => {}));
+        return { ok: true, engine_age_h: Math.round(age), limit_h: limit };
+      }, { triggered_by: 'cron' }).catch(() => {}));
       return;
     }
 
@@ -9323,56 +9381,56 @@ export default {
        work; the other two are silent no-ops until the clocks change. */
     /* 22/10: the day's audit root, anchored in Slack (the latest of the three evening crons) */
     if (String(event.cron || '').startsWith('0 19 ')) {
-      ctx.waitUntil(audit.job(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``).catch(() => {}); return r; }).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``).catch(() => {}); return r; }).catch(() => {}));
     }
     if (String(event.cron || '').startsWith('0 17 ') || String(event.cron || '').startsWith('0 18 ') || String(event.cron || '').startsWith('0 19 ')) {
       const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now())));
       if (ilHour === 20) {
-        ctx.waitUntil(audit.job(env, 'runDailyImprove', () => runDailyImprove(env)).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
+        ctx.waitUntil(opsJob(env, 'runDailyImprove', () => runDailyImprove(env)).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
       } else if (ilHour === 21) {
-        ctx.waitUntil(audit.job(env, 'snapshotTraffic', () => snapshotTraffic(env)).catch(() => {}));
-        ctx.waitUntil(audit.job(env, 'dailyJournalDigest', () => dailyJournalDigest(env)).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
+        ctx.waitUntil(opsJob(env, 'snapshotTraffic', () => snapshotTraffic(env)).catch(() => {}));
+        ctx.waitUntil(opsJob(env, 'dailyJournalDigest', () => dailyJournalDigest(env)).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
       }
       return;
     }
     if (String(event.cron || '').startsWith('0 9,10,16')) {
       const hourUtc = new Date(event.scheduledTime || Date.now()).getUTCHours();
-      ctx.waitUntil(audit.job(env, 'runTeamReminders', () => runTeamReminders(env, hourUtc, false)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'runTeamReminders', () => runTeamReminders(env, hourUtc, false)).catch(() => {}));
       return;
     }
     /* the ten-minute pacer: a slice of the sends and a slice of the dials,
        spread across the contact window instead of one burst at 09:35 */
     if (String(event.cron || '').startsWith('*/10')) {
-      ctx.waitUntil(audit.job(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
-      if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(audit.job(env, 'noaChaseTick', () => noaChaseTick(env, {
+      if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
         leadRows: async () => (((await snapshotCached(env)) || {}).leads || {}).values || [],
         callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
         retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),
       })).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
       /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
-      if (new Date().getUTCMinutes() < 10) ctx.waitUntil(audit.job(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
-      ctx.waitUntil(audit.job(env, 'runPacer', () => runPacer(env)).catch(e =>
+      if (new Date().getUTCMinutes() < 10) ctx.waitUntil(opsJob(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
          evaluate() keeps an ab:eval:<day> guard, so six ticks = one run) */
       if (String(env.AB_ENABLED || '') === 'on' && Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now()))) === 6)
-        ctx.waitUntil(audit.job(env, 'abEvaluate', () => ab.evaluate(env, abDeps(env))).catch(() => {}));
+        ctx.waitUntil(opsJob(env, 'abEvaluate', () => ab.evaluate(env, abDeps(env))).catch(() => {}));
       return;
     }
-    ctx.waitUntil(audit.job(env, 'syncCallCosts', () => syncCallCosts(env)).catch(() => {}));
+    ctx.waitUntil(opsJob(env, 'syncCallCosts', () => syncCallCosts(env)).catch(() => {}));
     /* Dialling belongs to the pacer now — it runs every ten minutes through
        the whole window instead of emptying 25 calls into the first minute of
        it. This cron keeps only the planning half of the morning. */
@@ -9402,15 +9460,15 @@ export default {
            while the window is closed, so the pacer (already armed via
            pacer:pending above) carries the first sends at 09:00. */
     ctx.waitUntil(tryPortfolioOtp(env).catch(() => {}));
-    ctx.waitUntil((async () => { const raw = await snapshotCached(env).catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n')); })().catch(() => {}));
+    ctx.waitUntil(withRun(env, 'morning_undelivered', async () => { const raw = await snapshotCached(env).catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n')); return { ok: true, lines: l.length }; }).catch(() => {}));
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
-    ctx.waitUntil(runDailyEngine(env, false, null, { budget: morningBudget }).then(() => runBackup(env)).then(res => {
+    ctx.waitUntil(withRun(env, 'd_engine', () => runDailyEngine(env, false, null, { budget: morningBudget })).then(() => withRun(env, 'backup', () => runBackup(env))).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
       String((e && e.stack) || e).slice(0, 500))).then(() => {
       /* Monday morning: the weekly message-performance digest into Slack */
       const dow = new Date(ilDate() + 'T12:00:00Z').getUTCDay();
-      if (dow === 1) return msgPerformanceDigest(env).catch(() => {});
+      if (dow === 1) return withRun(env, 'perf_digest', () => msgPerformanceDigest(env)).catch(() => {});
     }).catch(() => {}));
   },
 
@@ -9422,6 +9480,8 @@ export default {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
+    /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
+    if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
@@ -9810,7 +9870,7 @@ export default {
       return handleShirInbound(request, env, url, origin);
     }
     if (url.pathname === '/api/shir-dispatch' && request.method === 'POST') {
-      return handleShirDispatch(request, env, origin);
+      return manualRun(env, 'shir_dispatch', () => handleShirDispatch(request, env, origin));
     }
     if (url.pathname === '/api/shir-calls' && request.method === 'POST') {
       return handleShirCalls(request, env, origin);
@@ -10018,7 +10078,7 @@ export default {
       return handleAdReports(request, env, origin);
     }
     if (url.pathname === '/api/daily-run' && request.method === 'POST') {
-      return handleDailyRun(request, env, origin);
+      return manualRun(env, 'd_engine', () => handleDailyRun(request, env, origin));
     }
     if (url.pathname === '/api/daily-improve' && request.method === 'POST') {
       return handleDailyImprove(request, env, origin);
@@ -10197,6 +10257,7 @@ export default {
       return okJson({ hasKey: !!env.LINEAR_API_KEY, keyLooksReal: /^lin_api_/.test(String(env.LINEAR_API_KEY || '')), ...(b.create ? await linearTriageIssue(env, String(b.title || 'בדיקה · שאלת אורח'), String(b.body || 'בדיקת חיבור מהוורקר. אפשר לסגור.')) : {}) }, origin);
     }
     if (url.pathname === '/api/wave-retry' && request.method === 'POST') {
+      { const off = await manualBlastsOff(request, env, origin, { blockDry: true }); if (off) return off; }
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const token = String(b.token || ''); const w = String(b.wave || '1');
@@ -10281,6 +10342,7 @@ export default {
        (131048). Explicit list only, admin key, Telnyx Messages API, dry by
        default. From = env.TELNYX_SMS_FROM (an SMS-capable Telnyx number). */
     if (url.pathname === '/api/sms-blast' && request.method === 'POST') {
+      { const off = await manualBlastsOff(request, env, origin); if (off) return off; }
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       if (!env.TELNYX_KEY) return deny(503, 'no-telnyx-key', origin);
@@ -10373,11 +10435,15 @@ export default {
     }
     /* 02/11: post-event gift message (dry by default) — handleGiftBlast */
     if (url.pathname === '/api/gift-blast' && request.method === 'POST') {
-      return handleGiftBlast(request, env, origin);
+      { const off = await manualBlastsOff(request, env, origin); if (off) return off; }
+      return manualRun(env, 'manual_blasts', () => handleGiftBlast(request, env, origin));
     }
     /* 03/11: linked sub-events (שבת חתן) — subevent.js */
     if (url.pathname === '/api/subevent' && request.method === 'POST') return handleSubeventCreate(request, env, origin, subeventDeps());
-    if (url.pathname === '/api/subevent-send' && request.method === 'POST') return handleSubeventSend(request, env, origin, subeventDeps());
+    if (url.pathname === '/api/subevent-send' && request.method === 'POST') {
+      { const off = await manualBlastsOff(request, env, origin); if (off) return off; }
+      return manualRun(env, 'manual_blasts', () => handleSubeventSend(request, env, origin, subeventDeps()));
+    }
     if (url.pathname === '/api/subevent-summary' && request.method === 'GET') return handleSubeventSummary(request, env, origin, subeventDeps());
     if (url.pathname === '/api/event-day' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
