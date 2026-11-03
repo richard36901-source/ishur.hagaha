@@ -267,3 +267,10 @@ Skills and what each contributes:
 - schedule — create the claude.ai cloud routine(s) for the brain and the daily review.
 - agents-sdk — if the healer runs as a Cloudflare Agent instead of a claude.ai routine (stateful, scheduled, streams).
 - verify-loop — mandatory per Richard's rule for every phase gate.
+
+## 6. Backlog added 03/11 14:10 (Richard, in priority order after the ops center)
+1. **Pay-link generator v2** (admin): checkboxes for add-ons (hostesses 1/2/3, invitation design, extra send wave, other priced add-ons from config.js), dropdowns for package and record count (no free text), computed price, client name + phone, `note` carries a structured code so the IPN is classified as package+addons and never as design-only. Fix root cause: isDesignPayment() must not swallow a payment whose description also contains a package.
+2. **Slack "closed" message**: name, phone, occasion + date, package, records, add-ons, sum, dashboard link.
+3. **Invitation-design flow in the client dashboard**: step "מה תרצו בהזמנה" (text + optional inspiration images), we upload a design, client approves or comments, revision counter: 1 extra round free (1/1), then paid rounds (₪49 proposed, Richard may say ₪30), purchase inside the dashboard, status "done".
+4. **PWA**: make dashboard.html installable (manifest + service worker + "add to home screen" explainer card in the client dashboard).
+5. **Client app (lowest priority, nice-to-have)**: basic app for clients to view/manage the event, buy another event, upgrade, add hostesses. Start as the PWA above; native later only if needed.
