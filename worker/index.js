@@ -9730,7 +9730,9 @@ function opsDeps() {
     /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
     slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
     mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
-    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), inboxData: (e, b) => inboxData(e, b), getBrain: (e) => getBrain(e), EVENT_FLAGS, giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
+    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), inboxData: (e, b) => inboxData(e, b), getBrain: (e) => getBrain(e), EVENT_FLAGS,
+    /* 03/11 phase 4c (ops-money.js) */
+    trafficReport: (e, n) => trafficReport(e, n), sendClient: (e, p, t, a, c) => sendClient(e, p, t, a, c), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
 }
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */
 function crmDeps() {

@@ -49,6 +49,7 @@ import CODE from './registry-code.json' with { type: 'json' };
 import { runBrain, buildBrain, decide, runLogAppend } from './brain.js';
 import { SETTINGS, validateEdit, confirmWord, writeSetting, loadCfg, effective, editableFor, NOA_CHASE_ON_CONFIRM } from './cfg.js';
 import { buildMessages, buildInbox, buildThread, buildControl } from './ops-inbox.js';
+import { buildFinance, setManualCost, invoiceResend, buildAds, buildTemplates, templateVariant, buildFeedback } from './ops-money.js';
 import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -984,7 +985,23 @@ export async function handleOps(request, env, origin, url, d) {
         if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
         const r = await revertChange(env, d, body); return json(r.body, r.status);
       }
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control'] }, 404);
+      /* Phase 4c (ops-money.js): money, ads, templates, feedback */
+      case 'finance': {
+        if (request.method === 'POST' && body.set_manual) { const r = await setManualCost(env, body.set_manual); if (r.status === 200) await env.RATE.delete('opsfin:' + String(q('range') || '90d')).catch(() => {}); return json(r.body, r.status); }
+        return json(await buildFinance(env, d, { range: String(q('range') || '90d'), fresh: String(q('fresh') || '') === '1', balances: () => buildBalances(env, d) }));
+      }
+      case 'invoice-resend': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await invoiceResend(env, d, body); return json(r.body, r.status);
+      }
+      case 'ads': return json(await buildAds(env, { ...d, META_AD_ACCOUNT }, { range: String(q('range') || '30d'), fresh: String(q('fresh') || '') === '1' }));
+      case 'templates': return json(await buildTemplates(env, d, { fresh: String(q('fresh') || '') === '1' }));
+      case 'template-variant': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await templateVariant(env, d, body); return json(r.body, r.status);
+      }
+      case 'feedback': return json(await buildFeedback(env, d, { fresh: String(q('fresh') || '') === '1', group: q('group') === 'month' ? 'month' : 'week' }));
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control', 'finance', 'invoice-resend', 'ads', 'templates', 'template-variant', 'feedback'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);

@@ -167,6 +167,23 @@ check('overview.view before balances lands', () => S.overview.view(F.realtime, F
 check('calls.view with calls:null (no RETELL_KEY)', () => S.calls.view(adapt('realtime', { ...RAW.realtime, calls: null })));
 ok(S.overview.allIncidents(F.realtime, F.capacity, F.balances).length > 0, 'overview derives incidents from realtime + capacity + balances', S.overview.allIncidents(F.realtime, F.capacity, F.balances).length + ' incidents');
 
+console.log('A3c money screens (lazy/finance, ads, templates, feedback)');
+{
+  const M = {}; for (const n of ['finance', 'ads', 'templates', 'feedback']) M[n] = await import(pathToFileURL(join(OPS, 'lazy/' + n + '.js')));
+  const FX = Object.fromEntries(['finance', 'ads', 'templates', 'feedback'].map((n) => [n, fx(n)]));
+  ok(FX.finance.pnl.every((p) => 'month' in p && 'revenue' in p && 'net' in p && 'margin_pct' in p && p.costs && 'total' in p.costs) && FX.finance.revenue.series.every((x) => 'bucket' in x && 'total' in x), 'finance contract: pnl[], revenue.series[]');
+  ok(FX.finance.pnl.every((p) => Math.abs(p.revenue - p.costs.total - p.net) < 0.02), 'finance: net = revenue − costs in every month');
+  ok(FX.ads.campaigns.some((c) => c.id === '120250670197650731' && c.read_only), 'ads: Shalev campaign present and read-only');
+  check('finance.view', () => M.finance.view(FX.finance, { range: '90d', month: '', vendor: 'cloudflare' }));
+  check('finance.view empty', () => M.finance.view({ ...FX.finance, events: [], invoices: [], revenue: { ...FX.finance.revenue, entries: [] } }, { range: '90d', vendor: 'monday' }));
+  check('ads.view', () => M.ads.view(FX.ads, { range: '30d', open: new Set(FX.ads.campaigns.map((c) => c.id)) }));
+  ok(!/data-act="(?!ads-open|mny-range)[^"]+"/.test(M.ads.view(FX.ads, { range: '30d', open: new Set() })), 'ads screen has no write actions (Shalev read-only)');
+  check('templates.view', () => M.templates.view(FX.templates, { waba: '', status: '', q: '' }));
+  ok(M.templates.view(FX.templates, { waba: 'old', status: '', q: '' }).split('data-act="tp-variant"').length - 1 === FX.templates.templates.filter((t) => t.waba === 'old').length, 'templates WABA filter');
+  check('feedback.view', () => M.feedback.view(FX.feedback));
+  const svg = M.finance.view(FX.finance, { range: '90d', vendor: 'cloudflare' });
+  ok((svg.match(/<svg class="vz"/g) || []).length >= 3 && (svg.match(/data-tip=/g) || []).length > 10 && /class="vz-tbl"/.test(svg), 'finance charts: ≥3 inline SVG charts with hover targets and table views');
+}
 console.log('A4 CRM (fixtures/ops/crm through crm/adapt.js)');
 const CA = await import(pathToFileURL(join(OPS, 'crm/adapt.js')));
 const cfx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops/crm', n + '.json'), 'utf8'));
@@ -257,7 +274,7 @@ if (!process.argv.includes('--no-browser')) {
         const uniq = [...new Set(data.map((u) => u.split('?')[0]))];
         ok(uniq.length <= 3, '≤ 3 data requests on load', uniq.map((u) => u.split('/').pop()).join(', '));
       }
-      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'inbox', 'control', 'calls', 'capacity', 'calendar', 'balances', 'changes']) {
+      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'inbox', 'control', 'calls', 'capacity', 'calendar', 'balances', 'changes', 'finance', 'ads', 'templates', 'feedback']) {
         await page.evaluate((h) => { location.hash = h; }, '#/' + r);
         await page.waitForFunction(() => !document.querySelector('#main .sk') || document.querySelector('#main .feed-row,#main table,#main .tile .v,#main .cal-d'), null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(r === 'brain' || r === 'live' ? 3600 : 500);
@@ -351,7 +368,7 @@ if (!process.argv.includes('--no-browser')) {
     }
     const m = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
     const mp = await m.newPage();
-    for (const r of ['overview', 'automations', 'runs', 'messaging', 'inbox', 'control', 'capacity', 'calendar', 'balances', 'changes']) {
+    for (const r of ['overview', 'automations', 'runs', 'messaging', 'inbox', 'control', 'capacity', 'calendar', 'balances', 'changes', 'finance', 'ads', 'templates', 'feedback']) {
       await mp.goto(url + '#/' + r); await mp.waitForTimeout(900);
       const over = await mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
       ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r, over.join('/'));

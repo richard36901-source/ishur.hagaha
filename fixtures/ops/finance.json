@@ -1,0 +1,726 @@
+{
+ "ok": true,
+ "at": "2026-11-03T15:56:18.188Z",
+ "range": {
+  "from": "2026-08-06",
+  "to": "2026-11-03",
+  "days": 90,
+  "group": "week"
+ },
+ "usd_ils": 3.7,
+ "revenue": {
+  "series": [
+   {
+    "bucket": "2026-08-02",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   },
+   {
+    "bucket": "2026-08-09",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   },
+   {
+    "bucket": "2026-08-16",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   },
+   {
+    "bucket": "2026-08-23",
+    "package": 339,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 339,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-08-30",
+    "package": 789,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 789,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-09-06",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   },
+   {
+    "bucket": "2026-09-13",
+    "package": 140,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 140,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-09-20",
+    "package": 95,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 95,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-09-27",
+    "package": 669,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 669,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-10-04",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   },
+   {
+    "bucket": "2026-10-11",
+    "package": 199,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 199,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-10-18",
+    "package": 279,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 279,
+    "payments": 1
+   },
+   {
+    "bucket": "2026-10-25",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   },
+   {
+    "bucket": "2026-11-01",
+    "package": 0,
+    "addon": 0,
+    "hostess": 0,
+    "design": 0,
+    "total": 0,
+    "payments": 0
+   }
+  ],
+  "kinds": [
+   "package",
+   "addon",
+   "hostess",
+   "design"
+  ],
+  "total": 2510,
+  "payments": 7,
+  "by_kind": {
+   "package": 2510,
+   "addon": 0,
+   "hostess": 0,
+   "design": 0
+  },
+  "entries": [
+   {
+    "day": "2026-10-20",
+    "ref": "sheet:a1b2c3d1",
+    "phone": "972500000001",
+    "name": "משפחת לוי",
+    "desc": "pro",
+    "sum": 279,
+    "tok8": "a1b2c3d1",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 279,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   },
+   {
+    "day": "2026-10-11",
+    "ref": "sheet:a1b2c3d2",
+    "phone": "972500000002",
+    "name": "בר מצווה לנועם",
+    "desc": "pro",
+    "sum": 199,
+    "tok8": "a1b2c3d2",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 199,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   },
+   {
+    "day": "2026-10-02",
+    "ref": "sheet:a1b2c3d3",
+    "phone": "972500000003",
+    "name": "חינה של שירה",
+    "desc": "pro",
+    "sum": 669,
+    "tok8": "a1b2c3d3",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 669,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   },
+   {
+    "day": "2026-09-23",
+    "ref": "sheet:a1b2c3d4",
+    "phone": "972500000004",
+    "name": "יום הולדת 40",
+    "desc": "pro",
+    "sum": 95,
+    "tok8": "a1b2c3d4",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 95,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   },
+   {
+    "day": "2026-09-14",
+    "ref": "sheet:a1b2c3d5",
+    "phone": "972500000005",
+    "name": "ברית לאורי",
+    "desc": "pro",
+    "sum": 140,
+    "tok8": "a1b2c3d5",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 140,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   },
+   {
+    "day": "2026-09-05",
+    "ref": "sheet:a1b2c3d6",
+    "phone": "972500000006",
+    "name": "חתונת רון ומאיה",
+    "desc": "pro",
+    "sum": 789,
+    "tok8": "a1b2c3d6",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 789,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   },
+   {
+    "day": "2026-08-27",
+    "ref": "sheet:a1b2c3d7",
+    "phone": "972500000007",
+    "name": "אירוע חברה",
+    "desc": "pro",
+    "sum": 339,
+    "tok8": "a1b2c3d7",
+    "lines": [
+     {
+      "kind": "package",
+      "ils": 339,
+      "estimated": false
+     }
+    ],
+    "source": "sheet"
+   }
+  ]
+ },
+ "pnl": [
+  {
+   "month": "2026-08",
+   "revenue": 339,
+   "costs": {
+    "wa": 518,
+    "calls": 127.65,
+    "hostess": 0,
+    "ads": 900,
+    "fixed": 180,
+    "manual": 248,
+    "total": 1973.65
+   },
+   "gross": -306.65,
+   "net": -1634.65,
+   "gross_margin_pct": -90.5,
+   "margin_pct": -482.2,
+   "fixed_items": [
+    {
+     "name": "Make",
+     "ils": 120
+    },
+    {
+     "name": "מספרים",
+     "ils": 60
+    }
+   ],
+   "manual_items": {
+    "cloudflare": 18,
+    "monday": 140,
+    "anthropic": 90
+   },
+   "wa_estimated": false
+  },
+  {
+   "month": "2026-09",
+   "revenue": 1024,
+   "costs": {
+    "wa": 510,
+    "calls": 127.65,
+    "hostess": 0,
+    "ads": 1200,
+    "fixed": 180,
+    "manual": 248,
+    "total": 2265.65
+   },
+   "gross": 386.35,
+   "net": -1241.65,
+   "gross_margin_pct": 37.7,
+   "margin_pct": -121.3,
+   "fixed_items": [
+    {
+     "name": "Make",
+     "ils": 120
+    },
+    {
+     "name": "מספרים",
+     "ils": 60
+    }
+   ],
+   "manual_items": {
+    "cloudflare": 18,
+    "monday": 140,
+    "anthropic": 90
+   },
+   "wa_estimated": false
+  },
+  {
+   "month": "2026-10",
+   "revenue": 1147,
+   "costs": {
+    "wa": 536,
+    "calls": 137.64,
+    "hostess": 0,
+    "ads": 1500,
+    "fixed": 180,
+    "manual": 248,
+    "total": 2601.64
+   },
+   "gross": 473.36,
+   "net": -1454.64,
+   "gross_margin_pct": 41.3,
+   "margin_pct": -126.8,
+   "fixed_items": [
+    {
+     "name": "Make",
+     "ils": 120
+    },
+    {
+     "name": "מספרים",
+     "ils": 60
+    }
+   ],
+   "manual_items": {
+    "cloudflare": 18,
+    "monday": 140,
+    "anthropic": 90
+   },
+   "wa_estimated": false
+  },
+  {
+   "month": "2026-11",
+   "revenue": 0,
+   "costs": {
+    "wa": 33,
+    "calls": 7.03,
+    "hostess": 3300,
+    "ads": 1800,
+    "fixed": 180,
+    "manual": 248,
+    "total": 5568.03
+   },
+   "gross": -3340.03,
+   "net": -5568.03,
+   "gross_margin_pct": null,
+   "margin_pct": null,
+   "fixed_items": [
+    {
+     "name": "Make",
+     "ils": 120
+    },
+    {
+     "name": "מספרים",
+     "ils": 60
+    }
+   ],
+   "manual_items": {
+    "cloudflare": 18,
+    "monday": 140,
+    "anthropic": 90
+   },
+   "wa_estimated": false
+  }
+ ],
+ "growth": [
+  {
+   "month": "2026-08",
+   "revenue": 339,
+   "net": -1634.65,
+   "mom_pct": null,
+   "cum_revenue": 339,
+   "cum_net": -1634.65
+  },
+  {
+   "month": "2026-09",
+   "revenue": 1024,
+   "net": -1241.65,
+   "mom_pct": 202.1,
+   "cum_revenue": 1363,
+   "cum_net": -2876.3
+  },
+  {
+   "month": "2026-10",
+   "revenue": 1147,
+   "net": -1454.64,
+   "mom_pct": 12,
+   "cum_revenue": 2510,
+   "cum_net": -4330.94
+  },
+  {
+   "month": "2026-11",
+   "revenue": 0,
+   "net": -5568.03,
+   "mom_pct": -100,
+   "cum_revenue": 2510,
+   "cum_net": -9898.97
+  }
+ ],
+ "vendors": {
+  "meta_wa": {
+   "spend_mtd_usd": 12.8,
+   "wabas": [
+    {
+     "name": "guests",
+     "waba": "1378764257421712",
+     "spend_mtd": 6.4,
+     "volume": 410
+    },
+    {
+     "name": "client",
+     "waba": "1060242146337688",
+     "spend_mtd": 6.4,
+     "volume": 410
+    }
+   ]
+  },
+  "telnyx": {
+   "balance_usd": 9.29
+  },
+  "meta_ads": {
+   "owed_ils": 269.36,
+   "spent_ils": 3866.17
+  },
+  "calls_mtd_ils": 7.03,
+  "manual_vendors": [
+   "cloudflare",
+   "monday",
+   "make",
+   "anthropic",
+   "telnyx",
+   "retell",
+   "other"
+  ]
+ },
+ "adspend": {
+  "2026-08": 900,
+  "2026-09": 1200,
+  "2026-10": 1500,
+  "2026-11": 1800
+ },
+ "fixedcost": {
+  "2026-08": [
+   {
+    "name": "Make",
+    "ils": 120
+   },
+   {
+    "name": "מספרים",
+    "ils": 60
+   }
+  ],
+  "2026-09": [
+   {
+    "name": "Make",
+    "ils": 120
+   },
+   {
+    "name": "מספרים",
+    "ils": 60
+   }
+  ],
+  "2026-10": [
+   {
+    "name": "Make",
+    "ils": 120
+   },
+   {
+    "name": "מספרים",
+    "ils": 60
+   }
+  ],
+  "2026-11": [
+   {
+    "name": "Make",
+    "ils": 120
+   },
+   {
+    "name": "מספרים",
+    "ils": 60
+   }
+  ]
+ },
+ "events": [
+  {
+   "tok8": "a1b2c3d7",
+   "token": "a1b2c3d7-0000-4000-8000-000000000007",
+   "name": "אירוע חברה",
+   "date": "2026-12-11",
+   "plan": "pro",
+   "revenue": 339,
+   "msgs_cost": 83,
+   "calls_cost": 0,
+   "hostess_pay": 0,
+   "margin": 256,
+   "margin_pct": 75.5
+  },
+  {
+   "tok8": "a1b2c3d6",
+   "token": "a1b2c3d6-0000-4000-8000-000000000006",
+   "name": "חתונת רון ומאיה",
+   "date": "2026-12-07",
+   "plan": "pro",
+   "revenue": 789,
+   "msgs_cost": 74,
+   "calls_cost": 0,
+   "hostess_pay": 0,
+   "margin": 715,
+   "margin_pct": 90.6
+  },
+  {
+   "tok8": "a1b2c3d5",
+   "token": "a1b2c3d5-0000-4000-8000-000000000005",
+   "name": "ברית לאורי",
+   "date": "2026-12-03",
+   "plan": "pro",
+   "revenue": 140,
+   "msgs_cost": 65,
+   "calls_cost": 0,
+   "hostess_pay": 0,
+   "margin": 75,
+   "margin_pct": 53.6
+  },
+  {
+   "tok8": "a1b2c3d4",
+   "token": "a1b2c3d4-0000-4000-8000-000000000004",
+   "name": "יום הולדת 40",
+   "date": "2026-11-29",
+   "plan": "pro",
+   "revenue": 95,
+   "msgs_cost": 56,
+   "calls_cost": 0,
+   "hostess_pay": 0,
+   "margin": 39,
+   "margin_pct": 41.1
+  },
+  {
+   "tok8": "a1b2c3d3",
+   "token": "a1b2c3d3-0000-4000-8000-000000000003",
+   "name": "חינה של שירה",
+   "date": "2026-11-25",
+   "plan": "pro",
+   "revenue": 669,
+   "msgs_cost": 47,
+   "calls_cost": 0,
+   "hostess_pay": 1050,
+   "margin": -428,
+   "margin_pct": -64
+  },
+  {
+   "tok8": "a1b2c3d2",
+   "token": "a1b2c3d2-0000-4000-8000-000000000002",
+   "name": "בר מצווה לנועם",
+   "date": "2026-11-21",
+   "plan": "pro",
+   "revenue": 199,
+   "msgs_cost": 38,
+   "calls_cost": 0,
+   "hostess_pay": 900,
+   "margin": -739,
+   "margin_pct": -371.4
+  },
+  {
+   "tok8": "a1b2c3d1",
+   "token": "a1b2c3d1-0000-4000-8000-000000000001",
+   "name": "משפחת לוי",
+   "date": "2026-11-17",
+   "plan": "pro",
+   "revenue": 279,
+   "msgs_cost": 29,
+   "calls_cost": 0,
+   "hostess_pay": 750,
+   "margin": -500,
+   "margin_pct": -179.2
+  }
+ ],
+ "invoices": [
+  {
+   "token": "a1b2c3d1-0000-4000-8000-000000000001",
+   "tok8": "a1b2c3d1",
+   "name": "משפחת לוי",
+   "phone": "972500000001",
+   "sum": 279,
+   "paid_day": "2026-10-20",
+   "status": "pending",
+   "number": "",
+   "url": "",
+   "at": ""
+  },
+  {
+   "token": "a1b2c3d2-0000-4000-8000-000000000002",
+   "tok8": "a1b2c3d2",
+   "name": "בר מצווה לנועם",
+   "phone": "972500000002",
+   "sum": 199,
+   "paid_day": "2026-10-11",
+   "status": "issued",
+   "number": "1002",
+   "url": "https://example.invalid/inv/2",
+   "at": "2026-11-01T10:00:00Z"
+  },
+  {
+   "token": "a1b2c3d3-0000-4000-8000-000000000003",
+   "tok8": "a1b2c3d3",
+   "name": "חינה של שירה",
+   "phone": "972500000003",
+   "sum": 669,
+   "paid_day": "2026-10-02",
+   "status": "issued",
+   "number": "40003",
+   "url": "",
+   "at": ""
+  },
+  {
+   "token": "a1b2c3d4-0000-4000-8000-000000000004",
+   "tok8": "a1b2c3d4",
+   "name": "יום הולדת 40",
+   "phone": "972500000004",
+   "sum": 95,
+   "paid_day": "2026-09-23",
+   "status": "issued",
+   "number": "1004",
+   "url": "https://example.invalid/inv/4",
+   "at": "2026-10-30T10:00:00Z"
+  },
+  {
+   "token": "a1b2c3d5-0000-4000-8000-000000000005",
+   "tok8": "a1b2c3d5",
+   "name": "ברית לאורי",
+   "phone": "972500000005",
+   "sum": 140,
+   "paid_day": "2026-09-14",
+   "status": "pending",
+   "number": "",
+   "url": "",
+   "at": ""
+  },
+  {
+   "token": "a1b2c3d6-0000-4000-8000-000000000006",
+   "tok8": "a1b2c3d6",
+   "name": "חתונת רון ומאיה",
+   "phone": "972500000006",
+   "sum": 789,
+   "paid_day": "2026-09-05",
+   "status": "issued",
+   "number": "1006",
+   "url": "https://example.invalid/inv/6",
+   "at": "2026-10-28T10:00:00Z"
+  },
+  {
+   "token": "a1b2c3d7-0000-4000-8000-000000000007",
+   "tok8": "a1b2c3d7",
+   "name": "אירוע חברה",
+   "phone": "972500000007",
+   "sum": 339,
+   "paid_day": "2026-08-27",
+   "status": "pending",
+   "number": "",
+   "url": "",
+   "at": ""
+  }
+ ],
+ "cash": {
+  "hostess_owed": 1950,
+  "hostess_paid": 1350,
+  "meta_ads_owed": 269.36,
+  "telnyx_balance_usd": 9.29
+ },
+ "estimates": [
+  "revenue split of package payments that include hostesses/design (list price)",
+  "WhatsApp cost on days without wacost (tmpl × $0.0053)",
+  "calls ₪ = Retell USD × 3.7",
+  "per-event msgs = evcost − audited calls"
+ ],
+ "audit_truncated": false,
+ "sources": {
+  "snapshot": true,
+  "pay_rows": 0,
+  "hostess_assignments": 4
+ },
+ "fixture": true
+}
