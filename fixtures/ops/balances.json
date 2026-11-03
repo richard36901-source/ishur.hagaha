@@ -1,0 +1,92 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T11:40:00.000Z",
+ "vendors": [
+  {
+   "vendor": "telnyx",
+   "label": "Telnyx",
+   "amount": 23.4,
+   "currency": "USD",
+   "low_threshold": 30,
+   "topup_url": "https://portal.telnyx.com/#/app/billing",
+   "auto_topup": false,
+   "as_of": "2026-11-03T11:30:00.000Z",
+   "source": "api"
+  },
+  {
+   "vendor": "retell",
+   "label": "Retell · שיחות",
+   "amount": 61,
+   "currency": "USD",
+   "low_threshold": 25,
+   "topup_url": "https://dashboard.retellai.com/billing",
+   "auto_topup": true,
+   "as_of": "2026-11-02T07:00:00Z",
+   "source": "manual",
+   "note": "אין API ליתרה, מעודכן ידנית. השיחה האחרונה הצליחה לפני 4 דק׳"
+  },
+  {
+   "vendor": "anthropic",
+   "label": "Anthropic",
+   "amount": 142.8,
+   "currency": "USD",
+   "low_threshold": 20,
+   "topup_url": "https://console.anthropic.com/settings/billing",
+   "auto_topup": true,
+   "as_of": "2026-11-01T09:00:00Z",
+   "source": "manual"
+  },
+  {
+   "vendor": "meta_wa",
+   "label": "Meta WhatsApp",
+   "amount": null,
+   "currency": "USD",
+   "spent_month": 318.2,
+   "low_threshold": null,
+   "topup_url": "https://business.facebook.com/billing_hub",
+   "auto_topup": "unknown",
+   "as_of": "2026-11-03T11:10:00.000Z",
+   "source": "api",
+   "note": "משולם בכרטיס, אין יתרה. מוצג החיוב החודשי"
+  },
+  {
+   "vendor": "meta_ads",
+   "label": "Meta Ads",
+   "amount": 412,
+   "currency": "ILS",
+   "spend_cap": 3000,
+   "spent_month": 2140,
+   "low_threshold": 200,
+   "topup_url": "https://adsmanager.facebook.com/billing",
+   "auto_topup": true,
+   "as_of": "2026-11-03T11:10:00.000Z",
+   "source": "api"
+  },
+  {
+   "vendor": "cloudflare",
+   "label": "Cloudflare",
+   "amount": null,
+   "currency": "USD",
+   "plan": "Workers Paid",
+   "usage_pct": 34,
+   "low_threshold": null,
+   "topup_url": "https://dash.cloudflare.com/?to=/:account/billing",
+   "auto_topup": true,
+   "as_of": "2026-11-03T10:40:00.000Z",
+   "source": "api"
+  },
+  {
+   "vendor": "make",
+   "label": "Make",
+   "amount": 6120,
+   "currency": "ops",
+   "usage_pct": 61,
+   "low_threshold": 1000,
+   "topup_url": "https://www.make.com/en/pricing",
+   "auto_topup": false,
+   "as_of": "2026-11-03T10:40:00.000Z",
+   "source": "api"
+  }
+ ]
+}

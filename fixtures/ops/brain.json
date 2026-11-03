@@ -1,0 +1,171 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T11:40:00.000Z",
+ "findings": [
+  {
+   "id": "f1",
+   "at": "2026-11-03T11:25:00.000Z",
+   "check_id": "template_pending",
+   "severity": "P2",
+   "status": "handling",
+   "title": "תבנית wave1_n ממתינה לאישור 26 שעות",
+   "playbook": 1,
+   "run_id": "rb1"
+  },
+  {
+   "id": "f2",
+   "at": "2026-11-03T06:40:00.000Z",
+   "check_id": "snapshot_fail",
+   "severity": "P1",
+   "status": "resolved",
+   "title": "קובץ האורחים של שירה ודניאל לא נטען",
+   "playbook": 3,
+   "run_id": "rb2"
+  },
+  {
+   "id": "f3",
+   "at": "2026-11-03T08:40:00.000Z",
+   "check_id": "quality_drop",
+   "severity": "P2",
+   "status": "needs_approval",
+   "title": "דירוג 4499 ירד לצהוב. להעביר תנועה?",
+   "playbook": 9,
+   "run_id": "rb3"
+  },
+  {
+   "id": "f4",
+   "at": "2026-11-02T11:40:00.000Z",
+   "check_id": "wrong_number",
+   "severity": "P3",
+   "status": "resolved",
+   "title": "אורח כתב ל-4499, נענה מ-6673",
+   "playbook": 7,
+   "run_id": "rb4"
+  }
+ ],
+ "playbooks": [
+  {
+   "id": 1,
+   "name": "תבנית ממתינה או נדחתה",
+   "status": "active",
+   "runs_7d": 9,
+   "last_run": "2026-10-31T17:40:00.000Z"
+  },
+  {
+   "id": 2,
+   "name": "עצירה ישנה",
+   "status": "active",
+   "runs_7d": 7,
+   "last_run": "2026-10-31T19:40:00.000Z"
+  },
+  {
+   "id": 3,
+   "name": "קובץ אורחים לא נטען",
+   "status": "active",
+   "runs_7d": 8,
+   "last_run": "2026-11-03T10:40:00.000Z"
+  },
+  {
+   "id": 4,
+   "name": "בעיית תשלום במספר (131042)",
+   "status": "active",
+   "runs_7d": 7,
+   "last_run": "2026-11-02T05:40:00.000Z"
+  },
+  {
+   "id": 5,
+   "name": "Telnyx: הזמנה או יתרה",
+   "status": "active",
+   "runs_7d": 6,
+   "last_run": "2026-11-02T06:40:00.000Z"
+  },
+  {
+   "id": 6,
+   "name": "ליד בלי פריט במאנדיי",
+   "status": "active",
+   "runs_7d": 9,
+   "last_run": "2026-11-03T06:40:00.000Z"
+  },
+  {
+   "id": 7,
+   "name": "הודעה למספר הלא נכון",
+   "status": "active",
+   "runs_7d": 0,
+   "last_run": "2026-10-31T15:40:00.000Z"
+  },
+  {
+   "id": 8,
+   "name": "גל לא יצא עד 12:00",
+   "status": "active",
+   "runs_7d": 5,
+   "last_run": "2026-11-02T11:40:00.000Z"
+  },
+  {
+   "id": 9,
+   "name": "שיעור ספאם עולה",
+   "status": "approval",
+   "runs_7d": 8,
+   "last_run": "2026-11-03T08:40:00.000Z"
+  },
+  {
+   "id": 10,
+   "name": "מנוע תקוע או חיוב Retell",
+   "status": "active",
+   "runs_7d": 9,
+   "last_run": "2026-11-02T15:40:00.000Z"
+  }
+ ],
+ "stream": [
+  {
+   "id": 900,
+   "at": "2026-11-03T11:37:40.000Z",
+   "run_id": "rb1",
+   "step": 1,
+   "text": "בדיקה: template_pending · wave1_n במצב PENDING מאתמול 11:20"
+  },
+  {
+   "id": 901,
+   "at": "2026-11-03T11:38:00.000Z",
+   "run_id": "rb1",
+   "step": 2,
+   "text": "סוג ידוע, פלייבוק 1. לא צריך מודל שפה."
+  },
+  {
+   "id": 902,
+   "at": "2026-11-03T11:38:20.000Z",
+   "run_id": "rb1",
+   "step": 3,
+   "text": "בודק אם יש וריאנט קיים: wave1_n_v2 לא קיים"
+  },
+  {
+   "id": 903,
+   "at": "2026-11-03T11:38:40.000Z",
+   "run_id": "rb1",
+   "step": 4,
+   "text": "מגיש וריאנט wave1_n_v2 עם אותו טקסט, קטגוריה UTILITY"
+  },
+  {
+   "id": 904,
+   "at": "2026-11-03T11:39:00.000Z",
+   "run_id": "rb1",
+   "step": 5,
+   "text": "מטא החזיר מזהה חדש, סטטוס PENDING"
+  },
+  {
+   "id": 905,
+   "at": "2026-11-03T11:39:20.000Z",
+   "run_id": "rb1",
+   "step": 6,
+   "text": "גל 1 של מאיה ועומר משתמש ב-wave1_f (מאושרת), אין השפעה על שליחה היום"
+  },
+  {
+   "id": 906,
+   "at": "2026-11-03T11:39:40.000Z",
+   "run_id": "rb1",
+   "step": 7,
+   "text": "כתבתי התראה P2 לסלאק עם הסבר. אבדוק שוב בעוד שעה."
+  }
+ ],
+ "cursor": 906
+}

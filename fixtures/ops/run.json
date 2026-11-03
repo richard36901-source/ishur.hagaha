@@ -1,0 +1,148 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T11:40:00.000Z",
+ "run": {
+  "id": "r100000",
+  "automation_id": "d_pacer",
+  "name": "הפייסר (runPacer)",
+  "parent_id": null,
+  "triggered_by": "manual:richard",
+  "started_at": "2026-11-03T11:39:03.284Z",
+  "ended_at": "2026-11-03T11:39:05.624Z",
+  "duration_ms": 2340,
+  "status": "ok",
+  "skip_reason": null,
+  "counts": {
+   "sent": 2,
+   "failed": 0,
+   "skipped": 0
+  },
+  "cost_usd": 0,
+  "error_class": null,
+  "error": null,
+  "handled": null
+ },
+ "children": [
+  {
+   "id": "r100000.1",
+   "automation_id": "autoretry",
+   "name": "ניסיון חוזר אוטומטי (פעם ביום)",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:03.284Z",
+   "status": "skipped",
+   "skip_reason": "already-today",
+   "counts": {}
+  },
+  {
+   "id": "r100000.2",
+   "automation_id": "lead_chase",
+   "name": "רצף לידים שנטשו (נועה)",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:03.684Z",
+   "status": "ok",
+   "skip_reason": null,
+   "counts": {}
+  },
+  {
+   "id": "r100000.3",
+   "automation_id": "shir_callbacks",
+   "name": "שיר · חזרה למי שהתקשר",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:04.084Z",
+   "status": "ok",
+   "skip_reason": null,
+   "counts": {}
+  },
+  {
+   "id": "r100000.4",
+   "automation_id": "shir_dispatch",
+   "name": "שיר · חיוג תור האורחים",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:04.484Z",
+   "status": "partial",
+   "skip_reason": null,
+   "counts": {
+    "dialed": 6,
+    "answered": 2
+   }
+  },
+  {
+   "id": "r100000.5",
+   "automation_id": "reconcile_calls",
+   "name": "קליטת תוצאות שיחה מרטל",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:04.884Z",
+   "status": "ok",
+   "skip_reason": null,
+   "counts": {}
+  },
+  {
+   "id": "r100000.6",
+   "automation_id": "template_check",
+   "name": "בדיקת תבניות מטא (שעתית)",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:05.284Z",
+   "status": "ok",
+   "skip_reason": null,
+   "counts": {}
+  },
+  {
+   "id": "r100000.7",
+   "automation_id": "doctor",
+   "name": "הרופא (סוף כל פעימה)",
+   "parent_id": "r100000",
+   "started_at": "2026-11-03T11:39:05.684Z",
+   "status": "ok",
+   "skip_reason": null,
+   "counts": {}
+  }
+ ],
+ "logs": [
+  {
+   "ts": "2026-11-03T11:39:03.284Z",
+   "level": "info",
+   "msg": "פעימה התחילה · חלון שליחה פתוח · חלון שיחות פתוח"
+  },
+  {
+   "ts": "2026-11-03T11:39:03.284Z",
+   "level": "info",
+   "msg": "pacer:pending = היום → מריץ מנוע בתקציב 25"
+  },
+  {
+   "ts": "2026-11-03T11:39:03.284Z",
+   "level": "info",
+   "msg": "גל 1 · נועה ואיתי · 18 נשלחו מ-6673"
+  },
+  {
+   "ts": "2026-11-03T11:39:03.284Z",
+   "level": "warn",
+   "msg": "שיר: 2 מספרים לא זמינים, נדחו לסבב הבא"
+  },
+  {
+   "ts": "2026-11-03T11:39:05.624Z",
+   "level": "info",
+   "msg": "doctor: הכל תקין"
+  }
+ ],
+ "audit": [
+  {
+   "id": "a9f31",
+   "at": "2026-11-03T11:39:03.284Z",
+   "kind": "cron",
+   "summary": "job runPacer ok"
+  },
+  {
+   "id": "a9f32",
+   "at": "2026-11-03T11:39:03.284Z",
+   "kind": "wa_out",
+   "summary": "18 הודעות wave1_f · נועה ואיתי"
+  },
+  {
+   "id": "a9f33",
+   "at": "2026-11-03T11:39:05.624Z",
+   "kind": "call",
+   "summary": "6 חיוגים · 2 נענו"
+  }
+ ]
+}
