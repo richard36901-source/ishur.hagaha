@@ -2,15 +2,16 @@
    ?mock=1 → fixtures/ops/*.json through mock adapters; otherwise POST go.ishur.io/api/ops/*
    with admin_key + IshurGuard.stamp, the same way live.html / admin.html authenticate. */
 import { esc, icon, Button, Skeleton, KeyHints, toast, Drawer, init as uiInit, relTime } from './ui.js';
+import { adapt } from './adapt.js';
 
 const Q = new URLSearchParams(location.search);
 export const MOCK = Q.get('mock') === '1';
-const VER = '1';
+const VER = '2';
 const $ = (s, r = document) => r.querySelector(s);
 
 /* ── auth (same key + stamp as admin pages) ── */
 let adminKey = '';
-try { adminKey = Q.get('key') || localStorage.getItem('ishur_calls_key') || ''; if (Q.get('key')) localStorage.setItem('ishur_calls_key', adminKey); } catch (e) { /* private mode */ }
+try { /* ?key= is stored then stripped from the URL, exactly as admin.html does */ if (Q.get('key')) { localStorage.setItem('ishur_calls_key', Q.get('key')); Q.delete('key'); history.replaceState(null, '', location.pathname + (Q.toString() ? '?' + Q : '') + location.hash); } adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) { /* private mode */ }
 let BASE = 'https://go.ishur.io';
 const loadScript = (src) => new Promise((ok, no) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = no; document.head.appendChild(s); });
 let liveReady = null;
@@ -39,18 +40,23 @@ const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fix
 let reqCount = 0;
 export const stats = () => ({ requests: reqCount });
 
+/* automation_id → name_he from the cached registry (runs / live rows show names) */
+function names() { const r = cacheGet('registry'); return r && r.data && r.data.nodes ? Object.fromEntries(r.data.nodes.map((n) => [n.id, n.name_he])) : {}; }
 async function raw(name, body = {}) {
   reqCount++;
-  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ return mockApi(name, body); }
-  await ensureLive();
-  const payload = Object.assign({ admin_key: adminKey }, body);
-  const r = await fetch(BASE + '/api/ops/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
-  if (r.status === 403 || r.status === 401) { showGate('המפתח לא התקבל'); throw new HttpError(r.status, 'אין הרשאה'); }
-  if (r.status === 404) throw new HttpError(404, 'נקודת הקצה ' + name + ' עוד לא קיימת בשרת');
-  if (!r.ok) throw new HttpError(r.status);
-  const j = await r.json();
+  let j;
+  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await mockApi(name, body); }
+  else {
+    await ensureLive();
+    const payload = Object.assign({ admin_key: adminKey }, body);
+    const r = await fetch(BASE + '/api/ops/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
+    if (r.status === 403 || r.status === 401) { showGate('המפתח לא התקבל'); throw new HttpError(r.status, 'אין הרשאה'); }
+    if (r.status === 404) { const e = await r.json().catch(() => ({})); throw new HttpError(404, e.error === 'unknown-ops-route' || !e.error ? 'נקודת הקצה ' + name + ' עוד לא קיימת בשרת' : e.error); }
+    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new HttpError(r.status, e.error || e.why || ''); }
+    j = await r.json();
+  }
   if (j && j.ok === false) throw new HttpError(200, j.error || 'השרת החזיר שגיאה');
-  return j;
+  return adapt(name, j, { names: names() });
 }
 const keyOf = (name, body) => name + (body && Object.keys(body).length ? ':' + JSON.stringify(body) : '');
 const inflight = new Map();
@@ -82,40 +88,35 @@ export function poll(fn, ms) {
 }
 document.addEventListener('visibilitychange', () => { if (!document.hidden) polls.forEach((p) => p.kick()); });
 
-/* ── mock adapters: make fixtures behave like the endpoints (filters, since-cursor, toggle) ── */
-const mockState = { off: {}, liveId: 0, brainStep: 2 };
-function downstream(nodes, id) {
-  const kids = {}; nodes.forEach((n) => (n.from || []).forEach((f) => (kids[f] = kids[f] || []).push(n.id)));
-  const seen = new Set(), q = [id];
-  while (q.length) { const x = q.shift(); (kids[x] || []).forEach((k) => { if (!seen.has(k)) { seen.add(k); q.push(k); } }); }
-  return [...seen].map((k) => nodes.find((n) => n.id === k)).filter(Boolean);
-}
+/* ── mock adapters: make the (real-shaped) fixtures behave like the endpoints ── */
+const mockState = { off: {}, liveTs: 0, brainStep: 2 };
 async function mockApi(name, body) {
   const now = new Date().toISOString();
   if (name === 'registry') {
     const r = structuredClone(await fixture('registry'));
-    r.nodes.forEach((n) => { if (mockState.off[n.id] != null) n.state = mockState.off[n.id]; });
+    r.nodes.forEach((n) => { const o = mockState.off[n.id]; if (o !== undefined) n.state = { ...n.state, enabled: !o, off: o }; });
     return r;
   }
   if (name === 'runs') {
     const r = await fixture('runs');
-    let items = r.items.filter((x) => (!body.automation_id || x.automation_id === body.automation_id) && (!body.status || x.status === body.status) && (!body.triggered_by || x.triggered_by.startsWith(body.triggered_by)) && (!body.q || (x.name + x.id + (x.error || '')).includes(body.q)));
-    const off = body.cursor ? +body.cursor : 0, lim = body.limit || 200;
-    return { ok: true, fixture: true, as_of: r.as_of, total: items.length, items: items.slice(off, off + lim), next_cursor: off + lim < items.length ? String(off + lim) : null };
+    const items = r.items.filter((x) => (!body.automation_id || x.automation_id === body.automation_id) && (!body.status || x.status === body.status) && (!body.triggered_by || x.triggered_by.startsWith(body.triggered_by)) && (!body.q || (x.automation_id + x.id + (x.error || '')).includes(body.q)));
+    const off = body.cursor ? +body.cursor : 0, lim = body.limit || 50;
+    return { ok: true, fixture: true, source: r.source, items: items.slice(off, off + lim), next_cursor: off + lim < items.length ? String(off + lim) : null };
   }
   if (name === 'run') {
     const d = await fixture('run');
-    if (!body.id || body.id === d.run.id) return d;
-    const all = (await fixture('runs')).items, run = all.find((x) => x.id === body.id) || all[1];
-    return { ok: true, fixture: true, run, children: [], logs: [{ ts: run.started_at, level: 'info', msg: 'התחיל · ' + run.name }, ...(run.error ? [{ ts: run.ended_at, level: 'error', msg: run.error }] : []), { ts: run.ended_at, level: 'info', msg: 'הסתיים · ' + run.status }], audit: [{ id: 'a' + run.id, at: run.started_at, kind: 'cron', summary: 'job ' + run.automation_id + ' ' + run.status }] };
+    if (!body.id || (d.run && body.id === d.run.id)) return d;
+    const run = (await fixture('runs')).items.find((x) => x.id === body.id);
+    return run ? { ok: true, fixture: true, source: 'kv', run, children: [], audit: [], audit_window: { from: run.started_at, to: run.ended_at, token: null } } : { ok: false, error: 'not-found' };
   }
   if (name === 'live') {
     const f = await fixture('live');
-    if (!body.since) { mockState.liveId = f.cursor; return f; }
+    if (!body.since) { mockState.liveTs = f.cursor; return f; }
     const n = Math.random() < 0.35 ? 0 : 1 + Math.floor(Math.random() * 2);
-    const items = Array.from({ length: n }, () => { const t = f.items[Math.floor(Math.random() * f.items.length)]; return { ...t, id: ++mockState.liveId, at: now }; });
-    return { ok: true, fixture: true, items, cursor: mockState.liveId };
+    const items = Array.from({ length: n }, () => { const t = f.items[Math.floor(Math.random() * f.items.length)]; const ts = Math.max(Date.now(), ++mockState.liveTs); mockState.liveTs = ts; return { ...t, ts, id: t.id + '-m' + ts, at: new Date(ts).toISOString() }; });
+    return { ok: true, fixture: true, items, cursor: mockState.liveTs, now: Date.now() };
   }
+  if (name === 'code') { const c = (await fixture('code')).by_id[body.id]; return c || { ok: false, error: 'no-code-snapshot' }; }
   if (name === 'brain') {
     const b = await fixture('brain');
     if (!body.since) { mockState.brainStep = 3; return { ...b, stream: b.stream.slice(0, 3), cursor: b.stream[2].id }; }
@@ -123,12 +124,16 @@ async function mockApi(name, body) {
     return { ok: true, fixture: true, findings: b.findings, playbooks: b.playbooks, stream: [{ ...nx, id: 1000 + mockState.brainStep, at: now }], cursor: 1000 + mockState.brainStep };
   }
   if (name === 'toggle') {
-    const reg = await fixture('registry'), imp = (await fixture('toggle')).impact;
-    const node = reg.nodes.find((n) => n.id === body.id);
-    if (!node) return { ok: false, error: 'unknown id' };
-    if (body.confirm !== body.id) return { ok: true, needs_confirm: true, blast: { downstream: downstream(reg.nodes, body.id).map((n) => ({ id: n.id, name: n.name_he, kind: n.kind })), impact: (imp[body.id] || []).map(([label, count]) => ({ label, count })), side_effects: node.side_effects } };
-    mockState.off[body.id] = body.enabled ? { enabled: true } : { enabled: false, disabled_by: 'richard', disabled_at: now, reason: body.reason || 'כובה מלוח הבקרה' };
-    return { ok: true, state: mockState.off[body.id] };
+    const reg = await fixture('registry'), node = reg.nodes.find((n) => n.id === body.id);
+    if (!node) return { ok: false, error: 'unknown-id' };
+    const sw = node.kill_switch ? (node.kill_switch.via || node.id) : null;
+    if (!sw) return { ok: false, error: 'no-kill-switch' };
+    if (body.confirm !== body.id && body.confirm !== sw) {
+      const t = body.enabled === false ? (await fixture('toggle')).by_id[sw] : null;
+      return t ? { ...t, id: body.id } : { ok: true, id: body.id, switch_id: sw, requested_enabled: body.enabled, blast_radius: null, confirm_required: sw, applied: false };
+    }
+    mockState.off[body.id] = body.enabled ? null : { at: now, by: body.who || 'richard', reason: body.reason || 'כובה מלוח הבקרה (דמה)' };
+    return { ok: true, id: body.id, switch_id: sw, applied: true };
   }
   if (['edit', 'brain-decision'].includes(name)) return { ok: true, fixture: true, saved: body };
   return fixture(name);

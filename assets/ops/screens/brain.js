@@ -49,7 +49,7 @@ export default {
       typeNext();
     };
     const load = async () => { const d = await ctx.api.get('brain', cursor != null ? { since: cursor } : {}, { cache: false }); cursor = d.cursor; paint(d); };
-    try { await load(); } catch (e) { streamEl.innerHTML = ctx.errorBox(e, 'noop'); }
+    try { await load(); } catch (e) { streamEl.innerHTML = ctx.errorBox(e, 'retry-route'); if (e.status === 404) return; /* no backend yet: don't poll a missing route */ }
     ctx.poll(load, 3000);
     ctx.on(el, 'click', (e) => {
       const b = e.target.closest('[data-act=approve],[data-act=reject]'); if (!b) return;

@@ -2,7 +2,7 @@
    feed() is reused by the side panel in the shell. */
 import { esc, fmtTime, Select, Button, Skeleton, icon } from '../ui.js';
 
-export const KIND_HE = { wa_out: 'נשלח', wa_status: 'סטטוס', wa_in: 'נכנס', call: 'שיחה', cron: 'ריצה', admin: 'אדמין', slack: 'סלאק', pay: 'תשלום', lead: 'ליד', event: 'אירוע', system: 'מערכת', brain: 'מוח' };
+export const KIND_HE = { run: 'ריצה', wa_out: 'נשלח', wa_status: 'סטטוס', wa_in: 'נכנס', call: 'שיחה', cron: 'ריצה', admin: 'אדמין', slack: 'סלאק', pay: 'תשלום', lead: 'ליד', event: 'אירוע', system: 'מערכת', brain: 'מוח' };
 export const row = (x) => `<div class="feed-row${x.level === 'error' ? ' err' : x.level === 'warn' ? ' warn' : ''}" data-id="${esc(x.id)}"><time datetime="${esc(x.at)}">${esc(fmtTime(x.at))}</time><span><span class="badge">${esc(KIND_HE[x.kind] || x.kind)}</span>${x.number ? ` <span class="sub mono">${esc(x.number)}</span>` : ''}${x.event ? ` <span class="sub">${esc(x.event)}</span>` : ''}</span><span class="m">${esc(x.msg)}</span></div>`;
 export const match = (x, f) => (!f.kind || x.kind === f.kind) && (!f.number || x.number === f.number) && (!f.q || ((x.event || '') + ' ' + x.msg).includes(f.q));
 
@@ -23,7 +23,8 @@ export function feed(el, { compact = false, filters = {}, onCount } = {}) {
         const r = await api('live', cursor != null ? { since: cursor } : {});
         cursor = r.cursor;
         if (r.items && r.items.length) {
-          items = r.items.concat(items).sort((a, b) => b.id - a.id).slice(0, 1000);
+          const seen = new Set(items.map((x) => x.id));
+          items = r.items.filter((x) => !seen.has(x.id)).concat(items).sort((a, b) => b.ts - a.ts).slice(0, 1000);
           if (paused || hover) { buffered += r.items.length; if (onCount) onCount(null, buffered, true); } else paint();
         } else if (!el.children.length || el.querySelector('.sk')) paint();
       } catch (e) { if (!items.length) el.innerHTML = `<div class="errbox" style="margin:10px">${esc(e.message)}</div>`; }
@@ -47,7 +48,7 @@ export default {
   async mount(el, ctx) {
     const f = { kind: '', number: '', q: '' };
     el.innerHTML = `<div class="bar">${Select({ name: 'kind', value: '', options: [{ value: '', label: 'כל הסוגים' }, ...Object.entries(KIND_HE).map(([value, label]) => ({ value, label }))] })}
-${Select({ name: 'number', value: '', options: [{ value: '', label: 'כל המספרים' }, { value: '6673', label: '6673 · אורחים' }, { value: '9799', label: '9799 · אורחים 2' }, { value: '4499', label: '4499 · לקוחות' }] })}
+${Select({ name: 'number', value: '', options: [{ value: '', label: 'כל האזורים' }, { value: 'שיר', label: 'שיר · אורחים' }, { value: 'נועה', label: 'נועה · לקוחות' }, { value: 'שיחות', label: 'שיחות' }, { value: 'וורקר', label: 'וורקר' }, { value: 'אדמין', label: 'אדמין' }] })}
 <div class="search">${icon('search')}<input class="in" data-search placeholder="אירוע או טקסט" aria-label="סינון לפי אירוע"></div>
 ${Button(icon('pause') + '<span>להשהות</span>', { act: 'live-pause', kbd: 'p' })}<span class="sp" style="flex:1"></span><span class="sub" id="lv-st" aria-live="polite"></span></div>
 <div class="card flush"><div id="lv-feed" style="max-height:calc(100dvh - 190px);overflow-y:auto"></div></div>`;

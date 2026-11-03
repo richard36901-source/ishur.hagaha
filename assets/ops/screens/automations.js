@@ -85,21 +85,21 @@ export function detailView(n, nodes) {
 <p style="margin:0;font-size:15px;line-height:1.65">${esc(n.explain_he || '')}</p>
 <section class="${n.kill ? 'danger-zone' : 'card'}"><div class="sec-h"><h3 class="h2">${on ? 'פעיל' : 'כבוי'}</h3><span class="sp"></span>${n.kill || !on ? Toggle({ id: n.id, on, label: on ? 'לכבות' : 'להדליק' }) : ''}</div>
 ${!on ? `<p class="sub" style="margin:0">כובה ע״י ${esc(n.state.disabled_by || '—')} ${esc(relTime(n.state.disabled_at))}${n.state.reason ? ' · ' + esc(n.state.reason) : ''}</p>` : ''}
-<p class="sub" style="margin:6px 0 0">${n.kill ? 'כיבוי מציג קודם בדיוק מה ייעצר, ודורש להקליד את שם האוטומציה.' : 'אין לו מתג נפרד עדיין. נעצר רק דרך העצירה הכללית.'}</p>
+<p class="sub" style="margin:6px 0 0">${n.kill ? 'כיבוי מציג קודם בדיוק מה ייעצר, ודורש להקליד את שם האוטומציה.' + (n.kill.via ? ' המתג המשותף: ' + esc(n.kill.via) + '.' : '') + (n.kill.wired === false ? ' שימו לב: המתג עוד לא מחובר בקוד.' : '') : 'אין לו מתג נפרד עדיין. נעצר רק דרך העצירה הכללית.'}</p>
 ${side ? `<div class="chips" style="margin-top:10px"><span class="sub">משפיע על:</span>${side}</div>` : ''}</section>
 <section><div class="grid g-tiles" style="grid-template-columns:repeat(auto-fill,minmax(130px,1fr))">
 <div class="tile" style="min-height:0"><span class="l">ריצות 24ש׳</span><span class="v">${fmtN(st.runs_24h)}</span></div>
-<div class="tile" style="min-height:0"><span class="l">ריצות 7 ימים</span><span class="v">${fmtN(st.runs_7d)}</span><span class="s">#${fmtN(st.most_run_rank)} בהכי רצות</span></div>
+<div class="tile" style="min-height:0"><span class="l">לפי מצב 24ש׳</span><span class="v" style="font-size:15px">${esc(Object.entries(st.by_status_24h || {}).map(([k, v]) => k + ' ' + v).join(' · ') || '—')}</span></div>
 <div class="tile" style="min-height:0"><span class="l">כשלים 24ש׳</span><span class="v" style="${st.fail_24h ? 'color:var(--crit-ink)' : ''}">${fmtN(st.fail_24h)}</span></div>
 <div class="tile" style="min-height:0"><span class="l">ריצה אחרונה</span><span class="v" style="font-size:18px">${lr ? esc(relTime(lr.at)) : '—'}</span><span class="s">${lr ? Badge(lr.status) : ''}</span></div>
 </div>
 ${st.handled ? `<p class="sub">איך טופלו הכשלים: ${esc(st.handled)}</p>` : ''}
-<div style="margin-top:8px">${Sparkline(st.spark_24h || [], { fails: st.spark_fail_24h, w: 560, h: 40 })}<div class="legend"><span><i></i>ריצות לשעה</span><span><i class="over"></i>כשל</span><span class="muted">ימין = לפני 24 שעות</span></div></div></section>
+${(st.spark_24h || []).length ? `<div style="margin-top:8px">${Sparkline(st.spark_24h, { fails: st.spark_fail_24h, w: 560, h: 40 })}<div class="legend"><span><i></i>ריצות לשעה</span><span><i class="over"></i>כשל</span><span class="muted">ימין = לפני 24 שעות</span></div></div>` : ''}</section>
 <section><h3 class="h2">מתי</h3><dl class="kv" style="margin-top:8px"><dt>תזמון</dt><dd>${esc(n.schedule_he || (n.trigger && n.trigger.il) || '—')}</dd><dt>הבא</dt><dd class="num">${n.next_fire ? esc(fmtDT(n.next_fire)) : '—'}</dd>${n.budget ? `<dt>תקציב</dt><dd>${esc(n.budget)}</dd>` : ''}${n.audience ? `<dt>למי</dt><dd>${esc(n.audience)}</dd>` : ''}${(n.templates || []).length ? `<dt>תבניות</dt><dd class="mono" dir="ltr">${esc(n.templates.join(', '))}</dd>` : ''}</dl>
 ${(n.conditions || []).length ? `<ul style="margin:10px 0 0;padding-inline-start:18px;color:var(--ink-2)">${n.conditions.map((c) => `<li>${esc(c)}</li>`).join('')}</ul>` : ''}</section>
 ${(n.warnings || []).length ? `<section class="card" style="background:var(--warn-bg);border-color:transparent"><h3 class="h2">פערים שנמצאו בקוד</h3><ul style="margin:6px 0 0;padding-inline-start:18px">${n.warnings.map((w) => `<li>${esc(typeof w === 'string' ? w : w.he || w.claim || JSON.stringify(w))}</li>`).join('')}</ul></section>` : ''}
 <section><h3 class="h2">תלויות</h3>${depGraph(n, nodes)}</section>
-${n.code ? `<section><div class="sec-h"><h3 class="h2">הקוד</h3><span class="sp"></span>${n.code.drifted ? '<span class="badge warn" data-tip="השורה ברשומה זזה; הקטע נמצא לפי שם הפונקציה">שורה זזה</span>' : ''}</div>${Code(n.code)}</section>` : ''}
+<section><div class="sec-h"><h3 class="h2">הקוד</h3><span class="sp"></span>${n.code_ref ? `<span class="sub mono" dir="ltr">${esc(n.code_ref.ref)}</span>` : ''}</div><div id="au-code">${n.code ? Code(n.code) : n.code_ref ? Skeleton.lines(4) : '<p class="sub">אין קוד ברשומה לאוטומציה הזו.</p>'}</div></section>
 <section><div class="sec-h"><h3 class="h2">עריכה</h3><span class="sp"></span><span class="sub">שלב 2: נשמר עם גרסה וכפתור החזרה</span></div>
 ${n.editable ? `<div class="bar">${Object.entries(n.editable).map(([k, v]) => `<label class="sub">${esc({ il_time: 'שעה', budget: 'תקציב יומי' }[k] || k)} <input class="in num" data-edit="${esc(k)}" value="${esc(v)}" dir="ltr" style="width:90px"></label>`).join('')}${Button('שמירה', { variant: 'primary', size: 'sm', act: 'edit-save', attr: { 'data-id': n.id } })}</div>` : '<p class="sub">לאוטומציה הזו אין שדות לעריכה ברשומה.</p>'}</section>
 <section><div class="sec-h"><h3 class="h2">היסטוריית ריצות</h3><span class="sp"></span><a class="btn ghost sm" href="#/runs?automation_id=${esc(n.id)}">הכל</a></div><div id="au-runs">${Skeleton.lines(5)}</div></section>`;
@@ -107,7 +107,7 @@ ${n.editable ? `<div class="bar">${Object.entries(n.editable).map(([k, v]) => `<
 
 export function blastBody(n, blast) {
   const ds = blast.downstream || [], imp = blast.impact || [];
-  return `<p style="margin:0 0 8px">כיבוי <b>${esc(n.name_he)}</b> עוצר מיד:</p>
+  return `<p style="margin:0 0 8px">כיבוי <b>${esc(n.name_he)}</b> עוצר מיד${imp.length ? ':' : '. השרת לא מצא הודעות או שיחות מתוכננות שייעצרו.'}</p>
 ${imp.length ? `<ul style="margin:0 0 8px;padding-inline-start:18px">${imp.map((i) => `<li><b class="num">${fmtN(i.count)}</b> ${esc(i.label)}</li>`).join('')}</ul>` : ''}
 ${ds.length ? `<p class="sub" style="margin:0 0 4px">וגם ${ds.length} אוטומציות שתלויות בו:</p><div class="chips">${ds.slice(0, 18).map((d) => `<span class="badge">${esc(d.name)}</span>`).join('')}${ds.length > 18 ? `<span class="badge">+${ds.length - 18}</span>` : ''}</div>` : '<p class="sub">אין אוטומציות אחרות שתלויות בו.</p>'}
 ${(blast.side_effects || n.side_effects || []).length ? `<p class="sub" style="margin:8px 0 0">סוגי פעולות שייעצרו: ${esc((blast.side_effects || n.side_effects).map((s) => SIDE_HE[s] || s).join(', '))}</p>` : ''}`;
@@ -154,8 +154,10 @@ export default {
     const prev = keepScroll && Drawer.body() ? Drawer.body().scrollTop : 0;
     const body = Drawer.open(n.name_he, detailView(n, reg.nodes), { onClose: () => { this._open = null; if (location.hash.startsWith('#/automations/')) history.replaceState(null, '', '#/automations'); } });
     body.scrollTop = prev;
+    const codeP = n.code_ref ? ctx.api.get('code', { id }).then((c) => { const box = body.querySelector('#au-code'); if (box) box.innerHTML = Code(c.code) + (c.code.truncated ? '<p class="sub">הקטע קוצר ל-200 שורות</p>' : ''); }).catch((e) => { const box = body.querySelector('#au-code'); if (box) box.innerHTML = `<p class="sub">${esc(e.message)}</p>`; }) : null;
     try { const r = await ctx.api.get('runs', { automation_id: id, limit: 30 }, { cache: false }); const box = body.querySelector('#au-runs'); if (box) box.innerHTML = runsTable(r.items); }
     catch (e) { const box = body.querySelector('#au-runs'); if (box) box.innerHTML = ctx.errorBox(e, 'noop'); }
+    await codeP;
   },
   async toggle(id, ctx, refresh) {
     const reg = this._reg(), n = reg.nodes.find((x) => x.id === id), on = n.state.enabled !== false;

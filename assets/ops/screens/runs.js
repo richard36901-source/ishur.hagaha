@@ -1,7 +1,7 @@
 /* Runs ledger: filterable, virtual rows, run drawer with children, logs and linked audit rows. */
 import { esc, fmtN, fmtDT, fmtTime, Table, mountVirtual, Select, Tabs, Badge, Skeleton, Drawer, icon, SKIP_HE, toast } from '../ui.js';
 
-const TRIG_HE = { cron: 'תזמון', manual: 'ידני', brain: 'מוח', webhook: 'webhook' };
+const TRIG_HE = { cron: 'תזמון', manual: 'ידני', parent: 'שלב בפייסר', brain: 'מוח', webhook: 'webhook' };
 const trig = (t) => TRIG_HE[(t || '').split(':')[0]] || t || '—';
 export const COLS = [
   { label: 'מתי', render: (r) => `<span class="num">${esc(fmtDT(r.started_at))}</span>` },
@@ -37,17 +37,20 @@ export default {
     el.innerHTML = `<div class="bar"><div class="search">${icon('search')}<input class="in" data-search placeholder="חיפוש (שם, שגיאה, id)" aria-label="חיפוש"></div>
 ${Select({ name: 'automation_id', value: f.automation_id, options: autos })}
 ${Tabs({ name: 'status', value: f.status, items: [{ value: '', label: 'הכל' }, { value: 'ok', label: 'הצליחו' }, { value: 'failed', label: 'נכשלו' }, { value: 'partial', label: 'חלקי' }, { value: 'skipped', label: 'דולגו' }] })}
-${Select({ name: 'triggered_by', value: '', options: [{ value: '', label: 'כל המפעילים' }, { value: 'cron', label: 'תזמון' }, { value: 'manual', label: 'ידני' }, { value: 'brain', label: 'מוח' }, { value: 'webhook', label: 'webhook' }] })}
+${Select({ name: 'triggered_by', value: '', options: [{ value: '', label: 'כל המפעילים' }, { value: 'cron', label: 'תזמון' }, { value: 'manual', label: 'ידני' }, { value: 'parent', label: 'שלב בפייסר' }] })}
 <span class="sp" style="flex:1"></span><span class="sub num" id="rn-count"></span></div>
 <div class="card flush" id="rn-list">${Skeleton.table(12)}</div><div id="rn-more"></div>`;
     const list = el.querySelector('#rn-list');
     const load = async (more = false) => {
-      const body = { ...f, limit: 200 }; if (more && cursor) body.cursor = cursor;
+      /* server filters: automation_id, status, cursor, limit. Search + trigger filter run client-side. */
+      const body = { automation_id: f.automation_id, status: f.status, limit: 200 }; if (more && cursor) body.cursor = cursor;
       Object.keys(body).forEach((k) => body[k] === '' && delete body[k]);
+      const keep = (x) => (!f.triggered_by || String(x.triggered_by).startsWith(f.triggered_by)) && (!f.q || (x.name + ' ' + x.automation_id + ' ' + x.id + ' ' + (x.error || '')).includes(f.q));
       try {
         const r = await ctx.api.get('runs', body, { cache: !more });
-        items = more ? items.concat(r.items) : r.items; cursor = r.next_cursor;
-        el.querySelector('#rn-count').textContent = fmtN(items.length) + (r.total ? ' מתוך ' + fmtN(r.total) : '') + ' ריצות';
+        const got = r.items.filter(keep);
+        items = more ? items.concat(got) : got; cursor = r.next_cursor;
+        el.querySelector('#rn-count').textContent = fmtN(items.length) + ' ריצות · מקור ' + (r.source || '—') + (r.synthetic ? ' · דמה' : '');
         if (!items.length) { list.innerHTML = listView([]); vt = null; }
         else if (vt && more) vt.update(items);
         else vt = mountVirtual(list, { columns: COLS, rows: items, rowH: 42, height: Math.max(360, innerHeight - 220) });

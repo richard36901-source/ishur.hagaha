@@ -1,4 +1,5 @@
-/* Capacity planner: next 14 days, planned vs capacity, recommendations, over-capacity alerts. */
+/* Capacity planner (/api/ops/capacity): next 14 days of guest WhatsApp, planned vs capacity,
+   recommendations, over-capacity alerts. The API plans messages only; calls get no chart. */
 import { esc, fmtN, fmtDate, Skeleton, Badge, Table } from '../ui.js';
 
 /* Bars: capacity = neutral track (outline), planned = series-1, the part above capacity = critical.
@@ -26,26 +27,26 @@ export function view(d) {
   const table = Table({
     columns: [
       { label: 'יום', render: (x) => `${esc(x.dow)} ${esc(fmtDate(x.date))}` },
-      { label: 'הודעות מתוכננות', num: true, render: (x) => fmtN(x.planned_wa) },
+      { label: 'הודעות מתוכננות', num: true, render: (x) => fmtN(x.planned_wa) + (x.held_planned ? ` <span class="muted">+${fmtN(x.held_planned)} מוחזק</span>` : '') },
       { label: 'תקרה', num: true, render: (x) => (x.no_contact ? esc(x.closed_reason || 'סגור') : fmtN(x.capacity_wa)) },
-      { label: 'שיחות', num: true, render: (x) => `${fmtN(x.planned_calls)} / ${fmtN(x.capacity_calls)}` },
       { label: 'אירועים', render: (x) => x.events.map((e) => `${esc(e.name)} <span class="muted">${esc(e.kind)} · ${fmtN(e.planned_wa)}</span>`).join('<br>') || '<span class="muted">—</span>' },
     ], rows: d.days, rowKey: (x) => x.date,
   });
   return `
+${d.model ? `<div class="card"><div class="sec-h"><h2 class="h2">${d.model.verified ? 'תקרה לכל מספר' : 'תקרה משותפת'}</h2><span class="sp"></span>${Badge(d.model.verified ? 'ok' : 'partial', 'אימות העסק: ' + esc((d.verification && d.verification.status) || '—'))}</div><p class="sub" style="margin:0">${esc(d.model.he || '')} · נשאר היום <b class="num">${fmtN(d.model.today_remaining)}</b></p></div>` : ''}
 ${alerts.length ? `<div class="card" style="border-color:color-mix(in srgb,var(--crit) 35%,transparent)"><div class="sec-h"><h2 class="h2">ביקוש מעל הקיבולת</h2>${Badge('open', alerts.length + ' ימים')}</div>${alerts.map((a) => `<div class="errbox" style="margin-top:8px"><span aria-hidden="true">▲</span><span><b>${esc(fmtDate(a.date))}</b> · ${esc(a.msg)} · חסר מקום ל-<b class="num">${fmtN(a.over_by)}</b> ${a.kind === 'wa' ? 'הודעות' : 'שיחות'}</span></div>`).join('')}</div>` : ''}
 <div class="card"><div class="sec-h"><h2 class="h2">הודעות לאורחים · 14 יום</h2><span class="sp"></span>${capLegend()}</div>${capBars(d.days)}</div>
-<div class="card"><div class="sec-h"><h2 class="h2">שיחות · 14 יום</h2><span class="sp"></span>${capLegend()}</div>${capBars(d.days, { metric: 'calls', h: 150 })}</div>
+${d.days.some((x) => x.capacity_calls != null) ? `<div class="card"><div class="sec-h"><h2 class="h2">שיחות · 14 יום</h2><span class="sp"></span>${capLegend()}</div>${capBars(d.days, { metric: 'calls', h: 150 })}</div>` : ''}
 <div class="card"><div class="sec-h"><h2 class="h2">מתי לשלוח</h2><span class="sub">המלצות לפי המקום הפנוי בכל יום</span></div>
 ${recs.length ? Table({ columns: [
     { label: 'אירוע', render: (r) => esc(r.name) },
-    { label: 'תאריך האירוע', render: (r) => esc(fmtDate(r.event_date)) },
+    { label: 'מועד', render: (r) => esc(fmtDate(r.event_date)) },
     { label: 'מה', render: (r) => esc(r.wave) },
-    { label: 'לשלוח ב', render: (r) => `<b>${esc(fmtDate(r.send_on))}</b>` },
+    { label: 'לשלוח ב', render: (r) => `<b>${esc(r.split ? r.split.map((s) => fmtDate(s.day) + ' · ' + s.count).join(', ') : fmtDate(r.send_on))}</b>` },
     { label: 'כמות', num: true, render: (r) => fmtN(r.planned) },
     { label: 'למה', render: (r) => `<span class="ink2">${esc(r.reason)}</span>` },
   ], rows: recs, rowKey: (r) => r.token }) : '<div class="empty">אין המלצות כרגע</div>'}</div>
-<div class="card flush">${table}</div>`;
+<div class="card flush">${table}</div>${(d.notes || []).length ? `<ul class="sub" style="margin:0;padding-inline-start:18px">${d.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul>` : ''}`;
 }
 
 export default {

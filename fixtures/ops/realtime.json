@@ -1,856 +1,274 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T11:40:00.000Z",
- "summary": {
-  "wa_sent_today": 644,
-  "wa_cap_total": 1250,
-  "wa_remaining": 606,
-  "calls_today": 34,
-  "calls_answered": 19,
-  "failures_24h": 19,
-  "incidents_open": 2,
-  "balances_low": 1,
-  "paused": false
- },
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T12:06:27.350Z",
+ "today": "2026-11-03",
+ "audit_until_ts": 1793707070330,
+ "audit_truncated": false,
  "wa": {
   "numbers": [
    {
-    "phone_id": "1409632775565600",
-    "label": "שיר · אורחים",
-    "display": "055-308-6673",
+    "phone_id": "1107514695777584",
     "role": "guests",
-    "cap": 1000,
+    "label": "שיר #1 · 055-972-6673",
+    "tier": "TIER_250",
     "quality": "GREEN",
-    "sent_today": 397,
-    "failed_today": 5,
-    "queued": 55,
-    "reasons": {
-     "scheduled": 368,
-     "exception": 29,
-     "failed": 5
+    "limit": 250,
+    "used_24h": 81,
+    "remaining": 169,
+    "held": false,
+    "held_until": null,
+    "frees_at": "2026-11-04T11:00:00.000Z",
+    "sent_today": 114,
+    "rejected_today": 0,
+    "failed_async_today": 7,
+    "failed_by_code": {
+     "130472": 2,
+     "131026": 1,
+     "131049": 4
     },
-    "last_sent_at": "2026-11-03T11:38:00.000Z"
+    "by_reason": {
+     "reply": 29,
+     "manual": 1,
+     "wave": 57,
+     "thanks": 14,
+     "gift": 13
+    },
+    "by_event": {
+     "—": {
+      "total": 24,
+      "reply": 24
+     },
+     "e045522a": {
+      "total": 3,
+      "manual": 1,
+      "reply": 2
+     },
+     "395962fa": {
+      "total": 57,
+      "wave": 57
+     },
+     "c1c5fcf5": {
+      "total": 27,
+      "thanks": 14,
+      "gift": 13
+     },
+     "ec9f3b84": {
+      "total": 3,
+      "reply": 3
+     }
+    }
    },
    {
     "phone_id": "1409632775565601",
-    "label": "שיר · אורחים 2",
-    "display": "055-308-9799",
     "role": "guests",
-    "cap": 250,
+    "label": "שיר #2 · 055-308-9799",
+    "tier": "TIER_250",
     "quality": "GREEN",
-    "sent_today": 247,
-    "failed_today": 7,
-    "queued": 133,
-    "reasons": {
-     "scheduled": 229,
-     "exception": 18,
-     "failed": 7
+    "limit": 250,
+    "used_24h": 81,
+    "remaining": 169,
+    "held": false,
+    "held_until": null,
+    "frees_at": "2026-11-04T11:00:00.000Z",
+    "sent_today": 104,
+    "rejected_today": 0,
+    "failed_async_today": 8,
+    "failed_by_code": {
+     "130472": 5,
+     "131049": 3
     },
-    "last_sent_at": "2026-11-03T11:35:00.000Z"
+    "by_reason": {
+     "reply": 19,
+     "manual": 2,
+     "wave": 57,
+     "thanks": 15,
+     "gift": 11
+    },
+    "by_event": {
+     "—": {
+      "total": 19,
+      "reply": 19
+     },
+     "e045522a": {
+      "total": 2,
+      "manual": 2
+     },
+     "395962fa": {
+      "total": 57,
+      "wave": 57
+     },
+     "c1c5fcf5": {
+      "total": 26,
+      "thanks": 15,
+      "gift": 11
+     }
+    }
    },
    {
     "phone_id": "1218978741299669",
-    "label": "נועה · לקוחות",
-    "display": "4499",
     "role": "client",
-    "cap": 1000,
-    "quality": "YELLOW",
-    "sent_today": 44,
-    "failed_today": 11,
-    "queued": 6,
-    "reasons": {
-     "scheduled": 15,
-     "exception": 29,
-     "failed": 11
+    "label": "נועה · 055-950-4499",
+    "tier": null,
+    "quality": null,
+    "limit": null,
+    "used_24h": null,
+    "remaining": null,
+    "held": false,
+    "held_until": null,
+    "frees_at": null,
+    "sent_today": 2,
+    "rejected_today": 0,
+    "failed_async_today": 2,
+    "failed_by_code": {
+     "131042": 2
     },
-    "last_sent_at": "2026-11-03T11:38:00.000Z"
+    "by_reason": {
+     "client": 2
+    },
+    "by_event": {
+     "—": {
+      "total": 2,
+      "client": 2
+     }
+    }
    }
   ],
-  "by_event": [
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000001",
-    "name": "נועה ואיתי",
-    "date": "2026-11-05",
-    "number": "6673",
-    "sent": 30,
-    "failed": 6,
-    "queued": 90,
-    "reason_top": "גל 1"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000002",
-    "name": "בר המצווה של יונתן",
-    "date": "2026-11-06",
-    "number": "9799",
-    "sent": 30,
-    "failed": 2,
-    "queued": 55,
-    "reason_top": "גל 2"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000003",
-    "name": "שירה ודניאל",
-    "date": "2026-11-10",
-    "number": "6673",
-    "sent": 57,
-    "failed": 3,
-    "queued": 38,
-    "reason_top": "שליחה חוזרת"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000004",
-    "name": "מאיה ועומר",
-    "date": "2026-11-12",
-    "number": "6673",
-    "sent": 54,
-    "failed": 6,
-    "queued": 78,
-    "reason_top": "שליחה חוזרת"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000005",
-    "name": "בת המצווה של ליה",
-    "date": "2026-11-13",
-    "number": "6673",
-    "sent": 120,
-    "failed": 0,
-    "queued": 33,
-    "reason_top": "גל 1"
-   }
-  ],
-  "recent": [
-   {
-    "at": "2026-11-03T11:40:00.000Z",
-    "to": "058-•••-27",
-    "event": "בת המצווה של ליה",
-    "number": "9799",
-    "reason": "failed",
-    "status": "failed",
-    "template": "wave1_f",
-    "why": "131048 מגבלת ספאם"
-   },
-   {
-    "at": "2026-11-03T11:38:23.000Z",
-    "to": "052-•••-91",
-    "event": "מאיה ועומר",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "sent",
-    "template": "resend_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:36:46.000Z",
-    "to": "053-•••-40",
-    "event": "מאיה ועומר",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "wave1_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:35:09.000Z",
-    "to": "052-•••-13",
-    "event": "שירה ודניאל",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "delivered",
-    "template": "wave2_n",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:33:32.000Z",
-    "to": "055-•••-91",
-    "event": "נועה ואיתי",
-    "number": "9799",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "day_before_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:31:55.000Z",
-    "to": "056-•••-52",
-    "event": "אורי ונגה",
-    "number": "6673",
-    "reason": "exception",
-    "status": "read",
-    "template": "resend_f",
-    "why": "שליחה ידנית מהאדמין"
-   },
-   {
-    "at": "2026-11-03T11:30:18.000Z",
-    "to": "050-•••-70",
-    "event": "שירה ודניאל",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "resend_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:28:41.000Z",
-    "to": "052-•••-57",
-    "event": "נועה ואיתי",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "resend_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:27:04.000Z",
-    "to": "055-•••-63",
-    "event": "מאיה ועומר",
-    "number": "9799",
-    "reason": "scheduled",
-    "status": "sent",
-    "template": "wave1_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:25:27.000Z",
-    "to": "058-•••-65",
-    "event": "שירה ודניאל",
-    "number": "6673",
-    "reason": "failed",
-    "status": "failed",
-    "template": "day_before_f",
-    "why": "131026 לא ניתן למסירה"
-   },
-   {
-    "at": "2026-11-03T11:23:50.000Z",
-    "to": "052-•••-17",
-    "event": "מאיה ועומר",
-    "number": "6673",
-    "reason": "exception",
-    "status": "read",
-    "template": "wave2_n",
-    "why": "שליחה ידנית מהאדמין"
-   },
-   {
-    "at": "2026-11-03T11:22:13.000Z",
-    "to": "053-•••-87",
-    "event": "טל ורוני",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "day_before_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:20:36.000Z",
-    "to": "052-•••-93",
-    "event": "אורי ונגה",
-    "number": "9799",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "wave2_n",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:18:59.000Z",
-    "to": "056-•••-31",
-    "event": "בר המצווה של יונתן",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "sent",
-    "template": "day_before_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:17:22.000Z",
-    "to": "050-•••-52",
-    "event": "בת המצווה של ליה",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "sent",
-    "template": "day_before_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:15:45.000Z",
-    "to": "056-•••-36",
-    "event": "שירה ודניאל",
-    "number": "6673",
-    "reason": "exception",
-    "status": "delivered",
-    "template": "wave1_f",
-    "why": "בקשת לקוח"
-   },
-   {
-    "at": "2026-11-03T11:14:08.000Z",
-    "to": "052-•••-92",
-    "event": "בת המצווה של ליה",
-    "number": "9799",
-    "reason": "scheduled",
-    "status": "sent",
-    "template": "wave1_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:12:31.000Z",
-    "to": "054-•••-91",
-    "event": "נועה ואיתי",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "wave2_n",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:10:54.000Z",
-    "to": "055-•••-75",
-    "event": "טל ורוני",
-    "number": "6673",
-    "reason": "failed",
-    "status": "failed",
-    "template": "wave1_f",
-    "why": "131026 לא ניתן למסירה"
-   },
-   {
-    "at": "2026-11-03T11:09:17.000Z",
-    "to": "051-•••-53",
-    "event": "נועה ואיתי",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "wave2_n",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:07:40.000Z",
-    "to": "058-•••-21",
-    "event": "בת המצווה של ליה",
-    "number": "9799",
-    "reason": "exception",
-    "status": "delivered",
-    "template": "wave2_n",
-    "why": "אורח נוסף מאוחר"
-   },
-   {
-    "at": "2026-11-03T11:06:03.000Z",
-    "to": "051-•••-34",
-    "event": "טל ורוני",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "delivered",
-    "template": "wave1_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:04:26.000Z",
-    "to": "058-•••-95",
-    "event": "מאיה ועומר",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "delivered",
-    "template": "day_before_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:02:49.000Z",
-    "to": "056-•••-82",
-    "event": "בת המצווה של ליה",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "read",
-    "template": "wave1_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T11:01:12.000Z",
-    "to": "051-•••-26",
-    "event": "בת המצווה של ליה",
-    "number": "9799",
-    "reason": "scheduled",
-    "status": "sent",
-    "template": "resend_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T10:59:35.000Z",
-    "to": "058-•••-20",
-    "event": "מאיה ועומר",
-    "number": "6673",
-    "reason": "exception",
-    "status": "delivered",
-    "template": "wave1_f",
-    "why": "בקשת לקוח"
-   },
-   {
-    "at": "2026-11-03T10:57:58.000Z",
-    "to": "055-•••-25",
-    "event": "טל ורוני",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "delivered",
-    "template": "resend_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T10:56:21.000Z",
-    "to": "056-•••-61",
-    "event": "אורי ונגה",
-    "number": "6673",
-    "reason": "failed",
-    "status": "failed",
-    "template": "wave1_f",
-    "why": "131048 מגבלת ספאם"
-   },
-   {
-    "at": "2026-11-03T10:54:44.000Z",
-    "to": "050-•••-97",
-    "event": "אורי ונגה",
-    "number": "9799",
-    "reason": "scheduled",
-    "status": "delivered",
-    "template": "day_before_f",
-    "why": "לפי לוח הזמנים"
-   },
-   {
-    "at": "2026-11-03T10:53:07.000Z",
-    "to": "050-•••-24",
-    "event": "מאיה ועומר",
-    "number": "6673",
-    "reason": "scheduled",
-    "status": "delivered",
-    "template": "resend_f",
-    "why": "לפי לוח הזמנים"
-   }
+  "unknown_numbers": [],
+  "totals": {
+   "sent_today": 220,
+   "rejected_today": 0,
+   "failed_async_today": 17
+  },
+  "reasons": [
+   "wave",
+   "daybefore",
+   "eventday",
+   "table",
+   "thanks",
+   "gift",
+   "subevent",
+   "client",
+   "reply",
+   "manual"
   ]
+ },
+ "cap": {
+  "scope": "portfolio",
+  "limit": 250,
+  "used": 162,
+  "margin": 20,
+  "remaining": 68,
+  "all_held": false,
+  "wacap_guests": null
+ },
+ "queue": {
+  "next_tick_at": "2026-11-03T12:10:00.000Z",
+  "pacer_pending_today": false,
+  "sends": {
+   "will_run": false,
+   "max": 0,
+   "why": "nothing-pending",
+   "send_window": {
+    "open": true
+   }
+  },
+  "calls": {
+   "will_run": true,
+   "callbacks": 2,
+   "dials_max": 4,
+   "why": "will-dial",
+   "call_window": {
+    "open": true
+   }
+  },
+  "autoretry": {
+   "will_run": false,
+   "done_today": true,
+   "off": false
+  },
+  "event_day_due": [],
+  "late_invites_waiting": 0,
+  "holds": 2
  },
  "calls": {
-  "out": 34,
-  "answered": 19,
-  "no_answer": 15,
-  "queued": 41,
-  "remaining": 58,
-  "cap": 92,
-  "window": {
-   "open": true,
-   "from": "10:00",
-   "to": "20:30"
+  "dialed": 0,
+  "answered": 0,
+  "voicemail": 0,
+  "no_answer": 0,
+  "in_progress": 0,
+  "inbound": 0,
+  "cost_usd": 0,
+  "by_event": {
+   "c2f63d20": {
+    "dialed": 0,
+    "answered": 0,
+    "voicemail": 0,
+    "no_answer": 0,
+    "in_progress": 0,
+    "queued": 4
+   },
+   "f0a38bbd": {
+    "dialed": 0,
+    "answered": 0,
+    "voicemail": 0,
+    "no_answer": 0,
+    "in_progress": 0,
+    "queued": 1
+   },
+   "c1c5fcf5": {
+    "dialed": 0,
+    "answered": 0,
+    "voicemail": 0,
+    "no_answer": 0,
+    "in_progress": 0,
+    "queued": 1
+   }
   },
-  "by_event": [
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000001",
-    "name": "נועה ואיתי",
-    "out": 10,
-    "answered": 3,
-    "remaining": 20,
-    "why": "יום לפני, אישור אחרון"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000002",
-    "name": "בר המצווה של יונתן",
-    "out": 9,
-    "answered": 7,
-    "remaining": 11,
-    "why": "סבב שני"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000003",
-    "name": "שירה ודניאל",
-    "out": 7,
-    "answered": 7,
-    "remaining": 29,
-    "why": "לא ענו לוואטסאפ"
-   },
-   {
-    "token": "e1a0c2f4-0000-4000-8000-000000000004",
-    "name": "מאיה ועומר",
-    "out": 10,
-    "answered": 3,
-    "remaining": 18,
-    "why": "סבב שני"
-   }
-  ],
-  "timeline": [
-   {
-    "at": "2026-11-03T11:39:39.696Z",
-    "event": "מאיה ועומר",
-    "to": "057-•••-99",
-    "status": "answered",
-    "duration_s": 81,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": "לא מגיע"
-   },
-   {
-    "at": "2026-11-03T11:28:28.215Z",
-    "event": "מאיה ועומר",
-    "to": "051-•••-75",
-    "status": "no_answer",
-    "duration_s": 0,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T11:16:49.516Z",
-    "event": "בר המצווה של יונתן",
-    "to": "051-•••-75",
-    "status": "answered",
-    "duration_s": 27,
-    "why": "סבב שיחות שני",
-    "outcome": "מגיע · 4"
-   },
-   {
-    "at": "2026-11-03T11:04:51.119Z",
-    "event": "שירה ודניאל",
-    "to": "058-•••-15",
-    "status": "answered",
-    "duration_s": 139,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": "מגיע · 4"
-   },
-   {
-    "at": "2026-11-03T10:52:51.319Z",
-    "event": "מאיה ועומר",
-    "to": "058-•••-57",
-    "status": "busy",
-    "duration_s": 0,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T10:40:57.403Z",
-    "event": "מאיה ועומר",
-    "to": "051-•••-63",
-    "status": "busy",
-    "duration_s": 0,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T10:33:58.430Z",
-    "event": "בר המצווה של יונתן",
-    "to": "054-•••-24",
-    "status": "answered",
-    "duration_s": 88,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": "לא מגיע"
-   },
-   {
-    "at": "2026-11-03T10:18:48.215Z",
-    "event": "בר המצווה של יונתן",
-    "to": "050-•••-55",
-    "status": "answered",
-    "duration_s": 59,
-    "why": "גל 3, אחרון",
-    "outcome": "אולי"
-   },
-   {
-    "at": "2026-11-03T10:07:19.533Z",
-    "event": "מאיה ועומר",
-    "to": "055-•••-25",
-    "status": "answered",
-    "duration_s": 71,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": "מגיע · 2"
-   },
-   {
-    "at": "2026-11-03T09:56:24.236Z",
-    "event": "שירה ודניאל",
-    "to": "052-•••-99",
-    "status": "answered",
-    "duration_s": 127,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": "אולי"
-   },
-   {
-    "at": "2026-11-03T09:49:08.420Z",
-    "event": "שירה ודניאל",
-    "to": "050-•••-73",
-    "status": "answered",
-    "duration_s": 40,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": "אולי"
-   },
-   {
-    "at": "2026-11-03T09:37:10.441Z",
-    "event": "נועה ואיתי",
-    "to": "052-•••-35",
-    "status": "busy",
-    "duration_s": 0,
-    "why": "גל 3, אחרון",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T09:24:46.035Z",
-    "event": "שירה ודניאל",
-    "to": "054-•••-96",
-    "status": "answered",
-    "duration_s": 120,
-    "why": "סבב שיחות שני",
-    "outcome": "אולי"
-   },
-   {
-    "at": "2026-11-03T09:16:13.098Z",
-    "event": "שירה ודניאל",
-    "to": "051-•••-93",
-    "status": "answered",
-    "duration_s": 64,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": "לא מגיע"
-   },
-   {
-    "at": "2026-11-03T09:03:16.285Z",
-    "event": "נועה ואיתי",
-    "to": "058-•••-24",
-    "status": "no_answer",
-    "duration_s": 0,
-    "why": "גל 3, אחרון",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T08:50:38.173Z",
-    "event": "נועה ואיתי",
-    "to": "058-•••-49",
-    "status": "answered",
-    "duration_s": 105,
-    "why": "סבב שיחות שני",
-    "outcome": "מגיע · 4"
-   },
-   {
-    "at": "2026-11-03T08:40:18.486Z",
-    "event": "נועה ואיתי",
-    "to": "052-•••-38",
-    "status": "busy",
-    "duration_s": 0,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T08:32:45.586Z",
-    "event": "נועה ואיתי",
-    "to": "054-•••-47",
-    "status": "answered",
-    "duration_s": 117,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": "מגיע · 4"
-   },
-   {
-    "at": "2026-11-03T08:17:51.539Z",
-    "event": "בר המצווה של יונתן",
-    "to": "051-•••-91",
-    "status": "answered",
-    "duration_s": 71,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": "אולי"
-   },
-   {
-    "at": "2026-11-03T08:10:51.706Z",
-    "event": "מאיה ועומר",
-    "to": "058-•••-99",
-    "status": "voicemail",
-    "duration_s": 0,
-    "why": "גל 3, אחרון",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T07:56:37.131Z",
-    "event": "שירה ודניאל",
-    "to": "052-•••-59",
-    "status": "no_answer",
-    "duration_s": 0,
-    "why": "סבב שיחות שני",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T07:46:28.920Z",
-    "event": "נועה ואיתי",
-    "to": "052-•••-94",
-    "status": "busy",
-    "duration_s": 0,
-    "why": "גל 3, אחרון",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T07:37:07.463Z",
-    "event": "נועה ואיתי",
-    "to": "050-•••-38",
-    "status": "busy",
-    "duration_s": 0,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T07:25:27.584Z",
-    "event": "מאיה ועומר",
-    "to": "058-•••-83",
-    "status": "answered",
-    "duration_s": 140,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": "מגיע · 2"
-   },
-   {
-    "at": "2026-11-03T07:15:44.724Z",
-    "event": "שירה ודניאל",
-    "to": "054-•••-52",
-    "status": "voicemail",
-    "duration_s": 0,
-    "why": "גל 3, אחרון",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T07:04:00.210Z",
-    "event": "שירה ודניאל",
-    "to": "058-•••-80",
-    "status": "no_answer",
-    "duration_s": 0,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T06:52:39.202Z",
-    "event": "נועה ואיתי",
-    "to": "058-•••-35",
-    "status": "answered",
-    "duration_s": 104,
-    "why": "סבב שיחות שני",
-    "outcome": "אולי"
-   },
-   {
-    "at": "2026-11-03T06:41:37.273Z",
-    "event": "מאיה ועומר",
-    "to": "053-•••-78",
-    "status": "voicemail",
-    "duration_s": 0,
-    "why": "גל 3, אחרון",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T06:28:21.254Z",
-    "event": "שירה ודניאל",
-    "to": "056-•••-58",
-    "status": "no_answer",
-    "duration_s": 0,
-    "why": "ביקש שיחה חוזרת",
-    "outcome": null
-   },
-   {
-    "at": "2026-11-03T06:17:42.917Z",
-    "event": "שירה ודניאל",
-    "to": "054-•••-74",
-    "status": "answered",
-    "duration_s": 43,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": "מגיע · 2"
-   },
-   {
-    "at": "2026-11-03T06:08:26.393Z",
-    "event": "שירה ודניאל",
-    "to": "055-•••-48",
-    "status": "answered",
-    "duration_s": 86,
-    "why": "סבב שיחות שני",
-    "outcome": "מגיע · 2"
-   },
-   {
-    "at": "2026-11-03T05:54:39.554Z",
-    "event": "מאיה ועומר",
-    "to": "053-•••-67",
-    "status": "answered",
-    "duration_s": 73,
-    "why": "גל 3, אחרון",
-    "outcome": "מגיע · 2"
-   },
-   {
-    "at": "2026-11-03T05:44:57.873Z",
-    "event": "שירה ודניאל",
-    "to": "054-•••-32",
-    "status": "answered",
-    "duration_s": 85,
-    "why": "גל 3, אחרון",
-    "outcome": "מגיע · 4"
-   },
-   {
-    "at": "2026-11-03T05:36:18.229Z",
-    "event": "מאיה ועומר",
-    "to": "058-•••-87",
-    "status": "no_answer",
-    "duration_s": 0,
-    "why": "לא ענה לוואטסאפ 48 שעות",
-    "outcome": null
-   }
-  ]
+  "queued": 6,
+  "remaining_today": 6,
+  "capacity_left_today": 234,
+  "source": "retell-unreadable",
+  "callbacks_queued": 2
  },
- "incidents": [
-  {
-   "id": "inc1",
-   "severity": "P2",
-   "title": "מספר נועה 4499 בדירוג צהוב",
-   "at": "2026-11-03T08:40:00.000Z",
-   "automation_id": "lead_chase",
-   "status": "open"
-  },
-  {
-   "id": "inc2",
-   "severity": "P3",
-   "title": "party_nudges לא בודק עצירה גלובלית",
-   "at": "2026-11-02T09:40:00.000Z",
-   "automation_id": "party_nudges",
-   "status": "open"
-  },
-  {
-   "id": "inc3",
-   "severity": "P1",
-   "title": "קובץ אורחים לא נטען (snapshot), טופל בניסיון חוזר",
-   "at": "2026-11-03T06:40:00.000Z",
-   "automation_id": "d_pacer",
-   "status": "resolved"
+ "noa": {
+  "phone_id": "1218978741299669",
+  "billing_131042": true,
+  "last_send": {
+   "at": "2026-11-03T10:13:37.470Z",
+   "ok": true,
+   "template": "ishur_syum_v3_f",
+   "error": "",
+   "to": "97252****205"
   }
- ],
- "next": [
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "d_pacer",
-   "name": "הפייסר (runPacer)",
-   "what": "כל 10 דקות הפייסר מחלק את השליחות והשיחות של היום לפרוסות קטנות, כדי שלא ייצא הכל בבת אחת."
+ },
+ "pacer": {
+  "last_tick_at": "2026-11-03T12:01:22.594Z",
+  "last": {
+   "sends": {
+    "ran": false,
+    "why": "nothing-pending"
+   },
+   "calls": {
+    "dialed": 0,
+    "queued": 38
+   },
+   "callbacks": {
+    "dialed": 0,
+    "phones": [],
+    "queued": 2,
+    "waiting": 0,
+    "skipped": 0
+   },
+   "autoretry": null,
+   "leads": 0,
+   "doctor": {
+    "fixed": 0,
+    "alerted": 0
+   }
   },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "autoretry",
-   "name": "ניסיון חוזר אוטומטי (פעם ביום)",
-   "what": "פעם ביום מוחק סימוני כשל כדי שהודעות שלא נמסרו יישלחו שוב. זה יכול לגרום לשליחה חוזרת המונ"
-  },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "lead_chase",
-   "name": "רצף לידים שנטשו (נועה)",
-   "what": "t1: 30 דקות אחרי הטופס"
-  },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "shir_callbacks",
-   "name": "שיר · חזרה למי שהתקשר",
-   "what": "תור cbq:<phone>"
-  },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "shir_dispatch",
-   "name": "שיר · חיוג תור האורחים",
-   "what": "שיר מחייגת לאורחים שלא ענו בוואטסאפ, בחלון השיחות. כל שיחה עולה כסף."
-  },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "noa_lead_dial",
-   "name": "נועה · חיוג לידים (כבוי)",
-   "what": "NOA_LEADS=\"on\" — כרגע \"off\""
-  },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "reconcile_calls",
-   "name": "קליטת תוצאות שיחה מרטל",
-   "what": "כל פעימה, בכל שעה"
-  },
-  {
-   "at": "2026-11-03T11:40:00.000Z",
-   "automation_id": "template_check",
-   "name": "בדיקת תבניות מטא (שעתית)",
-   "what": "פעם בשעה (tmplcheck:<שעה>)"
-  }
- ]
+  "off": false,
+  "paused": false
+ }
 }

@@ -20,7 +20,7 @@ let fails = 0, passes = 0;
 const ok = (cond, name, extra = '') => { if (cond) { passes++; console.log('  ✓ ' + name + (extra ? ' · ' + extra : '')); } else { fails++; console.log('  ✗ ' + name + (extra ? ' · ' + extra : '')); } };
 
 console.log('A1 syntax');
-const mods = ['app.js', 'ui.js', ...readdirSync(join(OPS, 'screens')).map((f) => 'screens/' + f)];
+const mods = ['app.js', 'ui.js', 'adapt.js', ...readdirSync(join(OPS, 'screens')).map((f) => 'screens/' + f)];
 for (const m of mods) { const r = spawnSync(process.execPath, ['--check', join(OPS, m)], { encoding: 'utf8' }); ok(r.status === 0, 'node --check ' + m, r.stderr.trim().split('\n')[0]); }
 
 console.log('A2 size budgets');
@@ -33,8 +33,23 @@ ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(html0 + mods.map((
 ok(/class="sk /.test(html0), 'ops.html ships skeleton markup for first paint');
 
 console.log('A3 fixture rendering');
+/* fixtures are masked copies of real API responses; screens render them only through adapt() */
 const fx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops', n + '.json'), 'utf8'));
-const F = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle'].map((n) => [n, fx(n)]));
+const { adapt } = await import(pathToFileURL(join(OPS, 'adapt.js')));
+const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code'].map((n) => [n, fx(n)]));
+const NAMES = Object.fromEntries(RAW.registry.nodes.map((n) => [n.id, n.name_he]));
+const F = Object.fromEntries(Object.entries(RAW).map(([n, d]) => [n, ['toggle', 'code'].includes(n) ? d : adapt(n, d, { names: NAMES })]));
+console.log('A3a contract (fixture keys the adapter reads exist in the real-shaped fixtures)');
+ok(RAW.realtime.wa && Array.isArray(RAW.realtime.wa.numbers) && RAW.realtime.cap && RAW.realtime.queue && 'calls' in RAW.realtime && RAW.realtime.pacer, 'realtime: wa.numbers, cap, queue, calls, pacer');
+ok(RAW.realtime.wa.numbers.every((n) => 'sent_today' in n && 'by_reason' in n && 'by_event' in n && 'failed_by_code' in n), 'realtime.wa.numbers[] fields');
+ok(RAW.capacity.days.every((d) => 'day' in d && 'planned' in d && 'capacity' in d && 'overflow' in d && Array.isArray(d.by_event)), 'capacity.days[] fields');
+ok(RAW.balances.vendors.every((v) => 'vendor' in v && 'status' in v && 'source' in v && 'extra' in v), 'balances.vendors[] fields');
+ok(RAW.registry.nodes.every((n) => 'state' in n && 'kill_switch' in n && 'risk' in n), 'registry.nodes[] fields');
+ok(RAW.live.items.every((i) => 'ts' in i && 'type' in i), 'live.items[] have ts + type');
+ok(Object.values(RAW.toggle.by_id).every((t) => t.applied === false && t.blast_radius), 'toggle fixtures are blast-radius-only (applied:false)');
+ok(!(JSON.stringify(RAW).match(/(?<![\d*])972\d{8,9}(?!\d)/g) || []).some((m) => !/(6673|9799|4499)$/.test(m)), 'no unmasked guest/client 972… phones in fixtures (our 6673/9799/4499 allowed)');
+ok(!/[0-9a-f]{8}-(?!0000-4000-8000-000000000000)[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(JSON.stringify(RAW)), 'no unmasked event tokens (UUIDs) in fixtures');
+ok(!/webhookKey"?\s*[:=]\s*"?[^"•\s]/.test(JSON.stringify(RAW).replace(/\\"/g, '"')), 'no webhookKey values in fixtures');
 const S = {};
 for (const n of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'balances']) S[n] = await import(pathToFileURL(join(OPS, 'screens', n + '.js')));
 const check = (name, fn) => {
@@ -44,17 +59,23 @@ const check = (name, fn) => {
   ok(typeof out === 'string' && out.length > 200 && !bad, name, out.length + ' chars' + (bad ? ' · leaked "' + bad[0] + '"' : ''));
 };
 const reg = F.registry;
-check('overview.view', () => S.overview.view(F.realtime, F.capacity, reg));
+check('overview.view', () => S.overview.view(F.realtime, F.capacity, F.balances));
 check('overview.skeleton', () => S.overview.default.skeleton());
 check('automations.listView', () => S.automations.listView(reg.nodes, {}));
-check('automations.listView filtered (failing)', () => S.automations.listView(reg.nodes, { state: 'failing' }));
+/* live data may have no failing / switched-off node: derive one from a real node through adapt so the
+   filter + off rendering are still exercised (same adapter path as a real failing/off node) */
+const raw0 = RAW.registry.nodes.find((n) => n.id === 'wave1');
+const regV = adapt('registry', { ...RAW.registry, nodes: RAW.registry.nodes.map((n) => (n.id === 'wave1' ? { ...raw0, state: { ...raw0.state, enabled: false, off: { at: '2026-11-03T10:00:00Z', by: 'richard', reason: 'בדיקה' }, last_run_at: '2026-11-03T10:00:00Z', by_status_24h: { failed: 2 } } } : n)) });
+check('automations.listView filtered (failing)', () => S.automations.listView(regV.nodes, { state: 'failing' }));
 for (const id of ['d_pacer', 'wave1', 'shir_dispatch', 'autoretry', 'noa_queue', 'wa_fail']) check('automations.detailView ' + id, () => S.automations.detailView(reg.nodes.find((n) => n.id === id), reg.nodes));
 check('automations.depGraph d_pacer', () => S.automations.depGraph(reg.nodes.find((n) => n.id === 'd_pacer'), reg.nodes));
-check('automations.blastBody', () => S.automations.blastBody(reg.nodes.find((n) => n.id === 'd_pacer'), { downstream: [{ id: 'x', name: 'א' }], impact: [{ label: 'הזמנות', count: 212 }] }));
+check('automations.blastBody', () => S.automations.blastBody(reg.nodes.find((n) => n.id === 'd_pacer'), adapt('toggle', RAW.toggle.by_id.d_pacer).blast));
+const UI = await import(pathToFileURL(join(OPS, 'ui.js')));
+check('automations Code from /code', () => UI.Code(adapt('code', RAW.code.by_id.d_pacer).code));
 check('automations.runsTable', () => S.automations.runsTable(F.runs.items.slice(0, 30)));
 const sorted = S.automations.sortNodes(reg.nodes);
 ok(sorted.length === reg.nodes.filter((n) => n.layer > 0).length && sorted[0].daypart === 'continuous', 'automations sorted by day-part', sorted.length + ' rows');
-ok(S.automations.listView(reg.nodes, { state: 'off' }).includes('aria-checked="false"'), 'disabled automations render as switched off');
+ok(S.automations.listView(regV.nodes, { state: 'off' }).includes('aria-checked="false"'), 'disabled automations render as switched off');
 check('runs.listView', () => S.runs.listView(F.runs.items.slice(0, 50)));
 check('runs.runDetail', () => S.runs.runDetail(F.run));
 check('live rows', () => F.live.items.map(S.live.row).join(''));
@@ -62,13 +83,17 @@ ok(F.live.items.filter((x) => S.live.match(x, { kind: 'call' })).every((x) => x.
 check('brain.findingsView', () => S.brain.findingsView(F.brain.findings));
 check('brain.playbooksView', () => S.brain.playbooksView(F.brain.playbooks));
 check('messaging.view', () => S.messaging.view(F.realtime));
-check('messaging.view reason=failed', () => S.messaging.view(F.realtime, 'failed'));
+check('messaging.view reason=failed', () => S.messaging.view(F.realtime, 'failed', {}, S.messaging.recentFromLive(F.live.items)));
+check('messaging.view with live recent', () => S.messaging.view(F.realtime, '', {}, S.messaging.recentFromLive(F.live.items)));
 check('calls.view', () => S.calls.view(F.realtime));
 check('capacity.view', () => S.capacity.view(F.capacity));
 ok(S.capacity.view(F.capacity).includes('▲'), 'capacity shows over-capacity marker', F.capacity.alerts.length + ' alert days');
 check('balances.view', () => S.balances.view(F.balances));
 ok(F.balances.vendors.filter(S.balances.isLow).map((v) => v.vendor).join() === 'telnyx', 'balances low detection = telnyx only');
 check('empty states', () => S.runs.listView([]) + S.automations.listView([], {}) + S.brain.findingsView([]) + S.overview.incidents([]) + S.overview.nextUp([]) + '<x>'.repeat(60));
+check('overview.view before balances lands', () => S.overview.view(F.realtime, F.capacity, null));
+check('calls.view with calls:null (no RETELL_KEY)', () => S.calls.view(adapt('realtime', { ...RAW.realtime, calls: null })));
+ok(S.overview.allIncidents(F.realtime, F.capacity, F.balances).length > 0, 'overview derives incidents from realtime + capacity + balances', S.overview.allIncidents(F.realtime, F.capacity, F.balances).length + ' incidents');
 
 /* ── Part B: browser ── */
 async function loadPlaywright() {
@@ -127,7 +152,8 @@ if (!process.argv.includes('--no-browser')) {
         const disabled = await page.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'));
         ok(disabled === 'true', 'typed-confirm button disabled until the id is typed');
         const blast = await page.$eval('.dialog[role=alertdialog]', (d) => d.innerText);
-        ok(/212/.test(blast) && /אוטומציות שתלויות/.test(blast), 'blast radius lists live impact + downstream');
+        const expBlast = String(RAW.toggle.by_id.d_pacer.blast_radius.messages_next_days.total || RAW.toggle.by_id.d_pacer.blast_radius.downstream.length);
+        ok(blast.includes(expBlast) && /אוטומציות שתלויות/.test(blast), 'blast radius lists server impact + downstream', 'expects ' + expBlast);
         await page.screenshot({ path: join(shotDir, 'toggle-confirm-light.png') });
         await page.fill('.dialog #dlg-in', 'd_pacer');
         await page.click('.dialog [data-act=dlg-yes]');

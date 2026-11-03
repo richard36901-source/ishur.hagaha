@@ -1,53 +1,543 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T11:40:00.000Z",
- "impact": {
-  "d_pacer": [
-   [
-    "הזמנות בתור להיום",
-    212
-   ],
-   [
-    "אירועים מושפעים",
-    4
-   ],
-   [
-    "שיחות שנשארו היום",
-    58
-   ]
-  ],
-  "wave1": [
-   [
-    "הזמנות גל 1 בתור",
-    164
-   ],
-   [
-    "אירועים",
-    3
-   ]
-  ],
-  "shir_dispatch": [
-   [
-    "שיחות שנשארו היום",
-    58
-   ],
-   [
-    "אירועים",
-    4
-   ]
-  ],
-  "event_day_blast": [
-   [
-    "אירועים היום",
-    0
-   ]
-  ],
-  "autoretry": [
-   [
-    "הודעות שייחשבו מחדש",
-    37
-   ]
-  ]
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "by_id": {
+  "d_pacer": {
+   "ok": true,
+   "id": "d_pacer",
+   "switch_id": "d_pacer",
+   "key": "auto:off:d_pacer",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "d_pacer",
+    "downstream": [
+     {
+      "id": "d_engine",
+      "name_he": "המנוע היומי (runDailyEngine)",
+      "kind": "internal",
+      "fully_stopped": false,
+      "other_parents": [
+       "t_morning"
+      ]
+     },
+     {
+      "id": "autoretry",
+      "name_he": "ניסיון חוזר אוטומטי (פעם ביום)",
+      "kind": "internal",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "lead_chase",
+      "name_he": "רצף לידים שנטשו (נועה)",
+      "kind": "send_client",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "shir_callbacks",
+      "name_he": "שיר · חזרה למי שהתקשר",
+      "kind": "call",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "shir_dispatch",
+      "name_he": "שיר · חיוג תור האורחים",
+      "kind": "call",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "noa_lead_dial",
+      "name_he": "נועה · חיוג לידים (כבוי)",
+      "kind": "call",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "reconcile_calls",
+      "name_he": "קליטת תוצאות שיחה מרטל",
+      "kind": "internal",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "template_check",
+      "name_he": "בדיקת תבניות מטא (שעתית)",
+      "kind": "internal",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "doctor",
+      "name_he": "הרופא (סוף כל פעימה)",
+      "kind": "slack",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "slack_flush",
+      "name_he": "ריקון תור הסלאק של הלילה",
+      "kind": "slack",
+      "fully_stopped": true,
+      "other_parents": []
+     },
+     {
+      "id": "stuck_client",
+      "name_he": "שלב 0.5 · שילם ולא העלה רשימה",
+      "kind": "send_client",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "no_setup",
+      "name_he": "שלב 0.55 · שילם, העלה, לא הגדיר תאריכים",
+      "kind": "send_client",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "health_alert",
+      "name_he": "שלב 0.6 · בריאות ערוץ (כשלים אתמול)",
+      "kind": "slack",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "watchdog",
+      "name_he": "שלב 0.7 · שומר: גל 1 לא יצא",
+      "kind": "slack",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "ad_review",
+      "name_he": "שלב 0.8 · סקירת קמפיין כל 4 ימים",
+      "kind": "slack",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "wave1",
+      "name_he": "גל 1 · הזמנה",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "wave2",
+      "name_he": "גל 2 · תזכורת",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "wave3",
+      "name_he": "גל 3 · שליחה נוספת (תוסף)",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "escalation",
+      "name_he": "הסלמה לשיחות אחרי הגל האחרון",
+      "kind": "internal",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "report7",
+      "name_he": "דוח שבוע-לפני ללקוח",
+      "kind": "send_client",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "toda",
+      "name_he": "תודה לאורחים (יום אחרי)",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "syum",
+      "name_he": "סיכום סוף-אירוע ללקוח",
+      "kind": "send_client",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "seating",
+      "name_he": "שלב 4 · \"השולחן שלך\" ביום האירוע",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "cancel",
+      "name_he": "שלב 5 · הודעת ביטול לאורחים",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "postpone",
+      "name_he": "שלב 5 · הודעת דחייה לאורחים",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "day_before",
+      "name_he": "שלב 5 · תזכורת יום-לפני",
+      "kind": "send_guest",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "upsell_basic",
+      "name_he": "שלב 5 · הצעת שדרוג לבסיס",
+      "kind": "send_client",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     },
+     {
+      "id": "upsell_pro",
+      "name_he": "שלב 5 · הצעת הכל כלול לפרמיום",
+      "kind": "send_client",
+      "fully_stopped": false,
+      "other_parents": [
+       "d_engine"
+      ]
+     }
+    ],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 602
+    },
+    "calls_stopped": {
+     "queued": 6,
+     "callbacks": 2
+    },
+    "events_affected": [
+     {
+      "token": "6a3155cc-0000-4000-8000-000000000000",
+      "tok8": "6a3155cc",
+      "name": "אירוע ב",
+      "messages": 507,
+      "days": [
+       "2026-11-04"
+      ]
+     },
+     {
+      "token": "395962fa-0000-4000-8000-000000000000",
+      "tok8": "395962fa",
+      "name": "אירוע ג",
+      "messages": 95,
+      "days": [
+       "2026-11-08"
+      ]
+     }
+    ],
+    "horizon_days": 7
+   },
+   "confirm_required": "d_pacer",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"d_pacer\""
+  },
+  "wave1": {
+   "ok": true,
+   "id": "wave1",
+   "switch_id": "wave1",
+   "key": "auto:off:wave1",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "wave1",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 507,
+     "by_type": {
+      "w1": 507
+     },
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [
+     {
+      "token": "6a3155cc-0000-4000-8000-000000000000",
+      "tok8": "6a3155cc",
+      "name": "אירוע ב",
+      "messages": 507,
+      "days": [
+       "2026-11-04"
+      ]
+     }
+    ],
+    "horizon_days": 7
+   },
+   "confirm_required": "wave1",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"wave1\""
+  },
+  "wave2": {
+   "ok": true,
+   "id": "wave2",
+   "switch_id": "wave2",
+   "key": "auto:off:wave2",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "wave2",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "wave2",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"wave2\""
+  },
+  "wave3": {
+   "ok": true,
+   "id": "wave3",
+   "switch_id": "wave3",
+   "key": "auto:off:wave3",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "wave3",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "wave3",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"wave3\""
+  },
+  "event_day_blast": {
+   "ok": true,
+   "id": "event_day_blast",
+   "switch_id": "event_day_blast",
+   "key": "auto:off:event_day_blast",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "event_day_blast",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "event_day_blast",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"event_day_blast\""
+  },
+  "autoretry": {
+   "ok": true,
+   "id": "autoretry",
+   "switch_id": "autoretry",
+   "key": "auto:off:autoretry",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "autoretry",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "autoretry",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"autoretry\""
+  },
+  "shir_dispatch": {
+   "ok": true,
+   "id": "shir_dispatch",
+   "switch_id": "shir_dispatch",
+   "key": "auto:off:shir_dispatch",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "shir_dispatch",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 6,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "shir_dispatch",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"shir_dispatch\""
+  },
+  "shir_callbacks": {
+   "ok": true,
+   "id": "shir_callbacks",
+   "switch_id": "shir_callbacks",
+   "key": "auto:off:shir_callbacks",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "shir_callbacks",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 2
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "shir_callbacks",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"shir_callbacks\""
+  },
+  "manual_blasts": {
+   "ok": true,
+   "id": "manual_blasts",
+   "switch_id": "manual_blasts",
+   "key": "auto:off:manual_blasts",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "manual_blasts",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "manual_blasts",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"manual_blasts\""
+  },
+  "party_nudges": {
+   "ok": true,
+   "id": "party_nudges",
+   "switch_id": "party_nudges",
+   "key": "auto:off:party_nudges",
+   "enabled_now": true,
+   "requested_enabled": false,
+   "off_since": null,
+   "blast_radius": {
+    "id": "party_nudges",
+    "downstream": [],
+    "messages_next_days": {
+     "total": 0,
+     "by_type": {},
+     "partial_total": 0
+    },
+    "calls_stopped": {
+     "queued": 0,
+     "callbacks": 0
+    },
+    "events_affected": [],
+    "horizon_days": 7
+   },
+   "confirm_required": "party_nudges",
+   "applied": false,
+   "he": "כדי לבצע, לשלוח שוב עם confirm: \"party_nudges\""
+  }
  }
 }

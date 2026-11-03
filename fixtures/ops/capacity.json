@@ -1,382 +1,329 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T11:40:00.000Z",
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T12:06:27.485Z",
+ "today": "2026-11-03",
+ "horizon_days": 14,
+ "model": {
+  "model": "shared",
+  "verified": false,
+  "capacity_per_day": 230,
+  "numbers": [
+   {
+    "id": "1107514695777584",
+    "tier": "TIER_250",
+    "limit": 250
+   },
+   {
+    "id": "1409632775565601",
+    "tier": "TIER_250",
+    "limit": 250
+   }
+  ],
+  "today_remaining": 68,
+  "he": "העסק לא מאומת: תקרה משותפת 250 פחות מרווח 20 = 230 ליום לכל המספרים יחד"
+ },
+ "verification": {
+  "status": "pending",
+  "verified": false,
+  "source": "meta",
+  "at": "2026-11-03T11:51:56.883Z"
+ },
  "days": [
   {
-   "date": "2026-11-03",
-   "dow": "ג׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 182,
-   "capacity_calls": 92,
-   "planned_calls": 42,
-   "events": [
+   "day": "2026-11-03",
+   "open": true,
+   "planned": 176,
+   "held_planned": 0,
+   "capacity": 68,
+   "overflow": 108,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 109,
-     "kind": "יום לפני"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000005",
-     "name": "בת המצווה של ליה",
-     "planned_wa": 73,
-     "kind": "גל 1"
+     "token": "ab699ac0-0000-4000-8000-000000000000",
+     "tok8": "ab699ac0",
+     "name": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "count": 176,
+     "held": false,
+     "upper_bound": false
     }
    ]
   },
   {
-   "date": "2026-11-04",
-   "dow": "ד׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 762,
-   "capacity_calls": 92,
-   "planned_calls": 47,
-   "events": [
+   "day": "2026-11-04",
+   "open": true,
+   "planned": 507,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 277,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 359,
-     "kind": "גל 1"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000004",
-     "name": "מאיה ועומר",
-     "planned_wa": 230,
-     "kind": "גל 1"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000005",
-     "name": "בת המצווה של ליה",
-     "planned_wa": 173,
-     "kind": "יום לפני"
+     "token": "6a3155cc-0000-4000-8000-000000000000",
+     "tok8": "6a3155cc",
+     "name": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "count": 507,
+     "held": false,
+     "upper_bound": true
     }
    ]
   },
   {
-   "date": "2026-11-05",
-   "dow": "ה׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 683,
-   "capacity_calls": 92,
-   "planned_calls": 40,
-   "events": [
+   "day": "2026-11-05",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-06",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-07",
+   "open": false,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 0,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-08",
+   "open": true,
+   "planned": 95,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 166,
-     "kind": "גל 2"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000003",
-     "name": "שירה ודניאל",
-     "planned_wa": 237,
-     "kind": "גל 3"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000004",
-     "name": "מאיה ועומר",
-     "planned_wa": 280,
-     "kind": "גל 1"
+     "token": "395962fa-0000-4000-8000-000000000000",
+     "tok8": "395962fa",
+     "name": "אירוע ג",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "count": 95,
+     "held": false,
+     "upper_bound": true
     }
    ]
   },
   {
-   "date": "2026-11-06",
-   "dow": "ו׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 500,
-   "planned_wa": 355,
-   "capacity_calls": 30,
-   "planned_calls": 17,
-   "events": [
+   "day": "2026-11-09",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-10",
+   "open": true,
+   "planned": 13,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 355,
-     "kind": "גל 1"
+     "token": "e045522a-0000-4000-8000-000000000000",
+     "tok8": "e045522a",
+     "name": "אירוע ד",
+     "type": "w2",
+     "type_he": "גל 2",
+     "count": 13,
+     "held": false,
+     "upper_bound": true
     }
    ]
   },
   {
-   "date": "2026-11-07",
-   "dow": "ש׳",
-   "no_contact": true,
-   "closed_reason": "שבת",
-   "capacity_wa": 0,
-   "planned_wa": 0,
-   "capacity_calls": 0,
-   "planned_calls": 0,
-   "events": []
+   "day": "2026-11-11",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
   },
   {
-   "date": "2026-11-08",
-   "dow": "א׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 617,
-   "capacity_calls": 92,
-   "planned_calls": 40,
-   "events": [
+   "day": "2026-11-12",
+   "open": true,
+   "planned": 0,
+   "held_planned": 55,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 244,
-     "kind": "גל 1"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000007",
-     "name": "אורי ונגה",
-     "planned_wa": 373,
-     "kind": "יום לפני"
+     "token": "96b7dec2-0000-4000-8000-000000000000",
+     "tok8": "96b7dec2",
+     "name": "אירוע ה",
+     "type": "w2",
+     "type_he": "גל 2",
+     "count": 55,
+     "held": true,
+     "upper_bound": true
     }
    ]
   },
   {
-   "date": "2026-11-09",
-   "dow": "ב׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 1564,
-   "capacity_calls": 92,
-   "planned_calls": 47,
-   "events": [
+   "day": "2026-11-13",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-14",
+   "open": false,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 0,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-15",
+   "open": true,
+   "planned": 176,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000003",
-     "name": "שירה ודניאל",
-     "planned_wa": 169,
-     "kind": "גל 2"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000005",
-     "name": "בת המצווה של ליה",
-     "planned_wa": 329,
-     "kind": "גל 2"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000006",
-     "name": "טל ורוני",
-     "planned_wa": 166,
-     "kind": "גל 1"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000007",
-     "name": "אורי ונגה",
-     "planned_wa": 900,
-     "kind": "גל 1"
+     "token": "ffb78392-0000-4000-8000-000000000000",
+     "tok8": "ffb78392",
+     "name": "אירוע ו",
+     "type": "w1",
+     "type_he": "גל 1",
+     "count": 176,
+     "held": false,
+     "upper_bound": true
     }
    ]
   },
   {
-   "date": "2026-11-10",
-   "dow": "ג׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 0,
-   "capacity_calls": 92,
-   "planned_calls": 39,
-   "events": []
-  },
-  {
-   "date": "2026-11-11",
-   "dow": "ד׳",
-   "no_contact": true,
-   "closed_reason": "ערב חג",
-   "capacity_wa": 0,
-   "planned_wa": 0,
-   "capacity_calls": 0,
-   "planned_calls": 0,
-   "events": []
-  },
-  {
-   "date": "2026-11-12",
-   "dow": "ה׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 372,
-   "capacity_calls": 92,
-   "planned_calls": 45,
-   "events": [
+   "day": "2026-11-16",
+   "open": true,
+   "planned": 31,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
     {
-     "token": "e1a0c2f4-0000-4000-8000-000000000001",
-     "name": "נועה ואיתי",
-     "planned_wa": 111,
-     "kind": "גל 3"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000003",
-     "name": "שירה ודניאל",
-     "planned_wa": 153,
-     "kind": "יום לפני"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000006",
-     "name": "טל ורוני",
-     "planned_wa": 108,
-     "kind": "גל 2"
+     "token": "e045522a-0000-4000-8000-000000000000",
+     "tok8": "e045522a",
+     "name": "אירוע ד",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "count": 31,
+     "held": false,
+     "upper_bound": true
     }
    ]
-  },
-  {
-   "date": "2026-11-13",
-   "dow": "ו׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 500,
-   "planned_wa": 615,
-   "capacity_calls": 30,
-   "planned_calls": 70,
-   "events": [
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 296,
-     "kind": "גל 3"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000007",
-     "name": "אורי ונגה",
-     "planned_wa": 319,
-     "kind": "גל 3"
-    }
-   ]
-  },
-  {
-   "date": "2026-11-14",
-   "dow": "ש׳",
-   "no_contact": true,
-   "closed_reason": "שבת",
-   "capacity_wa": 0,
-   "planned_wa": 0,
-   "capacity_calls": 0,
-   "planned_calls": 0,
-   "events": []
-  },
-  {
-   "date": "2026-11-15",
-   "dow": "א׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 493,
-   "capacity_calls": 92,
-   "planned_calls": 33,
-   "events": [
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000001",
-     "name": "נועה ואיתי",
-     "planned_wa": 309,
-     "kind": "גל 3"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000004",
-     "name": "מאיה ועומר",
-     "planned_wa": 184,
-     "kind": "גל 3"
-    }
-   ]
-  },
-  {
-   "date": "2026-11-16",
-   "dow": "ב׳",
-   "no_contact": false,
-   "closed_reason": null,
-   "capacity_wa": 1250,
-   "planned_wa": 578,
-   "capacity_calls": 92,
-   "planned_calls": 84,
-   "events": [
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000002",
-     "name": "בר המצווה של יונתן",
-     "planned_wa": 78,
-     "kind": "יום לפני"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000004",
-     "name": "מאיה ועומר",
-     "planned_wa": 219,
-     "kind": "גל 3"
-    },
-    {
-     "token": "e1a0c2f4-0000-4000-8000-000000000006",
-     "name": "טל ורוני",
-     "planned_wa": 281,
-     "kind": "גל 1"
-    }
-   ]
-  }
- ],
- "alerts": [
-  {
-   "date": "2026-11-09",
-   "kind": "wa",
-   "over_by": 314,
-   "msg": "יותר הודעות מתוכננות מהתקרה ביום ב׳"
-  },
-  {
-   "date": "2026-11-13",
-   "kind": "wa",
-   "over_by": 115,
-   "msg": "יותר הודעות מתוכננות מהתקרה ביום ו׳"
   }
  ],
  "recommendations": [
   {
-   "token": "e1a0c2f4-0000-4000-8000-000000000003",
-   "name": "שירה ודניאל",
-   "event_date": "2026-11-10",
-   "wave": "גל 1",
-   "send_on": "2026-11-04",
-   "planned": 610,
-   "reason": "יש מקום ביום הזה בשני המספרים"
+   "token": "ab699ac0-0000-4000-8000-000000000000",
+   "tok8": "ab699ac0",
+   "name": "אירוע א",
+   "due": "2026-11-03",
+   "count": 176,
+   "kind": "move",
+   "day": "2026-11-04",
+   "he": "לא נכנס ב-2026-11-03; החלון המוקדם ביותר שמכיל את כל 176 ההודעות ביום אחד: 2026-11-04"
   },
   {
-   "token": "e1a0c2f4-0000-4000-8000-000000000004",
-   "name": "מאיה ועומר",
-   "event_date": "2026-11-12",
-   "wave": "גל 1",
-   "send_on": "2026-11-06",
-   "planned": 380,
-   "reason": "יש מקום ביום הזה בשני המספרים"
+   "token": "6a3155cc-0000-4000-8000-000000000000",
+   "tok8": "6a3155cc",
+   "name": "אירוע ב",
+   "due": "2026-11-04",
+   "count": 507,
+   "kind": "split",
+   "days_needed": 3,
+   "split": [
+    {
+     "day": "2026-11-04",
+     "count": 54
+    },
+    {
+     "day": "2026-11-05",
+     "count": 230
+    },
+    {
+     "day": "2026-11-06",
+     "count": 223
+    }
+   ],
+   "unplaced": 0,
+   "needs_capacity_by": "2026-11-04",
+   "he": "507 הודעות לא נכנסות ביום אחד (תקרה 230) — לפצל על 3 ימים. צריך מקום עד 2026-11-04: אימות העסק ממתין — אחרי האימות כל מספר מקבל 1000; הוספת מספר עוזרת רק אחרי האימות (כרגע התקרה משותפת)"
   },
   {
-   "token": "e1a0c2f4-0000-4000-8000-000000000005",
-   "name": "בת המצווה של ליה",
-   "event_date": "2026-11-13",
-   "wave": "גל 1",
-   "send_on": "2026-11-08",
-   "planned": 190,
-   "reason": "להקדים ביום: היום המקורי מלא"
+   "token": "395962fa-0000-4000-8000-000000000000",
+   "tok8": "395962fa",
+   "name": "אירוע ג",
+   "due": "2026-11-08",
+   "count": 95,
+   "kind": "fits",
+   "day": "2026-11-08",
+   "he": "נכנס כולו ב-2026-11-08"
   },
   {
-   "token": "e1a0c2f4-0000-4000-8000-000000000006",
-   "name": "טל ורוני",
-   "event_date": "2026-11-15",
-   "wave": "גל 1",
-   "send_on": "2026-11-10",
-   "planned": 520,
-   "reason": "יש מקום ביום הזה בשני המספרים"
+   "token": "e045522a-0000-4000-8000-000000000000",
+   "tok8": "e045522a",
+   "name": "אירוע ד",
+   "due": "2026-11-10",
+   "count": 13,
+   "kind": "fits",
+   "day": "2026-11-10",
+   "he": "נכנס כולו ב-2026-11-10"
   },
   {
-   "token": "e1a0c2f4-0000-4000-8000-000000000007",
-   "name": "אורי ונגה",
-   "event_date": "2026-11-17",
-   "wave": "גל 1",
-   "send_on": "2026-11-12",
-   "planned": 700,
-   "reason": "יש מקום ביום הזה בשני המספרים"
+   "token": "e045522a-0000-4000-8000-000000000000",
+   "tok8": "e045522a",
+   "name": "אירוע ד",
+   "due": "2026-11-16",
+   "count": 31,
+   "kind": "fits",
+   "day": "2026-11-16",
+   "he": "נכנס כולו ב-2026-11-16"
+  },
+  {
+   "token": "ffb78392-0000-4000-8000-000000000000",
+   "tok8": "ffb78392",
+   "name": "אירוע ו",
+   "due": "2026-11-15",
+   "count": 176,
+   "kind": "fits",
+   "day": "2026-11-15",
+   "he": "נכנס כולו ב-2026-11-15"
   }
+ ],
+ "totals": {
+  "planned": 998,
+  "held_planned": 55,
+  "overflow_days": [
+   "2026-11-03",
+   "2026-11-04"
+  ]
+ },
+ "notes": [
+  "מספרי הגלים הם גבול עליון: לא נבדקים סימוני נשלח לכל אורח, הסרות וטעות-במספר",
+  "אירועים מוחזקים (hold) מסומנים held ולא נספרים ב-planned",
+  "אירוע-בן (שבת חתן) נשלח ידנית — מה שלא נשלח מתוכנן להיום"
  ]
 }
