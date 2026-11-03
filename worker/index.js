@@ -2649,6 +2649,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     if (dialed.length >= cap) break;
     if (!shouldDial(g, day)) continue;
     if (env.RATE && await env.RATE.get('hold:' + g.token)) { blocked++; continue; }
+    /* 03/11 ops call center: a round stopped for this event (POST /api/ops/call-round action stop) */
+    if (env.RATE && await env.RATE.get('callstop:' + g.token)) { blocked++; continue; }
     /* was phoneBlocked() — which counts an opt-out. An opt-out is about
        messages, never about calls. See the note on callBlocked. */
     if (await callBlocked(env, g.phone)) { blocked++; continue; }
@@ -9726,7 +9728,10 @@ function opsDeps() {
     /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
     slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
     mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
-    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
+    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid),
+    /* 03/11 Phase 4b call center (ops-calls.js): Retell reads, voice agents, the call_result writer the calls page uses */
+    retellApi: (e, p) => retellApi(e, p), voiceAgents: VOICE_AGENTS,
+    markCallResult: async (e, gid, outcome, tries) => { const res = callOutcome(outcome, tries); if (!res) return null; return { ok: await writeCallResult(e, gid, res, null), ...res }; } };
 }
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */
 function crmDeps() {

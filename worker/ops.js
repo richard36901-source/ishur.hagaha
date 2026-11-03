@@ -46,6 +46,7 @@ import { isOff, offState, OFF_PREFIX, listRuns, getRun, runStats } from './ops-r
 import CODE from './registry-code.json' with { type: 'json' };
 import { runBrain, buildBrain, decide, runLogAppend } from './brain.js';
 import { SETTINGS, validateEdit, confirmWord, writeSetting, loadCfg, effective, editableFor, NOA_CHASE_ON_CONFIRM } from './cfg.js';
+import { listCalls, getCallDetail, buildCallRounds, callRound, manualCalls, manualCallsPost, shirAdmin, buildCallCosts, callCostRollup } from './ops-calls.js';
 import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -886,6 +887,9 @@ export function mergeLive(auditRows, runRows, limit = 200) {
   return { items: all, cursor: all.length ? Math.max(...all.map(x => x.ts)) : null };
 }
 
+/* 03/11 Phase 4b: call costs for the finance screen (₪ per day / per event, Retell + Telnyx estimate) */
+export { buildCallCosts, callCostRollup };
+
 /* what the brain's capacity/balances checks call (ops.js owns them) */
 export const brainFns = () => ({ buildCapacity: (env, d, now, days) => buildCapacity(env, d, now, days), buildBalances: (env, d, o) => buildBalances(env, d, o) });
 
@@ -976,7 +980,21 @@ export async function handleOps(request, env, origin, url, d) {
         if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
         const r = await revertChange(env, d, body); return json(r.body, r.status);
       }
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert'] }, 404);
+      /* 03/11 Phase 4b call center (ops-calls.js) */
+      case 'calls': return json(await listCalls(env, d, { day: q('day'), from: q('from'), to: q('to'), week: String(q('week') || '') === '1' || q('week') === true, event: q('event'), outcome: q('outcome'), number: q('number'), agent: q('agent'), cursor: q('cursor'), limit: q('limit') }));
+      case 'call': { const r = await getCallDetail(env, d, { id: q('id'), day: q('day') }); return json(r.body, r.status); }
+      case 'call-rounds': return json(await buildCallRounds(env, d, Date.now(), { ticksLeft: ticksLeftToday(d.callWindowState, Date.now()) }));
+      case 'call-round': {
+        if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
+        const r = await callRound(env, d, body); return json(r.body, r.status);
+      }
+      case 'manual-calls': {
+        if (request.method === 'POST') { const r = await manualCallsPost(env, d, body); return json(r.body, r.status); }
+        return json(await manualCalls(env, d));
+      }
+      case 'shir': { const r = await shirAdmin(env, d, String(q('agent') || 'shir_out')); return json(r.body, r.status); }
+      case 'call-costs': return json(await buildCallCosts(env, d, { from: q('from'), to: q('to') }));
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'calls', 'call', 'call-rounds', 'call-round', 'manual-calls', 'shir', 'call-costs'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);
