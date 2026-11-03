@@ -7,25 +7,25 @@
 <title>איך היה? · ishur.io</title>
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js?v=72"></script>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=73"></script>
 <script src="assets/tracking.js?v=23"></script>
 <style>
-  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb}
+  :root{--cream:#FBF8F1;--gold2:rgba(168,133,60,.35);--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb}
   *{margin:0;padding:0;box-sizing:border-box}
   [hidden]{display:none!important}
-  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  body{font-family:'Heebo',sans-serif;background:var(--cream);color:var(--ink);min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px 16px;line-height:1.6;-webkit-font-smoothing:antialiased}
   .card{width:100%;max-width:480px;background:#fff;border:1px solid var(--bdr);border-radius:18px;padding:1.6rem 1.6rem 1.8rem;text-align:center;box-shadow:0 4px 12px rgba(0,0,0,.06),0 16px 48px rgba(0,0,0,.06);animation:rise .45s cubic-bezier(.22,.9,.24,1) both}
   @keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
   .brand{display:flex;align-items:center;justify-content:center;gap:.5rem;margin-bottom:1.2rem}
   .brand img{width:28px;height:28px;object-fit:contain}
   .brand-t{font-size:.92rem;font-weight:600}
-  h1{font-family:'Rubik',sans-serif;font-size:1.35rem;font-weight:600;margin-bottom:.35rem}
+  h1{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.35rem;font-weight:600;margin-bottom:.35rem}
   .lede{color:var(--ink2);font-size:.95rem;margin-bottom:1.3rem}
   .q{text-align:start;margin-bottom:1.2rem}
   .q label{display:block;font-weight:600;font-size:.95rem;margin-bottom:.5rem}
   .scale{display:grid;grid-template-columns:repeat(10,1fr);gap:.3rem}
-  .scale button{font:inherit;font-size:.95rem;font-weight:600;padding:.55rem 0;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;color:var(--ink2);cursor:pointer;transition:transform .12s,background .15s,border-color .15s}
+  .scale button{font:inherit;font-size:.95rem;font-weight:600;min-height:44px;padding:0;border-radius:10px;border:1.5px solid var(--bdr);background:#fff;color:var(--ink2);cursor:pointer;transition:transform .12s,background .15s,border-color .15s}
   .scale button:active{transform:scale(.94)}
   .scale button[aria-pressed="true"]{background:var(--green);border-color:var(--green);color:#fff}
   .ends{display:flex;justify-content:space-between;font-size:.72rem;color:var(--ink3);margin-top:.3rem}
@@ -37,6 +37,26 @@
   .btn.sec{background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
   .mark{width:64px;height:64px;margin:.4rem auto 1rem;border-radius:50%;background:var(--green4);border:1.5px solid var(--bdr2);display:flex;align-items:center;justify-content:center;font-size:1.8rem}
   .fine{font-size:.78rem;color:var(--ink3);margin-top:1rem}
+  section{animation:rise .35s cubic-bezier(.22,.9,.24,1) both}
+  .btn{min-height:44px}
+  .inp{width:100%;min-height:44px;font:inherit;font-size:.95rem;padding:.55rem .8rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);margin-top:.4rem}
+  .inp:focus{outline:none;border-color:var(--green)}
+  .row2{display:flex;gap:.5rem}.row2 .btn{flex:1}
+  .prize{background:var(--cream);border:1.5px solid var(--gold2);border-radius:12px;padding:1rem;margin:0 0 1rem}
+  .prize b{display:block;font-family:'Frank Ruhl Libre',serif;font-size:1.25rem;color:var(--green2)}
+  .prize .sub{font-size:.85rem;color:var(--ink2)}
+  .timer{display:grid;grid-template-columns:repeat(4,1fr);gap:.4rem;margin:.8rem 0 0;direction:rtl}
+  .timer div{background:#fff;border:1px solid var(--gold2);border-radius:10px;padding:.4rem 0}
+  .timer b{display:block;font-family:'Rubik',sans-serif;font-size:1.2rem;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .timer span{font-size:.7rem;color:var(--ink3)}
+  .act{border:1.5px solid var(--bdr);border-radius:12px;padding:.8rem;margin-top:.7rem;text-align:start}
+  .act h3{font-size:.98rem;font-weight:600}.act p{font-size:.82rem;color:var(--ink3)}
+  .act .tag{float:left;font-size:.78rem;font-weight:600;color:var(--gold)}
+  .act.done{border-color:var(--green);background:var(--green4)}
+  .tix{display:flex;flex-wrap:wrap;justify-content:center;gap:.5rem;margin:1rem 0}
+  .tix b{font-family:'Rubik',sans-serif;font-size:1.5rem;letter-spacing:.08em;padding:.5rem .9rem;border:1.5px dashed var(--gold);border-radius:10px;background:var(--cream);color:var(--green2)}
+  .fine a{color:var(--green)}
+  @media (prefers-reduced-motion:reduce){.card,section{animation:none}}
   .err{color:#A8402F;font-size:.85rem;margin-top:.6rem;min-height:1.2em}
 </style>
 </head>
@@ -61,13 +81,52 @@
     <p class="err" id="err"></p>
   </section>
 
-  <section id="s-low" hidden>
-    <div class="mark">🙏</div>
-    <h1>תודה על הכנות</h1>
-    <p class="lede">מה היה עוזר לכם יותר? ספרו לנו על החוויה, כל הערה נקראת על ידי הצוות.</p>
-    <div class="q"><textarea id="note" placeholder="ספרו לנו על החוויה, הערות לשיפור…"></textarea></div>
-    <button class="btn" id="sendNote">שליחה</button>
+  <section id="s-text" hidden>
+    <div class="mark" id="tMark">💚</div>
+    <h1 id="tH">תודה! עוד רגע אחד</h1>
+    <p class="lede" id="tLede">כמה מילים על החוויה? מה אהבתם, מה היה אפשר לעשות טוב יותר.</p>
+    <div class="q"><textarea id="note" maxlength="1500" placeholder="כמה מילים…"></textarea></div>
+    <button class="btn" id="sendNote">המשך</button>
+    <button class="btn sec" id="skipNote" type="button">דלגו</button>
     <p class="err" id="err2"></p>
+  </section>
+
+  <section id="s-raffle" hidden>
+    <div class="mark">🎁</div>
+    <h1>מגישים = נכנסים להגרלה</h1>
+    <p class="lede">משאירים לנו ביקורת ומקבלים כרטיס להגרלה. ככה זה עובד:</p>
+    <div class="prize"><span class="sub">הפרס</span><b id="rPrize"></b><span class="sub">ההגרלה ב-<span id="rDate"></span></span>
+      <div class="timer" id="rTimer"><div><b id="cD">0</b><span>ימים</span></div><div><b id="cH">00</b><span>שעות</span></div><div><b id="cM">00</b><span>דקות</span></div><div><b id="cS">00</b><span>שניות</span></div></div>
+    </div>
+    <div id="rWho" hidden>
+      <input class="inp" id="rName" autocomplete="name" placeholder="שם מלא">
+      <input class="inp" id="rPhone" type="tel" inputmode="tel" autocomplete="tel" dir="ltr" placeholder="מספר נייד (לעדכון אם זכיתם)">
+    </div>
+    <div class="act" id="aVideo" hidden>
+      <span class="tag">2 כרטיסים</span><h3>🎥 העלאת סרטון</h3><p>המלצה קצרה בווידאו, עד דקה. נפתח בחלון חדש.</p>
+      <a class="btn" id="vGo" href="#" target="_blank" rel="noopener">להקלטת הסרטון</a>
+      <button class="btn sec" id="vDone" type="button" hidden>שלחתי את הסרטון ✓</button>
+    </div>
+    <div class="act" id="aGoogle" hidden>
+      <span class="tag">כרטיס 1</span><h3>⭐ ביקורת בגוגל</h3><p>כמה מילים בגוגל. נפתח בחלון חדש.</p>
+      <a class="btn" id="gGo" href="#" target="_blank" rel="noopener">לכתיבת ביקורת בגוגל</a>
+      <button class="btn sec" id="gDone" type="button" hidden>סיימתי ✓</button>
+    </div>
+    <p class="fine">סרטון = 2 כרטיסים · ביקורת בגוגל = כרטיס 1 · שניהם = 3 כרטיסים. תוכן הביקורת לא משפיע על הסיכוי לזכות.</p>
+    <button class="btn" id="rFinish" type="button" hidden>לכרטיסים שלי</button>
+    <button class="btn sec" id="rSkip" type="button">לא עכשיו</button>
+    <p class="err" id="err3"></p>
+    <p class="fine"><a href="raffle-terms.html" target="_blank" rel="noopener">תנאי ההגרלה</a></p>
+  </section>
+
+  <section id="s-tix" hidden>
+    <div class="mark">🎟️</div>
+    <h1>אתם בהגרלה!</h1>
+    <p class="lede">מספרי הכרטיסים שלכם:</p>
+    <div class="tix" id="tixList"></div>
+    <p class="lede">ההגרלה ב-<b id="tDate"></b>. אם תזכו, נעדכן אתכם בוואטסאפ ובטלפון.</p>
+    <p class="fine" id="tWa"></p>
+    <p class="fine"><a href="raffle-terms.html" target="_blank" rel="noopener">תנאי ההגרלה</a> · תודה מכל הלב, צוות ishur.io</p>
   </section>
 
   <section id="s-high" hidden>
@@ -120,41 +179,91 @@
     return fetch(CFG.endpoint('feedback'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); });
   }
+  var route = '', clip = '', R = null, tickets = [], waSent = false;
+  /* raffle config: one GET, never blocks the scores */
+  var rafP = fetch(CFG.endpoint('raffle-config')).then(function (r) { return r.json(); }).catch(function () { return null; });
+  function show(id) { ['s1', 's-text', 's-raffle', 's-high', 's-done', 's-tix'].forEach(function (x) { $(x).hidden = x !== id; }); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} }
+  function beacon(o) { o.token = token; o.who = who; try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify(o)], { type: 'application/json' })); } catch (e) { post(o); } }
   $('go').addEventListener('click', function () {
     $('go').disabled = true; $('err').textContent = '';
-    post({ nps: ans.nps, exp: ans.exp }).then(function (j) {
+    post({ nps: ans.nps, exp: ans.exp, who: who }).then(function (j) {
       if (!j || !j.ok) { $('err').textContent = j && j.error === 'bad-token' ? 'הקישור לא תקין' : 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; return; }
-      $('s1').hidden = true;
+      route = j.route; clip = j.clip || '';
       ph('feedback_scored', { nps: ans.nps, exp: ans.exp, route: j.route });
       try { if (window.posthog && posthog.identify) posthog.identify('event:' + token.slice(0, 8), { feedback_nps: ans.nps, feedback_exp: ans.exp, feedback_route: j.route, client_name: j.name || '' }); } catch (e) {}
-      if (j.route === 'high') {
-        if (j.clip) $('clip').href = j.clip; else $('clip').hidden = true;
-        $('s-high').hidden = false;
-      } else { $('s-low').hidden = false; $('note').focus(); }
+      /* Richard 03/11: the free text opens right after the scores, for every score */
+      if (route !== 'high') { $('tMark').textContent = '🙏'; $('tH').textContent = 'תודה על הכנות'; $('tLede').textContent = 'כמה מילים על מה שהיה אפשר לעשות טוב יותר? כל הערה נקראת על ידי הצוות.'; }
+      show('s-text'); $('note').focus();
     }).catch(function () { $('err').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; });
   });
-  ['clip'].forEach(function (id) {
-    $(id).addEventListener('click', function () {
-      ph('feedback_click', { target: id });
-      try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify({ token: token, who: who, click: id })], { type: 'application/json' })); } catch (e) { post({ click: id }); }
+  /* after the text: high scores (min ≥ 6, as before) → the raffle teaser when it is on, else the old video link; low → thanks */
+  function afterText() {
+    if (route !== 'high') { show('s-done'); return; }
+    rafP.then(function (c) {
+      R = c && c.on && !c.drawn && Date.parse(c.draw_at) > Date.now() && (c.video || c.google) ? c : null;
+      if (!R) { if (clip) $('clip').href = clip; else $('clip').hidden = true; show('s-high'); return; }
+      $('rPrize').textContent = R.prize_he; $('rDate').textContent = dateHe(R.draw_at);
+      if (R.video) { $('vGo').href = R.video_url; $('aVideo').hidden = false; }
+      if (R.google) { $('gGo').href = R.google_review_url; $('aGoogle').hidden = false; }
+      if (who) $('rWho').hidden = false;
+      tick(); setInterval(tick, 1000);
+      ph('raffle_teaser_shown');
+      show('s-raffle');
     });
+  }
+  function sendText(skip) {
+    var t = $('note').value.trim();
+    if (skip || !t) { ph('feedback_note_skipped'); afterText(); return; }
+    $('sendNote').disabled = true; $('err2').textContent = '';
+    post({ note: t, who: who }).then(function (j) {
+      if (!j || !j.ok) { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; return; }
+      ph('feedback_note', { len: t.length }); afterText();
+    }).catch(function () { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; });
+  }
+  $('sendNote').addEventListener('click', function () { sendText(false); });
+  $('skipNote').addEventListener('click', function () { sendText(true); });
+  function dateHe(iso) { try { return new Intl.DateTimeFormat('he-IL', { timeZone: 'Asia/Jerusalem', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso)); } catch (e) { return String(iso).slice(0, 10); } }
+  function p2(n) { return (n < 10 ? '0' : '') + n; }
+  function tick() {
+    var ms = Math.max(0, Date.parse(R.draw_at) - Date.now()), s = Math.floor(ms / 1000);
+    $('cD').textContent = Math.floor(s / 86400); $('cH').textContent = p2(Math.floor(s % 86400 / 3600)); $('cM').textContent = p2(Math.floor(s % 3600 / 60)); $('cS').textContent = p2(s % 60);
+  }
+  /* open the link → the confirm button appears; the confirm is the claim (checked by hand in the ops raffle tab) */
+  $('vGo').addEventListener('click', function () { ph('feedback_click', { target: 'clip' }); beacon({ click: 'clip' }); $('vDone').hidden = false; });
+  $('gGo').addEventListener('click', function () { ph('feedback_click', { target: 'review' }); beacon({ click: 'review' }); $('gDone').hidden = false; });
+  function claim(kind, btn, box) {
+    var body = { token: token, who: who, done: true };
+    if (who) {
+      body.name = $('rName').value.trim(); body.phone = $('rPhone').value.trim();
+      if (body.phone.replace(/\D/g, '').length < 9) { $('err3').textContent = 'כתבו מספר נייד, כדי שנוכל לעדכן אם זכיתם'; $('rPhone').focus(); return; }
+    }
+    btn.disabled = true; $('err3').textContent = '';
+    fetch(CFG.endpoint(kind === 'video' ? 'raffle-enter' : 'raffle-claim'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok) { btn.disabled = false; $('err3').textContent = j && j.error === 'bad-phone' ? 'המספר לא תקין' : j && j.error === 'raffle-closed' ? 'ההגרלה כבר נסגרה' : 'לא הצלחנו לשמור, נסו שוב'; return; }
+        tickets = j.tickets || []; waSent = waSent || !!j.whatsapp;
+        box.classList.add('done'); btn.textContent = kind === 'video' ? 'הסרטון נרשם ✓' : 'הביקורת נרשמה ✓';
+        $('rFinish').hidden = false; $('rSkip').hidden = true;
+        ph('raffle_claim', { kind: kind, tickets: tickets.length });
+      }).catch(function () { btn.disabled = false; $('err3').textContent = 'לא הצלחנו לשמור, נסו שוב'; });
+  }
+  $('vDone').addEventListener('click', function () { claim('video', $('vDone'), $('aVideo')); });
+  $('gDone').addEventListener('click', function () { claim('google', $('gDone'), $('aGoogle')); });
+  $('rSkip').addEventListener('click', function () { ph('raffle_skipped'); show('s-done'); });
+  $('rFinish').addEventListener('click', function () {
+    var host = $('tixList'); host.innerHTML = '';
+    tickets.forEach(function (t) { var b = document.createElement('b'); b.textContent = t; b.dir = 'ltr'; host.appendChild(b); });
+    $('tDate').textContent = dateHe(R.draw_at);
+    $('tWa').textContent = waSent ? 'שלחנו לכם את המספרים גם בוואטסאפ.' : 'שמרו צילום מסך של המספרים.';
+    show('s-tix');
   });
-  /* left without clicking either link: one beacon on the way out */
+  $('clip').addEventListener('click', function () { ph('feedback_click', { target: 'clip' }); beacon({ click: 'clip' }); });
+  /* left the review step without clicking: one beacon on the way out */
   var leftAt = 0;
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState !== 'hidden' || $('s-high').hidden || leftAt) return;
-    leftAt = Date.now();
-    try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify({ token: token, who: who, left: true })], { type: 'application/json' })); } catch (e) {}
-  });
-  $('sendNote').addEventListener('click', function () {
-    var t = $('note').value.trim();
-    if (!t) { $('err2').textContent = 'כתבו לנו משהו קצר 🙂'; return; }
-    $('sendNote').disabled = true;
-    post({ note: t }).then(function (j) {
-      if (!j || !j.ok) { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; return; }
-      ph('feedback_note', { len: t.length });
-      $('s-low').hidden = true; $('s-done').hidden = false;
-    }).catch(function () { $('err2').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('sendNote').disabled = false; });
+    if (document.visibilityState !== 'hidden' || leftAt || ($('s-high').hidden && $('s-raffle').hidden)) return;
+    if (!$('vDone').hidden || !$('gDone').hidden) return;
+    leftAt = Date.now(); beacon({ left: true });
   });
 })();
 </script>

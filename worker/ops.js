@@ -51,6 +51,7 @@ import { SETTINGS, validateEdit, confirmWord, writeSetting, loadCfg, effective, 
 import { buildMessages, buildInbox, buildThread, buildControl } from './ops-inbox.js';
 import { buildFinance, setManualCost, invoiceResend, buildAds, buildTemplates, templateVariant, buildFeedback } from './ops-money.js';
 import { listCalls, getCallDetail, buildCallRounds, callRound, manualCalls, manualCallsPost, shirAdmin, buildCallCosts, callCostRollup } from './ops-calls.js';
+import { buildRaffle, drawRaffle, verifyEntry } from './raffle.js';
 import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -1005,6 +1006,10 @@ export async function handleOps(request, env, origin, url, d) {
         const r = await templateVariant(env, d, body); return json(r.body, r.status);
       }
       case 'feedback': return json(await buildFeedback(env, d, { fresh: String(q('fresh') || '') === '1', group: q('group') === 'month' ? 'month' : 'week' }));
+      /* 03/11 review raffle (raffle.js): list, per-claim "אומת", the draw (typed confirm 'draw', never automatic) */
+      case 'raffle': return json(await buildRaffle(env, d));
+      case 'raffle/verify': { if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405); const r = await verifyEntry(env, body); return json(r.body, r.status); }
+      case 'raffle/draw': { if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405); const r = await drawRaffle(env, body); return json(r.body, r.status); }
       /* 03/11 Phase 4b call center (ops-calls.js) */
       case 'calls': return json(await listCalls(env, d, { day: q('day'), from: q('from'), to: q('to'), week: String(q('week') || '') === '1' || q('week') === true, event: q('event'), outcome: q('outcome'), number: q('number'), agent: q('agent'), cursor: q('cursor'), limit: q('limit') }));
       case 'call': { const r = await getCallDetail(env, d, { id: q('id'), day: q('day') }); return json(r.body, r.status); }
@@ -1019,7 +1024,7 @@ export async function handleOps(request, env, origin, url, d) {
       }
       case 'shir': { const r = await shirAdmin(env, d, String(q('agent') || 'shir_out')); return json(r.body, r.status); }
       case 'call-costs': return json(await buildCallCosts(env, d, { from: q('from'), to: q('to') }));
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control', 'finance', 'invoice-resend', 'ads', 'templates', 'template-variant', 'feedback', 'calls', 'call', 'call-rounds', 'call-round', 'manual-calls', 'shir', 'call-costs'] }, 404);
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control', 'finance', 'invoice-resend', 'ads', 'templates', 'template-variant', 'feedback', 'raffle', 'raffle/verify', 'raffle/draw', 'calls', 'call', 'call-rounds', 'call-round', 'manual-calls', 'shir', 'call-costs'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);
