@@ -68,6 +68,17 @@ export const api = {
     inflight.set(k, p); return p;
   },
   post: (name, body, opts) => raw(name, body, opts),
+  /* multipart upload to /api/<name> (the design version file → /api/media); admin_key travels in the form, never the URL */
+  async upload(name, fields, file) {
+    reqCount++;
+    if (MOCK) return { ok: true, media: '0123456789abcdef', mime: file && file.type };
+    await ensureLive();
+    const f = new FormData(); f.append('admin_key', adminKey); for (const [k, v] of Object.entries(fields || {})) f.append(k, v); f.append('file', file);
+    const r = await fetch(BASE + '/api/' + name, { method: 'POST', body: f });
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok || j.ok === false) throw new HttpError(r.status, j.error || 'ההעלאה נכשלה');
+    return j;
+  },
 };
 
 /* poll: timeout chain, pauses while the tab is hidden, backs off on errors */

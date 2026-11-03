@@ -14,6 +14,7 @@
      template  Meta template status changed / custom wording submitted
      brain     playbook executed (auto or approved) / rejected
      subevent  sub-event created · blast: manual guest sends (gift, sub-event, SMS, resend, wave-retry)
+     client    client card edits + actions (crm.js editClient / clientAction)
      revert    a revert done from the change log itself
 
    Storage, like ops-run.js: D1 OPS_DB table `changes` (migrations/0004_changes.sql),
@@ -30,7 +31,7 @@ export const CHG_PREFIX = 'chg:';
 export const CHG_TTL = 400 * 86400;
 export const KINDS = {
   deploy: 'גרסה', registry: 'אוטומציות', edit: 'עריכה', hold: 'החזקה', toggle: 'מתג', pause: 'עצירה כללית',
-  template: 'תבנית', brain: 'מוח', subevent: 'אירוע-בן', blast: 'שליחה ידנית', revert: 'שחזור', control: 'שליטה ידנית', raffle: 'הגרלה',
+  template: 'תבנית', brain: 'מוח', subevent: 'אירוע-בן', blast: 'שליחה ידנית', revert: 'שחזור', control: 'שליטה ידנית', raffle: 'הגרלה', client: 'לקוח',
 };
 export const ACTORS = ['Richard', 'Claude', 'brain', 'system'];
 export const REGISTRY_SNAPSHOT_KEY = 'registry:snapshot';
