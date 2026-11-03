@@ -7,6 +7,11 @@ const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fix
 const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {}, reverted: {}, added: [] };
 export async function mockApi(name, body, ver, qs) {
   if (ver) VER = ver;
+  /* phase 4c writes (money screens) */
+  if (name === '/fixedcost' || name === '/adspend') return { ok: true, fixture: true };
+  if (name === 'finance' && body.set_manual) return { ok: true, fixture: true, month: body.set_manual.month, manual: { [body.set_manual.vendor]: body.set_manual.ils } };
+  if (name === 'invoice-resend') { const p = { token: body.token, name: 'לקוח לדוגמה', phone: '0500000000', url: 'https://example.invalid/inv', number: '1001', template: 'ishur_heshbonit_n', confirm_required: String(body.token || '').slice(0, 8) }; return body.confirm ? { ok: true, applied: true, preview: p } : { ok: true, applied: false, preview: p }; }
+  if (name === 'template-variant') return body.confirm ? { ok: true, applied: true, meta: { id: 'mock' } } : { ok: true, applied: false, confirm_required: body.new_name, preview: { name: body.new_name, category: 'UTILITY' } };
   if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER, qs != null ? 'GET' : 'POST');
   const now = new Date().toISOString();
   if (name === 'registry') {

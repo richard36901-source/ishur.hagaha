@@ -111,11 +111,12 @@ export const ROUTES = [
   { id: 'calendar', he: 'לוח שנה', icon: 'cap', key: 'd' },
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
   { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' },
+  { id: 'finance', he: 'כספים', key: 'f' }, { id: 'ads', he: 'פרסום', key: 'p' }, { id: 'templates', he: 'תבניות', key: 'n' }, { id: 'feedback', he: 'פידבקים', key: 'v' },
   { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 't', dir: 'crm' },
 ];
 const screens = {};
 /* lazy/ + crm/ modules sit outside the counted JS budget */
-const LAZY = new Set(['calendar', 'changes']);
+const LAZY = new Set(['calendar', 'changes', 'finance', 'ads', 'templates', 'feedback']);
 const loadModule = (id) => (screens[id] = screens[id] || import(LAZY.has(id) ? `./lazy/${id}.js` : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
 const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
@@ -200,7 +201,7 @@ function toggleTheme() {
 
 /* ── keyboard ── */
 export const KEYMAP = [
-  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'], ['g h', 'שינויים'], ['g e', 'לידים'], ['g s', 'לקוחות'], ['g t', 'דיילות'],
+  ...ROUTES.map((r) => ['g ' + r.key, r.he]),
   ['⌘ K', 'פקודות וחיפוש'], ['/', 'חיפוש בעמוד'], ['j k', 'שורה הבאה / קודמת'], ['Enter', 'פתיחת השורה'], ['Esc', 'סגירה'],
   ['\\', 'פאנל לוג חי'], ['t', 'בהיר / כהה'], ['p', 'עצירת הזרם החי'], ['?', 'קיצורי מקלדת'],
 ];

@@ -1,0 +1,253 @@
+{
+ "ok": true,
+ "at": "2026-11-03T15:56:18.198Z",
+ "feedback": [
+  {
+   "token": "a1b2c3d6-0000-4000-8000-000000000006",
+   "who": 1,
+   "name": "חתונת רון ומאיה",
+   "client": "לקוח 7",
+   "occasion": "חתונה",
+   "date": "2026-12-07",
+   "plan": "pro",
+   "nps": null,
+   "exp": null,
+   "route": "",
+   "note": "",
+   "at": "2026-11-01T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "",
+   "left": "1"
+  },
+  {
+   "token": "a1b2c3d0-0000-4000-8000-000000000000",
+   "who": 1,
+   "name": "דנה ואבי",
+   "client": "לקוח 1",
+   "occasion": "חתונה",
+   "date": "2026-11-13",
+   "plan": "pro",
+   "nps": 10,
+   "exp": 9,
+   "route": "clip",
+   "note": "",
+   "at": "2026-10-31T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "",
+   "left": ""
+  },
+  {
+   "token": "a1b2c3d1-0000-4000-8000-000000000001",
+   "who": 1,
+   "name": "משפחת לוי",
+   "client": "לקוח 2",
+   "occasion": "חתונה",
+   "date": "2026-11-17",
+   "plan": "pro",
+   "nps": 9,
+   "exp": 10,
+   "route": "review",
+   "note": "",
+   "at": "2026-10-25T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "1",
+   "left": ""
+  },
+  {
+   "token": "a1b2c3d2-0000-4000-8000-000000000002",
+   "who": 1,
+   "name": "בר מצווה לנועם",
+   "client": "לקוח 3",
+   "occasion": "חתונה",
+   "date": "2026-11-21",
+   "plan": "pro",
+   "nps": 7,
+   "exp": 8,
+   "route": "clip",
+   "note": "",
+   "at": "2026-10-19T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "",
+   "left": ""
+  },
+  {
+   "token": "a1b2c3d3-0000-4000-8000-000000000003",
+   "who": 1,
+   "name": "חינה של שירה",
+   "client": "לקוח 4",
+   "occasion": "חתונה",
+   "date": "2026-11-25",
+   "plan": "pro",
+   "nps": 10,
+   "exp": 9,
+   "route": "review",
+   "note": "",
+   "at": "2026-10-13T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "1",
+   "left": ""
+  },
+  {
+   "token": "a1b2c3d4-0000-4000-8000-000000000004",
+   "who": 1,
+   "name": "יום הולדת 40",
+   "client": "לקוח 5",
+   "occasion": "חתונה",
+   "date": "2026-11-29",
+   "plan": "pro",
+   "nps": 6,
+   "exp": 7,
+   "route": "clip",
+   "note": "היה עיכוב בתשובות",
+   "at": "2026-10-07T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "",
+   "left": ""
+  },
+  {
+   "token": "a1b2c3d5-0000-4000-8000-000000000005",
+   "who": 1,
+   "name": "ברית לאורי",
+   "client": "לקוח 6",
+   "occasion": "חתונה",
+   "date": "2026-12-03",
+   "plan": "pro",
+   "nps": 9,
+   "exp": 10,
+   "route": "review",
+   "note": "",
+   "at": "2026-10-01T18:00:00Z",
+   "clicked_clip": "",
+   "clicked_review": "1",
+   "left": ""
+  }
+ ],
+ "events": [
+  {
+   "token": "a1b2c3d6-0000-4000-8000-000000000006",
+   "name": "חתונת רון ומאיה",
+   "date": "2026-12-07",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 0,
+   "review_clicks": 0,
+   "avg_nps": null,
+   "avg_exp": null,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d6-0000-4000-8000-000000000006"
+  },
+  {
+   "token": "a1b2c3d5-0000-4000-8000-000000000005",
+   "name": "ברית לאורי",
+   "date": "2026-12-03",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 0,
+   "review_clicks": 1,
+   "avg_nps": 9,
+   "avg_exp": 10,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d5-0000-4000-8000-000000000005"
+  },
+  {
+   "token": "a1b2c3d4-0000-4000-8000-000000000004",
+   "name": "יום הולדת 40",
+   "date": "2026-11-29",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 1,
+   "review_clicks": 0,
+   "avg_nps": 6,
+   "avg_exp": 7,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d4-0000-4000-8000-000000000004"
+  },
+  {
+   "token": "a1b2c3d3-0000-4000-8000-000000000003",
+   "name": "חינה של שירה",
+   "date": "2026-11-25",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 0,
+   "review_clicks": 1,
+   "avg_nps": 10,
+   "avg_exp": 9,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d3-0000-4000-8000-000000000003"
+  },
+  {
+   "token": "a1b2c3d2-0000-4000-8000-000000000002",
+   "name": "בר מצווה לנועם",
+   "date": "2026-11-21",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 0,
+   "review_clicks": 0,
+   "avg_nps": 7,
+   "avg_exp": 8,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d2-0000-4000-8000-000000000002"
+  },
+  {
+   "token": "a1b2c3d1-0000-4000-8000-000000000001",
+   "name": "משפחת לוי",
+   "date": "2026-11-17",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 0,
+   "review_clicks": 1,
+   "avg_nps": 9,
+   "avg_exp": 10,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d1-0000-4000-8000-000000000001"
+  },
+  {
+   "token": "a1b2c3d0-0000-4000-8000-000000000000",
+   "name": "דנה ואבי",
+   "date": "2026-11-13",
+   "occasion": "חתונה",
+   "n": 1,
+   "notes": 0,
+   "review_clicks": 0,
+   "avg_nps": 10,
+   "avg_exp": 9,
+   "review_url": "https://ishur.io/feedback.html?t=a1b2c3d0-0000-4000-8000-000000000000"
+  }
+ ],
+ "trend": [
+  {
+   "bucket": "2026-09-27",
+   "n": 1,
+   "avg_nps": 9,
+   "avg_exp": 10
+  },
+  {
+   "bucket": "2026-10-04",
+   "n": 1,
+   "avg_nps": 6,
+   "avg_exp": 7
+  },
+  {
+   "bucket": "2026-10-11",
+   "n": 1,
+   "avg_nps": 10,
+   "avg_exp": 9
+  },
+  {
+   "bucket": "2026-10-18",
+   "n": 1,
+   "avg_nps": 7,
+   "avg_exp": 8
+  },
+  {
+   "bucket": "2026-10-25",
+   "n": 2,
+   "avg_nps": 9.5,
+   "avg_exp": 9.5
+  }
+ ],
+ "totals": {
+  "n": 7,
+  "rated": 6,
+  "avg_nps": 8.5,
+  "avg_exp": 8.8,
+  "nps_score": 50,
+  "notes": 1,
+  "left": 1
+ },
+ "fixture": true
+}
