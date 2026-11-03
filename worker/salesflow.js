@@ -10,7 +10,7 @@
      · leads only: never for client:, a phone with an event, or a guest (the
        caller passes isClient; the tick re-checks through deps.isClient)
      · free text only, inside the 24h window; window closed → nothing, Slack
-     · 10:00–20:00 IL (no Shabbat; 18–20 a 3–8 min delay): outside, the reply waits in state.pending and
+     · 10:00–21:00 IL (no Shabbat; 18–21 a 3–8 min delay): outside, the reply waits in state.pending and
        the 10-minute pacer sends it at the next opening (same due/drain shape
        as noaq:)
      · one nudge per question, 60–150 min after it went out; after the
@@ -302,10 +302,10 @@ export function parseDesign(text) {
 }
 
 /* ── hours ───────────────────────────────────────────────────────────────── */
-/* Richard 03/11 lead-hours rule: automated lead replies only 10:00–20:00 IL (inside the
-   general client hours, so Shabbat stays closed); 18:00–20:00 each reply waits a random
+/* Richard 03/11 lead-hours rule: automated lead replies only 10:00–21:00 IL (inside the
+   general client hours, so Shabbat stays closed); 18:00–21:00 each reply waits a random
    3–8 minutes; after 20:00 it is queued to the next day 10:00. */
-export const LEAD_OPEN_H = 10, LEAD_CLOSE_H = 20, LEAD_SLOW_H = 18, LEAD_DELAY_MIN = 3, LEAD_DELAY_MAX = 8;
+export const LEAD_OPEN_H = 10, LEAD_CLOSE_H = 21, LEAD_SLOW_H = 18, LEAD_DELAY_MIN = 3, LEAD_DELAY_MAX = 8;
 const ilHour = ts => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hourCycle: 'h23' }).format(new Date(ts)));
 export function leadHoursOpen(ts) { const h = ilHour(ts); return clientHoursOpen(ts) && h >= LEAD_OPEN_H && h < LEAD_CLOSE_H; }
 export function leadSlowHours(ts) { const h = ilHour(ts); return h >= LEAD_SLOW_H && h < LEAD_CLOSE_H; }

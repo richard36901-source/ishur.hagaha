@@ -37,7 +37,9 @@ export function view(rt, cap, bal) {
 </div>`;
 }
 
-export default {
+/* Phase 5: the smart overview lives in lazy/overview2.js (GET /api/ops/overview). This classic view stays as the
+   fallback when that endpoint is missing (backend not deployed yet). */
+const classic = {
   skeleton: () => view(null, null, null),
   async mount(el, ctx) {
     let rt = ctx.api.cached('realtime')?.data, cap = ctx.api.cached('capacity')?.data, bal = ctx.api.cached('balances')?.data;
@@ -53,5 +55,12 @@ export default {
     /* CRM "היום" + charts: lazy, after the 3 ops requests (crm/today.js) */
     setTimeout(() => el.isConnected && import('../crm/today.js').then((m) => m.mount(el, ctx)), 1500);
     ctx.poll(async () => { rt = await ctx.api.get('realtime'); paint(); }, 15000);
+  },
+};
+export default {
+  skeleton: () => view(null, null, null),
+  async mount(el, ctx) {
+    try { const m = await import('../lazy/overview2.js'); el.innerHTML = m.default.skeleton(); await m.default.mount(el, ctx); }
+    catch (e) { await classic.mount(el, ctx); }
   },
 };

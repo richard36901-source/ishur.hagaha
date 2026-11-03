@@ -107,7 +107,7 @@ export const ROUTES = [
   { id: 'calls', he: 'שיחות', key: 'c' }, { id: 'calendar', he: 'לוח שנה', key: 'd' },
   { id: 'finance', he: 'כספים', key: 'f' }, { id: 'ads', he: 'פרסום', key: 'p' }, { id: 'balances', he: 'יתרות', key: 'y' },
   { id: 'automations', he: 'אוטומציות', key: 'a' }, { id: 'runs', he: 'ריצות', key: 'r' }, { id: 'live', he: 'לוג חי', key: 'l' }, { id: 'brain', he: 'מוח', key: 'b' },
-  { id: 'changes', he: 'שינויים', key: 'h' }, { id: 'control', he: 'שליטה ידנית', key: 'x' }, { id: 'notify', he: 'הגדרות התראות', key: 'z' },
+  { id: 'changes', he: 'שינויים', key: 'h' }, { id: 'control', he: 'שליטה ידנית', key: 'x' }, { id: 'notify', he: 'התראות', key: 'q' },
 ];
 /* tab = [tab id in ?tab=, label, screen module id] */
 export const SECTIONS = [
@@ -319,5 +319,6 @@ function boot() {
   ensureLive();
   route();
   mountSide();
+  import('./lazy/notify.js').then((m) => m.mountBell({ api, MOCK })).catch(() => {});   /* Phase 5 header bell */
 }
 boot();

@@ -34,6 +34,7 @@
           cron | admin | slack | event | system
    ========================================================================== */
 
+import { bumpFromAudit } from './counters.js';
 import { sha256Hex } from './lib.js';
 
 export const AUDIT_TTL = 400 * 86400;
@@ -147,6 +148,7 @@ export async function record(env, rec) {
     /* 02/11: kind/phone/token ride as list() metadata, so a filtered read
        (kind:'wa_in', phone:…) skips non-matching records without a get() */
     await env.RATE.put(`stream:${day}:${ms}:${rand}`, JSON.stringify(r), { expirationTtl: AUDIT_TTL, metadata: streamMeta(r) });
+    await bumpFromAudit(env, r).catch(() => {});   /* 03/11 daily counters cnt:<day>:<kind> (counters.js) */
     return r;
   } catch { return null; }
 }

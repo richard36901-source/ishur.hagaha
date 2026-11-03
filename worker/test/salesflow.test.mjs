@@ -245,7 +245,7 @@ test('opt-out stops the flow without a flow reply', async () => {
   const r = await salesInbound(h.env, { phone: P, text: 'לא רלוונטי' }, h.deps);
   assert.equal(r.handled, false); assert.equal(h.sent.length, 1); assert.equal((await h.st()).step, 'stopped');
 });
-test('hours gating: a night message is answered from the queue at 10:00 (lead hours 10–20)', async () => {
+test('hours gating: a night message is answered from the queue at 10:00 (lead hours 10–21)', async () => {
   const h = harness(); h.setNow(NIGHT);
   const r = await salesInbound(h.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h.deps);
   assert.equal(r.queued, true); assert.equal(h.sent.length, 0);
@@ -290,11 +290,11 @@ test('fallback offer: basic without calls, pro with any calls (never premium); u
     assert.ok(h.sent.at(-1).t.includes(expect), ans + ' → ' + h.sent.at(-1).t.split('\n')[0]);
   }
 });
-test('a nudge that falls at night waits for the morning', async () => {
+test('a nudge lands inside lead hours (20:00 is still open under the 21:00 cutoff)', async () => {
   const h = harness({ rand: 1 });                                   /* 150 min */
   h.setNow(Date.parse('2026-11-03T15:30:00Z'));                     /* 17:30 Israel */
   await salesInbound(h.env, { phone: P, text: 'חתונה 500', isNewLead: true }, h.deps);
-  assert.equal(new Date((await h.st()).nudgeAt).toISOString(), '2026-11-04T08:00:00.000Z', '17:30 + 150 min = 20:00 → closed → 10:00 next day');
+  assert.equal(new Date((await h.st()).nudgeAt).toISOString(), '2026-11-03T18:00:00.000Z', '17:30 + 150 min = 20:00 → open');
 });
 test('24h window closed → nothing sent, Slack', async () => {
   const h = harness({ rand: 0 }); h.setNow(NIGHT);
@@ -395,8 +395,8 @@ test('a note with "לא לפנות" ends the flow', async () => {
   assert.ok(h.slack.some(x => x.includes('הזרימה הסתיימה')));
 });
 
-/* ── Richard 03/11: lead hours 10:00–20:00; 18–20 delayed 3–8 min; after 20:00 → next day 10:00 ── */
-test('lead hours: 11:00 immediate · 18:30 queued with a 3–8 min delay, sent by the tick · 20:30 queued to 10:00 next day', async () => {
+/* ── Richard 03/11: lead hours 10:00–21:00; 18–21 delayed 3–8 min; after 21:00 → next day 10:00 ── */
+test('lead hours: 11:00 immediate · 18:30 queued with a 3–8 min delay, sent by the tick · 21:30 queued to 10:00 next day', async () => {
   const at = iso => Date.parse(iso);
   const h1 = harness({ rand: 0.5 }); h1.setNow(at('2026-11-03T09:00:00Z'));          /* 11:00 IL */
   const r1 = await salesInbound(h1.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h1.deps);
@@ -409,7 +409,7 @@ test('lead hours: 11:00 immediate · 18:30 queued with a 3–8 min delay, sent b
   for (const r of [0, 1]) { const hx = harness({ rand: r }); hx.setNow(t2); await salesInbound(hx.env, { phone: P, text: 'חתונה 650', isNewLead: true }, hx.deps); const d = (await hx.st()).pending.due - t2; assert.ok(d >= 3 * 60e3 && d <= 8 * 60e3, 'delay in 3–8 min: ' + d); }
   h2.setNow(p2.due - 1000); await salesTick(h2.env, h2.deps); assert.equal(h2.sent.length, 0);
   h2.setNow(p2.due); await salesTick(h2.env, h2.deps); assert.equal(h2.sent.length, 1, 'the delayed reply goes out at its due time, not delayed again');
-  const h3 = harness(); h3.setNow(at('2026-11-03T18:30:00Z'));                         /* 20:30 IL */
+  const h3 = harness(); h3.setNow(at('2026-11-03T19:30:00Z'));                         /* 21:30 IL */
   const r3 = await salesInbound(h3.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h3.deps);
   assert.equal(r3.queued, true); assert.equal(h3.sent.length, 0);
   assert.equal(new Date((await h3.st()).pending.due).toISOString(), '2026-11-04T08:00:00.000Z', '10:00 IL next day');

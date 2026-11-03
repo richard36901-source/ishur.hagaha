@@ -18,7 +18,7 @@
 import { rangeOf, bucketOf, clientHoursOpen } from './crm.js';
 import { HOSTESS_PRICE, DESIGN_PRICE } from './paylink.js';
 import { makeStore } from './store.js';
-import { computeTemplateStats, loadRows as tstatsLoadRows } from './template-stats.js';
+import { computeTemplateStats, compactRecord } from './template-stats.js';
 
 export const USD_ILS = 3.7;                      /* same flat rate as index.js / admin.html */
 export const SHALEV_CAMPAIGN = '120250670197650731';
@@ -359,27 +359,50 @@ export async function buildAds(env, d, { range = '30d', fresh = false } = {}) {
 }
 
 function wabaToken(env, d, key) { return key === 'guests' || key === 'portfolio' ? env.WA_TOKEN_GUESTS : env.WA_TOKEN; }
-async function listTemplates(env, d, w, fetchFn = fetch) {
+/* ONE request per WABA; paging followed only when Meta says there is more, and only
+   while the shared page allowance lasts (subrequest cap: see buildTemplates). */
+async function listTemplates(env, d, w, fetchFn = fetch, allowance = { extra: 2 }) {
   const tok = wabaToken(env, d, w.key); if (!tok) return { ...w, templates: [], error: 'no-token' };
-  const out = []; let url = `https://graph.facebook.com/v21.0/${w.waba}/message_templates?fields=id,name,status,category,language,quality_score,rejected_reason&limit=200`;
-  for (let i = 0; i < 5 && url; i++) {
+  const out = []; let url = `https://graph.facebook.com/v21.0/${w.waba}/message_templates?fields=name,status,category,quality_score,rejected_reason,id,last_updated_time,language&limit=200`;
+  for (let i = 0; url; i++) {
     const res = await fetchFn(url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
     const j = res ? await res.json().catch(() => null) : null;
     if (!j || !j.data) return { ...w, templates: out, error: (j && j.error && j.error.message) || 'http ' + (res ? res.status : 'unreachable') };
     out.push(...j.data); url = j.paging && j.paging.next;
+    if (url && allowance.extra-- <= 0) { return { ...w, templates: out, error: 'paging-capped' }; }
   }
   return { ...w, templates: out };
 }
-export async function buildTemplates(env, d, { fresh = false, days = 30 } = {}) {
-  return cached(env, 'opstpl', 10 * 60e3, fresh, async () => {
-    const lists = await Promise.all(WABAS.map(w => listTemplates(env, d, w)));
+const TPL_TTL = 10 * 60e3, TPL_AUDIT_OPS = 10;
+export const tplKey = range => 'ops:templates:' + range;
+/* Subrequest budget per cold call: KV cache get 1 + WABA lists 3 (+≤2 paging) + tplseen get/put 2
+   + audit ops ≤10 (list + record reads, one queryEx) + cache put 1 = ≤19. Warm call: 1. */
+export async function buildTemplates(env, d, { fresh = false, days = 7, range = null, fetchFn = fetch } = {}) {
+  const rg = range || (days + 'd'); const nd = Math.max(1, Math.min(30, parseInt(rg, 10) || 7)); const key = tplKey(nd + 'd');
+  let hit = null;
+  if (env.RATE) { try { hit = JSON.parse((await env.RATE.get(key)) || 'null'); } catch { hit = null; } }
+  if (!fresh && hit && Date.now() - hit.at < TPL_TTL) return { ...hit.data, cached: true };
+  try {
+    const allowance = { extra: 2 };
+    const lists = await Promise.all(WABAS.map(w => listTemplates(env, d, w, fetchFn, allowance)));
+    if (lists.every(w => w.error && !w.templates.length)) throw new Error('all-wabas-failed');
     let stats = [], partial = false;
-    try { const lr = await tstatsLoadRows(env, days, { queryDay: (e, day) => d.auditQuery(e, { from: day, to: day, limit: 20000 }), budget: 3 }); stats = computeTemplateStats(lr.rows, { now: Date.now() }).rows; partial = lr.missing.length > 0; } catch { partial = true; }
-    const seen0 = jp(await env.RATE.get('tplseen')) || {};
+    try {
+      const today = ilDay(Date.now()).replace(/-/g, ''), from = ilDay(Date.now() - (nd - 1) * 86400e3).replace(/-/g, '');
+      const q = await d.auditQueryEx(env, { from, to: today, limit: 20000, budget: TPL_AUDIT_OPS });
+      const rows = (q.items || []).map(compactRecord).filter(Boolean);
+      stats = computeTemplateStats(rows, { now: Date.now() }).rows; partial = !!q.truncated;
+    } catch { partial = true; }
+    const seen0 = jp(env.RATE ? await env.RATE.get('tplseen') : null) || {};
     const seen = updateSeen(seen0, lists, new Date().toISOString());
-    await env.RATE.put('tplseen', JSON.stringify(seen)).catch(() => {});
-    return { ok: true, at: new Date().toISOString(), days, stats_partial: partial, wabas: WABAS, ...aggregateTemplates(lists, stats, { seen }) };
-  });
+    if (env.RATE) await env.RATE.put('tplseen', JSON.stringify(seen)).catch(() => {});
+    const data = { ok: true, at: new Date().toISOString(), days: nd, stats_partial: partial, wabas: WABAS, ...aggregateTemplates(lists, stats, { seen }) };
+    if (env.RATE) await env.RATE.put(key, JSON.stringify({ at: Date.now(), data }), { expirationTtl: 7 * 86400 }).catch(() => {});
+    return { ...data, cached: false };
+  } catch (e) {
+    if (hit && hit.data) return { ...hit.data, cached: true, stale: true, stale_error: String((e && e.message) || e).slice(0, 120) };
+    return { ok: false, error: 'templates-unavailable', detail: String((e && e.message) || e).slice(0, 120), templates: [], by_status: {}, errors: [] };
+  }
 }
 export async function templateVariant(env, d, b, fetchFn = fetch) {
   const w = WABAS.find(x => x.key === b.waba); if (!w) return { status: 400, body: { ok: false, error: 'unknown-waba', wabas: WABAS.map(x => x.key) } };
@@ -392,7 +415,7 @@ export async function templateVariant(env, d, b, fetchFn = fetch) {
   if (String(b.confirm || '') !== nn) return { status: 200, body: { ok: true, applied: false, confirm_required: nn, preview: v.payload } };
   const pr = await fetchFn(`https://graph.facebook.com/v21.0/${w.waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(v.payload) }).catch(() => null);
   const pj = pr ? await pr.json().catch(() => ({})) : {};
-  if (env.RATE) await env.RATE.delete('opstpl').catch(() => {});
+  if (env.RATE) for (const r of ['7d', '14d', '30d']) await env.RATE.delete(tplKey(r)).catch(() => {});
   return { status: 200, body: { ok: !!(pr && pr.ok), applied: true, meta: pj } };
 }
 

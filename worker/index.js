@@ -66,6 +66,7 @@ import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledge
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns } from './ops.js';
+import { handleRaffle } from './raffle.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
@@ -219,6 +220,8 @@ async function isClientPhone(env, phone) {
 async function salesCtx(env, phone, text, name, sfCtx) {
   const c = { phone, text, name: name || '', ...(sfCtx || {}) };
   if (c.isClient) return c;
+  /* 03/11 (Richard): the inbox "אדם בשיחה" switch (human:<phone>) stops the sales flow for that person */
+  if (env.RATE && await env.RATE.get('human:' + phone).catch(() => null)) { c.isClient = true; c.humanTakeover = true; return c; }
   let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + phone) || 'null'); } catch {}
   /* a Meta-form lead's first inbound starts the flow too */
   if (rec && (rec.page === 'instant-form' || /leadform/.test(String(rec.source || '')))) { c.isMetaLead = true; c.occasion = c.occasion || rec.occasion || ''; c.name = c.name || rec.name || ''; }
@@ -8720,6 +8723,14 @@ async function handleMetaAdmin(request, env, origin) {
   if (!r) return deny(502, 'meta-unreachable', origin);
   let out = null;
   try { out = await r.json(); } catch { out = null; }
+  /* 03/11: a raw send through the proxy is logged like any other outbound, so the inbox and the messages screen show it */
+  try {
+    if (r && r.ok && /\/messages$/.test(path) && body.payload && body.payload.to) {
+      const txt = body.payload.type === 'template' ? `[תבנית ${body.payload.template && body.payload.template.name}]` : String((body.payload.text && body.payload.text.body) || '');;
+      const wamid = out && out.messages && out.messages[0] && out.messages[0].id;
+      await logEvent(env, { kind: 'wa_out', area: body.channel === 'guests' ? 'שיר' : 'נועה', action: 'נשלח (אדמין) → ' + body.payload.to, ok: true, phone: String(body.payload.to), ref: wamid || '', detail: txt.slice(0, 1000) }).catch(() => {});
+    }
+  } catch {}
   return okJson({ ok: r.ok, status: r.status, data: out }, origin);
 }
 
@@ -9902,6 +9913,7 @@ const WORKER = {
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(opsJob(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
       /* 03/11 ops brain: health checks + deterministic playbooks (brain.js); BRAIN_ENABLED="off" stops it */
       if (String(env.BRAIN_ENABLED || 'on') !== 'off') ctx.waitUntil(runBrain(env, opsDeps(), { fns: brainFns() }).catch(() => {}));
+      if (String(env.NOTIFY_ENABLED || 'on') !== 'off') ctx.waitUntil(import('./notify.js').then(m => m.runNotify(env, opsDeps())).catch(() => {}));   /* 03/11 Phase 5 notifications (notify.js) */
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
@@ -9966,6 +9978,8 @@ const WORKER = {
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
+    /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
+    if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps());
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
