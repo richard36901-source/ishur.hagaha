@@ -36,9 +36,9 @@ Both are in the cfg whitelist (`worker/cfg.js` SETTINGS). Env fallbacks: `SALES_
 
 **1 · questions** (if the number is unknown, a 4th line "4. כמה מוזמנים בערך?" is added; unknown occasion → "האירוע")
 ```
-היי 🙂 נשמח לעזור עם החתונה! כמה שאלות קצרות כדי להתאים לכם בדיוק:
-1. חוץ מהזמנות ותזכורות בוואטסאפ, הייתם רוצים שנציגה שלנו גם תתקשר למי שלא ענה?
-2. הייתם רוצים דיילת בקבלת פנים וסידורי הושבה ביום האירוע?
+היי 🙂 נשמח לעזור עם החתונה! כמה שאלות קצרות, ונתאים לכם הצעה אחת מדויקת:
+1. חוץ מהזמנות ותזכורות בוואטסאפ, תרצו שנציגה שלנו גם תתקשר למי שלא ענה?
+2. תרצו דיילת בקבלת הפנים ובסידורי ההושבה ביום האירוע?
 3. מתי האירוע ואיפה?
 ```
 Price asked in the first message: `המחיר תלוי בחבילה שמתאימה לכם, אז נתאים לכם הצעה אחת מדויקת 🙂` above it.
@@ -48,52 +48,67 @@ Price asked in the first message: `המחיר תלוי בחבילה שמתאימ
 תודה! ודבר אחרון: יש לכם הזמנה מוכנה, או שתרצו שנעצב לכם אחת?
 ```
 
-**3 · offer** — demo: 650 guests, 1 call round, hostesses yes, design yes
-```
-לפי מה שבחרתם, הכי משתלם לכם מבצע החורף: הכל כלול + 2 דיילות ב-₪1,990.
-ועיצוב ההזמנה במתנה 🎁
+**3 · offer** (Hormozi order: dream outcome → how it works → [proof, only with a real count via `deps.proofCount`, not wired yet] → value stack as benefits → risk line → [tip] → price last with the bundle label → urgency from `BUNDLES[..].until` → one CTA → the agreed closing). Risk line is what terms.html actually promises (no refunds; failed delivery is fixed and resent). Copy lives in `OFFER_COPY` / `INCLUDED` in salesflow.js; snapshot test `offer snapshot, demo …`.
 
-מה כלול:
-• הזמנה בוואטסאפ עם תמונה/וידאו ואישור בלחיצה
-• תזכורת למי שלא ענה
-• תזכורת יום-לפני עם ניווט בוויז
-• הודעה ביום האירוע עם מספר השולחן
-• קישורי מתנה בביט ופייבוקס לאורחים
-• סידורי הושבה וניהול תקציב
-• לוח בקרה למעקב 24/7 בזמן אמת
-• 3 סבבי שיחות למי שלא ענה
-• הודעת תודה לאורחים יום אחרי האירוע
-• הודעת דחייה או ביטול, אם צריך
-• 2 דיילות קבלת פנים ביום האירוע (מגיעות שעה לפני)
+Demo: 650 guests, 1 call round, hostesses yes, design yes
+```
+אתם מגיעים לאירוע בראש שקט, עם מספר סופי מדויק של מי שמגיע.
+איך זה עובד: אתם מעלים רשימה, אנחנו עושים את השאר. ההזמנה יוצאת בוואטסאפ, מי שלא ענה מקבל תזכורת, ואתם רואים כל אישור בזמן אמת.
+
+מה אתם מקבלים:
+• הזמנה בוואטסאפ עם תמונה או וידאו, והאורחים מאשרים בלחיצה אחת
+• תזכורת אוטומטית למי שלא ענה, בלי שתצטרכו לרדוף אחרי אף אחד
+• תזכורת יום לפני עם ניווט בוויז, כדי שכולם יגיעו בזמן
+• ביום האירוע כל אורח מקבל את מספר השולחן שלו
+• קישורי מתנה בביט ופייבוקס, ישר מהטלפון של האורחים
+• סידורי הושבה וניהול תקציב במקום אחד
+• לוח בקרה בזמן אמת, 24/7, כדי שתדעו בכל רגע איפה אתם עומדים
+• 3 סבבי שיחות של נציגה למי שלא ענה, כדי שאף אחד לא ייפול בין הכיסאות
+• הודעת תודה לאורחים יום אחרי האירוע, בשמכם
+• הודעת דחייה או ביטול אם צריך, בלי להתקשר לכל אחד
+• 2 דיילות בקבלת הפנים ביום האירוע, מגיעות שעה לפני ומושיבות את האורחים
 • עיצוב ההזמנה במתנה
 • עד 700 רשומות (מספר טלפון = רשומה)
+
+אנחנו איתכם עד הסוף: הודעה שלא הגיעה, מתקנים ושולחים שוב.
+
+לפי מה שבחרתם, הכי משתלם לכם מבצע החורף: הכל כלול + 2 דיילות ב-₪1,990.
+ועיצוב ההזמנה במתנה 🎁
+מבצע החורף עד 30/11.
+
 כדי לבצע את ההזמנה תוכלו לעשות את זה כאן בקישור, או בשיחה טלפונית מול נציג:
 https://ishur.io/?offer=winter1990&guests=700&hostess=2&design=1&occasion=wedding&date=2027-03-15&city=%D7%97%D7%99%D7%A4%D7%94&name=%D7%93%D7%A0%D7%94+%D7%9B%D7%94%D7%9F&phone=0501234567&src=noa
 הפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.
 ```
-Without hostesses (same answers), the advisory line comes first:
+Without hostesses (same answers):
 ```
-טיפ קטן לפני ההצעה: חבילת פרמיום (סבב שיחות אחד) מתאימה בדרך כלל לקהל צעיר שעונה בעיקר בוואטסאפ. אם יש הרבה מוזמנים מבוגרים, אנחנו ממליצים על הכל כלול (3 סבבי שיחות), כדי לוודא שכולם יודעים על האירוע. אתם מכירים את האורחים הכי טוב, ואפשר לשנות בקישור 🙂
+אתם מגיעים לאירוע בראש שקט, עם מספר סופי מדויק של מי שמגיע.
+איך זה עובד: אתם מעלים רשימה, אנחנו עושים את השאר. ההזמנה יוצאת בוואטסאפ, מי שלא ענה מקבל תזכורת, ואתם רואים כל אישור בזמן אמת.
+
+מה אתם מקבלים:
+• הזמנה בוואטסאפ עם תמונה או וידאו, והאורחים מאשרים בלחיצה אחת
+• תזכורת אוטומטית למי שלא ענה, בלי שתצטרכו לרדוף אחרי אף אחד
+• תזכורת יום לפני עם ניווט בוויז, כדי שכולם יגיעו בזמן
+• ביום האירוע כל אורח מקבל את מספר השולחן שלו
+• קישורי מתנה בביט ופייבוקס, ישר מהטלפון של האורחים
+• סידורי הושבה וניהול תקציב במקום אחד
+• לוח בקרה בזמן אמת, 24/7, כדי שתדעו בכל רגע איפה אתם עומדים
+• סבב שיחות של נציגה למי שלא ענה
+• הודעת תודה לאורחים יום אחרי האירוע, בשמכם
+• עיצוב הזמנה מקצועי, בלי לחפש מעצב
+• עד 700 רשומות (מספר טלפון = רשומה)
+
+אנחנו איתכם עד הסוף: הודעה שלא הגיעה, מתקנים ושולחים שוב.
+
+טיפ קטן: חבילת פרמיום (סבב שיחות אחד) מתאימה בדרך כלל לקהל צעיר שעונה בעיקר בוואטסאפ. אם יש הרבה מוזמנים מבוגרים, אנחנו ממליצים על הכל כלול (3 סבבי שיחות), כדי לוודא שכולם יודעים על האירוע. אתם מכירים את האורחים הכי טוב, ואפשר לשנות בקישור 🙂
 
 לפי מה שבחרתם: חבילת פרמיום ל-700 רשומות (כולל שיחות למי שלא ענה) + עיצוב הזמנה = ₪898.
 
-מה כלול:
-• הזמנה בוואטסאפ עם תמונה/וידאו ואישור בלחיצה
-• תזכורת למי שלא ענה
-• תזכורת יום-לפני עם ניווט בוויז
-• הודעה ביום האירוע עם מספר השולחן
-• קישורי מתנה בביט ופייבוקס לאורחים
-• סידורי הושבה וניהול תקציב
-• לוח בקרה למעקב 24/7 בזמן אמת
-• סבב שיחות למי שלא ענה
-• הודעת תודה לאורחים יום אחרי האירוע
-• עיצוב הזמנה
-• עד 700 רשומות (מספר טלפון = רשומה)
 כדי לבצע את ההזמנה תוכלו לעשות את זה כאן בקישור, או בשיחה טלפונית מול נציג:
-https://ishur.io/?plan=pro&guests=700&design=1&calls=1&occasion=wedding&date=2027-03-15&name=%D7%93%D7%A0%D7%94+%D7%9B%D7%94%D7%9F&phone=0501234567&src=noa
+https://ishur.io/?plan=pro&guests=700&design=1&calls=1&occasion=wedding&date=2027-03-15&city=%D7%97%D7%99%D7%A4%D7%94&name=%D7%93%D7%A0%D7%94+%D7%9B%D7%94%D7%9F&phone=0501234567&src=noa
 הפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.
 ```
-Fallback offer (sales_followups on, no answer to the design question): opens with "הכנו לכם הצעה לפי מה שסיפרתם 🙂", same body.
+Fallback offer (sales_followups on, no answer to the design question): opens with "הכנו לכם הצעה לפי מה שסיפרתם 🙂" on its own line, same body.
 
 **handoff** `ריצארד יחזור אליכם בהקדם 🙂` · **nudge** `רק מזכירים 🙂 ברגע שתענו נשלח הצעה מדויקת` · **after the offer** `היי 🙂 רק בודקים אם ההצעה ברורה, ואם יש שאלה אני כאן` then `אם נוח יותר בטלפון, תגידו מתי ונתקשר` · **price answer tail** `ונשמח לתשובות לשאלות למעלה, כדי לשלוח לכם הצעה אחת מדויקת 🙂`
 
@@ -108,3 +123,9 @@ Opens the purchase popup with everything filled, nothing locked. Totals from con
 - no hostesses + design → `POST /api/quote-from-site` (stamped, 8/h per IP) → server-priced Grow link, `cField1 = q:<id>|pkg:…;design:1;…` → the IPN grants design (`design:<token>`), the quote is marked paid, Monday lead closed by the existing path.
 - hostesses (with or without a bundle) → the existing `/api/hostess-check` link, now carrying `design` (free in a bundle, ₪79 otherwise) and the pkg code in cField2.
 - neither → the fixed Grow page, as before.
+
+## Untrusted lead text (prompt-injection hardening, 03/11)
+Lead text is data, never instructions. `injectionCheck()` runs on every inbound before any state is read or written: "forget/ignore previous instructions", "you are now…", system prompt / jailbreak / DAN, admin / admin link / password / token / api key / cField, other clients' data or someone else's guest list, `javascript:` / `<script` / `onerror=` / iframe. On a hit: one reply `לא בטוחה שהבנתי 🙂 תרצו שריצארד יחזור אליכם?` (lead hours only; outside them, Slack only), a Slack 🛡️ note with the text de-fanged (no `<>@*`, links → `[link]`), `sfinj:<phone>` for 24h. `sf:` / `sfseen:` are not touched. A "כן"/human word as the next message → the normal Richard handoff.
+- Name: `sanitizeName()` — NFKC, control/format chars and emojis stripped, only letters/marks/space/`'-.`, ≤ 40, empty if it reads like an instruction or a URL. It is the only free text that reaches the link, the quote or the Grow code.
+- Everything else the lead writes is mapped onto fixed sets: occasion keys, `CITIES`, ISO dates, records tiers. Guests: 20–3000 (`saneGuests`), applied to the parser, `ctx.guests` and `buildOffer`.
+- Slack echoes of lead text go through `slackSafe`.

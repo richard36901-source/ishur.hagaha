@@ -23,6 +23,7 @@ import { clientHoursOpen } from './brain.js';
 
 export const SF_PREFIX = 'sf:';
 export const SF_SEEN = 'sfseen:';
+export const SF_INJ = 'sfinj:';     /* a neutral reply went out; a 'yes' next → Richard */
 export const SF_TTL = 7 * 86400;
 export const WINDOW_MS = 24 * 3600e3;
 export const NUDGE_MIN = 60, NUDGE_MAX = 150;          /* minutes, randomized */
@@ -82,12 +83,14 @@ export function sfFollowupsEnabled(env) {
 /* ── messages (Richard's wording, plural address) ─────────────────────────── */
 const OCC_SAY = { wedding: 'חתונה', hina: 'חינה', bar: 'בר מצווה', bat: 'בת מצווה', brit: 'ברית', bday: 'יום הולדת', chalaka: 'חלאקה', chala: 'הפרשת חלה', biz: 'אירוע העסקי' };
 export const MSG = {
-  q1: (occ, askGuests) => `היי 🙂 נשמח לעזור עם ה${OCC_SAY[occ] || 'אירוע'}! כמה שאלות קצרות כדי להתאים לכם בדיוק:\n` +
-    '1. חוץ מהזמנות ותזכורות בוואטסאפ, הייתם רוצים שנציגה שלנו גם תתקשר למי שלא ענה?\n' +
-    '2. הייתם רוצים דיילת בקבלת פנים וסידורי הושבה ביום האירוע?\n' +
+  q1: (occ, askGuests) => `היי 🙂 נשמח לעזור עם ה${OCC_SAY[occ] || 'אירוע'}! כמה שאלות קצרות, ונתאים לכם הצעה אחת מדויקת:\n` +
+    '1. חוץ מהזמנות ותזכורות בוואטסאפ, תרצו שנציגה שלנו גם תתקשר למי שלא ענה?\n' +
+    '2. תרצו דיילת בקבלת הפנים ובסידורי ההושבה ביום האירוע?\n' +
     '3. מתי האירוע ואיפה?' + (askGuests ? '\n4. כמה מוזמנים בערך?' : ''),
   q2: 'תודה! ודבר אחרון: יש לכם הזמנה מוכנה, או שתרצו שנעצב לכם אחת?',
-  nudge: 'רק מזכירים 🙂 ברגע שתענו נשלח הצעה מדויקת',
+  nudge: 'רק מזכירים 🙂 ברגע שתענו נשלח לכם הצעה מדויקת',
+  /* lead text that tries to steer the bot (prompt injection) → this, a Slack note, nothing else */
+  neutral: 'לא בטוחה שהבנתי 🙂 תרצו שריצארד יחזור אליכם?',
   human: 'ריצארד יחזור אליכם בהקדם 🙂',
   /* after the offer: one check-in ~20–26h later, one call offer 2 days after that */
   follow1: 'היי 🙂 רק בודקים אם ההצעה ברורה, ואם יש שאלה אני כאן',
@@ -96,20 +99,35 @@ export const MSG = {
   priceFirst: 'המחיר תלוי בחבילה שמתאימה לכם, אז נתאים לכם הצעה אחת מדויקת 🙂',
   backToQ1: 'ונשמח לתשובות לשאלות למעלה, כדי לשלוח לכם הצעה אחת מדויקת 🙂',
   /* Richard 03/11: when they want calls, a warm word on one round vs three */
-  advisory: 'טיפ קטן לפני ההצעה: חבילת פרמיום (סבב שיחות אחד) מתאימה בדרך כלל לקהל צעיר שעונה בעיקר בוואטסאפ. אם יש הרבה מוזמנים מבוגרים, אנחנו ממליצים על הכל כלול (3 סבבי שיחות), כדי לוודא שכולם יודעים על האירוע. אתם מכירים את האורחים הכי טוב, ואפשר לשנות בקישור 🙂',
+  advisory: 'טיפ קטן: חבילת פרמיום (סבב שיחות אחד) מתאימה בדרך כלל לקהל צעיר שעונה בעיקר בוואטסאפ. אם יש הרבה מוזמנים מבוגרים, אנחנו ממליצים על הכל כלול (3 סבבי שיחות), כדי לוודא שכולם יודעים על האירוע. אתם מכירים את האורחים הכי טוב, ואפשר לשנות בקישור 🙂',
 };
-/* what the offer includes, specific and complete (Richard 03/11), per the
-   chosen plan/bundle — counts follow config.js PLANS */
-export const INCLUDED = ['הזמנה בוואטסאפ עם תמונה/וידאו ואישור בלחיצה', 'תזכורת למי שלא ענה', 'תזכורת יום-לפני עם ניווט בוויז', 'הודעה ביום האירוע עם מספר השולחן',
-  'קישורי מתנה בביט ופייבוקס לאורחים', 'סידורי הושבה וניהול תקציב', 'לוח בקרה למעקב 24/7 בזמן אמת'];
+/* Hormozi value equation (Richard 03/11): dream outcome first, likelihood
+   (how it works + real proof only), effort cut, the stack as benefits, price
+   last with the bundle label, a TRUE risk line, real urgency, one CTA.
+   Risk line: terms.html §2/§5 say no refunds, but "ishur.io תפעל לתיקון
+   ולשליחה חוזרת" on a failed delivery — that is what we promise, no more. */
+export const OFFER_COPY = {
+  dream: 'אתם מגיעים לאירוע בראש שקט, עם מספר סופי מדויק של מי שמגיע.',
+  how: 'איך זה עובד: אתם מעלים רשימה, אנחנו עושים את השאר. ההזמנה יוצאת בוואטסאפ, מי שלא ענה מקבל תזכורת, ואתם רואים כל אישור בזמן אמת.',
+  proof: n => `${n} זוגות סגרו איתנו החודש.`,
+  risk: 'אנחנו איתכם עד הסוף: הודעה שלא הגיעה, מתקנים ושולחים שוב.',
+  urgency: (label, until) => `${label} עד ${until}.`,
+  cta: 'כדי לבצע את ההזמנה תוכלו לעשות את זה כאן בקישור, או בשיחה טלפונית מול נציג:',
+  /* Richard's agreed closing, verbatim */
+  closing: 'הפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.',
+};
+/* what the offer includes, each item as what it does for them (counts follow config.js PLANS) */
+export const INCLUDED = ['הזמנה בוואטסאפ עם תמונה או וידאו, והאורחים מאשרים בלחיצה אחת', 'תזכורת אוטומטית למי שלא ענה, בלי שתצטרכו לרדוף אחרי אף אחד',
+  'תזכורת יום לפני עם ניווט בוויז, כדי שכולם יגיעו בזמן', 'ביום האירוע כל אורח מקבל את מספר השולחן שלו',
+  'קישורי מתנה בביט ופייבוקס, ישר מהטלפון של האורחים', 'סידורי הושבה וניהול תקציב במקום אחד', 'לוח בקרה בזמן אמת, 24/7, כדי שתדעו בכל רגע איפה אתם עומדים'];
 export function includesList(q) {
   const lines = [...INCLUDED];
-  if (q.plan === 'premium') lines.push('3 סבבי שיחות למי שלא ענה', 'הודעת תודה לאורחים יום אחרי האירוע', 'הודעת דחייה או ביטול, אם צריך');
-  else if (q.plan === 'pro') lines.push('סבב שיחות למי שלא ענה', 'הודעת תודה לאורחים יום אחרי האירוע');
-  if (q.hostesses) lines.push(q.hostesses === 1 ? 'דיילת קבלת פנים ביום האירוע (מגיעה שעה לפני)' : `${q.hostesses} דיילות קבלת פנים ביום האירוע (מגיעות שעה לפני)`);
-  if (q.design) lines.push(q.bundle ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה');
+  if (q.plan === 'premium') lines.push('3 סבבי שיחות של נציגה למי שלא ענה, כדי שאף אחד לא ייפול בין הכיסאות', 'הודעת תודה לאורחים יום אחרי האירוע, בשמכם', 'הודעת דחייה או ביטול אם צריך, בלי להתקשר לכל אחד');
+  else if (q.plan === 'pro') lines.push('סבב שיחות של נציגה למי שלא ענה', 'הודעת תודה לאורחים יום אחרי האירוע, בשמכם');
+  if (q.hostesses) lines.push(q.hostesses === 1 ? 'דיילת בקבלת הפנים ביום האירוע, מגיעה שעה לפני ומושיבה את האורחים' : `${q.hostesses} דיילות בקבלת הפנים ביום האירוע, מגיעות שעה לפני ומושיבות את האורחים`);
+  if (q.design) lines.push(q.bundle ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה מקצועי, בלי לחפש מעצב');
   lines.push(`עד ${q.records} רשומות (מספר טלפון = רשומה)`);
-  return 'מה כלול:\n' + lines.map(l => '• ' + l).join('\n');
+  return 'מה אתם מקבלים:\n' + lines.map(l => '• ' + l).join('\n');
 }
 function addonWords(q) {
   const out = [];
@@ -117,25 +135,66 @@ function addonWords(q) {
   if (q.design) out.push('עיצוב הזמנה');
   return out;
 }
-export function offerText(q, link, { calls_rounds = 0, fallback = false } = {}) {
+const ddmm = iso => { const d = new Date(Date.parse(iso) + 2 * 3600e3); return `${d.getUTCDate()}/${d.getUTCMonth() + 1}`; };
+/* opts.proof: a real count from the CRM stats (couples who paid this month); anything else → no proof line */
+export function offerText(q, link, { calls_rounds = 0, fallback = false, proof = 0 } = {}) {
   const calls = q.bundle ? 3 : (calls_rounds || (q.plan === 'premium' ? 3 : q.plan === 'pro' ? 1 : 0));
-  /* the one-vs-three-rounds tip only when the plan follows their calls answer */
-  const pre = calls && !q.bundle ? MSG.advisory + '\n\n' : '';
-  const inc = '\n' + includesList(q) + '\n';
-  /* Richard 03/11 closing: the link, or a phone call with a person */
-  const tail = `כדי לבצע את ההזמנה תוכלו לעשות את זה כאן בקישור, או בשיחה טלפונית מול נציג:\n${link}\nהפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.`;
+  const open = (fallback ? 'הכנו לכם הצעה לפי מה שסיפרתם 🙂\n' : '') + OFFER_COPY.dream;
+  const proofLine = Number.isInteger(proof) && proof > 0 ? '\n' + OFFER_COPY.proof(proof) : '';
+  const top = open + '\n' + OFFER_COPY.how + proofLine + '\n\n' + includesList(q) + '\n\n' + OFFER_COPY.risk + '\n\n';
+  const tail = `\n\n${OFFER_COPY.cta}\n${link}\n${OFFER_COPY.closing}`;
   if (q.bundle) {
-    /* Richard 03/11 copy: "לפי מה שבחרתם, הכי משתלם לכם מבצע החורף: הכל כלול + 2 דיילות ב-₪1,990." */
+    const b = BUNDLES[q.bundle] || {};
     const deal = /^winter/.test(q.bundle) ? 'מבצע החורף' : 'המבצע';
     const what = `${PLAN_HE[q.plan]} + ${q.hostesses === 1 ? 'דיילת אחת' : q.hostesses + ' דיילות'}`;
-    const head = `${fallback ? 'הכנו לכם הצעה לפי מה שסיפרתם 🙂 ' : 'לפי מה שבחרתם, '}הכי משתלם לכם ${deal}: ${what} ב-${nis(q.sum)}.` +
-      (q.design ? '\nועיצוב ההזמנה במתנה 🎁' : '');
-    return head + '\n' + inc + tail;
+    /* price last, with the bundle label; the end date only when config has one */
+    const price = `לפי מה שבחרתם, הכי משתלם לכם ${deal}: ${what} ב-${nis(q.sum)}.` + (q.design ? '\nועיצוב ההזמנה במתנה 🎁' : '') +
+      (b.until ? '\n' + OFFER_COPY.urgency(deal, ddmm(b.until)) : '');
+    return top + price + tail;
   }
-  const head = `חבילת ${PLAN_HE[q.plan]} ל-${q.records} רשומות${calls ? ' (כולל שיחות למי שלא ענה)' : ''}` +
+  /* the one-vs-three-rounds tip only when the plan follows their calls answer */
+  const tip = calls ? MSG.advisory + '\n\n' : '';
+  const price = `לפי מה שבחרתם: חבילת ${PLAN_HE[q.plan]} ל-${q.records} רשומות${calls ? ' (כולל שיחות למי שלא ענה)' : ''}` +
     addonWords(q).map(x => ' + ' + x).join('') + ` = ${nis(q.sum)}.`;
-  return pre + (fallback ? `הכנו לכם הצעה לפי מה שסיפרתם 🙂 ${head}\n` : `לפי מה שבחרתם: ${head}\n`) + inc + tail;
+  return top + tip + price + tail;
 }
+
+/* ── untrusted lead text (Richard 03/11) ─────────────────────────────────────
+   Lead text is DATA, never instructions. Nothing a lead writes reaches a
+   template, a link or a Grow code, except: the sanitized name, and values the
+   parsers map onto fixed sets (occasion keys, CITIES, ISO dates, tiers). */
+const INJECTION_RE = [
+  /\b(?:ignore|forget|disregard|override)\b[^.\n]{0,40}\b(?:previous|prior|above|all|the|your|earlier)\b[^.\n]{0,20}\b(?:instructions?|rules?|prompts?|messages?)\b/i,
+  /\byou\s+are\s+now\b|\bact\s+as\b|\bpretend\s+(?:to\s+be|you)\b|\bfrom\s+now\s+on\s+you\b/i,
+  /\b(?:system|developer)\s*(?:prompt|message|mode)\b|\bjailbreak\b|\bDAN\b|\bprompt\s*injection\b/i,
+  /\badmin(?:istrator)?\b|\badmin_?key\b|\bapi[_\s-]?key\b|\btoken\b|\bpassword\b|\bcfield\d?\b/i,
+  /(?:other|another|all)\s+(?:clients?|customers?|users?)['’]?\s*(?:data|details|numbers|lists?|phones?)/i,
+  /(?:תתעלמ|התעלמ|תשכח|שכח|תשכחי|שכחי)\S*\s+(?:מ)?(?:כל\s+)?(?:ה)?(?:הוראות|חוקים|כללים|הנחיות|מה\s*שנאמר|ההודעות\s*הקודמות)/,
+  /(?:את|אתה)\s+עכשיו\s+(?:ה|בוט|מערכת|מנהל|עוזר|מתכנת|ai)|מעכשיו\s+(?:את|אתה)\s/i,
+  /אדמין|מנהל\s*(?:ה)?מערכת|לינק\s*(?:ה)?ניהול|קישור\s*(?:ה)?ניהול|ממשק\s*(?:ה)?ניהול|סיסמ[אה]|פרומפט|הנחיות\s*(?:ה)?מערכת/,
+  /(?:פרטים|מספרים|רשימ\S*|טלפונים|נתונים)\s+(?:של\s+)?(?:ה)?(?:לקוח(?:ות)?|זוג(?:ות)?|אירוע(?:ים)?)\s+(?:אחר|אחרים|אחרות|נוספ)/,
+  /(?:רשימת\s*(?:ה)?מוזמנים|מספרי\s*(?:ה)?טלפון)\s+של\s+(?!נו|י\b)/,
+  /javascript\s*:|vbscript\s*:|data\s*:\s*text\/html|<\s*\/?\s*script|\bon(?:error|load|click)\s*=|<\s*(?:iframe|img|svg)[\s>]/i,
+];
+/* → a short reason, or '' when the text reads like a normal lead message */
+export function injectionCheck(text) {
+  const t = String(text || '').normalize('NFKC').replace(/[​-‏‪-‮⁦-⁩]/g, '');
+  for (const re of INJECTION_RE) if (re.test(t)) return re.source.slice(0, 40);
+  return '';
+}
+/* a WhatsApp profile name → letters, spaces, ' - . only; ≤ 40; '' if it looks like an instruction */
+export function sanitizeName(raw) {
+  let s = String(raw || '').normalize('NFKC');
+  if (injectionCheck(s) || /https?:|www\./i.test(s)) return '';
+  s = s.replace(/[\p{Cc}\p{Cf}\p{Extended_Pictographic}\u{1F3FB}-\u{1F3FF}︀-️⃣]/gu, '')
+    .replace(/[^\p{L}\p{M}\s'׳\-.]/gu, ' ').replace(/\s+/g, ' ').trim();
+  return s.slice(0, 40).trim();
+}
+/* sane-range guest count from anything untrusted (ctx.guests, Meta form) */
+export const GUESTS_MIN = 20, GUESTS_MAX = 3000;
+export function saneGuests(n) { const v = Math.round(Number(n)); return Number.isFinite(v) && v >= GUESTS_MIN && v <= GUESTS_MAX ? v : 0; }
+/* echoing lead text into Slack: no mentions, no links, no mrkdwn tricks */
+const slackSafe = t => String(t || '').replace(/[<>&*_~`|@!]/g, ' ').replace(/https?:\/\/\S+/gi, '[link]').replace(/\s+/g, ' ').trim().slice(0, 200);
 
 /* ── parsing ─────────────────────────────────────────────────────────────── */
 const words = t => String(t || '').replace(/[‎‏]/g, '').split(/[^֐-׿a-zA-Z0-9]+/).filter(Boolean);
@@ -320,9 +379,10 @@ export function nextOpen(ts) {
 export function nudgeDelayMs(rand = Math.random) { return Math.round((NUDGE_MIN + rand() * (NUDGE_MAX - NUDGE_MIN)) * 60e3); }
 
 /* ── offer ───────────────────────────────────────────────────────────────── */
-export function buildOffer(st, { fallback = false, now = Date.now() } = {}) {
+export function buildOffer(st, { fallback = false, now = Date.now(), proof = 0 } = {}) {
   const a = st.answers || {};
-  const records = tierFor(st.guests);
+  const records = tierFor(saneGuests(st.guests));
+  const safeName = sanitizeName(st.name);
   if (!records) return { ok: false, why: st.guests ? 'over-900' : 'no-guests' };
   const hostesses = hostessesFor(records, !!a.hostess);
   const design = !!st.design;
@@ -332,12 +392,12 @@ export function buildOffer(st, { fallback = false, now = Date.now() } = {}) {
      bundle for that size (900 records) is a quote for a person */
   if (hostesses && !bundle && anyBundleLive(now)) return { ok: false, why: 'no-bundle' };
   const plan = bundle ? BUNDLES[bundle].plan : fallback ? fallbackPlan(a) : recommendPlan(a);
-  const pq = priceQuote({ plan, records, bundle, now, phone: st.phone, name: (st.name && st.name.length >= 2) ? st.name : 'לקוח ishur', occasion: st.occasion || '', event_date: a.date || '', addons: { hostesses, design } });
+  const pq = priceQuote({ plan, records, bundle, now, phone: st.phone, name: safeName.length >= 2 ? safeName : 'לקוח ishur', occasion: st.occasion || '', event_date: a.date || '', addons: { hostesses, design } });
   if (!pq.ok) return { ok: false, why: pq.why };
   const q = pq.quote;
   if (anyBundleLive(now) && q.sum > BUNDLE_CAP) return { ok: false, why: 'over-cap' };
-  const link = siteLink({ bundle, plan, records, hostesses, design, calls_rounds: bundle ? 0 : a.calls_rounds, occasion: st.occasion, event_date: a.date, city: a.city, name: st.name, phone: st.phone, src: 'noa' });
-  return { ok: true, quote: q, link, text: offerText(q, link, { calls_rounds: a.calls_rounds, fallback }) };
+  const link = siteLink({ bundle, plan, records, hostesses, design, calls_rounds: bundle ? 0 : a.calls_rounds, occasion: st.occasion, event_date: a.date, city: a.city, name: safeName, phone: st.phone, src: 'noa' });
+  return { ok: true, quote: q, link, text: offerText(q, link, { calls_rounds: a.calls_rounds, fallback, proof }) };
 }
 const anyBundleLive = now => Object.values(BUNDLES).some(b => b.until && bundleLive(b, now));
 
@@ -383,7 +443,7 @@ const local = p => String(p || '').replace(/^972/, '0');
 
 async function handOff(env, st, why, text, deps, now) {
   st.step = 'human'; st.why = why;
-  await deps.slack(`🙋 *ליד מבקש אדם* · ${st.name || ''} ${local(st.phone)} · ${why}${text ? ' · כתב/ה: ' + String(text).slice(0, 200) : ''} · https://ishur.io/inbox.html`);
+  await deps.slack(`🙋 *ליד מבקש אדם* · ${st.name || ''} ${local(st.phone)} · ${why}${text ? ' · כתב/ה: ' + slackSafe(text) : ''} · https://ishur.io/inbox.html`);
   await deps.log({ action: 'זרימת מכירה: ליד מבקש אדם', phone: st.phone, detail: why });
   const r = await deliver(env, st, MSG.human, 'human', deps, now);
   await putState(env, st);
@@ -391,7 +451,8 @@ async function handOff(env, st, why, text, deps, now) {
 }
 
 async function sendOffer(env, st, deps, now, { fallback = false } = {}) {
-  const o = buildOffer(st, { fallback, now });
+  let proof = 0; if (deps.proofCount) { try { proof = Number(await deps.proofCount()) || 0; } catch {} }
+  const o = buildOffer(st, { fallback, now, proof });
   if (!o.ok) return handOff(env, st, o.why === 'over-900' ? 'מעל 900 מוזמנים — הצעה אישית' : o.why === 'no-guests' ? 'לא ידועה כמות מוזמנים' : o.why === 'no-bundle' || o.why === 'over-cap' ? 'דיילות בלי מבצע מתאים (מעל ₪1,990) — הצעה ידנית' : 'תמחור נכשל: ' + o.why, '', deps, now);
   const prevStep = st.step;
   st.step = 'done'; st.quote = { bundle: o.quote.bundle || '', plan: o.quote.plan, records: o.quote.records, hostesses: o.quote.hostesses, design: o.quote.design, sum: o.quote.sum, fallback };
@@ -410,7 +471,7 @@ async function sendOffer(env, st, deps, now, { fallback = false } = {}) {
 /* deps: { send(phone,text)→{ok}, slack(text), log(obj), markQuoted(phone,quote,link,opts), rand(), now() } */
 function fill(deps = {}) {
   return { send: deps.send || (async () => ({ ok: false })), slack: deps.slack || (async () => {}), log: deps.log || (async () => {}),
-    markQuoted: deps.markQuoted || (async () => {}), rand: deps.rand || Math.random, now: deps.now || Date.now, isClient: deps.isClient || (async () => false), humanNotes: deps.humanNotes || null };
+    markQuoted: deps.markQuoted || (async () => {}), rand: deps.rand || Math.random, now: deps.now || Date.now, isClient: deps.isClient || (async () => false), humanNotes: deps.humanNotes || null, proofCount: deps.proofCount || null };
 }
 
 /* One inbound on 4499 from a phone the caller already ruled a lead (not a
@@ -423,6 +484,28 @@ export async function salesInbound(env, ctx, depsIn) {
   if (!phone || !text) return { handled: false, why: 'empty' };
   if (ctx.isClient) return { handled: false, why: 'client' };
   let st = await getState(env, phone);
+  if (st && (st.step === 'human' || st.step === 'stopped' || st.step === 'paused')) return { handled: false, why: 'flow-' + st.step };
+
+  /* prompt-injection guard: the text is data. A steering attempt → one neutral
+     reply + Slack; sf:/sfseen: untouched. A "yes" to the neutral reply → Richard. */
+  const inj = injectionCheck(text);
+  if (inj) {
+    await env.RATE.put(SF_INJ + phone, String(now), { expirationTtl: 86400 });
+    await deps.slack(`🛡️ זרימת מכירה: הודעה חשודה (ניסיון להכווין את הבוט) · ${local(phone)} · ${slackSafe(text)} · לא בוצע דבר`);
+    await deps.log({ action: 'זרימת מכירה: הודעה חשודה, תשובה ניטרלית', phone, detail: inj });
+    let r = { sent: false, why: 'closed-hours' };
+    if (leadHoursOpen(now)) { const s0 = await deps.send(phone, MSG.neutral); r = { sent: !!(s0 && s0.ok) }; }
+    return { handled: true, action: 'neutral', ...r };
+  }
+  if (await env.RATE.get(SF_INJ + phone)) {
+    await env.RATE.delete(SF_INJ + phone);
+    if (polarity(text) === true || wantsHuman(text)) {
+      if (st) { st.lastInAt = now; return handOff(env, st, 'אחרי הודעה חשודה: ביקש שריצארד יחזור', text, deps, now); }
+      await deps.slack(`🙋 *ליד מבקש אדם* · ${local(phone)} · אחרי הודעה חשודה ביקש שריצארד יחזור · https://ishur.io/inbox.html`);
+      if (leadHoursOpen(now)) await deps.send(phone, MSG.human);
+      return { handled: true, action: 'human' };
+    }
+  }
 
   if (!st) {
     if (await env.RATE.get(SF_SEEN + phone)) return { handled: false, why: 'seen' };
@@ -430,7 +513,7 @@ export async function salesInbound(env, ctx, depsIn) {
     if (!(ctx.isNewLead && trig) && !ctx.isMetaLead) return { handled: false, why: 'no-trigger' };
     if (optOut(text)) return { handled: false, why: 'optout' };
     await env.RATE.put(SF_SEEN + phone, new Date(now).toISOString(), { expirationTtl: 180 * 86400 });
-    st = { phone, name: String(ctx.name || '').slice(0, 60), occasion: (trig && trig.occasion) || ctx.occasion || '', guests: (trig && trig.guests) || Number(ctx.guests) || 0,
+    st = { phone, name: sanitizeName(ctx.name), occasion: (trig && trig.occasion) || (OCC_SAY[ctx.occasion] || ctx.occasion === 'other' ? ctx.occasion : ''), guests: (trig && trig.guests) || saneGuests(ctx.guests),
       step: 1, answers: null, design: false, startedAt: now, lastInAt: now, lastOutAt: 0, nudged: {}, src: ctx.isMetaLead ? 'meta' : 'whatsapp' };
     if (deps.humanNotes) { try { const h0 = await deps.humanNotes(phone); st.notesSnap = String((h0 && h0.notes) || ''); st.humanAck = now; } catch {} }
     if (wantsHuman(text)) return handOff(env, st, 'ביקש אדם בהודעה הראשונה', text, deps, now);
@@ -448,7 +531,7 @@ export async function salesInbound(env, ctx, depsIn) {
   st.lastInAt = now; st.nudgeAt = 0; st.fallbackAt = 0;
   if (optOut(text)) {
     st.step = 'stopped'; st.why = 'optout'; await putState(env, st);
-    await deps.slack(`🛑 זרימת מכירה נעצרה (הסרה/לא רלוונטי) · ${local(phone)} · ${text.slice(0, 120)}`);
+    await deps.slack(`🛑 זרימת מכירה נעצרה (הסרה/לא רלוונטי) · ${local(phone)} · ${slackSafe(text).slice(0, 120)}`);
     return { handled: false, action: 'optout' };
   }
   if (wantsHuman(text)) return handOff(env, st, 'ביקש נציג / את ריצארד', text, deps, now);
