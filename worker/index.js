@@ -43,6 +43,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_A
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
+import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -190,6 +191,63 @@ function looksIshur(flat, pages) {
   return (pages || []).some((id) => dump.includes(id)) ||
     /מוזמנים|רשומות|דיילות|אישור/.test(desc) ||
     dump.toLowerCase().includes('ishur') || dump.includes('אישורי הגעה');
+}
+
+/* 03/11 pay links v2: structured quote → server-priced Grow link. The quote
+   lives 30 days in KV under quote:<id>; cField1 carries "q:<id>|<code>" so the
+   IPN can read what was bought even if the KV row is gone. */
+async function handlePayLinkV2(env, b, origin) {
+  const pq = priceQuote(b);
+  if (!pq.ok) return deny(400, pq.why, origin);
+  const q = pq.quote;
+  const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
+  const cField1 = `q:${id}|${q.code}`;
+  if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook', quote: { id, ...q } }, origin);
+  const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    sum: q.sum, description: q.description, token: '', kind: 'special', scope: 'all', label: q.description, n: q.records,
+    name: q.name, phone: q.phone.replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
+    successUrl: 'https://ishur.io/thanks.html', cancelUrl: 'https://ishur.io/',
+    cField1, cField2: q.occasion,
+  }) }).catch(() => null);
+  let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
+  const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+  if (env.RATE) await env.RATE.put('quote:' + id, JSON.stringify({ id, ...q, url: link || '', at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
+  await logEvent(env, { area: 'תשלום', action: `קישור תשלום v2: ${q.description} · ₪${q.sum}`, ok: !!link, review: !link, phone: q.phone, ref: 'q:' + id, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
+  return okJson({ ok: !!link, url: link || '', id, description: q.description, sum: q.sum, code: q.code, lines: q.lines, make: link ? undefined : mtxt.slice(0, 200) }, origin);
+}
+
+/* what a package payment bought besides the package: the stored quote first,
+   then the code in cField1, then the words (the old free-form links). */
+async function purchaseOf(env, flat) {
+  const desc = String(flat.paymentDesc || flat.description || flat.productName || '');
+  const ref = readQuoteRef(flat);
+  let q = null;
+  if (ref && ref.id && env.RATE) { try { q = JSON.parse(await env.RATE.get('quote:' + ref.id) || 'null'); } catch {} }
+  if (!q && ref && ref.code) q = { ...ref.code, id: ref.id || '' };
+  if (q) return { source: q.sum != null ? 'quote' : 'code', ...q };
+  const b = parsePaidDesc(desc);
+  if (!b) return null;
+  return { source: 'desc', plan: b.plan, records: b.tier, design: /עיצוב\s*הזמנה/.test(desc), hostesses: b.hostess || 0,
+    travel: /נסיעות/.test(desc), extra_wave: false, calls: false };
+}
+
+/* grants for a package bought with add-ons — the same KV the design flow and
+   /api/grant-addon write, so every downstream reader already understands them */
+async function grantPurchaseAddons(env, token, p, { ref, phone, sum }) {
+  if (!env.RATE || !p) return [];
+  const at = new Date().toISOString(), done = [];
+  if (p.design) { await env.RATE.put('design:' + token, JSON.stringify({ status: 'paid', ref, phone, sum: '', with: 'package', at }), { expirationTtl: 400 * 86400 }); done.push('design'); }
+  if (p.hostesses) {
+    let req = null; try { req = JSON.parse(await env.RATE.get('hostessreq:' + phone) || 'null'); } catch {}
+    await env.RATE.put('hostess:' + token, JSON.stringify({ n: p.hostesses, at, ref, date: p.event_date || (req ? req.date : ''), city: req ? req.city : '',
+      travel_included: p.travel ? (p.hostesses >= 2 ? 500 : 250) : (req && req.center ? 0 : null), quote: p.id || '' }), { expirationTtl: 400 * 86400 });
+    done.push('host:' + p.hostesses);
+  }
+  if (p.extra_wave) { await env.RATE.put('extrasend:' + token, at, { expirationTtl: 200 * 86400 }); done.push('wave'); }
+  if (p.calls) { await env.RATE.put('callsaddon:' + token, JSON.stringify({ ref, at, sum: '' }), { expirationTtl: 200 * 86400 }); done.push('calls'); }
+  if (p.id) await env.RATE.put('quotepaid:' + p.id, JSON.stringify({ token, ref, at }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  if (done.length) await logEvent(env, { area: 'תשלום', action: 'תוספות שנרכשו עם החבילה הופעלו', ok: true, phone, token, ref, detail: done.join(', ') + (p.id ? ' · quote ' + p.id : '') }).catch(() => {});
+  return done;
 }
 
 async function handleDesignPaid(env, flat) {
@@ -363,7 +421,11 @@ async function processGrowPayment(env, flat) {
      the buyer's active event (AG, plus S-V "הוספת אורחים" for before/after),
      opens ONE more upload that merges with the existing list, or unlocks
      wave 3. No active event → parked red, nothing invented. */
-  const addon = parseAddonDesc(flat.paymentDesc || flat.description || flat.productName || '');
+  /* 03/11: a v2 pay link (q:<id> / pkg: code) is always a new package, even
+     when its add-on words look like an add-on to an existing event */
+  let purchase = null; try { purchase = await purchaseOf(env, flat); } catch {}
+  const structured = !!purchase && purchase.source !== 'desc';
+  const addon = structured ? null : parseAddonDesc(flat.paymentDesc || flat.description || flat.productName || '');
   if (addon) {
     if (env.RATE) await env.RATE.put('grow:' + ref, 'addon', { expirationTtl: 30 * 86400 });
     const ar = await applyAddon(env, { phone, name, sum, ref, addon, flat }).catch(e => ({ ok: false, why: String(e && e.message) }));
@@ -389,7 +451,9 @@ async function processGrowPayment(env, flat) {
        AF/AG from the lead row, so a direct-link buyer had NO cap and defaulted
        to פרמיום — the engine backfills the sheet from this (stage 0.35). */
     try {
-      const bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || '');
+      let bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || '');
+      if (structured) bought = { ...(bought || { desc: String(flat.paymentDesc || '').slice(0, 80) }), tier: purchase.records, plan: purchase.plan,
+        planText: { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[purchase.plan] || '', hostess: purchase.hostesses || 0 };
       if (bought) await env.RATE.put('paid:' + token, JSON.stringify({ ...bought, sum: String(sum || ''), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
       /* דיילות bought with the package: remembered per event (upload.html shows
          the travel step from this), and one loud Slack line so somebody books
@@ -471,12 +535,19 @@ async function processGrowPayment(env, flat) {
       await logEvent(env, { area: 'מבצעים', action: 'קוד מבצע נשרף בתשלום', ok: true, phone, token, ref: promo.code || '',
         detail: `${promo.label || promo.campaign} · נשארו ${promo.left ?? '?'}` });
     }
-    /* every purchase lands in Slack — Richard doesn't always get Grow's email */
-    await slackPost(env, `🎉 *רכישה חדשה ב-ishur*\n${name || 'ללא שם'} · ${phone}` +
-      `\nסכום: ₪${sum || '?'}${payMethod ? ' · ' + payMethod : ''}` +
-      (promo ? `\n🎫 ${promo.label} · קוד ${promo.code || ''}` +
-        (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : '') +
-      `\n${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'} · אסמכתא ${ref}`);
+    /* 03/11: add-ons bought with the package are switched on for the new event */
+    try { await grantPurchaseAddons(env, token, purchase, { ref, phone, sum }); } catch (e) {
+      await logEvent(env, { area: 'תשלום', action: 'הפעלת תוספות שנרכשו עם החבילה נכשלה', ok: false, review: true, phone, token, ref, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
+    }
+    /* every purchase lands in Slack — Richard doesn't always get Grow's email.
+       03/11: one "נסגר" line in a fixed shape (paylink.js closeMessage) */
+    await slackPost(env, closeMessage({
+      name, phone, token, sum,
+      occasion: (purchase && purchase.occasion) || String(flat.occasion || flat.cField2 || '').replace(/^hostess:.*$/, '').trim(),
+      event_date: (purchase && purchase.event_date) || '',
+      plan: purchase ? purchase.plan : '', records: purchase ? purchase.records : '',
+      addons: purchase ? addonList(purchase) : [],
+    }) + (promo ? ` · 🎫 ${promo.label} · קוד ${promo.code || ''}` + (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : ''));
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
     /* Richard 21/10: the lead in Monday closes itself the moment money lands */
     if (!flat._simulated && !isTestPhone(env, phone)) {
@@ -10695,6 +10766,7 @@ export default {
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (b.records != null) return handlePayLinkV2(env, b, origin);
       if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook' }, origin);
       const sum = Number(b.sum) || 0; if (sum <= 0) return deny(400, 'bad-sum', origin);
       const tier = Number(b.tier) || 0, planText = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[String(b.plan || '')] || '';

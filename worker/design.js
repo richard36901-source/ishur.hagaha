@@ -79,7 +79,13 @@ export async function createDesignItem(mondayGql, env, br) {
 /* Grow IPN: is this the design add-on page? */
 export function isDesignPayment(flat) {
   const d = [flat.paymentDesc, flat.description, flat.productName, flat.pageTitle, flat.title].map(x => String(x || '')).join(' ');
-  return /עיצוב\s*הזמנה/.test(d);
+  if (!/עיצוב\s*הזמנה/.test(d)) return false;
+  /* 03/11 incident: "100 רשומות בסיס + עיצוב הזמנה" is a package WITH design,
+     not design-only. A package in the words or a pkg: code in the custom
+     fields sends it down the normal purchase path. */
+  if (/\d{2,4}\s*(?:מוזמנים|רשומות)/.test(d)) return false;
+  const cf = ['cField1', 'cfield1', 'customField1', 'cField2', 'cField3'].map(k => String(flat[k] || '')).join(' ');
+  return !/pkg:(?:basic|pro|premium):\d/.test(cf);
 }
 export function designTokenOf(flat) {
   for (const k of ['cField1', 'cfield1', 'customField1', 'cField2', 'cField3']) {
