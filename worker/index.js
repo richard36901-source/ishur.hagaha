@@ -62,11 +62,13 @@ import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
+import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
+import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns } from './ops.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
-import { JOB_TO_ID } from './automations-registry.js';
+import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -6487,6 +6489,8 @@ async function runDoctor(env, out, sendWin, callWin) {
       await logEvent(env, { area: 'בנייה', action: 'גרסה חדשה של הוורקר עלתה', ok: true,
         ref: String(vid).slice(0, 8), detail: `version ${vid}` + (env.BUILD_SHA ? ` · git ${env.BUILD_SHA}` : '') + (env.BUILD_NOTE ? ` · ${env.BUILD_NOTE}` : '') });
       rep.notes.push('build:' + String(vid).slice(0, 8));
+      /* 03/11 change log: deploy:<version> with the commits since the last deploy + the registry diff */
+      await recordDeploy(env, vid, BUILD_INFO, AUTOMATIONS).catch(() => {});
     }
   } catch (e) { rep.notes.push('build-err'); }
 
@@ -9659,8 +9663,44 @@ export { runPacer as _runPacer, sendWave as _sendWave, drainPartyNudges as _drai
    audit.js cron row it always had (audit.job), joined by data.run_id */
 function opsJob(env, name, fn, extra = {}) { return withRun(env, JOB_TO_ID[name] || name, fn, { job: name, triggered_by: 'cron', ...extra }); }
 
+/* 03/11 change log: admin POST routes that change behaviour or send by hand → one `changes` row
+   each, after the handler answered OK (and only when it was not a dry run). The handler itself is
+   untouched; the body is read from a clone. revert: only the global pause flips back from here. */
+const tok8 = t => String(t || '').slice(0, 8);
+export const CHANGE_ROUTES = {
+  '/api/pause': { kind: 'pause', when: b => typeof b.paused === 'boolean', summary: b => (b.paused ? 'עצירה כללית הופעלה: כל השליחות הושהו' : 'עצירה כללית בוטלה: השליחות חזרו'),
+    details: b => ({ paused: b.paused }), revert: b => ({ possible: true, how: 'toggle', payload: { pause: !b.paused } }) },
+  '/api/brain-toggle': { kind: 'toggle', when: b => typeof b.active === 'boolean', summary: b => `נועה AI (מענה אוטומטי ב-4499) ${b.active ? 'הודלקה' : 'כובתה'}`, details: b => ({ noa_ai: b.active }) },
+  '/api/subevent': { kind: 'subevent', when: (b, j) => !j.existed, summary: (b, j) => `אירוע-בן נוצר: ${String(b.name || '').slice(0, 40)} (${b.kind}) לאירוע ${tok8(b.parent_token)}`,
+    details: (b, j) => ({ parent: tok8(b.parent_token), sub: tok8(j.token), kind: b.kind, template: b.template, name: String(b.name || '').slice(0, 80) }) },
+  '/api/subevent-send': { kind: 'blast', when: b => b.dry === false, summary: (b, j) => `שליחת אירוע-בן ${tok8(b.token)}: ${j.sent ?? j.count ?? '?'} נשלחו`, details: (b, j) => ({ route: 'subevent-send', token: tok8(b.token), max: b.max, sent: j.sent ?? null, failed: j.failed ?? null }) },
+  '/api/gift-blast': { kind: 'blast', when: b => b.dry === false, summary: (b, j) => `קישורי מתנה לאירוע ${tok8(b.token)}: ${j.sent ?? j.count ?? '?'} נשלחו`, details: (b, j) => ({ route: 'gift-blast', token: tok8(b.token), max: b.max, sent: j.sent ?? null, failed: j.failed ?? null }) },
+  '/api/sms-blast': { kind: 'blast', when: b => b.dry !== true, summary: b => `SMS חירום: ${(Array.isArray(b.list) ? b.list.length : 0)} נמענים`, details: (b, j) => ({ route: 'sms-blast', recipients: Array.isArray(b.list) ? b.list.length : 0, sent: j.sent ?? null }) },
+  '/api/resend': { kind: 'blast', when: b => b.dry === false, summary: b => `שליחה חוזרת לאירוע ${tok8(b.token)}`, details: (b, j) => ({ route: 'resend', token: tok8(b.token), sent: j.sent ?? null }) },
+  '/api/wave-retry': { kind: 'blast', when: b => !b.dry, summary: b => `ניסיון חוזר לגל ${b.wave || ''} באירוע ${tok8(b.token)}`, details: b => ({ route: 'wave-retry', token: tok8(b.token), wave: b.wave || null }) },
+  '/api/event-day': { kind: 'blast', when: b => b.action === 'set' || b.action === 'clear', summary: b => `הודעת יום האירוע ${b.action === 'set' ? 'תוזמנה' : 'בוטלה'} לאירוע ${tok8(b.token)}${b.at ? ' · ' + b.at : ''}`, details: b => ({ route: 'event-day', token: tok8(b.token), action: b.action, at: b.at || null, time: b.time || null, template: b.template || null }) },
+  '/api/call-round': { kind: 'blast', when: b => b.action === 'set' || b.action === 'clear' || b.action === 'run', summary: b => `סבב שיחות ${b.action === 'set' ? 'נקבע' : b.action === 'run' ? 'הורץ' : 'בוטל'} לאירוע ${tok8(b.token)}${b.at ? ' · ' + b.at : ''}`, details: b => ({ route: 'call-round', token: tok8(b.token), action: b.action, at: b.at || null }) },
+  '/api/custom-template': { kind: 'template', when: b => b.action === 'set', summary: b => `נוסח הזמנה אישי הוגש למטא לאירוע ${tok8(b.token)}`, details: (b, j) => ({ token: tok8(b.token), status: (j.custom && j.custom.status) || null, chars: String(b.text || '').length }) },
+};
+async function changeWrap(request, env, inner) {
+  const url = new URL(request.url); const spec = request.method === 'POST' && CHANGE_ROUTES[url.pathname];
+  if (!spec) return inner(request);
+  const b = await request.clone().json().catch(() => ({}));
+  const res = await inner(request);
+  try {
+    if (res && res.ok && spec.when(b, {})) {
+      const j = await res.clone().json().catch(() => null);
+      if (j && j.ok !== false && !j.dry && spec.when(b, j)) {
+        const who = b.who || (b.admin_key ? 'richard' : 'client');
+        await recordChange(env, { kind: spec.kind, who, summary_he: spec.summary(b, j), details: { ...spec.details(b, j), route: url.pathname }, revert: spec.revert ? spec.revert(b, j) : null });
+      }
+    }
+  } catch {}
+  return res;
+}
+
 const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
-export default {
+const WORKER = {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
     /* 03/11 edit-in-place: cfg:<key> overrides (send window, margin, pacer batch, call cap, noa chase) */
@@ -9795,7 +9835,9 @@ export default {
     }).catch(() => {}));
   },
 
-  async fetch(request, env, ctx) {
+  /* 03/11 change log wrapper (CHANGE_ROUTES); everything else goes straight to fetchMain */
+  async fetch(request, env, ctx) { return changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx)); },
+  async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
     const route = ROUTES[url.pathname];
@@ -12452,3 +12494,4 @@ export default {
     });
   },
 };
+export default WORKER;
