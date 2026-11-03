@@ -1,0 +1,860 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T10:00:00.000Z",
+ "day": "2026-11-03",
+ "tab": "all",
+ "items": [
+  {
+   "id": "wamid.FAKE17",
+   "row_id": "o17",
+   "wamid": "wamid.FAKE17",
+   "ts": 1793696400000,
+   "at": "2026-11-03T09:00:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "N",
+    "label": "נועה",
+    "role": "client"
+   },
+   "to": "972500000201",
+   "to_name": "לקוח א",
+   "to_role": "client",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "client",
+   "type_he": "ללקוח",
+   "template": "ishur_doch",
+   "text": "דוח לאירוע א: 9 אישרו, 3 סירבו, 2 ממתינים",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T09:01:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T09:00:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T09:01:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "ללקוח · ishur_doch"
+  },
+  {
+   "id": "wamid.FAKE16",
+   "row_id": "o16",
+   "wamid": "wamid.FAKE16",
+   "ts": 1793692800000,
+   "at": "2026-11-03T08:00:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "N",
+    "label": "נועה",
+    "role": "client"
+   },
+   "to": "972500000301",
+   "to_name": "",
+   "to_role": "",
+   "token8": "",
+   "event": "",
+   "type": "reply",
+   "type_he": "מענה בשיחה",
+   "template": "",
+   "text": "היי, תודה שפנית! איזה אירוע מתכננים?",
+   "ok": true,
+   "status": "read",
+   "status_he": "נקרא",
+   "status_at": "2026-11-03T08:01:30.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T08:00:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T08:01:00.000Z"
+    },
+    {
+     "status": "read",
+     "at": "2026-11-03T08:01:30.000Z"
+    }
+   ],
+   "reply": {
+    "at": "2026-11-03T08:10:00.000Z",
+    "ts": 1793693400000,
+    "text": "חתונה בדצמבר, 250 אורחים"
+   },
+   "reason": "תשובה בתוך חלון 24 השעות"
+  },
+  {
+   "id": "wamid.FAKE15",
+   "row_id": "o15",
+   "wamid": "wamid.FAKE15",
+   "ts": 1793685000000,
+   "at": "2026-11-03T05:50:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000121",
+   "to_name": "אורח 21",
+   "to_role": "guest",
+   "token8": "e5f6a7b8",
+   "event": "אירוע ב",
+   "type": "manual",
+   "type_he": "ידני",
+   "template": "ishur_tizkoret",
+   "text": "תזכורת: מחר האירוע. מגיעים?",
+   "ok": true,
+   "status": "read",
+   "status_he": "נקרא",
+   "status_at": "2026-11-03T05:51:30.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T05:50:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T05:51:00.000Z"
+    },
+    {
+     "status": "read",
+     "at": "2026-11-03T05:51:30.000Z"
+    }
+   ],
+   "reply": {
+    "at": "2026-11-03T06:00:00.000Z",
+    "ts": 1793685600000,
+    "text": "כן, נגיע"
+   },
+   "reason": "נשלח ידנית"
+  },
+  {
+   "id": "o14",
+   "row_id": "o14",
+   "wamid": "",
+   "ts": 1793682000000,
+   "at": "2026-11-03T05:00:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000120",
+   "to_name": "אורח 20",
+   "to_role": "guest",
+   "token8": "e5f6a7b8",
+   "event": "אירוע ב",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 20, הוזמנת לאירוע ב",
+   "ok": false,
+   "status": "failed",
+   "status_he": "נכשל",
+   "status_at": "2026-11-03T05:00:00.000Z",
+   "error_code": "131049",
+   "error": "(#131049) This message was not delivered to maintain healthy ecosystem engagement",
+   "statuses": [],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE14",
+   "row_id": "o14",
+   "wamid": "wamid.FAKE14",
+   "ts": 1793681880000,
+   "at": "2026-11-03T04:58:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000114",
+   "to_name": "אורח 14",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 14, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:59:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:58:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:59:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE13",
+   "row_id": "o13",
+   "wamid": "wamid.FAKE13",
+   "ts": 1793681460000,
+   "at": "2026-11-03T04:51:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000113",
+   "to_name": "אורח 13",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 13, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:52:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:51:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:52:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE12",
+   "row_id": "o12",
+   "wamid": "wamid.FAKE12",
+   "ts": 1793681040000,
+   "at": "2026-11-03T04:44:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000112",
+   "to_name": "אורח 12",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 12, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "read",
+   "status_he": "נקרא",
+   "status_at": "2026-11-03T04:45:30.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:44:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:45:00.000Z"
+    },
+    {
+     "status": "read",
+     "at": "2026-11-03T04:45:30.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE11",
+   "row_id": "o11",
+   "wamid": "wamid.FAKE11",
+   "ts": 1793680620000,
+   "at": "2026-11-03T04:37:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000111",
+   "to_name": "אורח 11",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 11, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:38:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:37:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:38:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE10",
+   "row_id": "o10",
+   "wamid": "wamid.FAKE10",
+   "ts": 1793680200000,
+   "at": "2026-11-03T04:30:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000110",
+   "to_name": "אורח 10",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 10, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:31:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:30:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:31:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE9",
+   "row_id": "o9",
+   "wamid": "wamid.FAKE9",
+   "ts": 1793679780000,
+   "at": "2026-11-03T04:23:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000109",
+   "to_name": "אורח 9",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 9, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:24:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:23:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:24:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE8",
+   "row_id": "o8",
+   "wamid": "wamid.FAKE8",
+   "ts": 1793679360000,
+   "at": "2026-11-03T04:16:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000108",
+   "to_name": "אורח 8",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 8, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "read",
+   "status_he": "נקרא",
+   "status_at": "2026-11-03T04:17:30.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:16:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:17:00.000Z"
+    },
+    {
+     "status": "read",
+     "at": "2026-11-03T04:17:30.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE7",
+   "row_id": "o7",
+   "wamid": "wamid.FAKE7",
+   "ts": 1793678940000,
+   "at": "2026-11-03T04:09:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000107",
+   "to_name": "אורח 7",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 7, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:10:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:09:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:10:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE6",
+   "row_id": "o6",
+   "wamid": "wamid.FAKE6",
+   "ts": 1793678520000,
+   "at": "2026-11-03T04:02:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000106",
+   "to_name": "אורח 6",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 6, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T04:03:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T04:02:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T04:03:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE5",
+   "row_id": "o5",
+   "wamid": "wamid.FAKE5",
+   "ts": 1793678100000,
+   "at": "2026-11-03T03:55:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000105",
+   "to_name": "אורח 5",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 5, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "failed",
+   "status_he": "נכשל",
+   "status_at": "2026-11-03T03:56:00.000Z",
+   "error_code": "131026",
+   "error": "131026 Message undeliverable",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T03:55:30.000Z"
+    },
+    {
+     "status": "failed",
+     "at": "2026-11-03T03:56:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE4",
+   "row_id": "o4",
+   "wamid": "wamid.FAKE4",
+   "ts": 1793677680000,
+   "at": "2026-11-03T03:48:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000104",
+   "to_name": "אורח 4",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 4, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "read",
+   "status_he": "נקרא",
+   "status_at": "2026-11-03T03:49:30.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T03:48:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T03:49:00.000Z"
+    },
+    {
+     "status": "read",
+     "at": "2026-11-03T03:49:30.000Z"
+    }
+   ],
+   "reply": {
+    "at": "2026-11-03T04:30:00.000Z",
+    "ts": 1793680200000,
+    "text": "מגיעים 2"
+   },
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE3",
+   "row_id": "o3",
+   "wamid": "wamid.FAKE3",
+   "ts": 1793677260000,
+   "at": "2026-11-03T03:41:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000103",
+   "to_name": "אורח 3",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 3, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T03:42:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T03:41:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T03:42:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE2",
+   "row_id": "o2",
+   "wamid": "wamid.FAKE2",
+   "ts": 1793676840000,
+   "at": "2026-11-03T03:34:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "B",
+    "label": "שיר #2",
+    "role": "guests"
+   },
+   "to": "972500000102",
+   "to_name": "אורח 2",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 2, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T03:35:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T03:34:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T03:35:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  },
+  {
+   "id": "wamid.FAKE1",
+   "row_id": "o1",
+   "wamid": "wamid.FAKE1",
+   "ts": 1793676420000,
+   "at": "2026-11-03T03:27:00.000Z",
+   "dir": "out",
+   "number": {
+    "phone_id": "A",
+    "label": "שיר #1",
+    "role": "guests"
+   },
+   "to": "972500000101",
+   "to_name": "אורח 1",
+   "to_role": "guest",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "type": "wave",
+   "type_he": "גל הזמנה",
+   "template": "hazmana_ishur",
+   "text": "שלום אורח 1, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "ok": true,
+   "status": "delivered",
+   "status_he": "נמסר",
+   "status_at": "2026-11-03T03:28:00.000Z",
+   "error_code": "",
+   "error": "",
+   "statuses": [
+    {
+     "status": "sent",
+     "at": "2026-11-03T03:27:30.000Z"
+    },
+    {
+     "status": "delivered",
+     "at": "2026-11-03T03:28:00.000Z"
+    }
+   ],
+   "reply": null,
+   "reason": "גל הזמנה · hazmana_ishur"
+  }
+ ],
+ "next_cursor": null,
+ "counts": {
+  "all": 18,
+  "failed": 2,
+  "replies": 4,
+  "read": 5,
+  "delivered": 11
+ },
+ "inbound": [
+  {
+   "id": "i1793698800000",
+   "ts": 1793698800000,
+   "at": "2026-11-03T09:40:00.000Z",
+   "dir": "in",
+   "from": "972500000302",
+   "from_name": "",
+   "from_role": "",
+   "number": {
+    "label": "נועה"
+   },
+   "text": "שלום, כמה עולה?",
+   "token8": "",
+   "event": "",
+   "in_reply_to": null
+  },
+  {
+   "id": "i1793693400000",
+   "ts": 1793693400000,
+   "at": "2026-11-03T08:10:00.000Z",
+   "dir": "in",
+   "from": "972500000301",
+   "from_name": "",
+   "from_role": "",
+   "number": {
+    "label": "נועה"
+   },
+   "text": "חתונה בדצמבר, 250 אורחים",
+   "token8": "",
+   "event": "",
+   "in_reply_to": {
+    "id": "wamid.FAKE16",
+    "at": "2026-11-03T08:00:00.000Z",
+    "type": "reply",
+    "template": ""
+   }
+  },
+  {
+   "id": "i1793685600000",
+   "ts": 1793685600000,
+   "at": "2026-11-03T06:00:00.000Z",
+   "dir": "in",
+   "from": "972500000121",
+   "from_name": "אורח 21",
+   "from_role": "guest",
+   "number": {
+    "label": "שיר"
+   },
+   "text": "כן, נגיע",
+   "token8": "e5f6a7b8",
+   "event": "אירוע ב",
+   "in_reply_to": {
+    "id": "wamid.FAKE15",
+    "at": "2026-11-03T05:50:00.000Z",
+    "type": "manual",
+    "template": "ishur_tizkoret"
+   }
+  },
+  {
+   "id": "i1793680200000",
+   "ts": 1793680200000,
+   "at": "2026-11-03T04:30:00.000Z",
+   "dir": "in",
+   "from": "972500000104",
+   "from_name": "אורח 4",
+   "from_role": "guest",
+   "number": {
+    "label": "שיר"
+   },
+   "text": "מגיעים 2",
+   "token8": "a1b2c3d4",
+   "event": "אירוע א",
+   "in_reply_to": {
+    "id": "wamid.FAKE4",
+    "at": "2026-11-03T03:48:00.000Z",
+    "type": "wave",
+    "template": "hazmana_ishur"
+   }
+  }
+ ],
+ "statuses": {
+  "sent": "נשלח",
+  "delivered": "נמסר",
+  "read": "נקרא",
+  "failed": "נכשל"
+ },
+ "types": {
+  "wave": "גל הזמנה",
+  "daybefore": "תזכורת יום לפני",
+  "eventday": "יום האירוע",
+  "table": "מספר שולחן",
+  "thanks": "תודה",
+  "gift": "קישור מתנה",
+  "subevent": "אירוע-בן",
+  "reply": "מענה בשיחה",
+  "manual": "ידני",
+  "client": "ללקוח"
+ },
+ "truncated": false
+}

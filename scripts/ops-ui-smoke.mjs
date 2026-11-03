@@ -62,7 +62,7 @@ ok(!(JSON.stringify(RAW).match(/(?<![\d*])972\d{8,9}(?!\d)/g) || []).some((m) =>
 ok(!/[0-9a-f]{8}-(?!0000-4000-8000-000000000000)[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(JSON.stringify(RAW)), 'no unmasked event tokens (UUIDs) in fixtures');
 ok(!/webhookKey"?\s*[:=]\s*"?[^"•\s]/.test(JSON.stringify(RAW).replace(/\\"/g, '"')), 'no webhookKey values in fixtures');
 const S = {};
-for (const n of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'balances']) S[n] = await import(pathToFileURL(join(OPS, 'screens', n + '.js')));
+for (const n of ['overview', 'automations', 'runs', 'live', 'brain', 'calls', 'capacity', 'balances']) S[n] = await import(pathToFileURL(join(OPS, 'screens', n + '.js')));
 const check = (name, fn) => {
   let out = '';
   try { out = fn(); } catch (e) { ok(false, name, e.message); return; }
@@ -93,9 +93,33 @@ check('live rows', () => F.live.items.map(S.live.row).join(''));
 ok(F.live.items.filter((x) => S.live.match(x, { kind: 'call' })).every((x) => x.kind === 'call'), 'live filter by kind');
 check('brain.findingsView', () => S.brain.findingsView(F.brain.findings));
 check('brain.playbooksView', () => S.brain.playbooksView(F.brain.playbooks));
-check('messaging.view', () => S.messaging.view(F.realtime));
-check('messaging.view reason=failed', () => S.messaging.view(F.realtime, 'failed', {}, S.messaging.recentFromLive(F.live.items)));
-check('messaging.view with live recent', () => S.messaging.view(F.realtime, '', {}, S.messaging.recentFromLive(F.live.items)));
+/* Phase 4a (lazy/messaging.js, lazy/inbox.js, lazy/control.js; fixtures from scripts/build-p4a-fixtures.mjs) */
+const P4 = Object.fromEntries(['messages', 'inbox', 'thread', 'control'].map((n) => [n, fx(n)]));
+const MSG = await import(pathToFileURL(join(OPS, 'lazy/messaging.js'))), INB = await import(pathToFileURL(join(OPS, 'lazy/inbox.js'))), CTL = await import(pathToFileURL(join(OPS, 'lazy/control.js')));
+ok((JSON.stringify(P4).match(/972\d{9}/g) || []).every((m) => /^97250000\d{4}$/.test(m)) && !/[0-9a-f]{8}-(?!0000-0000-0000-000000000000)[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(JSON.stringify(P4)), 'p4a fixtures: only fake 97250000xxxx phones, zeroed tokens');
+ok(P4.messages.items.every((x) => ['id', 'ts', 'at', 'number', 'to', 'to_name', 'event', 'type', 'type_he', 'template', 'text', 'status', 'error_code', 'reply', 'reason', 'statuses'].every((k) => k in x)) && P4.messages.inbound.every((x) => ['id', 'from', 'text', 'in_reply_to'].every((k) => k in x)), 'messages contract: item + inbound fields (worker/ops-inbox.js groupMessages)');
+ok(new Set(P4.messages.items.map((x) => x.id)).size === P4.messages.items.length && P4.messages.items.some((x) => x.statuses.length > 1), 'messages: one item per wamid even when it has several status rows');
+const mAll = MSG.table(P4.messages.items, 'all');
+ok((mAll.match(/class="msg-row"/g) || []).length === P4.messages.items.length, 'messaging table: one row per message', P4.messages.items.length + ' rows');
+check('messaging.view all', () => MSG.view({ day: '2026-11-03', tab: 'all', data: P4.messages, open: new Set([P4.messages.items[0].id]) }));
+check('messaging.view failed', () => MSG.view({ day: '2026-11-03', tab: 'failed', data: { ...P4.messages, items: P4.messages.items.filter((x) => x.status === 'failed') }, open: new Set() }));
+check('messaging.view replies', () => MSG.view({ day: '2026-11-03', tab: 'replies', data: { ...P4.messages, items: P4.messages.inbound }, open: new Set([P4.messages.inbound[0].id]) }));
+check('messaging.numberStrip', () => MSG.numberStrip(F.realtime) + '<x>'.repeat(20));
+const rep = P4.messages.items.find((x) => x.reply), fl = P4.messages.items.find((x) => x.status === 'failed');
+ok(MSG.detail(rep).includes(rep.reply.text) && MSG.detail(rep).includes(rep.text.slice(0, 20)) && MSG.detail(fl).includes(fl.error_code), 'message detail: full text, the guest reply, the failure code');
+check('messaging empty', () => MSG.table([], 'all') + MSG.table([], 'replies') + '<x>'.repeat(40));
+check('inbox.view', () => INB.view({ ch: '', q: '', list: P4.inbox, sel: '', thread: null }));
+ok(INB.listView(P4.inbox.items).indexOf('conv unread') < INB.listView(P4.inbox.items).indexOf('class="conv"'), 'inbox: unread conversations come first');
+for (const c of P4.inbox.items.slice(0, 6)) check('inbox.threadView ' + c.role, () => INB.threadView(P4.thread.by_phone[c.phone], { now: Date.parse('2026-11-03T10:00:00Z') }));
+const thOpen = Object.values(P4.thread.by_phone).find((t) => t.window.open && t.channel === 'client'), thShut = Object.values(P4.thread.by_phone).find((t) => !t.window.open);
+ok((INB.bubbles(thOpen.messages).match(/class="bub /g) || []).length === thOpen.messages.length, 'thread: one bubble per message');
+ok(/id="ibx-txt"/.test(INB.composer(thOpen, { now: Date.parse('2026-11-03T10:00:00Z') })) && /data-act="ibx-send-tpl"/.test(INB.composer(thShut, { now: Date.parse('2026-11-03T10:00:00Z') })) && !/ibx-txt/.test(INB.composer(thShut, { now: Date.parse('2026-11-03T10:00:00Z') })), 'composer: free text inside the 24h window, template chooser outside');
+ok(!/data-act="ibx-send/.test(INB.composer(thOpen, { now: Date.parse('2026-11-03T20:30:00Z') })), 'composer: no send to a client/lead in quiet hours (22:30 IL)');
+ok(INB.SEND_WORD === 'שלח', 'inbox sends need the typed word שלח');
+check('control.view', () => CTL.view(P4.control, {}));
+check('control.view paused + loading', () => CTL.view({ ...P4.control, paused: true, brain_active: true }, {}) + CTL.view(null, {}));
+ok(Object.keys(CTL.ACTIONS).filter((k) => k !== 'dry').every((k) => CTL.wordOf(k, k.includes('hold') || k.includes('cancel') ? P4.control.events[0] : k === 'ipn' ? 'ipnmiss:1' : '972500000101')) && CTL.wordOf('dry') === null, 'control: every action except the dry run needs a typed word');
+ok(Object.keys(CTL.ACTIONS).every((k) => CTL.ACTIONS[k].blast(P4.control.events[0]).length > 20), 'control: every action has blast-radius text');
 check('calls.view', () => S.calls.view(F.realtime));
 check('capacity.view', () => S.capacity.view(F.capacity));
 ok(S.capacity.view(F.capacity).includes('▲'), 'capacity shows over-capacity marker', F.capacity.alerts.length + ' alert days');
@@ -233,7 +257,7 @@ if (!process.argv.includes('--no-browser')) {
         const uniq = [...new Set(data.map((u) => u.split('?')[0]))];
         ok(uniq.length <= 3, '≤ 3 data requests on load', uniq.map((u) => u.split('/').pop()).join(', '));
       }
-      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'calendar', 'balances', 'changes']) {
+      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'inbox', 'control', 'calls', 'capacity', 'calendar', 'balances', 'changes']) {
         await page.evaluate((h) => { location.hash = h; }, '#/' + r);
         await page.waitForFunction(() => !document.querySelector('#main .sk') || document.querySelector('#main .feed-row,#main table,#main .tile .v,#main .cal-d'), null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(r === 'brain' || r === 'live' ? 3600 : 500);
@@ -327,13 +351,76 @@ if (!process.argv.includes('--no-browser')) {
     }
     const m = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
     const mp = await m.newPage();
-    for (const r of ['overview', 'automations', 'runs', 'messaging', 'capacity', 'calendar', 'balances', 'changes']) {
+    for (const r of ['overview', 'automations', 'runs', 'messaging', 'inbox', 'control', 'capacity', 'calendar', 'balances', 'changes']) {
       await mp.goto(url + '#/' + r); await mp.waitForTimeout(900);
       const over = await mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
       ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r, over.join('/'));
       await mp.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
     }
     await m.close();
+
+    console.log('B3 Phase 4a (messaging, inbox, control)');
+    {
+      const px = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+      const pp = await px.newPage(); const perr = []; pp.on('pageerror', (e) => perr.push(e.message)); pp.on('console', (m2) => { if (m2.type() === 'error') perr.push(m2.text()); });
+      await pp.goto(url + '#/messaging'); await pp.waitForSelector('#main tr.msg-row', { timeout: 6000 });
+      ok((await pp.$$eval('#main tr.msg-row', (x) => x.length)) === P4.messages.items.length, 'הודעות renders one row per message', String(P4.messages.items.length));
+      const rp = P4.messages.items.find((x) => x.reply);
+      await pp.click(`#main tr.msg-row[data-row="${rp.id}"]`);
+      ok((await pp.$eval('#main tr.msg-det', (d) => d.innerText)).includes(rp.reply.text), 'expanding a row shows the full text and the guest reply');
+      await pp.click('#main [data-tabs=msgtab] [data-v=failed]'); await pp.waitForTimeout(400);
+      ok((await pp.$$eval('#main tr.msg-row', (x) => x.length)) === P4.messages.items.filter((x) => x.status === 'failed').length, 'נכשלו tab shows only failed messages');
+      await pp.click('#main [data-tabs=msgtab] [data-v=replies]'); await pp.waitForTimeout(400);
+      ok((await pp.$$eval('#main tr.msg-row', (x) => x.length)) === P4.messages.inbound.length, 'תשובות tab shows inbound messages');
+      await pp.screenshot({ path: join(shotDir, 'messaging-replies-light.png') });
+      await pp.keyboard.press('g'); await pp.keyboard.press('i');
+      await pp.waitForSelector('#main .conv', { timeout: 6000 });
+      ok((await pp.evaluate(() => location.hash)) === '#/inbox' && (await pp.$$eval('#main .conv', (x) => x.length)) === P4.inbox.items.length, 'g i opens the inbox with every conversation');
+      const c0 = P4.inbox.items.find((c) => c.window_open && c.ch.includes('client'));
+      await pp.click(`#main .conv[data-phone="${c0.phone}"]`);
+      await pp.waitForSelector('#main .bub', { timeout: 4000 });
+      ok((await pp.$$eval('#main .bub', (x) => x.length)) === P4.thread.by_phone[c0.phone].messages.length, 'thread renders one bubble per message');
+      const quietNow = await pp.evaluate(() => { const h = +new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hourCycle: 'h23' }).format(new Date()); return h >= 21 || h < 9; });
+      if (quietNow) ok(!(await pp.$('#main [data-act=ibx-send]')), 'quiet hours now: the send button is not offered (21:00–09:00 rule)');
+      else {
+        await pp.fill('#main #ibx-txt', 'בדיקה מהסמוק');
+        const before = await pp.$$eval('#main .bub', (x) => x.length);
+        await pp.click('#main [data-act=ibx-send]'); await pp.waitForSelector('.dialog #dlg-in', { timeout: 3000 });
+        ok((await pp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'send: the button stays disabled until שלח is typed');
+        await pp.fill('.dialog #dlg-in', 'שלחח'); ok((await pp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'send: a near-miss word does not enable it');
+        await pp.click('.dialog [data-act=dlg-no]'); await pp.waitForTimeout(400);
+        ok((await pp.$$eval('#main .bub', (x) => x.length)) === before, 'send: cancel → nothing sent');
+        await pp.click('#main [data-act=ibx-send]'); await pp.waitForSelector('.dialog #dlg-in'); await pp.fill('.dialog #dlg-in', 'שלח'); await pp.click('.dialog [data-act=dlg-yes]');
+        await pp.waitForFunction((n) => document.querySelectorAll('#main .bub').length > n, before, { timeout: 4000 }).catch(() => {});
+        ok((await pp.$$eval('#main .bub', (x) => x.length)) === before + 1, 'send: after typing שלח the message goes out (mock) and shows in the thread');
+      }
+      const shut = P4.inbox.items.find((c) => !c.window_open);
+      await pp.click(`#main .conv[data-phone="${shut.phone}"]`); await pp.waitForSelector('#main .bub', { timeout: 4000 });
+      ok(quietNow && shut.ch.includes('client') ? true : !!(await pp.$('#main [data-act=ibx-send-tpl]')) && !(await pp.$('#main #ibx-txt')), 'closed 24h window: template chooser, no free text');
+      await pp.screenshot({ path: join(shotDir, 'inbox-light.png') });
+      await pp.keyboard.press('g'); await pp.keyboard.press('x');
+      await pp.waitForSelector('#main .ctl-grid', { timeout: 6000 });
+      ok((await pp.evaluate(() => location.hash)) === '#/control', 'g x opens שליטה');
+      await pp.click('#main [data-act=ctl][data-a=pause]'); await pp.waitForSelector('.dialog #dlg-in');
+      ok((await pp.$eval('#layer .dialog', (d) => d.innerText)).includes('אף הודעה') && (await pp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'pause: blast radius shown, disabled until the word is typed');
+      await pp.fill('.dialog #dlg-in', 'עצור'); await pp.click('.dialog [data-act=dlg-yes]');
+      await pp.waitForSelector('#main [data-a=resume]', { timeout: 4000 }).catch(() => {});
+      ok(!!(await pp.$('#main [data-a=resume]')), 'after the typed confirm the system shows paused (resume offered)');
+      await pp.click('#main [data-act=ctl][data-a=hold]'); await pp.waitForSelector('.dialog #dlg-in');
+      ok((await pp.$eval('#layer .dialog', (d) => d.innerText)).includes('hold:' + P4.control.events[0].tok8), 'event hold needs hold:<tok8>');
+      await pp.click('.dialog [data-act=dlg-no]');
+      await pp.screenshot({ path: join(shotDir, 'control-light.png') });
+      ok(perr.length === 0, 'no console errors in the Phase 4a flows', perr.slice(0, 3).join(' | '));
+      await px.close();
+      const mx = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+      const mq = await mx.newPage(); await mq.goto(url + '#/inbox'); await mq.waitForSelector('#main .conv', { timeout: 6000 });
+      await mq.click('#main .conv'); await mq.waitForSelector('#main .bub', { timeout: 4000 });
+      const lay = await mq.evaluate(() => [document.querySelector('.ibx-list').offsetParent === null, !!document.querySelector('.ibx-back').offsetParent, document.documentElement.scrollWidth <= innerWidth]);
+      ok(lay.every(Boolean), '375 px inbox: thread replaces the list, back button shown, no sideways scroll', lay.join('/'));
+      await mq.screenshot({ path: join(shotDir, 'inbox-thread-mobile.png') });
+      await mq.click('#tb-more'); ok(await mq.$eval('.nav a[data-r=inbox]', (a) => !!a.offsetParent) && await mq.$eval('.nav a[data-r=control]', (a) => !!a.offsetParent), '"עוד" sheet lists אינבוקס and שליטה');
+      await mx.close();
+    }
 
     console.log('B2 CRM');
     const cx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });

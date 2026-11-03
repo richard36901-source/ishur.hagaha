@@ -1,0 +1,509 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T10:00:00.000Z",
+ "channel": "",
+ "items": [
+  {
+   "phone": "972500000302",
+   "name": "",
+   "wa_name": "",
+   "role": "lead",
+   "ch": [
+    "client"
+   ],
+   "numbers": [
+    "נועה"
+   ],
+   "token8": "",
+   "token": "",
+   "event": "",
+   "event_date": "",
+   "last_ts": 1793698860000,
+   "last_dir": "in",
+   "last_text": "image",
+   "msgs": 2,
+   "unread": true,
+   "window_open": true,
+   "last_in_ts": 1793698860000,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000301",
+   "name": "",
+   "wa_name": "",
+   "role": "lead",
+   "ch": [
+    "client"
+   ],
+   "numbers": [
+    "נועה"
+   ],
+   "token8": "",
+   "token": "",
+   "event": "",
+   "event_date": "",
+   "last_ts": 1793693400000,
+   "last_dir": "in",
+   "last_text": "חתונה בדצמבר, 250 אורחים",
+   "msgs": 2,
+   "unread": true,
+   "window_open": true,
+   "last_in_ts": 1793693400000,
+   "human": true,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000121",
+   "name": "אורח 21",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "e5f6a7b8",
+   "token": "",
+   "event": "אירוע ב",
+   "event_date": "2026-11-20",
+   "last_ts": 1793685600000,
+   "last_dir": "in",
+   "last_text": "כן, נגיע",
+   "msgs": 2,
+   "unread": true,
+   "window_open": true,
+   "last_in_ts": 1793685600000,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000104",
+   "name": "אורח 4",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793680200000,
+   "last_dir": "in",
+   "last_text": "מגיעים 2",
+   "msgs": 2,
+   "unread": true,
+   "window_open": true,
+   "last_in_ts": 1793680200000,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000201",
+   "name": "לקוח א",
+   "wa_name": "",
+   "role": "client",
+   "ch": [
+    "client"
+   ],
+   "numbers": [
+    "נועה"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "a1b2c3d4-0000-0000-0000-000000000000",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793696400000,
+   "last_dir": "out",
+   "last_text": "דוח לאירוע א: 9 אישרו, 3 סירבו, 2 ממתינים",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000120",
+   "name": "אורח 20",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "e5f6a7b8",
+   "token": "",
+   "event": "אירוע ב",
+   "event_date": "2026-11-20",
+   "last_ts": 1793682000000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 20, הוזמנת לאירוע ב",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000114",
+   "name": "אורח 14",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793681880000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 14, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000113",
+   "name": "אורח 13",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793681460000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 13, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000112",
+   "name": "אורח 12",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793681040000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 12, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000111",
+   "name": "אורח 11",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793680620000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 11, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000110",
+   "name": "אורח 10",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793680200000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 10, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000109",
+   "name": "אורח 9",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793679780000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 9, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000108",
+   "name": "אורח 8",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793679360000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 8, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000107",
+   "name": "אורח 7",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793678940000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 7, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000106",
+   "name": "אורח 6",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793678520000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 6, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000105",
+   "name": "אורח 5",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793678100000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 5, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000103",
+   "name": "אורח 3",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793677260000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 3, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000102",
+   "name": "אורח 2",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793676840000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 2, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  },
+  {
+   "phone": "972500000101",
+   "name": "אורח 1",
+   "wa_name": "",
+   "role": "guest",
+   "ch": [
+    "guests"
+   ],
+   "numbers": [
+    "שיר"
+   ],
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "event_date": "2026-11-10",
+   "last_ts": 1793676420000,
+   "last_dir": "out",
+   "last_text": "שלום אורח 1, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+   "msgs": 1,
+   "unread": false,
+   "window_open": false,
+   "last_in_ts": 0,
+   "human": false,
+   "ai_off": false,
+   "nonrelevant": false
+  }
+ ],
+ "total": 19,
+ "counts": {
+  "all": 19,
+  "client": 3,
+  "guests": 16,
+  "unread": 4
+ }
+}

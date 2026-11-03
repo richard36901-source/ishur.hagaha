@@ -1,0 +1,44 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T10:00:00.000Z",
+ "at": "2026-11-03T10:00:00.000Z",
+ "today": "2026-11-03",
+ "paused": false,
+ "brain_active": false,
+ "pacer": {
+  "last_tick_at": "2026-11-03T09:56:00.000Z"
+ },
+ "events": [
+  {
+   "token": "a1b2c3d4-0000-0000-0000-000000000000",
+   "tok8": "a1b2c3d4",
+   "name": "אירוע א",
+   "client": "לקוח א",
+   "date": "2026-11-10",
+   "occasion": "חתונה",
+   "hold": false,
+   "cancel": false,
+   "guests": 14,
+   "pending": 9
+  },
+  {
+   "token": "e5f6a7b8-0000-0000-0000-000000000000",
+   "tok8": "e5f6a7b8",
+   "name": "אירוע ב",
+   "client": "לקוח ב",
+   "date": "2026-11-20",
+   "occasion": "חתונה",
+   "hold": true,
+   "cancel": false,
+   "guests": 6,
+   "pending": 4
+  }
+ ],
+ "event_flags": [
+  "extrasend",
+  "hold",
+  "cancel",
+  "postponeok"
+ ]
+}

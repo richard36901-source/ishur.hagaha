@@ -7,6 +7,11 @@ const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fix
 const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {}, reverted: {}, added: [] };
 export async function mockApi(name, body, ver, qs) {
   if (ver) VER = ver;
+  if (P4A_POST.test(name)) return p4aPost(name, body);
+  if (name === 'messages') { const f = structuredClone(await fixture('messages')); const rows = body.tab === 'replies' ? f.inbound : body.tab === 'failed' ? f.items.filter((x) => x.status === 'failed') : f.items; return { ...f, tab: body.tab || 'all', items: rows.filter((x) => !body.cursor || x.ts < +body.cursor).slice(0, body.limit || 100), next_cursor: null }; }
+  if (name === 'inbox') { const f = structuredClone(await fixture('inbox')); if (body.channel) f.items = f.items.filter((c) => c.ch.includes(body.channel)); f.items.forEach((c) => { if (mockState.human[c.phone] != null) c.human = mockState.human[c.phone]; }); return f; }
+  if (name === 'thread') { const t = (await fixture('thread')).by_phone[String(body.phone || '')]; if (!t) return { ok: false, error: 'bad-phone' }; const c = structuredClone(t); if (mockState.human[c.phone] != null) c.takeover = { human: mockState.human[c.phone], ai: !mockState.human[c.phone], ai_off: mockState.human[c.phone] }; c.messages.push(...(mockState.sent[c.phone] || [])); return { ok: true, fixture: true, ...c }; }
+  if (name === 'control') { const f = structuredClone(await fixture('control')); Object.assign(f, mockState.ctl); f.events.forEach((e) => Object.assign(e, mockState.flags[e.token] || {})); return f; }
   if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER, qs != null ? 'GET' : 'POST');
   const now = new Date().toISOString();
   if (name === 'registry') {
@@ -79,4 +84,21 @@ export async function mockApi(name, body, ver, qs) {
   }
   if (name === 'calendar') { const f = await fixture('calendar'); return !body.month || body.month === f.month ? f : { ok: true, fixture: true, month: body.month, days: [], events: [] }; }
   return fixture(name);
+}
+
+/* Phase 4a POST routes (?mock=1): nothing leaves the browser */
+const P4A_POST = /^\/(wa-send|human|pause|pacer|daily-run|event-flag|block-phone|brain-toggle|ipn-replay)$/;
+Object.assign(mockState, { human: {}, sent: {}, ctl: {}, flags: {}, blocked: {} });
+function p4aPost(name, b) {
+  const r = name.slice(1);
+  if (r === 'wa-send') { const m = { id: 'wamid.MOCK' + Date.now(), ts: Date.now(), at: new Date().toISOString(), dir: 'out', type: b.mode === 'template' ? 'template' : 'text', text: b.text || '', tmpl: b.template || '', status: 'sent', ch: b.channel || 'client', who: 'ריצארד', media: null, buttons: [] }; (mockState.sent[b.to] = mockState.sent[b.to] || []).push(m); return { ok: true, id: m.id, fixture: true }; }
+  if (r === 'human') { if (typeof b.ai === 'boolean') mockState.human[b.phone] = !b.ai; return { ok: true, phone: b.phone, human: !!mockState.human[b.phone], ai: !mockState.human[b.phone] }; }
+  if (r === 'pause') { if (typeof b.paused === 'boolean') mockState.ctl.paused = b.paused; return { ok: true, paused: !!mockState.ctl.paused }; }
+  if (r === 'brain-toggle') { if (typeof b.active === 'boolean') mockState.ctl.brain_active = b.active; return { ok: true, active: !!mockState.ctl.brain_active }; }
+  if (r === 'pacer') return { ok: true, fixture: true, sends: { ran: true, sent: 3 }, calls: { dialed: 1 } };
+  if (r === 'daily-run') return { ok: true, fixture: true, dry: !!b.dry, events: [{ a: 1 }, { a: 2 }, { a: 3 }] };
+  if (r === 'event-flag') { if (typeof b.on === 'boolean') (mockState.flags[b.token] = mockState.flags[b.token] || {})[b.flag] = b.on; return { ok: true, flag: b.flag, on: b.on }; }
+  if (r === 'block-phone') { if (typeof b.blocked === 'boolean') mockState.blocked[b.phone] = b.blocked; return { ok: true, phone: b.phone, blocked: !!mockState.blocked[b.phone], opted_out: false }; }
+  if (r === 'ipn-replay') return /^ipnmiss:\d+$/.test(b.id || '') ? { ok: true, status: 200, result: 'ok (דמה)' } : { ok: false, error: 'bad-id' };
+  return { ok: false, error: 'unknown' };
 }

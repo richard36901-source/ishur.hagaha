@@ -1,0 +1,1954 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T10:00:00.000Z",
+ "by_phone": {
+  "972500000302": {
+   "phone": "972500000302",
+   "name": "",
+   "wa_name": "",
+   "role": "lead",
+   "token8": "",
+   "token": "",
+   "event": "",
+   "channel": "client",
+   "window": {
+    "open": true,
+    "last_in_at": "2026-11-03T09:41:00.000Z",
+    "closes_at": "2026-11-04T09:41:00.000Z"
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "",
+     "ts": 1793698800000,
+     "at": "2026-11-03T09:40:00.000Z",
+     "dir": "in",
+     "type": "text",
+     "text": "שלום, כמה עולה?",
+     "tmpl": "",
+     "status": "",
+     "error": "",
+     "ch": "client",
+     "who": "",
+     "media": null,
+     "buttons": []
+    },
+    {
+     "id": "",
+     "ts": 1793698860000,
+     "at": "2026-11-03T09:41:00.000Z",
+     "dir": "in",
+     "type": "image",
+     "text": "",
+     "tmpl": "",
+     "status": "",
+     "error": "",
+     "ch": "client",
+     "who": "",
+     "media": {
+      "id": "1234567890",
+      "url": "",
+      "kind": "image",
+      "name": "הזמנה.jpg",
+      "mime": "image/jpeg"
+     },
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000301": {
+   "phone": "972500000301",
+   "name": "",
+   "wa_name": "",
+   "role": "lead",
+   "token8": "",
+   "token": "",
+   "event": "",
+   "channel": "client",
+   "window": {
+    "open": true,
+    "last_in_at": "2026-11-03T08:10:00.000Z",
+    "closes_at": "2026-11-04T08:10:00.000Z"
+   },
+   "takeover": {
+    "human": true,
+    "ai": true,
+    "ai_off": true
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE16",
+     "ts": 1793692800000,
+     "at": "2026-11-03T08:00:00.000Z",
+     "dir": "out",
+     "type": "text",
+     "text": "היי, תודה שפנית! איזה אירוע מתכננים?",
+     "tmpl": "",
+     "status": "delivered",
+     "error": "",
+     "ch": "client",
+     "who": "",
+     "media": null,
+     "buttons": []
+    },
+    {
+     "id": "",
+     "ts": 1793693400000,
+     "at": "2026-11-03T08:10:00.000Z",
+     "dir": "in",
+     "type": "text",
+     "text": "חתונה בדצמבר, 250 אורחים",
+     "tmpl": "",
+     "status": "",
+     "error": "",
+     "ch": "client",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000121": {
+   "phone": "972500000121",
+   "name": "אורח 21",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "e5f6a7b8",
+   "token": "",
+   "event": "אירוע ב",
+   "channel": "guests",
+   "window": {
+    "open": true,
+    "last_in_at": "2026-11-03T06:00:00.000Z",
+    "closes_at": "2026-11-04T06:00:00.000Z"
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE15",
+     "ts": 1793685000000,
+     "at": "2026-11-03T05:50:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "תזכורת: מחר האירוע. מגיעים?",
+     "tmpl": "ishur_tizkoret",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    },
+    {
+     "id": "",
+     "ts": 1793685600000,
+     "at": "2026-11-03T06:00:00.000Z",
+     "dir": "in",
+     "type": "text",
+     "text": "כן, נגיע",
+     "tmpl": "",
+     "status": "",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000104": {
+   "phone": "972500000104",
+   "name": "אורח 4",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": true,
+    "last_in_at": "2026-11-03T04:30:00.000Z",
+    "closes_at": "2026-11-04T04:30:00.000Z"
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE4",
+     "ts": 1793677680000,
+     "at": "2026-11-03T03:48:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 4, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    },
+    {
+     "id": "",
+     "ts": 1793680200000,
+     "at": "2026-11-03T04:30:00.000Z",
+     "dir": "in",
+     "type": "text",
+     "text": "מגיעים 2",
+     "tmpl": "",
+     "status": "",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000201": {
+   "phone": "972500000201",
+   "name": "לקוח א",
+   "wa_name": "",
+   "role": "client",
+   "token8": "a1b2c3d4",
+   "token": "a1b2c3d4-0000-0000-0000-000000000000",
+   "event": "אירוע א",
+   "channel": "client",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE17",
+     "ts": 1793696400000,
+     "at": "2026-11-03T09:00:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "דוח לאירוע א: 9 אישרו, 3 סירבו, 2 ממתינים",
+     "tmpl": "ishur_doch",
+     "status": "delivered",
+     "error": "",
+     "ch": "client",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000120": {
+   "phone": "972500000120",
+   "name": "אורח 20",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "e5f6a7b8",
+   "token": "",
+   "event": "אירוע ב",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "",
+     "ts": 1793682000000,
+     "at": "2026-11-03T05:00:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 20, הוזמנת לאירוע ב",
+     "tmpl": "hazmana_ishur",
+     "status": "failed",
+     "error": "(#131049) This message was not delivered to maintain healthy ecosystem engagement",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000114": {
+   "phone": "972500000114",
+   "name": "אורח 14",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE14",
+     "ts": 1793681880000,
+     "at": "2026-11-03T04:58:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 14, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000113": {
+   "phone": "972500000113",
+   "name": "אורח 13",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE13",
+     "ts": 1793681460000,
+     "at": "2026-11-03T04:51:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 13, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000112": {
+   "phone": "972500000112",
+   "name": "אורח 12",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE12",
+     "ts": 1793681040000,
+     "at": "2026-11-03T04:44:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 12, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000111": {
+   "phone": "972500000111",
+   "name": "אורח 11",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE11",
+     "ts": 1793680620000,
+     "at": "2026-11-03T04:37:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 11, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000110": {
+   "phone": "972500000110",
+   "name": "אורח 10",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE10",
+     "ts": 1793680200000,
+     "at": "2026-11-03T04:30:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 10, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000109": {
+   "phone": "972500000109",
+   "name": "אורח 9",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE9",
+     "ts": 1793679780000,
+     "at": "2026-11-03T04:23:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 9, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000108": {
+   "phone": "972500000108",
+   "name": "אורח 8",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE8",
+     "ts": 1793679360000,
+     "at": "2026-11-03T04:16:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 8, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000107": {
+   "phone": "972500000107",
+   "name": "אורח 7",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE7",
+     "ts": 1793678940000,
+     "at": "2026-11-03T04:09:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 7, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000106": {
+   "phone": "972500000106",
+   "name": "אורח 6",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE6",
+     "ts": 1793678520000,
+     "at": "2026-11-03T04:02:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 6, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000105": {
+   "phone": "972500000105",
+   "name": "אורח 5",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE5",
+     "ts": 1793678100000,
+     "at": "2026-11-03T03:55:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 5, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000103": {
+   "phone": "972500000103",
+   "name": "אורח 3",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE3",
+     "ts": 1793677260000,
+     "at": "2026-11-03T03:41:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 3, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000102": {
+   "phone": "972500000102",
+   "name": "אורח 2",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE2",
+     "ts": 1793676840000,
+     "at": "2026-11-03T03:34:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 2, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  },
+  "972500000101": {
+   "phone": "972500000101",
+   "name": "אורח 1",
+   "wa_name": "",
+   "role": "guest",
+   "token8": "a1b2c3d4",
+   "token": "",
+   "event": "אירוע א",
+   "channel": "guests",
+   "window": {
+    "open": false,
+    "last_in_at": null,
+    "closes_at": null
+   },
+   "takeover": {
+    "human": false,
+    "ai": true,
+    "ai_off": false
+   },
+   "nonrelevant": false,
+   "messages": [
+    {
+     "id": "wamid.FAKE1",
+     "ts": 1793676420000,
+     "at": "2026-11-03T03:27:00.000Z",
+     "dir": "out",
+     "type": "template",
+     "text": "שלום אורח 1, הוזמנת לאירוע א ביום שלישי 10/11 בשעה 19:30. נשמח לדעת אם תגיעו",
+     "tmpl": "hazmana_ishur",
+     "status": "delivered",
+     "error": "",
+     "ch": "guests",
+     "who": "",
+     "media": null,
+     "buttons": []
+    }
+   ],
+   "templates": [
+    {
+     "name": "ishur_tashlum",
+     "label": "קישור העלאה למשלם",
+     "params": [
+      "שם פרטי",
+      "קישור העלאה"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "ishur_doch",
+     "label": "דוח ללקוח",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ממתינים",
+      "קישור דשבורד"
+     ],
+     "ch": "client"
+    },
+    {
+     "name": "hazmana_ishur",
+     "label": "הזמנה לאורח",
+     "params": [
+      "שם האורח",
+      "סוג האירוע",
+      "בעלי השמחה",
+      "תאריך",
+      "שעה",
+      "מקום"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_shulchan",
+     "label": "מספר שולחן",
+     "params": [
+      "שם האורח",
+      "שם האירוע",
+      "מספר שולחן"
+     ],
+     "ch": "guests"
+    },
+    {
+     "name": "ishur_syum",
+     "label": "סיום אירוע",
+     "params": [
+      "שם האירוע",
+      "אישרו",
+      "סועדים",
+      "סירבו",
+      "ללא מענה",
+      "קישור ביקורת",
+      "קישור המלצה"
+     ],
+     "ch": "client"
+    }
+   ]
+  }
+ }
+}

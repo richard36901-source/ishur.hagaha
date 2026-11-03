@@ -105,17 +105,17 @@ export const ROUTES = [
   { id: 'runs', he: 'ריצות', icon: 'runs', key: 'r' },
   { id: 'live', he: 'לוג חי', icon: 'live', key: 'l' },
   { id: 'brain', he: 'מוח', icon: 'brain', key: 'b' },
-  { id: 'messaging', he: 'הודעות', icon: 'msg', key: 'm' },
+  { id: 'messaging', he: 'הודעות', icon: 'msg', key: 'm' }, { id: 'inbox', he: 'אינבוקס', key: 'i' },
   { id: 'calls', he: 'שיחות', icon: 'call', key: 'c' },
   { id: 'capacity', he: 'קיבולת', icon: 'cap', key: 'k' },
   { id: 'calendar', he: 'לוח שנה', icon: 'cap', key: 'd' },
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
-  { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' },
+  { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' }, { id: 'control', he: 'שליטה', key: 'x' },
   { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 't', dir: 'crm' },
 ];
 const screens = {};
 /* lazy/ + crm/ modules sit outside the counted JS budget */
-const LAZY = new Set(['calendar', 'changes']);
+const LAZY = new Set(['calendar', 'changes', 'messaging', 'inbox', 'control']);
 const loadModule = (id) => (screens[id] = screens[id] || import(LAZY.has(id) ? `./lazy/${id}.js` : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
 const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
@@ -200,7 +200,7 @@ function toggleTheme() {
 
 /* ── keyboard ── */
 export const KEYMAP = [
-  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'], ['g h', 'שינויים'], ['g e', 'לידים'], ['g s', 'לקוחות'], ['g t', 'דיילות'],
+  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g i', 'אינבוקס'], ['g x', 'שליטה'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'], ['g h', 'שינויים'], ['g e', 'לידים'], ['g s', 'לקוחות'], ['g t', 'דיילות'],
   ['⌘ K', 'פקודות וחיפוש'], ['/', 'חיפוש בעמוד'], ['j k', 'שורה הבאה / קודמת'], ['Enter', 'פתיחת השורה'], ['Esc', 'סגירה'],
   ['\\', 'פאנל לוג חי'], ['t', 'בהיר / כהה'], ['p', 'עצירת הזרם החי'], ['?', 'קיצורי מקלדת'],
 ];

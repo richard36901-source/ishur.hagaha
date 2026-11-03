@@ -1,0 +1,48 @@
+/* Phase 4a screens (messaging rewrite, inbox, manual control). Loaded by those lazy modules only. */
+.msg-tb{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.msg-tb .day{font-family:var(--font-num);min-width:7.5em;text-align:center}
+.tbl tr.msg-row{cursor:pointer}
+.tbl tr.msg-row[aria-expanded=true] td{background:var(--surface-2)}
+.tbl tr.msg-det td{background:var(--surface-2);white-space:normal}
+.msg-det .kv{margin:0}
+.msg-txt{white-space:pre-wrap;overflow-wrap:anywhere;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-s);padding:8px 10px;margin:4px 0 8px;max-width:62ch}
+.msg-txt.in{border-inline-start:3px solid var(--s1)}
+.who-n{display:block;font-weight:600}.who-p{font-size:.85em;color:var(--ink-3)}
+.ibx{display:grid;grid-template-columns:minmax(260px,340px) minmax(0,1fr);gap:12px;min-height:calc(100vh - var(--top-h) - 48px)}
+.ibx-list,.ibx-th{background:var(--surface);border:1px solid var(--line);border-radius:var(--r);display:flex;flex-direction:column;min-height:0;overflow:hidden}
+.ibx-list .head{padding:10px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+.ibx-convs{overflow:auto;flex:1}
+.conv{display:grid;grid-template-columns:1fr auto;gap:2px 8px;width:100%;text-align:start;padding:10px 12px;border:0;border-bottom:1px solid var(--line);background:none;color:inherit;font:inherit;cursor:pointer;min-height:var(--h-touch,44px)}
+.conv:hover{background:var(--surface-2)}.conv[aria-current=true]{background:var(--brand-soft)}
+.conv .nm{font-weight:600;display:flex;gap:6px;align-items:center;min-width:0}.conv .nm span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv .pv{grid-column:1/-1;color:var(--ink-3);font-size:.88em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.conv .ud{width:9px;height:9px;border-radius:50%;background:var(--s1);display:inline-block;flex:none}
+.conv.unread .pv{color:var(--ink);font-weight:500}
+.ibx-th .head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ibx-th .head h2{margin:0;font-size:1.05rem}
+.bubbles{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--bg-2)}
+.bub{max-width:min(78%,520px);padding:7px 10px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 1px rgba(0,0,0,.05)}
+.bub.in{align-self:flex-start;background:var(--surface);border:1px solid var(--line)}
+.bub.out{align-self:flex-end;background:var(--brand-soft);border:1px solid var(--line-2)}
+.bub .mt{display:block;font-size:.75em;color:var(--ink-3);margin-top:3px;text-align:end}
+.bub .tk.read{color:var(--s1)}.bub .tk.failed{color:var(--crit-ink)}
+.bub .fl{display:block;color:var(--crit-ink);font-size:.82em}
+.daychip{align-self:center;font-size:.78em;color:var(--ink-3);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:1px 10px;margin:6px 0}
+.compose{border-top:1px solid var(--line);padding:10px;display:grid;gap:8px}
+.compose textarea{width:100%;min-height:64px;resize:vertical;font:inherit}
+.compose .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.tp-params{display:grid;gap:6px;grid-template-columns:repeat(auto-fill,minmax(160px,1fr))}
+.ibx-back{display:none}
+.ctl-grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fill,minmax(300px,1fr))}
+.ctl-grid .card h3{margin:0 0 4px}
+.ctl-grid .blast{font-size:.88em;color:var(--ink-2);background:var(--warn-bg);border-radius:var(--r-s);padding:6px 9px;margin:8px 0}
+.ctl-grid .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px}
+.ctl-grid .st{font-size:.88em;min-height:1.2em}
+@media (max-width:760px){
+  .ibx{grid-template-columns:1fr;min-height:0}
+  .ibx.open .ibx-list{display:none}.ibx:not(.open) .ibx-th{display:none}
+  .ibx-th{min-height:calc(100vh - var(--top-h) - 140px)}
+  .ibx-back{display:inline-flex}
+  .bub{max-width:88%}
+  .ctl-grid{grid-template-columns:1fr}
+}
