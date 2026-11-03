@@ -1,0 +1,274 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T12:06:27.350Z",
+ "today": "2026-11-03",
+ "audit_until_ts": 1793707070330,
+ "audit_truncated": false,
+ "wa": {
+  "numbers": [
+   {
+    "phone_id": "1107514695777584",
+    "role": "guests",
+    "label": "שיר #1 · 055-972-6673",
+    "tier": "TIER_250",
+    "quality": "GREEN",
+    "limit": 250,
+    "used_24h": 81,
+    "remaining": 169,
+    "held": false,
+    "held_until": null,
+    "frees_at": "2026-11-04T11:00:00.000Z",
+    "sent_today": 114,
+    "rejected_today": 0,
+    "failed_async_today": 7,
+    "failed_by_code": {
+     "130472": 2,
+     "131026": 1,
+     "131049": 4
+    },
+    "by_reason": {
+     "reply": 29,
+     "manual": 1,
+     "wave": 57,
+     "thanks": 14,
+     "gift": 13
+    },
+    "by_event": {
+     "—": {
+      "total": 24,
+      "reply": 24
+     },
+     "e045522a": {
+      "total": 3,
+      "manual": 1,
+      "reply": 2
+     },
+     "395962fa": {
+      "total": 57,
+      "wave": 57
+     },
+     "c1c5fcf5": {
+      "total": 27,
+      "thanks": 14,
+      "gift": 13
+     },
+     "ec9f3b84": {
+      "total": 3,
+      "reply": 3
+     }
+    }
+   },
+   {
+    "phone_id": "1409632775565601",
+    "role": "guests",
+    "label": "שיר #2 · 055-308-9799",
+    "tier": "TIER_250",
+    "quality": "GREEN",
+    "limit": 250,
+    "used_24h": 81,
+    "remaining": 169,
+    "held": false,
+    "held_until": null,
+    "frees_at": "2026-11-04T11:00:00.000Z",
+    "sent_today": 104,
+    "rejected_today": 0,
+    "failed_async_today": 8,
+    "failed_by_code": {
+     "130472": 5,
+     "131049": 3
+    },
+    "by_reason": {
+     "reply": 19,
+     "manual": 2,
+     "wave": 57,
+     "thanks": 15,
+     "gift": 11
+    },
+    "by_event": {
+     "—": {
+      "total": 19,
+      "reply": 19
+     },
+     "e045522a": {
+      "total": 2,
+      "manual": 2
+     },
+     "395962fa": {
+      "total": 57,
+      "wave": 57
+     },
+     "c1c5fcf5": {
+      "total": 26,
+      "thanks": 15,
+      "gift": 11
+     }
+    }
+   },
+   {
+    "phone_id": "1218978741299669",
+    "role": "client",
+    "label": "נועה · 055-950-4499",
+    "tier": null,
+    "quality": null,
+    "limit": null,
+    "used_24h": null,
+    "remaining": null,
+    "held": false,
+    "held_until": null,
+    "frees_at": null,
+    "sent_today": 2,
+    "rejected_today": 0,
+    "failed_async_today": 2,
+    "failed_by_code": {
+     "131042": 2
+    },
+    "by_reason": {
+     "client": 2
+    },
+    "by_event": {
+     "—": {
+      "total": 2,
+      "client": 2
+     }
+    }
+   }
+  ],
+  "unknown_numbers": [],
+  "totals": {
+   "sent_today": 220,
+   "rejected_today": 0,
+   "failed_async_today": 17
+  },
+  "reasons": [
+   "wave",
+   "daybefore",
+   "eventday",
+   "table",
+   "thanks",
+   "gift",
+   "subevent",
+   "client",
+   "reply",
+   "manual"
+  ]
+ },
+ "cap": {
+  "scope": "portfolio",
+  "limit": 250,
+  "used": 162,
+  "margin": 20,
+  "remaining": 68,
+  "all_held": false,
+  "wacap_guests": null
+ },
+ "queue": {
+  "next_tick_at": "2026-11-03T12:10:00.000Z",
+  "pacer_pending_today": false,
+  "sends": {
+   "will_run": false,
+   "max": 0,
+   "why": "nothing-pending",
+   "send_window": {
+    "open": true
+   }
+  },
+  "calls": {
+   "will_run": true,
+   "callbacks": 2,
+   "dials_max": 4,
+   "why": "will-dial",
+   "call_window": {
+    "open": true
+   }
+  },
+  "autoretry": {
+   "will_run": false,
+   "done_today": true,
+   "off": false
+  },
+  "event_day_due": [],
+  "late_invites_waiting": 0,
+  "holds": 2
+ },
+ "calls": {
+  "dialed": 0,
+  "answered": 0,
+  "voicemail": 0,
+  "no_answer": 0,
+  "in_progress": 0,
+  "inbound": 0,
+  "cost_usd": 0,
+  "by_event": {
+   "c2f63d20": {
+    "dialed": 0,
+    "answered": 0,
+    "voicemail": 0,
+    "no_answer": 0,
+    "in_progress": 0,
+    "queued": 4
+   },
+   "f0a38bbd": {
+    "dialed": 0,
+    "answered": 0,
+    "voicemail": 0,
+    "no_answer": 0,
+    "in_progress": 0,
+    "queued": 1
+   },
+   "c1c5fcf5": {
+    "dialed": 0,
+    "answered": 0,
+    "voicemail": 0,
+    "no_answer": 0,
+    "in_progress": 0,
+    "queued": 1
+   }
+  },
+  "queued": 6,
+  "remaining_today": 6,
+  "capacity_left_today": 234,
+  "source": "retell-unreadable",
+  "callbacks_queued": 2
+ },
+ "noa": {
+  "phone_id": "1218978741299669",
+  "billing_131042": true,
+  "last_send": {
+   "at": "2026-11-03T10:13:37.470Z",
+   "ok": true,
+   "template": "ishur_syum_v3_f",
+   "error": "",
+   "to": "97252****205"
+  }
+ },
+ "pacer": {
+  "last_tick_at": "2026-11-03T12:01:22.594Z",
+  "last": {
+   "sends": {
+    "ran": false,
+    "why": "nothing-pending"
+   },
+   "calls": {
+    "dialed": 0,
+    "queued": 38
+   },
+   "callbacks": {
+    "dialed": 0,
+    "phones": [],
+    "queued": 2,
+    "waiting": 0,
+    "skipped": 0
+   },
+   "autoretry": null,
+   "leads": 0,
+   "doctor": {
+    "fixed": 0,
+    "alerted": 0
+   }
+  },
+  "off": false,
+  "paused": false
+ }
+}

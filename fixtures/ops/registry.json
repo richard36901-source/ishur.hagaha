@@ -1,0 +1,3138 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T12:06:27.492Z",
+ "ledger_source": "kv",
+ "kill_switches": [
+  "d_pacer",
+  "wave1",
+  "wave2",
+  "wave3",
+  "event_day_blast",
+  "autoretry",
+  "shir_dispatch",
+  "shir_callbacks",
+  "manual_blasts",
+  "party_nudges"
+ ],
+ "code_snapshot": {
+  "at": "2026-11-03T11:48:39.553Z",
+  "git": "22e88a0"
+ },
+ "nodes": [
+  {
+   "id": "t_cron10",
+   "name_he": "קרון כל 10 דקות",
+   "layer": 0,
+   "kind": "trigger",
+   "from": [],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "כל 10 דקות, 24/7 (כל משימה בודקת חלון לבד)",
+    "via": "scheduled()"
+   },
+   "conditions": [
+    "מריץ 12 משימות במקביל דרך audit.job, ואחריהן את הפייסר"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [],
+   "kill_switch": null,
+   "depends_on": [],
+   "risk": "low",
+   "desc_he": "השעון של הכל: כל 10 דקות מריץ את המשימות ואת הפייסר.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9346,
+    "line_end": 9473,
+    "ref": "worker/index.js:9346",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "t_morning",
+   "name_he": "קרון בוקר 06:35 UTC",
+   "layer": 0,
+   "kind": "trigger",
+   "from": [],
+   "trigger": {
+    "cron": "35 6 * * *",
+    "il": "08:35 בחורף · 09:35 בקיץ",
+    "via": "scheduled() — ענף ברירת המחדל"
+   },
+   "conditions": [
+    "מחמש pacer:pending להיום לפני המנוע",
+    "תקציב שליחה לאורחים: 50 אם חלון השליחה פתוח, אחרת 0 (בחורף 08:35 = 0, הפייסר ממשיך ב-09:00)"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [],
+   "kill_switch": null,
+   "depends_on": [],
+   "risk": "low",
+   "desc_he": "קרון הבוקר: מחמש את היום ומריץ את המנוע היומי.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9346,
+    "line_end": 9473,
+    "ref": "worker/index.js:9346",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T06:35:00.000Z"
+   }
+  },
+  {
+   "id": "t_0400",
+   "name_he": "קרון 04:00 UTC · דופק",
+   "layer": 0,
+   "kind": "trigger",
+   "from": [],
+   "trigger": {
+    "cron": "0 4 * * *",
+    "il": "06:00 בחורף · 07:00 בקיץ",
+    "via": "scheduled()"
+   },
+   "conditions": [],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [],
+   "kill_switch": null,
+   "depends_on": [],
+   "risk": "low",
+   "desc_he": "בדיקת דופק בוקר: המנוע רץ? יתרות טלניקס וחיוב.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9346,
+    "line_end": 9473,
+    "ref": "worker/index.js:9346",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T04:00:00.000Z"
+   }
+  },
+  {
+   "id": "t_evening",
+   "name_he": "קרונות ערב 17/18/19 UTC",
+   "layer": 0,
+   "kind": "trigger",
+   "from": [],
+   "trigger": {
+    "cron": "0 17,18,19 * * *",
+    "il": "הקוד בודק את השעה בישראל: 20:00 → לולאת שיפור · 21:00 → דוח יומי",
+    "via": "scheduled()"
+   },
+   "conditions": [],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [],
+   "kill_switch": null,
+   "depends_on": [],
+   "risk": "low",
+   "desc_he": "קרונות ערב: לולאת שיפור ב-20:00 ודוח יומי ב-21:00.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9346,
+    "line_end": 9473,
+    "ref": "worker/index.js:9346",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T17:00:00.000Z"
+   }
+  },
+  {
+   "id": "t_tue",
+   "name_he": "קרון שלישי · תזכורות צוות",
+   "layer": 0,
+   "kind": "trigger",
+   "from": [],
+   "trigger": {
+    "cron": "0 9,10,16 * * 2",
+    "il": "שלישי 11:00/12:00/18:00 בחורף",
+    "via": "scheduled()"
+   },
+   "conditions": [],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [],
+   "kill_switch": null,
+   "depends_on": [],
+   "risk": "low",
+   "desc_he": "שלישי: תזכורות לצוות הדיילות.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9346,
+    "line_end": 9473,
+    "ref": "worker/index.js:9346",
+    "symbol": "async scheduled(event, env, ctx)"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T16:00:00.000Z"
+   }
+  },
+  {
+   "id": "t_wa_status",
+   "name_he": "וובהוק סטטוס ממטא",
+   "layer": 0,
+   "kind": "trigger",
+   "from": [],
+   "trigger": {
+    "cron": "",
+    "il": "בכל דיווח מסירה/כשל ממטא",
+    "via": "POST /webhook (handleWaWebhook)"
+   },
+   "conditions": [],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv",
+    "wa_guest",
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [],
+   "risk": "high",
+   "desc_he": "כל דיווח של מטא על הודעה (נמסרה/נכשלה) ותשובה נכנסת עובר כאן.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function handleWaWebhook"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 2909,
+    "line_end": 3108,
+    "ref": "worker/index.js:2909",
+    "symbol": "async function handleWaWebhook"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": null
+   }
+  },
+  {
+   "id": "d_pacer",
+   "name_he": "הפייסר (runPacer)",
+   "layer": 1,
+   "kind": "internal",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "כל 10 דקות; שליחות רק בחלון השליחה, חיוג רק בחלון השיחות",
+    "via": "audit.job runPacer"
+   },
+   "conditions": [
+    "חג (isNoContactDay) → רק בדיקת תבניות",
+    "paused → יוצא אחרי ריקון תור הסלאק ובדיקת פרסום",
+    "מריץ את המנוע עם תקציב 25 רק אם pacer:pending = היום"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "wa_client",
+    "call",
+    "kv",
+    "slack",
+    "sheet"
+   ],
+   "kill_switch": {
+    "key": "auto:off:d_pacer",
+    "wired": true
+   },
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "high",
+   "desc_he": "הפייסר: כל 10 דקות שולח פרוסה של הודעות (25) וחיוגים (6), מריץ ניסיון חוזר, רדיפת לידים ובדיקות.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runPacer"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 6034,
+    "line_end": 6168,
+    "ref": "worker/index.js:6034",
+    "symbol": "async function runPacer"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "d_pacer",
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "d_engine",
+   "name_he": "המנוע היומי (runDailyEngine)",
+   "layer": 1,
+   "kind": "internal",
+   "from": [
+    "t_morning",
+    "d_pacer"
+   ],
+   "trigger": {
+    "cron": "35 6 * * * + */10",
+    "il": "בוקר + כל פעימת פייסר כשיש עבודה",
+    "via": "runDailyEngine(env, dry, date, {budget})"
+   },
+   "conditions": [
+    "שבת → לא רץ (חוץ מהרצה יבשה)",
+    "יום ללא יצירת קשר → לא רץ",
+    "paused → לא רץ",
+    "אין בדיקת חלון שליחה בתוך המנוע עצמו — החלון נאכף רק דרך התקציב (0 בבוקר חורף)"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [
+    "אין sendWindowState בתוך runDailyEngine: שלבים ללקוחות שלא סופרים תקציב (דוח שבוע-לפני, הודעת סיום, תזכורת קובץ, שדרוג) יכולים לצאת בריצת 08:35 בחורף, לפני 09:00",
+    "גם הרצה יבשה (dry:true) כותבת ל-KV: wa:cap, brain:cache, ומוחקת מפתחות lead: — לכן /api/automations לא מריץ אותה"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "wa_client",
+    "kv",
+    "sheet",
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_morning",
+    "d_pacer"
+   ],
+   "risk": "high",
+   "desc_he": "המנוע היומי: מחליט לכל אירוע מה יוצא היום (גלים, יום-לפני, שולחן, תודה, דוחות ללקוח).",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runDailyEngine"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5025,
+    "line_end": 5224,
+    "ref": "worker/index.js:5025",
+    "symbol": "async function runDailyEngine"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "stuck_client",
+   "name_he": "שלב 0.5 · שילם ולא העלה רשימה",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": {
+    "cron": "35 6 * * * + */10",
+    "il": "בכל ריצת מנוע, אין בדיקת חלון",
+    "via": "runDailyEngine"
+   },
+   "conditions": [
+    "pend:<token> קיים (נכתב בתשלום) ואין uploaded:<token>",
+    "עבר לפחות יום מהתשלום"
+   ],
+   "templates": [
+    "ishur_tzikoret_kovetz"
+   ],
+   "audience": "הלקוח המשלם (הטלפון מהתשלום)",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 0.5 · שילם ולא העלה רשימה — pend:<token> קיים (נכתב בתשלום) ואין uploaded:<token>",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "stage 0.5: paid but never"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5108,
+    "line_end": 5147,
+    "ref": "worker/index.js:5108",
+    "symbol": "stage 0.5: paid but never"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "no_setup",
+   "name_he": "שלב 0.55 · שילם, העלה, לא הגדיר תאריכים",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": {
+    "cron": "35 6 * * * + */10",
+    "il": "בכל ריצת מנוע, אין בדיקת חלון",
+    "via": "runDailyEngine"
+   },
+   "conditions": [
+    "משולם, לא בוטל, קובץ הועלה",
+    "חסר תאריך אירוע או אין אף תאריך שליחה (AN/AO/AP)"
+   ],
+   "templates": [
+    "ishur_tzikoret_kovetz"
+   ],
+   "audience": "הלקוח (עמודה D)",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 0.55 · שילם, העלה, לא הגדיר תאריכים — משולם, לא בוטל, קובץ הועלה",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "stage 0.55"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5206,
+    "line_end": 5245,
+    "ref": "worker/index.js:5206",
+    "symbol": "stage 0.55"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "health_alert",
+   "name_he": "שלב 0.6 · בריאות ערוץ (כשלים אתמול)",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "אתמול ≥10 שליחות ו-≥30% נכשלו (wastat:<יום>)"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "low",
+   "desc_he": "שלב 0.6 · בריאות ערוץ (כשלים אתמול) — אתמול ≥10 שליחות ו-≥30% נכשלו (wastat:<יום>)",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "stage 0.6: channel health"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5233,
+    "line_end": 5272,
+    "ref": "worker/index.js:5233",
+    "symbol": "stage 0.6: channel health"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "watchdog",
+   "name_he": "שלב 0.7 · שומר: גל 1 לא יצא",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "משולם + קובץ + לא מוחזק",
+    "תאריך גל 1 עבר לפני יום או יותר ואין wave:<token>:1",
+    "האירוע עוד לא היה"
+   ],
+   "templates": [],
+   "audience": "סלאק (התראה אחת לאירוע)",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "low",
+   "desc_he": "שלב 0.7 · שומר: גל 1 לא יצא — משולם + קובץ + לא מוחזק",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "stage 0.7: the wedding"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5246,
+    "line_end": 5285,
+    "ref": "worker/index.js:5246",
+    "symbol": "stage 0.7: the wedding"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "ad_review",
+   "name_he": "שלב 0.8 · סקירת קמפיין כל 4 ימים",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "adrev:last ישן מ-4 ימים פחות 6 שעות"
+   ],
+   "templates": [],
+   "audience": "ריצארד (וואטסאפ + סלאק)",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "low",
+   "desc_he": "שלב 0.8 · סקירת קמפיין כל 4 ימים — adrev:last ישן מ-4 ימים פחות 6 שעות",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "stage 0.8"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5288,
+    "line_end": 5327,
+    "ref": "worker/index.js:5288",
+    "symbol": "stage 0.8"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "wave1",
+   "name_he": "גל 1 · הזמנה",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": {
+    "cron": "35 6 * * * + */10",
+    "il": "תאריך AN, עד 3 ימים באיחור; בפועל בחלון השליחה (התקציב)",
+    "via": "runDailyEngine → sendWave"
+   },
+   "conditions": [
+    "משולם, לא בוטל, קובץ הועלה, אין hold:<token>",
+    "היום בין AN ל-AN+3 והאירוע עוד לא היה",
+    "אין wave:<token>:1",
+    "לכל הרשימה חוץ מ\"לא מגיע\"",
+    "הזמנה אחת לאדם ביום בין אירועים (gday:)"
+   ],
+   "templates": [
+    "hazmana_ishur",
+    "hazmana_ishur_v2",
+    "hazmana_ishur_img_u",
+    "hazmana_ishur_vid_u",
+    "hazmana_ishur_img",
+    "hazmana_ishur_vid"
+   ],
+   "audience": "כל האורחים של האירוע (עמודה AC = token)",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": {
+    "key": "auto:off:wave1",
+    "wired": true
+   },
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "high",
+   "desc_he": "גל 1: ההזמנה הראשונה לכל האורחים של האירוע.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function sendWave"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4821,
+    "line_end": 5020,
+    "ref": "worker/index.js:4821",
+    "symbol": "async function sendWave"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "wave1",
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "wave2",
+   "name_he": "גל 2 · תזכורת",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": {
+    "cron": "35 6 * * * + */10",
+    "il": "תאריך AO, עד 3 ימים באיחור",
+    "via": "runDailyEngine → sendWave"
+   },
+   "conditions": [
+    "כמו גל 1",
+    "רק למי שלא ענה או ענה \"מתלבט\""
+   ],
+   "templates": [
+    "hazmana_ishur",
+    "hazmana_ishur_v2"
+   ],
+   "audience": "אורחים שלא ענו / מתלבטים",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": {
+    "key": "auto:off:wave2",
+    "wired": true
+   },
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "high",
+   "desc_he": "גל 2: תזכורת למי שלא ענה או מתלבט.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function sendWave"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4821,
+    "line_end": 5020,
+    "ref": "worker/index.js:4821",
+    "symbol": "async function sendWave"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "wave2",
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "wave3",
+   "name_he": "גל 3 · שליחה נוספת (תוסף)",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": {
+    "cron": "35 6 * * * + */10",
+    "il": "תאריך AP",
+    "via": "runDailyEngine → sendWave"
+   },
+   "conditions": [
+    "רק אם נרכש התוסף: extrasend:<token>",
+    "אחרת: התראה אחת ו-wave3note:"
+   ],
+   "templates": [
+    "hazmana_ishur",
+    "hazmana_ishur_v2"
+   ],
+   "audience": "כל הרשימה חוץ מ\"לא מגיע\"",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": {
+    "key": "auto:off:wave3",
+    "wired": true
+   },
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "high",
+   "desc_he": "גל 3: שליחה נוספת (תוסף בתשלום).",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function sendWave"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4821,
+    "line_end": 5020,
+    "ref": "worker/index.js:4821",
+    "symbol": "async function sendWave"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "wave3",
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "escalation",
+   "name_he": "הסלמה לשיחות אחרי הגל האחרון",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "יום אחרי תאריך השליחה האחרון",
+    "חבילה לא \"בסיס\"",
+    "מי שלא ענה או \"מתלבט\", נייד ישראלי, בלי סטטוס שיחה"
+   ],
+   "templates": [],
+   "audience": "כותב \"נדרשת שיחה\" בגיליון (HOOK_EVENTS) — התור של שיר",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "low",
+   "desc_he": "הסלמה לשיחות אחרי הגל האחרון — יום אחרי תאריך השליחה האחרון",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "const escKey = `esc:"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5391,
+    "line_end": 5430,
+    "ref": "worker/index.js:5391",
+    "symbol": "const escKey = `esc:"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "report7",
+   "name_he": "דוח שבוע-לפני ללקוח",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "0–7 ימים לאירוע",
+    "אין report7:<token>",
+    "אין hold"
+   ],
+   "templates": [
+    "ishur_doch"
+   ],
+   "audience": "הלקוח",
+   "warnings": [
+    "אין בדיקת חלון שליחה — בריצת 08:35 בחורף יכול לצאת לפני 09:00"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "דוח שבוע-לפני ללקוח — 0–7 ימים לאירוע",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_doch', ["
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5468,
+    "line_end": 5507,
+    "ref": "worker/index.js:5468",
+    "symbol": "'ishur_doch', ["
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "toda",
+   "name_he": "תודה לאורחים (יום אחרי)",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "1–14 ימים אחרי האירוע",
+    "חבילה לא \"בסיס\"",
+    "רק מי שאישר \"מגיע\"",
+    "אין toda:<token>"
+   ],
+   "templates": [
+    "ishur_toda_orach_v2",
+    "ishur_toda_orach"
+   ],
+   "audience": "אורחים שאישרו הגעה",
+   "warnings": [
+    "לא נרשם wamid לשליחה הזו, ולכן כשל אסינכרוני (גם 131048) לא פותח את האורח מחדש — הוא נשאר מסומן כ\"נשלח\""
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "תודה לאורחים (יום אחרי) — 1–14 ימים אחרי האירוע",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "ishur_toda_orach_v2') ? "
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5527,
+    "line_end": 5566,
+    "ref": "worker/index.js:5527",
+    "symbol": "ishur_toda_orach_v2') ? "
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "syum",
+   "name_he": "סיכום סוף-אירוע ללקוח",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "1–14 ימים אחרי האירוע",
+    "אין eoe:<token>",
+    "קישורי המלצה במוח השירות קיימים, אחרת התראה אחת"
+   ],
+   "templates": [
+    "ishur_syum_v3",
+    "ishur_syum"
+   ],
+   "audience": "הלקוח",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "סיכום סוף-אירוע ללקוח — 1–14 ימים אחרי האירוע",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_syum_v3'"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5581,
+    "line_end": 5620,
+    "ref": "worker/index.js:5581",
+    "symbol": "'ishur_syum_v3'"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "seating",
+   "name_he": "שלב 4 · \"השולחן שלך\" ביום האירוע",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "תאריך האירוע = היום",
+    "אורח \"מגיע\" עם שולחן בעמודה AE",
+    "אין seat:<token>, אין hold"
+   ],
+   "templates": [
+    "ishur_shulchan"
+   ],
+   "audience": "מגיעים עם שולחן",
+   "warnings": [
+    "כשל אסינכרוני שאינו תקרה: seat:<token> לא נמחק, לכן השלב לא חוזר לאורח הזה"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 4 · \"השולחן שלך\" ביום האירוע — תאריך האירוע = היום",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_shulchan', [gname"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5636,
+    "line_end": 5675,
+    "ref": "worker/index.js:5636",
+    "symbol": "'ishur_shulchan', [gname"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "cancel",
+   "name_he": "שלב 5 · הודעת ביטול לאורחים",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "בוטל? = כן, וגל 1 כבר יצא, והאירוע עוד לא עבר",
+    "הכל כלול או תוסף msgaddon:<token>:cancel — אחרת התראה לריצארד"
+   ],
+   "templates": [
+    "ishur_bitul"
+   ],
+   "audience": "כל המוזמנים",
+   "warnings": [
+    "לא נרשם wamid לשליחה הזו, ולכן כשל אסינכרוני (גם 131048) לא פותח את האורח מחדש — הוא נשאר מסומן כ\"נשלח\""
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 5 · הודעת ביטול לאורחים — בוטל? = כן, וגל 1 כבר יצא, והאירוע עוד לא עבר",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_bitul', [gname"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5716,
+    "line_end": 5755,
+    "ref": "worker/index.js:5716",
+    "symbol": "'ishur_bitul', [gname"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "postpone",
+   "name_he": "שלב 5 · הודעת דחייה לאורחים",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "תאריך האירוע בגיליון שונה מ-sentdate:<token>",
+    "הכל כלול או msgaddon:<token>:postpone"
+   ],
+   "templates": [
+    "ishur_dchiya"
+   ],
+   "audience": "כל המוזמנים",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 5 · הודעת דחייה לאורחים — תאריך האירוע בגיליון שונה מ-sentdate:<token>",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_dchiya',"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5767,
+    "line_end": 5806,
+    "ref": "worker/index.js:5767",
+    "symbol": "'ishur_dchiya',"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "day_before",
+   "name_he": "שלב 5 · תזכורת יום-לפני",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "0–1 ימים לאירוע, קובץ הועלה",
+    "רק \"מגיע\"",
+    "אין daybefore:<token>"
+   ],
+   "templates": [
+    "ishur_yom_lifnei"
+   ],
+   "audience": "מי שאישר הגעה",
+   "warnings": [
+    "כשל אסינכרוני שאינו תקרה: daybefore:<token> לא נמחק"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 5 · תזכורת יום-לפני — 0–1 ימים לאירוע, קובץ הועלה",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "current: navU ? navT : 'ishur_yom_lifnei'"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5819,
+    "line_end": 5858,
+    "ref": "worker/index.js:5819",
+    "symbol": "current: navU ? navT : 'ishur_yom_lifnei'"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "upsell_basic",
+   "name_he": "שלב 5 · הצעת שדרוג לבסיס",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "חבילת בסיס, ≥7 ימים לאירוע",
+    "≥2 ימים מהגל הראשון שיצא",
+    "≥10 מוזמנים ו-≥40% לא ענו"
+   ],
+   "templates": [
+    "ishur_shidrug"
+   ],
+   "audience": "הלקוח",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 5 · הצעת שדרוג לבסיס — חבילת בסיס, ≥7 ימים לאירוע",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_shidrug',"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5861,
+    "line_end": 5900,
+    "ref": "worker/index.js:5861",
+    "symbol": "'ishur_shidrug',"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "upsell_pro",
+   "name_he": "שלב 5 · הצעת הכל כלול לפרמיום",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_engine"
+   ],
+   "trigger": null,
+   "conditions": [
+    "פרמיום, ≥7 ימים לאירוע",
+    "סבב שיחות היה (calldate:)",
+    "≥5 חויגו ו-≥60% לא נענו"
+   ],
+   "templates": [
+    "ishur_shidrug_sichot"
+   ],
+   "audience": "הלקוח",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_engine"
+   ],
+   "risk": "medium",
+   "desc_he": "שלב 5 · הצעת הכל כלול לפרמיום — פרמיום, ≥7 ימים לאירוע",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "'ishur_shidrug_sichot',"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5887,
+    "line_end": 5926,
+    "ref": "worker/index.js:5887",
+    "symbol": "'ishur_shidrug_sichot',"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "autoretry",
+   "name_he": "ניסיון חוזר אוטומטי (פעם ביום)",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "הפעימה הראשונה בחלון השליחה בכל יום",
+    "via": "runPacer"
+   },
+   "conditions": [
+    "אורחים עם wfail/wferr בלי wsent ולא wdead"
+   ],
+   "templates": [],
+   "audience": "פותח מחדש גלים — השליחה עצמה בגלים",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv",
+    "wa_guest"
+   ],
+   "kill_switch": {
+    "key": "auto:off:autoretry",
+    "wired": true
+   },
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "high",
+   "desc_he": "פעם ביום בחלון השליחה: פותח מחדש אורחים שההזמנה שלהם לא נמסרה, כדי שהגל ישלח להם שוב.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runPacer"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 6034,
+    "line_end": 6168,
+    "ref": "worker/index.js:6034",
+    "symbol": "async function runPacer"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "autoretry",
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "lead_chase",
+   "name_he": "רצף לידים שנטשו (נועה)",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "בחלון השליחה",
+    "via": "runPacer → chaseAbandonedLeads"
+   },
+   "conditions": [
+    "t1: 30 דקות אחרי הטופס",
+    "t2: ביום אחר ו-16 שעות אחרי t1",
+    "שעתיים אחרי t2 → תור שיחות lq: (אם אין הסכמה)",
+    "t3: 3 ימים אחרי t2",
+    "יוצא מהרצף: שילם, ענה, חסום"
+   ],
+   "templates": [
+    "ishur_lo_siyem",
+    "ishur_lo_siyem_2",
+    "ishur_lo_siyem_3"
+   ],
+   "audience": "לידים שהשאירו טלפון ולא שילמו",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "medium",
+   "desc_he": "רצף לידים שנטשו (נועה) — t1: 30 דקות אחרי הטופס",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function chaseAbandonedLeads"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 882,
+    "line_end": 1009,
+    "ref": "worker/index.js:882",
+    "symbol": "async function chaseAbandonedLeads"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:38.907Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "shir_callbacks",
+   "name_he": "שיר · חזרה למי שהתקשר",
+   "layer": 2,
+   "kind": "call",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "חלון השיחות",
+    "via": "runPacer → runShirCallbacks"
+   },
+   "conditions": [
+    "תור cbq:<phone>",
+    "paused/חג/חלון סגור → לא מחייג"
+   ],
+   "templates": [],
+   "audience": "מי שהתקשר אלינו",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "call",
+    "kv",
+    "money"
+   ],
+   "kill_switch": {
+    "key": "auto:off:shir_callbacks",
+    "wired": true
+   },
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "high",
+   "desc_he": "שיר מחזירה שיחה למי שהתקשר אלינו ולא נענה.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runShirCallbacks"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 2575,
+    "line_end": 2655,
+    "ref": "worker/index.js:2575",
+    "symbol": "async function runShirCallbacks"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "shir_callbacks",
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:49.966Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "shir_dispatch",
+   "name_he": "שיר · חיוג תור האורחים",
+   "layer": 2,
+   "kind": "call",
+   "from": [
+    "d_pacer",
+    "escalation",
+    "call_rounds"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "חלון השיחות",
+    "via": "runPacer → runShirDispatch"
+   },
+   "conditions": [
+    "שורה עם \"נדרשת שיחה\" (buildCallQueue)",
+    "אין hold, לא חסום לשיחות, לא \"טעות במספר\"",
+    "שיחה אחת ביום לאורח (shirtry:)",
+    "מקסימום ניסיונות לפי חבילה: הכל כלול 3 · פרמיום 1 · בסיס 0"
+   ],
+   "templates": [],
+   "audience": "אורחים בתור השיחות",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "call",
+    "kv",
+    "sheet",
+    "money"
+   ],
+   "kill_switch": {
+    "key": "auto:off:shir_dispatch",
+    "wired": true
+   },
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "high",
+   "desc_he": "שיר מחייגת לאורחים שלא ענו בוואטסאפ (תור \"נדרשת שיחה\").",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runShirDispatch"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 2325,
+    "line_end": 2391,
+    "ref": "worker/index.js:2325",
+    "symbol": "async function runShirDispatch"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "shir_dispatch",
+    "off": null,
+    "last_run_at": "2026-11-03T12:01:00.623Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "noa_lead_dial",
+   "name_he": "נועה · חיוג לידים (כבוי)",
+   "layer": 2,
+   "kind": "call",
+   "from": [
+    "d_pacer",
+    "lead_chase"
+   ],
+   "trigger": null,
+   "conditions": [
+    "NOA_LEADS=\"on\" — כרגע \"off\"",
+    "תור lq:"
+   ],
+   "templates": [],
+   "audience": "לידים בתור",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "call",
+    "money"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_pacer",
+    "lead_chase"
+   ],
+   "risk": "medium",
+   "desc_he": "נועה · חיוג לידים (כבוי) — NOA_LEADS=\"on\" — כרגע \"off\"",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runShirLeadDial"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 2674,
+    "line_end": 2748,
+    "ref": "worker/index.js:2674",
+    "symbol": "async function runShirLeadDial"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:01:00.889Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "skipped": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "reconcile_calls",
+   "name_he": "קליטת תוצאות שיחה מרטל",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": null,
+   "conditions": [
+    "כל פעימה, בכל שעה",
+    "שיחות אורח שהסתיימו, עד 3 ימים, שעוד לא עובדו"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "sheet",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "low",
+   "desc_he": "קליטת תוצאות שיחה מרטל — כל פעימה, בכל שעה",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function reconcileShirCalls"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 2296,
+    "line_end": 2320,
+    "ref": "worker/index.js:2296",
+    "symbol": "async function reconcileShirCalls"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:39.158Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "skipped": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "template_check",
+   "name_he": "בדיקת תבניות מטא (שעתית)",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": null,
+   "conditions": [
+    "פעם בשעה (tmplcheck:<שעה>)",
+    "תבנית _u/_f שאושרה → מחליפה אוטומטית",
+    "תבנית חיה שנפסלה/הושהתה → חוזרים לקודמת + סלאק דחוף"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "meta",
+    "kv",
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "low",
+   "desc_he": "בדיקת תבניות מטא (שעתית) — פעם בשעה (tmplcheck:<שעה>)",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function templateCheck"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 5942,
+    "line_end": 6032,
+    "ref": "worker/index.js:5942",
+    "symbol": "async function templateCheck"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:01:01.070Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "doctor",
+   "name_he": "הרופא (סוף כל פעימה)",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": null,
+   "conditions": [
+    "גרסה חדשה ליומן",
+    "תשלומי Grow שחנו",
+    "pacer:pending ישן → חימוש מחדש",
+    "כשלי יומן/קורא/תבניות → התראה פעם ביום"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv",
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "low",
+   "desc_he": "הרופא (סוף כל פעימה) — גרסה חדשה ליומן",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runDoctor"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 6198,
+    "line_end": 6294,
+    "ref": "worker/index.js:6198",
+    "symbol": "async function runDoctor"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:01:21.494Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "slack_flush",
+   "name_he": "ריקון תור הסלאק של הלילה",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "d_pacer"
+   ],
+   "trigger": null,
+   "conditions": [
+    "הפעימה הראשונה אחרי 09:00 בישראל, גם כשמושהה"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "d_pacer"
+   ],
+   "risk": "low",
+   "desc_he": "ריקון תור הסלאק של הלילה — הפעימה הראשונה אחרי 09:00 בישראל, גם כשמושהה",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "await flushSlackQueue(env).catch"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 6051,
+    "line_end": 6090,
+    "ref": "worker/index.js:6051",
+    "symbol": "await flushSlackQueue(env).catch"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "event_day_blast",
+   "name_he": "הודעת יום האירוע (edblast)",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "מ-09:00 בישראל ובחלון השליחה, מהתאריך job.at",
+    "via": "audit.job runEventDayBlasts"
+   },
+   "conditions": [
+    "משימה edblast:<token> (נוצרת ב-/api/event-day action:set)",
+    "התבנית job.template מאושרת במטא",
+    "נמענים: \"מגיע\" או מי שקיבל יום-לפני (s5d:)",
+    "no_table: מדלג על מי שיש לו שולחן",
+    "לא חסום, לא טעות במספר, paused עוצר"
+   ],
+   "templates": [
+    "ishur_yom_haerua"
+   ],
+   "audience": "מגיעים (ומי שקיבל יום-לפני)",
+   "warnings": [
+    "hold:<token> לא נבדק בפונקציה הזו — \"החזק\" לא עוצר את הודעת יום האירוע; לעצור: /api/event-day action:clear",
+    "כשל תקרה אסינכרוני אחרי שהמשימה נמחקה לא נשלח שוב",
+    "אין תקציב לפעימה"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": {
+    "key": "auto:off:event_day_blast",
+    "wired": true
+   },
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "high",
+   "desc_he": "ביום האירוע מ-09:00: ההודעה שהלקוח קבע לאורחים שמגיעים.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runEventDayBlasts"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4415,
+    "line_end": 4480,
+    "ref": "worker/index.js:4415",
+    "symbol": "async function runEventDayBlasts"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "event_day_blast",
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "call_rounds",
+   "name_he": "סבב שיחות נוסף ביום שנבחר",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "מ-09:00 ביום job.at",
+    "via": "audit.job drainCallRounds"
+   },
+   "conditions": [
+    "callround:<token> לא done",
+    "אורחים מהרשימה שעוד לא ענו, נייד ישראלי"
+   ],
+   "templates": [],
+   "audience": "כותב V=\"נדרשת שיחה\", AD=0 → התור של שיר",
+   "warnings": [
+    "אין בדיקת paused/hold כאן — אבל החיוג עצמו (shir_dispatch) בודק את שניהם"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "סבב שיחות נוסף ביום שנבחר — callround:<token> לא done",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function drainCallRounds"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4693,
+    "line_end": 4727,
+    "ref": "worker/index.js:4693",
+    "symbol": "async function drainCallRounds"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "party_nudges",
+   "name_he": "\"כמה תהיו?\" תזכורות כמות",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": {
+    "cron": "*/10 * * * *",
+    "il": "חלון השליחה",
+    "via": "audit.job drainPartyNudges"
+   },
+   "conditions": [
+    "awaitparty:<guest_id> קיים",
+    "אחרי שעתיים ואחרי 6 שעות (מקסימום 2)",
+    "רק אם בגיליון עדיין \"מגיע\" בלי כמות"
+   ],
+   "templates": [],
+   "audience": "אורח שענה מגיע בלי מספר (טקסט חופשי בתוך חלון 24ש)",
+   "warnings": [
+    "לא בודק paused ולא hold — רק חלון שליחה"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": {
+    "key": "auto:off:party_nudges",
+    "wired": true
+   },
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "medium",
+   "desc_he": "שואל אורח שענה \"מגיע\" כמה יגיעו, כשלא כתב מספר.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function drainPartyNudges"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4742,
+    "line_end": 4770,
+    "ref": "worker/index.js:4742",
+    "symbol": "async function drainPartyNudges"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "party_nudges",
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "lead_pings",
+   "name_he": "ליד חדש לסלאק (אחרי 10 דקות שקט)",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "leadping:<phone> שהגיע זמנו",
+    "לא שילם בינתיים"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "ליד חדש לסלאק (אחרי 10 דקות שקט) — leadping:<phone> שהגיע זמנו",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function drainLeadPings"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 702,
+    "line_end": 722,
+    "ref": "worker/index.js:702",
+    "symbol": "async function drainLeadPings"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "meta_form_leads",
+   "name_he": "לידים מטפסי מטא",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "כל פעימה: לידים חדשים מטפסים מיידיים"
+   ],
+   "templates": [],
+   "audience": "גיליון לידים + מאנדיי + סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "sheet",
+    "monday",
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "לידים מטפסי מטא — כל פעימה: לידים חדשים מטפסים מיידיים",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function pullMetaFormLeads"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 731,
+    "line_end": 798,
+    "ref": "worker/index.js:731",
+    "symbol": "async function pullMetaFormLeads"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "custom_tmpl",
+   "name_he": "מעקב נוסח הזמנה אישי במטא",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "customtmpl:<token> במצב PENDING"
+   ],
+   "templates": [],
+   "audience": "סלאק + לוח הלקוח",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "מעקב נוסח הזמנה אישי במטא — customtmpl:<token> במצב PENDING",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function checkCustomTemplates"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4662,
+    "line_end": 4683,
+    "ref": "worker/index.js:4662",
+    "symbol": "async function checkCustomTemplates"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "noa_queue",
+   "name_he": "נועה · מענה AI מושהה",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "noaq:<phone> שהגיע זמנו (השהיה 1.5–5 דקות, בלילה עד 07:00)"
+   ],
+   "templates": [],
+   "audience": "מי שכתב לנועה",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "medium",
+   "desc_he": "תשובות מושהות של נועה ה-AI. כבוי בהחלטה — לא להדליק.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function drainNoaQueue"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 3967,
+    "line_end": 3980,
+    "ref": "worker/index.js:3967",
+    "symbol": "async function drainNoaQueue"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "admin_calls",
+   "name_he": "נועה · שיחה מתוזמנת לאדמין",
+   "layer": 2,
+   "kind": "call",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "noacall:<phone> שהגיע זמנו",
+    "רק למספרים ב-ADMIN_PHONES"
+   ],
+   "templates": [],
+   "audience": "ריצארד/שלו",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "call",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "medium",
+   "desc_he": "נועה · שיחה מתוזמנת לאדמין — noacall:<phone> שהגיע זמנו",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function drainAdminCalls"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 8293,
+    "line_end": 8314,
+    "ref": "worker/index.js:8293",
+    "symbol": "async function drainAdminCalls"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "ads_watch",
+   "name_he": "שומר חשבון המודעות",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "פעם בשעה",
+    "מודיע רק כשהמצב השתנה"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "שומר חשבון המודעות — פעם בשעה",
+   "code": {
+    "file": "worker/ads.js",
+    "symbol": "export async function adsHealthWatch"
+   },
+   "code_ref": {
+    "file": "worker/ads.js",
+    "line": 105,
+    "line_end": 137,
+    "ref": "worker/ads.js:105",
+    "symbol": "export async function adsHealthWatch"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "morning_undelivered",
+   "name_he": "בוקר · הזמנות שלא נמסרו (סלאק)",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_morning"
+   ],
+   "trigger": null,
+   "conditions": [
+    "wfail/wdead/wferr בלי wsent"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_morning"
+   ],
+   "risk": "low",
+   "desc_he": "בוקר · הזמנות שלא נמסרו (סלאק) — wfail/wdead/wferr בלי wsent",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length)"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9463,
+    "line_end": 9502,
+    "ref": "worker/index.js:9463",
+    "symbol": "undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length)"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T06:35:00.000Z"
+   }
+  },
+  {
+   "id": "backup",
+   "name_he": "גיבוי יומי של הגיליון ל-KV",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "t_morning"
+   ],
+   "trigger": null,
+   "conditions": [
+    "אחרי המנוע של הבוקר"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_morning"
+   ],
+   "risk": "low",
+   "desc_he": "גיבוי יומי של הגיליון ל-KV — אחרי המנוע של הבוקר",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runBackup"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 6374,
+    "line_end": 6394,
+    "ref": "worker/index.js:6374",
+    "symbol": "async function runBackup"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T06:35:00.000Z"
+   }
+  },
+  {
+   "id": "perf_digest",
+   "name_he": "שני · ביצועי הודעות (סלאק)",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_morning"
+   ],
+   "trigger": null,
+   "conditions": [
+    "רק ביום שני",
+    "תבניות עם ≥20 שליחות"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_morning"
+   ],
+   "risk": "low",
+   "desc_he": "שני · ביצועי הודעות (סלאק) — רק ביום שני",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function msgPerformanceDigest"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 7811,
+    "line_end": 7822,
+    "ref": "worker/index.js:7811",
+    "symbol": "async function msgPerformanceDigest"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T06:35:00.000Z"
+   }
+  },
+  {
+   "id": "heartbeat",
+   "name_he": "דופק: המנוע לא רץ",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_0400"
+   ],
+   "trigger": null,
+   "conditions": [
+    "engine:lastrun ישן מ-30 שעות (ראשון 72, שבת 48)",
+    "גם בדיקת טלניקס ובדיקת חיוב פעם ביום"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack",
+    "meta"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_0400"
+   ],
+   "risk": "low",
+   "desc_he": "דופק: המנוע לא רץ — engine:lastrun ישן מ-30 שעות (ראשון 72, שבת 48)",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function checkBilling"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 8016,
+    "line_end": 8094,
+    "ref": "worker/index.js:8016",
+    "symbol": "async function checkBilling"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T04:00:00.000Z"
+   }
+  },
+  {
+   "id": "daily_improve",
+   "name_he": "20:00 · לולאת שיפור יומית",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_evening"
+   ],
+   "trigger": null,
+   "conditions": [
+    "השעה בישראל = 20",
+    "פעם ביום (improve:<יום>)"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_evening"
+   ],
+   "risk": "low",
+   "desc_he": "20:00 · לולאת שיפור יומית — השעה בישראל = 20",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runDailyImprove"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 7473,
+    "line_end": 7641,
+    "ref": "worker/index.js:7473",
+    "symbol": "async function runDailyImprove"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T17:00:00.000Z"
+   }
+  },
+  {
+   "id": "journal_digest",
+   "name_he": "21:00 · דוח יומי לסלאק",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_evening"
+   ],
+   "trigger": null,
+   "conditions": [
+    "השעה בישראל = 21"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_evening"
+   ],
+   "risk": "low",
+   "desc_he": "21:00 · דוח יומי לסלאק — השעה בישראל = 21",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function dailyJournalDigest"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 7765,
+    "line_end": 7809,
+    "ref": "worker/index.js:7765",
+    "symbol": "async function dailyJournalDigest"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T17:00:00.000Z"
+   }
+  },
+  {
+   "id": "audit_root",
+   "name_he": "עוגן יומן ביקורת (19 UTC)",
+   "layer": 2,
+   "kind": "slack",
+   "from": [
+    "t_evening"
+   ],
+   "trigger": null,
+   "conditions": [
+    "כל יום בקרון 0 19"
+   ],
+   "templates": [],
+   "audience": "סלאק",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "slack"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_evening"
+   ],
+   "risk": "low",
+   "desc_he": "עוגן יומן ביקורת (19 UTC) — כל יום בקרון 0 19",
+   "code": {
+    "file": "worker/audit.js",
+    "symbol": "export async function dailyRoot"
+   },
+   "code_ref": {
+    "file": "worker/audit.js",
+    "line": 345,
+    "line_end": 351,
+    "ref": "worker/audit.js:345",
+    "symbol": "export async function dailyRoot"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T17:00:00.000Z"
+   }
+  },
+  {
+   "id": "team_reminders",
+   "name_he": "תזכורות צוות (שלישי)",
+   "layer": 2,
+   "kind": "send_client",
+   "from": [
+    "t_tue"
+   ],
+   "trigger": null,
+   "conditions": [
+    "רשימה ב-KV reminders לתאריך של היום",
+    "משבצת ראשונה תמיד; אחר כך רק אם נשאר פתוח",
+    "נכשל בוואטסאפ (24ש) → לסלאק"
+   ],
+   "templates": [],
+   "audience": "ריצארד / שלו (טקסט חופשי)",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_client"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_tue"
+   ],
+   "risk": "medium",
+   "desc_he": "תזכורות צוות (שלישי) — רשימה ב-KV reminders לתאריך של היום",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function runTeamReminders"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 6308,
+    "line_end": 6334,
+    "ref": "worker/index.js:6308",
+    "symbol": "async function runTeamReminders"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T16:00:00.000Z"
+   }
+  },
+  {
+   "id": "wave_retry",
+   "name_he": "/api/wave-retry · ניסיון חוזר ידני (משנה מצב גם ב-dry!)",
+   "layer": 3,
+   "kind": "internal",
+   "from": [],
+   "trigger": {
+    "cron": "",
+    "il": "ידני בלבד",
+    "via": "POST /api/wave-retry {token, wave, dry}"
+   },
+   "conditions": [
+    "dry:true מדלג רק על הרצת המנוע — המחיקות והחימוש קורים לפני הבדיקה"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [
+    "לעולם לא לקרוא מכלי קריאה בלבד: גם dry:true מוחק wfail/wdead/wferr/gday/wave וכותב pacer:pending"
+   ],
+   "owner": "richard",
+   "side_effects": [
+    "kv",
+    "wa_guest"
+   ],
+   "kill_switch": {
+    "key": "auto:off:manual_blasts",
+    "wired": true,
+    "via": "manual_blasts"
+   },
+   "depends_on": [],
+   "risk": "high",
+   "desc_he": "/api/wave-retry · ניסיון חוזר ידני (משנה מצב גם ב-dry!) — dry:true מדלג רק על הרצת המנוע — המחיקות והחימוש קורים לפני הבדיקה",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "url.pathname === '/api/wave-retry'"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 10259,
+    "line_end": 10298,
+    "ref": "worker/index.js:10259",
+    "symbol": "url.pathname === '/api/wave-retry'"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "manual_blasts",
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": null
+   }
+  },
+  {
+   "id": "late_invites",
+   "name_he": "הזמנות מאוחרות (אורחים שנוספו אחרי הגל)",
+   "layer": 2,
+   "kind": "send_guest",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "תור lateinv:<token>:<phone>",
+    "paused / hold עוצרים"
+   ],
+   "templates": [],
+   "audience": "אורחים שנוספו לרשימה אחרי שגל 1 יצא",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "medium",
+   "desc_he": "הזמנות מאוחרות (אורחים שנוספו אחרי הגל) — תור lateinv:<token>:<phone>",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function drainLateInvites"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4390,
+    "line_end": 4410,
+    "ref": "worker/index.js:4390",
+    "symbol": "async function drainLateInvites"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "calendar_build",
+   "name_he": "בניית מטמון לוח שנה",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "כל פעימה, החודש הנוכחי"
+   ],
+   "templates": [],
+   "audience": "—",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "בניית מטמון לוח שנה — כל פעימה, החודש הנוכחי",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function buildCalendarMonth"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 9223,
+    "line_end": 9328,
+    "ref": "worker/index.js:9223",
+    "symbol": "async function buildCalendarMonth"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 1,
+    "by_status_24h": {
+     "ok": 1
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "noa_chase",
+   "name_he": "נועה רודפת (לידים \"לא ענה\" במאנדיי)",
+   "layer": 2,
+   "kind": "call",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "NOA_CHASE=\"on\" בלבד (כרגע off)",
+    "חלון שיחות"
+   ],
+   "templates": [],
+   "audience": "לידים",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "call",
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "medium",
+   "desc_he": "נועה רודפת (לידים \"לא ענה\" במאנדיי) — NOA_CHASE=\"on\" בלבד (כרגע off)",
+   "code": {
+    "file": "worker/noa.js",
+    "symbol": "export async function noaChaseTick"
+   },
+   "code_ref": {
+    "file": "worker/noa.js",
+    "line": 481,
+    "line_end": 491,
+    "ref": "worker/noa.js:481",
+    "symbol": "export async function noaChaseTick"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "audit_meta",
+   "name_he": "יומן ביקורת · רענון מטא-דאטה + מראה לגיליון",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "כל פעימה: evmeta/gmap",
+    "פעם בשעה: מראה לטאב \"ביקורת\""
+   ],
+   "templates": [],
+   "audience": "—",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "יומן ביקורת · רענון מטא-דאטה + מראה לגיליון — כל פעימה: evmeta/gmap",
+   "code": {
+    "file": "worker/audit.js",
+    "symbol": "export async function refreshMeta"
+   },
+   "code_ref": {
+    "file": "worker/audit.js",
+    "line": 89,
+    "line_end": 105,
+    "ref": "worker/audit.js:89",
+    "symbol": "export async function refreshMeta"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": "2026-11-03T12:00:37.539Z",
+    "runs_24h": 2,
+    "by_status_24h": {
+     "ok": 2
+    },
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "ab_evaluate",
+   "name_he": "A/B · בחירת תבנית מנצחת",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "t_cron10"
+   ],
+   "trigger": null,
+   "conditions": [
+    "AB_ENABLED=\"on\"",
+    "06:00 בישראל"
+   ],
+   "templates": [],
+   "audience": "—",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_cron10"
+   ],
+   "risk": "low",
+   "desc_he": "A/B · בחירת תבנית מנצחת — AB_ENABLED=\"on\"",
+   "code": {
+    "file": "worker/ab.js",
+    "symbol": "export async function evaluate"
+   },
+   "code_ref": {
+    "file": "worker/ab.js",
+    "line": 241,
+    "line_end": 327,
+    "ref": "worker/ab.js:241",
+    "symbol": "export async function evaluate"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-03T12:10:00.000Z"
+   }
+  },
+  {
+   "id": "call_cost_sync",
+   "name_he": "סנכרון עלויות שיחה מ-Retell",
+   "layer": 2,
+   "kind": "internal",
+   "from": [
+    "t_morning"
+   ],
+   "trigger": null,
+   "conditions": [
+    "קרון בוקר"
+   ],
+   "templates": [],
+   "audience": "—",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_morning"
+   ],
+   "risk": "low",
+   "desc_he": "סנכרון עלויות שיחה מ-Retell — קרון בוקר",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function syncCallCosts"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 7904,
+    "line_end": 7931,
+    "ref": "worker/index.js:7904",
+    "symbol": "async function syncCallCosts"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": "2026-11-04T06:35:00.000Z"
+   }
+  },
+  {
+   "id": "manual_blasts",
+   "name_he": "שליחות ידניות (מתנה · אירוע-בן · SMS · ניסיון חוזר · שליחה חוזרת)",
+   "layer": 3,
+   "kind": "send_guest",
+   "from": [],
+   "trigger": {
+    "cron": "",
+    "il": "ידני בלבד",
+    "via": "POST /api/gift-blast · /api/subevent-send · /api/sms-blast · /api/wave-retry · /api/resend"
+   },
+   "conditions": [
+    "אדמין בלבד",
+    "כבוי (auto:off:manual_blasts) → כל המסלולים מחזירים 423 לפני כל קריאה החוצה; /api/wave-retry חסום גם ב-dry כי הוא משנה מצב"
+   ],
+   "templates": [],
+   "audience": "אורחים של אירוע אחד",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "wa_guest",
+    "sms",
+    "kv"
+   ],
+   "kill_switch": {
+    "key": "auto:off:manual_blasts",
+    "wired": true
+   },
+   "depends_on": [],
+   "risk": "high",
+   "desc_he": "כל השליחות הידניות לאורחים: קישורי מתנה, אירוע-בן (שבת חתן), SMS חירום, ניסיון חוזר לגל, שליחה חוזרת.",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function handleGiftBlast"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 4491,
+    "line_end": 4563,
+    "ref": "worker/index.js:4491",
+    "symbol": "async function handleGiftBlast"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": "manual_blasts",
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": null
+   }
+  },
+  {
+   "id": "wa_fail",
+   "name_he": "כשל מסירה ממטא → פתיחה מחדש",
+   "layer": 3,
+   "kind": "internal",
+   "from": [
+    "t_wa_status"
+   ],
+   "trigger": {
+    "cron": "",
+    "il": "מיידי",
+    "via": "handleWaWebhook — status failed"
+   },
+   "conditions": [
+    "רק הודעות עם wamid:<id> רשום (גלים, שולחן, יום-לפני, יום האירוע, דחייה, לידים)",
+    "פעם אחת לכל wamid (wafail:)"
+   ],
+   "templates": [],
+   "audience": "",
+   "warnings": [],
+   "owner": "richard",
+   "side_effects": [
+    "kv"
+   ],
+   "kill_switch": null,
+   "depends_on": [
+    "t_wa_status"
+   ],
+   "risk": "high",
+   "desc_he": "כשל מסירה ממטא → פתיחה מחדש — רק הודעות עם wamid:<id> רשום (גלים, שולחן, יום-לפני, יום האירוע, דחייה, לידים)",
+   "code": {
+    "file": "worker/index.js",
+    "symbol": "async function handleWaWebhook"
+   },
+   "code_ref": {
+    "file": "worker/index.js",
+    "line": 2909,
+    "line_end": 3108,
+    "ref": "worker/index.js:2909",
+    "symbol": "async function handleWaWebhook"
+   },
+   "state": {
+    "enabled": true,
+    "switch_id": null,
+    "off": null,
+    "last_run_at": null,
+    "runs_24h": 0,
+    "by_status_24h": {},
+    "next_fire": null
+   }
+  }
+ ]
+}

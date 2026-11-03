@@ -1,0 +1,144 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T12:02:41.753Z",
+ "vendors": [
+  {
+   "vendor": "telnyx",
+   "amount": 4.29,
+   "currency": "USD",
+   "source": "api",
+   "checked_at": "2026-11-03T12:02:40.328Z",
+   "dashboard_url": "https://portal.telnyx.com/#/app/account/billing",
+   "topup_url": "https://portal.telnyx.com/#/app/account/billing",
+   "auto_topup": "unknown",
+   "status": "low",
+   "low_threshold": 10,
+   "error": "",
+   "extra": {
+    "balance": 4.29,
+    "available_credit": 4.29,
+    "credit_limit": 0,
+    "pending": 0
+   }
+  },
+  {
+   "vendor": "cloudflare",
+   "amount": null,
+   "currency": "USD",
+   "source": "manual",
+   "checked_at": "2026-11-03T12:02:40.167Z",
+   "dashboard_url": "https://dash.cloudflare.com/?to=/:account/workers/plans",
+   "topup_url": "https://dash.cloudflare.com/?to=/:account/billing",
+   "auto_topup": "unknown",
+   "status": "ok",
+   "low_threshold": null,
+   "error": "",
+   "extra": {
+    "why": "no CF_API_TOKEN/CF_ACCOUNT_ID — set both for Workers usage",
+    "manual_set_at": null,
+    "stale_days": null
+   }
+  },
+  {
+   "vendor": "meta_ads",
+   "amount": null,
+   "currency": "ILS",
+   "source": "api",
+   "checked_at": "2026-11-03T12:02:41.153Z",
+   "dashboard_url": "https://adsmanager.facebook.com/adsmanager/manage/accounts?act=1944903292858482",
+   "topup_url": "https://business.facebook.com/billing_hub/accounts/details?asset_id=1944903292858482",
+   "auto_topup": "on",
+   "status": "ok",
+   "low_threshold": 50,
+   "error": "",
+   "extra": {
+    "balance_owed": 256.86,
+    "amount_spent": 3866.17,
+    "spend_cap": 0,
+    "account_status": 1,
+    "is_prepay_account": false,
+    "amount_meaning": "no spend cap set (amount null)"
+   }
+  },
+  {
+   "vendor": "meta_wa",
+   "amount": 7.93,
+   "currency": "USD",
+   "source": "api",
+   "checked_at": "2026-11-03T12:02:41.753Z",
+   "dashboard_url": "https://business.facebook.com/wa/manage/insights/",
+   "topup_url": "https://business.facebook.com/billing_hub/",
+   "auto_topup": "unknown",
+   "status": "ok",
+   "low_threshold": null,
+   "error": "",
+   "extra": {
+    "meaning": "spend this month (pricing_analytics), not a balance — the payment method is not readable",
+    "wabas": [
+     {
+      "name": "guests",
+      "waba": "1378764257421712",
+      "spend_mtd": 7.93,
+      "volume": 487
+     },
+     {
+      "name": "client",
+      "waba": "1060242146337688",
+      "spend_mtd": 0,
+      "volume": 9
+     }
+    ]
+   }
+  },
+  {
+   "vendor": "retell",
+   "amount": null,
+   "currency": "USD",
+   "source": "manual",
+   "checked_at": "2026-11-03T12:02:40.600Z",
+   "dashboard_url": "https://dashboard.retellai.com/billing",
+   "topup_url": "https://dashboard.retellai.com/billing",
+   "auto_topup": "unknown",
+   "status": "ok",
+   "low_threshold": 20,
+   "error": "",
+   "extra": {
+    "concurrency": {
+     "current_concurrency": 0,
+     "concurrency_limit": 20,
+     "base_concurrency": 20,
+     "purchased_concurrency": 0,
+     "concurrency_purchase_limit": 180,
+     "remaining_purchase_limit": 180,
+     "concurrency_burst_enabled": true,
+     "concurrency_burst_limit": 60
+    },
+    "billing_guard_tripped": false,
+    "note": "credits hit 0 → calls end with credit_exhausted",
+    "manual_set_at": null,
+    "stale_days": null
+   }
+  },
+  {
+   "vendor": "anthropic",
+   "amount": null,
+   "currency": "USD",
+   "source": "manual",
+   "checked_at": "2026-11-03T12:02:40.096Z",
+   "dashboard_url": "https://console.anthropic.com/settings/billing",
+   "topup_url": "https://console.anthropic.com/settings/billing",
+   "auto_topup": "unknown",
+   "status": "ok",
+   "low_threshold": 10,
+   "error": "",
+   "extra": {
+    "note": "credit balance is not in the API; Admin usage/cost API needs an sk-ant-admin key",
+    "manual_set_at": null,
+    "stale_days": null
+   }
+  }
+ ],
+ "cached": true
+}

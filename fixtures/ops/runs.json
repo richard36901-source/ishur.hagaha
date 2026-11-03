@@ -1,0 +1,389 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "source": "kv",
+ "items": [
+  {
+   "id": "rmw0n047qj9muh0",
+   "automation_id": "doctor",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:21.494Z",
+   "ended_at": "2026-11-03T12:01:22.426Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 932
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"fixed\":0,\"alerted\":0,\"notes\":[\"build:8f4aa331\"]}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzoge0fv4a6",
+   "automation_id": "template_check",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:01.070Z",
+   "ended_at": "2026-11-03T12:01:13.200Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 12130
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzobdefstft",
+   "automation_id": "noa_lead_dial",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:00.889Z",
+   "ended_at": "2026-11-03T12:01:00.889Z",
+   "status": "skipped",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "skip_reason": "lead-calling-disabled",
+    "ms": 0
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"dialed\":0,\"skipped\":\"lead-calling-disabled\"}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzo3zm3vd7o",
+   "automation_id": "shir_dispatch",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:00.623Z",
+   "ended_at": "2026-11-03T12:01:00.735Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 112
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"dialed\":0,\"guests\":[],\"queued\":38,\"blocked\":0}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzfvygibkbs",
+   "automation_id": "shir_callbacks",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:00:49.966Z",
+   "ended_at": "2026-11-03T12:01:00.443Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 10477
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"dialed\":0,\"phones\":[],\"queued\":2,\"waiting\":0,\"skipped\":0}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mz7jq6s6j9h",
+   "automation_id": "reconcile_calls",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:00:39.158Z",
+   "ended_at": "2026-11-03T12:00:42.041Z",
+   "status": "skipped",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "skip_reason": "40",
+    "ms": 2883
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"applied\":0,\"skipped\":40,\"seen\":40}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mz7cr6l5tr0",
+   "automation_id": "lead_chase",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:00:38.907Z",
+   "ended_at": "2026-11-03T12:00:39.000Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 93
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "[]",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mz6aruhd0m5",
+   "automation_id": "noa_queue",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.776Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 237
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"sent\":0}",
+   "error": "",
+   "logs_ref": "audit:cron:drainNoaQueue"
+  },
+  {
+   "id": "rmw0mz6ars4hga7",
+   "automation_id": "meta_form_leads",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:39.065Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 1526
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"found\":1,\"leads\":[],\"errors\":[]}",
+   "error": "",
+   "logs_ref": "audit:cron:pullMetaFormLeads"
+  },
+  {
+   "id": "rmw0mz6arr9uuw1",
+   "automation_id": "custom_tmpl",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.986Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 447
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"checked\":0}",
+   "error": "",
+   "logs_ref": "audit:cron:checkCustomTemplates"
+  },
+  {
+   "id": "rmw0mz6arqw4w8n",
+   "automation_id": "party_nudges",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:40.447Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 2908
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"sent\":0}",
+   "error": "",
+   "logs_ref": "audit:cron:drainPartyNudges"
+  },
+  {
+   "id": "rmw0mz6arqrek42",
+   "automation_id": "audit_meta",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:01:00.201Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 22662
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"events\":13}",
+   "error": "",
+   "logs_ref": "audit:cron:auditMeta"
+  },
+  {
+   "id": "rmw0mz6arqi3o2w",
+   "automation_id": "audit_meta",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:56.409Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 18870
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"appended\":521,\"ok\":true}",
+   "error": "",
+   "logs_ref": "audit:cron:auditMirror"
+  },
+  {
+   "id": "rmw0mz6arpy38jq",
+   "automation_id": "lead_pings",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.768Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 229
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"posted\":0}",
+   "error": "",
+   "logs_ref": "audit:cron:drainLeadPings"
+  },
+  {
+   "id": "rmw0mz6arotxsye",
+   "automation_id": "admin_calls",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.758Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 219
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"dialed\":0}",
+   "error": "",
+   "logs_ref": "audit:cron:drainAdminCalls"
+  },
+  {
+   "id": "rmw0mz6armz21rx",
+   "automation_id": "d_pacer",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:01:22.945Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 45406
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"date\":\"2026-11-03\",\"sends\":{\"ran\":false,\"why\":\"nothing-pending\"},\"leads\":0,\"callbacks\":{\"dialed\":0,\"phones\":[],\"queued\":2,\"waiting\":0,\"skipped\":0},\"calls\":{\"dialed\":0,\"queued\":38},\"leadCalls\":{\"dialed\":0,\"skipped\":\"lead-calling-disabled\"},\"journal\":{\"ok\":true,\"flushed\":6},\"sheetlogs\":{\"msg_guests\":{\"flushed\":4,\"held\":0},\"msg_clients\":{\"flushed\":1,\"held\":0},\"calls\":{\"flushed\":0},\"removals\":{\"flushed\":0},\"invoices\":{\"flushed\":0},\"traffic\":{\"flushed\":0},\"callqueue\":{\"flushed\":0},\"feedback\":{\"flushed\":0},\"ok\":true},\"invoices\":{\"ok\":true,\"written\":0},\"doctor\":{\"ok\":true,\"fixed\":0,\"alerted\":0,\"notes\":[\"build:8f4aa331\"]}}",
+   "error": "",
+   "logs_ref": "audit:cron:runPacer"
+  },
+  {
+   "id": "rmw0mz6arg0oesp",
+   "automation_id": "event_day_blast",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.842Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 303
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"jobs\":[]}",
+   "error": "",
+   "logs_ref": "audit:cron:runEventDayBlasts"
+  },
+  {
+   "id": "rmw0mz6arc4xezn",
+   "automation_id": "ads_watch",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:38.909Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 1370
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"same\":true,\"verdict\":\"ACTIVE|5\"}",
+   "error": "",
+   "logs_ref": "audit:cron:adsHealthWatch"
+  },
+  {
+   "id": "rmw0mz6ar97keo4",
+   "automation_id": "late_invites",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.775Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 236
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"sent\":0}",
+   "error": "",
+   "logs_ref": "audit:cron:drainLateInvites"
+  },
+  {
+   "id": "rmw0mz6ar25jhky",
+   "automation_id": "call_rounds",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:37.843Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 304
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"jobs\":[]}",
+   "error": "",
+   "logs_ref": "audit:cron:drainCallRounds"
+  },
+  {
+   "id": "rmw0mz6ar0d1gdm",
+   "automation_id": "calendar_build",
+   "parent_id": null,
+   "started_at": "2026-11-03T12:00:37.539Z",
+   "ended_at": "2026-11-03T12:00:57.630Z",
+   "status": "ok",
+   "triggered_by": "cron",
+   "counts": {
+    "ms": 20091
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"month\":\"2026-11\",\"today\":\"2026-11-03\",\"days\":{\"2026-11-02\":[{\"at\":\"2026-11-02T03:40:15.274Z\",\"phone\":\"97254****536\",\"name\":\"סימן גרשון\",\"kind\":\"אורח\",\"ch\":\"guests\",\"token\":\"395962fa-0000-4000-8000-000000000000\",\"event\":\"החינה של שילת בן שבת ושי יהושוע\",\"what\":\"interactive\",\"status\":\"failed\",\"error\":\"131047 Re-engagement message\",\"text\":\"מעולה, רשמנו 5 🎉 נתראה!\",\"done\":true},{\"at\":\"2026-11-02T03:40:24.920Z\",\"phone\":\"97254****536\",\"name\":\"סימן גרשון\",\"kind\":\"אורח\",\"ch\":\"guests\",\"token\":\"395962fa-0000-4000-8000-000000000000\",\"event\":\"החינה של שילת בן שבת ושי יהושוע\",\"what\":\"interactive\",\"status\":\"failed\",\"error\":\"131047 Re-engagement message\",\"text\":\"עדכנו ל-2 🙂 נתראה!\",\"done\":true},{\"at\":\"2026-11-02T05:18:40.760Z\",\"phone\":\"97250****947\",\"name\":\"זהבה כהן\",\"kind\":\"אורח\",\"ch\":\"guests\",\"token\":\"395962fa-0000-4000-8000-000000000000\",\"event\":\"החינה של שילת בן שבת ושי יהושוע\",\"what\":\"טקסט\",\"status\":\"failed\",\"error\":\"131047 Re-engagement message\",\"text\":\"איזה כיף! כמה תהיו בסך הכל?",
+   "error": "",
+   "logs_ref": "audit:cron:buildCalendarMonth"
+  }
+ ],
+ "next_cursor": null
+}

@@ -1,0 +1,359 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "source": "kv",
+ "run": {
+  "id": "rmw0mz6armz21rx",
+  "automation_id": "d_pacer",
+  "parent_id": null,
+  "started_at": "2026-11-03T12:00:37.539Z",
+  "ended_at": "2026-11-03T12:01:22.945Z",
+  "status": "ok",
+  "triggered_by": "cron",
+  "counts": {
+   "ms": 45406
+  },
+  "cost_usd": 0,
+  "tokens_in": 0,
+  "tokens_out": 0,
+  "summary": "{\"ok\":true,\"date\":\"2026-11-03\",\"sends\":{\"ran\":false,\"why\":\"nothing-pending\"},\"leads\":0,\"callbacks\":{\"dialed\":0,\"phones\":[],\"queued\":2,\"waiting\":0,\"skipped\":0},\"calls\":{\"dialed\":0,\"queued\":38},\"leadCalls\":{\"dialed\":0,\"skipped\":\"lead-calling-disabled\"},\"journal\":{\"ok\":true,\"flushed\":6},\"sheetlogs\":{\"msg_guests\":{\"flushed\":4,\"held\":0},\"msg_clients\":{\"flushed\":1,\"held\":0},\"calls\":{\"flushed\":0},\"removals\":{\"flushed\":0},\"invoices\":{\"flushed\":0},\"traffic\":{\"flushed\":0},\"callqueue\":{\"flushed\":0},\"feedback\":{\"flushed\":0},\"ok\":true},\"invoices\":{\"ok\":true,\"written\":0},\"doctor\":{\"ok\":true,\"fixed\":0,\"alerted\":0,\"notes\":[\"build:8f4aa331\"]}}",
+  "error": "",
+  "logs_ref": "audit:cron:runPacer"
+ },
+ "children": [
+  {
+   "id": "rmw0mz7cr6l5tr0",
+   "automation_id": "lead_chase",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:00:38.907Z",
+   "ended_at": "2026-11-03T12:00:39.000Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 93
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "[]",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mz7jq6s6j9h",
+   "automation_id": "reconcile_calls",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:00:39.158Z",
+   "ended_at": "2026-11-03T12:00:42.041Z",
+   "status": "skipped",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "skip_reason": "40",
+    "ms": 2883
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"applied\":0,\"skipped\":40,\"seen\":40}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzfvygibkbs",
+   "automation_id": "shir_callbacks",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:00:49.966Z",
+   "ended_at": "2026-11-03T12:01:00.443Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 10477
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"dialed\":0,\"phones\":[],\"queued\":2,\"waiting\":0,\"skipped\":0}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzo3zm3vd7o",
+   "automation_id": "shir_dispatch",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:00.623Z",
+   "ended_at": "2026-11-03T12:01:00.735Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 112
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"dialed\":0,\"guests\":[],\"queued\":38,\"blocked\":0}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzobdefstft",
+   "automation_id": "noa_lead_dial",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:00.889Z",
+   "ended_at": "2026-11-03T12:01:00.889Z",
+   "status": "skipped",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "skip_reason": "lead-calling-disabled",
+    "ms": 0
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"dialed\":0,\"skipped\":\"lead-calling-disabled\"}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0mzoge0fv4a6",
+   "automation_id": "template_check",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:01.070Z",
+   "ended_at": "2026-11-03T12:01:13.200Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 12130
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true}",
+   "error": "",
+   "logs_ref": ""
+  },
+  {
+   "id": "rmw0n047qj9muh0",
+   "automation_id": "doctor",
+   "parent_id": "rmw0mz6armz21rx",
+   "started_at": "2026-11-03T12:01:21.494Z",
+   "ended_at": "2026-11-03T12:01:22.426Z",
+   "status": "ok",
+   "triggered_by": "parent:d_pacer",
+   "counts": {
+    "ms": 932
+   },
+   "cost_usd": 0,
+   "tokens_in": 0,
+   "tokens_out": 0,
+   "summary": "{\"ok\":true,\"fixed\":0,\"alerted\":0,\"notes\":[\"build:8f4aa331\"]}",
+   "error": "",
+   "logs_ref": ""
+  }
+ ],
+ "audit": [
+  {
+   "id": "20261103-1793707237622-fjnf",
+   "ts": 1793707237622,
+   "at": "2026-11-03T12:00:37.622Z",
+   "kind": "cron",
+   "action": "⚙️ drainLateInvites · 83 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"sent\":0}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707237625-9l11",
+   "ts": 1793707237625,
+   "at": "2026-11-03T12:00:37.625Z",
+   "kind": "cron",
+   "action": "⚙️ drainAdminCalls · 86 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"dialed\":0}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707237625-aovs",
+   "ts": 1793707237625,
+   "at": "2026-11-03T12:00:37.625Z",
+   "kind": "cron",
+   "action": "⚙️ drainLeadPings · 86 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"posted\":0}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707237625-pcws",
+   "ts": 1793707237625,
+   "at": "2026-11-03T12:00:37.625Z",
+   "kind": "cron",
+   "action": "⚙️ drainNoaQueue · 86 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"sent\":0}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707237693-ijt4",
+   "ts": 1793707237693,
+   "at": "2026-11-03T12:00:37.693Z",
+   "kind": "cron",
+   "action": "⚙️ runEventDayBlasts · 154 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"ok\":true,\"jobs\":[]}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707237733-pmz6",
+   "ts": 1793707237733,
+   "at": "2026-11-03T12:00:37.733Z",
+   "kind": "cron",
+   "action": "⚙️ drainCallRounds · 194 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"ok\":true,\"jobs\":[]}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707237845-dwxe",
+   "ts": 1793707237845,
+   "at": "2026-11-03T12:00:37.845Z",
+   "kind": "cron",
+   "action": "⚙️ checkCustomTemplates · 306 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"checked\":0}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707238704-i64x",
+   "ts": 1793707238704,
+   "at": "2026-11-03T12:00:38.704Z",
+   "kind": "cron",
+   "action": "⚙️ adsHealthWatch · 1165 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"same\":true,\"verdict\":\"ACTIVE|5\"}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707238906-m6nl",
+   "ts": 1793707238906,
+   "at": "2026-11-03T12:00:38.906Z",
+   "kind": "cron",
+   "action": "⚙️ pullMetaFormLeads · 1367 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"ok\":true,\"found\":1,\"leads\":[],\"errors\":[]}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707240091-c06r",
+   "ts": 1793707240091,
+   "at": "2026-11-03T12:00:40.091Z",
+   "kind": "cron",
+   "action": "⚙️ drainPartyNudges · 2552 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"sent\":0}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707247031-dix7",
+   "ts": 1793707247031,
+   "at": "2026-11-03T12:00:47.031Z",
+   "kind": "admin",
+   "action": "Claude · meta-leads",
+   "ok": true,
+   "token": "",
+   "detail": "dry=true",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707254725-1nrq",
+   "ts": 1793707254725,
+   "at": "2026-11-03T12:00:54.725Z",
+   "kind": "cron",
+   "action": "⚙️ auditMirror · 17186 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"appended\":521,\"ok\":true}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707257359-h1pd",
+   "ts": 1793707257359,
+   "at": "2026-11-03T12:00:57.359Z",
+   "kind": "cron",
+   "action": "⚙️ buildCalendarMonth · 19820 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"ok\":true,\"month\":\"2026-11\",\"today\":\"2026-11-03\",\"days\":{\"2026-11-02\":[{\"at\":\"2026-11-02T03:40:15.274Z\",\"phone\":\"97254****536\",\"name\":\"סימן גרשון\",\"kind\":\"אורח\",\"ch\":\"guests\",\"token\":\"395962fa-0000-4000-8000-000000000000\",\"event\":\"החינה של שילת בן שבת ושי יהושוע\",\"what\":\"interactive\",\"status\":\"fail",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707259929-6fzx",
+   "ts": 1793707259929,
+   "at": "2026-11-03T12:00:59.929Z",
+   "kind": "event",
+   "action": "חזרה למספר בדיקה דולגה",
+   "ok": true,
+   "token": "",
+   "detail": "why:test-number",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707260040-22xw",
+   "ts": 1793707260040,
+   "at": "2026-11-03T12:01:00.040Z",
+   "kind": "cron",
+   "action": "⚙️ auditMeta · 22501 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"events\":13}",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707260275-96yy",
+   "ts": 1793707260275,
+   "at": "2026-11-03T12:01:00.275Z",
+   "kind": "event",
+   "action": "חזרה למספר בדיקה דולגה",
+   "ok": true,
+   "token": "",
+   "detail": "why:test-number",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707281759-429e",
+   "ts": 1793707281759,
+   "at": "2026-11-03T12:01:21.759Z",
+   "kind": "event",
+   "action": "גרסה חדשה של הוורקר עלתה",
+   "ok": true,
+   "token": "",
+   "detail": "version 8f4aa331-0000-4000-8000-000000000000",
+   "run_match": false
+  },
+  {
+   "id": "20261103-1793707282777-rvpx",
+   "ts": 1793707282777,
+   "at": "2026-11-03T12:01:22.777Z",
+   "kind": "cron",
+   "action": "⚙️ runPacer · 45238 ms",
+   "ok": true,
+   "token": "",
+   "detail": "{\"ok\":true,\"date\":\"2026-11-03\",\"sends\":{\"ran\":false,\"why\":\"nothing-pending\"},\"leads\":0,\"callbacks\":{\"dialed\":0,\"phones\":[],\"queued\":2,\"waiting\":0,\"skipped\":0},\"calls\":{\"dialed\":0,\"queued\":38},\"leadCalls\":{\"dialed\":0,\"skipped\":\"lead-calling-disabled\"},\"journal\":{\"ok\":true,\"flushed\":6},\"sheetlogs\":{\"m",
+   "run_match": true
+  }
+ ],
+ "audit_window": {
+  "from": "2026-11-03T12:00:36.539Z",
+  "to": "2026-11-03T12:01:27.945Z",
+  "token": null
+ }
+}

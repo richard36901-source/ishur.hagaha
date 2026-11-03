@@ -1,0 +1,329 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T12:06:27.485Z",
+ "today": "2026-11-03",
+ "horizon_days": 14,
+ "model": {
+  "model": "shared",
+  "verified": false,
+  "capacity_per_day": 230,
+  "numbers": [
+   {
+    "id": "1107514695777584",
+    "tier": "TIER_250",
+    "limit": 250
+   },
+   {
+    "id": "1409632775565601",
+    "tier": "TIER_250",
+    "limit": 250
+   }
+  ],
+  "today_remaining": 68,
+  "he": "העסק לא מאומת: תקרה משותפת 250 פחות מרווח 20 = 230 ליום לכל המספרים יחד"
+ },
+ "verification": {
+  "status": "pending",
+  "verified": false,
+  "source": "meta",
+  "at": "2026-11-03T11:51:56.883Z"
+ },
+ "days": [
+  {
+   "day": "2026-11-03",
+   "open": true,
+   "planned": 176,
+   "held_planned": 0,
+   "capacity": 68,
+   "overflow": 108,
+   "by_event": [
+    {
+     "token": "ab699ac0-0000-4000-8000-000000000000",
+     "tok8": "ab699ac0",
+     "name": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "count": 176,
+     "held": false,
+     "upper_bound": false
+    }
+   ]
+  },
+  {
+   "day": "2026-11-04",
+   "open": true,
+   "planned": 507,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 277,
+   "by_event": [
+    {
+     "token": "6a3155cc-0000-4000-8000-000000000000",
+     "tok8": "6a3155cc",
+     "name": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "count": 507,
+     "held": false,
+     "upper_bound": true
+    }
+   ]
+  },
+  {
+   "day": "2026-11-05",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-06",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-07",
+   "open": false,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 0,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-08",
+   "open": true,
+   "planned": 95,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
+    {
+     "token": "395962fa-0000-4000-8000-000000000000",
+     "tok8": "395962fa",
+     "name": "אירוע ג",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "count": 95,
+     "held": false,
+     "upper_bound": true
+    }
+   ]
+  },
+  {
+   "day": "2026-11-09",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-10",
+   "open": true,
+   "planned": 13,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
+    {
+     "token": "e045522a-0000-4000-8000-000000000000",
+     "tok8": "e045522a",
+     "name": "אירוע ד",
+     "type": "w2",
+     "type_he": "גל 2",
+     "count": 13,
+     "held": false,
+     "upper_bound": true
+    }
+   ]
+  },
+  {
+   "day": "2026-11-11",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-12",
+   "open": true,
+   "planned": 0,
+   "held_planned": 55,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
+    {
+     "token": "96b7dec2-0000-4000-8000-000000000000",
+     "tok8": "96b7dec2",
+     "name": "אירוע ה",
+     "type": "w2",
+     "type_he": "גל 2",
+     "count": 55,
+     "held": true,
+     "upper_bound": true
+    }
+   ]
+  },
+  {
+   "day": "2026-11-13",
+   "open": true,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-14",
+   "open": false,
+   "planned": 0,
+   "held_planned": 0,
+   "capacity": 0,
+   "overflow": 0,
+   "by_event": []
+  },
+  {
+   "day": "2026-11-15",
+   "open": true,
+   "planned": 176,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
+    {
+     "token": "ffb78392-0000-4000-8000-000000000000",
+     "tok8": "ffb78392",
+     "name": "אירוע ו",
+     "type": "w1",
+     "type_he": "גל 1",
+     "count": 176,
+     "held": false,
+     "upper_bound": true
+    }
+   ]
+  },
+  {
+   "day": "2026-11-16",
+   "open": true,
+   "planned": 31,
+   "held_planned": 0,
+   "capacity": 230,
+   "overflow": 0,
+   "by_event": [
+    {
+     "token": "e045522a-0000-4000-8000-000000000000",
+     "tok8": "e045522a",
+     "name": "אירוע ד",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "count": 31,
+     "held": false,
+     "upper_bound": true
+    }
+   ]
+  }
+ ],
+ "recommendations": [
+  {
+   "token": "ab699ac0-0000-4000-8000-000000000000",
+   "tok8": "ab699ac0",
+   "name": "אירוע א",
+   "due": "2026-11-03",
+   "count": 176,
+   "kind": "move",
+   "day": "2026-11-04",
+   "he": "לא נכנס ב-2026-11-03; החלון המוקדם ביותר שמכיל את כל 176 ההודעות ביום אחד: 2026-11-04"
+  },
+  {
+   "token": "6a3155cc-0000-4000-8000-000000000000",
+   "tok8": "6a3155cc",
+   "name": "אירוע ב",
+   "due": "2026-11-04",
+   "count": 507,
+   "kind": "split",
+   "days_needed": 3,
+   "split": [
+    {
+     "day": "2026-11-04",
+     "count": 54
+    },
+    {
+     "day": "2026-11-05",
+     "count": 230
+    },
+    {
+     "day": "2026-11-06",
+     "count": 223
+    }
+   ],
+   "unplaced": 0,
+   "needs_capacity_by": "2026-11-04",
+   "he": "507 הודעות לא נכנסות ביום אחד (תקרה 230) — לפצל על 3 ימים. צריך מקום עד 2026-11-04: אימות העסק ממתין — אחרי האימות כל מספר מקבל 1000; הוספת מספר עוזרת רק אחרי האימות (כרגע התקרה משותפת)"
+  },
+  {
+   "token": "395962fa-0000-4000-8000-000000000000",
+   "tok8": "395962fa",
+   "name": "אירוע ג",
+   "due": "2026-11-08",
+   "count": 95,
+   "kind": "fits",
+   "day": "2026-11-08",
+   "he": "נכנס כולו ב-2026-11-08"
+  },
+  {
+   "token": "e045522a-0000-4000-8000-000000000000",
+   "tok8": "e045522a",
+   "name": "אירוע ד",
+   "due": "2026-11-10",
+   "count": 13,
+   "kind": "fits",
+   "day": "2026-11-10",
+   "he": "נכנס כולו ב-2026-11-10"
+  },
+  {
+   "token": "e045522a-0000-4000-8000-000000000000",
+   "tok8": "e045522a",
+   "name": "אירוע ד",
+   "due": "2026-11-16",
+   "count": 31,
+   "kind": "fits",
+   "day": "2026-11-16",
+   "he": "נכנס כולו ב-2026-11-16"
+  },
+  {
+   "token": "ffb78392-0000-4000-8000-000000000000",
+   "tok8": "ffb78392",
+   "name": "אירוע ו",
+   "due": "2026-11-15",
+   "count": 176,
+   "kind": "fits",
+   "day": "2026-11-15",
+   "he": "נכנס כולו ב-2026-11-15"
+  }
+ ],
+ "totals": {
+  "planned": 998,
+  "held_planned": 55,
+  "overflow_days": [
+   "2026-11-03",
+   "2026-11-04"
+  ]
+ },
+ "notes": [
+  "מספרי הגלים הם גבול עליון: לא נבדקים סימוני נשלח לכל אורח, הסרות וטעות-במספר",
+  "אירועים מוחזקים (hold) מסומנים held ולא נספרים ב-planned",
+  "אירוע-בן (שבת חתן) נשלח ידנית — מה שלא נשלח מתוכנן להיום"
+ ]
+}
