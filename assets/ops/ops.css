@@ -398,6 +398,8 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font)}
 .fb i{display:block;height:100%;background:var(--s1);border-start-end-radius:4px;border-end-end-radius:4px;min-width:2px}
 .funnel b{text-align:end;font-family:var(--font-num)}
 .tview{margin-top:8px;font-size:12.5px}
+[data-chart]{width:100%;min-width:0}
+body:has(.drawer) .toasts{inset-block-end:84px}
 .tview summary{cursor:pointer;color:var(--ink-3);width:max-content}
 .tview .tbl-wrap{max-height:220px;margin-top:6px}
 /* mobile: bottom tab bar + "עוד" sheet (the full nav) */
@@ -420,6 +422,7 @@ svg text{fill:var(--ink-3);font-size:11px;font-family:var(--font)}
   .ck{width:24px;height:24px}
   td .ck{width:var(--h-touch);height:var(--h-touch);border-radius:10px}
   .crm-filters{gap:6px}
+  #ld-f{display:block;width:100%;min-width:0}#ld-f>.bar{display:grid;grid-template-columns:1fr 1fr;gap:6px}#ld-f .sel,#ld-f .sel>button{width:100%}
   .crm-filters .sel>button{min-width:0;padding:0 10px}
   .funnel li{grid-template-columns:72px 1fr 40px 36px}
   .qc-host button,.ck-l,.seg button{min-height:var(--h-touch)}

@@ -9,7 +9,8 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <script>try{var t=localStorage.getItem('ishur_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@500;600&display=swap">
+<!-- brand fonts load without blocking first paint (system stack until they arrive) -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@500;600&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="assets/ops/ops.css?v=3">
 <link rel="modulepreload" href="assets/ops/ui.js">
 <link rel="modulepreload" href="assets/ops/adapt.js">

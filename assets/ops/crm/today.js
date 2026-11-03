@@ -19,7 +19,7 @@ export function bars(rows, { w = 600, h = 170, fmt = fmtN, label = '', every = 7
   const X = (i) => iw - (i + 1) * step + 1; /* RTL time: i=0 (oldest) at the right next to the axis, newest at the left, like ui.js Sparkline */
   const ticks = [0, max / 2, max].map((t) => { const y = padT + ih - (t / max) * ih; return `<line x1="0" x2="${iw}" y1="${y.toFixed(1)}" y2="${y.toFixed(1)}" stroke="var(--line${t ? '' : '-2'})"/><text x="${w - 2}" y="${(y + 4).toFixed(1)}" text-anchor="end">${esc(fmt(t))}</text>`; }).join('');
   const marks = rows.map((r, k) => { const bh = (r.v / max) * ih, x = X(k); return `<g><rect x="${x.toFixed(1)}" y="${padT}" width="${step.toFixed(1)}" height="${ih + padB}" fill="transparent" data-tip="${esc(dayHe(r.day) + ' · ' + fmt(r.v))}"/>${r.v ? `<path d="${bar(x, padT + ih - bh, bw, bh)}" fill="var(--s1)" pointer-events="none"/>` : ''}${(n - 1 - k) % every === 0 ? `<text x="${(x + bw / 2).toFixed(1)}" y="${h - 6}" text-anchor="middle">${esc(dayHe(r.day))}</text>` : ''}</g>`; }).join('');
-  return `<svg class="chart" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}" dir="ltr">${ticks}${marks}</svg>`;
+  return `<svg class="chart" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}" style="direction:ltr">${ticks}${marks}</svg>`;
 }
 const tableOf = (rows, head, fmt = fmtN) => `<details class="tview"><summary>טבלה</summary><div class="tbl-wrap"><table class="tbl"><thead><tr><th>${esc(head[0])}</th><th class="n">${esc(head[1])}</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="num">${esc(r.day ? dayHe(r.day) : r.he)}</td><td class="n">${esc(fmt(r.v))}</td></tr>`).join('')}</tbody></table></div></details>`;
 
@@ -36,15 +36,18 @@ ${col('אירועים היום', a.events.length, a.events.map((c) => li(c.event
 ${col('שליחות היום', a.sends.length, a.sends.sort((x, y) => Date.parse(x.at) - Date.parse(y.at)).map((s) => li(fmtTime(s.at), s.name, s.label + ' · ' + fmtN(s.count) + ' הודעות', '#/clients/' + s.token)), 'אין שליחות מתוכננות')}</div>`;
 }
 
+const CH = { revenue: { fmt: money, label: 'הכנסות לפי יום, 30 יום', every: 7 }, sends: { h: 140, label: 'הודעות וואטסאפ לפי יום', every: 3 }, calls: { h: 140, label: 'שיחות לפי יום', every: 3 } };
+/* re-render every chart at its own box width (the grid decides 1 or 2 per row) */
+export function fit(root, st) { root.querySelectorAll('[data-chart]').forEach((b) => { const w = Math.floor(b.clientWidth); if (w > 120) b.innerHTML = bars(st[b.dataset.chart], { w, ...CH[b.dataset.chart] }); }); }
 export function charts(st, w = 600) {
   const half = w > 700 ? (w - 16) / 2 : w, rev = st.revenue.reduce((s, r) => s + r.v, 0);
   return `<div class="grid g-2">
-<section class="card"><div class="sec-h"><h3 class="h2">הכנסות · 30 יום</h3><span class="sp"></span><b class="num">${money(rev)}</b></div>${bars(st.revenue, { w: half - 34, fmt: money, label: 'הכנסות לפי יום, 30 יום', every: 7 })}${tableOf(st.revenue, ['יום', 'הכנסה'], money)}</section>
+<section class="card"><div class="sec-h"><h3 class="h2">הכנסות · 30 יום</h3><span class="sp"></span><b class="num">${money(rev)}</b></div><div data-chart="revenue">${bars(st.revenue, { w: half - 34, ...CH.revenue })}</div>${tableOf(st.revenue, ['יום', 'הכנסה'], money)}</section>
 <section class="card"><div class="sec-h"><h3 class="h2">משפך לידים · ${st.funnel_days} יום</h3></div>${funnel(st.funnel, st.funnel_days)}</section>
 </div>
 <section class="card"><div class="sec-h"><h3 class="h2">שליחות ושיחות · 14 יום</h3><span class="sub">שני גרפים, כל אחד בסקאלה שלו</span></div><div class="grid g-2">
-<div><div class="sub">הודעות וואטסאפ · <b class="num">${fmtN(st.sends.reduce((s, r) => s + r.v, 0))}</b></div>${bars(st.sends, { w: half - 34, h: 140, label: 'הודעות וואטסאפ לפי יום', every: 3 })}${tableOf(st.sends, ['יום', 'הודעות'])}</div>
-<div><div class="sub">שיחות · <b class="num">${fmtN(st.calls.reduce((s, r) => s + r.v, 0))}</b></div>${bars(st.calls, { w: half - 34, h: 140, label: 'שיחות לפי יום', every: 3 })}${tableOf(st.calls, ['יום', 'שיחות'])}</div></div></section>`;
+<div><div class="sub">הודעות וואטסאפ · <b class="num">${fmtN(st.sends.reduce((s, r) => s + r.v, 0))}</b></div><div data-chart="sends">${bars(st.sends, { w: half - 34, ...CH.sends })}</div>${tableOf(st.sends, ['יום', 'הודעות'])}</div>
+<div><div class="sub">שיחות · <b class="num">${fmtN(st.calls.reduce((s, r) => s + r.v, 0))}</b></div><div data-chart="calls">${bars(st.calls, { w: half - 34, ...CH.calls })}</div>${tableOf(st.calls, ['יום', 'שיחות'])}</div></div></section>`;
 }
 
 export async function mount(el, ctx) {
@@ -53,10 +56,10 @@ export async function mount(el, ctx) {
   el.after(box); ctx.onDispose(() => box.remove());
   let a = null, st = null;
   const width = () => Math.max(280, (box.clientWidth || 600) - 34);
-  const paint = () => { box.innerHTML = `<section aria-label="היום"><div class="sec-h"><h2 class="h2">היום</h2></div>${a ? agenda(a) : Skeleton.card(4)}</section><section aria-label="גרפים">${st ? charts(st, width()) : Skeleton.card(6)}</section>`; };
+  const paint = () => { box.innerHTML = `<section aria-label="היום"><div class="sec-h"><h2 class="h2">היום</h2></div>${a ? agenda(a) : Skeleton.card(4)}</section><section aria-label="גרפים">${st ? charts(st, width()) : Skeleton.card(6)}</section>`; if (st) fit(box, st); };
   await Promise.allSettled([api.agenda().then((x) => { a = x; paint(); }), api.stats().then((x) => { st = x; paint(); })]);
   if (!a && !st) box.innerHTML = ctx.errorBox({ message: 'נתוני ה-CRM לא נטענו' }, 'noop');
-  let rT = 0, lastW = width(); const onR = () => { clearTimeout(rT); rT = setTimeout(() => { if (Math.abs(width() - lastW) > 24) { lastW = width(); paint(); } }, 150); };
+  let rT = 0, lastW = width(); const onR = () => { clearTimeout(rT); rT = setTimeout(() => { if (Math.abs(width() - lastW) > 24 && st) { lastW = width(); fit(box, st); } }, 150); };
   addEventListener('resize', onR); ctx.onDispose(() => removeEventListener('resize', onR));
   ctx.poll(async () => { a = await api.agenda(); paint(); }, 60000);
 }
