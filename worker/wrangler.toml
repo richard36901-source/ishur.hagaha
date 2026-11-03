@@ -80,8 +80,9 @@ name = "EMAIL"
 # `bash worker/scripts/ops-d1-setup.sh` once before the next deploy; it creates
 # the database, writes the real id here and applies migrations/0001_runs.sql.
 # Until then the Worker writes runs to the KV ring buffer (opsrun:*).
-[[d1_databases]]
-binding = "OPS_DB"
-database_name = "ishur-ops"
-database_id = "REPLACE_WITH_ID_FROM_ops-d1-setup.sh"
-migrations_dir = "migrations"
+# D1 ledger — enable once the API token has D1:Edit and ops-d1-setup.sh ran (until then: KV ring fallback)
+# [[d1_databases]]
+# binding = "OPS_DB"
+# database_name = "ishur-ops"
+# database_id = "REPLACE_WITH_ID_FROM_ops-d1-setup.sh"
+# migrations_dir = "migrations"
