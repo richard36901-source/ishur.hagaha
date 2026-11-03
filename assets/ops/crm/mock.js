@@ -62,6 +62,7 @@ export async function crmMock(name, b = {}, ver = '1', method = 'POST') {
       }
       if (y === 'send') {
         const last = l.last_inbound_at && Date.parse(l.last_inbound_at);
+        if (b.template) { if (b.confirm !== true) return ok({ preview: true, to: l.phone, text: b.template }); act({ entity_type: 'lead', entity_id: l.id, kind: 'wa_out', dir: 'out', text: b.template }); return ok({ sent: true, lead: l }); }
         if (!last || Date.now() - last >= H24) return err('needs_template', { last_inbound_at: l.last_inbound_at || null, why: last ? 'החלון של 24 שעות נסגר: מותר לשלוח רק תבנית מאושרת' : 'הליד לא כתב לנו אף פעם: מותר לשלוח רק תבנית מאושרת', templates: s.templates });
         if (quiet()) return err('quiet-hours', { why: 'לא שולחים ללקוחות/לידים 21:00–09:00 ובשבת' });
         if (b.confirm !== true) return ok({ preview: true, confirm_required: true, to: String(l.phone).replace(/^972(\d{2})\d+(\d{3})$/, '0$1*****$2'), text: b.text, window_closes_at: new Date(last + H24).toISOString() });
@@ -82,7 +83,19 @@ export async function crmMock(name, b = {}, ver = '1', method = 'POST') {
     case 'clients': {
       if (!x) return ok({ at: now(), today: ilDay(Date.now()), clients: s.clients, counts: Object.fromEntries(['upcoming', 'live', 'done', 'cancelled', 'held'].map((k) => [k, s.clients.filter((c) => c.status === k).length])) });
       const c = C(x); if (!c) return err('not-found');
-      if (isPost && !y) { for (const k of ['names', 'name1', 'name2', 'phone', 'occasion', 'date']) if (b[k] != null) c[k] = b[k]; act({ entity_type: 'client', entity_id: c.token, kind: 'note', label: 'עריכת פרטי אירוע', text: Object.keys(b).filter((k) => k !== 'who' && k !== 'admin_key').join(', ') }); return ok({ client: c, changed: true }); }
+      if (isPost && !y) {
+        if (b.event_date < ilDay(Date.now()) && !b.override_past) return err('date-in-past');
+        const nm = b.name2 ? b.name1 + ' ו' + b.name2 : b.name1, changed = [];
+        for (const [k, to, v] of [['names', 'names', nm], ['phone', 'phone', b.phone], ['occasion', 'occasion', b.occasion], ['event_date', 'date', b.event_date]]) if (v && v !== c[to]) { c[to] = v; changed.push(k); }
+        return ok({ changed, unchanged: !changed.length });
+      }
+      if (isPost && y === 'action') {
+        const w = { send_dashboard: 'שלח', send_upload: 'שלח', extra_send: 'שלח', reset_guests: String((c.counts || {}).invited || 0) }[b.action] || 'אישור';
+        if (b.confirm !== w) return ok({ applied: false, confirm_required: w, title: b.action + '?', body: 'הדגמה' });
+        if (b.action === 'hold') c.status = b.on ? 'held' : 'upcoming';
+        act({ entity_type: 'client', entity_id: c.token, kind: 'event', text: b.action });
+        return ok({ applied: true, summary: 'הדגמה: ' + b.action });
+      }
       const tl = [...s.activities.filter((v) => ['client', 'event'].includes(v.entity_type) && v.entity_id === c.token).map((v) => ({ ...v, source: 'crm' })),
         ...s.notes.filter((n) => ['client', 'event'].includes(n.entity_type) && n.entity_id === c.token).map((n) => ({ ...n, kind: 'note', source: 'notes' }))].sort((p, q) => String(q.at).localeCompare(String(p.at)));
       return ok({ client: c, timeline: tl, assignments: s.assignments.filter((v) => v.event_token === c.token), audit_truncated: false });

@@ -10,7 +10,7 @@ export const PATH = {
   leads: 'crm/leads', lead: (id) => 'crm/leads/' + enc(id), leadUpdate: (id) => 'crm/leads/' + enc(id), leadsBulk: 'crm/leads/bulk',
   quote: (id) => 'crm/leads/' + enc(id) + '/quote', send: (id) => 'crm/leads/' + enc(id) + '/send',
   notes: 'crm/notes', noteAdd: 'crm/notes', notePin: 'crm/notes/pin',
-  clients: 'crm/clients', client: (t) => 'crm/clients/' + enc(t),
+  clients: 'crm/clients', client: (t) => 'crm/clients/' + enc(t), clientAction: (t) => 'crm/clients/' + enc(t) + '/action',
   hostesses: 'crm/hostesses', assignments: 'crm/assignments', assignment: 'crm/assignments',
   agenda: 'crm/agenda', stats: 'crm/stats',
 };
@@ -71,17 +71,20 @@ export function act(a) {
   const kind = wa ? 'wa' : k === 'reply' ? 'replies' : k;
   return { id: a.id, at: a.at, kind, dir: wa ? (out ? 'out' : 'in') : a.dir || (k === 'reply' ? 'in' : 'out'), label, text: a.text || '', amount: a.amount || m.sum || null };
 }
+/* hosts title "A וB" → [A, B] */
+export const splitHosts = (n) => { const m = /^(.+?) ו(\S.*)$/.exec(String(n || '').trim()); return m ? [m[1], m[2]] : [String(n || '').trim(), '']; };
 export function client(c) {
   const n = c.counts || {}, status = c.status === 'held' ? 'hold' : c.status, st = CLIENT_ST[status] || ['', c.status || '—'], ad = c.addons || {};
   const host = ad.hostesses && typeof ad.hostesses === 'object' ? Number(ad.hostesses.n) || 0 : Number(ad.hostesses) || 0;
   return {
-    token: c.token, tok8: c.tok8 || String(c.token || '').slice(0, 8), name: c.names || c.client || '', name1: c.name1 || '', name2: c.name2 || '', phone: c.phone || '', occasion: c.occasion || '', occasion_he: OCC_HE[c.occasion] || c.occasion || '',
+    token: c.token, tok8: c.tok8 || String(c.token || '').slice(0, 8), name: c.names || c.client || '', name1: c.name1 || splitHosts(c.names)[0], name2: c.name2 || splitHosts(c.names)[1], phone: c.phone || '', occasion: c.occasion || '', occasion_he: OCC_HE[c.occasion] || c.occasion || '',
     event_date: nz(c.date), event_time: '', venue: '', plan: c.plan, plan_he: c.plan_he || PLAN_HE[c.plan] || c.plan || '—', records: c.records || 0,
     status, status_tone: st[0], status_he: st[1], guests: n.invited || 0, confirmed: n.confirmed || 0, declined: n.declined || 0, pending: n.pending || 0,
     sent: n.sent || 0, delivered: n.delivered ?? null, need_call: n.need_call || 0,
     paid: Number(c.paid_sum) || 0, paid_at: nz(c.paid_at), lead_id: c.lead_id || null,
     addons: { design: ad.design || null, design_he: ad.design ? DESIGN_ST[ad.design] || ad.design : '', hostesses: host, hostess_city: (ad.hostesses && ad.hostesses.city) || '', hostess_booked: !!(ad.hostesses && ad.hostesses.booked), calls: !!ad.calls, extra_wave: !!ad.extra_wave },
     links: { dashboard: (c.links || {}).dashboard || null, upload: (c.links || {}).upload || null, feedback: (c.links || {}).feedback || null },
+    invoice: c.invoice || null, flags: { active: !c.flags || c.flags.active !== false, hold: status === 'hold', paid: c.flags ? !!c.flags.paid : !!c.paid },
   };
 }
 export const hostess = (h) => ({ id: h.id, name: h.name, phone: h.phone || '', city: h.city || '', active: h.active !== false, rate: Number(h.rate) || 0 });
@@ -199,21 +202,35 @@ export function crm(ctx) {
     pinNote: (id, pinned, entity, entity_id) => post('notePin', { entity_type: entity, entity_id, id, pinned }),
     /* priced on the server (paylink.js priceQuote) and minted by makePayLinkV2, same as /api/pay-link */
     quote: (l, q) => post('quote', body.quote(l, q), l.id),
-    /* free text only, inside the 24h window. 1st call → preview (nothing sent); the UI confirms; 2nd call with confirm:true sends.
-       Templates have no send route yet (doc: "Templates still go out through the existing tools"). */
+    /* free text inside the 24h window, else an approved template ({template}). 1st call → preview (nothing sent);
+       the UI confirms with a typed "שלח"; 2nd call with confirm:true sends. */
     async send(id, b) {
-      if (b.template) throw notYet('שליחת תבנית מהמסך');
-      const r = await post('send', strip({ text: b.text, confirm: b.confirm === true ? true : undefined }), id, { soft: true });
+      const r = await post('send', strip({ text: b.template ? undefined : b.text, template: b.template || undefined, confirm: b.confirm === true ? true : undefined }), id, { soft: true });
       if (r.error && !r.needs_template) { const e = new Error(r.why || r.error); e.code = r.error; throw e; }
       return r;
     },
     templates: async () => adaptCrm('templates', { items: TEMPLATES }),
     clients: () => get('clients'),
     client: (token) => get('client', {}, { cache: false }, token),
-    async clientAction() { throw notYet('הפעולה'); },
-    /* in-place edit of the client card (names / phone / occasion / date). POST crm/clients/:token; the Worker
-       route is not deployed yet (see docs/OPS-DESIGN-2026-11-03.md): a 404 surfaces as "not yet" in the toast. */
-    clientUpdate: (token, p) => post('client', strip({ names: p.names, name1: p.name1, name2: p.name2, phone: p.phone, occasion: p.occasion, date: p.date, who: 'ops' }), token),
+    /* card actions → POST crm/clients/:token/action; without confirm = preview {confirm_required, title, body} */
+    async clientPreview(token, action, b = {}) {
+      const r = await ctx.api.post(path('clientAction', token), strip({ ...b, action }), { soft: true });
+      if (!r.confirm_required) { const e = new Error(r.why || r.error || 'לא בוצע'); e.code = r.error; throw e; }
+      return r;
+    },
+    async clientAction(token, action, b = {}) {
+      const r = await ctx.api.post(path('clientAction', token), strip({ ...b, action, who: 'ops' }), { soft: true });
+      if (r.ok === false || r.applied === false) { const e = new Error(r.why || r.error || (r.confirm_required ? 'נדרש אישור: ' + r.confirm_required : 'לא בוצע')); e.code = r.error; throw e; }
+      return r;
+    },
+    async uploadDesign(token, file) {
+      if (!ctx.api.upload) throw notYet('העלאת קובץ');
+      const r = await ctx.api.upload('media', { token, purpose: 'design_version' }, file);
+      if (!r || !r.media) throw new Error((r && r.error) || 'ההעלאה נכשלה');
+      return r.media;
+    },
+    /* card edit: the Worker writes only the changed sheet cells */
+    clientUpdate: (token, p) => ctx.api.post(path('client', token), strip({ name1: p.name1, name2: p.name2, phone: p.phone, occasion: p.occasion, event_date: p.date, override_past: p.override_past || undefined, who: 'ops' }), { soft: true }).then((r) => { if (r.ok === false) { const e = new Error(r.he || r.error || 'לא נשמר'); e.code = r.error; throw e; } return r; }),
     async hostesses() {
       const [h, a, c] = await Promise.all([read(PATH.hostesses, { limit: 200 }), read(PATH.assignments, { limit: 500 }), read(PATH.clients).catch(() => ({ clients: [] }))]);
       return adaptCrm('hostesses', { hostesses: h.items || [], assignments: a.items || [], clients: c.clients || [] });

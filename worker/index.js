@@ -9754,8 +9754,16 @@ function opsDeps() {
     markCallResult: async (e, gid, outcome, tries) => { const res = callOutcome(outcome, tries); if (!res) return null; return { ok: await writeCallResult(e, gid, res, null), ...res }; } };
 }
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */
-function crmDeps() {
-  return { ...opsDeps(), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
+function crmDeps(ctx) {
+  /* route(): the client card reuses the existing admin routes in-process (same validation, same KV writes,
+     same logEvent) instead of copying them; admin_key = the Worker's own key, never the caller's. */
+  const route = async (env, path, body = {}) => {
+    const rq = new Request('https://go.ishur.io' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'ishur-crm' }, body: JSON.stringify({ ...body, admin_key: env.ADMIN_KEY }) });
+    const r = await WORKER.fetchMain(rq, env, ctx || { waitUntil: () => {} });
+    const j = await r.json().catch(() => ({}));
+    return { status: r.status, ...j, ok: r.ok && j.ok !== false };
+  };
+  return { ...opsDeps(), route, sheetBatchWrite: (e, data) => sheetBatchWrite(e, data), slackPost: (e, t, o) => slackPost(e, t, o), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
 }
 /* brain playbook gift_blast_resume → the real /api/gift-blast handler (same refusals, same caps) */
 async function brainGiftBlast(env, token, { dry = true, max = 50 } = {}) {
@@ -9983,7 +9991,7 @@ const WORKER = {
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
     /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
     if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
-    if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps());
+    if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
@@ -11599,6 +11607,14 @@ const WORKER = {
         else await env.RATE.put('paid:' + tok, JSON.stringify({ tier: after, plan: '', planText: '', desc: 'תוספת מנהל' }), { expirationTtl: 400 * 86400 });
       } else if (kind === 'calls') {
         await env.RATE.put('callsaddon:' + tok, new Date().toISOString(), { expirationTtl: 200 * 86400 });
+      } else if (kind === 'design') {
+        /* 03/11 client card: the design flow opens exactly as after a paid package (designPaid reads status:'paid') */
+        await env.RATE.put('design:' + tok, JSON.stringify({ status: 'paid', ref: 'admin', with: 'grant', at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+      } else if (kind === 'hostess') {
+        /* 03/11 client card: +n hostesses on hostess:<token> (the same record the paid path writes) */
+        const n = Math.min(Math.max(parseInt(b.n, 10) || 1, 1), 5);
+        let cur = null; try { cur = JSON.parse(await env.RATE.get('hostess:' + tok) || 'null'); } catch {}
+        await env.RATE.put('hostess:' + tok, JSON.stringify({ ...(cur || { date: '', city: '', travel_included: null }), n: ((cur && Number(cur.n)) || 0) + n, at: new Date().toISOString(), ref: 'admin' }), { expirationTtl: 400 * 86400 });
       } else return deny(400, 'bad-kind', origin);
       await logEvent(env, { area: 'תשלום', action: `תוספת חינם ממנהל: ${kind}${b.n ? ' ×' + b.n : ''}`, ok: true, token: tok, detail: 'ריצ׳רד, מהעמוד לקוחות' }).catch(() => {});
       return okJson({ ok: true, token: tok, kind }, origin);

@@ -289,6 +289,16 @@ const VC = CA.adaptCrm('clients', CR.clients).items;
 ok(VC.length === CR.clients.clients.length && VC.every((c) => c.name && c.status_he && typeof c.guests === 'number'), 'clients adapt (names → name, counts.invited → guests, held → hold)');
 check('crm clients.listView', () => CC.listView(CC.pick(VC, '', '')));
 check('crm clients.drawerView', () => CC.drawerView(CA.adaptCrm('client', { ok: true, client: CR.clients.clients[0], timeline: [{ at: '2026-11-01T10:00:00Z', kind: 'send', text: 'גל 1', source: 'audit' }, { at: '2026-11-02T10:00:00Z', kind: 'note', text: 'הערה', author: 'שלו', pinned: false, source: 'notes', id: 'n1' }], assignments: [] })));
+/* 03/11 client card LIVE: every button is wired to a server action that exists (worker/crm.js CLIENT_ACTIONS) */
+{
+  const W = await import(pathToFileURL(join(OPS, '../../worker/crm.js')));
+  const dv = CC.drawerView(CA.adaptCrm('client', { ok: true, client: { ...CR.clients.clients[0], invoice: 'https://inv.test/1' }, timeline: [], assignments: [] }));
+  const acts = [...dv.matchAll(/data-act="(cl-[a-z-]+)"/g)].map((m) => m[1]);
+  const wired = Object.keys(CC.ACTIONS);
+  ok(wired.every((a) => acts.includes(a)) && wired.every((a) => CC.ACTIONS[a][0] in W.CLIENT_ACTIONS) && Object.keys(W.CLIENT_ACTIONS).every((a) => wired.some((k) => CC.ACTIONS[k][0] === a)), 'client card: every action button renders and maps 1:1 to a server action', wired.length + ' buttons');
+  ok(acts.includes('cl-invoice-view') && acts.includes('cl-copy') && !/לא נתמך|not yet|אין לזה עדיין/.test(dv), 'client card: invoice view + copy links render, no "not yet" placeholders');
+  ok(Object.values(W.CLIENT_ACTIONS).filter((a) => a.send).every((a) => a.word === 'שלח' || a.word === 'חשבונית') && W.CLIENT_ACTIONS.send_dashboard.word === 'שלח', 'client card: sends need the typed word (שלח)');
+}
 const VH = CA.adaptCrm('hostesses', { hostesses: CR.hostesses.items, assignments: CR.assignments.items, clients: CR.clients.clients });
 ok(VH.events.some((e) => e.have < e.need), 'hostess needs derived from clients addons.hostesses.n vs assignments', JSON.stringify(VH.events.map((e) => e.have + '/' + e.need)));
 ok(VH.conflicts.length >= 1, 'hostess conflicts detected (fixture has a double booking)', VH.conflicts.length + ' conflicts');
@@ -624,7 +634,14 @@ if (!process.argv.includes('--no-browser')) {
     await cp.screenshot({ path: join(shotDir, 'client-drawer-light.png') });
     await cp.click('.drawer [data-act=cl-hold]'); await cp.waitForSelector('.dialog #dlg-in', { timeout: 3000 });
     ok((await cp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'client hold sits behind the typed confirm');
-    await cp.keyboard.press('Escape'); await cp.keyboard.press('Escape'); await cp.waitForTimeout(300);
+    await cp.keyboard.press('Escape'); await cp.waitForTimeout(250);
+    await cp.click('.drawer [data-act=cl-extra]'); await cp.waitForSelector('.dialog #dlg-in', { timeout: 3000 });
+    const wordX = await cp.$eval('.dialog label b', (b) => b.textContent);
+    await cp.type('.dialog #dlg-in', 'xx'); await cp.waitForTimeout(100);
+    ok(wordX === 'שלח' && (await cp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled') === 'true' || b.disabled)), 'client extra send: the server word (שלח) is asked; a wrong word keeps אישור disabled');
+    await cp.$eval('.dialog #dlg-in', (i) => { i.value = ''; }); await cp.type('.dialog #dlg-in', 'שלח'); await cp.click('.dialog [data-act=dlg-yes]');
+    await cp.waitForFunction(() => [...document.querySelectorAll('.toast')].some((t) => /extra_send/.test(t.textContent)), { timeout: 4000 }).then(() => ok(true, 'client extra send: typed שלח → action posted → toast'), () => ok(false, 'client extra send: typed שלח → action posted → toast'));
+    await cp.keyboard.press('Escape'); await cp.waitForTimeout(300);
     await cp.evaluate(() => { location.hash = '#/hostesses'; }); await cp.waitForSelector('.wk .shift', { timeout: 6000 });
     ok(!!(await cp.$('.errbox')) && !!(await cp.$('.wk .shift.conflict')), 'hostesses: week grid + conflict warning');
     await cp.screenshot({ path: join(shotDir, 'hostesses-light.png') });

@@ -16,6 +16,9 @@
      POST /api/crm/leads/:id/send        {text, confirm:true} → Noa free text inside 24h, else needs_template
      GET  /api/crm/clients               merged events list
      GET  /api/crm/clients/:token        one event + timeline
+     POST /api/crm/clients/:token        partial edit {name1,name2,phone,occasion,event_date[,override_past]} → only changed sheet cells
+     POST /api/crm/clients/:token/action {action, confirm, …} → the existing admin routes (client-link, event-flag,
+                                         grant-addon, guests-reset, client-active, design-version, ops/invoice-resend)
      GET  /api/crm/hostesses             roster      POST /api/crm/hostesses  upsert
      POST /api/crm/hostesses/:id         patch       POST /api/crm/hostesses/:id/delete {confirm:id}
      POST /api/crm/hostesses/import      roster from Monday (HOSTESS_ROSTER_BOARD) + bookings from KV
@@ -37,6 +40,7 @@ import { mondayGql, digitsIl } from './monday.js';
 import { buildBizStats } from './dashboard.js';
 import { PLAN_HE, OCCASION_HE } from './paylink.js';
 import { ilDayOf, addDays, closedFromPay } from './ops.js';
+import { recordChange } from './changes.js';
 
 /* ══ §1 pure ═══════════════════════════════════════════════════════════════ */
 export const LEAD_STATUSES = ['new', 'talking', 'quoted', 'closed', 'not_relevant', 'lost'];
@@ -176,7 +180,8 @@ export function mergeClients({ biz, subevents = [], kv = {}, crmClients = {}, to
       },
       feedback: fb ? { nps: fb.nps ?? null, exp: fb.exp || '', route: fb.route || '', note: fb.note || '' } : null,
       invoice: e.invoice || (k.invoice && k.invoice.url) || '', file_uploaded: !!e.file_uploaded,
-      links: { dashboard: `${base}/dashboard.html?t=${e.token}`, upload: `${base}/upload.html?t=${e.token}` },
+      links: { dashboard: `${base}/dashboard.html?t=${e.token}`, upload: `${base}/upload.html?t=${e.token}`, feedback: `${base}/feedback.html?t=${e.token}` },
+      flags: { active: !k.inactive, hold: !!k.hold, paid: !!e.paid },
       subevents: subevents.filter(s => s.parent === e.token).map(s => ({ token: s.token, name: s.name, kind: s.kind, kind_he: s.kind_he || '' })),
       lead_id: c.lead_id || '', last_activity_at: c.last_activity_at || '', notes_count: c.notes_count || 0,
     });
@@ -465,6 +470,7 @@ async function quoteLead(env, d, store, lead, b) {
 }
 
 async function sendLead(env, d, store, lead, b, now = Date.now()) {
+  if (b.template) return sendLeadTemplate(env, d, store, lead, b, now);
   const text = String(b.text || '').trim();
   if (text.length < 2) return { status: 400, body: { ok: false, error: 'empty-text' } };
   if (text.length > 4000) return { status: 400, body: { ok: false, error: 'text-too-long' } };
@@ -488,9 +494,206 @@ async function sendLead(env, d, store, lead, b, now = Date.now()) {
   return { status: 200, body: { ok: true, sent: true, wamid: r.id || '', lead: row, monday } };
 }
 
+/* outside the 24h window only an approved template may open the chat: one of LEAD_TEMPLATES, params [first name, occasion]
+   (the same ones chaseAbandonedLeads sends). Preview first; {confirm:true} sends. */
+async function sendLeadTemplate(env, d, store, lead, b, now = Date.now()) {
+  const t = LEAD_TEMPLATES.find(x => x.name === String(b.template));
+  if (!t) return { status: 400, body: { ok: false, error: 'bad-template', templates: LEAD_TEMPLATES } };
+  if (!clientHoursOpen(now)) return { status: 200, body: { ok: false, error: 'quiet-hours', why: 'לא שולחים ללקוחות/לידים 21:00–09:00 ובשבת' } };
+  const first = clean(lead.name, 40).split(' ')[0] || 'היי';
+  const occ = OCCASION_HE[lead.occasion] || clean(lead.occasion, 30) || 'האירוע';
+  const to = lead.phone.replace(/^972(\d{2})\d+(\d{3})$/, '0$1*****$2');
+  if (b.confirm !== true) return { status: 200, body: { ok: true, preview: true, confirm_required: true, to, template: t.name, text: `תבנית ${t.he} · ${first} · ${occ}` } };
+  if (!d.sendClient) return { status: 500, body: { ok: false, error: 'no-send-dep' } };
+  const r = await d.sendClient(env, lead.phone, t.name, [first, occ], { who: 'ops · ' + clean(b.who || 'admin', 30) });
+  if (!r || !r.ok) return { status: 200, body: { ok: false, error: 'send-failed', why: String((r && r.error) || 'unknown').slice(0, 200) } };
+  const st = lead.status === 'new' ? 'talking' : lead.status;
+  const row = await store.upsert('leads', { id: lead.id, status: st, last_outbound_at: nowIso() });
+  await store.appendActivity({ entity_type: 'lead', entity_id: lead.id, kind: 'wa_out', dir: 'out', text: 'תבנית: ' + t.he, meta: { template: t.name } });
+  return { status: 200, body: { ok: true, sent: true, template: t.name, wamid: r.id || '', lead: row } };
+}
+
+/* ── client card (03/11): partial edit + actions ───────────────────────────
+   The sheet row ('אירועים') is written cell by cell (sheetBatchWrite, RAW) and only for fields that changed.
+   C/AI/D/F/G: client name · event title (hosts) · phone · occasion · event date. Never the whole row. */
+export const CLIENT_CELLS = { names: { col: 'AI', idx: 34 }, phone: { col: 'D', idx: 3 }, occasion: { col: 'F', idx: 5 }, event_date: { col: 'G', idx: 6 } };
+const OCC_BY_HE = Object.fromEntries(Object.entries(OCCASION_HE).map(([k, v]) => [v, k]));
+/* body → {fields} | {error}. fields carry the SHEET values (occasion in Hebrew, phone 0-prefixed like the sheet). */
+export function validClientEdit(b, today, { override = false } = {}) {
+  const f = {};
+  if (b.name1 !== undefined || b.name2 !== undefined) {
+    const n1 = clean(b.name1, 40), n2 = clean(b.name2, 40);
+    if (!n1) return { error: 'bad-name' };
+    f.names = n2 ? `${n1} ו${n2}` : n1;
+  } else if (b.names !== undefined) { const n = clean(b.names, 80); if (!n) return { error: 'bad-name' }; f.names = n; }
+  if (b.phone !== undefined && b.phone !== '') {
+    const p = digitsIl(b.phone);
+    if (!/^9725\d{8}$|^972[2-9]\d{7,8}$/.test(p)) return { error: 'bad-phone' };
+    f.phone = '0' + p.slice(3);
+  }
+  if (b.occasion !== undefined && b.occasion !== '') {
+    const o = String(b.occasion).trim();
+    if (!OCCASION_HE[o] && !OCC_BY_HE[o]) return { error: 'bad-occasion', allowed: Object.keys(OCCASION_HE) };
+    f.occasion = OCCASION_HE[o] || o;
+  }
+  const date = b.event_date ?? b.date;
+  if (date !== undefined && date !== '') {
+    const dd = String(date).slice(0, 10);
+    if (!dayOrEmpty(dd) || Number.isNaN(Date.parse(dd + 'T12:00:00Z'))) return { error: 'bad-date' };
+    if (dd < today && !override) return { error: 'date-in-past', today };
+    f.event_date = dd;
+  }
+  return { fields: f };
+}
+/* fields vs the current row → the cells to write (pure) */
+export function clientCellDiff(row, fields, rowNum) {
+  const cur = k => String((row || [])[CLIENT_CELLS[k].idx] ?? '').trim();
+  const same = (k, v) => (k === 'phone' ? digitsIl(cur(k)) === digitsIl(v) : k === 'event_date' ? cur(k).slice(0, 10) === v : cur(k) === v);
+  const before = {}, after = {}, data = [];
+  for (const [k, v] of Object.entries(fields)) {
+    if (same(k, v)) continue;
+    before[k] = cur(k); after[k] = v;
+    data.push({ range: `אירועים!${CLIENT_CELLS[k].col}${rowNum}`, values: [[v]] });
+  }
+  return { before, after, data };
+}
+async function eventRow(env, d, token) {
+  const raw = d.fetchSnapshot ? await d.fetchSnapshot(env).catch(() => null) : null;
+  const rows = (raw && raw.events && raw.events.values) || [];
+  const i = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
+  return i < 0 ? null : { row: rows[i], rowNum: i + 2 };
+}
+const tok8 = t => String(t || '').slice(0, 8);
+async function logClientChange(env, d, token, who, summary_he, details) {
+  await recordChange(env, { kind: 'client', who, summary_he, details: { token: tok8(token), ...details } });
+  if (d.slackPost) await d.slackPost(env, `🗂 ${summary_he} · אירוע ${tok8(token)}`, { urgent: false }).catch(() => {});
+}
+const EDIT_HE = { 'bad-phone': 'מספר טלפון לא תקין', 'bad-occasion': 'סוג אירוע לא מהרשימה', 'date-in-past': 'התאריך כבר עבר', 'bad-date': 'תאריך לא תקין', 'bad-name': 'חסר שם', 'nothing-to-change': 'אין מה לשמור', 'sheet-write-failed': 'הכתיבה לגיליון נכשלה', 'not-found': 'האירוע לא נמצא בגיליון' };
+const FIELD_HE = { names: 'שמות', phone: 'טלפון', occasion: 'סוג אירוע', event_date: 'תאריך' };
+async function editClient(env, d, store, token, b, who, now = Date.now()) {
+  if (!/^[0-9a-f-]{36}$/.test(token)) return { status: 400, body: { ok: false, error: 'bad-token' } };
+  const v = validClientEdit(b, d.ilDate(new Date(now)), { override: b.override_past === true });
+  if (v.error) return { status: 400, body: { ok: false, ...v, he: EDIT_HE[v.error] } };
+  if (!Object.keys(v.fields).length) return { status: 400, body: { ok: false, error: 'nothing-to-change', he: EDIT_HE['nothing-to-change'] } };
+  const hit = await eventRow(env, d, token);
+  if (!hit) return { status: 404, body: { ok: false, error: 'not-found', he: EDIT_HE['not-found'] } };
+  const diff = clientCellDiff(hit.row, v.fields, hit.rowNum);
+  if (!diff.data.length) return { status: 200, body: { ok: true, changed: [], unchanged: true } };
+  if (!d.sheetBatchWrite || !(await d.sheetBatchWrite(env, diff.data))) return { status: 502, body: { ok: false, error: 'sheet-write-failed', he: EDIT_HE['sheet-write-failed'] } };
+  if (env.RATE) await env.RATE.delete('snapcache').catch(() => {});
+  const changed = Object.keys(diff.after);
+  const patch = { id: token, last_activity_at: nowIso() };
+  if (diff.after.phone) {
+    patch.phone = digitsIl(diff.after.phone);
+    if (env.RATE) await env.RATE.put('client:' + patch.phone, '1').catch(() => {});
+  }
+  if (diff.after.names) patch.name = diff.after.names;
+  await store.upsert('clients', patch);
+  await store.appendActivity({ entity_type: 'client', entity_id: token, kind: 'event', text: 'עריכת פרטים: ' + changed.map(k => `${FIELD_HE[k]} ${diff.before[k] || '—'} → ${diff.after[k]}`).join(' · '), meta: { who, before: diff.before, after: diff.after } });
+  await logClientChange(env, d, token, who, 'פרטי לקוח עודכנו: ' + changed.map(k => FIELD_HE[k]).join(', '), { route: 'crm/clients', before: diff.before, after: diff.after, cells: diff.data.map(x => x.range) });
+  return { status: 200, body: { ok: true, changed, before: diff.before, after: diff.after, cells: diff.data.map(x => x.range) } };
+}
+
+/* every card action = one existing route. word = what the UI makes Richard type (memory rule: "שלח" for sends). */
+export const CLIENT_ACTIONS = {
+  send_dashboard: { word: 'שלח', send: true, title: c => `לשלוח ל${c.names} את קישור לוח הלקוח?`, body: () => 'הודעת וואטסאפ אחת מנועה (4499): בתוך חלון 24 השעות עם כפתור, אחרת בתבנית המאושרת. לא בשעות השקטות.' },
+  send_upload: { word: 'שלח', send: true, title: c => `לשלוח ל${c.names} את קישור העלאת הרשימה?`, body: () => 'הודעת וואטסאפ אחת מנועה (4499): בתוך 24 השעות עם כפתור, אחרת בתבנית. לא בשעות השקטות.' },
+  hold: { word: 'hold', title: c => (c.flags.hold ? `לשחרר את ${c.names} מ-hold?` : `לעצור את כל השליחות של ${c.names}?`), body: c => (c.flags.hold ? 'השליחות המתוכננות יחזרו לצאת בפעימה הבאה.' : 'אף הודעה ושיחה לאירוע הזה לא ייצאו עד שתשחררו. הרשימה והתאריכים נשארים.') },
+  cancel: { word: 'ביטול', title: c => `לסמן את האירוע של ${c.names} כמבוטל?`, body: () => 'הגלים נעצרים (בוטל? = כן בגיליון). אפשר להחזיר.' },
+  extra_send: { word: 'שלח', title: c => `לפתוח שליחה נוספת לאורחים של ${c.names}?`, body: c => `${c.counts.pending} אורחים שעוד לא ענו יקבלו תזכורת בגל 3, בחלון השליחה הבא (לא בשעות השקטות).` },
+  add_hostess: { word: 'דיילת', safe: true, title: c => `להוסיף דיילת לאירוע של ${c.names}?`, body: () => 'נוספת דרישה לדיילת אחת. השיבוץ בלוח הדיילות, החיוב בנפרד (קישור תשלום).' },
+  grant_addon: { word: 'תוסף', safe: true, title: (c, b) => `להעניק ל${c.names} ${ADDON_KINDS[b.kind] || 'תוסף'} בלי חיוב?`, body: () => 'התוסף נפתח בלי חיוב ובלי חשבונית. נרשם ביומן השינויים.' },
+  reset_guests: { word: null, title: c => `למחוק את רשימת האורחים של ${c.names}?`, body: c => `${c.counts.invited} שורות נמחקות והלקוח יכול להעלות קובץ חדש, כולל תשובות שכבר התקבלו. אחרי שגל 1 יצא השרת חוסם. להקליד את מספר האורחים.` },
+  invoice_resend: { word: 'חשבונית', send: true, title: c => `לשלוח שוב את החשבונית ל${c.names}?`, body: () => 'הקישור לחשבונית הקיימת נשלח שוב בוואטסאפ בתבנית החשבונית. לא בשעות השקטות.' },
+  design_upload: { word: 'עיצוב', safe: true, title: c => `להעלות גרסת עיצוב לאירוע של ${c.names}?`, body: () => 'הקובץ נוסף כגרסה חדשה בתהליך העיצוב והלקוח רואה אותה.' },
+  toggle_active: { word: 'פעיל', title: c => (c.flags.active ? `לסמן את ${c.names} כלא פעיל?` : `לסמן את ${c.names} כפעיל?`), body: () => 'אירוע לא פעיל לא שולח הודעות ולא שיחות.' },
+  mark_paid: { word: 'שולם', title: c => (c.flags.paid ? `להסיר את סימון התשלום של ${c.names}?` : `לסמן את ${c.names} כשולם?`), body: c => (c.flags.paid ? 'אירוע שלא מסומן כשולם לא שולח הודעות.' : 'משנה רק את הסימון בגיליון (H): השליחות של האירוע נפתחות. לא נוצר תשלום ולא נשלחת חשבונית.') },
+};
+export const ADDON_KINDS = { design: 'עיצוב הזמנה', calls: 'שיחות AI', extrasend: 'גל תזכורת נוסף', guests: 'תוספת מוזמנים', hostess: 'דיילת' };
+async function clientAction(env, d, store, token, b, who, now = Date.now()) {
+  if (!/^[0-9a-f-]{36}$/.test(token)) return { status: 400, body: { ok: false, error: 'bad-token' } };
+  const action = String(b.action || ''), spec = CLIENT_ACTIONS[action];
+  if (!spec) return { status: 400, body: { ok: false, error: 'bad-action', actions: Object.keys(CLIENT_ACTIONS) } };
+  if (!d.route) return { status: 500, body: { ok: false, error: 'no-route-dep' } };
+  const list = await listClients(env, d, store, now);
+  const c = list.ok ? list.clients.find(x => x.token === token) : null;
+  if (!c) return { status: 404, body: { ok: false, error: 'not-found' } };
+  const word = action === 'reset_guests' ? String(c.counts.invited || 0) : spec.word;
+  if (String(b.confirm ?? '') !== word) return { status: 200, body: { ok: true, applied: false, confirm_required: word, title: spec.title(c, b), body: spec.body(c, b), danger: !spec.safe } };
+  if (spec.send && !clientHoursOpen(now)) return { status: 200, body: { ok: false, applied: false, error: 'quiet-hours', why: 'לא שולחים ללקוחות 21:00–09:00 ובשבת' } };
+  const on = typeof b.on === 'boolean' ? b.on : null;
+  let r, summary, details = { action };
+  switch (action) {
+    case 'send_dashboard': case 'send_upload': {
+      const kind = action === 'send_upload' ? 'upload' : 'dashboard';
+      r = await d.route(env, '/api/client-link', { token, kind });
+      summary = `נשלח ללקוח קישור ${kind === 'upload' ? 'העלאת רשימה' : 'לוח הלקוח'} (${r.via === 'button' ? 'בתוך 24 שעות' : 'תבנית'})`; details.via = r.via || null; break;
+    }
+    case 'hold': {
+      const to = on ?? !c.flags.hold;
+      r = await d.route(env, '/api/event-flag', { token, flag: 'hold', on: to, reason: clean(b.reason, 120) });
+      if (r.ok) await d.route(env, '/api/client-active', { token, active: !to });
+      summary = to ? 'שליחות האירוע הושהו (hold)' : 'האירוע שוחרר מ-hold'; details.before = { hold: c.flags.hold }; details.after = { hold: to }; break;
+    }
+    case 'cancel': {
+      const to = on ?? true;
+      r = await d.route(env, '/api/event-flag', { token, flag: 'cancel', on: to, reason: clean(b.reason, 120) });
+      summary = to ? 'האירוע סומן כמבוטל' : 'ביטול האירוע הוסר'; details.after = { cancel: to }; break;
+    }
+    case 'extra_send': {
+      const to = on ?? true;
+      r = await d.route(env, '/api/event-flag', { token, flag: 'extrasend', on: to });
+      summary = to ? 'נפתחה שליחה נוספת (גל 3)' : 'השליחה הנוספת בוטלה'; details.before = { extrasend: c.addons.extra_wave }; details.after = { extrasend: to }; break;
+    }
+    case 'add_hostess': {
+      const n = Math.min(Math.max(parseInt(b.n, 10) || 1, 1), 5);
+      r = await d.route(env, '/api/grant-addon', { token, kind: 'hostess', n });
+      summary = `נוספה דרישה ל-${n} דיילות`; details.before = { hostesses: (c.addons.hostesses && c.addons.hostesses.n) || 0 }; details.after = { hostesses: details.before.hostesses + n }; break;
+    }
+    case 'grant_addon': {
+      const kind = String(b.kind || '');
+      if (!ADDON_KINDS[kind] || kind === 'hostess') return { status: 400, body: { ok: false, error: 'bad-kind', kinds: ['design', 'calls', 'extrasend', 'guests'] } };
+      r = await d.route(env, '/api/grant-addon', { token, kind, n: kind === 'guests' ? Math.min(Math.max(parseInt(b.n, 10) || 50, 1), 900) : undefined });
+      summary = `הוענק תוסף בלי חיוב: ${ADDON_KINDS[kind]}`; details.kind = kind; break;
+    }
+    case 'reset_guests': {
+      r = await d.route(env, '/api/guests-reset', { token });
+      summary = `רשימת המוזמנים אופסה (${r.deleted ?? 0} שורות)`; details.before = { guests: c.counts.invited }; details.after = { guests: 0 }; details.error = r.ok ? null : r.error || r.why || null; break;
+    }
+    case 'invoice_resend': {
+      r = await d.route(env, '/api/ops/invoice-resend', { token, confirm: tok8(token) });
+      summary = 'החשבונית נשלחה שוב ללקוח'; break;
+    }
+    case 'design_upload': {
+      if (!/^[0-9a-f]{16}$/.test(String(b.media || ''))) return { status: 400, body: { ok: false, error: 'bad-media' } };
+      r = await d.route(env, '/api/design-version', { token, action: 'upload', media: String(b.media), note: clean(b.note, 200) });
+      summary = 'הועלתה גרסת עיצוב' + (r.versions ? ' ' + r.versions.length : ''); details.media = String(b.media); break;
+    }
+    case 'toggle_active': {
+      const to = on ?? !c.flags.active;
+      r = await d.route(env, '/api/client-active', { token, active: to });
+      summary = to ? 'הלקוח סומן פעיל' : 'הלקוח סומן לא פעיל'; details.before = { active: c.flags.active }; details.after = { active: to }; break;
+    }
+    case 'mark_paid': {
+      /* the paid cell (H) gates every send for the event; no payment, no invoice is created */
+      const to = on ?? !c.flags.paid;
+      const hit = await eventRow(env, d, token);
+      if (!hit) return { status: 404, body: { ok: false, error: 'not-found' } };
+      const ok = !!(d.sheetBatchWrite && await d.sheetBatchWrite(env, [{ range: `אירועים!H${hit.rowNum}`, values: [[to ? 'כן' : '']] }]));
+      if (ok && env.RATE) await env.RATE.delete('snapcache').catch(() => {});
+      r = { ok, error: ok ? '' : 'sheet-write-failed' };
+      summary = to ? 'הלקוח סומן כשולם' : 'סימון התשלום הוסר'; details.before = { paid: c.flags.paid }; details.after = { paid: to }; details.cell = `H${hit.rowNum}`; break;
+    }
+  }
+  if (!r.ok) return { status: 200, body: { ok: false, applied: false, error: r.error || r.why || 'route-failed', route_status: r.status } };
+  await store.appendActivity({ entity_type: 'client', entity_id: token, kind: 'event', text: summary, meta: { who, ...details } });
+  await logClientChange(env, d, token, who, summary, details);
+  return { status: 200, body: { ok: true, applied: true, action, summary, result: r } };
+}
+
 /* per-token KV facts for the clients merge (bounded: one prefix scan per kind) */
 async function clientKv(env, d) {
-  const kinds = ['paid', 'hostess', 'hostessbook', 'design', 'designflow', 'extrasend', 'callsaddon', 'invoice', 'hold'];
+  const kinds = ['paid', 'hostess', 'hostessbook', 'design', 'designflow', 'extrasend', 'callsaddon', 'invoice', 'hold', 'inactive'];
   const res = await Promise.all(kinds.map(k => d.kvPrefix(env, k + ':').catch(() => ({}))));
   const out = {};
   kinds.forEach((k, i) => { for (const [tok, v] of Object.entries(res[i])) { if (!/^[0-9a-f-]{36}$/.test(tok)) continue; (out[tok] = out[tok] || {})[k] = jparse(v) ?? (v || true); } });
@@ -680,6 +883,9 @@ export async function handleCrm(request, env, origin, url, d) {
       }
       case 'clients': {
         if (!b) return json(await listClients(env, d, store));
+        if (isPost && !c) return res(await editClient(env, d, store, b, body, who));
+        if (isPost && c === 'action') return res(await clientAction(env, d, store, b, body, who));
+        if (c) return json({ ok: false, error: 'unknown-crm-route' }, 404);
         return res(await clientTimeline(env, d, store, b));
       }
       case 'hostesses': {

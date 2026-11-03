@@ -1,6 +1,5 @@
 /* ishur ops · לקוחות: table with status chips, guest counts, plan, date, paid, add-on icons;
-   client drawer: links, add-ons (design flow state, hostesses, calls), timeline (sends, replies,
-   payments, notes), notes, quick actions (hold / extra send / add hostess) behind typed confirm. */
+   client drawer: in-place edit, links, add-ons, timeline, notes; actions → crm/clients/:token/action, typed confirm. */
 import { esc, fmtN, Table, Tabs, Skeleton, Drawer, Button, icon, toast, confirmTyped, Phone, DatePicker, Select } from '../ui.js';
 import { crm, adaptCrm, CLIENT_ST, OCC_HE } from './adapt.js';
 import { money, dayHe, phoneHe, contactBtns, notesBlock, timeline, bindNotes, actionBar } from './kit.js';
@@ -56,29 +55,23 @@ ${editBlock(c)}
 <dt>דיילות</dt><dd>${a.hostesses ? fmtN(a.hostesses) + ` · <a href="#/hostesses">שיבוץ</a>` : '<span class="muted">אין</span>'}</dd>
 <dt>שיחות AI</dt><dd>${a.calls ? 'כלול' : '<span class="muted">לא</span>'}</dd><dt>גל תזכורת נוסף</dt><dd>${a.extra_wave ? 'כן' : '<span class="muted">לא</span>'}</dd></dl></section>
 <section class="crm-sec" aria-label="פעולות"><h3 class="h2">פעולות</h3>
-<p class="acts-h">שליחות</p><div class="acts-g">${A('cl-hold', c.status === 'hold' ? 'שחרור מ-hold' : 'השהיית שליחות (hold)', c.status === 'hold' ? '' : 'danger')}${A('cl-extra', 'שליחה נוספת')}${A('cl-feedback', 'שליחת קישור משוב')}</div>
-<p class="acts-h">תוספות וחבילה</p><div class="acts-g">${A('cl-host', 'הוספת דיילת')}${A('cl-addon', 'הענקת תוסף')}${A('cl-design', 'העלאת עיצוב')}</div>
-<p class="acts-h">חשבון</p><div class="acts-g">${A('cl-paid', 'סימון כשולם')}${A('cl-active', 'הפעלה / השבתה')}${A('cl-invoice', 'חשבונית: צפייה ושליחה חוזרת')}</div>
+<p class="acts-h">שליחות</p><div class="acts-g">${A('cl-hold', c.flags.hold ? 'שחרור מ-hold' : 'השהיית שליחות (hold)', c.flags.hold ? '' : 'danger')}${A('cl-extra', 'שליחה נוספת')}${A('cl-cancel', 'ביטול האירוע', 'danger')}</div>
+<p class="acts-h">תוספות וחבילה</p><div class="acts-g">${A('cl-host', 'הוספת דיילת')}${Button('הענקת עיצוב', { act: 'cl-addon', attr: { 'data-kind': 'design' } })}${Button('הענקת שיחות AI', { act: 'cl-addon', attr: { 'data-kind': 'calls' } })}${Button('הענקת גל נוסף', { act: 'cl-addon', attr: { 'data-kind': 'extrasend' } })}${A('cl-design', 'העלאת גרסת עיצוב')}</div>
+<p class="acts-h">חשבון</p><div class="acts-g">${A('cl-paid', c.flags.paid ? 'הסרת סימון שולם' : 'סימון כשולם')}${A('cl-active', c.flags.active ? 'סימון לא פעיל' : 'סימון פעיל')}${c.invoice ? `<a class="btn" data-act="cl-invoice-view" href="${esc(c.invoice)}" target="_blank" rel="noopener">צפייה בחשבונית ${icon('ext')}</a>${A('cl-invoice', 'שליחת החשבונית שוב')}` : '<span class="sub">אין חשבונית</span>'}</div>
 <div class="danger-zone" style="margin-top:6px"><div class="bar"><span style="flex:1"><b>איפוס רשימת האורחים</b><br><span class="sub">מוחק את הרשימה שהועלתה כדי שהלקוח יעלה מחדש</span></span>${A('cl-reset', 'איפוס אורחים', 'danger')}</div></div></section>
 <div id="cl-notes">${notesBlock(d.notes)}</div>
 <section class="crm-sec" aria-label="ציר זמן"><h3 class="h2">ציר זמן</h3>${timeline([...d.timeline, ...d.notes.map((n) => ({ id: n.id, at: n.at, kind: 'note', dir: 'out', label: 'הערה · ' + n.by, text: n.text }))].sort((x, y) => Date.parse(y.at) - Date.parse(x.at)))}</section>
 ${actionBar(`${contactBtns(c.phone, 'grow')}${c.links.dashboard ? `<a class="btn primary grow" href="${esc(c.links.dashboard)}" target="_blank" rel="noopener">לוח הלקוח</a>` : ''}`)}`;
 }
 
-const ACTIONS = {
-  'cl-hold': { action: 'hold', word: 'hold', title: (c) => (c.status === 'hold' ? 'לשחרר את ' + c.name + ' מ-hold?' : 'לעצור את כל השליחות של ' + c.name + '?'), body: (c) => (c.status === 'hold' ? 'השליחות המתוכננות יחזרו לצאת בפעימה הבאה.' : 'אף הודעה ושיחה לאירוע הזה לא ייצאו עד שתשחררו. השאר ממשיך כרגיל.') },
-  'cl-extra': { action: 'extra_send', word: 'שלח', title: (c) => 'שליחה נוספת לאורחים של ' + c.name + '?', body: (c) => fmtN(c.pending) + ' אורחים שעוד לא ענו יקבלו הודעת תזכורת בחלון השליחה הבא (לא בשעות השקטות).' },
-  'cl-host': { action: 'add_hostess', word: 'דיילת', title: (c) => 'להוסיף דיילת לאירוע של ' + c.name + '?', body: () => 'נוספת דרישה לדיילת אחת. השיבוץ עצמו בלוח הדיילות. החיוב בנפרד (קישור תשלום).' },
-  'cl-send-dash': { action: 'send_dashboard', word: 'שלח', title: (c) => 'לשלוח ל' + c.name + ' את קישור לוח הלקוח?', body: () => 'הודעת וואטסאפ אחת מנועה (4499) עם הקישור. לא בשעות השקטות.' },
-  'cl-send-upload': { action: 'send_upload', word: 'שלח', title: (c) => 'לשלוח ל' + c.name + ' את קישור העלאת הרשימה?', body: () => 'הודעת וואטסאפ אחת מנועה (4499) עם הקישור.' },
-  'cl-feedback': { action: 'send_feedback', word: 'שלח', title: (c) => 'לשלוח ל' + c.name + ' קישור משוב?', body: () => 'הודעת וואטסאפ אחת עם קישור לטופס המשוב.' },
-  'cl-addon': { action: 'grant_addon', word: 'תוסף', title: (c) => 'להעניק תוסף ל' + c.name + '?', body: () => 'התוסף נפתח בלי חיוב. נרשם ביומן השינויים.' },
-  'cl-design': { action: 'design_upload', word: 'עיצוב', title: (c) => 'להעלות עיצוב לאירוע של ' + c.name + '?', body: () => 'הקובץ מחליף את הגרסה הנוכחית בתהליך העיצוב.' },
-  'cl-paid': { action: 'mark_paid', word: 'שולם', title: (c) => 'לסמן את ' + c.name + ' כשולם?', body: () => 'משנה רק את הסימון. לא נוצר תשלום ולא נשלחת חשבונית.' },
-  'cl-active': { action: 'toggle_active', word: 'פעיל', title: (c) => 'לשנות את מצב הפעילות של ' + c.name + '?', body: () => 'אירוע לא פעיל לא שולח הודעות ולא שיחות.' },
-  'cl-invoice': { action: 'invoice_resend', word: 'חשבונית', title: (c) => 'לשלוח שוב את החשבונית ל' + c.name + '?', body: () => 'החשבונית האחרונה נשלחת שוב באימייל ובוואטסאפ.' },
-  'cl-reset': { action: 'reset_guests', word: 'איפוס', title: (c) => 'למחוק את רשימת האורחים של ' + c.name + '?', body: () => 'הרשימה נמחקת והלקוח יכול להעלות קובץ חדש. תשובות שכבר התקבלו נמחקות איתה.' },
+/* button → [action, extra]. The server owns the confirm copy + word (call without confirm = preview), see crm.js CLIENT_ACTIONS */
+export const ACTIONS = {
+  'cl-send-dash': ['send_dashboard'], 'cl-send-upload': ['send_upload'], 'cl-hold': ['hold', (c) => ({ on: !c.flags.hold })],
+  'cl-cancel': ['cancel', () => ({ on: true })], 'cl-extra': ['extra_send', () => ({ on: true })], 'cl-host': ['add_hostess', () => ({ n: 1 })],
+  'cl-addon': ['grant_addon', (c, x) => ({ kind: x.dataset.kind })], 'cl-paid': ['mark_paid', (c) => ({ on: !c.flags.paid })],
+  'cl-active': ['toggle_active', (c) => ({ on: !c.flags.active })], 'cl-invoice': ['invoice_resend'], 'cl-reset': ['reset_guests'], 'cl-design': ['design_upload'],
 };
+const pickFile = () => new Promise((res) => { const i = document.createElement('input'); i.type = 'file'; i.accept = 'image/*,application/pdf'; i.addEventListener('change', () => res(i.files && i.files[0] ? i.files[0] : null), { once: true }); i.click(); });
 
 export default {
   skeleton: () => Skeleton.tiles(4) + Skeleton.table(10),
@@ -116,14 +109,25 @@ export default {
         const err = b.querySelector('[data-ce-err=phone]'); err.textContent = ph && !n ? 'מספר לא תקין (לדוגמה 050-1234567)' : '';
         if (ph && !n) return;
         const patch = { name1: v('name1').trim(), name2: v('name2').trim(), phone: n || undefined, occasion: occ || c.occasion || undefined, date: v('date').slice(0, 10) || undefined };
-        patch.names = patch.name2 ? patch.name1 + ' ו' + patch.name2 : patch.name1;
-        try { await api.clientUpdate(token, patch); toast('הפרטים נשמרו ונרשמו ביומן השינויים'); await paint(); } catch (er) { toast('לא נשמר' + (er.message ? ': ' + er.message : ''), 'crit'); }
+        const save = async (p) => { const r = await api.clientUpdate(token, p); toast(r.unchanged ? 'לא השתנה כלום' : 'נשמר: ' + (r.changed || []).length + ' שדות, נרשם ביומן השינויים'); await paint(); };
+        try { await save(patch); } catch (er) {
+          /* a past date needs an explicit admin override */
+          if (er.code === 'date-in-past' && (await confirmTyped({ title: 'התאריך כבר עבר. לשמור בכל זאת?', body: '<p>לתיקון רישום של אירוע שעבר.</p>', word: 'עבר', action: 'שמירה', danger: true }))) { try { await save({ ...patch, override_past: true }); } catch (e2) { toast('לא נשמר: ' + e2.message, 'crit'); } return; }
+          toast('לא נשמר' + (er.message ? ': ' + er.message : ''), 'crit');
+        }
         return;
       }
       const A = x && ACTIONS[x.dataset.act]; if (!A) return;
-      const c = d.client;
-      if (!(await confirmTyped({ title: A.title(c), body: `<p>${esc(A.body(c))}</p>`, word: A.word, action: 'אישור', danger: A.action !== 'add_hostess' }))) return;
-      try { const r = await api.clientAction(token, A.action, { confirm: A.word }); if (r && r.applied === false) throw new Error('השרת לא אישר'); toast('בוצע'); await paint(); } catch (er) { toast('לא בוצע' + (er.message ? ': ' + er.message : ''), 'crit'); }
+      const [action, ex] = A, extra = ex ? ex(d.client, x) : {};
+      try {
+        const file = action === 'design_upload' ? await pickFile() : null;
+        if (action === 'design_upload' && !file) return;
+        const p = await api.clientPreview(token, action, extra);
+        if (!(await confirmTyped({ title: p.title, body: `<p>${esc(p.body)}</p>${file ? `<p class="sub" dir="auto">${esc(file.name)}</p>` : ''}`, word: p.confirm_required, action: 'אישור', danger: p.danger !== false }))) return;
+        if (file) extra.media = await api.uploadDesign(token, file);
+        const r = await api.clientAction(token, action, { ...extra, confirm: p.confirm_required });
+        toast(r.summary || 'בוצע'); await paint();
+      } catch (er) { toast('לא בוצע' + (er.message ? ': ' + er.message : ''), 'crit'); }
     });
     try { await paint(); } catch (e) { b.innerHTML = ctx.errorBox(e, 'noop'); }
   },

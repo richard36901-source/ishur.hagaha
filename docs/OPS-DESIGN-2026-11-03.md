@@ -50,8 +50,7 @@ Old hashes are parsed as aliases (`parseHash` in app.js: an old screen id resolv
 
 ## Not done / needs a backend
 
-- Client card edits save through `POST /api/crm/clients/:token` (`crm.clientUpdate`), which the Worker does not have yet; `/api/event` event_setup overwrites the whole settings row and `/api/event-change` only does cancel/restore/postpone, so neither is safe for a partial edit. In mock the edit works; live shows the server's refusal in the toast.
-- Client actions other than the existing hold / extra send / add hostess call `clientAction`, still "not yet" in crm/adapt.js.
+- ~~Client card edits / actions~~ done 03/11 (branch client-card): `POST /api/crm/clients/:token` writes only the changed cells (C/AI/D/F/G via sheetBatchWrite), `POST /api/crm/clients/:token/action` runs the existing routes (client-link, event-flag, grant-addon incl. new kinds design/hostess, guests-reset, client-active, design-version, ops/invoice-resend; mark_paid writes H). Typed word checked server-side, quiet hours on sends, change-log kind `client` + Slack. Lead drawer template send: `POST /api/crm/leads/:id/send {template}`.
 - Live log rows can only show template / cost / per-message grouping where the audit rows carry them (today's `/api/ops/live` items are audit rows).
 
 Screenshots: `docs/ops-screens/design/<screen>-{light,dark,mobile}.png` (26 screens, `node scripts/ops-design-shots.mjs`).
