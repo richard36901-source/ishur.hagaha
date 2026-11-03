@@ -23,6 +23,8 @@
      POST /api/ops/run-log         {run_id, line|lines[], automation_id?} — an external agent streams its reasoning
      POST /api/ops/edit            {id, field, value, confirm} — whitelisted settings (cfg.js); blast radius first
      GET  /api/ops/changes         change log (changes.js): from, to, kind (comma list), actor, cursor, limit
+     GET  /api/ops/messages?day=&cursor=&tab=all|failed|replies   one row per message (ops-inbox.js)
+     GET  /api/ops/inbox?channel=  conversations · GET /api/ops/thread?phone= one thread · GET /api/ops/control manual-control state
      POST /api/ops/revert          {id, confirm} — undo one change: edit → previous value, toggle/pause → flip back,
                                    deploy → Cloudflare rollback (CF_API_TOKEN) or the exact wrangler command
 
@@ -46,6 +48,7 @@ import { isOff, offState, OFF_PREFIX, listRuns, getRun, runStats } from './ops-r
 import CODE from './registry-code.json' with { type: 'json' };
 import { runBrain, buildBrain, decide, runLogAppend } from './brain.js';
 import { SETTINGS, validateEdit, confirmWord, writeSetting, loadCfg, effective, editableFor, NOA_CHASE_ON_CONFIRM } from './cfg.js';
+import { buildMessages, buildInbox, buildThread, buildControl } from './ops-inbox.js';
 import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -972,11 +975,16 @@ export async function handleOps(request, env, origin, url, d) {
         const r = await listChanges(env, { from: q('from') || '', to: q('to') || '', kind: q('kind') || '', actor, cursor: q('cursor') || '', limit: Number(q('limit')) || 100 });
         return json({ ok: true, kinds: KINDS, actors: ACTORS, ...r });
       }
+      /* 03/11 Phase 4a (ops-inbox.js): read-only */
+      case 'messages': return json(await buildMessages(env, d, { day: q('day'), cursor: q('cursor'), tab: q('tab'), limit: q('limit') }));
+      case 'inbox': return json(await buildInbox(env, d, { channel: q('channel'), limit: q('limit') }));
+      case 'thread': { const r = await buildThread(env, d, { phone: q('phone') }); return json(r.body, r.status); }
+      case 'control': return json(await buildControl(env, d));
       case 'revert': {
         if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
         const r = await revertChange(env, d, body); return json(r.body, r.status);
       }
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert'] }, 404);
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);

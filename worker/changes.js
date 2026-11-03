@@ -30,7 +30,7 @@ export const CHG_PREFIX = 'chg:';
 export const CHG_TTL = 400 * 86400;
 export const KINDS = {
   deploy: 'גרסה', registry: 'אוטומציות', edit: 'עריכה', hold: 'החזקה', toggle: 'מתג', pause: 'עצירה כללית',
-  template: 'תבנית', brain: 'מוח', subevent: 'אירוע-בן', blast: 'שליחה ידנית', revert: 'שחזור',
+  template: 'תבנית', brain: 'מוח', subevent: 'אירוע-בן', blast: 'שליחה ידנית', revert: 'שחזור', control: 'שליטה ידנית',
 };
 export const ACTORS = ['Richard', 'Claude', 'brain', 'system'];
 export const REGISTRY_SNAPSHOT_KEY = 'registry:snapshot';

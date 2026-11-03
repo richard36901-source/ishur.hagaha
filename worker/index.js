@@ -6825,7 +6825,10 @@ async function handleInbox(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
-
+  return okJson(await inboxData(env, body), origin);
+}
+/* 03/11 ops inbox: the same data /api/inbox serves, as a plain object (ops-inbox.js reuses it) */
+async function inboxData(env, body = {}) {
   const phone = normPhone(body.phone || '');
   if (phone) {
     /* one thread, oldest first. Nothing expires any more, so an old customer
@@ -6849,7 +6852,7 @@ async function handleInbox(request, env, origin) {
     });
     const nonrelevant = !!nrFlag;
     const aiOff = !!(aiFlag || humanFlag);
-    return okJson({ ok: true, phone, wa_name: waName || '', nonrelevant, ai_off: aiOff, messages }, origin);
+    return { ok: true, phone, wa_name: waName || '', nonrelevant, ai_off: aiOff, ai_off_perm: !!aiFlag, human: !!humanFlag, messages };
   }
 
   /* One key per conversation instead of one per message. The old list walked
@@ -6871,6 +6874,7 @@ async function handleInbox(request, env, origin) {
         last_dir: c.last_dir || '',
         last_text: c.last_text || '',
         first_ts: c.first_ts || 0,
+        last_in_ts: Number(c.last_in_ts) || 0,
         ch: c.ch || [],
       });
     } catch {}
@@ -6913,14 +6917,14 @@ async function handleInbox(request, env, origin) {
   } else {
     for (const c of page) if (!c.name) c.name = c.wa_name || '';
   }
-  return okJson({
+  return {
     ok: true, conversations: page, total: list.length,
     counts: {
       all: list.length,
       client: list.filter(c => (c.ch || []).includes('client')).length,
       guests: list.filter(c => (c.ch || []).includes('guests')).length,
     },
-  }, origin);
+  };
 }
 
 /* Everything written before the conversation index existed only lives as
@@ -9726,7 +9730,7 @@ function opsDeps() {
     /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
     slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
     mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
-    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
+    runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), inboxData: (e, b) => inboxData(e, b), getBrain: (e) => getBrain(e), EVENT_FLAGS, giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
 }
 /* 03/11 CRM: the ops deps plus what the CRM needs on top */
 function crmDeps() {
@@ -9777,6 +9781,14 @@ export const CHANGE_ROUTES = {
   '/api/wave-retry': { kind: 'blast', when: b => !b.dry, summary: b => `ניסיון חוזר לגל ${b.wave || ''} באירוע ${tok8(b.token)}`, details: b => ({ route: 'wave-retry', token: tok8(b.token), wave: b.wave || null }) },
   '/api/event-day': { kind: 'blast', when: b => b.action === 'set' || b.action === 'clear', summary: b => `הודעת יום האירוע ${b.action === 'set' ? 'תוזמנה' : 'בוטלה'} לאירוע ${tok8(b.token)}${b.at ? ' · ' + b.at : ''}`, details: b => ({ route: 'event-day', token: tok8(b.token), action: b.action, at: b.at || null, time: b.time || null, template: b.template || null }) },
   '/api/call-round': { kind: 'blast', when: b => b.action === 'set' || b.action === 'clear' || b.action === 'run', summary: b => `סבב שיחות ${b.action === 'set' ? 'נקבע' : b.action === 'run' ? 'הורץ' : 'בוטל'} לאירוע ${tok8(b.token)}${b.at ? ' · ' + b.at : ''}`, details: b => ({ route: 'call-round', token: tok8(b.token), action: b.action, at: b.at || null }) },
+  /* 03/11 Phase 4a: the manual-control screen's actions (ops-manual.html port) */
+  '/api/pacer': { kind: 'control', when: () => true, summary: (b, j) => `פעימה ידנית הורצה${j && j.sends ? ' · הודעות: ' + (j.sends.sent ?? j.sends.count ?? (j.sends.ran ? 'כן' : 'לא')) : ''}${j && j.calls ? ' · שיחות: ' + (j.calls.dialed ?? 0) : ''}`, details: (b, j) => ({ route: 'pacer', sends: j && j.sends ? (j.sends.sent ?? j.sends.count ?? null) : null, calls: j && j.calls ? (j.calls.dialed ?? null) : null }) },
+  '/api/daily-run': { kind: 'control', when: b => b.dry === false, summary: (b, j) => `המנוע היומי הורץ ידנית (אמיתי)${j && Array.isArray(j.events) ? ' · ' + j.events.length + ' פעולות' : ''}`, details: (b, j) => ({ route: 'daily-run', force: !!b.force, actions: j && Array.isArray(j.events) ? j.events.length : null }) },
+  '/api/event-flag': { kind: 'hold', when: b => typeof b.on === 'boolean', summary: b => `${{ hold: 'השהיית אירוע', cancel: 'ביטול אירוע', extrasend: 'שליחה נוספת', postponeok: 'אישור הודעת דחייה' }[b.flag] || b.flag} ${b.on ? 'הופעל' : 'בוטל'} · אירוע ${tok8(b.token)}`,
+    details: b => ({ route: 'event-flag', token: tok8(b.token), flag: b.flag, on: b.on, reason: String(b.reason || '').slice(0, 120) || null }) },
+  '/api/block-phone': { kind: 'control', when: b => typeof b.blocked === 'boolean', summary: b => `מספר ${String(b.phone || '').replace(/\D/g, '').replace(/(\d{3})\d+(\d{3})$/, '$1****$2')} ${b.blocked ? 'נחסם לשליחה' : 'הוחזר לשליחה'}`,
+    details: b => ({ route: 'block-phone', phone: String(b.phone || '').replace(/\D/g, '').replace(/(\d{3})\d+(\d{3})$/, '$1****$2'), blocked: b.blocked }) },
+  '/api/ipn-replay': { kind: 'control', when: (b, j) => !b.payload && (!j || j.ok !== false), summary: b => `תשלום שחנה הורץ מחדש · ${String(b.id || '').slice(0, 40)}`, details: (b, j) => ({ route: 'ipn-replay', id: String(b.id || '').slice(0, 40), status: j ? j.status ?? null : null }) },
   '/api/custom-template': { kind: 'template', when: b => b.action === 'set', summary: b => `נוסח הזמנה אישי הוגש למטא לאירוע ${tok8(b.token)}`, details: (b, j) => ({ token: tok8(b.token), status: (j.custom && j.custom.status) || null, chars: String(b.text || '').length }) },
 };
 async function changeWrap(request, env, inner) {
