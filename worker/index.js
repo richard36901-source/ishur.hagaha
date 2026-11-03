@@ -64,6 +64,7 @@ import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handle
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
+import { fixedCostAction } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns } from './ops.js';
 import { handleRaffle } from './raffle.js';
@@ -7190,6 +7191,8 @@ async function handleAdspend(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+  /* 03/11: recurring fixed costs (ops-money.js fixedCostAction); {month, items} below stays for the old board */
+  if (body.action) { const out = await fixedCostAction(env, body, ilDate().slice(0, 7)); if (out.ok && body.action !== 'list') await recordChange(env, { kind: 'edit', who: 'richard', summary_he: `עלות קבועה: ${({ add: 'נוספה', update: 'עודכנה', remove: 'הוסרה', telnyx: 'מספרי Telnyx עודכנו' })[body.action] || body.action}${body.item && body.item.name ? ' · ' + String(body.item.name).slice(0, 40) : body.id ? ' · ' + String(body.id).slice(0, 40) : ''}`, details: { route: '/api/fixedcost', action: body.action, id: body.id || (body.item && body.item.id) || null }, revert: { possible: false, how: 'none' } }).catch(() => {}); return okJson(out, origin); }
   const m = String(body.month || '').slice(0, 7);
   if (/^\d{4}-\d{2}$/.test(m) && body.ils != null) {
     await env.RATE.put('adspend:' + m, String(Math.max(0, Number(body.ils) || 0)));
