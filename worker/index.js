@@ -46,7 +46,7 @@ import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment,
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
 import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
 import { handleAutomations } from './automations.js';
-import { handleSendBoard } from './send-board.js';
+import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
 import { handleFloor, handleFloorNote } from './floor.js';   /* 02/11 floor/dial routes */
 import { handleDial } from './dial.js';                       /* 02/11 floor/dial routes */
@@ -9537,12 +9537,20 @@ async function buildCalendarMonth(env, month) {
 }
 
 /* 03/11 ops center: index.js internals handed to ops.js (it cannot import us) */
+function sendBoardDeps() {
+  return { isAdmin, okJson, deny, snapshotCached,
+    auditQuery: (e, q) => audit.query(e, q),
+    isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
+    guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); } };
+}
 function opsDeps() {
   return { isAdmin, adminKeyOk: (env, k) => adminKeyOk(env, k), okJson, deny, cors, ilDate, sendWindowState, callWindowState, isNoContactDay,
     sendingPaused, snapshotCached, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), waCapInfo, guestCapacity, guestPhoneIds, clientPhoneId,
     clientWaba, clientToken, kvPrefix, normPhone, isTestEventRow, planKeyOf, buildCallQueue, retellListCalls, metaAds,
     auditQuery: (e, q) => audit.query(e, q), auditQueryEx: (e, q) => audit.queryEx(e, q), auditRecord: (e, r) => audit.record(e, r),
     slackPost: (e, t, o) => slackPost(e, t, o), PACE_SENDS, PACE_CALLS, PACE_CALLBACKS,
+    /* 03/11 ops calendar */
+    parsePaidDesc: (x) => parsePaidDesc(x), sendBoardData: (e, b) => sendBoardData(e, sendBoardDeps(), b),
     /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
     slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
     mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
@@ -10771,12 +10779,7 @@ export default {
     /* 01/11: send board — נמסרו X / נשלחו Y / מתוך Z per event per message type (calendar/admin).
        Reads only, except a 5-min sendboard:* cache key. */
     if (url.pathname === '/api/send-board' && request.method === 'POST') {
-      return handleSendBoard(request, env, origin, {
-        isAdmin, okJson, deny, snapshotCached,
-        auditQuery: (e, q) => audit.query(e, q),
-        isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
-        guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); },
-      });
+      return handleSendBoard(request, env, origin, sendBoardDeps());
     }
     /* 02/11: every call ever — one merged calls view (F.4/F.5), cursor-paged per audit day, CSV. No KV writes. */
     if (url.pathname === '/api/calls-log' && request.method === 'POST') {
