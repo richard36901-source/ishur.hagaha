@@ -47,7 +47,7 @@ async function raw(name, body = {}) {
   else {
     await ensureLive();
     const payload = Object.assign({ admin_key: adminKey }, body);
-    const r = await fetch(BASE + '/api/ops/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
+    const r = await fetch(BASE + '/api/' + (name.includes('/') ? name.replace(/^\//, '') : 'ops/' + name), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
     if (r.status === 403 || r.status === 401) { showGate('המפתח לא התקבל'); throw new HttpError(r.status, 'אין הרשאה'); }
     if (r.status === 404) { const e = await r.json().catch(() => ({})); throw new HttpError(404, e.error === 'unknown-ops-route' || !e.error ? 'נקודת הקצה ' + name + ' עוד לא קיימת בשרת' : e.error); }
     if (!r.ok) { const e = await r.json().catch(() => ({})); throw new HttpError(r.status, e.error || e.why || ''); }
@@ -110,10 +110,11 @@ export const ROUTES = [
   { id: 'capacity', he: 'קיבולת', icon: 'cap', key: 'k' },
   { id: 'calendar', he: 'לוח שנה', icon: 'cap', key: 'd' },
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
+  { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 'h', dir: 'crm' },
 ];
 const screens = {};
-/* calendar is lazy (outside the counted JS budget, like mock.js) */
-const loadModule = (id) => (screens[id] = screens[id] || import(id === 'calendar' ? './lazy/calendar.js' : `./screens/${id}.js`));
+/* calendar is lazy (outside the counted JS budget, like mock.js); CRM screens live in ./crm/ (ROUTES dir) */
+const loadModule = (id) => (screens[id] = screens[id] || import(id === 'calendar' ? './lazy/calendar.js' : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
 const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
 
@@ -197,7 +198,7 @@ function toggleTheme() {
 
 /* ── keyboard ── */
 export const KEYMAP = [
-  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'],
+  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'], ['g e', 'לידים'], ['g s', 'לקוחות'], ['g h', 'דיילות'],
   ['⌘ K', 'פקודות וחיפוש'], ['/', 'חיפוש בעמוד'], ['j k', 'שורה הבאה / קודמת'], ['Enter', 'פתיחת השורה'], ['Esc', 'סגירה'],
   ['\\', 'פאנל לוג חי'], ['t', 'בהיר / כהה'], ['p', 'עצירת הזרם החי'], ['?', 'קיצורי מקלדת'],
 ];
@@ -237,7 +238,7 @@ async function palette() {
   if (palEl) return closePalette();
   palPrev = document.activeElement;
   const cmds = ROUTES.map((r) => ({ label: 'מעבר ל' + r.he, hint: 'g ' + r.key, run: () => (location.hash = '#/' + r.id) }));
-  cmds.push({ label: 'בהיר / כהה', hint: 't', run: toggleTheme }, { label: 'פאנל לוג חי', hint: '\\', run: toggleSide }, { label: 'לקוחות (עמוד האדמין)', hint: '', run: () => (location.href = 'admin.html') }, { label: 'שליטה ידנית (העמוד הישן)', hint: '', run: () => (location.href = 'ops-manual.html') });
+  cmds.push({ label: 'בהיר / כהה', hint: 't', run: toggleTheme }, { label: 'פאנל לוג חי', hint: '\\', run: toggleSide }, { label: 'שליטה ידנית (העמוד הישן)', hint: '', run: () => (location.href = 'ops-manual.html') });
   const reg = api.cached('registry');
   if (reg) reg.data.nodes.filter((n) => n.layer > 0).forEach((n) => cmds.push({ label: n.name_he, hint: n.id, run: () => (location.hash = '#/automations/' + n.id) }));
   const s = document.createElement('div'); s.className = 'scrim'; s.id = 'pal-scrim'; s.style.zIndex = 80; s.onclick = closePalette;

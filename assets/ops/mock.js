@@ -7,6 +7,7 @@ const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fix
 const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {} };
 export async function mockApi(name, body, ver) {
   if (ver) VER = ver;
+  if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER);
   const now = new Date().toISOString();
   if (name === 'registry') {
     const r = structuredClone(await fixture('registry'));

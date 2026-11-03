@@ -1,0 +1,847 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T09:00:00+02:00",
+ "items": [
+  {
+   "id": "ld_001",
+   "phone": "972500001001",
+   "name": "איתי מזרחי",
+   "source": "whatsapp",
+   "occasion": "wedding",
+   "event_date": "2027-04-22",
+   "records_estimate": 400,
+   "status": "quoted",
+   "owner": "richard",
+   "next_action_at": "2026-11-05T09:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": "q_1",
+   "client_token": null,
+   "tags": [
+    "דיילות"
+   ],
+   "created_at": "2026-10-31T08:01:00.000Z",
+   "last_inbound_at": "2026-11-01T10:01:00.000Z"
+  },
+  {
+   "id": "ld_002",
+   "phone": "972500001002",
+   "name": "יוסי פרידמן",
+   "source": "google",
+   "occasion": "wedding",
+   "event_date": "2027-03-05",
+   "records_estimate": 500,
+   "status": "new",
+   "owner": "shalev",
+   "next_action_at": "2026-11-06T10:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "VIP"
+   ],
+   "created_at": "2026-10-07T09:02:00.000Z",
+   "last_inbound_at": "2026-10-09T10:02:00.000Z"
+  },
+  {
+   "id": "ld_003",
+   "phone": "972500001003",
+   "name": "עומר מזרחי",
+   "source": "site",
+   "occasion": "hina",
+   "event_date": "2027-01-20",
+   "records_estimate": 500,
+   "status": "closed",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_3",
+   "client_token": "a0000003-0000-4000-8000-000000000000",
+   "tags": [
+    "אולם"
+   ],
+   "created_at": "2026-10-18T10:03:00.000Z",
+   "last_inbound_at": "2026-10-18T10:03:00.000Z"
+  },
+  {
+   "id": "ld_004",
+   "phone": "972500001004",
+   "name": "תמר פרץ",
+   "source": "whatsapp",
+   "occasion": "wedding",
+   "event_date": "2027-02-12",
+   "records_estimate": 200,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-06T12:00:00.000Z",
+   "next_action_text": "לבדוק אם נכנס תשלום",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "מחיר"
+   ],
+   "created_at": "2026-10-29T11:04:00.000Z",
+   "last_inbound_at": "2026-11-01T10:04:00.000Z"
+  },
+  {
+   "id": "ld_005",
+   "phone": "972500001005",
+   "name": "איתי ביטון",
+   "source": "referral",
+   "occasion": "bat",
+   "event_date": "2027-03-06",
+   "records_estimate": 300,
+   "status": "lost",
+   "owner": "shalev",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "עיצוב"
+   ],
+   "created_at": "2026-10-22T12:05:00.000Z",
+   "last_inbound_at": "2026-10-26T10:05:00.000Z"
+  },
+  {
+   "id": "ld_006",
+   "phone": "972500001006",
+   "name": "ליאת פרץ",
+   "source": "google",
+   "occasion": "bday",
+   "event_date": "2026-12-15",
+   "records_estimate": 500,
+   "status": "quoted",
+   "owner": "richard",
+   "next_action_at": "2026-11-03T14:00:00.000Z",
+   "next_action_text": "לבדוק אם נכנס תשלום",
+   "quote_id": "q_6",
+   "client_token": null,
+   "tags": [
+    "חוזר"
+   ],
+   "created_at": "2026-10-21T13:06:00.000Z",
+   "last_inbound_at": "2026-10-22T10:06:00.000Z"
+  },
+  {
+   "id": "ld_007",
+   "phone": "972500001007",
+   "name": "מיכל אוחיון",
+   "source": "instagram",
+   "occasion": "bday",
+   "event_date": "2027-05-23",
+   "records_estimate": 400,
+   "status": "new",
+   "owner": "richard",
+   "next_action_at": "2026-11-06T15:00:00.000Z",
+   "next_action_text": "לחזור אחרי שיחה עם בן הזוג",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חם"
+   ],
+   "created_at": "2026-10-11T14:07:00.000Z",
+   "last_inbound_at": "2026-10-11T10:07:00.000Z"
+  },
+  {
+   "id": "ld_008",
+   "phone": "972500001008",
+   "name": "אבי גבאי",
+   "source": "site",
+   "occasion": "bday",
+   "event_date": "2026-12-16",
+   "records_estimate": 300,
+   "status": "closed",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_8",
+   "client_token": "a0000008-0000-4000-8000-000000000000",
+   "tags": [
+    "דיילות"
+   ],
+   "created_at": "2026-10-04T15:08:00.000Z",
+   "last_inbound_at": "2026-10-05T10:08:00.000Z"
+  },
+  {
+   "id": "ld_009",
+   "phone": "972500001009",
+   "name": "איתי אברהם",
+   "source": "referral",
+   "occasion": "wedding",
+   "event_date": "2027-01-06",
+   "records_estimate": 200,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-04T09:00:00.000Z",
+   "next_action_text": "לחזור אחרי שיחה עם בן הזוג",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "VIP"
+   ],
+   "created_at": "2026-10-31T16:09:00.000Z",
+   "last_inbound_at": "2026-11-03T10:09:00.000Z"
+  },
+  {
+   "id": "ld_010",
+   "phone": "972500001010",
+   "name": "איתי כהן",
+   "source": "instagram",
+   "occasion": "wedding",
+   "event_date": "2027-05-18",
+   "records_estimate": 500,
+   "status": "not_relevant",
+   "owner": "shalev",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "אולם"
+   ],
+   "created_at": "2026-10-27T07:10:00.000Z",
+   "last_inbound_at": "2026-10-30T10:10:00.000Z"
+  },
+  {
+   "id": "ld_011",
+   "phone": "972500001011",
+   "name": "תמר אברהם",
+   "source": "whatsapp",
+   "occasion": "wedding",
+   "event_date": "2027-03-27",
+   "records_estimate": 400,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-06T11:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "מחיר"
+   ],
+   "created_at": "2026-09-26T08:11:00.000Z",
+   "last_inbound_at": "2026-09-28T10:11:00.000Z"
+  },
+  {
+   "id": "ld_012",
+   "phone": "972500001012",
+   "name": "מיכל ביטון",
+   "source": "instagram",
+   "occasion": "hina",
+   "event_date": "2026-12-30",
+   "records_estimate": 300,
+   "status": "new",
+   "owner": "richard",
+   "next_action_at": "2026-11-05T12:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "עיצוב"
+   ],
+   "created_at": "2026-10-09T09:12:00.000Z",
+   "last_inbound_at": "2026-11-03T06:12:00.000Z"
+  },
+  {
+   "id": "ld_013",
+   "phone": "972500001013",
+   "name": "ליאת דהן",
+   "source": "google",
+   "occasion": "wedding",
+   "event_date": "2027-01-21",
+   "records_estimate": 300,
+   "status": "quoted",
+   "owner": "richard",
+   "next_action_at": "2026-11-03T13:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": "q_13",
+   "client_token": null,
+   "tags": [
+    "חוזר"
+   ],
+   "created_at": "2026-10-11T10:13:00.000Z",
+   "last_inbound_at": "2026-10-14T10:13:00.000Z"
+  },
+  {
+   "id": "ld_014",
+   "phone": "972500001014",
+   "name": "עומר גבאי",
+   "source": "instagram",
+   "occasion": "wedding",
+   "event_date": "2027-04-24",
+   "records_estimate": 400,
+   "status": "new",
+   "owner": "shalev",
+   "next_action_at": "2026-11-05T14:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חם"
+   ],
+   "created_at": "2026-10-04T11:14:00.000Z",
+   "last_inbound_at": "2026-10-08T10:14:00.000Z"
+  },
+  {
+   "id": "ld_015",
+   "phone": "972500001015",
+   "name": "דנה אזולאי",
+   "source": "meta_form",
+   "occasion": "wedding",
+   "event_date": "2027-01-02",
+   "records_estimate": 400,
+   "status": "closed",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_15",
+   "client_token": "a0000015-0000-4000-8000-000000000000",
+   "tags": [
+    "דיילות"
+   ],
+   "created_at": "2026-10-28T12:15:00.000Z",
+   "last_inbound_at": "2026-11-01T10:15:00.000Z"
+  },
+  {
+   "id": "ld_016",
+   "phone": "972500001016",
+   "name": "קרן כהן",
+   "source": "meta_form",
+   "occasion": "wedding",
+   "event_date": "2027-03-23",
+   "records_estimate": 100,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-04T08:00:00.000Z",
+   "next_action_text": "לשלוח דוגמת הזמנה",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "VIP"
+   ],
+   "created_at": "2026-09-29T13:16:00.000Z",
+   "last_inbound_at": "2026-10-03T10:16:00.000Z"
+  },
+  {
+   "id": "ld_017",
+   "phone": "972500001017",
+   "name": "יוסי פרץ",
+   "source": "meta_form",
+   "occasion": "wedding",
+   "event_date": "2027-02-13",
+   "records_estimate": 100,
+   "status": "lost",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "אולם"
+   ],
+   "created_at": "2026-09-22T14:17:00.000Z",
+   "last_inbound_at": "2026-09-23T10:17:00.000Z"
+  },
+  {
+   "id": "ld_018",
+   "phone": "972500001018",
+   "name": "נטע אוחיון",
+   "source": "whatsapp",
+   "occasion": "wedding",
+   "event_date": "2027-02-12",
+   "records_estimate": 300,
+   "status": "quoted",
+   "owner": "richard",
+   "next_action_at": "2026-11-05T10:00:00.000Z",
+   "next_action_text": "לבדוק אם נכנס תשלום",
+   "quote_id": "q_18",
+   "client_token": null,
+   "tags": [
+    "מחיר"
+   ],
+   "created_at": "2026-10-14T15:18:00.000Z",
+   "last_inbound_at": "2026-10-18T10:18:00.000Z"
+  },
+  {
+   "id": "ld_019",
+   "phone": "972500001019",
+   "name": "הילה אוחיון",
+   "source": "site",
+   "occasion": "wedding",
+   "event_date": "2027-01-30",
+   "records_estimate": 500,
+   "status": "new",
+   "owner": "shalev",
+   "next_action_at": "2026-11-06T11:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "עיצוב"
+   ],
+   "created_at": "2026-10-17T16:19:00.000Z",
+   "last_inbound_at": "2026-10-17T10:19:00.000Z"
+  },
+  {
+   "id": "ld_020",
+   "phone": "972500001020",
+   "name": "גיל פרידמן",
+   "source": "site",
+   "occasion": "brit",
+   "event_date": "2027-03-15",
+   "records_estimate": 500,
+   "status": "closed",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_20",
+   "client_token": "a0000020-0000-4000-8000-000000000000",
+   "tags": [
+    "חוזר"
+   ],
+   "created_at": "2026-09-29T07:20:00.000Z",
+   "last_inbound_at": "2026-10-01T10:20:00.000Z"
+  },
+  {
+   "id": "ld_021",
+   "phone": "972500001021",
+   "name": "ליאת אברהם",
+   "source": "site",
+   "occasion": "bat",
+   "event_date": "2027-05-17",
+   "records_estimate": 100,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-06T13:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חם"
+   ],
+   "created_at": "2026-10-24T08:21:00.000Z",
+   "last_inbound_at": "2026-10-28T10:21:00.000Z"
+  },
+  {
+   "id": "ld_022",
+   "phone": "972500001022",
+   "name": "רות אברהם",
+   "source": "referral",
+   "occasion": "wedding",
+   "event_date": "2026-12-16",
+   "records_estimate": 400,
+   "status": "not_relevant",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "דיילות"
+   ],
+   "created_at": "2026-09-26T09:22:00.000Z",
+   "last_inbound_at": "2026-09-30T10:22:00.000Z"
+  },
+  {
+   "id": "ld_023",
+   "phone": "972500001023",
+   "name": "קרן דהן",
+   "source": "referral",
+   "occasion": "bat",
+   "event_date": "2027-03-22",
+   "records_estimate": 100,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-05T15:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "VIP"
+   ],
+   "created_at": "2026-10-03T10:23:00.000Z",
+   "last_inbound_at": "2026-10-05T10:23:00.000Z"
+  },
+  {
+   "id": "ld_024",
+   "phone": "972500001024",
+   "name": "מאיה פרץ",
+   "source": "google",
+   "occasion": "wedding",
+   "event_date": "2027-05-25",
+   "records_estimate": 300,
+   "status": "new",
+   "owner": "shalev",
+   "next_action_at": "2026-11-05T08:00:00.000Z",
+   "next_action_text": "לבדוק אם נכנס תשלום",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "אולם"
+   ],
+   "created_at": "2026-11-01T11:24:00.000Z",
+   "last_inbound_at": "2026-11-03T06:24:00.000Z"
+  },
+  {
+   "id": "ld_025",
+   "phone": "972500001025",
+   "name": "יעל פרידמן",
+   "source": "meta_form",
+   "occasion": "bat",
+   "event_date": "2026-12-23",
+   "records_estimate": 100,
+   "status": "quoted",
+   "owner": "shalev",
+   "next_action_at": "2026-11-06T09:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": "q_25",
+   "client_token": null,
+   "tags": [
+    "מחיר"
+   ],
+   "created_at": "2026-09-27T12:25:00.000Z",
+   "last_inbound_at": "2026-10-01T10:25:00.000Z"
+  },
+  {
+   "id": "ld_026",
+   "phone": "972500001026",
+   "name": "נועם אברהם",
+   "source": "whatsapp",
+   "occasion": "wedding",
+   "event_date": "2027-01-26",
+   "records_estimate": 300,
+   "status": "new",
+   "owner": "richard",
+   "next_action_at": "2026-11-04T10:00:00.000Z",
+   "next_action_text": "לחזור אחרי שיחה עם בן הזוג",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "עיצוב"
+   ],
+   "created_at": "2026-09-26T13:26:00.000Z",
+   "last_inbound_at": "2026-09-26T10:26:00.000Z"
+  },
+  {
+   "id": "ld_027",
+   "phone": "972500001027",
+   "name": "רוני דהן",
+   "source": "site",
+   "occasion": "bar",
+   "event_date": "2027-06-04",
+   "records_estimate": 400,
+   "status": "closed",
+   "owner": "shalev",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_27",
+   "client_token": "a0000027-0000-4000-8000-000000000000",
+   "tags": [
+    "חוזר"
+   ],
+   "created_at": "2026-09-29T14:27:00.000Z",
+   "last_inbound_at": "2026-10-02T10:27:00.000Z"
+  },
+  {
+   "id": "ld_028",
+   "phone": "972500001028",
+   "name": "הילה כהן",
+   "source": "site",
+   "occasion": "wedding",
+   "event_date": "2027-01-02",
+   "records_estimate": 400,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-02T12:00:00.000Z",
+   "next_action_text": "לחזור אחרי שיחה עם בן הזוג",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חם"
+   ],
+   "created_at": "2026-10-16T15:28:00.000Z",
+   "last_inbound_at": "2026-10-16T10:28:00.000Z"
+  },
+  {
+   "id": "ld_029",
+   "phone": "972500001029",
+   "name": "יעל מזרחי",
+   "source": "instagram",
+   "occasion": "brit",
+   "event_date": "2026-11-25",
+   "records_estimate": 500,
+   "status": "lost",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "דיילות"
+   ],
+   "created_at": "2026-10-30T16:29:00.000Z",
+   "last_inbound_at": "2026-11-01T10:29:00.000Z"
+  },
+  {
+   "id": "ld_030",
+   "phone": "972500001030",
+   "name": "יעל שפירא",
+   "source": "google",
+   "occasion": "wedding",
+   "event_date": "2027-02-22",
+   "records_estimate": 200,
+   "status": "quoted",
+   "owner": "richard",
+   "next_action_at": "2026-11-06T14:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": "q_30",
+   "client_token": null,
+   "tags": [
+    "VIP"
+   ],
+   "created_at": "2026-10-25T07:30:00.000Z",
+   "last_inbound_at": "2026-10-26T10:30:00.000Z"
+  },
+  {
+   "id": "ld_031",
+   "phone": "972500001031",
+   "name": "מאיה מזרחי",
+   "source": "site",
+   "occasion": "brit",
+   "event_date": "2026-12-25",
+   "records_estimate": 500,
+   "status": "new",
+   "owner": "richard",
+   "next_action_at": "2026-11-05T15:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "אולם"
+   ],
+   "created_at": "2026-09-26T08:31:00.000Z",
+   "last_inbound_at": "2026-09-26T10:31:00.000Z"
+  },
+  {
+   "id": "ld_032",
+   "phone": "972500001032",
+   "name": "עומר אזולאי",
+   "source": "google",
+   "occasion": "brit",
+   "event_date": "2027-01-03",
+   "records_estimate": 300,
+   "status": "closed",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_32",
+   "client_token": "a0000032-0000-4000-8000-000000000000",
+   "tags": [
+    "מחיר"
+   ],
+   "created_at": "2026-10-08T09:32:00.000Z",
+   "last_inbound_at": "2026-10-12T10:32:00.000Z"
+  },
+  {
+   "id": "ld_033",
+   "phone": "972500001033",
+   "name": "תמר ביטון",
+   "source": "google",
+   "occasion": "wedding",
+   "event_date": "2027-01-12",
+   "records_estimate": 400,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-05T09:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "עיצוב"
+   ],
+   "created_at": "2026-10-11T10:33:00.000Z",
+   "last_inbound_at": "2026-10-12T10:33:00.000Z"
+  },
+  {
+   "id": "ld_034",
+   "phone": "972500001034",
+   "name": "רות אברהם",
+   "source": "site",
+   "occasion": "bat",
+   "event_date": "2027-05-16",
+   "records_estimate": 400,
+   "status": "not_relevant",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חוזר"
+   ],
+   "created_at": "2026-10-09T11:34:00.000Z",
+   "last_inbound_at": "2026-10-09T10:34:00.000Z"
+  },
+  {
+   "id": "ld_035",
+   "phone": "972500001035",
+   "name": "תמר כהן",
+   "source": "site",
+   "occasion": "wedding",
+   "event_date": "2027-05-10",
+   "records_estimate": 200,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-04T11:00:00.000Z",
+   "next_action_text": "לחזור אחרי שיחה עם בן הזוג",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חם"
+   ],
+   "created_at": "2026-10-12T12:35:00.000Z",
+   "last_inbound_at": "2026-10-15T10:35:00.000Z"
+  },
+  {
+   "id": "ld_036",
+   "phone": "972500001036",
+   "name": "מיכל אזולאי",
+   "source": "whatsapp",
+   "occasion": "bday",
+   "event_date": "2027-01-20",
+   "records_estimate": 500,
+   "status": "new",
+   "owner": "richard",
+   "next_action_at": "2026-11-06T12:00:00.000Z",
+   "next_action_text": "לחזור אחרי שיחה עם בן הזוג",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "דיילות"
+   ],
+   "created_at": "2026-10-07T13:36:00.000Z",
+   "last_inbound_at": "2026-11-03T06:36:00.000Z"
+  },
+  {
+   "id": "ld_037",
+   "phone": "972500001037",
+   "name": "נטע גבאי",
+   "source": "meta_form",
+   "occasion": "bar",
+   "event_date": "2027-04-27",
+   "records_estimate": 100,
+   "status": "quoted",
+   "owner": "shalev",
+   "next_action_at": "2026-11-04T13:00:00.000Z",
+   "next_action_text": "שיחת היכרות",
+   "quote_id": "q_37",
+   "client_token": null,
+   "tags": [
+    "VIP"
+   ],
+   "created_at": "2026-10-19T14:37:00.000Z",
+   "last_inbound_at": "2026-10-22T10:37:00.000Z"
+  },
+  {
+   "id": "ld_038",
+   "phone": "972500001038",
+   "name": "גיל פרידמן",
+   "source": "referral",
+   "occasion": "bday",
+   "event_date": "2027-05-11",
+   "records_estimate": 400,
+   "status": "new",
+   "owner": "richard",
+   "next_action_at": "2026-11-02T14:00:00.000Z",
+   "next_action_text": "לשלוח דוגמת הזמנה",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "אולם"
+   ],
+   "created_at": "2026-10-14T15:38:00.000Z",
+   "last_inbound_at": "2026-10-17T10:38:00.000Z"
+  },
+  {
+   "id": "ld_039",
+   "phone": "972500001039",
+   "name": "מאיה אוחיון",
+   "source": "referral",
+   "occasion": "bday",
+   "event_date": "2027-03-17",
+   "records_estimate": 400,
+   "status": "closed",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": "q_39",
+   "client_token": "a0000039-0000-4000-8000-000000000000",
+   "tags": [
+    "מחיר"
+   ],
+   "created_at": "2026-09-27T16:39:00.000Z",
+   "last_inbound_at": "2026-09-28T10:39:00.000Z"
+  },
+  {
+   "id": "ld_040",
+   "phone": "972500001040",
+   "name": "עידו מזרחי",
+   "source": "site",
+   "occasion": "hina",
+   "event_date": "2027-03-30",
+   "records_estimate": 300,
+   "status": "talking",
+   "owner": "richard",
+   "next_action_at": "2026-11-02T08:00:00.000Z",
+   "next_action_text": "לבדוק אם נכנס תשלום",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "עיצוב"
+   ],
+   "created_at": "2026-10-07T07:40:00.000Z",
+   "last_inbound_at": "2026-10-08T10:40:00.000Z"
+  },
+  {
+   "id": "ld_041",
+   "phone": "972500001041",
+   "name": "עומר אוחיון",
+   "source": "site",
+   "occasion": "bat",
+   "event_date": "2026-12-03",
+   "records_estimate": 200,
+   "status": "lost",
+   "owner": "richard",
+   "next_action_at": null,
+   "next_action_text": "",
+   "quote_id": null,
+   "client_token": null,
+   "tags": [
+    "חוזר"
+   ],
+   "created_at": "2026-10-13T08:41:00.000Z",
+   "last_inbound_at": "2026-10-16T10:41:00.000Z"
+  },
+  {
+   "id": "ld_042",
+   "phone": "972500001042",
+   "name": "אבי מזרחי",
+   "source": "site",
+   "occasion": "bar",
+   "event_date": "2027-04-23",
+   "records_estimate": 100,
+   "status": "quoted",
+   "owner": "shalev",
+   "next_action_at": "2026-11-05T10:00:00.000Z",
+   "next_action_text": "לשאול על תאריך",
+   "quote_id": "q_42",
+   "client_token": null,
+   "tags": [
+    "חם"
+   ],
+   "created_at": "2026-10-05T09:42:00.000Z",
+   "last_inbound_at": "2026-10-05T10:42:00.000Z"
+  }
+ ]
+}

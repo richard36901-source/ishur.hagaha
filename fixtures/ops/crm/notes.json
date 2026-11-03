@@ -1,0 +1,646 @@
+{
+ "ok": true,
+ "fixture": true,
+ "as_of": "2026-11-03T09:00:00+02:00",
+ "items": [
+  {
+   "id": "nt_l1_0",
+   "entity": "lead",
+   "entity_id": "ld_001",
+   "at": "2026-11-01T09:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l2_0",
+   "entity": "lead",
+   "entity_id": "ld_002",
+   "at": "2026-10-08T09:00:00.000Z",
+   "by": "richard",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l2_1",
+   "entity": "lead",
+   "entity_id": "ld_002",
+   "at": "2026-10-09T10:00:00.000Z",
+   "by": "shalev",
+   "text": "שאל על דיילות לחתונה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l3_0",
+   "entity": "lead",
+   "entity_id": "ld_003",
+   "at": "2026-10-19T09:00:00.000Z",
+   "by": "shalev",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l3_1",
+   "entity": "lead",
+   "entity_id": "ld_003",
+   "at": "2026-10-20T10:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l3_2",
+   "entity": "lead",
+   "entity_id": "ld_003",
+   "at": "2026-10-21T11:00:00.000Z",
+   "by": "richard",
+   "text": "מתלבטים בין בסיס לפרמיום",
+   "pinned": false
+  },
+  {
+   "id": "nt_l5_0",
+   "entity": "lead",
+   "entity_id": "ld_005",
+   "at": "2026-10-23T09:00:00.000Z",
+   "by": "shalev",
+   "text": "שאל על דיילות לחתונה",
+   "pinned": true
+  },
+  {
+   "id": "nt_l6_0",
+   "entity": "lead",
+   "entity_id": "ld_006",
+   "at": "2026-10-22T09:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l6_1",
+   "entity": "lead",
+   "entity_id": "ld_006",
+   "at": "2026-10-23T10:00:00.000Z",
+   "by": "shalev",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l7_0",
+   "entity": "lead",
+   "entity_id": "ld_007",
+   "at": "2026-10-12T09:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l7_1",
+   "entity": "lead",
+   "entity_id": "ld_007",
+   "at": "2026-10-13T10:00:00.000Z",
+   "by": "richard",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l7_2",
+   "entity": "lead",
+   "entity_id": "ld_007",
+   "at": "2026-10-14T11:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l9_0",
+   "entity": "lead",
+   "entity_id": "ld_009",
+   "at": "2026-11-01T09:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l10_0",
+   "entity": "lead",
+   "entity_id": "ld_010",
+   "at": "2026-10-28T09:00:00.000Z",
+   "by": "shalev",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": true
+  },
+  {
+   "id": "nt_l10_1",
+   "entity": "lead",
+   "entity_id": "ld_010",
+   "at": "2026-10-29T10:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l11_0",
+   "entity": "lead",
+   "entity_id": "ld_011",
+   "at": "2026-09-27T09:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l11_1",
+   "entity": "lead",
+   "entity_id": "ld_011",
+   "at": "2026-09-28T10:00:00.000Z",
+   "by": "richard",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l11_2",
+   "entity": "lead",
+   "entity_id": "ld_011",
+   "at": "2026-09-29T11:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l13_0",
+   "entity": "lead",
+   "entity_id": "ld_013",
+   "at": "2026-10-12T09:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l14_0",
+   "entity": "lead",
+   "entity_id": "ld_014",
+   "at": "2026-10-05T09:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l14_1",
+   "entity": "lead",
+   "entity_id": "ld_014",
+   "at": "2026-10-06T10:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l15_0",
+   "entity": "lead",
+   "entity_id": "ld_015",
+   "at": "2026-10-29T09:00:00.000Z",
+   "by": "richard",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": true
+  },
+  {
+   "id": "nt_l15_1",
+   "entity": "lead",
+   "entity_id": "ld_015",
+   "at": "2026-10-30T10:00:00.000Z",
+   "by": "richard",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l15_2",
+   "entity": "lead",
+   "entity_id": "ld_015",
+   "at": "2026-10-31T11:00:00.000Z",
+   "by": "shalev",
+   "text": "שאל על דיילות לחתונה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l17_0",
+   "entity": "lead",
+   "entity_id": "ld_017",
+   "at": "2026-09-23T09:00:00.000Z",
+   "by": "shalev",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l18_0",
+   "entity": "lead",
+   "entity_id": "ld_018",
+   "at": "2026-10-15T09:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l18_1",
+   "entity": "lead",
+   "entity_id": "ld_018",
+   "at": "2026-10-16T10:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l19_0",
+   "entity": "lead",
+   "entity_id": "ld_019",
+   "at": "2026-10-18T09:00:00.000Z",
+   "by": "shalev",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l19_1",
+   "entity": "lead",
+   "entity_id": "ld_019",
+   "at": "2026-10-19T10:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l19_2",
+   "entity": "lead",
+   "entity_id": "ld_019",
+   "at": "2026-10-20T11:00:00.000Z",
+   "by": "shalev",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l21_0",
+   "entity": "lead",
+   "entity_id": "ld_021",
+   "at": "2026-10-25T09:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l22_0",
+   "entity": "lead",
+   "entity_id": "ld_022",
+   "at": "2026-09-27T09:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l22_1",
+   "entity": "lead",
+   "entity_id": "ld_022",
+   "at": "2026-09-28T10:00:00.000Z",
+   "by": "shalev",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l23_0",
+   "entity": "lead",
+   "entity_id": "ld_023",
+   "at": "2026-10-04T09:00:00.000Z",
+   "by": "richard",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l23_1",
+   "entity": "lead",
+   "entity_id": "ld_023",
+   "at": "2026-10-05T10:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l23_2",
+   "entity": "lead",
+   "entity_id": "ld_023",
+   "at": "2026-10-06T11:00:00.000Z",
+   "by": "richard",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l25_0",
+   "entity": "lead",
+   "entity_id": "ld_025",
+   "at": "2026-09-28T09:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": true
+  },
+  {
+   "id": "nt_l26_0",
+   "entity": "lead",
+   "entity_id": "ld_026",
+   "at": "2026-09-27T09:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l26_1",
+   "entity": "lead",
+   "entity_id": "ld_026",
+   "at": "2026-09-28T10:00:00.000Z",
+   "by": "richard",
+   "text": "מתלבטים בין בסיס לפרמיום",
+   "pinned": false
+  },
+  {
+   "id": "nt_l27_0",
+   "entity": "lead",
+   "entity_id": "ld_027",
+   "at": "2026-09-30T09:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l27_1",
+   "entity": "lead",
+   "entity_id": "ld_027",
+   "at": "2026-10-01T10:00:00.000Z",
+   "by": "shalev",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l27_2",
+   "entity": "lead",
+   "entity_id": "ld_027",
+   "at": "2026-10-02T11:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l29_0",
+   "entity": "lead",
+   "entity_id": "ld_029",
+   "at": "2026-10-31T09:00:00.000Z",
+   "by": "richard",
+   "text": "שאל על דיילות לחתונה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l30_0",
+   "entity": "lead",
+   "entity_id": "ld_030",
+   "at": "2026-10-26T09:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": true
+  },
+  {
+   "id": "nt_l30_1",
+   "entity": "lead",
+   "entity_id": "ld_030",
+   "at": "2026-10-27T10:00:00.000Z",
+   "by": "richard",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l31_0",
+   "entity": "lead",
+   "entity_id": "ld_031",
+   "at": "2026-09-27T09:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l31_1",
+   "entity": "lead",
+   "entity_id": "ld_031",
+   "at": "2026-09-28T10:00:00.000Z",
+   "by": "shalev",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l31_2",
+   "entity": "lead",
+   "entity_id": "ld_031",
+   "at": "2026-09-29T11:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l33_0",
+   "entity": "lead",
+   "entity_id": "ld_033",
+   "at": "2026-10-12T09:00:00.000Z",
+   "by": "richard",
+   "text": "שאל על דיילות לחתונה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l34_0",
+   "entity": "lead",
+   "entity_id": "ld_034",
+   "at": "2026-10-10T09:00:00.000Z",
+   "by": "richard",
+   "text": "שאל על דיילות לחתונה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l34_1",
+   "entity": "lead",
+   "entity_id": "ld_034",
+   "at": "2026-10-11T10:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_l35_0",
+   "entity": "lead",
+   "entity_id": "ld_035",
+   "at": "2026-10-13T09:00:00.000Z",
+   "by": "richard",
+   "text": "מתלבטים בין בסיס לפרמיום",
+   "pinned": true
+  },
+  {
+   "id": "nt_l35_1",
+   "entity": "lead",
+   "entity_id": "ld_035",
+   "at": "2026-10-14T10:00:00.000Z",
+   "by": "richard",
+   "text": "ביקשה שנחזור אחרי שיסגרו אולם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l35_2",
+   "entity": "lead",
+   "entity_id": "ld_035",
+   "at": "2026-10-15T11:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l37_0",
+   "entity": "lead",
+   "entity_id": "ld_037",
+   "at": "2026-10-20T09:00:00.000Z",
+   "by": "richard",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l38_0",
+   "entity": "lead",
+   "entity_id": "ld_038",
+   "at": "2026-10-15T09:00:00.000Z",
+   "by": "richard",
+   "text": "מתלבטים בין בסיס לפרמיום",
+   "pinned": false
+  },
+  {
+   "id": "nt_l38_1",
+   "entity": "lead",
+   "entity_id": "ld_038",
+   "at": "2026-10-16T10:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l39_0",
+   "entity": "lead",
+   "entity_id": "ld_039",
+   "at": "2026-09-28T09:00:00.000Z",
+   "by": "richard",
+   "text": "מתלבטים בין בסיס לפרמיום",
+   "pinned": false
+  },
+  {
+   "id": "nt_l39_1",
+   "entity": "lead",
+   "entity_id": "ld_039",
+   "at": "2026-09-29T10:00:00.000Z",
+   "by": "richard",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l39_2",
+   "entity": "lead",
+   "entity_id": "ld_039",
+   "at": "2026-09-30T11:00:00.000Z",
+   "by": "richard",
+   "text": "שלחתי סיכום בוואטסאפ",
+   "pinned": false
+  },
+  {
+   "id": "nt_l41_0",
+   "entity": "lead",
+   "entity_id": "ld_041",
+   "at": "2026-10-14T09:00:00.000Z",
+   "by": "shalev",
+   "text": "דיברנו, רוצה לראות דוגמה של ההזמנה",
+   "pinned": false
+  },
+  {
+   "id": "nt_l42_0",
+   "entity": "lead",
+   "entity_id": "ld_042",
+   "at": "2026-10-06T09:00:00.000Z",
+   "by": "shalev",
+   "text": "רוצה הנחה, הצעתי שליחה נוספת חינם",
+   "pinned": false
+  },
+  {
+   "id": "nt_l42_1",
+   "entity": "lead",
+   "entity_id": "ld_042",
+   "at": "2026-10-07T10:00:00.000Z",
+   "by": "richard",
+   "text": "לא ענתה, לנסות שוב בערב",
+   "pinned": false
+  },
+  {
+   "id": "nt_c0",
+   "entity": "client",
+   "entity_id": "a0000003-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "לבדוק שההזמנה המעוצבת עלתה",
+   "pinned": true
+  },
+  {
+   "id": "nt_c3",
+   "entity": "client",
+   "entity_id": "a0000020-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשו להוסיף 20 רשומות",
+   "pinned": false
+  },
+  {
+   "id": "nt_c6",
+   "entity": "client",
+   "entity_id": "a0000039-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשו להוסיף 20 רשומות",
+   "pinned": false
+  },
+  {
+   "id": "nt_c9",
+   "entity": "client",
+   "entity_id": "a0000102-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "לבדוק שההזמנה המעוצבת עלתה",
+   "pinned": false
+  },
+  {
+   "id": "nt_c12",
+   "entity": "client",
+   "entity_id": "a0000105-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשו להוסיף 20 רשומות",
+   "pinned": false
+  },
+  {
+   "id": "nt_c15",
+   "entity": "client",
+   "entity_id": "a0000108-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "ביקשו להוסיף 20 רשומות",
+   "pinned": false
+  },
+  {
+   "id": "nt_c18",
+   "entity": "client",
+   "entity_id": "a0000111-0000-4000-8000-000000000000",
+   "at": "2026-11-01T13:00:00.000Z",
+   "by": "shalev",
+   "text": "לבדוק שההזמנה המעוצבת עלתה",
+   "pinned": false
+  },
+  {
+   "id": "nt_h1",
+   "entity": "hostess",
+   "entity_id": "hs_1",
+   "at": "2026-10-31T10:00:00.000Z",
+   "by": "richard",
+   "text": "זמינה רק בערבים, לא בשישי",
+   "pinned": true
+  }
+ ]
+}

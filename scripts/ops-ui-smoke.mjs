@@ -23,7 +23,8 @@ console.log('A1 syntax');
 const mods = ['app.js', 'ui.js', 'adapt.js', ...readdirSync(join(OPS, 'screens')).map((f) => 'screens/' + f)];
 /* lazy modules (outside the counted budget, loaded only on their route): syntax-checked, not counted */
 const lazy = ['mock.js', ...(existsSync(join(OPS, 'lazy')) ? readdirSync(join(OPS, 'lazy')).map((f) => 'lazy/' + f) : [])];
-for (const m of [...mods, ...lazy.filter((m) => m !== 'mock.js')]) { const r = spawnSync(process.execPath, ['--check', join(OPS, m)], { encoding: 'utf8' }); ok(r.status === 0, 'node --check ' + m, r.stderr.trim().split('\n')[0]); }
+const crmMods = readdirSync(join(OPS, 'crm')).map((f) => 'crm/' + f);
+for (const m of [...mods, ...crmMods, ...lazy.filter((m) => m !== 'mock.js')]) { const r = spawnSync(process.execPath, ['--check', join(OPS, m)], { encoding: 'utf8' }); ok(r.status === 0, 'node --check ' + m, r.stderr.trim().split('\n')[0]); }
 
 console.log('A2 size budgets');
 const js = mods.reduce((a, m) => a + statSync(join(OPS, m)).size, 0), css = statSync(join(OPS, 'ops.css')).size, html = statSync(join(ROOT, 'ops.html')).size;
@@ -33,6 +34,11 @@ console.log('    ops.html ' + (html / 1024).toFixed(1) + ' KB · lazy (not count
 const html0 = readFileSync(join(ROOT, 'ops.html'), 'utf8');
 ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(html0 + [...mods, ...lazy].map((m) => readFileSync(join(OPS, m), 'utf8')).join('')), 'no native select/checkbox/alert/confirm/prompt');
 ok(/class="sk /.test(html0), 'ops.html ships skeleton markup for first paint');
+const crmSizes = crmMods.map((m) => statSync(join(OPS, m)).size), crmJs = crmSizes.reduce((a, b) => a + b, 0);
+ok(crmSizes.every((n) => n < 40 * 1024) && crmJs < 100 * 1024, 'CRM modules (lazy, not in the counted bundle) each < 40 KB, total < 100 KB', (crmJs / 1024).toFixed(1) + ' KB in ' + crmMods.length + ' files');
+ok(!mods.some((m) => /^\s*import[^;(]*['"][./]*\/?crm\//m.test(readFileSync(join(OPS, m), 'utf8'))) && !/modulepreload[^>]*crm\//.test(html0), 'counted modules never import crm/* statically (only lazy import())');
+ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(crmMods.map((m) => readFileSync(join(OPS, m), 'utf8')).join('')), 'CRM modules: no native select/checkbox/alert/confirm/prompt');
+ok(!/href="admin\.html"/.test(html0) && /data-r="leads"/.test(html0) && /data-r="clients"/.test(html0) && /data-r="hostesses"/.test(html0), 'nav: לידים / לקוחות / דיילות added, admin.html clients link removed');
 
 console.log('A3 fixture rendering');
 /* fixtures are masked copies of real API responses; screens render them only through adapt() */
@@ -120,6 +126,48 @@ check('empty states', () => S.runs.listView([]) + S.automations.listView([], {})
 check('overview.view before balances lands', () => S.overview.view(F.realtime, F.capacity, null));
 check('calls.view with calls:null (no RETELL_KEY)', () => S.calls.view(adapt('realtime', { ...RAW.realtime, calls: null })));
 ok(S.overview.allIncidents(F.realtime, F.capacity, F.balances).length > 0, 'overview derives incidents from realtime + capacity + balances', S.overview.allIncidents(F.realtime, F.capacity, F.balances).length + ' incidents');
+
+console.log('A4 CRM (fixtures/ops/crm through crm/adapt.js)');
+const CA = await import(pathToFileURL(join(OPS, 'crm/adapt.js')));
+const cfx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops/crm', n + '.json'), 'utf8'));
+const CR = Object.fromEntries(['leads', 'clients', 'hostesses', 'notes', 'activity', 'templates', 'stats', 'agenda'].map((n) => [n, cfx(n)]));
+ok(CR.leads.items.every((l) => ['id', 'phone', 'name', 'source', 'occasion', 'event_date', 'records_estimate', 'status', 'owner', 'next_action_at', 'next_action_text', 'quote_id', 'client_token', 'tags', 'created_at', 'last_inbound_at'].every((k) => k in l)), 'crm leads fixture carries every brief field');
+ok(new Set(CR.leads.items.map((l) => l.status)).size === 6, 'crm leads cover all 6 statuses');
+ok((JSON.stringify(CR).match(/972\d{9}/g) || []).every((m) => /^97250000\d{4}$/.test(m)), 'crm fixtures use only fake 97250000xxxx phones');
+ok(!/[0-9a-f]{8}-(?!0000-4000-8000-000000000000)[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(JSON.stringify(CR)), 'crm fixtures: tokens zeroed after the 8-char prefix');
+const CL = await import(pathToFileURL(join(OPS, 'crm/leads.js'))), CC = await import(pathToFileURL(join(OPS, 'crm/clients.js'))), CH = await import(pathToFileURL(join(OPS, 'crm/hostesses.js'))), CT = await import(pathToFileURL(join(OPS, 'crm/today.js'))), CQ = await import(pathToFileURL(join(OPS, 'crm/quick.js')));
+const VL = CA.adaptCrm('leads', CR.leads).items, L0 = VL[0];
+check('crm leads.board', () => CL.board(VL, {}));
+ok((CL.board(VL, {}).match(/class="kb-col"/g) || []).length === 6, 'kanban has 6 status columns');
+check('crm leads.table', () => CL.table(VL, new Set([L0.id])));
+check('crm leads.bulkBar', () => CL.bulkBar(2, ['חם']));
+ok(VL.filter((l) => CL.match(l, { status: 'quoted' })).every((l) => l.status === 'quoted') && VL.filter((l) => CL.match(l, { q: L0.name })).some((l) => l.id === L0.id), 'leads filter by status + search');
+const LD = CA.adaptCrm('lead', { lead: CR.leads.items[0], notes: CR.notes.items.filter((n) => n.entity_id === L0.id), activity: CR.activity.items.filter((a) => a.lead_id === L0.id) });
+check('crm leads.drawerView', () => CL.drawerView(LD));
+/* quick close total from the REAL config.js + paylink-gen.js (same tables as the admin generator) */
+const vm = await import('node:vm'); const sb = { console }; sb.window = sb; sb.globalThis = sb; vm.createContext(sb);
+vm.runInContext(readFileSync(join(ROOT, 'config.js'), 'utf8'), sb); vm.runInContext(readFileSync(join(ROOT, 'assets/paylink-gen.js'), 'utf8'), sb);
+const q0 = { ...CQ.qcState(LD.lead, sb.ISHUR_CONFIG), plan: 'basic', records: 100, design: true, hostesses: 2 };
+ok(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen) === 99 + 79 + 1990, 'quick close: basic 100 + design + 2 hostesses = ₪2,168', String(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen)));
+check('crm quick.qcView', () => CQ.qcView(q0, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T10:00:00Z') }));
+const qv = CQ.qcView({ ...q0, url: 'https://pay.grow.link/X', msg: 'x', needs_template: true, templates: CA.adaptCrm('templates', CR.templates).items }, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T10:00:00Z') });
+ok(/data-act="qc-tpl"/.test(qv) && /שלח תבנית/.test(qv), 'quick close: template chooser when needs_template');
+ok(/aria-disabled="true"[^>]*>שלח דרך נועה|data-act="qc-send"[^>]*aria-disabled="true"/.test(CQ.qcView({ ...q0, url: 'u', msg: 'x' }, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T20:30:00Z') })), 'quick close: send disabled in quiet hours (22:30 IL)');
+const order = ['שם הלקוח', 'טלפון', 'סוג אירוע', 'תאריך האירוע', 'חבילה', 'רשומות', 'תוספות', 'סה״כ', 'צור קישור'].map((t) => CQ.qcView(q0, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen).indexOf(t));
+ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), 'quick close field order: name → phone → occasion → date → package → records → add-ons → total → action');
+const VC = CA.adaptCrm('clients', CR.clients).items;
+check('crm clients.listView', () => CC.listView(CC.pick(VC, '', '')));
+check('crm clients.drawerView', () => CC.drawerView(CA.adaptCrm('client', { client: CR.clients.items[0], notes: [], timeline: CR.activity.items.filter((a) => a.client_token === CR.clients.items[0].token) })));
+const VH = CA.adaptCrm('hostesses', { ...CR.hostesses, events: [{ client_token: 'x', name: 'בדיקה', date: '2026-11-03', need: 2, have: 1 }] });
+ok(VH.conflicts.length >= 1, 'hostess conflicts detected (fixture has a double booking)', VH.conflicts.length + ' conflicts');
+check('crm hostesses.view', () => CH.view(VH, VH.hostesses, CH.weekDays(0, Date.parse('2026-11-03T10:00:00Z')), 0));
+ok(/משובצת פעמיים/.test(CH.warnings(VH, VH.hostesses)) && /חסרה בהם דיילת/.test(CH.warnings(VH, VH.hostesses)), 'hostess warnings: conflict + short-staffed');
+const VS = CA.adaptCrm('stats', CR.stats);
+check('crm today.charts', () => CT.charts(VS, 900));
+check('crm today.charts at 343 px', () => CT.charts(VS, 343));
+ok(!/width="-|NaN/.test(CT.charts(VS, 343)), 'charts at phone width have no negative/NaN geometry');
+check('crm today.agenda', () => CT.agenda(CA.adaptCrm('agenda', { reminders: CR.leads.items.slice(0, 2), events: CR.clients.items.slice(0, 1), sends_today: CR.agenda.sends_today })));
+check('crm empty states', () => CL.board([], {}) + CC.listView([]) + CT.agenda({ reminders: [], events: [], sends: [] }) + '<x>'.repeat(40));
 
 /* ── Part B: browser ── */
 async function loadPlaywright() {
@@ -228,7 +276,92 @@ if (!process.argv.includes('--no-browser')) {
       ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r, over.join('/'));
       await mp.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
     }
-    await m.close(); await browser.close(); srv.close();
+    await m.close();
+
+    console.log('B2 CRM');
+    const cx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+    const cp = await cx.newPage();
+    const cerr = []; cp.on('pageerror', (e) => cerr.push(e.message)); cp.on('console', (m2) => { if (m2.type() === 'error') cerr.push(m2.text()); });
+    await cp.goto(url + '#/overview');
+    await cp.waitForSelector('.crm-today .ag', { timeout: 8000 }).catch(() => {});
+    ok(!!(await cp.$('.crm-today .ag')) && (await cp.$$('.crm-today svg.chart')).length === 3 && !!(await cp.$('.crm-today .funnel')), 'overview: "היום" agenda + 3 charts (revenue, sends, calls) + funnel');
+    await cp.screenshot({ path: join(shotDir, 'overview-crm-light.png'), fullPage: false });
+    await cp.evaluate(() => document.querySelector('.crm-today').scrollIntoView()); await cp.screenshot({ path: join(shotDir, 'overview-today-light.png') });
+    await cp.evaluate(() => { location.hash = '#/leads'; });
+    await cp.waitForSelector('.kb-card', { timeout: 6000 });
+    ok((await cp.$$('.kb-col')).length === 6, 'leads board renders 6 columns', (await cp.$$('.kb-card')).length + ' cards');
+    await cp.screenshot({ path: join(shotDir, 'leads-light.png') });
+    /* drag the first "new" card into "talking" with a real pointer path */
+    const src = await cp.$('.kb-col[data-status=new] .kb-card'), id = await src.getAttribute('data-id');
+    const sb0 = await src.boundingBox(), tb = await (await cp.$('.kb-col[data-status=talking] .kb-list')).boundingBox();
+    await cp.mouse.move(sb0.x + 20, sb0.y + 12); await cp.mouse.down();
+    for (let i = 1; i <= 12; i++) await cp.mouse.move(sb0.x + 20 + ((tb.x + tb.width / 2) - (sb0.x + 20)) * i / 12, sb0.y + 12 + ((tb.y + 40) - (sb0.y + 12)) * i / 12);
+    const ghost = !!(await cp.$('.kb-ghost')); await cp.mouse.up(); await cp.waitForTimeout(400);
+    ok(ghost && !!(await cp.$(`.kb-col[data-status=talking] .kb-card[data-id="${id}"]`)), 'kanban: dragging a card moves it to the drop column', id + ' new → talking');
+    ok((await cp.evaluate(() => location.hash)) === '#/leads', 'drag does not open the drawer');
+    await cp.evaluate(() => { location.hash = '#/clients'; }); await cp.waitForSelector('#cl-list tr[data-row]', { timeout: 6000 });
+    await cp.evaluate(() => { location.hash = '#/leads'; }); await cp.waitForSelector('.kb-card', { timeout: 6000 });
+    ok(!!(await cp.$(`.kb-col[data-status=talking] .kb-card[data-id="${id}"]`)), 'kanban move persisted through the API (mock) after navigating away and back');
+    await cp.focus(`.kb-card[data-id="${id}"]`); await cp.keyboard.press('ArrowLeft'); await cp.waitForTimeout(300);
+    ok(!!(await cp.$(`.kb-col[data-status=quoted] .kb-card[data-id="${id}"]`)), 'kanban: ← on a focused card moves it one column (keyboard)');
+    /* lead drawer + quick close on a lead inside the 24h window */
+    const wl = await cp.evaluate(async () => { const r = await fetch('fixtures/ops/crm/leads.json'); const j = await r.json(); return j.items.find((l) => l.status === 'new' && /T0[56]:/.test(l.last_inbound_at)) || j.items[0]; });
+    await cp.evaluate((i) => { location.hash = '#/leads/' + i; }, wl.id);
+    await cp.waitForSelector('.drawer #qc .qc-total', { timeout: 8000 });
+    const dtxt = await cp.$eval('.drawer', (d) => d.innerText);
+    ok(dtxt.includes(wl.name) && /הערות/.test(dtxt) && /פעילות/.test(dtxt) && /פעולה הבאה/.test(dtxt) && !!(await cp.$('.drawer a[href^="https://wa.me/"]')) && !!(await cp.$('.drawer a[href^="tel:"]')), 'lead drawer renders: name, wa.me + call, next action, notes, activity');
+    const pickSel = async (name, v) => { await cp.click(`.drawer .sel[data-sel=${name}] > button`); await cp.click(`.drawer .sel[data-sel=${name}] .pop [data-v="${v}"]`); };
+    await pickSel('q_plan', 'basic'); await pickSel('q_records', '100');
+    await cp.click('.drawer [data-act=qc-tg][data-k=design]'); await cp.click('.drawer [data-act=qc-host][data-n="2"]');
+    const tot = await cp.$eval('.drawer [data-qc-total]', (b) => b.textContent);
+    ok(tot.replace(/[^0-9]/g, '') === '2168', 'quick close computes the live total (basic 100 + design + 2 hostesses)', tot);
+    await cp.screenshot({ path: join(shotDir, 'lead-drawer-light.png') });
+    await cp.click('.drawer [data-act=qc-make]'); await cp.waitForSelector('.drawer #qc-msg', { timeout: 5000 });
+    const msg = await cp.$eval('.drawer #qc-msg', (t) => t.value);
+    ok(/pay\.grow\.link/.test(msg) && msg.includes(wl.name.split(' ')[0]), '"צור קישור" shows the link + an editable suggested message');
+    const quiet = await cp.evaluate(() => { const h = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hourCycle: 'h23' }).format(new Date()); return h >= 21 || h < 9; });
+    if (quiet) ok((await cp.$eval('.drawer [data-act=qc-send]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'quiet hours now: "שלח דרך נועה" is disabled (send flow not exercised in this run)');
+    else {
+      await cp.click('.drawer [data-act=qc-send]'); await cp.waitForSelector('.drawer .okbox', { timeout: 5000 }).catch(() => {});
+      ok(!!(await cp.$('.drawer #qc .okbox')) && /הצעה נשלחה/.test(await cp.$eval('.drawer .crm-head', (h) => h.innerText)), '"שלח דרך נועה" sends and flips the status to הצעה נשלחה');
+    }
+    await cp.screenshot({ path: join(shotDir, 'lead-quickclose-light.png') });
+    await cp.keyboard.press('Escape'); await cp.waitForTimeout(300);
+    await cp.evaluate(() => { location.hash = '#/clients'; }); await cp.waitForSelector('#cl-list tr[data-row]', { timeout: 6000 });
+    await cp.screenshot({ path: join(shotDir, 'clients-light.png') });
+    await cp.click('#cl-list tr[data-row]'); await cp.waitForSelector('.drawer .crm-counts', { timeout: 5000 });
+    ok(/קישורים/.test(await cp.$eval('.drawer', (d) => d.innerText)) && /ציר זמן/.test(await cp.$eval('.drawer', (d) => d.innerText)), 'client drawer renders: counts, links, timeline');
+    await cp.screenshot({ path: join(shotDir, 'client-drawer-light.png') });
+    await cp.click('.drawer [data-act=cl-hold]'); await cp.waitForSelector('.dialog #dlg-in', { timeout: 3000 });
+    ok((await cp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'client hold sits behind the typed confirm');
+    await cp.keyboard.press('Escape'); await cp.keyboard.press('Escape'); await cp.waitForTimeout(300);
+    await cp.evaluate(() => { location.hash = '#/hostesses'; }); await cp.waitForSelector('.wk .shift', { timeout: 6000 });
+    ok(!!(await cp.$('.errbox')) && !!(await cp.$('.wk .shift.conflict')), 'hostesses: week grid + conflict warning');
+    await cp.screenshot({ path: join(shotDir, 'hostesses-light.png') });
+    ok(cerr.length === 0, 'CRM routes: no console errors', cerr.slice(0, 3).join(' | '));
+    await cx.close();
+
+    const mc = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+    const mp2 = await mc.newPage();
+    for (const r of ['leads', 'clients', 'hostesses', 'overview']) {
+      await mp2.goto(url + '#/' + r); await mp2.waitForTimeout(r === 'overview' ? 2600 : 1100);
+      const over = await mp2.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
+      ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r + (r === 'overview' ? ' (with CRM today + charts)' : ''), over.join('/'));
+      await mp2.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
+    }
+    const tabs = await mp2.$$eval('.tabbar a,.tabbar button', (xs) => xs.map((x) => [x.innerText.trim(), Math.round(x.getBoundingClientRect().height)]));
+    ok(tabs.map((t) => t[0]).join('|') === 'סקירה|לידים|לקוחות|לוח שנה|עוד' && tabs.every((t) => t[1] >= 44), 'phone tab bar: סקירה/לידים/לקוחות/לוח שנה/עוד, each ≥ 44 px', tabs.map((t) => t[1]).join(','));
+    await mp2.tap('#tb-more'); await mp2.waitForTimeout(300);
+    ok(await mp2.$eval('.shell>.nav', (n) => getComputedStyle(n).display !== 'none' && n.querySelectorAll('a[data-r]').length >= 12), '"עוד" opens the full nav as a sheet');
+    await mp2.screenshot({ path: join(shotDir, 'more-sheet-mobile.png') });
+    await mp2.tap('.more-scrim').catch(() => {});
+    await mp2.goto(url + '#/leads/ld_001'); await mp2.waitForSelector('.drawer .drawer-acts', { timeout: 6000 }); await mp2.waitForTimeout(500);
+    const dr = await mp2.evaluate(() => { const d = document.querySelector('.drawer').getBoundingClientRect(), a = document.querySelector('.drawer-acts').getBoundingClientRect(); return [Math.round(d.width), Math.round(d.height), Math.round(a.bottom), innerHeight, Math.min(...[...document.querySelectorAll('.drawer-acts .btn')].map((b) => b.getBoundingClientRect().height)), document.querySelector('.drawer-b').scrollWidth <= document.querySelector('.drawer-b').clientWidth + 1]; });
+    ok(dr[0] === 375 && dr[1] === 812 && Math.abs(dr[2] - dr[3]) <= 1 && dr[4] >= 44 && dr[5], '375 px lead drawer: full screen, sticky action bar at the bottom, 44 px buttons, no sideways scroll', dr.join('/'));
+    await mp2.screenshot({ path: join(shotDir, 'lead-drawer-mobile.png') });
+    const small = await mp2.$$eval('.drawer button:not([tabindex="-1"]), .drawer a.btn', (xs) => xs.filter((x) => x.offsetParent && !x.closest('.chip') && !x.closest('.pop')).map((x) => { const r = x.getBoundingClientRect(); return [Math.round(r.height), (x.innerText || x.getAttribute('aria-label') || '').trim().slice(0, 14)]; }).filter((r) => r[0] < 44));
+    ok(small.length === 0, '375 px lead drawer: every button ≥ 44 px tall', small.slice(0, 4).map((x) => x.join(':')).join(' · '));
+    await mc.close(); await browser.close(); srv.close();
   }
 }
 console.log(`\n${passes} passed, ${fails} failed`);
