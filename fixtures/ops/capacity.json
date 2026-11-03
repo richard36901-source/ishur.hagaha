@@ -22,7 +22,8 @@
    }
   ],
   "today_remaining": 68,
-  "he": "העסק לא מאומת: תקרה משותפת 250 פחות מרווח 20 = 230 ליום לכל המספרים יחד"
+  "he": "העסק לא מאומת: תקרה משותפת 250 פחות מרווח 20 = 230 ליום לכל המספרים יחד",
+  "friday_capacity": 230
  },
  "verification": {
   "status": "pending",
@@ -49,7 +50,20 @@
      "held": false,
      "upper_bound": false
     }
-   ]
+   ],
+   "rolled": [
+    {
+     "tok8": "ab699ac0",
+     "event": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "n": 68,
+     "from_day": "2026-11-03"
+    }
+   ],
+   "out": 68,
+   "rolled_in": 0,
+   "carry": 108
   },
   {
    "day": "2026-11-04",
@@ -69,7 +83,28 @@
      "held": false,
      "upper_bound": true
     }
-   ]
+   ],
+   "rolled": [
+    {
+     "tok8": "ab699ac0",
+     "event": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "n": 108,
+     "from_day": "2026-11-03"
+    },
+    {
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 122,
+     "from_day": "2026-11-04"
+    }
+   ],
+   "out": 230,
+   "rolled_in": 108,
+   "carry": 385
   },
   {
    "day": "2026-11-05",
@@ -78,7 +113,20 @@
    "held_planned": 0,
    "capacity": 230,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [
+    {
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 230,
+     "from_day": "2026-11-04"
+    }
+   ],
+   "out": 230,
+   "rolled_in": 230,
+   "carry": 155
   },
   {
    "day": "2026-11-06",
@@ -87,7 +135,20 @@
    "held_planned": 0,
    "capacity": 230,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [
+    {
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 155,
+     "from_day": "2026-11-04"
+    }
+   ],
+   "out": 155,
+   "rolled_in": 155,
+   "carry": 0
   },
   {
    "day": "2026-11-07",
@@ -96,7 +157,11 @@
    "held_planned": 0,
    "capacity": 0,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [],
+   "out": 0,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-08",
@@ -116,7 +181,20 @@
      "held": false,
      "upper_bound": true
     }
-   ]
+   ],
+   "rolled": [
+    {
+     "tok8": "395962fa",
+     "event": "אירוע ג",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "n": 95,
+     "from_day": "2026-11-08"
+    }
+   ],
+   "out": 95,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-09",
@@ -125,7 +203,11 @@
    "held_planned": 0,
    "capacity": 230,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [],
+   "out": 0,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-10",
@@ -145,7 +227,20 @@
      "held": false,
      "upper_bound": true
     }
-   ]
+   ],
+   "rolled": [
+    {
+     "tok8": "e045522a",
+     "event": "אירוע ד",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 13,
+     "from_day": "2026-11-10"
+    }
+   ],
+   "out": 13,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-11",
@@ -154,7 +249,11 @@
    "held_planned": 0,
    "capacity": 230,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [],
+   "out": 0,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-12",
@@ -174,7 +273,11 @@
      "held": true,
      "upper_bound": true
     }
-   ]
+   ],
+   "rolled": [],
+   "out": 0,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-13",
@@ -183,7 +286,11 @@
    "held_planned": 0,
    "capacity": 230,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [],
+   "out": 0,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-14",
@@ -192,7 +299,11 @@
    "held_planned": 0,
    "capacity": 0,
    "overflow": 0,
-   "by_event": []
+   "by_event": [],
+   "rolled": [],
+   "out": 0,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-15",
@@ -212,7 +323,20 @@
      "held": false,
      "upper_bound": true
     }
-   ]
+   ],
+   "rolled": [
+    {
+     "tok8": "ffb78392",
+     "event": "אירוע ו",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 176,
+     "from_day": "2026-11-15"
+    }
+   ],
+   "out": 176,
+   "rolled_in": 0,
+   "carry": 0
   },
   {
    "day": "2026-11-16",
@@ -232,7 +356,20 @@
      "held": false,
      "upper_bound": true
     }
-   ]
+   ],
+   "rolled": [
+    {
+     "tok8": "e045522a",
+     "event": "אירוע ד",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "n": 31,
+     "from_day": "2026-11-16"
+    }
+   ],
+   "out": 31,
+   "rolled_in": 0,
+   "carry": 0
   }
  ],
  "recommendations": [
@@ -325,5 +462,6 @@
   "מספרי הגלים הם גבול עליון: לא נבדקים סימוני נשלח לכל אורח, הסרות וטעות-במספר",
   "אירועים מוחזקים (hold) מסומנים held ולא נספרים ב-planned",
   "אירוע-בן (שבת חתן) נשלח ידנית — מה שלא נשלח מתוכנן להיום"
- ]
+ ],
+ "unplaced": []
 }

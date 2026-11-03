@@ -200,6 +200,16 @@ export const CHECKS = [
     return (b.vendors || []).filter(v => v.status === 'low').map(v => ({ id: 'balances_low:' + v.vendor, status: 'warn', severity: 'P2', title_he: `יתרה נמוכה: ${v.vendor} ${v.amount ?? ''} ${v.currency || ''}`.trim(), detail: v.topup_url || '', evidence: [`low_threshold=${v.low_threshold}`, `source=${v.source}`] }));
   } },
 
+  { id: 'crm_overdue', name_he: 'תזכורות CRM ופעולות-הבאות של לידים שעבר זמנן', every_min: 30, async run(c) {
+    const { overdueCount } = await import('./crm.js');
+    const o = await overdueCount(c.env, c.now).catch(() => null);
+    if (!o) return [];
+    const n = o.reminders.length + o.leads.length; if (!n) return [];
+    const ev = [...o.reminders.map(r => `תזכורת ${r.entity_type}:${r.entity_id} · ${r.due_at} · ${String(r.text || '').slice(0, 60)}`), ...o.leads.map(l => `ליד ${l.name || mask(l.phone)} · ${l.next_action_at} · ${String(l.next_action_text || '').slice(0, 60)}`)];
+    const old = [...o.reminders.map(r => r.due_at), ...o.leads.map(l => l.next_action_at)].sort()[0];
+    const late = c.now - Date.parse(old) > 24 * H;
+    return [{ id: 'crm_overdue', status: 'warn', severity: late ? 'P2' : 'P3', title_he: `${n} משימות CRM באיחור (${o.reminders.length} תזכורות, ${o.leads.length} לידים)`, detail: 'GET /api/crm/agenda מציג אותן ראשונות', evidence: ev.slice(0, 10) }];
+  } },
   { id: 'd1_ledger', name_he: 'יומן הריצות ב-D1 לא זמין', every_min: 10, async run(c) {
     if (!c.env.OPS_DB) return [{ id: 'd1_ledger', status: 'warn', severity: 'P3', title_he: 'D1 לא מחובר: יומן הריצות על KV (3 ימים בלבד)', detail: 'OPS_DB binding missing — bash worker/scripts/ops-d1-setup.sh', evidence: ['env.OPS_DB undefined'] }];
     try { await c.env.OPS_DB.prepare('SELECT 1 AS x').first(); return []; }

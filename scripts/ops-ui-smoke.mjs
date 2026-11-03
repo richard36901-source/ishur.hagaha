@@ -21,28 +21,33 @@ const ok = (cond, name, extra = '') => { if (cond) { passes++; console.log('  �
 
 console.log('A1 syntax');
 const mods = ['app.js', 'ui.js', 'adapt.js', ...readdirSync(join(OPS, 'screens')).map((f) => 'screens/' + f)];
-for (const m of mods) { const r = spawnSync(process.execPath, ['--check', join(OPS, m)], { encoding: 'utf8' }); ok(r.status === 0, 'node --check ' + m, r.stderr.trim().split('\n')[0]); }
+/* lazy modules (outside the counted budget, loaded only on their route): syntax-checked, not counted */
+const lazy = ['mock.js', ...(existsSync(join(OPS, 'lazy')) ? readdirSync(join(OPS, 'lazy')).map((f) => 'lazy/' + f) : [])];
+for (const m of [...mods, ...lazy.filter((m) => m !== 'mock.js')]) { const r = spawnSync(process.execPath, ['--check', join(OPS, m)], { encoding: 'utf8' }); ok(r.status === 0, 'node --check ' + m, r.stderr.trim().split('\n')[0]); }
 
 console.log('A2 size budgets');
 const js = mods.reduce((a, m) => a + statSync(join(OPS, m)).size, 0), css = statSync(join(OPS, 'ops.css')).size, html = statSync(join(ROOT, 'ops.html')).size;
 ok(js < 120 * 1024, 'JS total < 120 KB', (js / 1024).toFixed(1) + ' KB');
 ok(css < 40 * 1024, 'CSS < 40 KB', (css / 1024).toFixed(1) + ' KB');
-console.log('    ops.html ' + (html / 1024).toFixed(1) + ' KB');
+console.log('    ops.html ' + (html / 1024).toFixed(1) + ' KB · lazy (not counted): ' + lazy.map((m) => m + ' ' + (statSync(join(OPS, m)).size / 1024).toFixed(1) + ' KB').join(', '));
 const html0 = readFileSync(join(ROOT, 'ops.html'), 'utf8');
-ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(html0 + mods.map((m) => readFileSync(join(OPS, m), 'utf8')).join('')), 'no native select/checkbox/alert/confirm/prompt');
+ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(html0 + [...mods, ...lazy].map((m) => readFileSync(join(OPS, m), 'utf8')).join('')), 'no native select/checkbox/alert/confirm/prompt');
 ok(/class="sk /.test(html0), 'ops.html ships skeleton markup for first paint');
 
 console.log('A3 fixture rendering');
 /* fixtures are masked copies of real API responses; screens render them only through adapt() */
 const fx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops', n + '.json'), 'utf8'));
 const { adapt } = await import(pathToFileURL(join(OPS, 'adapt.js')));
-const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code'].map((n) => [n, fx(n)]));
+const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code', 'calendar'].map((n) => [n, fx(n)]));
 const NAMES = Object.fromEntries(RAW.registry.nodes.map((n) => [n.id, n.name_he]));
-const F = Object.fromEntries(Object.entries(RAW).map(([n, d]) => [n, ['toggle', 'code'].includes(n) ? d : adapt(n, d, { names: NAMES })]));
+const F = Object.fromEntries(Object.entries(RAW).map(([n, d]) => [n, ['toggle', 'code', 'calendar'].includes(n) ? d : adapt(n, d, { names: NAMES })]));
 console.log('A3a contract (fixture keys the adapter reads exist in the real-shaped fixtures)');
 ok(RAW.realtime.wa && Array.isArray(RAW.realtime.wa.numbers) && RAW.realtime.cap && RAW.realtime.queue && 'calls' in RAW.realtime && RAW.realtime.pacer, 'realtime: wa.numbers, cap, queue, calls, pacer');
 ok(RAW.realtime.wa.numbers.every((n) => 'sent_today' in n && 'by_reason' in n && 'by_event' in n && 'failed_by_code' in n), 'realtime.wa.numbers[] fields');
 ok(RAW.capacity.days.every((d) => 'day' in d && 'planned' in d && 'capacity' in d && 'overflow' in d && Array.isArray(d.by_event)), 'capacity.days[] fields');
+ok(RAW.capacity.days.every((d) => Array.isArray(d.rolled) && 'out' in d && d.out <= d.capacity && d.rolled.every((x) => 'event' in x && 'type' in x && 'n' in x && 'from_day' in x)), 'capacity.days[].rolled (planner output) fields, out ≤ capacity');
+ok(RAW.calendar.days.every((d) => 'date' in d && 'dow' in d && 'open' in d && 'used' in d && 'capacity' in d && Array.isArray(d.events) && Array.isArray(d.items)) && Array.isArray(RAW.calendar.events), 'calendar.days[] fields');
+ok(RAW.calendar.days.filter((d) => d.dow === 6).every((d) => !d.open && !d.items.some((i) => ['planned', 'rolled'].includes(i.state))), 'calendar: nothing planned or rolled onto Shabbat');
 ok(RAW.balances.vendors.every((v) => 'vendor' in v && 'status' in v && 'source' in v && 'extra' in v), 'balances.vendors[] fields');
 ok(RAW.registry.nodes.every((n) => 'state' in n && 'kill_switch' in n && 'risk' in n), 'registry.nodes[] fields');
 ok(RAW.live.items.every((i) => 'ts' in i && 'type' in i), 'live.items[] have ts + type');
@@ -89,6 +94,27 @@ check('calls.view', () => S.calls.view(F.realtime));
 check('capacity.view', () => S.capacity.view(F.capacity));
 ok(S.capacity.view(F.capacity).includes('▲'), 'capacity shows over-capacity marker', F.capacity.alerts.length + ' alert days');
 check('balances.view', () => S.balances.view(F.balances));
+const capTip = S.capacity.outTip(F.capacity.days.find((d) => d.rolled_in > 0) || F.capacity.days[0]);
+ok(/^ · יוצא: [\d,]+ \(.+ [\d,]+( \+ .+ [\d,]+)*\)( · נדחה מ-\d\d\/\d\d: [\d,]+)+$/.test(capTip), 'capacity tooltip: "יוצא: N (event n + …) · נדחה מ-dd/mm: n"', capTip);
+ok(S.capacity.capBars(F.capacity.days).includes('stroke-dasharray'), 'capacity bars: rolled = primary, original due = outline');
+const CAL = await import(pathToFileURL(join(OPS, 'lazy/calendar.js')));
+const allF = { f: new Set(CAL.FILTERS.map((f) => f.id)), view: 'month', ev: '', q: '' };
+check('calendar.view month', () => CAL.view(RAW.calendar, allF));
+check('calendar.view week', () => CAL.view(RAW.calendar, { ...allF, view: 'week' }));
+check('calendar.view empty month', () => CAL.view(CAL.emptyMonth('2026-12'), allF));
+const calItems = RAW.calendar.days.flatMap((d) => d.items);
+for (const s0 of ['planned', 'partial', 'held', 'rolled', 'ghost']) { const it = calItems.find((i) => i.state === s0); ok(!!it, 'calendar fixture has a ' + s0 + ' chip'); if (it) check('calendar.chipDetail ' + s0, () => CAL.chipDetail(it) + '<x>'.repeat(40)); }
+const busy = RAW.calendar.days.reduce((a, d) => (d.items.length > a.items.length ? d : a));
+check('calendar.dayDrawer', () => CAL.dayDrawer(busy, RAW.calendar, allF));
+ok(CAL.cellHtml(RAW.calendar.days.find((d) => d.items.some((i) => i.state === 'rolled')), allF).includes('↪ מ-'), 'rolled chip shows "↪ מ-dd/mm" on the day it goes out');
+const only = (f) => ({ ...allF, f: new Set(f) });
+ok(RAW.calendar.days.every((d) => CAL.visible(d, only(['held'])).items.every((i) => i.state === 'held')) && RAW.calendar.days.every((d) => CAL.visible(d, only(['sends'])).events.length === 0), 'calendar filters: held only / sends hide event days');
+const ev0 = RAW.calendar.events[0].tok8;
+ok(RAW.calendar.days.every((d) => CAL.visible(d, { ...allF, ev: ev0 }).items.every((i) => i.tok8 === ev0)), 'calendar per-event filter');
+ok(RAW.calendar.days.every((d) => CAL.visible(d, { ...allF, q: 'zzzz-no-match' }).items.length === 0), 'calendar text search');
+const closedDay = { ...RAW.calendar.days[0], items: [{ id: 'closed:x', kind: 'closed', tok8: '', event: 'לקוח', type: 'closed', type_he: 'סגירה', state: 'done', at: '2026-11-02T09:00:00Z', package: 'פרמיום', records: 300, sum: 1490 }] };
+ok(CAL.visible(closedDay, only(['closed'])).items.length === 1 && CAL.visible(closedDay, only(['sends'])).items.length === 0, 'calendar closed-purchase items follow the סגירות filter');
+check('calendar.chipDetail closed', () => CAL.chipDetail(closedDay.items[0]) + '<x>'.repeat(40));
 ok(F.balances.vendors.filter(S.balances.isLow).map((v) => v.vendor).join() === 'telnyx', 'balances low detection = telnyx only');
 check('empty states', () => S.runs.listView([]) + S.automations.listView([], {}) + S.brain.findingsView([]) + S.overview.incidents([]) + S.overview.nextUp([]) + '<x>'.repeat(60));
 check('overview.view before balances lands', () => S.overview.view(F.realtime, F.capacity, null));
@@ -131,9 +157,9 @@ if (!process.argv.includes('--no-browser')) {
         const uniq = [...new Set(data.map((u) => u.split('?')[0]))];
         ok(uniq.length <= 3, '≤ 3 data requests on load', uniq.map((u) => u.split('/').pop()).join(', '));
       }
-      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'balances']) {
+      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'calendar', 'balances']) {
         await page.evaluate((h) => { location.hash = h; }, '#/' + r);
-        await page.waitForFunction(() => !document.querySelector('#main .sk') || document.querySelector('#main .feed-row,#main table,#main .tile .v'), null, { timeout: 5000 }).catch(() => {});
+        await page.waitForFunction(() => !document.querySelector('#main .sk') || document.querySelector('#main .feed-row,#main table,#main .tile .v,#main .cal-d'), null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(r === 'brain' || r === 'live' ? 3600 : 500);
         const txt = await page.$eval('#main', (m) => m.innerText);
         if (scheme === 'light') ok(txt.length > 80 && !/undefined|NaN/.test(txt), 'route ' + r + ' renders', txt.length + ' chars');
@@ -167,13 +193,36 @@ if (!process.argv.includes('--no-browser')) {
         await page.keyboard.press('g'); await page.keyboard.press('r');
         await page.waitForTimeout(500);
         ok((await page.evaluate(() => location.hash)) === '#/runs', 'g r navigates to runs');
+        await page.keyboard.press('g'); await page.keyboard.press('d');
+        await page.waitForSelector('#main .cal-d[data-day]', { timeout: 4000 });
+        ok((await page.evaluate(() => location.hash)) === '#/calendar', 'g d navigates to the calendar');
+        const nChips = await page.$$eval('#main .cc', (x) => x.length);
+        await page.click('#main [data-act=cal-f][data-f=sends]');
+        const nAfter = await page.$$eval('#main .cc', (x) => x.length);
+        ok(nChips > 0 && nAfter < nChips, 'filter chip hides sends', nChips + ' → ' + nAfter);
+        ok((await page.evaluate(() => localStorage.getItem('ops:cal'))).includes('"f"'), 'calendar filters persisted in localStorage');
+        await page.click('#main [data-act=cal-f][data-f=sends]');
+        await page.click('#main .cal-d[data-day] .cc.s-rolled');
+        await page.waitForSelector('.drawer dl.kv', { timeout: 3000 });
+        ok(/למה/.test(await page.$eval('.drawer', (d) => d.innerText)), 'rolled chip opens its detail (with the reason it moved)');
+        await page.screenshot({ path: join(shotDir, 'calendar-chip-light.png') });
+        await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+        await page.click('#main .cal-d.today .cal-h');
+        await page.waitForSelector('.drawer .cal-g, .drawer .empty', { timeout: 3000 });
+        ok(/לוח השליחות/.test(await page.$eval('.drawer', (d) => d.innerText)), 'day drawer lists the day + links to send-board');
+        await page.screenshot({ path: join(shotDir, 'calendar-day-light.png') });
+        await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+        await page.click('#main [data-act=cal-next]'); await page.waitForTimeout(500);
+        const nextOk = await page.$$eval('#main .cal-d[data-day]', (x) => x.length > 27 && !x[0].dataset.day.startsWith('2026-11'));
+        await page.click('#main [data-act=cal-today]'); await page.waitForTimeout(500);
+        ok(nextOk && (await page.$('#main .cal-d.today')) !== null, 'month navigation + "היום" button');
         ok(errors.length === 0, 'no console errors', errors.slice(0, 3).join(' | '));
       }
       await ctx.close();
     }
     const m = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
     const mp = await m.newPage();
-    for (const r of ['overview', 'automations', 'runs', 'messaging', 'capacity', 'balances']) {
+    for (const r of ['overview', 'automations', 'runs', 'messaging', 'capacity', 'calendar', 'balances']) {
       await mp.goto(url + '#/' + r); await mp.waitForTimeout(900);
       const over = await mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
       ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r, over.join('/'));

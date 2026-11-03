@@ -151,3 +151,19 @@ test('balances: every vendor has the contract fields; telnyx equals the API; cac
   const rt = after.vendors.find(v => v.vendor === 'retell');
   assert.equal(rt.amount, 7); assert.equal(rt.status, 'low'); assert.equal(rt.auto_topup, 'on');
 });
+
+test('calendar: route returns the month grid with the projected wave, every day once, closed Shabbat, read-only besides caches', async () => {
+  const e = env();
+  const month = plus(1).slice(0, 7);
+  const r = await (await get(e, '/api/ops/calendar?month=' + month)).json();
+  assert.equal(r.ok, true, JSON.stringify(r).slice(0, 300)); assert.equal(r.month, month);
+  const [y, m] = month.split('-').map(Number); assert.equal(r.days.length, new Date(Date.UTC(y, m, 0)).getUTCDate());
+  for (const d of r.days) { assert.ok(d.date.startsWith(month)); if (d.dow === 6) { assert.equal(d.open, false); assert.equal(d.capacity, 0); assert.equal(d.items.filter(i => ['planned', 'rolled'].includes(i.state)).length, 0); } }
+  const t1 = r.days.find(d => d.date === plus(1));
+  if (t1 && t1.open) assert.ok(t1.items.some(i => i.type === 'w1' && i.state === 'planned' && i.n === 3), JSON.stringify(t1.items));
+  const evDay = r.days.find(d => d.date === plus(5)); if (evDay) assert.deepEqual(evDay.events.map(x => [x.name, x.type]), [['אורי ויצחק', 'חתונה']]);
+  assert.ok(Array.isArray(r.events));
+  const bad = await (await get(e, '/api/ops/calendar?month=2026-13')).json();
+  assert.equal(bad.month, ilDay().slice(0, 7), 'a bad month falls back to this month');
+  assert.ok([...e.RATE.m.keys()].some(k => k.startsWith('opscal:')), '5-minute cache written');
+});

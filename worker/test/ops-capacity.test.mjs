@@ -130,3 +130,32 @@ test('helpers: Israel day start, ticks left, balance status', () => {
   assert.equal(ticksLeftToday(callWindowState, tue1900), 9);   /* 19:10 … 20:30 */
   assert.equal(balanceStatus(5, 10), 'low'); assert.equal(balanceStatus(50, 10), 'ok'); assert.equal(balanceStatus(null, 10), 'ok'); assert.equal(balanceStatus(5, 10, 'x'), 'error');
 });
+
+test('rolled plan: overflow spreads FIFO over the next open days, never on Shabbat / no-contact days, Friday capped', () => {
+  const TUE = '2026-11-03';                 /* Tue; Fri 06/11, Shabbat 07/11, Sun 08/11 */
+  const model = { capacity_per_day: 230, today_remaining: 68, verified: false, friday_capacity: 100 };
+  const items = [it(TUE, 'ab699ac0', 176, 'subevent', { name: 'זגורי' }), it('2026-11-04', '6a3155cc', 507, 'w1', { name: 'מור ונועם' }), it('2026-11-05', 'held0000', 40, 'w2', { held: true })];
+  const p = planCapacity({ today: TUE, days: 14, items, model, isNoContactDay: d => d === '2026-11-10' });
+  const by = Object.fromEntries(p.days.map(d => [d.day, d]));
+  assert.equal(by[TUE].out, 68); assert.deepEqual(by[TUE].rolled.map(x => [x.event, x.n, x.from_day]), [['זגורי', 68, TUE]]);
+  assert.equal(by['2026-11-04'].out, 230);
+  assert.deepEqual(by['2026-11-04'].rolled.map(x => [x.event, x.n, x.from_day]), [['זגורי', 108, TUE], ['מור ונועם', 122, '2026-11-04']]);
+  assert.equal(by['2026-11-04'].rolled_in, 108);
+  assert.equal(by['2026-11-05'].out, 230); assert.equal(by['2026-11-05'].rolled_in, 230);
+  assert.equal(by['2026-11-06'].capacity, 100); assert.equal(by['2026-11-06'].out, 100);
+  assert.equal(by['2026-11-07'].out, 0); assert.equal(by['2026-11-07'].rolled.length, 0);   /* Shabbat */
+  assert.equal(by['2026-11-08'].out, 507 - 122 - 230 - 100);                                  /* Sunday: the rest = 55 */
+  assert.equal(by['2026-11-10'].out, 0);                                                      /* no-contact day */
+  assert.ok(p.days.every(d => d.rolled.every(x => x.type !== 'w2')), 'held items never roll');
+  assert.equal(p.totals.out, 176 + 507); assert.equal(p.totals.unplaced, 0);
+  const sum = p.days.reduce((n, d) => n + d.out, 0); assert.equal(sum, 683);
+  assert.ok(p.days.every(d => d.out <= d.capacity));
+});
+
+test('rolled plan: what does not fit in the horizon is returned as unplaced; without friday_capacity Friday = full day', () => {
+  const p = planCapacity({ today: '2026-11-03', days: 3, items: [it('2026-11-03', 'aaaa1111', 800)], model: { capacity_per_day: 230, today_remaining: 230 } });
+  assert.deepEqual(p.days.map(d => d.out), [230, 230, 230]);
+  assert.equal(p.totals.unplaced, 110); assert.equal(p.unplaced[0].from_day, '2026-11-03');
+  const f = planCapacity({ today: '2026-11-06', days: 1, items: [it('2026-11-06', 'aaaa1111', 300)], model: { capacity_per_day: 230, today_remaining: 230 } });
+  assert.equal(f.days[0].out, 230);
+});

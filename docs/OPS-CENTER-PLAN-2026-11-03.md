@@ -274,3 +274,14 @@ Skills and what each contributes:
 3. **Invitation-design flow in the client dashboard**: step "מה תרצו בהזמנה" (text + optional inspiration images), we upload a design, client approves or comments, revision counter: 1 extra round free (1/1), then paid rounds (₪49 proposed, Richard may say ₪30), purchase inside the dashboard, status "done".
 4. **PWA**: make dashboard.html installable (manifest + service worker + "add to home screen" explainer card in the client dashboard).
 5. **Client app (lowest priority, nice-to-have)**: basic app for clients to view/manage the event, buy another event, upgrade, add hostesses. Start as the PWA above; native later only if needed.
+
+## 7. Phase 3 (Richard 03/11 17:40): the ops center becomes THE workplace (CRM)
+Keep Monday and the old admin pages alive until Richard decides otherwise, but all work happens in ops.html from now on. Finish to 100%:
+- **Leads = CRM like Monday:** pipeline board (kanban by status: חדש / בשיחה / הצעה נשלחה / סגר / לא רלוונטי / נדחה) + table view, source, occasion, date, records, notes timeline (free text, timestamps, who), activity (WhatsApp in/out from Noa, calls, emails), reminders/next action, assignment, search, filters, bulk actions. Quick close: in the lead drawer pick package / records / date / add-ons (same generator), it builds the pay link and offers "שלח בוואטסאפ דרך נועה" (free-text inside the 24h window; template otherwise) and marks the lead "הצעה נשלחה"; on payment the lead flips to "סגר" and links to the client.
+- **Clients:** list + event drawer (status, timeline of sends and replies, notes, add-ons, design flow, hostesses, feedback, invoices, dashboard link, upload link), merged with the old clients.html capabilities.
+- **Hostesses (דיילות):** roster, per-event assignment, shifts, pay, confirmations — replaces the Monday hostess board; the dayalot page's data moves in.
+- **Notes everywhere** (leads, clients, events, hostesses), with @mentions-free simple timeline, pinned notes.
+- **Charts:** revenue by day/week/month, leads funnel + conversion, sends/calls volume, failures, balances trend; clear and readable (dataviz skill).
+- **Calendar** (already in build) + **day agenda** in overview.
+- **Mobile:** every screen usable on a phone (bottom nav, drawers full-screen, large tap targets).
+- **Data:** D1 tables (leads, clients, notes, hostesses, activities) once the token has D1:Edit; until then a KV-backed store with the same repository interface so the migration is a switch. Monday stays in sync one-way (ops → Monday) while Monday is still used.

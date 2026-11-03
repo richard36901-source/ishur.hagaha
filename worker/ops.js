@@ -7,7 +7,8 @@
    Routes (all admin: X-Admin-Key header / Authorization: Bearer <key> on GET,
    or {admin_key} in a POST body; admin session stamps `sess.…` work in both):
      GET  /api/ops/realtime        WhatsApp per number, cap, queue, calls today, Noa, pacer
-     GET  /api/ops/capacity        14-day planner: planned vs capacity, overflow, recommendations
+     GET  /api/ops/capacity        14-day planner: planned vs capacity, overflow, recommendations, rolled plan
+   GET  /api/ops/calendar?month= month grid: events, send chips (done/partial/planned/held/rolled), calls, closed
      GET  /api/ops/balances        vendor balances (10 min KV cache bal:cache)
      POST /api/ops/balances        {set:{vendor, amount, currency, auto_topup}} → bal:manual:<vendor>
      GET  /api/ops/registry        registry nodes + ops metadata + runtime state
@@ -222,7 +223,10 @@ export function projectItems({ events, guests, flags = {}, today, days = 14, isN
 export function planCapacity({ today, days = 14, items = [], model = {}, isNoContactDay = () => false }) {
   const dayList = Array.from({ length: days }, (_, i) => addDays(today, i));
   const per = Math.max(0, Number(model.capacity_per_day) || 0);
-  const capOf = d => !engineDay(d, isNoContactDay) ? 0 : d === today ? Math.max(0, Math.min(per, Number(model.today_remaining ?? per))) : per;
+  /* Friday: the send window closes at 13:00, so the day holds at most friday_capacity (pacer ticks × batch) */
+  const isFri = d => new Date(d + 'T12:00:00Z').getUTCDay() === 5;
+  const dayCap = d => isFri(d) && Number.isFinite(Number(model.friday_capacity)) ? Math.min(per, Math.max(0, Number(model.friday_capacity))) : per;
+  const capOf = d => !engineDay(d, isNoContactDay) ? 0 : d === today ? Math.max(0, Math.min(dayCap(d), Number(model.today_remaining ?? per))) : dayCap(d);
   const rows = dayList.map(d => ({ day: d, open: engineDay(d, isNoContactDay), planned: 0, held_planned: 0, dropped: 0, capacity: capOf(d), overflow: 0, by_event: [] }));
   const byDay = Object.fromEntries(rows.map(r => [r.day, r]));
   const sorted = items.slice().sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : a.token < b.token ? -1 : a.token > b.token ? 1 : a.type < b.type ? -1 : 1);
@@ -233,6 +237,19 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
     if (it.held) r.held_planned += it.count; else r.planned += it.count;
   }
   for (const r of rows) r.overflow = Math.max(0, r.planned - r.capacity);
+  /* 03/11 rolled plan: what will ACTUALLY go out each day. The engine never drops a due message —
+     what does not fit waits for the next open day, oldest first (FIFO by due day, then token/type).
+     Closed days (Shabbat / no-contact) have capacity 0, so nothing ever lands on them. */
+  const queue = [];
+  for (const r of rows) {
+    for (const it of sorted) if (it.day === r.day && !it.held) queue.push({ token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, n: it.count, from_day: it.day });
+    let room = r.capacity; r.rolled = [];
+    while (room > 0 && queue.length) { const q = queue[0], take = Math.min(room, q.n); r.rolled.push({ ...q, n: take }); q.n -= take; room -= take; if (!q.n) queue.shift(); }
+    r.out = r.rolled.reduce((n, x) => n + x.n, 0);
+    r.rolled_in = r.rolled.filter(x => x.from_day < r.day).reduce((n, x) => n + x.n, 0);
+    r.carry = queue.reduce((n, q) => n + q.n, 0);
+  }
+  const unplaced = queue.map(q => ({ token: q.token, tok8: q.tok8, event: q.event, type: q.type, n: q.n, from_day: q.from_day }));
   /* recommendations: each event's per-day batch, earliest day it fits whole */
   const free = Object.fromEntries(rows.map(r => [r.day, r.capacity]));
   const events = {};
@@ -260,7 +277,7 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
       recs.push({ token: e.token, tok8: e.tok8, name: e.name, due, count, kind: 'split', days_needed: n, split, unplaced: left, needs_capacity_by: due, he: `${count} הודעות לא נכנסות ביום אחד (תקרה ${per}) — לפצל על ${n} ימים. ${needs}` });
     }
   }
-  return { days: rows, recommendations: recs, totals: { planned: rows.reduce((n, r) => n + r.planned, 0), held_planned: rows.reduce((n, r) => n + r.held_planned, 0), overflow_days: rows.filter(r => r.overflow > 0).map(r => r.day) } };
+  return { days: rows, recommendations: recs, unplaced, totals: { out: rows.reduce((n, r) => n + r.out, 0), unplaced: unplaced.reduce((n, q) => n + q.n, 0), planned: rows.reduce((n, r) => n + r.planned, 0), held_planned: rows.reduce((n, r) => n + r.held_planned, 0), overflow_days: rows.filter(r => r.overflow > 0).map(r => r.day) } };
 }
 /* the capacity model: shared 250 − margin until verified, per-number tier (≥1000) after */
 export function capacityModel({ verified = false, numbers = [], portfolioLimit = 250, margin = 20, todayRemaining = null }) {
@@ -428,6 +445,8 @@ export async function buildCapacity(env, d, now = Date.now(), days = 14) {
   const [cap, waCap, verif, inp] = await Promise.all([d.guestCapacity(env).catch(() => null), kjson(env, 'wa:cap'), bizVerification(env), projectionInputs(env, d, today, days)]);
   const numbers = ((waCap && waCap.numbers) || []).map(n => ({ id: String(n.id), tier: n.tier }));
   const model = capacityModel({ verified: verif.verified, numbers: numbers.length ? numbers : d.guestPhoneIds(env).map(id => ({ id, tier: '' })), portfolioLimit: (cap && cap.limit) || 250, margin: cap ? cap.margin : 20, todayRemaining: cap ? cap.remaining : null });
+  /* Friday window 09:00–13:00 = 25 pacer ticks (:00…:00) × PACE_SENDS */
+  model.friday_capacity = Math.min(model.capacity_per_day, 25 * (Number(d.PACE_SENDS) || 25));
   if (!inp) return { ok: false, error: 'snapshot-unreadable', model, verification: verif };
   const items = projectItems({ events: inp.events, guests: inp.guests, flags: inp.flags, today, days, isNoContactDay: d.isNoContactDay });
   /* sub-events: manual sends, no date — their unsent rest is planned for today, flagged manual */
@@ -437,6 +456,182 @@ export async function buildCapacity(env, d, now = Date.now(), days = 14) {
   const plan = planCapacity({ today, days, items, model, isNoContactDay: d.isNoContactDay });
   return { ok: true, at: new Date(now).toISOString(), today, horizon_days: days, model, verification: verif, ...plan,
     notes: ['מספרי הגלים הם גבול עליון: לא נבדקים סימוני נשלח לכל אורח, הסרות וטעות-במספר', 'אירועים מוחזקים (hold) מסומנים held ולא נספרים ב-planned', 'אירוע-בן (שבת חתן) נשלח ידנית — מה שלא נשלח מתוכנן להיום'] };
+}
+
+/* ── calendar (03/11) ─────────────────────────────────────────────────────
+   GET /api/ops/calendar?month=YYYY-MM → one row per Israel-time day of the month:
+   events, every send chip (done / partial / planned / held / rolled + ghost), call rounds,
+   closed purchases, used vs capacity. calendarMonth() is pure; buildCalendar() gathers. */
+export const CAL_TYPES = { ...PLAN_TYPES, gift: 'מתנה', call: 'סבב שיחות' };
+const DOW_HE = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+const dowOf = iso => new Date(iso + 'T12:00:00Z').getUTCDay();
+export function monthDays(month) {
+  const [y, m] = month.split('-').map(Number), n = new Date(Date.UTC(y, m, 0)).getUTCDate();
+  return Array.from({ length: n }, (_, i) => `${month}-${String(i + 1).padStart(2, '0')}`);
+}
+/* audit rows → per (day, tok8, type): sent / failed / delivered (+ the template seen) */
+export function sendsByDay(outRows, statusRows, { events = [], subTemplates = new Map() } = {}) {
+  const evBy = Object.fromEntries(events.map(e => [e.token.slice(0, 8), e]));
+  const out = {}, wm = {};
+  const slot = (day, tok8, type) => { const k = `${day}|${tok8}|${type}`; return out[k] = out[k] || { day, tok8, type, sent: 0, failed: 0, delivered: 0, template: '' }; };
+  for (const r of outRows || []) {
+    if (r.kind !== 'wa_out') continue;
+    const d = r.data || {}; if (d.channel === 'sms') continue;
+    const tok8 = String(r.token || '').slice(0, 8); if (!tok8) continue;
+    const t = String(d.template || '');
+    const type = subTemplates.has(t) ? 'subevent' : typeOf({ template: t, wave: d.wave, at: r.at || r.ts }, evBy[tok8]);
+    if (!type) continue;
+    const s = slot(ilDayOf(r.ts), tok8, type); if (t) s.template = t;
+    if (r.ok) { s.sent++; if (d.wamid) wm[d.wamid] = { s, rank: 0 }; } else s.failed++;
+  }
+  const RK = { sent: 0, delivered: 1, read: 2, failed: 3 };
+  for (const r of statusRows || []) {
+    if (r.kind !== 'wa_status') continue;
+    const d = r.data || {}, w = wm[d.wamid]; if (!w) continue;
+    const rk = RK[d.status] ?? 0; if (rk <= w.rank) continue;
+    if (rk === 3) { if (w.rank >= 1) w.s.delivered--; w.s.failed++; }
+    else if (w.rank < 1) w.s.delivered++;
+    w.rank = rk;
+  }
+  return Object.values(out);
+}
+export function calendarMonth({ month, today, events = [], board = null, capDays = [], sends = [], calls = { done: [], planned: [] }, closed = [], isNoContactDay = () => false, perDay = 230, fridayCap = null, window = null }) {
+  const days = monthDays(month), inMonth = new Set(days);
+  const cell = Object.fromEntries(days.map(d => {
+    const dw = dowOf(d), open = engineDay(d, isNoContactDay);
+    return [d, { date: d, dow: dw, dow_he: DOW_HE[dw], past: d < today, today: d === today, open, closed_reason: dw === 6 ? 'shabbat' : !open ? 'no_contact' : null, limited: open && dw === 5 ? 'friday' : null,
+      used: 0, capacity: open ? (dw === 5 && fridayCap != null ? Math.min(perDay, fridayCap) : perDay) : 0, events: [], items: [] }];
+  }));
+  const add = (day, it) => { if (inMonth.has(day)) cell[day].items.push(it); };
+  for (const e of events) if (e.date && inMonth.has(e.date)) cell[e.date].events.push({ tok8: e.token.slice(0, 8), name: e.name, type: e.occasion || '', time: e.time || '' });
+  const names = Object.fromEntries(events.map(e => [e.token.slice(0, 8), e.name]));
+  /* the rolled plan: every future piece lands on the day it will actually go out */
+  const lastRoll = {}, capBy = Object.fromEntries(capDays.map(r => [r.day, r]));
+  for (const r of capDays) for (const x of r.rolled || []) { const k = x.tok8 + '|' + x.type; if (!lastRoll[k] || r.day > lastRoll[k]) lastRoll[k] = r.day; }
+  const boardTypes = {};
+  for (const ev of (board && board.events) || []) for (const t of ev.types || []) boardTypes[ev.short + '|' + t.key] = { ev, t };
+  for (const sub of (board && board.subevents) || []) { const t = (sub.types || [])[0]; if (t) boardTypes[sub.token.slice(0, 8) + '|subevent'] = { ev: { short: sub.token.slice(0, 8), name: sub.name, held: false }, t: { ...t, key: 'subevent', due: today, audience: t.invited, pending: { total: t.pending, hold: 0 } }, template: sub.template }; }
+  const nameOf = (tok8, fb = '') => names[tok8] || fb || tok8;
+  /* done / partial: one chip per day the audit saw sends */
+  const sawDone = new Set();
+  for (const s of sends) {
+    const k = s.tok8 + '|' + s.type, bt = boardTypes[k];
+    const pend = bt ? Math.max(0, ((bt.t.pending || {}).total || 0) - ((bt.t.pending || {}).hold || 0)) : 0;
+    const partial = !!bt && pend > 0;
+    sawDone.add(k);
+    add(s.day, { id: `send:${k}:${s.day}`, kind: 'send', tok8: s.tok8, event: nameOf(s.tok8, bt && bt.ev.name), type: s.type, type_he: CAL_TYPES[s.type] || s.type, state: partial ? 'partial' : 'done',
+      n: s.sent, sent: s.sent, delivered: s.delivered, failed: s.failed, of: bt ? bt.t.audience : null, total_sent: bt ? bt.t.sent : s.sent, due: bt ? bt.t.due || null : null,
+      completion_day: partial ? lastRoll[k] || null : null, template: s.template || (bt && bt.template) || '', reason: partial ? `נשלחו ${bt.t.sent} מתוך ${bt.t.audience}` : '' });
+    if (cell[s.day]) cell[s.day].used += s.sent;
+  }
+  for (const [k, { ev, t, template }] of Object.entries(boardTypes)) {
+    const p = t.pending || {};
+    /* sends the audit window does not reach (board counts from KV markers) */
+    if (!sawDone.has(k) && t.sent > 0) {
+      const day = t.last_at ? ilDayOf(t.last_at) : t.due;
+      const pend = Math.max(0, (p.total || 0) - (p.hold || 0));
+      add(day, { id: `send:${k}:${day}:b`, kind: 'send', tok8: ev.short, event: ev.name, type: t.key, type_he: CAL_TYPES[t.key] || t.key, state: pend ? 'partial' : 'done', n: t.sent, sent: t.sent, delivered: t.delivered || 0,
+        failed: (t.failed && t.failed.total) ?? (t.failed || 0), of: t.audience, total_sent: t.sent, due: t.due || null, completion_day: pend ? lastRoll[k] || null : null, template: template || '', reason: 'ספירה מסימוני השליחה (מחוץ לחלון הלוג)' });
+    }
+    if (p.hold > 0) add(t.due && t.due >= today ? t.due : today, { id: `send:${k}:held`, kind: 'send', tok8: ev.short, event: ev.name, type: t.key, type_he: CAL_TYPES[t.key] || t.key, state: 'held', n: p.hold, of: t.audience, due: t.due || null, template: template || '', reason: 'האירוע בהחזקה (hold) — לא יוצא עד שמשחררים' });
+    /* scheduled beyond the planner's horizon: plain planned on the due day */
+    const lastCap = capDays.length ? capDays[capDays.length - 1].day : today;
+    if (p.scheduled > 0 && t.due > lastCap) add(t.due, { id: `send:${k}:${t.due}:p`, kind: 'send', tok8: ev.short, event: ev.name, type: t.key, type_he: CAL_TYPES[t.key] || t.key, state: 'planned', n: p.scheduled, of: t.audience, due: t.due, template: template || '', reason: 'מתוכנן (מחוץ לאופק המתכנן)' });
+  }
+  const ghosts = {};
+  for (const r of capDays) {
+    for (const x of r.rolled || []) {
+      const k = x.tok8 + '|' + x.type, base = { kind: 'send', tok8: x.tok8, event: x.event || nameOf(x.tok8), type: x.type, type_he: CAL_TYPES[x.type] || x.type, n: x.n, due: x.from_day, of: boardTypes[k] ? boardTypes[k].t.audience : null, template: (boardTypes[k] && boardTypes[k].template) || '' };
+      if (x.from_day === r.day) add(r.day, { ...base, id: `send:${k}:${r.day}:plan`, state: 'planned', reason: '' });
+      else {
+        add(r.day, { ...base, id: `send:${k}:${r.day}:from:${x.from_day}`, state: 'rolled', from_day: x.from_day, reason: `לא נכנס בתקרה של ${x.from_day} — המתכנן דחה ליום הפנוי הבא` });
+        const gk = k + '|' + x.from_day, g = ghosts[gk] = ghosts[gk] || { ...base, id: `send:${k}:${x.from_day}:ghost`, state: 'ghost', n: 0, to_days: [], day: x.from_day };
+        g.n += x.n; g.to_days.push(r.day);
+      }
+    }
+    for (const e of r.by_event || []) if (e.held && !boardTypes[e.tok8 + '|' + e.type]) add(r.day, { id: `send:${e.tok8}|${e.type}:${r.day}:held`, kind: 'send', tok8: e.tok8, event: e.name, type: e.type, type_he: CAL_TYPES[e.type] || e.type, state: 'held', n: e.count, due: r.day, template: '', reason: 'האירוע בהחזקה (hold)' });
+    if (cell[r.day]) { const c = cell[r.day]; c.capacity = r.day === today ? Math.max(c.used + r.capacity, 0) : r.capacity; c.used += r.out || 0; }
+  }
+  for (const { day, ...g } of Object.values(ghosts)) add(day, { ...g, to_day: g.to_days[g.to_days.length - 1], reason: `${g.n} עברו ל-${g.to_days.join(', ')} (תקרה)` });
+  for (const c of calls.done || []) add(c.day, { id: `call:${c.tok8}:${c.day}`, kind: 'call', tok8: c.tok8, event: nameOf(c.tok8, c.name), type: 'call', type_he: CAL_TYPES.call, state: 'done', n: c.n, answered: c.answered || 0, reason: '' });
+  for (const c of calls.planned || []) add(c.day, { id: `call:${c.tok8}:${c.day}:plan`, kind: 'call', tok8: c.tok8, event: nameOf(c.tok8, c.name), type: 'call', type_he: CAL_TYPES.call, state: 'planned', n: c.n, reason: 'אורחים בתור לשיר (לא ענו להודעות)' });
+  for (const c of closed) add(c.day, { id: `closed:${c.ref || c.at}`, kind: 'closed', tok8: c.tok8 || '', event: c.event, type: 'closed', type_he: 'סגירה', state: 'done', at: c.at, package: c.package, records: c.records, sum: c.sum, reason: '' });
+  const ST = { done: 0, partial: 1, rolled: 2, planned: 3, held: 4, ghost: 5 };
+  for (const c of Object.values(cell)) c.items.sort((a, b) => (a.kind === 'closed') - (b.kind === 'closed') || (ST[a.state] - ST[b.state]) || String(a.event).localeCompare(String(b.event)));
+  const tokOf = {}; for (const e of events) tokOf[e.token.slice(0, 8)] = e.token;
+  for (const ev of (board && board.events) || []) if (ev.token) tokOf[ev.short] = ev.token;
+  for (const sub of (board && board.subevents) || []) tokOf[sub.token.slice(0, 8)] = sub.token;
+  const evList = {}; for (const c of Object.values(cell)) for (const it of c.items.concat(c.events)) if (it.tok8) evList[it.tok8] = evList[it.tok8] || it.event || it.name;
+  return { month, today, tz: 'Asia/Jerusalem', per_day: perDay, friday_capacity: fridayCap, window, days: days.map(d => cell[d]), events: Object.entries(evList).map(([tok8, name]) => ({ tok8, name, token: tokOf[tok8] || '' })).sort((a, b) => a.name.localeCompare(b.name)) };
+}
+/* pay audit rows (Grow IPN) → closed purchases; only ishur packages (parsePaidDesc ≠ null) */
+export function closedFromPay(rows, { parsePaidDesc = () => null, events = [] } = {}) {
+  const byClient = Object.fromEntries(events.filter(e => e.client_id).map(e => [e.client_id, e]));
+  const seen = new Set(), out = [];
+  for (const r of rows || []) {
+    if (r.kind !== 'pay') continue;
+    const f = (r.data && r.data.ipn) || {};
+    const desc = String(f.paymentDesc || f.description || f.productName || ''), b = parsePaidDesc(desc); if (!b) continue;
+    const ref = String(f.asmachta || f.transactionId || f.transactionCode || r.id || ''); if (seen.has(ref)) continue; seen.add(ref);
+    const phone = String(f.payerPhone || f.phone || r.phone || '').replace(/\D/g, '').replace(/^0/, '972');
+    const ev = phone ? byClient['C-' + phone.slice(-9)] : null;
+    out.push({ day: ilDayOf(r.ts), at: r.at || new Date(r.ts).toISOString(), ref, tok8: ev ? ev.token.slice(0, 8) : '', event: ev ? ev.name : String(f.fullName || f.payerName || f.name || 'לקוח'), package: [b.planText, b.hostess ? b.hostess + ' דיילות' : ''].filter(Boolean).join(' + ') || desc.slice(0, 40), records: b.tier || null, sum: Number(f.paymentSum || f.sum || f.amount || f.transactionSum) || 0 });
+  }
+  return out;
+}
+export function callsByDay(rows) {
+  const m = {};
+  for (const r of rows || []) {
+    if (r.kind !== 'call') continue;
+    const d = r.data || {}; if (d.agent && d.agent !== 'שיר') continue;
+    const tok8 = String(r.token || '').slice(0, 8); if (!tok8) continue;
+    const k = ilDayOf(r.ts) + '|' + tok8, c = m[k] = m[k] || { day: ilDayOf(r.ts), tok8, name: d.event_name || '', n: 0, answered: 0 };
+    c.n++; if (d.outcome || d.answer) c.answered++;
+  }
+  return Object.values(m);
+}
+export async function buildCalendar(env, d, month, now = Date.now(), { fresh = false } = {}) {
+  const today = d.ilDate(new Date(now));
+  if (!/^\d{4}-(0[1-9]|1[0-2])$/.test(month || '')) month = today.slice(0, 7);
+  const ck = 'opscal:' + month;
+  if (!fresh && env.RATE) { try { const hit = JSON.parse((await env.RATE.get(ck)) || 'null'); if (hit && now - hit.at < 5 * 60e3) return { ...hit.data, cached: true }; } catch {} }
+  const days = monthDays(month), first = days[0], last = days[days.length - 1];
+  const raw = await d.snapshotCached(env).catch(() => null);
+  const { events } = raw ? eventsFromRaw(raw, today, { isTestEventRow: d.isTestEventRow, planKeyOf: d.planKeyOf, from: addDays(first, -30) }) : { events: [] };
+  const horizon = Math.max(0, Math.min(28, Math.round((Date.parse(last) - Date.parse(today)) / 864e5) + 1));
+  const [cap, board, subTpl] = await Promise.all([
+    horizon > 0 && last >= today ? buildCapacity(env, d, now, horizon).catch(() => null) : null,
+    d.sendBoardData ? d.sendBoardData(env, { days: 3, detail: false }).catch(() => null) : null,
+    d.kvPrefix(env, 'subevent:').then(all => new Set(Object.values(all).map(v => { try { return JSON.parse(v).template; } catch { return ''; } }).filter(Boolean))).catch(() => new Set()),
+  ]);
+  /* audit: the month's days up to today (counts only), one query per kind, bounded */
+  let sends = [], callsDone = [], closed = [], truncated = false;
+  if (first <= today) {
+    const to = (last < today ? last : today).replace(/-/g, ''), from = first.replace(/-/g, '');
+    const q = kind => d.auditQueryEx(env, { from, to, kind, limit: 20000, budget: 1500 }).catch(() => ({ items: [], truncated: true }));
+    const [o, st, cl, pay] = await Promise.all([q('wa_out'), q('wa_status'), q('call'), q('pay')]);
+    truncated = !!(o.truncated || st.truncated || cl.truncated || pay.truncated);
+    sends = sendsByDay(o.items, st.items, { events, subTemplates: subTpl });
+    callsDone = callsByDay(cl.items);
+    closed = closedFromPay(pay.items, { parsePaidDesc: d.parsePaidDesc || (() => null), events });
+  }
+  /* Shir's queue: the guests who still get a call round, on the next open call day */
+  let callsPlanned = [];
+  try {
+    if (raw && d.buildCallQueue && last >= today) {
+      const { queue } = d.buildCallQueue(raw); const by = {};
+      for (const g of queue || []) if (!g.capped && g.token) { const t = String(g.token).slice(0, 8); by[t] = by[t] || { tok8: t, name: g.event_name || '', n: 0 }; by[t].n++; }
+      const cw = d.callWindowState ? d.callWindowState(new Date(now)) : { open: true };
+      const ilH = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(now)));
+      const day = firstEngineDay(cw.open || (cw.why === 'hours' && ilH < 12) ? today : addDays(today, 1), addDays(today, 10), d.isNoContactDay) || today;
+      callsPlanned = Object.values(by).map(c => ({ ...c, day }));
+    }
+  } catch {}
+  const model = cap && cap.model ? cap.model : { capacity_per_day: 230 };
+  const out = { ok: true, at: new Date(now).toISOString(), ...calendarMonth({ month, today, events, board, capDays: (cap && cap.days) || [], sends, calls: { done: callsDone, planned: callsPlanned }, closed, isNoContactDay: d.isNoContactDay, perDay: model.capacity_per_day, fridayCap: model.friday_capacity ?? null,
+    window: { weekday: '09:00–20:30', friday: '09:00–13:00', shabbat: null } }), audit_truncated: truncated, sources: { capacity: !!cap, send_board: !!board, snapshot: !!raw } };
+  if (env.RATE) await env.RATE.put(ck, JSON.stringify({ at: now, data: out }), { expirationTtl: 600 }).catch(() => {});
+  return out;
 }
 
 /* ── balances ────────────────────────────────────────────────────────────── */
@@ -648,6 +843,7 @@ export async function handleOps(request, env, origin, url, d) {
     switch (path) {
       case 'realtime': return json(await buildRealtime(env, d));
       case 'capacity': return json(await buildCapacity(env, d, Date.now(), Math.max(1, Math.min(28, Number(q('days')) || 14))));
+      case 'calendar': return json(await buildCalendar(env, d, String(q('month') || ''), Date.now(), { fresh: String(q('fresh') || '') === '1' }));
       case 'balances': {
         if (request.method === 'POST' && body.set) {
           const v = String(body.set.vendor || ''); if (!VENDORS[v]) return json({ ok: false, error: 'unknown-vendor', vendors: Object.keys(VENDORS) }, 400);
@@ -709,7 +905,7 @@ export async function handleOps(request, env, origin, url, d) {
         if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
         const r = await editSetting(env, d, body); return json(r.body, r.status);
       }
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit'] }, 404);
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);

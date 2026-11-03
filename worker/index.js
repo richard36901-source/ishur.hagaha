@@ -47,7 +47,7 @@ import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment,
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
 import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
 import { handleAutomations } from './automations.js';
-import { handleSendBoard } from './send-board.js';
+import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
 import { handleFloor, handleFloorNote } from './floor.js';   /* 02/11 floor/dial routes */
 import { handleDial } from './dial.js';                       /* 02/11 floor/dial routes */
@@ -63,6 +63,7 @@ import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, handle
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { handleOps, brainFns } from './ops.js';
+import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID } from './automations-registry.js';
@@ -203,12 +204,19 @@ function looksIshur(flat, pages) {
    lives 30 days in KV under quote:<id>; cField1 carries "q:<id>|<code>" so the
    IPN can read what was bought even if the KV row is gone. */
 async function handlePayLinkV2(env, b, origin) {
+  const r = await makePayLinkV2(env, b);
+  if (!r.ok && r.why && r.why !== 'no-hook' && !r.id) return deny(400, r.why, origin);
+  if (r.why === 'no-hook') return okJson({ ok: false, why: 'no-hook', quote: r.quote }, origin);
+  return okJson({ ok: r.ok, url: r.url, id: r.id, description: r.description, sum: r.sum, code: r.code, lines: r.lines, make: r.make }, origin);
+}
+/* the same, as data: /api/crm/leads/:id/quote builds its link here */
+async function makePayLinkV2(env, b) {
   const pq = priceQuote(b);
-  if (!pq.ok) return deny(400, pq.why, origin);
+  if (!pq.ok) return { ok: false, why: pq.why };
   const q = pq.quote;
   const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
   const cField1 = `q:${id}|${q.code}`;
-  if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook', quote: { id, ...q } }, origin);
+  if (!env.GROW_LINK_HOOK) return { ok: false, why: 'no-hook', id, sum: q.sum, description: q.description, code: q.code, lines: q.lines, quote: { id, ...q } };
   const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     sum: q.sum, description: q.description, token: '', kind: 'special', scope: 'all', label: q.description, n: q.records,
     name: q.name, phone: q.phone.replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
@@ -219,7 +227,7 @@ async function handlePayLinkV2(env, b, origin) {
   const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
   if (env.RATE) await env.RATE.put('quote:' + id, JSON.stringify({ id, ...q, url: link || '', at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
   await logEvent(env, { area: 'תשלום', action: `קישור תשלום v2: ${q.description} · ₪${q.sum}`, ok: !!link, review: !link, phone: q.phone, ref: 'q:' + id, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
-  return okJson({ ok: !!link, url: link || '', id, description: q.description, sum: q.sum, code: q.code, lines: q.lines, make: link ? undefined : mtxt.slice(0, 200) }, origin);
+  return { ok: !!link, url: link || '', id, description: q.description, sum: q.sum, code: q.code, lines: q.lines, make: link ? undefined : mtxt.slice(0, 200) };
 }
 
 /* what a package payment bought besides the package: the stored quote first,
@@ -676,6 +684,8 @@ async function processGrowPayment(env, flat) {
     try { await grantPurchaseAddons(env, token, purchase, { ref, phone, sum }); } catch (e) {
       await logEvent(env, { area: 'תשלום', action: 'הפעלת תוספות שנרכשו עם החבילה נכשלה', ok: false, review: true, phone, token, ref, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
     }
+    /* 03/11 CRM: the lead (by quote id, else phone) flips to סגר and links to the client token */
+    try { await crmOnPaid(env, { phone, token, quoteId: (purchase && purchase.id) || '', sum, ref, name, simulated: !!flat._simulated }); } catch {}
     /* every purchase lands in Slack — Richard doesn't always get Grow's email.
        03/11: one "נסגר" line in a fixed shape (paylink.js closeMessage) */
     await slackPost(env, closeMessage({
@@ -3362,6 +3372,7 @@ async function handleWaWebhook(request, env, url) {
             at: new Date().toISOString(),
           }));
           await touchConversation(env, peer, { ts: ets, dir: 'out', text: eBody.slice(0, 80), ch: echoCh });
+          if (echoCh === 'client' && !appAuto) await crmTouch(env, peer, { dir: 'out', text: eBody, ch: 'client', at: new Date(ets).toISOString(), who: 'phone', id: msg.id ? 'wa:' + msg.id : undefined }).catch(() => {});
           await logRow(env, echoCh === 'guests' ? 'msg_guests' : 'msg_clients', {
             id: msg.id || '', dir: 'יוצאת', who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)',
             sent: 'כן ' + ilTime(), error: '',
@@ -3417,6 +3428,7 @@ async function handleWaWebhook(request, env, url) {
         })).catch(() => {});
       stream(env, { kind: 'wa_in', area: ch === 'guests' ? 'שיר' : 'נועה', action: '📥 ' + from + (profileName ? ' · ' + profileName : ''), ok: true, phone: from, detail: body }).catch(() => {});
       await touchConversation(env, from, { ts, dir: 'in', text: body, ch }).catch(() => {});
+      if (ch !== 'guests') await crmTouch(env, from, { dir: 'in', text: body, ch: 'client', at: new Date(ts).toISOString(), id: msg.id ? 'wa:' + msg.id : undefined }).catch(() => {});
       await logRow(env, ch === 'guests' ? 'msg_guests' : 'msg_clients', {
         id: msg.id || '', dir: 'נכנסת', who: ch === 'guests' ? 'אורח' : 'לקוח / ליד',
         sent: 'התקבלה ' + ilTime(), name: profileName || (await env.RATE.get('waname:' + from)) || '',
@@ -9596,16 +9608,28 @@ async function buildCalendarMonth(env, month) {
 }
 
 /* 03/11 ops center: index.js internals handed to ops.js (it cannot import us) */
+function sendBoardDeps() {
+  return { isAdmin, okJson, deny, snapshotCached,
+    auditQuery: (e, q) => audit.query(e, q),
+    isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
+    guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); } };
+}
 function opsDeps() {
   return { isAdmin, adminKeyOk: (env, k) => adminKeyOk(env, k), okJson, deny, cors, ilDate, sendWindowState, callWindowState, isNoContactDay,
     sendingPaused, snapshotCached, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), waCapInfo, guestCapacity, guestPhoneIds, clientPhoneId,
     clientWaba, clientToken, kvPrefix, normPhone, isTestEventRow, planKeyOf, buildCallQueue, retellListCalls, metaAds,
     auditQuery: (e, q) => audit.query(e, q), auditQueryEx: (e, q) => audit.queryEx(e, q), auditRecord: (e, r) => audit.record(e, r),
     slackPost: (e, t, o) => slackPost(e, t, o), PACE_SENDS, PACE_CALLS, PACE_CALLBACKS,
+    /* 03/11 ops calendar */
+    parsePaidDesc: (x) => parsePaidDesc(x), sendBoardData: (e, b) => sendBoardData(e, sendBoardDeps(), b),
     /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
     slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
     mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
     runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), giftBlast: (e, token, o) => brainGiftBlast(e, token, o), waProbe: (e, pid) => brainWaProbe(e, pid) };
+}
+/* 03/11 CRM: the ops deps plus what the CRM needs on top */
+function crmDeps() {
+  return { ...opsDeps(), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
 }
 /* brain playbook gift_blast_resume → the real /api/gift-blast handler (same refusals, same caps) */
 async function brainGiftBlast(env, token, { dry = true, max = 50 } = {}) {
@@ -9783,6 +9807,7 @@ export default {
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
+    if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps());
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
@@ -10847,12 +10872,7 @@ export default {
     /* 01/11: send board — נמסרו X / נשלחו Y / מתוך Z per event per message type (calendar/admin).
        Reads only, except a 5-min sendboard:* cache key. */
     if (url.pathname === '/api/send-board' && request.method === 'POST') {
-      return handleSendBoard(request, env, origin, {
-        isAdmin, okJson, deny, snapshotCached,
-        auditQuery: (e, q) => audit.query(e, q),
-        isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
-        guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); },
-      });
+      return handleSendBoard(request, env, origin, sendBoardDeps());
     }
     /* 02/11: every call ever — one merged calls view (F.4/F.5), cursor-paged per audit day, CSV. No KV writes. */
     if (url.pathname === '/api/calls-log' && request.method === 'POST') {
