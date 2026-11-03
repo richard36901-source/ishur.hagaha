@@ -2,7 +2,7 @@
  "fixture": true,
  "fixture_from": "https://go.ishur.io",
  "ok": true,
- "at": "2026-11-03T14:26:57.664Z",
+ "at": "2026-11-03T14:29:49.743Z",
  "source": "composed locally from live capacity + send-board (calendar endpoint not deployed): no audit counts, no closed purchases, no Shir rounds",
  "month": "2026-11",
  "today": "2026-11-03",
@@ -102,12 +102,12 @@
      "type": "eventday",
      "type_he": "יום-האירוע",
      "state": "partial",
-     "n": 149,
-     "sent": 149,
+     "n": 145,
+     "sent": 145,
      "delivered": 12,
-     "failed": 71,
-     "of": 149,
-     "total_sent": 149,
+     "failed": 70,
+     "of": 145,
+     "total_sent": 145,
      "due": null,
      "completion_day": null,
      "template": "",
@@ -954,35 +954,43 @@
  "events": [
   {
    "tok8": "c1c5fcf5",
-   "name": "אירוע ח"
+   "name": "אירוע ח",
+   "token": "c1c5fcf5-0000-4000-8000-000000000000"
   },
   {
    "tok8": "e045522a",
-   "name": "אירוע ד"
+   "name": "אירוע ד",
+   "token": "e045522a-0000-4000-8000-000000000000"
   },
   {
    "tok8": "96b7dec2",
-   "name": "אירוע ה"
+   "name": "אירוע ה",
+   "token": "96b7dec2-0000-4000-8000-000000000000"
   },
   {
    "tok8": "ec9f3b84",
-   "name": "אירוע ז"
+   "name": "אירוע ז",
+   "token": "ec9f3b84-0000-4000-8000-000000000000"
   },
   {
    "tok8": "ffb78392",
-   "name": "אירוע ו"
+   "name": "אירוע ו",
+   "token": "ffb78392-0000-4000-8000-000000000000"
   },
   {
    "tok8": "6a3155cc",
-   "name": "אירוע ב"
+   "name": "אירוע ב",
+   "token": "6a3155cc-0000-4000-8000-000000000000"
   },
   {
    "tok8": "ab699ac0",
-   "name": "אירוע א"
+   "name": "אירוע א",
+   "token": ""
   },
   {
    "tok8": "395962fa",
-   "name": "אירוע ג"
+   "name": "אירוע ג",
+   "token": "395962fa-0000-4000-8000-000000000000"
   }
  ]
 }

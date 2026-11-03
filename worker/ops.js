@@ -551,8 +551,11 @@ export function calendarMonth({ month, today, events = [], board = null, capDays
   for (const c of closed) add(c.day, { id: `closed:${c.ref || c.at}`, kind: 'closed', tok8: c.tok8 || '', event: c.event, type: 'closed', type_he: 'סגירה', state: 'done', at: c.at, package: c.package, records: c.records, sum: c.sum, reason: '' });
   const ST = { done: 0, partial: 1, rolled: 2, planned: 3, held: 4, ghost: 5 };
   for (const c of Object.values(cell)) c.items.sort((a, b) => (a.kind === 'closed') - (b.kind === 'closed') || (ST[a.state] - ST[b.state]) || String(a.event).localeCompare(String(b.event)));
+  const tokOf = {}; for (const e of events) tokOf[e.token.slice(0, 8)] = e.token;
+  for (const ev of (board && board.events) || []) if (ev.token) tokOf[ev.short] = ev.token;
+  for (const sub of (board && board.subevents) || []) tokOf[sub.token.slice(0, 8)] = sub.token;
   const evList = {}; for (const c of Object.values(cell)) for (const it of c.items.concat(c.events)) if (it.tok8) evList[it.tok8] = evList[it.tok8] || it.event || it.name;
-  return { month, today, tz: 'Asia/Jerusalem', per_day: perDay, friday_capacity: fridayCap, window, days: days.map(d => cell[d]), events: Object.entries(evList).map(([tok8, name]) => ({ tok8, name })).sort((a, b) => a.name.localeCompare(b.name)) };
+  return { month, today, tz: 'Asia/Jerusalem', per_day: perDay, friday_capacity: fridayCap, window, days: days.map(d => cell[d]), events: Object.entries(evList).map(([tok8, name]) => ({ tok8, name, token: tokOf[tok8] || '' })).sort((a, b) => a.name.localeCompare(b.name)) };
 }
 /* pay audit rows (Grow IPN) → closed purchases; only ishur packages (parsePaidDesc ≠ null) */
 export function closedFromPay(rows, { parsePaidDesc = () => null, events = [] } = {}) {

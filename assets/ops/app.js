@@ -108,10 +108,12 @@ export const ROUTES = [
   { id: 'messaging', he: 'הודעות', icon: 'msg', key: 'm' },
   { id: 'calls', he: 'שיחות', icon: 'call', key: 'c' },
   { id: 'capacity', he: 'קיבולת', icon: 'cap', key: 'k' },
+  { id: 'calendar', he: 'לוח שנה', icon: 'cap', key: 'd' },
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
 ];
 const screens = {};
-const loadModule = (id) => (screens[id] = screens[id] || import(`./screens/${id}.js`));
+/* calendar is lazy (outside the counted JS budget, like mock.js) */
+const loadModule = (id) => (screens[id] = screens[id] || import(id === 'calendar' ? './lazy/calendar.js' : `./screens/${id}.js`));
 const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
 
@@ -195,7 +197,7 @@ function toggleTheme() {
 
 /* ── keyboard ── */
 export const KEYMAP = [
-  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g y', 'יתרות'],
+  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'],
   ['⌘ K', 'פקודות וחיפוש'], ['/', 'חיפוש בעמוד'], ['j k', 'שורה הבאה / קודמת'], ['Enter', 'פתיחת השורה'], ['Esc', 'סגירה'],
   ['\\', 'פאנל לוג חי'], ['t', 'בהיר / כהה'], ['p', 'עצירת הזרם החי'], ['?', 'קיצורי מקלדת'],
 ];

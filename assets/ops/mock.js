@@ -55,5 +55,6 @@ export async function mockApi(name, body, ver) {
     mockState.off[body.id] = body.enabled ? null : { at: now, by: body.who || 'richard', reason: body.reason || 'כובה מלוח הבקרה (דמה)' };
     return { ok: true, id: body.id, switch_id: sw, applied: true };
   }
+  if (name === 'calendar') { const f = await fixture('calendar'); return !body.month || body.month === f.month ? f : { ok: true, fixture: true, month: body.month, days: [], events: [] }; }
   return fixture(name);
 }
