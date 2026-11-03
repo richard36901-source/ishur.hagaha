@@ -999,7 +999,7 @@ export async function handleOps(request, env, origin, url, d) {
         const r = await invoiceResend(env, d, body); return json(r.body, r.status);
       }
       case 'ads': return json(await buildAds(env, { ...d, META_AD_ACCOUNT }, { range: String(q('range') || '30d'), fresh: String(q('fresh') || '') === '1' }));
-      case 'templates': return json(await buildTemplates(env, d, { fresh: String(q('fresh') || '') === '1' }));
+      case 'templates': return json(await buildTemplates(env, d, { fresh: String(q('fresh') || '') === '1', range: String(q('range') || '7d') }));
       case 'template-variant': {
         if (request.method !== 'POST') return json({ ok: false, error: 'POST-only' }, 405);
         const r = await templateVariant(env, d, body); return json(r.body, r.status);
