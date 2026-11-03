@@ -7,6 +7,33 @@ const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fix
 const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {}, reverted: {}, added: [] };
 export async function mockApi(name, body, ver, qs) {
   if (ver) VER = ver;
+  /* 03/11 Phase 4b call center (fixtures built by running the real ops-calls.js handlers on masked data) */
+  if (name === '/voice-prompt') {
+    const sh = await fixture('shir');
+    if (body.action === 'get') return { ok: true, agent: 'shir_out', name: sh.name, prompt: sh.prompt, head: sh.head, history: sh.history };
+    if (body.action === 'version') { const h = sh.history.find((x) => x.n === +body.n); return h ? { ok: true, agent: 'shir_out', n: h.n, at: h.at, note: h.note, prompt: sh.prompt + '\n(גרסה ' + h.n + ', דמה)' } : { ok: false, error: 'no-such-version' }; }
+    return { ok: true, agent: 'shir_out', version: sh.head + 1, note: body.note || 'דמה' };
+  }
+  if (name === 'calls') {
+    const f = structuredClone(await fixture('calls'));
+    const want = body.outcome ? String(body.outcome).split(',') : null, num = String(body.number || '').replace(/\D/g, '').replace(/^0/, '');
+    f.items = f.items.filter((r) => (!want || want.includes(r.outcome)) && (!body.event || r.tok8 === body.event) && (!body.agent || r.agent === body.agent) && (!num || r.phone.includes(num)) && (body.week || r.day === f.to));
+    return f;
+  }
+  if (name === 'call') { const c = structuredClone(await fixture('call')); if (body.id && body.id !== c.call.id) { const r = (await fixture('calls')).items.find((x) => x.id === body.id); if (!r) return { ok: false, error: 'not-found' }; return { ok: true, call: r, transcript: r.has_transcript ? [{ role: 'agent', text: 'היי, מדברת ' + r.agent }, { role: 'user', text: r.summary || 'כן' }] : [], transcript_source: 'audit', summary: r.summary, sentiment: r.sentiment, analysis: {}, recording: null, recording_missing: 'no-metadata', sources: { retell: false, audit: true, recmeta: false } }; } return c; }
+  if (name === 'call-rounds') { const f = structuredClone(await fixture('call-rounds')); f.events.forEach((e) => { const o = mockState.stop && mockState.stop[e.token]; if (o !== undefined) { e.stopped = o; e.will_dial = !o && !e.why.filter((w) => w.code !== 'stopped').length; e.why = o ? [{ code: 'stopped', he: 'הסבב נעצר ידנית' }, ...e.why.filter((w) => w.code !== 'stopped')] : e.why.filter((w) => w.code !== 'stopped'); } }); return f; }
+  if (name === 'call-round') {
+    const word = String(body.token || '').slice(0, 8);
+    if (body.confirm !== word) return { ok: true, applied: false, token: body.token, action: body.action, confirm_required: word, extra_round_guests: body.extra ? 3 : null, he: body.action === 'stop' ? 'שיר תפסיק לחייג לאורחי האירוע הזה עד שיופעל שוב (דמה).' : 'שיר תחזור לחייג לאורחי האירוע (דמה).' };
+    mockState.stop = mockState.stop || {}; mockState.stop[body.token] = body.action === 'stop' ? { at: new Date().toISOString(), by: 'richard', reason: '' } : null;
+    return { ok: true, applied: true, token: body.token, action: body.action, stopped_now: body.action === 'stop' };
+  }
+  if (name === 'manual-calls') {
+    if (body.action === 'note') return { ok: true, guest_id: body.guest_id, note: body.note ? { text: body.note, at: new Date().toISOString(), by: 'richard' } : null };
+    if (body.action === 'done') { const gone = ['מגיע', 'לא מגיע', 'לא להתקשר'].includes(body.outcome); return { ok: true, guest_id: body.guest_id, rsvp: body.outcome, call_status: gone ? '' : 'נדרשת שיחה', answer: body.outcome, tries: (+body.tries || 0) + (body.outcome === 'לא ענה' ? 1 : 0) }; }
+    return structuredClone(await fixture('manual-calls'));
+  }
+  if (name === 'shir') return structuredClone(await fixture('shir'));
   if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER, qs != null ? 'GET' : 'POST');
   const now = new Date().toISOString();
   if (name === 'registry') {

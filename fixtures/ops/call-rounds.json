@@ -1,0 +1,117 @@
+{
+ "ok": true,
+ "today": "2026-11-03",
+ "at": "2026-11-03T15:58:23.627Z",
+ "source": "snapshot",
+ "window": {
+  "open": true
+ },
+ "capacity_left_today": 96,
+ "ticks_left": 16,
+ "pace_per_tick": 6,
+ "daily_cap": {
+  "daily": null,
+  "dialed_counted": null
+ },
+ "global_why": [],
+ "totals": {
+  "queued": 6,
+  "remaining_today": 4,
+  "dialed_today": 8,
+  "lead_calls_today": 1
+ },
+ "events": [
+  {
+   "token": "c2f63d20-1111-4000-8000-000000000001",
+   "tok8": "c2f63d20",
+   "name": "נועה ויונתן",
+   "date": "2026-11-07",
+   "plan": "premium",
+   "max_tries": 3,
+   "queued": 4,
+   "capped": 1,
+   "remaining_today": 3,
+   "dialed_today": 5,
+   "answered_today": 3,
+   "cost_today": 1.76,
+   "outcomes_today": {
+    "not_coming": 1,
+    "maybe": 1,
+    "voicemail": 1,
+    "coming": 1,
+    "no_answer": 1
+   },
+   "plan_no_calls": false,
+   "stopped": null,
+   "hold": false,
+   "extra_round": null,
+   "will_dial": true,
+   "why": [],
+   "confirm_word": "c2f63d20"
+  },
+  {
+   "token": "c1c5fcf5-3333-4000-8000-000000000003",
+   "tok8": "c1c5fcf5",
+   "name": "אורי ויצחק",
+   "date": "2026-11-05",
+   "plan": "basic",
+   "max_tries": 0,
+   "queued": 1,
+   "capped": 0,
+   "remaining_today": 0,
+   "dialed_today": 1,
+   "answered_today": 0,
+   "cost_today": 0,
+   "outcomes_today": {
+    "failed": 1
+   },
+   "plan_no_calls": true,
+   "stopped": null,
+   "hold": false,
+   "extra_round": null,
+   "will_dial": false,
+   "why": [
+    {
+     "code": "plan",
+     "he": "החבילה לא כוללת שיחות"
+    }
+   ],
+   "confirm_word": "c1c5fcf5"
+  },
+  {
+   "token": "f0a38bbd-2222-4000-8000-000000000002",
+   "tok8": "f0a38bbd",
+   "name": "בר המצווה של איתי",
+   "date": "2026-11-12",
+   "plan": "pro",
+   "max_tries": 1,
+   "queued": 1,
+   "capped": 1,
+   "remaining_today": 1,
+   "dialed_today": 2,
+   "answered_today": 1,
+   "cost_today": 0.31,
+   "outcomes_today": {
+    "no_answer": 1,
+    "callback": 1
+   },
+   "plan_no_calls": false,
+   "stopped": {
+    "at": "2026-11-03T13:58:23.538Z",
+    "by": "richard",
+    "reason": "הלקוח ביקש לחכות לגל 2"
+   },
+   "hold": false,
+   "extra_round": null,
+   "will_dial": false,
+   "why": [
+    {
+     "code": "stopped",
+     "he": "הסבב נעצר ידנית · ע״י richard"
+    }
+   ],
+   "confirm_word": "f0a38bbd"
+  }
+ ],
+ "fixture": true
+}

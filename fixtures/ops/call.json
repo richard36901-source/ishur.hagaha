@@ -1,0 +1,83 @@
+{
+ "ok": true,
+ "call": {
+  "id": "call_fx0000000002",
+  "ts": 1793721503549,
+  "at": "2026-11-03T15:58:23.549Z",
+  "day": "2026-11-03",
+  "agent": "שיר",
+  "kind": "guest",
+  "name": "דנה כהן",
+  "phone": "972520007919",
+  "event": "נועה ויונתן",
+  "token": "c2f63d20-1111-4000-8000-000000000001",
+  "tok8": "c2f63d20",
+  "guest_id": "G-c2f63d20-1",
+  "outcome": "coming",
+  "outcome_he": "מגיע",
+  "rsvp": "מגיע",
+  "answer": "ענה",
+  "duration_s": 71,
+  "disconnection": "agent_hangup",
+  "cost": {
+   "retell": 0.52,
+   "telnyx": 0.18,
+   "total": 0.7,
+   "minutes": 2
+  },
+  "has_recording": true,
+  "has_transcript": true,
+  "summary": "אישרה הגעה, 2 מגיעים",
+  "sentiment": "Positive",
+  "review": false,
+  "attempt": null
+ },
+ "transcript": [
+  {
+   "role": "agent",
+   "text": "היי דנה, מדברת שיר מאישורי הגעה, לגבי החתונה של נועה ויונתן. אתם מגיעים?"
+  },
+  {
+   "role": "user",
+   "text": "כן, בטח. אנחנו מגיעים."
+  },
+  {
+   "role": "agent",
+   "text": "מעולה! כמה תהיו בסך הכל?"
+  },
+  {
+   "role": "user",
+   "text": "שניים, אני ובעלי."
+  },
+  {
+   "role": "agent",
+   "text": "רשמתי, שניים. תודה ונתראה בשמחה!"
+  }
+ ],
+ "transcript_source": "retell",
+ "summary": "האורחת אישרה הגעה עם בן זוגה, 2 מגיעים. השיחה קצרה ועניינית.",
+ "sentiment": "Positive",
+ "analysis": {
+  "outcome": "מגיע",
+  "party_size": 2,
+  "got_answer": true,
+  "needs_review": false,
+  "agent_quality": 9,
+  "quality_note": ""
+ },
+ "recording": {
+  "url": "fixtures/ops/silence.wav",
+  "expires_at": "2026-11-04T15:58:23.627Z",
+  "name": "x.wav",
+  "mime": "audio/wav",
+  "bytes": 182044,
+  "source": "kept"
+ },
+ "recording_missing": null,
+ "sources": {
+  "retell": true,
+  "audit": true,
+  "recmeta": true
+ },
+ "fixture": true
+}

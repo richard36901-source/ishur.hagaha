@@ -989,7 +989,7 @@ export async function handleOps(request, env, origin, url, d) {
         const r = await callRound(env, d, body); return json(r.body, r.status);
       }
       case 'manual-calls': {
-        if (request.method === 'POST') { const r = await manualCallsPost(env, d, body); return json(r.body, r.status); }
+        if (request.method === 'POST' && body.action) { const r = await manualCallsPost(env, d, body); return json(r.body, r.status); }
         return json(await manualCalls(env, d));
       }
       case 'shir': { const r = await shirAdmin(env, d, String(q('agent') || 'shir_out')); return json(r.body, r.status); }

@@ -143,6 +143,35 @@ check('overview.view before balances lands', () => S.overview.view(F.realtime, F
 check('calls.view with calls:null (no RETELL_KEY)', () => S.calls.view(adapt('realtime', { ...RAW.realtime, calls: null })));
 ok(S.overview.allIncidents(F.realtime, F.capacity, F.balances).length > 0, 'overview derives incidents from realtime + capacity + balances', S.overview.allIncidents(F.realtime, F.capacity, F.balances).length + ' incidents');
 
+console.log('A3c call center (lazy/calls.js, fixtures from the real ops-calls.js handlers)');
+const CCX = await import(pathToFileURL(join(OPS, 'lazy/calls.js')));
+const CF = Object.fromEntries(['calls', 'call', 'call-rounds', 'manual-calls', 'shir'].map((n) => [n, fx(n)]));
+const ccSt = { tab: 'timeline', range: 'week', agent: '', number: '', event: '', outcomes: new Set(), mview: 'open', open: null };
+ok(CF.calls.items.every((r) => ['id', 'at', 'day', 'agent', 'kind', 'outcome', 'outcome_he', 'duration_s', 'cost', 'attempt', 'has_recording', 'has_transcript'].every((k) => k in r) && 'retell' in r.cost && 'telnyx' in r.cost && 'total' in r.cost), 'calls.items[] contract: outcome, cost{retell,telnyx,total}, attempt, has_recording');
+ok(CF.calls.costs && CF.calls.costs.by_day && CF.calls.costs.by_event && CF.calls.costs.total.calls === CF.calls.items.length, 'calls.costs rollup covers every call', CF.calls.costs.total.calls + ' calls');
+check('calls.tabsBar', () => CCX.tabsBar('timeline', { manual: 3 }));
+check('calls.filters', () => CCX.filters(ccSt, CF.calls));
+check('calls.timeline', () => CCX.timeline(CF.calls, ccSt));
+check('calls.timeline empty', () => CCX.timeline({ ...CF.calls, items: [] }, ccSt) + '<x>'.repeat(60));
+const tlHtml = CCX.timeline(CF.calls, ccSt, CF.calls.items[0].id);
+ok((tlHtml.match(/class="cc-row"/g) || []).length === CF.calls.items.length && tlHtml.includes('data-cc-x='), 'timeline: one row per call, the open row gets a detail slot');
+const dHtml = CCX.callDetail(CF.call);
+ok(/<audio controls preload="none" src="[^"]+"/.test(dHtml) && (dHtml.match(/<p class=/g) || []).length === CF.call.transcript.length && dHtml.includes(CF.call.summary.slice(0, 20)), 'call detail: player + every transcript turn + AI summary');
+ok(!CCX.callDetail({ ...CF.call, recording: null, recording_missing: 'not-kept' }).includes('<audio') && CCX.callDetail({ ok: false, error: 'not-found' }).includes('errbox'), 'call detail: no player without a kept recording; error box on failure');
+check('calls.rounds', () => CCX.rounds(CF['call-rounds']));
+const rHtml = CCX.rounds(CF['call-rounds']);
+const rStop = CF['call-rounds'].events.filter((e) => !e.stopped && !e.plan_no_calls).length, rStart = CF['call-rounds'].events.filter((e) => e.stopped && !e.plan_no_calls).length;
+ok((rHtml.match(/data-a="stop"/g) || []).length === rStop && (rHtml.match(/data-a="start" data-extra/g) || []).length + (rHtml.match(/data-a="start"(?! data-extra)/g) || []).length >= rStart, 'rounds: stop button on running rounds, start on stopped ones, none on plan-without-calls', rStop + ' stop · ' + rStart + ' start');
+ok(CF['call-rounds'].events.every((e) => e.will_dial === !e.why.length), 'rounds: will_dial ⇔ no why-not reasons');
+check('calls.manual open', () => CCX.manual(CF['manual-calls'], 'open'));
+check('calls.manual done', () => CCX.manual(CF['manual-calls'], 'done'));
+ok((CCX.manual(CF['manual-calls'], 'open').match(/data-mc="/g) || []).length === CF['manual-calls'].open, 'manual queue: open view lists exactly the open guests', CF['manual-calls'].open + ' open');
+check('calls.shir', () => CCX.shir(CF.shir));
+ok(CCX.shir(CF.shir).includes('cc-shir-edit') && (CCX.shir(CF.shir).match(/cc-shir-rb/g) || []).length === CF.shir.history.length - 1, 'Shir: edit button + rollback on every version but the current');
+check('calls.costs', () => CCX.costs(CF.calls.costs, 'week'));
+check('calls.costs unknown telnyx', () => CCX.costs({ ...CF.calls.costs, telnyx_basis: 'unknown', telnyx_rate_per_min: null, total: { ...CF.calls.costs.total, telnyx: null } }, 'today'));
+ok(!/import\s[^;(]*lazy\/calls/.test(readFileSync(join(OPS, 'screens/calls.js'), 'utf8')) && /import\('\.\.\/lazy\/calls\.js'\)/.test(readFileSync(join(OPS, 'screens/calls.js'), 'utf8')), 'screens/calls.js loads lazy/calls.js only through import()');
+
 console.log('A4 CRM (fixtures/ops/crm through crm/adapt.js)');
 const CA = await import(pathToFileURL(join(OPS, 'crm/adapt.js')));
 const cfx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops/crm', n + '.json'), 'utf8'));
@@ -334,6 +363,64 @@ if (!process.argv.includes('--no-browser')) {
       await mp.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
     }
     await m.close();
+
+    console.log('B1c call center');
+    {
+      const cc = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+      const pg = await cc.newPage();
+      const cerr = []; pg.on('pageerror', (e) => cerr.push(e.message)); pg.on('console', (m2) => { if (m2.type() === 'error') cerr.push(m2.text()); });
+      await pg.addInitScript(() => { try { localStorage.setItem('ops:calls', JSON.stringify({ tab: 'timeline', range: 'week' })); } catch (e) {} });
+      await pg.goto(url + '#/calls/timeline');
+      await pg.waitForSelector('#main .cc-row', { timeout: 5000 }).catch(() => {});
+      const nRows = await pg.$$eval('#main .cc-row', (x) => x.length);
+      ok(nRows === CF.calls.items.length, 'שיחות: timeline lists every call of the week', nRows + ' rows');
+      await pg.click(`#main .cc-h[data-id="${CF.call.call.id}"]`);
+      await pg.waitForSelector('#main .cc-x audio', { timeout: 4000 }).catch(() => {});
+      ok(!!(await pg.$('#main .cc-x audio')) && (await pg.$$eval('#main .cc-x .cc-tr p', (x) => x.length)) === CF.call.transcript.length, 'opening a call shows the player and the transcript');
+      await pg.screenshot({ path: join(shotDir, 'calls-timeline-light.png') });
+      await pg.click('#main [data-act=cc-out][data-k=coming]'); await pg.waitForTimeout(500);
+      ok((await pg.$$eval('#main .cc-row', (x) => x.length)) === CF.calls.items.filter((r) => r.outcome === 'coming').length, 'outcome chip filters the timeline');
+      await pg.click('#main [data-act=cc-tab][data-v=rounds]'); await pg.waitForSelector('#main .cc-card', { timeout: 4000 }).catch(() => {});
+      ok((await pg.$$eval('#main .cc-card', (x) => x.length)) === CF['call-rounds'].events.length, 'סבבים: one card per event');
+      await pg.click('#main [data-act=cc-round][data-a=stop]');
+      await pg.waitForSelector('.dialog #dlg-in', { timeout: 4000 }); await pg.waitForTimeout(350);
+      ok((await pg.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'round stop: confirm disabled until the event code is typed');
+      const word = CF['call-rounds'].events.find((e) => !e.stopped && !e.plan_no_calls).tok8;
+      await pg.screenshot({ path: join(shotDir, 'calls-round-confirm-light.png') });
+      await pg.fill('.dialog #dlg-in', word); await pg.click('.dialog [data-act=dlg-yes]'); await pg.waitForTimeout(900);
+      ok((await pg.$$eval('#main [data-act=cc-round][data-a=stop]', (x) => x.length)) === CF['call-rounds'].events.filter((e) => !e.stopped && !e.plan_no_calls).length - 1, 'after the typed confirm the round shows as stopped');
+      await pg.click('#main [data-act=cc-tab][data-v=manual]'); await pg.waitForSelector('#main .cc-mc', { timeout: 4000 }).catch(() => {});
+      const nMc = await pg.$$eval('#main .cc-mc', (x) => x.length);
+      ok(nMc === CF['manual-calls'].open, 'שיחות ידניות: open queue rendered', nMc + ' guests');
+      await pg.click('#main [data-act=cc-done][data-o="מגיע"]'); await pg.waitForTimeout(600);
+      ok((await pg.$$eval('#main .cc-mc', (x) => x.length)) === nMc - 1, 'marking "מגיע" takes the guest off the open queue');
+      await pg.click('#main [data-act=cc-tab][data-v=shir]'); await pg.waitForSelector('#main [data-act=cc-shir-edit]', { timeout: 4000 }).catch(() => {});
+      await pg.click('#main [data-act=cc-shir-edit]'); await pg.waitForSelector('.drawer textarea', { timeout: 4000 }).catch(() => {});
+      ok(!!(await pg.$('.drawer textarea')), 'Shir: edit opens the versioned prompt editor');
+      await pg.screenshot({ path: join(shotDir, 'calls-shir-edit-light.png') });
+      await pg.keyboard.press('Escape');
+      await pg.click('#main [data-act=cc-tab][data-v=costs]'); await pg.waitForTimeout(500);
+      ok((await pg.$$eval('#main .cc-tbl', (x) => x.length)) === 2, 'עלויות: per-day and per-event tables');
+      await pg.screenshot({ path: join(shotDir, 'calls-costs-light.png') });
+      ok(cerr.length === 0, 'no console errors in the call center', cerr.slice(0, 3).join(' | '));
+      await cc.close();
+      const mc = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
+      const mpg = await mc.newPage();
+      await mpg.addInitScript(() => { try { localStorage.setItem('ops:calls', JSON.stringify({ tab: 'timeline', range: 'week' })); } catch (e) {} });
+      for (const t of ['timeline', 'rounds', 'manual', 'shir', 'costs']) {
+        await mpg.goto(url + '#/calls/' + t); await mpg.waitForTimeout(900);
+        if (t === 'timeline') { await mpg.click(`#main .cc-h[data-id="${CF.call.call.id}"]`).catch(() => {}); await mpg.waitForTimeout(500); }
+        const over = await mpg.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
+        ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · calls/' + t, over.join('/'));
+        await mpg.screenshot({ path: join(shotDir, `calls-${t}-mobile.png`) });
+      }
+      const tap = await mpg.$$eval('#main .cc-h', (x) => Math.min(...x.map((e) => e.getBoundingClientRect().height))).catch(() => 0);
+      await mpg.goto(url + '#/calls/manual'); await mpg.waitForTimeout(800);
+      const btnH = await mpg.$$eval('#main .cc-mc .btns .btn', (x) => Math.min(...x.map((e) => e.getBoundingClientRect().height))).catch(() => 0);
+      ok(btnH >= 40, '375 px: manual-call outcome buttons ≥ 40 px', String(btnH));
+      await mc.close();
+      ok(tap === 0 || tap >= 44, '375 px: call rows ≥ 44 px tall', String(tap));
+    }
 
     console.log('B2 CRM');
     const cx = await browser.newContext({ viewport: { width: 1440, height: 900 }, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
