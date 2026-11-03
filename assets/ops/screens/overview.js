@@ -50,6 +50,8 @@ export default {
       ctx.api.get('balances').then((d) => { bal = d; paint(); }),
     ]);
     if (a.status === 'rejected') el.insertAdjacentHTML('afterbegin', ctx.errorBox(a.reason));
+    /* CRM "היום" + charts: lazy, after the 3 ops requests (crm/today.js) */
+    setTimeout(() => el.isConnected && import('../crm/today.js').then((m) => m.mount(el, ctx)), 1500);
     ctx.poll(async () => { rt = await ctx.api.get('realtime'); paint(); }, 15000);
   },
 };
