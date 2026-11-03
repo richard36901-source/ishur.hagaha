@@ -33,6 +33,7 @@ import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapsh
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch } from './budget.js';
+import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml } from './gifts.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
@@ -95,6 +96,8 @@ const TMPL_CATEGORY = {
   ishur_shidrug: 'marketing', ishur_shidrug_sichot: 'marketing',
   /* 02/11 gift templates — submitted UTILITY; the thank-you ones costed as marketing (Meta may re-categorise) */
   ishur_shulchan_matana: 'utility', ishur_yom_haerua_matana: 'utility', ishur_toda_matana: 'marketing', ishur_matana: 'marketing', ishur_toda_matana2: 'utility', ishur_matana2: 'utility',
+  /* 03/11 the one event-day message (eventday.js) */
+  ishur_yom_combo_t: 'utility', ishur_yom_combo_g: 'utility', ishur_yom_combo_tg: 'utility',
   ishur_kod: 'auth',
 };
 const CAT_COST = { utility: 0.02, marketing: 0.12, auth: 0.05 };
@@ -3219,7 +3222,7 @@ async function handleWaWebhook(request, env, url) {
                 continue;
               }
               if (capHit) {
-                await env.RATE.delete(m.gk);
+                await env.RATE.delete(m.gk); await reopenEdMark(env, m);
                 await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {});
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {});
                 /* lifecycle sends close their event flag on "accepted"; reopen it too (01/11) */
@@ -3244,7 +3247,7 @@ async function handleWaWebhook(request, env, url) {
                   await env.RATE.put('wacap:guests', new Date().toISOString(), { expirationTtl: 24 * 3600 });
                   await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
                 } else if (!allHeld) {
-                  await env.RATE.delete(m.gk).catch(() => {});   /* resend via another number next tick */
+                  await env.RATE.delete(m.gk).catch(() => {}); await reopenEdMark(env, m);   /* resend via another number next tick */
                   /* once per number per hour, not once per failed message (02/11: hundreds) */
                   if (!(await seenOnce(env, `capslack:${pidHit || '?'}:${new Date().toISOString().slice(0, 13)}`))) await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true }).catch(() => {});
                 }
@@ -3268,7 +3271,7 @@ async function handleWaWebhook(request, env, url) {
                 await logRow(env, 'removals', { kind: 'מסירה נכשלה 3 פעמים', channel: 'ווצאפ (מטא)', phone: m.phone, token: String(m.token || '').slice(0, 8),
                   scope: 'גל ' + m.wave + ' של האירוע הזה', said: '', detail: `${err.code || ''} ${err.title || ''}`.trim() });
               } else {
-                await env.RATE.delete(m.gk);          // wsent: gone → next tick resends
+                await env.RATE.delete(m.gk); await reopenEdMark(env, m);          // wsent: gone → next tick resends
                 await env.RATE.delete(`gday:${m.phone}:${ilDate()}`).catch(() => {}); // the one-a-day guard must not block the retry of a message that never arrived
                 await env.RATE.delete(`wave:${m.token}:${m.wave}`).catch(() => {}); // the wave is open again
                 /* 27/09: the pacer only runs the engine while pacer:pending says
@@ -4422,7 +4425,7 @@ async function eventDayRecipients(env, token, raw, job = {}) {
     if (!confirmed && !s5d[phone]) continue;
     /* 01/11: job.no_table — guests with a table already get ishur_shulchan today; one message per guest */
     if (job.no_table && String(g[30] || '').trim()) continue;
-    seen.add(phone); out.push({ phone, name: String(g[3] || '').trim() });
+    seen.add(phone); out.push({ phone, name: String(g[3] || '').trim(), table: String(g[30] || '').trim() });
   }
   return out;
 }
@@ -4519,6 +4522,22 @@ async function giftTemplateFor(env, kind) {
 }
 async function giftLinksOf(env, token) {
   try { return env.RATE ? JSON.parse((await env.RATE.get('giftlinks:' + token)) || 'null') : null; } catch { return null; }
+}
+/* 03/11 (Richard R2): the ONE event-day message for this guest. A combo only
+   once Meta says APPROVED + UTILITY (same gate as the gift twins). */
+async function eventDayMessage(env, ev, guest, job = null) {
+  return eventDayMessageFor(env, ev, guest, {
+    comboUsable: (e, name) => giftVariantUsable(e, name),
+    giftOn: async (e, tok) => giftActive(await giftLinksOf(e, tok)),
+    guestEventName, cleanParam,
+  }, { job });
+}
+/* a reopened table / event-day send (status webhook) must be allowed to go again */
+async function reopenEdMark(env, m) {
+  if (env.RATE && m && (m.wave === 'seating' || m.wave === 'eventday')) await env.RATE.delete(edMarkKey(m.token, m.phone)).catch(() => {});
+}
+async function eventDayJobOf(env, token) {
+  try { return env.RATE ? JSON.parse((await env.RATE.get('edblast:' + token)) || 'null') : null; } catch { return null; }
 }
 
 /* 02/11 incident: 245 table messages said "החתונה של Eleonora" (the client's
@@ -4648,7 +4667,9 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     }
     const people = await eventDayRecipients(env, token, raw, job);
     if (dry) { res.push({ token: token.slice(0, 8), due, approved, recipients: people.length, sample: people.slice(0, 5) }); continue; }
-    if (!approved) {
+    /* 03/11 R2: an approved combo carries the message even while the job's own template waits at Meta */
+    const anyCombo = (await Promise.all(COMBO_NAMES.map(n => giftVariantUsable(env, n).catch(() => false)))).some(Boolean);
+    if (!approved && !anyCombo) {
       if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8));
       res.push({ token: token.slice(0, 8), approved: false }); continue;
     }
@@ -4658,28 +4679,44 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     const edVariant = giftVariantName(job.template);
     const edGift = edVariant && eventDayGiftSlot({ giftOn: giftActive(await giftLinksOf(env, token)), hasSeating: eventHasSeating((raw && raw.guests && raw.guests.values) || [], token) }) === 'eventday'
       && await giftVariantUsable(env, edVariant) ? edVariant : '';
-    let sent = 0, failed = 0, skipped = 0, heldCap = 0;
+    let sent = 0, failed = 0, skipped = 0, heldCap = 0, combos = 0, waitTmpl = 0, toTable = 0;
     /* 02/11: the event-day blast had no budget at all — it now stops at the room Meta still gives */
     let room = (await guestCapacity(env).catch(() => ({ remaining: 0 }))).remaining;
     for (const p of people) {
       const mk = `s5e:${token}:${p.phone}`;
       if (await env.RATE.get(mk)) { skipped++; continue; }
+      /* 03/11 R2: one event-day message per guest — the table stage (or an earlier tick) already sent it */
+      const edk = edMarkKey(token, p.phone);
+      if (await env.RATE.get(edk)) { skipped++; continue; }
       if (await phoneBlocked(env, p.phone) || await wrongNum(env, token, p.phone)) { skipped++; continue; }
+      const msg = await eventDayMessage(env, evRow, p, job);
+      /* no combo for a guest with a table: the table stage sends ishur_shulchan(_matana) — never both (R2) */
+      if (msg.kind !== 'combo' && p.table) { toTable++; continue; }
+      if (msg.kind !== 'combo' && !approved) { waitTmpl++; continue; }
       if (room <= 0) { heldCap++; continue; }
       room--;
       /* job.params: an explicit parameter list for a fallback template (21/10, when the day's own template is still pending at Meta) */
       const params = Array.isArray(job.params) && job.params.length ? job.params : [job.time, job.what, job.address, job.nav];
-      const wa = edGift
+      await env.RATE.put(edk, 'claim', { expirationTtl: ED_MARK_TTL }).catch(() => {});
+      const wa = msg.kind === 'combo'
+        ? await sendTemplate(env, p.phone, msg.template, msg.params, '', 'he', 'guests', { wave: 'eventday', token, components: msg.components })
+        : edGift
         ? await sendTemplate(env, p.phone, edGift, params, '', 'he', 'guests', { wave: 'eventday', token, components: [giftButtonComponent(token)] })
         : await sendTemplate(env, p.phone, job.template, params, '', 'he', 'guests', { wave: 'eventday', token });
+      if (!wa.ok) await env.RATE.delete(edk).catch(() => {});
       if (wa.held || wa.permanent) { failed++; break; }   /* 02/11 audit: budget out / empty job field → stop, retry next tick */
-      if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'eventday', p.phone, mk); await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {}); } else failed++;
+      if (wa.ok) {
+        sent++; if (msg.kind === 'combo') combos++;
+        await noteGuestSend(env, wa, token, 'eventday', p.phone, mk); await env.RATE.put(mk, '1', { expirationTtl: 7 * 86400 }).catch(() => {});
+        await env.RATE.put(edk, msg.kind === 'combo' ? msg.template : 'eventday', { expirationTtl: ED_MARK_TTL }).catch(() => {});
+        if (msg.kind === 'combo' && p.table) await env.RATE.put(`s5t:${token}:${p.phone}`, '1', { expirationTtl: 14 * 86400 }).catch(() => {});
+      } else failed++;
     }
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
-    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · דולגו ${skipped}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
-    if (!failed && !heldCap) await env.RATE.delete('edblast:' + token).catch(() => {});
+    await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent}${combos ? ` (מאוחדות ${combos})` : ''} · נכשלו ${failed} · דולגו ${skipped}${toTable ? ` · להודעת השולחן ${toTable}` : ''}${waitTmpl ? ` · ממתינים לאישור התבנית ${waitTmpl}` : ''}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
+    if (!failed && !heldCap && !waitTmpl) await env.RATE.delete('edblast:' + token).catch(() => {});
     if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`).catch(() => {});
-    res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap });
+    res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap, combos, to_table: toTable, wait_template: waitTmpl });
   }
   return { ok: true, jobs: res };
 }
@@ -5817,11 +5854,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const tableGift = !dry && eventDayGiftSlot({ giftOn: giftActive(await giftLinksOf(env, token)), hasSeating: eventHasSeating(gRows, token) }) === 'table'
       && await giftVariantUsable(env, 'ishur_shulchan_matana');
 
-    let sent = 0, failed = 0, would = 0;
+    let sent = 0, failed = 0, would = 0, combos = 0, edSkip = 0;
     /* same discipline as the waves (review finding #5): per-guest marker,
        budget, and the event flag only when the whole list is done */
     let cut = false;
     const seenPhones = new Set();
+    const edJob = dry ? null : await eventDayJobOf(env, token);
     for (const g of gRows) {
       if (String(g[28] || '').trim() !== token) continue;
       if (budget && budget.left <= 0) { cut = true; break; }
@@ -5833,16 +5871,29 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (dry) { would++; continue; }
       const mk = `s5t:${token}:${normPhone(phone)}`;
       if (env.RATE && await env.RATE.get(mk)) continue;
+      /* 03/11 R2: one event-day message per guest — another event-day path already sent it */
+      const edk = edMarkKey(token, normPhone(phone));
+      if (env.RATE && await env.RATE.get(edk)) { edSkip++; continue; }
       if (await phoneBlocked(env, phone)) continue;
       if (await wrongNum(env, token, phone)) continue;
       const gname = String(g[3] || '').trim() || 'אורח יקר';
-      const wa = tableGift
+      const msg = await eventDayMessage(env, ev, { phone, name: gname, table }, edJob);
+      /* claim before the send: the event-day blast runs in the same pacer tick */
+      if (env.RATE) await env.RATE.put(edk, 'claim', { expirationTtl: ED_MARK_TTL }).catch(() => {});
+      const wa = msg.kind === 'combo'
+        ? await sendTemplate(env, phone, msg.template, msg.params, '', 'he', 'guests', { occasion, wave: 'seating', token, components: msg.components })
+        : tableGift
         ? await sendTemplate(env, phone, 'ishur_shulchan_matana', [gname, evName, table], '', 'he', 'guests', { occasion, wave: 'seating', token, components: [giftButtonComponent(token)] })
         : await sendTemplate(env, phone, 'ishur_shulchan', [gname, evName, table], '', 'he', 'guests', { occasion, wave: 'seating', token });
+      if (!wa.ok && env.RATE) await env.RATE.delete(edk).catch(() => {});
       if (wa.held) { cut = true; break; }
       if (wa.permanent) { failed++; cut = true; break; }
       if (budget) budget.left--;
-      if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'seating', phone, mk); if (env.RATE) await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); }
+      if (wa.ok) {
+        sent++; if (msg.kind === 'combo') combos++;
+        await noteGuestSend(env, wa, token, 'seating', phone, mk);
+        if (env.RATE) { await env.RATE.put(mk, '1', { expirationTtl: 14 * 86400 }).catch(() => {}); await env.RATE.put(edk, msg.kind === 'combo' ? msg.template : 'seating', { expirationTtl: ED_MARK_TTL }).catch(() => {}); }
+      }
       else failed++;
     }
     if (dry) { if (would) out.push({ token, type: 'seating', would_send: would }); continue; }
@@ -5851,7 +5902,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
        empty pass keeps the flag open so tables assigned later still send */
     if (sent && !cut && !failed && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
     if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
-    if (sent || failed) out.push({ token, type: 'seating', sent, failed, truncated: cut });
+    if (sent || failed) out.push({ token, type: 'seating', sent, failed, combos, ed_skipped: edSkip, truncated: cut });
     if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
   }
 
@@ -6001,10 +6052,18 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
     const fileUp = String(ev[43] || '').trim() === 'כן';
     const daysLeft = Math.round((Date.parse(date) - Date.parse(today)) / 864e5);
-    /* D-1 normally, but the engine never runs on Shabbat, so a Sunday event
-       would lose its reminder entirely. The window covers the event morning
-       too and the KV flag keeps it to one send either way. */
-    if (fileUp && daysLeft >= 0 && daysLeft <= 1 &&
+    /* 03/11 (Richard R1): D-1 ONLY. The day-before reminder is never sent on
+       the event day — if it did not go out the day before (cap, hold, window,
+       a Sunday event after Shabbat), it is dropped, not sent late. The event-
+       day message carries the essentials (eventday.js, R3). */
+    if (fileUp && dayBeforeDropped(today, date) && daysLeft === 0 && !dry && env.RATE &&
+        !(await env.RATE.get('daybefore:' + token)) && !(await seenOnce(env, `dbdrop:${token}:${today}`))) {
+      const missed = new Set(guests.filter(g => String(g[15] || '').trim() === 'מגיע').map(g => normPhone(g[4] || '')).filter(Boolean));
+      for (const ph of [...missed]) if (await env.RATE.get(`s5d:${token}:${ph}`)) missed.delete(ph);
+      await logEvent(env, { area: 'שליחה', action: 'יום-לפני דולג — האירוע היום', ok: true, token, detail: `לא נשלח באיחור · ${missed.size} אורחים מאושרים לא קיבלו אותו — יקבלו רק את הודעת יום האירוע` }).catch(() => {});
+      out.push({ token, type: 'day_before_dropped', missed: missed.size });
+    }
+    if (fileUp && dayBeforeAllowed(today, date) &&
         !(env.RATE && await env.RATE.get('daybefore:' + token))) {
       let sent = 0, failed = 0, would = 0, cut = false; const seen = new Set();
       for (const g of guests) {
@@ -9788,6 +9847,23 @@ export default {
       if (hits.length !== 1) return html(giftPageHtml(null, ''), 404);
       const tok = String(hits[0][1]).trim();
       return html(giftPageHtml(await giftLinksOf(env, tok), String(hits[0][34] || hits[0][2] || '').trim()));
+    }
+    /* 03/11: the navigation button of the one event-day message (ishur_yom_combo_*)
+       — go.ishur.io/nav/<first 8 of the token> → 302 to the event's validated
+       Waze/Maps link, else the event-day job's link, else a Waze search of the
+       venue. Never shows anything else. */
+    if (url.pathname.startsWith('/nav/') && request.method === 'GET') {
+      const slug = url.pathname.slice('/nav/'.length).replace(/[^0-9a-f]/gi, '').toLowerCase();
+      const miss = () => new Response('', { status: 302, headers: { Location: 'https://ishur.io/', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
+      if (slug.length !== 8) return miss();
+      const raw = await snapshotCached(env).catch(() => null);
+      const hits = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').trim().slice(0, 8) === slug);
+      if (hits.length !== 1) return miss();
+      const tok = String(hits[0][1]).trim();
+      const [navlink, job] = await Promise.all([env.RATE ? env.RATE.get('navlink:' + tok).catch(() => '') : '', eventDayJobOf(env, tok)]);
+      const venue = (job && job.address) || [String(hits[0][38] || '').trim(), String(hits[0][37] || '').trim()].filter(Boolean).join(', ');
+      const to = navTarget({ navlink: navlink || '', jobNav: (job && job.nav) || '', venue }, navLinkOk);
+      return to ? new Response('', { status: 302, headers: { Location: to, 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } }) : miss();
     }
     /* on the mirror host, anything that is not an API call is the website */
     if (url.hostname === MIRROR_HOST &&

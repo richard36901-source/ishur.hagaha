@@ -120,9 +120,9 @@ function eventRow({ token, date, hosts = '', occasion = 'חתונה', plan = 'ה
 function guestRow({ token, id, name, phone, rsvp = '', table = '' }) {
   const g = new Array(31).fill(''); g[2] = id; g[3] = name; g[4] = phone; g[15] = rsvp; g[28] = token; g[30] = table; return g;
 }
-const T = { today: '11111111-1111-4111-8111-111111111111', yest: '22222222-2222-4222-8222-222222222222', canc: '33333333-3333-4333-8333-333333333333', wave: '44444444-4444-4444-8444-444444444444', moved: '55555555-5555-4555-8555-555555555555' };
+const T = { today: '11111111-1111-4111-8111-111111111111', yest: '22222222-2222-4222-8222-222222222222', canc: '33333333-3333-4333-8333-333333333333', wave: '44444444-4444-4444-8444-444444444444', moved: '55555555-5555-4555-8555-555555555555', tom: '66666666-6666-4666-8666-666666666666' };
 
-async function runEngine(extraStore = {}) {
+async function runEngine(extraStore = {}, { tomorrow = false } = {}) {
   snapshot = {
     events: { values: [
       eventRow({ token: T.today, date: ilDay() }),
@@ -130,6 +130,7 @@ async function runEngine(extraStore = {}) {
       eventRow({ token: T.canc, date: plusDays(10), hosts: 'רון ושיר', cancelled: 'כן' }),
       eventRow({ token: T.wave, date: plusDays(10), w1: ilDay() }),
       eventRow({ token: T.moved, date: plusDays(12), hosts: 'נועה ויונתן' }),
+      ...(tomorrow ? [eventRow({ token: T.tom, date: plusDays(1), hosts: 'טל ועומר' })] : []),
     ] },
     guests: { values: [
       guestRow({ token: T.today, id: 'g1', name: 'דנה', phone: '0501111111', rsvp: 'מגיע', table: '7' }),
@@ -138,6 +139,7 @@ async function runEngine(extraStore = {}) {
       guestRow({ token: T.canc, id: 'g4', name: 'אבי', phone: '0504444444' }),
       guestRow({ token: T.wave, id: 'g5', name: 'רותי', phone: '0505555555' }),
       guestRow({ token: T.moved, id: 'g6', name: 'שגיא', phone: '0506666666' }),
+      ...(tomorrow ? [guestRow({ token: T.tom, id: 'g7', name: 'ליאת', phone: '0507777777', rsvp: 'מגיע' })] : []),
     ] },
   };
   const env = baseEnv({
@@ -153,14 +155,17 @@ async function runEngine(extraStore = {}) {
 test('engine e2e: no guest template carries the client name; table has no double article', async () => {
   const { out } = await runEngine();
   if (process.env.AUDIT_PEEK) for (const s of out) console.log('SEND', s.pid, s.body.to, s.body.template.name, JSON.stringify(paramsOf(s.body)));
-  assert.ok(out.length >= 5, 'expected several guest sends, got ' + out.length);
+  /* 03/11 R1: was >= 5 — two of those were the day-before reminder sent ON the
+     event day (T.today), which Richard's rule now forbids */
+  assert.ok(out.length >= 4, 'expected several guest sends, got ' + out.length);
   for (const s of out) {
     for (const p of paramsOf(s.body)) {
       assert.ok(!p.includes(OWNER), `${s.body.template.name} → ${s.body.to}: "${p}"`);
       assert.ok(!/\n/.test(p));
     }
   }
-  const table = out.find(s => /^ishur_shulchan/.test(s.body.template.name));
+  /* 03/11 R2: the fake Meta approves every name, so the table guest gets the combo (same ב{{2}} slot) */
+  const table = out.find(s => /^ishur_shulchan|^ishur_yom_combo_t/.test(s.body.template.name));
   assert.ok(table, 'table message sent');
   assert.equal(paramsOf(table.body)[1], 'חתונה', 'ב{{2}} → "בחתונה", never "בהחתונה" or "של <client>"');
   const thanks = out.find(s => /^ishur_toda_orach/.test(s.body.template.name));
@@ -183,8 +188,10 @@ test('engine e2e: an explicit postponeok for the new date does send it, once per
 });
 
 test('engine e2e: day-before closes its flag after a clean pass (the else-binding bug)', async () => {
-  const { env } = await runEngine();
-  assert.ok(await env.RATE.get('daybefore:' + T.today), 'daybefore flag must close when every send succeeded');
+  /* 03/11 R1: the day-before now runs only at D-1, so this uses an event dated
+     tomorrow (it used T.today, i.e. a day-before sent on the event day) */
+  const { env } = await runEngine({}, { tomorrow: true });
+  assert.ok(await env.RATE.get('daybefore:' + T.tom), 'daybefore flag must close when every send succeeded');
 });
 
 test('engine e2e: window closed + no force → nothing goes to guests or clients', async () => {
