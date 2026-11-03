@@ -10,7 +10,7 @@ export function feed(el, { compact = false, filters = {}, onCount } = {}) {
   let items = [], cursor = null, timer = 0, paused = false, hover = false, dead = false, buffered = 0;
   const f = filters;
   el.classList.add('feed');
-  el.innerHTML = compact ? '' : Skeleton.lines(8);
+  if (!compact) el.innerHTML = Skeleton.lines(8);
   const paint = () => {
     const vis = items.filter((x) => match(x, f)).slice(0, compact ? 80 : 500);
     el.innerHTML = vis.map(row).join('') || '<div class="empty">אין אירועים שמתאימים</div>';

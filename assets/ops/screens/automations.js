@@ -38,7 +38,7 @@ export function listView(nodes, f = {}) {
       { label: 'ריצות 24ש׳', hideM: true, render: (n) => `<span style="display:inline-flex;gap:8px;align-items:center">${Sparkline(n.stats.spark_24h, { fails: n.stats.spark_fail_24h, w: 96, h: 22 })}<span class="num">${fmtN(n.stats.runs_24h)}</span></span>` },
       { label: 'כשלים', num: true, render: (n) => (n.stats.fail_24h ? `<span style="color:var(--crit-ink);font-weight:650">${fmtN(n.stats.fail_24h)}</span>` : '<span class="muted">0</span>') },
       { label: 'ריצה אחרונה', hideM: true, render: (n) => (n.stats.last_run ? `${timeTag(n.stats.last_run.at)}` : '<span class="muted">—</span>') },
-      { label: 'פעיל', render: (n) => (n.kill || n.state.enabled === false ? Toggle({ id: n.id, on: n.state.enabled !== false }) : `<span class="sub" data-tip="אין לו מתג נפרד עדיין; עוצר דרך העצירה הכללית">דרך עצירה כללית</span>`) },
+      { label: 'פעיל', render: (n) => (n.kill || n.state.enabled === false ? Toggle({ id: n.id, on: n.state.enabled !== false }) : `<span class="sub" data-tip="אין לו מתג נפרד עדיין; נעצר דרך העצירה הכללית">עצירה כללית</span>`) },
     ],
   });
 }

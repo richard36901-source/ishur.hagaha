@@ -41,7 +41,7 @@ export const stats = () => ({ requests: reqCount });
 
 async function raw(name, body = {}) {
   reqCount++;
-  if (MOCK) { await new Promise((r) => setTimeout(r, 120 + Math.random() * 180)); return mockApi(name, body); }
+  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ return mockApi(name, body); }
   await ensureLive();
   const payload = Object.assign({ admin_key: adminKey }, body);
   const r = await fetch(BASE + '/api/ops/' + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
@@ -158,7 +158,8 @@ export const ROUTES = [
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
 ];
 const screens = {};
-const loadScreen = (id) => (screens[id] = screens[id] || import(`./screens/${id}.js`).then((m) => m.default));
+const loadModule = (id) => (screens[id] = screens[id] || import(`./screens/${id}.js`));
+const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
 
 let current = null;
@@ -218,10 +219,11 @@ async function mountSide() {
   shell.classList.toggle('side-off', off);
   if (off || matchMedia('(max-width:1180px)').matches) return;
   if (sideFeed) return;
-  const m = await loadScreen('live');
+  const m = await loadModule('live');
+  $('#side-feed').innerHTML = '<div style="padding:8px 14px">' + Skeleton.lines(10) + '</div>';
   sideFeed = m.feed($('#side-feed'), { compact: true });
   /* first live fetch waits for the page's own data so load stays at ≤3 requests */
-  setTimeout(() => sideFeed && sideFeed.start((n, b) => api.get(n, b, { cache: false })), 2500);
+  setTimeout(() => sideFeed && sideFeed.start((n, b) => api.get(n, b, { cache: false })), 1500);
 }
 function toggleSide() {
   const shell = $('.shell'), off = !shell.classList.contains('side-off');

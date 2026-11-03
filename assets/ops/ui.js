@@ -90,10 +90,10 @@ export const Skeleton = { lines: (n = 3) => Array.from({ length: n }, (_, i) => 
   table: (n = 8) => `<div class="card">${Array.from({ length: n }, () => '<div class="sk sk-line" style="height:18px;margin:14px 0"></div>').join('')}</div>` };
 
 /* ── Sparkline (single series → no legend; failures overlay as critical ticks) ── */
-export function Sparkline(values = [], { w = 120, h = 28, fails = null, label = '' } = {}) {
+export function Sparkline(values = [], { w = 120, h = 28, fails = null, label = '', color = 'var(--s1)' } = {}) {
   const n = values.length; if (!n) return '';
   const max = Math.max(1, ...values), bw = w / n;
-  const bars = values.map((v, i) => { const bh = Math.max(v ? 2 : 0, (v / max) * (h - 4)); return bh ? `<rect x="${(w - (i + 1) * bw + 0.5).toFixed(1)}" y="${(h - bh).toFixed(1)}" width="${Math.max(1, bw - 1.5).toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="var(--s1)"><title>${esc(i + 1 + ': ' + v)}</title></rect>` : ''; }).join('');
+  const bars = values.map((v, i) => { const bh = Math.max(v ? 2 : 0, (v / max) * (h - 4)); return bh ? `<rect x="${(w - (i + 1) * bw + 0.5).toFixed(1)}" y="${(h - bh).toFixed(1)}" width="${Math.max(1, bw - 1.5).toFixed(1)}" height="${bh.toFixed(1)}" rx="1" fill="${color}"><title>${esc(i + 1 + ': ' + v)}</title></rect>` : ''; }).join('');
   const fl = fails ? fails.map((v, i) => (v ? `<rect x="${(w - (i + 1) * bw + 0.5).toFixed(1)}" y="0" width="${Math.max(1, bw - 1.5).toFixed(1)}" height="3" rx="1" fill="var(--crit)"><title>${esc(v + ' כשלים')}</title></rect>` : '')).join('') : '';
   return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label || 'ריצות ב-24 שעות')}"><line x1="0" x2="${w}" y1="${h - 0.5}" y2="${h - 0.5}" stroke="var(--line-2)"/>${bars}${fl}</svg>`;
 }

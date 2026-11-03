@@ -123,9 +123,10 @@ if (!process.argv.includes('--no-browser')) {
         await page.screenshot({ path: join(shotDir, 'automation-drawer-light.png') });
         await page.click('.drawer [data-act=toggle]');
         await page.waitForSelector('.dialog #dlg-in', { timeout: 4000 });
+        await page.waitForTimeout(350); /* let the pop-in finish before reading / shooting */
         const disabled = await page.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'));
         ok(disabled === 'true', 'typed-confirm button disabled until the id is typed');
-        const blast = await page.$eval('.dialog', (d) => d.innerText);
+        const blast = await page.$eval('.dialog[role=alertdialog]', (d) => d.innerText);
         ok(/212/.test(blast) && /אוטומציות שתלויות/.test(blast), 'blast radius lists live impact + downstream');
         await page.screenshot({ path: join(shotDir, 'toggle-confirm-light.png') });
         await page.fill('.dialog #dlg-in', 'd_pacer');
