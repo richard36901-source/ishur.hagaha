@@ -18,11 +18,27 @@ export function capBars(days, { metric = 'wa', h = 180, compact = false } = {}) 
   }).join('');
   return `<svg viewBox="0 0 ${w} ${h}" width="100%" style="display:block;max-height:${h * 1.4}px" role="group" aria-label="קיבולת: יוצא בפועל מול מתוכנן"><line x1="0" x2="${w}" y1="${h - padB + 0.5}" y2="${h - padB + 0.5}" stroke="var(--line-2)"/>${g}</svg>`;
 }
+/* Horizontal meters: one row per day (date at the start, RTL), track = the day's cap, fill = what goes out,
+   "X/230" at the end, red hatched segment past the end = pushed to later days ("+N נדחה"), closed days muted.
+   Row expands (details) to the events that make up the fill. Same component on the overview and capacity tabs. */
+export function capMeters(days, { compact = false } = {}) {
+  if (!days || !days.length) return '<div class="empty">אין ימים בתוכנית</div>';
+  const maxCap = Math.max(1, ...days.map((d) => d.capacity_wa || 0)), GUT = 18; /* % of width reserved for overflow */
+  return `<ul class="cm" aria-label="קיבולת יומית">${days.map((d) => {
+    const cap = d.capacity_wa || 0, out = d.out != null ? d.out : Math.min(d.planned_wa || 0, cap), push = d.carry != null ? d.carry : Math.max(0, (d.planned_wa || 0) - cap);
+    const trackW = (cap / maxCap) * (100 - GUT), fill = cap ? Math.min(100, (out / cap) * 100) : 0, overW = push && cap ? Math.min(GUT, Math.max(2, (push / maxCap) * (100 - GUT))) : 0;
+    const closed = d.no_contact, label = closed ? `<span class="muted">${esc(d.closed_reason || 'סגור')}</span>` : `<b>${fmtN(out)}</b><small>/${fmtN(cap)}</small>${push ? `<span class="cm-o">+${fmtN(push)} נדחה</span>` : ''}`;
+    const evs = (d.rolled && d.rolled.length ? d.rolled.map((x) => ({ name: x.event, tok: x.tok8, what: x.type_he + (x.from_day && x.from_day < d.day ? ' · נדחה מ-' + fmtDate(x.from_day) : ''), n: x.n })) : (d.events || []).map((e) => ({ name: e.name, tok: e.tok8, what: e.kind, n: e.planned_wa })));
+    const tip = `${d.dow} ${fmtDate(d.date)} · יוצא ${fmtN(out)} מתוך ${fmtN(cap)}${push ? ' · ' + fmtN(push) + ' נדחים להמשך' : ''}`;
+    return `<li class="${closed ? 'closed' : ''}"><details><summary aria-label="${esc(tip)}"><span class="cm-d"><b>${esc(d.dow)}</b><span class="num">${esc(fmtDate(d.date))}</span></span><span class="cm-t">${cap ? `<span class="cm-track" style="width:${trackW.toFixed(1)}%"><span class="cm-fill${fill >= 100 ? ' full' : ''}" style="width:${fill.toFixed(1)}%"></span></span>` : '<span class="cm-track" style="width:100%"></span>'}${overW ? `<span class="cm-over" style="width:${overW.toFixed(1)}%" aria-hidden="true"></span>` : ''}</span><span class="cm-v">${label}</span></summary>
+<div class="cm-ev">${evs.length ? evs.map((e) => `<div><a class="evl" href="#/clients/${esc(e.tok || '')}">${esc(e.name)}</a><span class="sub">${esc(e.what || '')}</span><span class="num">${fmtN(e.n)}</span></div>`).join('') : '<span class="sub">אין שליחות ביום הזה</span>'}</div></details></li>`;
+  }).join('')}</ul>${compact ? '' : '<div class="legend" style="margin-top:12px"><span><i></i>יוצא</span><span><i class="cap"></i>תקרה</span><span><i class="over"></i>נדחה לימים הבאים</span></div>'}`;
+}
 export const capLegend = () => '<div class="legend"><span><i></i>יוצא בפועל</span><span><i class="due"></i>מתוכנן במקור</span><span><i class="cap"></i>תקרה</span></div>';
 
 export function view(d) {
   const alerts = d.alerts || [], recs = d.recommendations || [];
-  const table = Table({
+  const table = Table({ id: 'capacity-days',
     columns: [
       { label: 'יום', render: (x) => `${esc(x.dow)} ${esc(fmtDate(x.date))}` },
       { label: 'הודעות מתוכננות', num: true, render: (x) => fmtN(x.planned_wa) + (x.held_planned ? ` <span class="muted">+${fmtN(x.held_planned)} מוחזק</span>` : '') },
@@ -33,7 +49,7 @@ export function view(d) {
   return `
 ${d.model ? `<div class="card"><div class="sec-h"><h2 class="h2">${d.model.verified ? 'תקרה לכל מספר' : 'תקרה משותפת'}</h2><span class="sp"></span>${Badge(d.model.verified ? 'ok' : 'partial', 'אימות העסק: ' + esc((d.verification && d.verification.status) || '—'))}</div><p class="sub" style="margin:0">${esc(d.model.he || '')} · נשאר היום <b class="num">${fmtN(d.model.today_remaining)}</b></p></div>` : ''}
 ${alerts.length ? `<div class="card" style="border-color:color-mix(in srgb,var(--crit) 35%,transparent)"><div class="sec-h"><h2 class="h2">ביקוש מעל הקיבולת</h2>${Badge('open', alerts.length + ' ימים')}</div>${alerts.map((a) => `<div class="errbox" style="margin-top:8px"><span aria-hidden="true">▲</span><span><b>${esc(fmtDate(a.date))}</b> · ${esc(a.msg)} · חסר מקום ל-<b class="num">${fmtN(a.over_by)}</b> ${a.kind === 'wa' ? 'הודעות' : 'שיחות'}</span></div>`).join('')}</div>` : ''}
-<div class="card"><div class="sec-h"><h2 class="h2">הודעות לאורחים · 14 יום</h2><span class="sp"></span>${capLegend()}</div>${capBars(d.days)}</div>
+<div class="card"><div class="sec-h"><h2 class="h2">הודעות לאורחים · 14 יום</h2><span class="sp"></span><span class="sub">לחצו על יום כדי לראות מה יוצא בו</span></div>${capMeters(d.days)}</div>
 ${d.days.some((x) => x.capacity_calls != null) ? `<div class="card"><div class="sec-h"><h2 class="h2">שיחות · 14 יום</h2><span class="sp"></span>${capLegend()}</div>${capBars(d.days, { metric: 'calls', h: 150 })}</div>` : ''}
 <div class="card"><div class="sec-h"><h2 class="h2">מתי לשלוח</h2><span class="sub">המלצות לפי המקום הפנוי בכל יום</span></div>
 ${recs.length ? Table({ columns: [

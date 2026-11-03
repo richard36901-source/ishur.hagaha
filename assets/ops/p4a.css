@@ -21,13 +21,13 @@
 .ibx-th .head{padding:10px 12px;border-bottom:1px solid var(--line);display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 .ibx-th .head h2{margin:0;font-size:1.05rem}
 .bubbles{flex:1;overflow:auto;padding:12px;display:flex;flex-direction:column;gap:6px;background:var(--bg-2)}
-.bub{max-width:min(78%,520px);padding:7px 10px;border-radius:12px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 1px rgba(0,0,0,.05)}
+.bub{max-width:min(78%,520px);padding:8px 12px;border-radius:14px;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 1px rgba(0,0,0,.05)}
 .bub.in{align-self:flex-start;background:var(--surface);border:1px solid var(--line)}
 .bub.out{align-self:flex-end;background:var(--brand-soft);border:1px solid var(--line-2)}
 .bub .mt{display:block;font-size:.75em;color:var(--ink-3);margin-top:3px;text-align:end}
 .bub .tk.read{color:var(--s1)}.bub .tk.failed{color:var(--crit-ink)}
 .bub .fl{display:block;color:var(--crit-ink);font-size:.82em}
-.daychip{align-self:center;font-size:.78em;color:var(--ink-3);background:var(--surface);border:1px solid var(--line);border-radius:99px;padding:1px 10px;margin:6px 0}
+.daychip{align-self:center;font-size:.78em;color:var(--ink-3);background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-xs);padding:2px 10px;margin:6px 0}
 .compose{border-top:1px solid var(--line);padding:10px;display:grid;gap:8px}
 .compose textarea{width:100%;min-height:64px;resize:vertical;font:inherit}
 .compose .row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}

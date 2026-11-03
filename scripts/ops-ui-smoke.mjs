@@ -28,14 +28,16 @@ for (const m of [...mods, ...crmMods, ...lazy.filter((m) => m !== 'mock.js')]) {
 
 console.log('A2 size budgets');
 const js = mods.reduce((a, m) => a + statSync(join(OPS, m)).size, 0), css = statSync(join(OPS, 'ops.css')).size, html = statSync(join(ROOT, 'ops.html')).size;
-ok(js < 120 * 1024, 'JS total < 120 KB', (js / 1024).toFixed(1) + ' KB');
+/* 03/11 design pass: 120 → 130 KB (measured 128.9 KB): §11 section router + page tabs (app.js), sortable Table, Phone/EventLink/DatePicker renderers (ui.js), capacity meters, live insert-only feed. Behaviour that is not needed at first paint lives in lazy/kit2.js. */
+ok(js < 130 * 1024, 'JS total < 130 KB', (js / 1024).toFixed(1) + ' KB');
 ok(css < 40 * 1024, 'CSS < 40 KB', (css / 1024).toFixed(1) + ' KB');
 console.log('    ops.html ' + (html / 1024).toFixed(1) + ' KB · lazy (not counted): ' + lazy.map((m) => m + ' ' + (statSync(join(OPS, m)).size / 1024).toFixed(1) + ' KB').join(', '));
 const html0 = readFileSync(join(ROOT, 'ops.html'), 'utf8');
 ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(html0 + [...mods, ...lazy].map((m) => readFileSync(join(OPS, m), 'utf8')).join('')), 'no native select/checkbox/alert/confirm/prompt');
 ok(/class="sk /.test(html0), 'ops.html ships skeleton markup for first paint');
 const crmSizes = crmMods.map((m) => statSync(join(OPS, m)).size), crmJs = crmSizes.reduce((a, b) => a + b, 0);
-ok(crmSizes.every((n) => n < 40 * 1024) && crmJs < 100 * 1024, 'CRM modules (lazy, not in the counted bundle) each < 40 KB, total < 100 KB', (crmJs / 1024).toFixed(1) + ' KB in ' + crmMods.length + ' files');
+/* 03/11 design pass: CRM total 100 → 110 KB (measured 108.1 KB): client card edit block + grouped actions, leads table columns */
+ok(crmSizes.every((n) => n < 40 * 1024) && crmJs < 110 * 1024, 'CRM modules (lazy, not in the counted bundle) each < 40 KB, total < 110 KB', (crmJs / 1024).toFixed(1) + ' KB in ' + crmMods.length + ' files');
 ok(!mods.some((m) => /^\s*import[^;(]*['"][./]*\/?crm\//m.test(readFileSync(join(OPS, m), 'utf8'))) && !/modulepreload[^>]*crm\//.test(html0), 'counted modules never import crm/* statically (only lazy import())');
 ok(!/<select|type="checkbox"|alert\(|confirm\(|prompt\(/.test(crmMods.map((m) => readFileSync(join(OPS, m), 'utf8')).join('')), 'CRM modules: no native select/checkbox/alert/confirm/prompt');
 ok(!/href="admin\.html"/.test(html0) && /data-r="leads"/.test(html0) && /data-r="clients"/.test(html0) && /data-r="hostesses"/.test(html0), 'nav: לידים / לקוחות / דיילות added, admin.html clients link removed');
@@ -177,12 +179,46 @@ console.log('A3c money screens (lazy/finance, ads, templates, feedback)');
   check('finance.view', () => M.finance.view(FX.finance, { range: '90d', month: '', vendor: 'cloudflare' }));
   check('finance.view empty', () => M.finance.view({ ...FX.finance, events: [], invoices: [], revenue: { ...FX.finance.revenue, entries: [] } }, { range: '90d', vendor: 'monday' }));
   check('ads.view', () => M.ads.view(FX.ads, { range: '30d', open: new Set(FX.ads.campaigns.map((c) => c.id)) }));
-  ok(!/data-act="(?!ads-open|mny-range)[^"]+"/.test(M.ads.view(FX.ads, { range: '30d', open: new Set() })), 'ads screen has no write actions (Shalev read-only)');
+  ok(!/data-act="(?!ads-open|mny-range|sort")[^"]+"/.test(M.ads.view(FX.ads, { range: '30d', open: new Set() })), 'ads screen has no write actions (Shalev read-only; header sort is view-only)');
+  { const h = M.ads.view(FX.ads, { range: '30d', open: new Set(FX.ads.campaigns.map((c) => c.id)) }); ok(M.ads.COLS.length === 12 && (h.match(/class="srt/g) || []).length === 12 && /<tfoot><tr class="tot">/.test(h) && (h.match(/<tr data-row=/g) || []).length === FX.ads.campaigns.length, 'ads comparison: 12 sortable columns (spend → ROAS), one row per campaign, totals row'); }
   check('templates.view', () => M.templates.view(FX.templates, { waba: '', status: '', q: '' }));
   ok(M.templates.view(FX.templates, { waba: 'old', status: '', q: '' }).split('data-act="tp-variant"').length - 1 === FX.templates.templates.filter((t) => t.waba === 'old').length, 'templates WABA filter');
   check('feedback.view', () => M.feedback.view(FX.feedback));
   const svg = M.finance.view(FX.finance, { range: '90d', vendor: 'cloudflare' });
   ok((svg.match(/<svg class="vz"/g) || []).length >= 3 && (svg.match(/data-tip=/g) || []).length > 10 && /class="vz-tbl"/.test(svg), 'finance charts: ≥3 inline SVG charts with hover targets and table views');
+}
+console.log('A3d design pass (nav §11, sortable tables, DatePicker, capacity meters, live rows)');
+{
+  const navA = [...html0.slice(0, html0.indexOf('</nav>')).matchAll(/<a (class="sub" )?href="([^"]+)" data-r="([^"]+)"/g)];
+  const prim = navA.filter((m) => !m[1]).map((m) => m[3]);
+  ok(prim.join(',') === 'overview,leads,clients,messages,calls,calendar,finance,system', 'nav: exactly 7 sections + מערכת (§11)', prim.join(','));
+  const subs = navA.filter((m) => m[1]).map((m) => m[3]);
+  ok(['hostesses', 'feedback', 'inbox', 'messaging', 'capacity', 'templates', 'ads', 'balances', 'automations', 'runs', 'live', 'brain', 'changes', 'control', 'notify'].every((r) => subs.includes(r)), 'nav: every former screen is still a sub-link (the phone "עוד" sheet)', subs.length + ' sub-links');
+  ok(/class="tabbar"[\s\S]*data-r="overview"[\s\S]*data-r="leads"[\s\S]*data-r="clients"[\s\S]*data-r="messages"[\s\S]*id="tb-more"/.test(html0), 'phone tab bar markup: סקירה / לידים / לקוחות / הודעות / עוד');
+  ok(/Frank\+Ruhl\+Libre/.test(html0) && /family=Heebo/.test(html0) && /Rubik/.test(html0), 'brand fonts: Heebo + Rubik + Frank Ruhl Libre');
+  const css = readFileSync(join(OPS, 'ops.css'), 'utf8');
+  ok(/--green:#0F4C35/.test(css) && /--gold:#A8853C/.test(css) && /--control-h:44px/.test(css) && /--radius-md:10px/.test(css) && /--radius-lg:12px/.test(css) && /prefers-color-scheme:dark/.test(css) && /:root\[data-theme=dark\]/.test(css), 'ops.css carries the design-system tokens in both themes');
+  const allSrc = [...mods, ...lazy, ...crmMods].map((m) => readFileSync(join(OPS, m), 'utf8')).join('');
+  ok(!/type="date"|type="datetime-local"/.test(allSrc + html0), 'no native date inputs anywhere in ops (DatePicker only)');
+  ok(!/border-radius:99px/.test(css + readFileSync(join(OPS, 'p4a.css'), 'utf8') + readFileSync(join(OPS, 'crm.css'), 'utf8')), 'no pill radii in the ops stylesheets');
+  const tb = UI.Table({ id: 'smoke', columns: [{ label: 'שם', key: 'n' }, { label: 'סכום', num: true, sort: (r) => r.v, render: (r) => String(r.v) }], rows: [{ id: 1, n: 'ב', v: 10 }, { id: 2, n: 'א', v: 2 }] });
+  ok((tb.match(/class="srt/g) || []).length === 2 && /data-sort-id="smoke"/.test(tb) && /data-sv="10"/.test(tb), 'Table: every labelled column gets a sort button + data-sv, table carries its sort id');
+  ok(UI.sortVal('₪1,200') === 1200 && UI.sortVal('03/11') === '03/11' && UI.sortVal('2026-11-03') === '2026-11-03' && UI.sortVal('050-1234567') === '050-1234567' && UI.cmp(2, 10) < 0 && UI.cmp('א', 'ב') < 0, 'sort values: money/number parsed, dates and phones kept as text, Hebrew collation');
+  const dp = UI.DatePicker({ value: '2026-11-03', attr: { 'data-q': 'event_date' } });
+  ok(/<input type="hidden" data-q="event_date" value="2026-11-03">/.test(dp) && /03\/11\/2026/.test(dp) && /data-act="dp-open"/.test(dp), 'DatePicker: hidden ISO input + dd/mm/yyyy button');
+  const K2 = await import(pathToFileURL(join(OPS, 'lazy/kit2.js')));
+  const g = K2.monthGrid(2026, 10, '2026-11-03', '2026-11-03'), g2 = K2.monthGrid(2026, 11, '', '2026-12-01');
+  ok(/נובמבר 2026/.test(g) && (g.match(/data-d=/g) || []).length === 30 && g.indexOf('<span></span>') === -1 && /data-d="2026-11-03" tabindex="0" aria-selected="true"/.test(g) && (g2.match(/<span><\/span>/g) || []).length === 2 && /היום/.test(g) && /ניקוי/.test(g), 'DatePicker grid: Hebrew month, week starts Sunday (Nov 2026 = no lead blanks, Dec 2026 = 2), selected day focusable, today/clear');
+  const cm = S.capacity.capMeters(F.capacity.days);
+  ok((cm.match(/<li/g) || []).length === F.capacity.days.length && /\+[\d,]+ נדחה/.test(cm) && /<b>68<\/b><small>\/68<\/small>/.test(cm) && /class="cm-over"/.test(cm), 'capacity meters: one row per day, X/cap label, red overflow segment with "+N נדחה"');
+  ok(F.capacity.days.filter((d) => d.no_contact).length === (cm.match(/<li class="closed">/g) || []).length && (cm.match(/<details>/g) || []).length === F.capacity.days.length, 'capacity meters: closed days muted, every row expands to its events');
+  ok(S.overview.view(F.realtime, F.capacity, F.balances).includes('class="cm"'), 'overview shows the same capacity meters');
+  const adm = F.live.items.filter(S.live.isAdminView);
+  ok(adm.length > 0 && F.live.items.filter((x) => S.live.match(x, {})).every((x) => !S.live.isAdminView(x)) && F.live.items.filter((x) => S.live.match(x, { admin: true })).length === F.live.items.length, 'live log: "דפדפן ·" admin rows hidden by default, shown with the toggle', adm.length + ' hidden');
+  ok(S.live.row(F.live.items.find((x) => x.event), true).includes('feed-row') && S.live.row(F.live.items.find((x) => x.event), true).includes('href="#/clients/') && S.live.row(F.live.items[0], true).includes(' new"'), 'live rows: kind chip, event links to the client card, new rows carry the insert animation class');
+  ok(UI.Phone('972501234567').includes('data-person="972501234567"') && UI.Phone('972501234567').includes('wa.me/972501234567') && UI.Phone('972501234567').includes('tel:+972501234567') && !UI.Phone('97250****567').includes('data-person="9'), 'Phone cell: opens the person drawer + WhatsApp + call; masked numbers stay inert');
+  const CCs = await import(pathToFileURL(join(OPS, 'crm/clients.js')));
+  ok(CCs.normPhone('050-123 4567') === '972501234567' && CCs.normPhone('12') === null && CCs.normPhone('+972 52-111-2222') === '972521112222', 'client card phone edit normalizes IL numbers');
 }
 console.log('A3c call center (lazy/calls.js, fixtures from the real ops-calls.js handlers)');
 const CCX = await import(pathToFileURL(join(OPS, 'lazy/calls.js')));
@@ -338,7 +374,7 @@ if (!process.argv.includes('--no-browser')) {
         await page.keyboard.press('Escape');
         await page.keyboard.press('g'); await page.keyboard.press('r');
         await page.waitForTimeout(500);
-        ok((await page.evaluate(() => location.hash)) === '#/runs', 'g r navigates to runs');
+        ok((await page.evaluate(() => location.hash)) === '#/system?tab=runs' && !!(await page.$('.ptabs a[data-v=runs][aria-selected=true]')), 'g r navigates to runs (מערכת › ריצות tab)');
         await page.keyboard.press('g'); await page.keyboard.press('d');
         await page.waitForSelector('#main .cal-d[data-day]', { timeout: 4000 });
         ok((await page.evaluate(() => location.hash)) === '#/calendar', 'g d navigates to the calendar');
@@ -365,7 +401,7 @@ if (!process.argv.includes('--no-browser')) {
         /* change log: g h, kind chip filter, deploy drawer with commits, typed-confirm revert */
         await page.keyboard.press('g'); await page.keyboard.press('h');
         await page.waitForSelector('#main .chg-row', { timeout: 4000 });
-        ok((await page.evaluate(() => location.hash)) === '#/changes', 'g h navigates to the change log');
+        ok((await page.evaluate(() => location.hash)) === '#/system?tab=changes', 'g h navigates to the change log (מערכת › שינויים)');
         const nRows = await page.$$eval('#main .chg-row', (x) => x.length);
         ok(nRows === RAW.changes.items.length && (await page.$$eval('#main .chg-day', (x) => x.length)) === days.length, 'change log renders every entry grouped by day', nRows + ' rows');
         await page.click('#main [data-act=chg-k][data-k=deploy]');
@@ -421,7 +457,7 @@ if (!process.argv.includes('--no-browser')) {
       await pp.screenshot({ path: join(shotDir, 'messaging-replies-light.png') });
       await pp.keyboard.press('g'); await pp.keyboard.press('i');
       await pp.waitForSelector('#main .conv', { timeout: 6000 });
-      ok((await pp.evaluate(() => location.hash)) === '#/inbox' && (await pp.$$eval('#main .conv', (x) => x.length)) === P4.inbox.items.length, 'g i opens the inbox with every conversation');
+      ok((await pp.evaluate(() => location.hash)) === '#/messages' && (await pp.$$eval('#main .conv', (x) => x.length)) === P4.inbox.items.length, 'g i opens הודעות on the inbox (its first tab) with every conversation');
       const c0 = P4.inbox.items.find((c) => c.window_open && c.ch.includes('client'));
       await pp.click(`#main .conv[data-phone="${c0.phone}"]`);
       await pp.waitForSelector('#main .bub', { timeout: 4000 });
@@ -446,7 +482,7 @@ if (!process.argv.includes('--no-browser')) {
       await pp.screenshot({ path: join(shotDir, 'inbox-light.png') });
       await pp.keyboard.press('g'); await pp.keyboard.press('x');
       await pp.waitForSelector('#main .ctl-grid', { timeout: 6000 });
-      ok((await pp.evaluate(() => location.hash)) === '#/control', 'g x opens שליטה');
+      ok((await pp.evaluate(() => location.hash)) === '#/system?tab=control', 'g x opens שליטה ידנית (מערכת tab)');
       await pp.click('#main [data-act=ctl][data-a=pause]'); await pp.waitForSelector('.dialog #dlg-in');
       ok((await pp.$eval('#layer .dialog', (d) => d.innerText)).includes('אף הודעה') && (await pp.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'pause: blast radius shown, disabled until the word is typed');
       await pp.fill('.dialog #dlg-in', 'עצור'); await pp.click('.dialog [data-act=dlg-yes]');
@@ -592,6 +628,38 @@ if (!process.argv.includes('--no-browser')) {
     await cp.evaluate(() => { location.hash = '#/hostesses'; }); await cp.waitForSelector('.wk .shift', { timeout: 6000 });
     ok(!!(await cp.$('.errbox')) && !!(await cp.$('.wk .shift.conflict')), 'hostesses: week grid + conflict warning');
     await cp.screenshot({ path: join(shotDir, 'hostesses-light.png') });
+    /* design pass: aliases, persisted sort, centered modal, DatePicker keyboard, live admin toggle */
+    await cp.evaluate(() => { location.hash = '#/messaging'; }); await cp.waitForSelector('#main tr.msg-row', { timeout: 6000 });
+    ok(!!(await cp.$('.ptabs a[data-v=sends][aria-selected=true]')) && (await cp.$eval('.nav a[data-r=messages]', (a) => a.getAttribute('aria-current'))) === 'page', 'old #/messaging opens הודעות › שליחות אוטומטיות');
+    await cp.evaluate(() => { location.hash = '#/messages?tab=capacity'; }); await cp.waitForSelector('#main .cm', { timeout: 6000 });
+    ok(!!(await cp.$('.ptabs a[data-v=capacity][aria-selected=true]')), 'deep link #/messages?tab=capacity renders the capacity meters tab');
+    await cp.evaluate(() => { location.hash = '#/hostesses'; }); await cp.waitForSelector('.ptabs a[data-v=hostesses][aria-selected=true]', { timeout: 6000 });
+    ok(true, 'old #/hostesses opens לקוחות › דיילות');
+    await cp.evaluate(() => { localStorage.removeItem('ops:sort:clients'); location.hash = '#/clients'; }); await cp.waitForSelector('#cl-list tr[data-row]', { timeout: 6000 });
+    const hdr = '#cl-list th[data-col="3"] .th-s';
+    await cp.click(hdr); await cp.waitForTimeout(300);
+    const d1 = await cp.$$eval('#cl-list tbody tr[data-row] td:nth-child(4)', (x) => x.map((t) => t.dataset.sv));
+    ok((await cp.$eval('#cl-list th[data-col="3"]', (t) => t.getAttribute('aria-sort'))) === 'ascending' && d1.every((v, i) => !i || d1[i - 1].localeCompare(v) <= 0), 'clients: header click sorts ascending with the arrow');
+    await cp.click(hdr); await cp.waitForTimeout(300);
+    ok((await cp.$eval('#cl-list th[data-col="3"]', (t) => t.getAttribute('aria-sort'))) === 'descending', 'second click sorts descending');
+    await cp.reload(); await cp.waitForSelector('#cl-list tr[data-row]', { timeout: 8000 });
+    const d2 = await cp.$$eval('#cl-list tbody tr[data-row] td:nth-child(4)', (x) => x.map((t) => t.dataset.sv));
+    ok((await cp.$eval('#cl-list th[data-col="3"]', (t) => t.getAttribute('aria-sort'))) === 'descending' && d2.every((v, i) => !i || d2[i - 1].localeCompare(v) >= 0), 'sort (column + direction) restored from localStorage after reload');
+    await cp.evaluate(() => { location.hash = '#/leads/L972500009001'; }); await cp.waitForSelector('.drawer.modal #qc-date', { state: 'attached', timeout: 8000 }); await cp.waitForTimeout(400);
+    const mr = await cp.evaluate(() => { const r = document.querySelector('.drawer.modal').getBoundingClientRect(); return [Math.round(r.left), Math.round(innerWidth - r.right), Math.round(r.top), Math.round(innerHeight - r.bottom)]; });
+    ok(Math.abs(mr[0] - mr[1]) <= 2 && Math.abs(mr[2] - mr[3]) <= 2 && mr[0] > 40, 'lead details open as a centered modal on desktop', mr.join('/'));
+    const v0 = await cp.$eval('#qc-date', (i) => i.value);
+    await cp.click('.drawer [data-dp]:has(#qc-date) .dp-btn'); await cp.waitForSelector('.dp-pop [data-d]', { timeout: 3000 });
+    await cp.keyboard.press('ArrowLeft'); await cp.keyboard.press('Enter'); await cp.waitForTimeout(200);
+    const v1 = await cp.$eval('#qc-date', (i) => i.value), base = v0 || new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
+    ok(v1 === new Date(Date.parse(base + 'T12:00:00Z') + 864e5).toISOString().slice(0, 10) && !(await cp.$('.dp-pop')), 'DatePicker: ← (next day in RTL) + Enter writes the ISO date to the hidden input and closes', v0 + ' → ' + v1);
+    await cp.keyboard.press('Escape');
+    await cp.evaluate(() => { localStorage.removeItem('ops:live:admin'); location.hash = '#/system?tab=live'; }); await cp.waitForSelector('#lv-feed .feed-row', { timeout: 8000 });
+    const hasAdm = () => cp.$$eval('#lv-feed .feed-row .m', (x) => x.some((m) => /^דפדפן/.test(m.textContent)));
+    const h0 = await hasAdm(); await cp.click('[data-act=lv-admin]'); await cp.waitForTimeout(300); const h1 = await hasAdm();
+    ok(!h0 && h1, 'live log: admin page-view rows hidden until "הצג פעילות אדמין"');
+    const firstEl = await cp.$('#lv-feed .feed-row'); await cp.waitForTimeout(3600);
+    ok(await firstEl.evaluate((n) => n.isConnected), 'live log poll keeps existing rows in place (no full re-render)');
     ok(cerr.length === 0, 'CRM routes: no console errors', cerr.slice(0, 3).join(' | '));
     await cx.close();
 
@@ -604,8 +672,8 @@ if (!process.argv.includes('--no-browser')) {
       await mp2.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
     }
     const tabs = await mp2.$$eval('.tabbar a,.tabbar button', (xs) => xs.map((x) => [x.innerText.trim(), Math.round(x.getBoundingClientRect().height)]));
-    ok(tabs.map((t) => t[0]).join('|') === 'סקירה|לידים|לקוחות|לוח שנה|עוד' && tabs.every((t) => t[1] >= 44), 'phone tab bar: סקירה/לידים/לקוחות/לוח שנה/עוד, each ≥ 44 px', tabs.map((t) => t[1]).join(','));
-    ok(await mp2.$$eval('.tabbar a', (xs) => xs.some((x) => x.getAttribute('href') === '#/calendar' && x.dataset.r === 'calendar') && !document.querySelector('a[href="calendar.html"]')), 'phone tab bar + nav: לוח שנה routes to the in-app #/calendar (no calendar.html link)');
+    ok(tabs.map((t) => t[0]).join('|') === 'סקירה|לידים|לקוחות|הודעות|עוד' && tabs.every((t) => t[1] >= 44), 'phone tab bar: סקירה/לידים/לקוחות/הודעות/עוד (§11), each ≥ 44 px', tabs.map((t) => t[1]).join(','));
+    ok(await mp2.$$eval('.nav a', (xs) => xs.some((x) => x.getAttribute('href') === '#/calendar' && x.dataset.r === 'calendar') && !document.querySelector('a[href="calendar.html"]')), 'nav ("עוד" sheet on phones): לוח שנה routes to the in-app #/calendar (no calendar.html link)');
     await mp2.tap('#tb-more'); await mp2.waitForTimeout(300);
     ok(await mp2.$eval('.shell>.nav', (n) => getComputedStyle(n).display !== 'none' && n.querySelectorAll('a[data-r]').length >= 12), '"עוד" opens the full nav as a sheet');
     await mp2.screenshot({ path: join(shotDir, 'more-sheet-mobile.png') });

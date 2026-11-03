@@ -2,7 +2,7 @@
    costs (vendors, fixed monthly editor, ad spend, manual vendor entries), per-event economics,
    invoices (resend behind a typed confirm), cash view, MoM growth + cumulative totals.
    Lazy module (outside the counted budget). Numbers marked "≈" are estimates (see data.estimates). */
-import { esc, fmtN, fmtDate, Skeleton, Button, Drawer, confirmTyped, toast, busy } from '../ui.js';
+import { esc, fmtN, fmtDate, Skeleton, Button, Drawer, confirmTyped, toast, busy, thSort, savedSort } from '../ui.js';
 import { ensureCss, stackedBars, lineChart, tableView, ils, pct, signed, rangeSeg, hBars } from './charts.js';
 
 export const KIND_HE = { package: 'חבילות', addon: 'תוספות', hostess: 'דיילות', design: 'עיצוב' };
@@ -39,6 +39,16 @@ export function growthCard(d) {
   return `<section class="card"><div class="mny-h"><h2 class="h2">צמיחה חודשית ומצטבר</h2></div>${lineChart([{ key: 'cr', label: 'הכנסות מצטברות', points: g.map((x) => ({ x: x.month, y: x.cum_revenue })) }, { key: 'cn', label: 'רווח מצטבר', points: g.map((x) => ({ x: x.month, y: x.cum_net })) }], { xLabel: monthHe, title: 'מצטבר' })}
 ${tableView([{ he: 'חודש', f: (r) => esc(monthHe(r.month)) }, { he: 'הכנסות', num: true, f: (r) => esc(ils(r.revenue)) }, { he: 'שינוי', num: true, f: (r) => esc(r.mom_pct == null ? '—' : fmtN(r.mom_pct) + '%') }, { he: 'מצטבר', num: true, f: (r) => esc(ils(r.cum_revenue)) }, { he: 'רווח מצטבר', num: true, f: (r) => signed(r.cum_net) }], g)}</section>`;
 }
+/* recurring fixed costs: one row per subscription, counted every month from "מ-" until removed */
+export function fixedCard(fx) {
+  if (!fx) return `<h3 class="h3">הוצאות קבועות חודשיות</h3>${Skeleton.lines(4)}`;
+  const amt = (x) => (x.unknown ? '<span class="badge warn">לא ידוע</span>' : `${x.approx ? '<span class="est">≈ </span>' : ''}${esc(ils(x.ils))}${x.usd ? ` <span class="sub">($${esc(fmtN(x.usd))})</span>` : ''}`);
+  const on = fx.items.filter((x) => !x.to_month);
+  return `<div class="sec-h" style="margin:0 0 8px"><h3 class="h3" style="margin:0">הוצאות קבועות חודשיות</h3><span class="sp"></span><b class="num">${esc(ils(fx.month_total))}</b><span class="sub">לחודש</span></div>
+<p class="sub" style="margin:0 0 8px">כל שורה נספרת בכל חודש מהחודש שבו התחילה, עד שמסירים אותה.</p>
+<div class="tbl-wrap"><table class="tbl" data-sort-id="fixed" data-sort-dom><thead><tr>${['שם', 'לחודש', 'מ-', ''].map((h, i) => (h ? thSort(h, i, savedSort('fixed'), i === 1 ? 'n' : '') : '<th></th>')).join('')}</tr></thead><tbody>${on.map((x) => `<tr data-row="${esc(x.id)}"><td data-sv="${esc(x.name)}">${esc(x.name)}</td><td class="n" data-sv="${x.unknown ? -1 : x.ils}">${amt(x)}</td><td class="num" data-sv="${esc(x.from_month)}">${esc(monthHe(x.from_month))}</td><td style="white-space:nowrap"><input class="in num" data-fx-v="${esc(x.id)}" inputmode="decimal" placeholder="₪" aria-label="סכום חדש ל${esc(x.name)}" style="width:84px;height:36px">${Button('עדכון', { size: 'sm', variant: 'ghost', act: 'fx-upd', attr: { 'data-id': x.id } })}${Button('הסרה', { size: 'sm', variant: 'ghost', act: 'fx-rm', attr: { 'data-id': x.id } })}</td></tr>`).join('')}</tbody></table></div>
+<div class="bar" style="margin-top:10px"><input class="in" data-fx-new-name placeholder="שם (למשל Make)" aria-label="שם ההוצאה" style="flex:1;min-width:140px"><input class="in num" data-fx-new-ils inputmode="decimal" placeholder="₪ לחודש" aria-label="סכום לחודש" style="width:110px">${Button('הוספה', { act: 'fx-new', variant: 'tint' })}${Button('מספרי Telnyx', { act: 'fx-telnyx', variant: 'ghost', title: 'קריאת המספרים מ-Telnyx' })}</div>`;
+}
 export function costsCard(d, st) {
   const v = d.vendors || {}, m = st.month || (d.pnl[d.pnl.length - 1] || {}).month, p = d.pnl.find((x) => x.month === m) || { fixed_items: [], manual_items: {} };
   const wabas = (v.meta_wa && v.meta_wa.wabas) || [];
@@ -47,9 +57,7 @@ export function costsCard(d, st) {
   return `<section class="card"><div class="mny-h"><h2 class="h2">עלויות וספקים</h2><span class="sp"></span><div class="seg" role="tablist" aria-label="חודש">${months.slice(-4).map((x) => `<button type="button" role="tab" data-act="fin-month" data-v="${esc(x)}" aria-selected="${x === m}">${esc(monthHe(x))}</button>`).join('')}</div></div>
 <p class="sub">החודש הנוכחי (ספקים מה-API, ≈ ב-₪): ${wabas.map((w) => esc(w.name) + ' ' + (w.error ? 'שגיאה' : '$' + fmtN(w.spend_mtd) + ' · ' + fmtN(w.volume) + ' שיחות')).join(' · ') || 'אין נתוני וואטסאפ'}${v.telnyx ? ' · יתרת Telnyx $' + esc(fmtN(v.telnyx.balance_usd)) : ''}</p>
 ${hBars(bars)}
-<div class="grid g-2" style="margin-top:12px"><div><h3 class="h3">הוצאות קבועות · ${esc(monthHe(m))}</h3>
-<div data-fx>${(p.fixed_items.length ? p.fixed_items : [{ name: '', ils: '' }]).map((x, i) => `<div style="display:flex;gap:6px;margin:4px 0"><input class="in" data-fx-name="${i}" value="${esc(x.name)}" placeholder="שם" aria-label="שם ההוצאה" style="flex:1"><input class="in num" data-fx-ils="${i}" value="${esc(x.ils)}" inputmode="decimal" placeholder="₪" aria-label="סכום" style="width:90px"></div>`).join('')}</div>
-<div style="display:flex;gap:6px;margin-top:6px">${Button('+ שורה', { size: 'sm', variant: 'ghost', act: 'fx-add' })}${Button('שמירה', { size: 'sm', act: 'fx-save' })}</div></div>
+<div class="grid g-2" style="margin-top:12px"><div data-fx-host>${fixedCard(st.fixed)}</div>
 <div><h3 class="h3">פרסום · ${esc(monthHe(m))}</h3><div style="display:flex;gap:6px"><input class="in num" data-ad value="${esc(d.adspend[m] ?? '')}" inputmode="decimal" placeholder="₪" aria-label="הוצאת פרסום לחודש" style="width:110px">${Button('שמירה', { size: 'sm', act: 'ad-save' })}</div><p class="sub">מתעדכן אוטומטית מסקירת המודעות; אפשר לתקן ידנית.</p>
 <h3 class="h3" style="margin-top:10px">ספק ידני · ${esc(monthHe(m))}</h3><div class="seg" role="tablist" aria-label="ספק">${(v.manual_vendors || []).map((k) => `<button type="button" role="tab" data-act="mv-pick" data-v="${esc(k)}" aria-selected="${st.vendor === k}">${esc(VENDOR_HE[k] || k)}</button>`).join('')}</div>
 <div style="display:flex;gap:6px;margin-top:6px"><input class="in num" data-mv value="${esc((p.manual_items || {})[st.vendor] ?? '')}" inputmode="decimal" placeholder="₪" aria-label="סכום לספק" style="width:110px">${Button('שמירה', { size: 'sm', act: 'mv-save' })}</div></div></div></section>`;
@@ -74,9 +82,11 @@ export default {
   async mount(el, ctx) {
     ensureCss();
     let saved = {}; try { saved = JSON.parse(localStorage.getItem(LS) || '{}') || {}; } catch (e) { /* private */ }
-    const st = { range: saved.range || '90d', month: '', vendor: 'cloudflare' };
+    const st = { range: saved.range || '90d', month: '', vendor: 'cloudflare', fixed: null };
+    const fxPost = async (b) => { st.fixed = await ctx.api.post('/fixedcost', b); const h = el.querySelector('[data-fx-host]'); if (h) h.innerHTML = fixedCard(st.fixed); };
     let data = null;
     const paint = () => { if (data) el.innerHTML = view(data, st); };
+    ctx.api.post('/fixedcost', { action: 'list' }).then((r) => { st.fixed = r; const h = el.querySelector('[data-fx-host]'); if (h) h.innerHTML = fixedCard(r); }).catch(() => { st.fixed = { items: [], month_total: 0 }; });
     const load = async (fresh) => {
       const c = ctx.api.cached('finance', { range: st.range }); if (c && !data) { data = c.data; paint(); }
       try { data = await ctx.api.get('finance', fresh ? { range: st.range, fresh: '1' } : { range: st.range }); paint(); } catch (e) { if (!data) el.innerHTML = ctx.errorBox(e); }
@@ -87,11 +97,10 @@ export default {
       if (act === 'mny-range') { st.range = b.dataset.v; try { localStorage.setItem(LS, JSON.stringify({ range: st.range })); } catch (x) {} data = null; el.innerHTML = Skeleton.tiles(5) + Skeleton.card(6); load(); }
       else if (act === 'fin-month') { st.month = b.dataset.v; paint(); }
       else if (act === 'mv-pick') { st.vendor = b.dataset.v; paint(); }
-      else if (act === 'fx-add') { el.querySelector('[data-fx]').insertAdjacentHTML('beforeend', `<div style="display:flex;gap:6px;margin:4px 0"><input class="in" data-fx-name="n" placeholder="שם" aria-label="שם ההוצאה" style="flex:1"><input class="in num" data-fx-ils="n" inputmode="decimal" placeholder="₪" aria-label="סכום" style="width:90px"></div>`); }
-      else if (act === 'fx-save') {
-        const names = [...el.querySelectorAll('[data-fx-name]')], vals = [...el.querySelectorAll('[data-fx-ils]')];
-        const items = names.map((n, i) => ({ name: n.value.trim(), ils: Number(vals[i].value) || 0 })).filter((x) => x.name);
-        await busy(b, async () => { await ctx.api.post('/fixedcost', { month: m, items }); toast('נשמר', 'good'); await load(true); });
+      else if (act === 'fx-new') { const n = el.querySelector('[data-fx-new-name]').value.trim(), v = el.querySelector('[data-fx-new-ils]').value; if (!n) return; await busy(b, () => fxPost({ action: 'add', item: { name: n, ils: v === '' ? undefined : Number(v), unknown: v === '' } })); toast('נוספה הוצאה קבועה · נרשם ביומן השינויים'); load(true); }
+      else if (act === 'fx-upd') { const v = el.querySelector(`[data-fx-v="${CSS.escape(b.dataset.id)}"]`).value; if (v === '' || !Number.isFinite(Number(v))) return; await busy(b, () => fxPost({ action: 'update', item: { id: b.dataset.id, ils: Number(v), unknown: false } })); toast('עודכן'); load(true); }
+      else if (act === 'fx-rm') { await busy(b, () => fxPost({ action: 'remove', id: b.dataset.id })); toast('הוסר מהחודש הבא והלאה'); load(true); }
+      else if (act === 'fx-telnyx') { await busy(b, () => fxPost({ action: 'telnyx' })); toast('מספרי Telnyx עודכנו'); load(true);
       } else if (act === 'ad-save') { const v = Number(el.querySelector('[data-ad]').value); if (!Number.isFinite(v)) return; await busy(b, async () => { await ctx.api.post('/adspend', { month: m, ils: v }); toast('נשמר', 'good'); await load(true); }); }
       else if (act === 'mv-save') { const v = Number(el.querySelector('[data-mv]').value); if (!Number.isFinite(v)) return; await busy(b, async () => { await ctx.api.post('finance', { set_manual: { month: m, vendor: st.vendor, ils: v }, range: st.range }); toast('נשמר', 'good'); await load(true); }); }
       else if (act === 'inv-resend') {

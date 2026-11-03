@@ -32,7 +32,7 @@ const clash = (all, c) => all.filter((a) => a.id !== c.id && a.hostess_id === c.
 export async function crmMock(name, b = {}, ver = '1', method = 'POST') {
   const s = await load(ver), path = name.replace(/^\//, ''), isPost = method !== 'GET';
   const [, a, x, y] = path.split('/').map(decodeURIComponent); /* crm / a / x / y */
-  const L = (id) => s.leads.find((l) => l.id === id), C = (t) => s.clients.find((c) => c.token === t);
+  const L = (id) => s.leads.find((l) => l.id === id), C = (t) => s.clients.find((c) => c.token === t || c.tok8 === t || String(c.token).startsWith(t));
   const act = (o) => { const r = { id: 'Am' + s.seq++, dir: '', meta: {}, at: now(), ...o }; s.activities.push(r); return r; };
   if (path === 'pay-link') return ok({ url: 'https://pay.grow.link/DEMO-paylink', sum: null, description: 'דמה' });
   switch (a) {
@@ -82,6 +82,7 @@ export async function crmMock(name, b = {}, ver = '1', method = 'POST') {
     case 'clients': {
       if (!x) return ok({ at: now(), today: ilDay(Date.now()), clients: s.clients, counts: Object.fromEntries(['upcoming', 'live', 'done', 'cancelled', 'held'].map((k) => [k, s.clients.filter((c) => c.status === k).length])) });
       const c = C(x); if (!c) return err('not-found');
+      if (isPost && !y) { for (const k of ['names', 'name1', 'name2', 'phone', 'occasion', 'date']) if (b[k] != null) c[k] = b[k]; act({ entity_type: 'client', entity_id: c.token, kind: 'note', label: 'עריכת פרטי אירוע', text: Object.keys(b).filter((k) => k !== 'who' && k !== 'admin_key').join(', ') }); return ok({ client: c, changed: true }); }
       const tl = [...s.activities.filter((v) => ['client', 'event'].includes(v.entity_type) && v.entity_id === c.token).map((v) => ({ ...v, source: 'crm' })),
         ...s.notes.filter((n) => ['client', 'event'].includes(n.entity_type) && n.entity_id === c.token).map((n) => ({ ...n, kind: 'note', source: 'notes' }))].sort((p, q) => String(q.at).localeCompare(String(p.at)));
       return ok({ client: c, timeline: tl, assignments: s.assignments.filter((v) => v.event_token === c.token), audit_truncated: false });

@@ -145,7 +145,12 @@ export const leadsOfActions = (actions = []) => {
 /* insight rows (level=ad) + CRM leads (origin.campaign / origin.ad names) + revenue per phone → tree with ROAS.
    ROAS = revenue from leads attributed to the campaign that closed ÷ spend. Leads with no campaign land in
    `unattributed`. Blended ROAS (all revenue ÷ all spend) is reported separately. */
-export function adsTree(rows, { leads = [], revenueByPhone = {}, shalev = SHALEV_CAMPAIGN } = {}) {
+/* Campaign comparison (Richard 03/11 20:40): per campaign and ad set: spend, impressions, clicks, leads, CPL,
+   leads → quoted → closed, close rate, cost per CLOSED client, avg deal (closed revenue ÷ closes), avg gross profit
+   per client (deal − WhatsApp/call/hostess cost of that client, costByPhone), ROAS. Leads attach to the campaign
+   by origin.campaign (name) and to the ad set by origin.adset when the lead carries it. */
+const QUOTED_UP = new Set(['quoted', 'closed']);
+export function adsTree(rows, { leads = [], revenueByPhone = {}, costByPhone = {}, shalev = SHALEV_CAMPAIGN } = {}) {
   const camps = {};
   for (const r of rows || []) {
     const c = camps[r.campaign_id] = camps[r.campaign_id] || { id: r.campaign_id, name: r.campaign_name || r.campaign_id, read_only: r.campaign_id === shalev, owner: r.campaign_id === shalev ? 'שלו' : '', spend: 0, impressions: 0, clicks: 0, leads: 0, adsets: {} };
@@ -156,21 +161,95 @@ export function adsTree(rows, { leads = [], revenueByPhone = {}, shalev = SHALEV
   }
   const byName = {}; for (const c of Object.values(camps)) byName[String(c.name).trim()] = c;
   const unattributed = { leads: 0, closed: 0, revenue: 0 };
-  for (const c of Object.values(camps)) Object.assign(c, { crm_leads: 0, closed: 0, revenue: 0 });
+  const z = () => ({ crm_leads: 0, quoted: 0, closed: 0, revenue: 0, cost: 0 });
+  for (const c of Object.values(camps)) { Object.assign(c, z()); for (const s of Object.values(c.adsets)) Object.assign(s, z()); }
   for (const l of leads) {
     const nm = String((l.origin && l.origin.campaign) || '').trim();
     const c = nm ? byName[nm] : null;
     const rev = r2(revenueByPhone[String(l.phone || '').slice(-9)] || 0);
-    const won = l.status === 'closed' || rev > 0;
+    const won = l.status === 'closed' || rev > 0, cost = r2(costByPhone[String(l.phone || '').slice(-9)] || 0);
     const tgt = c || (l.source === 'meta_form' ? unattributed : null); if (!tgt) continue;
-    if (c) c.crm_leads++; else tgt.leads++;
-    if (won) { tgt.closed++; tgt.revenue = r2(tgt.revenue + rev); }
+    const an = String((l.origin && l.origin.adset) || '').trim(), s = c && an ? Object.values(c.adsets).find((x) => String(x.name).trim() === an) : null;
+    if (!c) { tgt.leads++; if (won) { tgt.closed++; tgt.revenue = r2(tgt.revenue + rev); } continue; }
+    for (const o of [c, s].filter(Boolean)) {
+      o.crm_leads++;
+      if (won || QUOTED_UP.has(l.status)) o.quoted++;
+      if (won) { o.closed++; o.revenue = r2(o.revenue + rev); o.cost = r2(o.cost + cost); }
+    }
   }
-  const fin = o => ({ ...o, cpl: o.leads ? r2(o.spend / o.leads) : null, ctr_pct: o.impressions ? Math.round(10000 * o.clicks / o.impressions) / 100 : null });
+  const unit = o => { const base = o.crm_leads || o.leads || 0; return { close_rate_pct: base ? Math.round(1000 * (o.closed || 0) / base) / 10 : null, cost_per_closed: o.closed ? r2(o.spend / o.closed) : null,
+    avg_deal: o.closed ? r2(o.revenue / o.closed) : null, avg_gross: o.closed ? r2((o.revenue - (o.cost || 0)) / o.closed) : null, roas: o.spend > 0 && o.revenue != null ? r2(o.revenue / o.spend) : null }; };
+  const fin = o => ({ ...o, cpl: o.leads ? r2(o.spend / o.leads) : null, ctr_pct: o.impressions ? Math.round(10000 * o.clicks / o.impressions) / 100 : null, ...(o.revenue != null ? unit(o) : {}) });
   const campaigns = Object.values(camps).map(c => ({ ...fin(c), roas: c.spend > 0 ? r2(c.revenue / c.spend) : null,
     adsets: Object.values(c.adsets).map(s => ({ ...fin(s), ads: s.ads.map(fin).sort((a, b) => b.spend - a.spend) })).sort((a, b) => b.spend - a.spend) })).sort((a, b) => b.spend - a.spend);
-  const tot = campaigns.reduce((t, c) => ({ spend: r2(t.spend + c.spend), leads: t.leads + c.leads, revenue: r2(t.revenue + c.revenue), closed: t.closed + c.closed }), { spend: 0, leads: 0, revenue: 0, closed: 0 });
-  return { campaigns, unattributed, totals: { ...tot, cpl: tot.leads ? r2(tot.spend / tot.leads) : null, roas_attributed: tot.spend > 0 ? r2(tot.revenue / tot.spend) : null } };
+  const tot = campaigns.reduce((t, c) => ({ spend: r2(t.spend + c.spend), impressions: t.impressions + c.impressions, clicks: t.clicks + c.clicks, leads: t.leads + c.leads, crm_leads: t.crm_leads + c.crm_leads, quoted: t.quoted + c.quoted, revenue: r2(t.revenue + c.revenue), closed: t.closed + c.closed, cost: r2(t.cost + c.cost) }), { spend: 0, impressions: 0, clicks: 0, leads: 0, crm_leads: 0, quoted: 0, revenue: 0, closed: 0, cost: 0 });
+  const u = unit(tot);
+  return { campaigns, unattributed, totals: { ...tot, cpl: tot.leads ? r2(tot.spend / tot.leads) : null, roas_attributed: u.roas, close_rate_pct: u.close_rate_pct, cost_per_closed: u.cost_per_closed, avg_deal: u.avg_deal, avg_gross: u.avg_gross } };
+}
+
+/* ── fixed costs (Richard 03/11 20:35): a fixed cost is RECURRING every month from from_month until removed
+   (to_month set). KV `fixedcosts` = [{id, name, ils, usd, from_month, to_month, approx, unknown, source}].
+   unknown rows (subscription exists, amount not set yet) count 0 and show "לא ידוע". Legacy per-month
+   `fixedcost:<YYYY-MM>` lists still count for their own month. ── */
+export const FIXED_DEFAULTS = (from) => [
+  { id: 'sim4499', name: 'SIM 4499 (נועה)', ils: 19.8, from_month: from, source: 'known' },
+  { id: 'sim6673', name: 'SIM אורחים 6673', ils: 10, from_month: from, source: 'known' },
+  { id: 'sim9799', name: 'SIM אורחים 3089799', ils: 10, from_month: from, source: 'known' },
+  { id: 'cf_workers', name: 'Cloudflare Workers Paid', usd: 5, from_month: from, source: 'known' },
+  ...['Retell', 'Make', 'Monday', 'Anthropic'].map((n) => ({ id: n.toLowerCase(), name: n, from_month: from, unknown: true, source: 'manual' })),
+];
+export function normFixed(x, usdIls = USD_ILS) {
+  const usd = x.usd != null && x.usd !== '' ? Math.max(0, Number(x.usd) || 0) : null;
+  const ils = x.ils != null && x.ils !== '' ? Math.max(0, Number(x.ils) || 0) : usd != null ? r2(usd * usdIls) : 0;
+  const m = (v) => (/^\d{4}-\d{2}$/.test(String(v || '')) ? String(v) : null);
+  return { id: String(x.id || x.name || '').slice(0, 40).replace(/\s+/g, '_') || 'fx' + Date.now(), name: String(x.name || '').slice(0, 60), ils: r2(ils), usd,
+    from_month: m(x.from_month) || '2026-01', to_month: m(x.to_month), approx: !!x.approx, unknown: !!x.unknown && !(Number(x.ils) || Number(x.usd)), source: String(x.source || 'manual').slice(0, 20) };
+}
+export const fixedActive = (x, month) => x.from_month <= month && (!x.to_month || month <= x.to_month);
+export function fixedForMonth(items, month, legacy = []) {
+  const rec = (items || []).filter((x) => fixedActive(x, month)).map((x) => ({ name: x.name, ils: x.unknown ? 0 : x.ils, unknown: !!x.unknown, approx: !!x.approx, recurring: true, id: x.id }));
+  const old = (legacy || []).map((x) => ({ name: x.name, ils: Number(x.ils) || 0, recurring: false }));
+  return { items: [...rec, ...old], total: r2([...rec, ...old].reduce((t, x) => t + (x.ils || 0), 0)) };
+}
+/* Telnyx numbers → one recurring row. monthly cost from the API when it carries one, else $1/number marked ≈ */
+export function telnyxFixed(numbers, from) {
+  const ns = numbers || []; if (!ns.length) return null;
+  const known = ns.map((n) => Number((n.cost_information && n.cost_information.monthly_cost) || n.monthly_recurring_cost || NaN));
+  const exact = known.every((v) => Number.isFinite(v));
+  return { id: 'telnyx_numbers', name: `מספרי Telnyx (${ns.length})`, usd: r2(exact ? known.reduce((a, b) => a + b, 0) : ns.length * 1), approx: !exact, from_month: from, source: 'telnyx' };
+}
+/* apply one edit: add / update / remove (remove = end it last month, the history keeps it) */
+export function editFixed(items, b, thisMonth) {
+  const list = (items || []).map((x) => ({ ...x }));
+  const it = b.item ? normFixed(b.item) : null, i = it ? list.findIndex((x) => x.id === it.id) : -1;
+  if (b.action === 'add' && it) { if (i >= 0) it.id += '_' + list.length; list.push(it); }
+  else if (b.action === 'update' && it && i >= 0) list[i] = { ...list[i], ...it };
+  else if (b.action === 'remove' && b.id) { const j = list.findIndex((x) => x.id === b.id); if (j >= 0) { const [y, mo] = thisMonth.split('-').map(Number), prev = mo === 1 ? `${y - 1}-12` : `${y}-${String(mo - 1).padStart(2, '0')}`; if (list[j].from_month > prev) list.splice(j, 1); else list[j].to_month = prev; } }
+  return list;
+}
+
+export async function loadFixed(env, month) {
+  if (!env.RATE) return FIXED_DEFAULTS(month).map((x) => normFixed(x));
+  const raw = await env.RATE.get('fixedcosts').catch(() => null);
+  if (raw) { try { return (JSON.parse(raw) || []).map((x) => normFixed(x)); } catch (e) { /* fall through to the defaults */ } }
+  const seed = FIXED_DEFAULTS(month).map((x) => normFixed(x));
+  await env.RATE.put('fixedcosts', JSON.stringify(seed)).catch(() => {});
+  return seed;
+}
+/* POST /api/fixedcost {action:'list'|'add'|'update'|'remove'|'telnyx', item?, id?}. 'telnyx' reads GET /v2/phone_numbers. */
+export async function fixedCostAction(env, b, month, fetchFn = fetch) {
+  let list = await loadFixed(env, month);
+  if (b.action === 'telnyx') {
+    if (!env.TELNYX_KEY) return { ok: false, error: 'no-telnyx-key', items: list };
+    const r = await fetchFn('https://api.telnyx.com/v2/phone_numbers?page[size]=250', { headers: { Authorization: 'Bearer ' + env.TELNYX_KEY } }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    const row = j && Array.isArray(j.data) ? telnyxFixed(j.data, month) : null;
+    if (!row) return { ok: false, error: 'telnyx-read-failed', items: list };
+    const i = list.findIndex((x) => x.id === row.id); const n = normFixed(i >= 0 ? { ...row, from_month: list[i].from_month } : row);
+    if (i >= 0) list[i] = n; else list.push(n);
+  } else if (['add', 'update', 'remove'].includes(b.action)) list = editFixed(list, b, month);
+  if (b.action && b.action !== 'list' && env.RATE) { await env.RATE.put('fixedcosts', JSON.stringify(list)); await env.RATE.delete('opsfin:90d').catch(() => {}); }
+  return { ok: true, items: list, month_total: fixedForMonth(list, month).total };
 }
 
 /* ── templates ── */
@@ -254,6 +333,7 @@ export async function buildFinance(env, d, { range = '90d', fresh = false, balan
     const [pay, calls, wacost, wastat, shircost, evcost, adspend, fixedcost, costman, invKv, asg, bal] = await Promise.all([aq('pay'), aq('call'),
       kvMap(d, env, 'wacost:'), kvMap(d, env, 'wastat:'), kvMap(d, env, 'shircost:'), kvMap(d, env, 'evcost:'), kvMap(d, env, 'adspend:'), kvMap(d, env, 'fixedcost:'), kvMap(d, env, 'costman:'), kvMap(d, env, 'invoice:'),
       storeAll(env, 'hostess_assignments'), balances ? balances().catch(() => null) : null]);
+    const fixedRec = await loadFixed(env, today.slice(0, 7));
     const entries = revenueEntries(pay.items, events, { parsePaidDesc: d.parsePaidDesc || (() => null) });
     const series = revenueSeries(entries, r);
     /* costs per day → per month */
@@ -273,11 +353,11 @@ export async function buildFinance(env, d, { range = '90d', fresh = false, balan
     }
     const revM = {}; for (const e of entries) for (const l of e.lines) revM[e.day.slice(0, 7)] = (revM[e.day.slice(0, 7)] || 0) + l.ils;
     const months = monthsBetween(r.from, today).map(m => {
-      const fx = jp(fixedcost['fixedcost:' + m] ?? fixedcost[m]) || [];
+      const fxm = fixedForMonth(fixedRec, m, jp(fixedcost['fixedcost:' + m] ?? fixedcost[m]) || []), fx = fxm.items;
       const man = jp(costman['costman:' + m] ?? costman[m]) || {};
       const c = mo[m] || { wa: 0, calls: 0, hostess: 0 };
       return { ...pnlMonth({ month: m, revenue: revM[m] || 0, wa: c.wa, calls: c.calls, hostess: c.hostess, ads: Number(adspend['adspend:' + m] ?? adspend[m]) || 0,
-        fixed: fx.reduce((s, x) => s + (Number(x.ils) || 0), 0), manual: Object.values(man).reduce((s, v) => s + (Number(v) || 0), 0) }), fixed_items: fx, manual_items: man, wa_estimated: !!c.wa_estimated };
+        fixed: fxm.total, manual: Object.values(man).reduce((s, v) => s + (Number(v) || 0), 0) }), fixed_items: fx, manual_items: man, wa_estimated: !!c.wa_estimated };
     });
     const callsIls = {}; for (const c of calls.items || []) { const t8 = String(c.token || '').slice(0, 8); if (t8) callsIls[t8] = (callsIls[t8] || 0) + (Number(c.cost) || 0); }
     const evcostIls = {}; for (const [k, v] of Object.entries(evcost)) evcostIls[k.replace(/^evcost:/, '')] = (Number(v) || 0) / 100;
@@ -291,6 +371,7 @@ export async function buildFinance(env, d, { range = '90d', fresh = false, balan
         telnyx: meta.telnyx ? { balance_usd: meta.telnyx.amount } : null, meta_ads: meta.meta_ads ? { owed_ils: meta.meta_ads.extra.balance_owed, spent_ils: meta.meta_ads.extra.amount_spent } : null,
         calls_mtd_ils: r2((mo[today.slice(0, 7)] || {}).calls || 0), manual_vendors: MANUAL_VENDORS },
       adspend: Object.fromEntries(Object.entries(adspend).map(([k, v]) => [k.replace(/^adspend:/, ''), Number(v) || 0])),
+      fixed_recurring: fixedRec,
       fixedcost: Object.fromEntries(Object.entries(fixedcost).map(([k, v]) => [k.replace(/^fixedcost:/, ''), jp(v) || []])),
       events: eventEconomics(events, { entries, evcostIls, callsIls, hostessPay }),
       invoices: invoiceRows(events, invByToken),
@@ -349,7 +430,10 @@ export async function buildAds(env, d, { range = '30d', fresh = false } = {}) {
     for (const e of (fin && fin.revenue && fin.revenue.entries) || []) if (e.phone) { const k = String(e.phone).slice(-9); revenueByPhone[k] = r2((revenueByPhone[k] || 0) + e.sum); }
     for (const c of clients) if (c.phone && c.paid_sum && !revenueByPhone[String(c.phone).slice(-9)]) revenueByPhone[String(c.phone).slice(-9)] = num(c.paid_sum);
     const inRange = l => { const day = l.created_at ? ilDay(Date.parse(l.created_at)) : ''; return day >= r.from && day <= r.to; };
-    const tree = adsTree(rows, { leads: leads.filter(inRange), revenueByPhone });
+    /* variable cost per paying client (WhatsApp + calls + hostess pay), keyed like revenueByPhone */
+    const costByPhone = {}, byTok8 = {}; for (const c of clients) if (c.phone && c.token) byTok8[String(c.token).slice(0, 8)] = String(c.phone).slice(-9);
+    for (const e of (fin && fin.events) || []) { const ph = byTok8[e.tok8]; if (ph) costByPhone[ph] = r2((costByPhone[ph] || 0) + (e.msgs_cost || 0) + (e.calls_cost || 0) + (e.hostess_pay || 0)); }
+    const tree = adsTree(rows, { leads: leads.filter(inRange), revenueByPhone, costByPhone });
     const revenue = fin && fin.revenue ? fin.revenue.total : null;
     return { ok: true, at: new Date().toISOString(), range: r, ...tree, shalev_campaign: SHALEV_CAMPAIGN,
       blended: { revenue, spend: tree.totals.spend, roas: revenue != null && tree.totals.spend > 0 ? r2(revenue / tree.totals.spend) : null },

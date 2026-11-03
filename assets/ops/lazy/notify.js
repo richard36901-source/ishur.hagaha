@@ -12,7 +12,7 @@ export const sevChip = (s) => { const [tone, he] = SEV[s] || SEV.P3; return `<sp
 
 const CSS = `
 .ntf-bell{position:relative}
-.ntf-bell .cnt{position:absolute;top:2px;inset-inline-end:2px;min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:var(--crit);color:#fff;font:600 10.5px/17px var(--font-num);text-align:center}
+.ntf-bell .cnt{position:absolute;top:2px;inset-inline-end:2px;min-width:18px;height:18px;padding:0 4px;border-radius:var(--radius-xs);background:var(--crit);color:#fff;font:600 10.5px/17px var(--font-num);text-align:center}
 .ntf-pop{position:fixed;top:calc(var(--top-h) + 6px);inset-inline-end:12px;width:min(400px,calc(100vw - 24px));max-height:min(70vh,560px);display:flex;flex-direction:column;background:var(--raise);border:1px solid var(--line);border-radius:var(--r-l);box-shadow:var(--shadow);z-index:60;overflow:hidden;transform-origin:top left;animation:ntf-in .16s var(--ease)}
 @keyframes ntf-in{from{opacity:0;transform:translateY(-4px) scale(.98)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){.ntf-pop{animation:none}}
@@ -22,7 +22,7 @@ const CSS = `
 .ntf-pop footer{padding:8px 14px;border-top:1px solid var(--line);display:flex;justify-content:center}
 .ntf-row{display:grid;grid-template-columns:auto 1fr auto;gap:4px 10px;align-items:start;padding:12px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
 .ntf-row:last-child{border-bottom:0}
-.ntf-row.unread{background:var(--brand-soft)}
+.ntf-row.unread{background:var(--green-wash)}.ntf-row:hover{background:var(--hover)}
 .ntf-row .t{font-size:14px;line-height:1.45;font-weight:500;color:var(--ink)}
 .ntf-row.unread .t{font-weight:650}
 .ntf-row .m{grid-column:2;display:flex;gap:8px;align-items:center;flex-wrap:wrap;font-size:12px;color:var(--ink-3)}
@@ -32,8 +32,8 @@ const CSS = `
 .ntf-row .sd.crit{background:var(--crit)}.ntf-row .sd.serious{background:var(--serious)}.ntf-row .sd.warn{background:var(--warn)}
 .ntf-tools{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px}
 .ntf-tools .sp{flex:1}
-.chipb{display:inline-flex;align-items:center;gap:6px;height:32px;padding:0 12px;border-radius:99px;border:1px solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;cursor:pointer}
-.chipb[aria-pressed=true]{background:var(--brand);border-color:var(--brand);color:var(--brand-ink)}
+.chipb{display:inline-flex;align-items:center;gap:6px;height:36px;padding:0 12px;border-radius:var(--radius-sm);border:var(--border-w) solid var(--line);background:var(--surface);color:var(--ink-2);font:inherit;font-size:13px;cursor:pointer}
+.chipb[aria-pressed=true]{background:var(--green-wash);border-color:var(--border-brand);color:var(--green-deep);font-weight:600}
 .ntf-set{display:flex;flex-direction:column}
 .ntf-rule{display:grid;grid-template-columns:1fr auto;gap:10px 14px;padding:14px 0;border-bottom:1px solid var(--line);align-items:center}
 .ntf-rule:last-child{border-bottom:0}
@@ -42,7 +42,7 @@ const CSS = `
 .ntf-rule .ctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
 .ntf-rule .ctl .lb{font-size:12px;color:var(--ink-3)}
 .ntf-rule.off .ctl{opacity:.45;pointer-events:none}
-.ntf-step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:9px;overflow:hidden}
+.ntf-step{display:inline-flex;align-items:center;border:1px solid var(--line);border-radius:var(--radius-md);overflow:hidden}
 .ntf-step button{border:0;background:var(--surface);width:34px;height:32px;font-size:16px;cursor:pointer;color:var(--ink-2)}
 .ntf-step span{min-width:52px;text-align:center;font:600 13px var(--font-num)}
 @media (max-width:760px){.chipb,.ntf-step button{height:40px;min-width:40px}.ntf-row .acts .btn{min-height:40px}}

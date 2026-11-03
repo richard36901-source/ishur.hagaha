@@ -1,3 +1,92 @@
+/* CRM screens (crm/*) · brand tokens from ops.css. Loaded by crm/adapt.js. */
+/* ═══ CRM (לידים / לקוחות / דיילות / היום) ═══ */
+.chip{display:inline-flex;align-items:center;gap:4px;height:24px;padding:0 8px;border-radius:var(--radius-xs);background:var(--bg-3);color:var(--ink-2);font-size:12.5px;font-weight:500;white-space:nowrap}
+.chip.src{background:var(--green-wash);color:var(--green-deep)}
+.chip button{border:0;background:none;padding:0 2px;cursor:pointer;color:var(--ink-3);font-size:14px;line-height:1}
+.crm-filters .sel>button{min-width:0}
+.ck{display:inline-grid;place-items:center;width:20px;height:20px;padding:0;border-radius:var(--radius-xs);border:var(--border-w) solid var(--ink-3);background:var(--surface);color:var(--on-green);font-size:12px;cursor:pointer;flex:none}
+.ck[aria-checked=true],[aria-checked=true]>.ck{background:var(--green);border-color:var(--green)}
+.ck>span{display:grid;place-items:center;color:var(--on-green);font-size:12px;line-height:1}
+.ck-l{display:inline-flex;align-items:center;gap:10px;border:0;background:none;cursor:pointer;color:var(--ink-2);font-size:14px;min-height:var(--control-sm)}
+.tbl-head-sel{display:flex;align-items:center;gap:8px;padding:10px 14px}
+.bulk{position:sticky;inset-block-start:0;z-index:4;display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:12px 14px;border-radius:var(--radius-lg);background:var(--green-wash);border:1px solid var(--border-brand)}
+.bulk .in{width:160px}
+.crm-drawer:not(.modal){width:min(600px,100vw)}
+.crm-drawer .drawer-b{padding-bottom:0}
+.drawer-acts{position:sticky;inset-block-end:0;margin:auto -22px 0;padding:14px 22px calc(14px + env(safe-area-inset-bottom));display:flex;gap:8px;background:color-mix(in srgb,var(--surface) 92%,transparent);backdrop-filter:saturate(1.6) blur(12px);-webkit-backdrop-filter:saturate(1.6) blur(12px);border-top:1px solid var(--border);z-index:2}
+.drawer-acts .btn{height:var(--control-h)}
+.grow{flex:1 1 0}
+.crm-head{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;align-items:flex-start}
+.crm-head p{margin:8px 0 0}
+.crm-sec{display:flex;flex-direction:column;gap:12px}
+.crm-sec>.h2,.crm-sec>h3.h2{font-size:.78rem;letter-spacing:.09em;color:var(--green-deep);font-weight:600}
+.crm-counts .tile{min-height:76px}
+.tile.sm .v{font-size:22px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:var(--space-3)}
+.next-row{display:flex;flex-wrap:wrap;gap:8px}
+.next-row .grow{flex:1 1 180px}
+.tag-add{display:inline-flex;gap:4px;align-items:center}
+.in.sm{height:var(--control-sm);width:120px}
+.ai{display:inline-block;margin-inline-end:4px;font-size:14px}
+.ai sub{font-size:9px}
+.warn-l{margin:6px 0 0;padding-inline-start:18px;display:flex;flex-direction:column;gap:4px}
+.acts-g{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:8px}
+.acts-g .btn{justify-content:flex-start}
+.acts-h{font-size:12.5px;color:var(--ink-3);margin:6px 0 0}
+.form{display:flex;flex-direction:column;gap:16px;max-width:560px}
+.f-row{display:flex;flex-direction:column;gap:6px}
+.f-l{font-size:.81rem;font-weight:500;color:var(--ink-2)}
+.f-v{display:flex;flex-direction:column}
+.f-v>.sel,.f-v>.sel>button,.f-v>.in{width:100%}
+.f-ro{min-height:var(--control-h);display:flex;align-items:center;padding:0 14px;border-radius:var(--radius-md);background:var(--bg-2);border:1px solid var(--border)}
+.checklist{border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface)}
+.ck-row{display:grid;grid-template-columns:auto 1fr auto;gap:12px;align-items:center;width:100%;min-height:52px;padding:0 16px;border:0;border-bottom:1px solid var(--border);background:none;text-align:start;cursor:pointer;font-size:15px;color:var(--ink)}
+.ck-row:last-child{border-bottom:0}
+.ck-row:hover:not(.static){background:var(--hover)}
+.ck-row.static{grid-template-columns:1fr auto auto;cursor:default}
+.ck-row[aria-disabled=true]{cursor:default;color:var(--ink-3)}
+.ck-row .ck{pointer-events:none}
+.ck-row .price{color:var(--ink-2);font-family:var(--font-num);min-width:70px;text-align:end}
+.qc-total{display:flex;justify-content:space-between;align-items:baseline;padding-top:14px;border-top:1px solid var(--gold-soft);font-weight:600}
+.qc-total b{font-size:32px;font-weight:600;letter-spacing:-.02em;color:var(--green-deep)}
+.f-act{display:flex;flex-wrap:wrap;gap:8px}
+.qc-out{display:flex;flex-direction:column;gap:14px;margin-top:6px;padding-top:16px;border-top:1px solid var(--border);max-width:560px}
+.link-box{display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:var(--radius-md);background:var(--bg-2);border:1px solid var(--border);word-break:break-all}
+.link-box .mono{flex:1}
+.link-box a{display:inline-flex;gap:6px;align-items:center;font-weight:500}.link-box a svg{width:15px;height:15px}
+.in.ta{height:auto;min-height:var(--control-h);padding:12px 14px;line-height:1.6;width:100%;resize:vertical;font:inherit}
+.tpl-list{display:flex;flex-direction:column;gap:8px}
+.tpl{display:flex;flex-direction:column;gap:3px;text-align:start;padding:12px 14px;border:var(--border-w) solid var(--border);border-radius:var(--radius-md);background:var(--surface);cursor:pointer;font-size:14px}
+.tpl[aria-checked=true]{border-color:var(--green);background:var(--green-wash);box-shadow:0 0 0 3px var(--focus-ring)}
+.qc-host button{height:var(--control-sm)}
+.crm-today{margin-top:4px}
+.chart{display:block;max-width:100%;overflow:visible}
+.funnel{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px}
+.funnel li{display:grid;grid-template-columns:86px 1fr 44px 40px;gap:10px;align-items:center;font-size:14px}
+.fb{height:20px;border-radius:var(--radius-xs);background:var(--bg-3);overflow:hidden;display:flex}
+.fb i{display:block;height:100%;background:var(--series);border-start-end-radius:4px;border-end-end-radius:4px;min-width:2px}
+.funnel b{text-align:end;font-family:var(--font-num)}
+.tview{margin-top:10px;font-size:13px}
+[data-chart]{width:100%;min-width:0}
+body:has(.drawer) .toasts{inset-block-end:88px}
+.tview summary{cursor:pointer;color:var(--ink-3);width:max-content}
+.tview .tbl-wrap{max-height:220px;margin-top:6px}
+@media (max-width:760px){
+  .kb{scroll-snap-type:x mandatory;margin-inline:-16px;padding-inline:16px;scroll-padding-inline:16px}
+  .kb-col{flex:0 0 82vw;max-width:none;scroll-snap-align:start;max-height:calc(100dvh - 260px)}
+  .grid2{grid-template-columns:1fr}
+  .bulk .in{flex:1}
+  .ck{width:24px;height:24px}
+  td .ck{width:var(--control-h);height:var(--control-h);border-radius:var(--radius-md)}
+  .crm-filters{gap:6px}
+  #ld-f{display:block;width:100%;min-width:0}#ld-f>.bar{display:grid;grid-template-columns:1fr 1fr;gap:6px}#ld-f .sel,#ld-f .sel>button{width:100%}
+  .crm-filters .sel>button{min-width:0;padding:0 10px}
+  .funnel li{grid-template-columns:72px 1fr 40px 36px}
+  .qc-host button,.ck-l,.seg button{min-height:var(--control-h)}
+  .ck-row.static{grid-template-columns:1fr auto;row-gap:8px;padding-block:10px}.ck-row.static .seg{grid-column:1/-1;grid-row:2}
+
+}
+
 /* ishur ops · CRM-only styles (kanban, notes/activity, hostess week grid). Loaded by crm/adapt.js on the first CRM import, so ops.css stays in its budget. */
 /* kanban */
 .kb{display:flex;gap:12px;overflow-x:auto;padding-bottom:8px;align-items:flex-start;overscroll-behavior-x:contain}

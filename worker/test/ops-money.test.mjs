@@ -101,3 +101,48 @@ test('feedbackRollup: per event, trend, NPS score', () => {
   const a = r.events.find(e => e.token === 'a'); assert.equal(a.n, 2); assert.equal(a.avg_nps, 8); assert.equal(a.notes, 1); assert.ok(a.review_url.endsWith('?t=a'));
   assert.deepEqual(r.trend.map(t => [t.bucket, t.n]), [['2026-10-25', 2], ['2026-11-01', 1]]);
 });
+
+test('adsTree: comparison funnel + unit economics (quoted, close rate, cost per closed, avg deal, avg gross, ad-set attribution, totals)', () => {
+  const rows = [
+    { campaign_id: 'C1', campaign_name: 'Main', adset_id: 'S1', adset_name: 'Weddings', ad_id: 'A1', spend: '400', impressions: '2000', clicks: '60', actions: [{ action_type: 'lead', value: '4' }] },
+    { campaign_id: 'C1', campaign_name: 'Main', adset_id: 'S2', adset_name: 'Bar', ad_id: 'A2', spend: '100', impressions: '500', clicks: '5', actions: [] },
+  ];
+  const leads = [
+    { phone: '972501111111', origin: { campaign: 'Main', adset: 'Weddings' }, status: 'closed' },
+    { phone: '972502222222', origin: { campaign: 'Main', adset: 'Weddings' }, status: 'quoted' },
+    { phone: '972503333333', origin: { campaign: 'Main' }, status: 'new' },
+    { phone: '972504444444', origin: { campaign: 'Main', adset: 'Bar' }, status: 'closed' },
+  ];
+  const t = adsTree(rows, { leads, revenueByPhone: { 501111111: 1000, 504444444: 600 }, costByPhone: { 501111111: 200, 504444444: 100 } });
+  const c = t.campaigns[0], w = c.adsets.find((s) => s.name === 'Weddings');
+  assert.equal(c.crm_leads, 4); assert.equal(c.quoted, 3); assert.equal(c.closed, 2);
+  assert.equal(c.close_rate_pct, 50); assert.equal(c.cost_per_closed, 250); assert.equal(c.avg_deal, 800); assert.equal(c.avg_gross, 650); assert.equal(c.roas, 3.2);
+  assert.equal(w.crm_leads, 2); assert.equal(w.quoted, 2); assert.equal(w.closed, 1); assert.equal(w.cost_per_closed, 400); assert.equal(w.avg_gross, 800);
+  assert.equal(t.totals.impressions, 2500); assert.equal(t.totals.quoted, 3); assert.equal(t.totals.cost_per_closed, 250); assert.equal(t.totals.avg_deal, 800);
+});
+
+test('fixed costs: recurring until removed, defaults prefilled, unknown rows count 0, Telnyx row, legacy month lists still count', async () => {
+  const { FIXED_DEFAULTS, normFixed, fixedForMonth, editFixed, telnyxFixed, fixedCostAction } = await import('../ops-money.js');
+  const d = FIXED_DEFAULTS('2026-11').map((x) => normFixed(x));
+  assert.ok(d.find((x) => x.id === 'sim4499' && x.ils === 19.8) && d.filter((x) => /^SIM אורחים/.test(x.name)).every((x) => x.ils === 10));
+  assert.ok(['retell', 'make', 'monday', 'anthropic'].every((id) => d.find((x) => x.id === id).unknown));
+  assert.equal(fixedForMonth(d, '2026-10').total, 0);                     /* before from_month: nothing */
+  const nov = fixedForMonth(d, '2026-11'), dec = fixedForMonth(d, '2027-03');
+  assert.equal(nov.total, dec.total);                                     /* recurring: same every month */
+  assert.equal(nov.total, Math.round((19.8 + 10 + 10 + 5 * 3.7) * 100) / 100);
+  const rm = editFixed(d, { action: 'remove', id: 'sim6673' }, '2027-01');
+  assert.equal(rm.find((x) => x.id === 'sim6673').to_month, '2026-12');
+  assert.equal(fixedForMonth(rm, '2027-01').total, Math.round((nov.total - 10) * 100) / 100);
+  assert.equal(fixedForMonth(rm, '2026-12').total, nov.total);            /* history keeps it */
+  assert.equal(editFixed(d, { action: 'remove', id: 'sim6673' }, '2026-11').find((x) => x.id === 'sim6673'), undefined); /* added this month → gone */
+  const add = editFixed(d, { action: 'add', item: { name: 'Make', ils: 40, from_month: '2026-12' } }, '2026-11');
+  assert.equal(fixedForMonth(add, '2026-12').total, Math.round((nov.total + 40) * 100) / 100);
+  assert.equal(fixedForMonth([], '2026-11', [{ name: 'old', ils: 7 }]).total, 7);
+  const t = telnyxFixed([{}, {}, {}], '2026-11'); assert.equal(t.usd, 3); assert.ok(t.approx);
+  assert.equal(telnyxFixed([{ cost_information: { monthly_cost: '1.5' } }, { cost_information: { monthly_cost: '2' } }], '2026-11').approx, false);
+  const kv = new Map(), env = { RATE: { get: async (k) => kv.get(k) ?? null, put: async (k, v) => kv.set(k, v), delete: async (k) => kv.delete(k) }, TELNYX_KEY: 'k' };
+  const r1 = await fixedCostAction(env, { action: 'list' }, '2026-11');
+  assert.ok(r1.ok && r1.items.length === d.length && kv.has('fixedcosts'));
+  const r2 = await fixedCostAction(env, { action: 'telnyx' }, '2026-11', async () => ({ json: async () => ({ data: [{}, {}] }) }));
+  assert.ok(r2.items.find((x) => x.id === 'telnyx_numbers' && x.usd === 2 && x.approx));
+});

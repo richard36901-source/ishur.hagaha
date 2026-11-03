@@ -1,6 +1,6 @@
 /* Phase 4a helpers shared by lazy/messaging.js, lazy/inbox.js, lazy/control.js (lazy, not counted) */
 import { esc, Badge } from '../ui.js';
-if (typeof document !== 'undefined' && !document.getElementById('p4a-css')) document.head.insertAdjacentHTML('beforeend', '<link id="p4a-css" rel="stylesheet" href="assets/ops/p4a.css?v=1">');
+if (typeof document !== 'undefined' && !document.getElementById('p4a-css')) document.head.insertAdjacentHTML('beforeend', '<link id="p4a-css" rel="stylesheet" href="assets/ops/p4a.css?v=2">');
 export const ilDay = (d = Date.now()) => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date(d));
 export const ilHour = (d = Date.now()) => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hourCycle: 'h23' }).format(new Date(d)));
 export const shiftDay = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);

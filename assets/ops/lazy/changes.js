@@ -4,7 +4,7 @@
    kind / actor / date, every entry opens a drawer with its details and, where the server says the
    change can be undone, a "שחזר" button behind a typed confirm (POST /api/ops/revert).
    Lazy module: app.js imports it only on #/changes (outside the counted JS budget). */
-import { esc, fmtN, fmtDate, fmtTime, fmtDT, Skeleton, Button, Drawer, confirmTyped, toast, busy } from '../ui.js';
+import { esc, fmtN, fmtDate, fmtTime, fmtDT, Skeleton, Button, Drawer, confirmTyped, toast, busy, DatePicker } from '../ui.js';
 
 export const KIND_HE = { deploy: 'גרסה', registry: 'אוטומציות', edit: 'עריכה', hold: 'החזקה', toggle: 'מתג', pause: 'עצירה כללית', template: 'תבנית', brain: 'מוח', subevent: 'אירוע-בן', blast: 'שליחה ידנית', revert: 'שחזור' };
 export const KIND_TONE = { deploy: 'info', registry: 'info', edit: 'warn', hold: 'serious', toggle: 'serious', pause: 'crit', template: '', brain: '', subevent: '', blast: 'warn', revert: 'good' };
@@ -53,7 +53,7 @@ export function toolbar(st, kinds = KIND_HE, counts = {}) {
   return `<div class="card"><div class="sec-h" style="flex-wrap:wrap"><h2 class="h2">יומן שינויים</h2><span class="sub">כל מה ששינה את התנהגות המערכת: גרסאות, עריכות, מתגים, תבניות, החלטות מוח ושליחות ידניות</span></div>
 <div class="cal-filters"><div class="chips" role="group" aria-label="סוג">${Object.keys(kinds).map((k) => `<button type="button" class="fchip" data-act="chg-k" data-k="${esc(k)}" aria-pressed="${st.kinds.has(k)}">${esc(kinds[k])}${counts[k] ? ` <span class="muted num">${fmtN(counts[k])}</span>` : ''}</button>`).join('')}</div></div>
 <div class="cal-filters"><div class="seg" role="tablist" aria-label="מי">${actors.map((a) => `<button type="button" role="tab" data-act="chg-a" data-v="${esc(a)}" aria-selected="${(st.actor || '') === a}">${esc(a ? ACTOR_HE[a] : 'כולם')}</button>`).join('')}</div>
-<label class="sub chg-date">מ-<input class="in" type="date" data-chg-date="from" value="${esc(st.from || '')}" aria-label="מתאריך"></label><label class="sub chg-date">עד<input class="in" type="date" data-chg-date="to" value="${esc(st.to || '')}" aria-label="עד תאריך"></label>
+<span class="sub chg-date">מ-${DatePicker({ value: st.from || '', label: 'מתאריך', attr: { 'data-chg-date': 'from' } })}</span><span class="sub chg-date">עד${DatePicker({ value: st.to || '', label: 'עד תאריך', attr: { 'data-chg-date': 'to' } })}</span>
 <input class="in" data-search placeholder="חיפוש: שם, הגדרה, קומיט" aria-label="חיפוש ביומן" value="${esc(st.q || '')}">${st.kinds.size || st.actor || st.from || st.to || st.q ? Button('ניקוי', { size: 'sm', variant: 'ghost', act: 'chg-clear' }) : ''}</div></div>`;
 }
 const val = (v) => (v == null ? '—' : typeof v === 'object' ? (Array.isArray(v) ? v.join(', ') : Object.values(v).join('–')) : String(v));

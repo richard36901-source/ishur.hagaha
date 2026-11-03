@@ -4,7 +4,7 @@
    capacity (overflow days) and balances (status "low"). "What runs next" is the pacer's
    next tick from realtime.queue. The registry is not needed here. */
 import { esc, fmtN, fmtTime, relTime, StatTile, Skeleton, Badge, statusDot, timeTag } from '../ui.js';
-import { capBars, capLegend } from './capacity.js';
+import { capMeters } from './capacity.js';
 import { capacityIncidents, balanceIncidents } from '../adapt.js';
 
 export function tiles(rt, bal, incidentsN) {
@@ -30,7 +30,7 @@ export const allIncidents = (rt, cap, bal) => (rt ? rt.incidents : []).concat(ca
 export function view(rt, cap, bal) {
   const inc = allIncidents(rt, cap, bal);
   return `<section aria-label="מדדים">${rt ? tiles(rt, bal, inc.length) : Skeleton.tiles(6)}</section>
-<section class="card"><div class="sec-h"><h2 class="h2">קיבולת · 7 ימים</h2><span class="sp"></span>${capLegend()}<a class="btn ghost sm" href="#/capacity">14 יום</a></div><div id="ov-cap">${cap ? capBars(cap.days.slice(0, 7), { compact: true, h: 150 }) : Skeleton.lines(4)}</div></section>
+<section class="card"><div class="sec-h"><h2 class="h2">קיבולת · 7 ימים</h2><span class="sp"></span><a class="btn ghost sm" href="#/messages?tab=capacity">14 יום</a></div><div id="ov-cap">${cap ? capMeters(cap.days.slice(0, 7), { compact: true }) : Skeleton.lines(7)}</div></section>
 <div class="grid g-2">
 <section class="card"><div class="sec-h"><h2 class="h2">תקלות</h2><span class="sp"></span><a class="btn ghost sm" href="#/messaging">להודעות</a></div>${rt ? incidents(inc) : Skeleton.lines(5)}</section>
 <section class="card"><div class="sec-h"><h2 class="h2">בפעימה הבאה</h2><span class="sp"></span><a class="btn ghost sm" href="#/automations">כל האוטומציות</a></div>${rt ? nextUp(rt.next) : Skeleton.lines(5)}</section>

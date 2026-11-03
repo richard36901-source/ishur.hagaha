@@ -6,9 +6,7 @@
    the mark, one axis only. Text wears ink tokens, never the series color. */
 import { esc, fmtN } from '../ui.js';
 
-const CSS = `:root{--c1:#2a78d6;--c2:#eda100;--c3:#1f9e89;--c4:#8a5cd0}
-@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--c1:#3987e5;--c2:#c98500;--c3:#22a08b;--c4:#9d74e0}}
-:root[data-theme=dark]{--c1:#3987e5;--c2:#c98500;--c3:#22a08b;--c4:#9d74e0}
+const CSS = `/* series colours --c1..--c4 come from the brand tokens in ops.css (green-mid, gold, slate, mauve) */
 .vz{width:100%;height:auto;display:block;overflow:visible}.vz text{direction:ltr;unicode-bidi:isolate;fill:var(--ink-3);font-size:11px;font-family:var(--font-num,inherit)}
 @media (max-width:640px){.vz text{font-size:19px}}
 .vz .grid{stroke:var(--line);stroke-width:1}.vz .base{stroke:var(--line-2);stroke-width:1}.vz .hit{fill:transparent;cursor:default}

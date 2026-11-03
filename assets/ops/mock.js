@@ -13,6 +13,7 @@ export async function mockApi(name, body, ver, qs) {
   if (name === 'thread') { const t = (await fixture('thread')).by_phone[String(body.phone || '')]; if (!t) return { ok: false, error: 'bad-phone' }; const c = structuredClone(t); if (mockState.human[c.phone] != null) c.takeover = { human: mockState.human[c.phone], ai: !mockState.human[c.phone], ai_off: mockState.human[c.phone] }; c.messages.push(...(mockState.sent[c.phone] || [])); return { ok: true, fixture: true, ...c }; }
   if (name === 'control') { const f = structuredClone(await fixture('control')); Object.assign(f, mockState.ctl); f.events.forEach((e) => Object.assign(e, mockState.flags[e.token] || {})); return f; }
   /* phase 4c writes (money screens) */
+  if (name === '/fixedcost' && body.action) return fixedMock(body);
   if (name === '/fixedcost' || name === '/adspend') return { ok: true, fixture: true };
   if (name === 'finance' && body.set_manual) return { ok: true, fixture: true, month: body.set_manual.month, manual: { [body.set_manual.vendor]: body.set_manual.ils } };
   if (name === 'invoice-resend') { const p = { token: body.token, name: 'לקוח לדוגמה', phone: '0500000000', url: 'https://example.invalid/inv', number: '1001', template: 'ishur_heshbonit_n', confirm_required: String(body.token || '').slice(0, 8) }; return body.confirm ? { ok: true, applied: true, preview: p } : { ok: true, applied: false, preview: p }; }
@@ -133,4 +134,20 @@ function p4aPost(name, b) {
   if (r === 'block-phone') { if (typeof b.blocked === 'boolean') mockState.blocked[b.phone] = b.blocked; return { ok: true, phone: b.phone, blocked: !!mockState.blocked[b.phone], opted_out: false }; }
   if (r === 'ipn-replay') return /^ipnmiss:\d+$/.test(b.id || '') ? { ok: true, status: 200, result: 'ok (דמה)' } : { ok: false, error: 'bad-id' };
   return { ok: false, error: 'unknown' };
+}
+
+/* recurring fixed costs (same semantics as worker/ops-money.js fixedCostAction, in memory for ?mock=1) */
+const FXM = { items: null };
+const ym = () => new Date().toISOString().slice(0, 7);
+function fixedMock(b) {
+  const m = ym();
+  FXM.items = FXM.items || [['sim4499', 'SIM 4499 (נועה)', 19.8], ['sim6673', 'SIM אורחים 6673', 10], ['sim9799', 'SIM אורחים 3089799', 10], ['cf_workers', 'Cloudflare Workers Paid', 18.5, 5], ['retell', 'Retell'], ['make', 'Make'], ['monday', 'Monday'], ['anthropic', 'Anthropic']]
+    .map(([id, name, ils, usd]) => ({ id, name, ils: ils || 0, usd: usd || null, from_month: m, to_month: null, approx: false, unknown: ils == null, source: ils == null ? 'manual' : 'known' }));
+  const L = FXM.items, it = b.item, i = it ? L.findIndex((x) => x.id === it.id) : -1;
+  if (b.action === 'add' && it) L.push({ id: 'fx' + L.length, from_month: m, to_month: null, approx: false, unknown: false, source: 'manual', usd: null, ...it, ils: Number(it.ils) || 0 });
+  if (b.action === 'update' && i >= 0) Object.assign(L[i], it, { ils: Number(it.ils) || 0, unknown: !(Number(it.ils) > 0) });
+  if (b.action === 'remove') { const j = L.findIndex((x) => x.id === b.id); if (j >= 0) L.splice(j, 1); }
+  if (b.action === 'telnyx') { const j = L.findIndex((x) => x.id === 'telnyx_numbers'), row = { id: 'telnyx_numbers', name: 'מספרי Telnyx (3)', usd: 3, ils: 11.1, approx: true, unknown: false, from_month: m, to_month: null, source: 'telnyx' }; if (j >= 0) L[j] = row; else L.push(row); }
+  const active = L.filter((x) => x.from_month <= m && (!x.to_month || m <= x.to_month));
+  return { ok: true, items: L, month_total: Math.round(active.reduce((t, x) => t + (x.unknown ? 0 : x.ils), 0) * 100) / 100 };
 }
