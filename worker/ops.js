@@ -216,7 +216,10 @@ export function projectItems({ events, guests, flags = {}, today, days = 14, isN
 export function planCapacity({ today, days = 14, items = [], model = {}, isNoContactDay = () => false }) {
   const dayList = Array.from({ length: days }, (_, i) => addDays(today, i));
   const per = Math.max(0, Number(model.capacity_per_day) || 0);
-  const capOf = d => !engineDay(d, isNoContactDay) ? 0 : d === today ? Math.max(0, Math.min(per, Number(model.today_remaining ?? per))) : per;
+  /* Friday: the send window closes at 13:00, so the day holds at most friday_capacity (pacer ticks × batch) */
+  const isFri = d => new Date(d + 'T12:00:00Z').getUTCDay() === 5;
+  const dayCap = d => isFri(d) && Number.isFinite(Number(model.friday_capacity)) ? Math.min(per, Math.max(0, Number(model.friday_capacity))) : per;
+  const capOf = d => !engineDay(d, isNoContactDay) ? 0 : d === today ? Math.max(0, Math.min(dayCap(d), Number(model.today_remaining ?? per))) : dayCap(d);
   const rows = dayList.map(d => ({ day: d, open: engineDay(d, isNoContactDay), planned: 0, held_planned: 0, capacity: capOf(d), overflow: 0, by_event: [] }));
   const byDay = Object.fromEntries(rows.map(r => [r.day, r]));
   const sorted = items.slice().sort((a, b) => a.day < b.day ? -1 : a.day > b.day ? 1 : a.token < b.token ? -1 : a.token > b.token ? 1 : a.type < b.type ? -1 : 1);
@@ -226,6 +229,19 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
     if (it.held) r.held_planned += it.count; else r.planned += it.count;
   }
   for (const r of rows) r.overflow = Math.max(0, r.planned - r.capacity);
+  /* 03/11 rolled plan: what will ACTUALLY go out each day. The engine never drops a due message —
+     what does not fit waits for the next open day, oldest first (FIFO by due day, then token/type).
+     Closed days (Shabbat / no-contact) have capacity 0, so nothing ever lands on them. */
+  const queue = [];
+  for (const r of rows) {
+    for (const it of sorted) if (it.day === r.day && !it.held) queue.push({ token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, n: it.count, from_day: it.day });
+    let room = r.capacity; r.rolled = [];
+    while (room > 0 && queue.length) { const q = queue[0], take = Math.min(room, q.n); r.rolled.push({ ...q, n: take }); q.n -= take; room -= take; if (!q.n) queue.shift(); }
+    r.out = r.rolled.reduce((n, x) => n + x.n, 0);
+    r.rolled_in = r.rolled.filter(x => x.from_day < r.day).reduce((n, x) => n + x.n, 0);
+    r.carry = queue.reduce((n, q) => n + q.n, 0);
+  }
+  const unplaced = queue.map(q => ({ token: q.token, tok8: q.tok8, event: q.event, type: q.type, n: q.n, from_day: q.from_day }));
   /* recommendations: each event's per-day batch, earliest day it fits whole */
   const free = Object.fromEntries(rows.map(r => [r.day, r.capacity]));
   const events = {};
@@ -253,7 +269,7 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
       recs.push({ token: e.token, tok8: e.tok8, name: e.name, due, count, kind: 'split', days_needed: n, split, unplaced: left, needs_capacity_by: due, he: `${count} הודעות לא נכנסות ביום אחד (תקרה ${per}) — לפצל על ${n} ימים. ${needs}` });
     }
   }
-  return { days: rows, recommendations: recs, totals: { planned: rows.reduce((n, r) => n + r.planned, 0), held_planned: rows.reduce((n, r) => n + r.held_planned, 0), overflow_days: rows.filter(r => r.overflow > 0).map(r => r.day) } };
+  return { days: rows, recommendations: recs, unplaced, totals: { out: rows.reduce((n, r) => n + r.out, 0), unplaced: unplaced.reduce((n, q) => n + q.n, 0), planned: rows.reduce((n, r) => n + r.planned, 0), held_planned: rows.reduce((n, r) => n + r.held_planned, 0), overflow_days: rows.filter(r => r.overflow > 0).map(r => r.day) } };
 }
 /* the capacity model: shared 250 − margin until verified, per-number tier (≥1000) after */
 export function capacityModel({ verified = false, numbers = [], portfolioLimit = 250, margin = 20, todayRemaining = null }) {
@@ -421,6 +437,8 @@ export async function buildCapacity(env, d, now = Date.now(), days = 14) {
   const [cap, waCap, verif, inp] = await Promise.all([d.guestCapacity(env).catch(() => null), kjson(env, 'wa:cap'), bizVerification(env), projectionInputs(env, d, today, days)]);
   const numbers = ((waCap && waCap.numbers) || []).map(n => ({ id: String(n.id), tier: n.tier }));
   const model = capacityModel({ verified: verif.verified, numbers: numbers.length ? numbers : d.guestPhoneIds(env).map(id => ({ id, tier: '' })), portfolioLimit: (cap && cap.limit) || 250, margin: cap ? cap.margin : 20, todayRemaining: cap ? cap.remaining : null });
+  /* Friday window 09:00–13:00 = 25 pacer ticks (:00…:00) × PACE_SENDS */
+  model.friday_capacity = Math.min(model.capacity_per_day, 25 * (Number(d.PACE_SENDS) || 25));
   if (!inp) return { ok: false, error: 'snapshot-unreadable', model, verification: verif };
   const items = projectItems({ events: inp.events, guests: inp.guests, flags: inp.flags, today, days, isNoContactDay: d.isNoContactDay });
   /* sub-events: manual sends, no date — their unsent rest is planned for today, flagged manual */
