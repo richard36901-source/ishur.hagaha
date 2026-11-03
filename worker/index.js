@@ -4641,7 +4641,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
   if (!dry && await isOff(env, 'event_day_blast')) return { ok: true, skipped: 'off:event_day_blast' };
   const jobs = await kvPrefix(env, 'edblast:');
   const today = ilDate();
-  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date()));
   const res = [];
   for (const [token, rawJob] of Object.entries(jobs)) {
     if (only && token !== only) continue;
