@@ -43,6 +43,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_A
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
+import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
 import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
@@ -297,6 +298,131 @@ async function handleDesignBrief(request, env, origin) {
   return okJson({ ok: true }, origin);
 }
 
+/* ══ 03/11 design flow in the client dashboard (docs/DESIGN-FLOW-PWA-2026-11-03.md) ══ */
+const DFLOW_TTL = 400 * 86400;
+async function designPaid(env, token) {
+  try { const d = JSON.parse(await env.RATE.get('design:' + token) || 'null'); return !!(d && d.status === 'paid'); } catch { return false; }
+}
+async function readFlow(env, token) {
+  try { return JSON.parse(await env.RATE.get('designflow:' + token) || 'null') || newFlow(); } catch { return newFlow(); }
+}
+const writeFlow = (env, token, f) => env.RATE.put('designflow:' + token, JSON.stringify(f), { expirationTtl: DFLOW_TTL });
+const dfileUrl = (host, token, id) => `https://${host}/api/design-file?t=${token}&id=${id}`;
+function flowView(host, token, f, brief) {
+  return {
+    status: f.status, rounds_used: f.rounds_used || 0, rounds_total: roundsTotal(f), rounds_free: f.rounds_free || 0, rounds_paid: f.rounds_paid || 0,
+    free_claimed: !!f.free_claimed, can_request_changes: canRequestChanges(f), round_price: DESIGN_ROUND_PRICE,
+    versions: (f.versions || []).map(v => ({ n: v.n, note: v.note, at: v.at, url: dfileUrl(host, token, v.media), mime: v.mime || '' })),
+    comments: f.comments || [],
+    brief: brief ? { text: brief.text || brief.wording || '', refs: (brief.refs || []).map(id => ({ id, url: dfileUrl(host, token, id) })), at: brief.at || '', source: brief.source || 'design.html' } : null,
+    brief_editable: !(f.versions || []).length,
+  };
+}
+const dslack = (env, token, text) => slackSend(env, `🎨 ${text} · אירוע ${token.slice(0, 8)} · https://ishur.io/dashboard.html?t=${token}`, { urgent: true, now: true }).catch(() => {});
+
+/* client side, token auth: POST {token, action:'state'|'brief'|'approve'|'changes'|'buy', ...} */
+async function handleDesignFlow(request, env, origin, host) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const token = String(b.token || '').trim().toLowerCase();
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token) || !(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+  const paid = await designPaid(env, token);
+  const action = String(b.action || 'state');
+  let brief = null; try { brief = JSON.parse(await env.RATE.get('designbrief:' + token) || 'null'); } catch {}
+  let f = await readFlow(env, token);
+  if (action === 'state') return okJson({ ok: true, paid, ...(paid ? flowView(host, token, f, brief) : {}) }, origin);
+  if (!paid) return deny(402, 'design-not-paid', origin);
+  if (await overBudget(env, 'rl:dflow:' + token, 60, 3600)) return deny(429, 'slow-down', origin);
+  const at = new Date().toISOString();
+  if (action === 'brief') {
+    if ((f.versions || []).length) return okJson({ ok: false, why: 'locked' }, origin);
+    const v = validateClientBrief(b);
+    if (!v.ok) return okJson({ ok: false, why: v.why }, origin);
+    for (const id of v.brief.refs) if (!(await env.RATE.get('dfile:' + token + ':' + id))) return okJson({ ok: false, why: 'unknown-ref' }, origin);
+    const edit = !!(brief && brief.source === 'dashboard');
+    brief = { ...(brief || {}), ...v.brief, token, at };
+    await env.RATE.put('designbrief:' + token, JSON.stringify(brief), { expirationTtl: DFLOW_TTL });
+    await dslack(env, token, `${edit ? 'בריף עיצוב עודכן' : 'בריף עיצוב חדש מלוח הבקרה'} · ${v.brief.refs.length} תמונות השראה · "${v.brief.text.slice(0, 120)}"`);
+    await logEvent(env, { area: 'עיצוב הזמנה', action: edit ? 'הלקוח עדכן בריף' : 'הלקוח שלח בריף מלוח הבקרה', ok: true, token, detail: v.brief.text.slice(0, 200) }).catch(() => {});
+    return okJson({ ok: true, ...flowView(host, token, f, brief) }, origin);
+  }
+  let r;
+  if (action === 'approve') r = approveDesign(f, at);
+  else if (action === 'changes') r = requestChanges(f, b.comment, at);
+  else if (action === 'buy') r = buyRound(f);
+  else return deny(400, 'bad-action', origin);
+  if (!r.ok) return okJson({ ok: false, why: r.why, ...flowView(host, token, f, brief) }, origin);
+  if (action === 'buy' && r.pay) {
+    /* server-priced: the client never sends a sum */
+    const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
+    const quote = { id, kind: 'design_round', token, sum: DESIGN_ROUND_PRICE, description: DESIGN_ROUND_DESC, code: 'design_round:1', at };
+    await env.RATE.put('quote:' + id, JSON.stringify(quote), { expirationTtl: 30 * 86400 });
+    if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook', ...flowView(host, token, f, brief) }, origin);
+    const rec = await tokenRecord(env, token) || {};
+    const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      sum: DESIGN_ROUND_PRICE, description: DESIGN_ROUND_DESC, token, kind: 'design_round', scope: 'all', label: DESIGN_ROUND_DESC, n: 1,
+      name: rec.name || '', phone: String(rec.phone || '').replace(/^972/, '0'), email: 'noreply@ishur.io',
+      successUrl: `https://ishur.io/dashboard.html?t=${token}#design`, cancelUrl: `https://ishur.io/dashboard.html?t=${token}#design`,
+      cField1: `q:${id}|design_round:1|t:${token}`,
+    }) }).catch(() => null);
+    let mj = null; try { mj = mk ? await mk.json() : null; } catch {}
+    const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+    await logEvent(env, { area: 'עיצוב הזמנה', action: 'קישור תשלום לסבב תיקונים', ok: !!link, review: !link, token, ref: 'q:' + id, detail: link || 'no link' }).catch(() => {});
+    return okJson({ ok: !!link, pay: true, url: link || '', price: DESIGN_ROUND_PRICE, ...flowView(host, token, f, brief) }, origin);
+  }
+  f = r.flow;
+  await writeFlow(env, token, f);
+  if (action === 'approve') await dslack(env, token, `עיצוב אושר ✅ (גרסה ${f.approved_version}) — לסמן "בוצע" באדמין`);
+  if (action === 'changes') await dslack(env, token, `הלקוח ביקש תיקונים לגרסה ${f.versions.length}: "${String(b.comment || '').slice(0, 200)}"`);
+  if (action === 'buy') await dslack(env, token, 'הלקוח מימש את סבב התיקונים החינמי');
+  await logEvent(env, { area: 'עיצוב הזמנה', action: { approve: 'הלקוח אישר את העיצוב', changes: 'הלקוח ביקש תיקונים', buy: 'סבב תיקונים חינם מומש' }[action], ok: true, token }).catch(() => {});
+  return okJson({ ok: true, free: action === 'buy' ? true : undefined, ...flowView(host, token, f, brief) }, origin);
+}
+
+/* admin: POST {admin_key, token, media, note} uploads a version; action:'done' | 'state' */
+async function handleDesignVersion(request, env, origin, host) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!(await adminKeyOk(env, b.admin_key))) return deny(403, 'bad-admin-key', origin);
+  const token = String(b.token || '').trim().toLowerCase();
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
+  let brief = null; try { brief = JSON.parse(await env.RATE.get('designbrief:' + token) || 'null'); } catch {}
+  let f = await readFlow(env, token);
+  const action = String(b.action || 'upload');
+  const paid = await designPaid(env, token);
+  if (action === 'state') return okJson({ ok: true, paid, ...flowView(host, token, f, brief) }, origin);
+  let r;
+  if (action === 'done') r = markDone(f);
+  else if (action === 'upload') {
+    if (!paid) return deny(402, 'design-not-paid', origin);
+    const media = String(b.media || '');
+    const meta = DFILE_ID_RE.test(media) ? await env.RATE.getWithMetadata('dfile:' + token + ':' + media).catch(() => null) : null;
+    if (!meta || meta.value == null) return deny(404, 'unknown-media', origin);
+    r = addVersion(f, { media, note: b.note });
+    if (r.ok) r.flow.versions[r.flow.versions.length - 1].mime = (meta.metadata && meta.metadata.mime) || '';
+  } else return deny(400, 'bad-action', origin);
+  if (!r.ok) return okJson({ ok: false, why: r.why, ...flowView(host, token, f, brief) }, origin);
+  f = r.flow;
+  await writeFlow(env, token, f);
+  await logEvent(env, { area: 'עיצוב הזמנה', action: action === 'done' ? 'עיצוב סומן כבוצע' : `הועלתה גרסת עיצוב ${f.versions.length}`, ok: true, token }).catch(() => {});
+  return okJson({ ok: true, ...flowView(host, token, f, brief) }, origin);
+}
+
+/* the IPN for a ₪49 round: exactly one round per payment reference */
+async function grantDesignRound(env, flat, dr, { ref, phone, sum }) {
+  let q = null; try { q = dr.id ? JSON.parse(await env.RATE.get('quote:' + dr.id) || 'null') : null; } catch {}
+  const token = (q && q.kind === 'design_round' && q.token) || '';
+  if (!token || (dr.token && dr.token !== token) || (sum && Number(sum) + 0.001 < DESIGN_ROUND_PRICE)) {
+    await env.RATE.put('addonpark:' + ref, JSON.stringify({ phone, sum, ref, addon: { kind: 'design_round', ...dr }, at: new Date().toISOString() }), { expirationTtl: 60 * 86400 }).catch(() => {});
+    await alert(env, 'סבב עיצוב', `שולם סבב תיקונים (₪${sum || '?'}) אבל ההצעה לא נמצאה/לא תואמת — לשייך ידנית`, `ref=${ref} q=${dr.id} t=${dr.token}`);
+    return new Response('design-round-parked', { status: 200 });
+  }
+  await env.RATE.put('grow:' + ref, 'design_round', { expirationTtl: 30 * 86400 });
+  const r = grantPaidRound(await readFlow(env, token), ref);
+  await writeFlow(env, token, r.flow);
+  await dslack(env, token, `💳 שולם סבב תיקונים נוסף ₪${sum || DESIGN_ROUND_PRICE} · סה"כ סבבים ${roundsTotal(r.flow)}`);
+  await logEvent(env, { area: 'תשלום', action: 'שולם סבב תיקונים לעיצוב', ok: true, phone, ref, token, detail: 'q:' + dr.id }).catch(() => {});
+  return new Response('design-round-granted', { status: 200 });
+}
+
 async function handleGrowIpn(request, env, url) {
   if ((url.searchParams.get('k') || '') !== env.GROW_KEY) {
     return new Response('forbidden', { status: 403 });
@@ -348,6 +474,8 @@ async function handleGrowIpn(request, env, url) {
      named "<N> מוזמנים <plan>", so the description is the reliable signal. */
   /* עיצוב הזמנה (₪79): its own Grow page, not a package and not a
      guests add-on. Tied to the event by cField1=<token> on the link. */
+  /* 03/11: a ₪49 design round carries its own code; it is ours by construction */
+  if (designRoundRef(flat)) return processGrowPayment(env, flat);
   if (isDesignPayment(flat)) return handleDesignPaid(env, flat);
 
   const isIshur = looksIshur(flat, ISHUR_GROW_PAGES);
@@ -414,6 +542,10 @@ async function processGrowPayment(env, flat) {
     await logEvent(env, { area: 'תשלום', action: 'IPN כפול — כבר טופל', ok: true, phone, ref });
     return new Response('duplicate', { status: 200 });
   }
+
+  /* 03/11 design flow: a paid correction round, never a package or an add-on */
+  const dround = designRoundRef(flat);
+  if (dround && env.RATE) return grantDesignRound(env, flat, dround, { ref, phone, sum });
 
   /* ── an add-on, not a new event ─────────────────────────────────────────
      A Grow page named "תוספת 50 מוזמנים" or "שליחה נוספת" is money for an
@@ -1149,7 +1281,7 @@ async function handleIpnReplay(request, env, origin) {
   }
   /* design payments have their own handler; the replay must take the same
      fork as the live IPN or a ₪79 design looks like a package (11/10 bug) */
-  const res = isDesignPayment(flat) ? await handleDesignPaid(env, flat) : await processGrowPayment(env, flat);
+  const res = (isDesignPayment(flat) && !designRoundRef(flat)) ? await handleDesignPaid(env, flat) : await processGrowPayment(env, flat);
   const text = await res.text().catch(() => '');
   await logEvent(env, { area: 'תשלום', action: 'הרצה ידנית של תשלום שחנה (ipn-replay)', ok: res.status === 200,
     phone: flat.payerPhone || '', ref: flat.asmachta || '', detail: `${id} → ${text}` });
@@ -4695,7 +4827,7 @@ const AUDIT_WHAT = {
   '/api/media': 'תמונת/וידאו הזמנה', '/api/guest-edit': 'עריכת פרטי אורח', '/api/interest': 'התעניינות במתנות באשראי',
   '/api/checkin': 'סימון הגעה ביום האירוע', '/api/guest-rsvp': 'אורח ענה דרך הקישור', '/api/guest-add': 'הוספת אורח',
   '/api/addon-pay': 'רכישת תוספת/שדרוג', '/api/guests-upload': 'העלאת רשימת מוזמנים', '/api/settings': 'שמירת הגדרות האירוע',
-  '/api/cancel': 'ביטול', '/api/referral': 'הפניית חבר',
+  '/api/cancel': 'ביטול', '/api/referral': 'הפניית חבר', '/api/design-flow': 'עיצוב הזמנה · לוח בקרה',
 };
 async function auditClient(env, request, path, body) {
   if (!env.RATE) return;
@@ -11169,12 +11301,52 @@ export default {
       }
       return okJson({ ok: true, flags: out }, origin);
     }
+    if (url.pathname === '/api/design-flow' && request.method === 'POST') return handleDesignFlow(request, env, origin, url.hostname);
+    if (url.pathname === '/api/design-version' && request.method === 'POST') return handleDesignVersion(request, env, origin, url.hostname);
+    /* token-scoped read of a design file: the key itself carries the token, so
+       one event's link can never open another event's file */
+    if (url.pathname === '/api/design-file' && request.method === 'GET') {
+      const t = String(url.searchParams.get('t') || '').toLowerCase(), id = String(url.searchParams.get('id') || '');
+      if (!env.RATE || !/^[0-9a-f-]{36}$/.test(t) || !DFILE_ID_RE.test(id)) return deny(400, 'bad-request', origin);
+      const hit = await env.RATE.getWithMetadata('dfile:' + t + ':' + id, { type: 'arrayBuffer' }).catch(() => null);
+      if (!hit || hit.value == null) return deny(404, 'not-found', origin);
+      return new Response(hit.value, { headers: { 'Content-Type': (hit.metadata && hit.metadata.mime) || 'application/octet-stream', 'Cache-Control': 'private, max-age=3600', 'X-Content-Type-Options': 'nosniff', ...cors(origin) } });
+    }
     /* swap the invitation image/video from the client dashboard (token auth) */
     if (url.pathname === '/api/media' && request.method === 'POST') {
       let form;
       try { form = await request.formData(); } catch { return deny(400, 'bad-form', origin); }
       const token = String(form.get('token') || '').trim();
       if (!/^[0-9a-f-]{36}$/.test(token) || !env.RATE) return deny(400, 'bad-token', origin);
+      /* 03/11 design flow: purpose=design_ref (client inspiration, token auth) or
+         purpose=design_version (admin, admin_key in the form). Stored apart from
+         the invitation image, under dfile:<token>:<id>; returns {media:id}. */
+      const purpose = String(form.get('purpose') || '');
+      if (purpose === 'design_ref' || purpose === 'design_version') {
+        const isAdm = purpose === 'design_version' && await adminKeyOk(env, String(form.get('admin_key') || ''));
+        if (purpose === 'design_version' && !isAdm) return deny(403, 'bad-admin-key', origin);
+        if (!isAdm && !(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+        if (!(await designPaid(env, token))) return deny(402, 'design-not-paid', origin);
+        if (!isAdm) {
+          if ((await readFlow(env, token)).versions.length) return deny(409, 'locked', origin);
+          const n = Number(await env.RATE.get('dfilen:' + token) || 0);
+          if (n >= DESIGN_REF_MAX * 4) return deny(429, 'too-many-files', origin);
+          await env.RATE.put('dfilen:' + token, String(n + 1), { expirationTtl: DFLOW_TTL });
+        }
+        const file = form.get('file');
+        if (!file || typeof file !== 'object' || !file.arrayBuffer) return deny(400, 'no-file', origin);
+        const limit = isAdm ? 15 * 1024 * 1024 : MAX_IMAGE_BYTES;
+        if (file.size > limit) return deny(413, 'file-too-large', origin);
+        const buf = await file.arrayBuffer();
+        const head = new Uint8Array(buf.slice(0, 16));
+        const isPdf = head[0] === 0x25 && head[1] === 0x50 && head[2] === 0x44 && head[3] === 0x46;
+        const isWebp = String.fromCharCode(...head.slice(0, 4)) === 'RIFF' && String.fromCharCode(...head.slice(8, 12)) === 'WEBP';
+        const mime = sniffImage(head) || (isWebp ? 'image/webp' : '') || (isAdm && isPdf ? 'application/pdf' : '');
+        if (!mime) return deny(422, 'bad-file', origin);
+        const id = Array.from(crypto.getRandomValues(new Uint8Array(8)), x => x.toString(16).padStart(2, '0')).join('');
+        await env.RATE.put('dfile:' + token + ':' + id, buf, { expirationTtl: DFLOW_TTL, metadata: { mime, purpose } });
+        return okJson({ ok: true, media: id, mime, url: dfileUrl(url.hostname, token, id) }, origin);
+      }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
       if (await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
       const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);

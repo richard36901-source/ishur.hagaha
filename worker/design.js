@@ -95,3 +95,101 @@ export function designTokenOf(flat) {
   }
   return '';
 }
+
+/* ══ 03/11 design flow inside the client dashboard ═══════════════════════════
+   Only for events whose design is paid (design:<token>.status === 'paid').
+   KV:
+     designbrief:<token>  the client's wishes {source:'dashboard', text, refs[], at}
+                          (design.html writes the same key with its long form)
+     designflow:<token>   versions + status + rounds (this module's state machine)
+     dfile:<token>:<id>   uploaded bytes (inspiration images / design versions)
+   design:<token> stays the paid flag only: four readers and the paylink tests
+   key on its status === 'paid', so the flow state lives next to it. */
+
+export const DESIGN_ROUND_PRICE = 49;          /* ₪ per paid round, server-side only */
+export const DESIGN_REF_MAX = 5;               /* inspiration images per brief */
+export const DESIGN_FLOW_STATUSES = ['new', 'awaiting_client', 'changes_requested', 'approved', 'done'];
+export const DESIGN_ROUND_DESC = 'סבב תיקונים נוסף לעיצוב';   /* never "עיצוב הזמנה": isDesignPayment would grab it */
+export const DFILE_ID_RE = /^[0-9a-f]{16}$/;
+
+/* dashboard brief: free text + up to 5 uploaded media ids */
+export function validateClientBrief(b) {
+  if (!b || typeof b !== 'object') return { ok: false, why: 'bad-body' };
+  const text = clipLong(b.text, 3000);
+  if (text.replace(/\s/g, '').length < 5) return { ok: false, why: 'text' };
+  const raw = Array.isArray(b.refs) ? b.refs : [];
+  if (raw.length > DESIGN_REF_MAX) return { ok: false, why: 'too-many-refs' };
+  const refs = [...new Set(raw.map(String))];
+  if (refs.some(id => !DFILE_ID_RE.test(id))) return { ok: false, why: 'bad-ref' };
+  return { ok: true, brief: { source: 'dashboard', text, refs } };
+}
+
+export function newFlow() {
+  return { versions: [], status: 'new', rounds_used: 0, rounds_free: 1, rounds_paid: 0, free_claimed: false, comments: [] };
+}
+export const roundsTotal = f => (f.rounds_free || 0) + (f.rounds_paid || 0);
+/* a change request that has not been answered yet holds a round already */
+const roundsCommitted = f => (f.rounds_used || 0) + (f.status === 'changes_requested' ? 1 : 0);
+export const canRequestChanges = f => f.status === 'awaiting_client' && roundsCommitted(f) < roundsTotal(f);
+
+/* every transition returns { ok, flow } or { ok:false, why } and never mutates its input */
+export function addVersion(flow, { media, note, at }) {
+  const f = JSON.parse(JSON.stringify(flow || newFlow()));
+  if (f.status === 'approved' || f.status === 'done') return { ok: false, why: 'already-approved' };
+  if (!DFILE_ID_RE.test(String(media || ''))) return { ok: false, why: 'bad-media' };
+  /* rounds_used grows only when we answer a change request with a new version */
+  if (f.status === 'changes_requested') f.rounds_used = (f.rounds_used || 0) + 1;
+  f.versions.push({ n: f.versions.length + 1, media: String(media), note: clipLong(note, 1000), at: at || new Date().toISOString() });
+  f.status = 'awaiting_client';
+  return { ok: true, flow: f };
+}
+export function approveDesign(flow, at) {
+  const f = JSON.parse(JSON.stringify(flow || newFlow()));
+  if (f.status !== 'awaiting_client' || !f.versions.length) return { ok: false, why: 'nothing-to-approve' };
+  f.status = 'approved'; f.approved_at = at || new Date().toISOString(); f.approved_version = f.versions.length;
+  return { ok: true, flow: f };
+}
+export function requestChanges(flow, comment, at) {
+  const f = JSON.parse(JSON.stringify(flow || newFlow()));
+  const text = clipLong(comment, 2000);
+  if (text.replace(/\s/g, '').length < 2) return { ok: false, why: 'comment' };
+  if (f.status !== 'awaiting_client') return { ok: false, why: 'not-awaiting' };
+  if (!canRequestChanges(f)) return { ok: false, why: 'no-rounds-left' };
+  f.status = 'changes_requested';
+  f.comments.push({ v: f.versions.length, text, at: at || new Date().toISOString() });
+  return { ok: true, flow: f };
+}
+/* "רכישת סבב נוסף": the first click, before any paid round and while the
+   included round is still unused, claims the free round with no payment.
+   Every later click is a ₪49 payment (granted by the IPN, grantPaidRound). */
+export function buyRound(flow) {
+  const f = JSON.parse(JSON.stringify(flow || newFlow()));
+  if (f.status === 'approved' || f.status === 'done') return { ok: false, why: 'already-approved' };
+  if (!f.rounds_paid && !f.free_claimed && (f.rounds_used || 0) < (f.rounds_free || 0)) {
+    f.free_claimed = true;
+    return { ok: true, free: true, flow: f };
+  }
+  return { ok: true, free: false, pay: true, price: DESIGN_ROUND_PRICE, flow: f };
+}
+export function grantPaidRound(flow, ref) {
+  const f = JSON.parse(JSON.stringify(flow || newFlow()));
+  f.rounds_paid = (f.rounds_paid || 0) + 1;
+  f.paid_refs = [...(f.paid_refs || []), String(ref || '')].slice(-20);
+  return { ok: true, flow: f };
+}
+export function markDone(flow, at) {
+  const f = JSON.parse(JSON.stringify(flow || newFlow()));
+  if (f.status !== 'approved') return { ok: false, why: 'not-approved' };
+  f.status = 'done'; f.done_at = at || new Date().toISOString();
+  return { ok: true, flow: f };
+}
+
+/* Grow IPN: "q:<id>|design_round:1|t:<token>" in the custom fields */
+export function designRoundRef(flat) {
+  flat = flat || {};
+  const all = ['cField1', 'cfield1', 'customField1', 'cField2', 'cField3'].map(k => String(flat[k] || '')).join(' ');
+  if (!/\bdesign_round:1\b/.test(all)) return null;
+  const id = (all.match(/\bq:([0-9a-f]{12})\b/) || [])[1] || '';
+  const token = ((all.match(/\bt:([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})\b/i) || [])[1] || '').toLowerCase();
+  return { id, token };
+}
