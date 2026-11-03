@@ -1,0 +1,372 @@
+{
+ "ok": true,
+ "fixture": true,
+ "severities": [
+  "P0",
+  "P1",
+  "P2",
+  "P3"
+ ],
+ "channels": [
+  "app",
+  "slack",
+  "push",
+  "whatsapp"
+ ],
+ "quiet_hours": {
+  "from": "21:00",
+  "to": "09:00"
+ },
+ "rules": [
+  {
+   "id": "incident",
+   "he": "תקלה במערכת (מהמוח)",
+   "default_severity": "P1",
+   "dedupe_min": 360,
+   "defaults": {
+    "on": true,
+    "min_severity": "P1",
+    "channels": [
+     "app",
+     "slack",
+     "push",
+     "whatsapp"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P1",
+   "channels": [
+    "app",
+    "slack",
+    "push",
+    "whatsapp"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "new_lead",
+   "he": "ליד חדש",
+   "default_severity": "P2",
+   "dedupe_min": 1440,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "lead_reply",
+   "he": "ליד ענה בשיחת המכירה",
+   "default_severity": "P2",
+   "dedupe_min": 60,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "payment",
+   "he": "תשלום התקבל",
+   "default_severity": "P1",
+   "dedupe_min": 10080,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "unanswered",
+   "he": "ליד / לקוח מחכה לתשובה מעל שעתיים",
+   "default_severity": "P1",
+   "dedupe_min": 360,
+   "defaults": {
+    "on": true,
+    "min_severity": "P1",
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P1",
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "event_readiness",
+   "he": "אירוע בעוד 3 ימים וחסר משהו",
+   "default_severity": "P1",
+   "dedupe_min": 1440,
+   "defaults": {
+    "on": true,
+    "min_severity": "P1",
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P1",
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "failures_spike",
+   "he": "קפיצה בכשלי וואטסאפ",
+   "default_severity": "P1",
+   "dedupe_min": 180,
+   "defaults": {
+    "on": true,
+    "min_severity": "P1",
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P1",
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "cap_high",
+   "he": "התקרה היומית מעל 85%",
+   "default_severity": "P2",
+   "dedupe_min": 720,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "hold_stale",
+   "he": "אירוע בהחזקה יותר מיומיים",
+   "default_severity": "P2",
+   "dedupe_min": 1440,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "balances_low",
+   "he": "יתרה נמוכה אצל ספק",
+   "default_severity": "P1",
+   "dedupe_min": 1440,
+   "defaults": {
+    "on": true,
+    "min_severity": "P1",
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P1",
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "template_status",
+   "he": "תבנית אושרה / נדחתה",
+   "default_severity": "P2",
+   "dedupe_min": 1440,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "brain_autofix",
+   "he": "המוח תיקן משהו לבד",
+   "default_severity": "P3",
+   "dedupe_min": 360,
+   "defaults": {
+    "on": true,
+    "min_severity": "P2",
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P2",
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "deploy",
+   "he": "גרסה חדשה עלתה",
+   "default_severity": "P3",
+   "dedupe_min": 43200,
+   "defaults": {
+    "on": true,
+    "min_severity": "P3",
+    "channels": [
+     "app"
+    ],
+    "quiet": true,
+    "digest_hour": null
+   },
+   "on": true,
+   "min_severity": "P3",
+   "channels": [
+    "app"
+   ],
+   "quiet": true,
+   "digest_hour": null
+  },
+  {
+   "id": "weekly_digest",
+   "he": "סיכום שבועי (ראשון)",
+   "default_severity": "P3",
+   "dedupe_min": 8640,
+   "defaults": {
+    "on": true,
+    "min_severity": "P3",
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "quiet": false,
+    "digest_hour": 9
+   },
+   "on": true,
+   "min_severity": "P3",
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "quiet": false,
+   "digest_hour": 9
+  }
+ ]
+}

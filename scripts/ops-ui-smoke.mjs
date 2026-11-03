@@ -427,10 +427,12 @@ if (!process.argv.includes('--no-browser')) {
     const cp = await cx.newPage();
     const cerr = []; cp.on('pageerror', (e) => cerr.push(e.message)); cp.on('console', (m2) => { if (m2.type() === 'error') cerr.push(m2.text()); });
     await cp.goto(url + '#/overview');
-    await cp.waitForSelector('.crm-today .ag', { timeout: 8000 }).catch(() => {});
-    ok(!!(await cp.$('.crm-today .ag')) && (await cp.$$('.crm-today svg.chart')).length === 3 && !!(await cp.$('.crm-today .funnel')), 'overview: "היום" agenda + 3 charts (revenue, sends, calls) + funnel');
+    /* 03/11 Phase 5: Richard rejected the static CRM "היום" charts (crm/today.js) on the overview; the smart overview
+       (lazy/overview2.js) replaces them with one interactive trend chart + ממתין לך (which carries overdue reminders)
+       + a funnel tile. Deeper chart checks: scripts/ops-notify-smoke.mjs. */
+    await cp.waitForSelector('.ov2 #ov-trend [data-chart] svg', { timeout: 8000 }).catch(() => {});
+    ok(!!(await cp.$('.ov2 .wait li')) && !!(await cp.$('.ov2 #ov-trend [data-chart] svg rect.hit')) && /משפך/.test(await cp.$eval('#main', (m) => m.innerText)), 'overview: ממתין לך list + interactive trend chart + funnel tile');
     await cp.screenshot({ path: join(shotDir, 'overview-crm-light.png'), fullPage: false });
-    await cp.evaluate(() => document.querySelector('.crm-today').scrollIntoView()); await cp.screenshot({ path: join(shotDir, 'overview-today-light.png') });
     await cp.evaluate(() => { location.hash = '#/leads'; });
     await cp.waitForSelector('.kb-card', { timeout: 6000 });
     ok((await cp.$$('.kb-col')).length === 6, 'leads board renders 6 columns', (await cp.$$('.kb-card')).length + ' cards');
@@ -514,5 +516,6 @@ if (!process.argv.includes('--no-browser')) {
     await mc.close(); await browser.close(); srv.close();
   }
 }
+{ const r = spawnSync(process.execPath, [join(ROOT, 'scripts/ops-notify-smoke.mjs'), ...process.argv.slice(2)], { encoding: 'utf8' }); process.stdout.write(r.stdout); ok(r.status === 0, 'Phase 5 notify smoke (scripts/ops-notify-smoke.mjs)'); }   /* bell + #/notify + overview v2 at 1440/375 */
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

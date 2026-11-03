@@ -110,12 +110,12 @@ export const ROUTES = [
   { id: 'capacity', he: 'קיבולת', icon: 'cap', key: 'k' },
   { id: 'calendar', he: 'לוח שנה', icon: 'cap', key: 'd' },
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
-  { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' }, { id: 'control', he: 'שליטה', key: 'x' },
+  { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' }, { id: 'control', he: 'שליטה', key: 'x' }, { id: 'notify', he: 'התראות', key: 'n' },
   { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 't', dir: 'crm' },
 ];
 const screens = {};
 /* lazy/ + crm/ modules sit outside the counted JS budget */
-const LAZY = new Set(['calendar', 'changes', 'messaging', 'inbox', 'control']);
+const LAZY = new Set(['calendar', 'changes', 'messaging', 'inbox', 'control', 'notify']);
 const loadModule = (id) => (screens[id] = screens[id] || import(LAZY.has(id) ? `./lazy/${id}.js` : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
 const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
@@ -278,5 +278,6 @@ function boot() {
   ensureLive();
   route();
   mountSide();
+  import('./lazy/notify.js').then((m) => m.mountBell({ api, MOCK })).catch(() => {});   /* Phase 5 header bell */
 }
 boot();
