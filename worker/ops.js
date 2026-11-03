@@ -531,18 +531,21 @@ export function calendarMonth({ month, today, events = [], board = null, capDays
     const lastCap = capDays.length ? capDays[capDays.length - 1].day : today;
     if (p.scheduled > 0 && t.due > lastCap) add(t.due, { id: `send:${k}:${t.due}:p`, kind: 'send', tok8: ev.short, event: ev.name, type: t.key, type_he: CAL_TYPES[t.key] || t.key, state: 'planned', n: p.scheduled, of: t.audience, due: t.due, template: template || '', reason: 'מתוכנן (מחוץ לאופק המתכנן)' });
   }
+  const ghosts = {};
   for (const r of capDays) {
     for (const x of r.rolled || []) {
       const k = x.tok8 + '|' + x.type, base = { kind: 'send', tok8: x.tok8, event: x.event || nameOf(x.tok8), type: x.type, type_he: CAL_TYPES[x.type] || x.type, n: x.n, due: x.from_day, of: boardTypes[k] ? boardTypes[k].t.audience : null, template: (boardTypes[k] && boardTypes[k].template) || '' };
       if (x.from_day === r.day) add(r.day, { ...base, id: `send:${k}:${r.day}:plan`, state: 'planned', reason: '' });
       else {
         add(r.day, { ...base, id: `send:${k}:${r.day}:from:${x.from_day}`, state: 'rolled', from_day: x.from_day, reason: `לא נכנס בתקרה של ${x.from_day} — המתכנן דחה ליום הפנוי הבא` });
-        add(x.from_day, { ...base, id: `send:${k}:${x.from_day}:ghost:${r.day}`, state: 'ghost', to_day: r.day, reason: `עבר ל-${r.day} (תקרה)` });
+        const gk = k + '|' + x.from_day, g = ghosts[gk] = ghosts[gk] || { ...base, id: `send:${k}:${x.from_day}:ghost`, state: 'ghost', n: 0, to_days: [], day: x.from_day };
+        g.n += x.n; g.to_days.push(r.day);
       }
     }
     for (const e of r.by_event || []) if (e.held && !boardTypes[e.tok8 + '|' + e.type]) add(r.day, { id: `send:${e.tok8}|${e.type}:${r.day}:held`, kind: 'send', tok8: e.tok8, event: e.name, type: e.type, type_he: CAL_TYPES[e.type] || e.type, state: 'held', n: e.count, due: r.day, template: '', reason: 'האירוע בהחזקה (hold)' });
     if (cell[r.day]) { const c = cell[r.day]; c.capacity = r.day === today ? Math.max(c.used + r.capacity, 0) : r.capacity; c.used += r.out || 0; }
   }
+  for (const { day, ...g } of Object.values(ghosts)) add(day, { ...g, to_day: g.to_days[g.to_days.length - 1], reason: `${g.n} עברו ל-${g.to_days.join(', ')} (תקרה)` });
   for (const c of calls.done || []) add(c.day, { id: `call:${c.tok8}:${c.day}`, kind: 'call', tok8: c.tok8, event: nameOf(c.tok8, c.name), type: 'call', type_he: CAL_TYPES.call, state: 'done', n: c.n, answered: c.answered || 0, reason: '' });
   for (const c of calls.planned || []) add(c.day, { id: `call:${c.tok8}:${c.day}:plan`, kind: 'call', tok8: c.tok8, event: nameOf(c.tok8, c.name), type: 'call', type_he: CAL_TYPES.call, state: 'planned', n: c.n, reason: 'אורחים בתור לשיר (לא ענו להודעות)' });
   for (const c of closed) add(c.day, { id: `closed:${c.ref || c.at}`, kind: 'closed', tok8: c.tok8 || '', event: c.event, type: 'closed', type_he: 'סגירה', state: 'done', at: c.at, package: c.package, records: c.records, sum: c.sum, reason: '' });

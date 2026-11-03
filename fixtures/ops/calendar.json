@@ -1,0 +1,988 @@
+{
+ "fixture": true,
+ "fixture_from": "https://go.ishur.io",
+ "ok": true,
+ "at": "2026-11-03T14:26:57.664Z",
+ "source": "composed locally from live capacity + send-board (calendar endpoint not deployed): no audit counts, no closed purchases, no Shir rounds",
+ "month": "2026-11",
+ "today": "2026-11-03",
+ "tz": "Asia/Jerusalem",
+ "per_day": 230,
+ "friday_capacity": 230,
+ "window": {
+  "weekday": "09:00–20:30",
+  "friday": "09:00–13:00",
+  "shabbat": null
+ },
+ "days": [
+  {
+   "date": "2026-11-01",
+   "dow": 0,
+   "dow_he": "ראשון",
+   "past": true,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "id": "send:ec9f3b84|daybefore:2026-11-01:b",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "state": "done",
+     "n": 21,
+     "sent": 21,
+     "delivered": 0,
+     "failed": 0,
+     "of": 291,
+     "total_sent": 21,
+     "due": "2026-11-01",
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-02",
+   "dow": 1,
+   "dow_he": "שני",
+   "past": true,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [
+    {
+     "tok8": "ec9f3b84",
+     "name": "אירוע ז",
+     "type": "",
+     "time": ""
+    },
+    {
+     "tok8": "c1c5fcf5",
+     "name": "אירוע ח",
+     "type": "",
+     "time": ""
+    }
+   ],
+   "items": [
+    {
+     "id": "send:ec9f3b84|table:2026-11-02:b",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "table",
+     "type_he": "שולחן",
+     "state": "partial",
+     "n": 98,
+     "sent": 98,
+     "delivered": 51,
+     "failed": 8,
+     "of": 273,
+     "total_sent": 98,
+     "due": "2026-11-02",
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    },
+    {
+     "id": "send:ec9f3b84|eventday:2026-11-02:b",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "eventday",
+     "type_he": "יום-האירוע",
+     "state": "partial",
+     "n": 149,
+     "sent": 149,
+     "delivered": 12,
+     "failed": 71,
+     "of": 149,
+     "total_sent": 149,
+     "due": null,
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-03",
+   "dow": 2,
+   "dow_he": "שלישי",
+   "past": false,
+   "today": true,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 5,
+   "capacity": 5,
+   "events": [],
+   "items": [
+    {
+     "id": "send:c1c5fcf5|gift:2026-11-03:b",
+     "kind": "send",
+     "tok8": "c1c5fcf5",
+     "event": "אירוע ח",
+     "type": "gift",
+     "type_he": "מתנה",
+     "state": "partial",
+     "n": 53,
+     "sent": 53,
+     "delivered": 50,
+     "failed": 0,
+     "of": 53,
+     "total_sent": 53,
+     "due": "2026-11-03",
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    },
+    {
+     "id": "send:e045522a|w1:2026-11-03:b",
+     "kind": "send",
+     "tok8": "e045522a",
+     "event": "אירוע ד",
+     "type": "w1",
+     "type_he": "גל 1",
+     "state": "partial",
+     "n": 3,
+     "sent": 3,
+     "delivered": 2,
+     "failed": 0,
+     "of": 45,
+     "total_sent": 3,
+     "due": "2026-11-01",
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    },
+    {
+     "id": "send:395962fa|w1:2026-11-03:b",
+     "kind": "send",
+     "tok8": "395962fa",
+     "event": "אירוע ג",
+     "type": "w1",
+     "type_he": "גל 1",
+     "state": "partial",
+     "n": 15,
+     "sent": 15,
+     "delivered": 8,
+     "failed": 0,
+     "of": 180,
+     "total_sent": 15,
+     "due": "2026-11-01",
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    },
+    {
+     "id": "send:395962fa|w2:2026-11-03:b",
+     "kind": "send",
+     "tok8": "395962fa",
+     "event": "אירוע ג",
+     "type": "w2",
+     "type_he": "גל 2",
+     "state": "partial",
+     "n": 106,
+     "sent": 106,
+     "delivered": 96,
+     "failed": 0,
+     "of": 106,
+     "total_sent": 106,
+     "due": "2026-11-03",
+     "completion_day": null,
+     "template": "",
+     "reason": "ספירה מסימוני השליחה (מחוץ לחלון הלוג)"
+    },
+    {
+     "kind": "send",
+     "tok8": "ab699ac0",
+     "event": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "n": 5,
+     "due": "2026-11-03",
+     "of": null,
+     "template": "",
+     "id": "send:ab699ac0|subevent:2026-11-03:plan",
+     "state": "planned",
+     "reason": ""
+    },
+    {
+     "id": "send:96b7dec2|w1:held",
+     "kind": "send",
+     "tok8": "96b7dec2",
+     "event": "אירוע ה",
+     "type": "w1",
+     "type_he": "גל 1",
+     "state": "held",
+     "n": 55,
+     "of": 55,
+     "due": "2026-10-20",
+     "template": "",
+     "reason": "האירוע בהחזקה (hold) — לא יוצא עד שמשחררים"
+    },
+    {
+     "id": "send:96b7dec2|w3:held",
+     "kind": "send",
+     "tok8": "96b7dec2",
+     "event": "אירוע ה",
+     "type": "w3",
+     "type_he": "גל 3",
+     "state": "held",
+     "n": 55,
+     "of": 55,
+     "due": "2026-10-18",
+     "template": "",
+     "reason": "האירוע בהחזקה (hold) — לא יוצא עד שמשחררים"
+    },
+    {
+     "id": "send:ec9f3b84|w1:held",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "w1",
+     "type_he": "גל 1",
+     "state": "held",
+     "n": 303,
+     "of": 341,
+     "due": "2026-10-18",
+     "template": "",
+     "reason": "האירוע בהחזקה (hold) — לא יוצא עד שמשחררים"
+    },
+    {
+     "id": "send:ec9f3b84|w2:held",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "w2",
+     "type_he": "גל 2",
+     "state": "held",
+     "n": 35,
+     "of": 53,
+     "due": "2026-10-23",
+     "template": "",
+     "reason": "האירוע בהחזקה (hold) — לא יוצא עד שמשחררים"
+    },
+    {
+     "id": "send:ec9f3b84|daybefore:held",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "state": "held",
+     "n": 270,
+     "of": 291,
+     "due": "2026-11-01",
+     "template": "",
+     "reason": "האירוע בהחזקה (hold) — לא יוצא עד שמשחררים"
+    },
+    {
+     "id": "send:ec9f3b84|table:held",
+     "kind": "send",
+     "tok8": "ec9f3b84",
+     "event": "אירוע ז",
+     "type": "table",
+     "type_he": "שולחן",
+     "state": "held",
+     "n": 175,
+     "of": 273,
+     "due": "2026-11-02",
+     "template": "",
+     "reason": "האירוע בהחזקה (hold) — לא יוצא עד שמשחררים"
+    },
+    {
+     "kind": "send",
+     "tok8": "ab699ac0",
+     "event": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "n": 108,
+     "due": "2026-11-03",
+     "of": null,
+     "template": "",
+     "id": "send:ab699ac0|subevent:2026-11-03:ghost",
+     "state": "ghost",
+     "to_days": [
+      "2026-11-04"
+     ],
+     "to_day": "2026-11-04",
+     "reason": "108 עברו ל-2026-11-04 (תקרה)"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-04",
+   "dow": 3,
+   "dow_he": "רביעי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 230,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "ab699ac0",
+     "event": "אירוע א",
+     "type": "subevent",
+     "type_he": "אירוע-בן",
+     "n": 108,
+     "due": "2026-11-03",
+     "of": null,
+     "template": "",
+     "id": "send:ab699ac0|subevent:2026-11-04:from:2026-11-03",
+     "state": "rolled",
+     "from_day": "2026-11-03",
+     "reason": "לא נכנס בתקרה של 2026-11-03 — המתכנן דחה ליום הפנוי הבא"
+    },
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 122,
+     "due": "2026-11-04",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w1:2026-11-04:plan",
+     "state": "planned",
+     "reason": ""
+    },
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 385,
+     "due": "2026-11-04",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w1:2026-11-04:ghost",
+     "state": "ghost",
+     "to_days": [
+      "2026-11-05",
+      "2026-11-06"
+     ],
+     "to_day": "2026-11-06",
+     "reason": "385 עברו ל-2026-11-05, 2026-11-06 (תקרה)"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-05",
+   "dow": 4,
+   "dow_he": "חמישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 230,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 230,
+     "due": "2026-11-04",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w1:2026-11-05:from:2026-11-04",
+     "state": "rolled",
+     "from_day": "2026-11-04",
+     "reason": "לא נכנס בתקרה של 2026-11-04 — המתכנן דחה ליום הפנוי הבא"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-06",
+   "dow": 5,
+   "dow_he": "שישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": "friday",
+   "used": 155,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 155,
+     "due": "2026-11-04",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w1:2026-11-06:from:2026-11-04",
+     "state": "rolled",
+     "from_day": "2026-11-04",
+     "reason": "לא נכנס בתקרה של 2026-11-04 — המתכנן דחה ליום הפנוי הבא"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-07",
+   "dow": 6,
+   "dow_he": "שבת",
+   "past": false,
+   "today": false,
+   "open": false,
+   "closed_reason": "shabbat",
+   "limited": null,
+   "used": 0,
+   "capacity": 0,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-08",
+   "dow": 0,
+   "dow_he": "ראשון",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 98,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "395962fa",
+     "event": "אירוע ג",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "n": 98,
+     "due": "2026-11-08",
+     "of": 98,
+     "template": "",
+     "id": "send:395962fa|daybefore:2026-11-08:plan",
+     "state": "planned",
+     "reason": ""
+    }
+   ]
+  },
+  {
+   "date": "2026-11-09",
+   "dow": 1,
+   "dow_he": "שני",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [
+    {
+     "tok8": "395962fa",
+     "name": "אירוע ג",
+     "type": "",
+     "time": ""
+    }
+   ],
+   "items": []
+  },
+  {
+   "date": "2026-11-10",
+   "dow": 2,
+   "dow_he": "שלישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 13,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "e045522a",
+     "event": "אירוע ד",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 13,
+     "due": "2026-11-10",
+     "of": 13,
+     "template": "",
+     "id": "send:e045522a|w2:2026-11-10:plan",
+     "state": "planned",
+     "reason": ""
+    }
+   ]
+  },
+  {
+   "date": "2026-11-11",
+   "dow": 3,
+   "dow_he": "רביעי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-12",
+   "dow": 4,
+   "dow_he": "חמישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-13",
+   "dow": 5,
+   "dow_he": "שישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": "friday",
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-14",
+   "dow": 6,
+   "dow_he": "שבת",
+   "past": false,
+   "today": false,
+   "open": false,
+   "closed_reason": "shabbat",
+   "limited": null,
+   "used": 0,
+   "capacity": 0,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-15",
+   "dow": 0,
+   "dow_he": "ראשון",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 176,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "ffb78392",
+     "event": "אירוע ו",
+     "type": "w1",
+     "type_he": "גל 1",
+     "n": 176,
+     "due": "2026-11-15",
+     "of": 176,
+     "template": "",
+     "id": "send:ffb78392|w1:2026-11-15:plan",
+     "state": "planned",
+     "reason": ""
+    }
+   ]
+  },
+  {
+   "date": "2026-11-16",
+   "dow": 1,
+   "dow_he": "שני",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 31,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "e045522a",
+     "event": "אירוע ד",
+     "type": "daybefore",
+     "type_he": "יום-לפני",
+     "n": 31,
+     "due": "2026-11-16",
+     "of": 31,
+     "template": "",
+     "id": "send:e045522a|daybefore:2026-11-16:plan",
+     "state": "planned",
+     "reason": ""
+    }
+   ]
+  },
+  {
+   "date": "2026-11-17",
+   "dow": 2,
+   "dow_he": "שלישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [
+    {
+     "tok8": "e045522a",
+     "name": "אירוע ד",
+     "type": "",
+     "time": ""
+    }
+   ],
+   "items": []
+  },
+  {
+   "date": "2026-11-18",
+   "dow": 3,
+   "dow_he": "רביעי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-19",
+   "dow": 4,
+   "dow_he": "חמישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [
+    {
+     "tok8": "96b7dec2",
+     "name": "אירוע ה",
+     "type": "",
+     "time": ""
+    }
+   ],
+   "items": []
+  },
+  {
+   "date": "2026-11-20",
+   "dow": 5,
+   "dow_he": "שישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": "friday",
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-21",
+   "dow": 6,
+   "dow_he": "שבת",
+   "past": false,
+   "today": false,
+   "open": false,
+   "closed_reason": "shabbat",
+   "limited": null,
+   "used": 0,
+   "capacity": 0,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-22",
+   "dow": 0,
+   "dow_he": "ראשון",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-23",
+   "dow": 1,
+   "dow_he": "שני",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 230,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 230,
+     "due": "2026-11-23",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w2:2026-11-23:plan",
+     "state": "planned",
+     "reason": ""
+    },
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 277,
+     "due": "2026-11-23",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w2:2026-11-23:ghost",
+     "state": "ghost",
+     "to_days": [
+      "2026-11-24",
+      "2026-11-25"
+     ],
+     "to_day": "2026-11-25",
+     "reason": "277 עברו ל-2026-11-24, 2026-11-25 (תקרה)"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-24",
+   "dow": 2,
+   "dow_he": "שלישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 230,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 230,
+     "due": "2026-11-23",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w2:2026-11-24:from:2026-11-23",
+     "state": "rolled",
+     "from_day": "2026-11-23",
+     "reason": "לא נכנס בתקרה של 2026-11-23 — המתכנן דחה ליום הפנוי הבא"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-25",
+   "dow": 3,
+   "dow_he": "רביעי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 47,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "6a3155cc",
+     "event": "אירוע ב",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 47,
+     "due": "2026-11-23",
+     "of": 507,
+     "template": "",
+     "id": "send:6a3155cc|w2:2026-11-25:from:2026-11-23",
+     "state": "rolled",
+     "from_day": "2026-11-23",
+     "reason": "לא נכנס בתקרה של 2026-11-23 — המתכנן דחה ליום הפנוי הבא"
+    }
+   ]
+  },
+  {
+   "date": "2026-11-26",
+   "dow": 4,
+   "dow_he": "חמישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 176,
+   "capacity": 230,
+   "events": [],
+   "items": [
+    {
+     "kind": "send",
+     "tok8": "ffb78392",
+     "event": "אירוע ו",
+     "type": "w2",
+     "type_he": "גל 2",
+     "n": 176,
+     "due": "2026-11-26",
+     "of": 176,
+     "template": "",
+     "id": "send:ffb78392|w2:2026-11-26:plan",
+     "state": "planned",
+     "reason": ""
+    }
+   ]
+  },
+  {
+   "date": "2026-11-27",
+   "dow": 5,
+   "dow_he": "שישי",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": "friday",
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-28",
+   "dow": 6,
+   "dow_he": "שבת",
+   "past": false,
+   "today": false,
+   "open": false,
+   "closed_reason": "shabbat",
+   "limited": null,
+   "used": 0,
+   "capacity": 0,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-29",
+   "dow": 0,
+   "dow_he": "ראשון",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [],
+   "items": []
+  },
+  {
+   "date": "2026-11-30",
+   "dow": 1,
+   "dow_he": "שני",
+   "past": false,
+   "today": false,
+   "open": true,
+   "closed_reason": null,
+   "limited": null,
+   "used": 0,
+   "capacity": 230,
+   "events": [
+    {
+     "tok8": "6a3155cc",
+     "name": "אירוע ב",
+     "type": "",
+     "time": ""
+    }
+   ],
+   "items": []
+  }
+ ],
+ "events": [
+  {
+   "tok8": "c1c5fcf5",
+   "name": "אירוע ח"
+  },
+  {
+   "tok8": "e045522a",
+   "name": "אירוע ד"
+  },
+  {
+   "tok8": "96b7dec2",
+   "name": "אירוע ה"
+  },
+  {
+   "tok8": "ec9f3b84",
+   "name": "אירוע ז"
+  },
+  {
+   "tok8": "ffb78392",
+   "name": "אירוע ו"
+  },
+  {
+   "tok8": "6a3155cc",
+   "name": "אירוע ב"
+  },
+  {
+   "tok8": "ab699ac0",
+   "name": "אירוע א"
+  },
+  {
+   "tok8": "395962fa",
+   "name": "אירוע ג"
+  }
+ ]
+}
