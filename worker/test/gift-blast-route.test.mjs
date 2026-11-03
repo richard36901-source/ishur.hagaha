@@ -84,3 +84,26 @@ test('real run (stubbed Meta): sends with the gift button, marks each guest once
   assert.equal(sent.length, 0);
   assert.ok(again.guests.every(g => g.action === 'skip'));
 });
+
+test('variant fallback: when ishur_toda_matana is PENDING but ishur_toda_matana2 is APPROVED, the blast uses the 2 variant', async () => {
+  snapDate = yesterday; sent = [];
+  const e = env();
+  const realFetch = globalThis.fetch;
+  globalThis.fetch = async (u, o) => {
+    const s = String(u);
+    if (/message_templates\?name=/.test(s)) {
+      const name = decodeURIComponent(s.match(/name=([^&]+)/)[1]);
+      const ok = name.endsWith('2');
+      return new Response(JSON.stringify({ data: [{ name, status: ok ? 'APPROVED' : 'PENDING', category: ok ? 'UTILITY' : 'MARKETING' }] }));
+    }
+    return realFetch(u, o);
+  };
+  try {
+    const r = await post(e, { max: 10 });
+    if (r.refused) { assert.ok(['outside-09-21', 'send-window-closed'].includes(r.refused)); return; }
+    assert.equal(r.ok, true);
+    assert.equal(r.templates.thanks, 'ishur_toda_matana2');
+    assert.equal(r.templates.declined, 'ishur_matana2');
+    assert.ok(r.guests.every(g => g.template.endsWith('2')), JSON.stringify(r.guests));
+  } finally { globalThis.fetch = realFetch; }
+});

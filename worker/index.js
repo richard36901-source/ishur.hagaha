@@ -85,7 +85,7 @@ const TMPL_CATEGORY = {
   ishur_toda_orach: 'marketing', ishur_toda_orach_v2: 'marketing', ishur_syum: 'marketing', ishur_toda_orach_f: 'marketing', ishur_syum_v3_f: 'marketing', ishur_hazmana_shuv_f: 'marketing',
   ishur_shidrug: 'marketing', ishur_shidrug_sichot: 'marketing',
   /* 02/11 gift templates — submitted UTILITY; the thank-you ones costed as marketing (Meta may re-categorise) */
-  ishur_shulchan_matana: 'utility', ishur_yom_haerua_matana: 'utility', ishur_toda_matana: 'marketing', ishur_matana: 'marketing',
+  ishur_shulchan_matana: 'utility', ishur_yom_haerua_matana: 'utility', ishur_toda_matana: 'marketing', ishur_matana: 'marketing', ishur_toda_matana2: 'utility', ishur_matana2: 'utility',
   ishur_kod: 'auth',
 };
 const CAT_COST = { utility: 0.02, marketing: 0.12, auth: 0.05 };
@@ -4240,6 +4240,16 @@ async function giftVariantUsable(env, name, { allowMarketing = false } = {}) {
   const t = await templateInfo(env, name);
   return t.status === 'APPROVED' && (t.category === 'UTILITY' || (allowMarketing && t.category === 'MARKETING'));
 }
+/* 03/11 (Richard): two variants of each gift template are at Meta (the
+   MARKETING originals and UTILITY "…2" copies). Whichever Meta approves first
+   is the one that goes out. Exported for tests. */
+export const GIFT_VARIANTS = { thanks: ['ishur_toda_matana', 'ishur_toda_matana2'], declined: ['ishur_matana', 'ishur_matana2'] };
+async function giftTemplateFor(env, kind) {
+  for (const name of GIFT_VARIANTS[kind] || []) {
+    if (await giftVariantUsable(env, name, { allowMarketing: true })) return name;
+  }
+  return '';
+}
 async function giftLinksOf(env, token) {
   try { return env.RATE ? JSON.parse((await env.RATE.get('giftlinks:' + token)) || 'null') : null; } catch { return null; }
 }
@@ -4448,16 +4458,17 @@ async function handleGiftBlast(request, env, origin) {
       if (await phoneBlocked(env, g.phone) || await wrongNum(env, token, g.phone)) blocked.add(g.phone);
     }));
   }
-  const [thanksOk, declinedOk, cap] = await Promise.all([
-    giftVariantUsable(env, 'ishur_toda_matana', { allowMarketing: true }),
-    giftVariantUsable(env, 'ishur_matana', { allowMarketing: true }),
+  const [thanksTmpl, declinedTmpl, cap] = await Promise.all([
+    giftTemplateFor(env, 'thanks'),
+    giftTemplateFor(env, 'declined'),
     guestCapacity(env).catch(() => ({ remaining: 0, limit: 0, used: 0, scope: '' })),
   ]);
+  const thanksOk = !!thanksTmpl, declinedOk = !!declinedTmpl;
   const plan = planGiftBlast({ today, eventDate: String(ev[6] || '').trim().slice(0, 10), hour, windowOpen, gl, guests, sentMarks, blocked,
-    room: cap.remaining, max, templates: { thanks: thanksOk ? 'ishur_toda_matana' : '', declined: declinedOk ? 'ishur_matana' : '' } });
+    room: cap.remaining, max, templates: { thanks: thanksTmpl, declined: declinedTmpl } });
   const head = { token: token.slice(0, 8), event: eventDisplayName(ev), event_date: String(ev[6] || '').slice(0, 10), today, hour, dry, max,
     window: { ...win, paused, no_contact_day: isNoContactDay(today) }, gift_links: { on: !!(gl && gl.on), bit: !!(gl && gl.bit), paybox: !!(gl && gl.paybox), page: giftActive(gl) ? 'https://go.ishur.io/gift/' + giftSlug(token) : '' },
-    templates: { ishur_toda_matana: thanksOk ? 'APPROVED' : 'not approved', ishur_matana: declinedOk ? 'APPROVED' : 'not approved' },
+    templates: { thanks: thanksTmpl || 'not approved', declined: declinedTmpl || 'not approved' },
     cap: { scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining } };
   if (plan.refuse) return okJson({ ok: false, refused: plan.why, ...head }, origin);
   const mask = p => p.replace(/^972/, '0').replace(/(\d{3})\d{4}(\d{3})$/, '$1-****-$2');
@@ -5450,7 +5461,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         const todaTmpl = await templateApproved(env, 'ishur_toda_orach_v2') ? 'ishur_toda_orach_v2' : 'ishur_toda_orach';
         /* 02/11 (Richard): gift links on → the thank-you IS the gift message
            (ishur_toda_matana, once approved); one message, no A/B swap */
-        const todaGift = giftActive(await giftLinksOf(env, token)) && await giftVariantUsable(env, 'ishur_toda_matana', { allowMarketing: true });
+        const todaGiftTmpl = giftActive(await giftLinksOf(env, token)) ? await giftTemplateFor(env, 'thanks') : '';
+        const todaGift = !!todaGiftTmpl;
         for (const g of gRows) {
           if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
           if (budget && budget.left <= 0) { tcut = true; break; }
@@ -5461,7 +5473,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           if (await phoneBlocked(env, gp)) continue;
           if (await wrongNum(env, token, gp)) continue;
           const gname = String(g[3] || '').trim() || 'אורח יקר';
-          const abv = todaGift ? { template: 'ishur_toda_matana' } : await ab.pickVariant(env, 'thanks', gp, token, { current: todaTmpl });
+          const abv = todaGift ? { template: todaGiftTmpl } : await ab.pickVariant(env, 'thanks', gp, token, { current: todaTmpl });
           const wa = await sendTemplate(env, gp, abv.template, [gname, guestEvName], '', 'he', 'guests', { occasion, token, name: gname, who: 'שיר (מערכת)', ...(todaGift ? { components: [giftButtonComponent(token)] } : {}) });
           if (wa.held) { tcut = true; break; }
           if (wa.permanent) { tfail++; tcut = true; break; }   /* empty event data: same for every guest */
