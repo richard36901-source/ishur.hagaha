@@ -1,0 +1,163 @@
+{
+ "ok": true,
+ "fixture": true,
+ "rules": {
+  "incident": "תקלה במערכת (מהמוח)",
+  "new_lead": "ליד חדש",
+  "lead_reply": "ליד ענה בשיחת המכירה",
+  "payment": "תשלום התקבל",
+  "unanswered": "ליד / לקוח מחכה לתשובה מעל שעתיים",
+  "event_readiness": "אירוע בעוד 3 ימים וחסר משהו",
+  "failures_spike": "קפיצה בכשלי וואטסאפ",
+  "cap_high": "התקרה היומית מעל 85%",
+  "hold_stale": "אירוע בהחזקה יותר מיומיים",
+  "balances_low": "יתרה נמוכה אצל ספק",
+  "template_status": "תבנית אושרה / נדחתה",
+  "brain_autofix": "המוח תיקן משהו לבד",
+  "deploy": "גרסה חדשה עלתה",
+  "weekly_digest": "סיכום שבועי (ראשון)"
+ },
+ "items": [
+  {
+   "id": "nfx4",
+   "at": "2026-11-03T09:56:00.000Z",
+   "severity": "P0",
+   "rule": "incident",
+   "title_he": "הפייסר לא רץ 40 דקות. יש תיקון שמחכה לאישור שלך.",
+   "body_he": "",
+   "deep_link": "#/brain",
+   "entity": "incident:4",
+   "read": false,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack",
+    "push",
+    "whatsapp"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx12",
+   "at": "2026-11-03T09:48:00.000Z",
+   "severity": "P2",
+   "rule": "new_lead",
+   "title_he": "ליד חדש: דנה מטופס פייסבוק. לענות תוך שעה.",
+   "body_he": "כתבה: \"חתונה במרץ, 250 אורחים\"\nהצעד הבא: לפתוח את הליד ולשלוח הצעה (יש נוסח מוכן).",
+   "deep_link": "#/leads/L972500009001",
+   "entity": "new_lead:12",
+   "read": false,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx35",
+   "at": "2026-11-03T09:25:00.000Z",
+   "severity": "P1",
+   "rule": "payment",
+   "title_he": "שולם ₪790: אירוע ב · פרימיום 300. לוודא שהרשימה הועלתה.",
+   "body_he": "",
+   "deep_link": "#/clients?focus=e5f6a7b8",
+   "entity": "payment:35",
+   "read": false,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack",
+    "push"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx70",
+   "at": "2026-11-03T08:50:00.000Z",
+   "severity": "P1",
+   "rule": "unanswered",
+   "title_he": "ליד 0500-***-0301 מחכה לתשובה מ-09:50. לענות עכשיו.",
+   "body_he": "",
+   "deep_link": "#/inbox?focus=972500000301",
+   "entity": "unanswered:70",
+   "read": false,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx130",
+   "at": "2026-11-03T07:50:00.000Z",
+   "severity": "P1",
+   "rule": "event_readiness",
+   "title_he": "אירוע ג ב-06/11: חסר דיילות, הזמנה. לטפל היום.",
+   "body_he": "",
+   "deep_link": "#/clients?focus=c9d0e1f2",
+   "entity": "event_readiness:130",
+   "read": false,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx200",
+   "at": "2026-11-03T06:40:00.000Z",
+   "severity": "P2",
+   "rule": "cap_high",
+   "title_he": "התקרה היומית ב-88% (220/250). מה שלא ייצא היום יידחה למחר.",
+   "body_he": "",
+   "deep_link": "#/capacity",
+   "entity": "cap_high:200",
+   "read": true,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx400",
+   "at": "2026-11-03T03:20:00.000Z",
+   "severity": "P3",
+   "rule": "brain_autofix",
+   "title_he": "המוח תיקן לבד: שוחררה החזקה שנשכחה. אין צורך לעשות כלום.",
+   "body_he": "",
+   "deep_link": "#/brain",
+   "entity": "brain_autofix:400",
+   "read": true,
+   "snoozed_until": null,
+   "channels": [
+    "app",
+    "slack"
+   ],
+   "data": null
+  },
+  {
+   "id": "nfx900",
+   "at": "2026-11-02T19:00:00.000Z",
+   "severity": "P3",
+   "rule": "deploy",
+   "title_he": "גרסה חדשה עלתה: notify.js",
+   "body_he": "",
+   "deep_link": "#/changes",
+   "entity": "deploy:900",
+   "read": true,
+   "snoozed_until": null,
+   "channels": [
+    "app"
+   ],
+   "data": null
+  }
+ ],
+ "unread": 5,
+ "next_cursor": null,
+ "source": "fixture"
+}

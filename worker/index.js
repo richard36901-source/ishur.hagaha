@@ -9913,6 +9913,7 @@ const WORKER = {
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(opsJob(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
       /* 03/11 ops brain: health checks + deterministic playbooks (brain.js); BRAIN_ENABLED="off" stops it */
       if (String(env.BRAIN_ENABLED || 'on') !== 'off') ctx.waitUntil(runBrain(env, opsDeps(), { fns: brainFns() }).catch(() => {}));
+      if (String(env.NOTIFY_ENABLED || 'on') !== 'off') ctx.waitUntil(import('./notify.js').then(m => m.runNotify(env, opsDeps())).catch(() => {}));   /* 03/11 Phase 5 notifications (notify.js) */
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run)).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;

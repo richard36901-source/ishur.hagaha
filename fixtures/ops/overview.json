@@ -1,0 +1,443 @@
+{
+ "ok": true,
+ "fixture": true,
+ "at": "2026-11-03T10:00:00.000Z",
+ "today": "2026-11-03",
+ "last_seen": "2026-11-03T00:00:00.000Z",
+ "waiting": [
+  {
+   "kind": "approve",
+   "title_he": "לאשר: הפעלת הפייסר מחדש · הפייסר לא רץ 40 דקות",
+   "action": {
+    "type": "brain-decision",
+    "id": "pfx1",
+    "confirm": "pfx1"
+   },
+   "href": "#/brain?focus=pacer_stale"
+  },
+  {
+   "kind": "reply",
+   "title_he": "לענות לליד 050-***-0301 (מחכה מ-09:50)",
+   "action": {
+    "type": "nav",
+    "href": "#/inbox?focus=972500000301"
+   },
+   "href": "#/inbox?focus=972500000301"
+  },
+  {
+   "kind": "reply",
+   "title_he": "לענות ללקוח לקוח 2 (מחכה מ-10:45)",
+   "action": {
+    "type": "nav",
+    "href": "#/inbox?focus=972500000302"
+   },
+   "href": "#/inbox?focus=972500000302"
+  },
+  {
+   "kind": "reminder",
+   "title_he": "תזכורת שעברה: להתקשר לדנה לגבי ההצעה",
+   "action": {
+    "type": "nav",
+    "href": "#/leads/L972500009001"
+   },
+   "href": "#/leads/L972500009001"
+  },
+  {
+   "kind": "event",
+   "title_he": "אירוע ג (06/11): חסר הזמנה, דיילות",
+   "action": {
+    "type": "nav",
+    "href": "#/clients?focus=c9d0e1f2"
+   },
+   "href": "#/clients?focus=c9d0e1f2"
+  }
+ ],
+ "incidents": [
+  {
+   "severity": "P0",
+   "rule": "incident",
+   "title_he": "הפייסר לא רץ 40 דקות. יש תיקון שמחכה לאישור שלך.",
+   "href": "#/brain",
+   "action": {
+    "type": "brain-decision",
+    "id": "pfx1",
+    "confirm": "pfx1",
+    "label_he": "לאשר תיקון"
+   }
+  },
+  {
+   "severity": "P2",
+   "rule": "cap_high",
+   "title_he": "התקרה היומית ב-88% (220/250). מה שלא ייצא היום יידחה למחר.",
+   "href": "#/capacity",
+   "action": {
+    "type": "nav",
+    "href": "#/capacity",
+    "label_he": "לפתוח"
+   }
+  }
+ ],
+ "money": {
+  "today": 790,
+  "today_orders": 1,
+  "month": 2370,
+  "last_month_to_date": 1980,
+  "open_quotes": 4,
+  "open_quotes_sum": 3160,
+  "spark": [
+   573,
+   0,
+   301,
+   328,
+   0,
+   668,
+   926
+  ],
+  "recent": []
+ },
+ "leads": {
+  "new_today": 3,
+  "waiting_1h": 1,
+  "quoted": 4,
+  "closed_today": 1,
+  "spark": [
+   3,
+   6,
+   0,
+   2,
+   7,
+   1,
+   7
+  ]
+ },
+ "sends": {
+  "sent": 220,
+  "failed": 3,
+  "cap_used": 220,
+  "cap_limit": 250,
+  "cap_pct": 88,
+  "queue_why": "will-send",
+  "next_tick_at": "2026-11-03T10:06:00.000Z",
+  "paused": false,
+  "spark": [
+   130,
+   107,
+   87,
+   94,
+   118,
+   143,
+   185
+  ]
+ },
+ "calls": {
+  "dialed": 42,
+  "answered": 27,
+  "remaining": 18,
+  "shir": "dialing",
+  "why": "will-dial",
+  "spark": [
+   18,
+   16,
+   6,
+   11,
+   19,
+   19,
+   32
+  ]
+ },
+ "spark_days": [
+  "2026-10-28",
+  "2026-10-29",
+  "2026-10-30",
+  "2026-10-31",
+  "2026-11-01",
+  "2026-11-02",
+  "2026-11-03"
+ ],
+ "events": [
+  {
+   "token": "",
+   "tok8": "a1b2c3d4",
+   "names": "אירוע א",
+   "date": "2026-11-03",
+   "plan_he": "פרימיום",
+   "status": "live",
+   "invited": 280,
+   "confirmed": 190,
+   "readiness": [
+    {
+     "id": "list",
+     "he": "רשימת מוזמנים",
+     "state": "ok"
+    },
+    {
+     "id": "invite",
+     "he": "הזמנה",
+     "state": "ok"
+    }
+   ]
+  },
+  {
+   "token": "",
+   "tok8": "c9d0e1f2",
+   "names": "אירוע ג",
+   "date": "2026-11-06",
+   "plan_he": "פרו",
+   "status": "upcoming",
+   "invited": 150,
+   "confirmed": 40,
+   "readiness": [
+    {
+     "id": "list",
+     "he": "רשימת מוזמנים",
+     "state": "ok"
+    },
+    {
+     "id": "invite",
+     "he": "הזמנה",
+     "state": "missing"
+    },
+    {
+     "id": "hostess",
+     "he": "דיילות",
+     "state": "missing"
+    }
+   ]
+  },
+  {
+   "token": "",
+   "tok8": "e5f6a7b8",
+   "names": "אירוע ב",
+   "date": "2026-11-09",
+   "plan_he": "בסיס",
+   "status": "upcoming",
+   "invited": 0,
+   "confirmed": 0,
+   "readiness": [
+    {
+     "id": "list",
+     "he": "רשימת מוזמנים",
+     "state": "missing"
+    },
+    {
+     "id": "invite",
+     "he": "הזמנה",
+     "state": "unknown"
+    },
+    {
+     "id": "gifts",
+     "he": "קישורי מתנה",
+     "state": "ok"
+    }
+   ]
+  }
+ ],
+ "changes": {
+  "since": "2026-11-03T00:00:00.000Z",
+  "count": 3,
+  "items": [
+   {
+    "id": "cfx1",
+    "at": "2026-11-03T09:30:00.000Z",
+    "kind": "edit",
+    "actor": "Richard",
+    "summary_he": "גודל פעימה: 25 → 20"
+   },
+   {
+    "id": "cfx2",
+    "at": "2026-11-03T06:40:00.000Z",
+    "kind": "brain",
+    "actor": "brain",
+    "summary_he": "שוחררה החזקה שנשכחה"
+   },
+   {
+    "id": "cfx3",
+    "at": "2026-11-03T01:40:00.000Z",
+    "kind": "deploy",
+    "actor": "system",
+    "summary_he": "גרסה 8f4aa331 עלתה"
+   }
+  ]
+ },
+ "balances": {
+  "low": [
+   {
+    "vendor": "retell",
+    "amount": 12.4,
+    "currency": "USD",
+    "status": "low"
+   }
+  ],
+  "checked_at": "2026-11-03T09:52:00.000Z"
+ },
+ "notifications": {
+  "unread": 5,
+  "latest": [
+   {
+    "id": "nfx4",
+    "at": "2026-11-03T09:56:00.000Z",
+    "severity": "P0",
+    "rule": "incident",
+    "title_he": "הפייסר לא רץ 40 דקות. יש תיקון שמחכה לאישור שלך.",
+    "body_he": "",
+    "deep_link": "#/brain",
+    "entity": "incident:4",
+    "read": false,
+    "snoozed_until": null,
+    "channels": [
+     "app",
+     "slack",
+     "push",
+     "whatsapp"
+    ],
+    "data": null
+   },
+   {
+    "id": "nfx12",
+    "at": "2026-11-03T09:48:00.000Z",
+    "severity": "P2",
+    "rule": "new_lead",
+    "title_he": "ליד חדש: דנה מטופס פייסבוק. לענות תוך שעה.",
+    "body_he": "כתבה: \"חתונה במרץ, 250 אורחים\"\nהצעד הבא: לפתוח את הליד ולשלוח הצעה (יש נוסח מוכן).",
+    "deep_link": "#/leads/L972500009001",
+    "entity": "new_lead:12",
+    "read": false,
+    "snoozed_until": null,
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "data": null
+   },
+   {
+    "id": "nfx35",
+    "at": "2026-11-03T09:25:00.000Z",
+    "severity": "P1",
+    "rule": "payment",
+    "title_he": "שולם ₪790: אירוע ב · פרימיום 300. לוודא שהרשימה הועלתה.",
+    "body_he": "",
+    "deep_link": "#/clients?focus=e5f6a7b8",
+    "entity": "payment:35",
+    "read": false,
+    "snoozed_until": null,
+    "channels": [
+     "app",
+     "slack",
+     "push"
+    ],
+    "data": null
+   },
+   {
+    "id": "nfx70",
+    "at": "2026-11-03T08:50:00.000Z",
+    "severity": "P1",
+    "rule": "unanswered",
+    "title_he": "ליד 0500-***-0301 מחכה לתשובה מ-09:50. לענות עכשיו.",
+    "body_he": "",
+    "deep_link": "#/inbox?focus=972500000301",
+    "entity": "unanswered:70",
+    "read": false,
+    "snoozed_until": null,
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "data": null
+   },
+   {
+    "id": "nfx130",
+    "at": "2026-11-03T07:50:00.000Z",
+    "severity": "P1",
+    "rule": "event_readiness",
+    "title_he": "אירוע ג ב-06/11: חסר דיילות, הזמנה. לטפל היום.",
+    "body_he": "",
+    "deep_link": "#/clients?focus=c9d0e1f2",
+    "entity": "event_readiness:130",
+    "read": false,
+    "snoozed_until": null,
+    "channels": [
+     "app",
+     "slack"
+    ],
+    "data": null
+   }
+  ]
+ },
+ "ads": {
+  "today": {
+   "spend": 118,
+   "leads": 4,
+   "cpl": 29.5,
+   "roas": 6.7
+  },
+  "d7": {
+   "spend": 842,
+   "leads": 31,
+   "cpl": 27.2,
+   "roas": 4.1
+  },
+  "d30": {
+   "spend": 3410,
+   "leads": 118,
+   "cpl": 28.9,
+   "roas": 3.6
+  },
+  "spark": [
+   97,
+   89,
+   76,
+   82,
+   95,
+   102,
+   123
+  ]
+ },
+ "traffic": {
+  "visitors_7d": 1012,
+  "live_now": 3,
+  "spark": [
+   106,
+   92,
+   76,
+   83,
+   100,
+   114,
+   144
+  ],
+  "top_sources": [
+   {
+    "src": "facebook",
+    "n": 610
+   },
+   {
+    "src": "google",
+    "n": 220
+   },
+   {
+    "src": "direct",
+    "n": 140
+   }
+  ],
+  "lead_pct": 3.1,
+  "purchase_pct": 0.7
+ },
+ "funnel": {
+  "visitors_7d": 1012,
+  "leads": 118,
+  "quoted": 46,
+  "closed": 19
+ },
+ "growth": {
+  "month": 2370,
+  "last_month": 1980,
+  "mom_pct": 20
+ },
+ "totals": {
+  "revenue": 48210,
+  "sales": 61,
+  "undated": 2,
+  "events": 64,
+  "guests": 15890
+ },
+ "errors": []
+}
