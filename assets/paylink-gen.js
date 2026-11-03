@@ -43,19 +43,23 @@
     return 'https://wa.me/' + d + '?text=' + encodeURIComponent(waText(link));
   }
 
+  /* 03/11 layout (Richard): ONE card, form-like. One field per row, label above, aligned widths:
+     name → phone → occasion → date → package → records → add-ons (checklist, price at the row end)
+     → total (big) → one filled primary action. Secondary buttons are quiet tinted, 44px, radius 10. */
   function dd(id, label, value, opts, open) {
     var cur = opts.filter(function (o) { return String(o.v) === String(value); })[0];
-    return '<div class="plg-dd' + (open ? ' open' : '') + '"><span class="lbl">' + esc(label) + '</span>' +
-      '<button type="button" class="plg-ddb" data-dd="' + id + '" aria-haspopup="listbox" aria-expanded="' + (open ? 'true' : 'false') + '">' + esc(cur ? cur.t : 'בחירה') + ' ▾</button>' +
+    return '<div class="plg-f plg-dd' + (open ? ' open' : '') + '"><span class="lbl" id="plg-l-' + id + '">' + esc(label) + '</span>' +
+      '<button type="button" class="plg-ddb" data-dd="' + id + '" aria-haspopup="listbox" aria-labelledby="plg-l-' + id + '" aria-expanded="' + (open ? 'true' : 'false') + '">' + esc(cur ? cur.t : 'בחירה') + '</button>' +
       (open ? '<div class="plg-ddl" role="listbox">' + opts.map(function (o) {
         return '<button type="button" role="option" aria-selected="' + (String(o.v) === String(value)) + '" data-set="' + id + '" data-v="' + esc(o.v) + '"' + (o.off ? ' disabled' : '') + '>' + esc(o.t) + '</button>';
       }).join('') + '</div>' : '') + '</div>';
   }
   function tg(key, label, on, extra, off) {
-    return '<button type="button" class="plg-tg' + (on ? ' on' : '') + '" role="switch" aria-checked="' + (!!on) + '" data-tg="' + key + '"' + (off ? ' disabled' : '') + '>' +
-      '<span class="box">' + (on ? '✓' : '') + '</span>' + esc(label) + (extra ? ' <b>' + esc(extra) + '</b>' : '') + '</button>';
+    return '<button type="button" class="plg-tg' + (on ? ' on' : '') + '" role="checkbox" aria-checked="' + (!!on) + '" data-tg="' + key + '"' + (off ? ' disabled' : '') + '>' +
+      '<span class="box" aria-hidden="true">' + (on ? '✓' : '') + '</span><span class="t">' + esc(label) + '</span><b>' + esc(extra || '') + '</b></button>';
   }
   function money(n) { return '₪' + Number(n || 0).toLocaleString('he-IL'); }
+  function field(label, html) { return '<label class="plg-f"><span class="lbl">' + esc(label) + '</span>' + html + '</label>'; }
 
   function render(s, cfg) {
     var pr = price(s, cfg), hp = hostessPrices(cfg), recs = tiers(cfg);
@@ -66,49 +70,58 @@
     var miss = problems(s);
     var wave = Math.ceil(RATES.msg * s.records + RATES.base), callsP = Math.ceil(RATES.call * s.records + RATES.base);
     return '<div class="plg">' +
-      '<div class="plg-row">' +
-        dd('plan', 'חבילה', s.plan, ['basic', 'pro', 'premium'].map(function (k) { return { v: k, t: PLAN_HE[k] }; }), s.open === 'plan') +
-        dd('records', 'רשומות', s.records, recs.map(function (n) { return { v: n, t: 'עד ' + n + ' רשומות' }; }), s.open === 'records') +
-        dd('hostesses', 'דיילות', s.hostesses, hostOpts, s.open === 'hostesses') +
-      '</div>' +
-      '<div class="plg-row">' +
+      field('שם הלקוח *', '<input data-in="name" value="' + esc(s.name) + '" autocomplete="off">') +
+      field('טלפון *', '<input data-in="phone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" value="' + esc(s.phone) + '">') +
+      dd('occasion', 'סוג אירוע *', s.occasion, occ, s.open === 'occasion') +
+      field('תאריך האירוע (לא חובה)', '<input data-in="event_date" type="date" value="' + esc(s.event_date) + '">') +
+      dd('plan', 'חבילה', s.plan, ['basic', 'pro', 'premium'].map(function (k) { return { v: k, t: PLAN_HE[k] }; }), s.open === 'plan') +
+      dd('records', 'רשומות', s.records, recs.map(function (n) { return { v: n, t: 'עד ' + n + ' רשומות' }; }), s.open === 'records') +
+      '<div class="plg-f"><span class="lbl">תוספות</span><div class="plg-list">' +
+        '<div class="plg-li">' + dd('hostesses', 'דיילות באירוע', s.hostesses, hostOpts, s.open === 'hostesses') + '<b>' + (s.hostesses && hp[s.hostesses] ? money(hp[s.hostesses]) : '') + '</b></div>' +
         tg('design', 'עיצוב הזמנה', s.design, money(cfg.DESIGN_PRICE || 79)) +
         tg('travel', 'נסיעות (מחוץ למרכז)', s.travel && s.hostesses, s.hostesses ? money(travelFor(cfg, s.hostesses)) : 'רק עם דיילות', !s.hostesses) +
         tg('extra_wave', 'גל תזכורת שלישי', s.extra_wave, money(wave)) +
         tg('calls', 'סבב שיחות AI', s.calls && !CALLS_INCLUDED[s.plan], CALLS_INCLUDED[s.plan] ? 'כלול בחבילה' : money(callsP), !!CALLS_INCLUDED[s.plan]) +
-      '</div>' +
-      '<div class="plg-row">' +
-        '<label class="plg-f"><span class="lbl">שם הלקוח *</span><input data-in="name" value="' + esc(s.name) + '" autocomplete="off"></label>' +
-        '<label class="plg-f"><span class="lbl">טלפון *</span><input data-in="phone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" value="' + esc(s.phone) + '"></label>' +
-        dd('occasion', 'סוג אירוע *', s.occasion, occ, s.open === 'occasion') +
-        '<label class="plg-f"><span class="lbl">תאריך (לא חובה)</span><input data-in="event_date" type="date" value="' + esc(s.event_date) + '"></label>' +
-      '</div>' +
+      '</div></div>' +
       '<div class="plg-sum">' + pr.lines.map(function (l) { return '<div><span>' + esc(l.label) + '</span><span>' + money(l.price) + '</span></div>'; }).join('') +
         '<div class="tot"><span>סה"כ</span><span>' + money(pr.total) + '</span></div>' +
         '<div class="note">הסכום הסופי מחושב בשרת מאותן טבלאות</div></div>' +
-      '<div class="plg-row">' +
-        '<button type="button" class="sbtn p" data-plg="make"' + (miss.length || s.busy ? ' disabled' : '') + '>' + (s.busy ? 'יוצר…' : 'צור קישור') + '</button>' +
+      '<div class="plg-act">' +
+        '<button type="button" class="plg-btn p" data-plg="make"' + (miss.length || s.busy ? ' disabled' : '') + '>' + (s.busy ? 'יוצר…' : 'צור קישור') + '</button>' +
         (miss.length ? '<span class="plg-miss">חסר: ' + esc(miss.join(', ')) + '</span>' : '') +
         (s.err ? '<span class="plg-miss">' + esc(s.err) + '</span>' : '') +
       '</div>' +
       (s.url ? '<div class="plg-out"><div class="u">' + esc(s.url) + '</div>' +
-        '<div class="plg-row"><span class="d">' + esc(s.desc || '') + ' · ' + money(s.serverSum) + '</span></div>' +
-        '<div class="plg-row"><button type="button" class="sbtn p" data-plg="copy">' + (s.copied ? '✓ הועתק' : '📋 העתק קישור') + '</button>' +
-        '<a class="sbtn p" data-plg="wa" target="_blank" rel="noopener" href="' + esc(waHref(s.phone, s.url)) + '">שלח בוואטסאפ ללקוח</a></div></div>' : '') +
+        '<div class="d">' + esc(s.desc || '') + ' · ' + money(s.serverSum) + '</div>' +
+        '<div class="plg-act"><button type="button" class="plg-btn" data-plg="copy">' + (s.copied ? '✓ הועתק' : 'העתקת קישור') + '</button>' +
+        '<a class="plg-btn" data-plg="wa" target="_blank" rel="noopener" href="' + esc(waHref(s.phone, s.url)) + '">שליחה בוואטסאפ ללקוח</a></div></div>' : '') +
       '</div>';
   }
 
-  var CSS = '.plg{display:flex;flex-direction:column;gap:.6rem;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem;margin-top:.5rem}' +
-    '.plg-row{display:flex;flex-wrap:wrap;gap:.5rem;align-items:flex-end}' +
-    '.plg .lbl{display:block;font-size:.68rem;color:var(--ink3);margin-bottom:.15rem}' +
-    '.plg-dd{position:relative}.plg-ddb{font:inherit;font-size:.82rem;padding:.35rem .7rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);cursor:pointer;min-width:9rem;text-align:start}' +
-    '.plg-ddl{position:absolute;z-index:20;inset-inline-start:0;top:100%;margin-top:.2rem;background:var(--card);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.14);display:flex;flex-direction:column;max-height:16rem;overflow:auto;min-width:100%}' +
-    '.plg-ddl button{font:inherit;font-size:.82rem;text-align:start;padding:.4rem .7rem;border:0;background:none;color:var(--ink);cursor:pointer;white-space:nowrap}.plg-ddl button[aria-selected=true]{font-weight:700;color:var(--pine)}.plg-ddl button:hover{background:var(--bg)}.plg-ddl button:disabled{opacity:.45;cursor:not-allowed}' +
-    '.plg-tg{font:inherit;font-size:.8rem;display:inline-flex;align-items:center;gap:.35rem;padding:.35rem .65rem;border:1px solid var(--line);border-radius:999px;background:var(--bg);color:var(--ink);cursor:pointer}' +
-    '.plg-tg .box{width:1rem;height:1rem;border:1px solid var(--line);border-radius:4px;display:inline-grid;place-items:center;font-size:.7rem}.plg-tg.on{border-color:var(--pine)}.plg-tg.on .box{background:var(--pine);color:#fff;border-color:var(--pine)}.plg-tg:disabled{opacity:.5;cursor:not-allowed}' +
-    '.plg-f input{font:inherit;font-size:.82rem;padding:.35rem .55rem;border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);min-width:9rem}' +
-    '.plg-sum{font-size:.82rem;display:flex;flex-direction:column;gap:.15rem;max-width:26rem}.plg-sum div{display:flex;justify-content:space-between;gap:1rem}.plg-sum .tot{font-weight:700;border-top:1px solid var(--line);padding-top:.25rem;font-variant-numeric:tabular-nums}.plg-sum .note{font-size:.68rem;color:var(--ink3)}' +
-    '.plg-miss{font-size:.74rem;color:#A8402F}.plg-out .u{font-size:.74rem;direction:ltr;text-align:left;word-break:break-all;color:var(--ink2)}.plg-out .d{font-size:.76rem;color:var(--ink2)}a.sbtn{text-decoration:none;display:inline-block}';
+  /* tokens = the ishur.io brand set (assets/ops/ops.css :root), with the admin pages' own vars as fallbacks */
+  var CSS = '.plg-card{--b:var(--pine,#0F4C35);--b2:#0A3826;--b4:#F3F8F5;--ln:var(--line,#E1E4DE);--r:10px;background:var(--card,#fff);border:1px solid var(--ln);border-radius:14px;padding:1.1rem 1.2rem;margin-top:.5rem;box-shadow:0 1px 3px rgba(15,46,34,.05),0 14px 40px rgba(15,46,34,.06);display:flex;flex-direction:column;gap:1.2rem}' +
+    'html[data-theme=dark] .plg-card{--b2:#7BC9A4;--b4:#132B20}' +
+    '.plg{display:flex;flex-direction:column;gap:.95rem;max-width:34rem}' +
+    '.plg .lbl{display:block;font-size:.78rem;font-weight:600;color:var(--ink2,#4E5C55);margin-bottom:.35rem}' +
+    '.plg-f{display:flex;flex-direction:column;position:relative}' +
+    '.plg-f input,.plg-ddb{font:inherit;font-size:.92rem;height:44px;padding:0 .8rem;border:1px solid var(--ln);border-radius:var(--r);background:var(--card,#fff);color:var(--ink,#1B2620);width:100%;box-sizing:border-box}' +
+    '.plg-f input:focus,.plg-ddb:focus-visible{outline:none;border-color:var(--b);box-shadow:0 0 0 3px rgba(15,76,53,.12)}' +
+    '.plg-ddb{text-align:start;cursor:pointer;display:flex;align-items:center;justify-content:space-between}.plg-ddb::after{content:"";width:7px;height:7px;border:solid var(--ink3,#7F8C86);border-width:0 1.5px 1.5px 0;transform:rotate(45deg) translateY(-2px)}' +
+    '.plg-ddl{position:absolute;z-index:20;inset-inline:0;top:100%;margin-top:.25rem;background:var(--card,#fff);border:1px solid var(--ln);border-radius:var(--r);box-shadow:0 8px 28px rgba(0,0,0,.12);display:flex;flex-direction:column;max-height:16rem;overflow:auto;padding:.25rem}' +
+    '.plg-ddl button{font:inherit;font-size:.88rem;text-align:start;min-height:40px;padding:0 .7rem;border:0;border-radius:8px;background:none;color:var(--ink,#1B2620);cursor:pointer;white-space:nowrap}.plg-ddl button[aria-selected=true]{font-weight:700;color:var(--b)}.plg-ddl button:hover{background:var(--b4)}.plg-ddl button:disabled{opacity:.45;cursor:not-allowed}' +
+    '.plg-list{border:1px solid var(--ln);border-radius:12px;overflow:visible}' +
+    '.plg-li,.plg-tg{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.8rem;min-height:52px;padding:.4rem .9rem;border-bottom:1px solid var(--ln)}' +
+    '.plg-li .plg-dd .lbl{margin-bottom:.2rem}.plg-li b,.plg-tg b{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink2,#4E5C55);min-width:4.5rem;text-align:end}' +
+    '.plg-tg{grid-template-columns:auto 1fr auto;width:100%;font:inherit;font-size:.92rem;border:0;border-bottom:1px solid var(--ln);background:none;color:var(--ink,#1B2620);cursor:pointer;text-align:start}.plg-tg:last-child{border-bottom:0}.plg-tg:hover:not(:disabled){background:var(--b4)}' +
+    '.plg-tg .box{width:1.25rem;height:1.25rem;border:1.5px solid var(--ln);border-radius:6px;display:inline-grid;place-items:center;font-size:.75rem}.plg-tg.on .box{background:var(--b);color:#fff;border-color:var(--b)}.plg-tg:disabled{opacity:.55;cursor:default}' +
+    '.plg-sum{font-size:.86rem;display:flex;flex-direction:column;gap:.25rem}.plg-sum div{display:flex;justify-content:space-between;gap:1rem;color:var(--ink2,#4E5C55)}' +
+    '.plg-sum .tot{color:var(--ink,#1B2620);font-weight:600;font-size:1rem;align-items:baseline;border-top:2px solid var(--ln);padding-top:.6rem;margin-top:.35rem;font-variant-numeric:tabular-nums}.plg-sum .tot span:last-child{font-family:Rubik,inherit;font-size:1.9rem;letter-spacing:-.02em}.plg-sum .note{font-size:.72rem;color:var(--ink3,#7F8C86)}' +
+    '.plg-act{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}' +
+    '.plg-btn,.plg-card .sbtn{font:inherit;font-size:.9rem;font-weight:600;height:44px;padding:0 1.1rem;border-radius:var(--r);border:1px solid rgba(15,76,53,.2);background:var(--b4);color:var(--b2);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;text-decoration:none;transition:background .15s,transform .1s}' +
+    '.plg-btn:active,.plg-card .sbtn:active{transform:scale(.97)}.plg-btn.p,.plg-card .sbtn.p{background:var(--b);border-color:transparent;color:#fff}.plg-btn:disabled{opacity:.45;cursor:not-allowed}.plg-card .sbtn.d{background:none;border-color:transparent;color:#A8402F}' +
+    '.plg-miss{font-size:.8rem;color:#A8402F}.plg-out{display:flex;flex-direction:column;gap:.5rem;padding-top:.9rem;border-top:1px solid var(--ln)}.plg-out .u{font-size:.8rem;direction:ltr;text-align:left;word-break:break-all;color:var(--ink2,#4E5C55);background:var(--b4);border-radius:var(--r);padding:.55rem .7rem}.plg-out .d{font-size:.8rem;color:var(--ink2,#4E5C55)}' +
+    '.plg-saved{border-top:1px solid var(--ln);padding-top:1rem}.plg-saved h3{font-size:.95rem;margin:0 0 .5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:baseline}.plg-saved h3 span{font-size:.72rem;font-weight:500;color:var(--ink3,#7F8C86)}' +
+    '.plg-card .lk{border-radius:12px;border-inline-start-width:4px}.plg-card .lk input{height:36px;border-radius:8px}';
 
   function fresh() { return { plan: 'basic', records: 100, hostesses: 0, design: false, travel: false, extra_wave: false, calls: false, name: '', phone: '', occasion: '', event_date: '', open: '', busy: false, url: '', err: '' }; }
   function payload(s) {
