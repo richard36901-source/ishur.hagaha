@@ -130,8 +130,12 @@ ok(S.overview.allIncidents(F.realtime, F.capacity, F.balances).length > 0, 'over
 console.log('A4 CRM (fixtures/ops/crm through crm/adapt.js)');
 const CA = await import(pathToFileURL(join(OPS, 'crm/adapt.js')));
 const cfx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops/crm', n + '.json'), 'utf8'));
-const CR = Object.fromEntries(['leads', 'clients', 'hostesses', 'notes', 'activity', 'templates', 'stats', 'agenda'].map((n) => [n, cfx(n)]));
-ok(CR.leads.items.every((l) => ['id', 'phone', 'name', 'source', 'occasion', 'event_date', 'records_estimate', 'status', 'owner', 'next_action_at', 'next_action_text', 'quote_id', 'client_token', 'tags', 'created_at', 'last_inbound_at'].every((k) => k in l)), 'crm leads fixture carries every brief field');
+const CR = Object.fromEntries(['leads', 'clients', 'hostesses', 'assignments', 'reminders', 'notes', 'activity', 'templates', 'stats', 'agenda'].map((n) => [n, cfx(n)]));
+/* fixtures = masked live GET responses (scripts/crm-fixtures-from-live.mjs): the server omits empty fields, so the fixture must carry the always-present ones and the adapter must fill every view field */
+ok(CR.leads.items.every((l) => ['id', 'phone', 'status', 'tags', 'created_at', 'updated_at'].every((k) => k in l)) && ['statuses', 'by_status', 'sources', 'store'].every((k) => k in CR.leads), 'crm leads fixture has the GET /api/crm/leads shape (docs/CRM-API-2026-11-03.md)');
+ok(CA.adaptCrm('leads', CR.leads).items.every((l) => ['id', 'phone', 'name', 'source', 'source_he', 'occasion_he', 'event_date', 'records', 'status', 'owner', 'owner_he', 'next_at', 'next_text', 'quote_id', 'client_token', 'tags', 'created_at', 'last_in', 'window_open'].every((k) => k in l)), 'crm leads adapter fills every view field from the real shape');
+ok(Array.isArray(CR.clients.clients) && CR.clients.clients.every((c) => ['token', 'names', 'date', 'status', 'counts', 'addons', 'links'].every((k) => k in c)) && Array.isArray(CR.hostesses.items) && Array.isArray(CR.assignments.items) && Array.isArray(CR.agenda.items) && Array.isArray(CR.stats.revenue) && Array.isArray(CR.stats.volume), 'crm clients/hostesses/assignments/agenda/stats fixtures have the live response shapes');
+ok(CA.PATH.lead('L1') === 'crm/leads/L1' && CA.PATH.quote('L1') === 'crm/leads/L1/quote' && CA.PATH.send('L1') === 'crm/leads/L1/send' && CA.PATH.leadsBulk === 'crm/leads/bulk' && CA.PATH.notePin === 'crm/notes/pin' && CA.PATH.assignment === 'crm/assignments', 'crm adapter paths match worker/crm.js routes');
 ok(new Set(CR.leads.items.map((l) => l.status)).size === 6, 'crm leads cover all 6 statuses');
 ok((JSON.stringify(CR).match(/972\d{9}/g) || []).every((m) => /^97250000\d{4}$/.test(m)), 'crm fixtures use only fake 97250000xxxx phones');
 ok(!/[0-9a-f]{8}-(?!0000-4000-8000-000000000000)[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(JSON.stringify(CR)), 'crm fixtures: tokens zeroed after the 8-char prefix');
@@ -142,7 +146,9 @@ ok((CL.board(VL, {}).match(/class="kb-col"/g) || []).length === 6, 'kanban has 6
 check('crm leads.table', () => CL.table(VL, new Set([L0.id])));
 check('crm leads.bulkBar', () => CL.bulkBar(2, ['חם']));
 ok(VL.filter((l) => CL.match(l, { status: 'quoted' })).every((l) => l.status === 'quoted') && VL.filter((l) => CL.match(l, { q: L0.name })).some((l) => l.id === L0.id), 'leads filter by status + search');
-const LD = CA.adaptCrm('lead', { lead: CR.leads.items[0], notes: CR.notes.items.filter((n) => n.entity_id === L0.id), activity: CR.activity.items.filter((a) => a.lead_id === L0.id) });
+const LSRC = CR.leads.items.find((l) => CR.notes.notes.some((n) => n.entity_id === l.id)) || CR.leads.items[0];
+const LD = CA.adaptCrm('lead', { ok: true, lead: LSRC, notes: CR.notes.notes.filter((n) => n.entity_id === LSRC.id), activities: CR.activity.activities.filter((a) => a.entity_id === LSRC.id), reminders: [] });
+ok(LD.notes.length > 0 && LD.activity.length > 0 && LD.activity.some((a) => a.kind === 'wa' && a.dir === 'in'), 'lead detail: notes + activities (wa_in → wa/in) adapt', LD.notes.length + ' notes · ' + LD.activity.length + ' acts');
 check('crm leads.drawerView', () => CL.drawerView(LD));
 /* quick close total from the REAL config.js + paylink-gen.js (same tables as the admin generator) */
 const vm = await import('node:vm'); const sb = { console }; sb.window = sb; sb.globalThis = sb; vm.createContext(sb);
@@ -150,15 +156,19 @@ vm.runInContext(readFileSync(join(ROOT, 'config.js'), 'utf8'), sb); vm.runInCont
 const q0 = { ...CQ.qcState(LD.lead, sb.ISHUR_CONFIG), plan: 'basic', records: 100, design: true, hostesses: 2 };
 ok(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen) === 99 + 79 + 1990, 'quick close: basic 100 + design + 2 hostesses = ₪2,168', String(CQ.qcTotal(q0, sb.ISHUR_CONFIG, sb.IshurPayLinkGen)));
 check('crm quick.qcView', () => CQ.qcView(q0, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T10:00:00Z') }));
-const qv = CQ.qcView({ ...q0, url: 'https://pay.grow.link/X', msg: 'x', needs_template: true, templates: CA.adaptCrm('templates', CR.templates).items }, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T10:00:00Z') });
+const NT = CA.adaptCrm('send', CR.templates);
+ok(NT.needs_template && NT.templates.length === 3 && NT.templates[0].label, 'send: needs_template answer adapts with its templates');
+const qv = CQ.qcView({ ...q0, url: 'https://pay.grow.link/X', msg: 'x', needs_template: true, templates: NT.templates }, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T10:00:00Z') });
 ok(/data-act="qc-tpl"/.test(qv) && /שלח תבנית/.test(qv), 'quick close: template chooser when needs_template');
 ok(/aria-disabled="true"[^>]*>שלח דרך נועה|data-act="qc-send"[^>]*aria-disabled="true"/.test(CQ.qcView({ ...q0, url: 'u', msg: 'x' }, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen, { now: Date.parse('2026-11-03T20:30:00Z') })), 'quick close: send disabled in quiet hours (22:30 IL)');
 const order = ['שם הלקוח', 'טלפון', 'סוג אירוע', 'תאריך האירוע', 'חבילה', 'רשומות', 'תוספות', 'סה״כ', 'צור קישור'].map((t) => CQ.qcView(q0, LD.lead, sb.ISHUR_CONFIG, sb.IshurPayLinkGen).indexOf(t));
 ok(order.every((x, i) => x > 0 && (!i || x > order[i - 1])), 'quick close field order: name → phone → occasion → date → package → records → add-ons → total → action');
 const VC = CA.adaptCrm('clients', CR.clients).items;
+ok(VC.length === CR.clients.clients.length && VC.every((c) => c.name && c.status_he && typeof c.guests === 'number'), 'clients adapt (names → name, counts.invited → guests, held → hold)');
 check('crm clients.listView', () => CC.listView(CC.pick(VC, '', '')));
-check('crm clients.drawerView', () => CC.drawerView(CA.adaptCrm('client', { client: CR.clients.items[0], notes: [], timeline: CR.activity.items.filter((a) => a.client_token === CR.clients.items[0].token) })));
-const VH = CA.adaptCrm('hostesses', { ...CR.hostesses, events: [{ client_token: 'x', name: 'בדיקה', date: '2026-11-03', need: 2, have: 1 }] });
+check('crm clients.drawerView', () => CC.drawerView(CA.adaptCrm('client', { ok: true, client: CR.clients.clients[0], timeline: [{ at: '2026-11-01T10:00:00Z', kind: 'send', text: 'גל 1', source: 'audit' }, { at: '2026-11-02T10:00:00Z', kind: 'note', text: 'הערה', author: 'שלו', pinned: false, source: 'notes', id: 'n1' }], assignments: [] })));
+const VH = CA.adaptCrm('hostesses', { hostesses: CR.hostesses.items, assignments: CR.assignments.items, clients: CR.clients.clients });
+ok(VH.events.some((e) => e.have < e.need), 'hostess needs derived from clients addons.hostesses.n vs assignments', JSON.stringify(VH.events.map((e) => e.have + '/' + e.need)));
 ok(VH.conflicts.length >= 1, 'hostess conflicts detected (fixture has a double booking)', VH.conflicts.length + ' conflicts');
 check('crm hostesses.view', () => CH.view(VH, VH.hostesses, CH.weekDays(0, Date.parse('2026-11-03T10:00:00Z')), 0));
 ok(/משובצת פעמיים/.test(CH.warnings(VH, VH.hostesses)) && /חסרה בהם דיילת/.test(CH.warnings(VH, VH.hostesses)), 'hostess warnings: conflict + short-staffed');
@@ -166,7 +176,9 @@ const VS = CA.adaptCrm('stats', CR.stats);
 check('crm today.charts', () => CT.charts(VS, 900));
 check('crm today.charts at 343 px', () => CT.charts(VS, 343));
 ok(!/width="-|NaN/.test(CT.charts(VS, 343)), 'charts at phone width have no negative/NaN geometry');
-check('crm today.agenda', () => CT.agenda(CA.adaptCrm('agenda', { reminders: CR.leads.items.slice(0, 2), events: CR.clients.items.slice(0, 1), sends_today: CR.agenda.sends_today })));
+const AG = CA.adaptCrm('agenda', { ok: true, items: [{ kind: 'reminder', id: 'R1', at: CR.reminders.items[0].due_at, entity_type: 'lead', entity_id: CR.reminders.items[0].entity_id, text: CR.reminders.items[0].text }, { kind: 'event', id: CR.clients.clients[0].token, entity_type: 'client', entity_id: CR.clients.clients[0].token, text: 'x' }], clients: CR.clients.clients });
+ok(AG.reminders.length === 1 && AG.reminders[0].id === CR.reminders.items[0].entity_id && AG.events[0].name === VC.find((c) => c.token === CR.clients.clients[0].token).name, 'agenda items adapt (reminder → lead link, event → client row)');
+check('crm today.agenda', () => CT.agenda(AG));
 check('crm empty states', () => CL.board([], {}) + CC.listView([]) + CT.agenda({ reminders: [], events: [], sends: [] }) + '<x>'.repeat(40));
 
 /* ── Part B: browser ── */
@@ -305,7 +317,7 @@ if (!process.argv.includes('--no-browser')) {
     await cp.focus(`.kb-card[data-id="${id}"]`); await cp.keyboard.press('ArrowLeft'); await cp.waitForTimeout(300);
     ok(!!(await cp.$(`.kb-col[data-status=quoted] .kb-card[data-id="${id}"]`)), 'kanban: ← on a focused card moves it one column (keyboard)');
     /* lead drawer + quick close on a lead inside the 24h window */
-    const wl = await cp.evaluate(async () => { const r = await fetch('fixtures/ops/crm/leads.json'); const j = await r.json(); return j.items.find((l) => l.status === 'new' && /T0[56]:/.test(l.last_inbound_at)) || j.items[0]; });
+    const wl = await cp.evaluate(async () => { const r = await fetch('fixtures/ops/crm/leads.json'); const j = await r.json(); return j.items.find((l) => l.name && l.last_inbound_at && ['new', 'talking'].includes(l.status) && Date.parse(j.as_of) - Date.parse(l.last_inbound_at) < 12 * 36e5) || j.items[0]; });
     await cp.evaluate((i) => { location.hash = '#/leads/' + i; }, wl.id);
     await cp.waitForSelector('.drawer #qc .qc-total', { timeout: 8000 });
     const dtxt = await cp.$eval('.drawer', (d) => d.innerText);
@@ -322,7 +334,12 @@ if (!process.argv.includes('--no-browser')) {
     const quiet = await cp.evaluate(() => { const h = +new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hourCycle: 'h23' }).format(new Date()); return h >= 21 || h < 9; });
     if (quiet) ok((await cp.$eval('.drawer [data-act=qc-send]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'quiet hours now: "שלח דרך נועה" is disabled (send flow not exercised in this run)');
     else {
-      await cp.click('.drawer [data-act=qc-send]'); await cp.waitForSelector('.drawer .okbox', { timeout: 5000 }).catch(() => {});
+      /* server answers a preview first; nothing goes out until the typed "שלח" confirm (explicit-send rule) */
+      await cp.click('.drawer [data-act=qc-send]'); await cp.waitForSelector('.dialog #dlg-in', { timeout: 5000 });
+      const dlg = await cp.$eval('.dialog[role=alertdialog]', (d) => d.innerText);
+      ok(dlg.includes(msg.split('\n')[0].trim()) && !(await cp.$('.drawer #qc .okbox')), 'send: preview dialog shows the exact text and nothing is sent before the typed confirm');
+      await cp.fill('.dialog #dlg-in', 'שלח'); await cp.click('.dialog [data-act=dlg-yes]');
+      await cp.waitForSelector('.drawer .okbox', { timeout: 5000 }).catch(() => {});
       ok(!!(await cp.$('.drawer #qc .okbox')) && /הצעה נשלחה/.test(await cp.$eval('.drawer .crm-head', (h) => h.innerText)), '"שלח דרך נועה" sends and flips the status to הצעה נשלחה');
     }
     await cp.screenshot({ path: join(shotDir, 'lead-quickclose-light.png') });
@@ -351,11 +368,12 @@ if (!process.argv.includes('--no-browser')) {
     }
     const tabs = await mp2.$$eval('.tabbar a,.tabbar button', (xs) => xs.map((x) => [x.innerText.trim(), Math.round(x.getBoundingClientRect().height)]));
     ok(tabs.map((t) => t[0]).join('|') === 'סקירה|לידים|לקוחות|לוח שנה|עוד' && tabs.every((t) => t[1] >= 44), 'phone tab bar: סקירה/לידים/לקוחות/לוח שנה/עוד, each ≥ 44 px', tabs.map((t) => t[1]).join(','));
+    ok(await mp2.$$eval('.tabbar a', (xs) => xs.some((x) => x.getAttribute('href') === '#/calendar' && x.dataset.r === 'calendar') && !document.querySelector('a[href="calendar.html"]')), 'phone tab bar + nav: לוח שנה routes to the in-app #/calendar (no calendar.html link)');
     await mp2.tap('#tb-more'); await mp2.waitForTimeout(300);
     ok(await mp2.$eval('.shell>.nav', (n) => getComputedStyle(n).display !== 'none' && n.querySelectorAll('a[data-r]').length >= 12), '"עוד" opens the full nav as a sheet');
     await mp2.screenshot({ path: join(shotDir, 'more-sheet-mobile.png') });
     await mp2.tap('.more-scrim').catch(() => {});
-    await mp2.goto(url + '#/leads/ld_001'); await mp2.waitForSelector('.drawer .drawer-acts', { timeout: 6000 }); await mp2.waitForTimeout(500);
+    await mp2.goto(url + '#/leads/L972500009001'); await mp2.waitForSelector('.drawer .drawer-acts', { timeout: 6000 }); await mp2.waitForTimeout(500);
     const dr = await mp2.evaluate(() => { const d = document.querySelector('.drawer').getBoundingClientRect(), a = document.querySelector('.drawer-acts').getBoundingClientRect(); return [Math.round(d.width), Math.round(d.height), Math.round(a.bottom), innerHeight, Math.min(...[...document.querySelectorAll('.drawer-acts .btn')].map((b) => b.getBoundingClientRect().height)), document.querySelector('.drawer-b').scrollWidth <= document.querySelector('.drawer-b').clientWidth + 1]; });
     ok(dr[0] === 375 && dr[1] === 812 && Math.abs(dr[2] - dr[3]) <= 1 && dr[4] >= 44 && dr[5], '375 px lead drawer: full screen, sticky action bar at the bottom, 44 px buttons, no sideways scroll', dr.join('/'));
     await mp2.screenshot({ path: join(shotDir, 'lead-drawer-mobile.png') });

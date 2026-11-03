@@ -1,202 +1,45 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T09:00:00+02:00",
- "hostesses": [
+ "as_of": "2026-11-03T15:32:00.177Z",
+ "source": "live GET https://go.ishur.io/api/crm/hostesses?limit=200, masked",
+ "synthetic_rows": 3,
+ "ok": true,
+ "store": "kv",
+ "items": [
   {
-   "id": "hs_1",
-   "name": "שלו",
-   "phone": "972500001501",
+   "id": "H972500009011",
+   "name": "גיל דהן",
+   "phone": "972500009011",
    "city": "תל אביב",
-   "status": "active",
    "rate": 450,
-   "notes_count": 1
+   "active": true,
+   "created_at": "2026-10-14T15:32:00.177Z",
+   "updated_at": "2026-10-14T15:32:00.177Z",
+   "fixture": "synthetic"
   },
   {
-   "id": "hs_2",
-   "name": "נועה ב.",
-   "phone": "972500001502",
-   "city": "רמת גן",
-   "status": "active",
-   "rate": 400
-  },
-  {
-   "id": "hs_3",
-   "name": "אור",
-   "phone": "972500001503",
-   "city": "ראשון לציון",
-   "status": "active",
-   "rate": 400
-  },
-  {
-   "id": "hs_4",
-   "name": "ליה",
-   "phone": "972500001504",
+   "id": "H972500009012",
+   "name": "מאיה כהן",
+   "phone": "972500009012",
    "city": "חיפה",
-   "status": "active",
-   "rate": 420
+   "rate": 400,
+   "active": true,
+   "created_at": "2026-10-14T15:32:00.177Z",
+   "updated_at": "2026-10-14T15:32:00.177Z",
+   "fixture": "synthetic"
   },
   {
-   "id": "hs_5",
-   "name": "טל",
-   "phone": "972500001505",
+   "id": "H972500009013",
+   "name": "רוני פרידמן",
+   "phone": "972500009013",
    "city": "ירושלים",
-   "status": "inactive",
-   "rate": 400
-  },
-  {
-   "id": "hs_6",
-   "name": "עדן",
-   "phone": "972500001506",
-   "city": "פתח תקווה",
-   "status": "active",
-   "rate": 380
+   "rate": 420,
+   "active": false,
+   "created_at": "2026-09-24T15:32:00.177Z",
+   "updated_at": "2026-10-29T15:32:00.177Z",
+   "fixture": "synthetic"
   }
  ],
- "assignments": [
-  {
-   "id": "as_0_0",
-   "hostess_id": "hs_1",
-   "client_token": "a0000003-0000-4000-8000-000000000000",
-   "event_name": "עומר מזרחי",
-   "date": "2026-11-23",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "proposed",
-   "pay": 450,
-   "paid": false
-  },
-  {
-   "id": "as_0_1",
-   "hostess_id": "hs_3",
-   "client_token": "a0000003-0000-4000-8000-000000000000",
-   "event_name": "עומר מזרחי",
-   "date": "2026-11-23",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 400,
-   "paid": false
-  },
-  {
-   "id": "as_1_0",
-   "hostess_id": "hs_2",
-   "client_token": "a0000020-0000-4000-8000-000000000000",
-   "event_name": "גיל פרידמן",
-   "date": "2026-10-24",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "done",
-   "pay": 400,
-   "paid": false
-  },
-  {
-   "id": "as_2_0",
-   "hostess_id": "hs_3",
-   "client_token": "a0000039-0000-4000-8000-000000000000",
-   "event_name": "מאיה אוחיון",
-   "date": "2026-12-15",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 400,
-   "paid": false
-  },
-  {
-   "id": "as_2_1",
-   "hostess_id": "hs_1",
-   "client_token": "a0000039-0000-4000-8000-000000000000",
-   "event_name": "מאיה אוחיון",
-   "date": "2026-12-15",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 450,
-   "paid": false
-  },
-  {
-   "id": "as_3_0",
-   "hostess_id": "hs_4",
-   "client_token": "a0000102-0000-4000-8000-000000000000",
-   "event_name": "רוני כהן",
-   "date": "2026-11-18",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 420,
-   "paid": false
-  },
-  {
-   "id": "as_4_0",
-   "hostess_id": "hs_1",
-   "client_token": "a0000105-0000-4000-8000-000000000000",
-   "event_name": "רות גבאי",
-   "date": "2026-12-16",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 450,
-   "paid": false
-  },
-  {
-   "id": "as_5_0",
-   "hostess_id": "hs_2",
-   "client_token": "a0000108-0000-4000-8000-000000000000",
-   "event_name": "רות אברהם",
-   "date": "2026-12-01",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 400,
-   "paid": false
-  },
-  {
-   "id": "as_6_0",
-   "hostess_id": "hs_3",
-   "client_token": "a0000111-0000-4000-8000-000000000000",
-   "event_name": "עידו אברהם",
-   "date": "2026-11-20",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 400,
-   "paid": false
-  },
-  {
-   "id": "as_6_1",
-   "hostess_id": "hs_1",
-   "client_token": "a0000111-0000-4000-8000-000000000000",
-   "event_name": "עידו אברהם",
-   "date": "2026-11-20",
-   "start": "18:30",
-   "end": "23:30",
-   "status": "confirmed",
-   "pay": 450,
-   "paid": false
-  },
-  {
-   "id": "as_today_a",
-   "hostess_id": "hs_1",
-   "client_token": "a0000015-0000-4000-8000-000000000000",
-   "event_name": "דנה אזולאי",
-   "date": "2026-11-03",
-   "start": "19:00",
-   "end": "23:00",
-   "status": "confirmed",
-   "pay": 450,
-   "paid": false
-  },
-  {
-   "id": "as_today_b",
-   "hostess_id": "hs_1",
-   "client_token": "a0000032-0000-4000-8000-000000000000",
-   "event_name": "עומר אזולאי",
-   "date": "2026-11-03",
-   "start": "20:00",
-   "end": "23:30",
-   "status": "proposed",
-   "pay": 450,
-   "paid": false
-  }
- ]
+ "total": 3,
+ "next_cursor": null
 }

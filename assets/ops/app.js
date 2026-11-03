@@ -40,33 +40,36 @@ export const stats = () => ({ requests: reqCount });
 
 /* automation_id → name_he from the cached registry (runs / live rows show names) */
 function names() { const r = cacheGet('registry'); return r && r.data && r.data.nodes ? Object.fromEntries(r.data.nodes.map((n) => [n.id, n.name_he])) : {}; }
-async function raw(name, body = {}) {
+async function raw(name, body = {}, opts = {}) {
+  const method = opts.method || 'POST';
   reqCount++;
   let j;
-  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await (await import('./mock.js')).mockApi(name, body, VER); }
+  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await (await import('./mock.js')).mockApi(name, body, VER, method); }
   else {
     await ensureLive();
-    const payload = Object.assign({ admin_key: adminKey }, body);
-    const r = await fetch(BASE + '/api/' + (name.includes('/') ? name.replace(/^\//, '') : 'ops/' + name), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
+    const url = BASE + '/api/' + (name.includes('/') ? name.replace(/^\//, '') : 'ops/' + name);
+    const qs = new URLSearchParams(body).toString(), payload = Object.assign({ admin_key: adminKey }, body);
+    const r = method === 'GET' ? await fetch(url + (qs ? '?' + qs : ''), { headers: { 'X-Admin-Key': adminKey } })
+      : await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
     if (r.status === 403 || r.status === 401) { showGate('המפתח לא התקבל'); throw new HttpError(r.status, 'אין הרשאה'); }
     if (r.status === 404) { const e = await r.json().catch(() => ({})); throw new HttpError(404, e.error === 'unknown-ops-route' || !e.error ? 'נקודת הקצה ' + name + ' עוד לא קיימת בשרת' : e.error); }
-    if (!r.ok) { const e = await r.json().catch(() => ({})); throw new HttpError(r.status, e.error || e.why || ''); }
+    if (!r.ok) { const e = await r.json().catch(() => ({})); if (opts.soft && e.ok === false) return e; throw new HttpError(r.status, e.error || e.why || ''); }
     j = await r.json();
   }
-  if (j && j.ok === false) throw new HttpError(200, j.error || 'השרת החזיר שגיאה');
+  if (j && j.ok === false) { if (opts.soft) return j; throw new HttpError(200, j.error || 'השרת החזיר שגיאה'); }
   return adapt(name, j, { names: names() });
 }
 const keyOf = (name, body) => name + (body && Object.keys(body).length ? ':' + JSON.stringify(body) : '');
 const inflight = new Map();
 export const api = {
   cached: (name, body) => cacheGet(keyOf(name, body)),
-  async get(name, body = {}, { cache = true } = {}) {
+  async get(name, body = {}, { cache = true, method } = {}) {
     const k = keyOf(name, body);
     if (inflight.has(k)) return inflight.get(k);
-    const p = raw(name, body).then((d) => { if (cache) cachePut(k, d); asOf(Date.now()); return d; }).finally(() => inflight.delete(k));
+    const p = raw(name, body, { method }).then((d) => { if (cache) cachePut(k, d); asOf(Date.now()); return d; }).finally(() => inflight.delete(k));
     inflight.set(k, p); return p;
   },
-  post: (name, body) => raw(name, body),
+  post: (name, body, opts) => raw(name, body, opts),
 };
 
 /* poll: timeout chain, pauses while the tab is hidden, backs off on errors */

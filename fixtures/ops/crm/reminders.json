@@ -1,0 +1,23 @@
+{
+ "fixture": true,
+ "as_of": "2026-11-03T15:32:00.177Z",
+ "source": "live GET https://go.ishur.io/api/crm/reminders, masked",
+ "synthetic_rows": 1,
+ "ok": true,
+ "items": [
+  {
+   "id": "Rfix1",
+   "entity_type": "lead",
+   "entity_id": "L972500009001",
+   "due_at": "2026-11-03T16:32:00.177Z",
+   "text": "לחזור אחרי שיחה עם בן הזוג",
+   "owner": "שלו",
+   "done": false,
+   "created_at": "2026-11-02T15:32:00.177Z",
+   "updated_at": "2026-11-02T15:32:00.177Z",
+   "fixture": "synthetic"
+  }
+ ],
+ "total": 1,
+ "next_cursor": null
+}

@@ -5,9 +5,9 @@ let VER = '2';
 let fixtureCache = {};
 const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fixtures/ops/${name}.json?v=${VER}`).then((r) => { if (!r.ok) throw new HttpError(r.status); return r.json(); }));
 const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {} };
-export async function mockApi(name, body, ver) {
+export async function mockApi(name, body, ver, method = 'POST') {
   if (ver) VER = ver;
-  if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER);
+  if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER, method);
   const now = new Date().toISOString();
   if (name === 'registry') {
     const r = structuredClone(await fixture('registry'));

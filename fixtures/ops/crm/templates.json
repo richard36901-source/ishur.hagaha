@@ -1,24 +1,27 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T09:00:00+02:00",
- "items": [
+ "as_of": "2026-11-03T15:32:00.177Z",
+ "source": "live GET https://go.ishur.io/api/crm/(POST leads/:id/send needs_template answer, from worker/crm.js), masked",
+ "synthetic_rows": 0,
+ "ok": false,
+ "error": "needs_template",
+ "last_inbound_at": null,
+ "why": "הליד לא כתב לנו אף פעם: מותר לשלוח רק תבנית מאושרת",
+ "templates": [
   {
-   "name": "paylink_followup",
-   "label": "קישור תשלום (תבנית)",
-   "preview": "היי {{1}}, בהמשך לשיחה שלנו, זה הקישור לתשלום: {{2}}",
-   "vars": [
-    "first_name",
-    "url"
-   ]
+   "name": "ishur_lo_siyem",
+   "he": "לא סיימת להזמין (תזכורת ראשונה)",
+   "category": "marketing"
   },
   {
-   "name": "lead_reengage",
-   "label": "חזרה לליד (תבנית)",
-   "preview": "היי {{1}}, רצינו לבדוק אם עוד רלוונטי לך אישורי הגעה לאירוע 🙂",
-   "vars": [
-    "first_name"
-   ]
+   "name": "ishur_lo_siyem_2",
+   "he": "לא סיימת להזמין (יום אחרי)",
+   "category": "marketing"
+  },
+  {
+   "name": "ishur_lo_siyem_3",
+   "he": "טיפ + הזמנה לחזור",
+   "category": "marketing"
   }
  ]
 }

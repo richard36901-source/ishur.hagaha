@@ -1,250 +1,375 @@
 {
- "ok": true,
  "fixture": true,
- "as_of": "2026-11-03T09:00:00+02:00",
- "revenue_30d": [
-  {
-   "day": "2026-10-05",
-   "amount": 960
-  },
-  {
-   "day": "2026-10-06",
-   "amount": 1890
-  },
-  {
-   "day": "2026-10-07",
-   "amount": 750
-  },
-  {
-   "day": "2026-10-08",
-   "amount": 2630
-  },
-  {
-   "day": "2026-10-09",
-   "amount": 2430
-  },
-  {
-   "day": "2026-10-10",
-   "amount": 0
-  },
-  {
-   "day": "2026-10-11",
-   "amount": 1640
-  },
-  {
-   "day": "2026-10-12",
-   "amount": 680
-  },
-  {
-   "day": "2026-10-13",
-   "amount": 1310
-  },
-  {
-   "day": "2026-10-14",
-   "amount": 1980
-  },
-  {
-   "day": "2026-10-15",
-   "amount": 980
-  },
-  {
-   "day": "2026-10-16",
-   "amount": 1350
-  },
-  {
-   "day": "2026-10-17",
-   "amount": 0
-  },
-  {
-   "day": "2026-10-18",
-   "amount": 1040
-  },
-  {
-   "day": "2026-10-19",
-   "amount": 1240
-  },
-  {
-   "day": "2026-10-20",
-   "amount": 770
-  },
-  {
-   "day": "2026-10-21",
-   "amount": 320
-  },
-  {
-   "day": "2026-10-22",
-   "amount": 830
-  },
-  {
-   "day": "2026-10-23",
-   "amount": 1790
-  },
-  {
-   "day": "2026-10-24",
-   "amount": 0
-  },
-  {
-   "day": "2026-10-25",
-   "amount": 1870
-  },
-  {
-   "day": "2026-10-26",
-   "amount": 380
-  },
-  {
-   "day": "2026-10-27",
-   "amount": 2560
-  },
-  {
-   "day": "2026-10-28",
-   "amount": 510
-  },
-  {
-   "day": "2026-10-29",
-   "amount": 560
-  },
-  {
-   "day": "2026-10-30",
-   "amount": 2040
-  },
-  {
-   "day": "2026-10-31",
-   "amount": 0
-  },
-  {
-   "day": "2026-11-01",
-   "amount": 1940
-  },
-  {
-   "day": "2026-11-02",
-   "amount": 1930
-  },
-  {
-   "day": "2026-11-03",
-   "amount": 1690
-  }
- ],
- "funnel": {
-  "new": 42,
-  "talking": 32,
-  "quoted": 15,
-  "closed": 7,
-  "window_days": 30
+ "as_of": "2026-11-03T15:32:00.177Z",
+ "source": "live GET https://go.ishur.io/api/crm/stats?range=30d, masked",
+ "synthetic_rows": 0,
+ "ok": true,
+ "at": "2026-11-03T15:32:00.177Z",
+ "range": {
+  "from": "2026-10-05",
+  "to": "2026-11-03",
+  "days": 30,
+  "group": "day"
  },
- "sends_14d": [
+ "revenue": [
   {
-   "day": "2026-10-21",
-   "wa": 1516
+   "bucket": "2026-10-05",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-22",
-   "wa": 283
+   "bucket": "2026-10-06",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-23",
-   "wa": 542
+   "bucket": "2026-10-07",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-24",
-   "wa": 432
+   "bucket": "2026-10-08",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-25",
-   "wa": 713
+   "bucket": "2026-10-09",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-26",
-   "wa": 658
+   "bucket": "2026-10-10",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-27",
-   "wa": 483
+   "bucket": "2026-10-11",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-28",
-   "wa": 245
+   "bucket": "2026-10-12",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-29",
-   "wa": 416
+   "bucket": "2026-10-13",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-30",
-   "wa": 914
+   "bucket": "2026-10-14",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-10-31",
-   "wa": 1559
+   "bucket": "2026-10-15",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-11-01",
-   "wa": 415
+   "bucket": "2026-10-16",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-11-02",
-   "wa": 922
+   "bucket": "2026-10-17",
+   "revenue": 0,
+   "orders": 0
   },
   {
-   "day": "2026-11-03",
-   "wa": 1081
+   "bucket": "2026-10-18",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-19",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-20",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-21",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-22",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-23",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-24",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-25",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-26",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-27",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-28",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-29",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-30",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-10-31",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-11-01",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-11-02",
+   "revenue": 0,
+   "orders": 0
+  },
+  {
+   "bucket": "2026-11-03",
+   "revenue": 178,
+   "orders": 1
   }
  ],
- "calls_14d": [
+ "revenue_total": 178,
+ "funnel": {
+  "total": 32,
+  "by_status": {
+   "new": 7,
+   "talking": 0,
+   "quoted": 1,
+   "closed": 6,
+   "not_relevant": 13,
+   "lost": 5
+  },
+  "conversion_pct": 18.8,
+  "quoted_or_beyond": 7
+ },
+ "sources": {
+  "meta_form": 1,
+  "unknown": 31
+ },
+ "avg_close_days": 0,
+ "volume": [
   {
-   "day": "2026-10-21",
-   "calls": 21
+   "bucket": "2026-10-05",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-22",
-   "calls": 93
+   "bucket": "2026-10-06",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-23",
-   "calls": 71
+   "bucket": "2026-10-07",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-24",
-   "calls": 75
+   "bucket": "2026-10-08",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-25",
-   "calls": 94
+   "bucket": "2026-10-09",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-26",
-   "calls": 0
+   "bucket": "2026-10-10",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-27",
-   "calls": 72
+   "bucket": "2026-10-11",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-28",
-   "calls": 23
+   "bucket": "2026-10-12",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-29",
-   "calls": 45
+   "bucket": "2026-10-13",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-30",
-   "calls": 50
+   "bucket": "2026-10-14",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-10-31",
-   "calls": 35
+   "bucket": "2026-10-15",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-11-01",
-   "calls": 23
+   "bucket": "2026-10-16",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-11-02",
-   "calls": 0
+   "bucket": "2026-10-17",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
   },
   {
-   "day": "2026-11-03",
-   "calls": 46
+   "bucket": "2026-10-18",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-19",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-20",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-21",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-22",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-23",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-24",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-25",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-26",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-27",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-28",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-29",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-30",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-10-31",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-11-01",
+   "sends": 0,
+   "calls": 0,
+   "failed": 0
+  },
+  {
+   "bucket": "2026-11-02",
+   "sends": 74,
+   "calls": 0,
+   "failed": 24
+  },
+  {
+   "bucket": "2026-11-03",
+   "sends": 322,
+   "calls": 0,
+   "failed": 21
   }
- ]
+ ],
+ "failures": {
+  "rejected": 0,
+  "failed_async": 45,
+  "by_code": {
+   "async": 45
+  }
+ },
+ "audit_truncated": true
 }

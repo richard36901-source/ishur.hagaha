@@ -2,7 +2,7 @@
    with bulk status/tag; filters (status, source, date range, owner, tag) + search; lead drawer with
    contact buttons, next action, quick close, tags, notes timeline, activity. All data via crm/adapt.js. */
 import { esc, fmtN, Select, Tabs, Table, Badge, Skeleton, Drawer, Button, icon, toast, relTime } from '../ui.js';
-import { crm, adaptCrm, STATUSES, STATUS_HE, SOURCE_HE, OWNER_HE } from './adapt.js';
+import { crm, adaptCrm, STATUSES, STATUS_HE, SOURCE_HE, OWNER_HE, OWNERS } from './adapt.js';
 import { money, dayHe, phoneHe, contactBtns, Check, tagChips, dueBadge, notesBlock, timeline, bindNotes, actionBar } from './kit.js';
 
 const RANGES = [{ value: '', label: 'כל הזמן' }, { value: '7', label: '7 ימים' }, { value: '30', label: '30 יום' }, { value: '90', label: '90 יום' }];
@@ -60,7 +60,7 @@ export function drawerView(d) {
 <p class="mono" dir="ltr" style="margin:0">${esc(phoneHe(l.phone))}</p></div><div class="bar">${contactBtns(l.phone)}</div></header>
 <section class="crm-sec"><div class="grid2">
 <div class="f-row"><span class="f-l">סטטוס</span><div class="f-v">${Select({ name: 'ld_status', value: l.status, options: STATUSES.map((s) => ({ value: s.id, label: s.he })) })}</div></div>
-<div class="f-row"><span class="f-l">אחראי</span><div class="f-v">${Select({ name: 'ld_owner', value: l.owner, options: ['richard', 'shalev'].map((o) => ({ value: o, label: OWNER_HE[o] })) })}</div></div></div></section>
+<div class="f-row"><span class="f-l">אחראי</span><div class="f-v">${Select({ name: 'ld_owner', value: l.owner, options: [...new Set([...OWNERS, ...(l.owner ? [l.owner] : [])])].map((o) => ({ value: o, label: OWNER_HE[o] || o })) })}</div></div></div></section>
 <section class="crm-sec" aria-label="פעולה הבאה"><div class="sec-h"><h3 class="h2">פעולה הבאה</h3>${dueBadge(l)}</div>
 <div class="next-row"><input class="in" type="datetime-local" data-next-at aria-label="מתי" value="${esc(l.next_at ? toLocal(l.next_at) : '')}"><input class="in grow" data-next-text placeholder="מה לעשות" aria-label="מה לעשות" value="${esc(l.next_text)}" dir="auto">${Button('שמירה', { act: 'next-save' })}</div></section>
 <div id="qc-host">${Skeleton.card(5)}</div>
@@ -129,8 +129,8 @@ export default {
     const api = crm(ctx);
     let view = 'board'; try { view = localStorage.getItem('ops:leads:view') || 'board'; } catch (e) {}
     const f = { q: '', status: '', source: '', range: '', owner: '', tag: '' }, sel = new Set();
-    const cached = ctx.api.cached('crm/leads');
-    let leads = cached ? adaptCrm('leads', cached.data).items : [];
+    const cached = api.cachedView('leads');
+    let leads = cached ? cached.items : [];
     el.innerHTML = `<div class="bar crm-filters"><div class="search">${icon('search')}<input class="in" data-search placeholder="חיפוש שם, טלפון, תגית" aria-label="חיפוש לידים"></div>
 <span id="ld-f"></span><span class="sp" style="flex:1"></span><span class="sub num" id="ld-count"></span>${Tabs({ name: 'view', value: view, items: [{ value: 'board', label: 'לוח' }, { value: 'table', label: 'טבלה' }] })}</div>
 <div id="ld-bulk"></div><div id="ld-body">${this.skeleton()}</div>`;

@@ -330,3 +330,49 @@ test('GET /api/crm/stats and /api/crm/leads answer with the documented shape', a
   assert.equal(b.changed, 1); assert.equal(b.results[1].error, 'not-found');
   assert.equal((await post(e, '/api/crm/leads/bulk', { ids: ['L972501234567'], patch: { status: 'won' } })).status, 400);
 });
+
+/* ── import at volume: KV rejects a 2nd PUT to the same key inside one import (Cloudflare: ~1 write/sec/key → 429) ── */
+function strictKv(init = {}) {
+  const base = kv(init), puts = new Map();
+  const put = async (k, v) => { const n = (puts.get(k) || 0) + 1; puts.set(k, n); if (n > 1) throw new Error('KV PUT failed: 429 Too Many Requests'); return base.put(k, v); };
+  return { ...base, put, puts, window: () => puts.clear() };
+}
+test('import: 120 leads + notes → one crm:t:leads PUT per call, resumable by cursor, idempotent re-run; HTTP route returns counts', async () => {
+  const init = {};
+  for (let i = 0; i < 120; i++) {
+    const ph = '97250' + String(1000000 + i);
+    init['lead:' + ph] = JSON.stringify({ name: 'ליד ' + i, at: '2026-10-20T10:00:00.000Z', page: 'ishur.io/', types: ['lead'] });
+    if (i % 3 === 0) init['leadx:' + ph] = JSON.stringify({ status: 'שיחה חוזרת', notes: [{ at: '2026-10-21T08:00:00.000Z', text: 'הערה ' + i }] });
+  }
+  const RATE = strictKv(init);
+  const e = env({}, { RATE });
+  const d = { kvPrefix, sleep: async () => {} };
+  const store = makeStore(e);
+  let cursor = '', total = { created: 0, updated: 0, notes_added: 0 }, calls = 0;
+  do {
+    RATE.window();
+    const r = await importLeads(e, d, { store, sources: ['kv', 'leadx'], cursor, limit: 50 });
+    assert.equal(r.ok, true); assert.equal(r.errors.length, 0);
+    assert.equal(RATE.puts.get('crm:t:leads'), 1, 'exactly one table PUT per call');
+    for (const k of Object.keys(total)) total[k] += r[k];
+    assert.equal(r.phones, 120); calls++;
+    cursor = r.next_cursor;
+    assert.equal(r.done, !cursor);
+  } while (cursor && calls < 10);
+  assert.equal(calls, 3, '120 phones / 50 per call');
+  assert.deepEqual(total, { created: 120, updated: 0, notes_added: 40 });
+  assert.equal((await store.all('leads')).length, 120);
+  assert.equal((await store.get('leads', 'L972501000000')).status, 'talking');
+  assert.equal((await store.listNotes('lead', 'L972501000003')).length, 1);
+  /* re-run: nothing changes, nothing is written to the leads table */
+  RATE.window();
+  const again = await importLeads(e, d, { store, sources: ['kv', 'leadx'], limit: 500 });
+  assert.deepEqual([again.created, again.updated, again.notes_added, again.unchanged, again.done], [0, 0, 0, 120, true]);
+  assert.equal(RATE.puts.get('crm:t:leads') || 0, 0, 'idempotent: no table write when nothing changed');
+  /* the route: cursor + limit pass through, counts come back */
+  RATE.window();
+  const res = await (await post(e, '/api/crm/leads/import', { sources: ['kv'], limit: 100 })).json();
+  assert.equal(res.ok, true); assert.equal(res.processed, 100); assert.equal(res.next_cursor, '100'); assert.equal(res.unchanged, 100);
+  const res2 = await (await post(e, '/api/crm/leads/import', { sources: ['kv'], limit: 100, cursor: res.next_cursor })).json();
+  assert.equal(res2.processed, 20); assert.equal(res2.next_cursor, null); assert.equal(res2.done, true);
+});

@@ -52,7 +52,7 @@ export function bindNotes(root, api, entity, id, onChange) {
       b.dataset.busy = '1';
       try { await api.addNote(entity, id, text, pinNew); ta.value = ''; pinNew = false; await onChange(); } catch (x) { root.ownerDocument && (await import('../ui.js')).toast('ההערה לא נשמרה', 'crit'); } finally { delete b.dataset.busy; }
     }
-    if (b.dataset.act === 'note-pin') { try { await api.pinNote(b.dataset.id, b.dataset.pinned !== '1'); await onChange(); } catch (x) { (await import('../ui.js')).toast('לא נשמר', 'crit'); } }
+    if (b.dataset.act === 'note-pin') { try { await api.pinNote(b.dataset.id, b.dataset.pinned !== '1', entity, id); await onChange(); } catch (x) { (await import('../ui.js')).toast('לא נשמר', 'crit'); } }
   });
 }
 

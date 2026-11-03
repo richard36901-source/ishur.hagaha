@@ -18,6 +18,8 @@
      setNotePinned(entity_type, entity_id, note_id, pinned)
      appendActivity({entity_type, entity_id, kind, dir, text, at, id?, meta})
      listActivities(entity_type, entity_id, {limit})   newest first
+     upsertMany(table, rows)               batch upsert: KV = ONE put of the table doc
+     appendNotes([note…])                  batch notes: KV = one put per entity
    }
    query = { filter: {field: value | [values] | {from, to}}, q, sort: '-updated_at',
              limit (≤500, default 50), cursor (offset string) }
@@ -152,6 +154,22 @@ export function kvStore(kv) {
       await kv.put(k, JSON.stringify(arr.slice(-ACT_CAP))); return act;
     },
     async listActivities(type, id, { limit = 200 } = {}) { const arr = await readJson(`crm:a:${type}:${id}`, []); return arr.slice().reverse().slice(0, Math.max(1, Math.min(ACT_CAP, limit))); },
+    /* batch writes (imports): the whole table doc is read once and written ONCE, so a 500-row
+       import is 1 KV PUT on crm:t:<table> instead of 500 (KV allows ~1 write/sec per key → 429) */
+    async upsertMany(t, rows) {
+      check(t); const list = (rows || []).filter(r => r && r.id); if (!list.length) return [];
+      const d = await tableDoc(t); const at = nowIso();
+      const out = list.map(row => { const id = String(row.id); d.rows[id] = mergeRow(d.rows[id], { ...row, id }, at); return d.rows[id]; });
+      await saveTable(t, d); return out;
+    },
+    /* notes grouped per entity: one read + one PUT per entity key, whatever the number of notes */
+    async appendNotes(list) {
+      const by = new Map();
+      for (const n of list || []) { const note = noteOf(n); const k = `crm:n:${note.entity_type}:${note.entity_id}`; (by.get(k) || by.set(k, []).get(k)).push(note); }
+      const out = [];
+      for (const [k, notes] of by) { const arr = await readJson(k, []); arr.push(...notes); await kv.put(k, JSON.stringify(arr)); out.push(...notes); }
+      return out;
+    },
   };
 }
 
@@ -212,6 +230,8 @@ export function d1Store(db) {
         .bind(act.id, act.entity_type, act.entity_id, act.at, act.kind, act.dir, JSON.stringify(act)).run();
       return act;
     },
+    async upsertMany(t, rows) { const out = []; for (const r of rows || []) if (r && r.id) out.push(await this.upsert(t, r)); return out; },
+    async appendNotes(list) { const out = []; for (const n of list || []) out.push(await this.appendNote(n)); return out; },
     async listActivities(type, id, { limit = 200 } = {}) {
       return rowsOf(await db.prepare('SELECT data_json FROM activities WHERE entity_type = ? AND entity_id = ? ORDER BY at DESC, id DESC LIMIT ?').bind(type, String(id), Math.max(1, Math.min(ACT_CAP, limit))).all());
     },

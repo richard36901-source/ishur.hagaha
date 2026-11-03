@@ -55,8 +55,8 @@ const ACTIONS = {
 export default {
   skeleton: () => Skeleton.tiles(4) + Skeleton.table(10),
   async mount(el, ctx) {
-    const api = crm(ctx), cached = ctx.api.cached('crm/clients');
-    let cs = cached ? adaptCrm('clients', cached.data).items : [], st = 'open', q = '';
+    const api = crm(ctx), cached = api.cachedView('clients');
+    let cs = cached ? cached.items : [], st = 'open', q = '';
     el.innerHTML = `<div id="cl-sum">${Skeleton.tiles(4)}</div><div class="bar"><div class="search">${icon('search')}<input class="in" data-search placeholder="חיפוש שם, טלפון, אולם" aria-label="חיפוש לקוחות"></div>${Tabs({ name: 'cl_st', value: st, items: FILTERS })}<span class="sp" style="flex:1"></span><span class="sub num" id="cl-count"></span></div><div class="card flush" id="cl-list">${Skeleton.table(10)}</div>`;
     const paint = () => { const xs = pick(cs, st, q); el.querySelector('#cl-sum').innerHTML = summary(cs); el.querySelector('#cl-list').innerHTML = listView(xs); el.querySelector('#cl-count').textContent = fmtN(xs.length) + ' לקוחות'; };
     const load = async () => { try { cs = (await api.clients()).items; paint(); } catch (e) { el.querySelector('#cl-list').innerHTML = ctx.errorBox(e, 'cl-retry'); } };

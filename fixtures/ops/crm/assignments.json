@@ -1,0 +1,56 @@
+{
+ "fixture": true,
+ "as_of": "2026-11-03T15:32:00.177Z",
+ "source": "live GET https://go.ishur.io/api/crm/assignments?limit=500, masked",
+ "synthetic_rows": 3,
+ "ok": true,
+ "items": [
+  {
+   "id": "Sfix1",
+   "hostess_id": "H972500009011",
+   "hostess_name": "גיל דהן",
+   "event_token": "395962fa-0000-4000-8000-000000000000",
+   "date": "2026-11-03",
+   "start": "18:00",
+   "end": "23:00",
+   "hours": 5,
+   "pay": 450,
+   "status": "confirmed",
+   "created_at": "2026-10-31T15:32:00.177Z",
+   "updated_at": "2026-10-31T15:32:00.177Z",
+   "fixture": "synthetic"
+  },
+  {
+   "id": "Sfix2",
+   "hostess_id": "H972500009011",
+   "hostess_name": "גיל דהן",
+   "event_token": "fixe0002-0000-4000-8000-000000000000",
+   "date": "2026-11-03",
+   "start": "20:00",
+   "end": "23:30",
+   "hours": 3.5,
+   "pay": 400,
+   "status": "proposed",
+   "created_at": "2026-11-02T15:32:00.177Z",
+   "updated_at": "2026-11-02T15:32:00.177Z",
+   "fixture": "synthetic"
+  },
+  {
+   "id": "Sfix3",
+   "hostess_id": "H972500009012",
+   "hostess_name": "מאיה כהן",
+   "event_token": "395962fa-0000-4000-8000-000000000000",
+   "date": "2026-10-28",
+   "start": "19:00",
+   "end": "23:00",
+   "hours": 4,
+   "pay": 400,
+   "status": "paid",
+   "created_at": "2026-10-22T15:32:00.177Z",
+   "updated_at": "2026-10-29T15:32:00.177Z",
+   "fixture": "synthetic"
+  }
+ ],
+ "total": 3,
+ "next_cursor": null
+}

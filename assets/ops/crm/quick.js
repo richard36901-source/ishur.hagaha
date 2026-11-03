@@ -4,7 +4,7 @@
    and the Worker use); per-add-on prices are differences of that same function. The server's sum is
    the one on the link. Layout follows Richard's 03/11 form rule: one field per row, label above,
    order name → phone → occasion → date → package → records → add-ons → total → action. */
-import { esc, Select, Button, busy, toast } from '../ui.js';
+import { esc, Select, Button, busy, toast, confirmTyped } from '../ui.js';
 import { money, phoneHe } from './kit.js';
 import { PLAN_HE } from './adapt.js';
 
@@ -89,12 +89,19 @@ export async function mountQuick(host, { lead, api, onStatus }) {
     else if (a === 'qc-copy-url') copy(q.url, b);
     else if (a === 'qc-copy-msg') copy(q.msg, b);
     else if (a === 'qc-make') {
-      await busy(b, async () => { const r = await api.quote(lead, q); if (!r || !r.url) throw new Error('no-url'); q.url = r.url; q.quote_id = r.quote_id; q.sum = r.sum; q.msg = suggested(lead, q, r.url); }).then(paint, (x) => toast('לא נוצר קישור' + (x && x.message ? ': ' + x.message : ''), 'crit'));
+      await busy(b, async () => { const r = await api.quote(lead, q); if (!r || !r.url) throw new Error('no-url'); q.url = r.url; q.quote_id = r.quote_id; q.sum = r.sum; q.msg = r.suggested_text || suggested(lead, q, r.url); }).then(paint, (x) => toast('לא נוצר קישור' + (x && x.message ? ': ' + x.message : ''), 'crit'));
     } else if (a === 'qc-send') {
       await busy(b, async () => {
-        const r = await api.send(lead.id, q.needs_template ? { template: q.tpl, quote_id: q.quote_id, url: q.url } : { text: q.msg, quote_id: q.quote_id, url: q.url });
-        if (r.needs_template) { q.needs_template = true; q.templates = r.templates.length ? r.templates : (await api.get('templates').catch(() => ({ items: [] }))).items; return; }
-        if (!r.sent) throw new Error(r.queued_until ? 'בתור עד ' + r.queued_until : 'לא נשלח');
+        const msg = q.needs_template ? { template: q.tpl } : { text: q.msg };
+        let r = await api.send(lead.id, msg);
+        if (r.needs_template) { q.needs_template = true; q.templates = r.templates.length ? r.templates : (await api.templates()).items; return; }
+        /* server preview first (nothing sent), then Richard's explicit "שלח" (memory rule), then the real send */
+        if (r.preview) {
+          const ok = await confirmTyped({ title: 'לשלוח דרך נועה ל-' + (r.to || lead.name) + '?', body: `<p class="sub">ההודעה תצא עכשיו כטקסט חופשי (בתוך חלון 24 השעות).</p><pre class="in ta" dir="auto" style="white-space:pre-wrap">${esc(r.text)}</pre>`, word: 'שלח', action: 'שליחה', danger: false });
+          if (!ok) return;
+          r = await api.send(lead.id, { ...msg, confirm: true });
+        }
+        if (!r.sent) throw new Error(r.why || 'לא נשלח');
         q.sent = true; onStatus && onStatus(r.status || 'quoted');
       }).then(paint, (x) => toast('לא נשלח' + (x && x.message ? ': ' + x.message : ''), 'crit'));
     }

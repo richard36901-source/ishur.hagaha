@@ -66,8 +66,8 @@ function assignView(a, d, hs) {
 export default {
   skeleton: () => Skeleton.tiles(4) + Skeleton.table(8),
   async mount(el, ctx) {
-    const api = crm(ctx), cached = ctx.api.cached('crm/hostesses');
-    let d = cached ? adaptCrm('hostesses', cached.data) : null, off = 0;
+    const api = crm(ctx), cached = api.cachedView('hostesses');
+    let d = cached || null, off = 0;
     const paint = () => { if (!d) return; el.innerHTML = view(d, d.hostesses, weekDays(off), off); ctx.setBadge('hostesses', d.conflicts.length + (d.events || []).filter((e) => e.have < e.need).length); };
     const load = async () => { try { d = await api.hostesses(); paint(); } catch (e) { el.innerHTML = ctx.errorBox(e, 'hs-retry'); } };
     this.reload = load; this.data = () => d;

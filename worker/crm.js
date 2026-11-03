@@ -258,27 +258,6 @@ const syncOn = env => String((env && env.CRM_MONDAY_SYNC) || 'on') !== 'off';
 const jparse = s => { try { return s ? JSON.parse(s) : null; } catch { return null; } };
 const kvJson = async (env, k) => (env.RATE ? jparse(await env.RATE.get(k).catch(() => null)) : null);
 
-async function upsertLeadFrom(store, patch, { note, noteAt, origin } = {}) {
-  const id = leadIdOf(patch.phone);
-  const ex = await store.get('leads', id);
-  const m = importMerge(ex, patch);
-  let row = ex;
-  const created = !ex;
-  if (created) row = await store.upsert('leads', { id, status: 'new', tags: [], ...m, phone: patch.phone, created_at: m.created_at || nowIso() });
-  else if (Object.keys(m).length) row = await store.upsert('leads', { id, ...m });
-  let noted = false;
-  if (note) {
-    const notes = await store.listNotes('lead', id);
-    if (!notes.some(n => n.text === note || (origin && n.origin === origin && n.text === note))) {
-      /* Monday notes are the FIRST note: stamped no later than the lead itself */
-      const at = noteAt || row.created_at || nowIso();
-      await store.appendNote({ entity_type: 'lead', entity_id: id, text: note, author: origin === 'monday' ? 'מאנדיי' : 'ייבוא', at, origin: origin || 'import' });
-      noted = true;
-    }
-  }
-  return { row, created, updated: !created && Object.keys(m).length > 0, noted };
-}
-
 /* read-only Monday pull (board 18432553641): name, phone, status, owner, notes */
 export async function fetchMondayLeads(env, gql = mondayGql) {
   if (!env.MONDAY_API_TOKEN) return { ok: false, why: 'no-token', items: [] };
@@ -294,7 +273,8 @@ export async function fetchMondayLeads(env, gql = mondayGql) {
   return { ok: true, items };
 }
 
-export async function importLeads(env, d, { dry = false, sources = ['kv', 'leadx', 'meta', 'monday'], store = makeStore(env) } = {}) {
+const NOTE_CHUNK = 20, NOTE_PAUSE_MS = 250;
+export async function importLeads(env, d, { dry = false, sources = ['kv', 'leadx', 'meta', 'monday'], store = makeStore(env), cursor = '', limit = 250 } = {}) {
   const res = { ok: true, dry, store: store.kind, sources: {}, created: 0, updated: 0, notes_added: 0, skipped_clients: 0, errors: [] };
   const patches = [];   /* [patch, opts] in source order: kv → leadx → meta → monday */
   const isClient = async p => !!(env.RATE && await env.RATE.get('client:' + p).catch(() => null));
@@ -326,23 +306,55 @@ export async function importLeads(env, d, { dry = false, sources = ['kv', 'leadx
       for (const it of r.items) { const m = patchFromMonday(it); if (m) patches.push([m.patch, m.notes ? { note: 'מאנדיי: ' + m.notes, noteAt: m.patch.created_at || undefined, origin: 'monday' } : {}]); }
     } catch (e) { res.errors.push('monday: ' + String(e && e.message).slice(0, 160)); }
   }
-  const seen = new Set();
-  for (const [p, o] of patches) {
-    if (!p.phone) continue;
-    if (dry) { seen.add(p.phone); continue; }
-    const r = await upsertLeadFrom(store, p, o);
-    if (r.created) res.created++; else if (r.updated) res.updated++;
-    if (r.noted) res.notes_added++;
-    seen.add(p.phone);
+  /* ── batched, resumable apply (03/11: the per-lead upsert re-wrote crm:t:leads once per patch → "KV PUT failed: 429").
+     Phones are processed in a stable (sorted) order, `limit` (default 250, keeps KV ops under the per-invocation cap) per call; `next_cursor` resumes the next call.
+     Leads: computed in memory against ONE read of the table, written with ONE upsertMany (only rows that changed).
+     Notes: deduped by text, written per entity in chunks of NOTE_CHUNK with a short pause between chunks.
+     Re-running the same import is a no-op (0 created / 0 updated / 0 notes, no lead write). */
+  const byPhone = new Map();
+  for (const [p, o] of patches) { if (!p.phone) continue; (byPhone.get(p.phone) || byPhone.set(p.phone, []).get(p.phone)).push([p, o]); }
+  const phones = [...byPhone.keys()].sort();
+  const from = Math.max(0, parseInt(cursor, 10) || 0);
+  const lim = Math.max(1, Math.min(2000, Number(limit) || 250));
+  const chunk = phones.slice(from, from + lim);
+  res.phones = phones.length; res.processed = chunk.length; res.unchanged = 0;
+  res.next_cursor = from + lim < phones.length ? String(from + lim) : null; res.done = !res.next_cursor;
+  if (dry) { for (const ph of chunk) if (await isClient(ph)) res.skipped_clients++; return res; }
+  const existing = new Map((await store.all('leads')).map(l => [l.id, l]));
+  const strip = r => { const { updated_at, ...x } = r || {}; return JSON.stringify(x, Object.keys(x).sort()); };
+  const writes = [], noteJobs = [];
+  for (const ph of chunk) {
+    const id = leadIdOf(ph), before = existing.get(id) || null;
+    let row = before ? { ...before } : null;
+    const notes = [];
+    for (const [p, o] of byPhone.get(ph)) {
+      const m = importMerge(row, p);
+      row = row ? { ...row, ...m } : { id, status: 'new', tags: [], ...m, phone: ph };
+      if (o && o.note) notes.push({ text: o.note, at: o.noteAt || row.created_at, origin: o.origin });   /* as of this patch, like the old per-patch write */
+    }
+    if (!row.created_at) row.created_at = nowIso();
+    /* a lead who already paid is closed, not new */
+    if (await isClient(ph)) { res.skipped_clients++; if (row.status !== 'closed') { row.status = 'closed'; row.closed_at = row.closed_at || nowIso(); } }
+    if (!before) { res.created++; writes.push(row); } else if (strip(before) !== strip(row)) { res.updated++; writes.push(row); } else res.unchanged++;
+    if (notes.length) noteJobs.push({ id, created_at: row.created_at, notes });
   }
-  /* a lead who already paid is closed, not new */
-  for (const p of seen) {
-    if (!(await isClient(p))) continue;
-    res.skipped_clients++;
-    if (!dry) { const l = await store.get('leads', leadIdOf(p)); if (l && l.status !== 'closed') await store.upsert('leads', { id: l.id, status: 'closed', closed_at: l.closed_at || nowIso() }); }
+  if (writes.length) await store.upsertMany('leads', writes);
+  const pause = d.sleep || (ms => new Promise(r => setTimeout(r, ms)));
+  for (let i = 0; i < noteJobs.length; i += NOTE_CHUNK) {
+    if (i) await pause(NOTE_PAUSE_MS);
+    const batch = [];
+    await Promise.all(noteJobs.slice(i, i + NOTE_CHUNK).map(async j => {
+      const have = new Set((await store.listNotes('lead', j.id)).map(n => n.text));
+      for (const n of j.notes) {
+        if (!n.text || have.has(n.text)) continue; have.add(n.text);
+        /* Monday notes are the FIRST note: stamped no later than the lead itself */
+        batch.push({ entity_type: 'lead', entity_id: j.id, text: n.text, author: n.origin === 'monday' ? 'מאנדיי' : 'ייבוא', at: n.at || j.created_at || nowIso(), origin: n.origin || 'import' });
+      }
+    }));
+    if (batch.length) { await store.appendNotes(batch); res.notes_added += batch.length; }
   }
-  res.phones = seen.size;
-  if (!dry && env.RATE) await env.RATE.put('crm:imported_at', nowIso()).catch(() => {});
+  res.writes = { leads: writes.length ? 1 : 0, note_keys: new Set(noteJobs.map(j => j.id)).size };
+  if (env.RATE && res.done) await env.RATE.put('crm:imported_at', nowIso()).catch(() => {});
   return res;
 }
 
@@ -628,19 +640,23 @@ export async function handleCrm(request, env, origin, url, d) {
           let synced = null;
           if (!last || Date.now() - Date.parse(last) > 10 * 60e3) {
             if (env.RATE) await env.RATE.put('crm:kvsync_at', nowIso()).catch(() => {});
-            synced = await importLeads(env, d, { sources: ['kv', 'leadx'], store }).catch(e => ({ ok: false, why: String(e && e.message) }));
+            /* resumable: a big lead: set is synced 250 phones per list call, continuing from the saved cursor */
+            const cur = env.RATE ? await env.RATE.get('crm:kvsync_cursor').catch(() => null) : null;
+            synced = await importLeads(env, d, { sources: ['kv', 'leadx'], store, cursor: cur || '' }).catch(e => ({ ok: false, why: String(e && e.message) }));
+            if (env.RATE && synced && synced.ok) await env.RATE.put('crm:kvsync_cursor', synced.next_cursor || '').catch(() => {});
+            if (env.RATE && synced && synced.next_cursor) await env.RATE.delete('crm:kvsync_at').catch(() => {});   /* not done: next list call continues */
           }
           const lq = listQ(['status', 'source', 'owner', 'tag', 'occasion']);
           if (q('due') === 'overdue') lq.filter.next_action_at = { to: nowIso(), empty: false };
           const r = await store.list('leads', { ...lq, sort: lq.sort || '-updated_at' });
           const all = await store.all('leads');
           const by_status = Object.fromEntries(LEAD_STATUSES.map(s => [s, all.filter(l => l.status === s).length]));
-          return json({ ok: true, store: store.kind, ...r, by_status, statuses: LEAD_STATUSES.map(s => ({ id: s, he: STATUS_HE[s] })), sources: SOURCES, synced: synced ? { created: synced.created, updated: synced.updated } : null });
+          return json({ ok: true, store: store.kind, ...r, by_status, statuses: LEAD_STATUSES.map(s => ({ id: s, he: STATUS_HE[s] })), sources: SOURCES, synced: synced ? { created: synced.created, updated: synced.updated, next_cursor: synced.next_cursor ?? null } : null });
         }
         if (b === 'import') {
           if (!isPost) return json({ ok: false, error: 'POST-only' }, 405);
           const sources = Array.isArray(body.sources) && body.sources.length ? body.sources.filter(s => ['kv', 'leadx', 'meta', 'monday'].includes(s)) : undefined;
-          return json(await importLeads(env, d, { dry: body.dry === true, sources, store }));
+          return json(await importLeads(env, d, { dry: body.dry === true, sources, store, cursor: body.cursor || '', limit: body.limit }));
         }
         if (b === 'bulk') {
           if (!isPost) return json({ ok: false, error: 'POST-only' }, 405);
