@@ -38,19 +38,16 @@ function cachePut(key, data) {
 let reqCount = 0;
 export const stats = () => ({ requests: reqCount });
 
-/* automation_id → name_he from the cached registry (runs / live rows show names) */
+/* automation_id → name_he (cached registry) */
 function names() { const r = cacheGet('registry'); return r && r.data && r.data.nodes ? Object.fromEntries(r.data.nodes.map((n) => [n.id, n.name_he])) : {}; }
 async function raw(name, body = {}, opts = {}) {
-  const method = opts.method || 'POST';
   reqCount++;
   let j;
-  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await (await import('./mock.js')).mockApi(name, body, VER, method); }
+  if (MOCK) { await new Promise((r) => setTimeout(r, 60 + Math.random() * 90)); /* pretend network */ j = await (await import('./mock.js')).mockApi(name, body, VER, opts.qs); }
   else {
     await ensureLive();
-    const url = BASE + '/api/' + (name.includes('/') ? name.replace(/^\//, '') : 'ops/' + name);
-    const qs = new URLSearchParams(body).toString(), payload = Object.assign({ admin_key: adminKey }, body);
-    const r = method === 'GET' ? await fetch(url + (qs ? '?' + qs : ''), { headers: { 'X-Admin-Key': adminKey } })
-      : await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
+    const payload = Object.assign({ admin_key: adminKey }, body);
+    const r = await fetch(BASE + '/api/' + (name.includes('/') ? name.replace(/^\//, '') : 'ops/' + name) + (opts.qs || ''), opts.qs != null ? { headers: { 'X-Admin-Key': adminKey } } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
     if (r.status === 403 || r.status === 401) { showGate('המפתח לא התקבל'); throw new HttpError(r.status, 'אין הרשאה'); }
     if (r.status === 404) { const e = await r.json().catch(() => ({})); throw new HttpError(404, e.error === 'unknown-ops-route' || !e.error ? 'נקודת הקצה ' + name + ' עוד לא קיימת בשרת' : e.error); }
     if (!r.ok) { const e = await r.json().catch(() => ({})); if (opts.soft && e.ok === false) return e; throw new HttpError(r.status, e.error || e.why || ''); }
@@ -63,10 +60,10 @@ const keyOf = (name, body) => name + (body && Object.keys(body).length ? ':' + J
 const inflight = new Map();
 export const api = {
   cached: (name, body) => cacheGet(keyOf(name, body)),
-  async get(name, body = {}, { cache = true, method } = {}) {
+  async get(name, body = {}, { cache = true, qs } = {}) {
     const k = keyOf(name, body);
     if (inflight.has(k)) return inflight.get(k);
-    const p = raw(name, body, { method }).then((d) => { if (cache) cachePut(k, d); asOf(Date.now()); return d; }).finally(() => inflight.delete(k));
+    const p = raw(name, body, { qs }).then((d) => { if (cache) cachePut(k, d); asOf(Date.now()); return d; }).finally(() => inflight.delete(k));
     inflight.set(k, p); return p;
   },
   post: (name, body, opts) => raw(name, body, opts),
@@ -113,11 +110,13 @@ export const ROUTES = [
   { id: 'capacity', he: 'קיבולת', icon: 'cap', key: 'k' },
   { id: 'calendar', he: 'לוח שנה', icon: 'cap', key: 'd' },
   { id: 'balances', he: 'יתרות', icon: 'bal', key: 'y' },
-  { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 'h', dir: 'crm' },
+  { id: 'changes', he: 'שינויים', icon: 'runs', key: 'h' },
+  { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' }, { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 't', dir: 'crm' },
 ];
 const screens = {};
-/* calendar is lazy (outside the counted JS budget, like mock.js); CRM screens live in ./crm/ (ROUTES dir) */
-const loadModule = (id) => (screens[id] = screens[id] || import(id === 'calendar' ? './lazy/calendar.js' : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
+/* lazy/ + crm/ modules sit outside the counted JS budget */
+const LAZY = new Set(['calendar', 'changes']);
+const loadModule = (id) => (screens[id] = screens[id] || import(LAZY.has(id) ? `./lazy/${id}.js` : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
 const loadScreen = (id) => loadModule(id).then((m) => m.default);
 export const href = (path) => '#/' + path;
 
@@ -182,7 +181,7 @@ async function mountSide() {
   const m = await loadModule('live');
   $('#side-feed').innerHTML = '<div style="padding:8px 14px">' + Skeleton.lines(10) + '</div>';
   sideFeed = m.feed($('#side-feed'), { compact: true });
-  /* first live fetch waits for the page's own data so load stays at ≤3 requests */
+  /* first live fetch waits for the page's own data (≤3 requests) */
   setTimeout(() => sideFeed && sideFeed.start((n, b) => api.get(n, b, { cache: false })), 1500);
 }
 function toggleSide() {
@@ -201,7 +200,7 @@ function toggleTheme() {
 
 /* ── keyboard ── */
 export const KEYMAP = [
-  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'], ['g e', 'לידים'], ['g s', 'לקוחות'], ['g h', 'דיילות'],
+  ['g o', 'סקירה'], ['g a', 'אוטומציות'], ['g r', 'ריצות'], ['g l', 'לוג חי'], ['g b', 'מוח'], ['g m', 'הודעות'], ['g c', 'שיחות'], ['g k', 'קיבולת'], ['g d', 'לוח שנה'], ['g y', 'יתרות'], ['g h', 'שינויים'], ['g e', 'לידים'], ['g s', 'לקוחות'], ['g t', 'דיילות'],
   ['⌘ K', 'פקודות וחיפוש'], ['/', 'חיפוש בעמוד'], ['j k', 'שורה הבאה / קודמת'], ['Enter', 'פתיחת השורה'], ['Esc', 'סגירה'],
   ['\\', 'פאנל לוג חי'], ['t', 'בהיר / כהה'], ['p', 'עצירת הזרם החי'], ['?', 'קיצורי מקלדת'],
 ];

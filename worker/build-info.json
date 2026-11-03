@@ -1,0 +1,91 @@
+{
+  "version_tag": "20261103-d91e7e7-dirty",
+  "commit": "d91e7e7581f6",
+  "branch": "crm-ship",
+  "date": "2026-11-03T15:36:19.882Z",
+  "by": "AutoScale",
+  "since": null,
+  "dirty": true,
+  "commits": [
+    {
+      "hash": "d91e7e7",
+      "subject": "CRM ship: adapter on the real /api/crm endpoints, live-masked fixtures, batched resumable leads import"
+    },
+    {
+      "hash": "cce4546",
+      "subject": "docs: ops screenshots incl. CRM screens (fixture data)"
+    },
+    {
+      "hash": "9c59191",
+      "subject": "docs: ops UI phase 3 CRM screens, brand tokens, tests, backend gaps"
+    },
+    {
+      "hash": "b0ca54f",
+      "subject": "pay-link generator: one card with the saved links, form layout (label above, one field per row, add-on checklist, big total), brand buttons "
+    },
+    {
+      "hash": "2cb6769",
+      "subject": "site prefill link (?plan=/?offer= + design) + sales flow: bundles, inclusions, human-note gate, follow-ups flag"
+    },
+    {
+      "hash": "713ea13",
+      "subject": "ops CRM: charts fit their own box width (LTR svg text), toasts clear the drawer bar, phone filter grid, non-blocking brand fonts"
+    },
+    {
+      "hash": "11d4915",
+      "subject": "ops CRM: smoke covers lead drawer, quick-close total, kanban drag + keyboard, 375 px; fix optimistic-move race and focus loss on reload; 44 "
+    },
+    {
+      "hash": "a4ddb20",
+      "subject": "sales flow on Noa 4499 (cfg sales_flow, default off) + recommendPlan/hostessesFor/siteLink + /api/quote-from-site"
+    },
+    {
+      "hash": "1ca5eb7",
+      "subject": "ops shell: CRM routes (lazy crm/ modules), brand tokens, phone tab bar + more sheet; drop admin.html clients link"
+    },
+    {
+      "hash": "7aab762",
+      "subject": "ops CRM: clients and hostesses screens, overview agenda + inline-SVG charts"
+    },
+    {
+      "hash": "9ff4e43",
+      "subject": "ops CRM: leads screen (kanban with custom DnD, table + bulk, filters) and lead drawer with quick close"
+    },
+    {
+      "hash": "3d3dc4c",
+      "subject": "ops CRM: crm/adapt.js (only place with CRM paths + fields) and lazy crm mock with writes"
+    },
+    {
+      "hash": "d3d72b8",
+      "subject": "ops CRM: fixtures from the plan §7 field lists + deterministic builder (fake phones, zeroed tokens)"
+    },
+    {
+      "hash": "cd1a898",
+      "subject": "CRM backend: /api/crm/* (leads, quick close, clients, hostesses, notes, reminders, agenda, stats), store.js D1/KV repository, 0003_crm.sql, "
+    },
+    {
+      "hash": "06e5968",
+      "subject": "docs: smoke count; screenshots"
+    },
+    {
+      "hash": "cb34ae1",
+      "subject": "docs: ops calendar (UI + API) and the capacity rolled plan"
+    },
+    {
+      "hash": "8092f0c",
+      "subject": "ops smoke: calendar + rolled-chart checks (fixture contract, filters, drawers, nav, 375 px); screenshots"
+    },
+    {
+      "hash": "3e5cd68",
+      "subject": "ops UI: calendar screen (g d) — month/week grid, state chips, filters persisted, per-event + search, day/chip drawers; lazy-loaded outside t"
+    },
+    {
+      "hash": "9c82cc9",
+      "subject": "docs: EVENTDAY-ONE-MESSAGE-2026-11-03"
+    },
+    {
+      "hash": "9ac8134",
+      "subject": "ops UI capacity chart: rolled plan as primary bars, original due as outline, tooltip with per-event split and deferred-from"
+    }
+  ]
+}

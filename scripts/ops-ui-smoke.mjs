@@ -44,9 +44,9 @@ console.log('A3 fixture rendering');
 /* fixtures are masked copies of real API responses; screens render them only through adapt() */
 const fx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops', n + '.json'), 'utf8'));
 const { adapt } = await import(pathToFileURL(join(OPS, 'adapt.js')));
-const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code', 'calendar'].map((n) => [n, fx(n)]));
+const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code', 'calendar', 'changes'].map((n) => [n, fx(n)]));
 const NAMES = Object.fromEntries(RAW.registry.nodes.map((n) => [n.id, n.name_he]));
-const F = Object.fromEntries(Object.entries(RAW).map(([n, d]) => [n, ['toggle', 'code', 'calendar'].includes(n) ? d : adapt(n, d, { names: NAMES })]));
+const F = Object.fromEntries(Object.entries(RAW).map(([n, d]) => [n, ['toggle', 'code', 'calendar', 'changes'].includes(n) ? d : adapt(n, d, { names: NAMES })]));
 console.log('A3a contract (fixture keys the adapter reads exist in the real-shaped fixtures)');
 ok(RAW.realtime.wa && Array.isArray(RAW.realtime.wa.numbers) && RAW.realtime.cap && RAW.realtime.queue && 'calls' in RAW.realtime && RAW.realtime.pacer, 'realtime: wa.numbers, cap, queue, calls, pacer');
 ok(RAW.realtime.wa.numbers.every((n) => 'sent_today' in n && 'by_reason' in n && 'by_event' in n && 'failed_by_code' in n), 'realtime.wa.numbers[] fields');
@@ -121,6 +121,22 @@ ok(RAW.calendar.days.every((d) => CAL.visible(d, { ...allF, q: 'zzzz-no-match' }
 const closedDay = { ...RAW.calendar.days[0], items: [{ id: 'closed:x', kind: 'closed', tok8: '', event: 'לקוח', type: 'closed', type_he: 'סגירה', state: 'done', at: '2026-11-02T09:00:00Z', package: 'פרמיום', records: 300, sum: 1490 }] };
 ok(CAL.visible(closedDay, only(['closed'])).items.length === 1 && CAL.visible(closedDay, only(['sends'])).items.length === 0, 'calendar closed-purchase items follow the סגירות filter');
 check('calendar.chipDetail closed', () => CAL.chipDetail(closedDay.items[0]) + '<x>'.repeat(40));
+console.log('A3b change log (lazy/changes.js)');
+const CH = await import(pathToFileURL(join(OPS, 'lazy/changes.js')));
+ok(RAW.changes.items.every((x) => 'id' in x && 'at' in x && 'kind' in x && 'actor' in x && 'summary_he' in x && x.revert && 'possible' in x.revert && 'how' in x.revert), 'changes.items[] contract: id, at, kind, actor, summary_he, revert{possible, how}');
+const chAll = { kinds: new Set(), actor: '', from: '', to: '', q: '' };
+check('changes.toolbar', () => CH.toolbar(chAll));
+check('changes.timeline', () => CH.timeline(RAW.changes.items, chAll));
+check('changes.timeline empty', () => CH.timeline([], chAll) + '<x>'.repeat(60));
+const days = CH.groupByDay(RAW.changes.items);
+ok(days.length >= 3 && days.every((g, i) => i === 0 || g.day < days[i - 1].day), 'timeline grouped by Israel day, newest first', days.map((g) => g.day + ':' + g.items.length).join(' '));
+for (const k of [...new Set(RAW.changes.items.map((x) => x.kind))]) check('changes.detail ' + k, () => CH.detail(RAW.changes.items.find((x) => x.kind === k)) + '<x>'.repeat(40));
+const dep = RAW.changes.items.find((x) => x.kind === 'deploy');
+ok(CH.row(dep).includes(dep.details.commits[0].subject) && CH.detail(dep).includes('wrangler rollback'), 'deploy entry lists its commit subjects + the rollback command');
+ok(CH.detail(RAW.changes.items.find((x) => x.revert.possible && !x.reverted_at)).includes('data-act="chg-revert"') && !CH.detail(RAW.changes.items.find((x) => !x.revert.possible)).includes('chg-revert') && !CH.detail(RAW.changes.items.find((x) => x.reverted_at)).includes('chg-revert'), '"שחזר" only where revert.possible and not yet reverted');
+ok(RAW.changes.items.filter((x) => CH.match(x, { ...chAll, kinds: new Set(['deploy', 'registry']) })).every((x) => ['deploy', 'registry'].includes(x.kind)) && RAW.changes.items.filter((x) => CH.match(x, { ...chAll, actor: 'Claude' })).every((x) => x.actor === 'Claude') && RAW.changes.items.filter((x) => CH.match(x, { ...chAll, from: '2026-11-03', to: '2026-11-03' })).every((x) => CH.ilDay(x.at) === '2026-11-03'), 'changes filters: kind / actor / date range');
+const newNode = { ...reg.nodes.find((n) => n.id === 'wave1'), is_new: true };
+ok(S.automations.listView([newNode], {}).includes('חדש') && !S.automations.listView([{ ...newNode, is_new: false }], {}).includes('>חדש<'), 'registry shows "חדש" for nodes added in the last 7 days');
 ok(F.balances.vendors.filter(S.balances.isLow).map((v) => v.vendor).join() === 'telnyx', 'balances low detection = telnyx only');
 check('empty states', () => S.runs.listView([]) + S.automations.listView([], {}) + S.brain.findingsView([]) + S.overview.incidents([]) + S.overview.nextUp([]) + '<x>'.repeat(60));
 check('overview.view before balances lands', () => S.overview.view(F.realtime, F.capacity, null));
@@ -139,7 +155,7 @@ ok(CA.PATH.lead('L1') === 'crm/leads/L1' && CA.PATH.quote('L1') === 'crm/leads/L
 ok(new Set(CR.leads.items.map((l) => l.status)).size === 6, 'crm leads cover all 6 statuses');
 ok((JSON.stringify(CR).match(/972\d{9}/g) || []).every((m) => /^97250000\d{4}$/.test(m)), 'crm fixtures use only fake 97250000xxxx phones');
 ok(!/[0-9a-f]{8}-(?!0000-4000-8000-000000000000)[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(JSON.stringify(CR)), 'crm fixtures: tokens zeroed after the 8-char prefix');
-const CL = await import(pathToFileURL(join(OPS, 'crm/leads.js'))), CC = await import(pathToFileURL(join(OPS, 'crm/clients.js'))), CH = await import(pathToFileURL(join(OPS, 'crm/hostesses.js'))), CT = await import(pathToFileURL(join(OPS, 'crm/today.js'))), CQ = await import(pathToFileURL(join(OPS, 'crm/quick.js')));
+const CL = await import(pathToFileURL(join(OPS, 'crm/leads.js'))), CC = await import(pathToFileURL(join(OPS, 'crm/clients.js'))), CHS = await import(pathToFileURL(join(OPS, 'crm/hostesses.js'))), CT = await import(pathToFileURL(join(OPS, 'crm/today.js'))), CQ = await import(pathToFileURL(join(OPS, 'crm/quick.js')));
 const VL = CA.adaptCrm('leads', CR.leads).items, L0 = VL[0];
 check('crm leads.board', () => CL.board(VL, {}));
 ok((CL.board(VL, {}).match(/class="kb-col"/g) || []).length === 6, 'kanban has 6 status columns');
@@ -170,8 +186,8 @@ check('crm clients.drawerView', () => CC.drawerView(CA.adaptCrm('client', { ok: 
 const VH = CA.adaptCrm('hostesses', { hostesses: CR.hostesses.items, assignments: CR.assignments.items, clients: CR.clients.clients });
 ok(VH.events.some((e) => e.have < e.need), 'hostess needs derived from clients addons.hostesses.n vs assignments', JSON.stringify(VH.events.map((e) => e.have + '/' + e.need)));
 ok(VH.conflicts.length >= 1, 'hostess conflicts detected (fixture has a double booking)', VH.conflicts.length + ' conflicts');
-check('crm hostesses.view', () => CH.view(VH, VH.hostesses, CH.weekDays(0, Date.parse('2026-11-03T10:00:00Z')), 0));
-ok(/משובצת פעמיים/.test(CH.warnings(VH, VH.hostesses)) && /חסרה בהם דיילת/.test(CH.warnings(VH, VH.hostesses)), 'hostess warnings: conflict + short-staffed');
+check('crm hostesses.view', () => CHS.view(VH, VH.hostesses, CHS.weekDays(0, Date.parse('2026-11-03T10:00:00Z')), 0));
+ok(/משובצת פעמיים/.test(CHS.warnings(VH, VH.hostesses)) && /חסרה בהם דיילת/.test(CHS.warnings(VH, VH.hostesses)), 'hostess warnings: conflict + short-staffed');
 const VS = CA.adaptCrm('stats', CR.stats);
 check('crm today.charts', () => CT.charts(VS, 900));
 check('crm today.charts at 343 px', () => CT.charts(VS, 343));
@@ -217,7 +233,7 @@ if (!process.argv.includes('--no-browser')) {
         const uniq = [...new Set(data.map((u) => u.split('?')[0]))];
         ok(uniq.length <= 3, '≤ 3 data requests on load', uniq.map((u) => u.split('/').pop()).join(', '));
       }
-      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'calendar', 'balances']) {
+      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'calls', 'capacity', 'calendar', 'balances', 'changes']) {
         await page.evaluate((h) => { location.hash = h; }, '#/' + r);
         await page.waitForFunction(() => !document.querySelector('#main .sk') || document.querySelector('#main .feed-row,#main table,#main .tile .v,#main .cal-d'), null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(r === 'brain' || r === 'live' ? 3600 : 500);
@@ -276,13 +292,42 @@ if (!process.argv.includes('--no-browser')) {
         const nextOk = await page.$$eval('#main .cal-d[data-day]', (x) => x.length > 27 && !x[0].dataset.day.startsWith('2026-11'));
         await page.click('#main [data-act=cal-today]'); await page.waitForTimeout(500);
         ok(nextOk && (await page.$('#main .cal-d.today')) !== null, 'month navigation + "היום" button');
+        /* change log: g h, kind chip filter, deploy drawer with commits, typed-confirm revert */
+        await page.keyboard.press('g'); await page.keyboard.press('h');
+        await page.waitForSelector('#main .chg-row', { timeout: 4000 });
+        ok((await page.evaluate(() => location.hash)) === '#/changes', 'g h navigates to the change log');
+        const nRows = await page.$$eval('#main .chg-row', (x) => x.length);
+        ok(nRows === RAW.changes.items.length && (await page.$$eval('#main .chg-day', (x) => x.length)) === days.length, 'change log renders every entry grouped by day', nRows + ' rows');
+        await page.click('#main [data-act=chg-k][data-k=deploy]');
+        const nDep = await page.$$eval('#main .chg-row', (x) => x.length);
+        ok(nDep === RAW.changes.items.filter((x) => x.kind === 'deploy').length, 'kind chip filters the timeline', nRows + ' → ' + nDep);
+        await page.click('#main .chg-row');
+        await page.waitForSelector('.drawer .chg-commits', { timeout: 3000 });
+        ok((await page.$eval('.drawer', (d) => d.innerText)).includes(dep.details.commits[1].subject), 'deploy drawer lists the commits since the previous deploy');
+        await page.waitForTimeout(350); /* drawer slide-in */
+        await page.screenshot({ path: join(shotDir, 'changes-deploy-light.png') });
+        await page.keyboard.press('Escape'); await page.waitForTimeout(250);
+        await page.click('#main [data-act=chg-k][data-k=deploy]');
+        const ed = RAW.changes.items.find((x) => x.kind === 'edit' && x.revert.possible);
+        await page.click(`#main .chg-row[data-chg="${ed.id}"]`);
+        await page.waitForSelector('.drawer [data-act=chg-revert]', { timeout: 3000 });
+        await page.click('.drawer [data-act=chg-revert]');
+        await page.waitForSelector('.dialog #dlg-in', { timeout: 4000 }); await page.waitForTimeout(350);
+        ok((await page.$eval('.dialog [data-act=dlg-yes]', (b) => b.getAttribute('aria-disabled'))) === 'true', 'revert button disabled until the confirm word is typed');
+        await page.screenshot({ path: join(shotDir, 'changes-revert-confirm-light.png') });
+        await page.fill('.dialog #dlg-in', ed.revert.confirm);
+        await page.click('.dialog [data-act=dlg-yes]');
+        await page.waitForSelector(`#main .chg-row.reverted[data-chg="${ed.id}"]`, { timeout: 4000 }).catch(() => {});
+        ok(!!(await page.$(`#main .chg-row.reverted[data-chg="${ed.id}"]`)) && (await page.$$eval('#main .chg-row', (x) => x.length)) === nRows + 1, 'after typed confirm the entry shows reverted + a new revert entry appears');
+        await page.screenshot({ path: join(shotDir, 'changes-light.png') });
+        ok(errors.length === 0, 'no console errors after the change-log flow', errors.slice(0, 3).join(' | '));
         ok(errors.length === 0, 'no console errors', errors.slice(0, 3).join(' | '));
       }
       await ctx.close();
     }
     const m = await browser.newContext({ viewport: { width: 375, height: 812 }, isMobile: true, hasTouch: true, locale: 'he-IL', timezoneId: 'Asia/Jerusalem' });
     const mp = await m.newPage();
-    for (const r of ['overview', 'automations', 'runs', 'messaging', 'capacity', 'calendar', 'balances']) {
+    for (const r of ['overview', 'automations', 'runs', 'messaging', 'capacity', 'calendar', 'balances', 'changes']) {
       await mp.goto(url + '#/' + r); await mp.waitForTimeout(900);
       const over = await mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
       ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r, over.join('/'));

@@ -4,10 +4,10 @@ class HttpError extends Error { constructor(status, msg) { super(msg || 'HTTP ' 
 let VER = '2';
 let fixtureCache = {};
 const fixture = (name) => (fixtureCache[name] = fixtureCache[name] || fetch(`fixtures/ops/${name}.json?v=${VER}`).then((r) => { if (!r.ok) throw new HttpError(r.status); return r.json(); }));
-const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {} };
-export async function mockApi(name, body, ver, method = 'POST') {
+const mockState = { off: {}, liveTs: 0, brainStep: 2, decided: {}, reverted: {}, added: [] };
+export async function mockApi(name, body, ver, qs) {
   if (ver) VER = ver;
-  if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER, method);
+  if (name.includes('/') || name === 'pay-link') return (await import('./crm/mock.js')).crmMock(name, body, VER, qs != null ? 'GET' : 'POST');
   const now = new Date().toISOString();
   if (name === 'registry') {
     const r = structuredClone(await fixture('registry'));
@@ -55,6 +55,27 @@ export async function mockApi(name, body, ver, method = 'POST') {
     }
     mockState.off[body.id] = body.enabled ? null : { at: now, by: body.who || 'richard', reason: body.reason || 'כובה מלוח הבקרה (דמה)' };
     return { ok: true, id: body.id, switch_id: sw, applied: true };
+  }
+  if (name === 'changes') {
+    const f = structuredClone(await fixture('changes'));
+    const kinds = body.kind ? String(body.kind).split(',') : null;
+    f.items = f.items.map((x) => (mockState.reverted[x.id] ? { ...x, reverted_at: mockState.reverted[x.id].at, reverted_by: mockState.reverted[x.id].by } : x))
+      .filter((x) => (!kinds || kinds.includes(x.kind)) && (!body.actor || x.actor === body.actor) && (!body.from || x.at >= new Date(body.from).toISOString()) && (!body.to || x.at <= new Date(body.to).toISOString()));
+    f.items = mockState.added.concat(f.items).sort((a, b) => (a.at < b.at ? 1 : -1));
+    return f;
+  }
+  if (name === 'revert') {
+    const it = (await fixture('changes')).items.find((x) => x.id === body.id);
+    if (!it || !it.revert.possible) return { ok: false, error: it ? 'not-revertible' : 'unknown-change' };
+    if (mockState.reverted[it.id]) return { ok: false, error: 'already-reverted' };
+    const p = it.revert.payload || {};
+    const preview = it.revert.how === 'rollback' ? { version_id: p.version_id, command: `cd worker && npx wrangler rollback ${p.version_id} --name ishur-webhooks`, api: false } : it.revert.how === 'edit' ? { setting: p.id, back_to: p.value } : p.pause !== undefined ? { pause: p.pause } : { switch: p.id, enabled: p.enabled };
+    if (body.confirm !== it.revert.confirm) return { ok: true, applied: false, id: it.id, how: it.revert.how, preview, confirm_required: it.revert.confirm };
+    if (it.revert.how === 'rollback') return { ok: true, applied: false, manual: true, preview, he: 'אין CF_API_TOKEN בוורקר: להריץ את הפקודה במחשב (דמה)', command: preview.command };
+    const nid = 'cmock' + Date.now().toString(36);
+    mockState.reverted[it.id] = { at: now, by: nid };
+    mockState.added.unshift({ id: nid, at: now, kind: it.kind, actor: 'Richard', summary_he: 'שחזור: ' + it.summary_he, details: { reverts: it.id }, revert: { possible: false, how: 'none', payload: null, confirm: null }, reverted_at: null, reverted_by: null });
+    return { ok: true, applied: true, id: it.id, revert_change_id: nid };
   }
   if (name === 'calendar') { const f = await fixture('calendar'); return !body.month || body.month === f.month ? f : { ok: true, fixture: true, month: body.month, days: [], events: [] }; }
   return fixture(name);

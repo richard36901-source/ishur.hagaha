@@ -1,0 +1,436 @@
+{
+ "ok": true,
+ "fixture": true,
+ "source": "kv",
+ "kinds": {
+  "deploy": "גרסה",
+  "registry": "אוטומציות",
+  "edit": "עריכה",
+  "hold": "החזקה",
+  "toggle": "מתג",
+  "pause": "עצירה כללית",
+  "template": "תבנית",
+  "brain": "מוח",
+  "subevent": "אירוע-בן",
+  "blast": "שליחה ידנית",
+  "revert": "שחזור"
+ },
+ "actors": [
+  "Richard",
+  "Claude",
+  "brain",
+  "system"
+ ],
+ "items": [
+  {
+   "id": "cmhj9k2a1x",
+   "at": "2026-11-03T15:20:00.000Z",
+   "kind": "toggle",
+   "actor": "Richard",
+   "summary_he": "הופעל: הפייסר (runPacer) (d_pacer) · סוף בדיקה",
+   "details": {
+    "switch": "d_pacer",
+    "id": "d_pacer",
+    "enabled": true,
+    "who": "richard",
+    "reason": "סוף בדיקה",
+    "reverts": "cmhj8z1b2y"
+   },
+   "revert": {
+    "possible": true,
+    "how": "toggle",
+    "payload": {
+     "id": "d_pacer",
+     "enabled": false
+    },
+    "confirm": "revert:cmhj9k2a1x"
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhj8z1b2y",
+   "at": "2026-11-03T14:55:00.000Z",
+   "kind": "toggle",
+   "actor": "Richard",
+   "summary_he": "כובה: הפייסר (runPacer) (d_pacer) · בדיקת מרכז בקרה",
+   "details": {
+    "switch": "d_pacer",
+    "id": "d_pacer",
+    "enabled": false,
+    "who": "richard",
+    "reason": "בדיקת מרכז בקרה",
+    "blast": {
+     "messages": 412,
+     "events": 3
+    }
+   },
+   "revert": {
+    "possible": true,
+    "how": "toggle",
+    "payload": {
+     "id": "d_pacer",
+     "enabled": true
+    },
+    "confirm": "revert:cmhj8z1b2y"
+   },
+   "reverted_at": "2026-11-03T15:20:00.000Z",
+   "reverted_by": "cmhj9k2a1x"
+  },
+  {
+   "id": "cmhj7a0c3z",
+   "at": "2026-11-03T13:40:00.000Z",
+   "kind": "edit",
+   "actor": "Richard",
+   "summary_he": "הודעות לפעימה (כל 10 דקות): 25 → 20 · עומס בתקרה",
+   "details": {
+    "setting": "pacer_batch_size",
+    "field": "",
+    "from": 25,
+    "to": 20,
+    "who": "richard",
+    "reason": "עומס בתקרה",
+    "blast": [
+     {
+      "label": "הודעות לפעימה",
+      "before": 25,
+      "after": 20
+     }
+    ]
+   },
+   "revert": {
+    "possible": true,
+    "how": "edit",
+    "payload": {
+     "id": "pacer_batch_size",
+     "field": "",
+     "value": 25
+    },
+    "confirm": "revert:cmhj7a0c3z"
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhj6d4e5f",
+   "at": "2026-11-03T12:10:00.000Z",
+   "kind": "deploy",
+   "actor": "system",
+   "summary_he": "גרסה חדשה עלתה · deploy:8f4aa331 · a98c66c722e3 (integ-2026-11-02) · 4 קומיטים",
+   "details": {
+    "version_id": "8f4aa331-0000-4000-8000-000000000000",
+    "version_tag": "20261103-a98c66c",
+    "commit": "a98c66c722e3",
+    "branch": "integ-2026-11-02",
+    "built_at": "2026-11-03T12:08:41.000Z",
+    "note": "ops center calendar",
+    "commits": [
+     {
+      "hash": "a98c66c",
+      "subject": "Merge crm-backend (ops-calendar + CRM) into integ"
+     },
+     {
+      "hash": "cd1a898",
+      "subject": "CRM backend: /api/crm/* (leads, quick close, clients, hostesses)"
+     },
+     {
+      "hash": "7d21e04",
+      "subject": "Ops calendar: month grid, rolled/ghost chips, Friday cap"
+     },
+     {
+      "hash": "5b0f9aa",
+      "subject": "Brain: crm_overdue check"
+     }
+    ],
+    "commits_truncated": false,
+    "previous_version_id": "1461afe4-0000-4000-8000-000000000000",
+    "previous_commit": "3faafcb",
+    "rollback_command": "cd worker && npx wrangler rollback 1461afe4-0000-4000-8000-000000000000 --name ishur-webhooks"
+   },
+   "revert": {
+    "possible": true,
+    "how": "rollback",
+    "payload": {
+     "version_id": "1461afe4-0000-4000-8000-000000000000",
+     "script": "ishur-webhooks",
+     "from_version": "8f4aa331-0000-4000-8000-000000000000"
+    },
+    "confirm": "rollback:1461afe4-0000-4000-8000-000000000000"
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhj6d4e6g",
+   "at": "2026-11-03T12:10:01.000Z",
+   "kind": "registry",
+   "actor": "system",
+   "summary_he": "אוטומציות: +3 חדשות · 2 שונו — המוח · בדיקות בריאות, CRM · הודעה מהירה לליד, טקסט חופשי לאורח",
+   "details": {
+    "version": "8f4aa331-0000-4000-8000-000000000000",
+    "added": [
+     {
+      "id": "brain_health",
+      "name_he": "המוח · בדיקות בריאות (כל 10 דקות)"
+     },
+     {
+      "id": "crm_lead_send",
+      "name_he": "CRM · הודעה מהירה לליד מנועה 4499"
+     },
+     {
+      "id": "guest_text",
+      "name_he": "טקסט חופשי לאורח (מהאדמין)"
+     }
+    ],
+    "removed": [],
+    "changed": [
+     {
+      "id": "d_pacer",
+      "name_he": "הפייסר (runPacer)",
+      "fields": [
+       "routes"
+      ]
+     },
+     {
+      "id": "manual_blasts",
+      "name_he": "שליחות ידניות",
+      "fields": [
+       "conditions",
+       "routes"
+      ]
+     }
+    ]
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhj5b7h8i",
+   "at": "2026-11-03T11:05:00.000Z",
+   "kind": "brain",
+   "actor": "brain",
+   "summary_he": "הופעל אוטומטית: שחרור עצירת תקרה ישנה אחרי בדיקה · מספר B מוחזק בתקרה 3.2 שעות → בוצע",
+   "details": {
+    "playbook": "cap_probe_release",
+    "finding": "cap_hold_stale:B",
+    "decision": "auto",
+    "ok": true,
+    "did": "released wacap:B",
+    "run_id": "rmhj5b7h8iab12"
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhj4c9j0k",
+   "at": "2026-11-03T10:30:00.000Z",
+   "kind": "template",
+   "actor": "brain",
+   "summary_he": "תבנית ishur_shabbat_chatan (אורחים): PENDING → APPROVED",
+   "details": {
+    "number": "guests",
+    "name": "ishur_shabbat_chatan",
+    "language": "he",
+    "category": "UTILITY",
+    "from": "PENDING",
+    "to": "APPROVED",
+    "rejected_reason": ""
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhj3d1l2m",
+   "at": "2026-11-03T09:45:00.000Z",
+   "kind": "blast",
+   "actor": "Richard",
+   "summary_he": "קישורי מתנה לאירוע c1c5fcf5: 118 נשלחו",
+   "details": {
+    "route": "/api/gift-blast",
+    "token": "c1c5fcf5",
+    "max": 150,
+    "sent": 118,
+    "failed": 2
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhi9e3n4o",
+   "at": "2026-11-02T19:20:00.000Z",
+   "kind": "hold",
+   "actor": "Richard",
+   "summary_he": "עצירת אירוע (hold) · 7a2b91c0: false → true · הלקוח ביקש לחכות",
+   "details": {
+    "setting": "event_hold",
+    "field": "7a2b91c0-0000-4000-8000-000000000000",
+    "from": false,
+    "to": true,
+    "who": "richard",
+    "reason": "הלקוח ביקש לחכות"
+   },
+   "revert": {
+    "possible": true,
+    "how": "edit",
+    "payload": {
+     "id": "event_hold",
+     "field": "7a2b91c0-0000-4000-8000-000000000000",
+     "value": false
+    },
+    "confirm": "revert:cmhi9e3n4o"
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhi8f5p6q",
+   "at": "2026-11-02T17:00:00.000Z",
+   "kind": "subevent",
+   "actor": "Richard",
+   "summary_he": "אירוע-בן נוצר: שבת חתן (shabbat_chatan) לאירוע c1c5fcf5",
+   "details": {
+    "parent": "c1c5fcf5",
+    "sub": "d4e8a120",
+    "kind": "shabbat_chatan",
+    "template": "ishur_shabbat_chatan",
+    "name": "שבת חתן"
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhi7g7r8s",
+   "at": "2026-11-02T15:30:00.000Z",
+   "kind": "brain",
+   "actor": "Richard",
+   "summary_he": "נדחה: גרסת תבנית חלופית · תבנית ishur_hazmana_v3 ממתינה לאישור 30 שעות",
+   "details": {
+    "playbook": "template_variant",
+    "finding": "template_watch:pending:ishur_hazmana_v3:he",
+    "decision": "rejected",
+    "who": "richard"
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhi6h9t0u",
+   "at": "2026-11-02T13:15:00.000Z",
+   "kind": "pause",
+   "actor": "Claude",
+   "summary_he": "עצירה כללית בוטלה: השליחות חזרו",
+   "details": {
+    "paused": false,
+    "route": "/api/pause"
+   },
+   "revert": {
+    "possible": true,
+    "how": "toggle",
+    "payload": {
+     "pause": true
+    },
+    "confirm": "revert:cmhi6h9t0u"
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhi5i1v2w",
+   "at": "2026-11-02T12:50:00.000Z",
+   "kind": "pause",
+   "actor": "Claude",
+   "summary_he": "עצירה כללית הופעלה: כל השליחות הושהו",
+   "details": {
+    "paused": true,
+    "route": "/api/pause"
+   },
+   "revert": {
+    "possible": true,
+    "how": "toggle",
+    "payload": {
+     "pause": false
+    },
+    "confirm": "revert:cmhi5i1v2w"
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhh9j3x4y",
+   "at": "2026-11-01T18:40:00.000Z",
+   "kind": "template",
+   "actor": "system",
+   "summary_he": "נוסח הזמנה אישי הוגש למטא לאירוע 7a2b91c0",
+   "details": {
+    "token": "7a2b91c0",
+    "status": "PENDING",
+    "chars": 312
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  },
+  {
+   "id": "cmhh8k5z6a",
+   "at": "2026-11-01T16:00:00.000Z",
+   "kind": "registry",
+   "actor": "system",
+   "summary_he": "תמונת בסיס של הרישום: 61 אוטומציות",
+   "details": {
+    "baseline": true,
+    "version": "1461afe4-0000-4000-8000-000000000000",
+    "count": 61
+   },
+   "revert": {
+    "possible": false,
+    "how": "none",
+    "payload": null,
+    "confirm": null
+   },
+   "reverted_at": null,
+   "reverted_by": null
+  }
+ ],
+ "next_cursor": null
+}

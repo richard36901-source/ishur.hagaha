@@ -27,6 +27,7 @@
    d (deps from index.js opsDeps): see BRAIN_DEPS in docs/BRAIN-2026-11-03.md.
    ========================================================================== */
 import { withRun, listRuns } from './ops-run.js';
+import { recordChange, actorOf } from './changes.js';   /* 03/11 change log */
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -69,7 +70,9 @@ export const CHECKS = [
         const key = `${w.waba}/${t.name}/${t.language || ''}`; const st = String(t.status || '').toUpperCase();
         const prev = state.t[key];
         if (!prev || prev.status !== st) {
-          if (prev) c.log(`תבנית ${t.name} (${w.name}): ${prev.status} → ${st}`);
+          if (prev) { c.log(`תבנית ${t.name} (${w.name}): ${prev.status} → ${st}`);
+            await recordChange(c.env, { kind: 'template', actor: 'brain', summary_he: `תבנית ${t.name} (${w.name === 'guests' ? 'אורחים' : 'לקוחות'}): ${prev.status} → ${st}`,
+              details: { waba: w.waba, number: w.name, name: t.name, language: t.language || '', category: t.category || '', from: prev.status, to: st, rejected_reason: String(t.rejected_reason || '').slice(0, 300) } }, c.now); }
           if (prev && prev.status === 'PENDING' && st === 'APPROVED') c.note(`✅ תבנית ${t.name} אושרה במטא (${w.name})`);
           state.t[key] = { status: st, since: first && st === 'REJECTED' ? 0 : c.now, category: t.category || '' }; changed = true;
         }
@@ -573,6 +576,9 @@ export async function execPlaybook(env, d, c, pb, f, { dry, triggered_by, parent
     await L.flush(env);
     if (!dry && d.auditRecord) await d.auditRecord(env, { kind: 'admin', area: 'מוח', action: `🧠 פלייבוק ${pb.id}: ${(out && out.did) || (out && out.ok ? 'ok' : 'נכשל')}`, ok: !!(out && out.ok), review: !(out && out.ok), data: { playbook: pb.id, finding: f.id, run_id: run.id, triggered_by } }).catch(() => {});
     run.count(out && out.ok ? 'ok' : 'not_ok');
+    if (!dry) await recordChange(env, { kind: 'brain', actor: /^manual:/.test(String(triggered_by || '')) ? actorOf(String(triggered_by).slice(7)) : 'brain',
+      summary_he: `${/^manual:/.test(String(triggered_by || '')) ? 'אושר' : 'הופעל אוטומטית'}: ${pb.name_he} · ${f.title_he || f.id} → ${out && out.ok ? 'בוצע' : 'לא הושלם'}`,
+      details: { playbook: pb.id, finding: f.id, decision: /^manual:/.test(String(triggered_by || '')) ? 'approved' : 'auto', ok: !!(out && out.ok), did: (out && out.did) || '', run_id: run.id, triggered_by: triggered_by || 'brain' } });
     return { ok: !!(out && out.ok), did: out && out.did, preview: out && out.preview };
   }, { triggered_by: triggered_by || 'brain', parent });
   return { ...res, run_id: rid };
@@ -627,6 +633,7 @@ export async function decide(env, d, b, now = Date.now()) {
     pa.state = 'rejected'; pa.decided_at = new Date(now).toISOString(); pa.decided_by = who;
     await kput(env, P.pending + id, pa, FINDING_TTL);
     await d.auditRecord(env, { kind: 'admin', area: 'מוח', action: `🧠 נדחה: ${pa.playbook} · ${pa.title_he}`, ok: true, data: { pending: id, who } }).catch(() => {});
+    await recordChange(env, { kind: 'brain', who, summary_he: `נדחה: ${pa.name_he || pa.playbook} · ${pa.title_he || pa.finding_id}`, details: { playbook: pa.playbook, finding: pa.finding_id, decision: 'rejected', pending: id, who } }, now);
     return { status: 200, body: { ok: true, action: pa } };
   }
   const pb = PB[pa.playbook];

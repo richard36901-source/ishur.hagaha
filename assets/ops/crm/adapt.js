@@ -1,10 +1,8 @@
-/* ishur ops · CRM adapter: the ONLY place that knows the CRM backend's paths and field names.
-   Contract: docs/CRM-API-2026-11-03.md + worker/crm.js (handleCrm). Fixtures: fixtures/ops/crm/*.json are
-   masked copies of the live GET responses (scripts/crm-fixtures-from-live.mjs).
-   Screens call crm.* and render view-models only, so a field or path rename is a change here and nowhere else.
-   Reads are GET (app.js raw opts.method: query string + X-Admin-Key header, never the key in the URL); writes are
-   POST /api/crm/... with the body the doc names; opts.soft returns {ok:false} answers (send) instead of throwing.
-   Lazy-loaded with the CRM screens, so it costs nothing on the ops screens. Pure functions + a thin caller; no DOM. */
+/* ishur ops · CRM adapter: the ONLY place that knows the CRM paths and field names (docs/CRM-API-2026-11-03.md,
+   worker/crm.js). Fixtures: masked live GETs (scripts/crm-fixtures-from-live.mjs). Screens render view-models only.
+   Reads: GET via app.js raw opts.qs (query + X-Admin-Key header, never the key in the URL). Writes: POST bodies per
+   the doc; opts.soft returns {ok:false} answers (send) instead of throwing. Lazy; pure + a thin caller. */
+if (typeof document !== 'undefined' && !document.getElementById('crm-css')) document.head.insertAdjacentHTML('beforeend', '<link id="crm-css" rel="stylesheet" href="assets/ops/crm.css?v=1">');
 
 const enc = encodeURIComponent;
 /* logical op → server path (app.js raw() sends any name with "/" to /api/<name>) */
@@ -179,7 +177,7 @@ const notYet = (what) => { const e = new Error(what + ': אין לזה עדיי�
 /* crm(ctx) → caller bound to the ops data layer (auth, mock, errors all come from app.js) */
 export function crm(ctx) {
   const path = (op, arg) => (typeof PATH[op] === 'function' ? PATH[op](arg) : PATH[op]);
-  const read = (p, q = {}, o = {}) => ctx.api.get(p, q, { ...o, method: 'GET' });
+  const read = (p, q = {}, o = {}) => ctx.api.get(p, q, { ...o, qs: '?' + new URLSearchParams(strip({ ...q })) });
   const get = (op, q = {}, o, arg) => read(path(op, arg), q, o).then((d) => adaptCrm(op, d));
   const post = (op, b = {}, arg, o) => ctx.api.post(path(op, arg), strip(b), o).then((d) => adaptCrm(op, d));
   const cachedRaw = (p, q) => { const c = ctx.api.cached(p, q); return c ? c.data : null; };
