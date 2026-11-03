@@ -7,6 +7,14 @@
 <meta name="robots" content="noindex">
 <title>לוח הבקרה · אישורי הגעה</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<!-- 03/11 PWA: manifest + sw.js (scope dashboard.html only) via assets/pwa.js -->
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#0F4C35">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ishur">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="apple-touch-icon" href="assets/icons/icon-192.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
@@ -16,6 +24,8 @@
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
+<script src="assets/design-card.js?v=1"></script>
+<script src="assets/pwa.js?v=1"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 <script>
   /* apply the saved (or system) theme before first paint — no flash */
@@ -638,6 +648,18 @@
     </div>
   </section>
 
+  <!-- 03/11: "add to home screen" explainer (assets/pwa.js); hidden once installed -->
+  <section class="card" id="pwaCard" hidden>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center"><span>📲 הוסיפו למסך הבית</span><button type="button" data-pwa-x aria-label="סגירה" style="border:none;background:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">×</button></div>
+    <div class="card-b" data-pwa-body style="font-size:.9rem;color:var(--ink2)"></div>
+  </section>
+
+  <!-- 03/11: invitation design flow, only when design is paid (assets/design-card.js) -->
+  <section class="card" id="designCard" hidden>
+    <div class="card-h">🎨 עיצוב ההזמנה</div>
+    <div class="card-b" data-dz-body></div>
+  </section>
+
   <section class="card">
     <div class="card-h">המצב</div>
     <div class="kpis" id="kpis"></div>
@@ -815,6 +837,8 @@
   var CFG = window.ISHUR_CONFIG;
   var qs = new URLSearchParams(location.search);
   var token = (qs.get('t') || '').trim();
+  /* 03/11 PWA: the home-screen launch opens dashboard.html?pwa=1 (no token); reuse the last one */
+  if (!token && qs.get('pwa') && window.IshurPwa) token = IshurPwa.savedToken();
   var demo = qs.get('demo') === '1' || location.hash === '#demo';
   /* the site embeds this page to show what the dashboard looks like,
      so that embed walks straight past the gate */
@@ -1223,6 +1247,7 @@
     renderCustomText(); setTimeout(renderToc, 50);
     renderSubLinks();
     renderMedia();
+    if (window.IshurDesign) { var dmk = qs.get('designmock'); IshurDesign.mount($('designCard'), { token: token || (dmk ? '00000000-0000-4000-8000-000000000000' : ''), endpoint: CFG.endpoint('design-flow'), media: CFG.endpoint('media'), mock: dmk ? IshurDesign.mockApi(dmk) : null }); }
     normalize(data);
     var ev = data.event || {};
     var t = data.totals || {};

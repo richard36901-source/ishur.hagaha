@@ -324,9 +324,9 @@ window.ISHUR_CONFIG = (function () {
       label: 'סבב שיחות מסוכן AI',
       desc: 'נציג מתקשר למי שלא הגיב ומאשר בשמו',
       plans: ['pro', 'premium'],
-      /* a call round needs lead time. Closer than this to the event it stops
-         being offered at all rather than being sold and not delivered. */
-      minDaysBefore: 7
+      /* Richard 03/11: a call round can be bought up to 2 days before the
+         event, and on the day before only until 17:00 (see addonState). */
+      minDaysBefore: 1, lastDayCutoffHour: 17
     },
     selfreg: {
       label: 'הפעלת הודעות לנרשמים מהקישור',
@@ -579,6 +579,11 @@ window.ISHUR_CONFIG = (function () {
     if (!a) return null;
     if (a.plans.indexOf(plan) > -1) return 'included';
     if (a.minDaysBefore != null && daysToEvent != null && daysToEvent < a.minDaysBefore) return 'too-late';
+    /* the day before the event: only until the cutoff hour (Israel time) */
+    if (a.lastDayCutoffHour != null && daysToEvent === 1) {
+      var ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date()));
+      if (ilHour >= a.lastDayCutoffHour) return 'too-late';
+    }
     return 'locked';
   }
 
