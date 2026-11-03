@@ -39,12 +39,12 @@ export function bubbles(msgs) {
 /* the composer: free text in the window, a template outside it, nothing in quiet hours (clients/leads) */
 export function composer(t, { now = Date.now(), tpl = '' } = {}) {
   const quiet = t.channel !== 'guests' && quietHours(now);
-  if (quiet) return `<div class="compose"><p class="warnbox" role="note">שעות שקט (21:00–09:00): לא שולחים ללקוחות וללידים עכשיו. אפשר לכתוב בבוקר.</p></div>`;
+  if (quiet) return `<div class="compose"><p class="warnbox" role="note">שעות שקט (21:00–09:00): לא שולחים ללקוחות וללידים עכשיו. אפשר לכתוב עכשיו ולשלוח בבוקר, או להעתיק ולשלוח מהטלפון.</p><textarea id="ibx-txt" class="in" dir="auto" placeholder="כתבו תשובה…"></textarea><div class="row"><button type="button" class="btn ghost" data-act="ibx-copy">העתק</button><button type="button" class="btn primary" data-act="ibx-queue">שלח בבוקר ב-09:00</button></div></div>`;
   if (t.window.open) return `<div class="compose"><label class="sub" for="ibx-txt">תשובה חופשית · החלון פתוח עד ${esc(fmtDT(t.window.closes_at))}</label><textarea id="ibx-txt" class="in" dir="auto" placeholder="כתבו תשובה…"></textarea>
 <div class="row">${Button('שליחה…', { variant: 'primary', act: 'ibx-send' })}<span class="sub">שליחה רק אחרי הקלדת "${SEND_WORD}"</span></div></div>`;
   const list = (t.templates || []).filter((x) => !x.ch || x.ch === t.channel);
   const cur = list.find((x) => x.name === tpl) || list[0];
-  if (!cur) return '<div class="compose"><p class="sub">החלון סגור ואין תבניות למספר הזה.</p></div>';
+  if (!cur) return `<div class="compose"><p class="sub">עברו יותר מ-24 שעות מההודעה האחרונה שלהם ואין תבנית מאושרת למספר הזה. אפשר לכתוב כאן ולהעתיק לטלפון (משם מותר לשלוח חופשי).</p><textarea id="ibx-txt" class="in" dir="auto" placeholder="כתבו תשובה…"></textarea><div class="row"><button type="button" class="btn ghost" data-act="ibx-copy">העתק</button><a class="btn primary" target="_blank" rel="noopener" href="https://wa.me/${esc(String(t.phone || '').replace(/^0/, '972'))}">פתח בוואטסאפ</a></div></div>`;
   return `<div class="compose"><p class="sub">עברו יותר מ-24 שעות מההודעה האחרונה שלהם: אפשר לשלוח רק תבנית מאושרת.</p>
 ${Select({ name: 'ibx-tpl', value: cur.name, label: 'תבנית', options: list.map((x) => ({ value: x.name, label: x.label + ' · ' + x.name })) })}
 <div class="tp-params">${cur.params.map((p, i) => `<input class="in" data-param="${i}" placeholder="${i + 1} · ${esc(p)}" aria-label="${esc(p)}">`).join('')}</div>
@@ -111,6 +111,8 @@ export default {
       const act = a.dataset.act;
       if (act === 'ibx-open') { history.replaceState(null, '', '#/inbox/' + a.dataset.phone); this._open(a.dataset.phone); }
       else if (act === 'ibx-back') { history.replaceState(null, '', '#/inbox'); this._open(''); }
+      else if (act === 'ibx-copy') { const ta = el.querySelector('#ibx-txt'); const text = (ta && ta.value.trim()) || ''; if (!text) { ta && ta.focus(); return; } try { await navigator.clipboard.writeText(text); toast('הועתק'); } catch { ta.select(); } }
+      else if (act === 'ibx-queue') { const ta = el.querySelector('#ibx-txt'); const text = (ta && ta.value.trim()) || ''; if (!text) { ta && ta.focus(); return; } const r = await send({ mode: 'text', text, queue_morning: true }, text); if (r && r.ok !== false && ta) ta.value = ''; }
       else if (act === 'ibx-send') { const ta = el.querySelector('#ibx-txt'); const text = (ta && ta.value.trim()) || ''; if (!text) { ta && ta.focus(); return; } const r = await send({ mode: 'text', text }, text); if (r && r.ok !== false && ta) ta.value = ''; }
       else if (act === 'ibx-send-tpl') {
         const ps = [...el.querySelectorAll('[data-param]')].map((i) => i.value.trim());

@@ -219,6 +219,8 @@ async function isClientPhone(env, phone) {
 async function salesCtx(env, phone, text, name, sfCtx) {
   const c = { phone, text, name: name || '', ...(sfCtx || {}) };
   if (c.isClient) return c;
+  /* 03/11 (Richard): the inbox "אדם בשיחה" switch (human:<phone>) stops the sales flow for that person */
+  if (env.RATE && await env.RATE.get('human:' + phone).catch(() => null)) { c.isClient = true; c.humanTakeover = true; return c; }
   let rec = null; try { rec = JSON.parse(await env.RATE.get('lead:' + phone) || 'null'); } catch {}
   /* a Meta-form lead's first inbound starts the flow too */
   if (rec && (rec.page === 'instant-form' || /leadform/.test(String(rec.source || '')))) { c.isMetaLead = true; c.occasion = c.occasion || rec.occasion || ''; c.name = c.name || rec.name || ''; }
@@ -8720,6 +8722,14 @@ async function handleMetaAdmin(request, env, origin) {
   if (!r) return deny(502, 'meta-unreachable', origin);
   let out = null;
   try { out = await r.json(); } catch { out = null; }
+  /* 03/11: a raw send through the proxy is logged like any other outbound, so the inbox and the messages screen show it */
+  try {
+    if (r && r.ok && /\/messages$/.test(path) && body.payload && body.payload.to) {
+      const txt = body.payload.type === 'template' ? `[תבנית ${body.payload.template && body.payload.template.name}]` : String((body.payload.text && body.payload.text.body) || '');;
+      const wamid = out && out.messages && out.messages[0] && out.messages[0].id;
+      await logEvent(env, { kind: 'wa_out', area: body.channel === 'guests' ? 'שיר' : 'נועה', action: 'נשלח (אדמין) → ' + body.payload.to, ok: true, phone: String(body.payload.to), ref: wamid || '', detail: txt.slice(0, 1000) }).catch(() => {});
+    }
+  } catch {}
   return okJson({ ok: r.ok, status: r.status, data: out }, origin);
 }
 

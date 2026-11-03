@@ -290,11 +290,11 @@ test('fallback offer: basic without calls, pro with any calls (never premium); u
     assert.ok(h.sent.at(-1).t.includes(expect), ans + ' → ' + h.sent.at(-1).t.split('\n')[0]);
   }
 });
-test('a nudge that falls at night waits for the morning', async () => {
+test('a nudge lands inside lead hours (20:00 is still open under the 21:00 cutoff)', async () => {
   const h = harness({ rand: 1 });                                   /* 150 min */
-  h.setNow(Date.parse('2026-11-03T16:30:00Z'));                     /* 18:30 Israel */
+  h.setNow(Date.parse('2026-11-03T15:30:00Z'));                     /* 17:30 Israel */
   await salesInbound(h.env, { phone: P, text: 'חתונה 500', isNewLead: true }, h.deps);
-  assert.equal(new Date((await h.st()).nudgeAt).toISOString(), '2026-11-04T08:00:00.000Z', '18:30 + 150 min = 21:00 → closed → 10:00 next day');
+  assert.equal(new Date((await h.st()).nudgeAt).toISOString(), '2026-11-03T18:00:00.000Z', '17:30 + 150 min = 20:00 → open');
 });
 test('24h window closed → nothing sent, Slack', async () => {
   const h = harness({ rand: 0 }); h.setNow(NIGHT);
