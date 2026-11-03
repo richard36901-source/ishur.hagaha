@@ -15,9 +15,9 @@ function fakeKv() {
   return { store: m, async get(k) { return m.has(k) ? m.get(k) : null; }, async put(k, v) { m.set(k, String(v)); }, async delete(k) { m.delete(k); },
     async list({ prefix = '' } = {}) { return { keys: [...m.keys()].filter(k => k.startsWith(prefix)).map(name => ({ name })) }; } };
 }
-function harness({ on = true, rand = 0.5 } = {}) {
+function harness({ on = true, rand = 0.5, follow = true } = {}) {
   const kv = fakeKv();
-  const env = { RATE: kv, __cfg: { sales_flow: on ? 'on' : 'off' } };
+  const env = { RATE: kv, __cfg: { sales_flow: on ? 'on' : 'off', sales_followups: follow ? 'on' : 'off' } };
   const sent = [], slack = [], quoted = [];
   let now = NOW;
   const deps = { send: async (p, t) => { sent.push({ p, t, at: now }); return { ok: true }; }, slack: async t => { slack.push(t); }, log: async () => {},
@@ -119,20 +119,51 @@ test('price questions: the specific kind, one number', () => {
 });
 
 /* ── offer ── */
-test('buildOffer: server-priced, one number, includes list, advisory only with calls', () => {
-  const st = { phone: P, name: 'דנה', occasion: 'wedding', guests: 650, answers: { calls_rounds: 3, hostess: true, date: '2027-03-15', city: 'חיפה' }, design: true };
-  const o = buildOffer(st);
-  const pq = priceQuote({ plan: 'premium', records: 700, phone: P, name: 'דנה', addons: { hostesses: 2, design: true } }).quote;
-  assert.equal(o.quote.plan, 'premium'); assert.equal(o.quote.hostesses, 2); assert.equal(o.quote.sum, pq.sum);
+test('buildOffer without hostesses: plan by the calls rule, design ₪79, advisory only with calls, one price', () => {
+  const st = { phone: P, name: 'דנה', occasion: 'wedding', guests: 650, answers: { calls_rounds: 3, hostess: false, date: '2027-03-15', city: 'חיפה' }, design: true };
+  const o = buildOffer(st, { now: NOW });
+  const pq = priceQuote({ plan: 'premium', records: 700, phone: P, name: 'דנה', addons: { design: true } }).quote;
+  assert.equal(o.quote.plan, 'premium'); assert.equal(o.quote.sum, pq.sum); assert.equal(pq.sum, 919 + 79);
   assert.ok(o.text.startsWith(MSG.advisory), 'advisory line before the offer when they asked for calls');
-  assert.ok(o.text.includes(`לפי מה שבחרתם: חבילת הכל כלול ל-700 רשומות (כולל שיחות למי שלא ענה) + 2 דיילות + עיצוב הזמנה = ₪${pq.sum}.`));
+  assert.ok(o.text.includes('לפי מה שבחרתם: חבילת הכל כלול ל-700 רשומות (כולל שיחות למי שלא ענה) + עיצוב הזמנה = ₪998.'));
   assert.equal((o.text.match(/₪/g) || []).length, 1, 'exactly one price');
-  for (const l of ['• הזמנות בוואטסאפ עם אישור הגעה בלחיצה', '• תזכורות', 'Waze', '• מספר שולחן', 'ביט / פייבוקס', '• סידורי הושבה', '• ניהול תקציב', '• 3 סבבי שיחות', '• 2 דיילות', '• עיצוב הזמנה']) assert.ok(o.text.includes(l), l);
-  assert.ok(o.text.includes(o.link) && o.link.includes('src=noa'));
-  const plain = buildOffer({ ...st, answers: { calls_rounds: 0, hostess: false }, design: false });
+  for (const l of ['• הזמנה בוואטסאפ עם תמונה/וידאו ואישור בלחיצה', '• תזכורת למי שלא ענה', '• תזכורת יום-לפני עם ניווט בוויז', '• הודעה ביום האירוע עם מספר השולחן',
+    '• קישורי מתנה בביט ופייבוקס לאורחים', '• סידורי הושבה וניהול תקציב', '• לוח בקרה למעקב 24/7 בזמן אמת', '• 3 סבבי שיחות למי שלא ענה', '• עיצוב הזמנה', '• עד 700 רשומות (מספר טלפון = רשומה)']) assert.ok(o.text.includes(l), l);
+  assert.ok(!/מנוי|תשלום אחד/.test(o.text), 'no subscription / one-payment wording');
+  assert.ok(o.text.includes(o.link) && o.link.includes('src=noa') && o.link.includes('plan=premium'));
+  const plain = buildOffer({ ...st, answers: { calls_rounds: 0, hostess: false }, design: false }, { now: NOW });
   assert.ok(!plain.text.includes(MSG.advisory)); assert.equal(plain.quote.plan, 'basic');
   assert.ok(plain.text.includes('לפי מה שבחרתם: חבילת בסיס ל-700 רשומות = ₪699.'));
-  assert.equal(buildOffer({ ...st, guests: 1200 }).why, 'over-900');
+  assert.ok(!plain.text.includes('סבב'), 'basic lists no call rounds');
+  assert.equal(buildOffer({ ...st, guests: 1200 }, { now: NOW }).why, 'over-900');
+});
+test('demo: 650 guests, 1 call round, hostesses yes, design yes → מבצע 1990, ₪1,990, design free, ?offer=winter1990', () => {
+  const st = { phone: P, name: 'דנה כהן', occasion: 'wedding', guests: 650, answers: { calls_rounds: 1, hostess: true, date: '2027-03-15', city: 'חיפה' }, design: true };
+  const o = buildOffer(st, { now: NOW });
+  assert.equal(o.quote.bundle, 'winter1990'); assert.equal(o.quote.sum, 1990); assert.equal(o.quote.plan, 'premium'); assert.equal(o.quote.hostesses, 2); assert.equal(o.quote.design, true);
+  assert.ok(o.text.startsWith('לפי מה שבחרתם, הכי משתלם לכם מבצע החורף: הכל כלול + 2 דיילות ב-₪1,990.'));
+  assert.ok(o.text.includes('ועיצוב ההזמנה במתנה'));
+  assert.ok(o.text.includes('• 3 סבבי שיחות למי שלא ענה'));
+  assert.ok(o.text.includes('• עד 700 רשומות (מספר טלפון = רשומה)') && !o.text.includes('800'), 'their own tier, never the bundle max');
+  assert.ok(o.text.includes('• 2 דיילות קבלת פנים ביום האירוע (מגיעות שעה לפני)'));
+  assert.ok(!o.text.includes(MSG.advisory), 'no rounds tip: the bundle already has 3');
+  assert.ok(!o.text.includes('במקום לשלם בנפרד'));
+  assert.equal((o.text.match(/₪/g) || []).length, 1);
+  const u = new URL(o.link);
+  assert.deepEqual(Object.fromEntries(u.searchParams), { offer: 'winter1990', guests: '700', hostess: '2', design: '1', occasion: 'wedding', date: '2027-03-15', city: 'חיפה', name: 'דנה כהן', phone: '0501234567', src: 'noa' });
+  /* the Grow code still carries design so it is granted on payment */
+  assert.ok(o.quote.code.includes('design:1') && o.quote.code.includes('host:2'));
+});
+test('bundles: 300 records + hostesses → 2 hostesses, vip1990; under 300 → winter1790; 900 + hostesses → a person; after 30/11 → table prices', () => {
+  const st = { phone: P, name: 'דנה', guests: 300, answers: { calls_rounds: 0, hostess: true }, design: false };
+  let o = buildOffer(st, { now: NOW }); assert.equal(o.quote.bundle, 'vip1990'); assert.equal(o.quote.sum, 1990); assert.ok(o.text.includes('הכי משתלם לכם המבצע: הכל כלול + 2 דיילות ב-₪1,990.'));
+  o = buildOffer({ ...st, guests: 180 }, { now: NOW }); assert.equal(o.quote.bundle, 'winter1790'); assert.equal(o.quote.hostesses, 1); assert.equal(o.quote.sum, 1790);
+  assert.equal(buildOffer({ ...st, guests: 850 }, { now: NOW }).why, 'no-bundle');
+  const later = Date.parse('2026-12-05T08:00:00Z');
+  o = buildOffer({ ...st, guests: 650 }, { now: later }); assert.equal(o.quote.bundle, undefined); assert.equal(o.quote.plan, 'basic'); assert.equal(o.quote.sum, 699 + 1990);
+  assert.equal(priceQuote({ plan: 'basic', records: 200, phone: P, name: 'דנה', bundle: 'winter1790', addons: { hostesses: 1 } }).ok, true, 'paylink accepts the bundle it names');
+  assert.equal(priceQuote({ plan: 'basic', records: 300, phone: P, name: 'דנה', bundle: 'winter1990', addons: { hostesses: 2 } }).why, 'bundle-mismatch');
+  assert.equal(priceQuote({ plan: 'basic', records: 400, phone: P, name: 'דנה', bundle: 'winter1990', now: later, addons: { hostesses: 2 } }).why, 'bundle-off');
 });
 
 /* ── state machine, end to end ── */
@@ -154,13 +185,17 @@ test('happy path: trigger → questions → design → one offer, lead marked qu
   assert.equal(r.action, 'q2'); assert.equal(h.sent[1].t, MSG.q2);
   h.setNow(NOW + 10 * 60e3);
   r = await salesInbound(h.env, { phone: P, text: 'אין לנו, תעצבו' }, h.deps);
-  assert.equal(r.action, 'offer'); assert.equal(r.quote.plan, 'pro'); assert.equal(r.quote.records, 700); assert.equal(r.quote.hostesses, 2); assert.equal(r.quote.design, true);
-  assert.ok(h.sent[2].t.includes('חבילת פרמיום ל-700 רשומות (כולל שיחות למי שלא ענה) + 2 דיילות + עיצוב הזמנה'));
-  assert.ok(h.sent[2].t.includes('date=2027-03-15') && h.sent[2].t.includes('plan=pro'));
+  assert.equal(r.action, 'offer'); assert.equal(r.quote.bundle, 'winter1990'); assert.equal(r.quote.sum, 1990); assert.equal(r.quote.records, 700); assert.equal(r.quote.hostesses, 2); assert.equal(r.quote.design, true);
+  assert.ok(h.sent[2].t.startsWith('לפי מה שבחרתם, הכי משתלם לכם מבצע החורף: הכל כלול + 2 דיילות ב-₪1,990.'));
+  assert.ok(h.sent[2].t.includes('date=2027-03-15') && h.sent[2].t.includes('offer=winter1990'));
   assert.equal(h.quoted.length, 1); assert.ok(h.slack.some(s => s.includes('הצעה נשלחה')));
   assert.equal((await h.st()).step, 'done');
-  /* after the offer the flow is out of the way */
+  assert.ok(h.sent[2].t.trimEnd().endsWith('הפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.'));
+  /* after the offer the flow is out of the way… */
   assert.equal((await salesInbound(h.env, { phone: P, text: 'תודה!' }, h.deps)).handled, false);
+  /* …except the phone option of the closing: a person */
+  const hr = await salesInbound(h.env, { phone: P, text: 'מעדיפים בשיחה' }, h.deps);
+  assert.equal(hr.action, 'human'); assert.equal(h.sent.at(-1).t, MSG.human); assert.ok(h.slack.some(x => x.includes('ליד מבקש אדם')));
 });
 test('3 call rounds → premium (הכל כלול), with the advisory line', async () => {
   const h = harness();
@@ -237,18 +272,21 @@ test('nudges: once per question after 60–150 min; then the fallback offer ~2h 
   assert.equal(new Date(h.now).toISOString(), '2026-11-03T17:00:00.000Z', '19:00 Israel, inside hours');
   assert.equal((await salesTick(h.env, h.deps)).fallback, 1);
   const off = h.sent.at(-1).t;
-  assert.ok(off.includes('הכנו לכם הצעה לפי מה שסיפרתם') && off.includes('הבחירות כבר ממולאות בקישור'));
-  assert.ok(off.includes('חבילת פרמיום ל-300 רשומות (כולל שיחות למי שלא ענה) + 2 דיילות = ₪'), 'pro fallback, 300 records → 2 hostesses, no design');
+  assert.ok(off.includes('הכנו לכם הצעה לפי מה שסיפרתם') && off.includes('כדי לבצע את ההזמנה תוכלו לעשות את זה כאן בקישור, או בשיחה טלפונית מול נציג:\n') && off.trimEnd().endsWith('הפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.'));
+  assert.ok(off.includes('הכי משתלם לכם המבצע: הכל כלול + 2 דיילות ב-₪1,990.'), '300 records → 2 hostesses → the ₪1,990 bundle, no design');
+  assert.ok(!off.includes('עיצוב'));
   assert.equal(h.quoted[0].o.fallback, true);
   h.setNow(h.now + 10 * 3600e3); await salesTick(h.env, h.deps); assert.equal(h.sent.length, 5, 'q1, nudge, q2, nudge, offer — nothing after');
 });
-test('fallback offer is basic when they never asked for calls, 1 hostess under 300', async () => {
-  const h = harness({ rand: 0 });
-  await salesInbound(h.env, { phone: P, text: 'ברית 120', isNewLead: true }, h.deps);
-  await salesInbound(h.env, { phone: P, text: 'לא, כן, 10.1.27 בחולון' }, h.deps);
-  h.setNow(NOW + 60 * 60e3); await salesTick(h.env, h.deps);
-  h.setNow(NOW + 180 * 60e3); await salesTick(h.env, h.deps);
-  assert.ok(h.sent.at(-1).t.includes('חבילת בסיס ל-200 רשומות + דיילת אחת = ₪'));
+test('fallback offer: basic without calls, pro with any calls (never premium); under 300 with hostesses → winter1790', async () => {
+  for (const [ans, expect] of [['לא, לא, 10.1.27 בחולון', 'חבילת בסיס ל-200 רשומות = ₪199.'], ['כן 3 שיחות, לא, 10.1.27', 'חבילת פרמיום ל-200 רשומות (כולל שיחות למי שלא ענה) = ₪279.'], ['לא, כן, 10.1.27 בחולון', 'הכי משתלם לכם מבצע החורף: הכל כלול + דיילת אחת ב-₪1,790.']]) {
+    const h = harness({ rand: 0 });
+    await salesInbound(h.env, { phone: P, text: 'ברית 120', isNewLead: true }, h.deps);
+    await salesInbound(h.env, { phone: P, text: ans }, h.deps);
+    h.setNow(NOW + 60 * 60e3); await salesTick(h.env, h.deps);
+    h.setNow(NOW + 180 * 60e3); await salesTick(h.env, h.deps);
+    assert.ok(h.sent.at(-1).t.includes(expect), ans + ' → ' + h.sent.at(-1).t.split('\n')[0]);
+  }
 });
 test('a nudge that falls at night waits for the morning', async () => {
   const h = harness({ rand: 1 });                                   /* 150 min */
@@ -279,4 +317,78 @@ test('cfg sales_flow: on/off, default off, its own confirm word, applied by with
   const kv = fakeKv(); await kv.put('cfg:sales_flow', JSON.stringify({ value: 'on' }));
   const e = await withCfg({ RATE: kv }, { fresh: true });
   assert.equal(sfEnabled(e), true);
+});
+
+/* ── follow-ups flag, human notes, post-offer follow-ups ── */
+test('sales_followups off: no nudge, no fallback, no follow-up — a queued night reply still goes out', async () => {
+  const h = harness({ rand: 0, follow: false }); h.setNow(NIGHT);
+  await salesInbound(h.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h.deps);
+  h.setNow(Date.parse('2026-11-04T07:00:00Z')); await salesTick(h.env, h.deps);
+  assert.equal(h.sent.length, 1, 'the reply to their message');
+  for (const dt of [1, 3, 30, 80]) { h.setNow(Date.parse('2026-11-04T07:00:00Z') + dt * 3600e3); await salesTick(h.env, h.deps); }
+  assert.equal(h.sent.length, 1, 'nothing on our own initiative');
+  assert.equal(SETTINGS.sales_followups.default, 'off');
+  assert.deepEqual(editableFor('sales_flow', {}).map(r => [r.setting, r.value, r.confirm]), [['sales_flow', 'off', 'sales_flow'], ['sales_followups', 'off', 'sales_followups']]);
+});
+test('post-offer follow-ups: one at 20–26h, one 2 days later, then stop; a reply stops them; a closed window ends them quietly', async () => {
+  const h = harness({ rand: 0 });
+  await salesInbound(h.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h.deps);
+  await salesInbound(h.env, { phone: P, text: 'לא, לא, 1.12' }, h.deps);
+  await salesInbound(h.env, { phone: P, text: 'יש לנו' }, h.deps);
+  assert.equal(h.sent.length, 3);
+  const off = (await h.st()).offerAt;
+  h.setNow(off + 19.9 * 3600e3); await salesTick(h.env, h.deps); assert.equal(h.sent.length, 3);
+  /* +20h = 06:00 Israel → waits for 09:00 (+23h), still inside the 24h window */
+  h.setNow(off + 22.9 * 3600e3); await salesTick(h.env, h.deps); assert.equal(h.sent.length, 3);
+  h.setNow(off + 23 * 3600e3); await salesTick(h.env, h.deps); assert.equal(h.sent.at(-1).t, MSG.follow1);
+  h.setNow(off + 72 * 3600e3); await salesTick(h.env, h.deps);
+  assert.equal(h.sent.length, 4, 'the second needs the 24h window, which closed: nothing sent');
+  const st = await h.st(); assert.equal(st.step, 'done', 'status stays quoted'); assert.equal(st.followStop, true);
+  const h2 = harness({ rand: 0 });
+  await salesInbound(h2.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h2.deps);
+  await salesInbound(h2.env, { phone: P, text: 'לא, לא, 1.12' }, h2.deps);
+  await salesInbound(h2.env, { phone: P, text: 'יש לנו' }, h2.deps);
+  await salesInbound(h2.env, { phone: P, text: 'תודה, נחשוב' }, h2.deps);
+  h2.setNow(NOW + 21 * 3600e3); await salesTick(h2.env, h2.deps);
+  assert.equal(h2.sent.length, 3, 'they replied after the offer: no follow-up');
+});
+test('human note newer than the last inbound → no send + Slack, flow paused; resume continues', async () => {
+  const h = harness({ rand: 0 });
+  let notes = { notes: '', updates: [], crm: [] };
+  h.deps.humanNotes = async () => notes;
+  await salesInbound(h.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h.deps);
+  notes = { notes: '', updates: [{ at: NOW + 30 * 60e3, text: 'דיברתי איתו, רוצה 2 דיילות' }], crm: [] };
+  h.setNow(NOW + 60 * 60e3); await salesTick(h.env, h.deps);
+  assert.equal(h.sent.length, 1, 'the nudge did not go out');
+  assert.ok(h.slack.some(x => x.includes('יש עדכון ידני במונדי/CRM, הזרימה נעצרה')));
+  assert.equal((await h.st()).step, 'paused');
+  assert.equal((await salesInbound(h.env, { phone: P, text: 'כן' }, h.deps)).handled, false, 'paused: humans own the chat');
+  const { salesResume } = await import('../salesflow.js');
+  h.setNow(NOW + 2 * 3600e3);
+  assert.deepEqual(await salesResume(h.env, P, h.deps), { ok: true, step: 1 });
+  const st = await h.st(); assert.equal(st.answers.hostess, true, 'fact from the note prefills hostesses');
+  const r = await salesInbound(h.env, { phone: P, text: '1. כן 2. לא 3. 1.12' }, h.deps);
+  assert.equal(r.action, 'q2'); assert.equal((await h.st()).answers.hostess, false, 'their explicit no beats the note');
+});
+test('a human note older than the last inbound → proceeds; a changed notes column counts as new', async () => {
+  const h = harness({ rand: 0 });
+  let notes = { notes: 'ליד מפייסבוק', updates: [{ at: NOW - 3600e3, text: 'התקשרתי, לא ענה' }], crm: [{ at: NOW + 5 * 60e3, text: 'הצעה מזרימת המכירה: …' }] };
+  h.deps.humanNotes = async () => notes;
+  await salesInbound(h.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h.deps);
+  h.setNow(NOW + 10 * 60e3);
+  assert.equal((await salesInbound(h.env, { phone: P, text: '1. כן 2. לא 3. 1.12' }, h.deps)).action, 'q2');
+  assert.equal(h.sent.length, 2, 'old note and our own CRM note do not block');
+  notes = { ...notes, notes: 'ליד מפייסבוק\nסוכם 1500 בטלפון' };
+  h.setNow(NOW + 80 * 60e3); await salesTick(h.env, h.deps);
+  assert.equal(h.sent.length, 2); assert.equal((await h.st()).step, 'paused');
+});
+test('a note with "לא לפנות" ends the flow', async () => {
+  const h = harness({ rand: 0 });
+  let notes = { notes: '', updates: [], crm: [] };
+  h.deps.humanNotes = async () => notes;
+  await salesInbound(h.env, { phone: P, text: 'חתונה 650', isNewLead: true }, h.deps);
+  notes = { notes: '', updates: [], crm: [{ at: NOW + 20 * 60e3, text: 'לא לפנות, ביקש' }] };
+  h.setNow(NOW + 60 * 60e3); await salesTick(h.env, h.deps);
+  assert.equal(h.sent.length, 1); assert.equal((await h.st()).step, 'stopped');
+  assert.ok(h.slack.some(x => x.includes('הזרימה הסתיימה')));
 });

@@ -105,8 +105,8 @@
     {
       "@type": "Offer",
       "@id": "https://ishur.io/#offer-winter1790",
-      "name": "מבצע חורף: הכל כלול + דיילת אחת עד 300 רשומות",
-      "description": "מבצע חורף: חבילת הכל כלול ודיילת אחת באירוע, לאירועים של 50 עד 300 רשומות, ב-1,790 ₪ כולל מע\"מ. באזור המרכז הנסיעות כלולות; מחוץ למרכז תוספת נסיעות 250 ₪.",
+      "name": "מבצע חורף: הכל כלול + דיילת אחת עד 200 רשומות",
+      "description": "מבצע חורף: חבילת הכל כלול ודיילת אחת באירוע, לאירועים של 50 עד 200 רשומות, ב-1,790 ₪ כולל מע\"מ. באזור המרכז הנסיעות כלולות; מחוץ למרכז תוספת נסיעות 250 ₪.",
       "price": "1790",
       "priceCurrency": "ILS",
       "validThrough": "2026-11-30T23:59:59+02:00",
@@ -130,7 +130,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=81"></script>
+<script src="config.js?v=82"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -2615,9 +2615,27 @@ buildPricing();
       /* the bar sits at the end of the body, after this script */
       if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',showBundleBar); else showBundleBar();
       if(!live) return;
-      const pre={offer:q.get('offer'),guests:q.get('guests')||'',plan:b.plan,hostess:true,hostessLocked:false,
+      const pre={offer:q.get('offer'),guests:q.get('guests')||'',plan:b.plan,hostess:true,hostessLocked:false,design:q.get('design')==='1',src:q.get('src')||'',
         name:q.get('name')||'',phone:q.get('phone')||'',email:q.get('email')||'',hDate:q.get('date')||'',hCity:q.get('city')||'',occasion:q.get('occasion')||''};
       setTimeout(()=>IshurPopup.open('offer-bundle',pre),600);
+    } else if(!q.get('offer')&&/^(basic|pro|premium)$/.test(q.get('plan')||'')){
+      /* 03/11 prefill link (Noa's sales flow, or any quote):
+         ?plan=basic|pro|premium&guests=<tier>&hostess=0|1|2&design=1&calls=1&occasion=&date=YYYY-MM-DD&city=&name=&phone=&src=noa
+         opens the order with all of it filled and nothing locked; prices come
+         from the same tables (config.js), and a design order is priced and
+         linked by the server (/api/quote-from-site) so the add-on rides in
+         the Grow code. calls=1 on בסיס means a plan with a call round. */
+      const tiers=CFG.GUEST_TIERS.map(t=>t.value);
+      const g=tiers.includes(q.get('guests')||'')?q.get('guests'):'';
+      let plan=q.get('plan');
+      if(q.get('calls')==='1'&&plan==='basic') plan='pro';
+      const occ=(CFG.OCCASIONS||[]).some(o=>o.value===q.get('occasion'))?q.get('occasion'):'';
+      const date=/^\d{4}-\d{2}-\d{2}$/.test(q.get('date')||'')?q.get('date'):'';
+      const pre={prefill:true,plan,guests:g,hostess:Number(q.get('hostess'))>0,hostessLocked:false,design:q.get('design')==='1',
+        name:(q.get('name')||'').slice(0,60),phone:(q.get('phone')||'').replace(/[^\d+]/g,'').slice(0,14),email:q.get('email')||'',
+        occasion:occ,hDate:date,hCity:(q.get('city')||'').slice(0,40),src:(q.get('src')||'').replace(/[^a-z0-9_-]/gi,'').slice(0,20)};
+      push('prefill_link',{plan,guests:g,src:pre.src});
+      setTimeout(()=>IshurPopup.open('prefill'+(pre.src?'-'+pre.src:''),pre),600);
     } else if(q.get('offer')==='hostess'){
       /* Richard 05/10: ?offer=hostess&guests=600&name=&phone=&date=YYYY-MM-DD&city=
          opens the order with the lead's details typed in; with a plan the combo is
@@ -2856,6 +2874,16 @@ window.addEventListener('load',()=>{
           <div class="addon-q-note">נסיעות כלולות במרכז (אשקלון עד הרצליה). מחוץ למרכז: תוספת נסיעות 250 ₪ לדיילת אחת, 500 ₪ ל-2 דיילות, לפי כתובת האירוע.</div>
         </div>
 
+        <!-- 03/11 design add-on: shown on prefill links (?plan= / ?offer=…&design=1) -->
+        <div class="addon-q" id="f-design-row" hidden>
+          <div class="addon-q-t">עיצוב הזמנה</div>
+          <div class="addon-q-d">נעצב לכם הזמנה לוואטסאפ, עם סבב תיקונים.</div>
+          <div class="addon-q-opts" role="radiogroup" aria-label="עיצוב הזמנה">
+            <button type="button" class="addon-q-opt" id="f-design-yes" role="radio" aria-checked="false">כן, לעצב <b id="f-design-price"></b></button>
+            <button type="button" class="addon-q-opt" id="f-design-no" role="radio" aria-checked="true">יש לנו הזמנה</button>
+          </div>
+        </div>
+
         <div class="pop-total" id="pop-total" hidden aria-live="polite"></div>
 
         <div class="next-up">
@@ -2915,6 +2943,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=41"></script>
+<script src="assets/popup.js?v=42"></script>
 </body>
 </html>

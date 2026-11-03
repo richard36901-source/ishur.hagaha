@@ -314,7 +314,7 @@ export const AUTOMATIONS = [
     conditions: ['noaq:<phone> שהגיע זמנו (השהיה 1.5–5 דקות, בלילה עד 07:00)'], audience: 'מי שכתב לנועה', kv_markers: { per_guest: ['noaq:<phone>'] },
     live: { jobs: ['drainNoaQueue'] }, source: S(3786, 'async function drainNoaQueue'), evidence: [E(3793, 'if (!force && Date.now() < Number(q.due || 0)) continue;', 'זמן מענה')] },
   { id: 'sales_flow', name_he: 'נועה · זרימת מכירה ללידים (כפתורים, לא AI)', layer: 2, from: ['t_cron10'], kind: 'send_client',
-    conditions: ['cfg sales_flow="on" בלבד (ברירת מחדל off)', 'ליד בלבד, 09:00–21:00, בתוך חלון 24ש', 'תזכורת אחת לכל שאלה אחרי 60–150 דק׳, הצעת ברירת מחדל ~2ש אחרי התזכורת השנייה'], audience: 'לידים ב-4499', kv_markers: { per_guest: ['sf:<phone>', 'sfseen:<phone>'] },
+    conditions: ['cfg sales_flow="on" בלבד (ברירת מחדל off) — עונה רק להודעה נכנסת', 'ליד בלבד, 09:00–21:00, בתוך חלון 24ש, עוצר על הערה ידנית במונדי/CRM', 'cfg sales_followups="on" (ברירת מחדל off): תזכורת לשאלה אחרי 60–150 דק׳, הצעת ברירת מחדל ~2ש אחרי, 2 מעקבים אחרי ההצעה'], audience: 'לידים ב-4499', kv_markers: { per_guest: ['sf:<phone>', 'sfseen:<phone>'] },
     live: { jobs: ['salesTick'] }, source: S(1, 'export async function salesTick', 'worker/salesflow.js') },
   { id: 'admin_calls', name_he: 'נועה · שיחה מתוזמנת לאדמין', layer: 2, from: ['t_cron10'], kind: 'call',
     conditions: ['noacall:<phone> שהגיע זמנו', 'רק למספרים ב-ADMIN_PHONES'], audience: 'ריצארד/שלו', kv_markers: { per_guest: ['noacall:<phone>'] },

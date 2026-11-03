@@ -18,7 +18,7 @@
      · "ריצארד" / "נציג" / "תתקשרו אליי" / a question we cannot read → stop,
        Slack "ליד מבקש אדם", reply once
    ========================================================================== */
-import { priceQuote, recommendPlan, fallbackPlan, hostessesFor, tierFor, siteLink, PLAN_HE, PKG_PRICES, HOSTESS_PRICE, DESIGN_PRICE } from './paylink.js';
+import { priceQuote, recommendPlan, fallbackPlan, hostessesFor, tierFor, siteLink, pickBundle, bundleLive, BUNDLES, BUNDLE_CAP, PLAN_HE, PKG_PRICES, HOSTESS_PRICE, DESIGN_PRICE } from './paylink.js';
 import { clientHoursOpen } from './brain.js';
 
 export const SF_PREFIX = 'sf:';
@@ -27,11 +27,56 @@ export const SF_TTL = 7 * 86400;
 export const WINDOW_MS = 24 * 3600e3;
 export const NUDGE_MIN = 60, NUDGE_MAX = 150;          /* minutes, randomized */
 export const FALLBACK_AFTER_NUDGE_MIN = 120;
+export const FOLLOW1_MIN_H = 20, FOLLOW1_MAX_H = 26, FOLLOW2_AFTER_H = 48;
+/* our own CRM note (markQuoted) is not a human one */
+export const OWN_NOTE_RE = /^הצעה מזרימת המכירה/;
+const DNC_RE = /לא\s*לפנות|לא\s*להתקשר|אל\s*תפנו|סגר(?:ה|ו)?(?!\s*במקום)(?![א-ת])|שילם|שילמה|לא\s*רלוונטי|הסר/;
+
+/* Before every automated message (Richard 03/11): a human note on Monday/CRM
+   newer than the lead's last inbound pauses the flow; "לא לפנות"/"סגר" ends it.
+   h = { notes, updates:[{at,text}], crm:[{at,text}] } (deps.humanNotes, cached 10 min) */
+export function humanGate(st, h) {
+  if (!h) return { verdict: 'ok' };
+  const since = Math.max(Number(st.lastInAt) || 0, Number(st.humanAck) || 0);
+  const items = [...(h.updates || []), ...(h.crm || [])].filter(x => x && x.text && !OWN_NOTE_RE.test(x.text));
+  const newer = items.filter(x => Number(x.at) > since).map(x => x.text);
+  const notesChanged = st.notesSnap !== undefined && String(h.notes || '') !== String(st.notesSnap);
+  const fresh = [...newer, ...(notesChanged ? [String(h.notes || '')] : [])];
+  if (fresh.some(t => DNC_RE.test(t))) return { verdict: 'stop', text: fresh.join(' | ') };
+  if (fresh.length) return { verdict: 'pause', text: fresh.join(' | ') };
+  return { verdict: 'ok' };
+}
+/* simple facts a human wrote ("2 דיילות", a date) → prefill, never over an explicit answer */
+export function notesFacts(h, now = Date.now()) {
+  const txt = [String((h && h.notes) || ''), ...(((h && h.updates) || []).concat((h && h.crm) || [])).filter(x => !OWN_NOTE_RE.test(x.text || '')).map(x => x.text || '')].join('\n');
+  const out = {};
+  const m = txt.match(/(\d)\s*דיילות/); if (m) out.hostess = true; else if (/דיילת\s*אחת|רוצ\S*\s*דיילת/.test(txt)) out.hostess = true;
+  const d = parseDate(txt, now); if (d.date) out.date = d.date;
+  const c = parseCity(txt); if (c) out.city = c;
+  return out;
+}
+function applyFacts(st, f) {
+  if (!f) return;
+  st.answers = st.answers || { calls_rounds: 0, hostess: false, date: '', month: 0, city: '' };
+  const ex = st.explicit || {};
+  if (f.hostess && !ex.hostess) st.answers.hostess = true;
+  if (f.date && !st.answers.date) st.answers.date = f.date;
+  if (f.city && !st.answers.city) st.answers.city = f.city;
+}
 
 export function sfEnabled(env) {
   const v = env && env.__cfg && env.__cfg.sales_flow;
   if (v !== undefined) return v === 'on';
   return String((env && env.SALES_FLOW) || '') === 'on';
+}
+
+/* Richard 03/11: no WhatsApp follow-ups for now. Nudges, the fallback offer
+   and the post-offer follow-ups all sit behind cfg sales_followups (default
+   off); with it off the flow only ever answers an inbound message. */
+export function sfFollowupsEnabled(env) {
+  const v = env && env.__cfg && env.__cfg.sales_followups;
+  if (v !== undefined) return v === 'on';
+  return String((env && env.SALES_FOLLOWUPS) || '') === 'on';
 }
 
 /* ── messages (Richard's wording, plural address) ─────────────────────────── */
@@ -44,20 +89,26 @@ export const MSG = {
   q2: 'תודה! ודבר אחרון: יש לכם הזמנה מוכנה, או שתרצו שנעצב לכם אחת?',
   nudge: 'רק מזכירים 🙂 ברגע שתענו נשלח הצעה מדויקת',
   human: 'ריצארד יחזור אליכם בהקדם 🙂',
+  /* after the offer: one check-in ~20–26h later, one call offer 2 days after that */
+  follow1: 'היי 🙂 רק בודקים אם ההצעה ברורה, ואם יש שאלה אני כאן',
+  follow2: 'אם נוח יותר בטלפון, תגידו מתי ונתקשר',
   /* "כמה עולה?" before we know anything: one friendly line, then the questions */
   priceFirst: 'המחיר תלוי בחבילה שמתאימה לכם, אז נתאים לכם הצעה אחת מדויקת 🙂',
   backToQ1: 'ונשמח לתשובות לשאלות למעלה, כדי לשלוח לכם הצעה אחת מדויקת 🙂',
   /* Richard 03/11: when they want calls, a warm word on one round vs three */
   advisory: 'טיפ קטן לפני ההצעה: חבילת פרמיום (סבב שיחות אחד) מתאימה בדרך כלל לקהל צעיר שעונה בעיקר בוואטסאפ. אם יש הרבה מוזמנים מבוגרים, אנחנו ממליצים על הכל כלול (3 סבבי שיחות), כדי לוודא שכולם יודעים על האירוע. אתם מכירים את האורחים הכי טוב, ואפשר לשנות בקישור 🙂',
 };
-/* what every package includes (Richard 03/11) + the chosen extras */
-export const INCLUDED = ['הזמנות בוואטסאפ עם אישור הגעה בלחיצה', 'תזכורות למי שלא ענה', 'הודעה יום לפני עם ניווט ב-Waze', 'מספר שולחן לכל אורח ביום האירוע', 'קישורי מתנה בביט / פייבוקס', 'סידורי הושבה', 'ניהול תקציב'];
-export function includesList(q, calls_rounds = 0) {
+/* what the offer includes, specific and complete (Richard 03/11), per the
+   chosen plan/bundle — counts follow config.js PLANS */
+export const INCLUDED = ['הזמנה בוואטסאפ עם תמונה/וידאו ואישור בלחיצה', 'תזכורת למי שלא ענה', 'תזכורת יום-לפני עם ניווט בוויז', 'הודעה ביום האירוע עם מספר השולחן',
+  'קישורי מתנה בביט ופייבוקס לאורחים', 'סידורי הושבה וניהול תקציב', 'לוח בקרה למעקב 24/7 בזמן אמת'];
+export function includesList(q) {
   const lines = [...INCLUDED];
-  if (calls_rounds >= 3 || q.plan === 'premium') lines.push('3 סבבי שיחות למי שלא ענה');
-  else if (calls_rounds >= 1 || q.plan === 'pro') lines.push('סבב שיחות למי שלא ענה');
-  if (q.hostesses) lines.push(q.hostesses === 1 ? 'דיילת בקבלת הפנים ובהושבה' : `${q.hostesses} דיילות בקבלת הפנים ובהושבה`);
-  if (q.design) lines.push('עיצוב הזמנה');
+  if (q.plan === 'premium') lines.push('3 סבבי שיחות למי שלא ענה', 'הודעת תודה לאורחים יום אחרי האירוע', 'הודעת דחייה או ביטול, אם צריך');
+  else if (q.plan === 'pro') lines.push('סבב שיחות למי שלא ענה', 'הודעת תודה לאורחים יום אחרי האירוע');
+  if (q.hostesses) lines.push(q.hostesses === 1 ? 'דיילת קבלת פנים ביום האירוע (מגיעה שעה לפני)' : `${q.hostesses} דיילות קבלת פנים ביום האירוע (מגיעות שעה לפני)`);
+  if (q.design) lines.push(q.bundle ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה');
+  lines.push(`עד ${q.records} רשומות (מספר טלפון = רשומה)`);
   return 'מה כלול:\n' + lines.map(l => '• ' + l).join('\n');
 }
 function addonWords(q) {
@@ -67,17 +118,23 @@ function addonWords(q) {
   return out;
 }
 export function offerText(q, link, { calls_rounds = 0, fallback = false } = {}) {
-  const calls = calls_rounds || (q.plan === 'premium' ? 3 : q.plan === 'pro' ? 1 : 0);
-  const pre = calls ? MSG.advisory + '\n\n' : '';
-  const inc = '\n' + includesList(q, calls) + '\n';
-  const head = `חבילת ${PLAN_HE[q.plan]} ל-${q.records} רשומות${calls_rounds ? ' (כולל שיחות למי שלא ענה)' : ''}` +
-    addonWords(q).map(a => ' + ' + a).join('') + ` = ₪${q.sum}.`;
-  if (fallback) return pre + `הכנו לכם הצעה לפי מה שסיפרתם 🙂 ${head}\n` + inc +
-    `תשלום אחד לאירוע, בלי מנוי. הבחירות כבר ממולאות בקישור, ואפשר לשנות שם כל דבר לפני התשלום:\n${link}\n` +
-    'אחרי התשלום תקבלו קישור להעלאת המוזמנים, ואנחנו מטפלים בכול.';
-  return pre + `לפי מה שבחרתם: ${head}\n` + inc +
-    `תשלום אחד לאירוע, בלי מנוי. הכול ממולא בקישור, ואפשר לשנות שם כל דבר לפני התשלום:\n${link}\n` +
-    'אחרי התשלום תקבלו קישור להעלאת המוזמנים, ואנחנו מטפלים בכול.';
+  const calls = q.bundle ? 3 : (calls_rounds || (q.plan === 'premium' ? 3 : q.plan === 'pro' ? 1 : 0));
+  /* the one-vs-three-rounds tip only when the plan follows their calls answer */
+  const pre = calls && !q.bundle ? MSG.advisory + '\n\n' : '';
+  const inc = '\n' + includesList(q) + '\n';
+  /* Richard 03/11 closing: the link, or a phone call with a person */
+  const tail = `כדי לבצע את ההזמנה תוכלו לעשות את זה כאן בקישור, או בשיחה טלפונית מול נציג:\n${link}\nהפרטים שלכם כבר מולאו חלקית, כך שהורדנו מכם עוד משהו 🙂 ותכף נוריד מכם גם את אישורי ההגעה, כדי שתוכלו להתעסק במה שבאמת חשוב באירוע.`;
+  if (q.bundle) {
+    /* Richard 03/11 copy: "לפי מה שבחרתם, הכי משתלם לכם מבצע החורף: הכל כלול + 2 דיילות ב-₪1,990." */
+    const deal = /^winter/.test(q.bundle) ? 'מבצע החורף' : 'המבצע';
+    const what = `${PLAN_HE[q.plan]} + ${q.hostesses === 1 ? 'דיילת אחת' : q.hostesses + ' דיילות'}`;
+    const head = `${fallback ? 'הכנו לכם הצעה לפי מה שסיפרתם 🙂 ' : 'לפי מה שבחרתם, '}הכי משתלם לכם ${deal}: ${what} ב-${nis(q.sum)}.` +
+      (q.design ? '\nועיצוב ההזמנה במתנה 🎁' : '');
+    return head + '\n' + inc + tail;
+  }
+  const head = `חבילת ${PLAN_HE[q.plan]} ל-${q.records} רשומות${calls ? ' (כולל שיחות למי שלא ענה)' : ''}` +
+    addonWords(q).map(x => ' + ' + x).join('') + ` = ${nis(q.sum)}.`;
+  return pre + (fallback ? `הכנו לכם הצעה לפי מה שסיפרתם 🙂 ${head}\n` : `לפי מה שבחרתם: ${head}\n`) + inc + tail;
 }
 
 /* ── parsing ─────────────────────────────────────────────────────────────── */
@@ -233,7 +290,7 @@ export function parseAnswers(text, now = Date.now()) {
   const d = parseDate(t, now), city = parseCity(t);
   const guests = parseGuests(t.replace(/(?:^|\s)[1-3]\s*[.)\-:]/g, ' ').replace(/\d+\s*(?:שיחות|סבבים|דיילות)/g, ' '));
   const signals = (calls !== null) + (host !== null) + !!(d.date || d.month) + !!city;
-  return { calls_rounds: calls || 0, hostess: !!host, date: d.date, month: d.month, city, guests, signals };
+  return { calls_rounds: calls || 0, hostess: !!host, explicitHostess: host !== null, explicitCalls: calls !== null, date: d.date, month: d.month, city, guests, signals };
 }
 /* step-2 answer → { design: bool, known: bool } — "we have one" = no design */
 export function parseDesign(text) {
@@ -255,19 +312,26 @@ export function nextOpen(ts) {
 export function nudgeDelayMs(rand = Math.random) { return Math.round((NUDGE_MIN + rand() * (NUDGE_MAX - NUDGE_MIN)) * 60e3); }
 
 /* ── offer ───────────────────────────────────────────────────────────────── */
-export function buildOffer(st, { fallback = false } = {}) {
+export function buildOffer(st, { fallback = false, now = Date.now() } = {}) {
   const a = st.answers || {};
   const records = tierFor(st.guests);
   if (!records) return { ok: false, why: st.guests ? 'over-900' : 'no-guests' };
-  const plan = fallback ? fallbackPlan(a) : recommendPlan(a);
   const hostesses = hostessesFor(records, !!a.hostess);
   const design = !!st.design;
-  const pq = priceQuote({ plan, records, phone: st.phone, name: (st.name && st.name.length >= 2) ? st.name : 'לקוח ishur', occasion: st.occasion || '', event_date: a.date || '', addons: { hostesses, design } });
+  /* hostesses wanted → the live bundle is the offer (top plan, design free) */
+  const bundle = hostesses ? pickBundle(records, hostesses, now) : '';
+  /* while the bundles run, an offer never goes above ₪1,990: hostesses with no
+     bundle for that size (900 records) is a quote for a person */
+  if (hostesses && !bundle && anyBundleLive(now)) return { ok: false, why: 'no-bundle' };
+  const plan = bundle ? BUNDLES[bundle].plan : fallback ? fallbackPlan(a) : recommendPlan(a);
+  const pq = priceQuote({ plan, records, bundle, now, phone: st.phone, name: (st.name && st.name.length >= 2) ? st.name : 'לקוח ishur', occasion: st.occasion || '', event_date: a.date || '', addons: { hostesses, design } });
   if (!pq.ok) return { ok: false, why: pq.why };
   const q = pq.quote;
-  const link = siteLink({ plan, records, hostesses, design, calls_rounds: a.calls_rounds, occasion: st.occasion, event_date: a.date, city: a.city, name: st.name, phone: st.phone, src: 'noa' });
+  if (anyBundleLive(now) && q.sum > BUNDLE_CAP) return { ok: false, why: 'over-cap' };
+  const link = siteLink({ bundle, plan, records, hostesses, design, calls_rounds: bundle ? 0 : a.calls_rounds, occasion: st.occasion, event_date: a.date, city: a.city, name: st.name, phone: st.phone, src: 'noa' });
   return { ok: true, quote: q, link, text: offerText(q, link, { calls_rounds: a.calls_rounds, fallback }) };
 }
+const anyBundleLive = now => Object.values(BUNDLES).some(b => b.until && bundleLive(b, now));
 
 /* ── KV ──────────────────────────────────────────────────────────────────── */
 export async function getState(env, phone) { try { return JSON.parse((await env.RATE.get(SF_PREFIX + phone)) || 'null'); } catch { return null; } }
@@ -275,6 +339,17 @@ async function putState(env, st) { await env.RATE.put(SF_PREFIX + st.phone, JSON
 
 /* send now if the hours are open, else park it for the pacer; window checked here */
 async function deliver(env, st, text, kind, deps, now) {
+  if (deps.humanNotes) {
+    let h = null; try { h = await deps.humanNotes(st.phone); } catch {}
+    const g = humanGate(st, h);
+    if (g.verdict !== 'ok') {
+      st.pausedFrom = st.step; st.step = g.verdict === 'stop' ? 'stopped' : 'paused'; st.why = 'human-note'; st.pending = null;
+      await deps.slack(`✋ ליד ${st.name || ''} ${local(st.phone)}: יש עדכון ידני במונדי/CRM, הזרימה ${g.verdict === 'stop' ? 'הסתיימה' : 'נעצרה'} · ${String(g.text).slice(0, 200)}${g.verdict === 'pause' ? ' · להמשך: כפתור "המשך זרימה" בכרטיס הליד' : ''}`);
+      await deps.log({ action: 'זרימת מכירה: עדכון ידני — לא נשלח', phone: st.phone, detail: kind + ' · ' + g.verdict });
+      return { sent: false, why: 'human-note', verdict: g.verdict };
+    }
+    applyFacts(st, notesFacts(h, now));
+  }
   if (!st.lastInAt || now - st.lastInAt > WINDOW_MS) {
     st.step = 'stopped'; st.why = 'window-closed';
     await deps.slack(`⌛ זרימת מכירה נעצרה: חלון 24 השעות נסגר · ${local(st.phone)} · ${kind} לא נשלח (אין תבניות בזרימה)`);
@@ -292,6 +367,7 @@ async function deliver(env, st, text, kind, deps, now) {
 function afterSend(st, kind, deps, now) {
   if (kind === 'q1' || kind === 'q2' || (String(kind).startsWith('price-') && !st.nudged[st.step])) st.nudgeAt = nextOpen(now + nudgeDelayMs(deps.rand));
   else if (String(kind).startsWith('price-') && st.step === 2 && st.nudged[2]) st.fallbackAt = nextOpen(now + FALLBACK_AFTER_NUDGE_MIN * 60e3);
+  if (kind === 'offer' || kind === 'offer-fallback') { st.offerAt = now; st.follows = 0; st.followAt = nextOpen(now + Math.round((FOLLOW1_MIN_H + deps.rand() * (FOLLOW1_MAX_H - FOLLOW1_MIN_H)) * 3600e3)); }
   if (kind === 'nudge' && st.step === 2) st.fallbackAt = nextOpen(now + FALLBACK_AFTER_NUDGE_MIN * 60e3);
 }
 const local = p => String(p || '').replace(/^972/, '0');
@@ -306,11 +382,13 @@ async function handOff(env, st, why, text, deps, now) {
 }
 
 async function sendOffer(env, st, deps, now, { fallback = false } = {}) {
-  const o = buildOffer(st, { fallback });
-  if (!o.ok) return handOff(env, st, o.why === 'over-900' ? 'מעל 900 מוזמנים — הצעה אישית' : o.why === 'no-guests' ? 'לא ידועה כמות מוזמנים' : 'תמחור נכשל: ' + o.why, '', deps, now);
-  st.step = 'done'; st.quote = { plan: o.quote.plan, records: o.quote.records, hostesses: o.quote.hostesses, design: o.quote.design, sum: o.quote.sum, fallback };
+  const o = buildOffer(st, { fallback, now });
+  if (!o.ok) return handOff(env, st, o.why === 'over-900' ? 'מעל 900 מוזמנים — הצעה אישית' : o.why === 'no-guests' ? 'לא ידועה כמות מוזמנים' : o.why === 'no-bundle' || o.why === 'over-cap' ? 'דיילות בלי מבצע מתאים (מעל ₪1,990) — הצעה ידנית' : 'תמחור נכשל: ' + o.why, '', deps, now);
+  const prevStep = st.step;
+  st.step = 'done'; st.quote = { bundle: o.quote.bundle || '', plan: o.quote.plan, records: o.quote.records, hostesses: o.quote.hostesses, design: o.quote.design, sum: o.quote.sum, fallback };
   st.link = o.link;
   const r = await deliver(env, st, o.text, fallback ? 'offer-fallback' : 'offer', deps, now);
+  if (r.why === 'human-note') { if (st.step === 'paused') st.pausedFrom = prevStep; await putState(env, st); return { handled: true, action: 'human-note', ...r }; }
   if (r.sent || r.queued) {
     await deps.markQuoted(st.phone, o.quote, o.link, { fallback });
     await deps.slack(`💬 *הצעה נשלחה בזרימה* · ${st.name || ''} ${local(st.phone)} · ${o.quote.description} · ₪${o.quote.sum}${fallback ? ' · ברירת מחדל (לא ענו)' : ''}${r.queued ? ' · תצא ב-09:00' : ''}`);
@@ -323,7 +401,7 @@ async function sendOffer(env, st, deps, now, { fallback = false } = {}) {
 /* deps: { send(phone,text)→{ok}, slack(text), log(obj), markQuoted(phone,quote,link,opts), rand(), now() } */
 function fill(deps = {}) {
   return { send: deps.send || (async () => ({ ok: false })), slack: deps.slack || (async () => {}), log: deps.log || (async () => {}),
-    markQuoted: deps.markQuoted || (async () => {}), rand: deps.rand || Math.random, now: deps.now || Date.now, isClient: deps.isClient || (async () => false) };
+    markQuoted: deps.markQuoted || (async () => {}), rand: deps.rand || Math.random, now: deps.now || Date.now, isClient: deps.isClient || (async () => false), humanNotes: deps.humanNotes || null };
 }
 
 /* One inbound on 4499 from a phone the caller already ruled a lead (not a
@@ -345,6 +423,7 @@ export async function salesInbound(env, ctx, depsIn) {
     await env.RATE.put(SF_SEEN + phone, new Date(now).toISOString(), { expirationTtl: 180 * 86400 });
     st = { phone, name: String(ctx.name || '').slice(0, 60), occasion: (trig && trig.occasion) || ctx.occasion || '', guests: (trig && trig.guests) || Number(ctx.guests) || 0,
       step: 1, answers: null, design: false, startedAt: now, lastInAt: now, lastOutAt: 0, nudged: {}, src: ctx.isMetaLead ? 'meta' : 'whatsapp' };
+    if (deps.humanNotes) { try { const h0 = await deps.humanNotes(phone); st.notesSnap = String((h0 && h0.notes) || ''); st.humanAck = now; } catch {} }
     if (wantsHuman(text)) return handOff(env, st, 'ביקש אדם בהודעה הראשונה', text, deps, now);
     const pq0 = priceQuestion(text);
     const r = await deliver(env, st, (pq0 ? MSG.priceFirst + '\n' : '') + MSG.q1(st.occasion, !st.guests), 'q1', deps, now);
@@ -353,7 +432,10 @@ export async function salesInbound(env, ctx, depsIn) {
     return { handled: true, action: 'q1', ...r };
   }
 
-  if (st.step === 'done' || st.step === 'human' || st.step === 'stopped') return { handled: false, why: 'flow-' + st.step };
+  /* after the offer: "בשיחה" / "נציג" / "תתקשרו" is the phone option of the closing → a person */
+  if (st.step === 'done' && !st.followStop) { st.followStop = true; st.followAt = 0; st.lastInAt = now; await putState(env, st); }
+  if (st.step === 'done' && (wantsHuman(text) || /שיחה|תתקשר|להתקשר|טלפונ/.test(text)) && !optOut(text)) { st.lastInAt = now; return handOff(env, st, 'ביקש להזמין בשיחה טלפונית אחרי ההצעה', text, deps, now); }
+  if (st.step === 'done' || st.step === 'human' || st.step === 'stopped' || st.step === 'paused') return { handled: false, why: 'flow-' + st.step };
   st.lastInAt = now; st.nudgeAt = 0; st.fallbackAt = 0;
   if (optOut(text)) {
     st.step = 'stopped'; st.why = 'optout'; await putState(env, st);
@@ -377,7 +459,9 @@ export async function salesInbound(env, ctx, depsIn) {
   if (st.step === 1) {
     const a = parseAnswers(text, now);
     if (!a.signals && !a.guests) return handOff(env, st, 'תשובה שהזרימה לא הבינה', text, deps, now);
-    st.answers = { calls_rounds: a.calls_rounds, hostess: a.hostess, date: a.date, month: a.month, city: a.city };
+    const prev = st.answers || {};
+    st.answers = { calls_rounds: a.calls_rounds, hostess: a.hostess || (!a.explicitHostess && !!prev.hostess), date: a.date || prev.date || '', month: a.month, city: a.city || prev.city || '' };
+    st.explicit = { hostess: a.explicitHostess, calls: a.explicitCalls };
     if (a.guests) st.guests = a.guests;
     if (!st.occasion) st.occasion = parseOccasion(text);
     st.step = 2;
@@ -400,15 +484,27 @@ export async function salesTick(env, depsIn) {
   const out = { sent: 0, nudged: 0, fallback: 0, skipped: 0 };
   if (!sfEnabled(env) || !env.RATE) return out;
   const deps = fill(depsIn), now = deps.now();
+  const follow = sfFollowupsEnabled(env);
   const page = await env.RATE.list({ prefix: SF_PREFIX, limit: 500 }).catch(() => null);
   for (const k of (page && page.keys) || []) {
     let st = null; try { st = JSON.parse((await env.RATE.get(k.name)) || 'null'); } catch {}
     if (!st || st.step === 'stopped') continue;
-    if (st.pending && now >= st.pending.due) {
+    if (st.pending && now >= st.pending.due) {   /* a queued REPLY to an inbound — not a follow-up */
       if (await deps.isClient(st.phone)) { st.step = 'stopped'; st.why = 'became-client'; st.pending = null; await putState(env, st); out.skipped++; continue; }
       const p = st.pending; st.pending = null;
       const r = await deliver(env, st, p.text, p.kind, deps, now);
       if (r.sent) out.sent++;
+      await putState(env, st);
+      continue;
+    }
+    if (!follow) continue;
+    if (st.step === 'done' && !st.pending && !st.followStop && st.followAt && now >= st.followAt && (st.follows || 0) < 2) {
+      const n = (st.follows || 0) + 1;
+      st.follows = n; st.followAt = n === 1 ? nextOpen(now + FOLLOW2_AFTER_H * 3600e3) : 0;
+      const r = await deliver(env, st, n === 1 ? MSG.follow1 : MSG.follow2, 'follow' + n, deps, now);
+      /* status stays quoted whatever happens; a closed window just ends the follow-ups */
+      if (st.step === 'stopped' && st.why === 'window-closed') { st.step = 'done'; st.followStop = true; st.followAt = 0; }
+      if (r.sent) out.followed = (out.followed || 0) + 1;
       await putState(env, st);
       continue;
     }
@@ -428,4 +524,18 @@ export async function salesTick(env, depsIn) {
     }
   }
   return out;
+}
+
+/* Richard resumes a paused lead (lead drawer / POST /api/sales-flow-resume):
+   back to the step it was on, human notes up to now acknowledged */
+export async function salesResume(env, phone, depsIn) {
+  const deps = fill(depsIn), now = deps.now();
+  const st = await getState(env, phone);
+  if (!st || st.step !== 'paused') return { ok: false, why: st ? 'not-paused' : 'no-flow' };
+  st.step = st.pausedFrom || 1; st.humanAck = now; st.why = '';
+  if (deps.humanNotes) { try { const h = await deps.humanNotes(phone); st.notesSnap = String((h && h.notes) || ''); applyFacts(st, notesFacts(h, now)); } catch {} }
+  if (st.step === 1 || st.step === 2) st.nudgeAt = st.nudged[st.step] ? 0 : nextOpen(now + nudgeDelayMs(deps.rand));
+  if (st.step === 2 && st.nudged[2]) st.fallbackAt = nextOpen(now + FALLBACK_AFTER_NUDGE_MIN * 60e3);
+  await putState(env, st);
+  return { ok: true, step: st.step };
 }

@@ -24,6 +24,23 @@ export const RATES = { msg: 0.30, call: 2, base: 20 };
 const CALLS_INCLUDED = ['pro', 'premium'];
 export const OCCASION_HE = { wedding: 'חתונה', hina: 'חינה', bar: 'בר מצווה', bat: 'בת מצווה', brit: 'ברית / בריתה', bday: 'יום הולדת', chalaka: 'חלאקה', chala: 'הפרשת חלה', biz: 'אירוע עסקי', other: 'אחר' };
 
+/* config.js BUNDLES mirror (and the hostess-check route's copy). Keep in sync.
+   Richard 03/11: with hostesses the offer IS the bundle (top plan, one price,
+   never above ₪1,990) and the invitation design comes free with it. */
+export const BUNDLES = {
+  vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, name: 'מבצע 1990 · הכל כלול + 2 דיילות' },
+  winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, name: 'מבצע 1990 · הכל כלול + 2 דיילות', until: '2026-11-30T23:59:59+02:00' },
+  winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, name: 'מבצע 1790 · הכל כלול + דיילת אחת', until: '2026-11-30T23:59:59+02:00' },
+};
+export const BUNDLE_CAP = 1990;
+export const bundleLive = (b, now = Date.now()) => !!b && (!b.until || now <= Date.parse(b.until));
+/* the live bundle for records + hostess count; the dated winter deals first */
+export function pickBundle(records, hostesses, now = Date.now()) {
+  const order = ['winter1990', 'winter1790', 'vip1990'];
+  for (const k of order) { const b = BUNDLES[k]; if (bundleLive(b, now) && b.hostesses === hostesses && b.guests.includes(Number(records))) return k; }
+  return '';
+}
+
 export function ilPhone(v) {
   const d = String(v || '').replace(/\D/g, '');
   if (/^05\d{8}$/.test(d)) return '972' + d.slice(1);
@@ -53,6 +70,20 @@ export function priceQuote(b) {
   if (travel && !hostesses) return { ok: false, why: 'travel-without-hostesses' };
   const design = !!a.design, extra_wave = !!a.extra_wave;
   const calls = !!a.calls && !CALLS_INCLUDED.includes(plan);
+
+  /* a bundle: one agreed price for package + hostesses, design free */
+  if (b.bundle) {
+    const bk = String(b.bundle), bd = BUNDLES[bk];
+    if (!bd || !bundleLive(bd, b.now || Date.now())) return { ok: false, why: 'bundle-off' };
+    if (!bd.guests.includes(records) || hostesses !== bd.hostesses || (!bd.anyPlan && plan !== bd.plan)) return { ok: false, why: 'bundle-mismatch' };
+    if (travel || extra_wave || calls) return { ok: false, why: 'bundle-extras' };
+    const bplan = bd.plan;
+    const blines = [{ key: 'bundle', label: `${records} רשומות ${PLAN_HE[bplan]} כולל ${hostesses === 1 ? 'דיילת' : hostesses + ' דיילות'} · ${bd.name}`, price: bd.total }];
+    if (design) blines.push({ key: 'design', label: 'עיצוב הזמנה במתנה', price: 0 });
+    const code = buildCode({ plan: bplan, records, design, hostesses, travel: false, extra_wave: false, calls: false });
+    return { ok: true, quote: { plan: bplan, records, design, hostesses, travel: false, extra_wave: false, calls: false, bundle: bk, bundle_name: bd.name, name, phone, occasion, event_date,
+      lines: blines, sum: bd.total, description: blines.map(l => l.label).join(' + '), code } };
+  }
 
   const lines = [{ key: 'pkg', label: `${records} רשומות ${PLAN_HE[plan]}`, price: PKG_PRICES[records][plan] }];
   if (design) lines.push({ key: 'design', label: 'עיצוב הזמנה', price: DESIGN_PRICE });
@@ -136,11 +167,12 @@ export function tierFor(n) {
 }
 
 /* the editable site prefill link (index.html reads exactly these params) */
-export const SITE_PARAMS = ['plan', 'guests', 'hostess', 'design', 'calls', 'occasion', 'date', 'city', 'name', 'phone', 'src'];
+export const SITE_PARAMS = ['offer', 'plan', 'guests', 'hostess', 'design', 'calls', 'occasion', 'date', 'city', 'name', 'phone', 'src'];
 export function siteLink(p, base = 'https://ishur.io/') {
   const u = new URL(base);
   const set = (k, v) => { if (v !== undefined && v !== null && v !== '' && v !== false) u.searchParams.set(k, String(v)); };
-  set('plan', PLAN_HE[p.plan] ? p.plan : '');
+  set('offer', BUNDLES[p.bundle] ? p.bundle : '');
+  set('plan', !p.bundle && PLAN_HE[p.plan] ? p.plan : '');
   set('guests', PKG_PRICES[p.records] ? p.records : '');
   set('hostess', p.hostesses ? Number(p.hostesses) : '');
   set('design', p.design ? 1 : '');

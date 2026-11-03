@@ -28,7 +28,7 @@ import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClien
 import { proxy as evProxy, appendTab } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
-import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead } from './monday.js';
+import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
@@ -45,8 +45,8 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
-import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage } from './paylink.js';   /* 03/11 pay links v2 */
-import { salesInbound, salesTick, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
+import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE } from './paylink.js';   /* 03/11 pay links v2 */
+import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handleSendBoard } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -231,6 +231,18 @@ function salesDeps(env) {
     slack: (t) => slackPost(env, t).catch(() => {}),
     log: (o) => logEvent(env, { area: 'לידים', ok: o.ok !== false, ...o }).catch(() => {}),
     isClient: (phone) => isClientPhone(env, phone),
+    /* Monday notes + updates and the CRM (leadx:) notes, cached 10 min per lead */
+    humanNotes: async (phone) => {
+      const ck = 'sfmon:' + phone;
+      let mon = null; try { mon = JSON.parse(await env.RATE.get(ck) || 'null'); } catch {}
+      if (!mon) {
+        try { mon = await mondayLeadNotes(env, phone); } catch (e) { mon = { found: false, notes: '', updates: [], err: String(e && e.message).slice(0, 80) }; }
+        await env.RATE.put(ck, JSON.stringify(mon), { expirationTtl: 600 }).catch(() => {});
+      }
+      let lx = null; try { lx = JSON.parse(await env.RATE.get('leadx:' + phone) || 'null'); } catch {}
+      const crm = ((lx && lx.notes) || []).map(n => ({ at: Date.parse(n.at) || 0, text: String(n.text || '') }));
+      return { notes: mon.notes || '', updates: mon.updates || [], crm };
+    },
     markQuoted: async (phone, quote, link, { fallback } = {}) => {
       const nowIso = new Date().toISOString();
       /* the CRM row (leads board) — status + a note with the offer */
@@ -11095,6 +11107,19 @@ export default {
       return okJson({ ok: true, playbook: cur || null }, origin);
     }
     if (url.pathname === '/api/quote-from-site' && request.method === 'POST') return handleQuoteFromSite(request, env, origin);
+    /* 03/11: Richard resumes a sales flow that a human note paused */
+    if (url.pathname === '/api/sales-flow-resume' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      const p = normPhone(b.phone || '');
+      const st = p ? await sfState(env, p) : null;
+      if (b.peek) return okJson({ ok: true, flow: st }, origin);
+      await env.RATE.delete('sfmon:' + p).catch(() => {});
+      const r = await salesResume(env, p, salesDeps(env));
+      await logEvent(env, { area: 'לידים', action: r.ok ? 'זרימת מכירה חודשה ידנית' : 'חידוש זרימת מכירה נכשל', ok: r.ok, phone: p, detail: r.why || r.step || '' }).catch(() => {});
+      return okJson(r, origin);
+    }
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -11237,8 +11262,8 @@ export default {
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
       if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
-      /* Richard 20/10: one hostess up to 300 guests, two above; no third tier */
-      const n = guests <= 300 ? 1 : 2;
+      /* Richard 03/11 (global): hostesses wanted → under 300 records one, 300+ two (paylink.hostessesFor) */
+      const n = hostessesFor(guests, true);
       const hostessPrice = n === 1 ? 1790 : 1990;
       /* special bundles (Richard 13/10): mirrors config.js BUNDLES. The key
          rides in from the ?offer= link; it only applies to the plan and the
@@ -11246,14 +11271,18 @@ export default {
       const BUNDLES = {
         vip1990: { plan: 'premium', hostesses: 2, guests: [300, 400, 500], total: 1990, label: 'הכל כלול + 2 דיילות' },
         winter1990: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 2, guests: [400, 500, 600, 700, 800], total: 1990, label: 'מבצע חורף · הכל כלול + 2 דיילות עד 800', until: '2026-11-30T23:59:59+02:00' },
-        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200, 300], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 300', until: '2026-11-30T23:59:59+02:00' },
+        winter1790: { plan: 'premium', anyPlan: true, travel: 250, hostesses: 1, guests: [50, 100, 200], total: 1790, label: 'מבצע חורף · הכל כלול + דיילת אחת עד 200', until: '2026-11-30T23:59:59+02:00' },
       };
       const bundle0 = BUNDLES[String(b.offer || '')] || null;
       const bundle = bundle0 && (!bundle0.until || Date.now() <= Date.parse(bundle0.until)) ? bundle0 : null;
       /* anyPlan (01/11): any package + hostesses in range → the bundle price,
          and the package becomes the bundle's (הכל כלול); the hostess count
          follows the tier rule (1 up to 300), not the bundle's number */
-      const bundleOn = !!(bundle && (bundle.anyPlan || (bundle.plan === plan && bundle.hostesses === n)) && bundle.guests.includes(guests));
+      /* 03/11: the bundle's hostess count must match the size rule too (300 → 2 → not winter1790) */
+      const bundleOn = !!(bundle && (bundle.anyPlan || bundle.plan === plan) && bundle.hostesses === n && bundle.guests.includes(guests));
+      /* 03/11: invitation design rides along — free with a bundle, ₪79 otherwise */
+      const withDesign = !!b.design;
+      const designPrice = withDesign && !bundleOn ? DESIGN_PRICE : 0;
       if (bundleOn && bundle.anyPlan) plan = bundle.plan;
       const CENTER = ['אשקלון','אשדוד','יבנה','גדרה','רחובות','נס ציונה','ראשון לציון','ראשלצ','חולון','בת ים','תל אביב','תא','יפו','רמת גן','גבעתיים','בני ברק','פתח תקווה','פת','ראש העין','כפר סבא','רעננה','הוד השרון','הרצליה','רמת השרון','מודיעין','לוד','רמלה','קריית אונו','אור יהודה','יהוד','גבעת שמואל','סביון','גני תקווה','שוהם','באר יעקב','קריית גת','קריית מלאכי','גן יבנה','בית דגן','אזור','כפר שמריהו'];
       const center = CENTER.some(c => city.indexOf(c) > -1 || c.indexOf(city) > -1);
@@ -11298,13 +11327,15 @@ export default {
         const tr = await tokenRecord(env, String(b.token));
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
-      const listTotal = PRICES[guests][plan] + hostessPrice + travel;
+      const listTotal = PRICES[guests][plan] + hostessPrice + travel + designPrice;
       const total = bundleOn ? Math.min(bundle.total, PRICES[guests][plan] + hostessPrice) + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
          bundle keeps them and only adds its tag at the end. */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}`;
+      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + String(b.offer) : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
+      /* a design order carries the structured code (paylink.js) so the IPN grants it */
+      const pkgCode = withDesign ? '|' + buildCode({ plan, records: guests, design: true, hostesses: n, travel: travel > 0, extra_wave: false, calls: false }) : '';
       let payUrl = '';
       /* two-step from the page: first call answers availability + price at once
          (no Grow round-trip), the second (link:true) mints the payment link */
@@ -11314,7 +11345,7 @@ export default {
             body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
               successUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token + '&paid=hostess' : 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token : 'https://ishur.io/#pricing',
-              cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city }) }).catch(() => null);
+              cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city + pkgCode }) }).catch(() => null);
           let mj = null; try { mj = mk ? JSON.parse(await mk.text()) : null; } catch {}
           const u = mj && (mj.url || mj.link || (mj.data && mj.data.url));
           if (u && /^https?:\/\//.test(String(u))) payUrl = String(u);
@@ -11325,7 +11356,7 @@ export default {
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
-      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], url: payUrl, desc, cal: calNote || 'ok',
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
         ...(bundleOn ? { bundle: { key: String(b.offer), list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before
