@@ -10,7 +10,7 @@
      · leads only: never for client:, a phone with an event, or a guest (the
        caller passes isClient; the tick re-checks through deps.isClient)
      · free text only, inside the 24h window; window closed → nothing, Slack
-     · 09:00–21:00 (no Shabbat): outside, the reply waits in state.pending and
+     · 10:00–20:00 IL (no Shabbat; 18–20 a 3–8 min delay): outside, the reply waits in state.pending and
        the 10-minute pacer sends it at the next opening (same due/drain shape
        as noaq:)
      · one nudge per question, 60–150 min after it went out; after the
@@ -302,11 +302,19 @@ export function parseDesign(text) {
 }
 
 /* ── hours ───────────────────────────────────────────────────────────────── */
-/* the next moment inside 09:00–21:00 (no Shabbat), from ts; ts itself if open */
+/* Richard 03/11 lead-hours rule: automated lead replies only 10:00–20:00 IL (inside the
+   general client hours, so Shabbat stays closed); 18:00–20:00 each reply waits a random
+   3–8 minutes; after 20:00 it is queued to the next day 10:00. */
+export const LEAD_OPEN_H = 10, LEAD_CLOSE_H = 20, LEAD_SLOW_H = 18, LEAD_DELAY_MIN = 3, LEAD_DELAY_MAX = 8;
+const ilHour = ts => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: 'numeric', hourCycle: 'h23' }).format(new Date(ts)));
+export function leadHoursOpen(ts) { const h = ilHour(ts); return clientHoursOpen(ts) && h >= LEAD_OPEN_H && h < LEAD_CLOSE_H; }
+export function leadSlowHours(ts) { const h = ilHour(ts); return h >= LEAD_SLOW_H && h < LEAD_CLOSE_H; }
+export function leadDelayMs(rand = Math.random) { return Math.round((LEAD_DELAY_MIN + rand() * (LEAD_DELAY_MAX - LEAD_DELAY_MIN)) * 60e3); }
+/* the next moment inside the lead hours, from ts; ts itself if open */
 export function nextOpen(ts) {
-  if (clientHoursOpen(ts)) return ts;
+  if (leadHoursOpen(ts)) return ts;
   let t = Math.ceil(ts / 900e3) * 900e3;
-  for (let i = 0; i < 4 * 24 * 3; i++, t += 900e3) if (clientHoursOpen(t)) return t;
+  for (let i = 0; i < 4 * 24 * 3; i++, t += 900e3) if (leadHoursOpen(t)) return t;
   return ts;
 }
 export function nudgeDelayMs(rand = Math.random) { return Math.round((NUDGE_MIN + rand() * (NUDGE_MAX - NUDGE_MIN)) * 60e3); }
@@ -338,7 +346,7 @@ export async function getState(env, phone) { try { return JSON.parse((await env.
 async function putState(env, st) { await env.RATE.put(SF_PREFIX + st.phone, JSON.stringify(st), { expirationTtl: SF_TTL }); }
 
 /* send now if the hours are open, else park it for the pacer; window checked here */
-async function deliver(env, st, text, kind, deps, now) {
+async function deliver(env, st, text, kind, deps, now, { delayed = false } = {}) {
   if (deps.humanNotes) {
     let h = null; try { h = await deps.humanNotes(st.phone); } catch {}
     const g = humanGate(st, h);
@@ -356,7 +364,8 @@ async function deliver(env, st, text, kind, deps, now) {
     await deps.log({ action: 'זרימת מכירה: חלון 24ש נסגר, לא נשלח', phone: st.phone, detail: kind });
     return { sent: false, why: 'window-closed' };
   }
-  if (!clientHoursOpen(now)) { st.pending = { text, kind, due: nextOpen(now) }; return { sent: false, queued: true, due: st.pending.due }; }
+  if (!leadHoursOpen(now)) { st.pending = { text, kind, due: nextOpen(now) }; return { sent: false, queued: true, due: st.pending.due }; }
+  if (!delayed && leadSlowHours(now)) { st.pending = { text, kind, due: now + leadDelayMs(deps.rand), delayed: true }; return { sent: false, queued: true, delayed: true, due: st.pending.due }; }
   const r = await deps.send(st.phone, text);
   if (!r || !r.ok) { await deps.log({ action: 'זרימת מכירה: שליחה נכשלה', ok: false, phone: st.phone, detail: kind }); return { sent: false, why: 'send-failed' }; }
   st.lastOutAt = now; st.pending = null;
@@ -391,7 +400,7 @@ async function sendOffer(env, st, deps, now, { fallback = false } = {}) {
   if (r.why === 'human-note') { if (st.step === 'paused') st.pausedFrom = prevStep; await putState(env, st); return { handled: true, action: 'human-note', ...r }; }
   if (r.sent || r.queued) {
     await deps.markQuoted(st.phone, o.quote, o.link, { fallback });
-    await deps.slack(`💬 *הצעה נשלחה בזרימה* · ${st.name || ''} ${local(st.phone)} · ${o.quote.description} · ₪${o.quote.sum}${fallback ? ' · ברירת מחדל (לא ענו)' : ''}${r.queued ? ' · תצא ב-09:00' : ''}`);
+    await deps.slack(`💬 *הצעה נשלחה בזרימה* · ${st.name || ''} ${local(st.phone)} · ${o.quote.description} · ₪${o.quote.sum}${fallback ? ' · ברירת מחדל (לא ענו)' : ''}${r.queued ? ' · תצא ב-10:00' : ''}`);
     await deps.log({ action: fallback ? 'זרימת מכירה: הצעת ברירת מחדל' : 'זרימת מכירה: הצעה נשלחה', phone: st.phone, detail: `${o.quote.description} · ₪${o.quote.sum}` });
   }
   await putState(env, st);
@@ -492,7 +501,7 @@ export async function salesTick(env, depsIn) {
     if (st.pending && now >= st.pending.due) {   /* a queued REPLY to an inbound — not a follow-up */
       if (await deps.isClient(st.phone)) { st.step = 'stopped'; st.why = 'became-client'; st.pending = null; await putState(env, st); out.skipped++; continue; }
       const p = st.pending; st.pending = null;
-      const r = await deliver(env, st, p.text, p.kind, deps, now);
+      const r = await deliver(env, st, p.text, p.kind, deps, now, { delayed: !!p.delayed });
       if (r.sent) out.sent++;
       await putState(env, st);
       continue;
