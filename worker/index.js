@@ -801,7 +801,9 @@ async function processGrowPayment(env, flat) {
        package, the amount, the payment method and the terms on it */
     if (!invoiceUrl) {
       let bought = null; try { bought = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); } catch {}
-      const inv = flat._simulated ? { ok: false, why: 'not-configured' } : await createInvoice(env, {
+      /* 04/11: a forced replay (_simulated && _force) is a REAL payment being re-run;
+         it skipped the invoice silently (שרון שמעוני, ₪178). Only a pure test skips. */
+      const inv = (flat._simulated && !forced) ? { ok: false, why: 'not-configured' } : await createInvoice(env, {
         name, phone, email, sum, ref, payMethod,
         taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
         plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0,
