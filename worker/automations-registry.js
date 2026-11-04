@@ -375,7 +375,7 @@ export const AUTOMATIONS = [
     conditions: ['AB_ENABLED="on"', '06:00 בישראל'], audience: '—', live: { jobs: ['abEvaluate'] }, source: S(241, 'export async function evaluate', 'worker/ab.js') },
   { id: 'call_cost_sync', name_he: 'סנכרון עלויות שיחה מ-Retell', layer: 2, from: ['t_morning'], kind: 'internal',
     conditions: ['קרון בוקר'], audience: '—', live: { jobs: ['syncCallCosts'] }, source: S(7904, 'async function syncCallCosts') },
-  { id: 'manual_blasts', name_he: 'שליחות ידניות (מתנה · אירוע-בן · SMS · ניסיון חוזר · שליחה חוזרת)', layer: 3, from: [], kind: 'send_guest', routes: ['/api/gift-blast', '/api/subevent-send', '/api/sms-blast', '/api/resend'], mutating: true,
+  { id: 'manual_blasts', name_he: 'שליחות ידניות (מתנה · אירוע-בן · SMS · ניסיון חוזר · שליחה חוזרת)', layer: 3, from: [], kind: 'send_guest', routes: ['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend'], mutating: true,
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/gift-blast · /api/subevent-send · /api/sms-blast · /api/wave-retry · /api/resend' },
     conditions: ['אדמין בלבד', 'כבוי (auto:off:manual_blasts) → כל המסלולים מחזירים 423 לפני כל קריאה החוצה; /api/wave-retry חסום גם ב-dry כי הוא משנה מצב'],
     audience: 'אורחים של אירוע אחד', source: S(4491, 'async function handleGiftBlast') },
@@ -404,8 +404,17 @@ export const AUTOMATIONS = [
     templates: ['ishur_shabat_hatan_zaguri'], audience: 'אורחי אירוע-האב (שורות חיות, בלי העתקה)',
     kv_markers: { per_guest: ['shsent:<sub>:<phone>', 'shfail:<sub>:<phone>'], per_event: ['subevent:<sub>.started_at', 'subevent:<sub>.completed_at'] },
     budget: 'min(25, guestCapacity.remaining) לכל פעימה', live: { pacer: 'subevents' },
-    source: S(290, 'export async function continueSubevents', 'worker/subevent.js'),
-    evidence: [E(291, "isOff(env, 'subevent_continue')", 'מתג הכיבוי נבדק ראשון', 'worker/subevent.js'), E(313, 'completed_at: new Date', 'סימון הושלם', 'worker/subevent.js'), E(6500, "step('subevent_continue'", 'הפייסר מריץ אותו בחלון השליחה')] },
+    source: S(361, 'export async function continueSubevents', 'worker/subevent.js'),
+    evidence: [E(362, "isOff(env, 'subevent_continue')", 'מתג הכיבוי נבדק ראשון', 'worker/subevent.js'), E(385, 'completed_at: new Date', 'סימון הושלם', 'worker/subevent.js'), E(6500, "step('subevent_continue'", 'הפייסר מריץ אותו בחלון השליחה')] },
+  { id: 'subevent_reminder', name_he: 'אירוע-בן · תזכורת אחת למי שלא ענה', layer: 2, from: ['subevent_continue', 'manual_blasts'], kind: 'send_guest', added: '2026-11-04',
+    trigger: { cron: '*/10 * * * *', il: 'מ-reminder_at (ברירת מחדל 10:00) ביום שנקבע, בתוך חלון השליחה', via: "runPacer step('subevent_continue') → continueSubevents → continueReminder · POST /api/subevent-remind {when}" },
+    conditions: ['רק אחרי שהשליחה הראשונה הושלמה (completed_at)', 'reminder_at הגיע (שעון ישראל) או שהגל כבר התחיל', 'רק מי שקיבל את ההודעה הראשונה (shsent) ולא ענה (אין shrsvp)', 'לא הוסר / לא מספר שגוי, לא נכשל 3 פעמים (shremfail)',
+      'פעם אחת לאורח (shrem)', 'פרוסה = min(25, מקום בתקרה); תקרה 0 → מוחזק', 'סיום → reminder_completed_at + יומן שינויים + סלאק "<שם>: תזכורת הושלמה, נשלחו X"', 'מתג כיבוי auto:off:subevent_reminder (וגם subevent_continue עוצר)'],
+    templates: ['ishur_shabat_hatan_reminder (רק אם אושר)', 'ishur_shabat_hatan_zaguri_v2 (ברירת מחדל = התבנית של השליחה הראשונה)'], audience: 'אורחי אירוע-האב שלא ענו',
+    kv_markers: { per_guest: ['shrem:<sub>:<phone>', 'shremfail:<sub>:<phone>'], per_event: ['subevent:<sub>.reminder_at', 'subevent:<sub>.reminder_started_at', 'subevent:<sub>.reminder_completed_at'] },
+    budget: 'min(25, guestCapacity.remaining) לכל פעימה', live: { pacer: 'subevents' },
+    source: S(399, 'async function continueReminder', 'worker/subevent.js'),
+    evidence: [E(259, "isOff(env, 'subevent_reminder')", 'מתג הכיבוי של התזכורת', 'worker/subevent.js'), E(414, 'reminder_completed_at: new Date', 'סימון הושלם', 'worker/subevent.js')] },
   { id: 'call_round_watch', name_he: 'המוח · סבב שיחות לא מחייג (+ הפעלה מחדש באישור)', layer: 3, from: ['brain_health', 'call_rounds', 'shir_dispatch'], kind: 'slack', added: '2026-11-04',
     trigger: { cron: '*/10 * * * *', il: '10:00–19:00 (מ-10:20), כל 10 דקות', via: 'brain check call_round_not_dialing → playbook call_round_kick (auto:false)' },
     conditions: ['אירוע עם סבב שיחות פעיל: callround:<token> / callsaddon:<token> / מסלול שכולל שיחות (לא בסיס)', 'יש בתור אורחים שאפשר לחייג היום (לא shirtry היום)', '0 חיוגים לאירוע ב-60 הדקות האחרונות (calllast:<token>)',
@@ -424,15 +433,15 @@ export const AUTOMATIONS = [
   { id: 'guest_text', name_he: 'טקסט חופשי לאורח (מהאדמין)', layer: 3, from: [], kind: 'send_guest', mutating: true, added: '2026-11-03',
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/guest-text' }, routes: ['/api/guest-text'],
     conditions: ['אדמין בלבד', 'רק בתוך חלון 24 השעות של האורח'], audience: 'אורח אחד',
-    source: S(10590, "url.pathname === '/api/guest-text'") },
+    source: S(10591, "url.pathname === '/api/guest-text'") },
   { id: 'client_link', name_he: 'קישור ללוח/העלאה ללקוח (כפתור או תבנית)', layer: 3, from: [], kind: 'send_client', mutating: true, added: '2026-11-03',
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/client-link' }, routes: ['/api/client-link'],
     conditions: ['אדמין בלבד', 'בתוך 24 שעות: כפתור; אחרת התבנית ishur_tzikoret_kovetz / ishur_doch'], audience: 'לקוח אחד',
-    templates: ['ishur_tzikoret_kovetz', 'ishur_doch'], source: S(10681, "url.pathname === '/api/client-link'") },
+    templates: ['ishur_tzikoret_kovetz', 'ishur_doch'], source: S(10682, "url.pathname === '/api/client-link'") },
   { id: 'invoice_manual', name_he: 'חשבונית ידנית + שליחה ללקוח (שחזור)', layer: 3, from: [], kind: 'send_client', mutating: true, added: '2026-11-03',
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/evlog {action:"invoice-make"}' }, routes: ['/api/evlog'],
     conditions: ['אדמין בלבד', 'שולח רק כשיש תבנית ב-invoicetmpl ו-send != false'], audience: 'לקוח אחד',
-    source: S(10090, "if (b.action === 'invoice-make')") },
+    source: S(10091, "if (b.action === 'invoice-make')") },
   { id: 'voice_test_call', name_he: 'שיחת בדיקה מסוכן קולי', layer: 3, from: [], kind: 'call', mutating: true, added: '2026-11-03',
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/voice-tools' }, routes: ['/api/voice-tools'],
     conditions: ['אדמין בלבד', 'סוכן מתוך VOICE_AGENTS'], audience: 'המספר שהאדמין נתן',
@@ -474,7 +483,7 @@ export function baseTemplate(name) { return String(name || '').replace(/_(f|n)$/
      desc_he       plain Hebrew, one sentence
      code          { file, symbol } — the function shown by /api/ops/code (defaults to source);
                    worker/registry-code.json holds the resolved lines (scripts/ops-snapshot-code.mjs) */
-export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue'];
+export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder'];
 const KS = id => ({ key: 'auto:off:' + id, wired: true });
 const C = (symbol, file = IX) => ({ file, symbol });
 const OPS_OVERRIDES = {
@@ -506,6 +515,8 @@ const OPS_OVERRIDES = {
   call_rounds:{ code: C('async function drainCallRounds') },
   subevent_continue: { kill_switch: KS('subevent_continue'), side_effects: ['wa_guest', 'kv', 'slack'], risk: 'high', code: C('export async function continueSubevents', 'worker/subevent.js'),
                 desc_he: 'ממשיך תת-אירוע (שבת חתן) שריצ׳רד התחיל: 25 בכל פעימה בתוך התקרה עד שכולם קיבלו, ואז "הושלם" לסלאק.' },
+  subevent_reminder: { kill_switch: KS('subevent_reminder'), side_effects: ['wa_guest', 'kv', 'slack'], risk: 'high', code: C('async function continueReminder', 'worker/subevent.js'),
+                desc_he: 'תזכורת אחת לאורחי תת-אירוע שלא ענו, ביום ובשעה שנקבעו (reminder_at), 25 בכל פעימה בתוך התקרה.' },
   party_nudges: { kill_switch: KS('party_nudges'), risk: 'medium', code: C('async function drainPartyNudges'),
                 desc_he: 'שואל אורח שענה "מגיע" כמה יגיעו, כשלא כתב מספר.' },
   lead_pings: { code: C('async function drainLeadPings') },

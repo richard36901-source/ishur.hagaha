@@ -1,0 +1,27 @@
+{
+  "_note": "04/11 the ONE reminder to sub-event (שבת חתן) guests who did not answer. Optional: until Meta APPROVES it the reminder goes out with the original template (ishur_shabat_hatan_zaguri_v2). To use it after approval: POST /api/subevent-remind {admin_key, token, reminder_template:'ishur_shabat_hatan_reminder', dry:true}. {{1}} = the guest's own name only. Same 3 quick-reply buttons as the first message so the reply routes identically. Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_shabat_hatan_reminder",
+    "language": "he",
+    "category": "UTILITY",
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי {{1}}, רק מזכירים 🙂\nנשמח לדעת אם תגיעו לשבת חתן, כדי שנוכל להיערך ללינה.\nאפשר לענות בלחיצה על אחד הכפתורים:",
+        "example": { "body_text": [["דנה"]] }
+      },
+      { "type": "FOOTER", "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\"" },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          { "type": "QUICK_REPLY", "text": "מגיע/ה עם לינה" },
+          { "type": "QUICK_REPLY", "text": "מגיע/ה בלי לינה" },
+          { "type": "QUICK_REPLY", "text": "לא מגיע/ה" }
+        ]
+      }
+    ]
+  }
+}

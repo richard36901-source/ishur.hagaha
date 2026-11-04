@@ -1139,22 +1139,85 @@
       return '<p style="margin:.3rem 0"><a href="dashboard.html?t=' + encodeURIComponent(x.token) + '">' + escH(x.name || x.kind_he) + '</a> · אותה רשימת מוזמנים, תשובות נפרדות</p>';
     }).join('') + '</div>';
   }
-  /* 03/11: the sub-event's own board (token = the sub-event) */
+  /* 03/11: the sub-event's own board (token = the sub-event).
+     04/11 Richard: "make it look like all the other events" — same KPI row,
+     filter chips, search, list header and guest rows (.kpis/.filt/.gsearch/
+     .rows-h/.row/.pill) as the normal board; no second style system.
+     SUBEV-HTML-START (pure; worker/test/subevent-dashboard.test.mjs renders it) */
+  var SUBEV_PILL = { with_stay: 'yes', no_stay: 'yes', no: 'no', undecided: 'maybe', none: 'wait' };
+  var SUBEV_ORDER = { with_stay: 0, no_stay: 1, undecided: 2, none: 3, no: 4 };
+  function subevDay(iso) { var m = /^(\d{4})-(\d{2})-(\d{2})(?:T(\d{2}):(\d{2}))?/.exec(String(iso || '')); return m ? m[3] + '/' + m[2] : ''; }
+  function subevWhen(iso) {
+    if (!iso) return '';
+    try { var p = {}; new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(iso)).forEach(function (x) { p[x.type] = x.value; }); return p.day ? p.day + '/' + p.month + ' ' + p.hour + ':' + p.minute : ''; } catch (e) { return ''; }
+  }
+  function subevReminderLine(r) {
+    r = r || {};
+    if (r.completed_at || (r.started_at && r.sent)) return 'תזכורת: נשלחה ' + (r.sent || 0) + (r.completed_at ? '' : ' (בתהליך)');
+    if (r.at) return 'תזכורת: מתוכננת ' + subevDay(r.at) + (/T(\d{2}:\d{2})/.test(r.at) ? ' מ-' + /T(\d{2}:\d{2})/.exec(r.at)[1] : '');
+    return '';
+  }
+  function subeventHtml(sv, st) {
+    var e = function (x) { return String(x == null ? '' : x).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
+    var c = sv.counts || {}, all = sv.guests || [];
+    var k = function (v, l, s, hi) { return '<div class="kpi' + (hi ? ' hi' : '') + '"><div class="kpi-v">' + v + '</div><div class="kpi-l">' + l + '</div>' + (s ? '<div class="kpi-s">' + s + '</div>' : '') + '</div>'; };
+    var kp = '<div class="kpis">' +
+      k((c.with_stay || {}).people || 0, 'מגיעים עם לינה', ((c.with_stay || {}).guests || 0) + ' רשומות', true) +
+      k((c.no_stay || {}).people || 0, 'מגיעים בלי לינה', ((c.no_stay || {}).guests || 0) + ' רשומות') +
+      k((c.no || {}).guests || 0, 'לא מגיעים', 'רשומות') +
+      k((c.undecided || {}).guests || 0, 'מתלבטים', 'רשומות') +
+      k((c.no_reply || {}).guests || 0, 'לא ענו', 'מתוך ' + (c.total || 0)) + '</div>';
+    var rl = subevReminderLine(sv.reminder);
+    var n = function (key) { return all.filter(function (g) { return key === 'all' || g.status === key; }).length; };
+    var opts = [['all', 'הכל'], ['with_stay', 'עם לינה'], ['no_stay', 'בלי לינה'], ['undecided', 'מתלבטים'], ['none', 'לא ענו'], ['no', 'לא מגיעים']];
+    var chips = '<div class="filters" data-sv-filters>' + opts.map(function (o) { return '<button type="button" class="filt' + (st.filter === o[0] ? ' on' : '') + '" data-sv-f="' + o[0] + '">' + o[1] + ' · ' + n(o[0]) + '</button>'; }).join('') + '</div>';
+    var sorts = [['status', 'סטטוס'], ['name', 'שם'], ['n', 'כמות']];
+    var sortBar = '<div class="filters" style="border-bottom:none;padding-bottom:0">' + '<span class="kpi-s" style="align-self:center">מיון:</span>' + sorts.map(function (o) { return '<button type="button" class="filt' + (st.sort === o[0] ? ' on' : '') + '" data-sv-s="' + o[0] + '">' + o[1] + '</button>'; }).join('') + '</div>';
+    var q = String(st.query || '').trim().toLowerCase(), qd = q.replace(/\D/g, '');
+    var list = all.filter(function (g) {
+      if (st.filter !== 'all' && g.status !== st.filter) return false;
+      if (!q) return true;
+      if (String(g.name || '').toLowerCase().indexOf(q) > -1) return true;
+      return !!qd && String(g.phone || '').replace(/\D/g, '').indexOf(qd) > -1;
+    }).slice();
+    list.sort(function (a, b) {
+      if (st.sort === 'name') return String(a.name || '').localeCompare(String(b.name || ''), 'he');
+      if (st.sort === 'n') return (b.n || 0) - (a.n || 0) || String(a.name || '').localeCompare(String(b.name || ''), 'he');
+      return (SUBEV_ORDER[a.status] - SUBEV_ORDER[b.status]) || String(a.name || '').localeCompare(String(b.name || ''), 'he');
+    });
+    var people = list.reduce(function (s, g) { return s + (g.n || 0); }, 0);
+    var rows = list.length ? list.map(function (g) {
+      var when = subevWhen(g.at);
+      return '<div class="row"><span class="row-n">' + (g.name ? e(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') +
+        '<br><span class="row-p" style="direction:rtl"><bdi dir="ltr">' + e(g.phone || '') + '</bdi>' + (when ? ' · ענו <bdi dir="ltr">' + e(when) + '</bdi>' : '') + '</span></span>' +
+        '<span class="pill ' + (SUBEV_PILL[g.status] || 'wait') + '">' + e(g.status_he || 'לא ענו') + '</span>' +
+        '<span class="row-s">' + (g.n ? g.n : '—') + '</span></div>';
+    }).join('') : '<div class="empty">' + (q ? 'לא נמצא מוזמן שמתאים לחיפוש.' : 'אין כאן אף אחד בסינון הזה.') + '</div>';
+    return '<section class="card"><div class="card-h">' + e(sv.name || sv.kind_he) + '</div>' +
+      '<div class="card-b" style="font-size:.85rem;color:var(--ink2)">אותה רשימת מוזמנים של האירוע הראשי, הודעה אחת ותשובות נפרדות. <a href="dashboard.html?t=' + encodeURIComponent(sv.parent || '') + '">חזרה לאירוע הראשי</a></div></section>' +
+      '<section class="card"><div class="card-h">המצב</div>' + kp +
+      (rl ? '<p class="list-sum" data-sv-rem style="padding-bottom:.6rem">' + e(rl) + (sv.sent ? ' · ההודעה יצאה ל-' + sv.sent : '') + '</p>' : (sv.sent ? '<p class="list-sum" style="padding-bottom:.6rem">ההודעה יצאה ל-' + sv.sent + '</p>' : '')) + '</section>' +
+      '<section class="card"><div class="card-h">המוזמנים</div>' + chips +
+      '<div class="gsearch-w"><input class="gsearch" type="search" data-sv-q placeholder="חיפוש לפי שם או טלפון" value="' + e(st.query || '') + '"></div>' + sortBar +
+      '<p class="list-sum">' + (list.length ? list.length + ' רשומות · ' + people + ' מגיעים' : '') + '</p>' +
+      '<div class="rows-h"><span class="a">רשומה</span><span class="b">תשובה</span><span class="c">כמה</span></div>' +
+      '<div class="rows" data-sv-rows>' + rows + '</div></section>';
+  }
+  /* SUBEV-HTML-END */
   function renderSubevent(sv) {
     showApp();
-    var main = $('main'), c = sv.counts || {};
-    var tile = function (label, a, b) { return '<div style="flex:1 1 140px;border:1px solid var(--line,#ddd);border-radius:12px;padding:.7rem .8rem"><div style="font-size:.8rem;opacity:.75">' + label + '</div><div style="font-size:1.5rem;font-weight:700">' + a + '</div>' + (b ? '<div style="font-size:.8rem;opacity:.75">' + b + '</div>' : '') + '</div>'; };
-    var rows = (sv.guests || []).map(function (g) { return '<tr><td>' + escH(g.name) + '</td><td>' + escH(g.status_he) + '</td><td>' + (g.n || '') + '</td></tr>'; }).join('');
-    main.innerHTML = '<section class="card"><div class="card-h">' + escH(sv.name || sv.kind_he) + '</div><div class="card-b">' +
-      '<p style="margin:0 0 .6rem">אותה רשימת מוזמנים של האירוע הראשי, הודעה אחת ותשובות נפרדות. <a href="dashboard.html?t=' + encodeURIComponent(sv.parent) + '">חזרה לאירוע הראשי</a></p>' +
-      '<div style="display:flex;flex-wrap:wrap;gap:.6rem">' +
-      tile('מגיעים עם לינה', (c.with_stay || {}).people || 0, ((c.with_stay || {}).guests || 0) + ' מוזמנים') +
-      tile('מגיעים בלי לינה', (c.no_stay || {}).people || 0, ((c.no_stay || {}).guests || 0) + ' מוזמנים') +
-      tile('לא מגיעים', (c.no || {}).guests || 0, 'מוזמנים') +
-      tile('מתלבטים', (c.undecided || {}).guests || 0, 'ענו ועוד לא החליטו') +
-      tile('לא ענו', (c.no_reply || {}).guests || 0, 'מתוך ' + (c.total || 0)) +
-      '</div></div></section>' +
-      '<section class="card"><div class="card-h">המוזמנים</div><div class="card-b" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:right">שם</th><th style="text-align:right">תשובה</th><th style="text-align:right">כמה</th></tr></thead><tbody>' + rows + '</tbody></table></div></section>';
+    var main = $('main'), st = { filter: 'all', sort: 'status', query: '' };
+    var draw = function (keepFocus) {
+      main.innerHTML = subeventHtml(sv, st);
+      main.querySelectorAll('[data-sv-f]').forEach(function (b) { b.addEventListener('click', function () { st.filter = b.getAttribute('data-sv-f'); draw(); }); });
+      main.querySelectorAll('[data-sv-s]').forEach(function (b) { b.addEventListener('click', function () { st.sort = b.getAttribute('data-sv-s'); draw(); }); });
+      var qi = main.querySelector('[data-sv-q]');
+      if (qi) {
+        qi.addEventListener('input', function () { st.query = qi.value; draw(true); });
+        if (keepFocus) { qi.focus(); try { qi.setSelectionRange(qi.value.length, qi.value.length); } catch (e) {} }
+      }
+    };
+    draw();
     try { document.title = (sv.name || 'תת-אירוע') + ' · ishur.io'; } catch (e) {}
   }
   function trySubevent(tok) {

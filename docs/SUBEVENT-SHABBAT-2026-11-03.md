@@ -79,3 +79,16 @@ Dashboard URL pattern: `https://ishur.io/dashboard.html?t=<subtoken>`, the same 
 card. The admin send-board lists the sub-event with its single message type.
 
 Step 1 is idempotent: the same parent, kind and template returns the existing sub (`existed:true`).
+
+## 04/11 — v2: normal-looking board + one reminder
+
+**Board.** `dashboard.html?t=<sub>` now renders with the normal board's components (`.kpis` row of 5, `.filt` status chips, `.gsearch`, sort chips, `.rows-h` + `.row` + brand `.pill`s, masked phone + IL reply time). Pure renderer `subeventHtml()` between `SUBEV-HTML-START/END`, tested in `worker/test/subevent-dashboard.test.mjs`. Screens: `docs/subevent-screens/` (sample data, masked).
+
+**Reminder (one per guest).** `POST /api/subevent-remind {admin_key, token, dry=true, max, when?, at='10:00', cancel?, reminder_template?}`
+- `when:'YYYY-MM-DD'` only schedules: `subevent:<sub>.reminder_at = '<when>T<at>'` (Israel time). Nothing is sent by that call.
+- From `reminder_at` the pacer (`continueSubevents` → `continueReminder`, registry node `subevent_reminder`) sends 25 per tick inside the send window and cap. When it finishes it sets `reminder_completed_at`, writes a change-log row and posts to Slack: "<name>: תזכורת הושלמה, נשלחו X".
+- Who gets it: guests who got the first message (`shsent`), have no reply (`shrsvp`), aren't opted out or marked wrong number, have fewer than 3 failures (`shremfail`), and have no `shrem:<sub>:<phone>` mark. The reminder refuses until the first send is `completed_at`.
+- Template: `reminder_template` once Meta APPROVED it, else the original template. Draft: `worker/templates/ishur_shabat_hatan_reminder.json`.
+- Kill switch `auto:off:subevent_reminder`. `subevent_continue` also stops it, because it gates the whole pacer half.
+- Dashboard line: "תזכורת: מתוכננת 05/11 מ-10:00" → "תזכורת: נשלחה X".
+- Scheduled 04/11 for זגורי (ab699ac0…): `reminder_at = 2026-11-05T10:00` (written to prod KV). It only takes effect once this code is deployed.

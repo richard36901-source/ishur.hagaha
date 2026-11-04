@@ -12,6 +12,8 @@
      shsent:<sub>:<phone>      = { at, wamid, tmpl }     (idempotency: one message per guest)
      shwamid:<wamid>           = <sub>                   (a reply quoting our message → this sub)
      shctx:<phone>             = <sub>                   (free text after our message → this sub)
+     shrem:<sub>:<phone>       = { at, wamid, tmpl }     (04/11 the ONE reminder to a non-responder)
+     subevent:<sub>.reminder_at = 'YYYY-MM-DDTHH:MM' (IL) — the pacer starts the reminder wave then
    The parent's sheet columns (RSVP O/P …) are NEVER written from here.
 
    §1 pure (unit-tested) · §2 routes (I/O via deps, so this file never imports index.js)
@@ -103,18 +105,20 @@ export function summarizeShabbat(guests, rsvps) {
     else if (st === 'no') s.no.guests++;
     else if (st === 'undecided') s.undecided.guests++;
     else s.no_reply.guests++;
-    list.push({ name: g.name || '', status: st, status_he: STATUS_HE[st] || '', n: r && (st === 'with_stay' || st === 'no_stay') ? Math.max(1, Number(r.n) || 0) : 0 });
+    list.push({ name: g.name || '', phone: mask(ph), status: st, status_he: STATUS_HE[st] || '', n: r && (st === 'with_stay' || st === 'no_stay') ? Math.max(1, Number(r.n) || 0) : 0, at: (r && r.at) || '' });
   }
   return { counts: s, guests: list };
 }
 
 /* who gets the ONE message. Pure.
    rows: raw parent guest rows [{phone,name,rawPhone}] (phone '' = empty/invalid) */
-export function planShabbatSend({ approved, windowOpen, held, cancelled, eventPassed, rows, sentMarks = new Set(), blocked = new Set(), room = 0, max = 50, dry = true }) {
+export function planShabbatSend({ approved, windowOpen, held, cancelled, eventPassed, rows, sentMarks = new Set(), blocked = new Set(), room = 0, max = 50, dry = true,
+  phase = 'first', firstSent = new Set(), replied = new Set(), firstDone = true }) {
   const refuse = (why, extra = {}) => ({ refuse: true, why, list: [], counts: {}, ...extra });
   if (cancelled) return refuse('parent-cancelled');
   if (held) return refuse('parent-on-hold');
   if (eventPassed) return refuse('parent-event-passed');
+  if (phase === 'reminder' && !firstDone && !dry) return refuse('first-send-not-completed');
   const empty = (rows || []).filter(r => !r.phone).map(r => r.name || '(ללא שם)');
   if (!approved && !dry) return refuse('template-not-approved');
   if (!dry && empty.length) return refuse('guest-rows-with-empty-phone', { empty_phone: empty });
@@ -125,6 +129,8 @@ export function planShabbatSend({ approved, windowOpen, held, cancelled, eventPa
     if (!g.phone || seen.has(g.phone)) continue; seen.add(g.phone);
     const row = { phone: g.phone, name: g.name || '' };
     if (sentMarks.has(g.phone)) { list.push({ ...row, action: 'skip', reason: 'already-sent' }); continue; }
+    if (phase === 'reminder' && !firstSent.has(g.phone)) { list.push({ ...row, action: 'skip', reason: 'no-first-message' }); continue; }
+    if (phase === 'reminder' && replied.has(g.phone)) { list.push({ ...row, action: 'skip', reason: 'replied' }); continue; }
     if (blocked.has(g.phone)) { list.push({ ...row, action: 'skip', reason: 'optout-or-wrong-number' }); continue; }
     if (!approved) { list.push({ ...row, action: 'hold', reason: 'template-not-approved' }); continue; }
     if (n >= roomN) { list.push({ ...row, action: 'hold', reason: 'held: cap' }); continue; }
@@ -162,7 +168,7 @@ export function parentGuests(raw, parent, normPhone) {
   }
   return out;
 }
-const mask = p => String(p).replace(/^972/, '0').replace(/(\d{3})\d{4}(\d{3})$/, '$1-****-$2');
+function mask(p) { return String(p).replace(/^972/, '0').replace(/(\d{3})\d{4}(\d{3})$/, '$1-****-$2'); }
 
 /* POST /api/subevent {admin_key, parent_token, kind, template, name} */
 export async function handleSubeventCreate(request, env, origin, d) {
@@ -203,6 +209,60 @@ export async function handleSubeventSend(request, env, origin, d) {
   return d.okJson(r, origin);
 }
 
+/* ── 04/11 ONE reminder to non-responders ──────────────────────────────────
+   POST /api/subevent-remind {admin_key, token, dry=true, max=50, when?, at?, cancel?, reminder_template?}
+     when:'YYYY-MM-DD'  → only SCHEDULES: subevent:<sub>.reminder_at = when+'T'+(at||'10:00') (IL).
+                          The pacer starts it on that day; nothing is sent by this call.
+     cancel:true        → clears reminder_at (a started wave also stops: reminder_cancelled_at).
+     no when, dry:false → starts the wave now (reminder_started_at); the pacer finishes it.
+   Who: guests that got the first message (shsent), have no reply (shrsvp), are not
+   opted out / wrong number, and have no shrem mark. Refuses until the first send completed. */
+export const REMIND_DEFAULT_AT = '10:00';
+export function ilStamp(now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).formatToParts(now).map(x => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day}T${p.hour}:${p.minute}`;
+}
+/* is the scheduled reminder due? Pure. */
+export function reminderDue(rec, nowIl) {
+  if (!rec || !rec.reminder_at || rec.reminder_completed_at || rec.reminder_cancelled_at) return false;
+  if (rec.reminder_started_at) return true;
+  return String(nowIl) >= String(rec.reminder_at);
+}
+export async function handleSubeventRemind(request, env, origin, d) {
+  let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
+  if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
+  const sub = await getSub(env, String(b.token || '').trim());
+  if (!sub) return d.deny(404, 'unknown-subevent', origin);
+  if (b.reminder_template != null) {
+    const rt = String(b.reminder_template || '').trim();
+    if (rt && !/^[a-z0-9_]{3,512}$/.test(rt)) return d.deny(400, 'bad-template', origin);
+    await markSub(env, sub, { reminder_template: rt });
+  }
+  if (b.cancel === true) {
+    await markSub(env, sub, { reminder_at: '', reminder_cancelled_at: sub.reminder_started_at ? new Date().toISOString() : '' });
+    return d.okJson({ ok: true, token: sub.token, cancelled: true }, origin);
+  }
+  if (b.when != null) {
+    const when = String(b.when || '').trim(), at = String(b.at || REMIND_DEFAULT_AT).trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(when)) return d.deny(400, 'bad-when', origin);
+    if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(at)) return d.deny(400, 'bad-at', origin);
+    if (sub.reminder_started_at) return d.deny(409, 'reminder-already-started', origin);
+    const reminder_at = when + 'T' + at;
+    await markSub(env, sub, { reminder_at, reminder_cancelled_at: '', reminder_set_at: new Date().toISOString() });
+    await d.logEvent(env, { area: 'שליחה', action: 'תת-אירוע · תזכורת מתוכננת', ok: true, token: sub.parent, detail: `${sub.name} · ${reminder_at}` }).catch(() => {});
+    const plan = await runSubeventSend(env, sub, { dry: true, max: 500, phase: 'reminder' }, d);
+    return d.okJson({ ok: true, token: sub.token, scheduled: reminder_at, first_completed: !!sub.completed_at,
+      would_send: plan.counts ? plan.counts.send + plan.counts.hold : null, counts: plan.counts || null }, origin);
+  }
+  const dry = b.dry !== false;
+  const max = Math.max(1, Math.min(500, Number(b.max) || 50));
+  if (!dry && await d.isOff(env, 'subevent_reminder')) return d.deny(423, 'off:subevent_reminder', origin);
+  const r = await runSubeventSend(env, sub, { dry, max, phase: 'reminder' }, d);
+  if (r.deny) return d.deny(r.deny, r.error, origin);
+  if (!dry && !r.refused && !sub.reminder_started_at) await markSub(env, sub, { reminder_started_at: new Date().toISOString(), reminder_started_by: 'manual', reminder_at: sub.reminder_at || ilStamp() });
+  return d.okJson({ ...r, reminder_at: sub.reminder_at || '' }, origin);
+}
+
 async function markSub(env, sub, patch) {
   let cur = {}; try { cur = JSON.parse((await env.RATE.get('subevent:' + sub.token)) || '{}') || {}; } catch {}
   const next = { ...cur, ...patch };
@@ -213,7 +273,9 @@ async function markSub(env, sub, patch) {
 const FAIL_STRIKES = 3;   /* a guest whose send failed (not held) 3 times is skipped by the plan, so the pacer does not retry a dead number forever */
 
 /* the shared send core (route + pacer). Returns the response body; {deny, error} on a hard error. */
-export async function runSubeventSend(env, sub, { dry = true, max = 50 } = {}, d) {
+export async function runSubeventSend(env, sub, { dry = true, max = 50, phase = 'first' } = {}, d) {
+  const rem = phase === 'reminder';
+  const MARK = rem ? 'shrem' : 'shsent', FAIL = rem ? 'shremfail' : 'shfail';
   const raw = await d.fetchSnapshot(env);
   if (!raw) return { deny: 502, error: 'reader-failed' };
   const ev = d.eventRowOf(raw, sub.parent);
@@ -223,17 +285,26 @@ export async function runSubeventSend(env, sub, { dry = true, max = 50 } = {}, d
   const cancelled = String(ev[27] || '').trim() === 'כן';
   const held = !!(await env.RATE.get('hold:' + sub.parent).catch(() => null));
   const rows = parentGuests(raw, sub.parent, d.normPhone);
-  const sentMarks = new Set(), blocked = new Set();
+  const sentMarks = new Set(), blocked = new Set(), firstSent = new Set(), replied = new Set();
   for (let i = 0; i < rows.length; i += 25) {
     await Promise.all(rows.slice(i, i + 25).map(async g => {
       if (!g.phone) return;
-      if (await env.RATE.get(`shsent:${sub.token}:${g.phone}`).catch(() => null)) sentMarks.add(g.phone);
+      if (await env.RATE.get(`${MARK}:${sub.token}:${g.phone}`).catch(() => null)) sentMarks.add(g.phone);
+      if (rem && await env.RATE.get(`shsent:${sub.token}:${g.phone}`).catch(() => null)) firstSent.add(g.phone);
+      if (rem && await env.RATE.get(`shrsvp:${sub.token}:${g.phone}`).catch(() => null)) replied.add(g.phone);
       if (await d.phoneBlocked(env, g.phone) || await d.wrongNum(env, sub.parent, g.phone)) blocked.add(g.phone);
-      if ((Number(await env.RATE.get(`shfail:${sub.token}:${g.phone}`).catch(() => 0)) || 0) >= FAIL_STRIKES) blocked.add(g.phone);
+      if ((Number(await env.RATE.get(`${FAIL}:${sub.token}:${g.phone}`).catch(() => 0)) || 0) >= FAIL_STRIKES) blocked.add(g.phone);
     }));
   }
+  /* the reminder uses its own template only once Meta APPROVED it; otherwise the
+     original (Meta allows the same template twice). */
+  let tmplName = sub.template;
+  if (rem && sub.reminder_template && sub.reminder_template !== sub.template) {
+    const rt = await d.templateDetails(env, sub.reminder_template).catch(() => ({}));
+    if (rt && rt.status === 'APPROVED') tmplName = sub.reminder_template;
+  }
   const [tpl, cap, paused, capAll] = await Promise.all([
-    d.templateDetails(env, sub.template),
+    d.templateDetails(env, tmplName),
     d.guestCapacity(env).catch(() => ({ remaining: 0, limit: 0, used: 0, scope: '' })),
     d.sendingPaused(env).catch(() => false),
     env.RATE.get('wacap:guests').catch(() => null),
@@ -242,27 +313,27 @@ export async function runSubeventSend(env, sub, { dry = true, max = 50 } = {}, d
   const win = d.sendWindowState();
   const windowOpen = !!win.open && !d.isNoContactDay(today) && !paused && !capAll;
   const plan = planShabbatSend({ approved, windowOpen, held, cancelled, eventPassed: /^\d{4}-\d{2}-\d{2}$/.test(evDate) && evDate < today,
-    rows, sentMarks, blocked, room: cap.remaining, max, dry });
-  const head = { token: sub.token, parent: sub.parent.slice(0, 8), name: sub.name, kind: sub.kind, template: sub.template, template_status: tpl.status || 'unknown', dry, max,
+    rows, sentMarks, blocked, room: cap.remaining, max, dry, phase, firstSent, replied, firstDone: !!sub.completed_at });
+  const head = { token: sub.token, parent: sub.parent.slice(0, 8), name: sub.name, kind: sub.kind, phase, template: tmplName, template_status: tpl.status || 'unknown', dry, max,
     window: { ...win, paused, no_contact_day: d.isNoContactDay(today), cap_all: !!capAll }, cap: { scope: cap.scope, limit: cap.limit, used: cap.used, remaining: cap.remaining },
     parent_hold: held, parent_cancelled: cancelled, empty_phone_rows: plan.empty_phone || [] };
   if (plan.refuse) return { ok: false, refused: plan.why, ...head, empty_phone_rows: plan.empty_phone || head.empty_phone_rows };
   if (dry) {
     const preview = plan.list.slice(0, 5).map(x => { const params = shabbatParams(x, d.cleanParam); return { name: x.name, params, body: renderBody(tpl.body, params) }; });
-    return { ok: true, ...head, would_refuse_real: !approved ? 'template-not-approved' : (plan.empty_phone || []).length ? 'guest-rows-with-empty-phone' : !windowOpen ? 'send-window-closed' : '',
+    return { ok: true, ...head, would_refuse_real: rem && !sub.completed_at ? 'first-send-not-completed' : !approved ? 'template-not-approved' : (plan.empty_phone || []).length ? 'guest-rows-with-empty-phone' : !windowOpen ? 'send-window-closed' : '',
       preview: { body_template: tpl.body || '', footer: tpl.footer || '', buttons: tpl.buttons && tpl.buttons.length ? tpl.buttons : SHABBAT_BUTTONS, guests: preview },
       counts: plan.counts, guests: plan.list.map(x => ({ ...x, phone: mask(x.phone) })) };
   }
   let sent = 0, failed = 0, heldStop = false; const results = [];
   for (const x of plan.list) {
     if (x.action !== 'send') { results.push({ ...x, phone: mask(x.phone) }); continue; }
-    const gk = `shsent:${sub.token}:${x.phone}`;
+    const gk = `${MARK}:${sub.token}:${x.phone}`;
     if (await env.RATE.get(gk).catch(() => null)) { results.push({ ...x, phone: mask(x.phone), action: 'skip', reason: 'already-sent' }); continue; }
     const params = shabbatParams(x, d.cleanParam);
-    const wa = await d.sendTemplate(env, x.phone, sub.template, params, '', 'he', 'guests', { token: sub.token, wave: 'shabbat', name: params[0], who: 'שיר (' + SUBEVENT_KINDS[sub.kind].he + ')' });
+    const wa = await d.sendTemplate(env, x.phone, tmplName, params, '', 'he', 'guests', { token: sub.token, wave: 'shabbat', name: params[0], who: 'שיר (' + SUBEVENT_KINDS[sub.kind].he + (rem ? ' · תזכורת' : '') + ')' });
     if (wa.ok) {
       sent++;
-      await env.RATE.put(gk, JSON.stringify({ at: new Date().toISOString(), wamid: wa.id || '', tmpl: sub.template }), { expirationTtl: 120 * 86400 }).catch(() => {});
+      await env.RATE.put(gk, JSON.stringify({ at: new Date().toISOString(), wamid: wa.id || '', tmpl: tmplName }), { expirationTtl: 120 * 86400 }).catch(() => {});
       if (wa.id) await env.RATE.put('shwamid:' + wa.id, sub.token, { expirationTtl: 60 * 86400 }).catch(() => {});
       await env.RATE.put('shctx:' + x.phone, sub.token, { expirationTtl: 14 * 86400 }).catch(() => {});
       await d.noteGuestSend(env, wa, sub.token, 'shabbat', x.phone, gk);
@@ -271,11 +342,11 @@ export async function runSubeventSend(env, sub, { dry = true, max = 50 } = {}, d
       failed++;
       results.push({ ...x, phone: mask(x.phone), result: wa.held ? 'held' : 'failed', error: String(wa.error || '').slice(0, 160) });
       if (wa.held) { heldStop = true; break; }
-      const fk = `shfail:${sub.token}:${x.phone}`;
+      const fk = `${FAIL}:${sub.token}:${x.phone}`;
       await env.RATE.put(fk, String((Number(await env.RATE.get(fk).catch(() => 0)) || 0) + 1), { expirationTtl: 30 * 86400 }).catch(() => {});
     }
   }
-  await d.logEvent(env, { area: 'שליחה', action: 'תת-אירוע ' + SUBEVENT_KINDS[sub.kind].he + ' · הודעה אחת', ok: !failed, review: !!failed, token: sub.parent, detail: `${sub.name} · נשלחו ${sent} · נכשלו ${failed} · ממתינים ${plan.counts.hold} · דולגו ${plan.counts.skip}` }).catch(() => {});
+  await d.logEvent(env, { area: 'שליחה', action: 'תת-אירוע ' + SUBEVENT_KINDS[sub.kind].he + (rem ? ' · תזכורת אחת' : ' · הודעה אחת'), ok: !failed, review: !!failed, token: sub.parent, detail: `${sub.name} · נשלחו ${sent} · נכשלו ${failed} · ממתינים ${plan.counts.hold} · דולגו ${plan.counts.skip}` }).catch(() => {});
   return { ok: true, ...head, counts: { ...plan.counts, sent, failed }, held_stop: heldStop, guests: results };
 }
 
@@ -295,7 +366,8 @@ export async function continueSubevents(env, d) {
   const out = [];
   for (const [token, v] of Object.entries(all)) {
     let rec = null; try { rec = JSON.parse(v); } catch {}
-    if (!rec || !rec.parent || rec.completed_at) continue;
+    if (!rec || !rec.parent) continue;
+    if (rec.completed_at) { const r = await continueReminder(env, { token, ...rec }, d); if (r) out.push(r); continue; }
     const sub = { token, ...rec };
     let started = !!rec.started_at;
     if (!started) started = Object.keys(await d.kvPrefix(env, `shsent:${token}:`).catch(() => ({}))).length > 0;
@@ -320,6 +392,33 @@ export async function continueSubevents(env, d) {
   return { ok: true, subs: out };
 }
 
+/* the reminder half of the pacer (04/11): a completed sub-event with reminder_at
+   whose IL time has come (or a wave already started) gets one slice per tick,
+   same cap/window gates; done → reminder_completed_at + change-log + Slack.
+   Kill switch auto:off:subevent_reminder (subevent_continue stops both). */
+async function continueReminder(env, sub, d) {
+  const nowIl = d.ilNow ? d.ilNow() : ilStamp();
+  if (!reminderDue(sub, nowIl)) return sub.reminder_at && !sub.reminder_completed_at && !sub.reminder_cancelled_at ? { token: sub.token.slice(0, 8), phase: 'reminder', skipped: 'not-yet', at: sub.reminder_at } : null;
+  const t8 = sub.token.slice(0, 8);
+  if (await d.isOff(env, 'subevent_reminder')) return { token: t8, phase: 'reminder', skipped: 'off:subevent_reminder' };
+  const cap = await d.guestCapacity(env).catch(() => ({ remaining: 0 }));
+  const room = Math.max(0, Number(cap.remaining) || 0);
+  if (!room) return { token: t8, phase: 'reminder', held: 'cap', remaining: 0 };
+  const r = await runSubeventSend(env, sub, { dry: false, max: Math.min(SUB_SLICE, room), phase: 'reminder' }, d);
+  if (r.deny || r.refused) return { token: t8, phase: 'reminder', refused: r.refused || r.error };
+  const c = r.counts || {};
+  const row = { token: t8, phase: 'reminder', sent: c.sent || 0, failed: c.failed || 0, hold: c.hold || 0 };
+  if (!sub.reminder_started_at) await markSub(env, sub, { reminder_started_at: new Date().toISOString(), reminder_started_by: 'schedule' });
+  if (!c.hold && !c.failed && !r.held_stop) {
+    const total = Object.keys(await d.kvPrefix(env, `shrem:${sub.token}:`).catch(() => ({}))).length;
+    await markSub(env, sub, { reminder_completed_at: new Date().toISOString(), reminder_sent: total });
+    await d.recordChange(env, { kind: 'subevent', actor: 'system', summary_he: `${sub.name}: תזכורת הושלמה, נשלחו ${total}`, details: { token: sub.token, parent: sub.parent, phase: 'reminder', template: r.template, sent: total } }).catch(() => {});
+    await d.slackPost(env, `${sub.name}: תזכורת הושלמה, נשלחו ${total}`).catch(() => {});
+    row.completed = true; row.total = total;
+  }
+  return row;
+}
+
 /* GET /api/subevent-summary?token=<sub> — client-safe (the token is the key,
    like the dashboard). Names and statuses only, no phones. */
 export async function handleSubeventSummary(request, env, origin, d) {
@@ -334,7 +433,9 @@ export async function handleSubeventSummary(request, env, origin, d) {
   const rsvps = {}; for (const [ph, v] of Object.entries(recs)) { try { rsvps[ph] = JSON.parse(v); } catch {} }
   const sum = summarizeShabbat(rows, rsvps);
   const sentN = Object.keys(await d.kvPrefix(env, `shsent:${sub.token}:`)).length;
-  return d.okJson({ ok: true, subevent: { token: sub.token, kind: sub.kind, kind_he: SUBEVENT_KINDS[sub.kind].he, name: sub.name, parent: sub.parent, hosts: String(ev[34] || '').trim(), sent: sentN, ...sum } }, origin);
+  const remN = Object.keys(await d.kvPrefix(env, `shrem:${sub.token}:`).catch(() => ({}))).length;
+  const reminder = { at: sub.reminder_cancelled_at ? '' : (sub.reminder_at || ''), started_at: sub.reminder_started_at || '', completed_at: sub.reminder_completed_at || '', sent: remN };
+  return d.okJson({ ok: true, subevent: { token: sub.token, kind: sub.kind, kind_he: SUBEVENT_KINDS[sub.kind].he, name: sub.name, parent: sub.parent, hosts: String(ev[34] || '').trim(), sent: sentN, reminder, ...sum } }, origin);
 }
 
 /* the inbound hook: returns true when the message was handled here */

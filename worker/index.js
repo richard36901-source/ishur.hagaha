@@ -60,7 +60,7 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { navLinkOk, giftLinkOk } from './links.js';
-import { handleSubeventCreate, handleSubeventSend, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
+import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
@@ -9814,6 +9814,7 @@ export const CHANGE_ROUTES = {
   '/api/brain-toggle': { kind: 'toggle', when: b => typeof b.active === 'boolean', summary: b => `נועה AI (מענה אוטומטי ב-4499) ${b.active ? 'הודלקה' : 'כובתה'}`, details: b => ({ noa_ai: b.active }) },
   '/api/subevent': { kind: 'subevent', when: (b, j) => !j.existed, summary: (b, j) => `אירוע-בן נוצר: ${String(b.name || '').slice(0, 40)} (${b.kind}) לאירוע ${tok8(b.parent_token)}`,
     details: (b, j) => ({ parent: tok8(b.parent_token), sub: tok8(j.token), kind: b.kind, template: b.template, name: String(b.name || '').slice(0, 80) }) },
+  '/api/subevent-remind': { kind: 'blast', when: b => b.dry === false || b.when != null || b.cancel === true, summary: (b, j) => b.when != null ? `תזכורת אירוע-בן ${tok8(b.token)} מתוכננת ל-${j.scheduled || b.when}` : b.cancel ? `תזכורת אירוע-בן ${tok8(b.token)} בוטלה` : `תזכורת אירוע-בן ${tok8(b.token)}: ${j.counts ? j.counts.sent : '?'} נשלחו`, details: (b, j) => ({ route: 'subevent-remind', token: tok8(b.token), when: b.when || null, sent: j.counts ? j.counts.sent : null }) },
   '/api/subevent-send': { kind: 'blast', when: b => b.dry === false, summary: (b, j) => `שליחת אירוע-בן ${tok8(b.token)}: ${j.sent ?? j.count ?? '?'} נשלחו`, details: (b, j) => ({ route: 'subevent-send', token: tok8(b.token), max: b.max, sent: j.sent ?? null, failed: j.failed ?? null }) },
   '/api/gift-blast': { kind: 'blast', when: b => b.dry === false, summary: (b, j) => `קישורי מתנה לאירוע ${tok8(b.token)}: ${j.sent ?? j.count ?? '?'} נשלחו`, details: (b, j) => ({ route: 'gift-blast', token: tok8(b.token), max: b.max, sent: j.sent ?? null, failed: j.failed ?? null }) },
   '/api/sms-blast': { kind: 'blast', when: b => b.dry !== true, summary: b => `SMS חירום: ${(Array.isArray(b.list) ? b.list.length : 0)} נמענים`, details: (b, j) => ({ route: 'sms-blast', recipients: Array.isArray(b.list) ? b.list.length : 0, sent: j.sent ?? null }) },
@@ -9848,7 +9849,7 @@ async function changeWrap(request, env, inner) {
   return res;
 }
 
-const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
+const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
 const WORKER = {
   /* the morning run: reports (and, next stage, the guest sending waves) */
   async scheduled(event, env, ctx) {
@@ -10983,6 +10984,11 @@ const WORKER = {
     if (url.pathname === '/api/subevent-send' && request.method === 'POST') {
       { const off = await manualBlastsOff(request, env, origin); if (off) return off; }
       return manualRun(env, 'manual_blasts', () => handleSubeventSend(request, env, origin, subeventDeps()));
+    }
+    /* 04/11: the ONE reminder to non-responders (schedule / start; the pacer finishes it) */
+    if (url.pathname === '/api/subevent-remind' && request.method === 'POST') {
+      { const off = await manualBlastsOff(request, env, origin); if (off) return off; }
+      return manualRun(env, 'manual_blasts', () => handleSubeventRemind(request, env, origin, subeventDeps()));
     }
     if (url.pathname === '/api/subevent-summary' && request.method === 'GET') return handleSubeventSummary(request, env, origin, subeventDeps());
     if (url.pathname === '/api/event-day' && request.method === 'POST') {
