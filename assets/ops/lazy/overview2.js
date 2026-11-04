@@ -5,7 +5,7 @@
    The "since last visit" mark: after the page has been on screen 4 s, POST overview {seen:true} stamps lastseen:ops.
    screens/overview.js delegates here; when /api/ops/overview is missing (backend not deployed yet) it falls back
    to the classic overview. */
-import { esc, fmtN, fmtDate, fmtTime, relTime, StatTile, Skeleton, Sparkline, Badge, confirmTyped, toast, busy } from '../ui.js';
+import { esc, fmtN, fmtDate, fmtTime, relTime, StatTile, Skeleton, Sparkline, Badge, Tabs, confirmTyped, toast, busy } from '../ui.js';
 import { sevChip, css as ntfCss } from './notify.js';
 
 const ils = (n) => (n == null ? '—' : '₪' + fmtN(Math.round(n)));
@@ -55,6 +55,40 @@ const CSS = `
 .ov2 .nav2{display:inline-flex;gap:4px}
 @media (max-width:760px){.ov2 .trend .chipb,.ov2 .nav2 .btn{min-height:44px;min-width:44px}.ov2 .btn.sm,.ov2 a.btn.sm{min-height:44px}}@media (max-width:760px){.ov2 .g-tiles
 {grid-template-columns:1fr 1fr}.ov2 .wait .btn,.ov2 .inc .btn{min-height:40px}}
+/* מתוכנן מול בוצע */
+.ov2 .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.ov2 .plan .seg button{min-height:38px}
+.ov2 .pl-tot{display:flex;gap:18px;flex-wrap:wrap;align-items:baseline;margin:0 0 10px;font-size:13px;color:var(--ink-2)}
+.ov2 .pl-tot b{font:650 20px/1.1 var(--font-num);color:var(--ink);display:block}
+.ov2 .pl-tot .done b{color:var(--green-deep)}.ov2 .pl-tot .missed b{color:var(--error)}.ov2 .pl-tot .prog b{color:var(--gold-ink)}
+.ov2 .pl-next{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius-md);background:var(--green-wash);color:var(--green-deep);font-size:13.5px;display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ov2 .pl-next time{font-family:var(--font-num);font-weight:650}
+.ov2 .pl-list{list-style:none;margin:0;padding:0}
+.ov2 .pl-row{display:grid;grid-template-columns:auto minmax(0,1fr) auto;gap:6px 12px;align-items:center;min-height:44px;padding:7px 0;border-top:1px solid var(--line)}
+.ov2 .pl-list>.pl-row:first-child{border-top:0}
+.ov2 .pl-chip{display:inline-flex;align-items:center;gap:5px;height:26px;padding:0 9px;border-radius:var(--radius-xs);font-size:12.5px;font-weight:600;white-space:nowrap;background:var(--bg-3);color:var(--ink-2)}
+.ov2 .pl-chip.done{background:var(--green-wash);color:var(--green-deep)}.ov2 .pl-chip.in_progress{background:var(--cream);color:var(--gold-ink);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--gold-soft) 70%,transparent)}
+.ov2 .pl-chip.missed{background:var(--error-bg);color:var(--error)}.ov2 .pl-chip.waiting{background:var(--bg-3);color:var(--ink-2)}
+.ov2 .pl-tx{display:flex;flex-direction:column;min-width:0;line-height:1.35}
+.ov2 .pl-tx a{color:inherit;text-decoration:none;font-weight:600;font-size:14px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ov2 .pl-tx a:hover{color:var(--green-deep);text-decoration:underline}
+.ov2 .pl-why{font-size:12.5px;color:var(--ink-3)}
+.ov2 .pl-n{font-family:var(--font-num);font-variant-numeric:tabular-nums;font-size:14px;white-space:nowrap;color:var(--ink-2)}
+.ov2 .pl-day{border-top:1px solid var(--line)}.ov2 .pl-day:first-of-type{border-top:0}
+.ov2 .pl-day>summary{list-style:none;display:flex;gap:10px;align-items:center;flex-wrap:wrap;min-height:48px;padding:6px 4px;cursor:pointer;border-radius:var(--radius-sm)}
+.ov2 .pl-day>summary::-webkit-details-marker{display:none}.ov2 .pl-day>summary:hover{background:var(--hover)}
+.ov2 .pl-day>summary::before{content:"›";display:inline-block;width:14px;color:var(--ink-3);transition:transform .2s var(--ease);transform:rotate(180deg)}
+.ov2 .pl-day[open]>summary::before{transform:rotate(270deg)}
+.ov2 .pl-day.today>summary .pl-dd{color:var(--green-deep)}
+.ov2 .pl-dd{font-weight:650;font-size:14px;min-width:120px}.ov2 .pl-dd .num{font-weight:500;color:var(--ink-3);margin-inline-start:4px}
+.ov2 .pl-sum{display:flex;gap:6px;flex-wrap:wrap;margin-inline-start:auto}
+.ov2 .pl-sum span{display:inline-flex;align-items:center;gap:4px;font:600 12.5px var(--font-num);padding:0 7px;height:24px;border-radius:var(--radius-xs);background:var(--bg-3);color:var(--ink-2)}
+.ov2 .pl-sum .done{background:var(--green-wash);color:var(--green-deep)}.ov2 .pl-sum .missed{background:var(--error-bg);color:var(--error)}.ov2 .pl-sum .in_progress{background:var(--cream);color:var(--gold-ink)}
+.ov2 .pl-warn{font-size:12.5px;color:var(--serious);font-weight:600}
+.ov2 .pl-day .pl-list{padding:0 0 10px 0;margin-inline-start:18px}
+.ov2 .pl-empty{font-size:13px;color:var(--ink-3);padding:6px 0 12px 18px}
+@media (max-width:760px){.ov2 .plan .sec-h .seg{display:flex;width:100%;flex:none;order:9}.ov2 .plan .seg button{flex:1;height:44px}
+.ov2 .pl-row{grid-template-columns:minmax(0,1fr) auto}.ov2 .pl-st{grid-column:1/-1}.ov2 .pl-tx a{white-space:normal}.ov2 .pl-dd{min-width:0}.ov2 .pl-day .pl-list{margin-inline-start:0}}
 `;
 function css() { if (typeof document === 'undefined' || document.getElementById('ov2-css')) return; const s = document.createElement('style'); s.id = 'ov2-css'; s.textContent = CSS; document.head.appendChild(s); }
 
@@ -156,12 +190,46 @@ ${StatTile({ label: 'משפך', value: fmtN(f.closed), unit: 'סגרו', href: '
 </div>`;
 }
 
-const sec = (title, inner, extra = '') => `<section class="card"><div class="sec-h"><h2 class="h2">${title}</h2><span class="sp"></span>${extra}</div>${inner}</section>`;
+/* ── מתוכנן מול בוצע (Richard 04/11): GET /api/ops/plan?period=today|week|month (worker/ops-plan.js). Rows are the planned
+   items of the period (guest sends per event + wave, Shir rounds, Noa's lead sends, the once-a-day crons, events, hostess
+   shifts), each with one of four chips: בוצע ✓ · בתהליך (X מתוך Y) · ממתין (+ the time it starts) · לא קרה ✗ (+ the reason).
+   Week / month group by day; only today is expanded by default. The chosen period persists (ops:plan). ── */
+export const PL_PERIODS = [{ id: 'today', he: 'היום' }, { id: 'week', he: 'השבוע' }, { id: 'month', he: 'החודש' }];
+const PL = { period: 'today', data: null, err: '', open: new Set() };
+try { const v = localStorage.getItem('ops:plan'); if (PL_PERIODS.some((p) => p.id === v)) PL.period = v; } catch (e) { /* private mode */ }
+const GLYPH = { done: '✓', in_progress: '◐', waiting: '○', missed: '✕' };
+export const planSeg = (period) => Tabs({ name: 'plan', value: period, items: PL_PERIODS.map((p) => ({ value: p.id, label: p.he })), label: 'תקופה' });
+export function planChip(it) {
+  const when = it.status === 'waiting' ? fmtTime(it.planned_at) : '';
+  return `<span class="pl-chip ${esc(it.status)}"><span aria-hidden="true">${GLYPH[it.status] || '•'}</span>${esc(it.status_he || it.status)}${when ? ` · <span class="num">${esc(when)}</span>` : ''}</span>`;
+}
+const planN = (it) => (it.status === 'in_progress' && it.planned_n ? `${fmtN(it.done_n)} מתוך ${fmtN(it.planned_n)}` : it.status === 'done' ? (it.done_n || it.planned_n ? fmtN(it.done_n || it.planned_n) : '') : it.planned_n ? fmtN(it.planned_n) : '');
+export const planRow = (it) => `<li class="pl-row ${esc(it.status)}" data-pl="${esc(it.id)}"><span class="pl-st">${planChip(it)}</span><div class="pl-tx"><a href="${esc(it.deep_link || '#/overview')}">${esc(it.label_he)}</a>${it.reason_he ? `<span class="pl-why" dir="auto">${esc(it.reason_he)}</span>` : ''}</div><span class="pl-n">${planN(it)}</span></li>`;
+const planList = (items) => (items.length ? `<ul class="pl-list">${items.map(planRow).join('')}</ul>` : '<div class="pl-empty">אין כלום מתוכנן ליום הזה.</div>');
+const sumChips = (t) => ['done', 'in_progress', 'waiting', 'missed'].filter((k) => t[k]).map((k) => `<span class="${k}" title="${esc(STATUS_HE_PL[k])}"><i aria-hidden="true">${GLYPH[k]}</i>${fmtN(t[k])}<span class="sr-only"> ${esc(STATUS_HE_PL[k])}</span></span>`).join('');
+const STATUS_HE_PL = { done: 'בוצע', in_progress: 'בתהליך', waiting: 'ממתין', missed: 'לא קרה' };
+export function planDay(d, st) {
+  const open = st.open && st.open.has(d.day) ? true : st.open && st.open.has('!' + d.day) ? false : !!d.today;
+  const warn = d.capacity && d.capacity.overflow > 0 ? `<span class="pl-warn">▲ ${fmtN(d.capacity.planned)} מול תקרה ${fmtN(d.capacity.capacity)}</span>` : '';
+  return `<details class="pl-day${d.today ? ' today' : ''}"${open ? ' open' : ''} data-day="${esc(d.day)}"><summary><span class="pl-dd">${esc(d.dow_he)}<span class="num">${esc(fmtDate(d.day + 'T12:00'))}</span>${d.today ? ' · היום' : ''}</span>${d.open ? '' : '<span class="sub">סגור</span>'}${warn}<span class="pl-sum">${sumChips(d.totals)}${!d.totals.planned ? '<span class="sub">—</span>' : ''}</span></summary>${planList(d.items)}</details>`;
+}
+export function planBody(st) {
+  const d = st.data;
+  if (!d) return st.err ? `<div class="errbox" role="alert"><span aria-hidden="true">✕</span><span style="flex:1">לא הצלחנו לטעון את התוכנית: ${esc(st.err)}</span><button type="button" class="btn sm" data-act="pl-retry">לנסות שוב</button></div>` : Skeleton.lines(5);
+  const t = d.totals || {};
+  const head = `<div class="pl-tot"><span><b>${fmtN(t.planned)}</b>מתוכנן</span><span class="done"><b>${fmtN(t.done)}</b>בוצע</span>${t.in_progress ? `<span class="prog"><b>${fmtN(t.in_progress)}</b>בתהליך</span>` : ''}<span><b>${fmtN(t.waiting)}</b>ממתין</span><span class="missed"><b>${fmtN(t.missed)}</b>לא קרה</span></div>`;
+  const nx = d.next ? `<p class="pl-next">הבא: <a href="${esc(d.next.deep_link || '#/overview')}" style="color:inherit"><b>${esc(d.next.label_he)}</b></a> ב-<time datetime="${esc(d.next.at)}">${esc(fmtTime(d.next.at))}</time>${d.next.day && d.next.day !== d.today ? `<span class="sub">(${esc(fmtDate(d.next.day + 'T12:00'))})</span>` : ''}</p>` : (t.planned ? '' : '<p class="pl-next">אין כלום מתוכנן בתקופה הזו.</p>');
+  const body = st.period === 'today' ? planList((d.days[0] || { items: [] }).items) : d.days.map((x) => planDay(x, st)).join('');
+  return head + nx + body + (d.audit_truncated ? '<p class="sub" style="margin:10px 0 0">יומן הביקורת נחתך — ספירות "בוצע" עשויות להיות חלקיות.</p>' : '');
+}
+
+const sec = (title, inner, extra = '', cls = '') => `<section class="card${cls ? ' ' + cls : ''}"><div class="sec-h"><h2 class="h2">${title}</h2><span class="sp"></span>${extra}</div>${inner}</section>`;
 export function view(o) {
-  if (!o) return `<div class="ov2">${sec('ממתין לך', Skeleton.lines(3))}${sec('תקריות', Skeleton.lines(2))}<section aria-label="היום">${Skeleton.tiles(4)}</section>${sec('אירועים קרובים', Skeleton.lines(4))}</div>`;
+  if (!o) return `<div class="ov2">${sec('מתוכנן מול בוצע', Skeleton.lines(4), planSeg(PL.period), 'plan')}${sec('ממתין לך', Skeleton.lines(3))}${sec('תקריות', Skeleton.lines(2))}<section aria-label="היום">${Skeleton.tiles(4)}</section>${sec('אירועים קרובים', Skeleton.lines(4))}</div>`;
   const nWait = o.waiting.length, nInc = o.incidents.filter((x) => ['P0', 'P1'].includes(x.severity)).length;
   const hello = nWait || nInc ? `<p class="hello"><b>${nWait ? fmtN(nWait) + ' דברים מחכים לך' : ''}${nWait && nInc ? ' · ' : ''}${nInc ? fmtN(nInc) + ' תקלות חשובות' : ''}</b>. השאר רץ לבד.</p>` : '<p class="hello"><b>הכל בשליטה.</b> אין שום דבר שמחכה לך.</p>';
   return `<div class="ov2">${hello}
+${sec('מתוכנן מול בוצע', `<div id="ov-plan-b">${planBody(PL)}</div>`, planSeg(PL.period), 'plan')}
 ${sec('ממתין לך', waitingView(o.waiting), nWait ? Badge('needs_approval', fmtN(nWait)) : '')}
 ${sec('תקריות', incidentsView(o.incidents), '<a class="btn ghost sm" href="#/brain">למוח</a>')}
 <section aria-label="היום"><div class="sec-h"><h2 class="h2">היום</h2><span class="sp"></span><span class="sub">קווים: 7 ימים אחרונים</span></div>${todayTiles(o)}</section>
@@ -202,8 +270,28 @@ export default {
       try { const d = await ctx.api.get('overview-series', {}, { qs: `?range=${TR.range}&offset=${TR.offset}`, cache: false }); TR.cache[k] = d; if (TR.range + ':' + TR.offset === k) { TR.data = d; paintTr(); } }
       catch (e) { const b = trBody(); if (b) b.innerHTML = `<div class="why">אין נתונים עדיין: ${esc(e.message || 'השרת לא החזיר')}</div>`; }
     };
+    /* מתוכנן מול בוצע: paint what the cache has at once; the network read waits ≈1.5 s so the first paint stays at
+       ≤3 requests (overview, series, bell), then refreshes with the 60 s overview poll */
+    const plBody = () => el.querySelector('#ov-plan-b');
+    const paintPl = () => { const b = plBody(); if (b) b.innerHTML = planBody(PL); el.querySelectorAll('[data-tabs=plan] [role=tab]').forEach((t) => t.setAttribute('aria-selected', String(t.dataset.v === PL.period))); };
+    const loadPl = async (delay = 0) => {
+      const k = PL.period, c = ctx.api.cached('plan', { period: k });
+      PL.data = c ? c.data : null; PL.err = ''; paintPl();
+      if (delay) await new Promise((r) => setTimeout(r, delay));
+      if (PL.period !== k || !el.isConnected) return;
+      try { const d = await ctx.api.get('plan', { period: k }, { qs: '?period=' + k }); if (PL.period === k) { PL.data = d; paintPl(); } }
+      catch (e) { if (PL.period === k && !PL.data) { PL.err = e.message || 'השרת לא החזיר'; paintPl(); } }
+    };
+    ctx.on(el, 'ops:change', (e) => { if (!e.detail || e.detail.name !== 'plan') return; PL.period = e.detail.value; try { localStorage.setItem('ops:plan', PL.period); } catch (err) { /* private mode */ } loadPl(); });
+    ctx.on(el, 'click', (e) => {
+      if (e.target.closest('[data-act=pl-retry]')) { loadPl(); return; }
+      const s = e.target.closest('.pl-day>summary'); if (!s) return;
+      const det = s.parentElement, day = det.dataset.day;
+      setTimeout(() => { PL.open.delete(day); PL.open.delete('!' + day); PL.open.add(det.open ? day : '!' + day); }, 0);
+    });
     const origPaint = paint;
-    paint = () => { origPaint(); paintTr(); };
+    paint = () => { origPaint(); paintTr(); paintPl(); };
+    loadPl(1500);
     loadTr();
     ctx.on(el, 'click', (e) => {
       const a = e.target.closest('[data-act^=tr-]'); if (!a || a.getAttribute('aria-disabled') === 'true') return;
@@ -224,6 +312,6 @@ export default {
     };
     ctx.on(el, 'pointermove', tipAt); ctx.on(el, 'pointerdown', tipAt);
     const onR = () => paintTr(); window.addEventListener('resize', onR); ctx.onDispose(() => window.removeEventListener('resize', onR));
-    ctx.poll(async () => { o = await ctx.api.get('overview', {}, { qs: '' }); paint(); }, 60000);
+    ctx.poll(async () => { o = await ctx.api.get('overview', {}, { qs: '' }); paint(); loadPl(); }, 60000);
   },
 };

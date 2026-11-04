@@ -115,6 +115,7 @@ export async function mockApi(name, body, ver, qs) {
     mockState.added.unshift({ id: nid, at: now, kind: it.kind, actor: 'Richard', summary_he: 'שחזור: ' + it.summary_he, details: { reverts: it.id }, revert: { possible: false, how: 'none', payload: null, confirm: null }, reverted_at: null, reverted_by: null });
     return { ok: true, applied: true, id: it.id, revert_change_id: nid };
   }
+  if (name === 'plan') { const f = await fixture('plan'); return structuredClone(f.by_period[body.period] || f.by_period.today); }   /* 04/11 מתוכנן מול בוצע */
   if (name === 'calendar') { const f = await fixture('calendar'); return !body.month || body.month === f.month ? f : { ok: true, fixture: true, month: body.month, days: [], events: [] }; }
   return fixture(name);
 }
