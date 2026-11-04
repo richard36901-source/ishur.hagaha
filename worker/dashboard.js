@@ -274,7 +274,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       d.setUTCDate(d.getUTCDate() + 1);
       if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
       const start = d.toISOString().slice(0, 10);
-      const queued = guests.filter(g => g.status === 'awaiting_call').length;
+      /* 04/11: a guest who used up every try is not waiting any more - the
+         round is over even though the sheet still flags them */
+      const cap = planMaxCallTries(planKeyOf(ev)) || (sent.callsAddon ? 1 : 0);
+      const queued = guests.filter(g => g.status === 'awaiting_call' && g.tries < cap).length;
       /* a phone round happened only if somebody was dialed or answered BY PHONE
          ('ענה' / 'ענה - מתלבט' / 'לא ענה'); 'ענה בוואטסאפ' is a message answer */
       const byPhone = g => /^ענה($| - )/.test(g.call_ans) || g.call_ans === 'לא ענה' || /מוצו/.test(g.call_ans);

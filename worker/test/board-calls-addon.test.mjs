@@ -27,3 +27,13 @@ test('round armed by hand on the regular round day shows once', () => {
   const calls = d.sends.filter(s => s.key === 'calls' || s.key === 'calls2');
   assert.equal(calls.length, 1, JSON.stringify(calls));
 });
+test('calls row is done once every waiting guest used all tries', () => {
+  const g = Array(35).fill(''); g[1]='g'; g[2]='G1'; g[4]='972501234567'; g[21]='נדרשת שיחה'; g[28]='TOK'; g[29]='1';
+  const r2 = { events: raw.events, guests: { values: [Array(35).fill('h'), g] } };
+  const d = buildDashboard('TOK', r2, 0, { callsAddon: true });
+  const row = d.sends.find(s => s.key === 'calls');
+  assert.equal(row.status, 'sent', JSON.stringify(row));
+  g[29] = '0';
+  const d2 = buildDashboard('TOK', r2, 0, { callsAddon: true });
+  assert.equal(d2.sends.find(s => s.key === 'calls').status, 'running');
+});
