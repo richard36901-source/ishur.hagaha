@@ -557,11 +557,13 @@ export async function precomputePlans(env, d, fns, { now = Date.now(), periods =
   return { ok: true, at: new Date(now).toISOString(), periods, ms: { ...g.sources.ms, total: Date.now() - t0 }, errors: g.sources.errors, plans };
 }
 
-export async function servePlan(env, d, fns, { period = 'today', now = Date.now(), fresh = false } = {}) {
+export async function servePlan(env, d, fns, { period = 'today', now = Date.now(), fresh = false, staleOk = false } = {}) {
   period = PERIODS.includes(period) ? period : 'today';
   if (!fresh) {
     const hit = await kjson(env, PLAN_KEY(period));
-    if (hit && hit.data && now - hit.at < PLAN_FRESH_MS && hit.data.today === d.ilDate(new Date(now))) return { ...hit.data, served: 'kv', cached: true, age_s: Math.round((now - hit.at) / 1000) };
+    /* 04/11: crons that run more often than hourly get 30 s wall time, so the precompute can be cut off.
+       Serve the last saved copy of today at any age (instant), flagged stale; the screen then asks fresh=1 in the background. */
+    if (hit && hit.data && hit.data.today === d.ilDate(new Date(now)) && (staleOk || now - hit.at < PLAN_FRESH_MS)) return { ...hit.data, served: 'kv', cached: true, age_s: Math.round((now - hit.at) / 1000), stale: now - hit.at >= PLAN_FRESH_MS };
   }
   /* cold (KV empty / stale) never rebuilds the per-guest send board and reads at most 3 uncached past days */
   const r = await precomputePlans(env, d, fns, { now, periods: [period], buildBoard: !!fresh, pastDayBudget: fresh ? 31 : 3 });

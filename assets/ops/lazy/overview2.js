@@ -311,7 +311,11 @@ export default {
       PL.data = c ? c.data : null; PL.err = ''; paintPl();
       if (delay) await new Promise((r) => setTimeout(r, delay));
       if (PL.period !== k || !el.isConnected) return;
-      try { const d = await ctx.api.get('plan', { period: k }, { qs: '?period=' + k }); if (PL.period === k) { PL.data = d; paintPl(); } }
+      try {
+        const d = await ctx.api.get('plan', { period: k }, { qs: '?period=' + k + '&stale=ok' }); if (PL.period === k) { PL.data = d; paintPl(); }
+        /* 04/11: an old saved copy is shown at once, then refreshed here in the background */
+        if (d && (d.stale || (d.age_s || 0) > 300)) { const f = await ctx.api.get('plan', { period: k }, { qs: '?period=' + k + '&fresh=1' }); if (PL.period === k && el.isConnected) { PL.data = f; paintPl(); } }
+      }
       catch (e) { if (PL.period === k && !PL.data) { PL.err = e.message || 'השרת לא החזיר'; paintPl(); } }
     };
     ctx.on(el, 'ops:change', (e) => { if (!e.detail || e.detail.name !== 'plan') return; PL.period = e.detail.value; try { localStorage.setItem('ops:plan', PL.period); } catch (err) { /* private mode */ } loadPl(); });

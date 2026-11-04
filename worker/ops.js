@@ -927,7 +927,7 @@ export async function handleOps(request, env, origin, url, d) {
       case 'capacity': return json(await buildCapacity(env, d, Date.now(), Math.max(1, Math.min(28, Number(q('days')) || 14))));
       case 'calendar': return json(await buildCalendar(env, d, String(q('month') || ''), Date.now(), { fresh: String(q('fresh') || '') === '1' }));
       /* 04/11: served from KV plan:<period> (the pacer precomputes it every 10 min); fresh=1 recomputes */
-      case 'plan': return json(await servePlan(env, d, planFns(), { period: String(q('period') || 'today'), fresh: String(q('fresh') || '') === '1' }));
+      case 'plan': return json(await servePlan(env, d, planFns(), { period: String(q('period') || 'today'), fresh: String(q('fresh') || '') === '1', staleOk: String(q('stale') || '') === 'ok' }));
       case 'balances': {
         if (request.method === 'POST' && body.set) {
           const v = String(body.set.vendor || ''); if (!VENDORS[v]) return json({ ok: false, error: 'unknown-vendor', vendors: Object.keys(VENDORS) }, 400);
