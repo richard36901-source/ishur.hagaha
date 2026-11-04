@@ -9942,8 +9942,17 @@ async function changeWrap(request, env, inner) {
 
 const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
 const WORKER = {
-  /* the morning run: reports (and, next stage, the guest sending waves) */
+  /* 04/11 incident: work queued with ctx.waitUntil gets only ~30 s after the
+     handler returns, so the long cron jobs (main pacer pass, סקירה plan) were cut
+     off silently. The handler now also awaits every job it queued; a cron
+     invocation may run up to 15 minutes. */
   async scheduled(event, env, ctx) {
+    const jobs = [];
+    const inner = { waitUntil: p => { const q = Promise.resolve(p).catch(() => {}); jobs.push(q); ctx.waitUntil(q); } };
+    try { return await WORKER.scheduledMain(event, env, inner); } finally { await Promise.allSettled(jobs); }
+  },
+  /* the morning run: reports (and, next stage, the guest sending waves) */
+  async scheduledMain(event, env, ctx) {
     /* 03/11 edit-in-place: cfg:<key> overrides (send window, margin, pacer batch, call cap, noa chase) */
     env = await withCfg(env).catch(() => env);
     /* the Tuesday reminder crons carry their own schedule string */
