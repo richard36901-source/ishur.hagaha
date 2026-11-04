@@ -6503,7 +6503,7 @@ async function runPacer(env, run = null) {
        ONE message. Kill switch auto:off:slack_digest (registry node slack_digest) → the old flush runs
        instead so the night queue never piles up. */
     if (await isOff(env, 'slack_digest')) await flushSlackQueue(env).catch(() => {});
-    else await step('slack_digest', () => slackDigest(env, { post: t => slackSend(env, t, { oneoff: true, urgent: true }), plan: () => digestPlan(env) })).catch(() => {});   /* oneoff: the one daily digest */
+    else await step('slack_digest', () => slackDigest(env, { post: t => slackSend(env, t, { oneoff: true, urgent: true, digest: true }), plan: () => digestPlan(env) })).catch(() => {});   /* oneoff: the one daily digest */
   }
   /* ads health, once an hour inside Slack hours (the alert itself is
      urgent, so quiet hours are respected by not asking at night) */

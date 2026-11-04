@@ -60,6 +60,17 @@ export function slackFormat(text) {
    silently (the stream row says gate:auto so it shows up in the journal). */
 export async function slackSend(env, text, opts = {}) {
   if (!env.SLACK_ALERT_HOOK) return;
+  /* 04/11 Richard: "רק דברים חשובים באמת". Slack is an allowlist now: money in,
+     a new lead, Make down/up, and the 09:00 digest. Everything else goes to the
+     ops notifications center only. And every allowed title posts at most once
+     per 24h (digits stripped, so "27/28/29 failed" is one title). */
+  const strict = String(env.SLACK_STRICT || '') === '1';
+  if (strict && !opts.digest && !slackImportant(text, opts)) opts = { ...opts, cls: 'info' };
+  if (strict && opts.cls !== 'info' && !opts.digest && env.RATE) {
+    const mk = 'slackmute:' + muteKey(text, opts);
+    if (await env.RATE.get(mk).catch(() => null)) { opts = { ...opts, cls: 'info' }; }
+    else await env.RATE.put(mk, '1', { expirationTtl: 86400 }).catch(() => {});
+  }
   if (opts.cls === 'info') {
     stream(env, { kind: 'slack', area: 'סלאק·מידע', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: String(text || '').slice(0, 600), ok: true }).catch(() => {});
     return slackInfo(env, text, { key: opts.key || null, now: opts.now ? +opts.now : Date.now(), notify: opts.notify || defaultInfoNotify });
@@ -161,4 +172,20 @@ export async function alert(env, where, what, detail, opts = {}) {
       detail: detail500, ts: new Date().toISOString(),
     }),
   }).catch(() => {});
+}
+
+/* 04/11: the only things that reach Slack (besides the digest) */
+const IMPORTANT_RE = /(שולם|שילם|תשלום התקבל|נרכש|רכש\/ה|💰|ליד חדש|🆕|Make מושהה|Make חזר|make_down)/;
+export function slackImportant(text, opts = {}) {
+  if (opts.important === true) return true;
+  if (opts.important === false) return false;
+  const k = String(opts.key || '');
+  if (/^(finding:)?make_down/.test(k)) return true;
+  const head = String(text || '').split('\n')[0];
+  if (/131042|הפייסר|בהחזקה|131047|תקרה|קיבולת|תבנית|קוד אימות/.test(head)) return false;
+  return IMPORTANT_RE.test(head);
+}
+export function muteKey(text, opts = {}) {
+  const head = String(text || '').split('\n')[0].replace(/[*_>`]/g, '').replace(/\d+/g, '#').replace(/\s+/g, ' ').trim();
+  return (opts.key ? String(opts.key).replace(/\d+/g, '#') + '|' : '') + head.slice(0, 120);
 }

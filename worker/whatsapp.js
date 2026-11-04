@@ -223,6 +223,9 @@ function pickToken(env, channel) {
    lets a caller (e.g. the 131042 billing ping) bypass the queue. */
 async function opsPing(env, where, what, detail, urgent) {
   const text = `⚠️ *${where}*\n${what}${detail ? '\n' + detail : ''}`;
+  /* 04/11 Richard: Slack only for what really matters; send failures and cap
+     warnings live in the ops center (brain + notifications), not here. */
+  if (String(env.SLACK_STRICT || '') === '1') return;
   if (env.SLACK_ALERT_HOOK) {
     if (!urgent && env.RATE) {
       const hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date()));
