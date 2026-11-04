@@ -287,7 +287,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   }
   /* Richard 21/10: an extra round booked by hand shows as its own row.
      04/11: on ANY plan - whatever we add, paid or free, the client sees it */
-  if (sent.callRound && sent.callRound.at) {
+  /* 04/11: a round armed by hand on the same day as the regular round IS
+     that round - one row, never two */
+  const sameDay = sent.callRound && sends.some(r => r.key === 'calls' && r.date === String(sent.callRound.at).slice(0, 10));
+  if (sent.callRound && sent.callRound.at && !sameDay) {
     const cr = sent.callRound;
     const st = cr.done ? (queued2(guests) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');
     sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });

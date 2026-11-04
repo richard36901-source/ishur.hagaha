@@ -22,3 +22,8 @@ test('granted extra send shows even with no date yet', () => {
   const r = d.sends.find(s => s.key === 'extra');
   assert.ok(r && r.editable && r.date === '');
 });
+test('round armed by hand on the regular round day shows once', () => {
+  const d = buildDashboard('TOK', raw, 0, { callsAddon: true, callRound: { at: '2026-11-02', n: 84, done: false } });
+  const calls = d.sends.filter(s => s.key === 'calls' || s.key === 'calls2');
+  assert.equal(calls.length, 1, JSON.stringify(calls));
+});
