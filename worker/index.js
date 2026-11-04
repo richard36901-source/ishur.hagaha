@@ -6529,6 +6529,11 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
      The cron now runs three independent parts in parallel: 'main' (sends and
      housekeeping), 'subevents' and 'calls'. A slow part can no longer starve
      the others. part='all' (manual /api/pacer) keeps the old single pass. */
+  /* 04/11: the סקירה plan precompute is its own job too (it used to sit last in the main pass and got cut off) */
+  if (part === 'plan') {
+    try { const r = await step('plan_precompute', () => precomputePlans(env, opsDeps(), planFns())); return { ok: true, part, ms: r && r.ms }; }
+    catch (e) { return { ok: false, part, why: String((e && e.message) || e) }; }
+  }
   if (part === 'calls' || part === 'subevents') {
     if (isNoContactDay(today)) return { ok: true, skipped: 'no-contact-day' };
     if (await sendingPaused(env)) return { ok: true, paused: true };
@@ -6658,7 +6663,7 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
     { expirationTtl: 3 * 86400 }).catch(() => {});
   /* 04/11 "מתוכנן מול בוצע": today / week / month composed once per tick into KV plan:<period> (ops-plan.js), so the
      סקירה answers from KV instead of 49 s of live reads. Last on purpose: it never delays a send or a dial. */
-  try {
+  if (part === 'all') try {
     out.plan = await step('plan_precompute', async () => { const r = await precomputePlans(env, opsDeps(), planFns()); return { ok: r.ok, ms: r.ms, errors: r.errors, line: r.plans.today && r.plans.today.status ? r.plans.today.status.line_he : '' }; });
   } catch (e) { out.plan = { ok: false, why: String((e && e.message) || e) }; }
   return { ok: true, ...out };
@@ -10028,6 +10033,7 @@ const WORKER = {
         alert(env, 'פייסר', 'סבב שיחות נפל', String((e && e.message) || e), { key: 'pacer_calls_crash', sev: 'P1' })));
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'subevents' })).catch(e =>
         alert(env, 'פייסר', 'שליחת אירוע-בן נפלה', String((e && e.message) || e), { key: 'pacer_sub_crash', sev: 'P1' })));
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'plan' })).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'main' })).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e), { key: 'pacer_crash', sev: 'P1' })));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
