@@ -284,6 +284,12 @@ export const AUTOMATIONS = [
     audience: 'סלאק', kv_markers: { global: ['slackdigest:sent:<יום>', 'slackstate:<key>', 'slackclosed:<יום>', 'slackinfo:<יום>', 'slackq:list'] },
     source: S(6457, "await step('slack_digest', () => slackDigest(env"), evidence: [E(192, 'export async function slackDigest', 'הסיכום: פתוחים · נפתר בלילה · מידע · תור הלילה · תוכנית היום', 'worker/slack-gate.js'), E(123, 'export async function gate', 'השער: OPEN / WORSE / CLOSE, אחרת שקט', 'worker/slack-gate.js')] },
 
+  /* 04/11 the סקירה "מתוכנן מול בוצע" (Richard: "תמונה מלאה בסקירה"): composed once per tick, served from KV */
+  { id: 'plan_precompute', name_he: 'סקירה · מתוכנן מול בוצע (חישוב מראש כל 10 דקות)', layer: 2, from: ['d_pacer'], kind: 'internal', added: '2026-11-04',
+    conditions: ['כל פעימה, אחרון בפעימה (לא מעכב שליחות וחיוגים)', 'לוח השליחה (סימוני אורחים) נבנה מחדש רק כשהמטמון שלו מעל 30 דקות', 'ימים שעברו נשמרים פעם אחת (plan:day:<יום>)'],
+    audience: '—', kv_markers: { global: ['plan:today', 'plan:week', 'plan:month', 'plan:day:<יום>', 'plan:subs'] },
+    source: S(6638, "await step('plan_precompute'"), evidence: [E(548, 'export async function precomputePlans', 'איסוף אחד לשלוש התקופות, נכתב ל-KV', 'worker/ops-plan.js')] },
+
   /* ═════════════ layer 2 · direct every-10-minutes jobs ═════════════ */
   { id: 'event_day_blast', name_he: 'הודעת יום האירוע (edblast)', layer: 2, from: ['t_cron10'], kind: 'send_guest', routes: ['/api/event-day'],
     trigger: { cron: '*/10 * * * *', il: 'מ-09:00 בישראל ובחלון השליחה, מהתאריך job.at', via: 'audit.job runEventDayBlasts' },
@@ -395,7 +401,7 @@ export const AUTOMATIONS = [
   { id: 'brain_health', name_he: 'המוח · בדיקות בריאות (כל 10 דקות)', layer: 2, from: ['t_cron10'], kind: 'slack', added: '2026-11-03',
     trigger: { cron: '*/10 * * * *', il: 'כל 10 דקות (כל בדיקה לפי every_min שלה)', via: 'scheduled → runBrain · POST /api/ops/brain-run' }, routes: ['/api/ops/brain-run'],
     conditions: ['BRAIN_ENABLED != "off"', 'כל בדיקה רצה רק כשעבר every_min מהריצה הקודמת שלה'], audience: 'ריצ׳רד (סלאק + מסך המוח)',
-    checks: ['template_watch', 'cap_hold_stale', 'pacer_tick', 'snapshot_fail', 'make_down', 'noa_billing', 'telnyx_order', 'lead_monday', 'reply_wrong_number', 'capacity_overflow', 'noa_unanswered', 'balances_low', 'crm_overdue', 'd1_ledger', 'failed_runs', 'biz_verification', 'gift_blast', 'wedding_day', 'call_round_not_dialing'],
+    checks: ['template_watch', 'cap_hold_stale', 'pacer_tick', 'snapshot_fail', 'make_down', 'noa_billing', 'telnyx_order', 'lead_monday', 'reply_wrong_number', 'capacity_overflow', 'noa_unanswered', 'balances_low', 'crm_overdue', 'd1_ledger', 'failed_runs', 'biz_verification', 'gift_blast', 'wedding_day', 'call_round_not_dialing', 'planned_not_progressing'],
     source: S(504, 'export async function runBrain', 'worker/brain.js'), evidence: [E(9787, 'ctx.waitUntil(runBrain(env', 'הקרון של 10 הדקות מריץ את המוח')] },
   { id: 'brain_fix', name_he: 'המוח · פלייבוקים (תיקון אוטומטי או באישור)', layer: 3, from: ['brain_health'], kind: 'internal', added: '2026-11-03',
     trigger: { cron: '', il: 'כשבדיקה מוצאת ממצא עם פלייבוק', via: 'execPlaybook · POST /api/ops/brain-decision' }, routes: ['/api/ops/brain-decision'],

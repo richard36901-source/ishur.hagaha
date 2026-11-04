@@ -41,7 +41,13 @@ const assignments = [
   { id: 'as3', date: '2026-11-07', start: '18:00', end: '23:30', hostess_name: 'מאיה', event_token: tok('c2f63d20'), status: 'cancelled' },
   { id: 'as4', date: '2026-11-12', start: '17:00', end: '22:30', hostess_name: 'נועה ש׳', event_token: tok('f0a38bbd'), status: 'confirmed' },
 ];
-const base = { today: TODAY, now: NOW, send_window: { open: true }, call_window: { open: true }, paused: false, sends_why: 'will-send', next_tick_at: '2026-11-03T10:10:00.000Z',
+/* 04/11 the realtime payload the status line reads (worker/ops.js buildRealtime shape): guests + Noa 4499 with 131042 */
+const rt = { at: '2026-11-03T09:59:30.000Z', today: TODAY, wa: { numbers: [
+  { phone_id: 'A', role: 'guests', label: 'שיר #1', sent_today: 105, rejected_today: 1, failed_async_today: 2, failed_by_code: { 131026: 3 }, by_reason: { table: 52, subevent: 40, gift: 13 }, by_event: { ab699ac0: { total: 92, table: 52, subevent: 40 }, c1c5fcf5: { total: 13, gift: 13 }, c2f63d20: { total: 4, reply: 4 } } },
+  { phone_id: 'N', role: 'client', label: 'נועה · 4499', sent_today: 6, rejected_today: 0, failed_async_today: 1, failed_by_code: { 131042: 1 }, by_reason: { client: 6 }, by_event: {} }],
+  totals: { sent_today: 111, rejected_today: 1, failed_async_today: 3 } },
+  cap: { limit: 250, used: 120, remaining: 130 }, queue: { sends: { why: 'will-send' } }, make: { reader: { ok: true }, writer: { ok: true }, outbox: { size: 0 } }, noa: { billing_131042: true } };
+const base = { today: TODAY, now: NOW, rt, send_window: { open: true }, call_window: { open: true }, paused: false, sends_why: 'will-send', next_tick_at: '2026-11-03T10:10:00.000Z',
   sends, capacity: cap, board, subrecs, call_rounds: rounds, calls_done: [{ day: '2026-11-02', tok8: 'c2f63d20', name: 'נועה ויונתן', n: 11, answered: 6 }, { day: '2026-11-01', tok8: '395962fa', name: 'אירוע ב', n: 7, answered: 2 }],
   lead_sends: { by_day: { '2026-11-01': { sent: 9, failed: 0 }, '2026-11-02': { sent: 14, failed: 2 }, [TODAY]: { sent: 6, failed: 1 } }, billing_131042: true }, crons, events, assignments };
 const by_period = Object.fromEntries(['today', 'week', 'month'].map(p => [p, composePlan({ ...base, period: p })]));
