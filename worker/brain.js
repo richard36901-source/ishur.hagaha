@@ -123,6 +123,25 @@ export const CHECKS = [
     return [{ id: 'snapshot_fail', status: 'fail', severity: 'P1', playbook: 'snapshot_retry', title_he: `קובץ האורחים לא נטען ${rows.length} פעמים ב-30 דקות`, detail: 'fetchSnapshot נכשל', evidence: rows.slice(0, 5).map(r => `${r.at} ${String(r.action || '').slice(0, 60)}`) }];
   } },
 
+  /* 04/11 Make burn: the snapshot reader / sheet writer (snapshot.js) failing on two ticks in a row.
+     Slack gate key 'make_down' (not finding:<id>): one line when it opens, one "✅ נפתר" when it closes. */
+  { id: 'make_down', name_he: 'Make מושהה/לא עונה (קריאה וכתיבה לגיליון)', every_min: 10, async run(c) {
+    const st = c.d.makeStatus ? await c.d.makeStatus(c.env).catch(() => null) : null;
+    if (!st) return [];
+    const down = !st.reader.ok || !st.writer.ok;
+    const prev = (await kjson(c.env, 'brain:makedown')) || { streak: 0 };
+    const streak = down ? (Number(prev.streak) || 0) + 1 : 0;
+    if (streak !== prev.streak) await kput(c.env, 'brain:makedown', { streak, at: new Date(c.now).toISOString() }, 7 * 86400);
+    c.log(`Make: קורא ${st.reader.ok ? 'תקין' : 'נכשל ×' + st.reader.fails} · כותב ${st.writer.ok ? 'תקין' : 'נכשל ×' + st.writer.fails} · תור כתיבות ${st.outbox.size} · רצף ${streak}`);
+    if (streak < 2) return [];
+    const since = st.reader.failing_since || st.writer.failing_since;
+    return [{ id: 'make_down', status: 'fail', severity: 'P1', slack_key: 'make_down',
+      title_he: 'Make מושהה/לא עונה — קריאה וכתיבה לגיליון לא עובדות',
+      detail: `תור כתיבות ממתין: ${st.outbox.size}${since ? ` · מאז ${since.slice(11, 16)} UTC` : ''} · מסכים מציגים נתונים ישנים, שליחות וחיוגים ממתינים`,
+      evidence: [`reader.ok=${st.reader.ok} fails=${st.reader.fails} since=${st.reader.failing_since || '—'}`, `writer.ok=${st.writer.ok} fails=${st.writer.fails}`, `outbox=${st.outbox.size}`, `cache_at=${st.reader.cache_at || '—'}`],
+      data: { outbox: st.outbox.size, reader: st.reader, writer: st.writer } }];
+  } },
+
   { id: 'noa_billing', name_he: 'נועה 4499: שגיאת חיוב 131042', every_min: 10, async run(c) {
     const f = await kget(c.env, 'billingalert:client');
     return f ? [{ id: 'noa_billing', status: 'fail', severity: 'P1', title_he: 'נועה 4499: מטא מחזירה 131042 (בעיית תשלום) — כל שליחה מ-4499 נכשלת', detail: 'billingalert:client set (6 h flag)', evidence: ['billingalert:client'] }] : [];
@@ -541,13 +560,13 @@ export function mergeFindings(prev, results, { now, ranChecks, failedChecks = []
     const old = prev[id];
     const sev = r.severity || (r.status === 'fail' ? 'P1' : 'P2');
     if (!old || old.state === 'resolved') {
-      const f = { id, check_id: r.check_id, status: r.status, severity: sev, state: 'open', title_he: r.title_he, detail: r.detail || '', evidence: r.evidence || [], playbook: r.playbook || null, data: r.data || {},
+      const f = { id, check_id: r.check_id, status: r.status, severity: sev, state: 'open', title_he: r.title_he, detail: r.detail || '', evidence: r.evidence || [], playbook: r.playbook || null, data: r.data || {}, ...(r.slack_key ? { slack_key: r.slack_key } : {}),
         first_seen: new Date(now).toISOString(), last_seen: new Date(now).toISOString(), resolved_at: null, alerted_at: old ? old.alerted_at : null, escalated_at: old ? old.escalated_at : null, pb_at: old ? old.pb_at : null,
         history: [...((old && old.history) || []), { at: new Date(now).toISOString(), status: r.status, note: old ? 'reopened' : 'new' }].slice(-30) };
       next[id] = f; events.push({ type: old ? 'reopened' : 'new', f });
     } else {
       const changed = old.status !== r.status || old.title_he !== r.title_he;
-      const f = { ...old, status: r.status, severity: sev, title_he: r.title_he, detail: r.detail || '', evidence: r.evidence || [], playbook: r.playbook || old.playbook, data: r.data || old.data, last_seen: new Date(now).toISOString(),
+      const f = { ...old, status: r.status, severity: sev, title_he: r.title_he, detail: r.detail || '', evidence: r.evidence || [], playbook: r.playbook || old.playbook, data: r.data || old.data, last_seen: new Date(now).toISOString(), ...(r.slack_key ? { slack_key: r.slack_key } : {}),
         history: changed ? [...(old.history || []), { at: new Date(now).toISOString(), status: r.status, note: 'changed' }].slice(-30) : old.history };
       next[id] = f; events.push({ type: changed ? 'changed' : 'seen', f });
     }
@@ -607,10 +626,10 @@ export async function runBrain(env, d, opts = {}) {
     const autofix = String(env.BRAIN_AUTOFIX || 'on') !== 'off';
     for (const ev of events) {
       const f = ev.f; let dirty = ev.type !== 'seen';
-      if (ev.type === 'resolved') { L.log(`נפתר: ${f.title_he}`); run.count('resolved'); await obsoletePending(env, f.id); await c.resolveSlack('finding:' + f.id); }
+      if (ev.type === 'resolved') { L.log(`נפתר: ${f.title_he}`); run.count('resolved'); await obsoletePending(env, f.id); await c.resolveSlack(f.slack_key || 'finding:' + f.id); }
       else {
         if (ev.type === 'new' || ev.type === 'reopened') { L.log(`ממצא ${ev.type === 'new' ? 'חדש' : 'חוזר'} (${f.status}/${f.severity}): ${f.title_he}`); run.count('new'); }
-        if (shouldAlert(f, c.now)) { await c.slack(`${f.severity === 'P1' ? '🚨' : '⚠️'} *מוח · ${f.title_he}*${f.detail ? '\n' + f.detail : ''}${f.playbook ? `\nפלייבוק: ${(PB[f.playbook] || {}).name_he || f.playbook}${PB[f.playbook] && PB[f.playbook].auto ? ' (אוטומטי)' : ' — מחכה לאישור בלוח הבקרה'}` : ''}`, f.severity === 'P1', { key: 'finding:' + f.id, sev: f.severity === 'P1' ? 'P0' : f.severity === 'P2' ? 'P1' : 'P2', action: f.playbook && PB[f.playbook] && !PB[f.playbook].auto ? 'לאשר את הפלייבוק במסך המוח — ishur.io/ops.html#/brain' : 'לבדוק במסך המוח — ishur.io/ops.html#/brain?focus=' + f.id }); f.alerted_at = new Date(c.now).toISOString(); dirty = true; run.count('alerted'); L.log('התראה לסלאק'); }
+        if (shouldAlert(f, c.now)) { await c.slack(`${f.severity === 'P1' ? '🚨' : '⚠️'} *מוח · ${f.title_he}*${f.detail ? '\n' + f.detail : ''}${f.playbook ? `\nפלייבוק: ${(PB[f.playbook] || {}).name_he || f.playbook}${PB[f.playbook] && PB[f.playbook].auto ? ' (אוטומטי)' : ' — מחכה לאישור בלוח הבקרה'}` : ''}`, f.severity === 'P1', { key: f.slack_key || 'finding:' + f.id, sev: f.severity === 'P1' ? 'P0' : f.severity === 'P2' ? 'P1' : 'P2', action: f.playbook && PB[f.playbook] && !PB[f.playbook].auto ? 'לאשר את הפלייבוק במסך המוח — ishur.io/ops.html#/brain' : 'לבדוק במסך המוח — ishur.io/ops.html#/brain?focus=' + f.id }); f.alerted_at = new Date(c.now).toISOString(); dirty = true; run.count('alerted'); L.log('התראה לסלאק'); }
         const pb = f.playbook && PB[f.playbook];
         if (pb && pb.auto) {
           if (autofix && (!f.pb_at || c.now - Date.parse(f.pb_at) >= (pb.cooldown_ms || 0))) {

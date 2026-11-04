@@ -409,6 +409,8 @@ export async function buildRealtime(env, d, now = Date.now()) {
     calls.source = list ? 'retell' : 'retell-unreadable'; calls.callbacks_queued = cbqN;
   }
   const noaLast = outRows.filter(r => String((r.data || {}).phone_id || '') === clientId).sort((a, b) => b.ts - a.ts)[0] || null;
+  /* 04/11 Make burn: is the sheet reachable, how old is the cached copy, how many writes wait (snapshot.js) */
+  const make = d.makeStatus ? await d.makeStatus(env).catch(() => null) : null;
   const dueEd = Object.entries(edJobs).filter(([, v]) => { try { return String(JSON.parse(v).at || '') <= today; } catch { return false; } }).map(([t]) => t.slice(0, 8));
   const room = cap ? cap.remaining : 0;
   const pending = pacerPending === today;
@@ -428,6 +430,7 @@ export async function buildRealtime(env, d, now = Date.now()) {
       event_day_due: dueEd, late_invites_waiting: lateN, holds: holdsN,
     },
     calls,
+    make,
     noa: { phone_id: clientId, billing_131042: !!billFlag, last_send: noaLast ? { at: noaLast.at, ok: noaLast.ok, template: (noaLast.data || {}).template || '', error: (noaLast.data || {}).error || '', to: String(noaLast.phone || '').replace(/(\d{3})\d{4}(\d{3})$/, '$1****$2') } : null },
     pacer: { last_tick_at: pacerLast ? pacerLast.at : null, last: pacerLast ? { sends: pacerLast.sends || null, calls: pacerLast.calls || null, callbacks: pacerLast.callbacks || null, autoretry: pacerLast.autoretry || null, leads: pacerLast.leads ?? null, doctor: pacerLast.doctor ? { fixed: pacerLast.doctor.fixed, alerted: pacerLast.doctor.alerted } : null } : null, off: offPacer, paused: !!paused },
   };

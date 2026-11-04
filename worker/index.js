@@ -73,6 +73,7 @@ import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
+import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
 
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
@@ -112,7 +113,7 @@ function msgCost(tmpl) { return CAT_COST[TMPL_CATEGORY[tmpl] || 'utility'] || 0.
 
 /* One batched write to the sheet — many cells, one Make operation. Every range
    must name its tab explicitly. Returns true only when Sheets confirmed cells. */
-async function sheetBatchWrite(env, data) {
+async function sheetBatchPost(env, data) {
   if (!env.BRAIN_HOOK || !data || !data.length) return false;
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -126,6 +127,45 @@ async function sheetBatchWrite(env, data) {
   let out = null;
   try { out = await r.json(); } catch {}
   return !!(out && out.totalUpdatedCells);
+}
+/* 04/11 Make burn: the one writer callers use. Make down → the batch waits in
+   the KV outbox (sheetq:) and the pacer replays it; the cached snapshot is
+   patched with the written cells so readers see their own write. Still
+   returns true only when Sheets confirmed cells now. */
+async function sheetBatchWrite(env, data) {
+  if (!env.BRAIN_HOOK || !data || !data.length) return false;
+  return sheetWrite(env, data, sheetBatchPost);
+}
+/* 04/11 Make burn: the לידים tab through BRAIN_HOOK (a Make read too, ~3 credits) for the two
+   screens that only use it to name phones and count sources — the calendar build (every
+   10-minute tick) and the admin ops board (every 60 s while open). 30 minutes in KV. */
+async function leadsTabCached(env, ttlSec = 1800) {
+  const k = 'leadstab:cache';
+  if (env.RATE) { try { const hit = JSON.parse((await env.RATE.get(k)) || 'null'); if (hit && Array.isArray(hit.rows)) return hit.rows; } catch {} }
+  if (!env.BRAIN_HOOK) return [];
+  const r = await fetch(env.BRAIN_HOOK, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }),
+  }).catch(() => null);
+  let rows = null;
+  try { if (r && r.ok) rows = (await r.json()).valueRanges[0].values || []; } catch {}
+  if (!rows) return [];
+  if (env.RATE) await env.RATE.put(k, JSON.stringify({ at: Date.now(), rows }), { expirationTtl: Math.max(60, ttlSec) }).catch(() => {});
+  return rows;
+}
+/* 04/11 Make burn: why a sender/dialer got no snapshot — 'snapshot-stale' when
+   the only copy left is older than 15 minutes (snapshot.js STALE_ACT_SEC) */
+function snapMiss(env, dflt = 'reader-failed') { return snapWhy(env) === 'snapshot-stale' ? 'snapshot-stale' : dflt; }
+/* 04/11 Make burn: a POST to a Make writer scenario. Afterwards the snapshot
+   reader learns what changed: a call_result patches rsvp/party in the cache,
+   anything else marks the snapshot dirty so the next fresh-class read refetches. */
+async function hookFetch(env, url, init) {
+  try { return await fetch(url, init); }
+  finally {
+    if (url && url !== env.HOOK_STATUS) {
+      await (url === env.HOOK_EVENTS ? noteHookWrite(env, init && init.body) : markSnapDirty(env, 'all')).catch(() => {});
+    }
+  }
 }
 
 /* ══ Grow payments ═══════════════════════════════════════════════════════════
@@ -213,7 +253,7 @@ function looksIshur(flat, pages) {
 async function isClientPhone(env, phone) {
   if (!env.RATE) return false;
   if (await env.RATE.get('client:' + phone).catch(() => null)) return true;
-  const snap = await Promise.race([snapshotCached(env).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+  const snap = await Promise.race([snapshotCached(env, 'guest').catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
   if (!snap) return false;
   if (eventsForPhone(snap, phone).length) return true;
   const g = findGuestByPhone(snap, phone, ilDate());
@@ -273,7 +313,7 @@ async function createQuoteLink(env, b, { src = 'admin' } = {}) {
   const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
   const cField1 = `q:${id}|${q.code}`;
   if (!env.GROW_LINK_HOOK) return { ok: false, why: 'no-hook', id, q };
-  const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+  const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
     sum: q.sum, description: q.description, token: '', kind: 'special', scope: 'all', label: q.description, n: q.records,
     name: q.name, phone: q.phone.replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
     successUrl: 'https://ishur.io/thanks.html', cancelUrl: 'https://ishur.io/',
@@ -457,7 +497,7 @@ async function handleDesignFlow(request, env, origin, host) {
     await env.RATE.put('quote:' + id, JSON.stringify(quote), { expirationTtl: 30 * 86400 });
     if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook', ...flowView(host, token, f, brief) }, origin);
     const rec = await tokenRecord(env, token) || {};
-    const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+    const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
       sum: DESIGN_ROUND_PRICE, description: DESIGN_ROUND_DESC, token, kind: 'design_round', scope: 'all', label: DESIGN_ROUND_DESC, n: 1,
       name: rec.name || '', phone: String(rec.phone || '').replace(/^972/, '0'), email: 'noreply@ishur.io',
       successUrl: `https://ishur.io/dashboard.html?t=${token}#design`, cancelUrl: `https://ishur.io/dashboard.html?t=${token}#design`,
@@ -623,7 +663,7 @@ async function processGrowPayment(env, flat) {
   if (!ref || !phone) {
     /* still forward so nothing is lost, marked for manual attention */
     if (env.HOOK_GROW) {
-      await fetch(env.HOOK_GROW, {
+      await hookFetch(env, env.HOOK_GROW, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ problem: 'missing-ref-or-phone', raw: flat }),
       }).catch(() => {});
@@ -730,7 +770,7 @@ async function processGrowPayment(env, flat) {
 
   let ok = false;
   if (env.HOOK_GROW) {
-    const r = await fetch(env.HOOK_GROW, {
+    const r = await hookFetch(env, env.HOOK_GROW, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(clean),
     }).catch(() => null);
@@ -1072,7 +1112,7 @@ async function pullMetaFormLeads(env, { dry = false, since = null } = {}) {
       };
       let sheetOk = false;
       if (env.HOOK_LEADS) {
-        const u = await fetch(env.HOOK_LEADS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).catch(() => null);
+        const u = await hookFetch(env, env.HOOK_LEADS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(fields) }).catch(() => null);
         sheetOk = !!(u && u.ok);
       }
       /* 02/11: Maya filled the form AND wrote on WhatsApp; the WhatsApp path
@@ -1334,7 +1374,7 @@ async function handleEventFlag(request, env, origin) {
        the writer. on → 'כן' (waves stop, הכל כלול guests get ishur_bitul on
        the next engine run); off → '' (event resumes). */
     if (typeof body.on !== 'boolean') return deny(400, 'bad-request', origin);
-    const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const raw = await readSnapshot(env, 'write').catch(() => null);
     const rows = (raw && raw.events && raw.events.values) || [];
     const idx = rows.findIndex(r => String(r[1] || '').trim() === token);
     if (idx < 0) return deny(404, 'event-not-found', origin);
@@ -1350,7 +1390,7 @@ async function handleEventFlag(request, env, origin) {
   /* 02/11 audit: postponeok = "the date in column G is a real postponement,
      tell the guests" — stored as THAT date, so a later edit needs a new OK */
   if (flag === 'postponeok' && body.on) {
-    const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const raw = await readSnapshot(env, 'write').catch(() => null);
     const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
     const d = ev ? String(ev[6] || '').trim().slice(0, 10) : '';
     if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(404, 'event-date-not-found', origin);
@@ -1491,7 +1531,7 @@ const PLAN_HE = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כל�
 /* Upgrade quote (Richard 12/10): a bigger tier and/or a higher plan, never
    down on either, priced as the difference between the two packages. */
 async function upgradeQuote(env, token, wantTier, wantPlan) {
-  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const raw = await readSnapshot(env, 'dashboard').catch(() => null);
   const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
   if (!ev) return { ok: false, why: 'no-event' };
   const curPlan = planKeyOf(ev);
@@ -1508,7 +1548,7 @@ async function upgradeQuote(env, token, wantTier, wantPlan) {
     label: `שדרוג חבילה ל-${tier} מוזמנים ${PLAN_HE[plan]}` };
 }
 async function addonQuote(env, token) {
-  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const raw = await readSnapshot(env, 'dashboard').catch(() => null);
   const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token);
   const phones = new Set(), pendingPhones = new Set();
   for (const g of gRows) {
@@ -1554,7 +1594,7 @@ function parseAddonDesc(desc) {
 
 async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   const today = ilDate();
-  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const raw = await readSnapshot(env, 'write').catch(() => null);
   const rows = (raw && raw.events && raw.events.values) || [];
   /* the buyer's active event: paid, not cancelled, not in the past; nearest date first */
   const mine = eventsForPhone(raw, phone)
@@ -1744,6 +1784,7 @@ async function deleteGuestRows(env, token) {
   if (!rows.length) return { ok: true, deleted: 0 };
   const requests = rows.sort((a, b) => b - a).map(i => ({ deleteDimension: { range: { sheetId: Number(gid), dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }));
   const r = await evProxy(env, `spreadsheets/${SID}:batchUpdate`, { method: 'POST', payload: { requests } });
+  await markSnapDirty(env, 'all').catch(() => {});   /* 04/11: deleted rows shift every cached row index */
   if (!(r && r.replies)) return { ok: false, why: 'batchUpdate-failed' };
   return { ok: true, deleted: rows.length };
 }
@@ -1788,6 +1829,7 @@ async function handleSheetCleanup(request, env, origin) {
   if (gid == null) return deny(502, 'no-tab', origin);
   const requests = rows.sort((x, y) => y - x).map(i => ({ deleteDimension: { range: { sheetId: gid, dimension: 'ROWS', startIndex: i, endIndex: i + 1 } } }));
   const r = await evProxy(env, `spreadsheets/${SID}:batchUpdate`, { method: 'POST', payload: { requests } });
+  await markSnapDirty(env, 'all').catch(() => {});   /* 04/11: deleted rows shift every cached row index */
   if (!(r && r.replies)) return deny(502, 'batchUpdate-failed', origin);
   await logEvent(env, { area: 'גיליון', action: `ניקוי ${b.action}: ${rows.length} שורות נמחקו מ${tab}`, ok: true, token }).catch(() => {});
   return okJson({ ok: true, dry: false, tab, deleted: rows.length }, origin);
@@ -1833,7 +1875,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
        100-row file. The tier sits in the event row (col 32) written at setup;
        when the row isn't there yet we let it pass and the sheet stays the
        source of truth for a later manual check. */
-    const capSnap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+    const capSnap = await readSnapshot(env, 'write').catch(() => null);
     const capRow = capSnap ? ((capSnap.events && capSnap.events.values) || [])
       .find(r => String(r[1] || '').trim() === token) : null;
     const tierNum = await tierWithPromo(env, token, tierOf(capRow));
@@ -1901,7 +1943,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
       return row;
     });
 
-    const r = await fetch(target, {
+    const r = await hookFetch(env, target, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         event_type: 'guests_file', token,
@@ -2005,7 +2047,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     out.video_url = 'https://' + url.hostname + '/vid/' + token;
   }
 
-  const r = await fetch(target, {
+  const r = await hookFetch(env, target, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(out),
   }).catch(() => null);
@@ -2030,7 +2072,7 @@ function hostRolesOk(v) {
   return parts.length >= 1 && parts.length <= 2 && parts.every(p => HOST_ROLE_SET.has(p));
 }
 async function writeHostRoles(env, token, roles) {
-  const snap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const snap = await readSnapshot(env, 'write').catch(() => null);
   const rows = snap ? ((snap.events && snap.events.values) || []) : [];
   const i = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
   if (i >= 0) {
@@ -2057,7 +2099,7 @@ async function waGuestFile(env, from, doc) {
      people gets invited. */
   const claim = env.RATE ? await env.RATE.get('claimlink:' + phone) : null;
   let token = null;
-  const ownerSnap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const ownerSnap = await readSnapshot(env, 'write').catch(() => null);
   const mine = ownerSnap ? eventsForPhone(ownerSnap, phone) : [];
   if (mine.length) {
     /* events of this phone that still have no guest list uploaded */
@@ -2146,7 +2188,7 @@ async function waGuestFile(env, from, doc) {
       `כדי לראות בדיוק אילו שורות ולהחליט, פתחו את הקישור האישי: https://ishur.io/upload.html?t=${token}`);
     return;
   }
-  const snap = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const snap = await readSnapshot(env, 'write').catch(() => null);
   const evRow = snap ? ((snap.events && snap.events.values) || [])
     .find(r => String(r[1] || '').trim() === token) : null;
   const tierNum = await tierWithPromo(env, token, tierOf(evRow));
@@ -2170,7 +2212,7 @@ async function waGuestFile(env, from, doc) {
     row[28] = token;
     return row;
   });
-  const r = await fetch(env.HOOK_EVENTS, {
+  const r = await hookFetch(env, env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_type: 'guests_file', token,
@@ -2197,7 +2239,7 @@ async function waGuestFile(env, from, doc) {
    ─────────────────────────────────────────────────────────────────────────── */
 
 async function writeCallResult(env, guestId, result, partySize) {
-  const r = await fetch(env.HOOK_EVENTS, {
+  const r = await hookFetch(env, env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_type: 'call_result', guest_id: guestId,
@@ -2642,8 +2684,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   const win = callWindowState();
   /* the pacer calls this 63 times a day — the 60s cache exists exactly so
      those ticks do not each cost a Make operation (review finding #10) */
-  const raw = await snapshotCached(env).catch(() => null);
-  if (!raw) return { ok: false, why: 'reader-failed' };
+  const raw = await snapshotCached(env, 'dial').catch(() => null);
+  if (!raw) return { ok: false, why: snapMiss(env) };
   const { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
@@ -2759,22 +2801,13 @@ async function handleShirDispatch(request, env, origin) {
 
    Shared deliberately: the callback drain reads it too, so a tick that rings
    three people back pays for one snapshot, not three. */
-async function snapshotCached(env, maxAgeSec = 60) {
-  if (!env.RATE) return fetchSnapshot(env.HOOK_STATUS);
-  let hit = null;
-  try { hit = JSON.parse(await env.RATE.get('snapcache')); } catch {}
-  if (hit && hit.raw && Number.isFinite(hit.at) && Date.now() - hit.at < maxAgeSec * 1000) {
-    return hit.raw;
-  }
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
-  if (raw) {
-    await env.RATE.put('snapcache', JSON.stringify({ at: Date.now(), raw }),
-      { expirationTtl: 900 }).catch(() => {});
-    return raw;
-  }
-  /* Make is down. A stale snapshot beats greeting a known guest as a stranger,
-     so the last good one is served rather than nothing. */
-  return (hit && hit.raw) || null;
+/* 04/11 Make burn: the 60 s KV cache above became snapshot.js's reader — same
+   'snapcache' key, plus a per-isolate memo, single-flight, failure backoff,
+   per-caller max age (cls) and 'snaplast' when Make is down. The inbound-call
+   case keeps its guarantee: an uploaded list goes through the Worker, which
+   marks the snapshot dirty, so the next guest-class read refetches. */
+async function snapshotCached(env, cls = 'background') {
+  return readSnapshot(env, typeof cls === 'string' ? cls : 'background');
 }
 
 /* The inbound webhook is unauthenticated by nature — Retell POSTs it from
@@ -2917,7 +2950,10 @@ async function runShirCallbacks(env, { max = 3, force = false } = {}) {
     if (Number(r.last) && now - Number(r.last) < CBQ_RETRY_MS && !force) { waiting++; continue; }
     if (await callBlocked(env, r.phone)) { await cbqClear(env, r.phone); skipped++; continue; }
 
-    if (snap === undefined) snap = await snapshotCached(env).catch(() => null);
+    if (snap === undefined) snap = await snapshotCached(env, 'dial').catch(() => null);
+    /* 04/11 Make burn: no snapshot (or one older than 15 min) → nobody knows if this is a guest or a
+       client, and the wrong number would ring them. The entry stays queued for the next tick. */
+    if (!snap) return { dialed: dialed.length, phones: dialed, queued: rows.length, waiting, skipped, why: snapMiss(env) };
     /* looked up fresh rather than replayed from the queue entry: between the
        missed call and the ring back, the guest may have answered on WhatsApp */
     const hit = snap ? inboundLookup(snap, r.phone, today, { prefer: r.why === 'guest-rang-noa' || r.why === 'noa-ring' ? 'client' : 'guest' })
@@ -2997,7 +3033,7 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
   if (isNoContactDay(today)) return { dialed: 0, skipped: 'no-contact-day' };
   if (!callWindowState().open) return { dialed: 0, skipped: 'window' };
 
-  const snap = await snapshotCached(env).catch(() => null);
+  const snap = await snapshotCached(env, 'dial').catch(() => null);
   const rows = (snap && snap.leads && snap.leads.values) || [];
   const queued = await kvPrefix(env, 'lq:');
   const dialed = [];
@@ -3105,7 +3141,7 @@ async function handleShirInbound(request, env, url, origin) {
   /* Never hold a ringing phone hostage to Make. Four seconds and the call
      goes ahead as an unknown caller, which the script handles by asking. */
   const raw = await Promise.race([
-    snapshotCached(env).catch(() => null),
+    snapshotCached(env, 'guest').catch(() => null),
     new Promise(r => setTimeout(() => r(null), 4000)),
   ]);
   const hit = raw ? inboundLookup(raw, phone, today) : { caller_kind: 'unknown', phone, name: '', event: null };
@@ -3190,7 +3226,7 @@ async function handleNoaInbound(request, env, url, origin) {
   const phone = normPhone(from);
   const today = ilDate();
   const raw = await Promise.race([
-    snapshotCached(env).catch(() => null),
+    snapshotCached(env, 'guest').catch(() => null),
     new Promise(r => setTimeout(() => r(null), 4000)),
   ]);
   const hit = raw ? inboundLookup(raw, phone, today, { prefer: 'client' }) : { caller_kind: 'unknown', phone, name: '', event: null };
@@ -3554,7 +3590,7 @@ async function handleWaWebhook(request, env, url) {
              no Monday item, no "ליד חדש" ping, no "לא סיימת" chase. */
           let notLead = '';
           if (!known) {
-            const snapL = await Promise.race([snapshotCached(env).catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
+            const snapL = await Promise.race([snapshotCached(env, 'guest').catch(() => null), new Promise(r => setTimeout(() => r(null), 4000))]);
             if (snapL && eventsForPhone(snapL, p9).length) notLead = 'client';
             else if (snapL) { const gL = findGuestByPhone(snapL, p9, ilDate()); if (gL && gL.upcoming) notLead = 'guest'; }
             if (notLead) await logEvent(env, { area: 'לידים', action: notLead === 'client' ? 'לקוח (אירוע בגיליון) כתב לנועה — לא נפתח ליד' : 'אורח של אירוע קרוב כתב לנועה — לא נפתח ליד', ok: true, phone: p9, detail: body.slice(0, 120) }).catch(() => {});
@@ -3671,7 +3707,7 @@ async function handleWaWebhook(request, env, url) {
       } catch (e) { await logEvent(env, { area: 'ווצאפ', action: 'תת-אירוע: טיפול בתשובה נכשל', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
     }
 
-    const raw = await fetchSnapshot(env.HOOK_STATUS);
+    const raw = await readSnapshot(env, 'guest');
     /* WHO is this, in Richard's order of precedence. An event OWNER is a
        client even when their own number also sits in a guest row (his test
        wedding did exactly that, and Noa answered the boss with "כמה תהיו?").
@@ -4613,7 +4649,7 @@ async function templateDetails(env, name) {
 }
 function subeventDeps() {
   return { isAdmin, okJson, deny, logEvent, eventRowOf, ilDate, normPhone, cleanParam, phoneBlocked, wrongNum, guestCapacity, sendingPaused, sendWindowState, isNoContactDay,
-    sendTemplate, noteGuestSend, templateDetails, kvPrefix, fetchSnapshot: (env) => fetchSnapshot(env.HOOK_STATUS), snapshotCached: (env) => snapshotCached(env),
+    sendTemplate, noteGuestSend, templateDetails, kvPrefix, fetchSnapshot: (env) => readSnapshot(env, 'send'), snapshotCached: (env) => snapshotCached(env, 'dashboard'),
     /* 04/11 the pacer half (continueSubevents) */
     isOff, recordChange: (e, x) => recordChange(e, x), slackPost: (e, t, o) => slackPost(e, t, o) };
 }
@@ -4745,7 +4781,9 @@ async function drainLateInvites(env) {
   const q = await kvPrefix(env, 'lateinv:');
   const keys = Object.keys(q);
   if (!keys.length) return { sent: 0 };
-  const raw = await snapshotCached(env);
+  const raw = await snapshotCached(env, 'send');
+  /* 04/11: without a snapshot every queued invite looked "event not found" and was deleted */
+  if (!raw) return { sent: 0, queued: keys.length, why: snapMiss(env) };
   const evRows = (raw && raw.events && raw.events.values) || [];
   let sent = 0, tried = 0;
   for (const k of keys) {
@@ -4786,7 +4824,9 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       /* 02/11: a MARKETING template to guests who already got messages dies on 131049 — refuse it */
       if (approved && t0.category === 'MARKETING' && !job.allow_marketing) { approved = false; await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} שיווקית — לא נשלחת לאורחים (131049). צריך תבנית utility.`, token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8), sev: 'P1' }); }
     } catch {}
-    const raw = await snapshotCached(env);
+    const raw = await snapshotCached(env, 'send');
+    /* 04/11: no (fresh) snapshot is not "cancelled" — skip quietly, the next tick retries */
+    if (!raw) { res.push({ token: token.slice(0, 8), skipped: snapMiss(env) }); continue; }
     /* 02/11 audit: the job is a KV record set by hand; the event can be
        cancelled or put on hold after it was set — never blast those */
     const evRow = eventRowOf(raw, token);
@@ -4866,8 +4906,8 @@ async function handleGiftBlast(request, env, origin) {
   if (!/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
   const dry = b.dry !== false;
   const max = Math.max(1, Math.min(500, Number(b.max) || 50));
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
-  if (!raw) return deny(502, 'reader-failed', origin);
+  const raw = await readSnapshot(env, 'send');
+  if (!raw) return deny(502, snapMiss(env), origin);
   const ev = eventRowOf(raw, token);
   if (!ev) return deny(404, 'unknown-token', origin);
   const today = ilDate();
@@ -5074,7 +5114,9 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
     if (!job || job.done) continue;
     const due = today >= String(job.at || '');
     if (!dry && (!due || ilHour < 9)) { res.push({ token: token.slice(0, 8), waiting: true, due }); continue; }
-    const raw = await fetchSnapshot(env.HOOK_STATUS);
+    const raw = await readSnapshot(env, 'dial');
+    /* 04/11: an empty read used to mark the round done with 0 guests */
+    if (!raw) { res.push({ token: token.slice(0, 8), skipped: snapMiss(env) }); continue; }
     const gRows = ((raw && raw.guests && raw.guests.values) || []);
     const want = new Set(job.guest_ids || []);
     const data = [];
@@ -5116,7 +5158,9 @@ async function drainPartyNudges(env) {
   if (!sendWindowState().open) return { sent: 0, closed: true };
   const page = await env.RATE.list({ prefix: 'awaitparty:', limit: 500 }).catch(() => null);
   let sent = 0;
-  const rawPN = (page && page.keys && page.keys.length) ? await fetchSnapshot(env.HOOK_STATUS) : null;
+  const rawPN = (page && page.keys && page.keys.length) ? await readSnapshot(env, 'send') : null;
+  /* 04/11: an empty read used to delete every nudge as "guest not found" */
+  if (page && page.keys && page.keys.length && !rawPN) return { sent: 0, why: snapMiss(env) };
   const gRowsPN = ((rawPN && rawPN.guests && rawPN.guests.values) || []);
   for (const k of (page && page.keys) || []) {
     let st = null; try { st = JSON.parse(await env.RATE.get(k.name)); } catch {}
@@ -5142,7 +5186,7 @@ async function drainPartyNudges(env) {
 
 function b_isAdminish(f) { return !!(f && f.preview_checkin); }
 async function writeGuestReply(env, guest, outcome, party) {
-  const r = await fetch(env.HOOK_EVENTS, {
+  const r = await hookFetch(env, env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
       event_type: 'call_result', guest_id: guest.guest_id,
@@ -5410,10 +5454,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (!windowOpen) { clientWaiting = true; return { ok: false, error: 'outside-hours', held: true }; }
     return sendClient(...a);
   };
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const raw = await readSnapshot(env, 'send');
   if (!raw) {
     await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '', { key: 'engine_no_sheet', sev: 'P1' });
-    return { ok: false, error: 'no-snapshot' };
+    return { ok: false, error: 'no-snapshot', why: snapMiss(env, 'no-snapshot') };
   }
   /* date override is allowed in dry runs only — for testing tomorrow safely */
   const today = (dry && /^\d{4}-\d{2}-\d{2}$/.test(String(todayOverride || '')))
@@ -5777,7 +5821,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
              Make only the guests that actually failed (review finding #7) */
           const gKey = `escg:${gid}`;
           if (env.RATE && await env.RATE.get(gKey)) { queued++; continue; }
-          const r = await fetch(env.HOOK_EVENTS, {
+          const r = await hookFetch(env, env.HOOK_EVENTS, {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               event_type: 'call_result', guest_id: gid,
@@ -6427,7 +6471,7 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
 /* 04/11 today's plan for the morning digest: sends planned (capacity planner), guests waiting for Shir, events today */
 async function digestPlan(env) {
   const today = ilDate();
-  const raw = await snapshotCached(env).catch(() => null);
+  const raw = await snapshotCached(env, 'background').catch(() => null);
   const evs = ((raw && raw.events && raw.events.values) || []).filter(r => !isTestEventRow(r));
   const events = evs.filter(r => String(r[6] || '').slice(0, 10) === today).length;
   let calls = null; try { calls = buildCallQueue(raw, 3, await callsAddonTokens(env)).queue.length; } catch {}
@@ -6441,6 +6485,9 @@ async function runPacer(env, run = null) {
   /* child runs in the ledger (one row per sub-step) when the caller passed a run */
   const step = (id, fn) => run ? run.child(id, fn) : fn();
   const today = ilDate();
+  /* 04/11 Make burn: sheet writes that failed while Make was down, replayed oldest first.
+     Before everything else (Shabbat and paused included): a write is not a message. */
+  const outbox = await step('sheet_outbox', () => drainSheetQueue(env, sheetBatchPost, { cap: 25 })).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
   if (isNoContactDay(today)) { const quiet = { ok: true, skipped: 'no-contact-day' }; await templateCheck(env, quiet); return quiet; }
 
   /* Phase 6: flush last night's queued Slack alerts once the 09:00 window
@@ -6471,6 +6518,7 @@ async function runPacer(env, run = null) {
   if (await sendingPaused(env)) return { ok: true, paused: true };
 
   const out = { date: today };
+  if (outbox && !outbox.idle) out.sheet_outbox = { drained: outbox.drained || 0, left: outbox.left || 0, ok: !!outbox.ok };
 
   /* messages first: they are cheaper and they warm the 24h window a call
      lands in more gracefully than a cold ring does */
@@ -6483,7 +6531,9 @@ async function runPacer(env, run = null) {
   else if (sendWin.open && !(await env.RATE.get('autoretry:' + today).catch(() => null))) {
     await env.RATE.put('autoretry:' + today, '1', { expirationTtl: 86400 }).catch(() => {});
     try {
-      const raw = await snapshotCached(env).catch(() => null);
+      const raw = await snapshotCached(env, 'send').catch(() => null);
+      /* 04/11: no (fresh) snapshot → nothing to retry against; un-burn the day so the next tick tries */
+      if (!raw) { await env.RATE.delete('autoretry:' + today).catch(() => {}); throw new Error(snapMiss(env)); }
       const by = await undeliveredByEvent(env, raw);
       let n = 0, evs = 0;
       for (const [token, ev] of Object.entries(by || {})) {
@@ -6930,7 +6980,7 @@ async function inboxData(env, body = {}) {
     (async () => {
       const hit = env.RATE ? await env.RATE.get('inboxnames:cache').catch(() => null) : null;
       if (hit) { try { return JSON.parse(hit); } catch {} }
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'ops');
       if (!raw) return null;
       const m = {};
       for (const ev of (raw.events && raw.events.values) || []) {
@@ -7145,7 +7195,7 @@ async function handleOtpSend(request, env, origin) {
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
   if (await overBudget(env, 'rl:otps:' + phone, 3, 3600)) return deny(429, 'rate-limited', origin);
   if (await overBudget(env, 'rl:otpi:' + ip, 10, 3600)) return deny(429, 'rate-limited', origin);
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const raw = await readSnapshot(env, 'dashboard');
   if (!raw) return deny(502, 'reader-failed', origin);
   if (!eventsForPhone(raw, phone).length) return deny(404, 'no-events', origin);
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
@@ -7178,7 +7228,7 @@ async function handleSeating(request, env, origin) {
   const list = Array.isArray(body.assignments) ? body.assignments.slice(0, 400) : [];
   if (!list.length) return deny(400, 'no-assignments', origin);
 
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const raw = await readSnapshot(env, 'write');
   if (!raw) return deny(502, 'reader-failed', origin);
   const gRows = (raw.guests && raw.guests.values) || [];
 
@@ -7211,6 +7261,7 @@ async function handleSeating(request, env, origin) {
   let out = null;
   try { out = await r.json(); } catch {}
   if (!out || !out.totalUpdatedCells) return deny(502, 'sheet-write-failed', origin);
+  await noteSheetWrite(env, data).catch(() => {});   /* 04/11 Make burn: the cached snapshot sees the tables */
   return okJson({ ok: true, updated: data.length }, origin);
 }
 
@@ -7268,7 +7319,7 @@ async function handleCostLog(request, env, origin) {
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
 
   const [raw, waDays, shirDays, evCosts] = await Promise.all([
-    fetchSnapshot(env.HOOK_STATUS),
+    readSnapshot(env, 'ops'),
     kvPrefix(env, 'wastat:'),
     kvPrefix(env, 'shircost:'),
     kvPrefix(env, 'evcost:'),
@@ -8129,7 +8180,7 @@ async function syncInvoices(env) {
   if (!env.RATE || !env.BRAIN_HOOK) return { ok: false, why: 'not-configured' };
   const page = await env.RATE.list({ prefix: 'invq:', limit: 50 }).catch(() => null);
   if (!page || !page.keys.length) return { ok: true, written: 0 };
-  const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+  const raw = await readSnapshot(env, 'write').catch(() => null);
   const rows = (raw && raw.events && raw.events.values) || [];
   if (!rows.length) return { ok: false, why: 'reader-failed' };
   let written = 0, waiting = 0;
@@ -8227,7 +8278,7 @@ async function dailyJournalDigest(env) {
     traffic,
   ].filter(Boolean).join('\n');
   let undl = '';
-  try { const raw = await snapshotCached(env).catch(() => null); undl = undeliveredLines(await undeliveredByEvent(env, raw)).join('\n'); } catch {}
+  try { const raw = await snapshotCached(env, 'background').catch(() => null); undl = undeliveredLines(await undeliveredByEvent(env, raw)).join('\n'); } catch {}
   await slackPost(env, undl ? text + '\n' + undl : text, { oneoff: true });   /* oneoff: the 21:00 journal digest, one a day by design */
   await logEvent(env, { area: 'דוח', action: 'דוח יומי נשלח לסלאק', ok: true, detail: `${rows.length} פעולות · ${failed} נכשלו · ${red} אדומות · ${fixes.length} תיקוני רופא · ${builds.length} גרסאות` });
   return { rows: rows.length, ok, failed, red, fixes: fixes.length, builds: builds.length };
@@ -8259,8 +8310,8 @@ async function resendInvitation(env, guestPhone) {
   if (await phoneBlocked(env, phone)) return { ok: false, why: 'opted-out' };
   if (await overBudget(env, 'rl:resend:' + phone, 3, 3600)) return { ok: false, why: 'too-many' };
 
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
-  if (!raw) return { ok: false, why: 'reader-failed' };
+  const raw = await readSnapshot(env, 'send');
+  if (!raw) return { ok: false, why: snapMiss(env) };
   const guest = findGuestByPhone(raw, phone, ilDate());
   if (!guest) return { ok: false, why: 'not-a-guest' };
 
@@ -8624,7 +8675,7 @@ async function handleSendDate(request, env, origin) {
     return deny(409, 'already-sent', origin);
   }
 
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const raw = await readSnapshot(env, 'write');
   if (!raw) return deny(502, 'reader-failed', origin);
   const evRows = (raw.events && raw.events.values) || [];
   const idx = evRows.findIndex(r => String((r || [])[1] || '').trim() === token);
@@ -8664,6 +8715,7 @@ async function handleSendDate(request, env, origin) {
   let out = null;
   try { out = await r.json(); } catch {}
   if (!out || !out.totalUpdatedCells) return deny(502, 'sheet-write-failed', origin);
+  await noteSheetWrite(env, [{ range: `אירועים!${spec.col}${row}`, values: [[date]] }]).catch(() => {});   /* 04/11 Make burn */
   /* Richard 22/10: the client knowingly scheduled before their custom wording
      is approved. Keep a verifiable record (like marketing-consent), no Slack. */
   if (body.ack_pending === true) {
@@ -8884,7 +8936,7 @@ async function callBoard(env) {
   /* guests waiting on an RSVP call — Shir's queue */
   let guests = [];
   try {
-    const raw = await snapshotCached(env);
+    const raw = await snapshotCached(env, 'ops');
     if (raw) {
       const { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
       /* 02/11 (Richard): the dialler already skips past events (shouldDial);
@@ -9206,17 +9258,11 @@ async function handleOpsStats(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
 
-  const [raw, waDays, shirDays, leadsRes] = await Promise.all([
-    fetchSnapshot(env.HOOK_STATUS),
+  const [raw, waDays, shirDays, leadsCached] = await Promise.all([
+    readSnapshot(env, 'ops'),
     kvPrefix(env, 'wastat:'),
     kvPrefix(env, 'shircost:'),
-    env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
-        qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500',
-      }),
-    }).catch(() => null) : null,
+    leadsTabCached(env).catch(() => []),   /* 04/11 Make burn: 30-min cache, was a Make read per poll */
   ]);
 
   /* revenue per day: paid, not cancelled, dated by the Grow-payment stamp */
@@ -9246,10 +9292,7 @@ async function handleOpsStats(request, env, origin) {
 
   /* lead sources */
   const utm = {};
-  let leadRows = [];
-  if (leadsRes && leadsRes.ok) {
-    try { leadRows = (await leadsRes.json()).valueRanges[0].values || []; } catch {}
-  }
+  const leadRows = leadsCached || [];
   /* Richard 25/10: per source, how many actually closed (paid). Same merge the
      leads page uses, so "סגר" here equals "סגר" there. */
   const closedBy = {};
@@ -9455,14 +9498,8 @@ async function handleWaSend(request, env, origin) {
    not in this repo: raising it means widening the range in that Make module
    (or paginating there / archiving past events). Nothing to fix here; kept
    as a marker so the next person does not search this file for the number. */
-async function fetchSnapshot(target) {
-  const r = await fetch(target, {
-    method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ kind: 'snapshot' }),
-  }).catch(() => null);
-  if (!r || r.status !== 200) return null;
-  try { return await r.json(); } catch { return null; }
-}
+/* 04/11 Make burn: the raw transport lives in snapshot.js (fetchRaw). Every
+   read goes through readSnapshot(env, cls); nothing calls Make directly. */
 
 async function serveImage(env, pathname) {
   const token = pathname.slice('/img/'.length);
@@ -9657,7 +9694,7 @@ async function buildCalendarMonth(env, month) {
   const y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7));
   const mFirst = month + '-01', mLast = new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10);
   const today = ilDate();
-  const raw = await fetchSnapshot(env.HOOK_STATUS);
+  const raw = await readSnapshot(env, 'background');
   const evRows = (raw && raw.events && raw.events.values) || [];
   const gRows = (raw && raw.guests && raw.guests.values) || [];
   const evByTok = {}; const nameByPhone = {};
@@ -9669,11 +9706,7 @@ async function buildCalendarMonth(env, month) {
       w: [String(ev[39] || '').trim().slice(0, 10), String(ev[40] || '').trim().slice(0, 10), String(ev[41] || '').trim().slice(0, 10)], fileUp: String(ev[43] || '').trim() === 'כן' };
     if (evByTok[t].phone) nameByPhone[evByTok[t].phone] = { name, tok: t, kind: 'לקוח' };
   }
-  let leadRows = [];
-  try {
-    const lr = env.BRAIN_HOOK ? await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }) }) : null;
-    if (lr && lr.ok) leadRows = (await lr.json()).valueRanges[0].values || [];
-  } catch {}
+  const leadRows = await leadsTabCached(env).catch(() => []);   /* 04/11 Make burn: was a Make read every tick */
   for (const l of leadRows) { const ph = normPhone(l[2] || ''); if (ph && !nameByPhone[ph]) nameByPhone[ph] = { name: String(l[1] || '').trim(), tok: '', kind: 'ליד' }; }
   const guestsByTok = {};
   for (const g of gRows) {
@@ -9762,14 +9795,14 @@ async function buildCalendarMonth(env, month) {
 
 /* 03/11 ops center: index.js internals handed to ops.js (it cannot import us) */
 function sendBoardDeps() {
-  return { isAdmin, okJson, deny, snapshotCached,
+  return { isAdmin, okJson, deny, snapshotCached: (e) => snapshotCached(e, 'ops'),
     auditQuery: (e, q) => audit.query(e, q),
     isTestEventRow, planKeyOf, ilDate, sendWindowState, sendingPaused, kvPrefix, guestPhoneIds, normPhone,
     guestCapacity: async (e) => { await waCapInfo(e).catch(() => null); return guestCapacity(e); } };
 }
 function opsDeps() {
   return { isAdmin, adminKeyOk: (env, k) => adminKeyOk(env, k), okJson, deny, cors, ilDate, sendWindowState, callWindowState, isNoContactDay,
-    sendingPaused, snapshotCached, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), waCapInfo, guestCapacity, guestPhoneIds, clientPhoneId,
+    sendingPaused, snapshotCached: (e) => snapshotCached(e, 'ops'), fetchSnapshot: e => readSnapshot(e, 'probe'), makeStatus, waCapInfo, guestCapacity, guestPhoneIds, clientPhoneId,
     clientWaba, clientToken, kvPrefix, normPhone, isTestEventRow, planKeyOf, buildCallQueue, retellListCalls, metaAds,
     auditQuery: (e, q) => audit.query(e, q), auditQueryEx: (e, q) => audit.queryEx(e, q), auditRecord: (e, r) => audit.record(e, r),
     slackPost: (e, t, o) => slackPost(e, t, o), PACE_SENDS, PACE_CALLS, PACE_CALLBACKS,
@@ -9797,7 +9830,7 @@ function crmDeps(ctx) {
     const j = await r.json().catch(() => ({}));
     return { status: r.status, ...j, ok: r.ok && j.ok !== false };
   };
-  return { ...opsDeps(), route, sheetBatchWrite: (e, data) => sheetBatchWrite(e, data), slackPost: (e, t, o) => slackPost(e, t, o), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
+  return { ...opsDeps(), fetchSnapshot: e => readSnapshot(e, 'write'), route, sheetBatchWrite: (e, data) => sheetBatchWrite(e, data), slackPost: (e, t, o) => slackPost(e, t, o), makePayLink: (e, b) => makePayLinkV2(e, b), pullMetaFormLeads: (e, o) => pullMetaFormLeads(e, o), SUBEVENT_KINDS, mondayGql: (e, q, v) => mondayGql(e, q, v) };
 }
 /* brain playbook gift_blast_resume → the real /api/gift-blast handler (same refusals, same caps) */
 async function brainGiftBlast(env, token, { dry = true, max = 50 } = {}) {
@@ -9950,11 +9983,11 @@ const WORKER = {
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
       if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
-        leadRows: async () => (((await snapshotCached(env)) || {}).leads || {}).values || [],
+        leadRows: async () => (((await snapshotCached(env, 'dial')) || {}).leads || {}).values || [],
         callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
         retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),
       })).catch(() => {}));
-      ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS))).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await readSnapshot(env, 'background'))).catch(() => {}));
       /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(opsJob(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
       /* 03/11 ops brain: health checks + deterministic playbooks (brain.js); BRAIN_ENABLED="off" stops it */
@@ -9998,7 +10031,7 @@ const WORKER = {
            while the window is closed, so the pacer (already armed via
            pacer:pending above) carries the first sends at 09:00. */
     ctx.waitUntil(tryPortfolioOtp(env).catch(() => {}));
-    ctx.waitUntil(withRun(env, 'morning_undelivered', async () => { const raw = await snapshotCached(env).catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n'), { cls: 'info', key: 'undelivered:day:' + ilDate() }); return { ok: true, lines: l.length }; }).catch(() => {}));
+    ctx.waitUntil(withRun(env, 'morning_undelivered', async () => { const raw = await snapshotCached(env, 'background').catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n'), { cls: 'info', key: 'undelivered:day:' + ilDate() }); return { ok: true, lines: l.length }; }).catch(() => {}));
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
     ctx.waitUntil(withRun(env, 'd_engine', () => runDailyEngine(env, false, null, { budget: morningBudget })).then(() => withRun(env, 'backup', () => runBackup(env))).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '', { key: 'backup_fail', sev: 'P1' });
@@ -10025,7 +10058,7 @@ const WORKER = {
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
     /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
-    if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
+    if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => readSnapshot(e, 'dashboard'), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
@@ -10086,7 +10119,7 @@ const WORKER = {
       const slug = url.pathname.slice('/gift/'.length).replace(/[^0-9a-f]/gi, '').toLowerCase();
       const html = (s, st = 200) => new Response(s, { status: st, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
       if (slug.length !== 8) return html(giftPageHtml(null, ''), 404);
-      const raw = await snapshotCached(env).catch(() => null);
+      const raw = await snapshotCached(env, 'dashboard').catch(() => null);
       const hits = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').trim().slice(0, 8) === slug);
       if (hits.length !== 1) return html(giftPageHtml(null, ''), 404);
       const tok = String(hits[0][1]).trim();
@@ -10100,7 +10133,7 @@ const WORKER = {
       const slug = url.pathname.slice('/nav/'.length).replace(/[^0-9a-f]/gi, '').toLowerCase();
       const miss = () => new Response('', { status: 302, headers: { Location: 'https://ishur.io/', 'Cache-Control': 'no-store', 'X-Robots-Tag': 'noindex' } });
       if (slug.length !== 8) return miss();
-      const raw = await snapshotCached(env).catch(() => null);
+      const raw = await snapshotCached(env, 'dashboard').catch(() => null);
       const hits = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').trim().slice(0, 8) === slug);
       if (hits.length !== 1) return miss();
       const tok = String(hits[0][1]).trim();
@@ -10232,13 +10265,13 @@ const WORKER = {
           await logEvent(env, { area: 'מערכת', action: 'בדיקת יומן — שורה שדורשת בדיקה', ok: false, review: true, detail: 'אמורה להיות אדומה' });
         }
         if (b.action === 'test' || b.action === 'flush') return okJson(await flushEventLog(env), origin);
-        if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await fetchSnapshot(env.HOOK_STATUS)), origin);
+        if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await readSnapshot(env, 'ops')), origin);
         if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
         if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
         /* 25/10: one event row from the sheet, by token prefix — admin debugging */
         if (b.action === 'ev-row') {
           const pre = String(b.token || '').trim();
-          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const raw = await readSnapshot(env, 'write');
           const head = ((raw && raw.events && raw.events.values) || [])[0] || [];
           const rows = ((raw && raw.events && raw.events.values) || []).filter(r => String((r || [])[1] || '').startsWith(pre));
           return okJson({ ok: true, head, rows }, origin);
@@ -10247,7 +10280,7 @@ const WORKER = {
         if (b.action === 'ev-set') {
           const tok = String(b.token || '').trim(), col = String(b.col || '').toUpperCase();
           if (!/^[0-9a-f-]{36}$/.test(tok) || !/^[A-Z]{1,2}$/.test(col)) return deny(400, 'bad-args', origin);
-          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const raw = await readSnapshot(env, 'write');
           const idx = ((raw && raw.events && raw.events.values) || []).findIndex(r => String((r || [])[1] || '').trim() === tok);
           if (idx < 0) return deny(404, 'event-not-found', origin);
           const okw = await sheetBatchWrite(env, [{ range: `אירועים!${col}${idx + 2}`, values: [[String(b.value == null ? '' : b.value)]] }]);
@@ -10258,7 +10291,7 @@ const WORKER = {
         if (b.action === 'set-occasion') {
           const tok = String(b.token || '').trim(), occ = cleanOccasion(b.occasion);
           if (!/^[0-9a-f-]{36}$/.test(tok) || !occ) return deny(400, 'bad-args', origin);
-          const raw = await fetchSnapshot(env.HOOK_STATUS);
+          const raw = await readSnapshot(env, 'write');
           const idx = ((raw && raw.events && raw.events.values) || []).findIndex(r => String((r || [])[1] || '').trim() === tok);
           if (idx < 0) return deny(404, 'event-not-found', origin);
           const okw = await sheetBatchWrite(env, [{ range: `אירועים!F${idx + 2}`, values: [[occ]] }]);
@@ -10303,6 +10336,7 @@ const WORKER = {
         if (b.action === 'sheetreq' && Array.isArray(b.requests)) {
           /* raw Sheets batchUpdate (admin only): add columns, formats, etc. */
           const r = await evProxy(env, 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q:batchUpdate', { method: 'POST', payload: { requests: b.requests } });
+          await markSnapDirty(env, 'all').catch(() => {});
           return okJson({ ok: !!(r && r.replies), r }, origin);
         }
         if (b.action === 'tabtail') return okJson(await readTabTail(env, String(b.tab || 'msg_guests'), Number(b.n) || 10), origin);
@@ -10387,7 +10421,7 @@ const WORKER = {
     if (url.pathname.startsWith('/cal/') && request.method === 'GET') {
       const tok = url.pathname.slice(5).replace(/\.ics$/, '');
       if (!/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'dashboard');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return new Response('not-found', { status: 404 });
       const c = i => String(ev[i] ?? '').trim();
@@ -10770,7 +10804,7 @@ const WORKER = {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const from = normPhone(b.phone || '');
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'send');
       const guest = raw ? findGuestByPhone(raw, from, ilDate()) : null;
       if (!guest) return okJson({ ok: false, why: 'not-a-guest' }, origin);
       const say = (t) => sendText(env, from, t, 'guests', { who: 'שיר (מענה אוטומטי)' });
@@ -10825,7 +10859,8 @@ const WORKER = {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const token = String(b.token || ''); const w = String(b.wave || '1');
-      const raw = await snapshotCached(env).catch(() => null);
+      const raw = await snapshotCached(env, 'send').catch(() => null);
+      if (!raw) return deny(502, snapMiss(env), origin);
       const by = await undeliveredByEvent(env, raw);
       const list = (by[token] && by[token].list.filter(g => g.wave === w)) || [];
       for (const g of list) for (const k of [`wfail:${token}:${w}:${g.phone}`, `wdead:${token}:${w}:${g.phone}`, `wferr:${token}:${w}:${g.phone}`, `gday:${g.phone}:${ilDate()}`]) await env.RATE.delete(k).catch(() => {});
@@ -10861,7 +10896,7 @@ const WORKER = {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const tok = String(b.token || '').trim();
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'send');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev) return deny(404, 'unknown-token', origin);
       const phone = normPhone(ev[3] || ''); const first = String(ev[2] || '').trim().split(/\s+/)[0] || '';
@@ -10992,7 +11027,7 @@ const WORKER = {
       if (text.length < 20) return deny(400, 'text-too-short', origin);
       if (/\{\{|\}\}/.test(text)) return deny(400, 'no-placeholders', origin);
       if (env.RATE && await env.RATE.get('wave:' + tok + ':1')) return okJson({ ok: false, error: 'already-sent' }, origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'write');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok) || null;
       const out = await customTemplateSubmit(env, tok, text, ev);
       return okJson({ ok: out.ok, custom: out.rec, why: out.why || '' }, origin);
@@ -11058,7 +11093,7 @@ const WORKER = {
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'ops');
       if (!raw) return deny(502, 'reader-failed', origin);
       const today = ilDate();
       const gByTok = {};
@@ -11106,7 +11141,7 @@ const WORKER = {
         isAdmin, okJson, deny, cors,
         auditQuery: (e, q) => audit.query(e, q),
         ilDate, callWindowState,
-        fetchSnapshot: e => fetchSnapshot(e.HOOK_STATUS),
+        fetchSnapshot: e => readSnapshot(e, 'ops'),
         buildCallQueue, kvPrefix, readTabAll,
       });
     }
@@ -11144,7 +11179,7 @@ const WORKER = {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const tok = String(b.token || '').trim(); if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
       const since = Number(b.since) || (Date.now() - 3 * 86400e3);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'ops');
       const guests = ((raw && raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === tok).map(g => ({ name: String(g[3] || '').trim(), phone: normPhone(g[4] || ''), id: String(g[2] || '').trim() }));
       const out = [];
       for (const g of guests) {
@@ -11166,7 +11201,7 @@ const WORKER = {
     /* 01/11: automations registry + live state + 7-day read-only projection (automations.html).
        Deliberately not given runDailyEngine/runEventDayBlasts/snapshotCached: their dry paths write KV. */
     if (url.pathname === '/api/automations' && request.method === 'POST') {
-      return handleAutomations(request, env, origin, { fetchSnapshot });
+      return handleAutomations(request, env, origin, { fetchSnapshot: () => readSnapshot(env, 'ops') });
     }
     if (url.pathname === '/api/audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -11279,7 +11314,7 @@ const WORKER = {
       const tier = Number(b.tier) || 0, planText = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[String(b.plan || '')] || '';
       const hn = Number(b.hostess) || (b.hostess ? 2 : 0);
       const description = String(b.description || `${tier} רשומות ${planText}${hn === 1 ? ' + דיילת אחת' : hn > 1 ? ` + ${hn} דיילות` : ''}`).trim();
-      const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+      const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         sum, description, token: '', kind: 'special', scope: 'all', label: description, n: tier,
         name: String(b.name || 'לקוח ishur'), phone: String(b.phone || '').replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
         successUrl: 'https://ishur.io/thanks.html', cancelUrl: 'https://ishur.io/',
@@ -11335,7 +11370,7 @@ const WORKER = {
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpinfo:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'guest');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
       const c = i => String(ev[i] ?? '').trim();
@@ -11356,7 +11391,7 @@ const WORKER = {
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
       if (!isWaPhone(phone)) return deny(400, 'bad-phone', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'guest');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
       const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
@@ -11373,7 +11408,7 @@ const WORKER = {
       row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-L' + (gRows.length + 1);
       row[3] = name; row[4] = phone; row[5] = String(party); row[13] = String(party); row[15] = 'מגיע'; row[14] = now;
       row[24] = 'נרשם מהקישור · לא בהודעות'; row[25] = now; row[28] = tok;
-      const r = await fetch(env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      const r = await hookFetch(env, env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event_type: 'guests_file', token: tok, file_name: 'rsvp-link', guest_count: 1, skipped_count: 0, append_body: JSON.stringify({ values: [row] }) }) }).catch(() => null);
       if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
       await env.RATE.put('selfreg:' + tok + ':' + phone, now);
@@ -11484,7 +11519,7 @@ const WORKER = {
          (no Grow round-trip), the second (link:true) mints the payment link */
       if (available && env.GROW_LINK_HOOK && b.link !== false) {
         try {
-          const mk = await fetch(env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
               successUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token + '&paid=hostess' : 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token : 'https://ishur.io/#pricing',
@@ -11731,7 +11766,7 @@ const WORKER = {
       }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
       if (await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+      const raw = await readSnapshot(env, 'write').catch(() => null);
       const rows = (raw && raw.events && raw.events.values) || [];
       const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
       if (idx < 0) return deny(404, 'unknown-token', origin);
@@ -11792,7 +11827,7 @@ const WORKER = {
       const phone = b.phone != null ? normPhone(b.phone || '') : '';
       if (!name) return deny(400, 'bad-name', origin);
       if (b.phone != null && !isWaPhone(phone)) return deny(400, 'bad-phone', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'write');
       const gRows = ((raw && raw.guests && raw.guests.values) || []);
       let rowIdx = -1;
       gRows.forEach((g, i) => { if (String((g || [])[2] || '').trim() === gid && String(g[28] || '').trim() === tok) rowIdx = i; });
@@ -11881,7 +11916,7 @@ const WORKER = {
       const gid = String(b.guest_id || '').trim();
       const outcome = b.outcome === 'לא מגיע' ? 'לא מגיע' : 'מגיע';
       const party = outcome === 'מגיע' ? Math.max(1, Math.min(30, parseInt(b.party, 10) || 1)) : 0;
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'guest');
       const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
       if (!row) return deny(404, 'unknown-guest', origin);
       const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim() };
@@ -11904,7 +11939,7 @@ const WORKER = {
       /* Richard 21/10: two separate pools. "tier" = seats the package already
          covers (175 of 200 uploaded → 25 more, one by one, no counter).
          Default = the 10 free extras on top of the package. */
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'write');
       const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       const cap = await tierWithPromo(env, tok, tierOf(ev));
@@ -11924,7 +11959,7 @@ const WORKER = {
       row[0] = rec.clientId; row[1] = rec.name || ''; row[2] = 'G-' + tok.slice(0, 8) + '-' + (gRows.length + 1);
       row[3] = name; row[4] = phone; row[5] = String(party);
       row[24] = 'נוסף מהדשבורד'; row[25] = now; row[28] = tok;
-      const r = await fetch(env.HOOK_EVENTS, {
+      const r = await hookFetch(env, env.HOOK_EVENTS, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ event_type: 'guests_file', token: tok, file_name: 'dashboard', guest_count: 1, skipped_count: 0, append_body: JSON.stringify({ values: [row] }) }),
       }).catch(() => null);
@@ -11968,7 +12003,7 @@ const WORKER = {
       /* Richard, 11/09: no Grow API — Make has a "create payment link" module.
          GROW_LINK_HOOK is that scenario's webhook; it answers {url}. */
       if (env.GROW_LINK_HOOK) {
-        const mk = await fetch(env.GROW_LINK_HOOK, {
+        const mk = await hookFetch(env, env.GROW_LINK_HOOK, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             sum: item.price, description: desc, token: tok, kind, scope, label: item.label, n: item.n,
@@ -12018,7 +12053,7 @@ const WORKER = {
       const token = String(b.token || '').trim();
       if (!/^[0-9a-f-]{20,40}$/.test(token)) return deny(400, 'bad-token', origin);
       if (await overBudget(env, 'rl:fb:' + token, 20, 3600)) return deny(429, 'slow-down', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'guest');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === token);
       if (!ev) return deny(404, 'bad-token', origin);
       const name = String(ev[2] || '').trim(), phone = normPhone(ev[3] || '');
@@ -12093,7 +12128,7 @@ const WORKER = {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const [raw, leadRes, states] = await Promise.all([
-        fetchSnapshot(env.HOOK_STATUS),
+        readSnapshot(env, 'ops'),
         env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
         kvPrefix(env, 'leadx:'),
       ]);
@@ -12119,7 +12154,7 @@ const WORKER = {
     if (url.pathname === '/api/feedback-list' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS).catch(() => null);
+      const raw = await readSnapshot(env, 'ops').catch(() => null);
       const evs = {}; for (const r of ((raw && raw.events && raw.events.values) || [])) { const t = String(r[1] || '').trim(); if (t) evs[t] = { name: String(r[34] || r[2] || '').trim(), client: String(r[2] || '').trim(), occasion: String(r[5] || '').trim(), date: String(r[6] || '').trim().slice(0, 10), plan: String(r[31] || '').trim() }; }
       const out = [];
       let cursor;
@@ -12143,7 +12178,7 @@ const WORKER = {
       if (await overBudget(env, 'rl:evchange:' + token, 10, 3600)) return deny(429, 'slow-down', origin);
       const action = String(b.action || '');
       if (!['cancel', 'restore', 'postpone'].includes(action)) return deny(400, 'bad-action', origin);
-      const raw = await fetchSnapshot(env.HOOK_STATUS);
+      const raw = await readSnapshot(env, 'write');
       if (!raw) return deny(502, 'reader-failed', origin);
       const evRows = (raw.events && raw.events.values) || [];
       const idx = evRows.findIndex(r => String((r || [])[1] || '').trim() === token);
@@ -12398,7 +12433,7 @@ const WORKER = {
       const admin = String(stampFields.admin_key || '');
       if (admin) {
         if (!isAdmin(env, admin)) return deny(403, 'bad-admin-key', origin);
-        const raw = await fetchSnapshot(target);
+        const raw = await readSnapshot(env, 'ops');
         if (!raw) return deny(502, 'reader-failed', origin);
         if (stampFields.view === 'biz') {
           /* Richard 21/10: the invoice lives in KV from the moment Morning
@@ -12416,6 +12451,7 @@ const WORKER = {
             const all = await kvPrefix(env, 'subevent:');
             biz.subevents = Object.entries(all).map(([sub, v]) => { try { const r = JSON.parse(v); return r && r.parent ? { token: sub, parent: r.parent, name: r.name, kind: r.kind, kind_he: (SUBEVENT_KINDS[r.kind] || {}).he || '', template: r.template, created: r.created || '' } : null; } catch { return null; } }).filter(Boolean);
           } catch { biz.subevents = []; }
+          { const si = snapInfo(raw); if (si && si.stale) biz.stale_since = si.stale_since; }   /* 04/11 Make burn */
           return okJson(biz, origin);
         }
         return okJson(buildCallQueue(raw), origin);
@@ -12445,14 +12481,14 @@ const WORKER = {
         await env.RATE.put('otp:' + phone,
           JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 30 * 86400 }),
           { expirationTtl: 30 * 86400 });
-        const raw = await fetchSnapshot(target);
+        const raw = await readSnapshot(env, 'dashboard');
         if (!raw) return deny(502, 'reader-failed', origin);
         const evs = eventsForPhone(raw, phone);
         if (!evs.length) return deny(404, 'no-events', origin);
         return okJson({ ok: true, events: evs }, origin);
       }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
-      const raw = await fetchSnapshot(target);
+      const raw = await readSnapshot(env, 'dashboard');
       if (!raw) return deny(502, 'reader-failed', origin);
       const refCount = env.RATE ? Number(await env.RATE.get('refcred:' + token.slice(0, 8))) || 0 : 0;
       /* which waves already fired, so the page can lock those rows */
@@ -12602,6 +12638,8 @@ const WORKER = {
           clip: String(brain.testimonialLink || '').trim(),
         };
       }
+      /* 04/11 Make burn: Make down → the last good copy, and the page can say so */
+      { const si = snapInfo(raw); if (si && si.stale) snapshot.stale_since = si.stale_since; }
       return okJson(snapshot, origin);
     }
 
@@ -12613,7 +12651,7 @@ const WORKER = {
       }
       const result = callOutcome(String(stampFields.outcome || '').trim(), stampFields.tries);
       if (!result || !stampFields.guest_id) return deny(400, 'bad-outcome', origin);
-      const r = await fetch(target, {
+      const r = await hookFetch(env, target, {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           event_type: 'call_result',
@@ -12664,7 +12702,7 @@ const WORKER = {
 
     let upstream;
     try {
-      upstream = await fetch(target, { method: 'POST', headers, body: forwardBody });
+      upstream = await hookFetch(env, target, { method: 'POST', headers, body: forwardBody });
     } catch (e) {
       return deny(502, 'upstream-unreachable', origin);
     }
