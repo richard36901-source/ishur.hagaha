@@ -6,7 +6,7 @@
    Shalev's campaign (META_OTHER_CAMPAIGNS) is read-only here, always.
    ========================================================================== */
 import { normPhone, seenOnce, sha256Hex, isAdmin, okJson, deny } from './lib.js';
-import { slackPost, slackSend, alert } from './slack.js';
+import { slackPost, slackSend, slackResolve, alert } from './slack.js';
 import { logEvent } from './evlog.js';
 import { ilDate } from './shir.js';
 
@@ -82,7 +82,7 @@ export async function adsHealth(env) {
 export async function adsHealthAlert(env) {
   if (!env.RATE || !env.META_ADS_TOKEN) return;
   const h = await adsHealth(env);
-  if (!h.ok) { await slackSend(env, `⚠️ *מודעות*: לא הצלחתי לקרוא את מצב החשבון ממטא — ${h.error || ''}`, { urgent: true }); return; }
+  if (!h.ok) { await slackSend(env, `⚠️ *מודעות*: לא הצלחתי לקרוא את מצב החשבון ממטא — ${h.error || ''}`, { urgent: true, key: 'ads_read_fail' }); return; }
   const fresh = [];
   for (const i of h.issues) {
     const key = 'adsalert:' + (i.id || i.level) + ':' + String(i.why || i.status).slice(0, 40).replace(/\s+/g, '_');
@@ -92,7 +92,7 @@ export async function adsHealthAlert(env) {
   }
   if (!fresh.length) return;
   const lines = fresh.map(i => `• ${i.level === 'account' ? 'חשבון' : i.level === 'campaign' ? 'קמפיין' : i.level === 'adset' ? 'סט' : 'מודעה'} *${i.name}* — ${i.status}${i.why ? ' · ' + i.why : ''}`);
-  await slackSend(env, `🚨 *שגיאה במודעות* (${fresh.length})\n${lines.join('\n')}\nלטיפול: business.facebook.com/adsmanager`, { urgent: true });
+  await slackSend(env, `🚨 *שגיאה במודעות* (${fresh.length})\n${lines.join('\n')}\nלטיפול: business.facebook.com/adsmanager`, { urgent: true, key: 'ads_issues', level: fresh.length, sev: 'P1', action: 'לטפל ב-Ads Manager — business.facebook.com/adsmanager' });
 }
 
 /* ── ads account watchdog (Richard 04/10/26) ───────────────────────────────
@@ -119,7 +119,7 @@ export async function adsHealthWatch(env) {
   await env.RATE.put('adswatch:last', verdict).catch(() => {});
   const billing = 'https://business.facebook.com/latest/billing_hub/accounts/details/?payment_account_id=1944903292858482&business_id=1888051741895896';
   if (a.account_status === 1 && !broken.length) {
-    if (last) await slackPost(env, `✅ פרסום | חשבון המודעות חזר לפעול. ${rows.length} מודעות פעילות, אין שגיאות.`);
+    if (last) await slackResolve(env, 'ads_account', `חשבון המודעות חזר לפעול. ${rows.length} מודעות פעילות, אין שגיאות.`);   /* CLOSE of ads_account */
     return { ok: true, verdict };
   }
   const lines = [];
@@ -131,7 +131,7 @@ export async function adsHealthWatch(env) {
   if (broken.length) {
     lines.push(`⚠️ ${broken.length} מודעות פעילות לא מוצגות: ` + broken.map(x => `${x.name.replace(/[‎‏]/g, '').slice(0, 30)} (${(x.issues_info || []).map(i => i.error_summary).join(', ') || x.effective_status})`).join(' · '));
   }
-  await slackPost(env, lines.join('\n'), { urgent: true });
+  await slackPost(env, lines.join('\n'), { urgent: true, key: 'ads_account', sev: a.account_status !== 1 ? 'P1' : 'P2', level: broken.length, action: a.account_status !== 1 ? 'כרטיס אשראי — רק אתה: ' + billing : 'לבדוק את המודעות ב-Ads Manager' });
   await logEvent(env, { area: 'פרסום', action: 'חשבון מודעות: ' + verdict, ok: false, review: true, detail: lines.join(' ').slice(0, 300) }).catch(() => {});
   return { ok: false, verdict };
 }
@@ -198,7 +198,7 @@ export async function capiPurchase(env, { phone, email, value, ref }) {
   const r = await metaAds(env, `/${META_PIXEL_ID}/events`, 'POST', { data: [ev] });
   if (!r || !r.ok) {
     await slackPost(env, `⚠️ CAPI: רכישה ${ref} לא דווחה למטא — ` +
-      JSON.stringify((r && r.data && r.data.error) || 'no-response').slice(0, 220)).catch(() => {});
+      JSON.stringify((r && r.data && r.data.error) || 'no-response').slice(0, 220), { oneoff: true }).catch(() => {});   /* oneoff: one purchase, one CAPI attempt */
   }
 }
 

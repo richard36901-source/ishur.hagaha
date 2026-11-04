@@ -484,7 +484,7 @@ export async function noaChaseTick(env, deps = {}) {
   try { out.scan = await scanMondayNotAnswered(env, { deps }); } catch (e) { out.scan = { ok: false, why: String(e && e.message) }; }
   try { out.drain = await drainNoaChase(env, { max: 2, deps: { ...deps, memory: await memoryBlock(env, 'נועה') } }); } catch (e) { out.drain = { ok: false, why: String(e && e.message) }; }
   if (out.drain && out.drain.dialed) {
-    await slackPost(env, `📞 *נועה יצאה ל-${out.drain.dialed} שיחות רדיפה* ללידים מהלוח שלא ענו.`, { quiet: true }).catch(() => {});
+    await slackPost(env, `📞 *נועה יצאה ל-${out.drain.dialed} שיחות רדיפה* ללידים מהלוח שלא ענו.`, { quiet: true, oneoff: true }).catch(() => {});   /* oneoff: one dial batch (quiet) */
   }
   stream(env, { kind: 'event', area: 'נועה', action: 'סבב רדיפה', ok: true, detail: JSON.stringify({ scan: out.scan && { queued: (out.scan.queued || []).length, skipped: (out.scan.skipped || []).length, why: out.scan.why }, drain: out.drain }).slice(0, 600) }).catch(() => {});
   return out;

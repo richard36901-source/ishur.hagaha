@@ -787,7 +787,7 @@ export async function toggle(env, d, b, now = Date.now()) {
   else await env.RATE.put(OFF_PREFIX + sid, JSON.stringify({ at: new Date(now).toISOString(), by: who, reason }));
   const msg = `${b.enabled ? '🟢 הופעל' : '🔴 כובה'} · ${BY_ID[sid].name_he} (${sid})${reason ? ' · ' + reason : ''}${!b.enabled ? ` · נעצרות ${radius.messages_next_days.total} הודעות ב-7 ימים, ${radius.events_affected.length} אירועים` : ''}`;
   await d.auditRecord(env, { kind: 'admin', area: 'מרכז בקרה', action: msg, ok: true, review: !b.enabled, data: { switch: sid, enabled: b.enabled, before, who, reason, blast: b.enabled ? null : { messages: radius.messages_next_days.total, events: radius.events_affected.length } } }).catch(() => {});
-  await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg}`).catch(() => {});
+  await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg}`, { oneoff: true }).catch(() => {});   /* oneoff: an admin action */
   const chg = await recordChange(env, { kind: 'toggle', who, summary_he: `${b.enabled ? 'הופעל' : 'כובה'}: ${BY_ID[sid].name_he} (${sid})${reason ? ' · ' + reason : ''}`,
     details: { switch: sid, id, enabled: b.enabled, before_off: before, who, reason, reverts: b.reverts || null, blast: b.enabled ? null : { messages: radius.messages_next_days.total, events: radius.events_affected.length } },
     revert: { possible: true, how: 'toggle', payload: { id: sid, enabled: !b.enabled } } }, now);
@@ -827,7 +827,7 @@ export async function editSetting(env, d, b, now = Date.now()) {
   const show = x => (x && typeof x === 'object' ? Object.values(x).join('–') : String(x));
   const msg = `✏️ ${s.he}${field && s.per ? ' · ' + field.slice(0, 8) : ''}: ${show(w.before)} → ${show(w.after)}${reason ? ' · ' + reason : ''}`;
   await d.auditRecord(env, { kind: 'admin', area: 'מרכז בקרה', action: msg, ok: true, review: true, data: { setting: id, field, before: w.before, after: w.after, who, reason, blast: radius.effects } }).catch(() => {});
-  await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg} · ${who}`).catch(() => {});
+  await d.slackPost(env, `🎛️ *מרכז בקרה* · ${msg} · ${who}`, { oneoff: true }).catch(() => {});   /* oneoff: an admin action */
   const chg = await recordChange(env, { kind: s.per ? 'hold' : 'edit', who, summary_he: msg.replace(/^✏️ /, ''),
     details: { setting: id, field, from: w.before, to: w.after, who, reason, reverts: b.reverts || null, blast: radius.effects },
     revert: { possible: true, how: 'edit', payload: { id, field, value: w.before } } }, now);
@@ -864,7 +864,7 @@ export async function revertChange(env, d, b, now = Date.now(), { fetchFn = fetc
   } else if (e.revert.how === 'toggle' && p.pause !== undefined) {
     if (p.pause) await env.RATE.put('paused', new Date(now).toISOString());
     else { await env.RATE.delete('paused'); await env.RATE.put('pacer:pending', d.ilDate(new Date(now)), { expirationTtl: 2 * 86400 }).catch(() => {}); }
-    await d.slackPost(env, `🎛️ *מרכז בקרה* · שחזור: ${p.pause ? '⏸️ כל השליחות הושהו' : '▶️ השליחות חזרו לפעול'} · ${who}`).catch(() => {});
+    await d.slackPost(env, `🎛️ *מרכז בקרה* · שחזור: ${p.pause ? '⏸️ כל השליחות הושהו' : '▶️ השליחות חזרו לפעול'} · ${who}`, { oneoff: true }).catch(() => {});   /* oneoff: an admin action */
     const c = await recordChange(env, { kind: 'pause', who, summary_he: `${p.pause ? 'עצירה כללית הופעלה' : 'עצירה כללית בוטלה'} (שחזור)`, details: { paused: p.pause, reverts: id, who }, revert: { possible: true, how: 'toggle', payload: { pause: !p.pause } } }, now);
     newId = c ? c.id : null; r = { body: { paused: p.pause } };
   } else if (e.revert.how === 'toggle') {
@@ -875,7 +875,7 @@ export async function revertChange(env, d, b, now = Date.now(), { fetchFn = fetc
     const api = await cfRollback(env, p.version_id, { message: `ops center rollback ${id} by ${who}`, fetchFn });
     if (!api.ok) return { status: 200, body: { ...base, applied: false, manual: true, api, he: api.manual ? 'אין CF_API_TOKEN בוורקר: להריץ את הפקודה במחשב' : 'Cloudflare סירב: להריץ את הפקודה במחשב', command: preview.command } };
     await d.auditRecord(env, { kind: 'admin', area: 'בנייה', action: `↩️ שחזור גרסה ל-${String(p.version_id).slice(0, 8)} (מרכז בקרה)`, ok: true, review: true, data: { change: id, version_id: p.version_id, who } }).catch(() => {});
-    await d.slackPost(env, `🎛️ *מרכז בקרה* · ↩️ הוורקר הוחזר לגרסה ${String(p.version_id).slice(0, 8)} · ${who}`).catch(() => {});
+    await d.slackPost(env, `🎛️ *מרכז בקרה* · ↩️ הוורקר הוחזר לגרסה ${String(p.version_id).slice(0, 8)} · ${who}`, { oneoff: true }).catch(() => {});   /* oneoff: an admin action */
     const c = await recordChange(env, { kind: 'revert', who, summary_he: `הוורקר הוחזר לגרסה ${String(p.version_id).slice(0, 8)}`, details: { reverts: id, version_id: p.version_id, from_version: p.from_version || null, deployment_id: api.deployment_id },
       revert: p.from_version ? { possible: true, how: 'rollback', payload: { version_id: p.from_version, script: p.script, from_version: p.version_id } } : null }, now);
     newId = c ? c.id : null; r = { body: api };

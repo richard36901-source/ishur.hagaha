@@ -40,6 +40,31 @@
    Every settings change is written to the change log (kind 'edit').
    ========================================================================== */
 import { recordChange, listChanges } from './changes.js';
+import { sweep as gateSweep, info as gateInfo } from './slack-gate.js';
+
+/* 04/11 slack-gate: the Slack key of a notification = the CONDITION, shared with
+   the brain (finding:<id>) so one condition = one Slack line whoever saw it first.
+   Standing rules are swept each tick (a key that stopped appearing → "✅ נפתר"). */
+export const STANDING = ['incident', 'cap_high', 'failures_spike', 'hold_stale', 'unanswered', 'event_readiness', 'balances_low'];
+export const INFO_RULES = ['cap_high', 'brain_autofix', 'template_status', 'deploy', 'info'];
+export const ONEOFF_RULES = ['new_lead', 'lead_reply', 'payment', 'weekly_digest'];
+export function slackKeyOf(n) {
+  const e = String(n.entity || '');
+  if (n.rule === 'incident') return e || 'incident';
+  if (n.rule === 'cap_high') return 'cap_high';
+  if (n.rule === 'event_readiness') return 'event_readiness:' + e.split(':').slice(0, 2).join(':');
+  return n.rule + ':' + (e || '-');
+}
+export function slackOptsOf(n) {
+  const o = { key: slackKeyOf(n), sev: n.severity, urgent: sevRank(n.severity) <= 1 };
+  if (n.rule === 'cap_high') { o.level = n.data && n.data.pct; o.bands = [85, 90, 97, 100]; }
+  if (n.rule === 'failures_spike') { o.level = n.data && n.data.failed; o.bands = [15, 50, 100, 250]; }
+  if (n.rule === 'event_readiness') o.level = n.data && n.data.gaps ? n.data.gaps.length : null;
+  if (INFO_RULES.includes(n.rule) && n.severity !== 'P1' && n.severity !== 'P0') o.cls = 'info';
+  if (ONEOFF_RULES.includes(n.rule)) o.oneoff = true;   /* a lead / a payment / the weekly digest: single events */
+  if (n.deep_link) o.action = 'לפתוח: https://ishur.io/ops.html' + n.deep_link;
+  return o;
+}
 
 export const RICHARD_PHONE = '972545764327';
 export const SEVERITIES = ['P0', 'P1', 'P2', 'P3'];
@@ -66,6 +91,8 @@ export const RULES = [
   { id: 'template_status', he: 'תבנית אושרה / נדחתה', sev: 'P2', window: 24 * H, d: { on: true, min_severity: 'P2', channels: ['app', 'slack'], quiet: true } },
   { id: 'brain_autofix', he: 'המוח תיקן משהו לבד', sev: 'P3', window: 6 * H, d: { on: true, min_severity: 'P2', channels: ['app', 'slack'], quiet: true } },
   { id: 'deploy', he: 'גרסה חדשה עלתה', sev: 'P3', window: 30 * 24 * H, d: { on: true, min_severity: 'P3', channels: ['app'], quiet: true } },
+  /* 04/11 slack-gate: info-class Slack lines (cap %, template approved, brain auto-fix…) land here, app only, and in the 09:00 digest */
+  { id: 'info', he: 'מידע (במקום סלאק)', sev: 'P3', window: 0, d: { on: true, min_severity: 'P3', channels: ['app'], quiet: true } },
   { id: 'weekly_digest', he: 'סיכום שבועי (ראשון)', sev: 'P3', window: 6 * 24 * H, d: { on: true, min_severity: 'P3', channels: ['app', 'slack'], quiet: false, digest_hour: 9 } },
 ];
 export const RULE = Object.fromEntries(RULES.map(r => [r.id, r]));
@@ -334,14 +361,22 @@ export async function deliver(env, d, cand, { settings = null, now = Date.now() 
   const cfg = (settings || {})[cand.rule] || mergeCfg(cand.rule, await kjson(env, CFG_PREFIX + cand.rule));
   if (!cfg.on) return null;
   const ddk = DD + cand.rule + ':' + String(cand.entity || '-').slice(0, 200);
-  if (env.RATE && await env.RATE.get(ddk).catch(() => null)) return null;
-  await kput(env, ddk, new Date(now).toISOString(), (rule.window || H) / 1000);
+  if (rule.window > 0) {
+    if (env.RATE && await env.RATE.get(ddk).catch(() => null)) return null;
+    await kput(env, ddk, new Date(now).toISOString(), rule.window / 1000);
+  }
   const n = makeNotification({ ...cand, at: null, severity: cand.severity || rule.sev }, now);
   if (cand.at) n.data = { ...(n.data || {}), happened_at: cand.at };
   n.channels = routeChannels(n, cfg, now);
   const icon = { P0: '🚨', P1: '🔴', P2: '🟡', P3: 'ℹ️' }[n.severity];
   const link = 'https://ishur.io/ops.html' + n.deep_link;
-  if (n.channels.includes('slack') && d && d.slackSend) await d.slackSend(env, `${icon} *${rule.he}* · ${n.title_he}${n.body_he ? '\n' + n.body_he : ''}\n${link}`, { urgent: sevRank(n.severity) <= 1 }).catch(() => { n.channels = n.channels.filter(c => c !== 'slack'); });
+  const slackWanted = n.channels.includes('slack') || (INFO_RULES.includes(rule.id) && (cfg.channels || []).includes('slack'));
+  if (slackWanted && rule.id !== 'info') {
+    const so = slackOptsOf(n), body = `${icon} *${rule.he}* · ${n.title_he}${n.body_he ? '\n' + n.body_he : ''}\n${link}`;
+    /* info class: the notification is already stored in-app above; only the digest line is added (no second store) */
+    if (so.cls === 'info') { await gateInfo(env, body, { key: so.key, now }).catch(() => {}); n.channels = n.channels.filter(c => c !== 'slack'); n.slack_class = 'info'; }
+    else if (d && d.slackSend) await d.slackSend(env, body, so).catch(() => { n.channels = n.channels.filter(c => c !== 'slack'); });
+  }
   if (n.channels.includes('push')) {
     const q = (await kjson(env, PUSH_KEY)) || [];
     q.push({ id: n.id, at: n.at, severity: n.severity, title_he: n.title_he, deep_link: n.deep_link, url: link });
@@ -398,7 +433,8 @@ export async function runNotify(env, d, { now = Date.now(), fns = {} } = {}) {
   const sinceIso = new Date(since).toISOString(), today = ilDay(now);
   const settings = await loadSettings(env);
   const cands = [];
-  const step = async (name, fn) => { try { const r = await fn(); if (r && r.length) cands.push(...r); } catch (e) { out.errors.push(name + ': ' + String(e && e.message || e).slice(0, 120)); } };
+  const ran = new Set();
+  const step = async (name, fn) => { try { const r = await fn(); ran.add(name); if (r && r.length) cands.push(...r); } catch (e) { out.errors.push(name + ': ' + String(e && e.message || e).slice(0, 120)); } };
   const { store, leads } = await storeLeads(env);
   let clients = null; const getClients = async () => (clients = clients || await clientRows(env, d, store, now));
   await step('new_lead', async () => evaluate.new_lead(leads, sinceIso));
@@ -418,6 +454,17 @@ export async function runNotify(env, d, { now = Date.now(), fns = {} } = {}) {
     return [{ rule: 'weekly_digest', entity: 'week:' + today, title_he: digestText(s), deep_link: '#/overview', data: s }];
   });
   for (const cnd of cands) { const n = await deliver(env, d, cnd, { settings, now }).catch(() => null); if (n) out.fired.push({ id: n.id, rule: n.rule, severity: n.severity, channels: n.channels }); }
+  /* 04/11 slack-gate sweep: a standing key that stopped appearing resolved → one "✅ נפתר" */
+  out.closed = [];
+  const stepOf = { incident: 'incident', cap_high: 'realtime', failures_spike: 'realtime', hold_stale: 'hold_stale', unanswered: 'unanswered', event_readiness: 'event_readiness', balances_low: 'balances_low' };
+  for (const rule of STANDING) {
+    if (!ran.has(stepOf[rule])) continue;
+    if (rule === 'unanswered' && !inHours(now)) continue;   /* not evaluated out of hours: nothing to close */
+    const active = cands.filter(c => c.rule === rule).map(c => slackKeyOf({ ...c, rule }));
+    const prefix = rule === 'incident' ? 'finding:' : rule === 'cap_high' ? 'cap_high' : rule + ':';
+    const r = await gateSweep(env, prefix, active, { now, post: d && d.slackSend ? t => d.slackSend(env, t, { oneoff: true, urgent: false }) : null }).catch(() => ({ closed: [] }));   /* oneoff: the CLOSE line itself is the single event */
+    out.closed.push(...r.closed);
+  }
   if (d.auditQueryEx && env.RATE) { try { const { backfillCounters } = await import('./counters.js'); out.counters = await backfillCounters(env, d, { now, converge: ilClock(now).m < 10 }); } catch (e) { out.errors.push('counters: ' + String(e && e.message || e).slice(0, 80)); } }
   await kput(env, TICK_KEY, { at: new Date(now).toISOString(), fired: out.fired.length, errors: out.errors });
   return out;

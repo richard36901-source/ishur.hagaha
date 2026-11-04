@@ -384,7 +384,7 @@ export async function continueSubevents(env, d) {
       const total = Object.keys(await d.kvPrefix(env, `shsent:${token}:`).catch(() => ({}))).length;
       await markSub(env, sub, { completed_at: new Date().toISOString(), completed_sent: total });
       await d.recordChange(env, { kind: 'subevent', actor: 'system', summary_he: `${sub.name}: הושלם, נשלחו ${total}`, details: { token, parent: sub.parent, template: sub.template, sent: total } }).catch(() => {});
-      await d.slackPost(env, `${sub.name}: הושלם, נשלחו ${total}`).catch(() => {});
+      await d.slackPost(env, `${sub.name}: הושלם, נשלחו ${total}`, { oneoff: true }).catch(() => {});   /* oneoff: completed once */
       row.completed = true; row.total = total;
     }
     out.push(row);
@@ -413,7 +413,7 @@ async function continueReminder(env, sub, d) {
     const total = Object.keys(await d.kvPrefix(env, `shrem:${sub.token}:`).catch(() => ({}))).length;
     await markSub(env, sub, { reminder_completed_at: new Date().toISOString(), reminder_sent: total });
     await d.recordChange(env, { kind: 'subevent', actor: 'system', summary_he: `${sub.name}: תזכורת הושלמה, נשלחו ${total}`, details: { token: sub.token, parent: sub.parent, phase: 'reminder', template: r.template, sent: total } }).catch(() => {});
-    await d.slackPost(env, `${sub.name}: תזכורת הושלמה, נשלחו ${total}`).catch(() => {});
+    await d.slackPost(env, `${sub.name}: תזכורת הושלמה, נשלחו ${total}`, { oneoff: true }).catch(() => {});   /* oneoff: completed once */
     row.completed = true; row.total = total;
   }
   return row;

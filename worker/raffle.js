@@ -205,7 +205,7 @@ export async function handleRaffle(request, env, origin, url, d) {
       const r = await d.sendText(env, phone, ticketsText(c, e.tickets), 'client', { who: 'הגרלת ביקורות', token }).catch(() => null);
       wa = r && r.ok ? 'sent' : 'send-failed';
     }
-    if (d.slackSend) await d.slackSend(env, `🎟️ *הגרלה* · ${e.name || phone} · ${path === 'enter' ? 'סרטון' : 'ביקורת בגוגל'} → כרטיסים ${e.tickets.join(', ')}`, { urgent: false }).catch(() => {});
+    if (d.slackSend) await d.slackSend(env, `🎟️ *הגרלה* · ${e.name || phone} · ${path === 'enter' ? 'סרטון' : 'ביקורת בגוגל'} → כרטיסים ${e.tickets.join(', ')}`, { urgent: false, oneoff: true }).catch(() => {});   /* oneoff: one raffle entry */
   }
   return d.okJson({ ok: true, tickets: e.tickets, added, video: !!e.video_claimed_at, google: !!e.google_claimed_at, draw_at: c.draw_at, prize_he: c.prize_he, whatsapp: wa === 'sent' }, origin);
 }

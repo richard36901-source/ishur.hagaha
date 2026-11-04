@@ -40,7 +40,8 @@ import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from 
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
-import { slackQuietHours, slackSend, flushSlackQueue, slackPost, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
+import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
+import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
@@ -66,7 +67,7 @@ import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledge
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
 import { fixedCostAction } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
-import { handleOps, brainFns } from './ops.js';
+import { handleOps, brainFns, buildCapacity } from './ops.js';
 import { handleRaffle } from './raffle.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
@@ -189,7 +190,7 @@ async function creditReferral(env, payerPhone, newToken) {
     const cur = Number(await env.RATE.get(key)) || 0;
     await env.RATE.put(key, String(cur + 1), { expirationTtl: 730 * 86400 });
     await alert(env, 'הפניה מאומתת 🎉',
-      `לקוח חדש שילם דרך קישור ההפניה של ${m[1]} — נזקף זיכוי דרגה`, '');
+      `לקוח חדש שילם דרך קישור ההפניה של ${m[1]} — נזקף זיכוי דרגה`, '', { oneoff: true });   /* oneoff: a referral was verified — single event */
     return;
   }
 }
@@ -235,7 +236,7 @@ async function salesCtx(env, phone, text, name, sfCtx) {
 function salesDeps(env) {
   return {
     send: async (phone, text) => { try { const r = await sendText(env, phone, text, 'client', { who: 'נועה (זרימת מכירה)' }); return { ok: !!(r && r.ok) }; } catch { return { ok: false }; } },
-    slack: (t) => slackPost(env, t).catch(() => {}),
+    slack: (t, o) => slackPost(env, t, { oneoff: true, ...o }).catch(() => {}),   /* oneoff: salesflow lines are single lead events (quote sent, asked for a human, flow stopped) */
     log: (o) => logEvent(env, { area: 'לידים', ok: o.ok !== false, ...o }).catch(() => {}),
     isClient: (phone) => isClientPhone(env, phone),
     /* Monday notes + updates and the CRM (leadx:) notes, cached 10 min per lead */
@@ -363,7 +364,7 @@ async function handleDesignPaid(env, flat) {
     await env.RATE.put('design:' + token, JSON.stringify({ status: 'paid', ref, phone, sum, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
   }
   const local = String(phone || '').replace(/^972/, '0');
-  try { await slackSend(env, `💳 שולם עיצוב הזמנה · ₪${sum || '?'} · ${name} ${local} · ${token ? 'אירוע ' + token.slice(0, 8) : 'בלי טוקן אירוע — לשייך ידנית'}`, { urgent: true, now: true }); } catch {}
+  try { await slackSend(env, `💳 שולם עיצוב הזמנה · ₪${sum || '?'} · ${name} ${local} · ${token ? 'אירוע ' + token.slice(0, 8) : 'בלי טוקן אירוע — לשייך ידנית'}`, { urgent: true, now: true, oneoff: true }); } catch {}   /* oneoff: a payment landed */
   await logEvent(env, { area: 'תשלום', action: 'שולם עיצוב הזמנה', ok: true, review: !token, phone, ref, token, detail: `₪${sum} · ${String(flat.paymentDesc || '').slice(0, 80)}` }).catch(() => {});
   return new Response('design-paid', { status: 200 });
 }
@@ -388,7 +389,7 @@ async function handleDesignBrief(request, env, origin) {
   const local = br.phone.replace(/^972/, '0');
   try {
     await slackSend(env, `🎨 *בריף עיצוב הזמנה* · ${designItemName(br)} · ${local}${paid ? ' · ' + paid : ''}` +
-      (itemId ? ' · נפתח במאנדיי' : `\n⚠️ לא נפתח פריט במאנדיי — לפתוח ידנית. ${mErr}`), { urgent: true, now: true });
+      (itemId ? ' · נפתח במאנדיי' : `\n⚠️ לא נפתח פריט במאנדיי — לפתוח ידנית. ${mErr}`), { urgent: true, now: true, oneoff: true });   /* oneoff: a brief was submitted */
   } catch {}
   await logEvent(env, { area: 'עיצוב הזמנה', action: itemId ? 'בריף התקבל ונפתח במאנדיי' : 'בריף התקבל, מאנדיי נכשל', ok: !!itemId, review: !itemId,
     phone: br.phone, token: br.token, detail: itemId ? 'item ' + itemId : mErr }).catch(() => {});
@@ -416,7 +417,7 @@ function flowView(host, token, f, brief) {
     brief_editable: !(f.versions || []).length,
   };
 }
-const dslack = (env, token, text) => slackSend(env, `🎨 ${text} · אירוע ${token.slice(0, 8)} · https://ishur.io/dashboard.html?t=${token}`, { urgent: true, now: true }).catch(() => {});
+const dslack = (env, token, text) => slackSend(env, `🎨 ${text} · אירוע ${token.slice(0, 8)} · https://ishur.io/dashboard.html?t=${token}`, { urgent: true, now: true, oneoff: true }).catch(() => {});   /* oneoff: one design step happened */
 
 /* client side, token auth: POST {token, action:'state'|'brief'|'approve'|'changes'|'buy', ...} */
 async function handleDesignFlow(request, env, origin, host) {
@@ -510,7 +511,7 @@ async function grantDesignRound(env, flat, dr, { ref, phone, sum }) {
   const token = (q && q.kind === 'design_round' && q.token) || '';
   if (!token || (dr.token && dr.token !== token) || (sum && Number(sum) + 0.001 < DESIGN_ROUND_PRICE)) {
     await env.RATE.put('addonpark:' + ref, JSON.stringify({ phone, sum, ref, addon: { kind: 'design_round', ...dr }, at: new Date().toISOString() }), { expirationTtl: 60 * 86400 }).catch(() => {});
-    await alert(env, 'סבב עיצוב', `שולם סבב תיקונים (₪${sum || '?'}) אבל ההצעה לא נמצאה/לא תואמת — לשייך ידנית`, `ref=${ref} q=${dr.id} t=${dr.token}`);
+    await alert(env, 'סבב עיצוב', `שולם סבב תיקונים (₪${sum || '?'}) אבל ההצעה לא נמצאה/לא תואמת — לשייך ידנית`, `ref=${ref} q=${dr.id} t=${dr.token}`, { oneoff: true });   /* oneoff: one payment that needs manual matching */
     return new Response('design-round-parked', { status: 200 });
   }
   await env.RATE.put('grow:' + ref, 'design_round', { expirationTtl: 30 * 86400 });
@@ -596,7 +597,7 @@ async function handleGrowIpn(request, env, url) {
     if (/תמיכה חודשית|ריטיינר/.test(String(flat.paymentDesc || ''))) return new Response('ignored-non-ishur', { status: 200 });
     await alert(env, 'תשלום Grow לא זוהה (נאמר פעם אחת)',
       `תשלום שלא זוהה כ-ishur לא הופעל (כנראה עסק אחר באותו חשבון). אם זה כן לקוח שלנו — שלח לי את המזהה ${missId} ואני מריץ אותו מיד`,
-      flatDump.slice(0, 600));
+      flatDump.slice(0, 600), { oneoff: true });   /* oneoff: already said once per payment */
     return new Response('ignored-non-ishur', { status: 200 });
   }
 
@@ -627,7 +628,7 @@ async function processGrowPayment(env, flat) {
         body: JSON.stringify({ problem: 'missing-ref-or-phone', raw: flat }),
       }).catch(() => {});
     }
-    await alert(env, 'תשלום Grow', 'הגיע תשלום בלי אסמכתא או טלפון — טיפול ידני', JSON.stringify(flat).slice(0, 400));
+    await alert(env, 'תשלום Grow', 'הגיע תשלום בלי אסמכתא או טלפון — טיפול ידני', JSON.stringify(flat).slice(0, 400), { oneoff: true });   /* oneoff: one payment */
     return new Response('accepted-incomplete', { status: 200 });
   }
 
@@ -667,7 +668,7 @@ async function processGrowPayment(env, flat) {
   /* Richard 04/10: every payment, one line in Slack, at once */
   try {
     const local = String(phone || '').replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-    await slackPost(env, `💳 *תשלום חדש* · ₪${flat.paymentSum || flat.sum || '?'} · ${String(flat.paymentDesc || '').slice(0, 60)} · ${flat.payerName || flat.fullName || ''} ${local} · ${isNewClient ? 'לקוח חדש' : 'לקוח קיים'}`, { urgent: true, now: true });
+    await slackPost(env, `💳 *תשלום חדש* · ₪${flat.paymentSum || flat.sum || '?'} · ${String(flat.paymentDesc || '').slice(0, 60)} · ${flat.payerName || flat.fullName || ''} ${local} · ${isNewClient ? 'לקוח חדש' : 'לקוח קיים'}`, { urgent: true, now: true, oneoff: true });   /* oneoff: a payment landed */
   } catch {}
 
   if (env.RATE) {
@@ -694,7 +695,7 @@ async function processGrowPayment(env, flat) {
         const travelIn = (cf2.match(/travel:(\d{1,3})/) || bought.desc.match(/נסיעות\s*(\d{3})/) || [])[1];
         await env.RATE.put('hostess:' + token, JSON.stringify({ n: bought.hostess, at: new Date().toISOString(), ref,
           date: req ? req.date : '', city: req ? req.city : '', travel_included: travelIn ? Number(travelIn) : (req && req.center ? 0 : null) }), { expirationTtl: 400 * 86400 }).catch(() => {});
-        try { await slackPost(env, `🧑‍💼 *נרכשו ${bought.hostess === 1 ? 'דיילת אחת' : bought.hostess + ' דיילות'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ${bought.desc}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות, הנסיעות נקבעות בהגדרת האירוע לפי העיר`, { urgent: true, now: true }); } catch {}
+        try { await slackPost(env, `🧑‍💼 *נרכשו ${bought.hostess === 1 ? 'דיילת אחת' : bought.hostess + ' דיילות'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ${bought.desc}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות, הנסיעות נקבעות בהגדרת האירוע לפי העיר`, { urgent: true, now: true, oneoff: true }); } catch {}   /* oneoff: a purchase */
       }
     } catch {}
     /* they paid — they are not an abandoned lead any more, in either
@@ -737,7 +738,7 @@ async function processGrowPayment(env, flat) {
   }
   /* if the writer failed, forget the dedupe key so Grow's retry works */
   if (!ok && env.RATE) await env.RATE.delete('grow:' + ref);
-  if (!ok) await alert(env, 'תשלום Grow', 'Make לא קלט את התשלום (writer-failed)', `ref=${ref} phone=${phone} sum=${sum}`);
+  if (!ok) await alert(env, 'תשלום Grow', 'Make לא קלט את התשלום (writer-failed)', `ref=${ref} phone=${phone} sum=${sum}`, { oneoff: true });   /* oneoff: one payment ref */
   else await logEvent(env, { area: 'תשלום', action: 'תשלום נקלט → נשלח למייק לכתיבה בגיליון', ok: true, phone, ref, token,
     detail: `${name} · ₪${sum} · ${payMethod} · ${isNewClient ? 'לקוח חדש' : 'לקוח חוזר'}` });
 
@@ -779,7 +780,7 @@ async function processGrowPayment(env, flat) {
       event_date: (purchase && purchase.event_date) || '',
       plan: purchase ? purchase.plan : '', records: purchase ? purchase.records : '',
       addons: purchase ? addonList(purchase) : [],
-    }) + (promo ? ` · 🎫 ${promo.label} · קוד ${promo.code || ''}` + (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : ''));
+    }) + (promo ? ` · 🎫 ${promo.label} · קוד ${promo.code || ''}` + (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : ''), { oneoff: true });   /* oneoff: a deal closed */
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
     /* Richard 21/10: the lead in Monday closes itself the moment money lands */
     if (!flat._simulated && !isTestPhone(env, phone)) {
@@ -827,7 +828,7 @@ async function processGrowPayment(env, flat) {
         await logEvent(env, { area: 'חשבוניות', action: `חשבונית מס-קבלה ${inv.number} הופקה במורנינג`, ok: true, phone, token, ref, detail: `₪${sum} · ${payMethod || ''} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — תישלח בווצאפ'} · ${inv.url}` });
       } else if (inv.why !== 'not-configured') {
         await logEvent(env, { area: 'חשבוניות', action: 'הפקת חשבונית במורנינג נכשלה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}`.trim() });
-        await alert(env, 'חשבוניות', `חשבונית ל-${name || phone} (₪${sum}) לא הופקה: ${inv.why}`, ref);
+        await alert(env, 'חשבוניות', `חשבונית ל-${name || phone} (₪${sum}) לא הופקה: ${inv.why}`, ref, { oneoff: true });   /* oneoff: one invoice for one payment ref */
       }
     }
     /* Richard, 07/09: the invoice goes out by email and ONLY by email. A
@@ -1061,7 +1062,7 @@ async function pullMetaFormLeads(env, { dry = false, since = null } = {}) {
       const ts = Math.floor(Date.parse(l.created_time) / 1000); if (ts > newest) newest = ts;
       if (dry) continue;
       await env.RATE.put(key, l.created_time, { expirationTtl: 180 * 86400 });
-      if (!phone) { await slackPost(env, `📋 *ליד מטופס מטא בלי טלפון* · ${name || '?'} · ${email || ''} · ${ad.name}`); continue; }
+      if (!phone) { await slackPost(env, `📋 *ליד מטופס מטא בלי טלפון* · ${name || '?'} · ${email || ''} · ${ad.name}`, { oneoff: true }); continue; }   /* oneoff: a lead arrived */
       const fields = {
         name, phone, email, occasion: cleanOccasion(occasion), notes: extra, event_type: 'lead',
         source: 'meta_leadform', utm_source: 'meta', utm_medium: 'leadform', utm_campaign: lead.campaign, utm_content: ad.name,
@@ -1093,7 +1094,7 @@ async function pullMetaFormLeads(env, { dry = false, since = null } = {}) {
         `*מודעה:* ${ad.name} · ${lead.campaign}`,
         sheetOk ? '' : '⚠️ לא נרשם בגיליון הלידים (מאנדיי כן)', '',
         `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> ליד חם, להתקשר`,
-      ].filter(Boolean).join('\n'));
+      ].filter(Boolean).join('\n'), { oneoff: true });   /* oneoff: a lead arrived */
     }
   }
   if (!dry && newest > sinceTs) await env.RATE.put('metaleads:since', new Date(newest * 1000).toISOString());
@@ -1126,7 +1127,7 @@ async function leadToSlack(env, phone, rec, why) {
     '',
     `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> נטש ולא שילם, אפשר להתקשר`,
   ].filter((l, i, arr) => l !== '' || (arr[i - 1] !== '' && i !== arr.length - 1));
-  await slackPost(env, lines.join('\n'));
+  await slackPost(env, lines.join('\n'), { oneoff: true });   /* oneoff: one lead ping (leadslack marker) */
 }
 
 /* The abandoned-lead sequence, exactly as Richard specced it (01.09):
@@ -1338,7 +1339,7 @@ async function handleEventFlag(request, env, origin) {
     const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${idx + 2}`, values: [[body.on ? 'כן' : '']] }]);
     await logEvent(env, { area: 'אירוע', action: body.on ? 'האירוע סומן כמבוטל (בוטל? = כן)' : 'ביטול האירוע הוסר', ok: okw, review: !okw, token,
       detail: `${String(rows[idx][34] || rows[idx][2] || '').trim()} · ${String(body.reason || 'מלוח הבקרה')}` });
-    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`, { quiet: true });
+    await slackPost(env, `${body.on ? '❌' : '↩️'} אירוע ${token.slice(0, 8)} ${body.on ? 'סומן כמבוטל' : 'הוחזר לפעילות'} · ${String(rows[idx][34] || rows[idx][2] || '').trim()}`, { quiet: true, oneoff: true });   /* oneoff: an admin action */
     return okJson({ ok: okw, flag, on: body.on }, origin);
   }
   if (typeof body.on !== 'boolean') {
@@ -1357,7 +1358,7 @@ async function handleEventFlag(request, env, origin) {
   }
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
-  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`, { quiet: true });
+  await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`, { quiet: true, oneoff: true });   /* oneoff: an admin action */
   return okJson({ ok: true, flag, on: body.on }, origin);
 }
 
@@ -1565,7 +1566,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
     if (env.RATE) await env.RATE.put('addonpark:' + ref, JSON.stringify({ phone, name, sum, ref, addon, at: new Date().toISOString() }), { expirationTtl: 60 * 86400 });
     await logEvent(env, { area: 'תשלום', action: 'תוספת נרכשה אך לא נמצא אירוע פעיל לטלפון — הוחנה', ok: false, review: true, phone, ref,
       detail: `${addon.desc} · ₪${sum} · addonpark:${ref}` });
-    await alert(env, 'תוספת', `${name || phone} רכש/ה "${addon.desc}" (₪${sum}) ואין אירוע פעיל על ${phone}. לשייך ידנית.`, ref);
+    await alert(env, 'תוספת', `${name || phone} רכש/ה "${addon.desc}" (₪${sum}) ואין אירוע פעיל על ${phone}. לשייך ידנית.`, ref, { oneoff: true });   /* oneoff: one purchase */
     return { ok: false, why: 'no-active-event' };
   }
   const token = ev.token, row = idx + 2, evRow = rows[idx];
@@ -1599,19 +1600,19 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
     let prev = 0; try { prev = Number(JSON.parse(await env.RATE.get('hostesstravel:' + token) || '{}').paid || 0); } catch {}
     await env.RATE.put('hostesstravel:' + token, JSON.stringify({ paid: prev + 1, lastSum: sum, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
     await logEvent(env, { area: 'תשלום', action: 'נסיעות דיילת שולמו', ok: true, phone, token, ref, detail: `₪${sum} · תשלום ${prev + 1}` });
-    await slackSend(env, `🚗 *נסיעות דיילת שולמו* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} (תשלום ${prev + 1})${flat._simulated ? ' · [בדיקה]' : ''}`, { urgent: true });
+    await slackSend(env, `🚗 *נסיעות דיילת שולמו* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} (תשלום ${prev + 1})${flat._simulated ? ' · [בדיקה]' : ''}`, { urgent: true, oneoff: true });   /* oneoff: a payment */
     return { ok: true };
   }
   if (addon.kind === 'selfreg') {
     if (env.RATE) await env.RATE.put('selfregpaid:' + token, JSON.stringify({ at: new Date().toISOString(), ref }));
-    await slackSend(env, `💳 *הפעלת הודעות לנרשמים מהקישור* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — מעכשיו הם מקבלים תזכורות, יום-לפני ושולחן`, { urgent: true });
+    await slackSend(env, `💳 *הפעלת הודעות לנרשמים מהקישור* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — מעכשיו הם מקבלים תזכורות, יום-לפני ושולחן`, { urgent: true, oneoff: true });   /* oneoff: a payment */
     return { ok: true, kind: 'selfreg' };
   }
   if (addon.kind === 'calls' || addon.kind === 'postpone' || addon.kind === 'cancel') {
     const key = addon.kind === 'calls' ? 'callsaddon:' + token : 'msgaddon:' + token + ':' + addon.kind;
     if (env.RATE) await env.RATE.put(key, JSON.stringify({ ref, at: new Date().toISOString(), sum }), { expirationTtl: 200 * 86400 });
     await logEvent(env, { area: 'תשלום', action: `תוספת נרכשה: ${addon.desc}`, ok: true, phone, token, ref, detail: `₪${sum}` });
-    await slackSend(env, `💳 *תוספת ${addon.kind === 'calls' ? 'סבב שיחות' : addon.kind === 'postpone' ? 'הודעת דחייה' : 'הודעת ביטול'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${addon.kind !== 'calls' ? ' — לשלוח את ההודעה מלוח השליטה' : ' — הסבב ייצא בחלון הבא'}`, { urgent: true });
+    await slackSend(env, `💳 *תוספת ${addon.kind === 'calls' ? 'סבב שיחות' : addon.kind === 'postpone' ? 'הודעת דחייה' : 'הודעת ביטול'}* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${addon.kind !== 'calls' ? ' — לשלוח את ההודעה מלוח השליטה' : ' — הסבב ייצא בחלון הבא'}`, { urgent: true, oneoff: true });   /* oneoff: a payment */
     return { ok: true, token };
   }
   if (addon.kind === 'upgrade') {
@@ -1636,7 +1637,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
     }
     await logEvent(env, { area: 'תשלום', action: 'שדרוג חבילה נרכש', ok: !!okw, review: !okw, phone, token, ref,
       detail: `${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : ' · כתיבה לגיליון נכשלה, לעדכן ידנית'}` });
-    await slackSend(env, `⬆️ *שדרוג חבילה* · ${name || phone} · אירוע ${token.slice(0, 8)}\n\n${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : '\n\n🔴 *נדרשת פעולה ממך:* הכתיבה לגיליון נכשלה, לעדכן חבילה וכמות ידנית'}`, { urgent: !okw });
+    await slackSend(env, `⬆️ *שדרוג חבילה* · ${name || phone} · אירוע ${token.slice(0, 8)}\n\n${before} ${PLAN_HE[beforePlan]} → ${tier} ${PLAN_HE[plan]} · ₪${sum}${okw ? '' : '\n\n🔴 *נדרשת פעולה ממך:* הכתיבה לגיליון נכשלה, לעדכן חבילה וכמות ידנית'}`, { urgent: !okw, oneoff: true });   /* oneoff: a payment (upgrade) */
     return { ok: true, token, before, after: tier };
   }
   if (addon.kind === 'extrasend') {
@@ -1662,11 +1663,11 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
           pick = e.toISOString().slice(0, 10);
         }
         if (pick > floor) await sheetBatchWrite(env, [{ range: `אירועים!AP${row}`, values: [[pick]] }]).catch(() => {});
-        else await slackPost(env, `⚠️ *שליחה נוספת* · אירוע ${token.slice(0, 8)}: שולם, אבל אין יום פנוי בין התזכורת לאירוע. לקבוע תאריך ידנית בגיליון (AP).`).catch(() => {});
+        else await slackPost(env, `⚠️ *שליחה נוספת* · אירוע ${token.slice(0, 8)}: שולם, אבל אין יום פנוי בין התזכורת לאירוע. לקבוע תאריך ידנית בגיליון (AP).`, { key: 'wave3_noslot:' + token.slice(0, 8), sev: 'P1', action: 'לקבוע תאריך לגל 3 ידנית בגיליון (AP)' }).catch(() => {});
       }
     }
     await logEvent(env, { area: 'תשלום', action: 'תוסף "שליחה נוספת" נרכש — גל 3 נפתח', ok: true, phone, token, ref, detail: `${addon.desc} · ₪${sum}` });
-    await slackPost(env, `💳 *תוסף שליחה נוספת* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — גל 3 ייצא בתאריך שבגיליון`);
+    await slackPost(env, `💳 *תוסף שליחה נוספת* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} — גל 3 ייצא בתאריך שבגיליון`, { oneoff: true });   /* oneoff: a payment */
     return { ok: true, token };
   }
   const before = await tierWithPromo(env, token, tierOf(evRow));
@@ -1688,7 +1689,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   }
   await logEvent(env, { area: 'תשלום', action: 'תוספת מוזמנים נרכשה — המכסה הוגדלה, נפתחה העלאה נוספת', ok: okw, review: !okw, phone, token, ref,
     detail: `מכסה ${before} → ${after} · +${addon.n} · ₪${sum} · "${addon.desc}"` });
-  await slackPost(env, `💳 *תוספת ${addon.n} מוזמנים* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} · מכסה ${before} → ${after}. הלקוח יכול להעלות קובץ נוסף (כפולים מסוננים).`);
+  await slackPost(env, `💳 *תוספת ${addon.n} מוזמנים* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum} · מכסה ${before} → ${after}. הלקוח יכול להעלות קובץ נוסף (כפולים מסוננים).`, { oneoff: true });   /* oneoff: a payment */
   const txt = `התוספת נקלטה 🙌 המכסה של ${ev.event_name || 'האירוע'} עכשיו ${after} הזמנות. אפשר להעלות קובץ עם המוזמנים החדשים כאן: https://ishur.io/upload.html?t=${token} (מספרים שכבר ברשימה יסוננו אוטומטית).`;
   const wa = await sendText(env, phone, txt, 'client', { who: 'נועה (מערכת)', token });
   if (!wa.ok) await logEvent(env, { area: 'ווצאפ', action: 'הודעת תוספת ללקוח לא יצאה (מחוץ לחלון 24ש) — לשלוח ידנית', ok: false, review: true, phone, token, detail: wa.error });
@@ -1812,7 +1813,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
       if (!replace) return deny(409, 'already-uploaded', origin);
       if (await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
       const del = await deleteGuestRows(env, token);
-      if (!del.ok) { await alert(env, 'העלאה', 'החלפת רשימה נכשלה', token + ': ' + (del.why || '')); return deny(502, 'replace-failed', origin); }
+      if (!del.ok) { await alert(env, 'העלאה', 'החלפת רשימה נכשלה', token + ': ' + (del.why || ''), { oneoff: true }); return deny(502, 'replace-failed', origin); }   /* oneoff: one upload request failed */
       await logEvent(env, { area: 'העלאה', action: `הלקוח החליף את רשימת המוזמנים (${del.deleted} שורות נמחקו)`, ok: true, token, phone: rec.phone || '' }).catch(() => {});
       merge = false;
     }
@@ -1860,7 +1861,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
     const billable = countBillable(guests) + (merge ? mergeBase : 0);
     /* Shalev, 10/09: up to 10 guests over the package are free */
     if (tierNum && billable > tierNum + ADDON_RATES.freeGuests) {
-      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} רשומות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`);
+      await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} רשומות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`, { key: 'over_quota:' + String(rec.token || rec.phone || ''), level: billable, action: 'להציע הגדלה; ההעלאה חסומה עד אז' });
       return new Response(JSON.stringify({
         ok: false, error: 'over-tier', allowed: tierNum, got: billable,
       }), { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
@@ -1920,7 +1921,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
       st.written = true; return okJson({ ok: true, merged: true, guests: guests.length, duplicates: duplicates.length, skipped: skipped.length }, origin);
     }
     /* Richard, 10/09: "update me once she filled the form" */
-    await slackSend(env, `📋 *רשימת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} מוזמנים${skipped.length ? ' · ' + skipped.length + ' שורות דולגו' : ''} · ${file.name || ''}`, { urgent: true }).catch(() => {});
+    await slackSend(env, `📋 *רשימת מוזמנים הועלתה* · אירוע ${token.slice(0, 8)} · ${guests.length} מוזמנים${skipped.length ? ' · ' + skipped.length + ' שורות דולגו' : ''} · ${file.name || ''}`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: a list was uploaded */
     st.written = true; return okJson({ ok: true, guests: guests.length, skipped: skipped.length }, origin);
 }
 
@@ -2008,7 +2009,7 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   }).catch(() => null);
   if (!r || r.status !== 200) return deny(502, 'writer-failed', origin);
   if (out.host_roles) await writeHostRoles(env, token, out.host_roles);
-  await slackSend(env, `⚙️ *הגדרות האירוע נשמרו* · אירוע ${token.slice(0, 8)}${out.title ? ' · ' + String(out.title).slice(0, 40) : ''}${out.event_date ? ' · ' + out.event_date : ''}${out.image_url ? ' · עם הזמנה' : ''}${hostessNote}`, { urgent: true }).catch(() => {});
+  await slackSend(env, `⚙️ *הגדרות האירוע נשמרו* · אירוע ${token.slice(0, 8)}${out.title ? ' · ' + String(out.title).slice(0, 40) : ''}${out.event_date ? ' · ' + out.event_date : ''}${out.image_url ? ' · עם הזמנה' : ''}${hostessNote}`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: settings saved once by the client */
   return okJson({ ok: true, image: !!out.image_url, video: !!out.video_url }, origin);
 }
 
@@ -2150,7 +2151,7 @@ async function waGuestFile(env, from, doc) {
   const billable = countBillable(guests);
   if (tierNum && billable > tierNum) {
     await sendText(env, from, `הרשימה כוללת ${billable} רשומות, והחבילה שנרכשה מכסה עד ${tierNum}. אפשר להגדיל את החבילה בקלות, פשוט כתבו לנו כאן ונשלח קישור.`);
-    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${billable} רשומות מול חבילת ${tierNum}`);
+    await slackPost(env, `📈 *הזדמנות הגדלה* · ${rec.name || ''} ${phone}: שלח ${billable} רשומות מול חבילת ${tierNum}`, { key: 'over_quota:' + String(phone || ''), level: billable, action: 'להציע הגדלה' });
     return;
   }
   const now = new Date().toISOString();
@@ -2469,10 +2470,10 @@ async function processRetellEvent(env, body) {
         const who = cname || 'מתקשר ללא שם';
         const ph = rec.phone;
         if (bridged) {
-          await slackPost(env, `📞 *נועה העבירה שיחה* — ${who} (${ph}) חובר ל${tried[tried.length - 1] === 'richard' ? 'ריצ׳רד' : 'שלו'}. ${dur ? dur + ' שנ׳' : ''}`).catch(() => {});
+          await slackPost(env, `📞 *נועה העבירה שיחה* — ${who} (${ph}) חובר ל${tried[tried.length - 1] === 'richard' ? 'ריצ׳רד' : 'שלו'}. ${dur ? dur + ' שנ׳' : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a call was transferred */
         } else {
           const msg = `📞 ${who} (${ph}) ביקש/ה נציג ונועה ניסתה להעביר (${tried.join(' → ')}) ואף אחד לא ענה. לחזור אליו/ה. סיכום: ${String(ca.call_summary || '').slice(0, 200)}`;
-          await slackPost(env, msg).catch(() => {});
+          await slackPost(env, msg, { oneoff: true }).catch(() => {});   /* oneoff: a call ended */
           await logEvent(env, { area: 'שיחות', action: 'בקשת נציג — ההעברה לא נענתה', ok: false, review: true, phone: ph, detail: tried.join(' → ') }).catch(() => {});
         }
       }
@@ -2495,7 +2496,7 @@ async function processRetellEvent(env, body) {
     const party = body.args && body.args.party_size != null ? String(body.args.party_size) : '';
     await logEvent(env, { area: 'שיחות', action: 'תוצאת שיחה ממספר לא מזוהה — אין שורה לעדכן', ok: false, review: true, phone: inbPhone,
       detail: `תוצאה: ${outcome || '?'}${party ? ` · ${party} מגיעים` : ''} · לעדכן ידנית` }).catch(() => {});
-    await slackPost(env, `📞 שיר רשמה תוצאה ממספר שלא מופיע בגיליון: ${inbPhone || '?'} · ${outcome || '?'}${party ? ` · ${party} מגיעים` : ''}. לעדכן ידנית.`).catch(() => {});
+    await slackPost(env, `📞 שיר רשמה תוצאה ממספר שלא מופיע בגיליון: ${inbPhone || '?'} · ${outcome || '?'}${party ? ` · ${party} מגיעים` : ''}. לעדכן ידנית.`, { oneoff: true }).catch(() => {});   /* oneoff: one call result */
     return okJsonPlain({ response: action.reply });
   }
 
@@ -2566,7 +2567,7 @@ async function processRetellEvent(env, body) {
     await slackPost(env,
       `📞 *שיחת מכירה של נועה הסתיימה* · ${to}${dur != null ? ` · ${dur} שנ'` : ''}` +
       `${ca.user_sentiment ? ` · סנטימנט: ${ca.user_sentiment}` : ''}` +
-      `${ca.call_summary ? `\n${String(ca.call_summary).slice(0, 400)}` : ''}`).catch(() => {});
+      `${ca.call_summary ? `\n${String(ca.call_summary).slice(0, 400)}` : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a sales call ended */
     return okJsonPlain({ ok: true });
   }
 
@@ -2687,7 +2688,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
   }
   /* a queue that never empties is a silent failure: say so */
   if (queue.length && !dialed.length && !blocked && !quiet) {
-    await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`);
+    await slackPost(env, `📞 *${queue.length} אורחים ממתינים לשיחה ואף אחד לא חויג.* שווה בדיקה.`, { key: 'call_queue_stuck', level: queue.length, bands: [1, 10, 25, 50], sev: 'P1', action: 'לבדוק את Retell/Telnyx ואת חלון החיוג — ishur.io/ops.html#/calls' });
   } else if (dialed.length && !quiet) {
     await slackPost(env, `📞 שיר חייגה ל-${dialed.length} אורחים${blocked ? ` (${blocked} דולגו: מוקפא או חסום)` : ''}. בתור: ${queue.length}`, { quiet: true });
   }
@@ -2837,7 +2838,7 @@ async function bumpRemoveRate(env, kind) {
   if (sent >= 40 && removes / sent >= 0.02 && !(await env.RATE.get('removalert:' + day))) {
     await env.RATE.put('removalert:' + day, '1', { expirationTtl: 3 * 86400 });
     await alert(env, 'קצב הסרות גבוה',
-      `היום ${removes} הסר/טעות מתוך ${sent} הודעות (${Math.round(removes / sent * 100)}%). מעל 2% = גל שנקרא כספאם. לבדוק איזה אירוע/מספר, ולשקול להאט גלים.`, day);
+      `היום ${removes} הסר/טעות מתוך ${sent} הודעות (${Math.round(removes / sent * 100)}%). מעל 2% = גל שנקרא כספאם. לבדוק איזה אירוע/מספר, ולשקול להאט גלים.`, day, { key: 'optout_rate:' + day, level: removes, sev: 'P1' });
   }
 }
 
@@ -3054,7 +3055,7 @@ async function runShirLeadDial(env, { max = 3 } = {}) {
     }
   }
   if (dialed.length) {
-    await slackPost(env, `📞 *נועה יצאה ל-${dialed.length} שיחות מכירה* ללידים שנטשו ולא ענו להודעות.`);
+    await slackPost(env, `📞 *נועה יצאה ל-${dialed.length} שיחות מכירה* ללידים שנטשו ולא ענו להודעות.`, { oneoff: true });   /* oneoff: one dial batch went out */
   }
   return { dialed: dialed.length, phones: dialed };
 }
@@ -3349,11 +3350,11 @@ async function handleWaWebhook(request, env, url) {
                 const allHeld = ids.length <= 1 || (await Promise.all(ids.map(id => env.RATE.get('wacap:' + id).catch(() => null)))).every(Boolean);
                 if (allHeld && !await env.RATE.get('wacap:guests')) {
                   await env.RATE.put('wacap:guests', new Date().toISOString(), { expirationTtl: 24 * 3600 });
-                  await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.');
+                  await alert(env, 'תקרת וואטסאפ', (ids.length > 1 ? 'כל המספרים של שיר הגיעו' : 'המספר של שיר הגיע') + ' לתקרת 250 שיחות ל-24 שעות (' + code + ')', 'השליחות ממתינות אוטומטית ונמשכות ברגע שמטא משחררת. אף אורח לא נספר כניסיון.', { key: 'wacap:guests', sev: 'P1', action: 'לחכות לפתיחת התקרה (המערכת מודיעה כשנפתחה) או לאמת את העסק במטא' });
                 } else if (!allHeld) {
                   await env.RATE.delete(m.gk).catch(() => {}); await reopenEdMark(env, m);   /* resend via another number next tick */
                   /* once per number per hour, not once per failed message (02/11: hundreds) */
-                  if (!(await seenOnce(env, `capslack:${pidHit || '?'}:${new Date().toISOString().slice(0, 13)}`))) await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true }).catch(() => {});
+                  if (!(await seenOnce(env, `capslack:${pidHit || '?'}:${new Date().toISOString().slice(0, 13)}`))) await slackPost(env, `⚠️ מספר ${pidHit || '?'} של שיר הגיע לתקרה (${code}); השליחה ממשיכה מהמספרים האחרים.`, { quiet: true, cls: 'info', key: 'cap_number:' + (pidHit || '?') }).catch(() => {});
                 }
                 retry = ' · תקרת שיחות של מטא — ימתין וישלח שוב כשתיפתח';
                 continue;
@@ -3427,7 +3428,7 @@ async function handleWaWebhook(request, env, url) {
           const WHY = { '131049': 'מגבלת הודעות שיווקיות של מטא לאיש הקשר', '130472': 'איש הקשר בניסוי של מטא', '131026': 'המספר לא בוואטסאפ / חסם', '131053': 'הקובץ לא נטען אצל מטא', '131042': 'בעיית תשלום בחשבון מטא', '131047': 'עברו 24 שעות, נדרשת תבנית', '132001': 'תבנית לא קיימת/לא מאושרת', '131056': 'יותר מדי הודעות לאותו מספר' };
           const who = st.recipient_id ? String(st.recipient_id).replace(/^972/, '0') : '?';
           let gname = ''; try { const mm = st.id && env.RATE ? JSON.parse(await env.RATE.get('wamid:' + st.id) || 'null') : null; if (mm && mm.phone) gname = (await env.RATE.get('waname:' + mm.phone).catch(() => '')) || ''; } catch {}
-          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '', { quiet: /^(131049|130472|131026|131047|131048|130429)$/.test(String(err.code || '')) });
+          await alert(env, 'לא נמסרה', `${gname ? gname + ' · ' : ''}${who} · ${WHY[String(err.code || '')] || err.title || ''} (${err.code || '?'})${retry.replace(/ · ניסיון/, ' · ניסיון').replace(' — יישלח שוב בפעימה הבאה', ', ינסה שוב').replace(' — נעצר, דורש טיפול ידני', ', נעצר')}`, '', { quiet: /^(131049|130472|131026|131047|131048|130429)$/.test(String(err.code || '')), key: /131042/.test(String(err.code || '')) ? '131042:4499' : 'undelivered:' + String(err.code || '?') + ':' + who, cls: /131026|130472|131049|131047/.test(String(err.code || '')) ? 'info' : 'p1', sev: /131042/.test(String(err.code || '')) ? 'P1' : 'P2' });
         }
       }
     }
@@ -3571,7 +3572,7 @@ async function handleWaWebhook(request, env, url) {
               body ? `*כתב/ה:* ${body.slice(0, 300)}` : '', '',
               'נוסף למאנדיי אוטומטית · לענות מהאינבוקס: https://ishur.io/inbox.html',
               `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>`,
-            ].filter(Boolean).join('\n')).catch(() => {});
+            ].filter(Boolean).join('\n'), { oneoff: true }).catch(() => {});   /* oneoff: a lead arrived (leadslack marker) */
           }
         } catch (e) { await logEvent(env, { area: 'לידים', action: 'ליד מוואטסאפ נכשל', ok: false, review: true, phone: from, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
       }
@@ -3594,7 +3595,7 @@ async function handleWaWebhook(request, env, url) {
     /* an Excel/CSV on WhatsApp = the guest list, same pipeline as the site */
     if (msg.type === 'document' && msg.document) {
       await waGuestFile(env, from, msg.document).catch(async (e) => {
-        await alert(env, 'קובץ בוואטסאפ', 'קליטת קובץ נכשלה', `${from}: ${e && e.message}`);
+        await alert(env, 'קובץ בוואטסאפ', 'קליטת קובץ נכשלה', `${from}: ${e && e.message}`, { oneoff: true });   /* oneoff: one file failed */
         await say('משהו השתבש בקליטת הקובץ. אפשר לנסות שוב, או להעלות דרך הקישור האישי 🙂');
       });
       continue;
@@ -3703,7 +3704,7 @@ async function handleWaWebhook(request, env, url) {
         : 'אין לחץ, אפשר לעדכן בכל רגע 🙂 ' + ask;
       await say(line);
       await logEvent(env, { area: 'ווצאפ', action: 'לחיצת כפתור ממספר שלא ברשימת מוזמנים', ok: false, review: true, phone: from, detail: `תשובה: ${parsed.outcome}${parsed.party ? ' · ' + parsed.party : ''} · לשייך ידנית לאירוע` });
-      await slackPost(env, `🔎 *מספר לא מזוהה ענה על הזמנה* · ${from} לחץ "${parsed.outcome}". לא נמצא בשום רשימת מוזמנים, ביקשנו שם. לשייך ידנית.`).catch(() => {});
+      await slackPost(env, `🔎 *מספר לא מזוהה ענה על הזמנה* · ${from} לחץ "${parsed.outcome}". לא נמצא בשום רשימת מוזמנים, ביקשנו שם. לשייך ידנית.`, { oneoff: true }).catch(() => {});   /* oneoff: one unknown reply */
       continue;
     }
     if (ch === 'guests' && !guest && parsed.kind !== 'mistake' && parsed.kind !== 'optout' && parsed.kind !== 'nocall') {
@@ -3796,7 +3797,7 @@ async function handleWaWebhook(request, env, url) {
       await serviceReply(env, from, parsed.body, undefined, ch);
     }
     } catch (e) {
-      await alert(env, 'וובהוק וואטסאפ', 'שגיאה בטיפול בהודעה נכנסת', `${from}: ${e && e.message}`);
+      await alert(env, 'וובהוק וואטסאפ', 'שגיאה בטיפול בהודעה נכנסת', `${from}: ${e && e.message}`, { key: 'wa_webhook_error' });
     }
   }
   return new Response('ok', { status: 200 });
@@ -3927,7 +3928,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
      triage); Slack + the live log carry it. Set GUEST_Q_LINEAR=on to restore. */
   const li = String(env.GUEST_Q_LINEAR || '') !== 'on' ? { ok: false, why: 'off' } : await linearTriageIssue(env, `שאלת אורח · ${guest.name || from} · ${evName}`,
     `**אורח:** ${guest.name || ''} · ${from.replace(/^972/, '0')}\n**אירוע:** ${evName} (${c(5)}, ${heDate(c(6))})\n**לקוח:** ${c(2)} · ${String(ev[3] || '').replace(/^972/, '0')}\n**מצב אורח:** ${guest.rsvp || 'לא ענה'}${guest.party ? ' · ' + guest.party : ''}\n\n**ההודעה:**\n> ${t.slice(0, 1000)}\n\nלענות לאורח מהאינבוקס: https://ishur.io/inbox.html`);
-  await slackPost(env, `💬 *שאלת אורח לבעלי השמחה* <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}> <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>\n*אורח:* ${guest.name || from} (${from.replace(/^972/, '0')})\n*אירוע:* ${evName}\n*הודעה:* "${t.slice(0, 300)}"${li.ok ? `\n*לינאר:* <${li.url}|${li.identifier}>` : li.why === 'no-key' ? '\n_(לינאר: אין עדיין מפתח API)_' : ''}`).catch(() => {});
+  await slackPost(env, `💬 *שאלת אורח לבעלי השמחה* <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}> <@${env.SLACK_SHALEV || 'U0C33AKDF24'}>\n*אורח:* ${guest.name || from} (${from.replace(/^972/, '0')})\n*אירוע:* ${evName}\n*הודעה:* "${t.slice(0, 300)}"${li.ok ? `\n*לינאר:* <${li.url}|${li.identifier}>` : li.why === 'no-key' ? '\n_(לינאר: אין עדיין מפתח API)_' : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a guest asked a question */
   await logEvent(env, { area: 'ווצאפ', action: 'הודעת אורח הועברה לבעלי השמחה', ok: true, review: true, phone: from, token: guest.token, detail: t.slice(0, 200) }).catch(() => {});
   return true;
 }
@@ -4169,7 +4170,7 @@ async function computeServiceReply(env, from, text, who) {
       const ak = 'attackalert:' + phone;
       if (!(await env.RATE.get(ak))) {
         await env.RATE.put(ak, '1', { expirationTtl: 6 * 3600 }).catch(() => {});
-        await slackSend(env, `⚠️ *ניסיון לחלץ הוראות מנועה* · ${phone}\n"${t.slice(0, 200)}"`, { urgent: true });
+        await slackSend(env, `⚠️ *ניסיון לחלץ הוראות מנועה* · ${phone}\n"${t.slice(0, 200)}"`, { urgent: true, key: 'noa_inject:' + phone, sev: 'P1' });
       }
     }
     return { reply, label, silent: false };
@@ -4221,7 +4222,7 @@ async function computeServiceReply(env, from, text, who) {
     }
     const hist = await chatHistory(env, phone).catch(() => []);
     const tail = (hist || []).slice(-6).map(m => (m.role === 'user' ? '👤 ' : '🤖 ') + String(m.content || '').slice(0, 120)).join('\n');
-    await slackSend(env, `🙋 *ביקשו בן אדם* · ${phone}\nנועה יצאה מהשיחה, זה אצלך. ${tail ? '\n' + tail : ''}\nלהחזיר לנועה: /api/human`, { urgent: true }).catch(() => {});
+    await slackSend(env, `🙋 *ביקשו בן אדם* · ${phone}\nנועה יצאה מהשיחה, זה אצלך. ${tail ? '\n' + tail : ''}\nלהחזיר לנועה: /api/human`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: a person asked for a human */
     await logEvent(env, { area: 'שירות AI', action: 'ביקשו בן אדם פעמיים — הועבר לריצ׳רד, נועה שותקת', ok: true, review: true, phone, detail: t.slice(0, 200) }).catch(() => {});
     return { reply: HUMAN_ASK_2, label, silent: false };
   }
@@ -4239,7 +4240,7 @@ async function computeServiceReply(env, from, text, who) {
         await env.RATE.put(lk, '1', { expirationTtl: 7 * 86400 }).catch(() => {});
         /* urgent per Phase 6 (agent misbehaving) — already deduped to once
            per phone per 7 days by the same lk gate above */
-        await slackSend(env, `⚠️ *${label === 'competitor' ? 'שאלה על מתחרה' : 'פנייה מספק/שותפות'} לנועה* · ${phone}\n"${t.slice(0, 200)}"`, { urgent: true });
+        await slackSend(env, `⚠️ *${label === 'competitor' ? 'שאלה על מתחרה' : 'פנייה מספק/שותפות'} לנועה* · ${phone}\n"${t.slice(0, 200)}"`, { urgent: true, key: 'noa_flag:' + label + ':' + phone });
       }
       await env.RATE.put('nr:' + phone, JSON.stringify({ at: new Date().toISOString(), label }), { expirationTtl: 30 * 86400 }).catch(() => {});
     }
@@ -4571,7 +4572,7 @@ function abDeps(env) {
       const j = r ? await r.json().catch(() => ({})) : {};
       return { id, quality: String(j.quality_rating || 'UNKNOWN') };
     })),
-    notify: (t) => slackPost(env, t).catch(() => {}),
+    notify: (t, o) => slackPost(env, t, { oneoff: true, ...o }).catch(() => {}),   /* oneoff: A/B rotation decisions, one per evaluation */
     /* only with AB_AUTOROTATE=on; the invitation is the one type with its own KV switch */
     promote: async (msgType, name) => { if (msgType === 'invite' && env.RATE) await env.RATE.put('invitetmpl', name); },
   };
@@ -4781,14 +4782,14 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       const r = await fetch(`https://graph.facebook.com/v21.0/${clientWabaFor('guests')}/message_templates?name=${job.template}&fields=name,status,category`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
       const j = await r.json(); const t0 = ((j.data || [])[0] || {}); approved = t0.status === 'APPROVED';
       /* 02/11: a MARKETING template to guests who already got messages dies on 131049 — refuse it */
-      if (approved && t0.category === 'MARKETING' && !job.allow_marketing) { approved = false; await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} שיווקית — לא נשלחת לאורחים (131049). צריך תבנית utility.`, token.slice(0, 8)); }
+      if (approved && t0.category === 'MARKETING' && !job.allow_marketing) { approved = false; await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} שיווקית — לא נשלחת לאורחים (131049). צריך תבנית utility.`, token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8), sev: 'P1' }); }
     } catch {}
     const raw = await snapshotCached(env);
     /* 02/11 audit: the job is a KV record set by hand; the event can be
        cancelled or put on hold after it was set — never blast those */
     const evRow = eventRowOf(raw, token);
     if (!dry && (!evRow || String(evRow[27] || '').trim() === 'כן' || await env.RATE.get('hold:' + token))) {
-      if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8));
+      if (!(await seenOnce(env, `edblastoff:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', 'האירוע מבוטל / מושהה / לא נמצא בגיליון — ההודעה לא יצאה', token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8) });
       res.push({ token: token.slice(0, 8), skipped: 'cancelled-or-hold' }); continue;
     }
     const people = await eventDayRecipients(env, token, raw, job);
@@ -4796,7 +4797,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     /* 03/11 R2: an approved combo carries the message even while the job's own template waits at Meta */
     const anyCombo = (await Promise.all(COMBO_NAMES.map(n => giftVariantUsable(env, n).catch(() => false)))).some(Boolean);
     if (!approved && !anyCombo) {
-      if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8));
+      if (!(await seenOnce(env, `edblastwarn:${token}:${today}`))) await alert(env, 'הודעת יום האירוע', `התבנית ${job.template} עדיין לא אושרה במטא — ההודעה לא יצאה`, token.slice(0, 8), { key: 'eventday:' + token.slice(0, 8), sev: 'P1' });
       res.push({ token: token.slice(0, 8), approved: false }); continue;
     }
     /* 02/11 gift line: an event WITHOUT seating carries it on this message
@@ -4841,7 +4842,7 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
     if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei')).catch(() => {});
     await logEvent(env, { area: 'שליחה', action: 'הודעת יום האירוע', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent}${combos ? ` (מאוחדות ${combos})` : ''} · נכשלו ${failed} · דולגו ${skipped}${toTable ? ` · להודעת השולחן ${toTable}` : ''}${waitTmpl ? ` · ממתינים לאישור התבנית ${waitTmpl}` : ''}${heldCap ? ` · held: cap ${heldCap} (בתור לפעימה הבאה)` : ''}` }).catch(() => {});
     if (!failed && !heldCap && !waitTmpl) await env.RATE.delete('edblast:' + token).catch(() => {});
-    if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`).catch(() => {});
+    if (sent || failed) await slackPost(env, `🎉 *הודעת יום האירוע* · ${job.what}: נשלחו ${sent}${failed ? ` · נכשלו ${failed} (ינסה שוב בפעימה הבאה)` : ''}${skipped ? ` · דולגו ${skipped}` : ''}${heldCap ? ` · ממתינים לתקרה ${heldCap}` : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a send completed */
     res.push({ token: token.slice(0, 8), sent, failed, skipped, held_cap: heldCap, combos, to_table: toTable, wait_template: waitTmpl });
   }
   return { ok: true, jobs: res };
@@ -4926,7 +4927,7 @@ async function handleGiftBlast(request, env, origin) {
     }
   }
   await logEvent(env, { area: 'שליחה', action: 'מתנה לאורחים אחרי האירוע (gift-blast)', ok: !failed, review: !!failed, token, detail: `נשלחו ${sent} · נכשלו ${failed} · ממתינים ${plan.counts.hold} · דולגו ${plan.counts.skip}` }).catch(() => {});
-  if (sent || failed) await slackPost(env, `🎁 *מתנה לאורחים* · ${head.event}: נשלחו ${sent}${failed ? ` · נכשלו ${failed}` : ''}${plan.counts.hold ? ` · ממתינים ${plan.counts.hold}` : ''}`).catch(() => {});
+  if (sent || failed) await slackPost(env, `🎁 *מתנה לאורחים* · ${head.event}: נשלחו ${sent}${failed ? ` · נכשלו ${failed}` : ''}${plan.counts.hold ? ` · ממתינים ${plan.counts.hold}` : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a send completed */
   return okJson({ ok: true, ...head, counts: { ...plan.counts, sent, failed }, guests: results }, origin);
 }
 
@@ -4979,7 +4980,7 @@ async function customTemplateSubmit(env, token, text, ev) {
   const rec = { n, name, text, status: j.id ? (String(j.status || 'PENDING').toUpperCase()) : 'FAILED', id: j.id || '', header, reason: j.id ? '' : String((j.error && j.error.error_user_msg) || (j.error && j.error.message) || 'submit-failed').slice(0, 200), at: new Date().toISOString(), checked: '' };
   await env.RATE.put('customtmpl:' + token, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
   await logEvent(env, { area: 'מטא', action: rec.status === 'FAILED' ? 'תבנית בהתאמה אישית נדחתה בהגשה' : 'תבנית בהתאמה אישית הוגשה לאישור', ok: rec.status !== 'FAILED', review: rec.status === 'FAILED', token, ref: name, detail: rec.reason || text.slice(0, 120) });
-  await slackPost(env, `📝 *נוסח הזמנה בהתאמה אישית* · אירוע ${token.slice(0, 8)} · ${rec.status === 'FAILED' ? '⛔ לא התקבל: ' + rec.reason : 'הוגש למטא (' + name + ')'}\n${text.slice(0, 300)}`).catch(() => {});
+  await slackPost(env, `📝 *נוסח הזמנה בהתאמה אישית* · אירוע ${token.slice(0, 8)} · ${rec.status === 'FAILED' ? '⛔ לא התקבל: ' + rec.reason : 'הוגש למטא (' + name + ')'}\n${text.slice(0, 300)}`, { oneoff: true }).catch(() => {});   /* oneoff: a template was submitted */
   return { ok: rec.status !== 'FAILED', rec };
 }
 /* ══ client audit trail (Richard 22/10) ═══════════════════════════════════
@@ -5045,7 +5046,7 @@ async function checkCustomTemplates(env) {
     await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
     const token = k.slice('customtmpl:'.length);
     await logEvent(env, { area: 'מטא', action: st === 'APPROVED' ? 'תבנית בהתאמה אישית אושרה' : `תבנית בהתאמה אישית: ${st}`, ok: st === 'APPROVED', review: st !== 'APPROVED', token, ref: rec.name, detail: rec.reason || '' });
-    await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}${st === 'APPROVED' ? '' : '\nהלקוח רואה את זה בלוח ויכול לערוך ולהגיש שוב בעצמו; עד אז יוצא הנוסח הרגיל.'}`).catch(() => {});
+    await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}${st === 'APPROVED' ? '' : '\nהלקוח רואה את זה בלוח ויכול לערוך ולהגיש שוב בעצמו; עד אז יוצא הנוסח הרגיל.'}`, { oneoff: true }).catch(() => {});   /* oneoff: Meta decided once per template */
   }
   return { checked };
 }
@@ -5088,7 +5089,7 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
     const okw = n ? await sheetBatchWrite(env, data) : true;
     if (okw) { job.done = new Date().toISOString(); job.flagged = n; await env.RATE.put(k, JSON.stringify(job), { expirationTtl: 60 * 86400 }); }
     await logEvent(env, { area: 'שיחות', action: 'סבב שיחות נוסף נפתח', ok: !!okw, review: !okw, token, detail: `${n} אורחים הוחזרו לתור של שיר · ${job.note || ''}` }).catch(() => {});
-    await slackPost(env, `📞 *סבב שיחות נוסף* · אירוע ${token.slice(0, 8)}: ${n} אורחים חזרו לתור של שיר${job.note ? ' · ' + job.note : ''}`).catch(() => {});
+    await slackPost(env, `📞 *סבב שיחות נוסף* · אירוע ${token.slice(0, 8)}: ${n} אורחים חזרו לתור של שיר${job.note ? ' · ' + job.note : ''}`, { oneoff: true }).catch(() => {});   /* oneoff: a round was queued */
     res.push({ token: token.slice(0, 8), flagged: n, ok: !!okw });
   }
   return { ok: true, jobs: res };
@@ -5157,7 +5158,7 @@ async function writeGuestReply(env, guest, outcome, party) {
       JSON.stringify({ guest_id: guest.guest_id, outcome, party: party ?? null, at: new Date().toISOString() }),
       { expirationTtl: 30 * 86400 }).catch(() => {});
     await alert(env, 'תשובת אורח לא נשמרה',
-      `RSVP של ${guest.guest_id} (${outcome}) לא נכתב לגיליון — נשמר לשחזור`, '');
+      `RSVP של ${guest.guest_id} (${outcome}) לא נכתב לגיליון — נשמר לשחזור`, '', { key: 'rsvp_write_fail' });
   }
   return ok;
 }
@@ -5242,7 +5243,7 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     const free = await guestsCapCleared(env);
     if (!free) return { wave: wave.key, sent: 0, skippedOptout: 0, skippedAnswered: 0, skippedDone: 0, failed: 0, truncated: true, held: true, capped: true };
     await env.RATE.delete('wacap:guests').catch(() => {});
-    await slackPost(env, '▶️ *תקרת הוואטסאפ של שיר נפתחה* — הגלים ממשיכים מאיפה שנעצרו.').catch(() => {});
+    await slackResolve(env, 'wacap:guests', '▶️ תקרת הוואטסאפ של שיר נפתחה — הגלים ממשיכים מאיפה שנעצרו.').catch(() => {});   /* CLOSE of the wacap:guests condition (one line) */
   }
   let sent = 0, skippedOptout = 0, skippedAnswered = 0, failed = 0, skippedDone = 0; let deferred = 0;
   let truncated = false;
@@ -5409,7 +5410,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   };
   const raw = await fetchSnapshot(env.HOOK_STATUS);
   if (!raw) {
-    await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '');
+    await alert(env, 'מנוע יומי', 'אין גישה לנתוני הגיליון — הדוחות לא נשלחו', '', { key: 'engine_no_sheet', sev: 'P1' });
     return { ok: false, error: 'no-snapshot' };
   }
   /* date override is allowed in dry runs only — for testing tomorrow safely */
@@ -5438,7 +5439,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
   /* the master switch: stop before a single message is composed */
   if (await sendingPaused(env)) {
-    if (!dry) await slackPost(env, '⏸️ *המנוע היומי לא רץ* — השליחה מושהית ידנית. להפעלה מחדש: המתג במרכז הבקרה.');
+    if (!dry) await slackPost(env, '⏸️ *המנוע היומי לא רץ* — השליחה מושהית ידנית. להפעלה מחדש: המתג במרכז הבקרה.', { key: 'engine_paused', sev: 'P1', action: 'להפעיל מחדש במתג במרכז הבקרה — ishur.io/ops.html#/control' });
     return { ok: true, date: today, paused: true, events: [] };
   }
 
@@ -5492,13 +5493,13 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           [first, 'https://ishur.io/upload.html?t=' + token], { token });
         if (wa.ok) {
           await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
-          await slackPost(env, `🟠 *לקוח תקוע* · ${v.name || ''} ${v.phone}\nשילם אתמול ולא העלה רשימת מוזמנים. נשלחה תזכורת עם הקישור האישי. אפשר לענות לו מהאינבוקס, והוא גם יכול פשוט לשלוח את האקסל בוואטסאפ.`);
+          await slackPost(env, `🟠 *לקוח תקוע* · ${v.name || ''} ${v.phone}\nשילם אתמול ולא העלה רשימת מוזמנים. נשלחה תזכורת עם הקישור האישי. אפשר לענות לו מהאינבוקס, והוא גם יכול פשוט לשלוח את האקסל בוואטסאפ.`, { key: 'client_stuck:' + v.phone, action: 'לענות מהאינבוקס או לחכות לקובץ' });
           await env.RATE.delete('pend:' + token);
           await env.RATE.put('pend2:' + token, today, { expirationTtl: 30 * 86400 });
         }
         out.push({ token, type: 'stuck_client', sent: wa.ok });
       }
-    } catch (e) { await alert(env, 'לקוח תקוע', 'שלב הבדיקה נפל', String(e && e.message)); }
+    } catch (e) { await alert(env, 'לקוח תקוע', 'שלב הבדיקה נפל', String(e && e.message), { key: 'client_stuck_check' }); }
   }
 
   /* ── stage 0.35: the package on the event row, from the payment ──────────
@@ -5543,7 +5544,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       fills.push({ range: `אירועים!${HOST_ROLES_COL}${i + 2}`, values: [[parked]] });
       await env.RATE.delete('hostroles:' + token).catch(() => {});
     }
-    if (fills.length) { const okw = await sheetBatchWrite(env, fills); if (!okw) await alert(env, 'חבילה', 'כתיבת חבילה/מכסה לשורת אירוע נכשלה', `${fills.length} תאים`); }
+    if (fills.length) { const okw = await sheetBatchWrite(env, fills); if (!okw) await alert(env, 'חבילה', 'כתיבת חבילה/מכסה לשורת אירוע נכשלה', `${fills.length} תאים`, { key: 'sheet_write_plan' }); }
   }
 
   /* ── stage 0.4: every paid event's owner is on the clients list ──────────
@@ -5593,7 +5594,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (wa.ok) {
       await addEvCost(env, token, msgCost('ishur_tzikoret_kovetz'));
       if (env.RATE) await env.RATE.put('nosetup:' + token, today, { expirationTtl: 14 * 86400 });
-      await slackPost(env, `🟠 *אירוע משולם בלי הגדרות* · ${ev[2] || ''} ${phone}\nהרשימה הועלתה אבל לא נבחרו תאריך אירוע או מועדי שליחה, ולכן שום הודעה לא תצא. נשלחה תזכורת חזרה לעמוד.`);
+      await slackPost(env, `🟠 *אירוע משולם בלי הגדרות* · ${ev[2] || ''} ${phone}\nהרשימה הועלתה אבל לא נבחרו תאריך אירוע או מועדי שליחה, ולכן שום הודעה לא תצא. נשלחה תזכורת חזרה לעמוד.`, { key: 'no_setup:' + token.slice(0, 8), sev: 'P1', action: 'לבדוק שהלקוח השלים הגדרות — ishur.io/ops.html#/clients?focus=' + token.slice(0, 8) });
     }
     out.push({ token, type: 'no_setup', sent: wa.ok });
   }
@@ -5605,7 +5606,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       let st = null; try { st = JSON.parse(await env.RATE.get('wastat:' + yd)); } catch {}
       if (st && st.out >= 10 && st.fail / st.out >= 0.3 && !(await env.RATE.get('healthalert:' + yd))) {
         await alert(env, 'בריאות ערוץ',
-          `אתמול נכשלו ${st.fail} מתוך ${st.out} שליחות (${Math.round(st.fail / st.out * 100)}%) — לבדוק את איכות המספר במטא`, yd);
+          `אתמול נכשלו ${st.fail} מתוך ${st.out} שליחות (${Math.round(st.fail / st.out * 100)}%) — לבדוק את איכות המספר במטא`, yd, { key: 'channel_health', level: Math.round(st.fail / st.out * 100), bands: [30, 50, 80], sev: 'P1' });
         await env.RATE.put('healthalert:' + yd, '1', { expirationTtl: 3 * 86400 });
       }
     } catch {}
@@ -5638,7 +5639,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       const guestN = gRows.filter(g => String(g[28] || '').trim() === token).length;
       await env.RATE.put('watchdog:' + token, today, { expirationTtl: 30 * 86400 });
       await alert(env, '🚨 אירוע ששולם ולא יצאה ממנו הזמנה',
-        `${ev[2] || ''} (${ev[3] || ''}) · אירוע ${token.slice(0, 8)} · הגל הראשון היה אמור לצאת ב-${w1} (לפני ${lateBy} ימים) ל-${guestN} מוזמנים, ואין סימן שיצא. לבדוק ידנית עכשיו — זה בדיוק המקרה שבו מתגלה מאוחר.`, token.slice(0, 8));
+        `${ev[2] || ''} (${ev[3] || ''}) · אירוע ${token.slice(0, 8)} · הגל הראשון היה אמור לצאת ב-${w1} (לפני ${lateBy} ימים) ל-${guestN} מוזמנים, ואין סימן שיצא. לבדוק ידנית עכשיו — זה בדיוק המקרה שבו מתגלה מאוחר.`, token.slice(0, 8), { key: 'no_invite:' + token.slice(0, 8), sev: 'P1' });
       out.push({ token, type: 'watchdog_no_send', lateBy, guests: guestN });
     }
   } else if (dry) {
@@ -5706,7 +5707,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (wave.key === 3 && env.RATE && !(await env.RATE.get('extrasend:' + token))) {
         if (dry) { out.push({ token, type: 'wave3_held' }); continue; }
         if (!(await env.RATE.get('wave3note:' + token))) {
-          await alert(env, 'גל 3', 'מתוכנן גל שלישי אך תוסף "שליחה נוספת" לא נרכש — הגל מוחזק', token.slice(0, 8));
+          await alert(env, 'גל 3', 'מתוכנן גל שלישי אך תוסף "שליחה נוספת" לא נרכש — הגל מוחזק', token.slice(0, 8), { key: 'wave3_held:' + token.slice(0, 8) });
           await env.RATE.put('wave3note:' + token, today, { expirationTtl: 120 * 86400 });
         }
         continue;
@@ -5732,7 +5733,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (res.held) { out.push({ token, type: 'wave_held', wave: wave.key, why: 'no-guest-number' }); continue; }
       if (!dry && res.failed > 0 && env.RATE && !(await env.RATE.get(`wavefailnote:${token}:${wave.key}:${today}`))) {
         await env.RATE.put(`wavefailnote:${token}:${wave.key}:${today}`, '1', { expirationTtl: 2 * 86400 });
-        await slackPost(env, `⚠️ גל ${wave.key} · ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו, ${res.sent} יצאו. הגל נשאר פתוח וינסה שוב כל 10 דקות (עד 3 ימים מהתאריך). פירוט ביומן המערכת.`);
+        await slackPost(env, `⚠️ גל ${wave.key} · ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו, ${res.sent} יצאו. הגל נשאר פתוח וינסה שוב כל 10 דקות (עד 3 ימים מהתאריך). פירוט ביומן המערכת.`, { key: 'wave_fail:' + token.slice(0, 8) + ':' + wave.key, level: res.failed, sev: 'P1' });
       }
       if (!dry && env.RATE && waveDelivered) {
         await env.RATE.put(flagKey, today, { expirationTtl: 120 * 86400 });
@@ -5744,7 +5745,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           { expirationTtl: 200 * 86400 });
       }
       if (!dry && res.failed) {
-        await alert(env, 'גל שליחה', `גל ${wave.key} לאירוע ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו`, '');
+        await alert(env, 'גל שליחה', `גל ${wave.key} לאירוע ${token.slice(0, 8)}: ${res.failed} שליחות נכשלו`, '', { key: 'wave_fail:' + token.slice(0, 8) + ':' + wave.key, level: res.failed, sev: 'P1' });
       }
       out.push({ token, type: 'wave', ...res });
     }
@@ -5839,7 +5840,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     ]);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
-    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
+    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error, { key: 'send_fail:' + token.slice(0, 8) + ':doch' }); }
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -5939,7 +5940,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (linksMissing) {
       if (!(env.RATE && await env.RATE.get('eoelink:' + token))) {
         await alert(env, 'סוף-אירוע',
-          'חסרים קישורי ביקורת/המלצה (מוח שירות D1/D2) — הודעת הסיום ממתינה', token.slice(0, 8));
+          'חסרים קישורי ביקורת/המלצה (מוח שירות D1/D2) — הודעת הסיום ממתינה', token.slice(0, 8), { key: 'eoe_links:' + token.slice(0, 8) });
         if (env.RATE) await env.RATE.put('eoelink:' + token, today, { expirationTtl: 14 * 86400 });
       }
       continue;
@@ -5952,7 +5953,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       ]);
     if (wa.ok && env.RATE) await env.RATE.put('eoe:' + token, today, { expirationTtl: 120 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_syum'));
-    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error); }
+    if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error, { key: 'send_fail:' + token.slice(0, 8) + ':syum' }); }
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
 
@@ -6027,7 +6028,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     /* only close once something actually went out AND nothing failed — an
        empty pass keeps the flag open so tables assigned later still send */
     if (sent && !cut && !failed && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
-    if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+    if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8), { key: 'send_fail:' + token.slice(0, 8) + ':table', level: failed });
     if (sent || failed) out.push({ token, type: 'seating', sent, failed, combos, ed_skipped: edSkip, truncated: cut });
     if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
   }
@@ -6051,7 +6052,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (!String(ev[31] || '').trim() && !dry && env.RATE &&
         !(await env.RATE.get('plannote:' + token))) {
       await alert(env, 'חבילה חסרה',
-        `לאירוע ${token.slice(0, 8)} אין חבילה בעמודה AF — המערכת מתייחסת אליו כפרמיום. למלא בגיליון`, '');
+        `לאירוע ${token.slice(0, 8)} אין חבילה בעמודה AF — המערכת מתייחסת אליו כפרמיום. למלא בגיליון`, '', { key: 'plan_missing:' + token.slice(0, 8) });
       await env.RATE.put('plannote:' + token, today, { expirationTtl: 60 * 86400 });
     }
     const guests = gRows.filter(g => String(g[28] || '').trim() === token);
@@ -6074,7 +6075,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (env.RATE && !(await env.RATE.get('cancelnote:' + token))) {
           await alert(env, 'אירוע בוטל',
             `האורחים של ${evName} כבר הוזמנו, אך הודעת ביטול לאורחים כלולה רק בהכל כלול (כאן: ${plan}). לשליחה חד-פעמית דברו איתי`,
-            token.slice(0, 8));
+            token.slice(0, 8), { oneoff: true });   /* oneoff: the event was cancelled once */
           if (!dry) await env.RATE.put('cancelnote:' + token, today, { expirationTtl: 60 * 86400 });
         }
         continue;
@@ -6104,7 +6105,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       }
       if (sent) await addEvCost(env, token, sent * msgCost('ishur_bitul'));
       if (!cut && !failed && env.RATE) await env.RATE.put('cancelmsg:' + token, today, { expirationTtl: 120 * 86400 });
-      if (failed) await alert(env, 'הודעת ביטול', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+      if (failed) await alert(env, 'הודעת ביטול', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8), { key: 'send_fail:' + token.slice(0, 8) + ':cancel', level: failed });
       out.push({ token, type: 'cancel_notice', sent, failed, truncated: cut });
       if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
       continue;
@@ -6125,7 +6126,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         else if (env.RATE && !(await env.RATE.get(`postponeask:${token}:${date}`))) {
           await env.RATE.put(`postponeask:${token}:${date}`, today, { expirationTtl: 60 * 86400 });
           await alert(env, 'תאריך האירוע השתנה בגיליון',
-            `${evName}: ${sentDate} → ${date}. הודעת דחייה לאורחים לא נשלחה — לא ברור אם זו דחייה אמיתית או תיקון. לשליחה: /api/event-flag {token, flag:'postponeok', on:true}`, token.slice(0, 8));
+            `${evName}: ${sentDate} → ${date}. הודעת דחייה לאורחים לא נשלחה — לא ברור אם זו דחייה אמיתית או תיקון. לשליחה: /api/event-flag {token, flag:'postponeok', on:true}`, token.slice(0, 8), { oneoff: true });   /* oneoff: the date changed once */
         }
       } else if (plan === 'premium' || postponePaid) {
         if (dry) { out.push({ token, type: 'postpone_notice', would_send: guests.length, from: sentDate, to: date }); }
@@ -6163,7 +6164,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
             await env.RATE.delete('seat:' + token).catch(() => {});
             await env.RATE.delete('daybefore:' + token).catch(() => {});
           }
-          if (failed) await alert(env, 'הודעת דחייה', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+          if (failed) await alert(env, 'הודעת דחייה', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8), { key: 'send_fail:' + token.slice(0, 8) + ':postpone', level: failed });
           out.push({ token, type: 'postpone_notice', sent, failed, truncated: cut });
           if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
         }
@@ -6171,7 +6172,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         out.push({ token, type: 'postpone_note_would_alert', from: sentDate, to: date });
       } else if (env.RATE && !(await env.RATE.get(`postponenote:${token}:${date}`))) {
         await alert(env, 'אירוע נדחה',
-          `${evName} עבר מ-${sentDate} ל-${date}, אך עדכון אורחים כלול רק בהכל כלול (כאן: ${plan})`, token.slice(0, 8));
+          `${evName} עבר מ-${sentDate} ל-${date}, אך עדכון אורחים כלול רק בהכל כלול (כאן: ${plan})`, token.slice(0, 8), { oneoff: true });   /* oneoff: the event was postponed once */
         if (!dry) await env.RATE.put(`postponenote:${token}:${date}`, today, { expirationTtl: 60 * 86400 });
       }
     }
@@ -6227,7 +6228,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (sent) await addEvCost(env, token, sent * msgCost('ishur_yom_lifnei'));
         /* the day-before flag closes only on a clean, complete pass (finding #5) */
         if (!cut && !failed && env.RATE) await env.RATE.put('daybefore:' + token, today, { expirationTtl: 30 * 86400 });
-        if (failed) await alert(env, 'תזכורת יום-לפני', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8));
+        if (failed) await alert(env, 'תזכורת יום-לפני', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8), { key: 'send_fail:' + token.slice(0, 8) + ':daybefore', level: failed });
         if (sent || failed) out.push({ token, type: 'day_before', sent, failed, truncated: cut });
         if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
       }
@@ -6374,11 +6375,11 @@ async function templateCheck(env, out) {
         if (key && t.status === 'APPROVED' && /_u$/.test(t.name) && (await env.RATE.get(key)) !== t.name) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} (UTILITY) אושרה — מחליפה את הגרסה השיווקית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`, { quiet: true });
+          await slackPost(env, `✅ מטא אישרה את *${t.name}* כ-UTILITY — ההזמנות עוברות אליה (בלי מגבלת הודעות שיווקיות).`, { cls: 'info', key: 'template_ok:' + t.name });
         } else if (key && t.status === 'APPROVED' && !c.fallbackOnly && !(await env.RATE.get(key))) {
           await env.RATE.put(key, t.name);
           await logEvent(env, { area: 'מטא', action: `תבנית ${t.name} אושרה — הופעלה אוטומטית`, ok: true, ref: t.name });
-          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`, { quiet: true });
+          await slackPost(env, `✅ מטא אישרה את התבנית *${t.name}* — הופעלה אוטומטית.`, { cls: 'info', key: 'template_ok:' + t.name });
         }
         /* Richard, 11/09: any problem with a template → urgent Slack, and the
            system steps back to the previous template on its own so no send
@@ -6394,7 +6395,7 @@ async function templateCheck(env, out) {
             await slackSend(env, `🚨 *בעיה בתבנית וואטסאפ* · ${t.name}
 מצב: ${t.status}${reason ? ' · סיבה: ' + reason : ''}
 ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקודמת, השליחות ממשיכות.' : 'התבנית לא הייתה בשימוש, שום שליחה לא נפגעה.'}
-מה עכשיו: ${t.status === 'REJECTED' ? 'לתקן את הנוסח ולהגיש מחדש (אני אעשה כשתגיד)' : 'לבדוק ב-WhatsApp Manager למה מטא השהתה/השביתה'}`, { urgent: true });
+מה עכשיו: ${t.status === 'REJECTED' ? 'לתקן את הנוסח ולהגיש מחדש (אני אעשה כשתגיד)' : 'לבדוק ב-WhatsApp Manager למה מטא השהתה/השביתה'}`, { urgent: true, key: 'template_bad:' + t.name, sev: 'P1' });
           }
         }
       }
@@ -6411,16 +6412,26 @@ ${live === t.name ? 'המערכת חזרה אוטומטית לתבנית הקו�
       const j = r ? await r.json().catch(() => null) : null;
       if (j && (j.new_name_status === 'APPROVED' || j.name_status === 'APPROVED' || j.name_status === 'AVAILABLE_WITHOUT_REVIEW')) {
         await env.RATE.put('dispname:ok', new Date().toISOString());
-        await slackSend(env, `✅ מטא אישרה את שם התצוגה של נועה (${j.new_display_name || j.verified_name}). אפשר להעביר את 4499 לפורטפוליו Ishur.io — תגיד לי כשאתה ליד הטלפון לקוד.`, { urgent: true });
+        await slackSend(env, `✅ מטא אישרה את שם התצוגה של נועה (${j.new_display_name || j.verified_name}). אפשר להעביר את 4499 לפורטפוליו Ishur.io — תגיד לי כשאתה ליד הטלפון לקוד.`, { urgent: true, oneoff: true });   /* oneoff: Meta approved once */
         await logEvent(env, { area: 'מטא', action: 'שם תצוגה אושר ל-4499', ok: true, detail: JSON.stringify(j).slice(0, 200) });
       } else if (j && j.new_name_status === 'DECLINED' && !(await env.RATE.get('dispname:declined'))) {
         await env.RATE.put('dispname:declined', new Date().toISOString(), { expirationTtl: 7 * 86400 });
-        await slackSend(env, `🚨 מטא דחתה את שם התצוגה "${j.new_display_name}" ל-4499. צריך שם אחר (למשל "אישורי הגעה ishur.io").`, { urgent: true });
+        await slackSend(env, `🚨 מטא דחתה את שם התצוגה "${j.new_display_name}" ל-4499. צריך שם אחר (למשל "אישורי הגעה ishur.io").`, { urgent: true, oneoff: true });   /* oneoff: Meta rejected once */
       }
     }
   } catch {}
 }
 
+/* 04/11 today's plan for the morning digest: sends planned (capacity planner), guests waiting for Shir, events today */
+async function digestPlan(env) {
+  const today = ilDate();
+  const raw = await snapshotCached(env).catch(() => null);
+  const evs = ((raw && raw.events && raw.events.values) || []).filter(r => !isTestEventRow(r));
+  const events = evs.filter(r => String(r[6] || '').slice(0, 10) === today).length;
+  let calls = null; try { calls = buildCallQueue(raw, 3, await callsAddonTokens(env)).queue.length; } catch {}
+  let sends = null; try { const cap = await buildCapacity(env, opsDeps(), Date.now(), 1); const d = ((cap && cap.days) || []).find(x => x.day === today); if (d) sends = `${d.planned} (תקרה ${d.capacity})`; } catch {}
+  return { sends, calls, events };
+}
 async function runPacer(env, run = null) {
   if (!env.RATE) return { ok: false, why: 'no-kv' };
   /* 03/11 ops center kill switch: nothing below runs, not even the Slack flush */
@@ -6438,7 +6449,12 @@ async function runPacer(env, run = null) {
   const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
   if (ilHour >= 9 && await env.RATE.get('slackqflush:' + today) !== '1') {
     await env.RATE.put('slackqflush:' + today, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
-    await flushSlackQueue(env).catch(() => {});
+    /* 04/11 slack-gate: the 09:00 "בוקר · סיכום" (slack-gate.js slackDigest) replaces the bare night-queue
+       flush — open conditions, what resolved overnight, the info lines, the night queue and today's plan,
+       ONE message. Kill switch auto:off:slack_digest (registry node slack_digest) → the old flush runs
+       instead so the night queue never piles up. */
+    if (await isOff(env, 'slack_digest')) await flushSlackQueue(env).catch(() => {});
+    else await step('slack_digest', () => slackDigest(env, { post: t => slackSend(env, t, { oneoff: true, urgent: true }), plan: () => digestPlan(env) })).catch(() => {});   /* oneoff: the one daily digest */
   }
   /* ads health, once an hour inside Slack hours (the alert itself is
      urgent, so quiet hours are respected by not asking at night) */
@@ -6493,7 +6509,7 @@ async function runPacer(env, run = null) {
        20 minutes" and "somebody finds out at the hall" */
     if ((!r || !r.ok) && !(await env.RATE.get('paceralert:' + today))) {
       await env.RATE.put('paceralert:' + today, '1', { expirationTtl: 86400 });
-      await slackPost(env, `🚨 *פעימת שליחה נכשלה* (${(r && r.error) || 'שגיאה'}) בזמן שיש עבודה ממתינה. הפעימה הבאה תנסה שוב בעוד 10 דקות; אם ההתראה הזאת חוזרת מחר — משהו תקוע באמת.`);
+      await slackPost(env, `🚨 *פעימת שליחה נכשלה* (${(r && r.error) || 'שגיאה'}) בזמן שיש עבודה ממתינה. הפעימה הבאה תנסה שוב בעוד 10 דקות; אם ההתראה הזאת חוזרת מחר — משהו תקוע באמת.`, { key: 'pacer_failed', sev: 'P1' });
     }
   } else {
     out.sends = { ran: false, why: sendWin.open ? 'nothing-pending' : sendWin.why };
@@ -6640,7 +6656,7 @@ async function runDoctor(env, out, sendWin, callWin) {
         /* info, not a red row: the nightly report must not re-list it (Richard 06/10) */
         const ipnMsg = `${fresh.length} תשלומי Grow חדשים חונים ולא זוהו כ-ishur (סה"כ ${stuck}). אם אחד מהם לקוח שלנו: /api/ipn-replay עם המזהה מיומן המערכת. לא אזכיר שוב.`;
         await logEvent(env, { area: 'רופא · תשלומים שחנו', action: ipnMsg, ok: true, review: false }).catch(() => {});
-        if (env.SLACK_ALERT_HOOK) await slackSend(env, 'ℹ️ *רופא · תשלומים שחנו* · ' + ipnMsg, { urgent: false }).catch(() => {});
+        if (env.SLACK_ALERT_HOOK) await slackSend(env, 'ℹ️ *רופא · תשלומים שחנו* · ' + ipnMsg, { urgent: false, cls: 'info', key: 'doctor:ipnmiss' }).catch(() => {});
         rep.alerted++;
         await env.RATE.put('doctor:ipnmiss-told', JSON.stringify(told.concat(fresh).slice(-200))).catch(() => {});
       }
@@ -6665,7 +6681,7 @@ async function runDoctor(env, out, sendWin, callWin) {
       const n = (parseInt(await env.RATE.get('doctor:flushfail') || '0', 10) || 0) + 1;
       await env.RATE.put('doctor:flushfail', String(n), { expirationTtl: 3600 });
       if (n >= 2 && await onceADay(env, 'flush')) {
-        await alert(env, 'רופא · יומן המערכת', `שטיפת היומן לגיליון נכשלה ${n} פעמים ברצף (${j.why || ''}${j.pending ? ` · ${j.pending} שורות ממתינות` : ''}). השורות נשמרות ב-KV ומנסות שוב כל 10 דקות`, '');
+        await alert(env, 'רופא · יומן המערכת', `שטיפת היומן לגיליון נכשלה ${n} פעמים ברצף (${j.why || ''}${j.pending ? ` · ${j.pending} שורות ממתינות` : ''}). השורות נשמרות ב-KV ומנסות שוב כל 10 דקות`, '', { key: 'doctor:journal', level: n, bands: [3, 6, 12] });
         rep.alerted++;
       }
     } else if (j && j.ok) {
@@ -6677,7 +6693,7 @@ async function runDoctor(env, out, sendWin, callWin) {
   try {
     const c = out && out.calls;
     if (callWin && callWin.open && c && c.why === 'reader-failed' && await onceADay(env, 'reader')) {
-      await alert(env, 'רופא · תור השיחות', 'חלון החיוג פתוח אבל תמונת הגיליון לא נקראת (Make Status). שיר לא מחייגת עד שזה חוזר', '');
+      await alert(env, 'רופא · תור השיחות', 'חלון החיוג פתוח אבל תמונת הגיליון לא נקראת (Make Status). שיר לא מחייגת עד שזה חוזר', '', { key: 'doctor:callqueue', sev: 'P1' });
       rep.alerted++;
     }
   } catch (e) { rep.notes.push('reader-err'); }
@@ -6686,7 +6702,7 @@ async function runDoctor(env, out, sendWin, callWin) {
   try {
     const t = out && out.tmplcheck;
     if (t && !t.ok && await onceADay(env, 'tmpl')) {
-      await alert(env, 'רופא · תבניות מטא', `בדיקת אישור התבניות השעתית נכשלה: ${t.why || ''}. ההפעלה האוטומטית של תבנית התמונה/החשבונית מתעכבת`, '');
+      await alert(env, 'רופא · תבניות מטא', `בדיקת אישור התבניות השעתית נכשלה: ${t.why || ''}. ההפעלה האוטומטית של תבנית התמונה/החשבונית מתעכבת`, '', { key: 'doctor:templates' });
       rep.alerted++;
     }
   } catch (e) { rep.notes.push('tmpl-err'); }
@@ -6728,7 +6744,7 @@ async function runTeamReminders(env, hourUtc, dry) {
       out.push({ to, sent: res.ok });
       /* free text dies after 24h of silence (131047): the reminder still has to land,
          so it goes to Slack instead of vanishing (06/10) */
-      if (!res.ok) await slackPost(env, `:alarm_clock: *תזכורת צוות ל${r.who || to}* (לא נמסרה בוואטסאפ, חלון 24ש)\n${msg}`).catch(() => {});
+      if (!res.ok) await slackPost(env, `:alarm_clock: *תזכורת צוות ל${r.who || to}* (לא נמסרה בוואטסאפ, חלון 24ש)\n${msg}`, { oneoff: true }).catch(() => {});   /* oneoff: one team reminder that could not go out */
     }
   }
   return { ok: true, date: today, hour: hourUtc, results: out };
@@ -6800,7 +6816,7 @@ async function handleBackup(request, env, origin) {
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   if (body.run) {
     const res = await runBackup(env);
-    if (!res.ok) { await alert(env, 'גיבוי', 'גיבוי ידני נכשל', res.error || ''); return deny(502, res.error || 'backup-failed', origin); }
+    if (!res.ok) { await alert(env, 'גיבוי', 'גיבוי ידני נכשל', res.error || '', { oneoff: true }); return deny(502, res.error || 'backup-failed', origin); }   /* oneoff: one manual backup request */
     return okJson(res, origin);
   }
   if (body.date) {
@@ -7050,7 +7066,7 @@ async function handleTestSlackQueue(request, env, origin) {
   if (isNaN(now.getTime())) return deny(400, 'bad-now', origin);
   if (action === 'send') {
     const urgent = !!body.urgent;
-    await slackSend(env, String(body.text || '[phase-6 test]'), { urgent, now });
+    await slackSend(env, String(body.text || '[phase-6 test]'), { urgent, now, oneoff: true });   /* oneoff: the /api/test-slack-queue harness */
     return okJson({ ok: true, quiet_hours: slackQuietHours(now), queued: !urgent && slackQuietHours(now) }, origin);
   }
   if (action === 'peek') {
@@ -7136,7 +7152,7 @@ async function handleOtpSend(request, env, origin) {
     { expirationTtl: 600 });
   const wa = await sendOtpTemplate(env, phone, code);
   if (!wa.ok) {
-    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + wa.error);
+    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + wa.error, { key: 'otp_fail:' + phone });
     return deny(502, 'send-failed', origin);
   }
   await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', msgCost('ishur_kod'));
@@ -7824,7 +7840,7 @@ async function runDailyCallReview(env, opts = {}) {
       if (t.review) lines.push(`\n💬 וואטסאפ ${t.phone.slice(-4)}:\n${t.review}`);
     }
     lines.push('\nהדוח המלא שמור, והאימון דרך לוח המוח — כל שינוי נרשם וניתן לשחזור.');
-    await slackPost(env, lines.join('\n').slice(0, 3800)).catch(() => {});
+    await slackPost(env, lines.join('\n').slice(0, 3800), { oneoff: true }).catch(() => {});   /* oneoff: the 20:00 daily improve report, one a day by design */
   }
   return { ok: true, day, stats };
 }
@@ -8043,7 +8059,7 @@ faq_additions ו-wording_fixes: רק דברים קונקרטיים שבאמת ק
   else if (!regressionOk) lines.push('\n⚠️ בדיקת הרגרסיה לא רצה בהצלחה (שגיאה טכנית, לא כשל אבטחה).');
   lines.push('\nמה עדיין דורש אותך: ' + (report.violations.length ? 'לקרוא את ההפרות למעלה.' : 'כלום היום.'));
 
-  await slackSend(env, lines.join('\n').slice(0, 3800), { urgent: true }).catch(() => {});
+  await slackSend(env, lines.join('\n').slice(0, 3800), { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: the Monday performance digest, weekly by design */
   return { ok: true, ...report };
 }
 
@@ -8210,7 +8226,7 @@ async function dailyJournalDigest(env) {
   ].filter(Boolean).join('\n');
   let undl = '';
   try { const raw = await snapshotCached(env).catch(() => null); undl = undeliveredLines(await undeliveredByEvent(env, raw)).join('\n'); } catch {}
-  await slackPost(env, undl ? text + '\n' + undl : text);
+  await slackPost(env, undl ? text + '\n' + undl : text, { oneoff: true });   /* oneoff: the 21:00 journal digest, one a day by design */
   await logEvent(env, { area: 'דוח', action: 'דוח יומי נשלח לסלאק', ok: true, detail: `${rows.length} פעולות · ${failed} נכשלו · ${red} אדומות · ${fixes.length} תיקוני רופא · ${builds.length} גרסאות` });
   return { rows: rows.length, ok, failed, red, fixes: fixes.length, builds: builds.length };
 }
@@ -8225,7 +8241,7 @@ async function msgPerformanceDigest(env) {
   await slackPost(env,
     `📊 *ביצועי הודעות — סיכום שבועי*\n${lines.join('\n')}\n\n` +
     `🏆 הכי טובה: ${best.template}${best.occasion ? ' (' + best.occasion + ')' : ''} — ${best.reply_rate}% מענה\n` +
-    (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''));
+    (worst !== best ? `🔻 הכי חלשה: ${worst.template}${worst.occasion ? ' (' + worst.occasion + ')' : ''} — ${worst.reply_rate}% מענה. רוצים נוסח משופר? תבקשו מקלוד והוא יגיש גרסה לאישור.` : ''), { oneoff: true });   /* oneoff: weekly by design */
 }
 
 /* ══ Re-sending the invitation ═══════════════════════════════════════════════
@@ -8361,14 +8377,14 @@ async function handlePause(request, env, origin) {
   }
   if (body.paused) {
     await env.RATE.put('paused', new Date().toISOString());
-    await slackPost(env, '⏸️ *כל השליחות הושהו* — אף הודעה לא תצא, כולל המנוע היומי ושיחות של שיר, עד להפעלה מחדש.');
+    await slackPost(env, '⏸️ *כל השליחות הושהו* — אף הודעה לא תצא, כולל המנוע היומי ושיחות של שיר, עד להפעלה מחדש.', { oneoff: true });   /* oneoff: an admin action */
   } else {
     await env.RATE.delete('paused');
     /* re-arm today: pausing over the 06:35 run used to mean the pacer said
        "nothing-pending" until tomorrow, so unpausing at 08:00 still lost the
        whole day (review finding #3) */
     await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 2 * 86400 }).catch(() => {});
-    await slackPost(env, '▶️ *השליחות חזרו לפעול* — הפעימה הקרובה (עד 10 דקות) ממשיכה מאיפה שעצרנו.');
+    await slackPost(env, '▶️ *השליחות חזרו לפעול* — הפעימה הקרובה (עד 10 דקות) ממשיכה מאיפה שעצרנו.', { oneoff: true });   /* oneoff: an admin action */
   }
   return okJson({ ok: true, paused: body.paused }, origin);
 }
@@ -8398,7 +8414,7 @@ async function handleBlockPhone(request, env, origin) {
     await env.RATE.delete('block:' + p);
     await env.RATE.delete('optout:' + p);
   }
-  await slackPost(env, `${body.blocked ? '🚫' : '✅'} *${p}* ${body.blocked ? 'הוצא משליחה ידנית' : 'הוחזר לשליחה'}`);
+  await slackPost(env, `${body.blocked ? '🚫' : '✅'} *${p}* ${body.blocked ? 'הוצא משליחה ידנית' : 'הוחזר לשליחה'}`, { oneoff: true });   /* oneoff: an admin action */
   await logRow(env, 'removals', { kind: body.blocked ? 'חסימה ידנית' : 'הוחזר לשליחה', channel: 'לוח בקרה', phone: p,
     scope: body.blocked ? 'כל ההודעות' : 'בוטלו הסר וחסימה', said: '', detail: String(body.reason || '') });
   return okJson({ ok: true, phone: p, blocked: body.blocked }, origin);
@@ -8486,7 +8502,7 @@ async function checkBilling(env, opts = {}) {
   /* ── one Slack message ── */
   const urgent = findings.some(f => f.level === 'urgent');
   const text = `💳 *בדיקת יתרות וחיוב*\n\n` + findings.map(f => `${f.level === 'urgent' ? '🔴' : '🟠'} ${f.vendor}: ${f.msg}`).join('\n\n');
-  await slackSend(env, text, { urgent }).catch(() => {});
+  await slackSend(env, text, { urgent, key: 'billing_check', sev: urgent ? 'P1' : 'P2', level: findings.length, action: 'לטעון יתרה: Telnyx portal.telnyx.com · Retell dashboard.retellai.com · WhatsApp business.facebook.com/billing_hub' }).catch(() => {});
   out.slack = true;
   /* ── Linear: urgent only, once per vendor per 3 days ── */
   out.linear = [];
@@ -8509,7 +8525,7 @@ async function retellBillingGuard(env, r) {
     if (!(r.status === 402 || /balance|credit|payment|insufficient/i.test(body))) return false;
     if (env.RATE && await env.RATE.get('billretell')) return false;
     if (env.RATE) await env.RATE.put('billretell', '1', { expirationTtl: 6 * 3600 });
-    await alert(env, 'Retell', 'יתרת שיחות נגמרה / בעיית חיוב', String(r.status));
+    await alert(env, 'Retell', 'יתרת שיחות נגמרה / בעיית חיוב', String(r.status), { key: 'retell_billing', sev: 'P0', action: 'לטעון יתרה ב-Retell — dashboard.retellai.com' });
     return true;
   } catch { return false; }
 }
@@ -8530,21 +8546,21 @@ async function checkTelnyx(env) {
   const h = { Authorization: 'Bearer ' + env.TELNYX_KEY };
   const r = await fetch('https://api.telnyx.com/v2/phone_numbers', { headers: h }).catch(() => null);
   if (!r || !r.ok) {
-    await alert(env, 'טלניקס', 'לא הצלחתי לקרוא את סטטוס המספר', r ? String(r.status) : 'unreachable');
+    await alert(env, 'טלניקס', 'לא הצלחתי לקרוא את סטטוס המספר', r ? String(r.status) : 'unreachable', { key: 'telnyx_status' });
     return { ok: false, why: 'unreachable' };
   }
   let j = null;
   try { j = await r.json(); } catch {}
   const num = ((j && j.data) || [])[0];
   if (!num) {
-    await alert(env, 'טלניקס', 'אין מספרים בחשבון — משהו לא צפוי', '');
+    await alert(env, 'טלניקס', 'אין מספרים בחשבון — משהו לא צפוי', '', { key: 'telnyx_numbers', sev: 'P1' });
     return { ok: false, why: 'no-numbers' };
   }
 
   const status = String(num.status || '');
   const phone = String(num.phone_number || '');
   if (status !== 'active') {
-    await slackPost(env, `⏳ *המספר של שיר עדיין לא פעיל*\n${phone} · סטטוס: ${status}\nאם זה נמשך, שווה לדחוף בצ'אט התמיכה (טיקט 620361).`);
+    await slackPost(env, `⏳ *המספר של שיר עדיין לא פעיל*\n${phone} · סטטוס: ${status}\nאם זה נמשך, שווה לדחוף בצ'אט התמיכה (טיקט 620361).`, { key: 'telnyx_pending' });
     return { ok: true, why: status };
   }
 
@@ -8561,7 +8577,7 @@ async function checkTelnyx(env) {
   if (wired && env.RATE) await env.RATE.put('telnyxdone', new Date().toISOString());
   await slackPost(env, wired
     ? `🎉 *המספר של שיר פעיל וחובר*\n${phone} משויך לחיבור ה-SIP, ורטל יכולה לחייג דרכו.\nנשאר רק להריץ שיחת בדיקה.`
-    : `✅ *המספר של שיר אושר* (${phone}) אבל השיוך לחיבור ה-SIP נכשל. צריך לשייך ידנית בפורטל.`);
+    : `✅ *המספר של שיר אושר* (${phone}) אבל השיוך לחיבור ה-SIP נכשל. צריך לשייך ידנית בפורטל.`, { oneoff: true });   /* oneoff: the number got wired once */
   return { ok: true, why: wired ? 'wired' : 'active-not-wired' };
 }
 
@@ -8687,9 +8703,9 @@ async function tryPortfolioOtp(env) {
   await logEvent(env, { area: 'וואטסאפ', action: ok ? 'קוד אימות נשלח ל-4499 (מעבר לפורטפוליו)' : 'בקשת קוד אימות ל-4499 נכשלה', ok, review: !ok, detail: why }).catch(() => {});
   if (ok) {
     const msg = '📲 מטא שלחה עכשיו SMS עם קוד אימות למספר 055-950-4499. שלח לי את 6 הספרות ואני מסיים את המעבר של נועה לפורטפוליו.';
-    await slackPost(env, msg).catch(() => {});
+    await slackPost(env, msg, { oneoff: true }).catch(() => {});   /* oneoff: Meta sent the SMS — Richard must type the code */
   } else {
-    await slackPost(env, `⏳ ניסיון יומי לקוד אימות ל-4499 נכשל: ${why}. ננסה מחר.`).catch(() => {});
+    await slackPost(env, `⏳ ניסיון יומי לקוד אימות ל-4499 נכשל: ${why}. ננסה מחר.`, { cls: 'info', key: 'otp_4499' }).catch(() => {});
   }
   return { ok, why };
 }
@@ -9126,7 +9142,7 @@ async function runAdReview(env, opts = {}) {
   /* Richard 14/10: Slack only — the WhatsApp copy to the admin phones was a
      duplicate of the same text */
   const sends = [];
-  await slackPost(env, text).catch(() => {});
+  await slackPost(env, text, { oneoff: true }).catch(() => {});   /* oneoff: the every-4-days ad review, by design */
 
   await env.RATE.put('adrev:last', new Date(now).toISOString()).catch(() => {});
   /* the archive entry the ad-report page renders: structure + the text that
@@ -9292,7 +9308,7 @@ async function handleOpsStats(request, env, origin) {
   const cm = cac[thisMonth];
   if (cm && cm.verdict === 'red' && env.RATE && !(await env.RATE.get('cacalert:' + ilDate()))) {
     await env.RATE.put('cacalert:' + ilDate(), '1', { expirationTtl: 2 * 86400 }).catch(() => {});
-    await slackPost(env, `🔴 *CAC חצה את הקו האדום* · ${cm.cac_ils} ₪ ללקוח החודש (${cm.spend} ₪ פרסום ÷ ${cm.buyers} אירועים). התרומה לאירוע ~210-240 ₪ — מעל זה כל אירוע מפסיד. זה המדד להחלטות תקציב, לא ה-CPL.`).catch(() => {});
+    await slackPost(env, `🔴 *CAC חצה את הקו האדום* · ${cm.cac_ils} ₪ ללקוח החודש (${cm.spend} ₪ פרסום ÷ ${cm.buyers} אירועים). התרומה לאירוע ~210-240 ₪ — מעל זה כל אירוע מפסיד. זה המדד להחלטות תקציב, לא ה-CPL.`, { key: 'cac_red', level: Number(cm.cac_ils) || 0, bands: [1, 200, 400, 800], sev: 'P1' }).catch(() => {});
   }
 
   return okJson({
@@ -9758,7 +9774,7 @@ function opsDeps() {
     /* 03/11 ops calendar */
     parsePaidDesc: (x) => parsePaidDesc(x), sendBoardData: (e, b) => sendBoardData(e, sendBoardDeps(), b),
     /* brain.js playbooks (every messaging one is non-auto and re-checks paused/windows itself) */
-    slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
+    slackSend: (e, t, o) => slackSend(e, t, o), resolveSlack: (e, k) => slackResolve(e, k), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c),
     mondayFindLead: (e, p) => mondayFindLead(e, p), mondayUpsertLead: (e, p, r) => mondayUpsertLead(e, p, r),
     runEventDayBlasts: (e, o) => runEventDayBlasts(e, o), inboxData: (e, b) => inboxData(e, b), getBrain: (e) => getBrain(e), EVENT_FLAGS,
     /* 03/11 phase 4c (ops-money.js) */
@@ -9880,7 +9896,7 @@ const WORKER = {
         const limit = dow === 'Sun' ? 72 : dow === 'Sat' ? 48 : 30;
         if (age > limit) {
           await alert(env, 'המנוע היומי',
-            last ? `לא רץ כבר ${Math.round(age)} שעות` : 'אין תיעוד שרץ אי פעם', '');
+            last ? `לא רץ כבר ${Math.round(age)} שעות` : 'אין תיעוד שרץ אי פעם', '', { key: 'engine_stale', level: Math.round(age), bands: [30, 48, 72, 120], sev: 'P1', action: 'לבדוק את ריצת המנוע ב-ishur.io/ops.html#/runs' });
         }
         return { ok: true, engine_age_h: Math.round(age), limit_h: limit };
       }, { triggered_by: 'cron' }).catch(() => {}));
@@ -9897,15 +9913,15 @@ const WORKER = {
        work; the other two are silent no-ops until the clocks change. */
     /* 22/10: the day's audit root, anchored in Slack (the latest of the three evening crons) */
     if (String(event.cron || '').startsWith('0 19 ')) {
-      ctx.waitUntil(opsJob(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``).catch(() => {}); return r; }).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'auditDailyRoot', async () => { const day = ilDate().replace(/-/g, ''); const r = await audit.dailyRoot(env, day); await slackPost(env, `🔏 *עוגן יומן ביקורת* · ${ilDate()} · ${r.count} רשומות\nroot: \`${r.root}\``, { oneoff: true }).catch(() => {}); return r; }).catch(() => {}));
     }
     if (String(event.cron || '').startsWith('0 17 ') || String(event.cron || '').startsWith('0 18 ') || String(event.cron || '').startsWith('0 19 ')) {
       const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now())));
       if (ilHour === 20) {
-        ctx.waitUntil(opsJob(env, 'runDailyImprove', () => runDailyImprove(env)).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message))));
+        ctx.waitUntil(opsJob(env, 'runDailyImprove', () => runDailyImprove(env)).catch(e => alert(env, 'לולאת שיפור', 'הלולאה נפלה', String(e && e.message), { key: 'job_fail:improve' })));
       } else if (ilHour === 21) {
         ctx.waitUntil(opsJob(env, 'snapshotTraffic', () => snapshotTraffic(env)).catch(() => {}));
-        ctx.waitUntil(opsJob(env, 'dailyJournalDigest', () => dailyJournalDigest(env)).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message))));
+        ctx.waitUntil(opsJob(env, 'dailyJournalDigest', () => dailyJournalDigest(env)).catch(e => alert(env, 'דוח יומי', 'הדוח היומי נפל', String(e && e.message), { key: 'job_fail:digest' })));
       }
       return;
     }
@@ -9943,7 +9959,7 @@ const WORKER = {
       if (String(env.BRAIN_ENABLED || 'on') !== 'off') ctx.waitUntil(runBrain(env, opsDeps(), { fns: brainFns() }).catch(() => {}));
       if (String(env.NOTIFY_ENABLED || 'on') !== 'off') ctx.waitUntil(import('./notify.js').then(m => m.runNotify(env, opsDeps())).catch(() => {}));   /* 03/11 Phase 5 notifications (notify.js) */
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run)).catch(e =>
-        alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e))));
+        alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e), { key: 'pacer_crash', sev: 'P1' })));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
          evaluate() keeps an ab:eval:<day> guard, so six ticks = one run) */
       if (String(env.AB_ENABLED || '') === 'on' && Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(event.scheduledTime || Date.now()))) === 6)
@@ -9980,12 +9996,12 @@ const WORKER = {
            while the window is closed, so the pacer (already armed via
            pacer:pending above) carries the first sends at 09:00. */
     ctx.waitUntil(tryPortfolioOtp(env).catch(() => {}));
-    ctx.waitUntil(withRun(env, 'morning_undelivered', async () => { const raw = await snapshotCached(env).catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n')); return { ok: true, lines: l.length }; }).catch(() => {}));
+    ctx.waitUntil(withRun(env, 'morning_undelivered', async () => { const raw = await snapshotCached(env).catch(() => null); const l = undeliveredLines(await undeliveredByEvent(env, raw)); if (l.length) await slackPost(env, '🌅 *בוקר · הזמנות שלא נמסרו*\n' + l.join('\n'), { cls: 'info', key: 'undelivered:day:' + ilDate() }); return { ok: true, lines: l.length }; }).catch(() => {}));
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
     ctx.waitUntil(withRun(env, 'd_engine', () => runDailyEngine(env, false, null, { budget: morningBudget })).then(() => withRun(env, 'backup', () => runBackup(env))).then(res => {
-      if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '');
+      if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '', { key: 'backup_fail', sev: 'P1' });
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
-      String((e && e.stack) || e).slice(0, 500))).then(() => {
+      String((e && e.stack) || e).slice(0, 500), { key: 'engine_crash', sev: 'P1' })).then(() => {
       /* Monday morning: the weekly message-performance digest into Slack */
       const dow = new Date(ilDate() + 'T12:00:00Z').getUTCDay();
       if (dow === 1) return withRun(env, 'perf_digest', () => msgPerformanceDigest(env)).catch(() => {});
@@ -11107,7 +11123,7 @@ const WORKER = {
       const detail = `phone_number_id=${b.phone_number_id || '?'} · waba_id=${b.waba_id || '?'} · business_id=${b.business_id || '?'}`;
       if (env.RATE) await env.RATE.put('coexist:last', JSON.stringify({ ...b, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
       await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
-      await slackPost(env, `🔗 *נועה חוברה ל-API (coexistence)*\n${detail}`).catch(() => {});
+      await slackPost(env, `🔗 *נועה חוברה ל-API (coexistence)*\n${detail}`, { oneoff: true }).catch(() => {});   /* oneoff: coexistence connected once */
       return okJson({ ok: true }, origin);
     }
     /* the live stream (Richard 21/10): everything, newest first, filters */
@@ -11216,7 +11232,7 @@ const WORKER = {
             `*נוסף ע"י:* ${who || 'לא ידוע'}`,
             `*כרטיס:* <https://richard366723.monday.com/boards/${e.boardId || '18432553641'}/pulses/${e.pulseId}|פתיחה במאנדיי>`, '',
             `☎️ <@${env.SLACK_SHALEV || 'U0C33AKDF24'}> ליד חדש, להתקשר`,
-          ].join('\n')).catch(() => {});
+          ].join('\n'), { oneoff: true }).catch(() => {});   /* oneoff: a new Monday lead (seenOnce mnew:) */
           if (phone) await env.RATE.put('leadslack:' + phone, '1', { expirationTtl: LEAD_TTL }).catch(() => {});
         }
       }
@@ -11479,8 +11495,8 @@ const WORKER = {
       if (phone && env.RATE) await env.RATE.put('hostessreq:' + phone, JSON.stringify({ date, city, n, travel, center, available, guests, plan, at: new Date().toISOString() }), { expirationTtl: 14 * 86400 }).catch(() => {});
       if (b.link !== false || !available) await logEvent(env, { area: 'דיילות', action: available ? 'בדיקת זמינות: פנוי' : 'בדיקת זמינות: תפוס', ok: available, review: !available, phone,
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
-      if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true }).catch(() => {});
-      if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true }).catch(() => {});
+      if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: one hostess request */
+      if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: one hostess request */
       return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
         ...(bundleOn ? { bundle: { key: bundleKey, list_total: listTotal, total } } : {}) }, origin);
     }
@@ -11828,7 +11844,7 @@ const WORKER = {
       await env.RATE.put('interestcount:' + kind, String(n));
       const whoTxt = [record.name, record.phone ? record.phone.replace(/^972/, '0') : '', record.email].filter(Boolean).join(' · ') || 'ללא פרטים';
       await logEvent(env, { area: 'ביקוש', action: `"מעניין אותי" · ${labels[kind] || kind}`, ok: true, phone: record.phone, token: tok.slice(0, 8), detail: `${whoTxt} · ${where} · סה"כ ${n} אנשים שונים` }).catch(() => {});
-      await slackPost(env, `💳 *${labels[kind] || kind} · מישהו לחץ "מעניין אותי"*${where ? ' · ' + where : ''}\n${whoTxt}\nסה"כ עד עכשיו: *${n}* אנשים שונים`).catch(() => {});
+      await slackPost(env, `💳 *${labels[kind] || kind} · מישהו לחץ "מעניין אותי"*${where ? ' · ' + where : ''}\n${whoTxt}\nסה"כ עד עכשיו: *${n}* אנשים שונים`, { oneoff: true }).catch(() => {});   /* oneoff: one click */
       return okJson({ ok: true, counted: true, total: n, saved: !!(who.phone || who.email) }, origin);
     }
     /* admin: everyone who asked for a coming feature */
@@ -11967,7 +11983,7 @@ const WORKER = {
           await logEvent(env, { area: 'תשלום', action: `קישור תשלום לתוספת נוצר (Make): ${item.label} · ₪${item.price}`, ok: true, token: tok }).catch(() => {});
           return okJson({ ok: true, url: String(mlink), price: item.price, desc }, origin);
         }
-        await alert(env, 'תוספות', 'Make לא החזיר קישור תשלום', tok.slice(0, 8) + ': ' + (mk ? mk.status : 'no-response') + ' ' + mtxt.slice(0, 200));
+        await alert(env, 'תוספות', 'Make לא החזיר קישור תשלום', tok.slice(0, 8) + ': ' + (mk ? mk.status : 'no-response') + ' ' + mtxt.slice(0, 200), { key: 'paylink_fail:' + tok.slice(0, 8) });
         if (!(env.GROW_API_KEY && env.GROW_PAGE_CODE && env.GROW_USER_ID)) {
           return okJson({ ok: false, why: 'make-failed', make_status: mk ? mk.status : 0, make_body: mtxt.slice(0, 200), price: item.price, desc }, origin);
         }
@@ -11985,7 +12001,7 @@ const WORKER = {
       const r = await fetch('https://secure.meshulam.co.il/api/light/server/1.0/createPaymentProcess', { method: 'POST', body: form }).catch(() => null);
       let j = null; try { j = r ? await r.json() : null; } catch {}
       const link = j && j.data && j.data.url;
-      if (!link) { await alert(env, 'תוספות', 'יצירת קישור תשלום נכשלה', tok.slice(0, 8) + ': ' + JSON.stringify(j || {}).slice(0, 200)); return okJson({ ok: false, why: 'grow-failed', price: item.price, desc }, origin); }
+      if (!link) { await alert(env, 'תוספות', 'יצירת קישור תשלום נכשלה', tok.slice(0, 8) + ': ' + JSON.stringify(j || {}).slice(0, 200), { key: 'paylink_fail:' + tok.slice(0, 8) }); return okJson({ ok: false, why: 'grow-failed', price: item.price, desc }, origin); }
       await logEvent(env, { area: 'תשלום', action: `קישור תשלום לתוספת נוצר: ${item.label} · ₪${item.price}`, ok: true, token: tok }).catch(() => {});
       return okJson({ ok: true, url: link, price: item.price, desc }, origin);
     }
@@ -12030,7 +12046,7 @@ const WORKER = {
         await logRow(env, 'feedback', { token: token.slice(0, 8), name, phone, nps: rec.nps || '', exp: rec.exp || '', route: 'הערה', note: rec.note });
         await slackSend(env, `📝 *הערת משוב* · ${evName} · ${phone}
 ימליץ ${rec.nps || '?'}/10 · חוויה ${rec.exp || '?'}/10
-"${rec.note.slice(0, 600)}"`, { urgent: (Number(rec.nps) || 10) <= 3 });
+"${rec.note.slice(0, 600)}"`, { urgent: (Number(rec.nps) || 10) <= 3, oneoff: true });   /* oneoff: one feedback note */
         return okJson({ ok: true }, origin);
       }
       const nps = Math.max(0, Math.min(10, parseInt(b.nps, 10) || 0));
@@ -12042,7 +12058,7 @@ const WORKER = {
       await logRow(env, 'feedback', { token: token.slice(0, 8), name, phone, nps, exp, route: route === 'high' ? 'לביקורת בגוגל' : 'לטופס הערות', note: '' });
       await logEvent(env, { area: 'סוף-אירוע', action: `משוב: ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'גוגל' : 'הערות'}`, ok: true, token, phone }).catch(() => {});
       await slackSend(env, `${route === 'high' ? '💚' : '🟠'} *משוב סוף אירוע* · ${evName} · ${phone}
-ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'נשלח לביקורת בגוגל' : 'התבקש לכתוב מה לא היה בסדר'}`, { urgent: false });
+ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'נשלח לביקורת בגוגל' : 'התבקש לכתוב מה לא היה בסדר'}`, { urgent: false, oneoff: true });   /* oneoff: one feedback */
       const brain = await getBrain(env);
       return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
     }
@@ -12140,7 +12156,7 @@ const WORKER = {
         const okw = await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['כן']] }]);
         if (!okw) return deny(502, 'sheet-write-failed', origin);
         await logEvent(env, { area: 'אירוע', action: 'הלקוח ביטל את האירוע מהדשבורד', ok: true, token, detail: evName }).catch(() => {});
-        await slackSend(env, `❌ *הלקוח ביטל את האירוע* · ${evName} · ${token.slice(0, 8)}\n\nהודעת הביטול לאורחים תצא בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+        await slackSend(env, `❌ *הלקוח ביטל את האירוע* · ${evName} · ${token.slice(0, 8)}\n\nהודעת הביטול לאורחים תצא בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: the client cancelled once */
         return okJson({ ok: true, action }, origin);
       }
       if (action === 'restore') {
@@ -12162,7 +12178,7 @@ const WORKER = {
           try { let cur; do { const pg = await env.RATE.list({ prefix: `s5c:${token}:`, cursor: cur }); for (const k of pg.keys || []) await env.RATE.delete(k.name); cur = pg.list_complete ? null : pg.cursor; } while (cur); } catch {}
         }
         await logEvent(env, { area: 'אירוע', action: 'הלקוח החזיר את האירוע מהדשבורד', ok: true, token, detail: evName + (renotify ? ' · האורחים יקבלו הודעת עדכון' : '') }).catch(() => {});
-        await slackSend(env, `↩️ *האירוע חזר* · ${evName} · ${token.slice(0, 8)}${renotify ? '\n\nהאורחים כבר קיבלו הודעת ביטול, לכן תצא להם הודעת עדכון עם התאריך.' : ''}\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+        await slackSend(env, `↩️ *האירוע חזר* · ${evName} · ${token.slice(0, 8)}${renotify ? '\n\nהאורחים כבר קיבלו הודעת ביטול, לכן תצא להם הודעת עדכון עם התאריך.' : ''}\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: restored once */
         return okJson({ ok: true, action, renotify }, origin);
       }
       /* postpone */
@@ -12185,7 +12201,7 @@ const WORKER = {
       if (env.RATE) await env.RATE.put('postponeok:' + token, date, { expirationTtl: 200 * 86400 }).catch(() => {});
       if (String(ev[27] || '').trim() === 'כן') await sheetBatchWrite(env, [{ range: `אירועים!AB${row}`, values: [['']] }]).catch(() => {});
       await logEvent(env, { area: 'אירוע', action: 'הלקוח דחה את האירוע מהדשבורד', ok: true, token, detail: `${evName} · ${oldDate} → ${date}` }).catch(() => {});
-      await slackSend(env, `📅 *האירוע נדחה* · ${evName} · ${token.slice(0, 8)}\n\n${oldDate} → ${date}. האורחים שהוזמנו יקבלו הודעת עדכון בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true }).catch(() => {});
+      await slackSend(env, `📅 *האירוע נדחה* · ${evName} · ${token.slice(0, 8)}\n\n${oldDate} → ${date}. האורחים שהוזמנו יקבלו הודעת עדכון בריצה הבאה.\n\n─── \n✅ *לא נדרשת פעולה ממך.*`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: postponed once */
       return okJson({ ok: true, action, date, moved: writes.length - 1 }, origin);
     }
     if (url.pathname === '/api/leads-import-monday' && request.method === 'POST') {

@@ -229,7 +229,7 @@ export async function applyReview(env, call, review, deps = {}) {
         detail: `${who} · נרשם: ${r.recorded || 'ללא תוצאה'} → מוצע: ${r.suggested} · "${String(r.said || '').slice(0, 120)}"${live ? '' : ' · NOA_CHASE=off'}`,
         data: { call_id: c.call_id || '', guest_id: c.guest_id || '', recorded: r.recorded, suggested: r.suggested, rule: r.rule, agent: c.agent || 'שיר' } }).catch(() => {});
     }
-    await slackPost(env, `🔎 *בקרת שיחה · ${c.agent || 'שיר'}* — ${who}\nנרשם: ${r.recorded || 'ללא תוצאה'} · לפי התמליל: ${r.suggested}${out.applied ? ' · תוקן אוטומטית' : ' · לבדיקה'}`, { quiet: true }).catch(() => {});
+    await slackPost(env, `🔎 *בקרת שיחה · ${c.agent || 'שיר'}* — ${who}\nנרשם: ${r.recorded || 'ללא תוצאה'} · לפי התמליל: ${r.suggested}${out.applied ? ' · תוקן אוטומטית' : ' · לבדיקה'}`, { quiet: true, oneoff: true }).catch(() => {});   /* oneoff: one call reviewed (quiet: dropped unless SLACK_VERBOSE) */
     out.slack = true;
   } else if (r.verdict === 'review' && r.suggested) {
     await logEvent(env, { area: 'בקרה', action: 'שיחה לבדיקה ידנית', ok: true, review: true, phone: c.phone || '', token: c.token || '',

@@ -7,6 +7,7 @@
    digest of what queued overnight), alert (journal row + Slack).
    ========================================================================== */
 import { logEvent, stream } from './evlog.js';
+import { gate as slackGate, info as slackInfo, autoKey, resolve as gateResolve } from './slack-gate.js';
 
 /* ══ Slack quiet hours (Phase 6, rule 9) ══════════════════════════════════════
    Nothing non-urgent lands in Slack before 09:00 or after 21:00 Israel time —
@@ -42,17 +43,35 @@ export function slackFormat(text) {
   } else if (t.includes('\n') && !/\n\n/.test(t)) {
     t = t.replace(/\n/g, '\n\n');
   }
-  if (/נדרשת פעולה ממך|ייתכן שנדרשת בדיקה/.test(t)) return t;
+  if (/נדרשת פעולה ממך|ייתכן שנדרשת בדיקה|מה לעשות:/.test(t)) return t;
   const hit = SLACK_FOOTERS.find(([re]) => re.test(t));
   if (hit) return t + '\n\n───\n' + hit[1];
   if (/^(⚠️|:warning:|🚨|:rotating_light:)/.test(t)) return t + '\n\n───\n🔶 *ייתכן שנדרשת בדיקה.* כתוב לקלוד "בדוק את ההתראה הזו" והוא יטפל.';
   return t;
 }
 
+/* 04/11 the state-change gate (slack-gate.js) sits HERE, so every poster —
+   slackPost, alert(), notify.js, the brain — goes through it. opts:
+     key      condition identity (`131042:4499`, `cap_high`, `finding:<id>`)
+     sev      P0–P3 (default P2)       level/bands  numeric, "worse" on a band up
+     cls      'p1' (Slack, default) | 'info' (notifications center + 09:00 digest only)
+     action   the "מה לעשות:" footer      oneoff  true = a single event, no gate
+   No key and no oneoff → autoKey(text): deduped on the title line, never dropped
+   silently (the stream row says gate:auto so it shows up in the journal). */
 export async function slackSend(env, text, opts = {}) {
   if (!env.SLACK_ALERT_HOOK) return;
+  if (opts.cls === 'info') {
+    stream(env, { kind: 'slack', area: 'סלאק·מידע', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: String(text || '').slice(0, 600), ok: true }).catch(() => {});
+    return slackInfo(env, text, { key: opts.key || null, now: opts.now ? +opts.now : Date.now(), notify: opts.notify || defaultInfoNotify });
+  }
+  if (!opts.oneoff) {
+    const key = opts.key || autoKey(text);
+    const g = await slackGate(env, { key, text, sev: opts.sev, level: opts.level, bands: opts.bands, cls: opts.cls, action: opts.action, now: opts.now ? +opts.now : Date.now() });
+    if (!g.post) { stream(env, { kind: 'slack', area: 'סלאק·שקט', action: `${key} · חזרה ${g.state ? g.state.count : '?'}`, detail: String(text || '').slice(0, 300), ok: true }).catch(() => {}); return; }
+    text = g.text; opts = { ...opts, _gate: g.kind + (opts.key ? '' : ':auto') };
+  }
   text = slackFormat(text);
-  stream(env, { kind: 'slack', area: 'סלאק', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: String(text || '').slice(0, 600), ok: true }).catch(() => {});
+  stream(env, { kind: 'slack', area: 'סלאק', action: String(text || '').split('\n')[0].replace(/[*_>]/g, '').slice(0, 120), detail: (opts._gate ? '[' + opts._gate + '] ' : '') + String(text || '').slice(0, 600), ok: true }).catch(() => {});
   const now = opts.now || new Date();
   if (!opts.urgent && env.RATE && slackQuietHours(now)) {
     const key = 'slackq:list';
@@ -99,7 +118,18 @@ export async function flushSlackQueue(env, now) {
    the call site already does that. */
 export async function slackPost(env, text, opts = {}) {
   if (opts.quiet && String(env.SLACK_VERBOSE || '') !== '1') return;
-  await slackSend(env, text, { urgent: opts.urgent !== false, now: opts.now });
+  const { quiet, urgent, ...rest } = opts;
+  await slackSend(env, text, { ...rest, urgent: urgent !== false, now: opts.now });
+}
+/* the condition behind `key` resolved → ONE "✅ נפתר" line (nothing when it was never open).
+   `note` is appended under the title (e.g. "התקרה נפתחה"). The CLOSE line is itself the single event → oneoff. */
+export async function slackResolve(env, key, note) {
+  return gateResolve(env, key, { post: t => slackSend(env, note ? t.replace('\n\n• פתוח', '\n\n• ' + String(note).replace(/[*]/g, '') + '\n\n• פתוח') : t, { oneoff: true, urgent: false }) });
+}
+/* info-class posts land in the ops notifications center through notify.js (rule 'info') */
+async function defaultInfoNotify(env, cand) {
+  const m = await import('./notify.js');
+  return m.notifyEvent(env, null, 'info', cand);
 }
 
 /* every failure anywhere → the journal always, Slack per quiet hours
@@ -118,7 +148,9 @@ export async function alert(env, where, what, detail, opts = {}) {
     const urgent = URGENT_ALERT_RE.test(where + ' ' + what300 + ' ' + detail500);
     /* Richard 28/09: one line, organised; a newline only when the detail is long */
     /* Richard 06/10: title line, then the facts on their own lines */
-    await slackSend(env, `⚠️ *${where}*\n\n${what300}` + (detail500 ? `\n\n${detail500}` : ''), { urgent });
+    /* 04/11 gate: opts.key/sev/level/cls/action/oneoff pass through; no key → autoKey on "⚠️ where / what" */
+    const { quiet: _q, ...gateOpts } = opts;
+    await slackSend(env, `⚠️ *${where}*\n\n${what300}` + (detail500 ? `\n\n${detail500}` : ''), { ...gateOpts, urgent });
     return;
   }
   if (!env.ALERT_HOOK) return;

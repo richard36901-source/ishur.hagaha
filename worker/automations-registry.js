@@ -271,9 +271,14 @@ export const AUTOMATIONS = [
     conditions: ['גרסה חדשה ליומן', 'תשלומי Grow שחנו', 'pacer:pending ישן → חימוש מחדש', 'כשלי יומן/קורא/תבניות → התראה פעם ביום'],
     kv_markers: { global: ['build:current', 'doctor:<what>:<יום>'] }, live: { pacer: 'doctor' },
     source: S(5609, 'out.doctor = await runDoctor'), evidence: [E(5646, 'async function runDoctor', 'הפונקציה')] },
-  { id: 'slack_flush', name_he: 'ריקון תור הסלאק של הלילה', layer: 2, from: ['d_pacer'], kind: 'slack',
-    conditions: ['הפעימה הראשונה אחרי 09:00 בישראל, גם כשמושהה'], kv_markers: { global: ['slackqflush:<יום>', 'slackq:list'] },
-    source: S(5504, 'await flushSlackQueue(env).catch'), evidence: [E(76, 'export async function flushSlackQueue', 'הפונקציה', 'worker/slack.js')] },
+  { id: 'slack_flush', name_he: 'ריקון תור הסלאק של הלילה (גיבוי כשהסיכום כבוי)', layer: 2, from: ['d_pacer'], kind: 'slack',
+    conditions: ['הפעימה הראשונה אחרי 09:00 בישראל, גם כשמושהה', 'רק כש-auto:off:slack_digest דולק — אחרת הסיכום של הבוקר כולל את התור'], kv_markers: { global: ['slackqflush:<יום>', 'slackq:list'] },
+    source: S(6456, "if (await isOff(env, 'slack_digest')) await flushSlackQueue(env)"), evidence: [E(95, 'export async function flushSlackQueue', 'הפונקציה', 'worker/slack.js')] },
+  /* 04/11 slack-gate (docs/SLACK-DEDUPE-2026-11-04.md): one morning message instead of ~15 repeats a day */
+  { id: 'slack_digest', name_he: 'בוקר · סיכום (09:00 לסלאק)', layer: 2, from: ['d_pacer'], kind: 'slack', added: '2026-11-04',
+    conditions: ['הפעימה הראשונה אחרי 09:00 בישראל, פעם ביום (slackdigest:sent:<יום>)', 'כבוי (auto:off:slack_digest) → רק ריקון התור הישן'],
+    audience: 'סלאק', kv_markers: { global: ['slackdigest:sent:<יום>', 'slackstate:<key>', 'slackclosed:<יום>', 'slackinfo:<יום>', 'slackq:list'] },
+    source: S(6457, "await step('slack_digest', () => slackDigest(env"), evidence: [E(192, 'export async function slackDigest', 'הסיכום: פתוחים · נפתר בלילה · מידע · תור הלילה · תוכנית היום', 'worker/slack-gate.js'), E(123, 'export async function gate', 'השער: OPEN / WORSE / CLOSE, אחרת שקט', 'worker/slack-gate.js')] },
 
   /* ═════════════ layer 2 · direct every-10-minutes jobs ═════════════ */
   { id: 'event_day_blast', name_he: 'הודעת יום האירוע (edblast)', layer: 2, from: ['t_cron10'], kind: 'send_guest', routes: ['/api/event-day'],
@@ -483,7 +488,7 @@ export function baseTemplate(name) { return String(name || '').replace(/_(f|n)$/
      desc_he       plain Hebrew, one sentence
      code          { file, symbol } — the function shown by /api/ops/code (defaults to source);
                    worker/registry-code.json holds the resolved lines (scripts/ops-snapshot-code.mjs) */
-export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder'];
+export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder', 'slack_digest'];
 const KS = id => ({ key: 'auto:off:' + id, wired: true });
 const C = (symbol, file = IX) => ({ file, symbol });
 const OPS_OVERRIDES = {
@@ -528,6 +533,8 @@ const OPS_OVERRIDES = {
   ads_watch:  { code: C('export async function adsHealthWatch', 'worker/ads.js') },
   backup:     { side_effects: ['kv'], code: C('async function runBackup') },
   perf_digest:{ code: C('async function msgPerformanceDigest') },
+  slack_digest:{ kill_switch: KS('slack_digest'), side_effects: ['slack', 'kv'], risk: 'low', code: C('export async function slackDigest', 'worker/slack-gate.js'),
+                desc_he: 'הודעת בוקר אחת לסלאק: תנאים פתוחים, מה נפתר בלילה, שורות מידע, תור הלילה ותוכנית היום.' },
   heartbeat:  { side_effects: ['slack', 'meta'], code: C('async function checkBilling') },
   daily_improve: { code: C('async function runDailyImprove') },
   journal_digest:{ code: C('async function dailyJournalDigest') },

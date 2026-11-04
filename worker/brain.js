@@ -379,7 +379,7 @@ export const PLAYBOOKS = [
       if (ok) { await kput(c.env, 'pacer:pending', c.today, 2 * 86400); log('pacer:pending חומש להיום'); return { ok: true, did: `snapshot ok on try ${i}` }; }
       if (i < 3) await c.sleep(i * 2000);
     }
-    await c.slack(`🚨 *מוח · קובץ האורחים לא נטען* · 3 ניסיונות נכשלו. השליחות והחיוגים ממתינים עד שהקובץ יחזור.`, true);
+    await c.slack(`🚨 *מוח · קובץ האורחים לא נטען* · 3 ניסיונות נכשלו. השליחות והחיוגים ממתינים עד שהקובץ יחזור.`, true, { key: 'finding:snapshot_fail', sev: 'P0', action: 'לבדוק את Make Status / הגיליון; המוח מנסה שוב כל 30 דקות' });
     log('שלחתי התראת P1'); return { ok: false, did: 'snapshot still failing, alerted' };
   } },
 
@@ -404,7 +404,7 @@ export const PLAYBOOKS = [
   { id: 'capacity_warning', name_he: 'התראת קיבולת לסלאק עם תוכנית', auto: true, messages: false, cooldown_ms: 6 * H, async run(c, f, { dry, log }) {
     const x = f.data; const text = `📈 *מוח · חריגת קיבולת ${x.day}* · מתוכנן ${x.planned} מול תקרה ${x.capacity} (חריגה ${x.overflow})${x.recs && x.recs.length ? '\nמה מומלץ:\n' + x.recs.map(r => '• ' + r).join('\n') : ''}`;
     if (dry) return { ok: true, preview: text };
-    await c.slack(text, x.day === c.today); log('התראה נשלחה לסלאק'); return { ok: true, did: 'slack' };
+    await c.slack(text, x.day === c.today, { key: 'capacity_overflow:' + x.day, cls: 'info', level: x.overflow }); log('נרשם במרכז ההתראות ובסיכום הבוקר'); return { ok: true, did: 'slack' };
   } },
 
   { id: 'template_variant', name_he: 'הגשת וריאנט לתבנית שממתינה מעל 24 שעות', auto: false, messages: false, cooldown_ms: 24 * H, async run(c, f, { dry, log }) {
@@ -430,7 +430,7 @@ export const PLAYBOOKS = [
     const before = !!(await kget(c.env, k));
     if (dry) return { ok: true, preview: `${k}: ${before ? 'מוחזק' : 'פתוח'} → ${on ? 'מוחזק' : 'פתוח'}` };
     if (on) await kput(c.env, k, new Date(c.now).toISOString(), 200 * 86400); else await kdel(c.env, k);
-    log(`${k}: ${before} → ${!!on}`); await c.slack(`⚙️ מוח · אירוע ${token.slice(0, 8)} ${on ? 'הוחזק' : 'שוחרר'} (אושר בלוח הבקרה)`, false);
+    log(`${k}: ${before} → ${!!on}`); await c.slack(`⚙️ מוח · אירוע ${token.slice(0, 8)} ${on ? 'הוחזק' : 'שוחרר'} (אושר בלוח הבקרה)`, false, { oneoff: true });   /* oneoff: a single approved action */
     return { ok: true, did: on ? 'parked' : 'unparked' };
   } },
 
@@ -574,7 +574,9 @@ function makeCtx(env, d, opts, log) {
     audit: () => (auditP = auditP || d.auditQueryEx(env, { days: 1, limit: 20000, budget: 2500 }).then(r => r.items || []).catch(() => [])),
     snapshot: () => (snapP = snapP || d.snapshotCached(env).catch(() => null)),
     sleep: opts.sleep || (ms => new Promise(r => setTimeout(r, ms))),
-    slack: (text, urgent) => (d.slackSend ? d.slackSend(env, text, { urgent: !!urgent }) : d.slackPost(env, text)).catch(() => {}),
+    /* 04/11 slack-gate: opts = {key, sev, level, cls, action, oneoff}; a finding's key is finding:<id> (shared with notify.js incident) */
+    slack: (text, urgent, opts = {}) => (d.slackSend ? d.slackSend(env, text, { ...opts, urgent: !!urgent }) : d.slackPost(env, text, opts)).catch(() => {}),
+    resolveSlack: (key) => (d.resolveSlack ? d.resolveSlack(env, key) : Promise.resolve(null)).catch(() => {}),
   };
 }
 
@@ -605,10 +607,10 @@ export async function runBrain(env, d, opts = {}) {
     const autofix = String(env.BRAIN_AUTOFIX || 'on') !== 'off';
     for (const ev of events) {
       const f = ev.f; let dirty = ev.type !== 'seen';
-      if (ev.type === 'resolved') { L.log(`נפתר: ${f.title_he}`); run.count('resolved'); await obsoletePending(env, f.id); }
+      if (ev.type === 'resolved') { L.log(`נפתר: ${f.title_he}`); run.count('resolved'); await obsoletePending(env, f.id); await c.resolveSlack('finding:' + f.id); }
       else {
         if (ev.type === 'new' || ev.type === 'reopened') { L.log(`ממצא ${ev.type === 'new' ? 'חדש' : 'חוזר'} (${f.status}/${f.severity}): ${f.title_he}`); run.count('new'); }
-        if (shouldAlert(f, c.now)) { await c.slack(`${f.severity === 'P1' ? '🚨' : '⚠️'} *מוח · ${f.title_he}*${f.detail ? '\n' + f.detail : ''}${f.playbook ? `\nפלייבוק: ${(PB[f.playbook] || {}).name_he || f.playbook}${PB[f.playbook] && PB[f.playbook].auto ? ' (אוטומטי)' : ' — מחכה לאישור בלוח הבקרה'}` : ''}`, f.severity === 'P1'); f.alerted_at = new Date(c.now).toISOString(); dirty = true; run.count('alerted'); L.log('התראה לסלאק'); }
+        if (shouldAlert(f, c.now)) { await c.slack(`${f.severity === 'P1' ? '🚨' : '⚠️'} *מוח · ${f.title_he}*${f.detail ? '\n' + f.detail : ''}${f.playbook ? `\nפלייבוק: ${(PB[f.playbook] || {}).name_he || f.playbook}${PB[f.playbook] && PB[f.playbook].auto ? ' (אוטומטי)' : ' — מחכה לאישור בלוח הבקרה'}` : ''}`, f.severity === 'P1', { key: 'finding:' + f.id, sev: f.severity === 'P1' ? 'P0' : f.severity === 'P2' ? 'P1' : 'P2', action: f.playbook && PB[f.playbook] && !PB[f.playbook].auto ? 'לאשר את הפלייבוק במסך המוח — ishur.io/ops.html#/brain' : 'לבדוק במסך המוח — ishur.io/ops.html#/brain?focus=' + f.id }); f.alerted_at = new Date(c.now).toISOString(); dirty = true; run.count('alerted'); L.log('התראה לסלאק'); }
         const pb = f.playbook && PB[f.playbook];
         if (pb && pb.auto) {
           if (autofix && (!f.pb_at || c.now - Date.parse(f.pb_at) >= (pb.cooldown_ms || 0))) {
@@ -632,7 +634,7 @@ export async function runBrain(env, d, opts = {}) {
     /* keep the index small: resolved > 7 days drop out */
     for (const [id, m] of Object.entries(idx.f)) if (m.state === 'resolved' && m.resolved_at && c.now - Date.parse(m.resolved_at) > 7 * 86400e3) delete idx.f[id];
     await kput(env, P.index, idx);
-    for (const n of c.notes) { await c.slack(n, false); L.log(n); }
+    for (const n of c.notes) { await c.slack(n, false, { cls: 'info' }); L.log(n); }   /* notes are housekeeping → center + digest */
     await kput(env, P.last, { at: new Date(c.now).toISOString(), run_id: run.id, checks: checkState });
     const open = Object.values(idx.f).filter(m => m.state !== 'resolved');
     L.log(`סיכום: ${open.length} פתוחים (${open.filter(m => m.status === 'fail').length} חמורים), ${checks.length} בדיקות`);
@@ -722,7 +724,7 @@ export async function decide(env, d, b, now = Date.now()) {
   const res = await execPlaybook(env, d, c, pb, f, { dry: false, triggered_by: 'manual:' + who }).catch(e => ({ ok: false, did: String(e && e.message || e) }));
   pa.state = res.ok ? 'done' : 'failed'; pa.run_id = res.run_id || null; pa.result = res.did || '';
   await kput(env, P.pending + id, pa, FINDING_TTL);
-  await d.slackPost(env, `🧠 *מוח · אושר* · ${pb.name_he} · ${f.title_he} → ${res.ok ? 'בוצע' : 'לא הושלם'}${res.did ? ' (' + res.did + ')' : ''} · ${who}`).catch(() => {});
+  await d.slackPost(env, `🧠 *מוח · אושר* · ${pb.name_he} · ${f.title_he} → ${res.ok ? 'בוצע' : 'לא הושלם'}${res.did ? ' (' + res.did + ')' : ''} · ${who}`, { oneoff: true }).catch(() => {});   /* oneoff: Richard just approved it */
   return { status: 200, body: { ok: true, applied: true, action: pa, result: res } };
 }
 

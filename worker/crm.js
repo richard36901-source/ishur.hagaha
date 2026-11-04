@@ -566,7 +566,7 @@ async function eventRow(env, d, token) {
 const tok8 = t => String(t || '').slice(0, 8);
 async function logClientChange(env, d, token, who, summary_he, details) {
   await recordChange(env, { kind: 'client', who, summary_he, details: { token: tok8(token), ...details } });
-  if (d.slackPost) await d.slackPost(env, `🗂 ${summary_he} · אירוע ${tok8(token)}`, { urgent: false }).catch(() => {});
+  if (d.slackPost) await d.slackPost(env, `🗂 ${summary_he} · אירוע ${tok8(token)}`, { urgent: false, oneoff: true }).catch(() => {});   /* oneoff: one admin edit on a client card */
 }
 const EDIT_HE = { 'bad-phone': 'מספר טלפון לא תקין', 'bad-occasion': 'סוג אירוע לא מהרשימה', 'date-in-past': 'התאריך כבר עבר', 'bad-date': 'תאריך לא תקין', 'bad-name': 'חסר שם', 'nothing-to-change': 'אין מה לשמור', 'sheet-write-failed': 'הכתיבה לגיליון נכשלה', 'not-found': 'האירוע לא נמצא בגיליון' };
 const FIELD_HE = { names: 'שמות', phone: 'טלפון', occasion: 'סוג אירוע', event_date: 'תאריך' };
