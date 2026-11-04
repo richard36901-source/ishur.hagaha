@@ -390,7 +390,7 @@ export const AUTOMATIONS = [
     conditions: ['AB_ENABLED="on"', '06:00 בישראל'], audience: '—', live: { jobs: ['abEvaluate'] }, source: S(241, 'export async function evaluate', 'worker/ab.js') },
   { id: 'call_cost_sync', name_he: 'סנכרון עלויות שיחה מ-Retell', layer: 2, from: ['t_morning'], kind: 'internal',
     conditions: ['קרון בוקר'], audience: '—', live: { jobs: ['syncCallCosts'] }, source: S(7904, 'async function syncCallCosts') },
-  { id: 'manual_blasts', name_he: 'שליחות ידניות (מתנה · אירוע-בן · SMS · ניסיון חוזר · שליחה חוזרת)', layer: 3, from: [], kind: 'send_guest', routes: ['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend'], mutating: true,
+  { id: 'manual_blasts', name_he: 'שליחות ידניות (מתנה · אירוע-בן · SMS · ניסיון חוזר · שליחה חוזרת)', layer: 3, from: [], kind: 'send_guest', routes: ['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/oneoff-invite'], mutating: true,
     trigger: { cron: '', il: 'ידני בלבד', via: 'POST /api/gift-blast · /api/subevent-send · /api/sms-blast · /api/wave-retry · /api/resend' },
     conditions: ['אדמין בלבד', 'כבוי (auto:off:manual_blasts) → כל המסלולים מחזירים 423 לפני כל קריאה החוצה; /api/wave-retry חסום גם ב-dry כי הוא משנה מצב'],
     audience: 'אורחים של אירוע אחד', source: S(4491, 'async function handleGiftBlast') },

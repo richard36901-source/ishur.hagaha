@@ -11064,6 +11064,44 @@ const WORKER = {
       return okJson(await drainCallRounds(env, { dry: b.action !== 'run', only: tok }), origin);
     }
     /* custom invitation wording: {token, action:'get'|'set', text} (client or admin) */
+    /* 04/11 Richard: a one-off invitation (exact wording + video + RSVP buttons)
+       to a single number, outside any event. admin only.
+       action video: base64 mp4 -> vid:<id> · submit: template via customTemplateSubmit
+       · check: Meta status · send: the approved template to one phone */
+    if (url.pathname === '/api/oneoff-invite' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const id = String(b.id || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(id) || !env.RATE) return deny(400, 'bad-id', origin);
+      const vurl = 'https://go.ishur.io/vid/' + id;
+      if (b.action === 'video') {
+        const bin = Uint8Array.from(atob(String(b.b64 || '')), ch => ch.charCodeAt(0));
+        if (bin.byteLength < 1000) return deny(400, 'no-video', origin);
+        await env.RATE.put('vid:' + id, bin, { expirationTtl: 60 * 86400 });
+        return okJson({ ok: true, url: vurl, bytes: bin.byteLength }, origin);
+      }
+      if (b.action === 'submit') {
+        const text = String(b.text || '').replace(/\r/g, '').trim();
+        const ev = []; ev[44] = vurl;
+        const out = await customTemplateSubmit(env, id, text, ev);
+        return okJson({ ok: out.ok, custom: out.rec }, origin);
+      }
+      let cur = null; try { cur = JSON.parse((await env.RATE.get('customtmpl:' + id)) || 'null'); } catch {}
+      if (!cur || !cur.id) return deny(404, 'no-template', origin);
+      if (b.action === 'check') {
+        const r = await fetch(`https://graph.facebook.com/v21.0/${cur.id}?fields=name,status,rejected_reason`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }).catch(() => null);
+        const j = r ? await r.json().catch(() => ({})) : {};
+        if (j.status) { cur.status = String(j.status).toUpperCase(); cur.reason = String(j.rejected_reason || ''); await env.RATE.put('customtmpl:' + id, JSON.stringify(cur), { expirationTtl: 400 * 86400 }); }
+        return okJson({ ok: true, custom: cur }, origin);
+      }
+      if (b.action === 'send') {
+        if (cur.status !== 'APPROVED') return okJson({ ok: false, error: 'not-approved', status: cur.status }, origin);
+        const res = await sendTemplate(env, String(b.phone || ''), cur.name, [], cur.header === 'VIDEO' ? vurl : '', 'he', 'guests', { occasion: 'הזמנה', wave: 1, token: id, name: '' });
+        await logEvent(env, { area: 'שליחה', action: 'הזמנה חד-פעמית נשלחה (ריצארד)', ok: !!res.ok, phone: normPhone(String(b.phone || '')), token: id, ref: cur.name, detail: JSON.stringify(res).slice(0, 200) }).catch(() => {});
+        return okJson({ ok: !!res.ok, res }, origin);
+      }
+      return deny(400, 'bad-action', origin);
+    }
     if (url.pathname === '/api/custom-template' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       const tok = String(b.token || '').trim();
