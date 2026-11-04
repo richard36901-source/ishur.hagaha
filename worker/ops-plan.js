@@ -566,7 +566,8 @@ export async function servePlan(env, d, fns, { period = 'today', now = Date.now(
     if (hit && hit.data && hit.data.today === d.ilDate(new Date(now)) && (staleOk || now - hit.at < PLAN_FRESH_MS)) return { ...hit.data, served: 'kv', cached: true, age_s: Math.round((now - hit.at) / 1000), stale: now - hit.at >= PLAN_FRESH_MS };
   }
   /* cold (KV empty / stale) never rebuilds the per-guest send board and reads at most 3 uncached past days */
-  const r = await precomputePlans(env, d, fns, { now, periods: [period], buildBoard: !!fresh, pastDayBudget: fresh ? 31 : 3 });
+  /* 04/11: one gather serves all three periods; a fresh refresh saves today/week/month together */
+  const r = await precomputePlans(env, d, fns, { now, periods: fresh ? PERIODS : [period], buildBoard: !!fresh, pastDayBudget: fresh ? 31 : 3 });
   return { ...r.plans[period], served: fresh ? 'fresh' : 'cold', age_s: 0 };
 }
 /* kept for callers of the first version */
