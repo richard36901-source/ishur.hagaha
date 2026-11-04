@@ -54,7 +54,7 @@ import { buildFinance, setManualCost, invoiceResend, buildAds, buildTemplates, t
 import { listCalls, getCallDetail, buildCallRounds, callRound, manualCalls, manualCallsPost, shirAdmin, buildCallCosts, callCostRollup } from './ops-calls.js';
 import { buildRaffle, drawRaffle, verifyEntry } from './raffle.js';
 import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
-import { buildPlan } from './ops-plan.js';
+import { servePlan } from './ops-plan.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -374,7 +374,9 @@ async function bizVerification(env) {
 }
 
 /* ── realtime ────────────────────────────────────────────────────────────── */
-export async function buildRealtime(env, d, now = Date.now()) {
+/* pre = { outQ, stQ }: today's audit rows already read by the caller (ops-plan.js gatherPlan reads them once and hands them
+   in, so the plan's sent / failed numbers are this function's own over the very same rows) */
+export async function buildRealtime(env, d, now = Date.now(), pre = null) {
   const today = d.ilDate(new Date(now));
   await d.waCapInfo(env).catch(() => null);
   const guestIds = d.guestPhoneIds(env), clientId = d.clientPhoneId(env) || '';
@@ -382,7 +384,7 @@ export async function buildRealtime(env, d, now = Date.now()) {
     d.guestCapacity(env).catch(() => null), kjson(env, 'wa:cap'), kjson(env, 'pacer:last'), kget(env, 'pacer:pending'), d.sendingPaused(env).catch(() => false),
     kget(env, 'wacap:guests'), kget(env, 'billingalert:client'), d.kvPrefix(env, 'edblast:').catch(() => ({})), kcount(env, 'lateinv:'), kcount(env, 'cbq:'), kcount(env, 'hold:'),
     kget(env, 'autoretry:' + today), isOff(env, 'd_pacer'), isOff(env, 'autoretry'),
-    d.auditQueryEx(env, { days: 1, kind: 'wa_out', limit: 20000 }), d.auditQueryEx(env, { days: 1, kind: 'wa_status', limit: 20000 })]);
+    pre && pre.outQ ? pre.outQ : d.auditQueryEx(env, { days: 1, kind: 'wa_out', limit: 20000 }), pre && pre.stQ ? pre.stQ : d.auditQueryEx(env, { days: 1, kind: 'wa_status', limit: 20000 })]);
   const outRows = outQ.items || [], stRows = stQ.items || [];
   const untilTs = Math.max(0, ...outRows.map(r => r.ts || 0));
   const subTemplates = new Set(Object.values(await d.kvPrefix(env, 'subevent:').catch(() => ({}))).map(v => { try { return JSON.parse(v).template; } catch { return ''; } }).filter(Boolean));
@@ -904,7 +906,8 @@ export { buildCallCosts, callCostRollup };
 export const brainFns = () => ({ buildCapacity: (env, d, now, days) => buildCapacity(env, d, now, days), buildBalances: (env, d, o) => buildBalances(env, d, o) });
 /* what ops-plan.js composes from (kept here so ops-plan.js never imports ops.js — no cycle) */
 export const planFns = () => ({ buildCapacity: (env, d, now, days) => buildCapacity(env, d, now, days), sendsByDay, callsByDay,
-  buildCallRounds: (env, d, now) => buildCallRounds(env, d, now, { ticksLeft: ticksLeftToday(d.callWindowState, now) }) });
+  buildCallRounds: (env, d, now) => buildCallRounds(env, d, now, { ticksLeft: ticksLeftToday(d.callWindowState, now) }),
+  buildRealtime: (env, d, now, pre) => buildRealtime(env, d, now, pre) });
 
 /* ══ the router ════════════════════════════════════════════════════════════ */
 export async function handleOps(request, env, origin, url, d) {
@@ -923,7 +926,8 @@ export async function handleOps(request, env, origin, url, d) {
       case 'realtime': return json(await buildRealtime(env, d));
       case 'capacity': return json(await buildCapacity(env, d, Date.now(), Math.max(1, Math.min(28, Number(q('days')) || 14))));
       case 'calendar': return json(await buildCalendar(env, d, String(q('month') || ''), Date.now(), { fresh: String(q('fresh') || '') === '1' }));
-      case 'plan': return json(await buildPlan(env, d, planFns(), { period: String(q('period') || 'today'), fresh: String(q('fresh') || '') === '1' }));
+      /* 04/11: served from KV plan:<period> (the pacer precomputes it every 10 min); fresh=1 recomputes */
+      case 'plan': return json(await servePlan(env, d, planFns(), { period: String(q('period') || 'today'), fresh: String(q('fresh') || '') === '1' }));
       case 'balances': {
         if (request.method === 'POST' && body.set) {
           const v = String(body.set.vendor || ''); if (!VENDORS[v]) return json({ ok: false, error: 'unknown-vendor', vendors: Object.keys(VENDORS) }, 400);

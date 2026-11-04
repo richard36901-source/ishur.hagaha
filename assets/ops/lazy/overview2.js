@@ -87,6 +87,24 @@ const CSS = `
 .ov2 .pl-warn{font-size:12.5px;color:var(--serious);font-weight:600}
 .ov2 .pl-day .pl-list{padding:0 0 10px 0;margin-inline-start:18px}
 .ov2 .pl-empty{font-size:13px;color:var(--ink-3);padding:6px 0 12px 18px}
+/* 04/11 "תמונה מלאה": the top answer + one red line per real problem */
+.ov2 .pl-status{margin:0 0 12px;padding:12px 14px;border-radius:var(--radius-md);background:var(--cream);color:var(--ink)}
+.ov2 .pl-status.ok{background:var(--green-wash);color:var(--green-deep)}
+.ov2 .pl-status .ln{font:650 1.05rem/1.45 var(--font-body);margin:0}
+.ov2 .pl-status .nums{font-size:13px;color:var(--ink-2);margin:4px 0 0}
+.ov2 .pl-probs{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-direction:column;gap:6px}
+.ov2 .pl-prob{display:flex;gap:10px;align-items:flex-start;padding:9px 12px;border-radius:var(--radius-sm);background:var(--error-bg);color:var(--error);font-size:13.5px;line-height:1.45;text-align:start}
+.ov2 .pl-prob .bd{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.ov2 .pl-prob.self{background:var(--bg-3);color:var(--ink-2)}
+.ov2 .pl-prob .ic{font-weight:700;flex:none;width:14px;text-align:center}
+.ov2 .pl-prob b{color:inherit}.ov2 .pl-prob .pl-cause,.ov2 .pl-prob .pl-fix{color:var(--ink-2);font-size:12.5px}
+.ov2 .pl-prob .tag{display:inline-block;margin-inline-start:6px;padding:0 7px;border-radius:var(--radius-xs);font:600 11.5px/20px var(--font-body);background:var(--raise);color:inherit}
+.ov2 .pl-meta{font-size:12px;color:var(--ink-3)}
+.ov2 .pl-n .f{color:var(--error);font-weight:600}
+.ov2 .pl-tmr{margin-top:10px;border-top:1px solid var(--line)}
+.ov2 .pl-tmr>summary{list-style:none;cursor:pointer;min-height:44px;display:flex;align-items:center;gap:8px;font-weight:650;font-size:14px}
+.ov2 .pl-tmr>summary::-webkit-details-marker{display:none}
+.ov2 .pl-stamp{font-size:12px;color:var(--ink-3);margin:8px 0 0}
 @media (max-width:760px){.ov2 .plan .sec-h .seg{display:flex;width:100%;flex:none;order:9}.ov2 .plan .seg button{flex:1;height:44px}
 .ov2 .pl-row{grid-template-columns:minmax(0,1fr) auto}.ov2 .pl-st{grid-column:1/-1}.ov2 .pl-tx a{white-space:normal}.ov2 .pl-dd{min-width:0}.ov2 .pl-day .pl-list{margin-inline-start:0}}
 `;
@@ -203,8 +221,20 @@ export function planChip(it) {
   const when = it.status === 'waiting' ? fmtTime(it.planned_at) : '';
   return `<span class="pl-chip ${esc(it.status)}"><span aria-hidden="true">${GLYPH[it.status] || '•'}</span>${esc(it.status_he || it.status)}${when ? ` · <span class="num">${esc(when)}</span>` : ''}</span>`;
 }
-const planN = (it) => (it.status === 'in_progress' && it.planned_n ? `${fmtN(it.done_n)} מתוך ${fmtN(it.planned_n)}` : it.status === 'done' ? (it.done_n || it.planned_n ? fmtN(it.done_n || it.planned_n) : '') : it.planned_n ? fmtN(it.planned_n) : '');
-export const planRow = (it) => `<li class="pl-row ${esc(it.status)}" data-pl="${esc(it.id)}"><span class="pl-st">${planChip(it)}</span><div class="pl-tx"><a href="${esc(it.deep_link || '#/overview')}">${esc(it.label_he)}</a>${it.reason_he ? `<span class="pl-why" dir="auto">${esc(it.reason_he)}</span>` : ''}</div><span class="pl-n">${planN(it)}</span></li>`;
+/* planned / done / failed, in that order; a cron or an event has no count */
+const planN = (it) => {
+  if (!it.planned_n && !it.done_n && !it.failed_n) return '';
+  const main = it.status === 'in_progress' || (it.planned_n && it.done_n !== it.planned_n) ? `${fmtN(it.done_n)} מתוך ${fmtN(it.planned_n)}` : fmtN(it.done_n || it.planned_n);
+  return main + (it.failed_n ? ` · <span class="f">${fmtN(it.failed_n)} נכשלו</span>` : '');
+};
+const planMeta = (it) => [it.event && it.event.name ? it.event.name : '', it.status === 'waiting' ? '' : it.time_hm || (it.planned_at ? fmtTime(it.planned_at) : ''), it.needs_you ? 'צריך אותך' : ''].filter(Boolean).map(esc).join(' · ');
+export const planRow = (it) => `<li class="pl-row ${esc(it.status)}" data-pl="${esc(it.id)}"><span class="pl-st">${planChip(it)}</span><div class="pl-tx"><a href="${esc(it.deep_link || '#/overview')}">${esc(it.label_he)}</a><span class="pl-meta">${planMeta(it)}</span>${it.reason_he ? `<span class="pl-why" dir="auto">${esc(it.reason_he)}</span>` : ''}</div><span class="pl-n">${planN(it)}</span></li>`;
+/* the answer to "did everything that should go out today go out?" + one line per real problem (cause · fix · heals by itself or needs you) */
+export function statusView(st) {
+  if (!st) return '';
+  const probs = (st.problems || []).map((p) => `<li class="pl-prob${p.needs_you ? '' : ' self'}"><span class="ic" aria-hidden="true">${p.needs_you ? '!' : '↻'}</span><div class="bd"><span><b>${esc(p.title_he)}</b><span class="tag">${p.needs_you ? 'צריך אותך' : 'מתקן את עצמו'}</span></span>${p.cause_he ? `<span class="pl-cause">${esc(p.cause_he)}</span>` : ''}${p.fix_he ? `<span class="pl-fix">${p.deep_link ? `<a href="${esc(p.deep_link)}" style="color:inherit">${esc(p.fix_he)}</a>` : esc(p.fix_he)}</span>` : ''}</div></li>`).join('');
+  return `<div class="pl-status${st.all_ok ? ' ok' : ''}" role="status"><p class="ln">${esc(st.line_he)}</p>${st.numbers_he ? `<p class="nums">${esc(st.numbers_he)}</p>` : ''}</div>${probs ? `<ul class="pl-probs" aria-label="בעיות היום">${probs}</ul>` : ''}`;
+}
 const planList = (items) => (items.length ? `<ul class="pl-list">${items.map(planRow).join('')}</ul>` : '<div class="pl-empty">אין כלום מתוכנן ליום הזה.</div>');
 const sumChips = (t) => ['done', 'in_progress', 'waiting', 'missed'].filter((k) => t[k]).map((k) => `<span class="${k}" title="${esc(STATUS_HE_PL[k])}"><i aria-hidden="true">${GLYPH[k]}</i>${fmtN(t[k])}<span class="sr-only"> ${esc(STATUS_HE_PL[k])}</span></span>`).join('');
 const STATUS_HE_PL = { done: 'בוצע', in_progress: 'בתהליך', waiting: 'ממתין', missed: 'לא קרה' };
@@ -220,7 +250,9 @@ export function planBody(st) {
   const head = `<div class="pl-tot"><span><b>${fmtN(t.planned)}</b>מתוכנן</span><span class="done"><b>${fmtN(t.done)}</b>בוצע</span>${t.in_progress ? `<span class="prog"><b>${fmtN(t.in_progress)}</b>בתהליך</span>` : ''}<span><b>${fmtN(t.waiting)}</b>ממתין</span><span class="missed"><b>${fmtN(t.missed)}</b>לא קרה</span></div>`;
   const nx = d.next ? `<p class="pl-next">הבא: <a href="${esc(d.next.deep_link || '#/overview')}" style="color:inherit"><b>${esc(d.next.label_he)}</b></a> ב-<time datetime="${esc(d.next.at)}">${esc(fmtTime(d.next.at))}</time>${d.next.day && d.next.day !== d.today ? `<span class="sub">(${esc(fmtDate(d.next.day + 'T12:00'))})</span>` : ''}</p>` : (t.planned ? '' : '<p class="pl-next">אין כלום מתוכנן בתקופה הזו.</p>');
   const body = st.period === 'today' ? planList((d.days[0] || { items: [] }).items) : d.days.map((x) => planDay(x, st)).join('');
-  return head + nx + body + (d.audit_truncated ? '<p class="sub" style="margin:10px 0 0">יומן הביקורת נחתך — ספירות "בוצע" עשויות להיות חלקיות.</p>' : '');
+  const tmr = st.period === 'today' && d.tomorrow && d.tomorrow.items && d.tomorrow.items.length ? `<details class="pl-tmr"><summary>מחר · ${esc(d.tomorrow.dow_he || '')} ${esc(fmtDate(d.tomorrow.day + 'T12:00'))} <span class="sub">${fmtN(d.tomorrow.items.length)} מתוכננים</span></summary><ul class="pl-list">${d.tomorrow.items.map(planRow).join('')}</ul></details>` : '';
+  const stamp = d.at ? `<p class="pl-stamp">עודכן ${esc(relTime(d.at))}${d.served === 'kv' ? ' · מחושב מראש כל 10 דקות' : ''}</p>` : '';
+  return statusView(d.status) + head + nx + body + tmr + (d.audit_truncated ? '<p class="sub" style="margin:10px 0 0">יומן הביקורת נחתך — ספירות "בוצע" עשויות להיות חלקיות.</p>' : '') + stamp;
 }
 
 const sec = (title, inner, extra = '', cls = '') => `<section class="card${cls ? ' ' + cls : ''}"><div class="sec-h"><h2 class="h2">${title}</h2><span class="sp"></span>${extra}</div>${inner}</section>`;

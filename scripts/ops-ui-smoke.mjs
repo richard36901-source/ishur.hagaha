@@ -189,6 +189,16 @@ console.log('A3f מתוכנן מול בוצע (lazy/overview2.js planBody · fix
   ok(/data-day="2026-11-05"/.test(wkOpen) && /<details class="pl-day" open data-day="2026-11-05"/.test(wkOpen) && !/<details class="pl-day today" open/.test(wkOpen), 'day groups remember what was expanded / collapsed');
   const missed = items.find((i) => i.status === 'missed'), waiting = items.find((i) => i.status === 'waiting');
   ok(OV2.planRow(missed).includes(missed.reason_he) && /pl-chip waiting"><span aria-hidden="true">○<\/span>ממתין · <span class="num">\d\d:\d\d/.test(OV2.planRow(waiting)), 'rows: a missed row shows its reason, a waiting row shows the time it starts');
+  /* 04/11 "תמונה מלאה": the top answer, the red lines, rows with event · time · done/planned/failed, tomorrow */
+  const T = PLF.by_period.today, tb = OV2.planBody({ period: 'today', data: T, err: '', open: new Set() });
+  ok(T.status && /^היום: /.test(T.status.line_he) && tb.indexOf('class="pl-status') >= 0 && tb.indexOf('class="pl-status') < tb.indexOf('class="pl-list"') && tb.includes(T.status.line_he.split(' · ')[0]), 'today: the status line comes first', T.status && T.status.line_he);
+  ok(T.status.problems.length > 0 && (tb.match(/class="pl-prob[" ]/g) || []).length === T.status.problems.length && /צריך אותך/.test(tb) && /מתקן את עצמו/.test(tb), 'today: one red line per problem, each says "needs you" or "heals itself"', T.status.problems.map((x) => x.code).join(', '));
+  ok(T.status.numbers_he && tb.includes(T.status.numbers_he), 'today: the realtime numbers line', T.status.numbers_he);
+  ok(T.days[0].items.every((i) => i.label_he && i.event && i.event.name) && T.days[0].items.every((i) => OV2.planRow(i).includes('class="pl-meta"')), 'today: every row has a title and an event name');
+  const failRow = T.days[0].items.find((i) => i.failed_n > 0);
+  ok(failRow && /נכשלו<\/span>/.test(OV2.planRow(failRow)), 'rows: failures counted in red next to done / planned', failRow && failRow.label_he);
+  ok(T.tomorrow && T.tomorrow.items.length > 0 && /<details class="pl-tmr"><summary>מחר/.test(tb), 'today: tomorrow is a collapsed lookahead', T.tomorrow && T.tomorrow.items.length + ' rows');
+  ok(OV2.statusView({ line_he: 'היום: הכול יצא כמתוכנן ✓', all_ok: true, problems: [] }).includes('pl-status ok') && OV2.statusView(null) === '', 'status: green when all went out, nothing without data');
   const seg = OV2.planSeg('week');
   ok(/role="tablist"/.test(seg) && /data-tabs="plan"/.test(seg) && (seg.match(/role="tab"/g) || []).length === 3 && /data-v="week" aria-selected="true"/.test(seg) && !/<select/.test(seg), 'segmented control היום / השבוע / החודש is custom (no native select)');
   check('overview2.planBody loading + error states', () => OV2.planBody({ period: 'today', data: null, err: '' }) + OV2.planBody({ period: 'today', data: null, err: 'x' }) + '<x>'.repeat(40));
@@ -377,7 +387,8 @@ if (!process.argv.includes('--no-browser')) {
         /* 04/11 מתוכנן מול בוצע: loads after the first paint, segmented control persists, days expand on tap */
         await page.waitForSelector('#ov-plan-b .pl-row', { timeout: 6000 });
         const PLF = fx('plan');
-        ok((await page.$$eval('#ov-plan-b .pl-row', (x) => x.length)) === PLF.by_period.today.days[0].items.length && (await page.$eval('#ov-plan-b', (b) => b.innerText)).includes('הבא:'), 'plan block: today rows from the fixture + the "הבא" line', PLF.by_period.today.days[0].items.length + ' rows');
+        ok((await page.$$eval('#ov-plan-b > ul.pl-list > .pl-row', (x) => x.length)) === PLF.by_period.today.days[0].items.length && (await page.$eval('#ov-plan-b', (b) => b.innerText)).includes('הבא:'), 'plan block: today rows from the fixture + the "הבא" line', PLF.by_period.today.days[0].items.length + ' rows');
+        ok((await page.$eval('#ov-plan-b .pl-status .ln', (b) => b.textContent)) === PLF.by_period.today.status.line_he && (await page.$$eval('#ov-plan-b .pl-prob', (x) => x.length)) === PLF.by_period.today.status.problems.length, 'plan block: the status line + red lines render in the page');
         ok(data.some((u) => u.includes('plan.json')), 'plan loads after the first paint (not counted in the ≤3)');
         await page.screenshot({ path: join(shotDir, 'plan-desktop.png') });
         await page.click('#main [data-tabs=plan] [data-v=week]');

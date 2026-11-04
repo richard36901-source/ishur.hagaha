@@ -11,8 +11,8 @@
    "at": "2026-11-03T10:00:00.000Z",
    "tz": "Asia/Jerusalem",
    "totals": {
-    "planned": 11,
-    "done": 5,
+    "planned": 12,
+    "done": 6,
     "in_progress": 4,
     "waiting": 2,
     "missed": 0
@@ -39,8 +39,8 @@
       "out": 68
      },
      "totals": {
-      "planned": 11,
-      "done": 5,
+      "planned": 12,
+      "done": 6,
       "in_progress": 4,
       "waiting": 2,
       "missed": 0
@@ -62,7 +62,10 @@
        "reason_he": "17:30–23:00",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-03",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "17:30",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:ab699ac0",
@@ -80,7 +83,10 @@
        "reason_he": "מתקיים היום · 19:00",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "19:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:ab699ac0|table:2026-11-03",
@@ -100,7 +106,10 @@
        "reason_he": "2 נכשלו",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:c1c5fcf5|gift:2026-11-03",
@@ -120,25 +129,54 @@
        "reason_he": "",
        "deep_link": "#/clients/c1c5fcf5",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
+      },
+      {
+       "id": "send:c2f63d20|reply:2026-11-03",
+       "kind": "send",
+       "type": "reply",
+       "event": {
+        "tok8": "c2f63d20",
+        "name": "נועה ויונתן"
+       },
+       "label_he": "תשובות לאורחים · נועה ויונתן",
+       "planned_at": "2026-11-03T07:00:00.000Z",
+       "planned_n": 4,
+       "done_n": 4,
+       "failed_n": 0,
+       "status": "done",
+       "reason_he": "תשובות שנשלחו לאורחים בתוך חלון 24 השעות",
+       "deep_link": "#/clients/c2f63d20",
+       "day": "2026-11-03",
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "leads:2026-11-03",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-03T08:00:00.000Z",
-       "planned_n": 7,
-       "done_n": 6,
+       "planned_n": 6,
+       "done_n": 5,
        "failed_n": 1,
+       "sent_n": 6,
        "status": "done",
-       "reason_he": "1 נכשלו · חיוב מטא חסום (131042)",
+       "reason_he": "נשלחו 6 · נכשלו 1 (131042 ×1) · חיוב מטא חסום (131042) — צריך אותך",
+       "needs_you": true,
+       "self_heals": false,
        "deep_link": "#/messages",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00"
       },
       {
        "kind": "call",
@@ -155,9 +193,21 @@
        "done_n": 2,
        "answered": 1,
        "status": "in_progress",
-       "reason_he": "1 נענו · לא ענה 1, לחזור אליו 1",
+       "reason_he": "2 חיוגים מתוך 3 · 1 נענו · לא ענה 1, לחזור אליו 1 · נשארו 1 — ממשיכה לבד",
+       "self_heals": false,
+       "needs_you": true,
+       "extra": {
+        "dialed": 2,
+        "answered": 1,
+        "coming": 0,
+        "not_coming": 0,
+        "maybe": 0,
+        "left": 1,
+        "queued": 1
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "10:00"
       },
       {
        "kind": "call",
@@ -174,9 +224,21 @@
        "done_n": 5,
        "answered": 3,
        "status": "in_progress",
-       "reason_he": "3 נענו · לא מגיע 1, מתלבט 1, תא קולי 1, מגיע 1, לא ענה 1",
+       "reason_he": "5 חיוגים מתוך 8 · 3 נענו · לא מגיע 1, מתלבט 1, תא קולי 1, מגיע 1, לא ענה 1 · נשארו 3 — ממשיכה לבד",
+       "self_heals": true,
+       "needs_you": false,
+       "extra": {
+        "dialed": 5,
+        "answered": 3,
+        "coming": 1,
+        "not_coming": 1,
+        "maybe": 1,
+        "left": 3,
+        "queued": 4
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "10:00"
       },
       {
        "id": "send:ab699ac0|subevent:2026-11-03",
@@ -184,28 +246,40 @@
        "type": "subevent",
        "event": {
         "tok8": "ab699ac0",
-        "name": "אירוע א"
+        "name": "שבת חתן · אירוע א"
        },
-       "label_he": "אירוע-בן (שבת חתן) · אירוע א",
+       "label_he": "שבת חתן · אירוע א",
        "planned_at": "2026-11-03T10:10:00.000Z",
        "planned_n": 108,
        "done_n": 40,
        "failed_n": 0,
        "of": 216,
        "status": "in_progress",
-       "reason_he": "",
-       "deep_link": "#/clients/ab699ac0",
+       "reason_he": "נשלחו 40 מתוך 108 היום · ממשיך לבד כל 10 דקות · 9 ענו · סה״כ 40 מתוך 216",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "",
+       "deep_link": "#/clients/6a3155cc",
+       "extra": {
+        "invited": 216,
+        "sent_total": 40,
+        "pending": 176,
+        "replied": 9,
+        "started_at": "legacy",
+        "completed_at": ""
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "12:10"
       },
       {
        "id": "cron:backup:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-03T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -214,16 +288,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:d_engine:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-03T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -232,16 +309,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:journal_digest:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-03T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -250,7 +330,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-03",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     }
@@ -269,6 +352,158 @@
     "cron": "משימה מתוזמנת",
     "event": "אירוע",
     "hostess": "משמרת דיילת"
+   },
+   "tomorrow": {
+    "day": "2026-11-04",
+    "dow_he": "רביעי",
+    "past": false,
+    "today": false,
+    "future": true,
+    "open": true,
+    "capacity": {
+     "capacity": 230,
+     "planned": 507,
+     "overflow": 277,
+     "out": 230
+    },
+    "totals": {
+     "planned": 6,
+     "done": 0,
+     "in_progress": 0,
+     "waiting": 6,
+     "missed": 0
+    },
+    "items": [
+     {
+      "id": "send:ab699ac0|subevent:2026-11-04",
+      "kind": "send",
+      "type": "subevent",
+      "event": {
+       "tok8": "ab699ac0",
+       "name": "אירוע א"
+      },
+      "label_he": "אירוע-בן (שבת חתן) · אירוע א",
+      "planned_at": "2026-11-04T07:00:00.000Z",
+      "planned_n": 108,
+      "done_n": 0,
+      "failed_n": 0,
+      "of": null,
+      "status": "waiting",
+      "reason_he": "נדחה מ-03/11 (מכסה) · היום עמוס: 507 מתוכננות מול תקרה 230",
+      "deep_link": "#/clients/ab699ac0",
+      "day": "2026-11-04",
+      "status_he": "ממתין",
+      "time_hm": "09:00",
+      "needs_you": false,
+      "self_heals": true,
+      "block": "cap"
+     },
+     {
+      "id": "send:6a3155cc|w1:2026-11-04",
+      "kind": "send",
+      "type": "w1",
+      "event": {
+       "tok8": "6a3155cc",
+       "name": "אירוע ב"
+      },
+      "label_he": "גל 1 · הזמנה · אירוע ב",
+      "planned_at": "2026-11-04T07:00:00.000Z",
+      "planned_n": 122,
+      "done_n": 0,
+      "failed_n": 0,
+      "of": null,
+      "status": "waiting",
+      "reason_he": "היום עמוס: 507 מתוכננות מול תקרה 230",
+      "deep_link": "#/clients/6a3155cc",
+      "day": "2026-11-04",
+      "status_he": "ממתין",
+      "time_hm": "09:00",
+      "needs_you": false,
+      "self_heals": true
+     },
+     {
+      "kind": "call",
+      "event": {
+       "tok8": "c2f63d20",
+       "name": "נועה ויונתן"
+      },
+      "label_he": "סבב שיחות של שיר · נועה ויונתן",
+      "deep_link": "#/calls?tab=rounds",
+      "failed_n": 0,
+      "id": "call:c2f63d20:2026-11-04",
+      "planned_at": "2026-11-04T08:00:00.000Z",
+      "planned_n": 1,
+      "done_n": 0,
+      "answered": 0,
+      "status": "waiting",
+      "reason_he": "1 אורחים בתור לשיר",
+      "day": "2026-11-04",
+      "status_he": "ממתין",
+      "time_hm": "10:00",
+      "needs_you": false,
+      "self_heals": true
+     }
+    ]
+   },
+   "status": {
+    "line_he": "היום: 6 מתוך 10 בוצעו · 3 ממתינים (יוצאים לבד עד 20:30) · 2 צריכים אותך",
+    "all_ok": false,
+    "counts": {
+     "total": 10,
+     "done": 6,
+     "in_progress": 3,
+     "waiting": 1,
+     "missed": 0,
+     "needs_you": 2,
+     "self": 3,
+     "rolls": 0
+    },
+    "numbers": {
+     "wa_sent": 111,
+     "wa_rejected": 1,
+     "wa_failed_async": 3,
+     "wa_failed": 4,
+     "guests_sent": 105,
+     "guests_failed": 3,
+     "noa_sent": 6,
+     "noa_failed": 1,
+     "calls_dialed": 8,
+     "calls_answered": 4,
+     "calls_left": 4,
+     "calls_coming": 1,
+     "calls_not_coming": 1
+    },
+    "numbers_he": "נשלחו היום 111 הודעות (אורחים 105 · נועה 6) · 4 נכשלו · 8 שיחות, 4 נענו",
+    "problems": [
+     {
+      "code": "131042",
+      "needs_you": true,
+      "self_heals": false,
+      "title_he": "נועה 4499: 1 הודעות ללידים נכשלו היום (131042)",
+      "cause_he": "מטא חוסמת שליחה מ-4499 בגלל בעיית תשלום בחשבון ה-WhatsApp",
+      "fix_he": "לעדכן אמצעי תשלום ב-WhatsApp Manager של 4499. לא מתקן את עצמו."
+     },
+     {
+      "code": "guest_failed",
+      "needs_you": false,
+      "self_heals": true,
+      "title_he": "3 הודעות לאורחים נכשלו היום (131026 ×3)",
+      "cause_he": "מספר שגוי / חסום / לא בוואטסאפ, או דחייה זמנית של מטא",
+      "fix_he": "הניסיון החוזר האוטומטי מטפל בזה (עד 3 ניסיונות לאורח)."
+     },
+     {
+      "code": "item:call:f0a38bbd:2026-11-03",
+      "item_id": "call:f0a38bbd:2026-11-03",
+      "needs_you": true,
+      "self_heals": false,
+      "title_he": "סבב שיחות של שיר · בר המצווה של איתי",
+      "cause_he": "2 חיוגים מתוך 3 · 1 נענו · לא ענה 1, לחזור אליו 1 · נשארו 1 — ממשיכה לבד",
+      "fix_he": "לפתוח את השורה ולטפל",
+      "deep_link": "#/calls?tab=rounds"
+     }
+    ],
+    "rt_at": "2026-11-03T09:59:30.000Z",
+    "rounds_at": "2026-11-03T15:58:23.627Z"
    }
   },
   "week": {
@@ -280,8 +515,8 @@
    "at": "2026-11-03T10:00:00.000Z",
    "tz": "Asia/Jerusalem",
    "totals": {
-    "planned": 48,
-    "done": 16,
+    "planned": 49,
+    "done": 17,
     "in_progress": 4,
     "waiting": 23,
     "missed": 5
@@ -328,7 +563,10 @@
        "reason_he": "4 נכשלו",
        "deep_link": "#/clients/395962fa",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:96b7dec2|w2:2026-11-01",
@@ -348,14 +586,18 @@
        "reason_he": "מכסה",
        "deep_link": "#/clients/96b7dec2",
        "day": "2026-11-01",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "09:00",
+       "self_heals": true,
+       "needs_you": false,
+       "block": "cap"
       },
       {
        "id": "leads:2026-11-01",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-01T08:00:00.000Z",
@@ -366,7 +608,10 @@
        "reason_he": "",
        "deep_link": "#/messages",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "call:395962fa:2026-11-01",
@@ -385,16 +630,19 @@
        "reason_he": "7 חיוגים · 2 נענו",
        "deep_link": "#/calls?tab=rounds",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-01",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-01T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -403,16 +651,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:d_engine:2026-11-01",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-01T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -421,16 +672,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:journal_digest:2026-11-01",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-01T19:00:04.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -439,7 +693,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": false
       }
      ]
     },
@@ -477,7 +734,10 @@
        "reason_he": "החזקה (hold)",
        "deep_link": "#/clients/ffb78392",
        "day": "2026-11-02",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "09:00",
+       "self_heals": false,
+       "needs_you": true
       },
       {
        "id": "send:c2f63d20|w2:2026-11-02",
@@ -497,7 +757,10 @@
        "reason_he": "1 נכשלו",
        "deep_link": "#/clients/c2f63d20",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:e045522a|thanks:2026-11-02",
@@ -517,14 +780,17 @@
        "reason_he": "",
        "deep_link": "#/clients/e045522a",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "leads:2026-11-02",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-02T08:00:00.000Z",
@@ -535,7 +801,10 @@
        "reason_he": "2 נכשלו",
        "deep_link": "#/messages",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "call:c2f63d20:2026-11-02",
@@ -554,16 +823,19 @@
        "reason_he": "11 חיוגים · 6 נענו",
        "deep_link": "#/calls?tab=rounds",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-02",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-02T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -572,16 +844,19 @@
        "reason_he": "לא רץ (היה אמור ב-08:35)",
        "deep_link": "#/automations/backup",
        "day": "2026-11-02",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "08:35",
+       "self_heals": false,
+       "needs_you": true
       },
       {
        "id": "cron:d_engine:2026-11-02",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-02T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -590,16 +865,19 @@
        "reason_he": "נכשל: sheet 503",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-02",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "08:35",
+       "self_heals": false,
+       "needs_you": true
       },
       {
        "id": "cron:journal_digest:2026-11-02",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-02T19:00:04.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -608,7 +886,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": false
       }
      ]
     },
@@ -626,8 +907,8 @@
       "out": 68
      },
      "totals": {
-      "planned": 11,
-      "done": 5,
+      "planned": 12,
+      "done": 6,
       "in_progress": 4,
       "waiting": 2,
       "missed": 0
@@ -649,7 +930,10 @@
        "reason_he": "17:30–23:00",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-03",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "17:30",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:ab699ac0",
@@ -667,7 +951,10 @@
        "reason_he": "מתקיים היום · 19:00",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "19:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:ab699ac0|table:2026-11-03",
@@ -687,7 +974,10 @@
        "reason_he": "2 נכשלו",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:c1c5fcf5|gift:2026-11-03",
@@ -707,25 +997,54 @@
        "reason_he": "",
        "deep_link": "#/clients/c1c5fcf5",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
+      },
+      {
+       "id": "send:c2f63d20|reply:2026-11-03",
+       "kind": "send",
+       "type": "reply",
+       "event": {
+        "tok8": "c2f63d20",
+        "name": "נועה ויונתן"
+       },
+       "label_he": "תשובות לאורחים · נועה ויונתן",
+       "planned_at": "2026-11-03T07:00:00.000Z",
+       "planned_n": 4,
+       "done_n": 4,
+       "failed_n": 0,
+       "status": "done",
+       "reason_he": "תשובות שנשלחו לאורחים בתוך חלון 24 השעות",
+       "deep_link": "#/clients/c2f63d20",
+       "day": "2026-11-03",
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "leads:2026-11-03",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-03T08:00:00.000Z",
-       "planned_n": 7,
-       "done_n": 6,
+       "planned_n": 6,
+       "done_n": 5,
        "failed_n": 1,
+       "sent_n": 6,
        "status": "done",
-       "reason_he": "1 נכשלו · חיוב מטא חסום (131042)",
+       "reason_he": "נשלחו 6 · נכשלו 1 (131042 ×1) · חיוב מטא חסום (131042) — צריך אותך",
+       "needs_you": true,
+       "self_heals": false,
        "deep_link": "#/messages",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00"
       },
       {
        "kind": "call",
@@ -742,9 +1061,21 @@
        "done_n": 2,
        "answered": 1,
        "status": "in_progress",
-       "reason_he": "1 נענו · לא ענה 1, לחזור אליו 1",
+       "reason_he": "2 חיוגים מתוך 3 · 1 נענו · לא ענה 1, לחזור אליו 1 · נשארו 1 — ממשיכה לבד",
+       "self_heals": false,
+       "needs_you": true,
+       "extra": {
+        "dialed": 2,
+        "answered": 1,
+        "coming": 0,
+        "not_coming": 0,
+        "maybe": 0,
+        "left": 1,
+        "queued": 1
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "10:00"
       },
       {
        "kind": "call",
@@ -761,9 +1092,21 @@
        "done_n": 5,
        "answered": 3,
        "status": "in_progress",
-       "reason_he": "3 נענו · לא מגיע 1, מתלבט 1, תא קולי 1, מגיע 1, לא ענה 1",
+       "reason_he": "5 חיוגים מתוך 8 · 3 נענו · לא מגיע 1, מתלבט 1, תא קולי 1, מגיע 1, לא ענה 1 · נשארו 3 — ממשיכה לבד",
+       "self_heals": true,
+       "needs_you": false,
+       "extra": {
+        "dialed": 5,
+        "answered": 3,
+        "coming": 1,
+        "not_coming": 1,
+        "maybe": 1,
+        "left": 3,
+        "queued": 4
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "10:00"
       },
       {
        "id": "send:ab699ac0|subevent:2026-11-03",
@@ -771,28 +1114,40 @@
        "type": "subevent",
        "event": {
         "tok8": "ab699ac0",
-        "name": "אירוע א"
+        "name": "שבת חתן · אירוע א"
        },
-       "label_he": "אירוע-בן (שבת חתן) · אירוע א",
+       "label_he": "שבת חתן · אירוע א",
        "planned_at": "2026-11-03T10:10:00.000Z",
        "planned_n": 108,
        "done_n": 40,
        "failed_n": 0,
        "of": 216,
        "status": "in_progress",
-       "reason_he": "",
-       "deep_link": "#/clients/ab699ac0",
+       "reason_he": "נשלחו 40 מתוך 108 היום · ממשיך לבד כל 10 דקות · 9 ענו · סה״כ 40 מתוך 216",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "",
+       "deep_link": "#/clients/6a3155cc",
+       "extra": {
+        "invited": 216,
+        "sent_total": 40,
+        "pending": 176,
+        "replied": 9,
+        "started_at": "legacy",
+        "completed_at": ""
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "12:10"
       },
       {
        "id": "cron:backup:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-03T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -801,16 +1156,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:d_engine:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-03T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -819,16 +1177,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:journal_digest:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-03T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -837,7 +1198,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-03",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -875,12 +1239,16 @@
        "planned_n": 108,
        "done_n": 0,
        "failed_n": 0,
-       "of": 216,
+       "of": null,
        "status": "waiting",
        "reason_he": "נדחה מ-03/11 (מכסה) · היום עמוס: 507 מתוכננות מול תקרה 230",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "cap"
       },
       {
        "id": "send:6a3155cc|w1:2026-11-04",
@@ -900,7 +1268,10 @@
        "reason_he": "היום עמוס: 507 מתוכננות מול תקרה 230",
        "deep_link": "#/clients/6a3155cc",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "kind": "call",
@@ -919,16 +1290,19 @@
        "status": "waiting",
        "reason_he": "1 אורחים בתור לשיר",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-04",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-04T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -937,16 +1311,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-04",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-04T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -955,16 +1332,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-04",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-04T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -973,7 +1353,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -1014,7 +1397,10 @@
        "reason_he": "18:00–23:30",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "18:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:c1c5fcf5",
@@ -1032,7 +1418,10 @@
        "reason_he": "קבלת פנים 20:00",
        "deep_link": "#/clients/c1c5fcf5",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "20:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:6a3155cc|w1:2026-11-05",
@@ -1052,16 +1441,20 @@
        "reason_he": "נדחה מ-04/11 (מכסה)",
        "deep_link": "#/clients/6a3155cc",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "cap"
       },
       {
        "id": "cron:backup:2026-11-05",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-05T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1070,16 +1463,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-05",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-05T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1088,16 +1484,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-05",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-05T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1106,7 +1505,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -1149,7 +1551,11 @@
        "reason_he": "נדחה מ-04/11 (מכסה)",
        "deep_link": "#/clients/6a3155cc",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "cap"
       },
       {
        "id": "subrem:ab699ac0",
@@ -1158,25 +1564,28 @@
         "tok8": "ab699ac0",
         "name": "אירוע א"
        },
-       "label_he": "תזכורת אירוע-בן · אירוע א",
+       "label_he": "תזכורת · שבת חתן · אירוע א",
        "planned_at": "2026-11-06T08:00:00.000Z",
        "planned_n": 120,
        "done_n": 0,
        "failed_n": 0,
        "status": "waiting",
-       "reason_he": "",
+       "reason_he": "לא ענו — יוצאת לבד ב-10:00",
+       "self_heals": true,
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "10:00",
+       "needs_you": false
       },
       {
        "id": "cron:backup:2026-11-06",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-06T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1185,16 +1594,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-06",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-06T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1203,16 +1615,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-06",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-06T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1221,7 +1636,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -1262,7 +1680,10 @@
        "reason_he": "בוטל",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-07",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "18:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:c2f63d20",
@@ -1280,16 +1701,19 @@
        "reason_he": "קבלת פנים 19:30",
        "deep_link": "#/clients/c2f63d20",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "19:30",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-07",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-07T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1298,16 +1722,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-07",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-07T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1316,16 +1743,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-07",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-07T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1334,7 +1764,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     }
@@ -1353,6 +1786,66 @@
     "cron": "משימה מתוזמנת",
     "event": "אירוע",
     "hostess": "משמרת דיילת"
+   },
+   "status": {
+    "line_he": "היום: 6 מתוך 10 בוצעו · 3 ממתינים (יוצאים לבד עד 20:30) · 2 צריכים אותך",
+    "all_ok": false,
+    "counts": {
+     "total": 10,
+     "done": 6,
+     "in_progress": 3,
+     "waiting": 1,
+     "missed": 0,
+     "needs_you": 2,
+     "self": 3,
+     "rolls": 0
+    },
+    "numbers": {
+     "wa_sent": 111,
+     "wa_rejected": 1,
+     "wa_failed_async": 3,
+     "wa_failed": 4,
+     "guests_sent": 105,
+     "guests_failed": 3,
+     "noa_sent": 6,
+     "noa_failed": 1,
+     "calls_dialed": 8,
+     "calls_answered": 4,
+     "calls_left": 4,
+     "calls_coming": 1,
+     "calls_not_coming": 1
+    },
+    "numbers_he": "נשלחו היום 111 הודעות (אורחים 105 · נועה 6) · 4 נכשלו · 8 שיחות, 4 נענו",
+    "problems": [
+     {
+      "code": "131042",
+      "needs_you": true,
+      "self_heals": false,
+      "title_he": "נועה 4499: 1 הודעות ללידים נכשלו היום (131042)",
+      "cause_he": "מטא חוסמת שליחה מ-4499 בגלל בעיית תשלום בחשבון ה-WhatsApp",
+      "fix_he": "לעדכן אמצעי תשלום ב-WhatsApp Manager של 4499. לא מתקן את עצמו."
+     },
+     {
+      "code": "guest_failed",
+      "needs_you": false,
+      "self_heals": true,
+      "title_he": "3 הודעות לאורחים נכשלו היום (131026 ×3)",
+      "cause_he": "מספר שגוי / חסום / לא בוואטסאפ, או דחייה זמנית של מטא",
+      "fix_he": "הניסיון החוזר האוטומטי מטפל בזה (עד 3 ניסיונות לאורח)."
+     },
+     {
+      "code": "item:call:f0a38bbd:2026-11-03",
+      "item_id": "call:f0a38bbd:2026-11-03",
+      "needs_you": true,
+      "self_heals": false,
+      "title_he": "סבב שיחות של שיר · בר המצווה של איתי",
+      "cause_he": "2 חיוגים מתוך 3 · 1 נענו · לא ענה 1, לחזור אליו 1 · נשארו 1 — ממשיכה לבד",
+      "fix_he": "לפתוח את השורה ולטפל",
+      "deep_link": "#/calls?tab=rounds"
+     }
+    ],
+    "rt_at": "2026-11-03T09:59:30.000Z",
+    "rounds_at": "2026-11-03T15:58:23.627Z"
    }
   },
   "month": {
@@ -1364,8 +1857,8 @@
    "at": "2026-11-03T10:00:00.000Z",
    "tz": "Asia/Jerusalem",
    "totals": {
-    "planned": 126,
-    "done": 16,
+    "planned": 127,
+    "done": 17,
     "in_progress": 4,
     "waiting": 101,
     "missed": 5
@@ -1412,7 +1905,10 @@
        "reason_he": "4 נכשלו",
        "deep_link": "#/clients/395962fa",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:96b7dec2|w2:2026-11-01",
@@ -1432,14 +1928,18 @@
        "reason_he": "מכסה",
        "deep_link": "#/clients/96b7dec2",
        "day": "2026-11-01",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "09:00",
+       "self_heals": true,
+       "needs_you": false,
+       "block": "cap"
       },
       {
        "id": "leads:2026-11-01",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-01T08:00:00.000Z",
@@ -1450,7 +1950,10 @@
        "reason_he": "",
        "deep_link": "#/messages",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "call:395962fa:2026-11-01",
@@ -1469,16 +1972,19 @@
        "reason_he": "7 חיוגים · 2 נענו",
        "deep_link": "#/calls?tab=rounds",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-01",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-01T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1487,16 +1993,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:d_engine:2026-11-01",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-01T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1505,16 +2014,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:journal_digest:2026-11-01",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-01T19:00:04.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1523,7 +2035,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-01",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": false
       }
      ]
     },
@@ -1561,7 +2076,10 @@
        "reason_he": "החזקה (hold)",
        "deep_link": "#/clients/ffb78392",
        "day": "2026-11-02",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "09:00",
+       "self_heals": false,
+       "needs_you": true
       },
       {
        "id": "send:c2f63d20|w2:2026-11-02",
@@ -1581,7 +2099,10 @@
        "reason_he": "1 נכשלו",
        "deep_link": "#/clients/c2f63d20",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:e045522a|thanks:2026-11-02",
@@ -1601,14 +2122,17 @@
        "reason_he": "",
        "deep_link": "#/clients/e045522a",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "leads:2026-11-02",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-02T08:00:00.000Z",
@@ -1619,7 +2143,10 @@
        "reason_he": "2 נכשלו",
        "deep_link": "#/messages",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "call:c2f63d20:2026-11-02",
@@ -1638,16 +2165,19 @@
        "reason_he": "11 חיוגים · 6 נענו",
        "deep_link": "#/calls?tab=rounds",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-02",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-02T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1656,16 +2186,19 @@
        "reason_he": "לא רץ (היה אמור ב-08:35)",
        "deep_link": "#/automations/backup",
        "day": "2026-11-02",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "08:35",
+       "self_heals": false,
+       "needs_you": true
       },
       {
        "id": "cron:d_engine:2026-11-02",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-02T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1674,16 +2207,19 @@
        "reason_he": "נכשל: sheet 503",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-02",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "08:35",
+       "self_heals": false,
+       "needs_you": true
       },
       {
        "id": "cron:journal_digest:2026-11-02",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-02T19:00:04.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1692,7 +2228,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-02",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": false
       }
      ]
     },
@@ -1710,8 +2249,8 @@
       "out": 68
      },
      "totals": {
-      "planned": 11,
-      "done": 5,
+      "planned": 12,
+      "done": 6,
       "in_progress": 4,
       "waiting": 2,
       "missed": 0
@@ -1733,7 +2272,10 @@
        "reason_he": "17:30–23:00",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-03",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "17:30",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:ab699ac0",
@@ -1751,7 +2293,10 @@
        "reason_he": "מתקיים היום · 19:00",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "19:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:ab699ac0|table:2026-11-03",
@@ -1771,7 +2316,10 @@
        "reason_he": "2 נכשלו",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:c1c5fcf5|gift:2026-11-03",
@@ -1791,25 +2339,54 @@
        "reason_he": "",
        "deep_link": "#/clients/c1c5fcf5",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
+      },
+      {
+       "id": "send:c2f63d20|reply:2026-11-03",
+       "kind": "send",
+       "type": "reply",
+       "event": {
+        "tok8": "c2f63d20",
+        "name": "נועה ויונתן"
+       },
+       "label_he": "תשובות לאורחים · נועה ויונתן",
+       "planned_at": "2026-11-03T07:00:00.000Z",
+       "planned_n": 4,
+       "done_n": 4,
+       "failed_n": 0,
+       "status": "done",
+       "reason_he": "תשובות שנשלחו לאורחים בתוך חלון 24 השעות",
+       "deep_link": "#/clients/c2f63d20",
+       "day": "2026-11-03",
+       "status_he": "בוצע",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "leads:2026-11-03",
        "kind": "lead_sends",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "לידים · נועה 4499"
        },
        "label_he": "הודעות ללידים · נועה 4499",
        "planned_at": "2026-11-03T08:00:00.000Z",
-       "planned_n": 7,
-       "done_n": 6,
+       "planned_n": 6,
+       "done_n": 5,
        "failed_n": 1,
+       "sent_n": 6,
        "status": "done",
-       "reason_he": "1 נכשלו · חיוב מטא חסום (131042)",
+       "reason_he": "נשלחו 6 · נכשלו 1 (131042 ×1) · חיוב מטא חסום (131042) — צריך אותך",
+       "needs_you": true,
+       "self_heals": false,
        "deep_link": "#/messages",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "10:00"
       },
       {
        "kind": "call",
@@ -1826,9 +2403,21 @@
        "done_n": 2,
        "answered": 1,
        "status": "in_progress",
-       "reason_he": "1 נענו · לא ענה 1, לחזור אליו 1",
+       "reason_he": "2 חיוגים מתוך 3 · 1 נענו · לא ענה 1, לחזור אליו 1 · נשארו 1 — ממשיכה לבד",
+       "self_heals": false,
+       "needs_you": true,
+       "extra": {
+        "dialed": 2,
+        "answered": 1,
+        "coming": 0,
+        "not_coming": 0,
+        "maybe": 0,
+        "left": 1,
+        "queued": 1
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "10:00"
       },
       {
        "kind": "call",
@@ -1845,9 +2434,21 @@
        "done_n": 5,
        "answered": 3,
        "status": "in_progress",
-       "reason_he": "3 נענו · לא מגיע 1, מתלבט 1, תא קולי 1, מגיע 1, לא ענה 1",
+       "reason_he": "5 חיוגים מתוך 8 · 3 נענו · לא מגיע 1, מתלבט 1, תא קולי 1, מגיע 1, לא ענה 1 · נשארו 3 — ממשיכה לבד",
+       "self_heals": true,
+       "needs_you": false,
+       "extra": {
+        "dialed": 5,
+        "answered": 3,
+        "coming": 1,
+        "not_coming": 1,
+        "maybe": 1,
+        "left": 3,
+        "queued": 4
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "10:00"
       },
       {
        "id": "send:ab699ac0|subevent:2026-11-03",
@@ -1855,28 +2456,40 @@
        "type": "subevent",
        "event": {
         "tok8": "ab699ac0",
-        "name": "אירוע א"
+        "name": "שבת חתן · אירוע א"
        },
-       "label_he": "אירוע-בן (שבת חתן) · אירוע א",
+       "label_he": "שבת חתן · אירוע א",
        "planned_at": "2026-11-03T10:10:00.000Z",
        "planned_n": 108,
        "done_n": 40,
        "failed_n": 0,
        "of": 216,
        "status": "in_progress",
-       "reason_he": "",
-       "deep_link": "#/clients/ab699ac0",
+       "reason_he": "נשלחו 40 מתוך 108 היום · ממשיך לבד כל 10 דקות · 9 ענו · סה״כ 40 מתוך 216",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "",
+       "deep_link": "#/clients/6a3155cc",
+       "extra": {
+        "invited": 216,
+        "sent_total": 40,
+        "pending": 176,
+        "replied": 9,
+        "started_at": "legacy",
+        "completed_at": ""
+       },
        "day": "2026-11-03",
-       "status_he": "בתהליך"
+       "status_he": "בתהליך",
+       "time_hm": "12:10"
       },
       {
        "id": "cron:backup:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-03T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1885,16 +2498,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:d_engine:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-03T06:35:09.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1903,16 +2519,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-03",
-       "status_he": "בוצע"
+       "status_he": "בוצע",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:journal_digest:2026-11-03",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-03T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -1921,7 +2540,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-03",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -1959,12 +2581,16 @@
        "planned_n": 108,
        "done_n": 0,
        "failed_n": 0,
-       "of": 216,
+       "of": null,
        "status": "waiting",
        "reason_he": "נדחה מ-03/11 (מכסה) · היום עמוס: 507 מתוכננות מול תקרה 230",
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "cap"
       },
       {
        "id": "send:6a3155cc|w1:2026-11-04",
@@ -1984,7 +2610,10 @@
        "reason_he": "היום עמוס: 507 מתוכננות מול תקרה 230",
        "deep_link": "#/clients/6a3155cc",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "kind": "call",
@@ -2003,16 +2632,19 @@
        "status": "waiting",
        "reason_he": "1 אורחים בתור לשיר",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "10:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-04",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-04T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2021,16 +2653,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-04",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-04T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2039,16 +2674,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-04",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-04T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2057,7 +2695,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-04",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2098,7 +2739,10 @@
        "reason_he": "18:00–23:30",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "18:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:c1c5fcf5",
@@ -2116,7 +2760,10 @@
        "reason_he": "קבלת פנים 20:00",
        "deep_link": "#/clients/c1c5fcf5",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "20:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:6a3155cc|w1:2026-11-05",
@@ -2136,16 +2783,20 @@
        "reason_he": "נדחה מ-04/11 (מכסה)",
        "deep_link": "#/clients/6a3155cc",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "cap"
       },
       {
        "id": "cron:backup:2026-11-05",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-05T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2154,16 +2805,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-05",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-05T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2172,16 +2826,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-05",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-05T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2190,7 +2847,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-05",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2233,7 +2893,11 @@
        "reason_he": "נדחה מ-04/11 (מכסה)",
        "deep_link": "#/clients/6a3155cc",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true,
+       "block": "cap"
       },
       {
        "id": "subrem:ab699ac0",
@@ -2242,25 +2906,28 @@
         "tok8": "ab699ac0",
         "name": "אירוע א"
        },
-       "label_he": "תזכורת אירוע-בן · אירוע א",
+       "label_he": "תזכורת · שבת חתן · אירוע א",
        "planned_at": "2026-11-06T08:00:00.000Z",
        "planned_n": 120,
        "done_n": 0,
        "failed_n": 0,
        "status": "waiting",
-       "reason_he": "",
+       "reason_he": "לא ענו — יוצאת לבד ב-10:00",
+       "self_heals": true,
        "deep_link": "#/clients/ab699ac0",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "10:00",
+       "needs_you": false
       },
       {
        "id": "cron:backup:2026-11-06",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-06T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2269,16 +2936,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-06",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-06T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2287,16 +2957,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-06",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-06T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2305,7 +2978,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-06",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2346,7 +3022,10 @@
        "reason_he": "בוטל",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-07",
-       "status_he": "לא קרה"
+       "status_he": "לא קרה",
+       "time_hm": "18:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:c2f63d20",
@@ -2364,16 +3043,19 @@
        "reason_he": "קבלת פנים 19:30",
        "deep_link": "#/clients/c2f63d20",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "19:30",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-07",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-07T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2382,16 +3064,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-07",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-07T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2400,16 +3085,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-07",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-07T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2418,7 +3106,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-07",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2461,16 +3152,19 @@
        "reason_he": "",
        "deep_link": "#/clients/395962fa",
        "day": "2026-11-08",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-08",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-08T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2479,16 +3173,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-08",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-08",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-08T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2497,16 +3194,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-08",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-08",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-08T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2515,7 +3215,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-08",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2545,9 +3248,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-09T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2556,16 +3259,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-09",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-09",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-09T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2574,16 +3280,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-09",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-09",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-09T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2592,7 +3301,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-09",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2635,16 +3347,19 @@
        "reason_he": "",
        "deep_link": "#/clients/e045522a",
        "day": "2026-11-10",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-10",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-10T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2653,16 +3368,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-10",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-10",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-10T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2671,16 +3389,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-10",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-10",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-10T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2689,7 +3410,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-10",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2719,9 +3443,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-11T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2730,16 +3454,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-11",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-11",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-11T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2748,16 +3475,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-11",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-11",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-11T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2766,7 +3496,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-11",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2807,7 +3540,10 @@
        "reason_he": "17:00–22:30",
        "deep_link": "#/clients?tab=hostesses",
        "day": "2026-11-12",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "17:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "event:f0a38bbd",
@@ -2825,7 +3561,10 @@
        "reason_he": "קבלת פנים 18:30",
        "deep_link": "#/clients/f0a38bbd",
        "day": "2026-11-12",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "18:30",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "send:96b7dec2|w2:2026-11-12",
@@ -2845,16 +3584,19 @@
        "reason_he": "מוחזק (hold)",
        "deep_link": "#/clients/96b7dec2",
        "day": "2026-11-12",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": true,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-12",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-12T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2863,16 +3605,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-12",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-12",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-12T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2881,16 +3626,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-12",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-12",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-12T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2899,7 +3647,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-12",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -2929,9 +3680,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-13T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2940,16 +3691,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-13",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-13",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-13T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2958,16 +3712,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-13",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-13",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-13T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -2976,7 +3733,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-13",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3006,9 +3766,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-14T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3017,16 +3777,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-14",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-14",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-14T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3035,16 +3798,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-14",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-14",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-14T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3053,7 +3819,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-14",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3096,16 +3865,19 @@
        "reason_he": "",
        "deep_link": "#/clients/ffb78392",
        "day": "2026-11-15",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-15",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-15T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3114,16 +3886,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-15",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-15",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-15T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3132,16 +3907,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-15",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-15",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-15T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3150,7 +3928,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-15",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3193,16 +3974,19 @@
        "reason_he": "",
        "deep_link": "#/clients/e045522a",
        "day": "2026-11-16",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-16",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-16T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3211,16 +3995,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-16",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-16",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-16T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3229,16 +4016,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-16",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-16",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-16T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3247,7 +4037,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-16",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3272,9 +4065,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-17T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3283,16 +4076,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-17",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-17",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-17T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3301,16 +4097,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-17",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-17",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-17T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3319,7 +4118,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-17",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3355,16 +4157,19 @@
        "reason_he": "קבלת פנים 20:00",
        "deep_link": "#/clients/395962fa",
        "day": "2026-11-18",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "20:00",
+       "needs_you": false,
+       "self_heals": false
       },
       {
        "id": "cron:backup:2026-11-18",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-18T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3373,16 +4178,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-18",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-18",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-18T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3391,16 +4199,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-18",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-18",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-18T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3409,7 +4220,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-18",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3434,9 +4248,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-19T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3445,16 +4259,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-19",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-19",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-19T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3463,16 +4280,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-19",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-19",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-19T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3481,7 +4301,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-19",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3506,9 +4329,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-20T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3517,16 +4340,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-20",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-20",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-20T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3535,16 +4361,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-20",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-20",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-20T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3553,7 +4382,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-20",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3578,9 +4410,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-21T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3589,16 +4421,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-21",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-21",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-21T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3607,16 +4442,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-21",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-21",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-21T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3625,7 +4463,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-21",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3650,9 +4491,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-22T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3661,16 +4502,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-22",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-22",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-22T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3679,16 +4523,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-22",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-22",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-22T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3697,7 +4544,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-22",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3722,9 +4572,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-23T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3733,16 +4583,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-23",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-23",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-23T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3751,16 +4604,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-23",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-23",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-23T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3769,7 +4625,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-23",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3807,16 +4666,19 @@
        "reason_he": "מתוכנן (מחוץ לאופק המתכנן)",
        "deep_link": "#/clients/96b7dec2",
        "day": "2026-11-24",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "09:00",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:backup:2026-11-24",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-24T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3825,16 +4687,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-24",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-24",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-24T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3843,16 +4708,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-24",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-24",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-24T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3861,7 +4729,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-24",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3886,9 +4757,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-25T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3897,16 +4768,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-25",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-25",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-25T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3915,16 +4789,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-25",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-25",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-25T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3933,7 +4810,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-25",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -3958,9 +4838,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-26T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3969,16 +4849,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-26",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-26",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-26T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -3987,16 +4870,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-26",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-26",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-26T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4005,7 +4891,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-26",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -4030,9 +4919,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-27T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4041,16 +4930,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-27",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-27",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-27T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4059,16 +4951,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-27",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-27",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-27T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4077,7 +4972,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-27",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -4102,9 +5000,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-28T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4113,16 +5011,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-28",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-28",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-28T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4131,16 +5032,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-28",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-28",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-28T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4149,7 +5053,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-28",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -4174,9 +5081,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-29T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4185,16 +5092,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-29",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-29",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-29T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4203,16 +5113,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-29",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-29",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-29T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4221,7 +5134,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-29",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     },
@@ -4246,9 +5162,9 @@
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "גיבוי יומי של הגיליון ל-KV",
+       "label_he": "גיבוי יומי של הגיליון",
        "planned_at": "2026-11-30T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4257,16 +5173,19 @@
        "reason_he": "",
        "deep_link": "#/automations/backup",
        "day": "2026-11-30",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:d_engine:2026-11-30",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "המנוע היומי (runDailyEngine)",
+       "label_he": "המנוע היומי של הבוקר (גלים, יום-לפני, תודה)",
        "planned_at": "2026-11-30T06:35:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4275,16 +5194,19 @@
        "reason_he": "",
        "deep_link": "#/automations/d_engine",
        "day": "2026-11-30",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "08:35",
+       "needs_you": false,
+       "self_heals": true
       },
       {
        "id": "cron:journal_digest:2026-11-30",
        "kind": "cron",
        "event": {
         "tok8": "",
-        "name": ""
+        "name": "מערכת"
        },
-       "label_he": "21:00 · דוח יומי לסלאק",
+       "label_he": "דוח יומי לסלאק (21:00)",
        "planned_at": "2026-11-30T19:00:00.000Z",
        "planned_n": 0,
        "done_n": 0,
@@ -4293,7 +5215,10 @@
        "reason_he": "",
        "deep_link": "#/automations/journal_digest",
        "day": "2026-11-30",
-       "status_he": "ממתין"
+       "status_he": "ממתין",
+       "time_hm": "21:00",
+       "needs_you": false,
+       "self_heals": true
       }
      ]
     }
@@ -4312,6 +5237,66 @@
     "cron": "משימה מתוזמנת",
     "event": "אירוע",
     "hostess": "משמרת דיילת"
+   },
+   "status": {
+    "line_he": "היום: 6 מתוך 10 בוצעו · 3 ממתינים (יוצאים לבד עד 20:30) · 2 צריכים אותך",
+    "all_ok": false,
+    "counts": {
+     "total": 10,
+     "done": 6,
+     "in_progress": 3,
+     "waiting": 1,
+     "missed": 0,
+     "needs_you": 2,
+     "self": 3,
+     "rolls": 0
+    },
+    "numbers": {
+     "wa_sent": 111,
+     "wa_rejected": 1,
+     "wa_failed_async": 3,
+     "wa_failed": 4,
+     "guests_sent": 105,
+     "guests_failed": 3,
+     "noa_sent": 6,
+     "noa_failed": 1,
+     "calls_dialed": 8,
+     "calls_answered": 4,
+     "calls_left": 4,
+     "calls_coming": 1,
+     "calls_not_coming": 1
+    },
+    "numbers_he": "נשלחו היום 111 הודעות (אורחים 105 · נועה 6) · 4 נכשלו · 8 שיחות, 4 נענו",
+    "problems": [
+     {
+      "code": "131042",
+      "needs_you": true,
+      "self_heals": false,
+      "title_he": "נועה 4499: 1 הודעות ללידים נכשלו היום (131042)",
+      "cause_he": "מטא חוסמת שליחה מ-4499 בגלל בעיית תשלום בחשבון ה-WhatsApp",
+      "fix_he": "לעדכן אמצעי תשלום ב-WhatsApp Manager של 4499. לא מתקן את עצמו."
+     },
+     {
+      "code": "guest_failed",
+      "needs_you": false,
+      "self_heals": true,
+      "title_he": "3 הודעות לאורחים נכשלו היום (131026 ×3)",
+      "cause_he": "מספר שגוי / חסום / לא בוואטסאפ, או דחייה זמנית של מטא",
+      "fix_he": "הניסיון החוזר האוטומטי מטפל בזה (עד 3 ניסיונות לאורח)."
+     },
+     {
+      "code": "item:call:f0a38bbd:2026-11-03",
+      "item_id": "call:f0a38bbd:2026-11-03",
+      "needs_you": true,
+      "self_heals": false,
+      "title_he": "סבב שיחות של שיר · בר המצווה של איתי",
+      "cause_he": "2 חיוגים מתוך 3 · 1 נענו · לא ענה 1, לחזור אליו 1 · נשארו 1 — ממשיכה לבד",
+      "fix_he": "לפתוח את השורה ולטפל",
+      "deep_link": "#/calls?tab=rounds"
+     }
+    ],
+    "rt_at": "2026-11-03T09:59:30.000Z",
+    "rounds_at": "2026-11-03T15:58:23.627Z"
    }
   }
  }

@@ -361,7 +361,49 @@ export const CHECKS = [
     }
     return out;
   } },
+
+  /* 04/11 Richard "תמונה מלאה בסקירה": anything planned for today (KV plan:today, precomputed by the pacer) whose done
+     count did not move for 30 minutes while its window was open → P1. Slack key stuck:<item id> (allowed through the
+     strict gate: slack.js slackImportant). Rows that wait for Richard, are held, or wait for the Meta cap are not "stuck". */
+  { id: 'planned_not_progressing', name_he: 'מתוכנן להיום ולא זז 30 דקות בתוך החלון', every_min: 10, async run(c) {
+    const hit = await kjson(c.env, 'plan:today'); const plan = hit && hit.data;
+    if (!plan || plan.today !== c.today || c.now - (Number(hit.at) || 0) > 25 * MIN) { c.log('אין תוכנית טרייה להיום (plan:today) — לא נבדק'); return []; }
+    const sendOpen = c.d.sendWindowState ? !!c.d.sendWindowState(new Date(c.now)).open : false;
+    const callOpen = c.d.callWindowState ? !!c.d.callWindowState(new Date(c.now)).open : false;
+    const paused = c.d.sendingPaused ? await c.d.sendingPaused(c.env).catch(() => false) : false;
+    const cand = stuckCandidates(plan, { sendOpen, callOpen, paused, now: c.now });
+    const prev = await kjson(c.env, 'brain:progress');
+    const { state, stuck } = progressStep(prev, cand, { now: c.now, today: c.today });
+    await kput(c.env, 'brain:progress', state, 2 * 86400);
+    c.log(`מתוכנן להיום: ${cand.length} שורות בתנועה צפויה · ${stuck.length} לא זזו 30 דקות`);
+    return stuck.map(({ it, mins }) => ({ id: 'planned_not_progressing:' + it.id, status: 'fail', severity: 'P1', slack_key: 'stuck:' + it.id,
+      title_he: `תקוע: ${it.label_he} — ${it.done_n} מתוך ${it.planned_n}, לא זז ${mins} דקות`, detail: it.reason_he || '',
+      evidence: [`plan:today at=${new Date(hit.at).toISOString()}`, `status=${it.status}`, `done_n=${it.done_n}`, `planned_n=${it.planned_n}`, `planned_at=${it.planned_at}`],
+      data: { item_id: it.id, kind: it.kind, done_n: it.done_n, planned_n: it.planned_n, deep_link: it.deep_link || '' } }));
+  } },
 ];
+
+/* planned_not_progressing, pure: what SHOULD be moving right now */
+export function stuckCandidates(plan, { sendOpen = false, callOpen = false, paused = false, now = Date.now() } = {}) {
+  if (paused) return [];
+  const items = ((plan && plan.days && plan.days[0]) || { items: [] }).items || [];
+  return items.filter(it => ['send', 'subevent_reminder', 'call'].includes(it.kind) && (it.status === 'in_progress' || it.status === 'waiting')
+    && (Number(it.planned_n) || 0) > (Number(it.done_n) || 0) && (it.status === 'in_progress' || Date.parse(it.planned_at) <= now)
+    && (it.kind === 'call' ? callOpen : sendOpen) && !it.needs_you && it.block !== 'cap' && !/hold|מוחזק/.test(String(it.reason_he || '')));
+}
+/* remembers each candidate's done count and since when it has not moved (reset every day / when it moves) */
+export function progressStep(prev, cand, { now = Date.now(), today } = {}) {
+  const old = prev && prev.day === today ? prev.items || {} : {};
+  const items = {}, stuck = [];
+  for (const it of cand) {
+    const p = old[it.id];
+    const rec = p && p.done === it.done_n ? p : { done: it.done_n, since: now };
+    items[it.id] = rec;
+    const mins = Math.round((now - rec.since) / MIN);
+    if (now - rec.since >= 30 * MIN) stuck.push({ it, mins });
+  }
+  return { state: { day: today, items }, stuck };
+}
 
 /* ══ playbooks ═════════════════════════════════════════════════════════════ */
 /* each: { id, name_he, auto, messages, cooldown_ms, run(c, finding, {dry, log}) → {ok, preview?, did?} } */
@@ -629,7 +671,7 @@ export async function runBrain(env, d, opts = {}) {
       if (ev.type === 'resolved') { L.log(`נפתר: ${f.title_he}`); run.count('resolved'); await obsoletePending(env, f.id); await c.resolveSlack(f.slack_key || 'finding:' + f.id); }
       else {
         if (ev.type === 'new' || ev.type === 'reopened') { L.log(`ממצא ${ev.type === 'new' ? 'חדש' : 'חוזר'} (${f.status}/${f.severity}): ${f.title_he}`); run.count('new'); }
-        if (shouldAlert(f, c.now)) { await c.slack(`${f.severity === 'P1' ? '🚨' : '⚠️'} *מוח · ${f.title_he}*${f.detail ? '\n' + f.detail : ''}${f.playbook ? `\nפלייבוק: ${(PB[f.playbook] || {}).name_he || f.playbook}${PB[f.playbook] && PB[f.playbook].auto ? ' (אוטומטי)' : ' — מחכה לאישור בלוח הבקרה'}` : ''}`, f.severity === 'P1', { key: f.slack_key || 'finding:' + f.id, sev: f.severity === 'P1' ? 'P0' : f.severity === 'P2' ? 'P1' : 'P2', action: f.playbook && PB[f.playbook] && !PB[f.playbook].auto ? 'לאשר את הפלייבוק במסך המוח — ishur.io/ops.html#/brain' : 'לבדוק במסך המוח — ishur.io/ops.html#/brain?focus=' + f.id }); f.alerted_at = new Date(c.now).toISOString(); dirty = true; run.count('alerted'); L.log('התראה לסלאק'); }
+        if (shouldAlert(f, c.now)) { await c.slack(`${f.severity === 'P1' ? '🚨' : '⚠️'} *מוח · ${f.title_he}*${f.detail ? '\n' + f.detail : ''}${f.playbook ? `\nפלייבוק: ${(PB[f.playbook] || {}).name_he || f.playbook}${PB[f.playbook] && PB[f.playbook].auto ? ' (אוטומטי)' : ' — מחכה לאישור בלוח הבקרה'}` : ''}`, f.severity === 'P1', { key: f.slack_key || 'finding:' + f.id, ...(String(f.slack_key || '').startsWith('stuck:') ? { important: true } : {}), sev: f.severity === 'P1' ? 'P0' : f.severity === 'P2' ? 'P1' : 'P2', action: f.playbook && PB[f.playbook] && !PB[f.playbook].auto ? 'לאשר את הפלייבוק במסך המוח — ishur.io/ops.html#/brain' : 'לבדוק במסך המוח — ishur.io/ops.html#/brain?focus=' + f.id }); f.alerted_at = new Date(c.now).toISOString(); dirty = true; run.count('alerted'); L.log('התראה לסלאק'); }
         const pb = f.playbook && PB[f.playbook];
         if (pb && pb.auto) {
           if (autofix && (!f.pb_at || c.now - Date.parse(f.pb_at) >= (pb.cooldown_ms || 0))) {

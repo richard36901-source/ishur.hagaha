@@ -67,7 +67,8 @@ import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledge
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
 import { fixedCostAction } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
-import { handleOps, brainFns, buildCapacity } from './ops.js';
+import { handleOps, brainFns, buildCapacity, planFns } from './ops.js';
+import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
@@ -6631,6 +6632,11 @@ async function runPacer(env, run = null) {
      until the day somebody notices nothing went out */
   await env.RATE.put('pacer:last', JSON.stringify({ at: new Date().toISOString(), ...out }),
     { expirationTtl: 3 * 86400 }).catch(() => {});
+  /* 04/11 "מתוכנן מול בוצע": today / week / month composed once per tick into KV plan:<period> (ops-plan.js), so the
+     סקירה answers from KV instead of 49 s of live reads. Last on purpose: it never delays a send or a dial. */
+  try {
+    out.plan = await step('plan_precompute', async () => { const r = await precomputePlans(env, opsDeps(), planFns()); return { ok: r.ok, ms: r.ms, errors: r.errors, line: r.plans.today && r.plans.today.status ? r.plans.today.status.line_he : '' }; });
+  } catch (e) { out.plan = { ok: false, why: String((e && e.message) || e) }; }
   return { ok: true, ...out };
 }
 

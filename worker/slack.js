@@ -181,6 +181,8 @@ export function slackImportant(text, opts = {}) {
   if (opts.important === false) return false;
   const k = String(opts.key || '');
   if (/^(finding:)?make_down/.test(k)) return true;
+  /* 04/11 brain planned_not_progressing: something planned for today stopped moving inside its window */
+  if (/^(finding:)?stuck:/.test(k)) return true;
   const head = String(text || '').split('\n')[0];
   if (/131042|הפייסר|בהחזקה|131047|תקרה|קיבולת|תבנית|קוד אימות/.test(head)) return false;
   return IMPORTANT_RE.test(head);
