@@ -10002,6 +10002,15 @@ const WORKER = {
     }
     /* the ten-minute pacer: a slice of the sends and a slice of the dials,
        spread across the contact window instead of one burst at 09:35 */
+    /* 04/11: the heavy read-only jobs live on their own cron, 5 minutes after the
+       pacer, so they get their own invocation budget. On the 10-minute invocation they
+       starved the main pacer pass (regular sends) and the סקירה precompute. */
+    if (String(event.cron || '').startsWith('5-55/10')) {
+      ctx.waitUntil(opsJob(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await readSnapshot(env, 'background'))).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'plan' })).catch(() => {}));
+      return;
+    }
     if (String(event.cron || '').startsWith('*/10')) {
       ctx.waitUntil(opsJob(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
@@ -10011,7 +10020,6 @@ const WORKER = {
       ctx.waitUntil(opsJob(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
-      ctx.waitUntil(opsJob(env, 'buildCalendarMonth', () => buildCalendarMonth(env, ilDate().slice(0, 7))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
       if (sfEnabled(env)) ctx.waitUntil(opsJob(env, 'salesTick', () => salesTick(env, salesDeps(env))).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
@@ -10022,7 +10030,6 @@ const WORKER = {
         callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
         retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),
       })).catch(() => {}));
-      ctx.waitUntil(opsJob(env, 'auditMeta', async () => audit.refreshMeta(env, await readSnapshot(env, 'background'))).catch(() => {}));
       /* 22/10: audit log → "ביקורת" tab in the main sheet, once an hour */
       if (new Date().getUTCMinutes() < 10) ctx.waitUntil(opsJob(env, 'auditMirror', () => audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows))).catch(() => {}));
       /* 03/11 ops brain: health checks + deterministic playbooks (brain.js); BRAIN_ENABLED="off" stops it */
@@ -10033,7 +10040,6 @@ const WORKER = {
         alert(env, 'פייסר', 'סבב שיחות נפל', String((e && e.message) || e), { key: 'pacer_calls_crash', sev: 'P1' })));
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'subevents' })).catch(e =>
         alert(env, 'פייסר', 'שליחת אירוע-בן נפלה', String((e && e.message) || e), { key: 'pacer_sub_crash', sev: 'P1' })));
-      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'plan' })).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'main' })).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e), { key: 'pacer_crash', sev: 'P1' })));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;

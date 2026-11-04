@@ -54,7 +54,7 @@ binding = "AI"
 # (21:00 IL), both DST-safe: the code checks the actual Israel hour on every
 # one of these three ticks and only acts on the two that currently match —
 # 17+18 UTC = 20:00+21:00 IL in summer, 18+19 UTC = 20:00+21:00 IL in winter.
-crons = ["*/10 * * * *", "35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2", "0 17 * * *", "0 18 * * *", "0 19 * * *"]
+crons = ["*/10 * * * *", "5-55/10 * * * *", "35 6 * * *", "0 4 * * *", "0 9,10,16 * * 2", "0 17 * * *", "0 18 * * *", "0 19 * * *"]
 
 # ishur.io itself is on Bezeq's SecuringSam blocklist by exact name — the same
 # TLS handshake passes with any other subdomain. Customer-facing links move
