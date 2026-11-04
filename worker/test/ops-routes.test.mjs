@@ -167,3 +167,21 @@ test('calendar: route returns the month grid with the projected wave, every day 
   assert.equal(bad.month, ilDay().slice(0, 7), 'a bad month falls back to this month');
   assert.ok([...e.RATE.m.keys()].some(k => k.startsWith('opscal:')), '5-minute cache written');
 });
+
+/* 04/11 מתוכנן מול בוצע (ops-plan.js) through the real router: shape, periods, cache */
+test('plan: GET /api/ops/plan?period= → the three periods, day cells with totals, items with the 4-state contract; second call is served from the 5-minute cache', async () => {
+  const e = env();
+  const p = await (await get(e, '/api/ops/plan?period=week')).json();
+  assert.equal(p.ok, true); assert.equal(p.period, 'week'); assert.equal(p.days.length, 7);
+  assert.deepEqual(Object.keys(p.totals), ['planned', 'done', 'in_progress', 'waiting', 'missed']);
+  assert.ok(p.days.every(d => d.day && d.dow_he && Array.isArray(d.items) && d.totals && 'open' in d));
+  assert.ok(p.days.flatMap(d => d.items).every(i => ['done', 'in_progress', 'waiting', 'missed'].includes(i.status) && i.status_he && i.label_he && i.deep_link && i.planned_at && i.event && 'planned_n' in i && 'done_n' in i && 'failed_n' in i));
+  assert.ok(p.days.flatMap(d => d.items).some(i => i.kind === 'cron'), 'the once-a-day crons are planned');
+  assert.equal(p.sources.capacity, true); assert.equal(p.sources.snapshot, true);
+  assert.equal(p.days.find(d => d.day === ilDay()).today, true);
+  const t = await (await get(e, '/api/ops/plan')).json(); assert.equal(t.period, 'today'); assert.equal(t.days.length, 1);
+  const m = await (await get(e, '/api/ops/plan?period=month')).json(); assert.ok(m.days.length >= 28 && m.from.endsWith('-01'));
+  const again = await (await get(e, '/api/ops/plan?period=week')).json(); assert.equal(again.cached, true);
+  const fresh = await (await get(e, '/api/ops/plan?period=week&fresh=1')).json(); assert.ok(!fresh.cached);
+  assert.equal((await (await get(e, '/api/ops/plan?period=zzz')).json()).period, 'today');
+});

@@ -23,6 +23,7 @@
      POST /api/ops/run-log         {run_id, line|lines[], automation_id?} — an external agent streams its reasoning
      POST /api/ops/edit            {id, field, value, confirm} — whitelisted settings (cfg.js); blast radius first
      GET  /api/ops/changes         change log (changes.js): from, to, kind (comma list), actor, cursor, limit
+     GET  /api/ops/plan?period=today|week|month   מתוכנן מול בוצע for the סקירה screen (ops-plan.js, 04/11)
      GET  /api/ops/messages?day=&cursor=&tab=all|failed|replies   one row per message (ops-inbox.js)
      GET  /api/ops/inbox?channel=  conversations · GET /api/ops/thread?phone= one thread · GET /api/ops/control manual-control state
      POST /api/ops/revert          {id, confirm} — undo one change: edit → previous value, toggle/pause → flip back,
@@ -53,6 +54,7 @@ import { buildFinance, setManualCost, invoiceResend, buildAds, buildTemplates, t
 import { listCalls, getCallDetail, buildCallRounds, callRound, manualCalls, manualCallsPost, shirAdmin, buildCallCosts, callCostRollup } from './ops-calls.js';
 import { buildRaffle, drawRaffle, verifyEntry } from './raffle.js';
 import { recordChange, listChanges, getChange, markReverted, revertWord, registryFirstSeen, isNew, cfRollback, actorOf, KINDS, ACTORS } from './changes.js';
+import { buildPlan } from './ops-plan.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
 export const GUEST_WABA = '1378764257421712';
@@ -897,6 +899,9 @@ export { buildCallCosts, callCostRollup };
 
 /* what the brain's capacity/balances checks call (ops.js owns them) */
 export const brainFns = () => ({ buildCapacity: (env, d, now, days) => buildCapacity(env, d, now, days), buildBalances: (env, d, o) => buildBalances(env, d, o) });
+/* what ops-plan.js composes from (kept here so ops-plan.js never imports ops.js — no cycle) */
+export const planFns = () => ({ buildCapacity: (env, d, now, days) => buildCapacity(env, d, now, days), sendsByDay, callsByDay,
+  buildCallRounds: (env, d, now) => buildCallRounds(env, d, now, { ticksLeft: ticksLeftToday(d.callWindowState, now) }) });
 
 /* ══ the router ════════════════════════════════════════════════════════════ */
 export async function handleOps(request, env, origin, url, d) {
@@ -915,6 +920,7 @@ export async function handleOps(request, env, origin, url, d) {
       case 'realtime': return json(await buildRealtime(env, d));
       case 'capacity': return json(await buildCapacity(env, d, Date.now(), Math.max(1, Math.min(28, Number(q('days')) || 14))));
       case 'calendar': return json(await buildCalendar(env, d, String(q('month') || ''), Date.now(), { fresh: String(q('fresh') || '') === '1' }));
+      case 'plan': return json(await buildPlan(env, d, planFns(), { period: String(q('period') || 'today'), fresh: String(q('fresh') || '') === '1' }));
       case 'balances': {
         if (request.method === 'POST' && body.set) {
           const v = String(body.set.vendor || ''); if (!VENDORS[v]) return json({ ok: false, error: 'unknown-vendor', vendors: Object.keys(VENDORS) }, 400);
@@ -1025,7 +1031,7 @@ export async function handleOps(request, env, origin, url, d) {
       }
       case 'shir': { const r = await shirAdmin(env, d, String(q('agent') || 'shir_out')); return json(r.body, r.status); }
       case 'call-costs': return json(await buildCallCosts(env, d, { from: q('from'), to: q('to') }));
-      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control', 'finance', 'invoice-resend', 'ads', 'templates', 'template-variant', 'feedback', 'raffle', 'raffle/verify', 'raffle/draw', 'calls', 'call', 'call-rounds', 'call-round', 'manual-calls', 'shir', 'call-costs'] }, 404);
+      default: return json({ ok: false, error: 'unknown-ops-route', routes: ['realtime', 'capacity', 'calendar', 'plan', 'balances', 'registry', 'code', 'toggle', 'live', 'runs', 'run', 'brain', 'brain-run', 'brain-decision', 'run-log', 'edit', 'changes', 'revert', 'messages', 'inbox', 'thread', 'control', 'finance', 'invoice-resend', 'ads', 'templates', 'template-variant', 'feedback', 'raffle', 'raffle/verify', 'raffle/draw', 'calls', 'call', 'call-rounds', 'call-round', 'manual-calls', 'shir', 'call-costs'] }, 404);
     }
   } catch (e) {
     return json({ ok: false, error: 'ops-failed', why: String((e && e.message) || e).slice(0, 300) }, 500);

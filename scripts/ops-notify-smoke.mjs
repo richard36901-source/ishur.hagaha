@@ -2,7 +2,7 @@
    A (plain node): syntax, fixtures are fake (97250000xxxx / zeroed tokens), every view renders the fixtures without
    "undefined"/"NaN"/"[object Object]". B (Playwright, ?mock=1): bell count + dropdown + mark read, #/notify list +
    filters + settings toggle, overview order + interactive trend chart (range chips, arrows, tooltip, table) at 1440,
-   and the phone version at 375 px (2-column tiles, ממתין לך + תקריות first, full-width chart, scrollable chips,
+   and the phone version at 375 px (2-column tiles, מתוכנן מול בוצע + ממתין לך first, full-width chart, scrollable chips,
    44 px targets, no horizontal scroll). Exit 0 = all passed. Invoked from ops-ui-smoke.mjs; also runs alone.
    Usage: node scripts/ops-notify-smoke.mjs [--no-browser] */
 import { spawnSync } from 'node:child_process';
@@ -37,8 +37,9 @@ ok((NT.listView(FX.notifications, { sev: new Set(['P0']), unread: false, rule: '
 check('notify.settingsView', () => NT.settingsView(FX['notify-settings']));
 ok((NT.settingsView(FX['notify-settings']).match(/class="ntf-rule/g) || []).length === FX['notify-settings'].rules.length, 'settings: one row per rule', FX['notify-settings'].rules.length + ' rules');
 const ov = check('overview2.view', () => OV.view(FX.overview));
-const order = ['ממתין לך', 'תקריות', 'היום', 'מגמות', 'אירועים קרובים', 'מה השתנה מאז הביקור האחרון', 'יתרות'].map((t) => ov.indexOf('>' + t + '<'));
-ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), 'overview order: ממתין לך · תקריות · היום · מגמות · אירועים · מה השתנה · יתרות', order.join(','));
+/* 04/11 Richard: "מתוכנן מול בוצע" sits at the top of the סקירה; the 03/11 order follows it ("היום" is matched on its h2: the plan's segmented control also says היום) */
+const order = ['מתוכנן מול בוצע', 'ממתין לך', 'תקריות', 'היום', 'מגמות', 'אירועים קרובים', 'מה השתנה מאז הביקור האחרון', 'יתרות'].map((t) => ov.indexOf('<h2 class="h2">' + t + '<'));
+ok(order.every((i, k) => i > 0 && (k === 0 || i > order[k - 1])), 'overview order: מתוכנן מול בוצע · ממתין לך · תקריות · היום · מגמות · אירועים · מה השתנה · יתרות', order.join(','));
 check('overview2.view skeleton', () => OV.view(null));
 check('overview2 empty world', () => OV.view({ ...FX.overview, waiting: [], incidents: [], events: [], changes: { count: 0, items: [] }, balances: { low: [] }, ads: { why: 'אין מפתח' }, traffic: { why: 'x' } }));
 for (const m of OV.METRICS) check('trend ' + m.id, () => OV.trendView({ metric: m.id, range: 'month', offset: 0, table: false, data: FX['overview-series'], width: 600 }));
@@ -122,7 +123,7 @@ if (!process.argv.includes('--no-browser')) {
     });
     ok(lay.over, '375 px overview: no horizontal scroll');
     ok(lay.cols === 2, '375 px: tiles stack in 2 columns', lay.cols + ' cols');
-    ok(lay.first === 'ממתין לך|תקריות', '375 px: ממתין לך + תקריות come first', lay.first);
+    ok(lay.first === 'מתוכנן מול בוצע|ממתין לך', '375 px: מתוכנן מול בוצע + ממתין לך come first (04/11)', lay.first);
     ok(lay.chartFull && lay.scrollable, '375 px: full-width chart, range/metric chips scroll sideways inside their row');
     ok(lay.small.length === 0, '375 px: every tap target ≥ 44 px', lay.small.slice(0, 5).join(', '));
     await mp.screenshot({ path: join(shots, 'overview2-mobile.png'), fullPage: true });

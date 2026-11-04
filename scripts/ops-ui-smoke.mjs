@@ -169,6 +169,32 @@ check('overview.view before balances lands', () => S.overview.view(F.realtime, F
 check('calls.view with calls:null (no RETELL_KEY)', () => S.calls.view(adapt('realtime', { ...RAW.realtime, calls: null })));
 ok(S.overview.allIncidents(F.realtime, F.capacity, F.balances).length > 0, 'overview derives incidents from realtime + capacity + balances', S.overview.allIncidents(F.realtime, F.capacity, F.balances).length + ' incidents');
 
+console.log('A3f מתוכנן מול בוצע (lazy/overview2.js planBody · fixtures/ops/plan.json from the real composer)');
+{
+  const OV2 = await import(pathToFileURL(join(OPS, 'lazy/overview2.js')));
+  const PLF = fx('plan');
+  const PLAN_LEN = { today: 1, week: 7, month: 30 };
+  for (const per of ['today', 'week', 'month']) {
+    const d = PLF.by_period[per];
+    ok(d && d.ok && d.period === per && d.days.length === PLAN_LEN[per] && d.totals && d.days.every((x) => x.day && x.dow_he && Array.isArray(x.items) && x.totals), 'plan fixture ' + per + ' has the contract (days, totals, items)', d ? d.days.length + ' days · ' + JSON.stringify(d.totals) : 'missing');
+    check('overview2.planBody ' + per, () => OV2.planBody({ period: per, data: d, err: '', open: new Set() }));
+  }
+  const items = PLF.by_period.week.days.flatMap((d) => d.items);
+  ok(['done', 'in_progress', 'waiting', 'missed'].every((s) => items.some((i) => i.status === s)) && items.every((i) => i.status_he && i.label_he && i.deep_link && /Z$/.test(i.planned_at)), 'plan fixture covers בוצע / בתהליך / ממתין / לא קרה, every item has label + link + ISO time');
+  ok(['send', 'call', 'lead_sends', 'cron', 'event', 'hostess', 'subevent_reminder'].every((k) => items.some((i) => i.kind === k)), 'plan fixture covers every item kind');
+  const wk = OV2.planBody({ period: 'week', data: PLF.by_period.week, err: '', open: new Set() });
+  ok((wk.match(/<details class="pl-day/g) || []).length === 7 && /מתוך/.test(wk) && /pl-chip missed/.test(wk) && /pl-chip in_progress/.test(wk) && /הבא:/.test(wk), 'week view: 7 day groups, "X מתוך Y", missed + in-progress chips, the "הבא" line');
+  ok(/<details class="pl-day today" open/.test(wk) && (wk.match(/<details class="pl-day"[^>]*open/g) || []).length === 0, 'week view: only today expanded by default');
+  const wkOpen = OV2.planBody({ period: 'week', data: PLF.by_period.week, err: '', open: new Set(['2026-11-05', '!2026-11-03']) });
+  ok(/data-day="2026-11-05"/.test(wkOpen) && /<details class="pl-day" open data-day="2026-11-05"/.test(wkOpen) && !/<details class="pl-day today" open/.test(wkOpen), 'day groups remember what was expanded / collapsed');
+  const missed = items.find((i) => i.status === 'missed'), waiting = items.find((i) => i.status === 'waiting');
+  ok(OV2.planRow(missed).includes(missed.reason_he) && /pl-chip waiting"><span aria-hidden="true">○<\/span>ממתין · <span class="num">\d\d:\d\d/.test(OV2.planRow(waiting)), 'rows: a missed row shows its reason, a waiting row shows the time it starts');
+  const seg = OV2.planSeg('week');
+  ok(/role="tablist"/.test(seg) && /data-tabs="plan"/.test(seg) && (seg.match(/role="tab"/g) || []).length === 3 && /data-v="week" aria-selected="true"/.test(seg) && !/<select/.test(seg), 'segmented control היום / השבוע / החודש is custom (no native select)');
+  check('overview2.planBody loading + error states', () => OV2.planBody({ period: 'today', data: null, err: '' }) + OV2.planBody({ period: 'today', data: null, err: 'x' }) + '<x>'.repeat(40));
+  ok(/data-act="pl-retry"/.test(OV2.planBody({ period: 'today', data: null, err: 'x' })) && /class="sk /.test(OV2.planBody({ period: 'today', data: null, err: '' })), 'plan: skeleton while loading, retry button on error');
+  check('overview2.view carries the plan block first', () => { const v = OV2.view(fx('overview')); if (v.indexOf('מתוכנן מול בוצע') > v.indexOf('ממתין לך')) throw new Error('plan block is not first'); return v; });
+}
 console.log('A3c money screens (lazy/finance, ads, templates, feedback)');
 {
   const M = {}; for (const n of ['finance', 'ads', 'templates', 'feedback']) M[n] = await import(pathToFileURL(join(OPS, 'lazy/' + n + '.js')));
@@ -348,6 +374,21 @@ if (!process.argv.includes('--no-browser')) {
         ok(skMs < 1500, 'skeleton visible before data', skMs + ' ms from navigation (cold, includes server start)');
         const uniq = [...new Set(data.map((u) => u.split('?')[0]))];
         ok(uniq.length <= 3, '≤ 3 data requests on load', uniq.map((u) => u.split('/').pop()).join(', '));
+        /* 04/11 מתוכנן מול בוצע: loads after the first paint, segmented control persists, days expand on tap */
+        await page.waitForSelector('#ov-plan-b .pl-row', { timeout: 6000 });
+        const PLF = fx('plan');
+        ok((await page.$$eval('#ov-plan-b .pl-row', (x) => x.length)) === PLF.by_period.today.days[0].items.length && (await page.$eval('#ov-plan-b', (b) => b.innerText)).includes('הבא:'), 'plan block: today rows from the fixture + the "הבא" line', PLF.by_period.today.days[0].items.length + ' rows');
+        ok(data.some((u) => u.includes('plan.json')), 'plan loads after the first paint (not counted in the ≤3)');
+        await page.screenshot({ path: join(shotDir, 'plan-desktop.png') });
+        await page.click('#main [data-tabs=plan] [data-v=week]');
+        await page.waitForSelector('#ov-plan-b details.pl-day', { timeout: 6000 }); await page.waitForTimeout(400);
+        ok((await page.$$eval('#ov-plan-b details.pl-day', (x) => x.length)) === 7 && (await page.$$eval('#ov-plan-b details.pl-day[open]', (x) => x.length)) === 1 && (await page.evaluate(() => localStorage.getItem('ops:plan'))) === 'week', 'week: 7 day groups, only today open, period persisted in localStorage');
+        await page.click('#ov-plan-b details.pl-day:not([open]) > summary'); await page.waitForTimeout(250);
+        ok((await page.$$eval('#ov-plan-b details.pl-day[open]', (x) => x.length)) === 2, 'tapping a collapsed day expands it');
+        await page.screenshot({ path: join(shotDir, 'plan-week-desktop.png') });
+        await page.click('#main [data-tabs=plan] [data-v=month]'); await page.waitForTimeout(500);
+        ok((await page.$$eval('#ov-plan-b details.pl-day', (x) => x.length)) === 30, 'month: 30 day groups');
+        await page.evaluate(() => localStorage.setItem('ops:plan', 'today'));
       }
       for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'inbox', 'control', 'calls', 'capacity', 'calendar', 'balances', 'changes', 'finance', 'ads', 'templates', 'feedback']) {
         await page.evaluate((h) => { location.hash = h; }, '#/' + r);
@@ -448,6 +489,13 @@ if (!process.argv.includes('--no-browser')) {
       const over = await mp.evaluate(() => [document.documentElement.scrollWidth, innerWidth, document.querySelector('#main').scrollWidth, document.querySelector('#main').clientWidth]);
       ok(over[0] <= over[1] && over[2] <= over[3] + 1, '375 px no horizontal scroll · ' + r, over.join('/'));
       await mp.screenshot({ path: join(shotDir, `${r}-mobile.png`) });
+      if (r === 'overview') {
+        await mp.waitForSelector('#ov-plan-b .pl-row', { timeout: 6000 }).catch(() => {});
+        const segW = await mp.evaluate(() => { const s = document.querySelector('#main [data-tabs=plan]'); const b = s && s.querySelector('[role=tab]'); return s ? [Math.round(s.getBoundingClientRect().width), Math.round(s.parentElement.getBoundingClientRect().width), b ? Math.round(b.getBoundingClientRect().height) : 0, document.documentElement.scrollWidth <= innerWidth] : null; });
+        ok(segW && segW[0] >= segW[1] - 2 && segW[2] >= 44 && segW[3], '375 px plan: segmented control full-width, 44 px targets, no sideways scroll', segW ? segW.join('/') : 'no seg');
+        await mp.evaluate(() => document.querySelector('#main .plan').scrollIntoView());
+        await mp.screenshot({ path: join(shotDir, 'plan-mobile.png') });
+      }
     }
     await m.close();
 
