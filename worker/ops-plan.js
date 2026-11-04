@@ -444,7 +444,7 @@ export function subList(inp) {
      · call rounds come from the same buildCallRounds as /api/ops/call-rounds. */
 async function kget(env, k) { try { return env.RATE ? await env.RATE.get(k) : null; } catch { return null; } }
 async function kjson(env, k) { try { return JSON.parse((await kget(env, k)) || 'null'); } catch { return null; } }
-async function kput(env, k, v, ttl) { try { if (env.RATE) await env.RATE.put(k, JSON.stringify(v), ttl ? { expirationTtl: ttl } : undefined); } catch {} }
+async function kput(env, k, v, ttl) { try { if (env.RATE) await env.RATE.put(k, JSON.stringify(v), ttl ? { expirationTtl: ttl } : undefined); return ''; } catch (e) { return String((e && e.message) || e).slice(0, 200); } }
 export const PLAN_KEY = p => 'plan:' + p;
 export const PLAN_DAY_KEY = day => 'plan:day:' + day;
 export const PLAN_FRESH_MS = 30 * 60e3;
@@ -553,8 +553,9 @@ export async function precomputePlans(env, d, fns, { now = Date.now(), periods =
   const from = rs.map(r => r.from).sort()[0], to = rs.map(r => r.to).sort().pop();
   const g = await gatherPlan(env, d, fns, { now, from, to: to < addDays(today, 1) ? addDays(today, 1) : to, buildBoard, pastDayBudget });
   const plans = {};
-  for (const p of periods) { plans[p] = composeFrom(g, p); plans[p].sources = { ...g.sources, total_ms: Date.now() - t0 }; await kput(env, PLAN_KEY(p), { at: now, data: plans[p] }, 86400); }
-  return { ok: true, at: new Date(now).toISOString(), periods, ms: { ...g.sources.ms, total: Date.now() - t0 }, errors: g.sources.errors, plans };
+  const write_errors = {};
+  for (const p of periods) { plans[p] = composeFrom(g, p); plans[p].sources = { ...g.sources, total_ms: Date.now() - t0 }; const we = await kput(env, PLAN_KEY(p), { at: now, data: plans[p] }, 86400); if (we) { write_errors[p] = we; plans[p].write_error = we; } }
+  return { ok: true, write_errors, at: new Date(now).toISOString(), periods, ms: { ...g.sources.ms, total: Date.now() - t0 }, errors: g.sources.errors, plans };
 }
 
 export async function servePlan(env, d, fns, { period = 'today', now = Date.now(), fresh = false, staleOk = false } = {}) {

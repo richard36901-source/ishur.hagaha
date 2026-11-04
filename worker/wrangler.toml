@@ -8,6 +8,12 @@ compatibility_date = "2026-08-01"
 # שיר — הסוכן שעונה לשיחות נכנסות. גם החזרה המהירה מדברת איתו, כי מי שחזרנו
 # אליו התקשר אלינו, והתסריט היוצא ("שלחנו הזמנה ולא ראינו תשובה") לא מתאים לו.
 # ריק = השיחה נופלת לסוכן היוצא, וזו בדיוק התקלה שהוסרה כאן.
+# 04/11 incident: 'Too many API requests by single Worker invocation' silently dropped KV writes,
+# run records and whole cron jobs. Paid accounts may raise this (default 10,000, max 10M).
+[limits]
+subrequests = 50000
+cpu_ms = 120000
+
 [vars]
 SLACK_STRICT = "1"
 SHIR_INBOUND_AGENT = "agent_c7d317f758ed084571630ce25e"
