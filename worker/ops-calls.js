@@ -150,7 +150,7 @@ export function eligibleRoundIds(raw, token) {
 }
 
 /* the round cards (pure: everything already read) */
-export function roundCards({ queue = [], raw = null, today, todayRows = [], triedToday = new Set(), gates = {}, perEvent = {}, capacityLeft = 0 }) {
+export function roundCards({ queue = [], raw = null, today, todayRows = [], triedToday = new Set(), gates = {}, perEvent = {}, capacityLeft = 0, addons = new Set() }) {
   const by = {};
   const card = (tok, ev = {}) => by[tok] = by[tok] || { token: tok, tok8: tok.slice(0, 8), name: ev.name || '', date: ev.date || '', plan: ev.plan || '', max_tries: ev.max_tries ?? null,
     queued: 0, capped: 0, remaining_today: 0, dialed_today: 0, answered_today: 0, cost_today: 0, outcomes_today: {}, plan_no_calls: false };
@@ -165,7 +165,7 @@ export function roundCards({ queue = [], raw = null, today, todayRows = [], trie
   for (const g of ((raw && raw.guests && raw.guests.values) || [])) {
     if (String((g || [])[21] || '').trim() !== 'נדרשת שיחה') continue;
     const t = String(g[28] || '').trim(), e = evs[t]; if (!e || String(e[27] || '').trim() === 'כן') continue;
-    const plan = planKeyOf(e); if (planMaxCallTries(plan) > 0) continue;
+    const plan = planKeyOf(e); if (planMaxCallTries(plan) > 0 || addons.has(t)) continue;
     const c = card(t, { name: String(e[34] || e[2] || '').trim(), date: String(e[6] || '').trim(), plan, max_tries: 0 }); c.plan_no_calls = true; c.queued++;
   }
   for (const r of todayRows) {
@@ -259,7 +259,8 @@ async function gatesNow(env, d, now) {
 export async function buildCallRounds(env, d, now = Date.now(), { ticksLeft = 0 } = {}) {
   const { today, gates, cap } = await gatesNow(env, d, now);
   const raw = await d.snapshotCached(env).catch(() => null);
-  const queue = raw ? (d.buildCallQueue(raw).queue || []) : [];
+  let addons = new Set(); try { addons = new Set(Object.keys(await d.kvPrefix(env, 'callsaddon:'))); } catch {}
+  const queue = raw ? (d.buildCallQueue(raw, 3, addons).queue || []) : [];
   const todayRows = await readCallDay(env, d, today, telnyxRate(env));
   const triedToday = new Set();
   try { const l = await env.RATE.list({ prefix: 'shirtry:', limit: 1000 }); for (const k of (l && l.keys) || []) { const m = /^shirtry:(.+):(\d{4}-\d{2}-\d{2})$/.exec(k.name); if (m && m[2] === today) triedToday.add(m[1]); } } catch {}
@@ -268,7 +269,7 @@ export async function buildCallRounds(env, d, now = Date.now(), { ticksLeft = 0 
   await Promise.all(toks.map(async t => { const [hold, stop, round] = await Promise.all([kget(env, 'hold:' + t), kjson(env, 'callstop:' + t), kjson(env, 'callround:' + t)]); perEvent[t] = { hold: !!hold, stopped: stop, round }; }));
   const paceTotal = ticksLeft * (d.PACE_CALLS || 6);
   const capacityLeft = cap.daily ? Math.max(0, Math.min(paceTotal, cap.daily - (cap.dialed_counted || 0))) : paceTotal;
-  const events = roundCards({ queue, raw, today, todayRows, triedToday, gates, perEvent, capacityLeft });
+  const events = roundCards({ queue, raw, today, todayRows, triedToday, gates, perEvent, capacityLeft, addons });
   const global = whyNotDialing({ ...gates, queued: 1, remaining: 1, capacityLeft }).filter(w => !['empty', 'done-today', 'all-capped'].includes(w.code));
   return { ok: true, today, at: new Date(now).toISOString(), source: raw ? 'snapshot' : 'snapshot-unreadable', window: gates.window, capacity_left_today: capacityLeft, ticks_left: ticksLeft, pace_per_tick: d.PACE_CALLS || 6, daily_cap: cap,
     global_why: global, totals: { queued: events.reduce((n, e) => n + e.queued, 0), remaining_today: events.reduce((n, e) => n + e.remaining_today, 0), dialed_today: todayRows.filter(r => r.kind === 'guest').length, lead_calls_today: todayRows.filter(r => r.kind === 'lead').length },

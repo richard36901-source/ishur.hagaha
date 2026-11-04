@@ -2625,6 +2625,11 @@ async function reconcileShirCalls(env, { limit = 40, force = false } = {}) {
 /* The dialling itself, with no HTTP around it, so the morning cron can run it.
    Until this existed, every guest queued for a call sat there forever: the
    only caller was an admin POST that nobody was making. */
+/* 04/11: event tokens that bought the calls add-on (any plan gets one round) */
+async function callsAddonTokens(env) {
+  try { return new Set(Object.keys(await kvPrefix(env, 'callsaddon:'))); } catch { return new Set(); }
+}
+
 async function runShirDispatch(env, { max = 25, force = false, quiet = false } = {}) {
   if (await isOff(env, 'shir_dispatch')) return { ok: true, dialed: 0, skipped: 'off:shir_dispatch' };
   if (!env.RETELL_KEY || !env.SHIR_FROM) return { ok: false, why: 'not-configured' };
@@ -2636,7 +2641,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
      those ticks do not each cost a Make operation (review finding #10) */
   const raw = await snapshotCached(env).catch(() => null);
   if (!raw) return { ok: false, why: 'reader-failed' };
-  const { queue } = buildCallQueue(raw);
+  const { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
@@ -8863,7 +8868,7 @@ async function callBoard(env) {
   try {
     const raw = await snapshotCached(env);
     if (raw) {
-      const { queue } = buildCallQueue(raw);
+      const { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
       /* 02/11 (Richard): the dialler already skips past events (shouldDial);
          the board must not show them as waiting either */
       const todayIl = ilDate();

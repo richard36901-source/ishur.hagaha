@@ -38,7 +38,9 @@ function guestStatus(rsvp, callFlag) {
 /* Everyone across all events whose row says a call is needed, joined with the
    event details the caller reads from the script. Column 29 (AD) counts tries. */
 function queued2(guests) { return guests.filter(g => g.status === 'awaiting_call').length; }
-export function buildCallQueue(raw, maxTries = 3) {
+/* 04/11: a paid calls add-on (callsaddon:<token>) buys one round on any plan,
+   בסיס included. `addons` is the Set of event tokens that hold one. */
+export function buildCallQueue(raw, maxTries = 3, addons = null) {
   const evRows = (raw.events && raw.events.values) || [];
   const gRows = (raw.guests && raw.guests.values) || [];
   const events = {};
@@ -60,8 +62,8 @@ export function buildCallQueue(raw, maxTries = 3) {
     const e = i => String(ev[i] ?? '').trim();
     if (e(27) === 'כן') continue;            // cancelled event — never call
     const plan = planKeyOf(ev);
-    const planCap = planMaxCallTries(plan);
-    if (!planCap) continue;                  // בסיס — calls are not included
+    const planCap = planMaxCallTries(plan) || (addons && addons.has(token) ? 1 : 0);
+    if (!planCap) continue;                  // בסיס without a calls add-on — calls are not included
     queue.push({
       guest_id: g(2),
       name: g(3),
