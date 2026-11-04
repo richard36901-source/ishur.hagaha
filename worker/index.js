@@ -12556,6 +12556,7 @@ const WORKER = {
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
+        sentWaves.callsAddon = !!(await env.RATE.get('callsaddon:' + token));
         /* did the event-day message go out to anybody */
         try {
           const [a, b2] = await Promise.all([env.RATE.list({ prefix: `s5d:${token}:`, limit: 1 }), env.RATE.list({ prefix: `s5t:${token}:`, limit: 1 })]);
