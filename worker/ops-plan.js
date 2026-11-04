@@ -46,8 +46,10 @@ export const PLAN_CRONS = [
 ];
 const NAME_HE = Object.fromEntries(AUTOMATIONS.map(n => [n.id, n.name_he]));
 
-export const ilDayOf = ts => new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date(ts));
-export const addDays = (iso, n) => new Date(Date.parse(iso + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10);
+/* 04/11: every helper tolerates a bad timestamp (one odd audit row crashed the whole block with "Invalid time value") */
+const okD = ts => { const d = new Date(ts); return Number.isFinite(d.getTime()) ? d : null; };
+export const ilDayOf = ts => { const d = okD(ts); return d ? new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(d) : ''; };
+export const addDays = (iso, n) => { const d = okD(Date.parse(String(iso).slice(0, 10) + 'T12:00:00Z') + n * 864e5); return d ? d.toISOString().slice(0, 10) : ''; };
 const dowOf = iso => new Date(iso + 'T12:00:00Z').getUTCDay();
 const isShabbat = iso => dowOf(iso) === 6;
 const engineDay = (iso, isNoContactDay = () => false) => !isShabbat(iso) && !isNoContactDay(iso);
@@ -58,9 +60,9 @@ export function ilDayStartMs(iso) {
   return Date.parse(`${iso}T00:00:00Z`) - 2 * 3600e3;
 }
 /* ISO (Z) for HH:MM on an Israel day */
-export const ilAt = (day, hm = '09:00') => { const [h, m] = String(hm).split(':').map(Number); return new Date(ilDayStartMs(day) + ((h || 0) * 60 + (m || 0)) * 60e3).toISOString(); };
-const ilHM = ts => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(ts));
-const ilHour = ts => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(ts)));
+export const ilAt = (day, hm = '09:00') => { const [h, m] = String(hm).split(':').map(Number); const d = okD(ilDayStartMs(day) + ((h || 0) * 60 + (m || 0)) * 60e3); return d ? d.toISOString() : ''; };
+const ilHM = ts => { const d = okD(ts); return d ? new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit', hour12: false }).format(d) : ''; };
+const ilHour = ts => { const d = okD(ts); return d ? Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(d)) : 0; };
 const ddmm = iso => iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : '';
 
 /* today → one day; week → Sunday…Saturday around today (Israel week); month → the calendar month */

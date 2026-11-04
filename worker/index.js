@@ -6478,13 +6478,68 @@ async function digestPlan(env) {
   let sends = null; try { const cap = await buildCapacity(env, opsDeps(), Date.now(), 1); const d = ((cap && cap.days) || []).find(x => x.day === today); if (d) sends = `${d.planned} (תקרה ${d.capacity})`; } catch {}
   return { sends, calls, events };
 }
-async function runPacer(env, run = null) {
+/* 04/11: the dial slice, split out of runPacer so it runs as its own cron job */
+async function pacerCalls(env, step, out) {
+  /* then the dial slice */
+  const callWin = callWindowState();
+  /* results of calls that already ended are collected at any hour */
+  await step('reconcile_calls', () => reconcileShirCalls(env)).catch(() => {});
+  if (callWin.open) {
+    /* Whoever just rang US is the hottest lead in the system: somebody who
+       wanted to talk to us badly enough to dial. The callback queue therefore
+       empties BEFORE the guest queue — and out of the same per-tick budget,
+       so a busy inbound hour cannot quietly blow the concurrency limit. */
+    const cb = await step('shir_callbacks', () => runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) })).catch(e => {
+      return { dialed: 0, why: String((e && e.message) || e) };
+    });
+    out.callbacks = cb;
+    /* 03/11 cfg:daily_call_cap (0 = none): guest dials today, counted here */
+    const callCap = dailyCallCap(env), dayKey = 'dials:day:' + ilDate();
+    const dialedToday = callCap ? (Number(await env.RATE.get(dayKey).catch(() => 0)) || 0) : 0;
+    const left = Math.max(0, Math.min(PACE_CALLS - ((cb && cb.dialed) || 0), callCap ? callCap - dialedToday : Infinity));
+    const r = left
+      ? await step('shir_dispatch', () => runShirDispatch(env, { max: left, quiet: true })).catch(e => {
+        return { ok: false, why: String((e && e.message) || e) };
+      })
+      : { dialed: 0, why: 'callbacks-took-the-slice' };
+    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why || (callCap && dialedToday >= callCap ? 'daily-call-cap' : undefined) };
+    if (callCap && out.calls.dialed) await env.RATE.put(dayKey, String(dialedToday + out.calls.dialed), { expirationTtl: 2 * 86400 }).catch(() => {});
+    /* נועה's slice: sales calls to leads who went silent. Small on purpose —
+       two per tick is 12 an hour, plenty for the queue this funnel produces,
+       and it can never crowd out the guest calls that were paid for. */
+    const lead = await step('noa_lead_dial', () => runShirLeadDial(env, { max: 2 })).catch(() => ({ dialed: 0, skipped: 'error' }));
+    out.leadCalls = lead;
+  } else {
+    out.calls = { dialed: 0, why: callWin.why };
+    out.callbacks = { dialed: 0, why: callWin.why };
+  }
+}
+
+async function runPacer(env, run = null, { part = 'all' } = {}) {
   if (!env.RATE) return { ok: false, why: 'no-kv' };
   /* 03/11 ops center kill switch: nothing below runs, not even the Slack flush */
   if (await isOff(env, 'd_pacer')) return { ok: true, skipped: 'off:d_pacer' };
   /* child runs in the ledger (one row per sub-step) when the caller passed a run */
   const step = (id, fn) => run ? run.child(id, fn) : fn();
   const today = ilDate();
+  /* 04/11 incident: one tick took 60+ s (autoretry + engine + sub-events ≈ 40 s
+     before the dial slice) and the runtime cut it off, so from 12:00 nothing
+     after the sends ran — no calls, no Shabbat sends — until pushed by hand.
+     The cron now runs three independent parts in parallel: 'main' (sends and
+     housekeeping), 'subevents' and 'calls'. A slow part can no longer starve
+     the others. part='all' (manual /api/pacer) keeps the old single pass. */
+  if (part === 'calls' || part === 'subevents') {
+    if (isNoContactDay(today)) return { ok: true, skipped: 'no-contact-day' };
+    if (await sendingPaused(env)) return { ok: true, paused: true };
+    const out = { date: today, part };
+    if (part === 'subevents') {
+      if (sendWindowState().open) out.subevents = await step('subevent_continue', () => continueSubevents(env, subeventDeps())).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+      else out.subevents = { skipped: 'window' };
+      return out;
+    }
+    await pacerCalls(env, step, out);
+    return out;
+  }
   /* 04/11 Make burn: sheet writes that failed while Make was down, replayed oldest first.
      Before everything else (Shabbat and paused included): a write is not a message. */
   const outbox = await step('sheet_outbox', () => drainSheetQueue(env, sheetBatchPost, { cap: 25 })).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
@@ -6570,7 +6625,7 @@ async function runPacer(env, run = null) {
   /* 04/11: a sub-event Richard started ("שלח") keeps going by itself, one
      capped slice per tick, until everyone is sent → completed_at + Slack.
      Never starts one that was not started by hand. auto:off:subevent_continue. */
-  if (sendWin.open) out.subevents = await step('subevent_continue', () => continueSubevents(env, subeventDeps())).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
+  if (part === 'all' && sendWin.open) out.subevents = await step('subevent_continue', () => continueSubevents(env, subeventDeps())).catch(e => ({ ok: false, error: String((e && e.message) || e) }));
 
   /* Chasing an abandoned lead does not need the sheet, only KV, so it runs on
      every tick rather than waiting for the nightly engine. Without this the
@@ -6582,39 +6637,8 @@ async function runPacer(env, run = null) {
     out.leads = chased.filter(c => c.sent).length;
   }
 
-  /* then the dial slice */
-  const callWin = callWindowState();
-  /* results of calls that already ended are collected at any hour */
-  await step('reconcile_calls', () => reconcileShirCalls(env)).catch(() => {});
-  if (callWin.open) {
-    /* Whoever just rang US is the hottest lead in the system: somebody who
-       wanted to talk to us badly enough to dial. The callback queue therefore
-       empties BEFORE the guest queue — and out of the same per-tick budget,
-       so a busy inbound hour cannot quietly blow the concurrency limit. */
-    const cb = await step('shir_callbacks', () => runShirCallbacks(env, { max: Math.min(PACE_CALLBACKS, PACE_CALLS) })).catch(e => {
-      return { dialed: 0, why: String((e && e.message) || e) };
-    });
-    out.callbacks = cb;
-    /* 03/11 cfg:daily_call_cap (0 = none): guest dials today, counted here */
-    const callCap = dailyCallCap(env), dayKey = 'dials:day:' + ilDate();
-    const dialedToday = callCap ? (Number(await env.RATE.get(dayKey).catch(() => 0)) || 0) : 0;
-    const left = Math.max(0, Math.min(PACE_CALLS - ((cb && cb.dialed) || 0), callCap ? callCap - dialedToday : Infinity));
-    const r = left
-      ? await step('shir_dispatch', () => runShirDispatch(env, { max: left, quiet: true })).catch(e => {
-        return { ok: false, why: String((e && e.message) || e) };
-      })
-      : { dialed: 0, why: 'callbacks-took-the-slice' };
-    out.calls = { dialed: (r && r.dialed) || 0, queued: (r && r.queued) || 0, why: r && r.why || (callCap && dialedToday >= callCap ? 'daily-call-cap' : undefined) };
-    if (callCap && out.calls.dialed) await env.RATE.put(dayKey, String(dialedToday + out.calls.dialed), { expirationTtl: 2 * 86400 }).catch(() => {});
-    /* נועה's slice: sales calls to leads who went silent. Small on purpose —
-       two per tick is 12 an hour, plenty for the queue this funnel produces,
-       and it can never crowd out the guest calls that were paid for. */
-    const lead = await step('noa_lead_dial', () => runShirLeadDial(env, { max: 2 })).catch(() => ({ dialed: 0, skipped: 'error' }));
-    out.leadCalls = lead;
-  } else {
-    out.calls = { dialed: 0, why: callWin.why };
-    out.callbacks = { dialed: 0, why: callWin.why };
-  }
+  /* then the dial slice (its own cron job since 04/11; inline only for part='all') */
+  if (part === 'all') await pacerCalls(env, step, out);
   await step('template_check', async () => { await templateCheck(env, out); return out.tmplcheck || { ok: true }; }).catch(() => {});
 
   /* the journal rides the same tick: everything buffered since the last one
@@ -9993,7 +10017,12 @@ const WORKER = {
       /* 03/11 ops brain: health checks + deterministic playbooks (brain.js); BRAIN_ENABLED="off" stops it */
       if (String(env.BRAIN_ENABLED || 'on') !== 'off') ctx.waitUntil(runBrain(env, opsDeps(), { fns: brainFns() }).catch(() => {}));
       if (String(env.NOTIFY_ENABLED || 'on') !== 'off') ctx.waitUntil(import('./notify.js').then(m => m.runNotify(env, opsDeps())).catch(() => {}));   /* 03/11 Phase 5 notifications (notify.js) */
-      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run)).catch(e =>
+      /* 04/11: calls and sub-event sends run as their own jobs, in parallel with the main pass */
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'calls' })).catch(e =>
+        alert(env, 'פייסר', 'סבב שיחות נפל', String((e && e.message) || e), { key: 'pacer_calls_crash', sev: 'P1' })));
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'subevents' })).catch(e =>
+        alert(env, 'פייסר', 'שליחת אירוע-בן נפלה', String((e && e.message) || e), { key: 'pacer_sub_crash', sev: 'P1' })));
+      ctx.waitUntil(opsJob(env, 'runPacer', (run) => runPacer(env, run, { part: 'main' })).catch(e =>
         alert(env, 'פייסר', 'סבב פריסה נפל', String((e && e.message) || e), { key: 'pacer_crash', sev: 'P1' })));
       /* A/B evaluate, daily 06:00 Israel (Israel hour, so DST cannot move it;
          evaluate() keeps an ab:eval:<day> guard, so six ticks = one run) */
