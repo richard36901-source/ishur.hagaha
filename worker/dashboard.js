@@ -259,7 +259,9 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const state = (n, date) => (sent[n] ? 'sent' : (date && date.slice(0, 10) < todayIso ? 'passed' : 'scheduled'));
   if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled' });
   if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled' });
+  /* 04/11: a granted/paid extra send shows even before a date was picked */
   if (c(41) && (sent.extraPaid || sent[3])) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled' });
+  else if (sent.extraPaid || sent[3]) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: '', status: sent[3] ? 'sent' : 'scheduled', editable: !sent[3] });
   /* Shir's phone round (Richard 12/10: "they should know when there is also
      a call"). It starts the morning after the last planned send, for whoever
      still has not answered; בסיס has no calls. */
@@ -282,12 +284,13 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       const status = start > todayIso ? 'scheduled' : over ? (called ? 'sent' : 'passed') : queued ? 'running' : called ? 'sent' : 'scheduled';
       sends.push({ key: 'calls', label: 'שיחה טלפונית למי שלא ענה', date: start, status, auto: true, queued });
     }
-    /* Richard 21/10: an extra round booked by hand shows as its own row */
-    if (sent.callRound && sent.callRound.at) {
-      const cr = sent.callRound;
-      const st = cr.done ? (queued2(guests) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');
-      sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });
-    }
+  }
+  /* Richard 21/10: an extra round booked by hand shows as its own row.
+     04/11: on ANY plan - whatever we add, paid or free, the client sees it */
+  if (sent.callRound && sent.callRound.at) {
+    const cr = sent.callRound;
+    const st = cr.done ? (queued2(guests) ? 'running' : 'sent') : (cr.at <= todayIso ? 'running' : 'scheduled');
+    sends.push({ key: 'calls2', label: 'סבב שיחות נוסף (למי שלא ענה ולמתלבטים)', date: cr.at, status: st, auto: true, queued: cr.n });
   }
   /* the event-day message: 'sent' once the engine stamped it (s5t markers),
      'passed' when the day is behind us without one, otherwise scheduled */

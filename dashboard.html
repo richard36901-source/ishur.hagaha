@@ -1833,7 +1833,7 @@
       return '<div class="send' + (sent ? ' sent' : '') + (open ? '' : ' locked') + '">' +
              '<span class="send-d"></span>' +
              '<span class="send-b"><span class="send-t">' + esc(s.label) + '</span>' +
-             '<span class="send-w">' + esc(IshurDate.pretty(s.date) || s.date) + '</span></span>' +
+             '<span class="send-w">' + esc(IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע תאריך') + '</span></span>' +
              (info ? '<button type="button" class="send-i" data-info="' + esc(s.key) + '" aria-expanded="' + (shown ? 'true' : 'false') + '" aria-label="תוצאות הסבב">i</button>' : '') +
              '<span class="send-a">' + act + '</span>' +
              (shown ? '<div class="send-x">' + esc(info) + '</div>' : '') + '</div>';
@@ -1875,7 +1875,7 @@
     box.setAttribute('aria-labelledby', 'dpopT');
     box.innerHTML =
       '<h3 id="dpopT">מועד חדש ל' + esc(s.label) + '</h3>' +
-      '<p class="cur">כרגע ' + esc(IshurDate.pretty(s.date) || s.date) + '</p>' +
+      '<p class="cur">כרגע ' + esc(IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע') + '</p>' +
       '<input type="date" id="dpopIn" value="' + esc(start) + '" min="' + esc(min) + '"' +
         (max ? ' max="' + esc(max) + '"' : '') + ' aria-labelledby="dpopT">' +
       '<p class="dpop-err" id="dpopErr" role="alert"></p>' +
