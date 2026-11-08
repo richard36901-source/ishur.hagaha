@@ -11927,8 +11927,9 @@ const WORKER = {
       const toks = (Array.isArray(b.tokens) ? b.tokens : []).map(String).filter(t => /^[0-9a-f-]{36}$/.test(t)).slice(0, 200);
       const out = {};
       for (const t of toks) {
-        const [inactive, addon, extra, calls, wave, vid, hold] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t].map(k => env.RATE.get(k).catch(() => null)));
-        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, video: !!vid, hold: !!hold };
+        const [inactive, addon, extra, calls, wave, vid, hold, holdtill, wpos] = await Promise.all(['inactive:' + t, 'addon:' + t, 'extrasend:' + t, 'callsaddon:' + t, 'wave:' + t + ':1', 'vidok:' + t, 'hold:' + t, 'holdtill:' + t, 'wpos:' + t + ':1'].map(k => env.RATE.get(k).catch(() => null)));
+        /* 08/11 (Richard): a hold is a pause, not a cancellation — holdtill = the day it lifts; wpos = wave 1 under way */
+        out[t] = { active: !inactive, addon: addon ? (JSON.parse(addon).n || 0) : 0, extrasend: !!extra, calls: !!calls, sent: !!wave, sending: !wave && (parseInt(wpos, 10) || 0) > 0, video: !!vid, hold: !!hold, hold_till: holdtill || '' };
       }
       return okJson({ ok: true, flags: out }, origin);
     }

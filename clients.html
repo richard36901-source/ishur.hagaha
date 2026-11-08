@@ -132,13 +132,13 @@
         '<div class="tags">' +
           (fl.hold ? '' : '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>') +
           '<span class="tag ' + (e.file_uploaded ? 'on' : 'warn') + '">' + (e.file_uploaded ? 'רשימה הועלתה' : 'אין רשימה') + '</span>' +
-          (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : '<span class="tag">טרם נשלח</span>') +
+          (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : fl.sending ? '<span class="tag on">הזמנות יוצאות</span>' : '<span class="tag">טרם נשלח</span>') +
           (fl.video ? '<span class="tag on">וידאו</span>' : '') +
           (fl.addon ? '<span class="tag">+' + fl.addon + ' מוזמנים</span>' : '') +
           (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') +
           (fl.calls ? '<span class="tag">סבב שיחות</span>' : '') +
           (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
-          (fl.hold ? '<span class="tag warn">מבוטל · אין שליחות</span>' : '') +
+          (fl.hold ? '<span class="tag warn">' + (fl.hold_till ? 'נדחה עד ' + esc(String(fl.hold_till).slice(8, 10) + '/' + String(fl.hold_till).slice(5, 7)) : 'מושהה · אין שליחות') + '</span>' : '') +
         '</div>' +
         ((fb[t] || []).length ? '<div class="fbx">' + fb[t].map(function (x) {
           return '<span class="fbi"><b>' + (x.who === 2 ? 'בן/בת זוג' : 'הלקוח') + '</b> ' +
