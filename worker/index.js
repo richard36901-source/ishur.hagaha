@@ -2702,7 +2702,17 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     return { ok: true, dialed: 0, closed: win.why, queued: queue.length };
   }
   const day = ilDate();
-  const cap = Math.min(Number(max) || 25, 25);
+  /* 08/11: 37 of 94 calls on 04/11 died at the carrier (telephony_provider_permission_denied) — the
+     dispatcher fired 25 calls at once every tick and ~12 of each burst were refused. Never start more
+     than CALL_PARALLEL (default 10) at a time, minus the calls already live at Retell. */
+  const parallel = Math.max(1, Math.min(25, Number(env.CALL_PARALLEL) || 10));
+  let live = 0;
+  try {
+    const cr = await fetch('https://api.retellai.com/get-concurrency', { headers: { Authorization: 'Bearer ' + env.RETELL_KEY } });
+    const cj = cr.ok ? await cr.json() : null; live = Number(cj && cj.current_concurrency) || 0;
+  } catch {}
+  const cap = Math.max(0, Math.min(Number(max) || 25, 25, parallel - live));
+  if (!cap) return { ok: true, dialed: 0, busy: live, queued: queue.length };
   const dialed = [];
   let blocked = 0;
   for (const g of queue) {
@@ -2717,6 +2727,8 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
     if (await wrongNum(env, g.token, g.phone)) { blocked++; continue; }
     const dayKey = `shirtry:${g.guest_id}:${day}`;
     if (await env.RATE.get(dayKey)) continue;
+    /* 08/11: one new call at a time, ~1.5 s apart — the carrier also refuses bursts per second */
+    if (dialed.length) await new Promise(res => setTimeout(res, Number(env.CALL_GAP_MS) || 1500));
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', {
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
