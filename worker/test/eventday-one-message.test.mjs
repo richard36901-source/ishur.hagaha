@@ -326,3 +326,25 @@ test('two days · engine at D-1: the day-before family goes out and the mark rec
   const mk = JSON.parse(await e.RATE.get(`s5d:${TOK}:${DANA}`));
   assert.equal(mk.nav, true); assert.equal(mk.gift, true); assert.equal(mk.table, '7');
 });
+
+/* 08/11 (Richard): today/tomorrow events first — the waves only get what is left */
+test('priority · tomorrow\'s day-before is reserved before a far event\'s invitation wave', async () => {
+  const FAR = 'ffff0000-1111-4111-8111-111111111111';
+  const far = eventRow({ token: FAR, date: '2026-12-30' }); far[39] = TODAY;   /* wave 1 due today */
+  const farGuests = Array.from({ length: 30 }, (_, i) => guestRow({ token: FAR, id: 'f' + i, name: 'א' + i, phone: '05030000' + String(i).padStart(2, '0'), rsvp: '' }));
+  snapshot = { events: { values: [eventRow({ date: TOMORROW_ }), far] }, guests: { values: [...GUESTS, ...farGuests] } };
+  const e = env({});
+  await _runDailyEngine(e, false, null, { budget: 3 });
+  const names = guestSends().map(s => s.body.template.name);
+  assert.equal(to(DANA).length + to(YOSI).length, 2, 'both day-before guests went first: ' + names);
+  assert.equal(names.length, 3, 'one slot left for the wave');
+});
+test('timed hold · holdtill:<token> lifts hold:<token> on its date', async () => {
+  snapshot = { events: { values: [eventRow({ date: '2026-12-30' })] }, guests: { values: GUESTS } };
+  const e = env({ ['hold:' + TOK]: 'x', ['holdtill:' + TOK]: TODAY });
+  await _runDailyEngine(e, false, null, { force: true });
+  assert.equal(await e.RATE.get('hold:' + TOK), null); assert.equal(await e.RATE.get('holdtill:' + TOK), null);
+  const e2 = env({ ['hold:' + TOK]: 'x', ['holdtill:' + TOK]: '2099-01-01' });
+  await _runDailyEngine(e2, false, null, { force: true });
+  assert.equal(await e2.RATE.get('hold:' + TOK), 'x');
+});

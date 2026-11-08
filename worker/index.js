@@ -33,6 +33,7 @@ import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapsh
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch } from './budget.js';
+import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
@@ -4674,7 +4675,45 @@ async function templateInfo(env, name) {
 async function giftVariantUsable(env, name, { allowMarketing = false } = {}) {
   if (!name || !env.WA_TOKEN_GUESTS) return false;
   const t = await templateInfo(env, name);
-  return t.status === 'APPROVED' && (t.category === 'UTILITY' || (allowMarketing && t.category === 'MARKETING'));
+  if (t.status === 'APPROVED' && (t.category === 'UTILITY' || (allowMarketing && t.category === 'MARKETING'))) return true;
+  /* 08/11: a broken original with an approved UTILITY copy (template guard) — sendTemplate swaps to the copy */
+  const alt = env.RATE ? await env.RATE.get('tmplalt:' + name).catch(() => null) : null;
+  if (!alt) return false;
+  const a = await templateInfo(env, alt);
+  return a.status === 'APPROVED' && a.category === 'UTILITY';
+}
+/* 08/11 (Richard): "nothing falls between the chairs" — every guest template the code may send */
+function guardWatchList() {
+  const fam = [];
+  for (const k of ['n', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_combo_' + k, 'ishur_yom_combo_' + k);
+  for (const k of ['t', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_plain_' + k);
+  for (const k of ['s', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_yom_plain_' + k);
+  return [...fam, 'ishur_yom_lifnei', 'ishur_shulchan', 'hazmana_ishur', 'ishur_hazmana_shuv', 'ishur_bitul', 'ishur_dchiya'];
+}
+async function runTemplateGuard(env) {
+  if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false, why: 'not-configured' };
+  const waba = '1378764257421712', tok = env.WA_TOKEN_GUESTS;
+  const report = await tguard.runGuard(guardWatchList(), {
+    list: async () => {
+      const out = []; let url = `https://graph.facebook.com/v21.0/${waba}/message_templates?fields=name,status,category,language,components,rejected_reason&limit=200`;
+      for (let i = 0; url && i < 10; i++) {
+        const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+        const j = r ? await r.json().catch(() => null) : null;
+        if (!j || !Array.isArray(j.data)) throw new Error('meta-list-failed');
+        out.push(...j.data); url = j.paging && j.paging.next ? j.paging.next : '';
+      }
+      return out;
+    },
+    submit: async (payload) => {
+      const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      return j.id ? { id: j.id, status: j.status || 'PENDING' } : { error: String((j.error && (j.error.error_user_msg || j.error.message)) || 'submit-failed').slice(0, 200) };
+    },
+    kv: { get: k => env.RATE.get(k), put: (k, v) => env.RATE.put(k, v, { expirationTtl: 400 * 86400 }), delete: k => env.RATE.delete(k) },
+    notify: (text, o = {}) => slackPost(env, text, { key: o.key, sev: o.sev, cls: o.sev ? undefined : 'info' }).catch(() => {}),
+    log: rec => logEvent(env, { area: 'מטא', ...rec }).catch(() => {}),
+  });
+  return { ok: true, report };
 }
 /* 03/11 (Richard): two variants of each gift template are at Meta (the
    MARKETING originals and UTILITY "…2" copies). Whichever Meta approves first
@@ -4691,6 +4730,39 @@ async function giftLinksOf(env, token) {
 }
 /* 03/11 (Richard R2): the ONE event-day message for this guest. A combo only
    once Meta says APPROVED + UTILITY (same gate as the gift twins). */
+/* 08/11: how many guest messages the events of today (event-day) and tomorrow (day-before)
+   still need — the waves must leave room for them */
+async function urgentGuestSends(env, evRows, gRows, today) {
+  const tomorrow = new Date(Date.parse(today + 'T12:00:00Z') + 864e5).toISOString().slice(0, 10);
+  let n = 0;
+  for (const ev of evRows) {
+    const token = String(ev[1] || '').trim(); const date = String(ev[6] || '').trim().slice(0, 10);
+    if (!token || String(ev[7] || '').trim() !== 'כן' || String(ev[27] || '').trim() === 'כן' || String(ev[43] || '').trim() !== 'כן') continue;
+    if (date !== today && date !== tomorrow) continue;
+    if (env.RATE && await env.RATE.get('hold:' + token)) continue;
+    if (date === tomorrow && env.RATE && await env.RATE.get('daybefore:' + token)) continue;
+    const giftOn = giftActive(await giftLinksOf(env, token)), navOn = await navOnFor(env, token);
+    const seen = new Set();
+    for (const g of gRows) {
+      if (String(g[28] || '').trim() !== token || String(g[15] || '').trim() !== 'מגיע') continue;
+      const ph = normPhone(g[4] || ''); if (!ph || seen.has(ph)) continue; seen.add(ph);
+      const dbMark = env.RATE ? await env.RATE.get(`s5d:${token}:${ph}`) : null;
+      if (date === tomorrow) { if (!dbMark) n++; continue; }
+      if (env.RATE && await env.RATE.get(edMarkKey(token, ph))) continue;
+      if (eventDayNeeded({ dbMark, table: String(g[30] || '').trim(), giftOn, navOn })) n++;
+    }
+  }
+  return n;
+}
+async function releaseTimedHolds(env, today) {
+  const all = await kvPrefix(env, 'holdtill:');
+  for (const [token, till] of Object.entries(all)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(String(till)) || String(till) > today) continue;
+    await env.RATE.delete('hold:' + token); await env.RATE.delete('holdtill:' + token);
+    await logEvent(env, { area: 'שליחה', action: `העצירה הזמנית הסתיימה (${till}) — השליחה לאירוע חוזרת`, ok: true, token }).catch(() => {});
+    await slackPost(env, `▶️ העצירה הזמנית של אירוע ${token.slice(0, 8)} הסתיימה (${till}) — השליחה חוזרת אוטומטית.`, { cls: 'info', key: 'holdtill:' + token.slice(0, 8) }).catch(() => {});
+  }
+}
 /* 08/11 (Richard): a nav button only when the client saved a valid nav link on the board */
 async function navOnFor(env, token) {
   const raw = env.RATE ? await env.RATE.get('navlink:' + token).catch(() => null) : null;
@@ -5720,6 +5792,15 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     } catch {}
   }
 
+  /* 08/11 (Richard): a hold with an end date — holdtill:<token> = YYYY-MM-DD lifts hold:<token> that morning */
+  if (!dry && env.RATE) await releaseTimedHolds(env, today).catch(() => {});
+  /* 08/11 (Richard): "always prioritise an event that is today or tomorrow". Invitations and
+     reminders (waves) can go another day; the day-before and the event-day message cannot.
+     The waves only get what is left after the urgent sends of today/tomorrow are reserved. */
+  const urgentReserve = (!dry && budget) ? await urgentGuestSends(env, evRows, gRows, today).catch(() => 0) : 0;
+  const reserved = budget ? Math.min(budget.left, urgentReserve) : 0;
+  if (reserved > 0) { budget.left -= reserved; out.push({ type: 'urgent_reserve', reserved }); }
+
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
   const WAVES = [
     { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
@@ -6012,6 +6093,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:syum:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:syum:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'סוף-אירוע', 'שליחת הודעת הסיום נכשלה (נאמר פעם ביום)', token + ': ' + wa.error, { key: 'send_fail:' + token.slice(0, 8) + ':syum' }); }
     out.push({ token, type: 'end_of_event', confirmed, diners, declined, pending, sent: wa.ok });
   }
+
+  /* the urgent reserve goes back to the day-of / day-before stages below */
+  if (reserved > 0 && budget) budget.left += reserved;
 
   /* ── stage 4: event-day "your table" messages ─────────────────────────────
      On the morning of the event, every confirmed guest with an assigned table
@@ -6409,6 +6493,11 @@ const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 /* Meta template health, once an hour. Runs on no-contact days too: it only
    reads Meta and flips flags, it never contacts anyone. */
 async function templateCheck(env, out) {
+  /* 08/11: the template guard, once an hour (own key) */
+  try {
+    const gk = 'tmplguard:hour:' + new Date().toISOString().slice(0, 13);
+    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); }
+  } catch (e) { await alert(env, 'מטא', 'בודק התבניות נפל', String((e && e.message) || e), { key: 'tmplguard_crash', sev: 'P1' }).catch(() => {}); }
   /* Meta approvals, checked once an hour: the image invitation and the invoice
      template switch themselves on the moment they are approved. */
   try {

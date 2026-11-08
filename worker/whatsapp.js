@@ -609,7 +609,12 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
      names (<name>_n, footer built in) because Meta locks a deleted name for
      30 days. Portfolio + client channel → _n, and the _f switch is skipped. */
   const isClient = !(channel === 'guests' && guestsReady(env));
-  if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
+  /* 08/11 (Richard): the template guard (templateguard.js) found this one broken at Meta
+     (rejected / reclassified MARKETING / paused) and got a reworded UTILITY copy approved */
+  let altName = '';
+  if (!isClient) { try { altName = env.RATE ? (await env.RATE.get('tmplalt:' + name)) || '' : ''; } catch {} }
+  if (altName) name = altName;
+  else if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
   else { try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {} }
   /* 02/11 audit: Meta refuses a body variable with a newline / tab / more
      than 4 spaces in a row (132018) and an empty one (131008) — and a refused
