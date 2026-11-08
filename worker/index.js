@@ -7876,6 +7876,12 @@ async function handleVoiceTools(request, env, origin) {
   const key = String(body.agent || '');
   const spec = VOICE_AGENTS[key];
   if (!spec) return deny(400, 'bad-agent', origin);
+  /* 08/11: read-only — the provider details of the agent's voice (to voice marketing clips in Shir's own voice) */
+  if (body.action === 'voice') {
+    const agent = await retellApi(env, '/get-agent/' + spec.agent);
+    const v = agent && agent.voice_id ? await retellApi(env, '/get-voice/' + agent.voice_id) : null;
+    return okJson({ ok: !!v, voice: v }, origin);
+  }
   const llm = await voiceLlmId(env, spec.agent);
   if (!llm) return deny(502, 'retell-unreachable', origin);
   if (body.action === 'apply') {
