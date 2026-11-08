@@ -3406,6 +3406,13 @@ async function handleWaWebhook(request, env, url) {
                  (131050) fail identically on every retry the same day — three
                  retries ten minutes apart only spent three more budget slots.
                  Waves keep their own 131049 defer (sendWave). */
+              /* 08/11 (Richard): the marketing thank-you was refused for this guest → queue the UTILITY twin, no retry of the same one */
+              if (m.wave === 'toda' && TODA_FALLBACK_CODES.test(code)) {
+                await env.RATE.put(`todafb:${m.token}:${m.phone}`, code, { expirationTtl: 5 * 86400 }).catch(() => {});
+                await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+                retry = ' · תודה שיווקית נחסמה — תישלח גרסת השירות';
+                continue;
+              }
               const lifecycle = !/^[123]$/.test(String(m.wave));
               const terminal = code === '131026' || (lifecycle && /^(131049|130472|131050)$/.test(code));
               const n = terminal ? 3 : (parseInt(await env.RATE.get(fk) || '0', 10) || 0) + 1;
@@ -4688,7 +4695,7 @@ function guardWatchList() {
   for (const k of ['n', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_combo_' + k, 'ishur_yom_combo_' + k);
   for (const k of ['t', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_plain_' + k);
   for (const k of ['s', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_yom_plain_' + k);
-  return [...fam, 'ishur_yom_lifnei', 'ishur_shulchan', 'hazmana_ishur', 'ishur_hazmana_shuv', 'ishur_bitul', 'ishur_dchiya'];
+  return [...fam, 'ishur_yom_lifnei', 'ishur_shulchan', 'hazmana_ishur', 'ishur_hazmana_shuv', 'ishur_bitul', 'ishur_dchiya', 'ishur_toda_orach_u'];
 }
 async function runTemplateGuard(env) {
   if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false, why: 'not-configured' };
@@ -4730,6 +4737,31 @@ async function giftLinksOf(env, token) {
 }
 /* 03/11 (Richard R2): the ONE event-day message for this guest. A combo only
    once Meta says APPROVED + UTILITY (same gate as the gift twins). */
+const TODA_FALLBACK_CODES = /^(131049|130472|131050)\b/;
+const TODA_U = 'ishur_toda_orach_u';
+async function drainTodaFallback(env, evRows, gRows, budget) {
+  if (!env.RATE) return { sent: 0 };
+  const q = await kvPrefix(env, 'todafb:');
+  const keys = Object.keys(q); if (!keys.length) return { sent: 0 };
+  if (!(await giftVariantUsable(env, TODA_U))) return { sent: 0, waiting: keys.length };   /* not approved yet: keep the queue */
+  let sent = 0;
+  for (const k of keys) {
+    if (budget && budget.left <= 0) break;
+    const [token, phone] = k.split(':');
+    const done = `s3u:${token}:${phone}`;
+    if (await env.RATE.get(done)) { await env.RATE.delete('todafb:' + k); continue; }
+    const ev = evRows.find(r => String(r[1] || '').trim() === token);
+    const g = gRows.find(r => String(r[28] || '').trim() === token && normPhone(r[4] || '') === phone);
+    if (!ev || !g || await phoneBlocked(env, phone)) { await env.RATE.delete('todafb:' + k); continue; }
+    const wa = await sendTemplate(env, phone, TODA_U, [String(g[3] || '').trim() || 'אורח יקר', guestEventName(ev, { article: true })], '', 'he', 'guests', { token, who: 'שיר (מערכת)' });
+    if (wa.held) break;
+    if (budget) budget.left--;
+    if (wa.ok) { sent++; await env.RATE.put(done, ilDate(), { expirationTtl: 60 * 86400 }); await env.RATE.delete('todafb:' + k); }
+    else if (wa.permanent) await env.RATE.delete('todafb:' + k);
+  }
+  if (sent) await logEvent(env, { area: 'שליחה', action: `תודה בגרסת שירות: ${sent} אורחים שהתודה השיווקית לא הגיעה אליהם`, ok: true });
+  return { sent };
+}
 /* 08/11: how many guest messages the events of today (event-day) and tomorrow (day-before)
    still need — the waves must leave room for them */
 async function urgentGuestSends(env, evRows, gRows, today) {
@@ -5981,6 +6013,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     out.push({ token, daysLeft, confirmed, diners, declined, pending, sent: wa.ok });
   }
 
+  /* 08/11 (Richard): thank-yous the marketing version did not deliver → the UTILITY twin, once per guest */
+  if (!dry) await drainTodaFallback(env, evRows, gRows, budget).catch(e => out.push({ type: 'toda_fallback', error: String(e && e.message || e) }));
+
   /* ── stage 3: the day-after wrap-up — thanks + final report + review links ──
      Fires once per event, the first non-Shabbat morning after the event date.
      The Google-review and video-testimonial links live in the brain sheet
@@ -6052,7 +6087,12 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           if (wa.ok && todaGift && env.RATE) await env.RATE.put(giftKey(token, normPhone(gp)), JSON.stringify({ at: new Date().toISOString(), via: 'thanks' }), { expirationTtl: 120 * 86400 }).catch(() => {});
           if (wa.ok && abv.test_id && wa.id) await ab.recordOutcome(env, { test_id: abv.test_id, arm: abv.arm, wamid: wa.id, phone: gp, token, msg_type: 'thanks' });
           if (budget) budget.left--;
-          if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); }
+          if (wa.ok) { tsent++; if (env.RATE) await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }); await addEvCost(env, token, msgCost('ishur_toda_orach')); await noteGuestSend(env, wa, token, 'toda', gp, mk); }
+          else if (TODA_FALLBACK_CODES.test(String(wa.error || '')) && env.RATE) {
+            /* 08/11 (Richard): the marketing thank-you did not reach this guest → the UTILITY twin (drainTodaFallback) */
+            await env.RATE.put(`todafb:${token}:${normPhone(gp)}`, String(wa.error).slice(0, 6), { expirationTtl: 5 * 86400 }).catch(() => {});
+            await env.RATE.put(mk, today, { expirationTtl: 60 * 86400 }).catch(() => {});
+          }
           else tfail++;
         }
         if (tsent || tfail) await logEvent(env, { area: 'שליחה', action: 'תודה לאורחים (יום אחרי)', ok: tfail === 0, review: tfail > 0, token,

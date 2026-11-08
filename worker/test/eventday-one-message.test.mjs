@@ -348,3 +348,28 @@ test('timed hold · holdtill:<token> lifts hold:<token> on its date', async () =
   await _runDailyEngine(e2, false, null, { force: true });
   assert.equal(await e2.RATE.get('hold:' + TOK), 'x');
 });
+
+/* 08/11 (Richard): the regular thank-you first; whoever it did not reach gets the UTILITY twin */
+test('thanks · marketing thank-you refused (131049) → ishur_toda_orach_u on the next run, once', async () => {
+  const YDAY = new Date(Date.parse(TODAY) - 864e5).toISOString().slice(0, 10);
+  snapshot = { events: { values: [eventRow({ date: YDAY })] }, guests: { values: GUESTS } };
+  const inner = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => {
+    if (/\/messages$/.test(String(url)) && init.method === 'POST') {
+      const b = JSON.parse(init.body);
+      if (b.type === 'template' && /^ishur_toda_orach(_v2)?$/.test(b.template.name)) {
+        sent.push({ pid: 'X', body: b, refused: true });
+        return new Response(JSON.stringify({ error: { code: 131049, message: 'marketing cap' } }), { status: 400, headers: { 'Content-Type': 'application/json' } });
+      }
+    }
+    return inner(url, init);
+  };
+  const e = env({ ['toda:' + TOK]: '' });
+  e.RATE.m.delete('toda:' + TOK);
+  await _runDailyEngine(e, false, null, { force: true });
+  assert.ok(await e.RATE.get(`todafb:${TOK}:${DANA}`), 'queued for the twin');
+  await _runDailyEngine(e, false, null, { force: true });
+  assert.deepEqual(to(DANA).filter(s => !s.refused).map(s => s.body.template.name), ['ishur_toda_orach_u']);
+  await _runDailyEngine(e, false, null, { force: true });
+  assert.equal(to(DANA).filter(s => s.body.template.name === 'ishur_toda_orach_u').length, 1, 'once');
+});

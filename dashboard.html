@@ -1790,7 +1790,10 @@
     if (s.key === 'calls') {
       if (!t.dialed && !t.waiting) return '';
       return 'חויגו ' + t.dialed + ' · ענו בשיחה ' + t.answered + ' (מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
-             (t.undecided ? ' · מתלבטים ' + t.undecided : '') + ') · לא ענו ' + t.no_answer +
+             (t.undecided ? ' · מתלבטים ' + t.undecided : '') + ')' +
+             (t.later ? ' · ענו אחר כך בוואטסאפ ' + t.later + ' (מגיעים ' + (t.later_confirmed || 0) + ' · לא מגיעים ' + (t.later_declined || 0) +
+               (t.later_undecided ? ' · מתלבטים ' + t.later_undecided : '') + ')' : '') +
+             ' · לא ענו ' + t.no_answer +
              (t.waiting ? ' · עוד לא חויגו ' + t.waiting : '');
     }
     if (s.status !== 'sent') return '';

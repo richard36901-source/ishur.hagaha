@@ -70,3 +70,12 @@ test('run: a missing template that was never created → P1 (nothing to rebuild 
   const r = await runGuard(['ishur_nope'], { list: async () => [], submit: async () => ({}), kv: kv(), notify: async (t, o) => notes.push(o), log: async () => {} });
   assert.equal(r[0].action, 'stuck'); assert.equal(notes[0].sev, 'P1');
 });
+
+import { nightMaxAge } from '../snapshot.js';
+test('snapshot · screens keep an hour at night (Israel 21:00–08:00); senders never stretched', () => {
+  const night = Date.parse('2026-11-08T21:30:00Z'), day = Date.parse('2026-11-08T10:00:00Z');   /* 23:30 / 12:00 IL */
+  assert.equal(nightMaxAge('dashboard', 300, night), 3600);
+  assert.equal(nightMaxAge('send', 300, night), 300);
+  assert.equal(nightMaxAge('write', 0, night), 0);
+  assert.equal(nightMaxAge('dashboard', 300, day), 300);
+});

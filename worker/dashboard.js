@@ -320,7 +320,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const tally = () => ({ answered: 0, confirmed: 0, declined: 0, undecided: 0 });
   const per = {};
   for (const x of sends) per[x.key] = tally();
-  per.calls = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0 });
+  per.calls = Object.assign(tally(), { dialed: 0, no_answer: 0, waiting: 0, later: 0, later_confirmed: 0, later_declined: 0, later_undecided: 0 });
   for (const g of guests) {
     if (g.self) continue;
     const isCall = viaCall(g) || dialed.has(g.id) || g.tries > 0;
@@ -332,6 +332,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       else if (g.status === 'awaiting_call') per.calls.waiting++;
       continue;
     }
+    /* 08/11 (Richard): dialed, then answered some other way (WhatsApp / undecided) — shown on the calls row
+       too, so dialed = answered by phone + answered later + no answer. The answer itself still
+       belongs to the round that brought it in (below). */
+    if (per.calls && isCall && !(viaCall(g) && /^ענה/.test(g.call_ans))) { per.calls.later++; per.calls['later_' + g.status]++; }
     let key;
     if (viaCall(g) && /^ענה/.test(g.call_ans)) key = 'calls';
     else {

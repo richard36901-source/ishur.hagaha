@@ -74,6 +74,15 @@ export const CLASSES = {
   probe: { maxAge: 0, dirty: 'none', maxStale: 0 },   /* a real answer from Make or nothing */
 };
 export const STALE_ACT_SEC = 900;
+/* 08/11 (Richard, Make credits): 21:00–08:00 Israel nothing is sent, so the screens / background
+   readers keep a snapshot up to an hour (own writes still force a refetch through the dirty markers).
+   send / dial / write / probe are never stretched. */
+const NIGHT_CLASSES = new Set(['guest', 'dashboard', 'ops', 'brain', 'background']);
+export function nightMaxAge(cls, maxAge, nowMs = Date.now()) {
+  if (!NIGHT_CLASSES.has(cls) || !maxAge) return maxAge;
+  const h = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format(new Date(nowMs))) % 24;
+  return (h >= 21 || h < 8) ? Math.max(maxAge, 3600) : maxAge;
+}
 export const FAIL_BACKOFF_SEC = 60;
 const CACHE_TTL = 900, LAST_TTL = 7 * 86400, PATCH_KEEP_MS = 15 * 60e3, DIRTY_TTL = 3600;
 const Q_TTL = 7 * 86400, Q_SETTLE_MS = 90e3;
@@ -248,7 +257,8 @@ export async function readSnapshot(env, cls = 'background', deps = {}) {
     kjson(env, K.patch)]);
   const bar = c.dirty === 'none' ? 0 : Math.max(st.dirtyAll || 0, Number(dAllKv) || 0, c.dirty === 'act' ? Math.max(st.dirtyAct || 0, Number(dActKv) || 0) : 0);
   const patches = Array.isArray(kvPatches) ? kvPatches : [];
-  const usable = e => !!(e && e.raw && Number.isFinite(e.at) && now - e.at < c.maxAge * 1000 && e.at >= bar);
+  const maxAge = nightMaxAge(cls, c.maxAge, now);
+  const usable = e => !!(e && e.raw && Number.isFinite(e.at) && now - e.at < maxAge * 1000 && e.at >= bar);
   if (usable(st.entry)) { applyNewer(st.entry, patches); st.why = ''; return tag(st.entry, 'memo', now); }
   const kvE = await kjson(env, K.cache);
   if (kvE && kvE.raw && Number.isFinite(kvE.at) && (!st.entry || kvE.at > st.entry.at)) st.entry = { at: kvE.at, raw: kvE.raw, applied: {} };

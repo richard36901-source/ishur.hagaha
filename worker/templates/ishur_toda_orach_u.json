@@ -1,0 +1,12 @@
+{
+  "_note": "08/11 (Richard): UTILITY twin of the thank-you. The regular (MARKETING) ishur_toda_orach_v2 goes first; a guest it did not reach (131049 / 130472 / 131050) gets this one. The promo lives on toda.html behind the button, not in the body. Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests", "method": "POST", "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_toda_orach_u", "language": "he", "category": "UTILITY", "allow_category_change": false,
+    "components": [
+      { "type": "BODY", "text": "היי {{1}}, עדכון לאחר {{2}}: אישור ההגעה שלכם נסגר במערכת, ואין צורך בפעולה נוספת מצדכם. תודה שאישרתם והגעתם.", "example": { "body_text": [["דנה", "החתונה של הדר ויצחק"]] } },
+      { "type": "FOOTER", "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\"" },
+      { "type": "BUTTONS", "buttons": [{ "type": "URL", "text": "לפרטים", "url": "https://ishur.io/toda.html" }] }
+    ]
+  }
+}
