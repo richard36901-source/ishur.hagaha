@@ -165,7 +165,8 @@ test('engine e2e: no guest template carries the client name; table has no double
     }
   }
   /* 03/11 R2: the fake Meta approves every name, so the table guest gets the combo (same ב{{2}} slot) */
-  const table = out.find(s => /^ishur_shulchan|^ishur_yom_combo_t/.test(s.body.template.name));
+  /* 08/11: no nav link in this fixture → the no-nav family (ishur_yom_plain_t) */
+  const table = out.find(s => /^ishur_shulchan|^ishur_yom_(combo|plain)_t/.test(s.body.template.name));
   assert.ok(table, 'table message sent');
   assert.equal(paramsOf(table.body)[1], 'חתונה', 'ב{{2}} → "בחתונה", never "בהחתונה" or "של <client>"');
   const thanks = out.find(s => /^ishur_toda_orach/.test(s.body.template.name));

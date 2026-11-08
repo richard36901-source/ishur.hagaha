@@ -102,7 +102,8 @@ test('R1: day-before on the event day → 0 day-before sends, journal line "יו
 test('R1 sanity: at D-1 the day-before still goes out', async () => {
   snapshot = { events: { values: [eventRow({ date: TOMORROW })] }, guests: { values: GUESTS } };
   await _runDailyEngine(env(), false, null, { force: true });
-  assert.equal(guestSends().filter(s => /^ishur_yom_lifnei/.test(s.body.template.name)).length, 2);
+  /* 08/11: the D-1 now goes as the day-before family (ishur_lifnei_*) when approved, else ishur_yom_lifnei */
+  assert.equal(guestSends().filter(s => /^ishur_(yom_lifnei|lifnei_)/.test(s.body.template.name)).length, 2);
 });
 
 /* ── R2 ─────────────────────────────────────────────────────────────────── */
@@ -110,7 +111,7 @@ test('R2: seating + gifts → each guest gets ONE message; table guest gets comb
   for (const order of ['engine-first', 'blast-first']) {
     sent = [];
     snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
-    const e = env({ [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT });
+    const e = env({ ['navlink:' + TOK]: NAV, [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT });
     await eventDay(e, order);
     await eventDay(e, order);   /* a second tick sends nothing new */
     assert.equal(to(DANA).length, 1, order + ': Dana got ' + to(DANA).map(s => s.body.template.name));
@@ -130,7 +131,7 @@ test('R2: seating + gifts → each guest gets ONE message; table guest gets comb
 
 test('R2: hosts cell empty → event name has no "של <client>"', async () => {
   snapshot = { events: { values: [eventRow({ hosts: '' })] }, guests: { values: GUESTS } };
-  await eventDay(env({ [`edblast:${TOK}`]: JOB }));
+  await eventDay(env({ ['navlink:' + TOK]: NAV, [`edblast:${TOK}`]: JOB }));
   assert.equal(to(DANA)[0].body.template.name, 'ishur_yom_combo_t');
   assert.equal(paramsOf(to(DANA)[0].body)[1], 'חתונה');
   assert.equal(buttonsOf(to(DANA)[0].body).length, 1, 'combo_t has the nav button only');
@@ -150,7 +151,7 @@ test('R2 pure: richest variant first, a table guest never falls to combo_g', () 
 test('R2: tg pending, t approved → table guest still gets ONE message (combo_t)', async () => {
   approved = (n) => !/^ishur_yom_combo_tg/.test(n);   /* 08/11: every table+gift wording pending (tg, tgb, tgp) */
   snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
-  await eventDay(env({ [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT }));
+  await eventDay(env({ ['navlink:' + TOK]: NAV, [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT }));
   assert.deepEqual(to(DANA).map(s => s.body.template.name), ['ishur_yom_combo_t']);
 });
 
@@ -158,9 +159,9 @@ test('R2: tg pending, t approved → table guest still gets ONE message (combo_t
 test('fallback: no combo approved → today\'s templates, still one per guest; combo approved mid-day sends nothing again', async () => {
   for (const order of ['engine-first', 'blast-first']) {
     sent = [];
-    approved = (n) => !/^ishur_yom_combo/.test(n);
+    approved = (n) => !/^ishur_yom_(combo|plain)/.test(n);   /* 08/11: both families pending */
     snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
-    const e = env({ [`edblast:${TOK}`]: JOB });
+    const e = env({ ['navlink:' + TOK]: NAV, [`edblast:${TOK}`]: JOB });
     await eventDay(e, order);
     assert.deepEqual(to(DANA).map(s => s.body.template.name), ['ishur_shulchan'], order);
     assert.deepEqual(paramsOf(to(DANA)[0].body), ['דנה', 'חתונה של הדר ויצחק', '7']);
@@ -179,14 +180,14 @@ test('fallback: no combo approved → today\'s templates, still one per guest; c
 /* ── the mark ───────────────────────────────────────────────────────────── */
 test('ed:<token>:<phone> blocks every other event-day path that day', async () => {
   snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
-  const e = env({ [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT, [`ed:${TOK}:${DANA}`]: 'ishur_shulchan', [`ed:${TOK}:${YOSI}`]: 'eventday' });
+  const e = env({ ['navlink:' + TOK]: NAV, [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT, [`ed:${TOK}:${DANA}`]: 'ishur_shulchan', [`ed:${TOK}:${YOSI}`]: 'eventday' });
   await eventDay(e);
   assert.equal(guestSends().length, 0, guestSends().map(s => s.body.template.name).join(','));
 });
 
 test('a failed send releases the claim (the guest is retried, not lost)', async () => {
   snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
-  const e = env({ [`edblast:${TOK}`]: JOB });
+  const e = env({ ['navlink:' + TOK]: NAV, [`edblast:${TOK}`]: JOB });
   const ok = globalThis.fetch;
   globalThis.fetch = async (url, init) => /\/messages$/.test(String(url)) && init.method === 'POST'
     ? new Response(JSON.stringify({ error: { code: 131000, message: 'boom' } }), { status: 400 }) : ok(url, init);
@@ -275,4 +276,53 @@ test('event day · resolver: nav-only guest gets combo_n; Bit-only host gets com
   const deps2 = { ...deps0, comboUsable: async () => false };
   const m2 = await eventDayMessageFor({}, ev, { phone: '972500000000', name: 'דנה', table: '' }, deps2);
   assert.equal(m2.kind, 'legacy');
+});
+
+/* ══ 08/11 (Richard): ONE message per guest across D-1 + the day ══════════ */
+import { eventDayNeeded, familyCandidates, carriedMark, dayBeforeMessageFor } from '../eventday.js';
+const TOMORROW_ = new Date(Date.parse(TODAY) + 864e5).toISOString().slice(0, 10);
+const markFull = (name, table = '') => carriedMark(name, { table });
+
+test('two days · D-1 carried everything → nothing on the day; table/gift/nav added after D-1 → the day sends', () => {
+  assert.equal(eventDayNeeded({ dbMark: null }), true, 'no D-1 at all');
+  assert.equal(eventDayNeeded({ dbMark: markFull('ishur_lifnei_combo_n'), navOn: true }), false, 'nav-only D-1, nothing new');
+  assert.equal(eventDayNeeded({ dbMark: markFull('ishur_lifnei_combo_n'), navOn: true, table: '7' }), true, 'table assigned after D-1');
+  assert.equal(eventDayNeeded({ dbMark: markFull('ishur_lifnei_combo_t', '7'), navOn: true, table: '7' }), false, 'same table already sent');
+  assert.equal(eventDayNeeded({ dbMark: markFull('ishur_lifnei_combo_t', '7'), navOn: true, table: '9' }), true, 'table changed');
+  assert.equal(eventDayNeeded({ dbMark: markFull('ishur_lifnei_combo_n'), navOn: true, giftOn: true }), true, 'gifts switched on after D-1');
+  assert.equal(eventDayNeeded({ dbMark: '1', navOn: true }), true, 'legacy D-1 had no nav, the board has one');
+  assert.equal(eventDayNeeded({ dbMark: '1', navOn: false }), false, 'legacy D-1 and nothing else to add');
+});
+test('two days · no nav link on the board → never a nav template; nothing at all → the standard reminder', () => {
+  assert.deepEqual(familyCandidates({ day: 'd1', nav: false, hasTable: false, giftOn: false }), ['ishur_yom_lifnei']);
+  assert.deepEqual(familyCandidates({ day: 'day', nav: false, hasTable: false, giftOn: false }), ['ishur_yom_plain_s']);
+  for (const c of [familyCandidates({ day: 'd1', nav: false, hasTable: true, giftOn: true, gift: 'bit' }), familyCandidates({ day: 'day', nav: false, hasTable: false, giftOn: true, gift: 'paybox' })])
+    assert.ok(c.every(n => !/combo/.test(n)), c.join());
+  assert.deepEqual(familyCandidates({ day: 'd1', nav: true, hasTable: true, giftOn: true, gift: 'bit' }).slice(0, 3), ['ishur_lifnei_combo_tgb', 'ishur_lifnei_combo_tg', 'ishur_lifnei_combo_t']);
+});
+test('two days · D-1 resolver: Bit-only host with a nav link and a table → lifnei_combo_tgb, 6 params, nav+gift buttons', async () => {
+  const deps = { comboUsable: async () => true, giftOn: async () => true, giftLinks: async () => ({ on: true, bit: BIT }), navOn: async () => true,
+    guestEventName: () => 'החתונה', cleanParam: x => String(x || '').trim() };
+  const m = await dayBeforeMessageFor({}, eventRow(), { phone: DANA, name: 'דנה', table: '7' }, deps, { date: '12.11', time: '19:30', address: 'אולמי סקיי' });
+  assert.equal(m.template, 'ishur_lifnei_combo_tgb'); assert.equal(m.params.length, 6); assert.equal(m.components.length, 2);
+  assert.deepEqual(JSON.parse(m.mark).table, '7');
+  const m2 = await dayBeforeMessageFor({}, eventRow(), { phone: YOSI, name: 'יוסי', table: '' }, { ...deps, giftOn: async () => false, navOn: async () => false }, { date: '12.11', time: '19:30', address: 'אולמי סקיי' });
+  assert.equal(m2.template, 'ishur_yom_lifnei'); assert.equal(m2.components.length, 0);
+});
+test('two days · engine on the day, NO hand-set job: no-table guest who missed D-1 gets one nav-only message; D-1-covered guest gets nothing', async () => {
+  snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
+  /* Yosi (no table) never got D-1; Dana (table 7) got a full D-1 with her table and the nav */
+  const e = env({ ['navlink:' + TOK]: NAV, [`s5d:${TOK}:${DANA}`]: markFull('ishur_lifnei_combo_t', '7') });
+  await _runDailyEngine(e, false, null, { force: true });
+  assert.deepEqual(to(YOSI).map(s => s.body.template.name), ['ishur_yom_combo_n']);
+  assert.equal(to(DANA).length, 0, 'Dana got everything on D-1: ' + to(DANA).map(s => s.body.template.name));
+});
+test('two days · engine at D-1: the day-before family goes out and the mark records what it carried', async () => {
+  snapshot = { events: { values: [eventRow({ date: TOMORROW_ })] }, guests: { values: GUESTS } };
+  const e = env({ ['navlink:' + TOK]: NAV, [`giftlinks:${TOK}`]: GIFT });
+  await _runDailyEngine(e, false, null, { force: true });
+  assert.deepEqual(to(DANA).map(s => s.body.template.name), ['ishur_lifnei_combo_tgb']);
+  assert.deepEqual(to(YOSI).map(s => s.body.template.name), ['ishur_lifnei_combo_gb']);
+  const mk = JSON.parse(await e.RATE.get(`s5d:${TOK}:${DANA}`));
+  assert.equal(mk.nav, true); assert.equal(mk.gift, true); assert.equal(mk.table, '7');
 });

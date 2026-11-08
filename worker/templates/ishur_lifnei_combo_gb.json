@@ -1,0 +1,54 @@
+{
+  "_note": "08/11 (Richard): the ONE day-before message — details + nav button, plus table and/or gift (Bit/PayBox wording by what the host set) when they exist. Whatever it carried is recorded in s5d:<token>:<phone> so the event day sends only what is missing (eventday.js). Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_lifnei_combo_gb",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי {{1}}, תזכורת קטנה: מחר חוגגים את {{2}}! 🎉\n📅 בתאריך {{3}} בשעה {{4}}\n📍 הכתובת: {{5}}\n🧭 לניווט לחצו על הכפתור למטה.\n🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בביט בכפתור למטה.\nשמרו את ההודעה עם הפרטים, ונתראה שם. מחכים לראותכם!",
+        "example": {
+          "body_text": [
+            [
+              "עדן",
+              "החתונה של הדר ויצחק",
+              "12.11",
+              "19:30",
+              "אולמי Sky Garden, היוזמה 6, יקנעם עילית"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "ניווט למקום",
+            "url": "https://go.ishur.io/nav/{{1}}",
+            "example": [
+              "https://go.ishur.io/nav/c1c5fcf5"
+            ]
+          },
+          {
+            "type": "URL",
+            "text": "מתנה בביט",
+            "url": "https://go.ishur.io/gift/{{1}}",
+            "example": [
+              "https://go.ishur.io/gift/c1c5fcf5"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

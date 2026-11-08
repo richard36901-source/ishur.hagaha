@@ -1,0 +1,46 @@
+{
+  "_note": "08/11 (Richard): no nav link on the board → no nav button. Same family rules as eventday.js familyName. Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_lifnei_plain_gp",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "היי {{1}}, תזכורת קטנה: מחר חוגגים את {{2}}! 🎉\n📅 בתאריך {{3}} בשעה {{4}}\n📍 הכתובת: {{5}}\n🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בפייבוקס בכפתור למטה.\nשמרו את ההודעה עם הפרטים, ונתראה שם. מחכים לראותכם!",
+        "example": {
+          "body_text": [
+            [
+              "עדן",
+              "החתונה של הדר ויצחק",
+              "12.11",
+              "19:30",
+              "אולמי Sky Garden, יקנעם"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "מתנה בפייבוקס",
+            "url": "https://go.ishur.io/gift/{{1}}",
+            "example": [
+              "https://go.ishur.io/gift/c1c5fcf5"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -95,12 +95,6 @@ export function navTarget({ navlink = '', jobNav = '', venue = '' }, navLinkOk) 
    → { kind:'legacy', why }  — no combo is approved (or a field is empty):
        the caller sends what it sent before 03/11, still under the ed: mark. */
 export async function eventDayMessageFor(env, ev, guest, deps, { job = null } = {}) {
-  const token = String((ev && ev[1]) || '').trim();
-  const hasTable = !!String((guest && guest.table) || '').trim();
-  const giftOn = !!(await deps.giftOn(env, token));
-  const gift = giftOn && deps.giftLinks ? (giftKindOf(await deps.giftLinks(env, token), deps.cleanLink) || 'both') : 'both';
-  const cands = comboCandidates({ hasTable, giftOn, gift });
-  if (!cands.length) return { kind: 'legacy', why: 'no-combo-applies', hasTable, giftOn };
   const j = job || {};
   const clean = deps.cleanParam || (x => String(x || '').trim());
   const fields = {
@@ -110,10 +104,104 @@ export async function eventDayMessageFor(env, ev, guest, deps, { job = null } = 
     address: clean(String(j.address || '').trim() || [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ')),
     table: clean(String((guest && guest.table) || '').trim()),
   };
-  if (!fields.address) return { kind: 'legacy', why: 'no-address', hasTable, giftOn };
-  for (const name of cands) {
+  if (!fields.address) return { kind: 'legacy', why: 'no-address', hasTable: !!fields.table };
+  return resolveFamily(env, 'day', ev, guest, deps, fields);
+}
+/* ══ 08/11 (Richard): ONE message per guest across TWO days ══════════════════
+   D-1 is the preferred day. The day-before message carries the details plus
+   whatever EXISTS on the client's board at that moment, nothing empty:
+     · a nav button only when the client saved a Waze/Maps link (navlink:<token>)
+     · the table line when the guest has a table
+     · the gift line/button when gift links are on — Bit only / PayBox only /
+       both, worded by what the host set
+     · nothing of these → the standard reminder (ishur_yom_lifnei)
+   What it carried is written to the day-before mark s5d:<token>:<phone> as
+   JSON {nav, gift, table}. On the event day a guest gets ONE message only for
+   what did not reach them on D-1 (eventDayNeeded): no D-1 at all, a table
+   assigned/changed after it, gifts switched on after it, or a nav link that
+   exists now but was not in the D-1 (e.g. the legacy mark '1'). Automatic —
+   no hand-set job.
+   Families (guests WABA, UTILITY), key = t? + (g|gb|gp)?:
+     D-1   nav: ishur_lifnei_combo_<n|key>   plain: ishur_lifnei_plain_<key>, '' → ishur_yom_lifnei
+     day   nav: ishur_yom_combo_<n|key>      plain: ishur_yom_plain_<s|key>
+   params: [guest, event, (date on D-1), time, address, (table)]
+   buttons: nav first (when nav), then gift (when gift) — both on our domain. */
+const GIFT_KEYS = { both: 'g', bit: 'gb', paybox: 'gp' };
+export function familyName(day, nav, key) {
+  if (day === 'd1') return nav ? 'ishur_lifnei_combo_' + (key || 'n') : (key ? 'ishur_lifnei_plain_' + key : 'ishur_yom_lifnei');
+  return nav ? 'ishur_yom_combo_' + (key || 'n') : 'ishur_yom_plain_' + (key || 's');
+}
+/* richest first; a table guest never loses the table; the generic gift wording only as fallback;
+   with a nav link, the nav family first and the plain family as the last resort */
+export function familyCandidates({ day, nav, hasTable, giftOn, gift = 'both' }) {
+  const gk = GIFT_KEYS[gift] || 'g';
+  let keys;
+  if (hasTable && giftOn) keys = gk === 'g' ? ['tg', 't'] : ['t' + gk, 'tg', 't'];
+  else if (hasTable) keys = ['t'];
+  else if (giftOn) keys = gk === 'g' ? ['g', ''] : [gk, 'g', ''];
+  else keys = [''];
+  const fam = n => keys.map(k => familyName(day, n, k));
+  return [...new Set(nav ? [...fam(true), ...fam(false)] : fam(false))];
+}
+const parseName = name => {
+  const m = /^ishur_(lifnei|yom)_(combo|plain)_([a-z]+)$/.exec(String(name || ''));
+  if (name === 'ishur_yom_lifnei') return { day: 'd1', nav: false, table: false, gift: false };
+  if (!m) return null;
+  const k = m[3];
+  return { day: m[1] === 'lifnei' ? 'd1' : 'day', nav: m[2] === 'combo', table: k.startsWith('t'), gift: /g/.test(k) };
+};
+export function familyParams(name, f) {
+  const p = parseName(name) || {};
+  const base = p.day === 'd1' ? [f.guestName, f.eventName, f.date, f.time, f.address] : [f.guestName, f.eventName, f.time, f.address];
+  return p.table ? [...base, f.table] : base;
+}
+export function familyComponents(name, token) {
+  const p = parseName(name) || {};
+  const btn = (index) => ({ type: 'button', sub_type: 'url', index: String(index), parameters: [{ type: 'text', text: navSlug(token) }] });
+  const out = []; let i = 0;
+  if (p.nav) out.push(btn(i++));
+  if (p.gift) out.push(btn(i++));
+  return out;
+}
+/* what a D-1 mark says reached the guest. '1' (legacy, before 08/11) = details only. */
+export function carriedOf(mark) {
+  if (!mark) return null;
+  try { const j = JSON.parse(mark); if (j && typeof j === 'object') return { nav: !!j.nav, gift: !!j.gift, table: String(j.table || '') }; } catch {}
+  return { nav: false, gift: false, table: '' };
+}
+export function carriedMark(name, { table = '' } = {}) {
+  const p = parseName(name) || {};
+  return JSON.stringify({ nav: !!p.nav, gift: !!p.gift, table: p.table ? String(table || '') : '', t: name });
+}
+/* does this guest still need an event-day message? only for what D-1 did not carry */
+export function eventDayNeeded({ dbMark, table = '', giftOn = false, navOn = false }) {
+  const c = carriedOf(dbMark);
+  if (!c) return true;
+  if (navOn && !c.nav) return true;
+  if (table && c.table !== String(table)) return true;
+  if (giftOn && !c.gift) return true;
+  return false;
+}
+async function resolveFamily(env, day, ev, guest, deps, fields) {
+  const token = String((ev && ev[1]) || '').trim();
+  const table = String((guest && guest.table) || '').trim();
+  const giftOn = !!(await deps.giftOn(env, token));
+  const gift = giftOn && deps.giftLinks ? (giftKindOf(await deps.giftLinks(env, token), deps.cleanLink) || 'both') : 'both';
+  const nav = deps.navOn ? !!(await deps.navOn(env, token)) : true;
+  for (const name of familyCandidates({ day, nav, hasTable: !!table, giftOn, gift })) {
     if (!(await deps.comboUsable(env, name))) continue;
-    return { kind: 'combo', template: name, params: comboParams(name, fields), components: comboComponents(name, token), hasTable, giftOn };
+    return { kind: 'combo', template: name, params: familyParams(name, fields), components: familyComponents(name, token), mark: carriedMark(name, { table }), hasTable: !!table, giftOn, nav };
   }
-  return { kind: 'legacy', why: 'combo-not-approved', hasTable, giftOn };
+  return { kind: 'legacy', why: 'combo-not-approved', hasTable: !!table, giftOn, nav };
+}
+/* the D-1 resolver */
+export async function dayBeforeMessageFor(env, ev, guest, deps, { date = '', time = '', address = '' } = {}) {
+  const clean = deps.cleanParam || (x => String(x || '').trim());
+  const fields = {
+    guestName: clean(String((guest && guest.name) || '').trim() || 'אורח יקר'),
+    eventName: clean(deps.guestEventName(ev, { article: false })),
+    date: clean(date), time: clean(time || 'בשעות הערב'), address: clean(address), table: clean(String((guest && guest.table) || '').trim()),
+  };
+  if (!fields.address || !fields.date) return { kind: 'legacy', why: 'no-address' };
+  return resolveFamily(env, 'd1', ev, guest, deps, fields);
 }

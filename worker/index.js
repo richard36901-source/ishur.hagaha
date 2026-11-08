@@ -33,7 +33,7 @@ import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapsh
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch } from './budget.js';
-import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES } from './eventday.js';
+import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
@@ -4691,8 +4691,14 @@ async function giftLinksOf(env, token) {
 }
 /* 03/11 (Richard R2): the ONE event-day message for this guest. A combo only
    once Meta says APPROVED + UTILITY (same gate as the gift twins). */
+/* 08/11 (Richard): a nav button only when the client saved a valid nav link on the board */
+async function navOnFor(env, token) {
+  const raw = env.RATE ? await env.RATE.get('navlink:' + token).catch(() => null) : null;
+  return !!(raw && navLinkOk(raw));
+}
 async function eventDayMessage(env, ev, guest, job = null) {
   return eventDayMessageFor(env, ev, guest, {
+    navOn: navOnFor,
     comboUsable: (e, name) => giftVariantUsable(e, name),
     giftOn: async (e, tok) => giftActive(await giftLinksOf(e, tok)),
     giftLinks: (e, tok) => giftLinksOf(e, tok), cleanLink,
@@ -4859,6 +4865,8 @@ async function runEventDayBlasts(env, { dry = false, only = '' } = {}) {
       /* 03/11 R2: one event-day message per guest — the table stage (or an earlier tick) already sent it */
       const edk = edMarkKey(token, p.phone);
       if (await env.RATE.get(edk)) { skipped++; continue; }
+      /* 08/11: a guest whose D-1 already carried everything gets nothing today */
+      if (!eventDayNeeded({ dbMark: await env.RATE.get(`s5d:${token}:${p.phone}`).catch(() => null), table: p.table, giftOn: giftActive(await giftLinksOf(env, token)), navOn: await navOnFor(env, token) })) { skipped++; continue; }
       if (await phoneBlocked(env, p.phone) || await wrongNum(env, token, p.phone)) { skipped++; continue; }
       const msg = await eventDayMessage(env, evRow, p, job);
       /* no combo for a guest with a table: the table stage sends ishur_shulchan(_matana) — never both (R2) */
@@ -6029,7 +6037,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const tableGift = !dry && eventDayGiftSlot({ giftOn: giftActive(await giftLinksOf(env, token)), hasSeating: eventHasSeating(gRows, token) }) === 'table'
       && await giftVariantUsable(env, 'ishur_shulchan_matana');
 
-    let sent = 0, failed = 0, would = 0, combos = 0, edSkip = 0;
+    let sent = 0, failed = 0, would = 0, combos = 0, edSkip = 0, d1Covered = 0, noTmpl = 0;
+    const evGiftOn = giftActive(await giftLinksOf(env, token)), evNavOn = await navOnFor(env, token);
     /* same discipline as the waves (review finding #5): per-guest marker,
        budget, and the event flag only when the whole list is done */
     let cut = false;
@@ -6041,8 +6050,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       const phone = String(g[4] || '').trim();
       const table = String(g[30] || '').trim();
       const rsvp = String(g[15] || '').trim();
-      if (!phone || !table || rsvp !== 'מגיע' || seenPhones.has(phone)) continue;
+      if (!phone || rsvp !== 'מגיע' || seenPhones.has(phone)) continue;
       seenPhones.add(phone);
+      /* 08/11 (Richard): ONE message across D-1 + the day — only what D-1 did not carry */
+      const dbMark = env.RATE ? await env.RATE.get(`s5d:${token}:${normPhone(phone)}`).catch(() => null) : null;
+      if (!eventDayNeeded({ dbMark, table, giftOn: evGiftOn, navOn: evNavOn })) { d1Covered++; continue; }
       if (dry) { would++; continue; }
       const mk = `s5t:${token}:${normPhone(phone)}`;
       if (env.RATE && await env.RATE.get(mk)) continue;
@@ -6053,6 +6065,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (await wrongNum(env, token, phone)) continue;
       const gname = String(g[3] || '').trim() || 'אורח יקר';
       const msg = await eventDayMessage(env, ev, { phone, name: gname, table }, edJob);
+      /* a guest with no table has no legacy event-day template: no approved combo → nothing (counted) */
+      if (msg.kind !== 'combo' && !table) { noTmpl++; continue; }
       /* claim before the send: the event-day blast runs in the same pacer tick */
       if (env.RATE) await env.RATE.put(edk, 'claim', { expirationTtl: ED_MARK_TTL }).catch(() => {});
       const wa = msg.kind === 'combo'
@@ -6077,7 +6091,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
        empty pass keeps the flag open so tables assigned later still send */
     if (sent && !cut && !failed && env.RATE) await env.RATE.put('seat:' + token, today, { expirationTtl: 30 * 86400 });
     if (failed) await alert(env, 'הודעות שולחן', `${failed} שליחות נכשלו — ננסה שוב בפעימה הבאה`, token.slice(0, 8), { key: 'send_fail:' + token.slice(0, 8) + ':table', level: failed });
-    if (sent || failed) out.push({ token, type: 'seating', sent, failed, combos, ed_skipped: edSkip, truncated: cut });
+    if (noTmpl) await alert(env, 'הודעת יום האירוע', `${noTmpl} אורחים בלי שולחן מחכים להודעת יום האירוע — התבנית המתאימה עוד לא אושרה במטא`, token.slice(0, 8), { key: 'ed_notmpl:' + token.slice(0, 8), level: noTmpl });
+    if (sent || failed || noTmpl) out.push({ token, type: 'seating', sent, failed, combos, ed_skipped: edSkip, d1_covered: d1Covered, no_template: noTmpl, truncated: cut });
     if (cut) out.push({ token, type: 'wave_truncated', truncated: true });
   }
 
@@ -6252,6 +6267,21 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (await phoneBlocked(env, phone)) continue;
         if (await wrongNum(env, token, phone)) continue;
         const gname = String(g[3] || '').trim() || 'אורח יקר';
+        /* 08/11 (Richard): the ONE D-1 message — details + nav + table + gift (whatever exists now).
+           What it carried goes into the s5d mark so the event day sends only what is missing. */
+        const dbm = await dayBeforeMessageFor(env, ev, { phone, name: gname, table: String(g[30] || '').trim() }, {
+          comboUsable: (e, n) => giftVariantUsable(e, n), giftOn: async (e, tok) => giftActive(await giftLinksOf(e, tok)),
+          giftLinks: (e, tok) => giftLinksOf(e, tok), cleanLink, guestEventName, cleanParam, navOn: navOnFor,
+        }, { date: heDate(date), time, address: venue });
+        if (dbm.kind === 'combo') {
+          const wa = await sendTemplate(env, phone, dbm.template, dbm.params, '', 'he', 'guests', { occasion, wave: 'daybefore', token, components: dbm.components });
+          if (wa.held) { cut = true; break; }
+          if (wa.permanent) { failed++; cut = true; break; }
+          if (budget) budget.left--;
+          if (wa.ok) { sent++; await noteGuestSend(env, wa, token, 'daybefore', phone, mk); if (env.RATE) await env.RATE.put(mk, dbm.mark, { expirationTtl: 7 * 86400 }).catch(() => {}); }
+          else failed++;
+          continue;
+        }
         const navT = env.RATE ? await env.RATE.get('navtmpl') : null;
         const navRaw = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
         const navU = navRaw && navLinkOk(navRaw) ? navRaw : null;   /* 02/11 audit: links stored before the allowlist are re-checked at send time */
