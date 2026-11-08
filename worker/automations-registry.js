@@ -267,6 +267,10 @@ export const AUTOMATIONS = [
     conditions: ['פעם בשעה (tmplcheck:<שעה>)', 'תבנית _u/_f שאושרה → מחליפה אוטומטית', 'תבנית חיה שנפסלה/הושהתה → חוזרים לקודמת + סלאק דחוף'],
     kv_markers: { global: ['tmplcheck:<שעה>', 'invitetmpl_img', 'invitetmpl_vid', 'tmplf:<name>', 'tmpllive:<name>', 'tmplbad:<name>:<status>'] },
     source: S(5599, 'await templateCheck(env, out);'), evidence: [E(5399, 'async function templateCheck', 'הפונקציה'), E(5403, "const hourKey = 'tmplcheck:'", 'פעם בשעה')] },
+  { id: 'qa_digest', name_he: 'סיכום בקרת שיחות שיר (יומי 20:45 · שבועי ראשון 09:00)', layer: 2, from: ['d_pacer'], kind: 'slack',
+    conditions: ['יומי: אחרי 20:45, רק אם היו שיחות היום', 'שבועי: יום ראשון אחרי 09:00', 'מונים qastat:<יום> מתעדכנים בכל סיום שיחת אורח'],
+    kv_markers: { global: ['qastat:<YYYY-MM-DD>', 'qadigest:d:<יום>', 'qadigest:w:<יום>'] },
+    source: S(1, 'async function runQaDigests'), evidence: [E(1, 'async function bumpQaStat', 'מונים'), E(1, 'export async function qaDigest', 'הסיכום')] },
   { id: 'doctor', name_he: 'הרופא (סוף כל פעימה)', layer: 2, from: ['d_pacer'], kind: 'slack',
     conditions: ['גרסה חדשה ליומן', 'תשלומי Grow שחנו', 'pacer:pending ישן → חימוש מחדש', 'כשלי יומן/קורא/תבניות → התראה פעם ביום'],
     kv_markers: { global: ['build:current', 'doctor:<what>:<יום>'] }, live: { pacer: 'doctor' },
@@ -524,6 +528,7 @@ const OPS_OVERRIDES = {
   noa_lead_dial:  { side_effects: ['call', 'money'], code: C('async function runShirLeadDial') },
   reconcile_calls:{ side_effects: ['sheet', 'kv'], code: C('async function reconcileShirCalls') },
   template_check: { side_effects: ['meta', 'kv', 'slack'], code: C('async function templateCheck') },
+  qa_digest: { side_effects: ['kv', 'slack'], code: C('async function runQaDigests') },
   doctor:     { side_effects: ['kv', 'slack'], code: C('async function runDoctor') },
   event_day_blast: { kill_switch: KS('event_day_blast'), risk: 'high', code: C('async function runEventDayBlasts'),
                 desc_he: 'ביום האירוע מ-09:00: ההודעה שהלקוח קבע לאורחים שמגיעים.' },
@@ -573,7 +578,7 @@ export function opsMeta(n) {
 /* audit.job name → registry id (the ledger's automation_id) */
 export const JOB_TO_ID = {
   runPacer: 'd_pacer', adsHealthWatch: 'ads_watch', drainLeadPings: 'lead_pings', pullMetaFormLeads: 'meta_form_leads',
-  drainPartyNudges: 'party_nudges', runEventDayBlasts: 'event_day_blast', drainLateInvites: 'late_invites', drainCallRounds: 'call_rounds',
+  drainPartyNudges: 'party_nudges', runEventDayBlasts: 'event_day_blast', drainLateInvites: 'late_invites', drainCallRounds: 'call_rounds', runQaDigests: 'qa_digest',
   checkCustomTemplates: 'custom_tmpl', buildCalendarMonth: 'calendar_build', drainNoaQueue: 'noa_queue', drainAdminCalls: 'admin_calls', salesTick: 'sales_flow',
   noaChaseTick: 'noa_chase', auditMeta: 'audit_meta', auditMirror: 'audit_meta', abEvaluate: 'ab_evaluate', syncCallCosts: 'call_cost_sync',
   auditDailyRoot: 'audit_root', runDailyImprove: 'daily_improve', snapshotTraffic: 'journal_digest', dailyJournalDigest: 'journal_digest',

@@ -87,7 +87,7 @@ test('registry: every node has ops metadata + code_ref; code?id= returns the fun
   const p = reg.nodes.find(n => n.id === 'd_pacer');
   assert.deepEqual(p.kill_switch, { key: 'auto:off:d_pacer', wired: true }); assert.ok(p.state.next_fire);
   const c = await (await get(e, '/api/ops/code?id=d_pacer')).json();
-  assert.ok(c.source.startsWith('async function runPacer(env, run = null)')); assert.ok(c.line_end > c.line_start);
+  assert.ok(c.source.startsWith('async function runPacer(env, run = null')); /* 08/11: runPacer gained { part } on 04/11; the snapshot was stale until now */ assert.ok(c.line_end > c.line_start);
   assert.equal((await get(e, '/api/ops/code?id=nope')).status, 404);
 });
 

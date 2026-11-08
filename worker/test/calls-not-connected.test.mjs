@@ -20,3 +20,14 @@ test('opener · spoken the moment the guest picks up; undecided guests get their
   assert.match(guestOpening({ host_name: 'א', occasion: 'חינה', guest_state: 'מתלבט' }), /עוד לא סגרתם/);
   for (const v of Object.values(p.retell_llm_dynamic_variables)) assert.ok(!/\{\{/.test(String(v)));
 });
+
+import { qaDigest } from '../index.js';
+test('QA digest · sums qastat days and lists lessons added in the period', async () => {
+  const m = new Map([['qastat:2026-11-08', JSON.stringify({ calls: 10, talked: 6, recorded: 4, fixed: 1, gap: 1, notconn: 2, voicemail: 1, noanswer: 1 })],
+    ['qastat:2026-11-07', JSON.stringify({ calls: 5, talked: 3, recorded: 3 })]]);
+  const env = { RATE: { get: async k => m.get(k) ?? null, put: async () => {}, list: async () => ({ keys: [], list_complete: true }) } };
+  const d1 = await qaDigest(env, 1, '2026-11-08');
+  assert.equal(d1.calls, 10); assert.equal(d1.fixed, 1);
+  const d7 = await qaDigest(env, 7, '2026-11-08');
+  assert.equal(d7.calls, 15); assert.equal(d7.talked, 9);
+});

@@ -59,7 +59,7 @@ import { handleTemplateStats, loadRows as tstatsRows } from './template-stats.js
 import * as ab from './ab.js';
 import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 outreach routes (B2B venues) */
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
-import { noaChaseTick, noaChaseCallEnded, memoryBlock } from './noa.js';
+import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -2583,6 +2583,13 @@ async function processRetellEvent(env, body) {
     const outcome0 = action.result ? (action.result.answer || action.result.rsvp || '') : '';
     const no0 = /dial_no_answer|dial_busy|voicemail/.test(String(c0.disconnection_reason || ''));
     stream(env, { kind: 'call', area: meta0.kind === 'lead' ? 'נועה' : 'שיר', action: '📞 ' + (meta0.kind === 'lead' ? 'נועה' : 'שיר') + ' → ' + who0 + (evName0 ? ' · ' + evName0 : '') + (dur0 != null ? ' · ' + dur0 + ' שנ׳' : '') + ' · ' + (outcome0 && outcome0 !== '__keep__' ? outcome0 : no0 ? 'לא ענה' : 'ללא תוצאה'), ok: true, phone: String(c0.to_number || '').replace('+', ''), token: String(meta0.token || ''), detail: String(c0.transcript || ca0.call_summary || '').slice(0, 2000), data: { call_id: action.call_id, guest_name: gName0, guest_id: String(meta0.guest_id || ''), event_name: evName0, outcome: action.result ? action.result.rsvp : '', answer: action.result ? action.result.answer : '', sentiment: ca0.user_sentiment || '', summary: String(ca0.call_summary || '').slice(0, 400), duration_s: dur0, recording: kept && kept.has_recording ? '/rec/' + action.call_id : '', recording_name: kept ? kept.name : '', agent: meta0.kind === 'lead' ? 'נועה' : 'שיר', disconnection: c0.disconnection_reason || '' }, cost: action.cost_cents ? Math.round(action.cost_cents * 3.7) / 100 : 0 }).catch(() => {});
+    if ((meta0.kind === 'guest' || !meta0.kind) && !String(c0.direction || '').includes('inbound')) {
+      const disc = String(c0.disconnection_reason || '');
+      const notconn = /^telephony_provider_|^error_|concurrency/.test(disc), vm = disc === 'voicemail_reached', noans = /dial_no_answer|dial_busy|dial_failed/.test(disc);
+      const recorded = !!action.result || !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id).catch(() => null));
+      await bumpQaStat(env, { calls: 1, notconn: notconn ? 1 : 0, voicemail: vm ? 1 : 0, noanswer: noans ? 1 : 0,
+        talked: !notconn && !vm && !noans ? 1 : 0, recorded: recorded ? 1 : 0 }).catch(() => {});
+    }
     /* 02/11 noa-chase R8+R11: every ended שיר/נועה call (outbound guest or
        lead; inbound/callback keep their own path) goes through the reviewer.
        Rules may auto-fix the sheet (only with NOA_CHASE=on), the model only
@@ -2595,7 +2602,10 @@ async function processRetellEvent(env, body) {
         const qa = callFromRetell(c0, action, { event: evName0 });
         qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
         const review = await reviewCall(env, qa);
-        await applyReview(env, qa, review, { writeCallResult: (gid, res, party) => writeCallResult(env, gid, res, party) });
+        const qout = await applyReview(env, qa, review, { writeCallResult: (gid, res, party) => writeCallResult(env, gid, res, party) });
+        /* 08/11 (Richard): the daily / weekly QA digest counts what the reviewer did */
+        if (meta0.kind !== 'lead') await bumpQaStat(env, { reviewed: 1, fixed: qout && qout.applied ? 1 : 0,
+          gap: review && review.verdict === 'mismatch' && !(qout && qout.applied) ? 1 : 0, manual: review && review.verdict === 'review' ? 1 : 0 }).catch(() => {});
       } catch (e) { await logEvent(env, { area: 'בקרה', action: 'בקרת שיחה נפלה', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
       if (meta0.why === 'chase') {
         try { await noaChaseCallEnded(env, c0); } catch (e) { await logEvent(env, { area: 'נועה', action: 'סיום שיחת רדיפה נפל', ok: false, ref: String(action.call_id || '').slice(-12), detail: String(e && e.message).slice(0, 160) }).catch(() => {}); }
@@ -8851,6 +8861,50 @@ async function checkTelnyx(env) {
 /* 08/11 (Richard): calls refused at the carrier (telephony_provider_permission_denied).
    Admin-only window onto the Telnyx outbound voice profiles: read their limits, and raise the
    concurrent-call limit. Nothing else is writable here. */
+/* 08/11 (Richard): Shir call-QA counters per Israel day — qastat:<YYYY-MM-DD> (90 days) */
+async function bumpQaStat(env, inc) {
+  if (!env.RATE) return;
+  const k = 'qastat:' + ilDate();
+  let cur = {}; try { cur = JSON.parse((await env.RATE.get(k)) || '{}') || {}; } catch {}
+  for (const [f, n] of Object.entries(inc)) cur[f] = (Number(cur[f]) || 0) + (Number(n) || 0);
+  await env.RATE.put(k, JSON.stringify(cur), { expirationTtl: 90 * 86400 });
+}
+/* the digest: calls, how many reached a person, how many answers were recorded by Shir, how many the
+   reviewer fixed from the transcript, what is left for a human, and the lessons that reached the prompt */
+export async function qaDigest(env, days = 1, today = ilDate()) {
+  const tot = {}; const dates = [];
+  for (let i = 0; i < days; i++) {
+    const d = new Date(Date.parse(today + 'T12:00:00Z') - i * 864e5).toISOString().slice(0, 10); dates.push(d);
+    let x = {}; try { x = JSON.parse((await env.RATE.get('qastat:' + d)) || '{}') || {}; } catch {}
+    for (const [f, n] of Object.entries(x)) tot[f] = (tot[f] || 0) + (Number(n) || 0);
+  }
+  const since = Date.parse(dates[dates.length - 1] + 'T00:00:00+02:00');
+  const lessons = (await getMemory(env, 'שיר').catch(() => [])).filter(m => Date.parse(m.at || 0) >= since).map(m => m.text);
+  return { days, from: dates[dates.length - 1], to: today, ...tot, lessons };
+}
+function qaDigestText(d) {
+  const n = k => Number(d[k]) || 0;
+  const talked = n('talked'), rec = n('recorded');
+  const pct = talked ? Math.round(100 * Math.min(rec + n('fixed'), talked) / talked) : 100;
+  return [`🎧 *בקרת שיחות שיר · ${d.days === 1 ? d.to : d.from + ' → ' + d.to}*`,
+    `שיחות: ${n('calls')} · דיברו עם אדם: ${talked} · תא קולי: ${n('voicemail')} · לא ענו: ${n('noanswer')} · לא חוברו (ספק): ${n('notconn')}`,
+    `תשובות שנרשמו ע"י שיר: ${rec} · תוקנו אוטומטית מהתמליל: ${n('fixed')} · פערים שלא תוקנו: ${n('gap')} · לבדיקה ידנית: ${n('manual')}`,
+    `כיסוי רישום בשיחות עם אדם: ${pct}%`,
+    d.lessons && d.lessons.length ? `לקחים שנכנסו להנחיות (${d.lessons.length}):\n• ` + d.lessons.slice(0, 8).join('\n• ') : 'לא נוספו לקחים.'].join('\n');
+}
+async function runQaDigests(env) {
+  if (!env.RATE) return;
+  const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+  const get = t => (parts.find(p => p.type === t) || {}).value;
+  const hm = Number(get('hour')) * 60 + Number(get('minute')), wd = get('weekday'), today = ilDate();
+  if (hm >= 20 * 60 + 45 && !(await seenOnce(env, 'qadigest:d:' + today))) {
+    const d = await qaDigest(env, 1, today);
+    if (Number(d.calls) > 0) await slackPost(env, qaDigestText(d), { cls: 'info', key: 'qadigest:d:' + today });
+  }
+  if (wd === 'Sun' && hm >= 9 * 60 && !(await seenOnce(env, 'qadigest:w:' + today))) {
+    await slackPost(env, qaDigestText(await qaDigest(env, 7, today)), { cls: 'info', key: 'qadigest:w:' + today });
+  }
+}
 async function handleTelnyxAdmin(request, env, origin) {
   let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -10233,6 +10287,7 @@ const WORKER = {
       ctx.waitUntil(opsJob(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLateInvites', () => drainLateInvites(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainCallRounds', () => drainCallRounds(env)).catch(() => {}));
+      ctx.waitUntil(opsJob(env, 'runQaDigests', () => runQaDigests(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'checkCustomTemplates', () => checkCustomTemplates(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainNoaQueue', () => drainNoaQueue(env)).catch(() => {}));
       if (sfEnabled(env)) ctx.waitUntil(opsJob(env, 'salesTick', () => salesTick(env, salesDeps(env))).catch(() => {}));
