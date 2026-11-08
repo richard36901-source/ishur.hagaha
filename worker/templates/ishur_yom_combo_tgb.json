@@ -1,0 +1,54 @@
+{
+  "_note": "08/11: table + gift links = Bit only. Submit via POST /api/meta-admin (this object minus _note, plus admin_key).",
+  "channel": "guests",
+  "method": "POST",
+  "path": "/1378764257421712/message_templates",
+  "payload": {
+    "name": "ishur_yom_combo_tgb",
+    "language": "he",
+    "category": "UTILITY",
+    "allow_category_change": false,
+    "components": [
+      {
+        "type": "BODY",
+        "text": "שלום {{1}}! מחכים לראותכם היום ב{{2}} 🎉\n⏰ שעה: {{3}}\n📍 הכתובת: {{4}}\n🪑 השולחן שלכם: שולחן מספר {{5}}.\nלניווט לחצו על הכפתור למטה. שמרו את ההודעה, ואפשר להציג אותה בכניסה אם צריך.\n🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בביט בכפתור למטה.\nמאחלים ערב מושלם, נתראה!",
+        "example": {
+          "body_text": [
+            [
+              "עדן",
+              "חתונה של הדר ויצחק",
+              "19:30",
+              "אולמי Sky Garden, היוזמה 6, יקנעם עילית",
+              "12"
+            ]
+          ]
+        }
+      },
+      {
+        "type": "FOOTER",
+        "text": "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\""
+      },
+      {
+        "type": "BUTTONS",
+        "buttons": [
+          {
+            "type": "URL",
+            "text": "ניווט למקום",
+            "url": "https://go.ishur.io/nav/{{1}}",
+            "example": [
+              "https://go.ishur.io/nav/c1c5fcf5"
+            ]
+          },
+          {
+            "type": "URL",
+            "text": "מתנה בביט",
+            "url": "https://go.ishur.io/gift/{{1}}",
+            "example": [
+              "https://go.ishur.io/gift/c1c5fcf5"
+            ]
+          }
+        ]
+      }
+    ]
+  }
+}

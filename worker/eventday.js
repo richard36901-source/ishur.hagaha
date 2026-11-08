@@ -25,7 +25,13 @@
    §1 pure (unit-tested) · §2 the resolver (I/O through deps)
    ========================================================================== */
 
-export const COMBO = { t: 'ishur_yom_combo_t', g: 'ishur_yom_combo_g', tg: 'ishur_yom_combo_tg' };
+export const COMBO = {
+  t: 'ishur_yom_combo_t', g: 'ishur_yom_combo_g', tg: 'ishur_yom_combo_tg',
+  /* 08/11 (Richard): every combination gets its own wording — nav only, and Bit-only / PayBox-only gift lines */
+  n: 'ishur_yom_combo_n', gb: 'ishur_yom_combo_gb', gp: 'ishur_yom_combo_gp', tgb: 'ishur_yom_combo_tgb', tgp: 'ishur_yom_combo_tgp',
+};
+const NO_GIFT_BUTTON = new Set([COMBO.t, COMBO.n]);
+const NO_TABLE_PARAM = new Set([COMBO.g, COMBO.gb, COMBO.gp, COMBO.n]);
 export const COMBO_NAMES = Object.values(COMBO);
 export function edMarkKey(token, phone) { return `ed:${token}:${String(phone || '').replace(/\D/g, '')}`; }
 export const ED_MARK_TTL = 2 * 86400;
@@ -45,22 +51,31 @@ export function dayBeforeDropped(today, eventDate) {
 }
 
 /* which combos would carry what this guest needs, richest first.
-   A table guest never falls to combo_g (that would drop the table number). */
-export function comboCandidates({ hasTable, giftOn }) {
-  if (hasTable && giftOn) return [COMBO.tg, COMBO.t];
+   A table guest never falls to a no-table combo (that would drop the table number).
+   gift = 'both' | 'bit' | 'paybox' — the wording names only the app(s) the host set;
+   the generic "ביט או פייבוקס" twin is the fallback while a specific one waits at Meta.
+   08/11: no table and no gift → the nav-only combo (before: nothing applied). */
+export function comboCandidates({ hasTable, giftOn, gift = 'both' }) {
+  const k = gift === 'bit' ? 'b' : gift === 'paybox' ? 'p' : '';
+  if (hasTable && giftOn) return k ? [COMBO['tg' + k], COMBO.tg, COMBO.t] : [COMBO.tg, COMBO.t];
   if (hasTable) return [COMBO.t];
-  if (giftOn) return [COMBO.g];
-  return [];
+  if (giftOn) return k ? [COMBO['g' + k], COMBO.g, COMBO.n] : [COMBO.g, COMBO.n];
+  return [COMBO.n];
+}
+/* which gift apps the host actually set: 'both' | 'bit' | 'paybox' | '' */
+export function giftKindOf(gl, clean = x => String(x || '').trim()) {
+  const b = !!(gl && clean(gl.bit)), p = !!(gl && clean(gl.paybox));
+  return b && p ? 'both' : b ? 'bit' : p ? 'paybox' : '';
 }
 
 /* body params in template order; '' anywhere → not sendable (Meta 131008) */
 export function comboParams(name, { guestName, eventName, time, address, table }) {
   const base = [guestName, eventName, time, address];
-  return name === COMBO.g ? base : [...base, table];
+  return NO_TABLE_PARAM.has(name) ? base : [...base, table];
 }
 export function comboComponents(name, token) {
   const btn = (index) => ({ type: 'button', sub_type: 'url', index: String(index), parameters: [{ type: 'text', text: navSlug(token) }] });
-  return name === COMBO.t ? [btn(0)] : [btn(0), btn(1)];
+  return NO_GIFT_BUTTON.has(name) ? [btn(0)] : [btn(0), btn(1)];
 }
 
 /* where the nav button lands: the client's validated nav link, then the
@@ -83,7 +98,8 @@ export async function eventDayMessageFor(env, ev, guest, deps, { job = null } = 
   const token = String((ev && ev[1]) || '').trim();
   const hasTable = !!String((guest && guest.table) || '').trim();
   const giftOn = !!(await deps.giftOn(env, token));
-  const cands = comboCandidates({ hasTable, giftOn });
+  const gift = giftOn && deps.giftLinks ? (giftKindOf(await deps.giftLinks(env, token), deps.cleanLink) || 'both') : 'both';
+  const cands = comboCandidates({ hasTable, giftOn, gift });
   if (!cands.length) return { kind: 'legacy', why: 'no-combo-applies', hasTable, giftOn };
   const j = job || {};
   const clean = deps.cleanParam || (x => String(x || '').trim());

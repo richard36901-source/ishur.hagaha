@@ -34,7 +34,7 @@ import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone
 import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch } from './budget.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES } from './eventday.js';
-import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml } from './gifts.js';
+import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
@@ -4695,6 +4695,7 @@ async function eventDayMessage(env, ev, guest, job = null) {
   return eventDayMessageFor(env, ev, guest, {
     comboUsable: (e, name) => giftVariantUsable(e, name),
     giftOn: async (e, tok) => giftActive(await giftLinksOf(e, tok)),
+    giftLinks: (e, tok) => giftLinksOf(e, tok), cleanLink,
     guestEventName, cleanParam,
   }, { job });
 }

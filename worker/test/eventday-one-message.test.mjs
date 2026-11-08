@@ -7,7 +7,7 @@ import { test, beforeEach, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import worker, { _runDailyEngine, _runEventDayBlasts } from '../index.js';
 import { _resetBudgetMemory } from '../whatsapp.js';
-import { dayBeforeAllowed, dayBeforeDropped, comboCandidates, comboParams, comboComponents, navTarget, eventDayMessageFor, COMBO } from '../eventday.js';
+import { dayBeforeAllowed, dayBeforeDropped, comboCandidates, comboParams, comboComponents, navTarget, eventDayMessageFor, COMBO, giftKindOf } from '../eventday.js';
 import { navLinkOk } from '../links.js';
 import { projectItems, planCapacity } from '../ops.js';
 import { aggregateSendBoard } from '../send-board.js';
@@ -116,12 +116,13 @@ test('R2: seating + gifts → each guest gets ONE message; table guest gets comb
     assert.equal(to(DANA).length, 1, order + ': Dana got ' + to(DANA).map(s => s.body.template.name));
     assert.equal(to(YOSI).length, 1, order + ': Yosi got ' + to(YOSI).map(s => s.body.template.name));
     const d = to(DANA)[0].body;
-    assert.equal(d.template.name, 'ishur_yom_combo_tg');
+    /* 08/11 (Richard): GIFT is Bit-only → the Bit-only wording (was the generic "ביט או פייבוקס" tg) */
+    assert.equal(d.template.name, 'ishur_yom_combo_tgb');
     assert.deepEqual(paramsOf(d), ['דנה', 'חתונה של הדר ויצחק', '19:30', 'אולמי סקיי, יקנעם', '7']);
     for (const p of paramsOf(d)) assert.ok(!p.includes(OWNER));
     assert.deepEqual(buttonsOf(d).map(b => [b.index, b.parameters[0].text]), [['0', 'abcd1234'], ['1', 'abcd1234']]);
     const y = to(YOSI)[0].body;
-    assert.equal(y.template.name, 'ishur_yom_combo_g');
+    assert.equal(y.template.name, 'ishur_yom_combo_gb');
     assert.deepEqual(paramsOf(y), ['יוסי', 'חתונה של הדר ויצחק', '19:30', 'אולמי סקיי, יקנעם']);
     assert.ok(await e.RATE.get(`ed:${TOK}:${DANA}`) && await e.RATE.get(`ed:${TOK}:${YOSI}`));
   }
@@ -137,15 +138,17 @@ test('R2: hosts cell empty → event name has no "של <client>"', async () => {
 
 test('R2 pure: richest variant first, a table guest never falls to combo_g', () => {
   assert.deepEqual(comboCandidates({ hasTable: true, giftOn: true }), [COMBO.tg, COMBO.t]);
-  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: true }), [COMBO.g]);
+  /* 08/11: a no-table gift guest falls back to the nav-only combo rather than to nothing */
+  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: true }), [COMBO.g, COMBO.n]);
   assert.deepEqual(comboCandidates({ hasTable: true, giftOn: false }), [COMBO.t]);
-  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: false }), []);
+  /* 08/11 (Richard): no table + no gift now has its own nav-only combo (was: nothing applied) */
+  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: false }), [COMBO.n]);
   assert.equal(comboParams(COMBO.g, { guestName: 'a', eventName: 'b', time: 'c', address: 'd', table: '9' }).length, 4);
   assert.equal(comboComponents(COMBO.tg, TOK).length, 2);
 });
 
 test('R2: tg pending, t approved → table guest still gets ONE message (combo_t)', async () => {
-  approved = (n) => n !== 'ishur_yom_combo_tg';
+  approved = (n) => !/^ishur_yom_combo_tg/.test(n);   /* 08/11: every table+gift wording pending (tg, tgb, tgp) */
   snapshot = { events: { values: [eventRow()] }, guests: { values: GUESTS } };
   await eventDay(env({ [`edblast:${TOK}`]: JOB, [`giftlinks:${TOK}`]: GIFT }));
   assert.deepEqual(to(DANA).map(s => s.body.template.name), ['ishur_yom_combo_t']);
@@ -240,4 +243,36 @@ test('GET /nav/<slug> → 302 to the validated nav link, else a Waze search of t
   const r3 = await worker.fetch(new Request('https://go.ishur.io/nav/zzzz'), env(), ctx);
   assert.equal(r3.headers.get('Location'), 'https://ishur.io/');
   assert.equal(navTarget({ navlink: '', jobNav: '', venue: '' }, navLinkOk), '');
+});
+
+/* 08/11 (Richard): one message per guest for EVERY combination — nav only, Bit only, PayBox only, both, with/without table */
+test('event day · every combination picks its own wording, generic twin only as fallback', () => {
+  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: true, gift: 'bit' }), [COMBO.gb, COMBO.g, COMBO.n]);
+  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: true, gift: 'paybox' }), [COMBO.gp, COMBO.g, COMBO.n]);
+  assert.deepEqual(comboCandidates({ hasTable: false, giftOn: true, gift: 'both' }), [COMBO.g, COMBO.n]);
+  assert.deepEqual(comboCandidates({ hasTable: true, giftOn: true, gift: 'bit' }), [COMBO.tgb, COMBO.tg, COMBO.t]);
+  assert.deepEqual(comboCandidates({ hasTable: true, giftOn: true, gift: 'paybox' }), [COMBO.tgp, COMBO.tg, COMBO.t]);
+  assert.deepEqual(comboCandidates({ hasTable: true, giftOn: false, gift: 'bit' }), [COMBO.t]);
+  for (const n of [COMBO.n, COMBO.gb, COMBO.gp]) assert.equal(comboParams(n, { guestName: 'a', eventName: 'b', time: 'c', address: 'd', table: '9' }).length, 4, n);
+  for (const n of [COMBO.tgb, COMBO.tgp]) assert.equal(comboParams(n, { guestName: 'a', eventName: 'b', time: 'c', address: 'd', table: '9' }).length, 5, n);
+  assert.equal(comboComponents(COMBO.n, TOK).length, 1);
+  for (const n of [COMBO.gb, COMBO.gp, COMBO.tgb, COMBO.tgp]) assert.equal(comboComponents(n, TOK).length, 2, n);
+  assert.equal(giftKindOf({ bit: 'https://x', paybox: '' }), 'bit');
+  assert.equal(giftKindOf({ bit: '', paybox: 'https://y' }), 'paybox');
+  assert.equal(giftKindOf({ bit: 'https://x', paybox: 'https://y' }), 'both');
+  assert.equal(giftKindOf(null), '');
+});
+test('event day · resolver: nav-only guest gets combo_n; Bit-only host gets combo_gb', async () => {
+  const ev = []; ev[1] = TOK; ev[36] = '19:30'; ev[37] = 'באר שבע'; ev[38] = 'מתחם סופיה';
+  const base = { guestEventName: () => 'החינה של שילת', cleanParam: x => String(x || '').trim() };
+  const approved = new Set([COMBO.n, COMBO.gb]);
+  const deps0 = { ...base, comboUsable: async (e, n) => approved.has(n), giftOn: async () => false };
+  const m0 = await eventDayMessageFor({}, ev, { phone: '972500000000', name: 'דנה', table: '' }, deps0);
+  assert.equal(m0.kind, 'combo'); assert.equal(m0.template, COMBO.n); assert.equal(m0.params.length, 4); assert.equal(m0.components.length, 1);
+  const deps1 = { ...base, comboUsable: async (e, n) => approved.has(n), giftOn: async () => true, giftLinks: async () => ({ on: true, bit: 'https://bit.ly/x', paybox: '' }) };
+  const m1 = await eventDayMessageFor({}, ev, { phone: '972500000000', name: 'דנה', table: '' }, deps1);
+  assert.equal(m1.template, COMBO.gb); assert.equal(m1.components.length, 2);
+  const deps2 = { ...deps0, comboUsable: async () => false };
+  const m2 = await eventDayMessageFor({}, ev, { phone: '972500000000', name: 'דנה', table: '' }, deps2);
+  assert.equal(m2.kind, 'legacy');
 });
