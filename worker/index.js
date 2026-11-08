@@ -2503,11 +2503,15 @@ async function processRetellEvent(env, body) {
         phone: String(inbound ? (call.from_number || meta.from || '') : (call.to_number || '')).replace('+', ''),
         name: cname, kind: meta.kind === 'lead' ? 'ליד (מכירה)' : meta.kind === 'callback' ? 'חזרה למי שהתקשר' : inbound ? `נכנסת (${meta.caller_kind || '?'})` : 'אורח (אישור הגעה)',
         token: String(meta.token || '').slice(0, 8), status: 'הסתיימה ' + ilTime(), dur,
-        outcome: action.result ? (action.result.answer || action.result.rsvp || '') : (action.kind === 'skip' ? (action.why === 'voicemail' ? 'תא קולי' : 'נכנסת ללא תוצאה — לא נרשם') : ''),
+        outcome: action.result ? (action.result.answer || action.result.rsvp || '') : (action.kind === 'skip' ? (action.why === 'voicemail' ? 'תא קולי' : /^not-connected/.test(action.why || '') ? 'לא חובר (ספק הטלפוניה) — יחויג שוב' : 'נכנסת ללא תוצאה — לא נרשם') : ''),
         summary: String(ca.call_summary || '').slice(0, 400), sentiment: String(ca.user_sentiment || ''),
         cost: action.cost_cents ? (action.cost_cents / 100).toFixed(2) : '', reason: String(call.disconnection_reason || ''), id: cid,
       };
       if (inbound) await logRow(env, 'calls', rec); else await logUpdate(env, 'calls', cid, rec);
+      /* 08/11: a call the carrier refused is not a try — tell Slack once an hour so the cause (Telnyx limits) gets fixed */
+      if (action.kind === 'skip' && /^not-connected/.test(action.why || '') && !(await seenOnce(env, `notconn:${new Date().toISOString().slice(0, 13)}`))) {
+        await alert(env, 'שיחות', 'שיחות לא חוברו אצל ספק הטלפוניה — לא נספרו כניסיון, יחויגו שוב', String(call.disconnection_reason || ''), { key: 'calls_notconn', sev: 'P1' }).catch(() => {});
+      }
       /* asked for a human: did anybody pick up? */
       const twc = Array.isArray(call.transcript_with_tool_calls) ? call.transcript_with_tool_calls : [];
       const tried = twc.filter(u => u && u.role === 'tool_call_invocation' && /^transfer_to_/.test(String(u.name || ''))).map(u => String(u.name).replace('transfer_to_', ''));

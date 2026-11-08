@@ -543,6 +543,13 @@ export function retellToCallResult(body) {
       /* hung up on voicemail — deliberately NOT counted as a try */
       return { kind: 'skip', why: 'voicemail', call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
     }
+    /* 08/11: the call never reached the guest's phone — the carrier refused it
+       (telephony_provider_permission_denied: 37 of 94 calls on 04/11, Shilat) or
+       Retell/telephony errored. Counting it as "dialed, no clear result" used the
+       guest's only try without a single ring. NOT a try: the guest stays queued. */
+    if (/^telephony_provider_|^error_|concurrency/.test(reason)) {
+      return { kind: 'skip', why: 'not-connected:' + reason, call_id: callId, guest_id: String(meta.guest_id), cost_cents: costOf(call) };
+    }
     if (reason === 'dial_no_answer' || reason === 'dial_busy' || reason === 'dial_failed') {
       /* a ring-back they did not pick up is not one of THEIR tries, and must
          not push "נדרשת שיחה" onto a guest who may already have answered —
