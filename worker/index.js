@@ -8848,6 +8848,33 @@ async function checkTelnyx(env) {
 }
 
 /* Admin can ask at any time instead of waiting for the morning run. */
+/* 08/11 (Richard): calls refused at the carrier (telephony_provider_permission_denied).
+   Admin-only window onto the Telnyx outbound voice profiles: read their limits, and raise the
+   concurrent-call limit. Nothing else is writable here. */
+async function handleTelnyxAdmin(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.TELNYX_KEY) return deny(503, 'no-telnyx-key', origin);
+  const h = { Authorization: 'Bearer ' + env.TELNYX_KEY, 'Content-Type': 'application/json' };
+  const get = async u => { const r = await fetch('https://api.telnyx.com/v2' + u, { headers: h }).catch(() => null); return r ? { status: r.status, body: await r.json().catch(() => null) } : { status: 0 }; };
+  if (b.action === 'set_limit') {
+    const id = String(b.profile_id || ''), n = parseInt(b.concurrent_call_limit, 10);
+    if (!/^\d+$/.test(id) || !(n >= 1 && n <= 100)) return deny(400, 'bad-args', origin);
+    const r = await fetch('https://api.telnyx.com/v2/outbound_voice_profiles/' + id, { method: 'PATCH', headers: h, body: JSON.stringify({ concurrent_call_limit: n }) }).catch(() => null);
+    const j = r ? await r.json().catch(() => null) : null;
+    await recordChange(env, { kind: 'edit', who: 'claude', summary_he: `טלניקס: מגבלת שיחות במקביל → ${n}`, details: { profile_id: id, concurrent_call_limit: n, status: r && r.status }, revert: { possible: false, how: 'none' } }).catch(() => {});
+    return okJson({ ok: !!(r && r.ok), status: r && r.status, data: j }, origin);
+  }
+  const [ovp, cred, fqdn, ip, bal] = await Promise.all(['/outbound_voice_profiles?page[size]=50', '/credential_connections?page[size]=50', '/fqdn_connections?page[size]=50', '/ip_connections?page[size]=50', '/balance'].map(get));
+  const pick = (x, f) => ((x.body && x.body.data) || []).map(f);
+  return okJson({ ok: true,
+    profiles: pick(ovp, p => ({ id: p.id, name: p.name, enabled: p.enabled, concurrent_call_limit: p.concurrent_call_limit, daily_spend_limit: p.daily_spend_limit, daily_spend_limit_enabled: p.daily_spend_limit_enabled, max_destination_rate: p.max_destination_rate, whitelisted_destinations: p.whitelisted_destinations, traffic_type: p.traffic_type, service_plan: p.service_plan })),
+    connections: [...pick(cred, c => ({ type: 'credential', id: c.id, name: c.connection_name, ovp: c.outbound && c.outbound.outbound_voice_profile_id, channel_limit: c.outbound && c.outbound.channel_limit, active: c.active })),
+      ...pick(fqdn, c => ({ type: 'fqdn', id: c.id, name: c.connection_name, ovp: c.outbound && c.outbound.outbound_voice_profile_id, channel_limit: c.outbound && c.outbound.channel_limit, active: c.active })),
+      ...pick(ip, c => ({ type: 'ip', id: c.id, name: c.connection_name, ovp: c.outbound && c.outbound.outbound_voice_profile_id, channel_limit: c.outbound && c.outbound.channel_limit, active: c.active }))],
+    balance: bal.body && bal.body.data ? { balance: bal.body.data.balance, credit_limit: bal.body.data.credit_limit, currency: bal.body.data.currency } : null,
+    statuses: { ovp: ovp.status, cred: cred.status, fqdn: fqdn.status, ip: ip.status } }, origin);
+}
 async function handleTelnyxCheck(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -11195,6 +11222,7 @@ const WORKER = {
       }
       return okJson({ ok: true, from, sent: out.filter(x => x.ok && !x.dry).length, dry: !!b.dry, results: out }, origin);
     }
+    if (url.pathname === '/api/telnyx-admin' && request.method === 'POST') return handleTelnyxAdmin(request, env, origin);
     if (url.pathname === '/api/telnyx-check' && request.method === 'POST') {
       return handleTelnyxCheck(request, env, origin);
     }
