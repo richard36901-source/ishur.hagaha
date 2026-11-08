@@ -113,7 +113,7 @@ test('model pass: Workers AI mock is used, its JSON is parsed and capped; Anthro
   assert.deepEqual(broken.lessons, [], 'garbage from the model = nothing, no throw');
 });
 
-test('applyReview: auto-fix goes through the call_result path only with NOA_CHASE=on; mismatches post one quiet Slack line', async () => {
+test('applyReview: guest calls auto-fix through the call_result path unless CALL_QA=off (08/11: no longer tied to NOA_CHASE); mismatches post one quiet Slack line', async () => {
   const kv = new Map();
   const env = { NOA_CHASE: 'on', RATE: { async get(k) { return kv.get(k) || null; }, async put(k, v) { kv.set(k, v); }, async delete(k) { kv.delete(k); } }, SLACK_ALERT_HOOK: '' };
   const writes = [];
@@ -135,8 +135,8 @@ test('applyReview: auto-fix goes through the call_result path only with NOA_CHAS
   assert.equal(hw[0].answer.startsWith('לא ענה'), true);
   assert.equal(hw[0].rsvp, '__keep__');
 
-  /* flag off: nothing is written, the gap is journaled for a human */
-  const off = { ...env, NOA_CHASE: 'off' };
+  /* flag off (08/11, Richard: guest-call QA has its own switch CALL_QA): nothing is written, the gap is journaled for a human */
+  const off = { ...env, CALL_QA: 'off' };
   const w2 = [];
   const o2 = await applyReview(off, call, rv, { writeCallResult: async () => { w2.push(1); return true; } });
   assert.equal(o2.applied, false);

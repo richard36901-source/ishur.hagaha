@@ -2588,7 +2588,9 @@ async function processRetellEvent(env, body) {
        Rules may auto-fix the sheet (only with NOA_CHASE=on), the model only
        suggests. A chase call (metadata.why='chase') also records its attempt
        and writes back to monday. Nothing here may break the webhook. */
-    if (String(env.NOA_CHASE || '') === 'on' && (meta0.kind === 'guest' || meta0.kind === 'lead' || !meta0.kind) && !String(c0.direction || '').includes('inbound')) {
+    /* 08/11 (Richard): the reviewer runs on EVERY Shir guest call (CALL_QA, default on) — it was tied to
+       NOA_CHASE (off by decision), so answers Shir heard but never recorded stayed off the board. */
+    if ((String(env.CALL_QA || 'on') !== 'off' && (meta0.kind === 'guest' || !meta0.kind) || String(env.NOA_CHASE || '') === 'on' && meta0.kind === 'lead') && !String(c0.direction || '').includes('inbound')) {
       try {
         const qa = callFromRetell(c0, action, { event: evName0 });
         qa.tool_recorded = !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id));
@@ -2733,7 +2735,7 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
       method: 'POST',
       headers: { 'Authorization': 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' },
       /* 02/11 noa-chase R8: Shir's own lessons ({{memory}}) when the feature is on */
-      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM, { memory: String(env.NOA_CHASE || '') === 'on' ? await memoryBlock(env, 'שיר').catch(() => '') : '' })),
+      body: JSON.stringify(buildCallPayload(g, env.SHIR_FROM, { memory: String(env.CALL_QA || 'on') !== 'off' ? await memoryBlock(env, 'שיר').catch(() => '') : '' })),
     }).catch(() => null);
     await retellBillingGuard(env, r);
     if (r && (r.status === 200 || r.status === 201)) {

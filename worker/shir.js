@@ -244,6 +244,14 @@ export function inboundLookup(raw, phone, todayIso, opts = {}) {
   return miss;
 }
 
+/* 08/11: the guest opener — one question, then silence. An undecided guest already answered on WhatsApp. */
+export function guestOpening(v = {}) {
+  const host = String(v.host_name || '').trim(), occ = String(v.occasion || 'האירוע').trim(), when = String(v.event_date_spoken || '').trim();
+  const by = host ? ` בשם ${host}` : '';
+  if (v.guest_state === 'מתלבט') return `היי, מדברת שיר מאישורי הגעה${by} — ראינו שעוד לא סגרתם לגבי ה${occ}${when ? ' ב-' + when : ''}. כבר יודעים אם מגיעים?`;
+  return `היי, מדברת שיר מאישורי הגעה${by} — מגיעים ל${occ}${when ? ' ב-' + when : ''}?`;
+}
+
 /* The first sentence, composed here rather than by the model.
    Retell speaks begin_message verbatim, so an opening built from data cannot
    hallucinate, cannot stall, and cannot arrive with a hole in it where a
@@ -376,6 +384,14 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
      {{memory}} must never read literal braces out loud — and empty when the
      caller did not pass one, so every existing call site is unchanged. */
   payload.retell_llm_dynamic_variables.memory = String(opts.memory || '');
+  /* 08/11 (Richard): Shir's begin_message is "{{opening}}" — spoken the moment the guest picks up,
+     so nobody says "הלו" twice into silence and hangs up. Every call kind gets one (never literal braces). */
+  const v = payload.retell_llm_dynamic_variables;
+  if (!v.opening) {
+    if (kind === 'callback') v.opening = openingLine(guest.hit || guest, { callback: true });
+    else if (kind === 'lead') v.opening = 'היי, מדברת נועה מאישורי הגעה.';
+    else v.opening = guestOpening(v);
+  }
   return payload;
 }
 

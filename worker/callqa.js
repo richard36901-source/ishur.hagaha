@@ -199,7 +199,8 @@ const FIX_OUTCOME = { 'מתלבט': 'מתלבט', 'לא מגיע': 'לא מגי�
 export async function applyReview(env, call, review, deps = {}) {
   const c = call || {}, r = review || {};
   const out = { applied: false, memory: null, slack: false };
-  const live = String((env && env.NOA_CHASE) || '') === 'on';
+  /* 08/11: guest calls fix themselves (CALL_QA, default on); lead calls still follow NOA_CHASE */
+  const live = c.kind === 'lead' ? String((env && env.NOA_CHASE) || '') === 'on' : String((env && env.CALL_QA) || 'on') !== 'off';
   const who = `${c.agent || 'שיר'} → ${c.guest_name || c.phone || '?'}${c.event ? ' · ' + c.event : ''}`;
 
   if (r.verdict === 'mismatch' && r.auto_fix && FIX_OUTCOME[r.suggested]) {
@@ -226,7 +227,7 @@ export async function applyReview(env, call, review, deps = {}) {
     } else {
       await stream(env, { kind: 'call', area: 'בקרה', action: 'פער בין התמליל לתוצאה (לא תוקן)', ok: false, review: true,
         phone: c.phone || '', token: c.token || '',
-        detail: `${who} · נרשם: ${r.recorded || 'ללא תוצאה'} → מוצע: ${r.suggested} · "${String(r.said || '').slice(0, 120)}"${live ? '' : ' · NOA_CHASE=off'}`,
+        detail: `${who} · נרשם: ${r.recorded || 'ללא תוצאה'} → מוצע: ${r.suggested} · "${String(r.said || '').slice(0, 120)}"${live ? '' : ' · תיקון אוטומטי כבוי'}`,
         data: { call_id: c.call_id || '', guest_id: c.guest_id || '', recorded: r.recorded, suggested: r.suggested, rule: r.rule, agent: c.agent || 'שיר' } }).catch(() => {});
     }
     await slackPost(env, `🔎 *בקרת שיחה · ${c.agent || 'שיר'}* — ${who}\nנרשם: ${r.recorded || 'ללא תוצאה'} · לפי התמליל: ${r.suggested}${out.applied ? ' · תוקן אוטומטית' : ' · לבדיקה'}`, { quiet: true, oneoff: true }).catch(() => {});   /* oneoff: one call reviewed (quiet: dropped unless SLACK_VERBOSE) */
@@ -253,6 +254,7 @@ export function callFromRetell(call, action, opts = {}) {
   const isNoa = meta.line === 'noa' || meta.kind === 'lead';
   return {
     agent: isNoa ? 'נועה' : 'שיר',
+    kind: String(meta.kind || ''),
     call_id: String(c.call_id || ''),
     transcript: String(c.transcript || ''),
     outcome: action && action.result ? String(action.result.rsvp || '') : '',

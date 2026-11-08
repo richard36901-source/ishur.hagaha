@@ -11,3 +11,12 @@ test('carrier refused / telephony error → skip (no try); a real no-answer stil
   assert.equal(retellToCallResult(body('voicemail_reached')).kind, 'skip');
   assert.equal(retellToCallResult(body('dial_no_answer')).kind, 'end');
 });
+
+import { buildCallPayload, guestOpening } from '../shir.js';
+test('opener · spoken the moment the guest picks up; undecided guests get their own; never literal braces', () => {
+  const g = { guest_id: 'G-1', token: 't', name: 'דנה', event_name: 'שילת ושי', occasion: 'חינה', event_date: '2026-11-09', phone: '972500000000' };
+  const p = buildCallPayload(g, '+972000', {});
+  assert.match(p.retell_llm_dynamic_variables.opening, /^היי, מדברת שיר מאישורי הגעה בשם שילת ושי — מגיעים לחינה ב-/);
+  assert.match(guestOpening({ host_name: 'א', occasion: 'חינה', guest_state: 'מתלבט' }), /עוד לא סגרתם/);
+  for (const v of Object.values(p.retell_llm_dynamic_variables)) assert.ok(!/\{\{/.test(String(v)));
+});
