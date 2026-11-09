@@ -162,12 +162,54 @@
     var x = bg.querySelector('header button'); if (x) x.focus();
   }
 
+  /* 09/11 (Richard): send priority, the same order the worker uses — events today,
+     then tomorrow's day-before, then waves 1–2, then the rest. Exact counts, which of
+     them fit in the room left now, what is frozen, and what is due in the next 7 days. */
+  function addDays(iso, n) { var t = Date.parse(iso + 'T12:00:00Z'); return new Date(t + n * 864e5).toISOString().slice(0, 10); }
+  function priorityHtml(d) {
+    var today = d.today || new Date().toISOString().slice(0, 10), tomorrow = addDays(today, 1), week = addDays(today, 7);
+    var items = [], frozen = [], future = [];
+    (d.events || []).forEach(function (ev) {
+      if (!ev.date || ev.date < today) return;
+      (ev.types || []).forEach(function (t) {
+        var p = t.pending || {}, total = p.total || 0; if (!total) return;
+        var hold = (p.hold || 0) + (ev.held ? total - (p.hold || 0) - (p.scheduled || 0) : 0);
+        var tier = 0, why = '';
+        if ((t.key === 'eventday' || t.key === 'table') && ev.date === today) { tier = 1; why = 'האירוע היום'; }
+        else if (t.key === 'daybefore' && ev.date === tomorrow) { tier = 2; why = 'האירוע מחר'; }
+        else if ((t.key === 'w1' || t.key === 'w2' || t.key === 'w3') && ev.date <= today) { return; }   /* no invitation on the event day itself */
+        else if (t.due && t.due <= today && (t.key === 'w1' || t.key === 'w2')) { tier = 3; why = t.key === 'w1' ? 'גל ראשון' : 'גל שני'; }
+        else if (t.due && t.due <= today && t.key !== 'eventday' && t.key !== 'table' && t.key !== 'daybefore') { tier = 4; why = 'שאר השליחות'; }
+        var n = Math.max(0, total - hold - (tier ? 0 : (p.scheduled || 0)));
+        if ((ev.held || hold) && (ev.held ? total - (p.scheduled || 0) : hold) > 0) frozen.push({ ev: ev, t: t, n: ev.held ? total - (p.scheduled || 0) : hold });
+        if (tier && n && !ev.held) items.push({ tier: tier, why: why, ev: ev, t: t, n: n });
+        else if (!tier && t.due && t.due > today && t.due <= week && (p.scheduled || 0) && !ev.held) future.push({ ev: ev, t: t, n: p.scheduled, due: t.due });
+      });
+    });
+    items.sort(function (a, b) { return a.tier - b.tier || (a.ev.date < b.ev.date ? -1 : a.ev.date > b.ev.date ? 1 : 0); });
+    var c = d.cap || {}, room = Math.max(0, Number(c.remaining) || 0), cum = 0;
+    var frees = (c.numbers || []).map(function (x) { return x.frees_at; }).filter(Boolean).sort()[0];
+    var rows = items.map(function (it, i) {
+      cum += it.n; var fits = cum <= room, part = !fits && cum - it.n < room;
+      var st = fits ? '<span class="sb-c ok">יוצא עכשיו</span>' : part ? '<span class="sb-c wait">' + (room - (cum - it.n)) + ' עכשיו, ' + (cum - room) + ' כשיתפנה מקום</span>' : '<span class="sb-c wait">ממתין למקום' + (frees ? ' · מתפנה ' + esc(hm(frees)) : '') + '</span>';
+      return '<tr><td><b>' + (i + 1) + '</b></td><td>' + esc(it.ev.name) + '<br><span style="color:var(--sb-mute)">' + dmy(it.ev.date) + ' · ' + esc(it.why) + '</span></td><td>' + esc(it.t.he) + '</td><td><b>' + it.n + '</b></td><td>' + st + '</td></tr>';
+    }).join('');
+    var total = items.reduce(function (a, x) { return a + x.n; }, 0);
+    var head = '<div class="sb-caph"><b>סדר עדיפות לשליחה · היום</b><span>ממתינות <b>' + total + '</b> · מקום פנוי עכשיו <b>' + room + '</b>' + (total > room && frees ? ' · המקום הבא מתפנה ' + esc(hm(frees)) : '') + '</span></div>';
+    var body = rows ? '<table class="sb-plan"><thead><tr><th>#</th><th>אירוע</th><th>מה</th><th>כמה</th><th>מצב</th></tr></thead><tbody>' + rows + '</tbody></table>' : '<p class="sb-empty">אין שליחות שממתינות היום.</p>';
+    var fr = frozen.length ? '<p class="sb-note" style="margin:.5rem 0 0"><b>מוקפאים (לא יוצאים עד שחרור):</b> ' + frozen.map(function (x) { return esc(x.ev.name) + ' · ' + esc(x.t.he) + ' ' + x.n; }).join(' · ') + '</p>' : '';
+    future.sort(function (a, b) { return a.due < b.due ? -1 : a.due > b.due ? 1 : 0; });
+    var fu = future.length ? '<p class="sb-note" style="margin:.4rem 0 0"><b>ב-7 הימים הקרובים:</b> ' + future.map(function (x) { return dmy(x.due) + ' ' + esc(x.ev.name) + ' · ' + esc(x.t.he) + ' ' + x.n; }).join(' · ') + '</p>' : '';
+    return '<div class="sb-cap">' + head + body + fr + fu + '<p class="sb-note" style="margin:.4rem 0 0">הסדר: אירוע היום → יום-לפני לאירוע של מחר → גל 1 וגל 2 → שאר השליחות. אותו סדר שהמערכת עובדת לפיו.</p></div>';
+  }
+
   function render(el, d, opt) {
     var evs = (d.events || []).filter(function (e) { return e.types && e.types.length; });
     if (opt.token) evs = evs.filter(function (e) { return e.token === opt.token || e.short === String(opt.token).slice(0, 8); });
     var note = '';
     if (d.__fixture) note = '<p class="sb-note"><b>נתוני דוגמה</b> · הנתיב /api/send-board עוד לא פרוס, אז מוצג קובץ שנבנה מנתונים חיים ב-' + esc(when(d.fixture && d.fixture.built_at)) + '. ' + esc((d.fixture && d.fixture.note) || '') + '</p>';
     else note = '<p class="sb-note">מקור: סטטוסי מסירה של מטא (wa_status) מול ההודעות שיצאו (wa_out), לפי מזהה ההודעה · ' + esc(d.window_days || '') + ' ימי יומן' + (d.cached ? ' · מהמטמון' : '') + ' · עודכן ' + esc(when(d.generated_at)) + '</p>';
+    if (!opt.token) note += priorityHtml(d);
     note += capHtml(d.cap);
     /* 03/11: linked sub-events (שבת חתן): one message type each, own markers */
     var subs = (d.subevents || []).filter(function (x) { return !opt.token || x.token.slice(0, 8) === String(opt.token).slice(0, 8) || x.parent.slice(0, 8) === String(opt.token).slice(0, 8); });
