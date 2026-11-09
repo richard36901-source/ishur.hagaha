@@ -6647,11 +6647,33 @@ const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 
 /* Meta template health, once an hour. Runs on no-contact days too: it only
    reads Meta and flips flags, it never contacts anyone. */
+/* 09/11 (Richard): "פעם בשעה תבדוק אם העסק אומת ותשלח לי לסלאק — רק אם כן". Meta hides the business
+   verification status from our token, so the signal is the real one: a 4499 TEMPLATE that Meta
+   accepted AND did not fail with 131042. While billingalert:client is set (a 131042 happened in the last
+   6 h) every hour we look at the last 90 minutes of client-channel templates. ≥1 accepted, 0 × 131042 →
+   one Slack line, flag cleared. No templates went out → say nothing. */
+async function checkBillingRecovered(env) {
+  if (!env.RATE || !(await env.RATE.get('billingalert:client').catch(() => null))) return { skipped: 'no-alert' };
+  const since = Date.now() - 90 * 60e3;
+  const rows = await audit.query(env, { days: 1, since, limit: 4000 }).catch(() => []);
+  const clientIds = new Set([clientPhoneId(env), env.WA_PHONE_ID_CLIENT_NEW].filter(Boolean).map(String));
+  const outs = rows.filter(r => r.kind === 'wa_out' && r.ok && r.data && r.data.template && clientIds.has(String(r.data.phone_id || '')));
+  if (!outs.length) return { skipped: 'no-templates' };
+  const wamids = new Set(outs.map(r => r.data.wamid).filter(Boolean));
+  const failed = rows.filter(r => r.kind === 'wa_status' && r.data && wamids.has(r.data.wamid) && /131042/.test(String(r.detail || '')));
+  if (failed.length) return { still_blocked: failed.length, sent: outs.length };
+  const delivered = rows.filter(r => r.kind === 'wa_status' && r.data && wamids.has(r.data.wamid) && /^(delivered|read)$/.test(String(r.data.status || ''))).length;
+  if (!delivered) return { skipped: 'no-status-yet', sent: outs.length };
+  await env.RATE.delete('billingalert:client').catch(() => {});
+  await slackPost(env, `✅ *4499 חזר לשלוח תבניות* · ${delivered} מתוך ${outs.length} נמסרו בשעה האחרונה, בלי 131042. החסימה של מטא ירדה. <@${env.SLACK_RICHARD || 'U0BTHU91Z3N'}>`, { oneoff: true }).catch(() => {});
+  await logEvent(env, { area: 'ווצאפ', action: '4499 חזר לשלוח — חסימת החיוב (131042) ירדה', ok: true, detail: `${delivered}/${outs.length} נמסרו` }).catch(() => {});
+  return { recovered: true, delivered, sent: outs.length };
+}
 async function templateCheck(env, out) {
   /* 08/11: the template guard, once an hour (own key) */
   try {
     const gk = 'tmplguard:hour:' + new Date().toISOString().slice(0, 13);
-    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); }
+    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); out.billing = await checkBillingRecovered(env).catch(e => ({ error: String(e && e.message || e) })); }
   } catch (e) { await alert(env, 'מטא', 'בודק התבניות נפל', String((e && e.message) || e), { key: 'tmplguard_crash', sev: 'P1' }).catch(() => {}); }
   /* Meta approvals, checked once an hour: the image invitation and the invoice
      template switch themselves on the moment they are approved. */
