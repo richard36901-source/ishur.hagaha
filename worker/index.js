@@ -7932,7 +7932,7 @@ async function saveVoicePromptVersion(env, key, newPrompt, note) {
    webhook below pings both on Slack + WhatsApp with the caller's number. */
 function noaTools(env, kind) {
   /* 09/11 (Shalev): short and to the point, a customer is waiting — no phone number, no long intro */
-  const brief = `את נועה מאישורי הגעה. עכשיו את מדברת רק עם איש הצוות שענה (ריצ׳רד או שלו), והלקוח ממתין על הקו. משפט אחד קצר בלבד, בלי ברכה, בלי "יש שם מישהו", בלי מספר טלפון ובלי שם משפחה. התבנית: "יש לקוח (או לקוחה) שמתעניין ב[סוג האירוע] ב[תאריך, אם נאמר], כ-[מספר] רשומות, רוצים [מה שביקשו: הכל כלול / עם שיחות / עם דיילת וכו׳]. מחברת." לשון לפי מה שידוע על הלקוח; אם לא ידוע — "יש פנייה". לא לחכות לתשובה.`;
+  const brief = `את נועה. ענה לך איש צוות (ריצ׳רד או שלו) והלקוח ממתין על הקו. התחילי לדבר מיד, בלי "שלום", בלי "הלו", בלי "יש מישהו", בלי לחכות שיגידו משהו. משפט אחד: "יש לקוח (או לקוחה) שמתעניין ב[סוג האירוע] ב[תאריך, אם נאמר], כ-[מספר] רשומות, רוצים [מה שביקשו]. מחברת." ואז חברי. בלי מספר טלפון, בלי שם משפחה. אם איש הצוות מדבר — תפסיקי ותקשיבי, עני בקצרה, וחברי.`;
   const xfer = (name, number, whoHe) => ({
     type: 'transfer_call', name,
     description: `העברה חמה ל${whoHe} מהצוות. לקרוא כשמבקשים נציג / בן אדם / לדבר עם מישהו, אחרי שאמרת שאת מעבירה. ${name === 'transfer_to_richard' ? 'רק אם transfer_to_shalev נכשלה.' : 'תמיד קודם.'}`,
@@ -7943,10 +7943,10 @@ function noaTools(env, kind) {
       agent_detection_timeout_ms: 30000,
       on_hold_music: 'relaxing_sound',
       private_handoff_option: { type: 'prompt', prompt: brief },
-      opt_out_human_detection: false,
+      opt_out_human_detection: true,   /* 09/11 Richard: no detection pause — the brief starts the moment the staff answers */
     },
     speak_during_execution: true,
-    execution_message_description: 'משפט אחד: "רגע, מעבירה אתכם ל' + whoHe + ', שנייה על הקו."',
+    execution_message_description: 'משפט אחד, בלי שם: "רגע, מעבירה אתכם ל' + (name === 'transfer_to_richard' ? 'נציג' : 'נציגה') + ', שנייה על הקו."',
   });
   const list = [
     { type: 'end_call', name: 'end_call', description: 'לסיים את השיחה מיד אחרי משפט פרידה.' },
