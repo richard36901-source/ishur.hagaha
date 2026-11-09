@@ -249,7 +249,7 @@ export async function drainNoaChase(env, { max = 2, dry = false, deps = {} } = {
     /* one attempt per Israeli day, whatever the clock says */
     if (attempts.some(a => ilDate(new Date(Date.parse(a.at) || 0)) === today)) { out.waiting++; continue; }
 
-    const lead = { kind: 'lead', phone, name: q.name || '', occasion: q.occasion || 'אירוע', source: q.source || '', requested: false };
+    const lead = { kind: 'lead', phone, name: q.name || '', occasion: q.occasion || 'אירוע', source: q.source || '', requested: false, why: 'chase' };
     const payload = buildCallPayload(lead, env.NOA_FROM || '', { override_agent_id: env.NOA_AGENT || '', memory: deps.memory || '' });
     payload.metadata.why = 'chase';
     payload.metadata.item_id = String(q.item_id || '');

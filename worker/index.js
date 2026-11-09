@@ -7959,7 +7959,7 @@ async function handleVoiceTools(request, env, origin) {
     if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
     const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
-      event_date: '2026-10-22', reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
+      event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
       /* body.rsvp = 'מתלבט' rehearses the undecided opener (21/10) */
       rsvp: body.rsvp === 'מתלבט' ? 'מתלבט' : '' };
     const payload = buildCallPayload(g, env.SHIR_FROM);
@@ -7976,7 +7976,7 @@ async function handleVoiceTools(request, env, origin) {
     const to = normPhone(body.to || '');
     const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
     if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
-    const lead = { kind: 'lead', phone: to, name: String(body.name || 'ריצ׳רד'), occasion: String(body.occ || 'חתונה'), requested: !!body.requested };
+    const lead = { kind: 'lead', phone: to, name: String(body.name || 'ריצ׳רד'), occasion: String(body.occ || 'חתונה'), requested: !!body.requested, why: body.why === 'chase' ? 'chase' : '' };
     const payload = buildCallPayload(lead, env.NOA_FROM, { override_agent_id: env.NOA_AGENT });
     payload.metadata.test = 'voice-tools';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);

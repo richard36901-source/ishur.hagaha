@@ -356,7 +356,7 @@ export function buildCallPayload(guest, fromNumber, opts = {}) {
       kind,
       /* 'requested' | 'abandoned' — only meaningful for kind:'lead', mirrors
          retell_llm_dynamic_variables.why below into the call's own record */
-      ...(kind === 'lead' ? { why: guest.requested ? 'requested' : 'abandoned' } : {}),
+      ...(kind === 'lead' ? { why: guest.why === 'chase' ? 'chase' : guest.requested ? 'requested' : 'abandoned' } : {}),
     },
     retell_llm_dynamic_variables:
       kind === 'lead' ? leadVariables(guest)
@@ -413,6 +413,8 @@ export function leadOpeningLine(lead) {
   const first = String(l.name || '').trim().split(/\s+/)[0] || '';
   const hello = first ? `היי ${first}` : 'היי';
   if (l.requested) return `${hello}, זו נועה מאישורי הגעה, ביקשת שאתקשר.`;
+  /* 09/11 (Richard): chase = a lead who left details and did not answer us — not 'you asked me to call' */
+  if (l.why === 'chase') { const o = l.occasion && l.occasion !== 'אירוע' ? `ה${l.occasion}` : 'האירוע'; return `${hello}, מדברת נועה מאישורי הגעה. השארתם אצלנו פרטים לגבי ${o} שלכם, ניסינו לתפוס אתכם — יש לכם דקה?`; }
   const occ = l.occasion && l.occasion !== 'אירוע' ? `ל${l.occasion}` : 'לאירוע שלכם';
   return `${hello}, מדברת נועה מאישורי הגעה. ראיתם אותנו באתר והתחלתם הזמנה ${occ}, ונעצרתם רגע לפני הסוף. רציתי לשאול אם משהו לא היה ברור, ואם אפשר לעזור.`;
 }
@@ -424,7 +426,7 @@ export function leadVariables(lead) {
     /* 'requested' | 'abandoned' — lets the agent's own prompt branch tone:
        a requested call has one job (answer, let them decide, no pushing),
        an abandoned-cart call is the sales outreach it always was */
-    why: l.requested ? 'requested' : 'abandoned',
+    why: l.why === 'chase' ? 'chase' : l.requested ? 'requested' : 'abandoned',
     lead_name: String(l.name || ''),
     caller_name_for_transfer: String(l.name || 'לא נמסר שם'),
     caller_phone: String(l.phone || '').replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1 $2 $3'),
