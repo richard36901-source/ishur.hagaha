@@ -5936,7 +5936,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   /* 09/11 (Richard): waveprio:<token> puts an event's waves first in line ("לתעדף את שוהם") */
   const wavePrio = {};
   if (env.RATE) for (const ev of evRows) { const t = String(ev[1] || '').trim(); if (t && await env.RATE.get('waveprio:' + t).catch(() => null)) wavePrio[t] = 1; }
-  const waveRows = evRows.map((ev, i) => ({ ev, i, p: wavePrio[String(ev[1] || '').trim()] ? 0 : 1 })).sort((a, b) => a.p - b.p || a.i - b.i).map(x => x.ev);
+  /* waveorder (drag & drop on the control center): listed events first, in that order; then waveprio; then the sheet */
+  let waveOrder = []; try { waveOrder = env.RATE ? JSON.parse((await env.RATE.get('waveorder')) || '[]') : []; } catch {}
+  const ordIdx = t => { const i = waveOrder.indexOf(t); return i < 0 ? 1000 : i; };
+  const waveRows = evRows.map((ev, i) => { const t = String(ev[1] || '').trim(); return { ev, i, o: ordIdx(t), p: wavePrio[t] ? 0 : 1 }; }).sort((a, b) => a.o - b.o || a.p - b.p || a.i - b.i).map(x => x.ev);
   for (const ev of waveRows) {
     const token = String(ev[1] || '').trim();
     const paid = String(ev[7] || '').trim() === 'כן';
@@ -11374,6 +11377,33 @@ const WORKER = {
     }
     if (url.pathname === '/api/send-date' && request.method === 'POST') {
       return handleSendDate(request, env, origin);
+    }
+    /* 09/11 control-center drag & drop (assets/week.js):
+       board-move  {admin_key, tok8, type:w1|w2|w3, date} → the same rules as the client's send-date
+       board-order {admin_key, order:[tok8…]}             → waveorder: the engine sends waves in this order */
+    if ((url.pathname === '/api/board-move' || url.pathname === '/api/board-order') && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const raw = await readSnapshot(env, 'guest');
+      const toks = ((raw && raw.events && raw.events.values) || []).map(r => String((r || [])[1] || '').trim()).filter(Boolean);
+      const full = t8 => toks.find(t => t.slice(0, 8) === String(t8 || '').slice(0, 8)) || '';
+      if (url.pathname === '/api/board-order') {
+        const order = [...new Set((Array.isArray(b.order) ? b.order : []).map(full).filter(Boolean))].slice(0, 60);
+        await env.RATE.put('waveorder', JSON.stringify(order), { expirationTtl: 60 * 86400 });
+        await logEvent(env, { area: 'לוח', action: 'סדר עדיפות לגלים עודכן מהלוח', ok: true, detail: order.map(t => t.slice(0, 8)).join(' > ') }).catch(() => {});
+        return okJson({ ok: true, order: order.map(t => t.slice(0, 8)) }, origin);
+      }
+      const token = full(b.tok8);
+      const send = { w1: 'invite', w2: 'reminder', w3: 'extra' }[String(b.type || '')];
+      if (!token) return deny(404, 'event-not-found', origin);
+      if (!send) return deny(400, 'only-waves-move', origin);
+      const inner = new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, send, date: String(b.date || '') }) });
+      const res = await handleSendDate(inner, env, origin);
+      if (res.ok) {
+        if (String(b.date || '').slice(0, 10) === ilDate()) await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
+        await logEvent(env, { area: 'לוח', action: `גל הועבר מהלוח: ${b.type} → ${b.date}`, ok: true, token }).catch(() => {});
+      }
+      return res;
     }
     /* delete ads by explicit id only — Richard, 09/09: "remove the old ones
        we never launched". Irreversible on Meta's side, so the caller names
