@@ -148,7 +148,19 @@
     '.plg-btn:active,.plg-card .sbtn:active{transform:scale(.97)}.plg-btn.p,.plg-card .sbtn.p{background:var(--b);border-color:transparent;color:#fff}.plg-btn:disabled{opacity:.45;cursor:not-allowed}.plg-card .sbtn.d{background:none;border-color:transparent;color:#A8402F}' +
     '.plg-miss{font-size:.8rem;color:#A8402F}.plg-out{display:flex;flex-direction:column;gap:.5rem;padding-top:.9rem;border-top:1px solid var(--ln)}.plg-out .u{font-size:.8rem;direction:ltr;text-align:left;word-break:break-all;color:var(--ink2,#4E5C55);background:var(--b4);border-radius:var(--r);padding:.55rem .7rem}.plg-out .d{font-size:.8rem;color:var(--ink2,#4E5C55)}' +
     '.plg-saved{border-top:1px solid var(--ln);padding-top:1rem}.plg-saved h3{font-size:.95rem;margin:0 0 .5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:baseline}.plg-saved h3 span{font-size:.72rem;font-weight:500;color:var(--ink3,#7F8C86)}' +
-    '.plg-card .lk{border-radius:12px;border-inline-start-width:4px}.plg-card .lk input{height:36px;border-radius:8px}';
+    '.plg-card .lk{border-radius:12px;border-inline-start-width:4px}.plg-card .lk input{height:36px;border-radius:8px}' +
+    /* 09/11 (Richard): "קצר וקולע" — the same form, compact: fields in a grid, add-ons as one row of pills, total + button on one line */
+    '.plg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem .7rem;max-width:none;align-items:end}' +
+    '.plg .lbl{margin-bottom:.2rem;font-size:.72rem}.plg-f input,.plg-ddb{height:38px;font-size:.88rem}' +
+    '.plg > .plg-f:nth-child(-n+4){grid-column:span 1}@media (max-width:900px){.plg{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
+    '.plg > .plg-f:has(.plg-list){grid-column:1/-1}' +
+    '.plg-list{border:0;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}' +
+    '.plg-li{border:0;padding:0;min-height:0;display:flex;gap:.4rem;align-items:center;width:auto}.plg-li .plg-dd .lbl{display:none}.plg-li .plg-ddb{height:34px;width:auto;min-width:9rem;border-radius:999px;font-size:.82rem}.plg-li b{min-width:0}' +
+    '.plg-tg{display:inline-flex;width:auto;min-height:34px;padding:0 .7rem 0 .5rem;border:1px solid var(--ln)!important;border-radius:999px;gap:.4rem;font-size:.82rem;background:var(--card,#fff)}.plg-tg.on{border-color:var(--b)!important;background:var(--b4)}.plg-tg b{min-width:0;font-size:.78rem}.plg-tg .box{width:1rem;height:1rem;font-size:.65rem}' +
+    '.plg-sum{grid-column:1/span 2;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:.3rem .9rem}.plg-sum div{font-size:.78rem}.plg-sum .tot{border:0;padding:0;margin:0;order:-1;gap:.4rem}.plg-sum .tot span:last-child{font-size:1.35rem}.plg-sum .note{display:none}' +
+    '.plg-act{grid-column:3/-1;justify-content:flex-end}.plg-btn{height:38px}' +
+    '.plg-out{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;padding-top:.5rem}.plg-out .u{flex:1;min-width:14rem;padding:.4rem .6rem}' +
+    '@media (max-width:900px){.plg-sum,.plg-act{grid-column:1/-1;justify-content:flex-start}}';
 
   function fresh() { return { plan: 'basic', records: 100, hostesses: 0, no_calls: false, design: false, travel: false, extra_wave: false, calls: false, name: '', phone: '', occasion: '', event_date: '', open: '', busy: false, url: '', err: '' }; }
   function payload(s, cfg) {

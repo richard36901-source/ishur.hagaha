@@ -219,7 +219,7 @@
           var why = '', r = String(it.reason_he || ''), m = /נדחה מ-(\d{1,2}\/\d{1,2})/.exec(r), ev = info[g.tok8] || {};
           if (it._pend) why = 'הועבר ידנית לכאן';
           else if (m) why = 'נדחה מ-' + m[1] + ' בגלל המכסה';
-          else if (/^w[123]$/.test(it.type)) { var wd = (ev.waves || {})[it.type.slice(1)]; why = wd && wd !== day.day ? 'המשך מ-' + dm(wd) : 'מתוכנן בגיליון'; }
+          else if (/^w[123]$/.test(it.type)) { var wd = (ev.waves || {})[it.type.slice(1)]; why = !wd || wd === day.day ? 'מתוכנן בגיליון' : wd > day.day ? 'הועבר ל-' + dm(wd) + ' · מתעדכן' : 'המשך מ-' + dm(wd); }
           else if (it.type === 'daybefore') why = 'יום לפני האירוע';
           else if (it.type === 'table' || it.type === 'eventday') why = 'יום האירוע';
           else if (it.type === 'thanks') why = 'אחרי האירוע · עדיפות אחרונה';

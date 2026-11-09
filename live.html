@@ -26,7 +26,18 @@
   .live i{width:8px;height:8px;border-radius:50%;background:var(--good);box-shadow:0 0 0 3px var(--good-s);animation:p 1.6s infinite}
   .live.off i{background:var(--ink3);box-shadow:none;animation:none}
   @keyframes p{50%{opacity:.4}}
-  .bar{position:sticky;top:0;z-index:5;background:var(--paper);padding:.5rem 0;border-bottom:1px solid var(--line);display:flex;gap:.45rem;flex-wrap:wrap;align-items:center}
+  .bar{position:sticky;top:0;z-index:5;background:var(--paper);padding:.5rem 0;border-bottom:1px solid var(--line);display:grid;grid-template-columns:minmax(0,1fr) auto auto auto;gap:.45rem;align-items:center}
+  .bar #pin{grid-column:1/-1}.bar #pin:empty{display:none}
+  .bar .sel{height:36px;padding:0 .7rem;min-width:7rem}.bar .q{height:36px}.bar .chip{height:36px;border-radius:10px;padding:0 .8rem}
+  .chip.bad.on{background:var(--warn);border-color:var(--warn);color:#fff}
+  .tools{display:flex;gap:.6rem;align-items:center}
+  .more{position:relative}.more summary{list-style:none;cursor:pointer;width:34px;height:34px;display:grid;place-items:center;border:1px solid var(--line);border-radius:10px;background:var(--card);font-size:1.1rem;color:var(--ink2)}
+  .more summary::-webkit-details-marker{display:none}
+  .more > div{position:absolute;inset-inline-end:0;top:40px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.4rem;display:grid;gap:.3rem;min-width:10rem;z-index:9;box-shadow:0 10px 30px rgba(0,0,0,.12)}
+  .more .btn{text-align:right}
+  @media (max-width:560px){.bar{grid-template-columns:1fr 1fr}.bar .q{grid-column:1/-1}}
+  /* inside the control center's side panel (center.html): the list only, one search box */
+  html.embed .top{margin-bottom:.4rem}html.embed h1{font-size:1.1rem}html.embed .bar{grid-template-columns:minmax(0,1fr) auto}html.embed #days,html.embed .chip.bad{display:none}html.embed .wrap{padding:.6rem .7rem 2rem}
   .chip{border:1px solid var(--line);background:var(--card);border-radius:999px;padding:.3rem .75rem;font:inherit;font-size:.8rem;cursor:pointer;color:var(--ink2);display:inline-flex;gap:.35rem;align-items:center}
   .chip b{font-weight:600;color:var(--ink3)}
   .chip.on{background:var(--pine);border-color:var(--pine);color:#fff}
@@ -73,21 +84,24 @@
 <div class="wrap">
   <div class="top">
     <div><h1>לוג חי</h1><div class="cnt" id="cnt">—</div></div>
-    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+    <div class="tools">
       <span class="live" id="liveDot"><i></i><span id="liveTxt">מתעדכן כל 5 שנ׳</span></span>
-      <button class="btn" id="pause">הקפאה</button>
-      <button class="btn" id="legendBtn" title="מה זה כל סוג">? מקרא</button>
-      <button class="btn" id="exportBtn" title="ייצוא מה שמסונן כ-CSV (עם hash לכל שורה)">⬇ ייצוא CSV</button>
+      <details class="more"><summary aria-label="עוד">⋯</summary><div>
+        <button class="btn" id="pause">הקפאה</button>
+        <button class="btn" id="legendBtn" title="מה זה כל סוג">מקרא</button>
+        <button class="btn" id="exportBtn" title="ייצוא מה שמסונן כ-CSV (עם hash לכל שורה)">ייצוא CSV</button>
+      </div></details>
     </div>
   </div>
   <div class="legend" id="legend"></div>
   <div class="bar" id="bar">
-    <input class="q" id="q" type="search" placeholder="חיפוש: טלפון, טוקן, שם, טקסט, מזהה…">
-    <select class="btn" id="days" title="טווח">
+    <input class="q" id="q" type="search" placeholder="חיפוש: טלפון, טוקן, שם, טקסט…">
+    <select class="btn sel" id="kindSel" title="סוג"></select>
+    <select class="btn sel" id="days" title="טווח">
       <option value="2">48 שעות</option><option value="7">7 ימים</option><option value="30">30 יום</option><option value="90">90 יום</option>
     </select>
-    <span id="chips"></span>
-    <button class="chip" data-bad="1">⛔ כשלים <b id="n_bad">0</b></button>
+    <button class="chip bad" data-bad="1">כשלים <b id="n_bad">0</b></button>
+    <span id="chips" hidden></span>
     <span id="pin"></span>
   </div>
   <div class="list" id="list"><div class="empty">טוען…</div></div>
@@ -129,12 +143,18 @@
     var c = { all: 0, bad: 0 }; KIND_ORDER.forEach(function (k) { c[k] = 0; });
     items.forEach(function (it) { if (pin && !(pin.type === 'token' ? String(it.token || '').slice(0, 8) === pin.v.slice(0, 8) : phoneOf(it) === pin.v)) return; c.all++; if (c[it.kind] != null) c[it.kind]++; else c[it.kind] = 1; if (it.ok === false || it.review) c.bad++; });
     Object.keys(c).forEach(function (k) { var el = $('n_' + k); if (el) el.textContent = c[k]; });
+    labelCounts(c);
   }
   function renderChips() {
-    $('chips').innerHTML = '<button class="chip' + (kind ? '' : ' on') + '" data-k="">הכל <b id="n_all">0</b></button>' + KIND_ORDER.map(function (k) {
-      var inf = KINDS[k] || {};
-      return '<button class="chip' + (kind === k ? ' on' : '') + '" data-k="' + k + '" title="' + esc(inf.desc || '') + '">' + (KIND_ICON[k] || '') + ' ' + esc(inf.he || k) + ' <b id="n_' + k + '">0</b></button>';
-    }).join('');
+    /* 09/11 (Richard): one aligned dropdown instead of a cloud of chips; the counts live in the option labels */
+    var sel = $('kindSel'), cur = kind;
+    sel.innerHTML = '<option value="">כל הסוגים</option>' + KIND_ORDER.map(function (k) { var inf = KINDS[k] || {}; return '<option value="' + k + '">' + esc(inf.he || k) + '</option>'; }).join('');
+    sel.value = cur;
+    $('chips').innerHTML = '<span id="n_all" hidden></span>' + KIND_ORDER.map(function (k) { return '<span id="n_' + k + '" hidden></span>'; }).join('');
+  }
+  function labelCounts(c) {
+    var sel = $('kindSel'); if (!sel) return;
+    Array.prototype.forEach.call(sel.options, function (o) { var k = o.value, inf = KINDS[k] || {}; var n = k ? c[k] : c.all; o.textContent = (k ? (inf.he || k) : 'כל הסוגים') + (n != null ? ' · ' + n : ''); });
   }
   function renderLegend() {
     $('legend').innerHTML = KIND_ORDER.map(function (k) { var inf = KINDS[k] || {}; return '<div><span class="k ' + k + '">' + esc(inf.he || k) + '</span> ' + esc(inf.desc || '') + '</div>'; }).join('') +
@@ -212,6 +232,8 @@
     render();
   });
   $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); render(); });
+  $('kindSel').addEventListener('change', function () { kind = $('kindSel').value || ''; render(); });
+  if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
   $('days').addEventListener('change', function () { days = +$('days').value; items = []; byId = {}; lastTs = 0; $('list').innerHTML = '<div class="empty">טוען…</div>'; load(true); });
   $('pause').addEventListener('click', function () { paused = !paused; $('pause').classList.toggle('on', paused); $('pause').textContent = paused ? 'המשך' : 'הקפאה'; $('liveTxt').textContent = paused ? 'מוקפא' : 'מתעדכן כל 5 שנ׳'; render(); });
   $('legendBtn').addEventListener('click', function () { $('legend').classList.toggle('on'); });
