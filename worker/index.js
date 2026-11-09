@@ -5931,7 +5931,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     { key: 2, col: 40, onlyUnanswered: true },   // תזכורת — למי שלא ענה
     { key: 3, col: 41, onlyUnanswered: false },  // שליחה נוספת — לכל הרשימה
   ];
-  for (const ev of evRows) {
+  /* 09/11 (Richard): waveprio:<token> puts an event's waves first in line ("לתעדף את שוהם") */
+  const wavePrio = {};
+  if (env.RATE) for (const ev of evRows) { const t = String(ev[1] || '').trim(); if (t && await env.RATE.get('waveprio:' + t).catch(() => null)) wavePrio[t] = 1; }
+  const waveRows = evRows.map((ev, i) => ({ ev, i, p: wavePrio[String(ev[1] || '').trim()] ? 0 : 1 })).sort((a, b) => a.p - b.p || a.i - b.i).map(x => x.ev);
+  for (const ev of waveRows) {
     const token = String(ev[1] || '').trim();
     const paid = String(ev[7] || '').trim() === 'כן';
     const cancelled = String(ev[27] || '').trim() === 'כן';
@@ -5973,7 +5977,19 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         }
         continue;
       }
-      const res = await sendWave(env, ev, token, guests, wave, dry, budget);
+      /* 09/11 (Richard: "חצי שוהם חצי מור"): waveprio:<token> = N → first in line, but at most N sends a day */
+      let wb = budget, share = 0;
+      if (budget && !dry && wavePrio[token]) {
+        share = Number(await env.RATE.get('waveprio:' + token).catch(() => 0)) || 0;
+        if (share > 0) { const used = Number(await env.RATE.get(`wpused:${token}:${today}`).catch(() => 0)) || 0; wb = { ...budget, left: Math.max(0, Math.min(budget.left, share - used)) }; }
+      }
+      const wbStart = wb ? wb.left : 0;
+      const res = await sendWave(env, ev, token, guests, wave, dry, wb);
+      if (wb !== budget) {
+        const spent = Math.max(0, wbStart - wb.left); budget.left -= spent;
+        const used = Number(await env.RATE.get(`wpused:${token}:${today}`).catch(() => 0)) || 0;
+        if (spent) await env.RATE.put(`wpused:${token}:${today}`, String(used + spent), { expirationTtl: 3 * 86400 }).catch(() => {});
+      }
       if (res.truncated) wavesWanting = true;
       if (res.truncated) out.push({ token, type: 'wave_truncated', wave: wave.key, truncated: true });
       if (!dry && (res.sent || res.failed)) {
