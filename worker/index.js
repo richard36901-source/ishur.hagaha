@@ -5313,6 +5313,7 @@ async function askExtraQ(env, guest, from, sendCh) {
     const q = await extraQOf(env, guest && guest.token);
     if (!q) return false;
     if (await env.RATE.get(`xqa:${guest.token}:${normPhone(from)}`)) return false;
+    if (await env.RATE.get('awaitxq:' + guest.guest_id)) return false;   /* asked already, no answer yet — never ask twice */
     await env.RATE.put('awaitxq:' + guest.guest_id, q.id, { expirationTtl: 7 * 86400 });
     await sendReplyButtons(env, from, q.q, [{ id: `xq:${q.id}:yes`, title: q.yes || 'כן 🚌' }, { id: `xq:${q.id}:no`, title: q.no || 'לא' }], sendCh, { who: 'שיר (מענה אוטומטי)' });
     return true;

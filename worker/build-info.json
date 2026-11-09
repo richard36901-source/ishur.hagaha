@@ -1,91 +1,91 @@
 {
-  "version_tag": "20261103-a98c66c-dirty",
-  "commit": "a98c66c722e3",
-  "branch": "ops-changelog",
-  "date": "2026-11-03T15:06:48.185Z",
+  "version_tag": "20261109-52028da-dirty",
+  "commit": "52028daf7e2c",
+  "branch": "integ-2026-11-02",
+  "date": "2026-11-09T08:26:06.995Z",
   "by": "AutoScale",
   "since": null,
   "dirty": true,
   "commits": [
     {
-      "hash": "cd1a898",
-      "subject": "CRM backend: /api/crm/* (leads, quick close, clients, hostesses, notes, reminders, agenda, stats), store.js D1/KV repository, 0003_crm.sql, "
+      "hash": "52028da",
+      "subject": "Extra question after the head count (Shoham: bus from Be'er Sheva): reply buttons, answer capture before rsvp parsing, dashboard card of who"
     },
     {
-      "hash": "06e5968",
-      "subject": "docs: smoke count; screenshots"
+      "hash": "fbfe67d",
+      "subject": "voice-tools: read-only action 'voice' returns the agent's Retell voice details"
     },
     {
-      "hash": "cb34ae1",
-      "subject": "docs: ops calendar (UI + API) and the capacity rolled plan"
+      "hash": "0908c4c",
+      "subject": "Shir call-QA digest to Slack (daily 20:45, weekly Sunday 09:00) from per-day counters; registry code snapshot refreshed"
     },
     {
-      "hash": "8092f0c",
-      "subject": "ops smoke: calendar + rolled-chart checks (fixture contract, filters, drawers, nav, 375 px); screenshots"
+      "hash": "05284fa",
+      "subject": "admin: /api/telnyx-admin — read outbound voice profile + connection limits, raise the concurrent-call limit"
     },
     {
-      "hash": "3e5cd68",
-      "subject": "ops UI: calendar screen (g d) — month/week grid, state chips, filters persisted, per-event + search, day/chip drawers; lazy-loaded outside t"
+      "hash": "58d70f9",
+      "subject": "Shir: post-call review runs on every guest call (CALL_QA, was tied to NOA_CHASE=off), lessons reach the prompt via {{memory}}, {{opening}} s"
     },
     {
-      "hash": "9c82cc9",
-      "subject": "docs: EVENTDAY-ONE-MESSAGE-2026-11-03"
+      "hash": "af77030",
+      "subject": "calls: at most CALL_PARALLEL (10) live at once, 1.5 s between new calls — the carrier refused 25-call bursts"
     },
     {
-      "hash": "9ac8134",
-      "subject": "ops UI capacity chart: rolled plan as primary bars, original due as outline, tooltip with per-event split and deferred-from"
+      "hash": "8a5a749",
+      "subject": "calls: a call the carrier refused (telephony_provider_*) is not a try — guest stays queued, Slack P1"
     },
     {
-      "hash": "b7bd90c",
-      "subject": "test: R1/R2/fallback/mark/planner/send-board/nav for the one event-day message; event-day blast reads the hour from Date (pinnable)"
+      "hash": "0ef8e1b",
+      "subject": "thank-you UTILITY twin for guests the marketing one missed; calls row shows answered-later; screens keep the snapshot an hour at night"
     },
     {
-      "hash": "747c2ab",
-      "subject": "ops calendar: one ghost chip per original day; fixture builder + calendar.json, rolled on capacity.json"
+      "hash": "7fcd9c2",
+      "subject": "clients page: a hold reads 'נדחה עד DD/MM' / 'מושהה', never 'מבוטל'; wave under way reads 'הזמנות יוצאות'"
     },
     {
-      "hash": "d513b97",
-      "subject": "docs: phase 3 — ops center as the full CRM workplace"
+      "hash": "267e31b",
+      "subject": "template guard + today/tomorrow priority + timed hold + terms: send dates are planned, not guaranteed"
     },
     {
-      "hash": "c8710ce",
-      "subject": "planner + send-board: day-before on/after the event date shows as dropped, event-day audience excludes table guests"
+      "hash": "6ded753",
+      "subject": "D-1 + event day: one message per guest across two days, carrying only what exists on the board"
     },
     {
-      "hash": "2b9df63",
-      "subject": "eventday: one message per guest (ed: mark, combo resolver in table stage + event-day blast), day-before D-1 only, /nav/<slug>"
+      "hash": "8e6e9b6",
+      "subject": "event day: one message for every combination (nav only, Bit only, PayBox only, both, with/without table)"
     },
     {
-      "hash": "d1ef181",
-      "subject": "ops: GET /api/ops/calendar (month grid: events, send chips, rolled+ghost, calls, closed purchases) + tests"
+      "hash": "ae8e026",
+      "subject": "admin: one-off invitation (exact text + video + RSVP buttons) to a single number"
     },
     {
-      "hash": "1394dc7",
-      "subject": "eventday: pure one-message resolver + 3 combo template JSONs (not submitted)"
+      "hash": "4be4039",
+      "subject": "board: calls round shows done when every waiting guest used all tries"
     },
     {
-      "hash": "2c3ebbf",
-      "subject": "ops capacity: rolled plan per day (FIFO over open days, Friday window cap, unplaced) + tests"
+      "hash": "b1d097c",
+      "subject": "board: one calls row when the hand-armed round is the regular round"
     },
     {
-      "hash": "c4cbc3c",
-      "subject": "send-board: sendBoardData() returns the board as data; events carry occasion/time/client_id"
+      "hash": "8249bc0",
+      "subject": "board: every added call round or extra send shows on the client board, any plan, paid or free"
     },
     {
-      "hash": "231f5b0",
-      "subject": "ops UI: Brain screen on real data, drawer edit-in-place, brain fixture from the real shape"
+      "hash": "5e6d014",
+      "subject": "board: show calls row when a paid calls add-on exists on a no-calls plan"
     },
     {
-      "hash": "1dee75a",
-      "subject": "ops brain: health checks + playbooks in the */10 cron, edit-in-place settings"
+      "hash": "497241e",
+      "subject": "worker: raise per-invocation subrequest limit (KV writes were silently dropped); plan reports write errors"
     },
     {
-      "hash": "c87aa72",
-      "subject": "ops: live log shows seconds + real-time clock (side panel and full screen)"
+      "hash": "9a2d81e",
+      "subject": "סקירה: a fresh plan refresh saves today, week and month together"
     },
     {
-      "hash": "cc967b2",
-      "subject": "design terms: 1 round + 1 free extra, ₪49 per further round"
+      "hash": "fdf9a67",
+      "subject": "סקירה: show the last saved plan instantly (stale=ok) and refresh it in the background"
     }
   ]
 }
