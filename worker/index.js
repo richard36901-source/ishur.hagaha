@@ -38,6 +38,7 @@ import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBefore
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
+import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -3961,6 +3962,16 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
   /* 02/11 audit: a question is never a head count ("באיזו שעה? 19:30?" was
      written as מגיע 19), and "אולי 2" / "לא יודע, אולי 3" is undecided, not
      a confirmed 2 — the number used to win over the doubt. */
+  /* 09/11 (שילת): "איזה שולחן אני?" → the table from column AE + who sits there. A reply inside the
+     window the guest just opened: no template, no cap. No table on the sheet → falls through. */
+  if (isTableQuestion(t)) {
+    const info = tableFor(raw, guest);
+    if (info) {
+      await say(tableReply(info));
+      await logEvent(env, { area: 'ווצאפ', action: 'שאלת שולחן, נענתה', ok: true, phone: from, token: guest.token, detail: `${guest.name}: ${info.table} · ${info.mates.length} בשולחן` }).catch(() => {});
+      return true;
+    }
+  }
   const n = isQuestion(t) ? null : partyFromText(t);
   const intent = guestIntent(t);
   const saysNo = intent === 'no', saysYes = intent === 'yes';
