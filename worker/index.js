@@ -6828,7 +6828,9 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
      the others. part='all' (manual /api/pacer) keeps the old single pass. */
   /* 04/11: the סקירה plan precompute is its own job too (it used to sit last in the main pass and got cut off) */
   if (part === 'plan') {
-    try { const r = await step('plan_precompute', () => precomputePlans(env, opsDeps(), planFns())); return { ok: true, part, ms: r && r.ms }; }
+    /* 09/11: the cron invocation cannot afford a send-board rebuild (116 s) + 31 past audit days — the plan then never
+       lands and the board shows yesterday's picture. Reuse the cached board, 3 past days; the board refreshes on its own route. */
+    try { const r = await step('plan_precompute', () => precomputePlans(env, opsDeps(), planFns(), { buildBoard: false, pastDayBudget: 3 })); return { ok: true, part, ms: r && r.ms }; }
     catch (e) { return { ok: false, part, why: String((e && e.message) || e) }; }
   }
   if (part === 'calls' || part === 'subevents') {
