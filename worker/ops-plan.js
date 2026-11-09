@@ -151,7 +151,7 @@ export function composePlan(inp) {
     const failedN = typeof t.failed === 'object' ? (t.failed && t.failed.total) || 0 : t.failed || 0;
     const due = t.due || '';
     /* the audience is the "of" for every entry of this event+type; pending still open → the day entries are not finished */
-    for (const k of Object.keys(M)) { const e = M[k]; if (e.tok8 !== tok8 || e.type !== type) continue; e.of = t.audience ?? e.of; e.name = e.name || ev.name; if (pendLeft > 0 && e.day <= today) { e.pending = pendLeft; e.reason_he = dominantPending(p); } if (e.day < today && e.failed_n === 0 && failedN && !e.done_n) e.failed_n = failedN; }
+    for (const k of Object.keys(M)) { const e = M[k]; if (e.tok8 !== tok8 || e.type !== type) continue; e.of = t.audience ?? e.of; e.total_sent = t.sent || 0; e.left = pendLeft; e.name = e.name || ev.name; if (pendLeft > 0 && e.day <= today) { e.pending = pendLeft; e.reason_he = dominantPending(p); } if (e.day < today && e.failed_n === 0 && failedN && !e.done_n) e.failed_n = failedN; }
     const seenDays = Object.values(M).filter(e => e.tok8 === tok8 && e.type === type && e.done_n > 0);
     /* sent before the audit window (KV markers): one done entry on the last send day */
     if (!seenDays.length && t.sent > 0) { const day = t.last_at ? ilDayOf(Date.parse(t.last_at)) : due; if (cellOf[day]) { const e = slot(day, tok8, type); e.done_n = t.sent; e.of = t.audience ?? null; e.name = e.name || ev.name; e.failed_n = failedN; e.pending = pendLeft; e.reason_he = pendLeft ? dominantPending(p) : 'ספירה מסימוני השליחה (מחוץ לחלון הלוג)'; } }
@@ -182,7 +182,7 @@ export function composePlan(inp) {
       if (e.held) reason = 'מוחזק (hold)';
       else reason = [e.from_day ? `נדחה מ-${ddmm(e.from_day)} (מכסה)` : '', c.capacity && c.capacity.overflow > 0 ? `היום עמוס: ${c.capacity.planned} מתוכננות מול תקרה ${c.capacity.capacity}` : '', reason].filter(Boolean).join(' · ');
     }
-    push(d, { id: `send:${e.tok8}|${e.type}:${d}`, kind: 'send', type: e.type, event: { tok8: e.tok8, name: nameOf(e.tok8, e.name) }, label_he: sendLabel(e.type, e.tok8, e.name), planned_at: at, planned_n: planned || 0, done_n: e.done_n, failed_n: e.failed_n, of: e.of, status, reason_he: reason, deep_link: sendLink(e.tok8) });
+    push(d, { id: `send:${e.tok8}|${e.type}:${d}`, kind: 'send', type: e.type, event: { tok8: e.tok8, name: nameOf(e.tok8, e.name) }, label_he: sendLabel(e.type, e.tok8, e.name), planned_at: at, planned_n: planned || 0, done_n: e.done_n, failed_n: e.failed_n, of: e.of, total_sent: e.total_sent ?? null, left: e.left ?? null, status, reason_he: reason, deep_link: sendLink(e.tok8) });
   }
 
   /* ── sub-events (שבת חתן): one row today per started / scheduled sub-event, from its KV record + today's audit ── */

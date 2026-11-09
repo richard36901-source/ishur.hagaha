@@ -128,7 +128,10 @@
         g.items.forEach(function (it) {
           var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
           var n = it.kind === 'call' ? '<b>' + num(it.done_n) + '</b> חויגו' + (it.planned_n > it.done_n ? ' מתוך ' + num(it.planned_n) : '')
-            : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
+            : it.total_sent != null && it.of && /^w[123]$/.test(it.type)
+              /* 09/11 (Richard): "0 מתוך 505" looked like nothing went out — show the whole wave, today's part beside it */
+              ? 'בסך הכל <b>' + num(it.total_sent) + '</b> מתוך ' + num(it.of) + '<br><span class="wk-t">היום ' + num(it.done_n) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</span>'
+              : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           html += '<button type="button" class="wk-it" data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
         });
         html += '</div>';
@@ -164,7 +167,7 @@
     var st = statusOf(it, day);
     var title = (SHORT[kindKey] || it.label_he) + (it.event && it.event.name && it.kind !== 'lead_sends' ? ' · ' + it.event.name : '');
     var kv = '<dl class="wk-kv"><dt>יום</dt><dd>' + esc(day.dow_he + ' ' + dm(day.day)) + (it.time_hm ? ' · ' + esc(it.time_hm) : '') + '</dd>' +
-      '<dt>' + (it.kind === 'call' ? 'חויגו' : 'נשלחו') + '</dt><dd>' + num(it.done_n) + (it.planned_n ? ' מתוך ' + num(it.planned_n) : '') + (it.of && it.of !== it.planned_n ? ' (קהל ' + num(it.of) + ')' : '') + '</dd>' +
+      (it.total_sent != null && it.of ? '<dt>בסך הכל</dt><dd>' + num(it.total_sent) + ' מתוך ' + num(it.of) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</dd>' : '') + '<dt>' + (it.kind === 'call' ? 'חויגו' : 'נשלחו היום') + '</dt><dd>' + num(it.done_n) + (it.planned_n ? ' מתוך ' + num(it.planned_n) : '') + (it.of && it.of !== it.planned_n ? ' (קהל ' + num(it.of) + ')' : '') + '</dd>' +
       (it.failed_n ? '<dt>נכשלו</dt><dd>' + num(it.failed_n) + '</dd>' : '') +
       (it.kind === 'call' ? '<dt>ענו</dt><dd>' + num(it.answered || 0) + '</dd>' : '') +
       '<dt>מצב</dt><dd>' + esc(st.t) + '</dd>' + (it.reason_he ? '<dt>למה</dt><dd>' + esc(it.reason_he) + '</dd>' : '') + '</dl>';
