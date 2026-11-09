@@ -2588,7 +2588,7 @@ async function processRetellEvent(env, body) {
       const notconn = /^telephony_provider_|^error_|concurrency/.test(disc), vm = disc === 'voicemail_reached', noans = /dial_no_answer|dial_busy|dial_failed/.test(disc);
       const recorded = !!action.result || !!(action.call_id && env.RATE && await env.RATE.get('shirtool:' + action.call_id).catch(() => null));
       await bumpQaStat(env, { calls: 1, notconn: notconn ? 1 : 0, voicemail: vm ? 1 : 0, noanswer: noans ? 1 : 0,
-        talked: !notconn && !vm && !noans ? 1 : 0, recorded: recorded ? 1 : 0 }).catch(() => {});
+        talked: !notconn && !vm && !noans ? 1 : 0, recorded: recorded && !notconn && !vm && !noans ? 1 : 0 })   /* 09/11: only answers from calls that reached a person (the worker's own 'לא ענה' is not a recorded answer) */.catch(() => {});
     }
     /* 02/11 noa-chase R8+R11: every ended שיר/נועה call (outbound guest or
        lead; inbound/callback keep their own path) goes through the reviewer.
