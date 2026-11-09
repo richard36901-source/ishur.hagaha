@@ -7980,8 +7980,10 @@ async function handleVoiceTools(request, env, origin) {
     if (body.model) patch.model = String(body.model);
     const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', patch);
     if (!applied) return deny(502, 'retell-write-failed', origin);
+    /* 09/11 Richard: "לוקח לה הרבה זמן עד שהיא קולטת" — answer fast, yield fast when interrupted */
+    const tuned = await retellApi(env, '/update-agent/' + spec.agent, 'PATCH', { responsiveness: 1, interruption_sensitivity: 0.9, enable_backchannel: true }).catch(() => null);
     await logEvent(env, { area: 'שיחות', action: `כלי העברה חמה הוחלו על ${spec.name}`, ok: true, detail: tools.map(t => t.name).join(', ') }).catch(() => {});
-    return okJson({ ok: true, llm, tools: (applied.general_tools || []).map(t => ({ type: t.type, name: t.name })) }, origin);
+    return okJson({ ok: true, llm, tools: (applied.general_tools || []).map(t => ({ type: t.type, name: t.name })), agent_tuned: !!tuned }, origin);
   }
   if (body.action === 'schedule') {
     const to = normPhone(body.to || '');
