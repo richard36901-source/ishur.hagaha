@@ -179,7 +179,8 @@
           var n = it._proj ? 'בערך <b>' + num(it.planned_n) + '</b> שיחות' : it.kind === 'call' ? '<b>' + num(it.done_n) + '</b> חויגו' + (it.planned_n > it.done_n ? ' מתוך ' + num(it.planned_n) : '')
             : it.total_sent != null && it.of && /^w[123]$/.test(it.type)
               /* 09/11 (Richard): "0 מתוך 505" looked like nothing went out — show the whole wave, today's part beside it */
-              ? 'בסך הכל <b>' + num(it.total_sent) + '</b> מתוך ' + num(it.of) + '<br><span class="wk-t">היום ' + num(it.done_n) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</span>'
+              /* Richard 09/11 (second note): the big number is TODAY — sent of what should go out today; the whole wave in small print */
+              ? '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0)) + '<br><span class="wk-t">כל הגל: ' + num(it.total_sent) + ' מתוך ' + num(it.of) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</span>'
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
           html += '<button type="button" class="wk-it"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
