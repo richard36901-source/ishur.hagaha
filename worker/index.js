@@ -81,7 +81,7 @@ import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheet
 const ROUTES = {
   '/api/lead':   { secret: 'HOOK_LEADS',  limit: 12,  window: 3600 },
   '/api/event':  { secret: 'HOOK_EVENTS', limit: 20,  window: 3600 },
-  '/api/status': { secret: 'HOOK_STATUS', limit: 120, window: 3600 },
+  '/api/status': { secret: 'HOOK_STATUS', limit: 600, window: 3600 },   /* 09/11: a dashboard open polls; 120 locked Richard out */
 };
 
 const MAX_GUESTS      = 2000;
@@ -9976,7 +9976,10 @@ async function overBudget(env, key, limit, windowSec) {
   }
   const current = Number(await env.RATE.get(key)) || 0;
   if (current >= limit) return true;
-  await env.RATE.put(key, String(current + 1), { expirationTtl: windowSec });
+  /* 09/11: the TTL used to reset on every hit, so a page that polls kept its own bucket alive forever (a window that never closed) */
+  const { metadata } = await env.RATE.getWithMetadata(key).catch(() => ({ metadata: null }));
+  const until = metadata && metadata.until ? Number(metadata.until) : Math.floor(Date.now() / 1000) + windowSec;
+  await env.RATE.put(key, String(current + 1), { expiration: Math.max(until, Math.floor(Date.now() / 1000) + 60), metadata: { until } });
   return false;
 }
 
