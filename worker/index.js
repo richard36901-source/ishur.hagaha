@@ -12969,7 +12969,10 @@ const WORKER = {
 
     const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
     const bucket = `${url.pathname}:${ip}`;
-    if (await overBudget(env, bucket, route.limit, route.window)) {
+    /* 09/11: the per-IP budget is for the public dashboard (token reads). An admin page (control center, clients,
+       the live board polling every minute) is authenticated by the key — it emptied the 120/h bucket and clients.html showed "אין אירועים" */
+    const adminRead = url.pathname === '/api/status' && stampFields.admin_key && isAdmin(env, stampFields.admin_key);
+    if (!adminRead && await overBudget(env, bucket, route.limit, route.window)) {
       return deny(429, 'rate-limited', origin);
     }
 
