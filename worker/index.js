@@ -5638,6 +5638,8 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
   return { wave: wave.key, tmpl: inviteTmpl, sent, skippedOptout, skippedAnswered, skippedDone, deferred, failed, truncated };
 }
 
+/* 09/11: thank-you messages wait for the waves at most this many days after the event, then go regardless */
+const THANKS_MAX_WAIT = 4;
 async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   /* how many guest messages this invocation may send before it stops and
      leaves the rest for the next tick. null = no ceiling (the nightly run). */
@@ -5920,6 +5922,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
   const reserved = budget ? Math.min(budget.left, urgentReserve) : 0;
   if (reserved > 0) { budget.left -= reserved; out.push({ type: 'urgent_reserve', reserved }); }
 
+  /* 09/11 (Richard): thank-you messages are LAST priority — the event already happened, a day later is fine.
+     Set when a wave was cut short by the budget; the thanks stage then waits (up to THANKS_MAX_WAIT days). */
+  let wavesWanting = false;
   /* ── guest waves: invitation (AN), reminder (AO), extra (AP) ──────────── */
   const WAVES = [
     { key: 1, col: 39, onlyUnanswered: false },  // ההזמנה — לכל הרשימה
@@ -5969,6 +5974,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         continue;
       }
       const res = await sendWave(env, ev, token, guests, wave, dry, budget);
+      if (res.truncated) wavesWanting = true;
       if (res.truncated) out.push({ token, type: 'wave_truncated', wave: wave.key, truncated: true });
       if (!dry && (res.sent || res.failed)) {
         await logEvent(env, { area: 'שליחה', action: `גל ${wave.key} · פעימה`, ok: res.failed === 0, review: res.failed > 0, token,
@@ -6119,6 +6125,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     const daysAfter = Math.round((Date.parse(today) - Date.parse(date)) / 864e5);
     if (daysAfter < 1 || daysAfter > 14) continue; // day-after and up to two weeks late, then let it go
+    if (wavesWanting && daysAfter <= THANKS_MAX_WAIT && !dry) { out.push({ token, type: 'guest_thanks_deferred', why: 'waves-first', days_after: daysAfter }); continue; }
     if (env.RATE && await env.RATE.get('eoe:' + token)) continue;
 
     let confirmed = 0, declined = 0, pending = 0, diners = 0;
