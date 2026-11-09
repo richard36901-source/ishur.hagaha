@@ -11913,6 +11913,38 @@ const WORKER = {
        /rsvp.html?t=<token> shows the event; "I'm coming" adds the person to
        the list as confirmed, marked "נרשם מהקישור": counted and seatable,
        silent until the client buys the unlock. ─────────────────────────── */
+    /* 09/11 (Richard): the table QR at the entrance — a guest types a name or phone and sees their table + who sits there.
+       Public, the 36-char event token is the secret (like rsvp-info); no phone numbers go out. */
+    if (url.pathname === '/api/table-lookup' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:tlookup:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
+      const raw = await readSnapshot(env, 'guest');
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
+      if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
+      const c = i => String(ev[i] ?? '').trim();
+      const q = String(b.q || '').replace(/[\u200e\u200f]/g, '').trim().slice(0, 60);
+      const info = { ok: true, event: { name: c(34) || c(2), occasion: c(5), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37) }, matches: [] };
+      if (q.length < 2) return okJson(info, origin);
+      const digits = q.replace(/\D/g, '');
+      const norm = v => String(v || '').trim().replace(/\s+/g, ' ');
+      const rows = ((raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok && String(g[30] || '').trim());
+      let hits;
+      if (digits.length >= 7) { const p = normPhone(digits); hits = rows.filter(g => normPhone(g[4] || '') === p || String(g[4] || '').replace(/\D/g, '').endsWith(digits.slice(-7))); }
+      else { const ql = q.toLowerCase(); hits = rows.filter(g => norm(g[3]).toLowerCase().includes(ql)); }
+      const seen = new Set();
+      for (const g of hits) {
+        const name = norm(g[3]); if (!name || seen.has(name)) continue; seen.add(name);
+        const t = tableFor(raw, { token: tok, guest_id: String(g[2] || '').trim(), name });
+        if (!t) continue;
+        info.matches.push({ name, table: t.table, seats: Number(String(g[13] || '').trim()) || Number(String(g[5] || '').trim()) || 1, mates: t.mates.filter(n => n !== name).slice(0, 20) });
+        if (info.matches.length >= 6) break;
+      }
+      await logEvent(env, { area: 'אורחים', action: 'חיפוש שולחן בברקוד', ok: true, token: tok, detail: `"${q}" → ${info.matches.length}` }).catch(() => {});
+      return okJson(info, origin);
+    }
     if (url.pathname === '/api/rsvp-info' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

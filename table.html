@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>איפה אני יושב/ת? · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=72"></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  /* Richard 09/11: the QR at the entrance. A guest scans, types a name or phone, sees the table and who sits there.
+     ?qr=1 renders the printable poster for the hosts. Guest page: big type, one field, no account, nothing to install. */
+  :root{--pine:#0F2E22;--pine2:#17402F;--gold:#A8853C;--gold2:#C7AE7A;--paper:#F8F4EA;--ink:#1B2420;--ink2:#4A554E;--ink3:#7A847C;--line:#E3E1D8;--card:#fff}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100dvh;font:17px/1.5 Heebo,sans-serif;color:var(--ink);background:radial-gradient(120% 70% at 50% 0,var(--pine2),var(--pine) 60%,#0A2119);display:flex;flex-direction:column;align-items:center;padding:1.2rem 1rem 2rem}
+  .brand{color:var(--gold2);font:700 1.05rem 'Frank Ruhl Libre',serif;margin:.4rem 0 1rem}
+  .card{width:100%;max-width:460px;background:var(--card);border-radius:22px;padding:1.4rem 1.3rem;box-shadow:0 24px 60px rgba(0,0,0,.35)}
+  h1{font:700 1.5rem 'Frank Ruhl Libre',serif;color:var(--pine);margin:0 0 .2rem}
+  .sub{color:var(--ink2);margin:0 0 1rem;font-size:.95rem}
+  label{display:block;font-size:.86rem;font-weight:600;color:var(--ink2);margin-bottom:.35rem}
+  .row{display:flex;gap:.5rem}
+  input{flex:1;font:inherit;font-size:1.1rem;height:54px;padding:0 .9rem;border:1.5px solid var(--line);border-radius:14px;background:#fff;color:var(--ink)}
+  input:focus{outline:none;border-color:var(--pine);box-shadow:0 0 0 4px rgba(15,46,34,.12)}
+  button{font:inherit;font-size:1rem;font-weight:700;height:54px;padding:0 1.2rem;border:0;border-radius:14px;background:var(--pine);color:#fff;cursor:pointer}
+  button:active{transform:scale(.98)}
+  .hint{font-size:.8rem;color:var(--ink3);margin:.5rem 0 0}
+  .res{margin-top:1.1rem;display:grid;gap:.7rem}
+  .hit{border:1.5px solid var(--line);border-radius:16px;padding:.9rem 1rem}
+  .hit .n{font-weight:600;font-size:1.05rem}
+  .hit .t{font:700 2.2rem/1.1 'Frank Ruhl Libre',serif;color:var(--pine);margin:.2rem 0}
+  .hit .t small{font:600 .95rem Heebo,sans-serif;color:var(--ink2);margin-inline-start:.4rem}
+  .hit .m{font-size:.86rem;color:var(--ink2);margin-top:.4rem}.hit .m b{color:var(--ink)}
+  .none{color:var(--ink2);background:var(--paper);border-radius:14px;padding:.9rem 1rem;font-size:.95rem}
+  .foot{color:rgba(248,244,234,.55);font-size:.76rem;margin-top:1.2rem}
+  /* the poster */
+  .poster{width:100%;max-width:560px;background:#fff;border-radius:22px;padding:2rem 1.6rem;text-align:center;color:var(--ink)}
+  .poster h1{font-size:2rem}.poster .sub{font-size:1.05rem}
+  .poster .qr{display:inline-block;padding:14px;background:#fff;border:2px solid var(--pine);border-radius:18px;margin:1rem 0}
+  .poster .how{display:grid;gap:.5rem;text-align:right;max-width:380px;margin:.6rem auto 0;font-size:1rem}
+  .poster .how span{display:flex;gap:.6rem;align-items:baseline}.poster .how i{font-style:normal;font-weight:700;color:var(--gold);min-width:1.3rem}
+  .poster .url{font-size:.78rem;color:var(--ink3);direction:ltr;margin-top:.8rem;word-break:break-all}
+  .pbar{display:flex;gap:.5rem;margin-bottom:.8rem}.pbar button{height:44px;font-size:.9rem;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3)}
+  @media print{body{background:#fff;padding:0;display:block}.brand,.pbar,.foot{display:none}.poster{max-width:none;box-shadow:none;padding:3cm 2cm}.poster h1{font-size:2.6rem}.poster .qr{transform:scale(1.25);margin:2.2rem 0}}
+</style>
+</head>
+<body>
+<div class="brand">ishur.io · אישורי הגעה</div>
+<div id="app" class="card"><p class="sub">טוען…</p></div>
+<div class="foot">הפרטים נשארים אצלכם. אנחנו לא שומרים מה חיפשתם.</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, app = document.getElementById('app');
+  var P = new URLSearchParams(location.search), tok = P.get('t') || '', poster = P.get('qr') === '1';
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function heDate(iso) { var d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }); }
+  function api(q) {
+    var body = { token: tok, q: q || '' }; if (window.IshurGuard) body = IshurGuard.stamp(body);
+    return fetch(CFG.endpoint('status').replace(/\/api\/status$/, '') + '/api/table-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.ok ? r.json() : null; });
+  }
+  if (!/^[0-9a-f-]{36}$/.test(tok)) { app.innerHTML = '<h1>הקישור לא תקין</h1><p class="sub">סרקו שוב את הברקוד בכניסה.</p>'; return; }
+  api('').then(function (d) {
+    if (!d || !d.ok) { app.innerHTML = '<h1>משהו השתבש</h1><p class="sub">נסו שוב בעוד רגע.</p>'; return; }
+    var ev = d.event, title = (ev.occasion ? ev.occasion + ' · ' : '') + ev.name;
+    document.title = 'איפה אני יושב/ת? · ' + ev.name;
+    if (poster) {
+      var link = 'https://ishur.io/table.html?t=' + tok;
+      app.className = 'poster';
+      app.innerHTML = '<h1>איפה אני יושב/ת?</h1><p class="sub">' + esc(title) + ' · ' + esc(heDate(ev.date)) + '</p><div class="qr" id="qr"></div>' +
+        '<div class="how"><span><i>1</i>סורקים את הברקוד עם המצלמה</span><span><i>2</i>מקלידים שם או טלפון</span><span><i>3</i>רואים את מספר השולחן ומי יושב איתכם</span></div>' +
+        '<div class="url">' + esc(link) + '</div>';
+      new QRCode(document.getElementById('qr'), { text: link, width: 220, height: 220, correctLevel: QRCode.CorrectLevel.M, colorDark: '#0F2E22' });
+      var bar = document.createElement('div'); bar.className = 'pbar';
+      bar.innerHTML = '<button type="button" id="pr">🖨 הדפסה / שמירה כ-PDF</button><button type="button" id="cp">העתקת הקישור</button>';
+      app.parentNode.insertBefore(bar, app);
+      document.getElementById('pr').addEventListener('click', function () { window.print(); });
+      document.getElementById('cp').addEventListener('click', function () { navigator.clipboard.writeText(link).then(function () { document.getElementById('cp').textContent = '✓ הועתק'; }); });
+      return;
+    }
+    app.innerHTML = '<h1>איפה אני יושב/ת?</h1><p class="sub">' + esc(title) + '</p>' +
+      '<label for="q">שם מלא או מספר טלפון</label><div class="row"><input id="q" autocomplete="off" inputmode="text" placeholder="למשל: דנה כהן או 050…"><button type="button" id="go">חיפוש</button></div>' +
+      '<p class="hint">השם כמו שמופיע בהזמנה. אפשר גם רק שם משפחה.</p><div class="res" id="res"></div>';
+    var q = document.getElementById('q'), res = document.getElementById('res'), tmr = null;
+    function run() {
+      var v = q.value.trim(); if (v.length < 2) { res.innerHTML = ''; return; }
+      res.innerHTML = '<div class="none">מחפשים…</div>';
+      api(v).then(function (r) {
+        var m = (r && r.matches) || [];
+        if (!m.length) { res.innerHTML = '<div class="none">לא מצאנו "' + esc(v) + '". נסו שם משפחה בלבד, או את מספר הטלפון שאליו הגיעה ההזמנה. אפשר גם לפנות לדיילת בכניסה 🙂</div>'; return; }
+        res.innerHTML = m.map(function (h) {
+          var tbl = /^שולחן/.test(h.table) ? h.table : 'שולחן ' + h.table;
+          return '<div class="hit"><div class="n">' + esc(h.name) + '</div><div class="t">' + esc(tbl) + (h.seats > 1 ? '<small>' + h.seats + ' מקומות</small>' : '') + '</div>' +
+            (h.mates.length ? '<div class="m"><b>יושבים איתכם:</b> ' + h.mates.map(esc).join(' · ') + '</div>' : '') + '</div>';
+        }).join('');
+      });
+    }
+    document.getElementById('go').addEventListener('click', run);
+    q.addEventListener('keydown', function (e) { if (e.key === 'Enter') run(); });
+    q.addEventListener('input', function () { clearTimeout(tmr); tmr = setTimeout(run, 450); });
+    q.focus();
+  });
+})();
+</script>
+</body>
+</html>

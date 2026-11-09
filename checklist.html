@@ -48,6 +48,7 @@
   <label><input type="checkbox" id="onlyComing" checked> רק מגיעים</label>
   <label><input type="checkbox" id="withMaybe"> גם מתלבטים</label>
   <select id="group"><option value="table">לפי שולחן</option><option value="name">לפי א-ב</option></select>
+  <a id="qr" href="#" target="_blank" rel="noopener">📱 ברקוד שולחנות</a>
   <a id="back" href="#">‹ ללוח הבקרה</a>
   <button type="button" class="p" id="print">🖨 הדפסה / שמירה כ-PDF</button>
 </div>
@@ -57,6 +58,7 @@
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var tok = new URLSearchParams(location.search).get('t') || '';
   $('back').href = 'dashboard.html?t=' + encodeURIComponent(tok);
+  $('qr').href = 'table.html?qr=1&t=' + encodeURIComponent(tok);
   if (!/^[0-9a-f-]{36}$/.test(tok)) { $('sheet').innerHTML = '<div class="empty">הקישור לא תקין. פתחו את הרשימה מתוך לוח הבקרה של האירוע.</div>'; return; }
   var data = null;
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
