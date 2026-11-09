@@ -12,6 +12,8 @@
 <!-- brand fonts load without blocking first paint (system stack until they arrive) -->
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" media="print" onload="this.media='all'">
 <link rel="stylesheet" href="assets/ops/ops.css?v=4">
+<style>html.embed .nav,html.embed .side,html.embed .tabbar{display:none!important}html.embed .shell,html.embed .shell.side-off{grid-template-columns:minmax(0,1fr);grid-template-areas:"top" "main"}html.embed .main{padding:16px 18px 48px}</style>
+<script>if(/[?&]embed=1/.test(location.search))document.documentElement.classList.add('embed')</script>
 <link rel="modulepreload" href="assets/ops/ui.js">
 <link rel="modulepreload" href="assets/ops/adapt.js">
 <link rel="modulepreload" href="assets/ops/screens/overview.js">

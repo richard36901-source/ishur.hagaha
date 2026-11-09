@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>מרכז הבקרה · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<script>try{var t=localStorage.getItem('ishur_theme');if(t==='dark'||t==='light')document.documentElement.dataset.theme=t}catch(e){}</script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/ops/ops.css?v=4">
+<style>
+  /* 09/11 (Richard): one page, everything as tabs, the bar on TOP (not a side nav), the ops look, the live log on the side.
+     Every tab is an existing page in a frame (?embed=1 hides its own bar) — nothing is rebuilt, everything loads only when opened. */
+  html,body{height:100%;overflow:hidden}
+  body{font:15px/1.5 var(--font-body);background:var(--bg-2);color:var(--ink);-webkit-font-smoothing:antialiased}
+  .hq{display:grid;height:100dvh;grid-template-rows:auto auto minmax(0,1fr);grid-template-columns:minmax(0,1fr) var(--side-w,340px);grid-template-areas:"top top" "tabs tabs" "main side"}
+  .hq.side-off{grid-template-columns:minmax(0,1fr) 0}
+  .top{grid-area:top;background:radial-gradient(120% 80% at 100% 0,var(--pine-lift),var(--pine) 55%,var(--pine-deep));color:var(--paper);display:flex;align-items:center;gap:14px;padding:0 18px;height:52px}
+  .top .brand{font:700 20px var(--font-display);color:#fff;letter-spacing:.2px}.top .brand i{color:var(--gold-soft);font-style:normal}
+  .top .sub{font-size:12px;color:rgba(248,244,234,.65)}
+  .top .sp{flex:1}
+  .top .live{display:flex;align-items:center;gap:6px;font-size:12px;color:rgba(248,244,234,.8)}.top .live .dot{width:8px;height:8px;border-radius:50%;background:#7BC9A4;box-shadow:0 0 0 0 rgba(123,201,164,.6);animation:pulse 2s infinite}
+  @keyframes pulse{0%{box-shadow:0 0 0 0 rgba(123,201,164,.6)}70%{box-shadow:0 0 0 8px rgba(123,201,164,0)}100%{box-shadow:0 0 0 0 rgba(123,201,164,0)}}
+  .top button,.top a.btn{font:inherit;font-size:12px;border:1px solid rgba(255,255,255,.22);background:rgba(255,255,255,.06);color:#fff;border-radius:var(--radius-pill);padding:5px 11px;cursor:pointer;text-decoration:none}
+  .top button:hover,.top a.btn:hover{background:rgba(255,255,255,.14)}
+  .tabs{grid-area:tabs;display:flex;gap:2px;padding:6px 12px 0;background:var(--surface);border-bottom:1px solid var(--border);overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tabs a{flex:none;display:flex;align-items:center;gap:7px;padding:9px 13px;border-radius:var(--radius-md) var(--radius-md) 0 0;color:var(--ink-2);text-decoration:none;font-weight:500;font-size:14px;border-bottom:2px solid transparent;white-space:nowrap}
+  .tabs a:hover{background:var(--hover);color:var(--ink)}
+  .tabs a[aria-current=page]{color:var(--green);border-bottom-color:var(--green);font-weight:600;background:var(--green-wash)}
+  .tabs a .cnt{min-width:18px;height:18px;padding:0 5px;border-radius:var(--radius-xs);background:var(--gold-soft);color:var(--pine-deep);font:600 11px var(--font-num);display:grid;place-items:center}
+  .tabs .sep{width:1px;background:var(--border);margin:8px 6px}
+  .main{grid-area:main;position:relative;min-width:0;background:var(--bg-2)}
+  .main iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:transparent;opacity:0;transition:opacity .18s}
+  .main iframe.on{opacity:1}
+  .main .ld{position:absolute;inset:0;display:grid;place-items:center;color:var(--ink-3);font-size:14px;pointer-events:none}
+  .side{grid-area:side;border-inline-start:1px solid var(--border);background:var(--surface);display:flex;flex-direction:column;min-width:0;overflow:hidden}
+  .side-h{display:flex;align-items:center;gap:8px;padding:10px 14px;border-bottom:1px solid var(--border);font-weight:600;font-size:14px}
+  .side-h .dot{width:8px;height:8px;border-radius:50%;background:var(--green)}
+  .side-h a{margin-inline-start:auto;font-size:12px;color:var(--ink-3);text-decoration:none}.side-h a:hover{color:var(--green)}
+  .side iframe{flex:1;border:0;width:100%}
+  .hq.side-off .side{display:none}
+  @media (max-width:980px){.hq{grid-template-columns:minmax(0,1fr) 0}.side{display:none}.top .sub{display:none}}
+</style>
+</head>
+<body>
+<div class="hq" id="hq">
+  <header class="top">
+    <span class="brand">ishur<i>.io</i> · מרכז הבקרה</span>
+    <span class="sub" id="today"></span>
+    <span class="sp"></span>
+    <span class="live"><span class="dot"></span><span id="clock"></span></span>
+    <button type="button" id="sideTog" title="לוג חי">לוג חי</button>
+    <button type="button" id="theme" title="מצב כהה">◐</button>
+    <a class="btn" href="ops.html">ops</a>
+    <a class="btn" href="https://docs.google.com/spreadsheets/d/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/edit#gid=1641117145" target="_blank" rel="noopener">האקסל</a>
+  </header>
+  <nav class="tabs" id="tabs" aria-label="לשוניות">
+    <a href="#home" data-t="home">היום והשבוע</a>
+    <a href="#sends" data-t="sends">לוח שליחות</a>
+    <a href="#calls" data-t="calls">מוקד שיחות</a>
+    <a href="#floor" data-t="floor">מוקד</a>
+    <span class="sep"></span>
+    <a href="#leads" data-t="leads">לידים<span class="cnt" id="c-leads" hidden></span></a>
+    <a href="#clients" data-t="clients">לקוחות</a>
+    <a href="#inbox" data-t="inbox">אינבוקס</a>
+    <span class="sep"></span>
+    <a href="#finance" data-t="finance">כספים</a>
+    <a href="#campaign" data-t="campaign">דוח קמפיין</a>
+    <a href="#automations" data-t="automations">אוטומציות</a>
+    <a href="#brain" data-t="brain">המוח</a>
+    <a href="#control" data-t="control">שליטה</a>
+  </nav>
+  <main class="main" id="main"><div class="ld" id="ld">טוען…</div></main>
+  <aside class="side" id="side" aria-label="לוג חי">
+    <div class="side-h"><span class="dot"></span>לוג חי<a href="live.html" target="_blank" rel="noopener">מסך מלא ›</a></div>
+    <iframe id="sideFrame" title="לוג חי" loading="lazy"></iframe>
+  </aside>
+</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  /* every tab = a page + what it needs to hide its own bar (embed=1) */
+  var PAGES = {
+    home: 'admin.html?embed=1', sends: 'calendar.html?embed=1', calls: 'admin.html?embed=1&view=calls', floor: 'floor.html?embed=1',
+    leads: 'leads.html?embed=1', clients: 'clients.html?embed=1', inbox: 'inbox.html?embed=1',
+    finance: 'ops.html?embed=1#/finance', campaign: 'ad-report.html?embed=1', automations: 'automations.html?embed=1', brain: 'brain.html?embed=1', control: 'admin.html?embed=1&view=ctl'
+  };
+  var frames = {}, cur = '';
+  function show(t) {
+    if (!PAGES[t]) t = 'home';
+    cur = t;
+    document.querySelectorAll('.tabs a').forEach(function (a) { if (a.dataset.t === t) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+    Object.keys(frames).forEach(function (k) { frames[k].classList.toggle('on', k === t); });
+    if (!frames[t]) {
+      $('ld').style.display = 'grid';
+      var f = document.createElement('iframe'); f.title = t; f.src = PAGES[t];
+      f.addEventListener('load', function () { f.classList.add('on'); $('ld').style.display = 'none'; });
+      frames[t] = f; $('main').appendChild(f);
+    } else $('ld').style.display = 'none';
+    try { localStorage.setItem('hq_tab', t); } catch (e) {}
+    document.title = (document.querySelector('.tabs a[data-t="' + t + '"]') || {}).textContent + ' · מרכז הבקרה · ishur.io';
+  }
+  function route() { var h = location.hash.replace(/^#/, ''); show(h || (function () { try { return localStorage.getItem('hq_tab'); } catch (e) { return ''; } })() || 'home'); }
+  window.addEventListener('hashchange', route);
+  /* a sub-page asks to switch tab (postMessage {tab}) — e.g. the week board's "למוקד השיחות" */
+  window.addEventListener('message', function (e) { if (e.origin === location.origin && e.data && e.data.tab && PAGES[e.data.tab]) location.hash = e.data.tab; });
+  /* the side log */
+  var sideOff = false; try { sideOff = localStorage.getItem('hq_side') === 'off'; } catch (e) {}
+  function side() { $('hq').classList.toggle('side-off', sideOff); if (!sideOff && !$('sideFrame').src) $('sideFrame').src = 'live.html?embed=1&compact=1'; try { localStorage.setItem('hq_side', sideOff ? 'off' : 'on'); } catch (e) {} }
+  $('sideTog').addEventListener('click', function () { sideOff = !sideOff; side(); });
+  $('theme').addEventListener('click', function () { var d = document.documentElement.dataset.theme === 'dark'; document.documentElement.dataset.theme = d ? 'light' : 'dark'; try { localStorage.setItem('ishur_theme', d ? 'light' : 'dark'); } catch (e) {} Object.keys(frames).forEach(function (k) { try { frames[k].contentDocument.documentElement.dataset.theme = d ? 'light' : 'dark'; } catch (x) {} }); });
+  function clock() { var n = new Date(); $('clock').textContent = n.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
+  $('today').textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+  clock(); setInterval(clock, 30000);
+  /* new-leads badge on the tab (same call the home strip makes) */
+  function leadsBadge() {
+    var key = ''; try { key = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+    if (!key || !window.ISHUR_CONFIG) return;
+    var base = ISHUR_CONFIG.endpoint('status').replace(/\/api\/status$/, '');
+    var body = { admin_key: key }; if (window.IshurGuard) body = IshurGuard.stamp(body);
+    fetch(base + '/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      var n = d && d.counts && d.counts['חדש'] || 0; var el = $('c-leads'); el.hidden = !n; el.textContent = n;
+    }).catch(function () {});
+  }
+  side(); route(); leadsBadge(); setInterval(leadsBadge, 120000);
+})();
+</script>
+<script src="config.js?v=72"></script>
+<script src="assets/guard.js?v=19"></script>
+</body>
+</html>

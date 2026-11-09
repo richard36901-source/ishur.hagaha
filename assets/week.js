@@ -26,6 +26,10 @@
     '.wk-s{display:block;font-size:.7rem;margin-top:.1rem}.wk-s.ok{color:var(--wk-ok)}.wk-s.bad{color:var(--wk-bad)}.wk-s.wait{color:var(--wk-wait)}.wk-s.mute{color:var(--wk-mute)}' +
     '.wk-evb{font:inherit;font-weight:600;font-size:.82rem;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:right;text-decoration:underline;text-decoration-color:var(--line,#E3E1D8);text-underline-offset:3px}.wk-evb:hover{text-decoration-color:var(--gold,#A8853C)}' +
     '.wk-live{font-size:.68rem;color:var(--wk-ok);margin-top:.2rem;font-variant-numeric:tabular-nums}' +
+    '.wk-it.pend{animation:wkblink 1.6s ease-in-out infinite}@keyframes wkblink{0%,100%{opacity:1}50%{opacity:.38}}' +
+    '.wk-nav{display:flex;align-items:center;gap:.6rem;margin:0 0 .6rem}.wk-nav b{font-size:.95rem}.wk-nav span{font-size:.76rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
+    '.wk-arr{font:inherit;width:30px;height:30px;border-radius:50%;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
+    '.wk-ev.done{background:rgba(46,125,91,.09);border-color:rgba(46,125,91,.35)}html[data-theme=dark] .wk-ev.done{background:rgba(123,201,164,.12)}' +
     '.wk-evs{font-size:.68rem;color:var(--wk-mute);margin-top:.1rem}' +
     '.wk-ev[draggable=true],.wk-it[draggable=true]{cursor:grab}.wk-drag{opacity:.45}.wk-day.drop{box-shadow:inset 0 0 0 2px var(--wk-ok)}.wk-ev.drop{box-shadow:0 -3px 0 var(--wk-ok)}' +
     '.wk-toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--ink,#1B2420);color:var(--card,#fff);padding:.55rem 1rem;border-radius:10px;font-size:.84rem;z-index:96}' +
@@ -70,11 +74,40 @@
       var base = (w && w.ok) ? w : m, by = {};
       [m, w].forEach(function (p) { if (p && p.ok) (p.days || []).forEach(function (d) { by[d.day] = d; }); });
       var today = base.today;
-      var days = Object.keys(by).sort().filter(function (d) { return d >= today; }).slice(0, 7).map(function (d) { return by[d]; });
-      return { ok: true, at: base.at, today: today, days: days };
+      /* fixed Sunday..Saturday columns; weekOff pages the week (arrows / trackpad). Days the planner has no data for are rendered empty. */
+      var t = new Date(today + 'T12:00:00Z'); var sun = new Date(t.getTime() - t.getUTCDay() * 864e5 + weekOff * 7 * 864e5);
+      var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+      var days = [];
+      for (var i = 0; i < 7; i++) { var iso = new Date(sun.getTime() + i * 864e5).toISOString().slice(0, 10); days.push(by[iso] || { day: iso, dow_he: DOW[i], past: iso < today, today: iso === today, future: iso > today, items: [], capacity: null, nodata: true }); }
+      return { ok: true, at: base.at, today: today, days: days, range: [days[0].day, days[6].day] };
     });
   }
-  var info = {}, live = null;
+  var info = {}, live = null, weekOff = 0;
+  /* 09/11 (Richard): a dragged wave jumps to the new day at once and blinks dimmed until the planner confirms it; then it settles */
+  var pend = {}; try { pend = JSON.parse(localStorage.getItem('wk_pend') || '{}'); } catch (e) {}
+  function pendSave() { try { localStorage.setItem('wk_pend', JSON.stringify(pend)); } catch (e) {} }
+  function applyPending() {
+    if (!plan) return;
+    var byDay = {}; (plan.days || []).forEach(function (d) { byDay[d.day] = d; });
+    Object.keys(pend).forEach(function (k) {
+      var pm = pend[k], p = k.split('|'), tok = p[0], type = p[1];
+      if (Date.now() - pm.at > 36e5) { delete pend[k]; return; }   /* an hour old: give up */
+      var confirmed = false, src = null;
+      (plan.days || []).forEach(function (d) {
+        d.items = (d.items || []).filter(function (it) {
+          if (!(it.kind === 'send' && it.type === type && it.event && it.event.tok8 === tok && it.status !== 'done')) return true;
+          if (d.day === pm.date) { confirmed = true; return true; }
+          src = it; return false;   /* lift it off the old day */
+        });
+      });
+      if (confirmed) { delete pend[k]; return; }
+      var tgt = byDay[pm.date]; if (!tgt) return;
+      var ghost = src ? Object.assign({}, src) : { kind: 'send', type: type, event: { tok8: tok, name: (info[tok] || {}).name || tok }, planned_n: pm.n || 0, done_n: 0, failed_n: 0, of: pm.of || null };
+      ghost.id = 'pend:' + k; ghost.day = pm.date; ghost.status = 'waiting'; ghost.reason_he = 'הועבר · ממתין לאישור המתכנן'; ghost._pend = true;
+      tgt.items.push(ghost);
+    });
+    pendSave();
+  }
   /* 09/11 (Richard: "שיהיה לייב ויתעדכן פעם בדקה"): /api/ops/realtime — today's sends per event per number, calls per event */
   function getLive() {
     return fetch(opt.base + '/api/ops/realtime', { headers: { 'x-admin-key': opt.key } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
@@ -103,6 +136,7 @@
       if (/hold|מוחזק/.test(r)) return { c: 'wait', t: 'מוחזק' };
       return { c: it.status === 'missed' ? 'bad' : 'wait', t: it.status === 'missed' ? (r || 'לא קרה') : 'ממתין' + (it.time_hm ? ' · ' + it.time_hm : '') };
     }
+    if (it._pend) return { c: 'wait', t: '↪ הועבר לכאן · מתעדכן…' };
     if (it._note) return { c: 'mute', t: it._note };
     if (it.status === 'done') return { c: 'ok', t: it.failed_n ? '✓ יצא · ' + it.failed_n + ' נכשלו' : '✓ יצא' };
     if (/hold|מוחזק/.test(r)) return { c: 'wait', t: '⏸ מוחזק' };
@@ -120,7 +154,7 @@
       if (it.kind === 'send' && it.type === 'reply') return false;
       /* 09/11 (Richard): an event that already happened gets nothing but the thank-you — the rest is cancelled, not shown */
       var e = it.event && info[it.event.tok8];
-      if (e && e.date && e.date < plan.today && it.type !== 'thanks') return false;
+      if (day.day >= plan.today && e && e.date && e.date < plan.today && it.type !== 'thanks') return false;
       return true;
     });
     /* Shir's round, projected: the morning after the last wave (board-event batch) — unless the planner already has it */
@@ -157,7 +191,9 @@
   function render() {
     if (!root) return;
     if (!plan) { root.innerHTML = '<div class="wk-empty">לא הצלחתי לטעון את השבוע. רענון בעוד רגע.</div>'; return; }
-    var html = '<div class="wk-grid">';
+    var lbl = weekOff === 0 ? 'השבוע' : weekOff === -1 ? 'שבוע שעבר' : weekOff === 1 ? 'שבוע הבא' : (weekOff < 0 ? 'לפני ' + (-weekOff) + ' שבועות' : 'בעוד ' + weekOff + ' שבועות');
+    var html = '<div class="wk-nav"><button type="button" class="wk-arr" data-w="-1" aria-label="שבוע קודם">›</button><b>' + esc(lbl) + '</b><span>' + esc(dm(plan.range[0]) + ' – ' + dm(plan.range[1])) + '</span>' + (weekOff ? '<button type="button" class="wk-arr txt" data-w="0">היום</button>' : '') + '<button type="button" class="wk-arr" data-w="1" aria-label="שבוע הבא">‹</button></div>';
+    html += '<div class="wk-grid">';
     (plan.days || []).forEach(function (day, di) {
       var cls = 'wk-day' + (day.today ? ' today' : '') + (day.past ? ' past' : '');
       html += '<section data-day="' + esc(day.day) + '" class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
@@ -165,12 +201,14 @@
       if (day.today && live && live.cap && live.cap.limit) html += '<div class="wk-cap">● עכשיו: ' + num(live.cap.used) + ' מתוך ' + num(live.cap.limit) + ' יצאו ב-24 שעות · נשארו ' + num(live.cap.remaining) + '</div>';
       else if (cap && cap.capacity) html += '<div class="wk-cap' + (cap.overflow > 0 ? ' over' : '') + '">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + (cap.overflow > 0 ? ' · ' + num(cap.overflow) + ' עוברות למחר' : '') + '</div>';
       var gs = dayItems(day);
-      if (!gs.length) html += '<div class="wk-empty">אין שליחות</div>';
+      if (!gs.length) html += '<div class="wk-empty">' + (day.nodata && !day.future ? 'אין נתונים ליום הזה' : 'אין שליחות') + '</div>';
       gs.forEach(function (g) {
         var e = info[g.tok8] || {};
         var title = g.key === 'leads' ? 'לידים · נועה' : (e.occasion ? e.occasion + ' · ' : '') + (e.name || g.name);
         var sub = g.key === 'leads' ? '' : [e.client && e.client !== e.name ? e.client : '', e.date ? 'אירוע ' + dm(e.date) : ''].filter(Boolean).join(' · ');
-        html += '<div class="wk-ev"' + (g.tok8 ? ' draggable="true" data-tok="' + esc(g.tok8) + '" data-d="' + di + '"' : '') + '><div class="wk-evn">' +
+        /* 09/11 (Richard): everything on the card finished → a soft green card, "זהו, תקין" */
+        var allDone = g.items.length && g.items.every(function (it) { return it.status === 'done' || it._note; });
+        html += '<div class="wk-ev' + (allDone ? ' done' : '') + '"' + (g.tok8 ? ' draggable="true" data-tok="' + esc(g.tok8) + '" data-d="' + di + '"' : '') + '><div class="wk-evn">' +
           (g.tok8 ? '<button type="button" class="wk-evb" data-tok="' + esc(g.tok8) + '">' + esc(title) + '</button>' : esc(title)) + (g.today ? '<em>האירוע היום</em>' : '') + '</div>' +
           (sub ? '<div class="wk-evs">' + esc(sub) + '</div>' : '') +
           (day.today && live && g.tok8 && (live.sent[g.tok8] || live.calls[g.tok8]) ? '<div class="wk-live">● עכשיו: ' + [live.sent[g.tok8] ? num(live.sent[g.tok8]) + ' הודעות יצאו היום' : '', live.calls[g.tok8] ? num(live.calls[g.tok8].dialed || 0) + ' חויגו · ' + num(live.calls[g.tok8].queued || 0) + ' בתור לשיחה' : ''].filter(Boolean).join(' · ') + '</div>' : '');
@@ -183,7 +221,7 @@
               ? '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0)) + '<br><span class="wk-t">כל הגל: ' + num(it.total_sent) + ' מתוך ' + num(it.of) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</span>'
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
-          html += '<button type="button" class="wk-it"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
         });
         html += '</div>';
       });
@@ -303,11 +341,15 @@
       if (!drag) return; e.preventDefault(); var d = drag;
       if (d.kind === 'move') {
         var day = e.target.closest('.wk-day'); if (!day) return; var date = day.dataset.day, p = d.key.split('|'), en = info[p[0]] || {};
-        if (!confirm('להעביר את ' + (SHORT[p[1]] || p[1]) + ' של ' + (en.name || p[0]) + ' ל-' + dm(date) + '?')) return;
+        var key = p[0] + '|' + p[1], id = d.el.dataset.id, srcIt = null;
+        (plan.days || []).forEach(function (dd) { (dd.items || []).forEach(function (it) { if (it.id === id) srcIt = it; }); });
+        if (srcIt && srcIt.day === date) return;
+        pend[key] = { date: date, at: Date.now(), n: srcIt ? srcIt.planned_n : 0, of: srcIt ? srcIt.of : null }; pendSave();
+        applyPending(); render();
         post('board-move', { tok8: p[0], type: p[1], date: date }).then(function (r) {
           var ERR = { 'after-event': 'אחרי תאריך האירוע', 'date-in-past': 'תאריך שעבר', shabbat: 'שבת', 'out-of-order': 'הסדר בין הגלים נשבר (גל 1 לפני גל 2)', 'already-sent': 'הגל כבר יצא', 'extra-not-paid': 'שליחה נוספת לא שולמה' };
-          if (r && r.ok) { toast('הועבר ל-' + dm(date) + '. הלוח יתעדכן בסבב הבא (עד 10 דקות)'); }
-          else toast('לא הועבר: ' + (r && ERR[r.error] || (r && r.error) || 'שגיאה'));
+          if (r && r.ok) { toast((SHORT[p[1]] || p[1]) + ' של ' + (en.name || p[0]) + ' הועבר ל-' + dm(date)); }
+          else { delete pend[key]; pendSave(); toast('לא הועבר: ' + (r && ERR[r.error] || (r && r.error) || 'שגיאה')); load(); }
         });
       } else {
         var tgt = e.target.closest('.wk-ev[data-tok]'); if (!tgt || tgt.dataset.tok === d.tok) return;
@@ -320,7 +362,7 @@
       }
     });
   }
-  function load() { return Promise.all([getPlan().then(function (p) { if (p && p.ok) plan = p; return plan ? loadInfo() : null; }), getLive()]).then(render, render); }
+  function load() { return Promise.all([getPlan().then(function (p) { if (p && p.ok) plan = p; return plan ? loadInfo() : null; }), getLive()]).then(function () { applyPending(); render(); }, render); }
   var timer = null;
 
   window.IshurWeek = {
@@ -332,6 +374,14 @@
         root.dataset.wired = '1';
         root.addEventListener('click', function (e) { var n = e.target.closest('.wk-evb'); if (n) { openEvent(n.dataset.tok); return; } var b = e.target.closest('.wk-it'); if (b) open(Number(b.dataset.d), b.dataset.id); });
         wireDnd();
+        root.addEventListener('click', function (e) { var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w); weekOff = w === 0 ? 0 : weekOff + w; load(); });
+        /* trackpad: a horizontal swipe pages the week (RTL: swipe toward the left = earlier) */
+        var wheelAcc = 0, wheelAt = 0;
+        root.addEventListener('wheel', function (e) {
+          if (Math.abs(e.deltaX) < Math.abs(e.deltaY) * 1.5) return;
+          var now = Date.now(); if (now - wheelAt > 400) wheelAcc = 0; wheelAt = now; wheelAcc += e.deltaX;
+          if (Math.abs(wheelAcc) > 140) { weekOff += wheelAcc > 0 ? -1 : 1; wheelAcc = 0; e.preventDefault(); load(); }
+        }, { passive: false });
         root.innerHTML = '<div class="wk-empty">טוען את השבוע…</div>';
       }
       boards = {};

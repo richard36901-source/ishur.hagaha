@@ -10,14 +10,14 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=72"></script>
 <script src="assets/ux.js?v=4"></script>
-<script src="assets/adminbar.js?v=15" defer></script>
+<script src="assets/adminbar.js?v=16" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/paylink-gen.js?v=2"></script>
 <script src="assets/playbook.js?v=2"></script>
 <script src="assets/sendboard.js?v=3"></script>
 <script src="assets/callboard.js?v=1"></script>
 <script src="assets/callslog.js?v=1"></script>
-<script src="assets/week.js?v=5"></script>
+<script src="assets/week.js?v=8"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -493,6 +493,9 @@
 
   /* the calls view: one page, two faces */
   body[data-view="main"] .sec-calls{display:none}
+  body[data-view="ctl"] #main > :not(#ctl){display:none !important}
+  html.embed .wrap{padding-top:.6rem}html.embed #hello,html.embed #today{display:none}
+  details.plfold summary{cursor:pointer;font-weight:600;list-style:none;display:flex;gap:.5rem;align-items:center}details.plfold summary::before{content:"+";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--pine);color:#fff;font-size:1rem}details.plfold[open] summary::before{content:"–"}details.plfold .linkcard{margin-top:.6rem}
   /* 09/11 Richard: "תעיף כל מה שמיותר" — the main view is the top + the week + links + שליטה */
   body[data-view="main"] #main > :not(#hqtop):not(.sec-calls):not(#ctl){display:none !important}
   .strip2{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
@@ -571,8 +574,7 @@
     <div class="todo" id="todo" hidden></div>
     <h2>השבוע · מה יוצא, לאיזה אירוע, ומה נדחה <a href="calendar.html">לוח מלא ›</a></h2>
     <div id="week"></div>
-    <h2>יצירת קישור תשלום</h2>
-    <div class="linkcard"><div id="pl-gen"></div></div>
+    <details class="plfold"><summary>קישור תשלום חדש</summary><div class="linkcard"><div id="pl-gen"></div></div></details>
     <nav class="quick">
       <a href="leads.html">לידים</a><a href="inbox.html">אינבוקס</a><a href="clients.html">לקוחות</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="calendar.html">לוח שליחות</a>
     </nav>
@@ -1047,8 +1049,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var adminKey = '';
 
-  var VIEW = new URLSearchParams(location.search).get('view') === 'calls' ? 'calls' : 'main';
+  var VIEW = { calls: 'calls', ctl: 'ctl' }[new URLSearchParams(location.search).get('view')] || 'main';
   document.body.dataset.view = VIEW;
+  if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
   if (VIEW === 'calls') document.title = 'מוקד שיחות · ishur.io';
   var UNIFIED = VIEW === 'calls' && !new URLSearchParams(location.search).get('old');
   if (UNIFIED) document.body.classList.add('unified');

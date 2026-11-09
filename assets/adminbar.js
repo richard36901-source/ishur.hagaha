@@ -30,7 +30,7 @@
 
   var INTERNAL = [
     { href: 'live.html', label: 'לוג חי', icon: ic.ops },
-    { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
+    { href: 'center.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
     { href: 'leads.html', label: 'לידים', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
@@ -155,6 +155,8 @@
   }
 
   function mount() {
+    /* 09/11: inside center.html every page is a tab — the shell has the bar, the frame must not repeat it */
+    if (/[?&]embed=1/.test(location.search)) return;
     syncKey();
     var style = document.createElement('style');
     style.textContent = css;

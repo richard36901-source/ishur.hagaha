@@ -9084,7 +9084,8 @@ async function handleSendDate(request, env, origin) {
     3: String(ev[41] || '').trim().slice(0, 10),
   };
   others[spec.n] = date;
-  const seq = [others[1], others[2], others[3]].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d));
+  /* 09/11: only dates still ahead constrain the order — a stale past date (גיל: wave 3 = 18/10) must not block moving wave 2 */
+  const seq = [others[1], others[2], others[3]].filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d) && d >= today);
   for (let i = 1; i < seq.length; i++) if (seq[i] <= seq[i - 1]) return deny(422, 'out-of-order', origin);
 
   const row = idx + 2; // values start at A2
