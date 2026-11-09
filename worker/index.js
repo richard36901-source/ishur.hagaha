@@ -7999,7 +7999,8 @@ async function handleVoiceTools(request, env, origin) {
     const tools = noaTools(env, key);
     const patch = { general_tools: tools };
     /* gpt-4o-mini was the live model on both Noa agents (22/09) — weak at Hebrew reasoning and at calling tools, part of why she deflected instead of transferring */
-    if (body.model) patch.model = String(body.model);
+    /* 09/11 Retell deprecation notice: `model` moved into model_config (legacy field removed 31/01/2027) */
+    if (body.model) patch.model_config = { model: String(body.model) };
     const applied = await retellApi(env, '/update-retell-llm/' + llm, 'PATCH', patch);
     if (!applied) return deny(502, 'retell-write-failed', origin);
     /* 09/11 Richard: "לוקח לה הרבה זמן עד שהיא קולטת" — answer fast, yield fast when interrupted */
