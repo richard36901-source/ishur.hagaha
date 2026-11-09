@@ -94,6 +94,7 @@ export async function runGuard(watch, deps) {
     const alt = await deps.kv.get(ALT_PREFIX + name);
     let st = null; try { st = JSON.parse((await deps.kv.get(GUARD_PREFIX + name)) || 'null'); } catch {}
     if (!why) {
+      if (st && st.stuck && !alt) await deps.kv.delete(GUARD_PREFIX + name);   /* healthy again → a later break alerts again */
       if (alt && isGood(t)) {
         await deps.kv.delete(ALT_PREFIX + name); await deps.kv.delete(GUARD_PREFIX + name);
         await deps.notify(`✅ התבנית *${name}* תקינה שוב (UTILITY) — חוזרים אליה.`, { key: 'tg_back:' + name });
@@ -125,6 +126,9 @@ export async function runGuard(watch, deps) {
       break;
     }
     if (!payload || level > MAX_LEVEL) {
+      /* 09/11: say it once per template and reason, not every hour (49 repeats in the notification center) */
+      if (st && st.stuck === why) { report.push({ name, why, action: 'stuck' }); continue; }
+      await deps.kv.put(GUARD_PREFIX + name, JSON.stringify({ ...(st || {}), stuck: why, at: new Date().toISOString() }));
       await deps.notify(`🚨 התבנית *${name}* לא תקינה (${why}) ואין נוסח חלופי שאפשר להגיש אוטומטית${source ? ' (נוסו ' + MAX_LEVEL + ' רמות)' : ''}. צריך טיפול ידני.`, { key: 'tg_stuck:' + name, sev: 'P1' });
       report.push({ name, why, action: 'stuck' }); continue;
     }

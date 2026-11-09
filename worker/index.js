@@ -6891,7 +6891,7 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
 
   /* the doctor: looks at what this tick produced, fixes what it can, and
      shouts once a day about what it cannot. Never throws into the pacer. */
-  try { out.doctor = await step('doctor', () => runDoctor(env, out, sendWin, callWin)); } catch (e) { out.doctor = { ok: false, why: String(e && e.message) }; }
+  try { out.doctor = await step('doctor', () => runDoctor(env, out, sendWin, callWindowState())); }   /* 09/11: callWin moved to pacerCalls on 04/11 → ReferenceError every pacer run */ catch (e) { out.doctor = { ok: false, why: String(e && e.message) }; }
 
   /* a heartbeat worth having: "the pacer is alive" is otherwise invisible
      until the day somebody notices nothing went out */

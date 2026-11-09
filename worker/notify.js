@@ -200,7 +200,7 @@ export const evaluate = {
     const out = [];
     for (const r of rows || []) {
       if (r.kind === 'deploy') out.push({ rule: 'deploy', entity: 'chg:' + r.id, at: r.at, title_he: `גרסה חדשה עלתה: ${String(r.summary_he || '').slice(0, 120)}`, deep_link: '#/changes?focus=' + r.id });
-      else if (r.kind === 'template') { const rej = /דח|reject|paused|disabled/i.test(r.summary_he || '') || /REJECT/i.test(JSON.stringify(r.details || {}));
+      else if (r.kind === 'template') { const rej = !/→\s*APPROVED/i.test(r.summary_he || '') && (/דח|reject|paused|disabled/i.test(r.summary_he || '') || /REJECT/i.test(JSON.stringify(r.details || {})));   /* 09/11: 'PENDING → APPROVED' was titled 'נדחתה' */
         out.push({ rule: 'template_status', severity: rej ? 'P1' : 'P2', entity: 'chg:' + r.id, at: r.at, title_he: `${rej ? 'תבנית נדחתה' : 'עדכון תבנית'}: ${String(r.summary_he || '').slice(0, 120)}${rej ? '. לתקן נוסח ולהגיש שוב.' : ''}`, deep_link: '#/changes?focus=' + r.id }); }
       else if (r.kind === 'brain' && r.actor === 'brain') out.push({ rule: 'brain_autofix', entity: 'chg:' + r.id, at: r.at, title_he: `המוח תיקן לבד: ${String(r.summary_he || '').slice(0, 140)}. אין צורך לעשות כלום.`, body_he: (r.details && (r.details.why || r.details.did)) ? String(r.details.why || r.details.did).slice(0, 400) : '', deep_link: '#/brain' });
     }
