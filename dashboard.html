@@ -669,6 +669,12 @@
     </div>
   </section>
 
+  <!-- 09/11: the event's extra question (bus) — who said yes -->
+  <section class="card" id="extraCard" hidden>
+    <div class="card-h" id="extraH">🚌 הסעה</div>
+    <div class="card-b" id="extraB" style="font-size:.92rem"></div>
+  </section>
+
   <!-- guests -->
   <section class="card">
     <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
@@ -1315,6 +1321,14 @@
     var ev = data.event || {};
     var t = data.totals || {};
 
+    (function () {
+      var x = data.extra, c = $('extraCard'); if (!c) return;
+      c.hidden = !x; if (!x) return;
+      var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (ch) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]; }); };
+      $('extraH').textContent = '🚌 ' + (x.label || 'הסעה') + ' · ' + (x.yes || []).length + ' אמרו כן' + (x.yes_seats ? ' (' + x.yes_seats + ' אנשים)' : '');
+      var rows = (x.yes || []).map(function (g) { return '<div style="display:flex;justify-content:space-between;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--bdr,#e5e7eb)"><span>' + esc(g.name || g.phone) + '</span><span style="color:#6b7280;direction:ltr">' + (g.seats ? g.seats + ' · ' : '') + esc(g.phone) + '</span></div>'; }).join('');
+      $('extraB').innerHTML = '<div style="color:#6b7280;margin-bottom:.4rem">' + esc(x.q) + '</div>' + (rows || '<div style="color:#6b7280">עוד אין תשובות. השאלה נשלחת לכל מי שמאשר הגעה ומוסר כמות.</div>') + (x.no ? '<div style="margin-top:.5rem;color:#6b7280">לא צריכים הסעה: ' + x.no + '</div>' : '');
+    })();
     var names = [ev.name1, ev.name2].filter(Boolean).join(' ו');
     $('title').textContent = names || 'האירוע שלכם';
     $('title').classList.remove('skel');

@@ -31,7 +31,7 @@ import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, bu
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
-import { sendCtaUrl, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
+import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
 import { fitBatch } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
@@ -3815,6 +3815,22 @@ async function handleWaWebhook(request, env, url) {
       continue;
     }
 
+    /* 09/11: the event's extra question (bus etc.) — answered by button or by a bare כן/לא.
+       Checked BEFORE rsvp parsing: a "לא" here must never turn into "לא מגיע". */
+    if (env.RATE && guest) {
+      const bid = String((msg.interactive && msg.interactive.button_reply && msg.interactive.button_reply.id) || '');
+      const xqWait = bid.startsWith('xq:') ? 'btn' : await env.RATE.get('awaitxq:' + guest.guest_id).catch(() => null);
+      if (xqWait) {
+        const ans = extraAnswerOf(textOf(parsed), bid);
+        if (ans) {
+          await env.RATE.put(`xqa:${guest.token}:${normPhone(from)}`, JSON.stringify({ a: ans, name: guest.name || '', at: new Date().toISOString() }), { metadata: { a: ans, name: String(guest.name || '').slice(0, 60) } });
+          await env.RATE.delete('awaitxq:' + guest.guest_id).catch(() => {});
+          await say(ans === 'כן' ? 'מעולה, רשמנו אתכם להסעה 🚌' : 'קיבלנו, תודה 🙏');
+          await logEvent(env, { area: 'ווצאפ', action: `שאלה נוספת (${xqWait === 'btn' ? 'כפתור' : 'טקסט'}): ${ans}`, ok: true, phone: from, token: guest.token }).catch(() => {});
+          continue;
+        }
+      }
+    }
     /* answering "how many of you?" — a bare number, but also "אנחנו 4",
        "נהיה שלושה" or "לבד", which people write far more often */
     if (env.RATE) {
@@ -3825,6 +3841,7 @@ async function handleWaWebhook(request, env, url) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
           if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) await askExtraQ(env, guest, from, sendCh);
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
         }
@@ -3846,6 +3863,7 @@ async function handleWaWebhook(request, env, url) {
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
         if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await askExtraQ(env, guest, from, sendCh);
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
@@ -3967,6 +3985,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
     if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+    if (saved) await askExtraQ(env, guest, from, sendCh);
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
   }
@@ -5279,6 +5298,34 @@ async function drainCallRounds(env, { dry = false, only = '' } = {}) {
     res.push({ token: token.slice(0, 8), flagged: n, ok: !!okw });
   }
   return { ok: true, jobs: res };
+}
+
+/* ══ extra question after the head count (Richard 09/11, Shoham: bus from Be'er Sheva) ══
+   extraq:<token> = {id, q, yes, no}. A guest who confirmed AND gave a head count gets the
+   question once, with two reply buttons. The answer lands in xqa:<token>:<phone>
+   {a:'כן'|'לא', name, seats, at}; the dashboard lists the "כן" side. */
+async function extraQOf(env, token) {
+  if (!env.RATE || !token) return null;
+  try { const q = JSON.parse((await env.RATE.get('extraq:' + token)) || 'null'); return q && q.id && q.q ? q : null; } catch { return null; }
+}
+async function askExtraQ(env, guest, from, sendCh) {
+  try {
+    const q = await extraQOf(env, guest && guest.token);
+    if (!q) return false;
+    if (await env.RATE.get(`xqa:${guest.token}:${normPhone(from)}`)) return false;
+    await env.RATE.put('awaitxq:' + guest.guest_id, q.id, { expirationTtl: 7 * 86400 });
+    await sendReplyButtons(env, from, q.q, [{ id: `xq:${q.id}:yes`, title: q.yes || 'כן 🚌' }, { id: `xq:${q.id}:no`, title: q.no || 'לא' }], sendCh, { who: 'שיר (מענה אוטומטי)' });
+    return true;
+  } catch { return false; }
+}
+export function extraAnswerOf(text, buttonId) {
+  const id = String(buttonId || '');
+  if (/^xq:[^:]+:yes$/.test(id)) return 'כן';
+  if (/^xq:[^:]+:no$/.test(id)) return 'לא';
+  const t = String(text || '').trim().replace(/[!.,🚌🙏🙂]/gu, '').trim();
+  if (/^(כן|כן כן|בטח|ברור|מעוניין|מעוניינת|מעוניינים|yes|כן תודה|כן בבקשה)$/i.test(t)) return 'כן';
+  if (/^(לא|לא תודה|לא צריך|לא מעוניין|לא מעוניינת|לא מעוניינים|no)$/i.test(t)) return 'לא';
+  return '';
 }
 
 /* ══ "כמה תהיו?" nudges (Richard 20/10) ═══════════════════════════════════
@@ -13003,6 +13050,23 @@ const WORKER = {
       }
       /* 04/11 Make burn: Make down → the last good copy, and the page can say so */
       { const si = snapInfo(raw); if (si && si.stale) snapshot.stale_since = si.stale_since; }
+      /* 09/11: the event's extra question (bus) — who said yes, for the client's board.
+         One list call; the answer rides in the key's metadata (no per-guest get). */
+      try {
+        const xq = await extraQOf(env, token);
+        if (xq && env.RATE) {
+          const l = await env.RATE.list({ prefix: `xqa:${token}:` });
+          const byPhone = new Map((snapshot.guests || []).map(g => [normPhone(g.phone || ''), g]));
+          const yes = []; let no = 0;
+          for (const k of l.keys || []) {
+            const m = k.metadata || {}; const ph = k.name.split(':').pop();
+            const g = byPhone.get(ph);
+            if (m.a === 'כן') yes.push({ name: (g && g.name) || m.name || '', phone: ph, seats: (g && g.seats) || 0 });
+            else if (m.a === 'לא') no++;
+          }
+          snapshot.extra = { label: xq.label || 'הסעה', q: xq.q, yes, yes_seats: yes.reduce((t, x) => t + (x.seats || 0), 0), no };
+        }
+      } catch {}
       return okJson(snapshot, origin);
     }
 

@@ -553,6 +553,11 @@ async function post(env, body, channel, ctx) {
 
 /* A real WhatsApp button (interactive CTA URL) inside the 24h window — what a
    guest sees as a tappable "הוספה ליומן" row, not a pasted link. */
+/* 09/11: up to 3 reply buttons ({id,title≤20}) inside an open 24h window — the event's extra question */
+export function sendReplyButtons(env, to, text, buttons, channel, ctx) {
+  return post(env, { to: normPhone(to), type: 'interactive',
+    interactive: { type: 'button', body: { text: String(text) }, action: { buttons: (buttons || []).slice(0, 3).map(b => ({ type: 'reply', reply: { id: String(b.id).slice(0, 256), title: String(b.title).slice(0, 20) } })) } } }, channel, ctx);
+}
 export function sendCtaUrl(env, to, text, label, url, channel, ctx) {
   return post(env, { to: normPhone(to), type: 'interactive',
     interactive: { type: 'cta_url', body: { text: String(text) }, action: { name: 'cta_url', parameters: { display_text: String(label).slice(0, 20), url: String(url) } } } }, channel, ctx);
