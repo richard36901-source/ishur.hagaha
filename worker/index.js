@@ -1403,6 +1403,8 @@ async function handleEventFlag(request, env, origin) {
   }
   if (body.on) await env.RATE.put(key, new Date().toISOString(), { expirationTtl: 200 * 86400 });
   else await env.RATE.delete(key);
+  /* 09/11: a released hold must wake the pacer, or the waves wait for tomorrow's engine ("nothing-pending") */
+  if (flag === 'hold' && !body.on) await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});
   await slackPost(env, `⚙️ ${flag === 'hold' ? 'השהיית שירות' : 'תוסף שליחה נוספת'} ${body.on ? 'הופעל' : 'בוטל'} לאירוע ${token.slice(0, 8)}`, { quiet: true, oneoff: true });   /* oneoff: an admin action */
   return okJson({ ok: true, flag, on: body.on }, origin);
 }
