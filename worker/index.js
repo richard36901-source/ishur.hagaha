@@ -11381,6 +11381,46 @@ const WORKER = {
     /* 09/11 control-center drag & drop (assets/week.js):
        board-move  {admin_key, tok8, type:w1|w2|w3, date} → the same rules as the client's send-date
        board-order {admin_key, order:[tok8…]}             → waveorder: the engine sends waves in this order */
+    /* 09/11 control center: click an event name → the whole event on one sheet */
+    if (url.pathname === '/api/board-event' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const raw = await readSnapshot(env, 'guest');
+      /* batch: names + dates for the week's cards */
+      if (Array.isArray(b.tok8s)) {
+        const want = new Set(b.tok8s.map(x => String(x || '').slice(0, 8)).filter(Boolean).slice(0, 80));
+        const events = {};
+        const gAll = (raw && raw.guests && raw.guests.values) || [];
+        const nextDay = d => { let t = new Date(d + 'T12:00:00Z'); do { t = new Date(t.getTime() + 864e5); } while (t.getUTCDay() === 6); return t.toISOString().slice(0, 10); };
+        for (const r of (raw && raw.events && raw.events.values) || []) {
+          const tk = String((r || [])[1] || '').trim(); if (!want.has(tk.slice(0, 8))) continue; const c = i => String(r[i] ?? '').trim();
+          /* Shir's round: the morning after the last planned wave, to whoever has not answered (engine escalation, esc:<token>) */
+          const last = [c(39), c(40), c(41)].map(x => x.slice(0, 10)).filter(x => /^\d{4}-\d{2}-\d{2}$/.test(x)).sort().pop() || '';
+          let calls = null;
+          if (planKeyOf(r) !== 'basic' && last) {
+            let n = 0; for (const g of gAll) { if (String(g[28] || '').trim() !== tk) continue; const rs = String(g[15] || '').trim(); if ((rs === '' || rs === 'מתלבט') && isIlMobile(normPhone(g[4] || ''))) n++; }
+            calls = { day: nextDay(last), n };
+          }
+          events[tk.slice(0, 8)] = { name: c(34) || c(2), client: c(2), occasion: c(5), date: c(6).slice(0, 10), time: c(36), plan: planKeyOf(r), calls };
+        }
+        return okJson({ ok: true, events }, origin);
+      }
+      const t8 = String(b.tok8 || '').slice(0, 8);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim().slice(0, 8) === t8);
+      if (!t8 || !ev) return deny(404, 'event-not-found', origin);
+      const c = i => String(ev[i] ?? '').trim();
+      const token = c(1);
+      const gl = ((raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === token);
+      const st = { guests: gl.length, coming: 0, diners: 0, not: 0, maybe: 0, none: 0, tables: 0 };
+      for (const g of gl) { const r = String(g[15] || '').trim(); if (r === 'מגיע') { st.coming++; st.diners += Number(String(g[13] || '').trim()) || Number(String(g[5] || '').trim()) || 1; } else if (r === 'לא מגיע') st.not++; else if (r === 'מתלבט') st.maybe++; else st.none++; if (String(g[30] || '').trim()) st.tables++; }
+      const [hold, holdtill, prio, order, ct] = await Promise.all(['hold:' + token, 'holdtill:' + token, 'waveprio:' + token, 'waveorder', 'customtmpl:' + token].map(k => env.RATE.get(k).catch(() => null)));
+      let custom = null; try { const j = JSON.parse(ct || 'null'); if (j) custom = { name: j.name, status: j.status, text: j.text }; } catch {}
+      let ordIdx = -1; try { ordIdx = JSON.parse(order || '[]').indexOf(token); } catch {}
+      return okJson({ ok: true, token, name: c(34) || c(2), client: c(2), client_phone: c(3), occasion: c(5), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37), address: c(38),
+        paid: c(7) === 'כן', cancelled: c(27) === 'כן', plan: planKeyOf(ev), waves: { 1: c(39).slice(0, 10), 2: c(40).slice(0, 10), 3: c(41).slice(0, 10) },
+        hold: !!hold, holdtill: holdtill || '', prio_share: Number(prio) || 0, order: ordIdx, custom, stats: st,
+        links: { dashboard: 'https://ishur.io/dashboard.html?t=' + token } }, origin);
+    }
     if ((url.pathname === '/api/board-move' || url.pathname === '/api/board-order') && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

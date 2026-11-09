@@ -472,7 +472,10 @@ export async function buildCapacity(env, d, now = Date.now(), days = 14) {
   /* sub-events: manual sends, no date — their unsent rest is planned for today, flagged manual */
   let subs = [];
   try { subs = await subeventBoard(env, inp.raw, { kvPrefix: d.kvPrefix, normPhone: d.normPhone }); } catch {}
-  for (const s of subs) { const p = ((s.types || [])[0] || {}).pending || 0; if (p > 0) items.push({ day: today, token: s.token, tok8: s.token.slice(0, 8), name: s.name || '', type: 'subevent', count: p, held: !!(inp.flags[s.parent] || {}).hold, upper_bound: false, manual: true }); }
+  /* 09/11: a finished sub-event (sent + reminder done) is not pending any more — it showed as "נדחה (מכסה)" for days */
+  let subRecs = {}; try { subRecs = await d.kvPrefix(env, 'subevent:'); } catch {}
+  const subDone = tok => { try { const r = JSON.parse(subRecs[tok] || 'null'); return !!(r && r.completed_at && (!r.reminder_at || r.reminder_completed_at)); } catch { return false; } };
+  for (const s of subs) { const p = ((s.types || [])[0] || {}).pending || 0; if (p > 0 && !subDone(s.token)) items.push({ day: today, token: s.token, tok8: s.token.slice(0, 8), name: s.name || '', type: 'subevent', count: p, held: !!(inp.flags[s.parent] || {}).hold, upper_bound: false, manual: true }); }
   const plan = planCapacity({ today, days, items, model, isNoContactDay: d.isNoContactDay });
   return { ok: true, at: new Date(now).toISOString(), today, horizon_days: days, model, verification: verif, ...plan,
     notes: ['מספרי הגלים הם גבול עליון: לא נבדקים סימוני נשלח לכל אורח, הסרות וטעות-במספר', 'אירועים מוחזקים (hold) מסומנים held ולא נספרים ב-planned', 'אירוע-בן (שבת חתן) נשלח ידנית — מה שלא נשלח מתוכנן להיום'] };

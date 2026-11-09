@@ -24,6 +24,11 @@
     '.wk-t{font-size:.74rem;color:var(--ink2,#4A554E)}' +
     '.wk-n{font-size:.86rem;font-variant-numeric:tabular-nums}.wk-n b{font-size:.95rem}' +
     '.wk-s{display:block;font-size:.7rem;margin-top:.1rem}.wk-s.ok{color:var(--wk-ok)}.wk-s.bad{color:var(--wk-bad)}.wk-s.wait{color:var(--wk-wait)}.wk-s.mute{color:var(--wk-mute)}' +
+    '.wk-evb{font:inherit;font-weight:600;font-size:.82rem;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:right;text-decoration:underline;text-decoration-color:var(--line,#E3E1D8);text-underline-offset:3px}.wk-evb:hover{text-decoration-color:var(--gold,#A8853C)}' +
+    '.wk-live{font-size:.68rem;color:var(--wk-ok);margin-top:.2rem;font-variant-numeric:tabular-nums}' +
+    '.wk-evs{font-size:.68rem;color:var(--wk-mute);margin-top:.1rem}' +
+    '.wk-ev[draggable=true],.wk-it[draggable=true]{cursor:grab}.wk-drag{opacity:.45}.wk-day.drop{box-shadow:inset 0 0 0 2px var(--wk-ok)}.wk-ev.drop{box-shadow:0 -3px 0 var(--wk-ok)}' +
+    '.wk-toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--ink,#1B2420);color:var(--card,#fff);padding:.55rem 1rem;border-radius:10px;font-size:.84rem;z-index:96}' +
     '.wk-empty{font-size:.74rem;color:var(--wk-mute);padding:.3rem .2rem}' +
     '.wk-note{font-size:.74rem;color:var(--wk-mute);margin:.5rem 0 0}' +
     '@media (max-width:900px){.wk-grid{grid-template-columns:1fr}.wk-day.past{display:none}.wk-day{min-height:0}}' +
@@ -54,9 +59,36 @@
     return fetch(opt.base + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stamp(Object.assign({ admin_key: opt.key }, body || {}))) })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
-  function getPlan() {
-    return fetch(opt.base + '/api/ops/plan?period=week', { headers: { 'x-admin-key': opt.key } })
+  function getOne(period) {
+    return fetch(opt.base + '/api/ops/plan?period=' + period, { headers: { 'x-admin-key': opt.key } })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
+  }
+  /* 09/11 (Richard): from today forward — seven days, even across the week/month edge */
+  function getPlan() {
+    return Promise.all([getOne('week'), getOne('month')]).then(function (r) {
+      var w = r[0], m = r[1]; if (!(w && w.ok) && !(m && m.ok)) return null;
+      var base = (w && w.ok) ? w : m, by = {};
+      [m, w].forEach(function (p) { if (p && p.ok) (p.days || []).forEach(function (d) { by[d.day] = d; }); });
+      var today = base.today;
+      var days = Object.keys(by).sort().filter(function (d) { return d >= today; }).slice(0, 7).map(function (d) { return by[d]; });
+      return { ok: true, at: base.at, today: today, days: days };
+    });
+  }
+  var info = {}, live = null;
+  /* 09/11 (Richard: "שיהיה לייב ויתעדכן פעם בדקה"): /api/ops/realtime — today's sends per event per number, calls per event */
+  function getLive() {
+    return fetch(opt.base + '/api/ops/realtime', { headers: { 'x-admin-key': opt.key } }).then(function (r) { return r.ok ? r.json() : null; }).then(function (d) {
+      if (!d || !d.ok) return;
+      var sent = {};
+      ((d.wa && d.wa.numbers) || []).forEach(function (n) { if (n.role !== 'guests') return; Object.keys(n.by_event || {}).forEach(function (t) { var e = n.by_event[t]; sent[t] = (sent[t] || 0) + (e.total || 0) - (e.reply || 0); }); });
+      live = { at: d.at, sent: sent, calls: (d.calls && d.calls.by_event) || {}, cap: d.cap || null };
+    }).catch(function () {});
+  }
+  function loadInfo() {
+    var want = {};
+    (plan.days || []).forEach(function (d) { (d.items || []).forEach(function (it) { var t = it.event && it.event.tok8; if (t && !info[t]) want[t] = 1; }); });
+    var list = Object.keys(want); if (!list.length) return Promise.resolve();
+    return post('board-event', { tok8s: list }).then(function (r) { if (r && r.events) Object.keys(r.events).forEach(function (k) { info[k] = r.events[k]; }); });
   }
   function hm(ts) { var d = new Date(ts); return isNaN(d) || !ts ? '' : d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' }); }
   function dm(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? Number(p[2]) + '/' + Number(p[1]) : iso; }
@@ -86,7 +118,17 @@
     var items = (day.items || []).filter(function (it) {
       if (it.kind === 'cron' || it.kind === 'event' || it.kind === 'hostess') return false;
       if (it.kind === 'send' && it.type === 'reply') return false;
+      /* 09/11 (Richard): an event that already happened gets nothing but the thank-you — the rest is cancelled, not shown */
+      var e = it.event && info[it.event.tok8];
+      if (e && e.date && e.date < plan.today && it.type !== 'thanks') return false;
       return true;
+    });
+    /* Shir's round, projected: the morning after the last wave (board-event batch) — unless the planner already has it */
+    (Object.keys(info)).forEach(function (t) {
+      var c = info[t].calls; if (!c || c.day !== day.day || !c.n) return;
+      if (info[t].date && info[t].date < plan.today) return;
+      if (items.some(function (it) { return it.kind === 'call' && it.event && it.event.tok8 === t; })) return;
+      items.push({ id: 'proj:' + t + ':' + day.day, kind: 'call', event: { tok8: t, name: info[t].name }, planned_n: c.n, done_n: 0, answered: 0, status: 'waiting', reason_he: 'סבב שיחות של שיר למי שלא ענה (בערך ' + c.n + ')', _proj: true });
     });
     var happening = {};
     (day.items || []).forEach(function (it) { if (it.kind === 'event' && it.event && it.event.tok8) happening[it.event.tok8] = 1; });
@@ -118,27 +160,35 @@
     var html = '<div class="wk-grid">';
     (plan.days || []).forEach(function (day, di) {
       var cls = 'wk-day' + (day.today ? ' today' : '') + (day.past ? ' past' : '');
-      html += '<section class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
+      html += '<section data-day="' + esc(day.day) + '" class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
       var cap = day.capacity;
-      if (cap && cap.capacity) html += '<div class="wk-cap' + (cap.overflow > 0 ? ' over' : '') + '">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + (cap.overflow > 0 ? ' · ' + num(cap.overflow) + ' עוברות למחר' : '') + '</div>';
+      if (day.today && live && live.cap && live.cap.limit) html += '<div class="wk-cap">● עכשיו: ' + num(live.cap.used) + ' מתוך ' + num(live.cap.limit) + ' יצאו ב-24 שעות · נשארו ' + num(live.cap.remaining) + '</div>';
+      else if (cap && cap.capacity) html += '<div class="wk-cap' + (cap.overflow > 0 ? ' over' : '') + '">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + (cap.overflow > 0 ? ' · ' + num(cap.overflow) + ' עוברות למחר' : '') + '</div>';
       var gs = dayItems(day);
       if (!gs.length) html += '<div class="wk-empty">אין שליחות</div>';
       gs.forEach(function (g) {
-        html += '<div class="wk-ev"><div class="wk-evn">' + esc(g.key === 'leads' ? 'לידים · נועה' : g.name) + (g.today ? '<em>האירוע היום</em>' : '') + '</div>';
+        var e = info[g.tok8] || {};
+        var title = g.key === 'leads' ? 'לידים · נועה' : (e.occasion ? e.occasion + ' · ' : '') + (e.name || g.name);
+        var sub = g.key === 'leads' ? '' : [e.client && e.client !== e.name ? e.client : '', e.date ? 'אירוע ' + dm(e.date) : ''].filter(Boolean).join(' · ');
+        html += '<div class="wk-ev"' + (g.tok8 ? ' draggable="true" data-tok="' + esc(g.tok8) + '" data-d="' + di + '"' : '') + '><div class="wk-evn">' +
+          (g.tok8 ? '<button type="button" class="wk-evb" data-tok="' + esc(g.tok8) + '">' + esc(title) + '</button>' : esc(title)) + (g.today ? '<em>האירוע היום</em>' : '') + '</div>' +
+          (sub ? '<div class="wk-evs">' + esc(sub) + '</div>' : '') +
+          (day.today && live && g.tok8 && (live.sent[g.tok8] || live.calls[g.tok8]) ? '<div class="wk-live">● עכשיו: ' + [live.sent[g.tok8] ? num(live.sent[g.tok8]) + ' הודעות יצאו היום' : '', live.calls[g.tok8] ? num(live.calls[g.tok8].dialed || 0) + ' חויגו · ' + num(live.calls[g.tok8].queued || 0) + ' בתור לשיחה' : ''].filter(Boolean).join(' · ') + '</div>' : '');
         g.items.forEach(function (it) {
           var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
-          var n = it.kind === 'call' ? '<b>' + num(it.done_n) + '</b> חויגו' + (it.planned_n > it.done_n ? ' מתוך ' + num(it.planned_n) : '')
+          var n = it._proj ? 'בערך <b>' + num(it.planned_n) + '</b> שיחות' : it.kind === 'call' ? '<b>' + num(it.done_n) + '</b> חויגו' + (it.planned_n > it.done_n ? ' מתוך ' + num(it.planned_n) : '')
             : it.total_sent != null && it.of && /^w[123]$/.test(it.type)
               /* 09/11 (Richard): "0 מתוך 505" looked like nothing went out — show the whole wave, today's part beside it */
               ? 'בסך הכל <b>' + num(it.total_sent) + '</b> מתוך ' + num(it.of) + '<br><span class="wk-t">היום ' + num(it.done_n) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</span>'
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
-          html += '<button type="button" class="wk-it" data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+          var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
+          html += '<button type="button" class="wk-it"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
         });
         html += '</div>';
       });
       html += '</section>';
     });
-    html += '</div><p class="wk-note">עודכן ' + esc(hm(plan.at)) + ' · לחיצה על שורה פותחת פרטים, נוסח ומי קיבל</p>';
+    html += '</div><p class="wk-note">' + (live ? '● חי ' + esc(hm(live.at)) + ' · ' : '') + 'תכנון עודכן ' + esc(hm(plan.at)) + ' · לחיצה על שם אירוע = כל הנתונים · על שורה = נוסח ומי קיבל · גרירת גל ליום אחר = שינוי תאריך · גרירת אירוע מעל אחר = סדר עדיפות</p>';
     root.innerHTML = html;
   }
 
@@ -211,7 +261,66 @@
     }).catch(function () { more.innerHTML = '<p class="wk-note">לא הצלחתי לטעון את הפרטים.</p>'; });
   }
 
-  function load() { return getPlan().then(function (p) { if (p && p.ok) plan = p; render(); }); }
+  var PLAN_HE = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
+  function openEvent(tok) {
+    var e = info[tok] || {};
+    var bd = sheet((e.occasion ? e.occasion + ' · ' : '') + (e.name || tok), '<p class="wk-note">טוען…</p>');
+    post('board-event', { tok8: tok }).then(function (d) {
+      if (!d || !d.ok) { bd.innerHTML = '<p class="wk-note">לא הצלחתי לטעון.</p>'; return; }
+      var st = d.stats || {}, w = d.waves || {};
+      bd.innerHTML = '<dl class="wk-kv">' +
+        '<dt>לקוח</dt><dd>' + esc(d.client) + (d.client_phone ? ' · <span dir="ltr">' + esc(String(d.client_phone).replace(/^972/, '0')) + '</span>' : '') + '</dd>' +
+        '<dt>מתי</dt><dd>' + esc(dm(d.date)) + (d.time ? ' · ' + esc(d.time) : '') + '</dd>' +
+        '<dt>איפה</dt><dd>' + esc([d.venue, d.city].filter(Boolean).join(', ')) + '</dd>' +
+        '<dt>חבילה</dt><dd>' + esc(PLAN_HE[d.plan] || d.plan || '') + (d.paid ? '' : ' · לא שולם') + (d.cancelled ? ' · בוטל' : '') + '</dd>' +
+        '<dt>מצב</dt><dd>' + (d.hold ? '⏸ מוחזק' + (d.holdtill ? ' עד ' + esc(dm(d.holdtill)) : '') : 'פעיל') + (d.order >= 0 ? ' · מקום ' + (d.order + 1) + ' בתור' : '') + (d.prio_share ? ' · עד ' + d.prio_share + ' ביום' : '') + '</dd>' +
+        '<dt>מוזמנים</dt><dd>' + num(st.guests) + '</dd>' +
+        '<dt>מגיעים</dt><dd>' + num(st.coming) + ' (' + num(st.diners) + ' סועדים)</dd>' +
+        '<dt>לא מגיעים</dt><dd>' + num(st.not) + '</dd><dt>מתלבטים</dt><dd>' + num(st.maybe) + '</dd><dt>לא ענו</dt><dd>' + num(st.none) + '</dd>' +
+        (st.tables ? '<dt>עם שולחן</dt><dd>' + num(st.tables) + '</dd>' : '') +
+        '<dt>גלים</dt><dd>' + ['1', '2', '3'].filter(function (k) { return w[k]; }).map(function (k) { return 'גל ' + k + ': ' + dm(w[k]); }).join(' · ') + '</dd></dl>' +
+        (d.custom && d.custom.text ? '<div class="wk-h">נוסח ההזמנה האישי · ' + esc(d.custom.status || '') + '</div><div class="wk-msg">' + esc(d.custom.text) + '</div>' : '') +
+        '<a class="wk-a" href="' + esc(d.links.dashboard) + '" target="_blank" rel="noopener">לדשבורד המלא של האירוע ›</a>';
+    });
+  }
+  function toast(t) { var el = document.createElement('div'); el.className = 'wk-toast'; el.textContent = t; document.body.appendChild(el); setTimeout(function () { el.remove(); }, 3500); }
+  var drag = null;
+  function wireDnd() {
+    root.addEventListener('dragstart', function (e) {
+      var it = e.target.closest && e.target.closest('[data-move]'), ev = !it && e.target.closest && e.target.closest('.wk-ev[data-tok]');
+      if (it) drag = { kind: 'move', key: it.dataset.move, el: it }; else if (ev) drag = { kind: 'order', tok: ev.dataset.tok, day: ev.dataset.d, el: ev }; else return;
+      drag.el.classList.add('wk-drag'); try { e.dataTransfer.setData('text/plain', 'x'); e.dataTransfer.effectAllowed = 'move'; } catch (x) {}
+      e.stopPropagation();
+    });
+    root.addEventListener('dragend', function () { if (drag) drag.el.classList.remove('wk-drag'); drag = null; root.querySelectorAll('.drop').forEach(function (x) { x.classList.remove('drop'); }); });
+    root.addEventListener('dragover', function (e) {
+      if (!drag) return; var tgt = drag.kind === 'move' ? e.target.closest('.wk-day') : e.target.closest('.wk-ev[data-tok]');
+      if (!tgt || (drag.kind === 'order' && tgt.dataset.d !== drag.day)) return;
+      e.preventDefault(); root.querySelectorAll('.drop').forEach(function (x) { if (x !== tgt) x.classList.remove('drop'); }); tgt.classList.add('drop');
+    });
+    root.addEventListener('drop', function (e) {
+      if (!drag) return; e.preventDefault(); var d = drag;
+      if (d.kind === 'move') {
+        var day = e.target.closest('.wk-day'); if (!day) return; var date = day.dataset.day, p = d.key.split('|'), en = info[p[0]] || {};
+        if (!confirm('להעביר את ' + (SHORT[p[1]] || p[1]) + ' של ' + (en.name || p[0]) + ' ל-' + dm(date) + '?')) return;
+        post('board-move', { tok8: p[0], type: p[1], date: date }).then(function (r) {
+          var ERR = { 'after-event': 'אחרי תאריך האירוע', 'date-in-past': 'תאריך שעבר', shabbat: 'שבת', 'out-of-order': 'הסדר בין הגלים נשבר (גל 1 לפני גל 2)', 'already-sent': 'הגל כבר יצא', 'extra-not-paid': 'שליחה נוספת לא שולמה' };
+          if (r && r.ok) { toast('הועבר ל-' + dm(date) + '. הלוח יתעדכן בסבב הבא (עד 10 דקות)'); }
+          else toast('לא הועבר: ' + (r && ERR[r.error] || (r && r.error) || 'שגיאה'));
+        });
+      } else {
+        var tgt = e.target.closest('.wk-ev[data-tok]'); if (!tgt || tgt.dataset.tok === d.tok) return;
+        var col = tgt.closest('.wk-day'); var toks = Array.prototype.map.call(col.querySelectorAll('.wk-ev[data-tok]'), function (x) { return x.dataset.tok; }).filter(function (t) { return t !== d.tok; });
+        toks.splice(toks.indexOf(tgt.dataset.tok), 0, d.tok);
+        post('board-order', { order: toks }).then(function (r) {
+          if (r && r.ok) { tgt.parentNode.insertBefore(d.el, tgt); toast('סדר העדיפות נשמר: ' + toks.map(function (t) { return (info[t] || {}).name || t; }).join(' > ')); }
+          else toast('הסדר לא נשמר');
+        });
+      }
+    });
+  }
+  function load() { return Promise.all([getPlan().then(function (p) { if (p && p.ok) plan = p; return plan ? loadInfo() : null; }), getLive()]).then(render, render); }
+  var timer = null;
 
   window.IshurWeek = {
     mount: function (el, o) {
@@ -220,10 +329,12 @@
       root.classList.add('wk');
       if (!root.dataset.wired) {
         root.dataset.wired = '1';
-        root.addEventListener('click', function (e) { var b = e.target.closest('.wk-it'); if (b) open(Number(b.dataset.d), b.dataset.id); });
+        root.addEventListener('click', function (e) { var n = e.target.closest('.wk-evb'); if (n) { openEvent(n.dataset.tok); return; } var b = e.target.closest('.wk-it'); if (b) open(Number(b.dataset.d), b.dataset.id); });
+        wireDnd();
         root.innerHTML = '<div class="wk-empty">טוען את השבוע…</div>';
       }
       boards = {};
+      if (!timer) timer = setInterval(function () { if (document.hidden || document.querySelector('.wk-bg')) return; load(); }, 60000);
       return load();
     }
   };
