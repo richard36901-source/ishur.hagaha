@@ -30,7 +30,7 @@
 
   var INTERNAL = [
     { href: 'live.html', label: 'לוג חי', icon: ic.ops },
-    { href: 'center.html', label: 'מרכז הבקרה', icon: ic.board },
+    { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
     { href: 'leads.html', label: 'לידים', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
