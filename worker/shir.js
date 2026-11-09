@@ -414,7 +414,7 @@ export function leadOpeningLine(lead) {
   const hello = first ? `היי ${first}` : 'היי';
   if (l.requested) return `${hello}, זו נועה מאישורי הגעה, ביקשת שאתקשר.`;
   /* 09/11 (Richard): chase = a lead who left details and did not answer us — not 'you asked me to call' */
-  if (l.why === 'chase') { const o = l.occasion && l.occasion !== 'אירוע' ? `ה${l.occasion}` : 'האירוע'; return `${hello}, מדברת נועה מאישורי הגעה. השארתם אצלנו פרטים לגבי ${o} שלכם, ניסינו לתפוס אתכם — יש לכם דקה?`; }
+  if (l.why === 'chase') { const o = l.occasion && l.occasion !== 'אירוע' ? `ה${l.occasion}` : 'האירוע'; return `${hello}, מדברת נועה מאישורי הגעה. התעניינתם אצלנו באישורי הגעה לאירוע — רציתי לדעת באיזה אירוע מדובר?`;   /* 09/11 (Shalev): never assume the occasion in the opener */ }
   const occ = l.occasion && l.occasion !== 'אירוע' ? `ל${l.occasion}` : 'לאירוע שלכם';
   return `${hello}, מדברת נועה מאישורי הגעה. ראיתם אותנו באתר והתחלתם הזמנה ${occ}, ונעצרתם רגע לפני הסוף. רציתי לשאול אם משהו לא היה ברור, ואם אפשר לעזור.`;
 }

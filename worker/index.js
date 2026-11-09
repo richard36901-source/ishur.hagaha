@@ -7892,7 +7892,8 @@ async function saveVoicePromptVersion(env, key, newPrompt, note) {
    the prompt sends her to transfer_to_shalev; if that fails too the
    webhook below pings both on Slack + WhatsApp with the caller's number. */
 function noaTools(env, kind) {
-  const brief = `את נועה מאישורי הגעה. עכשיו את מדברת רק עם איש הצוות שענה (ריצ׳רד או שלו), לפני שהמתקשר מחובר. תני לו תדרוך של שניים-שלושה משפטים קצרים בעברית: מי על הקו (שם וטלפון: {{caller_name_for_transfer}}, {{caller_phone}}), מי הוא (מתעניין / לקוח משלם / אחר), מה הוא צריך, ומה כבר נאמר בשיחה. סיימי ב"מחברת אתכם עכשיו". בלי שאלות, בלי להמתין לתשובה.`;
+  /* 09/11 (Shalev): short and to the point, a customer is waiting — no phone number, no long intro */
+  const brief = `את נועה מאישורי הגעה. עכשיו את מדברת רק עם איש הצוות שענה (ריצ׳רד או שלו), והלקוח ממתין על הקו. משפט אחד קצר בלבד, בלי ברכה, בלי "יש שם מישהו", בלי מספר טלפון ובלי שם משפחה. התבנית: "יש לקוח (או לקוחה) שמתעניין ב[סוג האירוע] ב[תאריך, אם נאמר], כ-[מספר] רשומות, רוצים [מה שביקשו: הכל כלול / עם שיחות / עם דיילת וכו׳]. מחברת." לשון לפי מה שידוע על הלקוח; אם לא ידוע — "יש פנייה". לא לחכות לתשובה.`;
   const xfer = (name, number, whoHe) => ({
     type: 'transfer_call', name,
     description: `העברה חמה ל${whoHe} מהצוות. לקרוא כשמבקשים נציג / בן אדם / לדבר עם מישהו, אחרי שאמרת שאת מעבירה. ${name === 'transfer_to_richard' ? 'רק אם transfer_to_shalev נכשלה.' : 'תמיד קודם.'}`,
