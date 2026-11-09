@@ -11405,7 +11405,7 @@ const WORKER = {
             let n = 0; for (const g of gAll) { if (String(g[28] || '').trim() !== tk) continue; const rs = String(g[15] || '').trim(); if ((rs === '' || rs === 'מתלבט') && isIlMobile(normPhone(g[4] || ''))) n++; }
             calls = { day: nextDay(last), n };
           }
-          events[tk.slice(0, 8)] = { name: c(34) || c(2), client: c(2), occasion: c(5), date: c(6).slice(0, 10), time: c(36), plan: planKeyOf(r), calls };
+          events[tk.slice(0, 8)] = { name: c(34) || c(2), client: c(2), occasion: c(5), date: c(6).slice(0, 10), time: c(36), plan: planKeyOf(r), calls, waves: { 1: c(39).slice(0, 10), 2: c(40).slice(0, 10), 3: c(41).slice(0, 10) } };
         }
         return okJson({ ok: true, events }, origin);
       }

@@ -30,6 +30,7 @@
     '.wk-nav{display:flex;align-items:center;gap:.6rem;margin:0 0 .6rem}.wk-nav b{font-size:.95rem}.wk-nav span{font-size:.76rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
     '.wk-arr{font:inherit;width:30px;height:30px;border-radius:50%;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
     '.wk-ev.done{background:rgba(46,125,91,.09);border-color:rgba(46,125,91,.35)}html[data-theme=dark] .wk-ev.done{background:rgba(123,201,164,.12)}' +
+    '.wk-why{display:block;font-size:.66rem;color:var(--wk-mute);margin:.05rem 0 .1rem}' +
     '.wk-evs{font-size:.68rem;color:var(--wk-mute);margin-top:.1rem}' +
     '.wk-ev[draggable=true],.wk-it[draggable=true]{cursor:grab}.wk-drag{opacity:.45}.wk-day.drop{box-shadow:inset 0 0 0 2px var(--wk-ok)}.wk-ev.drop{box-shadow:0 -3px 0 var(--wk-ok)}' +
     '.wk-toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--ink,#1B2420);color:var(--card,#fff);padding:.55rem 1rem;border-radius:10px;font-size:.84rem;z-index:96}' +
@@ -214,6 +215,15 @@
           (day.today && live && g.tok8 && (live.sent[g.tok8] || live.calls[g.tok8]) ? '<div class="wk-live">● עכשיו: ' + [live.sent[g.tok8] ? num(live.sent[g.tok8]) + ' הודעות יצאו היום' : '', live.calls[g.tok8] ? num(live.calls[g.tok8].dialed || 0) + ' חויגו · ' + num(live.calls[g.tok8].queued || 0) + ' בתור לשיחה' : ''].filter(Boolean).join(' · ') + '</div>' : '');
         g.items.forEach(function (it) {
           var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
+          /* 09/11 (Richard): one small line — why is this on THIS day */
+          var why = '', r = String(it.reason_he || ''), m = /נדחה מ-(\d{1,2}\/\d{1,2})/.exec(r), ev = info[g.tok8] || {};
+          if (it._pend) why = 'הועבר ידנית לכאן';
+          else if (m) why = 'נדחה מ-' + m[1] + ' בגלל המכסה';
+          else if (/^w[123]$/.test(it.type)) { var wd = (ev.waves || {})[it.type.slice(1)]; why = wd && wd !== day.day ? 'המשך מ-' + dm(wd) : 'מתוכנן בגיליון'; }
+          else if (it.type === 'daybefore') why = 'יום לפני האירוע';
+          else if (it.type === 'table' || it.type === 'eventday') why = 'יום האירוע';
+          else if (it.type === 'thanks') why = 'אחרי האירוע · עדיפות אחרונה';
+          else if (it.kind === 'call') why = it._proj ? 'למחרת הגל האחרון' : 'סבב שיחות';
           var n = it._proj ? 'בערך <b>' + num(it.planned_n) + '</b> שיחות' : it.kind === 'call' ? '<b>' + num(it.done_n) + '</b> חויגו' + (it.planned_n > it.done_n ? ' מתוך ' + num(it.planned_n) : '')
             : it.total_sent != null && it.of && /^w[123]$/.test(it.type)
               /* 09/11 (Richard): "0 מתוך 505" looked like nothing went out — show the whole wave, today's part beside it */
@@ -221,7 +231,7 @@
               ? '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0))   /* the whole wave only in the click-through sheet */
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
-          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span><div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
         });
         html += '</div>';
       });
