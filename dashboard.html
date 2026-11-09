@@ -677,7 +677,7 @@
 
   <!-- guests -->
   <section class="card">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>
     <p class="list-sum" id="listSum"></p>
@@ -2148,6 +2148,7 @@
   (function () {
     var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
     var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=5&t=' + encodeURIComponent(token); else sl.hidden = true; }
+    var cl = $('checklistLink'); if (cl) { if (token && !demo) cl.href = 'checklist.html?t=' + encodeURIComponent(token); else cl.hidden = true; }   /* 09/11 Richard: a check-list for the entrance, every client */
     var bl = $('budgetLink'); if (bl) { if (token && !demo) bl.href = 'budget.html?v=1&t=' + encodeURIComponent(token); else bl.hidden = true; }
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {

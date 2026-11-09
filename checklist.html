@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>רשימת מוזמנים להדפסה · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=72"></script>
+<script src="assets/guard.js?v=19"></script>
+<style>
+  /* Richard 09/11: a check-list the hosts (or the venue's hostesses) print at the entrance — who is coming, how many, which table, a box to tick on arrival.
+     The browser's print dialog saves it as PDF; nothing leaves the device. */
+  :root{--ink:#1B2420;--ink2:#4A554E;--ink3:#7A847C;--line:#D9DED8;--paper:#FAF8F1;--pine:#0F2E22;--gold:#A8853C}
+  *{box-sizing:border-box}
+  body{margin:0;font:14px/1.45 Heebo,sans-serif;color:var(--ink);background:var(--paper)}
+  .bar{position:sticky;top:0;z-index:5;background:#fff;border-bottom:1px solid var(--line);padding:.6rem 1rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .bar b{font-size:1rem;margin-inline-end:auto}
+  .bar button,.bar a{font:inherit;font-size:.86rem;font-weight:600;height:38px;padding:0 .9rem;border-radius:10px;border:1px solid var(--line);background:#fff;color:var(--ink);cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.4rem}
+  .bar button.p{background:var(--pine);color:#fff;border-color:var(--pine)}
+  .bar select{font:inherit;font-size:.86rem;height:38px;padding:0 .6rem;border-radius:10px;border:1px solid var(--line);background:#fff}
+  .bar label{display:inline-flex;align-items:center;gap:.35rem;font-size:.84rem}
+  .sheet{max-width:960px;margin:1rem auto;background:#fff;padding:1.2rem 1.4rem;border:1px solid var(--line);border-radius:12px}
+  h1{font-size:1.25rem;margin:0 0 .15rem}.sub{color:var(--ink2);margin:0 0 .8rem;font-size:.9rem}
+  .tot{display:flex;gap:1.2rem;flex-wrap:wrap;font-size:.86rem;color:var(--ink2);margin-bottom:.9rem}.tot b{color:var(--ink);font-size:1rem}
+  h2{font-size:1rem;margin:1.1rem 0 .35rem;padding-bottom:.25rem;border-bottom:2px solid var(--pine);display:flex;justify-content:space-between;align-items:baseline}h2 span{font-weight:500;font-size:.8rem;color:var(--ink3)}
+  table{width:100%;border-collapse:collapse;font-size:.9rem}
+  th,td{padding:.42rem .5rem;border-bottom:1px solid var(--line);text-align:right;vertical-align:middle}
+  th{font-size:.74rem;color:var(--ink3);font-weight:600;background:#F4F6F3}
+  td.n{font-variant-numeric:tabular-nums;text-align:center;width:4.5rem}td.c{width:2.6rem;text-align:center}
+  .box{display:inline-block;width:18px;height:18px;border:1.6px solid var(--ink2);border-radius:4px;vertical-align:middle}
+  .st{font-size:.74rem;color:var(--ink3)}
+  tr.maybe td{color:var(--ink2)}tr.maybe td.name::after{content:" · מתלבט/ת";font-size:.72rem;color:var(--gold)}
+  tr.none td.name::after{content:" · לא ענה";font-size:.72rem;color:var(--ink3)}
+  .empty{padding:2rem;text-align:center;color:var(--ink3)}
+  .foot{margin-top:1rem;font-size:.72rem;color:var(--ink3);display:flex;justify-content:space-between}
+  @media print{
+    @page{size:A4;margin:12mm}
+    body{background:#fff}.bar{display:none}.sheet{max-width:none;margin:0;border:0;padding:0;border-radius:0}
+    h2{break-after:avoid}table{break-inside:auto}tr{break-inside:avoid}th{background:#eee}
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b id="ttl">רשימת מוזמנים להדפסה</b>
+  <label><input type="checkbox" id="onlyComing" checked> רק מגיעים</label>
+  <label><input type="checkbox" id="withMaybe"> גם מתלבטים</label>
+  <select id="group"><option value="table">לפי שולחן</option><option value="name">לפי א-ב</option></select>
+  <a id="back" href="#">‹ ללוח הבקרה</a>
+  <button type="button" class="p" id="print">🖨 הדפסה / שמירה כ-PDF</button>
+</div>
+<div class="sheet" id="sheet"><div class="empty">טוען…</div></div>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var tok = new URLSearchParams(location.search).get('t') || '';
+  $('back').href = 'dashboard.html?t=' + encodeURIComponent(tok);
+  if (!/^[0-9a-f-]{36}$/.test(tok)) { $('sheet').innerHTML = '<div class="empty">הקישור לא תקין. פתחו את הרשימה מתוך לוח הבקרה של האירוע.</div>'; return; }
+  var data = null;
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function heDate(iso) { var d = new Date(iso + 'T12:00:00'); return isNaN(d) ? iso : d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }); }
+  function tableKey(t) { return String(t || '').trim(); }
+  function tableSort(a, b) { var na = parseInt(a, 10), nb = parseInt(b, 10); if (!isNaN(na) && !isNaN(nb) && na !== nb) return na - nb; return String(a).localeCompare(String(b), 'he'); }
+  function render() {
+    if (!data) return;
+    var ev = data.event || {}, gs = (data.guests || []).slice();
+    var onlyComing = $('onlyComing').checked, withMaybe = $('withMaybe').checked, by = $('group').value;
+    gs = gs.filter(function (g) {
+      if (g.status === 'declined') return false;
+      if (!onlyComing) return true;
+      return g.status === 'confirmed' || (withMaybe && g.status === 'undecided');
+    });
+    var seats = gs.reduce(function (n, g) { return n + (g.status === 'confirmed' ? (Number(g.seats) || 1) : 0); }, 0);
+    var coming = gs.filter(function (g) { return g.status === 'confirmed'; }).length;
+    var title = (ev.occasion_label || ev.occasion || 'האירוע') + ' · ' + (ev.name1 || '') + (ev.name2 ? ' ו' + ev.name2 : '');
+    $('ttl').textContent = title;
+    var h = '<h1>' + esc(title) + '</h1><p class="sub">' + esc(heDate(ev.event_date)) + (ev.reception_time ? ' · קבלת פנים ' + esc(ev.reception_time) : '') + (ev.venue_name ? ' · ' + esc(ev.venue_name) : '') + (ev.venue_city ? ', ' + esc(ev.venue_city) : '') + '</p>';
+    h += '<div class="tot"><span>מגיעים <b>' + coming + '</b></span><span>סועדים <b>' + seats + '</b></span>' + (data.totals ? '<span>לא מגיעים <b>' + (data.totals.declined || 0) + '</b></span><span>לא ענו <b>' + ((data.totals.pending || 0) + (data.totals.awaiting_call || 0)) + '</b></span>' : '') + '<span>הגיעו בפועל: ________</span></div>';
+    var row = function (g) {
+      var cls = g.status === 'undecided' ? 'maybe' : g.status === 'confirmed' ? '' : 'none';
+      return '<tr class="' + cls + '"><td class="c"><span class="box"></span></td><td class="name">' + esc(g.name || '') + '</td><td class="n">' + (g.status === 'confirmed' ? (Number(g.seats) || 1) : '') + '</td>' + (by === 'name' ? '<td class="n">' + esc(g.table || '') + '</td>' : '') + '<td class="c"><span class="box"></span></td></tr>';
+    };
+    var head = '<tr><th>הגיעו</th><th>שם</th><th>כמה</th>' + (by === 'name' ? '<th>שולחן</th>' : '') + '<th>מתנה</th></tr>';
+    if (!gs.length) h += '<div class="empty">אין מוזמנים להצגה בסינון הזה.</div>';
+    else if (by === 'table') {
+      var groups = {};
+      gs.forEach(function (g) { var k = tableKey(g.table) || 'בלי שולחן'; (groups[k] = groups[k] || []).push(g); });
+      Object.keys(groups).sort(function (a, b) { if (a === 'בלי שולחן') return 1; if (b === 'בלי שולחן') return -1; return tableSort(a, b); }).forEach(function (k) {
+        var list = groups[k].sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'he'); });
+        var s = list.reduce(function (n, g) { return n + (g.status === 'confirmed' ? (Number(g.seats) || 1) : 0); }, 0);
+        h += '<h2>' + (k === 'בלי שולחן' ? k : /^שולחן/.test(k) ? esc(k) : 'שולחן ' + esc(k)) + '<span>' + list.length + ' הזמנות · ' + s + ' סועדים</span></h2><table>' + head + list.map(row).join('') + '</table>';
+      });
+    } else {
+      h += '<table>' + head + gs.sort(function (a, b) { return String(a.name).localeCompare(String(b.name), 'he'); }).map(row).join('') + '</table>';
+    }
+    h += '<div class="foot"><span>הופק ' + new Date().toLocaleString('he-IL') + '</span><span>ishur.io · אישורי הגעה</span></div>';
+    $('sheet').innerHTML = h;
+  }
+  ['onlyComing', 'withMaybe', 'group'].forEach(function (id) { $(id).addEventListener('change', render); });
+  $('print').addEventListener('click', function () { window.print(); });
+  var body = { token: tok }; if (window.IshurGuard) body = IshurGuard.stamp(body);
+  fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+    .then(function (r) { return r.ok ? r.json() : null; })
+    .then(function (d) { if (!d || !d.ok) { $('sheet').innerHTML = '<div class="empty">לא הצלחנו לטעון את הרשימה. נסו שוב בעוד רגע.</div>'; return; } data = d; render(); })
+    .catch(function () { $('sheet').innerHTML = '<div class="empty">לא הצלחנו לטעון את הרשימה.</div>'; });
+})();
+</script>
+</body>
+</html>
