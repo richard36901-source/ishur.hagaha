@@ -373,3 +373,16 @@ test('thanks · marketing thank-you refused (131049) → ishur_toda_orach_u on t
   await _runDailyEngine(e, false, null, { force: true });
   assert.equal(to(DANA).filter(s => s.body.template.name === 'ishur_toda_orach_u').length, 1, 'once');
 });
+
+test('planner 09/11: a dropped day-before never enters the rolled plan, and day-bound sends do not roll to the next day', async () => {
+  const { planCapacity } = await import('../ops.js');
+  const T = '2026-11-09';
+  const out = planCapacity({ today: T, days: 3, model: { capacity_per_day: 230, today_remaining: 32 }, items: [
+    { day: T, token: 'aaaa1111-x', tok8: 'aaaa1111', name: 'א', type: 'daybefore', count: 127, dropped: true, upper_bound: true },
+    { day: T, token: 'bbbb2222-x', tok8: 'bbbb2222', name: 'ב', type: 'daybefore', count: 50, upper_bound: true },
+  ] });
+  const d0 = out.days.find(r => r.day === T), d1 = out.days.find(r => r.day === '2026-11-10');
+  assert.equal(d0.rolled.filter(x => x.tok8 === 'aaaa1111').length, 0);
+  assert.equal(d0.out, 32);
+  assert.equal(d1.rolled.filter(x => x.type === 'daybefore').length, 0);
+});

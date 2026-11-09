@@ -254,12 +254,15 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
      Closed days (Shabbat / no-contact) have capacity 0, so nothing ever lands on them. */
   const queue = [];
   for (const r of rows) {
-    for (const it of sorted) if (it.day === r.day && !it.held) queue.push({ token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, n: it.count, from_day: it.day });
+    for (const it of sorted) if (it.day === r.day && !it.held && !it.dropped) queue.push({ token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, n: it.count, from_day: it.day });
     let room = r.capacity; r.rolled = [];
     while (room > 0 && queue.length) { const q = queue[0], take = Math.min(room, q.n); r.rolled.push({ ...q, n: take }); q.n -= take; room -= take; if (!q.n) queue.shift(); }
     r.out = r.rolled.reduce((n, x) => n + x.n, 0);
     r.rolled_in = r.rolled.filter(x => x.from_day < r.day).reduce((n, x) => n + x.n, 0);
     r.carry = queue.reduce((n, q) => n + q.n, 0);
+    /* 09/11: day-bound messages (day-before / table / event day) never roll to a later day —
+       the next day is the event or after it. What did not fit is shown as carry once, then dropped. */
+    for (let i = queue.length - 1; i >= 0; i--) if (['daybefore', 'table', 'eventday'].includes(queue[i].type)) queue.splice(i, 1);
   }
   const unplaced = queue.map(q => ({ token: q.token, tok8: q.tok8, event: q.event, type: q.type, n: q.n, from_day: q.from_day }));
   /* recommendations: each event's per-day batch, earliest day it fits whole */
