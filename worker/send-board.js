@@ -107,9 +107,13 @@ export function typeOf({ template, wave, at }, ev) {
   if (w === '1' || w === '2' || w === '3') return 'w' + w;
   if (w === 'daybefore') return 'daybefore';
   if (w === 'seating') return 'table';
+  const t = String(template || '');
+  /* 09/11: the D-1 / event-day family — a _t* name carries the table, so it IS the table message */
+  if (/^ishur_lifnei_/.test(t)) return 'daybefore';
+  if (/^ishur_yom_(combo|plain)_t/.test(t)) return 'table';
+  if (/^ishur_yom_(combo|plain)_/.test(t)) return 'eventday';
   if (w === 'eventday') return 'eventday';
   if (w === 'gift') return 'gift';
-  const t = String(template || '');
   if (!t) return null;
   if (/^ishur_yom_lifnei/.test(t)) return 'daybefore';
   /* _f (footer copy) and _matana (gift twin) are the same table message */
@@ -247,7 +251,7 @@ export function aggregateSendBoard(input) {
     if (!type) continue;
     if (d.wamid) seenOut.add(d.wamid);
     const k = `${tok}|${type}|${phone}`;
-    (att[k] = att[k] || []).push({ ts, accepted: !!o.ok && !!d.wamid, reject: o.ok ? '' : codeOf(d.error || o.detail), wamid: d.wamid || '', phone_id: String(d.phone_id || ''), statuses: sts });
+    (att[k] = att[k] || []).push({ ts, accepted: !!o.ok && !!d.wamid, reject: o.ok ? '' : codeOf(d.error || o.detail), wamid: d.wamid || '', phone_id: String(d.phone_id || ''), statuses: sts, tmpl: String(d.template || '') });
   }
   /* statuses whose wa_out fell outside the window but that carry token+wave */
   for (const id in stBy) {
@@ -276,7 +280,7 @@ export function aggregateSendBoard(input) {
         failed: { total: 0, cap: 0, notwa: 0, blocked: 0, experiment: 0, other: 0, codes: {} },
         pending: { total: 0, reopened: 0, hold: 0, cap: 0, window: 0, scheduled: 0, queue: 0 },
         dropped: 0,   /* 03/11 R1: day-before not sent by the event day — never sent late */
-        skipped: 0, unknown: 0, last_at: 0, inferred: 0, sources: { audit: 0, kv: 0 } };
+        skipped: 0, unknown: 0, last_at: 0, first_at: 0, inferred: 0, sources: { audit: 0, kv: 0 }, templates: {} };
       const people = detail ? { delivered: [], read: [], no_status: [], failed: [], pending: [], answered: [], skipped: [], unknown: [], dropped: [] } : null;
       const dropDay = T.key === 'daybefore' && !!ev.date && today >= ev.date;
       const DROP_HE = 'דולג — האירוע היום/עבר; יום-לפני לא נשלח באיחור';
@@ -293,6 +297,8 @@ export function aggregateSendBoard(input) {
 
         if (a.length) {
           row.sources.audit++;
+          /* 09/11 control center: which wording went out, and when the type started */
+          for (const x of a) { if (x.tmpl) row.templates[x.tmpl] = (row.templates[x.tmpl] || 0) + 1; if (x.ts && (!row.first_at || x.ts < row.first_at)) row.first_at = x.ts; }
           const acc = a.filter(x => x.accepted);
           const last = a[a.length - 1];
           const allSt = [].concat(...a.map(x => x.statuses.map(s => ({ ...s, phone_id: x.phone_id }))));

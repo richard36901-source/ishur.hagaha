@@ -11758,6 +11758,36 @@ const WORKER = {
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
     }
+    /* 09/11 control center: the wording of the templates a card sent (guests WABA, then the client WABA) */
+    if (url.pathname === '/api/template-text' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch {}
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const names = [...new Set((Array.isArray(b.names) ? b.names : []).map(n => String(n || '').trim()).filter(n => /^[a-z0-9_]{1,80}$/.test(n)))].slice(0, 12);
+      const out = {};
+      for (const name of names) {
+        const ck = 'tmpltext:' + name;
+        let t = null; try { t = env.RATE ? JSON.parse((await env.RATE.get(ck)) || 'null') : null; } catch {}
+        if (!t) {
+          for (const [waba, tok] of [['1378764257421712', env.WA_TOKEN_GUESTS], [clientWaba(env), clientToken(env)]]) {
+            if (!tok) continue;
+            try {
+              const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(name)}&fields=name,status,category,components`, { headers: { Authorization: 'Bearer ' + tok } });
+              const j = await r.json(); const x = (j.data || []).find(y => y.name === name);
+              if (!x) continue;
+              const comps = x.components || [];
+              const body = (comps.find(c => c.type === 'BODY') || {}).text || '';
+              const head = (comps.find(c => c.type === 'HEADER') || {});
+              const btns = ((comps.find(c => c.type === 'BUTTONS') || {}).buttons || []).map(z => z.text);
+              t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', body, footer: (comps.find(c => c.type === 'FOOTER') || {}).text || '', buttons: btns };
+              break;
+            } catch {}
+          }
+          if (t && env.RATE) await env.RATE.put(ck, JSON.stringify(t), { expirationTtl: 6 * 3600 }).catch(() => {});
+        }
+        out[name] = t || { name, missing: true };
+      }
+      return okJson({ ok: true, templates: out }, origin);
+    }
     /* 01/11: per-template performance from the audit log (templates.html) */
     if (url.pathname === '/api/template-stats' && request.method === 'POST') {
       return handleTemplateStats(request, env, origin, { isAdmin, okJson, deny,

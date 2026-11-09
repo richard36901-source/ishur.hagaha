@@ -17,6 +17,7 @@
 <script src="assets/sendboard.js?v=3"></script>
 <script src="assets/callboard.js?v=1"></script>
 <script src="assets/callslog.js?v=1"></script>
+<script src="assets/week.js?v=1"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -492,6 +493,15 @@
 
   /* the calls view: one page, two faces */
   body[data-view="main"] .sec-calls{display:none}
+  /* 09/11 Richard: "תעיף כל מה שמיותר" — the main view is the top + the week + links + שליטה */
+  body[data-view="main"] #main > :not(#hqtop):not(.sec-calls):not(#ctl){display:none !important}
+  .strip2{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
+  .strip2 .st{text-decoration:none;color:inherit}
+  .strip2 .st .v{font-size:1.5rem}
+  .linkcard{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem}
+  .quick{display:flex;flex-wrap:wrap;gap:.4rem;margin:1.2rem 0 .4rem}
+  .quick a{border:1px solid var(--line);border-radius:99px;padding:.35rem .9rem;font-size:.84rem;color:var(--ink);text-decoration:none;background:var(--card)}
+  .quick a:hover{border-color:var(--gold)}
   body[data-view="calls"] #main > :not(.sec-calls){display:none}
   /* 02/11 F.5: one merged calls table; ?view=calls&old=1 shows the previous two sections */
   body.unified[data-view="calls"] .sec-calls:not(.callshead):not(#callsUnified){display:none}
@@ -553,19 +563,19 @@
   <div id="hqtop">
     <h1 id="hello">בוקר טוב</h1>
     <p class="sub" id="today"></p>
-    <div class="strip" id="strip">
-      <div class="st" id="s-send"><span class="l">שליחות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
-      <div class="st" id="s-shir"><span class="l">שיר · שיחות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
-      <div class="st" id="s-noa"><span class="l">נועה · לקוחות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
-      <div class="st" id="s-ads"><span class="l">מודעות</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
-      <div class="st" id="s-leads"><span class="l">לידים</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></div>
+    <!-- 09/11 Richard: open the page and see two things — the Facebook ad, and new leads -->
+    <div class="strip strip2" id="strip">
+      <a class="st" id="s-ads" href="ads-report.html"><span class="l">מודעה בפייסבוק</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></a>
+      <a class="st" id="s-leads" href="leads.html"><span class="l">לידים חדשים</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></a>
     </div>
-    <h2>דורש אותך <a href="ops.html">יומן מלא ›</a></h2>
-    <div class="todo" id="todo"><div class="empty skel">טוען</div></div>
-    <h2>אירועים קרובים <a href="calendar.html">לוח שליחות ›</a><a href="clients.html">כל הלקוחות ›</a></h2>
-    <div class="evgrid" id="hqevents"></div>
-    <h3 style="font-size:.92rem;margin:.9rem 0 .4rem">נשלחו מתוך כמה · לפי סוג הודעה <a href="calendar.html" style="font-size:.74rem;font-weight:500">פירוט מלא ›</a></h3>
-    <div id="hqsendboard"></div>
+    <div class="todo" id="todo" hidden></div>
+    <h2>השבוע · מה יוצא, לאיזה אירוע, ומה נדחה <a href="calendar.html">לוח מלא ›</a></h2>
+    <div id="week"></div>
+    <h2>יצירת קישור תשלום</h2>
+    <div class="linkcard"><div id="pl-gen"></div></div>
+    <nav class="quick">
+      <a href="leads.html">לידים</a><a href="inbox.html">אינבוקס</a><a href="clients.html">לקוחות</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="calendar.html">לוח שליחות</a>
+    </nav>
   </div>
 
   <div id="growth">
@@ -1259,13 +1269,14 @@
     if (liveBusy()) { slowDue = slowDue || Date.now(); return; }
     slowDue = 0;
     loadStatus(true);
-    loadOps();
     loadBrain();
+    hqLoad();
+    if (VIEW === 'main') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); return; }
+    loadOps();
     loadCost();
     loadTraffic();
     loadCampaigns();
     loadBoard();
-    hqLoad();
   }
 
   function liveStart() {
@@ -1304,18 +1315,20 @@
   function load(quiet) {
     loadStatus(quiet);
     hqLoad();
-    if (window.IshurPlaybook) IshurPlaybook.mount('sales', adminKey);
-    loadFeedback();
-    if (!UNIFIED) loadShir();
-    if (UNIFIED && !unifiedMounted && window.IshurCallsLog) {
+    if (window.IshurPayLinkGen && !window.__plgMounted) { window.__plgMounted = 1; IshurPayLinkGen.mount('pl-gen', adminKey); }
+    if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') });
+    if (VIEW !== 'main') loadFeedback();
+    if (!UNIFIED && VIEW !== 'main') loadShir();
+    if (UNIFIED && VIEW === 'calls' && !unifiedMounted && window.IshurCallsLog) {
       unifiedMounted = true;
       var rawApi = function (p, b) { return fetch(CFG.endpoint(p), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b || {})) }); };
       IshurCallsLog.mount($('callsUnified'), { adminKey: adminKey, raw: rawApi, api: function (p, b) { return rawApi(p, b).then(function (r) { return r.ok ? r.json() : null; }); } });
     }
-    loadOps();
     loadBrain();
-    loadCost();
     loadPause();
+    if (VIEW === 'main') return;   /* 09/11: the hidden sections no longer fetch (they caused 429s) */
+    loadOps();
+    loadCost();
     loadTraffic();
     loadCampaigns();
     loadBoard();
@@ -2434,9 +2447,9 @@
     $('today').textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
     var todo = [];
     function pushTodo(kind, t, s, href, label) { todo.push({ kind: kind, t: t, s: s, href: href, label: label }); }
-    var pending = 3;
+    var pending = $('s-send') ? 3 : 2;
     function doneOne() { if (--pending <= 0) renderTodo(todo); }
-    Promise.all([hqApi('pause', {}), hqApi('wave-audit', {}), hqApi('cap-status', {}).catch(function () { return null; })]).then(function (r) {
+    if ($('s-send')) Promise.all([hqApi('pause', {}), hqApi('wave-audit', {}), hqApi('cap-status', {}).catch(function () { return null; })]).then(function (r) {
       var paused = r[0] && r[0].paused, au = r[1] || {}, evs = au.events || [], cap = r[2] || null;
       var missing = evs.filter(function (e) { return e.missing_n > 0 && !e.held; });
       var held = evs.filter(function (e) { return e.held; });
@@ -2451,7 +2464,7 @@
       renderHqEvents(evs);
       if (window.IshurSendBoard && $('hqsendboard')) IshurSendBoard.mount($('hqsendboard'), { api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); }, compact: true });
     }).catch(function () { setSt('s-send', 'warn', 'לא נטען', ''); }).then(doneOne);
-    hqApi('call-board', {}).then(function (b) {
+    if ($('s-shir')) hqApi('call-board', {}).then(function (b) {
       var w = (b.waiting || []).length, done = b.done || [];
       var today = new Date().toDateString();
       var td = done.filter(function (c) { return c.at && new Date(c.at).toDateString() === today; });
@@ -2468,9 +2481,11 @@
       if (noa131042) setSt('s-noa', 'bad', 'חסומה', 'חשבון התשלום של מטא · ' + inbound + ' הודעות נכנסו היום ולא נענו');
       else setSt('s-noa', 'ok', 'שולחת', inbound + ' הודעות נכנסו היום');
       var issues = (ah.issues || []).length, acct = ah.account || {};
+      var camp = ah.campaign || {};
       if (!ah.ok) setSt('s-ads', 'warn', 'לא נטען', '');
-      else if (Number(acct.status) !== 1 || issues) setSt('s-ads', 'bad', issues ? issues + ' בעיות' : 'חשבון לא פעיל', (ah.campaign || {}).name || '');
-      else setSt('s-ads', 'ok', 'רץ', ((ah.campaign || {}).effective_status || '') + ' · ' + (acct.funding || ''));
+      else if (Number(acct.status) !== 1) setSt('s-ads', 'bad', 'כבויה', 'חשבון המודעות לא פעיל');
+      else if (camp.effective_status !== 'ACTIVE') setSt('s-ads', 'bad', 'כבויה', (camp.name || '') + ' · ' + (camp.effective_status || ''));
+      else setSt('s-ads', issues ? 'warn' : 'ok', 'פעילה', (camp.name || '') + (issues ? ' · ' + issues + ' בעיות' : ''));
       var seen = {};
       todayRows.filter(function (x) { return x[4] === 'כן'; }).reverse().forEach(function (x) {
         var key = (x[1] || '') + '|' + String(x[2] || '').slice(0, 40);
@@ -2483,7 +2498,7 @@
       var c = d.counts || {};
       hqLeadCounts = c;
       var fresh = c['חדש'] || 0, due = c.followupDue || 0;
-      setSt('s-leads', fresh ? 'warn' : 'ok', fresh + ' חדשים', (c['לא ענה'] || 0) + ' לא ענו · ' + due + ' מעקב להיום · ' + (c['סגר'] || 0) + ' סגרו');
+      setSt('s-leads', fresh ? 'warn' : 'ok', String(fresh), due + ' מעקב להיום · ' + (c['לא ענה'] || 0) + ' לא ענו');
       if (fresh) pushTodo('amber', fresh + ' לידים חדשים מחכים לשיחה', 'לוח הלידים · סטטוס "חדש"', 'leads.html', 'ללידים');
       if (due) pushTodo('amber', due + ' מעקבי לידים להיום', 'לוח הלידים · מעקב', 'leads.html', 'ללידים');
       renderGrowth();

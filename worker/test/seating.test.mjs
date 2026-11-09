@@ -36,3 +36,11 @@ test('a table of one has no mate list', () => {
   const txt = tableReply(tableFor(raw, { token: 'T', guest_id: 'g4' }));
   assert.equal(txt, '🪑 שולחן 7\n\nנתראה באירוע 🙂');
 });
+
+import { typeOf } from '../send-board.js';
+test('event-day family templates count as table / event-day / day-before', () => {
+  assert.equal(typeOf({ template: 'ishur_yom_combo_tgb', wave: 'eventday' }), 'table');
+  assert.equal(typeOf({ template: 'ishur_yom_plain_t' }), 'table');
+  assert.equal(typeOf({ template: 'ishur_yom_combo_gb', wave: 'eventday' }), 'eventday');
+  assert.equal(typeOf({ template: 'ishur_lifnei_combo_t' }), 'daybefore');
+});
