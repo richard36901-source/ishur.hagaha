@@ -207,13 +207,16 @@ export function projectItems({ events, guests, flags = {}, today, days = 14, isN
   for (const ev of events || []) {
     const f = flags[ev.token] || {};
     const gl = guests[ev.token] || [];
-    const push = (day, type, count) => { if (day && day >= today && day <= last && count > 0) items.push({ day, token: ev.token, tok8: ev.token.slice(0, 8), name: ev.name || '', type, count, held: !!f.hold, upper_bound: true }); };
+    const heldOn = day => !!f.hold && !(f.holdtill && day >= f.holdtill);
+    const push = (day, type, count) => { if (day && day >= today && day <= last && count > 0) items.push({ day, token: ev.token, tok8: ev.token.slice(0, 8), name: ev.name || '', type, count, held: heldOn(day), upper_bound: true, prio: f.prio || 0, order: f.order == null ? 1000 : f.order }); };
     for (const k of [1, 2, 3]) {
       const when = (ev.waves || {})[k]; if (!when) continue;
       if (f['wave' + k]) continue;
       if (k === 3 && !f.extrasend) continue;
       if (ev.date && ev.date < today) continue;
-      const d = firstEngineDay(when > today ? when : today, addDays(when, 3), isNoContactDay);
+      /* a timed hold moves the wave to its release day */
+      const from0 = when > today ? when : today, from = f.hold && f.holdtill && f.holdtill > from0 ? f.holdtill : from0;
+      const d = firstEngineDay(from, addDays(from > when ? from : when, 3), isNoContactDay);
       if (!d || (ev.date && ev.date < d)) continue;
       push(d, 'w' + k, uniq(gl, g => k === 2 ? (!g.rsvp || g.rsvp === 'מתלבט') : g.rsvp !== 'לא מגיע'));
     }
@@ -254,9 +257,17 @@ export function planCapacity({ today, days = 14, items = [], model = {}, isNoCon
      Closed days (Shabbat / no-contact) have capacity 0, so nothing ever lands on them. */
   const queue = [];
   for (const r of rows) {
-    for (const it of sorted) if (it.day === r.day && !it.held && !it.dropped) queue.push({ token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, n: it.count, from_day: it.day });
-    let room = r.capacity; r.rolled = [];
-    while (room > 0 && queue.length) { const q = queue[0], take = Math.min(room, q.n); r.rolled.push({ ...q, n: take }); q.n -= take; room -= take; if (!q.n) queue.shift(); }
+    for (const it of sorted) if (it.day === r.day && !it.held && !it.dropped) queue.push({ token: it.token, tok8: it.tok8, event: it.name, type: it.type, type_he: PLAN_TYPES[it.type] || it.type, n: it.count, from_day: it.day, prio: it.prio || 0, order: it.order == null ? 1000 : it.order });
+    /* 09/11: the engine's order — waveorder (drag & drop) first, then waveprio, then FIFO; a waveprio event takes at most N a day */
+    queue.sort((a, b) => a.order - b.order || (b.prio > 0) - (a.prio > 0) || (a.from_day < b.from_day ? -1 : a.from_day > b.from_day ? 1 : 0));
+    let room = r.capacity; r.rolled = []; const usedBy = {};
+    for (let i = 0; i < queue.length && room > 0; i++) {
+      const q = queue[i];
+      const share = q.prio > 0 ? Math.max(0, q.prio - (usedBy[q.token] || 0)) : Infinity;
+      const take = Math.min(room, q.n, share); if (take <= 0) continue;
+      r.rolled.push({ ...q, n: take }); q.n -= take; room -= take; usedBy[q.token] = (usedBy[q.token] || 0) + take;
+      if (!q.n) { queue.splice(i, 1); i--; }
+    }
     r.out = r.rolled.reduce((n, x) => n + x.n, 0);
     r.rolled_in = r.rolled.filter(x => x.from_day < r.day).reduce((n, x) => n + x.n, 0);
     r.carry = queue.reduce((n, q) => n + q.n, 0);
@@ -452,11 +463,14 @@ async function projectionInputs(env, d, today, days) {
   const flags = {};
   await Promise.all(rel.map(async ev => {
     const t = ev.token;
-    const [hold, w1, w2, w3, xs, db, seat, toda] = await Promise.all(['hold:', `wave:${t}:1`, `wave:${t}:2`, `wave:${t}:3`, 'extrasend:', 'daybefore:', 'seat:', 'toda:']
+    const [hold, w1, w2, w3, xs, db, seat, toda, holdtill, prio] = await Promise.all(['hold:', `wave:${t}:1`, `wave:${t}:2`, `wave:${t}:3`, 'extrasend:', 'daybefore:', 'seat:', 'toda:', 'holdtill:', 'waveprio:']
       .map(k => kget(env, k.endsWith(':') ? k + t : k)));
     let ed = null; try { const j = JSON.parse(edJobs[t] || 'null'); if (j) ed = { at: String(j.at || ''), no_table: !!j.no_table }; } catch {}
-    flags[t] = { hold: !!hold, wave1: !!w1, wave2: !!w2, wave3: !!w3, extrasend: !!xs, daybefore: !!db, seat: !!seat, toda: !!toda, eventday: ed };
+    /* 09/11: a timed hold (holdtill) is a hold only until that day; waveprio = first in line, at most N a day */
+    flags[t] = { hold: !!hold, holdtill: /^\d{4}-\d{2}-\d{2}$/.test(String(holdtill || '')) ? String(holdtill) : '', prio: Number(prio) || 0, wave1: !!w1, wave2: !!w2, wave3: !!w3, extrasend: !!xs, daybefore: !!db, seat: !!seat, toda: !!toda, eventday: ed };
   }));
+  let order = []; try { order = JSON.parse((await kget(env, 'waveorder')) || '[]'); } catch {}
+  for (const t of Object.keys(flags)) { const i = order.indexOf(t); flags[t].order = i < 0 ? 1000 : i; }
   return { raw, events: rel, guests, flags };
 }
 export async function buildCapacity(env, d, now = Date.now(), days = 14) {
