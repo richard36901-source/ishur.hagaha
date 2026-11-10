@@ -94,9 +94,10 @@ export async function slackSend(env, text, opts = {}) {
     await env.RATE.put(key, JSON.stringify(list), { expirationTtl: 3 * 86400 }).catch(() => {});
     return;
   }
+  /* 10/11 (wavenote.js): a note may carry Block Kit blocks (header, quoted wording, the artwork) */
   await fetch(env.SLACK_ALERT_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ text }),
+    body: JSON.stringify(Array.isArray(opts.blocks) && opts.blocks.length ? { text, blocks: opts.blocks } : { text }),
   }).catch(() => {});
 }
 

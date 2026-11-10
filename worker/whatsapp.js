@@ -17,6 +17,9 @@
 import { crmTouch } from './crm.js';
 import { logRow } from './sheetlogs.js';
 import { logEvent, stream } from './evlog.js';
+import { noteDailySend } from './wavenote.js';
+/* index.js registers the event-name resolver (it owns the sheet snapshot); whatsapp.js stays import-free of index.js */
+export const waveNoteDeps = { eventName: null };
 import { capacity, numberState, rollingUsed, nextFreeAt, readHourBuckets, bumpHourBucket, cachedTiers, tierLimit, epochHour } from './budget.js';
 
 const GRAPH = 'https://graph.facebook.com/v21.0';
@@ -667,6 +670,8 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
      24h (the gday guard already keeps it to one send per guest per day). */
   if (res && res.ok && channel === 'guests' && env.RATE && !ctx?.probe) {
     try { await env.RATE.put('bic:' + Date.now() + ':' + normPhone(to), '1', { expirationTtl: 86400 }); } catch {}
+    /* 10/11 Richard: the first guest send of each round, each day → Slack with the exact wording + artwork */
+    if (ctx && ctx.token) { try { await noteDailySend(env, { token: ctx.token, template: name, params, imageUrl, wave: ctx.wave }, { eventName: waveNoteDeps.eventName }); } catch {} }
   }
   return res;
 }

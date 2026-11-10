@@ -36,6 +36,7 @@ import { fitBatch } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
+import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
 import { isTableQuestion, tableFor, tableReply } from './seating.js';
@@ -4900,6 +4901,12 @@ export function guestEventName(ev, { article = true } = {}) {
   if (!occasion) return hosts || (article ? 'האירוע' : 'אירוע');
   return (article ? 'ה' : '') + occasion + (hosts ? ' של ' + hosts : '');
 }
+/* 10/11 wavenote: "נשלח לאורחים · גל 1 · <שם האירוע>" — the hosts' names, as the guests know the event */
+waveNoteDeps.eventName = async (env, token) => {
+  const raw = await readSnapshot(env, 'background').catch(() => null);
+  const r = ((raw && raw.events && raw.events.values) || []).find(x => String((x || [])[1] || '').trim() === String(token));
+  return r ? (eventHosts(r) || String(r[2] || '').trim() || '') : '';
+};
 /* ── a guest the client added AFTER wave 1 went out (dashboard guest-add) ──
    02/11 audit: this used to send the invitation the second the client hit
    "add" — at 23:40, on Shabbat, on a holiday, while sending was paused or
