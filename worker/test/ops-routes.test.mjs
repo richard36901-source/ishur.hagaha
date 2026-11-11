@@ -192,7 +192,8 @@ test('sendlive: counter from the engine buckets, release timeline, per-event row
   const h = Math.floor(Date.now() / 3600e3), ttl = 120 * 86400;
   const e = env({ [`gsendh:A:${h - 2}`]: '66', [`gsendh:B:${h - 2}`]: '62', [`gsendh:A:${h}`]: '2', 'pacer:pending': today, 'pacer:last': JSON.stringify({ at: new Date().toISOString(), sends: { ran: true, truncated: true } }),
     'billingalert:client': '1', 'waveorder': JSON.stringify([TOK]), [`wnote:${TOK}:w1:${today}`]: '1',
-    [`wsent:${TOK}:1:9725200000011`]: '1', [`wsent:${TOK}:1:9725200000021`]: '1' });
+    [`wsent:${TOK}:1:9725200000011`]: '1', [`wsent:${TOK}:1:9725200000021`]: '1',
+    [`lateinv:${TOK}:972501112233`]: JSON.stringify({ name: 'מזל', at: '2026-11-11T12:07:47Z', why: 'manual' }) });
   e.GUEST_BUDGET_MARGIN = '10';   /* wrangler.toml [vars] since 11/11 */
   const list0 = e.RATE.list;
   e.RATE.list = async (o) => { const p = await list0(o); return { ...p, keys: p.keys.map(k => ({ ...k, expiration: Math.floor(Date.now() / 1000) + ttl })) }; };
@@ -207,7 +208,9 @@ test('sendlive: counter from the engine buckets, release timeline, per-event row
   assert.equal(row.order, 0); assert.ok(['queue', 'not-yet'].includes(row.gate));
   assert.equal(r.client.blocked, true); assert.equal(r.verification.status, 'not_verified');
   assert.deepEqual(r.notes.map(n => n.kind), ['w1']);
+  /* 11/11: a guest added after wave 1 waits in lateinv: and shows up by name */
+  assert.deepEqual(r.late.map(l => [l.tok8, l.guest, l.phone]), [[TOK.slice(0, 8), 'מזל', '0501112233']]);
   assert.equal(typeof r.engine.why, 'string'); assert.equal(r.engine.last_truncated, true);
-  const writes = [...e.RATE.m.keys()].filter(k => !/^(gsendh:|pacer:|billingalert:|waveorder|wnote:|wsent:|wa:cap|biz:verif|snapcache|snap)/.test(k));
+  const writes = [...e.RATE.m.keys()].filter(k => !/^(gsendh:|pacer:|billingalert:|waveorder|wnote:|wsent:|lateinv:|wa:cap|biz:verif|snapcache|snap)/.test(k));
   assert.deepEqual(writes.filter(k => !k.startsWith('stream:')), [], 'no state writes besides caches');
 });

@@ -127,6 +127,7 @@ check('capacity.view', () => S.capacity.view(F.capacity));
 const SL = await import(pathToFileURL(join(OPS, 'lazy/sendlive.js')));
 check('sendlive.view', () => SL.view(F.sendlive, Date.parse('2026-11-11T09:52:00Z')));
 ok(SL.view(F.sendlive, Date.parse('2026-11-11T09:52:00Z')).includes('12:00') && SL.view(F.sendlive).includes('+128') && !/לא נשלח/.test(SL.view(F.sendlive)), 'sendlive shows the 12:00 +128 release and never says "לא נשלח"');
+ok(SL.view(F.sendlive).includes('הזמנות מאוחרות בתור') && SL.view(F.sendlive).includes('מזל א.'), 'sendlive lists the late-invite queue by guest name');
 ok(S.capacity.view(F.capacity).includes('▲'), 'capacity shows over-capacity marker', F.capacity.alerts.length + ' alert days');
 check('balances.view', () => S.balances.view(F.balances));
 const capTip = S.capacity.outTip(F.capacity.days.find((d) => d.rolled_in > 0) || F.capacity.days[0]);

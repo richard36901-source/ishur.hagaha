@@ -489,13 +489,13 @@ async function kvKeysEx(env, prefix, cap = 6000) {
 export async function buildSendLive(env, d, now = Date.now()) {
   const today = d.ilDate(new Date(now));
   const ids = d.guestPhoneIds(env);
-  const [cap, bucketsList, wsent, inp, verif, pacerLast, engineLast, pending, paused, billFlag, capAll, order, wnotes, capheld] = await Promise.all([
+  const [cap, bucketsList, wsent, inp, verif, pacerLast, engineLast, pending, paused, billFlag, capAll, order, wnotes, capheld, lateQ] = await Promise.all([
     d.guestCapacity(env).catch(() => null),
     Promise.all(ids.map(id => readHourBuckets(env.RATE, id, now).catch(() => ({})))),
     kvKeysEx(env, 'wsent:', 20000), projectionInputs(env, d, today, 3), bizVerification(env),
     kjson(env, 'pacer:last'), kjson(env, 'engine:lastrun'), kget(env, 'pacer:pending'), d.sendingPaused(env).catch(() => false),
     kget(env, 'billingalert:client'), kget(env, 'wacap:guests'), kjson(env, 'waveorder'),
-    kvKeysEx(env, 'wnote:', 500), kvKeysEx(env, 'capheld:' + today, 50)]);
+    kvKeysEx(env, 'wnote:', 500), kvKeysEx(env, 'capheld:' + today, 50), d.kvPrefix(env, 'lateinv:').catch(() => ({}))]);
   const bucketsByPid = Object.fromEntries(ids.map((id, i) => [id, bucketsList[i] || {}]));
   const limit = cap ? (cap.scope === 'number' ? cap.limit : (Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? Number(env.GUEST_PORTFOLIO_BUDGET) : cap.limit)) : 250;
   const timeline = releaseTimeline({ bucketsByPid, limit, margin: cap ? cap.margin : 10, now });
@@ -511,7 +511,10 @@ export async function buildSendLive(env, d, now = Date.now()) {
   const why = paused ? 'paused' : !win.open ? (win.why || 'window-closed') : capAll ? 'wacap:guests' : timeline.free <= 0 ? 'cap' : pending !== today ? 'nothing-pending' : 'sending';
   const notes = wnotes.map(k => { const [, token, kind, day] = k.name.split(':'); return { token, tok8: String(token || '').slice(0, 8), kind, day, name: (events.find(e => e.token === token) || {}).name || '' }; }).filter(n => n.day === today);
   const sentToday = Object.values(counts).reduce((a, ev) => a + Object.values(ev).reduce((b, w) => b + (w.by_day[today] || 0), 0), 0);
-  return { ok: true, at: new Date(now).toISOString(), today,
+  /* 11/11 (Richard: "מור הוסיפה אורחים"): guests added after wave 1 closed wait in lateinv:<token>:<phone>
+     and go out with drainLateInvites every 10 min when the window is open and the budget has room */
+  const late = Object.entries(lateQ || {}).map(([k, v]) => { const [, token, phone] = ('lateinv:' + k).split(':'); let r = {}; try { r = JSON.parse(v) || {}; } catch {} return { token, tok8: String(token || '').slice(0, 8), name: (events.find(e => e.token === token) || {}).name || '', guest: r.name || '', phone: String(phone || '').replace(/^972/, '0'), since: r.at || null, why: r.why || '' }; });
+  return { ok: true, at: new Date(now).toISOString(), today, late,
     counter: { ours: { used: timeline.used, limit: timeline.limit, margin: timeline.margin, cap: timeline.cap, free: timeline.free }, meta: { used: bic, limit, free: Math.max(0, limit - bic) }, sent_today: sentToday,
       releases: timeline.releases, numbers: ids.map(id => ({ phone_id: id, label: phoneLabel(id), used: Object.values(bucketsByPid[id] || {}).reduce((a, b) => a + b, 0) })) },
     engine: { why, window_open: !!win.open, window_closes_at: closeAt ? new Date(closeAt).toISOString() : null, paused: !!paused, pending: pending === today, last_tick: pacerLast && pacerLast.at || null,
