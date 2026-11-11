@@ -40,6 +40,8 @@ WA_PHONE_ID_CLIENT_NEW = "1404834546041914"
 WA_PHONE_ID_CLIENT = "1218978741299669"
 # 01/11: second guests number 055-3089799 on the same WABA 1378764257421712 — doubles the daily 250 cap; the Worker spreads guest sends across all ids here.
 WA_PHONE_IDS_GUESTS = "1409632775565601"
+# 11/11 (Richard): shared safety margin under the business cap 20 → 10 (budget.js guestBudgetMargin)
+GUEST_BUDGET_MARGIN = "10"
 ADMIN_PHONES = "972545764327,972526979535"
 # 02/11: B2B outreach to venues (outreach.js). "off" = plan only, nothing leaves.
 # Flip to "on" only after `npx wrangler email sending enable ishur.io` and after
