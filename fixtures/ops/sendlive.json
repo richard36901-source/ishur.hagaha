@@ -1,0 +1,178 @@
+{
+ "fixture": true,
+ "fixture_from": "shape of /api/ops/sendlive (11/11/26 11:52 IL, masked)",
+ "ok": true,
+ "at": "2026-11-11T09:52:00.000Z",
+ "today": "2026-11-11",
+ "counter": {
+  "ours": {
+   "used": 230,
+   "limit": 250,
+   "margin": 10,
+   "cap": 240,
+   "free": 10
+  },
+  "meta": {
+   "used": 102,
+   "limit": 250,
+   "free": 148
+  },
+  "sent_today": 3,
+  "releases": [
+   {
+    "at": "2026-11-11T10:00:00.000Z",
+    "at_ms": 1794477600000,
+    "n": 128,
+    "free_after": 138
+   },
+   {
+    "at": "2026-11-11T15:00:00.000Z",
+    "at_ms": 1794495600000,
+    "n": 52,
+    "free_after": 190
+   },
+   {
+    "at": "2026-11-11T16:00:00.000Z",
+    "at_ms": 1794499200000,
+    "n": 47,
+    "free_after": 237
+   },
+   {
+    "at": "2026-11-12T09:00:00.000Z",
+    "at_ms": 1794560400000,
+    "n": 3,
+    "free_after": 240
+   }
+  ],
+  "numbers": [
+   {
+    "phone_id": "1107514695777584",
+    "label": "שיר #1 · 6673",
+    "used": 115
+   },
+   {
+    "phone_id": "1409632775565601",
+    "label": "שיר #2 · 3089",
+    "used": 115
+   }
+  ]
+ },
+ "engine": {
+  "why": "cap",
+  "window_open": true,
+  "window_closes_at": "2026-11-11T18:30:00.000Z",
+  "paused": false,
+  "pending": true,
+  "last_tick": "2026-11-11T09:51:36.480Z",
+  "last_engine": "2026-11-11T09:51:14.940Z",
+  "last_truncated": true,
+  "cap_held_hours": [
+   8,
+   9
+  ],
+  "order": [
+   "6a3155cc",
+   "41630865"
+  ]
+ },
+ "events": [
+  {
+   "token": "6a3155cc-0000-4000-8000-000000000000",
+   "tok8": "6a3155cc",
+   "name": "מור ונועם",
+   "date": "2026-12-05",
+   "wave": 1,
+   "due": "2026-11-09",
+   "eligible": 510,
+   "sent": 421,
+   "sent_today": 0,
+   "left": 89,
+   "done": false,
+   "gate": "queue",
+   "order": 0,
+   "prio": 0,
+   "share_used": 0,
+   "by_day": {
+    "2026-11-09": 309,
+    "2026-11-10": 112
+   },
+   "eta": {
+    "done": true,
+    "at": "2026-11-11T10:32:00.000Z",
+    "today": 89,
+    "carried": 0,
+    "why": "fits-today",
+    "position": 1,
+    "daily_share": null
+   }
+  },
+  {
+   "token": "41630865-0000-4000-8000-000000000000",
+   "tok8": "41630865",
+   "name": "שוהם ושי",
+   "date": "2026-12-01",
+   "wave": 1,
+   "due": "2026-11-10",
+   "eligible": 400,
+   "sent": 118,
+   "sent_today": 3,
+   "left": 282,
+   "done": false,
+   "gate": "queue",
+   "order": 1,
+   "prio": 115,
+   "share_used": 3,
+   "by_day": {
+    "2026-11-10": 115,
+    "2026-11-11": 3
+   },
+   "eta": {
+    "done": true,
+    "at": "2026-11-11T11:22:00.000Z",
+    "today": 112,
+    "carried": 170,
+    "why": "fits-today",
+    "position": 2,
+    "daily_share": 112
+   }
+  },
+  {
+   "token": "6a3155cc-0000-4000-8000-000000000000",
+   "tok8": "6a3155cc",
+   "name": "מור ונועם",
+   "date": "2026-12-05",
+   "wave": 2,
+   "due": "2026-11-20",
+   "eligible": 300,
+   "sent": 0,
+   "sent_today": 0,
+   "left": 300,
+   "done": false,
+   "gate": "not-yet",
+   "order": 0,
+   "prio": 0,
+   "share_used": 0,
+   "by_day": {},
+   "eta": null
+  }
+ ],
+ "client": {
+  "blocked": true,
+  "since": null
+ },
+ "verification": {
+  "status": "pending",
+  "verified": false,
+  "source": "meta",
+  "at": "2026-11-11T08:00:00.000Z"
+ },
+ "notes": [
+  {
+   "token": "41630865-0000-4000-8000-000000000000",
+   "tok8": "41630865",
+   "kind": "w1",
+   "day": "2026-11-11",
+   "name": "שוהם ושי"
+  }
+ ]
+}

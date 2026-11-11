@@ -46,7 +46,7 @@ console.log('A3 fixture rendering');
 /* fixtures are masked copies of real API responses; screens render them only through adapt() */
 const fx = (n) => JSON.parse(readFileSync(join(ROOT, 'fixtures/ops', n + '.json'), 'utf8'));
 const { adapt } = await import(pathToFileURL(join(OPS, 'adapt.js')));
-const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code', 'calendar', 'changes'].map((n) => [n, fx(n)]));
+const RAW = Object.fromEntries(['registry', 'runs', 'run', 'realtime', 'capacity', 'balances', 'live', 'brain', 'toggle', 'code', 'calendar', 'changes', 'sendlive'].map((n) => [n, fx(n)]));
 const NAMES = Object.fromEntries(RAW.registry.nodes.map((n) => [n.id, n.name_he]));
 const F = Object.fromEntries(Object.entries(RAW).map(([n, d]) => [n, ['toggle', 'code', 'calendar', 'changes'].includes(n) ? d : adapt(n, d, { names: NAMES })]));
 console.log('A3a contract (fixture keys the adapter reads exist in the real-shaped fixtures)');
@@ -124,6 +124,9 @@ ok(Object.keys(CTL.ACTIONS).filter((k) => k !== 'dry').every((k) => CTL.wordOf(k
 ok(Object.keys(CTL.ACTIONS).every((k) => CTL.ACTIONS[k].blast(P4.control.events[0]).length > 20), 'control: every action has blast-radius text');
 check('calls.view', () => S.calls.view(F.realtime));
 check('capacity.view', () => S.capacity.view(F.capacity));
+const SL = await import(pathToFileURL(join(OPS, 'lazy/sendlive.js')));
+check('sendlive.view', () => SL.view(F.sendlive, Date.parse('2026-11-11T09:52:00Z')));
+ok(SL.view(F.sendlive, Date.parse('2026-11-11T09:52:00Z')).includes('12:00') && SL.view(F.sendlive).includes('+128') && !/לא נשלח/.test(SL.view(F.sendlive)), 'sendlive shows the 12:00 +128 release and never says "לא נשלח"');
 ok(S.capacity.view(F.capacity).includes('▲'), 'capacity shows over-capacity marker', F.capacity.alerts.length + ' alert days');
 check('balances.view', () => S.balances.view(F.balances));
 const capTip = S.capacity.outTip(F.capacity.days.find((d) => d.rolled_in > 0) || F.capacity.days[0]);
@@ -401,7 +404,7 @@ if (!process.argv.includes('--no-browser')) {
         ok((await page.$$eval('#ov-plan-b details.pl-day', (x) => x.length)) === 30, 'month: 30 day groups');
         await page.evaluate(() => localStorage.setItem('ops:plan', 'today'));
       }
-      for (const r of ['overview', 'automations', 'runs', 'live', 'brain', 'messaging', 'inbox', 'control', 'calls', 'capacity', 'calendar', 'balances', 'changes', 'finance', 'ads', 'templates', 'feedback']) {
+      for (const r of ['overview', 'sendlive', 'automations', 'runs', 'live', 'brain', 'messaging', 'inbox', 'control', 'calls', 'capacity', 'calendar', 'balances', 'changes', 'finance', 'ads', 'templates', 'feedback']) {
         await page.evaluate((h) => { location.hash = h; }, '#/' + r);
         await page.waitForFunction(() => !document.querySelector('#main .sk') || document.querySelector('#main .feed-row,#main table,#main .tile .v,#main .cal-d'), null, { timeout: 5000 }).catch(() => {});
         await page.waitForTimeout(r === 'brain' || r === 'live' ? 3600 : 500);

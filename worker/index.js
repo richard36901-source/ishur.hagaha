@@ -70,7 +70,7 @@ import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledge
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
 import { fixedCostAction } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
-import { handleOps, brainFns, buildCapacity, planFns } from './ops.js';
+import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
@@ -6781,7 +6781,18 @@ async function digestPlan(env) {
   const events = evs.filter(r => String(r[6] || '').slice(0, 10) === today).length;
   let calls = null; try { calls = buildCallQueue(raw, 3, await callsAddonTokens(env)).queue.length; } catch {}
   let sends = null; try { const cap = await buildCapacity(env, opsDeps(), Date.now(), 1); const d = ((cap && cap.days) || []).find(x => x.day === today); if (d) sends = `${d.planned} (תקרה ${d.capacity})`; } catch {}
-  return { sends, calls, events };
+  /* 11/11 (Richard): the live picture in the morning digest — who is in line, when the room frees, 4499 */
+  let note = '';
+  try {
+    const live = await buildSendLive(env, opsDeps(), Date.now());
+    if (live && live.ok) {
+      const hm = iso => new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Jerusalem', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+      const q = live.events.filter(r => r.gate === 'queue' && r.left > 0).map(r => `${r.name} גל ${r.wave}: נשאר ${r.left}${r.eta && r.eta.done ? `, סיום ~${hm(r.eta.at)}` : r.eta && r.eta.today ? `, היום ${r.eta.today} ומחר ${r.eta.carried}` : ', אין מקום היום'}`);
+      const rel = live.counter.releases.filter(x => x.at_ms > Date.now()).slice(0, 3).map(x => `${hm(x.at)} +${x.n}`).join(', ');
+      note = [`פנוי עכשיו ${live.counter.ours.free} מתוך ${live.counter.ours.cap}${rel ? ` · משתחרר ב-${rel}` : ''}`, ...q, `4499: ${live.client.blocked ? 'חסום (131042)' : 'תקין'} · אימות העסק: ${live.verification.status}`].join('\n• ');
+    }
+  } catch {}
+  return { sends, calls, events, note };
 }
 /* 04/11: the dial slice, split out of runPacer so it runs as its own cron job */
 async function pacerCalls(env, step, out) {

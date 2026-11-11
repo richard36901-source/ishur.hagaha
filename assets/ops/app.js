@@ -114,7 +114,7 @@ setInterval(paintAsOf, 15000);
 export const ROUTES = [
   { id: 'overview', he: 'סקירה', key: 'o' }, { id: 'leads', he: 'לידים', key: 'e', dir: 'crm' },
   { id: 'clients', he: 'לקוחות', key: 's', dir: 'crm' }, { id: 'hostesses', he: 'דיילות', key: 't', dir: 'crm' }, { id: 'feedback', he: 'פידבקים', key: 'v' },
-  { id: 'inbox', he: 'אינבוקס', key: 'i' }, { id: 'messaging', he: 'שליחות אוטומטיות', key: 'm' }, { id: 'capacity', he: 'קיבולת', key: 'k' }, { id: 'templates', he: 'תבניות', key: 'n' },
+  { id: 'sendlive', he: 'לייב', key: 'w' }, { id: 'inbox', he: 'אינבוקס', key: 'i' }, { id: 'messaging', he: 'שליחות אוטומטיות', key: 'm' }, { id: 'capacity', he: 'קיבולת', key: 'k' }, { id: 'templates', he: 'תבניות', key: 'n' },
   { id: 'calls', he: 'שיחות', key: 'c' }, { id: 'calendar', he: 'לוח שנה', key: 'd' },
   { id: 'finance', he: 'כספים', key: 'f' }, { id: 'ads', he: 'פרסום', key: 'p' }, { id: 'balances', he: 'יתרות', key: 'y' },
   { id: 'automations', he: 'אוטומציות', key: 'a' }, { id: 'runs', he: 'ריצות', key: 'r' }, { id: 'live', he: 'לוג חי', key: 'l' }, { id: 'brain', he: 'מוח', key: 'b' },
@@ -125,7 +125,7 @@ export const SECTIONS = [
   { id: 'overview', he: 'סקירה', tabs: [['overview', 'סקירה', 'overview']] },
   { id: 'leads', he: 'לידים', tabs: [['leads', 'לידים', 'leads']] },
   { id: 'clients', he: 'לקוחות', tabs: [['clients', 'לקוחות ואירועים', 'clients'], ['hostesses', 'דיילות', 'hostesses'], ['feedback', 'פידבקים', 'feedback']] },
-  { id: 'messages', he: 'הודעות', tabs: [['inbox', 'אינבוקס', 'inbox'], ['sends', 'שליחות אוטומטיות', 'messaging'], ['capacity', 'קיבולת', 'capacity'], ['templates', 'תבניות', 'templates']] },
+  { id: 'messages', he: 'הודעות', tabs: [['now', 'לייב', 'sendlive'], ['inbox', 'אינבוקס', 'inbox'], ['sends', 'שליחות אוטומטיות', 'messaging'], ['capacity', 'קיבולת', 'capacity'], ['templates', 'תבניות', 'templates']] },
   { id: 'calls', he: 'שיחות', tabs: [['calls', 'שיחות', 'calls']] },
   { id: 'calendar', he: 'לוח שנה', tabs: [['calendar', 'לוח', 'calendar'], ['capacity', 'תוכנית קיבולת', 'capacity']] },
   { id: 'finance', he: 'כספים', tabs: [['finance', 'רווח והפסד', 'finance'], ['ads', 'פרסום', 'ads'], ['balances', 'יתרות', 'balances']] },
@@ -139,7 +139,7 @@ export const tabHref = (sec, tab) => '#/' + sec + (tab && tab !== SEC[sec].tabs[
 export const routeHref = (screenId) => { const h = HOME[screenId]; return h ? tabHref(h[0], h[1]) : '#/' + screenId; };
 const screens = {};
 /* lazy/ + crm/ modules sit outside the counted JS budget */
-const LAZY = new Set(['calendar', 'changes', 'messaging', 'inbox', 'control', 'finance', 'ads', 'templates', 'feedback', 'notify']);
+const LAZY = new Set(['sendlive', 'calendar', 'changes', 'messaging', 'inbox', 'control', 'finance', 'ads', 'templates', 'feedback', 'notify']);
 const loadModule = (id) => (screens[id] = screens[id] || import(LAZY.has(id) ? `./lazy/${id}.js` : `./${(ROUTES.find((r) => r.id === id) || {}).dir || 'screens'}/${id}.js`));
 const SOON = { skeleton: () => Skeleton.card(3), mount(el) { el.innerHTML = '<div class="card"><div class="empty">הגדרות ההתראות עוד לא הותקנו בגרסה הזו.<br>כשהמודול יעלה הוא יופיע כאן.</div></div>'; } };
 const loadScreen = (id) => loadModule(id).then((m) => (m.default && m.default.mount ? m.default : SOON)).catch((e) => { if (id === 'notify') { delete screens[id]; return SOON; } throw e; });
