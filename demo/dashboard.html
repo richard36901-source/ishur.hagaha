@@ -172,7 +172,7 @@
   .gmenu [data-do="save"]{background:var(--green);color:#fff}
   .sendst{flex-shrink:0;font-size:.64rem;color:var(--ink3);white-space:nowrap;margin-inline-start:.3rem;min-width:3.4rem;display:inline-flex;align-items:center;justify-content:center}
   .sendst.sent{color:var(--green2)}
-  .sendst.failed,.sendst.retrying,.sendst.none{color:var(--err)}
+  .sendst.failed,.sendst.retrying{color:var(--err)}
   .sendst .info{display:inline-flex;align-items:center;justify-content:center;width:1.15rem;height:1.15rem;margin-inline-start:.25rem;border-radius:50%;border:1px solid currentColor;background:none;color:inherit;font:600 .62rem/1 'Rubik',sans-serif;cursor:pointer;vertical-align:middle}
   .sendst .info:hover{background:var(--err);color:#fff}
   .whypop{position:absolute;z-index:50;max-width:280px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:.7rem .85rem;box-shadow:0 8px 28px rgba(0,0,0,.12);font-size:.8rem;line-height:1.5;color:var(--ink)}
@@ -760,7 +760,7 @@
   };
   function sendBadge(g) {
     var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; });
-    if (!g.sent || g.sent === 'none') return '<span class="sendst none">' + (afterInvite && !g.self ? 'לא נשלח' : '') + '</span>';
+    if (!g.sent || g.sent === 'none') return '<span class="sendst none"></span>';   /* Richard 11/11: never paint "לא נשלח" on a guest row — blank, not red */
     if (g.sent === 'sent') return '<span class="sendst sent" title="ההזמנה נמסרה">✓ נשלח</span>';
     var calls = (data.event && (data.event.plan === 'premium' || data.event.plan === 'pro'));
     var why = SEND_WHY[g.sent_code] || 'וואטסאפ לא הצליח למסור את ההודעה.';
