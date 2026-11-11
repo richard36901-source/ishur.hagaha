@@ -1,0 +1,117 @@
+<title>אדמין אחד · ishur.io</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;600;700&family=Frank+Ruhl+Libre:wght@700&display=swap">
+<style>
+/* layout: one column, 760px, numbered phases because the order is the plan */
+:root{--bg:#faf9f6;--fg:#1d1c1a;--mute:#6d6a63;--line:#e3e0d8;--card:#ffffff;--gold:#9a7b2f;--good:#2f7d4a;--warn:#b7791f;--bad:#b23a3a;--soft:#f1efe8;
+--disp:"Frank Ruhl Libre",Georgia,serif;--body:"Heebo",system-ui,sans-serif}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#15140f;--fg:#ece8df;--mute:#a39e92;--line:#2c2a23;--card:#1d1b16;--gold:#d2b15a;--good:#6cc08a;--warn:#e0a84a;--bad:#e07070;--soft:#23211b;color-scheme:dark}}
+:root[data-theme="dark"]{--bg:#15140f;--fg:#ece8df;--mute:#a39e92;--line:#2c2a23;--card:#1d1b16;--gold:#d2b15a;--good:#6cc08a;--warn:#e0a84a;--bad:#e07070;--soft:#23211b;color-scheme:dark}
+body{background:var(--bg);color:var(--fg);font-family:var(--body);direction:rtl;padding-block:28px 60px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));line-height:1.55}
+main{max-width:760px;margin:0 auto}
+h1{font-family:var(--disp);font-size:2rem;margin:0 0 .2rem;text-wrap:balance}
+h2{font-family:var(--disp);font-size:1.35rem;margin:2.2rem 0 .6rem;color:var(--gold)}
+h3{font-size:1rem;margin:1.2rem 0 .4rem}
+p{margin:.4rem 0;max-width:65ch}
+.sub{color:var(--mute);font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:14px 16px;margin:10px 0}
+table{border-collapse:collapse;width:100%;font-size:.92rem}
+th,td{text-align:right;padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+th{color:var(--mute);font-weight:600;font-size:.82rem}
+.wrap{overflow-x:auto}
+.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.78rem;background:var(--soft);color:var(--mute)}
+.tag.good{color:var(--good)}.tag.warn{color:var(--warn)}.tag.bad{color:var(--bad)}
+.rail{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px}
+.rail .card{margin:0}
+.rail b{display:block;font-size:1rem}
+.rail ul{margin:.3rem 0 0;padding-inline-start:16px;font-size:.88rem;color:var(--mute)}
+ol.ph{padding-inline-start:20px}
+ol.ph li{margin:.5rem 0}
+.num{font-variant-numeric:tabular-nums}
+.ask{border-right:3px solid var(--gold);padding-right:12px}
+</style>
+<main>
+<h1>אדמין אחד</h1>
+<p class="sub">תוכנית איחוד · 11/11/26 · מה נשאר, מה נמחק, מה עובר, ומה זה נותן לך ביום-יום</p>
+
+<h2>1 · מה מצאתי</h2>
+<div class="card">
+<p><b>יש שני מרכזי ניהול במקביל.</b> משפחת admin (admin + לקוחות, לידים, אינבוקס, לוח שליחות, מוקד, אוטומציות, המוח, לוג חי, דוח קמפיין) ו-ops.html שבניתי בנובמבר עם 8 מדורים משלו. חלק מהפעולות קיימות <u>רק</u> ב-ops (עריכת פרטי אירוע ושינוי תאריך, ביטול אירוע, סימון כשולם, שליחת חשבונית שוב, דיילות, סבבי שיחות, גרסאות פרומפט, כספים, רישום אוטומציות). אלה חייבות לעבור לפני שמוחקים.</p>
+<p><b>דפים מתים:</b> admin.new.html (עותק ישן), center.html, hq.html, ops-manual.html. <b>קישור שבור:</b> האריח "מודעה בפייסבוק" ב-admin מצביע על ads-report.html שלא קיים.</p>
+<p><b>רוב admin.html מוסתר.</b> יש בו קוד לכספים, קמפיינים, אירועים, פידבק, מתג AI של נועה, העלאת עיצוב — ה-CSS מציג רק 3 תצוגות (main / calls / ctl). הסרגל והשבוע הם מה שאתה רואה.</p>
+<p><b>הוורקר שולח אותך ל-ops.</b> 9 מקומות בסלאק/התראות מקשרים ל-ops.html (המוח, שיחות, שליטה, לקוחות, ריצות). צריך להפנות ל-admin.</p>
+</div>
+
+<h3>למה איטי (נמדד עכשיו בכרום שלך)</h3>
+<div class="wrap"><table>
+<tr><th>מה</th><th>נמדד</th><th>סיבה</th></tr>
+<tr><td>בקשות בפתיחת admin</td><td class="num">131 ב-13 שניות</td><td>9 קריאות API נפרדות, כל 15 שניות pause, כל דקה הכל מחדש, ועוד מקרים שמפעילים סבב נוסף (מעבר חלון, יציאה מפוקוס)</td></tr>
+<tr><td>/api/ops/realtime</td><td class="num">3.7–5.5 שניות לקריאה</td><td>שתי שאילתות audit של עד 20,000 שורות + רשימת כל שיחות היום מ-Retell, בלי קאש. נקראה 5 פעמים ב-13 שניות</td></tr>
+<tr><td>evlog / leads / ads-health</td><td class="num">1–1.7 שניות, ×5</td><td>evlog מושך 400 שורות כל פעם; שלושתם נקראים מחדש בכל סבב</td></tr>
+<tr><td>קבצי JS</td><td class="num">12 קבצים, 470KB</td><td>admin.html לבד 220KB, רובו קוד למסכים מוסתרים</td></tr>
+</table></div>
+
+<h2>2 · הסקיצה: סרגל אחד, 9 מסכים</h2>
+<p>הסגנון של admin נשאר כמו שהוא. כל מסך = דף במשפחה, אותו סרגל, אותו מפתח. מה שכתוב באפור הוא מה שעובר מ-ops.</p>
+<div class="rail">
+<div class="card"><b>היום</b><span class="sub">admin.html</span><ul><li>בוקר טוב + מה מחכה לך (רשימת todo)</li><li>השבוע (לוח גרירה)</li><li>מונה 240 · פנוי · מתי משתחרר (שורה אחת)</li><li>קישור תשלום</li></ul></div>
+<div class="card"><b>לקוחות</b><span class="sub">clients.html</span><ul><li>רשימה + מגירה לכל אירוע</li><li>עריכת פרטים ושינוי תאריך אירוע</li><li>הזזת תאריכי גלים</li><li>ביטול / השהיה / החזרה</li><li>סימון כשולם, חשבונית שוב</li><li>הוספת אורחים, +50, שליחה נוספת, דיילת</li><li>העלאת עיצוב</li><li>לשוניות: דיילות · פידבק והגרלה</li></ul></div>
+<div class="card"><b>לידים</b><span class="sub">leads.html</span><ul><li>סטטוס, בעלים, פעולה הבאה, הערות</li><li>הצעת מחיר / קישור תשלום</li><li>שליחה דרך נועה (עם "שלח")</li><li>פלייבוק מכירה</li></ul></div>
+<div class="card"><b>הודעות</b><span class="sub">inbox.html + calendar.html</span><ul><li>אינבוקס (שליחה, תבנית, AI/אדם)</li><li>לוח שליחות חודשי + דלג</li><li>שליחות אוטומטיות לפי יום</li><li>קיבולת 14 יום</li><li>תבניות + הגשה למטא</li></ul></div>
+<div class="card"><b>שיחות</b><span class="sub">admin.html?view=calls</span><ul><li>יומן שיחות + תמלול</li><li>סבבי שיחות: הפעלה / עצירה / סבב נוסף</li><li>ממתינים לשיחה ידנית</li><li>מוקד חי (floor)</li></ul></div>
+<div class="card"><b>שליטה</b><span class="sub">admin.html?view=ctl</span><ul><li>עצירה כללית</li><li>נועה AI on/off (היום מוסתר)</li><li>חסימת מספר</li><li>פעימה עכשיו · הרצה יבשה</li><li>תשלום שנתקע</li></ul></div>
+<div class="card"><b>כספים</b><span class="sub">admin.html?view=money</span><ul><li>רווח והפסד חודשי (הקוד כבר קיים, מוסתר)</li><li>הוצאות קבועות, פרסום</li><li>יתרות ספקים</li><li>חשבוניות</li></ul></div>
+<div class="card"><b>המוח</b><span class="sub">brain.html</span><ul><li>פרומפטים של נועה ושיר</li><li>גרסאות פרומפט + שחזור</li><li>ממצאים + לאשר/לדחות</li></ul></div>
+<div class="card"><b>מערכת</b><span class="sub">automations.html + live.html</span><ul><li>מפת אוטומציות + מתג לכל אחת</li><li>ריצות אחרונות</li><li>לוג חי</li><li>דוח קמפיין</li></ul></div>
+</div>
+
+<h2>3 · ניהול שוטף בלי שיחה איתי</h2>
+<p>כל בקשה שמגיעה — איפה עושים אותה, בכמה לחיצות:</p>
+<div class="wrap"><table>
+<tr><th>בקשה</th><th>איפה</th><th>מצב היום</th></tr>
+<tr><td>לקוח מזיז תאריך אירוע</td><td>לקוחות › מגירה › תאריך</td><td><span class="tag warn">רק ב-ops</span></td></tr>
+<tr><td>להקדים / לדחות גל הזמנות</td><td>לקוחות › מגירה › גלים, או לוח שליחות › גרירה</td><td><span class="tag good">קיים (השבוע)</span></td></tr>
+<tr><td>לקוח הוסיף אורחים אחרי שהגל נסגר</td><td>אוטומטי (תור מאוחרות) + שורה ב"היום"</td><td><span class="tag good">קיים מהיום</span></td></tr>
+<tr><td>להגדיל חבילה / +50 / שליחה נוספת / דיילת</td><td>לקוחות › מגירה</td><td><span class="tag warn">חלקי</span></td></tr>
+<tr><td>לעצור הודעות ללקוח מסוים</td><td>לקוחות › השהיה (עד תאריך)</td><td><span class="tag good">קיים</span></td></tr>
+<tr><td>ביטול אירוע + החזר</td><td>לקוחות › ביטול</td><td><span class="tag warn">רק ב-ops</span></td></tr>
+<tr><td>שולם במזומן / חשבונית שוב</td><td>לקוחות › מגירה</td><td><span class="tag warn">רק ב-ops</span></td></tr>
+<tr><td>לענות לאורח / ללקוח בוואטסאפ</td><td>הודעות › אינבוקס</td><td><span class="tag good">קיים</span></td></tr>
+<tr><td>לדלג על הודעה מתוכננת</td><td>הודעות › לוח › דלג</td><td><span class="tag good">קיים</span></td></tr>
+<tr><td>להתחיל / לעצור סבב שיחות</td><td>שיחות</td><td><span class="tag warn">רק ב-ops</span></td></tr>
+<tr><td>לשנות מה נועה/שיר אומרות</td><td>המוח</td><td><span class="tag good">קיים</span></td></tr>
+<tr><td>המונה מלא — מתי ממשיך</td><td>היום › שורת המונה</td><td><span class="tag warn">היה בלייב, עובר</span></td></tr>
+<tr><td>ליד חדש — לטפל ולסגור</td><td>לידים</td><td><span class="tag warn">שני מנגנונים</span></td></tr>
+<tr><td>לכבות אוטומציה שמציקה</td><td>מערכת › אוטומציות › מתג</td><td><span class="tag warn">רק ב-ops</span></td></tr>
+<tr><td>משהו נשבר — לראות מה קרה</td><td>מערכת › ריצות / לוג חי + סלאק</td><td><span class="tag good">קיים</span></td></tr>
+</table></div>
+<p class="sub">מה נשאר אצלי: בנייה של דבר חדש, שינוי תבניות שמטא צריכה לאשר (ההגשה תהיה מהמסך, הניסוח איתי), ותקלות אמיתיות בקוד.</p>
+
+<h2>4 · מהירות — יעד: הדף עולה בפחות משנייה וחצי</h2>
+<ol class="ph">
+<li><b>קריאה אחת במקום 9.</b> נקודת API אחת <code>/api/admin/home</code> שמחזירה הכל לדף היום (סטטוס, todo, שבוע, מונה, לידים). הוורקר מרכיב, הדף מצייר.</li>
+<li><b>קאש בוורקר ל-realtime.</b> 60 שניות ב-KV; שאילתות ה-audit יורדות ל-2,000 שורות של היום; רשימת Retell רק לשיחות (לא בכל סבב).</li>
+<li><b>סבב אחד, לא ארבעה.</b> רענון כל 60 שניות כשהחלון גלוי, ובלי רענונים כפולים ממעבר פוקוס. pause נבדק יחד עם הכל, לא בנפרד כל 15 שניות.</li>
+<li><b>לטעון רק מה שרואים.</b> הקוד של כספים/שיחות/קמפיינים יוצא מ-admin.html למודולים שנטענים כשנכנסים למסך. admin.html יורד מ-220KB ל-~60KB.</li>
+<li><b>מדידה אמיתית:</b> בדיקה אוטומטית שסופרת בקשות ומודדת זמן לציור ראשון, נכשלת אם מעל 4 בקשות או מעל 1.5 שניות.</li>
+</ol>
+
+<h2>5 · סדר העבודה</h2>
+<p class="sub">כל שלב = slug משלו ב-.sdlc, עם הוכחה (בדיקות + מדידה בדפדפן) לפני שעוברים הלאה. אתה מאשר כל שלב.</p>
+<ol class="ph">
+<li><b>מהירות</b> (סעיף 4). קודם, כי זה מה שכואב עכשיו, ובלי תלות בשאר. ~יום.</li>
+<li><b>לקוחות — המגירה המלאה.</b> כל הפעולות על אירוע במקום אחד (תאריך, גלים, ביטול, שולם, חשבונית, הוספות, עיצוב, דיילות). זה המסך של "בקשות לקוחות". ~יום-יומיים.</li>
+<li><b>שליטה + שיחות + כספים</b> לתוך admin (לחשוף את מה שמוסתר, להוסיף סבבים ופרומפט-גרסאות). ~יום.</li>
+<li><b>הודעות + מערכת + המוח</b>: קיבולת ותבניות ללוח השליחות, רישום אוטומציות ומתגים לאוטומציות, ממצאי המוח למוח. ~יום.</li>
+<li><b>מחיקה.</b> ops.html, assets/ops, ops-manual, admin.new, center, hq; 9 הקישורים בוורקר מופנים ל-admin; מסלולי API שרק ops השתמש בהם נמחקים. בדיקה שאין קישור שבור באתר.</li>
+<li><b>שבוע ניסיון.</b> אתה עובד רק מהמערכת; כל דבר שחסר נרשם כ-Linear ונסגר.</li>
+</ol>
+
+<h2>6 · מה צריך החלטה שלך</h2>
+<div class="card ask">
+<p><b>לידים — מנגנון אחד.</b> היום יש את leads.html (גיליון) ואת ה-CRM של ops. ההצעה: ה-CRM (סטטוס, בעלים, פעולה הבאה, שליחה דרך נועה) נכנס ל-leads.html, הגיליון נשאר כגיבוי קריאה בלבד.</p>
+<p><b>המונה והשחרורים.</b> המסך "לייב" נמחק כמו שביקשת. ההצעה: שורה אחת בדף היום ("240/240 · משתחרר 17:00 +52") ושורת "מחכים" ברשימת המה-מחכה-לך. בלי מסך נפרד.</p>
+<p><b>יומן שינויים ושחזור (changes/revert).</b> כלי פיתוח. ההצעה: לא עובר, נמחק.</p>
+<p><b>מקום הכספים.</b> תצוגה בתוך admin (?view=money) או דף נפרד money.html. ההצעה: בתוך admin, כי הקוד כבר שם.</p>
+</div>
+</main>
