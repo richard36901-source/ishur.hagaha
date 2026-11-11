@@ -44,7 +44,8 @@ import { AUTOMATIONS, KILL_SWITCH_IDS, opsMeta, BALANCE_LOW } from './automation
 import { cronNext } from './automations.js';
 import { typeOf, codeOf, phoneLabel, eventsFromRaw } from './send-board.js';
 import { subeventBoard } from './subevent.js';
-import { tierLimit } from './budget.js';
+import { tierLimit, readHourBuckets } from './budget.js';
+import { releaseTimeline, dayCounts, eventRows, windowCloseMs } from './sendlive.js';
 import { isOff, offState, OFF_PREFIX, listRuns, getRun, runStats } from './ops-run.js';
 import CODE from './registry-code.json' with { type: 'json' };
 import { runBrain, buildBrain, decide, runLogAppend } from './brain.js';
@@ -472,6 +473,50 @@ async function projectionInputs(env, d, today, days) {
   let order = []; try { order = JSON.parse((await kget(env, 'waveorder')) || '[]'); } catch {}
   for (const t of Object.keys(flags)) { const i = order.indexOf(t); flags[t].order = i < 0 ? 1000 : i; }
   return { raw, events: rel, guests, flags };
+}
+/* ── 11/11 "לייב" (Richard: "המונה לייב ומתי משתחרר") ───────────────────────
+   GET /api/ops/sendlive → everything the 10–11/11 chat was asked, from the keys
+   the engine itself reads. Read-only. sendlive.js holds the pure math. */
+async function kvKeysEx(env, prefix, cap = 6000) {
+  const out = []; if (!env.RATE || !env.RATE.list) return out; let cursor;
+  while (out.length < cap) {
+    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null); if (!page) break;
+    for (const k of page.keys) out.push({ name: k.name, expiration: k.expiration });
+    if (page.list_complete) break; cursor = page.cursor;
+  }
+  return out;
+}
+export async function buildSendLive(env, d, now = Date.now()) {
+  const today = d.ilDate(new Date(now));
+  const ids = d.guestPhoneIds(env);
+  const [cap, bucketsList, wsent, inp, verif, pacerLast, engineLast, pending, paused, billFlag, capAll, order, wnotes, capheld] = await Promise.all([
+    d.guestCapacity(env).catch(() => null),
+    Promise.all(ids.map(id => readHourBuckets(env.RATE, id, now).catch(() => ({})))),
+    kvKeysEx(env, 'wsent:', 20000), projectionInputs(env, d, today, 3), bizVerification(env),
+    kjson(env, 'pacer:last'), kjson(env, 'engine:lastrun'), kget(env, 'pacer:pending'), d.sendingPaused(env).catch(() => false),
+    kget(env, 'billingalert:client'), kget(env, 'wacap:guests'), kjson(env, 'waveorder'),
+    kvKeysEx(env, 'wnote:', 500), kvKeysEx(env, 'capheld:' + today, 50)]);
+  const bucketsByPid = Object.fromEntries(ids.map((id, i) => [id, bucketsList[i] || {}]));
+  const limit = cap ? (cap.scope === 'number' ? cap.limit : (Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? Number(env.GUEST_PORTFOLIO_BUDGET) : cap.limit)) : 250;
+  const timeline = releaseTimeline({ bucketsByPid, limit, margin: cap ? cap.margin : 10, now });
+  /* Meta's own count (bic: = one key per business-initiated conversation, exact 24h TTL) */
+  const bic = (await kvKeysEx(env, 'bic:', 20000)).map(k => Number(k.name.split(':')[1])).filter(t => Number.isFinite(t) && now - t < 86400e3).length;
+  const win = d.sendWindowState(new Date(now));
+  const closeAt = windowCloseMs(now);
+  const counts = dayCounts(wsent);
+  const events = inp ? inp.events : [], flags = inp ? inp.flags : {};
+  const shares = {};
+  await Promise.all(events.filter(ev => (flags[ev.token] || {}).prio).map(async ev => { shares[ev.token] = Number(await kget(env, `wpused:${ev.token}:${today}`)) || 0; }));
+  const rows = eventRows({ events, guests: inp ? inp.guests : {}, flags, counts, shares, today, now, free: timeline.free, releases: timeline.releases, closeAt, pace: Number(d.PACE_SENDS) || 25 });
+  const why = paused ? 'paused' : !win.open ? (win.why || 'window-closed') : capAll ? 'wacap:guests' : timeline.free <= 0 ? 'cap' : pending !== today ? 'nothing-pending' : 'sending';
+  const notes = wnotes.map(k => { const [, token, kind, day] = k.name.split(':'); return { token, tok8: String(token || '').slice(0, 8), kind, day, name: (events.find(e => e.token === token) || {}).name || '' }; }).filter(n => n.day === today);
+  const sentToday = Object.values(counts).reduce((a, ev) => a + Object.values(ev).reduce((b, w) => b + (w.by_day[today] || 0), 0), 0);
+  return { ok: true, at: new Date(now).toISOString(), today,
+    counter: { ours: { used: timeline.used, limit: timeline.limit, margin: timeline.margin, cap: timeline.cap, free: timeline.free }, meta: { used: bic, limit, free: Math.max(0, limit - bic) }, sent_today: sentToday,
+      releases: timeline.releases, numbers: ids.map(id => ({ phone_id: id, label: phoneLabel(id), used: Object.values(bucketsByPid[id] || {}).reduce((a, b) => a + b, 0) })) },
+    engine: { why, window_open: !!win.open, window_closes_at: closeAt ? new Date(closeAt).toISOString() : null, paused: !!paused, pending: pending === today, last_tick: pacerLast && pacerLast.at || null,
+      last_engine: engineLast && engineLast.at || null, last_truncated: !!(pacerLast && pacerLast.sends && pacerLast.sends.truncated), cap_held_hours: capheld.map(k => Number(k.name.split(':')[2])).filter(Number.isFinite), order: Array.isArray(order) ? order.map(t => String(t).slice(0, 8)) : [] },
+    events: rows, client: { blocked: !!billFlag, since: billFlag && billFlag !== '1' ? String(billFlag) : null }, verification: verif, notes };
 }
 export async function buildCapacity(env, d, now = Date.now(), days = 14) {
   const today = d.ilDate(new Date(now));
@@ -945,6 +990,7 @@ export async function handleOps(request, env, origin, url, d) {
     switch (path) {
       case 'realtime': return json(await buildRealtime(env, d));
       case 'capacity': return json(await buildCapacity(env, d, Date.now(), Math.max(1, Math.min(28, Number(q('days')) || 14))));
+      case 'sendlive': return json(await buildSendLive(env, d, Date.now()));
       case 'calendar': return json(await buildCalendar(env, d, String(q('month') || ''), Date.now(), { fresh: String(q('fresh') || '') === '1' }));
       /* 04/11: served from KV plan:<period> (the pacer precomputes it every 10 min); fresh=1 recomputes */
       case 'plan': return json(await servePlan(env, d, planFns(), { period: String(q('period') || 'today'), fresh: String(q('fresh') || '') === '1', staleOk: String(q('stale') || '') === 'ok' }));

@@ -185,3 +185,29 @@ test('plan: GET /api/ops/plan?period= → the three periods, day cells with tota
   const fresh = await (await get(e, '/api/ops/plan?period=week&fresh=1')).json(); assert.ok(!fresh.cached);
   assert.equal((await (await get(e, '/api/ops/plan?period=zzz')).json()).period, 'today');
 });
+
+/* 11/11 "לייב" (Richard: "המונה לייב ומתי משתחרר") */
+test('sendlive: counter from the engine buckets, release timeline, per-event rows with ETA, 4499 + verification, no writes', async () => {
+  const today = ilDay();
+  const h = Math.floor(Date.now() / 3600e3), ttl = 120 * 86400;
+  const e = env({ [`gsendh:A:${h - 2}`]: '66', [`gsendh:B:${h - 2}`]: '62', [`gsendh:A:${h}`]: '2', 'pacer:pending': today, 'pacer:last': JSON.stringify({ at: new Date().toISOString(), sends: { ran: true, truncated: true } }),
+    'billingalert:client': '1', 'waveorder': JSON.stringify([TOK]), [`wnote:${TOK}:w1:${today}`]: '1',
+    [`wsent:${TOK}:1:9725200000011`]: '1', [`wsent:${TOK}:1:9725200000021`]: '1' });
+  e.GUEST_BUDGET_MARGIN = '10';   /* wrangler.toml [vars] since 11/11 */
+  const list0 = e.RATE.list;
+  e.RATE.list = async (o) => { const p = await list0(o); return { ...p, keys: p.keys.map(k => ({ ...k, expiration: Math.floor(Date.now() / 1000) + ttl })) }; };
+  const r = await (await get(e, '/api/ops/sendlive')).json();
+  assert.equal(r.ok, true); assert.equal(r.today, today);
+  assert.equal(r.counter.ours.used, 130); assert.equal(r.counter.ours.margin, 10); assert.equal(r.counter.ours.free, 240 - 130);
+  assert.deepEqual(r.counter.releases.map(x => x.n), [128, 2]);
+  assert.equal(new Date(r.counter.releases[0].at).getTime(), (h - 2 + 25) * 3600e3);
+  assert.equal(r.counter.sent_today, 2);
+  const row = r.events.find(x => x.token === TOK && x.wave === 1);
+  assert.ok(row, 'the fixture event has a wave-1 row'); assert.equal(row.sent, 2); assert.equal(row.sent_today, 2); assert.equal(row.eligible, 3); assert.equal(row.left, 1);
+  assert.equal(row.order, 0); assert.ok(['queue', 'not-yet'].includes(row.gate));
+  assert.equal(r.client.blocked, true); assert.equal(r.verification.status, 'not_verified');
+  assert.deepEqual(r.notes.map(n => n.kind), ['w1']);
+  assert.equal(typeof r.engine.why, 'string'); assert.equal(r.engine.last_truncated, true);
+  const writes = [...e.RATE.m.keys()].filter(k => !/^(gsendh:|pacer:|billingalert:|waveorder|wnote:|wsent:|wa:cap|biz:verif|snapcache|snap)/.test(k));
+  assert.deepEqual(writes.filter(k => !k.startsWith('stream:')), [], 'no state writes besides caches');
+});
