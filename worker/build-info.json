@@ -1,91 +1,91 @@
 {
-  "version_tag": "20261109-52028da-dirty",
-  "commit": "52028daf7e2c",
+  "version_tag": "20261110-e964733-dirty",
+  "commit": "e9647332ece1",
   "branch": "integ-2026-11-02",
-  "date": "2026-11-09T08:26:06.995Z",
+  "date": "2026-11-10T10:39:13.439Z",
   "by": "AutoScale",
   "since": null,
   "dirty": true,
   "commits": [
     {
-      "hash": "52028da",
-      "subject": "Extra question after the head count (Shoham: bus from Be'er Sheva): reply buttons, answer capture before rsvp parsing, dashboard card of who"
+      "hash": "e964733",
+      "subject": "lite.js: admin pages open instantly from the last cached read, refresh in the background (ishur:fresh), 'מתעדכן…' badge; reads only, never m"
     },
     {
-      "hash": "fbfe67d",
-      "subject": "voice-tools: read-only action 'voice' returns the agent's Retell voice details"
+      "hash": "183ecb4",
+      "subject": "plan precompute on cron: cached board + 3 past days so it actually finishes"
     },
     {
-      "hash": "0908c4c",
-      "subject": "Shir call-QA digest to Slack (daily 20:45, weekly Sunday 09:00) from per-day counters; registry code snapshot refreshed"
+      "hash": "5925f4a",
+      "subject": "Retell: model via model_config (deprecation notice 09/11, legacy field ends 31/01/2027)"
     },
     {
-      "hash": "05284fa",
-      "subject": "admin: /api/telnyx-admin — read outbound voice profile + connection limits, raise the concurrent-call limit"
+      "hash": "d7cdab9",
+      "subject": "planner: timed holds release on their day, waveprio share per day, waveorder first (Shoham missing from tomorrow)"
     },
     {
-      "hash": "58d70f9",
-      "subject": "Shir: post-call review runs on every guest call (CALL_QA, was tied to NOA_CHASE=off), lessons reach the prompt via {{memory}}, {{opening}} s"
+      "hash": "a4bb4ca",
+      "subject": "hourly: when a 4499 template is delivered with no 131042 while the billing alert is set → one Slack line (Richard 09/11)"
     },
     {
-      "hash": "af77030",
-      "subject": "calls: at most CALL_PARALLEL (10) live at once, 1.5 s between new calls — the carrier refused 25-call bursts"
+      "hash": "eabcec5",
+      "subject": "NOA_CHASE on (Richard 09/11 17:15)"
     },
     {
-      "hash": "8a5a749",
-      "subject": "calls: a call the carrier refused (telephony_provider_*) is not a try — guest stays queued, Slack P1"
+      "hash": "a51c0fe",
+      "subject": "Noa: apply tunes the agent (responsiveness 1, interruption 0.9); prompt v14 records explained only when asked"
     },
     {
-      "hash": "0ef8e1b",
-      "subject": "thank-you UTILITY twin for guests the marketing one missed; calls row shows answered-later; screens keep the snapshot an hour at night"
+      "hash": "9135b19",
+      "subject": "Noa transfer: brief starts the moment staff answers (no detection pause, no greeting), 'נציגה/נציג' toward the customer, listen when interru"
     },
     {
-      "hash": "7fcd9c2",
-      "subject": "clients page: a hold reads 'נדחה עד DD/MM' / 'מושהה', never 'מבוטל'; wave under way reads 'הזמנות יוצאות'"
+      "hash": "c70de4b",
+      "subject": "admin bar: back to the separate pages (admin / leads / clients…); center.html stays available but is not the default"
     },
     {
-      "hash": "267e31b",
-      "subject": "template guard + today/tomorrow priority + timed hold + terms: send dates are planned, not guaranteed"
+      "hash": "814f81e",
+      "subject": "table.html: drop the privacy footer line"
     },
     {
-      "hash": "6ded753",
-      "subject": "D-1 + event day: one message per guest across two days, carrying only what exists on the board"
+      "hash": "39ec47a",
+      "subject": "table QR for the entrance: table.html (guest lookup by name/phone → table + mates; ?qr=1 printable poster), /api/table-lookup, buttons on th"
     },
     {
-      "hash": "8e6e9b6",
-      "subject": "event day: one message for every combination (nav only, Bit only, PayBox only, both, with/without table)"
+      "hash": "58d5aac",
+      "subject": "client dashboard: printable check-list (checklist.html) — guests by table, seats, tick boxes for arrival + gift, print/PDF; button next to s"
     },
     {
-      "hash": "ae8e026",
-      "subject": "admin: one-off invitation (exact text + video + RSVP buttons) to a single number"
+      "hash": "6a403e3",
+      "subject": "live log: one aligned toolbar (search, type dropdown, range, failures), extras behind ⋯, compact in the side panel; pay-link form compact gr"
     },
     {
-      "hash": "4be4039",
-      "subject": "board: calls round shows done when every waiting guest used all tries"
+      "hash": "fa8b5fb",
+      "subject": "board: a small 'why today' line per send (planned / deferred from cap / continued / moved by hand)"
     },
     {
-      "hash": "b1d097c",
-      "subject": "board: one calls row when the hand-armed round is the regular round"
+      "hash": "5727406",
+      "subject": "board: card shows only today's sent/of; whole wave in the sheet"
     },
     {
-      "hash": "8249bc0",
-      "subject": "board: every added call round or extra send shows on the client board, any plan, paid or free"
+      "hash": "21c83c6",
+      "subject": "center.html: one page, tabs on top (week, sends, calls, floor, leads, clients, inbox, finance, campaign, automations, brain, control), ops l"
     },
     {
-      "hash": "5e6d014",
-      "subject": "board: show calls row when a paid calls add-on exists on a no-calls plan"
+      "hash": "c4680b7",
+      "subject": "board: wave line = today's sent of today's plan; whole wave in small print"
     },
     {
-      "hash": "497241e",
-      "subject": "worker: raise per-invocation subrequest limit (KV writes were silently dropped); plan reports write errors"
+      "hash": "7935fa3",
+      "subject": "rate limit: /api/status 600/h, window no longer slides on every hit (dashboards locked out)"
     },
     {
-      "hash": "9a2d81e",
-      "subject": "סקירה: a fresh plan refresh saves today, week and month together"
+      "hash": "6a69754",
+      "subject": "status: admin-key reads skip the per-IP 120/h budget (clients page showed no events)"
     },
     {
-      "hash": "fdf9a67",
-      "subject": "סקירה: show the last saved plan instantly (stale=ok) and refresh it in the background"
+      "hash": "edd4c0e",
+      "subject": "board: next 7 days, event names + client, event sheet on name click, passed events show only thanks, drag & drop (move wave / reorder), live"
     }
   ]
 }

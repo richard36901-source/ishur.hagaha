@@ -33,5 +33,5 @@ Every question from the 10–11/11 chat → where it will be answered on the scr
 - Verification polling may 403 on the token → fall back to manual stamp, never block the screen.
 
 ## Decisions needed before step 2
-- Cap scope per number (≈460/day) vs portfolio 230 — this single toggle is why Mor waited until 12:00 today.
+- (dropped) per-number scope — Meta: 250 per business while unverified; revisit on approval.
 - Margin 20 → 10.
