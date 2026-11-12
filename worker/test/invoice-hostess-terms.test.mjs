@@ -16,5 +16,5 @@ test('design terms go on an invoice that includes the invitation design, and onl
   assert.equal(hasDesign({ design: true }), true);
   assert.equal(hasDesign({ description: 'עיצוב הזמנה' }), true);
   assert.equal(hasDesign({ plan: 'פרמיום', tier: 200 }), false);
-  for (const w of ['סבב תיקונים אחד', '₪49', 'אישור הלקוח', 'ללא הדפסה']) assert.ok(DESIGN_TERMS.includes(w), w);
+  for (const w of ['שני סבבי תיקונים', '₪49', 'אישור הלקוח', 'ללא הדפסה']) assert.ok(DESIGN_TERMS.includes(w), w);
 });

@@ -541,7 +541,7 @@ const writeFlow = (env, token, f) => env.RATE.put('designflow:' + token, JSON.st
 const dfileUrl = (host, token, id) => `https://${host}/api/design-file?t=${token}&id=${id}`;
 function flowView(host, token, f, brief) {
   return {
-    status: f.status, rounds_used: f.rounds_used || 0, rounds_total: roundsTotal(f), rounds_free: f.rounds_free || 0, rounds_paid: f.rounds_paid || 0,
+    status: f.status, rounds_used: f.rounds_used || 0, rounds_total: roundsTotal(f), rounds_free: Math.max(f.rounds_free || 0, 2), rounds_paid: f.rounds_paid || 0,
     free_claimed: !!f.free_claimed, can_request_changes: canRequestChanges(f), round_price: DESIGN_ROUND_PRICE,
     versions: (f.versions || []).map(v => ({ n: v.n, note: v.note, at: v.at, url: dfileUrl(host, token, v.media), mime: v.mime || '' })),
     comments: f.comments || [],

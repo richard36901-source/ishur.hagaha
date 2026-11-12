@@ -40,7 +40,8 @@ ok(man.start_url.startsWith('dashboard.html') && man.scope === 'dashboard.html',
 console.log('A3 wiring');
 ok(/<link rel="manifest" href="manifest.webmanifest">/.test(dash) && /assets\/pwa\.js/.test(dash) && /id="pwaCard"/.test(dash), 'dashboard.html links manifest + pwa.js + card');
 ok(/id="designCard" hidden/.test(dash) && /assets\/design-card\.js/.test(dash), 'dashboard.html has the hidden design card + script');
-const others = readdirSync(ROOT).filter((f) => f.endsWith('.html') && f !== 'dashboard.html').filter((f) => /sw\.js|pwa\.js|manifest\.webmanifest/.test(readFileSync(join(ROOT, f), 'utf8')));
+/* 12/11: account.html is its own installable app (manifest-account.webmanifest, scope account.html) — Richard approved; it must never touch the board's SW scope */
+const others = readdirSync(ROOT).filter((f) => f.endsWith('.html') && f !== 'dashboard.html' && f !== 'account.html').filter((f) => /sw\.js|pwa\.js|manifest\.webmanifest/.test(readFileSync(join(ROOT, f), 'utf8')));
 ok(others.length === 0, 'no other page registers the SW / manifest', others.join(', '));
 ok(/register\('sw\.js', \{ scope: 'dashboard\.html' \}\)/.test(readFileSync(join(ROOT, 'assets/pwa.js'), 'utf8')), 'SW scope is dashboard.html only');
 const sw = readFileSync(join(ROOT, 'sw.js'), 'utf8');
@@ -60,8 +61,8 @@ const st = (k, patch = {}) => Object.assign(DC.mockState(k), patch);
 const cases = [
   ['brief form', st('brief'), ['מה תרצו בהזמנה', 'שליחה', '0/5']],
   ['brief sent', st('sent'), ['נשלח, נחזור עם עיצוב ראשון', 'עריכת הבקשה']],
-  ['v1 awaiting', st('v1'), ['מאשר/ת ✅', 'יש לי הערות ✍️', 'סבבי תיקונים: 0 מתוך 1', 'רכישת סבב נוסף · הראשון עלינו']],
-  ['rounds used up', st('limit'), ['מאשר/ת ✅', 'סבבי תיקונים: 1 מתוך 1', 'רכישת סבב נוסף · ₪49', 'היסטוריה (2 גרסאות)', 'ירוק כהה יותר']],
+  ['v1 awaiting', st('v1'), ['מאשר/ת ✅', 'יש לי הערות ✍️', 'סבבי תיקונים: 0 מתוך 2']   /* 12/11 Richard: two included rounds, no purchase button while one is left */],
+  ['rounds used up', st('limit'), ['מאשר/ת ✅', 'סבבי תיקונים: 2 מתוך 2', 'רכישת סבב נוסף · ₪49', 'היסטוריה (2 גרסאות)', 'ירוק כהה יותר']],
   ['changes requested', st('v1', { status: 'changes_requested' }), ['קיבלנו את ההערות']],
   ['approved', st('approved'), ['אישרתם ✅']],
   ['done', st('approved', { status: 'done' }), ['העיצוב מוכן']],

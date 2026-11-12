@@ -2528,7 +2528,7 @@ const IshurRef=(()=>{
   const active=()=>!!(code&&info&&info.ok);
   const discount=()=>active()&&info.mode==='discount';
   function price(guests,plan){ return discount()?CFG.refPrice(guests,plan):CFG.refPrice(null,plan); }
-  function tag(){ return discount()?('הנחת חבר'+(info.name_first?' של '+esc(info.name_first):'')):''; }
+  function tag(){ return discount()?'הנחת חבר':''; }   /* 12/11 Richard: no name of who referred */
   function repaint(){ try{ const sel=document.getElementById('pr-guests'); if(typeof renderPlans==='function') renderPlans(sel?sel.value:''); }catch(e){} try{ if(window.IshurPopup&&IshurPopup.repaint) IshurPopup.repaint(); }catch(e){} }
   async function boot(){
     if(!code||info) { if(info) repaint(); return; }
