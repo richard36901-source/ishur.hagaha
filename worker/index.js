@@ -1659,8 +1659,8 @@ async function addonQuote(env, token) {
     extrasend_all:        { label: 'שליחה נוספת לכולם',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },
     extrasend_unanswered: { label: 'שליחה נוספת ללא ענו', n: unanswered, price: unanswered ? up(R.msg * unanswered + R.base) : 0 },
     calls:                { label: 'סבב שיחות AI ללא ענו', n: unanswered, price: unanswered ? up(R.call * unanswered + R.base) : 0 },
-    postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total) : 0 },
-    cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total) : 0 },
+    postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },   /* 12/11 Richard: priced like an extra send */
+    cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total + R.base) : 0 },
     selfreg:              { label: 'הפעלת הודעות לנרשמים מהקישור', n: selfCount, price: selfCount ? up(R.msg * selfCount * 3 + R.base) : 0 },
   };
   return { ok: true, token, total, unanswered, free_guests: R.freeGuests, items };
@@ -1671,6 +1671,7 @@ function parseAddonDesc(desc) {
   const d = String(desc || '');
   const tokM = d.match(/·\s*([0-9a-f]{8})\s*$/);
   const tok8 = tokM ? tokM[1] : '';
+  if (/תוספת:\s*(\d\s*)?דייל\S* לאירוע/.test(d)) return { kind: 'hostess', n: parseInt((d.match(/תוספת:\s*(\d)\s*דיילות/) || [])[1], 10) || 1, tok8, desc: d.slice(0, 80) };   /* 12/11: hostess bought from the client board */
   if (/נסיע/.test(d) && /דייל/.test(d)) return { kind: 'hostess_travel', tok8, desc: d.slice(0, 80) };
   if (/סבב שיחות/.test(d)) return { kind: 'calls', tok8, desc: d.slice(0, 80) };
   if (/נרשמים מהקישור/.test(d)) return { kind: 'selfreg', tok8, desc: d.slice(0, 80) };
@@ -1723,13 +1724,25 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
         detail: `₪${sum} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — ווצאפ ' + (wa.ok ? 'נשלח' : wa.error)} · ${inv.url}` });
       await logRow(env, 'invoices', { number: inv.number, kind: 'תוספת', name, phone, email, token: String(token).slice(0, 8),
         plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
-      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true, at: new Date().toISOString(), kind: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier}` : addon.kind === 'design' ? 'עיצוב הזמנה' : addon.kind === 'calls' ? 'סבב שיחות' : 'תוספת', sum: Number(sum) || null }), { expirationTtl: 400 * 86400 });
+      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true, at: new Date().toISOString(), kind: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier}` : addon.kind === 'design' ? 'עיצוב הזמנה' : addon.kind === 'hostess' ? 'דיילות' : addon.kind === 'calls' ? 'סבב שיחות' : 'תוספת', sum: Number(sum) || null }), { expirationTtl: 400 * 86400 });
       await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
       await upsertClientRow(env, { clientId: 'C-' + String(phone).slice(-9), name, phone, token, eventName: ev.event_name || '', invoice: `${inv.number} · ${inv.url}` }).catch(() => {});
     } else if (inv.why !== 'not-configured') {
       await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
     }
   } catch {}
+  if (addon.kind === 'hostess') {
+    /* the same hostess:<token> record the package path writes; travel is inside the sum (cField2) */
+    const cf2 = String(flat.cField2 || flat.cfield2 || flat.customField2 || '');
+    const tr = (cf2.match(/travel:(\d{1,3})/) || [])[1];
+    const cityIn = (cf2.match(/travel:\d{1,3}:([^|]+)/) || [])[1] || ev.venue_city || '';
+    let cur = null; try { cur = JSON.parse(await env.RATE.get('hostess:' + token) || 'null'); } catch {}
+    await env.RATE.put('hostess:' + token, JSON.stringify({ ...(cur || {}), n: ((cur && Number(cur.n)) || 0) + addon.n, at: new Date().toISOString(), ref,
+      date: String(flat.cField1 || flat.cfield1 || '').slice(0, 10) || (cur && cur.date) || '', city: cityIn, travel_included: tr != null ? Number(tr) : null }), { expirationTtl: 400 * 86400 }).catch(() => {});
+    await logEvent(env, { area: 'תשלום', action: `תוספת נרכשה: ${addon.desc}`, ok: true, phone, token, ref, detail: `₪${sum}` });
+    await slackSend(env, `🧑‍💼 *נרכשו ${addon.n === 1 ? 'דיילת אחת' : addon.n + ' דיילות'} (תוספת מהלוח)* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות`, { urgent: true, oneoff: true });   /* oneoff: a payment */
+    return { ok: true, kind: 'hostess', token };
+  }
   if (addon.kind === 'hostess_travel') {
     /* ₪250 per hostess, paid once per hostess from upload.html. Only a note and
        a Slack line: nothing in the sheet changes. */
@@ -12307,15 +12320,30 @@ const WORKER = {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       /* generous: the page re-checks on every field change and retries quietly */
       if (await overBudget(env, 'rl:hcheck:' + (request.headers.get('CF-Connecting-IP') || 'x'), 400, 3600)) return deny(429, 'slow-down', origin);
-      const date = String(b.date || '').slice(0, 10);
+      /* 12/11 Richard: from the client board the hostess is an ADD-ON — the package is
+         already paid, so only the hostess (+ travel) is charged, and the event's own
+         date / city / size fill whatever the page did not send */
+      let addonEv = null, addonMode = false;
+      if (b.addon === true && /^[0-9a-f-]{36}$/.test(String(b.token || ''))) {
+        const tr0 = await tokenRecord(env, String(b.token));
+        if (tr0) {
+          addonMode = true;
+          try { const raw0 = await readSnapshot(env, 'dashboard'); addonEv = eventsForPhone(raw0, normPhone(tr0.phone || '')).find(e => e.token === String(b.token)) || null; } catch {}
+        }
+      }
+      const isoOf = v => { const x = String(v || '').trim(); const m = x.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : x.slice(0, 10); };
+      let date = isoOf(b.date);
+      if (addonMode && !/^\d{4}-\d{2}-\d{2}$/.test(date) && addonEv) date = isoOf(addonEv.event_date);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < ilDate()) return okJson({ ok: false, why: 'bad-date' }, origin);
-      const city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
+      let city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
+      if (addonMode && city.length < 2 && addonEv) city = String(addonEv.venue_city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
       if (city.length < 2) return okJson({ ok: false, why: 'bad-city' }, origin);
-      const guests = parseInt(String(b.guests || ''), 10) || 0;
+      let guests = parseInt(String(b.guests || ''), 10) || 0;
+      if (addonMode && !guests) { try { guests = Number(await tierWithPromo(env, String(b.token), 0)) || 0; } catch {} }
       let plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
-      if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
+      if (!addonMode && (!PRICES[guests] || !plan)) return okJson({ ok: false, why: 'bad-package' }, origin);
       /* Richard 03/11 (global): hostesses wanted → under 300 records one, 300+ two (paylink.hostessesFor) */
       const n = hostessesFor(guests, true);
       const hostessPrice = HOSTESS_PRICE[n] || HOSTESS_PRICE[2];
@@ -12324,7 +12352,7 @@ const WORKER = {
          else the live bundle for it. Design free, plan becomes הכל כלול. */
       const bundle0 = PL_BUNDLES[String(b.offer || '')] || null;
       const named = bundle0 && bundleLive(bundle0) && bundle0.hostesses === n && bundle0.guests.includes(guests) ? String(b.offer) : '';
-      const bundleKey = named || pickBundle(guests, n);
+      const bundleKey = addonMode ? '' : (named || pickBundle(guests, n));
       const bundle = bundleKey ? PL_BUNDLES[bundleKey] : null;
       const bundleOn = !!bundle;
       /* 03/11: invitation design rides along — free with a bundle, ₪79 otherwise */
@@ -12374,13 +12402,13 @@ const WORKER = {
         const tr = await tokenRecord(env, String(b.token));
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
-      const listTotal = PRICES[guests][plan] + hostessPrice + travel + designPrice;
+      const listTotal = addonMode ? hostessPrice + travel : PRICES[guests][plan] + hostessPrice + travel + designPrice;
       const total = bundleOn ? bundle.total + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
          bundle keeps them and only adds its tag at the end. */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + bundleKey : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
+      const desc = addonMode ? `תוספת: ${n === 1 ? 'דיילת לאירוע' : n + ' דיילות לאירוע'} · ${String(b.token).slice(0, 8)}` : `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + bundleKey : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
       /* a design order carries the structured code (paylink.js) so the IPN grants it */
       const pkgCode = withDesign ? '|' + buildCode({ plan, records: guests, design: true, hostesses: n, travel: travel > 0, extra_wave: false, calls: false }) : '';
       let payUrl = '';
@@ -12389,7 +12417,7 @@ const WORKER = {
       if (available && env.GROW_LINK_HOOK && b.link !== false) {
         try {
           const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
+            body: JSON.stringify({ sum: total, description: desc, ...(addonMode ? { title: desc.replace(/ · [0-9a-f]{8}$/, '') } : {}), token: addonMode ? String(b.token) : '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
               successUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token + '&paid=hostess' : 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token : 'https://ishur.io/#pricing',
               cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city + pkgCode }) }).catch(() => null);
@@ -12403,7 +12431,7 @@ const WORKER = {
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: one hostess request */
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: one hostess request */
-      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: addonMode ? 0 : PRICES[guests][plan], addon: addonMode, design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
         ...(bundleOn ? { bundle: { key: bundleKey, list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before

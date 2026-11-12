@@ -2380,7 +2380,7 @@
           var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
           if (demo) { wa(); return; }
           fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ link: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
+            body: JSON.stringify({ link: true, addon: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
             .then(function (r) { return r.json(); })
             .then(function (j) {
               if (j && j.ok && j.available && j.url) { location.href = j.url; return; }
@@ -2416,15 +2416,17 @@
   function askScope() {
     var all = priceOf('extra_send', 'all'), un = priceOf('extra_send', 'unanswered');
     if (!all) return location.href = CFG.waLink('היי, רציתי שליחה נוספת לאירוע שלי.');
+    /* 12/11 Richard: an empty list has nothing to send to — say so, no ₪0 popup */
+    if (!all.n) { IshurUX.toast('עדיין אין מוזמנים ברשימה. אחרי שמעלים רשימה אפשר להוסיף שליחה'); return; }
     var box = document.createElement('div');
     box.className = 'dpop-wrap';
-    box.innerHTML = '<div class="dpop" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
+    box.innerHTML = '<div class="xsend" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
       '<p style="margin:0 0 .8rem;color:var(--ink2);font-size:.9rem">למי לשלוח את הסבב הנוסף?</p>' +
       '<button type="button" class="buy" data-scope="all" style="width:100%;margin-bottom:.5rem">לכולם · ' + all.n + ' מוזמנים · ₪' + all.price + '</button>' +
       (un.n ? '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '</button>' : '') +
       '<button type="button" class="btn" data-scope="x" style="width:100%">ביטול</button></div>';
     box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
-    box.querySelector('.dpop').style.cssText = 'background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%';
+    box.querySelector('.xsend').style.cssText = 'background:var(--card,#fff);border:1px solid var(--bdr);border-radius:8px;padding:1.1rem;width:100%;max-width:360px';
     box.addEventListener('click', function (e) {
       var b = e.target.closest('[data-scope]'); if (!b && e.target !== box) return;
       var sc = b ? b.dataset.scope : 'x';
