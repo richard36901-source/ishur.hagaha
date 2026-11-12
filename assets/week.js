@@ -463,7 +463,7 @@
         root.addEventListener('click', function (e) { var n = e.target.closest('.wk-evb'); if (n) { openEvent(n.dataset.tok); return; } var b = e.target.closest('.wk-it'); if (b) open(Number(b.dataset.d), b.dataset.id); });
         wireDnd();
         root.addEventListener('click', function (e) {
-          var v = e.target.closest('[data-view]'); if (v) { view = v.dataset.view; try { localStorage.setItem('wk_view', view); } catch (x) {} page(); return; }
+          var v = e.target.closest('.wk-seg [data-view]'); if (v) {   /* scoped: the admin page has its own data-view ancestors */ view = v.dataset.view; try { localStorage.setItem('wk_view', view); } catch (x) {} page(); return; }
           var c = e.target.closest('[data-goday]');
           if (c && store) { var t0 = new Date(store.today + 'T12:00:00Z'), sun0 = t0.getTime() - t0.getUTCDay() * 864e5, d1 = new Date(c.dataset.goday + 'T12:00:00Z'), sun1 = d1.getTime() - d1.getUTCDay() * 864e5; weekOff = Math.round((sun1 - sun0) / (7 * 864e5)); view = 'week'; page(); return; }
           var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w);
