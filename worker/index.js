@@ -123,7 +123,7 @@ async function sheetBatchPost(env, data) {
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
       method: 'POST',
       payload: JSON.stringify({ valueInputOption: 'RAW', data }),
     }),
@@ -219,7 +219,7 @@ async function creditReferral(env, payerPhone, newToken) {
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+      url: `spreadsheets/${sheetId(env)}/values:batchGet`,
       qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000',
     }),
   }).catch(() => null);
@@ -1776,7 +1776,7 @@ async function tierWithPromo(env, token, sheetTier) {
    in one batchUpdate so nothing shifts under us. The tab's numeric id is
    looked up once and cached. */
 async function deleteGuestRows(env, token) {
-  const SID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
+  const SID = sheetId(env);
   let gid = env.RATE ? await env.RATE.get('sheetid:guests').catch(() => null) : null;
   if (gid == null) {
     const meta = await evProxy(env, `spreadsheets/${SID}`, { qk: 'fields', qv: 'sheets.properties' });
@@ -1812,7 +1812,7 @@ async function handleSheetCleanup(request, env, origin) {
   let b = {};
   try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-  const SID = '1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q';
+  const SID = sheetId(env);
   const token = String(b.token || '').trim();
   if (!/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
   const dry = b.dry !== false;
@@ -4459,7 +4459,7 @@ async function getBrain(env) {
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+      url: `spreadsheets/${sheetId(env)}/values:batchGet`,
       qk1: 'ranges', qv1: 'מוח שירות!A1:D80',
     }),
   }).catch(() => null);
@@ -7206,7 +7206,7 @@ async function runBackup(env) {
     const r = await fetch(env.BRAIN_HOOK, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
+        url: `spreadsheets/${sheetId(env)}/values:batchGet`,
         qk1: 'ranges', qv1: `${tab}!A1:AZ3000`,
       }),
     }).catch(() => null);
@@ -7610,7 +7610,7 @@ async function handleSeating(request, env, origin) {
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
       method: 'POST',
       payload: JSON.stringify({ valueInputOption: 'RAW', data }),
     }),
@@ -7739,7 +7739,7 @@ async function setBrainActive(env, active) {
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
       method: 'POST',
       /* the Make proxy maps `payload` verbatim into the request body only when
          it is a pre-serialized JSON string — an object arrives empty */
@@ -9173,7 +9173,7 @@ async function handleSendDate(request, env, origin) {
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
-      url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchUpdate',
+      url: `spreadsheets/${sheetId(env)}/values:batchUpdate`,
       method: 'POST',
       payload: JSON.stringify({
         valueInputOption: 'RAW',
@@ -10836,7 +10836,7 @@ const WORKER = {
         }
         if (b.action === 'sheetreq' && Array.isArray(b.requests)) {
           /* raw Sheets batchUpdate (admin only): add columns, formats, etc. */
-          const r = await evProxy(env, 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q:batchUpdate', { method: 'POST', payload: { requests: b.requests } });
+          const r = await evProxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, { method: 'POST', payload: { requests: b.requests } });
           await markSnapDirty(env, 'all').catch(() => {});
           return okJson({ ok: !!(r && r.replies), r }, origin);
         }
@@ -10844,7 +10844,7 @@ const WORKER = {
         if (b.action === 'tabread') {
           /* raw rows of one tab by its exact title (admin data checks) */
           const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${String(b.tab || '')}'!A1:AZ${Math.min(5000, Number(b.max) || 2000)}` }) }).catch(() => null);
+            body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${String(b.tab || '')}'!A1:AZ${Math.min(5000, Number(b.max) || 2000)}` }) }).catch(() => null);
           const v = rr ? await rr.json().catch(() => null) : null;
           return okJson({ ok: true, rows: (v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || [] }, origin);
         }
@@ -10852,13 +10852,13 @@ const WORKER = {
         if (b.action === 'tabs') {
           /* every tab with its header row and row count — the map of the sheet */
           const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
+            body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
           const j = r ? await r.json().catch(() => null) : null;
           const tabs = ((j && j.sheets) || []).map(x => x.properties || {});
           const out = [];
           for (const t of tabs) {
             const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${t.title}'!A1:AZ2000` }) }).catch(() => null);
+              body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${t.title}'!A1:AZ2000` }) }).catch(() => null);
             const v = rr ? await rr.json().catch(() => null) : null;
             const vals = (v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || [];
             out.push({ title: t.title, sheetId: t.sheetId, filled: vals.length, header: vals[0] || [], sample: vals[1] || [], last: vals[vals.length - 1] || [] });
@@ -10867,7 +10867,7 @@ const WORKER = {
         }
         if (b.action === 'formats') {
           const r = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets(properties.title,conditionalFormats)' }) }).catch(() => null);
+            body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets(properties.title,conditionalFormats)' }) }).catch(() => null);
           const j = r ? await r.json().catch(() => null) : null;
           const tab = ((j && j.sheets) || []).find(x => x.properties && x.properties.title === 'יומן מערכת');
           return okJson({ ok: !!tab, rules: (tab && tab.conditionalFormats) || [] }, origin);
@@ -11195,11 +11195,11 @@ const WORKER = {
       /* admin passthrough for fixing the board by hand (columns, dupes) */
       if (b.gql) { try { return okJson({ ok: true, data: await mondayGql(env, b.gql, b.vars || {}) }, origin); } catch (e) { return okJson({ ok: false, why: String(e && e.message) }, origin); } }
       if (b.debug) {
-        const tl = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
+        const tl = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
         const tj = tl ? await tl.json().catch(() => null) : null;
         const titles = ((tj && tj.sheets) || []).map(x => (x.properties || {}).title || '');
         const tabTitle = titles.find(t => /לידים/.test(t)) || '';
-        const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
+        const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
         const vv = rr ? await rr.json().catch(() => null) : null;
         return okJson({ titles, tabTitle, rows: ((vv && vv.valueRanges && vv.valueRanges[0] && vv.valueRanges[0].values) || []).length, raw: JSON.stringify(vv || null).slice(0, 300) }, origin);
       }
@@ -11209,11 +11209,11 @@ const WORKER = {
          Columns: 1 שם · 2 טלפון · 3 מייל · 4 סוג · 5 כמות · 6 שלב · 7 שולם? · 11 מקור · 0 timestamp */
       if (b.sheet) {
         const tl = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q', qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
+          body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}`, qk1: 'fields', qv1: 'sheets.properties' }) }).catch(() => null);
         const tj = tl ? await tl.json().catch(() => null) : null;
         const tabTitle = (((tj && tj.sheets) || []).map(x => (x.properties || {}).title || '').find(t => /לידים/.test(t))) || 'לידים - לא סגרו';
         const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
+          body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${tabTitle}'!A1:AZ2000` }) }).catch(() => null);
         const vv = rr ? await rr.json().catch(() => null) : null;
         const rows = (vv && vv.valueRanges && vv.valueRanges[0] && vv.valueRanges[0].values) || [];
         const seen = new Set();
@@ -11329,7 +11329,7 @@ const WORKER = {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const rr = await fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: `'${String(b.tab || 'אורחים לוג הודעות יוצאות')}'!A1:P3000` }) }).catch(() => null);
+        body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: `'${String(b.tab || 'אורחים לוג הודעות יוצאות')}'!A1:P3000` }) }).catch(() => null);
       const v = rr ? await rr.json().catch(() => null) : null;
       const rows = ((v && v.valueRanges && v.valueRanges[0] && v.valueRanges[0].values) || []).slice(1);
       const day = String(b.day || ilDate());
@@ -12848,7 +12848,7 @@ const WORKER = {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const [raw, leadRes, states] = await Promise.all([
         readSnapshot(env, 'ops'),
-        env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
+        env.BRAIN_HOOK ? fetch(env.BRAIN_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000' }) }).catch(() => null) : null,
         kvPrefix(env, 'leadx:'),
       ]);
       let rows = [];

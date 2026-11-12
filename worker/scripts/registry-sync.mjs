@@ -31,6 +31,7 @@ export const SEND_RE = /\bsend(Template|Client|Text|CtaUrl|Wave|Interactive|Medi
 export const EXEMPT = {
   '/api/test-inbound': 'test harness: simulates an inbound message, sends only to the test number',
   '/api/linear-test': 'test: Linear API ping',
+  '/api/staging-probe': 'dev-staging smoke: exists only when STAGING="1", one text to a phone so smoke.sh can prove the allowlist guard on the live staging worker',
   '/api/test-slack-queue': 'test: Slack quiet-hours queue',
   '/api/otp-send': 'login code to an admin/client phone (auth, not an automation)',
   '/api/admin-otp': 'login code to Richard (auth)',
