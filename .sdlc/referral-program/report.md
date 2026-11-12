@@ -32,3 +32,9 @@ Built on branch `referral-merge` (= your `integ-2026-11-02` commits + `origin/ma
 - Create the 30 Grow pages (`grow-pages.md`) and paste the links into `config.js` → `GROW_LINKS_REF`, bump `config.js?v=`, run the smoke.
 - Decide on the Noa template text (`noa-template.md`) and submit it to Meta; say "שלח" when it should replace `ishur_syum_v3`.
 - Optionally run P6b/P7 with the admin key (commands above).
+
+## Addendum 12/11 — the 30 Grow pages exist (Richard: "תעשה אתה מה שצריך בגרואו")
+- No Grow UI needed: Make's Grow module creates multi-use links (paymentLinkType 2 = the same kind the admin pay links use). A dedicated scenario **8538439 "ishur - referral 80% page (permanent)"** (hook 4093331) mints a page without prefilled payer fields (the existing 7362541 forces placeholder name/phone, which would have broken IPN attribution on a public page).
+- 30 pages minted (80%, whole ₪), links in `config.js` → `GROW_LINKS_REF`, config bumped to v84 on all 8 pages, list in `grow-pages.md`.
+- Checks: first page opened in the browser → "50 מוזמנים בסיס הנחת חבר · ₪40", same structure as the hand-made ₪50 page; smoke 45/45 (every key a pay.grow.link URL, `refGrowLink` appends `?cField3=ref:<code>`); live `ishur.io/config.js` carries 30 links; spot check 300_pro page shows "300 מוזמנים פרמיום הנחת חבר". Full suite 819/819 and ops smoke 267/267 after merging the guest-budget commit from main; worker redeployed (be767c68).
+- Not covered: a real payment on an 80% page; whether Grow echoes cField3 (fallback attribution stands).
