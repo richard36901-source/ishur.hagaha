@@ -5177,6 +5177,62 @@ async function drainLateInvites(env) {
   }
   return { sent, tried, queued: keys.length };
 }
+/* ── 12/11 (Richard: "מעולה תבצע") — a wave abandoned after three days strands
+   the guests it never reached. Who is left = has a phone, never answered, no
+   wsent:/wdead: mark for wave 1. Pure, so the rule is testable. */
+export function waveRestOf(guests, sentSet, deadSet) {
+  const out = [], seen = new Set();
+  for (const g of guests || []) {
+    const p = normPhone(String((g || [])[4] || '').trim());
+    if (!p || seen.has(p)) continue;
+    seen.add(p);
+    if (String(g[15] || '').trim() !== '') continue;          /* answered = reached */
+    if (sentSet.has(p) || deadSet.has(p)) continue;
+    out.push({ name: String(g[3] || '').trim(), phone: p });
+  }
+  return out;
+}
+async function kvNames(env, prefix) {
+  const out = []; let cursor;
+  for (let i = 0; i < 20; i++) {
+    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) out.push(k.name.slice(prefix.length));
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return out;
+}
+async function waveRest(env, token, guests) {
+  const [sent, dead] = await Promise.all([kvNames(env, `wsent:${token}:1:`), kvNames(env, `wdead:${token}:1:`)]);
+  return waveRestOf(guests, new Set(sent), new Set(dead));
+}
+/* the click in the admin is the explicit "שלח": the rest goes into the late-invite
+   queue, which keeps every gate of a wave (hours, Shabbat, pause, hold, budget) */
+async function handleWaveRest(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key || request.headers.get('x-admin-key'))) return deny(403, 'bad-admin-key', origin);
+  const want = String(b.token || b.tok8 || '').trim();
+  if (!/^[0-9a-f-]{8,36}$/.test(want)) return deny(400, 'bad-args', origin);
+  const raw = await readSnapshot(env, 'ops');
+  if (!raw) return deny(502, 'reader-failed', origin);
+  const ev = ((raw.events && raw.events.values) || []).find(r => { const t = String((r || [])[1] || '').trim(); return t === want || (want.length === 8 && t.slice(0, 8) === want); });
+  if (!ev) return deny(404, 'event-not-found', origin);
+  const token = String(ev[1]).trim();
+  const evDay = String(ev[6] || '').trim().slice(0, 10);
+  if (String(ev[27] || '').trim() === 'כן') return okJson({ ok: false, why: 'cancelled', n: 0 }, origin);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < ilDate()) return okJson({ ok: false, why: 'event-passed', n: 0 }, origin);
+  const guests = ((raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token);
+  const rest = await waveRest(env, token, guests);
+  const queued = (await kvNames(env, `lateinv:${token}:`)).length;
+  const name = eventHosts(ev) || String(ev[2] || '').trim();
+  if (!b.confirm) return okJson({ ok: true, applied: false, n: rest.length, queued, name, sample: rest.slice(0, 3).map(r => r.name) }, origin);
+  const at = new Date().toISOString();
+  let n = 0;
+  for (const r of rest.slice(0, 600)) { await env.RATE.put(`lateinv:${token}:${r.phone}`, JSON.stringify({ name: r.name, at, why: 'wave-rest' }), { expirationTtl: 7 * 86400 }); n++; }
+  await logEvent(env, { area: 'שליחה', action: `שלח לשאר · ${n} הזמנות נכנסו לתור (גל 1 שננטש)`, ok: true, token, detail: 'אישור מנהל במרכז הבקרה' }).catch(() => {});
+  return okJson({ ok: true, applied: true, n, name }, origin);
+}
 async function noteGuestSend(env, wa, token, wave, phone, gk) {
   if (!env.RATE || !wa || !wa.ok || !wa.id) return;
   await env.RATE.put('wamid:' + wa.id, JSON.stringify({ token, wave, phone: normPhone(phone), gk }), { expirationTtl: 3 * 86400 }).catch(() => {});
@@ -6169,8 +6225,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (lateBy > 3 && !dry && env.RATE && !(await env.RATE.get(`wave:${token}:${wave.key}`)) &&
           !(await env.RATE.get(`wlate:${token}:${wave.key}`))) {
         await env.RATE.put(`wlate:${token}:${wave.key}`, today, { expirationTtl: 120 * 86400 });
-        await logEvent(env, { area: 'שליחה', action: `גל ${wave.key} ננטש — עברו 3 ימים מהתאריך ולא הושלם`, ok: false, review: true, token,
-          detail: 'לבדוק מי לא קיבל; שליחה ידנית דרך /api/send-date עם תאריך חדש' });
+        /* 12/11 (Richard): say it out loud, with how many are stranded and one place to send them */
+        const restN = wave.key === 1 ? (await waveRest(env, token, guests).catch(() => [])).length : 0;
+        await alert(env, 'שליחה', `גל ${wave.key} ננטש · ${eventHosts(ev) || String(ev[2] || '').trim() || token.slice(0, 8)} — עברו 3 ימים מהתאריך ולא הושלם`,
+          wave.key === 1 ? (restN ? `${restN} אורחים לא קיבלו הזמנה. לשליחה לשאר: https://ishur.io/admin.html?rest=${token.slice(0, 8)}` : 'כל מי שהיה צריך לקבל קיבל.') : 'לבדוק מי לא קיבל.',
+          { key: `wave_abandoned:${token.slice(0, 8)}:${wave.key}`, sev: 'P1', action: wave.key === 1 && restN ? 'ללחוץ על הקישור ולאשר "שלח לשאר"' : 'לבדוק' }).catch(() => {});
       }
       if (lateBy < 0 || lateBy > 3) continue;
       /* never chase after the event itself has passed */
@@ -7466,7 +7525,7 @@ async function runBackup(env) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet',
-        qk1: 'ranges', qv1: `${tab}!A1:AZ3000`,
+        qk1: 'ranges', qv1: `${tab}!A1:AZ`,   /* 12/11: open-ended — the 3000-row cap was 469 rows from cutting the guests tab silently */
       }),
     }).catch(() => null);
     if (!r || !r.ok) return { ok: false, error: 'read-failed: ' + tab };
@@ -7476,7 +7535,34 @@ async function runBackup(env) {
   const date = ilDate();
   const body = JSON.stringify({ at: new Date().toISOString(), date, tabs });
   await env.RATE.put('backup:' + date, body, { expirationTtl: 35 * 86400 });
-  return { ok: true, date, bytes: body.length, rows: Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, v.length])) };
+  /* 12/11: a second copy outside KV, never deleted */
+  let r2 = false;
+  if (env.AUDIT_R2) { try { await env.AUDIT_R2.put(`backup/sheet/${date}.json`, body, { httpMetadata: { contentType: 'application/json' } }); r2 = true; } catch {} }
+  return { ok: true, date, r2, bytes: body.length, rows: Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, v.length])) };
+}
+
+/* 12/11: the running state lives only in KV — who got which wave, opt-outs, partners,
+   hostesses. One file a day in R2: marker prefixes by name only (the value is "1"),
+   small valued prefixes with their values (capped, to stay inside the subrequest budget). */
+const STATE_MARKS = ['wsent:', 'wdead:', 'wfail:', 'wave:', 'wlate:', 'optout:'];
+const STATE_VALUES = ['partner:', 'ref:', 'staff:', 'hold:', 'customtmpl:', 'extrasend:', 'waveprio:', 'hostessbook:', 'auto:off:', 'sentdate:'];
+async function runStateBackup(env) {
+  if (!env.RATE || !env.AUDIT_R2) return { ok: false, error: 'not-configured' };
+  try {
+    const marks = {}, values = {}; let gets = 0, capped = false;
+    for (const p of STATE_MARKS) marks[p] = await kvNames(env, p);
+    for (const p of STATE_VALUES) {
+      values[p] = {};
+      for (const n of await kvNames(env, p)) {
+        if (gets >= 400) { capped = true; break; }
+        values[p][n] = await env.RATE.get(p + n); gets++;
+      }
+    }
+    const date = ilDate();
+    const body = JSON.stringify({ at: new Date().toISOString(), date, capped, marks, values });
+    await env.AUDIT_R2.put(`backup/state/${date}.json`, body, { httpMetadata: { contentType: 'application/json' } });
+    return { ok: true, date, bytes: body.length, capped, marks: Object.fromEntries(Object.entries(marks).map(([k, v]) => [k, v.length])), values: gets };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 200) }; }
 }
 
 async function handleBackup(request, env, origin) {
@@ -7484,6 +7570,7 @@ async function handleBackup(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   if (body.run) {
+    if (body.run === 'state') return okJson(await runStateBackup(env), origin);
     const res = await runBackup(env);
     if (!res.ok) { await alert(env, 'גיבוי', 'גיבוי ידני נכשל', res.error || '', { oneoff: true }); return deny(502, res.error || 'backup-failed', origin); }   /* oneoff: one manual backup request */
     return okJson(res, origin);
@@ -10835,6 +10922,9 @@ const WORKER = {
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
     ctx.waitUntil(withRun(env, 'd_engine', () => runDailyEngine(env, false, null, { budget: morningBudget })).then(() => withRun(env, 'backup', () => runBackup(env))).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '', { key: 'backup_fail', sev: 'P1' });
+      if (res && res.ok && !res.r2) return alert(env, 'גיבוי יומי', 'העותק השני (R2) לא נכתב', 'הגיבוי ב-KV תקין', { key: 'backup_r2_fail' });
+    }).then(() => runStateBackup(env)).then(sr => {
+      if (sr && !sr.ok) return alert(env, 'גיבוי יומי', 'גיבוי המצב השוטף נכשל', sr.error || '', { key: 'backup_state_fail' });
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
       String((e && e.stack) || e).slice(0, 500), { key: 'engine_crash', sev: 'P1' })).then(() => {
       /* Monday morning: the weekly message-performance digest into Slack */
@@ -12063,6 +12153,7 @@ const WORKER = {
         per_number_limit: cap.numbers.length ? Math.max(...cap.numbers.map(n => n.limit)) : 0, left: cap.remaining, late_invites_waiting: lateQ } : { late_invites_waiting: lateQ };
       return okJson({ ok: true, graph, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
     }
+    if (url.pathname === '/api/wave-rest' && request.method === 'POST') return handleWaveRest(request, env, origin);
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

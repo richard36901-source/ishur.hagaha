@@ -2108,6 +2108,23 @@
     }, function (ok) { if (ok) applyPause(true); });
   });
 
+  /* ── 12/11: "שלח לשאר" — the Slack alert on an abandoned wave links here with ?rest=<tok8> ── */
+  function waveRestFlow() {
+    var m = /[?&]rest=([0-9a-f]{8})\b/.exec(location.search); if (!m || !adminKey) return;
+    var base = CFG.endpoint('status').replace(/\/api\/status$/, '');
+    var call = function (confirm) { return fetch(base + '/api/wave-rest', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey }, body: JSON.stringify({ tok8: m[1], confirm: !!confirm }) }).then(function (r) { return r.json(); }); };
+    var clean = function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} };
+    call(false).then(function (d) {
+      if (!d || !d.ok) { clean(); flash('bad', d && d.why === 'event-passed' ? 'האירוע כבר עבר, לא נשלח כלום.' : 'לא מצאתי את האירוע, לא נשלח כלום.'); return; }
+      if (!d.n) { clean(); flash('ok', (d.name || 'האירוע') + ': אין אורחים שנשארו בלי הזמנה' + (d.queued ? ' (' + d.queued + ' כבר בתור)' : '') + '.'); return; }
+      var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+      askConfirm({ title: 'לשלוח הזמנה ל-' + d.n + ' שנשארו?', yes: 'כן, לשלוח ל-' + d.n,
+        body: '<b>' + esc(d.name || '') + '</b><br>' + d.n + ' אורחים לא קיבלו את ההזמנה ולא ענו' + (d.sample && d.sample.length ? ' (למשל ' + d.sample.map(esc).join(', ') + ')' : '') + '.<br><br>ההזמנות נכנסות לתור ויוצאות רק בשעות השליחה, 10 בכל פעימה.' },
+        function (ok) { clean(); if (!ok) return; call(true).then(function (r) { flash(r && r.applied ? 'ok' : 'bad', r && r.applied ? r.n + ' הזמנות נכנסו לתור.' : FAIL_SAVE); }, function () { flash('bad', FAIL_NET); }); });
+    }, function () { flash('bad', FAIL_NET); });
+  }
+  setTimeout(waveRestFlow, 1200);
+
   /* ── 1b. Noa's chase calls to unanswered leads: the ops kill switch noa_chase ── */
   var chaseOn = null;
   function opsToggle(enabled, confirm) {
