@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="/config.js?v=72"></script>
-<script src="/next/assets/batch.js?v=2"></script>
+<script src="/next/assets/batch.js?v=3"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=1" defer></script>
 <script src="/assets/guard.js?v=19"></script>
@@ -22,7 +22,7 @@
 <script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/callboard.js?v=1"></script>
 <script src="/assets/callslog.js?v=1"></script>
-<script src="/assets/week.js?v=15"></script>
+<script src="/assets/week.js?v=17"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -2291,8 +2291,8 @@
     var i = 0;
     (function next() {
       if (i >= toks.length) { holdReady = true; renderEventsTable(); paintCtlStatus(); return; }
-      var batch = toks.slice(i, i + 5);
-      i += 5;
+      var batch = toks.slice(i, i + 40);   /* next/: one go; the batch shim turns them into a single request */
+      i += 40;
       Promise.all(batch.map(readHold)).then(function () {
         if (!quiet) { renderEventsTable(); paintCtlStatus(); }
         next();

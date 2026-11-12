@@ -10861,8 +10861,9 @@ const WORKER = {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!(await adminKeyOk(env, b.admin_key))   /* raw key or a signed session, like every admin page sends */) return deny(403, 'bad-admin-key', origin);
       const ip = request.headers.get('CF-Connecting-IP') || '';
-      const calls = (Array.isArray(b.calls) ? b.calls : []).slice(0, 20);
+      const calls = (Array.isArray(b.calls) ? b.calls : []).slice(0, 40);
       const results = await Promise.all(calls.map(async c => {
+        const t0 = Date.now();
         try {
           const p = String((c && c.p) || ''), m = c && c.m === 'GET' ? 'GET' : 'POST';
           if (!homeReadOk(p, m, c && c.b)) return { s: 400, t: '{"ok":false,"error":"not-a-batchable-read"}' };
@@ -10873,7 +10874,7 @@ const WORKER = {
           const r = await WORKER.fetchMain(rq, env, ctx);
           const t = await r.text();
           if (cacheKey && env.RATE && r.status === 200 && t.length < 400000) await env.RATE.put(cacheKey, t, { expirationTtl: 60 }).catch(() => {});
-          return { s: r.status, t };
+          return { s: r.status, t, ms: Date.now() - t0 };
         } catch (e) { return { s: 500, t: JSON.stringify({ ok: false, error: 'batch-item-failed' }) }; }
       }));
       return okJson({ ok: true, results }, origin);

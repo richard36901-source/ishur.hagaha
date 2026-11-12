@@ -11,7 +11,7 @@
   var SLOW = ['leads', 'evlog', 'ads-health', 'wave-audit', 'cost-log', 'traffic', 'campaign-stats', 'ops-stats', 'feedback-list', 'calls-log', 'inbox', 'template-stats', 'msg-stats', 'shir-calls', 'leads-board', 'ops/realtime'];
   var MUT = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
   var real = window.fetch.bind(window), lanes = { fast: { q: [], t: null }, slow: { q: [], t: null } }, WAIT = 30;
-  window.__ishurBatchStats = { batches: 0, calls: 0, direct: 0, failed: 0, err: '' };
+  window.__ishurBatchStats = { batches: 0, calls: 0, direct: 0, failed: 0, err: '', log: [] };
   function plan(url, init) {
     var u; try { u = new URL(url, location.href); } catch (e) { return null; }
     if (!/(^|\.)ishur\.io$/.test(u.hostname) || u.pathname.indexOf('/api/') !== 0 || u.pathname === '/api/admin/home') return null;
@@ -37,6 +37,7 @@
     real(items[0].base + '/api/admin/home', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: items[0].key, calls: items.map(function (x) { return x.c; }) }) })
       .then(function (r) { if (!r.ok) throw new Error('batch ' + r.status); return r.json(); })
       .then(function (j) {
+        window.__ishurBatchStats.log.push(items.map(function (it, i) { var x = (j.results || [])[i] || {}; return it.c.p.split('?')[0].slice(5) + ':' + (x.ms == null ? (x.cached ? 'cached' : '-') : x.ms); }).join(' '));
         items.forEach(function (it, i) { var x = (j.results || [])[i]; if (!x) { real(it.url, it.init).then(it.res, it.rej); return; } it.done = true; it.res(new Response(x.t, { status: x.s || 200, headers: { 'Content-Type': 'application/json', 'X-Ishur-Batch': '1' } })); });
       })
       .catch(function (e) { window.__ishurBatchStats.failed++; window.__ishurBatchStats.err = String(e && e.message || e).slice(0, 120); items.forEach(function (it) { if (!it.done) real(it.url, it.init).then(it.res, it.rej); }); });   /* the batch failed: every call goes out on its own, as before */
@@ -49,8 +50,18 @@
     if (lane.q.length && lane.q[0].key !== p.key) return real(input, init);
     return new Promise(function (res, rej) {
       lane.q.push({ url: url, init: init, res: res, rej: rej, key: p.key, base: p.base, c: p.c });
-      if (lane.q.length >= 18) { clearTimeout(lane.t); flush(lane); return; }
+      if (lane.q.length >= 40) { clearTimeout(lane.t); flush(lane); return; }
       if (!lane.t) lane.t = setTimeout(function () { flush(lane); }, WAIT);
     });
   };
+  /* measuring only: when the weekly board first has content, and when the top strip stops saying "checking" */
+  try {
+    var mo = new MutationObserver(function () {
+      var w = document.getElementById('week');
+      if (w && w.childElementCount && !performance.getEntriesByName('ishur-week').length) performance.mark('ishur-week');
+      var st = document.getElementById('strip');
+      if (st && !st.querySelector('.skel') && !performance.getEntriesByName('ishur-strip').length) performance.mark('ishur-strip');
+    });
+    document.addEventListener('DOMContentLoaded', function () { mo.observe(document.body, { childList: true, subtree: true }); });
+  } catch (e) {}
 })();
