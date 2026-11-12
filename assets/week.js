@@ -27,8 +27,15 @@
     '.wk-evb{font:inherit;font-weight:600;font-size:.82rem;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:right;text-decoration:underline;text-decoration-color:var(--line,#E3E1D8);text-underline-offset:3px}.wk-evb:hover{text-decoration-color:var(--gold,#A8853C)}' +
     '.wk-live{font-size:.68rem;color:var(--wk-ok);margin-top:.2rem;font-variant-numeric:tabular-nums}' +
     '.wk-it.pend{animation:wkblink 1.6s ease-in-out infinite}@keyframes wkblink{0%,100%{opacity:1}50%{opacity:.38}}' +
-    '.wk-nav{display:flex;align-items:center;gap:.6rem;margin:0 0 .6rem}.wk-nav b{font-size:.95rem}.wk-nav span{font-size:.76rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
-    '.wk-arr{font:inherit;width:30px;height:30px;border-radius:50%;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
+    '.wk-nav{display:flex;align-items:center;gap:.7rem;margin:0 0 .7rem;flex-wrap:wrap}' +
+    '.wk-seg{display:inline-flex;border:1px solid var(--line,#E3E1D8);border-radius:8px;overflow:hidden;background:var(--card,#fff)}.wk-seg button{font:inherit;font-size:.8rem;padding:.35rem .8rem;border:0;background:none;color:var(--wk-mute);cursor:pointer}.wk-seg button+button{border-inline-start:1px solid var(--line,#E3E1D8)}.wk-seg button[aria-selected=true]{background:rgba(168,133,60,.12);color:inherit;font-weight:600}' +
+    '.wk-pager{display:inline-flex;align-items:center;gap:.45rem}.wk-ttl{display:inline-flex;flex-direction:column;align-items:center;min-width:7.5rem;line-height:1.2}.wk-ttl b{font-size:.95rem}.wk-ttl small{font-size:.74rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
+    '.wk-list{display:grid;gap:.25rem}.wk-lh{display:flex;gap:.5rem;align-items:baseline;margin:.6rem 0 .1rem;font-size:.84rem}.wk-lh span{color:var(--wk-mute);font-size:.76rem}.wk-lh.today b{color:var(--gold,#A8853C)}' +
+    '.wk-lr{display:grid;grid-template-columns:1.4rem minmax(0,1.3fr) minmax(0,1.2fr) 6.5rem minmax(0,1fr);gap:.5rem;align-items:center;width:100%;text-align:right;font:inherit;font-size:.84rem;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.45rem .6rem;color:inherit;cursor:pointer}.wk-lr:hover{border-color:var(--gold,#A8853C)}.wk-ln{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wk-lt{color:var(--wk-mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wk-lq{font-variant-numeric:tabular-nums}.wk-lr .wk-s{margin:0}' +
+    '@media (max-width:700px){.wk-lr{grid-template-columns:1.4rem 1fr auto}.wk-lt,.wk-lr .wk-s{grid-column:2/-1}}' +
+    '.wk-mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem}.wk-mdow{font-size:.72rem;color:var(--wk-mute);text-align:center;padding:.2rem 0}' +
+    '.wk-mc{font:inherit;min-height:78px;display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;text-align:right;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.35rem .4rem;color:inherit;cursor:pointer;font-size:.72rem;overflow:hidden}.wk-mc b{font-size:.84rem}.wk-mc.today{border-color:var(--gold,#A8853C);border-width:2px}.wk-mc.past{opacity:.6}.wk-mc.blank{border:0;background:none;cursor:default}.wk-mc:hover{border-color:var(--gold,#A8853C)}.wk-mc span{font-variant-numeric:tabular-nums;white-space:nowrap}.wk-me{color:var(--wk-mute);max-width:100%;overflow:hidden;text-overflow:ellipsis}' +
+    '.wk-arr{font:inherit;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:8px;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
     '.wk-ev.done{background:rgba(46,125,91,.09);border-color:rgba(46,125,91,.35)}html[data-theme=dark] .wk-ev.done{background:rgba(123,201,164,.12)}' +
     '.wk-why{display:block;font-size:.66rem;color:var(--wk-mute);margin:.05rem 0 .1rem}' +
     '.wk-evs{font-size:.68rem;color:var(--wk-mute);margin-top:.1rem}' +
@@ -69,21 +76,34 @@
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
   /* 09/11 (Richard): from today forward — seven days, even across the week/month edge */
-  function getPlan() {
+  /* 12/11 (Richard: "יותר מהיר, אינטראקטיבי"): the days are fetched once and kept; paging a week or a month
+     is drawn from memory at once, and the network only refreshes in the background. */
+  var store = null;
+  var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  function fetchDays() {
     return Promise.all([getOne('week'), getOne('month')]).then(function (r) {
       var w = r[0], m = r[1]; if (!(w && w.ok) && !(m && m.ok)) return null;
       var base = (w && w.ok) ? w : m, by = {};
       [m, w].forEach(function (p) { if (p && p.ok) (p.days || []).forEach(function (d) { by[d.day] = d; }); });
-      var today = base.today;
-      /* fixed Sunday..Saturday columns; weekOff pages the week (arrows / trackpad). Days the planner has no data for are rendered empty. */
-      var t = new Date(today + 'T12:00:00Z'); var sun = new Date(t.getTime() - t.getUTCDay() * 864e5 + weekOff * 7 * 864e5);
-      var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-      var days = [];
-      for (var i = 0; i < 7; i++) { var iso = new Date(sun.getTime() + i * 864e5).toISOString().slice(0, 10); days.push(by[iso] || { day: iso, dow_he: DOW[i], past: iso < today, today: iso === today, future: iso > today, items: [], capacity: null, nodata: true }); }
-      return { ok: true, at: base.at, today: today, days: days, range: [days[0].day, days[6].day] };
+      store = { by: by, today: base.today, at: base.at, t: Date.now() };
+      return store;
     });
   }
-  var info = {}, live = null, weekOff = 0;
+  function dayOf(iso, dowIdx) {
+    var d = store.by[iso]; if (d) return JSON.parse(JSON.stringify(d));   /* a copy: applyPending moves items around */
+    return { day: iso, dow_he: DOW[dowIdx], past: iso < store.today, today: iso === store.today, future: iso > store.today, items: [], capacity: null, nodata: true };
+  }
+  /* fixed Sunday..Saturday columns; weekOff pages the week (arrows / trackpad) */
+  function buildWeek() {
+    if (!store) return null;
+    var t = new Date(store.today + 'T12:00:00Z'); var sun = new Date(t.getTime() - t.getUTCDay() * 864e5 + weekOff * 7 * 864e5);
+    var days = [];
+    for (var i = 0; i < 7; i++) days.push(dayOf(new Date(sun.getTime() + i * 864e5).toISOString().slice(0, 10), i));
+    return { ok: true, at: store.at, today: store.today, days: days, range: [days[0].day, days[6].day] };
+  }
+  function getPlan() { return fetchDays().then(buildWeek); }
+  var info = {}, live = null, weekOff = 0, monthOff = 0, view = 'week';
+  try { var sv = localStorage.getItem('wk_view'); if (sv === 'list' || sv === 'month') view = sv; } catch (e) {}
   /* 09/11 (Richard): a dragged wave jumps to the new day at once and blinks dimmed until the planner confirms it; then it settles */
   var pend = {}; try { pend = JSON.parse(localStorage.getItem('wk_pend') || '{}'); } catch (e) {}
   function pendSave() { try { localStorage.setItem('wk_pend', JSON.stringify(pend)); } catch (e) {} }
@@ -189,11 +209,62 @@
     });
   }
 
+  /* 12/11 Richard: the same week as a list, and a whole month as a calendar */
+  var MON = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  function monthOf() {
+    var t = new Date(((store && store.today) || new Date().toISOString().slice(0, 10)) + 'T12:00:00Z');
+    var d = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + monthOff, 1));
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth(), label: MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear() };
+  }
+  function nOf(it) { return it.kind === 'call' ? (it.planned_n || it.done_n || 0) : Math.max(it.planned_n || 0, it.done_n || 0); }
+  function listHtml() {
+    var h = '<div class="wk-list">', any = false;
+    (plan.days || []).forEach(function (day, di) {
+      var gs = dayItems(day); if (!gs.length) return; any = true;
+      h += '<div class="wk-lh' + (day.today ? ' today' : '') + '"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
+      gs.forEach(function (g) {
+        g.items.forEach(function (it) {
+          var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
+          h += '<button type="button" class="wk-lr wk-it" data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-li">' + (it.kind === 'call' ? '📞' : it.kind === 'send' || it.kind === 'lead_sends' ? '💬' : '•') + '</span>' +
+            '<span class="wk-ln">' + esc(g.name || (it.event && it.event.name) || '') + '</span><span class="wk-lt">' + esc(SHORT[kindKey] || it.label_he || '') + '</span>' +
+            '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+        });
+      });
+    });
+    return h + (any ? '' : '<div class="wk-empty">אין שליחות או שיחות בשבוע הזה</div>') + '</div>';
+  }
+  function monthHtml(mo) {
+    var first = new Date(Date.UTC(mo.y, mo.m, 1)), n = new Date(Date.UTC(mo.y, mo.m + 1, 0)).getUTCDate();
+    var h = '<div class="wk-mgrid">' + DOW.map(function (d) { return '<div class="wk-mdow">' + d + '</div>'; }).join('');
+    for (var b = 0; b < first.getUTCDay(); b++) h += '<div class="wk-mc blank"></div>';
+    for (var i = 1; i <= n; i++) {
+      var iso = new Date(Date.UTC(mo.y, mo.m, i)).toISOString().slice(0, 10), d = store && store.by[iso], msgs = 0, calls = 0, evs = [];
+      ((d && d.items) || []).forEach(function (it) {
+        if (it.kind === 'send') msgs += nOf(it); else if (it.kind === 'call') calls += nOf(it);
+        else if (it.kind === 'event' && it.event && it.event.name) evs.push(it.event.name);
+      });
+      h += '<button type="button" class="wk-mc' + (store && iso === store.today ? ' today' : '') + (store && iso < store.today ? ' past' : '') + '" data-goday="' + iso + '"><b>' + i + '</b>' +
+        (msgs ? '<span>💬 ' + num(msgs) + '</span>' : '') + (calls ? '<span>📞 ' + num(calls) + '</span>' : '') +
+        evs.slice(0, 2).map(function (e) { return '<span class="wk-me">' + esc(e) + '</span>'; }).join('') + (evs.length > 2 ? '<span class="wk-me">+' + (evs.length - 2) + '</span>' : '') + '</button>';
+    }
+    return h + '</div>';
+  }
   function render() {
     if (!root) return;
     if (!plan) { root.innerHTML = '<div class="wk-empty">לא הצלחתי לטעון את השבוע. רענון בעוד רגע.</div>'; return; }
     var lbl = weekOff === 0 ? 'השבוע' : weekOff === -1 ? 'שבוע שעבר' : weekOff === 1 ? 'שבוע הבא' : (weekOff < 0 ? 'לפני ' + (-weekOff) + ' שבועות' : 'בעוד ' + weekOff + ' שבועות');
-    var html = '<div class="wk-nav"><button type="button" class="wk-arr" data-w="-1" aria-label="שבוע קודם">›</button><b>' + esc(lbl) + '</b><span>' + esc(dm(plan.range[0]) + ' – ' + dm(plan.range[1])) + '</span>' + (weekOff ? '<button type="button" class="wk-arr txt" data-w="0">היום</button>' : '') + '<button type="button" class="wk-arr" data-w="1" aria-label="שבוע הבא">‹</button></div>';
+    var CH_R = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+    var CH_L = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
+    var mo = monthOf(), isM = view === 'month';
+    var title = isM ? mo.label : lbl, rangeTxt = isM ? '' : dm(plan.range[0]) + ' – ' + dm(plan.range[1]);
+    var off = isM ? monthOff : weekOff;
+    /* RTL: earlier is on the right and its arrow points right; later is on the left and points left */
+    var html = '<div class="wk-nav"><div class="wk-seg" role="tablist">' + [['week', 'שבוע'], ['list', 'רשימה'], ['month', 'חודש']].map(function (v) { return '<button type="button" role="tab" data-view="' + v[0] + '" aria-selected="' + (view === v[0]) + '">' + v[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="wk-pager"><button type="button" class="wk-arr" data-w="-1" aria-label="' + (isM ? 'חודש קודם' : 'שבוע קודם') + '">' + CH_R + '</button><span class="wk-ttl"><b>' + esc(title) + '</b>' + (rangeTxt ? '<small>' + esc(rangeTxt) + '</small>' : '') + '</span><button type="button" class="wk-arr" data-w="1" aria-label="' + (isM ? 'חודש הבא' : 'שבוע הבא') + '">' + CH_L + '</button></div>' +
+      (off ? '<button type="button" class="wk-arr txt" data-w="0">היום</button>' : '') + '</div>';
+    var noteHtml = '<p class="wk-note">' + (live ? '● חי ' + esc(hm(live.at)) + ' · ' : '') + 'תכנון עודכן ' + esc(hm(plan.at)) + '</p>';
+    if (view === 'list') { root.innerHTML = html + listHtml() + noteHtml; return; }
+    if (isM) { root.innerHTML = html + monthHtml(mo) + noteHtml; return; }
     html += '<div class="wk-grid">';
     (plan.days || []).forEach(function (day, di) {
       var cls = 'wk-day' + (day.today ? ' today' : '') + (day.past ? ' past' : '');
@@ -373,6 +444,13 @@
     });
   }
   function load() { return Promise.all([getPlan().then(function (p) { if (p && p.ok) plan = p; return plan ? loadInfo() : null; }), getLive()]).then(function () { applyPending(); render(); }, render); }
+  /* paging: draw from memory now; go to the network only when what we hold is older than a minute */
+  function page() {
+    if (!store) return load();
+    plan = buildWeek(); applyPending(); render();
+    loadInfo().then(render, function () {});
+    if (Date.now() - store.t > 60000) load();
+  }
   var timer = null;
 
   window.IshurWeek = {
@@ -384,13 +462,20 @@
         root.dataset.wired = '1';
         root.addEventListener('click', function (e) { var n = e.target.closest('.wk-evb'); if (n) { openEvent(n.dataset.tok); return; } var b = e.target.closest('.wk-it'); if (b) open(Number(b.dataset.d), b.dataset.id); });
         wireDnd();
-        root.addEventListener('click', function (e) { var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w); weekOff = w === 0 ? 0 : weekOff + w; load(); });
+        root.addEventListener('click', function (e) {
+          var v = e.target.closest('[data-view]'); if (v) { view = v.dataset.view; try { localStorage.setItem('wk_view', view); } catch (x) {} page(); return; }
+          var c = e.target.closest('[data-goday]');
+          if (c && store) { var t0 = new Date(store.today + 'T12:00:00Z'), sun0 = t0.getTime() - t0.getUTCDay() * 864e5, d1 = new Date(c.dataset.goday + 'T12:00:00Z'), sun1 = d1.getTime() - d1.getUTCDay() * 864e5; weekOff = Math.round((sun1 - sun0) / (7 * 864e5)); view = 'week'; page(); return; }
+          var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w);
+          if (view === 'month') monthOff = w === 0 ? 0 : monthOff + w; else weekOff = w === 0 ? 0 : weekOff + w;
+          page();
+        });
         /* trackpad: a horizontal swipe pages the week (RTL: swipe toward the left = earlier) */
         var wheelAcc = 0, wheelAt = 0;
         root.addEventListener('wheel', function (e) {
           if (Math.abs(e.deltaX) < Math.abs(e.deltaY) * 1.5) return;
           var now = Date.now(); if (now - wheelAt > 400) wheelAcc = 0; wheelAt = now; wheelAcc += e.deltaX;
-          if (Math.abs(wheelAcc) > 140) { weekOff += wheelAcc > 0 ? -1 : 1; wheelAcc = 0; e.preventDefault(); load(); }
+          if (Math.abs(wheelAcc) > 140) { if (view === 'month') monthOff += wheelAcc > 0 ? -1 : 1; else weekOff += wheelAcc > 0 ? -1 : 1; wheelAcc = 0; e.preventDefault(); page(); }
         }, { passive: false });
         root.innerHTML = '<div class="wk-empty">טוען את השבוע…</div>';
       }
