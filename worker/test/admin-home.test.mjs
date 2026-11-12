@@ -32,8 +32,8 @@ test('the route needs the admin key and answers each call in order', async () =>
   assert.equal(j.results[1].s, 400, 'the send route is refused inside the batch');
   assert.equal(JSON.parse(j.results[2].t).ok, true);
 });
-test('realtime is served from the 60-second copy when one exists', async () => {
-  const e = env(); e.RATE.m.set('homecache:realtime', '{"ok":true,"from":"cache"}');
+test('realtime is served from the stored copy when one exists', async () => {
+  const e = env(); e.RATE.m.set('homecache:realtime2', JSON.stringify({ at: Date.now(), t: '{"ok":true,"from":"cache"}' }));
   const j = await (await post(e, { admin_key: 'k', calls: [{ p: '/api/ops/realtime', m: 'GET' }] })).json();
   assert.equal(j.results[0].cached, true); assert.equal(JSON.parse(j.results[0].t).from, 'cache');
 });

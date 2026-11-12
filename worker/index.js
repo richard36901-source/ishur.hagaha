@@ -10867,13 +10867,18 @@ const WORKER = {
         try {
           const p = String((c && c.p) || ''), m = c && c.m === 'GET' ? 'GET' : 'POST';
           if (!homeReadOk(p, m, c && c.b)) return { s: 400, t: '{"ok":false,"error":"not-a-batchable-read"}' };
-          const cacheKey = m === 'GET' && p.split('?')[0] === '/api/ops/realtime' ? 'homecache:realtime' : '';
-          if (cacheKey && env.RATE) { const hit = await env.RATE.get(cacheKey).catch(() => null); if (hit) return { s: 200, t: hit, cached: true }; }
+          const cacheKey = m === 'GET' && p.split('?')[0] === '/api/ops/realtime' ? 'homecache:realtime2' : '';
+          /* the copy is fresh for 60 s. An older one (up to 10 min) is still answered at once and rebuilt behind the reply, so the page never waits 5 s for it. */
+          const build = async () => { const r0 = await WORKER.fetchMain(new Request('https://go.ishur.io' + p, { method: 'GET', headers: { 'x-admin-key': String(b.admin_key), Origin: origin } }), env, ctx); const t0x = await r0.text(); if (r0.status === 200 && t0x.length < 400000) await env.RATE.put(cacheKey, JSON.stringify({ at: Date.now(), t: t0x }), { expirationTtl: 600 }).catch(() => {}); return { s: r0.status, t: t0x, ms: Date.now() - t0 }; };
+          if (cacheKey && env.RATE) {
+            let hit = null; try { hit = JSON.parse(await env.RATE.get(cacheKey) || 'null'); } catch { hit = null; }
+            if (hit && hit.t) { if (Date.now() - hit.at > 60000 && ctx && ctx.waitUntil) ctx.waitUntil(build().catch(() => {})); return { s: 200, t: hit.t, cached: true, age: Math.round((Date.now() - hit.at) / 1000) }; }
+            return await build();
+          }
           const rq = new Request('https://go.ishur.io' + p, { method: m, headers: { 'Content-Type': 'application/json', 'x-admin-key': String(b.admin_key), Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) },
             ...(m === 'POST' ? { body: JSON.stringify({ ...((c && c.b) || {}), admin_key: b.admin_key }) } : {}) });
           const r = await WORKER.fetchMain(rq, env, ctx);
           const t = await r.text();
-          if (cacheKey && env.RATE && r.status === 200 && t.length < 400000) await env.RATE.put(cacheKey, t, { expirationTtl: 60 }).catch(() => {});
           return { s: r.status, t, ms: Date.now() - t0 };
         } catch (e) { return { s: 500, t: JSON.stringify({ ok: false, error: 'batch-item-failed' }) }; }
       }));

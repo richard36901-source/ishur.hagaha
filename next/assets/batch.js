@@ -8,9 +8,9 @@
   if (window.__ishurBatch) return; window.__ishurBatch = true;
   var READS = ['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff', 'event-flag'];
   /* two lanes: quick reads are not held back by the slow ones (leads, logs, ads take 1–2 s each) */
-  var SLOW = ['leads', 'evlog', 'ads-health', 'wave-audit', 'call-board', 'calls-log', 'inbox', 'template-stats', 'msg-stats', 'shir-calls', 'leads-board', 'ops/realtime'];
+  var SLOW = ['leads', 'evlog', 'ads-health', 'call-board', 'calls-log', 'inbox', 'template-stats', 'msg-stats', 'shir-calls', 'leads-board', 'ops/realtime'];
   /* the numbers under the weekly board (4–12 s to build) travel on their own, so nothing above waits for them */
-  var STATS = ['ops-stats', 'cost-log', 'traffic', 'campaign-stats', 'feedback-list'];
+  var STATS = ['wave-audit', 'ops-stats', 'cost-log', 'traffic', 'campaign-stats', 'feedback-list'];
   var MUT = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
   var real = window.fetch.bind(window), lanes = { fast: { q: [], t: null, w: 30 }, slow: { q: [], t: null, w: 120 }, stats: { q: [], t: null, w: 120 } };
   window.__ishurBatchStats = { batches: 0, calls: 0, direct: 0, failed: 0, err: '', log: [] };
