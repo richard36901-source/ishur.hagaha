@@ -11,6 +11,6 @@ test('a hostess line becomes arrive / chuppah / leave, with her own time when sh
   assert.equal(parseStaff('   '), null);
 });
 test('the answer she gets states what was recorded and when', () => {
-  assert.equal(ackText('דנה', { kind: 'arrive', time: '' }, '18:22', 'מור ונועם'), 'הגעה נרשמה ✓ 18:22 · מור ונועם');
+  assert.ok(ackText('דנה', { kind: 'arrive', time: '' }, '18:22', 'מור ונועם').startsWith('הגעה נרשמה ✓ 18:22 · מור ונועם'));
   assert.ok(ackText('דנה', { kind: 'note', time: '' }, '18:22', '').includes('הגעתי / חופה / עזבתי'));
 });

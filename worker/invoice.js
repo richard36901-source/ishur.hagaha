@@ -46,6 +46,15 @@ export const HOSTESS_TERMS = [
   'ד. נסיעות: כלולות באזור המרכז (אשקלון עד הרצליה). מחוץ לו תוספת נסיעות, משולמת מראש.',
   'ה. הצוות (דיילת או דייל) נקבע על ידי ishur.io לפי זמינות, ללא התחייבות לאיש צוות מסוים.',
 ].join('\n');
+/* 12/11 Richard: an invoice that includes the invitation design carries its terms (terms.html §2ב) */
+export const DESIGN_TERMS = [
+  'עיצוב הזמנה (תמצית סעיף 2ב בתקנון):',
+  'א. כלול: עיצוב אחד של הזמנה דיגיטלית לוואטסאפ, לפי הבקשה שנשלחה בלוח הבקרה, וסבב תיקונים אחד.',
+  'ב. סבב תיקונים נוסף: ₪49 לסבב, לרכישה מלוח הבקרה.',
+  'ג. הגרסה נשלחת לאישור בלוח הבקרה. אישור הלקוח סוגר את העבודה, והעיצוב המאושר הופך לתמונת ההזמנה של האירוע.',
+  'ד. ההזמנה נמסרת כקובץ דיגיטלי בלבד, ללא הדפסה. נכונות הפרטים שבהזמנה (שמות, תאריך, שעה, מקום) באחריות הלקוח.',
+].join('\n');
+export const hasDesign = p => !!(p && (p.design || /עיצוב\s*הזמנה/.test(String(p.description || '') + ' ' + String(p.plan || ''))));
 export const hasHostess = p => !!(p && (p.hostess || /דייל/.test(String(p.description || '') + ' ' + String(p.plan || ''))));
 export function invoiceTerms({ tier, plan } = {}) {
   const cap = tier ? `עד ${tier} הזמנות (מספר טלפון אחד = הזמנה אחת)` : 'לפי החבילה שנרכשה';
@@ -101,7 +110,7 @@ export async function createInvoice(env, p) {
     currency: 'ILS',
     date: today,
     description: line,
-    remarks: invoiceTerms({ tier: p.tier, plan: p.plan }) + (hasHostess(p) ? '\n\n' + HOSTESS_TERMS : ''),
+    remarks: invoiceTerms({ tier: p.tier, plan: p.plan }) + (hasHostess(p) ? '\n\n' + HOSTESS_TERMS : '') + (hasDesign(p) ? '\n\n' + DESIGN_TERMS : ''),
     footer: `אסמכתת סליקה (Grow): ${p.ref || ''} · שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io`,
     client: {
       name: String(p.name || 'לקוח ishur.io').slice(0, 100),

@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>דיווח נוכחות · ishur.io</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0F2E22">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=89"></script>
+<style>
+  :root{--pine:#0F2E22;--green:#0F4C35;--gold:#A8853C;--ink:#1B2420;--ink2:#4A554E;--ink3:#7F8C86;--bg:#F8F4EA;--card:#fff;--bdr:#E3E1D8}
+  @media (prefers-color-scheme:dark){:root{--green:#4FA37C;--ink:#ECEFEA;--ink2:#C9CFC7;--ink3:#8E978F;--bg:#0F1613;--card:#151C18;--bdr:#2A332E}}
+  *{margin:0;padding:0;box-sizing:border-box}[hidden]{display:none!important}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;min-height:100vh}
+  header{background:var(--pine);color:#F8F4EA;text-align:center;padding:1.1rem 1rem}
+  header h1{font-family:'Frank Ruhl Libre',serif;font-size:1.25rem}header p{font-size:.84rem;color:#C7AE7A}
+  main{max-width:480px;margin:0 auto;padding:1rem 16px 3rem}
+  .card{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:1rem;margin-bottom:.9rem}
+  .acts{display:grid;gap:.6rem}
+  .big{font:inherit;font-size:1.05rem;font-weight:600;min-height:56px;border-radius:8px;border:1.5px solid var(--bdr);background:var(--card);color:var(--ink);cursor:pointer}
+  .big.p{background:#0F4C35;color:#fff;border-color:transparent}.big:disabled{opacity:.5}
+  video,canvas{width:100%;border-radius:8px;background:#000;display:block}
+  .row{display:flex;gap:.6rem;margin-top:.7rem}.row .big{flex:1}
+  .note{font-size:.82rem;color:var(--ink3);margin-top:.6rem}
+  .ok{font-size:1rem;font-weight:600;color:var(--green)}
+  .li{display:flex;justify-content:space-between;font-size:.9rem;padding:.4rem 0;border-bottom:1px solid var(--bdr)}.li:last-child{border-bottom:0}
+  .err{color:#A8402F;font-size:.88rem;margin-top:.5rem;min-height:1.2em}
+</style>
+</head>
+<body>
+<header><h1 id="hi">דיווח נוכחות</h1><p id="evn">ishur.io</p></header>
+<main>
+  <div class="card" id="bad" hidden>הקישור לא מזוהה. בקשו מאיתנו קישור חדש.</div>
+  <div class="card" id="pick" hidden>
+    <div class="acts">
+      <button class="big p" data-k="arrive">הגעתי לאולם</button>
+      <button class="big" data-k="chuppah">החופה התחילה</button>
+      <button class="big" data-k="leave">סיימתי ועזבתי</button>
+    </div>
+    <p class="note">בלחיצה נפתחת המצלמה. מצלמים את העמדה או את האולם, והדיווח נשלח עם השעה והמיקום של הרגע הזה.</p>
+  </div>
+  <div class="card" id="cam" hidden>
+    <video id="v" playsinline autoplay muted></video>
+    <canvas id="c" hidden></canvas>
+    <div class="row"><button class="big" id="back">ביטול</button><button class="big p" id="shoot">צילום ושליחה</button></div>
+    <p class="err" id="err"></p>
+  </div>
+  <div class="card" id="done" hidden><p class="ok" id="okT"></p><p class="note" id="okN"></p><div class="row"><button class="big" id="again">חזרה</button></div></div>
+  <div class="card" id="logC" hidden><p style="font-size:.78rem;color:var(--gold);font-weight:600;letter-spacing:.08em;margin-bottom:.3rem">הדיווחים שלי היום</p><div id="log"></div></div>
+</main>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (i) { return document.getElementById(i); };
+  var sid = ((location.search.match(/[?&]s=([0-9a-f]{24})/i) || [])[1] || '').toLowerCase();
+  var URL_ = CFG.endpoint('staff-checkin'), stream = null, kind = '', pos = null;
+  var HE = { arrive: 'הגעה', chuppah: 'חופה', leave: 'עזיבה' };
+  function show(id) { ['pick', 'cam', 'done'].forEach(function (x) { $(x).hidden = x !== id; }); }
+  function stop() { if (stream) { stream.getTracks().forEach(function (t) { t.stop(); }); stream = null; } }
+  function load() {
+    if (!sid) { $('bad').hidden = false; return; }
+    fetch(URL_, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ s: sid }) }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) { $('bad').hidden = false; return; }
+      $('hi').textContent = 'היי ' + String(j.name || '').split(' ')[0];
+      $('evn').textContent = j.event ? 'האירוע היום: ' + j.event : 'דיווח נוכחות';
+      $('logC').hidden = !(j.today || []).length;
+      $('log').innerHTML = (j.today || []).map(function (x) { return '<div class="li"><span>' + (x.kind_he || '') + (x.photo ? '' : ' (בלי צילום)') + '</span><span>' + x.time + '</span></div>'; }).join('');
+      if ($('cam').hidden && $('done').hidden) show('pick');
+    }).catch(function () { $('bad').hidden = false; });
+  }
+  $('pick').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-k]'); if (!b) return;
+    kind = b.dataset.k; $('err').textContent = ''; pos = null;
+    if (navigator.geolocation) navigator.geolocation.getCurrentPosition(function (p) { pos = p.coords; }, function () {}, { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 });
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) { alert('הדפדפן לא מאפשר לפתוח מצלמה. פתחו את הקישור בכרום או בספארי.'); return; }
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 } }, audio: false }).then(function (s) {
+      stream = s; $('v').srcObject = s; $('shoot').textContent = 'צילום ושליחה · ' + HE[kind]; show('cam');
+    }).catch(function () { alert('צריך לאשר גישה למצלמה כדי לדווח.'); });
+  });
+  $('back').addEventListener('click', function () { stop(); show('pick'); });
+  $('again').addEventListener('click', function () { show('pick'); });
+  $('shoot').addEventListener('click', function () {
+    var v = $('v'), c = $('c'); if (!v.videoWidth) { $('err').textContent = 'המצלמה עוד נטענת, רגע'; return; }
+    var w = Math.min(1280, v.videoWidth), h = Math.round(v.videoHeight * w / v.videoWidth);
+    c.width = w; c.height = h; c.getContext('2d').drawImage(v, 0, 0, w, h);
+    $('shoot').disabled = true; $('err').textContent = 'שולח…';
+    c.toBlob(function (blob) {
+      var fd = new FormData(); fd.append('s', sid); fd.append('kind', kind); fd.append('photo', blob, 'p.jpg');
+      if (pos) { fd.append('lat', pos.latitude); fd.append('lon', pos.longitude); fd.append('acc', pos.accuracy); }
+      fetch(URL_, { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (j) {
+        $('shoot').disabled = false;
+        if (!j || !j.ok) { $('err').textContent = 'לא נשלח, נסו שוב'; return; }
+        stop(); $('okT').textContent = j.kind_he + ' נרשמה ✓ ' + j.time; $('okN').textContent = (j.event ? j.event + ' · ' : '') + (j.located ? 'כולל מיקום' : 'בלי מיקום (לא אושרה גישה)'); show('done'); load();
+      }).catch(function () { $('shoot').disabled = false; $('err').textContent = 'אין חיבור, נסו שוב'; });
+    }, 'image/jpeg', 0.72);
+  });
+  load();
+})();
+</script>
+</body>
+</html>

@@ -53,7 +53,7 @@ import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, host
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handlePartner, hitAdd as refHitAdd } from './partner.js';
-import { staffOnMessage, handleStaff } from './staff.js';   /* 12/11 דיילות: attendance log through Noa's line */   /* 12/11 שגרירים: partners without an event, two fixed links */
+import { staffOnMessage, handleStaff, handleCheckin, handleStaffPhoto } from './staff.js';   /* 12/11 דיילות: attendance log through Noa's line */   /* 12/11 שגרירים: partners without an event, two fixed links */
 import * as REF from './referral.js';   /* 12/11 הזמן חבר: 20% הנחה / 20% עמלה (.sdlc/referral-program) */
 import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -601,14 +601,57 @@ async function handleDesignFlow(request, env, origin, host) {
     return okJson({ ok: !!link, pay: true, url: link || '', price: DESIGN_ROUND_PRICE, ...flowView(host, token, f, brief) }, origin);
   }
   f = r.flow;
-  await writeFlow(env, token, f);
-  if (action === 'approve') await dslack(env, token, `עיצוב אושר ✅ (גרסה ${f.approved_version}) — לסמן "בוצע" באדמין`);
+  if (action === 'approve') {
+    const ap = await applyDesignToInvite(env, token, f, host);
+    if (ap.ok) { f.applied_at = at; f.apply_note = ''; } else f.apply_note = ap.why;
+    await writeFlow(env, token, f);
+    await dslack(env, token, ap.ok ? `עיצוב אושר ✅ (גרסה ${f.approved_version}) והוגדר כתמונת ההזמנה של האירוע` : `עיצוב אושר ✅ (גרסה ${f.approved_version}) — לא הוגדר אוטומטית כתמונת ההזמנה (${ap.why}), להעלות ידנית`);
+  } else await writeFlow(env, token, f);
   if (action === 'changes') await dslack(env, token, `הלקוח ביקש תיקונים לגרסה ${f.versions.length}: "${String(b.comment || '').slice(0, 200)}"`);
   if (action === 'buy') await dslack(env, token, 'הלקוח מימש את סבב התיקונים החינמי');
   await logEvent(env, { area: 'עיצוב הזמנה', action: { approve: 'הלקוח אישר את העיצוב', changes: 'הלקוח ביקש תיקונים', buy: 'סבב תיקונים חינם מומש' }[action], ok: true, token }).catch(() => {});
   return okJson({ ok: true, free: action === 'buy' ? true : undefined, ...flowView(host, token, f, brief) }, origin);
 }
 
+/* 12/11 Richard: once the client approves, the approved design IS the invitation — no hand-off.
+   Images only (a PDF cannot ride a WhatsApp template header); too large or not an image → Slack, by hand. */
+async function applyDesignToInvite(env, token, f, host) {
+  try {
+    const v = (f.versions || [])[(f.approved_version || (f.versions || []).length) - 1]; if (!v) return { ok: false, why: 'no-version' };
+    const hit = await env.RATE.getWithMetadata('dfile:' + token + ':' + v.media, { type: 'arrayBuffer' }).catch(() => null);
+    if (!hit || hit.value == null) return { ok: false, why: 'no-file' };
+    const mime = sniffImage(new Uint8Array(hit.value.slice(0, 16)));
+    if (!mime) return { ok: false, why: 'not-an-image' };
+    if (hit.value.byteLength > MAX_IMAGE_BYTES) return { ok: false, why: 'too-large' };
+    const raw = await readSnapshot(env, 'write').catch(() => null);
+    const rows = (raw && raw.events && raw.events.values) || [];
+    const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
+    if (idx < 0) return { ok: false, why: 'no-event-row' };
+    await env.RATE.put('img:' + token, hit.value, { expirationTtl: TOKEN_TTL, metadata: { mime } });
+    const image_url = 'https://' + host + '/img/' + token + '?v=' + Date.now().toString(36);
+    await sheetBatchWrite(env, [{ range: `אירועים!AS${idx + 2}`, values: [[image_url]] }]);
+    await env.RATE.delete('vid:' + token).catch(() => {}); await env.RATE.delete('vidok:' + token).catch(() => {});
+    return { ok: true, image_url };
+  } catch (e) { return { ok: false, why: String(e && e.message || e).slice(0, 80) }; }
+}
+/* admin: every paid design with its brief, versions, comments and rounds — what waits for us first */
+async function handleDesignList(request, env, origin, host) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!(await adminKeyOk(env, b.admin_key))) return deny(403, 'bad-admin-key', origin);
+  const out = [];
+  for (const k of (await env.RATE.list({ prefix: 'design:', limit: 500 }).catch(() => ({ keys: [] }))).keys || []) {
+    const token = k.name.slice(7); if (!/^[0-9a-f-]{36}$/.test(token)) continue;
+    if (!(await designPaid(env, token))) continue;
+    let brief = null; try { brief = JSON.parse(await env.RATE.get('designbrief:' + token) || 'null'); } catch {}
+    const f = await readFlow(env, token); const rec = await tokenRecord(env, token) || {};
+    const v = flowView(host, token, f, brief);
+    const needs = !!brief && (v.status === 'new' || v.status === 'changes_requested') ? 'us' : v.status === 'awaiting_client' ? 'client' : v.status === 'approved' || v.status === 'done' ? 'done' : 'brief';
+    out.push({ token, name: rec.name || '', phone: rec.phone || '', needs, applied: !!f.applied_at, apply_note: f.apply_note || '', ...v });
+  }
+  const rank = { us: 0, client: 1, brief: 2, done: 3 };
+  out.sort((a, c) => rank[a.needs] - rank[c.needs]);
+  return okJson({ ok: true, designs: out, waiting: out.filter(x => x.needs === 'us').length }, origin);
+}
 /* admin: POST {admin_key, token, media, note} uploads a version; action:'done' | 'state' */
 async function handleDesignVersion(request, env, origin, host) {
   let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -940,7 +983,7 @@ async function processGrowPayment(env, flat) {
       const inv = (flat._simulated && !forced) ? { ok: false, why: 'not-configured' } : await createInvoice(env, {
         name, phone, email, sum, ref, payMethod,
         taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
-        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0, hostess: bought ? Number(bought.hostess) || 0 : 0,   /* 12/11: hostess terms go on the invoice */
+        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0, hostess: bought ? Number(bought.hostess) || 0 : 0, design: !!(purchase && purchase.design) || /עיצוב\s*הזמנה/.test(String(flat.paymentDesc || flat.description || flat.productName || '')),   /* 12/11: hostess terms go on the invoice */
         occasion: String(flat.occasion || flat.cField2 || '').trim(),
       }).catch(e => ({ ok: false, why: String(e && e.message) }));
       if (inv.ok) {
@@ -12723,6 +12766,8 @@ const WORKER = {
       await env.RATE.put('refpend:' + phone, code, { expirationTtl: 30 * 86400 });
       return okJson({ ok: true }, origin);
     }
+    if (url.pathname === '/api/staff-checkin' && request.method === 'POST') return handleCheckin(request, env, origin, { okJson, deny, overBudget, ilDate, ilTime, logEvent });
+    if (url.pathname === '/api/staff-photo' && request.method === 'GET') return handleStaffPhoto(env, url);
     if (url.pathname === '/api/staff' && request.method === 'POST') return handleStaff(request, env, origin, { okJson, deny, isAdmin, normPhone });
     if (url.pathname.startsWith('/api/partner/')) return handlePartner(request, env, origin, url, { okJson, deny, isAdmin, overBudget, logEvent, refRecordsOf, REF_TTL, normPhone });
     /* admin: everything, for clients.html › הפניות */
@@ -12775,6 +12820,7 @@ const WORKER = {
     }
     if (url.pathname === '/api/design-flow' && request.method === 'POST') return handleDesignFlow(request, env, origin, url.hostname);
     if (url.pathname === '/api/design-version' && request.method === 'POST') return handleDesignVersion(request, env, origin, url.hostname);
+    if (url.pathname === '/api/design-list' && request.method === 'POST') return handleDesignList(request, env, origin, url.hostname);
     /* token-scoped read of a design file: the key itself carries the token, so
        one event's link can never open another event's file */
     if (url.pathname === '/api/design-file' && request.method === 'GET') {

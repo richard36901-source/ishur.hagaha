@@ -7,9 +7,9 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=88"></script>
+<script src="config.js?v=89"></script>
 <script src="assets/ux.js?v=4"></script>
-<script src="assets/adminbar.js?v=18" defer></script>
+<script src="assets/adminbar.js?v=19" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lite.js?v=1"></script>
 <style>
@@ -78,6 +78,10 @@
   .h2s{font-size:.8rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin:1.2rem 0 .5rem;font-weight:600}
   .cards{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
   .cards .card{margin:0}
+  .pm-h{font-size:.76rem;letter-spacing:.08em;color:var(--ink3);font-weight:600;margin:.9rem 0 .3rem}
+  .pm-l{display:grid;grid-template-columns:1fr auto auto;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.86rem}
+  .dz-b{font-size:.86rem;background:var(--rail);border-radius:8px;padding:.5rem .7rem;margin-top:.5rem;line-height:1.5}
+  .dz-r{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem}.dz-r img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
   .pill{font-size:.72rem;padding:.1rem .5rem;border-radius:6px;background:var(--rail);color:var(--ink2)}
   .pill.ok{background:rgba(46,125,91,.13);color:var(--good)}
   .pill.wait{background:rgba(180,136,74,.15);color:#8A6D2F}
@@ -99,6 +103,7 @@
     <button type="button" class="tab" data-tab="clients" role="tab" aria-selected="true">לקוחות</button>
     <button type="button" class="tab" data-tab="referrals" role="tab" aria-selected="false">הפניות ושגרירים <span class="tbadge" id="refBadge" hidden></span></button>
     <button type="button" class="tab" data-tab="staff" role="tab" aria-selected="false">דיילות</button>
+    <button type="button" class="tab" data-tab="designs" role="tab" aria-selected="false">עיצובים <span class="tbadge" id="dzBadge" hidden></span></button>
   </div>
   <div id="tabClients">
   <p class="sub">כל אירוע ששולם, החדש למעלה. מכאן נכנסים לדשבורד ולהעלאה של הלקוח, מחליפים רשימה, ונותנים תוספות בחינם.</p>
@@ -116,7 +121,8 @@
     <h2 class="h2s">שגרירים</h2>
     <p class="sub">אנשים ואולמות בלי אירוע שמשתפים את הקישור. לכל אחד שני קישורים קבועים: הנחה לחברים וצבירה לו. שולחים לו את "הלוח שלו", שם הוא מזין שם פעם אחת.</p>
     <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><select id="pKind" style="font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><option value="person">אדם</option><option value="venue">אולם</option></select><input id="pPhone" inputmode="tel" dir="ltr" placeholder="טלפון (לא חובה)" style="width:150px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><input id="pLabel" placeholder="כינוי פנימי (למשל: דנה מהחדר כושר)" style="flex:1;min-width:200px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="60"><button type="button" class="btn g" id="pAdd">הוספת שגריר</button></div>
-    <div id="pList" class="cards"></div>
+    <table class="rt" id="pTable" hidden><thead><tr><th>שגריר</th><th>נכנסו</th><th>סגרו</th><th>הכניס לנו</th><th>חברים חסכו</th><th>צבר</th><th></th></tr></thead><tbody id="pList"></tbody></table>
+    <p class="empty" id="pEmpty" hidden>עוד אין שגרירים.</p>
     <h2 class="h2s">הפניות של לקוחות</h2>
     <p class="sub">מי הפנה את מי, מה שולם ומה מגיע. זיכוי נזקף למפנה רק אחרי שיצאה חשבונית לחבר, או כשאתה מאשר כאן ידנית.</p>
     <p class="meta" id="refLine" style="margin:0 0 .6rem"></p>
@@ -127,13 +133,18 @@
     <h2 class="h2s">מי בחר מה</h2>
     <div id="refRefs" class="cards"></div>
   </div>
+  <!-- 12/11 עיצובים: every paid invitation design — the request, our versions, the client's answer -->
+  <div id="tabDesigns" hidden>
+    <p class="sub">בקשות עיצוב מלוח הלקוח. מעלים קובץ ולוחצים "שלח ללקוח": הוא רואה את הגרסה בלוח שלו, מאשר או מבקש תיקונים. עיצוב שאושר הופך אוטומטית לתמונת ההזמנה של האירוע.</p>
+    <div id="dzList" class="cards"></div>
+  </div>
   <!-- 12/11 דיילות: registered numbers + the attendance log they write to Noa -->
   <div id="tabStaff" hidden>
-    <p class="sub">דיילת רשומה כותבת לנועה (055-950-4499) "הגעתי", "חופה" או "עזבתי", ואפשר להוסיף שעה. כל שורה נשמרת עם השעה שבה התקבלה ועם האירוע של אותו יום.</p>
+    <p class="sub">לכל דיילת קישור דיווח אישי. היא לוחצת "הגעתי", "חופה" או "עזבתי", המצלמה נפתחת, והצילום נשלח מיד: השעה נקבעת אצלנו ואי אפשר לשלוח תמונה ישנה. מצורף גם המיקום. הודעת וואטסאפ לנועה נרשמת כהערה בלבד, בלי הוכחה.</p>
     <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><input id="sName" placeholder="שם הדיילת" style="flex:1;min-width:150px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="40"><input id="sPhone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" style="width:160px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><button type="button" class="btn g" id="sAdd">הוספת דיילת</button></div>
     <div id="sList" class="cards"></div>
     <h2 class="h2s">יומן נוכחות</h2>
-    <table class="rt" id="sLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה שנכתבה</th><th>התקבל ב</th><th>אירוע</th><th>ההודעה</th></tr></thead><tbody></tbody></table>
+    <table class="rt" id="sLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה (שרת)</th><th>הוכחה</th><th>אירוע</th><th>פירוט</th></tr></thead><tbody></tbody></table>
     <p class="empty" id="sEmpty" hidden>עוד אין דיווחים.</p>
   </div>
 </main>
@@ -170,7 +181,7 @@
       subevents = d.subevents || [];
       events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
       api('feedback-list', {}).then(function (r) { return r.json(); }).then(function (f) { fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
-      loadRefs(); loadPartners();
+      loadRefs(); loadPartners(); loadDesigns();
       return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
     }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
   }
@@ -238,33 +249,85 @@
       'צברת: ₪' + C.earned + (C.earned_pending ? ' ועוד ₪' + C.earned_pending + ' ממתין לאישור' : '') + '\n\n' +
       'הפירוט המלא בלוח שלך: ' + p.board;
   }
+  function pNums(p) {
+    var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+    var D = by.discount, C = by.commission, fr = p.friends || [];
+    return { D: D, C: C, fr: fr, visits: D.visits + C.visits, closed: D.closed + C.closed, brought: fr.reduce(function (n, f) { return n + (Number(f.paid) || 0); }, 0) };
+  }
+  /* one clean row per ambassador; everything else sits behind "ניהול" */
   function loadPartners() {
     return api('partner-list', {}).then(function (r) { return r.json(); }).then(function (d) {
       PARTNERS = (d && d.partners) || [];
-      $('pList').innerHTML = PARTNERS.length ? PARTNERS.map(function (p, i) {
-        var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
-        var D = by.discount, C = by.commission, fr = p.friends || [];
-        var line = function (l, t, money) { return '<div class="meta" style="margin-top:.3rem"><b>' + t + '</b> · <span dir="ltr">ishur.io/?ref=' + esc(l.code) + '</span> <button class="btn" style="padding:.1rem .45rem;font-size:.72rem" data-pcopy="' + esc(l.link) + '">העתק</button><br>נכנסו ' + l.visits + ' · סגרו ' + l.closed + ' · ' + money + '</div>'; };
-        var brought = fr.reduce(function (n, f) { return n + (Number(f.paid) || 0); }, 0);
-        return '<div class="card"><div class="top"><span class="name">' + esc(p.name || p.label) + (p.kind === 'venue' ? ' <span class="tag on">אולם</span>' : '') + '</span><span class="meta">' + (p.name ? esc(p.label) : 'עוד לא הזין שם') + ' · ' + heDT(p.at) + '</span></div>' +
-          '<div class="meta" dir="ltr">' + (p.phone ? esc('0' + String(p.phone).slice(3)) : '') + '</div>' +
-          '<div class="meta" style="margin-top:.2rem"><b>הכניס לנו ₪' + brought + '</b> · ' + fr.length + ' סגרו</div>' +
-          line(D, '20% הנחה לחברים', 'חברים חסכו ₪' + D.saved) + line(C, '20% צבירה לו', 'צבר ₪' + C.earned + (C.earned_pending ? ' · ממתין ₪' + C.earned_pending : '')) +
-          (fr.length ? '<div class="meta" style="margin-top:.4rem"><b>מי הגיע דרכו</b><br>' + fr.map(function (f) { return esc(f.name || f.phone) + ' · ' + heDT(f.at) + ' · ₪' + f.paid + ' · ' + (f.mode === 'discount' ? 'הנחה ₪' + f.saved : 'צבירה ₪' + f.credit) + (f.status === 'pending' ? ' · ממתין' : '') + (f.token ? ' <a class="btn" style="padding:.05rem .4rem;font-size:.7rem" href="dashboard.html?t=' + esc(f.token) + '" target="_blank">לוח</a>' : ''); }).join('<br>') + '</div>' : '') +
-          '<div class="acts">' +
-            (p.phone ? '<a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pMaterials(p))) + '">שליחת חומרים</a><a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pReport(p))) + '">שליחת דוח</a>'
-                     : '<button class="btn g" data-pphone="' + i + '">הוספת טלפון לשליחה</button>') +
-            '<button class="btn" data-pcopy="' + esc(p.board) + '">העתק את הלוח שלו</button><a class="btn" href="' + esc(p.board) + '" target="_blank">פתח לוח</a>' +
-            (p.phone ? '<button class="btn" data-pphone="' + i + '">שינוי טלפון</button>' : '') + '</div></div>';
-      }).join('') : '<p class="empty">עוד אין שגרירים.</p>';
+      $('pTable').hidden = !PARTNERS.length; $('pEmpty').hidden = !!PARTNERS.length;
+      $('pList').innerHTML = PARTNERS.map(function (p, i) {
+        var n = pNums(p);
+        return '<tr><td><b>' + esc(p.name || p.label) + '</b>' + (p.kind === 'venue' ? ' <span class="pill">אולם</span>' : '') + (p.name && p.label !== p.name ? '<br><small class="meta">' + esc(p.label) + '</small>' : (!p.name ? '<br><small class="meta">עוד לא הזין שם</small>' : '')) + '</td>' +
+          '<td>' + n.visits + '</td><td>' + n.closed + '</td><td>₪' + n.brought + '</td><td>₪' + n.D.saved + '</td><td>₪' + n.C.earned + (n.C.earned_pending ? '<br><small class="meta">ממתין ₪' + n.C.earned_pending + '</small>' : '') + '</td>' +
+          '<td><button class="btn g" data-pman="' + i + '">ניהול</button></td></tr>';
+      }).join('');
+      var open = document.getElementById('ppop'); if (open) openPartner(Number(open.dataset.i));
     }).catch(function () {});
   }
+  function openPartner(i) {
+    var p = PARTNERS[i]; if (!p) return; var n = pNums(p);
+    var old = document.getElementById('ppop'); if (old) old.remove();
+    var lk = function (l, t) { return '<div class="pm-l"><span><b>' + t + '</b><br><small class="meta" dir="ltr">' + esc(l.link) + '</small></span><span class="meta">נכנסו ' + l.visits + ' · סגרו ' + l.closed + '</span><button class="btn" data-pcopy="' + esc(l.link) + '">העתק</button></div>'; };
+    var html = '<div class="pop-bg" id="ppop" data-i="' + i + '"><div class="card pop" role="dialog" aria-modal="true"><button type="button" class="x" data-pclose aria-label="סגירה">×</button>' +
+      '<h2>' + esc(p.name || p.label) + ' <span class="meta">· ' + (p.kind === 'venue' ? 'אולם' : 'שגריר') + ' · מ-' + heDT(p.at) + '</span></h2>' +
+      '<p class="meta" style="margin:.2rem 0 .7rem">' + (p.phone ? 'טלפון: <span dir="ltr">' + esc('0' + String(p.phone).slice(3)) + '</span>' : 'אין טלפון שמור') + ' · <button class="btn" style="padding:.1rem .5rem;font-size:.74rem" data-pphone="' + i + '">' + (p.phone ? 'שינוי' : 'הוספה') + '</button></p>' +
+      '<h3 class="pm-h">הקישורים שלו</h3>' + lk(n.D, '20% הנחה לחברים') + lk(n.C, '20% צבירה לו') +
+      '<h3 class="pm-h">מי הגיע דרכו</h3>' + (n.fr.length ? n.fr.map(function (f) { return '<div class="pm-l"><span><b>' + esc(f.name || f.phone) + '</b><br><small class="meta">' + heDT(f.at) + ' · ' + (f.mode === 'discount' ? 'קישור הנחה' : 'קישור צבירה') + (f.status === 'pending' ? ' · ממתין לאישור' : '') + '</small></span><span>₪' + f.paid + '</span>' + (f.token ? '<a class="btn" href="dashboard.html?t=' + esc(f.token) + '" target="_blank">לוח</a>' : '<span></span>') + '</div>'; }).join('') : '<p class="meta">עוד אף אחד לא סגר דרכו.</p>') +
+      '<h3 class="pm-h">שליחה אליו</h3><div class="acts">' +
+        (p.phone ? '<a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pMaterials(p))) + '">חומרים לשיתוף</a><a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pReport(p))) + '">דוח: מי הגיע וכמה צבר</a>' : '<span class="meta">כדי לשלוח בלחיצה צריך לשמור טלפון.</span>') +
+        '<button class="btn" data-pcopy="' + esc(p.board) + '">העתק את הלוח שלו</button><a class="btn" href="' + esc(p.board) + '" target="_blank">פתח לוח</a></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  document.addEventListener('click', function (ev) {
+    var pp = document.getElementById('ppop'); if (!pp) return;
+    if (ev.target === pp || ev.target.closest('[data-pclose]')) { pp.remove(); return; }
+    var ph = ev.target.closest('#ppop [data-pphone]');
+    if (ph) { var p = PARTNERS[Number(ph.dataset.pphone)]; var v = prompt('טלפון של ' + (p.name || p.label), p.phone ? '0' + String(p.phone).slice(3) : ''); if (v == null) return; api('partner-update', { p: p.pid, phone: v }).then(function (r) { return r.json(); }).then(function (j) { toast(j && j.ok ? 'נשמר' : 'לא נשמר'); loadPartners(); }); return; }
+    var b = ev.target.closest('#ppop [data-pcopy]');
+    if (b) (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.pcopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); });
+  });
+  /* ── 12/11 עיצובים ── */
+  var DZ = [], DZ_HE = { us: 'מחכה לנו', client: 'מחכה ללקוח', brief: 'הלקוח עוד לא שלח בקשה', done: 'אושר' };
+  function loadDesigns() {
+    return api('design-list', {}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) return;
+      DZ = d.designs || [];
+      $('dzBadge').hidden = !d.waiting; $('dzBadge').textContent = d.waiting;
+      $('dzList').innerHTML = DZ.length ? DZ.map(function (x, i) {
+        var last = (x.versions || [])[x.versions.length - 1], cm = (x.comments || [])[x.comments.length - 1];
+        return '<div class="card"><div class="top"><span class="name">' + esc(x.name || x.token.slice(0, 8)) + '</span><span class="pill ' + (x.needs === 'us' ? 'wait' : x.needs === 'done' ? 'ok' : '') + '">' + DZ_HE[x.needs] + (x.status === 'changes_requested' ? ' · ביקש תיקונים' : '') + '</span></div>' +
+          '<div class="meta">סבבי תיקונים ' + (x.rounds_used || 0) + ' מתוך ' + (x.rounds_total || 0) + ' · גרסאות ' + (x.versions || []).length + (x.needs === 'done' ? (x.applied ? ' · הוגדר כתמונת ההזמנה' : ' · לא הוגדר אוטומטית' + (x.apply_note ? ' (' + esc(x.apply_note) + ')' : '')) : '') + '</div>' +
+          (x.brief ? '<div class="dz-b"><b>מה הלקוח ביקש</b><br>' + esc(x.brief.text).replace(/\n/g, '<br>') + ((x.brief.refs || []).length ? '<div class="dz-r">' + x.brief.refs.map(function (r) { return '<a href="' + esc(r.url) + '" target="_blank"><img src="' + esc(r.url) + '" alt="השראה" loading="lazy"></a>'; }).join('') + '</div>' : '') + '</div>' : '') +
+          (cm ? '<div class="dz-b"><b>הערות הלקוח לגרסה ' + cm.v + '</b><br>' + esc(cm.text).replace(/\n/g, '<br>') + '</div>' : '') +
+          (last ? '<div class="meta" style="margin-top:.4rem">גרסה אחרונה: <a href="' + esc(last.url) + '" target="_blank">פתיחת גרסה ' + last.n + '</a></div>' : '') +
+          (x.needs !== 'done' && x.brief ? '<div class="acts" style="align-items:center"><input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" data-dzf="' + i + '" style="max-width:210px;font-size:.8rem"><input data-dzn="' + i + '" placeholder="הערה ללקוח (לא חובה)" style="flex:1;min-width:140px;font:inherit;font-size:.86rem;padding:.4rem .6rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><button class="btn g" data-dzs="' + i + '">שלח ללקוח</button></div>' : '') +
+          '<div class="acts"><a class="btn" href="dashboard.html?t=' + esc(x.token) + '#design" target="_blank">לוח הלקוח</a></div></div>';
+      }).join('') : '<p class="empty">עוד אין הזמנות עיצוב.</p>';
+    }).catch(function () {});
+  }
+  $('dzList').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-dzs]'); if (!b) return;
+    var i = b.dataset.dzs, x = DZ[Number(i)], f = document.querySelector('[data-dzf="' + i + '"]').files[0];
+    if (!f) { toast('בוחרים קובץ קודם'); return; }
+    b.disabled = true; b.textContent = 'מעלה…';
+    var fd = new FormData(); fd.append('token', x.token); fd.append('purpose', 'design_version'); fd.append('admin_key', adminKey); fd.append('file', f, f.name);
+    fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (m) {
+      if (!m || !m.ok) throw new Error((m && (m.error || m.why)) || 'upload');
+      return api('design-version', { token: x.token, media: m.media, note: document.querySelector('[data-dzn="' + i + '"]').value }).then(function (r) { return r.json(); });
+    }).then(function (j) { toast(j && j.ok ? 'נשלח ללקוח, הוא רואה את הגרסה בלוח שלו' : 'לא נשלח: ' + ((j && j.why) || '')); loadDesigns(); })
+      ['catch'](function (e) { b.disabled = false; b.textContent = 'שלח ללקוח'; toast('לא עלה: ' + e.message); });
+  });
   $('pAdd').addEventListener('click', function () {
     var v = $('pLabel').value.trim(); if (v.length < 2) { toast('צריך כינוי'); return; }
     $('pAdd').disabled = true;
     api('partner-create', { label: v, phone: $('pPhone').value.trim(), kind: $('pKind').value }).then(function (r) { return r.json(); }).then(function (j) { $('pAdd').disabled = false; if (j && j.ok) { $('pLabel').value = ''; $('pPhone').value = ''; toast('נוסף'); loadPartners(); } else toast('לא הצליח'); }).catch(function () { $('pAdd').disabled = false; toast('שגיאה'); });
   });
   $('pList').addEventListener('click', function (ev) {
+    var mn = ev.target.closest('[data-pman]'); if (mn) { openPartner(Number(mn.dataset.pman)); return; }
     var ph = ev.target.closest('[data-pphone]');
     if (ph) { var p = PARTNERS[Number(ph.dataset.pphone)]; var v = prompt('טלפון של ' + (p.name || p.label), p.phone ? '0' + String(p.phone).slice(3) : ''); if (v == null) return; api('partner-update', { p: p.pid, phone: v }).then(function (r) { return r.json(); }).then(function (j) { toast(j && j.ok ? 'נשמר' : 'לא נשמר'); loadPartners(); }); return; }
     var b = ev.target.closest('[data-pcopy]'); if (!b) return;
@@ -274,14 +337,18 @@
   function loadStaff(body) {
     return api('staff', body || {}).then(function (r) { return r.json(); }).then(function (d) {
       if (!d || !d.ok) { if (body) toast('לא נשמר. צריך שם ונייד ישראלי'); return; }
-      $('sList').innerHTML = (d.staff || []).length ? d.staff.map(function (x) { return '<div class="card"><div class="top"><span class="name">' + esc(x.name) + '</span><span class="meta" dir="ltr">' + esc('0' + String(x.phone).slice(3)) + '</span></div><div class="acts"><button class="btn" data-srm="' + esc(x.phone) + '">הסרה</button></div></div>'; }).join('') : '<p class="empty">עוד לא נרשמו דיילות.</p>';
+      $('sList').innerHTML = (d.staff || []).length ? d.staff.map(function (x) { return '<div class="card"><div class="top"><span class="name">' + esc(x.name) + '</span><span class="meta" dir="ltr">' + esc('0' + String(x.phone).slice(3)) + '</span></div><div class="acts">' + (x.checkin ? '<button class="btn g" data-scopy="' + esc(x.checkin) + '">העתק קישור דיווח</button>' : '<button class="btn g" data-sfix="' + esc(x.phone) + '" data-name="' + esc(x.name) + '">יצירת קישור דיווח</button>') + '<button class="btn" data-srm="' + esc(x.phone) + '">הסרה</button></div></div>'; }).join('') : '<p class="empty">עוד לא נרשמו דיילות.</p>';
       var lg = d.log || [];
       $('sEmpty').hidden = !!lg.length; $('sLog').hidden = !lg.length;
-      $('sLog').querySelector('tbody').innerHTML = lg.map(function (x) { return '<tr><td>' + heDT(x.day) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.time) + '</td><td>' + esc(x.received) + '</td><td>' + esc(x.event || '—') + '</td><td>' + esc(x.text) + '</td></tr>'; }).join('');
+      $('sLog').querySelector('tbody').innerHTML = lg.map(function (x) { return '<tr><td>' + heDT(x.day) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.received || x.time) + '</td><td>' + (x.photo ? '<a class="btn" style="padding:.1rem .45rem;font-size:.74rem" target="_blank" href="' + esc(SBASE + x.photo) + '">צילום</a>' + (x.lat != null ? ' <a class="btn" style="padding:.1rem .45rem;font-size:.74rem" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + x.lat + ',' + x.lon + '">מיקום</a>' : ' <span class="meta">בלי מיקום</span>') : '<span class="pill wait">בלי צילום</span>') + '</td><td>' + esc(x.event || '—') + '</td><td>' + esc(x.photo ? '' : x.text + (x.time && x.time !== x.received ? ' (כתבה ' + x.time + ')' : '')) + '</td></tr>'; }).join('');
     }).catch(function () {});
   }
   $('sAdd').addEventListener('click', function () { loadStaff({ act: 'add', name: $('sName').value.trim(), phone: $('sPhone').value.trim() }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
-  $('sList').addEventListener('click', function (ev) { var b = ev.target.closest('[data-srm]'); if (b && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: b.dataset.srm }); });
+  var SBASE = CFG.endpoint('status').replace(/\/api\/status$/, '');
+  $('sList').addEventListener('click', function (ev) {
+    var c = ev.target.closest('[data-scopy]'); if (c) { (navigator.clipboard ? navigator.clipboard.writeText(c.dataset.scopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); }); return; }
+    var fx = ev.target.closest('[data-sfix]'); if (fx) { loadStaff({ act: 'add', name: fx.dataset.name, phone: fx.dataset.sfix }); return; }
+    var b = ev.target.closest('[data-srm]'); if (b && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: b.dataset.srm }); });
   $('tabReferrals').addEventListener('click', function (ev) { refAct(ev); });
   async function refAct(ev) {
     var b = ev.target.closest('button[data-ract]'); if (!b) return;
@@ -297,11 +364,12 @@
   document.querySelector('.tabs').addEventListener('click', function (ev) {
     var t = ev.target.closest('.tab'); if (!t) return;
     document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
-    $('tabClients').hidden = t.dataset.tab !== 'clients'; $('tabReferrals').hidden = t.dataset.tab !== 'referrals'; $('tabStaff').hidden = t.dataset.tab !== 'staff';
+    $('tabClients').hidden = t.dataset.tab !== 'clients'; $('tabReferrals').hidden = t.dataset.tab !== 'referrals'; $('tabStaff').hidden = t.dataset.tab !== 'staff'; $('tabDesigns').hidden = t.dataset.tab !== 'designs';
     if (t.dataset.tab === 'staff') loadStaff();
+    if (t.dataset.tab === 'designs') loadDesigns();
     try { history.replaceState(null, '', t.dataset.tab === 'clients' ? location.pathname : '#' + t.dataset.tab); } catch (e) {}
   });
-  if (location.hash === '#referrals' || location.hash === '#staff') { var tb = document.querySelector('.tab[data-tab="' + location.hash.slice(1) + '"]'); if (tb) tb.click(); }
+  if (location.hash === '#referrals' || location.hash === '#staff' || location.hash === '#designs') { var tb = document.querySelector('.tab[data-tab="' + location.hash.slice(1) + '"]'); if (tb) tb.click(); }
 
   /* 03/11: a linked sub-event (שבת חתן) gets its own row under its parent */
   function subRows(e) {

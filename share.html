@@ -7,7 +7,7 @@
 <title>ערכת שיתוף · הזמן חבר · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=88"></script>
+<script src="config.js?v=89"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -146,7 +146,7 @@
     x.fillText(sub1, cx, y);
     y += wide ? 36 : 54 * S;
     x.fillStyle = GOLD_SOFT; x.font = '600 ' + (wide ? 26 : 36 * S) + 'px Heebo, sans-serif';
-    x.fillText(who, cx, y);
+    /* 12/11 Richard: no name line on the images */
 
     /* 12/11 Richard: the story carries the hostess photo and a frame for Instagram's own
        link sticker (a clickable link beats a QR on a story). The other sizes keep the QR. */
@@ -227,7 +227,7 @@
     fitText(x, head, 560, '700 66px "Frank Ruhl Libre", serif', 36);
     x.fillText(head, rx, y);
     y += 58; x.fillStyle = 'rgba(248,244,234,.85)'; x.font = '400 27px Heebo, sans-serif'; x.fillText(sub1, rx, y);
-    y += 44; x.fillStyle = GOLD_SOFT; x.font = '600 27px Heebo, sans-serif'; x.fillText(who, rx, y);
+    y += 44; x.fillStyle = GOLD_SOFT; x.font = '600 27px Heebo, sans-serif'; /* no name line */
     y += 70; x.fillStyle = 'rgba(248,244,234,.6)'; x.font = '400 22px Heebo, sans-serif'; x.fillText('סורקים או לוחצים', rx, y);
     if (state.v === 'discount') {
       x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 18px Heebo, sans-serif';
