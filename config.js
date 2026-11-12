@@ -24,6 +24,11 @@ window.ISHUR_CONFIG = (function () {
   /* 29/09: a client on 4G could not load the dashboard — Israeli carriers
      filter *.workers.dev. go.ishur.io is the same Worker on our own domain. */
   var PROXY_BASE = 'https://go.ishur.io';
+  /* dev-staging 12/11: the staging site (staging.ishur.io, *.pages.dev, localhost)
+     talks to the staging Worker — same code, own KV, never a real guest. */
+  var STAGING_PROXY_BASE = 'https://go-staging.ishur.io';
+  var HOST = String((typeof window !== 'undefined' && window.location && window.location.hostname) || '');
+  if (HOST === 'staging.ishur.io' || /\.pages\.dev$/.test(HOST) || HOST === 'localhost' || HOST === '127.0.0.1') PROXY_BASE = STAGING_PROXY_BASE;
 
   var MAKE_STATUS_WEBHOOK = '';   // held by the Worker as a secret
                                          // dashboard reads event + guest status
@@ -939,6 +944,8 @@ window.ISHUR_CONFIG = (function () {
     ADDON_LINKS: ADDON_LINKS,
 
     USE_PROXY: USE_PROXY,
+    PROXY_BASE: PROXY_BASE,
+    STAGING: PROXY_BASE === STAGING_PROXY_BASE,
     endpoint: endpoint,
     isSet: isSet,
     waLink: waLink,
