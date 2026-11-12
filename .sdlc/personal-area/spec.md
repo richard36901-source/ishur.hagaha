@@ -120,3 +120,14 @@ P6. Live OTP to 0545764327 only on Richard's "שלח": the code arrives on Whats
 - Changing the dashboard's own 30-day code rule or its gate UI.
 - A review flow for the second host (`p=2`) earning separate credit (credit always goes to the
   owner phone, column D).
+
+## Addendum (Richard, 12/11 during the build) — first-visit guided tour
+R14. A shared `assets/tour.js`: on the first visit per device (localStorage `ishur_tour_<page>`),
+    a spotlight walks through the page's important elements, each with a title + one or two
+    short Hebrew sentences, "הבא" / "הקודם", "דלגו על הכל", and a counter "שלב 2 מתוך 6".
+    Runs on dashboard.html (after the data renders: status KPIs, guests list, waves/timeline,
+    invite-a-friend, install card, night mode) and account.html (events, past event + review,
+    credit, contact, install). A "סיור קצר" link in each page re-opens it.
+P7. Browser check: on a fresh profile the tour opens with "שלב 1 מתוך N", "הבא" advances, the
+    counter updates, "דלגו" closes it and a reload does not reopen it; no console errors; no
+    horizontal scroll at 375 px.

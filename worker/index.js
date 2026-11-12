@@ -63,6 +63,8 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
+import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail } from './account.js';   /* 12/11 personal-area */
+import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
@@ -7541,6 +7543,11 @@ function eventsForPhone(raw, phone) {
   return out;
 }
 
+/* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
+function accountDeps() {
+  return { okJson, deny, normPhone, overBudget, safeEqual, readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
+    sendOtpTemplate, sendEmail: sendPlainEmail, today: () => ilDate() };
+}
 async function handleOtpSend(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -7559,13 +7566,16 @@ async function handleOtpSend(request, env, origin) {
   await env.RATE.put('otp:' + phone,
     JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600 }),
     { expirationTtl: 600 });
-  const wa = await sendOtpTemplate(env, phone, code);
+  /* 12/11 (Richard: "מה שעובד עם הקוד לטלפון לא עובד טוב"): the same ladder as the personal area —
+     Noa → guests number → email the client gave us / the leads sheet */
+  const contact = await readContact(env, phone);
+  const wa = await sendLoginCode(env, phone, code, { email: validEmail(contact.email) ? contact.email.trim() : emailFromLeads(raw, phone), d: accountDeps() });
   if (!wa.ok) {
-    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + wa.error, { key: 'otp_fail:' + phone });
+    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + (wa.tried || []).join(' · '), { key: 'otp_fail:' + phone });
     return deny(502, 'send-failed', origin);
   }
-  await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', msgCost('ishur_kod'));
-  return okJson({ ok: true }, origin);
+  if (wa.via !== 'email') await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', msgCost('ishur_kod'));
+  return okJson({ ok: true, via: wa.via }, origin);
 }
 
 /* ══ Seating: the client assigns tables from their dashboard ═════════════════
@@ -12328,6 +12338,9 @@ const WORKER = {
     if (url.pathname === '/api/cost-log' && request.method === 'POST') {
       return handleCostLog(request, env, origin);
     }
+    /* 12/11 personal-area (account.html): phone → code → session → events / credit / contact */
+    if (url.pathname.startsWith('/api/account/')) return handleAccount(request, env, origin, url, accountDeps());
+    if (url.pathname === '/api/review-claim' && request.method === 'POST') return handleReviewClaim(request, env, origin, accountDeps());
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);
     }
@@ -12769,6 +12782,11 @@ const WORKER = {
       if (who) rec.who = 2;
       /* clicks on the review / video links, and leaving without clicking —
          so the sheet says who recommended where and who dropped off */
+      /* 12/11 personal-area: feedback.html?step=video|google asks where this event stands before showing a step */
+      if (b.state === true) {
+        const st = reviewState(rec), brain = await getBrain(env);
+        return okJson({ ok: true, name, ...st, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim(), balance_ils: env.RATE ? ledgerBalance(await readLedger(env, phone)) : 0 }, origin);
+      }
       if (b.click === 'review' || b.click === 'clip' || b.left === true) {
         const what = b.click === 'review' ? 'לחץ: ביקורת בגוגל' : b.click === 'clip' ? 'לחץ: המלצת וידאו' : 'עזב בלי ללחוץ';
         if (b.left === true && (rec.clicked_review || rec.clicked_clip)) return okJson({ ok: true }, origin);
@@ -12800,7 +12818,9 @@ const WORKER = {
       await slackSend(env, `${route === 'high' ? '💚' : '🟠'} *משוב סוף אירוע* · ${evName} · ${phone}
 ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'נשלח לביקורת בגוגל' : 'התבקש לכתוב מה לא היה בסדר'}`, { urgent: false, oneoff: true });   /* oneoff: one feedback */
       const brain = await getBrain(env);
-      return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
+      /* 12/11 personal-area: a returning client is not asked twice, and sees the credit */
+      const st = reviewState(rec), bal = env.RATE ? ledgerBalance(await readLedger(env, phone)) : 0;
+      return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim(), scored: true, video: st.video, google: st.google, balance_ils: bal }, origin);
     }
     /* admin: re-report a purchase to Meta (CAPI) with its original time — for
        a payment whose first report did not land (max 7 days back) */

@@ -38,3 +38,10 @@
 
 ## Proof strategy
 P1 after steps 1–3 (and on every later step), P3 after 4, browser mock after 5, P4 + P2 after 6, P5 after 7, P6 after 8. Report in `report.md`.
+
+## Deviations recorded during the build
+- Session token carries the phone (`acct.<phone>.<nonce>.<sig>`) so a fresh edge verifies it with
+  no KV read at all; KV `acctrev:` is the revocation list (the "2-minute tolerance" idea is gone).
+- `/api/feedback` gained `{token, state:true}` so feedback.html?step= can ask where an event stands.
+- New step 4b (Richard's addendum R14): `assets/tour.js` + tour steps on dashboard.html and
+  account.html; checked by P7 in the browser pass (step 6).
