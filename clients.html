@@ -42,6 +42,18 @@
   .toast.on{opacity:1}
   .btn.d{color:#A8402F;border-color:rgba(168,64,47,.45)}
   .btn.d:hover{border-color:#A8402F}
+  /* 12/11 Richard: compact rows — two buttons on the card, everything else in the "ניהול אירוע" popup */
+  .card .acts{margin-top:.45rem}
+  #list > .card{padding:.6rem .9rem;margin-bottom:.45rem}
+  #list > .card .tags{margin:.3rem 0 0}
+  #list > .card .tag{font-size:.74rem;padding:.12rem .45rem}
+  .pop-bg{position:fixed;inset:0;background:rgba(20,28,24,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
+  .pop{background:var(--card);border:1px solid var(--line);border-radius:12px;width:min(560px,100%);max-height:90vh;overflow:auto;padding:1rem 1.1rem}
+  .pop h2{margin:0 0 .15rem;font-size:1.05rem}
+  .pop .sec{margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line)}
+  .pop .sec h3{margin:0 0 .4rem;font-size:.78rem;color:var(--ink3,#777);font-weight:600;letter-spacing:.02em}
+  .pop .acts{margin-top:0}
+  .pop .x{float:left;border:0;background:none;font-size:1.3rem;cursor:pointer;color:var(--ink3,#777)}
   .fbx{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .5rem}
   .fbi{font-size:.78rem;background:#FBF3DF;color:#5A4A1E;border-radius:8px;padding:.25rem .55rem}
   .fbi small{color:#8A7A4E}
@@ -115,6 +127,7 @@
     }).join('');
   }
   function render() {
+    var popEl = document.querySelector('#pop .pop'); var popT = popEl ? popEl.dataset.t : null;
     var f = $('fActive').value, q = ($('q').value || '').trim();
     /* 12/11 Richard: past and cancelled events are hidden by default; the button brings them back */
     var showPast = $('fPast').getAttribute('aria-pressed') === 'true';
@@ -157,24 +170,47 @@
         }).join('') + '</div>' : '') +
         '<div class="acts">' +
           '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
-          '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button>' +
-          '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
-          '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
-          '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
-          '<button class="btn" data-act="copy-upload">📋 העתק קישור להעלאה</button>' +
-          '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
-          '<button class="btn g" data-act="guests">+50 מוזמנים חינם</button>' +
-          '<button class="btn g" data-act="extrasend">שליחה נוספת חינם</button>' +
-          '<button class="btn g" data-act="calls">סבב שיחות חינם</button>' +
-          '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
-          '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button>' +
+          '<button class="btn" data-act="manage">ניהול אירוע</button>' +
           '<span class="meta" dir="ltr">' + esc(e.phone || '') + '</span>' +
         '</div></div>' + subRows(e);
     }).join('');
+    if (popT) openManage(popT);   /* a redraw after an action keeps the popup open with fresh state */
   }
 
+  /* the "ניהול אירוע" popup: every action for one event, grouped. It lives inside #list so the
+     existing data-act handler (closest('.card').dataset.t) keeps working unchanged. */
+  function openManage(t) {
+    var e = events.filter(function (x) { return x.token === t; })[0] || {};
+    var fl = flags[t] || { active: true };
+    var old = document.getElementById('pop'); if (old) old.remove();
+    var html = '<div class="pop-bg" id="pop"><div class="card pop" data-t="' + t + '" role="dialog" aria-modal="true">' +
+      '<button type="button" class="x" data-close aria-label="סגירה">×</button>' +
+      '<h2>' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + (e.date ? ' · ' + esc(e.date) : '') + '</span></h2>' +
+      '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
+      '<div class="sec"><h3>קישורים ללקוח</h3><div class="acts">' +
+        '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
+        '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
+        '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
+        '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
+        '<button class="btn" data-act="copy-upload">📋 העתק קישור להעלאה</button>' +
+        '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button></div></div>' +
+      '<div class="sec"><h3>תוספות בחינם</h3><div class="acts">' +
+        '<button class="btn g" data-act="guests">+50 מוזמנים</button>' +
+        '<button class="btn g" data-act="extrasend">שליחה נוספת</button>' +
+        '<button class="btn g" data-act="calls">סבב שיחות</button></div></div>' +
+      '<div class="sec"><h3>רשימה ומצב</h3><div class="acts">' +
+        '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
+        '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
+        '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
+      '</div></div>';
+    $('list').insertAdjacentHTML('beforeend', html);
+    var bg = document.getElementById('pop');
+    bg.addEventListener('click', function (ev) { if (ev.target === bg || ev.target.closest('[data-close]')) bg.remove(); });
+    document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { bg.remove(); document.removeEventListener('keydown', esc1); } });
+  }
   $('list').addEventListener('click', async function (ev) {
     var b = ev.target.closest('button[data-act]'); if (!b) return;
+    if (b.dataset.act === 'manage') { openManage(b.closest('.card').dataset.t); return; }
     var t = b.closest('.card').dataset.t, act = b.dataset.act, fl = flags[t] || { active: true };
     var e = events.filter(function (x) { return x.token === t; })[0] || {};
     b.disabled = true;
