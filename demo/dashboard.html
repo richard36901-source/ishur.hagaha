@@ -768,7 +768,7 @@
       ? 'ננסה לשלוח שוב אוטומטית' + (data.next_attempt ? ' ב-' + heDay(data.next_attempt) : '') + '.'
       : (calls ? 'אנחנו נתקשר למספר בימים הקרובים כדי לאשר הגעה.' : 'ניסינו שלוש פעמים. כדאי לשלוח להם את ההזמנה מהטלפון שלכם.');
     var label = g.sent === 'retrying' ? 'לא נמסר עדיין' : 'לא נמסר';
-    return '<span class="sendst ' + g.sent + '" title="' + label + '"><button type="button" class="info" data-why="' + esc(why) + '" data-next="' + esc(next) + '" aria-label="למה?">i</button></span>';
+    return '<span class="sendst ' + esc(g.sent) + '" title="' + label + '"><button type="button" class="info" data-why="' + esc(why) + '" data-next="' + esc(next) + '" aria-label="למה?">i</button></span>';
   }
   function heDay(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] : iso; }
   var STATUS = {
@@ -943,13 +943,13 @@
     if (m.video_url) {
       /* no browser controls (their menu ignores the site's design): the clip
          loops muted; a tap toggles sound; a tap on the preview opens it full */
-      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
+      prev.innerHTML = '<video src="' + esc(m.video_url) + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
       /* no autoplay: a 3MB clip was holding the whole page load (31s on 17/09) */
       var v = prev.querySelector('video');
       v.addEventListener('click', function () { if (v.paused) { v.muted = false; v.play(); } else v.pause(); });
       txt.innerHTML = '<b>מצורף וידאו</b> להזמנה. ההזמנה תישלח עם הווידאו.';
     } else if (m.image_url) {
-      prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
+      prev.innerHTML = '<img src="' + esc(m.image_url) + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
       txt.innerHTML = '<b>מצורפת תמונה</b> להזמנה. כך היא תיראה אצל המוזמנים.';
     } else {
       prev.innerHTML = '<span style="font-size:2rem">🖼️</span>';
@@ -1194,12 +1194,14 @@
       var st = STATUS[g.status] || STATUS.pending;
       /* confirmed guests get a table box; the rest keep the layout aligned */
       var esc = function (s) { return String(s || '').replace(/[&<>"]/g, ''); };
+      /* 12/11 security: guest text is shown as text, never as markup */
+      var escT = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
       var tbl = g.status === 'confirmed' && g.id
         ? '<input class="tbl-in" data-id="' + esc(g.id) + '" value="' + esc(seatDirty[g.id] != null ? seatDirty[g.id] : g.table) + '" placeholder="שולחן" maxlength="12"' +
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       return '<div class="row' + (g.self ? ' self' : '') + '">' +
-             '<span class="row-n">' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+             '<span class="row-n">' + (g.name ? escT(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + escT(g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
              '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';

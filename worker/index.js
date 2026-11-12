@@ -2223,7 +2223,8 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   const out = { event_type: 'event_setup', token };
   for (const k of SETUP_FIELDS) {
     const v = form.get(k);
-    if (typeof v === 'string' && v !== '') out[k] = v;
+    /* 12/11 security: names and places are shown on admin and client pages — no markup characters in them (the free-text description is left as typed) */
+    if (typeof v === 'string' && v !== '') out[k] = k === 'event_description' ? v : v.replace(/[<>]/g, '');
   }
   /* host_roles: "כלה,חתן" — one role per host name, from a fixed list. Anything
      else is dropped rather than written into the sheet. */
@@ -12809,8 +12810,8 @@ const WORKER = {
       let date = isoOf(b.date);
       if (addonMode && !/^\d{4}-\d{2}-\d{2}$/.test(date) && addonEv) date = isoOf(addonEv.event_date);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < ilDate()) return okJson({ ok: false, why: 'bad-date' }, origin);
-      let city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
-      if (addonMode && city.length < 2 && addonEv) city = String(addonEv.venue_city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
+      let city = String(b.city || '').replace(/[\u200e\u200f'"<>]/g, '').trim().slice(0, 40);
+      if (addonMode && city.length < 2 && addonEv) city = String(addonEv.venue_city || '').replace(/[\u200e\u200f'"<>]/g, '').trim().slice(0, 40);
       if (city.length < 2) return okJson({ ok: false, why: 'bad-city' }, origin);
       let guests = parseInt(String(b.guests || ''), 10) || 0;
       if (addonMode && !guests) { try { guests = Number(await tierWithPromo(env, String(b.token), 0)) || 0; } catch {} }

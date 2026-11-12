@@ -1183,7 +1183,7 @@
   function footHtml() {
     var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
     var F = CFG.MESSAGE_FOOTER;
-    return '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
+    return '<span class="fine-l">' + F.sentBy.replace('{names}', esc(names) || '…') + '</span>' +
            '<span class="fine-l">' + F.optOut + '</span>';
   }
   ['f-name1', 'f-name2', 'f-extra', 'f-title', 'f-venue', 'f-city'].forEach(function (id) {
@@ -1258,11 +1258,11 @@
       var tr = $('hostessTravel'), act = $('hostessAct');
       if (!city) { tr.textContent = 'הזינו עיר כדי לדעת אם יש תוספת נסיעות.'; act.innerHTML = ''; return; }
       if (center) {
-        tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + city + ' באזור המרכז';
+        tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + esc(city) + ' באזור המרכז';
         act.innerHTML = '<span class="addon-inc">כלול</span>';
       } else {
         var sum = H.travelFor ? H.travelFor(n) : H.travel; /* Richard 05/10: 250 for one hostess, 500 for 2 or 3 */
-        tr.innerHTML = city + ' מחוץ למרכז: <b>תוספת נסיעות ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
+        tr.innerHTML = esc(city) + ' מחוץ למרכז: <b>תוספת נסיעות ₪' + esc(sum) + '</b>, בתשלום נפרד אחרי השמירה.';
         act.innerHTML = '<button type="button" class="addon-buy" id="hostessPay">₪' + sum + '</button>';
         var b = $('hostessPay');
         if (b) b.addEventListener('click', function () {
