@@ -10342,6 +10342,16 @@ async function hostessIcsKey(env) {
   return sha256Hex((env.ADMIN_KEY ? 'k|' + env.ADMIN_KEY : 'none|' + crypto.randomUUID()) + '|hostess-ics|v2');
 }
 
+const HARDEN_HEADERS = { 'Strict-Transport-Security': 'max-age=31536000', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' };
+function hardenResponse(res) {
+  try {
+    if (!res || res.status === 101 || res.webSocket) return res;
+    const h = new Headers(res.headers);
+    for (const [k, v] of Object.entries(HARDEN_HEADERS)) if (!h.has(k)) h.set(k, v);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  } catch { return res; }
+}
+
 async function checkStamp(fields, appKey) {
   const { app, nonce, stamp_ts, sig } = fields;
   if (!app || !nonce || !stamp_ts || !sig) return 'missing-stamp';
@@ -10884,7 +10894,10 @@ const WORKER = {
   },
 
   /* 03/11 change log wrapper (CHANGE_ROUTES); everything else goes straight to fetchMain */
-  async fetch(request, env, ctx) { return changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx)); },
+  /* 12/11 security: every answer leaves with the three headers that cost nothing — HTTPS only from now on (HSTS),
+     no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
+     handed to other sites. A header a route already set is left as it is. */
+  async fetch(request, env, ctx) { return hardenResponse(await changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
