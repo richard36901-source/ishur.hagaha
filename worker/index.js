@@ -32,7 +32,7 @@ import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadN
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
-import { fitBatch } from './budget.js';
+import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
@@ -78,7 +78,7 @@ import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan,
 import { handleRaffle } from './raffle.js';
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
-import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
+import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
 
@@ -6736,7 +6736,7 @@ export { staleSentByEvent as _staleSentByEvent, runDailyEngine as _runDailyEngin
    reaches for the sheet when the last run left work behind, or when the call
    queue is warm.
    ────────────────────────────────────────────────────────────────────────── */
-const PACE_SENDS = 25;    // guest messages per tick — 63 ticks ≈ 1,500/day
+const PACE_SENDS = 50;    // base guest messages per tick (12/11: dynamic up to pacer_batch_max on busy days)
 const PACE_CALLS = 6;     // dials per tick — 63 ticks ≈ 375/day
 const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 
@@ -7022,10 +7022,26 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
     } catch (e) { out.autoretry = { error: String(e && e.message) }; }
   }
   if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
-    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: paceSends(env, PACE_SENDS) })).catch(e => {
+    /* 12/11 Richard: how many this tick — what is still planned for today (plan:today, precomputed every tick)
+       against the minutes left to 12:00 and to the window's close */
+    const paceInfo = await (async () => {
+      const base = paceSends(env, PACE_SENDS), max = paceSendsMax(env);
+      try {
+        const plan = JSON.parse((await env.RATE.get('plan:today')) || 'null');
+        const days = plan && plan.data && plan.data.days; const d0 = Array.isArray(days) ? days.find(x => x.day === today) || days[0] : (days && days[today]);
+        const items = (d0 && d0.items) || [];
+        const remaining = items.filter(i => i.kind === 'send' && i.status !== 'done' && i.status !== 'missed').reduce((n, i) => n + Math.max(0, (Number(i.planned_n) || 0) - (Number(i.done_n) || 0)), 0);
+        const il = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+        const g = t => (il.find(x => x.type === t) || {}).value || ''; const mins = Number(g('hour')) % 24 * 60 + Number(g('minute'));
+        const close = g('weekday') === 'Fri' ? 13 * 60 : 20 * 60 + 30, target = g('weekday') === 'Fri' ? 12 * 60 : 12 * 60;
+        return { ...dynamicPace({ remaining, minsLeft: close - mins, minsToTarget: target - mins, base, max }), remaining, base, max };
+      } catch (e) { return { pace: base, why: 'no-plan', base, max }; }
+    })();
+    if (env.RATE) await env.RATE.put('pacer:pace', JSON.stringify({ ...paceInfo, at: new Date().toISOString() }), { expirationTtl: 3600 }).catch(() => {});
+    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: paceInfo.pace })).catch(e => {
       return { ok: false, error: String((e && e.message) || e) };
     });
-    out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated } : { ran: false, error: r && r.error };
+    out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated, pace: paceInfo.pace, pace_why: paceInfo.why, remaining: paceInfo.remaining } : { ran: false, error: r && r.error, pace: paceInfo.pace };
     /* a tick that failed while work is pending used to vanish into the
        heartbeat; one alert a day is the difference between "Richard knows in
        20 minutes" and "somebody finds out at the hall" */

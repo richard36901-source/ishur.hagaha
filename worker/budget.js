@@ -120,3 +120,24 @@ export async function cachedTiers(kv) {
   try { const c = JSON.parse((await kv.get('wa:cap')) || 'null'); return (c && Array.isArray(c.numbers)) ? c.numbers : []; } catch { return []; }
 }
 export { ilDayKey };
+
+
+/* ── 12/11 Richard: "ימים עם קצת שליחות — הרוב בבוקר; רק כשיש ממש הרבה זה מתפרס" ────
+   pace per 10-minute tick for the rest of today. `remaining` = guest messages still
+   planned for today, `minsLeft` = minutes until the send window closes, `minsToTarget`
+   = minutes until the finish-by target (12:00 normally). base is the everyday batch,
+   max the ceiling we are comfortable with towards Meta (quality is judged on replies and
+   blocks, bursts make both worse). Result: finish by the target when it fits, otherwise
+   spread evenly over the day, never above max, never below base while work remains. */
+export function dynamicPace({ remaining = 0, minsLeft = 0, minsToTarget = 0, base = 50, max = 100, tickMin = 10 } = {}) {
+  base = Math.max(1, Number(base) || 50); max = Math.max(base, Number(max) || base);
+  if (!(remaining > 0) || !(minsLeft > 0)) return { pace: base, why: 'idle' };
+  const ticksLeft = Math.max(1, Math.ceil(minsLeft / tickMin));
+  const ticksToTarget = Math.max(1, Math.ceil(Math.max(0, minsToTarget) / tickMin));
+  const needForTarget = Math.ceil(remaining / ticksToTarget);
+  if (needForTarget <= base) return { pace: base, why: 'fits-by-target' };
+  if (needForTarget <= max) return { pace: needForTarget, why: 'finish-by-target' };
+  /* more than max can finish by the target: run at max — a big day simply takes longer (that is the "spread") */
+  const spread = Math.ceil(remaining / ticksLeft);
+  return { pace: max, why: spread > max ? 'spread-capped' : 'max-until-done' };
+}
