@@ -81,7 +81,7 @@ export const RULES = [
   { id: 'incident', he: 'תקלה במערכת (מהמוח)', sev: 'P1', window: 6 * H, d: { on: true, min_severity: 'P1', channels: ['app', 'slack', 'push', 'whatsapp'], quiet: true } },
   { id: 'new_lead', he: 'ליד חדש', sev: 'P2', window: 24 * H, d: { on: true, min_severity: 'P2', channels: ['app', 'slack', 'push'], quiet: true } },
   { id: 'lead_reply', he: 'ליד ענה בשיחת המכירה', sev: 'P2', window: 1 * H, d: { on: true, min_severity: 'P2', channels: ['app', 'push'], quiet: true } },
-  { id: 'payment', he: 'תשלום התקבל', sev: 'P1', window: 7 * 24 * H, d: { on: true, min_severity: 'P2', channels: ['app', 'slack', 'push'], quiet: true } },
+  { id: 'payment', he: 'תשלום התקבל', sev: 'P2', window: 7 * 24 * H, d: { on: true, min_severity: 'P2', channels: ['app', 'push'], quiet: true } },   /* 12/11 Richard: Slack gets the immediate 🎉 line from the IPN handler, not this red alert */
   { id: 'unanswered', he: 'ליד / לקוח מחכה לתשובה מעל שעתיים', sev: 'P1', window: 6 * H, d: { on: true, min_severity: 'P1', channels: ['app', 'slack', 'push'], quiet: true } },
   { id: 'event_readiness', he: 'אירוע בעוד 3 ימים וחסר משהו', sev: 'P1', window: 24 * H, d: { on: true, min_severity: 'P1', channels: ['app', 'slack', 'push'], quiet: true } },
   { id: 'failures_spike', he: 'קפיצה בכשלי וואטסאפ', sev: 'P1', window: 3 * H, d: { on: true, min_severity: 'P1', channels: ['app', 'slack', 'push'], quiet: true } },

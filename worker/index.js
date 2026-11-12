@@ -704,6 +704,8 @@ async function processGrowPayment(env, flat) {
   if (addon) {
     if (env.RATE) await env.RATE.put('grow:' + ref, 'addon', { expirationTtl: 30 * 86400 });
     const ar = await applyAddon(env, { phone, name, sum, ref, addon, flat }).catch(e => ({ ok: false, why: String(e && e.message) }));
+    /* Richard 12/11: an upgrade is good news — one green line at once, not a red alert */
+    if (ar.ok) { try { const local = String(phone || '').replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3'); await slackPost(env, `🎉 *שדרוג נרכש* · ₪${sum} · ${String(addon.desc || '').slice(0, 60)} · ${name || ''} ${local}`, { urgent: true, now: true, oneoff: true, important: true }); } catch {} }
     return new Response(ar.ok ? 'addon-applied' : 'addon-parked', { status: 200 });
   }
 
@@ -712,7 +714,7 @@ async function processGrowPayment(env, flat) {
   /* Richard 04/10: every payment, one line in Slack, at once */
   try {
     const local = String(phone || '').replace(/^972/, '0').replace(/(\d{3})(\d{3})(\d{4})/, '$1-$2-$3');
-    await slackPost(env, `💳 *תשלום חדש* · ₪${flat.paymentSum || flat.sum || '?'} · ${String(flat.paymentDesc || '').slice(0, 60)} · ${flat.payerName || flat.fullName || ''} ${local} · ${isNewClient ? 'לקוח חדש' : 'לקוח קיים'}`, { urgent: true, now: true, oneoff: true });   /* oneoff: a payment landed */
+    await slackPost(env, `🎉 *תשלום חדש* · ₪${flat.paymentSum || flat.sum || '?'} · ${String(flat.paymentDesc || '').slice(0, 60)} · ${flat.payerName || flat.fullName || ''} ${local} · ${isNewClient ? 'לקוח חדש' : 'לקוח קיים'}`, { urgent: true, now: true, oneoff: true, important: true });   /* oneoff: a payment landed */
   } catch {}
 
   if (env.RATE) {

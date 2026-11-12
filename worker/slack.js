@@ -176,7 +176,7 @@ export async function alert(env, where, what, detail, opts = {}) {
 }
 
 /* 04/11: the only things that reach Slack (besides the digest) */
-const IMPORTANT_RE = /(שולם|שילם|תשלום התקבל|נרכש|רכש\/ה|💰|ליד חדש|🆕|Make מושהה|Make חזר|make_down)/;
+const IMPORTANT_RE = /(שולם|שילם|תשלום התקבל|תשלום חדש|שדרוג נרכש|נרכש|רכש\/ה|💰|🎉|ליד חדש|🆕|Make מושהה|Make חזר|make_down)/;
 export function slackImportant(text, opts = {}) {
   if (opts.important === true) return true;
   if (opts.important === false) return false;

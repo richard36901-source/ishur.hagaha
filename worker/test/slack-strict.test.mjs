@@ -32,3 +32,14 @@ test('strict: Make down is important, the digest always posts', async () => {
 test('mute key ignores changing numbers', () => {
   assert.equal(muteKey('⚠️ 27 הודעות נכשלו'), muteKey('⚠️ 29 הודעות נכשלו'));
 });
+
+/* 12/11 Richard: a purchase / an upgrade is a green 🎉 line that reaches Slack at once (it used to fall into the digest as "info") */
+test('strict: 🎉 תשלום חדש / שדרוג נרכש are important and post immediately', async () => {
+  assert.equal(slackImportant('🎉 *תשלום חדש* · ₪379 · 300 מוזמנים פרימיום · שירן 053-830-9006 · לקוח חדש'), true);
+  assert.equal(slackImportant('🎉 *שדרוג נרכש* · ₪59 · שליחה נוספת · אלעד 050-000-0000'), true);
+  assert.equal(slackImportant('💳 *תשלום חדש* · ₪379'), true);
+  const e = env(), posts = capture();
+  await slackSend(e, '🎉 *תשלום חדש* · ₪379 · 300 מוזמנים פרימיום · שירן', { oneoff: true, urgent: true, now: noon, important: true });
+  assert.equal(posts.length, 1);
+  assert.match(posts[0], /🎉/);
+});
