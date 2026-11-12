@@ -6463,6 +6463,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
     const time = String(ev[36] || '').trim() || 'בשעות הערב';
     const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ');
+    const invite = String(ev[44] || '').trim();   /* 12/11: the invitation image rides on the D-1 (_img twins) */
 
     if (cancelled) {
       if (!invited || date < today) continue;
@@ -6609,7 +6610,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           giftLinks: (e, tok) => giftLinksOf(e, tok), cleanLink, guestEventName, cleanParam, navOn: navOnFor,
         }, { date: heDate(date), time, address: venue });
         if (dbm.kind === 'combo') {
-          const wa = await sendTemplate(env, phone, dbm.template, dbm.params, '', 'he', 'guests', { occasion, wave: 'daybefore', token, components: dbm.components });
+          /* 12/11 Richard: the D-1 carries the invitation image once Meta approved the _img twin of this template */
+          const imgTwin = invite && env.RATE ? await env.RATE.get('tmplimg:' + dbm.template).catch(() => null) : null;
+          const wa = await sendTemplate(env, phone, imgTwin || dbm.template, dbm.params, imgTwin ? invite : '', 'he', 'guests', { occasion, wave: 'daybefore', token, components: dbm.components });
           if (wa.held) { cut = true; break; }
           if (wa.permanent) { failed++; cut = true; break; }
           if (budget) budget.left--;
@@ -6621,10 +6624,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         const navRaw = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
         const navU = navRaw && navLinkOk(navRaw) ? navRaw : null;   /* 02/11 audit: links stored before the allowlist are re-checked at send time */
         const abv = await ab.pickVariant(env, 'daybefore', phone, token, { current: navU ? navT : 'ishur_yom_lifnei' });
+        const plainTwin = !navU && invite && env.RATE ? await env.RATE.get('tmplimg:' + abv.template).catch(() => null) : null;
         const wa = navU
           ? await sendTemplate(env, phone, abv.template, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
-          : await sendTemplate(env, phone, abv.template,
-            [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
+          : await sendTemplate(env, phone, plainTwin || abv.template,
+            [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], plainTwin ? invite : '', 'he', 'guests',
             { occasion, wave: 'daybefore', token });
         if (wa.held) { cut = true; break; }
         if (wa.permanent) { failed++; cut = true; break; }
@@ -6791,6 +6795,9 @@ async function templateCheck(env, out) {
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
         /* 25/10 Richard ("החלף"): the nav copy is billed MARKETING (₪0.12); the plain
            ishur_yom_lifnei is UTILITY (₪0.02). navtmpl stays unset on purpose. */
+        /* 12/11: day-before twins with the invitation image → tmplimg:<base> = <base>_img once approved */
+        ...['ishur_yom_lifnei', ...['t', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp'].map(k => 'ishur_lifnei_plain_' + k), ...['n', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp'].map(k => 'ishur_lifnei_combo_' + k)]
+          .map(n => ({ name: n + '_img', key: 'tmplimg:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
@@ -10843,6 +10850,21 @@ const WORKER = {
           headers: { Authorization: 'OAuth ' + tok, file_offset: '0', 'Content-Type': type }, body: buf });
         const j2 = await s2.json().catch(() => ({}));
         if (!j2.h) return okJson({ ok: false, step: 'upload', resp: j2 }, origin);
+        /* 12/11 Richard: "תזכורות יום לפני עם התמונה של ההזמנה — קבוע לכולם". clone_of=<approved template> →
+           the same body/footer/buttons from Meta, plus an IMAGE header, submitted as <name>_img. */
+        if (b.clone_of) {
+          const base = String(b.clone_of).trim();
+          const rq = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(base)}&fields=name,status,category,components`, { headers: { Authorization: 'Bearer ' + tok } });
+          const jq = await rq.json().catch(() => ({})); const src = (jq.data || []).find(x => x.name === base);
+          if (!src) return okJson({ ok: false, step: 'clone-src', resp: jq }, origin);
+          const comps = (src.components || []).filter(c => c.type !== 'HEADER');
+          const tplC = { name: base + '_img', language: 'he', category: src.category || 'UTILITY', allow_category_change: false,
+            components: [{ type: 'HEADER', format: 'IMAGE', example: { header_handle: [j2.h] } }, ...comps] };
+          const sC = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(tplC) });
+          const jC = await sC.json().catch(() => ({}));
+          await logEvent(env, { area: 'מטא', action: `תבנית ${base}_img (עם תמונת ההזמנה) הוגשה לאישור`, ok: !!jC.id, review: !jC.id, ref: base + '_img', detail: JSON.stringify(jC).slice(0, 300) }).catch(() => {});
+          return okJson({ ok: !!jC.id, name: base + '_img', resp: jC, sent: tplC }, origin);
+        }
         const name = String(b.name || (isVid ? 'hazmana_ishur_vid' : 'hazmana_ishur_img'));
         /* 27/09: Meta silently recategorised the invitations as MARKETING, and
            per-user marketing caps (131049) started eating guests. An invitation
