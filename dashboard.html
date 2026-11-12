@@ -809,10 +809,11 @@
     <div class="card-b">
       <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .6rem">שלחו לקבוצת הוואטסאפ של המשפחה. מי שלוחץ "מגיע/ה" נכנס לרשימה ולסידור ההושבה. הודעות ותזכורות אליהם נפתחות בתוספת אחת קטנה.</p>
       <textarea id="shareTxt" readonly style="width:100%;min-height:7.5rem;font:inherit;font-size:.9rem;padding:.6rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);resize:vertical"></textarea>
-      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;align-items:center">
-        <button type="button" class="buy" id="copyShare">העתקת ההודעה</button>
-        <a class="buy" id="waShare" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)">פתיחה בוואטסאפ</a>
+      <!-- 12/11 Richard: WhatsApp first, copy second, both at the left end -->
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end">
         <span id="shareMsg" style="font-size:.8rem;color:var(--ink3)"></span>
+        <a class="buy" id="waShare" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)">פתיחה בוואטסאפ</a>
+        <button type="button" class="buy" id="copyShare">העתקת ההודעה</button>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)">
         <label for="navIn" class="guide-row"><span>קישור ניווט (Waze / Google Maps) · לא חובה</span><span class="guide-end"><button type="button" class="guide-b" data-guide="waze">איך מוציאים קישור?</button></span></label>
