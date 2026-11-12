@@ -266,10 +266,10 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     if (cnt(n) > 0) return (cnt(n) >= 0.9 * eligible(n) || (n > 1 && d && d < todayIso)) ? 'sent' : 'running';
     return d && d < todayIso ? 'passed' : 'scheduled';
   };
-  if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled' });
-  if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled' });
+  if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled', sent_n: cnt(1) });
+  if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled', sent_n: cnt(2) });
   /* 04/11: a granted/paid extra send shows even before a date was picked */
-  if (c(41) && (sent.extraPaid || sent[3])) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled' });
+  if (c(41) && (sent.extraPaid || sent[3])) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: c(41), status: state(3, c(41)), editable: state(3, c(41)) === 'scheduled', sent_n: cnt(3) });
   else if (sent.extraPaid || sent[3]) sends.push({ key: 'extra', label: 'תזכורת נוספת', date: '', status: sent[3] ? 'sent' : 'scheduled', editable: !sent[3] });
   /* Shir's phone round (Richard 12/10: "they should know when there is also
      a call"). It starts the morning after the last planned send, for whoever
