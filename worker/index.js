@@ -11980,6 +11980,23 @@ const WORKER = {
       if (b.format === 'csv') return new Response(await auditExport(env, tok, 'csv'), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${tok.slice(0, 8)}.csv"` } });
       return okJson(await auditExport(env, tok, 'json'), origin);
     }
+    /* 12/11 personal-area: one-time — the login-code template on the guests WABA so the code can leave
+       from Shir's number while Noa is unpaid (131042). {check:true} only reads; otherwise submits. */
+    if (url.pathname === '/api/account/setup-template' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.WA_TOKEN_GUESTS) return deny(503, 'guests-token-missing', origin);
+      const waba = clientWabaFor('guests'), H = { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS, 'Content-Type': 'application/json' };
+      const cur = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=ishur_kod&fields=name,status,category,language`, { headers: H }).then(r => r.json()).catch(() => ({}));
+      const have = (cur.data || []).filter(t => t.name === 'ishur_kod');
+      if (b.check === true || have.length) return okJson({ ok: true, exists: have.length > 0, templates: have }, origin);
+      const payload = { name: 'ishur_kod', language: 'he', category: 'AUTHENTICATION', components: [
+        { type: 'BODY', add_security_recommendation: true }, { type: 'FOOTER', code_expiration_minutes: 10 }, { type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: 'העתקת הקוד' }] } ] };
+      const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: H, body: JSON.stringify(payload) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      await logEvent(env, { area: 'מטא', action: j.id ? 'תבנית ishur_kod הוגשה על מספר האורחים' : 'הגשת ishur_kod על מספר האורחים נכשלה', ok: !!j.id, review: !j.id, ref: 'ishur_kod', detail: j.id ? `id ${j.id} · ${j.status || ''}` : String((j.error && (j.error.error_user_msg || j.error.message)) || 'submit-failed').slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!j.id, id: j.id || '', status: j.status || '', error: j.error ? String(j.error.error_user_msg || j.error.message || '').slice(0, 200) : '' }, origin);
+    }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
     }
@@ -12339,7 +12356,7 @@ const WORKER = {
       return handleCostLog(request, env, origin);
     }
     /* 12/11 personal-area (account.html): phone → code → session → events / credit / contact */
-    if (url.pathname.startsWith('/api/account/')) return handleAccount(request, env, origin, url, accountDeps());
+    if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') return handleAccount(request, env, origin, url, accountDeps());
     if (url.pathname === '/api/review-claim' && request.method === 'POST') return handleReviewClaim(request, env, origin, accountDeps());
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);

@@ -174,3 +174,10 @@ test('dashboard gate /api/otp-send uses the same ladder (guests number when Noa 
   const r = await post(e, '/api/otp-send', { phone: '0521234567', app: 'ishur-web', nonce, stamp_ts, sig });
   assert.equal(r.status, 200); assert.equal(r.via, 'whatsapp-guests');
 });
+test('setup-template is an admin route, not swallowed by the account prefix', async () => {
+  const e = env();
+  assert.equal((await post(e, '/api/account/setup-template', { admin_key: 'wrong' })).error, 'bad-admin-key');
+  const r = await post(e, '/api/account/setup-template', { admin_key: 'k', check: true });
+  assert.equal(r.status, 200); assert.equal(r.exists, false);
+  assert.ok(calls.some(c => /1378764257421712\/message_templates\?name=ishur_kod/.test(c.u)), 'read the guests WABA');
+});
