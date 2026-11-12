@@ -231,7 +231,7 @@
               ? '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0))   /* the whole wave only in the click-through sheet */
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
-          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + (it.kind === 'call' ? '📞 ' : it.kind === 'send' ? '💬 ' : '') + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
         });
         html += '</div>';
       });

@@ -219,7 +219,8 @@ export function projectItems({ events, guests, flags = {}, today, days = 14, isN
       const from0 = when > today ? when : today, from = f.hold && f.holdtill && f.holdtill > from0 ? f.holdtill : from0;
       const d = firstEngineDay(from, addDays(from > when ? from : when, 3), isNoContactDay);
       if (!d || (ev.date && ev.date < d)) continue;
-      push(d, 'w' + k, uniq(gl, g => k === 2 ? (!g.rsvp || g.rsvp === 'מתלבט') : g.rsvp !== 'לא מגיע'));
+      const got = (f.reached || {})[k];   /* 12/11: already sent (or refused for good) in this wave — not planned again */
+      push(d, 'w' + k, uniq(gl, g => (k === 2 ? (!g.rsvp || g.rsvp === 'מתלבט') : g.rsvp !== 'לא מגיע') && !(got && got.has(String(g.phone || '').replace(/\D/g, '')))));
     }
     if (!ev.date) continue;
     /* 03/11 R1: the day-before goes out on D-1 only. Not sent by then (cap,
@@ -468,7 +469,19 @@ async function projectionInputs(env, d, today, days) {
       .map(k => kget(env, k.endsWith(':') ? k + t : k)));
     let ed = null; try { const j = JSON.parse(edJobs[t] || 'null'); if (j) ed = { at: String(j.at || ''), no_table: !!j.no_table }; } catch {}
     /* 09/11: a timed hold (holdtill) is a hold only until that day; waveprio = first in line, at most N a day */
-    flags[t] = { hold: !!hold, holdtill: /^\d{4}-\d{2}-\d{2}$/.test(String(holdtill || '')) ? String(holdtill) : '', prio: Number(prio) || 0, wave1: !!w1, wave2: !!w2, wave3: !!w3, extrasend: !!xs, daybefore: !!db, seat: !!seat, toda: !!toda, eventday: ed };
+    /* 12/11 (Richard: "למה מציג את מור ונועם שלא הסתיים?"): a wave whose day has passed can stay without its
+       wave: marker (a few numbers Meta keeps refusing hold it open). What is still LEFT is the list minus the
+       guests that already carry wsent:/wdead: — never the whole list again. */
+    const reached = {};
+    for (const k of [1, 2, 3]) {
+      if ([w1, w2, w3][k - 1] || !(ev.waves[k] && ev.waves[k] < today)) continue;
+      try {
+        const set = new Set();
+        for (const pre of [`wsent:${t}:${k}:`, `wdead:${t}:${k}:`]) for (const key of await kvKeysEx(env, pre, 3000)) set.add(key.name.slice(pre.length).replace(/\D/g, ''));
+        if (set.size) reached[k] = set;
+      } catch {}
+    }
+    flags[t] = { reached, hold: !!hold, holdtill: /^\d{4}-\d{2}-\d{2}$/.test(String(holdtill || '')) ? String(holdtill) : '', prio: Number(prio) || 0, wave1: !!w1, wave2: !!w2, wave3: !!w3, extrasend: !!xs, daybefore: !!db, seat: !!seat, toda: !!toda, eventday: ed };
   }));
   let order = []; try { order = JSON.parse((await kget(env, 'waveorder')) || '[]'); } catch {}
   for (const t of Object.keys(flags)) { const i = order.indexOf(t); flags[t].order = i < 0 ? 1000 : i; }
