@@ -39,7 +39,7 @@
         localStorage.setItem(k, JSON.stringify({ at: Date.now(), t: text })); } catch (x) {}
     }
   }
-  function fresh() { anyFresh = true; clearTimeout(freshTimer); freshTimer = setTimeout(function () { if (pending > 0) { freshTimer = setTimeout(fresh, 400); return; } serveUntil = Date.now() + 1500; setTimeout(function () { justLanded = {}; }, 1600); try { window.dispatchEvent(new Event('ishur:fresh')); } catch (e) {} badge(false); }, 250); }
+  function fresh() { anyFresh = true; clearTimeout(freshTimer); freshTimer = setTimeout(function () { if (pending > 0) { freshTimer = setTimeout(fresh, 400); return; } try { window.dispatchEvent(new Event('ishur:fresh')); } catch (e) {} badge(false); }, 250); }
   var badgeEl = null;
   function badge(on) {
     if (!badgeEl) { badgeEl = document.createElement('div'); badgeEl.setAttribute('aria-live', 'polite'); badgeEl.style.cssText = 'position:fixed;bottom:12px;inset-inline-start:12px;z-index:9998;font:12px Heebo,sans-serif;background:rgba(27,36,32,.85);color:#fff;border-radius:999px;padding:4px 10px;opacity:0;transition:opacity .2s;pointer-events:none'; badgeEl.textContent = 'מתעדכן…'; (document.body || document.documentElement).appendChild(badgeEl); }
@@ -61,6 +61,7 @@
       pending++; badge(true);
       return realFetch(input, init).then(function (r) {
         pending--; if (pending === 0) badge(false);
+        if (r.ok) justLanded[k] = Date.now();
         if (r.ok) { r.clone().text().then(function (t) { try { var j = JSON.parse(t); if (j && j.ok !== false) put(k, t); } catch (e) {} }).catch(function () {}); }
         return r;
       }, function (e) { pending--; if (pending === 0) badge(false); throw e; });
@@ -69,12 +70,14 @@
     if (hit) {
       servedOnce[k] = true;
       /* serve the cached copy now; the real one refreshes the page via ishur:fresh */
-      net().then(function (r) { if (r && r.ok) justLanded[k] = Date.now(); fresh(); }).catch(function () { badge(false); });
+      net().then(function () { fresh(); }).catch(function () { badge(false); });
       return Promise.resolve(mkResponse(hit.t));
     }
     servedOnce[k] = true;
-    if (justLanded[k] && Date.now() < serveUntil) { var now = get(k); if (now) return Promise.resolve(mkResponse(now.t)); }
+    if (justLanded[k] && Date.now() - justLanded[k] < 30000 && Date.now() < serveUntil) { var now = get(k); if (now) return Promise.resolve(mkResponse(now.t)); }
     return net();
   };
+  /* ux.js fires the same event from its own cache layer, so the window opens on the event itself, whoever sent it */
+  window.addEventListener('ishur:fresh', function () { serveUntil = Date.now() + 1500; });
   window.IshurLite = { clear: function () { var ks = []; for (var i = 0; i < localStorage.length; i++) { var n = localStorage.key(i); if (n && n.indexOf(PREFIX) === 0) ks.push(n); } ks.forEach(function (n) { localStorage.removeItem(n); }); return ks.length; } };
 })();
