@@ -60,6 +60,7 @@
   <p class="sub">כל אירוע ששולם, החדש למעלה. מכאן נכנסים לדשבורד ולהעלאה של הלקוח, מחליפים רשימה, ונותנים תוספות בחינם.</p>
   <div class="bar">
     <select id="fActive"><option value="all">הכל</option><option value="active">פעילים</option><option value="inactive">לא פעילים</option></select>
+    <button type="button" class="btn" id="fPast" aria-pressed="false">הצג אירועים שעברו ובוטלו</button>
     <input type="search" id="q" placeholder="חיפוש: שם, טלפון, אירוע">
     <span class="meta" id="count"></span>
   </div>
@@ -115,14 +116,21 @@
   }
   function render() {
     var f = $('fActive').value, q = ($('q').value || '').trim();
+    /* 12/11 Richard: past and cancelled events are hidden by default; the button brings them back */
+    var showPast = $('fPast').getAttribute('aria-pressed') === 'true';
+    var today = new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10);
+    var hidden = 0;
     var rows = events.filter(function (e) {
       var fl = flags[e.token] || { active: true };
+      var past = (e.date && String(e.date).slice(0, 10) < today) || e.cancelled || fl.hold;
+      if (past && !showPast && !q) { hidden++; return false; }
       if (f === 'active' && !fl.active) return false;
       if (f === 'inactive' && fl.active) return false;
       if (q && !((e.client || '') + ' ' + (e.name || '') + ' ' + (e.phone || '') + ' ' + (e.occasion || '')).includes(q)) return false;
       return true;
     });
-    $('count').textContent = rows.length + ' אירועים';
+    $('count').textContent = rows.length + ' אירועים' + (hidden ? ' · ' + hidden + ' שעברו/בוטלו מוסתרים' : '');
+    $('fPast').textContent = showPast ? 'הסתר אירועים שעברו ובוטלו' : 'הצג אירועים שעברו ובוטלו';
     $('empty').hidden = !!rows.length;
     $('list').innerHTML = rows.map(function (e) {
       var fl = flags[e.token] || { active: true };
@@ -205,6 +213,7 @@
     p.catch(function () { toast('שגיאה'); }).then(function () { b.disabled = false; });
   });
   $('fActive').addEventListener('change', render);
+  $('fPast').addEventListener('click', function () { var on = $('fPast').getAttribute('aria-pressed') === 'true'; $('fPast').setAttribute('aria-pressed', on ? 'false' : 'true'); render(); });
   $('q').addEventListener('input', render);
 
   function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
