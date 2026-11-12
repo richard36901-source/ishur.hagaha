@@ -11695,12 +11695,16 @@ const WORKER = {
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev) return deny(404, 'unknown-token', origin);
       const phone = normPhone(ev[3] || ''); const first = String(ev[2] || '').trim().split(/\s+/)[0] || '';
-      const evName = String(ev[34] || ev[5] || 'האירוע').trim();
+      /* 12/11 (Shilat): an event that has not been set up yet has no name of its own, and its "occasion" cell can be
+         stale — Make copies it from the client's old lead row, so a second purchase read "האירוע של חינה" and looked
+         like the old event's link. Until the client names the event the text says "the new event", with the date paid. */
+      const named = String(ev[34] || '').trim();
+      const evName = named || 'האירוע החדש שלכם';
       const kind = b.kind === 'upload' ? 'upload' : 'dashboard';
       const link = kind === 'upload' ? `https://go.ishur.io/upload.html?t=${tok}` : `https://go.ishur.io/dashboard.html?t=${tok}`;
       const text = kind === 'upload'
-        ? `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע של ${evName}:\n${link}`
-        : `היי ${first}, הנה הקישור ללוח הבקרה של ${evName}, שם רואים בכל רגע מי אישר:\n${link}`;
+        ? (named ? `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע של ${evName}:\n${link}` : `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרת האירוע החדש שלכם:\n${link}`)
+        : (named ? `היי ${first}, הנה הקישור ללוח הבקרה של ${evName}, שם רואים בכל רגע מי אישר:\n${link}` : `היי ${first}, הנה הקישור ללוח הבקרה של האירוע החדש שלכם:\n${link}`);
       const ctx = { who: 'ריצ׳רד', token: tok };
       /* inside the 24h window a real button; otherwise a template */
       let res = await sendCtaUrl(env, phone, text.split('\n')[0], kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה', link, 'client', ctx);
