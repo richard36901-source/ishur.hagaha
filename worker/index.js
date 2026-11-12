@@ -12159,7 +12159,12 @@ const WORKER = {
     /* coexist.html posts Meta's Embedded Signup FINISH payload here, so the
        new phone_number_id / waba_id are in the log even if the tab closes */
     if (url.pathname === '/api/coexist-done' && request.method === 'POST') {
-      let b = {}; try { b = await request.json(); } catch {}
+      /* 12/11 security: this route is public (Meta's Embedded Signup calls back into the page), so it is bounded:
+         a few calls an hour per address, ids are digits only, and nothing but the three ids is kept or posted */
+      if (await overBudget(env, 'rl:coexist:' + (request.headers.get('CF-Connecting-IP') || 'x'), 5, 3600)) return deny(429, 'slow-down', origin);
+      let b0 = {}; try { b0 = await request.json(); } catch {}
+      const idOf = v => String(v == null ? '' : v).replace(/\D/g, '').slice(0, 24);
+      const b = { phone_number_id: idOf(b0 && b0.phone_number_id), waba_id: idOf(b0 && b0.waba_id), business_id: idOf(b0 && b0.business_id) };
       const detail = `phone_number_id=${b.phone_number_id || '?'} · waba_id=${b.waba_id || '?'} · business_id=${b.business_id || '?'}`;
       if (env.RATE) await env.RATE.put('coexist:last', JSON.stringify({ ...b, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
       await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
