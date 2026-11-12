@@ -1,12 +1,76 @@
 {
-  "version_tag": "20261110-e964733-dirty",
-  "commit": "e9647332ece1",
+  "version_tag": "20261112-8f7c986-dirty",
+  "commit": "8f7c98662241",
   "branch": "integ-2026-11-02",
-  "date": "2026-11-10T10:39:13.439Z",
+  "date": "2026-11-12T12:50:31.231Z",
   "by": "AutoScale",
   "since": null,
   "dirty": true,
   "commits": [
+    {
+      "hash": "8f7c986",
+      "subject": "undelivered 24h: Meta-accepted but never delivered → red 'לא נמסר עדיין' on the client board + one automatic resend by the morning retry (Ri"
+    },
+    {
+      "hash": "e848344",
+      "subject": "clients: hide past/cancelled/held events by default + toggle button (Richard 12/11)"
+    },
+    {
+      "hash": "1ef73e9",
+      "subject": "client board: wave status from real send counts (flag is reopened for retries) → בוצע ✓ + results; בתהליך while partial; info shown while ru"
+    },
+    {
+      "hash": "a79c9e2",
+      "subject": "pay links: clean title to Make (token stays in cField1) — ishur image/gold button set in the Make scenario (Richard 12/11)"
+    },
+    {
+      "hash": "3598c77",
+      "subject": "slack: purchases and upgrades post at once as 🎉 (were info/digest or red P1) — Richard 12/11"
+    },
+    {
+      "hash": "6de582c",
+      "subject": "sdlc(admin-only): intent + plan sketch (Richard 11/11: one admin, delete ops, speed)"
+    },
+    {
+      "hash": "49e3353",
+      "subject": "ops לייב: late-invite queue card (guests added after wave 1) — Richard 11/11 Mor added guests"
+    },
+    {
+      "hash": "7645dd4",
+      "subject": "sdlc(ops-self-serve): report (deployed 11/11)"
+    },
+    {
+      "hash": "e72f62f",
+      "subject": "ops לייב: live counter + release timeline + today/tomorrow per event + 4499/verification cards (#/messages?tab=now); morning digest carries "
+    },
+    {
+      "hash": "fafc80b",
+      "subject": "ops: GET /api/ops/sendlive — live counter, releases, per-event rows, 4499 + verification (Richard 11/11) + route test"
+    },
+    {
+      "hash": "01f949b",
+      "subject": "sendlive: pure live-send math (release timeline, day counts, ETA, event rows) + tests; guest margin 20→10 (Richard 11/11)"
+    },
+    {
+      "hash": "394318e",
+      "subject": "sdlc(ops-self-serve): plan approved + margin 20→10 (Richard 11/11)"
+    },
+    {
+      "hash": "d57e0fa",
+      "subject": "sdlc(ops-self-serve): per-number cap only after verification (Richard 11/11)"
+    },
+    {
+      "hash": "81686df",
+      "subject": "sdlc(ops-self-serve): intent + plan — live cap counter, release times, today/tomorrow per event, 4499 + verification cards (Richard 11/11)"
+    },
+    {
+      "hash": "1478634",
+      "subject": "dashboard: guest row never shows 'לא נשלח' in red — blank until sent; נשלח/התקבל/נקרא unchanged (Richard 11/11)"
+    },
+    {
+      "hash": "4993afe",
+      "subject": "wavenote: one Slack note per guest round per day — exact wording + artwork, no buttons (Richard 10/11)"
+    },
     {
       "hash": "e964733",
       "subject": "lite.js: admin pages open instantly from the last cached read, refresh in the background (ishur:fresh), 'מתעדכן…' badge; reads only, never m"
@@ -22,70 +86,6 @@
     {
       "hash": "d7cdab9",
       "subject": "planner: timed holds release on their day, waveprio share per day, waveorder first (Shoham missing from tomorrow)"
-    },
-    {
-      "hash": "a4bb4ca",
-      "subject": "hourly: when a 4499 template is delivered with no 131042 while the billing alert is set → one Slack line (Richard 09/11)"
-    },
-    {
-      "hash": "eabcec5",
-      "subject": "NOA_CHASE on (Richard 09/11 17:15)"
-    },
-    {
-      "hash": "a51c0fe",
-      "subject": "Noa: apply tunes the agent (responsiveness 1, interruption 0.9); prompt v14 records explained only when asked"
-    },
-    {
-      "hash": "9135b19",
-      "subject": "Noa transfer: brief starts the moment staff answers (no detection pause, no greeting), 'נציגה/נציג' toward the customer, listen when interru"
-    },
-    {
-      "hash": "c70de4b",
-      "subject": "admin bar: back to the separate pages (admin / leads / clients…); center.html stays available but is not the default"
-    },
-    {
-      "hash": "814f81e",
-      "subject": "table.html: drop the privacy footer line"
-    },
-    {
-      "hash": "39ec47a",
-      "subject": "table QR for the entrance: table.html (guest lookup by name/phone → table + mates; ?qr=1 printable poster), /api/table-lookup, buttons on th"
-    },
-    {
-      "hash": "58d5aac",
-      "subject": "client dashboard: printable check-list (checklist.html) — guests by table, seats, tick boxes for arrival + gift, print/PDF; button next to s"
-    },
-    {
-      "hash": "6a403e3",
-      "subject": "live log: one aligned toolbar (search, type dropdown, range, failures), extras behind ⋯, compact in the side panel; pay-link form compact gr"
-    },
-    {
-      "hash": "fa8b5fb",
-      "subject": "board: a small 'why today' line per send (planned / deferred from cap / continued / moved by hand)"
-    },
-    {
-      "hash": "5727406",
-      "subject": "board: card shows only today's sent/of; whole wave in the sheet"
-    },
-    {
-      "hash": "21c83c6",
-      "subject": "center.html: one page, tabs on top (week, sends, calls, floor, leads, clients, inbox, finance, campaign, automations, brain, control), ops l"
-    },
-    {
-      "hash": "c4680b7",
-      "subject": "board: wave line = today's sent of today's plan; whole wave in small print"
-    },
-    {
-      "hash": "7935fa3",
-      "subject": "rate limit: /api/status 600/h, window no longer slides on every hit (dashboards locked out)"
-    },
-    {
-      "hash": "6a69754",
-      "subject": "status: admin-key reads skip the per-IP 120/h budget (clients page showed no events)"
-    },
-    {
-      "hash": "edd4c0e",
-      "subject": "board: next 7 days, event names + client, event sheet on name click, passed events show only thanks, drag & drop (move wave / reorder), live"
     }
   ]
 }

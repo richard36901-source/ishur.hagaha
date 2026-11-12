@@ -13240,7 +13240,7 @@ const WORKER = {
           const answered = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
           /* 12/11: accepted by Meta, not delivered for 24 h, no answer → red "לא נמסר עדיין" (the morning retry resends) */
           const sentAt = staleAt[ph] || 0;
-          const stale = ok && !answered && dlv !== 'delivered' && dlv !== 'read' && sentAt && Date.now() - sentAt > STALE_SENT_MS;
+          const stale = ok && !answered && !dead && dlv !== 'delivered' && dlv !== 'read' && sentAt && Date.now() - sentAt > STALE_SENT_MS;
           const st = answered ? 'sent' : dead ? 'failed' : stale ? 'retrying' : ok ? 'sent' : fail ? 'retrying' : 'none';
           if (stale) return { st, code: 'stale', delivery: '' };
           /* delivery: 'read' (blue ticks) > 'delivered' > 'sent'. A reply proves read. */
