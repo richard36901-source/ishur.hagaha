@@ -13,6 +13,7 @@
     '.wk-day{background:var(--wk-rail);border-radius:14px;padding:.5rem;min-height:120px}' +
     '.wk-day.today{background:transparent;box-shadow:inset 0 0 0 2px var(--gold,#A8853C)}' +
     '.wk-day.past{opacity:.62}' +
+    '.wk-done{font-size:.76rem;font-weight:600;color:var(--wk-ok);background:rgba(46,125,91,.12);border:1px solid rgba(46,125,91,.35);border-radius:8px;padding:.3rem .5rem;margin:0 0 .4rem;text-align:center}' +
     '.wk-dh{display:flex;justify-content:space-between;align-items:baseline;gap:.3rem;padding:.1rem .2rem .45rem}' +
     '.wk-dh b{font-size:.9rem}.wk-dh span{font-size:.7rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
     '.wk-cap{font-size:.68rem;color:var(--wk-mute);padding:0 .2rem .4rem;font-variant-numeric:tabular-nums}.wk-cap.over{color:var(--wk-bad);font-weight:600}' +
@@ -249,6 +250,11 @@
     }
     return h + '</div>';
   }
+  /* 12/11 Richard: "תסמן בירוק שאדע שהיום זהו" — today is done when nothing on it is still waiting or running */
+  function dayDone(day) {
+    var its = (day.items || []).filter(function (it) { return it.kind === 'send' || it.kind === 'call'; });
+    return its.length > 0 && its.every(function (it) { return it.status === 'done' || it.status === 'missed'; });
+  }
   function render() {
     if (!root) return;
     if (!plan) { root.innerHTML = '<div class="wk-empty">לא הצלחתי לטעון את השבוע. רענון בעוד רגע.</div>'; return; }
@@ -268,7 +274,7 @@
     html += '<div class="wk-grid">';
     (plan.days || []).forEach(function (day, di) {
       var cls = 'wk-day' + (day.today ? ' today' : '') + (day.past ? ' past' : '');
-      html += '<section data-day="' + esc(day.day) + '" class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
+      html += '<section data-day="' + esc(day.day) + '" class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>' + (day.today && dayDone(day) ? '<div class="wk-done">✓ היום הושלם · אין עוד מה שיוצא</div>' : '');
       var cap = day.capacity;
       if (day.today && live && live.cap && live.cap.limit) html += '<div class="wk-cap">● עכשיו: ' + num(live.cap.used) + ' מתוך ' + num(live.cap.limit) + ' יצאו ב-24 שעות · נשארו ' + num(live.cap.remaining) + '</div>';
       else if (cap && cap.capacity) html += '<div class="wk-cap' + (cap.overflow > 0 ? ' over' : '') + '">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + (cap.overflow > 0 ? ' · ' + num(cap.overflow) + ' עוברות למחר' : '') + '</div>';
