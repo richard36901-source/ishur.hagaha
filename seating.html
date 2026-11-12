@@ -153,6 +153,8 @@
   var SEAT_PX = 70;  /* one seat per ~70px of circumference → capacity grows as you stretch the table */
   function capOf(t) { if (t.capManual) return t.capManual; var per = t.shape === 'round' ? Math.PI * (t.w + t.h) / 2 : 2 * (t.w + t.h); return Math.max(2, Math.round(per / SEAT_PX)); }
   function seatedAt(t) { return guests.filter(function (g) { return g.table === t.name; }).reduce(function (a, g) { return a + g.party; }, 0); }
+  /* 12/11 security: guest names (a guest can type one on the public RSVP link), table and group names are text, never markup */
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
   function initials(n) { return n.split(/\s+/).slice(0, 2).map(function (w) { return w[0]; }).join(''); }
   function toast(m) { IshurUX.toast(m, 2200); }
   var autoT = null, saving = false;
@@ -166,7 +168,7 @@
     $('cnt').textContent = left.reduce(function (a, g) { return a + g.party; }, 0) + ' מוזמנים עדיין בלי שולחן · ' + guests.filter(function (g) { return g.table; }).length + ' משובצים';
     $('list').innerHTML = guests.filter(function (g) { return (!q || g.name.indexOf(q) >= 0) && (!grpFilter || (groups[g.id] || '') === grpFilter) && (flt === 'all' || (flt === 'pending' ? (g.status === 'pending' || g.status === 'awaiting_call') : g.status === flt)); }).sort(function (a, b) { return (a.table ? 1 : 0) - (b.table ? 1 : 0); }).map(function (g) {
       var gl = groups[g.id] || '';
-      return '<div class="g' + (g.table ? ' seated' : '') + '" data-id="' + g.id + '"><span class="av">' + initials(g.name) + '</span><span class="nm">' + g.name + '</span>' + (g.table ? '<span class="at">' + g.table + '</span>' : '') + '<span class="gt' + (gl ? '' : ' none') + '" data-grp="' + g.id + '" title="קבוצה">' + (gl || '+ קבוצה') + '</span><span class="pp">' + g.party + (g.party === 1 ? ' מקום' : ' מקומות') + (g.status !== 'confirmed' ? ' · ' + (STL[g.status] || '') : '') + '</span></div>';
+      return '<div class="g' + (g.table ? ' seated' : '') + '" data-id="' + esc(g.id) + '"><span class="av">' + esc(initials(g.name)) + '</span><span class="nm">' + esc(g.name) + '</span>' + (g.table ? '<span class="at">' + esc(g.table) + '</span>' : '') + '<span class="gt' + (gl ? '' : ' none') + '" data-grp="' + esc(g.id) + '" title="קבוצה">' + esc(gl || '+ קבוצה') + '</span><span class="pp">' + g.party + (g.party === 1 ? ' מקום' : ' מקומות') + (g.status !== 'confirmed' ? ' · ' + (STL[g.status] || '') : '') + '</span></div>';
     }).join('');
     paintGroups();
   }
@@ -176,7 +178,7 @@
     var names = groupNames().filter(function (n) { return guests.some(function (g) { return groups[g.id] === n; }); });
     el.innerHTML = names.map(function (n) {
       var m = guests.filter(function (g) { return groups[g.id] === n; }), left = m.filter(function (g) { return !g.table; }).reduce(function (a, g) { return a + g.party; }, 0);
-      return '<span class="grp' + (grpFilter === n ? ' on' : '') + '" data-g="' + n + '" title="לחיצה: סינון · גרירה לשולחן: שיבוץ הקבוצה">' + n + ' <b>' + m.length + (left ? ' · ' + left + ' בלי שולחן' : '') + '</b></span>';
+      return '<span class="grp' + (grpFilter === n ? ' on' : '') + '" data-g="' + esc(n) + '" title="לחיצה: סינון · גרירה לשולחן: שיבוץ הקבוצה">' + esc(n) + ' <b>' + m.length + (left ? ' · ' + left + ' בלי שולחן' : '') + '</b></span>';
     }).join('') + '<span class="grp add" id="grpHelp">+ קבוצה: לחצו על "+ קבוצה" ליד אורח</span>';
   }
   /* pick a group for one guest */
@@ -186,8 +188,8 @@
     var g = guests.filter(function (x) { return x.id === t.dataset.grp; })[0]; if (!g) return;
     var box = document.createElement('div'); box.className = 'tplw';
     var names = groupNames();
-    box.innerHTML = '<div class="tpl"><h3>קבוצה של ' + g.name.replace(/</g, '') + '</h3><p style="margin:0 0 .5rem;font-size:.82rem;color:var(--ink3)">בחרו קבוצה, או כתבו חדשה. אחר כך גוררים את הקבוצה כולה לשולחן.</p>' +
-      '<div class="opts" style="grid-template-columns:repeat(2,1fr)">' + names.map(function (n) { return '<div class="opt' + (groups[g.id] === n ? ' on' : '') + '" data-n="' + n + '">' + n + '</div>'; }).join('') + '<div class="opt" data-n="">בלי קבוצה</div></div>' +
+    box.innerHTML = '<div class="tpl"><h3>קבוצה של ' + esc(g.name) + '</h3><p style="margin:0 0 .5rem;font-size:.82rem;color:var(--ink3)">בחרו קבוצה, או כתבו חדשה. אחר כך גוררים את הקבוצה כולה לשולחן.</p>' +
+      '<div class="opts" style="grid-template-columns:repeat(2,1fr)">' + names.map(function (n) { return '<div class="opt' + (groups[g.id] === n ? ' on' : '') + '" data-n="' + esc(n) + '">' + esc(n) + '</div>'; }).join('') + '<div class="opt" data-n="">בלי קבוצה</div></div>' +
       '<div style="display:flex;gap:.4rem"><input id="ngrp" placeholder="קבוצה חדשה" style="flex:1;font:inherit;padding:.45rem .6rem;border:1.5px solid var(--bdr);border-radius:8px"><button class="btn" id="ngrpOk">הוספה</button></div>' +
       '<button class="btn" id="gx" style="width:100%;margin-top:.6rem">סגירה</button></div>';
     document.body.appendChild(box);
@@ -235,7 +237,7 @@
         }
         seats += '<span class="seat' + (i < used ? ' on' : '') + '" style="left:' + (px - 5) + 'px;top:' + (py - 5) + 'px"></span>';
       }
-      el.innerHTML = seats + '<span class="tn">' + t.name + '</span><span class="tc"><b>' + used + '</b> / ' + cap + '</span><span class="rz" title="גררו להגדלה"></span><span class="x" title="הסרת שולחן">×</span>';
+      el.innerHTML = seats + '<span class="tn">' + esc(t.name) + '</span><span class="tc"><b>' + used + '</b> / ' + cap + '</span><span class="rz" title="גררו להגדלה"></span><span class="x" title="הסרת שולחן">×</span>';
       floor.appendChild(el);
     });
     paintPop();
@@ -246,8 +248,8 @@
     var at = guests.filter(function (g) { return g.table === t.name; });
     var p = document.createElement('div'); p.className = 'pop';
     p.style.left = Math.min(t.x + t.w + 12, $('floor').clientWidth - 250) + 'px'; p.style.top = Math.max(8, t.y) + 'px';
-    p.innerHTML = '<div class="ph"><input id="tnm" value="' + t.name + '"><small style="color:var(--ink3)">' + seatedAt(t) + '/' + capOf(t) + '</small></div>' +
-      (at.length ? at.map(function (g) { return '<div class="pr"><span>' + g.name + ' <small>' + g.party + '</small></span><button data-un="' + g.id + '">הסרה</button></div>'; }).join('') : '<div style="color:var(--ink3);font-size:.78rem;padding:.3rem 0">גררו אורחים לכאן</div>') +
+    p.innerHTML = '<div class="ph"><input id="tnm" value="' + esc(t.name) + '"><small style="color:var(--ink3)">' + seatedAt(t) + '/' + capOf(t) + '</small></div>' +
+      (at.length ? at.map(function (g) { return '<div class="pr"><span>' + esc(g.name) + ' <small>' + esc(g.party) + '</small></span><button data-un="' + esc(g.id) + '">הסרה</button></div>'; }).join('') : '<div style="color:var(--ink3);font-size:.78rem;padding:.3rem 0">גררו אורחים לכאן</div>') +
       '<div class="cap">מקומות: <input type="number" id="tcap" min="2" max="40" value="' + capOf(t) + '"> <small>או משכו את הנקודה הזהובה</small></div>';
     $('floor').appendChild(p);
     p.querySelector('#tnm').addEventListener('change', function (e) { var nn = e.target.value.trim() || t.name; guests.forEach(function (g) { if (g.table === t.name) g.table = nn; }); t.name = nn; markDirty(); paintTables(); paintList(); });

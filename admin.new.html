@@ -1145,10 +1145,10 @@
       else if (e.cancelled) invPill = '<span class="pill p-warn">—</span>';
       else { invPill = '<span class="pill p-no">חסרה</span>'; missingInv++; }
       tr.innerHTML =
-        '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + '</td>' +
+        '<td>' + esc(e.name || e.client || '—') + (e.occasion ? ' · ' + esc(e.occasion) : '') + '</td>' +
         '<td>' + holdCell(e) + '</td>' +
         '<td>' + heDate(e.date) + '</td>' +
-        '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
+        '<td>' + esc(e.plan || '—') + (e.tier ? ' · ' + esc(e.tier) : '') + '</td>' +
         '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
         '<td>' + (costIls ? costIls.toFixed(2) : '0') + '</td>' +
         '<td style="font-weight:600;color:' + (profit >= 0 ? '#0F4C35' : '#A8402F') + '">' + (Math.round(profit * 100) / 100).toLocaleString('he-IL') + '</td>' +
@@ -1649,7 +1649,7 @@
         d.utm.forEach(function (u) {
           var tr = document.createElement('tr');
           var pct = d.leads_total ? Math.round(u[1] / d.leads_total * 100) : 0;
-          tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td>';
+          tr.innerHTML = '<td>' + esc(u[0]) + '</td><td>' + esc(u[1]) + '</td><td>' + pct + '%</td>';
           rows.appendChild(tr);
         });
         syncFolds();

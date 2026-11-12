@@ -1100,13 +1100,13 @@
     if (m.video_url) {
       /* no browser controls (their menu ignores the site's design): the clip
          loops muted; a tap toggles sound; a tap on the preview opens it full */
-      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
+      prev.innerHTML = '<video src="' + escH(m.video_url) + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
       /* no autoplay: a 3MB clip was holding the whole page load (31s on 17/09) */
       var v = prev.querySelector('video');
       v.addEventListener('click', function () { if (v.paused) { v.muted = false; v.play(); } else v.pause(); });
       txt.innerHTML = '<b>מצורף וידאו</b> להזמנה. ההזמנה תישלח עם הווידאו.';
     } else if (m.image_url) {
-      prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
+      prev.innerHTML = '<img src="' + escH(m.image_url) + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
       txt.innerHTML = '<b>מצורפת תמונה</b> להזמנה. כך היא תיראה אצל המוזמנים.';
     } else {
       prev.innerHTML = '<span style="font-size:2rem">🖼️</span>';
@@ -1655,13 +1655,13 @@
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       var ck = data.checkin && data.checkin.enabled && g.id
-        ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + g.arrived : 'הגיע?') + '</button>'
+        ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '</button>'
         : '';
       return '<div class="row' + (g.self ? ' self' : '') + '">' + ck +
-             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name ? escH(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + escH(g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
-             '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
+             '<span class="row-s">' + (g.seats ? escH(g.seats) : '—') + '</span>' + tbl + '</div>';
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
     $('seatBar').hidden = !anyConfirmed;

@@ -1146,7 +1146,7 @@ async function noteLead(env, f) {
     guests: String(f.guest_range || f.guests || '').trim().slice(0, 30),
     plan: String(f.plan_name || f.plan || '').trim().slice(0, 30),
     price: String(f.price || '').trim().slice(0, 10),
-    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
+    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').replace(/[<>"]/g, '').trim().slice(0, 80)).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
     page: String(f.page || '').replace(/^https?:\/\/(www\.)?/, '').split('?')[0].slice(0, 60),
     type: String(f.event_type || '').trim().slice(0, 30),
   };
@@ -12505,7 +12505,7 @@ const WORKER = {
       if (!rec) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpself:' + ip, 10, 3600)) return deny(429, 'slow-down', origin);
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
@@ -13061,7 +13061,7 @@ const WORKER = {
       if (!rec) return deny(404, 'unknown-token', origin);
       if (await overBudget(env, 'rl:gedit:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
       const gid = String(b.guest_id || '').trim();
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = b.phone != null ? normPhone(b.phone || '') : '';
       if (!name) return deny(400, 'bad-name', origin);
       if (b.phone != null && !isWaPhone(phone)) return deny(400, 'bad-phone', origin);
@@ -13186,7 +13186,7 @@ const WORKER = {
       if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
       if (b.mode === 'tier' && tier.left <= 0) return okJson({ ok: false, error: 'tier-full', used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
       if (mode === 'free' && used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT, tier }, origin);
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
