@@ -10665,6 +10665,18 @@ async function changeWrap(request, env, inner) {
 }
 
 const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
+/* 12/11 /api/admin/home: what may ride in a batch — the admin READ routes (the same list assets/lite.js caches)
+   and GET /api/ops/*; never a body with an action-like field, never the batch route itself. */
+const HOME_READS = new Set(['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff']);
+const HOME_MUTATING = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
+export function homeReadOk(p, m, body) {
+  const path = String(p || '').split('?')[0];
+  if (!/^\/api\/[a-zA-Z0-9/_-]+$/.test(path) || path === '/api/admin/home') return false;
+  if (m === 'GET') return path.startsWith('/api/ops/');
+  if (!HOME_READS.has(path.slice(5))) return false;
+  const b = body && typeof body === 'object' ? body : {};
+  return !HOME_MUTATING.some(k => b[k] !== undefined && b[k] !== null && b[k] !== false && b[k] !== '');
+}
 const WORKER = {
   /* 04/11 incident: work queued with ctx.waitUntil gets only ~30 s after the
      handler returns, so the long cron jobs (main pacer pass, סקירה plan) were cut
@@ -10839,6 +10851,31 @@ const WORKER = {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
+    }
+    /* 12/11 אדמין אחד (.sdlc/admin-only §4): the admin page asks for everything its view needs in ONE request.
+       {admin_key, calls:[{p:'/api/…', m:'POST'|'GET', b:{…}}]} → each read runs through this same handler and comes
+       back as {s, t}. Reads only: the route must be on the list and the body may not carry an action-like field.
+       /api/ops/realtime (3–5 s to build) is kept 60 s in KV. */
+    if (url.pathname === '/api/admin/home' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const ip = request.headers.get('CF-Connecting-IP') || '';
+      const calls = (Array.isArray(b.calls) ? b.calls : []).slice(0, 20);
+      const results = await Promise.all(calls.map(async c => {
+        try {
+          const p = String((c && c.p) || ''), m = c && c.m === 'GET' ? 'GET' : 'POST';
+          if (!homeReadOk(p, m, c && c.b)) return { s: 400, t: '{"ok":false,"error":"not-a-batchable-read"}' };
+          const cacheKey = m === 'GET' && p.split('?')[0] === '/api/ops/realtime' ? 'homecache:realtime' : '';
+          if (cacheKey && env.RATE) { const hit = await env.RATE.get(cacheKey).catch(() => null); if (hit) return { s: 200, t: hit, cached: true }; }
+          const rq = new Request('https://go.ishur.io' + p, { method: m, headers: { 'Content-Type': 'application/json', 'x-admin-key': String(b.admin_key), Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) },
+            ...(m === 'POST' ? { body: JSON.stringify({ ...((c && c.b) || {}), admin_key: b.admin_key }) } : {}) });
+          const r = await WORKER.fetchMain(rq, env, ctx);
+          const t = await r.text();
+          if (cacheKey && env.RATE && r.status === 200 && t.length < 400000) await env.RATE.put(cacheKey, t, { expirationTtl: 60 }).catch(() => {});
+          return { s: r.status, t };
+        } catch (e) { return { s: 500, t: JSON.stringify({ ok: false, error: 'batch-item-failed' }) }; }
+      }));
+      return okJson({ ok: true, results }, origin);
     }
     /* 03/11 edit-in-place: the cron-driven settings also bind the ops routes and the manual send routes */
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);

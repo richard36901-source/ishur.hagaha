@@ -1,0 +1,764 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="facebook-domain-verification" content="sit2y0wo8hge473jshdqoh2czat1xb">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
+<meta name="robots" content="noindex, nofollow">
+<title>אינבוקס · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=84"></script>
+<script src="/next/assets/batch.js?v=1"></script>
+<script src="/assets/ux.js?v=4"></script>
+<script src="/next/assets/adminbar.js?v=1" defer></script>
+<script>
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --paper:#F8F4EA; --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8; --ok:#0F4C35; --warn:#A8402F;
+    --me:#DCF3E6; --them:#fff; --on-ok:#fff;
+  }
+  html[data-theme=dark]{
+    --gold:#C7AE7A; --ink:#E8EBE7; --ink2:#C2C9C1; --ink3:#8D968C;
+    --bg:#131714; --card:#1A201C; --line:#2A322C; --ok:#4CAF82; --warn:#F08A8A;
+    --me:#173425; --them:#1E2621; --on-ok:#0A2119;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none !important}   /* our flex rules would otherwise beat the attribute */
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:.8rem 1rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid rgba(199,174,122,.3);flex-shrink:0}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head a{color:var(--gold-soft);font-size:.75rem;text-decoration:none}
+  .head-btns{display:flex;gap:.5rem;align-items:center}
+  .hbtn{background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA;border-radius:99px;padding:.25rem .7rem;font:inherit;font-size:.72rem;cursor:pointer}
+  .hbtn:focus-visible{outline:2px solid var(--gold-soft);outline-offset:2px}
+
+  .sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
+
+  .split{flex:1;display:flex;min-height:0}
+  .list{width:min(320px,38vw);border-inline-end:1px solid var(--line);overflow-y:auto;background:var(--card);flex-shrink:0}
+
+  /* ── channel tabs ── */
+  .tabs{display:flex;gap:.3rem;padding:.45rem .5rem;background:var(--card);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:5;overflow-x:auto;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{flex:1 1 0;min-width:max-content;background:var(--bg);border:1px solid var(--line);border-radius:11px;padding:.32rem .5rem;font:inherit;color:var(--ink2);cursor:pointer;text-align:center;line-height:1.18;white-space:nowrap}
+  .tab-t{display:block;font-size:.77rem;font-weight:600}
+  .tab-s{display:block;font-size:.6rem;color:var(--ink3);margin-top:.05rem;direction:ltr;unicode-bidi:isolate}
+  .tab-s.he{direction:rtl}
+  .tab-n{display:inline-block;min-width:1.15rem;padding:0 .28rem;margin-inline-start:.28rem;border-radius:99px;background:rgba(15,46,34,.09);font-size:.64rem;font-weight:600}
+  html[data-theme=dark] .tab-n{background:rgba(199,174,122,.16)}
+  .tab[aria-selected=true]{background:var(--ok);border-color:var(--ok);color:var(--on-ok);box-shadow:0 1px 4px rgba(15,76,53,.18)}
+  .tab[aria-selected=true] .tab-s{color:var(--on-ok);opacity:.75}
+  .tab[aria-selected=true] .tab-n{background:rgba(255,255,255,.22);color:var(--on-ok)}
+  html[data-theme=dark] .tab[aria-selected=true] .tab-n{background:rgba(10,33,25,.18)}
+  .tab:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+
+  .conv{display:block;width:100%;text-align:right;background:none;border:none;border-bottom:1px solid var(--line);padding:.65rem .9rem;cursor:pointer;font:inherit;color:var(--ink)}
+  .conv.on{background:rgba(15,76,53,.08)}
+  html[data-theme=dark] .conv.on{background:rgba(76,175,130,.12)}
+  .conv:focus-visible{outline:2px solid var(--gold);outline-offset:-2px}
+  .conv b{display:flex;justify-content:space-between;align-items:baseline;font-size:.85rem;font-weight:600;gap:.4rem}
+  .conv b .cname{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .conv b time{flex-shrink:0;font-weight:400;font-size:.68rem;color:var(--ink3)}
+  .conv span.prev{display:block;font-size:.75rem;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:.1rem}
+  .cnum{font-weight:400;font-size:.68rem;color:var(--ink3);direction:ltr;unicode-bidi:isolate;margin:0 .3rem}  /* physical: the element's own ltr would flip a logical margin */
+  .ch{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(15,76,53,.1);color:var(--ok);margin-inline-start:.3rem;white-space:nowrap}
+  html[data-theme=dark] .ch{background:rgba(76,175,130,.14)}
+  /* nonrelevant tag (nr:<phone>) — grey, deliberately duller than .ch */
+  .nr{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(120,120,120,.14);color:var(--ink3);margin-inline-start:.3rem;white-space:nowrap}
+  html[data-theme=dark] .nr{background:rgba(255,255,255,.1)}
+
+  .pane{flex:1;display:flex;flex-direction:column;min-width:0}
+  .pane-h{padding:.55rem 1rem;border-bottom:1px solid var(--line);background:var(--card);display:flex;align-items:flex-start;gap:.5rem}
+  .backb{display:none;flex-shrink:0;color:var(--ink2);border-color:var(--line);background:none;margin-top:.1rem}
+  .pane-id{flex:1;min-width:0}
+  .pane-name{display:flex;align-items:center;flex-wrap:wrap;gap:.1rem;font-size:.92rem;font-weight:600}
+  .pane-name .ch{margin-inline-start:.35rem}
+  .pane-sub{font-size:.68rem;color:var(--ink3);margin-top:.05rem;overflow:hidden;text-overflow:ellipsis}
+  .pane-phone{display:flex;align-items:center;flex-wrap:wrap;gap:.4rem;margin-top:.2rem}
+  .pane-phone .p{color:var(--ink2);font-size:.76rem;direction:ltr;unicode-bidi:isolate;letter-spacing:.02em}
+  .pane-since{font-size:.66rem;color:var(--ink3);margin-top:.18rem}
+  .copyb{display:inline-flex;align-items:center;gap:.25rem;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:.12rem .45rem;font:inherit;font-size:.66rem;color:var(--ink2);cursor:pointer;white-space:nowrap}
+  .copyb:hover{border-color:var(--gold);color:var(--ink)}
+  .copyb:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .copyb.done{background:rgba(15,76,53,.12);border-color:var(--ok);color:var(--ok)}
+  .copyb.bad{border-color:var(--warn);color:var(--warn)}
+  .copyb svg{width:.78rem;height:.78rem;flex-shrink:0}
+
+  .thread{flex:1;overflow-y:auto;padding:1rem;display:flex;flex-direction:column;gap:.45rem}
+  /* WhatsApp-style thread (27/09): tails, time + ticks inside the bubble, date chips, inline media, quick-reply rows */
+  .thread{background:var(--paper) url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='40' height='40'><circle cx='20' cy='20' r='1' fill='rgba(15,76,53,.06)'/></svg>")}
+  :root[data-theme="dark"] .thread{background-image:none}
+  .daychip{align-self:center;background:var(--card);border:1px solid var(--line);color:var(--ink3);font-size:.68rem;padding:.2rem .7rem;border-radius:999px;margin:.4rem 0;box-shadow:0 1px 1px rgba(0,0,0,.04)}
+  .msg{max-width:min(74%,460px);border-radius:12px;padding:.42rem .55rem .3rem;font-size:.86rem;line-height:1.5;position:relative;white-space:pre-wrap;overflow-wrap:anywhere;box-shadow:0 1px 1px rgba(0,0,0,.06)}
+  .msg.out{background:var(--me);align-self:flex-start;border-top-inline-start-radius:3px}
+  .msg.in{background:var(--them);align-self:flex-end;border-top-inline-end-radius:3px}
+  .msg::before{content:"";position:absolute;top:0;width:0;height:0;border:6px solid transparent}
+  .msg.out::before{inset-inline-start:-7px;border-top-color:var(--me);border-inline-end-color:var(--me)}
+  .msg.in::before{inset-inline-end:-7px;border-top-color:var(--them);border-inline-start-color:var(--them)}
+  .msg .hdr{font-weight:700;margin-bottom:.15rem}
+  .msg .txt{display:block}
+  .msg .foot{display:block;font-size:.7rem;color:var(--ink3);margin-top:.25rem}
+  .msg .txt a{color:#1a8adf;text-decoration:underline;overflow-wrap:anywhere}
+  .msg .meta{display:flex;justify-content:flex-start;align-items:center;gap:.3rem;margin-top:.15rem;line-height:1;direction:ltr;float:left;margin-inline-end:.4rem}
+  .msg::after{content:"";display:block;clear:both}
+  .msg time{font-size:.62rem;color:var(--ink3);margin:0}
+  .msg .tick{font-size:.72rem;color:#8a8f98;letter-spacing:-.12em;line-height:1}
+  .msg .tick.read{color:#34B7F1}
+  .msg .tick.failed{color:var(--warn);letter-spacing:0}
+  .msg .fail{display:block;color:var(--warn);font-size:.68rem;font-weight:600;margin-top:.2rem}
+  .msg .resend{display:inline-block;margin-top:.25rem;font:inherit;font-size:.7rem;font-weight:600;padding:.18rem .55rem;border-radius:999px;border:1px solid var(--ok);background:var(--card);color:var(--ok);cursor:pointer}
+  .msg .resend:disabled{opacity:.5;cursor:default}
+  .msg .who{display:block;font-size:.64rem;color:var(--ink3);margin-top:.1rem}
+  .msg .vid,.msg .pic{display:block;width:100%;max-width:340px;border-radius:9px;margin:-.1rem 0 .35rem;background:#000}
+  .msg .pic{background:none;object-fit:cover;max-height:360px}
+  .btns{display:flex;flex-direction:column;gap:.15rem;width:min(74%,340px);align-self:flex-start;margin-top:-.15rem}
+  .btns.in{align-self:flex-end}
+  .btns .btn{background:var(--card);border-radius:9px;padding:.38rem .6rem;text-align:center;font-size:.86rem;color:#1a8adf;font-weight:500;box-shadow:0 1px 1px rgba(0,0,0,.06);text-decoration:none;line-height:1.3}
+  :root[data-theme="dark"] .btns .btn{color:#53BDEB}
+  .btns .btn.reply::before{content:"↩ ";opacity:.6}
+  .empty{margin:auto;color:var(--ink3);font-size:.9rem;text-align:center;padding:2rem}
+
+  .composer{display:flex;gap:.5rem;padding:.7rem 1rem;border-top:1px solid var(--line);background:var(--card);flex-shrink:0}
+  .composer textarea{flex:1;font:inherit;font-size:.85rem;border:1px solid var(--line);border-radius:12px;padding:.5rem .8rem;resize:none;height:2.6rem;background:var(--bg);color:var(--ink)}
+  .composer button{font:inherit;font-size:.85rem;font-weight:600;border:none;border-radius:12px;padding:0 1.1rem;cursor:pointer}
+  .composer button:focus-visible,.composer textarea:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  #send{background:var(--ok);color:var(--on-ok)}
+  #tmplBtn{background:none;border:1px solid var(--line);color:var(--ink2)}
+  .note24{font-size:.66rem;color:var(--ink3);padding:0 1rem .5rem;background:var(--card)}
+
+  /* template popup */
+  .pop-bg{position:fixed;inset:0;background:rgba(15,46,34,.4);display:none;z-index:30}
+  .pop-bg.on{display:block}
+  .pop{position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);width:min(420px,92vw);background:var(--card);border:1px solid var(--line);border-radius:14px;padding:1rem;z-index:31;display:none}
+  .pop.on{display:block}
+  .pop h3{font-size:.95rem;margin-bottom:.6rem}
+  .pop select,.pop input{width:100%;font:inherit;font-size:.8rem;border:1px solid var(--line);border-radius:9px;padding:.4rem .6rem;margin-bottom:.45rem;background:var(--bg);color:var(--ink)}
+  .pop-btns{display:flex;gap:.5rem;justify-content:flex-end;margin-top:.4rem}
+  .pop-btns button{font:inherit;font-size:.8rem;border-radius:9px;padding:.4rem .9rem;cursor:pointer;border:1px solid var(--line);background:var(--card);color:var(--ink)}
+  .pop-btns .go{background:var(--ok);color:var(--on-ok);border-color:var(--ok)}
+
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 1rem}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .gate p.err{color:var(--warn);font-size:.8rem;min-height:1.2rem;margin-top:.4rem}
+  @media (max-width:640px){
+    .list{width:100%;border:none}
+    .pane{display:none}
+    body.open .list{display:none}
+    body.open .pane{display:flex}
+    .backb{display:inline-block}
+    .tab{padding:.32rem .42rem}
+    .tab-t{font-size:.74rem}
+    .tab-s{font-size:.56rem}
+  }
+  button:not(:disabled):active{transform:scale(.97)}
+  @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
+  .aisw{font-size:.72rem;font-weight:500;color:var(--ink2);margin-inline-start:.5rem;white-space:nowrap;cursor:pointer}
+  .msg .media{margin-top:.3rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
+  .msg .media .dl{font:inherit;font-size:.72rem;padding:.15rem .55rem;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer}
+  .msg .who{display:block;font-size:.66rem;opacity:.7;margin-top:.15rem}
+</style>
+</head>
+<body>
+<header class="head">
+  <h1>ishur<i>.io</i> · אינבוקס</h1>
+  <div class="head-btns">
+    <button class="hbtn" id="themeTog" aria-label="מצב כהה / בהיר">🌙</button>
+    <button class="hbtn" id="refresh">רענון</button>
+    <a href="admin.html">→ מרכז הבקרה</a>
+  </div>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2 style="font-family:'Frank Ruhl Libre',serif;color:var(--gold)">כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<div class="split" id="split" hidden>
+  <div class="list" id="listCol">
+    <div class="tabs" role="tablist" aria-label="סינון לפי מספר">
+      <button class="tab" role="tab" id="tabAll" data-ch="all" aria-selected="true" aria-controls="convList" tabindex="0">
+        <span class="tab-t">הכל<span class="tab-n" id="cAll">·</span></span>
+        <span class="tab-s he">כל השיחות</span>
+      </button>
+      <button class="tab" role="tab" id="tabClient" data-ch="client" aria-selected="false" aria-controls="convList" tabindex="-1">
+        <span class="tab-t">נועה<span class="tab-n" id="cClient">·</span></span>
+        <span class="tab-s he">מספר הלקוחות</span>
+      </button>
+      <button class="tab" role="tab" id="tabGuests" data-ch="guests" aria-selected="false" aria-controls="convList" tabindex="-1">
+        <span class="tab-t">אורחים<span class="tab-n" id="cGuests">·</span></span>
+        <span class="tab-s">055-972-6673</span>
+      </button>
+    </div>
+    <div id="convList" role="tabpanel" aria-labelledby="tabAll"></div>
+  </div>
+  <div class="pane">
+    <div class="pane-h" hidden id="paneH">
+      <button class="hbtn backb" id="backBtn" aria-label="חזרה לרשימת השיחות">→</button>
+      <div class="pane-id">
+        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span><span class="nr" id="pNr" hidden>לא רלוונטי</span> <label class="aisw" title="כשכבוי, נועה לא עונה בשיחה הזאת אף פעם. עדכוני מערכת ממשיכים לצאת"><input type="checkbox" id="aiSw"> נועה עונה כאן</label></div>
+        <div class="pane-sub" id="pWa" hidden></div>
+        <div class="pane-phone">
+          <span class="p" id="pPhone"></span>
+          <button class="copyb" id="copyPhone" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            <span id="copyLbl">העתקה</span>
+          </button>
+        </div>
+        <div class="pane-since" id="pSince" hidden></div>
+      </div>
+    </div>
+    <div class="thread" id="thread"><div class="empty">בוחרים שיחה מהרשימה ורואים כאן את כל ההיסטוריה</div></div>
+    <p class="note24" id="note24" hidden>מענה חופשי עובר רק בתוך 24 שעות מההודעה האחרונה של הצד השני. מעבר לזה, שולחים תבנית.</p>
+    <div class="composer" id="composer" hidden>
+      <textarea id="txt" placeholder="כתבו תשובה…"></textarea>
+      <button id="tmplBtn" title="שליחת תבנית">תבנית</button>
+      <button id="send">שליחה</button>
+    </div>
+  </div>
+</div>
+
+<div class="pop-bg" id="popBg"></div>
+<div class="pop" id="pop">
+  <h3>שליחת תבנית</h3>
+  <select id="tmplSel"></select>
+  <div id="tmplParams"></div>
+  <div class="pop-btns">
+    <button id="popCancel">ביטול</button>
+    <button class="go" id="popSend">שליחה</button>
+  </div>
+</div>
+
+<span class="sr" id="live" role="status" aria-live="polite"></span>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var adminKey = '';
+  var current = null;        /* phone of the open thread */
+  var currentConv = null;    /* the conversation object behind it */
+  var timer = null;
+  var counts = { all: null, client: null, guests: null };
+
+  /* ── theme ── */
+  (function () {
+    var b = $('themeTog');
+    function paint() { b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'; }
+    b.addEventListener('click', function () {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) document.documentElement.removeAttribute('data-theme');
+      else document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
+      paint();
+    });
+    paint();
+  })();
+
+  /* ── the same admin key the control room uses ── */
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) { adminKey = ''; }
+
+  function gate(msg) {
+    $('gate').hidden = false; $('split').hidden = true;
+    if (msg) $('keyErr').textContent = msg;
+  }
+  $('keyGo').addEventListener('click', function () {
+    adminKey = $('keyIn').value.trim();
+    if (!adminKey) return;
+    try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {}
+    boot();
+  });
+
+  /* stale-while-revalidate: the last list and each thread are kept in
+     sessionStorage, painted at once, and refreshed from the server behind */
+  function cacheKey(payload) { return 'ishur_inbox:' + (payload.phone || 'list:' + (payload.channel || '')); }
+  function cacheGet(payload) { try { var v = sessionStorage.getItem(cacheKey(payload)); return v ? JSON.parse(v) : null; } catch (e) { return null; } }
+  function cachePut(payload, d) { try { sessionStorage.setItem(cacheKey(payload), JSON.stringify(d)); } catch (e) {} }
+  function api(payload, onFresh) {
+    var cached = cacheGet(payload);
+    var net = apiNet(payload).then(function (d) { if (d && d.ok) { cachePut(payload, d); if (cached && onFresh) onFresh(d); } return d; });
+    if (cached && onFresh) return Promise.resolve(cached);
+    return net;
+  }
+  function apiNet(payload) {
+    payload.admin_key = adminKey;
+    return fetch(CFG.endpoint('inbox'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    }).then(function (r) {
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); return null; } gate('המפתח לא נכון'); return null; }
+      return r.status === 200 ? r.json() : null;
+    }).catch(function () { return null; });
+  }
+
+  /* ── formatting helpers ── */
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+
+  /* 972545764327 → 054-576-4327. Anything we do not recognise stays +digits. */
+  function fmtPhone(p) {
+    var d = String(p == null ? '' : p).replace(/\D/g, '');
+    if (!d) return '';
+    if (d.indexOf('972') === 0 && d.length > 3) {
+      var loc = '0' + d.slice(3);
+      if (loc.length === 10) return loc.slice(0, 3) + '-' + loc.slice(3, 6) + '-' + loc.slice(6);
+      if (loc.length === 9) return loc.slice(0, 2) + '-' + loc.slice(2, 5) + '-' + loc.slice(5);
+      return loc;
+    }
+    return '+' + d;
+  }
+
+  /* name from the sheet, then the name the person gave WhatsApp, then nothing */
+  function dispName(c) {
+    if (!c) return 'לא מזוהה';
+    return (c.name && String(c.name).trim()) || (c.wa_name && String(c.wa_name).trim()) || 'לא מזוהה';
+  }
+
+  function hhmm(d) { return d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
+
+  /* compact stamp for the conversation list */
+  function listTime(ts) {
+    if (!ts) return '';
+    var d = new Date(ts), n = new Date();
+    if (d.toDateString() === n.toDateString()) return hhmm(d);
+    var o = { day: 'numeric', month: 'numeric' };
+    if (d.getFullYear() !== n.getFullYear()) o.year = '2-digit';
+    return d.toLocaleDateString('he-IL', o);
+  }
+  /* stamp under a bubble — carries the year once the thread is old */
+  function msgTime(ts) {
+    if (!ts) return '';
+    var d = new Date(ts), n = new Date();
+    if (d.toDateString() === n.toDateString()) return hhmm(d);
+    var o = { day: 'numeric', month: 'numeric' };
+    if (d.getFullYear() !== n.getFullYear()) o.year = '2-digit';
+    return d.toLocaleDateString('he-IL', o) + ' ' + hhmm(d);
+  }
+  function longDate(ts) {
+    return new Date(ts).toLocaleDateString('he-IL', { day: 'numeric', month: 'long', year: 'numeric' });
+  }
+
+  /* ── channel tabs ── */
+  var CH_KEY = 'ishur_inbox_channel';
+  var channel = 'all';
+  try {
+    var saved = localStorage.getItem(CH_KEY);
+    if (saved === 'all' || saved === 'client' || saved === 'guests') channel = saved;
+  } catch (e) {}
+
+  var tabs = [$('tabAll'), $('tabClient'), $('tabGuests')];
+  var countEl = { all: $('cAll'), client: $('cClient'), guests: $('cGuests') };
+
+  function paintTabs() {
+    tabs.forEach(function (t) {
+      var on = t.getAttribute('data-ch') === channel;
+      t.setAttribute('aria-selected', on ? 'true' : 'false');
+      t.tabIndex = on ? 0 : -1;
+      if (on) $('convList').setAttribute('aria-labelledby', t.id);
+    });
+  }
+  function paintCounts() {
+    ['all', 'client', 'guests'].forEach(function (k) {
+      countEl[k].textContent = counts[k] == null ? '·' : String(counts[k]);
+    });
+  }
+  function setChannel(ch, moveFocus) {
+    if (ch !== 'all' && ch !== 'client' && ch !== 'guests') return;
+    channel = ch;
+    try { localStorage.setItem(CH_KEY, ch); } catch (e) {}
+    paintTabs();
+    if (moveFocus) { tabs.forEach(function (t) { if (t.getAttribute('data-ch') === ch) t.focus(); }); }
+    loadConvs();
+  }
+  tabs.forEach(function (t, i) {
+    t.addEventListener('click', function () { setChannel(t.getAttribute('data-ch'), false); });
+    t.addEventListener('keydown', function (e) {
+      var j;
+      if (e.key === 'ArrowLeft') j = i + 1;        /* RTL: left is "next" */
+      else if (e.key === 'ArrowRight') j = i - 1;  /* RTL: right is "previous" */
+      else if (e.key === 'Home') j = 0;
+      else if (e.key === 'End') j = tabs.length - 1;
+      else return;
+      e.preventDefault();
+      j = (j + tabs.length) % tabs.length;
+      setChannel(tabs[j].getAttribute('data-ch'), true);
+    });
+  });
+  paintTabs();
+  paintCounts();
+
+  /* ── conversation list ──
+     counts come back computed over whatever the server just filtered, so the
+     only response we trust for them is the unfiltered one. */
+  function loadConvs() {
+    var want = channel;
+    var onAll = function (d) {
+      if (!d || !d.ok) return;
+      if (d.counts) { counts = d.counts; paintCounts(); }
+      if (channel === want) paintList(d.conversations || []);
+      shown();
+    };
+    if (want === 'all') { api({}, onAll).then(onAll); return; }
+    var onCh = function (d) {
+      if (!d || !d.ok) return;
+      if (channel === want) paintList(d.conversations || []);
+      shown();
+    };
+    api({ channel: want }, onCh).then(onCh);
+    api({}).then(function (d) {
+      if (d && d.ok && d.counts) { counts = d.counts; paintCounts(); }
+    });
+  }
+  function shown() { $('gate').hidden = true; $('split').hidden = false; }
+
+  function paintList(list) {
+    var host = $('convList'); host.innerHTML = '';
+    if (!list.length) {
+      host.innerHTML = '<div class="empty">' +
+        (channel === 'all'
+          ? 'עוד אין שיחות. ברגע שמישהו יכתוב — זה יופיע כאן.'
+          : 'אין שיחות במספר הזה.') + '</div>';
+      return;
+    }
+    list.forEach(function (c) {
+      if (c.phone === current) { currentConv = c; paintHeader(c); }
+      var nm = dispName(c);
+      var unknown = !(c.name && String(c.name).trim()) && !(c.wa_name && String(c.wa_name).trim());
+      var b = document.createElement('button');
+      b.className = 'conv' + (current === c.phone ? ' on' : '');
+      b.innerHTML = '<b><span class="cname"><span dir="auto">' + esc(nm) + '</span>' +
+        (unknown ? '<span class="cnum">' + esc(fmtPhone(c.phone)) + '</span>' : '') +
+        (c.kind ? '<span class="ch">' + esc(c.kind) + '</span>' : '') +
+        (c.nonrelevant ? '<span class="nr">לא רלוונטי</span>' : '') +
+        '</span><time>' + esc(listTime(c.last_ts)) + '</time></b>' +
+        '<span class="prev">' + (c.last_dir === 'out' ? '↩ ' : '') + esc(c.last_text || '') + '</span>';
+      b.addEventListener('click', function () { openConv(c); });
+      host.appendChild(b);
+    });
+  }
+
+  /* ── thread header ── */
+  var WEEK = 7 * 24 * 60 * 60 * 1000;
+  function paintHeader(c) {
+    if (!c) return;
+    $('pName').textContent = dispName(c);
+
+    $('pKind').textContent = c.kind || '';
+    $('pKind').hidden = !c.kind;
+    $('pNr').hidden = !c.nonrelevant;
+
+    var wa = (c.wa_name && String(c.wa_name).trim()) || '';
+    var nm = (c.name && String(c.name).trim()) || '';
+    var showWa = !!wa && wa !== nm;
+    $('pWa').hidden = !showWa;
+    $('pWa').innerHTML = showWa ? 'בוואטסאפ: <span dir="auto">' + esc(wa) + '</span>' : '';
+
+    $('pPhone').textContent = fmtPhone(c.phone);
+    var raw = String(c.phone || '').replace(/\D/g, '');
+    var tip = 'מעתיק את המספר הבינלאומי המלא: ' + raw;
+    $('copyPhone').title = tip;
+    $('copyPhone').setAttribute('aria-label', tip);
+
+    var old = c.first_ts && (Date.now() - c.first_ts > WEEK);
+    $('pSince').hidden = !old;
+    $('pSince').textContent = old ? 'שיחה מאז ' + longDate(c.first_ts) : '';
+  }
+
+  function openConv(c) {
+    current = c.phone;
+    currentConv = c;
+    document.body.classList.add('open');
+    $('paneH').hidden = false;
+    $('composer').hidden = false;
+    $('note24').hidden = false;
+    paintHeader(c);
+    loadThread();
+    loadConvs();
+  }
+
+  function loadThread() {
+    if (!current) return;
+    var want = current;
+    var paint = function (d) {
+      if (!d || !d.ok || current !== want) return;
+      /* the thread endpoint knows the freshest wa_name and nr: tag state */
+      if ($('aiSw')) { $('aiSw').checked = !d.ai_off; $('aiSw').disabled = false; }
+      if (currentConv && ((typeof d.wa_name === 'string' && d.wa_name) || currentConv.nonrelevant !== !!d.nonrelevant)) {
+        if (d.wa_name) currentConv.wa_name = d.wa_name;
+        currentConv.nonrelevant = !!d.nonrelevant;
+        paintHeader(currentConv);
+      }
+      var host = $('thread'); host.innerHTML = '';
+      var msgs = (d.messages || []).slice();
+      /* what we just sent, until the server's list catches up (KV lists lag their own writes by up to a minute) */
+      pendingOut = pendingOut.filter(function (pm) { return !msgs.some(function (sm) { return sm.id && sm.id === pm.id; }); });
+      pendingOut.forEach(function (pm) { if (pm.to === want) msgs.push(pm); });
+      msgs.sort(function (a, b) { return a.ts - b.ts; });
+      if (!msgs.length) { host.innerHTML = '<div class="empty">אין הודעות בשיחה הזאת עדיין.</div>'; return; }
+      var lastDay = '';
+      msgs.forEach(function (m) {
+        var day = new Date(m.ts).toDateString();
+        if (day !== lastDay) {
+          lastDay = day;
+          var chip = document.createElement('div'); chip.className = 'daychip';
+          var dd = new Date(m.ts), nn = new Date();
+          chip.textContent = dd.toDateString() === nn.toDateString() ? 'היום' : (nn - dd < 2 * 864e5 && dd.getDate() === nn.getDate() - 1) ? 'אתמול' : longDate(m.ts);
+          host.appendChild(chip);
+        }
+        var el = document.createElement('div');
+        el.className = 'msg ' + (m.dir === 'out' ? 'out' : 'in');
+        var text = m.text || (m.type === 'template' ? 'תבנית' + (m.tmpl ? ' · ' + m.tmpl : '') : (m.type || ''));
+        var linkBtns = [];
+        text = String(text);
+        var KIND = { document: 'קובץ', image: 'תמונה', video: 'סרטון', audio: 'הקלטה', sticker: 'סטיקר' };
+        var media = '';
+        if (m.media && m.media.url) {
+          if (m.media.kind === 'video') media = '<video class="vid" controls preload="metadata" src="' + esc(m.media.url) + '"></video>';
+          else if (m.media.kind === 'image') media = '<img class="pic" loading="lazy" src="' + esc(m.media.url) + '" alt="">';
+          else if (m.media.kind === 'document') media = '<div class="media"><a href="' + esc(m.media.url) + '" target="_blank" rel="noopener">📎 קובץ</a></div>';
+        } else if (m.media && m.media.id) {
+          media = '<div class="media"><span>📎 ' + esc(m.media.name || KIND[m.type] || 'קובץ') + (m.media.mime ? ' <small>' + esc(m.media.mime) + '</small>' : '') + '</span> ' +
+            '<button type="button" class="dl" data-id="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-name="' + esc(m.media.name || (m.type + '-' + m.ts)) + '">הורדה</button></div>';
+        } else if (KIND[m.type]) {
+          media = '<div class="media"><span>📎 ' + KIND[m.type] + ' <small>לא זמין להורדה, נשלח לפני שהאינבוקס שמר קבצים</small></span></div>';
+        }
+        if (media && (!m.text || m.text === m.type)) text = '';
+        var hdr = (m.media && m.media.kind === 'text' && m.media.text) ? '<span class="hdr">' + esc(m.media.text) + '</span>' : '';
+        var tick = '';
+        if (m.dir === 'out' && m.ok !== false) {
+          var ST = { sent: ['✓', 'נשלחה'], delivered: ['✓✓', 'נמסרה'], read: ['✓✓', 'נקראה'], failed: ['✕', 'לא נמסרה'] };
+          var st = ST[m.status] || (m.id ? ST.sent : null);
+          if (st) tick = '<span class="tick ' + esc(m.status || 'sent') + '" title="' + st[1] + (m.error ? ': ' + esc(m.error) : '') + '">' + st[0] + '</span>';
+        }
+        el.innerHTML = (m.media && m.media.kind !== 'text' ? media : '') + hdr +
+          '<span class="txt">' + esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>') + '</span>' +
+          (m.media && m.media.kind === 'text' ? '' : (m.media && m.media.url ? '' : media)) +
+          (m.footer ? '<span class="foot">' + esc(m.footer) + '</span>' : '') +
+          (m.status === 'failed' || m.ok === false ? '<span class="fail">ⓘ ' + esc(explainErr(m.error)) + '</span>' + (canResend(m) ? '<button type="button" class="resend" data-ts="' + m.ts + '">↻ שלח שוב</button>' : '') : '') +
+          (m.who && !/ריצ|נשלח שוב/.test(m.who) ? '<small class="who">' + esc(m.who) + '</small>' : '') +
+          '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>';
+        el.querySelectorAll('.resend').forEach(function (b) { b.addEventListener('click', function () { resend(m, b); }); });
+        host.appendChild(el);
+        var allBtns = (m.buttons || []).concat(linkBtns);
+        if (allBtns.length) {
+          var bx = document.createElement('div'); bx.className = 'btns' + (m.dir === 'in' ? ' in' : '');
+          bx.innerHTML = allBtns.map(function (b) {
+            if (b.type === 'URL' && b.url) return '<a class="btn" href="' + esc(b.url) + '" target="_blank" rel="noopener">🔗 ' + esc(b.text) + '</a>';
+            return '<span class="btn reply">' + esc(b.text) + '</span>';
+          }).join('');
+          host.appendChild(bx);
+        }
+      });
+      host.scrollTop = host.scrollHeight;
+    };
+    api({ phone: want }, paint).then(paint);
+  }
+
+  /* download a file the customer sent: the worker fetches it from Meta */
+  $('thread').addEventListener('click', function (e) {
+    var b = e.target.closest('button.dl'); if (!b) return;
+    b.disabled = true; b.textContent = 'מוריד…';
+    fetch(CFG.endpoint('mediadl'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, id: b.dataset.id, ch: b.dataset.ch }) })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(function (blob) {
+        var a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+        var ext = (blob.type.split('/')[1] || 'bin').replace('vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx').replace('quicktime', 'mov');
+        a.download = /\.[a-z0-9]{2,5}$/i.test(b.dataset.name) ? b.dataset.name : b.dataset.name + '.' + ext;
+        document.body.appendChild(a); a.click(); a.remove();
+        b.disabled = false; b.textContent = 'הורדה';
+      }).catch(function () { b.disabled = false; b.textContent = 'לא זמין יותר'; });
+  });
+  /* the per-chat switch: Noa answers here, or never */
+  $('aiSw').addEventListener('change', function () {
+    if (!current) return;
+    var on = $('aiSw').checked; $('aiSw').disabled = true;
+    fetch(CFG.endpoint('human'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, phone: current, ai: on }) })
+      .then(function (r) { return r.json(); }).then(function (j) { $('aiSw').checked = !!(j && j.ai); $('aiSw').disabled = false; })
+      .catch(function () { $('aiSw').disabled = false; });
+  });
+
+  $('backBtn').addEventListener('click', function () {
+    document.body.classList.remove('open');
+  });
+
+  /* ── copy the phone ──
+     we copy the clean international number (972545764327) because that is what
+     gets pasted back into the sheet, the worker and wa.me — not the dashes. */
+  function fallbackCopy(s) {
+    try {
+      var ta = document.createElement('textarea');
+      ta.value = s;
+      ta.setAttribute('readonly', '');
+      ta.style.cssText = 'position:fixed;top:0;left:0;width:1px;height:1px;opacity:0;pointer-events:none';
+      document.body.appendChild(ta);
+      ta.select();
+      try { ta.setSelectionRange(0, s.length); } catch (e) {}
+      var ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      return !!ok;
+    } catch (e) { return false; }
+  }
+  function copyText(s) {
+    return new Promise(function (resolve) {
+      var p = null;
+      /* navigator.clipboard does not exist over plain http and can throw */
+      try {
+        if (navigator.clipboard && navigator.clipboard.writeText) p = navigator.clipboard.writeText(s);
+      } catch (e) { p = null; }
+      if (p && typeof p.then === 'function') {
+        p.then(function () { resolve(true); }, function () { resolve(fallbackCopy(s)); });
+      } else {
+        resolve(fallbackCopy(s));
+      }
+    });
+  }
+  var copyTimer = null;
+  $('copyPhone').addEventListener('click', function () {
+    if (!current) return;
+    var raw = String(current).replace(/\D/g, '');
+    var btn = this;
+    copyText(raw).then(function (ok) {
+      btn.classList.toggle('done', ok);
+      btn.classList.toggle('bad', !ok);
+      $('copyLbl').textContent = ok ? 'הועתק' : 'לא הצלחנו';
+      $('live').textContent = ok ? 'הועתק: ' + raw : 'ההעתקה נכשלה. אפשר לסמן את המספר ידנית.';
+      clearTimeout(copyTimer);
+      copyTimer = setTimeout(function () {
+        btn.classList.remove('done'); btn.classList.remove('bad');
+        $('copyLbl').textContent = 'העתקה';
+      }, 1800);
+    });
+  });
+
+  /* ── free-text reply ── */
+  var ERR = {
+    '131042': 'בעיית תשלום בחשבון מטא של המספר השולח. ההודעה לא הגיעה.',
+    '131047': 'עברו יותר מ-24 שעות מההודעה האחרונה של הצד השני. אפשר לשלוח רק תבנית.',
+    '131053': 'מטא לא הצליחה לטעון את הקובץ/הסרטון המצורף.',
+    '131026': 'המספר לא בוואטסאפ, או שחסם אותנו.',
+    '131049': 'מטא הגבילה הודעות שיווקיות לאיש הקשר הזה כרגע.',
+    '130472': 'איש הקשר נמצא בניסוי של מטא ולא מקבל הודעות שיווקיות.',
+    '132001': 'התבנית לא קיימת או לא מאושרת בחשבון השולח.',
+    '132015': 'התבנית מושהית על ידי מטא.',
+    '131056': 'יותר מדי הודעות לאותו מספר בזמן קצר.',
+    '470': 'עברו יותר מ-24 שעות, צריך תבנית.',
+    '131000': 'תקלה זמנית אצל מטא.'
+  };
+  function explainErr(e) {
+    var s = String(e || ''); var code = (s.match(/\d{3,6}/) || [''])[0];
+    return 'לא נמסרה. ' + (ERR[code] || (s ? s : 'סיבה לא ידועה.'));
+  }
+  function canResend(m) { return m.dir === 'out' && (m.type === 'text' ? !!m.text : m.type === 'template' ? !!(m.tmpl && m.params) : false); }
+  function resend(m, btn) {
+    if (!current) return;
+    btn.disabled = true; btn.textContent = 'שולח…';
+    var payload = { admin_key: adminKey, to: current, channel: m.ch || 'client' };
+    if (m.type === 'template') { payload.mode = 'template'; payload.template = m.tmpl; payload.params = m.params || []; if (m.media && m.media.url && m.media.kind !== 'text') payload.image_url = m.media.url; if (m.lang) payload.lang = m.lang; }
+    else { payload.mode = 'text'; payload.text = m.text; }
+    fetch(CFG.endpoint('wasend'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+      .then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        if (d && d.ok) {
+          pendingOut.push({ dir: 'out', type: m.type, text: m.text, tmpl: m.tmpl, params: m.params, media: m.media, buttons: m.buttons, footer: m.footer, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'נשלח שוב', to: current, ch: m.ch });
+          loadThread();
+        } else { btn.disabled = false; btn.textContent = '↻ שלח שוב'; window.IshurUX && IshurUX.toast ? IshurUX.toast('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '')) : null; }
+      }).catch(function () { btn.disabled = false; btn.textContent = '↻ שלח שוב'; });
+  }
+  var pendingOut = [];
+  function doSend() {
+    var t = $('txt').value.trim();
+    if (!t || !current) return;
+    $('send').disabled = true;
+    fetch(CFG.endpoint('wasend'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, to: current, mode: 'text', text: t })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        $('send').disabled = false;
+        if (d && d.ok) { pendingOut.push({ dir: 'out', type: 'text', text: t, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'ריצ׳רד', to: current }); $('txt').value = ''; loadThread(); }
+        else alert('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '') + '. אם עברו 24 שעות, שלחו תבנית.');
+      }).catch(function () { $('send').disabled = false; });
+  }
+  $('send').addEventListener('click', doSend);
+  $('txt').addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); doSend(); }
+  });
+
+  /* ── template popup ── */
+  var TMPLS = {
+    'ishur_tashlum': { label: 'קישור העלאה למשלם', params: ['שם פרטי', 'קישור העלאה'] },
+    'ishur_doch': { label: 'דוח ללקוח', params: ['שם האירוע', 'אישרו', 'סועדים', 'סירבו', 'ממתינים', 'קישור דשבורד'] },
+    'hazmana_ishur': { label: 'הזמנה לאורח', params: ['שם האורח', 'סוג האירוע', 'בעלי השמחה', 'תאריך', 'שעה', 'מקום'] },
+    'ishur_shulchan': { label: 'מספר שולחן', params: ['שם האורח', 'שם האירוע', 'מספר שולחן'] },
+    'ishur_syum': { label: 'סיום אירוע', params: ['שם האירוע', 'אישרו', 'סועדים', 'סירבו', 'ללא מענה', 'קישור ביקורת', 'קישור המלצה'] },
+  };
+  var sel = $('tmplSel');
+  Object.keys(TMPLS).forEach(function (k) {
+    var o = document.createElement('option');
+    o.value = k; o.textContent = TMPLS[k].label + ' (' + k + ')';
+    sel.appendChild(o);
+  });
+  function paintParams() {
+    var host = $('tmplParams'); host.innerHTML = '';
+    TMPLS[sel.value].params.forEach(function (p, i) {
+      var inp = document.createElement('input');
+      inp.placeholder = (i + 1) + ' · ' + p;
+      inp.dataset.i = i;
+      host.appendChild(inp);
+    });
+  }
+  sel.addEventListener('change', paintParams);
+  $('tmplBtn').addEventListener('click', function () {
+    if (!current) return;
+    paintParams();
+    $('popBg').classList.add('on'); $('pop').classList.add('on');
+  });
+  function closePop() { $('popBg').classList.remove('on'); $('pop').classList.remove('on'); }
+  $('popCancel').addEventListener('click', closePop);
+  $('popBg').addEventListener('click', closePop);
+  $('popSend').addEventListener('click', function () {
+    var params = Array.prototype.map.call($('tmplParams').querySelectorAll('input'), function (i) { return i.value.trim(); });
+    if (params.some(function (p) { return !p; })) { alert('כל השדות נדרשים'); return; }
+    $('popSend').disabled = true;
+    fetch(CFG.endpoint('wasend'), {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ admin_key: adminKey, to: current, mode: 'template', template: sel.value, params: params })
+    }).then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        $('popSend').disabled = false;
+        if (d && d.ok) { closePop(); loadThread(); }
+        else alert('השליחה נכשלה' + (d && d.error ? ': ' + d.error : ''));
+      }).catch(function () { $('popSend').disabled = false; });
+  });
+
+  /* ── refresh loop ── */
+  $('refresh').addEventListener('click', function () { loadConvs(); loadThread(); });
+  function boot() {
+    if (!adminKey) { gate(); return; }
+    loadConvs();
+    clearInterval(timer);
+    var tick = 0;
+    timer = setInterval(function () { tick++; loadThread(); if (tick % 3 === 0) loadConvs(); }, 10000);
+  }
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,647 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
+<meta name="robots" content="noindex">
+<title>לקוחות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=89"></script>
+<script src="/next/assets/batch.js?v=1"></script>
+<script src="/assets/ux.js?v=4"></script>
+<script src="/next/assets/adminbar.js?v=1" defer></script>
+<script src="/assets/guard.js?v=19"></script>
+<script src="/assets/lite.js?v=1"></script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:1.4rem 1rem 4rem}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.6rem;margin:0 0 .2rem}
+  .sub{color:var(--ink3);font-size:.82rem;margin:0 0 1rem}
+  .bar{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center;margin-bottom:.8rem}
+  select,input[type=search]{font:inherit;padding:.45rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:.9rem 1rem;margin-bottom:.7rem}
+  .card.inactive{opacity:.55}
+  .top{display:flex;justify-content:space-between;gap:.8rem;flex-wrap:wrap;align-items:baseline}
+  .name{font-weight:700;font-size:1.05rem}
+  .meta{color:var(--ink2);font-size:.84rem}
+  .tags{display:flex;gap:.35rem;flex-wrap:wrap;margin:.45rem 0}
+  .tag{font-size:.72rem;padding:.1rem .5rem;border-radius:6px;background:var(--rail);color:var(--ink2)}
+  .tag.on{background:rgba(46,125,91,.13);color:var(--good)}
+  .tag.warn{background:rgba(168,64,47,.12);color:var(--warn)}
+  .acts{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.5rem}
+  .btn{font:inherit;font-size:.82rem;padding:.4rem .75rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none}
+  .btn.p{background:var(--pine);color:#fff;border-color:var(--pine)}
+  .btn.g{border-color:var(--gold);color:var(--gold)}
+  .gate{max-width:340px;margin:4rem auto;text-align:center}
+  .gate input{width:100%;padding:.7rem;font:inherit;border:1px solid var(--line);border-radius:10px;text-align:center;direction:ltr;margin:.6rem 0}
+  .gate button{width:100%;padding:.7rem;font:inherit;border:none;border-radius:10px;background:var(--pine);color:#fff}
+  .empty{color:var(--ink3);text-align:center;padding:2rem}
+  .toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--pine);color:#fff;padding:.6rem 1rem;border-radius:10px;font-size:.85rem;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+  .btn.d{color:#A8402F;border-color:rgba(168,64,47,.45)}
+  .btn.d:hover{border-color:#A8402F}
+  /* 12/11 Richard: compact rows — two buttons on the card, everything else in the "ניהול אירוע" popup */
+  .card .acts{margin-top:.45rem}
+  #list > .card{padding:.6rem .9rem;margin-bottom:.45rem}
+  #list > .card .tags{margin:.3rem 0 0}
+  #list > .card .tag{font-size:.74rem;padding:.12rem .45rem}
+  .pop-bg{position:fixed;inset:0;background:rgba(20,28,24,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
+  .pop{background:var(--card);border:1px solid var(--line);border-radius:12px;width:min(560px,100%);max-height:90vh;overflow:auto;padding:1rem 1.1rem}
+  .pop h2{margin:0 0 .15rem;font-size:1.05rem}
+  .pop .sec{margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line)}
+  .pop .sec h3{margin:0 0 .4rem;font-size:.78rem;color:var(--ink3,#777);font-weight:600;letter-spacing:.02em}
+  .pop .acts{margin-top:0}
+  .pop .x{float:left;border:0;background:none;font-size:1.3rem;cursor:pointer;color:var(--ink3,#777)}
+  /* the RSVP progress bar in the popup (NOT .bar — that is the filter toolbar; 12/11 collision hid the toolbar) */
+  .rsvpbar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;display:flex;margin:.35rem 0}
+  .rsvpbar i{display:block;height:100%}
+  .rsvpbar .y{background:var(--pine)} .rsvpbar .n{background:#A8402F} .rsvpbar .m{background:var(--gold)}
+  .sends{width:100%;border-collapse:collapse;font-size:.82rem}
+  .sends td{padding:.3rem .2rem;border-top:1px solid var(--line);vertical-align:middle}
+  .sends input[type=date]{font:inherit;font-size:.78rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:6px}
+  .st{display:inline-block;padding:.08rem .45rem;border-radius:999px;font-size:.72rem;background:var(--bg2,#f1efe8);color:var(--ink3,#777)}
+  .st.ok{background:rgba(31,78,58,.12);color:var(--pine)} .st.run{background:rgba(168,133,60,.15);color:var(--gold)}
+  .fbx{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .5rem}
+  .fbi{font-size:.78rem;background:#FBF3DF;color:#5A4A1E;border-radius:8px;padding:.25rem .55rem}
+  .fbi small{color:#8A7A4E}
+  /* 12/11 הפניות tab */
+  .tabs{display:flex;gap:.3rem;border-bottom:1px solid var(--line);margin:0 0 .8rem}
+  .tab{font:inherit;font-size:.9rem;padding:.45rem .9rem;border:0;border-bottom:2px solid transparent;background:none;color:var(--ink2);cursor:pointer}
+  .tab[aria-selected="true"]{color:var(--pine);border-bottom-color:var(--gold);font-weight:600}
+  .tbadge{font-size:.7rem;background:var(--gold);color:#fff;border-radius:99px;padding:.05rem .45rem;margin-inline-start:.25rem}
+  .rt{width:100%;border-collapse:collapse;font-size:.84rem;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .rt th,.rt td{padding:.5rem .6rem;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  .rt th{font-size:.74rem;color:var(--ink3);font-weight:600;background:var(--rail)}
+  .rt tr:last-child td{border-bottom:0}
+  .h2s{font-size:.8rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin:1.2rem 0 .5rem;font-weight:600}
+  .cards{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  .cards .card{margin:0}
+  .pm-h{font-size:.76rem;letter-spacing:.08em;color:var(--ink3);font-weight:600;margin:.9rem 0 .3rem}
+  .pm-l{display:grid;grid-template-columns:1fr auto auto;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.86rem}
+  .dz-b{font-size:.86rem;background:var(--rail);border-radius:8px;padding:.5rem .7rem;margin-top:.5rem;line-height:1.5}
+  .dz-r{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.4rem}.dz-r img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+  .pill{font-size:.72rem;padding:.1rem .5rem;border-radius:6px;background:var(--rail);color:var(--ink2)}
+  .pill.ok{background:rgba(46,125,91,.13);color:var(--good)}
+  .pill.wait{background:rgba(180,136,74,.15);color:#8A6D2F}
+  .refNote{font-size:.8rem;background:rgba(180,136,74,.1);border:1px solid rgba(180,136,74,.35);border-radius:8px;padding:.4rem .6rem;margin:.4rem 0}
+  .opsEdit{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:.5rem .7rem;margin-top:.7rem;padding:.7rem;border:1px solid var(--line,#e4dfd2);border-radius:8px}
+  .opsEdit[hidden]{display:none}
+  .opsEdit label{display:grid;gap:.2rem;font-size:.76rem;color:var(--ink3,#6b6b6b)}
+  .opsEdit input{padding:.45rem .55rem;border:1px solid var(--line,#e4dfd2);border-radius:6px;font:inherit;font-size:.9rem;background:var(--card,#fff);color:var(--ink,#1c1c1c);min-width:0}
+  .opsEdit .acts,.opsEdit .meta{grid-column:1/-1}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+  <p style="font-size:.75rem"><a href="/admin-login.html" style="color:var(--gold)">או כניסה עם קוד</a></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <h1>לקוחות</h1>
+  <!-- 12/11 הזמן חבר: a second tab for referrals + review credits -->
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" data-tab="clients" role="tab" aria-selected="true">לקוחות</button>
+    <button type="button" class="tab" data-tab="referrals" role="tab" aria-selected="false">הפניות ושגרירים <span class="tbadge" id="refBadge" hidden></span></button>
+    <button type="button" class="tab" data-tab="staff" role="tab" aria-selected="false">דיילות</button>
+    <button type="button" class="tab" data-tab="designs" role="tab" aria-selected="false">עיצובים <span class="tbadge" id="dzBadge" hidden></span></button>
+  </div>
+  <div id="tabClients">
+  <p class="sub">כל אירוע ששולם, החדש למעלה. מכאן נכנסים לדשבורד ולהעלאה של הלקוח, מחליפים רשימה, ונותנים תוספות בחינם.</p>
+  <div class="bar">
+    <select id="fActive"><option value="all">הכל</option><option value="active">פעילים</option><option value="inactive">לא פעילים</option></select>
+    <button type="button" class="btn" id="fPast" aria-pressed="false">הצג אירועים שעברו ובוטלו</button>
+    <input type="search" id="q" placeholder="חיפוש: שם, טלפון, אירוע">
+    <span class="meta" id="count"></span>
+  </div>
+  <div id="list"></div>
+  <p class="empty" id="empty" hidden>אין אירועים.</p>
+  </div>
+  <div id="tabReferrals" hidden>
+    <!-- 12/11 שגרירים: people without an event who share our link — two fixed links each, visits + closed + earned -->
+    <h2 class="h2s">שגרירים</h2>
+    <p class="sub">אנשים ואולמות בלי אירוע שמשתפים את הקישור. לכל אחד שני קישורים קבועים: הנחה לחברים וצבירה לו. שולחים לו את "הלוח שלו", שם הוא מזין שם פעם אחת.</p>
+    <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><select id="pKind" style="font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><option value="person">אדם</option><option value="venue">אולם</option></select><input id="pPhone" inputmode="tel" dir="ltr" placeholder="טלפון (לא חובה)" style="width:150px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><input id="pLabel" placeholder="כינוי פנימי (למשל: דנה מהחדר כושר)" style="flex:1;min-width:200px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="60"><button type="button" class="btn g" id="pAdd">הוספת שגריר</button></div>
+    <table class="rt" id="pTable" hidden><thead><tr><th>שגריר</th><th>נכנסו</th><th>סגרו</th><th>הכניס לנו</th><th>חברים חסכו</th><th>צבר</th><th></th></tr></thead><tbody id="pList"></tbody></table>
+    <p class="empty" id="pEmpty" hidden>עוד אין שגרירים.</p>
+    <h2 class="h2s">הפניות של לקוחות</h2>
+    <p class="sub">מי הפנה את מי, מה שולם ומה מגיע. זיכוי נזקף למפנה רק אחרי שיצאה חשבונית לחבר, או כשאתה מאשר כאן ידנית.</p>
+    <p class="meta" id="refLine" style="margin:0 0 .6rem"></p>
+    <table class="rt" id="refTable"><thead><tr><th>מפנה</th><th>חבר</th><th>תאריך</th><th>סכום</th><th>מסלול</th><th>הנחה / זיכוי</th><th>מצב</th><th>מומש</th></tr></thead><tbody></tbody></table>
+    <p class="empty" id="refEmpty" hidden>עוד אין הפניות.</p>
+    <h2 class="h2s">יתרות זיכוי</h2>
+    <div id="refLedgers" class="cards"></div>
+    <h2 class="h2s">מי בחר מה</h2>
+    <div id="refRefs" class="cards"></div>
+  </div>
+  <!-- 12/11 עיצובים: every paid invitation design — the request, our versions, the client's answer -->
+  <div id="tabDesigns" hidden>
+    <p class="sub">בקשות עיצוב מלוח הלקוח. מעלים קובץ ולוחצים "שלח ללקוח": הוא רואה את הגרסה בלוח שלו, מאשר או מבקש תיקונים. עיצוב שאושר הופך אוטומטית לתמונת ההזמנה של האירוע.</p>
+    <div id="dzList" class="cards"></div>
+  </div>
+  <!-- 12/11 דיילות: registered numbers + the attendance log they write to Noa -->
+  <div id="tabStaff" hidden>
+    <p class="sub">לכל דיילת קישור דיווח אישי. היא לוחצת "הגעתי", "חופה" או "עזבתי", המצלמה נפתחת, והצילום נשלח מיד: השעה נקבעת אצלנו ואי אפשר לשלוח תמונה ישנה. מצורף גם המיקום. הודעת וואטסאפ לנועה נרשמת כהערה בלבד, בלי הוכחה.</p>
+    <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><input id="sName" placeholder="שם הדיילת" style="flex:1;min-width:150px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="40"><input id="sPhone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" style="width:160px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><button type="button" class="btn g" id="sAdd">הוספת דיילת</button></div>
+    <div id="sList" class="cards"></div>
+    <h2 class="h2s">יומן נוכחות</h2>
+    <table class="rt" id="sLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה (שרת)</th><th>הוכחה</th><th>אירוע</th><th>פירוט</th></tr></thead><tbody></tbody></table>
+    <p class="empty" id="sEmpty" hidden>עוד אין דיווחים.</p>
+  </div>
+</main>
+<div class="toast" id="toast"></div>
+<script>
+(function () {
+  var fb = {};
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var adminKey = '';
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var events = [], flags = {}, subevents = [];
+  var REFS = { refs: [], records: [], claims: [], ledgers: {}, pending_line: '' };
+
+  function api(name, body) {
+    var payload = Object.assign({ admin_key: adminKey }, body || {});
+    return fetch(CFG.endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) });
+  }
+  function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(function () { el.classList.remove('on'); }, 1800); }
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function when(e) { var d = Date.parse(e.paid_at || ''); return isNaN(d) ? 0 : d; }
+  function heDate(iso) { var d = new Date(iso); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }); }
+
+  window.addEventListener('ishur:fresh', function () { load(); });
+  function load() {
+    api('status', { view: 'biz' }).then(function (r) {
+      if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(load, 2500); return null; } localStorage.removeItem('ishur_calls_key'); gate('המפתח לא נכון'); return null; }
+      return r.json();
+    }).then(function (d) {
+      if (!d) return;
+      $('gate').hidden = true; $('main').hidden = false;
+      subevents = d.subevents || [];
+      events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
+      api('feedback-list', {}).then(function (r) { return r.json(); }).then(function (f) { fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
+      loadRefs(); loadPartners(); loadDesigns();
+      return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
+    }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
+  }
+
+  /* ── 12/11 הזמן חבר: the הפניות tab ─────────────────────────────────────── */
+  function loadRefs() {
+    return api('referrals', {}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) return;
+      REFS = d;
+      var pend = (d.records || []).filter(function (x) { return x.status === 'pending'; }).length;
+      $('refBadge').hidden = !pend; $('refBadge').textContent = pend;
+      renderRefs();
+      var popEl = document.querySelector('#pop .pop'); if (popEl) openManage(popEl.dataset.t);
+    }).catch(function () {});
+  }
+  function heDT(iso) { return iso ? String(iso).slice(0, 10).split('-').reverse().join('.') : '—'; }
+  function refName(r) { return esc(r.referrer_name || r.referrer_phone || r.code); }
+  function recOf(token) { return (REFS.records || []).filter(function (r) { return r.friend_token === token; })[0] || null; }
+  function renderRefs() {
+    var recs = REFS.records || [];
+    $('refLine').textContent = REFS.pending_line || 'אין זיכויים ממתינים למימוש.';
+    $('refEmpty').hidden = !!recs.length;
+    $('refTable').hidden = !recs.length;
+    $('refTable').querySelector('tbody').innerHTML = recs.map(function (r) {
+      var how = r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit;
+      var st = r.status === 'verified' ? '<span class="pill ok">מאומת · ' + (r.verified_by === 'invoice' ? 'חשבונית' : 'ידני') + '</span>'
+        : '<span class="pill wait">ממתין</span> <button class="btn g" data-ract="verify" data-id="' + esc(r.id) + '">אשר הפניה</button>';
+      var rd = r.status !== 'verified' ? '—' : r.redeemed ? '<span class="pill ok">מומש ' + heDT(r.redeemed_at) + '</span>' : (r.path === 'commission' ? '<button class="btn" data-ract="redeem" data-phone="' + esc(r.referrer_phone) + '">סמן כמומש</button>' : '—');
+      return '<tr><td>' + refName(r) + '<br><small class="meta" dir="ltr">' + esc(r.referrer_phone) + '</small></td>' +
+        '<td>' + esc(r.friend_name || '') + '<br><small class="meta" dir="ltr">' + esc(r.friend_phone) + '</small>' + (r.friend_token ? ' <a class="btn" style="padding:.1rem .4rem;font-size:.72rem" href="/dashboard.html?t=' + esc(r.friend_token) + '" target="_blank">לוח</a>' : '') + '</td>' +
+        '<td>' + heDT(r.at) + '</td><td>₪' + esc(r.sum_total) + '<br><small class="meta">חבילה ₪' + esc(r.sum_package) + (r.note === 'unstructured' ? ' (לא מזוהה)' : '') + '</small></td>' +
+        '<td>' + (r.path === 'discount' ? '20% הנחה' : '20% עמלה') + '<br><small class="meta">' + esc(r.via) + '</small></td><td>' + how + '</td><td>' + st + '</td><td>' + rd + '</td></tr>';
+    }).join('');
+    var L = REFS.ledgers || {};
+    var lk = Object.keys(L).filter(function (p) { return (L[p].entries || []).length; });
+    $('refLedgers').innerHTML = lk.length ? lk.map(function (p) {
+      var l = L[p], who = ((REFS.refs || []).filter(function (x) { return x.phone === p; })[0] || {}).name || '';
+      return '<div class="card"><div class="top"><span class="name">' + esc(who || p) + '</span><span class="meta">יתרה ₪' + l.balance + '</span></div>' +
+        '<div class="meta" dir="ltr">' + esc(p) + '</div><div class="tags">' + (l.entries || []).map(function (e) { return '<span class="tag on">' + ({ referral: 'הפניה', review_google: 'ביקורת בגוגל', review_video: 'סרטון' }[e.kind] || e.kind) + ' ₪' + e.ils + '</span>'; }).join('') + (l.redeemed || []).map(function (e) { return '<span class="tag">מומש ₪' + e.ils + ' · ' + heDT(e.at) + '</span>'; }).join('') + '</div>' +
+        (l.balance ? '<div class="acts"><button class="btn g" data-ract="redeem" data-phone="' + esc(p) + '">סמן ₪' + l.balance + ' כמומש</button></div>' : '') + '</div>';
+    }).join('') : '<p class="empty">אין זיכויים.</p>';
+    var rf = REFS.refs || [];
+    $('refRefs').innerHTML = rf.length ? rf.map(function (r) {
+      return '<div class="card"><div class="top"><span class="name">' + esc(r.name || r.phone) + '</span><span class="meta">' + (r.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה') + (r.locked ? ' · נעול' : '') + '</span></div><div class="meta">קוד <span dir="ltr">' + esc(r.code) + '</span> · ishur.io/?ref=' + esc(r.code) + ' · ' + heDT(r.at) + '</div></div>';
+    }).join('') : '<p class="empty">אף לקוח עוד לא בחר.</p>';
+  }
+  /* ── 12/11 שגרירים: create, follow, and "ניהול שגריר" (send materials / a report over WhatsApp, in one click) ── */
+  var PARTNERS = [];
+  function waTo(phone, text) { return 'https://wa.me/' + (phone || '') + '?text=' + encodeURIComponent(text); }
+  function pMaterials(p) {
+    var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+    return 'היי ' + (p.name || p.label).split(' ')[0] + ', אלה החומרים שלך לשיתוף של ishur.io:\n\n' +
+      'הלוח האישי שלך (מעקב + תמונות לסטורי): ' + p.board + '\n\n' +
+      'קישור עם 20% הנחה לחברים: ' + by.discount.link + '\n' +
+      'קישור צבירה (20% לך): ' + by.commission.link + '\n\n' +
+      'בוחרים איזה קישור לשלוח לכל אחד. בלוח יש תמונות מוכנות לסטורי עם מקום להדביק את הקישור.';
+  }
+  function pReport(p) {
+    var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+    var D = by.discount, C = by.commission, fr = p.friends || [];
+    return 'היי ' + (p.name || p.label).split(' ')[0] + ', עדכון מ-ishur.io:\n' +
+      'נכנסו דרך הקישורים שלך: ' + (D.visits + C.visits) + '\n' +
+      'סגרו: ' + (D.closed + C.closed) + (fr.length ? ' (' + fr.map(function (f) { return f.name.split(' ')[0]; }).join(', ') + ')' : '') + '\n' +
+      'חברים חסכו: ₪' + D.saved + '\n' +
+      'צברת: ₪' + C.earned + (C.earned_pending ? ' ועוד ₪' + C.earned_pending + ' ממתין לאישור' : '') + '\n\n' +
+      'הפירוט המלא בלוח שלך: ' + p.board;
+  }
+  function pNums(p) {
+    var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+    var D = by.discount, C = by.commission, fr = p.friends || [];
+    return { D: D, C: C, fr: fr, visits: D.visits + C.visits, closed: D.closed + C.closed, brought: fr.reduce(function (n, f) { return n + (Number(f.paid) || 0); }, 0) };
+  }
+  /* one clean row per ambassador; everything else sits behind "ניהול" */
+  function loadPartners() {
+    return api('partner-list', {}).then(function (r) { return r.json(); }).then(function (d) {
+      PARTNERS = (d && d.partners) || [];
+      $('pTable').hidden = !PARTNERS.length; $('pEmpty').hidden = !!PARTNERS.length;
+      $('pList').innerHTML = PARTNERS.map(function (p, i) {
+        var n = pNums(p);
+        return '<tr><td><b>' + esc(p.name || p.label) + '</b>' + (p.kind === 'venue' ? ' <span class="pill">אולם</span>' : '') + (p.name && p.label !== p.name ? '<br><small class="meta">' + esc(p.label) + '</small>' : (!p.name ? '<br><small class="meta">עוד לא הזין שם</small>' : '')) + '</td>' +
+          '<td>' + n.visits + '</td><td>' + n.closed + '</td><td>₪' + n.brought + '</td><td>₪' + n.D.saved + '</td><td>₪' + n.C.earned + (n.C.earned_pending ? '<br><small class="meta">ממתין ₪' + n.C.earned_pending + '</small>' : '') + '</td>' +
+          '<td><button class="btn g" data-pman="' + i + '">ניהול</button></td></tr>';
+      }).join('');
+      var open = document.getElementById('ppop'); if (open) openPartner(Number(open.dataset.i));
+    }).catch(function () {});
+  }
+  function openPartner(i) {
+    var p = PARTNERS[i]; if (!p) return; var n = pNums(p);
+    var old = document.getElementById('ppop'); if (old) old.remove();
+    var lk = function (l, t) { return '<div class="pm-l"><span><b>' + t + '</b><br><small class="meta" dir="ltr">' + esc(l.link) + '</small></span><span class="meta">נכנסו ' + l.visits + ' · סגרו ' + l.closed + '</span><button class="btn" data-pcopy="' + esc(l.link) + '">העתק</button></div>'; };
+    var html = '<div class="pop-bg" id="ppop" data-i="' + i + '"><div class="card pop" role="dialog" aria-modal="true"><button type="button" class="x" data-pclose aria-label="סגירה">×</button>' +
+      '<h2>' + esc(p.name || p.label) + ' <span class="meta">· ' + (p.kind === 'venue' ? 'אולם' : 'שגריר') + ' · מ-' + heDT(p.at) + '</span></h2>' +
+      '<p class="meta" style="margin:.2rem 0 .7rem">' + (p.phone ? 'טלפון: <span dir="ltr">' + esc('0' + String(p.phone).slice(3)) + '</span>' : 'אין טלפון שמור') + ' · <button class="btn" style="padding:.1rem .5rem;font-size:.74rem" data-pphone="' + i + '">' + (p.phone ? 'שינוי' : 'הוספה') + '</button></p>' +
+      '<h3 class="pm-h">הקישורים שלו</h3>' + lk(n.D, '20% הנחה לחברים') + lk(n.C, '20% צבירה לו') +
+      '<h3 class="pm-h">מי הגיע דרכו</h3>' + (n.fr.length ? n.fr.map(function (f) { return '<div class="pm-l"><span><b>' + esc(f.name || f.phone) + '</b><br><small class="meta">' + heDT(f.at) + ' · ' + (f.mode === 'discount' ? 'קישור הנחה' : 'קישור צבירה') + (f.status === 'pending' ? ' · ממתין לאישור' : '') + '</small></span><span>₪' + f.paid + '</span>' + (f.token ? '<a class="btn" href="/dashboard.html?t=' + esc(f.token) + '" target="_blank">לוח</a>' : '<span></span>') + '</div>'; }).join('') : '<p class="meta">עוד אף אחד לא סגר דרכו.</p>') +
+      '<h3 class="pm-h">שליחה אליו</h3><div class="acts">' +
+        (p.phone ? '<a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pMaterials(p))) + '">חומרים לשיתוף</a><a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pReport(p))) + '">דוח: מי הגיע וכמה צבר</a>' : '<span class="meta">כדי לשלוח בלחיצה צריך לשמור טלפון.</span>') +
+        '<button class="btn" data-pcopy="' + esc(p.board) + '">העתק את הלוח שלו</button><a class="btn" href="' + esc(p.board) + '" target="_blank">פתח לוח</a></div></div></div>';
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+  document.addEventListener('click', function (ev) {
+    var pp = document.getElementById('ppop'); if (!pp) return;
+    if (ev.target === pp || ev.target.closest('[data-pclose]')) { pp.remove(); return; }
+    var ph = ev.target.closest('#ppop [data-pphone]');
+    if (ph) { var p = PARTNERS[Number(ph.dataset.pphone)]; var v = prompt('טלפון של ' + (p.name || p.label), p.phone ? '0' + String(p.phone).slice(3) : ''); if (v == null) return; api('partner-update', { p: p.pid, phone: v }).then(function (r) { return r.json(); }).then(function (j) { toast(j && j.ok ? 'נשמר' : 'לא נשמר'); loadPartners(); }); return; }
+    var b = ev.target.closest('#ppop [data-pcopy]');
+    if (b) (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.pcopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); });
+  });
+  /* ── 12/11 עיצובים ── */
+  var DZ = [], DZ_HE = { us: 'מחכה לנו', client: 'מחכה ללקוח', brief: 'הלקוח עוד לא שלח בקשה', done: 'אושר' };
+  function loadDesigns() {
+    return api('design-list', {}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) return;
+      DZ = d.designs || [];
+      $('dzBadge').hidden = !d.waiting; $('dzBadge').textContent = d.waiting;
+      $('dzList').innerHTML = DZ.length ? DZ.map(function (x, i) {
+        var last = (x.versions || [])[x.versions.length - 1], cm = (x.comments || [])[x.comments.length - 1];
+        return '<div class="card"><div class="top"><span class="name">' + esc(x.name || x.token.slice(0, 8)) + '</span><span class="pill ' + (x.needs === 'us' ? 'wait' : x.needs === 'done' ? 'ok' : '') + '">' + DZ_HE[x.needs] + (x.status === 'changes_requested' ? ' · ביקש תיקונים' : '') + '</span></div>' +
+          '<div class="meta">סבבי תיקונים ' + (x.rounds_used || 0) + ' מתוך ' + (x.rounds_total || 0) + ' · גרסאות ' + (x.versions || []).length + (x.needs === 'done' ? (x.applied ? ' · הוגדר כתמונת ההזמנה' : ' · לא הוגדר אוטומטית' + (x.apply_note ? ' (' + esc(x.apply_note) + ')' : '')) : '') + '</div>' +
+          (x.brief ? '<div class="dz-b"><b>מה הלקוח ביקש</b><br>' + esc(x.brief.text).replace(/\n/g, '<br>') + ((x.brief.refs || []).length ? '<div class="dz-r">' + x.brief.refs.map(function (r) { return '<a href="' + esc(r.url) + '" target="_blank"><img src="' + esc(r.url) + '" alt="השראה" loading="lazy"></a>'; }).join('') + '</div>' : '') + '</div>' : '') +
+          (cm ? '<div class="dz-b"><b>הערות הלקוח לגרסה ' + cm.v + '</b><br>' + esc(cm.text).replace(/\n/g, '<br>') + '</div>' : '') +
+          (last ? '<div class="meta" style="margin-top:.4rem">גרסה אחרונה: <a href="' + esc(last.url) + '" target="_blank">פתיחת גרסה ' + last.n + '</a></div>' : '') +
+          (x.needs !== 'done' && x.brief ? '<div class="acts" style="align-items:center"><input type="file" accept="image/png,image/jpeg,image/webp,application/pdf" data-dzf="' + i + '" style="max-width:210px;font-size:.8rem"><input data-dzn="' + i + '" placeholder="הערה ללקוח (לא חובה)" style="flex:1;min-width:140px;font:inherit;font-size:.86rem;padding:.4rem .6rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><button class="btn g" data-dzs="' + i + '">שלח ללקוח</button></div>' : '') +
+          '<div class="acts"><a class="btn" href="/dashboard.html?t=' + esc(x.token) + '#design" target="_blank">לוח הלקוח</a></div></div>';
+      }).join('') : '<p class="empty">עוד אין הזמנות עיצוב.</p>';
+    }).catch(function () {});
+  }
+  $('dzList').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-dzs]'); if (!b) return;
+    var i = b.dataset.dzs, x = DZ[Number(i)], f = document.querySelector('[data-dzf="' + i + '"]').files[0];
+    if (!f) { toast('בוחרים קובץ קודם'); return; }
+    b.disabled = true; b.textContent = 'מעלה…';
+    var fd = new FormData(); fd.append('token', x.token); fd.append('purpose', 'design_version'); fd.append('admin_key', adminKey); fd.append('file', f, f.name);
+    fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (m) {
+      if (!m || !m.ok) throw new Error((m && (m.error || m.why)) || 'upload');
+      return api('design-version', { token: x.token, media: m.media, note: document.querySelector('[data-dzn="' + i + '"]').value }).then(function (r) { return r.json(); });
+    }).then(function (j) { toast(j && j.ok ? 'נשלח ללקוח, הוא רואה את הגרסה בלוח שלו' : 'לא נשלח: ' + ((j && j.why) || '')); loadDesigns(); })
+      ['catch'](function (e) { b.disabled = false; b.textContent = 'שלח ללקוח'; toast('לא עלה: ' + e.message); });
+  });
+  $('pAdd').addEventListener('click', function () {
+    var v = $('pLabel').value.trim(); if (v.length < 2) { toast('צריך כינוי'); return; }
+    $('pAdd').disabled = true;
+    api('partner-create', { label: v, phone: $('pPhone').value.trim(), kind: $('pKind').value }).then(function (r) { return r.json(); }).then(function (j) { $('pAdd').disabled = false; if (j && j.ok) { $('pLabel').value = ''; $('pPhone').value = ''; toast('נוסף'); loadPartners(); } else toast('לא הצליח'); }).catch(function () { $('pAdd').disabled = false; toast('שגיאה'); });
+  });
+  $('pList').addEventListener('click', function (ev) {
+    var mn = ev.target.closest('[data-pman]'); if (mn) { openPartner(Number(mn.dataset.pman)); return; }
+    var ph = ev.target.closest('[data-pphone]');
+    if (ph) { var p = PARTNERS[Number(ph.dataset.pphone)]; var v = prompt('טלפון של ' + (p.name || p.label), p.phone ? '0' + String(p.phone).slice(3) : ''); if (v == null) return; api('partner-update', { p: p.pid, phone: v }).then(function (r) { return r.json(); }).then(function (j) { toast(j && j.ok ? 'נשמר' : 'לא נשמר'); loadPartners(); }); return; }
+    var b = ev.target.closest('[data-pcopy]'); if (!b) return;
+    (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.pcopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); });
+  });
+  /* ── 12/11 דיילות ── */
+  function loadStaff(body) {
+    return api('staff', body || {}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) { if (body) toast('לא נשמר. צריך שם ונייד ישראלי'); return; }
+      if (body && body.act === 'add' && d.link_sent !== undefined) toast(d.link_sent ? 'נוספה, והקישור נשלח לה בוואטסאפ' : 'נוספה. הקישור לא נשלח אוטומטית, לחצו "שליחת הקישור בוואטסאפ"');
+      $('sList').innerHTML = (d.staff || []).length ? d.staff.map(function (x) { return '<div class="card"><div class="top"><span class="name">' + esc(x.name) + '</span><span class="meta" dir="ltr">' + esc('0' + String(x.phone).slice(3)) + '</span></div><div class="acts">' + (x.wa ? '<a class="btn g" target="_blank" rel="noopener" href="' + esc(x.wa) + '">שליחת הקישור בוואטסאפ</a>' : '') + (x.checkin ? '<button class="btn" data-scopy="' + esc(x.checkin) + '">העתק קישור דיווח</button>' : '<button class="btn g" data-sfix="' + esc(x.phone) + '" data-name="' + esc(x.name) + '">יצירת קישור דיווח</button>') + '<button class="btn" data-srm="' + esc(x.phone) + '">הסרה</button></div></div>'; }).join('') : '<p class="empty">עוד לא נרשמו דיילות.</p>';
+      var lg = d.log || [];
+      $('sEmpty').hidden = !!lg.length; $('sLog').hidden = !lg.length;
+      $('sLog').querySelector('tbody').innerHTML = lg.map(function (x) { return '<tr><td>' + heDT(x.day) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.received || x.time) + '</td><td>' + (x.photo ? '<a class="btn" style="padding:.1rem .45rem;font-size:.74rem" target="_blank" href="' + esc(SBASE + x.photo) + '">צילום</a>' + (x.lat != null ? ' <a class="btn" style="padding:.1rem .45rem;font-size:.74rem" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + x.lat + ',' + x.lon + '">מיקום</a>' : ' <span class="meta">בלי מיקום</span>') : '<span class="pill wait">בלי צילום</span>') + '</td><td>' + esc(x.event || '—') + '</td><td>' + esc(x.photo ? '' : x.text + (x.time && x.time !== x.received ? ' (כתבה ' + x.time + ')' : '')) + '</td></tr>'; }).join('');
+    }).catch(function () {});
+  }
+  $('sAdd').addEventListener('click', function () { loadStaff({ act: 'add', name: $('sName').value.trim(), phone: $('sPhone').value.trim() }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
+  var SBASE = CFG.endpoint('status').replace(/\/api\/status$/, '');
+  $('sList').addEventListener('click', function (ev) {
+    var c = ev.target.closest('[data-scopy]'); if (c) { (navigator.clipboard ? navigator.clipboard.writeText(c.dataset.scopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); }); return; }
+    var fx = ev.target.closest('[data-sfix]'); if (fx) { loadStaff({ act: 'add', name: fx.dataset.name, phone: fx.dataset.sfix }); return; }
+    var b = ev.target.closest('[data-srm]'); if (b && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: b.dataset.srm }); });
+  $('tabReferrals').addEventListener('click', function (ev) { refAct(ev); });
+  async function refAct(ev) {
+    var b = ev.target.closest('button[data-ract]'); if (!b) return;
+    var act = b.dataset.ract; b.disabled = true;
+    var body = { act: act, who: 'ריצארד' };
+    if (act === 'verify') { if (!(await askConfirm('הזיכוי ייזקף למפנה עכשיו, בלי לחכות לחשבונית.', { title: 'לאשר את ההפניה?', ok: 'אשר' }))) { b.disabled = false; return; } body.id = b.dataset.id; }
+    if (act === 'redeem') { if (!(await askConfirm('היתרה תתאפס ותסומן כמומשה.', { title: 'לסמן את הזיכוי כמומש?', ok: 'כן, מומש' }))) { b.disabled = false; return; } body.phone = b.dataset.phone; }
+    api('referrals/act', body).then(function (r) { return r.json(); }).then(function (j) {
+      toast(j && j.ok ? (act === 'verify' ? (j.credited ? 'אושר · ₪' + j.credited + ' נזקף' : 'אושר') : 'סומן כמומש · ₪' + (j.redeemed || 0)) : 'לא הצליח' + (j && j.error ? ': ' + j.error : ''));
+      return loadRefs();
+    }).catch(function () { toast('שגיאה'); b.disabled = false; });
+  }
+  document.querySelector('.tabs').addEventListener('click', function (ev) {
+    var t = ev.target.closest('.tab'); if (!t) return;
+    document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+    $('tabClients').hidden = t.dataset.tab !== 'clients'; $('tabReferrals').hidden = t.dataset.tab !== 'referrals'; $('tabStaff').hidden = t.dataset.tab !== 'staff'; $('tabDesigns').hidden = t.dataset.tab !== 'designs';
+    if (t.dataset.tab === 'staff') loadStaff();
+    if (t.dataset.tab === 'designs') loadDesigns();
+    try { history.replaceState(null, '', t.dataset.tab === 'clients' ? location.pathname : '#' + t.dataset.tab); } catch (e) {}
+  });
+  if (location.hash === '#referrals' || location.hash === '#staff' || location.hash === '#designs') { var tb = document.querySelector('.tab[data-tab="' + location.hash.slice(1) + '"]'); if (tb) tb.click(); }
+
+  /* 03/11: a linked sub-event (שבת חתן) gets its own row under its parent */
+  function subRows(e) {
+    return subevents.filter(function (x) { return x.parent === e.token; }).map(function (x) {
+      return '<div class="card sub" data-sub="' + esc(x.token) + '" style="margin-inline-start:1.5rem;border-style:dashed">' +
+        '<div class="top"><span class="name">' + esc((x.kind_he || 'תת-אירוע') + ' · ' + (e.client || e.name || '')) + ' <span class="meta">· ' + esc(x.name || '') + '</span></span>' +
+        '<span class="meta">מקושר ל' + esc(e.name || e.client || '') + (e.date ? ' (' + esc(e.date) + ')' : '') + ' · ' + esc(x.template || '') + '</span></div>' +
+        '<div class="tags"><span class="tag">אותה רשימת מוזמנים</span><span class="tag">הודעה אחת</span></div>' +
+        '<div class="acts"><a class="btn p" href="/dashboard.html?t=' + encodeURIComponent(x.token) + '" target="_blank">הדשבורד של תת-האירוע</a>' +
+        '<a class="btn" href="/dashboard.html?t=' + encodeURIComponent(e.token) + '" target="_blank">האירוע הראשי</a></div></div>';
+    }).join('');
+  }
+  function render() {
+    var popEl = document.querySelector('#pop .pop'); var popT = popEl ? popEl.dataset.t : null;
+    var f = $('fActive').value, q = ($('q').value || '').trim();
+    /* 12/11 Richard: past and cancelled events are hidden by default; the button brings them back */
+    var showPast = $('fPast').getAttribute('aria-pressed') === 'true';
+    var today = new Date(Date.now() + 2 * 3600e3).toISOString().slice(0, 10);
+    var hidden = 0;
+    var rows = events.filter(function (e) {
+      var fl = flags[e.token] || { active: true };
+      var past = (e.date && String(e.date).slice(0, 10) < today) || e.cancelled || fl.hold;
+      if (past && !showPast && !q) { hidden++; return false; }
+      if (f === 'active' && !fl.active) return false;
+      if (f === 'inactive' && fl.active) return false;
+      if (q && !((e.client || '') + ' ' + (e.name || '') + ' ' + (e.phone || '') + ' ' + (e.occasion || '')).includes(q)) return false;
+      return true;
+    });
+    $('count').textContent = rows.length + ' אירועים' + (hidden ? ' · ' + hidden + ' שעברו/בוטלו מוסתרים' : '');
+    $('fPast').textContent = showPast ? 'הסתר אירועים שעברו ובוטלו' : 'הצג אירועים שעברו ובוטלו';
+    $('empty').hidden = !!rows.length;
+    $('list').innerHTML = rows.map(function (e) {
+      var fl = flags[e.token] || { active: true };
+      var t = e.token;
+      return '<div class="card' + (fl.active ? '' : ' inactive') + '" data-t="' + t + '">' +
+        '<div class="top"><span class="name">' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + '</span></span>' +
+        '<span class="meta">שולם ' + heDate(e.paid_at || '') + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + '</span></div>' +
+        '<div class="tags">' +
+          (fl.hold ? '' : '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>') +
+          '<span class="tag ' + (e.file_uploaded ? 'on' : 'warn') + '">' + (e.file_uploaded ? 'רשימה הועלתה' : 'אין רשימה') + '</span>' +
+          (fl.sent ? '<span class="tag on">הזמנות יצאו</span>' : fl.sending ? '<span class="tag on">הזמנות יוצאות</span>' : '<span class="tag">טרם נשלח</span>') +
+          (fl.video ? '<span class="tag on">וידאו</span>' : '') +
+          (fl.addon ? '<span class="tag">+' + fl.addon + ' מוזמנים</span>' : '') +
+          (fl.extrasend ? '<span class="tag">שליחה נוספת</span>' : '') +
+          (fl.calls ? '<span class="tag">סבב שיחות</span>' : '') +
+          (e.cancelled ? '<span class="tag warn">בוטל</span>' : '') +
+          (fl.hold ? '<span class="tag warn">' + (fl.hold_till ? 'נדחה עד ' + esc(String(fl.hold_till).slice(8, 10) + '/' + String(fl.hold_till).slice(5, 7)) : 'מושהה · אין שליחות') + '</span>' : '') +
+        '</div>' +
+        ((fb[t] || []).length ? '<div class="fbx">' + fb[t].map(function (x) {
+          return '<span class="fbi"><b>' + (x.who === 2 ? 'בן/בת זוג' : 'הלקוח') + '</b> ' +
+            (x.nps ? 'ימליץ ' + x.nps + '/10 · חוויה ' + x.exp + '/10' : 'פתח/ה את הטופס') +
+            (x.clicked_clip ? ' · לחץ על המלצה' : '') + (x.note ? ' · "' + esc(x.note.slice(0, 160)) + '"' : '') +
+            (x.at ? ' <small>' + esc(String(x.at).slice(0, 10).split('-').reverse().join('.')) + '</small>' : '') + '</span>';
+        }).join('') + '</div>' : '') +
+        '<div class="acts">' +
+          '<a class="btn p" href="/dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
+          '<button class="btn" data-act="manage">ניהול אירוע</button>' +
+          '<span class="meta" dir="ltr">' + esc(e.phone || '') + '</span>' +
+        '</div></div>' + subRows(e);
+    }).join('');
+    if (popT) openManage(popT);   /* a redraw after an action keeps the popup open with fresh state */
+  }
+
+  /* the "ניהול אירוע" popup: every action for one event, grouped. It lives inside #list so the
+     existing data-act handler (closest('.card').dataset.t) keeps working unchanged. */
+  var STATUS_HE = { sent: ['ok', 'בוצע ✓'], running: ['run', 'בתהליך'], scheduled: ['', 'מתוכנן'], passed: ['', 'עבר'] };
+  var WAVE_TYPE = { invite: 'w1', reminder: 'w2', extra: 'w3', calls: 'calls', day_after: 'thanks' };
+  function loadSummary(t) {
+    var box = document.getElementById('popSum'); if (!box) return;
+    fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp({ token: t, view: 'dashboard' }) : { token: t, view: 'dashboard' }) })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!document.getElementById('popSum') || document.querySelector('#pop .pop').dataset.t !== t) return;
+        var gs = d.guests || [], n = gs.length || 1, c = {}; gs.forEach(function (g) { c[g.status] = (c[g.status] || 0) + 1; });
+        var seats = gs.filter(function (g) { return g.status === 'confirmed'; }).reduce(function (a, g) { return a + (Number(g.party) || 1); }, 0);
+        var pct = function (k) { return Math.round(100 * (c[k] || 0) / n); };
+        var html = '<div class="meta"><b>' + pct('confirmed') + '% מגיעים</b> (' + (c.confirmed || 0) + ' רשומות · ' + seats + ' סועדים) · לא מגיעים ' + (c.declined || 0) + ' · מתלבטים ' + (c.undecided || 0) + ' · לא ענו ' + (c.pending || 0) + ' · סה"כ ' + gs.length + '</div>' +
+          '<div class="rsvpbar"><i class="y" style="width:' + pct('confirmed') + '%"></i><i class="m" style="width:' + pct('undecided') + '%"></i><i class="n" style="width:' + pct('declined') + '%"></i></div>';
+        var sends = d.sends || [];
+        html += '<table class="sends">' + sends.map(function (s) {
+          var st = STATUS_HE[s.status] || ['', s.status], tp = WAVE_TYPE[s.key];
+          var stats = s.stats ? (s.key === 'calls' ? 'חויגו ' + (s.stats.dialed || 0) + ' · ענו ' + (s.stats.answered || 0) : 'ענו ' + (s.stats.answered || 0) + ' · מגיעים ' + (s.stats.confirmed || 0) + ' · לא ' + (s.stats.declined || 0)) : '';
+          var sentN = s.sent_n != null ? 'נשלחו ' + s.sent_n : '';
+          var dateCell = tp ? '<input type="date" value="' + esc(String(s.date || '').slice(0, 10)) + '" data-move="' + tp + '" title="שינוי תאריך">' : s.key === 'event_day' ? '<span class="meta">' + esc(s.date ? heDate(String(s.date).slice(0, 10)) : '—') + '</span> <a class="meta" href="/upload.html?t=' + t + '&step=2" target="_blank" title="תאריך האירוע משתנה בהגדרות האירוע">(הגדרות)</a>' : '<span class="meta">' + esc(s.date ? heDate(String(s.date).slice(0, 10)) : '—') + '</span>';
+          return '<tr><td>' + esc(s.label) + '</td><td>' + dateCell + '</td><td><span class="st ' + st[0] + '">' + st[1] + '</span></td><td class="meta">' + [sentN, stats].filter(Boolean).join(' · ') + '</td></tr>';
+        }).join('') + '</table>' +
+          '<div class="meta" style="margin-top:.3rem">שינוי תאריך נשמר מיד (גלים, סבב שיחות, תודה). תזכורת הכתובת = תאריך האירוע, משתנה בהגדרות.</div>';
+        box.innerHTML = '<h3>מצב האירוע</h3>' + html;
+        box.querySelectorAll('[data-move]').forEach(function (inp) {
+          inp.addEventListener('change', async function () {
+            var tok8 = t.slice(0, 8), type = inp.dataset.move, date = inp.value; if (!date) return;
+            var what = type === 'calls' ? 'סבב השיחות יתחיל ב-' : type === 'thanks' ? 'הודעת התודה תצא ב-' : 'הגל יעבור ל-';
+            if (!(await askConfirm(what + date.split('-').reverse().join('.') + '.', { title: 'לשנות תאריך?', ok: 'שנה' }))) { loadSummary(t); return; }
+            api('board-move', { tok8: tok8, type: type, date: date }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'התאריך עודכן' : 'לא עודכן: ' + (j.error || j.why || '')); loadSummary(t); });
+          });
+        });
+      }).catch(function () { box.innerHTML = '<h3>מצב האירוע</h3><div class="meta">לא נטען</div>'; });
+  }
+  function openManage(t) {
+    var e = events.filter(function (x) { return x.token === t; })[0] || {};
+    var fl = flags[t] || { active: true };
+    var old = document.getElementById('pop'); if (old) old.remove();
+    var html = '<div class="pop-bg" id="pop"><div class="card pop" data-t="' + t + '" role="dialog" aria-modal="true">' +
+      '<button type="button" class="x" data-close aria-label="סגירה">×</button>' +
+      '<h2>' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + (e.date ? ' · ' + esc(e.date) : '') + '</span></h2>' +
+      '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
+      '<div class="sec" id="popSum"><h3>מצב האירוע</h3><div class="meta">טוען…</div></div>' +
+      '<div class="sec"><h3>תמונת ההזמנה</h3><div class="acts"><label class="btn">🖼 החלפת תמונה<input type="file" accept="image/*" data-img hidden></label><span class="meta">מחליפה מיד, גם אם ההזמנות כבר יצאו (שליחות הבאות עם התמונה החדשה)</span></div></div>' +
+      (function () { var r = recOf(t); if (!r) return ''; return '<div class="refNote">הופנה ע"י <b>' + refName(r) + '</b> · ' + (r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit) + ' · ' +
+        (r.status === 'verified' ? '<span class="pill ok">מאומת</span>' : '<span class="pill wait">ממתין לחשבונית</span> <button class="btn g" data-ract="verify" data-id="' + esc(r.id) + '">אשר הפניה</button>') + '</div>'; })() +
+      '<div class="sec"><h3>קישורים ללקוח</h3><div class="acts">' +
+        '<a class="btn p" href="/dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
+        '<a class="btn" href="/upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
+        '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
+        '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
+        '<button class="btn" data-act="copy-upload">📋 העתק קישור להעלאה</button>' +
+        '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button>' +
+        '<button class="btn g" data-act="preview">📲 שלח דוגמת הזמנה ללקוח</button></div></div>' +
+      '<div class="sec"><h3>תוספות בחינם</h3><div class="acts">' +
+        '<button class="btn g" data-act="guests">+50 מוזמנים</button>' +
+        '<button class="btn g" data-act="extrasend">שליחה נוספת</button>' +
+        '<button class="btn g" data-act="calls">סבב שיחות</button></div></div>' +
+      /* 12/11 אדמין אחד: what used to need the ops screen — edit, paid, invoice, call round, cancel. Every button asks first. */
+      '<div class="sec" id="popOps"><h3>פעולות על האירוע</h3><div class="acts">' +
+        '<button class="btn" data-ops="edit">עריכת פרטים ותאריך</button>' +
+        '<button class="btn" data-ops="mark_paid">סימון שולם</button>' +
+        '<button class="btn" data-ops="invoice_resend">שליחת חשבונית מחדש</button>' +
+        '<button class="btn" data-ops="round-start">הפעלת סבב שיחות</button>' +
+        '<button class="btn" data-ops="round-stop">עצירת סבב שיחות</button>' +
+        '<button class="btn d" data-ops="cancel">ביטול האירוע</button></div>' +
+        '<form class="opsEdit" id="opsEdit" hidden>' +
+          '<label>שם ראשון<input name="name1" maxlength="40"></label>' +
+          '<label>שם שני (לא חובה)<input name="name2" maxlength="40"></label>' +
+          '<label>טלפון<input name="phone" dir="ltr" inputmode="tel" value="' + esc(e.phone || '') + '"></label>' +
+          '<label>סוג אירוע<input name="occasion" value="' + esc(e.occasion || '') + '"></label>' +
+          '<label>תאריך האירוע<input name="event_date" type="date"></label>' +
+          '<div class="acts"><button class="btn p" type="submit">שמירה</button><button class="btn" type="button" data-ops="edit">סגירה</button></div>' +
+          '<div class="meta">נשמר רק מה שמילאת או שינית. שדה ריק נשאר כמו שהוא.</div>' +
+        '</form></div>' +
+      '<div class="sec"><h3>רשימה ומצב</h3><div class="acts">' +
+        '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
+        '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
+        '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
+      '</div></div>';
+    $('list').insertAdjacentHTML('beforeend', html);
+    var bg = document.getElementById('pop');
+    bg.addEventListener('click', function (ev) { if (ev.target === bg || ev.target.closest('[data-close]')) bg.remove(); });
+    loadSummary(t);
+    /* the ops actions: first call returns what will happen and the confirm word, the second call does it */
+    (function () {
+      var BASE = CFG.endpoint('status').replace(/\/api\/status$/, '');
+      var post = function (path, body) {
+        return fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey }, body: JSON.stringify(Object.assign({ admin_key: adminKey, who: 'richard' }, body || {})) })
+          .then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
+      };
+      var twoStep = async function (path, body, fallbackTitle) {
+        var pre = await post(path, body);
+        if (!pre || pre.ok === false) { toast('לא בוצע' + (pre && (pre.he || pre.error) ? ': ' + (pre.he || pre.error) : '')); return; }
+        if (pre.applied) { toast('בוצע'); return true; }
+        if (!pre.confirm_required) { toast('לא בוצע'); return; }
+        if (!(await askConfirm(pre.body || pre.he || '', { title: pre.title || fallbackTitle, ok: 'כן', danger: !!pre.danger }))) return;
+        var res = await post(path, Object.assign({}, body, { confirm: pre.confirm_required }));
+        var done = res && res.ok !== false && res.applied !== false;
+        toast(done ? 'בוצע' : 'לא בוצע' + (res && (res.he || res.error || res.why) ? ': ' + (res.he || res.error || res.why) : ''));
+        return done;
+      };
+      var form = bg.querySelector('#opsEdit');
+      var was = { phone: form.phone.value, occasion: form.occasion.value };
+      form.addEventListener('submit', async function (ev) {
+        ev.preventDefault();
+        var body = {};
+        if (form.name1.value.trim()) { body.name1 = form.name1.value.trim(); body.name2 = form.name2.value.trim(); }
+        if (form.phone.value.trim() && form.phone.value !== was.phone) body.phone = form.phone.value.trim();
+        if (form.occasion.value.trim() && form.occasion.value !== was.occasion) body.occasion = form.occasion.value.trim();
+        if (form.event_date.value) body.event_date = form.event_date.value;
+        if (!Object.keys(body).length) { toast('אין מה לשמור'); return; }
+        var he = { name1: 'שמות', phone: 'טלפון', occasion: 'סוג אירוע', event_date: 'תאריך' };
+        var list = Object.keys(body).filter(function (k) { return he[k]; }).map(function (k) { return he[k]; }).join(', ');
+        if (!(await askConfirm('ישתנו: ' + list + '. השינוי נכתב לגיליון ומשפיע על השליחות הבאות.', { title: 'לשמור את השינוי?', ok: 'שמור' }))) return;
+        var j = await post('/api/crm/clients/' + t, body);
+        if (j && j.error === 'date-in-past') {
+          if (!(await askConfirm('התאריך שבחרת כבר עבר. לשמור בכל זאת?', { title: 'תאריך שעבר', ok: 'שמור בכל זאת', danger: true }))) return;
+          j = await post('/api/crm/clients/' + t, Object.assign({ override_past: true }, body));
+        }
+        if (j && j.ok) { toast(j.unchanged ? 'אין שינוי' : 'נשמר'); form.hidden = true; load(); loadSummary(t); }
+        else toast('לא נשמר' + (j && (j.he || j.error) ? ': ' + (j.he || j.error) : ''));
+      });
+      bg.addEventListener('click', async function (ev) {
+        var b = ev.target.closest('button[data-ops]'); if (!b) return;
+        var op = b.dataset.ops;
+        if (op === 'edit') { form.hidden = !form.hidden; if (!form.hidden) form.name1.focus(); return; }
+        b.disabled = true;
+        try {
+          var ok;
+          if (op === 'round-start' || op === 'round-stop') ok = await twoStep('/api/ops/call-round', { token: t, action: op === 'round-start' ? 'start' : 'stop', reason: 'מהכרטיס באדמין' }, op === 'round-start' ? 'להפעיל את סבב השיחות?' : 'לעצור את סבב השיחות?');
+          else ok = await twoStep('/api/crm/clients/' + t + '/action', { action: op }, 'לבצע?');
+          if (ok) { loadSummary(t); if (op === 'cancel' || op === 'mark_paid') load(); }
+        } catch (err) { toast('לא בוצע'); }
+        b.disabled = false;
+      });
+    })();
+    var fi = bg.querySelector('[data-img]');
+    if (fi) fi.addEventListener('change', async function () {
+      var f = fi.files && fi.files[0]; if (!f) return;
+      if (!(await askConfirm('התמונה החדשה תחליף את תמונת ההזמנה של ' + (e.name || '') + ' מיד.', { title: 'להחליף את תמונת ההזמנה?', ok: 'החלף' }))) { fi.value = ''; return; }
+      var fd = new FormData(); fd.append('token', t); fd.append('admin_key', adminKey); fd.append('image', f);
+      toast('מעלה…');
+      fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'התמונה הוחלפה' : 'לא הוחלפה: ' + (j.error || '')); fi.value = ''; }).catch(function () { toast('לא הוחלפה'); });
+    });
+    document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { bg.remove(); document.removeEventListener('keydown', esc1); } });
+  }
+  $('list').addEventListener('click', async function (ev) {
+    if (ev.target.closest('button[data-ract]')) { refAct(ev); return; }
+    var b = ev.target.closest('button[data-act]'); if (!b) return;
+    if (b.dataset.act === 'manage') { openManage(b.closest('.card').dataset.t); return; }
+    var t = b.closest('.card').dataset.t, act = b.dataset.act, fl = flags[t] || { active: true };
+    var e = events.filter(function (x) { return x.token === t; })[0] || {};
+    b.disabled = true;
+    var p;
+    if (act === 'preview') {
+      /* 12/11 Richard: the client's own wave-1 invitation (image/video + buttons) to the client's phone */
+      if (!(await askConfirm('ההזמנה של ' + (e.name || '') + ' תישלח למספר של הלקוח ' + (e.phone || '') + ' בדיוק כמו שהאורחים מקבלים.', { title: 'לשלוח דוגמת הזמנה ללקוח?', ok: 'שלח' }))) { b.disabled = false; return; }
+      p = api('preview-invite', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ל-' + (j.to || '') + (j.media === 'image' ? ' עם התמונה' : j.media === 'video' ? ' עם הווידאו' : ' בלי מדיה') : 'לא נשלח: ' + (j.error || j.why || j.error_code || '')); });
+    } else if (act === 'link-dashboard' || act === 'link-upload') {
+      var kind = act === 'link-upload' ? 'upload' : 'dashboard';
+      p = api('client-link', { token: t, kind: kind }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ללקוח בוואטסאפ (' + (j.via === 'button' ? 'עם כפתור' : 'תבנית') + ')' : 'לא נשלח' + (j.error ? ': ' + j.error : '')); });
+    } else if (act === 'reset') {
+      if (!(await askConfirm('הלקוח (או אתה) יעלה רשימה מחדש. אם ההזמנות כבר יצאו, זה ייחסם.', { title: 'למחוק את רשימת המוזמנים?', ok: 'כן, למחוק', danger: true }))) { b.disabled = false; return; }
+      p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });
+    } else if (act === 'copy-upload') {
+      var first = String(e.client || '').trim().split(/\s+/)[0] || '';
+      var msg = 'היי ' + first + ', הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע' + (e.name ? ' של ' + e.name : '') + ':\nhttps://go.ishur.io/upload.html?t=' + t;
+      try { await navigator.clipboard.writeText(msg); toast('ההודעה הועתקה, הדבק בוואטסאפ'); } catch (e3) { prompt('העתק:', msg); }
+      b.disabled = false; return;
+    } else if (act === 'fblinks') {
+      /* 29/10: copies the full end-of-event message (template ishur_syum_v3) with this
+         event's feedback link, ready to paste in WhatsApp */
+      var fbMsg = 'איזה כיף שהיה! 🎉 ' + (e.name || 'האירוע') + ' מאחוריכם, ותודה שסמכתם עלינו ברגע הכי חשוב.\n\n' +
+        'נשמח לעשר שניות מכם: שתי שאלות קצרות על איך היה איתנו. זה עוזר לנו להשתפר לזוגות הבאים 💚\n' +
+        'https://ishur.io/feedback.html?t=' + t + '\n\nמזל טוב מכל הלב,\nצוות ishur.io';
+      try { await navigator.clipboard.writeText(fbMsg); toast('הודעת המשוב הועתקה, הדבק בוואטסאפ'); } catch (e2) { prompt('העתק:', fbMsg); }
+      b.disabled = false; return;
+    } else if (act === 'hold') {
+      /* Richard 14/10: stop every send and call for this event without touching the sheet; reversible */
+      var toHold = !fl.hold;
+      if (toHold && !(await askConfirm('כל השליחות והשיחות לאירוע הזה נעצרות, כולל הודעות לאורחים. שום דבר לא יוצא עד שתחדש. הרשימה והתאריכים נשארים.', { title: 'לבטל את הלקוח?', ok: 'כן, לבטל', danger: true }))) { b.disabled = false; return; }
+      p = api('eventflag', { token: t, flag: 'hold', on: toHold }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { hold: j.on, active: !j.on }); api('client-active', { token: t, active: !j.on }); toast(j.on ? 'הלקוח בוטל, שום דבר לא יוצא' : 'הלקוח חודש'); render(); } else toast('לא הצליח'); });
+    } else if (act === 'active') {
+      p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
+    } else {
+      var kind = act, n = act === 'guests' ? 50 : undefined;
+      if (!(await askConfirm('לתת ללקוח ' + b.textContent + '?', { title: 'תוספת חינם', ok: 'כן, לתת' }))) { b.disabled = false; return; }
+      p = api('grant-addon', { token: t, kind: kind, n: n }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'ניתן' : 'לא הצליח'); return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); }); });
+    }
+    p.catch(function () { toast('שגיאה'); }).then(function () { b.disabled = false; });
+  });
+  $('fActive').addEventListener('change', render);
+  $('fPast').addEventListener('click', function () { var on = $('fPast').getAttribute('aria-pressed') === 'true'; $('fPast').setAttribute('aria-pressed', on ? 'false' : 'true'); render(); });
+  $('q').addEventListener('input', render);
+
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; localStorage.setItem('ishur_calls_key', adminKey); load(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  if (adminKey) load(); else gate();
+})();
+</script>
+</body>
+</html>

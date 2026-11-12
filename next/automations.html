@@ -1,0 +1,427 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="facebook-domain-verification" content="sit2y0wo8hge473jshdqoh2czat1xb">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
+<meta name="robots" content="noindex, nofollow">
+<title>האוטומציות · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=72"></script>
+<script src="/next/assets/batch.js?v=1"></script>
+<script src="/next/assets/adminbar.js?v=1" defer></script>
+<!-- 01/11/2026 rewrite: node map + live state + 7-day timeline from POST /api/automations
+     (worker/automations.js). Falls back to automations.fixture.json when the route 404s. -->
+<style>
+  :root{
+    --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
+    --gold-pale:rgba(199,174,122,.3); --paper:#F8F4EA;
+    --ink:#1B2420; --ink2:#4A554E; --ink3:#7A847C;
+    --bg:#FAF8F1; --card:#fff; --line:#E3E1D8; --chip:#F1EEE4;
+    --ok:#0F4C35; --warn:#A8402F; --amber:#9A6A12;
+    --k-guest:#1F7A55; --k-client:#A8853C; --k-call:#2C6E9E; --k-slack:#7656A8; --k-internal:#7A847C; --k-trigger:#0F2E22;
+    --edge:#C9C5B7; --edge-hi:#A8853C;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme=light]){
+      --bg:#131714;--card:#1A201C;--line:#2A322C;--chip:#222A24;
+      --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;--amber:#E0B25A;
+      --k-guest:#4CAF82;--k-client:#C7AE7A;--k-call:#6FA8D6;--k-slack:#A98BD8;--k-internal:#8D968C;--k-trigger:#7BC9A4;--edge:#3A443C;
+    }
+  }
+  html[data-theme=dark]{
+    --bg:#131714;--card:#1A201C;--line:#2A322C;--chip:#222A24;
+    --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;--amber:#E0B25A;
+    --k-guest:#4CAF82;--k-client:#C7AE7A;--k-call:#6FA8D6;--k-slack:#A98BD8;--k-internal:#8D968C;--k-trigger:#7BC9A4;--edge:#3A443C;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);direction:rtl;line-height:1.5;padding-bottom:3rem}
+  .head{background:radial-gradient(130% 140% at 50% -30%,#17402F 0%,var(--pine) 60%,var(--pine-deep) 100%);color:var(--paper);padding:1rem 1rem 1.1rem;text-align:center;border-bottom:1px solid var(--gold-pale);position:relative}
+  .head h1{font-family:'Frank Ruhl Libre',serif;font-size:1.3rem}
+  .head h1 i{font-style:normal;color:var(--gold-soft)}
+  .head p{font-size:.75rem;color:rgba(248,244,234,.65)}
+  #themeTog{position:absolute;top:.75rem;left:.75rem;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:.9rem;background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA}
+  .wrap{max-width:min(98vw,1500px);margin:0 auto;padding:0 16px}
+  .banner{margin:.8rem 0 0;padding:.6rem .9rem;border-radius:12px;font-size:.82rem;border:1px dashed var(--amber);color:var(--amber);background:color-mix(in srgb,var(--amber) 8%,transparent)}
+  .banner b{font-weight:700}
+  .strip{display:flex;flex-wrap:wrap;gap:.4rem;margin:.8rem 0}
+  .pill{background:var(--card);border:1px solid var(--line);border-radius:99px;padding:.25rem .7rem;font-size:.74rem;color:var(--ink2);white-space:nowrap}
+  .pill b{color:var(--ink);font-variant-numeric:tabular-nums}
+  .pill.bad{border-color:var(--warn);color:var(--warn)} .pill.bad b{color:var(--warn)}
+  .pill.good{border-color:var(--ok);color:var(--ok)}
+  .tabs{display:flex;gap:.4rem;margin:.6rem 0;flex-wrap:wrap;align-items:center}
+  .tab{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:10px;padding:.45rem 1rem;font:inherit;font-size:.85rem;font-weight:600;cursor:pointer}
+  .tab[aria-selected=true]{background:var(--pine);color:var(--paper);border-color:var(--pine)}
+  html[data-theme=dark] .tab[aria-selected=true]{background:#7BC9A4;color:#0A2119}
+  .tools{margin-inline-start:auto;display:flex;gap:.3rem;flex-wrap:wrap}
+  .tool{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:8px;padding:.3rem .6rem;font:inherit;font-size:.75rem;cursor:pointer}
+  .legend{display:flex;flex-wrap:wrap;gap:.7rem;font-size:.72rem;color:var(--ink3);margin:.3rem 0 .5rem}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-inline-end:.3rem;vertical-align:-1px}
+  .mapbox{position:relative;background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:auto;height:min(72vh,820px);touch-action:pan-x pan-y;
+    background-image:radial-gradient(var(--line) 1px,transparent 1px);background-size:18px 18px}
+  svg#map{display:block}
+  .node{cursor:pointer}
+  .node rect.box{fill:var(--card);stroke:var(--line);stroke-width:1.2}
+  .node:hover rect.box,.node.sel rect.box{stroke:var(--gold);stroke-width:2}
+  .node text{font-family:'Heebo',sans-serif;fill:var(--ink)}
+  .node .t1{font-size:12.5px;font-weight:600}
+  .node .t2{font-size:10.5px;fill:var(--ink3)}
+  .node .warnmark{fill:var(--warn);font-size:12px;font-weight:700}
+  .band text{font-family:'Heebo',sans-serif;font-size:12px;fill:var(--ink3);font-weight:600}
+  .band rect{fill:none;stroke:var(--line);stroke-dasharray:4 4}
+  path.edge{fill:none;stroke:var(--edge);stroke-width:1.4}
+  path.edge.reopen{stroke:var(--warn);stroke-dasharray:5 4;opacity:.6}
+  path.edge.hi{stroke:var(--edge-hi);stroke-width:2.2;opacity:1}
+  .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.5rem}
+  .litem{background:var(--card);border:1px solid var(--line);border-inline-start:4px solid var(--k-internal);border-radius:12px;padding:.6rem .75rem;cursor:pointer;text-align:start;font:inherit;color:inherit}
+  .litem b{display:block;font-size:.88rem} .litem span{font-size:.72rem;color:var(--ink3)}
+  /* side panel */
+  .panel{position:fixed;top:0;bottom:0;left:0;width:min(470px,100vw);background:var(--card);border-inline-end:1px solid var(--line);box-shadow:0 0 40px rgba(0,0,0,.18);transform:translateX(-105%);transition:transform .2s ease;z-index:50;overflow-y:auto;padding:1rem 1rem 3rem}
+  .panel.open{transform:none}
+  .panel h3{font-family:'Frank Ruhl Libre',serif;font-size:1.1rem;color:var(--ink);margin-bottom:.2rem;padding-inline-end:2rem}
+  .panel .x{position:absolute;top:.7rem;left:.7rem;border:1px solid var(--line);background:var(--bg);color:var(--ink);border-radius:50%;width:30px;height:30px;cursor:pointer;font-size:1rem}
+  .panel h4{font-size:.72rem;color:var(--gold);letter-spacing:.06em;margin:.9rem 0 .25rem;font-weight:700}
+  .panel ul{padding-inline-start:1.1rem;font-size:.8rem;color:var(--ink2)} .panel li{margin:.12rem 0}
+  .panel p{font-size:.8rem;color:var(--ink2)}
+  .panel .warnbox{border:1px solid var(--warn);color:var(--warn);border-radius:10px;padding:.5rem .7rem;font-size:.78rem;margin-top:.6rem}
+  code{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:.72rem;background:var(--chip);color:var(--ink2);border-radius:5px;padding:.03rem .3rem;direction:ltr;display:inline-block;unicode-bidi:isolate;overflow-wrap:anywhere}
+  a{color:var(--gold)}
+  table.kv{width:100%;border-collapse:collapse;font-size:.78rem} table.kv td{padding:.25rem .3rem;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink2)} table.kv td:first-child{color:var(--ink3);white-space:nowrap;width:1%}
+  /* timeline */
+  .ev{background:var(--card);border:1px solid var(--line);border-radius:14px;margin:.6rem 0;overflow:hidden}
+  .ev-h{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;padding:.65rem .85rem;border-bottom:1px solid var(--line)}
+  .ev-h b{font-size:.95rem} .ev-h .meta{font-size:.74rem;color:var(--ink3)}
+  .ev-h .sp{flex:1}
+  .hold{border:1px solid var(--warn);color:var(--warn);background:transparent;border-radius:9px;padding:.35rem .9rem;font:inherit;font-weight:700;font-size:.8rem;cursor:pointer}
+  .hold:disabled{opacity:.45;cursor:default}
+  .held{font-size:.74rem;color:var(--warn);font-weight:700}
+  .tl{width:100%;border-collapse:collapse;font-size:.8rem}
+  .tl th{font-size:.66rem;color:var(--gold);text-align:right;padding:.4rem .7rem;font-weight:700;border-bottom:1px solid var(--line);white-space:nowrap}
+  .tl td{padding:.45rem .7rem;border-bottom:1px solid var(--line);color:var(--ink2);vertical-align:top}
+  .tl tr:last-child td{border-bottom:none}
+  .tl td.n{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);white-space:nowrap}
+  .tl tr.isheld td{opacity:.55;text-decoration:line-through}
+  .tblwrap{overflow-x:auto}
+  .note{font-size:.72rem;color:var(--ink3)}
+  .gate{max-width:340px;margin:4rem auto;text-align:center;padding:0 16px}
+  .gate input{width:100%;border:1px solid var(--line);border-radius:10px;padding:.7rem .9rem;font:inherit;margin:.8rem 0 .5rem;text-align:center;direction:ltr;background:var(--card);color:var(--ink)}
+  .gate button{width:100%;border:none;border-radius:10px;background:var(--pine);color:var(--paper);padding:.7rem;font:inherit;font-weight:600;cursor:pointer}
+  .err{color:var(--warn);font-size:.82rem;margin-top:.5rem}
+  .empty{text-align:center;color:var(--ink3);padding:2rem 1rem;font-size:.88rem}
+  .spin{display:inline-block;width:13px;height:13px;border:2px solid var(--gold-pale);border-top-color:var(--gold);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-inline-end:.35rem}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  @media (prefers-reduced-motion:reduce){.spin{animation:none}.panel{transition:none}}
+  @media (max-width:640px){.mapbox{height:62vh}.head h1{font-size:1.1rem}}
+</style>
+</head>
+<body>
+<script>
+  (function () { try { var t = localStorage.getItem('ishur_theme'); if (t === 'dark' || t === 'light') document.documentElement.setAttribute('data-theme', t); } catch (e) {} })();
+</script>
+<header class="head">
+  <button type="button" id="themeTog" aria-label="מצב תצוגה">🌓</button>
+  <h1>ishur<i>.io</i> · האוטומציות</h1>
+  <p>כל מה שהוורקר שולח, מתי, למי, ומה המצב שלו עכשיו</p>
+</header>
+
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+
+<main class="wrap" id="main" hidden>
+  <div id="banner"></div>
+  <div class="strip" id="strip"></div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" id="tabMap" aria-selected="true">מפת אוטומציות</button>
+    <button class="tab" role="tab" id="tabTl" aria-selected="false">ציר זמן לאירועים</button>
+    <div class="tools">
+      <button class="tool" id="viewTog" type="button">רשימה</button>
+      <button class="tool" id="zIn" type="button" aria-label="הגדלה">+</button>
+      <button class="tool" id="zOut" type="button" aria-label="הקטנה">−</button>
+      <button class="tool" id="reload" type="button">רענון</button>
+    </div>
+  </div>
+
+  <section id="secMap">
+    <div class="legend" id="legend"></div>
+    <div class="mapbox" id="mapbox"><svg id="map" xmlns="http://www.w3.org/2000/svg"></svg></div>
+    <div class="list" id="list" hidden></div>
+    <p class="note" style="margin-top:.5rem">לחיצה על צומת פותחת את הפרטים: תנאים, תבניות, סימוני KV, מה קורה בכשל, תקציב, מצב חי וקישור לשורת הקוד. ⚠ = פער שנמצא בקריאת הקוד.</p>
+  </section>
+
+  <section id="secTl" hidden>
+    <div id="tlHead"></div>
+    <div id="tlBody"></div>
+  </section>
+</main>
+
+<aside class="panel" id="panel" aria-hidden="true">
+  <button class="x" id="pClose" aria-label="סגירה">×</button>
+  <div id="pBody"></div>
+</aside>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var REPO = 'https://github.com/richard36901-source/ishur.hagaha/blob/main-executer/';
+  var KIND = { send_guest: ['אורחים', '--k-guest'], send_client: ['לקוח / ליד', '--k-client'], call: ['שיחה', '--k-call'], slack: ['סלאק', '--k-slack'], internal: ['פנימי', '--k-internal'], trigger: ['טריגר', '--k-trigger'] };
+  var adminKey = '', DATA = null, FIXTURE = false, zoom = 1, listView = window.innerWidth < 640;
+
+  /* theme: prefers-color-scheme by default; the button pins light/dark (same key as the dashboard) */
+  $('themeTog').addEventListener('click', function () {
+    var cur = document.documentElement.getAttribute('data-theme') ||
+      (window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+    var next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('ishur_theme', next); } catch (e) {}
+  });
+
+  /* auth — same pattern as admin.html: ?key= once, then localStorage ishur_calls_key */
+  var qk = new URLSearchParams(location.search).get('key');
+  if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
+  try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) { adminKey = qk || ''; }
+
+  function el(tag, attrs, kids) {
+    var e = document.createElement(tag);
+    if (attrs) for (var k in attrs) { if (k === 'text') e.textContent = attrs[k]; else if (k === 'cls') e.className = attrs[k]; else e.setAttribute(k, attrs[k]); }
+    (kids || []).forEach(function (c) { if (c != null) e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
+    return e;
+  }
+  function svg(tag, attrs) { var e = document.createElementNS('http://www.w3.org/2000/svg', tag); for (var k in attrs) e.setAttribute(k, attrs[k]); return e; }
+  function clear(n) { while (n.firstChild) n.removeChild(n.firstChild); }
+  function ilTime(iso) { if (!iso) return '—'; try { return new Date(iso).toLocaleString('he-IL', { timeZone: 'Asia/Jerusalem', day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); } catch (e) { return iso; } }
+  function heDay(iso) { var p = String(iso || '').split('-'); if (p.length !== 3) return iso || ''; var wd = ['א׳', 'ב׳', 'ג׳', 'ד׳', 'ה׳', 'ו׳', 'שבת'][new Date(iso + 'T12:00:00Z').getUTCDay()]; return wd + ' ' + p[2] + '.' + p[1]; }
+  function cssv(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || '#888'; }
+
+  /* ── load ── */
+  function load(fresh) {
+    clear($('banner')); clear($('strip'));
+    $('strip').appendChild(el('span', { cls: 'pill' }, [el('span', { cls: 'spin' }), 'טוען מצב חי… (סריקת יומן היום יכולה לקחת עד חצי דקה)']));
+    fetch(CFG.endpoint('automations'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, fresh: !!fresh }) })
+      .then(function (r) {
+        if (r.status === 403) { try { localStorage.removeItem('ishur_calls_key'); } catch (e) {} gate('המפתח לא נכון'); return null; }
+        if (r.status === 404) return fetch('automations.fixture.json?v=1').then(function (f) { if (!f.ok) throw new Error('fixture ' + f.status); FIXTURE = true; return f.json(); });
+        if (!r.ok) throw new Error('HTTP ' + r.status);
+        FIXTURE = false; return r.json();
+      })
+      .then(function (d) { if (!d) return; DATA = d; render(); })
+      .catch(function (e) { clear($('strip')); $('strip').appendChild(el('p', { cls: 'err', text: 'הטעינה נכשלה: ' + (e && e.message || e) })); });
+  }
+
+  function render() {
+    renderBanner(); renderStrip(); renderLegend();
+    if (listView) { $('mapbox').hidden = true; $('list').hidden = false; renderList(); } else { $('mapbox').hidden = false; $('list').hidden = true; renderMap(); }
+    $('viewTog').textContent = listView ? 'מפה' : 'רשימה';
+    renderTimeline();
+  }
+  function renderBanner() {
+    var b = $('banner'); clear(b);
+    if (FIXTURE || DATA.fixture) b.appendChild(el('div', { cls: 'banner' }, [el('b', { text: 'נתוני דמה (fixture) · ' }), (DATA.fixture_note || '') + ' הנתיב /api/automations עוד לא פרוס (404). כפתורי "החזק" כבויים.']));
+  }
+  function pill(label, val, cls) { return el('span', { cls: 'pill' + (cls ? ' ' + cls : '') }, [label + ' ', el('b', { text: String(val) })]); }
+  function renderStrip() {
+    var s = $('strip'); clear(s);
+    var g = (DATA.live && DATA.live.global) || {};
+    s.appendChild(pill('עודכן', ilTime(DATA.generated_at)));
+    s.appendChild(pill('שליחה', g.paused ? 'מושהית ⏸' : 'פעילה', g.paused ? 'bad' : 'good'));
+    s.appendChild(pill('חלון שליחה', g.send_window && g.send_window.open ? 'פתוח' : 'סגור'));
+    s.appendChild(pill('חלון שיחות', g.call_window && g.call_window.open ? 'פתוח' : 'סגור'));
+    if (g.wacap_guests) s.appendChild(pill('תקרה כללית', 'כל המספרים בתקרה', 'bad'));
+    (g.numbers || []).forEach(function (n) { s.appendChild(pill(n.label, n.sent_today + ' היום' + (n.capped_since ? ' · בתקרה' : ''), n.capped_since ? 'bad' : '')); });
+    s.appendChild(pill('אירועים מוחזקים', (g.holds || []).length, (g.holds || []).length ? 'bad' : ''));
+    s.appendChild(pill('פייסר אחרון', ilTime(g.pacer_last_at)));
+    s.appendChild(pill('מנוע אחרון', ilTime(g.engine_last && g.engine_last.at)));
+    var warns = (DATA.registry.nodes || []).reduce(function (n, x) { return n + ((x.warnings || []).length ? 1 : 0); }, 0);
+    s.appendChild(pill('צמתים עם ⚠', warns, warns ? 'bad' : ''));
+  }
+  function renderLegend() {
+    var l = $('legend'); clear(l);
+    Object.keys(KIND).forEach(function (k) { var i = el('i'); i.style.background = 'var(' + KIND[k][1] + ')'; l.appendChild(el('span', null, [i, KIND[k][0]])); });
+    l.appendChild(el('span', { text: 'קו אדום מקווקו = כשל ממטא פותח מחדש' }));
+  }
+
+  /* ── layout: right-to-left flow. triggers at the right edge, then dispatchers, then bands of automations ── */
+  var NW = 210, NH = 54, GX = 26, GY = 18, PER = 5;
+  function layout(nodes) {
+    var byId = {}; nodes.forEach(function (n) { byId[n.id] = n; });
+    var order = ['d_engine', 'd_pacer', 't_cron10', 't_morning', 't_0400', 't_evening', 't_tue', 't_wa_status', ''];
+    var title = { d_engine: 'המנוע היומי — לפי סדר השלבים בקוד', d_pacer: 'הפייסר — כל 10 דקות', t_cron10: 'משימות ישירות כל 10 דקות', t_morning: 'אחרי קרון הבוקר', t_0400: 'דופק 04:00 UTC', t_evening: 'ערב', t_tue: 'שלישי', t_wa_status: 'תגובה לוובהוק ממטא', '': 'ידני / מסוכן' };
+    var bands = {}; order.forEach(function (k) { bands[k] = []; });
+    nodes.forEach(function (n) { if (n.layer < 2) return; var p = (n.from || [])[0] || ''; (bands[p] || bands['']).push(n); });
+    var W = 2 * (NW + 60) + PER * (NW + GX) + 80;
+    var x0 = W - NW - 30, x1 = x0 - NW - 60, xs = x1 - NW - 60;
+    var pos = {}, bandBoxes = [], y = 20;
+    order.forEach(function (k) {
+      var list = bands[k]; if (!list.length) return;
+      var rows = Math.ceil(list.length / PER), h = rows * (NH + GY) + 30;
+      bandBoxes.push({ y: y, h: h, title: title[k], key: k });
+      list.forEach(function (n, i) { pos[n.id] = { x: xs - (i % PER) * (NW + GX), y: y + 26 + Math.floor(i / PER) * (NH + GY) }; });
+      var mid = y + h / 2 - NH / 2;
+      if (byId[k] && byId[k].layer === 1) pos[k] = { x: x1, y: mid };
+      if (byId[k] && byId[k].layer === 0) pos[k] = { x: x0, y: mid };
+      y += h + 14;
+    });
+    nodes.forEach(function (n) { if (pos[n.id]) return; pos[n.id] = n.layer === 0 ? { x: x0, y: (pos.d_pacer ? pos.d_pacer.y : 20) - 0 } : { x: x1, y: 20 }; });
+    if (pos.t_cron10 && pos.d_pacer && pos.t_cron10.y === pos.d_pacer.y) pos.t_cron10.y += 0;
+    return { pos: pos, bands: bandBoxes, W: W, H: y + 20 };
+  }
+  function renderMap() {
+    var nodes = DATA.registry.nodes, live = (DATA.live && DATA.live.nodes) || {};
+    var L = layout(nodes), m = $('map'); clear(m);
+    m.setAttribute('viewBox', '0 0 ' + L.W + ' ' + L.H);
+    m.setAttribute('width', Math.round(L.W * zoom)); m.setAttribute('height', Math.round(L.H * zoom));
+    L.bands.forEach(function (b) { var g = svg('g', { class: 'band' }); g.appendChild(svg('rect', { x: 10, y: b.y, width: L.W - 20 - 2 * (NW + 60), height: b.h, rx: 12 })); var t = svg('text', { x: L.W - 2 * (NW + 60) - 24, y: b.y + 17, 'text-anchor': 'start' }); t.textContent = b.title; g.appendChild(t); m.appendChild(g); });
+    var eg = svg('g', {}); m.appendChild(eg);
+    var paths = [];
+    (DATA.registry.edges || []).forEach(function (e) {
+      var a = L.pos[e.from], b = L.pos[e.to]; if (!a || !b) return;
+      var sx = a.x, sy = a.y + NH / 2, tx = b.x + NW, ty = b.y + NH / 2;
+      if (tx > sx) { tx = b.x; sx = a.x + NW; }      /* same column / backwards: hook the other side */
+      var c = Math.max(40, Math.abs(sx - tx) / 2);
+      var d = 'M' + sx + ',' + sy + ' C' + (sx - c) + ',' + sy + ' ' + (tx + c) + ',' + ty + ' ' + tx + ',' + ty;
+      var p = svg('path', { d: d, class: 'edge' + (e.kind === 'reopen' ? ' reopen' : '') }); p.dataset.from = e.from; p.dataset.to = e.to; eg.appendChild(p); paths.push(p);
+    });
+    nodes.forEach(function (n) {
+      var p = L.pos[n.id]; if (!p) return;
+      var lv = live[n.id] || {}, k = KIND[n.kind] || KIND.internal;
+      var g = svg('g', { class: 'node', transform: 'translate(' + p.x + ',' + p.y + ')', tabindex: 0, role: 'button', 'aria-label': n.name_he });
+      g.appendChild(svg('rect', { class: 'box', width: NW, height: NH, rx: 10 }));
+      g.appendChild(svg('rect', { x: NW - 6, y: 0, width: 6, height: NH, rx: 3, fill: cssv(k[1]) }));
+      var t1 = svg('text', { class: 't1', x: NW - 14, y: 21, 'text-anchor': 'start' }); t1.textContent = trunc(n.name_he, 27); g.appendChild(t1);
+      var sub = [];
+      if (lv.today && (lv.today.sent || lv.today.failed)) sub.push('היום ' + lv.today.sent + '✓' + (lv.today.failed ? ' ' + lv.today.failed + '✗' : ''));
+      if (lv.last_run && lv.last_run.at) sub.push('רץ ' + ilTime(lv.last_run.at).split(' ').pop());
+      if (!sub.length && n.trigger && n.trigger.il) sub.push(trunc(n.trigger.il, 30));
+      if (!sub.length) sub.push(k[0]);
+      var t2 = svg('text', { class: 't2', x: NW - 14, y: 40, 'text-anchor': 'start' }); t2.textContent = trunc(sub.join(' · '), 34); g.appendChild(t2);
+      if ((n.warnings || []).length || n.mutating) { var w = svg('text', { class: 'warnmark', x: 10, y: 20 }); w.textContent = '⚠'; g.appendChild(w); }
+      if ((lv.holds || []).length) { var h = svg('circle', { cx: 14, cy: NH - 12, r: 4, fill: cssv('--warn') }); g.appendChild(h); }
+      function open_() { [].forEach.call(m.querySelectorAll('.node.sel'), function (x) { x.classList.remove('sel'); }); g.classList.add('sel');
+        paths.forEach(function (pp) { pp.classList.toggle('hi', pp.dataset.from === n.id || pp.dataset.to === n.id); }); showPanel(n); }
+      g.addEventListener('click', open_); g.addEventListener('keydown', function (ev) { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open_(); } });
+      m.appendChild(g);
+    });
+  }
+  function trunc(s, n) { s = String(s || ''); return s.length > n ? s.slice(0, n - 1) + '…' : s; }
+  function renderList() {
+    var l = $('list'); clear(l);
+    DATA.registry.nodes.slice().sort(function (a, b) { return a.layer - b.layer; }).forEach(function (n) {
+      var lv = (DATA.live && DATA.live.nodes && DATA.live.nodes[n.id]) || {};
+      var b = el('button', { cls: 'litem', type: 'button' }, [el('b', { text: ((n.warnings || []).length || n.mutating ? '⚠ ' : '') + n.name_he }), el('span', { text: (KIND[n.kind] || KIND.internal)[0] + (lv.today ? ' · היום ' + lv.today.sent + '✓ ' + (lv.today.failed || 0) + '✗' : '') + (lv.last_run && lv.last_run.at ? ' · רץ ' + ilTime(lv.last_run.at) : '') })]);
+      b.style.borderInlineStartColor = 'var(' + (KIND[n.kind] || KIND.internal)[1] + ')';
+      b.addEventListener('click', function () { showPanel(n); });
+      l.appendChild(b);
+    });
+  }
+
+  /* ── side panel: every registry field + live state + source links ── */
+  function src(a) { var f = a.file; return el('a', { href: REPO + f + '#L' + a.line, target: '_blank', rel: 'noopener' }, [el('code', { text: f.replace('worker/', '') + ':' + a.line })]); }
+  function sect(body, title, content) { if (!content) return; body.appendChild(el('h4', { text: title })); body.appendChild(content); }
+  function ul(arr) { if (!arr || !arr.length) return null; return el('ul', null, arr.map(function (x) { return el('li', null, [typeof x === 'string' ? x : x]); })); }
+  function codes(arr) { if (!arr || !arr.length) return null; return el('p', null, arr.map(function (x) { return el('code', { text: x }); }).reduce(function (a, c) { a.push(c, ' '); return a; }, [])); }
+  function showPanel(n) {
+    var b = $('pBody'); clear(b);
+    var lv = (DATA.live && DATA.live.nodes && DATA.live.nodes[n.id]) || {};
+    b.appendChild(el('h3', { text: n.name_he }));
+    b.appendChild(el('p', { cls: 'note' }, [el('code', { text: n.id }), ' · ' + (KIND[n.kind] || KIND.internal)[0] + ' · שכבה ' + n.layer]));
+    (n.warnings || []).forEach(function (w) { b.appendChild(el('div', { cls: 'warnbox', text: '⚠ ' + w })); });
+    if (n.trigger) sect(b, 'טריגר', el('table', { cls: 'kv' }, [
+      n.trigger.cron ? el('tr', null, [el('td', { text: 'קרון (UTC)' }), el('td', null, [el('code', { text: n.trigger.cron })])]) : null,
+      el('tr', null, [el('td', { text: 'בישראל' }), el('td', { text: n.trigger.il || '—' })]),
+      el('tr', null, [el('td', { text: 'דרך' }), el('td', { text: n.trigger.via || '—' })])]));
+    sect(b, 'תנאים', ul(n.conditions));
+    if (n.templates && n.templates.length) sect(b, 'תבניות', codes(n.templates));
+    if (n.audience) sect(b, 'למי', el('p', { text: n.audience }));
+    if (n.kv_markers) { var kv = el('table', { cls: 'kv' }); [['per_guest', 'לכל אורח'], ['per_event', 'לכל אירוע'], ['global', 'כללי']].forEach(function (p) { var a = n.kv_markers[p[0]]; if (a && a.length) kv.appendChild(el('tr', null, [el('td', { text: p[1] }), el('td', null, [codes(a)])])); }); sect(b, 'סימוני KV', kv); }
+    if (n.on_failure) { var of = el('table', { cls: 'kv' }); Object.keys(n.on_failure).forEach(function (c) { of.appendChild(el('tr', null, [el('td', null, [el('code', { text: c === 'other' ? 'קוד אחר' : c })]), el('td', { text: n.on_failure[c] })])); }); sect(b, 'מה קורה בכשל', of); }
+    if (n.budget) sect(b, 'תקציב / תקרה', el('p', { text: n.budget }));
+    if (n.dry_writes) sect(b, 'כותב ל-KV גם בהרצה יבשה', ul(n.dry_writes));
+    var lt = el('table', { cls: 'kv' });
+    function row(k, v) { lt.appendChild(el('tr', null, [el('td', { text: k }), el('td', null, [typeof v === 'string' ? v : v])])); }
+    row('ריצה אחרונה', lv.last_run ? ilTime(lv.last_run.at) + (lv.last_run.ms != null ? ' · ' + lv.last_run.ms + 'ms' : '') + (lv.last_run.runs_today ? ' · ' + lv.last_run.runs_today + ' ריצות היום' : '') + (lv.last_run.ok === false ? ' · נפל' : '') : '— (לא נמצא ביומן היום)');
+    row('ריצה הבאה', lv.next_run ? ilTime(lv.next_run) + ' (לפי הקרון; השער בפנים יכול לדלג)' : '— (מונע אירוע / ידני)');
+    if (lv.window) row('חלון', lv.window === 'open' ? 'פתוח' : 'סגור (' + lv.window + ')');
+    if (lv.holds && lv.holds.length) row('מעכבים', lv.holds.join(' · '));
+    if (lv.today) { row('היום', lv.today.sent + ' נשלחו · ' + lv.today.failed + ' נכשלו'); Object.keys(lv.today.by_template || {}).forEach(function (t) { var x = lv.today.by_template[t]; var c = Object.keys(x.codes || {}).map(function (k) { return k + '×' + x.codes[k]; }).join(' '); row(t, x.sent + '✓ · ' + x.rejected + ' נדחו · ' + x.failed_async + ' נכשלו אח"כ' + (c ? ' (' + c + ')' : '')); }); }
+    if (lv.pacer_slice != null) row('בפעימה האחרונה', el('code', { text: JSON.stringify(lv.pacer_slice).slice(0, 160) }));
+    sect(b, 'מצב חי' + (FIXTURE || DATA.fixture ? ' (דמה)' : ''), lt);
+    var s = el('ul'); s.appendChild(el('li', null, ['עוגן: ', src(n.source), ' ', el('code', { text: n.source.symbol })]));
+    (n.evidence || []).forEach(function (e) { s.appendChild(el('li', null, [src(e), ' ' + (e.claim || '')])); });
+    sect(b, 'מקור בקוד', s);
+    $('panel').classList.add('open'); $('panel').setAttribute('aria-hidden', 'false');
+  }
+  $('pClose').addEventListener('click', function () { $('panel').classList.remove('open'); $('panel').setAttribute('aria-hidden', 'true'); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') $('pClose').click(); });
+
+  /* ── timeline per event per day ── */
+  function renderTimeline() {
+    var h = $('tlHead'), bd = $('tlBody'); clear(h); clear(bd);
+    var t = DATA.timeline;
+    if (!t || t.ok === false) { bd.appendChild(el('p', { cls: 'err', text: 'ציר הזמן לא זמין: ' + ((t && t.error) || 'אין נתונים') })); return; }
+    h.appendChild(el('p', { cls: 'note', text: t.rules }));
+    h.appendChild(el('p', { cls: 'note', text: t.pace + (t.closed_days && t.closed_days.length ? ' · ימים בלי שליחה: ' + t.closed_days.map(heDay).join(', ') : '') + ' · לא בהקרנה: ' + (t.not_projected || []).join(', ') }));
+    var evs = {}; (t.events || []).forEach(function (e) { evs[e.token] = e; });
+    var byTok = {}; (t.items || []).forEach(function (i) { (byTok[i.token] = byTok[i.token] || []).push(i); });
+    var toks = Object.keys(byTok).sort(function (a, b) { return String((evs[a] || {}).date || '9') < String((evs[b] || {}).date || '9') ? -1 : 1; });
+    (t.events || []).forEach(function (e) { if (!byTok[e.token] && e.in_window) toks.push(e.token); });
+    if (!toks.length) { bd.appendChild(el('p', { cls: 'empty', text: 'אין שליחות מתוכננות ב-7 הימים הקרובים.' })); return; }
+    toks.forEach(function (tok) {
+      var e = evs[tok] || { token: tok, tok8: tok.slice(0, 8) }, items = byTok[tok] || [];
+      var card = el('div', { cls: 'ev' });
+      var holdBtn = el('button', { cls: 'hold', type: 'button', text: 'החזק' });
+      if (e.hold) holdBtn = el('span', { cls: 'held', text: '⏸ מוחזק מאז ' + ilTime(e.hold) });
+      else if (FIXTURE || DATA.fixture) { holdBtn.disabled = true; holdBtn.title = 'כבוי בנתוני דמה'; }
+      else holdBtn.addEventListener('click', function () { doHold(e, holdBtn, items); });
+      card.appendChild(el('div', { cls: 'ev-h' }, [el('b', { text: e.name || ('אירוע ' + (e.tok8 || tok.slice(0, 8))) }), el('span', { cls: 'meta' }, [e.date ? 'אירוע ' + heDay(e.date) + ' · ' : '', e.plan ? 'חבילה ' + ({ premium: 'הכל כלול', pro: 'פרמיום', basic: 'בסיס' }[e.plan] || e.plan) + ' · ' : '', (e.guests != null ? e.guests + ' מוזמנים · ' : ''), el('code', { text: (e.tok8 || tok.slice(0, 8)) })]), el('span', { cls: 'sp' }), holdBtn]));
+      if (!items.length) { card.appendChild(el('p', { cls: 'note', style: 'padding:.6rem .85rem', text: 'האירוע בטווח, אבל לפי הדגלים שום הודעה לא מתוכננת.' })); bd.appendChild(card); return; }
+      var tb = el('tbody');
+      items.forEach(function (i) {
+        var num = i.number ? i.number.he : '—';
+        var tr = el('tr', { cls: i.held ? 'isheld' : '' }, [el('td', { text: heDay(i.day) }), el('td', { text: i.he }), el('td', null, [el('code', { text: i.template })]), el('td', { cls: 'n', text: (i.upper_bound ? '≤ ' : '') + i.count }), el('td', { text: num }), el('td', { cls: 'note', text: (i.held ? 'מוחזק — לא ייצא · ' : '') + (i.note || '') })]);
+        tb.appendChild(tr);
+      });
+      card.appendChild(el('div', { cls: 'tblwrap' }, [el('table', { cls: 'tl' }, [el('thead', null, [el('tr', null, ['יום', 'מה', 'תבנית', 'כמות', 'מאיזה מספר', 'הערה'].map(function (x) { return el('th', { text: x }); }))]), tb])]));
+      bd.appendChild(card);
+    });
+  }
+  function doHold(e, btn, items) {
+    var blast = items.some(function (i) { return i.node === 'event_day_blast'; });
+    var msg = 'להחזיק את כל השליחות לאורחים של "' + (e.name || e.tok8) + '"?\n\n' +
+      'זה כותב hold:' + e.tok8 + '… ועוצר: גלים, דוח, תודה, שולחן, יום-לפני, ביטול/דחייה, וחיוג של שיר.\n' +
+      (blast ? '\n⚠ הודעת יום האירוע (edblast) לא נעצרת ע"י החזקה — לעצור אותה צריך /api/event-day action:clear.\n' : '') +
+      '\nלשחרר: אותו מתג בלוח הבקרה (event-flag hold off).';
+    if (!window.confirm(msg)) return;
+    btn.disabled = true; btn.textContent = '…';
+    fetch(CFG.endpoint('eventflag'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, token: e.token, flag: 'hold', on: true }) })
+      .then(function (r) { return r.json().then(function (j) { return { s: r.status, j: j }; }); })
+      .then(function (x) {
+        if (x.s === 200 && x.j && x.j.ok && x.j.on === true) { var sp = el('span', { cls: 'held', text: '⏸ הוחזק עכשיו' }); btn.replaceWith(sp); }
+        else { btn.disabled = false; btn.textContent = 'החזק'; alert('ההחזקה לא נשמרה: ' + JSON.stringify(x.j)); }
+      }).catch(function (err) { btn.disabled = false; btn.textContent = 'החזק'; alert('שגיאת רשת: ' + (err && err.message)); });
+  }
+
+  /* ── tabs / tools ── */
+  function tab(which) { $('tabMap').setAttribute('aria-selected', which === 'map'); $('tabTl').setAttribute('aria-selected', which === 'tl'); $('secMap').hidden = which !== 'map'; $('secTl').hidden = which !== 'tl'; ['viewTog', 'zIn', 'zOut'].forEach(function (id) { $(id).hidden = which !== 'map'; }); try { localStorage.setItem('ishur_auto_tab', which); } catch (e) {} }
+  $('tabMap').addEventListener('click', function () { tab('map'); });
+  $('tabTl').addEventListener('click', function () { tab('tl'); });
+  $('viewTog').addEventListener('click', function () { listView = !listView; if (DATA) render(); });
+  $('zIn').addEventListener('click', function () { zoom = Math.min(2, zoom + 0.15); if (DATA && !listView) renderMap(); });
+  $('zOut').addEventListener('click', function () { zoom = Math.max(0.35, zoom - 0.15); if (DATA && !listView) renderMap(); });
+  $('reload').addEventListener('click', function () { load(true); });
+
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  function open_() { $('gate').hidden = true; $('main').hidden = false; var t = 'map'; try { t = localStorage.getItem('ishur_auto_tab') || 'map'; } catch (e) {} tab(t); load(false); }
+  $('keyGo').addEventListener('click', function () { var v = $('keyIn').value.trim(); if (!v) return; adminKey = v; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} open_(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  if (window.innerWidth < 640) zoom = 0.6;
+  if (adminKey) open_(); else gate();
+})();
+</script>
+</body>
+</html>
