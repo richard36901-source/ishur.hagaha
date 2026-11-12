@@ -8,9 +8,11 @@
   if (window.__ishurBatch) return; window.__ishurBatch = true;
   var READS = ['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff', 'event-flag'];
   /* two lanes: quick reads are not held back by the slow ones (leads, logs, ads take 1–2 s each) */
-  var SLOW = ['leads', 'evlog', 'ads-health', 'wave-audit', 'cost-log', 'traffic', 'campaign-stats', 'ops-stats', 'feedback-list', 'calls-log', 'inbox', 'template-stats', 'msg-stats', 'shir-calls', 'leads-board', 'ops/realtime'];
+  var SLOW = ['leads', 'evlog', 'ads-health', 'wave-audit', 'call-board', 'calls-log', 'inbox', 'template-stats', 'msg-stats', 'shir-calls', 'leads-board', 'ops/realtime'];
+  /* the numbers under the weekly board (4–12 s to build) travel on their own, so nothing above waits for them */
+  var STATS = ['ops-stats', 'cost-log', 'traffic', 'campaign-stats', 'feedback-list'];
   var MUT = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
-  var real = window.fetch.bind(window), lanes = { fast: { q: [], t: null }, slow: { q: [], t: null } }, WAIT = 30;
+  var real = window.fetch.bind(window), lanes = { fast: { q: [], t: null, w: 30 }, slow: { q: [], t: null, w: 120 }, stats: { q: [], t: null, w: 120 } };
   window.__ishurBatchStats = { batches: 0, calls: 0, direct: 0, failed: 0, err: '', log: [] };
   function plan(url, init) {
     var u; try { u = new URL(url, location.href); } catch (e) { return null; }
@@ -46,12 +48,13 @@
     var url = typeof input === 'string' ? input : (input && input.url) || '';
     var p = typeof input === 'string' ? plan(url, init) : null;
     if (!p) return real(input, init);
-    var lane = lanes[SLOW.indexOf(p.c.p.split('?')[0].slice(5)) > -1 ? 'slow' : 'fast'];
+    var name = p.c.p.split('?')[0].slice(5);
+    var lane = lanes[STATS.indexOf(name) > -1 ? 'stats' : SLOW.indexOf(name) > -1 ? 'slow' : 'fast'];
     if (lane.q.length && lane.q[0].key !== p.key) return real(input, init);
     return new Promise(function (res, rej) {
       lane.q.push({ url: url, init: init, res: res, rej: rej, key: p.key, base: p.base, c: p.c });
       if (lane.q.length >= 40) { clearTimeout(lane.t); flush(lane); return; }
-      if (!lane.t) lane.t = setTimeout(function () { flush(lane); }, WAIT);
+      if (!lane.t) lane.t = setTimeout(function () { flush(lane); }, lane.w);
     });
   };
   /* measuring only: when the weekly board first has content, and when the top strip stops saying "checking" */
