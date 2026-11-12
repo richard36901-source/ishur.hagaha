@@ -37,6 +37,16 @@ function paymentType(method) {
 
 /* The terms, as they appear on the document. A digest of terms.html, in the
    order a client would ask about them. Section numbers match the site. */
+/* 12/11 Richard: an invoice that includes hostesses carries their terms (terms.html §2א, the binding text) */
+export const HOSTESS_TERMS = [
+  'דיילות באירוע (תמצית סעיף 2א בתקנון):',
+  'א. התפקיד: קבלת פני האורחים בכניסה, סימון הגעה בלוח הבקרה והכוונה לשולחנות. לא כלול כל תפקיד אחר (מלצרות, מתנות, ספקים, ילדים, הפקה).',
+  'ב. ביום האירוע לא ניתן להוסיף משימות, שעות או דיילות מעבר למה שהוזמן ושולם מראש.',
+  'ג. שעות: הגעה כשעה לפני שעת קבלת הפנים שנמסרה, עד סיום קבלת הפנים והושבת האורחים.',
+  'ד. נסיעות: כלולות באזור המרכז (אשקלון עד הרצליה). מחוץ לו תוספת נסיעות, משולמת מראש.',
+  'ה. הצוות (דיילת או דייל) נקבע על ידי ishur.io לפי זמינות, ללא התחייבות לאיש צוות מסוים.',
+].join('\n');
+export const hasHostess = p => !!(p && (p.hostess || /דייל/.test(String(p.description || '') + ' ' + String(p.plan || ''))));
 export function invoiceTerms({ tier, plan } = {}) {
   const cap = tier ? `עד ${tier} הזמנות (מספר טלפון אחד = הזמנה אחת)` : 'לפי החבילה שנרכשה';
   return [
@@ -91,7 +101,7 @@ export async function createInvoice(env, p) {
     currency: 'ILS',
     date: today,
     description: line,
-    remarks: invoiceTerms({ tier: p.tier, plan: p.plan }),
+    remarks: invoiceTerms({ tier: p.tier, plan: p.plan }) + (hasHostess(p) ? '\n\n' + HOSTESS_TERMS : ''),
     footer: `אסמכתת סליקה (Grow): ${p.ref || ''} · שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io`,
     client: {
       name: String(p.name || 'לקוח ishur.io').slice(0, 100),

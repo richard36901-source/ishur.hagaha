@@ -939,7 +939,7 @@ async function processGrowPayment(env, flat) {
       const inv = (flat._simulated && !forced) ? { ok: false, why: 'not-configured' } : await createInvoice(env, {
         name, phone, email, sum, ref, payMethod,
         taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
-        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0,
+        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0, hostess: bought ? Number(bought.hostess) || 0 : 0,   /* 12/11: hostess terms go on the invoice */
         occasion: String(flat.occasion || flat.cField2 || '').trim(),
       }).catch(e => ({ ok: false, why: String(e && e.message) }));
       if (inv.ok) {
@@ -1713,7 +1713,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   /* an add-on is money too: same invoice-receipt, same terms, same WhatsApp */
   try {
     const inv = await createInvoice(env, { name, phone, sum, ref, payMethod: String(flat.paymentType || flat.paymentMethod || '').trim(),
-      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
+      taxId: String(flat.payerId || flat.taxId || '').trim(), hostess: addon.kind === 'hostess' ? addon.n || 1 : 0, plan: addon.kind === 'hostess' ? (addon.n > 1 ? addon.n + ' דיילות לאירוע' : 'דיילת לאירוע') : addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
     if (inv.ok) {
       const email = String(flat.payerEmail || flat.email || '').trim();
       let wa = { ok: true, skipped: 'email' };

@@ -461,6 +461,18 @@
 
   /* ── the small date popup behind "שינוי תאריך" ── */
   .dpop-bg{position:fixed;inset:0;background:rgba(15,46,34,.5);z-index:60}
+  .guide-b{font:inherit;font-size:.74rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2,var(--bdr));border-radius:6px;padding:.12rem .5rem;cursor:pointer;margin-inline-start:.35rem}
+  .guide-bg{position:fixed;inset:0;background:rgba(10,33,25,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
+  .guide{background:var(--card);border:1px solid var(--bdr);border-radius:8px;width:min(94vw,26rem);max-height:88vh;overflow:auto;padding:1rem 1.1rem}
+  .guide-h{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.6rem}
+  .guide-h h3{font-size:1.05rem;margin:0;color:var(--ink)}
+  .guide-x{font:inherit;font-size:1.3rem;line-height:1;background:none;border:none;color:var(--ink3);cursor:pointer;padding:.2rem .4rem}
+  .guide-v{width:100%;border-radius:6px;margin-bottom:.7rem;background:#000}
+  .guide-ol{margin:0;padding-inline-start:1.3rem;display:grid;gap:.55rem;font-size:.9rem;color:var(--ink2);line-height:1.5}
+  .guide-ol img{display:block;max-width:100%;border:1px solid var(--bdr);border-radius:6px;margin-top:.4rem}
+  .guide-n{font-size:.78rem;color:var(--ink3);margin:.7rem 0 .8rem}
+  .guide-f{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+  .guide-wa{font-size:.8rem;color:var(--green2)}
   .dpop{
     position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:61;
     width:min(92vw,21rem);background:var(--card);border:1px solid var(--bdr);
@@ -798,7 +810,7 @@
         <span id="shareMsg" style="font-size:.8rem;color:var(--ink3)"></span>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)">
-        <label for="navIn" style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור ניווט (Waze / Google Maps) · לא חובה</label>
+        <label for="navIn" style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור ניווט (Waze / Google Maps) · לא חובה <button type="button" class="guide-b" data-guide="waze">איך מוציאים קישור?</button></label>
         <div style="display:flex;gap:.45rem">
           <input id="navIn" placeholder="הדביקו כאן קישור מוויז או גוגל מפות" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0;direction:ltr;text-align:left">
           <button type="button" class="buy" id="navSave">שמירה</button>
@@ -806,7 +818,7 @@
         <p id="navMsg" style="font-size:.78rem;color:var(--ink3);margin:.35rem 0 0">יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.</p>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)" id="giftBox">
-        <label style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור למתנה (ביט / פייבוקס) · חינם, לא חובה</label>
+        <label style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור למתנה (ביט / פייבוקס) · חינם, לא חובה <button type="button" class="guide-b" data-guide="bit">הסבר לביט</button> <button type="button" class="guide-b" data-guide="paybox">הסבר לפייבוקס</button></label>
         <p style="font-size:.78rem;color:var(--ink3);margin:0 0 .5rem">אורח ששואל איך לתת מתנה יקבל את הקישור אוטומטית. כבוי כברירת מחדל.</p>
         <div style="display:flex;gap:.45rem;margin-bottom:.4rem">
           <input id="giftBit" placeholder="קישור ביט (bit.co.il)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
@@ -2003,6 +2015,53 @@
   }
 
   /* closing hands the keyboard back to the button that opened it */
+  /* ── 12/11 Richard: "מי שמסתבך" — a short guide for getting a Waze / Bit / PayBox link.
+     Text steps always; a picture per step and a video appear when the files exist
+     (guides/<key>-<n>.jpg, CFG.GUIDE_VIDEOS[key]) — nothing breaks without them. */
+  var GUIDES = {
+    waze: { t: 'איך מוציאים קישור מוויז', paste: 'navIn', steps: [
+      'פותחים את וויז ומחפשים את האולם או את הכתובת של האירוע.',
+      'לוחצים על התוצאה הנכונה, כך שנפתח המסך של המקום.',
+      'לוחצים על שלוש הנקודות (או "עוד") ובוחרים "שליחת מיקום" / "שיתוף".',
+      'בוחרים "העתקת קישור".',
+      'חוזרים לכאן, מדביקים בשדה "קישור ניווט" ולוחצים "שמירה".'],
+      note: 'אפשר גם מגוגל מפות: מחפשים את המקום, לוחצים "שיתוף" ואז "העתקת קישור".' },
+    bit: { t: 'איך מוציאים קישור מביט', paste: 'giftBit', steps: [
+      'פותחים את אפליקציית ביט בטלפון של מי שמקבל את המתנות.',
+      'בוחרים באפשרות לקבל כסף באמצעות קישור ("בקשת כסף" ואז "קישור").',
+      'משאירים את הסכום פתוח, כדי שכל אורח יבחר כמה לתת.',
+      'לוחצים "שיתוף" ובוחרים "העתקה" (במקום לשלוח למישהו).',
+      'חוזרים לכאן, מדביקים בשדה "קישור ביט", מסמנים "לשלוח את הקישור לאורחים" ולוחצים "שמירה".'],
+      note: 'הקישור צריך להתחיל ב-bit.co.il או bitpay.co.il. שמות הכפתורים בביט משתנים מעט בין גרסאות.' },
+    paybox: { t: 'איך מוציאים קישור מפייבוקס', paste: 'giftPaybox', steps: [
+      'פותחים את אפליקציית פייבוקס.',
+      'פותחים קבוצה חדשה לאירוע (למשל "המתנות לחתונה") ונותנים לה שם.',
+      'בתוך הקבוצה לוחצים על "הזמנת משתתפים" / "שיתוף".',
+      'בוחרים "העתקת קישור" במקום לשלוח לאנשי קשר.',
+      'חוזרים לכאן, מדביקים בשדה "קישור פייבוקס", מסמנים "לשלוח את הקישור לאורחים" ולוחצים "שמירה".'],
+      note: 'הקישור צריך להתחיל ב-payboxapp.com או paybox.co.il. רק מנהל הקבוצה מושך את הכסף.' }
+  };
+  function openGuide(key) {
+    var g = GUIDES[key]; if (!g) return;
+    var old = document.getElementById('guideBg'); if (old) old.remove();
+    var vid = (CFG.GUIDE_VIDEOS || {})[key] || '';
+    var bg = document.createElement('div'); bg.id = 'guideBg'; bg.className = 'guide-bg';
+    bg.innerHTML = '<div class="guide" role="dialog" aria-modal="true" aria-label="' + g.t + '"><div class="guide-h"><h3>' + g.t + '</h3><button type="button" class="guide-x" aria-label="סגירה">×</button></div>' +
+      (vid ? '<video class="guide-v" controls playsinline preload="metadata" src="' + vid + '"></video>' : '') +
+      '<ol class="guide-ol">' + g.steps.map(function (s, i) { return '<li><span>' + s + '</span><img alt="" loading="lazy" src="guides/' + key + '-' + (i + 1) + '.jpg" onerror="this.remove()"></li>'; }).join('') + '</ol>' +
+      '<p class="guide-n">' + g.note + '</p>' +
+      '<div class="guide-f"><button type="button" class="buy" data-guide-go>הבנתי, להדבקת הקישור</button><a class="guide-wa" target="_blank" rel="noopener" href="' + CFG.waLink('היי, אני צריך עזרה עם ' + g.t.replace('איך מוציאים ', '')) + '">עדיין מסתבכים? כתבו לנו</a></div></div>';
+    var close = function () { bg.remove(); document.removeEventListener('keydown', onKey, true); };
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    bg.addEventListener('click', function (e) {
+      if (e.target === bg || e.target.closest('.guide-x')) return close();
+      if (e.target.closest('[data-guide-go]')) { close(); var f = $(g.paste); if (f) { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(function () { f.focus(); }, 350); } }
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(bg);
+    IshurLead.track('guide_open', { guide: key });
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-guide]'); if (b) { e.preventDefault(); openGuide(b.dataset.guide); } });
   function closeDpop(focusBack) {
     var bg = $('dpopBg'), box = $('dpop');
     if (bg) bg.remove();
