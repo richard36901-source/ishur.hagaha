@@ -6630,7 +6630,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
 /* test-only handles (02/11 audit): the lifecycle stages are exercised end to
    end against a fake sheet + fake Meta in test/audit-send-pipeline.test.mjs */
-export { runDailyEngine as _runDailyEngine, lateInvite as _lateInvite, resendInvitation as _resendInvitation, eventDayRecipients as _eventDayRecipients, runEventDayBlasts as _runEventDayBlasts };
+export { staleSentByEvent as _staleSentByEvent, runDailyEngine as _runDailyEngine, lateInvite as _lateInvite, resendInvitation as _resendInvitation, eventDayRecipients as _eventDayRecipients, runEventDayBlasts as _runEventDayBlasts };
 
 /* ══ the pacer ═══════════════════════════════════════════════════════════════
    Everything used to happen in one burst at 09:35: every wave for every event,
@@ -6915,6 +6915,9 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
       /* 04/11: no (fresh) snapshot → nothing to retry against; un-burn the day so the next tick tries */
       if (!raw) { await env.RATE.delete('autoretry:' + today).catch(() => {}); throw new Error(snapMiss(env)); }
       const by = await undeliveredByEvent(env, raw);
+      /* 12/11: accepted-but-never-delivered for 24 h → one more attempt (wsent dropped, wstale set) */
+      const stale = await staleSentByEvent(env, raw, Date.now(), { mark: true }).catch(() => ({}));
+      for (const [t, ev] of Object.entries(stale)) { (by[t] = by[t] || { name: ev.name, list: [] }).list.push(...ev.list); }
       let n = 0, evs = 0;
       for (const [token, ev] of Object.entries(by || {})) {
         const list = (ev.list || []).filter(g => !g.dead);
@@ -8570,6 +8573,36 @@ async function syncInvoices(env) {
 /* ── who did not get the invitation (per event) ─────────────────────────────
    wfail = failed, retrying; wdead = gave up (3 fails or not on WhatsApp).
    Used by the daily report and by /api/wave-retry. */
+/* 12/11 Richard: "אם מטא לא מסרה — אדום ותתזמן שליחה נוספת". Meta accepted the message (wsent:) but
+   never reported delivered/read for 24 h (phone off, no reception, number gone). Once per guest per wave:
+   the morning auto-retry drops the wsent: key so the engine sends again, and wstale: marks the attempt. */
+const STALE_SENT_MS = 24 * 3600e3, WSENT_TTL_S = 120 * 86400;
+async function staleSentByEvent(env, raw, now = Date.now(), { mark = false } = {}) {
+  const out = {};
+  const today = ilDate(new Date(now));
+  const answeredPh = new Set(), names = {}, guestsOf = {};
+  for (const g of (raw && raw.guests && raw.guests.values) || []) {
+    const p = normPhone(g[4] || ''), t = String(g[28] || '').trim(); if (!p || !t) continue;
+    names[p] = String(g[3] || '').trim(); (guestsOf[t] = guestsOf[t] || new Set()).add(p);
+    if (/^(מגיע|לא מגיע|מתלבט)/.test(String(g[15] || '').trim())) answeredPh.add(t + ':' + p);
+  }
+  for (const e of (raw && raw.events && raw.events.values) || []) {
+    const token = String(e[1] || '').trim(), date = String(e[6] || '').trim().slice(0, 10);
+    if (!token || !guestsOf[token] || String(e[27] || '').trim() === 'כן' || (date && date < today)) continue;
+    let cursor; const keys = [];
+    do { const l = await env.RATE.list({ prefix: `wsent:${token}:`, limit: 1000, cursor }).catch(() => ({ keys: [] })); keys.push(...(l.keys || [])); cursor = l.list_complete ? undefined : l.cursor; } while (cursor);
+    for (const k of keys) {
+      const [, , wave, phone] = k.name.split(':'); if (!/^[123]$/.test(wave) || !phone) continue;
+      const sentAt = (Number(k.expiration) || 0) * 1000 - WSENT_TTL_S * 1000;
+      if (!sentAt || now - sentAt < STALE_SENT_MS || answeredPh.has(token + ':' + phone)) continue;
+      const [dlv, stale, dead] = await Promise.all([env.RATE.get(`wst:${token}:${wave}:${phone}`).catch(() => null), env.RATE.get(`wstale:${token}:${wave}:${phone}`).catch(() => null), env.RATE.get(`wdead:${token}:${wave}:${phone}`).catch(() => null)]);
+      if (dlv === 'delivered' || dlv === 'read' || stale || dead) continue;
+      (out[token] = out[token] || { name: String(e[34] || e[2] || '').trim() || token.slice(0, 8), list: [] }).list.push({ phone, name: names[phone] || '', wave, kind: 'stale', code: 'stale', sent_at: new Date(sentAt).toISOString() });
+      if (mark) { await env.RATE.delete(k.name).catch(() => {}); await env.RATE.put(`wstale:${token}:${wave}:${phone}`, today, { expirationTtl: WSENT_TTL_S }).catch(() => {}); }
+    }
+  }
+  return out;
+}
 async function undeliveredByEvent(env, raw) {
   const out = {};
   const fails = await kvPrefix(env, 'wfail:');
@@ -8593,7 +8626,7 @@ async function undeliveredByEvent(env, raw) {
   return out;
 }
 function undeliveredLines(byEv) {
-  const WHY = { '131049': 'מגבלת שיווק מטא', '130472': 'ניסוי מטא', '131026': 'לא בוואטסאפ', '131053': 'קובץ', '131042': 'תשלום מטא' };
+  const WHY = { '131049': 'מגבלת שיווק מטא', '130472': 'ניסוי מטא', '131026': 'לא בוואטסאפ', '131053': 'קובץ', '131042': 'תשלום מטא', 'stale': 'לא נמסר 24 שעות' };
   const lines = [];
   for (const ev of Object.values(byEv)) {
     if (!ev.list.length) continue;
@@ -13173,6 +13206,9 @@ const WORKER = {
            retry goes out as the reminder (wave 2); when THAT fails too, the
            failure lives under wave 2 and wave 1 reads as "never sent". */
         const WAVES = [1, 2, 3];
+        /* when each guest's wave-1 message was accepted (wsent: expiration − TTL), for the 24 h "not delivered" rule */
+        const staleAt = {};
+        try { let cursor; do { const l = await env.RATE.list({ prefix: `wsent:${token}:1:`, limit: 1000, cursor }); for (const k of l.keys || []) { const ph = k.name.split(':')[3]; if (ph && k.expiration) staleAt[ph] = k.expiration * 1000 - WSENT_TTL_S * 1000; } cursor = l.list_complete ? undefined : l.cursor; } while (cursor); } catch {}
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
@@ -13202,7 +13238,11 @@ const WORKER = {
           /* Richard 21/10: an answer proves the message arrived. A reply after
              a failed attempt must not keep showing "not delivered". */
           const answered = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
-          const st = answered ? 'sent' : dead ? 'failed' : ok ? 'sent' : fail ? 'retrying' : 'none';
+          /* 12/11: accepted by Meta, not delivered for 24 h, no answer → red "לא נמסר עדיין" (the morning retry resends) */
+          const sentAt = staleAt[ph] || 0;
+          const stale = ok && !answered && dlv !== 'delivered' && dlv !== 'read' && sentAt && Date.now() - sentAt > STALE_SENT_MS;
+          const st = answered ? 'sent' : dead ? 'failed' : stale ? 'retrying' : ok ? 'sent' : fail ? 'retrying' : 'none';
+          if (stale) return { st, code: 'stale', delivery: '' };
           /* delivery: 'read' (blue ticks) > 'delivered' > 'sent'. A reply proves read. */
           const delivery = st !== 'sent' ? '' : (answered || dlv === 'read') ? 'read' : dlv === 'delivered' ? 'delivered' : 'sent';
           return { st, code: st === 'sent' ? '' : String(code || dead || ''), delivery };
