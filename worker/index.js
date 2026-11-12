@@ -6135,7 +6135,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
     /* calls are a plan feature: בסיס never enters the call queue — the basic
        upsell stage offers the upgrade instead of silently marking calls */
-    if (lastSend && lastSend < today && planKeyOf(ev) !== 'basic') {
+    const callDateOv = env.RATE ? await env.RATE.get('calldate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
+    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today)) && planKeyOf(ev) !== 'basic') {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
@@ -6241,7 +6242,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     const daysAfter = Math.round((Date.parse(today) - Date.parse(date)) / 864e5);
-    if (daysAfter < 1 || daysAfter > 14) continue; // day-after and up to two weeks late, then let it go
+    const todaOv = env.RATE ? await env.RATE.get('todadate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
+    if (todaOv ? (today < todaOv || daysAfter > 30) : (daysAfter < 1 || daysAfter > 14)) continue; // day-after and up to two weeks late, then let it go
     if (wavesWanting && daysAfter <= THANKS_MAX_WAIT && !dry) { out.push({ token, type: 'guest_thanks_deferred', why: 'waves-first', days_after: daysAfter }); continue; }
     if (env.RATE && await env.RATE.get('eoe:' + token)) continue;
 
@@ -11653,8 +11655,18 @@ const WORKER = {
         return okJson({ ok: true, order: order.map(t => t.slice(0, 8)) }, origin);
       }
       const token = full(b.tok8);
-      const send = { w1: 'invite', w2: 'reminder', w3: 'extra' }[String(b.type || '')];
       if (!token) return deny(404, 'event-not-found', origin);
+      /* 12/11 Richard ("תאפשר לי לערוך את כל התאריכים"): the call round and the thank-you get an explicit
+         day (KV override); the engine and the client board read the same key. */
+      if (b.type === 'calls' || b.type === 'thanks') {
+        const d = String(b.date || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(400, 'bad-date', origin);
+        await env.RATE.put((b.type === 'calls' ? 'calldate:' : 'todadate:') + token, d, { expirationTtl: 200 * 86400 });
+        if (b.type === 'calls') await env.RATE.delete('esc:' + token).catch(() => {});   /* a moved round re-opens the escalation for its new day */
+        await logEvent(env, { area: 'לוח', action: `${b.type === 'calls' ? 'סבב השיחות' : 'הודעת התודה'} הועבר/ה מהלוח → ${d}`, ok: true, token }).catch(() => {});
+        return okJson({ ok: true, type: b.type, date: d }, origin);
+      }
+      const send = { w1: 'invite', w2: 'reminder', w3: 'extra' }[String(b.type || '')];
       if (!send) return deny(400, 'only-waves-move', origin);
       const inner = new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, send, date: String(b.date || '') }) });
       const res = await handleSendDate(inner, env, origin);
@@ -13449,6 +13461,8 @@ const WORKER = {
         }
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
+        sentWaves.callDate = await env.RATE.get('calldate:' + token).catch(() => null);
+        sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
         sentWaves.callsAddon = !!(await env.RATE.get('callsaddon:' + token));
         /* did the event-day message go out to anybody */

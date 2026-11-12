@@ -282,7 +282,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
       const d = new Date(last + 'T12:00:00Z');
       d.setUTCDate(d.getUTCDate() + 1);
       if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
-      const start = d.toISOString().slice(0, 10);
+      const start = (sent.callDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.callDate)) ? sent.callDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
       /* 04/11: a guest who used up every try is not waiting any more - the
          round is over even though the sheet still flags them */
       const cap = planMaxCallTries(planKeyOf(ev)) || (sent.callsAddon ? 1 : 0);
@@ -313,7 +313,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   /* the day after: a thank-you to everyone who came (פרמיום and up, Richard 21/10) */
   if (/^\d{4}-\d{2}-\d{2}$/.test(c(6).slice(0, 10)) && planKeyOf(ev) !== 'basic') {
     const d = new Date(c(6).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);
-    const dayAfter = d.toISOString().slice(0, 10);
+    const dayAfter = (sent.todaDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.todaDate)) ? sent.todaDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
     sends.push({ key: 'day_after', label: 'הודעת תודה לאורחים', date: dayAfter, status: sent.dayAfter ? 'sent' : (dayAfter < todayIso ? 'passed' : 'scheduled'), auto: true });
   }
 

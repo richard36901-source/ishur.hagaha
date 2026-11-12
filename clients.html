@@ -286,7 +286,7 @@
   /* the "ניהול אירוע" popup: every action for one event, grouped. It lives inside #list so the
      existing data-act handler (closest('.card').dataset.t) keeps working unchanged. */
   var STATUS_HE = { sent: ['ok', 'בוצע ✓'], running: ['run', 'בתהליך'], scheduled: ['', 'מתוכנן'], passed: ['', 'עבר'] };
-  var WAVE_TYPE = { invite: 'w1', reminder: 'w2', extra: 'w3' };
+  var WAVE_TYPE = { invite: 'w1', reminder: 'w2', extra: 'w3', calls: 'calls', day_after: 'thanks' };
   function loadSummary(t) {
     var box = document.getElementById('popSum'); if (!box) return;
     fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp({ token: t, view: 'dashboard' }) : { token: t, view: 'dashboard' }) })
@@ -302,15 +302,16 @@
           var st = STATUS_HE[s.status] || ['', s.status], tp = WAVE_TYPE[s.key];
           var stats = s.stats ? (s.key === 'calls' ? 'חויגו ' + (s.stats.dialed || 0) + ' · ענו ' + (s.stats.answered || 0) : 'ענו ' + (s.stats.answered || 0) + ' · מגיעים ' + (s.stats.confirmed || 0) + ' · לא ' + (s.stats.declined || 0)) : '';
           var sentN = s.sent_n != null ? 'נשלחו ' + s.sent_n : '';
-          var dateCell = tp ? '<input type="date" value="' + esc(String(s.date || '').slice(0, 10)) + '" data-move="' + tp + '" title="שינוי תאריך">' : '<span class="meta">' + esc(s.date ? heDate(String(s.date).slice(0, 10)) : '—') + '</span>';
+          var dateCell = tp ? '<input type="date" value="' + esc(String(s.date || '').slice(0, 10)) + '" data-move="' + tp + '" title="שינוי תאריך">' : s.key === 'event_day' ? '<span class="meta">' + esc(s.date ? heDate(String(s.date).slice(0, 10)) : '—') + '</span> <a class="meta" href="upload.html?t=' + t + '&step=2" target="_blank" title="תאריך האירוע משתנה בהגדרות האירוע">(הגדרות)</a>' : '<span class="meta">' + esc(s.date ? heDate(String(s.date).slice(0, 10)) : '—') + '</span>';
           return '<tr><td>' + esc(s.label) + '</td><td>' + dateCell + '</td><td><span class="st ' + st[0] + '">' + st[1] + '</span></td><td class="meta">' + [sentN, stats].filter(Boolean).join(' · ') + '</td></tr>';
         }).join('') + '</table>' +
-          '<div class="meta" style="margin-top:.3rem">שינוי תאריך של גל שומר מיד. שיחות / יום לפני / תודה נגזרים מהגלים ומתאריך האירוע.</div>';
+          '<div class="meta" style="margin-top:.3rem">שינוי תאריך נשמר מיד (גלים, סבב שיחות, תודה). תזכורת הכתובת = תאריך האירוע, משתנה בהגדרות.</div>';
         box.innerHTML = '<h3>מצב האירוע</h3>' + html;
         box.querySelectorAll('[data-move]').forEach(function (inp) {
           inp.addEventListener('change', async function () {
             var tok8 = t.slice(0, 8), type = inp.dataset.move, date = inp.value; if (!date) return;
-            if (!(await askConfirm('הגל יעבור ל-' + date.split('-').reverse().join('.') + '.', { title: 'לשנות תאריך?', ok: 'שנה' }))) { loadSummary(t); return; }
+            var what = type === 'calls' ? 'סבב השיחות יתחיל ב-' : type === 'thanks' ? 'הודעת התודה תצא ב-' : 'הגל יעבור ל-';
+            if (!(await askConfirm(what + date.split('-').reverse().join('.') + '.', { title: 'לשנות תאריך?', ok: 'שנה' }))) { loadSummary(t); return; }
             api('board-move', { tok8: tok8, type: type, date: date }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'התאריך עודכן' : 'לא עודכן: ' + (j.error || j.why || '')); loadSummary(t); });
           });
         });
