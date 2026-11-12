@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#0F2E22">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=87"></script>
+<script src="config.js?v=88"></script>
 <style>
   :root{--pine:#0F2E22;--green:#0F4C35;--gold:#A8853C;--gold-ink:#8A6D2F;--ink:#1B2420;--ink2:#4A554E;--ink3:#7F8C86;--bg:#F8F4EA;--card:#fff;--bdr:#E3E1D8;--field:#fff}
   @media (prefers-color-scheme:dark){:root{--green:#4FA37C;--gold-ink:#C7AE7A;--ink:#ECEFEA;--ink2:#C9CFC7;--ink3:#8E978F;--bg:#0F1613;--card:#151C18;--bdr:#2A332E;--field:#0F1613}}
@@ -42,6 +42,7 @@
   .acts{display:flex;gap:.5rem;flex-wrap:wrap}
   .note{font-size:.76rem;color:var(--ink3);margin-top:.6rem}
   .err{font-size:.82rem;color:#A8402F;min-height:1.2em;margin-top:.4rem}
+  .fr{display:flex;justify-content:space-between;gap:.6rem;font-size:.86rem;padding:.4rem 0;border-bottom:1px solid var(--bdr)}.fr:last-child{border-bottom:0}
   .tag{display:inline-block;font-size:.7rem;font-weight:600;border-radius:99px;padding:.1rem .55rem;background:rgba(168,133,60,.14);color:var(--gold-ink);margin-inline-start:.4rem}
 </style>
 </head>
@@ -100,7 +101,10 @@
         '<div class="acts"><a class="btn p" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(x.msg(l.link)) + '">שיתוף בוואטסאפ</a>' +
         '<a class="btn g" href="share.html?p=' + pid + '&v=' + l.mode + '">תמונות לסטורי</a></div>' +
         (l.mode === 'commission' && l.earned_pending ? '<p class="note">הסכום בסוגריים ממתין לאישור התשלום של החבר.</p>' : '') + '</div>';
-    }).join('');
+    }).join('') + ((P.friends || []).length ? '<div class="card"><h2>מי הגיע דרכי</h2>' + P.friends.map(function (f) {
+      var d = String(f.at || '').slice(0, 10).split('-').reverse().join('.');
+      return '<div class="fr"><span><b>' + esc(f.name) + '</b> · ' + d + '</span><span>' + (f.mode === 'discount' ? 'חסך ₪' + f.saved : 'צברתי ₪' + f.credit + (f.status === 'pending' ? ' (ממתין)' : '')) + '</span></div>';
+    }).join('') + '</div>' : '');
   }
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest('[data-copy]'); if (!b) return;

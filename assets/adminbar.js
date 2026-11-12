@@ -32,6 +32,7 @@
     { href: 'live.html', label: 'לוג חי', icon: ic.ops },
     { href: 'admin.html', label: 'מרכז הבקרה', icon: ic.board },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board },
+    { href: 'clients.html#referrals', label: 'שגרירים', icon: ic.board },
     { href: 'leads.html', label: 'לידים', icon: ic.board },
     { href: 'inbox.html', label: 'אינבוקס', icon: ic.inbox },
     { href: 'calendar.html', label: 'לוח שליחות', icon: ic.calls },

@@ -52,7 +52,8 @@ import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges
 import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
-import { handlePartner, hitAdd as refHitAdd } from './partner.js';   /* 12/11 שגרירים: partners without an event, two fixed links */
+import { handlePartner, hitAdd as refHitAdd } from './partner.js';
+import { staffOnMessage, handleStaff } from './staff.js';   /* 12/11 דיילות: attendance log through Noa's line */   /* 12/11 שגרירים: partners without an event, two fixed links */
 import * as REF from './referral.js';   /* 12/11 הזמן חבר: 20% הנחה / 20% עמלה (.sdlc/referral-program) */
 import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -3724,6 +3725,13 @@ async function handleWaWebhook(request, env, url) {
          writes to Noa's line and is neither a client nor a known lead becomes a
          lead right away: KV + Monday through noteLead, and Slack now (no
          10-minute quiet wait — they are on WhatsApp, not mid-checkout). */
+      /* 12/11 Richard: a registered hostess reports arrival / chuppah / leaving here — kept as evidence, answered with what was recorded */
+      if (ch === 'client' && !echo) {
+        try {
+          const sm = await staffOnMessage(env, normPhone(from), body, ts, { ilDate, ilTime, logEvent });
+          if (sm) { await sendText(env, from, sm.ack, 'client', { who: 'נועה (יומן דיילות)' }).catch(() => {}); }
+        } catch {}
+      }
       if (ch === 'client' && !echo) {
         try {
           const p9 = normPhone(from);
@@ -10176,7 +10184,7 @@ async function writeHostessBooking(env, token, b) {
     return new Date(Date.UTC(+b.date.slice(0, 4), +b.date.slice(5, 7) - 1, +b.date.slice(8, 10), h, m) - off * 60000);
   };
   const recMin = Number(rec[1]) * 60 + Number(rec[2]);
-  const startMin = recMin - 60 - travel, endMin = recMin + 5 * 60;
+  const startMin = recMin - 40 - travel, endMin = recMin + 5 * 60;   /* 12/11 Richard: on site 40 minutes before the reception */
   const start = local(Math.floor(startMin / 60), ((startMin % 60) + 60) % 60), end = local(Math.floor(endMin / 60), endMin % 60);
   await env.RATE.put('hostessbook:' + token, JSON.stringify({ ...b, reception: rec[1] + ':' + rec[2], start: start.toISOString(), end: end.toISOString(), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
   /* Richard 05/10: the monday board "אירועים עם דיילות - אישור הגעה" (18433947622)
@@ -12715,7 +12723,8 @@ const WORKER = {
       await env.RATE.put('refpend:' + phone, code, { expirationTtl: 30 * 86400 });
       return okJson({ ok: true }, origin);
     }
-    if (url.pathname.startsWith('/api/partner/')) return handlePartner(request, env, origin, url, { okJson, deny, isAdmin, overBudget, logEvent, refRecordsOf, REF_TTL });
+    if (url.pathname === '/api/staff' && request.method === 'POST') return handleStaff(request, env, origin, { okJson, deny, isAdmin, normPhone });
+    if (url.pathname.startsWith('/api/partner/')) return handlePartner(request, env, origin, url, { okJson, deny, isAdmin, overBudget, logEvent, refRecordsOf, REF_TTL, normPhone });
     /* admin: everything, for clients.html › הפניות */
     if (url.pathname === '/api/referrals' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

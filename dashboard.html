@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=87"></script>
+<script src="config.js?v=88"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -461,6 +461,9 @@
 
   /* ── the small date popup behind "שינוי תאריך" ── */
   .dpop-bg{position:fixed;inset:0;background:rgba(15,46,34,.5);z-index:60}
+  /* 12/11 Richard: the guest-list actions sit on one line; on a narrow screen the line scrolls sideways */
+  .gl-acts{display:flex;gap:.35rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;padding-bottom:2px}.gl-acts::-webkit-scrollbar{display:none}
+  .gl-acts .buy{white-space:nowrap;flex:0 0 auto;font-size:.8rem;padding:.4rem .7rem}
   .guide-b{font:inherit;font-size:.74rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2,var(--bdr));border-radius:6px;padding:.12rem .5rem;cursor:pointer;margin-inline-start:.35rem}
   .guide-bg{position:fixed;inset:0;background:rgba(10,33,25,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
   .guide{background:var(--card);border:1px solid var(--bdr);border-radius:8px;width:min(94vw,26rem);max-height:88vh;overflow:auto;padding:1rem 1.1rem}
@@ -592,7 +595,6 @@
     <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
     <!-- 12/11 personal-area: all the client's events, reviews and credit -->
-    <p class="sub" id="acctLinkRow" style="margin-top:.35rem"><a href="account.html" id="acctLink" style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">כל האירועים שלי ›</a></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
     <div class="cd-wrap"><span class="evsw-wrap" id="evSwitchWrap" hidden>
       <button type="button" class="evsw" id="switchEv" aria-haspopup="true" aria-expanded="false" aria-controls="evSwitchPanel">
@@ -695,7 +697,7 @@
 
   <!-- guests -->
   <section class="card">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>
     <p class="list-sum" id="listSum"></p>
@@ -830,8 +832,8 @@
           <label style="display:flex;align-items:center;gap:.4rem;font-size:.86rem;cursor:pointer"><input type="checkbox" id="giftOn" style="width:1.1rem;height:1.1rem"> לשלוח את הקישור לאורחים</label>
           <button type="button" class="buy" id="giftSave">שמירה</button>
           <span id="giftMsg" style="font-size:.78rem;color:var(--ink3)"></span>
+          <span style="font-size:.74rem;color:var(--ink3);margin-inline-start:auto;white-space:nowrap">בקרוב: מתנה באשראי דרכנו <button type="button" class="buy" id="giftInterest" style="font-size:.74rem;padding:.25rem .7rem;margin-inline-start:.3rem;background:var(--green4);color:var(--green2)">מעניין אותי</button></span>
         </div>
-        <p style="font-size:.74rem;color:var(--ink3);margin:.4rem 0 0">בקרוב: מתנה באשראי דרכנו. <button type="button" class="buy" id="giftInterest" style="font-size:.74rem;padding:.25rem .7rem;margin-inline-start:.3rem;background:var(--green4);color:var(--green2)">מעניין אותי</button></p>
       </div>
     </div>
   </section>
@@ -1337,7 +1339,7 @@
     });
     nav.hidden = items.length < 3;
     /* 12/11 Richard: first in the side list — all my events (the personal area) */
-    nav.innerHTML = '<div class="tt">בלוח</div><a href="account.html' + (token ? '?t=' + encodeURIComponent(token) : '') + '" style="font-weight:600">כל האירועים שלי ›</a>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
+    nav.innerHTML = '<div class="tt">בלוח</div><a href="account.html' + (token ? '?t=' + encodeURIComponent(token) : '') + '" id="acctLink" style="font-weight:600">כל האירועים שלי ›</a>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
     /* sit just under the dark header while it is on screen, then hug the top */
     function placeToc() { var t2 = document.querySelector('.top'); if (!t2) return; var b = t2.getBoundingClientRect().bottom; document.documentElement.style.setProperty('--toc-top', Math.max(16, b + 14) + 'px'); }
     placeToc();
@@ -1464,7 +1466,6 @@
     $('refPerk').hidden = refs < 1;
     /* 12/11 Richard: the badge page is gone; the story kit is the one share tool */
     var badgeHref = 'share.html?t=' + encodeURIComponent(token || '');
-    if ($('acctLink') && token) $('acctLink').href = 'account.html?t=' + encodeURIComponent(token);
     $('tierPopBadge').href = badgeHref;
 
     /* the "you leveled up" moment — once per device per level */
@@ -2023,11 +2024,12 @@
      Where the source does not name a button, the step does not invent one. */
   var GUIDES = {
     waze: { t: 'איך מוציאים קישור מוויז', paste: 'navIn', steps: [
-      'נכנסים בדפדפן (בטלפון או במחשב) לכתובת waze.com/live-map.',
-      'בשדה "בחרו יעד" מקלידים את שם האולם או הכתובת, ובוחרים את התוצאה הנכונה מהרשימה.',
-      'לוחצים על סמל הקישור בפינה התחתונה של המסך. הקישור למיקום מועתק.',
+      'פותחים את וויז ומחפשים את האולם או את הכתובת של האירוע.',
+      'במסך של המקום לוחצים על "צא בזמן אחר".',
+      'לוחצים "שמור". הנסיעה נשמרת עם מאיפה ולאן.',
+      'בנסיעה השמורה לוחצים על "שיתוף" ואז על "העתק קישור".',
       'חוזרים לכאן, מדביקים בשדה "קישור ניווט" ולוחצים "שמירה".'],
-      note: 'אפשר גם מגוגל מפות: מחפשים את המקום, לוחצים על שמו בתחתית המסך, ואז "שיתוף" ו"העתקה". קישור שהעתקתם מתוך אפליקציית וויז עצמה מתקבל גם הוא.' },
+      note: 'אפשר גם מהמחשב: ב-waze.com/live-map מקלידים את האולם כיעד ולוחצים על סמל הקישור בפינה התחתונה. גם קישור מגוגל מפות ("שיתוף" ואז "העתקה") מתקבל.' },
     bit: { t: 'איך מוציאים קישור מביט', paste: 'giftBit', steps: [
       'פותחים את ביט בטלפון של מי שמקבל את המתנות, ולוחצים על "קבוצה" במסך הראשי.',
       'בוחרים לאן הכסף נאסף: ליתרה או לכיס.',

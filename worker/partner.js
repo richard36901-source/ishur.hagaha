@@ -20,10 +20,11 @@ const hex = n => [...crypto.getRandomValues(new Uint8Array(n))].map(b => b.toStr
 export const linkOf = code => `${SITE}/?ref=${code}`;
 export const boardOf = pid => `${SITE}/partner.html?p=${pid}`;
 
-export function newPartner({ label = '', at = new Date().toISOString(), rnd = hex } = {}) {
+export const KINDS = ['person', 'venue'];
+export function newPartner({ label = '', phone = '', kind = 'person', at = new Date().toISOString(), rnd = hex } = {}) {
   let a = rnd(4), b = rnd(4);
   while (b === a) b = rnd(4);
-  return { pid: rnd(12), label: String(label || '').trim().slice(0, 60), name: '', codes: { discount: a, commission: b }, at };
+  return { pid: rnd(12), label: String(label || '').trim().slice(0, 60), name: '', phone: String(phone || ''), kind: KINDS.includes(kind) ? kind : 'person', codes: { discount: a, commission: b }, at };
 }
 export function refsOf(p) {
   const name = p.name || p.label || '';
@@ -53,13 +54,20 @@ export function hitAdd(h, day) {
 }
 
 const kvJson = async (env, k) => { try { return JSON.parse(await env.RATE.get(k) || 'null'); } catch { return null; } };
-export async function partnerView(env, p, d) {
-  const links = [];
+/* who exactly came through: full for the admin, first name only for the partner's own board */
+export function friendRows(recs, mode, full) {
+  return recs.map(r => ({ mode, at: r.at, status: r.status, name: full ? (r.friend_name || '') : String(r.friend_name || '').trim().split(/\s+/)[0] || 'חבר', ...(full ? { phone: r.friend_phone || '', token: r.friend_token || '', id: r.id } : {}),
+    paid: r.sum_total || 0, saved: r.discount_given || 0, credit: r.credit || 0 }));
+}
+export async function partnerView(env, p, d, full = false) {
+  const links = [], friends = [];
   for (const mode of ['discount', 'commission']) {
-    const code = p.codes[mode];
-    links.push(linkStats(mode, code, await d.refRecordsOf(env, code), await kvJson(env, 'refhits:' + code)));
+    const code = p.codes[mode]; const recs = await d.refRecordsOf(env, code);
+    links.push(linkStats(mode, code, recs, await kvJson(env, 'refhits:' + code)));
+    friends.push(...friendRows(recs, mode, full));
   }
-  return { pid: p.pid, label: p.label, name: p.name, at: p.at, board: boardOf(p.pid), links };
+  friends.sort((a, c) => String(c.at).localeCompare(String(a.at)));
+  return { pid: p.pid, label: p.label, name: p.name, kind: p.kind || 'person', ...(full ? { phone: p.phone || '' } : {}), at: p.at, board: boardOf(p.pid), links, friends };
 }
 
 export async function handlePartner(request, env, origin, url, d) {
@@ -69,20 +77,29 @@ export async function handlePartner(request, env, origin, url, d) {
   let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
 
-  if (path === 'create' || path === 'list') {
+  if (path === 'create' || path === 'list' || path === 'update') {
     if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
+    if (path === 'update') {
+      const pid0 = String(b.p || '').toLowerCase(); const cur = PID_RE.test(pid0) ? await kvJson(env, 'partner:' + pid0) : null;
+      if (!cur) return d.deny(404, 'unknown-partner', origin);
+      const ph = d.normPhone ? d.normPhone(b.phone || '') : '';
+      const next = { ...cur, ...(b.phone !== undefined ? { phone: /^972\d{8,9}$/.test(ph) ? ph : '' } : {}), ...(KINDS.includes(b.kind) ? { kind: b.kind } : {}), ...(typeof b.label === 'string' && b.label.trim().length > 1 ? { label: b.label.trim().slice(0, 60) } : {}) };
+      await env.RATE.put('partner:' + pid0, JSON.stringify(next), { expirationTtl: d.REF_TTL });
+      return d.okJson({ ok: true, partner: await partnerView(env, next, d, true) }, origin);
+    }
     if (path === 'create') {
-      const p = newPartner({ label: b.label });
+      const ph = d.normPhone ? d.normPhone(b.phone || '') : '';
+      const p = newPartner({ label: b.label, phone: /^972\d{8,9}$/.test(ph) ? ph : '', kind: b.kind });
       if (!p.label) return d.deny(400, 'label-required', origin);
       for (const r of refsOf(p)) { if (await env.RATE.get('ref:' + r.code)) return d.deny(409, 'code-collision', origin); }
       await env.RATE.put('partner:' + p.pid, JSON.stringify(p), { expirationTtl: d.REF_TTL });
       for (const r of refsOf(p)) await env.RATE.put('ref:' + r.code, JSON.stringify(r), { expirationTtl: d.REF_TTL });
       await d.logEvent(env, { area: 'הפניות', action: `שגריר חדש: ${p.label}`, ok: true, detail: `${p.codes.discount} (הנחה) · ${p.codes.commission} (עמלה)` }).catch(() => {});
-      return d.okJson({ ok: true, partner: await partnerView(env, p, d) }, origin);
+      return d.okJson({ ok: true, partner: await partnerView(env, p, d, true) }, origin);
     }
     const out = [];
     for (const k of (await env.RATE.list({ prefix: 'partner:', limit: 500 }).catch(() => ({ keys: [] }))).keys || []) {
-      const p = await kvJson(env, k.name); if (p && p.codes) out.push(await partnerView(env, p, d));
+      const p = await kvJson(env, k.name); if (p && p.codes) out.push(await partnerView(env, p, d, true));
     }
     out.sort((a, c) => String(a.at).localeCompare(String(c.at)));
     return d.okJson({ ok: true, partners: out }, origin);

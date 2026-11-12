@@ -7,9 +7,9 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=87"></script>
+<script src="config.js?v=88"></script>
 <script src="assets/ux.js?v=4"></script>
-<script src="assets/adminbar.js?v=17" defer></script>
+<script src="assets/adminbar.js?v=18" defer></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lite.js?v=1"></script>
 <style>
@@ -97,7 +97,8 @@
   <!-- 12/11 הזמן חבר: a second tab for referrals + review credits -->
   <div class="tabs" role="tablist">
     <button type="button" class="tab" data-tab="clients" role="tab" aria-selected="true">לקוחות</button>
-    <button type="button" class="tab" data-tab="referrals" role="tab" aria-selected="false">הפניות <span class="tbadge" id="refBadge" hidden></span></button>
+    <button type="button" class="tab" data-tab="referrals" role="tab" aria-selected="false">הפניות ושגרירים <span class="tbadge" id="refBadge" hidden></span></button>
+    <button type="button" class="tab" data-tab="staff" role="tab" aria-selected="false">דיילות</button>
   </div>
   <div id="tabClients">
   <p class="sub">כל אירוע ששולם, החדש למעלה. מכאן נכנסים לדשבורד ולהעלאה של הלקוח, מחליפים רשימה, ונותנים תוספות בחינם.</p>
@@ -111,19 +112,29 @@
   <p class="empty" id="empty" hidden>אין אירועים.</p>
   </div>
   <div id="tabReferrals" hidden>
+    <!-- 12/11 שגרירים: people without an event who share our link — two fixed links each, visits + closed + earned -->
+    <h2 class="h2s">שגרירים</h2>
+    <p class="sub">אנשים ואולמות בלי אירוע שמשתפים את הקישור. לכל אחד שני קישורים קבועים: הנחה לחברים וצבירה לו. שולחים לו את "הלוח שלו", שם הוא מזין שם פעם אחת.</p>
+    <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><select id="pKind" style="font:inherit;font-size:.9rem;padding:.5rem .6rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><option value="person">אדם</option><option value="venue">אולם</option></select><input id="pPhone" inputmode="tel" dir="ltr" placeholder="טלפון (לא חובה)" style="width:150px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><input id="pLabel" placeholder="כינוי פנימי (למשל: דנה מהחדר כושר)" style="flex:1;min-width:200px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="60"><button type="button" class="btn g" id="pAdd">הוספת שגריר</button></div>
+    <div id="pList" class="cards"></div>
+    <h2 class="h2s">הפניות של לקוחות</h2>
     <p class="sub">מי הפנה את מי, מה שולם ומה מגיע. זיכוי נזקף למפנה רק אחרי שיצאה חשבונית לחבר, או כשאתה מאשר כאן ידנית.</p>
     <p class="meta" id="refLine" style="margin:0 0 .6rem"></p>
     <table class="rt" id="refTable"><thead><tr><th>מפנה</th><th>חבר</th><th>תאריך</th><th>סכום</th><th>מסלול</th><th>הנחה / זיכוי</th><th>מצב</th><th>מומש</th></tr></thead><tbody></tbody></table>
     <p class="empty" id="refEmpty" hidden>עוד אין הפניות.</p>
-    <!-- 12/11 שגרירים: people without an event who share our link — two fixed links each, visits + closed + earned -->
-    <h2 class="h2s">שגרירים</h2>
-    <p class="sub">אנשים בלי אירוע שמשתפים את הקישור. לכל אחד שני קישורים קבועים: הנחה לחברים וצבירה לו. שולחים לו את "הלוח שלו", שם הוא מזין שם פעם אחת.</p>
-    <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><input id="pLabel" placeholder="כינוי פנימי (למשל: דנה מהחדר כושר)" style="flex:1;min-width:200px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="60"><button type="button" class="btn g" id="pAdd">הוספת שגריר</button></div>
-    <div id="pList" class="cards"></div>
     <h2 class="h2s">יתרות זיכוי</h2>
     <div id="refLedgers" class="cards"></div>
     <h2 class="h2s">מי בחר מה</h2>
     <div id="refRefs" class="cards"></div>
+  </div>
+  <!-- 12/11 דיילות: registered numbers + the attendance log they write to Noa -->
+  <div id="tabStaff" hidden>
+    <p class="sub">דיילת רשומה כותבת לנועה (055-950-4499) "הגעתי", "חופה" או "עזבתי", ואפשר להוסיף שעה. כל שורה נשמרת עם השעה שבה התקבלה ועם האירוע של אותו יום.</p>
+    <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><input id="sName" placeholder="שם הדיילת" style="flex:1;min-width:150px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="40"><input id="sPhone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" style="width:160px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit"><button type="button" class="btn g" id="sAdd">הוספת דיילת</button></div>
+    <div id="sList" class="cards"></div>
+    <h2 class="h2s">יומן נוכחות</h2>
+    <table class="rt" id="sLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה שנכתבה</th><th>התקבל ב</th><th>אירוע</th><th>ההודעה</th></tr></thead><tbody></tbody></table>
+    <p class="empty" id="sEmpty" hidden>עוד אין דיווחים.</p>
   </div>
 </main>
 <div class="toast" id="toast"></div>
@@ -206,29 +217,71 @@
       return '<div class="card"><div class="top"><span class="name">' + esc(r.name || r.phone) + '</span><span class="meta">' + (r.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה') + (r.locked ? ' · נעול' : '') + '</span></div><div class="meta">קוד <span dir="ltr">' + esc(r.code) + '</span> · ishur.io/?ref=' + esc(r.code) + ' · ' + heDT(r.at) + '</div></div>';
     }).join('') : '<p class="empty">אף לקוח עוד לא בחר.</p>';
   }
-  /* ── 12/11 שגרירים ── */
+  /* ── 12/11 שגרירים: create, follow, and "ניהול שגריר" (send materials / a report over WhatsApp, in one click) ── */
+  var PARTNERS = [];
+  function waTo(phone, text) { return 'https://wa.me/' + (phone || '') + '?text=' + encodeURIComponent(text); }
+  function pMaterials(p) {
+    var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+    return 'היי ' + (p.name || p.label).split(' ')[0] + ', אלה החומרים שלך לשיתוף של ishur.io:\n\n' +
+      'הלוח האישי שלך (מעקב + תמונות לסטורי): ' + p.board + '\n\n' +
+      'קישור עם 20% הנחה לחברים: ' + by.discount.link + '\n' +
+      'קישור צבירה (20% לך): ' + by.commission.link + '\n\n' +
+      'בוחרים איזה קישור לשלוח לכל אחד. בלוח יש תמונות מוכנות לסטורי עם מקום להדביק את הקישור.';
+  }
+  function pReport(p) {
+    var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+    var D = by.discount, C = by.commission, fr = p.friends || [];
+    return 'היי ' + (p.name || p.label).split(' ')[0] + ', עדכון מ-ishur.io:\n' +
+      'נכנסו דרך הקישורים שלך: ' + (D.visits + C.visits) + '\n' +
+      'סגרו: ' + (D.closed + C.closed) + (fr.length ? ' (' + fr.map(function (f) { return f.name.split(' ')[0]; }).join(', ') + ')' : '') + '\n' +
+      'חברים חסכו: ₪' + D.saved + '\n' +
+      'צברת: ₪' + C.earned + (C.earned_pending ? ' ועוד ₪' + C.earned_pending + ' ממתין לאישור' : '') + '\n\n' +
+      'הפירוט המלא בלוח שלך: ' + p.board;
+  }
   function loadPartners() {
     return api('partner-list', {}).then(function (r) { return r.json(); }).then(function (d) {
-      var ps = (d && d.partners) || [];
-      $('pList').innerHTML = ps.length ? ps.map(function (p) {
+      PARTNERS = (d && d.partners) || [];
+      $('pList').innerHTML = PARTNERS.length ? PARTNERS.map(function (p, i) {
         var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
-        var D = by.discount, C = by.commission;
+        var D = by.discount, C = by.commission, fr = p.friends || [];
         var line = function (l, t, money) { return '<div class="meta" style="margin-top:.3rem"><b>' + t + '</b> · <span dir="ltr">ishur.io/?ref=' + esc(l.code) + '</span> <button class="btn" style="padding:.1rem .45rem;font-size:.72rem" data-pcopy="' + esc(l.link) + '">העתק</button><br>נכנסו ' + l.visits + ' · סגרו ' + l.closed + ' · ' + money + '</div>'; };
-        return '<div class="card"><div class="top"><span class="name">' + esc(p.name || p.label) + '</span><span class="meta">' + (p.name ? esc(p.label) : 'עוד לא הזין שם') + ' · ' + heDT(p.at) + '</span></div>' +
+        var brought = fr.reduce(function (n, f) { return n + (Number(f.paid) || 0); }, 0);
+        return '<div class="card"><div class="top"><span class="name">' + esc(p.name || p.label) + (p.kind === 'venue' ? ' <span class="tag on">אולם</span>' : '') + '</span><span class="meta">' + (p.name ? esc(p.label) : 'עוד לא הזין שם') + ' · ' + heDT(p.at) + '</span></div>' +
+          '<div class="meta" dir="ltr">' + (p.phone ? esc('0' + String(p.phone).slice(3)) : '') + '</div>' +
+          '<div class="meta" style="margin-top:.2rem"><b>הכניס לנו ₪' + brought + '</b> · ' + fr.length + ' סגרו</div>' +
           line(D, '20% הנחה לחברים', 'חברים חסכו ₪' + D.saved) + line(C, '20% צבירה לו', 'צבר ₪' + C.earned + (C.earned_pending ? ' · ממתין ₪' + C.earned_pending : '')) +
-          '<div class="acts"><button class="btn g" data-pcopy="' + esc(p.board) + '">העתק את הלוח שלו</button><a class="btn" href="' + esc(p.board) + '" target="_blank">פתח לוח</a></div></div>';
+          (fr.length ? '<div class="meta" style="margin-top:.4rem"><b>מי הגיע דרכו</b><br>' + fr.map(function (f) { return esc(f.name || f.phone) + ' · ' + heDT(f.at) + ' · ₪' + f.paid + ' · ' + (f.mode === 'discount' ? 'הנחה ₪' + f.saved : 'צבירה ₪' + f.credit) + (f.status === 'pending' ? ' · ממתין' : '') + (f.token ? ' <a class="btn" style="padding:.05rem .4rem;font-size:.7rem" href="dashboard.html?t=' + esc(f.token) + '" target="_blank">לוח</a>' : ''); }).join('<br>') + '</div>' : '') +
+          '<div class="acts">' +
+            (p.phone ? '<a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pMaterials(p))) + '">שליחת חומרים</a><a class="btn g" target="_blank" rel="noopener" href="' + esc(waTo(p.phone, pReport(p))) + '">שליחת דוח</a>'
+                     : '<button class="btn g" data-pphone="' + i + '">הוספת טלפון לשליחה</button>') +
+            '<button class="btn" data-pcopy="' + esc(p.board) + '">העתק את הלוח שלו</button><a class="btn" href="' + esc(p.board) + '" target="_blank">פתח לוח</a>' +
+            (p.phone ? '<button class="btn" data-pphone="' + i + '">שינוי טלפון</button>' : '') + '</div></div>';
       }).join('') : '<p class="empty">עוד אין שגרירים.</p>';
     }).catch(function () {});
   }
   $('pAdd').addEventListener('click', function () {
     var v = $('pLabel').value.trim(); if (v.length < 2) { toast('צריך כינוי'); return; }
     $('pAdd').disabled = true;
-    api('partner-create', { label: v }).then(function (r) { return r.json(); }).then(function (j) { $('pAdd').disabled = false; if (j && j.ok) { $('pLabel').value = ''; toast('נוסף'); loadPartners(); } else toast('לא הצליח'); }).catch(function () { $('pAdd').disabled = false; toast('שגיאה'); });
+    api('partner-create', { label: v, phone: $('pPhone').value.trim(), kind: $('pKind').value }).then(function (r) { return r.json(); }).then(function (j) { $('pAdd').disabled = false; if (j && j.ok) { $('pLabel').value = ''; $('pPhone').value = ''; toast('נוסף'); loadPartners(); } else toast('לא הצליח'); }).catch(function () { $('pAdd').disabled = false; toast('שגיאה'); });
   });
   $('pList').addEventListener('click', function (ev) {
+    var ph = ev.target.closest('[data-pphone]');
+    if (ph) { var p = PARTNERS[Number(ph.dataset.pphone)]; var v = prompt('טלפון של ' + (p.name || p.label), p.phone ? '0' + String(p.phone).slice(3) : ''); if (v == null) return; api('partner-update', { p: p.pid, phone: v }).then(function (r) { return r.json(); }).then(function (j) { toast(j && j.ok ? 'נשמר' : 'לא נשמר'); loadPartners(); }); return; }
     var b = ev.target.closest('[data-pcopy]'); if (!b) return;
     (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.pcopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); });
   });
+  /* ── 12/11 דיילות ── */
+  function loadStaff(body) {
+    return api('staff', body || {}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) { if (body) toast('לא נשמר. צריך שם ונייד ישראלי'); return; }
+      $('sList').innerHTML = (d.staff || []).length ? d.staff.map(function (x) { return '<div class="card"><div class="top"><span class="name">' + esc(x.name) + '</span><span class="meta" dir="ltr">' + esc('0' + String(x.phone).slice(3)) + '</span></div><div class="acts"><button class="btn" data-srm="' + esc(x.phone) + '">הסרה</button></div></div>'; }).join('') : '<p class="empty">עוד לא נרשמו דיילות.</p>';
+      var lg = d.log || [];
+      $('sEmpty').hidden = !!lg.length; $('sLog').hidden = !lg.length;
+      $('sLog').querySelector('tbody').innerHTML = lg.map(function (x) { return '<tr><td>' + heDT(x.day) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.time) + '</td><td>' + esc(x.received) + '</td><td>' + esc(x.event || '—') + '</td><td>' + esc(x.text) + '</td></tr>'; }).join('');
+    }).catch(function () {});
+  }
+  $('sAdd').addEventListener('click', function () { loadStaff({ act: 'add', name: $('sName').value.trim(), phone: $('sPhone').value.trim() }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
+  $('sList').addEventListener('click', function (ev) { var b = ev.target.closest('[data-srm]'); if (b && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: b.dataset.srm }); });
   $('tabReferrals').addEventListener('click', function (ev) { refAct(ev); });
   async function refAct(ev) {
     var b = ev.target.closest('button[data-ract]'); if (!b) return;
@@ -244,10 +297,11 @@
   document.querySelector('.tabs').addEventListener('click', function (ev) {
     var t = ev.target.closest('.tab'); if (!t) return;
     document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
-    $('tabClients').hidden = t.dataset.tab !== 'clients'; $('tabReferrals').hidden = t.dataset.tab !== 'referrals';
-    try { history.replaceState(null, '', t.dataset.tab === 'referrals' ? '#referrals' : location.pathname); } catch (e) {}
+    $('tabClients').hidden = t.dataset.tab !== 'clients'; $('tabReferrals').hidden = t.dataset.tab !== 'referrals'; $('tabStaff').hidden = t.dataset.tab !== 'staff';
+    if (t.dataset.tab === 'staff') loadStaff();
+    try { history.replaceState(null, '', t.dataset.tab === 'clients' ? location.pathname : '#' + t.dataset.tab); } catch (e) {}
   });
-  if (location.hash === '#referrals') { var tb = document.querySelector('.tab[data-tab="referrals"]'); if (tb) tb.click(); }
+  if (location.hash === '#referrals' || location.hash === '#staff') { var tb = document.querySelector('.tab[data-tab="' + location.hash.slice(1) + '"]'); if (tb) tb.click(); }
 
   /* 03/11: a linked sub-event (שבת חתן) gets its own row under its parent */
   function subRows(e) {
