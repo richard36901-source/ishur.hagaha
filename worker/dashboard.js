@@ -64,8 +64,7 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
     const plan = planKeyOf(ev);
     /* 12/11 Richard: the add-on is ONE MORE round on top of the plan's own (בסיס 0+1, פרמיום 1+1, הכל כלול 3+1) */
     const hasAddon = !!(addons && addons.has(token));
-    /* הכל כלול stays at its 3 until Richard approves changing test 'add-on never raises a premium plan above its own cap' */
-    const planCap = planMaxCallTries(plan) + (hasAddon && planMaxCallTries(plan) < 3 ? 1 : 0);
+    const planCap = planMaxCallTries(plan) + (hasAddon ? 1 : 0);   /* Richard 12/11: הכל כלול gets a 4th round only when the add-on was bought */
     const cap = Math.min(maxTries + (hasAddon ? 1 : 0), planCap);
     if (!planCap) continue;                  // בסיס without a calls add-on — calls are not included
     queue.push({

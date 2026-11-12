@@ -52,6 +52,7 @@ import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges
 import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
+import { handlePartner, hitAdd as refHitAdd } from './partner.js';   /* 12/11 שגרירים: partners without an event, two fixed links */
 import * as REF from './referral.js';   /* 12/11 הזמן חבר: 20% הנחה / 20% עמלה (.sdlc/referral-program) */
 import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -315,7 +316,8 @@ async function referralSummary(env, token, rec) {
   const ref = await refOf(env, code);
   const recs = await refRecordsOf(env, code);
   const L = await ledgerOf(env, rec && rec.phone);
-  return { ...REF.refSummary(ref, recs, L), copy: REF.cardCopy(REF.refSummary(ref, recs, L)), chosen: !!ref };
+  let visits = 0; try { visits = ref ? Number((JSON.parse(await env.RATE.get('refhits:' + code) || 'null') || {}).n) || 0 : 0; } catch {}   /* 12/11: entries through the link */
+  return { ...REF.refSummary(ref, recs, L), copy: REF.cardCopy(REF.refSummary(ref, recs, L)), chosen: !!ref, visits };
 }
 
 /* The one place that decides "is this Grow payment ours". handleGrowIpn uses it
@@ -12652,6 +12654,17 @@ const WORKER = {
       const code = String(url.searchParams.get('code') || '').toLowerCase();
       if (!REF.isCode(code)) return okJson({ ok: false }, origin);
       const ref = await refOf(env, code);
+      /* 12/11: "how many came in through the link" — one per visitor per day */
+      if (ref && env.RATE) {
+        try {
+          const seen = 'refseen:' + code + ':' + ip;
+          if (!(await env.RATE.get(seen))) {
+            await env.RATE.put(seen, '1', { expirationTtl: 86400 });
+            let h = null; try { h = JSON.parse(await env.RATE.get('refhits:' + code) || 'null'); } catch {}
+            await env.RATE.put('refhits:' + code, JSON.stringify(refHitAdd(h, ilDate())), { expirationTtl: REF_TTL });
+          }
+        } catch {}
+      }
       return okJson(REF.publicRef(ref), origin);
     }
     /* the client's choice, from the dashboard (the token is the credential) */
@@ -12684,6 +12697,7 @@ const WORKER = {
       await env.RATE.put('refpend:' + phone, code, { expirationTtl: 30 * 86400 });
       return okJson({ ok: true }, origin);
     }
+    if (url.pathname.startsWith('/api/partner/')) return handlePartner(request, env, origin, url, { okJson, deny, isAdmin, overBudget, logEvent, refRecordsOf, REF_TTL });
     /* admin: everything, for clients.html › הפניות */
     if (url.pathname === '/api/referrals' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

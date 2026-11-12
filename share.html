@@ -7,7 +7,7 @@
 <title>ערכת שיתוף · הזמן חבר · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=84"></script>
+<script src="config.js?v=87"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <style>
@@ -57,9 +57,13 @@
   var $ = function (id) { return document.getElementById(id); };
   var qs = new URLSearchParams(location.search);
   var token = (qs.get('t') || '').trim();
+  /* 12/11 שגרירים: ?p=<partner id> — the two codes come from the partner record; &only=story shows just that image, full size */
+  var pid = ((qs.get('p') || '').match(/^[0-9a-f]{24}$/i) || [''])[0].toLowerCase();
+  var only = qs.get('only') || '';
   var demo = qs.get('demo') === '1';
   var v = qs.get('v') === 'discount' ? 'discount' : 'commission';
   if (token) $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+  if (pid) { $('back').href = 'partner.html?p=' + pid; $('back').textContent = 'חזרה ללוח שלי'; }
 
   /* three sizes, one drawing routine that lays itself out from w×h */
   var SPECS = [
@@ -233,6 +237,7 @@
   }
 
   function render() {
+    if (state.codes) state.code = state.codes[state.v];
     state.link = CFG.refLink ? CFG.refLink(state.code) : 'https://ishur.io/?ref=' + state.code;
     $('linkIn').value = state.link;
     document.querySelectorAll('#seg button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.v === state.v ? 'true' : 'false'); });
@@ -261,6 +266,14 @@
       }
     });
   }
+  /* a bare, full-size canvas for saving the image outside the page (one per variant) */
+  function onlyOne() {
+    var cv = document.querySelector('#kit canvas.' + (only === 'story' ? 'story' : only));
+    if (!cv) return;
+    document.body.innerHTML = ''; document.body.style.cssText = 'margin:0;padding:0;max-width:none;background:#0F2E22';
+    cv.style.cssText = 'display:block;width:' + cv.width + 'px;height:' + cv.height + 'px;max-width:none;border-radius:0;box-shadow:none';
+    document.body.appendChild(cv); document.title = 'ready';
+  }
   function ready(fn) {
     var fonts = document.fonts && document.fonts.ready ? Promise.all([document.fonts.load('700 86px "Frank Ruhl Libre"'), document.fonts.load('600 40px Heebo')]) : Promise.resolve();
     var img = logo.complete ? Promise.resolve() : new Promise(function (r) { logo.onload = r; logo.onerror = r; });
@@ -277,6 +290,18 @@
   });
 
   function start() {
+    if (pid) {
+      fetch(CFG.endpoint('partner-me'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ p: pid }) })
+        .then(function (r) { return r.json(); })
+        .then(function (j) {
+          if (!j || !j.ok) throw 0;
+          state.codes = {}; j.partner.links.forEach(function (l) { state.codes[l.mode] = l.code; });
+          state.name = String(j.partner.name || j.partner.label || '').split(/\s+/)[0];
+          ready(function () { render(); if (only) onlyOne(); });
+        })
+        .catch(function () { $('err').hidden = false; $('err').textContent = 'הקישור לא מזוהה'; });
+      return;
+    }
     if (demo || !token) { state.code = 'abcd1234'; state.name = 'דנה'; ready(render); return; }
     var payload = { token: token };
     fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })

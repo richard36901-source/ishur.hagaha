@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>הלוח שלי · ishur.io</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0F2E22">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=87"></script>
+<style>
+  :root{--pine:#0F2E22;--green:#0F4C35;--gold:#A8853C;--gold-ink:#8A6D2F;--ink:#1B2420;--ink2:#4A554E;--ink3:#7F8C86;--bg:#F8F4EA;--card:#fff;--bdr:#E3E1D8;--field:#fff}
+  @media (prefers-color-scheme:dark){:root{--green:#4FA37C;--gold-ink:#C7AE7A;--ink:#ECEFEA;--ink2:#C9CFC7;--ink3:#8E978F;--bg:#0F1613;--card:#151C18;--bdr:#2A332E;--field:#0F1613}}
+  *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;min-height:100vh;-webkit-font-smoothing:antialiased}
+  header{background:var(--pine);color:#F8F4EA;text-align:center;padding:1.3rem 1rem 1.2rem}
+  header img{width:34px;height:34px}
+  header h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem;font-weight:700;margin-top:.3rem}
+  header p{font-size:.85rem;color:#C7AE7A;margin-top:.15rem}
+  main{max-width:600px;margin:0 auto;padding:1rem 16px 3rem}
+  .card{background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:1rem;margin-bottom:.9rem}
+  .card h2{font-size:.76rem;letter-spacing:.12em;color:var(--gold-ink);font-weight:600;margin-bottom:.6rem}
+  .sub{font-size:.84rem;color:var(--ink2);margin-bottom:.7rem}
+  label{display:block;font-size:.8rem;color:var(--ink2);margin:.5rem 0 .25rem}
+  input{font:inherit;font-size:16px;width:100%;padding:.6rem .7rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--field);color:var(--ink)}
+  input:focus{outline:none;border-color:var(--green)}
+  .two{display:grid;grid-template-columns:1fr 1fr;gap:.6rem}
+  .btn{font:inherit;font-weight:600;font-size:.88rem;border-radius:8px;padding:.6rem 1.1rem;cursor:pointer;text-decoration:none;border:1.5px solid transparent;display:inline-block;text-align:center}
+  .btn.p{background:#0F4C35;color:#fff}
+  .btn.g{background:transparent;color:var(--gold-ink);border-color:var(--gold)}
+  .btn:active{transform:scale(.98)}
+  .btn:disabled{opacity:.55}
+  .row{display:flex;gap:.45rem;align-items:center;margin:.3rem 0 .7rem}
+  .row input{direction:ltr;text-align:left;font-size:.88rem;flex:1;min-width:0}
+  .nums{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin:.2rem 0 .8rem}
+  .num{border:1px solid var(--bdr);border-radius:8px;padding:.55rem .4rem;text-align:center}
+  .num b{display:block;font-size:1.3rem;font-weight:700;font-variant-numeric:tabular-nums}
+  .num span{font-size:.72rem;color:var(--ink3)}
+  .acts{display:flex;gap:.5rem;flex-wrap:wrap}
+  .note{font-size:.76rem;color:var(--ink3);margin-top:.6rem}
+  .err{font-size:.82rem;color:#A8402F;min-height:1.2em;margin-top:.4rem}
+  .tag{display:inline-block;font-size:.7rem;font-weight:600;border-radius:99px;padding:.1rem .55rem;background:rgba(168,133,60,.14);color:var(--gold-ink);margin-inline-start:.4rem}
+</style>
+</head>
+<body>
+<header>
+  <img src="assets/logo-gold.png" alt="">
+  <h1 id="hName">הלוח שלי</h1>
+  <p>משתפים קישור, רואים מי נכנס ומי סגר</p>
+</header>
+<main>
+  <div class="card" id="bad" hidden><p class="sub" style="margin:0">הקישור הזה לא מזוהה. בקשו מאיתנו קישור חדש.</p></div>
+
+  <div class="card" id="nameCard" hidden>
+    <h2>קודם כל, מי אתם</h2>
+    <p class="sub">שם ושם משפחה. מזינים פעם אחת, וזה מה שיוצג אצלנו. אי אפשר לשנות אחר כך.</p>
+    <div class="two">
+      <div><label for="fn">שם פרטי</label><input id="fn" autocomplete="given-name" maxlength="30"></div>
+      <div><label for="ln">שם משפחה</label><input id="ln" autocomplete="family-name" maxlength="30"></div>
+    </div>
+    <p class="err" id="nameErr"></p>
+    <button class="btn p" id="nameGo" type="button">שמירה</button>
+  </div>
+
+  <div id="links" hidden></div>
+
+  <div class="card" id="how" hidden>
+    <h2>איך זה עובד</h2>
+    <p class="sub" style="margin:0">יש לכם שני קישורים נפרדים, וכל אחד נשאר קבוע. בקישור ההנחה החברים מקבלים 20% הנחה על החבילה. בקישור העמלה אתם צוברים 20% מכל חבילה שנסגרה דרככם. בוחרים איזה קישור לשלוח לכל חבר. הצבירה נספרת אחרי שהחבר שילם.</p>
+  </div>
+</main>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var pid = ((location.search.match(/[?&]p=([0-9a-f]{24})/i) || [])[1] || '').toLowerCase();
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function api(kind, body) {
+    body.p = pid;
+    return fetch(CFG.endpoint(kind), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+  }
+  var TXT = {
+    discount: { t: 'קישור הנחה לחברים', tag: '20% הנחה לחבר', money: function (l) { return ['₪' + l.saved, 'חברים חסכו']; },
+      msg: function (link) { return 'מתכננים אירוע? אישורי הגעה בוואטסאפ עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה. דרך הקישור שלי יש 20% הנחה על כל החבילות: ' + link; } },
+    commission: { t: 'קישור עמלה לי', tag: '20% צבירה לי', money: function (l) { return ['₪' + l.earned + (l.earned_pending ? ' (+₪' + l.earned_pending + ')' : ''), 'צברתי']; },
+      msg: function (link) { return 'מתכננים אירוע? אישורי הגעה בוואטסאפ עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה: ' + link; } }
+  };
+  function paint(P) {
+    $('hName').textContent = P.name || 'הלוח שלי';
+    $('nameCard').hidden = !!P.name;
+    $('links').hidden = !P.name; $('how').hidden = !P.name;
+    if (!P.name) return;
+    $('links').innerHTML = P.links.map(function (l) {
+      var x = TXT[l.mode], m = x.money(l);
+      return '<div class="card"><h2>' + x.t + '<span class="tag">' + x.tag + '</span></h2>' +
+        '<div class="row"><input readonly value="' + esc(l.link) + '" aria-label="' + x.t + '"><button class="btn g" type="button" data-copy="' + esc(l.link) + '">העתקה</button></div>' +
+        '<div class="nums"><div class="num"><b>' + l.visits + '</b><span>נכנסו</span></div><div class="num"><b>' + l.closed + '</b><span>סגרו</span></div><div class="num"><b>' + m[0] + '</b><span>' + m[1] + '</span></div></div>' +
+        '<div class="acts"><a class="btn p" target="_blank" rel="noopener" href="https://wa.me/?text=' + encodeURIComponent(x.msg(l.link)) + '">שיתוף בוואטסאפ</a>' +
+        '<a class="btn g" href="share.html?p=' + pid + '&v=' + l.mode + '">תמונות לסטורי</a></div>' +
+        (l.mode === 'commission' && l.earned_pending ? '<p class="note">הסכום בסוגריים ממתין לאישור התשלום של החבר.</p>' : '') + '</div>';
+    }).join('');
+  }
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-copy]'); if (!b) return;
+    var v = b.dataset.copy;
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { b.textContent = 'הועתק ✓'; setTimeout(function () { b.textContent = 'העתקה'; }, 1500); }, function () { var i = b.previousElementSibling; if (i && i.select) i.select(); });
+  });
+  $('nameGo').addEventListener('click', function () {
+    var f = $('fn').value.trim(), l = $('ln').value.trim();
+    if (f.length < 2 || l.length < 2) { $('nameErr').textContent = 'צריך שם פרטי ושם משפחה'; return; }
+    $('nameGo').disabled = true; $('nameErr').textContent = '';
+    api('partner-name', { first: f, last: l }).then(function (j) {
+      $('nameGo').disabled = false;
+      if (j && j.ok) { paint(j.partner); return; }
+      $('nameErr').textContent = j && j.error === 'name-locked' ? 'השם כבר נשמר' : 'לא נשמר, נסו שוב';
+      if (j && j.error === 'name-locked') load();
+    }).catch(function () { $('nameGo').disabled = false; $('nameErr').textContent = 'לא נשמר, נסו שוב'; });
+  });
+  function load() {
+    if (!pid) { $('bad').hidden = false; return; }
+    api('partner-me', {}).then(function (j) { if (j && j.ok) paint(j.partner); else $('bad').hidden = false; }).catch(function () { $('bad').hidden = false; });
+  }
+  load();
+})();
+</script>
+</body>
+</html>

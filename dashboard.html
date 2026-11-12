@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=86"></script>
+<script src="config.js?v=87"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -2322,7 +2322,7 @@
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         action = '<span class="inc">כלול</span>';
         /* 12/11 Richard: a plan that includes calls can still buy one more round; the day is set by the engine */
-        if (k === 'calls' && plan !== 'premium' && !over && !(data.sent_waves && data.sent_waves.callsAddon)) {
+        if (k === 'calls' && !over && !(data.sent_waves && data.sent_waves.callsAddon)) {
           action = '<span class="inc">כלול</span> <button type="button" class="buy" data-addon="calls">סבב נוסף' + (price ? ' · ₪' + price : '') + '</button>';
           extra += ' · סבב נוסף יוצא אוטומטית אחרי הסבבים שבחבילה';
         }

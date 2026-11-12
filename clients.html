@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=85"></script>
+<script src="config.js?v=87"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=17" defer></script>
 <script src="assets/guard.js?v=19"></script>
@@ -115,6 +115,11 @@
     <p class="meta" id="refLine" style="margin:0 0 .6rem"></p>
     <table class="rt" id="refTable"><thead><tr><th>מפנה</th><th>חבר</th><th>תאריך</th><th>סכום</th><th>מסלול</th><th>הנחה / זיכוי</th><th>מצב</th><th>מומש</th></tr></thead><tbody></tbody></table>
     <p class="empty" id="refEmpty" hidden>עוד אין הפניות.</p>
+    <!-- 12/11 שגרירים: people without an event who share our link — two fixed links each, visits + closed + earned -->
+    <h2 class="h2s">שגרירים</h2>
+    <p class="sub">אנשים בלי אירוע שמשתפים את הקישור. לכל אחד שני קישורים קבועים: הנחה לחברים וצבירה לו. שולחים לו את "הלוח שלו", שם הוא מזין שם פעם אחת.</p>
+    <div style="display:flex;gap:.5rem;margin:0 0 .7rem;flex-wrap:wrap"><input id="pLabel" placeholder="כינוי פנימי (למשל: דנה מהחדר כושר)" style="flex:1;min-width:200px;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr,#e5e7eb);border-radius:8px;background:var(--card,#fff);color:inherit" maxlength="60"><button type="button" class="btn g" id="pAdd">הוספת שגריר</button></div>
+    <div id="pList" class="cards"></div>
     <h2 class="h2s">יתרות זיכוי</h2>
     <div id="refLedgers" class="cards"></div>
     <h2 class="h2s">מי בחר מה</h2>
@@ -154,7 +159,7 @@
       subevents = d.subevents || [];
       events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
       api('feedback-list', {}).then(function (r) { return r.json(); }).then(function (f) { fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
-      loadRefs();
+      loadRefs(); loadPartners();
       return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
     }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
   }
@@ -201,6 +206,29 @@
       return '<div class="card"><div class="top"><span class="name">' + esc(r.name || r.phone) + '</span><span class="meta">' + (r.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה') + (r.locked ? ' · נעול' : '') + '</span></div><div class="meta">קוד <span dir="ltr">' + esc(r.code) + '</span> · ishur.io/?ref=' + esc(r.code) + ' · ' + heDT(r.at) + '</div></div>';
     }).join('') : '<p class="empty">אף לקוח עוד לא בחר.</p>';
   }
+  /* ── 12/11 שגרירים ── */
+  function loadPartners() {
+    return api('partner-list', {}).then(function (r) { return r.json(); }).then(function (d) {
+      var ps = (d && d.partners) || [];
+      $('pList').innerHTML = ps.length ? ps.map(function (p) {
+        var by = {}; p.links.forEach(function (l) { by[l.mode] = l; });
+        var D = by.discount, C = by.commission;
+        var line = function (l, t, money) { return '<div class="meta" style="margin-top:.3rem"><b>' + t + '</b> · <span dir="ltr">ishur.io/?ref=' + esc(l.code) + '</span> <button class="btn" style="padding:.1rem .45rem;font-size:.72rem" data-pcopy="' + esc(l.link) + '">העתק</button><br>נכנסו ' + l.visits + ' · סגרו ' + l.closed + ' · ' + money + '</div>'; };
+        return '<div class="card"><div class="top"><span class="name">' + esc(p.name || p.label) + '</span><span class="meta">' + (p.name ? esc(p.label) : 'עוד לא הזין שם') + ' · ' + heDT(p.at) + '</span></div>' +
+          line(D, '20% הנחה לחברים', 'חברים חסכו ₪' + D.saved) + line(C, '20% צבירה לו', 'צבר ₪' + C.earned + (C.earned_pending ? ' · ממתין ₪' + C.earned_pending : '')) +
+          '<div class="acts"><button class="btn g" data-pcopy="' + esc(p.board) + '">העתק את הלוח שלו</button><a class="btn" href="' + esc(p.board) + '" target="_blank">פתח לוח</a></div></div>';
+      }).join('') : '<p class="empty">עוד אין שגרירים.</p>';
+    }).catch(function () {});
+  }
+  $('pAdd').addEventListener('click', function () {
+    var v = $('pLabel').value.trim(); if (v.length < 2) { toast('צריך כינוי'); return; }
+    $('pAdd').disabled = true;
+    api('partner-create', { label: v }).then(function (r) { return r.json(); }).then(function (j) { $('pAdd').disabled = false; if (j && j.ok) { $('pLabel').value = ''; toast('נוסף'); loadPartners(); } else toast('לא הצליח'); }).catch(function () { $('pAdd').disabled = false; toast('שגיאה'); });
+  });
+  $('pList').addEventListener('click', function (ev) {
+    var b = ev.target.closest('[data-pcopy]'); if (!b) return;
+    (navigator.clipboard ? navigator.clipboard.writeText(b.dataset.pcopy) : Promise.reject()).then(function () { toast('הועתק'); }, function () { toast('לא הועתק'); });
+  });
   $('tabReferrals').addEventListener('click', function (ev) { refAct(ev); });
   async function refAct(ev) {
     var b = ev.target.closest('button[data-ract]'); if (!b) return;
