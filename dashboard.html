@@ -2271,9 +2271,15 @@
     var inv = data.invoice;
     if (!token || demo) { c.hidden = true; return; }
     c.hidden = false;
-    $('invoiceBody').innerHTML = inv && inv.url
-      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">חשבונית מס/קבלה' + (inv.number ? ' מס׳ ' + String(inv.number).replace(/</g, '') : '') + ' הופקה.</p>' +
-        '<a class="buy" style="display:inline-block;text-decoration:none" href="' + String(inv.url).replace(/"/g, '') + '" target="_blank" rel="noopener">הורדת החשבונית (PDF)</a>'
+    var list = (data.invoices && data.invoices.length) ? data.invoices : (inv && inv.url ? [{ url: inv.url, number: inv.number, kind: 'רכישה' }] : []);
+    /* 12/11 Richard: every invoice of this event, one row each (purchase, add-ons, manual) */
+    $('invoiceBody').innerHTML = list.length
+      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">' + (list.length === 1 ? 'חשבונית מס/קבלה אחת הופקה לאירוע.' : list.length + ' חשבוניות מס/קבלה הופקו לאירוע.') + '</p>' +
+        '<div style="display:flex;flex-direction:column;gap:.45rem">' + list.map(function (x) {
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap"><span style="font-size:.88rem">' +
+            (x.number ? 'מס׳ ' + String(x.number).replace(/</g, '') + ' · ' : '') + esc(x.kind || '') + (x.sum ? ' · ₪' + x.sum : '') + (x.at ? ' · ' + heDay(String(x.at).slice(0, 10)) : '') + '</span>' +
+            '<a class="buy" style="display:inline-block;text-decoration:none;padding:.35rem .8rem;font-size:.8rem" href="' + String(x.url).replace(/"/g, '') + '" target="_blank" rel="noopener">PDF</a></div>';
+        }).join('') + '</div>'
       : '<p style="margin:0;font-size:.9rem;color:var(--ink2)">החשבונית תופיע כאן ברגע שתופק. אם שילמתם ועדיין לא רואים אותה, <a href="#" id="invoiceWa">כתבו לנו</a>.</p>';
     var w = $('invoiceWa'); if (w) w.href = CFG.waLink('היי, שילמתי ואני לא רואה חשבונית בלוח הבקרה.');
   }

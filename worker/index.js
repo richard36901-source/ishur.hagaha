@@ -1723,7 +1723,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
         detail: `₪${sum} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — ווצאפ ' + (wa.ok ? 'נשלח' : wa.error)} · ${inv.url}` });
       await logRow(env, 'invoices', { number: inv.number, kind: 'תוספת', name, phone, email, token: String(token).slice(0, 8),
         plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
-      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true }), { expirationTtl: 400 * 86400 });
+      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true, at: new Date().toISOString(), kind: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier}` : addon.kind === 'design' ? 'עיצוב הזמנה' : addon.kind === 'calls' ? 'סבב שיחות' : 'תוספת', sum: Number(sum) || null }), { expirationTtl: 400 * 86400 });
       await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
       await upsertClientRow(env, { clientId: 'C-' + String(phone).slice(-9), name, phone, token, eventName: ev.event_name || '', invoice: `${inv.number} · ${inv.url}` }).catch(() => {});
     } else if (inv.why !== 'not-configured') {
@@ -10934,7 +10934,11 @@ const WORKER = {
              failed, and send it if the template is live */
           const inv = await createInvoice(env, b);
           if (inv.ok && b.token && env.RATE) {
-            await env.RATE.put('invoice:' + b.token, JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+            /* 12/11: every invoice of an event lives under its own key; the purchase invoice (invoice:<token>) is only
+               filled when it is still empty, so a manual add-on invoice never replaces it on the client's board */
+            const mainKey = 'invoice:' + b.token, has = await env.RATE.get(mainKey).catch(() => null);
+            const rec = JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString(), addon: !!has, kind: String(b.description || b.kind || (has ? 'תוספת' : 'רכישה')).slice(0, 80), sum: Number(b.sum) || null });
+            await env.RATE.put(has ? mainKey + ':m' + inv.number : mainKey, rec, { expirationTtl: 400 * 86400 });
             try { await referralVerifyByInvoice(env, b.token); } catch {}
           }
           let wa = null;
@@ -13594,6 +13598,14 @@ const WORKER = {
         try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header, id: ct.id || '', n: ct.n || 1 } : null; } catch { snapshot.custom_template = null; }
         /* Richard 21/10: the Morning invoice is downloadable from the board */
         try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
+        /* 12/11 Richard: every invoice that belongs to THIS event (purchase + add-ons + manual), newest last */
+        try {
+          const l = await env.RATE.list({ prefix: 'invoice:' + token, limit: 50 });
+          const all = [];
+          for (const k of l.keys || []) { try { const j = JSON.parse((await env.RATE.get(k.name)) || 'null'); if (j && j.url) all.push({ url: j.url, number: String(j.number || ''), at: j.at || '', kind: j.kind || (k.name === 'invoice:' + token ? 'רכישה' : 'תוספת'), sum: j.sum || null }); } catch {} }
+          all.sort((a, b) => String(a.number).localeCompare(String(b.number), 'en', { numeric: true }));
+          snapshot.invoices = all;
+        } catch { snapshot.invoices = snapshot.invoice ? [{ ...snapshot.invoice, kind: 'רכישה' }] : []; }
         /* a direct-link buyer's row has no tier until the engine fills it;
            the payment record knows, so add-on prices never fall back to "לפרטים" */
         if (snapshot.event && !String(snapshot.event.guests_tier || '').trim()) {
