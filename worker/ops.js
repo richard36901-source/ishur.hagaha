@@ -215,6 +215,9 @@ export function projectItems({ events, guests, flags = {}, today, days = 14, isN
       if (f['wave' + k]) continue;
       if (k === 3 && !f.extrasend) continue;
       if (ev.date && ev.date < today) continue;
+      /* 12/11: the engine claims a wave for three days after its date and then abandons it (index.js lateBy > 3) —
+         the planner must not keep promising it for today */
+      if (addDays(when, 3) < today && !(f.hold && f.holdtill)) continue;
       /* a timed hold moves the wave to its release day */
       const from0 = when > today ? when : today, from = f.hold && f.holdtill && f.holdtill > from0 ? f.holdtill : from0;
       const d = firstEngineDay(from, addDays(from > when ? from : when, 3), isNoContactDay);

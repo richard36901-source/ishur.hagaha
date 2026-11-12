@@ -16,3 +16,9 @@ test('one guest not reached yet → the plan is that one, not the whole list', (
 test('no markers at all → the whole list, as before', () => {
   assert.equal(run({})[0].count, 3);
 });
+test('a wave more than three days past its date is abandoned by the engine, so it is not planned', () => {
+  const late = projectItems({ events: [ev], guests, flags: { 'tok-aaaaaaaa': {} }, today: '2026-11-12', days: 14 }).filter(i => i.type === 'w1');
+  assert.equal(late.length, 0);
+  const still = projectItems({ events: [ev], guests, flags: { 'tok-aaaaaaaa': {} }, today: '2026-11-11', days: 14 }).filter(i => i.type === 'w1');
+  assert.equal(still.length, 1, 'day 3 is still inside the window');
+});
