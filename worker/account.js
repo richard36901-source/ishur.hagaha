@@ -236,7 +236,17 @@ export async function handleAccount(request, env, origin, url, d) {
     const balance = ledgerBalance(ledger);
     return d.okJson({
       ok: true, phone, today: d.today(),
-      events: eventsView(evs, fbs, d.today()),
+      /* 12/11 Richard: each event card shows its numbers (invited / coming / not yet answered) */
+      events: (() => {
+        const st = {};
+        for (const g of ((raw.guests && raw.guests.values) || [])) {
+          const t = String((g || [])[28] || '').trim(); if (!t) continue;
+          const s = st[t] || (st[t] = { total: 0, yes: 0, no: 0, pending: 0 });
+          const r = String(g[15] || '').trim();
+          s.total++; if (r === 'מגיע') s.yes++; else if (r === 'לא מגיע') s.no++; else s.pending++;
+        }
+        return eventsView(evs, fbs, d.today()).map(e => ({ ...e, stats: st[e.token] || { total: 0, yes: 0, no: 0, pending: 0 } }));
+      })(),
       credit: { balance_ils: balance, entries: (ledger.entries || []).slice(-50).reverse().map(e => ({ kind: e.kind, kind_he: KIND_HE[e.kind] || e.kind, ils: e.ils, at: e.at, token8: String(e.token || '').slice(0, 8) })), redeem_url: `https://wa.me/${WA_NOA}?text=${encodeURIComponent(`היי נועה, יש לי ₪${balance} זיכוי באזור האישי ואני רוצה לממש`)}` },
       contact: { email: contact.email || '', phone_alt: contact.phone_alt || '', marketing: contact.marketing === true },
     }, origin);

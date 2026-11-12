@@ -580,7 +580,7 @@
     <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
     <!-- 12/11 personal-area: all the client's events, reviews and credit -->
-    <p class="sub" style="margin-top:.35rem"><a href="account.html" id="acctLink" style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">האזור האישי שלי ›</a> · <a href="#" data-tour-open style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">סיור קצר</a></p>
+    <p class="sub" id="acctLinkRow" style="margin-top:.35rem"><a href="account.html" id="acctLink" style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">כל האירועים שלי ›</a></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
     <div class="cd-wrap"><span class="evsw-wrap" id="evSwitchWrap" hidden>
       <button type="button" class="evsw" id="switchEv" aria-haspopup="true" aria-expanded="false" aria-controls="evSwitchPanel">
@@ -1324,7 +1324,8 @@
       items.push({ id: sec.id, label: label });
     });
     nav.hidden = items.length < 3;
-    nav.innerHTML = '<div class="tt">בלוח</div>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
+    /* 12/11 Richard: first in the side list — all my events (the personal area) */
+    nav.innerHTML = '<div class="tt">בלוח</div><a href="account.html' + (token ? '?t=' + encodeURIComponent(token) : '') + '" style="font-weight:600">כל האירועים שלי ›</a>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
     /* sit just under the dark header while it is on screen, then hug the top */
     function placeToc() { var t2 = document.querySelector('.top'); if (!t2) return; var b = t2.getBoundingClientRect().bottom; document.documentElement.style.setProperty('--toc-top', Math.max(16, b + 14) + 'px'); }
     placeToc();

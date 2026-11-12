@@ -67,6 +67,13 @@
   html[data-theme=dark] .btn{color:#0A1A12}
   .btn.sec{background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
   .btn:disabled{opacity:.55;cursor:default}
+  [data-pwa-install]{font:inherit;font-size:.9rem;font-weight:600;min-height:40px;padding:.45rem 1rem;border-radius:6px;border:none;background:var(--green);color:#fff;cursor:pointer}
+  html[data-theme=dark] [data-pwa-install]{color:#0A1A12}
+  .ev-nums{display:flex;flex-wrap:wrap;gap:.3rem .9rem;font-size:.82rem;color:var(--ink2);margin:.35rem 0 .2rem}
+  .ev-nums b{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
+  .refbox{border:1px solid var(--bdr);border-radius:8px;padding:.7rem .8rem;margin:.8rem 0 .2rem}
+  .refbox-t{font-weight:600;font-size:.92rem}
+  .refbox-a{display:flex;gap:.5rem;flex-wrap:wrap}
   .btn.sm{display:inline-block;width:auto;min-height:38px;font-size:.86rem;padding:.4rem .9rem;margin:0}
   .err{font-size:.8rem;color:var(--err);min-height:1.1em;margin-top:.5rem}
   .err.ok{color:var(--green)}
@@ -146,7 +153,7 @@
     <!-- events -->
     <section class="card" id="evCard">
       <div class="card-h">האירועים שלי</div>
-      <div class="card-b" id="evList"></div>
+      <div class="card-b"><a class="btn sec" href="index.html#pricing" style="margin:0 0 .8rem">+ הוספת אירוע חדש</a><div id="evList"></div></div>
     </section>
 
     <!-- credit -->
@@ -158,6 +165,12 @@
           <a class="btn sm" id="redeem" href="#" target="_blank" rel="noopener" hidden>למימוש</a>
         </div>
         <ul class="led" id="led" hidden></ul>
+        <!-- 12/11 Richard: sharing with friends lives here too -->
+        <div class="refbox" id="refBox" hidden>
+          <div class="refbox-t">הזמינו חברים וצברו זיכוי</div>
+          <p class="fine" style="margin:.15rem 0 .6rem">חבר שסוגר דרך הקישור שלכם מקבל 20% הנחה, או שאתם צוברים 20% מהחבילה שלו. בוחרים בלוח האירוע.</p>
+          <div class="refbox-a"><a class="btn sm" id="refGo" href="#">הקישור שלי לשיתוף</a><a class="btn sm sec" id="refKitGo" href="#">תמונות לסטורי</a></div>
+        </div>
         <p class="fine" id="creditFine">המלצת וידאו על אירוע שהסתיים = ₪30 · ביקורת בגוגל = ₪20. הזיכוי נרשם על שמכם ונשמר לאירוע הבא.</p>
       </div>
     </section>
@@ -186,7 +199,6 @@
     </section>
 
     <div class="foot">
-      <a href="#" data-tour-open>סיור קצר</a>
       <button type="button" id="logout">יציאה</button>
       <a href="terms.html" target="_blank" rel="noopener">תקנון</a>
     </div>
@@ -239,13 +251,19 @@
   function dateShort(iso) { try { return new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(iso)); } catch (e) { return String(iso).slice(0, 10); } }
   function daysUntil(iso) { var d = new Date(iso + 'T12:00:00'), t = new Date(); t.setHours(12, 0, 0, 0); return Math.round((d - t) / 864e5); }
 
+  /* 12/11 Richard: the card carries the event's numbers */
+  function evNums(e) {
+    var s = e.stats || {};
+    if (!s.total) return '<div class="ev-nums"><span>עוד לא הועלתה רשימת מוזמנים</span></div>';
+    return '<div class="ev-nums"><span><b>' + s.total + '</b> מוזמנים</span><span><b>' + s.yes + '</b> אישרו</span><span><b>' + s.no + '</b> לא מגיעים</span><span><b>' + s.pending + '</b> עוד לא ענו</span></div>';
+  }
   function evCard(e) {
     var meta = [e.occasion, e.date ? dateHe(e.date) : '', [e.venue, e.city].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
     if (!e.past) {
       var n = e.date ? daysUntil(e.date) : null;
       return '<a class="ev" href="' + esc(e.dashboard_url) + '">' +
         '<div class="ev-t"><span class="ev-nm">' + esc(e.name || 'האירוע שלכם') + '</span>' + (n != null && n >= 0 && n <= 60 ? '<span class="ev-dt">' + (n === 0 ? 'היום' : 'בעוד ' + n + ' ימים') + '</span>' : '') + '</div>' +
-        '<div class="ev-mt">' + esc(meta) + '</div><span class="ev-go">ללוח הבקרה של האירוע ›</span></a>';
+        '<div class="ev-mt">' + esc(meta || 'עוד לא הוגדרו תאריך ומקום') + '</div>' + evNums(e) + '<span class="ev-go">ללוח הבקרה של האירוע ›</span></a>';
     }
     var acts = '';
     var r = e.review || {};
@@ -303,6 +321,8 @@
       if (j.status === 403) { ls(SKEY, null); showLogin(''); return; }
       if (!j.ok) { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; return; }
       renderEvents(j.events || []); renderCredit(j.credit); renderContact(j.contact);
+      var e0 = (j.events || []).filter(function (e) { return !e.past; })[0] || (j.events || [])[0];
+      if (e0) { $('refBox').hidden = false; $('refGo').href = 'dashboard.html?t=' + encodeURIComponent(e0.token) + '#refCard'; $('refKitGo').href = 'share.html?t=' + encodeURIComponent(e0.token); }
       showApp();
       ph('account_opened', { events: (j.events || []).length, credit: j.credit && j.credit.balance_ils });
       setTimeout(function () { if (window.IshurTour) IshurTour.start('account', TOUR); }, 400);
