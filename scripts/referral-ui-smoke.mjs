@@ -36,7 +36,8 @@ for (const t of [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]) for (const p 
 }
 ok(n === 30 && !bad.length, '30 package prices at 80%, whole shekels', bad.join(','));
 ok(CFG.refPrice(300, 'pro').final === 303 && CFG.refPrice(50, 'basic').final === 40, '₪379 → ₪303, ₪50 → ₪40');
-ok(CFG.refGrowLink(300, 'pro', 'abcd1234') === null, 'no page yet → null (popup mints a link)');
+ok(/^https:\/\/pay\.grow\.link\/.+\?cField3=ref%3Aabcd1234$/.test(CFG.refGrowLink(300, 'pro', 'abcd1234') || ''), '80% page link + cField3=ref:<code>', CFG.refGrowLink(300, 'pro', 'abcd1234'));
+ok(CFG.refGrowLink('custom', 'pro', 'abcd1234') === null, 'over 900 → no page (WhatsApp)');
 ok(cfgWith('?ref=ABCD1234').refCode() === 'abcd1234', '?ref= read and lowercased');
 ok(cfgWith('?utm_source=referral&utm_medium=friend&utm_campaign=0123abcd').refCode() === '0123abcd', 'old share link still counts');
 ok(cfgWith('?ref=nope').refCode() === '', 'a malformed code is ignored');
@@ -127,7 +128,7 @@ ok(!/review_verify|ביקורות ממתינות לאימות/.test(cl), 'no pen
 ok(/api\('referrals\/act'/.test(cl) && /api\('referrals'/.test(cl), 'uses /api/referrals + /api/referrals/act');
 ok(/₪30 זיכוי/.test(fbk) && /₪20 זיכוי/.test(fbk) && /endpoint\('review-claim'\)/.test(fbk), 'feedback (personal-area flow): ₪30 video / ₪20 Google, claims to review-claim');
 ok(!/id="credit"|cvDone|raffle\/links/.test(fbk), 'my duplicate credit block is gone (one flow only)');
-ok([cl, read('dashboard.html'), read('share.html')].every(h => /config\.js\?v=8[3-9]/.test(h)), 'config.js ≥ v83 on every touched page');
+ok([cl, read('dashboard.html'), read('share.html')].every(h => /config\.js\?v=8[4-9]/.test(h)), 'config.js ≥ v83 on every touched page');
 
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);
