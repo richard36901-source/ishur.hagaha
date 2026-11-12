@@ -10,10 +10,24 @@ const BAD = {
   'calls.html': [/' \+ g\.name \+ '/, /\+ g\.event_name [:+]/, /\+ g\.last_answer \+/, /\+ g\.venue_city [:+]/, /<b>' \+ where \+/, /href="tel:\+' \+ g\.phone/],
   'dashboard.html': [/'>' \+ \(g\.name \|\| '<span/, /<span class="row-p">' \+ \(g\.phone/, /src="' \+ m\.(video|image)_url \+/],
   'seating.html': [/' \+ g\.name \+ '/, /' \+ t\.name \+ '/, /' \+ g\.table \+ '/, /">' \+ n \+ '/, /g\.name\.replace\(\/<\/g/],
+  /* pass 2 (12/11): the event city and host names on the upload page, the old demo copies, the floor page's fixture
+     parameter and server numbers, and the admin key inside recording URLs */
+  'upload.html': [/· ' \+ city \+ '/, /innerHTML = city \+/, /'\{names\}', names \|\|/],
+  'demo/upload.html': [/· ' \+ city \+ '/, /innerHTML = city \+/, /'\{names\}', names \|\|/],
+  'demo/dashboard.html': [/'<span class="row-n">' \+ \(g\.name \|\|/, /<span class="row-p">' \+ \(g\.phone/, /src="' \+ m\.(video|image)_url \+/, /class="sendst ' \+ g\.sent \+/],
+  'floor.html': [/var FIXTURE = qs\.get\('fixture'\) \|\| '';\s*\n/, /'\?k=' \+ encodeURIComponent\(adminKey\)/, /' · ' \+ c\.duration_s \+/, /<b>' \+ \(b\.prompts\.\w+\.head \|\|/, /\(עד ' \+ b\.memory\.max \+/],
+  'next/floor.html': [/var FIXTURE = qs\.get\('fixture'\) \|\| '';\s*\n/, /'\?k=' \+ encodeURIComponent\(adminKey\)/, /' · ' \+ c\.duration_s \+/, /<b>' \+ \(b\.prompts\.\w+\.head \|\|/, /\(עד ' \+ b\.memory\.max \+/],
+  'live.html': [/'\?key=' \+ encodeURIComponent\(adminKey\)/, /' · ' \+ d\.duration_s \+/],
+  'next/live.html': [/'\?key=' \+ encodeURIComponent\(adminKey\)/, /' · ' \+ d\.duration_s \+/],
+  'assets/callboard.js': [/'\?key=' \+ encodeURIComponent\(opt\.adminKey/],
+  'assets/callslog.js': [/'\?key=' \+ encodeURIComponent\(opt\.adminKey/],
 };
 const MUST = {
   'calls.html': [/function esc\(v\)/], 'seating.html': [/function esc\(v\)/],
-  'worker/index.js': [/const name = String\(b\.name \|\| ''\)\.replace\(\/\[<>\]\/g, ''\)/, /utm_content\]\.map\(x => String\(x \|\| ''\)\.replace\(\/\[<>"\]\/g, ''\)/],
+  'floor.html': [/if \(!\/\^\[A-Za-z0-9_-\]\+\\\.fixture\\\.json\$\/\.test\(FIXTURE\)\) FIXTURE = '';/, /function recOk\(p\)/],
+  'next/floor.html': [/if \(!\/\^\[A-Za-z0-9_-\]\+\\\.fixture\\\.json\$\/\.test\(FIXTURE\)\) FIXTURE = '';/, /function recOk\(p\)/],
+  'live.html': [/function recOk\(p\)/], 'next/live.html': [/function recOk\(p\)/],
+  'worker/index.js': [/const name = String\(b\.name \|\| ''\)\.replace\(\/\[<>\]\/g, ''\)/, /utm_content\]\.map\(x => String\(x \|\| ''\)\.replace\(\/\[<>"\]\/g, ''\)/, /k === 'event_description' \? v : v\.replace\(\/\[<>\]\/g, ''\)/],
 };
 let fail = 0, n = 0;
 for (const [f, res] of Object.entries(BAD)) { const s = read(f); for (const re of res) { n++; if (re.test(s)) { fail++; console.log('✗ raw interpolation still present  ' + f + '  ' + re); } } }
