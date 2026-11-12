@@ -26,6 +26,7 @@ import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab } from './evlog.js';
+import { installStagingGuard, wrapEmail, isStaging } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
@@ -10384,6 +10385,7 @@ const WORKER = {
      off silently. The handler now also awaits every job it queued; a cron
      invocation may run up to 15 minutes. */
   async scheduled(event, env, ctx) {
+    installStagingGuard(env); env = wrapEmail(env);
     const jobs = [];
     const inner = { waitUntil: p => { const q = Promise.resolve(p).catch(() => {}); jobs.push(q); ctx.waitUntil(q); } };
     try { return await WORKER.scheduledMain(event, env, inner); } finally { await Promise.allSettled(jobs); }
@@ -10538,7 +10540,7 @@ const WORKER = {
   },
 
   /* 03/11 change log wrapper (CHANGE_ROUTES); everything else goes straight to fetchMain */
-  async fetch(request, env, ctx) { return changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx)); },
+  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); return changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx)); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -10546,6 +10548,11 @@ const WORKER = {
 
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
+    }
+    /* dev-staging 12/11: which worker is this — smoke.sh and promote.sh read it */
+    if (url.pathname === '/api/health' && request.method === 'GET') {
+      return okJson({ ok: true, staging: isStaging(env), worker: isStaging(env) ? 'ishur-webhooks-staging' : 'ishur-webhooks',
+        version: String((env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id) || '').slice(0, 8), commit: String(BUILD_INFO.commit || '').slice(0, 8), branch: BUILD_INFO.branch || '', crons: isStaging(env) ? 'off' : 'on' }, origin);
     }
     /* 03/11 edit-in-place: the cron-driven settings also bind the ops routes and the manual send routes */
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);

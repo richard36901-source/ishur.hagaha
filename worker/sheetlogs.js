@@ -23,7 +23,7 @@
      removals     'הסרות'                        הסר / טעות / לא להתקשר / חסימה
    ========================================================================== */
 
-import { SHEET_ID } from './evlog.js';
+import { sheetId } from './evlog.js';
 
 const GRACE_S = 150;            // wait this long for delivered/read before writing
 const MAX_ROWS = 400;           // per tab per flush
@@ -131,12 +131,12 @@ export async function ensureTab(env, tab) {
   const cached = await env.RATE.get('slog:sid:' + tab);
   if (cached) return Number(cached);
 
-  const meta = await proxy(env, `spreadsheets/${SHEET_ID}`, { qk: 'fields', qv: 'sheets.properties' });
+  const meta = await proxy(env, `spreadsheets/${sheetId(env)}`, { qk: 'fields', qv: 'sheets.properties' });
   const sheets = (meta && meta.sheets) || [];
   const found = sheets.find(s => s.properties && s.properties.title === def.title);
   let sheetId = found ? found.properties.sheetId : null;
   if (sheetId == null) {
-    const res = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, {
+    const res = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, {
       method: 'POST',
       payload: { requests: [{ addSheet: { properties: {
         title: def.title, gridProperties: { frozenRowCount: 1 }, tabColor: def.color,
@@ -162,7 +162,7 @@ export async function ensureTab(env, tab) {
       },
     } } });
   }
-  const hdr = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, { method: 'POST', payload: { requests } });
+  const hdr = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, { method: 'POST', payload: { requests } });
   if (!hdr) return null;
   await env.RATE.put('slog:sid:' + tab, String(sheetId));
   return sheetId;
@@ -220,7 +220,7 @@ async function flushTab(env, tab) {
 
   const sheetId = await ensureTab(env, tab);
   if (sheetId == null) return { flushed: 0, why: 'no-sheet', pending: rows.length };
-  const res = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, {
+  const res = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, {
     method: 'POST',
     payload: { requests: [{ appendCells: {
       sheetId,
@@ -247,14 +247,14 @@ export async function flushSheetLogs(env) {
 /* the whole tab, for rebuilds (cost per event). Rows as arrays, header first. */
 export async function readTabAll(env, tab, maxRows = 20000) {
   const def = TABS[tab]; if (!def) return null;
-  const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${def.title}'!A1:R${maxRows}` });
+  const res = await proxy(env, `spreadsheets/${sheetId(env)}/values:batchGet`, { qk: 'ranges', qv: `'${def.title}'!A1:R${maxRows}` });
   const values = (res && res.valueRanges && res.valueRanges[0] && res.valueRanges[0].values) || [];
   return { tab: def.title, header: values[0] || [], rows: values.slice(1) };
 }
 
 export async function readTabTail(env, tab, n = 10) {
   const def = TABS[tab]; if (!def) return null;
-  const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${def.title}'!A1:R5000` });
+  const res = await proxy(env, `spreadsheets/${sheetId(env)}/values:batchGet`, { qk: 'ranges', qv: `'${def.title}'!A1:R5000` });
   const values = (res && res.valueRanges && res.valueRanges[0] && res.valueRanges[0].values) || [];
   return { tab: def.title, total: Math.max(0, values.length - 1), header: values[0] || [], rows: values.slice(-n) };
 }
@@ -270,14 +270,14 @@ const CLIENTS_TAB = 'לקוחות';
 const CLIENTS_SHEET_ID = 830527183;
 export async function upsertClientRow(env, { clientId, name, phone, taxId, token, eventName, invoice }) {
   if (!env.BRAIN_HOOK || !clientId) return { ok: false, why: 'no-config' };
-  const res = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchGet`, { qk: 'ranges', qv: `'${CLIENTS_TAB}'!A1:J2000` });
+  const res = await proxy(env, `spreadsheets/${sheetId(env)}/values:batchGet`, { qk: 'ranges', qv: `'${CLIENTS_TAB}'!A1:J2000` });
   const values = (res && res.valueRanges && res.valueRanges[0] && res.valueRanges[0].values);
   if (!values) return { ok: false, why: 'read-failed' };
   const idx = values.findIndex((r, i) => i > 0 && (String(r[1] || '').trim() === clientId || (phone && String(r[4] || '').trim() === phone)));
   const tok = String(token || '').trim();
   if (idx < 0) {
     const row = ['כן', clientId, name || '', '', phone || '', '', taxId || '', tok, eventName || '', invoice || ''];
-    const w = await proxy(env, `spreadsheets/${SHEET_ID}:batchUpdate`, {
+    const w = await proxy(env, `spreadsheets/${sheetId(env)}:batchUpdate`, {
       method: 'POST',
       payload: { requests: [{ appendCells: { sheetId: CLIENTS_SHEET_ID,
         rows: [{ values: row.map(v => ({ userEnteredValue: { stringValue: String(v) } })) }], fields: 'userEnteredValue' } }] },
@@ -299,7 +299,7 @@ export async function upsertClientRow(env, { clientId, name, phone, taxId, token
   if (changed) fill.push({ range: `'${CLIENTS_TAB}'!H${idx + 1}:I${idx + 1}`, values: [[toks.join(', '), names.join(', ')]] });
   if (invChanged) fill.push({ range: `'${CLIENTS_TAB}'!J${idx + 1}`, values: [[invs.join(' | ')]] });
   if (!fill.length) return { ok: true, added: false, unchanged: true };
-  const w = await proxy(env, `spreadsheets/${SHEET_ID}/values:batchUpdate`, {
+  const w = await proxy(env, `spreadsheets/${sheetId(env)}/values:batchUpdate`, {
     method: 'POST', payload: { valueInputOption: 'RAW', data: fill },
   });
   return { ok: !!(w && w.totalUpdatedCells), added: false, updated: fill.length };

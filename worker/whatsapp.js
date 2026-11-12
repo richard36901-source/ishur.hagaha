@@ -17,6 +17,7 @@
 import { crmTouch } from './crm.js';
 import { logRow } from './sheetlogs.js';
 import { logEvent, stream } from './evlog.js';
+import { isStaging, isAllowedPhone, BLOCKED as STAGING_BLOCKED } from './staging-guard.js';
 import { noteDailySend } from './wavenote.js';
 /* index.js registers the event-name resolver (it owns the sheet snapshot); whatsapp.js stays import-free of index.js */
 export const waveNoteDeps = { eventName: null };
@@ -349,6 +350,12 @@ async function renderTemplate(env, name, body, channel) {
 }
 
 async function post(env, body, channel, ctx) {
+  /* dev-staging 12/11: second lock on the same door as staging-guard.js — a
+     staging worker never addresses a number outside STAGING_ALLOWLIST */
+  if (isStaging(env) && !isAllowedPhone(env, body && body.to)) {
+    try { await logEvent(env, { area: 'שליחה', action: 'staging: שליחה למספר מחוץ ל-allowlist נחסמה', ok: false, phone: String((body && body.to) || ''), detail: 'STAGING_ALLOWLIST' }); } catch {}
+    return { ok: false, error: STAGING_BLOCKED };
+  }
   /* Iron rule (Richard, 06/09): 4499 talks to clients and leads ONLY. Guest
      traffic leaves from Shir's WhatsApp number or it does not leave at all.
      The old "degrade to the client number" fallback sent a real wave from
