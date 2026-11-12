@@ -1644,6 +1644,29 @@ async function tokenRecord(env, token) {
   try { return JSON.parse(raw); } catch { return null; }
 }
 
+/* 12/11 security: the event token is the key to the client's dashboard (the whole guest list, phones, edits),
+   yet it rode in every guest-facing link — the "הוספה ליומן" button each confirming guest receives, the group
+   RSVP link, the table QR, the invitation image/video address. Guests now get a separate PUBLIC id of the same
+   shape: it opens only the guest pages (rsvp-info / rsvp-self / table-lookup / cal / img / vid) and is not a key
+   to anything else (tokenRecord does not know it). Links that already went out with the real token keep working. */
+async function pubIdOf(env, token) {
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(String(token || ''))) return String(token || '');
+  try {
+    const have = await env.RATE.get('pubof:' + token);
+    if (have && /^[0-9a-f-]{36}$/.test(have)) return have;
+    const pub = crypto.randomUUID();
+    await env.RATE.put('pubtok:' + pub, token, { expirationTtl: TOKEN_TTL });
+    await env.RATE.put('pubof:' + token, pub, { expirationTtl: TOKEN_TTL });
+    return pub;
+  } catch { return String(token); }
+}
+/* a public id → its event token; anything else (a link sent before 12/11) comes back unchanged */
+async function fromPub(env, id) {
+  id = String(id || '');
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(id)) return id;
+  try { const t = await env.RATE.get('pubtok:' + id); return t && /^[0-9a-f-]{36}$/.test(t) ? t : id; } catch { return id; }
+}
+
 function sniffImage(bytes) {
   if (bytes[0] === 0xFF && bytes[1] === 0xD8 && bytes[2] === 0xFF) return 'image/jpeg';
   if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4E && bytes[3] === 0x47) return 'image/png';
@@ -4016,7 +4039,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
           if (saved) await askExtraQ(env, guest, from, sendCh);
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
@@ -4038,7 +4061,7 @@ async function handleWaWebhook(request, env, url) {
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
         if (saved) await askExtraQ(env, guest, from, sendCh);
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
@@ -4207,7 +4230,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     const saved = await writeGuestReply(env, guest, 'מגיע', n);
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
-    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
     if (saved) await askExtraQ(env, guest, from, sendCh);
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
@@ -10249,7 +10272,7 @@ async function handleWaSend(request, env, origin) {
    read goes through readSnapshot(env, cls); nothing calls Make directly. */
 
 async function serveImage(env, pathname) {
-  const token = pathname.slice('/img/'.length);
+  const token = await fromPub(env, pathname.slice('/img/'.length));
   if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token)) return new Response('not-found', { status: 404 });
   const { value, metadata } = await env.RATE.getWithMetadata('img:' + token, { type: 'arrayBuffer' });
   if (!value) return new Response('not-found', { status: 404 });
@@ -11275,11 +11298,13 @@ const WORKER = {
        Apple Calendar opens it straight from WhatsApp/Safari, Google via the
        cal.html page. Two reminders baked in, our line in the description. */
     if (url.pathname.startsWith('/cal/') && request.method === 'GET') {
-      const tok = url.pathname.slice(5).replace(/\.ics$/, '');
-      if (!/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
+      const calId = url.pathname.slice(5).replace(/\.ics$/, '');
+      if (!/^[0-9a-f-]{36}$/.test(calId)) return new Response('not-found', { status: 404 });
+      const tok = await fromPub(env, calId);
       const raw = await readSnapshot(env, 'dashboard');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return new Response('not-found', { status: 404 });
+      const pub = await pubIdOf(env, tok);   /* what the file itself carries — never the dashboard token */
       const c = i => String(ev[i] ?? '').trim();
       const date = c(6).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response('no-date', { status: 404 });
       const tm = (c(36).match(/^(\d{1,2}):(\d{2})/) || [null, '19', '30']);
@@ -11293,15 +11318,15 @@ const WORKER = {
       const esc = t => String(t).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\;');
       const desc = [`${title}`, c(36) ? `קבלת פנים ${c(36)}` : '', where ? `📍 ${where}` : '', nav ? `🧭 ניווט: ${nav}` : '', '', 'אישורי הגעה בוואטסאפ · ishur.io', 'https://ishur.io'].filter(x => x !== null).join('\n');
       const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//RSVP//HE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-        'BEGIN:VEVENT', `UID:${tok}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
-        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${tok}`,
+        'BEGIN:VEVENT', `UID:${pub}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${pub}`,
         'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${esc('מחר: ' + title)}`, 'END:VALARM',
         'BEGIN:VALARM', 'TRIGGER:-PT3H', 'ACTION:DISPLAY', `DESCRIPTION:${esc('בעוד 3 שעות: ' + title)}`, 'END:VALARM',
         'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
-      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${tok.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
+      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${pub.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
     }
     if (url.pathname.startsWith('/vid/') && request.method === 'GET') {
-      const tok = url.pathname.slice(5);
+      const tok = await fromPub(env, url.pathname.slice(5));
       if (!env.RATE || !/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
       const v = await env.RATE.get('vid:' + tok, { type: 'arrayBuffer' });
       if (!v) return new Response('not-found', { status: 404 });
@@ -12428,7 +12453,7 @@ const WORKER = {
        Public, the 36-char event token is the secret (like rsvp-info); no phone numbers go out. */
     if (url.pathname === '/api/table-lookup' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:tlookup:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
@@ -12459,7 +12484,7 @@ const WORKER = {
     if (url.pathname === '/api/rsvp-info' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpinfo:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
@@ -12469,12 +12494,13 @@ const WORKER = {
       const c = i => String(ev[i] ?? '').trim();
       const [vidOk, nav] = await Promise.all([env.RATE.get('vidok:' + tok), env.RATE.get('navlink:' + tok)]);
       return okJson({ ok: true, occasion: c(5), hosts: c(34) || c(2), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37), address: c(38),
-        image_url: c(44) || '', video_url: vidOk ? 'https://go.ishur.io/vid/' + tok : '', nav_link: nav || '', roles: c(47) }, origin);
+        /* the artwork addresses carry the public id too — the real token never reaches a guest page */
+        image_url: (c(44) || '').split(tok).join(await pubIdOf(env, tok)), video_url: vidOk ? 'https://go.ishur.io/vid/' + await pubIdOf(env, tok) : '', nav_link: nav || '', roles: c(47) }, origin);
     }
     if (url.pathname === '/api/rsvp-self' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
@@ -13777,6 +13803,8 @@ const WORKER = {
         waitIds.forEach((id, i) => { if (hits[i]) sentWaves.dialed.add(id); });
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
+      if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
       /* 20/10: a paid token whose event row never reached the sheet (Make
          write failed) made the page throw 1101 instead of saying so. The
          client sees the "still setting up" screen; we see it in the journal. */
