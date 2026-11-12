@@ -49,7 +49,7 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
-import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
+import { priceQuote, readQuoteRef, purchaseCovered, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handlePartner, hitAdd as refHitAdd } from './partner.js';
@@ -463,7 +463,17 @@ async function purchaseOf(env, flat) {
   let q = null;
   if (ref && ref.id && env.RATE) { try { q = JSON.parse(await env.RATE.get('quote:' + ref.id) || 'null'); } catch {} }
   if (!q && ref && ref.code) q = { ...ref.code, id: ref.id || '' };
-  if (q) return { source: q.sum != null ? 'quote' : 'code', ...q };
+  if (q) {
+    /* 12/11 security: the code/quote id came through the payer's browser — it counts only when the sum that
+       really arrived covers it (paylink.js purchaseCovered). Otherwise the payment is read by its description,
+       exactly like a link without a code, and Richard gets one red line to look at. */
+    const cov = purchaseCovered(q, flat.paymentSum || flat.sum || flat.amount || flat.price || flat.transactionSum);
+    if (cov.ok) return { source: q.sum != null ? 'quote' : 'code', ...q };
+    const phone = normPhone(flat.payerPhone || flat.phone || '');
+    await logEvent(env, { area: 'תשלום', action: 'קוד רכישה בתשלום לא תואם לסכום ששולם — לא הופעל לפי הקוד', ok: false, review: true, phone,
+      ref: String(flat.asmachta || flat.transactionId || ''), detail: `שולם ₪${cov.paid ?? '?'} · הקוד שווה לפחות ₪${cov.expected ?? '?'} · ${String(ref.id ? 'q:' + ref.id : '')} ${ref.code ? buildCode(ref.code) : ''}`.slice(0, 300) }).catch(() => {});
+    try { await alert(env, 'תשלום Grow', 'הגיע תשלום עם קוד חבילה/תוספות שהסכום ששולם לא מכסה — החבילה נקבעה לפי תיאור התשלום, התוספות לא הופעלו. לבדוק ידנית', `שולם ₪${cov.paid ?? '?'} · הקוד שווה לפחות ₪${cov.expected ?? '?'} · ${phone}`, { oneoff: true }); } catch {}
+  }
   const b = parsePaidDesc(desc);
   if (!b) return null;
   return { source: 'desc', plan: b.plan, records: b.tier, design: /עיצוב\s*הזמנה/.test(desc), hostesses: b.hostess || 0,
