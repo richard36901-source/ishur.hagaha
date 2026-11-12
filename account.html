@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>האזור האישי · ishur.io</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<!-- 12/11 PWA: own manifest (scope account.html); assets/pwa.js paints the "add to home screen" card -->
+<link rel="manifest" href="manifest-account.webmanifest">
+<meta name="theme-color" content="#0F4C35">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=83"></script>
+<script src="assets/tracking.js?v=23"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="assets/pwa.js?v=1"></script>
+<script src="assets/tour.js?v=1"></script>
+<script>
+  /* saved (or system) theme before first paint — same key as the dashboard */
+  (function () {
+    try {
+      var t = localStorage.getItem('ishur_theme');
+      if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
+      if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+    } catch (e) {}
+  })();
+</script>
+<style>
+  :root{
+    --green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;
+    --ink:#111827;--ink2:#374151;--ink3:#6b7280;
+    --bg2:#f9fafb;--bg3:#f3f4f6;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);
+    --err:#dc2626;--card:#ffffff;--cream:#FBF8F1;
+  }
+  html[data-theme=dark]{
+    --green:#4FA37C;--green2:#A9D9BE;--green4:#17302A;
+    --ink:#ECEFEA;--ink2:#C9CFC7;--ink3:#8E978F;
+    --bg2:#0F1613;--bg3:#1A201C;--bdr:#2A332E;--bdr2:rgba(79,163,124,.35);
+    --card:#151C18;--cream:#0F1613;
+  }
+  html[data-theme=dark] body{background:var(--bg2)}
+  *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none!important}
+  html,body{overflow-x:hidden;max-width:100%}
+  body{font-family:'Heebo',sans-serif;color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;min-height:100vh}
+  .wrap{max-width:560px;margin:0 auto;padding:0 16px}
+  .top{position:relative}
+  .theme-tog{position:absolute;top:.8rem;left:.9rem;z-index:2;border:1px solid rgba(199,174,122,.35);background:rgba(255,255,255,.08);color:#F8F4EA;border-radius:6px;width:36px;height:36px;font-size:1rem;cursor:pointer}
+  .brand{display:flex;align-items:center;justify-content:center;gap:.5rem}
+  .brand img{width:30px;height:30px;object-fit:contain}
+  .brand-t{font-size:.95rem;font-weight:600}
+  .top h1{color:#F8F4EA;font-size:1.45rem;margin-top:.6rem}
+  .top .sub{color:#C7AE7A;font-size:.85rem;margin-top:.15rem}
+  main{padding:1.1rem 0 2.5rem}
+  .card{background:var(--card);border:1px solid var(--bdr);border-radius:8px;margin-bottom:.9rem;overflow:hidden}
+  .card-h{padding:.7rem 1rem;font-size:.71rem}
+  .card-b{padding:.9rem 1rem 1rem}
+  .skel{color:transparent!important;background:var(--bg3);border-radius:4px;animation:sk 1.2s infinite}
+  @keyframes sk{50%{opacity:.5}}
+  /* login */
+  .l{font-size:.8rem;font-weight:500;color:var(--ink2);display:block;margin:.6rem 0 .3rem}
+  .in{width:100%;min-height:46px;font:inherit;font-size:16px;padding:.5rem .8rem;border:1.5px solid var(--bdr);border-radius:6px;background:var(--card);color:var(--ink)}
+  .in:focus{outline:none;border-color:var(--green);box-shadow:0 0 0 3px rgba(15,76,53,.12)}
+  .in.code{text-align:center;letter-spacing:.4em;font-size:1.25rem;direction:ltr}
+  .btn{display:block;width:100%;font:inherit;font-size:1rem;font-weight:600;min-height:46px;padding:.6rem 1rem;border-radius:6px;border:none;background:var(--green);color:#fff;cursor:pointer;margin-top:.7rem;text-decoration:none;text-align:center}
+  html[data-theme=dark] .btn{color:#0A1A12}
+  .btn.sec{background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
+  .btn:disabled{opacity:.55;cursor:default}
+  .btn.sm{display:inline-block;width:auto;min-height:38px;font-size:.86rem;padding:.4rem .9rem;margin:0}
+  .err{font-size:.8rem;color:var(--err);min-height:1.1em;margin-top:.5rem}
+  .err.ok{color:var(--green)}
+  .note{font-size:.76rem;color:var(--ink3);margin-top:.7rem;line-height:1.5}
+  .note a,.fine a{color:var(--green2)}
+  /* events */
+  .ev{display:block;border:1.5px solid var(--bdr);border-radius:8px;padding:.8rem .9rem;margin-bottom:.6rem;text-decoration:none;color:inherit;background:var(--card)}
+  a.ev:hover{border-color:var(--bdr2)}
+  .ev-t{display:flex;justify-content:space-between;align-items:baseline;gap:.5rem}
+  .ev-nm{font-family:'Frank Ruhl Libre',serif;font-weight:700;font-size:1.08rem}
+  .ev-dt{font-size:.8rem;color:var(--ink3);font-variant-numeric:tabular-nums;white-space:nowrap}
+  .ev-mt{font-size:.82rem;color:var(--ink2);margin-top:.15rem}
+  .ev-go{font-size:.82rem;color:var(--green2);font-weight:600;margin-top:.5rem;display:block}
+  .ev.past{background:var(--bg2);border-style:dashed;opacity:.85}
+  .ev.past .ev-nm,.ev.past .ev-mt{color:var(--ink3)}
+  .ev-acts{display:flex;gap:.45rem;flex-wrap:wrap;margin-top:.6rem}
+  .tag{font-size:.74rem;color:var(--ink3);border:1px solid var(--bdr);border-radius:4px;padding:.1rem .45rem}
+  .tag.ok{color:var(--green2);border-color:var(--bdr2);background:var(--green4)}
+  .grp{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink3);margin:.9rem 0 .45rem;font-weight:600}
+  /* credit */
+  .bal{display:flex;align-items:center;justify-content:space-between;gap:.8rem;flex-wrap:wrap}
+  .bal-v{font-family:'Rubik',sans-serif;font-size:1.9rem;font-weight:600;color:var(--green2);font-variant-numeric:tabular-nums}
+  .bal-l{font-size:.8rem;color:var(--ink3)}
+  .led{list-style:none;margin:.7rem 0 0;border-top:1px solid var(--bdr)}
+  .led li{display:flex;justify-content:space-between;gap:.6rem;padding:.45rem 0;border-bottom:1px solid var(--bdr);font-size:.85rem}
+  .led .d{color:var(--ink3);font-variant-numeric:tabular-nums}
+  .led .s{font-family:'Rubik',sans-serif;color:var(--green2);font-weight:500}
+  .fine{font-size:.76rem;color:var(--ink3);margin-top:.6rem;line-height:1.5}
+  /* contact */
+  .row{display:flex;gap:.5rem;align-items:flex-end}.row .in{flex:1}
+  .sw{display:flex;align-items:center;justify-content:space-between;gap:.8rem;margin-top:.9rem;padding-top:.8rem;border-top:1px solid var(--bdr)}
+  .sw b{font-size:.92rem;display:block}.sw span{font-size:.78rem;color:var(--ink3);display:block;margin-top:.1rem}
+  .tog{position:relative;width:46px;height:26px;flex:none;border-radius:13px;border:none;background:var(--bdr);cursor:pointer;transition:background .2s}
+  .tog::after{content:'';position:absolute;top:3px;right:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:transform .2s;box-shadow:0 1px 2px rgba(0,0,0,.25)}
+  .tog[aria-checked=true]{background:var(--green)}.tog[aria-checked=true]::after{transform:translateX(-20px)}
+  .foot{text-align:center;padding:1.2rem 0 0}
+  .foot button,.foot a{font:inherit;font-size:.78rem;color:var(--ink3);background:none;border:none;cursor:pointer;text-decoration:none;margin:0 .5rem}
+  button:not(:disabled):active{transform:scale(.98)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+</style>
+<link rel="stylesheet" href="assets/lux.css?v=19">
+</head>
+<body>
+
+<header class="top lux-head">
+  <button type="button" class="theme-tog" id="themeTog" aria-label="מצב תצוגה">🌙</button>
+  <div class="wrap">
+    <div class="brand"><img src="assets/logo-gold.png" alt=""><span class="brand-t">אישורי <span>הגעה</span></span></div>
+    <h1>האזור האישי</h1>
+    <div class="lux-rule"></div>
+    <p class="sub" id="sub">כל האירועים שלכם, הביקורות והזיכוי, במקום אחד</p>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- login: phone → code -->
+  <section class="card" id="login" hidden>
+    <div class="card-h">כניסה</div>
+    <div class="card-b">
+      <label class="l" for="phone">מספר הטלפון שאיתו נרשמתם</label>
+      <div class="row">
+        <input class="in" id="phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000" dir="ltr">
+        <button type="button" class="btn sm sec" id="send">שליחת קוד</button>
+      </div>
+      <div id="codeWrap" hidden>
+        <label class="l" for="code">קוד הכניסה</label>
+        <input class="in code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+        <button type="button" class="btn" id="go">כניסה</button>
+      </div>
+      <p class="err" id="lerr" aria-live="polite"></p>
+      <p class="note">הקוד מגיע לוואטסאפ של המספר, ואם זה לא מסתדר — למייל שרשום אצלנו. משהו לא עובד? <a id="waHelp" href="#" target="_blank" rel="noopener">כתבו לנועה</a></p>
+    </div>
+  </section>
+
+  <div id="app" hidden>
+    <!-- events -->
+    <section class="card" id="evCard">
+      <div class="card-h">האירועים שלי</div>
+      <div class="card-b" id="evList"></div>
+    </section>
+
+    <!-- credit -->
+    <section class="card" id="creditCard">
+      <div class="card-h">הזיכוי שלי</div>
+      <div class="card-b">
+        <div class="bal">
+          <div><div class="bal-v" id="balV">₪0</div><div class="bal-l">זיכוי למימוש בחבילות ובתוספות שלנו</div></div>
+          <a class="btn sm" id="redeem" href="#" target="_blank" rel="noopener" hidden>למימוש</a>
+        </div>
+        <ul class="led" id="led" hidden></ul>
+        <p class="fine" id="creditFine">המלצת וידאו על אירוע שהסתיים = ₪30 · ביקורת בגוגל = ₪20. הזיכוי נרשם על שמכם ונשמר לאירוע הבא.</p>
+      </div>
+    </section>
+
+    <!-- contact -->
+    <section class="card" id="contactCard">
+      <div class="card-h">פרטי קשר</div>
+      <div class="card-b">
+        <label class="l" for="email">מייל (לקוד כניסה ולחשבוניות)</label>
+        <input class="in" id="email" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" dir="ltr">
+        <label class="l" for="phoneAlt">טלפון נוסף שאפשר לפנות אליו</label>
+        <input class="in" id="phoneAlt" inputmode="tel" placeholder="050-0000000" dir="ltr">
+        <div class="sw">
+          <div><b>לקבל מאיתנו דיוור ומבצעים</b><span>הודעות על האירוע עצמו נשלחות תמיד. <a href="terms.html#marketing" target="_blank" rel="noopener">תקנון</a></span></div>
+          <button type="button" class="tog" id="mkt" role="switch" aria-checked="false" aria-label="דיוור ומבצעים"></button>
+        </div>
+        <button type="button" class="btn sec" id="saveContact">שמירה</button>
+        <p class="err" id="cerr" aria-live="polite"></p>
+      </div>
+    </section>
+
+    <!-- add to home screen (assets/pwa.js) -->
+    <section class="card" id="pwaCard" hidden>
+      <div class="card-h" style="display:flex;justify-content:space-between;align-items:center"><span>📲 הוסיפו למסך הבית</span><button type="button" data-pwa-x aria-label="סגירה" style="border:none;background:none;font-size:1.1rem;cursor:pointer;color:var(--ink3)">×</button></div>
+      <div class="card-b" data-pwa-body style="font-size:.9rem;color:var(--ink2)"></div>
+    </section>
+
+    <div class="foot">
+      <a href="#" data-tour-open>סיור קצר</a>
+      <button type="button" id="logout">יציאה</button>
+      <a href="terms.html" target="_blank" rel="noopener">תקנון</a>
+    </div>
+  </div>
+
+  <p class="err" id="gerr" aria-live="polite"></p>
+</main>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
+  var qs = new URLSearchParams(location.search);
+  var mock = qs.get('mock') === '1';
+  var SKEY = 'ishur_acct_session';
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k); if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { return null; } }
+  function esc(s) { return String(s == null ? '' : s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;'); }
+  function ph(ev, props) { try { if (window.posthog && posthog.capture) posthog.capture(ev, props || {}); } catch (e) {} }
+  $('waHelp').href = CFG.waLink('היי, לא הצלחתי להיכנס לאזור האישי');
+
+  /* ── API ── */
+  function api(kind, body) {
+    if (mock) return mockApi(kind, body);
+    return fetch(CFG.endpoint(kind), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { j.status = r.status; return j; }); });
+  }
+  function mockApi(kind, body) {
+    var today = new Date().toISOString().slice(0, 10);
+    var M = {
+      'account-otp': { ok: true, via: 'whatsapp', status: 200 },
+      'account-login': { ok: true, session: 'acct.mock', status: 200 },
+      'account-logout': { ok: true, status: 200 },
+      'account-contact': { ok: true, status: 200, contact: { email: body.email || '', phone_alt: body.phone_alt || '', marketing: !!body.marketing } },
+      'account-me': { ok: true, status: 200, phone: '972521234567', today: today,
+        events: [
+          { token: 'aaaaaaaa-0000-4000-8000-000000000001', name: 'דנה ויוסי', occasion: 'חתונה', date: '2026-12-20', venue: 'גן האירועים', city: 'ראשון לציון', past: false, next: 'none', review: { scored: false }, dashboard_url: 'dashboard.html?t=aaaaaaaa-0000-4000-8000-000000000001', feedback_url: 'feedback.html?t=aaaaaaaa-0000-4000-8000-000000000001' },
+          { token: 'bbbbbbbb-0000-4000-8000-000000000002', name: 'בר המצווה של איתי', occasion: 'בר מצווה', date: '2026-10-01', venue: '', city: '', past: true, next: 'claim', review: { scored: true, route: 'high', video: true, google: false }, dashboard_url: 'dashboard.html?t=bbbbbbbb-0000-4000-8000-000000000002', feedback_url: 'feedback.html?t=bbbbbbbb-0000-4000-8000-000000000002' },
+          { token: 'cccccccc-0000-4000-8000-000000000003', name: 'ברית של נועם', occasion: 'ברית', date: '2026-06-14', venue: '', city: '', past: true, next: 'score', review: { scored: false }, dashboard_url: 'dashboard.html?t=cccccccc-0000-4000-8000-000000000003', feedback_url: 'feedback.html?t=cccccccc-0000-4000-8000-000000000003' }
+        ],
+        credit: { balance_ils: 30, entries: [{ kind: 'review_video', kind_he: 'המלצת וידאו', ils: 30, at: '2026-10-03T10:00:00Z', token8: 'bbbbbbbb' }], redeem_url: 'https://wa.me/972559504499?text=' + encodeURIComponent('היי נועה, יש לי ₪30 זיכוי באזור האישי ואני רוצה לממש') },
+        contact: { email: 'dana@example.com', phone_alt: '', marketing: false } }
+    };
+    return Promise.resolve(M[kind] || { ok: false, status: 404 });
+  }
+
+  /* ── views ── */
+  function showLogin(msg) { $('login').hidden = false; $('app').hidden = true; $('lerr').textContent = msg || ''; }
+  function showApp() { $('login').hidden = true; $('app').hidden = false; }
+  function dateHe(iso) { try { return new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso + 'T12:00:00')); } catch (e) { return iso; } }
+  function dateShort(iso) { try { return new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(iso)); } catch (e) { return String(iso).slice(0, 10); } }
+  function daysUntil(iso) { var d = new Date(iso + 'T12:00:00'), t = new Date(); t.setHours(12, 0, 0, 0); return Math.round((d - t) / 864e5); }
+
+  function evCard(e) {
+    var meta = [e.occasion, e.date ? dateHe(e.date) : '', [e.venue, e.city].filter(Boolean).join(', ')].filter(Boolean).join(' · ');
+    if (!e.past) {
+      var n = e.date ? daysUntil(e.date) : null;
+      return '<a class="ev" href="' + esc(e.dashboard_url) + '">' +
+        '<div class="ev-t"><span class="ev-nm">' + esc(e.name || 'האירוע שלכם') + '</span>' + (n != null && n >= 0 && n <= 60 ? '<span class="ev-dt">' + (n === 0 ? 'היום' : 'בעוד ' + n + ' ימים') + '</span>' : '') + '</div>' +
+        '<div class="ev-mt">' + esc(meta) + '</div><span class="ev-go">ללוח הבקרה של האירוע ›</span></a>';
+    }
+    var acts = '';
+    var r = e.review || {};
+    if (e.next === 'score') acts = '<a class="btn sm" href="' + esc(e.feedback_url) + '">השאירו ביקורת</a>';
+    else if (e.next === 'claim') {
+      if (!r.video) acts += '<a class="btn sm" href="' + esc(e.feedback_url) + '&step=video">🎥 המלצת וידאו · ₪30</a>';
+      if (!r.google) acts += '<a class="btn sm sec" href="' + esc(e.feedback_url) + '&step=google">⭐ ביקורת בגוגל · ₪20</a>';
+    } else if (e.next === 'done') acts = '<span class="tag ok">תודה על הביקורת ✓</span>';
+    else if (r.scored) acts = '<span class="tag">תודה על המשוב</span>';
+    return '<div class="ev past"><div class="ev-t"><span class="ev-nm">' + esc(e.name || 'האירוע שלכם') + '</span><span class="ev-dt">הסתיים</span></div>' +
+      '<div class="ev-mt">' + esc(meta) + '</div>' + (acts ? '<div class="ev-acts">' + acts + '</div>' : '') + '</div>';
+  }
+  function renderEvents(list) {
+    var up = list.filter(function (e) { return !e.past; }), done = list.filter(function (e) { return e.past; });
+    var h = '';
+    if (!list.length) h = '<p class="note">עדיין אין אירועים על המספר הזה.</p>';
+    if (up.length) h += up.map(evCard).join('');
+    if (done.length) h += '<p class="grp">אירועים שהסתיימו</p>' + done.map(evCard).join('');
+    $('evList').innerHTML = h;
+  }
+  function renderCredit(c) {
+    c = c || { balance_ils: 0, entries: [] };
+    $('balV').textContent = '₪' + (Number(c.balance_ils) || 0);
+    $('redeem').hidden = !(c.balance_ils > 0); $('redeem').href = c.redeem_url || '#';
+    var led = $('led'); led.hidden = !(c.entries && c.entries.length);
+    led.innerHTML = (c.entries || []).map(function (e) { return '<li><span class="d">' + esc(dateShort(e.at)) + '</span><span>' + esc(e.kind_he || e.kind) + '</span><span class="s">+₪' + esc(e.ils) + '</span></li>'; }).join('');
+  }
+  function renderContact(c) {
+    c = c || {};
+    $('email').value = c.email || ''; $('phoneAlt').value = c.phone_alt ? '0' + String(c.phone_alt).slice(3) : '';
+    $('mkt').setAttribute('aria-checked', c.marketing ? 'true' : 'false');
+  }
+  var TOUR = [
+    { el: '#evCard', title: 'האירועים שלי', text: 'כל אירוע שרכשתם מופיע כאן. לחיצה על אירוע קרוב פותחת את לוח הבקרה שלו: מי אישר, מי עוד לא ענה, ומה יוצא מתי.' },
+    { el: '#evList .ev.past', title: 'אירוע שהסתיים', text: 'אירוע שעבר נשאר אפור, ומה שנשאר לעשות בו הוא רק להשאיר ביקורת. על כל ביקורת מקבלים זיכוי.' },
+    { el: '#creditCard', title: 'הזיכוי שלי', text: 'המלצת וידאו שווה ₪30, ביקורת בגוגל ₪20. הזיכוי מתממש בחבילות ובתוספות שלנו: לוחצים "למימוש" ונועה מסדרת.' },
+    { el: '#contactCard', title: 'פרטי קשר', text: 'כאן מוסיפים מייל (גם לקוד כניסה, אם הוואטסאפ לא מגיע), טלפון נוסף, ובוחרים אם לקבל דיוור. הודעות על האירוע עצמו מגיעות תמיד.' },
+    { el: '#pwaCard', title: 'כמו אפליקציה', text: 'הוסיפו את האזור האישי למסך הבית וייפתח בלחיצה אחת.' },
+    { el: '#themeTog', title: 'מצב לילה', text: 'הכפתור הזה מחליף בין תצוגה בהירה לכהה. ברירת המחדל היא לפי הטלפון שלכם.' }
+  ];
+  function load() {
+    var s = ls(SKEY);
+    if (!s) { showLogin(); return; }
+    api('account-me', { session: s }).then(function (j) {
+      if (j.status === 403) { ls(SKEY, null); showLogin(''); return; }
+      if (!j.ok) { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; return; }
+      renderEvents(j.events || []); renderCredit(j.credit); renderContact(j.contact);
+      showApp();
+      ph('account_opened', { events: (j.events || []).length, credit: j.credit && j.credit.balance_ils });
+      setTimeout(function () { if (window.IshurTour) IshurTour.start('account', TOUR); }, 400);
+    }).catch(function () { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; });
+  }
+
+  /* ── login ── */
+  function validPhone(p) { return /^05\d{8}$/.test(String(p || '').replace(/\D/g, '')); }
+  $('send').addEventListener('click', function () {
+    var phone = $('phone').value.trim(); $('lerr').className = 'err';
+    if (!validPhone(phone)) { $('lerr').textContent = 'צריך מספר נייד ישראלי, 10 ספרות שמתחילות ב-05'; return; }
+    var b = $('send'); b.disabled = true; b.textContent = 'שולחים…';
+    var payload = { phone: phone };
+    api('account-otp', window.IshurGuard ? IshurGuard.stamp(payload) : payload).then(function (j) {
+      b.disabled = false; b.textContent = 'שליחת קוד';
+      if (j.status === 200) {
+        $('lerr').className = 'err ok';
+        $('lerr').textContent = j.via === 'email' ? 'שלחנו קוד למייל ' + (j.to || 'שלכם') : 'הקוד בדרך אליכם בוואטסאפ 🙂';
+        $('codeWrap').hidden = false; $('code').focus();
+      } else if (j.status === 404) $('lerr').textContent = 'לא מצאנו אירוע ששולם על המספר הזה. שילמתם ועדיין לא מופיע? כתבו לנועה';
+      else if (j.status === 429) $('lerr').textContent = 'נשלחו כמה קודים לאחרונה. חכו כמה דקות ונסו שוב';
+      else if (j.status === 502) $('lerr').textContent = 'לא הצלחנו לשלוח קוד לא בוואטסאפ ולא במייל. כתבו לנועה ונסדר';
+      else $('lerr').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע';
+    }).catch(function () { b.disabled = false; b.textContent = 'שליחת קוד'; $('lerr').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע'; });
+  });
+  function login() {
+    var phone = $('phone').value.trim(), code = $('code').value.replace(/\D/g, ''); $('lerr').className = 'err';
+    if (!validPhone(phone)) { $('lerr').textContent = 'צריך מספר נייד ישראלי'; return; }
+    if (code.length !== 6) { $('lerr').textContent = 'הקוד הוא 6 ספרות'; return; }
+    var b = $('go'); b.disabled = true; b.textContent = 'נכנסים…';
+    api('account-login', { phone: phone, code: code }).then(function (j) {
+      b.disabled = false; b.textContent = 'כניסה';
+      if (j.status === 200 && j.session) { ls(SKEY, j.session); ph('account_login'); load(); return; }
+      $('lerr').textContent = j.status === 429 ? 'יותר מדי ניסיונות. חכו כמה דקות' : 'הקוד לא נכון או שפג תוקפו. אפשר לבקש קוד חדש';
+    }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('lerr').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
+  }
+  $('go').addEventListener('click', login);
+  $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
+  $('phone').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('send').click(); });
+
+  /* ── contact ── */
+  $('mkt').addEventListener('click', function () { var on = $('mkt').getAttribute('aria-checked') === 'true'; $('mkt').setAttribute('aria-checked', on ? 'false' : 'true'); });
+  $('saveContact').addEventListener('click', function () {
+    var email = $('email').value.trim(), alt = $('phoneAlt').value.trim(); $('cerr').className = 'err';
+    if (email && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) { $('cerr').textContent = 'המייל לא נראה תקין'; return; }
+    if (alt && !validPhone(alt)) { $('cerr').textContent = 'הטלפון הנוסף צריך להיות נייד ישראלי'; return; }
+    var b = $('saveContact'); b.disabled = true;
+    api('account-contact', { session: ls(SKEY), email: email, phone_alt: alt, marketing: $('mkt').getAttribute('aria-checked') === 'true' }).then(function (j) {
+      b.disabled = false;
+      if (j.ok) { $('cerr').className = 'err ok'; $('cerr').textContent = 'נשמר ✓'; ph('account_contact_saved', { marketing: j.contact && j.contact.marketing }); }
+      else $('cerr').textContent = j.error === 'bad-email' ? 'המייל לא נראה תקין' : j.status === 403 ? 'פג תוקף הכניסה, היכנסו שוב' : 'לא הצלחנו לשמור. נסו שוב';
+    }).catch(function () { b.disabled = false; $('cerr').textContent = 'לא הצלחנו לשמור. נסו שוב'; });
+  });
+  $('logout').addEventListener('click', function () {
+    var s = ls(SKEY); ls(SKEY, null);
+    if (s) api('account-logout', { session: s }).catch(function () {});
+    $('codeWrap').hidden = true; $('code').value = ''; showLogin('');
+  });
+
+  /* ── night mode (same key as the dashboard) ── */
+  (function () {
+    var b = $('themeTog');
+    function paint() { b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'; }
+    b.addEventListener('click', function () {
+      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+      if (dark) document.documentElement.removeAttribute('data-theme'); else document.documentElement.setAttribute('data-theme', 'dark');
+      ls('ishur_theme', dark ? 'light' : 'dark'); paint();
+    });
+    paint();
+  })();
+
+  if (mock && !ls(SKEY)) ls(SKEY, 'acct.mock');
+  load();
+})();
+</script>
+</body>
+</html>

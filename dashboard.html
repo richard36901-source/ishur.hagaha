@@ -19,13 +19,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=82"></script>
+<script src="config.js?v=83"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
 <script src="assets/design-card.js?v=1"></script>
 <script src="assets/pwa.js?v=1"></script>
+<script src="assets/tour.js?v=1"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 <script>
   /* apply the saved (or system) theme before first paint — no flash */
@@ -578,6 +579,8 @@
     <h1 id="title" class="skel">האירוע שלכם</h1>
     <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
+    <!-- 12/11 personal-area: all the client's events, reviews and credit -->
+    <p class="sub" style="margin-top:.35rem"><a href="account.html" id="acctLink" style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">האזור האישי שלי ›</a> · <a href="#" data-tour-open style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">סיור קצר</a></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
     <div class="cd-wrap"><span class="evsw-wrap" id="evSwitchWrap" hidden>
       <button type="button" class="evsw" id="switchEv" aria-haspopup="true" aria-expanded="false" aria-controls="evSwitchPanel">
@@ -1405,7 +1408,19 @@
     renderAfterParty();
     renderReferral();
     paintSwitcher();
+    /* 12/11 (Richard): first visit on this device → a short spotlight tour, step counter, skip-all */
+    if (window.IshurTour) setTimeout(function () { IshurTour.start('dashboard', DASH_TOUR); }, 500);
   }
+  var DASH_TOUR = [
+    { el: '#kpis', title: 'המצב', text: 'המספרים האלה מתעדכנים בזמן אמת: כמה אישרו, כמה מגיעים בפועל, כמה סירבו ומי עוד לא ענה.' },
+    { el: '#sendsCard', title: 'לוח השליחות', text: 'כאן רואים מה יצא ומה מתוכנן: ההזמנה, התזכורות והודעת יום האירוע. אפשר להזיז תאריכים לפני שהגל יוצא.' },
+    { el: '#rows', title: 'המוזמנים', text: 'הרשימה המלאה, עם סטטוס לכל אחד. לוחצים על שם כדי לערוך, ומסננים לפי מי שאישר או עוד לא ענה.' },
+    { el: '#gaddCard', title: 'הוספת מוזמן', text: 'נזכרתם במישהו? מוסיפים אותו כאן והוא יקבל הזמנה בגל הבא.' },
+    { el: '#refCard', title: 'הזמן חבר', text: 'שתפו את ishur עם זוג שמתכנן אירוע. כל חבר שסוגר דרככם מקדם אתכם בדרגה ומזכה אתכם.' },
+    { el: '#acctLink', title: 'האזור האישי', text: 'כל האירועים שלכם, הביקורות והזיכוי שצברתם, במקום אחד. נכנסים עם הטלפון וקוד.' },
+    { el: '#pwaCard', title: 'כמו אפליקציה', text: 'הוסיפו את הלוח למסך הבית וייפתח בלחיצה אחת.' },
+    { el: '#themeTog', title: 'מצב לילה', text: 'מחליף בין תצוגה בהירה לכהה. ברירת המחדל לפי הטלפון שלכם.' }
+  ];
 
   function renderReferral() {
     var code = data.referral_code;
