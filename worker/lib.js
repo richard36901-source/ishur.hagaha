@@ -123,3 +123,22 @@ export async function sha256Hex(text) {
   const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
   return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
 }
+
+/* 12/11 security: an in-process attempt counter. The KV budget (overBudget) is read-then-write, so a
+   burst of parallel requests all read the count from before any of them wrote. This map is
+   incremented synchronously, so requests that share an isolate are counted exactly; the KV
+   counter stays as the limit across isolates. → true once `limit` hits were already counted. */
+const MEM_HITS = new Map();
+export function memOver(key, limit, windowSec) {
+  const now = Date.now();
+  if (MEM_HITS.size > 5000) { for (const [k, v] of MEM_HITS) if (v.until <= now) MEM_HITS.delete(k); if (MEM_HITS.size > 20000) MEM_HITS.clear(); }
+  let h = MEM_HITS.get(key);
+  if (!h || h.until <= now) { h = { n: 0, until: now + windowSec * 1000 }; MEM_HITS.set(key, h); }
+  h.n++;
+  return h.n > limit;
+}
+/* how many hits memOver has counted for this key in its current window (does not count one) */
+export function memCount(key) {
+  const h = MEM_HITS.get(key);
+  return h && h.until > Date.now() ? h.n : 0;
+}

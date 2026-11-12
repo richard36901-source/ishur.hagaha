@@ -162,7 +162,7 @@ export async function handleAccount(request, env, origin, url, d) {
     const evs = d.eventsForPhone(raw, phone);
     if (!evs.length) return d.deny(404, 'no-events', origin);
     const code = code6();
-    await env.RATE.put('acctotp:' + phone, JSON.stringify({ code, tries: 0, at: Date.now() }), { expirationTtl: OTP_TTL });
+    await env.RATE.put('acctotp:' + phone, JSON.stringify({ code, tries: 0, at: Date.now(), id: crypto.randomUUID() }), { expirationTtl: OTP_TTL });
     const contact = await readContact(env, phone);
     const email = validEmail(contact.email) ? contact.email.trim() : emailFromLeads(raw, phone);
     const sent = await sendLoginCode(env, phone, code, { email, d });
@@ -190,12 +190,17 @@ export async function handleAccount(request, env, origin, url, d) {
     const code = String(b.code || '').replace(/\D/g, '');
     if (!/^972\d{8,9}$/.test(phone) || code.length !== 6) return d.deny(403, 'bad-login', origin);
     if (await d.overBudget(env, 'rl:acctlogin:' + phone, 20, 3600)) return d.deny(429, 'rate-limited', origin);
+    /* 12/11 security: guesses are limited per IP too; each guess is counted (in this isolate, then on the
+       record) before the code is compared, so a parallel burst cannot buy more than OTP_TRIES tries */
+    if ((d.memOver && d.memOver('acctlogini:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:acctlogini:' + ip, 30, 3600)) return d.deny(429, 'rate-limited', origin);
     const rec = await kvJson(env, 'acctotp:' + phone);
     if (!rec) return d.deny(403, 'bad-login', origin);
-    rec.tries = (rec.tries || 0) + 1;
+    const left = Math.max(60, OTP_TTL - Math.floor((Date.now() - (rec.at || Date.now())) / 1000));
+    if (d.otpAttemptAllowed) { if (!(await d.otpAttemptAllowed(env, 'acctotp:' + phone, rec, OTP_TRIES, left))) return d.deny(403, 'bad-login', origin); }
+    else rec.tries = (rec.tries || 0) + 1;
     if (rec.tries > OTP_TRIES || !d.safeEqual(code, String(rec.code))) {
       if (rec.tries >= OTP_TRIES) await env.RATE.delete('acctotp:' + phone).catch(() => {});
-      else { const left = Math.max(30, OTP_TTL - Math.floor((Date.now() - (rec.at || Date.now())) / 1000)); await env.RATE.put('acctotp:' + phone, JSON.stringify(rec), { expirationTtl: left }); }
+      else if (!d.otpAttemptAllowed) await env.RATE.put('acctotp:' + phone, JSON.stringify(rec), { expirationTtl: left });
       return d.deny(403, 'bad-login', origin);
     }
     await env.RATE.delete('acctotp:' + phone).catch(() => {});

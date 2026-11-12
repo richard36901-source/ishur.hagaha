@@ -45,7 +45,7 @@ import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evl
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
-import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
@@ -2532,13 +2532,52 @@ const okJsonPlain = payload => new Response(JSON.stringify(payload), {
 async function adminKeyOk(env, key) {
   const tok = String(key || '');
   if (isAdmin(env, tok)) return true;
+  return adminSessionOk(env, tok);
+}
+/* 12/11 security: a session token ends 30 days after its last use (it used to be valid for as long
+   as ADMIN_KEY lived). The raw admin key is not a session and is never touched by this.
+     · tokens minted from now on carry their mint time in the first 8 hex chars of the nonce and
+       are signed with the 'sess2:' label — valid without any lookup for the first 30 days (KV is
+       eventually consistent, see handleAdminLogin), and after that for as long as the KV row
+       adminsess:<nonce> shows a use in the last 30 days;
+     · tokens minted before this change ('sess:' label) keep working with no action through
+       LEGACY_SESSION_GRACE_END; every use is stamped on their KV row, and after that date they
+       follow the same rule — alive while used in the last 30 days;
+     · the oldest KV-only tokens (sess.<48 hex>) get the same 30-day sliding life on their row. */
+const ADMIN_SESSION_DAYS = 30;
+const ADMIN_SESSION_MS = ADMIN_SESSION_DAYS * 86400 * 1000;
+const LEGACY_SESSION_GRACE_END = Date.parse('2026-12-14T00:00:00Z');
+async function adminSessionOk(env, tok) {
   if (!env.ADMIN_KEY) return false;
+  const now = Date.now();
+  const touch = async (kvKey, rec) => {
+    if (rec && rec.seen && now - Date.parse(rec.seen) < 12 * 3600 * 1000) return;
+    await env.RATE.put(kvKey, JSON.stringify({ ...(rec || {}), seen: new Date(now).toISOString() }), { expirationTtl: (ADMIN_SESSION_DAYS + 1) * 86400 }).catch(() => {});
+  };
   const signed = tok.match(/^sess\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
   if (signed) {
-    if (!safeEqual(signed[2], await sessionSig(env, signed[1]))) return false;
-    return !(env.RATE && await env.RATE.get('adminrev:' + signed[1]).catch(() => null));
+    const nonce = signed[1];
+    const v2 = safeEqual(signed[2], await sessionSig(env, nonce, 'sess2:'));
+    if (!v2 && !safeEqual(signed[2], await sessionSig(env, nonce, 'sess:'))) return false;
+    const mintedMs = parseInt(nonce.slice(0, 8), 16) * 1000;
+    const fresh = v2 ? (now - mintedMs < ADMIN_SESSION_MS) : now < LEGACY_SESSION_GRACE_END;
+    if (!env.RATE) return fresh;
+    const [rev, recRaw] = await Promise.all([env.RATE.get('adminrev:' + nonce).catch(() => null), env.RATE.get('adminsess:' + nonce).catch(() => null)]);
+    if (rev) return false;
+    let rec = null; try { rec = JSON.parse(recRaw); } catch {}
+    const lastUse = rec ? Date.parse(rec.seen || (v2 ? rec.at : '') || '') : NaN;
+    if (!fresh && !(Number.isFinite(lastUse) && now - lastUse < ADMIN_SESSION_MS)) return false;
+    await touch('adminsess:' + nonce, rec);
+    return true;
   }
-  if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) return !!(await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null));
+  if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) {
+    /* sessions minted before 10/09 — KV only */
+    const recRaw = await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null);
+    if (!recRaw) return false;
+    let rec = null; try { rec = JSON.parse(recRaw); } catch {}
+    await touch('adminsess:' + tok.slice(5), rec && typeof rec === 'object' ? rec : {});
+    return true;
+  }
   return false;
 }
 async function resolveAdminSession(request, env) {
@@ -2551,28 +2590,32 @@ async function resolveAdminSession(request, env) {
   let body;
   try { body = JSON.parse(text); } catch { return request; }
   const tok = String(body.admin_key || '');
-  if (!env.ADMIN_KEY) return request;
-  let valid = false;
-  const signed = tok.match(/^sess\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
-  if (signed) {
-    /* signed session: verify locally, then honour a revocation if one exists */
-    valid = safeEqual(signed[2], await sessionSig(env, signed[1]));
-    if (valid && env.RATE && await env.RATE.get('adminrev:' + signed[1]).catch(() => null)) valid = false;
-  } else if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) {
-    /* sessions minted before 10/09 — KV only */
-    valid = !!(await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null));
-  }
-  if (!valid) return request;
+  if (!(await adminSessionOk(env, tok))) return request;
   body.admin_key = env.ADMIN_KEY;
   return new Request(request, { body: JSON.stringify(body) });
 }
 
-/* HMAC-SHA256(ADMIN_KEY, 'sess:' + nonce), first 32 hex chars */
-async function sessionSig(env, nonce) {
+/* HMAC-SHA256(ADMIN_KEY, label + nonce), first 32 hex chars. 'sess:' = minted before 12/11, 'sess2:' = since */
+async function sessionSig(env, nonce, label = 'sess:') {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.ADMIN_KEY || '')),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('sess:' + nonce));
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(label + nonce));
   return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+/* 12/11 security: one guess at a login code. Called after the code record was read and BEFORE the
+   compare: the per-code counter in this isolate first (exact for a parallel burst), then the tries
+   counter on the record is written, and only then may the caller compare.
+   → false when this attempt must be refused without looking at the code. */
+async function otpAttemptAllowed(env, kvKey, rec, maxTries, ttlSec) {
+  if (memOver('otptry:' + kvKey + ':' + (rec.id || rec.at || rec.exp || ''), maxTries, 1800)) {
+    await env.RATE.delete(kvKey).catch(() => {});
+    return false;
+  }
+  rec.tries = (Number(rec.tries) || 0) + 1;
+  if (rec.tries > maxTries) { await env.RATE.delete(kvKey).catch(() => {}); return false; }
+  await env.RATE.put(kvKey, JSON.stringify(rec), { expirationTtl: Math.max(60, ttlSec) });
+  return true;
 }
 
 async function handleAdminOtp(request, env, origin) {
@@ -2581,10 +2624,13 @@ async function handleAdminOtp(request, env, origin) {
   const phone = normPhone(body.phone || '');
   const allowed = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim())).filter(Boolean);
   /* the answer never reveals whether a number is on the list */
+  /* 12/11 security: ten code requests an hour per IP, whatever number was typed */
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (memOver('adminotpi:' + ip, 10, 3600) || (env.RATE && await overBudget(env, 'rl:adminotpi:' + ip, 10, 3600))) return okJson({ ok: true }, origin);
   if (!phone || !allowed.includes(phone) || !env.RATE) return okJson({ ok: true }, origin);
   if (await overBudget(env, 'rl:adminotp:' + phone, 5, 3600)) return okJson({ ok: true }, origin);
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
-  await env.RATE.put('adminotp:' + phone, JSON.stringify({ code, tries: 0 }), { expirationTtl: 600 });
+  await env.RATE.put('adminotp:' + phone, JSON.stringify({ code, tries: 0, id: crypto.randomUUID() }), { expirationTtl: 600 });
   /* Richard, 07/09: the admin code goes to Slack, not to WhatsApp. He is
      already in Slack all day, and the WhatsApp route costs an authentication
      template and depends on Meta approving it. WhatsApp stays as the fallback
@@ -2611,16 +2657,16 @@ async function handleAdminLogin(request, env, origin) {
   const phone = normPhone(body.phone || '');
   const code = String(body.code || '').replace(/\D/g, '');
   if (!phone || code.length !== 6 || !env.RATE) return deny(403, 'bad-login', origin);
+  /* 12/11 security: guesses are limited per IP and per phone, on top of the five tries each code gets */
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (memOver('adminlogini:' + ip, 20, 3600) || await overBudget(env, 'rl:adminlogini:' + ip, 20, 3600)) return deny(403, 'bad-login', origin);
+  if (await overBudget(env, 'rl:adminlogin:' + phone, 15, 3600)) return deny(403, 'bad-login', origin);
   let rec = null;
   try { rec = JSON.parse(await env.RATE.get('adminotp:' + phone)); } catch {}
   if (!rec) return deny(403, 'bad-login', origin);
-  rec.tries = (rec.tries || 0) + 1;
-  if (rec.tries > 5) {
-    await env.RATE.delete('adminotp:' + phone).catch(() => {});
-    return deny(403, 'bad-login', origin);
-  }
+  if (!(await otpAttemptAllowed(env, 'adminotp:' + phone, rec, 5, 600))) return deny(403, 'bad-login', origin);
   if (!safeEqual(code, String(rec.code))) {
-    await env.RATE.put('adminotp:' + phone, JSON.stringify(rec), { expirationTtl: 600 });
+    if (rec.tries >= 5) await env.RATE.delete('adminotp:' + phone).catch(() => {});
     return deny(403, 'bad-login', origin);
   }
   await env.RATE.delete('adminotp:' + phone).catch(() => {});
@@ -2631,12 +2677,14 @@ async function handleAdminLogin(request, env, origin) {
      the page threw the key away. The token now carries its own signature:
      any server can verify it with ADMIN_KEY and no lookup. KV keeps a row
      per session for listing and revocation only. */
-  const raw = crypto.getRandomValues(new Uint8Array(16));
-  const nonce = [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
-  const sig = await sessionSig(env, nonce);
+  /* 12/11 security: the nonce starts with the mint time (8 hex = unix seconds), so any server can tell a
+     token's age with no lookup; 96 random bits follow. Same sess.<32 hex>.<32 hex> shape as before. */
+  const raw = crypto.getRandomValues(new Uint8Array(12));
+  const nonce = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0').slice(-8) + [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
+  const sig = await sessionSig(env, nonce, 'sess2:');
   await env.RATE.put('adminsess:' + nonce, JSON.stringify({ phone, at: new Date().toISOString() }),
-    { expirationTtl: 365 * 86400 }).catch(() => {});
-  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`, { quiet: true }).catch(() => {});
+    { expirationTtl: (ADMIN_SESSION_DAYS + 1) * 86400 }).catch(() => {});
+  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: ${ADMIN_SESSION_DAYS} יום מהשימוש האחרון.`, { quiet: true }).catch(() => {});
   return okJson({ ok: true, token: 'sess.' + nonce + '.' + sig }, origin);
 }
 
@@ -7935,7 +7983,7 @@ function eventsForPhone(raw, phone) {
 
 /* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
 function accountDeps() {
-  return { okJson, deny, normPhone, overBudget, safeEqual, tokenRecord, referralSummary: async (e, t) => referralSummary(e, t, await tokenRecord(e, t)), readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
+  return { okJson, deny, normPhone, overBudget, memOver, otpAttemptAllowed, safeEqual, tokenRecord, referralSummary: async (e, t) => referralSummary(e, t, await tokenRecord(e, t)), readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
     sendOtpTemplate, sendEmail: sendPlainEmail, today: () => ilDate() };
 }
 async function handleOtpSend(request, env, origin) {
@@ -7954,7 +8002,7 @@ async function handleOtpSend(request, env, origin) {
   if (!eventsForPhone(raw, phone).length) return deny(404, 'no-events', origin);
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   await env.RATE.put('otp:' + phone,
-    JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600 }),
+    JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600, id: crypto.randomUUID() }),
     { expirationTtl: 600 });
   /* 12/11 (Richard: "מה שעובד עם הקוד לטלפון לא עובד טוב"): the same ladder as the personal area —
      Noa → guests number → email the client gave us / the leads sheet */
@@ -13905,10 +13953,19 @@ const WORKER = {
         if (!phone || code.length < 4) return deny(403, 'bad-login', origin);
         if (!env.RATE) return deny(503, 'kv-not-bound', origin);
         if (await overBudget(env, 'rl:login:' + phone, 12, 3600)) return deny(429, 'rate-limited', origin);
+        /* 12/11 security: wrong guesses are also counted per IP, and in this isolate per code, so a burst of
+           parallel guesses shares one count. Only WRONG guesses count: a client whose saved code is right
+           (it keeps working for a month, below) is never slowed by this. */
+        const ipFails = 'rl:loginfail:' + ip;
+        if (memCount(ipFails) >= 30 || (Number(await env.RATE.get(ipFails).catch(() => 0)) || 0) >= 30) return deny(429, 'rate-limited', origin);
         let rec = null;
         try { rec = JSON.parse(await env.RATE.get('otp:' + phone)); } catch {}
-        const good = rec && (rec.tries || 0) < 6 && safeEqual(String(rec.code), code);
+        const tryKey = 'otptry:otp:' + phone + ':' + ((rec && (rec.id || rec.exp)) || '');
+        const match = !!rec && safeEqual(String(rec.code), code);
+        const burned = match ? memCount(tryKey) >= 6 : memOver(tryKey, 6, 1800);
+        const good = match && !burned && (rec.tries || 0) < 6;
         if (!good) {
+          memOver(ipFails, 30, 3600); await overBudget(env, ipFails, 30, 3600).catch(() => {});
           if (rec) {
             /* keep the record's own remaining lifetime — a stranger guessing
                wrong must not shorten a legitimate month-long session */
