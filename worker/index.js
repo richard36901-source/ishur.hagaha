@@ -12636,7 +12636,8 @@ const WORKER = {
         const mk = await hookFetch(env, env.GROW_LINK_HOOK, {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            sum: item.price, description: desc, token: tok, kind, scope, label: item.label, n: item.n,
+            sum: item.price, description: desc, title: desc.replace(/ · [0-9a-f]{8}$/, ''),   /* 12/11 Richard: the page shows the clean title; the token rides in cField1 */
+            token: tok, kind, scope, label: item.label, n: item.n,
             name: String((await tokenRecord(env, tok) || {}).name || 'לקוח ishur'), /* Grow wants a local 05x number */ phone: String((await tokenRecord(env, tok) || {}).phone || '').replace(/^972/, '0'), /* Grow's module refuses an empty email; the buyer can change it on the page */ email: String((await tokenRecord(env, tok) || {}).email || 'noreply@ishur.io'),
             successUrl: 'https://ishur.io/dashboard.html?t=' + tok + '&paid=' + kind,
             cancelUrl: 'https://ishur.io/dashboard.html?t=' + tok,
