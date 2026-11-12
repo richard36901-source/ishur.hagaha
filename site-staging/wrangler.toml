@@ -1,0 +1,16 @@
+# dev-staging (12/11/2026): the staging SITE. The same static files GitHub Pages
+# serves from `main` at ishur.io, served by a Workers static-assets project at
+# staging.ishur.io from branch `staging`. (wrangler ≥4.160 routes `pages` to
+# Workers anyway, so this is the native form.) Deployed by scripts/deploy-staging.sh,
+# which rsyncs the repo root into ../dist-site honouring _config.yml's excludes.
+name = "ishur-site-staging"
+compatibility_date = "2026-08-01"
+workers_dev = true
+
+[assets]
+directory = "../dist-site"
+not_found_handling = "404-page"
+
+[[routes]]
+pattern = "staging.ishur.io"
+custom_domain = true

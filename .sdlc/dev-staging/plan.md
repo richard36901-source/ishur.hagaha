@@ -39,6 +39,15 @@ session worktree. Every step is its own commit; the proof column names the spec 
 Blocked = no network call; synthetic `Response` 403 `{"ok":false,"error":"staging-blocked","host":…,"to":…}` and one
 `stagingblock:<ts>` KV row (TTL 7d) so the ops journal can show it.
 
+## Deviation (build, 12/11): staging site = Workers static assets, not a Pages project
+
+`wrangler pages project create` on wrangler 4.160 no longer creates a Pages project (Pages is folded into
+Workers). The staging site is therefore `site-staging/wrangler.toml`: a Workers project `ishur-site-staging`
+with `[assets] directory = "../dist-site"` and custom domain `staging.ishur.io` (wrangler creates the DNS
+record itself, so the Cloudflare API step for the Pages domain is gone). `deploy-staging.sh` builds `dist-site/`
+and runs `wrangler deploy` there. R5/R6/P5 are unchanged; `*.pages.dev` in the hostname switch stays harmless
+and `*.workers.dev` is added. `robots.txt` on staging disallows everything.
+
 ## Order of work
 
 1. Branch `staging` from `main`. Commit plan. — proof: `git branch --show-current` = staging.
