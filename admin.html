@@ -500,7 +500,7 @@
   html.embed .wrap{padding-top:.6rem}html.embed #hello,html.embed #today{display:none}
   details.plfold summary{cursor:pointer;font-weight:600;list-style:none;display:flex;gap:.5rem;align-items:center}details.plfold summary::before{content:"+";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--pine);color:#fff;font-size:1rem}details.plfold[open] summary::before{content:"–"}details.plfold .linkcard{margin-top:.6rem}
   /* 09/11 Richard: "תעיף כל מה שמיותר" — the main view is the top + the week + links + שליטה */
-  body[data-view="main"] #main > :not(#hqtop):not(.sec-calls):not(#ctl){display:none !important}
+  /* 12/11 Richard: "תחזיר את זה מתחת ללו"ז שליחות" — site visits, cost per client, funnel and the rest are back under the week */
   .strip2{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
   .strip2 .st{text-decoration:none;color:inherit}
   .strip2 .st .v{font-size:1.5rem}
@@ -1290,7 +1290,7 @@
     loadStatus(true);
     loadBrain();
     hqLoad();
-    if (VIEW === 'main') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); return; }
+    if (VIEW === 'main') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); if (statsOn && Date.now() - statsAt > 5 * 60000) loadStats(); return; }
     loadOps();
     loadCost();
     loadTraffic();
@@ -1298,6 +1298,8 @@
     loadBoard();
   }
 
+  var statsOn = false, statsAt = 0;
+  function loadStats() { statsAt = Date.now(); loadOps(); loadCost(); loadTraffic(); loadCampaigns(); loadBoard(); loadFeedback(); }
   function liveStart() {
     liveStop();
     fastTimer = setInterval(fastTick, FAST_MS);
@@ -1345,7 +1347,13 @@
     }
     loadBrain();
     loadPause();
-    if (VIEW === 'main') return;   /* 09/11: the hidden sections no longer fetch (they caused 429s) */
+    /* 12/11: on the home view the numbers load when they scroll into sight, then every 5 minutes (every minute caused 429s) */
+    if (VIEW === 'main') {
+      var g = $('growth');
+      if (g && 'IntersectionObserver' in window) { var io = new IntersectionObserver(function (en) { if (en.some(function (x) { return x.isIntersecting; })) { io.disconnect(); statsOn = true; loadStats(); } }, { rootMargin: '600px' }); io.observe(g); }
+      else { statsOn = true; loadStats(); }
+      return;
+    }
     loadOps();
     loadCost();
     loadTraffic();
