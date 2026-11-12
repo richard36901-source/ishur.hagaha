@@ -11905,6 +11905,42 @@ const WORKER = {
       await logEvent(env, { area: 'לידים', action: r.ok ? 'זרימת מכירה חודשה ידנית' : 'חידוש זרימת מכירה נכשל', ok: r.ok, phone: p, detail: r.why || r.step || '' }).catch(() => {});
       return okJson(r, origin);
     }
+    /* 12/11 Richard: "שלח דוגמה ללקוח" — the client's own wave-1 invitation (same template, image/video
+       and buttons) to the CLIENT's phone, so they see exactly what their guests get. Not a guest row:
+       no wsent:/sheet writes; a button press from the client's phone is ignored by the RSVP path. */
+    if (url.pathname === '/api/preview-invite' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const token = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(token)) return deny(400, 'bad-token', origin);
+      const raw = await readSnapshot(env, 'send');
+      if (!raw) return deny(502, snapMiss(env), origin);
+      const ev = ((raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === token);
+      if (!ev) return deny(404, 'event-not-found', origin);
+      const phone = normPhone(b.phone || ev[3] || '');
+      if (!isWaPhone(phone)) return deny(400, 'bad-phone', origin);
+      if (await overBudget(env, 'rl:preview:' + token, 5, 3600)) return deny(429, 'slow-down', origin);
+      const occasion = String(ev[5] || '').trim() || 'אירוע';
+      const hosts = eventHosts(ev) || 'בעלי השמחה';
+      const date = heDate(String(ev[6] || '').trim());
+      const time = String(ev[36] || '').trim() || 'בשעות הערב';
+      const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ') || 'פרטים בהמשך';
+      const invite = String(ev[44] || '').trim();
+      const name = String(b.name || ev[2] || '').trim().split(' ')[0] || 'אורח יקר';
+      const inviteTmpl = (env.RATE && await env.RATE.get('invitetmpl')) || 'hazmana_ishur';
+      const imgTmpl = env.RATE ? await env.RATE.get('invitetmpl_img') : null;
+      const vidTmpl = env.RATE ? await env.RATE.get('invitetmpl_vid') : null;
+      const hasVideo = !!(vidTmpl && env.RATE && await env.RATE.get('vidok:' + token).catch(() => null));
+      const videoUrl = hasVideo ? 'https://go.ishur.io/vid/' + token : '';
+      const useImg = !hasVideo && !!(imgTmpl && invite);
+      const custom = await customTemplateFor(env, token);
+      const tmpl = custom ? custom.name : (hasVideo ? vidTmpl : useImg ? imgTmpl : inviteTmpl);
+      const wa = custom
+        ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, token, name, preview: true })
+        : await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], hasVideo ? videoUrl : useImg ? invite : '', 'he', 'guests', { occasion, token, name, preview: true });
+      await logEvent(env, { area: 'לקוחות', action: 'דוגמת הזמנה נשלחה ללקוח', ok: !!(wa && wa.ok), review: !(wa && wa.ok), token, phone, detail: `${tmpl} · ${hasVideo ? 'וידאו' : useImg ? 'תמונה' : 'בלי מדיה'}${wa && wa.error ? ' · ' + String(wa.error).slice(0, 120) : ''}` }).catch(() => {});
+      return okJson({ ok: !!(wa && wa.ok), template: tmpl, media: hasVideo ? 'video' : useImg ? 'image' : 'none', to: phone.replace(/^972/, '0'), error: wa && wa.error ? String(wa.error).slice(0, 200) : undefined }, origin);
+    }
     if (url.pathname === '/api/pay-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

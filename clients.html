@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=72"></script>
+<script src="config.js?v=73"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=17" defer></script>
 <script src="assets/guard.js?v=19"></script>
@@ -193,7 +193,8 @@
         '<button class="btn" data-act="link-dashboard">📲 שלח קישור ללוח</button>' +
         '<button class="btn" data-act="link-upload">📲 שלח קישור להעלאה</button>' +
         '<button class="btn" data-act="copy-upload">📋 העתק קישור להעלאה</button>' +
-        '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button></div></div>' +
+        '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button>' +
+        '<button class="btn g" data-act="preview">📲 שלח דוגמת הזמנה ללקוח</button></div></div>' +
       '<div class="sec"><h3>תוספות בחינם</h3><div class="acts">' +
         '<button class="btn g" data-act="guests">+50 מוזמנים</button>' +
         '<button class="btn g" data-act="extrasend">שליחה נוספת</button>' +
@@ -215,7 +216,11 @@
     var e = events.filter(function (x) { return x.token === t; })[0] || {};
     b.disabled = true;
     var p;
-    if (act === 'link-dashboard' || act === 'link-upload') {
+    if (act === 'preview') {
+      /* 12/11 Richard: the client's own wave-1 invitation (image/video + buttons) to the client's phone */
+      if (!(await askConfirm('ההזמנה של ' + (e.name || '') + ' תישלח למספר של הלקוח ' + (e.phone || '') + ' בדיוק כמו שהאורחים מקבלים.', { title: 'לשלוח דוגמת הזמנה ללקוח?', ok: 'שלח' }))) { b.disabled = false; return; }
+      p = api('preview-invite', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ל-' + (j.to || '') + (j.media === 'image' ? ' עם התמונה' : j.media === 'video' ? ' עם הווידאו' : ' בלי מדיה') : 'לא נשלח: ' + (j.error || j.why || j.error_code || '')); });
+    } else if (act === 'link-dashboard' || act === 'link-upload') {
       var kind = act === 'link-upload' ? 'upload' : 'dashboard';
       p = api('client-link', { token: t, kind: kind }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ללקוח בוואטסאפ (' + (j.via === 'button' ? 'עם כפתור' : 'תבנית') + ')' : 'לא נשלח' + (j.error ? ': ' + j.error : '')); });
     } else if (act === 'reset') {
