@@ -12,7 +12,7 @@
   /* the numbers under the weekly board (4–12 s to build) travel on their own, so nothing above waits for them */
   var STATS = ['wave-audit', 'ops-stats', 'cost-log', 'traffic', 'campaign-stats', 'feedback-list'];
   var MUT = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
-  var real = window.fetch.bind(window), lanes = { fast: { q: [], t: null, w: 30 }, slow: { q: [], t: null, w: 120 }, stats: { q: [], t: null, w: 120 } };
+  var real = window.fetch.bind(window), lanes = { fast: { q: [], t: null, w: 30 }, slow: { q: [], t: null, w: 250 }, stats: { q: [], t: null, w: 120 } };
   window.__ishurBatchStats = { batches: 0, calls: 0, direct: 0, failed: 0, err: '', log: [] };
   function plan(url, init) {
     var u; try { u = new URL(url, location.href); } catch (e) { return null; }
