@@ -10858,7 +10858,7 @@ const WORKER = {
        /api/ops/realtime (3–5 s to build) is kept 60 s in KV. */
     if (url.pathname === '/api/admin/home' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!(await adminKeyOk(env, b.admin_key))   /* raw key or a signed session, like every admin page sends */) return deny(403, 'bad-admin-key', origin);
       const ip = request.headers.get('CF-Connecting-IP') || '';
       const calls = (Array.isArray(b.calls) ? b.calls : []).slice(0, 20);
       const results = await Promise.all(calls.map(async c => {
