@@ -1129,7 +1129,14 @@ async function handlePromoAdmin(request, env, origin) {
    ────────────────────────────────────────────────────────────────────────── */
 const LEAD_TTL = 45 * 86400;
 
-async function noteLead(env, f) {
+/* 12/11 security: the site form is public, and a new lead earns WhatsApp templates from the business
+   number half an hour later (chaseAbandonedLeads). So the number of NEW phones that may enter that
+   sequence from the form is bounded: per IP per day, and for all IPs together per day. A lead past
+   the limit is kept exactly like any other (sheet, Monday, the Slack ping) — it only carries
+   nochase, and the sequence skips it. One phone = one sequence per LEAD_TTL already (lead:/leadchase:). */
+const LEAD_CHASE_NEW_PER_IP_DAY = 5;
+const LEAD_CHASE_NEW_PER_DAY = 80;
+async function noteLead(env, f, meta = {}) {
   const phone = normPhone(f.phone || f.telefon || f.tel || '');
   if (!phone || phone.length < 11) return;
   /* somebody who already bought is not a lead, and must never be chased */
@@ -1170,6 +1177,18 @@ async function noteLead(env, f) {
   /* someone who already went through the whole sequence starts nothing new */
   if (await env.RATE.get('leadchase:' + phone)) return;
   rec = { ...facts, at: now, lastAt: now, consent, seen: 1, types: facts.type ? [facts.type] : [] };
+  if (meta.ip) {
+    const overIp = await overBudget(env, 'rl:leadnew:ip:' + meta.ip, LEAD_CHASE_NEW_PER_IP_DAY, 86400).catch(() => false);
+    const overDay = !overIp && await overBudget(env, 'rl:leadnew:day:' + ilDate(), LEAD_CHASE_NEW_PER_DAY, 86400).catch(() => false);
+    if (overIp || overDay) {
+      rec.nochase = overIp ? 'ip' : 'day';
+      await logEvent(env, { area: 'לידים', action: 'ליד מהטופס נשמר בלי הודעות המשך אוטומטיות', ok: true, review: true, phone,
+        detail: overIp ? `יותר מ-${LEAD_CHASE_NEW_PER_IP_DAY} מספרים חדשים מאותה כתובת IP ביממה` : `יותר מ-${LEAD_CHASE_NEW_PER_DAY} מספרים חדשים מהטופס היום` }).catch(() => {});
+      if (overDay) await alert(env, 'לידים', 'תקרת הלידים היומית להודעות המשך אוטומטיות הושגה',
+        `מעל ${LEAD_CHASE_NEW_PER_DAY} מספרים חדשים מהטופס היום. הלידים נשמרים ומגיעים לסלאק כרגיל; רק הודעות "לא סיימתם" לא יוצאות אליהם. אם זה יום קמפיין אמיתי, אפשר להעלות את LEAD_CHASE_NEW_PER_DAY.`,
+        { key: 'lead_chase_cap', sev: 'P2' }).catch(() => {});
+    }
+  }
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
   await armLeadPing(env, phone).catch(() => {});
   return await mirrorLeadToMonday(env, phone, rec);
@@ -1425,6 +1444,9 @@ async function chaseAbandonedLeads(env, dry, budget) {
     if (!rec) { await env.RATE.delete(k.name); continue; }
     if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
     if (await phoneBlocked(env, phone)) { if (!dry) await settle(phone, 'blocked'); continue; }
+    /* 12/11 security: a form lead past the daily limits is never messaged. It stays until the Slack
+       ping has gone out (10-20 minutes), then it is settled so the scan stops paying for it. */
+    if (rec.nochase) { if (!dry && now - Date.parse(rec.at || 0) >= LEAD_T1_MS) await settle(phone, 'nochase'); continue; }
     /* answered = theirs now. Any inbound message after the form died means a
        human (or נועה) is already talking to them; more templates would nag.
        02/11: also a lead who wrote to US first on WhatsApp (Maya, Anat got
@@ -14254,7 +14276,7 @@ const WORKER = {
     if (url.pathname === '/api/lead' && env.RATE) {
       await logEvent(env, { area: 'אתר', action: 'ליד מהטופס → מייק', ok: upstream.ok, review: !upstream.ok,
         phone: stampFields.phone || '', detail: `${stampFields.name || ''} · ${stampFields.occasion || ''} · HTTP ${upstream.status}` });
-      if (upstream.ok) { try { await noteLead(env, stampFields); } catch {} }
+      if (upstream.ok) { try { await noteLead(env, stampFields, { ip }); } catch {} }
       /* server-side copy of the pixel's Lead / InitiateCheckout (10.9) */
       try {
         const et = String(stampFields.event_type || '');
