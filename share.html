@@ -35,6 +35,9 @@
   .link input{font:inherit;font-size:.86rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;direction:ltr;text-align:left;width:min(360px,70vw)}
   .err{color:#A8402F;font-size:.85rem;margin-top:1rem;text-align:center}
   #qrbox{position:absolute;left:-9999px;top:-9999px}
+  .full{position:fixed;inset:0;z-index:50;background:rgba(10,33,25,.94);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.8rem;padding:1rem}
+  .full p{color:#F8F4EA;font-size:.95rem;font-weight:600;text-align:center}
+  .full img{max-width:100%;max-height:72vh;border-radius:8px;-webkit-touch-callout:default;user-select:auto}
   .foot{text-align:center;margin-top:1.4rem}
 </style>
 </head>
@@ -250,18 +253,35 @@
       var cv = item.querySelector('canvas');
       draw(cv, spec);
       var file = spec.file + '-' + state.v + '.png';
+      /* 12/11 (Richard, iPhone: "לא נותן לי להוריד לגלריה"): Safari ignores a download link for an image, and it
+         drops a share that starts after an async step. The image file is prepared right after drawing, so the tap
+         itself opens the share sheet ("שמירת התמונה" / Instagram). If that is refused, the picture opens full
+         screen for a long-press save. On a computer the button downloads as before. */
+      var blob = null;
+      cv.toBlob(function (b) { blob = b; }, 'image/png');
+      var touch = (window.matchMedia && matchMedia('(pointer:coarse)').matches) || /iPhone|iPad|Android/i.test(navigator.userAgent);
+      function fileOf() { return blob ? new File([blob], file, { type: 'image/png' }) : null; }
+      function showFull() {
+        var bg = document.createElement('div'); bg.className = 'full';
+        bg.innerHTML = '<p>לחיצה ארוכה על התמונה ואז "שמירה בתמונות"</p><img alt="' + spec.label + '" src="' + (blob ? URL.createObjectURL(blob) : cv.toDataURL('image/png')) + '"><button type="button" class="btn back">סגירה</button>';
+        bg.addEventListener('click', function (e) { if (e.target === bg || e.target.tagName === 'BUTTON') bg.remove(); });
+        document.body.appendChild(bg);
+      }
       item.querySelector('[data-dl]').addEventListener('click', function () {
+        if (touch) {
+          var f = fileOf();
+          if (f && navigator.canShare && navigator.canShare({ files: [f] })) { navigator.share({ files: [f] }).catch(function (e) { if (!e || e.name !== 'AbortError') showFull(); }); return; }
+          showFull(); return;
+        }
         var a = document.createElement('a'); a.download = file; a.href = cv.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
       });
       var sh = item.querySelector('[data-sh]');
       if (navigator.share && navigator.canShare) {
         sh.hidden = false;
         sh.addEventListener('click', function () {
-          cv.toBlob(function (blob) {
-            var f = new File([blob], file, { type: 'image/png' });
-            if (navigator.canShare({ files: [f] })) navigator.share({ files: [f], text: state.link }).catch(function () {});
-            else navigator.share({ text: state.link, url: state.link }).catch(function () {});
-          }, 'image/png');
+          var f = fileOf();
+          if (f && navigator.canShare({ files: [f] })) navigator.share({ files: [f], text: state.link }).catch(function () {});
+          else navigator.share({ text: state.link, url: state.link }).catch(function () {});
         });
       }
     });
