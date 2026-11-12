@@ -210,9 +210,12 @@
   .sendst.sent{color:var(--green2)}
   .sendst.sent.one{color:var(--ink3)}
   .sendst.sent.read{color:#1D6FD8}
-  .sendst.failed,.sendst.retrying{color:var(--err)}
+  /* 12/11 Richard: no red — 'retrying' is quiet grey with the small (i); only a final failure keeps the warning colour */
+  .sendst.failed{color:var(--err)}
+  .sendst.retrying{color:var(--ink3)}
   .sendst .info{display:inline-flex;align-items:center;justify-content:center;width:1.15rem;height:1.15rem;margin-inline-start:.25rem;border-radius:50%;border:1px solid currentColor;background:none;color:inherit;font:600 .62rem/1 'Rubik',sans-serif;cursor:pointer;vertical-align:middle}
-  .sendst .info:hover{background:var(--err);color:#fff}
+  .sendst .info:hover{background:var(--ink3);color:#fff}
+  .sendst.failed .info:hover{background:var(--err)}
   .whypop{position:absolute;z-index:50;max-width:280px;background:var(--card);border:1px solid var(--bdr);border-radius:12px;padding:.7rem .85rem;box-shadow:0 8px 28px rgba(0,0,0,.12);font-size:.8rem;line-height:1.5;color:var(--ink)}
   .whypop b{display:block;font-size:.72rem;color:var(--ink3);margin-top:.35rem}
   .whypop b:first-child{margin-top:0}
@@ -879,7 +882,8 @@
       ? 'ננסה לשלוח שוב אוטומטית' + (data.next_attempt ? ' ב-' + heDay(data.next_attempt) : '') + '.'
       : (calls ? 'אנחנו נתקשר למספר בימים הקרובים כדי לאשר הגעה.' : 'ניסינו שלוש פעמים. כדאי לשלוח להם את ההזמנה מהטלפון שלכם.');
     var label = g.sent === 'retrying' ? 'לא נמסר עדיין' : 'לא נמסר';
-    return '<span class="sendst ' + g.sent + '" title="' + label + '"><button type="button" class="info" data-why="' + esc(why) + '" data-next="' + esc(next) + '" aria-label="למה?">i</button></span>';
+    /* hover tells the whole story (what happened + what happens next); click still opens the popup */
+    return '<span class="sendst ' + g.sent + '"><button type="button" class="info" title="' + esc(label + '. ' + why + ' ' + next) + '" data-why="' + esc(why) + '" data-next="' + esc(next) + '" aria-label="' + esc(label) + '">i</button></span>';
   }
   function heDay(iso) { var p = String(iso || '').split('-'); return p.length === 3 ? p[2] + '.' + p[1] : iso; }
   var STATUS = {
