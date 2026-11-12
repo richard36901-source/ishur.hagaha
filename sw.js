@@ -5,7 +5,7 @@
      · navigations and /api/* GETs: network first, cache as the fallback
      · other same-origin static GETs: cache first, refreshed in the background
      · POSTs and cross-origin requests are never touched */
-const VERSION = 'ishur-dash-v22';
+const VERSION = 'ishur-dash-v23';
 const SHELL = [
   'dashboard.html', 'config.js', 'manifest.webmanifest',
   'assets/ux.js', 'assets/tracking.js', 'assets/guard.js', 'assets/lead.js', 'assets/design-card.js', 'assets/pwa.js', 'assets/tour.js',
