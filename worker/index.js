@@ -11765,8 +11765,10 @@ const WORKER = {
       const keys = await kvKeys(env, 'bic:', 20000);
       const now = Date.now();
       const stamps = keys.map(k => Number(k.split(':')[1])).filter(t => Number.isFinite(t) && now - t < 86400e3).sort((a, b2) => a - b2);
-      let tier = 250, tierName = 'TIER_250';
+      let tier = 250, tierName = 'TIER_250'; const graph = {};
       try {
+        /* 12/11: every guest number, raw, so a stale/failed tier read is visible instead of a silent 250 */
+        for (const id of guestPhoneIds(env)) { const r0 = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=messaging_limit_tier,quality_rating,display_phone_number`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }); graph[id] = await r0.json().catch(() => ({ status: r0.status })); }
         const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=messaging_limit_tier`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
         const j = await r.json(); tierName = j.messaging_limit_tier || tierName;
         tier = ({ TIER_50: 50, TIER_250: 250, TIER_1K: 1000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: 0 })[tierName] ?? 250;
@@ -11785,7 +11787,7 @@ const WORKER = {
       const lateQ = Object.keys(await kvPrefix(env, 'lateinv:').catch(() => ({}))).length;
       const budget = cap ? { ...cap, portfolio_limit: cap.scope === 'number' ? cap.limit : (Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? guestPortfolioBudget(env) : cap.limit),
         per_number_limit: cap.numbers.length ? Math.max(...cap.numbers.map(n => n.limit)) : 0, left: cap.remaining, late_invites_waiting: lateQ } : { late_invites_waiting: lateQ };
-      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
+      return okJson({ ok: true, graph, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
     }
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
