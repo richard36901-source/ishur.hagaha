@@ -8,3 +8,7 @@ worker/node_modules/
 
 # live ops screenshots show real client/event names; main is public
 docs/ops-screens/live/
+
+# dev-staging: local staging secrets, never committed
+worker/.staging.secrets
+dist-site/

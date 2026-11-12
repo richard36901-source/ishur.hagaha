@@ -101,3 +101,69 @@ name = "EMAIL"
 # deploy}; the Worker bundles it and logs `deploy:<version>` (changes.js).
 [build]
 command = "node scripts/build-info.mjs"
+
+# ═══════════════════════════════════════════════════════════════════════════
+# dev-staging (12/11/2026, .sdlc/dev-staging) — `npx wrangler deploy --env staging`
+# ---------------------------------------------------------------------------
+# A second Worker, ishur-webhooks-staging at go-staging.ishur.io, with its OWN
+# KV, R2 and secrets. wrangler inherits nothing into an env: every var and
+# binding is repeated here on purpose. Nothing below may point at a production
+# resource id (spec P2 greps for it).
+#   STAGING="1"          → staging-guard.js wraps every outbound fetch
+#   STAGING_ALLOWLIST    → the only phones WhatsApp/Retell may reach from here
+#   SHEET_ID             → the test copy of the Google Sheet (evlog.js sheetId(env))
+#   crons = []           → nothing runs by itself; jobs are triggered by hand
+# Secrets: worker/.staging.secrets (gitignored) → scripts/staging-secrets.sh
+# ═══════════════════════════════════════════════════════════════════════════
+[env.staging]
+name = "ishur-webhooks-staging"
+workers_dev = true
+
+[env.staging.limits]
+subrequests = 50000
+cpu_ms = 120000
+
+[env.staging.vars]
+STAGING = "1"
+STAGING_ALLOWLIST = "972545764327,972526979535"
+SHEET_ID = "REPLACE_WITH_STAGING_SHEET_ID"
+SLACK_STRICT = "1"
+SHIR_INBOUND_AGENT = "agent_c7d317f758ed084571630ce25e"
+NOA_FROM = "+972555077733"
+NOA_AGENT = "agent_dfc2c18968a9daea870caffbab"
+NOA_INBOUND_AGENT = "agent_f86326fe9b9fd16233276ea951"
+NOA_LEADS = "off"
+NOA_CHASE = "off"
+SLACK_SHALEV = "U0C33AKDF24"
+SLACK_RICHARD = "U0BTHU91Z3N"
+CLIENT_PORTFOLIO = "off"
+WA_PHONE_ID_CLIENT_NEW = "1404834546041914"
+WA_PHONE_ID_CLIENT = "1218978741299669"
+WA_PHONE_IDS_GUESTS = "1409632775565601"
+GUEST_BUDGET_MARGIN = "10"
+ADMIN_PHONES = "972545764327,972526979535"
+OUTREACH_ENABLED = "off"
+
+[[env.staging.kv_namespaces]]
+binding = "RATE"
+id = "ef2534eafecf4dc9bcdbfef042b5bb37"
+
+[env.staging.ai]
+binding = "AI"
+
+[env.staging.triggers]
+crons = []
+
+[[env.staging.routes]]
+pattern = "go-staging.ishur.io"
+custom_domain = true
+
+[env.staging.version_metadata]
+binding = "CF_VERSION_METADATA"
+
+[[env.staging.r2_buckets]]
+binding = "AUDIT_R2"
+bucket_name = "ishur-audit-staging"
+
+[[env.staging.send_email]]
+name = "EMAIL"
