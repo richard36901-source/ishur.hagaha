@@ -745,7 +745,7 @@
       <div id="refChoice" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:0 0 .8rem">
         <button type="button" class="ref-opt" data-mode="discount" style="font:inherit;text-align:right;background:var(--card);border:1.5px solid var(--bdr);border-radius:12px;padding:.65rem .8rem;cursor:pointer;color:var(--ink)">
           <b style="display:block;font-size:.9rem">20% הנחה לחברים</b>
-          <span style="font-size:.76rem;color:var(--ink3)">החברים משלמים 80% על החבילה</span>
+          <span style="font-size:.76rem;color:var(--ink3)">החברים מקבלים 20% הנחה על החבילה</span>
         </button>
         <button type="button" class="ref-opt" data-mode="commission" style="font:inherit;text-align:right;background:var(--card);border:1.5px solid var(--bdr);border-radius:12px;padding:.65rem .8rem;cursor:pointer;color:var(--ink)">
           <b style="display:block;font-size:.9rem">20% עמלה לי</b>
@@ -767,8 +767,6 @@
            style="display:inline-block;background:#0F4C35;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">שיתוף בוואטסאפ</a>
         <a id="refKit"
            style="display:inline-block;background:var(--card);color:#8A6D2F;border:1.5px solid #A8853C;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">ערכת שיתוף לסטורי</a>
-        <a id="badgeLink"
-           style="display:inline-block;background:var(--card);color:var(--ink2);border:1px solid var(--bdr);border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">הבאדג' שלי</a>
         <a id="refRedeem" hidden target="_blank" rel="noopener"
            style="display:inline-block;background:#A8853C;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">למימוש</a>
       </div>
@@ -783,7 +781,7 @@
     <h3 id="tierPopT" style="font-size:1.15rem;margin:.4rem 0 .3rem"></h3>
     <p style="font-size:.85rem;color:var(--ink2);margin:0 0 1rem">ההפניות והאירועים שלכם קידמו אתכם. תודה שאתם ממליצים עלינו!</p>
     <div style="display:flex;gap:.6rem;justify-content:center">
-      <a id="tierPopBadge" style="background:#0F4C35;color:#fff;border-radius:10px;padding:.55rem 1.1rem;text-decoration:none;font-weight:600;font-size:.85rem">לבאדג' לסטורי</a>
+      <a id="tierPopBadge" style="background:#0F4C35;color:#fff;border-radius:10px;padding:.55rem 1.1rem;text-decoration:none;font-weight:600;font-size:.85rem">לערכת השיתוף</a>
       <button id="tierPopX" style="font:inherit;background:none;border:1px solid var(--bdr);border-radius:10px;padding:.55rem 1.1rem;cursor:pointer;color:var(--ink2);font-size:.85rem">סגירה</button>
     </div>
   </div>
@@ -1451,8 +1449,8 @@
     paintRef(R);
     var refs = Number(tier.referrals) || 0;
     $('refPerk').hidden = refs < 1;
-    var badgeHref = 'badge.html?t=' + encodeURIComponent(token || '');
-    $('badgeLink').href = badgeHref;
+    /* 12/11 Richard: the badge page is gone; the story kit is the one share tool */
+    var badgeHref = 'share.html?t=' + encodeURIComponent(token || '');
     $('tierPopBadge').href = badgeHref;
 
     /* the "you leveled up" moment — once per device per level */
@@ -1498,7 +1496,7 @@
     if (R.friends) sub.push(R.friends === 1 ? 'חבר אחד סגר דרככם' : R.friends + ' חברים סגרו דרככם');
     if (R.pending) sub.push(R.pending === 1 ? 'הפניה אחת ממתינה לאישור' : R.pending + ' הפניות ממתינות לאישור');
     if (mode === 'commission' && R.balance) sub.push('יתרה למימוש: ₪' + R.balance);
-    $('refSub').textContent = sub.length ? sub.join(' · ') : (mode === 'discount' ? 'כל חבר שסוגר דרך הקישור משלם 80% על החבילה' : 'כל חבר שסוגר דרך הקישור מזכה אתכם ב-20% מהחבילה שלו');
+    $('refSub').textContent = sub.length ? sub.join(' · ') : (mode === 'discount' ? 'כל חבר שסוגר דרך הקישור מקבל 20% הנחה' : 'כל חבר שסוגר דרך הקישור מזכה אתכם ב-20% מהחבילה שלו');
     var canRedeem = mode === 'commission' && Number(R.balance) > 0;
     $('refRedeem').hidden = !canRedeem;
     if (canRedeem) $('refRedeem').href = CFG.waLink('היי, יש לי ₪' + R.balance + ' זיכוי מהפניות ב-ishur.io (קוד ' + R.code + '). רוצה לממש אותו על חבילה / תוספת לאירוע הבא.');

@@ -40,7 +40,7 @@
 </head>
 <body>
 <h1>ערכת השיתוף שלכם</h1>
-<p class="sub" id="sub">שומרים תמונה ומעלים לסטורי, לקבוצה או לצ'אט. מי שסורק או לוחץ נכנס דרך הקישור שלכם.</p>
+<p class="sub" id="sub">שומרים תמונה ומעלים לסטורי, לקבוצה או לצ'אט. בסטורי: מעתיקים את הקישור, מוסיפים באינסטגרם סטיקר "קישור" ומניחים אותו על המסגרת. כך הקישור לחיץ.</p>
 <div class="seg" id="seg">
   <button type="button" data-v="discount" aria-pressed="false">20% הנחה לחברים</button>
   <button type="button" data-v="commission" aria-pressed="false">בלי הנחה (עמלה לי)</button>
@@ -69,6 +69,8 @@
   ];
   var PINE = '#0F2E22', PINE_LIFT = '#17402F', PINE_DEEP = '#0A2119', GOLD = '#A8853C', GOLD_SOFT = '#C7AE7A', IVORY = '#F8F4EA';
   var logo = new Image(); logo.src = 'assets/logo-gold.png';
+  /* 12/11 Richard: the hostesses from our own ad, not line-art */
+  var photo = new Image(); photo.src = 'brand/hostesses.jpg';
   var state = { code: '', link: '', name: '', v: v };
 
   function rr(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
@@ -142,13 +144,32 @@
     x.fillStyle = GOLD_SOFT; x.font = '600 ' + (wide ? 26 : 36 * S) + 'px Heebo, sans-serif';
     x.fillText(who, cx, y);
 
-    /* the hostesses flank the QR on the tall and square formats; on the wide one they stand at the sides */
+    /* 12/11 Richard: the story carries the hostess photo and a frame for Instagram's own
+       link sticker (a clickable link beats a QR on a story). The other sizes keep the QR. */
+    if (tall) {
+      var pw = W - 150 * S, ph = pw * 640 / 830, px = cx - pw / 2, py = y + 70 * S;
+      if (photo.complete && photo.naturalWidth) {
+        x.save(); rr(x, px, py, pw, ph, 22 * S); x.clip(); x.drawImage(photo, px, py, pw, ph); x.restore();
+        x.strokeStyle = 'rgba(199,174,122,.7)'; x.lineWidth = 3 * S; rr(x, px, py, pw, ph, 22 * S); x.stroke();
+      }
+      var bw = 660 * S, bh = 190 * S, bx = cx - bw / 2, by = py + ph + 80 * S;
+      x.save(); x.setLineDash([18 * S, 12 * S]); x.strokeStyle = GOLD_SOFT; x.lineWidth = 4 * S; rr(x, bx, by, bw, bh, 22 * S); x.stroke(); x.restore();
+      x.fillStyle = 'rgba(248,244,234,.9)'; x.font = '600 ' + 40 * S + 'px Heebo, sans-serif';
+      x.fillText('הדביקו כאן את סטיקר הקישור', cx, by + bh / 2 - 8 * S);
+      x.fillStyle = 'rgba(248,244,234,.55)'; x.font = '400 ' + 28 * S + 'px Heebo, sans-serif'; x.direction = 'ltr';
+      x.fillText(state.link.replace(/^https:\/\//, ''), cx, by + bh / 2 + 42 * S); x.direction = 'rtl';
+      x.fillStyle = 'rgba(248,244,234,.7)'; x.font = '400 ' + 32 * S + 'px Heebo, sans-serif';
+      x.fillText('תשלום אחד לאירוע, החל מ-₪50', cx, by + bh + 80 * S);
+      if (state.v === 'discount') {
+        x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 ' + 24 * S + 'px Heebo, sans-serif';
+        x.fillText('ההנחה על חבילת אישורי ההגעה · תקפה דרך הקישור בלבד', cx, H - 70 * S);
+      }
+      return;
+    }
     var qrPx = wide ? 300 : (tall ? 420 : 340) * S;
     var qrY = wide ? H / 2 - qrPx / 2 + 50 : y + (tall ? 150 : 70) * S;
     var qrX = cx - qrPx / 2;
     var hs = (wide ? 0.6 : (tall ? 1.1 : 0.78)) * S;
-    hostess(x, wide ? 150 : cx - qrPx / 2 - 150 * S, wide ? H - 60 : qrY + qrPx + 10 * S, hs, false);
-    hostess(x, wide ? W - 150 : cx + qrPx / 2 + 150 * S, wide ? H - 60 : qrY + qrPx + 10 * S, hs, true);
     /* QR on an ivory card */
     x.fillStyle = IVORY; rr(x, qrX - 28 * S, qrY - 28 * S, qrPx + 56 * S, qrPx + 56 * S, 26 * S); x.fill();
     var q = qrCanvas(state.link, Math.round(qrPx));
@@ -191,7 +212,6 @@
     x.fillText(state.link.replace(/^https:\/\//, ''), qcx, qrY + qrPx + 62);
     x.direction = 'rtl';
     /* one hostess between the columns */
-    hostess(x, 520, H - 70, 0.78, false);
     /* the words, right column, right-aligned */
     var rx = W - 90; x.textAlign = 'right';
     var lg = 54, y = 96;
@@ -246,7 +266,8 @@
   function ready(fn) {
     var fonts = document.fonts && document.fonts.ready ? Promise.all([document.fonts.load('700 86px "Frank Ruhl Libre"'), document.fonts.load('600 40px Heebo')]) : Promise.resolve();
     var img = logo.complete ? Promise.resolve() : new Promise(function (r) { logo.onload = r; logo.onerror = r; });
-    Promise.all([fonts, img]).then(fn, fn);
+    var ph = photo.complete ? Promise.resolve() : new Promise(function (r) { photo.onload = r; photo.onerror = r; });
+    Promise.all([fonts, img, ph]).then(fn, fn);
   }
   $('seg').addEventListener('click', function (ev) {
     var b = ev.target.closest('button[data-v]'); if (!b) return;
