@@ -1810,7 +1810,7 @@
              ' · לא ענו ' + t.no_answer +
              (t.waiting ? ' · עוד לא חויגו ' + t.waiting : '');
     }
-    if (s.status !== 'sent') return '';
+    if (s.status !== 'sent' && s.status !== 'running') return '';
     return 'ענו בסבב הזה ' + t.answered + ' · מגיעים ' + t.confirmed + ' · לא מגיעים ' + t.declined +
            (t.undecided ? ' · מתלבטים ' + t.undecided : '');
   }

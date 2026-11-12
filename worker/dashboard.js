@@ -256,7 +256,16 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   const sends = [];
   /* a send is editable while it has not gone out and its date is still ahead */
   const todayIso = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date());
-  const state = (n, date) => (sent[n] ? 'sent' : (date && date.slice(0, 10) < todayIso ? 'passed' : 'scheduled'));
+  /* 12/11: a wave is "sent" when it went out to (nearly) everybody it was for — the KV flag alone is not
+     enough, the engine clears it to retry a single undelivered guest. count = wsent: keys per wave. */
+  const cnt = n => Number((sent.count || {})[n]) || 0;
+  const eligible = n => Math.max(1, guests.filter(g => !g.self && (n === 1 ? true : g.status !== 'declined')).length);
+  const state = (n, date) => {
+    const d = date ? date.slice(0, 10) : '';
+    if (sent[n]) return 'sent';
+    if (cnt(n) > 0) return (cnt(n) >= 0.9 * eligible(n) || (n > 1 && d && d < todayIso)) ? 'sent' : 'running';
+    return d && d < todayIso ? 'passed' : 'scheduled';
+  };
   if (c(39)) sends.push({ key: 'invite', label: 'ההזמנה ואישור ההגעה', date: c(39), status: state(1, c(39)), editable: state(1, c(39)) === 'scheduled' });
   if (c(40)) sends.push({ key: 'reminder', label: 'תזכורת למי שלא ענה', date: c(40), status: state(2, c(40)), editable: state(2, c(40)) === 'scheduled' });
   /* 04/11: a granted/paid extra send shows even before a date was picked */

@@ -13128,8 +13128,12 @@ const WORKER = {
       /* which waves already fired, so the page can lock those rows */
       const sentWaves = {};
       if (env.RATE) {
+        sentWaves.count = {};
         for (const n of [1, 2, 3]) {
           sentWaves[n] = !!(await env.RATE.get(`wave:${token}:${n}`));
+          /* 12/11 (Richard: Mor's board said "עבר" after 524 invitations): the wave flag is reopened
+             whenever one guest needs a retry, so the board counts what actually went out (wsent:) */
+          try { const l = await env.RATE.list({ prefix: `wsent:${token}:${n}:`, limit: 1000 }); sentWaves.count[n] = (l.keys || []).length; } catch { sentWaves.count[n] = 0; }
         }
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
