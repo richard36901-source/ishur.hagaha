@@ -414,7 +414,7 @@
       var t = e.token;
       return '<div class="card' + (fl.active ? '' : ' inactive') + '" data-t="' + t + '">' +
         '<div class="top"><span class="name">' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + '</span></span>' +
-        '<span class="meta">שולם ' + heDate(e.paid_at || '') + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + '</span></div>' +
+        '<span class="meta">שולם ' + esc(heDate(e.paid_at || '')) + (e.date ? ' · אירוע ' + esc(e.date) : '') + ' · ' + esc(e.plan || '') + (e.tier ? ' עד ' + esc(e.tier) : '') + (e.sum ? ' · ₪' + esc(e.sum) : '') + '</span></div>' +
         '<div class="tags">' +
           (fl.hold ? '' : '<span class="tag ' + (fl.active ? 'on' : 'warn') + '">' + (fl.active ? 'פעיל' : 'לא פעיל') + '</span>') +
           '<span class="tag ' + (e.file_uploaded ? 'on' : 'warn') + '">' + (e.file_uploaded ? 'רשימה הועלתה' : 'אין רשימה') + '</span>' +
@@ -482,7 +482,7 @@
     var html = '<div class="pop-bg" id="pop"><div class="card pop" data-t="' + t + '" role="dialog" aria-modal="true">' +
       '<button type="button" class="x" data-close aria-label="סגירה">×</button>' +
       '<h2>' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + (e.date ? ' · ' + esc(e.date) : '') + '</span></h2>' +
-      '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
+      '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + esc(e.tier) : '') + (e.sum ? ' · ₪' + esc(e.sum) : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
       '<div class="sec" id="popSum"><h3>מצב האירוע</h3><div class="meta">טוען…</div></div>' +
       '<div class="sec"><h3>תמונת ההזמנה</h3><div class="acts"><label class="btn">🖼 החלפת תמונה<input type="file" accept="image/*" data-img hidden></label><span class="meta">מחליפה מיד, גם אם ההזמנות כבר יצאו (שליחות הבאות עם התמונה החדשה)</span></div></div>' +
       (function () { var r = recOf(t); if (!r) return ''; return '<div class="refNote">הופנה ע"י <b>' + refName(r) + '</b> · ' + (r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit) + ' · ' +

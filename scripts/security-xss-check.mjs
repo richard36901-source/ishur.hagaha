@@ -21,6 +21,8 @@ const BAD = {
   'next/live.html': [/'\?key=' \+ encodeURIComponent\(adminKey\)/, /' · ' \+ d\.duration_s \+/],
   'assets/callboard.js': [/'\?key=' \+ encodeURIComponent\(opt\.adminKey/],
   'assets/callslog.js': [/'\?key=' \+ encodeURIComponent\(opt\.adminKey/],
+  'clients.html': [/' עד ' \+ e\.tier/, /' · ₪' \+ e\.sum/, /שולם ' \+ heDate\(/],
+  'next/clients.html': [/' עד ' \+ e\.tier/, /' · ₪' \+ e\.sum/, /שולם ' \+ heDate\(/],
 };
 const MUST = {
   'calls.html': [/function esc\(v\)/], 'seating.html': [/function esc\(v\)/],
