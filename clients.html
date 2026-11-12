@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=73"></script>
+<script src="config.js?v=74"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=17" defer></script>
 <script src="assets/guard.js?v=19"></script>
@@ -54,6 +54,14 @@
   .pop .sec h3{margin:0 0 .4rem;font-size:.78rem;color:var(--ink3,#777);font-weight:600;letter-spacing:.02em}
   .pop .acts{margin-top:0}
   .pop .x{float:left;border:0;background:none;font-size:1.3rem;cursor:pointer;color:var(--ink3,#777)}
+  .bar{height:10px;border-radius:5px;background:var(--line);overflow:hidden;display:flex;margin:.35rem 0}
+  .bar i{display:block;height:100%}
+  .bar .y{background:var(--pine)} .bar .n{background:#A8402F} .bar .m{background:var(--gold)}
+  .sends{width:100%;border-collapse:collapse;font-size:.82rem}
+  .sends td{padding:.3rem .2rem;border-top:1px solid var(--line);vertical-align:middle}
+  .sends input[type=date]{font:inherit;font-size:.78rem;padding:.15rem .3rem;border:1px solid var(--line);border-radius:6px}
+  .st{display:inline-block;padding:.08rem .45rem;border-radius:999px;font-size:.72rem;background:var(--bg2,#f1efe8);color:var(--ink3,#777)}
+  .st.ok{background:rgba(31,78,58,.12);color:var(--pine)} .st.run{background:rgba(168,133,60,.15);color:var(--gold)}
   .fbx{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .5rem}
   .fbi{font-size:.78rem;background:#FBF3DF;color:#5A4A1E;border-radius:8px;padding:.25rem .55rem}
   .fbi small{color:#8A7A4E}
@@ -179,6 +187,37 @@
 
   /* the "ניהול אירוע" popup: every action for one event, grouped. It lives inside #list so the
      existing data-act handler (closest('.card').dataset.t) keeps working unchanged. */
+  var STATUS_HE = { sent: ['ok', 'בוצע ✓'], running: ['run', 'בתהליך'], scheduled: ['', 'מתוכנן'], passed: ['', 'עבר'] };
+  var WAVE_TYPE = { invite: 'w1', reminder: 'w2', extra: 'w3' };
+  function loadSummary(t) {
+    var box = document.getElementById('popSum'); if (!box) return;
+    fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp({ token: t, view: 'dashboard' }) : { token: t, view: 'dashboard' }) })
+      .then(function (r) { return r.json(); }).then(function (d) {
+        if (!document.getElementById('popSum') || document.querySelector('#pop .pop').dataset.t !== t) return;
+        var gs = d.guests || [], n = gs.length || 1, c = {}; gs.forEach(function (g) { c[g.status] = (c[g.status] || 0) + 1; });
+        var seats = gs.filter(function (g) { return g.status === 'confirmed'; }).reduce(function (a, g) { return a + (Number(g.party) || 1); }, 0);
+        var pct = function (k) { return Math.round(100 * (c[k] || 0) / n); };
+        var html = '<div class="meta"><b>' + pct('confirmed') + '% מגיעים</b> (' + (c.confirmed || 0) + ' רשומות · ' + seats + ' סועדים) · לא מגיעים ' + (c.declined || 0) + ' · מתלבטים ' + (c.undecided || 0) + ' · לא ענו ' + (c.pending || 0) + ' · סה"כ ' + gs.length + '</div>' +
+          '<div class="bar"><i class="y" style="width:' + pct('confirmed') + '%"></i><i class="m" style="width:' + pct('undecided') + '%"></i><i class="n" style="width:' + pct('declined') + '%"></i></div>';
+        var sends = d.sends || [];
+        html += '<table class="sends">' + sends.map(function (s) {
+          var st = STATUS_HE[s.status] || ['', s.status], tp = WAVE_TYPE[s.key];
+          var stats = s.stats ? (s.key === 'calls' ? 'חויגו ' + (s.stats.dialed || 0) + ' · ענו ' + (s.stats.answered || 0) : 'ענו ' + (s.stats.answered || 0) + ' · מגיעים ' + (s.stats.confirmed || 0) + ' · לא ' + (s.stats.declined || 0)) : '';
+          var sentN = s.sent_n != null ? 'נשלחו ' + s.sent_n : '';
+          var dateCell = tp ? '<input type="date" value="' + esc(String(s.date || '').slice(0, 10)) + '" data-move="' + tp + '" title="שינוי תאריך">' : '<span class="meta">' + esc(s.date ? heDate(String(s.date).slice(0, 10)) : '—') + '</span>';
+          return '<tr><td>' + esc(s.label) + '</td><td>' + dateCell + '</td><td><span class="st ' + st[0] + '">' + st[1] + '</span></td><td class="meta">' + [sentN, stats].filter(Boolean).join(' · ') + '</td></tr>';
+        }).join('') + '</table>' +
+          '<div class="meta" style="margin-top:.3rem">שינוי תאריך של גל שומר מיד. שיחות / יום לפני / תודה נגזרים מהגלים ומתאריך האירוע.</div>';
+        box.innerHTML = '<h3>מצב האירוע</h3>' + html;
+        box.querySelectorAll('[data-move]').forEach(function (inp) {
+          inp.addEventListener('change', async function () {
+            var tok8 = t.slice(0, 8), type = inp.dataset.move, date = inp.value; if (!date) return;
+            if (!(await askConfirm('הגל יעבור ל-' + date.split('-').reverse().join('.') + '.', { title: 'לשנות תאריך?', ok: 'שנה' }))) { loadSummary(t); return; }
+            api('board-move', { tok8: tok8, type: type, date: date }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'התאריך עודכן' : 'לא עודכן: ' + (j.error || j.why || '')); loadSummary(t); });
+          });
+        });
+      }).catch(function () { box.innerHTML = '<h3>מצב האירוע</h3><div class="meta">לא נטען</div>'; });
+  }
   function openManage(t) {
     var e = events.filter(function (x) { return x.token === t; })[0] || {};
     var fl = flags[t] || { active: true };
@@ -187,6 +226,8 @@
       '<button type="button" class="x" data-close aria-label="סגירה">×</button>' +
       '<h2>' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + (e.date ? ' · ' + esc(e.date) : '') + '</span></h2>' +
       '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
+      '<div class="sec" id="popSum"><h3>מצב האירוע</h3><div class="meta">טוען…</div></div>' +
+      '<div class="sec"><h3>תמונת ההזמנה</h3><div class="acts"><label class="btn">🖼 החלפת תמונה<input type="file" accept="image/*" data-img hidden></label><span class="meta">מחליפה מיד, גם אם ההזמנות כבר יצאו (שליחות הבאות עם התמונה החדשה)</span></div></div>' +
       '<div class="sec"><h3>קישורים ללקוח</h3><div class="acts">' +
         '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
         '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
@@ -207,6 +248,15 @@
     $('list').insertAdjacentHTML('beforeend', html);
     var bg = document.getElementById('pop');
     bg.addEventListener('click', function (ev) { if (ev.target === bg || ev.target.closest('[data-close]')) bg.remove(); });
+    loadSummary(t);
+    var fi = bg.querySelector('[data-img]');
+    if (fi) fi.addEventListener('change', async function () {
+      var f = fi.files && fi.files[0]; if (!f) return;
+      if (!(await askConfirm('התמונה החדשה תחליף את תמונת ההזמנה של ' + (e.name || '') + ' מיד.', { title: 'להחליף את תמונת ההזמנה?', ok: 'החלף' }))) { fi.value = ''; return; }
+      var fd = new FormData(); fd.append('token', t); fd.append('admin_key', adminKey); fd.append('image', f);
+      toast('מעלה…');
+      fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'התמונה הוחלפה' : 'לא הוחלפה: ' + (j.error || '')); fi.value = ''; }).catch(function () { toast('לא הוחלפה'); });
+    });
     document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { bg.remove(); document.removeEventListener('keydown', esc1); } });
   }
   $('list').addEventListener('click', async function (ev) {

@@ -12483,13 +12483,16 @@ const WORKER = {
         return okJson({ ok: true, media: id, mime, url: dfileUrl(url.hostname, token, id) }, origin);
       }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
-      if (await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
+      /* 12/11 Richard: from the clients screen (admin_key in the form) the image can be replaced at any time,
+         even after the invitations went out — later sends (reminders, late invites) carry the new one */
+      const byAdmin = await adminKeyOk(env, String(form.get('admin_key') || ''));
+      if (!byAdmin && await env.RATE.get('wave:' + token + ':1')) return deny(409, 'already-sent', origin);
       const raw = await readSnapshot(env, 'write').catch(() => null);
       const rows = (raw && raw.events && raw.events.values) || [];
       const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
       if (idx < 0) return deny(404, 'unknown-token', origin);
       const first = String((rows[idx] || [])[39] || '').trim().slice(0, 10);
-      if (first && Date.parse(first + 'T09:00:00+03:00') - Date.now() < 48 * 3600e3) return deny(409, 'too-late', origin);
+      if (!byAdmin && first && Date.parse(first + 'T09:00:00+03:00') - Date.now() < 48 * 3600e3) return deny(409, 'too-late', origin);
       const image = form.get('image'), video = form.get('video');
       const out = {};
       if (image && typeof image === 'object' && image.arrayBuffer) {
