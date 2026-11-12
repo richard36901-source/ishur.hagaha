@@ -10335,6 +10335,13 @@ async function writeHostessBooking(env, token, b) {
 
 
 
+/* 12/11 security: the hostess calendar feed's address was derived from APP_KEY — which ships to every browser in
+   config.js — so anyone could work the address out and read clients' names, venues and phones. It is derived from
+   ADMIN_KEY now (never leaves the Worker). No ADMIN_KEY → an address nobody can guess. */
+async function hostessIcsKey(env) {
+  return sha256Hex((env.ADMIN_KEY ? 'k|' + env.ADMIN_KEY : 'none|' + crypto.randomUUID()) + '|hostess-ics|v2');
+}
+
 async function checkStamp(fields, appKey) {
   const { app, nonce, stamp_ts, sig } = fields;
   if (!app || !nonce || !stamp_ts || !sig) return 'missing-stamp';
@@ -11274,7 +11281,7 @@ const WORKER = {
        in Google Calendar (it shows under the "דיילות" calendar list as its own
        calendar), and the availability check counts them instantly. */
     if (url.pathname.startsWith('/cal/hostess-') && request.method === 'GET') {
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      const key = await hostessIcsKey(env);
       if (url.pathname !== '/cal/hostess-' + key.slice(0, 24) + '.ics') return new Response('not found', { status: 404 });
       const rows = [];
       if (env.RATE) {
@@ -12553,7 +12560,7 @@ const WORKER = {
     if (url.pathname === '/api/hostess-ics-url' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      const key = await hostessIcsKey(env);
       return okJson({ ok: true, url: 'https://go.ishur.io/cal/hostess-' + key.slice(0, 24) + '.ics' }, origin);
     }
     if (url.pathname === '/api/design-brief' && request.method === 'POST') {
