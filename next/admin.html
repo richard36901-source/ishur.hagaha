@@ -1359,6 +1359,7 @@
     }
     loadBrain();
     loadPause();
+    if (VIEW === 'ctl') { fastTick._chase = Date.now(); loadChase(); }   /* next/: the control view shows the Noa switch state at once, not after 15 s */
     /* 12/11: on the home view the numbers load when they scroll into sight, then every 5 minutes (every minute caused 429s) */
     if (VIEW === 'main') {
       var g = $('growth');
