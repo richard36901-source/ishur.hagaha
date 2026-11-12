@@ -3488,13 +3488,25 @@ async function handleWaWebhook(request, env, url) {
     }
     return new Response('forbidden', { status: 403 });
   }
-  /* No app secret for HMAC — the shared token rides the callback URL instead */
+  /* the shared token rides the callback URL; since 12/11 Meta's own signature is checked too, once the app secret is stored */
   if (!verifyOk(env, url.searchParams.get('t'))) {
+    return new Response('forbidden', { status: 403 });
+  }
+  const rawBody = await request.text();
+  const sigCh = await waSignatureRefused(env, url.searchParams.get('t'), rawBody, request.headers.get('X-Hub-Signature-256'));
+  if (sigCh) {
+    /* one alert an hour per channel, however many requests are refused */
+    if (env.RATE && !(await env.RATE.get('wasigbad:' + sigCh).catch(() => null))) {
+      await env.RATE.put('wasigbad:' + sigCh, new Date().toISOString(), { expirationTtl: 3600 }).catch(() => {});
+      await alert(env, 'וואטסאפ נכנס', 'הודעת webhook נדחתה: החתימה של Meta לא תואמת',
+        `ערוץ: ${sigCh === 'guests' ? 'אורחים (6673)' : 'לקוחות (4499)'}. אם זה קורה לכל ההודעות, ה-App Secret שנשמר ב-Worker לא תואם לאפליקציה ב-Meta.`,
+        { key: 'wa_sig_bad:' + sigCh, sev: 'P1' }).catch(() => {});
+    }
     return new Response('forbidden', { status: 403 });
   }
 
   let payload;
-  try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
+  try { payload = JSON.parse(rawBody); } catch { return new Response('ok', { status: 200 }); }
   /* 22/10: anything Meta tells us that is not a message/status (template
      approvals, number quality, account limits) goes to the audit log verbatim */
   try {
@@ -9594,6 +9606,35 @@ async function handleSendDate(request, env, origin) {
 function verifyOk(env, t) {
   if (!t) return false;
   return (!!env.WA_VERIFY && t === env.WA_VERIFY) || (!!env.WA_VERIFY_GUESTS && t === env.WA_VERIFY_GUESTS);
+}
+/* 12/11 security: Meta signs every webhook POST with the app secret — X-Hub-Signature-256 is
+   'sha256=' + HMAC-SHA256(app secret, raw body). Each of the two apps has its own secret
+   (META_APP_SECRET for the client number's app, META_APP_SECRET_GUESTS for the guests number's
+   app; the WA_APP_SECRET* names are accepted too). A channel is verified only once its secret
+   exists, so storing one secret changes nothing for the other channel.
+   → '' when the request may proceed, or the channel name whose signature check failed. */
+async function waSignatureRefused(env, t, rawBody, header) {
+  const chans = [];
+  if (env.WA_VERIFY && t === env.WA_VERIFY) chans.push({ ch: 'client', secret: String(env.META_APP_SECRET || env.WA_APP_SECRET || '') });
+  if (env.WA_VERIFY_GUESTS && t === env.WA_VERIFY_GUESTS) chans.push({ ch: 'guests', secret: String(env.META_APP_SECRET_GUESTS || env.WA_APP_SECRET_GUESTS || '') });
+  const keyed = chans.filter(c => c.secret);
+  if (!keyed.length) return '';
+  const given = String(header || '').trim().toLowerCase();
+  for (const c of keyed) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(c.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+    const want = 'sha256=' + [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('');
+    if (safeEqual(given, want)) return '';
+  }
+  if (keyed.length < chans.length) {
+    /* both apps share one verify token and only one secret is stored: the URL cannot tell the
+       channels apart, so the number the payload names decides which rule applies */
+    let pid = '';
+    try { const p = JSON.parse(rawBody); pid = String((((((p.entry || [])[0] || {}).changes || [])[0] || {}).value || {}).metadata?.phone_number_id || ''); } catch {}
+    const ch = isGuestPhone(env, pid) ? 'guests' : 'client';
+    if (!keyed.some(c => c.ch === ch)) return '';
+  }
+  return keyed[0].ch;
 }
 
 /* 26/09: the number is already inside the ishur.io portfolio (phone id
