@@ -28,7 +28,7 @@ function cfgWith(search) {
 }
 console.log('config.js');
 const CFG = cfgWith('');
-ok(Object.keys(CFG.GROW_LINKS_REF).length === 30 && Object.values(CFG.GROW_LINKS_REF).every(v => v === ''), 'GROW_LINKS_REF: 30 keys, all empty until Richard pastes the pages');
+ok(Object.keys(CFG.GROW_LINKS_REF).length === 30 && Object.values(CFG.GROW_LINKS_REF).every(v => v === '' || /^https:\/\/pay\.grow\.link\//.test(v)), 'GROW_LINKS_REF: 30 keys, each empty or a pay.grow.link URL (' + Object.values(CFG.GROW_LINKS_REF).filter(Boolean).length + ' filled)');
 let n = 0, bad = [];
 for (const t of [50, 100, 200, 300, 400, 500, 600, 700, 800, 900]) for (const p of ['basic', 'pro', 'premium']) {
   const full = CFG.priceFor(t, p), r = CFG.refPrice(t, p); n++;
