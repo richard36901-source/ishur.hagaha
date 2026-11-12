@@ -45,7 +45,7 @@ import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evl
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
-import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount } from './lib.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
@@ -169,7 +169,10 @@ function snapMiss(env, dflt = 'reader-failed') { return snapWhy(env) === 'snapsh
    reader learns what changed: a call_result patches rsvp/party in the cache,
    anything else marks the snapshot dirty so the next fresh-class read refetches. */
 async function hookFetch(env, url, init) {
-  try { return await fetch(url, init); }
+  /* 12/11 security: the writer scenarios store USER_ENTERED — typed text must not arrive as a formula (lib.js makeWriterBody).
+     The snapshot bookkeeping below still reads the body as the caller built it. */
+  const sent = init && init.body !== undefined ? { ...init, body: makeWriterBody(env, url, init.body) } : init;
+  try { return await fetch(url, sent); }
   finally {
     if (url && url !== env.HOOK_STATUS) {
       await (url === env.HOOK_EVENTS ? noteHookWrite(env, init && init.body) : markSnapDirty(env, 'all')).catch(() => {});

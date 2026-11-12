@@ -142,3 +142,61 @@ export function memCount(key) {
   const h = MEM_HITS.get(key);
   return h && h.until > Date.now() ? h.n : 0;
 }
+
+/* ══ 12/11 security: no formulas into the sheet ══════════════════════════════
+   The Make writer scenarios (HOOK_EVENTS, HOOK_GROW, HOOK_LEADS) store cells as USER_ENTERED, the
+   mode in which Google Sheets evaluates anything that starts with = + - or @. Text that a lead, a
+   client, a guest or a payer typed is neutralised here, on its way out to those hooks:
+     · sheetSafe  — free text (a guest's name or note, an RSVP answer, a description): a leading
+                    apostrophe, which USER_ENTERED reads as "this is text" and does not store, so
+                    "+1" stays "+1" in the cell;
+     · sheetStrip — identity fields (names, venue, occasion, plan, utm…): the leading characters are
+                    removed. These are also the fields a scenario copies from one tab to another or
+                    joins into one cell, where an apostrophe would not protect.
+   A phone written with its + (E.164) is left exactly as it is. The RAW writers (BRAIN_HOOK) are
+   not touched: RAW never evaluates, and an apostrophe there would be stored literally. */
+const FORMULA_LEAD = /^[\s‎‏‪-‮⁦-⁩]*[=+\-@\t\r]/;
+const plusPhone = v => /^\+[\d\s\-().]{6,24}$/.test(v) && v.replace(/\D/g, '').length >= 7;
+export function sheetSafe(v) {
+  if (typeof v !== 'string' || !v || !FORMULA_LEAD.test(v) || plusPhone(v.trim())) return v;
+  return "'" + v;
+}
+export function sheetStrip(v) {
+  if (typeof v !== 'string' || !v || !FORMULA_LEAD.test(v) || plusPhone(v.trim())) return v;
+  return v.replace(/^[\s‎‏‪-‮⁦-⁩=+\-@]+/, '');
+}
+const STRIP_KEYS = /^(name\d?|full_?name|fullName|client|event_title|event_name|venue_(name|addr|city)|occasion(_label)?|sug|plan(_name|Text)?|tier|email|guests|guest_range|guest_count|price|utm_\w+|source|first_source|referrer|page|session_id|notes?|ref|style|schedule_mode|host_roles|file_name|event_date|reception_time|send_date_\d|paidAt|clientId)$/;
+const PHONE_KEYS = /^(phone|phone_alt|telefon|tel)$/;
+function writerFields(obj, stripAll) {
+  const out = {};
+  for (const [k, v] of Object.entries(obj)) {
+    if (k === 'append_body' && typeof v === 'string') {
+      /* guest rows, pre-built for values:append — every cell is free text from the client's file */
+      try {
+        const ab = JSON.parse(v);
+        if (ab && Array.isArray(ab.values)) { ab.values = ab.values.map(row => Array.isArray(row) ? row.map(sheetSafe) : row); out[k] = JSON.stringify(ab); continue; }
+      } catch {}
+      out[k] = v; continue;
+    }
+    if (typeof v !== 'string' || PHONE_KEYS.test(k)) { out[k] = v; continue; }
+    out[k] = (stripAll || STRIP_KEYS.test(k)) ? sheetStrip(v) : sheetSafe(v);
+  }
+  return out;
+}
+/* the body of a POST to `url`, neutralised when `url` is one of the USER_ENTERED writers */
+export function makeWriterBody(env, url, body) {
+  if (!url || !env) return body;
+  const stripAll = url === env.HOOK_LEADS || url === env.HOOK_GROW;
+  if (!stripAll && url !== env.HOOK_EVENTS) return body;
+  if (typeof body === 'string') {
+    let obj; try { obj = JSON.parse(body); } catch { return body; }
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return body;
+    return JSON.stringify(writerFields(obj, stripAll));
+  }
+  if (typeof FormData !== 'undefined' && body instanceof FormData) {
+    const fd = new FormData();
+    for (const [k, v] of body.entries()) fd.append(k, typeof v === 'string' ? writerFields({ [k]: v }, stripAll)[k] : v);
+    return fd;
+  }
+  return body;
+}
