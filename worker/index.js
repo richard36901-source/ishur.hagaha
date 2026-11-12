@@ -49,7 +49,7 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
-import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
+import { priceQuote, readQuoteRef, purchaseCovered, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handlePartner, hitAdd as refHitAdd } from './partner.js';
@@ -463,7 +463,17 @@ async function purchaseOf(env, flat) {
   let q = null;
   if (ref && ref.id && env.RATE) { try { q = JSON.parse(await env.RATE.get('quote:' + ref.id) || 'null'); } catch {} }
   if (!q && ref && ref.code) q = { ...ref.code, id: ref.id || '' };
-  if (q) return { source: q.sum != null ? 'quote' : 'code', ...q };
+  if (q) {
+    /* 12/11 security: the code/quote id came through the payer's browser — it counts only when the sum that
+       really arrived covers it (paylink.js purchaseCovered). Otherwise the payment is read by its description,
+       exactly like a link without a code, and Richard gets one red line to look at. */
+    const cov = purchaseCovered(q, flat.paymentSum || flat.sum || flat.amount || flat.price || flat.transactionSum);
+    if (cov.ok) return { source: q.sum != null ? 'quote' : 'code', ...q };
+    const phone = normPhone(flat.payerPhone || flat.phone || '');
+    await logEvent(env, { area: 'תשלום', action: 'קוד רכישה בתשלום לא תואם לסכום ששולם — לא הופעל לפי הקוד', ok: false, review: true, phone,
+      ref: String(flat.asmachta || flat.transactionId || ''), detail: `שולם ₪${cov.paid ?? '?'} · הקוד שווה לפחות ₪${cov.expected ?? '?'} · ${String(ref.id ? 'q:' + ref.id : '')} ${ref.code ? buildCode(ref.code) : ''}`.slice(0, 300) }).catch(() => {});
+    try { await alert(env, 'תשלום Grow', 'הגיע תשלום עם קוד חבילה/תוספות שהסכום ששולם לא מכסה — החבילה נקבעה לפי תיאור התשלום, התוספות לא הופעלו. לבדוק ידנית', `שולם ₪${cov.paid ?? '?'} · הקוד שווה לפחות ₪${cov.expected ?? '?'} · ${phone}`, { oneoff: true }); } catch {}
+  }
   const b = parsePaidDesc(desc);
   if (!b) return null;
   return { source: 'desc', plan: b.plan, records: b.tier, design: /עיצוב\s*הזמנה/.test(desc), hostesses: b.hostess || 0,
@@ -1136,7 +1146,7 @@ async function noteLead(env, f) {
     guests: String(f.guest_range || f.guests || '').trim().slice(0, 30),
     plan: String(f.plan_name || f.plan || '').trim().slice(0, 30),
     price: String(f.price || '').trim().slice(0, 10),
-    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
+    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').replace(/[<>"]/g, '').trim().slice(0, 80)).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
     page: String(f.page || '').replace(/^https?:\/\/(www\.)?/, '').split('?')[0].slice(0, 60),
     type: String(f.event_type || '').trim().slice(0, 30),
   };
@@ -1632,6 +1642,29 @@ async function tokenRecord(env, token) {
   const raw = await env.RATE.get('token:' + token);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
+}
+
+/* 12/11 security: the event token is the key to the client's dashboard (the whole guest list, phones, edits),
+   yet it rode in every guest-facing link — the "הוספה ליומן" button each confirming guest receives, the group
+   RSVP link, the table QR, the invitation image/video address. Guests now get a separate PUBLIC id of the same
+   shape: it opens only the guest pages (rsvp-info / rsvp-self / table-lookup / cal / img / vid) and is not a key
+   to anything else (tokenRecord does not know it). Links that already went out with the real token keep working. */
+async function pubIdOf(env, token) {
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(String(token || ''))) return String(token || '');
+  try {
+    const have = await env.RATE.get('pubof:' + token);
+    if (have && /^[0-9a-f-]{36}$/.test(have)) return have;
+    const pub = crypto.randomUUID();
+    await env.RATE.put('pubtok:' + pub, token, { expirationTtl: TOKEN_TTL });
+    await env.RATE.put('pubof:' + token, pub, { expirationTtl: TOKEN_TTL });
+    return pub;
+  } catch { return String(token); }
+}
+/* a public id → its event token; anything else (a link sent before 12/11) comes back unchanged */
+async function fromPub(env, id) {
+  id = String(id || '');
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(id)) return id;
+  try { const t = await env.RATE.get('pubtok:' + id); return t && /^[0-9a-f-]{36}$/.test(t) ? t : id; } catch { return id; }
 }
 
 function sniffImage(bytes) {
@@ -4006,7 +4039,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
           if (saved) await askExtraQ(env, guest, from, sendCh);
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
@@ -4028,7 +4061,7 @@ async function handleWaWebhook(request, env, url) {
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
         if (saved) await askExtraQ(env, guest, from, sendCh);
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
@@ -4197,7 +4230,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     const saved = await writeGuestReply(env, guest, 'מגיע', n);
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
-    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
     if (saved) await askExtraQ(env, guest, from, sendCh);
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
@@ -10326,7 +10359,7 @@ async function handleWaSend(request, env, origin) {
    read goes through readSnapshot(env, cls); nothing calls Make directly. */
 
 async function serveImage(env, pathname) {
-  const token = pathname.slice('/img/'.length);
+  const token = await fromPub(env, pathname.slice('/img/'.length));
   if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token)) return new Response('not-found', { status: 404 });
   const { value, metadata } = await env.RATE.getWithMetadata('img:' + token, { type: 'arrayBuffer' });
   if (!value) return new Response('not-found', { status: 404 });
@@ -10388,6 +10421,23 @@ async function writeHostessBooking(env, token, b) {
 }
 
 
+
+/* 12/11 security: the hostess calendar feed's address was derived from APP_KEY — which ships to every browser in
+   config.js — so anyone could work the address out and read clients' names, venues and phones. It is derived from
+   ADMIN_KEY now (never leaves the Worker). No ADMIN_KEY → an address nobody can guess. */
+async function hostessIcsKey(env) {
+  return sha256Hex((env.ADMIN_KEY ? 'k|' + env.ADMIN_KEY : 'none|' + crypto.randomUUID()) + '|hostess-ics|v2');
+}
+
+const HARDEN_HEADERS = { 'Strict-Transport-Security': 'max-age=31536000', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' };
+function hardenResponse(res) {
+  try {
+    if (!res || res.status === 101 || res.webSocket) return res;
+    const h = new Headers(res.headers);
+    for (const [k, v] of Object.entries(HARDEN_HEADERS)) if (!h.has(k)) h.set(k, v);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  } catch { return res; }
+}
 
 async function checkStamp(fields, appKey) {
   const { app, nonce, stamp_ts, sig } = fields;
@@ -10934,7 +10984,10 @@ const WORKER = {
   },
 
   /* 03/11 change log wrapper (CHANGE_ROUTES); everything else goes straight to fetchMain */
-  async fetch(request, env, ctx) { return changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx)); },
+  /* 12/11 security: every answer leaves with the three headers that cost nothing — HTTPS only from now on (HSTS),
+     no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
+     handed to other sites. A header a route already set is left as it is. */
+  async fetch(request, env, ctx) { return hardenResponse(await changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -11336,7 +11389,7 @@ const WORKER = {
        in Google Calendar (it shows under the "דיילות" calendar list as its own
        calendar), and the availability check counts them instantly. */
     if (url.pathname.startsWith('/cal/hostess-') && request.method === 'GET') {
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      const key = await hostessIcsKey(env);
       if (url.pathname !== '/cal/hostess-' + key.slice(0, 24) + '.ics') return new Response('not found', { status: 404 });
       const rows = [];
       if (env.RATE) {
@@ -11360,11 +11413,13 @@ const WORKER = {
        Apple Calendar opens it straight from WhatsApp/Safari, Google via the
        cal.html page. Two reminders baked in, our line in the description. */
     if (url.pathname.startsWith('/cal/') && request.method === 'GET') {
-      const tok = url.pathname.slice(5).replace(/\.ics$/, '');
-      if (!/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
+      const calId = url.pathname.slice(5).replace(/\.ics$/, '');
+      if (!/^[0-9a-f-]{36}$/.test(calId)) return new Response('not-found', { status: 404 });
+      const tok = await fromPub(env, calId);
       const raw = await readSnapshot(env, 'dashboard');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return new Response('not-found', { status: 404 });
+      const pub = await pubIdOf(env, tok);   /* what the file itself carries — never the dashboard token */
       const c = i => String(ev[i] ?? '').trim();
       const date = c(6).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response('no-date', { status: 404 });
       const tm = (c(36).match(/^(\d{1,2}):(\d{2})/) || [null, '19', '30']);
@@ -11378,15 +11433,15 @@ const WORKER = {
       const esc = t => String(t).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\;');
       const desc = [`${title}`, c(36) ? `קבלת פנים ${c(36)}` : '', where ? `📍 ${where}` : '', nav ? `🧭 ניווט: ${nav}` : '', '', 'אישורי הגעה בוואטסאפ · ishur.io', 'https://ishur.io'].filter(x => x !== null).join('\n');
       const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//RSVP//HE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-        'BEGIN:VEVENT', `UID:${tok}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
-        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${tok}`,
+        'BEGIN:VEVENT', `UID:${pub}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${pub}`,
         'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${esc('מחר: ' + title)}`, 'END:VALARM',
         'BEGIN:VALARM', 'TRIGGER:-PT3H', 'ACTION:DISPLAY', `DESCRIPTION:${esc('בעוד 3 שעות: ' + title)}`, 'END:VALARM',
         'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
-      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${tok.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
+      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${pub.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
     }
     if (url.pathname.startsWith('/vid/') && request.method === 'GET') {
-      const tok = url.pathname.slice(5);
+      const tok = await fromPub(env, url.pathname.slice(5));
       if (!env.RATE || !/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
       const v = await env.RATE.get('vid:' + tok, { type: 'arrayBuffer' });
       if (!v) return new Response('not-found', { status: 404 });
@@ -12220,7 +12275,12 @@ const WORKER = {
     /* coexist.html posts Meta's Embedded Signup FINISH payload here, so the
        new phone_number_id / waba_id are in the log even if the tab closes */
     if (url.pathname === '/api/coexist-done' && request.method === 'POST') {
-      let b = {}; try { b = await request.json(); } catch {}
+      /* 12/11 security: this route is public (Meta's Embedded Signup calls back into the page), so it is bounded:
+         a few calls an hour per address, ids are digits only, and nothing but the three ids is kept or posted */
+      if (await overBudget(env, 'rl:coexist:' + (request.headers.get('CF-Connecting-IP') || 'x'), 5, 3600)) return deny(429, 'slow-down', origin);
+      let b0 = {}; try { b0 = await request.json(); } catch {}
+      const idOf = v => String(v == null ? '' : v).replace(/\D/g, '').slice(0, 24);
+      const b = { phone_number_id: idOf(b0 && b0.phone_number_id), waba_id: idOf(b0 && b0.waba_id), business_id: idOf(b0 && b0.business_id) };
       const detail = `phone_number_id=${b.phone_number_id || '?'} · waba_id=${b.waba_id || '?'} · business_id=${b.business_id || '?'}`;
       if (env.RATE) await env.RATE.put('coexist:last', JSON.stringify({ ...b, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
       await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
@@ -12286,7 +12346,9 @@ const WORKER = {
     if (url.pathname === '/api/monday-hook' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return okJson({ ok: false }, origin); }
       if (b.challenge) return new Response(JSON.stringify({ challenge: b.challenge }), { headers: { 'Content-Type': 'application/json' } });
-      if ((url.searchParams.get('k') || '') !== (env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '')) return deny(403, 'bad-key', origin);
+      { /* 12/11 security: no configured key = closed (it used to compare '' to '' and pass), and the compare is constant-time */
+        const want = String(env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '');
+        if (!want || !safeEqual(String(url.searchParams.get('k') || ''), want)) return deny(403, 'bad-key', origin); }
       const e = b.event || {};
       const t = String(e.type || '');
       const name = String(e.pulseName || e.itemName || '').trim();
@@ -12514,7 +12576,7 @@ const WORKER = {
        Public, the 36-char event token is the secret (like rsvp-info); no phone numbers go out. */
     if (url.pathname === '/api/table-lookup' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:tlookup:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
@@ -12545,7 +12607,7 @@ const WORKER = {
     if (url.pathname === '/api/rsvp-info' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpinfo:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
@@ -12555,17 +12617,18 @@ const WORKER = {
       const c = i => String(ev[i] ?? '').trim();
       const [vidOk, nav] = await Promise.all([env.RATE.get('vidok:' + tok), env.RATE.get('navlink:' + tok)]);
       return okJson({ ok: true, occasion: c(5), hosts: c(34) || c(2), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37), address: c(38),
-        image_url: c(44) || '', video_url: vidOk ? 'https://go.ishur.io/vid/' + tok : '', nav_link: nav || '', roles: c(47) }, origin);
+        /* the artwork addresses carry the public id too — the real token never reaches a guest page */
+        image_url: (c(44) || '').split(tok).join(await pubIdOf(env, tok)), video_url: vidOk ? 'https://go.ishur.io/vid/' + await pubIdOf(env, tok) : '', nav_link: nav || '', roles: c(47) }, origin);
     }
     if (url.pathname === '/api/rsvp-self' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpself:' + ip, 10, 3600)) return deny(429, 'slow-down', origin);
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
@@ -12606,7 +12669,7 @@ const WORKER = {
     if (url.pathname === '/api/hostess-ics-url' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      const key = await hostessIcsKey(env);
       return okJson({ ok: true, url: 'https://go.ishur.io/cal/hostess-' + key.slice(0, 24) + '.ics' }, origin);
     }
     if (url.pathname === '/api/design-brief' && request.method === 'POST') {
@@ -13121,7 +13184,7 @@ const WORKER = {
       if (!rec) return deny(404, 'unknown-token', origin);
       if (await overBudget(env, 'rl:gedit:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
       const gid = String(b.guest_id || '').trim();
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = b.phone != null ? normPhone(b.phone || '') : '';
       if (!name) return deny(400, 'bad-name', origin);
       if (b.phone != null && !isWaPhone(phone)) return deny(400, 'bad-phone', origin);
@@ -13246,7 +13309,7 @@ const WORKER = {
       if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
       if (b.mode === 'tier' && tier.left <= 0) return okJson({ ok: false, error: 'tier-full', used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
       if (mode === 'free' && used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT, tier }, origin);
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
@@ -13863,6 +13926,8 @@ const WORKER = {
         waitIds.forEach((id, i) => { if (hits[i]) sentWaves.dialed.add(id); });
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
+      if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
       /* 20/10: a paid token whose event row never reached the sheet (Make
          write failed) made the page throw 1101 instead of saying so. The
          client sees the "still setting up" screen; we see it in the journal. */

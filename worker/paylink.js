@@ -154,6 +154,28 @@ export function readQuoteRef(flat) {
   return { id: idm ? idm[1] : '', code };
 }
 
+/* 12/11 security: cField1 travels through the payer's browser (a Grow link takes ?cField1=…), so a code or a
+   quote id found in an IPN is a CLAIM, not a fact. It is honoured only when the money that actually arrived
+   covers the cheapest legitimate price of what it claims: the stored quote's own sum, or — when the KV row is
+   gone — the server price of the code with the friend discount, now and one quote-lifetime (30 d) ago.
+   → { ok, expected, paid }. ok:false = treat the payment by its description and raise a hand. */
+export function purchaseCovered(p, paidRaw, now = Date.now()) {
+  const paid = Number(String(paidRaw == null ? '' : paidRaw).replace(/[^\d.]/g, ''));
+  let expected = null;
+  if (p && p.sum != null && Number.isFinite(Number(p.sum)) && Number(p.sum) > 0) expected = Number(p.sum);
+  else if (p && p.plan && p.records) {
+    const sums = [];
+    for (const at of [now, now - 30 * 86400e3]) for (const no_calls of [false, true]) {
+      const r = priceQuote({ plan: p.plan, records: p.records, phone: '0500000000', name: 'xx', discount_pct: 20, no_calls, now: at,
+        addons: { hostesses: Number(p.hostesses) || 0, design: !!p.design, travel: !!p.travel, extra_wave: !!p.extra_wave, calls: !!p.calls } });
+      if (r.ok) sums.push(r.quote.sum);
+    }
+    if (sums.length) expected = Math.min(...sums);
+  }
+  if (expected == null || !Number.isFinite(paid)) return { ok: false, expected, paid: Number.isFinite(paid) ? paid : null };
+  return { ok: paid + 1 >= expected, expected, paid };
+}
+
 /* free-form description has a package in it ("100 רשומות בסיס …")? */
 export function descHasPackage(d) { return /\d{2,4}\s*(?:מוזמנים|רשומות)/.test(String(d || '')); }
 

@@ -1407,10 +1407,10 @@
         var route = f.route === 'high' ? '<span class="pill p-ok">המלצה</span>'
                   : f.route === 'low' ? '<span class="pill p-warn">הערה אלינו</span>'
                   : '<span style="color:var(--ink3)">לא דירג</span>';
-        var note = f.note ? '<span title="' + String(f.note).replace(/"/g, '&quot;') + '">' + String(f.note).slice(0, 80) + (f.note.length > 80 ? '…' : '') + '</span>' : (f.left ? '<span style="color:var(--ink3)">עזב בלי ללחוץ</span>' : '');
+        var note = f.note ? '<span title="' + esc(f.note) + '">' + esc(String(f.note).slice(0, 80)) + (f.note.length > 80 ? '…' : '') + '</span>' : (f.left ? '<span style="color:var(--ink3)">עזב בלי ללחוץ</span>' : '');
         tr.innerHTML =
-          '<td>' + (f.name || (f.token || '').slice(0, 8)) + (f.occasion ? ' · ' + f.occasion : '') + '</td>' +
-          '<td>' + (f.client || '—') + '</td>' +
+          '<td>' + esc(f.name || (f.token || '').slice(0, 8)) + (f.occasion ? ' · ' + esc(f.occasion) : '') + '</td>' +
+          '<td>' + esc(f.client || '—') + '</td>' +
           '<td>' + (f.who === 2 ? 'בן/בת הזוג' : 'בעל השמחה') + '</td>' +
           '<td>' + (fbWhen(f.at) || '—') + '</td>' +
           '<td>' + fbScore(f.nps) + '</td>' +
@@ -1515,10 +1515,10 @@
       else if (e.cancelled) invPill = '<span class="pill p-warn">—</span>';
       else { invPill = '<span class="pill p-no">חסרה</span>'; missingInv++; }
       tr.innerHTML =
-        '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + (isDone(e) ? ' <span class="pill p-done">הסתיים</span>' : '') + '</td>' +
+        '<td>' + esc(e.name || e.client || '—') + (e.occasion ? ' · ' + esc(e.occasion) : '') + (isDone(e) ? ' <span class="pill p-done">הסתיים</span>' : '') + '</td>' +
         '<td>' + holdCell(e) + '</td>' +
         '<td>' + heDate(e.date) + '</td>' +
-        '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
+        '<td>' + esc(e.plan || '—') + (e.tier ? ' · ' + esc(e.tier) : '') + '</td>' +
         '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
         '<td>' + (costIls ? costIls.toFixed(2) : '0') + '</td>' +
         '<td style="font-weight:600;color:' + (profit >= 0 ? '#0F4C35' : '#A8402F') + '">' + (Math.round(profit * 100) / 100).toLocaleString('he-IL') + '</td>' +
@@ -1529,7 +1529,7 @@
         '<td>' + e.seats + '</td>' +
         '<td>' + e.pending + '</td>' +
         '<td>' + (e.need_call || '') + '</td>' +
-        '<td>' + (e.token ? '<button type="button" class="fbcopy" data-token="' + e.token + '" data-ev="' + String(e.name || e.client || '').replace(/"/g, '&quot;') + '" title="העתקת הודעת סיום + קישור משוב">📋 משוב</button>' : '') + '</td>';
+        '<td>' + (e.token ? '<button type="button" class="fbcopy" data-token="' + esc(e.token) + '" data-ev="' + esc(e.name || e.client || '') + '" title="העתקת הודעת סיום + קישור משוב">📋 משוב</button>' : '') + '</td>';
       var cls = [];
       if (isDone(e)) cls.push('row-done');
       if (e.token && holdMap[e.token]) cls.push('row-hold');
@@ -2378,7 +2378,7 @@
           var tr = document.createElement('tr');
           var pct = d.leads_total ? Math.round(u[1] / d.leads_total * 100) : 0;
           var closed = u[2] || 0, cr = u[1] ? Math.round(closed / u[1] * 100) : 0;
-          tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td><td style="font-weight:600;color:' + (closed ? '#0F4C35' : 'var(--ink3)') + '">' + closed + '</td><td>' + (closed ? cr + '%' : '—') + '</td>';
+          tr.innerHTML = '<td>' + esc(u[0]) + '</td><td>' + esc(u[1]) + '</td><td>' + pct + '%</td><td style="font-weight:600;color:' + (closed ? '#0F4C35' : 'var(--ink3)') + '">' + closed + '</td><td>' + (closed ? cr + '%' : '—') + '</td>';
           rows.appendChild(tr);
         });
         syncFolds();
