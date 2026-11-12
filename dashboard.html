@@ -464,7 +464,10 @@
   /* 12/11 Richard: the guest-list actions sit on one line; on a narrow screen the line scrolls sideways */
   .gl-acts{display:flex;gap:.35rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;padding-bottom:2px}.gl-acts::-webkit-scrollbar{display:none}
   .gl-acts .buy{white-space:nowrap;flex:0 0 auto;font-size:.8rem;padding:.4rem .7rem}
-  .guide-b{font:inherit;font-size:.74rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2,var(--bdr));border-radius:6px;padding:.12rem .5rem;cursor:pointer;margin-inline-start:.35rem}
+  /* 12/11 Richard: the guide buttons sit at the far (left) end of the label line */
+  .guide-row{display:flex;align-items:center;gap:.5rem;font-size:.86rem;font-weight:600;margin-bottom:.3rem}
+  .guide-end{margin-inline-start:auto;display:inline-flex;gap:.3rem;flex:0 0 auto}
+  .guide-b{font:inherit;font-size:.74rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2,var(--bdr));border-radius:6px;padding:.12rem .5rem;cursor:pointer;white-space:nowrap}
   .guide-bg{position:fixed;inset:0;background:rgba(10,33,25,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
   .guide{background:var(--card);border:1px solid var(--bdr);border-radius:8px;width:min(94vw,26rem);max-height:88vh;overflow:auto;padding:1rem 1.1rem}
   .guide-h{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.6rem}
@@ -812,7 +815,7 @@
         <span id="shareMsg" style="font-size:.8rem;color:var(--ink3)"></span>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)">
-        <label for="navIn" style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור ניווט (Waze / Google Maps) · לא חובה <button type="button" class="guide-b" data-guide="waze">איך מוציאים קישור?</button></label>
+        <label for="navIn" class="guide-row"><span>קישור ניווט (Waze / Google Maps) · לא חובה</span><span class="guide-end"><button type="button" class="guide-b" data-guide="waze">איך מוציאים קישור?</button></span></label>
         <div style="display:flex;gap:.45rem">
           <input id="navIn" placeholder="הדביקו כאן קישור מוויז או גוגל מפות" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0;direction:ltr;text-align:left">
           <button type="button" class="buy" id="navSave">שמירה</button>
@@ -820,7 +823,7 @@
         <p id="navMsg" style="font-size:.78rem;color:var(--ink3);margin:.35rem 0 0">יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.</p>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)" id="giftBox">
-        <label style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור למתנה (ביט / פייבוקס) · חינם, לא חובה <button type="button" class="guide-b" data-guide="bit">הסבר לביט</button> <button type="button" class="guide-b" data-guide="paybox">הסבר לפייבוקס</button></label>
+        <label class="guide-row"><span>קישור למתנה (ביט / פייבוקס) · חינם, לא חובה</span><span class="guide-end"><button type="button" class="guide-b" data-guide="bit">הסבר לביט</button><button type="button" class="guide-b" data-guide="paybox">הסבר לפייבוקס</button></span></label>
         <p style="font-size:.78rem;color:var(--ink3);margin:0 0 .5rem">אורח ששואל איך לתת מתנה יקבל את הקישור אוטומטית. כבוי כברירת מחדל.</p>
         <div style="display:flex;gap:.45rem;margin-bottom:.4rem">
           <input id="giftBit" placeholder="קישור ביט (bit.co.il)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
