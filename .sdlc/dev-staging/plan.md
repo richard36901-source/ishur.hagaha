@@ -76,3 +76,33 @@ and `*.workers.dev` is added. `robots.txt` on staging disallows everything.
 
 P1 after steps 2, 3, 8 · P2/P3 after step 4 · P5 (local check) after step 5 · P4/P5 (live) after step 6 ·
 P6 after step 7 · P7/P8 after step 8 · all of them again in step 9 before the report.
+
+## Deviations (build, 12/11) — continued
+
+- **R4 widened**: `index.js` had 18 more hard-coded uses of the production sheet id (batchGet/batchUpdate,
+  two `const SID`). All now go through `sheetId(env)`; `grep -c 1VAHaP32 worker/index.js` = 0.
+- **New route `POST /api/staging-probe`** (staging only, 404 in production; admin key): sends one text through
+  the normal path so `smoke.sh` can prove the guard on the live worker. Registered as an exemption in
+  `scripts/registry-sync.mjs` with its reason (the registry test demands a node or an exemption for every
+  sending route).
+- **Staging `ADMIN_KEY`**: generated here (not a production value), stored in `worker/.staging.secrets`
+  (gitignored) and pushed with `staging-secrets.sh` so step 7's probe could run.
+- **Smoke on production fails until the first promote** (no `/api/health`, no hostname switch on `main` yet).
+  `promote.sh` runs the production smoke only after deploying, so this does not block the first promote.
+
+## Incident during the build (12/11, 13:35–13:48 UTC) — production affected
+
+`npx wrangler pages project create ishur-staging` was run from `worker/` (step 6). On wrangler 4.160 that
+command no longer creates a Pages project: it **deployed `worker/wrangler.toml` as a new Worker named
+`ishur-staging`** — the production block, so with the production KV, R2, crons **and the custom domain
+go.ishur.io**, which Cloudflare moved from `ishur-webhooks` to the new script. The new script had **no
+secrets**. For ~13 minutes go.ishur.io was served by a worker that could not send WhatsApp/calls (no tokens),
+could not reach Make/Sheets (no hooks) and rejected admin keys; its crons ticked once or twice against the
+production KV without secrets. Fix applied: `PUT /workers/domains` re-attached go.ishur.io to `ishur-webhooks`
+(13:46), `wrangler delete ishur-staging` removed the rogue script and its crons (13:47). Between those two
+steps go.ishur.io returned Cloudflare 1016 for ~1 minute. A scripting error then also ran the fallback: a
+production `wrangler deploy` of `ishur-webhooks` from `/Users/richardtomskiy/ishur-deploy` at its HEAD
+(f8ff2a3, worker files clean) — production now runs that commit (version 97f800d5), secrets intact.
+**Not verified**: what the rogue worker's cron ticks wrote to production KV, and whether Meta redelivered
+inbound webhooks it rejected in that window. Richard should check the ops journal for 15:35–15:48 Israel time.
+Rule added to this runbook: never run `wrangler pages …` from a directory with a `wrangler.toml`.
