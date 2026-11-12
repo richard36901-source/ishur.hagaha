@@ -572,7 +572,7 @@ async function handleDesignFlow(request, env, origin, host) {
     const edit = !!(brief && brief.source === 'dashboard');
     brief = { ...(brief || {}), ...v.brief, token, at };
     await env.RATE.put('designbrief:' + token, JSON.stringify(brief), { expirationTtl: DFLOW_TTL });
-    await dslack(env, token, `${edit ? 'בריף עיצוב עודכן' : 'בריף עיצוב חדש מלוח הבקרה'} · ${v.brief.refs.length} תמונות השראה · "${v.brief.text.slice(0, 120)}"`);
+    await notifyDesigner(env, token, edit ? 'בריף עיצוב עודכן' : 'בריף עיצוב חדש מלוח הבקרה', `${v.brief.text}${v.brief.refs.length ? '\n(' + v.brief.refs.length + ' תמונות השראה)' : ''}`).catch(() => {});
     await logEvent(env, { area: 'עיצוב הזמנה', action: edit ? 'הלקוח עדכן בריף' : 'הלקוח שלח בריף מלוח הבקרה', ok: true, token, detail: v.brief.text.slice(0, 200) }).catch(() => {});
     return okJson({ ok: true, ...flowView(host, token, f, brief) }, origin);
   }
@@ -607,7 +607,7 @@ async function handleDesignFlow(request, env, origin, host) {
     await writeFlow(env, token, f);
     await dslack(env, token, ap.ok ? `עיצוב אושר ✅ (גרסה ${f.approved_version}) והוגדר כתמונת ההזמנה של האירוע` : `עיצוב אושר ✅ (גרסה ${f.approved_version}) — לא הוגדר אוטומטית כתמונת ההזמנה (${ap.why}), להעלות ידנית`);
   } else await writeFlow(env, token, f);
-  if (action === 'changes') await dslack(env, token, `הלקוח ביקש תיקונים לגרסה ${f.versions.length}: "${String(b.comment || '').slice(0, 200)}"`);
+  if (action === 'changes') await notifyDesigner(env, token, `הלקוח ביקש תיקונים לעיצוב · גרסה ${f.versions.length}`, String(b.comment || '')).catch(() => {});
   if (action === 'buy') await dslack(env, token, 'הלקוח מימש את סבב התיקונים החינמי');
   await logEvent(env, { area: 'עיצוב הזמנה', action: { approve: 'הלקוח אישר את העיצוב', changes: 'הלקוח ביקש תיקונים', buy: 'סבב תיקונים חינם מומש' }[action], ok: true, token }).catch(() => {});
   return okJson({ ok: true, free: action === 'buy' ? true : undefined, ...flowView(host, token, f, brief) }, origin);
@@ -4084,6 +4084,43 @@ async function linearTriageIssue(env, title, body) {
     await logEvent(env, { area: 'לינאר', action: 'יצירת משימה נכשלה', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
     return { ok: false, why: String(e && e.message).slice(0, 200) };
   }
+}
+
+/* 12/11 Richard: a design request must not be missed — Shalev is tagged in Slack and gets a Linear task
+   (assigned to her, high priority, labels "Ishur.io" + "עיצוב הזמנה"). Never blocks the client's request. */
+const SHALEV = { slack: 'U0C33AKDF24', linear: '27077462-ab7c-46ae-b3af-0ff8137690f4' };
+async function linearDesignTask(env, title, body) {
+  if (!env.LINEAR_API_KEY) return { ok: false, why: 'no-key' };
+  try {
+    let labelId = env.RATE ? await env.RATE.get('linear:design-label').catch(() => null) : null;
+    if (!labelId) {
+      const q = await linearGql(env, `query($t:String!){ team(id:$t){ labels(filter:{ name:{ eq:"עיצוב הזמנה" } }){ nodes{ id } } } }`, { t: LINEAR.team });
+      labelId = ((q.team.labels.nodes || [])[0] || {}).id || '';
+      if (!labelId) { const c = await linearGql(env, `mutation($i:IssueLabelCreateInput!){ issueLabelCreate(input:$i){ issueLabel{ id } } }`, { i: { teamId: LINEAR.team, name: 'עיצוב הזמנה', color: '#A8853C' } }); labelId = c.issueLabelCreate.issueLabel.id; }
+      if (labelId && env.RATE) await env.RATE.put('linear:design-label', labelId, { expirationTtl: 90 * 86400 }).catch(() => {});
+    }
+    let stateId = env.RATE ? await env.RATE.get('linear:todo-state').catch(() => null) : null;
+    if (!stateId) {
+      const d = await linearGql(env, `query($t:String!){ team(id:$t){ states{ nodes{ id type position } } } }`, { t: LINEAR.team });
+      stateId = ((d.team.states.nodes || []).filter(x => x.type === 'unstarted').sort((a, c) => a.position - c.position)[0] || {}).id || '';
+      if (stateId && env.RATE) await env.RATE.put('linear:todo-state', stateId, { expirationTtl: 30 * 86400 }).catch(() => {});
+    }
+    const input = { teamId: LINEAR.team, title: title.slice(0, 200), description: body, labelIds: [LINEAR.label, labelId].filter(Boolean), assigneeId: SHALEV.linear, priority: 2 };
+    if (stateId) input.stateId = stateId;
+    const d = await linearGql(env, `mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue{ id identifier url } } }`, { i: input });
+    return { ok: true, ...d.issueCreate.issue };
+  } catch (e) {
+    await logEvent(env, { area: 'לינאר', action: 'משימת עיצוב לא נוצרה', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
+    return { ok: false, why: String(e && e.message).slice(0, 200) };
+  }
+}
+async function notifyDesigner(env, token, what, text) {
+  const rec = await tokenRecord(env, token).catch(() => null) || {};
+  const who = rec.name || token.slice(0, 8);
+  const admin = 'https://ishur.io/clients.html#designs';
+  const task = await linearDesignTask(env, `${what} · ${who}`, `${text}\n\nלהעלאת העיצוב ושליחה ללקוח: ${admin}\nלוח הלקוח: https://ishur.io/dashboard.html?t=${token}#design`);
+  await slackSend(env, `🎨 <@${SHALEV.slack}> *${what}* · ${who}\n"${String(text).slice(0, 300)}"\nמעלים ושולחים ללקוח כאן: ${admin}${task.ok ? '\nמשימה בלינאר: ' + task.url : ''}`, { urgent: true, now: true, oneoff: true, important: true }).catch(() => {});   /* oneoff: one request */
+  return task;
 }
 
 /* ── free text from a KNOWN guest on Shir's line (Richard 27/09) ─────────────
