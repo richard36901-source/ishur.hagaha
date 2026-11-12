@@ -12230,7 +12230,9 @@ const WORKER = {
     if (url.pathname === '/api/monday-hook' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return okJson({ ok: false }, origin); }
       if (b.challenge) return new Response(JSON.stringify({ challenge: b.challenge }), { headers: { 'Content-Type': 'application/json' } });
-      if ((url.searchParams.get('k') || '') !== (env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '')) return deny(403, 'bad-key', origin);
+      { /* 12/11 security: no configured key = closed (it used to compare '' to '' and pass), and the compare is constant-time */
+        const want = String(env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '');
+        if (!want || !safeEqual(String(url.searchParams.get('k') || ''), want)) return deny(403, 'bad-key', origin); }
       const e = b.event || {};
       const t = String(e.type || '');
       const name = String(e.pulseName || e.itemName || '').trim();
