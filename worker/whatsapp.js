@@ -154,7 +154,7 @@ export async function pinGuestPhone(env, to, pid) {
   if (!env.RATE || !to || !isGuestPhone(env, pid)) return;
   await env.RATE.put('gph:' + normPhone(to), String(pid), { expirationTtl: 120 * 86400 }).catch(() => {});
 }
-export async function pickGuestPhone(env, { template = true, to = '', pinned = '' } = {}) {
+export async function pickGuestPhone(env, { template = true, to = '', pinned = '', preview = false } = {}) {
   const ids = guestPhoneIds(env);
   if (!guestsReady(env) || !ids.length) return '';
   if (!env.RATE) return ids[0];
@@ -166,6 +166,9 @@ export async function pickGuestPhone(env, { template = true, to = '', pinned = '
      Meta blocked both numbers for 24h. A template is only offered a number
      while there is room — no Meta call, no 131048. */
   const cap = await guestCapacity(env);
+  /* 12/11: a one-off preview to the CLIENT (admin button) rides inside the safety margin — one message,
+     never a batch — so it is not held by our budget; Meta's own limit still applies. */
+  if (template && preview) { const any = cap.numbers.filter(r => !r.held).sort((a, b) => a.used - b.used); return any.length ? any[0].id : ids[0]; }
   if (template) {
     if (cap.remaining <= 0) return '';
     const open = cap.numbers.filter(r => !r.held && r.remaining > 0).sort((a, b) => a.used - b.used);
@@ -388,7 +391,7 @@ async function post(env, body, channel, ctx) {
      and the budget; a free-form reply goes out on the number the guest wrote
      to (gph: pin or the webhook's phone_id), budget or not. */
   const isTmpl = body.type === 'template';
-  const phoneId = channel === 'guests' ? await pickGuestPhone(env, { template: isTmpl, to: body.to, pinned: ctx && ctx.phone_id }) : pickPhone(env, channel);
+  const phoneId = channel === 'guests' ? await pickGuestPhone(env, { template: isTmpl, to: body.to, pinned: ctx && ctx.phone_id, preview: !!(ctx && ctx.preview) }) : pickPhone(env, channel);
   const token = pickToken(env, channel);
   if (channel === 'guests' && token && !phoneId) {
     /* one journal line a day, not one per guest: the batch stops, the rest waits */
