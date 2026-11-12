@@ -117,6 +117,7 @@
 
     var cx = W / 2, y;
     x.textAlign = 'center'; x.direction = 'rtl';
+    if (wide) { drawWide(x, W, H); return; }
     /* head: logo + wordmark */
     y = tall ? 150 * S : wide ? 70 : 100 * S;
     var lg = wide ? 56 : 80 * S;
@@ -171,6 +172,46 @@
       x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 ' + (wide ? 18 : 24 * S) + 'px Heebo, sans-serif';
       x.fillText('ההנחה על חבילת אישורי ההגעה · תקפה דרך הקישור בלבד', cx, H - (wide ? 44 : 70 * S));
     }
+  }
+
+  /* 1200×630: two columns — the QR card on the left, the words on the right, one hostess between them */
+  function drawWide(x, W, H) {
+    var head = state.v === 'discount' ? '20% הנחה על כל החבילות' : 'אישורי הגעה חכמים בוואטסאפ';
+    var sub1 = state.v === 'discount' ? 'אישורי הגעה לאירוע שלכם בוואטסאפ' : 'ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה';
+    var who = state.name ? (state.v === 'discount' ? 'דרך הקישור של ' + state.name : 'ההמלצה של ' + state.name) : (state.v === 'discount' ? 'דרך הקישור של חבר' : 'המלצה של חבר');
+    var qrPx = 300, qrX = 110, qrY = (H - qrPx) / 2 - 30, qcx = qrX + qrPx / 2;
+    x.fillStyle = IVORY; rr(x, qrX - 24, qrY - 24, qrPx + 48, qrPx + 48, 22); x.fill();
+    var q = qrCanvas(state.link, qrPx);
+    if (q) x.drawImage(q, qrX, qrY, qrPx, qrPx);
+    var mk = qrPx * 0.2;
+    x.fillStyle = IVORY; rr(x, qcx - mk / 2 - 7, qrY + qrPx / 2 - mk / 2 - 7, mk + 14, mk + 14, 12); x.fill();
+    if (logo.complete && logo.naturalWidth) x.drawImage(logo, qcx - mk / 2, qrY + qrPx / 2 - mk / 2, mk, mk);
+    x.textAlign = 'center'; x.direction = 'ltr';
+    x.fillStyle = IVORY; x.font = '600 26px Heebo, sans-serif';
+    x.fillText(state.link.replace(/^https:\/\//, ''), qcx, qrY + qrPx + 62);
+    x.direction = 'rtl';
+    /* one hostess between the columns */
+    hostess(x, 520, H - 70, 0.78, false);
+    /* the words, right column, right-aligned */
+    var rx = W - 90; x.textAlign = 'right';
+    var lg = 54, y = 96;
+    if (logo.complete && logo.naturalWidth) x.drawImage(logo, rx - lg, y - lg / 2 - 4, lg, lg);
+    x.fillStyle = IVORY; x.font = '700 40px "Frank Ruhl Libre", serif';
+    x.fillText('ishur.io', rx - lg - 18, y + 12);
+    x.strokeStyle = 'rgba(199,174,122,.6)'; x.lineWidth = 2; x.beginPath(); x.moveTo(rx, y + 42); x.lineTo(rx - 220, y + 42); x.stroke();
+    x.fillStyle = GOLD; x.beginPath(); x.arc(rx - 220, y + 42, 4, 0, Math.PI * 2); x.fill();
+    y = 230;
+    x.fillStyle = state.v === 'discount' ? GOLD_SOFT : IVORY;
+    fitText(x, head, 560, '700 66px "Frank Ruhl Libre", serif', 36);
+    x.fillText(head, rx, y);
+    y += 58; x.fillStyle = 'rgba(248,244,234,.85)'; x.font = '400 27px Heebo, sans-serif'; x.fillText(sub1, rx, y);
+    y += 44; x.fillStyle = GOLD_SOFT; x.font = '600 27px Heebo, sans-serif'; x.fillText(who, rx, y);
+    y += 70; x.fillStyle = 'rgba(248,244,234,.6)'; x.font = '400 22px Heebo, sans-serif'; x.fillText('סורקים או לוחצים · תשלום אחד לאירוע, החל מ-₪50', rx, y);
+    if (state.v === 'discount') {
+      x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 18px Heebo, sans-serif';
+      x.fillText('ההנחה על חבילת אישורי ההגעה · תקפה דרך הקישור בלבד', rx, H - 48);
+    }
+    x.textAlign = 'center';
   }
 
   function render() {
