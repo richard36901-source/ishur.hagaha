@@ -32,6 +32,18 @@
         "/private/tmp/claude-501/-Users-richardtomskiy-WA-AUTOSCALE/b5c260e1-3ef8-41b9-9e24-9c87e1778ff8/scratchpad/proxy/serve.py"
       ],
       "port": 4190
+    },
+    {
+      "name": "worktree-4195",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4195",
+        "--directory",
+        "/Users/richardtomskiy/ishur.io/.claude/worktrees/exciting-leavitt-7da93c"
+      ],
+      "port": 4195
     }
   ]
 }

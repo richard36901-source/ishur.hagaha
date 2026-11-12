@@ -368,7 +368,9 @@ async function post(env, body, channel, ctx) {
         phone: String(body.to || ''), detail: tname });
       return { ok: false, error: 'wrong-channel' };
     }
-    if (CLIENT_ONLY_TEMPLATE_RE.test(tname) && wantsGuestChannel) {
+    /* 12/11 (personal-area): ishur_kod is the one template both numbers may send — Noa is unpaid
+       (131042), so the login code falls back to the guests number (account.js ladder) */
+    if (CLIENT_ONLY_TEMPLATE_RE.test(tname) && wantsGuestChannel && tname !== 'ishur_kod') {
       await logEvent(env, { area: 'שליחה', action: 'תבנית לקוחות נשלחה בטעות מערוץ אורחים — נחסם', ok: false, review: true,
         phone: String(body.to || ''), detail: tname });
       return { ok: false, error: 'wrong-channel' };
@@ -591,7 +593,7 @@ export function sendImage(env, to, imageUrl, caption, channel, ctx) {
 
 /* AUTHENTICATION template (ishur_kod): the one-time code fills both the body
    and the copy-code button. */
-export function sendOtpTemplate(env, to, code) {
+export function sendOtpTemplate(env, to, code, channel) {
   return post(env, {
     to: normPhone(to), type: 'template',
     template: {
@@ -601,7 +603,7 @@ export function sendOtpTemplate(env, to, code) {
         { type: 'button', sub_type: 'url', index: '0', parameters: [{ type: 'text', text: String(code) }] },
       ],
     },
-  });
+  }, channel);
 }
 
 /* One template body variable, the way Meta accepts it: no CR/LF/tab (132018),
