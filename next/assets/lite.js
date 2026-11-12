@@ -14,7 +14,7 @@
   var PREFIX = 'lite:', MAX_AGE = 6 * 3600e3, MAX_BYTES = 300000;
   /* next/ copy (12/11 אדמין אחד): one refresh cycle. When the background answer lands and the page reloads on
      'ishur:fresh', that reload reads the answer that just arrived instead of going to the network a second time. */
-  var justLanded = {};
+  var justLanded = {}, serveUntil = 0;   /* the reload window: 1.5 s from the 'ishur:fresh' event (two listeners reload the page) */
   var servedOnce = {}, pending = 0, freshTimer = null, anyFresh = false;
   var realFetch = window.fetch.bind(window);
 
@@ -39,7 +39,7 @@
         localStorage.setItem(k, JSON.stringify({ at: Date.now(), t: text })); } catch (x) {}
     }
   }
-  function fresh() { anyFresh = true; clearTimeout(freshTimer); freshTimer = setTimeout(function () { if (pending > 0) { freshTimer = setTimeout(fresh, 400); return; } try { window.dispatchEvent(new Event('ishur:fresh')); } catch (e) {} badge(false); }, 250); }
+  function fresh() { anyFresh = true; clearTimeout(freshTimer); freshTimer = setTimeout(function () { if (pending > 0) { freshTimer = setTimeout(fresh, 400); return; } serveUntil = Date.now() + 1500; setTimeout(function () { justLanded = {}; }, 1600); try { window.dispatchEvent(new Event('ishur:fresh')); } catch (e) {} badge(false); }, 250); }
   var badgeEl = null;
   function badge(on) {
     if (!badgeEl) { badgeEl = document.createElement('div'); badgeEl.setAttribute('aria-live', 'polite'); badgeEl.style.cssText = 'position:fixed;bottom:12px;inset-inline-start:12px;z-index:9998;font:12px Heebo,sans-serif;background:rgba(27,36,32,.85);color:#fff;border-radius:999px;padding:4px 10px;opacity:0;transition:opacity .2s;pointer-events:none'; badgeEl.textContent = 'מתעדכן…'; (document.body || document.documentElement).appendChild(badgeEl); }
@@ -73,7 +73,7 @@
       return Promise.resolve(mkResponse(hit.t));
     }
     servedOnce[k] = true;
-    if (justLanded[k] && Date.now() - justLanded[k] < 20000) { delete justLanded[k]; var now = get(k); if (now) return Promise.resolve(mkResponse(now.t)); }
+    if (justLanded[k] && Date.now() < serveUntil) { var now = get(k); if (now) return Promise.resolve(mkResponse(now.t)); }
     return net();
   };
   window.IshurLite = { clear: function () { var ks = []; for (var i = 0; i < localStorage.length; i++) { var n = localStorage.key(i); if (n && n.indexOf(PREFIX) === 0) ks.push(n); } ks.forEach(function (n) { localStorage.removeItem(n); }); return ks.length; } };
