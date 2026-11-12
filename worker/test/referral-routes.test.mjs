@@ -109,10 +109,12 @@ test('R6/R6b/R13 IPN: pending record, Slack 🎉, no credit; verify (manual) pos
   assert.equal((await post(e, '/api/referrals/act', { admin_key: 'bad', act: 'verify', id: recId })).status, 403);
   let v = await (await post(e, '/api/referrals/act', { admin_key: 'k', act: 'verify', id: recId, who: 'ריצארד' })).json();
   assert.equal(v.changed, true); assert.equal(v.credited, 76);
-  assert.equal(JSON.parse(e.RATE.m.get('credit:' + REFERRER)).balance, 76);
+  const bal = l => (l.entries || []).reduce((n, x) => n + x.ils, 0) - (l.redeemed || []).reduce((n, x) => n + x.ils, 0);
+  assert.equal(bal(JSON.parse(e.RATE.m.get('credit:' + REFERRER))), 76);
+  assert.deepEqual(Object.keys(JSON.parse(e.RATE.m.get('credit:' + REFERRER)).entries[0]).sort(), ['at', 'ils', 'kind', 'note', 'ref', 'token'], 'account.js ledger shape');
   v = await (await post(e, '/api/referrals/act', { admin_key: 'k', act: 'verify', id: recId })).json();
   assert.equal(v.changed, false, 'second verify is a no-op');
-  assert.equal(JSON.parse(e.RATE.m.get('credit:' + REFERRER)).balance, 76);
+  assert.equal(bal(JSON.parse(e.RATE.m.get('credit:' + REFERRER))), 76);
   const d2 = await (await post(e, '/api/referral', { token: TOK, mode: 'commission' })).json();
   assert.equal(d2.friends, 1); assert.equal(d2.earned, 76); assert.equal(d2.balance, 76); assert.equal(d2.copy, 'הרווחתם ₪76');
   /* admin list + redeem */
@@ -121,7 +123,10 @@ test('R6/R6b/R13 IPN: pending record, Slack 🎉, no credit; verify (manual) pos
   const rd = await (await post(e, '/api/referrals/act', { admin_key: 'k', act: 'redeem', phone: '0501111111', note: 'חבילה חדשה' })).json();
   assert.equal(rd.redeemed, 76);
   assert.equal(JSON.parse(e.RATE.m.get('refrec:' + recId)).redeemed, true);
-  assert.equal(JSON.parse(e.RATE.m.get('credit:' + REFERRER)).balance, 0);
+  assert.equal(bal(JSON.parse(e.RATE.m.get('credit:' + REFERRER))), 0);
+  /* the personal area reads the same row: entries + redeemed, balance 0 */
+  const { readLedger, ledgerBalance } = await import('../account.js');
+  assert.equal(ledgerBalance(await readLedger(e, REFERRER)), 0);
 });
 
 test('R6b invoice hook: a Morning invoice on the friend\'s payment verifies the record and credits', async () => {
@@ -134,7 +139,8 @@ test('R6b invoice hook: a Morning invoice on the friend\'s payment verifies the 
   const rec = JSON.parse(e.RATE.m.get('refrec:' + CODE + ':' + body.asmachta));
   assert.equal(rec.via, 'pending'); assert.equal(rec.sum_package, 303);
   assert.equal(rec.status, 'verified', 'Grow sent an invoice URL → verified at once'); assert.equal(rec.verified_by, 'invoice');
-  assert.equal(JSON.parse(e.RATE.m.get('credit:' + REFERRER)).balance, 61, '20% of 303');
+  const { readLedger: rl, ledgerBalance: lb } = await import('../account.js');
+  assert.equal(lb(await rl(e, REFERRER)), 61, '20% of 303, readable by the personal area');
   assert.equal(e.RATE.m.get('refpend:972503333333'), undefined, 'claim consumed');
 });
 
@@ -152,20 +158,18 @@ test('R6 self-referral is ignored; discount path records the saving, no credit',
   assert.equal(d.copy, 'חברים חסכו ₪76');
 });
 
-test('R14 review claims: client claim waits; admin review_verify credits ₪30/₪20 once', async () => {
+test('R14 the personal area already holds a review credit → a referral credit adds to the same ledger', async () => {
   const e = env();
-  let j = await (await post(e, '/api/review-claim', { token: TOK, kind: 'review_video' })).json();
-  assert.equal(j.ok, true); assert.equal(j.credit, 30); assert.equal(j.pending, true);
-  assert.equal(e.RATE.m.get('credit:' + REFERRER), undefined, 'a claim is not credit');
-  assert.equal((await post(e, '/api/review-claim', { token: TOK, kind: 'raffle' })).status, 400);
-  j = await (await post(e, '/api/referrals/act', { admin_key: 'k', act: 'review_verify', token: TOK, kind: 'review_video' })).json();
-  assert.equal(j.credited, 30); assert.equal(j.balance, 30);
-  j = await (await post(e, '/api/referrals/act', { admin_key: 'k', act: 'review_verify', token: TOK, kind: 'review_video' })).json();
-  assert.equal(j.credited, 0); assert.equal(j.balance, 30, 'once per kind per event');
-  j = await (await post(e, '/api/referrals/act', { admin_key: 'k', act: 'review_verify', token: TOK, kind: 'review_text' })).json();
-  assert.equal(j.balance, 50);
-  const all = await (await post(e, '/api/referrals', { admin_key: 'k' })).json();
-  assert.equal(all.claims.length, 2); assert.ok(all.claims.every(c => c.verified_at));
+  e.RATE.m.set('credit:' + REFERRER, JSON.stringify({ entries: [{ kind: 'review_video', ils: 30, at: '2026-11-12T00:00:00Z', token: TOK }], redeemed: [] }));
+  await post(e, '/api/referral', { token: TOK, mode: 'commission' });
+  await ipn(e, { asmachta: 'TR1', payerPhone: '0505555555', paymentSum: '379', paymentDesc: '300 מוזמנים פרמיום', fullName: 'עדי', cField3: 'ref:' + CODE, _simulated: true });
+  await post(e, '/api/referrals/act', { admin_key: 'k', act: 'verify', id: CODE + ':TR1' });
+  const { readLedger, ledgerBalance } = await import('../account.js');
+  const L = await readLedger(e, REFERRER);
+  assert.equal(ledgerBalance(L), 106); assert.equal(L.entries.length, 2);
+  const d = await (await post(e, '/api/referral', { token: TOK, mode: 'commission' })).json();
+  assert.equal(d.earned, 76, 'the card counts referral credit only'); assert.equal(d.balance, 106, 'the balance is the whole ledger');
+  assert.equal((await post(e, '/api/referrals/act', { admin_key: 'k', act: 'review_verify', token: TOK, kind: 'review_video' })).status, 400, 'no admin review verification any more (account.js credits on claim)');
 });
 
 test('R14 raffle off: /api/raffle/links still hands out the review links + credit amounts', async () => {
@@ -179,7 +183,7 @@ test('R12 ops overview "waiting" line: credit balances + pending referrals', asy
   const { referralWaiting } = await import('../notify.js');
   const e = env();
   assert.deepEqual(await referralWaiting(e), []);
-  e.RATE.m.set('credit:972501111111', JSON.stringify({ balance: 76, entries: [{ kind: 'referral', amount: 76 }] }));
+  e.RATE.m.set('credit:972501111111', JSON.stringify({ entries: [{ kind: 'referral', ils: 76 }], redeemed: [] }));
   e.RATE.m.set('refrec:aaaa1111:T1', JSON.stringify({ status: 'pending' }));
   const w = await referralWaiting(e);
   assert.equal(w[0].title_he, 'זיכויים ממתינים: ₪76 ל-1 לקוחות'); assert.equal(w[1].title_he, 'הפניה אחת ממתינה לאישור (לקוחות › הפניות)');

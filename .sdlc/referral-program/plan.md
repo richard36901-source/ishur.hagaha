@@ -46,3 +46,9 @@ KV keys (all new, prefixed, TTL 730d unless noted): `ref:<tok8>`, `refpend:<phon
 
 ## Proof strategy (which check after which step)
 P1 after 1 · P2+P3 after 2 · P6 after 3 · P4 after 4 and 5 · P3 + ops-ui-smoke after 6 · P5 + P7 after 8 · report after 9. Nothing is "done" before its check ran and its real output is in report.md.
+
+## Deviation log
+- Step 6/8 (12/11 evening): `origin/main` moved under the branch (personal-area, 5 commits) and the shared checkout carried
+  another session's uncommitted worker edits, so the merge and the deploy were done in a separate git worktree on branch
+  `referral-merge` (never stash/commit someone else's work). Conflicts: feedback.html → personal-area's version wins
+  (one credit flow); .claude/launch.json → both entries kept. Credit ledger unified on account.js's shape (see spec amendment).

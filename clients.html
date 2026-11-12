@@ -116,8 +116,6 @@
     <p class="empty" id="refEmpty" hidden>עוד אין הפניות.</p>
     <h2 class="h2s">יתרות זיכוי</h2>
     <div id="refLedgers" class="cards"></div>
-    <h2 class="h2s">ביקורות ממתינות לאימות</h2>
-    <div id="refClaims" class="cards"></div>
     <h2 class="h2s">מי בחר מה</h2>
     <div id="refRefs" class="cards"></div>
   </div>
@@ -165,7 +163,7 @@
     return api('referrals', {}).then(function (r) { return r.json(); }).then(function (d) {
       if (!d || !d.ok) return;
       REFS = d;
-      var pend = (d.records || []).filter(function (x) { return x.status === 'pending'; }).length + (d.claims || []).filter(function (c) { return !c.verified_at; }).length;
+      var pend = (d.records || []).filter(function (x) { return x.status === 'pending'; }).length;
       $('refBadge').hidden = !pend; $('refBadge').textContent = pend;
       renderRefs();
       var popEl = document.querySelector('#pop .pop'); if (popEl) openManage(popEl.dataset.t);
@@ -194,16 +192,9 @@
     $('refLedgers').innerHTML = lk.length ? lk.map(function (p) {
       var l = L[p], who = ((REFS.refs || []).filter(function (x) { return x.phone === p; })[0] || {}).name || '';
       return '<div class="card"><div class="top"><span class="name">' + esc(who || p) + '</span><span class="meta">יתרה ₪' + l.balance + '</span></div>' +
-        '<div class="meta" dir="ltr">' + esc(p) + '</div><div class="tags">' + (l.entries || []).map(function (e) { return '<span class="tag' + (e.redeemed_at ? '' : ' on') + '">' + ({ referral: 'הפניה', review_text: 'ביקורת', review_video: 'סרטון' }[e.kind] || e.kind) + ' ₪' + e.amount + (e.redeemed_at ? ' · מומש' : '') + '</span>'; }).join('') + '</div>' +
+        '<div class="meta" dir="ltr">' + esc(p) + '</div><div class="tags">' + (l.entries || []).map(function (e) { return '<span class="tag on">' + ({ referral: 'הפניה', review_google: 'ביקורת בגוגל', review_video: 'סרטון' }[e.kind] || e.kind) + ' ₪' + e.ils + '</span>'; }).join('') + (l.redeemed || []).map(function (e) { return '<span class="tag">מומש ₪' + e.ils + ' · ' + heDT(e.at) + '</span>'; }).join('') + '</div>' +
         (l.balance ? '<div class="acts"><button class="btn g" data-ract="redeem" data-phone="' + esc(p) + '">סמן ₪' + l.balance + ' כמומש</button></div>' : '') + '</div>';
     }).join('') : '<p class="empty">אין זיכויים.</p>';
-    var cl = (REFS.claims || []).slice().sort(function (a, b) { return (a.verified_at ? 1 : 0) - (b.verified_at ? 1 : 0); });
-    $('refClaims').innerHTML = cl.length ? cl.map(function (c) {
-      var kind = c.kind === 'review_video' ? 'סרטון · ₪30' : 'ביקורת · ₪20';
-      return '<div class="card"><div class="top"><span class="name">' + esc(c.name || c.phone) + '</span><span class="meta">' + kind + ' · ' + heDT(c.at) + '</span></div><div class="meta" dir="ltr">' + esc(c.phone) + '</div>' +
-        '<div class="acts">' + (c.verified_at ? '<span class="pill ok">אומת ' + heDT(c.verified_at) + '</span>' : '<button class="btn g" data-ract="review_verify" data-token="' + esc(c.token) + '" data-kind="' + esc(c.kind) + '">אומת · זקוף ' + (c.kind === 'review_video' ? '₪30' : '₪20') + '</button>') +
-        ' <a class="btn" href="dashboard.html?t=' + esc(c.token) + '" target="_blank">לוח</a></div></div>';
-    }).join('') : '<p class="empty">אין ביקורות ממתינות.</p>';
     var rf = REFS.refs || [];
     $('refRefs').innerHTML = rf.length ? rf.map(function (r) {
       return '<div class="card"><div class="top"><span class="name">' + esc(r.name || r.phone) + '</span><span class="meta">' + (r.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה') + (r.locked ? ' · נעול' : '') + '</span></div><div class="meta">קוד <span dir="ltr">' + esc(r.code) + '</span> · ishur.io/?ref=' + esc(r.code) + ' · ' + heDT(r.at) + '</div></div>';
@@ -216,9 +207,8 @@
     var body = { act: act, who: 'ריצארד' };
     if (act === 'verify') { if (!(await askConfirm('הזיכוי ייזקף למפנה עכשיו, בלי לחכות לחשבונית.', { title: 'לאשר את ההפניה?', ok: 'אשר' }))) { b.disabled = false; return; } body.id = b.dataset.id; }
     if (act === 'redeem') { if (!(await askConfirm('היתרה תתאפס ותסומן כמומשה.', { title: 'לסמן את הזיכוי כמומש?', ok: 'כן, מומש' }))) { b.disabled = false; return; } body.phone = b.dataset.phone; }
-    if (act === 'review_verify') { body.token = b.dataset.token; body.kind = b.dataset.kind; }
     api('referrals/act', body).then(function (r) { return r.json(); }).then(function (j) {
-      toast(j && j.ok ? (act === 'verify' ? (j.credited ? 'אושר · ₪' + j.credited + ' נזקף' : 'אושר') : act === 'redeem' ? 'סומן כמומש · ₪' + (j.redeemed || 0) : (j.credited ? 'נזקף ₪' + j.credited : 'כבר נזקף')) : 'לא הצליח' + (j && j.error ? ': ' + j.error : ''));
+      toast(j && j.ok ? (act === 'verify' ? (j.credited ? 'אושר · ₪' + j.credited + ' נזקף' : 'אושר') : 'סומן כמומש · ₪' + (j.redeemed || 0)) : 'לא הצליח' + (j && j.error ? ': ' + j.error : ''));
       return loadRefs();
     }).catch(function () { toast('שגיאה'); b.disabled = false; });
   }

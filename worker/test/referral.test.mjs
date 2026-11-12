@@ -67,7 +67,7 @@ test('R6/R6b record: pending at payment, credit only on verify, once', () => {
   const v1 = R.verifyRecord(rec, { by: 'invoice', at: '2026-11-12T11:05:00Z' });
   assert.equal(v1.changed, true); assert.equal(v1.credit, 76); assert.equal(v1.rec.verified_by, 'invoice');
   L = R.ledgerAdd(L, { kind: 'referral', amount: v1.credit, ref: 'TX1', token: rec.friend_token }).ledger;
-  assert.equal(L.balance, 76);
+  assert.equal(R.ledgerBalance(L), 76); assert.equal(L.entries[0].ils, 76, 'account.js shape: ils, not amount');
   const v2 = R.verifyRecord(v1.rec, { by: 'manual' });
   assert.equal(v2.changed, false); assert.equal(v2.credit, 0, 'second verify credits nothing');
   assert.equal(R.ledgerAdd(L, { kind: 'referral', amount: 76, ref: 'TX1', token: rec.friend_token }).added, false, 'ledger dedupes the same ref');
@@ -85,19 +85,18 @@ test('R6/R6b record: pending at payment, credit only on verify, once', () => {
   /* redeem */
   assert.equal(R.redeemRecord(rec).changed, false, 'a pending record cannot be redeemed');
   assert.equal(R.redeemRecord(v1.rec).rec.redeemed, true);
-  const rr = R.ledgerRedeem(L, { note: 'package' }); assert.equal(rr.redeemed, 76); assert.equal(rr.ledger.balance, 0);
+  const rr = R.ledgerRedeem(L, { note: 'package' }); assert.equal(rr.redeemed, 76); assert.equal(R.ledgerBalance(rr.ledger), 0); assert.equal(rr.ledger.redeemed[0].ils, 76);
+  /* a ledger the personal area wrote (review credits) is read as-is and summed together */
+  const pa = { entries: [{ kind: 'review_video', ils: 30, at: 'x', token: 't1' }], redeemed: [] };
+  assert.equal(R.ledgerBalance(R.ledgerAdd(pa, { kind: 'referral', amount: 76, ref: 'TX9' }).ledger), 106);
 });
 
-test('R7 review credits: ₪20 text/Google, ₪30 video, once per kind per event', () => {
-  assert.equal(R.reviewCredit('review_text'), 20); assert.equal(R.reviewCredit('review_video'), 30); assert.equal(R.reviewCredit('raffle'), 0);
-  let L = R.emptyLedger();
-  L = R.ledgerAdd(L, { kind: 'review_video', amount: 30, token: 't1' }).ledger;
-  L = R.ledgerAdd(L, { kind: 'review_text', amount: 20, token: 't1' }).ledger;
-  assert.equal(R.ledgerAdd(L, { kind: 'review_video', amount: 30, token: 't1' }).added, false);
-  assert.equal(R.ledgerAdd(L, { kind: 'review_video', amount: 30, token: 't2' }).added, true, 'another event earns again');
-  assert.equal(L.balance, 50);
-  assert.equal(R.pendingLine([L, R.emptyLedger(), { balance: 76, entries: [] }]), 'זיכויים ממתינים: ₪126 ל-2 לקוחות');
-  assert.equal(R.pendingLine([R.emptyLedger()]), '');
+test('R7 review credits live in account.js (₪20 Google, ₪30 video); the referral ledger math matches it', () => {
+  assert.deepEqual(R.REVIEW_CREDIT, { review_google: 20, review_video: 30 });
+  const L = { entries: [{ kind: 'review_video', ils: 30, token: 't1' }, { kind: 'review_google', ils: 20, token: 't1' }], redeemed: [] };
+  assert.equal(R.ledgerBalance(L), 50);
+  assert.equal(R.pendingLine([L, R.emptyLedger(), { entries: [{ kind: 'referral', ils: 76 }], redeemed: [] }]), 'זיכויים ממתינים: ₪126 ל-2 לקוחות');
+  assert.equal(R.pendingLine([R.emptyLedger(), { entries: [{ ils: 30 }], redeemed: [{ ils: 30 }] }]), '', 'a redeemed ledger is not waiting');
 });
 
 test('R13 Slack line', () => {

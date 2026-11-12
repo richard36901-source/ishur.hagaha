@@ -64,6 +64,8 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
+import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail } from './account.js';   /* 12/11 personal-area */
+import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
@@ -250,7 +252,7 @@ async function refRecordsOf(env, code) {
 }
 async function ledgerOf(env, phone) {
   if (!env.RATE || !phone) return REF.emptyLedger();
-  try { return JSON.parse(await env.RATE.get('credit:' + phone) || 'null') || REF.emptyLedger(); } catch { return REF.emptyLedger(); }
+  try { const l = JSON.parse(await env.RATE.get('credit:' + phone) || 'null'); return l && typeof l === 'object' ? { entries: l.entries || [], redeemed: l.redeemed || [] } : REF.emptyLedger(); } catch { return REF.emptyLedger(); }
 }
 const REF_TTL = 730 * 86400;
 async function referralOnPaid(env, { flat, phone, name, token, sum, ref: ipnRef, purchase }) {
@@ -296,7 +298,7 @@ async function referralVerify(env, recId, { by = 'manual', who = '' } = {}) {
   if (v.credit && v.rec.referrer_phone) {
     const L = await ledgerOf(env, v.rec.referrer_phone);
     const r = REF.ledgerAdd(L, { kind: 'referral', amount: v.credit, ref: String(recId).split(':')[1] || recId, token: v.rec.friend_token, note: v.rec.friend_name });
-    if (r.added) { await env.RATE.put('credit:' + v.rec.referrer_phone, JSON.stringify(r.ledger), { expirationTtl: REF_TTL }); credited = v.credit; }
+    if (r.added) { await env.RATE.put('credit:' + v.rec.referrer_phone, JSON.stringify(r.ledger)); credited = v.credit; }
   }
   await logEvent(env, { area: 'הפניות', action: `הפניה אושרה (${by === 'invoice' ? 'חשבונית יצאה' : 'ידנית' + (who ? ' · ' + who : '')})${credited ? ' · זיכוי ₪' + credited + ' נזקף למפנה' : ''}`, ok: true, phone: v.rec.friend_phone, token: v.rec.friend_token, ref: v.rec.code, detail: recId }).catch(() => {});
   return { ok: true, changed: true, rec: v.rec, credited };
@@ -7626,6 +7628,11 @@ function eventsForPhone(raw, phone) {
   return out;
 }
 
+/* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
+function accountDeps() {
+  return { okJson, deny, normPhone, overBudget, safeEqual, readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
+    sendOtpTemplate, sendEmail: sendPlainEmail, today: () => ilDate() };
+}
 async function handleOtpSend(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -7644,13 +7651,16 @@ async function handleOtpSend(request, env, origin) {
   await env.RATE.put('otp:' + phone,
     JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600 }),
     { expirationTtl: 600 });
-  const wa = await sendOtpTemplate(env, phone, code);
+  /* 12/11 (Richard: "מה שעובד עם הקוד לטלפון לא עובד טוב"): the same ladder as the personal area —
+     Noa → guests number → email the client gave us / the leads sheet */
+  const contact = await readContact(env, phone);
+  const wa = await sendLoginCode(env, phone, code, { email: validEmail(contact.email) ? contact.email.trim() : emailFromLeads(raw, phone), d: accountDeps() });
   if (!wa.ok) {
-    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + wa.error, { key: 'otp_fail:' + phone });
+    await alert(env, 'קוד כניסה', 'שליחת קוד הכניסה נכשלה', phone + ': ' + (wa.tried || []).join(' · '), { key: 'otp_fail:' + phone });
     return deny(502, 'send-failed', origin);
   }
-  await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', msgCost('ishur_kod'));
-  return okJson({ ok: true }, origin);
+  if (wa.via !== 'email') await addEvCost(env, (eventsForPhone(raw, phone)[0] || {}).token || '', msgCost('ishur_kod'));
+  return okJson({ ok: true, via: wa.via }, origin);
 }
 
 /* ══ Seating: the client assigns tables from their dashboard ═════════════════
@@ -12057,6 +12067,23 @@ const WORKER = {
       if (b.format === 'csv') return new Response(await auditExport(env, tok, 'csv'), { headers: { ...cors(origin), 'Content-Type': 'text/csv; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-audit-${tok.slice(0, 8)}.csv"` } });
       return okJson(await auditExport(env, tok, 'json'), origin);
     }
+    /* 12/11 personal-area: one-time — the login-code template on the guests WABA so the code can leave
+       from Shir's number while Noa is unpaid (131042). {check:true} only reads; otherwise submits. */
+    if (url.pathname === '/api/account/setup-template' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.WA_TOKEN_GUESTS) return deny(503, 'guests-token-missing', origin);
+      const waba = clientWabaFor('guests'), H = { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS, 'Content-Type': 'application/json' };
+      const cur = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=ishur_kod&fields=name,status,category,language`, { headers: H }).then(r => r.json()).catch(() => ({}));
+      const have = (cur.data || []).filter(t => t.name === 'ishur_kod');
+      if (b.check === true || have.length) return okJson({ ok: true, exists: have.length > 0, templates: have }, origin);
+      const payload = { name: 'ishur_kod', language: 'he', category: 'AUTHENTICATION', components: [
+        { type: 'BODY', add_security_recommendation: true }, { type: 'FOOTER', code_expiration_minutes: 10 }, { type: 'BUTTONS', buttons: [{ type: 'OTP', otp_type: 'COPY_CODE', text: 'העתקת הקוד' }] } ] };
+      const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: H, body: JSON.stringify(payload) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      await logEvent(env, { area: 'מטא', action: j.id ? 'תבנית ishur_kod הוגשה על מספר האורחים' : 'הגשת ishur_kod על מספר האורחים נכשלה', ok: !!j.id, review: !j.id, ref: 'ishur_kod', detail: j.id ? `id ${j.id} · ${j.status || ''}` : String((j.error && (j.error.error_user_msg || j.error.message)) || 'submit-failed').slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!j.id, id: j.id || '', status: j.status || '', error: j.error ? String(j.error.error_user_msg || j.error.message || '').slice(0, 200) : '' }, origin);
+    }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
     }
@@ -12415,6 +12442,9 @@ const WORKER = {
     if (url.pathname === '/api/cost-log' && request.method === 'POST') {
       return handleCostLog(request, env, origin);
     }
+    /* 12/11 personal-area (account.html): phone → code → session → events / credit / contact */
+    if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') return handleAccount(request, env, origin, url, accountDeps());
+    if (url.pathname === '/api/review-claim' && request.method === 'POST') return handleReviewClaim(request, env, origin, accountDeps());
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);
     }
@@ -12535,13 +12565,12 @@ const WORKER = {
     if (url.pathname === '/api/referrals' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const refs = [], records = [], claims = [], ledgers = {};
+      const refs = [], records = [], ledgers = {};
       for (const k of (await env.RATE.list({ prefix: 'ref:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) refs.push(r); } catch {} }
       for (const k of (await env.RATE.list({ prefix: 'refrec:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) records.push(r); } catch {} }
-      for (const k of (await env.RATE.list({ prefix: 'revclaim:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) claims.push(r); } catch {} }
       for (const k of (await env.RATE.list({ prefix: 'credit:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) ledgers[k.name.slice(7)] = r; } catch {} }
       records.sort((a, c) => String(c.at).localeCompare(String(a.at)));
-      return okJson({ ok: true, refs, records, claims, ledgers, pending_line: REF.pendingLine(Object.values(ledgers)) }, origin);
+      return okJson({ ok: true, refs, records, ledgers: Object.fromEntries(Object.entries(ledgers).map(([p, l]) => [p, { ...l, balance: REF.ledgerBalance(l) }])), pending_line: REF.pendingLine(Object.values(ledgers)) }, origin);
     }
     if (url.pathname === '/api/referrals/act' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -12558,48 +12587,14 @@ const WORKER = {
         if (!phone) return deny(400, 'bad-phone', origin);
         const L = await ledgerOf(env, phone);
         const r = REF.ledgerRedeem(L, { note: String(b.note || '').slice(0, 80) });
-        await env.RATE.put('credit:' + phone, JSON.stringify(r.ledger), { expirationTtl: REF_TTL });
+        await env.RATE.put('credit:' + phone, JSON.stringify(r.ledger));
         for (const k of (await env.RATE.list({ prefix: 'refrec:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) {
           try { const rec = JSON.parse(await env.RATE.get(k.name) || 'null'); if (rec && rec.referrer_phone === phone) { const rr = REF.redeemRecord(rec); if (rr.changed) await env.RATE.put(k.name, JSON.stringify(rr.rec), { expirationTtl: REF_TTL }); } } catch {}
         }
         await logEvent(env, { area: 'הפניות', action: `זיכוי ₪${r.redeemed} מומש${who ? ' · ' + who : ''}`, ok: true, phone, detail: String(b.note || '') }).catch(() => {});
         return okJson({ ok: true, redeemed: r.redeemed }, origin);
       }
-      if (b.act === 'review_verify') {
-        /* a review claim (feedback.html) → ₪20 text/Google, ₪30 video, once per kind per event */
-        const token = String(b.token || '').toLowerCase(), kind = String(b.kind || '');
-        if (!/^[0-9a-f-]{36}$/.test(token) || !REF.REVIEW_KINDS.includes(kind)) return deny(400, 'bad-claim', origin);
-        let claim = null; try { claim = JSON.parse(await env.RATE.get('revclaim:' + token + ':' + kind) || 'null'); } catch {}
-        const rec = await tokenRecord(env, token);
-        const phone = (claim && claim.phone) || (rec && rec.phone) || '';
-        if (!phone) return deny(404, 'no-phone', origin);
-        const L = await ledgerOf(env, phone);
-        const r = REF.ledgerAdd(L, { kind, amount: REF.reviewCredit(kind), token, note: kind === 'review_video' ? 'סרטון' : 'ביקורת' });
-        if (r.added) await env.RATE.put('credit:' + phone, JSON.stringify(r.ledger), { expirationTtl: REF_TTL });
-        await env.RATE.put('revclaim:' + token + ':' + kind, JSON.stringify({ ...(claim || { token, kind, phone }), verified_at: new Date().toISOString(), verified_by: who }), { expirationTtl: REF_TTL });
-        await logEvent(env, { area: 'הפניות', action: `ביקורת אומתה (${kind === 'review_video' ? 'סרטון ₪30' : 'טקסט ₪20'})${r.added ? ' · נזקף' : ' · כבר נזקף'}`, ok: true, phone, token }).catch(() => {});
-        return okJson({ ok: true, credited: r.added ? REF.reviewCredit(kind) : 0, balance: r.ledger.balance }, origin);
-      }
       return deny(400, 'bad-act', origin);
-    }
-    /* a review claim with the raffle off (feedback.html): the claim waits for Richard's "אומת" */
-    if (url.pathname === '/api/review-claim' && request.method === 'POST') {
-      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const token = String(b.token || '').toLowerCase(), kind = String(b.kind || '');
-      if (!/^[0-9a-f-]{36}$/.test(token) || !REF.REVIEW_KINDS.includes(kind)) return deny(400, 'bad-claim', origin);
-      if (await overBudget(env, 'rl:revclaim:' + token, 20, 3600)) return deny(429, 'slow-down', origin);
-      const rec = await tokenRecord(env, token);
-      if (!rec) return deny(404, 'unknown-token', origin);
-      const phone = String(b.who || '') === '2' ? normPhone(b.phone || '') : rec.phone;
-      if (!phone) return deny(400, 'bad-phone', origin);
-      const key = 'revclaim:' + token + ':' + kind;
-      let prev = null; try { prev = JSON.parse(await env.RATE.get(key) || 'null'); } catch {}
-      if (!prev) {
-        await env.RATE.put(key, JSON.stringify({ token, kind, phone, name: String(b.name || rec.name || '').slice(0, 80), at: new Date().toISOString(), verified_at: '' }), { expirationTtl: REF_TTL });
-        await logEvent(env, { area: 'הפניות', action: `ביקורת נרשמה (${kind === 'review_video' ? 'סרטון' : 'טקסט/גוגל'}) — ממתינה לאימות`, ok: true, phone, token }).catch(() => {});
-        try { await slackPost(env, `⭐ *ביקורת ממתינה לאימות* · ${rec.name || phone} · ${kind === 'review_video' ? 'סרטון (₪30)' : 'ביקורת (₪20)'} · לאשר בלקוחות › הפניות`, { urgent: false, oneoff: true }); } catch {}
-      }
-      return okJson({ ok: true, credit: REF.reviewCredit(kind), pending: true }, origin);
     }
     if (url.pathname === '/api/client-flags' && request.method === 'POST') {
       let b = {};
@@ -12966,6 +12961,11 @@ const WORKER = {
       if (who) rec.who = 2;
       /* clicks on the review / video links, and leaving without clicking —
          so the sheet says who recommended where and who dropped off */
+      /* 12/11 personal-area: feedback.html?step=video|google asks where this event stands before showing a step */
+      if (b.state === true) {
+        const st = reviewState(rec), brain = await getBrain(env);
+        return okJson({ ok: true, name, ...st, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim(), balance_ils: env.RATE ? ledgerBalance(await readLedger(env, phone)) : 0 }, origin);
+      }
       if (b.click === 'review' || b.click === 'clip' || b.left === true) {
         const what = b.click === 'review' ? 'לחץ: ביקורת בגוגל' : b.click === 'clip' ? 'לחץ: המלצת וידאו' : 'עזב בלי ללחוץ';
         if (b.left === true && (rec.clicked_review || rec.clicked_clip)) return okJson({ ok: true }, origin);
@@ -12997,7 +12997,9 @@ const WORKER = {
       await slackSend(env, `${route === 'high' ? '💚' : '🟠'} *משוב סוף אירוע* · ${evName} · ${phone}
 ימליץ ${nps}/10 · חוויה ${exp}/10 → ${route === 'high' ? 'נשלח לביקורת בגוגל' : 'התבקש לכתוב מה לא היה בסדר'}`, { urgent: false, oneoff: true });   /* oneoff: one feedback */
       const brain = await getBrain(env);
-      return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim() }, origin);
+      /* 12/11 personal-area: a returning client is not asked twice, and sees the credit */
+      const st = reviewState(rec), bal = env.RATE ? ledgerBalance(await readLedger(env, phone)) : 0;
+      return okJson({ ok: true, route, name, review: String(brain.reviewLink || '').trim(), clip: String(brain.testimonialLink || '').trim(), scored: true, video: st.video, google: st.google, balance_ils: bal }, origin);
     }
     /* admin: re-report a purchase to Meta (CAPI) with its original time — for
        a payment whose first report did not land (max 7 days back) */

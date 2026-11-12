@@ -13,18 +13,17 @@
    when the friend's invoice exists (verified_by:'invoice') or Richard presses
    "אשר הפניה" (verified_by:'manual'). verifyRecord is idempotent.
 
-   Reviews earn credit too (text/Google ₪20, video ₪30), once per kind per
-   event, posted when Richard marks the claim verified. The raffle stays off.
+   Reviews earn credit too (Google ₪20, video ₪30) — that part lives in
+   account.js (handleReviewClaim, immediate and idempotent). The raffle stays off.
 
    KV (index.js): ref:<code> · refpend:<phone> (30d) · refrec:<code>:<ipnRef>
-   · credit:<phone> · revclaim:<token>:<kind>. refcred:<code> (tier) unchanged.
+   · reffriend:<token> · credit:<phone> (account.js shape). refcred:<code> (tier) unchanged.
    ========================================================================== */
 
 export const CODE_RE = /^[0-9a-f]{8}$/;
 export const MODES = ['discount', 'commission'];
 export const PCT = 20;
-export const REVIEW_CREDIT = { review_text: 20, review_video: 30 };
-export const REVIEW_KINDS = Object.keys(REVIEW_CREDIT);
+export const REVIEW_CREDIT = { review_google: 20, review_video: 30 };   /* mirrors account.js CREDIT_ILS */
 export const SITE = 'https://ishur.io';
 
 export const codeOf = token => String(token || '').slice(0, 8).toLowerCase();
@@ -117,23 +116,27 @@ export function redeemRecord(rec, { on = true, at = new Date().toISOString() } =
   return { rec: { ...rec, redeemed: !!on, redeemed_at: on ? at : '' }, changed: true };
 }
 
-/* ── the credit ledger, one per client phone ─────────────────────────── */
-export const emptyLedger = () => ({ balance: 0, entries: [] });
+/* ── the credit ledger, one per client phone ─────────────────────────────
+   Owned by account.js (personal area): credit:<phone> = {entries:[{kind, ils, at, token}], redeemed:[{ils, at, note}]}.
+   The referral program appends here; balance = Σentries − Σredeemed (account.js ledgerBalance). */
+export const emptyLedger = () => ({ entries: [], redeemed: [] });
+const sumIls = a => (Array.isArray(a) ? a : []).reduce((n, e) => n + (Number(e && e.ils) || 0), 0);
+export const ledgerBalance = L => Math.max(0, sumIls(L && L.entries) - sumIls(L && L.redeemed));
 export function ledgerAdd(ledger, { kind, amount, ref = '', token = '', at = new Date().toISOString(), note = '' }) {
-  const L = ledger || emptyLedger();
+  const L = { entries: Array.isArray(ledger && ledger.entries) ? ledger.entries : [], redeemed: Array.isArray(ledger && ledger.redeemed) ? ledger.redeemed : [] };
   const key = `${kind}:${token}:${ref}`;
-  if (L.entries.some(e => `${e.kind}:${e.token}:${e.ref}` === key)) return { ledger: L, added: false };
-  const amt = Math.max(0, Math.round(Number(amount) || 0));
-  if (!amt) return { ledger: L, added: false };
-  return { ledger: { balance: L.balance + amt, entries: [...L.entries, { kind, amount: amt, ref, token, at, note, redeemed_at: '' }] }, added: true };
+  if (L.entries.some(e => `${e.kind}:${e.token || ''}:${e.ref || ''}` === key)) return { ledger: L, added: false };
+  const ils = Math.max(0, Math.round(Number(amount) || 0));
+  if (!ils) return { ledger: L, added: false };
+  return { ledger: { ...L, entries: [...L.entries, { kind, ils, ref, token, at, note }] }, added: true };
 }
 /* redeem = the whole open balance against a package (no partials for now) */
 export function ledgerRedeem(ledger, { at = new Date().toISOString(), note = '' } = {}) {
-  const L = ledger || emptyLedger();
-  if (!L.balance) return { ledger: L, redeemed: 0 };
-  return { ledger: { balance: 0, entries: L.entries.map(e => e.redeemed_at ? e : { ...e, redeemed_at: at, redeem_note: note }) }, redeemed: L.balance };
+  const L = { entries: Array.isArray(ledger && ledger.entries) ? ledger.entries : [], redeemed: Array.isArray(ledger && ledger.redeemed) ? ledger.redeemed : [] };
+  const bal = ledgerBalance(L);
+  if (!bal) return { ledger: L, redeemed: 0 };
+  return { ledger: { ...L, redeemed: [...L.redeemed, { ils: bal, at, note }] }, redeemed: bal };
 }
-export function reviewCredit(kind) { return REVIEW_CREDIT[kind] || 0; }
 
 /* ── what people read ─────────────────────────────────────────────────── */
 export function slackLine(rec) {
@@ -149,8 +152,8 @@ export function refSummary(ref, recs = [], ledger = null) {
     mode: ref ? ref.mode : '', code: ref ? ref.code : '', link: ref ? refLink(ref.code) : '', locked: !!(ref && ref.locked) || recs.length > 0,
     friends: ver.length, pending: pend.length,
     saved: ver.reduce((s, r) => s + (r.discount_given || 0), 0),
-    earned: L.entries.filter(e => e.kind === 'referral').reduce((s, e) => s + e.amount, 0),
-    balance: L.balance,
+    earned: (L.entries || []).filter(e => e.kind === 'referral').reduce((s, e) => s + (Number(e.ils) || 0), 0),
+    balance: ledgerBalance(L),
   };
 }
 export function cardCopy(sum) {
@@ -158,7 +161,7 @@ export function cardCopy(sum) {
 }
 /* ops home: one line when credit waits */
 export function pendingLine(ledgers = []) {
-  const open = ledgers.filter(l => l && l.balance > 0);
+  const open = ledgers.map(l => ledgerBalance(l)).filter(b => b > 0);
   if (!open.length) return '';
-  return `זיכויים ממתינים: ₪${open.reduce((s, l) => s + l.balance, 0)} ל-${open.length} לקוחות`;
+  return `זיכויים ממתינים: ₪${open.reduce((s, b) => s + b, 0)} ל-${open.length} לקוחות`;
 }

@@ -129,28 +129,31 @@
     <p class="fine"><a href="raffle-terms.html" target="_blank" rel="noopener">תנאי ההגרלה</a> · תודה מכל הלב, צוות ishur.io</p>
   </section>
 
-  <section id="s-high" hidden>
+  <!-- 12/11 (Richard): the credit flow — choose video OR Google, thank-you after each, the other one offered once more -->
+  <section id="s-choice" hidden>
     <div class="mark">💚</div>
     <h1>איזה כיף לשמוע!</h1>
-    <p class="lede">אם יש לכם דקה, 30 שניות של המלצה בווידאו או באודיו עוזרות לנו יותר מכל דבר אחר.</p>
-    <a class="btn" id="clip" href="#" target="_blank" rel="noopener">🎥 להקליט המלצה קצרה</a>
-    <!-- 12/11 הזמן חבר: with the raffle off, a review earns credit (₪30 video · ₪20 text/Google) toward the next package -->
-    <div id="credit" hidden>
-      <p class="lede" style="margin-top:.6rem">וכתודה: ₪30 זיכוי על סרטון, ₪20 על ביקורת בגוגל. הזיכוי מחכה לכם לאירוע הבא.</p>
-      <div class="act" id="cVideo" hidden>
-        <span class="tag">₪30</span><h3>🎥 סרטון קצר</h3><p>המלצה בווידאו, עד דקה. נפתח בחלון חדש.</p>
-        <a class="btn" id="cvGo" href="#" target="_blank" rel="noopener">להקלטת הסרטון</a>
-        <button class="btn sec" id="cvDone" type="button" hidden>שלחתי את הסרטון ✓</button>
-      </div>
-      <div class="act" id="cGoogle" hidden>
-        <span class="tag">₪20</span><h3>⭐ ביקורת בגוגל</h3><p>כמה מילים בגוגל. נפתח בחלון חדש.</p>
-        <a class="btn" id="cgGo" href="#" target="_blank" rel="noopener">לכתיבת ביקורת בגוגל</a>
-        <button class="btn sec" id="cgDone" type="button" hidden>סיימתי ✓</button>
-      </div>
-      <p class="err" id="err4"></p>
-      <p class="fine">הזיכוי נרשם אחרי שנאשר את הביקורת, למימוש על החבילות והתוספות שלנו (לא במזומן).</p>
-    </div>
-    <p class="fine">תודה מכל הלב, צוות ishur.io</p>
+    <p class="lede">המלצה שלכם עוזרת לנו יותר מכל דבר אחר, ועל כל אחת נרשם לכם זיכוי לאירוע הבא. בוחרים מה שנוח לכם:</p>
+    <div class="act" id="cVideo"><span class="tag">₪30 זיכוי</span><h3>🎥 המלצת וידאו</h3><p>30 שניות מהטלפון, בלי הכנה. נפתח בחלון חדש.</p><button class="btn" type="button" data-pick="video">להקליט המלצה</button></div>
+    <div class="act" id="cGoogle"><span class="tag">₪20 זיכוי</span><h3>⭐ ביקורת בגוגל</h3><p>כמה מילים בדף של ishur.io בגוגל. נפתח בחלון חדש.</p><button class="btn sec" type="button" data-pick="google">לכתוב ביקורת</button></div>
+    <button class="btn sec" id="cSkip" type="button" style="margin-top:1rem">לא עכשיו</button>
+    <p class="fine" id="cFine">הזיכוי נרשם על שמכם ומתממש בחבילות ובתוספות שלנו. רואים אותו <a href="account.html">באזור האישי</a>.</p>
+  </section>
+  <section id="s-step" hidden>
+    <div class="mark" id="stMark">🎥</div>
+    <h1 id="stH"></h1>
+    <p class="lede" id="stLede"></p>
+    <a class="btn" id="stGo" href="#" target="_blank" rel="noopener"></a>
+    <button class="btn sec" id="stDone" type="button" hidden></button>
+    <button class="btn sec" id="stBack" type="button">חזרה</button>
+    <p class="err" id="err4"></p>
+  </section>
+  <section id="s-thanks" hidden>
+    <div class="mark">🎁</div>
+    <h1 id="thH">תודה!</h1>
+    <p class="lede" id="thLede"></p>
+    <div class="act" id="thOther" hidden><span class="tag" id="thTag"></span><h3 id="thOtherH"></h3><p id="thOtherP"></p><button class="btn" type="button" id="thOtherBtn"></button></div>
+    <p class="fine" id="thFine"></p>
   </section>
 
   <section id="s-done" hidden>
@@ -195,16 +198,17 @@
     return fetch(CFG.endpoint('feedback'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json(); });
   }
-  var route = '', clip = '', R = null, tickets = [], waSent = false;
+  var route = '', clip = '', review = '', R = null, tickets = [], waSent = false;
+  var done = { video: false, google: false }, bal = 0, stepParam = new URLSearchParams(location.search).get('step');
   /* raffle config: one GET, never blocks the scores */
   var rafP = fetch(CFG.endpoint('raffle-config')).then(function (r) { return r.json(); }).catch(function () { return null; });
-  function show(id) { ['s1', 's-text', 's-raffle', 's-high', 's-done', 's-tix'].forEach(function (x) { $(x).hidden = x !== id; }); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} }
+  function show(id) { ['s1', 's-text', 's-raffle', 's-choice', 's-step', 's-thanks', 's-done', 's-tix'].forEach(function (x) { $(x).hidden = x !== id; }); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} }
   function beacon(o) { o.token = token; o.who = who; try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify(o)], { type: 'application/json' })); } catch (e) { post(o); } }
   $('go').addEventListener('click', function () {
     $('go').disabled = true; $('err').textContent = '';
     post({ nps: ans.nps, exp: ans.exp, who: who }).then(function (j) {
       if (!j || !j.ok) { $('err').textContent = j && j.error === 'bad-token' ? 'הקישור לא תקין' : 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; return; }
-      route = j.route; clip = j.clip || '';
+      route = j.route; clip = j.clip || ''; review = j.review || ''; done = { video: !!j.video, google: !!j.google }; bal = Number(j.balance_ils) || 0;
       ph('feedback_scored', { nps: ans.nps, exp: ans.exp, route: j.route });
       try { if (window.posthog && posthog.identify) posthog.identify('event:' + token.slice(0, 8), { feedback_nps: ans.nps, feedback_exp: ans.exp, feedback_route: j.route, client_name: j.name || '' }); } catch (e) {}
       /* Richard 03/11: the free text opens right after the scores, for every score */
@@ -217,7 +221,7 @@
     if (route !== 'high') { show('s-done'); return; }
     rafP.then(function (c) {
       R = c && c.on && !c.drawn && Date.parse(c.draw_at) > Date.now() && (c.video || c.google) ? c : null;
-      if (!R) { if (clip) $('clip').href = clip; else $('clip').hidden = true; show('s-high'); creditOffer(); return; }
+      if (!R) { showChoice(); return; }
       $('rPrize').textContent = R.prize_he; $('rDate').textContent = dateHe(R.draw_at);
       if (R.video) { $('vGo').href = R.video_url; $('aVideo').hidden = false; }
       if (R.google) { $('gGo').href = R.google_review_url; $('aGoogle').hidden = false; }
@@ -227,31 +231,6 @@
       show('s-raffle');
     });
   }
-  /* 12/11 הזמן חבר: the raffle is off → the same two links earn credit; a click shows the claim button, the claim waits for Richard's "אומת" */
-  function creditOffer() {
-    fetch(CFG.endpoint('raffle/links')).then(function (r) { return r.json(); }).then(function (l) {
-      if (!l || !l.ok || (!l.video_url && !l.google_review_url)) return;
-      $('credit').hidden = false; $('clip').hidden = true;
-      if (l.video_url) { $('cvGo').href = l.video_url; $('cVideo').hidden = false; }
-      if (l.google_review_url) { $('cgGo').href = l.google_review_url; $('cGoogle').hidden = false; }
-      ph('credit_offer_shown');
-    }).catch(function () {});
-  }
-  function creditClaim(kind, btn, box) {
-    btn.disabled = true; $('err4').textContent = '';
-    var body = { token: token, who: who, kind: kind };
-    if (who) { body.name = ($('rName') && $('rName').value.trim()) || ''; body.phone = ($('rPhone') && $('rPhone').value.trim()) || ''; }
-    fetch(CFG.endpoint('review-claim'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { return r.json(); }).then(function (j) {
-        if (!j || !j.ok) { btn.disabled = false; $('err4').textContent = 'לא הצלחנו לשמור, נסו שוב'; return; }
-        box.classList.add('done'); btn.textContent = (kind === 'review_video' ? 'הסרטון נרשם' : 'הביקורת נרשמה') + ' ✓ · ₪' + j.credit + ' אחרי האישור';
-        ph('credit_claim', { kind: kind });
-      }).catch(function () { btn.disabled = false; $('err4').textContent = 'לא הצלחנו לשמור, נסו שוב'; });
-  }
-  $('cvGo').addEventListener('click', function () { ph('feedback_click', { target: 'clip' }); beacon({ click: 'clip' }); $('cvDone').hidden = false; });
-  $('cgGo').addEventListener('click', function () { ph('feedback_click', { target: 'review' }); beacon({ click: 'review' }); $('cgDone').hidden = false; });
-  $('cvDone').addEventListener('click', function () { creditClaim('review_video', $('cvDone'), $('cVideo')); });
-  $('cgDone').addEventListener('click', function () { creditClaim('review_text', $('cgDone'), $('cGoogle')); });
   function sendText(skip) {
     var t = $('note').value.trim();
     if (skip || !t) { ph('feedback_note_skipped'); afterText(); return; }
@@ -298,12 +277,61 @@
     $('tWa').textContent = waSent ? 'שלחנו לכם את המספרים גם בוואטסאפ.' : 'שמרו צילום מסך של המספרים.';
     show('s-tix');
   });
-  $('clip').addEventListener('click', function () { ph('feedback_click', { target: 'clip' }); beacon({ click: 'clip' }); });
+  /* ── the credit flow (raffle off) ── */
+  var KIND = {
+    video: { ils: 30, mark: '🎥', h: 'המלצת וידאו · ₪30 זיכוי', lede: 'לוחצים, מקליטים 30 שניות מהטלפון וחוזרים לכאן ללחוץ "שלחתי". בלי הכנה, בלי עריכה.', go: 'להקלטת ההמלצה', doneTxt: 'שלחתי את הסרטון ✓', link: function () { return clip; }, click: 'clip', other: 'google', otherH: '⭐ רוצים גם ביקורת בגוגל?', otherP: 'כמה מילים בגוגל, ועוד ₪20 זיכוי.', otherBtn: 'לכתוב ביקורת בגוגל' },
+    google: { ils: 20, mark: '⭐', h: 'ביקורת בגוגל · ₪20 זיכוי', lede: 'נפתח דף הביקורות שלנו בגוגל. כותבים כמה מילים, מפרסמים, וחוזרים לכאן ללחוץ "סיימתי".', go: 'לכתיבת ביקורת בגוגל', doneTxt: 'סיימתי ✓', link: function () { return review; }, click: 'review', other: 'video', otherH: '🎥 רוצים גם להקליט המלצה?', otherP: '30 שניות מהטלפון, ועוד ₪30 זיכוי.', otherBtn: 'להקליט המלצה' }
+  };
+  var cur = '';
+  function showChoice() {
+    $('cVideo').hidden = done.video || !clip; $('cGoogle').hidden = done.google || !review;
+    if ($('cVideo').hidden && $('cGoogle').hidden) { show('s-done'); return; }
+    ph('review_choice_shown', { video: !$('cVideo').hidden, google: !$('cGoogle').hidden }); show('s-choice');
+  }
+  function openStep(kind) {
+    var k = KIND[kind]; if (!k || !k.link()) { showChoice(); return; }
+    cur = kind;
+    $('stMark').textContent = k.mark; $('stH').textContent = k.h; $('stLede').textContent = k.lede;
+    $('stGo').textContent = k.go; $('stGo').href = k.link(); $('stDone').textContent = k.doneTxt; $('stDone').hidden = true; $('stDone').disabled = false; $('err4').textContent = '';
+    ph('review_step_opened', { kind: kind }); show('s-step');
+  }
+  function claim(kind) {
+    var k = KIND[kind]; $('stDone').disabled = true; $('err4').textContent = '';
+    fetch(CFG.endpoint('review-claim'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, kind: kind }) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok) { $('stDone').disabled = false; $('err4').textContent = j && j.error === 'low-score' ? 'הזיכוי ניתן על ציונים של 6 ומעלה' : 'לא הצלחנו לרשום, נסו שוב'; return; }
+        done = { video: !!j.video, google: !!j.google }; bal = Number(j.balance_ils) || 0;
+        ph('review_claimed', { kind: kind, ils: j.ils, balance: bal });
+        $('thH').textContent = j.already ? 'כבר רשום אצלנו ✓' : 'תודה! ₪' + k.ils + ' נזקפו לזיכוי שלכם';
+        $('thLede').textContent = 'סך הזיכוי שלכם: ₪' + bal + '. הוא מתממש בחבילות ובתוספות שלנו, ורואים אותו באזור האישי.';
+        var o = KIND[k.other], canOther = !done[k.other] && !!o.link();
+        $('thOther').hidden = !canOther;
+        if (canOther) { $('thTag').textContent = '₪' + o.ils + ' זיכוי'; $('thOtherH').textContent = k.otherH; $('thOtherP').textContent = k.otherP; $('thOtherBtn').textContent = k.otherBtn; $('thOtherBtn').onclick = function () { openStep(k.other); }; }
+        $('thFine').innerHTML = (canOther ? 'או ' : '') + '<a href="account.html">לאזור האישי</a> · תודה מכל הלב, צוות ishur.io';
+        show('s-thanks');
+      }).catch(function () { $('stDone').disabled = false; $('err4').textContent = 'לא הצלחנו לרשום, נסו שוב'; });
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-pick]'), function (b) { b.addEventListener('click', function () { openStep(b.getAttribute('data-pick')); }); });
+  $('cSkip').addEventListener('click', function () { ph('review_choice_skipped'); show('s-done'); });
+  $('stGo').addEventListener('click', function () { ph('feedback_click', { target: KIND[cur].click }); beacon({ click: KIND[cur].click }); $('stDone').hidden = false; });
+  $('stDone').addEventListener('click', function () { claim(cur); });
+  $('stBack').addEventListener('click', function () { showChoice(); });
+  /* ?step=video|google from the personal area: ask where this event stands, then jump */
+  if (stepParam === 'video' || stepParam === 'google') {
+    $('s1').hidden = true;
+    post({ state: true }).then(function (j) {
+      if (!j || !j.ok || !j.scored) { $('s1').hidden = false; return; }
+      route = j.route; clip = j.clip || ''; review = j.review || ''; done = { video: !!j.video, google: !!j.google }; bal = Number(j.balance_ils) || 0;
+      if (route !== 'high') { show('s-done'); return; }
+      if (done[stepParam]) { showChoice(); return; }
+      openStep(stepParam);
+    }).catch(function () { $('s1').hidden = false; });
+  }
   /* left the review step without clicking: one beacon on the way out */
   var leftAt = 0;
   document.addEventListener('visibilitychange', function () {
-    if (document.visibilityState !== 'hidden' || leftAt || ($('s-high').hidden && $('s-raffle').hidden)) return;
-    if (!$('vDone').hidden || !$('gDone').hidden) return;
+    if (document.visibilityState !== 'hidden' || leftAt || ($('s-choice').hidden && $('s-step').hidden && $('s-raffle').hidden)) return;
+    if (!$('vDone').hidden || !$('gDone').hidden || !$('stDone').hidden) return;
     leftAt = Date.now(); beacon({ left: true });
   });
 })();

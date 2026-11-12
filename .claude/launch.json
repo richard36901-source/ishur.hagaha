@@ -34,16 +34,28 @@
       "port": 4190
     },
     {
-      "name": "deploy-static",
+      "name": "worktree-4195",
       "runtimeExecutable": "python3",
       "runtimeArgs": [
         "-m",
         "http.server",
         "4195",
         "--directory",
-        "/Users/richardtomskiy/ishur-deploy"
+        "/Users/richardtomskiy/ishur.io/.claude/worktrees/exciting-leavitt-7da93c"
       ],
       "port": 4195
+    },
+    {
+      "name": "deploy-static",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": [
+        "-m",
+        "http.server",
+        "4196",
+        "--directory",
+        "/Users/richardtomskiy/ishur-deploy"
+      ],
+      "port": 4196
     }
   ]
 }

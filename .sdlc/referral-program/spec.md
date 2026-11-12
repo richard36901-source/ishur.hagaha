@@ -48,3 +48,12 @@ Intent: `.sdlc/referral-program/intent.md` (all product decisions final). This s
 
 ## Out of scope
 Cash payouts, partner redemption, raffle, personal-area login (credit redemption = WhatsApp to 4499 for now), Meta template submission, Grow page creation (Richard, from grow-pages.md).
+
+## Amendment (build, 12/11 evening) — merged with personal-area
+While this was being built, the personal-area session landed on `main` its own credit ledger (`credit:<phone>` =
+`{entries:[{kind, ils, at, token}], redeemed:[]}`, account.js), an immediate-credit `/api/review-claim`
+(₪30 video / ₪20 Google, idempotent per event) and the feedback.html credit flow. Its header says the referral program
+appends to that ledger. So: **R7** now = referral credit is appended to account.js's ledger (kind `referral`, `ils`);
+review credits are account.js's (on claim, no admin verification) — my duplicate review-claim route, the
+"ביקורות ממתינות" admin section and my feedback.html block were dropped. **R12** loses the review-verify act; **R14** is
+satisfied by the personal-area flow. P1/P2 updated accordingly (`ledgerBalance` = Σentries − Σredeemed, shared with account.js).
