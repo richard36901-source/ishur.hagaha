@@ -77,7 +77,8 @@ export async function createInvoice(env, p) {
 
   const today = new Date().toISOString().slice(0, 10);
   const phone = String(p.phone || '').replace(/^972/, '0');
-  const line = [
+  /* 12/11: an add-on invoice names the add-on (e.g. עיצוב הזמנה), not the package line */
+  const line = p.description ? String(p.description).slice(0, 160) : [
     'אישורי הגעה בוואטסאפ',
     p.plan ? `חבילת ${p.plan}` : '',
     p.tier ? `עד ${p.tier} הזמנות` : '',
@@ -109,6 +110,8 @@ export async function createInvoice(env, p) {
     }],
     payment: [{
       type: paymentType(p.payMethod),
+      /* Morning: type 10 (payment app) needs appType — 1 = Bit, 2 = PayBox (error 2438 otherwise) */
+      ...(paymentType(p.payMethod) === 10 ? { appType: /paybox|פייבוקס/i.test(String(p.payMethod || '')) ? 2 : 1 } : {}),
       price: sum,
       currency: 'ILS',
       date: today,
