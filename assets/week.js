@@ -10,7 +10,7 @@
     '.wk{--wk-ok:#2E7D5B;--wk-bad:#A8402F;--wk-wait:#8A5A00;--wk-mute:var(--ink3,#7A847C);--wk-rail:#F0EFE9}' +
     'html[data-theme=dark] .wk{--wk-ok:#7BC9A4;--wk-bad:#F08A8A;--wk-wait:#E3AA4C;--wk-rail:#232A25}' +
     '.wk-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.5rem;align-items:start}' +
-    '.wk-day{background:var(--wk-rail);border-radius:14px;padding:.5rem;min-height:120px}' +
+    '.wk-day{background:var(--wk-rail);border-radius:14px;padding:.5rem;min-height:120px;max-height:74vh;overflow-y:auto;overscroll-behavior:contain}' +
     '.wk-day.today{background:transparent;box-shadow:inset 0 0 0 2px var(--gold,#A8853C)}' +
     '.wk-day.past{opacity:.62}' +
     '.wk-done{font-size:.76rem;font-weight:600;color:var(--wk-ok);background:rgba(46,125,91,.12);border:1px solid rgba(46,125,91,.35);border-radius:8px;padding:.3rem .5rem;margin:0 0 .4rem;text-align:center}' +
@@ -35,7 +35,7 @@
     '.wk-lr{display:grid;grid-template-columns:1.4rem minmax(0,1.3fr) minmax(0,1.2fr) 6.5rem minmax(0,1fr);gap:.5rem;align-items:center;width:100%;text-align:right;font:inherit;font-size:.84rem;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.45rem .6rem;color:inherit;cursor:pointer}.wk-lr:hover{border-color:var(--gold,#A8853C)}.wk-ln{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wk-lt{color:var(--wk-mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wk-lq{font-variant-numeric:tabular-nums}.wk-lr .wk-s{margin:0}' +
     '@media (max-width:700px){.wk-lr{grid-template-columns:1.4rem 1fr auto}.wk-lt,.wk-lr .wk-s{grid-column:2/-1}}' +
     '.wk-mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem}.wk-mdow{font-size:.72rem;color:var(--wk-mute);text-align:center;padding:.2rem 0}' +
-    '.wk-mc{font:inherit;min-height:78px;display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;text-align:right;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.35rem .4rem;color:inherit;cursor:pointer;font-size:.72rem;overflow:hidden}.wk-mc b{font-size:.84rem}.wk-mc.today{border-color:var(--gold,#A8853C);border-width:2px}.wk-mc.past{opacity:.6}.wk-mc.blank{border:0;background:none;cursor:default}.wk-mc:hover{border-color:var(--gold,#A8853C)}.wk-mc span{font-variant-numeric:tabular-nums;white-space:nowrap}.wk-me{color:var(--wk-mute);max-width:100%;overflow:hidden;text-overflow:ellipsis}' +
+    '.wk-mc{font:inherit;min-height:104px;display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;text-align:right;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.35rem .4rem;color:inherit;cursor:pointer;font-size:.72rem;overflow:hidden}.wk-mc b{font-size:.84rem}.wk-mc.today{border-color:var(--gold,#A8853C);border-width:2px}.wk-mc.past{opacity:.6}.wk-mc.blank{border:0;background:none;cursor:default}.wk-mc:hover{border-color:var(--gold,#A8853C)}.wk-mc span{font-variant-numeric:tabular-nums;white-space:nowrap}.wk-me{color:var(--wk-mute);max-width:100%;overflow:hidden;text-overflow:ellipsis}.wk-mr{display:flex;gap:.25rem;width:100%;min-width:0}.wk-mr i{font-style:normal;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}.wk-mr.ok{color:var(--wk-ok)}.wk-mevt{font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis}' +
     '.wk-arr{font:inherit;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:8px;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
     '.wk-ev.done{background:rgba(46,125,91,.09);border-color:rgba(46,125,91,.35)}html[data-theme=dark] .wk-ev.done{background:rgba(123,201,164,.12)}' +
     '.wk-why{display:block;font-size:.66rem;color:var(--wk-mute);margin:.05rem 0 .1rem}' +
@@ -44,7 +44,7 @@
     '.wk-toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--ink,#1B2420);color:var(--card,#fff);padding:.55rem 1rem;border-radius:10px;font-size:.84rem;z-index:96}' +
     '.wk-empty{font-size:.74rem;color:var(--wk-mute);padding:.3rem .2rem}' +
     '.wk-note{font-size:.74rem;color:var(--wk-mute);margin:.5rem 0 0}' +
-    '@media (max-width:900px){.wk-grid{grid-template-columns:1fr}.wk-day.past{display:none}.wk-day{min-height:0}}' +
+    '@media (max-width:900px){.wk-grid{grid-template-columns:1fr}.wk-day.past{display:none}.wk-day{min-height:0;max-height:none}}' +
     '.wk-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:95}' +
     '.wk-sh{background:var(--card,#fff);color:var(--ink,#1B2420);border-radius:16px;width:100%;max-width:620px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.3)}' +
     '.wk-sh header{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.8rem 1rem;border-bottom:1px solid var(--line,#E3E1D8)}' +
@@ -234,19 +234,43 @@
     });
     return h + (any ? '' : '<div class="wk-empty">אין שליחות או שיחות בשבוע הזה</div>') + '</div>';
   }
+  function shown(it) { return (it.kind === 'send' && it.type !== 'reply') || it.kind === 'call' || it.kind === 'lead_sends'; }
+  function monthRows(d) {
+    var by = {}, out = [];
+    ((d && d.items) || []).forEach(function (it) {
+      if (!shown(it) || !nOf(it)) return;
+      var call = it.kind === 'call', k = (it.kind === 'lead_sends' ? 'leads' : (it.event && it.event.tok8) || it.id) + (call ? ':c' : '');
+      if (!by[k]) { by[k] = { name: it.kind === 'lead_sends' ? 'לידים' : (it.event && it.event.name) || '', n: 0, call: call, done: true }; out.push(by[k]); }
+      by[k].n += nOf(it); if (it.status !== 'done') by[k].done = false;
+    });
+    return out;
+  }
+  /* a month cell opens the day right here — the same lines the week shows, each one opening its own sheet */
+  function openDay(iso) {
+    var d = store && store.by[iso]; var its = ((d && d.items) || []).filter(shown), evs = ((d && d.items) || []).filter(function (it) { return it.kind === 'event'; });
+    var day = d || { day: iso, future: store && iso > store.today };
+    var h = evs.map(function (it) { return '<p class="wk-tn">● ' + esc(it.label_he || (it.event && it.event.name) || '') + (it.reason_he ? ' · ' + esc(it.reason_he) : '') + '</p>'; }).join('');
+    h += its.length ? '<div class="wk-list">' + its.map(function (it) {
+      var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
+      return '<button type="button" class="wk-lr" data-id="' + esc(it.id) + '"><span class="wk-li">' + (it.kind === 'call' ? '📞' : '💬') + '</span><span class="wk-ln">' + esc(it.kind === 'lead_sends' ? 'לידים · נועה' : (it.event && it.event.name) || '') + '</span><span class="wk-lt">' + esc(SHORT[kindKey] || it.label_he || '') + '</span>' +
+        '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+    }).join('') + '</div>' : '<p class="wk-note">אין שליחות או שיחות ביום הזה.</p>';
+    var cap = d && d.capacity; if (cap && cap.capacity) h += '<p class="wk-note">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + '</p>';
+    var bd = sheet(((d && d.dow_he) ? d.dow_he + ' · ' : '') + dm(iso), h);
+    bd.addEventListener('click', function (e) { var b = e.target.closest('.wk-lr'); if (b) openIt(day, b.dataset.id); });
+  }
   function monthHtml(mo) {
     var first = new Date(Date.UTC(mo.y, mo.m, 1)), n = new Date(Date.UTC(mo.y, mo.m + 1, 0)).getUTCDate();
     var h = '<div class="wk-mgrid">' + DOW.map(function (d) { return '<div class="wk-mdow">' + d + '</div>'; }).join('');
     for (var b = 0; b < first.getUTCDay(); b++) h += '<div class="wk-mc blank"></div>';
     for (var i = 1; i <= n; i++) {
-      var iso = new Date(Date.UTC(mo.y, mo.m, i)).toISOString().slice(0, 10), d = store && store.by[iso], msgs = 0, calls = 0, evs = [];
-      ((d && d.items) || []).forEach(function (it) {
-        if (it.kind === 'send') msgs += nOf(it); else if (it.kind === 'call') calls += nOf(it);
-        else if (it.kind === 'event' && it.event && it.event.name) evs.push(it.event.name);
-      });
+      var iso = new Date(Date.UTC(mo.y, mo.m, i)).toISOString().slice(0, 10), d = store && store.by[iso], evs = [], rows = monthRows(d);
+      ((d && d.items) || []).forEach(function (it) { if (it.kind === 'event' && it.event && it.event.name) evs.push(it.event.name); });
+      /* 12/11 Richard: "כאן אני רוצה יותר נתונים" — who gets what on the day, not only a total */
       h += '<button type="button" class="wk-mc' + (store && iso === store.today ? ' today' : '') + (store && iso < store.today ? ' past' : '') + '" data-goday="' + iso + '"><b>' + i + '</b>' +
-        (msgs ? '<span>💬 ' + num(msgs) + '</span>' : '') + (calls ? '<span>📞 ' + num(calls) + '</span>' : '') +
-        evs.slice(0, 2).map(function (e) { return '<span class="wk-me">' + esc(e) + '</span>'; }).join('') + (evs.length > 2 ? '<span class="wk-me">+' + (evs.length - 2) + '</span>' : '') + '</button>';
+        evs.slice(0, 2).map(function (e) { return '<span class="wk-mevt">● ' + esc(e) + '</span>'; }).join('') +
+        rows.slice(0, 4).map(function (r) { return '<span class="wk-mr' + (r.done ? ' ok' : '') + '">' + (r.call ? '📞' : '💬') + '<i>' + esc(r.name) + '</i>' + num(r.n) + '</span>'; }).join('') +
+        (rows.length > 4 ? '<span class="wk-me">+' + (rows.length - 4) + ' נוספים</span>' : '') + '</button>';
     }
     return h + '</div>';
   }
@@ -337,8 +361,9 @@
       (t.buttons && t.buttons.length ? '<div class="wk-btns">' + t.buttons.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</div>' : '');
   }
 
-  function open(di, id) {
-    var day = plan.days[di]; var it = (day.items || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
+  function open(di, id) { return openIt(plan.days[di], id); }
+  function openIt(day, id) {
+    if (!day) return; var it = (day.items || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
     var kindKey = it.kind === 'send' ? it.type : it.kind;
     var st = statusOf(it, day);
     var title = (SHORT[kindKey] || it.label_he) + (it.event && it.event.name && it.kind !== 'lead_sends' ? ' · ' + it.event.name : '');
@@ -471,7 +496,7 @@
         root.addEventListener('click', function (e) {
           var v = e.target.closest('.wk-seg [data-view]'); if (v) {   /* scoped: the admin page has its own data-view ancestors */ view = v.dataset.view; try { localStorage.setItem('wk_view', view); } catch (x) {} page(); return; }
           var c = e.target.closest('[data-goday]');
-          if (c && store) { var t0 = new Date(store.today + 'T12:00:00Z'), sun0 = t0.getTime() - t0.getUTCDay() * 864e5, d1 = new Date(c.dataset.goday + 'T12:00:00Z'), sun1 = d1.getTime() - d1.getUTCDay() * 864e5; weekOff = Math.round((sun1 - sun0) / (7 * 864e5)); view = 'week'; page(); return; }
+          if (c) { openDay(c.dataset.goday); return; }
           var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w);
           if (view === 'month') monthOff = w === 0 ? 0 : monthOff + w; else weekOff = w === 0 ? 0 : weekOff + w;
           page();
