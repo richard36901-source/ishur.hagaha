@@ -985,6 +985,18 @@
       <p class="ctl-alarm" id="pauseAlarm" hidden>כל השליחות מושהות: המנוע היומי, ההודעות ושיחות שיר</p>
     </div>
 
+    <!-- 12/11 Richard: a switch for Noa's calls to leads who did not answer (noa_chase) -->
+    <div class="ctl-row">
+      <div class="ctl-top">
+        <div>
+          <div class="ctl-label">נועה מתקשרת ללידים שלא ענו</div>
+          <div class="ctl-note" id="chaseNote">בודקים את המצב מול השרת…</div>
+        </div>
+        <span class="sw-wrap"><span class="sw-state" id="chaseState">טוען…</span>
+        <button type="button" id="chaseTog" class="sw" role="switch" aria-checked="false" aria-label="נועה מתקשרת ללידים" disabled><i></i></button></span>
+      </div>
+    </div>
+
     <div class="ctl-row">
       <div class="ctl-label">הוצאת מספר משליחה</div>
       <div class="ctl-note">בדקו קודם מה המצב של המספר, ואז הוציאו אותו משליחה או החזירו אותו.</div>
@@ -1266,6 +1278,7 @@
     if (liveBusy()) return;
     if (VIEW === 'calls' && !UNIFIED) loadShir();
     loadPause();
+    if (!fastTick._chase || Date.now() - fastTick._chase > 60000) { fastTick._chase = Date.now(); loadChase(); }
     if (slowDue && Date.now() >= slowDue) slowTick();
   }
 
@@ -2083,6 +2096,33 @@
             '<b>לא ייעצר:</b> הודעות נכנסות ותשובות של אורחים עדיין מתקבלות ונרשמות כרגיל. רק היוצאות נעצרות.<br><br>' +
             'אפשר להפעיל מחדש בכל רגע מאותו מתג.'
     }, function (ok) { if (ok) applyPause(true); });
+  });
+
+  /* ── 1b. Noa's chase calls to unanswered leads: the ops kill switch noa_chase ── */
+  var chaseOn = null;
+  function opsToggle(enabled, confirm) {
+    var base = CFG.endpoint('status').replace(/\/api\/status$/, '');
+    return fetch(base + '/api/ops/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+      body: JSON.stringify(confirm ? { id: 'noa_chase', enabled: enabled, confirm: 'noa_chase', who: 'richard' } : { id: 'noa_chase', enabled: enabled }) }).then(function (r) { return r.json(); });
+  }
+  function paintChase(on) {
+    chaseOn = on;
+    var b = $('chaseTog'), st = $('chaseState'), note = $('chaseNote');
+    if (!b) return;
+    b.disabled = false; b.setAttribute('aria-checked', on ? 'true' : 'false');
+    st.textContent = on ? 'פעיל' : 'כבוי';
+    note.textContent = on ? 'נועה מחייגת ללידים שסומנו "לא ענה" (2 בכל פעימה, בשעות החיוג).' : 'כבוי: נועה לא מחייגת ללידים. הודעות נכנסות עדיין נענות.';
+  }
+  function loadChase() {
+    if (!$('chaseTog')) return;
+    opsToggle(true, false).then(function (j) { if (j && typeof j.enabled_now === 'boolean') paintChase(j.enabled_now); else { $('chaseState').textContent = 'לא נטען'; } }).catch(function () { $('chaseState').textContent = 'לא נטען'; });
+  }
+  if ($('chaseTog')) $('chaseTog').addEventListener('click', function () {
+    if (chaseOn === null) return;
+    var next = !chaseOn;
+    var go = function () { $('chaseTog').disabled = true; opsToggle(next, true).then(function (j) { if (j && j.applied) { paintChase(next); IshurUX.toast(next ? 'נועה חזרה לחייג ללידים' : 'נועה הפסיקה לחייג ללידים'); } else { $('chaseTog').disabled = false; IshurUX.toast('לא הצליח: ' + ((j && (j.he || j.error)) || '')); } }).catch(function () { $('chaseTog').disabled = false; IshurUX.toast('לא הצליח'); }); };
+    if (next) { go(); return; }
+    askConfirm({ title: 'לעצור את השיחות של נועה ללידים?', yes: 'כן, לעצור', body: 'נועה תפסיק לחייג ללידים שלא ענו עד שתדליק שוב. שיחות שכבר רצות לא נקטעות.' }, function (ok) { if (ok) go(); });
   });
 
   /* ── 2. one number in or out of sending ── */

@@ -10593,7 +10593,8 @@ const WORKER = {
       ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
-      if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
+      /* 12/11 Richard: the ops/admin switch (auto:off:noa_chase) stops the chase too, not only the env var */
+      if (String(env.NOA_CHASE || '') === 'on' && !(await isOff(env, 'noa_chase').catch(() => false))) ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
         leadRows: async () => (((await snapshotCached(env, 'dial')) || {}).leads || {}).values || [],
         callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
         retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),

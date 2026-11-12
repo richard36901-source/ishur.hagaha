@@ -387,7 +387,7 @@ export const AUTOMATIONS = [
   { id: 'calendar_build', name_he: 'בניית מטמון לוח שנה', layer: 2, from: ['t_cron10'], kind: 'internal',
     conditions: ['כל פעימה, החודש הנוכחי'], audience: '—', live: { jobs: ['buildCalendarMonth'] }, source: S(9223, 'async function buildCalendarMonth') },
   { id: 'noa_chase', name_he: 'נועה רודפת (לידים "לא ענה" במאנדיי)', layer: 2, from: ['t_cron10'], kind: 'call',
-    conditions: ['NOA_CHASE="on" בלבד (כרגע off)', 'חלון שיחות'], audience: 'לידים', live: { jobs: ['noaChaseTick'] }, source: S(481, 'export async function noaChaseTick', 'worker/noa.js') },
+    conditions: ['NOA_CHASE="on" וגם המתג auto:off:noa_chase לא כבוי', 'חלון שיחות'], audience: 'לידים', live: { jobs: ['noaChaseTick'] }, source: S(481, 'export async function noaChaseTick', 'worker/noa.js') },
   { id: 'audit_meta', name_he: 'יומן ביקורת · רענון מטא-דאטה + מראה לגיליון', layer: 2, from: ['t_cron10'], kind: 'internal',
     conditions: ['כל פעימה: evmeta/gmap', 'פעם בשעה: מראה לטאב "ביקורת"'], audience: '—', live: { jobs: ['auditMeta', 'auditMirror'] }, source: S(89, 'export async function refreshMeta', 'worker/audit.js') },
   { id: 'ab_evaluate', name_he: 'A/B · בחירת תבנית מנצחת', layer: 2, from: ['t_cron10'], kind: 'internal',
@@ -506,7 +506,7 @@ export function baseTemplate(name) { return String(name || '').replace(/_(f|n)$/
      desc_he       plain Hebrew, one sentence
      code          { file, symbol } — the function shown by /api/ops/code (defaults to source);
                    worker/registry-code.json holds the resolved lines (scripts/ops-snapshot-code.mjs) */
-export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder', 'slack_digest'];
+export const KILL_SWITCH_IDS = ['d_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder', 'slack_digest', 'noa_chase'];
 const KS = id => ({ key: 'auto:off:' + id, wired: true });
 const C = (symbol, file = IX) => ({ file, symbol });
 const OPS_OVERRIDES = {
@@ -552,6 +552,8 @@ const OPS_OVERRIDES = {
   ads_watch:  { code: C('export async function adsHealthWatch', 'worker/ads.js') },
   backup:     { side_effects: ['kv'], code: C('async function runBackup') },
   perf_digest:{ code: C('async function msgPerformanceDigest') },
+  noa_chase:  { kill_switch: KS('noa_chase'), side_effects: ['call', 'kv', 'money'], risk: 'high', code: C('export async function noaChaseTick', 'worker/noa.js'),
+    desc_he: 'נועה מחייגת ללידים שסומנו "לא ענה" במאנדיי. המתג עוצר רק את החיוג היוצא.' },
   slack_digest:{ kill_switch: KS('slack_digest'), side_effects: ['slack', 'kv'], risk: 'low', code: C('export async function slackDigest', 'worker/slack-gate.js'),
                 desc_he: 'הודעת בוקר אחת לסלאק: תנאים פתוחים, מה נפתר בלילה, שורות מידע, תור הלילה ותוכנית היום.' },
   heartbeat:  { side_effects: ['slack', 'meta'], code: C('async function checkBilling') },
