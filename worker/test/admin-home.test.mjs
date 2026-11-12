@@ -37,3 +37,9 @@ test('realtime is served from the 60-second copy when one exists', async () => {
   const j = await (await post(e, { admin_key: 'k', calls: [{ p: '/api/ops/realtime', m: 'GET' }] })).json();
   assert.equal(j.results[0].cached, true); assert.equal(JSON.parse(j.results[0].t).from, 'cache');
 });
+
+test('event-flag: the read is batchable, a write (any `on`, even false) is not', () => {
+  assert.equal(homeReadOk('/api/event-flag', 'POST', { token: 'x', flag: 'hold' }), true);
+  assert.equal(homeReadOk('/api/event-flag', 'POST', { token: 'x', flag: 'hold', on: false }), false);
+  assert.equal(homeReadOk('/api/event-flag', 'POST', { token: 'x', flag: 'hold', on: true }), false);
+});

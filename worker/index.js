@@ -10667,7 +10667,7 @@ async function changeWrap(request, env, inner) {
 const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
 /* 12/11 /api/admin/home: what may ride in a batch — the admin READ routes (the same list assets/lite.js caches)
    and GET /api/ops/*; never a body with an action-like field, never the batch route itself. */
-const HOME_READS = new Set(['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff']);
+const HOME_READS = new Set(['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff', 'event-flag']);
 const HOME_MUTATING = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
 export function homeReadOk(p, m, body) {
   const path = String(p || '').split('?')[0];
@@ -10675,6 +10675,7 @@ export function homeReadOk(p, m, body) {
   if (m === 'GET') return path.startsWith('/api/ops/');
   if (!HOME_READS.has(path.slice(5))) return false;
   const b = body && typeof body === 'object' ? body : {};
+  if (path === '/api/event-flag' && 'on' in b) return false;   /* with `on` it is a write, even on:false */
   return !HOME_MUTATING.some(k => b[k] !== undefined && b[k] !== null && b[k] !== false && b[k] !== '');
 }
 const WORKER = {
