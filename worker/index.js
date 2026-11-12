@@ -7706,7 +7706,7 @@ function eventsForPhone(raw, phone) {
 
 /* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
 function accountDeps() {
-  return { okJson, deny, normPhone, overBudget, safeEqual, readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
+  return { okJson, deny, normPhone, overBudget, safeEqual, tokenRecord, readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
     sendOtpTemplate, sendEmail: sendPlainEmail, today: () => ilDate() };
 }
 async function handleOtpSend(request, env, origin) {

@@ -158,8 +158,6 @@
       x.fillText('הדביקו כאן את סטיקר הקישור', cx, by + bh / 2 - 8 * S);
       x.fillStyle = 'rgba(248,244,234,.55)'; x.font = '400 ' + 28 * S + 'px Heebo, sans-serif'; x.direction = 'ltr';
       x.fillText(state.link.replace(/^https:\/\//, ''), cx, by + bh / 2 + 42 * S); x.direction = 'rtl';
-      x.fillStyle = 'rgba(248,244,234,.7)'; x.font = '400 ' + 32 * S + 'px Heebo, sans-serif';
-      x.fillText('תשלום אחד לאירוע, החל מ-₪50', cx, by + bh + 80 * S);
       if (state.v === 'discount') {
         x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 ' + 24 * S + 'px Heebo, sans-serif';
         x.fillText('ההנחה על חבילת אישורי ההגעה · תקפה דרך הקישור בלבד', cx, H - 70 * S);
@@ -186,7 +184,7 @@
     x.direction = 'rtl';
     y += wide ? 36 : 50 * S;
     x.fillStyle = 'rgba(248,244,234,.6)'; x.font = '400 ' + (wide ? 22 : 30 * S) + 'px Heebo, sans-serif';
-    x.fillText('סורקים או לוחצים · תשלום אחד לאירוע, החל מ-₪50', cx, y);
+    x.fillText('סורקים או לוחצים', cx, y);
 
     /* small print only on the discount variant (20% on the package), never shouted */
     if (state.v === 'discount') {
@@ -226,7 +224,7 @@
     x.fillText(head, rx, y);
     y += 58; x.fillStyle = 'rgba(248,244,234,.85)'; x.font = '400 27px Heebo, sans-serif'; x.fillText(sub1, rx, y);
     y += 44; x.fillStyle = GOLD_SOFT; x.font = '600 27px Heebo, sans-serif'; x.fillText(who, rx, y);
-    y += 70; x.fillStyle = 'rgba(248,244,234,.6)'; x.font = '400 22px Heebo, sans-serif'; x.fillText('סורקים או לוחצים · תשלום אחד לאירוע, החל מ-₪50', rx, y);
+    y += 70; x.fillStyle = 'rgba(248,244,234,.6)'; x.font = '400 22px Heebo, sans-serif'; x.fillText('סורקים או לוחצים', rx, y);
     if (state.v === 'discount') {
       x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 18px Heebo, sans-serif';
       x.fillText('ההנחה על חבילת אישורי ההגעה · תקפה דרך הקישור בלבד', rx, H - 48);

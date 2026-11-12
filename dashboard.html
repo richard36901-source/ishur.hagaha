@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=85"></script>
+<script src="config.js?v=86"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -1451,6 +1451,7 @@
     $('refPerk').hidden = refs < 1;
     /* 12/11 Richard: the badge page is gone; the story kit is the one share tool */
     var badgeHref = 'share.html?t=' + encodeURIComponent(token || '');
+    if ($('acctLink') && token) $('acctLink').href = 'account.html?t=' + encodeURIComponent(token);
     $('tierPopBadge').href = badgeHref;
 
     /* the "you leveled up" moment — once per device per level */

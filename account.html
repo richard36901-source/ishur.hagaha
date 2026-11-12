@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#0F4C35">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js?v=84"></script>
+<script src="config.js?v=86"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/pwa.js?v=1"></script>
@@ -288,6 +288,16 @@
   ];
   function load() {
     var s = ls(SKEY);
+    /* 12/11 Richard: from the board (?t=<event token>) there is no phone and no code */
+    var qt = (location.search.match(/[?&]t=([0-9a-f-]{36})/i) || [])[1];
+    if (!s && qt && !load.tried) {
+      load.tried = true;
+      api('account-from-token', { token: qt }).then(function (j) {
+        if (j && j.ok && j.session) { ls(SKEY, j.session); try { history.replaceState(null, '', 'account.html'); } catch (e) {} }
+        load();
+      }).catch(function () { load(); });
+      return;
+    }
     if (!s) { showLogin(); return; }
     api('account-me', { session: s }).then(function (j) {
       if (j.status === 403) { ls(SKEY, null); showLogin(''); return; }

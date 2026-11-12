@@ -171,6 +171,20 @@ export async function handleAccount(request, env, origin, url, d) {
     return d.okJson({ ok: true, via: sent.via, to: sent.to || '' }, origin);
   }
 
+  /* 12/11 Richard: whoever comes from their own board (the personal link) is already
+     identified by the event token — no phone, no code. The code stays for a bare visit. */
+  if (path === 'from-token') {
+    const tok = String(b.token || '').trim().toLowerCase();
+    if (!/^[0-9a-f-]{36}$/.test(tok)) return d.deny(403, 'bad-token', origin);
+    if (await d.overBudget(env, 'rl:accttok:' + ip, 40, 3600)) return d.deny(429, 'rate-limited', origin);
+    const rec = await d.tokenRecord(env, tok);
+    const phone = rec ? d.normPhone(rec.phone || '') : '';
+    if (!/^972\d{8,9}$/.test(phone)) return d.deny(403, 'bad-token', origin);
+    const session = await mintSession(env, phone);
+    await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאזור האישי מהלוח', ok: true, phone, token: tok }).catch(() => {});
+    return d.okJson({ ok: true, session }, origin);
+  }
+
   if (path === 'login') {
     const phone = d.normPhone(b.phone || '');
     const code = String(b.code || '').replace(/\D/g, '');
