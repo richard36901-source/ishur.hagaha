@@ -133,7 +133,9 @@ export function dynamicPace({ remaining = 0, minsLeft = 0, minsToTarget = 0, bas
   base = Math.max(1, Number(base) || 50); max = Math.max(base, Number(max) || base);
   if (!(remaining > 0) || !(minsLeft > 0)) return { pace: base, why: 'idle' };
   const ticksLeft = Math.max(1, Math.ceil(minsLeft / tickMin));
-  const ticksToTarget = Math.max(1, Math.ceil(Math.max(0, minsToTarget) / tickMin));
+  /* after the target hour: finish the rest evenly before the window closes (never below base) */
+  if (!(minsToTarget > 0)) return { pace: Math.min(max, Math.max(base, Math.ceil(remaining / ticksLeft))), why: 'after-target' };
+  const ticksToTarget = Math.max(1, Math.ceil(minsToTarget / tickMin));
   const needForTarget = Math.ceil(remaining / ticksToTarget);
   if (needForTarget <= base) return { pace: base, why: 'fits-by-target' };
   if (needForTarget <= max) return { pace: needForTarget, why: 'finish-by-target' };
