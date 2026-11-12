@@ -49,7 +49,7 @@ const m = html.match(/const IshurRef=\(\(\)=>\{[\s\S]*?\}\)\(\);\nwindow\.IshurR
 ok(!!m, 'IshurRef module present');
 ok(/const friend=!\(pr&&pr\.applies\)&&price!=null&&window\.IshurRef&&IshurRef\.discount\(\)/.test(html), 'renderPlans asks IshurRef when no campaign offer applies');
 ok(/IshurRef\.tag\(\)\+' · '/.test(html), 'card shows the הנחת חבר tag');
-ok(/config\.js\?v=83/.test(html) && /popup\.js\?v=43/.test(html), 'cache-bust bumped (config v83, popup v43)');
+ok(/config\.js\?v=8[4-9]/.test(html) && /popup\.js\?v=4[3-9]/.test(html), 'cache-bust bumped (config ≥v84, popup ≥v43)');
 
 async function runRef({ search, answer }) {
   const calls = [];
