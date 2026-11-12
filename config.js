@@ -807,6 +807,72 @@ window.ISHUR_CONFIG = (function () {
     catch (e) { return null; }
   }
 
+  /* ══ הזמן חבר (12/11) ═══ the 80% Grow pages for a friend who came through a
+     client's link in DISCOUNT mode. Richard creates each page by hand in Grow
+     (list: .sdlc/referral-program/grow-pages.md) and pastes the link here.
+     '' = not created yet → the popup mints a server-priced link instead. */
+  var GROW_LINKS_REF = {
+    '50_basic': '',
+    '50_pro': '',
+    '50_premium': '',
+    '100_basic': '',
+    '100_pro': '',
+    '100_premium': '',
+    '200_basic': '',
+    '200_pro': '',
+    '200_premium': '',
+    '300_basic': '',
+    '300_pro': '',
+    '300_premium': '',
+    '400_basic': '',
+    '400_pro': '',
+    '400_premium': '',
+    '500_basic': '',
+    '500_pro': '',
+    '500_premium': '',
+    '600_basic': '',
+    '600_pro': '',
+    '600_premium': '',
+    '700_basic': '',
+    '700_pro': '',
+    '700_premium': '',
+    '800_basic': '',
+    '800_pro': '',
+    '800_premium': '',
+    '900_basic': '',
+    '900_pro': '',
+    '900_premium': '',
+  };
+  var REF_STORE = PROMO_REF_STORE;                 // 'ishur_ref' { v: '<8 hex>', ts } — shared with the old utm path
+  var REF_TTL_MS = 30 * 24 * 60 * 60 * 1000;       // the cookie lives 30 days
+  var REF_PCT = 20;
+  function normRefCode(v) { v = String(v || '').trim().toLowerCase(); return /^[0-9a-f]{8}$/.test(v) ? v : ''; }
+  /* ?ref=CODE, or the old share link (utm_source=referral&utm_campaign=CODE); remembered 30 days */
+  function refCode() {
+    var fromUrl = normRefCode(queryParam('ref'));
+    if (!fromUrl && /^referral$/i.test(queryParam('utm_source'))) fromUrl = normRefCode(queryParam('utm_campaign'));
+    if (fromUrl) { stash(REF_STORE, fromUrl); return fromUrl; }
+    return normRefCode(unstash(REF_STORE, REF_TTL_MS));
+  }
+  function forgetRef() { var st = store(); if (st) try { st.removeItem(REF_STORE); } catch (e) {} }
+  /* 80% of the package, whole shekels — the same rule as worker/referral.js */
+  function refPrice(tier, plan) {
+    var original = priceFor(tier, plan);
+    var out = { original: original, final: original, saved: 0, applies: false };
+    if (original == null) return out;
+    out.final = Math.round(original * (100 - REF_PCT) / 100);
+    out.saved = original - out.final;
+    out.applies = out.saved > 0;
+    return out;
+  }
+  function refGrowLink(guests, plan, code) {
+    if (!guests || guests === 'custom' || !plan) return null;
+    var u = GROW_LINKS_REF[guests + '_' + plan] || '';
+    if (!u) return null;
+    return u + (u.indexOf('?') > -1 ? '&' : '?') + 'cField3=' + encodeURIComponent('ref:' + code);
+  }
+  function refLink(code) { return 'https://ishur.io/?ref=' + code; }
+
   function stash(key, value) {
     var s = store(); if (!s) return;
     try { s.setItem(key, JSON.stringify({ v: value, ts: Date.now() })); } catch (e) {}
@@ -877,12 +943,7 @@ window.ISHUR_CONFIG = (function () {
     return PROMOS[promoKey] || null;
   }
 
-  /* the referral code this visitor arrived on, url first then storage */
-  function refCode() {
-    var code = queryParam('utm_campaign');
-    if (code && queryParam('utm_source').toLowerCase() === 'referral') return code;
-    return unstash(PROMO_REF_STORE) || '';
-  }
+  /* refCode() (12/11) lives above with the הזמן חבר helpers; same store (ishur_ref), 30 days */
 
   return {
     PROMOS: PROMOS,
@@ -897,6 +958,7 @@ window.ISHUR_CONFIG = (function () {
     forgetPromoCode: forgetPromoCode,
     promoCheckUrl: promoCheckUrl,
     promoGoUrl: promoGoUrl,
+    GROW_LINKS_REF: GROW_LINKS_REF, REF_PCT: REF_PCT, refCode: refCode, forgetRef: forgetRef, refPrice: refPrice, refGrowLink: refGrowLink, refLink: refLink,
     promoReason: promoReason,
     offerPrice: offerPrice, BUNDLES: BUNDLES, bundleFor: bundleFor, bundlePick: bundlePick, bundleKeyOf: bundleKeyOf, bundleTable: bundleTable, bundleLive: bundleLive, bundleApplies: bundleApplies,
 

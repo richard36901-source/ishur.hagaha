@@ -161,7 +161,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=82"></script>
+<script src="config.js?v=83"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/lead.js?v=24"></script>
@@ -2514,6 +2514,38 @@ const IshurPromo=(()=>{
 /* popup.js is a separate classic script, and a top-level const is not a
    window property. This is how the checkout reaches the offer. */
 window.IshurPromo=IshurPromo;
+/* ══ הזמן חבר (12/11) ═══ a friend who arrived on ishur.io/?ref=CODE. The code is
+   remembered 30 days (config.js refCode). The Worker says which mode the client
+   chose: 'discount' → every package card shows 80% with "הנחת חבר של <שם>";
+   'commission' → prices as usual, the payment is still attributed. Unknown or
+   expired code → nothing changes on the page. */
+const IshurRef=(()=>{
+  const INFO='ishur_ref_info';
+  let code='', info=null;
+  try{ code=CFG.refCode()||''; }catch(e){ code=''; }
+  try{ const raw=sessionStorage.getItem(INFO); const o=raw?JSON.parse(raw):null; if(o&&o.code===code&&code) info=o; }catch(e){}
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const active=()=>!!(code&&info&&info.ok);
+  const discount=()=>active()&&info.mode==='discount';
+  function price(guests,plan){ return discount()?CFG.refPrice(guests,plan):CFG.refPrice(null,plan); }
+  function tag(){ return discount()?('הנחת חבר'+(info.name_first?' של '+esc(info.name_first):'')):''; }
+  function repaint(){ try{ const sel=document.getElementById('pr-guests'); if(typeof renderPlans==='function') renderPlans(sel?sel.value:''); }catch(e){} try{ if(window.IshurPopup&&IshurPopup.repaint) IshurPopup.repaint(); }catch(e){} }
+  async function boot(){
+    if(!code||info) { if(info) repaint(); return; }
+    try{
+      const r=await fetch(CFG.endpoint('referral')+'?code='+encodeURIComponent(code));
+      const j=await r.json();
+      info={ code, ok:!!(j&&j.ok), mode:(j&&j.mode)||'', name_first:(j&&j.name_first)||'' };
+      try{ sessionStorage.setItem(INFO,JSON.stringify(info)); }catch(e){}
+      if(!info.ok){ try{ CFG.forgetRef(); }catch(e){} code=''; return; }
+      try{ push('referral_landing',{mode:info.mode}); }catch(e){}
+      repaint();
+    }catch(e){}
+  }
+  if(code) boot();
+  return { code:()=>code, mode:()=>active()?info.mode:'', name:()=>active()?info.name_first:'', active, discount, price, tag };
+})();
+window.IshurRef=IshurRef;
 
 // ═══ PRICING ═══ a guest picker and the three packages, priced live
 function buildPricing(){
@@ -2539,7 +2571,10 @@ function renderPlans(guests){
   wrap.innerHTML=CFG.PLAN_ORDER.map(k=>{
     const p=CFG.PLANS[k];
     const price=(guests&&!custom)?CFG.priceFor(guests,k):null;
-    const pr=(offer&&price!=null)?CFG.offerPrice(offer,guests,k):null;
+    let pr=(offer&&price!=null)?CFG.offerPrice(offer,guests,k):null;
+    /* 12/11 הזמן חבר: a friend's 80% (discount mode) when no campaign offer already applies */
+    const friend=!(pr&&pr.applies)&&price!=null&&window.IshurRef&&IshurRef.discount();
+    if(friend) pr=IshurRef.price(guests,k);
     const cut=!!(pr&&pr.applies);
     return `<button type="button" class="plan-opt${k==='pro'?' rec':''}" data-plan="${k}">
       ${k==='pro'?'<span class="plan-rec">המומלץ ביותר</span>':''}
@@ -2548,7 +2583,7 @@ function renderPlans(guests){
         <span class="plan-opt-note">${p.desc}</span>
       </span>
       <span class="plan-opt-price">${
-        cut?`<span class="was"><span class="cur">₪</span>${pr.original}</span><span class="now"><span class="cur">₪</span>${pr.final}</span><em>לאירוע אחד</em><span class="promo-save">חסכתם ${pr.saved} ש״ח</span>`
+        cut?`<span class="was"><span class="cur">₪</span>${pr.original}</span><span class="now"><span class="cur">₪</span>${pr.final}</span><em>לאירוע אחד</em><span class="promo-save">${friend?IshurRef.tag()+' · ':''}חסכתם ${pr.saved} ש״ח</span>`
         : price?`<span class="cur">₪</span>${price}<em>לאירוע אחד</em>`
         : custom?'<b>הצעה אישית</b>'
         : `<span class="from">החל מ-</span><span class="cur">₪</span>${CFG.fromPrice(k)}`
@@ -2974,6 +3009,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=42"></script>
+<script src="assets/popup.js?v=43"></script>
 </body>
 </html>
