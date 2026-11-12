@@ -73,6 +73,13 @@
   .ev-nums b{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums}
   .refbox{border:1px solid var(--bdr);border-radius:8px;padding:.7rem .8rem;margin:.8rem 0 .2rem}
   .refbox-t{font-weight:600;font-size:.92rem}
+  .ref-two{display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:0 0 .6rem}
+  .ref-opt{font:inherit;text-align:right;background:var(--card);border:1.5px solid var(--bdr);border-radius:8px;padding:.6rem .7rem;cursor:pointer;color:var(--ink)}
+  .ref-opt b{display:block;font-size:.88rem}.ref-opt span{font-size:.74rem;color:var(--ink3)}
+  .ref-opt.on{border-color:#A8853C;background:rgba(168,133,60,.08)}.ref-opt:disabled{opacity:.5;cursor:default}.ref-opt.on:disabled{opacity:1}
+  .ref-link{display:flex;gap:.45rem;align-items:center;margin:0 0 .5rem}
+  .ref-link input{flex:1;min-width:0;font:inherit;font-size:.86rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--bg2);color:var(--ink);direction:ltr;text-align:left}
+  .ref-stats{font-size:.95rem;font-weight:700;margin:0 0 .1rem}
   .refbox-a{display:flex;gap:.5rem;flex-wrap:wrap}
   .btn.sm{display:inline-block;width:auto;min-height:38px;font-size:.86rem;padding:.4rem .9rem;margin:0}
   .err{font-size:.8rem;color:var(--err);min-height:1.1em;margin-top:.5rem}
@@ -167,9 +174,17 @@
         <ul class="led" id="led" hidden></ul>
         <!-- 12/11 Richard: sharing with friends lives here too -->
         <div class="refbox" id="refBox" hidden>
-          <div class="refbox-t">הזמינו חברים וצברו זיכוי</div>
-          <p class="fine" style="margin:.15rem 0 .6rem">חבר שסוגר דרך הקישור שלכם מקבל 20% הנחה, או שאתם צוברים 20% מהחבילה שלו. בוחרים בלוח האירוע.</p>
-          <div class="refbox-a"><a class="btn sm" id="refGo" href="#">הקישור שלי לשיתוף</a><a class="btn sm sec" id="refKitGo" href="#">תמונות לסטורי</a></div>
+          <div class="refbox-t">הזמינו חברים</div>
+          <p class="fine" style="margin:.15rem 0 .6rem">מכירים זוג לפני אירוע? בחרו מה מתאים לכם, ושתפו את הקישור או את התמונה לסטורי.</p>
+          <div class="ref-two" id="refChoice">
+            <button type="button" class="ref-opt" data-mode="discount"><b>20% הנחה לחברים</b><span>החברים מקבלים 20% הנחה על החבילה</span></button>
+            <button type="button" class="ref-opt" data-mode="commission"><b>20% עמלה לי</b><span>מכל חבילה שחבר סוגר דרככם</span></button>
+          </div>
+          <p class="fine" id="refLockNote" hidden style="margin:0 0 .5rem">הבחירה ננעלה אחרי ההפניה הראשונה.</p>
+          <div class="ref-link" id="refLinkRow" hidden><input id="refLinkIn" readonly aria-label="הקישור שלי"><button type="button" class="btn sm sec" id="refCopy">העתקה</button></div>
+          <p class="ref-stats" id="refStats"></p>
+          <p class="fine" id="refSub" style="margin:0 0 .6rem"></p>
+          <div class="refbox-a"><a class="btn sm" id="refShare" target="_blank" rel="noopener" href="#">שיתוף בוואטסאפ</a><a class="btn sm sec" id="refKit" href="#">ערכת שיתוף לסטורי</a><a class="btn sm sec" id="refRedeem" target="_blank" rel="noopener" href="#" hidden>למימוש</a></div>
         </div>
         <p class="fine" id="creditFine">המלצת וידאו על אירוע שהסתיים = ₪30 · ביקורת בגוגל = ₪20. הזיכוי נרשם על שמכם ונשמר לאירוע הבא.</p>
       </div>
@@ -284,6 +299,51 @@
     if (done.length) h += '<p class="grp">אירועים שהסתיימו</p>' + done.map(evCard).join('');
     $('evList').innerHTML = h;
   }
+  /* 12/11 Richard: the same card as on the event board — same buttons, same actions, nothing sends you elsewhere */
+  var REF = null;
+  function paintRef(R) {
+    var mode = R.chosen ? R.mode : '';
+    document.querySelectorAll('#refChoice .ref-opt').forEach(function (b) {
+      var on = b.dataset.mode === mode;
+      b.classList.toggle('on', on); b.disabled = !!R.locked && !on;
+    });
+    $('refLockNote').hidden = !R.locked;
+    var link = R.link || ('https://ishur.io/?ref=' + R.code);
+    $('refLinkRow').hidden = !mode; $('refLinkIn').value = link;
+    var msg = mode === 'discount'
+      ? 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. דרך הקישור שלי יש לכם 20% הנחה על כל החבילות: ' + link
+      : 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה: ' + link;
+    $('refShare').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+    $('refKit').href = 'share.html?t=' + encodeURIComponent(R.token) + '&v=' + (mode || 'commission');
+    $('refShare').hidden = !mode; $('refKit').hidden = !mode;
+    if (!mode) { $('refStats').textContent = ''; $('refSub').textContent = 'בחרו למעלה: הנחה לחברים או עמלה לכם. אפשר לשנות עד ההפניה הראשונה.'; $('refRedeem').hidden = true; return; }
+    $('refStats').textContent = R.copy || (mode === 'discount' ? 'חברים חסכו ₪' + (R.saved || 0) : 'הרווחתם ₪' + (R.earned || 0));
+    var sub = [];
+    if (R.visits) sub.push(R.visits + ' נכנסו דרך הקישור');
+    if (R.friends) sub.push(R.friends === 1 ? 'חבר אחד סגר דרככם' : R.friends + ' חברים סגרו דרככם');
+    if (R.pending) sub.push(R.pending === 1 ? 'הפניה אחת ממתינה לאישור' : R.pending + ' הפניות ממתינות לאישור');
+    if (mode === 'commission' && R.balance) sub.push('יתרה למימוש: ₪' + R.balance);
+    $('refSub').textContent = sub.length ? sub.join(' · ') : (mode === 'discount' ? 'כל חבר שסוגר דרך הקישור מקבל 20% הנחה' : 'כל חבר שסוגר דרך הקישור מזכה אתכם ב-20% מהחבילה שלו');
+    var canRedeem = mode === 'commission' && Number(R.balance) > 0;
+    $('refRedeem').hidden = !canRedeem;
+    if (canRedeem) $('refRedeem').href = CFG.waLink('היי, יש לי ₪' + R.balance + ' זיכוי מהפניות ב-ishur.io (קוד ' + R.code + '). רוצה לממש אותו על חבילה / תוספת לאירוע הבא.');
+  }
+  $('refChoice').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.ref-opt'); if (!b || b.disabled || !REF) return;
+    var mode = b.dataset.mode, tok = REF.token;
+    document.querySelectorAll('#refChoice .ref-opt').forEach(function (x) { x.disabled = true; });
+    fetch(CFG.endpoint('referral'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: tok, mode: mode }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) { $('refSub').textContent = j && j.error === 'locked' ? 'הבחירה ננעלה אחרי ההפניה הראשונה' : 'לא הצלחנו לשמור, נסו שוב'; paintRef(REF); return; }
+        j.token = tok; REF = j; paintRef(REF);
+      })
+      .catch(function () { $('refSub').textContent = 'לא הצלחנו לשמור, נסו שוב'; paintRef(REF); });
+  });
+  $('refCopy').addEventListener('click', function () {
+    var v = $('refLinkIn').value;
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { $('refCopy').textContent = 'הועתק ✓'; setTimeout(function () { $('refCopy').textContent = 'העתקה'; }, 1500); }, function () { $('refLinkIn').select(); });
+  });
   function renderCredit(c) {
     c = c || { balance_ils: 0, entries: [] };
     $('balV').textContent = '₪' + (Number(c.balance_ils) || 0);
@@ -321,8 +381,7 @@
       if (j.status === 403) { ls(SKEY, null); showLogin(''); return; }
       if (!j.ok) { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; return; }
       renderEvents(j.events || []); renderCredit(j.credit); renderContact(j.contact);
-      var e0 = (j.events || []).filter(function (e) { return !e.past; })[0] || (j.events || [])[0];
-      if (e0) { $('refBox').hidden = false; $('refGo').href = 'dashboard.html?t=' + encodeURIComponent(e0.token) + '#refCard'; $('refKitGo').href = 'share.html?t=' + encodeURIComponent(e0.token); }
+      if (j.referral && j.referral.token) { REF = j.referral; $('refBox').hidden = false; paintRef(REF); }
       showApp();
       ph('account_opened', { events: (j.events || []).length, credit: j.credit && j.credit.balance_ils });
       setTimeout(function () { if (window.IshurTour) IshurTour.start('account', TOUR); }, 400);

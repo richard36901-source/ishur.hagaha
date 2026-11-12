@@ -249,6 +249,13 @@ export async function handleAccount(request, env, origin, url, d) {
       })(),
       credit: { balance_ils: balance, entries: (ledger.entries || []).slice(-50).reverse().map(e => ({ kind: e.kind, kind_he: KIND_HE[e.kind] || e.kind, ils: e.ils, at: e.at, token8: String(e.token || '').slice(0, 8) })), redeem_url: `https://wa.me/${WA_NOA}?text=${encodeURIComponent(`היי נועה, יש לי ₪${balance} זיכוי באזור האישי ואני רוצה לממש`)}` },
       contact: { email: contact.email || '', phone_alt: contact.phone_alt || '', marketing: contact.marketing === true },
+      /* 12/11 Richard: the "הזמן חבר" card works here exactly as on the board — for the nearest event that is not over */
+      referral: await (async () => {
+        const t = d.today();
+        const live = evs.filter(e => !isPast(e.event_date, t)).sort((a, b) => (isoDay(a.event_date) || '9').localeCompare(isoDay(b.event_date) || '9'))[0] || evs[0];
+        if (!live || !d.referralSummary) return null;
+        try { return { token: live.token, ...(await d.referralSummary(env, live.token)) }; } catch { return null; }
+      })(),
     }, origin);
   }
   return d.deny(404, 'unknown-account-route', origin);
