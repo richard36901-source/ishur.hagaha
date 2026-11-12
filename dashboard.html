@@ -2371,7 +2371,7 @@
           /* the same per-event link as the order flow: date + city are known
              here, so availability and travel are checked before Grow */
           b.disabled = true; b.textContent = 'בודקים זמינות…';
-          var wa = function () { b.disabled = false; b.textContent = 'הוספה'; IshurUX.toast('לא הצלחנו לבדוק זמינות, נסו שוב בעוד רגע.'); };
+          var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
           if (demo) { wa(); return; }
           fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ link: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
@@ -2389,8 +2389,8 @@
         if (k === 'selfreg') return payAddon('selfreg', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
         if (k === 'design') { var dl = CFG.DESIGN_LINK; if (dl && token) { location.href = dl + (dl.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token); return; } }
-        /* 12/11 Richard: never hand a purchase to WhatsApp unless it was decided explicitly — say what happened instead */
-        IshurUX.toast('לא הצלחנו לפתוח את התשלום, נסו שוב בעוד רגע.');
+        /* 12/11 Richard: a purchase only falls back to WhatsApp when the link really failed */
+        location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
       });
     });
   }
@@ -2409,7 +2409,7 @@
   }
   function askScope() {
     var all = priceOf('extra_send', 'all'), un = priceOf('extra_send', 'unanswered');
-    if (!all) return IshurUX.toast('המחיר עוד נטען, נסו שוב בעוד רגע.');
+    if (!all) return location.href = CFG.waLink('היי, רציתי שליחה נוספת לאירוע שלי.');
     var box = document.createElement('div');
     box.className = 'dpop-wrap';
     box.innerHTML = '<div class="dpop" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
@@ -2555,7 +2555,7 @@
         body: JSON.stringify({ token: token, kind: 'upgrade', tier: x.t, plan: x.p }) })
         .then(function (r) { return r.json(); }).then(function (j) {
           if (j && j.ok && j.url) { location.href = j.url; return; }
-          IshurUX.toast('לא הצלחנו להכין קישור לתשלום, נסו שוב בעוד רגע.'); go.disabled = false; go.textContent = 'לשדרוג';
+          location.href = CFG.waLink('היי, רציתי לשדרג את החבילה ל-' + x.t + ' מוזמנים, ' + NAMES[x.p].split(' · ')[0] + '.');
         }).catch(function () { location.href = CFG.waLink('היי, רציתי לשדרג את החבילה שלי.'); });
     });
   }

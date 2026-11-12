@@ -1364,8 +1364,8 @@
         body: JSON.stringify({ token: token, kind: 'upgrade', tier: x.t, plan: x.p }) })
         .then(function (r) { return r.json(); }).then(function (j) {
           if (j && j.ok && j.url) { location.href = j.url; return; }
-          go.disabled = false; go.textContent = 'לשדרוג'; IshurUX.toast('לא הצלחנו להכין קישור לתשלום, נסו שוב בעוד רגע.');
-        })['catch'](function () { go.disabled = false; go.textContent = 'לשדרוג'; IshurUX.toast('לא הצלחנו להכין קישור לתשלום, נסו שוב בעוד רגע.'); });
+          location.href = CFG.waLink('היי, רציתי לשדרג את החבילה ל-' + x.t + ' מוזמנים, ' + NAMES[x.p].split(' · ')[0] + '.');
+        })['catch'](function () { location.href = CFG.waLink('היי, רציתי לשדרג את החבילה שלי.'); });
     });
   }
   function renderAddons() {
@@ -1431,8 +1431,8 @@
     IshurLead.track('addon_click', { addon: key, plan: plan, guests: guests, has_link: !!url });
     if (url) { location.href = url; return; }
     if (key === 'design' && CFG.DESIGN_LINK) { location.href = CFG.DESIGN_LINK + (CFG.DESIGN_LINK.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token); return; }
-    /* 12/11 Richard: no WhatsApp hand-off for purchases */
-    IshurUX.toast('התוספת הזאת נפתחת מלוח הבקרה אחרי ההגדרה.');
+    /* no link configured yet: hand it to support rather than a dead button */
+    location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + a.label + '.');
   }
 
   /* ══ schedule ═══════════════════════════════════════════════════════════
