@@ -13364,17 +13364,20 @@ const WORKER = {
       const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : ilDate().slice(0, 7);
       const fromTs = Date.parse(month + '-01T00:00:00+02:00') - 3600e3, toTs = fromTs + 32 * 864e5;
       let cursor = b.cursor || undefined, ops = 0, scanned = 0, written = 0, done = false;
-      while (ops < 450) {
-        const page = await env.RATE.list({ prefix: 'log:', cursor, limit: 500 }).catch(() => null); ops++;
+      while (ops < 700) {
+        const page = await env.RATE.list({ prefix: 'log:', cursor, limit: 1000 }).catch(() => null); ops++;
         if (!page) break;
         scanned += page.keys.length;
-        for (const k of page.keys) {
-          const p = k.name.split(':'); const phone = p[1], ts = Number(p[p.length - 1]);
-          if (!phone || !(ts >= fromTs && ts <= toTs)) continue;
-          let v = null; try { v = JSON.parse(await env.RATE.get(k.name)); } catch {} ops++;
-          if (!v || v.dir !== 'out' || v.phone_app) continue;
-          const d = ilDate(new Date(ts)); if (d.slice(0, 7) !== month) continue;
-          await env.RATE.put('slog:' + d + ':' + ts + ':' + phone, '1', { expirationTtl: 200 * 86400, metadata: { ch: v.ch || 'client', ok: v.ok !== false && v.status !== 'failed', t: v.tmpl || String(v.type || ''), tok: String(v.tok || '').slice(0, 8), e: String(v.error || '').slice(0, 60) } }).catch(() => {}); ops++; written++;
+        const hits = page.keys.map(k => { const p = k.name.split(':'); return { name: k.name, phone: p[1], ts: Number(p[p.length - 1]) }; }).filter(x => x.phone && x.ts >= fromTs && x.ts <= toTs);
+        for (let c = 0; c < hits.length; c += 40) {
+          await Promise.all(hits.slice(c, c + 40).map(async x => {
+            let v = null; try { v = JSON.parse(await env.RATE.get(x.name)); } catch {}
+            if (!v || v.dir !== 'out' || v.phone_app) return;
+            const d = ilDate(new Date(x.ts)); if (d.slice(0, 7) !== month) return;
+            await env.RATE.put('slog:' + d + ':' + x.ts + ':' + x.phone, '1', { expirationTtl: 200 * 86400, metadata: { ch: v.ch || 'client', ok: v.ok !== false && v.status !== 'failed', t: v.tmpl || String(v.type || ''), tok: String(v.tok || '').slice(0, 8), e: String(v.error || '').slice(0, 60) } }).catch(() => {});
+            written++;
+          }));
+          ops += Math.min(40, hits.length - c) * 2;
         }
         if (page.list_complete) { done = true; cursor = ''; break; }
         cursor = page.cursor;
