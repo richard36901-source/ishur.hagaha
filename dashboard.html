@@ -1344,7 +1344,7 @@
     function placeToc() { var t2 = document.querySelector('.top'); if (!t2) return; var b = t2.getBoundingClientRect().bottom; document.documentElement.style.setProperty('--toc-top', Math.max(16, b + 14) + 'px'); }
     placeToc();
     if (!renderToc._rs) { renderToc._rs = true; var tick = null; var onMove = function () { if (tick) return; tick = requestAnimationFrame(function () { tick = null; placeToc(); }); }; window.addEventListener('resize', onMove); window.addEventListener('scroll', onMove, { passive: true }); window.addEventListener('load', placeToc); }
-    nav.onclick = function (e) { var a = e.target.closest('a'); if (!a) return; e.preventDefault(); var el = document.getElementById(a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    nav.onclick = function (e) { var a = e.target.closest('a'); if (!a) return; if (!a.dataset.sec) return;   /* a real link (כל האירועים שלי) navigates */ e.preventDefault(); var el = document.getElementById(a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     if (window.IntersectionObserver && !renderToc._io) {
       renderToc._io = new IntersectionObserver(function (es) {
         es.forEach(function (en) { if (en.isIntersecting) { nav.querySelectorAll('a').forEach(function (a) { a.classList.toggle('on', a.dataset.sec === en.target.id); }); } });
