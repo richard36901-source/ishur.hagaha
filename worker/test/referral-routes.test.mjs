@@ -167,3 +167,20 @@ test('R14 review claims: client claim waits; admin review_verify credits ₪30/�
   const all = await (await post(e, '/api/referrals', { admin_key: 'k' })).json();
   assert.equal(all.claims.length, 2); assert.ok(all.claims.every(c => c.verified_at));
 });
+
+test('R14 raffle off: /api/raffle/links still hands out the review links + credit amounts', async () => {
+  const e = env({ RAFFLE: JSON.stringify({ on: false, video_url: 'https://v.test/x', google_review_url: 'https://g.test/y' }) });
+  const j = await (await get(e, '/api/raffle/links')).json();
+  assert.deepEqual(j, { ok: true, video_url: 'https://v.test/x', google_review_url: 'https://g.test/y', credit: { video: 30, text: 20 } });
+  assert.deepEqual(await (await get(e, '/api/raffle/config')).json(), { ok: true, on: false }, 'the raffle itself stays off');
+});
+
+test('R12 ops overview "waiting" line: credit balances + pending referrals', async () => {
+  const { referralWaiting } = await import('../notify.js');
+  const e = env();
+  assert.deepEqual(await referralWaiting(e), []);
+  e.RATE.m.set('credit:972501111111', JSON.stringify({ balance: 76, entries: [{ kind: 'referral', amount: 76 }] }));
+  e.RATE.m.set('refrec:aaaa1111:T1', JSON.stringify({ status: 'pending' }));
+  const w = await referralWaiting(e);
+  assert.equal(w[0].title_he, 'זיכויים ממתינים: ₪76 ל-1 לקוחות'); assert.equal(w[1].title_he, 'הפניה אחת ממתינה לאישור (לקוחות › הפניות)');
+});

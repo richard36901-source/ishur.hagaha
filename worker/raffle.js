@@ -159,6 +159,8 @@ export async function handleRaffle(request, env, origin, url, d) {
     if (c.on && env.RATE) p.drawn = !!(await env.RATE.get(WIN));
     return d.okJson(p, origin);
   }
+  /* 12/11 הזמן חבר: the review links with the raffle OFF — feedback.html offers ₪30 (video) / ₪20 (text or Google) credit instead */
+  if (path === 'links' && request.method === 'GET') return d.okJson({ ok: true, video_url: c.video_url, google_review_url: c.google_review_url, credit: { video: 30, text: 20 } }, origin);
   if (request.method !== 'POST' || (path !== 'enter' && path !== 'claim-google')) return d.deny(404, 'unknown-raffle-route', origin);
   if (!c.on) return d.deny(409, 'raffle-off', origin);
   if (!env.RATE) return d.deny(503, 'no-store', origin);

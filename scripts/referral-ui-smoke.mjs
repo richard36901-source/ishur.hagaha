@@ -118,5 +118,17 @@ if (existsSync(join(ROOT, 'share.html'))) {
   ok(/ishur\.io\/\?ref=/.test(share), 'the link text on the image');
 }
 
+console.log('clients.html + feedback.html');
+const cl = read('clients.html'), fbk = read('feedback.html');
+ok(/data-tab="referrals"/.test(cl) && /id="tabReferrals"/.test(cl), 'clients: הפניות tab');
+ok(/<th>מפנה<\/th><th>חבר<\/th><th>תאריך<\/th><th>סכום<\/th><th>מסלול<\/th><th>הנחה \/ זיכוי<\/th><th>מצב<\/th><th>מומש<\/th>/.test(cl), 'columns: referrer → friend → date → sum → path → discount/credit → status → redeemed');
+ok(/data-ract="verify"/.test(cl) && /אשר הפניה/.test(cl) && /הופנה ע"י/.test(cl), 'אשר הפניה in the table and in ניהול אירוע');
+ok(/data-ract="review_verify"/.test(cl) && /ביקורות ממתינות לאימות/.test(cl), 'pending reviews section with verify buttons');
+ok(/api\('referrals\/act'/.test(cl) && /api\('referrals'/.test(cl), 'uses /api/referrals + /api/referrals/act');
+ok(/id="credit" hidden/.test(fbk) && /₪30 זיכוי על סרטון, ₪20 על ביקורת/.test(fbk), 'feedback: credit copy (₪30 video / ₪20 review)');
+ok(/endpoint\('review-claim'\)/.test(fbk) && /endpoint\('raffle\/links'\)/.test(fbk), 'feedback: claims go to review-claim, links from raffle/links');
+ok(!/הגרלה/.test(fbk.slice(fbk.indexOf('id="credit"'), fbk.indexOf('id="s-done"'))), 'no raffle wording in the credit block');
+ok([cl, fbk, read('dashboard.html'), read('share.html')].every(h => /config\.js\?v=83/.test(h)), 'config.js v83 on every touched page');
+
 console.log(`\n${passes} passed, ${fails} failed`);
 process.exit(fails ? 1 : 0);

@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=74"></script>
+<script src="config.js?v=83"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=17" defer></script>
 <script src="assets/guard.js?v=19"></script>
@@ -65,6 +65,22 @@
   .fbx{display:flex;flex-wrap:wrap;gap:.4rem;margin:.3rem 0 .5rem}
   .fbi{font-size:.78rem;background:#FBF3DF;color:#5A4A1E;border-radius:8px;padding:.25rem .55rem}
   .fbi small{color:#8A7A4E}
+  /* 12/11 הפניות tab */
+  .tabs{display:flex;gap:.3rem;border-bottom:1px solid var(--line);margin:0 0 .8rem}
+  .tab{font:inherit;font-size:.9rem;padding:.45rem .9rem;border:0;border-bottom:2px solid transparent;background:none;color:var(--ink2);cursor:pointer}
+  .tab[aria-selected="true"]{color:var(--pine);border-bottom-color:var(--gold);font-weight:600}
+  .tbadge{font-size:.7rem;background:var(--gold);color:#fff;border-radius:99px;padding:.05rem .45rem;margin-inline-start:.25rem}
+  .rt{width:100%;border-collapse:collapse;font-size:.84rem;background:var(--card);border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .rt th,.rt td{padding:.5rem .6rem;border-bottom:1px solid var(--line);text-align:right;vertical-align:top}
+  .rt th{font-size:.74rem;color:var(--ink3);font-weight:600;background:var(--rail)}
+  .rt tr:last-child td{border-bottom:0}
+  .h2s{font-size:.8rem;color:var(--gold);letter-spacing:.12em;text-transform:uppercase;margin:1.2rem 0 .5rem;font-weight:600}
+  .cards{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fill,minmax(260px,1fr))}
+  .cards .card{margin:0}
+  .pill{font-size:.72rem;padding:.1rem .5rem;border-radius:6px;background:var(--rail);color:var(--ink2)}
+  .pill.ok{background:rgba(46,125,91,.13);color:var(--good)}
+  .pill.wait{background:rgba(180,136,74,.15);color:#8A6D2F}
+  .refNote{font-size:.8rem;background:rgba(180,136,74,.1);border:1px solid rgba(180,136,74,.35);border-radius:8px;padding:.4rem .6rem;margin:.4rem 0}
 </style>
 </head>
 <body>
@@ -77,6 +93,12 @@
 </div>
 <main class="wrap" id="main" hidden>
   <h1>לקוחות</h1>
+  <!-- 12/11 הזמן חבר: a second tab for referrals + review credits -->
+  <div class="tabs" role="tablist">
+    <button type="button" class="tab" data-tab="clients" role="tab" aria-selected="true">לקוחות</button>
+    <button type="button" class="tab" data-tab="referrals" role="tab" aria-selected="false">הפניות <span class="tbadge" id="refBadge" hidden></span></button>
+  </div>
+  <div id="tabClients">
   <p class="sub">כל אירוע ששולם, החדש למעלה. מכאן נכנסים לדשבורד ולהעלאה של הלקוח, מחליפים רשימה, ונותנים תוספות בחינם.</p>
   <div class="bar">
     <select id="fActive"><option value="all">הכל</option><option value="active">פעילים</option><option value="inactive">לא פעילים</option></select>
@@ -86,6 +108,19 @@
   </div>
   <div id="list"></div>
   <p class="empty" id="empty" hidden>אין אירועים.</p>
+  </div>
+  <div id="tabReferrals" hidden>
+    <p class="sub">מי הפנה את מי, מה שולם ומה מגיע. זיכוי נזקף למפנה רק אחרי שיצאה חשבונית לחבר, או כשאתה מאשר כאן ידנית.</p>
+    <p class="meta" id="refLine" style="margin:0 0 .6rem"></p>
+    <table class="rt" id="refTable"><thead><tr><th>מפנה</th><th>חבר</th><th>תאריך</th><th>סכום</th><th>מסלול</th><th>הנחה / זיכוי</th><th>מצב</th><th>מומש</th></tr></thead><tbody></tbody></table>
+    <p class="empty" id="refEmpty" hidden>עוד אין הפניות.</p>
+    <h2 class="h2s">יתרות זיכוי</h2>
+    <div id="refLedgers" class="cards"></div>
+    <h2 class="h2s">ביקורות ממתינות לאימות</h2>
+    <div id="refClaims" class="cards"></div>
+    <h2 class="h2s">מי בחר מה</h2>
+    <div id="refRefs" class="cards"></div>
+  </div>
 </main>
 <div class="toast" id="toast"></div>
 <script>
@@ -97,6 +132,7 @@
   if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
   try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
   var events = [], flags = {}, subevents = [];
+  var REFS = { refs: [], records: [], claims: [], ledgers: {}, pending_line: '' };
 
   function api(name, body) {
     var payload = Object.assign({ admin_key: adminKey }, body || {});
@@ -119,9 +155,80 @@
       subevents = d.subevents || [];
       events = (d.events || []).slice().sort(function (a, b) { return when(b) - when(a); });
       api('feedback-list', {}).then(function (r) { return r.json(); }).then(function (f) { fb = {}; ((f && f.feedback) || []).forEach(function (x) { (fb[x.token] = fb[x.token] || []).push(x); }); render(); }).catch(function () {});
+      loadRefs();
       return api('client-flags', { tokens: events.map(function (e) { return e.token; }) }).then(function (r) { return r.json(); }).then(function (f) { flags = (f && f.flags) || {}; render(); });
     }).catch(function () { $('main').hidden = false; $('list').innerHTML = '<p class="empty">לא הצלחנו לטעון</p>'; });
   }
+
+  /* ── 12/11 הזמן חבר: the הפניות tab ─────────────────────────────────────── */
+  function loadRefs() {
+    return api('referrals', {}).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) return;
+      REFS = d;
+      var pend = (d.records || []).filter(function (x) { return x.status === 'pending'; }).length + (d.claims || []).filter(function (c) { return !c.verified_at; }).length;
+      $('refBadge').hidden = !pend; $('refBadge').textContent = pend;
+      renderRefs();
+      var popEl = document.querySelector('#pop .pop'); if (popEl) openManage(popEl.dataset.t);
+    }).catch(function () {});
+  }
+  function heDT(iso) { return iso ? String(iso).slice(0, 10).split('-').reverse().join('.') : '—'; }
+  function refName(r) { return esc(r.referrer_name || r.referrer_phone || r.code); }
+  function recOf(token) { return (REFS.records || []).filter(function (r) { return r.friend_token === token; })[0] || null; }
+  function renderRefs() {
+    var recs = REFS.records || [];
+    $('refLine').textContent = REFS.pending_line || 'אין זיכויים ממתינים למימוש.';
+    $('refEmpty').hidden = !!recs.length;
+    $('refTable').hidden = !recs.length;
+    $('refTable').querySelector('tbody').innerHTML = recs.map(function (r) {
+      var how = r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit;
+      var st = r.status === 'verified' ? '<span class="pill ok">מאומת · ' + (r.verified_by === 'invoice' ? 'חשבונית' : 'ידני') + '</span>'
+        : '<span class="pill wait">ממתין</span> <button class="btn g" data-ract="verify" data-id="' + esc(r.id) + '">אשר הפניה</button>';
+      var rd = r.status !== 'verified' ? '—' : r.redeemed ? '<span class="pill ok">מומש ' + heDT(r.redeemed_at) + '</span>' : (r.path === 'commission' ? '<button class="btn" data-ract="redeem" data-phone="' + esc(r.referrer_phone) + '">סמן כמומש</button>' : '—');
+      return '<tr><td>' + refName(r) + '<br><small class="meta" dir="ltr">' + esc(r.referrer_phone) + '</small></td>' +
+        '<td>' + esc(r.friend_name || '') + '<br><small class="meta" dir="ltr">' + esc(r.friend_phone) + '</small>' + (r.friend_token ? ' <a class="btn" style="padding:.1rem .4rem;font-size:.72rem" href="dashboard.html?t=' + esc(r.friend_token) + '" target="_blank">לוח</a>' : '') + '</td>' +
+        '<td>' + heDT(r.at) + '</td><td>₪' + esc(r.sum_total) + '<br><small class="meta">חבילה ₪' + esc(r.sum_package) + (r.note === 'unstructured' ? ' (לא מזוהה)' : '') + '</small></td>' +
+        '<td>' + (r.path === 'discount' ? '20% הנחה' : '20% עמלה') + '<br><small class="meta">' + esc(r.via) + '</small></td><td>' + how + '</td><td>' + st + '</td><td>' + rd + '</td></tr>';
+    }).join('');
+    var L = REFS.ledgers || {};
+    var lk = Object.keys(L).filter(function (p) { return (L[p].entries || []).length; });
+    $('refLedgers').innerHTML = lk.length ? lk.map(function (p) {
+      var l = L[p], who = ((REFS.refs || []).filter(function (x) { return x.phone === p; })[0] || {}).name || '';
+      return '<div class="card"><div class="top"><span class="name">' + esc(who || p) + '</span><span class="meta">יתרה ₪' + l.balance + '</span></div>' +
+        '<div class="meta" dir="ltr">' + esc(p) + '</div><div class="tags">' + (l.entries || []).map(function (e) { return '<span class="tag' + (e.redeemed_at ? '' : ' on') + '">' + ({ referral: 'הפניה', review_text: 'ביקורת', review_video: 'סרטון' }[e.kind] || e.kind) + ' ₪' + e.amount + (e.redeemed_at ? ' · מומש' : '') + '</span>'; }).join('') + '</div>' +
+        (l.balance ? '<div class="acts"><button class="btn g" data-ract="redeem" data-phone="' + esc(p) + '">סמן ₪' + l.balance + ' כמומש</button></div>' : '') + '</div>';
+    }).join('') : '<p class="empty">אין זיכויים.</p>';
+    var cl = (REFS.claims || []).slice().sort(function (a, b) { return (a.verified_at ? 1 : 0) - (b.verified_at ? 1 : 0); });
+    $('refClaims').innerHTML = cl.length ? cl.map(function (c) {
+      var kind = c.kind === 'review_video' ? 'סרטון · ₪30' : 'ביקורת · ₪20';
+      return '<div class="card"><div class="top"><span class="name">' + esc(c.name || c.phone) + '</span><span class="meta">' + kind + ' · ' + heDT(c.at) + '</span></div><div class="meta" dir="ltr">' + esc(c.phone) + '</div>' +
+        '<div class="acts">' + (c.verified_at ? '<span class="pill ok">אומת ' + heDT(c.verified_at) + '</span>' : '<button class="btn g" data-ract="review_verify" data-token="' + esc(c.token) + '" data-kind="' + esc(c.kind) + '">אומת · זקוף ' + (c.kind === 'review_video' ? '₪30' : '₪20') + '</button>') +
+        ' <a class="btn" href="dashboard.html?t=' + esc(c.token) + '" target="_blank">לוח</a></div></div>';
+    }).join('') : '<p class="empty">אין ביקורות ממתינות.</p>';
+    var rf = REFS.refs || [];
+    $('refRefs').innerHTML = rf.length ? rf.map(function (r) {
+      return '<div class="card"><div class="top"><span class="name">' + esc(r.name || r.phone) + '</span><span class="meta">' + (r.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה') + (r.locked ? ' · נעול' : '') + '</span></div><div class="meta">קוד <span dir="ltr">' + esc(r.code) + '</span> · ishur.io/?ref=' + esc(r.code) + ' · ' + heDT(r.at) + '</div></div>';
+    }).join('') : '<p class="empty">אף לקוח עוד לא בחר.</p>';
+  }
+  $('tabReferrals').addEventListener('click', function (ev) { refAct(ev); });
+  async function refAct(ev) {
+    var b = ev.target.closest('button[data-ract]'); if (!b) return;
+    var act = b.dataset.ract; b.disabled = true;
+    var body = { act: act, who: 'ריצארד' };
+    if (act === 'verify') { if (!(await askConfirm('הזיכוי ייזקף למפנה עכשיו, בלי לחכות לחשבונית.', { title: 'לאשר את ההפניה?', ok: 'אשר' }))) { b.disabled = false; return; } body.id = b.dataset.id; }
+    if (act === 'redeem') { if (!(await askConfirm('היתרה תתאפס ותסומן כמומשה.', { title: 'לסמן את הזיכוי כמומש?', ok: 'כן, מומש' }))) { b.disabled = false; return; } body.phone = b.dataset.phone; }
+    if (act === 'review_verify') { body.token = b.dataset.token; body.kind = b.dataset.kind; }
+    api('referrals/act', body).then(function (r) { return r.json(); }).then(function (j) {
+      toast(j && j.ok ? (act === 'verify' ? (j.credited ? 'אושר · ₪' + j.credited + ' נזקף' : 'אושר') : act === 'redeem' ? 'סומן כמומש · ₪' + (j.redeemed || 0) : (j.credited ? 'נזקף ₪' + j.credited : 'כבר נזקף')) : 'לא הצליח' + (j && j.error ? ': ' + j.error : ''));
+      return loadRefs();
+    }).catch(function () { toast('שגיאה'); b.disabled = false; });
+  }
+  document.querySelector('.tabs').addEventListener('click', function (ev) {
+    var t = ev.target.closest('.tab'); if (!t) return;
+    document.querySelectorAll('.tab').forEach(function (x) { x.setAttribute('aria-selected', x === t ? 'true' : 'false'); });
+    $('tabClients').hidden = t.dataset.tab !== 'clients'; $('tabReferrals').hidden = t.dataset.tab !== 'referrals';
+    try { history.replaceState(null, '', t.dataset.tab === 'referrals' ? '#referrals' : location.pathname); } catch (e) {}
+  });
+  if (location.hash === '#referrals') { var tb = document.querySelector('.tab[data-tab="referrals"]'); if (tb) tb.click(); }
 
   /* 03/11: a linked sub-event (שבת חתן) gets its own row under its parent */
   function subRows(e) {
@@ -228,6 +335,8 @@
       '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + e.tier : '') + (e.sum ? ' · ₪' + e.sum : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
       '<div class="sec" id="popSum"><h3>מצב האירוע</h3><div class="meta">טוען…</div></div>' +
       '<div class="sec"><h3>תמונת ההזמנה</h3><div class="acts"><label class="btn">🖼 החלפת תמונה<input type="file" accept="image/*" data-img hidden></label><span class="meta">מחליפה מיד, גם אם ההזמנות כבר יצאו (שליחות הבאות עם התמונה החדשה)</span></div></div>' +
+      (function () { var r = recOf(t); if (!r) return ''; return '<div class="refNote">הופנה ע"י <b>' + refName(r) + '</b> · ' + (r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit) + ' · ' +
+        (r.status === 'verified' ? '<span class="pill ok">מאומת</span>' : '<span class="pill wait">ממתין לחשבונית</span> <button class="btn g" data-ract="verify" data-id="' + esc(r.id) + '">אשר הפניה</button>') + '</div>'; })() +
       '<div class="sec"><h3>קישורים ללקוח</h3><div class="acts">' +
         '<a class="btn p" href="dashboard.html?t=' + t + '" target="_blank">הדשבורד שלו</a>' +
         '<a class="btn" href="upload.html?t=' + t + '" target="_blank">העלאה והגדרות</a>' +
@@ -260,6 +369,7 @@
     document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { bg.remove(); document.removeEventListener('keydown', esc1); } });
   }
   $('list').addEventListener('click', async function (ev) {
+    if (ev.target.closest('button[data-ract]')) { refAct(ev); return; }
     var b = ev.target.closest('button[data-act]'); if (!b) return;
     if (b.dataset.act === 'manage') { openManage(b.closest('.card').dataset.t); return; }
     var t = b.closest('.card').dataset.t, act = b.dataset.act, fl = flags[t] || { active: true };

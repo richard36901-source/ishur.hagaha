@@ -8,7 +8,7 @@
 <link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js?v=73"></script>
+<script src="config.js?v=83"></script>
 <script src="assets/tracking.js?v=23"></script>
 <style>
   :root{--cream:#FBF8F1;--gold2:rgba(168,133,60,.35);--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb}
@@ -134,6 +134,22 @@
     <h1>איזה כיף לשמוע!</h1>
     <p class="lede">אם יש לכם דקה, 30 שניות של המלצה בווידאו או באודיו עוזרות לנו יותר מכל דבר אחר.</p>
     <a class="btn" id="clip" href="#" target="_blank" rel="noopener">🎥 להקליט המלצה קצרה</a>
+    <!-- 12/11 הזמן חבר: with the raffle off, a review earns credit (₪30 video · ₪20 text/Google) toward the next package -->
+    <div id="credit" hidden>
+      <p class="lede" style="margin-top:.6rem">וכתודה: ₪30 זיכוי על סרטון, ₪20 על ביקורת בגוגל. הזיכוי מחכה לכם לאירוע הבא.</p>
+      <div class="act" id="cVideo" hidden>
+        <span class="tag">₪30</span><h3>🎥 סרטון קצר</h3><p>המלצה בווידאו, עד דקה. נפתח בחלון חדש.</p>
+        <a class="btn" id="cvGo" href="#" target="_blank" rel="noopener">להקלטת הסרטון</a>
+        <button class="btn sec" id="cvDone" type="button" hidden>שלחתי את הסרטון ✓</button>
+      </div>
+      <div class="act" id="cGoogle" hidden>
+        <span class="tag">₪20</span><h3>⭐ ביקורת בגוגל</h3><p>כמה מילים בגוגל. נפתח בחלון חדש.</p>
+        <a class="btn" id="cgGo" href="#" target="_blank" rel="noopener">לכתיבת ביקורת בגוגל</a>
+        <button class="btn sec" id="cgDone" type="button" hidden>סיימתי ✓</button>
+      </div>
+      <p class="err" id="err4"></p>
+      <p class="fine">הזיכוי נרשם אחרי שנאשר את הביקורת, למימוש על החבילות והתוספות שלנו (לא במזומן).</p>
+    </div>
     <p class="fine">תודה מכל הלב, צוות ishur.io</p>
   </section>
 
@@ -201,7 +217,7 @@
     if (route !== 'high') { show('s-done'); return; }
     rafP.then(function (c) {
       R = c && c.on && !c.drawn && Date.parse(c.draw_at) > Date.now() && (c.video || c.google) ? c : null;
-      if (!R) { if (clip) $('clip').href = clip; else $('clip').hidden = true; show('s-high'); return; }
+      if (!R) { if (clip) $('clip').href = clip; else $('clip').hidden = true; show('s-high'); creditOffer(); return; }
       $('rPrize').textContent = R.prize_he; $('rDate').textContent = dateHe(R.draw_at);
       if (R.video) { $('vGo').href = R.video_url; $('aVideo').hidden = false; }
       if (R.google) { $('gGo').href = R.google_review_url; $('aGoogle').hidden = false; }
@@ -211,6 +227,31 @@
       show('s-raffle');
     });
   }
+  /* 12/11 הזמן חבר: the raffle is off → the same two links earn credit; a click shows the claim button, the claim waits for Richard's "אומת" */
+  function creditOffer() {
+    fetch(CFG.endpoint('raffle/links')).then(function (r) { return r.json(); }).then(function (l) {
+      if (!l || !l.ok || (!l.video_url && !l.google_review_url)) return;
+      $('credit').hidden = false; $('clip').hidden = true;
+      if (l.video_url) { $('cvGo').href = l.video_url; $('cVideo').hidden = false; }
+      if (l.google_review_url) { $('cgGo').href = l.google_review_url; $('cGoogle').hidden = false; }
+      ph('credit_offer_shown');
+    }).catch(function () {});
+  }
+  function creditClaim(kind, btn, box) {
+    btn.disabled = true; $('err4').textContent = '';
+    var body = { token: token, who: who, kind: kind };
+    if (who) { body.name = ($('rName') && $('rName').value.trim()) || ''; body.phone = ($('rPhone') && $('rPhone').value.trim()) || ''; }
+    fetch(CFG.endpoint('review-claim'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok) { btn.disabled = false; $('err4').textContent = 'לא הצלחנו לשמור, נסו שוב'; return; }
+        box.classList.add('done'); btn.textContent = (kind === 'review_video' ? 'הסרטון נרשם' : 'הביקורת נרשמה') + ' ✓ · ₪' + j.credit + ' אחרי האישור';
+        ph('credit_claim', { kind: kind });
+      }).catch(function () { btn.disabled = false; $('err4').textContent = 'לא הצלחנו לשמור, נסו שוב'; });
+  }
+  $('cvGo').addEventListener('click', function () { ph('feedback_click', { target: 'clip' }); beacon({ click: 'clip' }); $('cvDone').hidden = false; });
+  $('cgGo').addEventListener('click', function () { ph('feedback_click', { target: 'review' }); beacon({ click: 'review' }); $('cgDone').hidden = false; });
+  $('cvDone').addEventListener('click', function () { creditClaim('review_video', $('cvDone'), $('cVideo')); });
+  $('cgDone').addEventListener('click', function () { creditClaim('review_text', $('cgDone'), $('cGoogle')); });
   function sendText(skip) {
     var t = $('note').value.trim();
     if (skip || !t) { ph('feedback_note_skipped'); afterText(); return; }
