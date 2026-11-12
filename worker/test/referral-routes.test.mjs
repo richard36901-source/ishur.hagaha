@@ -25,6 +25,10 @@ after(() => { globalThis.fetch = realFetch; });
 const ctx = { waitUntil: () => {}, passThroughOnException: () => {} };
 const APP_KEY = 'appk';
 const TOK = 'aaaa1111-2222-3333-4444-555555555555', CODE = 'aaaa1111', REFERRER = '972501111111';
+/* 12/11 Richard: "אחד ל-20 אחוז ואחד לעמלה" — a client has two fixed codes; CODE is always the discount link,
+   CODE2 (the token's next 8 hex) always the commission link. The card shows one link, by the client's choice.
+   The tests below were written for the 12/11-morning rule: one code whose mode switched and then locked. */
+const CODE2 = '22223333';
 const env = (extra = {}) => ({ ADMIN_KEY: 'k', APP_KEY, GROW_LINK_HOOK: 'https://hook.test/grow-link', GROW_KEY: 'gk', HOOK_GROW: 'https://hook.test/grow-writer', SLACK_ALERT_HOOK: 'https://hook.test/slack',
   RATE: kv({ ['token:' + TOK]: JSON.stringify({ phone: REFERRER, name: 'דנה כהן', clientId: 'C-501111111' }) }), ...extra });
 async function stamp(b) { const nonce = 'n' + Math.random().toString(36).slice(2), ts = Date.now(); return { ...b, app: 'ishur', nonce, stamp_ts: ts, sig: await sha256Hex(`${APP_KEY}|${nonce}|${ts}`) }; }
@@ -40,7 +44,7 @@ test('R11 parsePaidDesc reads the 80% page names', () => {
   assert.equal(parsePaidDesc('900 מוזמנים הכל כלול · הנחת חבר').plan, 'premium');
 });
 
-test('R1/R2 choice + public lookup (no PII), lock after a referral', async () => {
+test('R1/R2 choice + public lookup (no PII): two fixed links, the card shows the chosen one', async () => {
   const e = env();
   let j = await (await get(e, '/api/referral?code=zzzzzzzz')).json();
   assert.deepEqual(j, { ok: false });
@@ -52,9 +56,12 @@ test('R1/R2 choice + public lookup (no PII), lock after a referral', async () =>
   assert.deepEqual(j, { ok: true, mode: 'discount', name_first: 'דנה' });
   j = await (await post(e, '/api/referral', { token: TOK, mode: 'commission' })).json();
   assert.equal(j.mode, 'commission'); assert.equal(j.copy, 'הרווחתם ₪0');
-  e.RATE.m.set('ref:' + CODE, JSON.stringify({ ...JSON.parse(e.RATE.m.get('ref:' + CODE)), locked: true }));
+  assert.equal(j.link, 'https://ishur.io/?ref=' + CODE2, 'the card now shows the commission link, a different code');
+  assert.deepEqual(await (await get(e, '/api/referral?code=' + CODE2)).json(), { ok: true, mode: 'commission', name_first: 'דנה' });
+  assert.equal((await (await get(e, '/api/referral?code=' + CODE)).json()).mode, 'discount', 'the discount link that was already shared keeps its meaning');
   j = await (await post(e, '/api/referral', { token: TOK, mode: 'discount' })).json();
-  assert.equal(j.error, 'locked');
+  assert.equal(j.ok, true); assert.equal(j.link, 'https://ishur.io/?ref=' + CODE, 'switching back is always allowed: each link is fixed');
+  assert.equal((await (await get(e, '/api/referral?code=' + CODE2)).json()).mode, 'commission');
 });
 
 test('R5 ref-touch: stamped, remembers code↔phone 30d, unknown code → ok:false', async () => {
@@ -75,8 +82,8 @@ test('R10 quote-from-site with a discount code: package line at 80%, add-on at l
   /* commission mode: full price, still attributed */
   hook = []; const e2 = env();
   await post(e2, '/api/referral', { token: TOK, mode: 'commission' });
-  const j2 = await (await post(e2, '/api/quote-from-site', await stamp({ plan: 'pro', records: 300, design: true, name: 'רון לוי', phone: '0502222222', occasion: 'wedding', ref: CODE }))).json();
-  assert.equal(j2.sum, 458); assert.equal(hook[0].cField3, 'ref:' + CODE);
+  const j2 = await (await post(e2, '/api/quote-from-site', await stamp({ plan: 'pro', records: 300, design: true, name: 'רון לוי', phone: '0502222222', occasion: 'wedding', ref: CODE2 }))).json();
+  assert.equal(j2.sum, 458); assert.equal(hook[0].cField3, 'ref:' + CODE2);
   /* unknown code: ignored */
   hook = [];
   const j3 = await (await post(e2, '/api/quote-from-site', await stamp({ plan: 'pro', records: 300, name: 'רון לוי', phone: '0502222222', occasion: 'wedding', ref: 'ffffffff' }))).json();
@@ -86,21 +93,21 @@ test('R10 quote-from-site with a discount code: package line at 80%, add-on at l
 test('R6/R6b/R13 IPN: pending record, Slack 🎉, no credit; verify (manual) posts once; duplicate IPN does nothing', async () => {
   hook = []; slack = []; const e = env();
   await post(e, '/api/referral', { token: TOK, mode: 'commission' });
-  const q = await (await post(e, '/api/quote-from-site', await stamp({ plan: 'pro', records: 300, design: true, name: 'רון לוי', phone: '0502222222', occasion: 'wedding', ref: CODE }))).json();
+  const q = await (await post(e, '/api/quote-from-site', await stamp({ plan: 'pro', records: 300, design: true, name: 'רון לוי', phone: '0502222222', occasion: 'wedding', ref: CODE2 }))).json();
   const body = { asmachta: 'TX' + Date.now(), payerPhone: '0502222222', paymentSum: '458', paymentDesc: hook[0].description, fullName: 'רון לוי', cField1: hook[0].cField1, cField3: hook[0].cField3, _simulated: true };
   assert.equal((await ipn(e, body)).status, 200);
   const friendTok = e.RATE.m.get('grow:' + body.asmachta);
-  const recId = CODE + ':' + body.asmachta;
+  const recId = CODE2 + ':' + body.asmachta;
   const rec = JSON.parse(e.RATE.m.get('refrec:' + recId));
   assert.equal(rec.status, 'pending'); assert.equal(rec.via, 'cField3'); assert.equal(rec.sum_package, 379); assert.equal(rec.credit, 76); assert.equal(rec.friend_token, friendTok);
-  assert.equal(e.RATE.m.get('refcred:' + CODE), '1', 'tier counter');
-  assert.equal(e.RATE.m.get('refdone:502222222'), CODE);
-  assert.equal(JSON.parse(e.RATE.m.get('ref:' + CODE)).locked, true);
+  assert.equal(e.RATE.m.get('refcred:' + CODE), '1', 'tier counter: both links feed the client\'s one tier');
+  assert.equal(e.RATE.m.get('refdone:502222222'), CODE2);
+  assert.equal(JSON.parse(e.RATE.m.get('ref:' + CODE2)).mode, 'commission');
   assert.equal(e.RATE.m.get('credit:' + REFERRER), undefined, 'no credit before the invoice');
   assert.ok(slack.some(s => /הפניה שילמה/.test(JSON.stringify(s)) && /זיכוי ₪76/.test(JSON.stringify(s))), 'Slack 🎉 line');
   /* the referrer's board: pending, ₪0 */
   const d = await (await post(e, '/api/referral', { token: TOK, mode: 'commission' })).json();
-  assert.equal(d.pending, 1); assert.equal(d.friends, 0); assert.equal(d.earned, 0); assert.equal(d.copy, 'הרווחתם ₪0'); assert.equal(d.locked, true);
+  assert.equal(d.pending, 1); assert.equal(d.friends, 0); assert.equal(d.earned, 0); assert.equal(d.copy, 'הרווחתם ₪0'); assert.equal(d.locked, false, 'the choice stays open; the links are what is fixed');
   /* duplicate IPN: nothing new */
   const before = [...e.RATE.m.keys()].filter(k => k.startsWith('refrec:')).length;
   await ipn(e, body); await ipn(e, { ...body, asmachta: 'TX-second' });
@@ -133,10 +140,10 @@ test('R6b invoice hook: a Morning invoice on the friend\'s payment verifies the 
   hook = []; const e = env({ MORNING_ID: 'x', MORNING_SECRET: 'y' });
   await post(e, '/api/referral', { token: TOK, mode: 'commission' });
   /* refpend path (no cField3 echo), a plain 80%-page description */
-  await post(e, '/api/ref-touch', await stamp({ code: CODE, phone: '0503333333' }));
+  await post(e, '/api/ref-touch', await stamp({ code: CODE2, phone: '0503333333' }));
   const body = { asmachta: 'TY' + Date.now(), payerPhone: '0503333333', paymentSum: '303', paymentDesc: '300 מוזמנים פרמיום · הנחת חבר', fullName: 'גל שמש', invoiceURL: 'https://grow.test/inv/1', _simulated: true };
   assert.equal((await ipn(e, body)).status, 200);
-  const rec = JSON.parse(e.RATE.m.get('refrec:' + CODE + ':' + body.asmachta));
+  const rec = JSON.parse(e.RATE.m.get('refrec:' + CODE2 + ':' + body.asmachta));
   assert.equal(rec.via, 'pending'); assert.equal(rec.sum_package, 303);
   assert.equal(rec.status, 'verified', 'Grow sent an invoice URL → verified at once'); assert.equal(rec.verified_by, 'invoice');
   const { readLedger: rl, ledgerBalance: lb } = await import('../account.js');
@@ -162,8 +169,8 @@ test('R14 the personal area already holds a review credit → a referral credit 
   const e = env();
   e.RATE.m.set('credit:' + REFERRER, JSON.stringify({ entries: [{ kind: 'review_video', ils: 30, at: '2026-11-12T00:00:00Z', token: TOK }], redeemed: [] }));
   await post(e, '/api/referral', { token: TOK, mode: 'commission' });
-  await ipn(e, { asmachta: 'TR1', payerPhone: '0505555555', paymentSum: '379', paymentDesc: '300 מוזמנים פרמיום', fullName: 'עדי', cField3: 'ref:' + CODE, _simulated: true });
-  await post(e, '/api/referrals/act', { admin_key: 'k', act: 'verify', id: CODE + ':TR1' });
+  await ipn(e, { asmachta: 'TR1', payerPhone: '0505555555', paymentSum: '379', paymentDesc: '300 מוזמנים פרמיום', fullName: 'עדי', cField3: 'ref:' + CODE2, _simulated: true });
+  await post(e, '/api/referrals/act', { admin_key: 'k', act: 'verify', id: CODE2 + ':TR1' });
   const { readLedger, ledgerBalance } = await import('../account.js');
   const L = await readLedger(e, REFERRER);
   assert.equal(ledgerBalance(L), 106); assert.equal(L.entries.length, 2);

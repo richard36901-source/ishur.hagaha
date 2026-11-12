@@ -27,6 +27,10 @@ export const REVIEW_CREDIT = { review_google: 20, review_video: 30 };   /* mirro
 export const SITE = 'https://ishur.io';
 
 export const codeOf = token => String(token || '').slice(0, 8).toLowerCase();
+/* 12/11 (Richard): a client has TWO fixed codes, one per mode, so a published link never changes meaning.
+   The discount code is the old one (the token's first 8); the commission code is the next 8 hex.
+   The card shows ONE link at a time — the one of the mode the client picked. */
+export const codeOfCommission = token => String(token || '').replace(/-/g, '').slice(8, 16).toLowerCase();
 export const isCode = c => CODE_RE.test(String(c || ''));
 export const refLink = code => `${SITE}/?ref=${codeOf(code)}`;
 /* 80% of the package, whole shekels (₪95 → ₪76, ₪449 → ₪359) */
@@ -69,7 +73,7 @@ export function attribute({ flat, pendCode = '', leadCode = '', payerPhone = '',
     const ref = lookup(code);
     if (!ref) continue;
     if (ref.phone && payerPhone && String(ref.phone).slice(-9) === String(payerPhone).slice(-9)) return { code, via, ref, ignored: 'self' };
-    if (friendToken && codeOf(friendToken) === code) return { code, via, ref, ignored: 'own-event' };
+    if (friendToken && (codeOf(friendToken) === code || codeOfCommission(friendToken) === code)) return { code, via, ref, ignored: 'own-event' };
     return { code, via, ref };
   }
   return null;

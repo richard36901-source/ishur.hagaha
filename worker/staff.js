@@ -106,21 +106,50 @@ export async function staffOnMessage(env, phone, text, ts, d) {
   return { staff: st, parsed: p, hm, tok, ev, ack: ackText(st.name, p, hm, ev) };
 }
 
+/* 12/11 Richard: the hostess gets her personal link by WhatsApp when she is added, and again every 30 days so it
+   stays near the top of the chat (the API cannot pin a message in someone's chat — the text asks her to pin it).
+   Free text only reaches her inside WhatsApp's 24-hour window; outside it nothing is sent and the admin gets a
+   ready wa.me link to send from his own phone. */
+export function linkText(name) { return `היי ${String(name || '').split(' ')[0]}, זה הקישור האישי שלך לדיווח נוכחות באירועים של ishur.io. בכל אירוע לוחצים: הגעתי, חופה, עזבתי, ומצלמים. כדאי להצמיד את ההודעה הזאת 📌`; }
+export async function sendStaffLink(env, phone, st, d) {
+  const url = checkinUrl(st.sid), text = linkText(st.name);
+  let ok = false, error = '';
+  try { const r = await d.sendCtaUrl(env, phone, text, 'דיווח נוכחות', url, 'client', { who: 'נועה (דיילות)' }); ok = !!(r && r.ok); error = (r && r.error) || ''; } catch (e) { error = String(e && e.message || e).slice(0, 80); }
+  if (ok) await env.RATE.put('staff:' + phone, JSON.stringify({ ...st, link_sent_at: new Date().toISOString() })).catch(() => {});
+  await d.logEvent(env, { area: 'דיילות', action: ok ? `קישור דיווח נשלח ל${st.name}` : `קישור דיווח לא נשלח ל${st.name} — לשלוח ידנית`, ok, review: !ok, phone, detail: error }).catch(() => {});
+  return { ok, error, wa: `https://wa.me/${phone}?text=${encodeURIComponent(text + '\n' + url)}` };
+}
+/* cron (once a day is enough): whoever got the link 30+ days ago gets it again */
+export async function staffLinkRefresh(env, d, now = Date.now()) {
+  if (!env.RATE) return { sent: 0, failed: 0 };
+  let sent = 0, failed = 0; const missed = [];
+  for (const k of (await env.RATE.list({ prefix: 'staff:', limit: 200 })).keys || []) {
+    const st = await kvJson(env, k.name); if (!st || !st.sid) continue;
+    const last = Date.parse(st.link_sent_at || st.at || 0) || 0;
+    if (now - last < 30 * 86400e3) continue;
+    const r = await sendStaffLink(env, k.name.slice(6), st, d);
+    if (r.ok) sent++; else { failed++; missed.push(st.name); await env.RATE.put(k.name, JSON.stringify({ ...st, link_sent_at: new Date(now - 29 * 86400e3).toISOString() })).catch(() => {}); }   /* try again tomorrow, not every tick */
+  }
+  if (missed.length && d.slackSend) await d.slackSend(env, `📌 *דיילות · קישור דיווח חודשי* לא נשלח אוטומטית ל: ${missed.join(', ')} (מחוץ לחלון 24 השעות). לשלוח מהמסך: https://ishur.io/clients.html#staff`, { oneoff: true }).catch(() => {});
+  return { sent, failed };
+}
 export async function handleStaff(request, env, origin, d) {
   let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
   if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
   if (!env.RATE) return d.deny(503, 'kv-not-bound', origin);
+  let sent = null;
   if (b.act === 'add') {
     const phone = d.normPhone(b.phone || ''), name = String(b.name || '').trim().slice(0, 40);
     if (!/^9725\d{8}$/.test(phone) || name.length < 2) return d.okJson({ ok: false, error: 'bad-input' }, origin);
     const prev = await kvJson(env, 'staff:' + phone); const sid = (prev && prev.sid) || hexN(12);
     await env.RATE.put('staff:' + phone, JSON.stringify({ name, role: 'hostess', sid, at: (prev && prev.at) || new Date().toISOString() }));
     await env.RATE.put('staffsid:' + sid, phone);
+    if (!prev || b.resend) sent = await sendStaffLink(env, phone, { name, role: 'hostess', sid, at: (prev && prev.at) || new Date().toISOString() }, d);
   } else if (b.act === 'remove') {
     const phone = d.normPhone(b.phone || ''); if (phone) { const prev = await kvJson(env, 'staff:' + phone); if (prev && prev.sid) await env.RATE.delete('staffsid:' + prev.sid).catch(() => {}); await env.RATE.delete('staff:' + phone); }
   }
   const staff = [];
-  for (const k of (await env.RATE.list({ prefix: 'staff:', limit: 200 })).keys || []) { const s = await kvJson(env, k.name); if (s) staff.push({ phone: k.name.slice(6), ...s, checkin: s.sid ? checkinUrl(s.sid) : '' }); }
+  for (const k of (await env.RATE.list({ prefix: 'staff:', limit: 200 })).keys || []) { const s = await kvJson(env, k.name); if (s) staff.push({ phone: k.name.slice(6), ...s, checkin: s.sid ? checkinUrl(s.sid) : '', wa: s.sid ? `https://wa.me/${k.name.slice(6)}?text=${encodeURIComponent(linkText(s.name) + '\n' + checkinUrl(s.sid))}` : '' }); }
   const log = [];
   let cursor;
   for (let i = 0; i < 5; i++) {
@@ -129,5 +158,5 @@ export async function handleStaff(request, env, origin, d) {
     if (page.list_complete) break; cursor = page.cursor;
   }
   log.sort((a, c) => c.ts - a.ts);
-  return d.okJson({ ok: true, staff, log: log.slice(0, 500) }, origin);
+  return d.okJson({ ok: true, staff, log: log.slice(0, 500), ...(sent ? { link_sent: sent.ok, wa: sent.wa } : {}) }, origin);
 }

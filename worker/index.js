@@ -53,7 +53,7 @@ import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, host
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
 import { handlePartner, hitAdd as refHitAdd } from './partner.js';
-import { staffOnMessage, handleStaff, handleCheckin, handleStaffPhoto } from './staff.js';   /* 12/11 דיילות: attendance log through Noa's line */   /* 12/11 שגרירים: partners without an event, two fixed links */
+import { staffOnMessage, handleStaff, handleCheckin, handleStaffPhoto, staffLinkRefresh } from './staff.js';   /* 12/11 דיילות: attendance log through Noa's line */   /* 12/11 שגרירים: partners without an event, two fixed links */
 import * as REF from './referral.js';   /* 12/11 הזמן חבר: 20% הנחה / 20% עמלה (.sdlc/referral-program) */
 import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
@@ -282,8 +282,9 @@ async function referralOnPaid(env, { flat, phone, name, token, sum, ref: ipnRef,
   if (a.ref && !a.ref.legacy) await env.RATE.put('ref:' + a.code, JSON.stringify({ ...a.ref, locked: true }), { expirationTtl: REF_TTL });
   await env.RATE.delete('refpend:' + phone).catch(() => {});
   /* the loyalty tier climbs as before */
-  const cur = Number(await env.RATE.get('refcred:' + a.code)) || 0;
-  await env.RATE.put('refcred:' + a.code, String(cur + 1), { expirationTtl: REF_TTL });
+  const tierCode = a.ref && a.ref.token ? REF.codeOf(a.ref.token) : a.code;   /* a client's two links feed one loyalty tier */
+  const cur = Number(await env.RATE.get('refcred:' + tierCode)) || 0;
+  await env.RATE.put('refcred:' + tierCode, String(cur + 1), { expirationTtl: REF_TTL });
   await logEvent(env, { area: 'הפניות', action: `הפניה שילמה (${a.via}) · ${rec.path === 'discount' ? 'הנחה ₪' + rec.discount_given : 'זיכוי ₪' + rec.credit + ' ממתין לחשבונית'}`, ok: true, phone, token, ref: a.code, detail: rec.id }).catch(() => {});
   try { await slackPost(env, REF.slackLine(rec) + (flat._simulated ? ' · [בדיקה]' : ''), { urgent: true, now: true, oneoff: true, important: true }); } catch {}
   return rec;
@@ -313,12 +314,18 @@ async function referralVerifyByInvoice(env, friendToken) {
 }
 /* the dashboard card + the admin tab read this */
 async function referralSummary(env, token, rec) {
-  const code = REF.codeOf(token);
+  const code = REF.codeOf(token), code2 = REF.codeOfCommission(token);
   const ref = await refOf(env, code);
-  const recs = await refRecordsOf(env, code);
+  const recs = [...await refRecordsOf(env, code), ...await refRecordsOf(env, code2)].sort((a, b) => String(a.at).localeCompare(String(b.at)));
   const L = await ledgerOf(env, rec && rec.phone);
-  let visits = 0; try { visits = ref ? Number((JSON.parse(await env.RATE.get('refhits:' + code) || 'null') || {}).n) || 0 : 0; } catch {}   /* 12/11: entries through the link */
-  return { ...REF.refSummary(ref, recs, L), copy: REF.cardCopy(REF.refSummary(ref, recs, L)), chosen: !!ref, visits };
+  /* 12/11: one link on the card — the one of the picked mode; both codes count in the numbers */
+  const view = ref ? (ref.view || ref.mode) : '';
+  const legacy = !!(ref && ref.mode === 'commission' && !ref.view);
+  const base = REF.refSummary(ref ? { ...ref, mode: view } : null, recs, L);
+  const hits = async c => { try { return Number((JSON.parse(await env.RATE.get('refhits:' + c) || 'null') || {}).n) || 0; } catch { return 0; } };
+  const linkOf = m => (m === 'commission' && !legacy) ? `${REF.SITE}/?ref=${code2}` : REF.refLink(code);
+  const shown = view === 'commission' && !legacy ? code2 : code;
+  return { ...base, code: shown, copy: REF.cardCopy(base), chosen: !!ref, locked: false, link: view ? linkOf(view) : '', visits: ref ? (await hits(code)) + (await hits(code2)) : 0 };
 }
 
 /* The one place that decides "is this Grow payment ours". handleGrowIpn uses it
@@ -10752,6 +10759,11 @@ const WORKER = {
       ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
+      /* 12/11 Richard: once a day, between 10:00 and 20:00, a hostess whose link is 30 days old gets it again */
+      try {
+        const dKey = 'stafflinkday:' + ilDate(); const hr = Number(String(ilTime()).slice(0, 2));
+        if (env.RATE && hr >= 10 && hr < 20 && !(await env.RATE.get(dKey))) { await env.RATE.put(dKey, '1', { expirationTtl: 2 * 86400 }); ctx.waitUntil(staffLinkRefresh(env, { sendCtaUrl, logEvent, slackSend }).catch(() => {})); }
+      } catch {}
       /* 12/11 Richard: the ops/admin switch (auto:off:noa_chase) stops the chase too, not only the env var */
       if (String(env.NOA_CHASE || '') === 'on' && !(await isOff(env, 'noa_chase').catch(() => false))) ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
         leadRows: async () => (((await snapshotCached(env, 'dial')) || {}).leads || {}).values || [],
@@ -12785,12 +12797,18 @@ const WORKER = {
       if (!rec) return deny(404, 'unknown-token', origin);
       if (await overBudget(env, 'rl:refset:' + token, 30, 3600)) return deny(429, 'slow-down', origin);
       const code = REF.codeOf(token);
-      let ref = await refOf(env, code);
-      let r;
-      if (!ref) { r = REF.newRef({ token, phone: rec.phone, name: rec.name, mode: b.mode }); if (!r.ok) return okJson({ ok: false, error: r.error }, origin); }
-      else { r = REF.setMode(ref, b.mode); if (!r.ok) return okJson({ ok: false, error: r.error }, origin); }
-      await env.RATE.put('ref:' + code, JSON.stringify(r.ref), { expirationTtl: REF_TTL });
-      await logEvent(env, { area: 'הפניות', action: `הלקוח בחר ${r.ref.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה'}`, ok: true, phone: rec.phone, token }).catch(() => {});
+      if (!REF.MODES.includes(b.mode)) return okJson({ ok: false, error: 'bad-mode' }, origin);
+      /* 12/11 Richard: two fixed links per client — the old code is always the discount link, the second code is always
+         the commission link. The choice only says which ONE the card shows, and can change at any time: a link that
+         was already published keeps its meaning. A code that earned commission under the old rule stays commission. */
+      const code2 = REF.codeOfCommission(token);
+      const ref = await refOf(env, code);
+      const mk = REF.newRef({ token, phone: rec.phone, name: rec.name, mode: 'discount' });
+      if (!mk.ok) return okJson({ ok: false, error: mk.error }, origin);
+      const legacy = !!(ref && ref.mode === 'commission' && (await refRecordsOf(env, code)).length);
+      await env.RATE.put('ref:' + code, JSON.stringify(legacy ? { ...ref, view: b.mode } : { ...mk.ref, at: (ref && ref.at) || mk.ref.at, locked: true, view: b.mode }), { expirationTtl: REF_TTL });
+      if (!(await refOf(env, code2))) await env.RATE.put('ref:' + code2, JSON.stringify({ ...mk.ref, code: code2, mode: 'commission', locked: true }), { expirationTtl: REF_TTL });
+      await logEvent(env, { area: 'הפניות', action: `הלקוח בחר ${b.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה'}`, ok: true, phone: rec.phone, token }).catch(() => {});
       return okJson({ ok: true, ...(await referralSummary(env, token, rec)) }, origin);
     }
     /* the site, right before it sends a referred friend to Grow: remember code ↔ phone (30d)
@@ -12809,7 +12827,7 @@ const WORKER = {
     }
     if (url.pathname === '/api/staff-checkin' && request.method === 'POST') return handleCheckin(request, env, origin, { okJson, deny, overBudget, ilDate, ilTime, logEvent });
     if (url.pathname === '/api/staff-photo' && request.method === 'GET') return handleStaffPhoto(env, url);
-    if (url.pathname === '/api/staff' && request.method === 'POST') return handleStaff(request, env, origin, { okJson, deny, isAdmin, normPhone });
+    if (url.pathname === '/api/staff' && request.method === 'POST') return handleStaff(request, env, origin, { okJson, deny, isAdmin, normPhone, sendCtaUrl, logEvent });
     if (url.pathname.startsWith('/api/partner/')) return handlePartner(request, env, origin, url, { okJson, deny, isAdmin, overBudget, logEvent, refRecordsOf, REF_TTL, normPhone });
     /* admin: everything, for clients.html › הפניות */
     if (url.pathname === '/api/referrals' && request.method === 'POST') {

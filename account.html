@@ -316,7 +316,7 @@
     $('refShare').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
     $('refKit').href = 'share.html?t=' + encodeURIComponent(R.token) + '&v=' + (mode || 'commission');
     $('refShare').hidden = !mode; $('refKit').hidden = !mode;
-    if (!mode) { $('refStats').textContent = ''; $('refSub').textContent = 'בחרו למעלה: הנחה לחברים או עמלה לכם. אפשר לשנות עד ההפניה הראשונה.'; $('refRedeem').hidden = true; return; }
+    if (!mode) { $('refStats').textContent = ''; $('refSub').textContent = 'בחרו למעלה: הנחה לחברים או עמלה לכם. אפשר להחליף מתי שרוצים, וקישור שכבר שיתפתם נשאר כמו שהיה.'; $('refRedeem').hidden = true; return; }
     $('refStats').textContent = R.copy || (mode === 'discount' ? 'חברים חסכו ₪' + (R.saved || 0) : 'הרווחתם ₪' + (R.earned || 0));
     var sub = [];
     if (R.visits) sub.push(R.visits + ' נכנסו דרך הקישור');

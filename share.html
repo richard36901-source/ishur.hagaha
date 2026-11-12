@@ -328,6 +328,8 @@
       .then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         state.code = (d && d.referral_code) || token.slice(0, 8);
+        /* 12/11: a client's two fixed codes — discount = the token's first 8, commission = the next 8 hex */
+        state.codes = { discount: token.slice(0, 8), commission: token.replace(/-/g, '').slice(8, 16) };
         var ev = d && d.event;
         state.name = (ev && String(ev.name1 || '').split(/[\s,ו]+/)[0]) || '';
         if (d && d.referral && d.referral.chosen && !qs.get('v')) state.v = d.referral.mode;
