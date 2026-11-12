@@ -10377,6 +10377,24 @@ async function buildCalendarMonth(env, month) {
       token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
       status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
   });
+  /* 12/11: the per-day index (slog:) fills whatever the capped log: scan missed — same row, never twice */
+  try {
+    const seen = new Set(); for (const d of Object.keys(days)) for (const e of days[d]) seen.add(e.phone + ':' + Date.parse(e.at));
+    const seenLoose = new Set(); for (const d of Object.keys(days)) for (const e of days[d]) seenLoose.add(e.phone + ':' + Math.round(Date.parse(e.at) / 2000));
+    let cursor;
+    for (let i = 0; i < 40; i++) {
+      const page = await env.RATE.list({ prefix: 'slog:' + month, cursor, limit: 1000 }).catch(() => null); if (!page) break;
+      for (const k of page.keys) {
+        const p = k.name.split(':'); const d = p[1], ts = Number(p[2]), phone = p[3], m = k.metadata || {};
+        if (!d || !ts || !phone || seen.has(phone + ':' + ts) || seenLoose.has(phone + ':' + Math.round(ts / 2000))) continue;
+        const who = nameByPhone[phone] || {};
+        const tok = m.tok ? Object.keys(evByTok).find(t => t.startsWith(m.tok)) : who.tok;
+        day(d).push({ at: new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (m.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: m.ch || 'client',
+          token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: m.t === 'text' ? 'טקסט' : (m.t || ''), status: m.ok === false ? 'failed' : 'sent', error: m.e || '', text: '', done: true });
+      }
+      if (page.list_complete) break; cursor = page.cursor;
+    }
+  } catch {}
   /* future: what the engine will do, per event, per date in the month */
   const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
   const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
@@ -13338,6 +13356,31 @@ const WORKER = {
       const what = [b.status !== undefined ? 'סטטוס: ' + r.state.status : '', b.group !== undefined ? 'קבוצה: ' + (r.state.group || 'פעילים') : '', b.owner !== undefined ? 'טיפול: ' + (r.state.owner || 'ללא') : '', b.followup !== undefined ? 'מעקב: ' + (r.state.followup || 'בוטל') : '', b.note !== undefined ? 'הערה' : ''].filter(Boolean).join(' · ');
       await logEvent(env, { area: 'לידים', action: 'עדכון ליד · ' + what, ok: true, phone, detail: b.note !== undefined ? String(b.note).slice(0, 200) : '' });
       return okJson({ ok: true, lead: { phone, ...r.state, lastNote: r.state.notes.length ? r.state.notes[r.state.notes.length - 1] : null } }, origin);
+    }
+    /* 12/11 one-off: build the slog: index for a month from the existing log: keys, a slice per call (cursor in, cursor out) */
+    if (url.pathname === '/api/calendar-backfill' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : ilDate().slice(0, 7);
+      const fromTs = Date.parse(month + '-01T00:00:00+02:00') - 3600e3, toTs = fromTs + 32 * 864e5;
+      let cursor = b.cursor || undefined, ops = 0, scanned = 0, written = 0, done = false;
+      while (ops < 450) {
+        const page = await env.RATE.list({ prefix: 'log:', cursor, limit: 500 }).catch(() => null); ops++;
+        if (!page) break;
+        scanned += page.keys.length;
+        for (const k of page.keys) {
+          const p = k.name.split(':'); const phone = p[1], ts = Number(p[p.length - 1]);
+          if (!phone || !(ts >= fromTs && ts <= toTs)) continue;
+          let v = null; try { v = JSON.parse(await env.RATE.get(k.name)); } catch {} ops++;
+          if (!v || v.dir !== 'out' || v.phone_app) continue;
+          const d = ilDate(new Date(ts)); if (d.slice(0, 7) !== month) continue;
+          await env.RATE.put('slog:' + d + ':' + ts + ':' + phone, '1', { expirationTtl: 200 * 86400, metadata: { ch: v.ch || 'client', ok: v.ok !== false && v.status !== 'failed', t: v.tmpl || String(v.type || ''), tok: String(v.tok || '').slice(0, 8), e: String(v.error || '').slice(0, 60) } }).catch(() => {}); ops++; written++;
+        }
+        if (page.list_complete) { done = true; cursor = ''; break; }
+        cursor = page.cursor;
+      }
+      if (done) await env.RATE.delete('calcache:' + month).catch(() => {});
+      return okJson({ ok: true, month, scanned, written, done, cursor: cursor || '' }, origin);
     }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {
       let b = {};

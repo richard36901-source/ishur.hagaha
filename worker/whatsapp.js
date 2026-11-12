@@ -460,6 +460,14 @@ async function post(env, body, channel, ctx) {
           } : {}),
           at: new Date().toISOString(),
         }));
+      /* 12/11 (Richard: "שלוח השליחות יהיה מעודכן"): a per-day index of what went out. The calendar used to scan
+         every log: key ever written and was cut off at its cap, so days came back partial or empty.
+         slog:<IL day>:<ts>:<phone> carries the row in its metadata — one list call per 1000 rows, no reads. */
+      try {
+        const ilDay = new Date(ts + (new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })) - new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'UTC' })))).toISOString().slice(0, 10);
+        await env.RATE.put('slog:' + ilDay + ':' + ts + ':' + String(body.to || ''), '1', { expirationTtl: 200 * 86400,
+          metadata: { ch, ok: !!res.ok, t: body.type === 'template' ? String((body.template || {}).name || '') : String(body.type || ''), tok: ctx && typeof ctx === 'object' ? String(ctx.token || '').slice(0, 8) : '', e: String(res.error || '').slice(0, 60) } });
+      } catch {}
       stream(env, { kind: 'wa_out', area: ch === 'guests' ? 'שיר' : 'נועה', data: { phone_id: phoneId, wamid: res.id || '', template: body.type === 'template' ? String((body.template || {}).name || '') : '', error: res.error || '' }, action: (res.ok ? '📤 ' : '⛔ ') + (body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type === 'text' ? 'הודעה' : body.type) + ' → ' + String(body.to || ''), ok: res.ok, phone: String(body.to || ''), token: ctx && ctx.token ? String(ctx.token) : '', detail: (res.ok ? '' : String(res.error || '') + ' · ') + summary.slice(0, 400) }).catch(() => {});
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
