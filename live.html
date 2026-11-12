@@ -121,6 +121,15 @@
     return fetch(BASE + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
       .then(function (r) { if (r.status === 403) throw new Error('403'); return r.json(); });
   }
+  var recUrl = {};      /* '/rec/<id>' → blob: URL once loaded ('' = not available) */
+  function recOk(p) { return /^\/rec\/[A-Za-z0-9_.%-]+$/.test(String(p || '')); }
+  function recLoad(p) {
+    if (!recOk(p) || recUrl[p]) return Promise.resolve();
+    return fetch(BASE + p, { headers: { 'X-Admin-Key': adminKey } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(function (b) { recUrl[p] = URL.createObjectURL(b); })
+      .catch(function () { recUrl[p] = ''; });
+  }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   /* order of the chips; names/explanations come from the worker (audit.js KIND_INFO) */
   var KIND_ORDER = ['client', 'guest', 'lead', 'wa_out', 'wa_status', 'wa_in', 'call', 'pay', 'meta', 'cron', 'admin', 'slack', 'event', 'system'];
@@ -174,9 +183,12 @@
     if (it.ua) rows.push(['דפדפן', '<span class="v">' + esc(it.ua) + '</span>']);
     if (it.kind === 'call') {
       if (d.summary) rows.push(['סיכום', '<span class="he">' + esc(d.summary) + '</span>']);
-      if (d.outcome) rows.push(['תוצאה', '<span class="he">' + esc(d.outcome) + (d.duration_s != null ? ' · ' + d.duration_s + ' שנ׳' : '') + '</span>']);
+      if (d.outcome) rows.push(['תוצאה', '<span class="he">' + esc(d.outcome) + (d.duration_s != null ? ' · ' + esc(d.duration_s) + ' שנ׳' : '') + '</span>']);
       rows.push(['תמלול', '<span class="he">' + esc(it.detail || '(אין תמלול)') + '</span>']);
-      if (d.recording) rows.push(['הקלטה', '<a href="' + esc(BASE + d.recording + '?key=' + encodeURIComponent(adminKey)) + '" download="' + esc(d.recording_name || 'call.wav') + '">⬇ ' + esc(d.recording_name || 'הורדה') + '</a><audio controls preload="none" src="' + esc(BASE + d.recording + '?key=' + encodeURIComponent(adminKey)) + '"></audio>']);
+      /* 12/11 security: fetched with the key in a header and played from a blob — the admin key is never part of a URL */
+      if (recOk(d.recording)) rows.push(['הקלטה', recUrl[d.recording]
+        ? '<a href="' + esc(recUrl[d.recording]) + '" download="' + esc(d.recording_name || 'call.wav') + '">⬇ ' + esc(d.recording_name || 'הורדה') + '</a><audio controls src="' + esc(recUrl[d.recording]) + '"></audio>'
+        : '<button type="button" class="chip" data-recload="' + esc(d.recording) + '">' + (recUrl[d.recording] === '' ? 'אין הקלטה' : '▶ ' + esc(d.recording_name || 'הקלטה')) + '</button>']);
     } else if (it.detail) rows.push(['פירוט', '<span class="he">' + esc(it.detail) + '</span>']);
     if (d && Object.keys(d).length && it.kind !== 'call') rows.push(['נתונים', '<span class="v">' + esc(JSON.stringify(d, null, 1)) + '</span>']);
     if (Number(it.cost) > 0) rows.push(['עלות', '<span class="he">₪' + Number(it.cost).toFixed(2) + ' <span style="color:var(--ink3)">(מסירת תבנית / דקות שיחה; טוקנים של Claude לא נמדדים כאן)</span></span>']);
@@ -250,6 +262,8 @@
     if (cp) { try { navigator.clipboard.writeText(cp.dataset.copy); } catch (x) {} if (window.IshurUX && IshurUX.toast) IshurUX.toast('המזהה הועתק'); e.stopPropagation(); return; }
     var tg = e.target.closest('.tag');
     if (tg) { pin = { type: tg.dataset.pin, v: tg.dataset.v }; $('pin').innerHTML = '<button class="chip x" id="unpin">✕ ' + esc(pin.type === 'phone' ? pin.v.replace(/^972/, '0') : pin.v.slice(0, 8)) + '</button>'; render(); return; }
+    var rl = e.target.closest('[data-recload]');
+    if (rl) { rl.disabled = true; rl.textContent = 'טוען…'; recLoad(rl.dataset.recload).then(function () { render(); }); return; }
     if (e.target.closest('audio') || e.target.closest('a')) return;
     var row = e.target.closest('.row'); if (!row) return;
     openIds[row.dataset.id] = !openIds[row.dataset.id]; render();

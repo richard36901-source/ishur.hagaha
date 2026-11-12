@@ -201,9 +201,9 @@
       if (!ref || !last) return;
       var c = last.events[Number(ref[0])].calls[Number(ref[1])];
       if (rb) {
-        /* our kept copy (audit.js:166), fetched as a blob so the key never lands in a link or history */
+        /* our kept copy (audit.js:166), fetched as a blob with the key in a header, so it never lands in a link, history or a request URL */
         rb.disabled = true; rb.textContent = 'טוען…';
-        fetch((opt.base || 'https://go.ishur.io') + c.recording + '?key=' + encodeURIComponent(opt.adminKey || ''))
+        fetch((opt.base || 'https://go.ishur.io') + c.recording, { headers: { 'X-Admin-Key': opt.adminKey || '' } })   /* 12/11 security: header, not URL */
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
           .then(function (bl) { var a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(bl); rb.closest('.cb-call').appendChild(a); a.play().catch(function () {}); rb.remove(); })
           .catch(function () { rb.textContent = 'אין הקלטה'; });

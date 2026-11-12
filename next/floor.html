@@ -159,7 +159,8 @@
   var qs = new URLSearchParams(location.search);
   /* ?fixture=floor.fixture.json renders a saved /api/floor answer: the
      offline check, and a way to look at the page without a live key */
-  var FIXTURE = qs.get('fixture') || '';
+  /* 12/11 security: only a fixture file that ships with the site, by bare name — never a URL */
+  var FIXTURE = qs.get('fixture') || ''; if (!/^[A-Za-z0-9_-]+\.fixture\.json$/.test(FIXTURE)) FIXTURE = '';
   var qk = qs.get('key');
   if (qk) { try { localStorage.setItem('ishur_calls_key', qk); } catch (e) {} history.replaceState(null, '', location.pathname); }
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
@@ -191,6 +192,17 @@
   }
 
   var openAudio = {};   /* call_id → true while its player is open */
+  /* 12/11 security: a recording is fetched with the key in a header and played from a blob,
+     so the admin key never sits in a URL (history, logs, the page's own markup) */
+  var recUrl = {};      /* '/rec/<id>' → blob: URL once loaded */
+  function recOk(p) { return /^\/rec\/[A-Za-z0-9_.%-]+$/.test(String(p || '')); }
+  function recLoad(p) {
+    if (!recOk(p) || recUrl[p]) return Promise.resolve();
+    return fetch(API + p, { headers: { 'X-Admin-Key': adminKey } })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(function (b) { recUrl[p] = URL.createObjectURL(b); })
+      .catch(function () { recUrl[p] = ''; });
+  }
   function renderAgent(key, col) {
     var el = $('col-' + key);
     var cc = col.current_call;
@@ -223,12 +235,12 @@
       h += '<ul class="calls">';
       calls.forEach(function (c) {
         var oc = outcomeCls(c.outcome);
-        h += '<li class="call"><span class="t">' + esc(dayShort(c.at) + hhmm(c.at)) + (c.duration_s != null ? ' · ' + c.duration_s + '״' : '') + '</span>' +
+        h += '<li class="call"><span class="t">' + esc(dayShort(c.at) + hhmm(c.at)) + (c.duration_s != null ? ' · ' + esc(c.duration_s) + '״' : '') + '</span>' +
           '<span class="n">' + esc(c.name || c.phone || '—') + (c.event ? ' <small>· ' + esc(c.event) + '</small>' : '') + '</span>' +
           '<span class="r">' + (c.outcome ? '<span class="chip ' + oc + '">' + esc(c.outcome) + '</span>' : '<span class="chip">ללא תוצאה</span>') +
           (c.verdict ? '<span class="chip qa ' + verdictCls(c.verdict) + '" title="' + esc(c.verdict_note || '') + '">QA ' + esc(c.verdict) + '</span>' : '') +
-          (c.recording ? '<button class="play" type="button" data-rec="' + esc(c.recording) + '" data-id="' + esc(c.id) + '" aria-pressed="' + (openAudio[c.id] ? 'true' : 'false') + '" title="הקלטה">▶</button>' : '') + '</span>';
-        if (openAudio[c.id] && c.recording) h += '<audio class="inline" controls preload="none" src="' + esc(API + c.recording + '?k=' + encodeURIComponent(adminKey)) + '" style="grid-column:1/-1"></audio>';
+          (recOk(c.recording) ? '<button class="play" type="button" data-rec="' + esc(c.recording) + '" data-id="' + esc(c.id) + '" aria-pressed="' + (openAudio[c.id] ? 'true' : 'false') + '" title="הקלטה">▶</button>' : '') + '</span>';
+        if (openAudio[c.id] && recUrl[c.recording]) h += '<audio class="inline" controls src="' + esc(recUrl[c.recording]) + '" style="grid-column:1/-1"></audio>';
         h += '</li>';
       });
       h += '</ul>';
@@ -236,7 +248,7 @@
     h += '</div>';
 
     /* lessons + note */
-    h += '<div class="sec"><h3>לקחים בזיכרון<em>' + (col.memory_n || 0) + '</em></h3>';
+    h += '<div class="sec"><h3>לקחים בזיכרון<em>' + esc(col.memory_n || 0) + '</em></h3>';
     var ls = col.lessons || [];
     if (!ls.length) h += '<p class="empty">הזיכרון ריק. ההערה הראשונה שלך נכנסת מיד.</p>';
     else {
@@ -246,15 +258,17 @@
     }
     h += '<div class="note"><textarea id="note-' + key + '" placeholder="הערה ל' + esc(col.name) + ' — נכנסת לשיחה הבאה"></textarea><button class="btn" type="button" data-note="' + key + '">שמירה</button></div><p class="note-st" id="note-st-' + key + '"></p></div>';
 
-    el.innerHTML = h;
+    /* a recording that is playing is not torn down by the 3-second refresh when nothing else changed */
+    var pa = el.querySelector('audio'); if (el.__h === h && pa && !pa.paused) return;
+    el.__h = h; el.innerHTML = h;
     var tx = $('tx-' + key); if (tx) tx.scrollTop = tx.scrollHeight;
   }
 
   function renderBrain(b, reps) {
     var el = $('col-brain');
-    var h = '<div class="col-h"><b>' + esc(b.name || 'המוח') + '</b><span class="pill' + (b.pending_n ? ' queued' : '') + '">' + (b.pending_n ? b.pending_n + ' ממתינים' : 'מעודכן') + '</span></div>';
-    h += '<div class="sec"><h3>זיכרון</h3><div class="kv"><div><b>' + (b.memory.noa || 0) + '</b><span>לקחים · נועה (עד ' + b.memory.max + ')</span></div><div><b>' + (b.memory.shir || 0) + '</b><span>לקחים · שיר (עד ' + b.memory.max + ')</span></div></div></div>';
-    h += '<div class="sec"><h3>לקחים בהמתנה לאישור<em>' + (b.pending_n || 0) + '</em></h3>';
+    var h = '<div class="col-h"><b>' + esc(b.name || 'המוח') + '</b><span class="pill' + (b.pending_n ? ' queued' : '') + '">' + (b.pending_n ? esc(b.pending_n) + ' ממתינים' : 'מעודכן') + '</span></div>';
+    h += '<div class="sec"><h3>זיכרון</h3><div class="kv"><div><b>' + esc(b.memory.noa || 0) + '</b><span>לקחים · נועה (עד ' + esc(b.memory.max) + ')</span></div><div><b>' + esc(b.memory.shir || 0) + '</b><span>לקחים · שיר (עד ' + esc(b.memory.max) + ')</span></div></div></div>';
+    h += '<div class="sec"><h3>לקחים בהמתנה לאישור<em>' + esc(b.pending_n || 0) + '</em></h3>';
     if (!(b.pending || []).length) h += '<p class="empty">אין. כל שיחה שמסתיימת מוסיפה לכאן.</p>';
     else (b.pending || []).forEach(function (p) { h += '<div class="sug">' + esc(p.text || p.lesson || JSON.stringify(p)) + '<small>' + esc([p.agent === 'noa' ? 'נועה' : p.agent === 'shir' ? 'שיר' : p.agent, hhmm(p.at) ? dayShort(p.at) + hhmm(p.at) : ''].filter(Boolean).join(' · ')) + '</small></div>'; });
     h += '</div>';
@@ -263,14 +277,16 @@
     ['noa_out', 'shir_out'].forEach(function (k) { var s = b.suggestions && b.suggestions[k]; if (!s) return; anyS = true; h += '<div class="sug"><b>' + (k === 'noa_out' ? 'נועה' : 'שיר') + '</b> · ' + esc(s.note || s.title || '') + '<small>' + esc(hhmm(s.at) ? dayShort(s.at) + hhmm(s.at) : '') + ' · לאישור ב<a href="brain.html" style="color:var(--gold)">המוח</a></small></div>'; });
     if (!anyS) h += '<p class="empty">אין הצעה פתוחה.</p>';
     h += '</div>';
-    h += '<div class="sec"><h3>גרסת פרומפט חיה</h3><div class="kv"><div><b>' + (b.prompts.noa_out.head || '—') + '</b><span>נועה · ' + esc(b.prompts.noa_out.note || '') + '</span></div><div><b>' + (b.prompts.shir_out.head || '—') + '</b><span>שיר · ' + esc(b.prompts.shir_out.note || '') + '</span></div></div></div>';
+    h += '<div class="sec"><h3>גרסת פרומפט חיה</h3><div class="kv"><div><b>' + esc(b.prompts.noa_out.head || '—') + '</b><span>נועה · ' + esc(b.prompts.noa_out.note || '') + '</span></div><div><b>' + esc(b.prompts.shir_out.head || '—') + '</b><span>שיר · ' + esc(b.prompts.shir_out.note || '') + '</span></div></div></div>';
     if (reps && reps.length) {
       h += '<div class="sec"><h3>שיחות מוקלטות של שלו / ריצארד</h3><ul class="calls">';
-      reps.forEach(function (c) { h += '<li class="call"><span class="t">' + esc(dayShort(c.at) + hhmm(c.at)) + (c.duration_s != null ? ' · ' + c.duration_s + '״' : '') + '</span><span class="n">' + esc(c.name || c.phone) + ' <small>· ' + esc(c.agent === 'richard' ? 'ריצארד' : 'שלו') + '</small></span><span class="r">' + (c.recording ? '<a class="play" href="' + esc(API + c.recording + '?k=' + encodeURIComponent(adminKey)) + '" target="_blank" rel="noopener">▶</a>' : '') + '</span></li>'; });
+      reps.forEach(function (c) { h += '<li class="call"><span class="t">' + esc(dayShort(c.at) + hhmm(c.at)) + (c.duration_s != null ? ' · ' + esc(c.duration_s) + '״' : '') + '</span><span class="n">' + esc(c.name || c.phone) + ' <small>· ' + esc(c.agent === 'richard' ? 'ריצארד' : 'שלו') + '</small></span><span class="r">' + (recOk(c.recording) ? '<button class="play" type="button" data-rec="' + esc(c.recording) + '" data-id="' + esc(c.id || c.recording) + '" aria-pressed="' + (openAudio[c.id || c.recording] ? 'true' : 'false') + '" title="הקלטה">▶</button>' : '') + '</span>' + (openAudio[c.id || c.recording] && recUrl[c.recording] ? '<audio class="inline" controls src="' + esc(recUrl[c.recording]) + '" style="grid-column:1/-1"></audio>' : '') + '</li>'; });
       h += '</ul></div>';
     }
     h += '<div class="sec links"><a href="brain.html">המוח — פרומפטים וגרסאות</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="live.html">לוג חי</a></div>';
-    el.innerHTML = h;
+    /* a recording that is playing is not torn down by the 3-second refresh when nothing else changed */
+    var pa = el.querySelector('audio'); if (el.__h === h && pa && !pa.paused) return;
+    el.__h = h; el.innerHTML = h;
   }
 
   var last = null;
@@ -308,7 +324,7 @@
   /* clicks: play, delete lesson, save note */
   document.addEventListener('click', function (e) {
     var b = e.target.closest('button'); if (!b) return;
-    if (b.dataset.rec) { openAudio[b.dataset.id] = !openAudio[b.dataset.id]; if (last) render(last); return; }
+    if (b.dataset.rec) { var on = !openAudio[b.dataset.id]; openAudio[b.dataset.id] = on; (on ? recLoad(b.dataset.rec) : Promise.resolve()).then(function () { if (last) render(last); }); return; }
     if (b.dataset.delAgent) {
       var ag = b.dataset.delAgent; var at = b.dataset.at; var tx = b.dataset.text;
       if (!confirm('למחוק את הלקח הזה מהזיכרון של ' + (ag === 'noa' ? 'נועה' : 'שיר') + '?')) return;

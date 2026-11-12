@@ -35,7 +35,7 @@
    ========================================================================== */
 
 import { bumpFromAudit } from './counters.js';
-import { sha256Hex } from './lib.js';
+import { sha256Hex, safeEqual } from './lib.js';
 
 export const AUDIT_TTL = 400 * 86400;
 
@@ -200,7 +200,7 @@ export async function serveRecording(env, url, isAdmin) {
   if (!id || !env.RATE) return new Response('not found', { status: 404 });
   if (!isAdmin) {
     const e = Number(url.searchParams.get('e') || 0), s = String(url.searchParams.get('s') || '');
-    if (!e || e < Date.now() || s !== (await sha256Hex(`rec|${id}|${e}|${env.ADMIN_KEY || ''}`)).slice(0, 32)) return new Response('link expired', { status: 403 });
+    if (!e || e < Date.now() || !env.ADMIN_KEY || !safeEqual(s, (await sha256Hex(`rec|${id}|${e}|${env.ADMIN_KEY}`)).slice(0, 32))) return new Response('link expired', { status: 403 });
   }
   let buf = null;
   if (env.AUDIT_R2) { const o = await env.AUDIT_R2.get('rec/' + id).catch(() => null); if (o) buf = await o.arrayBuffer(); }

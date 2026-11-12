@@ -252,8 +252,8 @@
       if (pl) {
         var c = S.list[Number(pl.dataset.play)].last;
         pl.disabled = true; pl.textContent = '…';
-        /* our kept copy (audit.js:166) as a blob, so the key never sits in a link */
-        fetch((opt.base || 'https://go.ishur.io') + c.recording + '?key=' + encodeURIComponent(opt.adminKey || ''))
+        /* our kept copy (audit.js:166) as a blob with the key in a header, so it never sits in a link or a request URL */
+        fetch((opt.base || 'https://go.ishur.io') + c.recording, { headers: { 'X-Admin-Key': opt.adminKey || '' } })   /* 12/11 security: header, not URL */
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
           .then(function (b) { var a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(b); pl.closest('.lc').appendChild(a); a.play().catch(function () {}); pl.remove(); })
           .catch(function () { pl.textContent = 'אין הקלטה'; });

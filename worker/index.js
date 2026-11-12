@@ -12433,8 +12433,15 @@ const WORKER = {
       return okJson({ ok: true, token: tok, since: new Date(since).toISOString(), guests: out.length, tally, rows: out }, origin);
     }
     if (url.pathname.startsWith('/rec/') && request.method === 'GET') {
-      const k = url.searchParams.get('key') || '';
-      return audit.serveRecording(env, url, !!(k && isAdmin(env, k)));
+      /* 12/11 security: the admin pages send the key in a header (X-Admin-Key) and play the answer from a blob, so the
+         key is not part of a URL any more. ?key= is still read for pages a browser has cached. A session token is
+         accepted like the raw key. Signed links (?e=&s=) need neither. */
+      const hk = request.headers.get('X-Admin-Key') || '';
+      const k = hk || url.searchParams.get('key') || '';
+      const res = await audit.serveRecording(env, url, !!(k && await adminKeyOk(env, k)));
+      if (!hk) return res;
+      const h = new Headers(res.headers); for (const [n, v] of Object.entries(cors(origin))) h.set(n, v);
+      return new Response(res.body, { status: res.status, headers: h });
     }
     /* 22/10: the full audit log, filtered; CSV or JSON, every row re-verified */
     /* 01/11: automations registry + live state + 7-day read-only projection (automations.html).
