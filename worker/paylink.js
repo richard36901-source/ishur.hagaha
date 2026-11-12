@@ -117,7 +117,10 @@ export function priceQuote(b) {
   if (hostesses && !HOSTESS_PRICE[hostesses]) return { ok: false, why: 'hostesses-unpriced' };
   const calls = !!a.calls && !CALLS_INCLUDED.includes(plan);
 
-  const lines = [{ key: 'pkg', label: `${records} רשומות ${PLAN_HE[plan]}`, price: PKG_PRICES[records][plan] }];
+  /* 12/11 הזמן חבר: discount_pct (20) takes the package line to 80%, whole shekels; add-ons stay at list */
+  const dp = Math.max(0, Math.min(50, Number(b.discount_pct) || 0));
+  const pkgPrice = dp ? Math.round(PKG_PRICES[records][plan] * (100 - dp) / 100) : PKG_PRICES[records][plan];
+  const lines = [{ key: 'pkg', label: `${records} רשומות ${PLAN_HE[plan]}${dp ? ' · הנחת חבר' : ''}`, price: pkgPrice, ...(dp ? { list: PKG_PRICES[records][plan], discount_pct: dp } : {}) }];
   if (design) lines.push({ key: 'design', label: 'עיצוב הזמנה', price: DESIGN_PRICE });
   if (hostesses) lines.push({ key: 'host', label: hostesses === 1 ? 'דיילת אחת' : `${hostesses} דיילות`, price: HOSTESS_PRICE[hostesses] });
   if (travel) lines.push({ key: 'travel', label: 'נסיעות דיילות', price: travelFor(hostesses) });
