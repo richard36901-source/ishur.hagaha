@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=84"></script>
+<script src="config.js?v=85"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -2288,7 +2288,8 @@
     $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
       var a = CFG.ADDONS[k];
       var state = CFG.addonState(k, plan, dte);
-      var price = guests ? (k === 'hostess' && CFG.hostessPrice ? CFG.hostessPrice(guests) : CFG.addonPrice(k, guests)) : null;
+      var price = k === 'design' ? (CFG.DESIGN_PRICE || 79) : guests ? (k === 'hostess' && CFG.hostessPrice ? CFG.hostessPrice(guests) : CFG.addonPrice(k, guests)) : null;
+      if (k === 'design' && $('designCard') && !$('designCard').hidden) state = 'included';   /* already bought: the design card is open above */
 
       /* the call round is the one that shows how many people it would reach,
          so the value is visible before the button is pressed */
@@ -2370,7 +2371,7 @@
           /* the same per-event link as the order flow: date + city are known
              here, so availability and travel are checked before Grow */
           b.disabled = true; b.textContent = 'בודקים זמינות…';
-          var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
+          var wa = function () { b.disabled = false; b.textContent = 'הוספה'; IshurUX.toast('לא הצלחנו לבדוק זמינות, נסו שוב בעוד רגע.'); };
           if (demo) { wa(); return; }
           fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ link: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
@@ -2387,7 +2388,9 @@
         if (k === 'calls') return payAddon('calls', 'all');
         if (k === 'selfreg') return payAddon('selfreg', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
-        location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
+        if (k === 'design') { var dl = CFG.DESIGN_LINK; if (dl && token) { location.href = dl + (dl.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token); return; } }
+        /* 12/11 Richard: never hand a purchase to WhatsApp unless it was decided explicitly — say what happened instead */
+        IshurUX.toast('לא הצלחנו לפתוח את התשלום, נסו שוב בעוד רגע.');
       });
     });
   }
@@ -2406,7 +2409,7 @@
   }
   function askScope() {
     var all = priceOf('extra_send', 'all'), un = priceOf('extra_send', 'unanswered');
-    if (!all) return location.href = CFG.waLink('היי, רציתי שליחה נוספת לאירוע שלי.');
+    if (!all) return IshurUX.toast('המחיר עוד נטען, נסו שוב בעוד רגע.');
     var box = document.createElement('div');
     box.className = 'dpop-wrap';
     box.innerHTML = '<div class="dpop" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
@@ -2552,7 +2555,7 @@
         body: JSON.stringify({ token: token, kind: 'upgrade', tier: x.t, plan: x.p }) })
         .then(function (r) { return r.json(); }).then(function (j) {
           if (j && j.ok && j.url) { location.href = j.url; return; }
-          location.href = CFG.waLink('היי, רציתי לשדרג את החבילה ל-' + x.t + ' מוזמנים, ' + NAMES[x.p].split(' · ')[0] + '.');
+          IshurUX.toast('לא הצלחנו להכין קישור לתשלום, נסו שוב בעוד רגע.'); go.disabled = false; go.textContent = 'לשדרוג';
         }).catch(function () { location.href = CFG.waLink('היי, רציתי לשדרג את החבילה שלי.'); });
     });
   }

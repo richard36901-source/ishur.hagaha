@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=84"></script>
+<script src="config.js?v=85"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -1364,8 +1364,8 @@
         body: JSON.stringify({ token: token, kind: 'upgrade', tier: x.t, plan: x.p }) })
         .then(function (r) { return r.json(); }).then(function (j) {
           if (j && j.ok && j.url) { location.href = j.url; return; }
-          location.href = CFG.waLink('היי, רציתי לשדרג את החבילה ל-' + x.t + ' מוזמנים, ' + NAMES[x.p].split(' · ')[0] + '.');
-        })['catch'](function () { location.href = CFG.waLink('היי, רציתי לשדרג את החבילה שלי.'); });
+          go.disabled = false; go.textContent = 'לשדרוג'; IshurUX.toast('לא הצלחנו להכין קישור לתשלום, נסו שוב בעוד רגע.');
+        })['catch'](function () { go.disabled = false; go.textContent = 'לשדרוג'; IshurUX.toast('לא הצלחנו להכין קישור לתשלום, נסו שוב בעוד רגע.'); });
     });
   }
   function renderAddons() {
@@ -1430,8 +1430,9 @@
     var url = guests ? CFG.addonLink(key, guests) : null;
     IshurLead.track('addon_click', { addon: key, plan: plan, guests: guests, has_link: !!url });
     if (url) { location.href = url; return; }
-    /* no link configured yet: hand it to support rather than a dead button */
-    location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + a.label + '.');
+    if (key === 'design' && CFG.DESIGN_LINK) { location.href = CFG.DESIGN_LINK + (CFG.DESIGN_LINK.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token); return; }
+    /* 12/11 Richard: no WhatsApp hand-off for purchases */
+    IshurUX.toast('התוספת הזאת נפתחת מלוח הבקרה אחרי ההגדרה.');
   }
 
   /* ══ schedule ═══════════════════════════════════════════════════════════

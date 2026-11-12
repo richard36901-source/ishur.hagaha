@@ -356,6 +356,12 @@ window.ISHUR_CONFIG = (function () {
       desc: 'עד 10 מוזמנים נוספים חינם. מעבר לזה, או למסלול עם שיחות, משלמים רק את ההפרש',
       plans: []
     },
+    /* 12/11 Richard: the invitation design was only a button on the setup page — clients past setup never saw it */
+    design: {
+      label: 'עיצוב הזמנה',
+      desc: 'הזמנה דיגיטלית מעוצבת לאירוע, לפי הסגנון שתבחרו, כולל 2 סבבי תיקונים, מוכנה לוואטסאפ',
+      plans: []
+    },
     postpone: {
       label: 'הודעת דחייה או עדכון מועד',
       desc: 'הודעה לכל הרשימה על שינוי במועד',
