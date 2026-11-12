@@ -21,3 +21,8 @@ test('add-on never raises a premium plan above its own cap', () => {
   assert.equal(queue.length, 1);
   assert.equal(queue[0].max_tries, 3);
 });
+test('12/11: add-on gives פרמיום one more round on top of its own (1+1)', () => {
+  const { queue } = buildCallQueue(raw('פרמיום'), 3, new Set(['tok-basic']));
+  assert.equal(queue.length, 1);
+  assert.equal(queue[0].max_tries, 2);
+});

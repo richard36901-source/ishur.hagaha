@@ -23,7 +23,7 @@
 
 import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows } from './parse.js';
-import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
+import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab } from './evlog.js';
 import { createInvoice, token as morningToken } from './invoice.js';
@@ -6195,6 +6195,44 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (queued || failed) out.push({ token, type: 'escalation', queued, failed });
       }
     }
+
+    /* 12/11 Richard: a bought call round (callsaddon:<token>) is one MORE round, on a
+       day the engine picks: בסיס — the morning after the last planned send; a plan with
+       calls — the first morning after its own rounds are spent (פרמיום after its one,
+       הכל כלול after its three). Whoever still has no answer goes back into the queue. */
+    const hasCallsAddon = env.RATE ? !!(await env.RATE.get('callsaddon:' + token).catch(() => null)) : false;
+    if (hasCallsAddon) {
+      const planK = planKeyOf(ev), ownCap = planMaxCallTries(planK), esc2Key = `esc2:${token}`;
+      const afterSends = callDateOv ? callDateOv <= today : !!(lastSend && lastSend < today);
+      const escDay = ownCap && env.RATE ? await env.RATE.get(`esc:${token}`).catch(() => null) : null;
+      const stillOwn = guests.some(g => String(g[21] || '').trim() === 'נדרשת שיחה' && (Number(String(g[29] || '').trim()) || 0) < ownCap);
+      const ready = ownCap ? !!(escDay && String(escDay).slice(0, 10) < today && !stillOwn) : afterSends;
+      if (ready && !(env.RATE && await env.RATE.get(esc2Key))) {
+        let queued = 0, failed = 0;
+        for (const g of guests) {
+          const rsvp = String(g[15] || '').trim();
+          const gid = String(g[2] || '').trim();
+          if ((rsvp !== '' && rsvp !== 'מתלבט') || !gid) continue;
+          if (/לא להתקשר/.test(String(g[22] || ''))) continue;          // asked not to be called — never again
+          if (!isIlMobile(normPhone(g[4] || ''))) continue;
+          if (String(g[21] || '').trim() === 'נדרשת שיחה') { queued++; continue; }   // already waiting; the higher cap covers it
+          if (dry) { queued++; continue; }
+          const gKey = `escg2:${gid}`;
+          if (env.RATE && await env.RATE.get(gKey)) { queued++; continue; }
+          const r = await hookFetch(env, env.HOOK_EVENTS, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event_type: 'call_result', guest_id: gid, rsvp: '__keep__', call_status: 'נדרשת שיחה',
+              answer: 'סבב שיחות נוסף', tries: '__keep__', party: '__keep__', ts: new Date().toISOString() }),
+          }).catch(() => null);
+          if (!r || r.status !== 200) { failed++; continue; }
+          if (env.RATE) await env.RATE.put(gKey, today, { expirationTtl: 120 * 86400 }).catch(() => {});
+          queued++;
+        }
+        if (!dry && env.RATE && !failed) await env.RATE.put(esc2Key, today, { expirationTtl: 120 * 86400 });
+        if (!dry && (queued || failed)) await logEvent(env, { area: 'שיחות', action: 'סבב שיחות נוסף (תוספת) נכנס לתור', ok: !failed, review: !!failed, token, detail: `נכנסו ${queued}${failed ? ' · נכשלו ' + failed : ''}` }).catch(() => {});
+        if (queued || failed) out.push({ token, type: 'escalation_addon', queued, failed });
+      }
+    }
   }
 
   for (const ev of evRows) {
@@ -6667,7 +6705,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     }
 
     /* rulebook: a call round takes time — no calls offer under 7 days out */
-    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7) {
+    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7 && !hasCallsAddon) {
       /* measure from the FIRST wave that already went out: by the time the
          last one lands there is no room left before the 7-day calls cutoff */
       const firstSend = [39, 40, 41].map(c => String(ev[c] || '').trim().slice(0, 10))

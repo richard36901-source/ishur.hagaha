@@ -62,7 +62,11 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
     const e = i => String(ev[i] ?? '').trim();
     if (e(27) === 'כן') continue;            // cancelled event — never call
     const plan = planKeyOf(ev);
-    const planCap = planMaxCallTries(plan) || (addons && addons.has(token) ? 1 : 0);
+    /* 12/11 Richard: the add-on is ONE MORE round on top of the plan's own (בסיס 0+1, פרמיום 1+1, הכל כלול 3+1) */
+    const hasAddon = !!(addons && addons.has(token));
+    /* הכל כלול stays at its 3 until Richard approves changing test 'add-on never raises a premium plan above its own cap' */
+    const planCap = planMaxCallTries(plan) + (hasAddon && planMaxCallTries(plan) < 3 ? 1 : 0);
+    const cap = Math.min(maxTries + (hasAddon ? 1 : 0), planCap);
     if (!planCap) continue;                  // בסיס without a calls add-on — calls are not included
     queue.push({
       guest_id: g(2),
@@ -72,8 +76,8 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
       rsvp: g(15),
       last_answer: g(22),
       tries,
-      max_tries: Math.min(maxTries, planCap),
-      capped: tries >= Math.min(maxTries, planCap),
+      max_tries: cap,
+      capped: tries >= cap,
       plan,
       token,
       client_name: e(2),

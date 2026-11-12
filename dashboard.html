@@ -2322,6 +2322,11 @@
       } else if (state === 'included') {
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         action = '<span class="inc">כלול</span>';
+        /* 12/11 Richard: a plan that includes calls can still buy one more round; the day is set by the engine */
+        if (k === 'calls' && plan !== 'premium' && !over && !(data.sent_waves && data.sent_waves.callsAddon)) {
+          action = '<span class="inc">כלול</span> <button type="button" class="buy" data-addon="calls">סבב נוסף' + (price ? ' · ₪' + price : '') + '</button>';
+          extra += ' · סבב נוסף יוצא אוטומטית אחרי הסבבים שבחבילה';
+        }
       } else if (k === 'hostess' && dte != null && dte < 14 && !over) {
         /* Richard 05/10: less than two weeks out, hostesses are a WhatsApp
            request that he checks by hand, not a purchase */
@@ -2376,6 +2381,7 @@
         if (k === 'hostess') {
           /* the same per-event link as the order flow: date + city are known
              here, so availability and travel are checked before Grow */
+          if (!ev.event_date) { IshurUX.toast('כדי לבדוק זמינות דיילות צריך קודם תאריך לאירוע'); return; }
           b.disabled = true; b.textContent = 'בודקים זמינות…';
           var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
           if (demo) { wa(); return; }
@@ -2410,7 +2416,7 @@
     if (!addonQuote) return;
     $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
       var k = b.dataset.addon, it = priceOf(k, 'all');
-      if (it && it.price) b.textContent = 'הוספה · ₪' + it.price;
+      if (it && it.price) b.textContent = (b.textContent.indexOf('סבב נוסף') === 0 ? 'סבב נוסף · ₪' : 'הוספה · ₪') + it.price;
     });
   }
   function askScope() {
