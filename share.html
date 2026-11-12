@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex">
+<title>ערכת שיתוף · הזמן חבר · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;600;700&display=swap" rel="stylesheet">
+<script src="config.js?v=83"></script>
+<script src="assets/guard.js?v=19"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  :root{--pine:#0F2E22;--pine-deep:#0A2119;--gold:#A8853C;--gold-soft:#C7AE7A;--ink:#1B2420;--ink2:#4A554E;--ink3:#7F8C86;--paper:#F8F4EA;--bdr:#E3E1D8}
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--paper);color:var(--ink);direction:rtl;padding:1.2rem 1rem 3rem;max-width:720px;margin:0 auto}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem;color:var(--pine);text-align:center}
+  p.sub{font-size:.85rem;color:var(--ink2);margin:.3rem 0 1rem;text-align:center}
+  .seg{display:flex;gap:.4rem;justify-content:center;margin:0 0 1.1rem}
+  .seg button{font:inherit;font-size:.85rem;padding:.45rem .9rem;border-radius:99px;border:1.5px solid var(--bdr);background:#fff;color:var(--ink2);cursor:pointer}
+  .seg button[aria-pressed="true"]{border-color:var(--gold);color:#8A6D2F;background:rgba(168,133,60,.1);font-weight:600}
+  .kit{display:grid;gap:1.1rem}
+  .item{background:#fff;border:1px solid var(--bdr);border-radius:16px;padding:.8rem;text-align:center}
+  .item h2{font-size:.78rem;letter-spacing:.14em;text-transform:uppercase;color:var(--gold);font-weight:600;margin-bottom:.5rem}
+  .item canvas{max-width:100%;height:auto;border-radius:12px;box-shadow:0 10px 36px rgba(15,46,34,.22)}
+  .item .story{max-width:300px}
+  .item .square{max-width:360px}
+  .item .wa{max-width:460px}
+  .btns{margin-top:.7rem;display:flex;gap:.5rem;justify-content:center;flex-wrap:wrap}
+  a.btn,button.btn{font:inherit;font-weight:600;font-size:.86rem;border-radius:10px;padding:.55rem 1.2rem;cursor:pointer;text-decoration:none;border:none}
+  .btn.dl{background:#0F4C35;color:#fff}
+  .btn.sh{background:#fff;color:#8A6D2F;border:1.5px solid var(--gold)}
+  .btn.back{background:#fff;color:var(--ink2);border:1px solid var(--bdr)}
+  .link{display:flex;gap:.4rem;align-items:center;justify-content:center;margin:0 0 1rem}
+  .link input{font:inherit;font-size:.86rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;direction:ltr;text-align:left;width:min(360px,70vw)}
+  .err{color:#A8402F;font-size:.85rem;margin-top:1rem;text-align:center}
+  #qrbox{position:absolute;left:-9999px;top:-9999px}
+  .foot{text-align:center;margin-top:1.4rem}
+</style>
+</head>
+<body>
+<h1>ערכת השיתוף שלכם</h1>
+<p class="sub" id="sub">שומרים תמונה ומעלים לסטורי, לקבוצה או לצ'אט. מי שסורק או לוחץ נכנס דרך הקישור שלכם.</p>
+<div class="seg" id="seg">
+  <button type="button" data-v="discount" aria-pressed="false">20% הנחה לחברים</button>
+  <button type="button" data-v="commission" aria-pressed="false">בלי הנחה (עמלה לי)</button>
+</div>
+<div class="link"><input id="linkIn" readonly><button class="btn sh" id="copy">העתקה</button></div>
+<div class="kit" id="kit"></div>
+<div id="qrbox"></div>
+<p class="err" id="err" hidden></p>
+<div class="foot"><a class="btn back" id="back" href="dashboard.html">חזרה לדשבורד</a></div>
+
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG;
+  var $ = function (id) { return document.getElementById(id); };
+  var qs = new URLSearchParams(location.search);
+  var token = (qs.get('t') || '').trim();
+  var demo = qs.get('demo') === '1';
+  var v = qs.get('v') === 'discount' ? 'discount' : 'commission';
+  if (token) $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+
+  /* three sizes, one drawing routine that lays itself out from w×h */
+  var SPECS = [
+    { key: 'story',  w: 1080, h: 1920, label: 'סטורי לאינסטגרם · 1080×1920', cls: 'story', file: 'ishur-story' },
+    { key: 'square', w: 1080, h: 1080, label: 'פוסט מרובע · 1080×1080',     cls: 'square', file: 'ishur-square' },
+    { key: 'wa',     w: 1200, h: 630,  label: 'תמונה לוואטסאפ · 1200×630',   cls: 'wa', file: 'ishur-whatsapp' },
+  ];
+  var PINE = '#0F2E22', PINE_LIFT = '#17402F', PINE_DEEP = '#0A2119', GOLD = '#A8853C', GOLD_SOFT = '#C7AE7A', IVORY = '#F8F4EA';
+  var logo = new Image(); logo.src = 'assets/logo-gold.png';
+  var state = { code: '', link: '', name: '', v: v };
+
+  function rr(x, X, Y, W, H, r) { x.beginPath(); x.moveTo(X + r, Y); x.arcTo(X + W, Y, X + W, Y + H, r); x.arcTo(X + W, Y + H, X, Y + H, r); x.arcTo(X, Y + H, X, Y, r); x.arcTo(X, Y, X + W, Y, r); x.closePath(); }
+  function rule(x, cx, y, w) {
+    x.strokeStyle = 'rgba(199,174,122,.6)'; x.lineWidth = 2;
+    x.beginPath(); x.moveTo(cx - w / 2, y); x.lineTo(cx - 14, y); x.moveTo(cx + 14, y); x.lineTo(cx + w / 2, y); x.stroke();
+    x.fillStyle = GOLD; x.beginPath(); x.arc(cx, y, 4, 0, Math.PI * 2); x.fill();
+  }
+  /* a hostess in gold line-art: head, shoulders, a long dress, a tray with two glasses.
+     The repo has no hostess photography yet — drop photos in brand/hostesses/ and swap this. */
+  function hostess(x, cx, baseY, s, mirror) {
+    x.save(); x.translate(cx, baseY); x.scale(mirror ? -s : s, s);
+    x.strokeStyle = GOLD_SOFT; x.lineWidth = 3 / s * 2; x.lineCap = 'round'; x.lineJoin = 'round';
+    x.beginPath(); x.arc(0, -300, 26, 0, Math.PI * 2); x.stroke();                       /* head */
+    x.beginPath(); x.moveTo(-10, -274); x.quadraticCurveTo(-18, -250, -16, -236); x.stroke();  /* hair / neck */
+    x.beginPath(); x.moveTo(-54, -232); x.quadraticCurveTo(0, -252, 54, -232); x.stroke();     /* shoulders */
+    x.beginPath(); x.moveTo(-54, -232); x.lineTo(-92, 0); x.lineTo(92, 0); x.lineTo(54, -232); x.stroke(); /* dress */
+    x.beginPath(); x.moveTo(-20, -232); x.lineTo(-12, 0); x.moveTo(20, -232); x.lineTo(12, 0); x.stroke(); /* pleats */
+    x.beginPath(); x.moveTo(54, -228); x.quadraticCurveTo(100, -190, 118, -150); x.stroke();   /* arm to the tray */
+    x.beginPath(); x.moveTo(92, -150); x.lineTo(150, -150); x.stroke();                      /* tray */
+    x.beginPath(); x.moveTo(108, -150); x.lineTo(108, -168); x.moveTo(100, -168); x.quadraticCurveTo(108, -194, 116, -168); x.stroke(); /* glass */
+    x.beginPath(); x.moveTo(134, -150); x.lineTo(134, -168); x.moveTo(126, -168); x.quadraticCurveTo(134, -194, 142, -168); x.stroke();
+    x.beginPath(); x.moveTo(-54, -228); x.quadraticCurveTo(-88, -170, -70, -120); x.stroke();  /* other arm */
+    x.restore();
+  }
+  function fitText(x, text, maxW, font, min) {
+    var size = parseInt(font, 10);
+    for (; size >= (min || 24); size -= 2) { x.font = font.replace(/\d+px/, size + 'px'); if (x.measureText(text).width <= maxW) break; }
+  }
+  function qrCanvas(text, px) {
+    var box = $('qrbox'); box.innerHTML = '';
+    /* qrcodejs draws a <canvas> (and an <img> for old browsers) */
+    new QRCode(box, { text: text, width: px, height: px, correctLevel: QRCode.CorrectLevel.M, colorDark: PINE, colorLight: IVORY });
+    return box.querySelector('canvas') || box.querySelector('img');
+  }
+
+  function draw(cv, spec) {
+    var x = cv.getContext('2d'), W = spec.w, H = spec.h;
+    var tall = H > W * 1.4, wide = W > H * 1.4;
+    var S = Math.min(W, H) / 1080;                       /* scale: 1 on a 1080 side */
+    var g = x.createRadialGradient(W / 2, H * 0.2, 60, W / 2, H * 0.6, Math.max(W, H));
+    g.addColorStop(0, PINE_LIFT); g.addColorStop(.55, PINE); g.addColorStop(1, PINE_DEEP);
+    x.fillStyle = g; x.fillRect(0, 0, W, H);
+    /* a thin gold frame, like the invitations */
+    x.strokeStyle = 'rgba(199,174,122,.45)'; x.lineWidth = 3 * S; rr(x, 36 * S, 36 * S, W - 72 * S, H - 72 * S, 28 * S); x.stroke();
+
+    var cx = W / 2, y;
+    x.textAlign = 'center'; x.direction = 'rtl';
+    /* head: logo + wordmark */
+    y = tall ? 150 * S : wide ? 70 : 100 * S;
+    var lg = wide ? 56 : 80 * S;
+    if (logo.complete && logo.naturalWidth) x.drawImage(logo, cx - lg / 2, y - lg / 2, lg, lg);
+    y += lg / 2 + (wide ? 40 : 70 * S);
+    x.fillStyle = IVORY; x.font = '700 ' + (wide ? 36 : 54 * S) + 'px "Frank Ruhl Libre", serif';
+    x.fillText('ishur.io', cx, y);
+    rule(x, cx, y + (wide ? 22 : 34 * S), wide ? 140 : 180 * S);
+
+    /* headline */
+    var head = state.v === 'discount' ? '20% הנחה על כל החבילות' : 'אישורי הגעה חכמים בוואטסאפ';
+    var sub1 = state.v === 'discount' ? 'אישורי הגעה לאירוע שלכם בוואטסאפ' : 'ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה';
+    var who = state.name ? (state.v === 'discount' ? 'דרך הקישור של ' + state.name : 'ההמלצה של ' + state.name) : (state.v === 'discount' ? 'דרך הקישור של חבר' : 'המלצה של חבר');
+    y += wide ? 90 : (tall ? 180 : 130) * S;
+    x.fillStyle = state.v === 'discount' ? GOLD_SOFT : IVORY;
+    fitText(x, head, W - 160 * S, '700 ' + (wide ? 64 : 86 * S) + 'px "Frank Ruhl Libre", serif', 40);
+    x.fillText(head, cx, y);
+    y += wide ? 48 : 70 * S;
+    x.fillStyle = 'rgba(248,244,234,.85)'; x.font = '400 ' + (wide ? 26 : 38 * S) + 'px Heebo, sans-serif';
+    x.fillText(sub1, cx, y);
+    y += wide ? 36 : 54 * S;
+    x.fillStyle = GOLD_SOFT; x.font = '600 ' + (wide ? 26 : 36 * S) + 'px Heebo, sans-serif';
+    x.fillText(who, cx, y);
+
+    /* the hostesses flank the QR on the tall and square formats; on the wide one they stand at the sides */
+    var qrPx = wide ? 300 : (tall ? 420 : 340) * S;
+    var qrY = wide ? H / 2 - qrPx / 2 + 50 : y + (tall ? 150 : 70) * S;
+    var qrX = cx - qrPx / 2;
+    var hs = (wide ? 0.6 : (tall ? 1.1 : 0.78)) * S;
+    hostess(x, wide ? 150 : cx - qrPx / 2 - 150 * S, wide ? H - 60 : qrY + qrPx + 10 * S, hs, false);
+    hostess(x, wide ? W - 150 : cx + qrPx / 2 + 150 * S, wide ? H - 60 : qrY + qrPx + 10 * S, hs, true);
+    /* QR on an ivory card */
+    x.fillStyle = IVORY; rr(x, qrX - 28 * S, qrY - 28 * S, qrPx + 56 * S, qrPx + 56 * S, 26 * S); x.fill();
+    var q = qrCanvas(state.link, Math.round(qrPx));
+    if (q) x.drawImage(q, qrX, qrY, qrPx, qrPx);
+    /* the ✓ brand mark in the middle of the QR (level M survives it) */
+    var mk = qrPx * 0.2;
+    x.fillStyle = IVORY; rr(x, cx - mk / 2 - 8 * S, qrY + qrPx / 2 - mk / 2 - 8 * S, mk + 16 * S, mk + 16 * S, 14 * S); x.fill();
+    if (logo.complete && logo.naturalWidth) x.drawImage(logo, cx - mk / 2, qrY + qrPx / 2 - mk / 2, mk, mk);
+
+    /* the link, readable */
+    y = qrY + qrPx + (wide ? 58 : 88 * S);
+    x.fillStyle = IVORY; x.font = '600 ' + (wide ? 30 : 40 * S) + 'px Heebo, sans-serif'; x.direction = 'ltr';
+    x.fillText(state.link.replace(/^https:\/\//, ''), cx, y);
+    x.direction = 'rtl';
+    y += wide ? 36 : 50 * S;
+    x.fillStyle = 'rgba(248,244,234,.6)'; x.font = '400 ' + (wide ? 22 : 30 * S) + 'px Heebo, sans-serif';
+    x.fillText('סורקים או לוחצים · תשלום אחד לאירוע, החל מ-₪50', cx, y);
+
+    /* small print only on the discount variant (20% on the package), never shouted */
+    if (state.v === 'discount') {
+      x.fillStyle = 'rgba(248,244,234,.45)'; x.font = '400 ' + (wide ? 18 : 24 * S) + 'px Heebo, sans-serif';
+      x.fillText('ההנחה על חבילת אישורי ההגעה · תקפה דרך הקישור בלבד', cx, H - (wide ? 44 : 70 * S));
+    }
+  }
+
+  function render() {
+    state.link = CFG.refLink ? CFG.refLink(state.code) : 'https://ishur.io/?ref=' + state.code;
+    $('linkIn').value = state.link;
+    document.querySelectorAll('#seg button').forEach(function (b) { b.setAttribute('aria-pressed', b.dataset.v === state.v ? 'true' : 'false'); });
+    var kit = $('kit'); kit.innerHTML = '';
+    SPECS.forEach(function (spec) {
+      var item = document.createElement('div'); item.className = 'item';
+      item.innerHTML = '<h2>' + spec.label + '</h2><canvas class="' + spec.cls + '" width="' + spec.w + '" height="' + spec.h + '"></canvas>' +
+        '<div class="btns"><button class="btn dl" data-dl>שמירת התמונה</button><button class="btn sh" data-sh hidden>שיתוף</button></div>';
+      kit.appendChild(item);
+      var cv = item.querySelector('canvas');
+      draw(cv, spec);
+      var file = spec.file + '-' + state.v + '.png';
+      item.querySelector('[data-dl]').addEventListener('click', function () {
+        var a = document.createElement('a'); a.download = file; a.href = cv.toDataURL('image/png'); document.body.appendChild(a); a.click(); a.remove();
+      });
+      var sh = item.querySelector('[data-sh]');
+      if (navigator.share && navigator.canShare) {
+        sh.hidden = false;
+        sh.addEventListener('click', function () {
+          cv.toBlob(function (blob) {
+            var f = new File([blob], file, { type: 'image/png' });
+            if (navigator.canShare({ files: [f] })) navigator.share({ files: [f], text: state.link }).catch(function () {});
+            else navigator.share({ text: state.link, url: state.link }).catch(function () {});
+          }, 'image/png');
+        });
+      }
+    });
+  }
+  function ready(fn) {
+    var fonts = document.fonts && document.fonts.ready ? Promise.all([document.fonts.load('700 86px "Frank Ruhl Libre"'), document.fonts.load('600 40px Heebo')]) : Promise.resolve();
+    var img = logo.complete ? Promise.resolve() : new Promise(function (r) { logo.onload = r; logo.onerror = r; });
+    Promise.all([fonts, img]).then(fn, fn);
+  }
+  $('seg').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button[data-v]'); if (!b) return;
+    state.v = b.dataset.v; ready(render);
+  });
+  $('copy').addEventListener('click', function () {
+    var val = $('linkIn').value;
+    (navigator.clipboard ? navigator.clipboard.writeText(val) : Promise.reject()).then(function () { $('copy').textContent = 'הועתק ✓'; setTimeout(function () { $('copy').textContent = 'העתקה'; }, 1500); }, function () { $('linkIn').select(); });
+  });
+
+  function start() {
+    if (demo || !token) { state.code = 'abcd1234'; state.name = 'דנה'; ready(render); return; }
+    var payload = { token: token };
+    fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
+      .then(function (r) { return r.status === 200 ? r.json() : null; })
+      .then(function (d) {
+        state.code = (d && d.referral_code) || token.slice(0, 8);
+        var ev = d && d.event;
+        state.name = (ev && String(ev.name1 || '').split(/[\s,ו]+/)[0]) || '';
+        if (d && d.referral && d.referral.chosen && !qs.get('v')) state.v = d.referral.mode;
+        ready(render);
+      })
+      .catch(function () { $('err').hidden = false; $('err').textContent = 'לא הצלחנו לטעון את הפרטים, מציגים ערכה כללית'; state.code = token.slice(0, 8); ready(render); });
+  }
+  if (window.IshurGuard && IshurGuard.whenReady) IshurGuard.whenReady().then(start); else start();
+})();
+</script>
+</body>
+</html>

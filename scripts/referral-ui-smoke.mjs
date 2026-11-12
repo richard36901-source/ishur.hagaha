@@ -114,7 +114,7 @@ if (existsSync(join(ROOT, 'share.html'))) {
   const specs = share.match(/\{\s*key:\s*'(story|square|wa)'/g) || [];
   ok(specs.length === 3 && /1080,\s*h:\s*1920/.test(share) && /1080,\s*h:\s*1080/.test(share) && /1200,\s*h:\s*630/.test(share), 'three sizes: 1080×1920, 1080×1080, 1200×630', specs.join());
   ok(/20% הנחה על כל החבילות/.test(share), 'discount variant copy');
-  ok(/v === 'commission'/.test(share) || /variant === 'commission'/.test(share), 'commission variant branch');
+  ok(/state\.v === 'discount' \? /.test(share) && /ההמלצה של/.test(share), 'commission variant branch (no discount wording)');
   ok(/ishur\.io\/\?ref=/.test(share), 'the link text on the image');
 }
 
