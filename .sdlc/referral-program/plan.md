@@ -6,7 +6,7 @@ Spec: `.sdlc/referral-program/spec.md` (approved fb1433f). Repo `ishur-deploy`, 
 | What | Change |
 |---|---|
 | `worker/referral.js` (new, pure) | code/mode rules, `discountPrice(p)`, `attribute(flat, kv, leadRow)`, record + ledger builders, `slackLine(rec)`, review credit table, `refSummary(code, recs, ledger)` |
-| `worker/index.js` | routes `/api/referral` (GET public / POST client), `/api/ref-touch`, `/api/referrals`, `/api/referrals/act` (admin); hook in `processGrowPayment` after `creditReferral`; `createQuoteLink` passes `ref`/`cField3`; `/api/dashboard` adds `referral:{…}`; `/api/raffle/*` claim fallback when raffle off → `revclaim:` |
+| `worker/index.js` | routes `/api/referral` (GET public / POST client), `/api/ref-touch`, `/api/referrals`, `/api/referrals/act` (admin); hook in `processGrowPayment` after `creditReferral` (record `pending`) and after `createInvoice`/Grow `invoiceURL` (verify + credit); `createQuoteLink` passes `ref`/`cField3`; `/api/dashboard` adds `referral:{…}`; `/api/raffle/*` claim fallback when raffle off → `revclaim:` |
 | `worker/paylink.js` | `priceQuote(b)` honours `b.discount_pct` on the package line only; `buildCode` adds `ref:<code>` |
 | `worker/ops-plan.js` | one todo line "זיכויים ממתינים" when any unredeemed balance |
 | `worker/test/referral.test.mjs`, `worker/test/referral-routes.test.mjs` (new) | P1, P2 |
@@ -16,7 +16,7 @@ Spec: `.sdlc/referral-program/spec.md` (approved fb1433f). Repo `ishur-deploy`, 
 | `dashboard.html` | new הזמן חבר card (choice, link, stats copy, למימוש, ערכת שיתוף) |
 | `share.html` (new) | canvas kit: 3 sizes × 2 variants, QR (qrcodejs from cdnjs as table.html), download + Web Share |
 | `feedback.html` | high-score step shows credit copy (₪30 video / ₪20 review) when raffle off; claims go to the same endpoints with `kind` |
-| `clients.html` | tab bar לקוחות / הפניות; referrals table + pending reviews; act buttons |
+| `clients.html` | tab bar לקוחות / הפניות; referrals table (ממתין/מאומת, אשר הפניה) + pending reviews; "אשר הפניה" also inside ניהול אירוע of a referred client |
 | `.sdlc/referral-program/grow-pages.md`, `noa-template.md` | Richard's Grow list; Noa template text (not wired) |
 | Make scenario 7362541 | module 2 mapper `cField3: {{1.cField3}}` (Make MCP `scenarios_update`) |
 | `scripts/referral-ui-smoke.mjs` (new) | P4, vm-sandbox like paylink-ui-smoke (no browser) |
@@ -37,6 +37,7 @@ KV keys (all new, prefixed, TTL 730d unless noted): `ref:<tok8>`, `refpend:<phon
 ## Risks and mitigations
 - **IPN path is live money.** Every referral step sits in its own `try{}` after `ok` is decided (same as `creditReferral`); a thrown error logs a journal row, never changes the HTTP status Grow sees. Rollback: `npx wrangler rollback` (previous version) — no KV migration to undo.
 - **Grow echo of cField3 unknown.** `refpend:<phone>` fallback is written by the site before redirect, so attribution works either way; `_simulated` replay tests both branches.
+- **Credit before the invoice.** Credit is posted only by `verifyReferral(code, friendToken, by)`, called from the invoice success path or the admin act; it is idempotent (`verified_at` set once). P1 asserts a pending record never changes the ledger.
 - **Double credit** (cField3 + lead row both match): the attribution returns one code; `refdone:<last9>` guards forever, as today.
 - **Wrong tier parse** on the new page names: P1 asserts `parsePaidDesc` on "<N> מוזמנים <plan> · הנחת חבר" and `looksIshur` still matches (word מוזמנים).
 - **Site regression for non-referred visitors.** `IshurRef` is inert without a cookie/param; renderPlans only changes when `IshurRef.active()`; P4 asserts plain render unchanged.
