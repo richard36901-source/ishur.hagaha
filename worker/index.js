@@ -25,8 +25,8 @@ import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
-import { proxy as evProxy, appendTab } from './evlog.js';
-import { installStagingGuard, wrapEmail, isStaging } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
+import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
+import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
 import { createInvoice, token as morningToken } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
@@ -150,7 +150,7 @@ async function leadsTabCached(env, ttlSec = 1800) {
   if (!env.BRAIN_HOOK) return [];
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ url: 'spreadsheets/1VAHaP32Jt2MDmyca_TDqOddpomnUxDd47ePSAyOFG-Q/values:batchGet', qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }),
+    body: JSON.stringify({ url: `spreadsheets/${sheetId(env)}/values:batchGet`, qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P500' }),
   }).catch(() => null);
   let rows = null;
   try { if (r && r.ok) rows = (await r.json()).valueRanges[0].values || []; } catch {}
@@ -11300,6 +11300,18 @@ const WORKER = {
       }
       } catch (e) { return okJson({ ok: false, scanned, rewritten: n, error: String(e && e.stack || e).slice(0, 400) }, origin); }
       return okJson({ ok: true, scanned, rewritten: n }, origin);
+    }
+    /* dev-staging 12/11: smoke.sh proves the guard on the live staging worker — one text to `phone`
+       through the normal send path. Returns the send result ({error:'staging-blocked'} for a number
+       outside STAGING_ALLOWLIST). Does not exist in production (404). */
+    if (url.pathname === '/api/staging-probe' && request.method === 'POST') {
+      if (!isStaging(env)) return deny(404, 'not-staging', origin);
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const phone = normPhone(b.phone || '');
+      if (!phone) return deny(400, 'bad-phone', origin);
+      const r = await sendText(env, phone, String(b.text || 'staging probe'), 'client', { who: 'staging-probe' });
+      return okJson({ ok: true, staging: true, allowlisted: isAllowedPhone(env, phone), result: r }, origin);
     }
     if (url.pathname === '/api/guest-text' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
