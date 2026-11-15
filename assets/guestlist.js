@@ -516,7 +516,111 @@
     function render() {
       tb.innerHTML = '';
       mrows.forEach(function (r) { tb.appendChild(rowEl(r)); });
-      ensureTail(); summary();
+      ensureTail(); var c = summary(); renderCards(c);
+    }
+
+    /* ── narrow screens (Richard 15/11): no table to scroll sideways. The list is a column of
+       rows; a guest is typed in a small form, one field under the other, that closes by itself
+       once the count is picked. Tapping a row opens the same form to edit it. ── */
+    var mq = root.matchMedia ? root.matchMedia('(max-width:560px)') : null;
+    function narrow() { return !!(mq && mq.matches); }
+    var cards = $('glmCards'), bg = $('glmSheetBg'), fN = $('glmFName'), fP = $('glmFPhone'), fC = $('glmFCount'),
+      chips = $('glmFChips'), fHint = $('glmFHint'), fDel = $('glmFDel'), cur = null, curNew = false;
+
+    function renderCards(c) {
+      if (!cards) return;
+      c = c || manualCheck(mrows);
+      var bad = {}, dup = {}; c.bad.forEach(function (i) { bad[i] = 1; }); c.dup.forEach(function (i) { dup[i] = 1; });
+      cards.innerHTML = '';
+      mrows.forEach(function (r, i) {
+        if (blankRow(r)) return;
+        var b = doc.createElement('button'); b.type = 'button'; b.className = 'glm-card' + (bad[i] ? ' glm-bad' : '');
+        var n = doc.createElement('b'); n.textContent = String(r.name || '').trim() || 'בלי שם';
+        var p = doc.createElement('span'); p.className = 'glm-card-p'; p.dir = 'ltr'; p.textContent = normIL(r.phone) || String(r.phone || '').trim() || '—';
+        var k = doc.createElement('span'); k.className = 'glm-card-c';
+        k.textContent = bad[i] ? 'לבדוק' : dup[i] ? 'מספר כפול' : (countOf(r.count) === 1 ? 'מוזמן אחד' : countOf(r.count) + ' מוזמנים');
+        b.appendChild(n); b.appendChild(p); b.appendChild(k);
+        b.setAttribute('aria-label', 'עריכת ' + n.textContent);
+        b.addEventListener('click', function () { openSheet(r); });
+        cards.appendChild(b);
+      });
+    }
+
+    function paintChips() {
+      var v = cur ? countOf(cur.count) : 0, picked = cur && cur._picked;
+      Array.prototype.forEach.call(chips.children, function (ch) {
+        var on = picked && (ch.dataset.n === String(v) || (ch.dataset.n === 'more' && v > 6));
+        ch.setAttribute('aria-pressed', on ? 'true' : 'false');
+      });
+    }
+    function phoneHint() {
+      var raw = String(fP.value || '').trim();
+      fHint.hidden = !raw || !!normIL(raw);
+    }
+    function openSheet(r) {
+      if (!bg) return;
+      curNew = !r; cur = r || { name: '', phone: '', count: 1 };
+      cur._picked = !curNew;
+      $('glmSheetT').textContent = curNew ? 'מוזמן חדש' : 'עריכת מוזמן';
+      fN.value = cur.name; fP.value = cur.phone; fC.hidden = !(cur._picked && countOf(cur.count) > 6); fC.value = fC.hidden ? '' : cur.count;
+      fDel.hidden = curNew; fHint.hidden = true; paintChips();
+      bg.hidden = false; doc.documentElement.classList.add('glm-lock');
+      setTimeout(function () { (curNew ? fN : null) && fN.focus(); }, 60);
+    }
+    function closeSheet(drop) {
+      if (!bg || bg.hidden || !cur) return;
+      var r = cur; cur = null;
+      bg.hidden = true; doc.documentElement.classList.remove('glm-lock');
+      if (doc.activeElement && doc.activeElement.blur) doc.activeElement.blur();
+      if (drop) { var at = mrows.indexOf(r); if (at >= 0) mrows.splice(at, 1); }
+      else {
+        r.name = fN.value; r.phone = normIL(fP.value) || fP.value; delete r._picked;
+        if (curNew && !blankRow(r)) {
+          while (mrows.length && blankRow(mrows[mrows.length - 1])) mrows.pop();
+          mrows.push(r); track('manual_add', {});
+        }
+      }
+      render(); flush();
+    }
+    if (bg) {
+      doc.body.appendChild(bg);   /* out of the animated card, so position:fixed is the screen */
+      fC.addEventListener('change', function () { if (cur && countOf(fC.value) > 1 && String(fN.value || '').trim() && normIL(fP.value)) closeSheet(false); });
+      fN.addEventListener('input', function () { if (cur) cur.name = fN.value; });
+      fP.addEventListener('input', function () {
+        if (!cur) return; cur.phone = fP.value;
+        /* a full Israeli mobile and a name: put the keyboard away so the count is in view */
+        var d = fP.value.replace(/\D/g, '');
+        if (/^05\d{8}$/.test(d) && String(fN.value || '').trim()) { fP.blur(); chips.scrollIntoView({ block: 'nearest' }); }
+        if (!fHint.hidden) phoneHint();
+      });
+      fP.addEventListener('blur', phoneHint);
+      fN.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); fP.focus(); } });
+      fP.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); fP.blur(); } });
+      var sheetPaste = function (e) {
+        var t = (e.clipboardData || root.clipboardData); t = t ? t.getData('text') : '';
+        if (!/[\n\t]/.test(t)) return;
+        var add = parsePaste(t); if (!add.length) return;
+        e.preventDefault();
+        while (mrows.length && blankRow(mrows[mrows.length - 1])) mrows.pop();
+        Array.prototype.push.apply(mrows, add); track('manual_paste', { n: add.length });
+        fN.value = ''; fP.value = ''; cur = { name: '', phone: '', count: 1 }; curNew = true; closeSheet(false);
+      };
+      fN.addEventListener('paste', sheetPaste); fP.addEventListener('paste', sheetPaste);
+      chips.addEventListener('click', function (e) {
+        var ch = e.target.closest ? e.target.closest('button') : null; if (!ch || !cur) return;
+        if (ch.dataset.n === 'more') { cur._picked = true; cur.count = 7; fC.hidden = false; fC.value = ''; paintChips(); fC.focus(); return; }
+        cur.count = countOf(ch.dataset.n); cur._picked = true;
+        /* picking the count is the last step — nothing else to press. A form with no name or number yet stays open */
+        if (String(fN.value || '').trim() && normIL(fP.value)) closeSheet(false);
+        else { paintChips(); phoneHint(); (String(fN.value || '').trim() ? fP : fN).focus(); }
+      });
+      fC.addEventListener('input', function () { if (cur) cur.count = countOf(fC.value); });
+      fC.addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); closeSheet(false); } });
+      $('glmSheetX').addEventListener('click', function () { closeSheet(false); });
+      bg.addEventListener('click', function (e) { if (e.target === bg) closeSheet(false); });
+      doc.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeSheet(false); });
+      fDel.addEventListener('click', function () { closeSheet(true); });
+      if (mq) { var onMq = function () { if (!narrow()) closeSheet(false); }; mq.addEventListener ? mq.addEventListener('change', onMq) : mq.addListener(onMq); }
     }
 
     function openEd(focus) {
@@ -525,8 +629,9 @@
       if (focus) { var f = tb.querySelector('tr:last-child .glm-name'); if (f) f.focus(); }
     }
 
-    $('glmOpen').addEventListener('click', function () { track('manual_open', {}); openEd(true); });
+    $('glmOpen').addEventListener('click', function () { track('manual_open', {}); openEd(!narrow()); if (narrow()) openSheet(null); });
     $('glmAdd').addEventListener('click', function () {
+      if (narrow()) { openSheet(null); return; }
       ensureTail(); var f = tb.querySelector('tr:last-child .glm-name'); if (f) { f.focus(); f.scrollIntoView({ block: 'nearest' }); }
     });
 

@@ -351,18 +351,35 @@
   .glm-bad td{background:#FFF6E5}
   .glm-bad .gl-in{border-color:#C9A227}
   .glm-quiet{color:var(--ink3)}
-  /* phone: the name gets its own line, the number and the count share the next one */
-  @media (max-width:560px){
-    .glm-wrap table,.glm-wrap tbody{display:block}
-    .glm-wrap thead{display:none}
-    .glm-wrap tr{display:grid;grid-template-columns:minmax(0,1fr) 4rem 36px;gap:.3rem;align-items:center;padding:.45rem .4rem;border-top:1px solid var(--bdr)}
-    .glm-wrap tr:first-child{border-top:0}
-    .glm-wrap td{display:block;border:0;padding:0;width:auto!important}
-    .glm-wrap td:first-child{grid-column:1/-1}
-    .glm-wrap .gl-n{width:100%}
-    .glm-bad td{background:none}
-    .glm-wrap tr.glm-bad{background:#FFF6E5}
-  }
+  /* narrow screens: a column of rows and a small form, no table (assets/guestlist.js) */
+  .glm-cards{display:none;margin-top:.5rem;border:1px solid var(--bdr);border-radius:10px;background:var(--bg);overflow:hidden}
+  .glm-cards:empty{display:none!important}
+  .glm-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .6rem;width:100%;text-align:start;padding:.65rem .75rem;border:0;border-top:1px solid var(--bdr);background:none;font-family:inherit;color:var(--ink);cursor:pointer;min-height:56px}
+  .glm-card:first-child{border-top:0}
+  .glm-card b{font-size:.95rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .glm-card-c{grid-row:1/3;grid-column:2;align-self:center;font-size:.8rem;color:var(--ink2);white-space:nowrap}
+  .glm-card-p{font-size:.82rem;color:var(--ink3);text-align:right}
+  .glm-card.glm-bad{background:#FFF6E5}
+  .glm-card.glm-bad .glm-card-c{color:#7A5A1E;font-weight:600}
+  @media (max-width:560px){ .glm-wrap{display:none} .glm-cards{display:block} }
+  .glm-lock,.glm-lock body{overflow:hidden}
+  .glm-sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(20,30,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 14px 0}
+  .glm-sheet-bg[hidden]{display:none}
+  .glm-sheet{width:100%;max-width:420px;background:var(--bg);border-radius:12px;padding:1rem 1rem 1.1rem;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+  .glm-sh-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+  .glm-sh-h b{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
+  .glm-sh-h button{width:40px;height:40px;border:0;background:none;font-size:1.5rem;color:var(--ink3);cursor:pointer;border-radius:8px}
+  .glm-sheet label{display:block;font-size:.82rem;font-weight:500;color:var(--ink2);margin-top:.6rem}
+  .glm-sheet label input,.glm-f-n{display:block;width:100%;margin-top:.3rem;border:1px solid var(--bdr2);border-radius:10px;background:var(--bg);font-family:inherit;font-size:17px;padding:.7rem .75rem;color:var(--ink)}
+  .glm-sheet input:focus{border-color:var(--green);outline:none}
+  .glm-f-hint{font-size:.8rem;color:#7A5A1E;margin-top:.35rem}
+  .glm-f-lbl{font-size:.82rem;font-weight:500;color:var(--ink2);margin-top:.8rem}
+  .glm-chips{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem;margin-top:.35rem}
+  .glm-chips button{min-height:46px;border:1px solid var(--bdr2);border-radius:10px;background:var(--bg);font-family:inherit;font-size:1rem;font-weight:500;color:var(--ink);cursor:pointer;padding:0}
+  .glm-chips button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+  .glm-chips button[data-n=more]{font-size:.78rem}
+  .glm-f-n{margin-top:.5rem;text-align:center}
+  .glm-f-del{display:block;margin:1rem auto 0;border:0;background:none;font-family:inherit;font-size:.86rem;color:var(--ink3);text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:40px}
   .lede-alt{font-size:.84rem;margin-top:-.4rem;margin-bottom:.9rem}
   .lede-alt a{color:var(--green2);text-decoration:underline;text-underline-offset:3px}
   .gl-chk{display:flex;gap:.5rem;align-items:flex-start;margin-top:.7rem;font-size:.86rem;color:var(--ink);line-height:1.5}
@@ -518,8 +535,9 @@
             <tbody id="glmTbody"></tbody>
           </table>
         </div>
+        <div class="glm-cards" id="glmCards"></div>
         <div class="gl-row">
-          <button type="button" class="gl-btn" id="glmAdd">+ שורה</button>
+          <button type="button" class="gl-btn" id="glmAdd">+ הוספת מוזמן</button>
           <button type="button" class="gl-btn glm-quiet" id="glmReset">איפוס הרשימה</button>
         </div>
         <p class="gl-note" id="glmNote" hidden></p>
@@ -528,6 +546,21 @@
       </div>
     </div>
   </section>
+
+  <div class="glm-sheet-bg" id="glmSheetBg" hidden>
+    <div class="glm-sheet" role="dialog" aria-modal="true" aria-labelledby="glmSheetT">
+      <div class="glm-sh-h"><b id="glmSheetT">מוזמן חדש</b><button type="button" id="glmSheetX" aria-label="סגירה">×</button></div>
+      <label>שם<input type="text" id="glmFName" autocomplete="off" enterkeyhint="next" placeholder="שם המוזמן או המשפחה"></label>
+      <label>טלפון נייד<input type="tel" id="glmFPhone" inputmode="tel" dir="ltr" autocomplete="off" enterkeyhint="done" placeholder="050-1234567"></label>
+      <p class="glm-f-hint" id="glmFHint" hidden>צריך מספר נייד, למשל 050-1234567. מספר בחו"ל נכתב עם קידומת המדינה (+1…).</p>
+      <div class="glm-f-lbl" id="glmFLbl">כמה מוזמנים? בחירה סוגרת ושומרת</div>
+      <div class="glm-chips" id="glmFChips" role="group" aria-labelledby="glmFLbl">
+        <button type="button" data-n="1">1</button><button type="button" data-n="2">2</button><button type="button" data-n="3">3</button><button type="button" data-n="4">4</button><button type="button" data-n="5">5</button><button type="button" data-n="6">6</button><button type="button" data-n="more">יותר</button>
+      </div>
+      <input type="number" class="glm-f-n" id="glmFCount" min="7" max="99" inputmode="numeric" enterkeyhint="done" placeholder="כמה? ואז Enter" aria-label="כמות מוזמנים" hidden>
+      <button type="button" class="glm-f-del" id="glmFDel" hidden>הסרה מהרשימה</button>
+    </div>
+  </div>
 
   <!-- ══ step 2 · event setup ═══════════════════════════════════════════ -->
   <section class="view" id="setupView">
@@ -807,7 +840,7 @@
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/datepicker.js?v=19"></script>
-<script src="assets/guestlist.js?v=5"></script>
+<script src="assets/guestlist.js?v=6"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
