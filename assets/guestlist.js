@@ -475,7 +475,7 @@
         td.appendChild(inp); tr.appendChild(td); return inp;
       };
       var inN = mk('text', 'glm-name', 'שם', r.name); inN.placeholder = 'שם המוזמן או המשפחה';
-      var inP = mk('tel', 'glm-ph', 'טלפון', r.phone); inP.inputMode = 'tel'; inP.dir = 'ltr'; inP.placeholder = 'נייד 05X';
+      var inP = mk('tel', 'glm-ph', 'טלפון', r.phone); inP.inputMode = 'tel'; inP.dir = 'ltr'; inP.placeholder = '050-1234567';
       var inC = mk('number', 'gl-n', 'כמות מוזמנים', r.count); inC.min = '1'; inC.max = '99'; inC.inputMode = 'numeric'; inC.title = 'כמה מוזמנים';
       var tdX = doc.createElement('td'), x = doc.createElement('button');
       x.type = 'button'; x.className = 'gl-x'; x.textContent = '×'; x.setAttribute('aria-label', 'הסרת השורה');
@@ -630,6 +630,20 @@
     }
 
     $('glmOpen').addEventListener('click', function () { track('manual_open', {}); openEd(!narrow()); if (narrow()) openSheet(null); });
+    /* the link at the top of the page opens the list itself, right under it — nobody is thrown to the
+       bottom of the page (Richard 15/11). On a phone with nothing typed yet the form comes straight up. */
+    var jump = $('glmJump');
+    if (jump) jump.addEventListener('click', function (e) {
+      e.preventDefault(); track('manual_open', { from: 'top' });
+      var box = $('glManual'), line = jump.parentNode;
+      if (line && line.parentNode && line.nextSibling !== box) line.parentNode.insertBefore(box, line.nextSibling);
+      var has = mrows.some(function (r) { return !blankRow(r); });
+      openEd(false);
+      if (narrow() && !has) { openSheet(null); return; }
+      if (!narrow()) { var f = tb.querySelector('tr:last-child .glm-name'); if (f) f.focus({ preventScroll: true }); }
+      var top = box.getBoundingClientRect().top;
+      if (top < 0 || top > root.innerHeight * 0.6) box.scrollIntoView({ block: 'start' });
+    });
     $('glmAdd').addEventListener('click', function () {
       if (narrow()) { openSheet(null); return; }
       ensureTail(); var f = tb.querySelector('tr:last-child .glm-name'); if (f) { f.focus(); f.scrollIntoView({ block: 'nearest' }); }
