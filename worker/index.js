@@ -5271,7 +5271,24 @@ async function lateInvite(env, ev, tok, name, phone) {
   await noteGuestSend(env, res, tok, 1, p, gk);
   await addEvCost(env, tok, msgCost(tmpl)).catch(() => {});
   await env.RATE.delete(qk).catch(() => {});
+  await stampSentDates(env, tok, { [p]: '' }).catch(() => {});   /* 15/11: the list showed "נשלח" empty for a guest who did get it */
   return { sent: true, why: 'sent' };
+}
+/* 15/11: write "תאריך שליחה 1" (column I) for guests of one event whose invitation went out but whose row
+   has no date. dates = { phone: 'YYYY-MM-DD HH:MM' | '' (= now) }. Only empty cells are written. → rows written */
+async function stampSentDates(env, tok, dates) {
+  const raw = await readSnapshot(env, 'write');
+  const vals = (raw && raw.guests && raw.guests.values) || [];
+  const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jerusalem' }).slice(0, 16);
+  const data = [];
+  vals.forEach((r, i) => {
+    if (String((r || [])[28] || '').trim() !== tok) return;
+    const ph = normPhone(r[4]);
+    if (!(ph in dates) || String(r[8] || '').trim()) return;
+    data.push({ range: `אורחים!I${i + 2}`, values: [[dates[ph] || now]] });
+  });
+  if (!data.length) return 0;
+  return (await sheetBatchWrite(env, data)) ? data.length : 0;
 }
 async function drainLateInvites(env) {
   if (!env.RATE || !sendWindowState().open) return { sent: 0, closed: true };
@@ -11420,6 +11437,18 @@ const WORKER = {
           return okJson({ ok: !!okw, row: idx + 2, occasion: occ }, origin);
         }
         /* 15/11: take back an answer that was written on the wrong event's row (one guest row: מגיע?, סטטוס מענה, זמן ביצוע) */
+        if (b.action === 'sent-reconcile') {
+          const tok = String(b.token || '').trim();
+          if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-args', origin);
+          const dates = {}, marks = [];
+          for (const [ph, d] of Object.entries(b.dates || {})) { const p = normPhone(ph); if (p && /^(|\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?)$/.test(String(d))) dates[p] = String(d); }
+          for (const ph of (Array.isArray(b.marks) ? b.marks : []).slice(0, 200)) { const p = normPhone(ph); if (p) marks.push(p); }
+          let marked = 0;
+          for (const p of marks) { const gk = `wsent:${tok}:1:${p}`; if (!(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }); marked++; } }
+          const written = Object.keys(dates).length ? await stampSentDates(env, tok, dates) : 0;
+          await logEvent(env, { area: 'אורחים', action: `תיקון רישום שליחה: ${written} תאריכים נכתבו, ${marked} סימוני "נשלח" הושלמו`, ok: true, token: tok }).catch(() => {});
+          return okJson({ ok: true, written, marked }, origin);
+        }
         if (b.action === 'guest-clear-answer') {
           const gid = String(b.guest_id || '').trim();
           if (!/^G-[0-9a-f]{8}-\d+$/.test(gid)) return deny(400, 'bad-args', origin);
@@ -13484,7 +13513,8 @@ const WORKER = {
       /* invitation now, only if the first wave already went out; otherwise
          the guest simply rides the wave with everybody else */
       let sent = false, why = 'with-wave';
-      if (ev && env.RATE && await env.RATE.get('wave:' + tok + ':1')) {
+      /* 15/11: an abandoned wave 1 (wlate:) never sets wave:…:1 — guests added after it were told "with the wave" and got nothing */
+      if (ev && env.RATE && (await env.RATE.get('wave:' + tok + ':1') || await env.RATE.get('wlate:' + tok + ':1'))) {
         const li = await lateInvite(env, ev, tok, name, phone);
         sent = li.sent; why = li.why;
       }
