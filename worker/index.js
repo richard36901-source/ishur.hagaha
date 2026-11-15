@@ -9198,7 +9198,9 @@ async function resendInvitation(env, guestPhone) {
 
   const raw = await readSnapshot(env, 'send');
   if (!raw) return { ok: false, why: snapMiss(env) };
-  const guest = findGuestByPhone(raw, phone, ilDate());
+  /* 15/11: "send it again" can only mean an invitation this guest already got — never the invitation of
+     another list they are on that has not gone out yet */
+  const guest = await guestForReply(env, raw, phone);
   if (!guest) return { ok: false, why: 'not-a-guest' };
 
   const evRows = (raw.events && raw.events.values) || [];
@@ -12789,8 +12791,10 @@ const WORKER = {
       const existing = gRows.find(g => normPhone(g[4] || '') === phone);
       if (existing) {
         /* already on the list (invited by the hosts): this is simply their answer */
-        const guest = findGuestByPhone(raw, phone, ilDate());
-        if (guest) await writeGuestReply(env, guest, 'מגיע', party).catch(() => {});
+        /* 15/11: the link belongs to ONE event — the answer goes on that event's row, never on another
+           list this phone happens to be on (findGuestByPhone picks by phone across all events) */
+        const gid = String(existing[2] || '').trim();
+        if (gid) await writeGuestReply(env, { guest_id: gid, token: tok }, 'מגיע', party).catch(() => {});
         await logEvent(env, { area: 'ווצאפ', action: 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
         return okJson({ ok: true, existing: true }, origin);
       }
