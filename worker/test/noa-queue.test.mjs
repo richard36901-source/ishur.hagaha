@@ -13,7 +13,9 @@ function fakeKv() {
 }
 const item = (id, name, phone, owner = 'שלו', extra = {}) => ({ id: String(id), name, column_values: [
   { id: COL.status, text: 'לא ענה', index: 2, label: 'לא ענה' }, { id: COL.owner, text: owner, label: owner }, { id: COL.phone, text: phone },
-  { id: COL.occasion, text: extra.occasion || 'חתונה' }, { id: COL.source, text: extra.source || 'פייסבוק' }, { id: COL.updates, text: '' }, { id: COL.callback, text: '' }] });
+  { id: COL.occasion, text: extra.occasion || 'חתונה' }, { id: COL.source, text: extra.source || 'פייסבוק' }, { id: COL.updates, text: '' }, { id: COL.callback, text: '' },
+  /* 15/11 (Richard): Noa calls only the leads ticked "נועה תחייג" — the rows of these tests are ticked unless a test says otherwise */
+  { id: COL.dial, text: extra.untick ? '' : 'v', value: extra.untick ? null : '{"checked":"true"}' }] });
 
 let realFetch; const calls = [];
 function mockFetch(items) {
@@ -93,7 +95,7 @@ test('drain: flag gate, window gate, waiting vs due, payload carries why:chase +
   await env.RATE.put(NQ + '972502222222', JSON.stringify({ item_id: '2', name: 'מחר', phone: '972502222222', first_at: SUN_11.toISOString(), attempts: [], next_at: ilDateAt('2026-11-02', 13 * 60).toISOString() }));
   await env.RATE.put(NQ + '972503333333', JSON.stringify({ item_id: '3', name: 'ענה בוואטסאפ', phone: '972503333333', first_at: SUN_11.toISOString(), attempts: [], next_at: SUN_11.toISOString() }));
 
-  const dry = await drainNoaChase(env, { dry: true, deps: { now: SUN_11, memory: 'דברים שלמדתי:\n• לשאול מתי נוח', leadReplied: async p => p === '972503333333' } });
+  const dry = await drainNoaChase(env, { dry: true, deps: { itemState: async () => ({ status_index: 2, ticked: true }), now: SUN_11, memory: 'דברים שלמדתי:\n• לשאול מתי נוח', leadReplied: async p => p === '972503333333' } });
   assert.equal(dry.dialed, 1); assert.equal(dry.waiting, 1); assert.equal(dry.skipped, 1);
   assert.deepEqual(dry.phones, ['972501111111']);
   const p = dry.payload;
@@ -105,7 +107,7 @@ test('drain: flag gate, window gate, waiting vs due, payload carries why:chase +
   assert.equal(calls.filter(c => c.url.includes('retellai')).length, 0, 'dry: Retell untouched');
   assert.ok(env.RATE.store.has(NQ + '972503333333'), 'dry: the WhatsApp-replied entry is not deleted');
 
-  const live = await drainNoaChase(env, { deps: { now: SUN_11, leadReplied: async p => p === '972503333333' } });
+  const live = await drainNoaChase(env, { deps: { itemState: async () => ({ status_index: 2, ticked: true }), now: SUN_11, leadReplied: async p => p === '972503333333' } });
   assert.equal(live.dialed, 1);
   assert.equal(env.RATE.store.has(NQ + '972503333333'), false, 'live: answered on WhatsApp → out of the queue');
   const retell = calls.filter(c => c.url.includes('retellai'));
@@ -115,7 +117,7 @@ test('drain: flag gate, window gate, waiting vs due, payload carries why:chase +
   assert.equal(after1.attempts.length, 1); assert.equal(after1.attempts[0].call_id, 'call_test_1'); assert.equal(after1.attempts[0].reached, false);
   assert.equal(after1.next_at, ilDateAt('2026-11-02', 13 * 60).toISOString(), 'attempt 2 = +1 day, band 13–16');
   /* same tick again: today's attempt is spent → waiting, no second dial */
-  const again = await drainNoaChase(env, { deps: { now: new Date(SUN_11.getTime() + 5 * 60000), leadReplied: async () => false } });
+  const again = await drainNoaChase(env, { deps: { itemState: async () => ({ status_index: 2, ticked: true }), now: new Date(SUN_11.getTime() + 5 * 60000), leadReplied: async () => false } });
   assert.equal(again.dialed, 0); assert.equal(again.waiting, 2);
 });
 
@@ -163,4 +165,46 @@ test('chaseOutcome: analysis enum wins, then the transcript, then the disconnect
   assert.equal(chaseOutcome({ transcript: 'User: לא מעוניין תודה\n' }).outcome, 'לא רלוונטי');
   assert.equal(chaseOutcome({ transcript: 'User: הלו\n' }).outcome, '', 'reached but unclear → status untouched');
   assert.equal(chaseOutcome({ transcript: 'User: הלו\n' }).reached, true);
+});
+
+/* ── 15/11 (Richard): the switch in the control centre AND a tick on the lead's row, while it is still "לא ענה" ── */
+test('scan: a lead that is not ticked "נועה תחייג" is never queued', async () => {
+  calls.length = 0;
+  globalThis.fetch = mockFetch([item(1, 'מסומן', '0501111111'), item(2, 'לא מסומן', '0502222222', 'שלו', { untick: true })]);
+  const env = { MONDAY_API_TOKEN: 't', RATE: fakeKv(), NOA_CHASE: 'on' };
+  const r = await scanMondayNotAnswered(env, { deps: { now: SUN_11 } });
+  assert.deepEqual(r.queued.map(q => q.phone), ['972501111111']);
+  assert.deepEqual(r.skipped.map(s => s.why), ['not-ticked']);
+  assert.equal(env.RATE.store.has(NQ + '972502222222'), false);
+});
+
+test('drain: the row is read again before each call — no tick, another status or a silent monday means no call', async () => {
+  const mk = async () => {
+    const env = { RATE: fakeKv(), NOA_CHASE: 'on', RETELL_KEY: 'k', NOA_AGENT: 'agent_x', NOA_FROM: '+972555077733' };
+    await env.RATE.put(NQ + '972501111111', JSON.stringify({ item_id: '1', name: 'דנה', phone: '972501111111', first_at: SUN_11.toISOString(), attempts: [], next_at: SUN_11.toISOString() }));
+    return env;
+  };
+  const run = async (env, itemState) => { calls.length = 0; globalThis.fetch = mockFetch([]); const r = await drainNoaChase(env, { deps: { now: SUN_11, leadReplied: async () => false, itemState } }); return { r, dials: calls.filter(c => c.url.includes('retellai')).length }; };
+
+  let env = await mk();
+  let x = await run(env, async () => ({ status_index: 2, ticked: false }));
+  assert.equal(x.dials, 0); assert.equal(x.r.dialed, 0); assert.equal(x.r.unticked, 1);
+  assert.ok(env.RATE.store.has(NQ + '972501111111'), 'the tick was removed: the lead waits, ticking again resumes');
+  x = await run(env, async () => ({ status_index: 2, ticked: true }));
+  assert.equal(x.dials, 1, 'ticked again → the call goes out');
+
+  env = await mk();
+  x = await run(env, async () => ({ status_index: 4, ticked: true }));
+  assert.equal(x.dials, 0);
+  assert.equal(env.RATE.store.has(NQ + '972501111111'), false, 'no longer "לא ענה": out of the queue');
+
+  env = await mk();
+  x = await run(env, async () => null);
+  assert.equal(x.dials, 0, 'monday did not answer: no call this round');
+  assert.ok(env.RATE.store.has(NQ + '972501111111'));
+
+  /* with no way to read the row at all (no token, no reader) nothing is dialled */
+  env = await mk(); calls.length = 0; globalThis.fetch = mockFetch([]);
+  const r = await drainNoaChase(env, { deps: { now: SUN_11, leadReplied: async () => false } });
+  assert.equal(r.dialed, 0); assert.equal(calls.filter(c => c.url.includes('retellai')).length, 0);
 });
