@@ -6980,7 +6980,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     }
 
     /* rulebook: a call round takes time — no calls offer under 7 days out */
-    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7 && !hasCallsAddon) {
+    /* 15/11: this stage runs in its own scope — the add-on flag of the call stage above does not exist here,
+       and reading it crashed the whole engine the first morning a בסיס event reached this line */
+    const boughtCalls = env.RATE ? !!(await env.RATE.get('callsaddon:' + token).catch(() => null)) : false;
+    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7 && !boughtCalls) {
       /* measure from the FIRST wave that already went out: by the time the
          last one lands there is no room left before the 7-day calls cutoff */
       const firstSend = [39, 40, 41].map(c => String(ev[c] || '').trim().slice(0, 10))
