@@ -377,8 +377,11 @@
   .glm-chips{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem;margin-top:.35rem}
   .glm-chips button{min-height:46px;border:1px solid var(--bdr2);border-radius:10px;background:var(--bg);font-family:inherit;font-size:1rem;font-weight:500;color:var(--ink);cursor:pointer;padding:0}
   .glm-chips button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
-  .glm-chips button[data-n=more]{font-size:.78rem}
-  .glm-f-n{margin-top:.5rem;text-align:center}
+  .glm-chips button[data-n=more]{font-weight:600}
+  .glm-more{display:flex;gap:.5rem;margin-top:.5rem}
+  .glm-more[hidden]{display:none}
+  .glm-more .glm-f-n{margin-top:0;text-align:center;flex:1 1 auto;min-width:0}
+  .glm-more-ok{flex:0 0 auto;min-height:46px;padding:0 1.2rem;border:0;border-radius:10px;background:var(--green);color:#fff;font-family:inherit;font-size:.95rem;font-weight:500;cursor:pointer}
   .glm-f-del{display:block;margin:1rem auto 0;border:0;background:none;font-family:inherit;font-size:.86rem;color:var(--ink3);text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:40px}
   .lede-alt{font-size:.84rem;margin-top:-.4rem;margin-bottom:.9rem}
   .lede-alt a{color:var(--green2);text-decoration:underline;text-underline-offset:3px}
@@ -555,9 +558,12 @@
       <p class="glm-f-hint" id="glmFHint" hidden>צריך מספר נייד, למשל 050-1234567. מספר בחו"ל נכתב עם קידומת המדינה (+1…).</p>
       <div class="glm-f-lbl" id="glmFLbl">כמה מוזמנים? בחירה סוגרת ושומרת</div>
       <div class="glm-chips" id="glmFChips" role="group" aria-labelledby="glmFLbl">
-        <button type="button" data-n="1">1</button><button type="button" data-n="2">2</button><button type="button" data-n="3">3</button><button type="button" data-n="4">4</button><button type="button" data-n="5">5</button><button type="button" data-n="6">6</button><button type="button" data-n="more">יותר</button>
+        <button type="button" data-n="1">1</button><button type="button" data-n="2">2</button><button type="button" data-n="3">3</button><button type="button" data-n="4">4</button><button type="button" data-n="5">5</button><button type="button" data-n="6">6</button><button type="button" data-n="more">7+</button>
       </div>
-      <input type="number" class="glm-f-n" id="glmFCount" min="7" max="99" inputmode="numeric" enterkeyhint="done" placeholder="כמה? ואז Enter" aria-label="כמות מוזמנים" hidden>
+      <div class="glm-more" id="glmFMore" hidden>
+        <input type="number" class="glm-f-n" id="glmFCount" min="7" max="99" inputmode="numeric" enterkeyhint="done" placeholder="כמה מוזמנים?" aria-label="כמות מוזמנים">
+        <button type="button" class="glm-more-ok" id="glmFMoreOk">שמירה</button>
+      </div>
       <button type="button" class="glm-f-del" id="glmFDel" hidden>הסרה מהרשימה</button>
     </div>
   </div>
@@ -840,7 +846,7 @@
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/datepicker.js?v=19"></script>
-<script src="assets/guestlist.js?v=7"></script>
+<script src="assets/guestlist.js?v=8"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
