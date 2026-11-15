@@ -862,8 +862,14 @@ export function extractInbound(payload) {
 }
 
 /* Which guest row does this phone belong to? Prefer the nearest upcoming
-   event; fall back to the most recent row. */
-export function findGuestByPhone(raw, phone, todayIso) {
+   event; fall back to the most recent row.
+   15/11 (Richard: "תראה שיש הפרדה בין אירועים של לקוחות"): a guest on two lists — the henna that
+   passed and the wedding whose invitations have not gone out yet — answered the henna message and
+   was written down as coming to the wedding. For an ANSWER (opts.preferContacted) the event that
+   actually wrote to this guest wins: a send date on the row, an answer already there, a call made,
+   or a send mark the caller found (opts.sent = Set of tokens). Only among those does "nearest
+   upcoming" decide; with none contacted the old rule stands. */
+export function findGuestByPhone(raw, phone, todayIso, opts = {}) {
   const gRows = (raw.guests && raw.guests.values) || [];
   const evRows = (raw.events && raw.events.values) || [];
   const dates = {};
@@ -889,8 +895,11 @@ export function findGuestByPhone(raw, phone, todayIso) {
       rsvp: String(r[15] || '').trim(),
       party: Number(String(r[13] || '').trim()) || Number(String(r[5] || '').trim()) || 0,
     };
+    cand.contacted = [8, 9, 10].some(c => String(r[c] || '').trim()) || !!cand.rsvp || cand.tries > 0 || !!(opts.sent && opts.sent.has(token));
     if (!cand.guest_id) continue;
     if (!best) { best = cand; continue; }
+    if (opts.preferContacted && cand.contacted !== best.contacted) { if (cand.contacted) best = cand; continue; }
+    if (opts.preferContacted && !cand.upcoming && !best.upcoming) { if (cand.date > best.date) best = cand; continue; }   /* both past: the latest */
     if (cand.upcoming && !best.upcoming) best = cand;
     else if (cand.upcoming === best.upcoming && cand.date > best.date === false && cand.upcoming) {
       /* both upcoming: keep the sooner one */

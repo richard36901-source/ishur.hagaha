@@ -4042,7 +4042,7 @@ async function handleWaWebhook(request, env, url) {
       !!(env.RATE && await env.RATE.get('client:' + normPhone(from)));
     /* a client can also be a guest at somebody else's event: on Shir's line
        the guest row wins, on Noa's line the client wins */
-    const guest = raw && (ch === 'guests' || !isClient) ? findGuestByPhone(raw, from, ilDate()) : null;
+    const guest = raw && (ch === 'guests' || !isClient) ? await guestForReply(env, raw, from) : null;
 
     /* Separation rule on WhatsApp (Richard 06/09): Noa's number never runs
        guest logic, Shir's number never runs service logic. Each side points
@@ -5769,6 +5769,18 @@ async function drainPartyNudges(env) {
 }
 
 function b_isAdminish(f) { return !!(f && f.preview_checkin); }
+/* the guest an incoming answer belongs to: the event that actually wrote to this number (whatsapp.js
+   findGuestByPhone, preferContacted). The KV marks are read only when the phone is on more than one list —
+   a late invitation leaves a wsent: mark but no send date on the row. */
+async function guestForReply(env, raw, phone) {
+  const p = normPhone(phone), toks = new Set();
+  for (const r of (raw && raw.guests && raw.guests.values) || []) if (normPhone(r[4]) === p) { const t = String(r[28] || '').trim(); if (t) toks.add(t); }
+  const sent = new Set();
+  if (toks.size > 1 && env.RATE) {
+    for (const t of toks) for (const w of [1, 2, 3]) { if (await env.RATE.get(`wsent:${t}:${w}:${p}`).catch(() => null)) { sent.add(t); break; } }
+  }
+  return findGuestByPhone(raw, phone, ilDate(), { preferContacted: true, sent });
+}
 async function writeGuestReply(env, guest, outcome, party) {
   const r = await hookFetch(env, env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -11405,6 +11417,18 @@ const WORKER = {
           await logEvent(env, { area: 'אירוע', action: 'סוג האירוע עודכן ע"י מנהל → ' + occ, ok: !!okw, token: tok }).catch(() => {});
           return okJson({ ok: !!okw, row: idx + 2, occasion: occ }, origin);
         }
+        /* 15/11: take back an answer that was written on the wrong event's row (one guest row: מגיע?, סטטוס מענה, זמן ביצוע) */
+        if (b.action === 'guest-clear-answer') {
+          const gid = String(b.guest_id || '').trim();
+          if (!/^G-[0-9a-f]{8}-\d+$/.test(gid)) return deny(400, 'bad-args', origin);
+          const raw = await readSnapshot(env, 'write');
+          const idx = ((raw && raw.guests && raw.guests.values) || []).findIndex(r => String((r || [])[2] || '').trim() === gid);
+          if (idx < 0) return deny(404, 'guest-not-found', origin);
+          const row = idx + 2, was = String(raw.guests.values[idx][15] || '').trim();
+          const okw = await sheetBatchWrite(env, [{ range: `אורחים!P${row}`, values: [['']] }, { range: `אורחים!W${row}:X${row}`, values: [['', '']] }]);
+          await logEvent(env, { area: 'אורחים', action: `תשובה שנרשמה באירוע הלא נכון נמחקה ע"י מנהל (${was || 'ריק'})`, ok: !!okw, token: String(raw.guests.values[idx][28] || '').trim(), detail: gid }).catch(() => {});
+          return okJson({ ok: !!okw, row, was }, origin);
+        }
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
         if (b.action === 'invoice-make') {
           /* recovery: issue an invoice for a payment whose first attempt
@@ -11919,7 +11943,7 @@ const WORKER = {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const from = normPhone(b.phone || '');
       const raw = await readSnapshot(env, 'send');
-      const guest = raw ? findGuestByPhone(raw, from, ilDate()) : null;
+      const guest = raw ? await guestForReply(env, raw, from) : null;
       if (!guest) return okJson({ ok: false, why: 'not-a-guest' }, origin);
       const say = (t) => sendText(env, from, t, 'guests', { who: 'שיר (מענה אוטומטי)' });
       const handled = await guestFreeText(env, raw, guest, from, String(b.text || ''), say);

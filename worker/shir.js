@@ -199,7 +199,7 @@ export function inboundLookup(raw, phone, todayIso, opts = {}) {
   /* 1 · a guest. findGuestByPhone already prefers the nearest upcoming event,
      which is the same rule the WhatsApp replies use — one definition of
      "which of this person's events did they mean", not two. */
-  const g = findGuestByPhone(raw, p, todayIso);
+  const g = findGuestByPhone(raw, p, todayIso, { preferContacted: true });   /* 15/11: the event that actually contacted them */
   if (g && g.guest_id) {
     const f = byToken[g.token];
     if (f && !f.cancelled) {
