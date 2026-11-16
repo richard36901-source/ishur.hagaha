@@ -2760,7 +2760,7 @@
       IshurJournal.ensureCss();
       var gb = $('gchart2'); if (!gb) { gb = document.createElement('div'); gb.id = 'gchart2'; svg.parentNode.insertBefore(gb, svg); svg.style.display = 'none'; var lg0 = svg.parentNode.querySelector('.lg'); if (lg0) lg0.style.display = 'none'; }
       gb.innerHTML = IshurJournal.chartBars({ aria: 'הכנסות, פרסום ורווח לפי שבוע', line: { k: 'leads', label: 'לידים' },
-        buckets: weeks.map(function (w) { var lb = w.from.slice(8, 10) + '/' + w.from.slice(5, 7); return { label: lb, title: 'שבוע שמתחיל ב-' + lb + ' · ' + (w.pay || 0) + ' לקוחות', v: { rev: Math.round(w.rev || 0), spend: Math.round(w.spend || 0), net: Math.round((w.rev || 0) - (w.spend || 0)), leads: w.leads || 0 } }; }),
+        buckets: weeks.map(function (w) { var e2 = new Date(Date.parse(w.from + 'T12:00:00Z') + 6 * 864e5).toISOString().slice(0, 10); if (e2 > today) e2 = today; var lb = w.from.slice(8, 10) + '–' + e2.slice(8, 10) + '/' + e2.slice(5, 7); return { label: lb, title: 'שבוע ' + lb + (e2 === today ? ' (עד היום)' : '') + ' · ' + (w.pay || 0) + ' לקוחות', v: { rev: Math.round(w.rev || 0), spend: Math.round(w.spend || 0), net: Math.round((w.rev || 0) - (w.spend || 0)), leads: w.leads || 0 } }; }),
         series: [{ k: 'rev', label: 'הכנסות', tone: 'a' }, { k: 'spend', label: 'הוצאת מודעות', tone: 'b' }, { k: 'net', label: 'הכנסות פחות מודעות', tone: 'hi' }] });
       return;
     }
