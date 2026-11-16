@@ -174,7 +174,7 @@ export async function listUsers(env) {
    decides "already done" (a KV list lags its own writes); an existing record is never overwritten. */
 export async function ensureSeed(env, now = Date.now()) {
   if (!env.RATE) return false;
-  if (await env.RATE.get('cfg:auth_seeded').catch(() => '1')) return false;
+  if (await env.RATE.get('auth:seeded').catch(() => '1')) return false;
   const page = env.RATE.list ? await env.RATE.list({ prefix: 'user:', limit: 1 }).catch(() => null) : null;
   let wrote = false;
   if (!page || !page.keys.length) {
@@ -184,7 +184,7 @@ export async function ensureSeed(env, now = Date.now()) {
       wrote = true;
     }
   }
-  await env.RATE.put('cfg:auth_seeded', new Date(now).toISOString());
+  await env.RATE.put('auth:seeded', new Date(now).toISOString());
   return wrote;
 }
 
@@ -241,9 +241,11 @@ export async function queryActions(env, { days = 7, user = '', limit = 500, now 
 }
 
 export async function getJwks(env, { fetchFn = fetch, force = false, now = Date.now() } = {}) {
-  if (!force && env.RATE) {
+  /* force = a token named a key we do not hold. Google rotates keys, so look again, but not more
+     than once a minute: a stranger posting junk tokens must not turn every call into a fetch. */
+  if (env.RATE) {
     const hit = await kvJson(env, 'auth:jwks');
-    if (hit && Array.isArray(hit.keys) && now - hit.at < 3600 * 1000) return hit.keys;
+    if (hit && Array.isArray(hit.keys) && now - hit.at < (force ? 60 : 3600) * 1000) return hit.keys;
   }
   const r = await fetchFn(JWKS_URL);
   const j = await r.json();
@@ -286,7 +288,9 @@ async function gate(request, env, ctx, d) {
   if (request.method === 'OPTIONS') return { request };
   const url = new URL(request.url), path = url.pathname;
   if (path.startsWith('/api/auth/') || path.startsWith('/api/grow-ipn')) return { request };
-  const hdrSess = request.headers.get('x-ishur-session') || '', hdrKey = request.headers.get('x-admin-key') || '';
+  /* /api/ops/ and /api/crm/ also take the key as `Authorization: Bearer …` */
+  const bearer = path.startsWith('/api/ops/') || path.startsWith('/api/crm/') ? String(request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '') : '';
+  const hdrSess = request.headers.get('x-ishur-session') || '', hdrKey = request.headers.get('x-admin-key') || bearer;
   let text = null, body = null;
   if (request.method === 'POST' && String(request.headers.get('Content-Type') || '').includes('application/json') &&
       Number(request.headers.get('Content-Length') || 0) <= 262144) {
@@ -300,6 +304,7 @@ async function gate(request, env, ctx, d) {
   if (user) {
     const headers = new Headers(request.headers);
     headers.delete('x-ishur-session');
+    if (bearer) headers.delete('Authorization');
     headers.set('x-admin-key', env.ADMIN_KEY);
     let init = { headers };
     if (body) {

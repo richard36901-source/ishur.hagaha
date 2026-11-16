@@ -5,7 +5,6 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- 16/11 back-office sign-in with Google (worker/auth.js). New page; no existing page depends on it yet. -->
 <meta name="robots" content="noindex">
-<meta name="referrer" content="no-referrer">
 <title>כניסה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -59,7 +58,7 @@
   $('iBtn').addEventListener('click', function () { var on = $('info').hidden; $('info').hidden = !on; this.setAttribute('aria-expanded', String(on)); });
 
   var enforce = false;
-  function showSigned(user) { $('gbtn').hidden = true; $('signed').hidden = false; $('who').textContent = user.email; say(''); }
+  function showSigned(user) { if (enforce) ls('ishur_calls_key', ls('ishur_session')); $('gbtn').hidden = true; $('signed').hidden = false; $('who').textContent = user.email; say(''); }
   function showButton(cfg) {
     $('signed').hidden = true; $('gbtn').hidden = false;
     if (!cfg || !cfg.configured) { say(ERR['not-configured'], true); return; }

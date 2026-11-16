@@ -66,8 +66,10 @@ test('sign-in route: not-configured without a client id; allow-list only; a sess
   const stranger = await authPost(e, 'google', { credential: await jwt({ email: 'stranger@gmail.com' }) }, {}, d);
   assert.equal(stranger.status, 403); assert.equal((await stranger.json()).error, 'not-allowed');
   assert.equal((await authPost(e, 'google', { credential: await jwt({ aud: 'x' }) }, {}, d)).status, 401);
-  assert.equal(count.n, 1, 'Google keys fetched once, then read from KV');
-  assert.equal((await getJwks(e, { fetchFn: jwksFetch(count), now: Date.now() + 3601 * 1000 })).length, 1); assert.equal(count.n, 2, 'refetched after an hour');
+  assert.equal((await authPost(e, 'google', { credential: await jwt({}, { kid: 'rotated' }) }, {}, d)).status, 401);
+  assert.equal(count.n, 1, 'Google keys fetched once, then read from KV; an unknown key id does not refetch within a minute');
+  assert.equal((await getJwks(e, { fetchFn: jwksFetch(count), force: true, now: Date.now() + 61 * 1000 })).length, 1); assert.equal(count.n, 2, 'an unknown key id refetches after a minute');
+  assert.equal((await getJwks(e, { fetchFn: jwksFetch(count), now: Date.now() + 2 * 3600 * 1000 })).length, 1); assert.equal(count.n, 3, 'refetched once the stored copy (written at +61 s above) is over an hour old');
   /* a switched-off user cannot sign in */
   const u = await getUser(e, STAFF); e.RATE.m.set('user:' + STAFF, JSON.stringify({ ...u, active: false }));
   assert.equal((await authPost(e, 'google', { credential: await jwt({ email: STAFF }) }, {}, d)).status, 403);
@@ -196,6 +198,8 @@ test('a user session works in place of the key (switch off or on), is stripped f
   /* header, GET */
   g = await authGate(new Request('https://go.ishur.io/api/ops/realtime', { headers: { 'x-ishur-session': tok } }), e, ctx, { isRead });
   assert.equal(g.request.headers.get('x-admin-key'), 'k'); assert.equal(g.request.headers.get('x-ishur-session'), null);
+  g = await authGate(new Request('https://go.ishur.io/api/ops/realtime', { headers: { Authorization: 'Bearer ' + tok } }), e, ctx, { isRead });
+  assert.equal(g.request.headers.get('x-admin-key'), 'k'); assert.equal(g.request.headers.get('Authorization'), null, 'a session as a Bearer token on /api/ops/');
   /* header + a JSON body that had no key at all: the key is added so the handler's own check passes */
   g = await authGate(apiReq('/api/leads', { q: 'x' }, { 'x-ishur-session': tok }), e, ctx, { isRead });
   assert.deepEqual(await g.request.json(), { q: 'x', admin_key: 'k' });
@@ -221,6 +225,7 @@ test('switch ON: the shared key alone is refused from a browser, still accepted 
   assert.equal(g.response.status, 401); assert.equal((await g.response.json()).error, 'login-required');
   assert.equal(g.response.headers.get('Access-Control-Allow-Origin'), 'https://ishur.io');
   assert.equal((await authGate(new Request('https://go.ishur.io/api/ops/realtime', { headers: { 'X-Admin-Key': 'k', 'Sec-Fetch-Site': 'cross-site' } }), e, ctx, {})).response.status, 401);
+  assert.equal((await authGate(new Request('https://go.ishur.io/api/ops/realtime', { headers: { Authorization: 'Bearer k', Origin: 'https://ishur.io' } }), e, ctx, {})).response.status, 401, 'the key as a Bearer token is the same key');
   const auto = new Request('https://go.ishur.io/api/pause', { method: 'POST', headers: { 'Content-Type': 'application/json', 'User-Agent': 'Make' }, body: JSON.stringify({ admin_key: 'k' }) });
   assert.equal((await authGate(auto, e, ctx, {})).request, auto, 'no Origin / Sec-Fetch = automation, untouched');
   const guest = apiReq('/api/status', { token: 'x' }); assert.equal((await authGate(guest, e, ctx, {})).request, guest, 'a request with no admin key is never refused');
