@@ -47,6 +47,7 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, a
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
+import { alertDateSet, hostessReminders } from './hostess-alerts.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
@@ -7354,6 +7355,11 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
      today. Runs even while sending is paused — a paused system is exactly
      when Richard still wants to see what queued overnight. */
   const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  /* 16/11: hostess reminders, 7 days and 1 day before the event. Asked once an hour from 09:00; each line goes out once (hostrem:*). */
+  if (ilHour >= 9 && ilHour < 21 && !(await isOff(env, 'hostess_reminders')) && await env.RATE.get('hostremtick:' + today + ':' + ilHour) !== '1') {
+    await env.RATE.put('hostremtick:' + today + ':' + ilHour, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+    await step('hostess_reminders', () => hostessReminders(env, { post: (t, o) => slackSend(env, t, o), kvPrefix })).catch(() => {});
+  }
   if (ilHour >= 9 && await env.RATE.get('slackqflush:' + today) !== '1') {
     await env.RATE.put('slackqflush:' + today, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
     /* 04/11 slack-gate: the 09:00 "בוקר · סיכום" (slack-gate.js slackDigest) replaces the bare night-queue
@@ -10572,7 +10578,10 @@ async function writeHostessBooking(env, token, b) {
   const recMin = Number(rec[1]) * 60 + Number(rec[2]);
   const startMin = recMin - 40 - travel, endMin = recMin + 5 * 60;   /* 12/11 Richard: on site 40 minutes before the reception */
   const start = local(Math.floor(startMin / 60), ((startMin % 60) + 60) % 60), end = local(Math.floor(endMin / 60), endMin % 60);
+  let prevBook = null; try { prevBook = JSON.parse(await env.RATE.get('hostessbook:' + token) || 'null'); } catch {}
   await env.RATE.put('hostessbook:' + token, JSON.stringify({ ...b, reception: rec[1] + ':' + rec[2], start: start.toISOString(), end: end.toISOString(), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  /* 16/11: Slack hears once when the date is set or changes (not on every save of the form) */
+  await alertDateSet(env, String(token).slice(0, 8), { ...b, reception: rec[1] + ':' + rec[2] }, prevBook, { post: (t, o) => slackSend(env, t, o) }).catch(() => {});
   /* Richard 05/10: the monday board "אירועים עם דיילות - אישור הגעה" (18433947622)
      gets one row per hostess event; the דיילת column links to the roster
      board. Updated in place when the setup form is saved again. */
