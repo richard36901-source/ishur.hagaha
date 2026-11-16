@@ -190,10 +190,12 @@
     '.pj-note{font-size:.7rem;color:var(--ink3,#7A8279);margin:.4rem 0 0}' +
     '@media (prefers-color-scheme:dark){.pj-c.pj-profit{background:#17382A}.pj-c.pj-loss{background:#3F211D}.pj-profit .pj-net{background:#235A40;color:#CFE8D8}.pj-loss .pj-net{background:#6A2E26;color:#F6D3CE}.pj-big.pj-profit{background:#17382A}.pj-big.pj-profit b{color:#8FD3AE}.pj-big.pj-loss{background:#3F211D}.pj-big.pj-loss b{color:#F2A79C}.pj-chip.pj-in{color:#E1C98F}}';
   function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+  var cssDone = false;
+  function ensureCss() { if (cssDone || !root.document) return; cssDone = true; var st0 = root.document.createElement('style'); st0.textContent = CSS; root.document.head.appendChild(st0); }
   function mount(host, getLines) {
     var doc = root.document; if (!host || host.dataset.pj) return null;
     host.dataset.pj = '1';
-    var st0 = doc.createElement('style'); st0.textContent = CSS; doc.head.appendChild(st0);
+    ensureCss();
     var st = { today: ilToday(), month: ilToday().slice(0, 7), day: '', view: 'cal', range: 'month', info: false };
     try { var sv = JSON.parse(root.localStorage.getItem('ishur_pj') || '{}'); if (sv.view) st.view = sv.view; if (sv.range) st.range = sv.range; } catch (e) {}
     function draw() { st.today = ilToday(); host.innerHTML = panelHtml(getLines() || [], st); try { root.localStorage.setItem('ishur_pj', JSON.stringify({ view: st.view, range: st.range })); } catch (e) {} }
@@ -213,7 +215,22 @@
     draw();
     return { redraw: draw };
   }
-  var api = { mount: mount, render: render, dayHtml: dayHtml, panelHtml: panelHtml, totals: totals, rangeOf: rangeOf, chartHtml: chartHtml, listHtml: listHtml, monthTotals: monthTotals, toneOf: toneOf, addMonth: addMonth };
+  /* the day lines from the two server answers (cost-log + Meta's daily spend) — the same sums the money screen shows */
+  function buildLines(cost, adByDay, usdIls, today) {
+    cost = cost || {}; adByDay = adByDay || {}; usdIls = usdIls || 3.7;
+    var inc = cost.income || {}, fx = cost.fixed || {}, seen = {}, rows = (cost.days || []).map(function (r) { seen[r.date] = true; return r; });
+    var blank = function (d) { if (!seen[d] && d <= today) { seen[d] = true; rows.push({ date: d, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); } };
+    Object.keys(adByDay).forEach(blank); Object.keys(inc).forEach(blank);
+    Object.keys(fx).forEach(function (m) { (fx[m] || []).forEach(function (x) { blank(m + '-' + String(x.day || 10).padStart(2, '0')); }); });
+    return rows.map(function (r) {
+      var wa = (r.wa_cost_usd_cents || 0) / 100 * usdIls, shir = (r.shir_cost_usd_cents || 0) / 100 * usdIls, ads = adByDay[r.date] || 0;
+      var i = inc[r.date] || { revenue: 0, vat: 0, fees: 0, payments: 0, deals: [] };
+      var items = (fx[r.date.slice(0, 7)] || []).filter(function (x) { return (x.day || 10) === Number(r.date.slice(8, 10)); });
+      var fixed = items.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0), total = r2(wa + shir + ads + i.fees + fixed), profit = r2(i.revenue - total);
+      return { date: r.date, wa: wa, shir: shir, ads: ads, rev: i.revenue, vat: i.vat, fee: i.fees, feeEst: !!i.fee_estimated, pay: i.payments, deals: i.deals || [], fixed: fixed, fixedItems: items, total: total, profit: profit, net: r2(profit - i.vat) };
+    });
+  }
+  var api = { mount: mount, render: render, dayHtml: dayHtml, buildLines: buildLines, ensureCss: ensureCss, signed: signed, n0: n0, panelHtml: panelHtml, totals: totals, rangeOf: rangeOf, chartHtml: chartHtml, listHtml: listHtml, monthTotals: monthTotals, toneOf: toneOf, addMonth: addMonth };
   root.IshurJournal = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

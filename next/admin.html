@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=5"></script>
-<script src="/assets/pnl-journal.js?v=7"></script>
+<script src="/assets/pnl-journal.js?v=8"></script>
 <script src="/assets/fixed-costs.js?v=1"></script>
 <script src="/assets/playbook.js?v=2"></script>
 <script src="/assets/sendboard.js?v=3"></script>
@@ -520,7 +520,7 @@
   body:not([data-view="camp"]) #main > .sec-camp{display:none !important}
   body[data-view="camp"] #fold-camp,body[data-view="camp"] #fold-utm{display:block !important}
   /* the funnel is drawn as a funnel: each step a centred band as wide as its share */
-  .funnel{align-items:center;gap:0}
+  .funnel{align-items:center;gap:0;max-width:760px;margin-inline:auto}
   .fstep{width:100%;border:0;background:none;border-radius:0;overflow:visible;display:flex;justify-content:center}
   .fstep .fbar{position:static;min-width:190px;height:54px;border-radius:8px;background:#0F4C35;opacity:.92}
   .fstep:nth-child(4n+3) .fbar{opacity:.8}.fstep:nth-child(8n+5) .fbar{opacity:.68}
@@ -1712,7 +1712,8 @@
     ];
     var html = '';
     steps.forEach(function (st, i) {
-      var w = visitors ? Math.max(2, (st.n / visitors) * 100) : 0;
+      /* 16/11 Richard: drawn as a funnel — each step a fixed notch narrower than the one above (real shares collapse to slivers: 1,120 → 20); the true numbers and rates are written on it */
+      var w = 100 - i * 14;
       html += '<div class="fstep" style="position:relative"><div class="fbar" style="width:' + w.toFixed(1) + '%"></div>' +
               '<div class="frow"><span class="fname">' + st.name + '</span>' +
               '<span class="fnum">' + st.n.toLocaleString('he-IL') + '</span></div></div>';

@@ -13923,6 +13923,26 @@ const WORKER = {
       if (done) await env.RATE.delete('calcache:' + month).catch(() => {});
       return okJson({ ok: true, month, scanned, written, done, cursor: cursor || '' }, origin);
     }
+    /* 16/11 the one journal (next/calendar.html): the hostess layer — who is booked on which day, and the days marked
+       "no hostess available" by hand (hostessoff:<date>). Saturdays are greyed by the page itself. */
+    if (url.pathname === '/api/journal-hostess' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      if (b.set_off && /^\d{4}-\d{2}-\d{2}$/.test(String(b.set_off.date || ''))) {
+        if (b.set_off.on) await env.RATE.put('hostessoff:' + b.set_off.date, JSON.stringify({ at: new Date().toISOString(), note: String(b.set_off.note || '').slice(0, 80) }), { expirationTtl: 500 * 86400 });
+        else await env.RATE.delete('hostessoff:' + b.set_off.date);
+      }
+      const [books, bought, off] = await Promise.all([kvPrefix(env, 'hostessbook:'), kvPrefix(env, 'hostess:'), kvPrefix(env, 'hostessoff:')]);
+      const days = {}, seen = new Set();
+      const put = (date, row) => { if (/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) (days[date] = days[date] || []).push(row); };
+      for (const [tok, v] of Object.entries(books)) { let x = null; try { x = JSON.parse(v); } catch {} if (!x) continue; seen.add(tok);
+        put(x.date, { tok8: tok.slice(0, 8), n: Number(x.n) || 1, client: String(x.client || ''), city: String(x.city || ''), venue: String(x.venue || ''), reception: String(x.reception || ''), state: 'scheduled' }); }
+      /* bought but the client has not filled the event details yet: the date they asked about is still worth seeing */
+      for (const [tok, v] of Object.entries(bought)) { if (seen.has(tok)) continue; let x = null; try { x = JSON.parse(v); } catch {} if (!x) continue;
+        put(x.date, { tok8: tok.slice(0, 8), n: Number(x.n) || 1, client: '', city: String(x.city || ''), venue: '', reception: '', state: 'bought' }); }
+      return okJson({ ok: true, days, off: Object.fromEntries(Object.keys(off).map(k => [k, true])) }, origin);
+    }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

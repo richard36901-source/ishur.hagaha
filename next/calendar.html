@@ -5,17 +5,18 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
 <meta name="robots" content="noindex">
-<title>לוח שליחות · ishur.io</title>
+<title>יומן · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=72"></script>
+<script src="/config.js?v=73"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=6" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <script src="/assets/sendboard.js?v=3"></script>
+<script src="/assets/pnl-journal.js?v=8"></script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--blue:#2F6FED}
   html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--rail:#232A25}
@@ -54,6 +55,30 @@
   .pill.failed{background:rgba(168,64,47,.14);color:var(--warn)}
   .pill.planned{background:rgba(47,111,237,.13);color:var(--blue)}
   .pill.skipped{background:var(--rail);color:var(--ink3)}
+  /* 16/11 the one journal: layers (sends, profit, hostesses) on the same month, a day opens in a popup */
+  .pill.win{background:#CFE8D8;color:#0F4C35}.pill.loss{background:#F6D3CE;color:#8E2F22}.pill.host{background:#E4E0F7;color:#3C3489}.pill.off{background:var(--rail);color:var(--ink3)}
+  .cell.noh{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(0,0,0,.035) 8px 16px)}
+  .lyr{display:inline-flex;gap:.35rem;flex-wrap:wrap}
+  .lyr button{font:inherit;font-size:.8rem;font-weight:600;min-height:34px;padding:0 .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink3);cursor:pointer}
+  .lyr button[aria-pressed=true]{background:var(--pine,#0F2E22);border-color:transparent;color:#fff}
+  .nav button{display:inline-grid;place-items:center}
+  .lay{grid-template-columns:1fr !important}
+  .tb{flex-wrap:wrap}
+  .lay>div{min-width:0;overflow-x:auto}
+  @media (max-width:600px){.tb #q{flex-basis:100%;min-width:0}.cal{overflow-x:auto}}
+  dialog.jd{position:fixed;inset:0;margin:auto;height:fit-content;max-height:88vh;width:min(720px,calc(100vw - 24px));overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:1rem 1.1rem}
+  dialog.jd::backdrop{background:rgba(10,20,15,.45)}
+  .jd-h{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:0 0 .6rem}.jd-h h2{margin:0;font-size:1.1rem}
+  .jd-x{font:inherit;width:36px;height:36px;border:1px solid var(--line);border-radius:8px;background:none;color:inherit;cursor:pointer}
+  .jd-tabs{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:0 0 .8rem}
+  .jd-tabs button{font:inherit;font-size:.82rem;font-weight:600;min-height:34px;padding:0 .9rem;border:0;border-inline-start:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  .jd-tabs button:first-child{border-inline-start:0}.jd-tabs button[aria-pressed=true]{background:var(--pine,#0F2E22);color:#fff}
+  .jd-ev{border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem;margin:0 0 .5rem}.jd-ev h3{margin:0 0 .3rem;font-size:.92rem}
+  .jd-ev .ln{display:flex;justify-content:space-between;gap:.6rem;font-size:.82rem;padding:.15rem 0}.jd-ev .ln b{font-weight:600}
+  .jd-ev .bad{color:var(--warn)}.jd-sum{font-size:.82rem;color:var(--ink3);margin:0 0 .6rem}
+  .jd .pane{position:static;border:0;padding:0;max-height:none;background:none}
+  .jd-host .ln{display:flex;justify-content:space-between;font-size:.86rem;padding:.3rem 0;border-bottom:1px solid var(--line)}
+  .jd-btn{font:inherit;font-size:.82rem;font-weight:600;min-height:36px;padding:0 .9rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;margin-top:.6rem}
   html[data-theme=dark] .pill.sent{color:#7BC9A4}html[data-theme=dark] .pill.failed{color:#E58C7C}html[data-theme=dark] .pill.planned{color:#8FB0FF}
   @media (max-width:600px){.cell{min-height:64px;padding:.25rem}.pill{font-size:.6rem;padding:.02rem .25rem}}
   /* the day panel */
@@ -96,15 +121,16 @@
   <p class="err" id="keyErr"></p>
 </div>
 <main class="wrap" id="main" hidden>
-  <h1>לוח שליחות</h1>
-  <p class="sub">מה יצא, למי, ומה מתוכנן: הזמנות ותזכורות לאורחים, הודעות ללקוחות וללידים. לחיצה על יום פותחת את הרשימה.</p>
+  <h1>יומן</h1>
+  
   <section class="sbsec" aria-labelledby="sbH">
     <h2 id="sbH">נשלחו מתוך כמה <small>לפי אירוע וסוג הודעה · נמסר = מטא אישרה מסירה, לא רק קבלה · ⓘ לשמות</small></h2>
     <div id="sendboard"></div>
   </section>
   <div class="tb">
-    <span class="nav"><button id="prev" aria-label="חודש קודם">›</button><button id="todayBtn">היום</button><button id="next" aria-label="חודש הבא">‹</button></span>
+    <span class="nav"><button id="prev" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button id="todayBtn">היום</button><button id="next" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span>
     <span class="mth" id="mth"></span>
+    <span class="lyr" id="lyr" role="group" aria-label="מה להציג ביומן"><button data-l="sends" aria-pressed="true">שליחות</button><button data-l="money" aria-pressed="true">רווח והפסד</button><button data-l="host" aria-pressed="true">דיילות</button></span>
     <span class="seg" id="chSeg"><button data-ch="all" aria-pressed="true">הכל</button><button data-ch="guests" aria-pressed="false">אורחים · שיר</button><button data-ch="client" aria-pressed="false">לקוחות · נועה</button></span>
     <input type="search" id="q" placeholder="חיפוש שם, טלפון או אירוע">
   </div>
@@ -130,6 +156,18 @@
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
   var sbMounted = false;
   var month = new Date().toISOString().slice(0, 7), data = null, sel = null, ch = 'all', st = 'all', q = '';
+  /* layers: which subjects the journal shows. Later each user gets only the layers they are allowed. */
+  var LY = { sends: true, money: true, host: true }; try { var sv = JSON.parse(localStorage.getItem('ishur_jlayers') || 'null'); if (sv) LY = { sends: sv.sends !== false, money: sv.money !== false, host: sv.host !== false }; } catch (e) {}
+  var cost = null, adByDay = {}, lines = [], lineBy = {}, host = { days: {}, off: {} }, dtab = 'sends';
+  function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+  function relines() { lines = window.IshurJournal ? IshurJournal.buildLines(cost, adByDay, 3.7, ilToday()) : []; lineBy = {}; lines.forEach(function (l) { lineBy[l.date] = l; }); if (data) paint(); }
+  function loadLayers() {
+    api('costlog', {}).then(function (d) { if (d && d.ok) { cost = d; relines(); } });
+    api('campaigns', { days: 400 }).then(function (d) { if (d && d.ok) { adByDay = {}; (d.rows || []).forEach(function (x) { adByDay[x.date] = (adByDay[x.date] || 0) + (Number(x.spend) || 0); }); relines(); } });
+    api('journalHostess', {}).then(function (d) { if (d && d.ok) { host = d; if (data) paint(); } });
+  }
+  var layersLoaded = false;
+  if (window.IshurJournal) IshurJournal.ensureCss();
   var HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function fmtPhone(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
@@ -149,6 +187,7 @@
       if (!d || !d.ok) return;
       data = d; $('gate').hidden = true; $('main').hidden = false;
       paint(); if (sel) paintDay();
+      if (!layersLoaded) { layersLoaded = true; loadLayers(); }
       if (!sbMounted && window.IshurSendBoard) { sbMounted = true; IshurSendBoard.mount($('sendboard'), { api: api }); }
     });
   }
@@ -161,7 +200,9 @@
   }
   function counts(list) {
     var c = { sent: 0, failed: 0, planned: 0, skipped: 0 };
-    (list || []).forEach(function (e) { if (!match(e)) return; var k = e.status === 'done-earlier' ? 'sent' : e.status; if (c[k] != null) c[k]++; });
+    /* 16/11: a planned row whose guest already got the message earlier ("done-earlier") is the plan's echo of a send that is
+       already in the log — counting it made a day show 1,570 sent when 1,039 messages went out */
+    (list || []).forEach(function (e) { if (!match(e)) return; var k = e.status; if (c[k] != null) c[k]++; });
     return c;
   }
   function paint() {
@@ -175,18 +216,71 @@
       if (i < dow) { dnum = prevDim - dow + i + 1; out = true; iso = ''; }
       else if (i >= dow + dim) { dnum = i - dow - dim + 1; out = true; iso = ''; }
       else { dnum = i - dow + 1; iso = month + '-' + String(dnum).padStart(2, '0'); }
-      var c = iso ? counts(data.days[iso]) : null;
-      html += '<div class="cell' + (out ? ' out' : '') + (iso === data.today ? ' today' : '') + (iso && iso === sel ? ' sel' : '') + '" data-d="' + iso + '">' +
+      var c = iso && LY.sends ? counts(data.days[iso]) : null, extra = '', cls = '';
+      if (iso && LY.money && lineBy[iso] && iso <= data.today) { var ln = lineBy[iso]; if (ln.rev > 0 || ln.total > 0) extra += '<span class="pill ' + (ln.net > 0 ? 'win' : ln.net < 0 ? 'loss' : 'skipped') + '">' + (ln.net > 0 ? '✓ ' : ln.net < 0 ? '✕ ' : '') + IshurJournal.signed(ln.net) + '</span>'; }
+      if (iso && LY.host) {
+        var hb = host.days[iso] || [], sat = new Date(iso + 'T12:00:00Z').getUTCDay() === 6, offd = !!host.off[iso];
+        if (hb.length) extra += '<span class="pill host">' + hb.reduce(function (t, x) { return t + (x.n || 1); }, 0) + ' דיילות · ' + esc(hb[0].client || hb[0].city || 'אירוע') + '</span>';
+        if (sat) { extra += '<span class="pill off">שבת · אין דיילות</span>'; cls = ' noh'; }
+        else if (offd) { extra += '<span class="pill off">אין דיילת פנויה</span>'; cls = ' noh'; }
+      }
+      html += '<div class="cell' + cls + (out ? ' out' : '') + (iso === data.today ? ' today' : '') + (iso && iso === sel ? ' sel' : '') + '" data-d="' + iso + '">' +
         '<span class="d">' + dnum + '</span>' +
-        (c ? (c.sent ? '<span class="pill sent">✓ ' + c.sent + ' נשלחו</span>' : '') + (c.failed ? '<span class="pill failed">✕ ' + c.failed + ' נכשלו</span>' : '') + (c.planned ? '<span class="pill planned">◷ ' + c.planned + ' מתוכננים</span>' : '') + (c.skipped ? '<span class="pill skipped">' + c.skipped + ' דילוג</span>' : '') : '') +
+        (c ? (c.sent ? '<span class="pill sent">✓ ' + c.sent + ' נשלחו</span>' : '') + (c.failed ? '<span class="pill failed">✕ ' + c.failed + ' נכשלו</span>' : '') + (c.planned ? '<span class="pill planned">◷ ' + c.planned + ' מתוכננים</span>' : '') : '') + extra +
         '</div>';
     }
     $('grid').innerHTML = html;
   }
   $('grid').addEventListener('click', function (e) {
     var cell = e.target.closest('.cell'); if (!cell || !cell.dataset.d) return;
-    sel = cell.dataset.d; paint(); paintDay();
-    if (window.innerWidth < 900) $('pane').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    sel = cell.dataset.d; paint(); openDay();
+  });
+  /* the day popup: one tab per layer that is switched on. The sends tab keeps the existing list (with its skip buttons). */
+  var jd = document.createElement('dialog'); jd.className = 'jd'; jd.setAttribute('dir', 'rtl');
+  jd.innerHTML = '<div class="jd-h"><h2 id="jdT"></h2><button type="button" class="jd-x" id="jdX" aria-label="סגירה">✕</button></div><div class="jd-tabs" id="jdTabs"></div><div id="jdMoney" hidden></div><div id="jdHost" class="jd-host" hidden></div><div id="jdSends" hidden><div id="jdEv"></div></div>';
+  document.body.appendChild(jd); jd.querySelector('#jdSends').appendChild($('pane'));
+  jd.addEventListener('click', function (e) { if (e.target === jd || e.target.closest('#jdX')) jd.close(); });
+  $('lyr').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; LY[b.dataset.l] = !LY[b.dataset.l]; b.setAttribute('aria-pressed', String(LY[b.dataset.l])); try { localStorage.setItem('ishur_jlayers', JSON.stringify(LY)); } catch (x) {} paint(); });
+  [].forEach.call($('lyr').querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(LY[b.dataset.l])); });
+  function sendsByEvent() {
+    var g = {}, order = [];
+    (data.days[sel] || []).filter(match).forEach(function (e) {
+      var ev = e.event || (e.ch === 'client' ? 'לקוחות ולידים' : 'בלי אירוע'); if (!g[ev]) { g[ev] = {}; order.push(ev); }
+      var w = g[ev][e.what] = g[ev][e.what] || { sent: 0, failed: 0, planned: 0, skipped: 0, errs: {} };
+      var k = e.status === 'done-earlier' ? 'sent' : e.status; if (w[k] != null) w[k]++;
+      if (e.error) { var er = String(e.error).slice(0, 60); w.errs[er] = (w.errs[er] || 0) + 1; }
+    });
+    return order.map(function (ev) {
+      return '<div class="jd-ev"><h3>' + esc(ev) + '</h3>' + Object.keys(g[ev]).map(function (what) { var w = g[ev][what];
+        return '<div class="ln"><span>' + esc(what) + '</span><b>' + (w.sent ? w.sent + ' נשלחו' : '') + (w.planned ? (w.sent ? ' · ' : '') + w.planned + ' מתוכננים' : '') + (w.skipped ? ' · ' + w.skipped + ' דילוג' : '') + (w.failed ? ' · <span class="bad">' + w.failed + ' נכשלו</span>' : '') + '</b></div>' +
+          Object.keys(w.errs).map(function (er) { return '<div class="ln bad"><span>' + esc(er) + '</span><b>' + w.errs[er] + '</b></div>'; }).join(''); }).join('') + '</div>';
+    }).join('') || '<p class="empty">אין שליחות ביום הזה</p>';
+  }
+  function hostHtml() {
+    var hb = host.days[sel] || [], sat = new Date(sel + 'T12:00:00Z').getUTCDay() === 6, offd = !!host.off[sel];
+    var h = hb.map(function (x) { return '<div class="ln"><span>' + esc(x.client || 'אירוע ' + x.tok8) + (x.city ? ' · ' + esc(x.city) : '') + (x.venue ? ' · ' + esc(x.venue) : '') + (x.reception ? ' · קבלת פנים ' + esc(x.reception) : '') + '</span><b>' + (x.n || 1) + ' דיילות' + (x.state === 'bought' ? ' · נרכש, ממתין לפרטי האירוע' : '') + '</b></div>'; }).join('');
+    if (!hb.length) h += '<p class="empty">אין דיילות משובצות ביום הזה.</p>';
+    if (sat) h += '<p class="jd-sum">שבת: לא מוציאים דיילות.</p>';
+    else h += '<button type="button" class="jd-btn" id="jdOff" data-on="' + (offd ? '0' : '1') + '">' + (offd ? 'יש זמינות ביום הזה (ביטול הסימון)' : 'לסמן: אין דיילת פנויה ביום הזה') + '</button>';
+    return h;
+  }
+  function openDay() {
+    var d = new Date(sel + 'T12:00:00');
+    $('jdT').textContent = d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
+    var tabs = [['sends', 'שליחות'], ['money', 'רווח והפסד'], ['host', 'דיילות']].filter(function (t) { return LY[t[0]]; });
+    if (!tabs.length) return;
+    if (!tabs.some(function (t) { return t[0] === dtab; })) dtab = tabs[0][0];
+    $('jdTabs').innerHTML = tabs.map(function (t) { return '<button type="button" data-t="' + t[0] + '" aria-pressed="' + (t[0] === dtab) + '">' + t[1] + '</button>'; }).join('');
+    $('jdTabs').hidden = tabs.length < 2;
+    $('jdSends').hidden = dtab !== 'sends'; $('jdMoney').hidden = dtab !== 'money'; $('jdHost').hidden = dtab !== 'host';
+    if (dtab === 'sends') { $('jdEv').innerHTML = sendsByEvent(); paintDay(); }
+    if (dtab === 'money') $('jdMoney').innerHTML = sel > data.today ? '<p class="empty">יום עתידי, עוד אין הכנסות או הוצאות.</p>' : (window.IshurJournal ? IshurJournal.dayHtml(lines, sel).replace(/<div class="pj-dh">[\s\S]*?<\/div>/, '') : '');
+    if (dtab === 'host') $('jdHost').innerHTML = hostHtml();
+    if (!jd.open) { if (jd.showModal) jd.showModal(); else jd.setAttribute('open', ''); }
+  }
+  jd.addEventListener('click', function (e) {
+    var t = e.target.closest('#jdTabs button'); if (t) { dtab = t.dataset.t; openDay(); return; }
+    var o = e.target.closest('#jdOff'); if (o) { o.disabled = true; api('journalHostess', { set_off: { date: sel, on: o.dataset.on === '1' } }).then(function (d2) { if (d2 && d2.ok) { host = d2; paint(); openDay(); } else o.disabled = false; }); }
   });
   function paintDay() {
     var list = (data.days[sel] || []).filter(match).filter(function (e) { if (st === 'all') return true; var k = e.status === 'done-earlier' ? 'sent' : e.status; return k === st; });
