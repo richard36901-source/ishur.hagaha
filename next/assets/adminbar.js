@@ -62,6 +62,7 @@
     { href: 'brain.html', label: 'המוח' },
     { href: 'automations.html', label: 'אוטומציות' },
     { href: 'live.html', label: 'לוג חי' },
+    { href: 'users.html', label: 'משתמשים והרשאות' },   /* 16/11: infrastructure only until Google sign-in is switched on */
   ];
   function keyOf(href) { var m = /[?&]view=([a-z]+)/.exec(href); return href.split('?')[0].split('#')[0].split('/').pop() + '?' + (m ? m[1] : ''); }
   var HERE = keyOf((location.pathname.split('/').pop() || 'admin.html') + location.search);
