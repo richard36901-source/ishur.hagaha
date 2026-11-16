@@ -2916,7 +2916,8 @@
     var want = sel.value || (function () { try { return localStorage.getItem('ishur_pl_period'); } catch (e) { return ''; } })() || periods[1] && periods[1].key || 'all';
     sel.innerHTML = periods.map(function (p) { return '<option value="' + p.key + '"' + (p.key === want ? ' selected' : '') + '>' + p.label + '</option>'; }).join('');
     var p = periods.filter(function (x) { return x.key === want; })[0] || periods[0];
-    var taxPct = Number($('plTax').value); if (!$('plTax').value) { try { taxPct = Number(localStorage.getItem('ishur_tax_pct')) || 25; } catch (e) { taxPct = 25; } $('plTax').value = taxPct; }
+    var taxPct = Number($('plTax').value); /* 16/11 Richard: no income-tax provision for now — 0 unless he types one (new key, so the old 25% default is not picked up) */
+    if ($('plTax').value === '') { try { taxPct = Number(localStorage.getItem('ishur_tax_pct2')) || 0; } catch (e) { taxPct = 0; } $('plTax').value = taxPct; }
     var rev = 0, waC = 0, callC = 0, pay = 0;
     opsData.series.forEach(function (s) { if (s.date < p.from || s.date > p.to) return; rev += s.revenue_ils; pay += s.payments; waC += s.wa_cost_usd_cents; callC += s.shir_cost_usd_cents; });
     var wa = waC / 100 * USD_ILS, calls = callC / 100 * USD_ILS, ads = adSpendIls(p.from, p.to), grow = rev * 0.022;
@@ -2947,13 +2948,13 @@
     html += line('<b>רווח</b>', profit, ';color:' + (profit >= 0 ? '#0F4C35' : '#A8402F'));
     html += line('מע"מ לתשלום (להפריש)' + (vat < 0 ? ' <small style="color:var(--ink3)">שלילי = מגיע לך החזר מע"מ</small>' : ''), vat);
     html += line('<b>רווח אחרי מע"מ</b>', afterVat, ';color:' + (afterVat >= 0 ? '#0F4C35' : '#A8402F'));
-    html += line('הפרשה למס הכנסה ' + taxPct + '%', tax);
+    if (taxPct > 0) html += line('הפרשה למס הכנסה ' + taxPct + '%', tax);
     html += line('<b>נשאר בכיס</b>', net, ';border-bottom:none;font-size:1rem;color:' + (net >= 0 ? '#0F4C35' : '#A8402F'));
     html += '<p style="font-size:.68rem;color:var(--ink3);margin:.5rem 0 0">להפריש בצד: מע"מ ' + f(vat) + ' ₪ + מס הכנסה ' + f(tax) + ' ₪ = <b>' + f(vat + tax) + ' ₪</b>. הוצאות קבועות שהוזנו לחודש אחד נמשכות לחודשים הבאים עד שמשנים.</p>';
     $('plBody').innerHTML = html;
   }
   $('plPeriod').addEventListener('change', function () { try { localStorage.setItem('ishur_pl_period', $('plPeriod').value); } catch (e) {} renderStatement(); });
-  $('plTax').addEventListener('change', function () { try { localStorage.setItem('ishur_tax_pct', $('plTax').value); } catch (e) {} renderStatement(); });
+  $('plTax').addEventListener('change', function () { try { localStorage.setItem('ishur_tax_pct2', $('plTax').value); } catch (e) {} renderStatement(); });
 
   function renderBottomLine() {
     if (!opsData || !$('blRows')) return;
