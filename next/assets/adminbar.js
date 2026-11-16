@@ -36,7 +36,8 @@
     { href: 'admin.html', label: 'נתונים', icon: ic.ads, sub: [
       { href: 'admin.html', label: 'סקירה' },
       { href: 'admin.html?view=money', label: 'כספים · רווח והפסד' },
-      { href: 'ad-report.html', label: 'דוח קמפיין' } ] },
+      { href: 'admin.html?view=camp', label: 'קמפיינים' },
+      { href: 'ad-report.html', label: 'דוח מודעות מלא' } ] },
     { href: 'leads.html', label: 'מכירות', icon: ic.board, sub: [
       { href: 'leads.html', label: 'לידים' },
       { href: 'leads.html#script', label: 'תסריטי שיחה' },

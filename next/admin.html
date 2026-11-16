@@ -12,13 +12,14 @@
 <script src="/config.js?v=72"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=4" defer></script>
+<script src="/next/assets/adminbar.js?v=5" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=5"></script>
-<script src="/assets/pnl-journal.js?v=5"></script>
+<script src="/assets/pnl-journal.js?v=6"></script>
+<script src="/assets/fixed-costs.js?v=1"></script>
 <script src="/assets/playbook.js?v=2"></script>
 <script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/callboard.js?v=1"></script>
@@ -508,6 +509,29 @@
   body[data-view="main"] #main > .sec-money,body[data-view="main"] #main > #ctl,body[data-view="main"] #main > .sec-fb{display:none !important}
   body[data-view="money"] #fold-cost{display:block !important}
   .old-pnl{display:none !important}
+  /* one design language: the export buttons look like every other control (sans, radius 8) */
+  #csvDays,#csvEvents{font-family:inherit;font-size:.8rem;font-weight:600;min-height:34px;padding:0 .8rem;border-radius:8px;box-shadow:none}
+  .old-pnl-head{font-family:inherit}
+  .old-pnl-head .fold-t{font-family:'Frank Ruhl Libre',serif}
+  /* 16/11 Richard: the big banner repeats the bar ("מיותר") */
+  header.head{display:none !important}
+  /* 16/11 Richard: everything about campaigns in one place (funnel, campaign comparison, where leads come from, CAC, ROAS) */
+  body[data-view="camp"] #main > :not(.sec-camp){display:none !important}
+  body:not([data-view="camp"]) #main > .sec-camp{display:none !important}
+  body[data-view="camp"] #fold-camp,body[data-view="camp"] #fold-utm{display:block !important}
+  /* the funnel is drawn as a funnel: each step a centred band as wide as its share */
+  .funnel{align-items:center;gap:0}
+  .fstep{width:100%;border:0;background:none;border-radius:0;overflow:visible;display:flex;justify-content:center}
+  .fstep .fbar{position:static;min-width:190px;height:54px;border-radius:8px;background:#0F4C35;opacity:.92}
+  .fstep:nth-child(4n+3) .fbar{opacity:.8}.fstep:nth-child(8n+5) .fbar{opacity:.68}
+  .fstep .frow{position:absolute;inset:0;justify-content:center;align-items:center;gap:.6rem;padding:0;pointer-events:none}
+  .fstep .fname{color:#fff;font-size:.84rem}.fstep .fnum{color:#fff;font-size:1.05rem}
+  .fdrop{font-size:.74rem;color:var(--ink3);text-align:center;padding:.3rem 0}
+  /* growth: an even grid, the long explanations behind the i */
+  .gk{display:grid !important;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}
+  @media (max-width:760px){.gk{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  #growth:not(.info-on) #g-lbl,#growth:not(.info-on) #gplan{display:none !important}
+  .ibtn{font:inherit;font-size:.78rem;font-weight:700;font-style:italic;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink3);cursor:pointer}
   body[data-view="money"] #fold-plans{display:block !important}
   body[data-view="money"] .old-pnl-head .fold-chev,body[data-view="money"] .old-pnl-head .fold-n{display:none}
   body[data-view="feedback"] #main > :not(.sec-fb){display:none !important}
@@ -583,7 +607,7 @@
   </div>
 
   <div id="growth">
-    <h2 style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">צמיחה · החודש מול חודש שעבר <span style="font-size:.72rem;font-weight:500;color:var(--ink3)" id="g-lbl"></span></h2>
+    <h2 style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap">צמיחה · החודש מול חודש שעבר <button type="button" class="ibtn" id="g-info" aria-label="הסבר וההמלצה לחודש" aria-expanded="false">i</button><span style="font-size:.72rem;font-weight:500;color:var(--ink3);flex-basis:100%" id="g-lbl"></span></h2>
     <div class="gk" id="gk"></div>
     <div class="plan" id="gplan" hidden></div>
     <div class="chartbox">
@@ -1064,7 +1088,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var adminKey = '';
 
-  var VIEW = { calls: 'calls', ctl: 'ctl', money: 'money', week: 'week', feedback: 'feedback' }[new URLSearchParams(location.search).get('view')] || 'main';
+  var VIEW = { calls: 'calls', ctl: 'ctl', money: 'money', week: 'week', feedback: 'feedback', camp: 'camp' }[new URLSearchParams(location.search).get('view')] || 'main';
   document.body.dataset.view = VIEW;
   /* 12/11 אדמין אחד: כספים is its own view. Everything from the P&L heading down to the sources table is tagged once. */
   (function () {
@@ -1079,7 +1103,16 @@
     var q = function (id, sel) { var e = document.getElementById(id); return e ? e.closest(sel) : null; };
     old(q('d-from', '.meta')); old(q('p-rev', '.kpis')); old(q('chart', '.tblwrap')); old(q('costRows', '.tblwrap'));
     var av = q('avgRows', '.tblwrap'); old(av); if (av && av.previousElementSibling && av.previousElementSibling.tagName === 'H2') old(av.previousElementSibling);
+    old(h);   /* the page title repeats the button that is already lit in the bar */
     if (ch) ch.classList.add('old-pnl-head');
+    var camp = function (el) { if (el) { el.classList.add('sec-camp'); el.classList.remove('sec-money'); } };
+    var fun = document.getElementById('funnel'); camp(fun); if (fun) { camp(fun.previousElementSibling); camp(document.getElementById('funEmpty')); }
+    ['fb-camp', 'fb-utm'].forEach(function (id) { var b2 = document.getElementById(id); camp(b2 && b2.closest('h2')); });
+    camp(document.getElementById('fold-camp')); camp(document.getElementById('fold-utm')); camp(document.getElementById('cacTile')); camp(document.getElementById('roasTile'));
+    /* the per-month fixed-cost editor is replaced by ONE recurring list (assets/fixed-costs.js) under the money block */
+    var fxo = document.getElementById('fxList'), fxBox = fxo && fxo.parentNode; if (fxBox) { old(fxBox); if (fxBox.previousElementSibling && fxBox.previousElementSibling.tagName === 'H2') old(fxBox.previousElementSibling); }
+    if (cf) { var fh = document.createElement('div'); fh.id = 'fxcHost'; fh.className = 'sec-money'; var after = document.getElementById('fold-plans') || cf; after.parentNode.insertBefore(fh, after.nextSibling); }
+    var gi = document.getElementById('g-info'); if (gi) gi.addEventListener('click', function () { var on = document.getElementById('growth').classList.toggle('info-on'); gi.setAttribute('aria-expanded', String(on)); });
     /* "חבילות · מה נמכר" is a number he reads often: straight under the money block, open */
     var pb = document.getElementById('fb-plans'), phd = pb && pb.closest('h2'), pf = document.getElementById('fold-plans');
     if (cf && phd && pf && phd.parentNode === cf.parentNode) { cf.parentNode.insertBefore(pf, cf.nextSibling); cf.parentNode.insertBefore(phd, pf); }
@@ -1087,6 +1120,7 @@
     if (VIEW === 'ctl') document.title = 'שליטה · ishur.io';
     if (VIEW === 'week') document.title = 'שליחות ושיחות · ishur.io';
     if (VIEW === 'feedback') document.title = 'משוב · ishur.io';
+    if (VIEW === 'camp') document.title = 'קמפיינים · ishur.io';
   })();
   if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
   if (VIEW === 'calls') document.title = 'מוקד שיחות · ishur.io';
@@ -1679,7 +1713,7 @@
     var html = '';
     steps.forEach(function (st, i) {
       var w = visitors ? Math.max(2, (st.n / visitors) * 100) : 0;
-      html += '<div class="fstep"><div class="fbar" style="width:' + w.toFixed(1) + '%"></div>' +
+      html += '<div class="fstep" style="position:relative"><div class="fbar" style="width:' + w.toFixed(1) + '%"></div>' +
               '<div class="frow"><span class="fname">' + st.name + '</span>' +
               '<span class="fnum">' + st.n.toLocaleString('he-IL') + '</span></div></div>';
       if (i < steps.length - 1) {
@@ -1949,6 +1983,7 @@
       }).join('');
     });
     if (window.IshurJournal && $('pjHost')) { if (!pj) pj = window.IshurJournal.mount($('pjHost'), costLines); else pj.redraw(); }
+    if (window.IshurFixed && $('fxcHost') && !window.__fxc) window.__fxc = window.IshurFixed.mount($('fxcHost'), function (b) { return fetch(CFG.endpoint('fixedcost'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b)) }).then(function (r) { return r.json(); }); }, function () { loadCost(); });
   }
 
   function downloadCsv(name, header, rows) {
@@ -2656,7 +2691,7 @@
     function delta(a, b, lowerBetter) {
       if (b == null || a == null || !b) return '<div class="delta flat">—</div>';
       var p = Math.round(100 * (a - b) / Math.abs(b)); var good = lowerBetter ? p < 0 : p > 0;
-      return '<div class="delta ' + (p === 0 ? 'flat' : good ? 'up' : 'down') + '">' + (p > 0 ? '+' : '') + p + '% מול חודש שעבר</div>';
+      return '<div class="delta ' + (p === 0 ? 'flat' : good ? 'up' : 'down') + '">' + (p > 0 ? '▲ ' : p < 0 ? '▼ ' : '') + Math.abs(p) + '%</div>';
     }
     var cards = [
       ['₪' + fmt(cur.rev), 'הכנסות', delta(cur.rev, last.rev)],

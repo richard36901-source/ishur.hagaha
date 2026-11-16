@@ -292,7 +292,7 @@ export async function fixedCostAction(env, b, month, fetchFn = fetch) {
     const i = list.findIndex((x) => x.id === row.id); const n = normFixed(i >= 0 ? { ...row, from_month: list[i].from_month } : row);
     if (i >= 0) list[i] = n; else list.push(n);
   } else if (['add', 'update', 'remove'].includes(b.action)) list = editFixed(list, b, month);
-  if (b.action && b.action !== 'list' && env.RATE) { await env.RATE.put('fixedcosts', JSON.stringify(list)); await env.RATE.delete('opsfin:90d').catch(() => {}); }
+  if (b.action && b.action !== 'list' && env.RATE) { await env.RATE.put('fixedcosts', JSON.stringify(list)); await env.RATE.delete('opsfin:90d').catch(() => {}); await env.RATE.delete('incdays').catch(() => {}); }
   return { ok: true, items: list, month_total: fixedForMonth(list, month).total };
 }
 

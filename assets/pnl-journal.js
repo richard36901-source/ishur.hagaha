@@ -45,7 +45,21 @@
     return '<div class="pj"><div class="pj-main"><div class="pj-nav"><b>' + MONTHS[mo] + ' ' + y + '</b><span class="pj-seg"><button type="button" data-pj-nav="-1" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button type="button" data-pj-nav="0">היום</button><button type="button" data-pj-nav="1" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span></div>' +
       '<div class="pj-grid">' + DOW.map(function (x) { return '<div class="pj-h">' + x + '</div>'; }).join('') + cells + '</div>' +
       '<p class="pj-leg"><i class="pj-profit"></i>יום ברווח <i class="pj-loss"></i>יום בהפסד <i></i>בלי פעילות · הצבע לפי הרווח אחרי מע״מ וכל ההוצאות של אותו יום</p></div>' +
-      '</div>';
+      '<div class="pj-aside">' + sideHtml(lines, month) + '</div></div>';
+  }
+  function sideHtml(lines, month) {
+    var t = monthTotals(lines, month), y = +month.slice(0, 4), mo = +month.slice(5, 7) - 1;
+    var row = function (k, v, cls) { return '<div class="pj-r' + (cls ? ' ' + cls : '') + '"><span>' + k + '</span><b>' + v + '</b></div>'; };
+    return '<div class="pj-side"><h3>' + MONTHS[mo] + ' ' + y + '</h3>' +
+      '<div class="pj-big pj-' + (t.net > 0 ? 'profit' : t.net < 0 ? 'loss' : 'none') + '"><b>' + signed(t.net) + '</b><span>רווח אחרי מע״מ</span></div>' +
+      row('הכנסות (כולל מע״מ)', '₪' + n2(t.rev)) + row(t.pay + ' עסקאות', '') +
+      row('מע״מ עסקאות לתשלום', '−₪' + n2(t.vat)) +
+      row('הכנסות בלי מע״מ', '₪' + n2(t.rev - t.vat), 'pj-sum') +
+      row('פרסום במטא', '−₪' + n2(t.ads)) + row('וואטסאפ', '−₪' + n2(t.wa)) + row('שיחות (שיר)', '−₪' + n2(t.shir)) +
+      row('עמלות סליקה Grow' + (t.feeEst ? ' ≈' : ''), '−₪' + n2(t.fee)) + row('הוצאות קבועות', '−₪' + n2(t.fixed)) +
+      row('סך ההוצאות', '−₪' + n2(t.total), 'pj-sum') +
+      row('רווח לפני מע״מ', signed(t.profit)) +
+      row('ימים', t.green + ' ברווח · ' + t.red + ' בהפסד') + '</div>';
   }
   /* ── 16/11 (Richard: "שני אלה אומרים לי את אותם נתונים, למה לא לאחד"): ONE money block. Tiles for the chosen period,
      then the same days three ways: יומן (calendar), רשימה (table), גרף (bars with axes). Week / month / quarter / year
@@ -118,7 +132,7 @@
       '<button type="button" class="pj-i" data-pj-info aria-label="הסבר על החישוב" aria-expanded="' + (!!st.info) + '">i</button></div>' +
       (st.info ? '<div class="pj-info">הכנסות = מה שהלקוחות שילמו, כולל מע״מ. הוצאות = פרסום במטא, וואטסאפ, שיחות, עמלות הסליקה של Grow והוצאות קבועות ביום החיוב שלהן. מע״מ לתשלום = המע״מ שבתוך ההכנסות (מע״מ עסקאות בלבד). רווח אחרי מע״מ = הכנסות פחות מע״מ ופחות כל ההוצאות. ≈ = עמלה לפי התעריף עד שנקראת העמלה בפועל.</div>' : '');
     var body = cal ? render(lines, st) : st.view === 'list' ? listHtml(lines, r.from, r.to) : chartHtml(lines, r.from, r.to);
-    return '<div class="pj-panel">' + head + tilesHtml(t) + body + '</div>';
+    return '<div class="pj-panel">' + head + (cal ? '' : tilesHtml(t)) + body + '</div>';
   }
   /* the month arrows are drawn (svg), not typed: the characters ‹ › are mirrored by the browser inside Hebrew text, which turned them inward */
   /* 16/11 (Richard: "פה זה לא נוח, אולי פופאפ"): a day's deals and costs open in a dialog over the calendar */
@@ -139,7 +153,8 @@
     (dl.fixedItems || []).forEach(function (x) { h += row('קבועה · ' + esc(x.name), '−₪' + n2(x.ils)); });
     return h + row('רווח לפני מע״מ', signed(dl.profit), 'pj-sum') + row('רווח אחרי מע״מ', signed(dl.net), 'pj-sum');
   }
-  var CSS = '.pj{margin:0 0 14px}' +
+  var CSS = '.pj{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;margin:0 0 14px;align-items:start}' +
+    '@media (max-width:900px){.pj{grid-template-columns:1fr}}' +
     '.pj-panel{margin:0 0 16px}.pj-bar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 10px}.pj-rl{font-size:.78rem;color:var(--ink3,#7A8279);margin-inline-start:auto}' +
     '.pj-seg button{font:inherit;font-size:.82rem;font-weight:600;min-height:34px;padding:0 .8rem;background:var(--card,#fff);color:var(--ink,#1B2620);cursor:pointer}.pj-seg button[aria-pressed=true]{background:var(--pine,#0F2E22);color:#fff}' +
     '.pj-i{font:inherit;font-size:.78rem;font-weight:700;font-style:italic;width:26px;height:26px;border-radius:50%;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:var(--ink3,#7A8279);cursor:pointer}' +
@@ -163,7 +178,7 @@
     '.pj-chip{font-size:.7rem;font-weight:600;border-radius:6px;padding:.12rem .35rem;background:rgba(0,0,0,.05);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}' +
     '.pj-chip.pj-in{background:rgba(168,133,60,.16);color:#6E5520}.pj-profit .pj-net{background:#CFE8D8;color:#0F4C35}.pj-loss .pj-net{background:#F6D3CE;color:#8E2F22}' +
     '.pj-leg{font-size:.7rem;color:var(--ink3,#7A8279);margin:.4rem 0 0}.pj-leg i{display:inline-block;width:.7rem;height:.7rem;border-radius:3px;border:1px solid var(--line,#E3E1D8);margin:0 .3rem 0 .6rem;vertical-align:-1px}.pj-leg i.pj-profit{background:#CFE8D8}.pj-leg i.pj-loss{background:#F6D3CE}' +
-    '.pj-dlg{border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);color:var(--ink,#1B2620);padding:1rem 1.1rem;width:min(460px,calc(100vw - 32px));max-height:85vh;overflow:auto}.pj-dlg::backdrop{background:rgba(10,20,15,.45)}' +
+    '.pj-dlg{position:fixed;inset:0;margin:auto;height:fit-content;border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);color:var(--ink,#1B2620);padding:1rem 1.1rem;width:min(460px,calc(100vw - 32px));max-height:85vh;overflow:auto}.pj-dlg::backdrop{background:rgba(10,20,15,.45)}' +
     '.pj-dh{display:flex;align-items:center;justify-content:space-between;margin:0 0 .6rem}.pj-dh h3{margin:0;font-size:1.05rem;color:var(--pine,#0F2E22)}.pj-x2{font:inherit;width:36px;height:36px;border:1px solid var(--line,#E3E1D8);border-radius:8px;background:none;color:inherit;cursor:pointer}' +
     '.pj-sec{font-size:.72rem;font-weight:700;color:var(--ink3,#7A8279);margin:.8rem 0 .2rem}' +
     '.pj-deal{display:flex;justify-content:space-between;gap:.8rem;padding:.4rem 0;border-bottom:1px solid rgba(0,0,0,.06);font-size:.84rem}.pj-deal div{display:flex;flex-direction:column;min-width:0}.pj-deal span{font-size:.74rem;color:var(--ink3,#7A8279)}.pj-deal>b{white-space:nowrap}' +
