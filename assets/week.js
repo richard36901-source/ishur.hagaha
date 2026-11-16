@@ -19,7 +19,7 @@
     '.wk-cap{font-size:.68rem;color:var(--wk-mute);padding:0 .2rem .4rem;font-variant-numeric:tabular-nums}.wk-cap.over{color:var(--wk-bad);font-weight:600}' +
     '.wk-ev{background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:11px;padding:.45rem .55rem;margin-bottom:.4rem}' +
     '.wk-evn{font-weight:600;font-size:.82rem;line-height:1.25;display:flex;gap:.3rem;align-items:baseline;flex-wrap:wrap}' +
-    '.wk-mr.plan{color:#3F6FD8}.wk-mr.bad{color:#C0392B;font-weight:700}.wk-mr.run{color:var(--ink,#1B2420);font-weight:700}.wk-mr.ok{color:#1F7A52}html[data-theme=dark] .wk-mr.plan{color:#8FB0FF}html[data-theme=dark] .wk-mr.bad{color:#F08A8A}html[data-theme=dark] .wk-mr.run{color:#fff}html[data-theme=dark] .wk-mr.ok{color:#7BC9A4}.wk-mleg{display:flex;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--ink3,#7A8279);margin:.5rem 0 0}.wk-mleg .wk-mr{display:inline;width:auto}' +
+    '.wk-s.plan{color:#3F6FD8}.wk-s.run{color:var(--ink,#1B2420);font-weight:700}html[data-theme=dark] .wk-s.plan{color:#8FB0FF}html[data-theme=dark] .wk-s.run{color:#fff}.wk-s .wk-s.bad{font-weight:600}.wk-mr.plan{color:#3F6FD8}.wk-mr.bad{color:#C0392B;font-weight:700}.wk-mr.run{color:var(--ink,#1B2420);font-weight:700}.wk-mr.ok{color:#1F7A52}html[data-theme=dark] .wk-mr.plan{color:#8FB0FF}html[data-theme=dark] .wk-mr.bad{color:#F08A8A}html[data-theme=dark] .wk-mr.run{color:#fff}html[data-theme=dark] .wk-mr.ok{color:#7BC9A4}.wk-mleg{display:flex;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--ink3,#7A8279);margin:.5rem 0 0}.wk-mleg .wk-mr{display:inline;width:auto}' +
     'html[data-theme=dark] .wk-evn em{color:#1A1509}.wk-evn em{font-style:normal;font-size:.64rem;font-weight:600;background:var(--gold,#A8853C);color:#fff;border-radius:99px;padding:.02rem .4rem}' +
     '.wk-it{display:block;width:100%;text-align:right;font:inherit;background:none;border:0;border-top:1px solid var(--line,#E3E1D8);padding:.32rem 0 .2rem;margin-top:.3rem;cursor:pointer;color:inherit}' +
     '.wk-it:hover .wk-t,.wk-it:focus-visible .wk-t{text-decoration:underline}.wk-it:focus-visible{outline:2px solid var(--gold,#A8853C);outline-offset:2px;border-radius:4px}' +
@@ -162,20 +162,20 @@
     var r = String(it.reason_he || '');
     if (it.kind === 'call') {
       if (it.status === 'done') return { c: 'ok', t: (it.answered || 0) + ' ענו' };
-      if (it.status === 'in_progress') return { c: 'wait', t: 'בתהליך · ' + (it.answered || 0) + ' ענו' };
+      if (it.status === 'in_progress') return { c: 'run', t: 'בתהליך · ' + (it.answered || 0) + ' ענו' };
       if (/hold|מוחזק/.test(r)) return { c: 'wait', t: 'מוחזק' };
-      return { c: it.status === 'missed' ? 'bad' : 'wait', t: it.status === 'missed' ? (r || 'לא קרה') : 'ממתין' + (it.time_hm ? ' · ' + it.time_hm : '') };
+      return { c: it.status === 'missed' ? 'bad' : 'plan', t: it.status === 'missed' ? (r || 'לא קרה') : 'ממתין' + (it.time_hm ? ' · ' + it.time_hm : '') };
     }
     if (it._pend) return { c: 'wait', t: '↪ הועבר לכאן · מתעדכן…' };
     if (it._note) return { c: 'mute', t: it._note };
-    if (it.status === 'done') return { c: 'ok', t: it.failed_n ? '✓ יצא · ' + it.failed_n + ' נכשלו' : '✓ יצא' };
+    if (it.status === 'done') return { c: 'ok', t: '✓ יצא', f: it.failed_n ? it.failed_n + ' נכשלו' : '' };
     if (/hold|מוחזק/.test(r)) return { c: 'wait', t: '⏸ מוחזק' };
     if (/131042|חיוב מטא/.test(r)) return { c: 'bad', t: '✗ חיוב מטא חסום' };
-    if (/מכסה|cap/.test(r)) return { c: 'wait', t: it.status === 'in_progress' ? '⏳ ממשיך כשיתפנה מקום (מכסה)' : '↪ ממתין למכסה' };
-    if (/נדחה/.test(r)) return { c: 'wait', t: '↪ ' + r };
-    if (it.status === 'in_progress') return { c: 'wait', t: '⏳ בתהליך' };
+    if (/מכסה|cap/.test(r)) return { c: it.status === 'in_progress' ? 'run' : 'plan', t: it.status === 'in_progress' ? '⏳ ממשיך כשיתפנה מקום (מכסה)' : '↪ ממתין למכסה' };
+    if (/נדחה/.test(r)) return { c: 'plan', t: '↪ ' + r };
+    if (it.status === 'in_progress') return { c: 'run', t: '⏳ בתהליך' };
     if (it.status === 'missed') return { c: 'bad', t: '✗ ' + (r || 'לא יצא') };
-    return { c: day.future ? 'mute' : 'wait', t: (day.future ? 'מתוכנן' : 'ממתין') + (it.time_hm ? ' · ' + it.time_hm : '') };
+    return { c: 'plan', t: (day.future ? 'מתוכנן' : 'ממתין') + (it.time_hm ? ' · ' + it.time_hm : '') };
   }
 
   function dayItems(day) {
@@ -236,7 +236,7 @@
           var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
           h += '<button type="button" class="wk-lr wk-it" data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-li">' + (it.kind === 'call' ? '📞' : it.kind === 'send' || it.kind === 'lead_sends' ? '💬' : '•') + '</span>' +
             '<span class="wk-ln">' + esc(g.name || (it.event && it.event.name) || '') + '</span><span class="wk-lt">' + esc(SHORT[kindKey] || it.label_he || '') + '</span>' +
-            '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+            '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + (st.f ? ' · <span class="wk-s bad">' + esc(st.f) + '</span>' : '') + '</span></button>';
         });
       });
     });
@@ -266,7 +266,7 @@
     h += its.length ? '<div class="wk-list">' + its.map(function (it) {
       var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
       return '<button type="button" class="wk-lr" data-id="' + esc(it.id) + '"><span class="wk-li">' + (it.kind === 'call' ? '📞' : '💬') + '</span><span class="wk-ln">' + esc(it.kind === 'lead_sends' ? 'לידים · נועה' : (it.event && it.event.name) || '') + '</span><span class="wk-lt">' + esc(SHORT[kindKey] || it.label_he || '') + '</span>' +
-        '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+        '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + (st.f ? ' · <span class="wk-s bad">' + esc(st.f) + '</span>' : '') + '</span></button>';
     }).join('') + '</div>' : '<p class="wk-note">אין שליחות או שיחות ביום הזה.</p>';
     var cap = d && d.capacity; if (cap && cap.capacity) h += '<p class="wk-note">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + '</p>';
     var bd = sheet(((d && d.dow_he) ? d.dow_he + ' · ' : '') + dm(iso), h);
@@ -345,7 +345,7 @@
               ? '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0))   /* the whole wave only in the click-through sheet */
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
-          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + (it.kind === 'call' ? '📞 ' : it.kind === 'send' ? '💬 ' : '') + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + (it.kind === 'call' ? '📞 ' : it.kind === 'send' ? '💬 ' : '') + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + (st.f ? ' · <span class="wk-s bad">' + esc(st.f) + '</span>' : '') + '</span></button>';
         });
         html += '</div>';
       });
@@ -407,7 +407,7 @@
       (it.total_sent != null && it.of ? '<dt>בסך הכל</dt><dd>' + num(it.total_sent) + ' מתוך ' + num(it.of) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</dd>' : '') + '<dt>' + (it.kind === 'call' ? 'חויגו' : 'נשלחו היום') + '</dt><dd>' + num(it.done_n) + (it.planned_n ? ' מתוך ' + num(it.planned_n) : '') + (it.of && it.of !== it.planned_n ? ' (קהל ' + num(it.of) + ')' : '') + '</dd>' +
       (it.failed_n ? '<dt>נכשלו</dt><dd>' + num(it.failed_n) + '</dd>' : '') +
       (it.kind === 'call' ? '<dt>ענו</dt><dd>' + num(it.answered || 0) + '</dd>' : '') +
-      '<dt>מצב</dt><dd>' + esc(st.t) + '</dd>' + (it.reason_he ? '<dt>למה</dt><dd>' + esc(it.reason_he) + '</dd>' : '') + '</dl>';
+      '<dt>מצב</dt><dd>' + esc(st.t + (st.f ? ' · ' + st.f : '')) + '</dd>' + (it.reason_he ? '<dt>למה</dt><dd>' + esc(it.reason_he) + '</dd>' : '') + '</dl>';
     var bd = sheet(title, kv + '<div class="wk-more"><p class="wk-note">טוען נוסח ונמענים…</p></div>');
     var more = bd.querySelector('.wk-more');
     if (it.kind === 'call') { more.innerHTML = '<a class="wk-a" href="admin.html?view=calls">למוקד השיחות, עם הקלטות ותמלולים ›</a>'; return; }
