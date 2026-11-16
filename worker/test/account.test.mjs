@@ -181,3 +181,24 @@ test('setup-template is an admin route, not swallowed by the account prefix', as
   assert.equal(r.status, 200); assert.equal(r.exists, false);
   assert.ok(calls.some(c => /1378764257421712\/message_templates\?name=ishur_kod/.test(c.u)), 'read the guests WABA');
 });
+
+test('email account (no event yet): code by email, login registers the user, me shows no events, and the session never opens phone data', async () => {
+  const e = env(); const post = (path, body) => worker.fetch(new Request('https://go.ishur.io/api/account/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json', Origin: 'https://ishur.io' }, body: JSON.stringify(body) }), e, {});
+  assert.equal((await post('email-otp', { email: 'not-an-email' })).status, 400);
+  emailSent.length = 0;
+  assert.equal((await post('email-otp', { email: ' New@Example.com ' })).status, 200);
+  assert.equal(emailSent.length, 1); const rec = JSON.parse(e.RATE.m.get('acctotpe:new@example.com')); assert.match(rec.code, /^\d{6}$/); assert.equal(e.RATE.ttl.get('acctotpe:new@example.com'), 600);
+  assert.equal((await post('email-login', { email: 'new@example.com', code: rec.code === '000000' ? '111111' : '000000' })).status, 403);
+  const ok = await (await post('email-login', { email: 'new@example.com', code: rec.code })).json();
+  assert.equal(ok.ok, true); assert.equal(ok.new_user, true); assert.match(ok.session, /^acctm\.[0-9a-f]+\.[0-9a-f]{32}\.[0-9a-f]{32}$/);
+  assert.ok(e.RATE.m.get('acctuser:new@example.com')); assert.equal((await post('email-login', { email: 'new@example.com', code: rec.code })).status, 403, 'single use');
+  const me = await (await post('me', { session: ok.session })).json(); assert.deepEqual([me.ok, me.kind, me.email, me.events], [true, 'email', 'new@example.com', []]);
+  assert.equal((await post('contact', { session: ok.session, email: 'x@y.co' })).status, 403, 'an email account has no phone to edit');
+  assert.equal(await A.verifySession(e, ok.session, (a, b) => a === b), '', 'never accepted as a phone session');
+  const phoneSess = await A.mintSession(e, PHONE); assert.equal(await A.verifyEmailSession(e, phoneSess, (a, b) => a === b), '', 'and a phone session is not an email one');
+  const forged = ok.session.replace(/^acctm\.[0-9a-f]+/, 'acctm.' + [...new TextEncoder().encode('dana@example.com')].map(b => b.toString(16).padStart(2, '0')).join(''));
+  assert.equal((await post('me', { session: forged })).status, 403, 'changing the email breaks the signature');
+  await post('logout', { session: ok.session }); assert.equal((await post('me', { session: ok.session })).status, 403);
+  for (let i = 0; i < 3; i++) await post('email-otp', { email: 'many@example.com' });
+  assert.equal((await post('email-otp', { email: 'many@example.com' })).status, 429, '3 codes an hour per email');
+});

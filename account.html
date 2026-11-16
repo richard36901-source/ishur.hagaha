@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#0F4C35">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js?v=91"></script>
+<script src="config.js?v=92"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/pwa.js?v=1"></script>
@@ -55,6 +55,18 @@
   main{padding:1.1rem 0 2.5rem}
   .card{background:var(--card);border:1px solid var(--bdr);border-radius:8px;margin-bottom:.9rem;overflow:hidden}
   .card-h{padding:.7rem 1rem;font-size:.71rem}
+  /* the login card: one centred column, one clear action at a time */
+  .card.lg{max-width:400px;margin:1.6rem auto .9rem}
+  .lg-b{padding:1.5rem 1.4rem 1.3rem}
+  .lg-t{font-family:'Frank Ruhl Libre','Heebo',serif;font-size:1.35rem;font-weight:700;margin:0 0 1rem;text-align:center;color:var(--ink)}
+  .lg-p{font-size:.92rem;line-height:1.6;color:var(--ink2);margin:0 0 .7rem;text-align:center}
+  .lg-seg{display:grid;grid-template-columns:1fr 1fr;gap:4px;padding:4px;border:1px solid var(--bdr);border-radius:8px;background:var(--bg3,rgba(0,0,0,.04));margin:0 0 .6rem}
+  .lg-seg button{font:inherit;font-size:.86rem;font-weight:600;min-height:40px;border:0;border-radius:6px;background:transparent;color:var(--ink2);cursor:pointer;transition:background .18s,color .18s}
+  .lg-seg button[aria-selected=true]{background:var(--green);color:#fff}
+  html[data-theme=dark] .lg-seg button[aria-selected=true]{color:#08170F}
+  html[data-theme=dark] .card.lg .btn:not(.sec){color:#08170F}
+  .card.lg .btn{margin-top:.8rem}.card.lg .btn:active{transform:scale(.98)}
+  .card.lg .note{text-align:center}
   .card-b{padding:.9rem 1rem 1rem}
   .skel{color:transparent!important;background:var(--bg3);border-radius:4px;animation:sk 1.2s infinite}
   @keyframes sk{50%{opacity:.5}}
@@ -137,22 +149,50 @@
 
 <main class="wrap">
 
-  <!-- login: phone → code -->
-  <section class="card" id="login" hidden>
-    <div class="card-h">כניסה</div>
-    <div class="card-b">
-      <label class="l" for="phone">מספר הטלפון שאיתו נרשמתם</label>
-      <div class="row">
+  <!-- login (16/11 Richard): two ways in. An event already bought → the phone it was bought with. No event yet → an email, which registers the user. -->
+  <section class="card lg" id="login" hidden>
+    <div class="lg-b">
+      <h2 class="lg-t">כניסה לאזור האישי</h2>
+      <div class="lg-seg" role="tablist" aria-label="איך נכנסים">
+        <button type="button" role="tab" id="tabPhone" aria-selected="true" aria-controls="panePhone">יש לי אירוע</button>
+        <button type="button" role="tab" id="tabMail" aria-selected="false" aria-controls="paneMail">עוד אין לי אירוע</button>
+      </div>
+      <div id="panePhone" role="tabpanel" aria-labelledby="tabPhone">
+        <label class="l" for="phone">מספר הטלפון שאיתו רכשתם</label>
         <input class="in" id="phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000" dir="ltr">
-        <button type="button" class="btn sm sec" id="send">שליחת קוד</button>
+        <button type="button" class="btn" id="send">שליחת קוד</button>
+        <div id="codeWrap" hidden>
+          <label class="l" for="code">הקוד שקיבלתם</label>
+          <input class="in code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+          <button type="button" class="btn" id="go">כניסה</button>
+        </div>
+        <p class="err" id="lerr" aria-live="polite"></p>
+        <p class="note">הקוד מגיע לוואטסאפ של המספר, ואם לא, למייל שרשום אצלנו. <a id="waHelp" href="#" target="_blank" rel="noopener">צריכים עזרה? כתבו לנועה</a></p>
       </div>
-      <div id="codeWrap" hidden>
-        <label class="l" for="code">קוד הכניסה</label>
-        <input class="in code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
-        <button type="button" class="btn" id="go">כניסה</button>
+      <div id="paneMail" role="tabpanel" aria-labelledby="tabMail" hidden>
+        <label class="l" for="mail">המייל שלכם</label>
+        <input class="in" id="mail" type="email" inputmode="email" autocomplete="email" placeholder="name@example.com" dir="ltr">
+        <button type="button" class="btn" id="msend">שליחת קוד למייל</button>
+        <div id="mcodeWrap" hidden>
+          <label class="l" for="mcode">הקוד שקיבלתם במייל</label>
+          <input class="in code" id="mcode" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+          <button type="button" class="btn" id="mgo">כניסה</button>
+        </div>
+        <p class="err" id="merr" aria-live="polite"></p>
+        <p class="note">כבר רכשתם אירוע? ודאו שאתם נכנסים עם המספר שאיתו רכשתם, בלשונית "יש לי אירוע".</p>
       </div>
-      <p class="err" id="lerr" aria-live="polite"></p>
-      <p class="note">הקוד מגיע לוואטסאפ של המספר, ואם זה לא מסתדר — למייל שרשום אצלנו. משהו לא עובד? <a id="waHelp" href="#" target="_blank" rel="noopener">כתבו לנועה</a></p>
+    </div>
+  </section>
+
+  <!-- an email account with no event yet -->
+  <section class="card lg" id="newUser" hidden>
+    <div class="lg-b">
+      <h2 class="lg-t">ברוכים הבאים</h2>
+      <p class="lg-p" id="nuMail"></p>
+      <p class="lg-p">עוד אין אירוע בחשבון הזה. בוחרים חבילה, משלמים, והאירוע מופיע כאן.</p>
+      <a class="btn" href="index.html#pricing">הוספת אירוע</a>
+      <p class="note">כבר רכשתם אירוע? הוא רשום על מספר הטלפון שאיתו רכשתם. <a href="#" id="nuSwitch">כניסה עם המספר</a></p>
+      <button type="button" class="btn sec" id="nuOut" style="margin-top:.9rem">יציאה</button>
     </div>
   </section>
 
@@ -243,7 +283,7 @@
   function mockApi(kind, body) {
     var today = new Date().toISOString().slice(0, 10);
     var M = {
-      'account-otp': { ok: true, via: 'whatsapp', status: 200 },
+      'account-otp': { ok: true, via: 'whatsapp', status: 200 }, 'account-email-otp': { ok: true, via: 'email', status: 200 }, 'account-email-login': { ok: true, status: 200, session: 'acctm.demo' },
       'account-login': { ok: true, session: 'acct.mock', status: 200 },
       'account-logout': { ok: true, status: 200 },
       'account-contact': { ok: true, status: 200, contact: { email: body.email || '', phone_alt: body.phone_alt || '', marketing: !!body.marketing } },
@@ -260,7 +300,7 @@
   }
 
   /* ── views ── */
-  function showLogin(msg) { $('login').hidden = false; $('app').hidden = true; $('lerr').textContent = msg || ''; }
+  function showLogin(msg) { $('login').hidden = false; $('app').hidden = true; $('newUser').hidden = true; $('lerr').textContent = msg || ''; }
   function showApp() { $('login').hidden = true; $('app').hidden = false; }
   function dateHe(iso) { try { return new Intl.DateTimeFormat('he-IL', { day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso + 'T12:00:00')); } catch (e) { return iso; } }
   function dateShort(iso) { try { return new Intl.DateTimeFormat('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }).format(new Date(iso)); } catch (e) { return String(iso).slice(0, 10); } }
@@ -380,6 +420,7 @@
     api('account-me', { session: s }).then(function (j) {
       if (j.status === 403) { ls(SKEY, null); showLogin(''); return; }
       if (!j.ok) { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; return; }
+      if (j.kind === 'email') { $('login').hidden = true; $('app').hidden = true; $('newUser').hidden = false; $('nuMail').textContent = j.email; ph('account_opened', { events: 0, kind: 'email' }); return; }
       renderEvents(j.events || []); renderCredit(j.credit); renderContact(j.contact);
       if (j.referral && j.referral.token) { REF = j.referral; $('refBox').hidden = false; paintRef(REF); }
       showApp();
@@ -387,6 +428,39 @@
       setTimeout(function () { if (window.IshurTour) IshurTour.start('account', TOUR); }, 400);
     }).catch(function () { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; });
   }
+
+  /* ── which way in ── */
+  function tab(mail) { $('tabPhone').setAttribute('aria-selected', String(!mail)); $('tabMail').setAttribute('aria-selected', String(!!mail)); $('panePhone').hidden = !!mail; $('paneMail').hidden = !mail; (mail ? $('mail') : $('phone')).focus(); }
+  $('tabPhone').addEventListener('click', function () { tab(false); }); $('tabMail').addEventListener('click', function () { tab(true); });
+  function validMail(m) { return /^[^@\s]{1,64}@[^@\s]{1,255}\.[a-z]{2,}$/i.test(String(m || '').trim()); }
+  $('msend').addEventListener('click', function () {
+    var m = $('mail').value.trim(); $('merr').className = 'err';
+    if (!validMail(m)) { $('merr').textContent = 'צריך כתובת מייל מלאה, למשל name@example.com'; return; }
+    var b = $('msend'); b.disabled = true; b.textContent = 'שולחים…';
+    api('account-email-otp', window.IshurGuard ? IshurGuard.stamp({ email: m }) : { email: m }).then(function (j) {
+      b.disabled = false; b.textContent = 'שליחת קוד למייל';
+      if (j.status === 200) { $('merr').className = 'err ok'; $('merr').textContent = 'שלחנו קוד למייל. אם לא הגיע, בדקו גם בספאם.'; $('mcodeWrap').hidden = false; $('mcode').focus(); }
+      else if (j.status === 429) $('merr').textContent = 'נשלחו כמה קודים לאחרונה. חכו כמה דקות ונסו שוב';
+      else $('merr').textContent = 'הקוד לא נשלח. נסו שוב עוד רגע, או כתבו לנועה';
+    }).catch(function () { b.disabled = false; b.textContent = 'שליחת קוד למייל'; $('merr').textContent = 'הקוד לא נשלח. נסו שוב עוד רגע'; });
+  });
+  function mlogin() {
+    var m = $('mail').value.trim(), code = $('mcode').value.replace(/\D/g, ''); $('merr').className = 'err';
+    if (!validMail(m)) { $('merr').textContent = 'צריך כתובת מייל מלאה'; return; }
+    if (code.length !== 6) { $('merr').textContent = 'הקוד הוא 6 ספרות'; return; }
+    var b = $('mgo'); b.disabled = true; b.textContent = 'נכנסים…';
+    api('account-email-login', { email: m, code: code }).then(function (j) {
+      b.disabled = false; b.textContent = 'כניסה';
+      if (j.status === 200 && j.session) { ls(SKEY, j.session); ph('account_login_email', { new_user: !!j.new_user }); load(); return; }
+      $('merr').textContent = j.status === 429 ? 'יותר מדי ניסיונות. חכו כמה דקות' : 'הקוד לא נכון או שפג תוקפו. אפשר לבקש קוד חדש';
+    }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('merr').textContent = 'הכניסה לא הצליחה. נסו שוב'; });
+  }
+  $('mgo').addEventListener('click', mlogin);
+  $('mcode').addEventListener('keydown', function (e) { if (e.key === 'Enter') mlogin(); });
+  $('mail').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('msend').click(); });
+  function leave(toPhone) { var s0 = ls(SKEY); ls(SKEY, null); if (s0) api('account-logout', { session: s0 }).catch(function () {}); $('newUser').hidden = true; showLogin(''); tab(!toPhone ? false : false); }
+  $('nuOut').addEventListener('click', function () { leave(false); });
+  $('nuSwitch').addEventListener('click', function (e) { e.preventDefault(); leave(true); });
 
   /* ── login ── */
   function validPhone(p) { return /^05\d{8}$/.test(String(p || '').replace(/\D/g, '')); }
@@ -401,7 +475,7 @@
         $('lerr').className = 'err ok';
         $('lerr').textContent = j.via === 'email' ? 'שלחנו קוד למייל ' + (j.to || 'שלכם') : 'הקוד בדרך אליכם בוואטסאפ 🙂';
         $('codeWrap').hidden = false; $('code').focus();
-      } else if (j.status === 404) $('lerr').textContent = 'לא מצאנו אירוע ששולם על המספר הזה. שילמתם ועדיין לא מופיע? כתבו לנועה';
+      } else if (j.status === 404) $('lerr').textContent = 'אין אירוע ששולם על המספר הזה. ודאו שזה המספר שאיתו רכשתם. עוד לא רכשתם? עברו ללשונית "עוד אין לי אירוע".';
       else if (j.status === 429) $('lerr').textContent = 'נשלחו כמה קודים לאחרונה. חכו כמה דקות ונסו שוב';
       else if (j.status === 502) $('lerr').textContent = 'לא הצלחנו לשלוח קוד לא בוואטסאפ ולא במייל. כתבו לנועה ונסדר';
       else $('lerr').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע';

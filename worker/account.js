@@ -96,6 +96,18 @@ export async function verifySession(env, token, safeEqual) {
   if (env.RATE && await env.RATE.get('acctrev:' + m[2]).catch(() => null)) return '';
   return m[1];
 }
+/* an email-only account: acctm.<email as hex>.<nonce>.<sig>. A different prefix and signing label than a phone session, so neither can pass as the other. */
+const toHex = s => [...new TextEncoder().encode(s)].map(b => b.toString(16).padStart(2, '0')).join('');
+const fromHex = h => new TextDecoder().decode(new Uint8Array((h.match(/../g) || []).map(x => parseInt(x, 16))));
+export async function mintEmailSession(env, email) { const nonce = hex(16); return `acctm.${toHex(email)}.${nonce}.${await hmac32(env.ADMIN_KEY, `acctm:${nonce}:${email}`)}`; }
+export async function verifyEmailSession(env, token, safeEqual) {
+  const m = String(token || '').match(/^acctm\.([0-9a-f]{6,480})\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
+  if (!m || !env.ADMIN_KEY) return '';
+  const email = fromHex(m[1]); if (!validEmail(email)) return '';
+  if (!safeEqual(m[3], await hmac32(env.ADMIN_KEY, `acctm:${m[2]}:${email}`))) return '';
+  if (env.RATE && await env.RATE.get('acctrev:' + m[2]).catch(() => null)) return '';
+  return email;
+}
 const nonceOf = token => (String(token || '').match(/^acct\.\d+\.([0-9a-f]{32})\./) || [])[1] || '';
 
 /* ── KV helpers ──────────────────────────────────────────────────────────── */
@@ -207,6 +219,50 @@ export async function handleAccount(request, env, origin, url, d) {
     const session = await mintSession(env, phone);
     await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאזור האישי', ok: true, phone }).catch(() => {});
     return d.okJson({ ok: true, session }, origin);
+  }
+
+  /* 16/11 Richard: someone with no event yet registers with an email and gets a code there. The account is the
+     email itself and never claims a phone, so it can never open another person's events: events are reached only
+     by the phone they were bought with (the code to that phone, or the personal link). */
+  if (path === 'email-otp') {
+    const email = String(b.email || '').trim().toLowerCase();
+    if (!validEmail(email) || email.length > 120) return d.deny(400, 'bad-email', origin);
+    if (await d.overBudget(env, 'rl:acctotpe:' + email, 3, 3600)) return d.deny(429, 'rate-limited', origin);
+    if (await d.overBudget(env, 'rl:acctotpi:' + ip, 10, 3600)) return d.deny(429, 'rate-limited', origin);
+    if (!d.sendEmail) return d.deny(502, 'send-failed', origin);
+    const code = code6();
+    await env.RATE.put('acctotpe:' + email, JSON.stringify({ code, tries: 0, at: Date.now() }), { expirationTtl: OTP_TTL });
+    const e = await d.sendEmail(env, { to: email, from: { email: 'info@ishur.io', name: 'ishur.io' }, subject: `${code} · קוד הכניסה לאזור האישי`,
+      text: `קוד הכניסה שלכם לאזור האישי ב-ishur.io: ${code}\nתקף 10 דקות, לשימוש חד-פעמי. אם לא ביקשתם אותו, התעלמו מההודעה.`,
+      html: `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;font-size:16px;color:#111"><p>קוד הכניסה שלכם לאזור האישי ב-ishur.io:</p><p style="font-size:28px;letter-spacing:.3em;font-weight:700">${code}</p><p style="color:#555;font-size:13px">תקף 10 דקות, לשימוש חד-פעמי. אם לא ביקשתם אותו, התעלמו מההודעה.</p></div>` }).catch(e2 => ({ ok: false, error: String(e2 && e2.message) }));
+    await d.logEvent(env, { area: 'אזור אישי', action: e && e.ok ? 'קוד כניסה נשלח למייל (משתמש בלי אירוע)' : 'קוד כניסה למייל לא נשלח', ok: !!(e && e.ok), review: !(e && e.ok), detail: e && e.ok ? '' : String((e && e.error) || '').slice(0, 120) }).catch(() => {});
+    if (!e || !e.ok) return d.deny(502, 'send-failed', origin);
+    return d.okJson({ ok: true, via: 'email' }, origin);
+  }
+  if (path === 'email-login') {
+    const email = String(b.email || '').trim().toLowerCase(), code = String(b.code || '').replace(/\D/g, '');
+    if (!validEmail(email) || code.length !== 6) return d.deny(403, 'bad-login', origin);
+    if (await d.overBudget(env, 'rl:acctlogine:' + email, 20, 3600)) return d.deny(429, 'rate-limited', origin);
+    if ((d.memOver && d.memOver('acctlogini:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:acctlogini:' + ip, 30, 3600)) return d.deny(429, 'rate-limited', origin);
+    const rec = await kvJson(env, 'acctotpe:' + email);
+    if (!rec) return d.deny(403, 'bad-login', origin);
+    rec.tries = (rec.tries || 0) + 1;
+    const left = Math.max(60, OTP_TTL - Math.floor((Date.now() - (rec.at || Date.now())) / 1000));
+    if (rec.tries > OTP_TRIES || !d.safeEqual(code, String(rec.code))) {
+      if (rec.tries >= OTP_TRIES) await env.RATE.delete('acctotpe:' + email).catch(() => {}); else await env.RATE.put('acctotpe:' + email, JSON.stringify(rec), { expirationTtl: left });
+      return d.deny(403, 'bad-login', origin);
+    }
+    await env.RATE.delete('acctotpe:' + email).catch(() => {});
+    const prev = await kvJson(env, 'acctuser:' + email);
+    await env.RATE.put('acctuser:' + email, JSON.stringify({ email, at: (prev && prev.at) || new Date().toISOString(), last: new Date().toISOString() }));
+    if (!prev) await d.logEvent(env, { area: 'אזור אישי', action: 'משתמש חדש נרשם במייל (עוד בלי אירוע)', ok: true }).catch(() => {});
+    return d.okJson({ ok: true, session: await mintEmailSession(env, email), new_user: !prev }, origin);
+  }
+  const mail = await verifyEmailSession(env, b.session, d.safeEqual);
+  if (mail) {
+    if (path === 'me') return d.okJson({ ok: true, kind: 'email', email: mail, events: [], today: d.today() }, origin);
+    if (path === 'logout') { const n = (String(b.session).match(/\.([0-9a-f]{32})\.[0-9a-f]{32}$/) || [])[1]; if (n) await env.RATE.put('acctrev:' + n, '1', { expirationTtl: SESSION_DAYS * 86400 }).catch(() => {}); return d.okJson({ ok: true }, origin); }
+    return d.deny(403, 'email-account', origin);
   }
 
   /* everything below needs a session */
