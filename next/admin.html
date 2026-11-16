@@ -12,13 +12,13 @@
 <script src="/config.js?v=72"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=3" defer></script>
+<script src="/next/assets/adminbar.js?v=4" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=5"></script>
-<script src="/assets/pnl-journal.js?v=2"></script>
+<script src="/assets/pnl-journal.js?v=3"></script>
 <script src="/assets/playbook.js?v=2"></script>
 <script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/callboard.js?v=1"></script>
@@ -504,6 +504,9 @@
   body[data-view="week"] #main > :not(#hqtop){display:none !important}
   body[data-view="week"] #hqtop > :not(.sec-week){display:none !important}
   body[data-view="main"] #hqtop > .sec-week,body[data-view="main"] #hqtop > .plfold{display:none !important}
+  /* 16/11: nothing shows twice — the overview has no money tables (כספים), no control (☰ → שליטה) and no feedback (לקוחות → משוב) */
+  body[data-view="main"] #main > .sec-money,body[data-view="main"] #main > #ctl,body[data-view="main"] #main > .sec-fb{display:none !important}
+  body[data-view="money"] #fold-cost{display:block !important}
   body[data-view="feedback"] #main > :not(.sec-fb){display:none !important}
   body[data-view="feedback"] #fold-feedback{display:block !important}
   body[data-view="money"] #main > :not(.sec-money){display:none !important}
@@ -1064,6 +1067,9 @@
   (function () {
     var h = [].filter.call(document.querySelectorAll('#main > h2'), function (x) { return /^כספים/.test(x.textContent.trim()); })[0];
     for (var el = h; el && !el.classList.contains('foot'); el = el.nextElementSibling) el.classList.add('sec-money');
+    /* 16/11 Richard: the detailed report (with the profit journal) is the first thing on the money view */
+    var cb = document.getElementById('fb-cost'), ch = cb && cb.closest('h2'), cf = document.getElementById('fold-cost');
+    if (h && ch && cf && ch.parentNode === h.parentNode) { h.parentNode.insertBefore(cf, h.nextSibling); h.parentNode.insertBefore(ch, cf); }
     if (VIEW === 'money') document.title = 'כספים · ishur.io';
     if (VIEW === 'ctl') document.title = 'שליטה · ishur.io';
     if (VIEW === 'week') document.title = 'שליחות ושיחות · ishur.io';

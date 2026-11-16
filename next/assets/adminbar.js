@@ -37,10 +37,10 @@
       { href: 'admin.html', label: 'סקירה' },
       { href: 'admin.html?view=money', label: 'כספים · רווח והפסד' },
       { href: 'ad-report.html', label: 'דוח קמפיין' } ] },
-    { href: 'leads.html', label: 'לידים', icon: ic.board, sub: [
+    { href: 'leads.html', label: 'מכירות', icon: ic.board, sub: [
       { href: 'leads.html', label: 'לידים' },
-      { href: 'leads.html#script', label: 'תסריט' },
-      { href: 'leads.html#paylink', label: 'קישורי סליקה' } ] },
+      { href: 'leads.html#script', label: 'תסריטי שיחה' },
+      { href: 'leads.html#paylink', label: 'קישורים' } ] },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
       { href: 'clients.html', label: 'לקוחות' },
       { href: 'clients.html#referrals', label: 'הפניות ושגרירים' },
