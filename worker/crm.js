@@ -41,6 +41,7 @@ import { buildBizStats } from './dashboard.js';
 import { PLAN_HE, OCCASION_HE } from './paylink.js';
 import { ilDayOf, addDays, closedFromPay } from './ops.js';
 import { recordChange } from './changes.js';
+import { leadsBoardRoute } from './leads-sync.js';   /* 16/11 the leads screen ⇄ monday (board, changes, m<itemId>) */
 
 /* ══ §1 pure ═══════════════════════════════════════════════════════════════ */
 export const LEAD_STATUSES = ['new', 'talking', 'quoted', 'closed', 'not_relevant', 'lost'];
@@ -828,6 +829,7 @@ export async function handleCrm(request, env, origin, url, d) {
     const [a, b, c] = parts;
     switch (a) {
       case 'leads': {
+        if (b && !c) { const ls = await leadsBoardRoute(env, { b, isPost, body, q, store, who, gql: d.mondayGql }); if (ls) return res(ls); }
         if (!b) {
           if (isPost) {
             const phone = phoneOf(body.phone); if (!phone) return json({ ok: false, error: 'bad-phone' }, 400);

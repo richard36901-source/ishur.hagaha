@@ -90,7 +90,7 @@
     '.pbwrap>h2.pb-plh{margin-top:1.4rem;display:flex;align-items:center;gap:.5rem;flex-wrap:wrap}',
     /* saved pay links (unchanged, live inside .plg-card) */
     '.pbwrap .links{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:.6rem;margin-top:.5rem}',
-    '.pbwrap .lk{background:var(--card);border:1px solid var(--line);border-inline-start:5px solid var(--gold);border-radius:12px;padding:.7rem .85rem;display:flex;flex-direction:column;gap:.35rem}',
+    '.pbwrap .lk{background:var(--card);border:1px solid var(--line);border-inline-start:5px solid var(--gold);border-radius:8px;padding:.7rem .85rem;display:flex;flex-direction:column;gap:.35rem}',
     '.pbwrap .lk .t{font-weight:600;font-size:.92rem;display:flex;justify-content:space-between;gap:.5rem}',
     '.pbwrap .lk .t b{color:var(--pine);font-variant-numeric:tabular-nums}',
     'html[data-theme=dark] .pbwrap .lk .t b{color:var(--gold-soft)}',

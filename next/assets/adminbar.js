@@ -40,6 +40,7 @@
       { href: 'ad-report.html', label: 'דוח מודעות מלא' } ] },
     { href: 'leads.html', label: 'מכירות', icon: ic.board, sub: [
       { href: 'leads.html', label: 'לידים' },
+      { href: 'leads-new.html', label: 'לידים · תצוגה חדשה' },   /* 16/11: the CRM-style list synced with monday, beside the working screen until Richard switches */
       { href: 'leads.html#script', label: 'תסריטי שיחה' },
       { href: 'leads.html#paylink', label: 'קישורים' } ] },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
@@ -302,6 +303,7 @@
     }
     /* which part of the page is showing: body[data-sub] drives the page CSS below, and the chooser follows the #part */
     var page = (location.pathname.split('/').pop() || 'admin.html');
+    if (page === 'leads-new.html') page = 'leads.html';   /* same in-page parts (list / script / pay links) */
     document.body.dataset.page = page;
     var syncSub = function () {
       var h = (location.hash || '').slice(1);

@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
+<meta name="robots" content="noindex">
+<title>לידים · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=72"></script>
+<script src="/next/assets/batch.js?v=6"></script>
+<script src="/assets/ux.js?v=4"></script>
+<script src="/next/assets/adminbar.js?v=8" defer></script>
+<script src="/assets/guard.js?v=19"></script>
+<script src="/next/assets/lite.js?v=3"></script>
+<link rel="stylesheet" href="/assets/picker.css">
+<script src="/assets/datepicker.js"></script>
+<script src="/assets/paylink-gen.js?v=6"></script>
+<script src="/assets/playbook.js?v=4"></script>
+<script src="/next/assets/leads-crm.js?v=1"></script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--line2:#EEF0EB;--pine:#0F4C35;--pine-s:#E7F0EB;--gold:#B4884A;--warn:#A8402F;--warn-s:#FBEAE6;--good:#2E7D5B;--rail:#F0EFE9;--ease:cubic-bezier(.16,1,.3,1)}
+  html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--line2:#232A25;--pine:#7BC9A4;--pine-s:#1C2E25;--warn:#E58C7C;--warn-s:#3A2320;--good:#6FC39B;--rail:#1F2622}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:14px;line-height:1.45;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:1480px;margin:0 auto;padding:1rem 1rem 3rem}
+  [hidden]{display:none!important}
+  .top{display:flex;align-items:center;gap:.6rem;margin:0 0 .7rem;position:relative}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.5rem;letter-spacing:-.01em;margin:0}
+  .top .meta{font-size:.8rem;color:var(--ink3)}
+  .demo{font-size:.68rem;font-weight:600;padding:.08rem .45rem;border-radius:6px;background:rgba(180,136,74,.16);color:var(--gold)}
+  .sync{font-size:.74rem;color:var(--ink3);display:inline-flex;align-items:center;gap:.35rem;margin-inline-start:auto}
+  .sync i{width:7px;height:7px;border-radius:50%;background:var(--good);display:inline-block}
+  .sync.off i{background:var(--warn)}
+  .sync.off{color:var(--warn)}
+  .ibtn{font:inherit;font-size:.72rem;font-weight:700;font-style:italic;font-family:Georgia,serif;width:1.35rem;height:1.35rem;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer;line-height:1;padding:0}
+  .ibtn:hover,.ibtn[aria-expanded=true]{border-color:var(--pine);color:var(--pine)}
+  .info{position:absolute;top:2.2rem;inset-inline-end:0;z-index:20;width:min(24rem,92vw);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.7rem .85rem;font-size:.8rem;color:var(--ink2);box-shadow:0 8px 24px rgba(20,28,24,.14)}
+  .info p{margin:0 0 .4rem}.info p:last-child{margin:0}
+  .pbfold>summary{cursor:pointer;font-weight:600;font-size:.9rem;padding:.5rem .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);list-style:none}
+  /* filters */
+  .bar{display:flex;flex-direction:column;gap:.45rem;margin:0 0 .6rem}
+  .chips{display:flex;gap:.3rem;flex-wrap:wrap;align-items:center}
+  .chips .lbl{font-size:.7rem;color:var(--ink3);margin-inline-end:.15rem;min-width:2.6rem}
+  .chip{font:inherit;font-size:.78rem;font-weight:500;display:inline-flex;align-items:center;gap:.35rem;padding:.24rem .6rem;border-radius:6px;border:1px solid var(--line);background:var(--card);color:var(--ink2);cursor:pointer}
+  .chip b{font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+  .chip:hover{border-color:var(--ink3)}
+  .chip[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:#fff}
+  html[data-theme=dark] .chip[aria-pressed=true]{color:#10231A}
+  .chip[aria-pressed=true] b{color:inherit}
+  .chip.zero{color:var(--ink3);background:transparent}.chip.zero b{color:var(--ink3);font-weight:500}
+  .row2{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap}
+  input[type=search]{font:inherit;font-size:.85rem;padding:.38rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-width:13rem;flex:1;max-width:24rem}
+  .shown{font-size:.76rem;color:var(--ink3)}
+  :focus-visible{outline:2px solid var(--pine);outline-offset:1px}
+  /* the list: a dense grid that scrolls inside the window, header pinned */
+  .list{background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:auto;max-height:calc(100vh - 12.5rem);min-height:16rem;position:relative}
+  table.crm{border-collapse:separate;border-spacing:0;width:100%;min-width:1180px;font-size:.82rem}
+  .crm th{position:sticky;top:0;z-index:3;background:var(--rail);color:var(--ink2);font-size:.7rem;font-weight:600;text-align:start;padding:0;border-bottom:1px solid var(--line);white-space:nowrap}
+  .crm th button{font:inherit;color:inherit;background:none;border:0;padding:.45rem .55rem;cursor:pointer;display:inline-flex;align-items:center;gap:.25rem;width:100%;text-align:start}
+  .crm th button:hover{color:var(--ink)}
+  .crm th[aria-sort] button{color:var(--pine)}
+  .crm th .ar{font-size:.6rem;opacity:.9;width:.6rem}
+  .crm th.plain{padding:.45rem .55rem}
+  .crm td{padding:.28rem .55rem;border-bottom:1px solid var(--line2);vertical-align:middle;white-space:nowrap;max-width:14rem;overflow:hidden;text-overflow:ellipsis}
+  .crm tbody tr{cursor:pointer}
+  .crm tbody tr:hover td,.crm tbody tr:focus-visible td{background:var(--rail)}
+  .crm tbody tr:focus-visible{outline:none}.crm tbody tr:focus-visible td:first-child{box-shadow:inset -3px 0 0 var(--pine)}
+  .crm tbody tr.sel td{background:var(--pine-s)}
+  .crm tr.flash td{animation:fl 1.6s ease-out}
+  @keyframes fl{from{background:rgba(180,136,74,.28)}to{background:transparent}}
+  .crm th:first-child,.crm td:first-child{position:sticky;inset-inline-start:0;z-index:2;background:var(--card)}
+  .crm th:first-child{z-index:4;background:var(--rail)}
+  .nm{font-weight:600;display:flex;align-items:center;gap:.4rem;min-width:9rem}
+  .nm .t{overflow:hidden;text-overflow:ellipsis}
+  .ph{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:embed;color:var(--ink2)}
+  .num{font-variant-numeric:tabular-nums}
+  .dim{color:var(--ink3)}
+  .ss{font-size:.66rem;font-weight:600;padding:.02rem .35rem;border-radius:4px;white-space:nowrap}
+  .ss.saving{color:var(--ink3);background:var(--rail)}.ss.saved{color:var(--good);background:var(--pine-s)}
+  .ss.failed,.ss.conflict{color:var(--warn);background:var(--warn-s)}
+  .stc{position:relative;display:block;border-radius:6px;color:#fff;font-size:.76rem;font-weight:600;text-align:center;padding:.22rem .5rem;line-height:1.25;background:#7A8A96;min-width:6.2rem;overflow:hidden;text-overflow:ellipsis}
+  .stc select{position:absolute;inset:0;width:100%;height:100%;opacity:0;cursor:pointer;font:inherit}
+  .stc:focus-within{outline:2px solid var(--pine);outline-offset:1px}
+  select.ow,input.pr,input.nt,.drawer select,.drawer input,.drawer textarea{font:inherit;font-size:.8rem;padding:.2rem .4rem;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ink);max-width:100%}
+  .crm tr:hover select.ow,.crm tr:hover input.pr,.crm tr:hover input.nt,select.ow:focus,input.pr:focus,input.nt:focus{border-color:var(--line);background:var(--card)}
+  select.ow{cursor:pointer}select.ow.none{color:var(--ink3)}
+  input.pr{width:5.2rem;direction:ltr;text-align:end;font-variant-numeric:tabular-nums}
+  input.nt{width:11rem}
+  .empty{color:var(--ink3);font-size:.85rem;padding:1.6rem;text-align:center;white-space:normal}
+  .sk td{padding:.6rem .55rem}.sk i{display:block;height:.7rem;border-radius:4px;background:var(--rail)}
+  /* the side drawer */
+  .dbg{position:fixed;inset:0;background:rgba(20,28,24,.35);z-index:69}
+  .drawer{position:fixed;top:0;bottom:0;inset-inline-end:0;width:min(27rem,100vw);background:var(--card);border-inline-start:1px solid var(--line);z-index:70;display:flex;flex-direction:column;box-shadow:0 0 32px rgba(20,28,24,.18)}
+  .drawer header{display:flex;align-items:flex-start;gap:.6rem;padding:.9rem 1rem .6rem;border-bottom:1px solid var(--line)}
+  .drawer h2{font-size:1.05rem;margin:0;flex:1;min-width:0;overflow-wrap:anywhere}
+  .drawer .x{font:inherit;border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:6px;padding:.15rem .5rem;cursor:pointer}
+  .drawer .body{overflow:auto;padding:.8rem 1rem 1.2rem;flex:1}
+  .drawer h3{font-size:.7rem;color:var(--ink3);font-weight:600;letter-spacing:.02em;margin:1rem 0 .35rem}
+  .kv{display:grid;grid-template-columns:6.2rem 1fr;gap:.3rem .6rem;font-size:.84rem;align-items:center}
+  .kv dt{color:var(--ink3);font-size:.76rem}.kv dd{margin:0;min-width:0;overflow-wrap:anywhere}
+  .drawer select,.drawer input,.drawer textarea{border-color:var(--line);background:var(--card);padding:.3rem .5rem}
+  .drawer textarea{width:100%;min-height:3.4rem;resize:vertical}
+  .acts{display:flex;gap:.35rem;flex-wrap:wrap}
+  .btn{font:inherit;font-size:.8rem;padding:.35rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none;display:inline-block}
+  .btn.p{background:var(--pine);color:#fff;border-color:var(--pine)}
+  html[data-theme=dark] .btn.p{color:#10231A}
+  .mnotes{white-space:pre-wrap;font-size:.82rem;background:var(--rail);border-radius:6px;padding:.5rem .6rem;margin:0;max-height:11rem;overflow:auto}
+  .tl{list-style:none;margin:0;padding:0;font-size:.82rem}
+  .tl li{padding:.35rem 0;border-bottom:1px solid var(--line2);overflow-wrap:anywhere}
+  .tl li:last-child{border-bottom:0}
+  .tl time{display:block;color:var(--ink3);font-size:.68rem}
+  .tick{display:inline-flex;align-items:center;gap:.3rem;font-size:.8rem}
+  .tick i{width:.8rem;height:.8rem;border:1px solid var(--ink3);border-radius:3px;display:inline-block}
+  .tick.on i{background:var(--pine);border-color:var(--pine)}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  /* phone: one card per lead */
+  @media (max-width:560px){
+    .list{max-height:none;overflow:visible;border:0;background:transparent}
+    table.crm{min-width:0;display:block}
+    .crm thead{display:none}
+    .crm tbody{display:block}
+    .crm tbody tr{display:grid;grid-template-columns:1fr 1fr;gap:.3rem .7rem;background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem;margin-bottom:.5rem}
+    .crm td{display:block;border:0;padding:0;max-width:none;white-space:normal;overflow:visible}
+    .crm td:first-child{grid-column:1/-1;position:static}
+    .crm td.c-note{grid-column:1/-1}
+    .crm td[data-l]:before{content:attr(data-l);display:block;color:var(--ink3);font-size:.64rem}
+    .crm td.c-empty{display:none}
+    .crm tbody tr:hover td,.crm tbody tr.sel td{background:transparent}
+    select.ow,input.pr,input.nt{border-color:var(--line);background:var(--card)}
+    input.nt{width:100%}
+    .chips{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none}.chips::-webkit-scrollbar{display:none}.chip{flex-shrink:0}
+    .sync span{display:none}
+  }
+  .gate{max-width:22rem;margin:4rem auto;text-align:center}
+  .gate input{font:inherit;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:8px;margin:.5rem 0}
+  .gate button{font:inherit;padding:.5rem 1.2rem;border-radius:8px;border:none;background:var(--pine);color:#fff;cursor:pointer}
+  .err{color:var(--warn);font-size:.82rem;min-height:1.2em}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <div class="top">
+    <h1>לידים</h1><span class="meta" id="meta"></span><span class="demo" id="demoTag" hidden>דמו</span>
+    <span class="sync" id="sync" role="status" aria-live="polite"><i></i><span id="syncT"></span></span>
+    <button type="button" class="ibtn" id="infoBtn" aria-expanded="false" aria-controls="info" aria-label="איך הסנכרון עובד">i</button>
+    <div class="info" id="info" hidden>
+      <p>הרשימה היא לוח הלידים במאנדיי. שינוי של סטטוס, טיפול, מחיר או הערה כאן נשמר במאנדיי מיד.</p>
+      <p>שינוי שנעשה במאנדיי מופיע כאן תוך כעשר שניות, בלי רענון.</p>
+      <p>אם אותו שדה השתנה במאנדיי בזמן שערכת אותו כאן, העריכה לא נשמרת והשורה מציגה את מה שבמאנדיי.</p>
+      <p>הסימון "נועה תחייג" נעשה במאנדיי בלבד.</p>
+    </div>
+  </div>
+  <details class="pbfold" id="pbfold" style="margin:.2rem 0 1rem">
+    <summary>תסריטי שיחה וקישורים</summary>
+    <section id="sales" style="margin-top:.6rem"></section>
+  </details>
+  <div class="bar">
+    <div class="chips" id="stChips" role="group" aria-label="סינון לפי סטטוס"></div>
+    <div class="chips" id="owChips" role="group" aria-label="סינון לפי טיפול"></div>
+    <div class="row2">
+      <input type="search" id="q" placeholder="חיפוש: שם, טלפון, אירוע, מקור" autocomplete="off" aria-label="חיפוש">
+      <span class="shown" id="shown"></span>
+    </div>
+  </div>
+  <div class="list" id="list" tabindex="-1">
+    <table class="crm" id="crm">
+      <thead><tr id="hd"></tr></thead>
+      <tbody id="rows"><tr class="sk"><td colspan="13"><i></i></td></tr><tr class="sk"><td colspan="13"><i></i></td></tr><tr class="sk"><td colspan="13"><i></i></td></tr></tbody>
+    </table>
+  </div>
+  <div class="dbg" id="dbg" hidden></div>
+  <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dName" hidden></aside>
+</main>
+<script>
+  (function(){ var f=document.getElementById('pbfold'); try { if (localStorage.getItem('ishur_pbfold')==='1') f.open=true; } catch(e){} f.addEventListener('toggle',function(){ try { localStorage.setItem('ishur_pbfold', f.open?'1':'0'); } catch(e){} }); })();
+(function () {
+  var CFG = window.ISHUR_CONFIG, L = window.IshurLeadsCRM, $ = function (id) { return document.getElementById(id); };
+  var DEMO = /(^|[?&])demo=1/.test(location.search);
+  var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var STATUSES = ['חדש', 'נשלח פרטים', 'לא ענה', 'שיחה חוזרת', 'סגר', 'סגר במקום אחר', 'לא רלוונטי'];
+  var OWNERS = ['ריצארד', 'נועה', 'שלו'];
+  /* 16/11 Richard: a status wears the colour it has on our monday leads board (column "סטטוס", read 16/11) */
+  var ST_COLOR = { 'נשלח פרטים': '#fdab3d', 'סגר': '#00c875', 'לא ענה': '#df2f4a', 'לא רלוונטי': '#007eb5', 'שיחה חוזרת': '#9d50dd', 'חדש': '#c4c4c4', 'סגר במקום אחר': '#401694',
+    'לחייג שבוע הבא': '#4eccc6', 'דיילת': '#ff5ac4', 'כפילות': '#ffcb00', 'נשלח פרטים- לא לחייג': '#333333', 'חודש /חודשיים': '#563e3e' };
+  var ST_DARK_TEXT = { '#c4c4c4': 1, '#ffcb00': 1, '#4eccc6': 1, '#fdab3d': 1 };
+  var POLL_MS = 10000;
+  var leads = [], cursor = 0, held = {}, saving = {}, queued = {}, rowState = {}, stateT = {};
+  var F = { status: '', owner: '', q: '' }, sort = { k: 'created_at', dir: 'desc' }, openId = '', polling = false, lastSync = 0, mondayOk = true;
+
+  function esc(s) { return L.esc(s); }
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} load(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  function toast(t) { if (window.IshurUX && IshurUX.toast) IshurUX.toast(t); }
+
+  /* config.js maps unknown kinds to /api/event; derive the CRM paths from a kind it does know */
+  var BASE = CFG.endpoint('calendar').replace(/\/api\/calendar$/, '');
+  function denied(r) { if (r.status !== 403) return false; if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); return true; } gate('המפתח לא נכון'); return true; }
+  function getJ(path) { return fetch(BASE + '/api/' + path, { headers: { 'X-Admin-Key': adminKey } }).then(function (r) { if (denied(r)) return null; return r.json().catch(function () { return { ok: false }; }); }); }
+  function postJ(path, body) {
+    body.admin_key = adminKey;
+    return fetch(BASE + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { if (denied(r)) return { status: 403, j: null }; return r.json().catch(function () { return { ok: false }; }).then(function (j) { return { status: r.status, j: j }; }); }, function () { return { status: 0, j: { ok: false, error: 'offline' } }; });
+  }
+
+  /* ── demo: sample rows, edits stay in memory ── */
+  var DEMO_LEADS = [
+    { id: 'm1', name: 'דנה לוי', phone: '972521111111', event: 'חתונה', guests: 200, package: 'עד 300', price: 1790, source: 'fb / paid', ad: 'AS04', status: 'שיחה חוזרת', owner: 'שלו', next: '2026-11-18', notes: 'דיברנו, רוצה לראות דוגמה של ההזמנה', dial: false, created_at: '2026-11-14T08:00:00Z', touch_at: '2026-11-16T07:12:00Z', touch_text: '' },
+    { id: 'm2', name: 'יוסי כהן', phone: '972522222222', event: 'בר מצווה', guests: 120, package: 'עד 150', price: null, source: 'google / cpc', ad: '', status: 'חדש', owner: '', next: '', notes: '', dial: false, created_at: '2026-11-16T06:00:00Z', touch_at: '2026-11-16T06:00:00Z', touch_text: '' },
+    { id: 'm3', name: 'מיכל אברהם', phone: '972523333333', event: 'חינה', guests: 80, package: 'עד 100', price: 990, source: 'הפניה', ad: '', status: 'סגר', owner: 'ריצארד', next: '', notes: 'שילמה', dial: false, created_at: '2026-11-05T08:00:00Z', touch_at: '2026-11-12T10:00:00Z', touch_text: '', client_token: 'demo-token-0001' },
+    { id: 'm4', name: 'רות שמעוני', phone: '972524444444', event: 'ברית', guests: 60, package: '', price: null, source: 'ישיר', ad: 'AS05', status: 'לא ענה', owner: 'נועה', next: '', notes: 'לא ענתה, לנסות שוב', dial: true, created_at: '2026-11-08T08:00:00Z', touch_at: '2026-11-15T15:40:00Z', touch_text: 'נועה · 15.11 · לא ענה' }
+  ];
+
+  function load() {
+    if (DEMO) { $('demoTag').hidden = false; leads = DEMO_LEADS.slice(); cursor = Date.now(); lastSync = Date.now(); show(); return; }
+    if (!adminKey) { gate(''); return; }
+    getJ('crm/leads/board').then(function (d) {
+      if (!d) return;
+      if (!d.ok) { toast('הרשימה לא נטענה' + (d.error ? ': ' + d.error : '')); return; }
+      leads = d.items || []; cursor = d.cursor || 0; held = {};
+      if (d.statuses && d.statuses.length) STATUSES = d.statuses; if (d.owners && d.owners.length) OWNERS = d.owners;
+      mondayOk = d.monday === 'ok'; lastSync = Date.parse(d.synced_at || '') || 0;
+      if (window.IshurPlaybook) IshurPlaybook.mount('sales', adminKey);
+      show();
+    }, function () { toast('אין חיבור'); });
+  }
+  function show() { $('gate').hidden = true; $('main').hidden = false; paint(); }
+
+  /* ── drawing ── */
+  function by(id) { for (var i = 0; i < leads.length; i++) if (leads[i].id === id) return leads[i]; return null; }
+  function setLead(l) { for (var i = 0; i < leads.length; i++) if (leads[i].id === l.id) { leads[i] = l; return; } leads.unshift(l); }
+  function visible() { return L.sortLeads(leads.filter(function (l) { return L.matchLead(l, F); }), sort.k, sort.dir); }
+  function paintSync() {
+    var el = $('sync'); el.classList.toggle('off', !mondayOk);
+    $('syncT').textContent = DEMO ? 'דמו' : !mondayOk ? 'אין חיבור למאנדיי' : lastSync ? 'מסונכרן עם מאנדיי · ' + L.relTime(new Date(lastSync).toISOString()) : 'מסונכרן עם מאנדיי';
+  }
+  function paintHead() {
+    $('hd').innerHTML = L.COLS.map(function (c) {
+      var on = sort.k === c.k;
+      return '<th scope="col"' + (on ? ' aria-sort="' + (sort.dir === 'asc' ? 'ascending' : 'descending') + '"' : '') + '><button type="button" data-sort="' + esc(c.k) + '">' + esc(c.he) + '<span class="ar" aria-hidden="true">' + (on ? (sort.dir === 'asc' ? '▲' : '▼') : '') + '</span></button></th>';
+    }).join('') + '<th scope="col" class="plain">הערה</th>';
+  }
+  function paintChips() {
+    var c = L.counts(leads, STATUSES, OWNERS);
+    var chip = function (attr, v, label, n, on) { return '<button type="button" class="chip' + (n ? '' : ' zero') + '" data-' + attr + '="' + esc(v) + '" aria-pressed="' + on + '">' + esc(label) + ' <b>' + n + '</b></button>'; };
+    $('stChips').innerHTML = '<span class="lbl">סטטוס</span>' + chip('st', '', 'הכל', c.all, F.status === '') + STATUSES.map(function (s) { return chip('st', s, s, c.status[s] || 0, F.status === s); }).join('');
+    $('owChips').innerHTML = '<span class="lbl">טיפול</span>' + chip('ow', '', 'כולם', c.all, F.owner === '') + OWNERS.map(function (o) { return chip('ow', o, o, c.owner[o] || 0, F.owner === o); }).join('') + chip('ow', '-', 'ללא', c.owner['-'] || 0, F.owner === '-');
+  }
+  function stateHtml(id) { var s = rowState[id]; return s ? '<span class="ss ' + esc(s) + '" role="status">' + esc(L.STATE_HE[s] || '') + '</span>' : ''; }
+  function opts(list, cur, none) {
+    var all = list.slice(); if (cur && all.indexOf(cur) < 0) all.push(cur);
+    return (none ? '<option value="">' + esc(none) + '</option>' : '') + all.map(function (o) { return '<option' + (o === cur ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('');
+  }
+  function cell(label, html, cls, isEmpty) { return '<td data-l="' + esc(label) + '" class="' + (cls || '') + (isEmpty ? ' c-empty' : '') + '">' + html + '</td>'; }
+  function rowHtml(l) {
+    var id = esc(l.id), last = L.lastNoteLine(l.notes);
+    return '<tr data-id="' + id + '" tabindex="0"' + (openId === l.id ? ' class="sel"' : '') + '>' +
+      '<td><span class="nm"><span class="t">' + esc(l.name || 'ללא שם') + '</span><span data-ss>' + stateHtml(l.id) + '</span></span></td>' +
+      cell('טלפון', '<span class="ph">' + esc(L.fmtPhone(l.phone) || l.phone_text || '') + '</span>', '', !l.phone && !l.phone_text) +
+      cell('אירוע', esc(l.event), '', !l.event) +
+      cell('כמות', l.guests == null ? '' : esc(l.guests), 'num', l.guests == null) +
+      cell('חבילה', esc(l.package), '', !l.package) +
+      cell('מחיר', '<input class="pr" data-f="price" inputmode="numeric" autocomplete="off" aria-label="מחיר" placeholder="₪" value="' + (l.price == null ? '' : esc(l.price)) + '">') +
+      cell('מקור', '<span title="' + esc(l.source) + '">' + esc(l.source) + '</span>', '', !l.source) +
+      cell('מודעה', esc(l.ad), '', !l.ad) +
+      cell('סטטוס', '<span class="stc" style="background:' + (ST_COLOR[l.status] || '#7A8A96') + (ST_DARK_TEXT[ST_COLOR[l.status]] ? ';color:#1B2620' : '') + '">' + esc(l.status || 'ללא') + '<select data-f="status" aria-label="סטטוס">' + (l.status ? '' : '<option value="" selected disabled>ללא</option>') + opts(STATUSES, l.status) + '</select></span>') +
+      cell('טיפול', '<select class="ow' + (l.owner ? '' : ' none') + '" data-f="owner" aria-label="טיפול">' + opts(OWNERS, l.owner, 'ללא') + '</select>') +
+      cell('נגיעה אחרונה', '<span class="dim" title="' + esc(l.touch_text || '') + '">' + esc(L.relTime(l.touch_at)) + '</span>', '', !l.touch_at) +
+      cell('הצעד הבא', esc([L.heDate(l.next), l.next_text].filter(Boolean).join(' · ')), '', !l.next && !l.next_text) +
+      cell('הערה', '<input class="nt" data-f="note" maxlength="600" autocomplete="off" aria-label="הערה חדשה" placeholder="' + esc(last || 'הערה חדשה') + '">', 'c-note') +
+      '</tr>';
+  }
+  function paint() {
+    paintHead(); paintChips(); paintSync();
+    var list = visible();
+    $('meta').textContent = leads.length + ' לידים';
+    $('shown').textContent = list.length === leads.length ? '' : list.length + ' מוצגים';
+    if (!list.length) { $('rows').innerHTML = '<tr><td colspan="13" class="empty">' + (!leads.length && !mondayOk ? 'אין חיבור למאנדיי, הרשימה ריקה' : leads.length ? 'אין לידים לפי הסינון' : 'אין לידים') + '</td></tr>'; return; }
+    $('rows').innerHTML = list.map(rowHtml).join('');
+  }
+  function trOf(id) { var rows = $('rows').children; for (var i = 0; i < rows.length; i++) if (rows[i].dataset.id === id) return rows[i]; return null; }
+  function typingIn(tr) { var a = document.activeElement; return !!(tr && a && tr.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.value !== a.defaultValue); }
+  /* one row in place: the list does not jump while somebody works in it */
+  function paintRow(id, flash) {
+    var tr = trOf(id), l = by(id);
+    if (!tr) return; if (!l) { tr.remove(); return; }
+    if (typingIn(tr)) { var ss = tr.querySelector('[data-ss]'); if (ss) ss.innerHTML = stateHtml(id); return; }
+    var focusF = document.activeElement && tr.contains(document.activeElement) ? document.activeElement.dataset.f || 'row' : '';
+    var box = document.createElement('tbody'); box.innerHTML = rowHtml(l);
+    var fresh = box.firstChild; tr.parentNode.replaceChild(fresh, tr);
+    if (flash) fresh.classList.add('flash');
+    if (focusF) { var t = focusF === 'row' ? fresh : fresh.querySelector('[data-f="' + focusF + '"]'); if (t) t.focus(); }
+  }
+  function setState(id, s) {
+    rowState[id] = s; clearTimeout(stateT[id]);
+    if (s === 'saved') stateT[id] = setTimeout(function () { delete rowState[id]; var tr = trOf(id), ss = tr && tr.querySelector('[data-ss]'); if (ss) ss.innerHTML = ''; if (openId === id) paintDrawerState(); }, 2600);
+    var tr = trOf(id), el = tr && tr.querySelector('[data-ss]'); if (el) el.innerHTML = stateHtml(id);
+    if (openId === id) paintDrawerState();
+  }
+
+  /* ── one edit: the row changes at once, monday decides, the row says what happened ── */
+  function edit(id, fields) {
+    var l = by(id); if (!l) return;
+    /* a second edit while the first is on its way waits its turn; it is not dropped */
+    if (saving[id]) { var q0 = queued[id] || {}; for (var qk in fields) q0[qk] = fields[qk]; queued[id] = q0; return; }
+    var op = L.optimistic(l, fields);
+    setLead(op.lead); saving[id] = true; setState(id, 'saving'); paintRow(id); paintChips(); if (openId === id) paintDrawer();
+    var finish = function (status, j) {
+      delete saving[id];
+      var st = L.saveState(status, j), cur = by(id) || op.lead;
+      if (st === 'saved') setLead(j.lead);
+      else if (st === 'conflict' && j.lead) setLead(j.lead);
+      else setLead(L.rollback(cur, op.undo));
+      setState(id, st); paintRow(id); paintChips();
+      if (openId === id) { paintDrawer(); if (st === 'saved' && fields.note) loadTimeline(id); }
+      if (st === 'failed') toast('לא נשמר במאנדיי' + (j && (j.why || j.error) ? ': ' + (j.why || j.error) : ''));
+      if (st === 'conflict') toast('השדה השתנה במאנדיי בינתיים. מוצג הערך שבמאנדיי');
+      if (queued[id]) { var nextF = queued[id]; delete queued[id]; edit(id, nextF); }
+    };
+    if (DEMO) { var d = {}; for (var k in op.lead) d[k] = op.lead[k]; if (fields.note) d.notes = (l.notes ? l.notes + '\n' : '') + fields.note; d.touch_at = new Date().toISOString(); setTimeout(function () { finish(200, { ok: true, lead: d }); }, 250); return; }
+    postJ('crm/leads/' + encodeURIComponent(id), { fields: fields, base: op.base }).then(function (r) { finish(r.status, r.j); });
+  }
+  function commit(el) {
+    var tr = el.closest('[data-id]'), id = tr && tr.dataset.id, f = el.dataset.f, l = id && by(id); if (!l || !f) return;
+    var v = el.value;
+    if (f === 'note') { v = v.trim(); if (!v) return; el.value = ''; el.defaultValue = ''; var o = { note: v }; edit(id, o); return; }
+    if (f === 'price') {
+      var t = v.replace(/[,\s₪]/g, '');
+      if (t !== '' && !(Number(t) >= 0)) { el.value = l.price == null ? '' : l.price; setState(id, 'failed'); toast('מחיר הוא מספר'); return; }
+      var n = t === '' ? null : Number(t);
+      if (n === (l.price == null ? null : Number(l.price))) return;
+      el.defaultValue = el.value; edit(id, { price: n }); return;
+    }
+    if ((l[f] || '') === v) return;
+    var body = {}; body[f] = v; edit(id, body);
+    /* the value just sent is the field's value now: Escape must close the drawer, not put the previous value back on screen (a date field keeps focus after Tab) */
+    if (el.tagName === 'INPUT' && f !== 'note') el.defaultValue = el.value;
+  }
+  function wireEdits(host) {
+    host.addEventListener('change', function (e) { var t = e.target; if (t.dataset && t.dataset.f && t.dataset.f !== 'note') commit(t); });
+    host.addEventListener('keydown', function (e) {
+      var t = e.target; if (!t.dataset || !t.dataset.f) return;
+      if (e.key === 'Enter' && t.tagName === 'INPUT') { e.preventDefault(); if (t.dataset.f === 'note') commit(t); else t.blur(); }
+      if (e.key === 'Enter' && t.tagName === 'TEXTAREA' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); commit(t); }
+      /* Escape in a field with something typed puts the old value back; in an untouched field it goes on to close the drawer */
+      if (e.key === 'Escape' && /^(INPUT|TEXTAREA)$/.test(t.tagName) && t.value !== t.defaultValue) { e.stopPropagation(); t.value = t.defaultValue; }
+    });
+  }
+  wireEdits($('rows')); wireEdits($('drawer'));
+
+  /* ── the list: sort, filter, search, keyboard ── */
+  $('hd').addEventListener('click', function (e) { var b = e.target.closest('[data-sort]'); if (!b) return; var k = b.dataset.sort; sort = sort.k === k ? { k: k, dir: sort.dir === 'asc' ? 'desc' : 'asc' } : { k: k, dir: 'asc' }; paint(); var nb = $('hd').querySelector('[data-sort="' + k + '"]'); if (nb) nb.focus(); });
+  $('stChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; F.status = b.dataset.st; paint(); });
+  $('owChips').addEventListener('click', function (e) { var b = e.target.closest('.chip'); if (!b) return; F.owner = b.dataset.ow; paint(); });
+  $('q').addEventListener('input', function () { F.q = $('q').value; paint(); });
+  $('rows').addEventListener('click', function (e) {
+    if (e.target.closest('input,select,button,a,.stc')) return;
+    var tr = e.target.closest('tr[data-id]'); if (tr) openDrawer(tr.dataset.id);
+  });
+  $('rows').addEventListener('keydown', function (e) {
+    var tr = e.target; if (!tr.matches || !tr.matches('tr[data-id]')) return;
+    if (e.key === 'Enter') { e.preventDefault(); openDrawer(tr.dataset.id); }
+    if (e.key === 'ArrowDown' && tr.nextElementSibling) { e.preventDefault(); tr.nextElementSibling.focus(); }
+    if (e.key === 'ArrowUp' && tr.previousElementSibling) { e.preventDefault(); tr.previousElementSibling.focus(); }
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { if (!$('info').hidden) { toggleInfo(false); return; } if (openId) closeDrawer(); return; }
+    if (e.key === '/' && !/^(INPUT|TEXTAREA|SELECT)$/.test((document.activeElement || {}).tagName || '') && !$('main').hidden) { e.preventDefault(); $('q').focus(); }
+  });
+  function toggleInfo(on) { $('info').hidden = !on; $('infoBtn').setAttribute('aria-expanded', String(on)); }
+  $('infoBtn').addEventListener('click', function (e) { e.stopPropagation(); toggleInfo($('info').hidden); });
+  document.addEventListener('click', function (e) { if (!$('info').hidden && !e.target.closest('#info')) toggleInfo(false); });
+
+  /* ── the drawer: the whole lead, its timeline, the pay link ── */
+  var timeline = {}, lastFocus = null;
+  function heTime(iso) { var d = new Date(iso); return isNaN(d) ? '' : d.toLocaleDateString('he-IL', { day: 'numeric', month: 'numeric' }) + ' ' + d.toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' }); }
+  function paintDrawerState() { var el = $('dState'); if (el) el.innerHTML = stateHtml(openId); }
+  function timelineHtml(id) {
+    var t = timeline[id]; if (!t) return '<li class="dim">טוען</li>';
+    var items = (t.notes || []).map(function (n) { return { at: n.at, text: n.text, who: n.author }; }).concat((t.activities || []).map(function (a) { return { at: a.at, text: (a.dir === 'in' ? 'נכנס: ' : a.dir === 'out' ? 'יצא: ' : '') + (a.text || a.kind), who: '' }; }));
+    items.sort(function (a, b) { return String(b.at).localeCompare(String(a.at)); });
+    return items.length ? items.slice(0, 80).map(function (x) { return '<li>' + esc(x.text) + '<time>' + esc(heTime(x.at)) + (x.who ? ' · ' + esc(x.who) : '') + '</time></li>'; }).join('') : '<li class="dim">אין פעילות רשומה</li>';
+  }
+  function paintDrawer() {
+    var l = by(openId), d = $('drawer'); if (!l) { closeDrawer(); return; }
+    var a = document.activeElement, keep = a && d.contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.value !== a.defaultValue;
+    if (keep) { paintDrawerState(); return; }
+    var focusF = a && d.contains(a) ? a.dataset.f || '' : '';
+    var row = function (k, v) { return v === '' || v == null ? '' : '<dt>' + esc(k) + '</dt><dd>' + v + '</dd>'; };
+    d.dataset.id = l.id;
+    d.innerHTML = '<header><h2 id="dName">' + esc(l.name || 'ללא שם') + '</h2><span id="dState">' + stateHtml(l.id) + '</span><button type="button" class="x" id="dClose" aria-label="סגירה">סגירה</button></header>' +
+      '<div class="body" data-id="' + esc(l.id) + '">' +
+      '<div class="acts">' + (l.phone ? '<a class="btn" href="https://wa.me/' + esc(l.phone) + '" target="_blank" rel="noopener">וואטסאפ</a><a class="btn" href="tel:+' + esc(l.phone) + '">חיוג</a>' : '') +
+      '<button type="button" class="btn p" id="dPay">קישור לתשלום</button>' + (l.client_token ? '<a class="btn" href="/dashboard.html?t=' + esc(l.client_token) + '" target="_blank" rel="noopener">האירוע</a>' : '') + '</div>' +
+      '<h3>עריכה</h3><dl class="kv">' +
+      '<dt><label for="dSt">סטטוס</label></dt><dd><select id="dSt" data-f="status">' + (l.status ? '' : '<option value="" selected disabled>ללא</option>') + opts(STATUSES, l.status) + '</select></dd>' +
+      '<dt><label for="dOw">טיפול</label></dt><dd><select id="dOw" data-f="owner">' + opts(OWNERS, l.owner, 'ללא') + '</select></dd>' +
+      '<dt><label for="dPr">מחיר</label></dt><dd><input id="dPr" data-f="price" inputmode="numeric" autocomplete="off" style="width:7rem;direction:ltr" value="' + (l.price == null ? '' : esc(l.price)) + '"></dd>' +
+      '<dt><label for="dNx">הצעד הבא</label></dt><dd><input id="dNx" type="date" data-f="next" value="' + esc(l.next || '') + '">' + (l.next_text ? ' <span class="dim">' + esc(l.next_text) + '</span>' : '') + '</dd></dl>' +
+      '<h3>פרטים</h3><dl class="kv">' + row('טלפון', '<span class="ph">' + esc(L.fmtPhone(l.phone) || l.phone_text || '') + '</span>') + row('אירוע', esc(l.event)) + row('כמות', l.guests == null ? '' : esc(l.guests)) + row('חבילה', esc(l.package)) +
+      row('מקור', esc(l.source)) + row('מודעה', esc(l.ad)) + row('קבוצה', esc(l.group)) + row('נכנס', esc(L.heDate(l.created_at))) + row('עדכונים', esc(l.touch_text)) +
+      '<dt>נועה תחייג</dt><dd><span class="tick' + (l.dial ? ' on' : '') + '"><i></i>' + (l.dial ? 'מסומן' : 'לא מסומן') + '</span></dd></dl>' +
+      '<h3>הערות במאנדיי</h3>' + (l.notes ? '<pre class="mnotes">' + esc(l.notes) + '</pre>' : '<p class="dim" style="margin:0;font-size:.82rem">אין הערות</p>') +
+      '<div style="margin-top:.5rem"><textarea data-f="note" maxlength="600" aria-label="הערה חדשה" placeholder="הערה חדשה"></textarea><div class="acts" style="margin-top:.3rem"><button type="button" class="btn" id="dAdd">הוספת הערה</button></div></div>' +
+      '<h3>ציר פעילות</h3><ul class="tl" id="dTl">' + timelineHtml(l.id) + '</ul></div>';
+    if (focusF) { var t = d.querySelector('[data-f="' + focusF + '"]'); if (t) t.focus(); }
+  }
+  function loadTimeline(id) {
+    if (DEMO) { timeline[id] = { notes: [], activities: [] }; if (openId === id && $('dTl')) $('dTl').innerHTML = timelineHtml(id); return; }
+    getJ('crm/leads/' + encodeURIComponent(id)).then(function (j) { if (!j || !j.ok) return; timeline[id] = { notes: j.notes || [], activities: j.activities || [] }; if (openId === id && $('dTl')) $('dTl').innerHTML = timelineHtml(id); });
+  }
+  function openDrawer(id) {
+    if (!by(id)) return; var prev = openId;
+    lastFocus = trOf(id); openId = id;
+    if (prev && trOf(prev)) trOf(prev).classList.remove('sel'); if (trOf(id)) trOf(id).classList.add('sel');
+    $('drawer').hidden = false; $('dbg').hidden = false; $('drawer').innerHTML = ''; paintDrawer(); loadTimeline(id);
+    var c = $('dClose'); if (c) c.focus();
+  }
+  function closeDrawer() {
+    var id = openId; openId = ''; $('drawer').hidden = true; $('dbg').hidden = true;
+    var tr = trOf(id); if (tr) { tr.classList.remove('sel'); tr.focus(); }
+  }
+  $('dbg').addEventListener('click', closeDrawer);
+  $('drawer').addEventListener('click', function (e) {
+    if (e.target.closest('#dClose')) { closeDrawer(); return; }
+    if (e.target.closest('#dAdd')) { var ta = $('drawer').querySelector('textarea[data-f="note"]'); if (ta) commit(ta); return; }
+    if (e.target.closest('#dPay')) { payLink(by(openId)); }
+  });
+  $('drawer').addEventListener('keydown', function (e) {
+    if (e.key !== 'Tab') return;   /* focus stays inside the open drawer */
+    var f = $('drawer').querySelectorAll('a[href],button,select,input,textarea'); if (!f.length) return;
+    if (e.shiftKey && document.activeElement === f[0]) { e.preventDefault(); f[f.length - 1].focus(); }
+    else if (!e.shiftKey && document.activeElement === f[f.length - 1]) { e.preventDefault(); f[0].focus(); }
+  });
+  /* the pay-link form of this page, opened with the lead's name and phone already in it. Nothing is sent from here. */
+  function payLink(l) {
+    if (!l) return; closeDrawer();
+    location.hash = 'paylink'; var f = $('pbfold'); if (f) f.open = true;
+    var tries = 0, fill = function () {
+      var host = $('pl-gen'), nm = host && host.querySelector('[data-in="name"]'), ph = host && host.querySelector('[data-in="phone"]');
+      if (!nm || !ph) { if (++tries < 20) setTimeout(fill, 150); return; }
+      var put = function (el, v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+      put(nm, l.name || ''); put(ph, L.fmtPhone(l.phone)); nm.scrollIntoView({ block: 'center' });
+    };
+    fill();
+  }
+
+  /* ── what changed in monday, every ten seconds while the page is in view ── */
+  function busyRows() {
+    var b = {}, k; for (k in saving) b[k] = true;
+    var a = document.activeElement, tr = a && a.closest ? a.closest('tr[data-id]') : null;
+    if (tr && typingIn(tr)) b[tr.dataset.id] = true;
+    if (openId && a && $('drawer').contains(a) && /^(INPUT|TEXTAREA)$/.test(a.tagName) && a.value !== a.defaultValue) b[openId] = true;
+    return b;
+  }
+  function poll() {
+    if (DEMO || polling || !cursor || document.visibilityState !== 'visible' || $('main').hidden) return;
+    polling = true;
+    getJ('crm/leads/changes?since=' + encodeURIComponent(cursor)).then(function (j) {
+      polling = false;
+      if (!j || !j.ok) return;
+      if (j.reload) { load(); return; }
+      mondayOk = j.monday === 'ok'; if (j.synced_at) lastSync = Date.parse(j.synced_at) || lastSync;
+      var r = L.applyRemote(leads, j, busyRows(), held);
+      leads = r.list; held = r.held; cursor = j.cursor || cursor;
+      var structural = r.removed.length > 0 || r.changed.some(function (id) { return !trOf(id); });
+      if (structural) paint(); else { r.changed.forEach(function (id) { paintRow(id, true); }); if (r.changed.length) paintChips(); paintSync(); }
+      if (structural) r.changed.forEach(function (id) { var tr = trOf(id); if (tr) tr.classList.add('flash'); });
+      if (openId && r.removed.indexOf(openId) >= 0) { closeDrawer(); toast('הליד הוסר במאנדיי'); }
+      else if (openId && r.changed.indexOf(openId) >= 0) paintDrawer();
+    }, function () { polling = false; });
+  }
+  setInterval(poll, POLL_MS);
+  document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') poll(); });
+  load();
+})();
+</script>
+</body>
+</html>
