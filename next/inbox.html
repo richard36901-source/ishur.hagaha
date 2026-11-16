@@ -10,7 +10,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=84"></script>
+<script src="/config.js?v=90"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=15" defer></script>
@@ -79,6 +79,10 @@
   .ch{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(15,76,53,.1);color:var(--ok);margin-inline-start:.3rem;white-space:nowrap}
   html[data-theme=dark] .ch{background:rgba(76,175,130,.14)}
   /* nonrelevant tag (nr:<phone>) — grey, deliberately duller than .ch */
+  /* 16/11: who handles the conversation (the call centre) */
+  .own{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(168,133,60,.16);color:var(--gold,#8A6D2F);margin-inline-start:.3rem;white-space:nowrap}html[data-theme=dark] .own{color:#E2C98A}
+  .ownf{display:flex;gap:4px;padding:.4rem .6rem;border-bottom:1px solid var(--line)}.ownf[hidden]{display:none}.ownf button{font:inherit;font-size:.74rem;font-weight:600;min-height:30px;padding:0 .7rem;border:1px solid var(--line);border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer}.ownf button[aria-pressed=true]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+  .ownsel{font:inherit;font-size:.74rem;min-height:28px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);margin-inline-start:.4rem;padding:0 .3rem}
   .nr{font-size:.62rem;border-radius:99px;padding:.05rem .4rem;background:rgba(120,120,120,.14);color:var(--ink3);margin-inline-start:.3rem;white-space:nowrap}
   html[data-theme=dark] .nr{background:rgba(255,255,255,.1)}
 
@@ -210,13 +214,14 @@
         <span class="tab-s">055-972-6673</span>
       </button>
     </div>
+    <div class="ownf" id="ownF" hidden role="group" aria-label="סינון לפי מטפלת"><button data-of="all" aria-pressed="true">כולם</button><button data-of="mine" aria-pressed="false" id="ofMine">שלי</button><button data-of="none" aria-pressed="false">לא משויך</button></div>
     <div id="convList" role="tabpanel" aria-labelledby="tabAll"></div>
   </div>
   <div class="pane">
     <div class="pane-h" hidden id="paneH">
       <button class="hbtn backb" id="backBtn" aria-label="חזרה לרשימת השיחות">→</button>
       <div class="pane-id">
-        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span><span class="nr" id="pNr" hidden>לא רלוונטי</span> <label class="aisw" title="כשכבוי, נועה לא עונה בשיחה הזאת אף פעם. עדכוני מערכת ממשיכים לצאת"><input type="checkbox" id="aiSw"> נועה עונה כאן</label></div>
+        <div class="pane-name"><b id="pName" dir="auto"></b><span class="ch" id="pKind"></span><span class="nr" id="pNr" hidden>לא רלוונטי</span><select id="pOwn" class="ownsel" hidden aria-label="מי מטפלת בשיחה"></select> <label class="aisw" title="כשכבוי, נועה לא עונה בשיחה הזאת אף פעם. עדכוני מערכת ממשיכים לצאת"><input type="checkbox" id="aiSw"> נועה עונה כאן</label></div>
         <div class="pane-sub" id="pWa" hidden></div>
         <div class="pane-phone">
           <span class="p" id="pPhone"></span>
@@ -432,6 +437,16 @@
   }
   function shown() { $('gate').hidden = true; $('split').hidden = false; }
 
+  /* ── who handles a conversation (callers API). Nothing shows until at least one agent exists. ── */
+  var OWN = { owners: {}, callers: [], me: null }, ownFilter = 'all', LAST_LIST = null;
+  function ownApi(body) { body = body || {}; body.admin_key = adminKey; return fetch(CFG.endpoint('callers'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.status === 200 ? r.json() : null; }).then(function (d) { if (d && d.ok) { OWN = { owners: d.owners || {}, callers: d.callers || [], me: d.me || null }; $('ownF').hidden = !OWN.callers.length; $('ofMine').hidden = !OWN.me; if (LAST_LIST) paintList(LAST_LIST); } return d; }).catch(function () { return null; }); }
+  function paintOwn(c) {
+    var sel = $('pOwn'); if (!OWN.callers.length) { sel.hidden = true; return; }
+    var ow = OWN.owners[c.phone]; sel.hidden = false;
+    sel.innerHTML = '<option value="">מטפלת: אין</option>' + OWN.callers.map(function (x) { return '<option value="' + esc(x.phone) + '"' + (ow && ow.owner === x.phone ? ' selected' : '') + '>מטפלת: ' + esc(x.name) + '</option>'; }).join('');
+  }
+  /* the first agent who answers an unowned conversation becomes its owner */
+  function claimIfMine() { if (OWN.me && current && !OWN.owners[current]) ownApi({ own: { phone: current, owner: 'me' } }); }
   function paintList(list) {
     var host = $('convList'); host.innerHTML = '';
     if (!list.length) {
@@ -441,8 +456,10 @@
           : 'אין שיחות במספר הזה.') + '</div>';
       return;
     }
+    LAST_LIST = list;
     list.forEach(function (c) {
       if (c.phone === current) { currentConv = c; paintHeader(c); }
+      var ow = OWN.owners[c.phone]; if ((ownFilter === 'mine' && !(ow && OWN.me && ow.owner === OWN.me.phone)) || (ownFilter === 'none' && ow)) return;
       var nm = dispName(c);
       var unknown = !(c.name && String(c.name).trim()) && !(c.wa_name && String(c.wa_name).trim());
       var b = document.createElement('button');
@@ -451,6 +468,7 @@
         (unknown ? '<span class="cnum">' + esc(fmtPhone(c.phone)) + '</span>' : '') +
         (c.kind ? '<span class="ch">' + esc(c.kind) + '</span>' : '') +
         (c.nonrelevant ? '<span class="nr">לא רלוונטי</span>' : '') +
+        (ow ? '<span class="own">' + esc(ow.name) + '</span>' : '') +
         '</span><time>' + esc(listTime(c.last_ts)) + '</time></b>' +
         '<span class="prev">' + (c.last_dir === 'out' ? '↩ ' : '') + esc(c.last_text || '') + '</span>';
       b.addEventListener('click', function () { openConv(c); });
@@ -462,6 +480,7 @@
   var WEEK = 7 * 24 * 60 * 60 * 1000;
   function paintHeader(c) {
     if (!c) return;
+    paintOwn(c);
     $('pName').textContent = dispName(c);
 
     $('pKind').textContent = c.kind || '';
@@ -680,6 +699,7 @@
       .then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (d && d.ok) {
+          claimIfMine();
           pendingOut.push({ dir: 'out', type: m.type, text: m.text, tmpl: m.tmpl, params: m.params, media: m.media, buttons: m.buttons, footer: m.footer, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'נשלח שוב', to: current, ch: m.ch });
           loadThread();
         } else { btn.disabled = false; btn.textContent = '↻ שלח שוב'; window.IshurUX && IshurUX.toast ? IshurUX.toast('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '')) : null; }
@@ -696,7 +716,7 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         $('send').disabled = false;
-        if (d && d.ok) { pendingOut.push({ dir: 'out', type: 'text', text: t, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'ריצ׳רד', to: current }); $('txt').value = ''; loadThread(); }
+        if (d && d.ok) { claimIfMine(); pendingOut.push({ dir: 'out', type: 'text', text: t, ts: Date.now(), ok: true, status: 'sent', id: d.id || ('local-' + Date.now()), who: 'ריצ׳רד', to: current }); $('txt').value = ''; loadThread(); }
         else alert('השליחה נכשלה' + (d && d.error ? ': ' + d.error : '') + '. אם עברו 24 שעות, שלחו תבנית.');
       }).catch(function () { $('send').disabled = false; });
   }
@@ -754,8 +774,11 @@
 
   /* ── refresh loop ── */
   $('refresh').addEventListener('click', function () { loadConvs(); loadThread(); });
+  $('ownF').addEventListener('click', function (e) { var b = e.target.closest('button[data-of]'); if (!b) return; ownFilter = b.dataset.of; [].forEach.call($('ownF').querySelectorAll('button'), function (x) { x.setAttribute('aria-pressed', String(x === b)); }); if (LAST_LIST) paintList(LAST_LIST); });
+  $('pOwn').addEventListener('change', function () { if (current) ownApi({ own: { phone: current, owner: $('pOwn').value } }); });
   function boot() {
     if (!adminKey) { gate(); return; }
+    ownApi({}); setInterval(function () { if (!document.hidden) ownApi({}); }, 60000);
     /* 16/11: the screen is there at once; rows shimmer until the list arrives */
     shown(); var cl = $('convList'); if (cl && !cl.children.length) cl.innerHTML = Array(9).join('<div style="padding:.85rem 1rem;border-bottom:1px solid var(--line)" aria-hidden="true"><span class="sk" style="height:.9rem;width:42%;margin-bottom:.5rem"></span><span class="sk" style="height:.75rem;width:78%"></span></div>');
     loadConvs();
