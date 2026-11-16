@@ -64,12 +64,13 @@
   /* ── 16/11 (Richard: "שני אלה אומרים לי את אותם נתונים, למה לא לאחד"): ONE money block. Tiles for the chosen period,
      then the same days three ways: יומן (calendar), רשימה (table), גרף (bars with axes). Week / month / quarter / year
      change everything at once. All of it is drawn from the same day lines. */
-  var RANGES = [['week', 'שבוע'], ['month', 'חודש'], ['quarter', 'רבעון'], ['year', 'שנה']], VIEWS = [['cal', 'יומן'], ['list', 'רשימה'], ['chart', 'גרף']];
+  var RANGES = [['week', 'שבוע'], ['month', 'חודש'], ['quarter', 'רבעון'], ['year', 'שנה'], ['all', 'כל הזמנים']], VIEWS = [['cal', 'יומן'], ['list', 'רשימה'], ['chart', 'גרף']];
   function shiftDay(d, n) { return new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
   function rangeOf(key, today) {
     if (key === 'week') return { from: shiftDay(today, -6), to: today };
     if (key === 'quarter') return { from: addMonth(today.slice(0, 7), -2) + '-01', to: today };
     if (key === 'year') return { from: addMonth(today.slice(0, 7), -11) + '-01', to: today };
+    if (key === 'all') return { from: '2026-01-01', to: today, all: true };
     return { from: today.slice(0, 7) + '-01', to: today };
   }
   function totals(lines, from, to) {
@@ -113,6 +114,7 @@
     var seg = function (items, cur, attr) { return '<span class="pj-seg">' + items.map(function (x) { return '<button type="button" ' + attr + '="' + x[0] + '" aria-pressed="' + (x[0] === cur) + '">' + x[1] + '</button>'; }).join('') + '</span>'; };
     var cal = st.view === 'cal', r = cal ? { from: st.month + '-01', to: st.month + '-' + String(new Date(Date.UTC(+st.month.slice(0, 4), +st.month.slice(5, 7), 0)).getUTCDate()).padStart(2, '0') } : rangeOf(st.range, st.today);
     if (r.to > st.today) r.to = st.today;
+    if (r.all) { var first = lines.filter(function (l) { return l.rev > 0 || l.total > 0; }).map(function (l) { return l.date; }).sort()[0]; if (first) r.from = first; }   /* all time starts at the first day with any money */
     var t = totals(lines, r.from, r.to);
     var head = '<div class="pj-bar">' + seg(VIEWS, st.view, 'data-pj-view') + (cal ? '' : seg(RANGES, st.range, 'data-pj-range')) + '<span class="pj-rl">' + dm(r.from) + ' – ' + dm(r.to) + '</span>' +
       '<button type="button" class="pj-i" data-pj-info aria-label="הסבר על החישוב" aria-expanded="' + (!!st.info) + '">i</button></div>' +

@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=6"></script>
-<script src="/assets/pnl-journal.js?v=10"></script>
+<script src="/assets/pnl-journal.js?v=11"></script>
 <script src="/assets/fixed-costs.js?v=2"></script>
 <script src="/assets/playbook.js?v=4"></script>
 <script src="/assets/sendboard.js?v=3"></script>
@@ -683,7 +683,7 @@
 
   </div>
 
-  <h2>משפך הרכישה · <span id="funLbl">30 ימים</span> <button class="rng" data-fd="7" type="button">7</button><button class="rng on" data-fd="30" type="button">30</button></h2>
+  <h2>משפך הרכישה · <span id="funLbl">30 ימים</span> <button class="rng" data-fd="7" type="button">שבוע</button><button class="rng on" data-fd="30" type="button">חודש</button><button class="rng" data-fd="90" type="button">רבעון</button><button class="rng" data-fd="365" type="button">שנה</button><button class="rng" data-fd="100000" type="button">כל הזמנים</button></h2>
   <div class="funnel" id="funnel"></div>
   <p class="empty" id="funEmpty" hidden>עדיין אין מספיק תנועה כדי להראות משפך.</p>
 
@@ -1348,7 +1348,7 @@
     loadBrain();
     hqLoad();
     if (VIEW === 'week') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); return; }
-    if (VIEW === 'main') { if (statsOn && Date.now() - statsAt > 5 * 60000) loadStats(); return; }
+    if (VIEW === 'main') { if (statsOn && Date.now() - statsAt > 5 * 60000) loadStats(); loadOps(); loadCost(); return; }
     loadOps();
     loadCost();
     loadTraffic();
@@ -1690,7 +1690,7 @@
   var lastTraffic = null, funDays = 30;
   function drawFunnel() {
     if (!lastTraffic) return;
-    $('funLbl').textContent = funDays + ' ימים';
+    $('funLbl').textContent = funDays >= 100000 ? 'כל הזמנים' : funDays + ' ימים';
     renderFunnel(lastTraffic.funnel || {}, (lastTraffic.days || []).slice(-funDays));
   }
   document.querySelectorAll('[data-fd]').forEach(function (b) {
@@ -1941,7 +1941,7 @@
         if (!d || !d.ok) return;
         costDays = d.days || [];
         costEvents = d.events || [];
-        incByDay = d.income || {}; fixedByMonth = d.fixed || {}; extraByDay = {}; (d.extras || []).forEach(function (x) { if (x.day) (extraByDay[x.day] = extraByDay[x.day] || []).push(x); }); if (window.__evc) window.__evc.set(d.events || [], d.extras || []);
+        incByDay = d.income || {}; if (patchSeries()) { try { renderOps(); } catch (e) {} } if ($('k-rev') && Object.keys(incByDay).length) $('k-rev').textContent = Math.round(allTimeIncome()).toLocaleString('he-IL'); fixedByMonth = d.fixed || {}; extraByDay = {}; (d.extras || []).forEach(function (x) { if (x.day) (extraByDay[x.day] = extraByDay[x.day] || []).push(x); }); if (window.__evc) window.__evc.set(d.events || [], d.extras || []);
         costMap = {};
         /* 25/10: the worker now sends ₪ per event (cost_ils). costMap keeps it as agorot × USD_ILS so the old formula still yields ₪ */
       costEvents.forEach(function (e) { costMap[e.token8] = e.cost_ils != null ? e.cost_ils * 100 / USD_ILS : e.cost_usd_cents; });
@@ -2427,6 +2427,17 @@
   var USD_ILS = 3.7;
   function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   var opsData = null;
+  /* 16/11 (Richard: "למה מופיע 9554 ובמקום אחר 8… ובמקום אחר 7"): every older tile, table and chart on this page read
+     income from the sheet's event rows (no upgrades, no add-ons, missing payments). They now read the same verified
+     daily income as the money block (Grow payments + direct ones), so one number appears everywhere. */
+  function patchSeries() {
+    if (!opsData || !incByDay || !Object.keys(incByDay).length) return false;
+    var by = {}; (opsData.series || []).forEach(function (r) { by[r.date] = r; r.revenue_ils = 0; r.payments = 0; });
+    Object.keys(incByDay).forEach(function (d) { var r = by[d]; if (!r) { r = by[d] = { date: d, revenue_ils: 0, payments: 0 }; (opsData.series = opsData.series || []).push(r); } r.revenue_ils = incByDay[d].revenue || 0; r.payments = incByDay[d].payments || 0; });
+    opsData.series.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    return true;
+  }
+  function allTimeIncome() { var t = 0; Object.keys(incByDay || {}).forEach(function (d) { t += incByDay[d].revenue || 0; }); return t; }
   var rangeDays = 30;
 
   function loadOps() {
@@ -2436,7 +2447,7 @@
     }).then(function (r) { return r.status === 200 ? r.json() : null; })
       .then(function (d) {
         if (!d || !d.ok) return;
-        opsData = d;
+        opsData = d; patchSeries();
         renderOps();
         if (d.wa_cap && d.wa_cap.limit) {
           var c = d.wa_cap, pct = Math.round(c.used_today / c.limit * 100);
