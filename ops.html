@@ -97,6 +97,6 @@ function cur(){var id=location.hash.replace(/^#\/?/,'').split(/[\/?]/)[0]||'over
 b.onclick=function(){if(s.classList.contains('more-open'))return close();s.classList.add('more-open');b.setAttribute('aria-expanded','true');var x=document.createElement('div');x.className='more-scrim';x.onclick=close;s.appendChild(x);var f=s.querySelector('.nav a');if(f)f.focus()};
 document.addEventListener('keydown',function(e){if(e.key==='Escape'&&s.classList.contains('more-open')){close();b.focus()}});
 s.querySelector('.nav').addEventListener('click',function(e){if(e.target.closest('a'))close()});addEventListener('hashchange',cur);cur()})();</script>
-<script type="module" src="assets/ops/app.js?v=4"></script>
+<script type="module" src="assets/ops/app.js?v=5"></script>
 </body>
 </html>

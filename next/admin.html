@@ -2627,7 +2627,7 @@
       missing.forEach(function (e) { pushTodo('bad', e.name + ' — ' + e.missing_n + ' מוזמנים בלי הזמנה', 'גל 1 היה אמור לצאת ב-' + e.wave1, 'admin.html?view=week', 'ללוח'); });
       held.forEach(function (e) { if (e.missing_n) pushTodo('amber', e.name + ' בהשהיה — ' + e.missing_n + ' מוזמנים מחכים', 'שחרור מדף הלקוחות', 'clients.html', 'ללקוחות'); });
       renderHqEvents(evs);
-      if (VIEW !== 'week' && window.IshurSendBoard && $('hqsendboard')) IshurSendBoard.mount($('hqsendboard'), { api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); }, only: 'plan' });
+      if (false && window.IshurSendBoard && $('hqsendboard')) IshurSendBoard.mount($('hqsendboard'), { api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); }, only: 'plan' });
     }).catch(function () { setSt('s-send', 'warn', 'לא נטען', ''); }).then(doneOne);
     if ($('s-shir')) hqApi('call-board', {}).then(function (b) {
       var w = (b.waiting || []).length, done = b.done || [];

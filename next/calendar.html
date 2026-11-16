@@ -156,7 +156,7 @@
   <section class="hs"><h2>הדיילות</h2>
     <div class="hadd"><input id="sName" placeholder="שם הדיילת" maxlength="40"><input id="sPhone" placeholder="נייד" dir="ltr" inputmode="tel"><button class="hbtn" id="sAdd" aria-pressed="true">הוספה</button></div>
     <div class="hcards" id="hStaff"></div></section>
-  <section class="hs"><h2>יומן נוכחות</h2><div id="hLogWrap"><table class="hlog" id="hLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה</th><th>אירוע</th></tr></thead><tbody></tbody></table><p class="empty" id="hLogEmpty" hidden>עוד אין דיווחים.</p></div></section>
+  <section class="hs"><h2>יומן נוכחות</h2><div id="hLogWrap"><table class="hlog" id="hLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה (שרת)</th><th>הוכחה</th><th>אירוע</th></tr></thead><tbody></tbody></table><p class="empty" id="hLogEmpty" hidden>עוד אין דיווחים.</p></div></section>
 </main>
 <dialog class="hdlg" id="dlg"></dialog>
 <script>
@@ -164,6 +164,7 @@
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
   var month = new Date().toISOString().slice(0, 7), H = { days: {}, off: {}, events: [], staff: [] }, S = { staff: [], log: [] }, openDay = null;
+  var SBASE = CFG.endpoint('status').replace(/\/api\/status$/, '');
   var HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
   function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
@@ -207,7 +208,7 @@
     }).join('') : '<p class="empty">עוד לא נוספו דיילות. מוסיפים שם ונייד למעלה.</p>';
     var lg = S.log || [];
     $('hLogEmpty').hidden = !!lg.length; $('hLog').hidden = !lg.length;
-    $('hLog').querySelector('tbody').innerHTML = lg.slice(0, 60).map(function (x) { return '<tr><td>' + esc(dmy(x.day)) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.time || '') + '</td><td>' + esc(x.event || '') + '</td></tr>'; }).join('');
+    $('hLog').querySelector('tbody').innerHTML = lg.slice(0, 60).map(function (x) { return '<tr><td>' + esc(dmy(x.day)) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.received || x.time || '') + '</td><td>' + (x.photo && /^\/api\/staff[a-z-]*\?[\w=&%.:-]+$/.test(x.photo) ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none;min-height:28px" target="_blank" rel="noopener" href="' + esc(SBASE + x.photo) + '">צילום</a>' : esc(x.text || '')) + '</td><td>' + esc(x.event || '') + '</td></tr>'; }).join('');
     if (openDay && $('dlg').open) dayDlg(openDay);
   }
   function dayDlg(iso) {

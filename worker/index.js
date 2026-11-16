@@ -46,7 +46,7 @@ import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
-import { authGate, handleAuth } from './auth.js';
+import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
@@ -2561,6 +2561,8 @@ const okJsonPlain = payload => new Response(JSON.stringify(payload), {
 async function adminKeyOk(env, key) {
   const tok = String(key || '');
   if (isAdmin(env, tok)) return true;
+  /* 16/11: uploads carry the key inside a form, which the sign-in gate does not rewrite, so a Google session is accepted here directly */
+  if (isSessionToken(tok)) return !!(await readSession(env, tok).catch(() => null));
   return adminSessionOk(env, tok);
 }
 /* 12/11 security: a session token ends 30 days after its last use (it used to be valid for as long
@@ -13958,16 +13960,19 @@ const WORKER = {
       }
       /* 16/11 the hostess screen: which hostess works which event, and the dates a hostess cannot work */
       const jget = async k => { try { return JSON.parse(await env.RATE.get(k) || 'null'); } catch { return null; } };
+      const fresh = { asg: {}, unav: {} };   /* KV list() lags its own writes: what this request just wrote is laid over the listing */
       if (b.assign && /^[0-9a-f]{8}$/.test(String(b.assign.tok8 || '')) && /^9725\d{8}$/.test(String(b.assign.phone || ''))) {
         const k = 'hostassign:' + b.assign.tok8; const cur = new Set((await jget(k)) || []);
         if (b.assign.on) { if (await env.RATE.get('staff:' + b.assign.phone)) cur.add(b.assign.phone); } else cur.delete(b.assign.phone);
         if (cur.size) await env.RATE.put(k, JSON.stringify([...cur].slice(0, 12)), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
+        fresh.asg[b.assign.tok8] = [...cur].slice(0, 12);
       }
       if (b.set_avail && /^9725\d{8}$/.test(String(b.set_avail.phone || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.set_avail.date || ''))) {
         const k = 'hostunavail:' + b.set_avail.phone; const cur = new Set((await jget(k)) || []);
         if (b.set_avail.on) cur.delete(b.set_avail.date); else cur.add(b.set_avail.date);
         const keep = [...cur].filter(x => x >= new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10)).sort().slice(0, 200);
         if (keep.length) await env.RATE.put(k, JSON.stringify(keep), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
+        fresh.unav[b.set_avail.phone] = keep;
       }
       const [books, bought, off] = await Promise.all([kvPrefix(env, 'hostessbook:'), kvPrefix(env, 'hostess:'), kvPrefix(env, 'hostessoff:')]);
       const days = {}, seen = new Set();
@@ -13992,12 +13997,15 @@ const WORKER = {
       try {
         const [asg, staffKv, unav] = await Promise.all([kvPrefix(env, 'hostassign:'), kvPrefix(env, 'staff:'), kvPrefix(env, 'hostunavail:')]);
         const pj = v => { try { return JSON.parse(v); } catch { return null; } };
+        for (const [t, v] of Object.entries(fresh.asg)) asg[t] = JSON.stringify(v);
+        for (const [ph, v] of Object.entries(fresh.unav)) unav[ph] = JSON.stringify(v);
         staff = Object.entries(staffKv).map(([ph, v]) => { const x = pj(v) || {}; return { phone: ph, name: String(x.name || ''), unavail: pj(unav[ph] || 'null') || [] }; }).filter(x => x.name).sort((x, y) => x.name.localeCompare(y.name, 'he'));
         const need = {}; for (const list of Object.values(days)) for (const x of list) need[x.tok8] = { n: x.n, state: x.state };
         const snap = await readSnapshot(env, 'guest'); const from = new Date(Date.now() - 31 * 86400e3).toISOString().slice(0, 10);
         for (const r of (snap && snap.events && snap.events.values) || []) {
           const c = i => String((r || [])[i] ?? '').trim(); const tok = c(1), date = c(6).slice(0, 10);
           if (!/^[0-9a-f-]{36}$/.test(tok) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < from) continue;
+          if (c(27) === 'כן' || !(Number(c(8)) > 0)) continue;   /* cancelled, or never paid */
           const t8 = tok.slice(0, 8), nd = need[t8];
           events.push({ tok8: t8, date, name: c(34) || c(2), buyer: c(2), phone: c(3), occasion: c(5), time: c(36), city: c(37), venue: c(38), need: nd ? nd.n : 0, state: nd ? nd.state : '', assigned: pj(asg[t8] || 'null') || [], board: 'https://go.ishur.io/dashboard.html?t=' + tok });
         }

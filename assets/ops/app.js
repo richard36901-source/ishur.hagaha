@@ -49,6 +49,8 @@ async function raw(name, body = {}, opts = {}) {
     await ensureLive();
     const payload = Object.assign({ admin_key: adminKey }, body);
     const r = await fetch(BASE + '/api/' + (name.includes('/') ? name.replace(/^\//, '') : 'ops/' + name) + (opts.qs || ''), opts.qs != null ? { headers: { 'X-Admin-Key': adminKey } } : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? window.IshurGuard.stamp(payload) : payload) });
+    /* 16/11: once Google sign-in is required the worker answers 401 login-required to a shared key from a browser */
+    if (r.status === 401) { let j = null; try { j = await r.clone().json(); } catch (e) {} if (j && j.error === 'login-required') { location.href = '/next/login.html?back=' + encodeURIComponent(location.pathname + location.search + location.hash); throw new HttpError(401, 'נדרשת כניסה'); } }
     if (r.status === 403 || r.status === 401) { showGate('המפתח לא התקבל'); throw new HttpError(r.status, 'אין הרשאה'); }
     if (r.status === 404) { const e = await r.json().catch(() => ({})); throw new HttpError(404, e.error === 'unknown-ops-route' || !e.error ? 'נקודת הקצה ' + name + ' עוד לא קיימת בשרת' : e.error); }
     if (!r.ok) { const e = await r.json().catch(() => ({})); if (opts.soft && e.ok === false) return e; throw new HttpError(r.status, e.error || e.why || ''); }
