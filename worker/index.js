@@ -13956,6 +13956,19 @@ const WORKER = {
         if (b.set_off.on) await env.RATE.put('hostessoff:' + b.set_off.date, JSON.stringify({ at: new Date().toISOString(), note: String(b.set_off.note || '').slice(0, 80) }), { expirationTtl: 500 * 86400 });
         else await env.RATE.delete('hostessoff:' + b.set_off.date);
       }
+      /* 16/11 the hostess screen: which hostess works which event, and the dates a hostess cannot work */
+      const jget = async k => { try { return JSON.parse(await env.RATE.get(k) || 'null'); } catch { return null; } };
+      if (b.assign && /^[0-9a-f]{8}$/.test(String(b.assign.tok8 || '')) && /^9725\d{8}$/.test(String(b.assign.phone || ''))) {
+        const k = 'hostassign:' + b.assign.tok8; const cur = new Set((await jget(k)) || []);
+        if (b.assign.on) { if (await env.RATE.get('staff:' + b.assign.phone)) cur.add(b.assign.phone); } else cur.delete(b.assign.phone);
+        if (cur.size) await env.RATE.put(k, JSON.stringify([...cur].slice(0, 12)), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
+      }
+      if (b.set_avail && /^9725\d{8}$/.test(String(b.set_avail.phone || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.set_avail.date || ''))) {
+        const k = 'hostunavail:' + b.set_avail.phone; const cur = new Set((await jget(k)) || []);
+        if (b.set_avail.on) cur.delete(b.set_avail.date); else cur.add(b.set_avail.date);
+        const keep = [...cur].filter(x => x >= new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10)).sort().slice(0, 200);
+        if (keep.length) await env.RATE.put(k, JSON.stringify(keep), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
+      }
       const [books, bought, off] = await Promise.all([kvPrefix(env, 'hostessbook:'), kvPrefix(env, 'hostess:'), kvPrefix(env, 'hostessoff:')]);
       const days = {}, seen = new Set();
       const put = (date, row) => { if (/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) (days[date] = days[date] || []).push(row); };
@@ -13974,7 +13987,27 @@ const WORKER = {
             board: 'https://go.ishur.io/dashboard.html?t=' + String(r[1]).trim() });
         }
       } catch {}
-      return okJson({ ok: true, days, off: Object.fromEntries(Object.keys(off).map(k => [k, true])) }, origin);
+      /* every dated event (a month back and on), how many hostesses it bought, and who is assigned */
+      let events = [], staff = [];
+      try {
+        const [asg, staffKv, unav] = await Promise.all([kvPrefix(env, 'hostassign:'), kvPrefix(env, 'staff:'), kvPrefix(env, 'hostunavail:')]);
+        const pj = v => { try { return JSON.parse(v); } catch { return null; } };
+        staff = Object.entries(staffKv).map(([ph, v]) => { const x = pj(v) || {}; return { phone: ph, name: String(x.name || ''), unavail: pj(unav[ph] || 'null') || [] }; }).filter(x => x.name).sort((x, y) => x.name.localeCompare(y.name, 'he'));
+        const need = {}; for (const list of Object.values(days)) for (const x of list) need[x.tok8] = { n: x.n, state: x.state };
+        const snap = await readSnapshot(env, 'guest'); const from = new Date(Date.now() - 31 * 86400e3).toISOString().slice(0, 10);
+        for (const r of (snap && snap.events && snap.events.values) || []) {
+          const c = i => String((r || [])[i] ?? '').trim(); const tok = c(1), date = c(6).slice(0, 10);
+          if (!/^[0-9a-f-]{36}$/.test(tok) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < from) continue;
+          const t8 = tok.slice(0, 8), nd = need[t8];
+          events.push({ tok8: t8, date, name: c(34) || c(2), buyer: c(2), phone: c(3), occasion: c(5), time: c(36), city: c(37), venue: c(38), need: nd ? nd.n : 0, state: nd ? nd.state : '', assigned: pj(asg[t8] || 'null') || [], board: 'https://go.ishur.io/dashboard.html?t=' + tok });
+        }
+        /* hostesses bought before the client filled the event date in the sheet: still an event on the date they asked for */
+        const have = new Set(events.map(e => e.tok8 + '|' + e.date));
+        for (const [date, list] of Object.entries(days)) for (const x of list) { if (date < from || have.has(x.tok8 + '|' + date)) continue;
+          events.push({ tok8: x.tok8, date, name: x.client || x.buyer || 'אירוע ' + x.tok8, buyer: x.buyer || '', phone: x.phone || '', occasion: x.occasion || '', time: x.reception || x.time || '', city: x.city || '', venue: x.venue || '', need: x.n, state: x.state, assigned: pj(asg[x.tok8] || 'null') || [], board: x.board || '' }); }
+        events.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
+      } catch {}
+      return okJson({ ok: true, days, off: Object.fromEntries(Object.keys(off).map(k => [k, true])), events, staff }, origin);
     }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {
       let b = {};

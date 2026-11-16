@@ -12,7 +12,7 @@
 <script src="/config.js?v=74"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=11" defer></script>
+<script src="/next/assets/adminbar.js?v=12" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
@@ -21,10 +21,10 @@
 <script src="/assets/pnl-journal.js?v=12"></script>
 <script src="/assets/fixed-costs.js?v=3"></script>
 <script src="/assets/playbook.js?v=4"></script>
-<script src="/assets/sendboard.js?v=3"></script>
+<script src="/assets/sendboard.js?v=5"></script>
 <script src="/assets/callboard.js?v=1"></script>
 <script src="/assets/callslog.js?v=1"></script>
-<script src="/assets/week.js?v=19"></script>
+<script src="/assets/week.js?v=20"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -603,8 +603,9 @@
       <a class="st" id="s-leads" href="leads.html"><span class="l">לידים חדשים</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></a>
     </div>
     <div class="todo" id="todo" hidden></div>
-    <h2 class="sec-week">השבוע · מה יוצא, לאיזה אירוע, ומה נדחה <a href="calendar.html">ליומן ›</a></h2>
+    <h2 class="sec-week">השבוע · מה יוצא, לאיזה אירוע, ומה נדחה</h2>
     <div id="week" class="sec-week"></div>
+    <div id="hqsendboard" class="sec-week" style="margin-top:18px;zoom:1.12"></div>
     <details class="plfold"><summary>קישור תשלום חדש</summary><div class="linkcard"><div id="pl-gen"></div></div></details>
   </div>
 
@@ -1398,6 +1399,8 @@
     hqLoad();
     if (window.IshurPayLinkGen && !window.__plgMounted) { window.__plgMounted = 1; IshurPayLinkGen.mount('pl-gen', adminKey); }
     if (VIEW === 'week' && window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') });   /* 16/11: the board lives under שליחות ושיחות */
+    /* 16/11 evening: the order of sends and the sending cap moved here from the journal */
+    if (VIEW === 'week' && window.IshurSendBoard && $('hqsendboard') && !window.__sbPlan) { window.__sbPlan = 1; IshurSendBoard.mount($('hqsendboard'), { only: 'plan', api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); } }); }
     if (VIEW !== 'main' && VIEW !== 'week') loadFeedback();
     if (!UNIFIED && VIEW !== 'main') loadShir();
     if (UNIFIED && VIEW === 'calls' && !unifiedMounted && window.IshurCallsLog) {
@@ -2621,10 +2624,10 @@
       else if (cap && cap.capped) setSt('s-send', 'warn', 'תקרה · ' + cap.used + '/' + cap.limit, 'הגל ממתין, נפתח ' + hhmm(cap.frees_at || cap.oldest_expires_at));
       else if (missing.length) setSt('s-send', 'warn', missing.length + ' אירועים חסרים', 'יש מוזמנים שלא קיבלו הזמנה' + (gauge ? ' · ' + gauge : ''));
       else setSt('s-send', 'ok', cap && cap.limit ? cap.used + ' / ' + cap.limit : 'כל ההזמנות יצאו', (cap && cap.limit ? 'שיחות ב-24 שעות · ' : '') + evs.length + ' אירועים חיים');
-      missing.forEach(function (e) { pushTodo('bad', e.name + ' — ' + e.missing_n + ' מוזמנים בלי הזמנה', 'גל 1 היה אמור לצאת ב-' + e.wave1, 'calendar.html', 'ללוח'); });
+      missing.forEach(function (e) { pushTodo('bad', e.name + ' — ' + e.missing_n + ' מוזמנים בלי הזמנה', 'גל 1 היה אמור לצאת ב-' + e.wave1, 'admin.html?view=week', 'ללוח'); });
       held.forEach(function (e) { if (e.missing_n) pushTodo('amber', e.name + ' בהשהיה — ' + e.missing_n + ' מוזמנים מחכים', 'שחרור מדף הלקוחות', 'clients.html', 'ללקוחות'); });
       renderHqEvents(evs);
-      if (window.IshurSendBoard && $('hqsendboard')) IshurSendBoard.mount($('hqsendboard'), { api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); }, compact: true });
+      if (VIEW !== 'week' && window.IshurSendBoard && $('hqsendboard')) IshurSendBoard.mount($('hqsendboard'), { api: function (p, b) { return hqApi(p, b).catch(function () { return null; }); }, only: 'plan' });
     }).catch(function () { setSt('s-send', 'warn', 'לא נטען', ''); }).then(doneOne);
     if ($('s-shir')) hqApi('call-board', {}).then(function (b) {
       var w = (b.waiting || []).length, done = b.done || [];

@@ -19,7 +19,7 @@
     '.wk-cap{font-size:.68rem;color:var(--wk-mute);padding:0 .2rem .4rem;font-variant-numeric:tabular-nums}.wk-cap.over{color:var(--wk-bad);font-weight:600}' +
     '.wk-ev{background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:11px;padding:.45rem .55rem;margin-bottom:.4rem}' +
     '.wk-evn{font-weight:600;font-size:.82rem;line-height:1.25;display:flex;gap:.3rem;align-items:baseline;flex-wrap:wrap}' +
-    '.wk-mr.plan{color:#3F6FD8}.wk-mr.bad{color:#C0392B;font-weight:700}.wk-mr.run{color:var(--ink,#1B2420);font-weight:700}.wk-mr.ok{color:#1F7A52}html[data-theme=dark] .wk-mr.plan{color:#8FB0FF}html[data-theme=dark] .wk-mr.bad{color:#F08A8A}html[data-theme=dark] .wk-mr.run{color:#fff}html[data-theme=dark] .wk-mr.ok{color:#7BC9A4}.wk-mleg{display:flex;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--ink3,#7A8279);margin:.5rem 0 0}.wk-mleg .wk-mr{display:inline}' +
+    '.wk-mr.plan{color:#3F6FD8}.wk-mr.bad{color:#C0392B;font-weight:700}.wk-mr.run{color:var(--ink,#1B2420);font-weight:700}.wk-mr.ok{color:#1F7A52}html[data-theme=dark] .wk-mr.plan{color:#8FB0FF}html[data-theme=dark] .wk-mr.bad{color:#F08A8A}html[data-theme=dark] .wk-mr.run{color:#fff}html[data-theme=dark] .wk-mr.ok{color:#7BC9A4}.wk-mleg{display:flex;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--ink3,#7A8279);margin:.5rem 0 0}.wk-mleg .wk-mr{display:inline;width:auto}' +
     'html[data-theme=dark] .wk-evn em{color:#1A1509}.wk-evn em{font-style:normal;font-size:.64rem;font-weight:600;background:var(--gold,#A8853C);color:#fff;border-radius:99px;padding:.02rem .4rem}' +
     '.wk-it{display:block;width:100%;text-align:right;font:inherit;background:none;border:0;border-top:1px solid var(--line,#E3E1D8);padding:.32rem 0 .2rem;margin-top:.3rem;cursor:pointer;color:inherit}' +
     '.wk-it:hover .wk-t,.wk-it:focus-visible .wk-t{text-decoration:underline}.wk-it:focus-visible{outline:2px solid var(--gold,#A8853C);outline-offset:2px;border-radius:4px}' +
@@ -246,7 +246,7 @@
   function monthRows(d) {
     var by = {}, out = [];
     /* the same lines the day shows, so Shir's projected call rounds are on the month too */
-    var its = d && d.day && plan ? dayItems(d) : ((d && d.items) || []);
+    var its = (d && d.items) || []; if (d && d.day && plan) { its = []; dayItems(d).forEach(function (g) { its = its.concat(g.items); }); }
     its.forEach(function (it) {
       if (!shown(it) || !nOf(it)) return;
       var call = it.kind === 'call', k = (it.kind === 'lead_sends' ? 'leads' : (it.event && it.event.tok8) || it.id) + (call ? ':c' : '');
@@ -446,7 +446,7 @@
           if (tabs.length) show(tabs[0]);
           more.querySelectorAll('.wk-tabs button').forEach(function (bt) { bt.addEventListener('click', function () { show(bt.dataset.b); }); });
         } else more.innerHTML = h;
-        more.insertAdjacentHTML('beforeend', '<a class="wk-a" href="calendar.html">ללוח השליחות המלא ›</a>');
+        more.insertAdjacentHTML('beforeend', '<a class="wk-a" href="clients.html">ללקוחות · התקדמות השליחות בניהול האירוע ›</a>');
       });
     }).catch(function () { more.innerHTML = '<p class="wk-note">לא הצלחתי לטעון את הפרטים.</p>'; });
   }

@@ -11,9 +11,10 @@
 <script src="/config.js?v=89"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=11" defer></script>
+<script src="/next/assets/adminbar.js?v=12" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
+<script src="/assets/sendboard.js?v=5"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
@@ -52,7 +53,7 @@
   #list > .card{padding:.6rem .9rem;margin-bottom:.45rem}
   #list > .card .tags{margin:.3rem 0 0}
   #list > .card .tag{font-size:.74rem;padding:.12rem .45rem}
-  .pop-bg{position:fixed;inset:0;background:rgba(20,28,24,.45);display:flex;align-items:center;justify-content:center;z-index:50;padding:1rem}
+  .pop-bg{position:fixed;inset:0;background:rgba(20,28,24,.45);display:flex;align-items:center;justify-content:center;z-index:200;padding:1rem}
   .pop{background:var(--card);border:1px solid var(--line);border-radius:12px;width:min(560px,100%);max-height:90vh;overflow:auto;padding:1rem 1.1rem}
   .pop h2{margin:0 0 .15rem;font-size:1.05rem}
   .pop .sec{margin-top:.8rem;padding-top:.6rem;border-top:1px solid var(--line)}
@@ -523,11 +524,14 @@
         '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
         '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
         '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
+      '<div class="sec"><h3>התקדמות השליחות</h3><div id="popSb"><div class="meta">טוען…</div></div></div>' +
       '</div></div>';
     $('list').insertAdjacentHTML('beforeend', html);
     var bg = document.getElementById('pop');
     bg.addEventListener('click', function (ev) { if (ev.target === bg || ev.target.closest('[data-close]')) bg.remove(); });
     loadSummary(t);
+    /* 16/11: the progress of every send for this client, at the bottom of the popup */
+    if (window.IshurSendBoard && document.getElementById('popSb')) IshurSendBoard.mount(document.getElementById('popSb'), { token: t, simple: true, api: function (n, b) { return api(n, b).then(function (r) { return r.json(); }); } });
     /* the ops actions: first call returns what will happen and the confirm word, the second call does it */
     (function () {
       var BASE = CFG.endpoint('status').replace(/\/api\/status$/, '');

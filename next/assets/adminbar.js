@@ -46,7 +46,6 @@
       { href: 'clients.html#referrals', label: 'הפניות ושגרירים' } ] },   /* 16/11 Richard: referrals belong to sales (the screen itself stays a tab of the clients page) */
     { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
       { href: 'clients.html', label: 'לקוחות' },
-      { href: 'clients.html#staff', label: 'דיילות' },
       { href: 'clients.html#designs', label: 'עיצובים' },
       { href: 'admin.html?view=feedback', label: 'משוב' } ] },
     { href: 'admin.html?view=week', label: 'שליחות ושיחות', icon: ic.calls, sub: [
@@ -55,7 +54,8 @@
       { href: 'admin.html?view=calls', label: 'יומן שיחות' },
       { href: 'floor.html', label: 'מוקד חי' } ] },
     /* 16/11 Richard: ONE journal with layers (sends, costs and profit, hostesses) and filters, instead of a calendar per subject */
-    { href: 'calendar.html', label: 'יומן', icon: ic.sheet },
+    /* 16/11 evening, Richard: this screen is only hostesses now (events with and without a hostess, assignment, availability); sends live under שליחות ושיחות */
+    { href: 'calendar.html', label: 'דיילות', icon: ic.sheet },
   ];
   /* behind the ☰: control + the system pages (same tab), then the outside tools */
   var CONTROL = [

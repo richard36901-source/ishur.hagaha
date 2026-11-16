@@ -5,17 +5,16 @@
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
 <meta name="robots" content="noindex">
-<title>יומן · ishur.io</title>
+<title>ishur.io · דיילות</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=73"></script>
+<script src="/config.js?v=74"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=11" defer></script>
+<script src="/next/assets/adminbar.js?v=12" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
-<script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/pnl-journal.js?v=12"></script>
 <script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
@@ -114,6 +113,24 @@
   .sbsec{margin:0 0 1.1rem}
   .sbsec h2{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--pine);margin:0 0 .45rem;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
   .sbsec h2 small{font-family:Heebo,sans-serif;font-weight:400;font-size:.76rem;color:var(--ink3)}
+  /* 16/11 the hostess screen: events on the month (with / without a hostess), assignment, availability, each hostess's schedule */
+  .pill.ev-h{background:#DDEBFF;color:#1F4FB8}.pill.ev-n{background:var(--rail);color:var(--ink2)}.pill.ev-m{background:#FBE3C8;color:#8A4B00}
+  html[data-theme=dark] .pill.ev-h{background:#1D2C4D;color:#9DBBFF}html[data-theme=dark] .pill.ev-n{background:#232A25;color:#C2C9C1}html[data-theme=dark] .pill.ev-m{background:#40301A;color:#F0C48A}
+  .hs{margin:1.4rem 0 0}.hs h2{font-size:1.05rem;font-weight:700;margin:0 0 .6rem;color:var(--ink)}
+  .hcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+  .hc{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:.75rem .85rem}
+  .hc h3{font-size:.98rem;margin:0 0 .15rem}.hc .m{font-size:.8rem;color:var(--ink3)}.hc ul{list-style:none;margin:.45rem 0 0;padding:0;font-size:.86rem}.hc li{padding:.22rem 0;border-top:1px solid var(--line)}
+  .hbtn{font:inherit;font-size:.8rem;font-weight:600;min-height:34px;padding:0 .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+  .hbtn[aria-pressed=true]{background:var(--pine);border-color:transparent;color:#fff}html[data-theme=dark] .hbtn[aria-pressed=true]{color:#0A2119}
+  .hbtn.x{color:var(--warn)}
+  .hadd{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 .7rem}.hadd input{font:inherit;font-size:.9rem;min-height:38px;padding:0 .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);flex:1;min-width:150px}
+  .hrow{display:flex;gap:.5rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:.55rem 0;border-top:1px solid var(--line);font-size:.9rem}.hrow:first-child{border-top:0}
+  .hrow .acts{display:flex;gap:.35rem;flex-wrap:wrap}
+  .hlog{width:100%;border-collapse:collapse;font-size:.84rem}.hlog th,.hlog td{text-align:start;padding:.4rem .5rem;border-bottom:1px solid var(--line)}.hlog th{font-size:.74rem;color:var(--ink3)}
+  .hdlg{position:fixed;inset:0;margin:auto;height:fit-content;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:1rem 1.1rem;width:min(520px,calc(100vw - 32px));max-height:85vh;overflow:auto}.hdlg::backdrop{background:rgba(10,20,15,.45)}
+  .hdlg h2{font-size:1.1rem;margin:0 0 .6rem}.hdlg h3{font-size:.95rem;margin:.9rem 0 .3rem}.hdlg .kv{display:flex;justify-content:space-between;gap:1rem;font-size:.88rem;padding:.2rem 0}.hdlg .kv span{color:var(--ink3)}
+  .tb{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 .7rem}
+  .legend b{font-weight:600}
 </style>
 </head>
 <body>
@@ -124,220 +141,109 @@
   <p class="err" id="keyErr"></p>
 </div>
 <main class="wrap" id="main" hidden>
-  <h1>יומן</h1>
-  
+  <h1>דיילות</h1>
   <div class="tb">
-    <span class="nav"><button id="prev" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button id="todayBtn">היום</button><button id="next" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span>
+    <span class="nav"><button id="prev" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button id="today">היום</button><button id="next" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span>
     <span class="mth" id="mth"></span>
-    <span class="lyr" id="lyr" role="group" aria-label="מה להציג ביומן"><button data-l="sends" aria-pressed="true">שליחות</button><button data-l="host" aria-pressed="true">דיילות</button></span>
-    <span class="seg" id="chSeg"><button data-ch="all" aria-pressed="true">הכל</button><button data-ch="guests" aria-pressed="false">אורחים · שיר</button><button data-ch="client" aria-pressed="false">לקוחות · נועה</button></span>
-    <input type="search" id="q" placeholder="חיפוש שם, טלפון או אירוע">
   </div>
-  <div class="lay">
-    <div>
-      <div class="cal">
-        <div class="dow"><span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span></div>
-        <div class="grid" id="grid"></div>
-      </div>
-      <div class="legend"><span><i style="background:var(--good)"></i>נשלח</span><span><i style="background:var(--warn)"></i>נכשל</span><span><i style="background:var(--blue)"></i>מתוכנן</span><span><i style="background:var(--ink3)"></i>דילוג</span></div>
-    </div>
-    <aside class="pane" id="pane">
-      <h2 id="pTitle">בחרו יום</h2>
-      <p class="sum" id="pSum"></p>
-      <div class="chips" id="stChips"><button class="chip" data-st="all" aria-pressed="true">הכל</button><button class="chip" data-st="planned" aria-pressed="false">מתוכנן</button><button class="chip" data-st="sent" aria-pressed="false">נשלח</button><button class="chip" data-st="failed" aria-pressed="false">נכשל</button><button class="chip" data-st="skipped" aria-pressed="false">דילוג</button></div>
-      <div id="rows"><p class="empty">לחצו על יום בלוח</p></div>
-    </aside>
+  <div class="cal">
+    <div class="dow"><span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span></div>
+    <div class="grid" id="grid"></div>
   </div>
-  <section class="sbsec" aria-labelledby="sbH">
-    <h2 id="sbH">נשלחו מתוך כמה <small>לפי אירוע וסוג הודעה · נמסר = מטא אישרה מסירה, לא רק קבלה · ⓘ לשמות</small></h2>
-    <div id="sendboard"></div>
-  </section>
+  <div class="legend"><span><span class="pill ev-h" style="display:inline-block;margin:0">אירוע עם דיילת</span></span><span><span class="pill ev-m" style="display:inline-block;margin:0">נרכשה דיילת, עוד לא שובצה</span></span><span><span class="pill ev-n" style="display:inline-block;margin:0">אירוע בלי דיילת</span></span></div>
+
+  <section class="hs"><h2>ממתינים לשיבוץ</h2><div id="hNeed"></div></section>
+  <section class="hs"><h2>הדיילות</h2>
+    <div class="hadd"><input id="sName" placeholder="שם הדיילת" maxlength="40"><input id="sPhone" placeholder="נייד" dir="ltr" inputmode="tel"><button class="hbtn" id="sAdd" aria-pressed="true">הוספה</button></div>
+    <div class="hcards" id="hStaff"></div></section>
+  <section class="hs"><h2>יומן נוכחות</h2><div id="hLogWrap"><table class="hlog" id="hLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה</th><th>אירוע</th></tr></thead><tbody></tbody></table><p class="empty" id="hLogEmpty" hidden>עוד אין דיווחים.</p></div></section>
 </main>
+<dialog class="hdlg" id="dlg"></dialog>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
-  var sbMounted = false;
-  var month = new Date().toISOString().slice(0, 7), data = null, sel = null, ch = 'all', st = 'all', q = '';
-  /* layers: which subjects the journal shows. Later each user gets only the layers they are allowed. */
-  var LY = { sends: true, money: false, host: true }; try { var sv = JSON.parse(localStorage.getItem('ishur_jlayers') || 'null'); if (sv) LY = { sends: sv.sends !== false, money: false, host: sv.host !== false }; } catch (e) {}   /* 16/11 Richard: profit stays in כספים, not in the journal */
-  var cost = null, adByDay = {}, lines = [], lineBy = {}, host = { days: {}, off: {} }, dtab = 'sends';
-  function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
-  function relines() { lines = window.IshurJournal ? IshurJournal.buildLines(cost, adByDay, 3.7, ilToday()) : []; lineBy = {}; lines.forEach(function (l) { lineBy[l.date] = l; }); if (data) paint(); }
-  function loadLayers() {
-    api('journalHostess', {}).then(function (d) { if (d && d.ok) { host = d; if (data) paint(); } });
-  }
-  var layersLoaded = false;
-  if (window.IshurJournal) IshurJournal.ensureCss();
+  var month = new Date().toISOString().slice(0, 7), H = { days: {}, off: {}, events: [], staff: [] }, S = { staff: [], log: [] }, openDay = null;
   var HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function fmtPhone(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
+  function dmy(iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : ''; }
   function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
   $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} load(); });
   $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
-
   function api(path, body) {
-    body.admin_key = adminKey;
+    body = body || {}; body.admin_key = adminKey;
     return fetch(CFG.endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
-      .then(function (r) { if (r.status === 403) { if (/^sess\./.test(adminKey) && (window.__k403 = (window.__k403 || 0) + 1) < 4) { setTimeout(function () { location.reload(); }, 2500); return null; } gate('המפתח לא נכון'); return null; } return r.json(); });
+      .then(function (r) { if (r.status === 403) { gate('המפתח לא נכון'); return null; } return r.json(); }).catch(function () { return null; });
   }
-  function load() {
-    if (!adminKey) { gate(''); return; }
-    $('mth').textContent = HE[Number(month.slice(5, 7)) - 1] + ' ' + month.slice(0, 4);
-    api('calendar', { month: month }).then(function (d) {
-      if (!d || !d.ok) return;
-      data = d; $('gate').hidden = true; $('main').hidden = false;
-      paint(); if (sel) paintDay();
-      if (!layersLoaded) { layersLoaded = true; loadLayers(); }
-      if (!sbMounted && window.IshurSendBoard) { sbMounted = true; IshurSendBoard.mount($('sendboard'), { api: api }); }
-    });
-  }
-  window.addEventListener('ishur:fresh', load);
+  function nameOf(ph) { var x = (H.staff || []).filter(function (s) { return s.phone === ph; })[0]; return x ? x.name : fmtPhone(ph); }
+  function kindOf(e) { return e.assigned && e.assigned.length ? 'ev-h' : e.need ? 'ev-m' : 'ev-n'; }
+  function evLabel(e) { return e.assigned && e.assigned.length ? e.name + ' · ' + e.assigned.map(nameOf).join(', ') : e.need ? e.name + ' · ' + e.need + ' דיילות, לא שובצו' : e.name + ' · בלי דיילת'; }
+  function byDay() { var m = {}; (H.events || []).forEach(function (e) { (m[e.date] = m[e.date] || []).push(e); }); return m; }
 
-  function match(e) {
-    if (ch !== 'all' && e.ch !== ch) return false;
-    if (q) { var s = (e.name + ' ' + e.phone + ' ' + fmtPhone(e.phone) + ' ' + e.event + ' ' + e.what).toLowerCase(); if (s.indexOf(q) < 0) return false; }
-    return true;
-  }
-  function counts(list) {
-    var c = { sent: 0, failed: 0, planned: 0, skipped: 0 };
-    /* 16/11: a planned row whose guest already got the message earlier ("done-earlier") is the plan's echo of a send that is
-       already in the log — counting it made a day show 1,570 sent when 1,039 messages went out */
-    (list || []).forEach(function (e) { if (!match(e)) return; var k = e.status; if (c[k] != null) c[k]++; });
-    return c;
-  }
   function paint() {
-    var y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7));
-    var first = new Date(Date.UTC(y, m - 1, 1)), dow = first.getUTCDay(), dim = new Date(Date.UTC(y, m, 0)).getUTCDate();
-    var prevDim = new Date(Date.UTC(y, m - 1, 0)).getUTCDate();
-    var html = '';
-    var total = dow + dim, cells = Math.ceil(total / 7) * 7;
-    for (var i = 0; i < cells; i++) {
-      var dnum, iso, out = false;
-      if (i < dow) { dnum = prevDim - dow + i + 1; out = true; iso = ''; }
-      else if (i >= dow + dim) { dnum = i - dow - dim + 1; out = true; iso = ''; }
-      else { dnum = i - dow + 1; iso = month + '-' + String(dnum).padStart(2, '0'); }
-      var c = iso && LY.sends ? counts(data.days[iso]) : null, extra = '', cls = '';
-      if (iso && LY.money && lineBy[iso] && iso <= data.today) { var ln = lineBy[iso]; if (ln.rev > 0 || ln.total > 0) extra += '<span class="pill ' + (ln.net > 0 ? 'win' : ln.net < 0 ? 'loss' : 'skipped') + '">' + (ln.net > 0 ? '✓ ' : ln.net < 0 ? '✕ ' : '') + IshurJournal.signed(ln.net) + '</span>'; }
-      if (iso && LY.host) {
-        var hb = host.days[iso] || [], sat = new Date(iso + 'T12:00:00Z').getUTCDay() === 6, offd = !!host.off[iso];
-        if (hb.length) extra += '<span class="pill host">' + hb.reduce(function (t, x) { return t + (x.n || 1); }, 0) + ' דיילות · ' + esc(hb[0].client || hb[0].city || 'אירוע') + '</span>';
-        if (sat) { extra += '<span class="pill off">שבת · אין דיילות</span>'; cls = ' noh'; }
-        else if (offd) { extra += '<span class="pill off">אין דיילת פנויה</span>'; cls = ' noh'; }
-      }
-      html += '<div class="cell' + cls + (out ? ' out' : '') + (iso === data.today ? ' today' : '') + (iso && iso === sel ? ' sel' : '') + '" data-d="' + iso + '">' +
-        '<span class="d">' + dnum + '</span>' +
-        (c ? (c.sent ? '<span class="pill sent">✓ ' + c.sent + ' נשלחו</span>' : '') + (c.failed ? '<span class="pill failed">✕ ' + c.failed + ' נכשלו</span>' : '') + (c.planned ? '<span class="pill planned">◷ ' + c.planned + ' מתוכננים</span>' : '') : '') + extra +
-        '</div>';
+    $('mth').textContent = HE[Number(month.slice(5, 7)) - 1] + ' ' + month.slice(0, 4);
+    var y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7)) - 1, first = new Date(Date.UTC(y, mo, 1)), n = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate(), today = ilToday(), evs = byDay(), html = '';
+    for (var b = 0; b < first.getUTCDay(); b++) html += '<div class="cell out"></div>';
+    for (var i = 1; i <= n; i++) {
+      var iso = month + '-' + String(i).padStart(2, '0'), list = evs[iso] || [], off = H.off && H.off[iso];
+      html += '<div class="cell' + (iso === today ? ' today' : '') + (off ? ' noh' : '') + '" data-d="' + iso + '" tabindex="0" role="button"><span class="d">' + i + '</span>' +
+        list.slice(0, 3).map(function (e) { return '<span class="pill ' + kindOf(e) + '" title="' + esc(evLabel(e)) + '">' + esc(evLabel(e)) + '</span>'; }).join('') +
+        (list.length > 3 ? '<span class="pill off">+' + (list.length - 3) + ' נוספים</span>' : '') + (off ? '<span class="pill off">אין דיילות ביום הזה</span>' : '') + '</div>';
     }
     $('grid').innerHTML = html;
+    var need = (H.events || []).filter(function (e) { return e.need && e.date >= today && (e.assigned || []).length < e.need; });
+    $('hNeed').innerHTML = need.length ? need.map(function (e) { return '<div class="hrow"><span><b>' + esc(e.name) + '</b> · ' + dmy(e.date) + (e.city ? ' · ' + esc(e.city) : '') + ' · ' + (e.assigned || []).length + ' מתוך ' + e.need + ' דיילות' + (e.state === 'bought' ? ' · ממתין לפרטי האירוע מהלקוח' : '') + '</span><span class="acts"><button class="hbtn" data-open="' + e.date + '">שיבוץ</button></span></div>'; }).join('') : '<p class="empty">כל האירועים עם דיילות משובצים.</p>';
+    var st = H.staff || [];
+    $('hStaff').innerHTML = st.length ? st.map(function (s) {
+      var mine = (H.events || []).filter(function (e) { return e.date >= today && (e.assigned || []).indexOf(s.phone) >= 0; });
+      var un = (s.unavail || []).filter(function (d) { return d >= today; });
+      var link = (S.staff || []).filter(function (x) { return x.phone === s.phone; })[0];
+      return '<div class="hc"><h3>' + esc(s.name) + '</h3><div class="m" dir="ltr" style="text-align:right">' + esc(fmtPhone(s.phone)) + '</div>' +
+        '<ul>' + (mine.length ? mine.map(function (e) { return '<li>' + dmy(e.date) + ' · ' + esc(e.name) + (e.city ? ' · ' + esc(e.city) : '') + '</li>'; }).join('') : '<li class="m">אין אירועים משובצים</li>') +
+        (un.length ? '<li class="m">לא זמינה: ' + un.map(dmy).join(', ') + '</li>' : '') + '</ul>' +
+        '<div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem">' + (link && link.checkin ? '<button class="hbtn" data-copy="' + esc(link.checkin) + '">העתקת קישור דיווח</button>' : '') + (link && /^https:\/\/wa\.me\//.test(link.wa || '') ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(link.wa) + '">שליחת הקישור בוואטסאפ</a>' : '') + '<button class="hbtn x" data-rm="' + esc(s.phone) + '">הסרה</button></div></div>';
+    }).join('') : '<p class="empty">עוד לא נוספו דיילות. מוסיפים שם ונייד למעלה.</p>';
+    var lg = S.log || [];
+    $('hLogEmpty').hidden = !!lg.length; $('hLog').hidden = !lg.length;
+    $('hLog').querySelector('tbody').innerHTML = lg.slice(0, 60).map(function (x) { return '<tr><td>' + esc(dmy(x.day)) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.time || '') + '</td><td>' + esc(x.event || '') + '</td></tr>'; }).join('');
+    if (openDay && $('dlg').open) dayDlg(openDay);
   }
-  $('grid').addEventListener('click', function (e) {
-    var cell = e.target.closest('.cell'); if (!cell || !cell.dataset.d) return;
-    sel = cell.dataset.d; paint(); openDay();
+  function dayDlg(iso) {
+    openDay = iso; var list = byDay()[iso] || [], off = H.off && H.off[iso], st = H.staff || [];
+    var kv = function (k, v) { return v ? '<div class="kv"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : ''; };
+    var h = '<h2>' + dmy(iso) + '/' + iso.slice(0, 4) + '</h2>';
+    h += list.length ? list.map(function (e) {
+      var safe = /^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(e.board || '')) ? e.board : '';
+      return '<h3>' + esc(e.name) + '</h3>' + kv('סוג האירוע', e.occasion) + kv('מקום', [e.venue, e.city].filter(Boolean).join(', ')) + kv('שעה', e.time) + kv('לקוח', e.buyer) + kv('טלפון', fmtPhone(e.phone)) +
+        kv('דיילות', e.need ? e.need + ' נרכשו' + (e.state === 'bought' ? ' · ממתין לפרטי האירוע' : '') : 'לא נרכשו') +
+        (st.length ? '<div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.4rem 0">' + st.map(function (s) { var on = (e.assigned || []).indexOf(s.phone) >= 0, na = (s.unavail || []).indexOf(iso) >= 0; return '<button class="hbtn" data-as="' + e.tok8 + '|' + s.phone + '" aria-pressed="' + on + '"' + (na && !on ? ' disabled title="לא זמינה ביום הזה"' : '') + '>' + esc(s.name) + (na ? ' · לא זמינה' : '') + '</button>'; }).join('') + '</div>' : '<p class="empty" style="padding:.3rem 0;text-align:start">מוסיפים דיילות בתחתית המסך כדי לשבץ.</p>') +
+        (safe ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" href="' + esc(safe) + '" target="_blank" rel="noopener">ללוח הבקרה של הלקוח ›</a>' : '');
+    }).join('') : '<p class="empty">אין אירועים ביום הזה.</p>';
+    if (st.length) h += '<h3>זמינות ביום הזה</h3><div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap">' + st.map(function (s) { var na = (s.unavail || []).indexOf(iso) >= 0; return '<button class="hbtn" data-av="' + s.phone + '" aria-pressed="' + !na + '">' + esc(s.name) + ' · ' + (na ? 'לא זמינה' : 'זמינה') + '</button>'; }).join('') + '</div>';
+    h += '<div style="display:flex;gap:.5rem;justify-content:space-between;margin-top:1rem;flex-wrap:wrap"><button class="hbtn" id="dOff" data-on="' + (off ? '0' : '1') + '">' + (off ? 'ביטול "אין דיילות ביום הזה"' : 'סימון: אין דיילות ביום הזה') + '</button><button class="hbtn" id="dX">סגירה</button></div>';
+    $('dlg').innerHTML = h; if (!$('dlg').open) $('dlg').showModal();
+  }
+  function setH(d) { if (d && d.ok) { H = d; paint(); } }
+  $('grid').addEventListener('click', function (e) { var c = e.target.closest('.cell[data-d]'); if (c) dayDlg(c.dataset.d); });
+  $('grid').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { var c = e.target.closest('.cell[data-d]'); if (c) { e.preventDefault(); dayDlg(c.dataset.d); } } });
+  $('hNeed').addEventListener('click', function (e) { var b = e.target.closest('[data-open]'); if (b) { month = b.dataset.open.slice(0, 7); paint(); dayDlg(b.dataset.open); } });
+  $('dlg').addEventListener('click', function (e) {
+    if (e.target === $('dlg') || e.target.closest('#dX')) { $('dlg').close(); openDay = null; return; }
+    var a = e.target.closest('[data-as]'); if (a) { a.disabled = true; var p = a.dataset.as.split('|'); api('journalHostess', { assign: { tok8: p[0], phone: p[1], on: a.getAttribute('aria-pressed') !== 'true' } }).then(setH); return; }
+    var v = e.target.closest('[data-av]'); if (v) { v.disabled = true; api('journalHostess', { set_avail: { phone: v.dataset.av, date: openDay, on: v.getAttribute('aria-pressed') !== 'true' } }).then(setH); return; }
+    var o = e.target.closest('#dOff'); if (o) { o.disabled = true; api('journalHostess', { set_off: { date: openDay, on: o.dataset.on === '1' } }).then(setH); }
   });
-  /* the day popup: one tab per layer that is switched on. The sends tab keeps the existing list (with its skip buttons). */
-  var jd = document.createElement('dialog'); jd.className = 'jd'; jd.setAttribute('dir', 'rtl');
-  jd.innerHTML = '<div class="jd-h"><h2 id="jdT"></h2><button type="button" class="jd-x" id="jdX" aria-label="סגירה">✕</button></div><div class="jd-tabs" id="jdTabs"></div><div id="jdMoney" hidden></div><div id="jdHost" class="jd-host" hidden></div><div id="jdSends" hidden><div id="jdEv"></div></div>';
-  document.body.appendChild(jd); jd.querySelector('#jdSends').appendChild($('pane'));
-  jd.addEventListener('click', function (e) { if (e.target === jd || e.target.closest('#jdX')) jd.close(); });
-  $('lyr').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; LY[b.dataset.l] = !LY[b.dataset.l]; b.setAttribute('aria-pressed', String(LY[b.dataset.l])); try { localStorage.setItem('ishur_jlayers', JSON.stringify(LY)); } catch (x) {} paint(); });
-  [].forEach.call($('lyr').querySelectorAll('button'), function (b) { b.setAttribute('aria-pressed', String(LY[b.dataset.l])); });
-  function sendsByEvent() {
-    var g = {}, order = [];
-    (data.days[sel] || []).filter(match).forEach(function (e) {
-      var ev = e.event || (e.ch === 'client' ? 'לקוחות ולידים' : 'בלי אירוע'); if (!g[ev]) { g[ev] = {}; order.push(ev); }
-      var w = g[ev][e.what] = g[ev][e.what] || { sent: 0, failed: 0, planned: 0, skipped: 0, errs: {} };
-      var k = e.status === 'done-earlier' ? 'sent' : e.status; if (w[k] != null) w[k]++;
-      if (e.error) { var er = String(e.error).slice(0, 60); w.errs[er] = (w.errs[er] || 0) + 1; }
-    });
-    return order.map(function (ev) {
-      return '<div class="jd-ev"><h3>' + esc(ev) + '</h3>' + Object.keys(g[ev]).map(function (what) { var w = g[ev][what];
-        return '<div class="ln"><span>' + esc(what) + '</span><b>' + (w.sent ? w.sent + ' נשלחו' : '') + (w.planned ? (w.sent ? ' · ' : '') + w.planned + ' מתוכננים' : '') + (w.skipped ? ' · ' + w.skipped + ' דילוג' : '') + (w.failed ? ' · <span class="bad">' + w.failed + ' נכשלו</span>' : '') + '</b></div>' +
-          Object.keys(w.errs).map(function (er) { return '<div class="ln bad"><span>' + esc(er) + '</span><b>' + w.errs[er] + '</b></div>'; }).join(''); }).join('') + '</div>';
-    }).join('') || '<p class="empty">אין שליחות ביום הזה</p>';
-  }
-  function hostHtml() {
-    var hb = host.days[sel] || [], sat = new Date(sel + 'T12:00:00Z').getUTCDay() === 6, offd = !!host.off[sel];
-    var PLAN = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
-    var h = hb.map(function (x) {
-      var kv = function (k, v) { return v ? '<div class="ln"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : ''; };
-      var safe = /^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(x.board || '')) ? x.board : '';
-      return '<div class="jd-ev"><h3>' + esc(x.client || x.buyer || 'אירוע ' + x.tok8) + ' · ' + (x.n || 1) + ' דיילות</h3>' +
-        kv('מצב', x.state === 'bought' ? 'נרכש, ממתין לפרטי האירוע מהלקוח' : 'פרטי האירוע התקבלו') +
-        kv('לקוח', x.buyer) + kv('טלפון', fmtPhone(x.phone)) + kv('סוג האירוע', x.occasion) + kv('קבלת פנים', x.reception || x.time) +
-        kv('מקום', [x.venue, x.city].filter(Boolean).join(', ')) + kv('חבילה', (PLAN[x.plan] || '') + (x.tier ? ' · עד ' + x.tier + ' רשומות' : '')) + kv('שולם', x.paid ? '₪' + x.paid : '') +
-        (safe ? '<a class="jd-btn" style="display:inline-grid;place-items:center;text-decoration:none" href="' + esc(safe) + '" target="_blank" rel="noopener">ללוח הבקרה של הלקוח ›</a>' : '') + '</div>';
-    }).join('');
-    if (!hb.length) h += '<p class="empty">אין דיילות משובצות ביום הזה.</p>';
-    if (sat) h += '<p class="jd-sum">שבת: לא מוציאים דיילות.</p>';
-    else h += '<button type="button" class="jd-btn" id="jdOff" data-on="' + (offd ? '0' : '1') + '">' + (offd ? 'יש זמינות ביום הזה (ביטול הסימון)' : 'לסמן: אין דיילת פנויה ביום הזה') + '</button>';
-    return h;
-  }
-  function openDay() {
-    var d = new Date(sel + 'T12:00:00');
-    $('jdT').textContent = d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
-    var tabs = [['sends', 'שליחות'], ['money', 'רווח והפסד'], ['host', 'דיילות']].filter(function (t) { return LY[t[0]]; });
-    if (!tabs.length) return;
-    if (!tabs.some(function (t) { return t[0] === dtab; })) dtab = tabs[0][0];
-    $('jdTabs').innerHTML = tabs.map(function (t) { return '<button type="button" data-t="' + t[0] + '" aria-pressed="' + (t[0] === dtab) + '">' + t[1] + '</button>'; }).join('');
-    $('jdTabs').hidden = tabs.length < 2;
-    $('jdSends').hidden = dtab !== 'sends'; $('jdMoney').hidden = dtab !== 'money'; $('jdHost').hidden = dtab !== 'host';
-    if (dtab === 'sends') { $('jdEv').innerHTML = sendsByEvent(); paintDay(); }
-    if (dtab === 'money') $('jdMoney').innerHTML = sel > data.today ? '<p class="empty">יום עתידי, עוד אין הכנסות או הוצאות.</p>' : (window.IshurJournal ? IshurJournal.dayHtml(lines, sel).replace(/<div class="pj-dh">[\s\S]*?<\/div>/, '') : '');
-    if (dtab === 'host') $('jdHost').innerHTML = hostHtml();
-    if (!jd.open) { if (jd.showModal) jd.showModal(); else jd.setAttribute('open', ''); }
-  }
-  jd.addEventListener('click', function (e) {
-    var t = e.target.closest('#jdTabs button'); if (t) { dtab = t.dataset.t; openDay(); return; }
-    var o = e.target.closest('#jdOff'); if (o) { o.disabled = true; api('journalHostess', { set_off: { date: sel, on: o.dataset.on === '1' } }).then(function (d2) { if (d2 && d2.ok) { host = d2; paint(); openDay(); } else o.disabled = false; }); }
+  function shift(n) { var d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1)); month = d.toISOString().slice(0, 7); paint(); }
+  $('prev').addEventListener('click', function () { shift(-1); }); $('next').addEventListener('click', function () { shift(1); }); $('today').addEventListener('click', function () { month = ilToday().slice(0, 7); paint(); });
+  function loadStaff(body) { return api('staff', body || {}).then(function (d) { if (d && d.ok) { S = d; } return api('journalHostess', {}).then(setH); }); }
+  $('sAdd').addEventListener('click', function () { var n = $('sName').value.trim(), p = $('sPhone').value.trim(); if (n.length < 2 || !p) return; if (!confirm('להוסיף את ' + n + '? קישור הדיווח האישי יישלח אליה בוואטסאפ.')) return; loadStaff({ act: 'add', name: n, phone: p }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
+  $('hStaff').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-copy]'); if (c) { if (navigator.clipboard) navigator.clipboard.writeText(c.dataset.copy).then(function () { c.textContent = 'הועתק'; }); return; }
+    var r = e.target.closest('[data-rm]'); if (r && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: r.dataset.rm });
   });
-  function paintDay() {
-    var list = (data.days[sel] || []).filter(match).filter(function (e) { if (st === 'all') return true; var k = e.status === 'done-earlier' ? 'sent' : e.status; return k === st; });
-    var d = new Date(sel + 'T12:00:00');
-    $('pTitle').textContent = d.toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
-    var c = counts(data.days[sel]);
-    $('pSum').textContent = (c.sent ? c.sent + ' נשלחו · ' : '') + (c.failed ? c.failed + ' נכשלו · ' : '') + (c.planned ? c.planned + ' מתוכננים · ' : '') + (c.skipped ? c.skipped + ' דילוג' : '');
-    if (!list.length) { $('rows').innerHTML = '<p class="empty">אין שליחות ביום הזה' + (q || ch !== 'all' || st !== 'all' ? ' לפי הסינון' : '') + '</p>'; return; }
-    $('rows').innerHTML = list.map(function (e, i) {
-      var t = e.done ? new Date(e.at).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit' })
-            : e.late ? 'לא ייכנס היום, יעבור למחרת'
-            : e.est ? '<span title="זמן משוער לפי קצב השליחה: 25 הודעות כל 10 דקות מ-09:00">משוער ~' + e.at.slice(11, 16) + '</span>'
-            : 'מ-09:00';
-      var canSkip = !e.done && e.k && e.k !== 'eoe';
-      var btn = canSkip ? (e.skipped ? '<button class="act undo" data-i="' + i + '" data-on="0">בטל דילוג</button>' : (e.status === 'done-earlier' ? '<span class="e">כבר נשלח</span>' : '<button class="act" data-i="' + i + '" data-on="1">דלג</button>')) : '';
-      return '<div class="row"><span class="dot ' + e.status + '"></span><div class="b">' +
-        '<div class="n">' + esc(e.name || 'ללא שם') + ' <span class="e">· ' + esc(e.kind) + '</span></div>' +
-        '<div class="m"><span class="ph">' + fmtPhone(e.phone) + '</span> · ' + esc(e.what) + ' · ' + t + '</div>' +
-        (e.event ? '<div class="e">' + esc(e.event) + '</div>' : '') +
-        (e.error ? '<div class="err">' + esc(e.error).slice(0, 120) + '</div>' : '') +
-        (e.done && e.text && !e.what.match(/^ishur_|^hazmana/) ? '<div class="e">' + esc(e.text).slice(0, 90) + '</div>' : '') +
-        '</div>' + btn + '</div>';
-    }).join('');
-    $('rows').querySelectorAll('button.act').forEach(function (b) {
-      b.addEventListener('click', function () {
-        var e = list[Number(b.dataset.i)], on = b.dataset.on === '1';
-        var go = function () {
-          b.disabled = true;
-          api('skip', { token: e.token, phone: e.phone, kind: e.k, on: on }).then(function (j) {
-            if (!j || !j.ok) { b.disabled = false; IshurUX.toast('לא הצליח'); return; }
-            e.skipped = on; e.status = on ? 'skipped' : 'planned'; paint(); paintDay();
-            IshurUX.toast(on ? 'דילוג נשמר. ' + (e.name || fmtPhone(e.phone)) + ' לא יקבל את ' + e.what : 'הדילוג בוטל');
-          });
-        };
-        if (on) askConfirm((e.name || fmtPhone(e.phone)) + ' לא יקבל/תקבל את "' + e.what + '" ב-' + new Date(sel + 'T12:00:00').toLocaleDateString('he-IL') + '. שאר ההודעות ממשיכות כרגיל.', { title: 'לדלג על השליחה הזאת?', ok: 'כן, לדלג', danger: true }).then(function (y) { if (y) go(); });
-        else go();
-      });
-    });
-  }
-  function shift(n) { var y = Number(month.slice(0, 4)), m = Number(month.slice(5, 7)) + n; if (m < 1) { m = 12; y--; } if (m > 12) { m = 1; y++; } month = y + '-' + String(m).padStart(2, '0'); sel = null; $('rows').innerHTML = '<p class="empty">לחצו על יום בלוח</p>'; $('pTitle').textContent = 'בחרו יום'; $('pSum').textContent = ''; load(); }
-  $('prev').addEventListener('click', function () { shift(-1); });
-  $('next').addEventListener('click', function () { shift(1); });
-  $('todayBtn').addEventListener('click', function () { month = new Date().toISOString().slice(0, 7); sel = null; load(); });
-  $('chSeg').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; ch = b.dataset.ch; $('chSeg').querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); paint(); if (sel) paintDay(); });
-  $('stChips').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; st = b.dataset.st; $('stChips').querySelectorAll('button').forEach(function (x) { x.setAttribute('aria-pressed', x === b ? 'true' : 'false'); }); if (sel) paintDay(); });
-  $('q').addEventListener('input', function () { q = $('q').value.trim().toLowerCase(); paint(); if (sel) paintDay(); });
-  document.addEventListener('keydown', function (e) { if (/^(INPUT|TEXTAREA)$/.test(e.target.tagName)) return; if (e.key === 'ArrowLeft') shift(1); if (e.key === 'ArrowRight') shift(-1); });
+  function load() { if (!adminKey) { gate(''); return; } $('gate').hidden = true; $('main').hidden = false; paint(); loadStaff(); }
   load();
 })();
 </script>
