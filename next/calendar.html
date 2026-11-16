@@ -12,11 +12,12 @@
 <script src="/config.js?v=73"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=10" defer></script>
+<script src="/next/assets/adminbar.js?v=11" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <script src="/assets/sendboard.js?v=3"></script>
-<script src="/assets/pnl-journal.js?v=11"></script>
+<script src="/assets/pnl-journal.js?v=12"></script>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--blue:#2F6FED}
   html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--rail:#232A25}
@@ -60,6 +61,8 @@
   .cell.noh{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(0,0,0,.035) 8px 16px)}
   .lyr{display:inline-flex;gap:.35rem;flex-wrap:wrap}
   .lyr button{font:inherit;font-size:.8rem;font-weight:600;min-height:34px;padding:0 .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink3);cursor:pointer}
+  html[data-theme=dark] .cell.today .d,html[data-theme=dark] .lyr button[aria-pressed=true]{color:#0A2119!important}
+  html[data-theme=dark] .pill.host{background:#2B2750;color:#C9C3F5}html[data-theme=dark] .pill.win{background:#17382A;color:#8FD3AE}html[data-theme=dark] .pill.loss{background:#3F211D;color:#F2A79C}
   .lyr button[aria-pressed=true]{background:var(--pine,#0F2E22);border-color:transparent;color:#fff}
   .nav button{display:inline-grid;place-items:center}
   .lay{grid-template-columns:1fr !important}

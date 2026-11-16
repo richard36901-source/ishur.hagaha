@@ -19,7 +19,8 @@
     '.wk-cap{font-size:.68rem;color:var(--wk-mute);padding:0 .2rem .4rem;font-variant-numeric:tabular-nums}.wk-cap.over{color:var(--wk-bad);font-weight:600}' +
     '.wk-ev{background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:11px;padding:.45rem .55rem;margin-bottom:.4rem}' +
     '.wk-evn{font-weight:600;font-size:.82rem;line-height:1.25;display:flex;gap:.3rem;align-items:baseline;flex-wrap:wrap}' +
-    '.wk-evn em{font-style:normal;font-size:.64rem;font-weight:600;background:var(--gold,#A8853C);color:#fff;border-radius:99px;padding:.02rem .4rem}' +
+    '.wk-mr.plan{color:#3F6FD8}.wk-mr.bad{color:#C0392B;font-weight:700}.wk-mr.run{color:var(--ink,#1B2420);font-weight:700}.wk-mr.ok{color:#1F7A52}html[data-theme=dark] .wk-mr.plan{color:#8FB0FF}html[data-theme=dark] .wk-mr.bad{color:#F08A8A}html[data-theme=dark] .wk-mr.run{color:#fff}html[data-theme=dark] .wk-mr.ok{color:#7BC9A4}.wk-mleg{display:flex;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--ink3,#7A8279);margin:.5rem 0 0}.wk-mleg .wk-mr{display:inline}' +
+    'html[data-theme=dark] .wk-evn em{color:#1A1509}.wk-evn em{font-style:normal;font-size:.64rem;font-weight:600;background:var(--gold,#A8853C);color:#fff;border-radius:99px;padding:.02rem .4rem}' +
     '.wk-it{display:block;width:100%;text-align:right;font:inherit;background:none;border:0;border-top:1px solid var(--line,#E3E1D8);padding:.32rem 0 .2rem;margin-top:.3rem;cursor:pointer;color:inherit}' +
     '.wk-it:hover .wk-t,.wk-it:focus-visible .wk-t{text-decoration:underline}.wk-it:focus-visible{outline:2px solid var(--gold,#A8853C);outline-offset:2px;border-radius:4px}' +
     '.wk-t{font-size:.74rem;color:var(--ink2,#4A554E)}' +
@@ -244,11 +245,16 @@
   function shown(it) { return (it.kind === 'send' && it.type !== 'reply') || it.kind === 'call' || it.kind === 'lead_sends'; }
   function monthRows(d) {
     var by = {}, out = [];
-    ((d && d.items) || []).forEach(function (it) {
+    /* the same lines the day shows, so Shir's projected call rounds are on the month too */
+    var its = d && d.day && plan ? dayItems(d) : ((d && d.items) || []);
+    its.forEach(function (it) {
       if (!shown(it) || !nOf(it)) return;
       var call = it.kind === 'call', k = (it.kind === 'lead_sends' ? 'leads' : (it.event && it.event.tok8) || it.id) + (call ? ':c' : '');
       if (!by[k]) { by[k] = { name: it.kind === 'lead_sends' ? 'לידים' : (it.event && it.event.name) || '', n: 0, call: call, done: true }; out.push(by[k]); }
       by[k].n += nOf(it); if (it.status !== 'done') by[k].done = false;
+      /* 16/11 Richard: planned blue, failed red, going out now white, sent green */
+      var stt = it.status === 'done' ? 'ok' : it.status === 'missed' ? 'bad' : it.status === 'in_progress' ? 'run' : 'plan';
+      var rank = { bad: 3, run: 2, plan: 1, ok: 0 }; if (by[k].st == null || rank[stt] > rank[by[k].st]) by[k].st = stt;
     });
     return out;
   }
@@ -276,10 +282,10 @@
       /* 12/11 Richard: "כאן אני רוצה יותר נתונים" — who gets what on the day, not only a total */
       h += '<button type="button" class="wk-mc' + (store && iso === store.today ? ' today' : '') + (store && iso < store.today ? ' past' : '') + '" data-goday="' + iso + '"><b>' + i + '</b>' +
         evs.slice(0, 2).map(function (e) { return '<span class="wk-mevt">● ' + esc(e) + '</span>'; }).join('') +
-        rows.slice(0, 4).map(function (r) { return '<span class="wk-mr' + (r.done ? ' ok' : '') + '">' + (r.call ? '📞' : '💬') + '<i>' + esc(r.name) + '</i>' + num(r.n) + '</span>'; }).join('') +
+        rows.slice(0, 4).map(function (r) { return '<span class="wk-mr ' + (r.st || 'plan') + '" title="' + ({ ok: 'נשלח', bad: 'נכשל', run: 'בשליחה', plan: 'מתוכנן' })[r.st || 'plan'] + '">' + (r.call ? '📞' : '💬') + '<i>' + esc(r.name) + '</i>' + num(r.n) + '</span>'; }).join('') +
         (rows.length > 4 ? '<span class="wk-me">+' + (rows.length - 4) + ' נוספים</span>' : '') + '</button>';
     }
-    return h + '</div>';
+    return h + '</div><div class="wk-mleg"><span class="wk-mr plan">● מתוכנן</span><span class="wk-mr run">● בשליחה</span><span class="wk-mr ok">● נשלח</span><span class="wk-mr bad">● נכשל</span><span>💬 הודעות · 📞 שיחות</span></div>';
   }
   /* 12/11 Richard: "תסמן בירוק שאדע שהיום זהו" — today is done when nothing on it is still waiting or running */
   function dayDone(day) {

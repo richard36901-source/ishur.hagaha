@@ -41,12 +41,11 @@
       { href: 'report.html', label: 'דוח תקופתי' } ] },   /* 16/11: activity + profit and loss + what needs attention, saves as a branded PDF */
     { href: 'leads.html', label: 'מכירות', icon: ic.board, sub: [
       { href: 'leads.html', label: 'לידים' },
-      { href: 'leads-new.html', label: 'לידים · תצוגה חדשה' },   /* 16/11: the CRM-style list synced with monday, beside the working screen until Richard switches */
       { href: 'leads.html#script', label: 'תסריטי שיחה' },
-      { href: 'leads.html#paylink', label: 'קישורים' } ] },
+      { href: 'leads.html#paylink', label: 'קישורים' },
+      { href: 'clients.html#referrals', label: 'הפניות ושגרירים' } ] },   /* 16/11 Richard: referrals belong to sales (the screen itself stays a tab of the clients page) */
     { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
       { href: 'clients.html', label: 'לקוחות' },
-      { href: 'clients.html#referrals', label: 'הפניות ושגרירים' },
       { href: 'clients.html#staff', label: 'דיילות' },
       { href: 'clients.html#designs', label: 'עיצובים' },
       { href: 'admin.html?view=feedback', label: 'משוב' } ] },
@@ -73,7 +72,9 @@
   function hashOf(href) { var i = String(href).indexOf('#'); return i < 0 ? '' : String(href).slice(i + 1); }
   function fullKey(href) { return keyOf(href) + '#' + hashOf(href); }
   function hereFull() { return HERE + '#' + (location.hash || '').slice(1); }
-  function isOn(item) { if (keyOf(item.href) === HERE) return true; return (item.sub || []).some(function (x) { return keyOf(x.href) === HERE; }); }
+  /* a part of a page can belong to another section (referrals live on the clients page, under sales): the section that lists this exact part wins */
+  function owner() { var k = hereFull(), o = null; INTERNAL.forEach(function (i) { (i.sub || []).forEach(function (x) { if (fullKey(x.href) === k) o = i; }); }); return o; }
+  function isOn(item) { var o = owner(); if (o && INTERNAL.indexOf(item) >= 0) return o === item; if (keyOf(item.href) === HERE) return true; return (item.sub || []).some(function (x) { return keyOf(x.href) === HERE; }); }
   var bars = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
   var sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
   var moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
@@ -130,8 +131,9 @@
     '.ibar-sep{width:1px;background:rgba(199,174,122,.25);margin:.55rem .35rem;flex-shrink:0}' +
     '.ibar .ext svg.arrow{width:10px;height:10px;opacity:.55;margin-inline-start:-.15rem}' +
     '.ibar-more{display:none}' +
-    '.ibar-sub{max-width:1360px;margin:0 auto;padding:.45rem .9rem;display:flex;gap:.4rem;border-top:1px solid rgba(199,174,122,.18);overflow-x:auto;scrollbar-width:none}' +
+    '.ibar-sub{max-width:1360px;margin:0 auto;padding:.55rem .9rem .45rem;display:flex;gap:.4rem;border-top:1px solid rgba(199,174,122,.18);overflow-x:auto;scrollbar-width:none}' +
     '.ibar .ibar-sub a{padding:.4rem .95rem;min-height:34px;font-size:.8rem;font-weight:600;border:1px solid rgba(199,174,122,.35);border-radius:8px;color:rgba(248,244,234,.85);background:rgba(248,244,234,.04)}' +
+    '.ibar a{position:relative}.ibar-dot{position:absolute;top:-5px;inset-inline-end:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:#D8402F;color:#fff;font:700 10.5px/17px system-ui,sans-serif;font-style:normal;text-align:center;box-shadow:0 0 0 2px #0A2119}.ibar-in > a .ibar-dot{top:6px;inset-inline-end:2px}' +
     '.ibar .ibar-sub a:hover{background:rgba(248,244,234,.1)}' +
     '.ibar .ibar-sub a.on{background:#C7AE7A;border-color:#C7AE7A;color:#0A2119}' +
     /* 16/11: one chooser per section — the page's own tab strip and fold are replaced by the row under the bar */
@@ -298,11 +300,22 @@
 
     nav.appendChild(inner);
     var sec = INTERNAL.filter(function (i) { return i.sub && isOn(i); })[0];
-    if (sec) {
+    var DOTS = {};   /* part of a page -> how many things wait there (a red dot on its button and on its section) */
+    var paintDots = function () {
+      [].forEach.call(nav.querySelectorAll('.ibar-dot'), function (d) { d.remove(); });
+      var dot = function (a, n) { var d = document.createElement('i'); d.className = 'ibar-dot'; d.textContent = n > 9 ? '9+' : String(n); d.setAttribute('aria-label', n + ' ממתינים'); a.appendChild(d); };
+      var tops = inner.querySelectorAll(':scope > a:not(.ibar-brand)');
+      INTERNAL.forEach(function (i, ix) { var sum = 0; (i.sub || []).forEach(function (x) { sum += DOTS[fullKey(x.href)] || 0; }); if (sum && tops[ix]) dot(tops[ix], sum); });
+      [].forEach.call(nav.querySelectorAll('.ibar-sub a'), function (a) { var n = DOTS[a.dataset.k] || 0; if (n) dot(a, n); });
+    };
+    var buildRow = function () {
+      var old = nav.querySelector('.ibar-sub'); if (old) old.remove();
+      if (!sec) return;
       var row = document.createElement('div'); row.className = 'ibar-sub';
       sec.sub.forEach(function (x) { var a = document.createElement('a'); a.href = x.href; a.textContent = x.label; a.dataset.k = fullKey(x.href); row.appendChild(a); });
       nav.appendChild(row);
-    }
+    };
+    buildRow();
     /* which part of the page is showing: body[data-sub] drives the page CSS below, and the chooser follows the #part */
     var page = (location.pathname.split('/').pop() || 'admin.html');
     if (page === 'leads-new.html') page = 'leads.html';   /* same in-page parts (list / script / pay links) */
@@ -311,12 +324,25 @@
       var h = (location.hash || '').slice(1);
       document.body.dataset.sub = h || 'main';
       var k = hereFull();
+      var now = INTERNAL.filter(function (i) { return i.sub && isOn(i); })[0];
+      if (now !== sec) { sec = now; buildRow(); var tops = inner.querySelectorAll(':scope > a:not(.ibar-brand)'); INTERNAL.forEach(function (i, ix) { if (!tops[ix]) return; var on = i === sec; tops[ix].classList.toggle('on', on); if (on) tops[ix].setAttribute('aria-current', 'page'); else tops[ix].removeAttribute('aria-current'); }); }
       [].forEach.call(nav.querySelectorAll('.ibar-sub a'), function (a) { var on = a.dataset.k === k; a.className = on ? 'on' : ''; if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+      paintDots();
       if (page === 'clients.html') { var tb = document.querySelector('.tab[data-tab="' + (h || 'clients') + '"]'); if (tb && tb.getAttribute('aria-selected') !== 'true') tb.click(); if (location.hash.slice(1) !== h) { try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {} } }
       if (page === 'leads.html') { var f = document.getElementById('pbfold'); if (f && (h === 'script' || h === 'paylink')) f.open = true; }
     };
     window.addEventListener('hashchange', syncSub);
     syncSub();
+    /* what waits for us: designs a client asked for and nobody sent yet (asked at most once every two minutes) */
+    (function () {
+      var show = function (n) { DOTS[fullKey('clients.html#designs')] = Number(n) || 0; paintDots(); };
+      try { var c = JSON.parse(sessionStorage.getItem('ishur_dots') || 'null'); if (c && Date.now() - c.t < 120000) { show(c.dz); return; } } catch (e) {}
+      var cfg = window.ISHUR_CONFIG, k = ''; try { k = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+      if (!cfg || !cfg.endpoint || !k) return;
+      fetch(cfg.endpoint('design-list'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: k }) }).then(function (r) { return r.json(); }).then(function (d) {
+        if (!d || !d.ok) return; try { sessionStorage.setItem('ishur_dots', JSON.stringify({ t: Date.now(), dz: d.waiting || 0 })); } catch (e) {} show(d.waiting || 0);
+      }).catch(function () {});
+    })();
     document.body.insertBefore(nav, document.body.firstChild);
     document.body.appendChild(menu);
     document.body.appendChild(tmenu);

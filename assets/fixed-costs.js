@@ -37,7 +37,7 @@
     '.fxc input,.fxc select,.fxc button{font:inherit;font-size:.82rem;min-height:34px;border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);color:var(--ink,#1B2620);padding:0 .55rem}' +
     '.fxc button{cursor:pointer;font-weight:600}.fxc-set{display:inline-flex;gap:.3rem}.fxc-in{width:5.5rem}.fxc-x{width:34px;padding:0;color:#8E2F22}' +
     '.fxc-add{display:flex;gap:.4rem;flex-wrap:wrap;margin-top:.7rem}.fxc-add [data-fx-name]{flex:1;min-width:150px}.fxc-add [data-fx-amt]{width:8rem}.fxc-add [data-fx-day]{width:7.5rem}' +
-    '.fxc-go{background:var(--pine,#0F2E22)!important;color:#fff!important;border-color:transparent!important;padding:0 1rem!important}.fxc-err{color:#8E2F22;font-size:.78rem;margin:.4rem 0 0}';
+    'html[data-theme=dark] .fxc-go{color:#0A2119!important}html[data-theme=dark] .fxc-err{color:#F2A79C}.fxc-go{background:var(--pine,#0F2E22)!important;color:#fff!important;border-color:transparent!important;padding:0 1rem!important}.fxc-err{color:#8E2F22;font-size:.78rem;margin:.4rem 0 0}';
   function mount(host, post, onChange) {
     var doc = root.document; if (!host || host.dataset.fxc) return null; host.dataset.fxc = '1';
     var st0 = doc.createElement('style'); st0.textContent = CSS; doc.head.appendChild(st0);

@@ -8,9 +8,10 @@
 <title>כניסה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
-  @media (prefers-color-scheme:dark){:root{--ink:#E8ECE9;--ink2:#B5BFB9;--ink3:#8A958F;--paper:#121815;--card:#1A221E;--line:#2C3832;--pine:#6FBF9B;--gold:#D2A869;--warn:#E08A7B;--good:#6FBF9B;--rail:#212A25}}
+  html[data-theme=dark]{--ink:#E8ECE9;--ink2:#B5BFB9;--ink3:#8A958F;--paper:#121815;--card:#1A221E;--line:#2C3832;--pine:#6FBF9B;--gold:#D2A869;--warn:#E08A7B;--good:#6FBF9B;--rail:#212A25}
   *{box-sizing:border-box}
   body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.5;padding:1rem}
   .box{width:min(360px,100%);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1.6rem 1.4rem 1.3rem;text-align:center;position:relative}

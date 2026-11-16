@@ -12,19 +12,19 @@
 <script src="/config.js?v=74"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=10" defer></script>
+<script src="/next/assets/adminbar.js?v=11" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
-<script src="/assets/paylink-gen.js?v=6"></script>
-<script src="/assets/pnl-journal.js?v=11"></script>
-<script src="/assets/fixed-costs.js?v=2"></script>
+<script src="/assets/paylink-gen.js?v=7"></script>
+<script src="/assets/pnl-journal.js?v=12"></script>
+<script src="/assets/fixed-costs.js?v=3"></script>
 <script src="/assets/playbook.js?v=4"></script>
 <script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/callboard.js?v=1"></script>
 <script src="/assets/callslog.js?v=1"></script>
-<script src="/assets/week.js?v=18"></script>
+<script src="/assets/week.js?v=19"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -37,8 +37,10 @@
   html[data-theme=dark]{
     --bg:#131714;--card:#1A201C;--line:#2A322C;
     --ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;
-    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;
+    --gold:#C7AE7A;--ok:#4CAF82;--warn:#F08A8A;--pine:#7BC9A4;
   }
+  html[data-theme=dark] #keyGo,html[data-theme=dark] #ad-save,html[data-theme=dark] #fx-add,html[data-theme=dark] .rng[aria-pressed="true"],html[data-theme=dark] .rng.on{background:#7BC9A4;color:#0A2119;border-color:transparent}
+  html[data-theme=dark] [style*="#0F4C35"],html[data-theme=dark] #growth .up{color:#4CAF82!important}html[data-theme=dark] [style*="#A8402F"],html[data-theme=dark] #growth .down{color:#F08A8A!important}
   html[data-theme=dark] .kpi b{color:#7BC9A4}
   html[data-theme=dark] h2{color:#7BC9A4}
   html[data-theme=dark] .sheet-h b{color:#7BC9A4}

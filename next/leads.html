@@ -12,13 +12,14 @@
 <script src="/config.js?v=72"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=10" defer></script>
+<script src="/next/assets/adminbar.js?v=11" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
-<script src="/assets/paylink-gen.js?v=6"></script>
+<script src="/assets/paylink-gen.js?v=7"></script>
 <script src="/assets/playbook.js?v=4"></script>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
 <style>
   :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--line2:#EEF0EB;--pine:#0F4C35;--pine-s:#E7F0EB;--gold:#B4884A;--warn:#A8402F;--warn-s:#FBEAE6;--good:#2E7D5B;--rail:#F3F2EE;--ease:cubic-bezier(.16,1,.3,1)}
   html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--line2:#232A25;--pine:#7BC9A4;--pine-s:#1C2E25;--warn:#E58C7C;--warn-s:#3A2320;--rail:#1F2622}
@@ -43,6 +44,7 @@
   .chip:active{transform:scale(.97)}
   .chip[aria-pressed=true]{background:var(--pine);border-color:var(--pine);color:#fff}
   .chip[aria-pressed=true] b{color:#fff}
+  html[data-theme=dark] .chip[aria-pressed=true],html[data-theme=dark] .chip[aria-pressed=true] b{color:#0A2119}
   .chip.zero{color:var(--ink3);background:transparent}
   .chip.zero b{color:var(--ink3);font-weight:500}
   .chip.due:not(.zero){border-color:var(--warn);color:var(--warn)}
