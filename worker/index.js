@@ -50,6 +50,7 @@ import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
+import { inboundExtras } from './wa-extras.js';
 import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
 import { checkinUrl } from './staff.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
@@ -3823,6 +3824,7 @@ async function handleWaWebhook(request, env, url) {
           const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
           const ets = Date.now();
           await env.RATE.put('log:' + peer + ':' + ets, JSON.stringify({
+            ...inboundExtras(msg),
             dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)', phone_app: true, app_auto: appAuto || undefined,
             media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
               ? { id: String(msg[msg.type].id), mime: String(msg[msg.type].mime_type || ''), name: String(msg[msg.type].filename || msg[msg.type].caption || '') }
@@ -3877,6 +3879,7 @@ async function handleWaWebhook(request, env, url) {
       /* kept forever, on purpose: this is the record of the conversation */
       await env.RATE.put('log:' + from + ':' + ts,
         JSON.stringify({
+          ...inboundExtras(msg),   /* 16/11: reaction, reply context, location, contacts, caption (the inbox shows them like the phone does) */
           dir: 'in', type: msg.type, ch,
           text: body,
           /* Richard, 11/09: files/videos a client sends must be visible and

@@ -176,6 +176,11 @@
   button:not(:disabled):active{transform:scale(.97)}
   @media (prefers-reduced-motion:reduce){*{transition:none !important;animation:none !important}}
   .aisw{font-size:.72rem;font-weight:500;color:var(--ink2);margin-inline-start:.5rem;white-space:nowrap;cursor:pointer}
+  .msg .lz{margin:0 0 .3rem}.msg .lzb{font:inherit;font-size:.82rem;font-weight:600;min-height:40px;padding:0 .9rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+  .msg .aud{display:block;width:250px;max-width:100%;height:40px;margin:.15rem 0 .3rem}.msg .vn{display:block;font-size:.72rem;color:var(--ink3)}
+  .msg .q{display:block;border-inline-start:3px solid var(--gold,#A8853C);background:rgba(127,127,127,.12);border-radius:6px;padding:.25rem .45rem;margin:0 0 .3rem;font-size:.78rem;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .msg .card{display:block;border:1px solid var(--line);border-radius:8px;padding:.4rem .55rem;margin:0 0 .3rem;text-decoration:none;color:inherit;font-weight:600}.msg .card small{display:block;font-weight:400;font-size:.74rem;color:var(--ink3)}
+  .msg.has-rx{margin-bottom:.85rem}.msg .rx{position:absolute;bottom:-.8rem;inset-inline-start:.5rem;background:var(--card);border:1px solid var(--line);border-radius:999px;font-size:.82rem;line-height:1;padding:.14rem .34rem}
   .msg .media{margin-top:.3rem;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap}
   .msg .media .dl{font:inherit;font-size:.72rem;padding:.15rem .55rem;border-radius:6px;border:1px solid currentColor;background:transparent;color:inherit;cursor:pointer}
   .msg .who{display:block;font-size:.66rem;opacity:.7;margin-top:.15rem}
@@ -528,15 +533,24 @@
         currentConv.nonrelevant = !!d.nonrelevant;
         paintHeader(currentConv);
       }
-      var host = $('thread'); host.innerHTML = '';
+      var host = $('thread');
       var msgs = (d.messages || []).slice();
       /* what we just sent, until the server's list catches up (KV lists lag their own writes by up to a minute) */
       pendingOut = pendingOut.filter(function (pm) { return !msgs.some(function (sm) { return sm.id && sm.id === pm.id; }); });
       pendingOut.forEach(function (pm) { if (pm.to === want) msgs.push(pm); });
       msgs.sort(function (a, b) { return a.ts - b.ts; });
+      /* nothing new since the last paint: leave the thread alone (a voice note that is playing keeps playing) */
+      var sig = want + '|' + msgs.map(function (m) { return m.ts + (m.status || '') + (m.ok === false ? 'x' : '') + (m.react ? m.react.emoji : ''); }).join(',');
+      if (sig === host.dataset.sig && host.children.length) return;
+      host.dataset.sig = sig; host.innerHTML = '';
       if (!msgs.length) { host.innerHTML = '<div class="empty">אין הודעות בשיחה הזאת עדיין.</div>'; return; }
       var lastDay = '';
+      /* 16/11 like the phone: a reaction sits on the message it answers, a reply quotes it */
+      var byId = {}, reacts = {};
+      msgs.forEach(function (m) { if (m.id) byId[m.id] = m; if (m.wid) byId[m.wid] = m; });
+      msgs.forEach(function (m) { if (m.react && m.react.to) { if (m.react.emoji) reacts[m.react.to] = m.react.emoji; else delete reacts[m.react.to]; } });
       msgs.forEach(function (m) {
+        if (m.type === 'reaction') { if (m.react && byId[m.react.to]) return; if (!m.react && !m.text) return; }
         var day = new Date(m.ts).toDateString();
         if (day !== lastDay) {
           lastDay = day;
@@ -556,6 +570,11 @@
           if (m.media.kind === 'video') media = '<video class="vid" controls preload="metadata" src="' + esc(m.media.url) + '"></video>';
           else if (m.media.kind === 'image') media = '<img class="pic" loading="lazy" src="' + esc(m.media.url) + '" alt="">';
           else if (m.media.kind === 'document') media = '<div class="media"><a href="' + esc(m.media.url) + '" target="_blank" rel="noopener">📎 קובץ</a></div>';
+        } else if (m.media && m.media.id && /^(image|sticker|audio|video)$/.test(m.type)) {
+          /* shown inside the conversation, like on the phone: a photo and a voice note load by themselves, a video on a tap */
+          var mk = m.type === 'sticker' ? 'image' : m.type, ready = MEDIA[m.media.id];
+          media = ready ? mediaTag(mk, ready, m) : '<div class="lz' + (mk === 'video' ? ' tap' : '') + '" data-mid="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-kind="' + mk + '"' + (m.voice ? ' data-voice="1"' : '') + '>' +
+            (mk === 'video' ? '<button type="button" class="lzb">▶ הצגת הסרטון</button>' : '<span class="sk" style="height:' + (mk === 'audio' ? '2.6rem;width:230px' : '150px;width:220px') + '"></span>') + '</div>';
         } else if (m.media && m.media.id) {
           media = '<div class="media"><span>📎 ' + esc(m.media.name || KIND[m.type] || 'קובץ') + (m.media.mime ? ' <small>' + esc(m.media.mime) + '</small>' : '') + '</span> ' +
             '<button type="button" class="dl" data-id="' + esc(m.media.id) + '" data-ch="' + esc(m.ch || 'client') + '" data-name="' + esc(m.media.name || (m.type + '-' + m.ts)) + '">הורדה</button></div>';
@@ -563,6 +582,12 @@
           media = '<div class="media"><span>📎 ' + KIND[m.type] + ' <small>לא זמין להורדה, נשלח לפני שהאינבוקס שמר קבצים</small></span></div>';
         }
         if (media && (!m.text || m.text === m.type)) text = '';
+        if (m.caption && (!text || text === m.type)) text = String(m.caption);
+        var extra = '';
+        if (m.loc && isFinite(m.loc.lat) && isFinite(m.loc.lng)) { extra += '<a class="card" target="_blank" rel="noopener" href="https://www.google.com/maps?q=' + Number(m.loc.lat) + ',' + Number(m.loc.lng) + '">📍 ' + esc(m.loc.name || 'מיקום') + (m.loc.address ? '<small>' + esc(m.loc.address) + '</small>' : '') + '<small>פתיחה במפות ›</small></a>'; if (text === 'location') text = ''; }
+        if (m.contacts && m.contacts.length) { extra += m.contacts.map(function (c) { return '<span class="card">👤 ' + esc(c.name || 'איש קשר') + (c.phone ? '<small dir="ltr">' + esc(c.phone) + '</small>' : '') + '</span>'; }).join(''); if (text === 'contacts') text = ''; }
+        var qm = m.ctx && byId[m.ctx], quote = qm ? '<span class="q">' + esc(String(qm.text || qm.caption || KIND[qm.type] || 'הודעה').slice(0, 90)) + '</span>' : '';
+        var rx = reacts[m.id] || reacts[m.wid] || '';
         var hdr = (m.media && m.media.kind === 'text' && m.media.text) ? '<span class="hdr">' + esc(m.media.text) + '</span>' : '';
         var tick = '';
         if (m.dir === 'out' && m.ok !== false) {
@@ -570,13 +595,14 @@
           var st = ST[m.status] || (m.id ? ST.sent : null);
           if (st) tick = '<span class="tick ' + esc(m.status || 'sent') + '" title="' + st[1] + (m.error ? ': ' + esc(m.error) : '') + '">' + st[0] + '</span>';
         }
-        el.innerHTML = (m.media && m.media.kind !== 'text' ? media : '') + hdr +
+        el.innerHTML = quote + (m.media && m.media.kind !== 'text' ? media : '') + hdr + extra +
           '<span class="txt">' + esc(text).replace(/(https?:\/\/[^\s<]+)/g, '<a href="$1" target="_blank" rel="noopener">$1</a>').replace(/\n/g, '<br>') + '</span>' +
-          (m.media && m.media.kind === 'text' ? '' : (m.media && m.media.url ? '' : media)) +
+          (!m.media ? media : '') +   /* a message with media shows it once, above the text */
           (m.footer ? '<span class="foot">' + esc(m.footer) + '</span>' : '') +
           (m.status === 'failed' || m.ok === false ? '<span class="fail">ⓘ ' + esc(explainErr(m.error)) + '</span>' + (canResend(m) ? '<button type="button" class="resend" data-ts="' + m.ts + '">↻ שלח שוב</button>' : '') : '') +
           (m.who && !/ריצ|נשלח שוב/.test(m.who) ? '<small class="who">' + esc(m.who) + '</small>' : '') +
-          '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>';
+          '<span class="meta"><time>' + esc(hhmm(new Date(m.ts))) + '</time>' + tick + '</span>' + (rx ? '<span class="rx" title="תגובה">' + esc(rx) + '</span>' : '');
+        if (rx) el.classList.add('has-rx');
         el.querySelectorAll('.resend').forEach(function (b) { b.addEventListener('click', function () { resend(m, b); }); });
         host.appendChild(el);
         var allBtns = (m.buttons || []).concat(linkBtns);
@@ -590,9 +616,35 @@
         }
       });
       host.scrollTop = host.scrollHeight;
+      lazyMedia(host);
     };
     api({ phone: want }, paint).then(paint);
   }
+
+  /* media a customer sent, shown in place. Fetched once per id through the worker and kept for this tab. */
+  var MEDIA = {}, lzObs = null;
+  function mediaTag(kind, url, m) {
+    if (kind === 'image') return '<a href="' + url + '" target="_blank" rel="noopener"><img class="pic" src="' + url + '" alt="תמונה שהתקבלה"></a>';
+    if (kind === 'audio') return '<span class="vn">' + (m && m.voice ? '🎤 הקלטה קולית' : '🎵 קובץ שמע') + '</span><audio class="aud" controls preload="metadata" src="' + url + '"></audio>';
+    return '<video class="vid" controls preload="metadata" src="' + url + '"></video>';
+  }
+  function loadMedia(box) {
+    if (box.dataset.busy) return; box.dataset.busy = '1'; var id = box.dataset.mid;
+    var done = function (url) { box.outerHTML = mediaTag(box.dataset.kind, url, { voice: box.dataset.voice === '1' }); };
+    if (MEDIA[id]) { done(MEDIA[id]); return; }
+    fetch(CFG.endpoint('mediadl'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, id: id, ch: box.dataset.ch }) })
+      .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
+      .then(function (blob) { MEDIA[id] = URL.createObjectURL(blob); if (box.isConnected) done(MEDIA[id]); })
+      .catch(function () { if (box.isConnected) box.innerHTML = '<span class="media"><span>📎 ' + ({ image: 'תמונה', audio: 'הקלטה', video: 'סרטון' })[box.dataset.kind] + ' <small>כבר לא זמין אצל וואטסאפ</small></span></span>'; });
+  }
+  function lazyMedia(host) {
+    var boxes = host.querySelectorAll('.lz:not(.tap)'); if (!boxes.length) return;
+    if (!('IntersectionObserver' in window)) { [].forEach.call(boxes, loadMedia); return; }
+    if (lzObs) lzObs.disconnect();
+    lzObs = new IntersectionObserver(function (es) { es.forEach(function (e) { if (e.isIntersecting) { lzObs.unobserve(e.target); loadMedia(e.target); } }); }, { root: host, rootMargin: '300px' });
+    [].forEach.call(boxes, function (b) { lzObs.observe(b); });
+  }
+  $('thread').addEventListener('click', function (e) { var t = e.target.closest('.lz.tap .lzb'); if (t) { t.textContent = 'טוען…'; t.disabled = true; loadMedia(t.closest('.lz')); } });
 
   /* download a file the customer sent: the worker fetches it from Meta */
   $('thread').addEventListener('click', function (e) {
