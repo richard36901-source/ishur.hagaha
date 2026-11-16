@@ -47,7 +47,9 @@ import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, a
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
-import { alertDateSet, hostessReminders } from './hostess-alerts.js';
+import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
+import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
+import { checkinUrl } from './staff.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
@@ -7359,6 +7361,9 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
   if (ilHour >= 9 && ilHour < 21 && !(await isOff(env, 'hostess_reminders')) && await env.RATE.get('hostremtick:' + today + ':' + ilHour) !== '1') {
     await env.RATE.put('hostremtick:' + today + ':' + ilHour, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
     await step('hostess_reminders', () => hostessReminders(env, { post: (t, o) => slackSend(env, t, o), kvPrefix })).catch(() => {});
+    /* on the event day each assigned hostess gets today's event and her report link (once; outside WhatsApp's 24h window it cannot be delivered, then Slack gets a manual link) */
+    await hostessDayMessages(env, { kvPrefix, arrivalOf, slack: (t, o) => slackSend(env, t, o),
+      send: async (phone, st, text) => { const link = checkinUrl(st.sid); const r = await sendCtaUrl(env, phone, text, 'דיווח נוכחות', link, 'client', { who: 'נועה (דיילות)' }).catch(() => null); return { ok: !!(r && r.ok), wa: `https://wa.me/${phone}?text=${encodeURIComponent(text + '\n' + link)}` }; } }).catch(() => {});
   }
   if (ilHour >= 9 && await env.RATE.get('slackqflush:' + today) !== '1') {
     await env.RATE.put('slackqflush:' + today, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
@@ -13959,6 +13964,9 @@ const WORKER = {
       for (const [k, v] of Object.entries(all)) { try { for (const x of JSON.parse(v) || []) items.push({ tok8: k, ...x }); } catch {} }
       return okJson({ ok: true, items: items.sort((x, y) => String(y.day).localeCompare(String(x.day))) }, origin);
     }
+    if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
+    if (url.pathname === '/api/hostess-receipt' && request.method === 'POST') return handleReceiptUpload(request, env, origin, { okJson, deny, adminKeyOk });
+    if (url.pathname === '/api/hostess-receipt' && request.method === 'GET') return handleReceiptGet(env, url);
     if (url.pathname === '/api/journal-hostess' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -13975,6 +13983,8 @@ const WORKER = {
         if (b.assign.on) { if (await env.RATE.get('staff:' + b.assign.phone)) cur.add(b.assign.phone); } else cur.delete(b.assign.phone);
         if (cur.size) await env.RATE.put(k, JSON.stringify([...cur].slice(0, 12)), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
         fresh.asg[b.assign.tok8] = [...cur].slice(0, 12);
+        /* the pay clock: a shift exists while she is assigned */
+        await syncShift(env, { tok8: b.assign.tok8, phone: b.assign.phone, on: cur.has(b.assign.phone), date: b.assign.date, name: b.assign.name, city: b.assign.city }).catch(() => {});
       }
       if (b.set_avail && /^9725\d{8}$/.test(String(b.set_avail.phone || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.set_avail.date || ''))) {
         const k = 'hostunavail:' + b.set_avail.phone; const cur = new Set((await jget(k)) || []);

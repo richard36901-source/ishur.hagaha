@@ -575,7 +575,7 @@ window.ISHUR_CONFIG = (function () {
         claim: '/api/claim', 'shir-calls': '/api/shir-calls', ops: '/api/ops-stats',
         brain: '/api/brain-toggle', adspend: '/api/adspend', seating: '/api/seating',
         daily: '/api/daily-run',
-        fixedcost: '/api/fixedcost', costlog: '/api/cost-log', journalHostess: '/api/journal-hostess', eventCost: '/api/event-cost', otp: '/api/otp-send',
+        fixedcost: '/api/fixedcost', costlog: '/api/cost-log', journalHostess: '/api/journal-hostess', hostessPay: '/api/hostess-pay', hostessReceipt: '/api/hostess-receipt', eventCost: '/api/event-cost', otp: '/api/otp-send',
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',

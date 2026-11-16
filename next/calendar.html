@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=74"></script>
+<script src="/config.js?v=88"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=13" defer></script>
@@ -129,6 +129,7 @@
   .hlog{width:100%;border-collapse:collapse;font-size:.84rem}.hlog th,.hlog td{text-align:start;padding:.4rem .5rem;border-bottom:1px solid var(--line)}.hlog th{font-size:.74rem;color:var(--ink3)}
   .hdlg{position:fixed;inset:0;margin:auto;height:fit-content;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:1rem 1.1rem;width:min(520px,calc(100vw - 32px));max-height:85vh;overflow:auto}.hdlg::backdrop{background:rgba(10,20,15,.45)}
   .hdlg h2{font-size:1.1rem;margin:0 0 .6rem}.hdlg h3{font-size:.95rem;margin:.9rem 0 .3rem}.hdlg .kv{display:flex;justify-content:space-between;gap:1rem;font-size:.88rem;padding:.2rem 0}.hdlg .kv span{color:var(--ink3)}
+  .pin{font:inherit;font-size:.84rem;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .4rem}html[data-theme=dark] .pin{color-scheme:dark}
   .tb{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 .7rem}
   .legend b{font-weight:600}
 </style>
@@ -153,6 +154,7 @@
   <div class="legend"><span><span class="pill ev-h" style="display:inline-block;margin:0">אירוע עם דיילת</span></span><span><span class="pill ev-m" style="display:inline-block;margin:0">נרכשה דיילת, עוד לא שובצה</span></span><span><span class="pill ev-n" style="display:inline-block;margin:0">אירוע בלי דיילת</span></span></div>
 
   <section class="hs"><h2>ממתינים לשיבוץ</h2><div id="hNeed"></div></section>
+  <section class="hs"><h2>שכר ונוכחות · <span id="payM"></span></h2><div id="hPay"><p class="empty">טוען…</p></div></section>
   <section class="hs"><h2>דיילים ודיילות</h2>
     <div class="hadd"><input id="sName" placeholder="שם הדיילת" maxlength="40"><input id="sPhone" placeholder="נייד" dir="ltr" inputmode="tel"><select id="sG" aria-label="דייל או דיילת" style="font:inherit;font-size:.9rem;min-height:38px;padding:0 .6rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)"><option value="f">דיילת</option><option value="m">דייל</option></select><button class="hbtn" id="sAdd" aria-pressed="true">הוספה</button></div>
     <div class="hcards" id="hStaff"></div></section>
@@ -184,7 +186,7 @@
   function byDay() { var m = {}; (H.events || []).forEach(function (e) { (m[e.date] = m[e.date] || []).push(e); }); return m; }
 
   function paint() {
-    $('mth').textContent = HE[Number(month.slice(5, 7)) - 1] + ' ' + month.slice(0, 4);
+    $('mth').textContent = HE[Number(month.slice(5, 7)) - 1] + ' ' + month.slice(0, 4); $('payM').textContent = $('mth').textContent;
     var y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7)) - 1, first = new Date(Date.UTC(y, mo, 1)), n = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate(), today = ilToday(), evs = byDay(), html = '';
     for (var b = 0; b < first.getUTCDay(); b++) html += '<div class="cell out"></div>';
     for (var i = 1; i <= n; i++) {
@@ -205,6 +207,7 @@
       return '<div class="hc"><h3>' + esc(s.name) + ' <span class="m" style="font-weight:400">· ' + (s.g === 'm' ? 'דייל' : 'דיילת') + '</span></h3><div class="m" dir="ltr" style="text-align:right">' + esc(fmtPhone(s.phone)) + '</div>' +
         '<ul>' + (mine.length ? mine.map(function (e) { return '<li>' + dmy(e.date) + ' · ' + esc(e.name) + (e.city ? ' · ' + esc(e.city) : '') + bl(e) + '</li>'; }).join('') : '<li class="m">אין אירועים משובצים</li>') +
         (un.length ? '<li class="m">לא זמינה: ' + un.map(dmy).join(', ') + '</li>' : '') + '</ul>' +
+        (function () { var py = (P && P.pay && P.pay[s.phone]) || { mode: 'event', rate: 0 }; return '<div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.84rem"><span class="m">שכר:</span><select data-rate="' + esc(s.phone) + '" aria-label="לפי שעה או לפי אירוע" style="font:inherit;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .4rem"><option value="hour"' + (py.mode === 'hour' ? ' selected' : '') + '>לשעה</option><option value="event"' + (py.mode === 'event' ? ' selected' : '') + '>לאירוע</option></select><input data-rate="' + esc(s.phone) + '" type="number" min="0" step="1" value="' + (py.rate || '') + '" placeholder="₪" aria-label="תעריף" style="font:inherit;width:5.5rem;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .5rem"></div>'; })() +
         '<div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem">' + (link && link.checkin ? '<button class="hbtn" data-copy="' + esc(link.checkin) + '">העתקת קישור דיווח</button>' : '') + (link && /^https:\/\/wa\.me\//.test(link.wa || '') ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(link.wa) + '">שליחת הקישור בוואטסאפ</a>' : '') + '<button class="hbtn x" data-rm="' + esc(s.phone) + '">הסרה</button></div></div>';
     }).join('') : '<p class="empty">עוד לא נוספו דיילות. מוסיפים שם ונייד למעלה.</p>';
     var lg = S.log || [];
@@ -230,22 +233,58 @@
   function setH(d) { if (d && d.ok) { H = d; paint(); } }
   $('grid').addEventListener('click', function (e) { var c = e.target.closest('.cell[data-d]'); if (c) dayDlg(c.dataset.d); });
   $('grid').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { var c = e.target.closest('.cell[data-d]'); if (c) { e.preventDefault(); dayDlg(c.dataset.d); } } });
-  $('hNeed').addEventListener('click', function (e) { var b = e.target.closest('[data-open]'); if (b) { month = b.dataset.open.slice(0, 7); paint(); dayDlg(b.dataset.open); } });
+  $('hNeed').addEventListener('click', function (e) { var b = e.target.closest('[data-open]'); if (b) { month = b.dataset.open.slice(0, 7); paint(); loadPay(); dayDlg(b.dataset.open); } });
   $('dlg').addEventListener('click', function (e) {
     if (e.target === $('dlg') || e.target.closest('#dX')) { $('dlg').close(); openDay = null; return; }
-    var a = e.target.closest('[data-as]'); if (a) { a.disabled = true; var p = a.dataset.as.split('|'); api('journalHostess', { assign: { tok8: p[0], phone: p[1], on: a.getAttribute('aria-pressed') !== 'true' } }).then(setH); return; }
+    var a = e.target.closest('[data-as]'); if (a) { a.disabled = true; var p = a.dataset.as.split('|'); var ev = (H.events || []).filter(function (x) { return x.tok8 === p[0] && x.date === openDay; })[0] || {}; api('journalHostess', { assign: { tok8: p[0], phone: p[1], on: a.getAttribute('aria-pressed') !== 'true', date: openDay, name: ev.name || '', city: ev.city || '' } }).then(function (d) { setH(d); loadPay(); }); return; }
     var v = e.target.closest('[data-av]'); if (v) { v.disabled = true; api('journalHostess', { set_avail: { phone: v.dataset.av, date: openDay, on: v.getAttribute('aria-pressed') !== 'true' } }).then(setH); return; }
     var o = e.target.closest('#dOff'); if (o) { o.disabled = true; api('journalHostess', { set_off: { date: openDay, on: o.dataset.on === '1' } }).then(setH); }
   });
-  function shift(n) { var d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1)); month = d.toISOString().slice(0, 7); paint(); }
-  $('prev').addEventListener('click', function () { shift(-1); }); $('next').addEventListener('click', function () { shift(1); }); $('today').addEventListener('click', function () { month = ilToday().slice(0, 7); paint(); });
+  function shift(n) { var d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1)); month = d.toISOString().slice(0, 7); paint(); loadPay(); }
+  $('prev').addEventListener('click', function () { shift(-1); }); $('next').addEventListener('click', function () { shift(1); }); $('today').addEventListener('click', function () { month = ilToday().slice(0, 7); paint(); loadPay(); });
   function loadStaff(body) { return api('staff', body || {}).then(function (d) { if (d && d.ok) { S = d; } return api('journalHostess', {}).then(setH); }); }
   $('sAdd').addEventListener('click', function () { var n = $('sName').value.trim(), p = $('sPhone').value.trim(); if (n.length < 2 || !p) return; if (!confirm('להוסיף את ' + n + '? קישור הדיווח האישי יישלח בוואטסאפ.')) return; loadStaff({ act: 'add', name: n, phone: p, g: $('sG').value }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
   $('hStaff').addEventListener('click', function (e) {
     var c = e.target.closest('[data-copy]'); if (c) { if (navigator.clipboard) navigator.clipboard.writeText(c.dataset.copy).then(function () { c.textContent = 'הועתק'; }); return; }
     var r = e.target.closest('[data-rm]'); if (r && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: r.dataset.rm });
   });
-  function load() { if (!adminKey) { gate(''); return; } $('gate').hidden = true; $('main').hidden = false; paint(); loadStaff(); }
+
+  /* ── pay clock: per hour or per event, the month per hostess, paid marks and the receipt ── */
+  var P = null;
+  function nis(n) { return '₪' + (Math.round(Number(n) * 100) / 100).toLocaleString('he-IL'); }
+  function loadPay(body) { body = body || {}; body.month = month; return api('hostessPay', body).then(function (d) { if (d && d.ok) { P = d; paintPay(); } return d; }); }
+  function paintPay() {
+    if (!P) return; var by = {}; (P.shifts || []).forEach(function (s) { (by[s.phone] = by[s.phone] || []).push(s); });
+    var tot = P.totals || [];
+    $('hPay').innerHTML = tot.length ? tot.map(function (t) {
+      var rc = (P.receipts || {})[t.phone];
+      return '<div class="hc" style="margin:0 0 10px"><div class="hrow" style="border:0;padding-top:0"><span><b style="font-size:1rem">' + esc(t.name) + '</b> · ' + t.shifts + ' אירועים' + (t.hours ? ' · ' + t.hours + ' שעות' : '') + '</span><span><b>' + nis(t.total) + '</b>' + (t.due ? ' · לתשלום ' + nis(t.due) : ' · שולם הכל') + '</span></div>' +
+        '<div style="overflow:auto"><table class="hlog"><thead><tr><th>תאריך</th><th>אירוע</th><th>הגעה</th><th>עזיבה</th><th>שעות</th><th>שכר</th><th>סכום</th><th></th></tr></thead><tbody>' + by[t.phone].map(function (s) {
+          return '<tr data-id="' + esc(s.id) + '"><td>' + dmy(s.date) + '</td><td>' + esc(s.event) + '</td>' +
+            '<td><input type="time" class="pin" data-f="in" value="' + esc(s.in) + '" aria-label="שעת הגעה"></td><td><input type="time" class="pin" data-f="out" value="' + esc(s.out) + '" aria-label="שעת עזיבה"></td><td>' + (s.hours || '') + '</td>' +
+            '<td><select class="pin" data-f="mode" aria-label="לפי שעה או לפי אירוע"><option value="hour"' + (s.mode === 'hour' ? ' selected' : '') + '>לשעה</option><option value="event"' + (s.mode === 'event' ? ' selected' : '') + '>לאירוע</option></select> <input type="number" class="pin" data-f="rate" min="0" step="1" value="' + (s.rate || '') + '" placeholder="₪" aria-label="תעריף" style="width:5.2rem"></td>' +
+            '<td><b>' + (s.amount ? nis(s.amount) : '') + '</b>' + (s.missing === 'hours' ? '<span class="m" style="display:block;font-size:.74rem;color:var(--ink3)">חסרות שעות</span>' : s.missing === 'rate' ? '<span class="m" style="display:block;font-size:.74rem;color:var(--ink3)">חסר תעריף</span>' : '') + '</td>' +
+            '<td><button class="hbtn" data-paid="' + (s.paid ? '0' : '1') + '" aria-pressed="' + !!s.paid + '"' + (!s.amount && !s.paid ? ' disabled' : '') + '>' + (s.paid ? 'שולם ✓' : 'סימון שולם') + '</button></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="acts" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:.55rem">' + (t.due ? '<button class="hbtn" data-payall="' + esc(t.phone) + '">סימון כל החודש כשולם</button>' : '') +
+        '<label class="hbtn" style="display:inline-grid;place-items:center">' + (rc ? 'החלפת קבלה' : 'העלאת קבלה') + '<input type="file" accept="image/*,application/pdf" data-rcpt="' + esc(t.phone) + '" hidden></label>' +
+        (rc && /^\/api\/hostess-receipt\?ref=[\w%:.-]+&sig=[0-9a-f]{32}$/.test(rc.url) ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(SBASE + rc.url) + '">צפייה בקבלה</a>' : '') + '</div></div>';
+    }).join('') : '<p class="empty">אין שיבוצים בחודש הזה. משבצים דייל או דיילת לאירוע בלוח, והמשמרת מופיעה כאן.</p>';
+  }
+  $('hPay').addEventListener('change', function (e) {
+    var f = e.target.closest('.pin'); if (f) { var tr = f.closest('tr'), b = { id: tr.dataset.id }; b[f.dataset.f] = f.value; loadPay({ set_shift: b }); return; }
+    var up = e.target.closest('[data-rcpt]'); if (up && up.files && up.files[0]) {
+      var file = up.files[0]; if (file.size > 5 * 1024 * 1024) { alert('הקובץ גדול מ-5MB'); return; }
+      var fd = new FormData(); fd.append('admin_key', adminKey); fd.append('ref', up.dataset.rcpt + ':' + month); fd.append('file', file);
+      fetch(CFG.endpoint('hostessReceipt'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) alert('הקבלה לא נשמרה. אפשר להעלות תמונה או PDF עד 5MB.'); loadPay(); }).catch(function () { alert('הקבלה לא נשמרה'); });
+    }
+  });
+  $('hPay').addEventListener('click', function (e) {
+    var p = e.target.closest('[data-paid]'); if (p) { p.disabled = true; loadPay({ mark_paid: { ids: [p.closest('tr').dataset.id], on: p.dataset.paid === '1' }, who: 'ניהול' }); return; }
+    var a = e.target.closest('[data-payall]'); if (a && confirm('לסמן את כל המשמרות של החודש כשולמו?')) { var ids = (P.shifts || []).filter(function (s) { return s.phone === a.dataset.payall && !s.paid && s.amount; }).map(function (s) { return s.id; }); loadPay({ mark_paid: { ids: ids, on: true }, who: 'ניהול' }); }
+  });
+  $('hStaff').addEventListener('change', function (e) { var c = e.target.closest('[data-rate]'); if (!c) return; var card = c.closest('.hc'); loadPay({ set_rate: { phone: c.dataset.rate, mode: card.querySelector('select[data-rate]').value, rate: card.querySelector('input[data-rate]').value } }).then(paint); });
+  function load() { if (!adminKey) { gate(''); return; } $('gate').hidden = true; $('main').hidden = false; paint(); loadStaff(); loadPay().then(paint); }
   load();
 })();
 </script>
