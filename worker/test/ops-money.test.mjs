@@ -146,3 +146,56 @@ test('fixed costs: recurring until removed, defaults prefilled, unknown rows cou
   const r2 = await fixedCostAction(env, { action: 'telnyx' }, '2026-11', async () => ({ json: async () => ({ data: [{}, {}] }) }));
   assert.ok(r2.items.find((x) => x.id === 'telnyx_numbers' && x.usd === 2 && x.approx));
 });
+
+/* 16/11: VAT on sales, Grow clearing fee, the daily journal */
+import { vatOf, feeOf, methodKey, calendarMonth, incomeDays, FEE_DEFAULT, editEventCosts } from '../ops-money.js';
+test('vatOf: the VAT inside a VAT-inclusive price (18%)', () => {
+  assert.equal(vatOf(118), 18); assert.equal(vatOf(1990), 303.56); assert.equal(vatOf(0), 0);
+});
+test('feeOf: the tariff reproduces Grow\'s own screen for 16 of the 17 November payments; an actual fee wins', () => {
+  const real = [[199, '533783571', 3.99], [489, '533674062', 8.05], [149, '533627231', 3.29], [50, '5064598160', 1.9], [130, '180213584', 3.41], [149, '180209260', 3.73], [669, '532992404', 10.57], [99, '532979695', 2.59],
+    [379, '532957647', 6.51], [59, '532935630', 2.03], [199, '532684125', 3.99], [120, '180080109', 3.24], [140, '179947040', 3.58], [220, '5047860910', 4.28], [199, '179475020', 4.58], [178, '530376307', 3.69]];
+  const noVat = { ...FEE_DEFAULT, vat_on_fee: false };
+  for (const [sum, ref, fee] of real) assert.equal(feeOf({ source: 'grow', sum, ref, method: '' }, noVat).ils, fee, 'ref ' + ref);
+  assert.equal(methodKey('', '180213584'), 'bit'); assert.equal(methodKey('', '533783571'), 'card'); assert.equal(methodKey('ביט', ''), 'bit');
+  assert.equal(feeOf({ source: 'grow', sum: 199, ref: '533783571' }, FEE_DEFAULT).ils, 4.71);            /* 3.99 + 18% VAT */
+  const hadar = { source: 'grow', sum: 1990, ref: '533970239' };
+  assert.equal(feeOf(hadar, noVat).ils, 29.06);                                                            /* the tariff… */
+  assert.deepEqual(feeOf(hadar, FEE_DEFAULT, { 533970239: 27.86 }), { ils: 32.87, known: true, actual: true });   /* …but Grow charged 27.86 */
+  assert.deepEqual(feeOf({ source: 'sheet', sum: 789 }, FEE_DEFAULT), { ils: 0, known: true });           /* Bit straight to Richard: no Grow fee */
+  assert.equal(feeOf({ source: 'grow', sum: 100 }, null).known, false);
+});
+test('revenueEntries: a sheet event whose Grow ref is already counted is not counted again (payer phone ≠ event phone)', () => {
+  const rows = [pay('100 רשומות בסיס  עיצוב הזמנה', 178, { ref: '530376307', phone: '0509999999' })];
+  const events = [{ paid: true, paid_day: '2026-11-03', sum: 99, tok8: '3d8772a1', phone: '972501111111', name: 'שרון', ref: '530376307' }];
+  const e = revenueEntries(rows, events, { parsePaidDesc });
+  assert.equal(e.length, 1); assert.equal(e[0].sum, 178);
+});
+test('incomeDays + calendarMonth: a day is green, red or empty; fixed costs land on their charge day; future days stay empty', () => {
+  const entries = [{ day: '2026-11-15', sum: 1180, source: 'grow', ref: '533000001', name: 'א' }, { day: '2026-11-15', sum: 789, source: 'sheet', name: 'ב' }];
+  const inc = incomeDays(entries, { cfg: FEE_DEFAULT, actual: {} });
+  assert.equal(inc['2026-11-15'].revenue, 1969); assert.equal(inc['2026-11-15'].payments, 2); assert.equal(inc['2026-11-15'].vat, 300.36);
+  assert.equal(inc['2026-11-15'].fees, 20.91);                                                             /* (1180×1.4% + 1.2) × 1.18 */
+  const c = calendarMonth({ month: '2026-11', today: '2026-11-16', entries, feeCfg: FEE_DEFAULT, wa: { '2026-11-12': 7.16 }, calls: { '2026-11-12': 0.57 },
+    adsDaily: { '2026-11-12': 95.2, '2026-11-15': 141.53 }, fixedItems: [{ name: 'SIM', ils: 10, day: 10 }], extras: [{ day: '2026-11-15', ils: 400, label: 'דיילת' }] });
+  const day = (n) => c.days[n - 1];
+  assert.equal(day(15).tone, 'profit'); assert.equal(day(15).net, r2t(1969 - 300.36 - 20.91 - 141.53 - 400));
+  assert.equal(day(12).tone, 'loss'); assert.equal(day(12).net, -102.93);
+  assert.equal(day(10).costs.fixed, 10); assert.equal(day(10).tone, 'loss');
+  assert.equal(day(14).tone, 'none'); assert.equal(day(20).tone, 'none'); assert.equal(day(20).future, true);
+  assert.equal(c.totals.revenue, 1969); assert.equal(c.totals.green, 1); assert.equal(c.totals.red, 2);
+  assert.equal(c.totals.net, r2t(day(15).net + day(12).net + day(10).net));
+});
+const r2t = (x) => Math.round(x * 100) / 100;
+test('editEventCosts: add with a day, reject a bad amount, remove', () => {
+  const a = editEventCosts([], { label: 'שכר דיילת', ils: 400, day: '2027-01-06' }, '2026-11-16');
+  assert.equal(a.list.length, 1); assert.equal(a.list[0].day, '2027-01-06'); assert.equal(a.list[0].ils, 400);
+  assert.equal(editEventCosts([], { ils: 'x' }, '2026-11-16').ok, false);
+  assert.equal(editEventCosts(a.list, { remove: a.list[0].id }).list.length, 0);
+});
+test('a hand-opened event (Bit straight to Richard, ref "BIT-…") carries no Grow fee; an old sheet row with a real Grow ref does', () => {
+  const ev = (ref) => revenueEntries([], [{ paid: true, paid_day: '2026-11-15', sum: 789, tok8: 'f85d36d5', phone: '972544994502', name: 'א', ref }], { parsePaidDesc })[0];
+  assert.equal(feeOf(ev('BIT-20261115-AVIV'), FEE_DEFAULT).ils, 0);
+  assert.equal(incomeDays([ev('BIT-20261115-AVIV')], { cfg: FEE_DEFAULT, actual: {} })['2026-11-15'].deals[0].method, 'direct');
+  assert.equal(feeOf(ev('530000001'), FEE_DEFAULT).ils, 14.46);
+});

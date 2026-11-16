@@ -73,7 +73,7 @@ import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleS
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
-import { fixedCostAction } from './ops-money.js';   /* 03/11 recurring fixed costs */
+import { fixedCostAction, buildIncomeDays } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
@@ -979,6 +979,7 @@ async function processGrowPayment(env, flat) {
       addons: purchase ? addonList(purchase) : [],
     }) + (promo ? ` · 🎫 ${promo.label} · קוד ${promo.code || ''}` + (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : ''), { oneoff: true });   /* oneoff: a deal closed */
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
+    if (env.RATE) await env.RATE.delete('incdays').catch(() => {});   /* 16/11: the daily income report re-reads on the next look */
     /* Richard 21/10: the lead in Monday closes itself the moment money lands */
     if (!flat._simulated && !isTestPhone(env, phone)) {
       try {
@@ -8226,10 +8227,15 @@ async function handleCostLog(request, env, origin) {
     });
   }
 
+  /* 16/11 (Richard): the same report also says what came IN each day — income, the VAT inside it, Grow's fee —
+     and the fixed subscriptions on the day they are charged, so the board can show profit per day and the journal */
+  let inc = { income: {}, fixed: {}, vat_rate: 0.18, fee_cfg: null, truncated: true };
+  try { inc = await buildIncomeDays(env, { ...opsDeps(), parsePaidDesc }, { raw, fresh: body.fresh === true }); } catch (e) { await logEvent(env, { area: 'כספים', action: 'חישוב הכנסות יומי נכשל', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
   return okJson({
     ok: true,
     days: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
     events,
+    income: inc.income, fixed: inc.fixed, vat_rate: inc.vat_rate, fee_cfg: inc.fee_cfg, income_truncated: inc.truncated,
     generated_at: new Date().toISOString(),
   }, origin);
 }

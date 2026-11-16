@@ -45,7 +45,7 @@ export function classifyPay(row, { parsePaidDesc = () => null } = {}) {
   const ref = String(f.asmachta || f.transactionId || f.transactionCode || row.id || '');
   const phone = String(f.payerPhone || f.phone || row.phone || '').replace(/\D/g, '').replace(/^0/, '972');
   const tokM = desc.match(/·\s*([0-9a-f]{8})\s*$/);
-  const base = { day: ilDay(row.ts), ref, phone, name: String(f.fullName || f.payerName || f.name || ''), desc: desc.slice(0, 80), sum, tok8: tokM ? tokM[1] : String(row.token || '').slice(0, 8) };
+  const base = { day: ilDay(row.ts), ref, phone, method: String(f.paymentType || f.paymentMethod || f.transactionType || ''), name: String(f.fullName || f.payerName || f.name || ''), desc: desc.slice(0, 80), sum, tok8: tokM ? tokM[1] : String(row.token || '').slice(0, 8) };
   const pkg = parsePaidDesc(desc);
   const lines = [];
   if (pkg && /\d{2,4}\s*(?:מוזמנים|רשומות)/.test(desc) && !/תוספת|שדרוג|הרחב/.test(desc)) {
@@ -70,7 +70,9 @@ export function revenueEntries(payRows, events = [], { parsePaidDesc } = {}) {
   for (const e of events) {
     if (!e.paid || e.cancelled || !e.paid_day || !e.sum) continue;
     if (e.phone && byPhone[String(e.phone).replace(/\D/g, '').slice(-9)]) continue;
-    out.push({ day: e.paid_day, ref: 'sheet:' + e.tok8, phone: e.phone || '', name: e.name, desc: e.plan, sum: e.sum, tok8: e.tok8, lines: [{ kind: 'package', ils: e.sum, estimated: false }], source: 'sheet' });
+    /* 16/11: the payer's phone can differ from the event's (שרון, 03/11: ₪178 counted and her ₪99 row again) — the sheet keeps the Grow ref */
+    if (e.ref && seen.has(e.ref)) continue;
+    out.push({ day: e.paid_day, ref: 'sheet:' + e.tok8, phone: e.phone || '', name: e.name, desc: e.plan, sum: e.sum, tok8: e.tok8, lines: [{ kind: 'package', ils: e.sum, estimated: false }], source: 'sheet', grow_ref: /^\d{8,11}$/.test(String(e.ref || '')) ? e.ref : '' });   /* grow_ref: a real Grow reference (digits) → paid through Grow before the payment log existed, so it carried Grow's fee; a hand-opened event (BIT-…) did not */
   }
   return out.sort((a, b) => a.day.localeCompare(b.day));
 }
@@ -88,14 +90,37 @@ export function revenueSeries(entries, { from, to, group }) {
   return Object.values(m).sort((a, b) => a.bucket.localeCompare(b.bucket));
 }
 
-/* P&L for one month. variable = WhatsApp + calls + hostess pay; net also subtracts ads, fixed, manual vendors. */
-export function pnlMonth({ month, revenue = 0, wa = 0, calls = 0, hostess = 0, ads = 0, fixed = 0, manual = 0 }) {
-  const variable = r2(wa + calls + hostess);
-  const gross = r2(revenue - variable);
+/* 16/11 (Richard): what the client pays INCLUDES VAT, so it is not ours. VAT on sales only; input VAT on
+   expenses is deliberately not offset ("מע"מ עסקאות בלבד"). */
+export const VAT_RATE = 0.18;
+export const vatOf = (gross) => r2((Number(gross) || 0) * VAT_RATE / (1 + VAT_RATE));
+/* Grow's clearing fee per payment. Grow's API and IPN carry no fee, so it is computed from the tariff kept in KV
+   cfg:growfee = { card:{pct,fixed}, bit:{pct,fixed}, vat_on_fee:true } (calibrated against Grow's own screen).
+   A payment that never went through Grow (a sheet row: Bit transfer straight to Richard) has no fee. */
+export const methodKey = (m, ref = '') => (/bit|ביט|paybox|פייבוקס/i.test(String(m || '')) || /^1[5-9]\d{7}$/.test(String(ref || '')) ? 'bit' : 'card');   /* Grow's bit references are 9 digits starting 1 (17/18…), cards 53…, Apple Pay 50… (card rate) */
+export function feeOf(entry, cfg, actual = null) {
+  const ref = entry && (entry.source === 'grow' ? entry.ref : entry.grow_ref);
+  if (!entry || (entry.source !== 'grow' && !ref)) return { ils: 0, known: true };
+  /* Grow rounds the fee to the agora, then adds VAT on that rounded fee (199 → 3.99 + 0.72) */
+  const withVat = (fee) => (cfg && cfg.vat_on_fee === false ? r2(fee) : r2(r2(fee) + r2(r2(fee) * VAT_RATE)));
+  if (actual && actual[ref] != null) return { ils: withVat(Number(actual[ref])), known: true, actual: true };   /* read off Grow's own screen */
+  const r = cfg && (cfg[methodKey(entry.method, ref)] || cfg.card);
+  if (!r) return { ils: 0, known: false };
+  const base = (Number(entry.sum) || 0) * (Number(r.pct) || 0) / 100 + (Number(r.fixed) || 0);
+  return { ils: withVat(base), known: true };
+}
+
+/* P&L for one month. revenue is what clients paid (VAT included); vat is taken off first.
+   variable = WhatsApp + calls + hostess pay + clearing fees + per-event costs; net also subtracts ads, fixed, manual vendors. */
+export function pnlMonth({ month, revenue = 0, vat = 0, fees = 0, event_costs = 0, wa = 0, calls = 0, hostess = 0, ads = 0, fixed = 0, manual = 0 }) {
+  const ex = r2(revenue - vat);
+  const variable = r2(wa + calls + hostess + fees + event_costs);
+  const gross = r2(ex - variable);
   const costs = r2(variable + ads + fixed + manual);
-  const net = r2(revenue - costs);
-  return { month, revenue: r2(revenue), costs: { wa: r2(wa), calls: r2(calls), hostess: r2(hostess), ads: r2(ads), fixed: r2(fixed), manual: r2(manual), total: costs },
-    gross, net, gross_margin_pct: revenue > 0 ? Math.round(1000 * gross / revenue) / 10 : null, margin_pct: revenue > 0 ? Math.round(1000 * net / revenue) / 10 : null };
+  const net = r2(ex - costs);
+  return { month, revenue: r2(revenue), vat: r2(vat), revenue_ex_vat: ex,
+    costs: { wa: r2(wa), calls: r2(calls), hostess: r2(hostess), fees: r2(fees), event: r2(event_costs), ads: r2(ads), fixed: r2(fixed), manual: r2(manual), total: costs },
+    gross, net, gross_margin_pct: ex > 0 ? Math.round(1000 * gross / ex) / 10 : null, margin_pct: ex > 0 ? Math.round(1000 * net / ex) / 10 : null };
 }
 
 /* months[] (sorted) → growth vs previous month + running totals */
@@ -113,7 +138,7 @@ export function monthsBetween(from, to) { const out = []; let m = from.slice(0, 
 
 /* per event: revenue (sheet sum + matching add-on pay lines), messages, calls, hostess pay, margin.
    msgs = evcost (₪, all spend on the event) − calls from the audit: an estimate when evcost lags. */
-export function eventEconomics(events, { entries = [], evcostIls = {}, callsIls = {}, hostessPay = {} } = {}) {
+export function eventEconomics(events, { entries = [], evcostIls = {}, callsIls = {}, hostessPay = {}, extraIls = {}, feeByTok = {}, vat = false } = {}) {
   const extra = {};
   for (const e of entries) if (e.source === 'grow' && e.tok8) for (const l of e.lines) if (l.kind !== 'package') extra[e.tok8] = r2((extra[e.tok8] || 0) + l.ils);
   return events.filter(e => e.paid && !e.cancelled).map(e => {
@@ -122,8 +147,9 @@ export function eventEconomics(events, { entries = [], evcostIls = {}, callsIls 
     const msgs = r2(Math.max(0, total - calls));
     const hostess = r2(hostessPay[e.tok8] || 0);
     const revenue = r2(e.sum + (extra[e.tok8] || 0));
-    const margin = r2(revenue - msgs - calls - hostess);
-    return { tok8: e.tok8, token: e.token, name: e.name, date: e.date, plan: e.plan, revenue, msgs_cost: msgs, calls_cost: calls, hostess_pay: hostess, margin, margin_pct: revenue > 0 ? Math.round(1000 * margin / revenue) / 10 : null };
+    const v = vat ? vatOf(revenue) : 0, fee = r2(feeByTok[e.tok8] || 0), extra_cost = r2(extraIls[e.tok8] || 0), base = r2(revenue - v);
+    const margin = r2(base - fee - msgs - calls - hostess - extra_cost);
+    return { tok8: e.tok8, token: e.token, name: e.name, date: e.date, plan: e.plan, revenue, vat: v, fee, msgs_cost: msgs, calls_cost: calls, hostess_pay: hostess, extra_cost, margin, margin_pct: base > 0 ? Math.round(1000 * margin / base) / 10 : null };
   }).sort((a, b) => String(b.date).localeCompare(String(a.date)));
 }
 
@@ -203,11 +229,12 @@ export function normFixed(x, usdIls = USD_ILS) {
   const ils = x.ils != null && x.ils !== '' ? Math.max(0, Number(x.ils) || 0) : usd != null ? r2(usd * usdIls) : 0;
   const m = (v) => (/^\d{4}-\d{2}$/.test(String(v || '')) ? String(v) : null);
   return { id: String(x.id || x.name || '').slice(0, 40).replace(/\s+/g, '_') || 'fx' + Date.now(), name: String(x.name || '').slice(0, 60), ils: r2(ils), usd,
-    from_month: m(x.from_month) || '2026-01', to_month: m(x.to_month), approx: !!x.approx, unknown: !!x.unknown && !(Number(x.ils) || Number(x.usd)), source: String(x.source || 'manual').slice(0, 20) };
+    from_month: m(x.from_month) || '2026-01', to_month: m(x.to_month), approx: !!x.approx, unknown: !!x.unknown && !(Number(x.ils) || Number(x.usd)), source: String(x.source || 'manual').slice(0, 20),
+    day: Math.min(28, Math.max(1, Math.round(Number(x.day)) || 10)) };   /* 16/11: the day of the month it is charged on (calendar view) */
 }
 export const fixedActive = (x, month) => x.from_month <= month && (!x.to_month || month <= x.to_month);
 export function fixedForMonth(items, month, legacy = []) {
-  const rec = (items || []).filter((x) => fixedActive(x, month)).map((x) => ({ name: x.name, ils: x.unknown ? 0 : x.ils, unknown: !!x.unknown, approx: !!x.approx, recurring: true, id: x.id }));
+  const rec = (items || []).filter((x) => fixedActive(x, month)).map((x) => ({ name: x.name, ils: x.unknown ? 0 : x.ils, unknown: !!x.unknown, approx: !!x.approx, recurring: true, id: x.id, day: x.day || 10 }));
   const old = (legacy || []).map((x) => ({ name: x.name, ils: Number(x.ils) || 0, recurring: false }));
   return { items: [...rec, ...old], total: r2([...rec, ...old].reduce((t, x) => t + (x.ils || 0), 0)) };
 }
@@ -306,9 +333,61 @@ export function eventsForMoney(raw, { isTestEventRow = () => false, planKeyOf = 
     const token = String(ev[1] || '').trim(); if (!token || isTestEventRow(ev)) continue;
     const m = String(ev[25] || '').match(/\d{4}-\d{2}-\d{2}/);
     out.push({ token, tok8: token.slice(0, 8), name: String(ev[34] || ev[2] || '').trim(), client: String(ev[2] || '').trim(), phone: String(ev[3] || '').replace(/\D/g, ''), date: String(ev[6] || '').trim().slice(0, 10),
-      plan: String(ev[31] || '').trim() || planKeyOf(ev), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן', paid_day: m ? m[0] : '', sum: num(ev[8]), invoice: String(ev[9] || '').trim() });
+      plan: String(ev[31] || '').trim() || planKeyOf(ev), paid: String(ev[7] || '').trim() === 'כן', cancelled: String(ev[27] || '').trim() === 'כן', paid_day: m ? m[0] : '', sum: num(ev[8]), invoice: String(ev[9] || '').trim(), ref: String(ev[45] || '').trim() });
   }
   return out;
+}
+
+/* ── 16/11 trading-journal calendar: one cell per day of a month ──
+   Every ₪ that came in and went out, on the day it happened: payments (with VAT and clearing fee taken off),
+   WhatsApp + calls (their own day), hostess pay (shift day), per-event costs (their day), fixed subscriptions and
+   manual vendors (the day they are charged, default the 10th), ad spend (monthly total spread evenly: an estimate
+   until daily spend is stored). Days after `today` stay empty. */
+export const daysInMonth = (m) => new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).getUTCDate();
+export function calendarMonth({ month, today, entries = [], feeCfg = null, feeActual = null, wa = {}, calls = {}, ads = 0, adsDaily = null, fixedItems = [], manualItems = {}, hostess = [], extras = [] } = {}) {
+  const n = daysInMonth(month), last = today && today.slice(0, 7) === month ? +today.slice(8, 10) : (today && today.slice(0, 7) < month ? 0 : n);
+  const days = [];
+  for (let i = 1; i <= n; i++) days.push({ day: `${month}-${String(i).padStart(2, '0')}`, future: i > last, revenue: 0, vat: 0, fees: 0, payments: 0,
+    costs: { wa: 0, calls: 0, hostess: 0, event: 0, ads: 0, fixed: 0, manual: 0 }, deals: [], items: [], fee_unknown: false });
+  const at = (d) => (String(d || '').slice(0, 7) === month ? days[+String(d).slice(8, 10) - 1] : null);
+  const add = (c, key, ils, label, est) => { if (!c || c.future || !(ils > 0)) return; c.costs[key] = r2(c.costs[key] + ils); c.items.push({ kind: key, label, ils: r2(ils), estimated: !!est }); };
+  for (const e of entries) {
+    const c = at(e.day); if (!c) continue;
+    const f = feeOf(e, feeCfg, feeActual);
+    c.revenue = r2(c.revenue + e.sum); c.vat = r2(c.vat + vatOf(e.sum)); c.fees = r2(c.fees + f.ils); c.payments++; if (!f.known) c.fee_unknown = true;
+    c.deals.push({ name: e.name || '', desc: e.desc || '', sum: e.sum, fee: f.ils, fee_known: f.known, method: e.source === 'grow' ? methodKey(e.method, e.ref) : 'direct', tok8: e.tok8 || '' });
+  }
+  for (const [d, v] of Object.entries(wa)) add(at(d), 'wa', Number(v && v.ils != null ? v.ils : v) || 0, 'וואטסאפ', v && v.estimated);
+  for (const [d, v] of Object.entries(calls)) add(at(d), 'calls', Number(v) || 0, 'שיחות', true);
+  for (const a of hostess) add(at(a.date), 'hostess', Number(a.pay) || 0, 'דיילת' + (a.hostess_name ? ' · ' + a.hostess_name : ''));
+  for (const x of extras) add(at(x.day), 'event', Number(x.ils) || 0, (x.label || 'עלות אירוע') + (x.name ? ' · ' + x.name : ''));
+  for (const x of fixedItems) if (!x.unknown) add(days[Math.min(n, x.day || 10) - 1], 'fixed', Number(x.ils) || 0, x.name, x.approx);
+  for (const [k, v] of Object.entries(manualItems)) add(days[9], 'manual', Number(v) || 0, 'ספק · ' + k);
+  if (adsDaily) for (const [d, v] of Object.entries(adsDaily)) add(at(d), 'ads', Number(v) || 0, 'פרסום במטא');
+  else if (ads > 0 && last > 0) for (let i = 0; i < last; i++) add(days[i], 'ads', ads / last, 'פרסום במטא', true);
+  const tot = { revenue: 0, vat: 0, fees: 0, costs: 0, net: 0, payments: 0, green: 0, red: 0, by_cost: { wa: 0, calls: 0, hostess: 0, event: 0, ads: 0, fixed: 0, manual: 0, fees: 0 } };
+  for (const c of days) {
+    c.cost_total = r2(Object.values(c.costs).reduce((a, b) => a + b, 0) + c.fees);
+    c.net = r2(c.revenue - c.vat - c.cost_total);
+    c.active = c.payments > 0 || c.cost_total > 0;
+    c.tone = !c.active ? 'none' : c.net > 0 ? 'profit' : c.net < 0 ? 'loss' : 'none';
+    tot.revenue = r2(tot.revenue + c.revenue); tot.vat = r2(tot.vat + c.vat); tot.fees = r2(tot.fees + c.fees); tot.costs = r2(tot.costs + c.cost_total); tot.net = r2(tot.net + c.net); tot.payments += c.payments;
+    if (c.tone === 'profit') tot.green++; else if (c.tone === 'loss') tot.red++;
+    for (const k of Object.keys(c.costs)) tot.by_cost[k] = r2(tot.by_cost[k] + c.costs[k]);
+    tot.by_cost.fees = r2(tot.by_cost.fees + c.fees);
+  }
+  tot.revenue_ex_vat = r2(tot.revenue - tot.vat);
+  return { month, days, totals: tot, fee_configured: !!feeCfg };
+}
+/* per-event costs Richard types in (hostess wages, a courier, anything): evextra:<tok8> = [{id,label,ils,day}] */
+export function editEventCosts(list, b, today) {
+  const cur = Array.isArray(list) ? list.slice() : [];
+  if (b.remove) return { ok: true, list: cur.filter((x) => x.id !== String(b.remove)) };
+  const ils = Number(b.ils);
+  if (!Number.isFinite(ils) || ils <= 0) return { ok: false, error: 'bad-amount' };
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(b.day || '')) ? String(b.day) : today;
+  cur.push({ id: 'x' + Date.now().toString(36) + cur.length, label: String(b.label || 'עלות').slice(0, 60), ils: r2(ils), day });
+  return { ok: true, list: cur };
 }
 
 /* ══ §2 I/O ════════════════════════════════════════════════════════════════ */
@@ -322,6 +401,39 @@ const jp = v => { try { return JSON.parse(v); } catch { return null; } };
 const kvMap = async (d, env, p) => (d.kvPrefix ? d.kvPrefix(env, p).catch(() => ({})) : {});
 
 async function storeAll(env, t) { try { return await makeStore(env).all(t); } catch { return []; } }
+
+/* 16/11: what came in, per day, for the daily report + journal on the admin board: payments (Grow IPN rows, plus
+   sheet rows that never went through Grow), VAT inside them, Grow's clearing fee (actual where read, else tariff). */
+export const FEE_DEFAULT = { card: { pct: 1.4, fixed: 1.2 }, bit: { pct: 1.7, fixed: 1.2 }, vat_on_fee: true };   /* calibrated 16/11 on 17 Nov payments: 16 exact */
+export async function loadFeeCfg(env) {
+  const [c, a] = env.RATE ? await Promise.all([env.RATE.get('cfg:growfee').catch(() => null), env.RATE.get('growfeeact').catch(() => null)]) : [null, null];
+  return { cfg: jp(c) || FEE_DEFAULT, actual: jp(a) || {} };
+}
+export function incomeDays(entries, { cfg, actual } = {}) {
+  const out = {};
+  for (const e of entries) {
+    const d = out[e.day] = out[e.day] || { revenue: 0, vat: 0, fees: 0, payments: 0, fee_estimated: false, deals: [] };
+    const f = feeOf(e, cfg, actual);
+    d.revenue = r2(d.revenue + e.sum); d.vat = r2(d.vat + vatOf(e.sum)); d.fees = r2(d.fees + f.ils); d.payments++;
+    const viaGrow = e.source === 'grow' || !!e.grow_ref;
+    if (viaGrow && !f.actual) d.fee_estimated = true;
+    d.deals.push({ name: e.name || '', desc: e.desc || '', sum: e.sum, fee: f.ils, method: viaGrow ? methodKey(e.method, e.source === 'grow' ? e.ref : e.grow_ref) : 'direct' });
+  }
+  return out;
+}
+export async function buildIncomeDays(env, d, { raw, days = 45, fresh = false } = {}) {
+  /* the payment log is read day by day: 45 days is seconds, 150 took 37s. Older payments come from the sheet rows. Cached an hour. */
+  if (!fresh && env.RATE) { const c = jp(await env.RATE.get('incdays').catch(() => null)); if (c && Date.now() - c.at < 60 * 60e3) return c.data; }   /* a new payment deletes the key (processGrowPayment), so an hour is safe */
+  const today = d.ilDate(new Date()), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10), far = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10);
+  const pay = await d.auditQueryEx(env, { from: from.replace(/-/g, ''), to: today.replace(/-/g, ''), kind: 'pay', limit: 20000, budget: 3000 }).catch(() => ({ items: [], truncated: true }));
+  const entries = revenueEntries(pay.items, eventsForMoney(raw, d), { parsePaidDesc: d.parsePaidDesc || (() => null) });
+  const fee = await loadFeeCfg(env);
+  const fixedRec = await loadFixed(env, today.slice(0, 7));
+  const fixed = {}; for (const m of monthsBetween(far, today)) fixed[m] = fixedForMonth(fixedRec, m).items.filter((x) => !x.unknown && x.ils > 0).map((x) => ({ name: x.name, ils: x.ils, day: x.day || 10 }));
+  const data = { income: incomeDays(entries, fee), fixed, vat_rate: VAT_RATE, fee_cfg: fee.cfg, truncated: !!pay.truncated };
+  if (env.RATE) await env.RATE.put('incdays', JSON.stringify({ at: Date.now(), data }), { expirationTtl: 3600 }).catch(() => {});
+  return data;
+}
 
 export async function buildFinance(env, d, { range = '90d', fresh = false, balances = null } = {}) {
   const today = d.ilDate(new Date());

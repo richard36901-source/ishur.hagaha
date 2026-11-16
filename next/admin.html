@@ -18,6 +18,7 @@
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=5"></script>
+<script src="/assets/pnl-journal.js?v=1"></script>
 <script src="/assets/playbook.js?v=2"></script>
 <script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/callboard.js?v=1"></script>
@@ -923,9 +924,10 @@
     </span>
   </h2>
   <div class="fold" id="fold-cost" hidden>
+    <div id="pjHost"></div>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th><th>פרסום ₪</th><th>סה״כ ₪</th></tr></thead>
+        <thead><tr><th>תאריך</th><th>הכנסות ₪</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th><th>פרסום ₪</th><th>סליקה ₪</th><th>קבועות ₪</th><th>סה״כ הוצאות ₪</th><th>רווח ₪</th><th>מע״מ ₪</th><th>רווח אחרי מע״מ ₪</th></tr></thead>
         <tbody id="costRows"></tbody>
       </table>
     </div>
@@ -1886,6 +1888,7 @@
         if (!d || !d.ok) return;
         costDays = d.days || [];
         costEvents = d.events || [];
+        incByDay = d.income || {}; fixedByMonth = d.fixed || {};
         costMap = {};
         /* 25/10: the worker now sends ₪ per event (cost_ils). costMap keeps it as agorot × USD_ILS so the old formula still yields ₪ */
       costEvents.forEach(function (e) { costMap[e.token8] = e.cost_ils != null ? e.cost_ils * 100 / USD_ILS : e.cost_usd_cents; });
@@ -1898,26 +1901,44 @@
 
   /* a day's line: messages, calls, ads, and the sum. Days the ad account
      knows but the message log does not (before 30.8) still get a row. */
+  /* 16/11: income per day (payments, VAT inside them, Grow's fee) and the fixed subscriptions on their charge day,
+     from the same /api/cost-log answer. profit = income − every cost of the day; net = profit − VAT on sales. */
+  var incByDay = {}, fixedByMonth = {}, pj = null;
+  function ilTodayStr() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   function costLines() {
-    var seen = {};
+    var seen = {}, today = ilTodayStr();
     var lines = costDays.map(function (r) { seen[r.date] = true; return r; });
-    Object.keys(adByDay).forEach(function (d) { if (!seen[d]) lines.push({ date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); });
+    var blank = function (d) { if (!seen[d] && d <= today) { seen[d] = true; lines.push({ date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); } };
+    Object.keys(adByDay).forEach(blank);
+    Object.keys(incByDay).forEach(blank);
+    Object.keys(fixedByMonth).forEach(function (m) { (fixedByMonth[m] || []).forEach(function (x) { blank(m + '-' + String(x.day || 10).padStart(2, '0')); }); });
     lines.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var r2 = function (x) { return Math.round((Number(x) || 0) * 100) / 100; };
     return lines.map(function (r) {
       var wa = r.wa_cost_usd_cents / 100 * USD_ILS, shir = r.shir_cost_usd_cents / 100 * USD_ILS, ads = adByDay[r.date] || 0;
-      return { date: r.date, out: r.wa_out, tmpl: r.wa_tmpl, fail: r.wa_fail || '', wa: wa, shir: shir, ads: ads, total: wa + shir + ads };
+      var inc = incByDay[r.date] || { revenue: 0, vat: 0, fees: 0, payments: 0, deals: [] };
+      var fxItems = (fixedByMonth[r.date.slice(0, 7)] || []).filter(function (x) { return (x.day || 10) === Number(r.date.slice(8, 10)); });
+      var fixed = fxItems.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0);
+      var total = r2(wa + shir + ads + inc.fees + fixed), profit = r2(inc.revenue - total);
+      return { date: r.date, out: r.wa_out, tmpl: r.wa_tmpl, fail: r.wa_fail || '', wa: wa, shir: shir, ads: ads,
+        rev: inc.revenue, vat: inc.vat, fee: inc.fees, feeEst: !!inc.fee_estimated, pay: inc.payments, deals: inc.deals || [], fixed: fixed, fixedItems: fxItems,
+        total: total, profit: profit, net: r2(profit - inc.vat) };
     });
   }
   function renderCostTable() {
-    if (!costDays.length && !Object.keys(adByDay).length) return;
+    if (!costDays.length && !Object.keys(adByDay).length && !Object.keys(incByDay).length) return;
     keepScroll($('costRows'), function () {
       $('costRows').innerHTML = costLines().slice(-60).reverse().map(function (l) {
-        return '<tr><td>' + heDate(l.date) + '</td><td>' + l.out + '</td><td>' + l.tmpl +
+        var col = function (v) { return v > 0 ? 'var(--ok)' : v < 0 ? 'var(--warn)' : 'inherit'; };
+        return '<tr><td>' + heDate(l.date) + '</td><td>' + (l.rev ? '<b>' + l.rev.toFixed(2) + '</b>' : '') + '</td><td>' + l.out + '</td><td>' + l.tmpl +
           '</td><td>' + l.fail + '</td><td>' + l.wa.toFixed(2) +
           '</td><td>' + l.shir.toFixed(2) + '</td><td>' + (l.ads ? l.ads.toFixed(2) : '') +
-          '</td><td><b>' + l.total.toFixed(2) + '</b></td></tr>';
+          '</td><td>' + (l.fee ? l.fee.toFixed(2) + (l.feeEst ? ' ≈' : '') : '') + '</td><td>' + (l.fixed ? l.fixed.toFixed(2) : '') +
+          '</td><td><b>' + l.total.toFixed(2) + '</b></td><td dir="ltr" style="color:' + col(l.profit) + '">' + l.profit.toFixed(2) +
+          '</td><td>' + (l.vat ? l.vat.toFixed(2) : '') + '</td><td dir="ltr" style="color:' + col(l.net) + '"><b>' + l.net.toFixed(2) + '</b></td></tr>';
       }).join('');
     });
+    if (window.IshurJournal && $('pjHost')) { if (!pj) pj = window.IshurJournal.mount($('pjHost'), costLines); else pj.redraw(); }
   }
 
   function downloadCsv(name, header, rows) {
@@ -1930,9 +1951,9 @@
   }
   $('csvDays').addEventListener('click', function () {
     downloadCsv('ishur-costs-daily.csv',
-      ['תאריך', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪', 'פרסום ₪', 'סה״כ ₪'],
+      ['תאריך', 'הכנסות ₪', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪', 'פרסום ₪', 'סליקה ₪', 'קבועות ₪', 'סה״כ הוצאות ₪', 'רווח ₪', 'מע״מ ₪', 'רווח אחרי מע״מ ₪'],
       costLines().map(function (l) {
-        return [l.date, l.out, l.tmpl, l.fail, l.wa.toFixed(2), l.shir.toFixed(2), l.ads.toFixed(2), l.total.toFixed(2)];
+        return [l.date, l.rev.toFixed(2), l.out, l.tmpl, l.fail, l.wa.toFixed(2), l.shir.toFixed(2), l.ads.toFixed(2), l.fee.toFixed(2), l.fixed.toFixed(2), l.total.toFixed(2), l.profit.toFixed(2), l.vat.toFixed(2), l.net.toFixed(2)];
       }));
   });
   $('csvEvents').addEventListener('click', function () {
