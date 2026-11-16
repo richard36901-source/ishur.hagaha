@@ -99,29 +99,15 @@
       rows.map(function (l) { return '<tr data-pj-day="' + l.date + '" tabindex="0"><td>' + dm(l.date) + '/' + l.date.slice(2, 4) + '</td><td><b>' + c(l.rev) + '</b></td><td>' + (l.pay || '') + '</td><td>' + c(l.ads) + '</td><td>' + c(l.wa) + '</td><td>' + c(l.shir) + '</td><td>' + c(l.fee) + (l.feeEst && l.fee ? ' ≈' : '') + '</td><td>' + c(l.fixed) + '</td><td>' + c(l.evc) + '</td><td>' + n2(l.total) + '</td><td>' + c(l.vat) + '</td><td' + col(l.net) + '><b dir="ltr">' + n2(l.net) + '</b></td></tr>'; }).join('') +
       '</tbody></table></div>';
   }
-  /* bars with a ₪ axis (y) and a date axis (x): income beside everything that went out (costs + VAT), per day; per week or month on long ranges */
+  /* income, what went out (costs + VAT) and what is left: only the profit carries colour */
   function chartHtml(lines, from, to) {
     var days = Math.round((Date.parse(to) - Date.parse(from)) / 864e5) + 1, mode = days <= 45 ? 'day' : days <= 190 ? 'week' : 'month', b = {}, order = [];
     var keyOf = function (d) { if (mode === 'day') return d; if (mode === 'month') return d.slice(0, 7); var x = new Date(Date.parse(d + 'T12:00:00Z')); return shiftDay(d, -x.getUTCDay()); };
-    for (var d = from; d <= to; d = shiftDay(d, 1)) { var k = keyOf(d); if (!b[k]) { b[k] = { k: k, inc: 0, out: 0 }; order.push(k); } }
-    lines.forEach(function (l) { if (l.date < from || l.date > to) return; var x = b[keyOf(l.date)]; if (!x) return; x.inc = r2(x.inc + (l.rev || 0)); x.out = r2(x.out + (l.total || 0) + (l.vat || 0)); });
-    var max = 0; order.forEach(function (k) { max = Math.max(max, b[k].inc, b[k].out); });
-    if (!max) return '<p class="pj-note">אין פעילות בתקופה הזאת.</p>';
-    var step = Math.pow(10, Math.floor(Math.log10(max))); step = max / step < 2 ? step / 4 : max / step < 5 ? step / 2 : step; var top = Math.ceil(max / step) * step;
-    var W = 760, H = 260, L = 52, R = 8, T = 10, B = 30, pw = W - L - R, ph = H - T - B, n = order.length, slot = pw / n, bw = Math.max(2, Math.min(18, slot * 0.36));
-    var g = '';
-    for (var v = 0; v <= top + 0.001; v += step) { var y = T + ph - ph * v / top; g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y.toFixed(1) + '" y2="' + y.toFixed(1) + '" class="pj-gl"/><text x="' + (L - 6) + '" y="' + (y + 4).toFixed(1) + '" text-anchor="end" class="pj-ax">₪' + n0(v) + '</text>'; }
-    var every = Math.ceil(n / 12);
-    order.forEach(function (k, i) {
-      var x0 = L + slot * i + slot / 2, hi = ph * b[k].inc / top, ho = ph * b[k].out / top, lbl = mode === 'month' ? k.slice(5, 7) + '/' + k.slice(2, 4) : dm(k);
-      var tip = lbl + ' · הכנסות ₪' + n0(b[k].inc) + ' · הוצאות ומע״מ ₪' + n0(b[k].out);
-      if (hi > 0) g += '<rect x="' + (x0 - bw - 1).toFixed(1) + '" y="' + (T + ph - hi).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + hi.toFixed(1) + '" rx="2" class="pj-bi"><title>' + esc(tip) + '</title></rect>';
-      if (ho > 0) g += '<rect x="' + (x0 + 1).toFixed(1) + '" y="' + (T + ph - ho).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + ho.toFixed(1) + '" rx="2" class="pj-bo"><title>' + esc(tip) + '</title></rect>';
-      if (i % every === 0) g += '<text x="' + x0.toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle" class="pj-ax">' + lbl + '</text>';
-    });
-    g += '<line x1="' + L + '" x2="' + L + '" y1="' + T + '" y2="' + (T + ph) + '" class="pj-axl"/><line x1="' + L + '" x2="' + (W - R) + '" y1="' + (T + ph) + '" y2="' + (T + ph) + '" class="pj-axl"/>';
-    return '<div class="pj-chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="הכנסות מול הוצאות לפי ' + (mode === 'day' ? 'יום' : mode === 'week' ? 'שבוע' : 'חודש') + '" direction="ltr">' + g + '</svg>' +
-      '<p class="pj-leg"><i class="pj-li"></i>הכנסות <i class="pj-lo"></i>הוצאות ומע״מ · ציר אנכי בשקלים, ציר אופקי לפי ' + (mode === 'day' ? 'יום' : mode === 'week' ? 'שבוע (תחילת השבוע)' : 'חודש') + '</p></div>';
+    for (var d = from; d <= to; d = shiftDay(d, 1)) { var k = keyOf(d); if (!b[k]) { b[k] = { k: k, inc: 0, out: 0, net: 0 }; order.push(k); } }
+    lines.forEach(function (l) { if (l.date < from || l.date > to) return; var x = b[keyOf(l.date)]; if (!x) return; x.inc = r2(x.inc + (l.rev || 0)); x.out = r2(x.out + (l.total || 0) + (l.vat || 0)); x.net = r2(x.net + (l.net || 0)); });
+    return chartBars({ aria: 'הכנסות, הוצאות ורווח לפי ' + (mode === 'day' ? 'יום' : mode === 'week' ? 'שבוע' : 'חודש'),
+      buckets: order.map(function (k) { var lbl = mode === 'month' ? k.slice(5, 7) + '/' + k.slice(2, 4) : dm(k); return { label: lbl, title: (mode === 'week' ? 'שבוע שמתחיל ב-' : '') + lbl, v: { inc: b[k].inc, out: b[k].out, net: b[k].net } }; }),
+      series: [{ k: 'inc', label: 'הכנסות', tone: 'a' }, { k: 'out', label: 'הוצאות ומע״מ', tone: 'b' }, { k: 'net', label: 'רווח אחרי מע״מ', tone: 'hi' }] });
   }
   function panelHtml(lines, st) {
     var seg = function (items, cur, attr) { return '<span class="pj-seg">' + items.map(function (x) { return '<button type="button" ' + attr + '="' + x[0] + '" aria-pressed="' + (x[0] === cur) + '">' + x[1] + '</button>'; }).join('') + '</span>'; };
@@ -164,7 +150,9 @@
     '.pj-t{border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);padding:.7rem .8rem;display:flex;flex-direction:column;gap:.1rem;min-width:0}.pj-t b{font-size:1.35rem;line-height:1.15;color:var(--pine,#0F2E22)}.pj-t span{font-size:.76rem;color:var(--ink3,#7A8279)}.pj-t small{font-size:.7rem;color:var(--ink3,#7A8279)}' +
     '.pj-t.pj-profit{background:#EAF4EE}.pj-t.pj-profit b{color:#0F4C35}.pj-t.pj-loss{background:#FBECEA}.pj-t.pj-loss b{color:#8E2F22}' +
     '.pj-tw{overflow:auto;border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);max-height:520px}.pj-tbl{border-collapse:collapse;width:100%;font-size:.82rem}.pj-tbl th{position:sticky;top:0;background:var(--card,#fff);font-size:.7rem;color:var(--ink3,#7A8279);text-align:start;padding:.5rem .6rem;border-bottom:1px solid var(--line,#E3E1D8);white-space:nowrap}.pj-tbl td{padding:.45rem .6rem;border-bottom:1px solid rgba(0,0,0,.05);white-space:nowrap}.pj-tbl tbody tr{cursor:pointer}.pj-tbl tbody tr:hover{background:rgba(0,0,0,.03)}.pj-pos{color:#0F4C35}.pj-neg{color:#8E2F22}' +
-    '.pj-chart{border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);padding:.6rem .6rem .4rem}.pj-chart svg{display:block;width:100%;height:auto}.pj-gl{stroke:rgba(0,0,0,.08);stroke-width:1}.pj-axl{stroke:var(--ink3,#7A8279);stroke-width:1}.pj-ax{font-size:10px;fill:var(--ink3,#7A8279)}.pj-bi{fill:#1F7A52}.pj-bo{fill:#C56A5B}.pj-leg i.pj-li{background:#1F7A52}.pj-leg i.pj-lo{background:#C56A5B}' +
+    '.pj-chart{border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);padding:.6rem .6rem .4rem}.pj-chart svg{display:block;width:100%;height:auto}.pj-gl{stroke:rgba(0,0,0,.08);stroke-width:1}.pj-axl{stroke:var(--ink3,#7A8279);stroke-width:1}.pj-ax{font-size:10px;fill:var(--ink3,#7A8279)}.pj-bi{fill:#1F7A52}.pj-bo{fill:#C56A5B}.pj-b1{fill:#7F8C85}.pj-b2{fill:#C4CCC7}.pj-bh{fill:#1F7A52}.pj-bn{fill:#C0503F}.pj-ln{fill:none;stroke:#A8853C;stroke-width:1.6}.pj-ld{fill:#A8853C}.pj-hit{fill:transparent;cursor:pointer;outline:none}.pj-hit:hover,.pj-hit:focus{fill:rgba(0,0,0,.05)}' +
+    '.pj-leg i.pj-k1{background:#7F8C85}.pj-leg i.pj-k2{background:#C4CCC7}.pj-leg i.pj-kh{background:#1F7A52}.pj-leg i.pj-kl{background:#A8853C;height:.2rem;border:0;vertical-align:middle}' +
+    '.pj-tip{position:fixed;z-index:9999;background:#13241c;color:#fff;font-size:12.5px;line-height:1.55;padding:7px 10px;border-radius:8px;white-space:pre;pointer-events:none;direction:rtl;text-align:right}.pj-leg i.pj-li{background:#1F7A52}.pj-leg i.pj-lo{background:#C56A5B}' +
     '@media (prefers-color-scheme:dark){.pj-t.pj-profit{background:#17382A}.pj-t.pj-profit b{color:#8FD3AE}.pj-t.pj-loss{background:#3F211D}.pj-t.pj-loss b{color:#F2A79C}.pj-gl{stroke:rgba(255,255,255,.1)}}' +
     '.pj-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px}.pj-nav b{font-size:1.05rem;color:var(--pine,#0F2E22)}' +
     '.pj-seg{display:inline-flex;border:1px solid var(--line,#E3E1D8);border-radius:8px;overflow:hidden;background:var(--card,#fff)}.pj-seg button{display:inline-grid;place-items:center;border:0!important;border-radius:0!important;border-inline-start:1px solid var(--line,#E3E1D8)!important}.pj-seg button:first-child{border-inline-start:0!important}' +
@@ -192,7 +180,7 @@
     '@media (prefers-color-scheme:dark){.pj-c.pj-profit{background:#17382A}.pj-c.pj-loss{background:#3F211D}.pj-profit .pj-net{background:#235A40;color:#CFE8D8}.pj-loss .pj-net{background:#6A2E26;color:#F6D3CE}.pj-big.pj-profit{background:#17382A}.pj-big.pj-profit b{color:#8FD3AE}.pj-big.pj-loss{background:#3F211D}.pj-big.pj-loss b{color:#F2A79C}.pj-chip.pj-in{color:#E1C98F}}';
   function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   var cssDone = false;
-  function ensureCss() { if (cssDone || !root.document) return; cssDone = true; var st0 = root.document.createElement('style'); st0.textContent = CSS; root.document.head.appendChild(st0); }
+  function ensureCss() { ensureTip(); if (cssDone || !root.document) return; cssDone = true; var st0 = root.document.createElement('style'); st0.textContent = CSS; root.document.head.appendChild(st0); }
   function mount(host, getLines) {
     var doc = root.document; if (!host || host.dataset.pj) return null;
     host.dataset.pj = '1';
@@ -216,6 +204,49 @@
     draw();
     return { redraw: draw };
   }
+  /* ── one chart for every screen (Richard 16/11: "x/y כמו שצריך, לראות את הנתונים עם העכבר, ורק רווח בצבע אחר") ──
+     Grouped bars with a value axis (y) and a label axis (x); an optional thin line on its own scale; negative values
+     drop under the zero line. Every column answers the mouse (and a tap) with all its numbers.
+     o = { buckets:[{label, title, v:{key:number}}], series:[{k, label, tone:'a'|'b'|'hi'}], line:{k,label}, unit:'₪'|'' , aria } */
+  function niceStep(span) { var p = Math.pow(10, Math.floor(Math.log10(span || 1))), f = span / p; return (f < 2 ? 0.25 : f < 5 ? 0.5 : 1) * p; }
+  function chartBars(o) {
+    var B = o.buckets || [], S = o.series || [], unit = o.unit == null ? '₪' : o.unit, max = 0, min = 0;
+    B.forEach(function (b) { S.forEach(function (x) { var v = Number(b.v[x.k]) || 0; if (v > max) max = v; if (v < min) min = v; }); });
+    if (!B.length || (!max && !min)) return '<p class="pj-note">אין נתונים בתקופה הזאת.</p>';
+    var step = niceStep(max - min), top = Math.ceil(max / step) * step, bot = Math.floor(min / step) * step, span = top - bot || 1;
+    var W = 760, H = 250, L = 54, R = 8, T = 10, Bm = 30, pw = W - L - R, ph = H - T - Bm, n = B.length, slot = pw / n, bw = Math.max(2, Math.min(16, slot * 0.8 / S.length - 1));
+    var y = function (v) { return T + ph - ph * (v - bot) / span; }, g = '';
+    for (var v = bot; v <= top + step / 1e6; v += step) g += '<line x1="' + L + '" x2="' + (W - R) + '" y1="' + y(v).toFixed(1) + '" y2="' + y(v).toFixed(1) + '" class="' + (Math.abs(v) < step / 1e6 ? 'pj-axl' : 'pj-gl') + '"/><text x="' + (L - 6) + '" y="' + (y(v) + 4).toFixed(1) + '" text-anchor="end" class="pj-ax">' + (v < 0 ? '−' : '') + unit + n0(v) + '</text>';
+    var every = Math.ceil(n / 12), pts = [], lmax = 0;
+    if (o.line) B.forEach(function (b) { lmax = Math.max(lmax, Number(b.v[o.line.k]) || 0); });
+    B.forEach(function (b, i) {
+      var x0 = L + slot * i + slot / 2, gw = S.length * (bw + 1), tip = (b.title || b.label);
+      S.forEach(function (x, j) {
+        var val = Number(b.v[x.k]) || 0; tip += '\n' + x.label + ': ' + (val < 0 ? '−' : '') + unit + n0(val);
+        if (!val) return;
+        var y0 = y(Math.max(val, 0)), h = Math.abs(y(val) - y(0));
+        g += '<rect x="' + (x0 - gw / 2 + j * (bw + 1)).toFixed(1) + '" y="' + y0.toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + Math.max(1, h).toFixed(1) + '" rx="2" class="pj-b' + (x.tone === 'hi' ? (val < 0 ? 'n' : 'h') : x.tone === 'b' ? '2' : '1') + '"/>';
+      });
+      if (o.line) { var lv = Number(b.v[o.line.k]) || 0; tip += '\n' + o.line.label + ': ' + n0(lv); pts.push([x0, T + ph - (lmax ? ph * 0.9 * lv / lmax : 0)]); }
+      if (i % every === 0) g += '<text x="' + x0.toFixed(1) + '" y="' + (H - 10) + '" text-anchor="middle" class="pj-ax">' + esc(b.label) + '</text>';
+      g += '<rect x="' + (L + slot * i).toFixed(1) + '" y="' + T + '" width="' + slot.toFixed(1) + '" height="' + ph + '" class="pj-hit" tabindex="0" data-tip="' + esc(tip) + '"/>';
+    });
+    if (pts.length) g = g.replace(/(<rect [^>]*class="pj-hit")/, '<polyline points="' + pts.map(function (p) { return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' ') + '" class="pj-ln"/>' + pts.map(function (p) { return '<circle cx="' + p[0].toFixed(1) + '" cy="' + p[1].toFixed(1) + '" r="2.5" class="pj-ld"/>'; }).join('') + '$1');
+    g += '<line x1="' + L + '" x2="' + L + '" y1="' + T + '" y2="' + (T + ph) + '" class="pj-axl"/>';
+    var leg = S.map(function (x) { return '<i class="pj-k' + (x.tone === 'hi' ? 'h' : x.tone === 'b' ? '2' : '1') + '"></i>' + esc(x.label); }).join(' ') + (o.line ? ' <i class="pj-kl"></i>' + esc(o.line.label) + ' (קו, בסולם משלו)' : '');
+    return '<div class="pj-chart"><svg viewBox="0 0 ' + W + ' ' + H + '" role="img" aria-label="' + esc(o.aria || '') + '" direction="ltr">' + g + '</svg><p class="pj-leg">' + leg + '</p></div>';
+  }
+  /* the tooltip all charts share: follows the mouse, also shows on keyboard focus and on a tap */
+  var tipEl = null;
+  function ensureTip() {
+    var doc = root.document; if (tipEl || !doc) return;
+    tipEl = doc.createElement('div'); tipEl.className = 'pj-tip'; tipEl.hidden = true; doc.body.appendChild(tipEl);
+    var show = function (t, x, yy) { tipEl.textContent = t.getAttribute('data-tip'); tipEl.hidden = false; var w = tipEl.offsetWidth, h = tipEl.offsetHeight; tipEl.style.left = Math.max(8, Math.min(root.innerWidth - w - 8, x - w / 2)) + 'px'; tipEl.style.top = Math.max(8, yy - h - 14) + 'px'; };
+    doc.addEventListener('mousemove', function (e) { var t = e.target.closest ? e.target.closest('[data-tip]') : null; if (t) show(t, e.clientX, e.clientY); else tipEl.hidden = true; });
+    doc.addEventListener('focusin', function (e) { var t = e.target.closest ? e.target.closest('[data-tip]') : null; if (t) { var r = t.getBoundingClientRect(); show(t, r.left + r.width / 2, r.top + 40); } });
+    doc.addEventListener('focusout', function () { tipEl.hidden = true; });
+  }
+
   /* the day lines from the two server answers (cost-log + Meta's daily spend) — the same sums the money screen shows */
   function buildLines(cost, adByDay, usdIls, today) {
     cost = cost || {}; adByDay = adByDay || {}; usdIls = usdIls || 3.7;
@@ -233,7 +264,7 @@
       return { date: r.date, wa: wa, shir: shir, ads: ads, rev: i.revenue, vat: i.vat, fee: i.fees, feeEst: !!i.fee_estimated, pay: i.payments, deals: i.deals || [], fixed: fixed, fixedItems: items, evc: evc, evItems: evItems, total: total, profit: profit, net: r2(profit - i.vat) };
     });
   }
-  var api = { mount: mount, render: render, dayHtml: dayHtml, buildLines: buildLines, ensureCss: ensureCss, signed: signed, n0: n0, panelHtml: panelHtml, totals: totals, rangeOf: rangeOf, chartHtml: chartHtml, listHtml: listHtml, monthTotals: monthTotals, toneOf: toneOf, addMonth: addMonth };
+  var api = { mount: mount, render: render, dayHtml: dayHtml, buildLines: buildLines, chartBars: chartBars, ensureCss: ensureCss, signed: signed, n0: n0, panelHtml: panelHtml, totals: totals, rangeOf: rangeOf, chartHtml: chartHtml, listHtml: listHtml, monthTotals: monthTotals, toneOf: toneOf, addMonth: addMonth };
   root.IshurJournal = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

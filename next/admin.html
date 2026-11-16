@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=6"></script>
-<script src="/assets/pnl-journal.js?v=9"></script>
+<script src="/assets/pnl-journal.js?v=10"></script>
 <script src="/assets/fixed-costs.js?v=2"></script>
 <script src="/assets/playbook.js?v=4"></script>
 <script src="/assets/sendboard.js?v=3"></script>
@@ -1649,6 +1649,13 @@
        whether the ads are bringing anyone the site has not already met */
     var svg = $('tchart'); svg.innerHTML = '';
     var days = (d.days || []).slice(-14);
+    if (window.IshurJournal && IshurJournal.chartBars) {
+      IshurJournal.ensureCss();
+      var tb2 = $('tchart2'); if (!tb2) { tb2 = document.createElement('div'); tb2.id = 'tchart2'; svg.parentNode.insertBefore(tb2, svg); svg.style.display = 'none'; var ol = svg.nextElementSibling; if (ol && ol.id !== 'ttip') ol.style.display = 'none'; }
+      tb2.innerHTML = IshurJournal.chartBars({ aria: 'מבקרים באתר לפי יום', unit: '',
+        buckets: days.map(function (r) { var q = String(r.date).split('-'); return { label: q[2] + '/' + q[1], v: { fresh: r.fresh || 0, ret: Math.max(0, (r.visitors || 0) - (r.fresh || 0)) } }; }),
+        series: [{ k: 'fresh', label: 'חדשים', tone: 'a' }, { k: 'ret', label: 'חוזרים', tone: 'b' }] });
+    }
     var max = 1;
     days.forEach(function (r) { max = Math.max(max, r.visitors || 0); });
     var W = 720, H = 120, bw = Math.max(3, W / Math.max(days.length, 1) - 3);
@@ -2736,6 +2743,15 @@
       var from = s.toISOString().slice(0, 10), to = e.toISOString().slice(0, 10);
       if (to > today) to = today;
       var a = agg(from, to); a.from = from; weeks.push(a);
+    }
+    /* 16/11: the shared chart (axes, hover with every number, only the profit in colour) replaces the hand-drawn svg */
+    if (window.IshurJournal && IshurJournal.chartBars) {
+      IshurJournal.ensureCss();
+      var gb = $('gchart2'); if (!gb) { gb = document.createElement('div'); gb.id = 'gchart2'; svg.parentNode.insertBefore(gb, svg); svg.style.display = 'none'; var lg0 = svg.parentNode.querySelector('.lg'); if (lg0) lg0.style.display = 'none'; }
+      gb.innerHTML = IshurJournal.chartBars({ aria: 'הכנסות, פרסום ורווח לפי שבוע', line: { k: 'leads', label: 'לידים' },
+        buckets: weeks.map(function (w) { var lb = w.from.slice(8, 10) + '/' + w.from.slice(5, 7); return { label: lb, title: 'שבוע שמתחיל ב-' + lb + ' · ' + (w.pay || 0) + ' לקוחות', v: { rev: Math.round(w.rev || 0), spend: Math.round(w.spend || 0), net: Math.round((w.rev || 0) - (w.spend || 0)), leads: w.leads || 0 } }; }),
+        series: [{ k: 'rev', label: 'הכנסות', tone: 'a' }, { k: 'spend', label: 'הוצאת מודעות', tone: 'b' }, { k: 'net', label: 'הכנסות פחות מודעות', tone: 'hi' }] });
+      return;
     }
     var max = 1; weeks.forEach(function (w) { max = Math.max(max, w.rev, w.spend); });
     var maxL = 1; weeks.forEach(function (w) { maxL = Math.max(maxL, w.leads); });
