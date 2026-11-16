@@ -74,7 +74,7 @@ import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleS
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
-import { fixedCostAction, buildIncomeDays } from './ops-money.js';   /* 03/11 recurring fixed costs */
+import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
@@ -8257,6 +8257,7 @@ async function handleCostLog(request, env, origin) {
     days: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
     events,
     income: inc.income, fixed: inc.fixed, vat_rate: inc.vat_rate, fee_cfg: inc.fee_cfg, income_truncated: inc.truncated,
+    extras: await (async () => { const out = []; try { const names = Object.fromEntries(events.map(e => [e.token8, e.name || e.client])); for (const [k, v] of Object.entries(await kvPrefix(env, 'evextra:'))) for (const x of JSON.parse(v) || []) out.push({ tok8: k, name: names[k] || '', ...x }); } catch {} return out; })(),
     generated_at: new Date().toISOString(),
   }, origin);
 }
@@ -13928,6 +13929,25 @@ const WORKER = {
     }
     /* 16/11 the one journal (next/calendar.html): the hostess layer — who is booked on which day, and the days marked
        "no hostess available" by hand (hostessoff:<date>). Saturdays are greyed by the page itself. */
+    /* 16/11 a cost that belongs to one event (hostess wages, a courier…): evextra:<tok8> = [{id,label,ils,day}].
+       POST {action:'list'|'add'|'remove', tok8, label, ils, day, id} — it enters the day and month profit on its day. */
+    if (url.pathname === '/api/event-cost' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      const t8 = String(b.tok8 || '').trim();
+      if (b.action === 'add' || b.action === 'remove') {
+        if (!/^[0-9a-f]{8}$/.test(t8)) return deny(400, 'bad-event', origin);
+        let cur = []; try { cur = JSON.parse(await env.RATE.get('evextra:' + t8) || '[]') || []; } catch {}
+        const out = editEventCosts(cur, b.action === 'remove' ? { remove: b.id } : b, ilDate());
+        if (!out.ok) return deny(400, out.error || 'bad-input', origin);
+        if (out.list.length) await env.RATE.put('evextra:' + t8, JSON.stringify(out.list)); else await env.RATE.delete('evextra:' + t8);
+        await env.RATE.delete('incdays').catch(() => {});
+      }
+      const all = await kvPrefix(env, 'evextra:'), items = [];
+      for (const [k, v] of Object.entries(all)) { try { for (const x of JSON.parse(v) || []) items.push({ tok8: k, ...x }); } catch {} }
+      return okJson({ ok: true, items: items.sort((x, y) => String(y.day).localeCompare(String(x.day))) }, origin);
+    }
     if (url.pathname === '/api/journal-hostess' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

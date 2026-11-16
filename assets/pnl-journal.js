@@ -18,10 +18,10 @@
   function toneOf(l) { if (!l || !(l.rev > 0 || l.total > 0)) return 'none'; return l.net > 0 ? 'profit' : l.net < 0 ? 'loss' : 'none'; }
   function addMonth(m, d) { var y = +m.slice(0, 4), mo = +m.slice(5, 7) - 1 + d; y += Math.floor(mo / 12); mo = ((mo % 12) + 12) % 12; return y + '-' + String(mo + 1).padStart(2, '0'); }
   function monthTotals(lines, month) {
-    var t = { rev: 0, vat: 0, fee: 0, wa: 0, shir: 0, ads: 0, fixed: 0, total: 0, profit: 0, net: 0, pay: 0, green: 0, red: 0, feeEst: false };
+    var t = { rev: 0, vat: 0, fee: 0, wa: 0, shir: 0, ads: 0, fixed: 0, evc: 0, total: 0, profit: 0, net: 0, pay: 0, green: 0, red: 0, feeEst: false };
     lines.forEach(function (l) {
       if (String(l.date).slice(0, 7) !== month) return;
-      ['rev', 'vat', 'fee', 'wa', 'shir', 'ads', 'fixed', 'total', 'profit', 'net', 'pay'].forEach(function (k) { t[k] = r2(t[k] + (Number(l[k]) || 0)); });
+      ['rev', 'vat', 'fee', 'wa', 'shir', 'ads', 'fixed', 'evc', 'total', 'profit', 'net', 'pay'].forEach(function (k) { t[k] = r2(t[k] + (Number(l[k]) || 0)); });
       if (l.feeEst) t.feeEst = true;
       var tn = toneOf(l); if (tn === 'profit') t.green++; else if (tn === 'loss') t.red++;
     });
@@ -56,7 +56,7 @@
       row('מע״מ עסקאות לתשלום', '−₪' + n2(t.vat)) +
       row('הכנסות בלי מע״מ', '₪' + n2(t.rev - t.vat), 'pj-sum') +
       row('פרסום במטא', '−₪' + n2(t.ads)) + row('וואטסאפ', '−₪' + n2(t.wa)) + row('שיחות (שיר)', '−₪' + n2(t.shir)) +
-      row('עמלות סליקה Grow' + (t.feeEst ? ' ≈' : ''), '−₪' + n2(t.fee)) + row('הוצאות קבועות', '−₪' + n2(t.fixed)) +
+      row('עמלות סליקה Grow' + (t.feeEst ? ' ≈' : ''), '−₪' + n2(t.fee)) + row('הוצאות קבועות', '−₪' + n2(t.fixed)) + (t.evc ? row('עלויות אירועים (דיילות ועוד)', '−₪' + n2(t.evc)) : '') +
       row('סך ההוצאות', '−₪' + n2(t.total), 'pj-sum') +
       row('רווח לפני מע״מ', signed(t.profit)) +
       row('ימים', t.green + ' ברווח · ' + t.red + ' בהפסד') + '</div>';
@@ -73,10 +73,10 @@
     return { from: today.slice(0, 7) + '-01', to: today };
   }
   function totals(lines, from, to) {
-    var t = { rev: 0, vat: 0, fee: 0, wa: 0, shir: 0, ads: 0, fixed: 0, total: 0, profit: 0, net: 0, pay: 0, green: 0, red: 0, feeEst: false };
+    var t = { rev: 0, vat: 0, fee: 0, wa: 0, shir: 0, ads: 0, fixed: 0, evc: 0, total: 0, profit: 0, net: 0, pay: 0, green: 0, red: 0, feeEst: false };
     lines.forEach(function (l) {
       if (l.date < from || l.date > to) return;
-      ['rev', 'vat', 'fee', 'wa', 'shir', 'ads', 'fixed', 'total', 'profit', 'net', 'pay'].forEach(function (k) { t[k] = r2(t[k] + (Number(l[k]) || 0)); });
+      ['rev', 'vat', 'fee', 'wa', 'shir', 'ads', 'fixed', 'evc', 'total', 'profit', 'net', 'pay'].forEach(function (k) { t[k] = r2(t[k] + (Number(l[k]) || 0)); });
       if (l.feeEst) t.feeEst = true;
       var tn = toneOf(l); if (tn === 'profit') t.green++; else if (tn === 'loss') t.red++;
     });
@@ -95,8 +95,8 @@
     var rows = lines.filter(function (l) { return l.date >= from && l.date <= to && (l.rev > 0 || l.total > 0); }).sort(function (a, b) { return a.date < b.date ? 1 : -1; });
     if (!rows.length) return '<p class="pj-note">אין פעילות בתקופה הזאת.</p>';
     var c = function (v) { return v ? n2(v) : ''; }, col = function (v) { return v > 0 ? ' class="pj-pos"' : v < 0 ? ' class="pj-neg"' : ''; };
-    return '<div class="pj-tw"><table class="pj-tbl"><thead><tr><th>תאריך</th><th>הכנסות</th><th>עסקאות</th><th>פרסום</th><th>וואטסאפ</th><th>שיחות</th><th>סליקה</th><th>קבועות</th><th>סה״כ הוצאות</th><th>מע״מ</th><th>רווח אחרי מע״מ</th></tr></thead><tbody>' +
-      rows.map(function (l) { return '<tr data-pj-day="' + l.date + '" tabindex="0"><td>' + dm(l.date) + '/' + l.date.slice(2, 4) + '</td><td><b>' + c(l.rev) + '</b></td><td>' + (l.pay || '') + '</td><td>' + c(l.ads) + '</td><td>' + c(l.wa) + '</td><td>' + c(l.shir) + '</td><td>' + c(l.fee) + (l.feeEst && l.fee ? ' ≈' : '') + '</td><td>' + c(l.fixed) + '</td><td>' + n2(l.total) + '</td><td>' + c(l.vat) + '</td><td' + col(l.net) + '><b dir="ltr">' + n2(l.net) + '</b></td></tr>'; }).join('') +
+    return '<div class="pj-tw"><table class="pj-tbl"><thead><tr><th>תאריך</th><th>הכנסות</th><th>עסקאות</th><th>פרסום</th><th>וואטסאפ</th><th>שיחות</th><th>סליקה</th><th>קבועות</th><th>אירועים</th><th>סה״כ הוצאות</th><th>מע״מ</th><th>רווח אחרי מע״מ</th></tr></thead><tbody>' +
+      rows.map(function (l) { return '<tr data-pj-day="' + l.date + '" tabindex="0"><td>' + dm(l.date) + '/' + l.date.slice(2, 4) + '</td><td><b>' + c(l.rev) + '</b></td><td>' + (l.pay || '') + '</td><td>' + c(l.ads) + '</td><td>' + c(l.wa) + '</td><td>' + c(l.shir) + '</td><td>' + c(l.fee) + (l.feeEst && l.fee ? ' ≈' : '') + '</td><td>' + c(l.fixed) + '</td><td>' + c(l.evc) + '</td><td>' + n2(l.total) + '</td><td>' + c(l.vat) + '</td><td' + col(l.net) + '><b dir="ltr">' + n2(l.net) + '</b></td></tr>'; }).join('') +
       '</tbody></table></div>';
   }
   /* bars with a ₪ axis (y) and a date axis (x): income beside everything that went out (costs + VAT), per day; per week or month on long ranges */
@@ -151,6 +151,7 @@
     if (dl.wa > 0) h += row('וואטסאפ', '−₪' + n2(dl.wa));
     if (dl.shir > 0) h += row('שיחות (שיר)', '−₪' + n2(dl.shir));
     (dl.fixedItems || []).forEach(function (x) { h += row('קבועה · ' + esc(x.name), '−₪' + n2(x.ils)); });
+    (dl.evItems || []).forEach(function (x) { h += row(esc(x.label || 'עלות אירוע') + (x.name ? ' · ' + esc(x.name) : ''), '−₪' + n2(x.ils)); });
     return h + row('רווח לפני מע״מ', signed(dl.profit), 'pj-sum') + row('רווח אחרי מע״מ', signed(dl.net), 'pj-sum');
   }
   var CSS = '.pj{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;margin:0 0 14px;align-items:start}' +
@@ -218,16 +219,18 @@
   /* the day lines from the two server answers (cost-log + Meta's daily spend) — the same sums the money screen shows */
   function buildLines(cost, adByDay, usdIls, today) {
     cost = cost || {}; adByDay = adByDay || {}; usdIls = usdIls || 3.7;
-    var inc = cost.income || {}, fx = cost.fixed || {}, seen = {}, rows = (cost.days || []).map(function (r) { seen[r.date] = true; return r; });
+    var inc = cost.income || {}, fx = cost.fixed || {}, exd = {}, seen = {}, rows = (cost.days || []).map(function (r) { seen[r.date] = true; return r; });
     var blank = function (d) { if (!seen[d] && d <= today) { seen[d] = true; rows.push({ date: d, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); } };
-    Object.keys(adByDay).forEach(blank); Object.keys(inc).forEach(blank);
+    (cost.extras || []).forEach(function (x) { if (x.day) (exd[x.day] = exd[x.day] || []).push(x); });
+    Object.keys(adByDay).forEach(blank); Object.keys(inc).forEach(blank); Object.keys(exd).forEach(blank);
     Object.keys(fx).forEach(function (m) { (fx[m] || []).forEach(function (x) { blank(m + '-' + String(x.day || 10).padStart(2, '0')); }); });
     return rows.map(function (r) {
       var wa = (r.wa_cost_usd_cents || 0) / 100 * usdIls, shir = (r.shir_cost_usd_cents || 0) / 100 * usdIls, ads = adByDay[r.date] || 0;
       var i = inc[r.date] || { revenue: 0, vat: 0, fees: 0, payments: 0, deals: [] };
       var items = (fx[r.date.slice(0, 7)] || []).filter(function (x) { return (x.day || 10) === Number(r.date.slice(8, 10)); });
-      var fixed = items.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0), total = r2(wa + shir + ads + i.fees + fixed), profit = r2(i.revenue - total);
-      return { date: r.date, wa: wa, shir: shir, ads: ads, rev: i.revenue, vat: i.vat, fee: i.fees, feeEst: !!i.fee_estimated, pay: i.payments, deals: i.deals || [], fixed: fixed, fixedItems: items, total: total, profit: profit, net: r2(profit - i.vat) };
+      var evItems = exd[r.date] || [], evc = evItems.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0);
+      var fixed = items.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0), total = r2(wa + shir + ads + i.fees + fixed + evc), profit = r2(i.revenue - total);
+      return { date: r.date, wa: wa, shir: shir, ads: ads, rev: i.revenue, vat: i.vat, fee: i.fees, feeEst: !!i.fee_estimated, pay: i.payments, deals: i.deals || [], fixed: fixed, fixedItems: items, evc: evc, evItems: evItems, total: total, profit: profit, net: r2(profit - i.vat) };
     });
   }
   var api = { mount: mount, render: render, dayHtml: dayHtml, buildLines: buildLines, ensureCss: ensureCss, signed: signed, n0: n0, panelHtml: panelHtml, totals: totals, rangeOf: rangeOf, chartHtml: chartHtml, listHtml: listHtml, monthTotals: monthTotals, toneOf: toneOf, addMonth: addMonth };

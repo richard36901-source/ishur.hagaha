@@ -9,7 +9,7 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=72"></script>
+<script src="/config.js?v=74"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=8" defer></script>
@@ -18,8 +18,8 @@
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=6"></script>
-<script src="/assets/pnl-journal.js?v=8"></script>
-<script src="/assets/fixed-costs.js?v=1"></script>
+<script src="/assets/pnl-journal.js?v=9"></script>
+<script src="/assets/fixed-costs.js?v=2"></script>
 <script src="/assets/playbook.js?v=4"></script>
 <script src="/assets/sendboard.js?v=3"></script>
 <script src="/assets/callboard.js?v=1"></script>
@@ -1111,6 +1111,7 @@
     camp(document.getElementById('fold-camp')); camp(document.getElementById('fold-utm')); camp(document.getElementById('cacTile')); camp(document.getElementById('roasTile'));
     /* the per-month fixed-cost editor is replaced by ONE recurring list (assets/fixed-costs.js) under the money block */
     var fxo = document.getElementById('fxList'), fxBox = fxo && fxo.parentNode; if (fxBox) { old(fxBox); if (fxBox.previousElementSibling && fxBox.previousElementSibling.tagName === 'H2') old(fxBox.previousElementSibling); }
+    if (cf) { var eh = document.createElement('div'); eh.id = 'evcHost'; eh.className = 'sec-money'; var aft = document.getElementById('fold-plans') || cf; aft.parentNode.insertBefore(eh, aft.nextSibling); }
     if (cf) { var fh = document.createElement('div'); fh.id = 'fxcHost'; fh.className = 'sec-money'; var after = document.getElementById('fold-plans') || cf; after.parentNode.insertBefore(fh, after.nextSibling); }
     var gi = document.getElementById('g-info'); if (gi) gi.addEventListener('click', function () { var on = document.getElementById('growth').classList.toggle('info-on'); gi.setAttribute('aria-expanded', String(on)); });
     /* "חבילות · מה נמכר" is a number he reads often: straight under the money block, open */
@@ -1933,7 +1934,7 @@
         if (!d || !d.ok) return;
         costDays = d.days || [];
         costEvents = d.events || [];
-        incByDay = d.income || {}; fixedByMonth = d.fixed || {};
+        incByDay = d.income || {}; fixedByMonth = d.fixed || {}; extraByDay = {}; (d.extras || []).forEach(function (x) { if (x.day) (extraByDay[x.day] = extraByDay[x.day] || []).push(x); }); if (window.__evc) window.__evc.set(d.events || [], d.extras || []);
         costMap = {};
         /* 25/10: the worker now sends ₪ per event (cost_ils). costMap keeps it as agorot × USD_ILS so the old formula still yields ₪ */
       costEvents.forEach(function (e) { costMap[e.token8] = e.cost_ils != null ? e.cost_ils * 100 / USD_ILS : e.cost_usd_cents; });
@@ -1948,14 +1949,14 @@
      knows but the message log does not (before 30.8) still get a row. */
   /* 16/11: income per day (payments, VAT inside them, Grow's fee) and the fixed subscriptions on their charge day,
      from the same /api/cost-log answer. profit = income − every cost of the day; net = profit − VAT on sales. */
-  var incByDay = {}, fixedByMonth = {}, pj = null;
+  var incByDay = {}, fixedByMonth = {}, extraByDay = {}, pj = null;
   function ilTodayStr() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   function costLines() {
     var seen = {}, today = ilTodayStr();
     var lines = costDays.map(function (r) { seen[r.date] = true; return r; });
     var blank = function (d) { if (!seen[d] && d <= today) { seen[d] = true; lines.push({ date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); } };
     Object.keys(adByDay).forEach(blank);
-    Object.keys(incByDay).forEach(blank);
+    Object.keys(incByDay).forEach(blank); Object.keys(extraByDay).forEach(blank);
     Object.keys(fixedByMonth).forEach(function (m) { (fixedByMonth[m] || []).forEach(function (x) { blank(m + '-' + String(x.day || 10).padStart(2, '0')); }); });
     lines.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
     var r2 = function (x) { return Math.round((Number(x) || 0) * 100) / 100; };
@@ -1964,9 +1965,10 @@
       var inc = incByDay[r.date] || { revenue: 0, vat: 0, fees: 0, payments: 0, deals: [] };
       var fxItems = (fixedByMonth[r.date.slice(0, 7)] || []).filter(function (x) { return (x.day || 10) === Number(r.date.slice(8, 10)); });
       var fixed = fxItems.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0);
-      var total = r2(wa + shir + ads + inc.fees + fixed), profit = r2(inc.revenue - total);
+      var evItems = extraByDay[r.date] || [], evc = evItems.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0);
+      var total = r2(wa + shir + ads + inc.fees + fixed + evc), profit = r2(inc.revenue - total);
       return { date: r.date, out: r.wa_out, tmpl: r.wa_tmpl, fail: r.wa_fail || '', wa: wa, shir: shir, ads: ads,
-        rev: inc.revenue, vat: inc.vat, fee: inc.fees, feeEst: !!inc.fee_estimated, pay: inc.payments, deals: inc.deals || [], fixed: fixed, fixedItems: fxItems,
+        rev: inc.revenue, vat: inc.vat, fee: inc.fees, feeEst: !!inc.fee_estimated, pay: inc.payments, deals: inc.deals || [], fixed: fixed, fixedItems: fxItems, evc: evc, evItems: evItems,
         total: total, profit: profit, net: r2(profit - inc.vat) };
     });
   }
@@ -1984,6 +1986,7 @@
       }).join('');
     });
     if (window.IshurJournal && $('pjHost')) { if (!pj) pj = window.IshurJournal.mount($('pjHost'), costLines); else pj.redraw(); }
+    if (window.IshurFixed && window.IshurFixed.mountEvents && $('evcHost') && !window.__evc) { window.__evc = window.IshurFixed.mountEvents($('evcHost'), function (b) { return fetch(CFG.endpoint('eventCost'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b)) }).then(function (r) { return r.json(); }); }, function () { loadCost(); }); window.__evc.set(costEvents, Object.keys(extraByDay).reduce(function (a, k) { return a.concat(extraByDay[k]); }, [])); }
     if (window.IshurFixed && $('fxcHost') && !window.__fxc) window.__fxc = window.IshurFixed.mount($('fxcHost'), function (b) { return fetch(CFG.endpoint('adspend'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b)) }).then(function (r) { return r.json(); }); }, function () { loadCost(); });
   }
 

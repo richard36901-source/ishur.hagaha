@@ -64,7 +64,39 @@
     draw(); call({ action: 'list' });
     return { reload: function () { call({ action: 'list' }); } };
   }
-  var api = { mount: mount, render: render };
+  /* ── cost of one event (hostess wages, a courier…): typed here, counted on its day in every sum ── */
+  function renderEvents(events, extras, st) {
+    var opts = (events || []).filter(function (e) { return !e.cancelled; }).sort(function (a, b) { return String(b.date).localeCompare(String(a.date)); })
+      .map(function (e) { return '<option value="' + esc(e.token8) + '">' + esc((e.name || e.client || e.token8) + (e.date ? ' · ' + String(e.date).slice(8, 10) + '/' + String(e.date).slice(5, 7) : '')) + '</option>'; }).join('');
+    var total = (extras || []).reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0);
+    var rows = (extras || []).map(function (x) { return '<tr><td>' + esc(x.name || x.tok8) + '</td><td>' + esc(x.label) + '</td><td class="fxc-n">₪' + n2(x.ils) + '</td><td class="fxc-n">' + esc(String(x.day || '').slice(8, 10) + '/' + String(x.day || '').slice(5, 7)) + '</td><td><button type="button" class="fxc-x" data-ev-rm="' + esc(x.id) + '" data-ev-tok="' + esc(x.tok8) + '" aria-label="הסרה" title="הסרה">✕</button></td></tr>'; }).join('');
+    return '<div class="fxc"><div class="fxc-h"><h3>עלויות לפי אירוע</h3><b>₪' + n2(total) + '</b><span>סה״כ</span><button type="button" class="fxc-i" data-ev-info aria-expanded="' + (!!st.info) + '" aria-label="הסבר">i</button></div>' +
+      (st.info ? '<p class="fxc-info">עלות ששייכת לאירוע אחד, למשל שכר דיילות או שליח. היא נספרת ביום שנרשם (ברירת מחדל: היום), ומופיעה ברווח של אותו יום ושל החודש.</p>' : '') +
+      '<div class="fxc-tw"><table><thead><tr><th>אירוע</th><th>מה</th><th>₪</th><th>יום</th><th></th></tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="fxc-e">עוד לא נרשמה עלות לאירוע.</td></tr>') + '</tbody></table></div>' +
+      '<div class="fxc-add"><select data-ev-tok8 aria-label="אירוע" style="flex:1;min-width:170px"><option value="">בחירת אירוע</option>' + opts + '</select><input data-ev-label placeholder="מה (למשל שכר דיילת)" aria-label="תיאור העלות" style="flex:1;min-width:150px"><input data-ev-ils inputmode="decimal" placeholder="₪" aria-label="סכום בשקלים" style="width:6.5rem"><input data-ev-day type="date" aria-label="יום העלות">' +
+      '<button type="button" class="fxc-go" data-ev-add>הוספה</button></div>' + (st.err ? '<p class="fxc-err">' + esc(st.err) + '</p>' : '') + '</div>';
+  }
+  function mountEvents(host, post, onChange) {
+    var doc = root.document; if (!host || host.dataset.evc) return null; host.dataset.evc = '1';
+    if (!doc.getElementById('fxc-css')) { var st0 = doc.createElement('style'); st0.id = 'fxc-css'; st0.textContent = CSS; doc.head.appendChild(st0); }
+    var events = [], extras = [], st = { info: false, err: '' };
+    function draw() { host.innerHTML = renderEvents(events, extras, st); }
+    host.addEventListener('click', function (ev) {
+      var b = ev.target.closest('button'); if (!b) return;
+      if (b.dataset.evInfo != null) { st.info = !st.info; draw(); return; }
+      var done = function (r) { if (r && r.ok) { st.err = ''; if (onChange) onChange(); } else { st.err = 'לא נשמר' + (r && r.error ? ': ' + r.error : ''); draw(); } };
+      if (b.dataset.evAdd != null) {
+        var tok = host.querySelector('[data-ev-tok8]').value, label = host.querySelector('[data-ev-label]').value.trim(), ils = Number(String(host.querySelector('[data-ev-ils]').value).replace(',', '.')), day = host.querySelector('[data-ev-day]').value;
+        if (!tok) { st.err = 'צריך לבחור אירוע'; draw(); return; }
+        if (!Number.isFinite(ils) || ils <= 0) { st.err = 'הסכום לא תקין'; draw(); return; }
+        b.disabled = true; post({ action: 'add', tok8: tok, label: label || 'עלות אירוע', ils: ils, day: day }).then(done, function () { st.err = 'לא נשמר: אין חיבור'; draw(); }); return;
+      }
+      if (b.dataset.evRm) { b.disabled = true; post({ action: 'remove', tok8: b.dataset.evTok, id: b.dataset.evRm }).then(done, function () { st.err = 'לא נשמר: אין חיבור'; draw(); }); }
+    });
+    draw();
+    return { set: function (ev, ex) { events = ev || []; extras = ex || []; draw(); } };
+  }
+  var api = { mount: mount, render: render, mountEvents: mountEvents, renderEvents: renderEvents };
   root.IshurFixed = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);
