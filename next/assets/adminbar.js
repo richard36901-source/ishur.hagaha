@@ -37,9 +37,15 @@
       { href: 'admin.html', label: 'סקירה' },
       { href: 'admin.html?view=money', label: 'כספים · רווח והפסד' },
       { href: 'ad-report.html', label: 'דוח קמפיין' } ] },
-    { href: 'leads.html', label: 'לידים', icon: ic.board },   /* leads + pay link + script live on the one page */
+    { href: 'leads.html', label: 'לידים', icon: ic.board, sub: [
+      { href: 'leads.html', label: 'לידים' },
+      { href: 'leads.html#script', label: 'תסריט' },
+      { href: 'leads.html#paylink', label: 'קישורי סליקה' } ] },
     { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
       { href: 'clients.html', label: 'לקוחות' },
+      { href: 'clients.html#referrals', label: 'הפניות ושגרירים' },
+      { href: 'clients.html#staff', label: 'דיילות' },
+      { href: 'clients.html#designs', label: 'עיצובים' },
       { href: 'admin.html?view=feedback', label: 'משוב' } ] },
     { href: 'admin.html?view=week', label: 'שליחות ושיחות', icon: ic.calls, sub: [
       { href: 'admin.html?view=week', label: 'השבוע' },
@@ -58,6 +64,10 @@
   ];
   function keyOf(href) { var m = /[?&]view=([a-z]+)/.exec(href); return href.split('?')[0].split('#')[0].split('/').pop() + '?' + (m ? m[1] : ''); }
   var HERE = keyOf((location.pathname.split('/').pop() || 'admin.html') + location.search);
+  /* a section's chooser can also point INSIDE a page (clients.html#staff, leads.html#script): the full key keeps the #part */
+  function hashOf(href) { var i = String(href).indexOf('#'); return i < 0 ? '' : String(href).slice(i + 1); }
+  function fullKey(href) { return keyOf(href) + '#' + hashOf(href); }
+  function hereFull() { return HERE + '#' + (location.hash || '').slice(1); }
   function isOn(item) { if (keyOf(item.href) === HERE) return true; return (item.sub || []).some(function (x) { return keyOf(x.href) === HERE; }); }
   var bars = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
   var sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
@@ -119,6 +129,13 @@
     '.ibar .ibar-sub a{padding:.4rem .95rem;min-height:34px;font-size:.8rem;font-weight:600;border:1px solid rgba(199,174,122,.35);border-radius:8px;color:rgba(248,244,234,.85);background:rgba(248,244,234,.04)}' +
     '.ibar .ibar-sub a:hover{background:rgba(248,244,234,.1)}' +
     '.ibar .ibar-sub a.on{background:#C7AE7A;border-color:#C7AE7A;color:#0A2119}' +
+    /* 16/11: one chooser per section — the page's own tab strip and fold are replaced by the row under the bar */
+    'body[data-page="clients.html"] .tabs{display:none}' +
+    'body[data-page="leads.html"][data-sub="main"] #pbfold{display:none}' +
+    'body[data-page="leads.html"][data-sub="script"] #main>:not(#pbfold),body[data-page="leads.html"][data-sub="paylink"] #main>:not(#pbfold){display:none}' +
+    'body[data-page="leads.html"]:not([data-sub="main"]) #pbfold>summary{display:none!important}' +
+    'body[data-page="leads.html"][data-sub="script"] #sales .plg-card,body[data-page="leads.html"][data-sub="script"] #sales h2:has(+ .plg-card){display:none}' +
+    'body[data-page="leads.html"][data-sub="paylink"] #sales>:not(.plg-card):not(h2:has(+ .plg-card)){display:none}' +
     '.ibar-corner{margin-inline-start:auto;display:flex;align-items:center;gap:.15rem;flex-shrink:0}' +
     '.ibar-ico{display:grid;place-items:center;width:36px;height:36px;background:none;border:1px solid transparent;border-radius:8px;color:rgba(248,244,234,.85);cursor:pointer}' +
     '.ibar-ico:hover,.ibar-ico[aria-expanded=true]{background:rgba(248,244,234,.1);color:#F8F4EA}.ibar-ico:focus-visible{outline:2px solid #C7AE7A}.ibar-ico svg{width:18px;height:18px}' +
@@ -276,9 +293,22 @@
     var sec = INTERNAL.filter(function (i) { return i.sub && isOn(i); })[0];
     if (sec) {
       var row = document.createElement('div'); row.className = 'ibar-sub';
-      sec.sub.forEach(function (x) { var a = document.createElement('a'); a.href = x.href; a.textContent = x.label; if (keyOf(x.href) === HERE) { a.className = 'on'; a.setAttribute('aria-current', 'page'); } row.appendChild(a); });
+      sec.sub.forEach(function (x) { var a = document.createElement('a'); a.href = x.href; a.textContent = x.label; a.dataset.k = fullKey(x.href); row.appendChild(a); });
       nav.appendChild(row);
     }
+    /* which part of the page is showing: body[data-sub] drives the page CSS below, and the chooser follows the #part */
+    var page = (location.pathname.split('/').pop() || 'admin.html');
+    document.body.dataset.page = page;
+    var syncSub = function () {
+      var h = (location.hash || '').slice(1);
+      document.body.dataset.sub = h || 'main';
+      var k = hereFull();
+      [].forEach.call(nav.querySelectorAll('.ibar-sub a'), function (a) { var on = a.dataset.k === k; a.className = on ? 'on' : ''; if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+      if (page === 'clients.html') { var tb = document.querySelector('.tab[data-tab="' + (h || 'clients') + '"]'); if (tb && tb.getAttribute('aria-selected') !== 'true') tb.click(); if (location.hash.slice(1) !== h) { try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {} } }
+      if (page === 'leads.html') { var f = document.getElementById('pbfold'); if (f && (h === 'script' || h === 'paylink')) f.open = true; }
+    };
+    window.addEventListener('hashchange', syncSub);
+    syncSub();
     document.body.insertBefore(nav, document.body.firstChild);
     document.body.appendChild(menu);
     document.body.appendChild(tmenu);
