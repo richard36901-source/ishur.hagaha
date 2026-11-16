@@ -255,7 +255,9 @@ export async function getJwks(env, { fetchFn = fetch, force = false, now = Date.
 }
 export async function enforceOn(env) {
   if (!env.RATE) return false;
-  try { return (await env.RATE.get('cfg:auth_enforce')) === 'on'; } catch { return false; }
+  /* 'on' = required now; an ISO time (2026-11-16T18:00:00Z) = required from that moment, so the switch does not wait for
+     anybody to be awake to flip it; anything else = off */
+  try { const v = String((await env.RATE.get('cfg:auth_enforce')) || '').trim(); if (v === 'on') return true; const t = /^\d{4}-\d{2}-\d{2}T/.test(v) ? Date.parse(v) : NaN; return Number.isFinite(t) && Date.now() >= t; } catch { return false; }
 }
 
 /* ══ authGate — THE enforcement point ════════════════════════════════════════

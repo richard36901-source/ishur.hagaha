@@ -246,3 +246,12 @@ test('the routes are mounted and the browser may send the session header', async
   assert.match(cors('https://ishur.io')['Access-Control-Allow-Headers'], /X-Ishur-Session/);
   assert.match(cors('https://ishur.io')['Access-Control-Allow-Headers'], /X-Admin-Key/);
 });
+
+test('enforceOn: "on", a start time in the past, a start time in the future, anything else', async () => {
+  const { enforceOn } = await import('../auth.js');
+  const env = (v) => ({ RATE: { get: async () => v } });
+  assert.equal(await enforceOn(env('on')), true);
+  assert.equal(await enforceOn(env(new Date(Date.now() - 60e3).toISOString())), true);
+  assert.equal(await enforceOn(env(new Date(Date.now() + 3600e3).toISOString())), false);
+  assert.equal(await enforceOn(env('')), false); assert.equal(await enforceOn(env(null)), false); assert.equal(await enforceOn(env('off')), false);
+});

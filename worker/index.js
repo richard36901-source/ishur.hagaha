@@ -13964,6 +13964,16 @@ const WORKER = {
       /* bought but the client has not filled the event details yet: the date they asked about is still worth seeing */
       for (const [tok, v] of Object.entries(bought)) { if (seen.has(tok)) continue; let x = null; try { x = JSON.parse(v); } catch {} if (!x) continue;
         put(x.date, { tok8: tok.slice(0, 8), n: Number(x.n) || 1, client: '', city: String(x.city || ''), venue: '', reception: '', state: 'bought' }); }
+      /* who the event belongs to, so the journal can show it and open the client's own board (admin-only answer) */
+      try {
+        const snap = await readSnapshot(env, 'guest');
+        const evBy = {}; for (const r of (snap && snap.events && snap.events.values) || []) { const t = String((r || [])[1] || '').trim(); if (t) evBy[t.slice(0, 8)] = r; }
+        for (const list of Object.values(days)) for (const x of list) {
+          const r = evBy[x.tok8]; if (!r) continue; const c = i => String(r[i] ?? '').trim();
+          Object.assign(x, { client: x.client || c(34) || c(2), buyer: c(2), phone: c(3), occasion: c(5), event_date: c(6).slice(0, 10), time: c(36), city: x.city || c(37), venue: x.venue || c(38), tier: c(32), plan: planKeyOf(r), paid: c(8),
+            board: 'https://go.ishur.io/dashboard.html?t=' + String(r[1]).trim() });
+        }
+      } catch {}
       return okJson({ ok: true, days, off: Object.fromEntries(Object.keys(off).map(k => [k, true])) }, origin);
     }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {

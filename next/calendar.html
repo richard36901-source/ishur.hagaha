@@ -12,7 +12,7 @@
 <script src="/config.js?v=73"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=9" defer></script>
+<script src="/next/assets/adminbar.js?v=10" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <script src="/assets/sendboard.js?v=3"></script>
@@ -256,7 +256,16 @@
   }
   function hostHtml() {
     var hb = host.days[sel] || [], sat = new Date(sel + 'T12:00:00Z').getUTCDay() === 6, offd = !!host.off[sel];
-    var h = hb.map(function (x) { return '<div class="ln"><span>' + esc(x.client || 'אירוע ' + x.tok8) + (x.city ? ' · ' + esc(x.city) : '') + (x.venue ? ' · ' + esc(x.venue) : '') + (x.reception ? ' · קבלת פנים ' + esc(x.reception) : '') + '</span><b>' + (x.n || 1) + ' דיילות' + (x.state === 'bought' ? ' · נרכש, ממתין לפרטי האירוע' : '') + '</b></div>'; }).join('');
+    var PLAN = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
+    var h = hb.map(function (x) {
+      var kv = function (k, v) { return v ? '<div class="ln"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : ''; };
+      var safe = /^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(x.board || '')) ? x.board : '';
+      return '<div class="jd-ev"><h3>' + esc(x.client || x.buyer || 'אירוע ' + x.tok8) + ' · ' + (x.n || 1) + ' דיילות</h3>' +
+        kv('מצב', x.state === 'bought' ? 'נרכש, ממתין לפרטי האירוע מהלקוח' : 'פרטי האירוע התקבלו') +
+        kv('לקוח', x.buyer) + kv('טלפון', fmtPhone(x.phone)) + kv('סוג האירוע', x.occasion) + kv('קבלת פנים', x.reception || x.time) +
+        kv('מקום', [x.venue, x.city].filter(Boolean).join(', ')) + kv('חבילה', (PLAN[x.plan] || '') + (x.tier ? ' · עד ' + x.tier + ' רשומות' : '')) + kv('שולם', x.paid ? '₪' + x.paid : '') +
+        (safe ? '<a class="jd-btn" style="display:inline-grid;place-items:center;text-decoration:none" href="' + esc(safe) + '" target="_blank" rel="noopener">ללוח הבקרה של הלקוח ›</a>' : '') + '</div>';
+    }).join('');
     if (!hb.length) h += '<p class="empty">אין דיילות משובצות ביום הזה.</p>';
     if (sat) h += '<p class="jd-sum">שבת: לא מוציאים דיילות.</p>';
     else h += '<button type="button" class="jd-btn" id="jdOff" data-on="' + (offd ? '0' : '1') + '">' + (offd ? 'יש זמינות ביום הזה (ביטול הסימון)' : 'לסמן: אין דיילת פנויה ביום הזה') + '</button>';

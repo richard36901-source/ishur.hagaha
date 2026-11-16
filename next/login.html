@@ -58,7 +58,7 @@
   $('iBtn').addEventListener('click', function () { var on = $('info').hidden; $('info').hidden = !on; this.setAttribute('aria-expanded', String(on)); });
 
   var enforce = false;
-  function showSigned(user) { if (enforce) ls('ishur_calls_key', ls('ishur_session')); $('gbtn').hidden = true; $('signed').hidden = false; $('who').textContent = user.email; say(''); }
+  function showSigned(user) { ls('ishur_calls_key', ls('ishur_session')); $('gbtn').hidden = true; $('signed').hidden = false; $('who').textContent = user.email; say(''); }
   function showButton(cfg) {
     $('signed').hidden = true; $('gbtn').hidden = false;
     if (!cfg || !cfg.configured) { say(ERR['not-configured'], true); return; }
@@ -77,7 +77,7 @@
       if (!d || !d.ok || !d.session) { say(ERR[d && d.error] || 'הכניסה לא הצליחה', true); return; }
       ls('ishur_session', d.session);
       /* once sign-in is required, the existing pages read their key from here; the server accepts the session in that slot */
-      if (enforce) ls('ishur_calls_key', d.session);
+      ls('ishur_calls_key', d.session);
       location.replace(back);
     }).catch(function () { say('אין חיבור, נסו שוב', true); });
   }

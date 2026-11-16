@@ -64,7 +64,8 @@
     { href: 'brain.html', label: 'המוח' },
     { href: 'automations.html', label: 'אוטומציות' },
     { href: 'live.html', label: 'לוג חי' },
-    { href: 'users.html', label: 'משתמשים והרשאות' },   /* 16/11: infrastructure only until Google sign-in is switched on */
+    { href: 'users.html', label: 'משתמשים והרשאות' },
+    { href: 'login.html', label: 'החשבון שלי · התנתקות' },
   ];
   function keyOf(href) { var m = /[?&]view=([a-z]+)/.exec(href); return href.split('?')[0].split('#')[0].split('/').pop() + '?' + (m ? m[1] : ''); }
   var HERE = keyOf((location.pathname.split('/').pop() || 'admin.html') + location.search);
@@ -323,4 +324,21 @@
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', mount);
   else mount();
+})();
+
+/* 16/11 sign-in guard (auth.js on the Worker): once sign-in is required, a page opened without a Google session goes to the
+   login page and comes back after it; a session that expires mid-work does the same on its next request. */
+(function () {
+  try {
+    var here = location.pathname.split('/').pop();
+    if (here === 'login.html' || /[?&]embed=1/.test(location.search)) return;
+    var API = (window.ISHUR_CONFIG && window.ISHUR_CONFIG.endpoint) ? window.ISHUR_CONFIG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+    var gone = false, toLogin = function () { if (gone) return; gone = true; location.replace('/next/login.html?back=' + encodeURIComponent(location.pathname + location.search + location.hash)); };
+    var of = window.fetch;
+    if (of) window.fetch = function () { return of.apply(this, arguments).then(function (r) { if (r && r.status === 401) { try { r.clone().json().then(function (j) { if (j && j.error === 'login-required') toLogin(); }).catch(function () {}); } catch (e) {} } return r; }); };
+    (of || fetch)(API + '/api/auth/config').then(function (r) { return r.json(); }).then(function (c) {
+      if (!c || !c.enforce) return; var k = ''; try { k = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+      if (!/^us\./.test(k)) toLogin();
+    }).catch(function () {});
+  } catch (e) {}
 })();
