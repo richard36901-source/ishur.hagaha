@@ -1690,7 +1690,9 @@
   var lastTraffic = null, funDays = 30;
   function drawFunnel() {
     if (!lastTraffic) return;
-    $('funLbl').textContent = funDays >= 100000 ? 'כל הזמנים' : funDays + ' ימים';
+    /* the site counter keeps 90 days; anything longer shows what there is and says from when */
+    var fdays = lastTraffic.days || [], firstDay = (fdays.filter(function (r) { return (r.visitors || 0) > 0; })[0] || {}).date || '';
+    $('funLbl').textContent = funDays > fdays.length ? 'מאז ' + (firstDay ? firstDay.slice(8, 10) + '/' + firstDay.slice(5, 7) + '/' + firstDay.slice(2, 4) : 'ההתחלה') + ' (המונה שומר ' + fdays.length + ' ימים)' : funDays + ' ימים';
     renderFunnel(lastTraffic.funnel || {}, (lastTraffic.days || []).slice(-funDays));
   }
   document.querySelectorAll('[data-fd]').forEach(function (b) {
@@ -1712,7 +1714,7 @@
     $('funEmpty').hidden = true;
 
     var steps = [
-      { name: 'נכנסו לאתר', n: visitors },
+      { name: 'מבקרים באתר', n: visitors },
       { name: 'פתחו את הטופס', n: popup },
       { name: 'השאירו טלפון', n: lead },
       { name: 'הגיעו לעמוד תשלום', n: pay },
