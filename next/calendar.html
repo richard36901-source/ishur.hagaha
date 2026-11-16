@@ -123,14 +123,10 @@
 <main class="wrap" id="main" hidden>
   <h1>יומן</h1>
   
-  <section class="sbsec" aria-labelledby="sbH">
-    <h2 id="sbH">נשלחו מתוך כמה <small>לפי אירוע וסוג הודעה · נמסר = מטא אישרה מסירה, לא רק קבלה · ⓘ לשמות</small></h2>
-    <div id="sendboard"></div>
-  </section>
   <div class="tb">
     <span class="nav"><button id="prev" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button id="todayBtn">היום</button><button id="next" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span>
     <span class="mth" id="mth"></span>
-    <span class="lyr" id="lyr" role="group" aria-label="מה להציג ביומן"><button data-l="sends" aria-pressed="true">שליחות</button><button data-l="money" aria-pressed="true">רווח והפסד</button><button data-l="host" aria-pressed="true">דיילות</button></span>
+    <span class="lyr" id="lyr" role="group" aria-label="מה להציג ביומן"><button data-l="sends" aria-pressed="true">שליחות</button><button data-l="host" aria-pressed="true">דיילות</button></span>
     <span class="seg" id="chSeg"><button data-ch="all" aria-pressed="true">הכל</button><button data-ch="guests" aria-pressed="false">אורחים · שיר</button><button data-ch="client" aria-pressed="false">לקוחות · נועה</button></span>
     <input type="search" id="q" placeholder="חיפוש שם, טלפון או אירוע">
   </div>
@@ -149,6 +145,10 @@
       <div id="rows"><p class="empty">לחצו על יום בלוח</p></div>
     </aside>
   </div>
+  <section class="sbsec" aria-labelledby="sbH">
+    <h2 id="sbH">נשלחו מתוך כמה <small>לפי אירוע וסוג הודעה · נמסר = מטא אישרה מסירה, לא רק קבלה · ⓘ לשמות</small></h2>
+    <div id="sendboard"></div>
+  </section>
 </main>
 <script>
 (function () {
@@ -157,13 +157,11 @@
   var sbMounted = false;
   var month = new Date().toISOString().slice(0, 7), data = null, sel = null, ch = 'all', st = 'all', q = '';
   /* layers: which subjects the journal shows. Later each user gets only the layers they are allowed. */
-  var LY = { sends: true, money: true, host: true }; try { var sv = JSON.parse(localStorage.getItem('ishur_jlayers') || 'null'); if (sv) LY = { sends: sv.sends !== false, money: sv.money !== false, host: sv.host !== false }; } catch (e) {}
+  var LY = { sends: true, money: false, host: true }; try { var sv = JSON.parse(localStorage.getItem('ishur_jlayers') || 'null'); if (sv) LY = { sends: sv.sends !== false, money: false, host: sv.host !== false }; } catch (e) {}   /* 16/11 Richard: profit stays in כספים, not in the journal */
   var cost = null, adByDay = {}, lines = [], lineBy = {}, host = { days: {}, off: {} }, dtab = 'sends';
   function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   function relines() { lines = window.IshurJournal ? IshurJournal.buildLines(cost, adByDay, 3.7, ilToday()) : []; lineBy = {}; lines.forEach(function (l) { lineBy[l.date] = l; }); if (data) paint(); }
   function loadLayers() {
-    api('costlog', {}).then(function (d) { if (d && d.ok) { cost = d; relines(); } });
-    api('campaigns', { days: 400 }).then(function (d) { if (d && d.ok) { adByDay = {}; (d.rows || []).forEach(function (x) { adByDay[x.date] = (adByDay[x.date] || 0) + (Number(x.spend) || 0); }); relines(); } });
     api('journalHostess', {}).then(function (d) { if (d && d.ok) { host = d; if (data) paint(); } });
   }
   var layersLoaded = false;
