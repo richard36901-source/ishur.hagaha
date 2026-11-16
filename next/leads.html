@@ -9,7 +9,7 @@
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=72"></script>
+<script src="/config.js?v=91"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=17" defer></script>
@@ -262,7 +262,17 @@
         '<p class="facts">' + esc(l.stage) + (l.seen > 1 ? ' · ' + l.seen + ' כניסות (ראשונה ' + heDate(l.firstAt) + ')' : '') + (l.email ? ' · ' + esc(l.email) : '') + (l.source ? ' · מקור: ' + esc(l.source) : '') + (l.existingClient ? ' · לקוח קיים: ' + esc(l.existingClient) : '') + '</p>' +
         '<ul>' + (l.notes.length ? l.notes.slice().reverse().map(function (n) { return '<li>' + esc(n.text) + '<time>' + heTime(n.at) + '</time></li>'; }).join('') : '<li class="e">עדיין אין הערות</li>') + '</ul>' +
         '<div class="add"><input type="text" placeholder="הערה חדשה…" maxlength="600" data-p="' + esc(l.phone) + '"><button type="button" data-add="' + esc(l.phone) + '">הוספה</button></div>' +
+        '<div class="mup" id="mup-' + esc(l.phone) + '">' + (MUP[l.phone] ? mupHtml(MUP[l.phone]) : '') + '</div>' +
         '</div>';
+  }
+  /* 16/11: what was written on the lead in monday (the item's updates), read when the lead is opened */
+  var MUP = {};
+  function mupHtml(u) { if (!u.length) return ''; return '<p class="facts" style="margin:.7rem 0 .2rem;font-weight:600">עדכונים ממאנדיי</p><ul>' + u.map(function (x) { return '<li>' + esc(x.text) + '<time>' + (x.who ? esc(x.who) + ' · ' : '') + heTime(x.at) + '</time></li>'; }).join('') + '</ul>'; }
+  function loadMup(p) {
+    if (MUP[p]) return; MUP[p] = [];
+    fetch(CFG.endpoint('leadsMonday'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey, updates_of_phone: p }) }).then(function (r) { return r.json(); }).then(function (d) {
+      if (!d || !d.ok) { delete MUP[p]; return; } MUP[p] = d.updates || []; var box = $('mup-' + p); if (box) box.innerHTML = mupHtml(MUP[p]);
+    }).catch(function () { delete MUP[p]; });
   }
   function paint() {
     paintTiles();
@@ -315,7 +325,7 @@
   }
   $('rows').addEventListener('click', function (e) {
     var tog = e.target.closest('[data-tog]');
-    if (tog) { var p = tog.dataset.tog; open[p] = !open[p]; $('more-' + p).classList.toggle('on', !!open[p]); if (open[p]) { var inp = $('more-' + p).querySelector('input'); if (inp && window.innerWidth > 900) inp.focus(); } return; }
+    if (tog) { var p = tog.dataset.tog; open[p] = !open[p]; if (open[p]) loadMup(p); $('more-' + p).classList.toggle('on', !!open[p]); if (open[p]) { var inp = $('more-' + p).querySelector('input'); if (inp && window.innerWidth > 900) inp.focus(); } return; }
     var add = e.target.closest('[data-add]');
     if (add) { addNote(add.dataset.add, add.parentNode.querySelector('input')); return; }
     var gb = e.target.closest('[data-grp]');
