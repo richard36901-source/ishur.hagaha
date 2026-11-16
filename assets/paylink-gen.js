@@ -227,7 +227,15 @@
       var old = bar.querySelector('.plg-miss'); if (old) old.remove();
       if (miss.length) { var sp = doc.createElement('span'); sp.className = 'plg-miss'; sp.textContent = 'חסר: ' + miss.join(', '); bar.appendChild(sp); }
     }
-    doc.addEventListener('click', function (ev) { if (s.open && !host.contains(ev.target)) { s.open = ''; draw(); } });
+    /* 16/11: opening a dropdown re-renders the form, so by the time the click reaches the document its target is
+       already detached and host.contains() says "outside" — the list closed the instant it opened (Richard:
+       "אי אפשר לבחור שום דבר"). The path the event travelled still holds the form. */
+    doc.addEventListener('click', function (ev) {
+      if (!s.open) return;
+      var path = ev.composedPath ? ev.composedPath() : [];
+      if (path.indexOf(host) >= 0 || host.contains(ev.target)) return;
+      s.open = ''; draw();
+    });
     draw();
   }
 
