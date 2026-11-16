@@ -370,8 +370,8 @@ function pbRenderLinks() {
       '<div class="row"><span class="lbl">שם</span><input class="n" value="' + esc(l.name || '') + '"><span class="lbl">₪</span><input class="s" type="number" value="' + esc(l.sum || '') + '"><span class="lbl">עד</span><input class="g" type="number" value="' + esc(l.tier || '') + '"><span class="lbl">דיילות</span><input class="h" type="number" min="0" max="3" value="' + esc(l.hostess || 0) + '"></div>' +
       '<div class="u">' + (l.url ? esc(l.url) : 'עדיין אין קישור – לחץ "צור"') + '</div>' +
       '<div class="row">' +
-        (l.url ? '<button type="button" class="sbtn p" data-act="copy">📋 העתק קישור</button><button type="button" class="sbtn p" data-act="copymsg">📋 העתק הודעה + קישור</button>' : '') +
-        '<button type="button" class="sbtn" data-act="make">' + (l.url ? '↻ צור קישור חדש' : '⚡ צור קישור') + '</button>' +
+        (l.url ? '<button type="button" class="sbtn p" data-act="copy">העתק קישור</button><button type="button" class="sbtn p" data-act="copymsg">העתק הודעה + קישור</button>' : '') +
+        '<button type="button" class="sbtn" data-act="make">' + (l.url ? 'צור קישור חדש' : 'צור קישור') + '</button>' +
         '<button type="button" class="sbtn d" data-act="del">הסר</button>' +
       '</div></div>';
   }).join('');
