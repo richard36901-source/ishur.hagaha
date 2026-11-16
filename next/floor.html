@@ -13,6 +13,7 @@
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/adminbar.js?v=14" defer></script>
 <style>
+  .sk{display:block;border-radius:6px;background:linear-gradient(90deg,rgba(127,127,127,.12) 25%,rgba(127,127,127,.24) 37%,rgba(127,127,127,.12) 63%);background-size:400% 100%;animation:sk 1.3s ease infinite}@keyframes sk{0%{background-position:100% 50%}100%{background-position:0 50%}}@media (prefers-reduced-motion:reduce){.sk{animation:none}}
   /* same tokens as admin.html / brain.html — one house, one look */
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -318,7 +319,11 @@
       $('dot').className = 'livedot'; $('dotTxt').textContent = 'אין חיבור · מנסה שוב';
     }).then(function () { busy = false; });
   }
-  function start() { load(); clearInterval(timer); timer = setInterval(function () { if (!document.hidden) load(); }, 3000); }
+  function start() {
+    /* 16/11: the three columns are there at once, shimmering until the first answer */
+    if (!last && !FIXTURE) { $('gate').hidden = true; $('main').hidden = false; ['col-noa', 'col-shir', 'col-brain'].forEach(function (id) { var c = $(id); if (c && !c.children.length) c.innerHTML = '<span class="sk" style="height:1.3rem;width:40%;margin:0 0 1rem" aria-hidden="true"></span>' + Array(4).join('<span class="sk" style="height:4.2rem;margin:0 0 .7rem" aria-hidden="true"></span>'); }); }
+    load(); clearInterval(timer); timer = setInterval(function () { if (!document.hidden) load(); }, 3000);
+  }
   document.addEventListener('visibilitychange', function () { if (!document.hidden) load(); });
 
   /* clicks: play, delete lesson, save note */

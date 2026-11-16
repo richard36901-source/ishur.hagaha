@@ -202,7 +202,9 @@
     }
     function reload() {
       var gen = ++S.gen; S.calls = []; S.cursor = null; S.queue = null; S.counts = null;
-      $('xB').innerHTML = '<tr><td colspan="9" class="x-empty">טוען…</td></tr>'; $('xM').innerHTML = '';
+      /* 16/11: rows shimmer while the log loads */
+      if (!document.getElementById('xsk-css')) { var st = document.createElement('style'); st.id = 'xsk-css'; st.textContent = '.xsk{display:block;height:.85rem;border-radius:4px;background:linear-gradient(90deg,rgba(127,127,127,.12) 25%,rgba(127,127,127,.24) 37%,rgba(127,127,127,.12) 63%);background-size:400% 100%;animation:xsk 1.3s ease infinite}@keyframes xsk{0%{background-position:100% 50%}100%{background-position:0 50%}}@media (prefers-reduced-motion:reduce){.xsk{animation:none}}'; document.head.appendChild(st); }
+      $('xB').innerHTML = Array(7).join('<tr aria-hidden="true">' + Array(10).join('<td><span class="xsk"></span></td>') + '</tr>'); $('xM').innerHTML = '';
       paintHead({ calls: '…', review: '…' }, 0);
       return load(null, gen).then(function () { if (gen === S.gen) return counts(gen).then(function (tot) { if (gen === S.gen) paintHead(tot, 0); }); });
     }

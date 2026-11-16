@@ -48,6 +48,7 @@ import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning dige
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
+import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
 import { checkinUrl } from './staff.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
@@ -11689,6 +11690,18 @@ const WORKER = {
     }
     if (url.pathname === '/api/shir-calls' && request.method === 'POST') {
       return handleShirCalls(request, env, origin);
+    }
+    /* 16/11: the heavy admin reads answer at once from the last result and rebuild behind the response (swr.js).
+       Only for a request that carries a valid admin key; anything else falls through to the route as before. */
+    if (request.method === 'POST' && SWR_ROUTES[url.pathname] && !request.headers.get('x-swr-inner') && String(env.SWR_OFF || '') !== '1') {
+      let sb = null, stext = '';
+      try { stext = await request.clone().text(); sb = JSON.parse(stext); } catch { sb = null; }
+      if (sb && isAdmin(env, sb.admin_key)) {
+        const hit = await swrServe({ pathname: url.pathname, body: sb, env, ctx, produce: async () => {
+          const r = await WORKER.fetchMain(new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-swr-inner': '1', ...(origin ? { Origin: origin } : {}) }, body: stext }), env, ctx);
+          if (r.status !== 200) return null; const t = await r.text(); return /^\s*\{[\s\S]*"ok"\s*:\s*true/.test(t.slice(0, 400)) ? t : null; } }).catch(() => null);
+        if (hit) return new Response(hit.text, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'x-ishur-age': String(Math.round(hit.age_ms / 1000)), ...cors(origin) } });
+      }
     }
     if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
       return handleOpsStats(request, env, origin);
