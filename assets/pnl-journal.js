@@ -55,11 +55,12 @@
       row('רווח לפני מע״מ', signed(t.profit) ) +
       row('ימים', t.green + ' ברווח · ' + t.red + ' בהפסד') +
       (t.feeEst ? '<p class="pj-note">≈ עמלה לפי התעריף של Grow (1.4% אשראי, 1.7% ביט, + ₪1.20 לעסקה, + מע״מ) עד שנקראת העמלה בפועל.</p>' : '') + '</div>';
-    return '<div class="pj"><div class="pj-main"><div class="pj-nav"><b>' + MONTHS[mo] + ' ' + y + '</b><span class="pj-seg"><button type="button" data-pj-nav="-1" aria-label="חודש קודם" title="חודש קודם">›</button><button type="button" data-pj-nav="0">היום</button><button type="button" data-pj-nav="1" aria-label="חודש הבא" title="חודש הבא">‹</button></span></div>' +
+    return '<div class="pj"><div class="pj-main"><div class="pj-nav"><b>' + MONTHS[mo] + ' ' + y + '</b><span class="pj-seg"><button type="button" data-pj-nav="-1" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button type="button" data-pj-nav="0">היום</button><button type="button" data-pj-nav="1" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span></div>' +
       '<div class="pj-grid">' + DOW.map(function (x) { return '<div class="pj-h">' + x + '</div>'; }).join('') + cells + '</div>' +
       '<p class="pj-leg"><i class="pj-profit"></i>יום ברווח <i class="pj-loss"></i>יום בהפסד <i></i>בלי פעילות · הצבע לפי הרווח אחרי מע״מ וכל ההוצאות של אותו יום</p></div>' +
       '<div class="pj-aside">' + side + '</div></div>';
   }
+  /* the month arrows are drawn (svg), not typed: the characters ‹ › are mirrored by the browser inside Hebrew text, which turned them inward */
   /* 16/11 (Richard: "פה זה לא נוח, אולי פופאפ"): a day's deals and costs open in a dialog over the calendar */
   function dayHtml(lines, day) {
     var dl = null; lines.forEach(function (l) { if (l.date === day) dl = l; });
@@ -81,7 +82,7 @@
   var CSS = '.pj{display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:14px;margin:0 0 14px;align-items:start}' +
     '@media (max-width:900px){.pj{grid-template-columns:1fr}}' +
     '.pj-nav{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:0 0 8px}.pj-nav b{font-size:1.05rem;color:var(--pine,#0F2E22)}' +
-    '.pj-seg{display:inline-flex;border:1px solid var(--line,#E3E1D8);border-radius:8px;overflow:hidden;background:var(--card,#fff)}.pj-seg button{border:0!important;border-radius:0!important;border-inline-start:1px solid var(--line,#E3E1D8)!important}.pj-seg button:first-child{border-inline-start:0!important}' +
+    '.pj-seg{display:inline-flex;border:1px solid var(--line,#E3E1D8);border-radius:8px;overflow:hidden;background:var(--card,#fff)}.pj-seg button{display:inline-grid;place-items:center;border:0!important;border-radius:0!important;border-inline-start:1px solid var(--line,#E3E1D8)!important}.pj-seg button:first-child{border-inline-start:0!important}' +
     '.pj-nav button{font:inherit;font-size:.82rem;font-weight:600;min-width:36px;min-height:34px;padding:0 .7rem;border:1px solid var(--line,#E3E1D8);border-radius:8px;background:var(--card,#fff);color:var(--ink,#1B2620);cursor:pointer}' +
     '.pj-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1px solid var(--line,#E3E1D8);border-radius:8px;overflow:hidden;background:var(--line,#E3E1D8);gap:1px}' +
     '.pj-h{background:var(--card,#fff);text-align:center;font-size:.72rem;font-weight:600;color:var(--ink3,#7A8279);padding:.4rem 0}' +
