@@ -142,7 +142,9 @@ export async function handleStaff(request, env, origin, d) {
     const phone = d.normPhone(b.phone || ''), name = String(b.name || '').trim().slice(0, 40);
     if (!/^9725\d{8}$/.test(phone) || name.length < 2) return d.okJson({ ok: false, error: 'bad-input' }, origin);
     const prev = await kvJson(env, 'staff:' + phone); const sid = (prev && prev.sid) || hexN(12);
-    await env.RATE.put('staff:' + phone, JSON.stringify({ name, role: 'hostess', sid, at: (prev && prev.at) || new Date().toISOString() }));
+    /* 16/11: דייל or דיילת (g: 'm' | 'f'); kept when the same person is saved again without it */
+    const g = b.g === 'm' || b.g === 'f' ? b.g : (prev && prev.g) || 'f';
+    await env.RATE.put('staff:' + phone, JSON.stringify({ name, role: 'hostess', g, sid, at: (prev && prev.at) || new Date().toISOString() }));
     await env.RATE.put('staffsid:' + sid, phone);
     if (!prev || b.resend) sent = await sendStaffLink(env, phone, { name, role: 'hostess', sid, at: (prev && prev.at) || new Date().toISOString() }, d);
   } else if (b.act === 'remove') {

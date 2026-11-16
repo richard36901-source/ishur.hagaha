@@ -153,8 +153,8 @@
   <div class="legend"><span><span class="pill ev-h" style="display:inline-block;margin:0">אירוע עם דיילת</span></span><span><span class="pill ev-m" style="display:inline-block;margin:0">נרכשה דיילת, עוד לא שובצה</span></span><span><span class="pill ev-n" style="display:inline-block;margin:0">אירוע בלי דיילת</span></span></div>
 
   <section class="hs"><h2>ממתינים לשיבוץ</h2><div id="hNeed"></div></section>
-  <section class="hs"><h2>הדיילות</h2>
-    <div class="hadd"><input id="sName" placeholder="שם הדיילת" maxlength="40"><input id="sPhone" placeholder="נייד" dir="ltr" inputmode="tel"><button class="hbtn" id="sAdd" aria-pressed="true">הוספה</button></div>
+  <section class="hs"><h2>דיילים ודיילות</h2>
+    <div class="hadd"><input id="sName" placeholder="שם הדיילת" maxlength="40"><input id="sPhone" placeholder="נייד" dir="ltr" inputmode="tel"><select id="sG" aria-label="דייל או דיילת" style="font:inherit;font-size:.9rem;min-height:38px;padding:0 .6rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)"><option value="f">דיילת</option><option value="m">דייל</option></select><button class="hbtn" id="sAdd" aria-pressed="true">הוספה</button></div>
     <div class="hcards" id="hStaff"></div></section>
   <section class="hs"><h2>יומן נוכחות</h2><div id="hLogWrap"><table class="hlog" id="hLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה (שרת)</th><th>הוכחה</th><th>אירוע</th></tr></thead><tbody></tbody></table><p class="empty" id="hLogEmpty" hidden>עוד אין דיווחים.</p></div></section>
 </main>
@@ -195,14 +195,15 @@
     }
     $('grid').innerHTML = html;
     var need = (H.events || []).filter(function (e) { return e.need && e.date >= today && (e.assigned || []).length < e.need; });
-    $('hNeed').innerHTML = need.length ? need.map(function (e) { return '<div class="hrow"><span><b>' + esc(e.name) + '</b> · ' + dmy(e.date) + (e.city ? ' · ' + esc(e.city) : '') + ' · ' + (e.assigned || []).length + ' מתוך ' + e.need + ' דיילות' + (e.state === 'bought' ? ' · ממתין לפרטי האירוע מהלקוח' : '') + '</span><span class="acts"><button class="hbtn" data-open="' + e.date + '">שיבוץ</button></span></div>'; }).join('') : '<p class="empty">כל האירועים עם דיילות משובצים.</p>';
+    $('hNeed').innerHTML = need.length ? need.map(function (e) { return '<div class="hrow"><span><b>' + esc(e.name) + '</b> · ' + dmy(e.date) + (e.city ? ' · ' + esc(e.city) : '') + ' · ' + (e.assigned || []).length + ' מתוך ' + e.need + ' דיילות' + (e.state === 'bought' ? ' · ממתין לפרטי האירוע מהלקוח' : '') + '</span><span class="acts">' + (/^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(e.board || '')) ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" href="' + esc(e.board) + '" target="_blank" rel="noopener">לוח האירוע</a>' : '') + '<button class="hbtn" data-open="' + e.date + '">שיבוץ</button></span></div>'; }).join('') : '<p class="empty">כל האירועים עם דיילות משובצים.</p>';
     var st = H.staff || [];
     $('hStaff').innerHTML = st.length ? st.map(function (s) {
       var mine = (H.events || []).filter(function (e) { return e.date >= today && (e.assigned || []).indexOf(s.phone) >= 0; });
       var un = (s.unavail || []).filter(function (d) { return d >= today; });
       var link = (S.staff || []).filter(function (x) { return x.phone === s.phone; })[0];
-      return '<div class="hc"><h3>' + esc(s.name) + '</h3><div class="m" dir="ltr" style="text-align:right">' + esc(fmtPhone(s.phone)) + '</div>' +
-        '<ul>' + (mine.length ? mine.map(function (e) { return '<li>' + dmy(e.date) + ' · ' + esc(e.name) + (e.city ? ' · ' + esc(e.city) : '') + '</li>'; }).join('') : '<li class="m">אין אירועים משובצים</li>') +
+      var bl = function (e) { return /^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(e.board || '')) ? ' <a href="' + esc(e.board) + '" target="_blank" rel="noopener" style="color:var(--pine)">ללוח האירוע ›</a>' : ''; };
+      return '<div class="hc"><h3>' + esc(s.name) + ' <span class="m" style="font-weight:400">· ' + (s.g === 'm' ? 'דייל' : 'דיילת') + '</span></h3><div class="m" dir="ltr" style="text-align:right">' + esc(fmtPhone(s.phone)) + '</div>' +
+        '<ul>' + (mine.length ? mine.map(function (e) { return '<li>' + dmy(e.date) + ' · ' + esc(e.name) + (e.city ? ' · ' + esc(e.city) : '') + bl(e) + '</li>'; }).join('') : '<li class="m">אין אירועים משובצים</li>') +
         (un.length ? '<li class="m">לא זמינה: ' + un.map(dmy).join(', ') + '</li>' : '') + '</ul>' +
         '<div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem">' + (link && link.checkin ? '<button class="hbtn" data-copy="' + esc(link.checkin) + '">העתקת קישור דיווח</button>' : '') + (link && /^https:\/\/wa\.me\//.test(link.wa || '') ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(link.wa) + '">שליחת הקישור בוואטסאפ</a>' : '') + '<button class="hbtn x" data-rm="' + esc(s.phone) + '">הסרה</button></div></div>';
     }).join('') : '<p class="empty">עוד לא נוספו דיילות. מוסיפים שם ונייד למעלה.</p>';
@@ -239,7 +240,7 @@
   function shift(n) { var d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1)); month = d.toISOString().slice(0, 7); paint(); }
   $('prev').addEventListener('click', function () { shift(-1); }); $('next').addEventListener('click', function () { shift(1); }); $('today').addEventListener('click', function () { month = ilToday().slice(0, 7); paint(); });
   function loadStaff(body) { return api('staff', body || {}).then(function (d) { if (d && d.ok) { S = d; } return api('journalHostess', {}).then(setH); }); }
-  $('sAdd').addEventListener('click', function () { var n = $('sName').value.trim(), p = $('sPhone').value.trim(); if (n.length < 2 || !p) return; if (!confirm('להוסיף את ' + n + '? קישור הדיווח האישי יישלח אליה בוואטסאפ.')) return; loadStaff({ act: 'add', name: n, phone: p }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
+  $('sAdd').addEventListener('click', function () { var n = $('sName').value.trim(), p = $('sPhone').value.trim(); if (n.length < 2 || !p) return; if (!confirm('להוסיף את ' + n + '? קישור הדיווח האישי יישלח בוואטסאפ.')) return; loadStaff({ act: 'add', name: n, phone: p, g: $('sG').value }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
   $('hStaff').addEventListener('click', function (e) {
     var c = e.target.closest('[data-copy]'); if (c) { if (navigator.clipboard) navigator.clipboard.writeText(c.dataset.copy).then(function () { c.textContent = 'הועתק'; }); return; }
     var r = e.target.closest('[data-rm]'); if (r && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: r.dataset.rm });

@@ -14008,7 +14008,7 @@ const WORKER = {
         const pj = v => { try { return JSON.parse(v); } catch { return null; } };
         for (const [t, v] of Object.entries(fresh.asg)) asg[t] = JSON.stringify(v);
         for (const [ph, v] of Object.entries(fresh.unav)) unav[ph] = JSON.stringify(v);
-        staff = Object.entries(staffKv).map(([ph, v]) => { const x = pj(v) || {}; return { phone: ph, name: String(x.name || ''), unavail: pj(unav[ph] || 'null') || [] }; }).filter(x => x.name).sort((x, y) => x.name.localeCompare(y.name, 'he'));
+        staff = Object.entries(staffKv).map(([ph, v]) => { const x = pj(v) || {}; return { phone: ph, name: String(x.name || ''), g: x.g === 'm' ? 'm' : 'f', unavail: pj(unav[ph] || 'null') || [] }; }).filter(x => x.name).sort((x, y) => x.name.localeCompare(y.name, 'he'));
         const need = {}; for (const list of Object.values(days)) for (const x of list) need[x.tok8] = { n: x.n, state: x.state };
         const snap = await readSnapshot(env, 'guest'); const from = new Date(Date.now() - 31 * 86400e3).toISOString().slice(0, 10);
         for (const r of (snap && snap.events && snap.events.values) || []) {
