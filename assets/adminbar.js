@@ -279,3 +279,20 @@
     window.addEventListener('pagehide', function () { flush(true); });
   } catch (e) {}
 })();
+
+/* 16/11 Richard: every user is greeted by their own name. The signed-in user's name is read once per tab and kept in
+   sessionStorage (ishur_me); a page that shows a greeting (#hello with data-greet) is filled in when it arrives. */
+(function () {
+  try {
+    var k = ''; try { k = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+    if (!/^us\./.test(k)) return;
+    var put = function (m) { var h = document.getElementById('hello'); if (h && h.dataset.greet && m && m.name) h.textContent = h.dataset.greet + ', ' + m.name; };
+    var c = null; try { c = JSON.parse(sessionStorage.getItem('ishur_me') || 'null'); } catch (e) {}
+    if (c && c.k === k.slice(-12)) { if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', function () { put(c); }); else put(c); return; }
+    var API = (window.ISHUR_CONFIG && window.ISHUR_CONFIG.endpoint) ? window.ISHUR_CONFIG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+    fetch(API + '/api/auth/me', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session: k }) }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok || !j.user) return; var m = { name: String(j.user.name || '').slice(0, 40), email: j.user.email, k: k.slice(-12) };
+      try { sessionStorage.setItem('ishur_me', JSON.stringify(m)); } catch (e) {} put(m); setTimeout(function () { put(m); }, 1500);
+    }).catch(function () {});
+  } catch (e) {}
+})();

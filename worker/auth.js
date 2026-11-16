@@ -48,8 +48,8 @@ const TOK_RE = /^us\.[0-9a-f]{64}$/;
 const GOOGLE_ISS = ['accounts.google.com', 'https://accounts.google.com'];
 const JWKS_URL = 'https://www.googleapis.com/oauth2/v3/certs';
 export const SEED_USERS = [
-  { email: 'richardtomskiy@gmail.com', name: 'Richard', role: 'owner', pages: 'all', layers: 'all' },
-  { email: 'shalevdrix3@gmail.com', name: 'Shalev', role: 'staff', pages: 'all', layers: 'all' },
+  { email: 'richardtomskiy@gmail.com', name: 'ריצארד', role: 'owner', pages: 'all', layers: 'all' },
+  { email: 'shalevdrix3@gmail.com', name: 'שלו', role: 'staff', pages: 'all', layers: 'all' },
 ];
 
 /* ── pure ─────────────────────────────────────────────────────────────────── */

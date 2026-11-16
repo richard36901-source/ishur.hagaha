@@ -12,7 +12,7 @@
 <script src="/config.js?v=74"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=16" defer></script>
+<script src="/next/assets/adminbar.js?v=17" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
@@ -2608,7 +2608,9 @@
   var hqLeadCounts = null;
   function hqLoad() {
     if (!$('hqtop')) return;
-    $('hello').textContent = hqGreet() + ', ריצארד';
+    /* 16/11: the greeting names whoever is signed in (the bar keeps the name in ishur_me) */
+    var meName = ''; try { meName = (JSON.parse(sessionStorage.getItem('ishur_me') || 'null') || {}).name || ''; } catch (e) {}
+    $('hello').dataset.greet = hqGreet(); $('hello').textContent = hqGreet() + (meName ? ', ' + meName : '');
     $('today').textContent = new Date().toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' });
     var todo = [];
     function pushTodo(kind, t, s, href, label) { todo.push({ kind: kind, t: t, s: s, href: href, label: label }); }
