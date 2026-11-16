@@ -383,6 +383,13 @@ export async function handleAuth(request, env, origin, url, d = {}) {
     all.sort((x, y) => (x.role === y.role ? x.email.localeCompare(y.email) : x.role === 'owner' ? -1 : 1));
     return okJson({ ok: true, users: all.map(publicUser), all_pages: PAGES, all_layers: LAYERS }, origin);
   }
+  /* the full per-user log: screens opened and buttons pressed, sent by the bar in small batches */
+  if (path === 'track') {
+    const items = Array.isArray(b.items) ? b.items.slice(0, 30) : [];
+    let n = 0;
+    for (const it of items) { const act = String((it && it.a) || '').replace(/[<>]/g, '').slice(0, 100); if (!act) continue; await logAction(env, { u: me.email, a: act, p: String((it && it.p) || '').replace(/[<>]/g, '').slice(0, 110) }, Date.now() + n); n++; }
+    return okJson({ ok: true, logged: n }, origin);
+  }
   if (path === 'actions') {
     if (me.role !== 'owner') return deny(403, 'owner-only', origin);
     return okJson({ ok: true, actions: await queryActions(env, { days: b.days, user: b.user, limit: b.limit }) }, origin);

@@ -255,3 +255,14 @@ test('enforceOn: "on", a start time in the past, a start time in the future, any
   assert.equal(await enforceOn(env(new Date(Date.now() + 3600e3).toISOString())), false);
   assert.equal(await enforceOn(env('')), false); assert.equal(await enforceOn(env(null)), false); assert.equal(await enforceOn(env('off')), false);
 });
+
+test('track: screens and clicks of a signed-in user land in the action log under that user; no session, no log', async () => {
+  const e = envWith(); await ensureSeed(e);
+  const ss = await createSession(e, STAFF);
+  assert.equal((await authPost(e, 'track', { items: [{ a: 'לחץ: שמירה', p: 'clients.html' }] })).status, 401);
+  const r = await (await authPost(e, 'track', { session: ss, items: [{ a: 'פתח מסך', p: 'clients.html' }, { a: 'לחץ: <b>שמירה</b>', p: 'clients.html#designs' }, { a: '' }, ...Array.from({ length: 40 }, (_, i) => ({ a: 'לחץ: ' + i, p: 'x' }))] })).json();
+  assert.equal(r.logged, 29, 'at most 30 items a batch, empty ones skipped');
+  const mine = await queryActions(e, { user: STAFF, limit: 100 });
+  assert.equal(mine.length, 29); assert.ok(mine.every(x => x.u === STAFF)); assert.ok(mine.some(x => x.a === 'פתח מסך' && x.p === 'clients.html')); assert.ok(mine.some(x => x.a === 'לחץ: bשמירה/b'));
+  assert.equal((await queryActions(e, { user: OWNER })).length, 0);
+});

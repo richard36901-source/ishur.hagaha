@@ -368,3 +368,26 @@
     }).catch(function () {});
   } catch (e) {}
 })();
+
+/* 16/11 the full per-user log (Richard: "מי לחץ מה, כל דבר"): every screen a signed-in user opens and every button or link
+   they press goes to the action log under their Google account. Sent in small batches; nothing is sent without a Google session. */
+(function () {
+  try {
+    var k = ''; try { k = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+    if (!/^us\./.test(k) || location.pathname.split('/').pop() === 'login.html') return;
+    var API = (window.ISHUR_CONFIG && window.ISHUR_CONFIG.endpoint) ? window.ISHUR_CONFIG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+    var q = [], where = function () { return (location.pathname.split('/').pop() || 'admin.html') + location.search.replace(/([?&])(key|k|t|token)=[^&]*/gi, '$1$2=…') + location.hash; };
+    var clean = function (s) { return String(s || '').replace(/\s+/g, ' ').replace(/\+?\d[\d\- ]{7,}\d/g, '…').trim().slice(0, 60); };
+    var add = function (a) { if (q.length < 60) q.push({ a: a, p: where().slice(0, 110) }); };
+    var flush = function (last) { if (!q.length) return; var items = q.splice(0, 30); try { fetch(API + '/api/auth/track', { method: 'POST', keepalive: !!last, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session: k, items: items }) }).catch(function () {}); } catch (e) {} };
+    add('פתח מסך'); window.addEventListener('hashchange', function () { add('עבר לחלק'); });
+    document.addEventListener('click', function (e) {
+      var el = e.target && e.target.closest ? e.target.closest('button,a,summary,[role=button],[role=tab],input[type=checkbox],input[type=radio],label.btn') : null; if (!el) return;
+      var t = clean(el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || el.name || el.id);
+      add('לחץ: ' + (t || el.tagName.toLowerCase()));
+    }, true);
+    document.addEventListener('change', function (e) { var el = e.target; if (el && el.tagName === 'SELECT') add('בחר: ' + clean(el.getAttribute('aria-label') || el.name || el.id) + ' = ' + clean(el.options[el.selectedIndex] && el.options[el.selectedIndex].text)); }, true);
+    setInterval(function () { flush(false); }, 8000); setTimeout(function () { flush(false); }, 1500);
+    window.addEventListener('pagehide', function () { flush(true); });
+  } catch (e) {}
+})();
