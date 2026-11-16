@@ -46,6 +46,7 @@ import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
 import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
+import { authGate, handleAuth } from './auth.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
@@ -11161,7 +11162,8 @@ const WORKER = {
   /* 12/11 security: every answer leaves with the three headers that cost nothing — HTTPS only from now on (HSTS),
      no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
      handed to other sites. A header a route already set is left as it is. */
-  async fetch(request, env, ctx) { return hardenResponse(await changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
+  /* 16/11 login + users (auth.js): authGate is the one place a user session is accepted (and, only when KV cfg:auth_enforce = 'on', where a bare shared key from a browser is refused). No session and switch off = the same request, untouched. */
+  async fetch(request, env, ctx) { const g = await authGate(request, env, ctx, { isRead: homeReadOk }); if (g.response) return hardenResponse(g.response); return hardenResponse(await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -11208,6 +11210,7 @@ const WORKER = {
     /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
     if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => readSnapshot(e, 'dashboard'), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
+    if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
