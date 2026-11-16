@@ -18,7 +18,7 @@
 <link rel="stylesheet" href="/assets/picker.css">
 <script src="/assets/datepicker.js"></script>
 <script src="/assets/paylink-gen.js?v=5"></script>
-<script src="/assets/pnl-journal.js?v=6"></script>
+<script src="/assets/pnl-journal.js?v=7"></script>
 <script src="/assets/fixed-costs.js?v=1"></script>
 <script src="/assets/playbook.js?v=2"></script>
 <script src="/assets/sendboard.js?v=3"></script>
@@ -1983,7 +1983,7 @@
       }).join('');
     });
     if (window.IshurJournal && $('pjHost')) { if (!pj) pj = window.IshurJournal.mount($('pjHost'), costLines); else pj.redraw(); }
-    if (window.IshurFixed && $('fxcHost') && !window.__fxc) window.__fxc = window.IshurFixed.mount($('fxcHost'), function (b) { return fetch(CFG.endpoint('fixedcost'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b)) }).then(function (r) { return r.json(); }); }, function () { loadCost(); });
+    if (window.IshurFixed && $('fxcHost') && !window.__fxc) window.__fxc = window.IshurFixed.mount($('fxcHost'), function (b) { return fetch(CFG.endpoint('adspend'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: adminKey }, b)) }).then(function (r) { return r.json(); }); }, function () { loadCost(); });
   }
 
   function downloadCsv(name, header, rows) {

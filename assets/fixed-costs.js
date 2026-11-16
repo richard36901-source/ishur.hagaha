@@ -2,7 +2,7 @@
    One list of everything that is charged every month. A row added today is counted from its start month on, every
    month, until it is removed with the ✕ (it then stops from next month; history keeps it). Amount in ₪ or in $
    (the ₪ value is shown beside a $ price), and the day of the month it is charged on — the journal puts it on that day.
-   Server: POST /api/fixedcost {action:'list'|'add'|'update'|'remove', item, id}.
+   Server: POST /api/adspend {action:'list'|'add'|'update'|'remove', item, id}.
    IshurFixed.mount(host, post, onChange) · IshurFixed.render(data, state) → html (pure) */
 (function (root) {
   'use strict';
