@@ -78,6 +78,7 @@ import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written b
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
+import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
 import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
@@ -11071,6 +11072,7 @@ const WORKER = {
     if (String(event.cron || '').startsWith('*/10')) {
       ctx.waitUntil(opsJob(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
+      ctx.waitUntil(reconcileLeads(env).catch(() => {}));   /* 16/11 the monday leads board against its mirror: a missed webhook heals here (read-only) */
       ctx.waitUntil(opsJob(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
@@ -11207,6 +11209,7 @@ const WORKER = {
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
     /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
     if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => readSnapshot(e, 'dashboard'), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
+    if (url.pathname === '/webhooks/monday-leads') return handleMondayWebhook(request, env, url);
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
