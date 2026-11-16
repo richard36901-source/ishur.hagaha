@@ -16,7 +16,7 @@
 <link rel="stylesheet" href="assets/picker.css">
 <script src="assets/datepicker.js"></script>
 <script src="assets/paylink-gen.js?v=5"></script>
-<script src="assets/pnl-journal.js?v=1"></script>
+<script src="assets/pnl-journal.js?v=2"></script>
 <script src="assets/playbook.js?v=2"></script>
 <script src="assets/sendboard.js?v=3"></script>
 <script src="assets/callboard.js?v=1"></script>
@@ -1921,8 +1921,8 @@
           '</td><td>' + l.fail + '</td><td>' + l.wa.toFixed(2) +
           '</td><td>' + l.shir.toFixed(2) + '</td><td>' + (l.ads ? l.ads.toFixed(2) : '') +
           '</td><td>' + (l.fee ? l.fee.toFixed(2) + (l.feeEst ? ' ≈' : '') : '') + '</td><td>' + (l.fixed ? l.fixed.toFixed(2) : '') +
-          '</td><td><b>' + l.total.toFixed(2) + '</b></td><td dir="ltr" style="color:' + col(l.profit) + '">' + l.profit.toFixed(2) +
-          '</td><td>' + (l.vat ? l.vat.toFixed(2) : '') + '</td><td dir="ltr" style="color:' + col(l.net) + '"><b>' + l.net.toFixed(2) + '</b></td></tr>';
+          '</td><td><b>' + l.total.toFixed(2) + '</b></td><td style="color:' + col(l.profit) + '"><span dir="ltr">' + l.profit.toFixed(2) +
+          '</span></td><td>' + (l.vat ? l.vat.toFixed(2) : '') + '</td><td style="color:' + col(l.net) + '"><b dir="ltr">' + l.net.toFixed(2) + '</b></td></tr>';
       }).join('');
     });
     if (window.IshurJournal && $('pjHost')) { if (!pj) pj = window.IshurJournal.mount($('pjHost'), costLines); else pj.redraw(); }

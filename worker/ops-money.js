@@ -77,6 +77,23 @@ export function revenueEntries(payRows, events = [], { parsePaidDesc } = {}) {
   return out.sort((a, b) => a.day.localeCompare(b.day));
 }
 
+/* 16/11: payments read off Grow's own transaction screen (KV growtx = [{ref, day, sum, desc}]) for the months the
+   payment log does not reach. Grow is the truth: a transaction already known by its ref is left alone; a sheet row
+   that is the same payment (same Grow ref, or same day and sum) is replaced by it, keeping the client's name. */
+export function mergeGrowTx(entries, growtx, { parsePaidDesc } = {}) {
+  const out = (entries || []).slice(), refs = new Set(out.filter((e) => e.source === 'grow').map((e) => String(e.ref)));
+  for (const g of growtx || []) {
+    const ref = String(g.ref || ''); if (!ref || refs.has(ref) || !(Number(g.sum) > 0)) continue;
+    const i = out.findIndex((e) => e.source === 'sheet' && (e.grow_ref === ref || (e.day === g.day && Number(e.sum) === Number(g.sum))));
+    const old = i >= 0 ? out.splice(i, 1)[0] : null;
+    const c = classifyPay({ kind: 'pay', ts: Date.parse(g.day + 'T12:00:00Z'), data: { ipn: { paymentSum: String(g.sum), paymentDesc: g.desc || '', asmachta: ref } } }, { parsePaidDesc });
+    if (!c) continue;
+    out.push({ ...c, day: g.day, name: (old && old.name) || g.name || '', tok8: (old && old.tok8) || c.tok8 || '', source: 'grow', from_screen: true });
+    refs.add(ref);
+  }
+  return out.sort((a, b) => a.day.localeCompare(b.day));
+}
+
 export const REV_KINDS = ['package', 'addon', 'hostess', 'design'];
 export function revenueSeries(entries, { from, to, group }) {
   const m = {};
@@ -426,7 +443,8 @@ export async function buildIncomeDays(env, d, { raw, days = 45, fresh = false } 
   if (!fresh && env.RATE) { const c = jp(await env.RATE.get('incdays').catch(() => null)); if (c && Date.now() - c.at < 60 * 60e3) return c.data; }   /* a new payment deletes the key (processGrowPayment), so an hour is safe */
   const today = d.ilDate(new Date()), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10), far = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10);
   const pay = await d.auditQueryEx(env, { from: from.replace(/-/g, ''), to: today.replace(/-/g, ''), kind: 'pay', limit: 20000, budget: 3000 }).catch(() => ({ items: [], truncated: true }));
-  const entries = revenueEntries(pay.items, eventsForMoney(raw, d), { parsePaidDesc: d.parsePaidDesc || (() => null) });
+  const growtx = env.RATE ? jp(await env.RATE.get('growtx').catch(() => null)) || [] : [];
+  const entries = mergeGrowTx(revenueEntries(pay.items, eventsForMoney(raw, d), { parsePaidDesc: d.parsePaidDesc || (() => null) }), growtx, { parsePaidDesc: d.parsePaidDesc || (() => null) });
   const fee = await loadFeeCfg(env);
   const fixedRec = await loadFixed(env, today.slice(0, 7));
   const fixed = {}; for (const m of monthsBetween(far, today)) fixed[m] = fixedForMonth(fixedRec, m).items.filter((x) => !x.unknown && x.ils > 0).map((x) => ({ name: x.name, ils: x.ils, day: x.day || 10 }));
@@ -446,7 +464,8 @@ export async function buildFinance(env, d, { range = '90d', fresh = false, balan
       kvMap(d, env, 'wacost:'), kvMap(d, env, 'wastat:'), kvMap(d, env, 'shircost:'), kvMap(d, env, 'evcost:'), kvMap(d, env, 'adspend:'), kvMap(d, env, 'fixedcost:'), kvMap(d, env, 'costman:'), kvMap(d, env, 'invoice:'),
       storeAll(env, 'hostess_assignments'), balances ? balances().catch(() => null) : null]);
     const fixedRec = await loadFixed(env, today.slice(0, 7));
-    const entries = revenueEntries(pay.items, events, { parsePaidDesc: d.parsePaidDesc || (() => null) });
+    const growtx = env.RATE ? jp(await env.RATE.get('growtx').catch(() => null)) || [] : [];
+    const entries = mergeGrowTx(revenueEntries(pay.items, events, { parsePaidDesc: d.parsePaidDesc || (() => null) }), growtx, { parsePaidDesc: d.parsePaidDesc || (() => null) });
     const series = revenueSeries(entries, r);
     /* costs per day → per month */
     const mo = {}; const M = m => (mo[m] = mo[m] || { wa: 0, calls: 0, hostess: 0, wa_estimated: false });

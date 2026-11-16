@@ -199,3 +199,18 @@ test('a hand-opened event (Bit straight to Richard, ref "BIT-…") carries no Gr
   assert.equal(incomeDays([ev('BIT-20261115-AVIV')], { cfg: FEE_DEFAULT, actual: {} })['2026-11-15'].deals[0].method, 'direct');
   assert.equal(feeOf(ev('530000001'), FEE_DEFAULT).ils, 14.46);
 });
+import { mergeGrowTx } from '../ops-money.js';
+test('mergeGrowTx: Grow\'s screen fills the months the log misses, replaces the matching sheet row, never doubles a known ref', () => {
+  const sheet = (day, sum, tok8, name) => ({ day, ref: 'sheet:' + tok8, sum, tok8, name, lines: [{ kind: 'package', ils: sum, estimated: false }], source: 'sheet', grow_ref: '' });
+  const known = { day: '2026-11-15', ref: '533783571', sum: 199, source: 'grow', lines: [{ kind: 'package', ils: 199 }] };
+  const out = mergeGrowTx([sheet('2026-10-25', 149, 'c1c5fcf5', 'אורי'), sheet('2026-10-21', 279, 'ffb78392', 'יהונתן'), known], [
+    { ref: '527908032', day: '2026-10-25', sum: 149, desc: '100 מוזמנים פרימיום' },      /* the same payment as אורי's sheet row */
+    { ref: '528461720', day: '2026-10-27', sum: 669, desc: '500 מוזמנים הכל כלול' },     /* not in the sheet at all */
+    { ref: '533783571', day: '2026-11-15', sum: 199, desc: '200 מוזמנים בסיס' },         /* already known from the log */
+  ], { parsePaidDesc });
+  assert.equal(out.length, 4);
+  assert.equal(out.reduce((a, e) => a + e.sum, 0), 149 + 279 + 669 + 199);
+  const uri = out.find((e) => e.ref === '527908032'); assert.equal(uri.name, 'אורי'); assert.equal(uri.tok8, 'c1c5fcf5'); assert.equal(uri.source, 'grow');
+  assert.equal(out.filter((e) => e.ref === '533783571').length, 1);
+  assert.equal(out.find((e) => e.tok8 === 'ffb78392').source, 'sheet');
+});
