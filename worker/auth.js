@@ -284,7 +284,9 @@ export async function enforceOn(env) {
      · the older phone-code sessions (`sess.…`) count as "a shared key" under the switch
      · any error inside the gate lets the request through unchanged (fail-open)          */
 export async function authGate(request, env, ctx, d = {}) {
-  try { return await gate(request, env, ctx, d); } catch { return { request }; }
+  /* downstream handlers may read who is signed in from `x-ishur-user`; only this gate may set it, so a copy sent by a client is dropped */
+  const strip = r => { try { if (r && r.request && !r.user && r.request.headers.has('x-ishur-user')) { const h = new Headers(r.request.headers); h.delete('x-ishur-user'); return { ...r, request: new Request(r.request, { headers: h }) }; } } catch {} return r; };
+  try { return strip(await gate(request, env, ctx, d)); } catch { return strip({ request }); }
 }
 async function gate(request, env, ctx, d) {
   if (request.method === 'OPTIONS') return { request };
@@ -308,6 +310,7 @@ async function gate(request, env, ctx, d) {
     headers.delete('x-ishur-session');
     if (bearer) headers.delete('Authorization');
     headers.set('x-admin-key', env.ADMIN_KEY);
+    headers.set('x-ishur-user', user.email);
     let init = { headers };
     if (body) {
       const nb = { ...body, admin_key: env.ADMIN_KEY };

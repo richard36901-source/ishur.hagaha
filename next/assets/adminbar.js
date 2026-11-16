@@ -43,7 +43,8 @@
       { href: 'leads.html', label: 'לידים' },
       { href: 'leads.html#script', label: 'תסריטי שיחה' },
       { href: 'leads.html#paylink', label: 'קישורים' },
-      { href: 'clients.html#referrals', label: 'הפניות ושגרירים' } ] },   /* 16/11 Richard: referrals belong to sales (the screen itself stays a tab of the clients page) */
+      { href: 'clients.html#referrals', label: 'הפניות ושגרירים' },
+      { href: 'team.html', label: 'מוקד' } ] },   /* 16/11: agents, shifts and who owns which WhatsApp conversation (dialling still off) */   /* 16/11 Richard: referrals belong to sales (the screen itself stays a tab of the clients page) */
     { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
       { href: 'clients.html', label: 'לקוחות' },
       { href: 'clients.html#designs', label: 'עיצובים' },

@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
+<meta name="robots" content="noindex">
+<title>ishur.io · מוקד</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=90"></script>
+<script src="/next/assets/batch.js?v=6"></script>
+<script src="/assets/ux.js?v=4"></script>
+<script src="/next/assets/adminbar.js?v=15" defer></script>
+<script src="/assets/guard.js?v=19"></script>
+<script src="/next/assets/lite.js?v=3"></script>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
+  html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--warn:#E58C7C;--good:#6FC39B;--rail:#232A25}
+  *{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:1100px;margin:0 auto;padding:1.2rem 16px 3rem}
+  h1{font-family:'Frank Ruhl Libre',serif;font-size:1.6rem;color:var(--pine);margin:0 0 1rem}
+  .hs{margin:1.4rem 0 0}.hs h2{font-size:1.05rem;font-weight:700;margin:0 0 .6rem}
+  .hc{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:.8rem .9rem}
+  .hcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+  .hc h3{font-size:1rem;margin:0 0 .15rem}.m{font-size:.8rem;color:var(--ink3)}
+  .big{font-size:1.5rem;font-weight:700;line-height:1.2;margin:.35rem 0 .1rem}
+  .hbtn{font:inherit;font-size:.84rem;font-weight:600;min-height:38px;padding:0 .9rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+  .hbtn.p{background:var(--pine);border-color:transparent;color:#fff}html[data-theme=dark] .hbtn.p{color:#0A2119}.hbtn.x{color:var(--warn)}.hbtn:active{transform:scale(.97)}
+  .hadd{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 .7rem}.hadd input{font:inherit;font-size:.9rem;min-height:38px;padding:0 .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);flex:1;min-width:150px}
+  .on{display:inline-flex;align-items:center;gap:.35rem;font-size:.78rem;font-weight:600;color:var(--good)}.on i{width:8px;height:8px;border-radius:50%;background:var(--good)}
+  .hlog{width:100%;border-collapse:collapse;font-size:.86rem}.hlog th,.hlog td{text-align:start;padding:.45rem .5rem;border-bottom:1px solid var(--line)}.hlog th{font-size:.74rem;color:var(--ink3)}
+  .empty{color:var(--ink3);font-size:.88rem;padding:.8rem 0}
+  .me{display:flex;gap:1rem;align-items:center;justify-content:space-between;flex-wrap:wrap}
+  .gate{max-width:22rem;margin:4rem auto;text-align:center}.gate[hidden]{display:none}
+  .acts{display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.6rem}
+  .ibtn{font:inherit;font-style:italic;font-weight:700;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:var(--card);color:var(--ink3);cursor:pointer}
+  .info{font-size:.84rem;color:var(--ink2);border:1px solid var(--line);border-radius:8px;background:var(--card);padding:.7rem .9rem;margin:0 0 .8rem;max-width:70ch}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden><p class="empty">נדרשת כניסה. <a href="/next/login.html">לכניסה</a></p></div>
+<main class="wrap" id="main" hidden>
+  <h1>מוקד <button class="ibtn" id="iBtn" aria-label="איך זה עובד" aria-expanded="false">i</button></h1>
+  <p class="info" id="info" hidden>כל מוקדנית מזוהה לפי הטלפון שלה ולפי חשבון הגוגל שאיתו היא נכנסת. היא מדווחת כניסה ויציאה ממשמרת והשעון סופר. שיחת וואטסאפ משויכת למוקדנית מתוך האינבוקס. חיוג מוקלט מהמערכת עוד לא מופעל.</p>
+  <section class="hs" id="meBox" hidden><div class="hc me"><div><h3 id="meName"></h3><div id="meState" class="m"></div></div><button class="hbtn p" id="meBtn"></button></div></section>
+  <section class="hs"><h2>המוקדניות · <span id="mon"></span></h2><div class="hcards" id="cards"><p class="empty">טוען…</p></div></section>
+  <section class="hs"><h2>הוספת מוקדנית</h2>
+    <div class="hadd"><input id="cName" placeholder="שם" maxlength="40"><input id="cPhone" placeholder="הנייד שממנו היא מחייגת" dir="ltr" inputmode="tel"><input id="cMail" placeholder="חשבון הגוגל שלה (מייל)" dir="ltr" type="email"><button class="hbtn p" id="cAdd">הוספה</button></div>
+    <p class="m">המייל נדרש כדי שהיא תוכל להיכנס ולדווח משמרת בעצמה. אותו מייל צריך להיות מאושר גם ב"משתמשים והרשאות".</p></section>
+  <section class="hs"><h2>משמרות החודש</h2><div style="overflow:auto"><table class="hlog" id="log"><thead><tr><th>תאריך</th><th>מוקדנית</th><th>כניסה</th><th>יציאה</th><th>שעות</th></tr></thead><tbody></tbody></table></div><p class="empty" id="logEmpty" hidden>עוד אין משמרות החודש.</p></section>
+</main>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var key = ''; try { key = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var D = null, HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmtPhone(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
+  function hm(ts) { return new Date(ts).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Jerusalem' }); }
+  function dm(ts) { return new Date(ts).toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', timeZone: 'Asia/Jerusalem' }); }
+  function api(body) { body = body || {}; body.admin_key = key; return fetch(CFG.endpoint('callers'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { if (r.status === 403) { $('gate').hidden = false; $('main').hidden = true; return null; } return r.json(); }).catch(function () { return null; }); }
+  function paint(d) {
+    if (!d || !d.ok) { if (d && d.error === 'bad-input') alert('צריך שם ונייד ישראלי תקין'); else if (d && d.error === 'not-a-caller') alert('המספר הזה לא רשום כמוקדנית'); return; }
+    D = d; $('mon').textContent = HE[Number(d.month.slice(5, 7)) - 1] + ' ' + d.month.slice(0, 4);
+    var me = d.me && d.callers.filter(function (c) { return c.phone === d.me.phone; })[0];
+    $('meBox').hidden = !me; if (me) { $('meName').textContent = me.name; $('meState').textContent = me.on_shift ? 'במשמרת מ-' + hm(me.since) : 'לא במשמרת'; $('meBtn').textContent = me.on_shift ? 'יציאה מהמשמרת' : 'כניסה למשמרת'; $('meBtn').dataset.on = me.on_shift ? '0' : '1'; }
+    $('cards').innerHTML = d.callers.length ? d.callers.map(function (c) {
+      return '<div class="hc"><h3>' + esc(c.name) + (c.on_shift ? ' <span class="on"><i></i>במשמרת מ-' + hm(c.since) + '</span>' : '') + '</h3><div class="m" dir="ltr" style="text-align:right">' + esc(fmtPhone(c.phone)) + (c.email ? ' · ' + esc(c.email) : '') + '</div>' +
+        '<div class="big">' + c.hours + ' <span class="m" style="font-weight:400">שעות החודש</span></div><div class="m">' + c.shifts + ' משמרות · ' + c.conversations + ' שיחות וואטסאפ משויכות</div>' + (c.stale ? '<div class="m" style="color:var(--warn)">משמרת פתוחה יותר מ-12 שעות, נספרת עד 12</div>' : '') + (c.email ? '' : '<div class="m" style="color:var(--warn)">חסר מייל, לא תוכל לדווח משמרת בעצמה</div>') +
+        '<div class="acts"><button class="hbtn" data-clock="' + esc(c.phone) + '" data-on="' + (c.on_shift ? '0' : '1') + '">' + (c.on_shift ? 'סגירת משמרת' : 'פתיחת משמרת') + '</button><button class="hbtn x" data-rm="' + esc(c.phone) + '">הסרה</button></div></div>';
+    }).join('') : '<p class="empty">עוד אין מוקדניות. מוסיפים למטה שם, נייד ומייל.</p>';
+    var names = {}; d.callers.forEach(function (c) { names[c.phone] = c.name; });
+    $('logEmpty').hidden = !!d.shifts.length; $('log').hidden = !d.shifts.length;
+    $('log').querySelector('tbody').innerHTML = d.shifts.map(function (s) { return '<tr><td>' + dm(s.in) + '</td><td>' + esc(names[s.phone] || fmtPhone(s.phone)) + '</td><td>' + hm(s.in) + '</td><td>' + hm(s.out) + '</td><td>' + (Math.round(s.ms / 36e3) / 100) + '</td></tr>'; }).join('');
+  }
+  $('iBtn').addEventListener('click', function () { var h = $('info').hidden; $('info').hidden = !h; $('iBtn').setAttribute('aria-expanded', String(h)); });
+  $('meBtn').addEventListener('click', function () { $('meBtn').disabled = true; api({ clock: { on: $('meBtn').dataset.on === '1' } }).then(function (d) { $('meBtn').disabled = false; paint(d); }); });
+  $('cAdd').addEventListener('click', function () { var n = $('cName').value.trim(), p = $('cPhone').value.trim(); if (n.length < 2 || !p) return; api({ add: { name: n, phone: p, email: $('cMail').value.trim() } }).then(function (d) { if (d && d.ok) { $('cName').value = ''; $('cPhone').value = ''; $('cMail').value = ''; } paint(d); }); });
+  $('cards').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-clock]'); if (c) { c.disabled = true; api({ clock: { phone: c.dataset.clock, on: c.dataset.on === '1' } }).then(paint); return; }
+    var r = e.target.closest('[data-rm]'); if (r && confirm('להסיר את המוקדנית מהרשימה? המשמרות שנרשמו נשארות.')) api({ remove: { phone: r.dataset.rm } }).then(paint);
+  });
+  if (!key) { $('gate').hidden = false; return; }
+  $('main').hidden = false; api({}).then(paint); setInterval(function () { if (!document.hidden) api({}).then(paint); }, 60000);
+})();
+</script>
+</body>
+</html>

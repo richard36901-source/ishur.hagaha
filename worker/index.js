@@ -49,6 +49,7 @@ import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safe
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
+import { handleCallers } from './callers.js';
 import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
 import { checkinUrl } from './staff.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
@@ -13977,6 +13978,7 @@ const WORKER = {
       for (const [k, v] of Object.entries(all)) { try { for (const x of JSON.parse(v) || []) items.push({ tok8: k, ...x }); } catch {} }
       return okJson({ ok: true, items: items.sort((x, y) => String(y.day).localeCompare(String(x.day))) }, origin);
     }
+    if (url.pathname === '/api/callers' && request.method === 'POST') return handleCallers(request, env, origin, { okJson, deny, isAdmin, normPhone, kvPrefix });
     if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
     if (url.pathname === '/api/hostess-receipt' && request.method === 'POST') return handleReceiptUpload(request, env, origin, { okJson, deny, adminKeyOk });
     if (url.pathname === '/api/hostess-receipt' && request.method === 'GET') return handleReceiptGet(env, url);

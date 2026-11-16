@@ -266,3 +266,10 @@ test('track: screens and clicks of a signed-in user land in the action log under
   assert.equal(mine.length, 29); assert.ok(mine.every(x => x.u === STAFF)); assert.ok(mine.some(x => x.a === 'פתח מסך' && x.p === 'clients.html')); assert.ok(mine.some(x => x.a === 'לחץ: bשמירה/b'));
   assert.equal((await queryActions(e, { user: OWNER })).length, 0);
 });
+
+test('gate: the signed-in user reaches the handler as x-ishur-user, and a client cannot send that header itself', async () => {
+  const e = envWith(); await ensureSeed(e); const ss = await createSession(e, STAFF);
+  const mk = (headers, body) => new Request('https://go.ishur.io/api/callers', { method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: JSON.stringify(body) });
+  const a = await authGate(mk({ 'x-ishur-user': 'evil@x.co' }, { admin_key: ss }), e, { waitUntil() {} }); assert.equal(a.request.headers.get('x-ishur-user'), STAFF);
+  const b = await authGate(mk({ 'x-ishur-user': 'evil@x.co' }, { admin_key: 'k' }), e, { waitUntil() {} }); assert.equal(b.request.headers.get('x-ishur-user'), null); assert.equal((await b.request.json()).admin_key, 'k');
+});
