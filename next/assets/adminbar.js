@@ -13,6 +13,10 @@
 
   /* one icon set, one stroke weight — drawn, not emoji */
   var ic = {
+    /* 16/11: each section its own icon, so the phone tab bar reads at a glance */
+    sales: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 17l6-6 4 4 8-8"/><path d="M15 7h6v6"/></svg>',
+    people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c1-3.300 3.600-5 6.500-5s5.500 1.700 6.500 5"/><path d="M16 4.800a3.500 3.500 0 0 1 0 6.400"/><path d="M18.500 15.300c1.600.800 2.600 2.300 3 4.700"/></svg>',
+    host: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.500" y="5" width="17" height="15.500" rx="2.500"/><path d="M3.500 10h17M8 3v4M16 3v4"/><path d="M9 15l2 2 4-4"/></svg>',
     board: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2.5"/><path d="M3 9h18M9 21V9"/></svg>',
     inbox: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.5 5h13L22 12v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5z"/></svg>',
     calls: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .8 2.9a2 2 0 0 1-.5 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.4 1.9.7 2.9.8a2 2 0 0 1 1.6 2z"/></svg>',
@@ -39,24 +43,24 @@
       { href: 'admin.html?view=camp', label: 'קמפיינים' },
       { href: 'ad-report.html', label: 'דוח מודעות מלא' },
       { href: 'report.html', label: 'דוח תקופתי' } ] },   /* 16/11: activity + profit and loss + what needs attention, saves as a branded PDF */
-    { href: 'leads.html', label: 'מכירות', icon: ic.board, sub: [
+    { href: 'leads.html', label: 'מכירות', icon: ic.sales, sub: [
       { href: 'leads.html', label: 'לידים' },
       { href: 'leads.html#script', label: 'תסריטי שיחה' },
       { href: 'leads.html#paylink', label: 'קישורים' },
       { href: 'clients.html#referrals', label: 'הפניות ושגרירים' },
       { href: 'team.html', label: 'מוקד' } ] },   /* 16/11: agents, shifts and who owns which WhatsApp conversation (dialling still off) */   /* 16/11 Richard: referrals belong to sales (the screen itself stays a tab of the clients page) */
-    { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
+    { href: 'clients.html', label: 'לקוחות', icon: ic.people, sub: [
       { href: 'clients.html', label: 'לקוחות' },
       { href: 'clients.html#designs', label: 'עיצובים' },
       { href: 'admin.html?view=feedback', label: 'משוב' } ] },
-    { href: 'admin.html?view=week', label: 'שליחות ושיחות', icon: ic.calls, sub: [
+    { href: 'admin.html?view=week', label: 'שליחות ושיחות', short: 'שליחות', icon: ic.calls, sub: [
       { href: 'admin.html?view=week', label: 'השבוע' },
       { href: 'inbox.html', label: 'אינבוקס' },
       { href: 'admin.html?view=calls', label: 'יומן שיחות' },
       { href: 'floor.html', label: 'מוקד חי' } ] },
     /* 16/11 Richard: ONE journal with layers (sends, costs and profit, hostesses) and filters, instead of a calendar per subject */
     /* 16/11 evening, Richard: this screen is only hostesses now (events with and without a hostess, assignment, availability); sends live under שליחות ושיחות */
-    { href: 'calendar.html', label: 'דיילות', icon: ic.sheet },
+    { href: 'calendar.html', label: 'דיילות', icon: ic.host },
   ];
   /* behind the ☰: control + the system pages (same tab), then the outside tools */
   var CONTROL = [
@@ -131,7 +135,7 @@
     '.ibar-brand span{color:#C7AE7A}' +
     '.ibar-sep{width:1px;background:rgba(199,174,122,.25);margin:.55rem .35rem;flex-shrink:0}' +
     '.ibar .ext svg.arrow{width:10px;height:10px;opacity:.55;margin-inline-start:-.15rem}' +
-    '.ibar-more{display:none}' +
+    '.ibar-more{display:none}.ibar a .ls{display:none}' +
     '.ibar-sub{max-width:1360px;margin:0 auto;padding:.55rem .9rem .45rem;display:flex;gap:.4rem;border-top:1px solid rgba(199,174,122,.18);overflow-x:auto;scrollbar-width:none}' +
     '.ibar .ibar-sub a{padding:.4rem .95rem;min-height:34px;font-size:.8rem;font-weight:600;border:1px solid rgba(199,174,122,.35);border-radius:8px;color:rgba(248,244,234,.85);background:rgba(248,244,234,.04)}' +
     '.ibar a{position:relative}.ibar-dot{position:absolute;top:-5px;inset-inline-end:-5px;min-width:17px;height:17px;padding:0 4px;border-radius:99px;background:#D8402F;color:#fff;font:700 10.5px/17px system-ui,sans-serif;font-style:normal;text-align:center;box-shadow:0 0 0 2px #0A2119}.ibar-in > a .ibar-dot{top:6px;inset-inline-end:2px}' +
@@ -164,20 +168,28 @@
     '.ibar-menu a svg{width:15px;height:15px}' +
     /* phone: the rail becomes an iOS-style bottom tab bar, trimmed to what a
        phone session actually needs; sheet/Make live behind "עוד" */
+    /* 16/11 Richard: on a phone this is an app. A tab bar at the bottom with equal tabs (icon over a short label, the
+       current one tinted), the parts of the section as a row of pills at the top, both clear of the notch and the home bar. */
     '@media (max-width:640px){' +
-      '.ibar{position:fixed;top:auto;bottom:0;left:0;right:0;border-bottom:none;border-top:1px solid rgba(199,174,122,.35);padding-bottom:env(safe-area-inset-bottom)}' +
-      '.ibar-in{justify-content:space-around;gap:0;padding:0 .3rem}' +
+      '.ibar{position:fixed;top:auto;bottom:0;left:0;right:0;border-bottom:none;border-top:1px solid rgba(199,174,122,.28);padding-bottom:env(safe-area-inset-bottom);background:rgba(10,33,25,.94)}' +
+      '.ibar-in{justify-content:stretch;gap:0;padding:0;overflow:visible}' +
       '.ibar a.ibar-brand,.ibar-sep,.ibar a.ext,.ibar-tools,.ibar-corner{display:none}' +
       '.ibar-more{display:flex;background:none;border:none;font:inherit;cursor:pointer}' +
-      '.ibar a,.ibar-more{flex-direction:column;gap:.18rem;align-items:center;font-size:.6rem;color:rgba(248,244,234,.75);padding:.45rem .5rem .35rem;border-bottom:none;border-top:2px solid transparent}' +
-      '.ibar a svg,.ibar-more svg{width:19px;height:19px}' +
-      '.ibar a.on{border-top-color:#A8853C;border-bottom-color:transparent}' +
+      '.ibar-in > a,.ibar-more{flex:1 1 0;min-width:0;min-height:54px;justify-content:center;flex-direction:column;gap:.2rem;align-items:center;font-size:.66rem;font-weight:500;color:rgba(248,244,234,.6);padding:.4rem .1rem .3rem;border:0;-webkit-tap-highlight-color:transparent}' +
+      '.ibar-in > a span,.ibar-more span{max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}' +
+      '.ibar-in > a svg,.ibar-more svg{width:23px;height:23px}' +
+      '.ibar-in > a.on{color:#E2C98A;border:0}' +
+      '.ibar-in > a:active,.ibar-more:active{opacity:.6}' +
+      '.ibar-in > a .lf{display:none}.ibar-in > a .ls{display:inline}' +
       '.ibar .arrow{display:none}' +
-      '.ibar-in{justify-content:flex-start}' +
-      '.ibar-sub{order:-1;padding:0 .3rem;border-top:none;border-bottom:1px solid rgba(199,174,122,.18)}' +
-      '.ibar .ibar-sub a{flex-direction:row;font-size:.76rem;padding:.4rem .8rem;border:1px solid rgba(199,174,122,.35)}' +
-      '.ibar .ibar-sub a.on{border-color:#C7AE7A}' +
-      'body{padding-bottom:calc(62px + env(safe-area-inset-bottom))!important}' +
+      '.ibar-in > a .ibar-dot{top:4px;inset-inline-end:calc(50% - 22px)}' +
+      '.ibar-subm{position:fixed;top:0;left:0;right:0;z-index:60;display:flex;max-width:none;margin:0;padding:calc(.5rem + env(safe-area-inset-top)) .75rem .5rem;gap:.4rem;background:#0A2119;border-top:none;border-bottom:1px solid rgba(199,174,122,.22);overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch;font-family:Heebo,sans-serif}' +
+      '.ibar-subm a{flex:0 0 auto;display:inline-flex;align-items:center;position:relative;min-height:36px;font-size:.82rem;font-weight:600;padding:0 .9rem;border:1px solid rgba(199,174,122,.35);border-radius:8px;white-space:nowrap;text-decoration:none;color:rgba(248,244,234,.85);background:rgba(248,244,234,.04)}' +
+      '.ibar-subm a.on{background:#C7AE7A;border-color:#C7AE7A;color:#0A2119}' +
+      'body{padding-bottom:calc(58px + env(safe-area-inset-bottom))!important}' +
+      'body.has-sub{padding-top:calc(54px + env(safe-area-inset-top))!important}' +
+      '.ux-toast,.wk-toast,[aria-live=polite][style*="position:fixed"]{bottom:calc(70px + env(safe-area-inset-bottom))!important}' +
+      '.ibar-menu{left:0!important;right:0!important;bottom:calc(56px + env(safe-area-inset-bottom))!important;top:auto!important;width:auto!important;max-height:70vh;border-radius:8px 8px 0 0}' +
     '}';
 
   function link(item, current) {
@@ -185,7 +197,7 @@
     a.href = item.href;
     var external = /^https?:/.test(item.href);
     if (external) { a.target = '_blank'; a.rel = 'noopener'; a.className = 'ext'; }
-    a.innerHTML = item.icon + '<span>' + item.label + '</span>' +
+    a.innerHTML = item.icon + '<span class="lf">' + item.label + '</span><span class="ls">' + (item.short || item.label) + '</span>' +
       (external ? ic.out.replace('<svg ', '<svg class="arrow" ') : '');
     if (!external && isOn(item)) {
       a.className = 'on';
@@ -301,20 +313,23 @@
 
     nav.appendChild(inner);
     var sec = INTERNAL.filter(function (i) { return i.sub && isOn(i); })[0];
+    var PHONE = window.matchMedia ? matchMedia('(max-width:640px)') : { matches: false };
     var DOTS = {};   /* part of a page -> how many things wait there (a red dot on its button and on its section) */
     var paintDots = function () {
       [].forEach.call(nav.querySelectorAll('.ibar-dot'), function (d) { d.remove(); });
       var dot = function (a, n) { var d = document.createElement('i'); d.className = 'ibar-dot'; d.textContent = n > 9 ? '9+' : String(n); d.setAttribute('aria-label', n + ' ממתינים'); a.appendChild(d); };
       var tops = inner.querySelectorAll(':scope > a:not(.ibar-brand)');
       INTERNAL.forEach(function (i, ix) { var sum = 0; (i.sub || []).forEach(function (x) { sum += DOTS[fullKey(x.href)] || 0; }); if (sum && tops[ix]) dot(tops[ix], sum); });
-      [].forEach.call(nav.querySelectorAll('.ibar-sub a'), function (a) { var n = DOTS[a.dataset.k] || 0; if (n) dot(a, n); });
+      [].forEach.call(document.querySelectorAll('.ibar-sub a'), function (a) { var n = DOTS[a.dataset.k] || 0; if (n) dot(a, n); });
     };
     var buildRow = function () {
-      var old = nav.querySelector('.ibar-sub'); if (old) old.remove();
+      var old = document.querySelector('.ibar-sub'); if (old) old.remove();
+      document.body.classList.toggle('has-sub', !!sec);
       if (!sec) return;
       var row = document.createElement('div'); row.className = 'ibar-sub';
       sec.sub.forEach(function (x) { var a = document.createElement('a'); a.href = x.href; a.textContent = x.label; a.dataset.k = fullKey(x.href); row.appendChild(a); });
-      nav.appendChild(row);
+      /* on a phone the row lives outside the bar: the bar's blur makes it the anchor of anything fixed inside it, and the row belongs at the top of the screen */
+      if (PHONE.matches) { row.className = 'ibar-sub ibar-subm'; document.body.appendChild(row); } else nav.appendChild(row);
     };
     buildRow();
     /* which part of the page is showing: body[data-sub] drives the page CSS below, and the chooser follows the #part */
@@ -327,12 +342,15 @@
       var k = hereFull();
       var now = INTERNAL.filter(function (i) { return i.sub && isOn(i); })[0];
       if (now !== sec) { sec = now; buildRow(); var tops = inner.querySelectorAll(':scope > a:not(.ibar-brand)'); INTERNAL.forEach(function (i, ix) { if (!tops[ix]) return; var on = i === sec; tops[ix].classList.toggle('on', on); if (on) tops[ix].setAttribute('aria-current', 'page'); else tops[ix].removeAttribute('aria-current'); }); }
-      [].forEach.call(nav.querySelectorAll('.ibar-sub a'), function (a) { var on = a.dataset.k === k; a.className = on ? 'on' : ''; if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
+      [].forEach.call(document.querySelectorAll('.ibar-sub a'), function (a) { var on = a.dataset.k === k; a.className = on ? 'on' : ''; if (on) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); });
       paintDots();
       if (page === 'clients.html') { var tb = document.querySelector('.tab[data-tab="' + (h || 'clients') + '"]'); if (tb && tb.getAttribute('aria-selected') !== 'true') tb.click(); if (location.hash.slice(1) !== h) { try { history.replaceState(null, '', h ? '#' + h : location.pathname + location.search); } catch (e) {} } }
       if (page === 'leads.html') { var f = document.getElementById('pbfold'); if (f && (h === 'script' || h === 'paylink')) f.open = true; }
     };
     window.addEventListener('hashchange', syncSub);
+    if (PHONE.addEventListener) PHONE.addEventListener('change', function () { buildRow(); syncSub(); });
+    /* the notch and the home bar: without viewport-fit=cover the safe-area insets are always 0 */
+    try { var vp = document.querySelector('meta[name=viewport]'); if (vp && !/viewport-fit/.test(vp.content)) vp.content += ', viewport-fit=cover'; } catch (e) {}
     syncSub();
     /* what waits for us: designs a client asked for and nobody sent yet (asked at most once every two minutes) */
     (function () {
