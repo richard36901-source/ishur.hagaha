@@ -11,7 +11,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
 <script src="/config.js?v=72"></script>
 <script src="/next/assets/batch.js?v=6"></script>
-<script src="/next/assets/adminbar.js?v=13" defer></script>
+<script src="/next/assets/adminbar.js?v=14" defer></script>
 <!-- 01/11/2026 rewrite: node map + live state + 7-day timeline from POST /api/automations
      (worker/automations.js). Falls back to automations.fixture.json when the route 404s. -->
 <style>
@@ -75,6 +75,7 @@
   path.edge.reopen{stroke:var(--warn);stroke-dasharray:5 4;opacity:.6}
   path.edge.hi{stroke:var(--edge-hi);stroke-width:2.2;opacity:1}
   .list{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.5rem}
+  .list[hidden]{display:none}
   .litem{background:var(--card);border:1px solid var(--line);border-inline-start:4px solid var(--k-internal);border-radius:12px;padding:.6rem .75rem;cursor:pointer;text-align:start;font:inherit;color:inherit}
   .litem b{display:block;font-size:.88rem} .litem span{font-size:.72rem;color:var(--ink3)}
   /* side panel */

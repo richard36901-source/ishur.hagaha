@@ -363,7 +363,10 @@
     var of = window.fetch;
     if (of) window.fetch = function () { return of.apply(this, arguments).then(function (r) { if (r && r.status === 401) { try { r.clone().json().then(function (j) { if (j && j.error === 'login-required') toLogin(); }).catch(function () {}); } catch (e) {} } return r; }); };
     (of || fetch)(API + '/api/auth/config').then(function (r) { return r.json(); }).then(function (c) {
-      if (!c || !c.enforce) return; var k = ''; try { k = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+      var k = ''; try { k = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+      /* 16/11: nobody types a key any more. With no key at all the old "מפתח גישה" box is replaced by the sign-in page (on the real site only). */
+      if (c && c.configured && !k && /(^|\.)ishur\.io$/.test(location.hostname)) { toLogin(); return; }
+      if (!c || !c.enforce) return;
       if (!/^us\./.test(k)) toLogin();
     }).catch(function () {});
   } catch (e) {}
