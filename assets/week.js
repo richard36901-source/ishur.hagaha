@@ -52,6 +52,13 @@
     '.wk-bd{overflow:auto;padding:.8rem 1rem 1rem;font-size:.86rem}' +
     '.wk-kv{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0 0 .8rem}.wk-kv dt{color:var(--wk-mute)}.wk-kv dd{margin:0;font-variant-numeric:tabular-nums}' +
     '.wk-h{font-size:.8rem;font-weight:600;margin:.9rem 0 .35rem}' +
+    '.wk-wa{max-width:340px;margin:.3rem 0 .7rem}.wk-bub{white-space:pre-wrap;background:#E7F6E0;color:#1B2420;border-radius:8px 8px 8px 2px;padding:.55rem .7rem;font-size:.86rem;line-height:1.5;overflow:hidden}' +
+    '.wk-bub small{display:block;color:#5B6B60;margin-top:.4rem;font-size:.74rem}.wk-med{display:block;width:calc(100% + 1.4rem);max-width:none;margin:-.55rem -.7rem .5rem;max-height:340px;object-fit:cover;background:#D5E5CF}' +
+    '.wk-nomed{display:grid;place-items:center;height:110px;font-size:.76rem;color:#5B6B60}' +
+    '.wk-wbt{display:flex;flex-direction:column;gap:3px;margin-top:3px}.wk-wbt span{background:#F4FAF1;color:#0B6E99;text-align:center;font-size:.84rem;font-weight:600;border-radius:8px;padding:.45rem .5rem}' +
+    '.wk-flow{list-style:none;margin:.2rem 0 0;padding:0;border-inline-start:2px solid rgba(0,0,0,.1)}.wk-flow li{padding:0 .8rem .2rem 0;position:relative}' +
+    '.wk-flow li::before{content:"";position:absolute;inset-inline-start:-6px;top:.35rem;width:10px;height:10px;border-radius:50%;background:#0F4C35}' +
+    '.wk-when{font-size:.8rem;font-weight:700;margin:.2rem 0}' +
     '.wk-msg{white-space:pre-wrap;background:#E7F6E0;color:#1B2420;border-radius:10px 10px 10px 2px;padding:.6rem .75rem;font-size:.84rem;line-height:1.5}' +
     '.wk-msg small{display:block;color:#5B6B60;margin-top:.4rem}.wk-btns{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.4rem}.wk-btns span{font-size:.74rem;border:1px solid #9CC7A4;border-radius:8px;padding:.15rem .5rem;color:#1D5E3A}' +
     '.wk-tn{font-size:.72rem;color:var(--wk-mute);margin:.2rem 0 .15rem;direction:ltr;text-align:right}' +
@@ -65,7 +72,7 @@
   var EXPECT = { w1: 'hazmana_ishur', w2: 'hazmana_ishur', w3: 'hazmana_ishur', table: 'ishur_shulchan', daybefore: 'ishur_yom_lifnei', thanks: 'ishur_toda_orach' };
   var BUCKET_HE = { read: 'נקרא', delivered: 'נמסר', no_status: 'נשלח', failed: 'נכשל', pending: 'ממתין', answered: 'ענו', skipped: 'דילוג', dropped: 'דולג', unknown: 'לא ידוע' };
 
-  var opt = {}, root = null, plan = null, boards = {}, texts = {};
+  var opt = {}, root = null, plan = null, boards = {}, texts = {}, medias = {}, flow = null;
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function stamp(b) { return window.IshurGuard ? IshurGuard.stamp(b) : b; }
   function post(path, body) {
@@ -355,10 +362,33 @@
     return bg.querySelector('.wk-bd');
   }
 
-  function msgHtml(t, expected) {
+  /* 16/11 (Richard): the message as the guest sees it — the event's picture or video on top, the wording, the buttons —
+     and under it what the system answers at each step after the guest replies (the same texts the handler sends). */
+  function bubble(o) {
+    return '<div class="wk-wa"><div class="wk-bub">' + (o.media || '') + (o.header ? '<b>' + esc(o.header) + '</b>\n' : '') + esc(o.body || '') + (o.footer ? '<small>' + esc(o.footer) + '</small>' : '') + '</div>' +
+      (o.buttons && o.buttons.length ? '<div class="wk-wbt">' + o.buttons.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+  }
+  function mediaHtml(t, media) {
+    var f = String((t && t.header_format) || '');
+    if (f !== 'IMAGE' && f !== 'VIDEO') return '';
+    var safe = function (u) { return /^https:\/\/[a-z0-9.-]+\//i.test(String(u || '')) ? String(u) : ''; };
+    var v = media && safe(media.video), im = media && safe(media.image);
+    if (f === 'VIDEO' && v) return '<video class="wk-med" src="' + esc(v) + '" controls preload="metadata" playsinline></video>';
+    if (im) return '<img class="wk-med" src="' + esc(im) + '" alt="ההזמנה שנשלחת" loading="lazy">';
+    if (v) return '<video class="wk-med" src="' + esc(v) + '" controls preload="metadata" playsinline></video>';
+    return '<div class="wk-med wk-nomed">' + (f === 'VIDEO' ? 'סרטון' : 'תמונה') + ' · לא נמצא קובץ לאירוע</div>';
+  }
+  function msgHtml(t, expected, media) {
     if (!t || t.missing) return '<p class="wk-tn">' + esc((t && t.name) || '') + ' · הנוסח לא נמצא במטא</p>';
-    return '<p class="wk-tn">' + esc(t.name) + (expected ? ' · צפוי' : '') + ' · ' + esc(t.category || '') + ' · ' + esc(t.status || '') + '</p><div class="wk-msg">' + (t.header ? '<b>' + esc(t.header) + '</b>\n' : '') + esc(t.body) + (t.footer ? '<small>' + esc(t.footer) + '</small>' : '') + '</div>' +
-      (t.buttons && t.buttons.length ? '<div class="wk-btns">' + t.buttons.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</div>' : '');
+    var hdr = /^\[/.test(String(t.header || '')) ? '' : t.header;
+    return '<p class="wk-tn">' + esc(t.name) + (expected ? ' · צפוי' : '') + ' · ' + esc(t.category || '') + ' · ' + esc(t.status || '') + '</p>' +
+      bubble({ media: mediaHtml(t, media), header: hdr, body: t.body, footer: t.footer, buttons: t.buttons });
+  }
+  function flowHtml(flow) {
+    if (!flow || !flow.length) return '';
+    return '<div class="wk-h">מה קורה אחרי שהאורח עונה</div><ol class="wk-flow">' + flow.map(function (s) {
+      return '<li><div class="wk-when">' + esc(s.when) + '</div>' + (s.msgs || []).map(function (m) { return bubble({ body: m.text, buttons: m.buttons }); }).join('') + (s.note ? '<p class="wk-note">' + esc(s.note) + '</p>' : '') + '</li>';
+    }).join('') + '</ol>';
   }
 
   function open(di, id) { return openIt(plan.days[di], id); }
@@ -384,12 +414,15 @@
       var expected = false;
       if (!names.length && EXPECT[it.type]) { names = [EXPECT[it.type]]; expected = true; }
       var need = names.filter(function (n) { return !texts[n]; });
-      var tp = need.length ? post('template-text', { names: need }).then(function (r) { if (r && r.templates) Object.keys(r.templates).forEach(function (k) { texts[k] = r.templates[k]; }); }) : Promise.resolve();
+      var askMedia = !(tok in medias);
+      var tp = need.length || askMedia ? post('template-text', { names: need, tok8: tok }).then(function (r) { if (r && r.templates) Object.keys(r.templates).forEach(function (k) { texts[k] = r.templates[k]; }); if (r) { medias[tok] = r.media || null; if (r.flow) flow = r.flow; } }) : Promise.resolve();
       return tp.then(function () {
         var h = '';
         if (names.length) {
           h += '<div class="wk-h">הנוסח' + (names.length > 1 ? ' · ' + names.length + ' גרסאות לפי האורח' : '') + '</div>';
-          names.slice(0, 3).forEach(function (n) { h += (row && row.templates[n] ? '<p class="wk-tn">' + num(row.templates[n]) + ' הודעות</p>' : '') + msgHtml(texts[n], expected); });
+          names.slice(0, 3).forEach(function (n) { h += (row && row.templates[n] ? '<p class="wk-tn">' + num(row.templates[n]) + ' הודעות</p>' : '') + msgHtml(texts[n], expected, medias[tok]); });
+          /* the reply flow belongs to messages that ask for an answer: the ones with buttons */
+          if (names.some(function (n) { return texts[n] && texts[n].buttons && texts[n].buttons.length > 1; })) h += flowHtml(flow);
         } else h += '<p class="wk-note">אין נוסח רשום להודעה הזאת.</p>';
         var ppl = row && row.people;
         if (ppl) {

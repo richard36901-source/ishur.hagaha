@@ -4144,22 +4144,22 @@ async function handleWaWebhook(request, env, url) {
         const saved = await writeGuestReply(env, guest, 'מגיע', 1);
         if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
         await say(saved
-          ? 'איזה כיף! כמה תהיו בסך הכל?'
+          ? GUEST_REPLY.askParty
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await sendCtaUrl(env, from, GUEST_REPLY.counted(parsed.party), GUEST_REPLY.calendarBtn, `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
         if (saved) await askExtraQ(env, guest, from, sendCh);
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
         if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" after a no */
-        if (saved) await sayDeclined(env, guest, from, say, 'חבל שלא תהיו, תודה שעדכנתם 🙏');
+        if (saved) await sayDeclined(env, guest, from, say, GUEST_REPLY.declined);
         else await say(HOLD);
       } else {
         const saved = await writeGuestReply(env, guest, 'מתלבט');
         if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" to an undecided guest */
-        await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
+        await say(saved ? GUEST_REPLY.maybe : HOLD);
       }
     }
     if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
@@ -4325,7 +4325,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
   if (saysYes) {
     const saved = await writeGuestReply(env, guest, 'מגיע', 1);
     if (saved && env.RATE) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
-    await say(saved ? 'איזה כיף! כמה תהיו בסך הכל?' : 'קיבלנו, רגע רושמים 🙂');
+    await say(saved ? GUEST_REPLY.askParty : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
   const when = c(6) ? `📅 ${heDate(c(6))}${c(36) ? ' בשעה ' + c(36) : ''}` : '';
@@ -5747,6 +5747,25 @@ export function extraAnswerOf(text, buttonId) {
    and a last one after 6h — all inside Meta's 24h service window, so plain
    text is allowed. awaitparty:<guest_id> now holds {at, phone, ch, token,
    nudges}; a number in any form clears it (see the inbound handler). */
+/* 16/11 (Richard: "שממש יהיה ברור מה קורה בכל שלב"): the replies a guest gets after answering, in ONE place —
+   the inbound handler sends these constants and the board (/api/template-text → flow) shows the same ones. */
+const GUEST_REPLY = {
+  askParty: 'איזה כיף! כמה תהיו בסך הכל?',
+  declined: 'חבל שלא תהיו, תודה שעדכנתם 🙏',
+  maybe: 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂',
+  counted: (n) => `נרשם, ${n} מגיעים 🎉 נתראה!`,
+  calendarBtn: 'הוספה ליומן',
+};
+function guestFlow() {
+  return [
+    { when: 'האורח לוחץ "מגיע" (או כותב שמגיע)', note: 'נרשם מיד כ-1, עד שיענה כמה', msgs: [{ text: GUEST_REPLY.askParty }] },
+    { when: 'האורח עונה מספר, למשל 2', note: 'הכמות נרשמת בגיליון', msgs: [{ text: GUEST_REPLY.counted(2), buttons: [GUEST_REPLY.calendarBtn] }] },
+    { when: 'לא ענה כמה · אחרי שעתיים', msgs: [{ text: PARTY_NUDGES[0].text }] },
+    { when: 'עדיין לא ענה · אחרי 6 שעות', note: 'תזכורת אחרונה, אחריה לא שואלים שוב', msgs: [{ text: PARTY_NUDGES[1].text }] },
+    { when: 'האורח לוחץ "לא מגיע"', msgs: [{ text: GUEST_REPLY.declined }] },
+    { when: 'האורח מתלבט ("אולי")', msgs: [{ text: GUEST_REPLY.maybe }] },
+  ];
+}
 const PARTY_NUDGES = [
   { afterMs: 2 * 3600e3, text: 'רק מוודאים 🙂 כמה תגיעו בסך הכל? אפשר לענות רק במספר.' },
   { afterMs: 6 * 3600e3, text: 'כדי שבעלי השמחה יוכלו להיערך — כמה תהיו? מספר אחד וסיימנו 🙏' },
@@ -12709,7 +12728,7 @@ const WORKER = {
       const names = [...new Set((Array.isArray(b.names) ? b.names : []).map(n => String(n || '').trim()).filter(n => /^[a-z0-9_]{1,80}$/.test(n)))].slice(0, 12);
       const out = {};
       for (const name of names) {
-        const ck = 'tmpltext:' + name;
+        const ck = 'tmpltext2:' + name;
         let t = null; try { t = env.RATE ? JSON.parse((await env.RATE.get(ck)) || 'null') : null; } catch {}
         if (!t) {
           for (const [waba, tok] of [['1378764257421712', env.WA_TOKEN_GUESTS], [clientWaba(env), clientToken(env)]]) {
@@ -12722,7 +12741,7 @@ const WORKER = {
               const body = (comps.find(c => c.type === 'BODY') || {}).text || '';
               const head = (comps.find(c => c.type === 'HEADER') || {});
               const btns = ((comps.find(c => c.type === 'BUTTONS') || {}).buttons || []).map(z => z.text);
-              t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', body, footer: (comps.find(c => c.type === 'FOOTER') || {}).text || '', buttons: btns };
+              t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', header_format: String(head.format || ''), body, footer: (comps.find(c => c.type === 'FOOTER') || {}).text || '', buttons: btns };
               break;
             } catch {}
           }
@@ -12730,7 +12749,22 @@ const WORKER = {
         }
         out[name] = t || { name, missing: true };
       }
-      return okJson({ ok: true, templates: out }, origin);
+      /* 16/11: the picture or video THIS event sends in the header, so the board shows the message as the guest sees it */
+      let media = null;
+      const t8 = String(b.tok8 || '').trim();
+      if (/^[0-9a-f]{8}$/.test(t8)) {
+        try {
+          const raw = await readSnapshot(env, 'guest');
+          const ev = ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim().startsWith(t8));
+          if (ev) {
+            const token = String(ev[1]).trim(), img = String(ev[44] || '').trim();
+            const vid = env.RATE ? ((await env.RATE.list({ prefix: 'vid:' + token, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
+            const hasImg = !/^https:\/\//.test(img) && env.RATE ? ((await env.RATE.list({ prefix: 'img:' + token, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
+            media = { image: /^https:\/\//.test(img) ? img : hasImg ? 'https://' + url.hostname + '/img/' + token : '', video: vid ? 'https://' + url.hostname + '/vid/' + token : '' };
+          }
+        } catch {}
+      }
+      return okJson({ ok: true, templates: out, media, flow: guestFlow() }, origin);
     }
     /* 01/11: per-template performance from the audit log (templates.html) */
     if (url.pathname === '/api/template-stats' && request.method === 'POST') {
