@@ -12,7 +12,7 @@
 <script src="/config.js?v=72"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=1" defer></script>
+<script src="/next/assets/adminbar.js?v=2" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
@@ -500,6 +500,12 @@
   /* the calls view: one page, two faces */
   body[data-view="main"] .sec-calls{display:none}
   body[data-view="ctl"] #main > :not(#ctl){display:none !important}
+  /* 16/11: the week board lives under שליחות ושיחות, the feedback list under לקוחות; the overview (נתונים) shows neither the board nor the pay-link form */
+  body[data-view="week"] #main > :not(#hqtop){display:none !important}
+  body[data-view="week"] #hqtop > :not(.sec-week){display:none !important}
+  body[data-view="main"] #hqtop > .sec-week,body[data-view="main"] #hqtop > .plfold{display:none !important}
+  body[data-view="feedback"] #main > :not(.sec-fb){display:none !important}
+  body[data-view="feedback"] #fold-feedback{display:block !important}
   body[data-view="money"] #main > :not(.sec-money){display:none !important}
   #designAdm{display:none !important}
   body[data-view="money"] #main > h2.sec-money:first-of-type{margin-top:.4rem}
@@ -532,28 +538,12 @@
   })();
 </script>
 <header class="head" style="position:relative">
-  <button type="button" id="themeTog" aria-label="מצב תצוגה"
-    style="position:absolute;top:.8rem;left:.8rem;width:32px;height:32px;border-radius:50%;cursor:pointer;font-size:.9rem;line-height:1;background:rgba(248,244,234,.08);border:1px solid rgba(199,174,122,.35);color:#F8F4EA">🌙</button>
   <h1>ishur<i>.io</i> · מרכז הבקרה</h1>
   <p>המספרים של העסק, חיים מהגיליון</p>
   <div class="live" id="liveBox" hidden aria-live="polite">
     <span class="live-dot" id="liveDot"></span><span id="liveTxt">מתחבר…</span>
   </div>
 </header>
-<script>
-  (function () {
-    var b = document.getElementById('themeTog');
-    function paint() { b.textContent = document.documentElement.getAttribute('data-theme') === 'dark' ? '☀️' : '🌙'; }
-    b.addEventListener('click', function () {
-      var dark = document.documentElement.getAttribute('data-theme') === 'dark';
-      if (dark) document.documentElement.removeAttribute('data-theme');
-      else document.documentElement.setAttribute('data-theme', 'dark');
-      try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
-      paint();
-    });
-    paint();
-  })();
-</script>
 
 <div class="gate" id="gate" hidden>
   <h2 class="gate-h">כניסת ניהול</h2>
@@ -581,12 +571,9 @@
       <a class="st" id="s-leads" href="leads.html"><span class="l">לידים חדשים</span><span class="v"><i class="d"></i><span class="skel">בודק</span></span><span class="m"></span></a>
     </div>
     <div class="todo" id="todo" hidden></div>
-    <h2>השבוע · מה יוצא, לאיזה אירוע, ומה נדחה <a href="calendar.html">לוח מלא ›</a></h2>
-    <div id="week"></div>
+    <h2 class="sec-week">השבוע · מה יוצא, לאיזה אירוע, ומה נדחה <a href="calendar.html">ליומן ›</a></h2>
+    <div id="week" class="sec-week"></div>
     <details class="plfold"><summary>קישור תשלום חדש</summary><div class="linkcard"><div id="pl-gen"></div></div></details>
-    <nav class="quick">
-      <a href="leads.html">לידים</a><a href="inbox.html">אינבוקס</a><a href="clients.html">לקוחות</a><a href="clients.html#referrals">שגרירים</a><a href="clients.html#staff">דיילות</a><a href="clients.html#designs">עיצובים</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="calendar.html">הודעות ושיחות</a><a href="admin.html?view=ctl">שליטה</a><a href="admin.html?view=money">כספים</a>
-    </nav>
   </div>
 
   <div id="growth">
@@ -718,7 +705,7 @@
     <p class="empty" id="empty" hidden>עדיין אין אירועים בתשלום. ברגע שיהיה — הם יופיעו כאן.</p>
   </div>
 
-  <h2 class="fold-h">
+  <h2 class="fold-h sec-fb">
     <button type="button" class="fold-btn" id="fb-feedback" aria-expanded="false" aria-controls="fold-feedback">
       <svg class="fold-chev" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
       <span class="fold-t">משוב · מי ענה, מה נתן ולאן הלך</span>
@@ -727,7 +714,7 @@
       <span class="fold-sp"></span>
     </button>
   </h2>
-  <div class="fold" id="fold-feedback" hidden>
+  <div class="fold sec-fb" id="fold-feedback" hidden>
     <div class="tblwrap">
       <table id="fbTbl">
         <thead><tr>
@@ -740,11 +727,6 @@
     <p style="font-size:.68rem;color:var(--ink3);margin:.3rem 0 1rem">ציון 6+ בשניהם → הדף מציע להקליט וידאו / לכתוב בגוגל. נמוך יותר → טופס הערה שמגיע רק אלינו. "עזב" = פתח את הדף ולא לחץ על כלום.</p>
   </div>
 
-  <h2 style="display:flex;align-items:center;justify-content:space-between;gap:.6rem">
-    <span>נועה · מענה AI</span>
-    <span class="sw-wrap"><span class="sw-state" id="aiState">טוען…</span>
-    <button id="aiTog" class="sw" role="switch" aria-checked="false" aria-label="מענה AI של נועה" disabled><i></i></button></span>
-  </h2>
 
   <div class="sec-calls">
   <h2 class="fold-h">
@@ -975,6 +957,11 @@
   <section id="sales"></section>
   <section class="ctl" id="ctl">
     <h2>שליטה</h2>
+    <h2 style="margin-top:.4rem;display:flex;align-items:center;justify-content:space-between;gap:.6rem">
+    <span>נועה · מענה AI</span>
+    <span class="sw-wrap"><span class="sw-state" id="aiState">טוען…</span>
+    <button id="aiTog" class="sw" role="switch" aria-checked="false" aria-label="מענה AI של נועה" disabled><i></i></button></span>
+  </h2>
 
     <div class="ctl-tiles">
       <div class="cst" id="cs-send-t"><b id="cs-send">טוען…</b><span>שליחות</span></div>
@@ -1071,7 +1058,7 @@
   var $ = function (id) { return document.getElementById(id); };
   var adminKey = '';
 
-  var VIEW = { calls: 'calls', ctl: 'ctl', money: 'money' }[new URLSearchParams(location.search).get('view')] || 'main';
+  var VIEW = { calls: 'calls', ctl: 'ctl', money: 'money', week: 'week', feedback: 'feedback' }[new URLSearchParams(location.search).get('view')] || 'main';
   document.body.dataset.view = VIEW;
   /* 12/11 אדמין אחד: כספים is its own view. Everything from the P&L heading down to the sources table is tagged once. */
   (function () {
@@ -1079,6 +1066,8 @@
     for (var el = h; el && !el.classList.contains('foot'); el = el.nextElementSibling) el.classList.add('sec-money');
     if (VIEW === 'money') document.title = 'כספים · ishur.io';
     if (VIEW === 'ctl') document.title = 'שליטה · ishur.io';
+    if (VIEW === 'week') document.title = 'שליחות ושיחות · ishur.io';
+    if (VIEW === 'feedback') document.title = 'משוב · ishur.io';
   })();
   if (/[?&]embed=1/.test(location.search)) document.documentElement.classList.add('embed');
   if (VIEW === 'calls') document.title = 'מוקד שיחות · ishur.io';
@@ -1304,7 +1293,8 @@
     loadStatus(true);
     loadBrain();
     hqLoad();
-    if (VIEW === 'main') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); if (statsOn && Date.now() - statsAt > 5 * 60000) loadStats(); return; }
+    if (VIEW === 'week') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); return; }
+    if (VIEW === 'main') { if (statsOn && Date.now() - statsAt > 5 * 60000) loadStats(); return; }
     loadOps();
     loadCost();
     loadTraffic();
@@ -1351,8 +1341,8 @@
     loadStatus(quiet);
     hqLoad();
     if (window.IshurPayLinkGen && !window.__plgMounted) { window.__plgMounted = 1; IshurPayLinkGen.mount('pl-gen', adminKey); }
-    if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') });
-    if (VIEW !== 'main') loadFeedback();
+    if (VIEW === 'week' && window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') });   /* 16/11: the board lives under שליחות ושיחות */
+    if (VIEW !== 'main' && VIEW !== 'week') loadFeedback();
     if (!UNIFIED && VIEW !== 'main') loadShir();
     if (UNIFIED && VIEW === 'calls' && !unifiedMounted && window.IshurCallsLog) {
       unifiedMounted = true;
@@ -1361,6 +1351,7 @@
     }
     loadBrain();
     loadPause();
+    if (VIEW === 'week' || VIEW === 'feedback') return;   /* these two views show one section each */
     if (VIEW === 'ctl') { fastTick._chase = Date.now(); loadChase(); }   /* next/: the control view shows the Noa switch state at once, not after 15 s */
     /* 12/11: on the home view the numbers load when they scroll into sight, then every 5 minutes (every minute caused 429s) */
     if (VIEW === 'main') {

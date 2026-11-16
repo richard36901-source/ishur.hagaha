@@ -1,6 +1,6 @@
 /* ==========================================================================
    The management rail: one slim bar on top of every back-office page
-   (next/ copy · nine sections), so Richard moves between everything in one
+   (next/ copy · five sections + the ☰ corner), so Richard moves between everything in one
    click — including the master sheet and Make. Injected from one file so
    adding a page later is a single script tag.
    ========================================================================== */
@@ -28,27 +28,40 @@
     ops: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="5" rx="2.5"/><circle cx="8" cy="7.5" r="1.4" fill="currentColor" stroke="none"/><rect x="3" y="14" width="18" height="5" rx="2.5"/><circle cx="16" cy="16.5" r="1.4" fill="currentColor" stroke="none"/></svg>',
   };
 
-  /* 12/11 אדמין אחד (plan §2): nine sections, one bar. A section with several pages shows them in a thin second row. */
+  /* 16/11 (Richard: "שכל דבר יהיה במקום שלו"): five sections, each with its own chooser row under the bar.
+     נתונים = every number (the old "היום" + כספים) · לידים = leads, pay links, script · לקוחות (+ משוב) ·
+     שליחות ושיחות = the week board, inbox, call log, live floor · יומן = the one calendar.
+     שליטה, המוח and the system pages moved behind the ☰ in the corner, with the sheet, Make and the outside tools. */
   var INTERNAL = [
-    { href: 'admin.html', label: 'היום', icon: ic.board },
-    { href: 'clients.html', label: 'לקוחות', icon: ic.board },
-    { href: 'leads.html', label: 'לידים', icon: ic.board },
-    { href: 'calendar.html', label: 'הודעות ושיחות', icon: ic.calls },
-    { href: 'inbox.html', label: 'אינבוקס ומוקד', icon: ic.inbox, sub: [
+    { href: 'admin.html', label: 'נתונים', icon: ic.ads, sub: [
+      { href: 'admin.html', label: 'סקירה' },
+      { href: 'admin.html?view=money', label: 'כספים · רווח והפסד' },
+      { href: 'ad-report.html', label: 'דוח קמפיין' } ] },
+    { href: 'leads.html', label: 'לידים', icon: ic.board },   /* leads + pay link + script live on the one page */
+    { href: 'clients.html', label: 'לקוחות', icon: ic.board, sub: [
+      { href: 'clients.html', label: 'לקוחות' },
+      { href: 'admin.html?view=feedback', label: 'משוב' } ] },
+    { href: 'admin.html?view=week', label: 'שליחות ושיחות', icon: ic.calls, sub: [
+      { href: 'admin.html?view=week', label: 'השבוע' },
       { href: 'inbox.html', label: 'אינבוקס' },
       { href: 'admin.html?view=calls', label: 'יומן שיחות' },
       { href: 'floor.html', label: 'מוקד חי' } ] },
-    { href: 'admin.html?view=ctl', label: 'שליטה', icon: ic.ops },
-    { href: 'admin.html?view=money', label: 'כספים', icon: ic.ads },
-    { href: 'brain.html', label: 'המוח', icon: ic.brain },
-    { href: 'automations.html', label: 'מערכת', icon: ic.flow, sub: [
-      { href: 'automations.html', label: 'אוטומציות' },
-      { href: 'live.html', label: 'לוג חי' },
-      { href: 'ad-report.html', label: 'דוח קמפיין' } ] },
+    /* 16/11 Richard: ONE journal with layers (sends, costs and profit, hostesses) and filters, instead of a calendar per subject */
+    { href: 'calendar.html', label: 'יומן', icon: ic.sheet },
   ];
-  function keyOf(href) { var m = /[?&]view=([a-z]+)/.exec(href); return href.split('?')[0].split('/').pop() + '?' + (m ? m[1] : ''); }
+  /* behind the ☰: control + the system pages (same tab), then the outside tools */
+  var CONTROL = [
+    { href: 'admin.html?view=ctl', label: 'שליטה' },
+    { href: 'brain.html', label: 'המוח' },
+    { href: 'automations.html', label: 'אוטומציות' },
+    { href: 'live.html', label: 'לוג חי' },
+  ];
+  function keyOf(href) { var m = /[?&]view=([a-z]+)/.exec(href); return href.split('?')[0].split('#')[0].split('/').pop() + '?' + (m ? m[1] : ''); }
   var HERE = keyOf((location.pathname.split('/').pop() || 'admin.html') + location.search);
   function isOn(item) { if (keyOf(item.href) === HERE) return true; return (item.sub || []).some(function (x) { return keyOf(x.href) === HERE; }); }
+  var bars = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+  var sun = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.2M12 19.3v2.2M2.5 12h2.2M19.3 12h2.2M5.3 5.3l1.6 1.6M17.1 17.1l1.6 1.6M5.3 18.7l1.6-1.6M17.1 6.9l1.6-1.6"/></svg>';
+  var moon = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg>';
   /* Richard 13/10: the rail must fit one line; the rest lives under כלים */
   var EXTERNAL = [
     { href: SHEET_URL, label: 'האקסל', icon: ic.sheet },
@@ -102,8 +115,13 @@
     '.ibar-sep{width:1px;background:rgba(199,174,122,.25);margin:.55rem .35rem;flex-shrink:0}' +
     '.ibar .ext svg.arrow{width:10px;height:10px;opacity:.55;margin-inline-start:-.15rem}' +
     '.ibar-more{display:none}' +
-    '.ibar-sub{max-width:1360px;margin:0 auto;padding:0 .9rem;display:flex;gap:.2rem;border-top:1px solid rgba(199,174,122,.18);overflow-x:auto;scrollbar-width:none}' +
-    '.ibar-sub a{padding:.38rem .7rem;font-size:.74rem;border-bottom:2px solid transparent}' +
+    '.ibar-sub{max-width:1360px;margin:0 auto;padding:.45rem .9rem;display:flex;gap:.4rem;border-top:1px solid rgba(199,174,122,.18);overflow-x:auto;scrollbar-width:none}' +
+    '.ibar .ibar-sub a{padding:.4rem .95rem;min-height:34px;font-size:.8rem;font-weight:600;border:1px solid rgba(199,174,122,.35);border-radius:8px;color:rgba(248,244,234,.85);background:rgba(248,244,234,.04)}' +
+    '.ibar .ibar-sub a:hover{background:rgba(248,244,234,.1)}' +
+    '.ibar .ibar-sub a.on{background:#C7AE7A;border-color:#C7AE7A;color:#0A2119}' +
+    '.ibar-corner{margin-inline-start:auto;display:flex;align-items:center;gap:.15rem;flex-shrink:0}' +
+    '.ibar-ico{display:grid;place-items:center;width:36px;height:36px;background:none;border:1px solid transparent;border-radius:8px;color:rgba(248,244,234,.85);cursor:pointer}' +
+    '.ibar-ico:hover,.ibar-ico[aria-expanded=true]{background:rgba(248,244,234,.1);color:#F8F4EA}.ibar-ico:focus-visible{outline:2px solid #C7AE7A}.ibar-ico svg{width:18px;height:18px}' +
     '.ibar-tools{display:flex;align-items:center;gap:.35rem;background:none;border:none;border-bottom:2px solid transparent;font:inherit;font-size:.78rem;color:rgba(248,244,234,.78);padding:.55rem .7rem;cursor:pointer;white-space:nowrap}' +
     '.ibar-tools:hover,.ibar-tools[aria-expanded=true]{color:#F8F4EA}' +
     '.ibar-tools svg{width:14px;height:14px}' +
@@ -122,7 +140,7 @@
     '@media (max-width:640px){' +
       '.ibar{position:fixed;top:auto;bottom:0;left:0;right:0;border-bottom:none;border-top:1px solid rgba(199,174,122,.35);padding-bottom:env(safe-area-inset-bottom)}' +
       '.ibar-in{justify-content:space-around;gap:0;padding:0 .3rem}' +
-      '.ibar a.ibar-brand,.ibar-sep,.ibar a.ext,.ibar-tools{display:none}' +
+      '.ibar a.ibar-brand,.ibar-sep,.ibar a.ext,.ibar-tools,.ibar-corner{display:none}' +
       '.ibar-more{display:flex;background:none;border:none;font:inherit;cursor:pointer}' +
       '.ibar a,.ibar-more{flex-direction:column;gap:.18rem;align-items:center;font-size:.6rem;color:rgba(248,244,234,.75);padding:.45rem .5rem .35rem;border-bottom:none;border-top:2px solid transparent}' +
       '.ibar a svg,.ibar-more svg{width:19px;height:19px}' +
@@ -130,8 +148,8 @@
       '.ibar .arrow{display:none}' +
       '.ibar-in{justify-content:flex-start}' +
       '.ibar-sub{order:-1;padding:0 .3rem;border-top:none;border-bottom:1px solid rgba(199,174,122,.18)}' +
-      '.ibar-sub a{flex-direction:row;font-size:.72rem;padding:.4rem .7rem;border-top:none}' +
-      '.ibar-sub a.on{border-top-color:transparent;border-bottom:2px solid #A8853C}' +
+      '.ibar .ibar-sub a{flex-direction:row;font-size:.76rem;padding:.4rem .8rem;border:1px solid rgba(199,174,122,.35)}' +
+      '.ibar .ibar-sub a.on{border-color:#C7AE7A}' +
       'body{padding-bottom:calc(62px + env(safe-area-inset-bottom))!important}' +
     '}';
 
@@ -189,21 +207,35 @@
     inner.appendChild(brand);
 
     INTERNAL.forEach(function (i) { inner.appendChild(link(i, current)); });
-    var sep = document.createElement('div');
-    sep.className = 'ibar-sep';
-    inner.appendChild(sep);
-    EXTERNAL.forEach(function (i) { inner.appendChild(link(i, current)); });
-
+    /* the left corner: ☰ (control, system pages, sheet, Make, outside tools) and the dark/light switch */
+    var corner = document.createElement('div'); corner.className = 'ibar-corner';
+    var theme = document.createElement('button');
+    theme.type = 'button'; theme.className = 'ibar-ico';
+    var isDark = function () { return document.documentElement.getAttribute('data-theme') === 'dark'; };
+    var paintTheme = function () { theme.innerHTML = isDark() ? sun : moon; theme.setAttribute('aria-label', isDark() ? 'מעבר לתצוגה בהירה' : 'מעבר לתצוגה כהה'); theme.title = isDark() ? 'בהיר' : 'כהה'; };
+    var flipTheme = function () {
+      var dark = isDark();
+      if (dark) document.documentElement.setAttribute('data-theme', 'light'); else document.documentElement.setAttribute('data-theme', 'dark');
+      try { localStorage.setItem('ishur_theme', dark ? 'light' : 'dark'); } catch (e) {}
+      paintTheme();
+    };
+    theme.addEventListener('click', flipTheme); paintTheme();
     var tools = document.createElement('button');
     tools.type = 'button';
-    tools.className = 'ibar-tools';
+    tools.className = 'ibar-ico';
     tools.setAttribute('aria-haspopup', 'true');
     tools.setAttribute('aria-expanded', 'false');
-    tools.innerHTML = ic.ops + '<span>כלים</span>';
-    inner.appendChild(tools);
+    tools.setAttribute('aria-label', 'שליטה וכלים');
+    tools.innerHTML = bars;
+    corner.appendChild(theme); corner.appendChild(tools);
+    inner.appendChild(corner);
     var tmenu = document.createElement('div');
     tmenu.className = 'ibar-tmenu';
     var fill = function (box) {
+      var g0 = document.createElement('div'); g0.className = 'g'; g0.textContent = 'שליטה ומערכת'; box.appendChild(g0);
+      CONTROL.forEach(function (t) { var a = document.createElement('a'); a.href = t.href; a.className = 'tl'; a.textContent = t.label; if (keyOf(t.href) === HERE) a.style.color = '#C7AE7A'; box.appendChild(a); });
+      var g1 = document.createElement('div'); g1.className = 'g'; g1.textContent = 'גיליון ואוטומציה'; box.appendChild(g1);
+      EXTERNAL.forEach(function (t) { var a = document.createElement('a'); a.href = t.href; a.target = '_blank'; a.rel = 'noopener'; a.className = 'tl'; a.textContent = t.label; box.appendChild(a); });
       TOOLS.forEach(function (t) {
         if (t.group) { var g = document.createElement('div'); g.className = 'g'; g.textContent = t.group; box.appendChild(g); return; }
         var a = document.createElement('a'); a.href = t.href; a.target = '_blank'; a.rel = 'noopener'; a.className = 'tl'; a.textContent = t.label; box.appendChild(a);
@@ -214,7 +246,7 @@
       e.stopPropagation();
       var r = tools.getBoundingClientRect();
       tmenu.style.top = (r.bottom + 4) + 'px';
-      tmenu.style.right = Math.max(8, window.innerWidth - r.right) + 'px';
+      tmenu.style.left = Math.max(8, r.left) + 'px';
       var on = tmenu.classList.toggle('on');
       tools.setAttribute('aria-expanded', on ? 'true' : 'false');
     });
@@ -230,7 +262,7 @@
 
     var menu = document.createElement('div');
     menu.className = 'ibar-menu';
-    EXTERNAL.forEach(function (i) { menu.appendChild(link(i, current)); });
+    var mt = document.createElement('a'); mt.href = '#'; mt.className = 'tl'; mt.textContent = 'תצוגה כהה / בהירה'; mt.addEventListener('click', function (e) { e.preventDefault(); flipTheme(); }); menu.appendChild(mt);
     menu.style.maxHeight = '70vh'; menu.style.overflow = 'auto';
     fill(menu);
 
