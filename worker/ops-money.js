@@ -438,17 +438,44 @@ export function incomeDays(entries, { cfg, actual } = {}) {
   }
   return out;
 }
+/* 16/11: the payment rows of the last `days`, day by day. One long read of the log was cut by its time budget after about two
+   weeks, so by the end of a month the early payments would have dropped out. A day that is over does not change any more:
+   its payment rows are read once and kept (KV payday:<day>). Today and yesterday are always read live. A cold start fills
+   at most `maxFill` missing days per call and says `truncated` until the rest is in; `oldest` is the earliest day covered. */
+export const dayList = (from, today) => { const out = []; for (let t = Date.parse(today + 'T12:00:00Z'); t >= Date.parse(from + 'T12:00:00Z'); t -= 864e5) out.push(new Date(t).toISOString().slice(0, 10)); return out; };
+export async function payRowsByDay(env, d, { from, today, maxFill = 12, opsBudget = 2800 } = {}) {
+  const items = [], yday = new Date(Date.parse(today + 'T12:00:00Z') - 864e5).toISOString().slice(0, 10);
+  let truncated = false, filled = 0, oldest = null, used = 0; const gaps = [];
+  /* one request can afford about 3,000 log operations in all. A busy day (a big wave) needs most of that by itself,
+     so a past day gets whatever is left, and filling stops when too little remains for a whole day. */
+  const readDay = (day, budget) => d.auditQueryEx(env, { from: day.replace(/-/g, ''), to: day.replace(/-/g, ''), kind: 'pay', limit: 5000, budget }).catch(() => ({ items: [], truncated: true, ops: budget }));
+  for (const day of dayList(from, today)) {
+    const live = day >= yday;
+    if (!live && env.RATE) { const c = jp(await env.RATE.get('payday:' + day).catch(() => null)); if (Array.isArray(c)) { items.push(...c); oldest = day; continue; }
+      /* a day too big to read in one request even with the whole budget: what was read is kept, the day is named as partial, and it is not tried again on every call */
+      const x = jp(await env.RATE.get('paydayx:' + day).catch(() => null)); if (x && Array.isArray(x.items)) { items.push(...x.items); gaps.push(day); oldest = day; continue; } }
+    const left = opsBudget - used;
+    if (!live && (filled >= maxFill || left < 300)) { truncated = true; break; }      /* the days after this one (older) wait for the next call */
+    const r = await readDay(day, live ? Math.max(300, Math.min(900, left)) : left); used += Number(r.ops) || 0; if (!live) filled++;
+    if (r.truncated && !live && left >= 2000 && env.RATE) { await env.RATE.put('paydayx:' + day, JSON.stringify({ items: r.items || [], at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {}); items.push(...(r.items || [])); gaps.push(day); oldest = day; truncated = true; break; }
+    if (r.truncated) { truncated = true; if (!live) break; }
+    items.push(...(r.items || [])); oldest = day;
+    if (!live && !r.truncated && env.RATE) await env.RATE.put('payday:' + day, JSON.stringify(r.items || []), { expirationTtl: 400 * 86400 }).catch(() => {});
+  }
+  return { items, truncated, gaps, oldest_ts: oldest ? Date.parse(oldest + 'T00:00:00Z') : null };
+}
 export async function buildIncomeDays(env, d, { raw, days = 45, fresh = false } = {}) {
   /* the payment log is read day by day: 45 days is seconds, 150 took 37s. Older payments come from the sheet rows. Cached an hour. */
   if (!fresh && env.RATE) { const c = jp(await env.RATE.get('incdays').catch(() => null)); if (c && Date.now() - c.at < 60 * 60e3) return c.data; }   /* a new payment deletes the key (processGrowPayment), so an hour is safe */
   const today = d.ilDate(new Date()), from = new Date(Date.now() - days * 864e5).toISOString().slice(0, 10), far = new Date(Date.now() - 400 * 864e5).toISOString().slice(0, 10);
-  const pay = await d.auditQueryEx(env, { from: from.replace(/-/g, ''), to: today.replace(/-/g, ''), kind: 'pay', limit: 20000, budget: 3000 }).catch(() => ({ items: [], truncated: true }));
+  const pay = await payRowsByDay(env, d, { from, today });
   const growtx = env.RATE ? jp(await env.RATE.get('growtx').catch(() => null)) || [] : [];
   const entries = mergeGrowTx(revenueEntries(pay.items, eventsForMoney(raw, d), { parsePaidDesc: d.parsePaidDesc || (() => null) }), growtx, { parsePaidDesc: d.parsePaidDesc || (() => null) });
   const fee = await loadFeeCfg(env);
   const fixedRec = await loadFixed(env, today.slice(0, 7));
   const fixed = {}; for (const m of monthsBetween(far, today)) fixed[m] = fixedForMonth(fixedRec, m).items.filter((x) => !x.unknown && x.ils > 0).map((x) => ({ name: x.name, ils: x.ils, day: x.day || 10 }));
-  const data = { income: incomeDays(entries, fee), fixed, vat_rate: VAT_RATE, fee_cfg: fee.cfg, truncated: !!pay.truncated };
+  /* `oldest` = how far back the payment log was really read (it is read newest first, so a cut read loses the oldest days) */
+  const data = { income: incomeDays(entries, fee), fixed, vat_rate: VAT_RATE, fee_cfg: fee.cfg, truncated: !!pay.truncated, oldest: pay.oldest_ts || null, gaps: pay.gaps || [] };
   if (env.RATE) await env.RATE.put('incdays', JSON.stringify({ at: Date.now(), data }), { expirationTtl: 3600 }).catch(() => {});
   return data;
 }

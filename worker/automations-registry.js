@@ -283,6 +283,10 @@ export const AUTOMATIONS = [
     conditions: ['הפעימה הראשונה אחרי 09:00 בישראל, גם כשמושהה', 'רק כש-auto:off:slack_digest דולק — אחרת הסיכום של הבוקר כולל את התור'], kv_markers: { global: ['slackqflush:<יום>', 'slackq:list'] },
     source: S(6456, "if (await isOff(env, 'slack_digest')) await flushSlackQueue(env)"), evidence: [E(95, 'export async function flushSlackQueue', 'הפונקציה', 'worker/slack.js')] },
   /* 04/11 slack-gate (docs/SLACK-DEDUPE-2026-11-04.md): one morning message instead of ~15 repeats a day */
+  { id: 'report3', name_he: 'דוח תקופתי כל שלושה ימים (סלאק + מייל)', layer: 2, from: ['d_pacer'], kind: 'slack', added: '2026-11-16',
+    conditions: ['כל יום שלישי, מ-09:00 בישראל', 'פעם אחת ביום דוח (rep3:<יום>)', 'המייל נשלח לכתובת שב-cfg:report_email'],
+    audience: 'ריצארד', kv_markers: { global: ['rep3:<יום>', 'cfg:report_email'] },
+    source: S(7372, "await step('report3', async () => periodicReport(env"), evidence: [E(1, 'export async function periodicReport', 'הכנסות החודש, מע״מ, עמלות ומספר תשלומים מההכנסה המאומתת', 'worker/periodic-report.js')] },
   { id: 'hostess_reminders', name_he: 'דיילות · תזכורת שבוע ויום לפני האירוע (סלאק)', layer: 2, from: ['d_pacer'], kind: 'slack', added: '2026-11-16',
     conditions: ['פעם בשעה, 09:00–21:00 בישראל', 'לאירוע עם דיילות שהתאריך שלו בעוד 7 ימים או מחר', 'פעם אחת לכל אירוע, סוג ותאריך (hostrem:*)'],
     audience: 'סלאק', kv_markers: { global: ['hostremtick:<יום>:<שעה>'], per_event: ['hostrem:<tok8>:<d7|d1>:<תאריך>'] },
@@ -510,7 +514,7 @@ export function baseTemplate(name) { return String(name || '').replace(/_(f|n)$/
      desc_he       plain Hebrew, one sentence
      code          { file, symbol } — the function shown by /api/ops/code (defaults to source);
                    worker/registry-code.json holds the resolved lines (scripts/ops-snapshot-code.mjs) */
-export const KILL_SWITCH_IDS = ['hostess_reminders', 'd_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder', 'slack_digest', 'noa_chase'];
+export const KILL_SWITCH_IDS = ['report3', 'hostess_reminders', 'd_pacer', 'wave1', 'wave2', 'wave3', 'event_day_blast', 'autoretry', 'shir_dispatch', 'shir_callbacks', 'manual_blasts', 'party_nudges', 'subevent_continue', 'subevent_reminder', 'slack_digest', 'noa_chase'];
 const KS = id => ({ key: 'auto:off:' + id, wired: true });
 const C = (symbol, file = IX) => ({ file, symbol });
 const OPS_OVERRIDES = {
@@ -558,6 +562,8 @@ const OPS_OVERRIDES = {
   perf_digest:{ code: C('async function msgPerformanceDigest') },
   noa_chase:  { kill_switch: KS('noa_chase'), side_effects: ['call', 'kv', 'money'], risk: 'high', code: C('export async function noaChaseTick', 'worker/noa.js'),
     desc_he: 'נועה מחייגת ללידים שסומנו "לא ענה" במאנדיי. המתג עוצר רק את החיוג היוצא.' },
+  report3:{ kill_switch: KS('report3'), side_effects: ['slack', 'email', 'kv'], risk: 'low', code: C('export async function periodicReport', 'worker/periodic-report.js'),
+                desc_he: 'דוח קצר כל שלושה ימים: הכנסות החודש, אחרי מע״מ, עמלות סליקה ומספר תשלומים, עם קישור לדוח המלא.' },
   hostess_reminders:{ kill_switch: KS('hostess_reminders'), side_effects: ['slack', 'kv'], risk: 'low', code: C('export async function hostessReminders', 'worker/hostess-alerts.js'),
                 desc_he: 'תזכורת לסלאק שבוע ויום לפני כל אירוע עם דיילות: לקוח, מקום, שעת הגעה, כמה דיילות ומי משובצת.' },
   slack_digest:{ kill_switch: KS('slack_digest'), side_effects: ['slack', 'kv'], risk: 'low', code: C('export async function slackDigest', 'worker/slack-gate.js'),

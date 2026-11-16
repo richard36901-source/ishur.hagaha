@@ -52,6 +52,7 @@ import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
 import { inboundExtras } from './wa-extras.js';
 import { handleLeadsMonday } from './leads-monday.js';
+import { periodicReport, monthIncome, reportText, monthCut, ilDay as reportDay } from './periodic-report.js';
 import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
 import { checkinUrl } from './staff.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
@@ -7367,6 +7368,8 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
   if (ilHour >= 9 && ilHour < 21 && !(await isOff(env, 'hostess_reminders')) && await env.RATE.get('hostremtick:' + today + ':' + ilHour) !== '1') {
     await env.RATE.put('hostremtick:' + today + ':' + ilHour, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
     await step('hostess_reminders', () => hostessReminders(env, { post: (t, o) => slackSend(env, t, o), kvPrefix })).catch(() => {});
+    /* 16/11: the short report every three days, to Slack and to the address in KV cfg:report_email (asked once an hour; sent once on a report day) */
+    if (!(await isOff(env, 'report3'))) await step('report3', async () => periodicReport(env, { income: reportIncome(env), post: (t, o) => slackSend(env, t, o), mail: m => sendPlainEmail(env, m), to: String((await env.RATE.get('cfg:report_email').catch(() => '')) || '').trim() })).catch(() => {});
     /* on the event day each assigned hostess gets today's event and her report link (once; outside WhatsApp's 24h window it cannot be delivered, then Slack gets a manual link) */
     await hostessDayMessages(env, { kvPrefix, arrivalOf, slack: (t, o) => slackSend(env, t, o),
       send: async (phone, st, text) => { const link = checkinUrl(st.sid); const r = await sendCtaUrl(env, phone, text, 'דיווח נוכחות', link, 'client', { who: 'נועה (דיילות)' }).catch(() => null); return { ok: !!(r && r.ok), wa: `https://wa.me/${phone}?text=${encodeURIComponent(text + '\n' + link)}` }; } }).catch(() => {});
@@ -10576,6 +10579,8 @@ const MAX_BODY_BYTES = 12 * 1024 * 1024;   // the upload cap plus headroom
 /* hostess calendar slot for one event: arrival 60 min before the reception,
    plus travel (45 inside the centre, 90 outside), until reception + 5h.
    Times are Israel local; stored as UTC ISO for the iCal feed. */
+/* the same verified income the money screen reads (cost-log), for the three-day report */
+function reportIncome(env) { return async () => { const raw = await readSnapshot(env, 'ops').catch(() => null); return buildIncomeDays(env, { ...opsDeps(), parsePaidDesc }, { raw }); }; }
 async function writeHostessBooking(env, token, b) {
   if (!env.RATE || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))) return;
   const rec = /^(\d{1,2}):(\d{2})$/.exec(String(b.reception || '')) || [null, '19', '00'];
@@ -13982,6 +13987,10 @@ const WORKER = {
       for (const [k, v] of Object.entries(all)) { try { for (const x of JSON.parse(v) || []) items.push({ tok8: k, ...x }); } catch {} }
       return okJson({ ok: true, items: items.sort((x, y) => String(y.day).localeCompare(String(x.day))) }, origin);
     }
+    /* what the three-day report would say right now; nothing is sent */
+    if (url.pathname === '/api/report3' && request.method === 'POST') { let rb = {}; try { rb = await request.json(); } catch { return deny(400, 'bad-json', origin); } if (!isAdmin(env, rb.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const inc = await reportIncome(env)().catch(() => null); if (!inc) return okJson({ ok: false, error: 'no-income-data' }, origin); const day = reportDay(), m = monthIncome(inc.income, day.slice(0, 7), day);
+      return okJson({ ok: true, month: m, text: reportText(m, day.slice(0, 7), day, { truncated: monthCut(inc, day.slice(0, 7)) }), read_back_to: inc.oldest ? reportDay(Number(inc.oldest) || Date.parse(inc.oldest)) : null, email_set: !!(await env.RATE.get('cfg:report_email').catch(() => '')) }, origin); }
     if (url.pathname === '/api/leads-monday' && request.method === 'POST') return handleLeadsMonday(request, env, origin, { okJson, deny, isAdmin, gql: mondayGql, findLead: mondayFindLead });
     if (url.pathname === '/api/callers' && request.method === 'POST') return handleCallers(request, env, origin, { okJson, deny, isAdmin, normPhone, kvPrefix });
     if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
