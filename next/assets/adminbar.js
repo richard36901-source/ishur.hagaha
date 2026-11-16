@@ -138,6 +138,8 @@
     'body[data-page="leads.html"]:not([data-sub="main"]) #pbfold>summary{display:none!important}' +
     'body[data-page="leads.html"][data-sub="script"] #sales .plg-card,body[data-page="leads.html"][data-sub="script"] #sales h2:has(+ .plg-card){display:none}' +
     'body[data-page="leads.html"][data-sub="paylink"] #sales>:not(.plg-card):not(h2:has(+ .plg-card)){display:none}' +
+    /* 16/11 Richard: the big green banner repeats the bar on every page; it stays for print (the PDF report carries the brand) */
+    '@media screen{header.head{display:none!important}}' +
     '.ibar-corner{margin-inline-start:auto;display:flex;align-items:center;gap:.15rem;flex-shrink:0}' +
     '.ibar-ico{display:grid;place-items:center;width:36px;height:36px;background:none;border:1px solid transparent;border-radius:8px;color:rgba(248,244,234,.85);cursor:pointer}' +
     '.ibar-ico:hover,.ibar-ico[aria-expanded=true]{background:rgba(248,244,234,.1);color:#F8F4EA}.ibar-ico:focus-visible{outline:2px solid #C7AE7A}.ibar-ico svg{width:18px;height:18px}' +

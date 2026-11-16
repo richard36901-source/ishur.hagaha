@@ -12,7 +12,7 @@
 <script src="/config.js?v=72"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
-<script src="/next/assets/adminbar.js?v=6" defer></script>
+<script src="/next/assets/adminbar.js?v=7" defer></script>
 <script src="/assets/guard.js?v=19"></script>
 <script src="/next/assets/lite.js?v=3"></script>
 <link rel="stylesheet" href="/assets/picker.css">
@@ -171,6 +171,11 @@
   var DEMO = /(^|[?&])demo=1/.test(location.search);
   var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
   var STATUSES = ['חדש', 'נשלח פרטים', 'לא ענה', 'שיחה חוזרת', 'סגר', 'סגר במקום אחר', 'לא רלוונטי'];
+  /* 16/11 Richard: a status wears the colour it has on our monday leads board (column "סטטוס", read 16/11) */
+  var ST_COLOR = { 'נשלח פרטים': '#fdab3d', 'סגר': '#00c875', 'לא ענה': '#df2f4a', 'לא רלוונטי': '#007eb5', 'שיחה חוזרת': '#9d50dd', 'חדש': '#c4c4c4', 'סגר במקום אחר': '#401694',
+    'לחייג שבוע הבא': '#4eccc6', 'דיילת': '#ff5ac4', 'כפילות': '#ffcb00', 'נשלח פרטים- לא לחייג': '#333333', 'חודש /חודשיים': '#563e3e' };
+  var ST_DARK_TEXT = { '#c4c4c4': 1, '#ffcb00': 1, '#4eccc6': 1, '#fdab3d': 1 };
+  function stStyle(st) { var c = ST_COLOR[String(st || '').trim()]; return c ? 'background:' + c + ';border-color:' + c + ';color:' + (ST_DARK_TEXT[c] ? '#1B2620' : '#fff') : ''; }
   var OWNERS = ['ריצארד', 'נועה', 'שלו'];
   var GROUPS = ['פעילים', 'חם', 'להמשך', 'סגרו', 'ארכיון'];
   var collapsed = {}; try { collapsed = JSON.parse(localStorage.getItem('ishur_leads_grp') || '{"סגרו":1,"ארכיון":1}'); } catch (e) { collapsed = { 'סגרו': 1, 'ארכיון': 1 }; }
@@ -244,7 +249,7 @@
         '<div class="cell" data-l="טלפון"><span class="ph">' + fmtPhone(l.phone) + '</span></div>' +
         '<div class="cell ev" data-l="אירוע">' + esc(l.occasion || 'ללא סוג') + '<small>' + (l.eventDate ? heDate(l.eventDate) : 'נכנס ' + heDate(l.date)) + '</small></div>' +
         '<div class="cell" data-l="מקור"><span class="src" title="' + esc(l.source) + '">' + esc(l.sourceKind) + '</span></div>' +
-        '<div class="cell" data-l="סטטוס"><span class="stc s-' + esc(l.status) + (l.won ? ' disabled' : '') + '">' + esc(l.status) + '<select class="st" data-p="' + esc(l.phone) + '"' + (l.won ? ' disabled title="נסגר לבד: שילם"' : '') + '>' + STATUSES.map(function (s) { return '<option' + (s === l.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></span></div>' +
+        '<div class="cell" data-l="סטטוס"><span class="stc s-' + esc(l.status) + (l.won ? ' disabled' : '') + '" style="' + stStyle(l.status) + '">' + esc(l.status) + '<select class="st" data-p="' + esc(l.phone) + '"' + (l.won ? ' disabled title="נסגר לבד: שילם"' : '') + '>' + STATUSES.map(function (s) { return '<option' + (s === l.status ? ' selected' : '') + '>' + esc(s) + '</option>'; }).join('') + '</select></span></div>' +
         '<div class="cell" data-l="טיפול"><select class="ow' + (l.owner ? '' : ' none') + '" data-p="' + esc(l.phone) + '"><option value="">ללא</option>' + OWNERS.map(function (o) { return '<option' + (o === l.owner ? ' selected' : '') + '>' + esc(o) + '</option>'; }).join('') + '</select></div>' +
         '<div class="cell" data-l="מעקב"><input type="date" class="fu' + (due ? ' due' : '') + '" data-p="' + esc(l.phone) + '" value="' + esc(l.followup) + '"></div>' +
         '<div class="cell note" data-l="הערה אחרונה">' + (l.lastNote ? esc(l.lastNote.text) + '<time>' + heTime(l.lastNote.at) + '</time>' : '<span class="e">אין הערות</span>') + '</div>' +
