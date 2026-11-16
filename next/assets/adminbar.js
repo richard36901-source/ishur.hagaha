@@ -37,7 +37,8 @@
       { href: 'admin.html', label: 'סקירה' },
       { href: 'admin.html?view=money', label: 'כספים · רווח והפסד' },
       { href: 'admin.html?view=camp', label: 'קמפיינים' },
-      { href: 'ad-report.html', label: 'דוח מודעות מלא' } ] },
+      { href: 'ad-report.html', label: 'דוח מודעות מלא' },
+      { href: 'report.html', label: 'דוח תקופתי' } ] },   /* 16/11: activity + profit and loss + what needs attention, saves as a branded PDF */
     { href: 'leads.html', label: 'מכירות', icon: ic.board, sub: [
       { href: 'leads.html', label: 'לידים' },
       { href: 'leads-new.html', label: 'לידים · תצוגה חדשה' },   /* 16/11: the CRM-style list synced with monday, beside the working screen until Richard switches */
