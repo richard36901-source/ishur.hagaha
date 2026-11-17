@@ -76,7 +76,7 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin } from './account.js';   /* 12/11 personal-area */
+import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -8102,7 +8102,7 @@ function eventsForPhone(raw, phone) {
 /* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
 function accountDeps() {
   return { okJson, deny, normPhone, overBudget, memOver, otpAttemptAllowed, safeEqual, tokenRecord, referralSummary: async (e, t) => referralSummary(e, t, await tokenRecord(e, t)), readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
-    sendOtpTemplate, sendEmail: sendPlainEmail, today: () => ilDate() };
+    sendOtpTemplate, sendText, sendEmail: sendPlainEmail, today: () => ilDate() };
 }
 async function handleOtpSend(request, env, origin) {
   let body = {};
@@ -14311,11 +14311,17 @@ const WORKER = {
         if (!raw) return deny(502, 'reader-failed', origin);
         const evs = eventsForPhone(raw, phone);
         if (!evs.length) return deny(404, 'no-events', origin);
-        return okJson({ ok: true, events: evs }, origin);
+        /* 17/11: the WhatsApp code proved the phone, so the locked board opens without asking for the PIN too */
+        return okJson({ ok: true, events: evs, board_session: await mintAcctSession(env, phone).catch(() => '') }, origin);
       }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
       const raw = await readSnapshot(env, 'dashboard');
       if (!raw) return deny(502, 'reader-failed', origin);
+      /* 17/11 Richard ("תנעל"): the link alone no longer opens the board — see boardLockOn in account.js. Off: delete cfg:board_pin */
+      if (await boardLockOn(env) && !(stampFields.admin_key && await adminKeyOk(env, stampFields.admin_key)) && !(await boardSessionOk(env, accountDeps(), raw, token, stampFields.board_session))) {
+        const own = normPhone((await tokenRecord(env, token)).phone || '');
+        return new Response(JSON.stringify({ ok: false, error: 'pin-required', to: own.slice(-2) }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+      }
       const refCount = env.RATE ? Number(await env.RATE.get('refcred:' + token.slice(0, 8))) || 0 : 0;
       let referral = null; try { referral = await referralSummary(env, token, await tokenRecord(env, token)); } catch {}
       /* which waves already fired, so the page can lock those rows */

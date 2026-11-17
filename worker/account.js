@@ -133,6 +133,29 @@ export async function resetPin(env, phone) {
 }
 const nonceOf = token => (String(token || '').match(/^acct\.\d+\.([0-9a-f]{32})\./) || [])[1] || '';
 
+/* one budget for both ways in (the personal area and the board link). → null when the PIN is right, else [status, error] */
+export async function tryPin(env, d, phone, pin, ip) {
+  if ((d.memOver && d.memOver('acctpini:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:acctpini:' + ip, 30, 3600)) return [429, 'rate-limited'];
+  if (await env.RATE.get('acctpinlock:' + phone).catch(() => null)) return [429, 'pin-locked'];
+  if (await d.overBudget(env, 'rl:acctpind:' + phone, PIN_DAY, 86400)) {
+    await env.RATE.put('acctpinlock:' + phone, new Date().toISOString(), { expirationTtl: 30 * 86400 }).catch(() => {});
+    await d.logEvent(env, { area: 'אזור אישי', action: 'קוד הכניסה ננעל אחרי יותר מדי ניסיונות', ok: false, review: true, phone }).catch(() => {});
+    return [429, 'pin-locked'];
+  }
+  if (await d.overBudget(env, 'rl:acctpinh:' + phone, PIN_HOUR, 3600)) return [429, 'rate-limited'];
+  const want = await pinFor(env, phone);
+  return want && d.safeEqual(pin, want) ? null : [403, 'bad-login'];
+}
+/* 17/11 Richard ("תנעל"): with cfg:board_pin = 1 the board link alone does not open the board. The page must also
+   carry a session of a phone this event belongs to (the PIN, the WhatsApp code or the personal area give one).
+   Off switch: delete cfg:board_pin. → true when the request may see the event */
+export async function boardLockOn(env) { try { return !!env.RATE && (await env.RATE.get('cfg:board_pin')) === '1'; } catch { return false; } }
+export async function boardSessionOk(env, d, raw, token, session) {
+  const phone = await verifySession(env, session, d.safeEqual);
+  return !!phone && d.eventsForPhone(raw, phone).some(e => e.token === token);
+}
+const tail = phone => String(phone || '').slice(-2);
+
 /* ── KV helpers ──────────────────────────────────────────────────────────── */
 async function kvJson(env, k) { try { return JSON.parse(await env.RATE.get(k)) || null; } catch { return null; } }
 export async function readLedger(env, phone) { return (await kvJson(env, 'credit:' + phone)) || { entries: [], redeemed: [] }; }
@@ -212,6 +235,8 @@ export async function handleAccount(request, env, origin, url, d) {
     const tok = String(b.token || '').trim().toLowerCase();
     if (!/^[0-9a-f-]{36}$/.test(tok)) return d.deny(403, 'bad-token', origin);
     if (await d.overBudget(env, 'rl:accttok:' + ip, 40, 3600)) return d.deny(429, 'rate-limited', origin);
+    /* 17/11: with the board locked, the link alone is not an identity any more. The board already holds a session, and the page sends that one */
+    if (await boardLockOn(env)) return d.deny(403, 'pin-required', origin);
     const rec = await d.tokenRecord(env, tok);
     const phone = rec ? d.normPhone(rec.phone || '') : '';
     if (!/^972\d{8,9}$/.test(phone)) return d.deny(403, 'bad-token', origin);
@@ -220,20 +245,40 @@ export async function handleAccount(request, env, origin, url, d) {
     return d.okJson({ ok: true, session }, origin);
   }
 
+  /* the board link + the PIN: the phone is the one the event was bought with, so only the PIN is typed */
+  if (path === 'board-pin' || path === 'board-pin-send') {
+    const tok = String(b.token || '').trim().toLowerCase();
+    if (!/^[0-9a-f-]{36}$/.test(tok)) return d.deny(403, 'bad-token', origin);
+    if (await d.overBudget(env, 'rl:bpintok:' + ip, 60, 3600)) return d.deny(429, 'rate-limited', origin);
+    const rec = await d.tokenRecord(env, tok);
+    const phone = rec ? d.normPhone(rec.phone || '') : '';
+    if (!/^972\d{8,9}$/.test(phone)) return d.deny(403, 'bad-token', origin);
+    if (path === 'board-pin-send') {
+      /* Richard: "תשלח למי שמבקש" — the PIN goes only to the phone on file, never to a number the visitor types */
+      if (await d.overBudget(env, 'rl:bpinsend:' + phone, 3, 3600) || await d.overBudget(env, 'rl:bpinsendd:' + phone, 6, 86400)) return d.deny(429, 'rate-limited', origin);
+      const pin = await pinFor(env, phone);
+      let sent = d.sendText ? await d.sendText(env, phone, `קוד הכניסה שלכם ללוח הבקרה ולאזור האישי ב-ishur.io: ${pin}\nהוא קבוע, כדאי לשמור אותו.`, 'client').catch(() => null) : null;
+      let via = 'whatsapp';
+      if (!sent || !sent.ok) { const r = await sendLoginCode(env, phone, pin, { email: '', d }); sent = r; via = r.via || ''; }
+      await d.logEvent(env, { area: 'אזור אישי', action: sent && sent.ok ? `קוד הכניסה הקבוע נשלח לבקשת הלקוח (${via})` : 'קוד הכניסה הקבוע לא נשלח', ok: !!(sent && sent.ok), review: !(sent && sent.ok), phone, token: tok }).catch(() => {});
+      if (!sent || !sent.ok) return d.deny(502, 'send-failed', origin);
+      return d.okJson({ ok: true, to: tail(phone) }, origin);
+    }
+    const pin = String(b.pin || '').replace(/\D/g, '');
+    if (pin.length !== 4) return d.deny(403, 'bad-login', origin);
+    const bad = await tryPin(env, d, phone, pin, ip);
+    if (bad) return d.deny(bad[0], bad[1], origin);
+    const session = await mintSession(env, phone);
+    await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה ללוח הבקרה עם קוד קבוע', ok: true, phone, token: tok }).catch(() => {});
+    return d.okJson({ ok: true, session }, origin);
+  }
+
   if (path === 'pin-login') {
     const phone = d.normPhone(b.phone || '');
     const pin = String(b.pin || '').replace(/\D/g, '');
     if (!/^972\d{8,9}$/.test(phone) || pin.length !== 4) return d.deny(403, 'bad-login', origin);
-    if ((d.memOver && d.memOver('acctpini:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:acctpini:' + ip, 30, 3600)) return d.deny(429, 'rate-limited', origin);
-    if (await env.RATE.get('acctpinlock:' + phone).catch(() => null)) return d.deny(429, 'pin-locked', origin);
-    if (await d.overBudget(env, 'rl:acctpind:' + phone, PIN_DAY, 86400)) {
-      await env.RATE.put('acctpinlock:' + phone, new Date().toISOString(), { expirationTtl: 30 * 86400 }).catch(() => {});
-      await d.logEvent(env, { area: 'אזור אישי', action: 'קוד הכניסה ננעל אחרי יותר מדי ניסיונות', ok: false, review: true, phone }).catch(() => {});
-      return d.deny(429, 'pin-locked', origin);
-    }
-    if (await d.overBudget(env, 'rl:acctpinh:' + phone, PIN_HOUR, 3600)) return d.deny(429, 'rate-limited', origin);
-    const want = await pinFor(env, phone);
-    if (!want || !d.safeEqual(pin, want)) return d.deny(403, 'bad-login', origin);
+    const bad = await tryPin(env, d, phone, pin, ip);
+    if (bad) return d.deny(bad[0], bad[1], origin);
     const raw = await d.readSnapshot(env, 'dashboard').catch(() => null);
     if (!raw) return d.deny(502, 'reader-failed', origin);
     if (!d.eventsForPhone(raw, phone).length) return d.deny(403, 'bad-login', origin);

@@ -246,3 +246,34 @@ test('client-pin (admin): returns the same PIN the client signs in with; reset r
   const b = await post(e, '/api/client-pin', { admin_key: 'k', phone: '0521234567', reset: true });
   assert.match(b.pin, /^\d{4}$/); assert.equal(await pinFor(e, PHONE), b.pin);
 });
+
+/* 17/11 Richard ("תנעל"): the board link needs the PIN too */
+const stamped = async (e, body) => { const nonce = 'n1', ts = String(Date.now()); const h = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`${e.APP_KEY}|${nonce}|${ts}`)); return { ...body, app: 'x', nonce, stamp_ts: ts, sig: [...new Uint8Array(h)].map(x => x.toString(16).padStart(2, '0')).join('') }; };
+test('board lock: off → the link opens as before; on → 401 pin-required, then the PIN gives a session that opens it; another client\'s session does not', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }) });
+  const open0 = await post(e, '/api/status', await stamped(e, { token: TOK }));
+  if (open0.status === 404) return assert.fail('token record key differs: adjust the fixture');
+  assert.equal(open0.status, 200);
+  await e.RATE.put('cfg:board_pin', '1');
+  const locked = await post(e, '/api/status', await stamped(e, { token: TOK }));
+  assert.equal(locked.status, 401); assert.equal(locked.error, 'pin-required'); assert.equal(locked.to, '67');
+  assert.equal((await post(e, '/api/account/from-token', { token: TOK })).status, 403);
+  assert.equal((await post(e, '/api/account/board-pin', { token: TOK, pin: (await pinFor(e, PHONE)) === '0001' ? '0002' : '0001' })).status, 403);
+  const r = await post(e, '/api/account/board-pin', { token: TOK, pin: await pinFor(e, PHONE) });
+  assert.equal(r.status, 200);
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, board_session: r.session }))).status, 200);
+  const { mintSession } = await import('../account.js');
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, board_session: await mintSession(e, OTHER) }))).status, 401);
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, admin_key: 'k' }))).status, 200);
+});
+test('board-pin-send: the PIN goes to the phone on file only, 3 an hour', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }) });
+  const r = await post(e, '/api/account/board-pin-send', { token: TOK });
+  assert.equal(r.status, 200); assert.equal(r.to, '67');
+  const sent = calls.filter(c => /\/messages/.test(c.u));
+  assert.ok(sent.length >= 1); assert.ok(sent.every(c => JSON.parse(c.body).to === PHONE)); assert.ok(sent[0].body.includes(await pinFor(e, PHONE)));
+  await post(e, '/api/account/board-pin-send', { token: TOK }); await post(e, '/api/account/board-pin-send', { token: TOK });
+  assert.equal((await post(e, '/api/account/board-pin-send', { token: TOK })).status, 429);
+});

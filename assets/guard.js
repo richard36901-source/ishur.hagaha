@@ -103,9 +103,34 @@ window.IshurGuard = (function () {
 
   /* ── public ───────────────────────────────────────────────────────────── */
 
+  /* 17/11: a client page other than the board (seating, budget, list upload…) that is told "pin-required" sends the
+     client to the board, which asks for the PIN once and brings them back. */
+  try {
+    if (window.fetch && !/dashboard\.html$/.test(location.pathname)) {
+      var rawFetch = window.fetch;
+      window.fetch = function (u, o) {
+        var p = rawFetch.apply(this, arguments);
+        try {
+          if (typeof u === 'string' && /\/api\/status$/.test(u) && o && typeof o.body === 'string') {
+            var tk = (o.body.match(/"token":"([0-9a-f-]{36})"/) || [])[1];
+            if (tk) p.then(function (r) {
+              if (r.status !== 401) return;
+              r.clone().json().then(function (j) {
+                if (j && j.error === 'pin-required') location.replace('dashboard.html?t=' + tk + '&back=' + encodeURIComponent(location.pathname.split('/').pop() + location.search + location.hash));
+              }).catch(function () {});
+            }).catch(function () {});
+          }
+        } catch (e) {}
+        return p;
+      };
+    }
+  } catch (e) {}
+
   /* Adds the proof fields. Never throws, never blocks. */
   function stamp(payload) {
     payload = payload || {};
+    /* 17/11: a locked board opens with the client's session (PIN / WhatsApp code / personal area) next to the event link */
+    try { if (payload.token && !payload.board_session) { var bs = localStorage.getItem('ishur_acct_session'); if (bs && /^acct\./.test(bs)) payload.board_session = bs; } } catch (e) {}
     if (KEY) {
       payload.app = G.appId || 'ishur-web';
       payload.nonce = nonce;
