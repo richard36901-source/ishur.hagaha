@@ -11,7 +11,7 @@
 <meta name="theme-color" content="#0F4C35">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
-<script src="config.js?v=92"></script>
+<script src="config.js?v=93"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
 <script src="assets/pwa.js?v=1"></script>
@@ -160,14 +160,21 @@
       <div id="panePhone" role="tabpanel" aria-labelledby="tabPhone">
         <label class="l" for="phone">מספר הטלפון שאיתו רכשתם</label>
         <input class="in" id="phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000" dir="ltr">
-        <button type="button" class="btn" id="send">שליחת קוד</button>
-        <div id="codeWrap" hidden>
-          <label class="l" for="code">הקוד שקיבלתם</label>
-          <input class="in code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
-          <button type="button" class="btn" id="go">כניסה</button>
+        <div id="pinWrap">
+          <label class="l" for="pin">קוד הכניסה שלכם (4 ספרות)</label>
+          <input class="in code" id="pin" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="••••">
+          <button type="button" class="btn" id="pgo">כניסה</button>
+        </div>
+        <div id="otpWrap" hidden>
+          <button type="button" class="btn" id="send">שליחת קוד לוואטסאפ</button>
+          <div id="codeWrap" hidden>
+            <label class="l" for="code">הקוד שקיבלתם</label>
+            <input class="in code" id="code" inputmode="numeric" autocomplete="one-time-code" maxlength="6" placeholder="••••••">
+            <button type="button" class="btn" id="go">כניסה</button>
+          </div>
         </div>
         <p class="err" id="lerr" aria-live="polite"></p>
-        <p class="note">הקוד מגיע לוואטסאפ של המספר, ואם לא, למייל שרשום אצלנו. <a id="waHelp" href="#" target="_blank" rel="noopener">צריכים עזרה? כתבו לנועה</a></p>
+        <p class="note"><span id="pinNote">הקוד נשלח אליכם בוואטסאפ יחד עם הקישור ללוח הבקרה. <a href="#" id="toOtp">אין לי את הקוד</a></span><span id="otpNote" hidden>נשלח קוד חד-פעמי לוואטסאפ של המספר, ואם לא, למייל שרשום אצלנו. <a href="#" id="toPin">חזרה לכניסה עם קוד קבוע</a></span> · <a id="waHelp" href="#" target="_blank" rel="noopener">עזרה</a></p>
       </div>
       <div id="paneMail" role="tabpanel" aria-labelledby="tabMail" hidden>
         <label class="l" for="mail">המייל שלכם</label>
@@ -242,6 +249,7 @@
           <div><b>לקבל מאיתנו דיוור ומבצעים</b><span>הודעות על האירוע עצמו נשלחות תמיד. <a href="terms.html#marketing" target="_blank" rel="noopener">תקנון</a></span></div>
           <button type="button" class="tog" id="mkt" role="switch" aria-checked="false" aria-label="דיוור ומבצעים"></button>
         </div>
+        <p class="fine" id="myPin" hidden style="margin:0 0 .7rem"></p>
         <button type="button" class="btn sec" id="saveContact">שמירה</button>
         <p class="err" id="cerr" aria-live="polite"></p>
       </div>
@@ -422,6 +430,7 @@
       if (!j.ok) { $('gerr').textContent = 'לא הצלחנו לטעון עכשיו. רעננו את העמוד.'; return; }
       if (j.kind === 'email') { $('login').hidden = true; $('app').hidden = true; $('newUser').hidden = false; $('nuMail').textContent = j.email; ph('account_opened', { events: 0, kind: 'email' }); return; }
       renderEvents(j.events || []); renderCredit(j.credit); renderContact(j.contact);
+      if (j.pin) { $('myPin').hidden = false; $('myPin').textContent = 'קוד הכניסה שלכם לאזור האישי: ' + j.pin + ' (יחד עם מספר הטלפון)'; }
       if (j.referral && j.referral.token) { REF = j.referral; $('refBox').hidden = false; paintRef(REF); }
       showApp();
       ph('account_opened', { events: (j.events || []).length, credit: j.credit && j.credit.balance_ils });
@@ -470,7 +479,7 @@
     var b = $('send'); b.disabled = true; b.textContent = 'שולחים…';
     var payload = { phone: phone };
     api('account-otp', window.IshurGuard ? IshurGuard.stamp(payload) : payload).then(function (j) {
-      b.disabled = false; b.textContent = 'שליחת קוד';
+      b.disabled = false; b.textContent = 'שליחת קוד לוואטסאפ';
       if (j.status === 200) {
         $('lerr').className = 'err ok';
         $('lerr').textContent = j.via === 'email' ? 'שלחנו קוד למייל ' + (j.to || 'שלכם') : 'הקוד בדרך אליכם בוואטסאפ 🙂';
@@ -479,7 +488,7 @@
       else if (j.status === 429) $('lerr').textContent = 'נשלחו כמה קודים לאחרונה. חכו כמה דקות ונסו שוב';
       else if (j.status === 502) $('lerr').textContent = 'לא הצלחנו לשלוח קוד לא בוואטסאפ ולא במייל. כתבו לנועה ונסדר';
       else $('lerr').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע';
-    }).catch(function () { b.disabled = false; b.textContent = 'שליחת קוד'; $('lerr').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע'; });
+    }).catch(function () { b.disabled = false; b.textContent = 'שליחת קוד לוואטסאפ'; $('lerr').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע'; });
   });
   function login() {
     var phone = $('phone').value.trim(), code = $('code').value.replace(/\D/g, ''); $('lerr').className = 'err';
@@ -492,9 +501,27 @@
       $('lerr').textContent = j.status === 429 ? 'יותר מדי ניסיונות. חכו כמה דקות' : 'הקוד לא נכון או שפג תוקפו. אפשר לבקש קוד חדש';
     }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('lerr').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
   }
+  /* 17/11 Richard: phone + the 4-digit PIN we sent with the board link; the WhatsApp code stays as the way in without it */
+  function way(otp) { $('pinWrap').hidden = !!otp; $('otpWrap').hidden = !otp; $('pinNote').hidden = !!otp; $('otpNote').hidden = !otp; $('lerr').textContent = ''; }
+  $('toOtp').addEventListener('click', function (e) { e.preventDefault(); way(true); });
+  $('toPin').addEventListener('click', function (e) { e.preventDefault(); way(false); });
+  function pinLogin() {
+    var phone = $('phone').value.trim(), pin = $('pin').value.replace(/\D/g, ''); $('lerr').className = 'err';
+    if (!validPhone(phone)) { $('lerr').textContent = 'צריך מספר נייד ישראלי, 10 ספרות שמתחילות ב-05'; return; }
+    if (pin.length !== 4) { $('lerr').textContent = 'הקוד הוא 4 ספרות'; return; }
+    var b = $('pgo'); b.disabled = true; b.textContent = 'נכנסים…';
+    api('account-pin-login', { phone: phone, pin: pin }).then(function (j) {
+      b.disabled = false; b.textContent = 'כניסה';
+      if (j.status === 200 && j.session) { ls(SKEY, j.session); ph('account_login_pin'); load(); return; }
+      if (j.status === 429 && j.error === 'pin-locked') { way(true); $('lerr').textContent = 'היו יותר מדי ניסיונות, אז הפעם נכנסים עם קוד חד-פעמי לוואטסאפ'; return; }
+      $('lerr').textContent = j.status === 429 ? 'יותר מדי ניסיונות. חכו שעה, או היכנסו עם קוד לוואטסאפ' : 'המספר או הקוד לא תואמים. בדקו שזה המספר שאיתו רכשתם';
+    }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('lerr').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
+  }
+  $('pgo').addEventListener('click', pinLogin);
+  $('pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') pinLogin(); });
   $('go').addEventListener('click', login);
   $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
-  $('phone').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('send').click(); });
+  $('phone').addEventListener('keydown', function (e) { if (e.key === 'Enter') { if ($('otpWrap').hidden) $('pin').focus(); else $('send').click(); } });
 
   /* ── contact ── */
   $('mkt').addEventListener('click', function () { var on = $('mkt').getAttribute('aria-checked') === 'true'; $('mkt').setAttribute('aria-checked', on ? 'false' : 'true'); });

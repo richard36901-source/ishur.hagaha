@@ -108,6 +108,29 @@ export async function verifyEmailSession(env, token, safeEqual) {
   if (env.RATE && await env.RATE.get('acctrev:' + m[2]).catch(() => null)) return '';
   return email;
 }
+/* ── 17/11 Richard: the client signs in with the phone on file + a 4-digit PIN that we set ─────────────
+   The PIN is derived from the phone (so it can be shown again next to every board link without being stored);
+   acctpin:<phone> overrides it after a reset. Four digits are few, so guessing is what is limited: PIN_HOUR tries
+   an hour and PIN_DAY a day per phone (every try counts, before the compare), and the day limit locks the PIN
+   (acctpinlock:) until the owner signs in once with the WhatsApp code. */
+export const PIN_HOUR = 6, PIN_DAY = 20;
+const WEAK_PIN = p => /^(\d)\1{3}$/.test(p) || p === '1234' || p === '4321' || p === '0123';
+export async function pinFor(env, phone) {
+  phone = String(phone || '');
+  if (!/^972\d{8,9}$/.test(phone)) return '';
+  const own = env.RATE ? await env.RATE.get('acctpin:' + phone).catch(() => null) : null;
+  if (own && /^\d{4}$/.test(own)) return own;
+  if (!env.ADMIN_KEY) return '';
+  const h = await hmac32(env.ADMIN_KEY, 'pin:' + phone);
+  for (let i = 0; i + 8 <= h.length; i += 8) { const pin = String(parseInt(h.slice(i, i + 8), 16) % 10000).padStart(4, '0'); if (!WEAK_PIN(pin)) return pin; }
+  return '2580';
+}
+export async function resetPin(env, phone) {
+  let pin; do { pin = String(crypto.getRandomValues(new Uint32Array(1))[0] % 10000).padStart(4, '0'); } while (WEAK_PIN(pin));
+  await env.RATE.put('acctpin:' + phone, pin);
+  await env.RATE.delete('acctpinlock:' + phone).catch(() => {});
+  return pin;
+}
 const nonceOf = token => (String(token || '').match(/^acct\.\d+\.([0-9a-f]{32})\./) || [])[1] || '';
 
 /* ── KV helpers ──────────────────────────────────────────────────────────── */
@@ -197,6 +220,28 @@ export async function handleAccount(request, env, origin, url, d) {
     return d.okJson({ ok: true, session }, origin);
   }
 
+  if (path === 'pin-login') {
+    const phone = d.normPhone(b.phone || '');
+    const pin = String(b.pin || '').replace(/\D/g, '');
+    if (!/^972\d{8,9}$/.test(phone) || pin.length !== 4) return d.deny(403, 'bad-login', origin);
+    if ((d.memOver && d.memOver('acctpini:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:acctpini:' + ip, 30, 3600)) return d.deny(429, 'rate-limited', origin);
+    if (await env.RATE.get('acctpinlock:' + phone).catch(() => null)) return d.deny(429, 'pin-locked', origin);
+    if (await d.overBudget(env, 'rl:acctpind:' + phone, PIN_DAY, 86400)) {
+      await env.RATE.put('acctpinlock:' + phone, new Date().toISOString(), { expirationTtl: 30 * 86400 }).catch(() => {});
+      await d.logEvent(env, { area: 'אזור אישי', action: 'קוד הכניסה ננעל אחרי יותר מדי ניסיונות', ok: false, review: true, phone }).catch(() => {});
+      return d.deny(429, 'pin-locked', origin);
+    }
+    if (await d.overBudget(env, 'rl:acctpinh:' + phone, PIN_HOUR, 3600)) return d.deny(429, 'rate-limited', origin);
+    const want = await pinFor(env, phone);
+    if (!want || !d.safeEqual(pin, want)) return d.deny(403, 'bad-login', origin);
+    const raw = await d.readSnapshot(env, 'dashboard').catch(() => null);
+    if (!raw) return d.deny(502, 'reader-failed', origin);
+    if (!d.eventsForPhone(raw, phone).length) return d.deny(403, 'bad-login', origin);
+    const session = await mintSession(env, phone);
+    await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאזור האישי עם קוד קבוע', ok: true, phone }).catch(() => {});
+    return d.okJson({ ok: true, session }, origin);
+  }
+
   if (path === 'login') {
     const phone = d.normPhone(b.phone || '');
     const code = String(b.code || '').replace(/\D/g, '');
@@ -216,6 +261,7 @@ export async function handleAccount(request, env, origin, url, d) {
       return d.deny(403, 'bad-login', origin);
     }
     await env.RATE.delete('acctotp:' + phone).catch(() => {});
+    await env.RATE.delete('acctpinlock:' + phone).catch(() => {});   /* the WhatsApp code proves the owner: a locked PIN opens again */
     const session = await mintSession(env, phone);
     await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאזור האישי', ok: true, phone }).catch(() => {});
     return d.okJson({ ok: true, session }, origin);
@@ -296,7 +342,7 @@ export async function handleAccount(request, env, origin, url, d) {
     const [ledger, contact] = await Promise.all([readLedger(env, phone), readContact(env, phone)]);
     const balance = ledgerBalance(ledger);
     return d.okJson({
-      ok: true, phone, today: d.today(),
+      ok: true, phone, today: d.today(), pin: await pinFor(env, phone),   /* 17/11: shown in the personal area, so a client who came in from the board link knows it */
       /* 12/11 Richard: each event card shows its numbers (invited / coming / not yet answered) */
       events: (() => {
         const st = {};

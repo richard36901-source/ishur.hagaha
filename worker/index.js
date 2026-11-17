@@ -76,7 +76,7 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail } from './account.js';   /* 12/11 personal-area */
+import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -2462,7 +2462,7 @@ async function waGuestFile(env, from, doc) {
   }
   await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
   await env.RATE.delete('pend:' + token).catch(() => {});
-  await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}`);
+  await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}${await pinFor(env, normPhone(from)).then(p => p ? `\nלכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד ${p}` : '').catch(() => '')}`);
   await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`, { quiet: true });
 }
 
@@ -12148,6 +12148,17 @@ const WORKER = {
     /* Richard 28/09 (clients page): one click sends the client a WhatsApp with
        the link to their dashboard, or to the upload/settings page. Free text
        inside the 24h window, otherwise the matching template. */
+    /* 17/11 Richard: the client's PIN for the personal area (phone + 4 digits). {token | phone, reset?} → {pin} */
+    if (url.pathname === '/api/client-pin' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      let phone = normPhone(b.phone || '');
+      if (!phone && b.token) { const rec = await tokenRecord(env, String(b.token).trim()); phone = rec ? normPhone(rec.phone || '') : ''; }
+      if (!/^972\d{8,9}$/.test(phone)) return deny(404, 'no-phone', origin);
+      const pin = b.reset ? await resetPin(env, phone) : await pinFor(env, phone);
+      if (b.reset) await logEvent(env, { area: 'אזור אישי', action: 'קוד כניסה הוחלף ע"י מנהל', ok: true, phone }).catch(() => {});
+      return okJson({ ok: true, pin, locked: !!(await env.RATE.get('acctpinlock:' + phone).catch(() => null)) }, origin);
+    }
     if (url.pathname === '/api/client-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -12167,8 +12178,11 @@ const WORKER = {
         ? (named ? `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע של ${evName}:\n${link}` : `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרת האירוע החדש שלכם:\n${link}`)
         : (named ? `היי ${first}, הנה הקישור ללוח הבקרה של ${evName}, שם רואים בכל רגע מי אישר:\n${link}` : `היי ${first}, הנה הקישור ללוח הבקרה של האירוע החדש שלכם:\n${link}`);
       const ctx = { who: 'ריצ׳רד', token: tok };
+      /* 17/11 Richard: the PIN for the personal area goes out with the board link */
+      const pin = kind === 'dashboard' ? await pinFor(env, phone) : '';
+      const pinLine = pin ? `\n\nלכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד ${pin}` : '';
       /* inside the 24h window a real button; otherwise a template */
-      let res = await sendCtaUrl(env, phone, text.split('\n')[0], kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה', link, 'client', ctx);
+      let res = await sendCtaUrl(env, phone, text.split('\n')[0] + pinLine, kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה', link, 'client', ctx);
       let via = 'button';
       if (!res.ok) {
         via = 'template';

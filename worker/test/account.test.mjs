@@ -202,3 +202,47 @@ test('email account (no event yet): code by email, login registers the user, me 
   for (let i = 0; i < 3; i++) await post('email-otp', { email: 'many@example.com' });
   assert.equal((await post('email-otp', { email: 'many@example.com' })).status, 429, '3 codes an hour per email');
 });
+
+/* 17/11 Richard: phone + a 4-digit PIN we set */
+test('pin: derived PIN is 4 digits, stable per phone, different per phone; a reset overrides it', async () => {
+  const { pinFor, resetPin } = await import('../account.js');
+  const e = env();
+  const a = await pinFor(e, PHONE), b = await pinFor(e, OTHER);
+  assert.match(a, /^\d{4}$/); assert.equal(a, await pinFor(e, PHONE)); assert.notEqual(a, b);
+  assert.equal(await pinFor(e, 'abc'), '');
+  const n = await resetPin(e, PHONE); assert.match(n, /^\d{4}$/); assert.equal(await pinFor(e, PHONE), n);
+});
+test('pin-login: right PIN → session that me accepts (and me shows the PIN); wrong PIN 403; a phone without an event 403', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env(); const pin = await pinFor(e, PHONE);
+  const wrong = pin === '0001' ? '0002' : '0001';
+  assert.equal((await post(e, '/api/account/pin-login', { phone: '0521234567', pin: wrong })).status, 403);
+  const r = await post(e, '/api/account/pin-login', { phone: '0521234567', pin });
+  assert.equal(r.status, 200); assert.match(r.session, /^acct\.972521234567\./);
+  const me = await post(e, '/api/account/me', { session: r.session });
+  assert.equal(me.status, 200); assert.equal(me.pin, pin); assert.equal(me.events.length, 2);
+  const e2 = env(); const none = '972521112233';
+  assert.equal((await post(e2, '/api/account/pin-login', { phone: '0521112233', pin: await pinFor(e2, none) })).status, 403);
+  assert.equal((await post(e2, '/api/account/pin-login', { phone: '0521234567', pin: '12' })).status, 403);
+});
+test('pin-login: guessing is capped per hour even with the right PIN afterwards; the day cap locks the PIN until a WhatsApp-code login', async () => {
+  const { pinFor, PIN_HOUR } = await import('../account.js');
+  const e = env(); const pin = await pinFor(e, PHONE); const wrong = pin === '0001' ? '0002' : '0001';
+  for (let i = 0; i < PIN_HOUR; i++) assert.equal((await post(e, '/api/account/pin-login', { phone: '0521234567', pin: wrong })).status, 403);
+  assert.equal((await post(e, '/api/account/pin-login', { phone: '0521234567', pin })).status, 429);
+  const e3 = env({ 'acctpinlock:972521234567': 'x' });
+  const lk = await post(e3, '/api/account/pin-login', { phone: '0521234567', pin: await pinFor(e3, PHONE) });
+  assert.equal(lk.status, 429); assert.equal(lk.error, 'pin-locked');
+  await login(e3);
+  assert.equal(e3.RATE.m.has('acctpinlock:972521234567'), false);
+  assert.equal((await post(e3, '/api/account/pin-login', { phone: '0521234567', pin: await pinFor(e3, PHONE) })).status, 200);
+});
+test('client-pin (admin): returns the same PIN the client signs in with; reset replaces it; no admin key 403', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env();
+  assert.equal((await post(e, '/api/client-pin', { phone: '0521234567' })).status, 403);
+  const a = await post(e, '/api/client-pin', { admin_key: 'k', phone: '0521234567' });
+  assert.equal(a.status, 200); assert.equal(a.pin, await pinFor(e, PHONE));
+  const b = await post(e, '/api/client-pin', { admin_key: 'k', phone: '0521234567', reset: true });
+  assert.match(b.pin, /^\d{4}$/); assert.equal(await pinFor(e, PHONE), b.pin);
+});
