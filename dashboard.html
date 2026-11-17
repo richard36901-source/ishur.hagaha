@@ -2743,7 +2743,7 @@
     $('g-err').textContent = msg || '';
     gateBusy(false);
   }
-  function showApp() { $('gate').hidden = true; $('picker').hidden = true; $('main').hidden = false; }
+  function showApp() { $('gate').hidden = true; $('picker').hidden = true; $('main').hidden = false; var pg = $('pinGate'); if (pg) { pg.hidden = true; $('p-go').disabled = false; $('p-go').textContent = 'כניסה'; $('p-pin').value = ''; } }
 
   /* ── several events on one phone ───────────────────────────────────────
      The status endpoint may answer with a list instead of a single event.
@@ -2949,7 +2949,7 @@
     if (payload.admin_key) { delete payload.admin_key; payload.__admtried = 1; }
     else if (ak && !payload.__admtried && info.error === 'pin-required') { payload.admin_key = ak; loadData(payload); return; }
     if (info.error !== 'pin-required' && !payload.__admtried) { showApp(); fail('לא הצלחנו לטעון את הלוח עכשיו.<br>רעננו את העמוד בעוד רגע.', true); return; }
-    pinFor = payload;
+    pinFor = payload; $('p-go').disabled = false; $('p-go').textContent = 'כניסה';
     $('gate').hidden = true; $('main').hidden = true; $('picker').hidden = true; $('pinGate').hidden = false;
     $('title').textContent = 'לוח הבקרה'; $('title').classList.remove('skel'); $('sub').textContent = 'האזור האישי של האירוע שלכם';
     $('p-wa').href = CFG.waLink('היי, לא הצלחתי להיכנס ללוח הבקרה');
@@ -2962,16 +2962,16 @@
   function pinGo() {
     var pin = $('p-pin').value.replace(/\D/g, ''), b = $('p-go'); $('p-err').style.color = '';
     if (pin.length !== 4) { $('p-err').textContent = 'הקוד הוא 4 ספרות'; return; }
-    b.disabled = true; b.textContent = 'נכנסים…';
+    b.disabled = true; b.textContent = 'נכנסים…'; $('p-err').textContent = '';
     acctApi('account-board-pin', { token: pinFor.token, pin: pin }).then(function (j) {
-      b.disabled = false; b.textContent = 'כניסה';
       if (j.status === 200 && j.session) {
         try { localStorage.setItem('ishur_acct_session', j.session); } catch (e) {}
         var back = ''; try { back = new URLSearchParams(location.search).get('back') || ''; } catch (e) {}
         if (/^[a-z-]+\.html([?#].*)?$/.test(back)) { location.replace(back); return; }
-        $('pinGate').hidden = true; delete pinFor.board_session; loadData(pinFor);
+        b.textContent = 'טוענים את הלוח…'; delete pinFor.board_session; loadData(pinFor);   /* the card stays until the board is drawn */
         return;
       }
+      b.disabled = false; b.textContent = 'כניסה';
       $('p-err').textContent = j.status === 429 ? (j.error === 'pin-locked' ? 'היו יותר מדי ניסיונות. כתבו לנו ונפתח לכם את הכניסה' : 'יותר מדי ניסיונות. נסו שוב בעוד שעה') : 'הקוד לא נכון. אפשר לבקש אותו שוב לוואטסאפ';
     }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('p-err').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
   }
