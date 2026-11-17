@@ -1674,6 +1674,16 @@ async function handleClaim(request, env, origin) {
    Make stays a plain writer with nothing fragile inside it.
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* 17/11 Richard: once Meta approves ishur_doch_kod (tmplpin:ishur_doch), the report carries the client's PIN as {{7}}.
+   Until then, and whenever the PIN cannot be read, the old six-variable template goes out exactly as before. */
+async function dochTemplate(env, phone, params) {
+  try {
+    const name = env.RATE ? await env.RATE.get('tmplpin:ishur_doch') : null;
+    const pin = name ? await pinFor(env, normPhone(phone)) : '';
+    if (name && pin) return [name, [...params, pin]];
+  } catch {}
+  return ['ishur_doch', params];
+}
 async function tokenRecord(env, token) {
   if (!env.RATE || !token || !/^[0-9a-f-]{36}$/.test(token)) return null;
   const raw = await env.RATE.get('token:' + token);
@@ -6618,10 +6628,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
       continue;
     }
-    const wa = await sendClientE(env, phone, 'ishur_doch', [
+    const [dochName, dochParams] = await dochTemplate(env, phone, [
       evName, String(confirmed), String(diners), String(declined), String(pending),
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
+    const wa = await sendClientE(env, phone, dochName, dochParams);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
     if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error, { key: 'send_fail:' + token.slice(0, 8) + ':doch' }); }
@@ -7197,6 +7208,8 @@ async function templateCheck(env, out) {
          invoice goes to clients from 4499. */
       const checks = [
         { name: clientOnPortfolio(env) ? 'ishur_heshbonit_n' : 'ishur_heshbonit', key: 'invoicetmpl', waba: clientWaba(env), tok: clientToken(env) },
+        /* 17/11: the weekly report with the client's PIN next to the board link (the board asks for it) → tmplpin:ishur_doch once approved */
+        { name: 'ishur_doch_kod', key: 'tmplpin:ishur_doch', waba: clientWaba(env), tok: clientToken(env) },
         /* 27/09: the _u copies are UTILITY (no per-user marketing cap, 131049); once approved they win the key */
         { name: 'hazmana_ishur_img_u', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_vid_u', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
@@ -12190,7 +12203,8 @@ const WORKER = {
         else {
           const snap = buildDashboard(tok, raw, 0, {});
           const t = snap.totals || {};
-          res = await sendTemplate(env, phone, 'ishur_doch', [evName, String(t.confirmed || 0), String(t.confirmed_seats || 0), String(t.declined || 0), String(t.pending || 0), link], '', 'he', 'client', ctx);
+          const [dn, dp] = await dochTemplate(env, phone, [evName, String(t.confirmed || 0), String(t.confirmed_seats || 0), String(t.declined || 0), String(t.pending || 0), link]);
+          res = await sendTemplate(env, phone, dn, dp, '', 'he', 'client', ctx);
         }
       }
       await logEvent(env, { area: 'לקוחות', action: `נשלח ללקוח קישור ל${kind === 'upload' ? 'העלאה' : 'לוח'} (${via})`, ok: res.ok, phone, token: tok, detail: res.error || '' }).catch(() => {});
@@ -12793,6 +12807,23 @@ const WORKER = {
       const j = r ? await r.json().catch(() => ({})) : {};
       await logEvent(env, { area: 'מטא', action: j.id ? 'תבנית ishur_kod הוגשה על מספר האורחים' : 'הגשת ishur_kod על מספר האורחים נכשלה', ok: !!j.id, review: !j.id, ref: 'ishur_kod', detail: j.id ? `id ${j.id} · ${j.status || ''}` : String((j.error && (j.error.error_user_msg || j.error.message)) || 'submit-failed').slice(0, 200) }).catch(() => {});
       return okJson({ ok: !!j.id, id: j.id || '', status: j.status || '', error: j.error ? String(j.error.error_user_msg || j.error.message || '').slice(0, 200) : '' }, origin);
+    }
+    /* 17/11 Richard ("כן"): submit ishur_doch_kod — the report template plus one line with the client's PIN. {check:true} only reads its state */
+    if (url.pathname === '/api/pin-template' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const waba = clientWaba(env), H = { Authorization: 'Bearer ' + clientToken(env), 'Content-Type': 'application/json' };
+      const cur = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=ishur_doch_kod&fields=name,status,category,language,rejected_reason`, { headers: H }).then(r => r.json()).catch(() => ({}));
+      const have = (cur.data || []).filter(t => t.name === 'ishur_doch_kod');
+      if (b.check === true || have.length) return okJson({ ok: true, exists: have.length > 0, templates: have, live: env.RATE ? await env.RATE.get('tmplpin:ishur_doch') : null }, origin);
+      const payload = { name: 'ishur_doch_kod', language: 'he', category: 'UTILITY', components: [
+        { type: 'BODY', text: 'היי, הנה עדכון המצב על {{1}} נכון להיום.\n\nמספר האורחים שאישרו הגעה עד כה: {{2}}, ובסך הכל {{3}} סועדים.\nמספר המוזמנים שהודיעו שלא יגיעו: {{4}}.\nמספר המוזמנים שטרם השיבו: {{5}}.\n\nאת כל הפרטים, כולל רשימת האורחים המלאה, אפשר לראות בלוח הבקרה האישי שלכם:\n{{6}}\n\nקוד הכניסה שלכם ללוח: {{7}}\n\nאנחנו כאן לכל שאלה.',
+          example: { body_text: [['החתונה של דנה ויואב', '84', '132', '9', '57', 'https://ishur.io/dashboard.html?t=example', '4827']] } },
+        { type: 'FOOTER', text: 'ishur.io · אישורי הגעה בוואטסאפ' } ] };
+      const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: H, body: JSON.stringify(payload) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      await logEvent(env, { area: 'מטא', action: j.id ? 'תבנית ishur_doch_kod (דוח + קוד כניסה) הוגשה' : 'הגשת ishur_doch_kod נכשלה', ok: !!j.id, review: !j.id, ref: 'ishur_doch_kod', detail: j.id ? `id ${j.id} · ${j.status || ''}` : String((j.error && (j.error.error_user_msg || j.error.message)) || '').slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!j.id, id: j.id || '', status: j.status || '', category: j.category || '', error: j.error ? String(j.error.error_user_msg || j.error.message || '').slice(0, 200) : '' }, origin);
     }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);

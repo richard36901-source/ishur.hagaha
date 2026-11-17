@@ -178,7 +178,7 @@ export const AUTOMATIONS = [
     kv_markers: { per_event: ['report7:<token>', 'alertonce:doch:<token>:<יום>'] },
     on_failure: { other: 'report7: לא נכתב, התראה פעם ביום, ינסה בריצה הבאה' }, budget: 'לא סופר תקציב, אין בדיקת חלון',
     warnings: ['אין בדיקת חלון שליחה — בריצת 08:35 בחורף יכול לצאת לפני 09:00'],
-    source: S(4977, "'ishur_doch', ["), evidence: [E(4955, 'if (daysLeft < 0 || daysLeft > 7) continue;', 'חלון 7 ימים'), E(4981, "report7:' + token", 'סימון')] },
+    source: S(4977, 'const [dochName, dochParams] = await dochTemplate(env, phone, ['), evidence: [E(4955, 'if (daysLeft < 0 || daysLeft > 7) continue;', 'חלון 7 ימים'), E(4981, "report7:' + token", 'סימון')] },
   { id: 'toda', name_he: 'תודה לאורחים (יום אחרי)', layer: 2, from: ['d_engine'], kind: 'send_guest',
     conditions: ['1–14 ימים אחרי האירוע', 'חבילה לא "בסיס"', 'רק מי שאישר "מגיע"', 'אין toda:<token>'],
     templates: ['ishur_toda_orach_v2', 'ishur_toda_orach'], audience: 'אורחים שאישרו הגעה',
