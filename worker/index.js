@@ -5682,6 +5682,7 @@ async function checkCustomTemplates(env) {
        Meta approves it (relonappr:<token>). A rejection leaves the hold in place and says so. */
     if (await env.RATE.get('relonappr:' + token).catch(() => null)) {
       if (st === 'APPROVED') { await env.RATE.delete('hold:' + token).catch(() => {}); await env.RATE.delete('holdtill:' + token).catch(() => {}); await env.RATE.delete('relonappr:' + token).catch(() => {});
+        await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});   /* a released hold must wake the pacer, or the wave waits for tomorrow (found live 17/11: released at 12:00, pacer said nothing-pending) */
         await slackSend(env, `▶️ *הנוסח אושר, השליחות לאירוע חזרו*\n\n• אירוע ${token.slice(0, 8)}\n• תבנית ${rec.name}\n\nמה לעשות: כלום, הגל ימשיך לפי התכנון`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {}); }
       else await slackSend(env, `⛔ *הנוסח נדחה, האירוע נשאר בעצירה*\n\n• אירוע ${token.slice(0, 8)}\n• ${rec.reason || st}\n\nמה לעשות: לתקן את הנוסח ולהגיש מחדש, או לשחרר את האירוע בנוסח הכללי`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {});
     }
