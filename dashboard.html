@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=91"></script>
+<script src="config.js?v=92"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=19"></script>
@@ -276,6 +276,10 @@
   }
   .buy:hover{background:var(--green2)}
   html[data-theme=dark] .buy{color:#08170F}
+  .stypick{display:flex;gap:6px;flex-wrap:wrap;margin:.6rem 0 0}.stypick[hidden]{display:none}
+  .stypick button{font:inherit;font-size:.84rem;font-weight:600;min-height:40px;padding:0 .9rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink2);cursor:pointer}
+  .stypick button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}html[data-theme=dark] .stypick button[aria-pressed=true]{color:#08170F}
+  .stypick button:disabled{opacity:.5;cursor:default}
   html[data-theme=dark] .kpi .kpi-v{color:var(--ink)!important}html[data-theme=dark] .kpi.hi .kpi-v{color:var(--green2)!important}html[data-theme=dark] #tierChip{color:#E2C98A!important}
   .buy:active{transform:scale(.95);transition-duration:100ms}
   /* secondary button, same shape as .buy (popups: ביטול, סגירה) */
@@ -667,6 +671,8 @@
         <b style="font-size:.9rem">נוסח ההזמנה</b>
         <span id="ctStatus" style="font-size:.78rem"></span>
       </div>
+      <!-- 17/11 Richard: until the first invitation goes out, the client picks one of our wordings here, or writes their own below -->
+      <div class="stypick" id="stPick" hidden role="group" aria-label="סגנון הנוסח"></div>
       <pre id="ctText" style="white-space:pre-wrap;font:inherit;font-size:.86rem;background:var(--bg2,#f2f2ee);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;color:var(--ink2)"></pre>
       <p id="ctNote" style="margin:0 0 .5rem;font-size:.78rem;color:var(--ink3)"></p>
       <button type="button" class="buy" id="ctBtn" style="background:var(--green4);color:var(--green2)">נוסח בהתאמה אישית</button>
@@ -1280,6 +1286,29 @@
       ['catch'](function () { return false; });
   }
 
+  /* our four wordings: which one this event uses, and choosing another while nothing was sent yet */
+  var STY = null;
+  function styleText(s) {
+    if (!s || !s.body) return DEFAULT_INVITE();
+    var ev = data.event || {}, v = ['{שם האורח}', ev.occasion_label || ev.occasion || 'אירוע', ev.name1 || 'בעלי השמחה', ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL') : 'התאריך', ev.reception_time || 'השעה', [ev.venue_name, ev.venue_city].filter(Boolean).join(', ')];
+    return s.body.replace(/\{\{(\d)\}\}/g, function (m, i) { return v[Number(i) - 1] || ''; });
+  }
+  function paintStyles() {
+    var box = $('stPick'); if (!box || !STY || demo) return;
+    var ct = data.custom_template || null, own = ct && (ct.status === 'APPROVED' || ct.status === 'PENDING');
+    box.hidden = !!STY.sent;
+    box.innerHTML = STY.styles.map(function (s) { var on = !own && s.key === STY.style; return '<button type="button" data-st="' + esc(s.key) + '" aria-pressed="' + on + '"' + (s.ready ? '' : ' disabled title="הנוסח הזה עוד בבדיקה של וואטסאפ"') + '>' + esc(s.he) + (s.ready ? '' : ' · בקרוב') + '</button>'; }).join('');
+    if (!own) { var cur = STY.styles.filter(function (s) { return s.key === STY.style; })[0]; $('ctStatus').textContent = 'נוסח ' + (cur ? cur.he : 'רגיל'); $('ctText').textContent = styleText(cur); }
+  }
+  function loadStyles(body) {
+    if (demo || !token) return;
+    fetch(CFG.endpoint('inviteStyle'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ token: token }, body || {})) }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) { if (j && j.error === 'already-sent' && window.IshurUX) IshurUX.toast('ההזמנה כבר יצאה, אי אפשר לשנות נוסח'); return; }
+      STY = j; paintStyles(); if (body && window.IshurUX) IshurUX.toast('הנוסח עודכן');
+    }).catch(function () {});
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('#stPick button[data-st]'); if (!b || b.disabled || b.getAttribute('aria-pressed') === 'true') return; var ct0 = data.custom_template || null; if (ct0 && (ct0.status === 'APPROVED' || ct0.status === 'PENDING')) { if (!confirm('יש לכם נוסח אישי. לעבור לנוסח ' + b.textContent + ' במקומו?')) return; data.custom_template = null; renderCustomText(); } loadStyles({ style: b.dataset.st, drop_custom: true }); });
+
   function renderCustomText() {
     var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
     if (!st) return;
@@ -1361,7 +1390,7 @@
     if (renderToc._io) { renderToc._io.disconnect(); items.forEach(function (it) { var el = document.getElementById(it.id); if (el) renderToc._io.observe(el); }); }
   }
   function render() {
-    renderCustomText(); setTimeout(renderToc, 50);
+    renderCustomText(); if (!STY) loadStyles(); else paintStyles(); setTimeout(renderToc, 50);
     renderSubLinks();
     renderMedia();
     if (window.IshurDesign) { var dmk = qs.get('designmock'); IshurDesign.mount($('designCard'), { token: token || (dmk ? '00000000-0000-4000-8000-000000000000' : ''), endpoint: CFG.endpoint('design-flow'), media: CFG.endpoint('media'), mock: dmk ? IshurDesign.mockApi(dmk) : null }); }

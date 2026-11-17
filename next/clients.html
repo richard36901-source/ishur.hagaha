@@ -8,7 +8,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=89"></script>
+<script src="/config.js?v=93"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=17" defer></script>
@@ -524,12 +524,32 @@
         '<button class="btn" data-act="reset">איפוס רשימה להעלאה מחדש</button>' +
         '<button class="btn" data-act="active">' + (fl.active ? 'סמן לא פעיל' : 'סמן פעיל') + '</button>' +
         '<button class="btn' + (fl.hold ? '' : ' d') + '" data-act="hold">' + (fl.hold ? 'חידוש הלקוח' : 'ביטול לקוח') + '</button></div></div>' +
+      '<div class="sec"><h3>נוסח ההזמנה</h3><div class="acts"><select id="popStyle" class="btn" aria-label="נוסח ההזמנה" disabled><option>טוען…</option></select><span class="meta" id="popStyleNote"></span></div></div>' +
       '<div class="sec"><h3>התקדמות השליחות</h3><div id="popSb"><div class="meta">טוען…</div></div></div>' +
       '</div></div>';
     $('list').insertAdjacentHTML('beforeend', html);
     var bg = document.getElementById('pop');
     bg.addEventListener('click', function (ev) { if (ev.target === bg || ev.target.closest('[data-close]')) bg.remove(); });
     loadSummary(t);
+    /* 17/11 Richard: the wording can be changed here at any time, also after the invitation went out (it then applies to what is sent from now on) */
+    (function () {
+      var sel = document.getElementById('popStyle'), note = document.getElementById('popStyleNote'); if (!sel) return;
+      var paintSt = function (j) {
+        if (!j || !j.ok) { note.textContent = 'לא נטען'; return; }
+        var own = j.custom && (j.custom.status === 'APPROVED' || j.custom.status === 'PENDING');
+        sel.innerHTML = (own ? '<option value="" selected>נוסח אישי של הלקוח (' + (j.custom.status === 'APPROVED' ? 'מאושר' : 'ממתין לאישור') + ')</option>' : '') + j.styles.map(function (s) { return '<option value="' + esc(s.key) + '"' + (!own && s.key === j.style ? ' selected' : '') + (s.ready ? '' : ' disabled') + '>' + esc(s.he) + (s.ready ? '' : ' · ממתין לאישור וואטסאפ') + '</option>'; }).join('');
+        sel.disabled = false; sel.dataset.sent = j.sent ? '1' : ''; sel.dataset.own = own ? '1' : '';
+        note.textContent = j.sent ? 'ההזמנה כבר יצאה. שינוי יחול על מה שיישלח מעכשיו.' : 'יחול על ההזמנה שתצא.';
+      };
+      var call = function (body) { return api('inviteStyle', Object.assign({ token: t }, body || {})).then(function (r) { return r.json(); }).then(paintSt).catch(function () { note.textContent = 'לא נטען'; }); };
+      sel.addEventListener('change', async function () {
+        var v = sel.value; if (!v) return;
+        var txt = sel.options[sel.selectedIndex].text, msg = (sel.dataset.own ? 'הנוסח האישי של הלקוח יוחלף. ' : '') + (sel.dataset.sent ? 'ההזמנה כבר יצאה, והשינוי יחול רק על מה שיישלח מעכשיו.' : 'ההזמנה תצא בנוסח הזה.');
+        if (!(await askConfirm(msg, { title: 'לעבור לנוסח ' + txt + '?', ok: 'החלף' }))) { call(); return; }
+        sel.disabled = true; call({ style: v, drop_custom: true }).then(function () { toast('הנוסח עודכן'); });
+      });
+      call();
+    })();
     /* 16/11: the progress of every send for this client, at the bottom of the popup */
     if (window.IshurSendBoard && document.getElementById('popSb')) IshurSendBoard.mount(document.getElementById('popSb'), { token: t, simple: true, api: function (n, b) { return api(n, b).then(function (r) { return r.json(); }); } });
     /* the ops actions: first call returns what will happen and the confirm word, the second call does it */

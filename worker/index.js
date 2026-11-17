@@ -51,6 +51,7 @@ import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
 import { handleCallers } from './callers.js';
 import { inboundExtras } from './wa-extras.js';
+import { STYLES as INV_STYLES, normStyle, OWN_TEMPLATE, styledTemplate, eventStyle, refreshStatus as styleStatus, submitAll as styleSubmit, forgetStyle, approvedMap, tmplName as styleTmplName } from './invite-styles.js';
 import { handleLeadsMonday } from './leads-monday.js';
 import { periodicReport, monthIncome, reportText, monthCut, ilDay as reportDay } from './periodic-report.js';
 import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
@@ -2237,6 +2238,8 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
     /* 12/11 security: names and places are shown on admin and client pages — no markup characters in them (the free-text description is left as typed) */
     if (typeof v === 'string' && v !== '') out[k] = k === 'event_description' ? v : v.replace(/[<>]/g, '');
   }
+  /* 17/11: the style chosen in the form is what gets sent (it used to change only the preview). Kept in KV; not touched once the first wave went out. */
+  try { const stIn = normStyle(form.get('style')); if (stIn && env.RATE && String(form.get('custom_text') || '') !== 'yes' && !(await env.RATE.get('wave:' + token + ':1'))) { if (OWN_TEMPLATE(stIn)) await env.RATE.put('invstyle:' + token, stIn, { expirationTtl: 400 * 86400 }); else await env.RATE.delete('invstyle:' + token); forgetStyle(env); } } catch {}
   /* host_roles: "כלה,חתן" — one role per host name, from a fixed list. Anything
      else is dropped rather than written into the sheet. */
   if (out.host_roles !== undefined && !hostRolesOk(out.host_roles)) delete out.host_roles;
@@ -5272,7 +5275,8 @@ async function lateInvite(env, ev, tok, name, phone) {
   /* same media choice as wave 1: video, else image, else text */
   const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
   const invite = String(ev[44] || '').trim();
-  const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
+  /* 17/11: the wording the client chose, when its template is approved; else the general one as before */
+  const tmpl = await styledTemplate(env, tok, (vidT && vidOk) ? 'vid' : (imgT && invite) ? 'img' : 'text', (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl);
   const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
   const custom = await customTemplateFor(env, tok);
   const gname = String(name || '').trim() || 'אורח יקר';
@@ -5674,6 +5678,13 @@ async function checkCustomTemplates(env) {
     rec.status = st; rec.reason = st === 'REJECTED' ? String(t.rejected_reason || '') : ''; rec.checked = new Date().toISOString();
     await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
     const token = k.slice('customtmpl:'.length);
+    /* 17/11 (Richard): an event that was put on hold only to wait for its wording goes back to sending by itself the moment
+       Meta approves it (relonappr:<token>). A rejection leaves the hold in place and says so. */
+    if (await env.RATE.get('relonappr:' + token).catch(() => null)) {
+      if (st === 'APPROVED') { await env.RATE.delete('hold:' + token).catch(() => {}); await env.RATE.delete('holdtill:' + token).catch(() => {}); await env.RATE.delete('relonappr:' + token).catch(() => {});
+        await slackSend(env, `▶️ *הנוסח אושר, השליחות לאירוע חזרו*\n\n• אירוע ${token.slice(0, 8)}\n• תבנית ${rec.name}\n\nמה לעשות: כלום, הגל ימשיך לפי התכנון`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {}); }
+      else await slackSend(env, `⛔ *הנוסח נדחה, האירוע נשאר בעצירה*\n\n• אירוע ${token.slice(0, 8)}\n• ${rec.reason || st}\n\nמה לעשות: לתקן את הנוסח ולהגיש מחדש, או לשחרר את האירוע בנוסח הכללי`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {});
+    }
     await logEvent(env, { area: 'מטא', action: st === 'APPROVED' ? 'תבנית בהתאמה אישית אושרה' : `תבנית בהתאמה אישית: ${st}`, ok: st === 'APPROVED', review: st !== 'APPROVED', token, ref: rec.name, detail: rec.reason || '' });
     await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}${st === 'APPROVED' ? '' : '\nהלקוח רואה את זה בלוח ויכול לערוך ולהגיש שוב בעצמו; עד אז יוצא הנוסח הרגיל.'}`, { oneoff: true }).catch(() => {});   /* oneoff: Meta decided once per template */
   }
@@ -6017,9 +6028,12 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     /* A/B (ab.js): swaps the name only when the engine would have sent the
        test's control anyway; off unless AB_ENABLED=on. The challenger has the
        same six variables and the same buttons. */
-    const chosenTmpl = useVid ? vidTmpl : useImg ? imgTmpl : (wave.key === 2 ? remindTmpl : inviteTmpl);
+    const baseTmpl = useVid ? vidTmpl : useImg ? imgTmpl : (wave.key === 2 ? remindTmpl : inviteTmpl);
+    /* 17/11: the wording the client chose (same six parameters and buttons), when Meta approved its template; else the general one */
+    const chosenTmpl = await styledTemplate(env, token, useVid ? 'vid' : useImg ? 'img' : 'text', baseTmpl);
+    const styled = chosenTmpl !== baseTmpl;
     const abType = wave.key === 2 ? 'reminder' : wave.key === 3 ? 'extra' : 'invite';
-    const abv = custom ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
+    const abv = custom || styled ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
     const res = custom
       ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
       : await sendTemplate(env, phone, abv ? abv.template : chosenTmpl,
@@ -7367,6 +7381,7 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
   /* 16/11: hostess reminders, 7 days and 1 day before the event. Asked once an hour from 09:00; each line goes out once (hostrem:*). */
   if (ilHour >= 9 && ilHour < 21 && !(await isOff(env, 'hostess_reminders')) && await env.RATE.get('hostremtick:' + today + ':' + ilHour) !== '1') {
     await env.RATE.put('hostremtick:' + today + ':' + ilHour, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+    await styleStatus(env).catch(() => {});   /* which style templates Meta has approved by now (once an hour) */
     await step('hostess_reminders', () => hostessReminders(env, { post: (t, o) => slackSend(env, t, o), kvPrefix })).catch(() => {});
     /* 16/11: the short report every three days, to Slack and to the address in KV cfg:report_email (asked once an hour; sent once on a report day) */
     if (!(await isOff(env, 'report3'))) await step('report3', async () => periodicReport(env, { income: reportIncome(env), post: (t, o) => slackSend(env, t, o), mail: m => sendPlainEmail(env, m), to: String((await env.RATE.get('cfg:report_email').catch(() => '')) || '').trim() })).catch(() => {});
@@ -12711,7 +12726,7 @@ const WORKER = {
       const videoUrl = hasVideo ? 'https://go.ishur.io/vid/' + token : '';
       const useImg = !hasVideo && !!(imgTmpl && invite);
       const custom = await customTemplateFor(env, token);
-      const tmpl = custom ? custom.name : (hasVideo ? vidTmpl : useImg ? imgTmpl : inviteTmpl);
+      const tmpl = custom ? custom.name : await styledTemplate(env, token, hasVideo ? 'vid' : useImg ? 'img' : 'text', hasVideo ? vidTmpl : useImg ? imgTmpl : inviteTmpl);
       const wa = custom
         ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, token, name, preview: true })
         : await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], hasVideo ? videoUrl : useImg ? invite : '', 'he', 'guests', { occasion, token, name, preview: true });
@@ -13991,6 +14006,25 @@ const WORKER = {
     if (url.pathname === '/api/report3' && request.method === 'POST') { let rb = {}; try { rb = await request.json(); } catch { return deny(400, 'bad-json', origin); } if (!isAdmin(env, rb.admin_key)) return deny(403, 'bad-admin-key', origin);
       const inc = await reportIncome(env)().catch(() => null); if (!inc) return okJson({ ok: false, error: 'no-income-data' }, origin); const day = reportDay(), m = monthIncome(inc.income, day.slice(0, 7), day);
       return okJson({ ok: true, month: m, text: reportText(m, day.slice(0, 7), day, { truncated: monthCut(inc, day.slice(0, 7)) }), read_back_to: inc.oldest ? reportDay(Number(inc.oldest) || Date.parse(inc.oldest)) : null, email_set: !!(await env.RATE.get('cfg:report_email').catch(() => '')) }, origin); }
+    /* 17/11 invitation wording per style. Admin: {action:'status'|'submit'} for the nine Meta templates.
+       Anyone with the event token: read the event's style; set it until the first wave went out (an admin may always set it). */
+    if (url.pathname === '/api/invite-styles' && request.method === 'POST') { let sb2 = {}; try { sb2 = await request.json(); } catch { return deny(400, 'bad-json', origin); } if (!isAdmin(env, sb2.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (sb2.action === 'submit') { const appId = '1084149031015902', tk = env.WA_TOKEN_GUESTS; let vidTok = ''; try { const pg = await env.RATE.list({ prefix: 'vid:', limit: 5 }); vidTok = ((pg.keys || [])[0] || {}).name || ''; } catch {}
+        return okJson(await styleSubmit(env, { headerHandle: async kind => { const h = await metaHeaderHandle(env, kind === 'vid' ? (vidTok ? 'https://go.ishur.io/vid/' + vidTok.slice(4) : '') : 'https://ishur.io/assets/logo.png', appId, tk); return h && h.handle ? h.handle : ''; } }), origin); }
+      return okJson(await styleStatus(env), origin); }
+    if (url.pathname === '/api/invite-style' && request.method === 'POST') { let ib = {}; try { ib = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const itok = String(ib.token || '').trim(), admin = isAdmin(env, ib.admin_key); if (!/^[0-9a-f-]{36}$/.test(itok) || !env.RATE) return deny(400, 'bad-request', origin);
+      if (!admin && !(await tokenRecord(env, itok))) return deny(404, 'unknown-token', origin);
+      const sent = !!(await env.RATE.get('wave:' + itok + ':1').catch(() => null)); let custom = null; try { custom = JSON.parse((await env.RATE.get('customtmpl:' + itok)) || 'null'); } catch {}
+      if (ib.style !== undefined) { const st = normStyle(ib.style); if (!st) return deny(400, 'bad-style', origin); if (sent && !admin) return okJson({ ok: false, error: 'already-sent' }, origin);
+        if (!admin && await overBudget(env, 'rl:invstyle:' + itok, 20, 3600)) return deny(429, 'slow-down', origin);
+        if (OWN_TEMPLATE(st)) await env.RATE.put('invstyle:' + itok, st, { expirationTtl: 400 * 86400 }); else await env.RATE.delete('invstyle:' + itok); forgetStyle(env);
+        /* choosing one of our styles puts the client's own wording aside (it stays stored, just not used) */
+        if (custom && (custom.status === 'APPROVED' || custom.status === 'PENDING') && ib.drop_custom === true) { custom.was = custom.status; custom.status = 'REPLACED'; await env.RATE.put('customtmpl:' + itok, JSON.stringify(custom), { expirationTtl: 400 * 86400 }); }
+        await logEvent(env, { area: 'לוח', action: `נוסח ההזמנה נבחר: ${INV_STYLES[st].he}${admin ? ' (ניהול)' : ''}`, ok: true, token: itok }).catch(() => {}); }
+      const ok2 = await approvedMap(env), cur = (await eventStyle(env, itok)) || 'happy';
+      return okJson({ ok: true, style: cur, sent, custom: custom ? { status: custom.status, text: String(custom.text || '').slice(0, 1024) } : null,
+        styles: Object.entries(INV_STYLES).map(([k2, v2]) => ({ key: k2, he: v2.he, note: v2.note, body: v2.body || '', ready: !OWN_TEMPLATE(k2) || (!!ok2[styleTmplName(k2, 'text')] && !!ok2[styleTmplName(k2, 'img')]) })) }, origin); }
     if (url.pathname === '/api/leads-monday' && request.method === 'POST') return handleLeadsMonday(request, env, origin, { okJson, deny, isAdmin, gql: mondayGql, findLead: mondayFindLead });
     if (url.pathname === '/api/callers' && request.method === 'POST') return handleCallers(request, env, origin, { okJson, deny, isAdmin, normPhone, kvPrefix });
     if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
