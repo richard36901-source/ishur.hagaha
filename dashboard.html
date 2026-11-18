@@ -1750,8 +1750,9 @@
       if (tbl && tq && (tbl === tq || tbl.indexOf(tq) > -1)) return true;
       return !!digits && String(g.phone || '').replace(/\D/g, '').indexOf(digits) > -1;
     });
-    /* 18/11 Richard: whoever confirmed goes to the top, the newest answer first, so new confirmations are seen at once. Everyone else keeps their order. */
-    list = list.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
+    /* 18/11 Richard (evening): "הכל" and every other tab keep the order the list was uploaded in, status beside the name.
+       Only the "אישרו" tab is sorted: the newest confirmation on top, down to the first one. */
+    if (filter === 'confirmed') list = list.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
       var ca = a.g.status === 'confirmed' ? 1 : 0, cb = b.g.status === 'confirmed' ? 1 : 0;
       if (ca !== cb) return cb - ca;
       if (ca) { var ta = String(a.g.at_ts || a.g.at || ''), tb = String(b.g.at_ts || b.g.at || ''); if (ta !== tb) return ta < tb ? 1 : -1; }
