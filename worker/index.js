@@ -12231,6 +12231,17 @@ const WORKER = {
       }
       return okJson({ ok: true, email: validEmail(c.email) ? String(c.email).trim() : '' }, origin);
     }
+    /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
+    if (url.pathname === '/api/mail-test' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const to = String(b.to || '').trim(); if (!validEmail(to)) return deny(400, 'bad-email', origin);
+      const link = 'https://go.ishur.io/dashboard.html?t=example', body = 'היי, הנה הקישור ללוח הבקרה של האירוע שלכם, שם רואים בכל רגע מי אישר:';
+      const m = await sendPlainEmail(env, { to, from: { email: 'info@ishur.io', name: 'ishur.io' }, subject: 'הקישור ללוח הבקרה שלכם',
+        text: `${body}\n${link}\n\nלכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד 0000\n\n(הודעת בדיקה)`,
+        html: `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;font-size:16px;color:#111"><p>${body}</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#14432F;color:#fff;border-radius:6px;text-decoration:none">לוח הבקרה</a></p><p>לכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד 0000</p><p style="color:#555;font-size:13px">${link} · הודעת בדיקה</p></div>` }).catch(e2 => ({ ok: false, error: String(e2) }));
+      return okJson({ ok: !!(m && m.ok), error: (m && m.error) || '', id: (m && m.message_id) || '' }, origin);
+    }
     if (url.pathname === '/api/client-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);

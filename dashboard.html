@@ -680,13 +680,16 @@
     </div>
     <!-- Richard 21/10: the client's own wording, submitted to Meta for approval -->
     <div class="card-b" id="ctBlock" style="border-top:1px solid var(--bdr)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;flex-wrap:wrap">
         <b style="font-size:.9rem">נוסח ההזמנה</b>
-        <span id="ctStatus" style="font-size:.78rem"></span>
+        <!-- 18/11 Richard: "שנה נוסח" sits on the left, under the name of the current wording -->
+        <span style="display:flex;flex-direction:column;align-items:flex-end;gap:.35rem">
+          <span id="ctStatus" style="font-size:.78rem"></span>
+          <button type="button" class="btn" id="stChange" hidden>שנה נוסח</button>
+        </span>
       </div>
       <!-- 17/11 Richard: until the first invitation goes out, the client picks one of our wordings here, or writes their own below -->
       <!-- 18/11 Richard: first a "שנה נוסח" button; the wordings (ours and "נוסח אישי") show only after it is pressed -->
-      <button type="button" class="btn" id="stChange" hidden style="margin:.5rem 0 0">שנה נוסח</button>
       <div class="stypick" id="stPick" hidden role="group" aria-label="סגנון הנוסח"></div>
       <pre id="ctText" style="white-space:pre-wrap;font:inherit;font-size:.86rem;background:var(--bg2,#f2f2ee);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;color:var(--ink2)"></pre>
       <p id="ctNote" style="margin:0 0 .5rem;font-size:.78rem;color:var(--ink3)"></p>
@@ -1324,7 +1327,10 @@
     if (demo || !token) return;
     fetch(CFG.endpoint('inviteStyle'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ token: token }, body || {})) }).then(function (r) { return r.json(); }).then(function (j) {
       if (!j || !j.ok) { if (j && j.error === 'already-sent' && window.IshurUX) IshurUX.toast('ההזמנה כבר יצאה, אי אפשר לשנות נוסח'); return; }
-      STY = j; paintStyles(); if (body && window.IshurUX) IshurUX.toast('הנוסח עודכן');
+      STY = j;
+      /* 18/11 Richard: after a change the options close and the client sees a clear confirmation of the new wording */
+      if (body) { stOpen = false; var nw = (j.styles || []).filter(function (x) { return x.key === j.style; })[0]; var okMsg = '✓ הנוסח שונה' + (nw ? ' לנוסח ' + nw.he : '') + '. כך תצא ההזמנה.'; if (window.IshurUX) IshurUX.toast(okMsg); var nt0 = $('ctNote'); if (nt0) { nt0.textContent = okMsg; nt0.style.color = 'var(--green2)'; setTimeout(function () { nt0.style.color = ''; }, 6000); } }
+      paintStyles();
     }).catch(function () {});
   }
   document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('#stPick button[data-st]'); if (!b || b.disabled || b.getAttribute('aria-pressed') === 'true') return; var ct0 = data.custom_template || null; if (ct0 && (ct0.status === 'APPROVED' || ct0.status === 'PENDING')) { if (!confirm('יש לכם נוסח אישי. לעבור לנוסח ' + b.textContent + ' במקומו?')) return; data.custom_template = null; renderCustomText(); } loadStyles({ style: b.dataset.st, drop_custom: true }); });
