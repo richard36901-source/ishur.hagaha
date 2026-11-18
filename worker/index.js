@@ -12411,6 +12411,27 @@ const WORKER = {
       } catch {}
       return okJson({ ok: true, guest: 'דנה', seated, messages: out }, origin);
     }
+    /* 18/11 Richard: a written price quote in Morning (חשבונית ירוקה) with the order's special terms in its remarks.
+       POST {admin_key, action: 'types' | 'preview' | 'create', type, name, phone, email?, price (incl. VAT), description, remarks}.
+       'preview' returns the PDF without creating anything; 'create' issues the document. Nothing is sent to the client from here. */
+    if (url.pathname === '/api/quote-doc' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const mt = await morningToken(env).catch(() => null); if (!mt) return deny(502, 'morning-auth-failed', origin);
+      const MAPI = 'https://api.greeninvoice.co.il/api/v1', hd = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mt };
+      if (b.action === 'types') { const r = await fetch(MAPI + '/documents/types?lang=he', { headers: hd }).catch(() => null); return okJson({ ok: !!(r && r.ok), status: r && r.status, types: r ? await r.json().catch(() => null) : null }, origin); }
+      const items = (Array.isArray(b.items) ? b.items : []).map(x => ({ description: String((x && x.description) || '').slice(0, 160), quantity: 1, price: Number(x && x.price) || 0, currency: 'ILS', vatType: 1 })).filter(x => x.price > 0 && x.description).slice(0, 8);
+      const price = items.length ? items.reduce((a2, x) => a2 + x.price, 0) : Number(b.price) || 0, type = Number(b.type) || 0;
+      if (!price || !type || !String(b.name || '').trim()) return deny(400, 'missing-fields', origin);
+      const doc = { type, lang: 'he', currency: 'ILS', date: ilDate(), description: String(b.description || '').slice(0, 160), remarks: String(b.remarks || '').slice(0, 4000),
+        footer: 'שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io',
+        client: { name: String(b.name).slice(0, 100), phone: String(b.phone || ''), emails: b.email ? [String(b.email)] : [], country: 'IL', add: false },
+        income: items.length ? items : [{ description: String(b.description || '').slice(0, 160), quantity: 1, price, currency: 'ILS', vatType: 1 }] };
+      const r = await fetch(MAPI + (b.action === 'create' ? '/documents' : '/documents/preview'), { method: 'POST', headers: hd, body: JSON.stringify(doc) }).catch(() => null);
+      const j = r ? await r.json().catch(() => null) : null;
+      if (b.action === 'create') await logEvent(env, { area: 'כספים', action: 'הצעת מחיר הופקה בחשבונית ירוקה', ok: !!(r && r.ok && j && j.id), review: true, phone: normPhone(b.phone || ''), detail: `${b.name} · ₪${price} · ${String((j && (j.number || j.errorMessage)) || '').slice(0, 80)}` }).catch(() => {});
+      return okJson({ ok: !!(r && r.ok), status: r && r.status, result: j }, origin);
+    }
     if (url.pathname === '/api/template-spaced' && request.method === 'POST') return handleTemplateSpaced(request, env, origin);
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
     if (url.pathname === '/api/mail-test' && request.method === 'POST') {
