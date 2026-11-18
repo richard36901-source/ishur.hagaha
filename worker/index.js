@@ -9772,8 +9772,19 @@ export async function qaDigest(env, days = 1, today = ilDate()) {
     for (const [f, n] of Object.entries(x)) tot[f] = (tot[f] || 0) + (Number(n) || 0);
   }
   const since = Date.parse(dates[dates.length - 1] + 'T00:00:00+02:00');
-  const lessons = (await getMemory(env, 'שיר').catch(() => [])).filter(m => Date.parse(m.at || 0) >= since).map(m => m.text);
-  return { days, from: dates[dates.length - 1], to: today, ...tot, lessons };
+  const fresh = (await getMemory(env, 'שיר').catch(() => [])).filter(m => Date.parse(m.at || 0) >= since);
+  const lessons = fresh.map(m => m.text);
+  /* 18/11 Richard: "what changed, why, what it was and what it became, with the exact recording".
+     Two sources: lessons the reviewer added on its own (each knows the call it came from), and changes made to the
+     script by hand, written to shirchange:<day> as [{what, before, after, why, call_id}]. */
+  const link = async id => { try { return id ? await audit.recordingLink(env, id, 30) : ''; } catch { return ''; } };
+  const changes = [];
+  for (const m of fresh) { const id = String(m.source || '').startsWith('call:') ? String(m.source).slice(5) : ''; changes.push({ kind: 'auto', what: m.text, why: m.why || '', before: 'לא הייתה הנחיה כזו', after: m.text, rec: await link(id) }); }
+  for (const d of dates) {
+    let arr = []; try { arr = JSON.parse((await env.RATE.get('shirchange:' + d)) || '[]') || []; } catch {}
+    for (const c of arr) changes.push({ kind: 'manual', what: String(c.what || ''), why: String(c.why || ''), before: String(c.before || ''), after: String(c.after || ''), rec: await link(String(c.call_id || '')) });
+  }
+  return { days, from: dates[dates.length - 1], to: today, ...tot, lessons, changes };
 }
 function qaDigestText(d) {
   const n = k => Number(d[k]) || 0;
@@ -9783,7 +9794,12 @@ function qaDigestText(d) {
     `שיחות: ${n('calls')} · דיברו עם אדם: ${talked} · תא קולי: ${n('voicemail')} · לא ענו: ${n('noanswer')} · לא חוברו (ספק): ${n('notconn')}`,
     `תשובות שנרשמו ע"י שיר: ${rec} · תוקנו אוטומטית מהתמליל: ${n('fixed')} · פערים שלא תוקנו: ${n('gap')} · לבדיקה ידנית: ${n('manual')}`,
     `כיסוי רישום בשיחות עם אדם: ${pct}%`,
-    d.lessons && d.lessons.length ? `לקחים שנכנסו להנחיות (${d.lessons.length}):\n• ` + d.lessons.slice(0, 8).join('\n• ') : 'לא נוספו לקחים.'].join('\n');
+    d.changes && d.changes.length
+      ? `*מה השתנה בתסריט של שיר (${d.changes.length}):*\n` + d.changes.slice(0, 10).map((c, i) => [
+          `${i + 1}. *${c.what}*${c.kind === 'auto' ? ' · נוסף אוטומטית מבקרת השיחה' : ''}`,
+          c.why ? `   למה: ${c.why}` : '', c.before ? `   לפני: ${c.before}` : '', c.after && c.after !== c.what ? `   אחרי: ${c.after}` : '',
+          c.rec ? `   ההקלטה: ${c.rec}` : ''].filter(Boolean).join('\n')).join('\n')
+      : 'התסריט לא השתנה.'].join('\n');
 }
 async function runQaDigests(env) {
   if (!env.RATE) return;
@@ -9792,7 +9808,7 @@ async function runQaDigests(env) {
   const hm = Number(get('hour')) * 60 + Number(get('minute')), wd = get('weekday'), today = ilDate();
   if (hm >= 20 * 60 + 45 && !(await seenOnce(env, 'qadigest:d:' + today))) {
     const d = await qaDigest(env, 1, today);
-    if (Number(d.calls) > 0) await slackPost(env, qaDigestText(d), { cls: 'info', key: 'qadigest:d:' + today });
+    if (Number(d.calls) > 0 || (d.changes && d.changes.length)) await slackPost(env, qaDigestText(d), { cls: 'info', key: 'qadigest:d:' + today });
   }
   if (wd === 'Sun' && hm >= 9 * 60 && !(await seenOnce(env, 'qadigest:w:' + today))) {
     await slackPost(env, qaDigestText(await qaDigest(env, 7, today)), { cls: 'info', key: 'qadigest:w:' + today });
@@ -11629,6 +11645,15 @@ const WORKER = {
         if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await readSnapshot(env, 'ops')), origin);
         if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
         if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
+        /* 18/11: the daily call report as it would be posted now (dry: nothing is sent) */
+        if (b.action === 'qa-digest') { const d = await qaDigest(env, Number(b.days) || 1); return okJson({ ok: true, digest: d, text: qaDigestText(d) }, origin); }
+        /* 18/11: run the call reviewer on one past call and show what it says. Dry: nothing is written, fixed or remembered. */
+        if (b.action === 'qa-review') {
+          const c = await retellApi(env, '/v2/get-call/' + String(b.call_id || '').replace(/[^A-Za-z0-9_]/g, ''));
+          if (!c || !c.call_id) return deny(404, 'no-call', origin);
+          const qa = callFromRetell(c, {}, { event: String((c.retell_llm_dynamic_variables || {}).host_name || '') });
+          return okJson({ ok: true, review: await reviewCall(env, qa, { debug: true }), duration_s: qa.duration_s }, origin);
+        }
         /* 25/10: one event row from the sheet, by token prefix — admin debugging */
         if (b.action === 'ev-row') {
           const pre = String(b.token || '').trim();

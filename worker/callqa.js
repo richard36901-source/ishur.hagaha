@@ -123,7 +123,9 @@ const SYSTEM = `את מבקרת איכות של סוכנת קולית בעברי
 - hebrew_issues: ניסוח שבור או לא טבעי, חזרה על הפתיח, קטיעה של האורח, טון גבוה מדי. עד 3, קצר.
 - lessons: עד 3 לקחים לשיחה הבאה, עברית, עד 120 תווים כל אחד, בלי שמות ובלי טלפונים.
 - memory_updates: עד 2 משפטים קצרים שכדאי שהסוכנת תזכור תמיד (כלל התנהגות, לא עובדה על אדם). בלי שמות, בלי טלפונים, בלי מחירים, בלי "הנחה", בלי הבטחות. אם אין — מערך ריק.
-אל תמציאי. אם השיחה קצרה מדי לשפוט, החזירי מערכים ריקים.`;
+אל תמציאי. אם השיחה קצרה מדי לשפוט, החזירי מערכים ריקים.
+עקרונות השירות, שלקח לא יכול לסתור (18/11): השיחה קצרה ככל האפשר, עד חצי דקה. שואלים רק אם מגיעים וכמה. לא שואלים שם, לא מבררים מי מדבר, לא מסכמים את השיחה, לא מוסיפים שאלות ולא מאריכים. אחרי שיש תשובה רושמים ומנתקים מיד.
+memory_updates רק כשיש בתמליל תקלה ממשית שחוזרת (למשל: חזרה על הפתיח, שאלה אחרי פרידה, מספר שנקלט לא נכון, המשך דיבור מול תא קולי). לקח חייב להיות כלל קצר וספציפי שמונע בדיוק את התקלה הזו. אם השיחה התנהלה תקין, החזירי memory_updates ריק.`;
 
 function parseModel(raw) {
   const s = String(raw || '');
@@ -156,11 +158,12 @@ export async function modelReview(env, call, opts = {}) {
     if (!raw && env.AI && env.AI.run) {
       model = '@cf/meta/llama-3.3-70b-instruct-fp8-fast';
       const r = await env.AI.run(model, { messages: [{ role: 'system', content: SYSTEM }, { role: 'user', content: user }], max_tokens: 500 });
-      raw = String((r && r.response) || '');
+      /* 18/11: the model's answer is sometimes an object already (JSON mode), not a string — String() made it "[object Object]" and every review came back empty */
+      raw = r && typeof r.response === 'object' && r.response ? JSON.stringify(r.response) : String((r && r.response) || '');
     }
-  } catch { raw = ''; }
+  } catch (e) { raw = ''; if (opts.debug) return { ...empty, model, debug: 'threw: ' + String(e && e.message).slice(0, 300) }; }
   const j = parseModel(raw);
-  if (!j) return { ...empty, model };
+  if (!j) return { ...empty, model, ...(opts.debug ? { debug: 'unparsed: ' + String(raw).slice(0, 600) } : {}) };
   return {
     model,
     hebrew_issues: clean(j.hebrew_issues, 3, 160),
@@ -188,7 +191,7 @@ export async function reviewCall(env, call, opts = {}) {
   return {
     ...base,
     hebrew_issues: [...base.hebrew_issues, ...m.hebrew_issues].slice(0, 5),
-    lessons: m.lessons, memory_updates: m.memory_updates, model: m.model,
+    lessons: m.lessons, memory_updates: m.memory_updates, model: m.model, ...(m.debug ? { debug: m.debug } : {}),
   };
 }
 
@@ -239,7 +242,9 @@ export async function applyReview(env, call, review, deps = {}) {
   }
 
   if (Array.isArray(r.memory_updates) && r.memory_updates.length) {
-    out.memory = await addMemory(env, c.agent || 'שיר', r.memory_updates, { source: 'call:' + (c.call_id || ''), by: 'בקרה', names: [c.guest_name, c.event].filter(Boolean) });
+    out.memory = await addMemory(env, c.agent || 'שיר', r.memory_updates, { source: 'call:' + (c.call_id || ''), by: 'בקרה', names: [c.guest_name, c.event].filter(Boolean),
+      /* 18/11 Richard: the daily report says WHY each lesson was added, next to the recording it came from */
+      why: String((r.hebrew_issues || [])[0] || (r.lessons || [])[0] || '').slice(0, 200) });
   }
   if ((r.lessons && r.lessons.length) || (r.hebrew_issues && r.hebrew_issues.length)) {
     await stream(env, { kind: 'event', area: 'בקרה', action: `לקחים משיחה · ${c.agent || 'שיר'}`, ok: true, phone: c.phone || '', token: c.token || '',
