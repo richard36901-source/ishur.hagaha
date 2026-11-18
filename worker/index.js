@@ -6357,7 +6357,19 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (await env.RATE.get('wave:' + token + ':1')) continue;          // wave 1 actually completed — all good
       if (await env.RATE.get('watchdog:' + token)) continue;            // already shouted about this one
       const guestN = gRows.filter(g => String(g[28] || '').trim() === token).length;
+      /* 18/11 Richard ("תתקן"): the completion flag is missing whenever a few guests are still failing at Meta, so this
+         shouted "no invitation went out" for waves that reached almost everyone (580 of 593). Count what really went
+         out: nearly all → quiet; some → say how many; none → the loud alert. A failed count reads as "none". */
+      let sentN = 0;
+      try { let cursor; do { const l = await env.RATE.list({ prefix: `wsent:${token}:1:`, limit: 1000, cursor }); sentN += (l.keys || []).length; cursor = l.list_complete ? undefined : l.cursor; } while (cursor); } catch { sentN = 0; }
+      if (guestN && sentN / guestN >= 0.9) continue;
       await env.RATE.put('watchdog:' + token, today, { expirationTtl: 30 * 86400 });
+      if (sentN > 0) {
+        await alert(env, 'גל ראשון יצא רק לחלק מהמוזמנים',
+          `${ev[2] || ''} · אירוע ${token.slice(0, 8)} · הגל הראשון (${w1}) יצא ל-${sentN} מתוך ${guestN} מוזמנים. לבדוק מי נשאר ולמה.`, token.slice(0, 8), { key: 'partial_invite:' + token.slice(0, 8), sev: 'P2' });
+        out.push({ token, type: 'watchdog_partial_send', lateBy, guests: guestN, sent: sentN });
+        continue;
+      }
       await alert(env, '🚨 אירוע ששולם ולא יצאה ממנו הזמנה',
         `${ev[2] || ''} (${ev[3] || ''}) · אירוע ${token.slice(0, 8)} · הגל הראשון היה אמור לצאת ב-${w1} (לפני ${lateBy} ימים) ל-${guestN} מוזמנים, ואין סימן שיצא. לבדוק ידנית עכשיו — זה בדיוק המקרה שבו מתגלה מאוחר.`, token.slice(0, 8), { key: 'no_invite:' + token.slice(0, 8), sev: 'P1' });
       out.push({ token, type: 'watchdog_no_send', lateBy, guests: guestN });
@@ -8633,7 +8645,9 @@ async function handleVoiceTools(request, env, origin) {
     /* Shir rings an admin number as if they were a wedding guest (demo data, no sheet row) */
     const to = normPhone(body.to || '');
     const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
-    if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
+    /* 18/11 Richard: a lead who asks to hear a sample call gets this same demo. Only with demo_lead set on purpose, an Israeli mobile, and inside lead hours (10:00–20:00). */
+    const leadDemo = body.demo_lead === true && isIlMobile(to) && (() => { const h = Number(ilTime().slice(0, 2)); return h >= 10 && h < 20; })();
+    if (!to || (!admins.includes(to) && !leadDemo)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
     const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
       event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
