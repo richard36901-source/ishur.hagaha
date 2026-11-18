@@ -168,6 +168,8 @@ export function buildBizStats(raw) {
       token: tok, client: t(ev[2]), name: t(ev[34]) || t(ev[2]),
       occasion: t(ev[5]), date: t(ev[6]), paid, sum,
       paid_at: (t(ev[25]).match(/\d{4}-\d{2}-\d{2}/) || [''])[0],
+      /* 18/11 Richard: the clients screen lists by the moment the deal closed, so two sales on one day keep their order */
+      paid_ts: (t(ev[25]).match(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/) || [''])[0],
       phone: t(ev[3]),
       plan: t(ev[31]), tier: t(ev[32]),
       invoice: t(ev[9]),
