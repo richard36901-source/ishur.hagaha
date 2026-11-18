@@ -468,6 +468,20 @@
         });
       }).catch(function () { box.innerHTML = '<h3>מצב האירוע</h3><div class="meta">לא נטען</div>'; });
   }
+  /* the code is fetched only when "הצג" is pressed, and hidden again on the next press */
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-pin]'); if (!b) return;
+    var box = document.getElementById('popPin'), v = document.getElementById('popPinV'), pop = document.querySelector('#pop .pop'); if (!box || !v || !pop) return;
+    var tg = box.querySelector('[data-pin="toggle"]'), cp = box.querySelector('[data-pin="copy"]');
+    if (b.dataset.pin === 'copy') { var c = box.dataset.code || ''; if (c && navigator.clipboard) navigator.clipboard.writeText(c).then(function () { toast('הקוד הועתק'); }, function () { toast('לא הועתק'); }); return; }
+    if (box.dataset.shown === '1') { box.dataset.shown = ''; v.textContent = '••••'; tg.textContent = 'הצג'; cp.hidden = true; return; }
+    tg.disabled = true;
+    api('client-pin', { token: pop.dataset.t }).then(function (r) { return r.json(); }).then(function (j) {
+      tg.disabled = false;
+      if (!j || !j.pin) { toast('לא נטען קוד ללקוח הזה'); return; }
+      box.dataset.code = j.pin; box.dataset.shown = '1'; v.textContent = j.pin + (j.locked ? ' (נעול)' : ''); tg.textContent = 'הסתר'; cp.hidden = false;
+    }).catch(function () { tg.disabled = false; toast('לא נטען'); });
+  });
   function openManage(t) {
     var e = events.filter(function (x) { return x.token === t; })[0] || {};
     var fl = flags[t] || { active: true };
@@ -476,6 +490,9 @@
       '<button type="button" class="x" data-close aria-label="סגירה">×</button>' +
       '<h2>' + esc(e.client || e.name || '—') + ' <span class="meta">· ' + esc(e.name || e.occasion || '') + (e.date ? ' · ' + esc(e.date) : '') + '</span></h2>' +
       '<div class="meta">' + esc(e.plan || '') + (e.tier ? ' עד ' + esc(e.tier) : '') + (e.sum ? ' · ₪' + esc(e.sum) : '') + ' · <span dir="ltr">' + esc(e.phone || '') + '</span></div>' +
+      /* 18/11 Richard: the client's sign-in code at the top of the popup, hidden until asked for */
+      '<div class="meta" id="popPin" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">קוד כניסה של הלקוח: <b id="popPinV" dir="ltr" style="font-size:1.05rem;letter-spacing:.15em">••••</b>' +
+        '<button type="button" class="btn g" data-pin="toggle">הצג</button><button type="button" class="btn g" data-pin="copy" hidden>📋 העתק</button></div>' +
       '<div class="sec" id="popSum"><h3>מצב האירוע</h3><div class="meta">טוען…</div></div>' +
       '<div class="sec"><h3>תמונת ההזמנה</h3><div class="acts"><label class="btn">🖼 החלפת תמונה<input type="file" accept="image/*" data-img hidden></label><span class="meta">מחליפה מיד, גם אם ההזמנות כבר יצאו (שליחות הבאות עם התמונה החדשה)</span></div></div>' +
       (function () { var r = recOf(t); if (!r) return ''; return '<div class="refNote">הופנה ע"י <b>' + refName(r) + '</b> · ' + (r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit) + ' · ' +
