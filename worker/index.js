@@ -8654,23 +8654,38 @@ async function handleVoiceTools(request, env, origin) {
   }
   if (body.action === 'testcall' && body.agent === 'shir_out') {
     /* Shir rings an admin number as if they were a wedding guest (demo data, no sheet row) */
-    const to = normPhone(body.to || '');
+    /* 18/11 Richard: "חייג ללקוח" in the clients screen — the same sample call, to the event's own client, with HIS event's details */
+    let demoEv = null;
+    if (body.demo_token) {
+      const snapD = await readSnapshot(env, 'send');
+      demoEv = ((snapD && snapD.events && snapD.events.values) || []).find(r => String((r || [])[1] || '').trim() === String(body.demo_token).trim()) || null;
+      if (!demoEv) return deny(404, 'unknown-token', origin);
+    }
+    const to = normPhone(demoEv ? demoEv[3] || '' : body.to || '');
     const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
     /* 18/11 Richard: a lead who asks to hear a sample call gets this same demo. Only with demo_lead set on purpose, an Israeli mobile, and inside lead hours (10:00–20:00). */
-    const leadDemo = body.demo_lead === true && isIlMobile(to) && (() => { const h = Number(ilTime().slice(0, 2)); return h >= 10 && h < 20; })();
+    const inHours = (() => { const h = Number(ilTime().slice(0, 2)); return h >= 10 && h < 20; })();
+    const leadDemo = (body.demo_lead === true || !!demoEv) && isIlMobile(to) && inHours;
+    if (demoEv && !inHours) return deny(409, 'outside-hours', origin);
     if (!to || (!admins.includes(to) && !leadDemo)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
     const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
       event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
       /* body.rsvp = 'מתלבט' rehearses the undecided opener (21/10) */
       rsvp: body.rsvp === 'מתלבט' ? 'מתלבט' : '' };
+    if (demoEv) {
+      const c = k => String(demoEv[k] ?? '').trim(), dDay = c(6).slice(0, 10);
+      let evName = ''; try { evName = guestEventName(demoEv, { article: true }) || ''; } catch {}
+      Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: evName || c(34) || g.event_name,
+        event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
+    }
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
     await retellBillingGuard(env, r);
     const j = r ? await r.json().catch(() => null) : null;
     if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
-    await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
+    await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: demoEv ? 'שיחת דוגמה ללקוח' : 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
     return okJson({ ok: true, call_id: j.call_id }, origin);
   }
   if (body.action === 'testcall') {
