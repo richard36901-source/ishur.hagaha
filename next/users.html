@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 16/11 owner screen: who may sign in, which pages and journal layers each person sees, and who did what (worker/auth.js) -->
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>משתמשים · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--on:rgba(46,125,91,.14)}
+  html[data-theme=dark]{--ink:#E8ECE9;--ink2:#B5BFB9;--ink3:#8A958F;--paper:#121815;--card:#1A221E;--line:#2C3832;--pine:#6FBF9B;--gold:#D2A869;--warn:#E08A7B;--good:#6FBF9B;--rail:#212A25;--on:rgba(111,191,155,.18)}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.5}
+  .wrap{max-width:1000px;margin:0 auto;padding:1.4rem 1rem 4rem}
+  .head{display:flex;align-items:center;gap:.6rem;margin-bottom:1rem;flex-wrap:wrap}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.6rem;margin:0}
+  h2{font-size:1rem;margin:1.6rem 0 .6rem;display:flex;align-items:center;gap:.5rem}
+  .me{margin-inline-start:auto;color:var(--ink3);font-size:.82rem;direction:ltr}
+  .i{width:22px;height:22px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--ink3);font:600 .72rem 'Heebo',sans-serif;cursor:pointer;flex:none}
+  .note{background:var(--rail);border-radius:8px;padding:.6rem .8rem;font-size:.84rem;color:var(--ink2);margin-bottom:.7rem}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:.8rem .9rem;margin-bottom:.55rem}
+  .card.off{opacity:.55}
+  .top{display:flex;gap:.6rem;align-items:baseline;flex-wrap:wrap}
+  .name{font-weight:700}
+  .mail{color:var(--ink2);font-size:.84rem;direction:ltr;unicode-bidi:plaintext;word-break:break-all}
+  .tag{font-size:.72rem;padding:.1rem .5rem;border-radius:6px;background:var(--rail);color:var(--ink2)}
+  .seen{margin-inline-start:auto;color:var(--ink3);font-size:.78rem}
+  .row{display:flex;gap:.35rem;flex-wrap:wrap;align-items:center;margin-top:.5rem}
+  .lbl{font-size:.76rem;color:var(--ink3);width:3.6rem;flex:none}
+  .chip{font:inherit;font-size:.8rem;padding:.28rem .65rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink2);cursor:pointer;min-height:32px}
+  .chip[aria-pressed=true]{background:var(--on);border-color:var(--good);color:var(--good);font-weight:600}
+  .chip:disabled{cursor:default;opacity:.7}
+  .btn{font:inherit;font-size:.82rem;padding:.4rem .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;min-height:34px}
+  .btn.p{background:var(--pine);color:var(--card);border-color:var(--pine)}
+  .btn.d{color:var(--warn);border-color:var(--warn)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn:focus-visible,.chip:focus-visible,.i:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .acts{display:flex;gap:.4rem;margin-top:.65rem}
+  .add{display:flex;gap:.5rem;flex-wrap:wrap;align-items:center}
+  input,select{font:inherit;padding:.45rem .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);min-height:36px}
+  input[type=email]{direction:ltr;text-align:left;flex:1 1 220px}
+  input[type=text]{flex:1 1 140px}
+  .tbl{width:100%;border-collapse:collapse;font-size:.85rem;background:var(--card);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .tbl th,.tbl td{padding:.45rem .65rem;text-align:right;border-bottom:1px solid var(--line);vertical-align:top}
+  .tbl th{font-weight:600;color:var(--ink3);font-size:.76rem;background:var(--rail)}
+  .tbl tr:last-child td{border-bottom:0}
+  .tbl td.t{white-space:nowrap;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .tbl td.u{direction:ltr;text-align:right;unicode-bidi:plaintext;word-break:break-all}
+  .scroll{overflow-x:auto}
+  .empty{color:var(--ink3);text-align:center;padding:1.6rem}
+  .toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--pine);color:var(--card);padding:.6rem 1rem;border-radius:8px;font-size:.85rem;opacity:0;transition:opacity .2s;pointer-events:none}
+  .toast.on{opacity:1}
+  .toast.bad{background:var(--warn)}
+  [hidden]{display:none!important}
+</style>
+<script src="/next/assets/adminbar.js?v=17" defer></script>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>משתמשים</h1><button class="i" type="button" data-i="iUsers" aria-label="מידע">i</button><span class="me" id="me"></span></div>
+  <div class="note" id="iUsers" hidden>כל מי שמופיע כאן ופעיל יכול להיכנס עם חשבון Google שלו. לכל אחד מסמנים אילו עמודים ואילו שכבות ביומן הוא רואה. בעלים רואה הכול. כיבוי משתמש מוציא אותו מכל המכשירים מיד.</div>
+  <div id="gate" class="empty" hidden></div>
+  <div id="main" hidden>
+    <div id="users"></div>
+    <h2>הוספת משתמש</h2>
+    <form class="card add" id="addForm">
+      <input type="email" id="addEmail" placeholder="email@gmail.com" autocomplete="off" required aria-label="כתובת Google">
+      <input type="text" id="addName" placeholder="שם" maxlength="60" aria-label="שם">
+      <button class="btn p" type="submit">הוספה</button>
+    </form>
+    <h2>פעולות אחרונות <button class="i" type="button" data-i="iActs" aria-label="מידע">i</button></h2>
+    <div class="note" id="iActs" hidden>כל שינוי שנעשה מהמערכת אחרי כניסה עם Google נרשם כאן: מי, מה ומתי. צפייה בלבד לא נרשמת. הרשומות נשמרות חצי שנה.</div>
+    <div class="add" style="margin-bottom:.6rem">
+      <select id="fUser" aria-label="משתמש"><option value="">כל המשתמשים</option></select>
+      <select id="fDays" aria-label="תקופה"><option value="1">היום</option><option value="7" selected>7 ימים</option><option value="30">30 יום</option><option value="90">90 יום</option></select>
+    </div>
+    <div class="scroll" id="acts"></div>
+  </div>
+</div>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script>
+(function () {
+  var API = (location.hostname === 'localhost' ? '' : 'https://go.ishur.io') + '/api/auth/';
+  var $ = function (id) { return document.getElementById(id); };
+  var session = ''; try { session = localStorage.getItem('ishur_session') || ''; } catch (e) {}
+  var LOGIN = '/next/login.html?back=' + encodeURIComponent('/next/users.html');
+  var ERR = { 'last-owner': 'חייב להישאר בעלים פעיל אחד', 'bad-email': 'כתובת לא תקינה', 'owner-only': 'לבעלים בלבד' };
+  var users = [], PAGES = [], LAYERS = [], me = null, draft = {};
+  function esc(v) { return String(v == null ? '' : v).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function toast(t, bad) { var el = $('toast'); el.textContent = t; el.className = 'toast on' + (bad ? ' bad' : ''); setTimeout(function () { el.className = 'toast'; }, 2000); }
+  function post(name, body) {
+    return fetch(API + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ session: session }, body || {})) })
+      .then(function (r) { if (r.status === 401) { location.replace(LOGIN); return null; } return r.json(); });
+  }
+  function when(ts) { var d = new Date(ts); return isNaN(d) ? '' : d.toLocaleString('he-IL', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }); }
+  Array.prototype.forEach.call(document.querySelectorAll('[data-i]'), function (b) {
+    b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-controls', b.getAttribute('data-i'));
+    b.addEventListener('click', function () { var n = $(b.getAttribute('data-i')); n.hidden = !n.hidden; b.setAttribute('aria-expanded', String(!n.hidden)); });
+  });
+
+  /* what is on screen for one user: the stored record plus unsaved ticks */
+  function view(u) { var d = draft[u.email] || {}; return { pages: d.pages !== undefined ? d.pages : u.pages, layers: d.layers !== undefined ? d.layers : u.layers }; }
+  function chips(u, kind, defs, val) {
+    var owner = u.role === 'owner', all = owner || val === 'all';
+    var h = '<button type="button" class="chip" data-k="' + kind + '" data-v="*" aria-pressed="' + all + '"' + (owner ? ' disabled' : '') + '>הכול</button>';
+    defs.forEach(function (p) {
+      var on = all || (Array.isArray(val) && val.indexOf(p.id) >= 0);
+      h += '<button type="button" class="chip" data-k="' + kind + '" data-v="' + esc(p.id) + '" aria-pressed="' + on + '"' + (owner ? ' disabled' : '') + '>' + esc(p.label) + '</button>';
+    });
+    return h;
+  }
+  function render() {
+    $('users').innerHTML = users.map(function (u) {
+      var v = view(u), dirty = !!draft[u.email], self = me && u.email === me.email;
+      return '<div class="card' + (u.active ? '' : ' off') + '" data-email="' + esc(u.email) + '">' +
+        '<div class="top"><span class="name">' + esc(u.name || u.email.split('@')[0]) + '</span><span class="mail">' + esc(u.email) + '</span>' +
+        '<span class="tag">' + (u.role === 'owner' ? 'בעלים' : 'צוות') + '</span>' + (u.active ? '' : '<span class="tag">כבוי</span>') +
+        '<span class="seen">' + (u.last_login ? 'כניסה אחרונה ' + esc(when(u.last_login)) : 'עוד לא נכנס/ה') + '</span></div>' +
+        '<div class="row"><span class="lbl">עמודים</span>' + chips(u, 'pages', PAGES, v.pages) + '</div>' +
+        '<div class="row"><span class="lbl">יומן</span>' + chips(u, 'layers', LAYERS, v.layers) + '</div>' +
+        (u.role === 'owner' && self ? '' : '<div class="acts">' +
+          (u.role === 'owner' ? '' : '<button type="button" class="btn p" data-act="save"' + (dirty ? '' : ' disabled') + '>שמירה</button>') +
+          '<button type="button" class="btn' + (u.active ? ' d' : '') + '" data-act="' + (u.active ? 'off' : 'on') + '">' + (u.active ? 'הסרה' : 'החזרה') + '</button></div>') +
+        '</div>';
+    }).join('') || '<div class="empty">אין משתמשים</div>';
+    var sel = $('fUser'), cur = sel.value;
+    sel.innerHTML = '<option value="">כל המשתמשים</option>' + users.map(function (u) { return '<option value="' + esc(u.email) + '">' + esc(u.name || u.email) + '</option>'; }).join('');
+    sel.value = cur;
+  }
+  function take(d) {
+    if (!d) return false;
+    if (!d.ok) { toast(ERR[d.error] || 'לא נשמר', true); return false; }
+    users = d.users || []; PAGES = d.all_pages || PAGES; LAYERS = d.all_layers || LAYERS; render(); return true;
+  }
+  $('users').addEventListener('click', function (ev) {
+    var b = ev.target.closest('button'); if (!b || b.disabled) return;
+    var card = b.closest('.card'), email = card.getAttribute('data-email');
+    var u = users.filter(function (x) { return x.email === email; })[0]; if (!u) return;
+    if (b.hasAttribute('data-k')) {
+      var kind = b.getAttribute('data-k'), val = b.getAttribute('data-v'), defs = (kind === 'pages' ? PAGES : LAYERS).map(function (p) { return p.id; });
+      var cur = view(u)[kind], list = cur === 'all' ? defs.slice() : (Array.isArray(cur) ? cur.slice() : []), next;
+      if (val === '*') next = cur === 'all' ? [] : 'all';
+      else { var i = list.indexOf(val); if (i >= 0) list.splice(i, 1); else list.push(val); next = list.length === defs.length ? 'all' : list; }
+      (draft[email] = draft[email] || {})[kind] = next; render(); return;
+    }
+    var act = b.getAttribute('data-act'), body;
+    if (act === 'save') body = { action: 'upsert', user: Object.assign({ email: email }, draft[email] || {}) };
+    else if (act === 'off') body = { action: 'deactivate', email: email };
+    else if (act === 'on') body = { action: 'upsert', user: { email: email, active: true } };
+    else return;
+    b.disabled = true;
+    post('users', body).then(function (d) { if (take(d)) { delete draft[email]; render(); toast(act === 'off' ? 'הוסר' : 'נשמר'); loadActs(); } else b.disabled = false; })
+      .catch(function () { b.disabled = false; toast('אין חיבור', true); });
+  });
+  $('addForm').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var email = $('addEmail').value.trim().toLowerCase(), name = $('addName').value.trim();
+    if (!email) return;
+    if (users.some(function (u) { return u.email === email; })) { toast('כבר ברשימה', true); return; }
+    post('users', { action: 'upsert', user: { email: email, name: name, role: 'staff', pages: [], layers: [] } }).then(function (d) {
+      if (take(d)) { $('addEmail').value = ''; $('addName').value = ''; toast('נוסף, עכשיו מסמנים מה רואים'); loadActs(); }
+    }).catch(function () { toast('אין חיבור', true); });
+  });
+
+  function loadActs() {
+    post('actions', { days: Number($('fDays').value) || 7, user: $('fUser').value, limit: 300 }).then(function (d) {
+      if (!d || !d.ok) return;
+      var names = {}; users.forEach(function (u) { names[u.email] = u.name || u.email; });
+      var rows = d.actions || [];
+      $('acts').innerHTML = rows.length ? '<table class="tbl"><thead><tr><th>מתי</th><th>מי</th><th>מה</th></tr></thead><tbody>' + rows.map(function (r) {
+        return '<tr><td class="t">' + esc(when(r.ts)) + '</td><td>' + esc(names[r.u] || r.u) + '</td><td class="u">' + esc(r.a) + '</td></tr>';
+      }).join('') + '</tbody></table>' : '<div class="empty">אין פעולות בתקופה הזאת</div>';
+    }).catch(function () {});
+  }
+  $('fUser').addEventListener('change', loadActs); $('fDays').addEventListener('change', loadActs);
+
+  if (!session) { location.replace(LOGIN); return; }
+  post('me', {}).then(function (d) {
+    if (!d) return;
+    if (!d.ok || !d.user) { location.replace(LOGIN); return; }
+    me = d.user; $('me').textContent = me.email; PAGES = d.all_pages || []; LAYERS = d.all_layers || [];
+    if (me.role !== 'owner') { $('gate').hidden = false; $('gate').textContent = 'העמוד הזה פתוח לבעלים בלבד'; return; }
+    $('main').hidden = false;
+    return post('users', { action: 'list' }).then(function (u) { if (take(u)) loadActs(); });
+  }).catch(function () { $('gate').hidden = false; $('gate').textContent = 'אין חיבור, נסו לרענן'; });
+})();
+</script>
+</body>
+</html>

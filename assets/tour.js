@@ -17,7 +17,7 @@
     '.tour-x{font-size:.9rem;line-height:1.55;color:var(--ink2,#374151);margin:0 0 .8rem}' +
     '.tour-b{display:flex;gap:.45rem;align-items:center}' +
     '.tour-b button{font:inherit;font-size:.86rem;font-weight:600;min-height:38px;padding:0 .9rem;border-radius:6px;border:1.5px solid var(--bdr,#e5e7eb);background:var(--card,#fff);color:var(--ink2,#374151);cursor:pointer}' +
-    '.tour-b button.go{background:var(--green,#0F4C35);border-color:var(--green,#0F4C35);color:#fff}' +
+    '.tour-b button.go{background:var(--green,#0F4C35);border-color:var(--green,#0F4C35);color:#fff}html[data-theme=dark] .tour-b button.go{color:#08170F}' +
     '.tour-b button.skip{margin-inline-start:auto;border:none;background:none;color:var(--ink3,#6b7280);font-weight:500;padding:0 .3rem}' +
     '.tour-dots{display:flex;gap:4px;margin:0 0 .6rem}.tour-dots i{width:6px;height:6px;border-radius:3px;background:var(--bdr,#e5e7eb)}.tour-dots i.on{background:var(--gold,#A8853C);width:16px}' +
     'html[data-theme=dark] .tour-card{background:var(--card,#1A201C);border-color:rgba(199,174,122,.35)}' +

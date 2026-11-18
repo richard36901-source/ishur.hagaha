@@ -161,9 +161,9 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@300;400;500;600&display=swap" rel="stylesheet">
 
 <!-- config first: every id, link and price below comes from it -->
-<script src="config.js?v=82"></script>
+<script src="config.js?v=87"></script>
 <script src="assets/tracking.js?v=23"></script>
-<script src="assets/guard.js?v=19"></script>
+<script src="assets/guard.js?v=21"></script>
 <script src="assets/lead.js?v=24"></script>
 <script src="assets/messages.js?v=20"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
@@ -1781,6 +1781,8 @@ body.has-promo #nav{top:var(--promo-h,34px)}
 <body>
 
 <!-- NAV -->
+<style>/* 16/11 Richard: the personal area, one tap from every page top */.nav-acts{display:flex;align-items:center;gap:.6rem}.nav-acc{height:38px;padding:0 .9rem;display:inline-flex;align-items:center;gap:.4rem;border:1px solid currentColor;border-radius:6px;color:var(--green);font-family:'Heebo',sans-serif;font-size:.82rem;font-weight:500;text-decoration:none;white-space:nowrap;transition:background .2s}.nav-acc:hover{background:rgba(15,76,53,.07)}#nav.sc .nav-acc{color:#F8F4EA;border-color:rgba(248,244,234,.55)}#nav.sc .nav-acc:hover{background:rgba(248,244,234,.1)}.nav-acc:active{transform:scale(.97)}@media (max-width:560px){.nav-acc{width:38px;padding:0;justify-content:center}.nav-acc span{display:none}}</style>
+<style>/* 16/11: the add-on cards keep their button at the bottom, whatever the text length */.pr-addons-g .pr-addon{display:flex;flex-direction:column}.pr-addons-g .pr-addon > .btn{margin-top:auto!important;align-self:flex-start}.pr-addons-g .pr-addon > .fine{margin-bottom:1rem}</style>
 <nav id="nav">
   <div class="nav-logo">
     <div class="nav-logo-icon">
@@ -1788,7 +1790,10 @@ body.has-promo #nav{top:var(--promo-h,34px)}
     </div>
     <div class="nav-logo-text">אישורי <span>הגעה</span></div>
   </div>
-  <button class="nav-btn shake-btn" data-order="nav" id="nav-order-btn">הזמינו עכשיו</button>
+  <div class="nav-acts">
+    <a class="nav-acc" href="account.html" aria-label="אזור אישי"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20c1.5-3.6 4.4-5.4 8-5.4s6.500 1.800 8 5.400"/></svg><span>אזור אישי</span></a>
+    <button class="nav-btn shake-btn" data-order="nav" id="nav-order-btn">הזמינו עכשיו</button>
+  </div>
 </nav>
 
 <!-- HERO -->
@@ -2514,6 +2519,38 @@ const IshurPromo=(()=>{
 /* popup.js is a separate classic script, and a top-level const is not a
    window property. This is how the checkout reaches the offer. */
 window.IshurPromo=IshurPromo;
+/* ══ הזמן חבר (12/11) ═══ a friend who arrived on ishur.io/?ref=CODE. The code is
+   remembered 30 days (config.js refCode). The Worker says which mode the client
+   chose: 'discount' → every package card shows 80% with "הנחת חבר של <שם>";
+   'commission' → prices as usual, the payment is still attributed. Unknown or
+   expired code → nothing changes on the page. */
+const IshurRef=(()=>{
+  const INFO='ishur_ref_info';
+  let code='', info=null;
+  try{ code=CFG.refCode()||''; }catch(e){ code=''; }
+  try{ const raw=sessionStorage.getItem(INFO); const o=raw?JSON.parse(raw):null; if(o&&o.code===code&&code) info=o; }catch(e){}
+  const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  const active=()=>!!(code&&info&&info.ok);
+  const discount=()=>active()&&info.mode==='discount';
+  function price(guests,plan){ return discount()?CFG.refPrice(guests,plan):CFG.refPrice(null,plan); }
+  function tag(){ return discount()?'הנחת חבר':''; }   /* 12/11 Richard: no name of who referred */
+  function repaint(){ try{ const sel=document.getElementById('pr-guests'); if(typeof renderPlans==='function') renderPlans(sel?sel.value:''); }catch(e){} try{ if(window.IshurPopup&&IshurPopup.repaint) IshurPopup.repaint(); }catch(e){} }
+  async function boot(){
+    if(!code||info) { if(info) repaint(); return; }
+    try{
+      const r=await fetch(CFG.endpoint('referral')+'?code='+encodeURIComponent(code));
+      const j=await r.json();
+      info={ code, ok:!!(j&&j.ok), mode:(j&&j.mode)||'', name_first:(j&&j.name_first)||'' };
+      try{ sessionStorage.setItem(INFO,JSON.stringify(info)); }catch(e){}
+      if(!info.ok){ try{ CFG.forgetRef(); }catch(e){} code=''; return; }
+      try{ push('referral_landing',{mode:info.mode}); }catch(e){}
+      repaint();
+    }catch(e){}
+  }
+  if(code) boot();
+  return { code:()=>code, mode:()=>active()?info.mode:'', name:()=>active()?info.name_first:'', active, discount, price, tag };
+})();
+window.IshurRef=IshurRef;
 
 // ═══ PRICING ═══ a guest picker and the three packages, priced live
 function buildPricing(){
@@ -2539,7 +2576,10 @@ function renderPlans(guests){
   wrap.innerHTML=CFG.PLAN_ORDER.map(k=>{
     const p=CFG.PLANS[k];
     const price=(guests&&!custom)?CFG.priceFor(guests,k):null;
-    const pr=(offer&&price!=null)?CFG.offerPrice(offer,guests,k):null;
+    let pr=(offer&&price!=null)?CFG.offerPrice(offer,guests,k):null;
+    /* 12/11 הזמן חבר: a friend's 80% (discount mode) when no campaign offer already applies */
+    const friend=!(pr&&pr.applies)&&price!=null&&window.IshurRef&&IshurRef.discount();
+    if(friend) pr=IshurRef.price(guests,k);
     const cut=!!(pr&&pr.applies);
     return `<button type="button" class="plan-opt${k==='pro'?' rec':''}" data-plan="${k}">
       ${k==='pro'?'<span class="plan-rec">המומלץ ביותר</span>':''}
@@ -2548,7 +2588,7 @@ function renderPlans(guests){
         <span class="plan-opt-note">${p.desc}</span>
       </span>
       <span class="plan-opt-price">${
-        cut?`<span class="was"><span class="cur">₪</span>${pr.original}</span><span class="now"><span class="cur">₪</span>${pr.final}</span><em>לאירוע אחד</em><span class="promo-save">חסכתם ${pr.saved} ש״ח</span>`
+        cut?`<span class="was"><span class="cur">₪</span>${pr.original}</span><span class="now"><span class="cur">₪</span>${pr.final}</span><em>לאירוע אחד</em><span class="promo-save">${friend?IshurRef.tag()+' · ':''}חסכתם ${pr.saved} ש״ח</span>`
         : price?`<span class="cur">₪</span>${price}<em>לאירוע אחד</em>`
         : custom?'<b>הצעה אישית</b>'
         : `<span class="from">החל מ-</span><span class="cur">₪</span>${CFG.fromPrice(k)}`
@@ -2974,6 +3014,6 @@ window.addEventListener('load',()=>{
 </div>
 
 <script src="assets/select.js?v=19"></script>
-<script src="assets/popup.js?v=42"></script>
+<script src="assets/popup.js?v=43"></script>
 </body>
 </html>

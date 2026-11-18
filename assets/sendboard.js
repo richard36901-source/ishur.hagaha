@@ -93,9 +93,17 @@
     if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
   }
 
-  function rowHtml(ev, t, ei, ti) {
+  function rowHtml(ev, t, ei, ti, simple) {
     var Z = ev.invited, X = t.delivered, Y = t.sent;
     var pct = function (n) { return Z ? Math.max(0, Math.min(100, n / Z * 100)) : 0; };
+    /* 16/11 Richard: inside a client's popup only the progress of each send — one line, one bar; the full breakdown stays behind the ⓘ */
+    if (simple) {
+      var A = t.audience || Z, p2 = function (n) { return A ? Math.max(0, Math.min(100, n / A * 100)) : 0; };
+      var state = !Y && t.pending.total ? 'מתוכנן' + (t.due ? ' ל-' + dmy(t.due) : '') : !Y ? 'עוד לא יצא' : 'נמסרו <b>' + X + '</b> מתוך <b>' + A + '</b>' + (t.failed.total ? ' · ' + t.failed.total + ' נכשלו' : '');
+      return '<div class="sb-row sb-s"><div class="sb-top"><span class="sb-type">' + esc(t.he) + '</span><span class="sb-main">' + state + '</span>' +
+        (t.people ? '<button type="button" class="sb-i" data-e="' + ei + '" data-t="' + ti + '" aria-label="פירוט · ' + esc(t.he) + '">ⓘ</button>' : '') + '</div>' +
+        '<div class="sb-bar" aria-hidden="true"><i style="width:' + p2(X) + '%;background:var(--sb-ok)"></i><i style="width:' + p2(t.failed.total) + '%;background:var(--sb-bad)"></i></div></div>';
+    }
     var bar = '<div class="sb-bar" aria-hidden="true">' +
       '<i style="width:' + pct(t.read) + '%;background:var(--sb-ok)"></i>' +
       '<i style="width:' + pct(X - t.read) + '%;background:var(--sb-ok);opacity:.55"></i>' +
@@ -209,20 +217,22 @@
     var note = '';
     if (d.__fixture) note = '<p class="sb-note"><b>נתוני דוגמה</b> · הנתיב /api/send-board עוד לא פרוס, אז מוצג קובץ שנבנה מנתונים חיים ב-' + esc(when(d.fixture && d.fixture.built_at)) + '. ' + esc((d.fixture && d.fixture.note) || '') + '</p>';
     else note = '<p class="sb-note">מקור: סטטוסי מסירה של מטא (wa_status) מול ההודעות שיצאו (wa_out), לפי מזהה ההודעה · ' + esc(d.window_days || '') + ' ימי יומן' + (d.cached ? ' · מהמטמון' : '') + ' · עודכן ' + esc(when(d.generated_at)) + '</p>';
-    if (!opt.token) note += priorityHtml(d);
-    note += capHtml(d.cap);
+    /* 16/11: the order of sends and the cap live under שליחות ושיחות (only: 'plan'); a client's popup shows only that client's progress (simple) */
+    if (opt.only === 'plan') { el.innerHTML = priorityHtml(d) + capHtml(d.cap); return; }
+    if (opt.simple) note = '';
+    else { if (!opt.token) note += priorityHtml(d); note += capHtml(d.cap); }
     /* 03/11: linked sub-events (שבת חתן): one message type each, own markers */
     var subs = (d.subevents || []).filter(function (x) { return !opt.token || x.token.slice(0, 8) === String(opt.token).slice(0, 8) || x.parent.slice(0, 8) === String(opt.token).slice(0, 8); });
     var subHtml = subs.length ? '<div class="sb-grid">' + subs.map(function (x) {
       return '<div class="sb-ev"><div class="sb-evh"><span class="n">' + esc(x.name) + ' · תת-אירוע</span><span class="d">' + esc(x.template) + ' · אורח ' + esc(x.parent.slice(0, 8)) + '</span></div>' +
         x.types.map(function (t) { return '<p class="sb-note"><b>' + esc(t.he) + '</b> · נשלחו ' + t.sent + ' מתוך ' + t.invited + ' · נמסרו ' + t.delivered + ' · נקראו ' + t.read + ' · נכשלו ' + t.failed + ' · ממתינים ' + t.pending + ' · ענו ' + t.replied + (x.empty_phone_rows ? ' · <span style="color:var(--sb-bad)">' + x.empty_phone_rows + ' שורות בלי טלפון</span>' : '') + '</p>'; }).join('') + '</div>';
     }).join('') + '</div>' : '';
-    if (!evs.length) { el.innerHTML = note + (subHtml || '<p class="sb-empty">אין אירועים פעילים עם שליחות.</p>'); return; }
+    if (!evs.length) { el.innerHTML = note + (subHtml || '<p class="sb-empty">' + (opt.simple ? 'עוד לא יצאו שליחות לאירוע הזה.' : 'אין אירועים פעילים עם שליחות.') + '</p>'); return; }
     el.innerHTML = note + subHtml + '<div class="sb-grid">' + evs.map(function (ev, ei) {
       var types = opt.compact ? ev.types.filter(function (t) { return t.sent || t.pending.reopened || t.pending.queue || t.pending.window || t.pending.cap || t.pending.hold; }) : ev.types;
       if (opt.compact && !types.length) types = ev.types.slice(0, 1);
-      return '<div class="sb-ev" data-tok="' + esc(ev.short) + '"><div class="sb-evh"><span class="n">' + esc(ev.name) + (ev.held ? ' · <span style="color:var(--sb-bad)">בהשהיה</span>' : '') + '</span><span class="d">' + dmy(ev.date) + ' · ' + ev.invited + ' מוזמנים</span></div>' +
-        types.map(function (t) { return rowHtml(ev, t, ei, ev.types.indexOf(t)); }).join('') + '</div>';
+      return '<div class="sb-ev" data-tok="' + esc(ev.short) + '">' + (opt.simple ? '' : '<div class="sb-evh"><span class="n">' + esc(ev.name) + (ev.held ? ' · <span style="color:var(--sb-bad)">בהשהיה</span>' : '') + '</span><span class="d">' + dmy(ev.date) + ' · ' + ev.invited + ' מוזמנים</span></div>') +
+        types.map(function (t) { return rowHtml(ev, t, ei, ev.types.indexOf(t), opt.simple); }).join('') + '</div>';
     }).join('') + '</div>';
     el.onclick = function (e) {
       var b = e.target.closest('.sb-i'); if (!b) return;
@@ -235,7 +245,9 @@
     opt = opt || {}; injectCss(); themeFromOs();
     el.classList.add('sbx');
     el.innerHTML = '<p class="sb-empty">טוען את לוח המסירה…</p>';
-    var body = opt.token ? { token: opt.token } : {};
+    /* the popup of one client reads the shared board (one 5-minute cache for everybody) and shows only its own event */
+    var body = opt.token && !opt.simple ? { token: opt.token } : {};
+    if (opt.simple || opt.only) el.innerHTML = '<p class="sb-empty">טוען. בפעם הראשונה זה לוקח עד דקה וחצי, אחר כך מיידי.</p>';
     function fixture() {
       return fetch((opt.fixtureUrl || 'send-board.fixture.json') + '?v=1', { cache: 'no-store' })
         .then(function (r) { return r.ok ? r.json() : null; })

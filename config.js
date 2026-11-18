@@ -71,7 +71,7 @@ window.ISHUR_CONFIG = (function () {
   var PLANS = {
     basic: {
       key: 'basic', name: 'בסיס', label: 'BASE',
-      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + סידורי הושבה + ניהול תקציב אירוע + קישור מתנות ביט/פייבוקס',
+      desc: 'שליחת הזמנה + תזכורת למי שלא ענה + דף מעקב 24/7 + תזכורת יום לפני + סידורי הושבה + הודעה עם מספר שולחן + ניהול תקציב אירוע + קישור מתנות ביט/פייבוקס + קישור לוויז',
       features: [
         'הזמנה דיגיטלית לאורחים בוואטסאפ',
         '2 הודעות אישורי הגעה (הזמנה + תזכורת למי שלא ענה)',
@@ -83,7 +83,7 @@ window.ISHUR_CONFIG = (function () {
     },
     pro: {
       key: 'pro', name: 'פרמיום', label: 'PREMIUM',
-      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + סבב שיחות אחד + הודעת תודה יום אחרי + סידורי הושבה + ניהול תקציב אירוע + קישור מתנות ביט/פייבוקס',
+      desc: 'שליחת הזמנה + תזכורת למי שלא ענה + דף מעקב 24/7 + תזכורת יום לפני + סבב שיחות אחד + הודעת תודה יום אחרי + סידורי הושבה + הודעה עם מספר שולחן + ניהול תקציב אירוע + קישור מתנות ביט/פייבוקס + קישור לוויז',
       features: [
         'כל מה שבחבילת בסיס',
         'סבב שיחות מסוכן AI למי שלא ענה ולמתלבטים',
@@ -93,7 +93,7 @@ window.ISHUR_CONFIG = (function () {
     },
     premium: {
       key: 'premium', name: 'הכל כלול', label: 'ALL INCLUSIVE',
-      desc: 'שליחת הזמנה + דף מעקב 24/7 + תזכורת יום לפני + 3 סבבי שיחות + הודעת דחייה או ביטול + הודעת תודה יום אחרי האירוע + סידורי הושבה + ניהול תקציב אירוע + קישור מתנות ביט/פייבוקס',
+      desc: 'שליחת הזמנה + תזכורת למי שלא ענה + דף מעקב 24/7 + תזכורת יום לפני + 3 סבבי שיחות + הודעת דחייה או ביטול + הודעת תודה יום אחרי האירוע + סידורי הושבה + הודעה עם מספר שולחן + ניהול תקציב אירוע + קישור מתנות ביט/פייבוקס + קישור לוויז',
       features: [
         'כל מה שבחבילת פרמיום',
         '3 סבבי שיחות מסוכן AI',
@@ -361,6 +361,12 @@ window.ISHUR_CONFIG = (function () {
       desc: 'עד 10 מוזמנים נוספים חינם. מעבר לזה, או למסלול עם שיחות, משלמים רק את ההפרש',
       plans: []
     },
+    /* 12/11 Richard: the invitation design was only a button on the setup page — clients past setup never saw it */
+    design: {
+      label: 'עיצוב הזמנה',
+      desc: 'הזמנה דיגיטלית מעוצבת לאירוע, לפי הסגנון שתבחרו, כולל 2 סבבי תיקונים, מוכנה לוואטסאפ',
+      plans: []
+    },
     postpone: {
       label: 'הודעת דחייה או עדכון מועד',
       desc: 'הודעה לכל הרשימה על שינוי במועד',
@@ -574,11 +580,11 @@ window.ISHUR_CONFIG = (function () {
         claim: '/api/claim', 'shir-calls': '/api/shir-calls', ops: '/api/ops-stats',
         brain: '/api/brain-toggle', adspend: '/api/adspend', seating: '/api/seating',
         daily: '/api/daily-run',
-        fixedcost: '/api/fixedcost', costlog: '/api/cost-log', otp: '/api/otp-send',
+        fixedcost: '/api/fixedcost', costlog: '/api/cost-log', journalHostess: '/api/journal-hostess', hostessPay: '/api/hostess-pay', callers: '/api/callers', inviteStyle: '/api/invite-style', inviteStyles: '/api/invite-styles', leadsMonday: '/api/leads-monday', hostessReceipt: '/api/hostess-receipt', eventCost: '/api/event-cost', otp: '/api/otp-send',
         inbox: '/api/inbox', wasend: '/api/wa-send', senddate: '/api/send-date',
         pause: '/api/pause', blockphone: '/api/block-phone', eventflag: '/api/event-flag',
         traffic: '/api/traffic', campaigns: '/api/campaign-stats', callheard: '/api/call-heard', callboard: '/api/call-board',
-        'client-flags': '/api/client-flags', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'raffle-config': '/api/raffle/config', 'raffle-enter': '/api/raffle/enter', 'raffle-claim': '/api/raffle/claim-google', 'guest-add': '/api/guest-add', 'guest-edit': '/api/guest-edit', 'custom-template': '/api/custom-template', checkin: '/api/checkin', interest: '/api/interest', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', 'preview-invite': '/api/preview-invite', 'board-move': '/api/board-move', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink', giftlinks: '/api/giftlinks', 'hostess-check': '/api/hostess-check', 'design-brief': '/api/design-brief', 'event-change': '/api/event-change', 'feedback-list': '/api/feedback-list', 'account-otp': '/api/account/otp', 'account-login': '/api/account/login', 'account-me': '/api/account/me', 'account-logout': '/api/account/logout', 'account-contact': '/api/account/contact', 'review-claim': '/api/review-claim', leads: '/api/leads', 'lead-update': '/api/lead-update'
+        'client-flags': '/api/client-flags', 'client-contact': '/api/client-contact', 'client-phone': '/api/client-phone', 'preview-messages': '/api/preview-messages', 'voice-tools': '/api/voice-tools', 'grant-addon': '/api/grant-addon', 'client-active': '/api/client-active', 'guests-reset': '/api/guests-reset', media: '/api/media', 'addon-quote': '/api/addon-quote', 'addon-pay': '/api/addon-pay', human: '/api/human', mediadl: '/api/media-dl', feedback: '/api/feedback', 'raffle-config': '/api/raffle/config', 'raffle-enter': '/api/raffle/enter', 'raffle-claim': '/api/raffle/claim-google', 'guest-add': '/api/guest-add', 'guest-edit': '/api/guest-edit', 'custom-template': '/api/custom-template', checkin: '/api/checkin', interest: '/api/interest', 'guest-rsvp': '/api/guest-rsvp', budget: '/api/budget', 'client-link': '/api/client-link', 'preview-invite': '/api/preview-invite', 'board-move': '/api/board-move', calendar: '/api/calendar', skip: '/api/skip', seatplan: '/api/seatplan', 'rsvp-info': '/api/rsvp-info', 'rsvp-self': '/api/rsvp-self', navlink: '/api/navlink', giftlinks: '/api/giftlinks', 'hostess-check': '/api/hostess-check', 'design-brief': '/api/design-brief', 'event-change': '/api/event-change', 'feedback-list': '/api/feedback-list', 'account-otp': '/api/account/otp', 'account-login': '/api/account/login', 'account-pin-login': '/api/account/pin-login', 'account-board-pin': '/api/account/board-pin', 'account-board-pin-send': '/api/account/board-pin-send', 'client-pin': '/api/client-pin', 'account-email-otp': '/api/account/email-otp', 'account-email-login': '/api/account/email-login', 'partner-me': '/api/partner/me', 'partner-name': '/api/partner/name', 'partner-create': '/api/partner/create', 'partner-list': '/api/partner/list', 'partner-update': '/api/partner/update', 'account-from-token': '/api/account/from-token', 'account-me': '/api/account/me', 'account-logout': '/api/account/logout', 'account-contact': '/api/account/contact', 'review-claim': '/api/review-claim', leads: '/api/leads', 'lead-update': '/api/lead-update'
       }[kind] || ('/api/' + String(kind || 'event'))); /* 27/10: a key missing here used to post to /api/event and fail as "לא נשמר" (guest-edit, custom-template, checkin, interest). Now it 404s as unknown-route, visible in the worker log. */
     }
     return {
@@ -812,6 +818,72 @@ window.ISHUR_CONFIG = (function () {
     catch (e) { return null; }
   }
 
+  /* ══ הזמן חבר (12/11) ═══ the 80% Grow pages for a friend who came through a
+     client's link in DISCOUNT mode. Richard creates each page by hand in Grow
+     (list: .sdlc/referral-program/grow-pages.md) and pastes the link here.
+     '' = not created yet → the popup mints a server-priced link instead. */
+  var GROW_LINKS_REF = {
+    '50_basic': 'https://pay.grow.link/NTY2OTg~74d13a95cd635406a34814241134a655-NDI4NjU5Mw',
+    '50_pro': 'https://pay.grow.link/NTY2OTg~4255133f8f619a26bc571bbdd398795e-NDI4NjU5OA',
+    '50_premium': 'https://pay.grow.link/NTY2OTg~82a4ffe408518d88aa6515723954251f-NDI4NjU5OQ',
+    '100_basic': 'https://pay.grow.link/NTY2OTg~8f3d836778ea6f4927f163055c1f9467-NDI4NjYwMQ',
+    '100_pro': 'https://pay.grow.link/NTY2OTg~e1c6fa118d99ba1f14edd1311dbe3b40-NDI4NjYwNA',
+    '100_premium': 'https://pay.grow.link/NTY2OTg~ed745ae9fcf410085a1095b74594fa52-NDI4NjYwNQ',
+    '200_basic': 'https://pay.grow.link/NTY2OTg~a6008dad411551714bd7e6c577f11604-NDI4NjYwNg',
+    '200_pro': 'https://pay.grow.link/NTY2OTg~8b932f3a2d584568ca095031b2af2ba2-NDI4NjYwNw',
+    '200_premium': 'https://pay.grow.link/NTY2OTg~0a632588bb77b22af2af78c17af111e6-NDI4NjYwOQ',
+    '300_basic': 'https://pay.grow.link/NTY2OTg~1757c4af27628dc5367791d8a73558dc-NDI4NjYxMA',
+    '300_pro': 'https://pay.grow.link/NTY2OTg~bfed288015cb647a79d2bc97f2daf33c-NDI4NjYxMQ',
+    '300_premium': 'https://pay.grow.link/NTY2OTg~9801a836f9f44a94a3f3e50c6a6e7bee-NDI4NjYxMg',
+    '400_basic': 'https://pay.grow.link/NTY2OTg~c8a4108d38a92d0945b98fffe072dc4b-NDI4NjYxMw',
+    '400_pro': 'https://pay.grow.link/NTY2OTg~190968f85114a90c873e6900a5b54b7c-NDI4NjYxNA',
+    '400_premium': 'https://pay.grow.link/NTY2OTg~e8616162a0036188d25f71787eeb7371-NDI4NjYxNg',
+    '500_basic': 'https://pay.grow.link/NTY2OTg~207ee631121ac123e50f8bd55e078828-NDI4NjYxOQ',
+    '500_pro': 'https://pay.grow.link/NTY2OTg~6408061e4a47b53d1f993adc9f2c76d7-NDI4NjYyMA',
+    '500_premium': 'https://pay.grow.link/NTY2OTg~e5bbdacf44a79065a55c3a93d3202b99-NDI4NjYyMQ',
+    '600_basic': 'https://pay.grow.link/NTY2OTg~5d491375c8562390bc073416bf23d8b8-NDI4NjYyMg',
+    '600_pro': 'https://pay.grow.link/NTY2OTg~5ab4019b1d48d2ca4d55b67de71fdec5-NDI4NjYyMw',
+    '600_premium': 'https://pay.grow.link/NTY2OTg~3973f892550c358c4d04cdaeaf934c5a-NDI4NjYyNQ',
+    '700_basic': 'https://pay.grow.link/NTY2OTg~993c747b5d4ff28b6e88a05b6b6a879a-NDI4NjYyNg',
+    '700_pro': 'https://pay.grow.link/NTY2OTg~4a5621b1a7273260d32f49fe78896959-NDI4NjYyNw',
+    '700_premium': 'https://pay.grow.link/NTY2OTg~c0dcb11d50123b224e5c28b27ff105a5-NDI4NjYyOQ',
+    '800_basic': 'https://pay.grow.link/NTY2OTg~b2a9a1796a562648440e1a75d7bb09a8-NDI4NjYzMA',
+    '800_pro': 'https://pay.grow.link/NTY2OTg~8e78ccc6d6bbf10f17c93defda56e070-NDI4NjYzMQ',
+    '800_premium': 'https://pay.grow.link/NTY2OTg~2ec6e9cb2a75e44e6fe77f9076fc8a9a-NDI4NjYzMg',
+    '900_basic': 'https://pay.grow.link/NTY2OTg~cdd743d42a3dfa3aaac057743fab92fd-NDI4NjYzMw',
+    '900_pro': 'https://pay.grow.link/NTY2OTg~b6f9f474cbf922de04f4825979645eb8-NDI4NjYzNg',
+    '900_premium': 'https://pay.grow.link/NTY2OTg~94b500c572cfbe8500e518a883151b3c-NDI4NjYzNw',
+  };
+  var REF_STORE = PROMO_REF_STORE;                 // 'ishur_ref' { v: '<8 hex>', ts } — shared with the old utm path
+  var REF_TTL_MS = 30 * 24 * 60 * 60 * 1000;       // the cookie lives 30 days
+  var REF_PCT = 20;
+  function normRefCode(v) { v = String(v || '').trim().toLowerCase(); return /^[0-9a-f]{8}$/.test(v) ? v : ''; }
+  /* ?ref=CODE, or the old share link (utm_source=referral&utm_campaign=CODE); remembered 30 days */
+  function refCode() {
+    var fromUrl = normRefCode(queryParam('ref'));
+    if (!fromUrl && /^referral$/i.test(queryParam('utm_source'))) fromUrl = normRefCode(queryParam('utm_campaign'));
+    if (fromUrl) { stash(REF_STORE, fromUrl); return fromUrl; }
+    return normRefCode(unstash(REF_STORE, REF_TTL_MS));
+  }
+  function forgetRef() { var st = store(); if (st) try { st.removeItem(REF_STORE); } catch (e) {} }
+  /* 80% of the package, whole shekels — the same rule as worker/referral.js */
+  function refPrice(tier, plan) {
+    var original = priceFor(tier, plan);
+    var out = { original: original, final: original, saved: 0, applies: false };
+    if (original == null) return out;
+    out.final = Math.round(original * (100 - REF_PCT) / 100);
+    out.saved = original - out.final;
+    out.applies = out.saved > 0;
+    return out;
+  }
+  function refGrowLink(guests, plan, code) {
+    if (!guests || guests === 'custom' || !plan) return null;
+    var u = GROW_LINKS_REF[guests + '_' + plan] || '';
+    if (!u) return null;
+    return u + (u.indexOf('?') > -1 ? '&' : '?') + 'cField3=' + encodeURIComponent('ref:' + code);
+  }
+  function refLink(code) { return 'https://ishur.io/?ref=' + code; }
+
   function stash(key, value) {
     var s = store(); if (!s) return;
     try { s.setItem(key, JSON.stringify({ v: value, ts: Date.now() })); } catch (e) {}
@@ -882,12 +954,7 @@ window.ISHUR_CONFIG = (function () {
     return PROMOS[promoKey] || null;
   }
 
-  /* the referral code this visitor arrived on, url first then storage */
-  function refCode() {
-    var code = queryParam('utm_campaign');
-    if (code && queryParam('utm_source').toLowerCase() === 'referral') return code;
-    return unstash(PROMO_REF_STORE) || '';
-  }
+  /* refCode() (12/11) lives above with the הזמן חבר helpers; same store (ishur_ref), 30 days */
 
   return {
     PROMOS: PROMOS,
@@ -902,6 +969,7 @@ window.ISHUR_CONFIG = (function () {
     forgetPromoCode: forgetPromoCode,
     promoCheckUrl: promoCheckUrl,
     promoGoUrl: promoGoUrl,
+    GROW_LINKS_REF: GROW_LINKS_REF, REF_PCT: REF_PCT, refCode: refCode, forgetRef: forgetRef, refPrice: refPrice, refGrowLink: refGrowLink, refLink: refLink,
     promoReason: promoReason,
     offerPrice: offerPrice, BUNDLES: BUNDLES, bundleFor: bundleFor, bundlePick: bundlePick, bundleKeyOf: bundleKeyOf, bundleTable: bundleTable, bundleLive: bundleLive, bundleApplies: bundleApplies,
 

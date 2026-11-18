@@ -467,6 +467,14 @@ async function post(env, body, channel, ctx) {
           } : {}),
           at: new Date().toISOString(),
         }));
+      /* 12/11 (Richard: "שלוח השליחות יהיה מעודכן"): a per-day index of what went out. The calendar used to scan
+         every log: key ever written and was cut off at its cap, so days came back partial or empty.
+         slog:<IL day>:<ts>:<phone> carries the row in its metadata — one list call per 1000 rows, no reads. */
+      try {
+        const ilDay = new Date(ts + (new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'Asia/Jerusalem' })) - new Date(new Date(ts).toLocaleString('en-US', { timeZone: 'UTC' })))).toISOString().slice(0, 10);
+        await env.RATE.put('slog:' + ilDay + ':' + ts + ':' + String(body.to || ''), '1', { expirationTtl: 200 * 86400,
+          metadata: { ch, ok: !!res.ok, t: body.type === 'template' ? String((body.template || {}).name || '') : String(body.type || ''), tok: ctx && typeof ctx === 'object' ? String(ctx.token || '').slice(0, 8) : '', e: String(res.error || '').slice(0, 60) } });
+      } catch {}
       stream(env, { kind: 'wa_out', area: ch === 'guests' ? 'שיר' : 'נועה', data: { phone_id: phoneId, wamid: res.id || '', template: body.type === 'template' ? String((body.template || {}).name || '') : '', error: res.error || '' }, action: (res.ok ? '📤 ' : '⛔ ') + (body.type === 'template' ? 'תבנית ' + String((body.template || {}).name || '') : body.type === 'text' ? 'הודעה' : body.type) + ' → ' + String(body.to || ''), ok: res.ok, phone: String(body.to || ''), token: ctx && ctx.token ? String(ctx.token) : '', detail: (res.ok ? '' : String(res.error || '') + ' · ') + summary.slice(0, 400) }).catch(() => {});
       await touchConversation(env, String(body.to || ''), {
         ts, dir: 'out', text: summary.slice(0, 80), ch,
@@ -634,6 +642,9 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   let altName = '';
   if (!isClient) { try { altName = env.RATE ? (await env.RATE.get('tmplalt:' + name)) || '' : ''; } catch {} }
   if (altName) name = altName;
+  /* 18/11 (Richard): a spaced twin of this guest template, once approved as UTILITY and switched on (index.js spacedFamily) */
+  if (!isClient) { try { const sp = env.RATE ? await env.RATE.get('tmplsp:' + name) : null; if (sp) name = sp; } catch {} }
+  if (altName) { /* the copy is already the live name */ }
   else if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
   else { try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {} }
   /* 02/11 audit: Meta refuses a body variable with a newline / tab / more
@@ -861,8 +872,14 @@ export function extractInbound(payload) {
 }
 
 /* Which guest row does this phone belong to? Prefer the nearest upcoming
-   event; fall back to the most recent row. */
-export function findGuestByPhone(raw, phone, todayIso) {
+   event; fall back to the most recent row.
+   15/11 (Richard: "תראה שיש הפרדה בין אירועים של לקוחות"): a guest on two lists — the henna that
+   passed and the wedding whose invitations have not gone out yet — answered the henna message and
+   was written down as coming to the wedding. For an ANSWER (opts.preferContacted) the event that
+   actually wrote to this guest wins: a send date on the row, an answer already there, a call made,
+   or a send mark the caller found (opts.sent = Set of tokens). Only among those does "nearest
+   upcoming" decide; with none contacted the old rule stands. */
+export function findGuestByPhone(raw, phone, todayIso, opts = {}) {
   const gRows = (raw.guests && raw.guests.values) || [];
   const evRows = (raw.events && raw.events.values) || [];
   const dates = {};
@@ -888,8 +905,11 @@ export function findGuestByPhone(raw, phone, todayIso) {
       rsvp: String(r[15] || '').trim(),
       party: Number(String(r[13] || '').trim()) || Number(String(r[5] || '').trim()) || 0,
     };
+    cand.contacted = [8, 9, 10].some(c => String(r[c] || '').trim()) || !!cand.rsvp || cand.tries > 0 || !!(opts.sent && opts.sent.has(token));
     if (!cand.guest_id) continue;
     if (!best) { best = cand; continue; }
+    if (opts.preferContacted && cand.contacted !== best.contacted) { if (cand.contacted) best = cand; continue; }
+    if (opts.preferContacted && !cand.upcoming && !best.upcoming) { if (cand.date > best.date) best = cand; continue; }   /* both past: the latest */
     if (cand.upcoming && !best.upcoming) best = cand;
     else if (cand.upcoming === best.upcoming && cand.date > best.date === false && cand.upcoming) {
       /* both upcoming: keep the sooner one */

@@ -117,7 +117,10 @@ export function priceQuote(b) {
   if (hostesses && !HOSTESS_PRICE[hostesses]) return { ok: false, why: 'hostesses-unpriced' };
   const calls = !!a.calls && !CALLS_INCLUDED.includes(plan);
 
-  const lines = [{ key: 'pkg', label: `${records} רשומות ${PLAN_HE[plan]}`, price: PKG_PRICES[records][plan] }];
+  /* 12/11 הזמן חבר: discount_pct (20) takes the package line to 80%, whole shekels; add-ons stay at list */
+  const dp = Math.max(0, Math.min(50, Number(b.discount_pct) || 0));
+  const pkgPrice = dp ? Math.round(PKG_PRICES[records][plan] * (100 - dp) / 100) : PKG_PRICES[records][plan];
+  const lines = [{ key: 'pkg', label: `${records} רשומות ${PLAN_HE[plan]}${dp ? ' · הנחת חבר' : ''}`, price: pkgPrice, ...(dp ? { list: PKG_PRICES[records][plan], discount_pct: dp } : {}) }];
   if (design) lines.push({ key: 'design', label: 'עיצוב הזמנה', price: DESIGN_PRICE });
   if (hostesses) lines.push({ key: 'host', label: hostesses === 1 ? 'דיילת אחת' : `${hostesses} דיילות`, price: HOSTESS_PRICE[hostesses] });
   if (travel) lines.push({ key: 'travel', label: 'נסיעות דיילות', price: travelFor(hostesses) });
@@ -149,6 +152,28 @@ export function readQuoteRef(flat) {
   }
   if (!idm && !code) return null;
   return { id: idm ? idm[1] : '', code };
+}
+
+/* 12/11 security: cField1 travels through the payer's browser (a Grow link takes ?cField1=…), so a code or a
+   quote id found in an IPN is a CLAIM, not a fact. It is honoured only when the money that actually arrived
+   covers the cheapest legitimate price of what it claims: the stored quote's own sum, or — when the KV row is
+   gone — the server price of the code with the friend discount, now and one quote-lifetime (30 d) ago.
+   → { ok, expected, paid }. ok:false = treat the payment by its description and raise a hand. */
+export function purchaseCovered(p, paidRaw, now = Date.now()) {
+  const paid = Number(String(paidRaw == null ? '' : paidRaw).replace(/[^\d.]/g, ''));
+  let expected = null;
+  if (p && p.sum != null && Number.isFinite(Number(p.sum)) && Number(p.sum) > 0) expected = Number(p.sum);
+  else if (p && p.plan && p.records) {
+    const sums = [];
+    for (const at of [now, now - 30 * 86400e3]) for (const no_calls of [false, true]) {
+      const r = priceQuote({ plan: p.plan, records: p.records, phone: '0500000000', name: 'xx', discount_pct: 20, no_calls, now: at,
+        addons: { hostesses: Number(p.hostesses) || 0, design: !!p.design, travel: !!p.travel, extra_wave: !!p.extra_wave, calls: !!p.calls } });
+      if (r.ok) sums.push(r.quote.sum);
+    }
+    if (sums.length) expected = Math.min(...sums);
+  }
+  if (expected == null || !Number.isFinite(paid)) return { ok: false, expected, paid: Number.isFinite(paid) ? paid : null };
+  return { ok: paid + 1 >= expected, expected, paid };
 }
 
 /* free-form description has a package in it ("100 רשומות בסיס …")? */

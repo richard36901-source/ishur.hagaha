@@ -37,6 +37,25 @@ function paymentType(method) {
 
 /* The terms, as they appear on the document. A digest of terms.html, in the
    order a client would ask about them. Section numbers match the site. */
+/* 12/11 Richard: an invoice that includes hostesses carries their terms (terms.html §2א, the binding text) */
+export const HOSTESS_TERMS = [
+  'דיילות באירוע (תמצית סעיף 2א בתקנון):',
+  'א. התפקיד: קבלת פני האורחים בכניסה, סימון הגעה בלוח הבקרה והכוונה לשולחנות. לא כלול כל תפקיד אחר (מלצרות, מתנות, ספקים, ילדים, הפקה).',
+  'ב. ביום האירוע לא ניתן להוסיף משימות, שעות או דיילות מעבר למה שהוזמן ושולם מראש.',
+  'ג. שעות: הגעה 40 דקות לפני שעת קבלת הפנים שנמסרה, עד החופה.',
+  'ד. נסיעות: כלולות באזור המרכז (אשקלון עד הרצליה). מחוץ לו תוספת נסיעות, משולמת מראש.',
+  'ה. הצוות (דיילת או דייל) נקבע על ידי ishur.io לפי זמינות, ללא התחייבות לאיש צוות מסוים.',
+].join('\n');
+/* 12/11 Richard: an invoice that includes the invitation design carries its terms (terms.html §2ב) */
+export const DESIGN_TERMS = [
+  'עיצוב הזמנה (תמצית סעיף 2ב בתקנון):',
+  'א. כלול: עיצוב אחד של הזמנה דיגיטלית לוואטסאפ, לפי הבקשה שנשלחה בלוח הבקרה, ושני סבבי תיקונים.',
+  'ב. כל סבב תיקונים מעבר לשניים: ₪49 לסבב, לרכישה מלוח הבקרה.',
+  'ג. הגרסה נשלחת לאישור בלוח הבקרה. אישור הלקוח סוגר את העבודה, והעיצוב המאושר הופך לתמונת ההזמנה של האירוע.',
+  'ד. ההזמנה נמסרת כקובץ דיגיטלי בלבד, ללא הדפסה. נכונות הפרטים שבהזמנה (שמות, תאריך, שעה, מקום) באחריות הלקוח.',
+].join('\n');
+export const hasDesign = p => !!(p && (p.design || /עיצוב\s*הזמנה/.test(String(p.description || '') + ' ' + String(p.plan || ''))));
+export const hasHostess = p => !!(p && (p.hostess || /דייל/.test(String(p.description || '') + ' ' + String(p.plan || ''))));
 export function invoiceTerms({ tier, plan } = {}) {
   const cap = tier ? `עד ${tier} הזמנות (מספר טלפון אחד = הזמנה אחת)` : 'לפי החבילה שנרכשה';
   return [
@@ -77,7 +96,8 @@ export async function createInvoice(env, p) {
 
   const today = new Date().toISOString().slice(0, 10);
   const phone = String(p.phone || '').replace(/^972/, '0');
-  const line = [
+  /* 12/11: an add-on invoice names the add-on (e.g. עיצוב הזמנה), not the package line */
+  const line = p.description ? String(p.description).slice(0, 160) : [
     'אישורי הגעה בוואטסאפ',
     p.plan ? `חבילת ${p.plan}` : '',
     p.tier ? `עד ${p.tier} הזמנות` : '',
@@ -90,7 +110,7 @@ export async function createInvoice(env, p) {
     currency: 'ILS',
     date: today,
     description: line,
-    remarks: invoiceTerms({ tier: p.tier, plan: p.plan }),
+    remarks: invoiceTerms({ tier: p.tier, plan: p.plan }) + (hasHostess(p) ? '\n\n' + HOSTESS_TERMS : '') + (hasDesign(p) ? '\n\n' + DESIGN_TERMS : ''),
     footer: `אסמכתת סליקה (Grow): ${p.ref || ''} · שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io`,
     client: {
       name: String(p.name || 'לקוח ishur.io').slice(0, 100),
@@ -109,6 +129,8 @@ export async function createInvoice(env, p) {
     }],
     payment: [{
       type: paymentType(p.payMethod),
+      /* Morning: type 10 (payment app) needs appType — 1 = Bit, 2 = PayBox (error 2438 otherwise) */
+      ...(paymentType(p.payMethod) === 10 ? { appType: /paybox|פייבוקס/i.test(String(p.payMethod || '')) ? 2 : 1 } : {}),
       price: sum,
       currency: 'ILS',
       date: today,

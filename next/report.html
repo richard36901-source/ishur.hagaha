@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>דוח · ishur.io</title>
+<!-- 16/11/2026 (Richard): a short report of the business for a period — activity, profit and loss, and what needs
+     his attention — that reads well on screen and saves as a branded PDF (the browser's "save as PDF").
+     Same numbers as the money screen: /api/cost-log + Meta's daily spend through IshurJournal.buildLines. -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=74"></script>
+<script src="/next/assets/adminbar.js?v=17" defer></script>
+<script src="/assets/pnl-journal.js?v=12"></script>
+<style>
+  :root{--pine:#0F2E22;--gold:#A8853C;--bg:#FAF8F1;--card:#fff;--line:#E3E1D8;--ink:#1B2620;--ink2:#4A554C;--ink3:#7A8279;--ok:#0F4C35;--warn:#A8402F}
+  html[data-theme=dark]{--bg:#131714;--card:#1A201C;--line:#2A322C;--ink:#ECEFEA;--ink2:#C3CCC5;--ink3:#93A097;--pine:#7BC9A4;--ok:#4CAF82;--warn:#F08A8A}
+  *{box-sizing:border-box;margin:0}
+  body{font-family:'Heebo',system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.55;padding-bottom:3rem}
+  .wrap{max-width:900px;margin:0 auto;padding:1rem}
+  .gate{max-width:340px;margin:4rem auto;display:flex;flex-direction:column;gap:.6rem}
+  .gate[hidden]{display:none}
+  .gate input,.gate button,.bar button{font:inherit;min-height:38px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .8rem}
+  .bar{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:0 0 1rem}
+  .seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+  .seg button{border:0;border-radius:0;border-inline-start:1px solid var(--line);font-weight:600;font-size:.84rem;cursor:pointer}
+  .seg button:first-child{border-inline-start:0}.seg button[aria-pressed=true]{background:var(--pine);color:#fff}
+  html[data-theme=dark] .seg button[aria-pressed=true]{color:#0A2119}
+  .go{background:var(--pine)!important;color:#fff!important;border-color:transparent!important;font-weight:600;cursor:pointer;margin-inline-start:auto}
+  .sheet{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1.6rem 1.8rem}
+  .brand{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:2px solid var(--gold);padding-bottom:.7rem;margin-bottom:1.1rem}
+  .brand h1{font-family:'Frank Ruhl Libre',serif;font-size:1.7rem;color:var(--pine);line-height:1}
+  .brand h1 i{font-style:normal;color:var(--gold)}
+  .brand p{font-size:.84rem;color:var(--ink3);text-align:left}
+  h2{font-size:.95rem;margin:1.3rem 0 .5rem;color:var(--pine)}
+  .tiles{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem}
+  .t{border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem}.t b{display:block;font-size:1.25rem;line-height:1.2}.t span{font-size:.74rem;color:var(--ink3)}
+  html[data-theme=dark] .go{color:#0A2119!important}html[data-theme=dark] .t.hi{background:#17382A}html[data-theme=dark] .t.hi b{color:#8FD3AE}html[data-theme=dark] .t.lo{background:#3F211D}html[data-theme=dark] .t.lo b{color:#F2A79C}
+  .t.hi{background:#EAF4EE}.t.hi b{color:#0F4C35}.t.lo{background:#FBECEA}.t.lo b{color:#8E2F22}
+  table{border-collapse:collapse;width:100%;font-size:.84rem}
+  th{font-size:.7rem;color:var(--ink3);text-align:start;font-weight:500;padding:.3rem .4rem;border-bottom:1px solid var(--line)}
+  td{padding:.35rem .4rem;border-bottom:1px solid var(--line)}
+  td.n,th.n{text-align:end;font-variant-numeric:tabular-nums;white-space:nowrap}
+  .att li{margin:.25rem 0;font-size:.88rem}.att{padding-inline-start:1.1rem}
+  .none{color:var(--ink3);font-size:.86rem}
+  .foot{margin-top:1.4rem;font-size:.72rem;color:var(--ink3);border-top:1px solid var(--line);padding-top:.5rem}
+  @media (max-width:640px){.tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.sheet{padding:1rem}}
+  @media print{
+    @page{size:A4;margin:14mm}
+    body{background:#fff;padding:0}.ibar,.ibar-menu,.ibar-tmenu,.bar,.gate{display:none!important}
+    .wrap{max-width:none;padding:0}.sheet{border:0;padding:0}
+    .t.hi,.t.lo,.pj-bh,.pj-bn,.pj-b1,.pj-b2{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    h2{break-after:avoid}tr{break-inside:avoid}
+  }
+</style>
+</head>
+<body>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="none" id="keyErr"></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <div class="bar">
+    <span class="seg" id="rng"><button data-r="week" aria-pressed="true">7 ימים</button><button data-r="month" aria-pressed="false">החודש</button><button data-r="prev" aria-pressed="false">חודש קודם</button></span>
+    <button class="go" id="pdf">שמירה כ-PDF</button>
+  </div>
+  <article class="sheet" id="sheet"><p class="none">טוען…</p></article>
+</main>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, J = window.IshurJournal, $ = function (id) { return document.getElementById(id); };
+  var key = ''; try { key = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var range = 'week', cost = null, adByDay = {}, cal = {}, leads = null, fixed = null;
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function n0(x) { return Math.round(Math.abs(Number(x) || 0)).toLocaleString('he-IL'); }
+  function n2(x) { return (Number(x) || 0).toLocaleString('he-IL', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function today() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+  function shift(d, n) { return new Date(Date.parse(d + 'T12:00:00Z') + n * 864e5).toISOString().slice(0, 10); }
+  function dm(d) { return d.slice(8, 10) + '/' + d.slice(5, 7) + '/' + d.slice(0, 4); }
+  function period() {
+    var t = today();
+    if (range === 'week') return { from: shift(t, -6), to: t, name: '7 הימים האחרונים' };
+    if (range === 'prev') { var m = J.addMonth(t.slice(0, 7), -1), last = new Date(Date.UTC(+m.slice(0, 4), +m.slice(5, 7), 0)).getUTCDate(); return { from: m + '-01', to: m + '-' + String(last).padStart(2, '0'), name: 'חודש ' + m.slice(5, 7) + '/' + m.slice(0, 4) }; }
+    return { from: t.slice(0, 7) + '-01', to: t, name: 'חודש ' + t.slice(5, 7) + '/' + t.slice(0, 4) + ' עד היום' };
+  }
+  function gate(msg) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = msg || ''; }
+  function post(name, body) { return fetch(CFG.endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ admin_key: key }, body || {})) }).then(function (r) { if (r.status === 403) { gate('המפתח לא נכון'); return null; } return r.ok ? r.json() : null; }).catch(function () { return null; }); }
+  function get(path) { return fetch(CFG.endpoint('status').replace(/\/api\/status$/, '') + path, { headers: { 'x-admin-key': key, Authorization: 'Bearer ' + key } }).then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; }); }
+  function months(p) { var out = [], m = p.from.slice(0, 7); while (m <= p.to.slice(0, 7)) { out.push(m); m = J.addMonth(m, 1); } return out; }
+  function load() {
+    if (!key) return gate('');
+    $('gate').hidden = true; $('main').hidden = false;
+    var p = period();
+    Promise.all([post('costlog', {}), post('campaigns', { days: 400 }), post('adspend', { action: 'list' }), get('/api/crm/leads/board')].concat(months(p).map(function (m) { return post('calendar', { month: m }); }))).then(function (r) {
+      if (!r[0]) return;
+      cost = r[0]; adByDay = {}; ((r[1] && r[1].rows) || []).forEach(function (x) { adByDay[x.date] = (adByDay[x.date] || 0) + (Number(x.spend) || 0); });
+      fixed = r[2]; leads = r[3]; cal = {};
+      r.slice(4).forEach(function (c) { if (c && c.days) Object.keys(c.days).forEach(function (d) { cal[d] = c.days[d]; }); });
+      draw();
+    });
+  }
+  function draw() {
+    var p = period(), lines = J.buildLines(cost, adByDay, 3.7, today()), t = J.totals(lines, p.from, p.to);
+    var inP = lines.filter(function (l) { return l.date >= p.from && l.date <= p.to; });
+    var deals = []; inP.forEach(function (l) { (l.deals || []).forEach(function (x) { deals.push({ d: l.date, x: x }); }); });
+    deals.sort(function (a, b) { return a.d < b.d ? 1 : -1; });
+    var sent = 0, failed = 0, planned = 0, errs = {};
+    Object.keys(cal).forEach(function (d) { if (d < p.from || d > p.to) return; cal[d].forEach(function (e) { if (e.status === 'sent') sent++; else if (e.status === 'failed') { failed++; var k = String(e.error || 'לא ידוע').slice(0, 50); errs[k] = (errs[k] || 0) + 1; } else if (e.status === 'planned') planned++; }); });
+    var L = (leads && leads.items) || [], newL = L.filter(function (x) { var c = String(x.created_at || '').slice(0, 10); return c >= p.from && c <= p.to; }), st = {};
+    newL.forEach(function (x) { st[x.status || 'ללא'] = (st[x.status || 'ללא'] || 0) + 1; });
+    var waiting = L.filter(function (x) { return x.status === 'חדש' || x.status === 'לא ענה'; }).length;
+    var att = [];
+    if (failed) att.push(n0(failed) + ' הודעות נכשלו בתקופה' + (Object.keys(errs).length ? ' (הנפוצה: ' + esc(Object.keys(errs).sort(function (a, b) { return errs[b] - errs[a]; })[0]) + ')' : ''));
+    if (waiting) att.push(n0(waiting) + ' לידים במצב "חדש" או "לא ענה" מחכים לטיפול');
+    var miss = ((fixed && fixed.items) || []).filter(function (x) { return x.unknown && !x.to_month; }).map(function (x) { return x.name; });
+    if (miss.length) att.push('הוצאות קבועות בלי סכום: ' + esc(miss.join(', ')) + '. הרווח בדוח גבוה בסכום שלהן');
+    if (t.feeEst) att.push('חלק מעמלות הסליקה מחושבות לפי התעריף, לא לפי העמלה בפועל');
+    if (t.red > t.green && t.rev > 0) att.push(t.red + ' ימים בהפסד מול ' + t.green + ' ברווח');
+    var tile = function (v, l, c) { return '<div class="t' + (c ? ' ' + c : '') + '"><b>' + v + '</b><span>' + l + '</span></div>'; };
+    var chart = J.chartHtml(lines, p.from, p.to);
+    $('sheet').innerHTML =
+      '<div class="brand"><h1>ishur<i>.io</i></h1><p>דוח פעילות ורווח והפסד<br>' + esc(p.name) + ' · ' + dm(p.from) + ' עד ' + dm(p.to) + '</p></div>' +
+      '<div class="tiles">' + tile('₪' + n0(t.rev), 'הכנסות · ' + t.pay + ' עסקאות') + tile('₪' + n0(t.total), 'הוצאות') + tile('₪' + n0(t.vat), 'מע״מ לתשלום') + tile(J.signed(t.net), 'רווח אחרי מע״מ', t.net > 0 ? 'hi' : t.net < 0 ? 'lo' : '') + '</div>' +
+      '<h2>דורש התייחסות</h2>' + (att.length ? '<ul class="att">' + att.map(function (a) { return '<li>' + a + '</li>'; }).join('') + '</ul>' : '<p class="none">אין משהו חריג בתקופה הזאת.</p>') +
+      '<h2>הכנסות מול הוצאות</h2>' + chart +
+      '<h2>פירוט ההוצאות</h2><table><tbody>' + [['פרסום במטא', t.ads], ['וואטסאפ', t.wa], ['שיחות (שיר)', t.shir], ['עמלות סליקה Grow', t.fee], ['הוצאות קבועות', t.fixed], ['עלויות אירועים', t.evc]].filter(function (x) { return x[1] > 0; }).map(function (x) { return '<tr><td>' + x[0] + '</td><td class="n">₪' + n2(x[1]) + '</td></tr>'; }).join('') + '<tr><td><b>סך ההוצאות</b></td><td class="n"><b>₪' + n2(t.total) + '</b></td></tr></tbody></table>' +
+      '<h2>עסקאות (' + deals.length + ')</h2>' + (deals.length ? '<table><thead><tr><th>תאריך</th><th>לקוח</th><th>מה נקנה</th><th class="n">סכום</th></tr></thead><tbody>' + deals.map(function (o) { return '<tr><td>' + o.d.slice(8, 10) + '/' + o.d.slice(5, 7) + '</td><td>' + esc(o.x.name || '') + '</td><td>' + esc(String(o.x.desc || '').slice(0, 60)) + '</td><td class="n">₪' + n2(o.x.sum) + '</td></tr>'; }).join('') + '</tbody></table>' : '<p class="none">לא היו עסקאות בתקופה.</p>') +
+      '<h2>שליחות</h2><div class="tiles">' + tile(n0(sent), 'הודעות נשלחו') + tile(n0(failed), 'נכשלו', failed ? 'lo' : '') + tile(n0(planned), 'מתוכננות') + tile(sent + failed ? Math.round(1000 * sent / (sent + failed)) / 10 + '%' : '—', 'שיעור הצלחה') + '</div>' +
+      '<h2>לידים חדשים (' + newL.length + ')</h2>' + (newL.length ? '<table><tbody>' + Object.keys(st).sort(function (a, b) { return st[b] - st[a]; }).map(function (k) { return '<tr><td>' + esc(k) + '</td><td class="n">' + st[k] + '</td></tr>'; }).join('') + '</tbody></table>' : '<p class="none">' + (leads ? 'לא נכנסו לידים חדשים בתקופה.' : 'רשימת הלידים לא נטענה.') + '</p>') +
+      '<p class="foot">הופק ' + dm(today()) + ' · הכנסות כוללות מע״מ; הרווח אחרי מע״מ עסקאות וכל ההוצאות · ishur.io</p>';
+  }
+  $('rng').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; range = b.dataset.r; [].forEach.call($('rng').children, function (x) { x.setAttribute('aria-pressed', String(x === b)); }); if (cost) draw(); load(); });
+  $('pdf').addEventListener('click', function () { window.print(); });
+  $('keyGo').addEventListener('click', function () { key = $('keyIn').value.trim(); if (!key) return; try { localStorage.setItem('ishur_calls_key', key); } catch (e) {} load(); });
+  if (J) J.ensureCss();
+  load();
+})();
+</script>
+</body>
+</html>

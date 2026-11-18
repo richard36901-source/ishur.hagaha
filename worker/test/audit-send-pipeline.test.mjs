@@ -421,3 +421,29 @@ test('/api/cap-status: the enforced shared budget + the audit fields (portfolio/
   assert.deepEqual(b.numbers.map(n => [n.id, n.used]), [['A', 100], ['B', 50]]);
 });
 
+
+/* 18/11 Richard: a Thursday send must not open Shir's round on Friday; it opens on Sunday. A day set by hand is kept. */
+test('engine: the automatic call round never opens on a Friday (Thursday send → Sunday)', async () => {
+  const TK = '77777777-7777-4777-8777-777777777777';
+  const world = w1 => { snapshot = { events: { values: [eventRow({ token: TK, date: '2026-11-30', w1 })] }, guests: { values: [guestRow({ token: TK, id: 'gf1', name: 'נועם', phone: '0508888888' })] } }; };
+  const esc = async (today, w1, extra = {}) => { world(w1); const r = await _runDailyEngine(baseEnv({ [`wave:${TK}:1`]: w1, ...extra }), true, today, {}); assert.equal(r.ok, true); return r.events.filter(e => e.type === 'escalation' && e.queued === 1).length; };
+  assert.equal(await esc('2026-11-20', '2026-11-19'), 0, 'Friday after a Thursday send: no round');
+  assert.equal(await esc('2026-11-22', '2026-11-19'), 1, 'Sunday: the round opens');
+  assert.equal(await esc('2026-11-19', '2026-11-18'), 1, 'Thursday after a Wednesday send: unchanged');
+  assert.equal(await esc('2026-11-20', '2026-11-19', { [`calldate:${TK}`]: '2026-11-20' }), 1, 'a Friday set by hand is kept');
+});
+
+/* 18/11: the "paid event, no invitation" alert fired for waves that reached almost everyone */
+test('engine watchdog: nearly everyone got wave 1 → quiet; some → partial; none → the loud alert', async () => {
+  const TK = '88888888-8888-4888-8888-888888888888';
+  const run = async nSent => {
+    snapshot = { events: { values: [eventRow({ token: TK, date: plusDays(10), w1: plusDays(-1) })] },
+      guests: { values: Array.from({ length: 10 }, (_, i) => guestRow({ token: TK, id: 'gw' + i, name: 'אורח', phone: '05011100' + String(i).padStart(2, '0'), rsvp: 'מגיע' })) } };
+    const store = {}; for (let i = 0; i < nSent; i++) store[`wsent:${TK}:1:9725011100${String(i).padStart(2, '0')}`] = '1';
+    const r = await _runDailyEngine(baseEnv(store), false, null, { force: true });
+    return r.events.filter(e => /^watchdog_/.test(e.type)).map(e => e.type);
+  };
+  assert.deepEqual(await run(9), []);
+  assert.deepEqual(await run(4), ['watchdog_partial_send']);
+  assert.deepEqual(await run(0), ['watchdog_no_send']);
+});

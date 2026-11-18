@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 16/11 back-office sign-in with Google (worker/auth.js). New page; no existing page depends on it yet. -->
+<meta name="robots" content="noindex">
+<title>כניסה · ishur.io</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9}
+  html[data-theme=dark]{--ink:#E8ECE9;--ink2:#B5BFB9;--ink3:#8A958F;--paper:#121815;--card:#1A221E;--line:#2C3832;--pine:#6FBF9B;--gold:#D2A869;--warn:#E08A7B;--good:#6FBF9B;--rail:#212A25}
+  *{box-sizing:border-box}
+  body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.5;padding:1rem}
+  .box{width:min(360px,100%);background:var(--card);border:1px solid var(--line);border-radius:8px;padding:1.6rem 1.4rem 1.3rem;text-align:center;position:relative}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.7rem;margin:0}
+  .sub{color:var(--ink3);font-size:.85rem;margin:.1rem 0 1.2rem}
+  #gbtn{display:flex;justify-content:center;min-height:44px}
+  .msg{min-height:1.4rem;margin-top:.9rem;font-size:.86rem;color:var(--ink2)}
+  .msg.bad{color:var(--warn)}
+  .who{font-weight:600;direction:ltr;unicode-bidi:plaintext;word-break:break-all}
+  .acts{display:flex;gap:.5rem;justify-content:center;margin-top:.9rem}
+  .btn{font:inherit;font-size:.88rem;padding:.5rem .95rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none}
+  .btn.p{background:var(--pine);color:var(--card);border-color:var(--pine)}
+  .btn:focus-visible,.i:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+  .i{position:absolute;top:.6rem;left:.6rem;width:26px;height:26px;border-radius:50%;border:1px solid var(--line);background:none;color:var(--ink3);font:600 .8rem 'Heebo',sans-serif;cursor:pointer}
+  .info{margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--line);text-align:right;font-size:.82rem;color:var(--ink2)}
+  [hidden]{display:none!important}
+</style>
+</head>
+<body>
+<main class="box">
+  <button class="i" id="iBtn" type="button" aria-label="מידע" aria-expanded="false" aria-controls="info">i</button>
+  <h1>ishur.io</h1>
+  <p class="sub">כניסה לצוות</p>
+  <div id="gbtn"></div>
+  <div id="signed" hidden>
+    <div>מחובר/ת</div>
+    <div class="who" id="who"></div>
+    <div class="acts"><a class="btn p" id="go" href="/next/admin.html">המשך</a><button class="btn" id="out" type="button">יציאה</button></div>
+  </div>
+  <div class="msg" id="msg" role="status" aria-live="polite"></div>
+  <div class="info" id="info" hidden>נכנסים עם חשבון Google. רק כתובות שהבעלים אישר יכולות להיכנס. הכניסה נשמרת במכשיר הזה ל-30 יום, ואפשר לצאת בכל רגע.</div>
+</main>
+<script>
+(function () {
+  var API = (location.hostname === 'localhost' ? '' : 'https://go.ishur.io') + '/api/auth/';
+  var $ = function (id) { return document.getElementById(id); };
+  var ERR = { 'not-configured': 'הכניסה עם Google עוד לא הופעלה', 'not-allowed': 'הכתובת הזאת לא מורשית', 'expired': 'פג תוקף, נסו שוב', 'email-not-verified': 'הכתובת לא מאומתת ב-Google' };
+  /* back to where the person came from, only inside /next/ on this site */
+  var back = new URLSearchParams(location.search).get('back') || '';
+  if (!/^\/next\/[a-z0-9-]+\.html(?:[?#][\w\-=&%.#?]*)?$/i.test(back)) back = '/next/admin.html';
+  $('go').setAttribute('href', back);
+  function ls(k, v) { try { if (v === undefined) return localStorage.getItem(k) || ''; if (v === null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) {} return ''; }
+  function say(t, bad) { $('msg').textContent = t || ''; $('msg').className = 'msg' + (bad ? ' bad' : ''); }
+  function post(name, body) { return fetch(API + name, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body || {}) }).then(function (r) { return r.json().catch(function () { return { ok: false }; }); }); }
+  $('iBtn').addEventListener('click', function () { var on = $('info').hidden; $('info').hidden = !on; this.setAttribute('aria-expanded', String(on)); });
+
+  var enforce = false;
+  function showSigned(user) { ls('ishur_calls_key', ls('ishur_session')); $('gbtn').hidden = true; $('signed').hidden = false; $('who').textContent = user.email; say(''); }
+  function showButton(cfg) {
+    $('signed').hidden = true; $('gbtn').hidden = false;
+    if (!cfg || !cfg.configured) { say(ERR['not-configured'], true); return; }
+    var s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client'; s.async = true;
+    s.onload = function () {
+      google.accounts.id.initialize({ client_id: cfg.client_id, callback: onCredential, auto_select: false, ux_mode: 'popup' });
+      google.accounts.id.renderButton($('gbtn'), { theme: 'outline', size: 'large', shape: 'rectangular', text: 'signin_with', locale: 'he', width: 280 });
+    };
+    s.onerror = function () { say('לא הצלחנו לטעון את הכניסה של Google', true); };
+    document.head.appendChild(s);
+  }
+  function onCredential(resp) {
+    say('בודק…');
+    post('google', { credential: resp && resp.credential }).then(function (d) {
+      if (!d || !d.ok || !d.session) { say(ERR[d && d.error] || 'הכניסה לא הצליחה', true); return; }
+      ls('ishur_session', d.session);
+      /* once sign-in is required, the existing pages read their key from here; the server accepts the session in that slot */
+      ls('ishur_calls_key', d.session);
+      location.replace(back);
+    }).catch(function () { say('אין חיבור, נסו שוב', true); });
+  }
+  $('out').addEventListener('click', function () {
+    var s = ls('ishur_session');
+    post('logout', { session: s }).catch(function () {}).then(function () {
+      if (ls('ishur_calls_key') === s) ls('ishur_calls_key', null);
+      ls('ishur_session', null); location.reload();
+    });
+  });
+
+  fetch(API + 'config').then(function (r) { return r.json(); }).then(function (cfg) {
+    enforce = !!(cfg && cfg.enforce);
+    var s = ls('ishur_session');
+    if (!s) return showButton(cfg);
+    return post('me', { session: s }).then(function (d) { if (d && d.ok && d.user) showSigned(d.user); else { ls('ishur_session', null); showButton(cfg); } });
+  }).catch(function () { say('אין חיבור, נסו שוב', true); });
+})();
+</script>
+</body>
+</html>

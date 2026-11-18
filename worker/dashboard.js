@@ -62,7 +62,10 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
     const e = i => String(ev[i] ?? '').trim();
     if (e(27) === 'כן') continue;            // cancelled event — never call
     const plan = planKeyOf(ev);
-    const planCap = planMaxCallTries(plan) || (addons && addons.has(token) ? 1 : 0);
+    /* 12/11 Richard: the add-on is ONE MORE round on top of the plan's own (בסיס 0+1, פרמיום 1+1, הכל כלול 3+1) */
+    const hasAddon = !!(addons && addons.has(token));
+    const planCap = planMaxCallTries(plan) + (hasAddon ? 1 : 0);   /* Richard 12/11: הכל כלול gets a 4th round only when the add-on was bought */
+    const cap = Math.min(maxTries + (hasAddon ? 1 : 0), planCap);
     if (!planCap) continue;                  // בסיס without a calls add-on — calls are not included
     queue.push({
       guest_id: g(2),
@@ -72,8 +75,8 @@ export function buildCallQueue(raw, maxTries = 3, addons = null) {
       rsvp: g(15),
       last_answer: g(22),
       tries,
-      max_tries: Math.min(maxTries, planCap),
-      capped: tries >= Math.min(maxTries, planCap),
+      max_tries: cap,
+      capped: tries >= cap,
       plan,
       token,
       client_name: e(2),
@@ -225,6 +228,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         tries: Number(g(29)) || 0,
         call_ans: g(22),
         at: g(25).slice(0, 10),
+        at_ts: g(25).slice(0, 19),   /* 18/11: full time of the last change, so the newest confirmations sort to the top of the board */
       };
     });
 
@@ -281,8 +285,9 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     if (last) {
       const d = new Date(last + 'T12:00:00Z');
       d.setUTCDate(d.getUTCDate() + 1);
-      if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
-      const start = d.toISOString().slice(0, 10);
+      /* 18/11 Richard: a round that falls on Friday (the send was on Thursday) starts on Sunday; never on Shabbat */
+      if (d.getUTCDay() === 5) d.setUTCDate(d.getUTCDate() + 2); else if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
+      const start = (sent.callDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.callDate)) ? sent.callDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
       /* 04/11: a guest who used up every try is not waiting any more - the
          round is over even though the sheet still flags them */
       const cap = planMaxCallTries(planKeyOf(ev)) || (sent.callsAddon ? 1 : 0);
@@ -313,7 +318,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
   /* the day after: a thank-you to everyone who came (פרמיום and up, Richard 21/10) */
   if (/^\d{4}-\d{2}-\d{2}$/.test(c(6).slice(0, 10)) && planKeyOf(ev) !== 'basic') {
     const d = new Date(c(6).slice(0, 10) + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + 1);
-    const dayAfter = d.toISOString().slice(0, 10);
+    const dayAfter = (sent.todaDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.todaDate)) ? sent.todaDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
     sends.push({ key: 'day_after', label: 'הודעת תודה לאורחים', date: dayAfter, status: sent.dayAfter ? 'sent' : (dayAfter < todayIso ? 'passed' : 'scheduled'), auto: true });
   }
 

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<!-- 12/11 אדמין אחד · the duplicate (ishur.io/next/). Built from the live page; the live page is untouched. -->
+<meta name="robots" content="noindex">
+<title>ishur.io · דיילות</title>
+<link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="/config.js?v=88"></script>
+<script src="/next/assets/batch.js?v=6"></script>
+<script src="/assets/ux.js?v=4"></script>
+<script src="/next/assets/adminbar.js?v=17" defer></script>
+<script src="/assets/guard.js?v=21"></script>
+<script src="/next/assets/lite.js?v=3"></script>
+<script src="/assets/pnl-journal.js?v=12"></script>
+<script>(function(){try{var t=localStorage.getItem('ishur_theme');if(!t&&window.matchMedia&&matchMedia('(prefers-color-scheme: dark)').matches)t='dark';if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();</script>
+<style>
+  :root{--ink:#1B2620;--ink2:#4E5C55;--ink3:#7F8C86;--paper:#FBFAF7;--card:#fff;--line:#E1E4DE;--pine:#0F4C35;--gold:#B4884A;--warn:#A8402F;--good:#2E7D5B;--rail:#F0EFE9;--blue:#2F6FED}
+  html[data-theme=dark]{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--paper:#131714;--card:#1A201C;--line:#2A322C;--pine:#7BC9A4;--rail:#232A25;--warn:#E58C7C;--good:#6FC39B;--blue:#8FB0FF}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--paper);color:var(--ink);font-family:'Heebo',sans-serif;font-size:15px;line-height:1.45}
+  .wrap{max-width:1180px;margin:0 auto;padding:1.2rem 1rem 4rem}
+  h1{font-family:'Frank Ruhl Libre',serif;color:var(--pine);font-size:1.6rem;margin:0 0 .2rem}
+  .sub{color:var(--ink3);font-size:.82rem;margin:0 0 .9rem}
+  /* toolbar, Apple Calendar manners: month title, ‹ › , היום, segmented filter, search */
+  .tb{display:flex;align-items:center;gap:.6rem;flex-wrap:wrap;margin-bottom:.8rem}
+  .mth{font-family:'Frank Ruhl Libre',serif;font-size:1.35rem;min-width:9rem}
+  .nav{display:inline-flex;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:var(--card)}
+  .nav button{font:inherit;font-size:1rem;padding:.3rem .75rem;border:none;background:transparent;color:var(--ink);cursor:pointer}
+  .nav button+button{border-inline-start:1px solid var(--line)}
+  .nav button:hover{background:var(--rail)}
+  .seg{display:inline-flex;background:var(--rail);border-radius:10px;padding:3px;gap:2px}
+  .seg button{font:inherit;font-size:.8rem;font-weight:500;padding:.3rem .7rem;border:none;border-radius:8px;background:transparent;color:var(--ink2);cursor:pointer}
+  .seg button[aria-pressed=true]{background:var(--card);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  input[type=search]{font:inherit;font-size:.86rem;padding:.4rem .8rem;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);min-width:14rem}
+  .lay{display:grid;grid-template-columns:1fr 360px;gap:1rem;align-items:start}
+  @media (max-width:900px){.lay{grid-template-columns:1fr}}
+  /* month grid */
+  .cal{background:var(--card);border:1px solid var(--line);border-radius:14px;overflow:hidden}
+  .dow{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--line)}
+  .dow span{padding:.45rem 0;text-align:center;font-size:.72rem;font-weight:600;color:var(--ink3);text-transform:uppercase}
+  .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+  .cell{min-height:96px;border-inline-end:1px solid var(--line);border-bottom:1px solid var(--line);padding:.35rem .4rem;cursor:pointer;position:relative;transition:background .12s}
+  .cell:nth-child(7n){border-inline-end:none}
+  .cell:hover{background:var(--rail)}
+  .cell.sel{background:rgba(15,76,53,.07);box-shadow:inset 0 0 0 2px var(--pine)}
+  .cell.out{opacity:.38}
+  .cell .d{display:inline-flex;width:26px;height:26px;align-items:center;justify-content:center;border-radius:50%;font-size:.86rem;font-weight:600;color:var(--ink2)}
+  .cell.today .d{background:var(--pine);color:#fff}
+  .pill{display:block;font-size:.7rem;padding:.08rem .4rem;border-radius:5px;margin-top:.22rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+  .pill.sent{background:rgba(46,125,91,.15);color:var(--good)}
+  .pill.failed{background:rgba(168,64,47,.14);color:var(--warn)}
+  .pill.planned{background:rgba(47,111,237,.13);color:var(--blue)}
+  .pill.skipped{background:var(--rail);color:var(--ink3)}
+  /* 16/11 the one journal: layers (sends, profit, hostesses) on the same month, a day opens in a popup */
+  .pill.win{background:#CFE8D8;color:#0F4C35}.pill.loss{background:#F6D3CE;color:#8E2F22}.pill.host{background:#E4E0F7;color:#3C3489}.pill.off{background:var(--rail);color:var(--ink3)}
+  .cell.noh{background:repeating-linear-gradient(135deg,transparent 0 8px,rgba(0,0,0,.035) 8px 16px)}
+  .lyr{display:inline-flex;gap:.35rem;flex-wrap:wrap}
+  .lyr button{font:inherit;font-size:.8rem;font-weight:600;min-height:34px;padding:0 .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink3);cursor:pointer}
+  html[data-theme=dark] .cell.today .d,html[data-theme=dark] .lyr button[aria-pressed=true]{color:#0A2119!important}
+  html[data-theme=dark] .pill.host{background:#2B2750;color:#C9C3F5}html[data-theme=dark] .pill.win{background:#17382A;color:#8FD3AE}html[data-theme=dark] .pill.loss{background:#3F211D;color:#F2A79C}
+  .lyr button[aria-pressed=true]{background:var(--pine,#0F2E22);border-color:transparent;color:#fff}
+  .nav button{display:inline-grid;place-items:center}
+  .lay{grid-template-columns:1fr !important}
+  .tb{flex-wrap:wrap}
+  .lay>div{min-width:0;overflow-x:auto}
+  @media (max-width:600px){.tb #q{flex-basis:100%;min-width:0}.cal{overflow-x:auto}}
+  dialog.jd{position:fixed;inset:0;margin:auto;height:fit-content;max-height:88vh;width:min(720px,calc(100vw - 24px));overflow:auto;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:1rem 1.1rem}
+  dialog.jd::backdrop{background:rgba(10,20,15,.45)}
+  .jd-h{display:flex;align-items:center;justify-content:space-between;gap:.6rem;margin:0 0 .6rem}.jd-h h2{margin:0;font-size:1.1rem}
+  .jd-x{font:inherit;width:36px;height:36px;border:1px solid var(--line);border-radius:8px;background:none;color:inherit;cursor:pointer}
+  .jd-tabs{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;margin:0 0 .8rem}
+  .jd-tabs button{font:inherit;font-size:.82rem;font-weight:600;min-height:34px;padding:0 .9rem;border:0;border-inline-start:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+  .jd-tabs button:first-child{border-inline-start:0}.jd-tabs button[aria-pressed=true]{background:var(--pine,#0F2E22);color:#fff}
+  .jd-ev{border:1px solid var(--line);border-radius:8px;padding:.6rem .7rem;margin:0 0 .5rem}.jd-ev h3{margin:0 0 .3rem;font-size:.92rem}
+  .jd-ev .ln{display:flex;justify-content:space-between;gap:.6rem;font-size:.82rem;padding:.15rem 0}.jd-ev .ln b{font-weight:600}
+  .jd-ev .bad{color:var(--warn)}.jd-sum{font-size:.82rem;color:var(--ink3);margin:0 0 .6rem}
+  .jd .pane{position:static;border:0;padding:0;max-height:none;background:none}
+  .jd-host .ln{display:flex;justify-content:space-between;font-size:.86rem;padding:.3rem 0;border-bottom:1px solid var(--line)}
+  .jd-btn{font:inherit;font-size:.82rem;font-weight:600;min-height:36px;padding:0 .9rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer;margin-top:.6rem}
+  html[data-theme=dark] .pill.sent{color:#7BC9A4}html[data-theme=dark] .pill.failed{color:#E58C7C}html[data-theme=dark] .pill.planned{color:#8FB0FF}
+  @media (max-width:600px){.cell{min-height:64px;padding:.25rem}.pill{font-size:.6rem;padding:.02rem .25rem}}
+  /* the day panel */
+  .pane{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:.9rem 1rem;position:sticky;top:.8rem;max-height:calc(100vh - 2rem);overflow:auto}
+  .pane h2{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;margin:0 0 .15rem}
+  .pane .sum{font-size:.78rem;color:var(--ink3);margin:0 0 .6rem}
+  .chips{display:flex;gap:.3rem;flex-wrap:wrap;margin-bottom:.6rem}
+  .chip{font:inherit;font-size:.72rem;padding:.15rem .55rem;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--ink2);cursor:pointer}
+  .chip[aria-pressed=true]{background:var(--ink);color:var(--card);border-color:var(--ink)}
+  .row{display:flex;gap:.6rem;align-items:flex-start;padding:.5rem 0;border-bottom:1px solid var(--line)}
+  .row:last-child{border-bottom:none}
+  .dot{width:9px;height:9px;border-radius:50%;margin-top:.45rem;flex-shrink:0}
+  .dot.sent{background:var(--good)}.dot.failed{background:var(--warn)}.dot.planned{background:var(--blue)}.dot.skipped{background:var(--ink3)}.dot.done-earlier{background:var(--good)}
+  .row .b{flex:1;min-width:0}
+  .row .n{font-weight:600;font-size:.9rem}
+  .row .m{font-size:.76rem;color:var(--ink2)}
+  .row .m .ph{font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:embed}
+  .row .e{font-size:.72rem;color:var(--ink3)}
+  .row .err{font-size:.72rem;color:var(--warn)}
+  .act{font:inherit;font-size:.72rem;font-weight:600;padding:.25rem .6rem;border-radius:999px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer;white-space:nowrap}
+  .act:hover{border-color:var(--ink3)}
+  .act.undo{color:var(--good)}
+  .empty{color:var(--ink3);font-size:.85rem;padding:1rem 0;text-align:center}
+  .legend{display:flex;gap:.9rem;font-size:.74rem;color:var(--ink3);margin:.5rem .2rem 0;flex-wrap:wrap}
+  .legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-inline-end:.3rem;vertical-align:middle}
+  .gate{max-width:22rem;margin:4rem auto;text-align:center}
+  .gate input{font:inherit;width:100%;padding:.6rem;border:1px solid var(--line);border-radius:10px;margin:.5rem 0}
+  .gate button{font:inherit;padding:.5rem 1.2rem;border-radius:999px;border:none;background:var(--pine);color:#fff;cursor:pointer}
+  .err{color:var(--warn);font-size:.82rem;min-height:1.2em}
+  .sbsec{margin:0 0 1.1rem}
+  .sbsec h2{font-family:'Frank Ruhl Libre',serif;font-size:1.15rem;color:var(--pine);margin:0 0 .45rem;display:flex;align-items:baseline;gap:.6rem;flex-wrap:wrap}
+  .sbsec h2 small{font-family:Heebo,sans-serif;font-weight:400;font-size:.76rem;color:var(--ink3)}
+  /* 16/11 the hostess screen: events on the month (with / without a hostess), assignment, availability, each hostess's schedule */
+  .pill.ev-h{background:#DDEBFF;color:#1F4FB8}.pill.ev-n{background:var(--rail);color:var(--ink2)}.pill.ev-m{background:#FBE3C8;color:#8A4B00}
+  html[data-theme=dark] .pill.ev-h{background:#1D2C4D;color:#9DBBFF}html[data-theme=dark] .pill.ev-n{background:#232A25;color:#C2C9C1}html[data-theme=dark] .pill.ev-m{background:#40301A;color:#F0C48A}
+  .hs{margin:1.4rem 0 0}.hs h2{font-size:1.05rem;font-weight:700;margin:0 0 .6rem;color:var(--ink)}
+  .hcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:10px}
+  .hc{border:1px solid var(--line);border-radius:8px;background:var(--card);padding:.75rem .85rem}
+  .hc h3{font-size:.98rem;margin:0 0 .15rem}.hc .m{font-size:.8rem;color:var(--ink3)}.hc ul{list-style:none;margin:.45rem 0 0;padding:0;font-size:.86rem}.hc li{padding:.22rem 0;border-top:1px solid var(--line)}
+  .hbtn{font:inherit;font-size:.8rem;font-weight:600;min-height:34px;padding:0 .8rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);cursor:pointer}
+  .hbtn[aria-pressed=true]{background:var(--pine);border-color:transparent;color:#fff}html[data-theme=dark] .hbtn[aria-pressed=true]{color:#0A2119}
+  .hbtn.x{color:var(--warn)}
+  .hadd{display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 .7rem}.hadd input{font:inherit;font-size:.9rem;min-height:38px;padding:0 .7rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);flex:1;min-width:150px}
+  .hrow{display:flex;gap:.5rem;align-items:center;justify-content:space-between;flex-wrap:wrap;padding:.55rem 0;border-top:1px solid var(--line);font-size:.9rem}.hrow:first-child{border-top:0}
+  .hrow .acts{display:flex;gap:.35rem;flex-wrap:wrap}
+  .hlog{width:100%;border-collapse:collapse;font-size:.84rem}.hlog th,.hlog td{text-align:start;padding:.4rem .5rem;border-bottom:1px solid var(--line)}.hlog th{font-size:.74rem;color:var(--ink3)}
+  .hdlg{position:fixed;inset:0;margin:auto;height:fit-content;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:1rem 1.1rem;width:min(520px,calc(100vw - 32px));max-height:85vh;overflow:auto}.hdlg::backdrop{background:rgba(10,20,15,.45)}
+  .hdlg h2{font-size:1.1rem;margin:0 0 .6rem}.hdlg h3{font-size:.95rem;margin:.9rem 0 .3rem}.hdlg .kv{display:flex;justify-content:space-between;gap:1rem;font-size:.88rem;padding:.2rem 0}.hdlg .kv span{color:var(--ink3)}
+  .pin{font:inherit;font-size:.84rem;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .4rem}html[data-theme=dark] .pin{color-scheme:dark}
+  .tb{display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;margin:0 0 .7rem}
+  .legend b{font-weight:600}
+</style>
+</head>
+<body>
+<div class="gate" id="gate" hidden>
+  <h2>כניסת ניהול</h2>
+  <input type="password" id="keyIn" placeholder="מפתח גישה" autocomplete="off">
+  <button id="keyGo">כניסה</button>
+  <p class="err" id="keyErr"></p>
+</div>
+<main class="wrap" id="main" hidden>
+  <h1>דיילות</h1>
+  <div class="tb">
+    <span class="nav"><button id="prev" aria-label="חודש קודם" title="חודש קודם"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></button><button id="today">היום</button><button id="next" aria-label="חודש הבא" title="חודש הבא"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg></button></span>
+    <span class="mth" id="mth"></span>
+  </div>
+  <div class="cal">
+    <div class="dow"><span>א</span><span>ב</span><span>ג</span><span>ד</span><span>ה</span><span>ו</span><span>ש</span></div>
+    <div class="grid" id="grid"></div>
+  </div>
+  <div class="legend"><span><span class="pill ev-h" style="display:inline-block;margin:0">אירוע עם דיילת</span></span><span><span class="pill ev-m" style="display:inline-block;margin:0">נרכשה דיילת, עוד לא שובצה</span></span><span><span class="pill ev-n" style="display:inline-block;margin:0">אירוע בלי דיילת</span></span></div>
+
+  <section class="hs"><h2>ממתינים לשיבוץ</h2><div id="hNeed"></div></section>
+  <section class="hs"><h2>שכר ונוכחות · <span id="payM"></span></h2><div id="hPay"><p class="empty">טוען…</p></div></section>
+  <section class="hs"><h2>דיילים ודיילות</h2>
+    <div class="hadd"><input id="sName" placeholder="שם הדיילת" maxlength="40"><input id="sPhone" placeholder="נייד" dir="ltr" inputmode="tel"><select id="sG" aria-label="דייל או דיילת" style="font:inherit;font-size:.9rem;min-height:38px;padding:0 .6rem;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink)"><option value="f">דיילת</option><option value="m">דייל</option></select><button class="hbtn" id="sAdd" aria-pressed="true">הוספה</button></div>
+    <div class="hcards" id="hStaff"></div></section>
+  <section class="hs"><h2>יומן נוכחות</h2><div id="hLogWrap"><table class="hlog" id="hLog"><thead><tr><th>תאריך</th><th>דיילת</th><th>מה</th><th>שעה (שרת)</th><th>הוכחה</th><th>אירוע</th></tr></thead><tbody></tbody></table><p class="empty" id="hLogEmpty" hidden>עוד אין דיווחים.</p></div></section>
+</main>
+<dialog class="hdlg" id="dlg"></dialog>
+<script>
+(function () {
+  var CFG = window.ISHUR_CONFIG, $ = function (id) { return document.getElementById(id); };
+  var adminKey = ''; try { adminKey = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+  var month = new Date().toISOString().slice(0, 7), H = { days: {}, off: {}, events: [], staff: [] }, S = { staff: [], log: [] }, openDay = null;
+  var SBASE = CFG.endpoint('status').replace(/\/api\/status$/, '');
+  var HE = ['ינואר','פברואר','מרץ','אפריל','מאי','יוני','יולי','אוגוסט','ספטמבר','אוקטובר','נובמבר','דצמבר'];
+  function ilToday() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
+  function esc(s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fmtPhone(p) { var d = String(p || '').replace(/\D/g, ''); if (d.indexOf('972') === 0) { var l = '0' + d.slice(3); return l.length === 10 ? l.slice(0, 3) + '-' + l.slice(3, 6) + '-' + l.slice(6) : l; } return d; }
+  function dmy(iso) { return iso ? iso.slice(8, 10) + '/' + iso.slice(5, 7) : ''; }
+  function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }
+  $('keyGo').addEventListener('click', function () { adminKey = $('keyIn').value.trim(); if (!adminKey) return; try { localStorage.setItem('ishur_calls_key', adminKey); } catch (e) {} load(); });
+  $('keyIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') $('keyGo').click(); });
+  function api(path, body) {
+    body = body || {}; body.admin_key = adminKey;
+    return fetch(CFG.endpoint(path), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { if (r.status === 403) { gate('המפתח לא נכון'); return null; } return r.json(); }).catch(function () { return null; });
+  }
+  function nameOf(ph) { var x = (H.staff || []).filter(function (s) { return s.phone === ph; })[0]; return x ? x.name : fmtPhone(ph); }
+  function kindOf(e) { return e.assigned && e.assigned.length ? 'ev-h' : e.need ? 'ev-m' : 'ev-n'; }
+  function evLabel(e) { return e.assigned && e.assigned.length ? e.name + ' · ' + e.assigned.map(nameOf).join(', ') : e.need ? e.name + ' · ' + e.need + ' דיילות, לא שובצו' : e.name + ' · בלי דיילת'; }
+  function byDay() { var m = {}; (H.events || []).forEach(function (e) { (m[e.date] = m[e.date] || []).push(e); }); return m; }
+
+  function paint() {
+    $('mth').textContent = HE[Number(month.slice(5, 7)) - 1] + ' ' + month.slice(0, 4); $('payM').textContent = $('mth').textContent;
+    var y = Number(month.slice(0, 4)), mo = Number(month.slice(5, 7)) - 1, first = new Date(Date.UTC(y, mo, 1)), n = new Date(Date.UTC(y, mo + 1, 0)).getUTCDate(), today = ilToday(), evs = byDay(), html = '';
+    for (var b = 0; b < first.getUTCDay(); b++) html += '<div class="cell out"></div>';
+    for (var i = 1; i <= n; i++) {
+      var iso = month + '-' + String(i).padStart(2, '0'), list = evs[iso] || [], off = H.off && H.off[iso];
+      html += '<div class="cell' + (iso === today ? ' today' : '') + (off ? ' noh' : '') + '" data-d="' + iso + '" tabindex="0" role="button"><span class="d">' + i + '</span>' +
+        list.slice(0, 3).map(function (e) { return '<span class="pill ' + kindOf(e) + '" title="' + esc(evLabel(e)) + '">' + esc(evLabel(e)) + '</span>'; }).join('') +
+        (list.length > 3 ? '<span class="pill off">+' + (list.length - 3) + ' נוספים</span>' : '') + (off ? '<span class="pill off">אין דיילות ביום הזה</span>' : '') + '</div>';
+    }
+    $('grid').innerHTML = html;
+    var need = (H.events || []).filter(function (e) { return e.need && e.date >= today && (e.assigned || []).length < e.need; });
+    $('hNeed').innerHTML = need.length ? need.map(function (e) { return '<div class="hrow"><span><b>' + esc(e.name) + '</b> · ' + dmy(e.date) + (e.city ? ' · ' + esc(e.city) : '') + ' · ' + (e.assigned || []).length + ' מתוך ' + e.need + ' דיילות' + (e.state === 'bought' ? ' · ממתין לפרטי האירוע מהלקוח' : '') + '</span><span class="acts">' + (/^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(e.board || '')) ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" href="' + esc(e.board) + '" target="_blank" rel="noopener">לוח האירוע</a>' : '') + '<button class="hbtn" data-open="' + e.date + '">שיבוץ</button></span></div>'; }).join('') : '<p class="empty">כל האירועים עם דיילות משובצים.</p>';
+    var st = H.staff || [];
+    $('hStaff').innerHTML = st.length ? st.map(function (s) {
+      var mine = (H.events || []).filter(function (e) { return e.date >= today && (e.assigned || []).indexOf(s.phone) >= 0; });
+      var un = (s.unavail || []).filter(function (d) { return d >= today; });
+      var link = (S.staff || []).filter(function (x) { return x.phone === s.phone; })[0];
+      var bl = function (e) { return /^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(e.board || '')) ? ' <a href="' + esc(e.board) + '" target="_blank" rel="noopener" style="color:var(--pine)">ללוח האירוע ›</a>' : ''; };
+      return '<div class="hc"><h3>' + esc(s.name) + ' <span class="m" style="font-weight:400">· ' + (s.g === 'm' ? 'דייל' : 'דיילת') + '</span></h3><div class="m" dir="ltr" style="text-align:right">' + esc(fmtPhone(s.phone)) + '</div>' +
+        '<ul>' + (mine.length ? mine.map(function (e) { return '<li>' + dmy(e.date) + ' · ' + esc(e.name) + (e.city ? ' · ' + esc(e.city) : '') + bl(e) + '</li>'; }).join('') : '<li class="m">אין אירועים משובצים</li>') +
+        (un.length ? '<li class="m">לא זמינה: ' + un.map(dmy).join(', ') + '</li>' : '') + '</ul>' +
+        (function () { var py = (P && P.pay && P.pay[s.phone]) || { mode: 'event', rate: 0 }; return '<div style="display:flex;gap:.35rem;align-items:center;flex-wrap:wrap;margin-top:.5rem;font-size:.84rem"><span class="m">שכר:</span><select data-rate="' + esc(s.phone) + '" aria-label="לפי שעה או לפי אירוע" style="font:inherit;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .4rem"><option value="hour"' + (py.mode === 'hour' ? ' selected' : '') + '>לשעה</option><option value="event"' + (py.mode === 'event' ? ' selected' : '') + '>לאירוע</option></select><input data-rate="' + esc(s.phone) + '" type="number" min="0" step="1" value="' + (py.rate || '') + '" placeholder="₪" aria-label="תעריף" style="font:inherit;width:5.5rem;min-height:34px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--ink);padding:0 .5rem"></div>'; })() +
+        '<div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap;margin-top:.5rem">' + (link && link.checkin ? '<button class="hbtn" data-copy="' + esc(link.checkin) + '">העתקת קישור דיווח</button>' : '') + (link && /^https:\/\/wa\.me\//.test(link.wa || '') ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(link.wa) + '">שליחת הקישור בוואטסאפ</a>' : '') + '<button class="hbtn x" data-rm="' + esc(s.phone) + '">הסרה</button></div></div>';
+    }).join('') : '<p class="empty">עוד לא נוספו דיילות. מוסיפים שם ונייד למעלה.</p>';
+    var lg = S.log || [];
+    $('hLogEmpty').hidden = !!lg.length; $('hLog').hidden = !lg.length;
+    $('hLog').querySelector('tbody').innerHTML = lg.slice(0, 60).map(function (x) { return '<tr><td>' + esc(dmy(x.day)) + '</td><td>' + esc(x.name) + '</td><td>' + esc(x.kind_he || '') + '</td><td>' + esc(x.received || x.time || '') + '</td><td>' + (x.photo && /^\/api\/staff[a-z-]*\?[\w=&%.:-]+$/.test(x.photo) ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none;min-height:28px" target="_blank" rel="noopener" href="' + esc(SBASE + x.photo) + '">צילום</a>' : esc(x.text || '')) + '</td><td>' + esc(x.event || '') + '</td></tr>'; }).join('');
+    if (openDay && $('dlg').open) dayDlg(openDay);
+  }
+  function dayDlg(iso) {
+    openDay = iso; var list = byDay()[iso] || [], off = H.off && H.off[iso], st = H.staff || [];
+    var kv = function (k, v) { return v ? '<div class="kv"><span>' + k + '</span><b>' + esc(v) + '</b></div>' : ''; };
+    var h = '<h2>' + dmy(iso) + '/' + iso.slice(0, 4) + '</h2>';
+    h += list.length ? list.map(function (e) {
+      var safe = /^https:\/\/go\.ishur\.io\/dashboard\.html\?t=[0-9a-f-]{36}$/.test(String(e.board || '')) ? e.board : '';
+      return '<h3>' + esc(e.name) + '</h3>' + kv('סוג האירוע', e.occasion) + kv('מקום', [e.venue, e.city].filter(Boolean).join(', ')) + kv('שעה', e.time) + kv('לקוח', e.buyer) + kv('טלפון', fmtPhone(e.phone)) +
+        kv('דיילות', e.need ? e.need + ' נרכשו' + (e.state === 'bought' ? ' · ממתין לפרטי האירוע' : '') : 'לא נרכשו') +
+        (st.length ? '<div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap;margin:.4rem 0">' + st.map(function (s) { var on = (e.assigned || []).indexOf(s.phone) >= 0, na = (s.unavail || []).indexOf(iso) >= 0; return '<button class="hbtn" data-as="' + e.tok8 + '|' + s.phone + '" aria-pressed="' + on + '"' + (na && !on ? ' disabled title="לא זמינה ביום הזה"' : '') + '>' + esc(s.name) + (na ? ' · לא זמינה' : '') + '</button>'; }).join('') + '</div>' : '<p class="empty" style="padding:.3rem 0;text-align:start">מוסיפים דיילות בתחתית המסך כדי לשבץ.</p>') +
+        (safe ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" href="' + esc(safe) + '" target="_blank" rel="noopener">ללוח הבקרה של הלקוח ›</a>' : '');
+    }).join('') : '<p class="empty">אין אירועים ביום הזה.</p>';
+    if (st.length) h += '<h3>זמינות ביום הזה</h3><div class="acts" style="display:flex;gap:.35rem;flex-wrap:wrap">' + st.map(function (s) { var na = (s.unavail || []).indexOf(iso) >= 0; return '<button class="hbtn" data-av="' + s.phone + '" aria-pressed="' + !na + '">' + esc(s.name) + ' · ' + (na ? 'לא זמינה' : 'זמינה') + '</button>'; }).join('') + '</div>';
+    h += '<div style="display:flex;gap:.5rem;justify-content:space-between;margin-top:1rem;flex-wrap:wrap"><button class="hbtn" id="dOff" data-on="' + (off ? '0' : '1') + '">' + (off ? 'ביטול "אין דיילות ביום הזה"' : 'סימון: אין דיילות ביום הזה') + '</button><button class="hbtn" id="dX">סגירה</button></div>';
+    $('dlg').innerHTML = h; if (!$('dlg').open) $('dlg').showModal();
+  }
+  function setH(d) { if (d && d.ok) { H = d; paint(); } }
+  $('grid').addEventListener('click', function (e) { var c = e.target.closest('.cell[data-d]'); if (c) dayDlg(c.dataset.d); });
+  $('grid').addEventListener('keydown', function (e) { if (e.key === 'Enter' || e.key === ' ') { var c = e.target.closest('.cell[data-d]'); if (c) { e.preventDefault(); dayDlg(c.dataset.d); } } });
+  $('hNeed').addEventListener('click', function (e) { var b = e.target.closest('[data-open]'); if (b) { month = b.dataset.open.slice(0, 7); paint(); loadPay(); dayDlg(b.dataset.open); } });
+  $('dlg').addEventListener('click', function (e) {
+    if (e.target === $('dlg') || e.target.closest('#dX')) { $('dlg').close(); openDay = null; return; }
+    var a = e.target.closest('[data-as]'); if (a) { a.disabled = true; var p = a.dataset.as.split('|'); var ev = (H.events || []).filter(function (x) { return x.tok8 === p[0] && x.date === openDay; })[0] || {}; api('journalHostess', { assign: { tok8: p[0], phone: p[1], on: a.getAttribute('aria-pressed') !== 'true', date: openDay, name: ev.name || '', city: ev.city || '' } }).then(function (d) { setH(d); loadPay(); }); return; }
+    var v = e.target.closest('[data-av]'); if (v) { v.disabled = true; api('journalHostess', { set_avail: { phone: v.dataset.av, date: openDay, on: v.getAttribute('aria-pressed') !== 'true' } }).then(setH); return; }
+    var o = e.target.closest('#dOff'); if (o) { o.disabled = true; api('journalHostess', { set_off: { date: openDay, on: o.dataset.on === '1' } }).then(setH); }
+  });
+  function shift(n) { var d = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)) - 1 + n, 1)); month = d.toISOString().slice(0, 7); paint(); loadPay(); }
+  $('prev').addEventListener('click', function () { shift(-1); }); $('next').addEventListener('click', function () { shift(1); }); $('today').addEventListener('click', function () { month = ilToday().slice(0, 7); paint(); loadPay(); });
+  function loadStaff(body) { return api('staff', body || {}).then(function (d) { if (d && d.ok) { S = d; } return api('journalHostess', {}).then(setH); }); }
+  $('sAdd').addEventListener('click', function () { var n = $('sName').value.trim(), p = $('sPhone').value.trim(); if (n.length < 2 || !p) return; if (!confirm('להוסיף את ' + n + '? קישור הדיווח האישי יישלח בוואטסאפ.')) return; loadStaff({ act: 'add', name: n, phone: p, g: $('sG').value }).then(function () { $('sName').value = ''; $('sPhone').value = ''; }); });
+  $('hStaff').addEventListener('click', function (e) {
+    var c = e.target.closest('[data-copy]'); if (c) { if (navigator.clipboard) navigator.clipboard.writeText(c.dataset.copy).then(function () { c.textContent = 'הועתק'; }); return; }
+    var r = e.target.closest('[data-rm]'); if (r && confirm('להסיר את הדיילת מהרשימה?')) loadStaff({ act: 'remove', phone: r.dataset.rm });
+  });
+
+  /* ── pay clock: per hour or per event, the month per hostess, paid marks and the receipt ── */
+  var P = null;
+  function nis(n) { return '₪' + (Math.round(Number(n) * 100) / 100).toLocaleString('he-IL'); }
+  function loadPay(body) { body = body || {}; body.month = month; return api('hostessPay', body).then(function (d) { if (d && d.ok) { P = d; paintPay(); } return d; }); }
+  function paintPay() {
+    if (!P) return; var by = {}; (P.shifts || []).forEach(function (s) { (by[s.phone] = by[s.phone] || []).push(s); });
+    var tot = P.totals || [];
+    $('hPay').innerHTML = tot.length ? tot.map(function (t) {
+      var rc = (P.receipts || {})[t.phone];
+      return '<div class="hc" style="margin:0 0 10px"><div class="hrow" style="border:0;padding-top:0"><span><b style="font-size:1rem">' + esc(t.name) + '</b> · ' + t.shifts + ' אירועים' + (t.hours ? ' · ' + t.hours + ' שעות' : '') + '</span><span><b>' + nis(t.total) + '</b>' + (t.due ? ' · לתשלום ' + nis(t.due) : ' · שולם הכל') + '</span></div>' +
+        '<div style="overflow:auto"><table class="hlog"><thead><tr><th>תאריך</th><th>אירוע</th><th>הגעה</th><th>עזיבה</th><th>שעות</th><th>שכר</th><th>סכום</th><th></th></tr></thead><tbody>' + by[t.phone].map(function (s) {
+          return '<tr data-id="' + esc(s.id) + '"><td>' + dmy(s.date) + '</td><td>' + esc(s.event) + '</td>' +
+            '<td><input type="time" class="pin" data-f="in" value="' + esc(s.in) + '" aria-label="שעת הגעה"></td><td><input type="time" class="pin" data-f="out" value="' + esc(s.out) + '" aria-label="שעת עזיבה"></td><td>' + (s.hours || '') + '</td>' +
+            '<td><select class="pin" data-f="mode" aria-label="לפי שעה או לפי אירוע"><option value="hour"' + (s.mode === 'hour' ? ' selected' : '') + '>לשעה</option><option value="event"' + (s.mode === 'event' ? ' selected' : '') + '>לאירוע</option></select> <input type="number" class="pin" data-f="rate" min="0" step="1" value="' + (s.rate || '') + '" placeholder="₪" aria-label="תעריף" style="width:5.2rem"></td>' +
+            '<td><b>' + (s.amount ? nis(s.amount) : '') + '</b>' + (s.missing === 'hours' ? '<span class="m" style="display:block;font-size:.74rem;color:var(--ink3)">חסרות שעות</span>' : s.missing === 'rate' ? '<span class="m" style="display:block;font-size:.74rem;color:var(--ink3)">חסר תעריף</span>' : '') + '</td>' +
+            '<td><button class="hbtn" data-paid="' + (s.paid ? '0' : '1') + '" aria-pressed="' + !!s.paid + '"' + (!s.amount && !s.paid ? ' disabled' : '') + '>' + (s.paid ? 'שולם ✓' : 'סימון שולם') + '</button></td></tr>';
+        }).join('') + '</tbody></table></div>' +
+        '<div class="acts" style="display:flex;gap:.4rem;flex-wrap:wrap;align-items:center;margin-top:.55rem">' + (t.due ? '<button class="hbtn" data-payall="' + esc(t.phone) + '">סימון כל החודש כשולם</button>' : '') +
+        '<label class="hbtn" style="display:inline-grid;place-items:center">' + (rc ? 'החלפת קבלה' : 'העלאת קבלה') + '<input type="file" accept="image/*,application/pdf" data-rcpt="' + esc(t.phone) + '" hidden></label>' +
+        (rc && /^\/api\/hostess-receipt\?ref=[\w%:.-]+&sig=[0-9a-f]{32}$/.test(rc.url) ? '<a class="hbtn" style="display:inline-grid;place-items:center;text-decoration:none" target="_blank" rel="noopener" href="' + esc(SBASE + rc.url) + '">צפייה בקבלה</a>' : '') + '</div></div>';
+    }).join('') : '<p class="empty">אין שיבוצים בחודש הזה. משבצים דייל או דיילת לאירוע בלוח, והמשמרת מופיעה כאן.</p>';
+  }
+  $('hPay').addEventListener('change', function (e) {
+    var f = e.target.closest('.pin'); if (f) { var tr = f.closest('tr'), b = { id: tr.dataset.id }; b[f.dataset.f] = f.value; loadPay({ set_shift: b }); return; }
+    var up = e.target.closest('[data-rcpt]'); if (up && up.files && up.files[0]) {
+      var file = up.files[0]; if (file.size > 5 * 1024 * 1024) { alert('הקובץ גדול מ-5MB'); return; }
+      var fd = new FormData(); fd.append('admin_key', adminKey); fd.append('ref', up.dataset.rcpt + ':' + month); fd.append('file', file);
+      fetch(CFG.endpoint('hostessReceipt'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (j) { if (!j || !j.ok) alert('הקבלה לא נשמרה. אפשר להעלות תמונה או PDF עד 5MB.'); loadPay(); }).catch(function () { alert('הקבלה לא נשמרה'); });
+    }
+  });
+  $('hPay').addEventListener('click', function (e) {
+    var p = e.target.closest('[data-paid]'); if (p) { p.disabled = true; loadPay({ mark_paid: { ids: [p.closest('tr').dataset.id], on: p.dataset.paid === '1' }, who: 'ניהול' }); return; }
+    var a = e.target.closest('[data-payall]'); if (a && confirm('לסמן את כל המשמרות של החודש כשולמו?')) { var ids = (P.shifts || []).filter(function (s) { return s.phone === a.dataset.payall && !s.paid && s.amount; }).map(function (s) { return s.id; }); loadPay({ mark_paid: { ids: ids, on: true }, who: 'ניהול' }); }
+  });
+  $('hStaff').addEventListener('change', function (e) { var c = e.target.closest('[data-rate]'); if (!c) return; var card = c.closest('.hc'); loadPay({ set_rate: { phone: c.dataset.rate, mode: card.querySelector('select[data-rate]').value, rate: card.querySelector('input[data-rate]').value } }).then(paint); });
+  function load() { if (!adminKey) { gate(''); return; } $('gate').hidden = true; $('main').hidden = false; paint(); loadStaff(); loadPay().then(paint); }
+  load();
+})();
+</script>
+</body>
+</html>

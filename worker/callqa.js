@@ -23,6 +23,7 @@ import { callOutcome } from './dashboard.js';
 import { stream, logEvent } from './evlog.js';
 import { slackPost } from './slack.js';
 import { addMemory } from './noa.js';
+import { makeWriterBody } from './lib.js';   /* 12/11 security: no formulas into the sheet */
 
 export const HANGUP_S = 9;
 export const HANGUP_LABEL = 'לא ענה (ניתק בפתיח)';
@@ -215,7 +216,7 @@ export async function applyReview(env, call, review, deps = {}) {
         const write = deps.writeCallResult || (async (gid, res) => {
           if (!env.HOOK_EVENTS) return false;
           const x = await fetch(env.HOOK_EVENTS, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ event_type: 'call_result', guest_id: gid, rsvp: res.rsvp || '__keep__', call_status: res.call_status, answer: res.answer, tries: String(res.tries), party: '__keep__', ts: new Date().toISOString() }) }).catch(() => null);
+            body: makeWriterBody(env, env.HOOK_EVENTS, JSON.stringify({ event_type: 'call_result', guest_id: gid, rsvp: res.rsvp || '__keep__', call_status: res.call_status, answer: res.answer, tries: String(res.tries), party: '__keep__', ts: new Date().toISOString() })) }).catch(() => null);
           return !!x && x.status === 200;
         });
         out.applied = !!(await write(c.guest_id, result).catch(() => false));

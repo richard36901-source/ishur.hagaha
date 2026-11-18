@@ -126,7 +126,8 @@ export function typeOf({ template, wave, at }, ev) {
   /* 03/11 the one event-day message: with a table it IS the table message */
   if (/^ishur_yom_combo_tg?$/.test(t)) return 'table';
   if (t === 'ishur_yom_combo_g') return 'eventday';
-  const isInvite = /hazmana/.test(t) || (ev && ev.custom_template && t === ev.custom_template);
+  /* 12/11: a personal invitation template is always ishur_c_<tok8>_<n> (index.js customName) — the plan's events carry no custom_template, so the name decides */
+  const isInvite = /hazmana|^ishur_c_[0-9a-f]{8}_\d+$/.test(t) || (ev && ev.custom_template && t === ev.custom_template);
   if (!isInvite) return null;
   /* the three waves share one template (index.js:4484), so the date decides */
   const d = at ? ilDay(at) : '';

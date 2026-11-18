@@ -55,8 +55,8 @@ test('brain-decision: unknown → 404; bad body → 400', async () => {
 test('edit: no confirm → blast radius only, NOTHING written; confirm → cfg:<key> + history + audit + Slack; invalid → 400', async () => {
   const e = env();
   const r1 = await (await post(e, '/api/ops/edit', { id: 'pacer_batch_size', value: 10 })).json();
-  assert.equal(r1.applied, false); assert.equal(r1.confirm_required, 'pacer_batch_size'); assert.equal(r1.before, 25); assert.equal(r1.after, 10);
-  assert.ok(r1.blast_radius.effects.some(x => x.before === 25 * 69 && x.after === 10 * 69));
+  assert.equal(r1.applied, false); assert.equal(r1.confirm_required, 'pacer_batch_size'); assert.equal(r1.before, 50); assert.equal(r1.after, 10);   /* 12/11: default 50 */
+  assert.ok(r1.blast_radius.effects.some(x => x.before === 50 * 69 && x.after === 10 * 69));
   assert.ok(!e.RATE.m.has('cfg:pacer_batch_size'));
   const r2 = await (await post(e, '/api/ops/edit', { id: 'pacer_batch_size', value: 10, confirm: 'pacer_batch_size', who: 'richard', reason: 'בדיקה' })).json();
   assert.equal(r2.applied, true);
@@ -64,7 +64,7 @@ test('edit: no confirm → blast radius only, NOTHING written; confirm → cfg:<
   assert.equal(JSON.parse(e.RATE.m.get('cfg:hist:pacer_batch_size')).length, 1);
   assert.ok([...e.RATE.m.keys()].some(k => k.startsWith('stream:')), 'audit row');
   assert.ok(calls.some(c => c.u === 'https://slack.test/h'), 'Slack');
-  assert.equal((await post(e, '/api/ops/edit', { id: 'pacer_batch_size', value: 40, confirm: 'pacer_batch_size' })).status, 400, 'above 25 refused');
+  assert.equal((await post(e, '/api/ops/edit', { id: 'pacer_batch_size', value: 140, confirm: 'pacer_batch_size' })).status, 400, 'above 100 refused');   /* 12/11: range 1–100 */
   assert.equal((await post(e, '/api/ops/edit', { id: 'send_window', field: 'end', value: '21:30', confirm: 'send_window' })).status, 400, 'a window can only narrow');
   assert.equal((await post(e, '/api/ops/edit', { id: 'nope', value: 1 })).status, 404);
   /* the registry drawer shows the stored value */

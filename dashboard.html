@@ -19,14 +19,14 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=83"></script>
+<script src="config.js?v=97"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
-<script src="assets/guard.js?v=19"></script>
+<script src="assets/guard.js?v=21"></script>
 <script src="assets/lead.js?v=24"></script>
-<script src="assets/design-card.js?v=1"></script>
+<script src="assets/design-card.js?v=2"></script>
 <script src="assets/pwa.js?v=1"></script>
-<script src="assets/tour.js?v=1"></script>
+<script src="assets/tour.js?v=2"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 <script>
   /* apply the saved (or system) theme before first paint — no flash */
@@ -182,6 +182,8 @@
   .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
   .pill{flex-shrink:0;font-size:.72rem;font-weight:500;border-radius:99px;padding:.12rem .55rem;white-space:nowrap}
   .pill.yes{background:var(--green4);color:var(--green2)}
+  /* 18/11: lux.css paints this pill dark green on a light tint; on the dark theme that was dark on dark */
+  html[data-theme=dark] .pill.yes{background:#1D4533;color:#A6E3C3}
   .pill.no{background:var(--err-bg);color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
   .tbl-sp .more{font:inherit;font-size:1rem;line-height:1;letter-spacing:.05em;color:var(--ink3);background:none;border:1px solid transparent;border-radius:8px;padding:.1rem .35rem;cursor:pointer}
@@ -275,6 +277,12 @@
     transition:background .2s,transform .22s var(--ease);
   }
   .buy:hover{background:var(--green2)}
+  html[data-theme=dark] .buy{color:#08170F}
+  .stypick{display:flex;gap:6px;flex-wrap:wrap;margin:.6rem 0 0}.stypick[hidden]{display:none}
+  .stypick button{font:inherit;font-size:.84rem;font-weight:600;min-height:40px;padding:0 .9rem;border:1.5px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink2);cursor:pointer}
+  .stypick button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}html[data-theme=dark] .stypick button[aria-pressed=true]{color:#08170F}
+  .stypick button:disabled{opacity:.5;cursor:default}
+  html[data-theme=dark] .kpi .kpi-v{color:var(--ink)!important}html[data-theme=dark] .kpi.hi .kpi-v{color:var(--green2)!important}html[data-theme=dark] #tierChip{color:#E2C98A!important}
   .buy:active{transform:scale(.95);transition-duration:100ms}
   /* secondary button, same shape as .buy (popups: ביטול, סגירה) */
   .btn{background:var(--green4);color:var(--green2);border:1px solid var(--bdr2);border-radius:8px;cursor:pointer;font-family:inherit;font-size:.78rem;font-weight:600;padding:.42rem .8rem;white-space:nowrap;transition:background .2s,transform .22s var(--ease)}
@@ -461,6 +469,24 @@
 
   /* ── the small date popup behind "שינוי תאריך" ── */
   .dpop-bg{position:fixed;inset:0;background:rgba(15,46,34,.5);z-index:60}
+  /* 12/11 Richard: the guest-list actions sit on one line; on a narrow screen the line scrolls sideways */
+  .gl-acts{display:flex;gap:.35rem;align-items:center;flex-wrap:nowrap;overflow-x:auto;max-width:100%;scrollbar-width:none;padding-bottom:2px}.gl-acts::-webkit-scrollbar{display:none}
+  .gl-acts .buy{white-space:nowrap;flex:0 0 auto;font-size:.8rem;padding:.4rem .7rem}
+  /* 12/11 Richard: the guide buttons sit at the far (left) end of the label line */
+  .guide-row{display:flex;align-items:center;gap:.5rem;font-size:.86rem;font-weight:600;margin-bottom:.3rem}
+  .guide-end{margin-inline-start:auto;display:inline-flex;gap:.3rem;flex:0 0 auto}
+  .guide-b{font:inherit;font-size:.74rem;font-weight:600;color:var(--green2);background:var(--green4);border:1px solid var(--bdr2,var(--bdr));border-radius:6px;padding:.12rem .5rem;cursor:pointer;white-space:nowrap}
+  .guide-bg{position:fixed;inset:0;background:rgba(10,33,25,.5);z-index:95;display:flex;align-items:center;justify-content:center;padding:1rem}
+  .guide{background:var(--card);border:1px solid var(--bdr);border-radius:8px;width:min(94vw,26rem);max-height:88vh;overflow:auto;padding:1rem 1.1rem}
+  .guide-h{display:flex;justify-content:space-between;align-items:center;gap:.5rem;margin-bottom:.6rem}
+  .guide-h h3{font-size:1.05rem;margin:0;color:var(--ink)}
+  .guide-x{font:inherit;font-size:1.3rem;line-height:1;background:none;border:none;color:var(--ink3);cursor:pointer;padding:.2rem .4rem}
+  .guide-v{width:100%;border-radius:6px;margin-bottom:.7rem;background:#000}
+  .guide-ol{margin:0;padding-inline-start:1.3rem;display:grid;gap:.55rem;font-size:.9rem;color:var(--ink2);line-height:1.5}
+  .guide-ol img{display:block;max-width:100%;border:1px solid var(--bdr);border-radius:6px;margin-top:.4rem}
+  .guide-n{font-size:.78rem;color:var(--ink3);margin:.7rem 0 .8rem}
+  .guide-f{display:flex;gap:.7rem;align-items:center;flex-wrap:wrap}
+  .guide-wa{font-size:.8rem;color:var(--green2)}
   .dpop{
     position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);z-index:61;
     width:min(92vw,21rem);background:var(--card);border:1px solid var(--bdr);
@@ -580,7 +606,6 @@
     <div class="lux-rule2"></div>
     <p class="sub" id="sub"></p>
     <!-- 12/11 personal-area: all the client's events, reviews and credit -->
-    <p class="sub" style="margin-top:.35rem"><a href="account.html" id="acctLink" style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">האזור האישי שלי ›</a> · <a href="#" data-tour-open style="color:#C7AE7A;text-decoration:underline;text-underline-offset:3px">סיור קצר</a></p>
     <div class="cd-wrap"><span class="cd" id="cd" hidden></span></div>
     <div class="cd-wrap"><span class="evsw-wrap" id="evSwitchWrap" hidden>
       <button type="button" class="evsw" id="switchEv" aria-haspopup="true" aria-expanded="false" aria-controls="evSwitchPanel">
@@ -602,17 +627,31 @@
   </div>
 </div>
 
+<!-- 17/11: the personal link asks for the client's fixed 4-digit code -->
+<div class="wrap" id="pinGate" hidden>
+  <div class="gate-card">
+    <h2>קוד כניסה</h2>
+    <p class="gate-sub">הקלידו את הקוד בן 4 הספרות שקיבלתם מאיתנו</p>
+    <input class="gate-in code" id="p-pin" inputmode="numeric" autocomplete="off" maxlength="4" placeholder="••••" aria-label="קוד כניסה">
+    <button type="button" class="gate-btn" id="p-go">כניסה</button>
+    <button type="button" class="gate-send" id="p-send">שלחו לי את הקוד לוואטסאפ</button>
+    <p class="gate-err" id="p-err" aria-live="polite"></p>
+    <p class="gate-note">הקוד נשלח רק למספר שאיתו נרשמתם.<br>משהו לא מסתדר? <a href="#" id="p-wa" target="_blank" rel="noopener">כתבו לנו</a></p>
+  </div>
+</div>
+
 <!-- the gate: each customer signs in with their phone and personal code -->
 <div class="wrap" id="gate" hidden>
   <div class="gate-card">
     <h2>כניסה ללוח הבקרה</h2>
-    <p class="gate-sub">מקלידים את הטלפון, מקבלים קוד לוואטסאפ ונכנסים</p>
+    <p class="gate-sub">נכנסים עם מספר הטלפון וקוד הכניסה שלכם (4 ספרות)</p>
     <label class="gate-l" for="g-phone">מספר טלפון</label>
     <input class="gate-in" id="g-phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000">
-    <button type="button" class="gate-send" id="g-send">שליחת קוד בוואטסאפ</button>
     <label class="gate-l" for="g-code">קוד כניסה</label>
-    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••••">
+    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••">
     <button type="button" class="gate-btn" id="g-go">כניסה</button>
+    <!-- 18/11: the fixed 4-digit code is the main way in; a one-time WhatsApp code stays for whoever does not have it -->
+    <button type="button" class="gate-send" id="g-send" style="margin-top:.6rem">אין לי את הקוד · שלחו לי קוד חד-פעמי לוואטסאפ</button>
     <p class="gate-err" id="g-err" aria-live="polite"></p>
     <p class="gate-note">הקוד מגיע לוואטסאפ של המספר שאיתו נרשמתם.<br>משהו לא מסתדר? <a href="#" id="g-wa" target="_blank" rel="noopener">כתבו לנו</a></p>
   </div>
@@ -644,13 +683,22 @@
     </div>
     <!-- Richard 21/10: the client's own wording, submitted to Meta for approval -->
     <div class="card-b" id="ctBlock" style="border-top:1px solid var(--bdr)">
-      <div style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem;flex-wrap:wrap">
         <b style="font-size:.9rem">נוסח ההזמנה</b>
-        <span id="ctStatus" style="font-size:.78rem"></span>
+        <!-- 18/11 Richard: "שנה נוסח" sits on the left, under the name of the current wording -->
+        <span style="display:flex;flex-direction:column;align-items:center;text-align:center;gap:.35rem">
+          <span id="ctStatus" style="font-size:.78rem"></span>
+          <button type="button" class="btn" id="stChange" hidden>שנה נוסח</button>
+        </span>
       </div>
+      <!-- 17/11 Richard: until the first invitation goes out, the client picks one of our wordings here, or writes their own below -->
+      <!-- 18/11 Richard: first a "שנה נוסח" button; the wordings (ours and "נוסח אישי") show only after it is pressed -->
+      <div class="stypick" id="stPick" hidden role="group" aria-label="סגנון הנוסח"></div>
       <pre id="ctText" style="white-space:pre-wrap;font:inherit;font-size:.86rem;background:var(--bg2,#f2f2ee);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;color:var(--ink2)"></pre>
       <p id="ctNote" style="margin:0 0 .5rem;font-size:.78rem;color:var(--ink3)"></p>
       <button type="button" class="buy" id="ctBtn" style="background:var(--green4);color:var(--green2)">נוסח בהתאמה אישית</button>
+      <!-- 18/11 Richard: opens a popup that shows the messages as the guests will see them, with this event's details -->
+      <button type="button" class="btn" id="pvBtn" style="margin-top:.4rem">📱 איך זה נראה למוזמנים</button>
     </div>
   </section>
 
@@ -683,7 +731,7 @@
 
   <!-- guests -->
   <section class="card">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span style="display:flex;gap:.4rem;align-items:center;flex-wrap:wrap"><a class="buy" id="seatingLink" href="#" style="text-decoration:none">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>
     <p class="list-sum" id="listSum"></p>
@@ -734,26 +782,43 @@
     </div>
   </section>
 
-  <!-- invite a friend + loyalty tier -->
+  <!-- invite a friend + loyalty tier · 12/11 הזמן חבר: 20% הנחה לחברים או 20% עמלה (זיכוי) -->
   <section class="card" id="refCard" hidden>
     <div class="card-h" style="display:flex;justify-content:space-between;align-items:center">
       <span>הזמן חבר</span>
       <span id="tierChip" style="font-size:.68rem;font-weight:700;border-radius:99px;padding:.12rem .6rem;background:rgba(168,133,60,.15);color:#8A6D2F;letter-spacing:.03em"></span>
     </div>
     <div style="padding:1rem 1.1rem">
-      <p style="font-size:.9rem;color:var(--ink2);margin:0 0 .5rem">
-        מכירים זוג לפני אירוע? שתפו איתם את ishur, וככל שמצטרפים דרככם עולים בדרגה.
-      </p>
-      <p id="refStats" style="font-size:.8rem;color:var(--ink3);margin:0 0 .8rem"></p>
+      <p style="font-size:.9rem;color:var(--ink2);margin:0 0 .7rem">מכירים זוג לפני אירוע? בחרו מה מתאים לכם, ושתפו את הקישור או את התמונה לסטורי.</p>
+      <div id="refChoice" style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin:0 0 .8rem">
+        <button type="button" class="ref-opt" data-mode="discount" style="font:inherit;text-align:right;background:var(--card);border:1.5px solid var(--bdr);border-radius:12px;padding:.65rem .8rem;cursor:pointer;color:var(--ink)">
+          <b style="display:block;font-size:.9rem">20% הנחה לחברים</b>
+          <span style="font-size:.76rem;color:var(--ink3)">החברים מקבלים 20% הנחה על החבילה</span>
+        </button>
+        <button type="button" class="ref-opt" data-mode="commission" style="font:inherit;text-align:right;background:var(--card);border:1.5px solid var(--bdr);border-radius:12px;padding:.65rem .8rem;cursor:pointer;color:var(--ink)">
+          <b style="display:block;font-size:.9rem">20% עמלה לי</b>
+          <span style="font-size:.76rem;color:var(--ink3)">מכל חבילה שחבר סוגר דרככם</span>
+        </button>
+      </div>
+      <p id="refLockNote" hidden style="font-size:.74rem;color:var(--ink3);margin:-.4rem 0 .8rem">הבחירה ננעלה אחרי ההפניה הראשונה.</p>
+      <div id="refLinkRow" hidden style="display:flex;gap:.45rem;align-items:center;margin:0 0 .6rem">
+        <input id="refLinkIn" readonly style="flex:1;font:inherit;font-size:.86rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);min-width:0;direction:ltr;text-align:left">
+        <button type="button" class="buy" id="refCopy" style="background:var(--green4);color:var(--green2)">העתקה</button>
+      </div>
+      <p id="refStats" style="font-size:.95rem;font-weight:700;color:var(--ink);margin:0 0 .15rem"></p>
+      <p id="refSub" style="font-size:.78rem;color:var(--ink3);margin:0 0 .8rem"></p>
       <p id="refPerk" hidden style="font-size:.82rem;background:rgba(168,133,60,.1);border:1px solid rgba(168,133,60,.35);border-radius:10px;padding:.5rem .8rem;margin:0 0 .8rem;color:#8A6D2F;font-weight:600">
         🎁 צברתם הטבה: סבב שליחה נוסף מתנה. היא רשומה על שמכם ומחכה לכם כאן בלוח.
       </p>
-      <div style="display:flex;gap:.6rem;flex-wrap:wrap">
+      <div style="display:flex;gap:.6rem;flex-wrap:wrap;justify-content:flex-end">
+        <a id="refKit"
+           style="display:inline-block;background:var(--card);color:#8A6D2F;border:1.5px solid #A8853C;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">ערכת שיתוף לסטורי</a>
         <a id="refShare" target="_blank" rel="noopener"
            style="display:inline-block;background:#0F4C35;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">שיתוף בוואטסאפ</a>
-        <a id="badgeLink"
-           style="display:inline-block;background:var(--card);color:#8A6D2F;border:1.5px solid #A8853C;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">הבאדג' שלי לסטורי</a>
+        <a id="refRedeem" hidden target="_blank" rel="noopener"
+           style="display:inline-block;background:#A8853C;color:#fff;border-radius:10px;padding:.6rem 1.2rem;text-decoration:none;font-weight:600;font-size:.9rem">למימוש</a>
       </div>
+      <p id="refFine" style="font-size:.7rem;color:var(--ink3);margin:.7rem 0 0">העמלה נצברת כזיכוי למימוש על החבילות והתוספות שלנו, לא במזומן. ההפניה נספרת כשחבר משלם דרך הקישור.</p>
     </div>
   </section>
 
@@ -764,7 +829,7 @@
     <h3 id="tierPopT" style="font-size:1.15rem;margin:.4rem 0 .3rem"></h3>
     <p style="font-size:.85rem;color:var(--ink2);margin:0 0 1rem">ההפניות והאירועים שלכם קידמו אתכם. תודה שאתם ממליצים עלינו!</p>
     <div style="display:flex;gap:.6rem;justify-content:center">
-      <a id="tierPopBadge" style="background:#0F4C35;color:#fff;border-radius:10px;padding:.55rem 1.1rem;text-decoration:none;font-weight:600;font-size:.85rem">לבאדג' לסטורי</a>
+      <a id="tierPopBadge" style="background:#0F4C35;color:#fff;border-radius:10px;padding:.55rem 1.1rem;text-decoration:none;font-weight:600;font-size:.85rem">לערכת השיתוף</a>
       <button id="tierPopX" style="font:inherit;background:none;border:1px solid var(--bdr);border-radius:10px;padding:.55rem 1.1rem;cursor:pointer;color:var(--ink2);font-size:.85rem">סגירה</button>
     </div>
   </div>
@@ -775,13 +840,14 @@
     <div class="card-b">
       <p style="font-size:.85rem;color:var(--ink2);margin:0 0 .6rem">שלחו לקבוצת הוואטסאפ של המשפחה. מי שלוחץ "מגיע/ה" נכנס לרשימה ולסידור ההושבה. הודעות ותזכורות אליהם נפתחות בתוספת אחת קטנה.</p>
       <textarea id="shareTxt" readonly style="width:100%;min-height:7.5rem;font:inherit;font-size:.9rem;padding:.6rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);resize:vertical"></textarea>
-      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;align-items:center">
-        <button type="button" class="buy" id="copyShare">העתקת ההודעה</button>
-        <a class="buy" id="waShare" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)">פתיחה בוואטסאפ</a>
+      <!-- 12/11 Richard: WhatsApp first, copy second, both at the left end -->
+      <div style="display:flex;gap:.5rem;margin-top:.5rem;flex-wrap:wrap;align-items:center;justify-content:flex-end">
         <span id="shareMsg" style="font-size:.8rem;color:var(--ink3)"></span>
+        <a class="buy" id="waShare" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)">פתיחה בוואטסאפ</a>
+        <button type="button" class="buy" id="copyShare">העתקת ההודעה</button>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)">
-        <label for="navIn" style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור ניווט (Waze / Google Maps) · לא חובה</label>
+        <label for="navIn" class="guide-row"><span>קישור ניווט (Waze / Google Maps) · לא חובה</span><span class="guide-end"><button type="button" class="guide-b" data-guide="waze">איך מוציאים קישור?</button></span></label>
         <div style="display:flex;gap:.45rem">
           <input id="navIn" placeholder="הדביקו כאן קישור מוויז או גוגל מפות" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px;background:#fff;color:var(--ink);min-width:0;direction:ltr;text-align:left">
           <button type="button" class="buy" id="navSave">שמירה</button>
@@ -789,7 +855,7 @@
         <p id="navMsg" style="font-size:.78rem;color:var(--ink3);margin:.35rem 0 0">יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.</p>
       </div>
       <div style="margin-top:1rem;padding-top:.8rem;border-top:1px solid var(--bdr)" id="giftBox">
-        <label style="font-size:.86rem;font-weight:600;display:block;margin-bottom:.3rem">קישור למתנה (ביט / פייבוקס) · חינם, לא חובה</label>
+        <label class="guide-row"><span>קישור למתנה (ביט / פייבוקס) · חינם, לא חובה</span><span class="guide-end"><button type="button" class="guide-b" data-guide="bit">הסבר לביט</button><button type="button" class="guide-b" data-guide="paybox">הסבר לפייבוקס</button></span></label>
         <p style="font-size:.78rem;color:var(--ink3);margin:0 0 .5rem">אורח ששואל איך לתת מתנה יקבל את הקישור אוטומטית. כבוי כברירת מחדל.</p>
         <div style="display:flex;gap:.45rem;margin-bottom:.4rem">
           <input id="giftBit" placeholder="קישור ביט (bit.co.il)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
@@ -798,11 +864,13 @@
           <input id="giftPaybox" placeholder="קישור פייבוקס (payboxapp.com)" style="flex:1;font:inherit;font-size:.9rem;padding:.5rem .7rem;border:1.5px solid var(--bdr);border-radius:10px">
         </div>
         <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+          <span style="font-size:.74rem;color:var(--ink3);white-space:nowrap">בקרוב: מתנה באשראי דרכנו <button type="button" class="buy" id="giftInterest" style="font-size:.74rem;padding:.25rem .7rem;margin-inline-start:.3rem;background:var(--green4);color:var(--green2)">מעניין אותי</button></span>
+          <span style="margin-inline-start:auto;display:inline-flex;gap:.6rem;align-items:center;flex-wrap:wrap">
           <label style="display:flex;align-items:center;gap:.4rem;font-size:.86rem;cursor:pointer"><input type="checkbox" id="giftOn" style="width:1.1rem;height:1.1rem"> לשלוח את הקישור לאורחים</label>
           <button type="button" class="buy" id="giftSave">שמירה</button>
           <span id="giftMsg" style="font-size:.78rem;color:var(--ink3)"></span>
+          </span>
         </div>
-        <p style="font-size:.74rem;color:var(--ink3);margin:.4rem 0 0">בקרוב: מתנה באשראי דרכנו. <button type="button" class="buy" id="giftInterest" style="font-size:.74rem;padding:.25rem .7rem;margin-inline-start:.3rem;background:var(--green4);color:var(--green2)">מעניין אותי</button></p>
       </div>
     </div>
   </section>
@@ -847,6 +915,26 @@
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
+  /* 18/11: a returning device can run this (always fresh) page with a config.js its cache kept from days ago. An address
+     that file does not know yet came back broken, and the code screen answered a right code with a failure. The
+     addresses this page needs are derived here from the one that has always been there. */
+  (function () {
+    var need = { 'account-board-pin': '/api/account/board-pin', 'account-board-pin-send': '/api/account/board-pin-send', 'preview-messages': '/api/preview-messages', inviteStyle: '/api/invite-style', 'custom-template': '/api/custom-template' };
+    var orig = CFG.endpoint;
+    CFG.endpoint = function (k) {
+      /* an old config.js answers an unknown name with a guessed path (/api/<name>), which exists nowhere: for the
+         names below this page never asks it */
+      if (need[k]) { var st = orig('status') || ''; if (/\/api\/status$/.test(st)) return st.replace(/\/api\/status$/, need[k]); }
+      return orig(k);
+    };
+    /* when a newer cache worker takes over, load the page once more so its scripts are the current ones */
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', function () {
+        try { if (sessionStorage.getItem('ishur_sw_rl')) return; sessionStorage.setItem('ishur_sw_rl', '1'); } catch (e) { return; }
+        location.reload();
+      });
+    } catch (e) {}
+  })();
   var qs = new URLSearchParams(location.search);
   var token = (qs.get('t') || '').trim();
   /* 03/11 PWA: the home-screen launch opens dashboard.html?pwa=1 (no token); reuse the last one */
@@ -1063,13 +1151,13 @@
     if (m.video_url) {
       /* no browser controls (their menu ignores the site's design): the clip
          loops muted; a tap toggles sound; a tap on the preview opens it full */
-      prev.innerHTML = '<video src="' + m.video_url + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
+      prev.innerHTML = '<video src="' + escH(m.video_url) + '" style="width:100%;height:auto;display:block;object-fit:contain;background:#000;cursor:pointer" muted playsinline loop preload="metadata" title="לחיצה: ניגון / עצירה"></video>';
       /* no autoplay: a 3MB clip was holding the whole page load (31s on 17/09) */
       var v = prev.querySelector('video');
       v.addEventListener('click', function () { if (v.paused) { v.muted = false; v.play(); } else v.pause(); });
       txt.innerHTML = '<b>מצורף וידאו</b> להזמנה. ההזמנה תישלח עם הווידאו.';
     } else if (m.image_url) {
-      prev.innerHTML = '<img src="' + m.image_url + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
+      prev.innerHTML = '<img src="' + escH(m.image_url) + '" alt="" style="width:100%;height:auto;display:block;object-fit:contain">';
       txt.innerHTML = '<b>מצורפת תמונה</b> להזמנה. כך היא תיראה אצל המוזמנים.';
     } else {
       prev.innerHTML = '<span style="font-size:2rem">🖼️</span>';
@@ -1241,6 +1329,82 @@
       ['catch'](function () { return false; });
   }
 
+  /* our four wordings: which one this event uses, and choosing another while nothing was sent yet */
+  var STY = null;
+  function styleText(s) {
+    if (!s || !s.body) return DEFAULT_INVITE();
+    var ev = data.event || {}, v = ['{שם האורח}', ev.occasion_label || ev.occasion || 'אירוע', ev.name1 || 'בעלי השמחה', ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL') : 'התאריך', ev.reception_time || 'השעה', [ev.venue_name, ev.venue_city].filter(Boolean).join(', ')];
+    return s.body.replace(/\{\{(\d)\}\}/g, function (m, i) { return v[Number(i) - 1] || ''; });
+  }
+  var stOpen = false;
+  function paintStyles() {
+    var box = $('stPick'), chg = $('stChange'); if (!box || demo) return;
+    var ct = data.custom_template || null, own = ct && (ct.status === 'APPROVED' || ct.status === 'PENDING');
+    var sentNow = STY ? !!STY.sent : !!(data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; }));
+    if (chg) chg.hidden = sentNow || stOpen;
+    box.hidden = sentNow || !stOpen;
+    box.innerHTML = (STY ? STY.styles : []).map(function (s) { var on = !own && s.key === STY.style; return '<button type="button" data-st="' + esc(s.key) + '" aria-pressed="' + on + '"' + (s.ready ? '' : ' disabled title="הנוסח הזה עוד בבדיקה של וואטסאפ"') + '>' + esc(s.he) + (s.ready ? '' : ' · בקרוב') + '</button>'; }).join('') +
+      '<button type="button" data-st-own aria-pressed="' + !!own + '">נוסח אישי</button>';
+    if (!STY) return;
+    if (!own) { var cur = STY.styles.filter(function (s) { return s.key === STY.style; })[0]; $('ctStatus').textContent = 'נוסח ' + (cur ? cur.he : 'רגיל'); $('ctText').textContent = styleText(cur); }
+  }
+  function loadStyles(body) {
+    if (demo || !token) return;
+    fetch(CFG.endpoint('inviteStyle'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(Object.assign({ token: token }, body || {})) }).then(function (r) { return r.json(); }).then(function (j) {
+      if (!j || !j.ok) { if (j && j.error === 'already-sent' && window.IshurUX) IshurUX.toast('ההזמנה כבר יצאה, אי אפשר לשנות נוסח'); return; }
+      STY = j;
+      /* 18/11 Richard: after a change the options close and the client sees a clear confirmation of the new wording */
+      if (body) { stOpen = false; var nw = (j.styles || []).filter(function (x) { return x.key === j.style; })[0]; var okMsg = '✓ הנוסח שונה' + (nw ? ' לנוסח ' + nw.he : '') + '. כך תצא ההזמנה.'; if (window.IshurUX) IshurUX.toast(okMsg); var nt0 = $('ctNote'); if (nt0) { nt0.textContent = okMsg; nt0.style.color = 'var(--green2)'; setTimeout(function () { nt0.style.color = ''; }, 6000); } }
+      paintStyles();
+    }).catch(function () {});
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('#stPick button[data-st]'); if (!b || b.disabled || b.getAttribute('aria-pressed') === 'true') return; var ct0 = data.custom_template || null; if (ct0 && (ct0.status === 'APPROVED' || ct0.status === 'PENDING')) { if (!confirm('יש לכם נוסח אישי. לעבור לנוסח ' + b.textContent + ' במקומו?')) return; data.custom_template = null; renderCustomText(); } loadStyles({ style: b.dataset.st, drop_custom: true }); });
+
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('#stChange, #stPick button[data-st-own]'); if (!t) return;
+    if (t.id === 'stChange') { stOpen = true; paintStyles(); return; }
+    var b = $('ctBtn'); if (b) b.click();
+  });
+  /* the preview popup: the invitation and the reminder from what the board already shows; the day-before and event-day
+     messages from the server, which picks the same version the real send would (navigation, table, gift) */
+  (function () {
+    var pb = $('pvBtn'); if (!pb) return;
+    var bubble = function (m) {
+      return '<div style="margin:0 0 1.1rem"><div style="font-size:.8rem;font-weight:700;margin:0 0 .15rem">' + esc(m.title) + '</div>' +
+        (m.when ? '<div style="font-size:.74rem;color:var(--ink3);margin:0 0 .35rem">' + esc(m.when) + '</div>' : '') +
+        '<div style="background:#E7F6E1;color:#111;border-radius:8px;padding:.5rem .6rem;max-width:22rem;box-shadow:0 1px 1px rgba(0,0,0,.12)">' +
+          (m.video ? '<video src="' + esc(m.video) + '" muted playsinline controls preload="metadata" style="width:100%;border-radius:6px;display:block;margin:0 0 .4rem;background:#000"></video>' : m.image ? '<img src="' + esc(m.image) + '" alt="" loading="lazy" style="width:100%;border-radius:6px;display:block;margin:0 0 .4rem">' : '') +
+          '<div style="white-space:pre-wrap;font-size:.86rem;line-height:1.45">' + esc(m.text) + '</div>' +
+          (m.footer ? '<div style="font-size:.7rem;color:#667;margin-top:.35rem">' + esc(m.footer) + '</div>' : '') +
+        '</div>' +
+        (m.buttons && m.buttons.length ? '<div style="max-width:22rem;margin-top:.25rem;display:flex;flex-direction:column;gap:.2rem">' + m.buttons.map(function (x) { return '<div style="background:#fff;color:#0A7CFF;text-align:center;font-size:.84rem;font-weight:600;padding:.42rem;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,.12)">' + esc(x) + '</div>'; }).join('') + '</div>' : '') +
+      '</div>';
+    };
+    pb.addEventListener('click', function () {
+      var md = (data && data.media) || {}, txt = ($('ctText') || {}).textContent || '';
+      var inviteBtns = ['מגיע', 'לא מגיע', 'עדיין לא ידוע'];
+      var first = [
+        { title: 'ההזמנה', when: 'ההודעה הראשונה, לכל הרשימה', text: txt, buttons: inviteBtns, footer: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"', image: md.video_url ? '' : (md.image_url || md.url || ''), video: md.video_url || '' },
+        { title: 'תזכורת למי שלא ענה', when: 'אותה הודעה שוב, רק למי שעוד לא ענה', text: txt, buttons: inviteBtns, footer: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' }
+      ];
+      var box = document.createElement('div');
+      box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+      box.innerHTML = '<div class="dpop" role="dialog" aria-modal="true" style="background:var(--card,#fff);border-radius:8px;padding:1rem;width:100%;max-width:460px;max-height:88vh;overflow:auto">' +
+        '<h3 style="margin:0 0 .2rem">כך זה נראה למוזמנים</h3>' +
+        '<p style="margin:0 0 .8rem;font-size:.8rem;color:var(--ink2)">הדמיה עם פרטי האירוע שלכם ואורחת לדוגמה בשם דנה. שום דבר לא נשלח מכאן.</p>' +
+        '<div id="pvList" style="background:#ECE5DD;border-radius:8px;padding:.8rem">' + first.map(bubble).join('') + '<div id="pvMore" style="font-size:.8rem;color:#555">טוענים את הודעות יום לפני ויום האירוע…</div></div>' +
+        '<button type="button" class="btn" id="pvX" style="width:100%;margin-top:.7rem">סגירה</button></div>';
+      document.body.appendChild(box);
+      box.querySelector('#pvX').addEventListener('click', function () { box.remove(); });
+      box.addEventListener('click', function (e) { if (e.target === box) box.remove(); });
+      if (demo || !token) { box.querySelector('#pvMore').textContent = ''; return; }
+      fetch(CFG.endpoint('preview-messages'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          var more = box.querySelector('#pvMore'); if (!more) return;
+          more.outerHTML = j && j.ok && j.messages && j.messages.length ? j.messages.map(bubble).join('') : '<div style="font-size:.8rem;color:#555">הודעות יום לפני ויום האירוע יוצגו כאן אחרי שתמלאו תאריך, שעה וכתובת.</div>';
+        }).catch(function () { var more = box.querySelector('#pvMore'); if (more) more.textContent = ''; });
+    });
+  })();
   function renderCustomText() {
     var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
     if (!st) return;
@@ -1256,7 +1420,8 @@
     }
     else if (ct && (ct.status === 'REJECTED' || ct.status === 'FAILED')) { st.innerHTML = '<span style="color:var(--warn,#a3321f)">✕ הנוסח לא אושר</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ לא אישרו את הנוסח' + (ct.reason ? ' (' + ct.reason + ')' : '') + '. ערכו אותו כאן ואנחנו מגישים אוטומטית נוסח חדש לאישור; בינתיים יוצא הנוסח הרגיל.'; b.textContent = 'עריכה והגשה מחדש'; }
     else { st.textContent = 'הנוסח הרגיל'; tx.textContent = DEFAULT_INVITE(); nt.textContent = 'רוצים ניסוח משלכם? כותבים אותו, אנחנו מגישים לאישור וואטסאפ, וברגע שמאושר ההזמנה יוצאת בניסוח שלכם.'; }
-    b.hidden = !!sent || demo;
+    b.hidden = true;   /* 18/11: the own-wording editor opens from the "נוסח אישי" option after "שנה נוסח" */
+    paintStyles();
     if (sent && ct && ct.status === 'PENDING') nt.innerHTML += '<br>ההזמנה הראשונה כבר יצאה בנוסח הרגיל. הנוסח שלכם ישמש להזמנות של מוזמנים שתוסיפו מעכשיו, ברגע שיאושר. התזכורות הן הודעה נפרדת ("עדיין לא ענית") ולא משתנות.';
     else if (sent && ct && ct.status === 'APPROVED') nt.textContent = 'ההזמנה הראשונה יצאה בנוסח הרגיל. מוזמנים שתוסיפו מעכשיו יקבלו את הנוסח שלכם. התזכורות הן הודעה נפרדת ולא משתנות.';
     else if (sent) nt.textContent = 'ההזמנות כבר יצאו, הנוסח נעול.';
@@ -1270,6 +1435,7 @@
       box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:440px">' +
         '<h3 style="margin:0 0 .3rem">נוסח ההזמנה שלכם</h3>' +
         '<p style="margin:0 0 .6rem;font-size:.84rem;color:var(--ink2)">כתבו את ההודעה כמו שתרצו שהמוזמנים יקבלו. כפתורי "מגיע / לא מגיע / עדיין לא ידוע" מתווספים אוטומטית. בלי שם האורח (אי אפשר להכניס שדות).</p>' +
+        '<p style="margin:0 0 .6rem;font-size:.82rem;color:#9A5B00;background:rgba(154,91,0,.08);border-radius:8px;padding:.5rem .65rem"><b>חשוב:</b> נוסח אישי עובר אישור של וואטסאפ. בדרך כלל זה לוקח עד שעה, ולפעמים עד 24 שעות. השאירו מספיק זמן לפני מועד השליחה, ובדקו כאן לפני יום השליחה שהנוסח אושר. אם הוא לא יאושר עד אז, ההזמנה תצא בנוסח הרגיל.</p>' +
         '<textarea id="ctArea" rows="9" style="width:100%;font:inherit;font-size:.9rem;padding:.6rem;border:1px solid var(--bdr);border-radius:10px;resize:vertical"></textarea>' +
         '<p id="ctErr" style="margin:.3rem 0 .6rem;font-size:.8rem;color:var(--warn,#a3321f);min-height:1.2em"></p>' +
         '<button type="button" class="buy" id="ctSend" style="width:100%;margin-bottom:.5rem">הגשה לאישור וואטסאפ</button>' +
@@ -1307,12 +1473,13 @@
       items.push({ id: sec.id, label: label });
     });
     nav.hidden = items.length < 3;
-    nav.innerHTML = '<div class="tt">בלוח</div>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
+    /* 12/11 Richard: first in the side list — all my events (the personal area) */
+    nav.innerHTML = '<div class="tt">בלוח</div><a href="account.html' + (token ? '?t=' + encodeURIComponent(token) : '') + '" id="acctLink" style="font-weight:600">כל האירועים שלי ›</a>' + items.map(function (it) { return '<a href="#' + it.id + '" data-sec="' + it.id + '">' + it.label.replace(/</g, '') + '</a>'; }).join('');
     /* sit just under the dark header while it is on screen, then hug the top */
     function placeToc() { var t2 = document.querySelector('.top'); if (!t2) return; var b = t2.getBoundingClientRect().bottom; document.documentElement.style.setProperty('--toc-top', Math.max(16, b + 14) + 'px'); }
     placeToc();
     if (!renderToc._rs) { renderToc._rs = true; var tick = null; var onMove = function () { if (tick) return; tick = requestAnimationFrame(function () { tick = null; placeToc(); }); }; window.addEventListener('resize', onMove); window.addEventListener('scroll', onMove, { passive: true }); window.addEventListener('load', placeToc); }
-    nav.onclick = function (e) { var a = e.target.closest('a'); if (!a) return; e.preventDefault(); var el = document.getElementById(a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
+    nav.onclick = function (e) { var a = e.target.closest('a'); if (!a) return; if (!a.dataset.sec) return;   /* a real link (כל האירועים שלי) navigates */ e.preventDefault(); var el = document.getElementById(a.dataset.sec); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     if (window.IntersectionObserver && !renderToc._io) {
       renderToc._io = new IntersectionObserver(function (es) {
         es.forEach(function (en) { if (en.isIntersecting) { nav.querySelectorAll('a').forEach(function (a) { a.classList.toggle('on', a.dataset.sec === en.target.id); }); } });
@@ -1321,7 +1488,7 @@
     if (renderToc._io) { renderToc._io.disconnect(); items.forEach(function (it) { var el = document.getElementById(it.id); if (el) renderToc._io.observe(el); }); }
   }
   function render() {
-    renderCustomText(); setTimeout(renderToc, 50);
+    renderCustomText(); if (!STY) loadStyles(); else paintStyles(); setTimeout(renderToc, 50);
     renderSubLinks();
     renderMedia();
     if (window.IshurDesign) { var dmk = qs.get('designmock'); IshurDesign.mount($('designCard'), { token: token || (dmk ? '00000000-0000-4000-8000-000000000000' : ''), endpoint: CFG.endpoint('design-flow'), media: CFG.endpoint('media'), mock: dmk ? IshurDesign.mockApi(dmk) : null }); }
@@ -1428,17 +1595,12 @@
     $('refCard').hidden = false;
     var tier = data.tier || {};
     $('tierChip').textContent = tier.name ? 'דרגת ' + tier.name : '';
-    var link = 'https://ishur.io/?utm_source=referral&utm_medium=friend&utm_campaign=' + encodeURIComponent(code);
-    var msg = 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה: ' + link;
-    $('refShare').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
-
+    var R = data.referral || { chosen: false, mode: '', code: code, link: 'https://ishur.io/?ref=' + code, friends: 0, pending: 0, saved: 0, earned: 0, balance: 0, locked: false, copy: '' };
+    paintRef(R);
     var refs = Number(tier.referrals) || 0;
-    $('refStats').textContent = refs
-      ? 'הפניות מאומתות: ' + refs + ' · כל חבר שסוגר אירוע דרך הקישור מקדם אתכם בדרגה'
-      : 'ההפניה נספרת כשחבר סוגר אירוע דרך הקישור שלכם';
     $('refPerk').hidden = refs < 1;
-    var badgeHref = 'badge.html?t=' + encodeURIComponent(token || '');
-    $('badgeLink').href = badgeHref;
+    /* 12/11 Richard: the badge page is gone; the story kit is the one share tool */
+    var badgeHref = 'share.html?t=' + encodeURIComponent(token || '');
     $('tierPopBadge').href = badgeHref;
 
     /* the "you leveled up" moment — once per device per level */
@@ -1454,6 +1616,58 @@
       localStorage.setItem(k, tier.key);
     } catch (e) {}
   }
+  /* the card from the Worker's referral summary (chosen? mode, counts, balance) */
+  function paintRef(R) {
+    var mode = R.chosen ? R.mode : '';
+    document.querySelectorAll('#refChoice .ref-opt').forEach(function (b) {
+      var on = b.dataset.mode === mode;
+      b.style.borderColor = on ? '#A8853C' : 'var(--bdr)';
+      b.style.background = on ? 'rgba(168,133,60,.08)' : 'var(--card)';
+      b.disabled = !!R.locked && !on;
+      b.style.opacity = (R.locked && !on) ? '.5' : '1';
+    });
+    $('refLockNote').hidden = !R.locked;
+    var link = R.link || ('https://ishur.io/?ref=' + R.code);
+    $('refLinkRow').hidden = !mode;
+    $('refLinkIn').value = link;
+    var msg = mode === 'discount'
+      ? 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. דרך הקישור שלי יש לכם 20% הנחה על כל החבילות: ' + link
+      : 'מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה: ' + link;
+    $('refShare').href = 'https://wa.me/?text=' + encodeURIComponent(msg);
+    $('refKit').href = 'share.html?t=' + encodeURIComponent(token || '') + '&v=' + (mode || 'commission');
+    if (!mode) {
+      $('refStats').textContent = 'חברים חסכו ₪0 · הרווחתם ₪0';
+      $('refSub').textContent = 'בחרו למעלה: הנחה לחברים או עמלה לכם. אפשר להחליף מתי שרוצים, וקישור שכבר שיתפתם נשאר כמו שהיה.';
+      $('refRedeem').hidden = true;
+      return;
+    }
+    $('refStats').textContent = R.copy || (mode === 'discount' ? 'חברים חסכו ₪' + (R.saved || 0) : 'הרווחתם ₪' + (R.earned || 0));
+    var sub = [];
+    if (R.friends) sub.push(R.friends === 1 ? 'חבר אחד סגר דרככם' : R.friends + ' חברים סגרו דרככם');
+    if (R.pending) sub.push(R.pending === 1 ? 'הפניה אחת ממתינה לאישור' : R.pending + ' הפניות ממתינות לאישור');
+    if (mode === 'commission' && R.balance) sub.push('יתרה למימוש: ₪' + R.balance);
+    $('refSub').textContent = sub.length ? sub.join(' · ') : (mode === 'discount' ? 'כל חבר שסוגר דרך הקישור מקבל 20% הנחה' : 'כל חבר שסוגר דרך הקישור מזכה אתכם ב-20% מהחבילה שלו');
+    var canRedeem = mode === 'commission' && Number(R.balance) > 0;
+    $('refRedeem').hidden = !canRedeem;
+    if (canRedeem) $('refRedeem').href = CFG.waLink('היי, יש לי ₪' + R.balance + ' זיכוי מהפניות ב-ishur.io (קוד ' + R.code + '). רוצה לממש אותו על חבילה / תוספת לאירוע הבא.');
+  }
+  $('refChoice').addEventListener('click', function (ev) {
+    var b = ev.target.closest('.ref-opt'); if (!b || b.disabled) return;
+    var mode = b.dataset.mode;
+    document.querySelectorAll('#refChoice .ref-opt').forEach(function (x) { x.disabled = true; });
+    IshurLead.track('referral_mode', { mode: mode });
+    fetch(CFG.endpoint('referral'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, mode: mode }) })
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j || !j.ok) { alert(j && j.error === 'locked' ? 'הבחירה ננעלה אחרי ההפניה הראשונה' : 'לא הצלחנו לשמור, נסו שוב'); paintRef(data.referral || {}); return; }
+        data.referral = j; paintRef(j);
+      })
+      .catch(function () { alert('לא הצלחנו לשמור, נסו שוב'); paintRef(data.referral || {}); });
+  });
+  $('refCopy').addEventListener('click', function () {
+    var v = $('refLinkIn').value;
+    (navigator.clipboard ? navigator.clipboard.writeText(v) : Promise.reject()).then(function () { $('refCopy').textContent = 'הועתק ✓'; setTimeout(function () { $('refCopy').textContent = 'העתקה'; }, 1500); }, function () { $('refLinkIn').select(); });
+  });
   ['tierPopBg', 'tierPopX'].forEach(function (id) {
     $(id).addEventListener('click', function () {
       $('tierPopBg').hidden = true;
@@ -1536,6 +1750,13 @@
       if (tbl && tq && (tbl === tq || tbl.indexOf(tq) > -1)) return true;
       return !!digits && String(g.phone || '').replace(/\D/g, '').indexOf(digits) > -1;
     });
+    /* 18/11 Richard: whoever confirmed goes to the top, the newest answer first, so new confirmations are seen at once. Everyone else keeps their order. */
+    list = list.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
+      var ca = a.g.status === 'confirmed' ? 1 : 0, cb = b.g.status === 'confirmed' ? 1 : 0;
+      if (ca !== cb) return cb - ca;
+      if (ca) { var ta = String(a.g.at_ts || a.g.at || ''), tb = String(b.g.at_ts || b.g.at || ''); if (ta !== tb) return ta < tb ? 1 : -1; }
+      return a.i - b.i;
+    }).map(function (x) { return x.g; });
     var sum = list.reduce(function (a, g) { return a + (g.seats || 1); }, 0);
     var sumEl = $('listSum');
     if (sumEl) {
@@ -1570,13 +1791,13 @@
           (over ? ' disabled title="' + OVER_HINT + '"' : '') + '>'
         : (g.id && !over ? '<span class="tbl-sp"><button type="button" class="more" data-id="' + esc(g.id) + '" aria-label="עדכון ידני">⋯</button>' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : (anyConfirmedNow ? '<span class="tbl-sp">' + (g.table ? '<span class="tbl-chip">' + esc(g.table) + '</span>' : '') + '</span>' : ''));
       var ck = data.checkin && data.checkin.enabled && g.id
-        ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + g.arrived : 'הגיע?') + '</button>'
+        ? '<button type="button" class="chk' + (g.arrived ? ' on' : '') + '" data-ck="' + esc(g.id) + '" aria-label="סימון הגעה">' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '</button>'
         : '';
       return '<div class="row' + (g.self ? ' self' : '') + '">' + ck +
-             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name || '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + (g.phone || '') + '</span></span>' +
+             '<span class="row-n' + (g.id && !over ? ' editable' : '') + '"' + (g.id ? ' data-gid="' + esc(g.id) + '" title="לחיצה לעריכת שם וטלפון"' : '') + '>' + (g.name ? escH(g.name) : '<span style="color:var(--ink3)">ללא שם</span>') + (g.self ? ' <span class="self-tag" title="נרשם דרך הקישור לקבוצה. הודעות ותזכורות אליו נפתחות בתוספת">מהקישור</span>' : '') + '<br><span class="row-p">' + escH(g.phone || '') + '</span></span>' +
              '<span class="pill ' + st.pill + '">' + st.label + '</span>' +
              sendBadge(g) +
-             '<span class="row-s">' + (g.seats ? g.seats : '—') + '</span>' + tbl + '</div>';
+             '<span class="row-s">' + (g.seats ? escH(g.seats) : '—') + '</span>' + tbl + '</div>';
     }).join('');
     var anyConfirmed = (data.guests || []).some(function (g) { return g.status === 'confirmed' && g.id; });
     $('seatBar').hidden = !anyConfirmed;
@@ -1937,6 +2158,55 @@
   }
 
   /* closing hands the keyboard back to the button that opened it */
+  /* ── 12/11 Richard: "מי שמסתבך" — a short guide for getting a Waze / Bit / PayBox link.
+     Text steps always; a picture per step and a video appear when the files exist
+     (guides/<key>-<n>.jpg, CFG.GUIDE_VIDEOS[key]) — nothing breaks without them. */
+  /* 12/11 evening (Richard: "שיהיה מדויק שככה עושים את זה"): the steps follow each company's own help pages —
+     bit: bitpay.co.il/he/private-faq › איסוף כסף · Waze: support.google.com/waze/answer/6274015 · PayBox: payboxapp.com/groups.
+     Where the source does not name a button, the step does not invent one. */
+  var GUIDES = {
+    waze: { t: 'איך מוציאים קישור מוויז', paste: 'navIn', steps: [
+      'פותחים את וויז ומחפשים את האולם או את הכתובת של האירוע.',
+      'במסך של המקום לוחצים על "צא בזמן אחר".',
+      'לוחצים "שמור". הנסיעה נשמרת עם מאיפה ולאן.',
+      'בנסיעה השמורה לוחצים על "שיתוף" ואז על "העתק קישור".',
+      'חוזרים לכאן, מדביקים בשדה "קישור ניווט" ולוחצים "שמירה".'],
+      note: 'אפשר גם מהמחשב: ב-waze.com/live-map מקלידים את האולם כיעד ולוחצים על סמל הקישור בפינה התחתונה. גם קישור מגוגל מפות ("שיתוף" ואז "העתקה") מתקבל.' },
+    bit: { t: 'איך מוציאים קישור מביט', paste: 'giftBit', steps: [
+      'פותחים את ביט בטלפון של מי שמקבל את המתנות, ולוחצים על "קבוצה" במסך הראשי.',
+      'בוחרים לאן הכסף נאסף: ליתרה או לכיס.',
+      'מגדירים את מטרת האיסוף (למשל "מתנות לחתונה"), בוחרים סכום פתוח כדי שכל אורח יחליט כמה לתת, וקובעים משך איסוף שמסתיים אחרי האירוע.',
+      'אחרי הפתיחה נכנסים למסך הקבוצה, לוחצים "לשתף" ומעתיקים את הלינק.',
+      'חוזרים לכאן, מדביקים בשדה "קישור ביט", מסמנים "לשלוח את הקישור לאורחים" ולוחצים "שמירה".'],
+      note: 'הקישור עובד רק עד מועד סיום האיסוף שקבעתם, אז כדאי לתת לו כמה ימים אחרי האירוע. לפי ביט: אפשר לקבל עד ₪100,000 בשנה, ומעל ₪25,000 בשנה נגבית עמלה של 0.8%.' },
+    paybox: { t: 'איך מוציאים קישור מפייבוקס', paste: 'giftPaybox', steps: [
+      'פותחים את פייבוקס ויוצרים קבוצה חדשה לאירוע, עם שם ומטרה (למשל "מתנות לחתונה").',
+      'במסך הראשי של הקבוצה לוחצים על "הזמנת חברים".',
+      'בוחרים לשתף קישור להצטרפות (ולא לבחור מאנשי הקשר), ומעתיקים אותו.',
+      'חוזרים לכאן, מדביקים בשדה "קישור פייבוקס", מסמנים "לשלוח את הקישור לאורחים" ולוחצים "שמירה".'],
+      note: 'לפי פייבוקס: בקבוצה פרטית רק מנהל הקבוצה מזמין בקישור, ובקבוצה ציבורית כל חבר יכול לשלוח אותו. את הכסף מושך מנהל הקבוצה.' }
+  };
+  function openGuide(key) {
+    var g = GUIDES[key]; if (!g) return;
+    var old = document.getElementById('guideBg'); if (old) old.remove();
+    var vid = (CFG.GUIDE_VIDEOS || {})[key] || '';
+    var bg = document.createElement('div'); bg.id = 'guideBg'; bg.className = 'guide-bg';
+    bg.innerHTML = '<div class="guide" role="dialog" aria-modal="true" aria-label="' + g.t + '"><div class="guide-h"><h3>' + g.t + '</h3><button type="button" class="guide-x" aria-label="סגירה">×</button></div>' +
+      (vid ? '<video class="guide-v" controls playsinline preload="metadata" src="' + vid + '"></video>' : '') +
+      '<ol class="guide-ol">' + g.steps.map(function (s, i) { return '<li><span>' + s + '</span><img alt="" loading="lazy" src="guides/' + key + '-' + (i + 1) + '.jpg" onerror="this.remove()"></li>'; }).join('') + '</ol>' +
+      '<p class="guide-n">' + g.note + '</p>' +
+      '<div class="guide-f"><button type="button" class="buy" data-guide-go>הבנתי, להדבקת הקישור</button><a class="guide-wa" target="_blank" rel="noopener" href="' + CFG.waLink('היי, אני צריך עזרה עם ' + g.t.replace('איך מוציאים ', '')) + '">עדיין מסתבכים? כתבו לנו</a></div></div>';
+    var close = function () { bg.remove(); document.removeEventListener('keydown', onKey, true); };
+    var onKey = function (e) { if (e.key === 'Escape') close(); };
+    bg.addEventListener('click', function (e) {
+      if (e.target === bg || e.target.closest('.guide-x')) return close();
+      if (e.target.closest('[data-guide-go]')) { close(); var f = $(g.paste); if (f) { f.scrollIntoView({ block: 'center', behavior: 'smooth' }); setTimeout(function () { f.focus(); }, 350); } }
+    });
+    document.addEventListener('keydown', onKey, true);
+    document.body.appendChild(bg);
+    IshurLead.track('guide_open', { guide: key });
+  }
+  document.addEventListener('click', function (e) { var b = e.target.closest('[data-guide]'); if (b) { e.preventDefault(); openGuide(b.dataset.guide); } });
   function closeDpop(focusBack) {
     var bg = $('dpopBg'), box = $('dpop');
     if (bg) bg.remove();
@@ -2045,8 +2315,9 @@
     /* demo: show the card with a sample link so the navigation + gift
        boxes can be reviewed; saving is disabled without a real token */
     if (!token || demo) { $('shareCard').hidden = true; return; }
-    var link = 'https://ishur.io/rsvp.html?t=' + (token || 'demo');
+    /* 12/11 security: guests get the event's public id (data.pub), never the dashboard token */
     function shareText() {
+      var link = 'https://ishur.io/rsvp.html?t=' + ((data && data.pub) || token || 'demo');
       var ev = (data && data.event) || {};
       var occ = ev.occasion_label || ev.occasion || 'האירוע';
       var d = ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL', { weekday: 'long', day: 'numeric', month: 'long' }) : '';
@@ -2169,7 +2440,7 @@
     var b = $('replaceLink'), inp = $('listFile'), msg = $('listMsg'); if (!b) return;
     var sl = $('seatingLink'); if (sl) { if (token && !demo) sl.href = 'seating.html?v=5&t=' + encodeURIComponent(token); else sl.hidden = true; }
     var cl = $('checklistLink'); if (cl) { if (token && !demo) cl.href = 'checklist.html?t=' + encodeURIComponent(token); else cl.hidden = true; }
-    var ql = $('qrLink'); if (ql) { if (token && !demo) ql.href = 'table.html?qr=1&t=' + encodeURIComponent(token); else ql.hidden = true; }   /* 09/11 Richard: a check-list for the entrance, every client */
+    var ql = $('qrLink'); if (ql) { if (token && !demo) ql.href = 'table.html?qr=1&t=' + encodeURIComponent((data && data.pub) || token); else ql.hidden = true; }   /* 09/11 Richard: a check-list for the entrance, every client */
     var bl = $('budgetLink'); if (bl) { if (token && !demo) bl.href = 'budget.html?v=1&t=' + encodeURIComponent(token); else bl.hidden = true; }
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {
@@ -2205,9 +2476,15 @@
     var inv = data.invoice;
     if (!token || demo) { c.hidden = true; return; }
     c.hidden = false;
-    $('invoiceBody').innerHTML = inv && inv.url
-      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">חשבונית מס/קבלה' + (inv.number ? ' מס׳ ' + String(inv.number).replace(/</g, '') : '') + ' הופקה.</p>' +
-        '<a class="buy" style="display:inline-block;text-decoration:none" href="' + String(inv.url).replace(/"/g, '') + '" target="_blank" rel="noopener">הורדת החשבונית (PDF)</a>'
+    var list = (data.invoices && data.invoices.length) ? data.invoices : (inv && inv.url ? [{ url: inv.url, number: inv.number, kind: 'רכישה' }] : []);
+    /* 12/11 Richard: every invoice of this event, one row each (purchase, add-ons, manual) */
+    $('invoiceBody').innerHTML = list.length
+      ? '<p style="margin:0 0 .6rem;font-size:.9rem;color:var(--ink2)">' + (list.length === 1 ? 'חשבונית מס/קבלה אחת הופקה לאירוע.' : list.length + ' חשבוניות מס/קבלה הופקו לאירוע.') + '</p>' +
+        '<div style="display:flex;flex-direction:column;gap:.45rem">' + list.map(function (x) {
+          return '<div style="display:flex;align-items:center;justify-content:space-between;gap:.6rem;flex-wrap:wrap"><span style="font-size:.88rem">' +
+            (x.number ? 'מס׳ ' + String(x.number).replace(/</g, '') + ' · ' : '') + esc(x.kind || '') + (x.sum ? ' · ₪' + x.sum : '') + (x.at ? ' · ' + heDay(String(x.at).slice(0, 10)) : '') + '</span>' +
+            '<a class="buy" style="display:inline-block;text-decoration:none;padding:.35rem .8rem;font-size:.8rem" href="' + String(x.url).replace(/"/g, '') + '" target="_blank" rel="noopener">PDF</a></div>';
+        }).join('') + '</div>'
       : '<p style="margin:0;font-size:.9rem;color:var(--ink2)">החשבונית תופיע כאן ברגע שתופק. אם שילמתם ועדיין לא רואים אותה, <a href="#" id="invoiceWa">כתבו לנו</a>.</p>';
     var w = $('invoiceWa'); if (w) w.href = CFG.waLink('היי, שילמתי ואני לא רואה חשבונית בלוח הבקרה.');
   }
@@ -2222,7 +2499,8 @@
     $('addons').innerHTML = Object.keys(CFG.ADDONS).map(function (k) {
       var a = CFG.ADDONS[k];
       var state = CFG.addonState(k, plan, dte);
-      var price = guests ? (k === 'hostess' && CFG.hostessPrice ? CFG.hostessPrice(guests) : CFG.addonPrice(k, guests)) : null;
+      var price = k === 'design' ? (CFG.DESIGN_PRICE || 79) : guests ? (k === 'hostess' && CFG.hostessPrice ? CFG.hostessPrice(guests) : CFG.addonPrice(k, guests)) : null;
+      if (k === 'design' && $('designCard') && !$('designCard').hidden) state = 'included';   /* already bought: the design card is open above */
 
       /* the call round is the one that shows how many people it would reach,
          so the value is visible before the button is pressed */
@@ -2249,6 +2527,11 @@
       } else if (state === 'included') {
         mark = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0F4C35" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="m5 12.5 4.5 4.5L19 7.5"/></svg>';
         action = '<span class="inc">כלול</span>';
+        /* 12/11 Richard: a plan that includes calls can still buy one more round; the day is set by the engine */
+        if (k === 'calls' && !over && !(data.sent_waves && data.sent_waves.callsAddon)) {
+          action = '<span class="inc">כלול</span> <button type="button" class="buy" data-addon="calls">סבב נוסף' + (price ? ' · ₪' + price : '') + '</button>';
+          extra += ' · סבב נוסף יוצא אוטומטית אחרי הסבבים שבחבילה';
+        }
       } else if (k === 'hostess' && dte != null && dte < 14 && !over) {
         /* Richard 05/10: less than two weeks out, hostesses are a WhatsApp
            request that he checks by hand, not a purchase */
@@ -2303,11 +2586,12 @@
         if (k === 'hostess') {
           /* the same per-event link as the order flow: date + city are known
              here, so availability and travel are checked before Grow */
+          if (!ev.event_date) { IshurUX.toast('כדי לבדוק זמינות דיילות צריך קודם תאריך לאירוע'); return; }
           b.disabled = true; b.textContent = 'בודקים זמינות…';
           var wa = function () { location.href = CFG.waLink('היי, רציתי להוסיף דיילות לאירוע שלי ב-' + (ev.event_date || '') + (ev.venue_city ? ' ב' + ev.venue_city : '') + '. אפשר קישור לתשלום?'); };
           if (demo) { wa(); return; }
           fetch(CFG.endpoint('hostess-check'), { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ link: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
+            body: JSON.stringify({ link: true, addon: true, token: token, date: ev.event_date || '', city: ev.venue_city || '', guests: guests, plan: plan }) })
             .then(function (r) { return r.json(); })
             .then(function (j) {
               if (j && j.ok && j.available && j.url) { location.href = j.url; return; }
@@ -2321,6 +2605,8 @@
         if (k === 'calls') return payAddon('calls', 'all');
         if (k === 'selfreg') return payAddon('selfreg', 'all');
         if (k === 'postpone' || k === 'cancel') return payAddon(k, 'all');
+        if (k === 'design') { var dl = CFG.DESIGN_LINK; if (dl && token) { location.href = dl + (dl.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token); return; } }
+        /* 12/11 Richard: a purchase only falls back to WhatsApp when the link really failed */
         location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + CFG.ADDONS[k].label + '.');
       });
     });
@@ -2335,21 +2621,23 @@
     if (!addonQuote) return;
     $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
       var k = b.dataset.addon, it = priceOf(k, 'all');
-      if (it && it.price) b.textContent = 'הוספה · ₪' + it.price;
+      if (it && it.price) b.textContent = (b.textContent.indexOf('סבב נוסף') === 0 ? 'סבב נוסף · ₪' : 'הוספה · ₪') + it.price;
     });
   }
   function askScope() {
     var all = priceOf('extra_send', 'all'), un = priceOf('extra_send', 'unanswered');
     if (!all) return location.href = CFG.waLink('היי, רציתי שליחה נוספת לאירוע שלי.');
+    /* 12/11 Richard: an empty list has nothing to send to — say so, no ₪0 popup */
+    if (!all.n) { IshurUX.toast('עדיין אין מוזמנים ברשימה. אחרי שמעלים רשימה אפשר להוסיף שליחה'); return; }
     var box = document.createElement('div');
     box.className = 'dpop-wrap';
-    box.innerHTML = '<div class="dpop" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
+    box.innerHTML = '<div class="xsend" style="max-width:360px"><h3 style="margin:0 0 .4rem">שליחה נוספת</h3>' +
       '<p style="margin:0 0 .8rem;color:var(--ink2);font-size:.9rem">למי לשלוח את הסבב הנוסף?</p>' +
       '<button type="button" class="buy" data-scope="all" style="width:100%;margin-bottom:.5rem">לכולם · ' + all.n + ' מוזמנים · ₪' + all.price + '</button>' +
       (un.n ? '<button type="button" class="buy" data-scope="unanswered" style="width:100%;margin-bottom:.5rem">רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '</button>' : '') +
       '<button type="button" class="btn" data-scope="x" style="width:100%">ביטול</button></div>';
     box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
-    box.querySelector('.dpop').style.cssText = 'background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%';
+    box.querySelector('.xsend').style.cssText = 'background:var(--card,#fff);border:1px solid var(--bdr);border-radius:8px;padding:1.1rem;width:100%;max-width:360px';
     box.addEventListener('click', function (e) {
       var b = e.target.closest('[data-scope]'); if (!b && e.target !== box) return;
       var sc = b ? b.dataset.scope : 'x';
@@ -2547,7 +2835,7 @@
     $('g-err').textContent = msg || '';
     gateBusy(false);
   }
-  function showApp() { $('gate').hidden = true; $('picker').hidden = true; $('main').hidden = false; }
+  function showApp() { $('gate').hidden = true; $('picker').hidden = true; $('main').hidden = false; var pg = $('pinGate'); if (pg) { pg.hidden = true; $('p-go').disabled = false; $('p-go').textContent = 'כניסה'; $('p-pin').value = ''; } }
 
   /* ── several events on one phone ───────────────────────────────────────
      The status endpoint may answer with a list instead of a single event.
@@ -2746,6 +3034,60 @@
     paint();
   })();
 
+  /* 17/11 Richard: the board link asks for the client's fixed code once per device. An admin's browser passes with its own sign-in. */
+  var pinFor = null;
+  function askPin(payload, info) {
+    var ak = ''; try { ak = localStorage.getItem('ishur_calls_key') || ''; } catch (e) {}
+    if (payload.admin_key) { delete payload.admin_key; payload.__admtried = 1; }
+    else if (ak && !payload.__admtried && info.error === 'pin-required') { payload.admin_key = ak; loadData(payload); return; }
+    if (info.error !== 'pin-required' && !payload.__admtried) { showApp(); fail('לא הצלחנו לטעון את הלוח עכשיו.<br>רעננו את העמוד בעוד רגע.', true); return; }
+    pinFor = payload; $('p-go').disabled = false; $('p-go').textContent = 'כניסה';
+    $('gate').hidden = true; $('main').hidden = true; $('picker').hidden = true; $('pinGate').hidden = false;
+    $('title').textContent = 'לוח הבקרה'; $('title').classList.remove('skel'); $('sub').textContent = 'האזור האישי של האירוע שלכם';
+    $('p-wa').href = CFG.waLink('היי, לא הצלחתי להיכנס ללוח הבקרה');
+    setTimeout(function () { try { $('p-pin').focus(); } catch (e) {} }, 50);
+  }
+  function acctApi(kind, body) {
+    return fetch(CFG.endpoint(kind), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().then(function (j) { j.status = r.status; return j; }); });
+  }
+  function pinGo() {
+    var pin = $('p-pin').value.replace(/\D/g, ''), b = $('p-go'); $('p-err').style.color = '';
+    if (pin.length !== 4) { $('p-err').textContent = 'הקוד הוא 4 ספרות'; return; }
+    b.disabled = true; b.textContent = 'נכנסים…'; $('p-err').textContent = '';
+    /* 18/11: a temporary failure on our side is tried once more by itself and never called "wrong code" */
+    var tryPin = function (again) {
+      return acctApi('account-board-pin', { token: pinFor.token, pin: pin }).then(function (j) {
+        if (j.status >= 500 && again) return new Promise(function (res) { setTimeout(res, 1500); }).then(function () { return tryPin(false); });
+        return j;
+      });
+    };
+    tryPin(true).then(function (j) {
+      if (j.status === 200 && j.session) {
+        try { localStorage.setItem('ishur_acct_session', j.session); } catch (e) {}
+        var back = ''; try { back = new URLSearchParams(location.search).get('back') || ''; } catch (e) {}
+        if (/^[a-z-]+\.html([?#].*)?$/.test(back)) { location.replace(back); return; }
+        b.textContent = 'טוענים את הלוח…'; pinFor.board_session = j.session; loadData(pinFor);   /* the card stays until the board is drawn */
+        return;
+      }
+      b.disabled = false; b.textContent = 'כניסה';
+      $('p-err').textContent = j.status === 429 ? (j.error === 'pin-locked' ? 'היו יותר מדי ניסיונות. כתבו לנו ונפתח לכם את הכניסה' : 'יותר מדי ניסיונות. נסו שוב בעוד שעה')
+        : j.status >= 500 ? 'לא הצלחנו להיכנס עכשיו. נסו שוב בעוד רגע' : 'הקוד לא נכון. אפשר לבקש אותו שוב לוואטסאפ';
+    }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('p-err').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
+  }
+  $('p-go').addEventListener('click', pinGo);
+  $('p-pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') pinGo(); });
+  /* 18/11 Richard: the fourth digit signs in by itself, no need to press the button */
+  $('p-pin').addEventListener('input', function () { if (this.value.replace(/\D/g, '').length === 4 && !$('p-go').disabled) pinGo(); });
+  $('p-send').addEventListener('click', function () {
+    var b = $('p-send'); b.disabled = true; $('p-err').style.color = '';
+    acctApi('account-board-pin-send', { token: pinFor.token }).then(function (j) {
+      b.disabled = false;
+      if (j.status === 200) { $('p-err').style.color = 'var(--green2)'; $('p-err').textContent = 'שלחנו את הקוד לוואטסאפ של המספר שמסתיים ב-' + (j.to || '') + ' 🙂'; }
+      else $('p-err').textContent = j.status === 429 ? 'הקוד כבר נשלח כמה פעמים. בדקו בוואטסאפ, או כתבו לנו' : 'לא הצלחנו לשלוח עכשיו. כתבו לנו ונעזור';
+    }).catch(function () { b.disabled = false; $('p-err').textContent = 'לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע'; });
+  });
+
   function loadData(payload, fromGate) {
     if (!CFG.isSet(CFG.endpoint('status'))) {
       showApp();
@@ -2760,6 +3102,7 @@
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
     })
       .then(function (r) {
+        if (r.status === 401) return r.json().then(function (j) { var e1 = new Error('pin'); e1.pin = j || {}; throw e1; });
         if (r.status === 403 || r.status === 404) { var e = new Error('dead'); e.dead = true; throw e; }
         return r.text();
       })
@@ -2772,6 +3115,7 @@
         catch (e) { var p = new Error('not-json'); p.raw = body; throw p; }
         if (!j || j.ok === false) throw new Error('bad');
 
+        if (j.board_session) { try { localStorage.setItem('ishur_acct_session', j.board_session); } catch (e0) {} }
         if (payload.phone) {
           creds = { phone: payload.phone, code: payload.code };
           localStorage.setItem('ishur_dash', JSON.stringify(payload));
@@ -2797,6 +3141,7 @@
         IshurLead.track('dashboard_view', {});
       })
       ['catch'](function (e) {
+        if (e && e.pin) { askPin(payload, e.pin); return; }
         if (e && e.dead && !fromGate && payload.token && !payload.__subtried) {
           /* 03/11: a sub-event token is not in the events sheet — its own board */
           payload.__subtried = 1;
@@ -2849,12 +3194,16 @@
   }
 
   $('g-go').addEventListener('click', gateSubmit);
+  /* the fixed code is 4 digits: the fourth digit signs in, unless a one-time (6-digit) code was asked for */
+  var otpAsked = false;
+  $('g-code').addEventListener('input', function () { if (!otpAsked && this.value.replace(/\D/g, '').length === 4 && IshurLead.isValidPhone($('g-phone').value.trim()) && !$('g-go').disabled) gateSubmit(); });
   ['g-phone', 'g-code'].forEach(function (id) {
     $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') gateSubmit(); });
   });
 
   /* "send me a code": the worker fires ishur_kod to this phone's WhatsApp */
   $('g-send').addEventListener('click', function () {
+    otpAsked = true;
     var phone = $('g-phone').value.trim();
     $('g-err').style.color = '';
     if (!IshurLead.isValidPhone(phone)) {
@@ -2894,7 +3243,20 @@
     showApp();
     loadData({ token: token }, false);
   } else if (demo) {
-    if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
+    /* 18/11 Richard: ?demo=1&sample=1 is the "לוח בקרה לדוגמה" anyone can open from the personal-area sign-in: straight in,
+       invented names, a clear notice on top, and nothing on it can be pressed except looking around (filters, search). */
+    var sample = qs.get('sample') === '1';
+    if (sample) {
+      data = demoData(); showApp(); render();
+      var mn = $('main');
+      if (mn && !$('demoNote')) mn.insertAdjacentHTML('afterbegin', '<div id="demoNote" role="note" style="margin:0 0 .8rem;padding:.7rem .9rem;border:1px solid var(--bdr2,#c9b37a);border-radius:8px;background:var(--green4,#eef5f0);font-size:.86rem;line-height:1.5"><b>לוח בקרה לדוגמה.</b> האירוע, השמות והמספרים כאן בדויים, וכל קשר בינם לבין המציאות מקרי לחלוטין. אפשר להסתכל ולסנן, אי אפשר לבצע פעולות. <a href="index.html#pricing" style="font-weight:600">לרכישת חבילה</a></div>');
+      document.addEventListener('click', function (e) {
+        var t = e.target; if (!t.closest) return;
+        if (t.closest('#demoNote a, .filt, .filters button, #toc a, .toc a, .theme-btn, #themeBtn')) return;
+        if (t.closest('#main button, #main a, #main label, #main input[type=file], #main input[type=date], #main select, #main textarea')) { e.preventDefault(); e.stopPropagation(); if (window.IshurUX) IshurUX.toast('זה לוח לדוגמה, אי אפשר לבצע בו פעולות'); }
+      }, true);
+    }
+    else if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
     else showGate();
   } else {
     var saved = null;

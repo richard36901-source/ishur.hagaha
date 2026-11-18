@@ -42,6 +42,7 @@ export const COL = {
   source: 'text_mm7gk14c',        // מקור
   updates: 'text_mm8a3mbn',       // עדכונים
   callback: 'date_mm8970h',       // מתי לחייג
+  dial: 'boolean_mm945ymc',       // נועה תחייג (15/11): Shalev ticks the leads Noa may call
 };
 export const STATUS_INDEX = { 'סגר': 1, 'לא ענה': 2, 'לא רלוונטי': 3, 'שיחה חוזרת': 4 };
 export const NQ = 'nq:';
@@ -139,7 +140,7 @@ const colLabel = (it, id) => { const c = (it.column_values || []).find(c => c.id
 async function mondayNotAnswered(env) {
   const items = [];
   let cursor = null;
-  const fields = `id name column_values(ids:["${COL.status}","${COL.owner}","${COL.phone}","${COL.occasion}","${COL.source}","${COL.updates}","${COL.callback}"]){ id text ... on StatusValue{ index label } }`;
+  const fields = `id name column_values(ids:["${COL.status}","${COL.owner}","${COL.phone}","${COL.occasion}","${COL.source}","${COL.updates}","${COL.callback}","${COL.dial}"]){ id text value ... on StatusValue{ index label } }`;
   for (let page = 0; page < 20; page++) {
     const q = cursor
       ? `query($c:String!){ next_items_page(limit:100,cursor:$c){ cursor items{ ${fields} } } }`
@@ -157,6 +158,23 @@ async function mondayNotAnswered(env) {
 async function mondaySet(env, itemId, values) {
   return mondayGql(env, 'mutation($b:ID!,$i:ID!,$v:JSON!){ change_multiple_column_values(board_id:$b,item_id:$i,column_values:$v){ id } }',
     { b: BOARD, i: String(itemId), v: JSON.stringify(values) });
+}
+
+/* 15/11 (Richard): Noa calls a lead only while two things hold — the switch in the control centre is on, and
+   Shalev ticked "נועה תחייג" on that lead's row while it is still "לא ענה". */
+export function dialTicked(it) {
+  const c = ((it && it.column_values) || []).find(x => x.id === COL.dial);
+  if (!c) return false;
+  if (String(c.text || '').trim() === 'v') return true;
+  try { const v = JSON.parse(c.value || 'null'); return !!v && String(v.checked) === 'true'; } catch { return false; }
+}
+/* the row as it is right now, read just before a dial: { status_index, ticked } or null when monday did not answer */
+async function mondayItemState(env, itemId) {
+  const r = await mondayGql(env, `query($i:[ID!]){ items(ids:$i){ id column_values(ids:["${COL.status}","${COL.dial}"]){ id text value ... on StatusValue{ index label } } } }`, { i: [String(itemId)] }).catch(() => null);
+  const it = r && r.items && r.items[0];
+  if (!it) return null;
+  const st = (it.column_values || []).find(x => x.id === COL.status);
+  return { status_index: st && st.index != null ? Number(st.index) : null, ticked: dialTicked(it) };
 }
 
 async function mondayFindByPhone(env, phone) {
@@ -187,6 +205,7 @@ export async function scanMondayNotAnswered(env, { dry = false, deps = {} } = {}
     const phone = phone972(colText(it, COL.phone));
     const skip = why => skipped.push({ item_id: String(it.id), name, why });
     if (!phone || phone.length < 11) { skip('no-phone'); continue; }
+    if (!dialTicked(it)) { skip('not-ticked'); continue; }       /* 15/11: only the leads Shalev marked */
     if (colLabel(it, COL.owner) === 'נועה') { skip('already-noa'); continue; }
     if (isTestPhone(env, phone)) { skip('test-phone'); continue; }
     if (await blocked(phone)) { skip('blocked'); continue; }
@@ -248,6 +267,19 @@ export async function drainNoaChase(env, { max = 2, dry = false, deps = {} } = {
     if (q.next_at && Date.parse(q.next_at) > now.getTime()) { out.waiting++; continue; }
     /* one attempt per Israeli day, whatever the clock says */
     if (attempts.some(a => ilDate(new Date(Date.parse(a.at) || 0)) === today)) { out.waiting++; continue; }
+    /* 15/11: read the row again right before dialling. Status moved off "לא ענה" → out of the queue.
+       The tick was removed → wait (ticking it again resumes). monday silent → no call this round. */
+    {
+      if (!q.item_id) { out.waiting++; continue; }
+      const stt = deps.itemState ? await deps.itemState(q.item_id) : env.MONDAY_API_TOKEN ? await mondayItemState(env, q.item_id) : null;
+      if (!stt) { out.waiting++; continue; }
+      if (stt.status_index !== STATUS_INDEX['לא ענה']) {
+        out.skipped++;
+        if (!dry) { await env.RATE.delete(NQ + phone).catch(() => {}); await logEvent(env, { area: 'נועה', action: 'הסטטוס במאנדיי כבר לא "לא ענה" — יצא מתור הרדיפה', ok: true, phone }).catch(() => {}); }
+        continue;
+      }
+      if (!stt.ticked) { out.waiting++; out.unticked = (out.unticked || 0) + 1; continue; }
+    }
 
     const lead = { kind: 'lead', phone, name: q.name || '', occasion: q.occasion || 'אירוע', source: q.source || '', requested: false, why: 'chase' };
     const payload = buildCallPayload(lead, env.NOA_FROM || '', { override_agent_id: env.NOA_AGENT || '', memory: deps.memory || '' });

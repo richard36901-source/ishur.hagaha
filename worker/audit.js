@@ -35,7 +35,7 @@
    ========================================================================== */
 
 import { bumpFromAudit } from './counters.js';
-import { sha256Hex } from './lib.js';
+import { sha256Hex, safeEqual } from './lib.js';
 
 export const AUDIT_TTL = 400 * 86400;
 
@@ -166,6 +166,10 @@ export async function keepCall(env, call, meta = {}) {
   const g = t => (parts.find(p => p.type === t) || {}).value || '';
   const local = phone.startsWith('972') ? '0' + phone.slice(3) : phone;
   let mime = '', bytes = 0, ext = 'wav';
+  /* 18/11 Richard ("שלא נאבד"): the file name carries the event too, and the details ride on the stored object itself
+     (R2 customMetadata), so a recording stays identifiable after the 400-day KV record is gone. */
+  const tok8 = /^[0-9a-f]{8}/.test(String(meta.token || '')) ? String(meta.token).slice(0, 8) : 'noevent';
+  const stamp = `${g('year')}-${g('month')}-${g('day')}_${g('hour')}${g('minute')}`;
   if (call.recording_url) {
     try {
       const r = await fetch(call.recording_url);
@@ -176,13 +180,16 @@ export async function keepCall(env, call, meta = {}) {
           ext = /mp3|mpeg/.test(mime) ? 'mp3' : /ogg/.test(mime) ? 'ogg' : 'wav';
           bytes = buf.byteLength;
           /* R2 when bound (cheap, no size worries), KV otherwise */
-          if (env.AUDIT_R2) await env.AUDIT_R2.put('rec/' + call.call_id, buf, { httpMetadata: { contentType: mime } });
+          if (env.AUDIT_R2) await env.AUDIT_R2.put('rec/' + call.call_id, buf, { httpMetadata: { contentType: mime },
+            customMetadata: { name: `${stamp}_${tok8}_${local}_${encodeURIComponent(agent)}.${ext}`, phone, event: tok8, token: String(meta.token || ''), at: started.toISOString(), agent: encodeURIComponent(agent), event_name: encodeURIComponent(String(meta.event_name || '').slice(0, 80)), outcome: encodeURIComponent(String(meta.outcome || '').slice(0, 40)) } });
           else await env.RATE.put('rec:' + call.call_id, buf, { expirationTtl: AUDIT_TTL });
         }
       }
     } catch {}
   }
-  const name = `${g('year')}-${g('month')}-${g('day')}_${g('hour')}${g('minute')}_${local}_${agent}.${ext}`;
+  const name = `${stamp}_${tok8}_${local}_${agent}.${ext}`;
+  /* the transcript and call details next to the audio, forever */
+  if (env.AUDIT_R2) await env.AUDIT_R2.put('rec-info/' + call.call_id + '.json', JSON.stringify({ call_id: call.call_id, name, at: started.toISOString(), phone, agent, token: String(meta.token || ''), event_name: String(meta.event_name || ''), outcome: String(meta.outcome || ''), duration_ms: call.duration_ms || 0, disconnection_reason: call.disconnection_reason || '', summary: (call.call_analysis && call.call_analysis.call_summary) || '', transcript: String(call.transcript || '') }), { httpMetadata: { contentType: 'application/json' } }).catch(() => {});
   const recmeta = { at: started.toISOString(), phone, agent, mime, bytes, name, token: String(meta.token || ''), duration_ms: call.duration_ms || (call.end_timestamp && call.start_timestamp ? call.end_timestamp - call.start_timestamp : 0), outcome: String(meta.outcome || '') };
   await env.RATE.put('recmeta:' + call.call_id, JSON.stringify(recmeta), { expirationTtl: AUDIT_TTL }).catch(() => {});
   return { ...recmeta, has_recording: bytes > 0, transcript: String(call.transcript || '') };
@@ -200,7 +207,7 @@ export async function serveRecording(env, url, isAdmin) {
   if (!id || !env.RATE) return new Response('not found', { status: 404 });
   if (!isAdmin) {
     const e = Number(url.searchParams.get('e') || 0), s = String(url.searchParams.get('s') || '');
-    if (!e || e < Date.now() || s !== (await sha256Hex(`rec|${id}|${e}|${env.ADMIN_KEY || ''}`)).slice(0, 32)) return new Response('link expired', { status: 403 });
+    if (!e || e < Date.now() || !env.ADMIN_KEY || !safeEqual(s, (await sha256Hex(`rec|${id}|${e}|${env.ADMIN_KEY}`)).slice(0, 32))) return new Response('link expired', { status: 403 });
   }
   let buf = null;
   if (env.AUDIT_R2) { const o = await env.AUDIT_R2.get('rec/' + id).catch(() => null); if (o) buf = await o.arrayBuffer(); }

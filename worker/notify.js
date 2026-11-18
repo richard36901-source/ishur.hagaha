@@ -493,6 +493,18 @@ export function waitingFor({ pending = [], convs = [], reminders = [], events = 
   return out;
 }
 
+/* 12/11 הזמן חבר: credit that waits to be redeemed + referrals waiting for Richard's "אשר הפניה" */
+export async function referralWaiting(env) {
+  if (!env.RATE) return [];
+  const { pendingLine } = await import('./referral.js');
+  const read = async prefix => { const out = []; for (const k of (await env.RATE.list({ prefix, limit: 500 }).catch(() => ({ keys: [] }))).keys || []) { try { const v = JSON.parse(await env.RATE.get(k.name) || 'null'); if (v) out.push(v); } catch {} } return out; };
+  const out = [];
+  const line = pendingLine(await read('credit:'));
+  if (line) out.push({ kind: 'credit', title_he: line, href: 'clients.html#referrals' });
+  const pend = (await read('refrec:')).filter(r => r.status === 'pending').length;
+  if (pend) out.push({ kind: 'referral', title_he: pend === 1 ? 'הפניה אחת ממתינה לאישור (לקוחות › הפניות)' : `${pend} הפניות ממתינות לאישור (לקוחות › הפניות)`, href: 'clients.html#referrals' });
+  return out;
+}
 export async function buildOverview(env, d, { now = Date.now(), fns = {} } = {}) {
   const today = ilDay(now), monthStart = today.slice(0, 8) + '01';
   const lastMonthStart = (() => { const [y, m] = today.split('-').map(Number); return m === 1 ? `${y - 1}-12-01` : `${y}-${String(m - 1).padStart(2, '0')}-01`; })();
@@ -553,7 +565,7 @@ export async function buildOverview(env, d, { now = Date.now(), fns = {} } = {})
   const nt = v(9, { items: [], unread: 0 });
   return {
     ok: true, at: new Date(now).toISOString(), today, last_seen: lastSeen ? lastSeen.at : null,
-    waiting: waitingFor({ pending, convs, reminders: crm.reminders || [], events, leads }, now).slice(0, 12),
+    waiting: [...(await referralWaiting(env).catch(() => [])), ...waitingFor({ pending, convs, reminders: crm.reminders || [], events, leads }, now)].slice(0, 12),
     incidents, money, leads: leadsT, sends, calls, spark_days: days7, events,
     changes: { since: lastSeen ? lastSeen.at : new Date(now - 24 * H).toISOString(), count: changesSince.length, items: changesSince.slice(0, 12).map(c => ({ id: c.id, at: c.at, kind: c.kind, actor: c.actor, summary_he: c.summary_he })) },
     balances: { low: ((bal && bal.vendors) || []).filter(x => x.status === 'low').map(x => ({ vendor: x.vendor, amount: x.amount ?? null, currency: x.currency || '', status: x.status })), checked_at: bal ? bal.at : null },

@@ -68,14 +68,16 @@ test('state machine: awaiting → changes → new version (rounds_used++) → ap
   let f = newFlow();
   assert.equal(approveDesign(f).ok, false, 'nothing to approve before a version');
   f = addVersion(f, { media: 'aaaaaaaaaaaaaaaa', note: 'גרסה ראשונה' }).flow;
-  assert.equal(f.status, 'awaiting_client'); assert.equal(f.rounds_used, 0); assert.equal(roundsTotal(f), 1);
+  assert.equal(f.status, 'awaiting_client'); assert.equal(f.rounds_used, 0); assert.equal(roundsTotal(f), 2);   /* 12/11 Richard: two rounds included */
   f = requestChanges(f, 'להחליף את הצבע').flow;
   assert.equal(f.status, 'changes_requested'); assert.equal(f.rounds_used, 0, 'a request alone does not use the round');
   f = addVersion(f, { media: 'bbbbbbbbbbbbbbbb' }).flow;
   assert.equal(f.rounds_used, 1, 'the answering version uses it'); assert.equal(f.versions.length, 2); assert.equal(f.status, 'awaiting_client');
-  assert.equal(requestChanges(f, 'עוד שינוי').why, 'no-rounds-left');
+  f = requestChanges(f, 'עוד שינוי').flow; assert.equal(f.status, 'changes_requested', 'the second included round');
+  f = addVersion(f, { media: 'dddddddddddddddd' }).flow; assert.equal(f.rounds_used, 2); assert.equal(f.versions.length, 3);
+  assert.equal(requestChanges(f, 'שינוי שלישי').why, 'no-rounds-left');
   assert.equal(markDone(f).ok, false, 'done only after approval');
-  f = approveDesign(f).flow; assert.equal(f.status, 'approved'); assert.equal(f.approved_version, 2);
+  f = approveDesign(f).flow; assert.equal(f.status, 'approved'); assert.equal(f.approved_version, 3);
   assert.equal(addVersion(f, { media: 'cccccccccccccccc' }).why, 'already-approved');
   f = markDone(f).flow; assert.equal(f.status, 'done');
 });
@@ -84,13 +86,21 @@ test('a second admin upload without a client request does not burn a round', () 
   f = addVersion(f, { media: 'bbbbbbbbbbbbbbbb' }).flow;
   assert.equal(f.rounds_used, 0);
 });
-test('buyRound: the free round is granted once, then every round is ₪49', () => {
+/* 12/11 Richard: "סך הכל 2 סבבים ומעבר 49" and "תטפל בזה" on the confusing free-claim button.
+   The 03/11 rule here was: one round, a first buy click that only flagged it "free", then ₪49. */
+function useRound(f, m) { f = requestChanges(f, 'תיקון').flow; return addVersion(f, { media: m }).flow; }
+test('buyRound: nothing to buy while an included round is left; after both are used every round is ₪49', () => {
   let f = addVersion(newFlow(), { media: 'aaaaaaaaaaaaaaaa' }).flow;
-  const a = buyRound(f); assert.equal(a.free, true); f = a.flow;
-  assert.equal(roundsTotal(f), 1, 'the free round is the included one, not an extra');
-  const b = buyRound(f); assert.equal(b.free, false); assert.equal(b.pay, true); assert.equal(b.price, 49);
-  f = grantPaidRound(f, 'R1').flow; assert.equal(roundsTotal(f), 2);
-  assert.equal(buyRound(f).pay, true);
+  assert.equal(buyRound(f).why, 'rounds-left');
+  f = useRound(f, 'bbbbbbbbbbbbbbbb'); assert.equal(buyRound(f).why, 'rounds-left', 'one of the two is still open');
+  f = useRound(f, 'cccccccccccccccc');
+  const b = buyRound(f); assert.equal(b.pay, true); assert.equal(b.price, 49);
+  f = grantPaidRound(f, 'R1').flow; assert.equal(roundsTotal(f), 3);
+  assert.equal(buyRound(f).why, 'rounds-left', 'the paid round is open now');
+  f = useRound(f, 'dddddddddddddddd'); assert.equal(buyRound(f).pay, true);
+});
+test('a flow saved under the old one-round rule is read with two', () => {
+  assert.equal(roundsTotal({ rounds_free: 1, rounds_paid: 0 }), 2);
 });
 test('designRoundRef + isDesignPayment: a round is never read as the ₪79 design', () => {
   const flat = { paymentDesc: 'סבב תיקונים נוסף לעיצוב', cField1: `q:0123456789ab|design_round:1|t:${T1}` };
@@ -140,7 +150,11 @@ test('route: full loop — version → changes → version → approve (Slack "�
   const v2 = await upload(e, T1, 'design_version', PNG, { admin_key: 'k' });
   s = await (await post(e, '/api/design-version', { admin_key: 'k', token: T1, media: v2.j.media, note: 'תוקן' })).json();
   assert.equal(s.rounds_used, 1); assert.equal(s.versions.length, 2);
-  assert.equal((await flow(e, { token: T1, action: 'changes', comment: 'עוד' })).why, 'no-rounds-left');
+  assert.equal((await flow(e, { token: T1, action: 'changes', comment: 'עוד' })).status, 'changes_requested');   /* the second included round */
+  const v3 = await upload(e, T1, 'design_version', PNG, { admin_key: 'k' });
+  s = await (await post(e, '/api/design-version', { admin_key: 'k', token: T1, media: v3.j.media })).json();
+  assert.equal(s.rounds_used, 2);
+  assert.equal((await flow(e, { token: T1, action: 'changes', comment: 'שלישי' })).why, 'no-rounds-left');
   calls = [];
   s = await flow(e, { token: T1, action: 'approve' });
   assert.equal(s.status, 'approved');
@@ -150,13 +164,18 @@ test('route: full loop — version → changes → version → approve (Slack "�
   assert.equal((await post(e, '/api/design-version', { admin_key: 'nope', token: T1, action: 'done' })).status, 403);
   assert.equal((await upload(e, T1, 'design_version', PNG, { admin_key: 'nope' })).status, 403);
 });
-test('route: free round on first buy click, then a ₪49 server-priced link; IPN grants exactly one round', async () => {
+test('route: no purchase while a round is left; after both a ₪49 server-priced link; IPN grants exactly one round', async () => {
   const e = env();
   const v1 = await upload(e, T1, 'design_version', PNG, { admin_key: 'k' });
   await post(e, '/api/design-version', { admin_key: 'k', token: T1, media: v1.j.media });
   let s = await flow(e, { token: T1, action: 'buy', sum: 1 });
-  assert.equal(s.ok, true); assert.equal(s.free, true); assert.equal(s.free_claimed, true);
-  assert.ok(!calls.some(c => c.u === 'https://hook.test/grow-link'), 'no payment for the free round');
+  assert.equal(s.ok, false); assert.equal(s.why, 'rounds-left');
+  assert.ok(!calls.some(c => c.u === 'https://hook.test/grow-link'), 'no payment link while a round is open');
+  for (const n of [2, 3]) {   /* use both included rounds */
+    await flow(e, { token: T1, action: 'changes', comment: 'תיקון ' + n });
+    const vn = await upload(e, T1, 'design_version', PNG, { admin_key: 'k' });
+    await post(e, '/api/design-version', { admin_key: 'k', token: T1, media: vn.j.media });
+  }
   s = await flow(e, { token: T1, action: 'buy', sum: 1 });
   assert.equal(s.ok, true); assert.equal(s.pay, true); assert.equal(s.url, 'https://pay.grow.link/ROUND-LINK');
   const mk = JSON.parse(calls.find(c => c.u === 'https://hook.test/grow-link').body);
@@ -172,7 +191,7 @@ test('route: free round on first buy click, then a ₪49 server-priced link; IPN
   assert.equal((await post(e, '/api/grow-ipn?k=gk', flat).then(x => x.text())), 'duplicate');
   assert.equal(JSON.parse(e.RATE.m.get('designflow:' + T1)).rounds_paid, 1, 'a replayed IPN grants nothing more');
   s = await flow(e, { token: T1, action: 'state' });
-  assert.equal(s.rounds_total, 2);
+  assert.equal(s.rounds_total, 3); assert.equal(s.can_request_changes, true, 'exactly one more round after the payment');
   /* a forged cField pointing the quote at another event is parked, not granted */
   const forged = { ...flat, asmachta: 'R2', cField1: mk.cField1.replace(T1, T2) };
   assert.equal(await (await post(e, '/api/grow-ipn?k=gk', forged)).text(), 'design-round-parked');

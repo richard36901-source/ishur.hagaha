@@ -202,7 +202,9 @@
     }
     function reload() {
       var gen = ++S.gen; S.calls = []; S.cursor = null; S.queue = null; S.counts = null;
-      $('xB').innerHTML = '<tr><td colspan="9" class="x-empty">טוען…</td></tr>'; $('xM').innerHTML = '';
+      /* 16/11: rows shimmer while the log loads */
+      if (!document.getElementById('xsk-css')) { var st = document.createElement('style'); st.id = 'xsk-css'; st.textContent = '.xsk{display:block;height:.85rem;border-radius:4px;background:linear-gradient(90deg,rgba(127,127,127,.12) 25%,rgba(127,127,127,.24) 37%,rgba(127,127,127,.12) 63%);background-size:400% 100%;animation:xsk 1.3s ease infinite}@keyframes xsk{0%{background-position:100% 50%}100%{background-position:0 50%}}@media (prefers-reduced-motion:reduce){.xsk{animation:none}}'; document.head.appendChild(st); }
+      $('xB').innerHTML = Array(7).join('<tr aria-hidden="true">' + Array(10).join('<td><span class="xsk"></span></td>') + '</tr>'); $('xM').innerHTML = '';
       paintHead({ calls: '…', review: '…' }, 0);
       return load(null, gen).then(function () { if (gen === S.gen) return counts(gen).then(function (tot) { if (gen === S.gen) paintHead(tot, 0); }); });
     }
@@ -252,8 +254,8 @@
       if (pl) {
         var c = S.list[Number(pl.dataset.play)].last;
         pl.disabled = true; pl.textContent = '…';
-        /* our kept copy (audit.js:166) as a blob, so the key never sits in a link */
-        fetch((opt.base || 'https://go.ishur.io') + c.recording + '?key=' + encodeURIComponent(opt.adminKey || ''))
+        /* our kept copy (audit.js:166) as a blob with the key in a header, so it never sits in a link or a request URL */
+        fetch((opt.base || 'https://go.ishur.io') + c.recording, { headers: { 'X-Admin-Key': opt.adminKey || '' } })   /* 12/11 security: header, not URL */
           .then(function (r) { if (!r.ok) throw new Error(r.status); return r.blob(); })
           .then(function (b) { var a = document.createElement('audio'); a.controls = true; a.src = URL.createObjectURL(b); pl.closest('.lc').appendChild(a); a.play().catch(function () {}); pl.remove(); })
           .catch(function () { pl.textContent = 'אין הקלטה'; });

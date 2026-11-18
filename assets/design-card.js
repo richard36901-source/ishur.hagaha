@@ -51,9 +51,9 @@
         } else {
           h += '<div class="dz-row"><button type="button" class="buy" data-act="approve"' + (ui.busy ? ' disabled' : '') + '>מאשר/ת ✅</button>' +
             (s.can_request_changes ? '<button type="button" class="buy dz-sec" data-act="changes">יש לי הערות ✍️</button>' : '') + counter + '</div>';
-          if (!s.can_request_changes) h += '<p class="dz-p" style="margin-top:.6rem">סבבי התיקונים הכלולים נוצלו. אפשר להוסיף סבב בעוד ₪' + esc(s.round_price || 49) + '.</p>';
-          var freeLeft = !s.rounds_paid && !s.free_claimed && (s.rounds_used || 0) < (s.rounds_free || 0);
-          h += '<div class="dz-row"><button type="button" class="dz-add" data-act="buy"' + (ui.busy ? ' disabled' : '') + '>רכישת סבב נוסף' + (freeLeft ? ' · הראשון עלינו' : ' · ₪' + esc(s.round_price || 49)) + '</button></div>';
+          /* 12/11 Richard: while a round is left the client writes notes; the purchase shows only when they are used up */
+          if (!s.can_request_changes) h += '<p class="dz-p" style="margin-top:.6rem">סבבי התיקונים הכלולים נוצלו. אפשר לרכוש סבב תיקונים נוסף.</p>' +
+            '<div class="dz-row"><button type="button" class="buy dz-sec" data-act="buy"' + (ui.busy ? ' disabled' : '') + '>רכישת סבב נוסף · ₪' + esc(s.round_price || 49) + '</button></div>';
         }
       } else if (s.status === 'changes_requested') {
         h += '<p class="dz-ok" style="margin-top:.6rem">קיבלנו את ההערות, נחזור עם גרסה מתוקנת 🙌</p><div class="dz-row">' + counter + '</div>';
@@ -62,7 +62,6 @@
       } else if (s.status === 'done') {
         h += '<p class="dz-ok" style="margin-top:.6rem">העיצוב מוכן 🎉</p>';
       }
-      if (s.free_claimed && !s.rounds_paid && (s.rounds_used || 0) < (s.rounds_free || 0) && s.status === 'awaiting_client') h += '<p class="dz-cnt">סבב התיקונים שלכם פעיל · 1/1 חינם</p>';
       if (vs.length > 1 || (s.comments || []).length) {
         h += '<details class="dz-hist"><summary>היסטוריה (' + vs.length + ' גרסאות)</summary><ul>' +
           vs.slice().reverse().map(function (v) {
@@ -118,7 +117,7 @@
         ui.busy = true; paint();
         api({ action: 'buy' }).then(function (j) {
           if (j && j.ok && j.pay && j.url) { ui.msg = 'מעבירים לתשלום…'; paint(); location.href = j.url; return; }
-          take(j, j && j.free ? 'סבב התיקונים הראשון עלינו · 1/1 חינם' : '');
+          take(j, j && j.why === 'rounds-left' ? 'יש לכם עוד סבב תיקונים פתוח' : '');
         });
       }
     });
@@ -149,13 +148,13 @@
   /* local stand-in for /api/design-flow (demo mode + screenshots): ?designmock=brief|sent|v1|limit|approved */
   var SVG = 'data:image/svg+xml;utf8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="600" height="800"><rect width="600" height="800" fill="#FBF8F1"/><rect x="30" y="30" width="540" height="740" fill="none" stroke="#A8853C" stroke-width="3"/><text x="300" y="330" font-family="serif" font-size="54" text-anchor="middle" fill="#0F4C35">דנה ואבי</text><text x="300" y="410" font-family="serif" font-size="28" text-anchor="middle" fill="#374151">12.12.2026 · אולם הגן</text></svg>');
   function mockState(kind) {
-    var s = { ok: true, paid: true, status: 'new', rounds_used: 0, rounds_total: 1, rounds_free: 1, rounds_paid: 0, free_claimed: false, can_request_changes: false, round_price: 49, versions: [], comments: [], brief: null, brief_editable: true };
+    var s = { ok: true, paid: true, status: 'new', rounds_used: 0, rounds_total: 2, rounds_free: 2, rounds_paid: 0, free_claimed: false, can_request_changes: false, round_price: 49, versions: [], comments: [], brief: null, brief_editable: true };
     if (kind === 'brief') return s;
     s.brief = { text: 'דנה ואבי · 12.12 · אולם הגן\nסגנון מינימליסטי, ירוק זית ושמנת', refs: [], at: '2026-11-03T10:00:00Z', source: 'dashboard' };
     if (kind === 'sent') return s;
     s.brief_editable = false; s.versions = [{ n: 1, note: 'גרסה ראשונה לפי הבקשה', at: '2026-11-04T10:00:00Z', url: SVG, mime: 'image/svg+xml' }];
     s.status = 'awaiting_client'; s.can_request_changes = true;
-    if (kind === 'limit') { s.versions.push({ n: 2, note: 'תוקן הצבע', at: '2026-11-05T10:00:00Z', url: SVG, mime: 'image/svg+xml' }); s.comments = [{ v: 1, text: 'ירוק כהה יותר', at: '' }]; s.rounds_used = 1; s.can_request_changes = false; s.free_claimed = true; }
+    if (kind === 'limit') { s.versions.push({ n: 2, note: 'תוקן הצבע', at: '2026-11-05T10:00:00Z', url: SVG, mime: 'image/svg+xml' }); s.comments = [{ v: 1, text: 'ירוק כהה יותר', at: '' }]; s.rounds_used = 2; s.can_request_changes = false; }
     if (kind === 'approved') s.status = 'approved';
     return s;
   }
@@ -166,7 +165,7 @@
       if (p.action === 'brief') { if ((p.text || '').replace(/\s/g, '').length < 5) return { ok: false, why: 'text' }; s.brief = { text: p.text, refs: [], at: new Date().toISOString() }; }
       if (p.action === 'approve') s.status = 'approved';
       if (p.action === 'changes') { s.status = 'changes_requested'; s.comments.push({ v: s.versions.length, text: p.comment }); }
-      if (p.action === 'buy') { if (!s.rounds_paid && !s.free_claimed && s.rounds_used < s.rounds_free) { s.free_claimed = true; cur = s; return Object.assign({ free: true }, s); } return Object.assign({}, s, { ok: false, why: 'no-hook' }); }
+      if (p.action === 'buy') { return Object.assign({}, s, { ok: false, why: s.can_request_changes ? 'rounds-left' : 'no-hook' }); }
       cur = s; return s;
     };
   }

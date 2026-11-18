@@ -42,6 +42,10 @@ WA_PHONE_ID_CLIENT = "1218978741299669"
 WA_PHONE_IDS_GUESTS = "1409632775565601"
 # 11/11 (Richard): shared safety margin under the business cap 20 → 10 (budget.js guestBudgetMargin)
 GUEST_BUDGET_MARGIN = "10"
+# 12/11 Richard: WhatsApp Manager shows the guest WABA 1378764257421712 at tier 10,000/24h (history 250 → 2,000 → 10,000);
+# the Graph read of messaging_limit_tier returns nothing for our token, so the code fell back to 250. Explicit, conservative:
+GUEST_PORTFOLIO_BUDGET = "4000"
+GUEST_DAILY_BUDGET = "2000"
 ADMIN_PHONES = "972545764327,972526979535"
 # 02/11: B2B outreach to venues (outreach.js). "off" = plan only, nothing leaves.
 # Flip to "on" only after `npx wrangler email sending enable ishur.io` and after

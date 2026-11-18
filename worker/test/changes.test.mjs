@@ -101,13 +101,13 @@ test('edit → change entry with from→to → revert restores the previous valu
   const w = await (await post(e, '/api/ops/edit', { id: 'pacer_batch_size', value: 10, confirm: 'pacer_batch_size', who: 'admin' })).json();
   assert.equal(w.applied, true); assert.ok(w.change_id);
   const c = (await changes(e, '?kind=edit')).items[0];
-  assert.equal(c.id, w.change_id); assert.equal(c.details.from, 25); assert.equal(c.details.to, 10); assert.match(c.summary_he, /25 → 10/);
-  assert.deepEqual(c.revert.payload, { id: 'pacer_batch_size', field: '', value: 25 });
+  assert.equal(c.id, w.change_id); assert.equal(c.details.from, 50); assert.equal(c.details.to, 10); assert.match(c.summary_he, /50 → 10/);   /* 12/11: default 25 → 50 (dynamic pace) */
+  assert.deepEqual(c.revert.payload, { id: 'pacer_batch_size', field: '', value: 50 });
   const r = await (await post(e, '/api/ops/revert', { id: c.id, confirm: c.revert.confirm })).json();
   assert.equal(r.applied, true);
-  assert.equal(JSON.parse(e.RATE.m.get('cfg:pacer_batch_size')).value, 25);
+  assert.equal(JSON.parse(e.RATE.m.get('cfg:pacer_batch_size')).value, 50);
   const back = (await changes(e, '?kind=edit')).items[0];
-  assert.equal(back.details.reverts, c.id); assert.equal(back.details.to, 25);
+  assert.equal(back.details.reverts, c.id); assert.equal(back.details.to, 50);
 });
 
 test('revert never turns noa_chase on with the generic word — it needs Richard\'s own confirm', async () => {

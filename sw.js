@@ -5,10 +5,10 @@
      · navigations and /api/* GETs: network first, cache as the fallback
      · other same-origin static GETs: cache first, refreshed in the background
      · POSTs and cross-origin requests are never touched */
-const VERSION = 'ishur-dash-v3';
+const VERSION = 'ishur-dash-v34';
 const SHELL = [
   'dashboard.html', 'config.js', 'manifest.webmanifest',
-  'assets/ux.js', 'assets/tracking.js', 'assets/guard.js', 'assets/lead.js', 'assets/design-card.js', 'assets/pwa.js',
+  'assets/ux.js', 'assets/tracking.js', 'assets/guard.js', 'assets/lead.js', 'assets/design-card.js', 'assets/pwa.js', 'assets/tour.js',
   'assets/datepicker.js', 'assets/select.js', 'assets/lux.css', 'assets/picker.css',
   'assets/favicon.png', 'assets/logo-gold.png', 'assets/icons/icon-192.png', 'assets/icons/icon-512.png',
 ];
@@ -35,9 +35,13 @@ async function networkFirst(req) {
 }
 async function cacheFirst(req) {
   const c = await caches.open(VERSION);
-  const hit = await c.match(req) || await c.match(req, { ignoreSearch: true });
+  /* 18/11: a file asked for under a new ?v= must come from the network. Falling
+     back to the same path under an OLD ?v= handed returning clients yesterday's
+     guard.js and config.js, and the board came up empty. The old copy is now
+     only the offline fallback. */
+  const hit = await c.match(req);
   const fresh = fetch(req).then((res) => { if (res && res.ok && res.type === 'basic') c.put(req, res.clone()).catch(() => {}); return res; }).catch(() => null);
-  return hit || (await fresh) || fetch(req);
+  return hit || (await fresh) || (await c.match(req, { ignoreSearch: true })) || fetch(req);
 }
 
 self.addEventListener('fetch', (e) => {
@@ -46,6 +50,8 @@ self.addEventListener('fetch', (e) => {
   const url = new URL(req.url);
   if (url.pathname.startsWith('/api/')) { e.respondWith(networkFirst(req)); return; }
   if (url.origin !== self.location.origin) return;
-  if (req.mode === 'navigate') { e.respondWith(networkFirst(req)); return; }
+  /* 18/11: the page and the two scripts that decide where it talks to (config.js, guard.js) always come from the
+     network when there is one, past the browser's own 10-minute copy. A stale one of these broke signing in. */
+  if (req.mode === 'navigate' || /\/(config\.js|assets\/guard\.js)$/.test(url.pathname)) { e.respondWith(networkFirst(new Request(req, { cache: 'no-store' }))); return; }
   e.respondWith(cacheFirst(req));
 });

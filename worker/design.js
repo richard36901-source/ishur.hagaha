@@ -124,10 +124,13 @@ export function validateClientBrief(b) {
   return { ok: true, brief: { source: 'dashboard', text, refs } };
 }
 
+/* 12/11 Richard: "סך הכל 2 סבבים ומעבר 49" — two rounds are part of the design, every further one is paid.
+   A flow saved under the old rule (rounds_free: 1) is read with the two it is now owed. */
+export const DESIGN_ROUNDS_INCLUDED = 2;
 export function newFlow() {
-  return { versions: [], status: 'new', rounds_used: 0, rounds_free: 1, rounds_paid: 0, free_claimed: false, comments: [] };
+  return { versions: [], status: 'new', rounds_used: 0, rounds_free: DESIGN_ROUNDS_INCLUDED, rounds_paid: 0, free_claimed: false, comments: [] };
 }
-export const roundsTotal = f => (f.rounds_free || 0) + (f.rounds_paid || 0);
+export const roundsTotal = f => Math.max(f.rounds_free || 0, DESIGN_ROUNDS_INCLUDED) + (f.rounds_paid || 0);
 /* a change request that has not been answered yet holds a round already */
 const roundsCommitted = f => (f.rounds_used || 0) + (f.status === 'changes_requested' ? 1 : 0);
 export const canRequestChanges = f => f.status === 'awaiting_client' && roundsCommitted(f) < roundsTotal(f);
@@ -165,10 +168,8 @@ export function requestChanges(flow, comment, at) {
 export function buyRound(flow) {
   const f = JSON.parse(JSON.stringify(flow || newFlow()));
   if (f.status === 'approved' || f.status === 'done') return { ok: false, why: 'already-approved' };
-  if (!f.rounds_paid && !f.free_claimed && (f.rounds_used || 0) < (f.rounds_free || 0)) {
-    f.free_claimed = true;
-    return { ok: true, free: true, flow: f };
-  }
+  /* 12/11: a round is bought only when none is left — while one is open the client simply writes the notes */
+  if (roundsCommitted(f) < roundsTotal(f)) return { ok: false, why: 'rounds-left' };
   return { ok: true, free: false, pay: true, price: DESIGN_ROUND_PRICE, flow: f };
 }
 export function grantPaidRound(flow, ref) {

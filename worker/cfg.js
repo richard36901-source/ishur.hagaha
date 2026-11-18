@@ -32,7 +32,9 @@ export const SETTINGS = {
     fields: { start: { he: 'פתיחה', lo: '09:00', hi: '12:00' }, end: { he: 'סגירה', lo: '13:00', hi: '20:30' }, fri_end: { he: 'סגירה בשישי', lo: '10:00', hi: '13:00' } },
   },
   guest_budget_margin: { he: 'מרווח ביטחון בתקרה היומית', node: 'd_pacer', type: 'int', default: 20, validate: intIn(0, 100), env: 'GUEST_BUDGET_MARGIN' },
-  pacer_batch_size: { he: 'הודעות לפעימה (כל 10 דקות)', node: 'd_pacer', type: 'int', default: 25, validate: intIn(1, 25) },
+  /* 12/11 Richard: dynamic pace — base per tick (small days finish by noon), max per tick (big days spread) */
+  pacer_batch_size: { he: 'הודעות לפעימה — בסיס (כל 10 דקות)', node: 'd_pacer', type: 'int', default: 50, validate: intIn(1, 100) },
+  pacer_batch_max: { he: 'הודעות לפעימה — תקרה ביום עמוס', node: 'd_pacer', type: 'int', default: 100, validate: intIn(1, 200) },
   daily_call_cap: { he: 'תקרת חיוגים יומית (0 = בלי תקרה)', node: 'shir_dispatch', type: 'int', default: 0, validate: intIn(0, 2000) },
   noa_chase: { he: 'נועה רודפת לידים', node: 'noa_chase', type: 'onoff', default: 'off', env: 'NOA_CHASE' },
   /* 03/11 lead qualification on 4499 (salesflow.js); Richard switches it on */
@@ -102,7 +104,8 @@ export async function withCfg(env, opts = {}) {
   if (vals.sales_followups !== undefined) out.SALES_FOLLOWUPS = vals.sales_followups === 'on' ? 'on' : 'off';
   return out;
 }
-export const paceSends = (env, dflt = 25) => { const v = env && env.__cfg && env.__cfg.pacer_batch_size; return Number.isInteger(v) ? Math.max(1, Math.min(dflt, v)) : dflt; };
+export const paceSends = (env, dflt = 50) => { const v = env && env.__cfg && env.__cfg.pacer_batch_size; return Number.isInteger(v) ? Math.max(1, Math.min(100, v)) : dflt; };
+export const paceSendsMax = (env, dflt = 100) => { const v = env && env.__cfg && env.__cfg.pacer_batch_max; return Number.isInteger(v) ? Math.max(1, Math.min(200, v)) : dflt; };
 export const dailyCallCap = env => { const v = env && env.__cfg && env.__cfg.daily_call_cap; return Number.isInteger(v) && v > 0 ? v : 0; };
 
 /* ── write ───────────────────────────────────────────────────────────────── */

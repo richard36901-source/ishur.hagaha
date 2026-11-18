@@ -202,7 +202,13 @@ window.IshurPopup = (function () {
     /* 03/11 prefill link (?plan=…): the server prices the Grow link from the
        list table, so the screen shows that table too (no promo overlay) */
     if (S.prefill) return CFG.offerPrice(null, guests, plan);
-    return CFG.offerPrice(offerNow(), guests, plan);
+    var pr = CFG.offerPrice(offerNow(), guests, plan);
+    /* 12/11 הזמן חבר: a friend's 80% on the package when no campaign offer applies */
+    try { if (!pr.applies && window.IshurRef && IshurRef.discount() && CFG.refPrice) pr = CFG.refPrice(guests, plan); } catch (e) {}
+    return pr;
+  }
+  function refTagHtml() {
+    try { return (window.IshurRef && IshurRef.discount()) ? ' <em class="pt-save">' + IshurRef.tag() + '</em>' : ''; } catch (e) { return ''; }
   }
 
   /* ₪50 with ₪299 struck through beside it, or just the price */
@@ -352,7 +358,7 @@ window.IshurPopup = (function () {
                     (withHost ? ' · ' + hTier.label : '') +
                     (S.design ? ' · עיצוב הזמנה' : '') +
 
-                    (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' : '') +
+                    (pr.applies ? ' <em class="pt-save">חסכתם ₪' + pr.saved + '</em>' + refTagHtml() : '') +
                     '</span>' +
                     '<span class="pt-v">' +
                       (pr.applies ? '<s>₪' + (pr.original + (withHost ? hPrice : 0)) + '</s> ' : '') +
@@ -561,7 +567,7 @@ window.IshurPopup = (function () {
     /* 03/11: a design order without hostesses cannot use a fixed Grow page —
        the server prices it (paylink.js) and mints a link whose cField1 code
        grants the design on payment and closes the lead */
-    if (!S.hostess && S.design) { payViaQuote(fields); return; }
+    if (!S.hostess && S.design) { var rc0 = ''; try { rc0 = (window.IshurRef && IshurRef.active()) ? IshurRef.code() : ''; } catch (e) {} if (rc0) { refTouch(fields, function () { payViaQuote(fields, { ref: rc0, design: true }); }); } else payViaQuote(fields); return; }
 
     /* one link for package + hostesses + travel when the server minted it;
        otherwise the static package+hostess link (travel paid at setup) */
@@ -571,6 +577,30 @@ window.IshurPopup = (function () {
       location.href = CFG.waLink('היי, רוצה לסגור ' + CFG.PLANS[S.plan].name + ' ל' + CFG.guestLabel(S.guests) + ' עם ' + ((CFG.hostessTier(S.guests) || {}).label || 'דיילות') + ' לאירוע ב-' + (S.hCity || '') + ' בתאריך ' + (S.hDate || '') + '. אפשר קישור לתשלום?');
       return;
     }
+
+    /* 12/11 הזמן חבר: a referred friend. discount mode → the 80% Grow page
+       (or a server-minted 80% link while the page is not created yet);
+       commission mode → the normal page, the code riding in cField3. Either
+       way the Worker remembers code↔phone first (ref-touch), so the IPN
+       attributes the payment even if Grow never echoes the custom field. */
+    try {
+      if (window.IshurRef && IshurRef.active() && !S.hostess) {
+        var rc = IshurRef.code();
+        if (IshurRef.discount()) {
+          var ru = CFG.refGrowLink(S.guests, S.plan, rc);
+          if (!ru) { refTouch(fields, function () { payViaQuote(fields, { ref: rc, design: !!S.design }); }); return; }
+          url = ru;
+        } else if (url) {
+          url += (url.indexOf('?') > -1 ? '&' : '?') + 'cField3=' + encodeURIComponent('ref:' + rc);
+        }
+        if (url) {
+          IshurLead.track('referral_checkout', { mode: IshurRef.mode(), guests: S.guests, plan: S.plan });
+          var btn0 = $('pop-submit'); if (btn0) { btn0.disabled = true; btn0.textContent = 'מעבירים לתשלום'; }
+          refTouch(fields, function () { IshurLead.paymentRedirect(fields, url); location.href = url; });
+          return;
+        }
+      }
+    } catch (e) {}
 
     /* A validated promo code swaps the LINK, never the price shown. The cheap
        Grow link is not in this repo at all: /promo/go holds a seat and 302s to
@@ -602,10 +632,22 @@ window.IshurPopup = (function () {
     location.href = url;
   }
 
-  function payViaQuote(fields) {
+  /* code↔phone to the Worker, then go on (at most ~1.5s, never a dead end) */
+  function refTouch(fields, next) {
+    var done = false, go = function () { if (!done) { done = true; next(); } };
+    try {
+      var body = { code: IshurRef.code(), phone: fields.phone || S.phone || '' };
+      if (window.IshurGuard && IshurGuard.stamp) body = IshurGuard.stamp(body);
+      fetch(CFG.endpoint('ref-touch'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), keepalive: true }).then(go, go);
+      setTimeout(go, 1500);
+    } catch (e) { go(); }
+  }
+
+  function payViaQuote(fields, opt) {
+    opt = opt || {};
     var btn = $('pop-submit');
     if (btn) { btn.disabled = true; btn.textContent = 'מכינים את התשלום…'; }
-    var body = { plan: S.plan, records: Number(S.guests), hostesses: 0, design: true, name: fields.name || '', phone: fields.phone || '', email: fields.email || '',
+    var body = { plan: S.plan, records: Number(S.guests), hostesses: 0, design: opt.design != null ? !!opt.design : true, ref: opt.ref || '', name: fields.name || '', phone: fields.phone || '', email: fields.email || '',
       occasion: S.occasion || '', event_date: S.hDate || (($('f-hdate') && $('f-hdate').dataset.iso) || ''), src: S.src || 'site' };
     try { if (window.IshurGuard && IshurGuard.stamp) body = IshurGuard.stamp(body); } catch (e) {}
     var wa = function () {

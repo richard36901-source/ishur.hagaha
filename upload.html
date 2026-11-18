@@ -11,10 +11,10 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=82"></script>
+<script src="config.js?v=87"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
-<script src="assets/guard.js?v=19"></script>
+<script src="assets/guard.js?v=21"></script>
 <script src="assets/lead.js?v=24"></script>
 <script src="assets/messages.js?v=19"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
@@ -341,6 +341,50 @@
   .gl-ph{direction:ltr;text-align:right;white-space:nowrap;font-size:.8rem;color:var(--ink2)}
   .gl-x{width:32px;height:32px;border:none;background:none;color:var(--ink3);font-size:1.2rem;cursor:pointer;border-radius:6px}
   .gl-scroll{font-size:.76rem;color:var(--green2);margin-top:.35rem}
+  .glm-wrap{max-height:56vh}
+  .glm-wrap th:nth-child(2),.glm-wrap td:nth-child(2){width:8.6rem}
+  .glm-wrap th:nth-child(3),.glm-wrap td:nth-child(3){width:3.8rem}
+  .glm-wrap th:nth-child(4),.glm-wrap td:nth-child(4){width:36px}
+  .glm-wrap table{table-layout:fixed}
+  .glm-wrap .gl-in{border-color:var(--bdr)}
+  .glm-ph{direction:ltr;text-align:left}
+  .glm-bad td{background:#FFF6E5}
+  .glm-bad .gl-in{border-color:#C9A227}
+  .glm-quiet{color:var(--ink3)}
+  /* narrow screens: a column of rows and a small form, no table (assets/guestlist.js) */
+  .glm-cards{display:none;margin-top:.5rem;border:1px solid var(--bdr);border-radius:10px;background:var(--bg);overflow:hidden}
+  .glm-cards:empty{display:none!important}
+  .glm-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:.1rem .6rem;width:100%;text-align:start;padding:.65rem .75rem;border:0;border-top:1px solid var(--bdr);background:none;font-family:inherit;color:var(--ink);cursor:pointer;min-height:56px}
+  .glm-card:first-child{border-top:0}
+  .glm-card b{font-size:.95rem;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .glm-card-c{grid-row:1/3;grid-column:2;align-self:center;font-size:.8rem;color:var(--ink2);white-space:nowrap}
+  .glm-card-p{font-size:.82rem;color:var(--ink3);text-align:right}
+  .glm-card.glm-bad{background:#FFF6E5}
+  .glm-card.glm-bad .glm-card-c{color:#7A5A1E;font-weight:600}
+  @media (max-width:560px){ .glm-wrap{display:none} .glm-cards{display:block} }
+  .glm-lock,.glm-lock body{overflow:hidden}
+  .glm-sheet-bg{position:fixed;inset:0;z-index:60;background:rgba(20,30,25,.45);display:flex;align-items:flex-start;justify-content:center;padding:6vh 14px 0}
+  .glm-sheet-bg[hidden]{display:none}
+  .glm-sheet{width:100%;max-width:420px;background:var(--bg);border-radius:12px;padding:1rem 1rem 1.1rem;box-shadow:0 18px 50px rgba(0,0,0,.28)}
+  .glm-sh-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:.6rem}
+  .glm-sh-h b{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
+  .glm-sh-h button{width:40px;height:40px;border:0;background:none;font-size:1.5rem;color:var(--ink3);cursor:pointer;border-radius:8px}
+  .glm-sheet label{display:block;font-size:.82rem;font-weight:500;color:var(--ink2);margin-top:.6rem}
+  .glm-sheet label input,.glm-f-n{display:block;width:100%;margin-top:.3rem;border:1px solid var(--bdr2);border-radius:10px;background:var(--bg);font-family:inherit;font-size:17px;padding:.7rem .75rem;color:var(--ink)}
+  .glm-sheet input:focus{border-color:var(--green);outline:none}
+  .glm-f-hint{font-size:.8rem;color:#7A5A1E;margin-top:.35rem}
+  .glm-f-lbl{font-size:.82rem;font-weight:500;color:var(--ink2);margin-top:.8rem}
+  .glm-chips{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.35rem;margin-top:.35rem}
+  .glm-chips button{min-height:46px;border:1px solid var(--bdr2);border-radius:10px;background:var(--bg);font-family:inherit;font-size:1rem;font-weight:500;color:var(--ink);cursor:pointer;padding:0}
+  .glm-chips button[aria-pressed=true]{background:var(--green);border-color:var(--green);color:#fff}
+  .glm-chips button[data-n=more]{font-weight:600}
+  .glm-more{display:flex;gap:.5rem;margin-top:.5rem}
+  .glm-more[hidden]{display:none}
+  .glm-more .glm-f-n{margin-top:0;text-align:center;flex:1 1 auto;min-width:0}
+  .glm-more-ok{flex:0 0 auto;min-height:46px;padding:0 1.2rem;border:0;border-radius:10px;background:var(--green);color:#fff;font-family:inherit;font-size:.95rem;font-weight:500;cursor:pointer}
+  .glm-f-del{display:block;margin:1rem auto 0;border:0;background:none;font-family:inherit;font-size:.86rem;color:var(--ink3);text-decoration:underline;text-underline-offset:3px;cursor:pointer;min-height:40px}
+  .lede-alt{font-size:.84rem;margin-top:-.4rem;margin-bottom:.9rem}
+  .lede-alt a{color:var(--green2);text-decoration:underline;text-underline-offset:3px}
   .gl-chk{display:flex;gap:.5rem;align-items:flex-start;margin-top:.7rem;font-size:.86rem;color:var(--ink);line-height:1.5}
   .gl-chk input{width:20px;height:20px;flex-shrink:0;accent-color:var(--green)}
   /* the page never scrolls sideways on a phone */
@@ -367,6 +411,7 @@
     <h1>העלאת רשימת המוזמנים</h1>
     <p class="event" id="eventName" hidden></p>
     <p class="lede">קובץ Excel או CSV. הקובץ נקרא לפי סדר העמודות, לא לפי הכותרות.</p>
+    <p class="lede-alt">אין אקסל, או שהקובץ לא נפתח בטלפון? <a href="#glManual" id="glmJump">אפשר להקליד את הרשימה כאן בדף</a>.</p>
 
     <div class="cols">
       <div class="cols-h">סדר העמודות בקובץ</div>
@@ -479,7 +524,49 @@
         <div class="gl-row"><button type="button" class="gl-btn" id="glExcel">הורדה כאקסל</button></div>
       </div>
     </div>
+
+    <div class="gl-box" id="glManual">
+      <h2>אין אקסל? מקלידים את הרשימה כאן</h2>
+      <p class="gl-help">שם, טלפון וכמה מוזמנים בכל שורה. אפשר גם להדביק רשימה שלמה. הרשימה נשמרת במכשיר הזה גם אם יוצאים מהדף, עד שמאפסים אותה.</p>
+      <div class="gl-row"><button type="button" class="gl-btn" id="glmOpen">להקליד את הרשימה כאן</button></div>
+      <div class="gl-review" id="glmEditor" hidden>
+        <p class="gl-count" id="glmCount"></p>
+        <p class="gl-sk" id="glmSaved" aria-live="polite"></p>
+        <div class="gl-wrap glm-wrap" id="glmWrap" tabindex="0" aria-label="רשימת המוזמנים להקלדה">
+          <table>
+            <thead><tr><th>שם</th><th>טלפון</th><th>כמות</th><th><span class="hp">הסרה</span></th></tr></thead>
+            <tbody id="glmTbody"></tbody>
+          </table>
+        </div>
+        <div class="glm-cards" id="glmCards"></div>
+        <div class="gl-row">
+          <button type="button" class="gl-btn" id="glmAdd">+ הוספת מוזמן</button>
+          <button type="button" class="gl-btn glm-quiet" id="glmReset">איפוס הרשימה</button>
+        </div>
+        <p class="gl-note" id="glmNote" hidden></p>
+        <button type="button" class="btn" id="glmConfirm" disabled>אישור והמשך להגדרות</button>
+        <div class="gl-row"><button type="button" class="gl-btn" id="glmExcel">הורדה כאקסל</button></div>
+      </div>
+    </div>
   </section>
+
+  <div class="glm-sheet-bg" id="glmSheetBg" hidden>
+    <div class="glm-sheet" role="dialog" aria-modal="true" aria-labelledby="glmSheetT">
+      <div class="glm-sh-h"><b id="glmSheetT">מוזמן חדש</b><button type="button" id="glmSheetX" aria-label="סגירה">×</button></div>
+      <label>שם<input type="text" id="glmFName" autocomplete="off" enterkeyhint="next" placeholder="שם המוזמן או המשפחה"></label>
+      <label>טלפון נייד<input type="tel" id="glmFPhone" inputmode="tel" dir="ltr" autocomplete="off" enterkeyhint="done" placeholder="050-1234567"></label>
+      <p class="glm-f-hint" id="glmFHint" hidden>צריך מספר נייד, למשל 050-1234567. מספר בחו"ל נכתב עם קידומת המדינה (+1…).</p>
+      <div class="glm-f-lbl" id="glmFLbl">כמה מוזמנים? בחירה סוגרת ושומרת</div>
+      <div class="glm-chips" id="glmFChips" role="group" aria-labelledby="glmFLbl">
+        <button type="button" data-n="1">1</button><button type="button" data-n="2">2</button><button type="button" data-n="3">3</button><button type="button" data-n="4">4</button><button type="button" data-n="5">5</button><button type="button" data-n="6">6</button><button type="button" data-n="more">7+</button>
+      </div>
+      <div class="glm-more" id="glmFMore" hidden>
+        <input type="number" class="glm-f-n" id="glmFCount" min="7" max="99" inputmode="numeric" enterkeyhint="done" placeholder="כמה מוזמנים?" aria-label="כמות מוזמנים">
+        <button type="button" class="glm-more-ok" id="glmFMoreOk">שמירה</button>
+      </div>
+      <button type="button" class="glm-f-del" id="glmFDel" hidden>הסרה מהרשימה</button>
+    </div>
+  </div>
 
   <!-- ══ step 2 · event setup ═══════════════════════════════════════════ -->
   <section class="view" id="setupView">
@@ -633,7 +720,7 @@
         <details>
           <summary>תנאים</summary>
           <ul>
-            <li>המחיר כולל עיצוב אחד וסבב תיקונים אחד, ועוד סבב נוסף במתנה.</li>
+            <li>המחיר כולל עיצוב אחד ושני סבבי תיקונים.</li>
             <li>כל סבב תיקונים מעבר לכך בתוספת ₪49 לסבב, לרכישה מתוך לוח הבקרה.</li>
             <li>שינוי מהותי (סגנון חדש או עיצוב מאפס) ייחשב כעיצוב חדש.</li>
             <li>העיצוב מתחיל לאחר קבלת כל הפרטים.</li>
@@ -759,7 +846,7 @@
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/datepicker.js?v=19"></script>
-<script src="assets/guestlist.js?v=4"></script>
+<script src="assets/guestlist.js?v=8"></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -1183,7 +1270,7 @@
   function footHtml() {
     var names = [$('f-name1').value.trim(), $('f-name2').value.trim()].filter(Boolean).join(' ו');
     var F = CFG.MESSAGE_FOOTER;
-    return '<span class="fine-l">' + F.sentBy.replace('{names}', names || '…') + '</span>' +
+    return '<span class="fine-l">' + F.sentBy.replace('{names}', esc(names) || '…') + '</span>' +
            '<span class="fine-l">' + F.optOut + '</span>';
   }
   ['f-name1', 'f-name2', 'f-extra', 'f-title', 'f-venue', 'f-city'].forEach(function (id) {
@@ -1258,11 +1345,11 @@
       var tr = $('hostessTravel'), act = $('hostessAct');
       if (!city) { tr.textContent = 'הזינו עיר כדי לדעת אם יש תוספת נסיעות.'; act.innerHTML = ''; return; }
       if (center) {
-        tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + city + ' באזור המרכז';
+        tr.innerHTML = '<b style="color:var(--green)">נסיעות כלולות</b> · ' + esc(city) + ' באזור המרכז';
         act.innerHTML = '<span class="addon-inc">כלול</span>';
       } else {
         var sum = H.travelFor ? H.travelFor(n) : H.travel; /* Richard 05/10: 250 for one hostess, 500 for 2 or 3 */
-        tr.innerHTML = city + ' מחוץ למרכז: <b>תוספת נסיעות ₪' + sum + '</b>, בתשלום נפרד אחרי השמירה.';
+        tr.innerHTML = esc(city) + ' מחוץ למרכז: <b>תוספת נסיעות ₪' + esc(sum) + '</b>, בתשלום נפרד אחרי השמירה.';
         act.innerHTML = '<button type="button" class="addon-buy" id="hostessPay">₪' + sum + '</button>';
         var b = $('hostessPay');
         if (b) b.addEventListener('click', function () {
@@ -1285,7 +1372,7 @@
      stays as a fallback for the old links. */
   (function () {
     if (!token) return;
-    var payload = { token: token };
+    var payload = { token: token, view: 'upload' };   /* 18/11: this page never asks for the sign-in code; without one the server sends the event and counts only */
     fetch(CFG.endpoint('status'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)
@@ -1430,6 +1517,7 @@
     var url = guests ? CFG.addonLink(key, guests) : null;
     IshurLead.track('addon_click', { addon: key, plan: plan, guests: guests, has_link: !!url });
     if (url) { location.href = url; return; }
+    if (key === 'design' && CFG.DESIGN_LINK) { location.href = CFG.DESIGN_LINK + (CFG.DESIGN_LINK.indexOf('?') > -1 ? '&' : '?') + 'cField1=' + encodeURIComponent(token); return; }
     /* no link configured yet: hand it to support rather than a dead button */
     location.href = CFG.waLink('היי, רציתי להוסיף לאירוע שלי: ' + a.label + '.');
   }

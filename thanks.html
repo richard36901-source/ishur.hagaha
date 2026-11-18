@@ -11,9 +11,9 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=72"></script>
+<script src="config.js?v=74"></script>
 <script src="assets/tracking.js?v=23"></script>
-<script src="assets/guard.js?v=19"></script>
+<script src="assets/guard.js?v=21"></script>
 <script src="assets/lead.js?v=24"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 
@@ -304,13 +304,24 @@
           if (j && j.ok && j.token) {
             IshurLead.track('claim_success', { tries: tries });
             doneAll = true; at = STEPS.length; paint(true);
-            setTimeout(function () { try { location.href = 'upload.html?t=' + encodeURIComponent(j.token); } catch (e) {} }, 900);
-            /* a visible way back, in case the redirect is blocked */
-            setTimeout(function () {
+            var goUrl = 'upload.html?t=' + encodeURIComponent(j.token);
+            if (j.pin && /^\d{4}$/.test(String(j.pin))) {
+              /* 18/11 Richard: the sign-in code is shown here once, right after paying. The page waits for a tap (or 40 s) so it is not missed. */
               box.insertAdjacentHTML('beforeend',
-                '<a class="claim-go" href="upload.html?t=' + encodeURIComponent(j.token) + '">' +
-                'המשך להעלאת רשימת המוזמנים ←</a>');
-            }, 2500);
+                '<div class="claim ok" style="display:block;text-align:center;margin-top:.8rem">' +
+                '<div class="claim-t">קוד הכניסה שלכם לאזור האישי</div>' +
+                '<div dir="ltr" style="font-size:2rem;font-weight:700;letter-spacing:.35em;margin:.5rem 0">' + String(j.pin) + '</div>' +
+                '<div class="claim-s">נכנסים עם מספר הטלפון' + (j.pin_phone ? ' <bdi dir="ltr">' + String(j.pin_phone).replace(/[^0-9]/g, '') + '</bdi>' : '') + ' והקוד הזה. כדאי לצלם מסך, הוא מוצג כאן פעם אחת.</div>' +
+                '</div>' +
+                '<a class="claim-go" href="' + goUrl + '">שמרתי, ממשיכים להעלאת רשימת המוזמנים ←</a>');
+              setTimeout(function () { try { location.href = goUrl; } catch (e) {} }, 40000);
+            } else {
+              setTimeout(function () { try { location.href = goUrl; } catch (e) {} }, 900);
+              /* a visible way back, in case the redirect is blocked */
+              setTimeout(function () {
+                box.insertAdjacentHTML('beforeend', '<a class="claim-go" href="' + goUrl + '">המשך להעלאת רשימת המוזמנים ←</a>');
+              }, 2500);
+            }
           } else if (tries < 150) {
             /* One second, not three: Grow notifies our server about a minute
                after it sends the buyer here (measured 07/09, 00:05:34 vs

@@ -23,7 +23,7 @@
 
 import * as audit from './audit.js';
 import { parseGuestFile, guestsFromRows } from './parse.js';
-import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow } from './dashboard.js';
+import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
 import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
@@ -33,7 +33,7 @@ import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadN
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
 import { clientWaba, clientToken, clientOnPortfolio, clientPhoneId, isGuestPhone, guestPhoneIds } from './whatsapp.js';
 import { sendCtaUrl, sendReplyButtons, guestCapacity, guestCapScope, pinGuestPhone, guestPortfolioBudget } from './whatsapp.js';
-import { fitBatch } from './budget.js';
+import { fitBatch, dynamicPace } from './budget.js';
 import * as tguard from './templateguard.js';
 import { eventDayMessageFor, edMarkKey, ED_MARK_TTL, dayBeforeAllowed, dayBeforeDropped, navTarget, COMBO_NAMES, dayBeforeMessageFor, eventDayNeeded } from './eventday.js';
 import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating, giftVariantName, giftButtonComponent, giftSlug, planGiftBlast, giftPageHtml, cleanLink } from './gifts.js';
@@ -46,13 +46,26 @@ import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evl
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
-import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex } from './lib.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
+import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
+import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
+import { SWR_ROUTES, swrServe } from './swr.js';
+import { handleCallers } from './callers.js';
+import { inboundExtras } from './wa-extras.js';
+import { STYLES as INV_STYLES, normStyle, OWN_TEMPLATE, styledTemplate, eventStyle, refreshStatus as styleStatus, submitAll as styleSubmit, forgetStyle, approvedMap, tmplName as styleTmplName } from './invite-styles.js';
+import { handleLeadsMonday } from './leads-monday.js';
+import { periodicReport, monthIncome, reportText, monthCut, ilDay as reportDay } from './periodic-report.js';
+import { handleHostessPay, handleReceiptUpload, handleReceiptGet, syncShift, hostessDayMessages } from './hostess-pay.js';
+import { checkinUrl } from './staff.js';
 import { META_PIXEL_ID, META_AD_ACCOUNT, META_CAMPAIGN_ID, META_OTHER_CAMPAIGNS, AD_BAD, adsHealth, adsHealthAlert, ADS_STATUS, adsHealthWatch, metaAds, capiEvent, capiPurchase, handleAdReports } from './ads.js';
 import { validateDesignBrief, createDesignItem, designItemName, isDesignPayment, designTokenOf } from './design.js';
 import { validateClientBrief, newFlow, addVersion, approveDesign, requestChanges, buyRound, grantPaidRound, markDone, roundsTotal, canRequestChanges, designRoundRef, DESIGN_ROUND_PRICE, DESIGN_ROUND_DESC, DESIGN_REF_MAX, DFILE_ID_RE } from './design.js';   /* 03/11 dashboard design flow */
-import { priceQuote, readQuoteRef, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
+import { priceQuote, readQuoteRef, purchaseCovered, descHasPackage, addonList, closeMessage, hostessesFor, buildCode, DESIGN_PRICE, HOSTESS_PRICE, BUNDLES as PL_BUNDLES, bundleLive, pickBundle } from './paylink.js';   /* 03/11 pay links v2 */
 import { salesInbound, salesTick, salesResume, sfEnabled, getState as sfState } from './salesflow.js';   /* 03/11 lead qualification flow (cfg sales_flow) */
 import { handleAutomations } from './automations.js';
+import { handlePartner, hitAdd as refHitAdd } from './partner.js';
+import { staffOnMessage, handleStaff, handleCheckin, handleStaffPhoto, staffLinkRefresh } from './staff.js';   /* 12/11 דיילות: attendance log through Noa's line */   /* 12/11 שגרירים: partners without an event, two fixed links */
+import * as REF from './referral.js';   /* 12/11 הזמן חבר: 20% הנחה / 20% עמלה (.sdlc/referral-program) */
 import { handleSendBoard, sendBoardData } from './send-board.js';
 import { handleCallsLog } from './calls-log.js';
 import { handleFloor, handleFloorNote } from './floor.js';   /* 02/11 floor/dial routes */
@@ -64,21 +77,22 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail } from './account.js';   /* 12/11 personal-area */
+import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
 import { cleanParam } from './whatsapp.js';   /* 02/11 audit: links that reach guests */
 import { withRun, isOff } from './ops-run.js';   /* 03/11 ops center: runs ledger + kill switches */
 import { recordChange, recordDeploy } from './changes.js';   /* 03/11 change log (שינויים) */
-import { fixedCostAction } from './ops-money.js';   /* 03/11 recurring fixed costs */
+import { fixedCostAction, buildIncomeDays, editEventCosts } from './ops-money.js';   /* 03/11 recurring fixed costs */
 import BUILD_INFO from './build-info.json' with { type: 'json' };   /* written by scripts/build-info.mjs at deploy */
 import { handleOps, brainFns, buildCapacity, buildSendLive, planFns } from './ops.js';
 import { precomputePlans } from './ops-plan.js';   /* 04/11 the סקירה plan, precomputed every tick into plan:<period> */
 import { handleRaffle } from './raffle.js';
+import { handleMondayWebhook, reconcileLeads } from './leads-sync.js';   /* 16/11 leads screen ⇄ monday */
 import { handleCrm, crmOnPaid, crmTouch } from './crm.js';   /* 03/11 CRM (docs/CRM-API-2026-11-03.md) */
 import { runBrain } from './brain.js';   /* 03/11 ops brain: checks + playbooks every 10 min */
-import { withCfg, paceSends, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
+import { withCfg, paceSends, paceSendsMax, dailyCallCap } from './cfg.js';   /* 03/11 edit-in-place settings (cfg:<key>) */
 import { JOB_TO_ID, AUTOMATIONS } from './automations-registry.js';
 import { readSnapshot, snapInfo, snapWhy, sheetWrite, drainSheetQueue, noteSheetWrite, noteHookWrite, markSnapDirty, makeStatus } from './snapshot.js';   /* 04/11 Make burn */
 
@@ -167,7 +181,10 @@ function snapMiss(env, dflt = 'reader-failed') { return snapWhy(env) === 'snapsh
    reader learns what changed: a call_result patches rsvp/party in the cache,
    anything else marks the snapshot dirty so the next fresh-class read refetches. */
 async function hookFetch(env, url, init) {
-  try { return await fetch(url, init); }
+  /* 12/11 security: the writer scenarios store USER_ENTERED — typed text must not arrive as a formula (lib.js makeWriterBody).
+     The snapshot bookkeeping below still reads the body as the caller built it. */
+  const sent = init && init.body !== undefined ? { ...init, body: makeWriterBody(env, url, init.body) } : init;
+  try { return await fetch(url, sent); }
   finally {
     if (url && url !== env.HOOK_STATUS) {
       await (url === env.HOOK_EVENTS ? noteHookWrite(env, init && init.body) : markSnapDirty(env, 'all')).catch(() => {});
@@ -211,13 +228,12 @@ async function sendClient(env, phone, template, params, ctx) {
 }
 
 
-/* One tier credit per new paying customer whose first touch was a referral
-   link. The code sits in the lead row (column L, "referral:<tok8>"). */
-async function creditReferral(env, payerPhone, newToken) {
-  if (!env.RATE || !env.BRAIN_HOOK) return;
+/* The lead row (column L, "referral:<tok8>") — the oldest attribution path:
+   a lead who first came in through a client's share link. */
+async function leadReferralCode(env, payerPhone) {
+  if (!env.BRAIN_HOOK) return '';
   const last9 = String(payerPhone).slice(-9);
-  if (!last9) return;
-  if (await env.RATE.get('refdone:' + last9)) return; // one credit per payer, ever
+  if (!last9) return '';
   const r = await fetch(env.BRAIN_HOOK, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -225,21 +241,106 @@ async function creditReferral(env, payerPhone, newToken) {
       qk1: 'ranges', qv1: 'לידים - לא סגרו!A2:P1000',
     }),
   }).catch(() => null);
-  if (!r || !r.ok) return;
+  if (!r || !r.ok) return '';
   let rows = [];
-  try { rows = (await r.json()).valueRanges[0].values || []; } catch { return; }
+  try { rows = (await r.json()).valueRanges[0].values || []; } catch { return ''; }
   for (const row of rows) {
     if (!String(row[2] || '').includes(last9)) continue;
     const m = String(row[11] || '').match(/^referral:([0-9a-f]{8})/);
-    if (!m || m[1] === String(newToken).slice(0, 8)) return;
-    await env.RATE.put('refdone:' + last9, m[1], { expirationTtl: 730 * 86400 });
-    const key = 'refcred:' + m[1];
-    const cur = Number(await env.RATE.get(key)) || 0;
-    await env.RATE.put(key, String(cur + 1), { expirationTtl: 730 * 86400 });
-    await alert(env, 'הפניה מאומתת 🎉',
-      `לקוח חדש שילם דרך קישור ההפניה של ${m[1]} — נזקף זיכוי דרגה`, '', { oneoff: true });   /* oneoff: a referral was verified — single event */
-    return;
+    return m ? m[1] : '';
   }
+  return '';
+}
+
+/* ── 12/11 הזמן חבר (referral.js has the rules) ──────────────────────────
+   One attribution per payer, ever (refdone:<last9>). The record is created
+   'pending'; the credit is posted only by referralVerify() — when the friend's
+   invoice exists, or when Richard presses "אשר הפניה". Never blocks the IPN. */
+async function refOf(env, code) {
+  if (!env.RATE || !REF.isCode(code)) return null;
+  try { return JSON.parse(await env.RATE.get('ref:' + code) || 'null'); } catch { return null; }
+}
+async function refRecordsOf(env, code) {
+  if (!env.RATE) return [];
+  const l = await env.RATE.list({ prefix: 'refrec:' + code + ':', limit: 500 }).catch(() => ({ keys: [] }));
+  const out = [];
+  for (const k of l.keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) out.push(r); } catch {} }
+  return out.sort((a, b) => String(a.at).localeCompare(String(b.at)));
+}
+async function ledgerOf(env, phone) {
+  if (!env.RATE || !phone) return REF.emptyLedger();
+  try { const l = JSON.parse(await env.RATE.get('credit:' + phone) || 'null'); return l && typeof l === 'object' ? { entries: l.entries || [], redeemed: l.redeemed || [] } : REF.emptyLedger(); } catch { return REF.emptyLedger(); }
+}
+const REF_TTL = 730 * 86400;
+async function referralOnPaid(env, { flat, phone, name, token, sum, ref: ipnRef, purchase }) {
+  if (!env.RATE || !phone) return null;
+  const last9 = String(phone).slice(-9);
+  if (await env.RATE.get('refdone:' + last9)) return null;   // one credit per payer, ever
+  let pendCode = ''; try { pendCode = String(await env.RATE.get('refpend:' + phone) || ''); } catch {}
+  const flatCode = REF.codeFromFields(flat);
+  let leadCode = '';
+  if (!REF.isCode(flatCode) && !REF.isCode(pendCode)) { try { leadCode = await leadReferralCode(env, phone); } catch {} }
+  const refs = {};
+  for (const c of [flatCode, pendCode, leadCode]) if (REF.isCode(c) && !(c in refs)) refs[c] = await refOf(env, c);
+  /* an old share link (utm_campaign=<code>) has no ref: record — the client never chose a mode.
+     The tier credit still counts (as before); the record is made as commission so Richard sees it. */
+  const lookup = c => refs[c] || (c === leadCode && c ? { code: c, token: '', phone: '', name: '', mode: 'commission', legacy: true } : null);
+  const a = REF.attribute({ flat, pendCode, leadCode, payerPhone: phone, friendToken: token, lookup });
+  if (!a) return null;
+  if (a.ignored) { await logEvent(env, { area: 'הפניות', action: `הפניה לא נספרה (${a.ignored})`, ok: true, phone, token, ref: a.code }).catch(() => {}); return null; }
+  await env.RATE.put('refdone:' + last9, a.code, { expirationTtl: REF_TTL });
+  let parsed = null; try { parsed = parsePaidDesc(flat.paymentDesc || flat.description || flat.productName || ''); } catch {}
+  const ps = REF.packageSum({ purchase, parsed, sum, pkgPrices: PKG_PRICES });
+  const rec = REF.newRecord({ code: a.code, ref: a.ref, friend: { phone, name, token }, sum_total: sum, sum_package: ps.sum_package, note: ps.note, ipnRef, via: a.via });
+  await env.RATE.put('refrec:' + rec.id, JSON.stringify(rec), { expirationTtl: REF_TTL });
+  await env.RATE.put('reffriend:' + token, rec.id, { expirationTtl: REF_TTL });   // friend token → record (invoice hook, ניהול אירוע)
+  if (a.ref && !a.ref.legacy) await env.RATE.put('ref:' + a.code, JSON.stringify({ ...a.ref, locked: true }), { expirationTtl: REF_TTL });
+  await env.RATE.delete('refpend:' + phone).catch(() => {});
+  /* the loyalty tier climbs as before */
+  const tierCode = a.ref && a.ref.token ? REF.codeOf(a.ref.token) : a.code;   /* a client's two links feed one loyalty tier */
+  const cur = Number(await env.RATE.get('refcred:' + tierCode)) || 0;
+  await env.RATE.put('refcred:' + tierCode, String(cur + 1), { expirationTtl: REF_TTL });
+  await logEvent(env, { area: 'הפניות', action: `הפניה שילמה (${a.via}) · ${rec.path === 'discount' ? 'הנחה ₪' + rec.discount_given : 'זיכוי ₪' + rec.credit + ' ממתין לחשבונית'}`, ok: true, phone, token, ref: a.code, detail: rec.id }).catch(() => {});
+  try { await slackPost(env, REF.slackLine(rec) + (flat._simulated ? ' · [בדיקה]' : ''), { urgent: true, now: true, oneoff: true, important: true }); } catch {}
+  return rec;
+}
+/* post the credit once. by: 'invoice' (automatic) | 'manual' (Richard) */
+async function referralVerify(env, recId, { by = 'manual', who = '' } = {}) {
+  if (!env.RATE) return { ok: false, error: 'no-store' };
+  let rec = null; try { rec = JSON.parse(await env.RATE.get('refrec:' + recId) || 'null'); } catch {}
+  if (!rec) return { ok: false, error: 'not-found' };
+  const v = REF.verifyRecord(rec, { by });
+  if (!v.changed) return { ok: true, changed: false, rec };
+  await env.RATE.put('refrec:' + recId, JSON.stringify(v.rec), { expirationTtl: REF_TTL });
+  let credited = 0;
+  if (v.credit && v.rec.referrer_phone) {
+    const L = await ledgerOf(env, v.rec.referrer_phone);
+    const r = REF.ledgerAdd(L, { kind: 'referral', amount: v.credit, ref: String(recId).split(':')[1] || recId, token: v.rec.friend_token, note: v.rec.friend_name });
+    if (r.added) { await env.RATE.put('credit:' + v.rec.referrer_phone, JSON.stringify(r.ledger)); credited = v.credit; }
+  }
+  await logEvent(env, { area: 'הפניות', action: `הפניה אושרה (${by === 'invoice' ? 'חשבונית יצאה' : 'ידנית' + (who ? ' · ' + who : '')})${credited ? ' · זיכוי ₪' + credited + ' נזקף למפנה' : ''}`, ok: true, phone: v.rec.friend_phone, token: v.rec.friend_token, ref: v.rec.code, detail: recId }).catch(() => {});
+  return { ok: true, changed: true, rec: v.rec, credited };
+}
+async function referralVerifyByInvoice(env, friendToken) {
+  if (!env.RATE || !friendToken) return null;
+  const id = await env.RATE.get('reffriend:' + friendToken).catch(() => null);
+  if (!id) return null;
+  return referralVerify(env, id, { by: 'invoice' });
+}
+/* the dashboard card + the admin tab read this */
+async function referralSummary(env, token, rec) {
+  const code = REF.codeOf(token), code2 = REF.codeOfCommission(token);
+  const ref = await refOf(env, code);
+  const recs = [...await refRecordsOf(env, code), ...await refRecordsOf(env, code2)].sort((a, b) => String(a.at).localeCompare(String(b.at)));
+  const L = await ledgerOf(env, rec && rec.phone);
+  /* 12/11: one link on the card — the one of the picked mode; both codes count in the numbers */
+  const view = ref ? (ref.view || ref.mode) : '';
+  const legacy = !!(ref && ref.mode === 'commission' && !ref.view);
+  const base = REF.refSummary(ref ? { ...ref, mode: view } : null, recs, L);
+  const hits = async c => { try { return Number((JSON.parse(await env.RATE.get('refhits:' + c) || 'null') || {}).n) || 0; } catch { return 0; } };
+  const linkOf = m => (m === 'commission' && !legacy) ? `${REF.SITE}/?ref=${code2}` : REF.refLink(code);
+  const shown = view === 'commission' && !legacy ? code2 : code;
+  return { ...base, code: shown, copy: REF.cardCopy(base), chosen: !!ref, locked: false, link: view ? linkOf(view) : '', visits: ref ? (await hits(code)) + (await hits(code2)) : 0 };
 }
 
 /* The one place that decides "is this Grow payment ours". handleGrowIpn uses it
@@ -314,9 +415,15 @@ function salesDeps(env) {
 /* one place mints a server-priced Grow link from a structured quote:
    the admin pay link (v2) and the site's prefilled popup both come here */
 async function createQuoteLink(env, b, { src = 'admin' } = {}) {
-  const pq = priceQuote(b);
+  /* 12/11 הזמן חבר: a valid discount-mode code prices the package line at 80% and rides in cField3 */
+  let refCode = REF.isCode(b.ref) ? String(b.ref).toLowerCase() : '';
+  let refRec = refCode ? await refOf(env, refCode) : null;
+  if (refRec && refRec.mode !== 'discount') { /* commission: full price, still attributed */ }
+  if (refCode && !refRec) refCode = '';
+  const pq = priceQuote(refRec && refRec.mode === 'discount' ? { ...b, discount_pct: REF.PCT } : b);
   if (!pq.ok) return { ok: false, status: 400, why: pq.why };
   const q = pq.quote;
+  if (refCode) q.ref = refCode;
   const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
   const cField1 = `q:${id}|${q.code}`;
   if (!env.GROW_LINK_HOOK) return { ok: false, why: 'no-hook', id, q };
@@ -324,7 +431,7 @@ async function createQuoteLink(env, b, { src = 'admin' } = {}) {
     sum: q.sum, description: q.description, token: '', kind: 'special', scope: 'all', label: q.description, n: q.records,
     name: q.name, phone: q.phone.replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
     successUrl: 'https://ishur.io/thanks.html', cancelUrl: 'https://ishur.io/',
-    cField1, cField2: q.occasion,
+    cField1, cField2: q.occasion, cField3: refCode ? 'ref:' + refCode : '',
   }) }).catch(() => null);
   let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
   const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
@@ -341,7 +448,7 @@ async function handleQuoteFromSite(request, env, origin) {
   const stampError = await checkStamp(b, env.APP_KEY);
   if (stampError) return deny(403, stampError, origin);
   if (await overBudget(env, 'rl:qsite:' + (request.headers.get('CF-Connecting-IP') || 'x'), 8, 3600)) return deny(429, 'slow-down', origin);
-  const body = { plan: b.plan, records: Number(b.records), phone: b.phone, name: b.name, email: b.email, occasion: b.occasion, event_date: b.event_date || '',
+  const body = { plan: b.plan, records: Number(b.records), phone: b.phone, name: b.name, email: b.email, occasion: b.occasion, event_date: b.event_date || '', ref: String(b.ref || '').toLowerCase(),
     addons: { hostesses: Number(b.hostesses) || 0, design: !!b.design, travel: false, extra_wave: false, calls: false } };
   const r = await createQuoteLink(env, body, { src: String(b.src || 'site').replace(/[^a-z0-9_-]/gi, '').slice(0, 20) || 'site' });
   if (r.status === 400) return okJson({ ok: false, why: r.why }, origin);
@@ -371,7 +478,17 @@ async function purchaseOf(env, flat) {
   let q = null;
   if (ref && ref.id && env.RATE) { try { q = JSON.parse(await env.RATE.get('quote:' + ref.id) || 'null'); } catch {} }
   if (!q && ref && ref.code) q = { ...ref.code, id: ref.id || '' };
-  if (q) return { source: q.sum != null ? 'quote' : 'code', ...q };
+  if (q) {
+    /* 12/11 security: the code/quote id came through the payer's browser — it counts only when the sum that
+       really arrived covers it (paylink.js purchaseCovered). Otherwise the payment is read by its description,
+       exactly like a link without a code, and Richard gets one red line to look at. */
+    const cov = purchaseCovered(q, flat.paymentSum || flat.sum || flat.amount || flat.price || flat.transactionSum);
+    if (cov.ok) return { source: q.sum != null ? 'quote' : 'code', ...q };
+    const phone = normPhone(flat.payerPhone || flat.phone || '');
+    await logEvent(env, { area: 'תשלום', action: 'קוד רכישה בתשלום לא תואם לסכום ששולם — לא הופעל לפי הקוד', ok: false, review: true, phone,
+      ref: String(flat.asmachta || flat.transactionId || ''), detail: `שולם ₪${cov.paid ?? '?'} · הקוד שווה לפחות ₪${cov.expected ?? '?'} · ${String(ref.id ? 'q:' + ref.id : '')} ${ref.code ? buildCode(ref.code) : ''}`.slice(0, 300) }).catch(() => {});
+    try { await alert(env, 'תשלום Grow', 'הגיע תשלום עם קוד חבילה/תוספות שהסכום ששולם לא מכסה — החבילה נקבעה לפי תיאור התשלום, התוספות לא הופעלו. לבדוק ידנית', `שולם ₪${cov.paid ?? '?'} · הקוד שווה לפחות ₪${cov.expected ?? '?'} · ${phone}`, { oneoff: true }); } catch {}
+  }
   const b = parsePaidDesc(desc);
   if (!b) return null;
   return { source: 'desc', plan: b.plan, records: b.tier, design: /עיצוב\s*הזמנה/.test(desc), hostesses: b.hostess || 0,
@@ -456,7 +573,7 @@ const writeFlow = (env, token, f) => env.RATE.put('designflow:' + token, JSON.st
 const dfileUrl = (host, token, id) => `https://${host}/api/design-file?t=${token}&id=${id}`;
 function flowView(host, token, f, brief) {
   return {
-    status: f.status, rounds_used: f.rounds_used || 0, rounds_total: roundsTotal(f), rounds_free: f.rounds_free || 0, rounds_paid: f.rounds_paid || 0,
+    status: f.status, rounds_used: f.rounds_used || 0, rounds_total: roundsTotal(f), rounds_free: Math.max(f.rounds_free || 0, 2), rounds_paid: f.rounds_paid || 0,
     free_claimed: !!f.free_claimed, can_request_changes: canRequestChanges(f), round_price: DESIGN_ROUND_PRICE,
     versions: (f.versions || []).map(v => ({ n: v.n, note: v.note, at: v.at, url: dfileUrl(host, token, v.media), mime: v.mime || '' })),
     comments: f.comments || [],
@@ -487,7 +604,7 @@ async function handleDesignFlow(request, env, origin, host) {
     const edit = !!(brief && brief.source === 'dashboard');
     brief = { ...(brief || {}), ...v.brief, token, at };
     await env.RATE.put('designbrief:' + token, JSON.stringify(brief), { expirationTtl: DFLOW_TTL });
-    await dslack(env, token, `${edit ? 'בריף עיצוב עודכן' : 'בריף עיצוב חדש מלוח הבקרה'} · ${v.brief.refs.length} תמונות השראה · "${v.brief.text.slice(0, 120)}"`);
+    await notifyDesigner(env, token, edit ? 'בריף עיצוב עודכן' : 'בריף עיצוב חדש מלוח הבקרה', `${v.brief.text}${v.brief.refs.length ? '\n(' + v.brief.refs.length + ' תמונות השראה)' : ''}`).catch(() => {});
     await logEvent(env, { area: 'עיצוב הזמנה', action: edit ? 'הלקוח עדכן בריף' : 'הלקוח שלח בריף מלוח הבקרה', ok: true, token, detail: v.brief.text.slice(0, 200) }).catch(() => {});
     return okJson({ ok: true, ...flowView(host, token, f, brief) }, origin);
   }
@@ -516,14 +633,57 @@ async function handleDesignFlow(request, env, origin, host) {
     return okJson({ ok: !!link, pay: true, url: link || '', price: DESIGN_ROUND_PRICE, ...flowView(host, token, f, brief) }, origin);
   }
   f = r.flow;
-  await writeFlow(env, token, f);
-  if (action === 'approve') await dslack(env, token, `עיצוב אושר ✅ (גרסה ${f.approved_version}) — לסמן "בוצע" באדמין`);
-  if (action === 'changes') await dslack(env, token, `הלקוח ביקש תיקונים לגרסה ${f.versions.length}: "${String(b.comment || '').slice(0, 200)}"`);
+  if (action === 'approve') {
+    const ap = await applyDesignToInvite(env, token, f, host);
+    if (ap.ok) { f.applied_at = at; f.apply_note = ''; } else f.apply_note = ap.why;
+    await writeFlow(env, token, f);
+    await dslack(env, token, ap.ok ? `עיצוב אושר ✅ (גרסה ${f.approved_version}) והוגדר כתמונת ההזמנה של האירוע` : `עיצוב אושר ✅ (גרסה ${f.approved_version}) — לא הוגדר אוטומטית כתמונת ההזמנה (${ap.why}), להעלות ידנית`);
+  } else await writeFlow(env, token, f);
+  if (action === 'changes') await notifyDesigner(env, token, `הלקוח ביקש תיקונים לעיצוב · גרסה ${f.versions.length}`, String(b.comment || '')).catch(() => {});
   if (action === 'buy') await dslack(env, token, 'הלקוח מימש את סבב התיקונים החינמי');
   await logEvent(env, { area: 'עיצוב הזמנה', action: { approve: 'הלקוח אישר את העיצוב', changes: 'הלקוח ביקש תיקונים', buy: 'סבב תיקונים חינם מומש' }[action], ok: true, token }).catch(() => {});
   return okJson({ ok: true, free: action === 'buy' ? true : undefined, ...flowView(host, token, f, brief) }, origin);
 }
 
+/* 12/11 Richard: once the client approves, the approved design IS the invitation — no hand-off.
+   Images only (a PDF cannot ride a WhatsApp template header); too large or not an image → Slack, by hand. */
+async function applyDesignToInvite(env, token, f, host) {
+  try {
+    const v = (f.versions || [])[(f.approved_version || (f.versions || []).length) - 1]; if (!v) return { ok: false, why: 'no-version' };
+    const hit = await env.RATE.getWithMetadata('dfile:' + token + ':' + v.media, { type: 'arrayBuffer' }).catch(() => null);
+    if (!hit || hit.value == null) return { ok: false, why: 'no-file' };
+    const mime = sniffImage(new Uint8Array(hit.value.slice(0, 16)));
+    if (!mime) return { ok: false, why: 'not-an-image' };
+    if (hit.value.byteLength > MAX_IMAGE_BYTES) return { ok: false, why: 'too-large' };
+    const raw = await readSnapshot(env, 'write').catch(() => null);
+    const rows = (raw && raw.events && raw.events.values) || [];
+    const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === token);
+    if (idx < 0) return { ok: false, why: 'no-event-row' };
+    await env.RATE.put('img:' + token, hit.value, { expirationTtl: TOKEN_TTL, metadata: { mime } });
+    const image_url = 'https://' + host + '/img/' + token + '?v=' + Date.now().toString(36);
+    await sheetBatchWrite(env, [{ range: `אירועים!AS${idx + 2}`, values: [[image_url]] }]);
+    await env.RATE.delete('vid:' + token).catch(() => {}); await env.RATE.delete('vidok:' + token).catch(() => {});
+    return { ok: true, image_url };
+  } catch (e) { return { ok: false, why: String(e && e.message || e).slice(0, 80) }; }
+}
+/* admin: every paid design with its brief, versions, comments and rounds — what waits for us first */
+async function handleDesignList(request, env, origin, host) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!(await adminKeyOk(env, b.admin_key))) return deny(403, 'bad-admin-key', origin);
+  const out = [];
+  for (const k of (await env.RATE.list({ prefix: 'design:', limit: 500 }).catch(() => ({ keys: [] }))).keys || []) {
+    const token = k.name.slice(7); if (!/^[0-9a-f-]{36}$/.test(token)) continue;
+    if (!(await designPaid(env, token))) continue;
+    let brief = null; try { brief = JSON.parse(await env.RATE.get('designbrief:' + token) || 'null'); } catch {}
+    const f = await readFlow(env, token); const rec = await tokenRecord(env, token) || {};
+    const v = flowView(host, token, f, brief);
+    const needs = !!brief && (v.status === 'new' || v.status === 'changes_requested') ? 'us' : v.status === 'awaiting_client' ? 'client' : v.status === 'approved' || v.status === 'done' ? 'done' : 'brief';
+    out.push({ token, name: rec.name || '', phone: rec.phone || '', needs, applied: !!f.applied_at, apply_note: f.apply_note || '', ...v });
+  }
+  const rank = { us: 0, client: 1, brief: 2, done: 3 };
+  out.sort((a, c) => rank[a.needs] - rank[c.needs]);
+  return okJson({ ok: true, designs: out, waiting: out.filter(x => x.needs === 'us').length }, origin);
+}
 /* admin: POST {admin_key, token, media, note} uploads a version; action:'done' | 'state' */
 async function handleDesignVersion(request, env, origin, host) {
   let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -796,7 +956,7 @@ async function processGrowPayment(env, flat) {
   if (ok) {
     /* verified referral: when this payer's lead carries referral:<code>, the
        referrer earns a tier credit. Never blocks the payment path. */
-    try { await creditReferral(env, phone, token); } catch {}
+    try { await referralOnPaid(env, { flat, phone, name, token, sum, ref, purchase }); } catch (e) { await logEvent(env, { area: 'הפניות', action: 'ייחוס הפניה נכשל', ok: false, review: true, phone, token, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
     /* the closed customer is reported back to Meta server-side (CAPI). The
        browser fires the same event_id ('pur_<ref>') from thanks.html, so Meta
        dedups; when the tab never returns, this copy is the only one. */
@@ -831,6 +991,7 @@ async function processGrowPayment(env, flat) {
       addons: purchase ? addonList(purchase) : [],
     }) + (promo ? ` · 🎫 ${promo.label} · קוד ${promo.code || ''}` + (promo.left != null ? ` · נשארו ${promo.left} מקומות` : '') : ''), { oneoff: true });   /* oneoff: a deal closed */
     if (env.RATE) await env.RATE.put('claimlink:' + phone, token, { expirationTtl: 180 * 86400 });
+    if (env.RATE) await env.RATE.delete('incdays').catch(() => {});   /* 16/11: the daily income report re-reads on the next look */
     /* Richard 21/10: the lead in Monday closes itself the moment money lands */
     if (!flat._simulated && !isTestPhone(env, phone)) {
       try {
@@ -855,7 +1016,7 @@ async function processGrowPayment(env, flat) {
       const inv = (flat._simulated && !forced) ? { ok: false, why: 'not-configured' } : await createInvoice(env, {
         name, phone, email, sum, ref, payMethod,
         taxId: String(flat.payerId || flat.taxId || flat.idNumber || '').trim(),
-        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0,
+        plan: bought ? bought.planText : '', tier: bought ? bought.tier : 0, hostess: bought ? Number(bought.hostess) || 0 : 0, design: !!(purchase && purchase.design) || /עיצוב\s*הזמנה/.test(String(flat.paymentDesc || flat.description || flat.productName || '')),   /* 12/11: hostess terms go on the invoice */
         occasion: String(flat.occasion || flat.cField2 || '').trim(),
       }).catch(e => ({ ok: false, why: String(e && e.message) }));
       if (inv.ok) {
@@ -882,6 +1043,8 @@ async function processGrowPayment(env, flat) {
         await alert(env, 'חשבוניות', `חשבונית ל-${name || phone} (₪${sum}) לא הופקה: ${inv.why}`, ref, { oneoff: true });   /* oneoff: one invoice for one payment ref */
       }
     }
+    /* 12/11 הזמן חבר: the friend's invoice exists → the referrer's credit is posted */
+    if (invoiceUrl) { try { await referralVerifyByInvoice(env, token); } catch {} }
     /* Richard, 07/09: the invoice goes out by email and ONLY by email. A
        customer who left no address simply does not receive one, and if he
        asks in WhatsApp, Noa sends it herself. This replaces the earlier
@@ -982,7 +1145,14 @@ async function handlePromoAdmin(request, env, origin) {
    ────────────────────────────────────────────────────────────────────────── */
 const LEAD_TTL = 45 * 86400;
 
-async function noteLead(env, f) {
+/* 12/11 security: the site form is public, and a new lead earns WhatsApp templates from the business
+   number half an hour later (chaseAbandonedLeads). So the number of NEW phones that may enter that
+   sequence from the form is bounded: per IP per day, and for all IPs together per day. A lead past
+   the limit is kept exactly like any other (sheet, Monday, the Slack ping) — it only carries
+   nochase, and the sequence skips it. One phone = one sequence per LEAD_TTL already (lead:/leadchase:). */
+const LEAD_CHASE_NEW_PER_IP_DAY = 5;
+const LEAD_CHASE_NEW_PER_DAY = 80;
+async function noteLead(env, f, meta = {}) {
   const phone = normPhone(f.phone || f.telefon || f.tel || '');
   if (!phone || phone.length < 11) return;
   /* somebody who already bought is not a lead, and must never be chased */
@@ -999,7 +1169,7 @@ async function noteLead(env, f) {
     guests: String(f.guest_range || f.guests || '').trim().slice(0, 30),
     plan: String(f.plan_name || f.plan || '').trim().slice(0, 30),
     price: String(f.price || '').trim().slice(0, 10),
-    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').trim()).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
+    source: [f.utm_source, f.utm_medium, f.utm_campaign, f.utm_content].map(x => String(x || '').replace(/[<>"]/g, '').trim().slice(0, 80)).filter(Boolean).join(' / ') || (f.fbclid || f.fbc ? 'פייסבוק/אינסטגרם (קליק)' : String(f.first_source || f.referrer || '').trim().slice(0, 60)),
     page: String(f.page || '').replace(/^https?:\/\/(www\.)?/, '').split('?')[0].slice(0, 60),
     type: String(f.event_type || '').trim().slice(0, 30),
   };
@@ -1023,6 +1193,18 @@ async function noteLead(env, f) {
   /* someone who already went through the whole sequence starts nothing new */
   if (await env.RATE.get('leadchase:' + phone)) return;
   rec = { ...facts, at: now, lastAt: now, consent, seen: 1, types: facts.type ? [facts.type] : [] };
+  if (meta.ip) {
+    const overIp = await overBudget(env, 'rl:leadnew:ip:' + meta.ip, LEAD_CHASE_NEW_PER_IP_DAY, 86400).catch(() => false);
+    const overDay = !overIp && await overBudget(env, 'rl:leadnew:day:' + ilDate(), LEAD_CHASE_NEW_PER_DAY, 86400).catch(() => false);
+    if (overIp || overDay) {
+      rec.nochase = overIp ? 'ip' : 'day';
+      await logEvent(env, { area: 'לידים', action: 'ליד מהטופס נשמר בלי הודעות המשך אוטומטיות', ok: true, review: true, phone,
+        detail: overIp ? `יותר מ-${LEAD_CHASE_NEW_PER_IP_DAY} מספרים חדשים מאותה כתובת IP ביממה` : `יותר מ-${LEAD_CHASE_NEW_PER_DAY} מספרים חדשים מהטופס היום` }).catch(() => {});
+      if (overDay) await alert(env, 'לידים', 'תקרת הלידים היומית להודעות המשך אוטומטיות הושגה',
+        `מעל ${LEAD_CHASE_NEW_PER_DAY} מספרים חדשים מהטופס היום. הלידים נשמרים ומגיעים לסלאק כרגיל; רק הודעות "לא סיימתם" לא יוצאות אליהם. אם זה יום קמפיין אמיתי, אפשר להעלות את LEAD_CHASE_NEW_PER_DAY.`,
+        { key: 'lead_chase_cap', sev: 'P2' }).catch(() => {});
+    }
+  }
   await env.RATE.put(key, JSON.stringify(rec), { expirationTtl: LEAD_TTL });
   await armLeadPing(env, phone).catch(() => {});
   return await mirrorLeadToMonday(env, phone, rec);
@@ -1278,6 +1460,9 @@ async function chaseAbandonedLeads(env, dry, budget) {
     if (!rec) { await env.RATE.delete(k.name); continue; }
     if (await env.RATE.get('client:' + phone)) { await env.RATE.delete(k.name); continue; }
     if (await phoneBlocked(env, phone)) { if (!dry) await settle(phone, 'blocked'); continue; }
+    /* 12/11 security: a form lead past the daily limits is never messaged. It stays until the Slack
+       ping has gone out (10-20 minutes), then it is settled so the scan stops paying for it. */
+    if (rec.nochase) { if (!dry && now - Date.parse(rec.at || 0) >= LEAD_T1_MS) await settle(phone, 'nochase'); continue; }
     /* answered = theirs now. Any inbound message after the form died means a
        human (or נועה) is already talking to them; more templates would nag.
        02/11: also a lead who wrote to US first on WhatsApp (Maya, Anat got
@@ -1478,7 +1663,18 @@ async function handleClaim(request, env, origin) {
       status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
     });
   }
-  return new Response(JSON.stringify({ ok: true, token }), {
+  /* 18/11 Richard: right after paying, the thank-you page shows the client's sign-in code once. Only inside the first
+     30 minutes from the first time it was shown; later the code comes only by WhatsApp to the phone on file. */
+  let pin = '', pinPhone = '';
+  try {
+    const rec = await tokenRecord(env, token); const ph = rec ? normPhone(rec.phone || '') : '';
+    if (/^972\d{8,9}$/.test(ph)) {
+      const first = Number(await env.RATE.get('pinshown:' + token)) || 0;
+      if (!first) await env.RATE.put('pinshown:' + token, String(Date.now()), { expirationTtl: 400 * 86400 });
+      if (!first || Date.now() - first < 30 * 60000) { pin = await pinFor(env, ph); pinPhone = '0' + ph.slice(3); }
+    }
+  } catch {}
+  return new Response(JSON.stringify(pin ? { ok: true, token, pin, pin_phone: pinPhone } : { ok: true, token }), {
     status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
   });
 }
@@ -1490,11 +1686,44 @@ async function handleClaim(request, env, origin) {
    Make stays a plain writer with nothing fragile inside it.
    ─────────────────────────────────────────────────────────────────────────── */
 
+/* 17/11 Richard: once Meta approves ishur_doch_kod (tmplpin:ishur_doch), the report carries the client's PIN as {{7}}.
+   Until then, and whenever the PIN cannot be read, the old six-variable template goes out exactly as before. */
+async function dochTemplate(env, phone, params) {
+  try {
+    const name = env.RATE ? await env.RATE.get('tmplpin:ishur_doch') : null;
+    const pin = name ? await pinFor(env, normPhone(phone)) : '';
+    if (name && pin) return [name, [...params, pin]];
+  } catch {}
+  return ['ishur_doch', params];
+}
 async function tokenRecord(env, token) {
   if (!env.RATE || !token || !/^[0-9a-f-]{36}$/.test(token)) return null;
   const raw = await env.RATE.get('token:' + token);
   if (!raw) return null;
   try { return JSON.parse(raw); } catch { return null; }
+}
+
+/* 12/11 security: the event token is the key to the client's dashboard (the whole guest list, phones, edits),
+   yet it rode in every guest-facing link — the "הוספה ליומן" button each confirming guest receives, the group
+   RSVP link, the table QR, the invitation image/video address. Guests now get a separate PUBLIC id of the same
+   shape: it opens only the guest pages (rsvp-info / rsvp-self / table-lookup / cal / img / vid) and is not a key
+   to anything else (tokenRecord does not know it). Links that already went out with the real token keep working. */
+async function pubIdOf(env, token) {
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(String(token || ''))) return String(token || '');
+  try {
+    const have = await env.RATE.get('pubof:' + token);
+    if (have && /^[0-9a-f-]{36}$/.test(have)) return have;
+    const pub = crypto.randomUUID();
+    await env.RATE.put('pubtok:' + pub, token, { expirationTtl: TOKEN_TTL });
+    await env.RATE.put('pubof:' + token, pub, { expirationTtl: TOKEN_TTL });
+    return pub;
+  } catch { return String(token); }
+}
+/* a public id → its event token; anything else (a link sent before 12/11) comes back unchanged */
+async function fromPub(env, id) {
+  id = String(id || '');
+  if (!env.RATE || !/^[0-9a-f-]{36}$/.test(id)) return id;
+  try { const t = await env.RATE.get('pubtok:' + id); return t && /^[0-9a-f-]{36}$/.test(t) ? t : id; } catch { return id; }
 }
 
 function sniffImage(bytes) {
@@ -1575,8 +1804,8 @@ async function addonQuote(env, token) {
     extrasend_all:        { label: 'שליחה נוספת לכולם',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },
     extrasend_unanswered: { label: 'שליחה נוספת ללא ענו', n: unanswered, price: unanswered ? up(R.msg * unanswered + R.base) : 0 },
     calls:                { label: 'סבב שיחות AI ללא ענו', n: unanswered, price: unanswered ? up(R.call * unanswered + R.base) : 0 },
-    postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total) : 0 },
-    cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total) : 0 },
+    postpone:             { label: 'הודעת דחייה/עדכון',   n: total,      price: total ? up(R.msg * total + R.base) : 0 },   /* 12/11 Richard: priced like an extra send */
+    cancel:               { label: 'הודעת ביטול',          n: total,      price: total ? up(R.msg * total + R.base) : 0 },
     selfreg:              { label: 'הפעלת הודעות לנרשמים מהקישור', n: selfCount, price: selfCount ? up(R.msg * selfCount * 3 + R.base) : 0 },
   };
   return { ok: true, token, total, unanswered, free_guests: R.freeGuests, items };
@@ -1587,6 +1816,7 @@ function parseAddonDesc(desc) {
   const d = String(desc || '');
   const tokM = d.match(/·\s*([0-9a-f]{8})\s*$/);
   const tok8 = tokM ? tokM[1] : '';
+  if (/תוספת:\s*(\d\s*)?דייל\S* לאירוע/.test(d)) return { kind: 'hostess', n: parseInt((d.match(/תוספת:\s*(\d)\s*דיילות/) || [])[1], 10) || 1, tok8, desc: d.slice(0, 80) };   /* 12/11: hostess bought from the client board */
   if (/נסיע/.test(d) && /דייל/.test(d)) return { kind: 'hostess_travel', tok8, desc: d.slice(0, 80) };
   if (/סבב שיחות/.test(d)) return { kind: 'calls', tok8, desc: d.slice(0, 80) };
   if (/נרשמים מהקישור/.test(d)) return { kind: 'selfreg', tok8, desc: d.slice(0, 80) };
@@ -1626,7 +1856,7 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
   /* an add-on is money too: same invoice-receipt, same terms, same WhatsApp */
   try {
     const inv = await createInvoice(env, { name, phone, sum, ref, payMethod: String(flat.paymentType || flat.paymentMethod || '').trim(),
-      taxId: String(flat.payerId || flat.taxId || '').trim(), plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
+      taxId: String(flat.payerId || flat.taxId || '').trim(), hostess: addon.kind === 'hostess' ? addon.n || 1 : 0, plan: addon.kind === 'hostess' ? (addon.n > 1 ? addon.n + ' דיילות לאירוע' : 'דיילת לאירוע') : addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, tier: 0, occasion: ev.event_name || '' });
     if (inv.ok) {
       const email = String(flat.payerEmail || flat.email || '').trim();
       let wa = { ok: true, skipped: 'email' };
@@ -1639,13 +1869,25 @@ async function applyAddon(env, { phone, name, sum, ref, addon, flat = {} }) {
         detail: `₪${sum} · ${email ? 'נשלחת למייל ' + email : 'אין מייל — ווצאפ ' + (wa.ok ? 'נשלח' : wa.error)} · ${inv.url}` });
       await logRow(env, 'invoices', { number: inv.number, kind: 'תוספת', name, phone, email, token: String(token).slice(0, 8),
         plan: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier} ${PLAN_HE[addon.plan]}` : `תוספת ${addon.n} מוזמנים`, sum, payMethod: String(flat.paymentType || '').trim(), ref, url: inv.url, wa: email ? '' : (wa.ok ? 'כן' : 'נכשל') });
-      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true }), { expirationTtl: 400 * 86400 });
+      if (env.RATE) await env.RATE.put('invoice:' + token + ':' + ref, JSON.stringify({ url: inv.url, number: inv.number, addon: true, at: new Date().toISOString(), kind: addon.kind === 'extrasend' ? 'שליחה נוספת' : addon.kind === 'upgrade' ? `שדרוג ל-${addon.tier}` : addon.kind === 'design' ? 'עיצוב הזמנה' : addon.kind === 'hostess' ? 'דיילות' : addon.kind === 'calls' ? 'סבב שיחות' : 'תוספת', sum: Number(sum) || null }), { expirationTtl: 400 * 86400 });
       await sheetBatchWrite(env, [{ range: `אירועים!W${row}`, values: [[`${inv.number} · ${inv.url}`]] }]);
       await upsertClientRow(env, { clientId: 'C-' + String(phone).slice(-9), name, phone, token, eventName: ev.event_name || '', invoice: `${inv.number} · ${inv.url}` }).catch(() => {});
     } else if (inv.why !== 'not-configured') {
       await logEvent(env, { area: 'חשבוניות', action: 'חשבונית לתוספת לא הופקה', ok: false, review: true, phone, token, ref, detail: `${inv.why} ${inv.detail || ''}` });
     }
   } catch {}
+  if (addon.kind === 'hostess') {
+    /* the same hostess:<token> record the package path writes; travel is inside the sum (cField2) */
+    const cf2 = String(flat.cField2 || flat.cfield2 || flat.customField2 || '');
+    const tr = (cf2.match(/travel:(\d{1,3})/) || [])[1];
+    const cityIn = (cf2.match(/travel:\d{1,3}:([^|]+)/) || [])[1] || ev.venue_city || '';
+    let cur = null; try { cur = JSON.parse(await env.RATE.get('hostess:' + token) || 'null'); } catch {}
+    await env.RATE.put('hostess:' + token, JSON.stringify({ ...(cur || {}), n: ((cur && Number(cur.n)) || 0) + addon.n, at: new Date().toISOString(), ref,
+      date: String(flat.cField1 || flat.cfield1 || '').slice(0, 10) || (cur && cur.date) || '', city: cityIn, travel_included: tr != null ? Number(tr) : null }), { expirationTtl: 400 * 86400 }).catch(() => {});
+    await logEvent(env, { area: 'תשלום', action: `תוספת נרכשה: ${addon.desc}`, ok: true, phone, token, ref, detail: `₪${sum}` });
+    await slackSend(env, `🧑‍💼 *נרכשו ${addon.n === 1 ? 'דיילת אחת' : addon.n + ' דיילות'} (תוספת מהלוח)* · ${name || phone} · אירוע ${token.slice(0, 8)} · ₪${sum}${flat._simulated ? ' · [בדיקה]' : ''} — לתאם דיילות`, { urgent: true, oneoff: true });   /* oneoff: a payment */
+    return { ok: true, kind: 'hostess', token };
+  }
   if (addon.kind === 'hostess_travel') {
     /* ₪250 per hostess, paid once per hostess from upload.html. Only a note and
        a Slack line: nothing in the sheet changes. */
@@ -2015,8 +2257,11 @@ async function handleEventForm(form, rec, token, env, origin, target, url) {
   const out = { event_type: 'event_setup', token };
   for (const k of SETUP_FIELDS) {
     const v = form.get(k);
-    if (typeof v === 'string' && v !== '') out[k] = v;
+    /* 12/11 security: names and places are shown on admin and client pages — no markup characters in them (the free-text description is left as typed) */
+    if (typeof v === 'string' && v !== '') out[k] = k === 'event_description' ? v : v.replace(/[<>]/g, '');
   }
+  /* 17/11: the style chosen in the form is what gets sent (it used to change only the preview). Kept in KV; not touched once the first wave went out. */
+  try { const stIn = normStyle(form.get('style')); if (stIn && env.RATE && String(form.get('custom_text') || '') !== 'yes' && !(await env.RATE.get('wave:' + token + ':1'))) { if (OWN_TEMPLATE(stIn)) await env.RATE.put('invstyle:' + token, stIn, { expirationTtl: 400 * 86400 }); else await env.RATE.delete('invstyle:' + token); forgetStyle(env); } } catch {}
   /* host_roles: "כלה,חתן" — one role per host name, from a fixed list. Anything
      else is dropped rather than written into the sheet. */
   if (out.host_roles !== undefined && !hostRolesOk(out.host_roles)) delete out.host_roles;
@@ -2239,7 +2484,7 @@ async function waGuestFile(env, from, doc) {
   }
   await env.RATE.put('uploaded:' + token, now, { expirationTtl: TOKEN_TTL });
   await env.RATE.delete('pend:' + token).catch(() => {});
-  await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}`);
+  await sendText(env, from, `הרשימה נקלטה! ${guests.length} מוזמנים נשמרו לאירוע 🎉${skipped.length ? ` (${skipped.length} שורות דולגו בגלל פרטים חסרים)` : ''}\nעוקבים אחרי הכל בלוח הבקרה: https://ishur.io/dashboard.html?t=${token}${await pinFor(env, normPhone(from)).then(p => p ? `\nלכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד ${p}` : '').catch(() => '')}`);
   await slackPost(env, `📎 רשימת מוזמנים נקלטה בוואטסאפ · ${rec.name || ''} ${phone} · ${guests.length} מוזמנים`, { quiet: true });
 }
 
@@ -2349,13 +2594,54 @@ const okJsonPlain = payload => new Response(JSON.stringify(payload), {
 async function adminKeyOk(env, key) {
   const tok = String(key || '');
   if (isAdmin(env, tok)) return true;
+  /* 16/11: uploads carry the key inside a form, which the sign-in gate does not rewrite, so a Google session is accepted here directly */
+  if (isSessionToken(tok)) return !!(await readSession(env, tok).catch(() => null));
+  return adminSessionOk(env, tok);
+}
+/* 12/11 security: a session token ends 30 days after its last use (it used to be valid for as long
+   as ADMIN_KEY lived). The raw admin key is not a session and is never touched by this.
+     · tokens minted from now on carry their mint time in the first 8 hex chars of the nonce and
+       are signed with the 'sess2:' label — valid without any lookup for the first 30 days (KV is
+       eventually consistent, see handleAdminLogin), and after that for as long as the KV row
+       adminsess:<nonce> shows a use in the last 30 days;
+     · tokens minted before this change ('sess:' label) keep working with no action through
+       LEGACY_SESSION_GRACE_END; every use is stamped on their KV row, and after that date they
+       follow the same rule — alive while used in the last 30 days;
+     · the oldest KV-only tokens (sess.<48 hex>) get the same 30-day sliding life on their row. */
+const ADMIN_SESSION_DAYS = 30;
+const ADMIN_SESSION_MS = ADMIN_SESSION_DAYS * 86400 * 1000;
+const LEGACY_SESSION_GRACE_END = Date.parse('2026-12-14T00:00:00Z');
+async function adminSessionOk(env, tok) {
   if (!env.ADMIN_KEY) return false;
+  const now = Date.now();
+  const touch = async (kvKey, rec) => {
+    if (rec && rec.seen && now - Date.parse(rec.seen) < 12 * 3600 * 1000) return;
+    await env.RATE.put(kvKey, JSON.stringify({ ...(rec || {}), seen: new Date(now).toISOString() }), { expirationTtl: (ADMIN_SESSION_DAYS + 1) * 86400 }).catch(() => {});
+  };
   const signed = tok.match(/^sess\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
   if (signed) {
-    if (!safeEqual(signed[2], await sessionSig(env, signed[1]))) return false;
-    return !(env.RATE && await env.RATE.get('adminrev:' + signed[1]).catch(() => null));
+    const nonce = signed[1];
+    const v2 = safeEqual(signed[2], await sessionSig(env, nonce, 'sess2:'));
+    if (!v2 && !safeEqual(signed[2], await sessionSig(env, nonce, 'sess:'))) return false;
+    const mintedMs = parseInt(nonce.slice(0, 8), 16) * 1000;
+    const fresh = v2 ? (now - mintedMs < ADMIN_SESSION_MS) : now < LEGACY_SESSION_GRACE_END;
+    if (!env.RATE) return fresh;
+    const [rev, recRaw] = await Promise.all([env.RATE.get('adminrev:' + nonce).catch(() => null), env.RATE.get('adminsess:' + nonce).catch(() => null)]);
+    if (rev) return false;
+    let rec = null; try { rec = JSON.parse(recRaw); } catch {}
+    const lastUse = rec ? Date.parse(rec.seen || (v2 ? rec.at : '') || '') : NaN;
+    if (!fresh && !(Number.isFinite(lastUse) && now - lastUse < ADMIN_SESSION_MS)) return false;
+    await touch('adminsess:' + nonce, rec);
+    return true;
   }
-  if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) return !!(await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null));
+  if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) {
+    /* sessions minted before 10/09 — KV only */
+    const recRaw = await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null);
+    if (!recRaw) return false;
+    let rec = null; try { rec = JSON.parse(recRaw); } catch {}
+    await touch('adminsess:' + tok.slice(5), rec && typeof rec === 'object' ? rec : {});
+    return true;
+  }
   return false;
 }
 async function resolveAdminSession(request, env) {
@@ -2368,28 +2654,32 @@ async function resolveAdminSession(request, env) {
   let body;
   try { body = JSON.parse(text); } catch { return request; }
   const tok = String(body.admin_key || '');
-  if (!env.ADMIN_KEY) return request;
-  let valid = false;
-  const signed = tok.match(/^sess\.([0-9a-f]{32})\.([0-9a-f]{32})$/);
-  if (signed) {
-    /* signed session: verify locally, then honour a revocation if one exists */
-    valid = safeEqual(signed[2], await sessionSig(env, signed[1]));
-    if (valid && env.RATE && await env.RATE.get('adminrev:' + signed[1]).catch(() => null)) valid = false;
-  } else if (/^sess\.[0-9a-f]{48}$/.test(tok) && env.RATE) {
-    /* sessions minted before 10/09 — KV only */
-    valid = !!(await env.RATE.get('adminsess:' + tok.slice(5)).catch(() => null));
-  }
-  if (!valid) return request;
+  if (!(await adminSessionOk(env, tok))) return request;
   body.admin_key = env.ADMIN_KEY;
   return new Request(request, { body: JSON.stringify(body) });
 }
 
-/* HMAC-SHA256(ADMIN_KEY, 'sess:' + nonce), first 32 hex chars */
-async function sessionSig(env, nonce) {
+/* HMAC-SHA256(ADMIN_KEY, label + nonce), first 32 hex chars. 'sess:' = minted before 12/11, 'sess2:' = since */
+async function sessionSig(env, nonce, label = 'sess:') {
   const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(String(env.ADMIN_KEY || '')),
     { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
-  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode('sess:' + nonce));
+  const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(label + nonce));
   return [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('').slice(0, 32);
+}
+
+/* 12/11 security: one guess at a login code. Called after the code record was read and BEFORE the
+   compare: the per-code counter in this isolate first (exact for a parallel burst), then the tries
+   counter on the record is written, and only then may the caller compare.
+   → false when this attempt must be refused without looking at the code. */
+async function otpAttemptAllowed(env, kvKey, rec, maxTries, ttlSec) {
+  if (memOver('otptry:' + kvKey + ':' + (rec.id || rec.at || rec.exp || ''), maxTries, 1800)) {
+    await env.RATE.delete(kvKey).catch(() => {});
+    return false;
+  }
+  rec.tries = (Number(rec.tries) || 0) + 1;
+  if (rec.tries > maxTries) { await env.RATE.delete(kvKey).catch(() => {}); return false; }
+  await env.RATE.put(kvKey, JSON.stringify(rec), { expirationTtl: Math.max(60, ttlSec) });
+  return true;
 }
 
 async function handleAdminOtp(request, env, origin) {
@@ -2398,10 +2688,13 @@ async function handleAdminOtp(request, env, origin) {
   const phone = normPhone(body.phone || '');
   const allowed = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim())).filter(Boolean);
   /* the answer never reveals whether a number is on the list */
+  /* 12/11 security: ten code requests an hour per IP, whatever number was typed */
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (memOver('adminotpi:' + ip, 10, 3600) || (env.RATE && await overBudget(env, 'rl:adminotpi:' + ip, 10, 3600))) return okJson({ ok: true }, origin);
   if (!phone || !allowed.includes(phone) || !env.RATE) return okJson({ ok: true }, origin);
   if (await overBudget(env, 'rl:adminotp:' + phone, 5, 3600)) return okJson({ ok: true }, origin);
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
-  await env.RATE.put('adminotp:' + phone, JSON.stringify({ code, tries: 0 }), { expirationTtl: 600 });
+  await env.RATE.put('adminotp:' + phone, JSON.stringify({ code, tries: 0, id: crypto.randomUUID() }), { expirationTtl: 600 });
   /* Richard, 07/09: the admin code goes to Slack, not to WhatsApp. He is
      already in Slack all day, and the WhatsApp route costs an authentication
      template and depends on Meta approving it. WhatsApp stays as the fallback
@@ -2428,16 +2721,16 @@ async function handleAdminLogin(request, env, origin) {
   const phone = normPhone(body.phone || '');
   const code = String(body.code || '').replace(/\D/g, '');
   if (!phone || code.length !== 6 || !env.RATE) return deny(403, 'bad-login', origin);
+  /* 12/11 security: guesses are limited per IP and per phone, on top of the five tries each code gets */
+  const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  if (memOver('adminlogini:' + ip, 20, 3600) || await overBudget(env, 'rl:adminlogini:' + ip, 20, 3600)) return deny(403, 'bad-login', origin);
+  if (await overBudget(env, 'rl:adminlogin:' + phone, 15, 3600)) return deny(403, 'bad-login', origin);
   let rec = null;
   try { rec = JSON.parse(await env.RATE.get('adminotp:' + phone)); } catch {}
   if (!rec) return deny(403, 'bad-login', origin);
-  rec.tries = (rec.tries || 0) + 1;
-  if (rec.tries > 5) {
-    await env.RATE.delete('adminotp:' + phone).catch(() => {});
-    return deny(403, 'bad-login', origin);
-  }
+  if (!(await otpAttemptAllowed(env, 'adminotp:' + phone, rec, 5, 600))) return deny(403, 'bad-login', origin);
   if (!safeEqual(code, String(rec.code))) {
-    await env.RATE.put('adminotp:' + phone, JSON.stringify(rec), { expirationTtl: 600 });
+    if (rec.tries >= 5) await env.RATE.delete('adminotp:' + phone).catch(() => {});
     return deny(403, 'bad-login', origin);
   }
   await env.RATE.delete('adminotp:' + phone).catch(() => {});
@@ -2448,12 +2741,14 @@ async function handleAdminLogin(request, env, origin) {
      the page threw the key away. The token now carries its own signature:
      any server can verify it with ADMIN_KEY and no lookup. KV keeps a row
      per session for listing and revocation only. */
-  const raw = crypto.getRandomValues(new Uint8Array(16));
-  const nonce = [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
-  const sig = await sessionSig(env, nonce);
+  /* 12/11 security: the nonce starts with the mint time (8 hex = unix seconds), so any server can tell a
+     token's age with no lookup; 96 random bits follow. Same sess.<32 hex>.<32 hex> shape as before. */
+  const raw = crypto.getRandomValues(new Uint8Array(12));
+  const nonce = Math.floor(Date.now() / 1000).toString(16).padStart(8, '0').slice(-8) + [...raw].map(b => b.toString(16).padStart(2, '0')).join('');
+  const sig = await sessionSig(env, nonce, 'sess2:');
   await env.RATE.put('adminsess:' + nonce, JSON.stringify({ phone, at: new Date().toISOString() }),
-    { expirationTtl: 365 * 86400 }).catch(() => {});
-  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: שנה.`, { quiet: true }).catch(() => {});
+    { expirationTtl: (ADMIN_SESSION_DAYS + 1) * 86400 }).catch(() => {});
+  await slackPost(env, `🔐 כניסת ניהול חדשה אושרה בקוד לטלפון שמסתיים ב-${phone.slice(-4)}. תוקף: ${ADMIN_SESSION_DAYS} יום מהשימוש האחרון.`, { quiet: true }).catch(() => {});
   return okJson({ ok: true, token: 'sess.' + nonce + '.' + sig }, origin);
 }
 
@@ -2582,7 +2877,7 @@ async function processRetellEvent(env, body) {
     const dur0 = c0.start_timestamp && c0.end_timestamp ? Math.round((c0.end_timestamp - c0.start_timestamp) / 1000) : null;
     /* 22/10: the recording and the full transcript are kept by us (Retell
        deletes them), and the live log shows them in Hebrew. */
-    const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
+    const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, event_name: (c0.retell_llm_dynamic_variables || {}).event_name || '', outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
     /* Richard 22/10: the line says who was called and for which event */
     const dv0 = c0.retell_llm_dynamic_variables || {};
     const gName0 = String(dv0.guest_name || dv0.lead_name || dv0.caller_name || dv0.name || '').trim();
@@ -3305,13 +3600,25 @@ async function handleWaWebhook(request, env, url) {
     }
     return new Response('forbidden', { status: 403 });
   }
-  /* No app secret for HMAC — the shared token rides the callback URL instead */
+  /* the shared token rides the callback URL; since 12/11 Meta's own signature is checked too, once the app secret is stored */
   if (!verifyOk(env, url.searchParams.get('t'))) {
+    return new Response('forbidden', { status: 403 });
+  }
+  const rawBody = await request.text();
+  const sigCh = await waSignatureRefused(env, url.searchParams.get('t'), rawBody, request.headers.get('X-Hub-Signature-256'));
+  if (sigCh) {
+    /* one alert an hour per channel, however many requests are refused */
+    if (env.RATE && !(await env.RATE.get('wasigbad:' + sigCh).catch(() => null))) {
+      await env.RATE.put('wasigbad:' + sigCh, new Date().toISOString(), { expirationTtl: 3600 }).catch(() => {});
+      await alert(env, 'וואטסאפ נכנס', 'הודעת webhook נדחתה: החתימה של Meta לא תואמת',
+        `ערוץ: ${sigCh === 'guests' ? 'אורחים (6673)' : 'לקוחות (4499)'}. אם זה קורה לכל ההודעות, ה-App Secret שנשמר ב-Worker לא תואם לאפליקציה ב-Meta.`,
+        { key: 'wa_sig_bad:' + sigCh, sev: 'P1' }).catch(() => {});
+    }
     return new Response('forbidden', { status: 403 });
   }
 
   let payload;
-  try { payload = await request.json(); } catch { return new Response('ok', { status: 200 }); }
+  try { payload = JSON.parse(rawBody); } catch { return new Response('ok', { status: 200 }); }
   /* 22/10: anything Meta tells us that is not a message/status (template
      approvals, number quality, account limits) goes to the audit log verbatim */
   try {
@@ -3544,6 +3851,7 @@ async function handleWaWebhook(request, env, url) {
           const eBody = (eParsed ? textOf(eParsed) : '').slice(0, 300);
           const ets = Date.now();
           await env.RATE.put('log:' + peer + ':' + ets, JSON.stringify({
+            ...inboundExtras(msg),
             dir: 'out', type: msg.type, ch: echoCh, text: eBody, ok: true, who: appAuto ? 'הודעה אוטומטית (אפליקציית וואטסאפ)' : 'ריצ׳רד (מהטלפון)', phone_app: true, app_auto: appAuto || undefined,
             media: (msg[msg.type] && msg[msg.type].id && /^(document|image|video|audio|sticker)$/.test(msg.type))
               ? { id: String(msg[msg.type].id), mime: String(msg[msg.type].mime_type || ''), name: String(msg[msg.type].filename || msg[msg.type].caption || '') }
@@ -3598,6 +3906,7 @@ async function handleWaWebhook(request, env, url) {
       /* kept forever, on purpose: this is the record of the conversation */
       await env.RATE.put('log:' + from + ':' + ts,
         JSON.stringify({
+          ...inboundExtras(msg),   /* 16/11: reaction, reply context, location, contacts, caption (the inbox shows them like the phone does) */
           dir: 'in', type: msg.type, ch,
           text: body,
           /* Richard, 11/09: files/videos a client sends must be visible and
@@ -3625,6 +3934,28 @@ async function handleWaWebhook(request, env, url) {
          writes to Noa's line and is neither a client nor a known lead becomes a
          lead right away: KV + Monday through noteLead, and Slack now (no
          10-minute quiet wait — they are on WhatsApp, not mid-checkout). */
+      /* 18/11 Richard: "שכחתי את הקוד" written to Noa's line from a client's own number is answered with that client's sign-in
+         code. The number is the proof: the code goes only to the phone that wrote, and only when a paid event sits on it.
+         A fixed reply, not Noa's AI, so it works while Noa is off. Three an hour. */
+      if (ch === 'client' && !echo && /שכחתי\s+(את\s+)?ה?קוד/.test(String(body || ''))) {
+        try {
+          const pF = normPhone(from), snapF = await readSnapshot(env, 'dashboard').catch(() => null);
+          const mineF = snapF ? eventsForPhone(snapF, pF) : [];
+          if (!mineF.length) await logEvent(env, { area: 'אזור אישי', action: 'ביקשו קוד כניסה ממספר שאין עליו אירוע משולם', ok: false, review: true, phone: pF }).catch(() => {});
+          else if (!(await overBudget(env, 'rl:forgotpin:' + pF, 3, 3600))) {
+            const pinF = await pinFor(env, pF);
+            const rF = pinF ? await sendText(env, from, `קוד הכניסה שלכם לאזור האישי וללוח הבקרה: ${pinF}\nנכנסים עם מספר הטלפון הזה והקוד. כדאי לשמור אותו.`, 'client', { who: 'מערכת (קוד כניסה)' }).catch(() => null) : null;
+            await logEvent(env, { area: 'אזור אישי', action: rF && rF.ok ? 'קוד הכניסה נשלח ללקוח שכתב "שכחתי את הקוד"' : 'קוד הכניסה לא נשלח ללקוח שביקש', ok: !!(rF && rF.ok), review: !(rF && rF.ok), phone: pF, token: mineF[0].token }).catch(() => {});
+          }
+        } catch {}
+      }
+      /* 12/11 Richard: a registered hostess reports arrival / chuppah / leaving here — kept as evidence, answered with what was recorded */
+      if (ch === 'client' && !echo) {
+        try {
+          const sm = await staffOnMessage(env, normPhone(from), body, ts, { ilDate, ilTime, logEvent });
+          if (sm) { await sendText(env, from, sm.ack, 'client', { who: 'נועה (יומן דיילות)' }).catch(() => {}); }
+        } catch {}
+      }
       if (ch === 'client' && !echo) {
         try {
           const p9 = normPhone(from);
@@ -3766,7 +4097,7 @@ async function handleWaWebhook(request, env, url) {
       !!(env.RATE && await env.RATE.get('client:' + normPhone(from)));
     /* a client can also be a guest at somebody else's event: on Shir's line
        the guest row wins, on Noa's line the client wins */
-    const guest = raw && (ch === 'guests' || !isClient) ? findGuestByPhone(raw, from, ilDate()) : null;
+    const guest = raw && (ch === 'guests' || !isClient) ? await guestForReply(env, raw, from) : null;
 
     /* Separation rule on WhatsApp (Richard 06/09): Noa's number never runs
        guest logic, Shir's number never runs service logic. Each side points
@@ -3849,7 +4180,7 @@ async function handleWaWebhook(request, env, url) {
         if (n) {
           await env.RATE.delete('awaitparty:' + guest.guest_id);
           const saved = await writeGuestReply(env, guest, 'מגיע', n);
-          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+          if (saved) await sendCtaUrl(env, from, `מעולה, רשמנו ${n} 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
           if (saved) await askExtraQ(env, guest, from, sendCh);
           else await say('קיבלנו, רגע רושמים ונחזור אליכם 🙂');
           continue;
@@ -3867,22 +4198,22 @@ async function handleWaWebhook(request, env, url) {
         const saved = await writeGuestReply(env, guest, 'מגיע', 1);
         if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
         await say(saved
-          ? 'איזה כיף! כמה תהיו בסך הכל?'
+          ? GUEST_REPLY.askParty
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
-        if (saved) await sendCtaUrl(env, from, `נרשם, ${parsed.party} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+        if (saved) await sendCtaUrl(env, from, GUEST_REPLY.counted(parsed.party), GUEST_REPLY.calendarBtn, `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
         if (saved) await askExtraQ(env, guest, from, sendCh);
         else await say(HOLD);
       } else if (parsed.outcome === 'לא מגיע') {
         const saved = await writeGuestReply(env, guest, 'לא מגיע');
         if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" after a no */
-        if (saved) await sayDeclined(env, guest, from, say, 'חבל שלא תהיו, תודה שעדכנתם 🙏');
+        if (saved) await sayDeclined(env, guest, from, say, GUEST_REPLY.declined);
         else await say(HOLD);
       } else {
         const saved = await writeGuestReply(env, guest, 'מתלבט');
         if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});   /* Richard 22/10: no "how many" to an undecided guest */
-        await say(saved ? 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂' : HOLD);
+        await say(saved ? GUEST_REPLY.maybe : HOLD);
       }
     }
     if (parsed.kind === 'rsvp' && guest) await sendArtworkOnReply(env, raw, guest, from);
@@ -3934,6 +4265,43 @@ async function linearTriageIssue(env, title, body) {
     await logEvent(env, { area: 'לינאר', action: 'יצירת משימה נכשלה', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
     return { ok: false, why: String(e && e.message).slice(0, 200) };
   }
+}
+
+/* 12/11 Richard: a design request must not be missed — Shalev is tagged in Slack and gets a Linear task
+   (assigned to her, high priority, labels "Ishur.io" + "עיצוב הזמנה"). Never blocks the client's request. */
+const SHALEV = { slack: 'U0C33AKDF24', linear: '27077462-ab7c-46ae-b3af-0ff8137690f4' };
+async function linearDesignTask(env, title, body) {
+  if (!env.LINEAR_API_KEY) return { ok: false, why: 'no-key' };
+  try {
+    let labelId = env.RATE ? await env.RATE.get('linear:design-label').catch(() => null) : null;
+    if (!labelId) {
+      const q = await linearGql(env, `query($t:String!){ team(id:$t){ labels(filter:{ name:{ eq:"עיצוב הזמנה" } }){ nodes{ id } } } }`, { t: LINEAR.team });
+      labelId = ((q.team.labels.nodes || [])[0] || {}).id || '';
+      if (!labelId) { const c = await linearGql(env, `mutation($i:IssueLabelCreateInput!){ issueLabelCreate(input:$i){ issueLabel{ id } } }`, { i: { teamId: LINEAR.team, name: 'עיצוב הזמנה', color: '#A8853C' } }); labelId = c.issueLabelCreate.issueLabel.id; }
+      if (labelId && env.RATE) await env.RATE.put('linear:design-label', labelId, { expirationTtl: 90 * 86400 }).catch(() => {});
+    }
+    let stateId = env.RATE ? await env.RATE.get('linear:todo-state').catch(() => null) : null;
+    if (!stateId) {
+      const d = await linearGql(env, `query($t:String!){ team(id:$t){ states{ nodes{ id type position } } } }`, { t: LINEAR.team });
+      stateId = ((d.team.states.nodes || []).filter(x => x.type === 'unstarted').sort((a, c) => a.position - c.position)[0] || {}).id || '';
+      if (stateId && env.RATE) await env.RATE.put('linear:todo-state', stateId, { expirationTtl: 30 * 86400 }).catch(() => {});
+    }
+    const input = { teamId: LINEAR.team, title: title.slice(0, 200), description: body, labelIds: [LINEAR.label, labelId].filter(Boolean), assigneeId: SHALEV.linear, priority: 2 };
+    if (stateId) input.stateId = stateId;
+    const d = await linearGql(env, `mutation($i:IssueCreateInput!){ issueCreate(input:$i){ issue{ id identifier url } } }`, { i: input });
+    return { ok: true, ...d.issueCreate.issue };
+  } catch (e) {
+    await logEvent(env, { area: 'לינאר', action: 'משימת עיצוב לא נוצרה', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {});
+    return { ok: false, why: String(e && e.message).slice(0, 200) };
+  }
+}
+async function notifyDesigner(env, token, what, text) {
+  const rec = await tokenRecord(env, token).catch(() => null) || {};
+  const who = rec.name || token.slice(0, 8);
+  const admin = 'https://ishur.io/clients.html#designs';
+  const task = await linearDesignTask(env, `${what} · ${who}`, `${text}\n\nלהעלאת העיצוב ושליחה ללקוח: ${admin}\nלוח הלקוח: https://ishur.io/dashboard.html?t=${token}#design`);
+  await slackSend(env, `🎨 <@${SHALEV.slack}> *${what}* · ${who}\n"${String(text).slice(0, 300)}"\nמעלים ושולחים ללקוח כאן: ${admin}${task.ok ? '\nמשימה בלינאר: ' + task.url : ''}`, { urgent: true, now: true, oneoff: true, important: true }).catch(() => {});   /* oneoff: one request */
+  return task;
 }
 
 /* ── free text from a KNOWN guest on Shir's line (Richard 27/09) ─────────────
@@ -4003,7 +4371,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
     const saved = await writeGuestReply(env, guest, 'מגיע', n);
     if (env.RATE) await env.RATE.delete('awaitparty:' + guest.guest_id).catch(() => {});
     const changed = guest.rsvp === 'מגיע' && guest.party && guest.party !== n;
-    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${guest.token}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
+    if (saved) await sendCtaUrl(env, from, changed ? `עדכנו ל-${n} 🙂 נתראה!` : `נרשם, ${n} מגיעים 🎉 נתראה!`, 'הוספה ליומן', `https://ishur.io/cal.html?t=${await pubIdOf(env, guest.token)}`, sendCh, { who: 'שיר (מענה אוטומטי)' });
     if (saved) await askExtraQ(env, guest, from, sendCh);
     else await say('קיבלנו, רגע רושמים 🙂');
     await log(changed ? 'אורח תיקן כמות' : 'אורח מסר כמות בטקסט חופשי', `${guest.party || '?'} → ${n}`); return true;
@@ -4011,7 +4379,7 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
   if (saysYes) {
     const saved = await writeGuestReply(env, guest, 'מגיע', 1);
     if (saved && env.RATE) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
-    await say(saved ? 'איזה כיף! כמה תהיו בסך הכל?' : 'קיבלנו, רגע רושמים 🙂');
+    await say(saved ? GUEST_REPLY.askParty : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
   const when = c(6) ? `📅 ${heDate(c(6))}${c(36) ? ' בשעה ' + c(36) : ''}` : '';
@@ -4763,6 +5131,81 @@ function guardWatchList() {
   for (const k of ['s', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_yom_plain_' + k);
   return [...fam, 'ishur_yom_lifnei', 'ishur_shulchan', 'hazmana_ishur', 'ishur_hazmana_shuv', 'ishur_bitul', 'ishur_dchiya', 'ishur_toda_orach_u'];
 }
+/* ══ 18/11 Richard: "תרווח את זה קצת" — a blank line above the table line and after the navigation line in the day-before
+   and event-day messages. A template's wording cannot be edited in place without a new review that takes it off the
+   air, so each LIVE template (the original, or the utility copy the guard put in its place) gets a spaced twin
+   <name>_sp. A twin is used only after it is APPROVED as UTILITY and switched on (KV tmplsp:<name> = <name>_sp);
+   until then, and whenever the key is absent, sending is exactly as before. Text templates only: the image-header
+   twins need an uploaded picture and are left as they are for now. ══ */
+export function spacedBody(text) {
+  const lines = String(text || '').split('\n'), out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i], isTable = /השולחן שלכם/.test(ln), isNav = /לניווט לחצו/.test(ln);
+    if (isTable && out.length && out[out.length - 1].trim() !== '') out.push('');
+    out.push(ln);
+    if (isNav && i < lines.length - 1 && lines[i + 1].trim() !== '') out.push('');
+  }
+  return out.join('\n');
+}
+function spacedFamily() {
+  const fam = [];
+  for (const k of ['n', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_combo_' + k, 'ishur_yom_combo_' + k);
+  for (const k of ['t', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_plain_' + k);
+  for (const k of ['s', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_yom_plain_' + k);
+  return fam;
+}
+async function handleTemplateSpaced(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.WA_TOKEN_GUESTS || !env.RATE) return deny(503, 'not-configured', origin);
+  const waba = '1378764257421712', tok = env.WA_TOKEN_GUESTS;
+  const all = {}; let url = `https://graph.facebook.com/v21.0/${waba}/message_templates?fields=name,status,category,language,components&limit=200`;
+  for (let i = 0; url && i < 10; i++) {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null); const j = r ? await r.json().catch(() => null) : null;
+    for (const t of (j && j.data) || []) all[t.name] = t;
+    url = j && j.paging && j.paging.next;
+  }
+  const rows = [];
+  for (const base of spacedFamily()) {
+    const live = (await env.RATE.get('tmplalt:' + base).catch(() => null)) || base, t = all[live], twin = live + '_sp', tw = all[twin];
+    const body = t ? ((t.components || []).find(c => c.type === 'BODY') || {}).text || '' : '', next = spacedBody(body);
+    rows.push({ base, live, twin, live_status: t ? t.status : 'MISSING', live_category: t ? t.category : '', changes: !!t && next !== body, twin_status: tw ? tw.status : '', twin_category: tw ? tw.category : '', on: (await env.RATE.get('tmplsp:' + live).catch(() => null)) === twin, t, next });
+  }
+  const want = new Set((Array.isArray(b.names) ? b.names : []).map(String));
+  const pick = r => !want.size || want.has(r.base) || want.has(r.live);
+  if (b.action === 'submit') {
+    for (const r of rows.filter(pick)) {
+      if (!r.t || !r.changes || r.twin_status || r.live_status !== 'APPROVED') { r.submit = r.twin_status ? 'exists' : r.changes ? 'skipped' : 'no-change'; continue; }
+      const comps = (r.t.components || []).map(c => (c.type === 'BODY' ? { ...c, text: r.next } : c));
+      if (comps.some(c => c.type === 'HEADER' && c.format && c.format !== 'TEXT')) { r.submit = 'media-header'; continue; }
+      const res = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: r.twin, language: r.t.language || 'he', category: 'UTILITY', components: comps }) }).catch(() => null);
+      const j = res ? await res.json().catch(() => null) : null;
+      r.submit = res && res.ok ? 'submitted' : 'failed: ' + String((j && j.error && (j.error.error_user_msg || j.error.message)) || 'no answer').slice(0, 160);
+      if (res && res.ok) { r.twin_status = String((j && j.status) || 'PENDING'); r.twin_category = String((j && j.category) || ''); }
+    }
+    await logEvent(env, { area: 'תבניות', action: 'הוגשו עותקים מרווחים של הודעות יום-לפני ויום-האירוע', ok: true, detail: rows.filter(r => r.submit === 'submitted').length + ' הוגשו' }).catch(() => {});
+  }
+  if (b.action === 'activate' || b.action === 'deactivate') {
+    for (const r of rows.filter(pick)) {
+      if (b.action === 'deactivate') { await env.RATE.delete('tmplsp:' + r.live).catch(() => {}); r.on = false; continue; }
+      if (r.twin_status === 'APPROVED' && r.twin_category === 'UTILITY') { await env.RATE.put('tmplsp:' + r.live, r.twin); r.on = true; } else r.activate = 'not-approved-utility';
+    }
+    await logEvent(env, { area: 'תבניות', action: b.action === 'activate' ? 'עותקים מרווחים הופעלו' : 'עותקים מרווחים כובו', ok: true, detail: rows.filter(pick).map(r => r.live + ':' + (r.on ? 'on' : 'off')).join(' ').slice(0, 400) }).catch(() => {});
+  }
+  return okJson({ ok: true, rows: rows.map(({ t, next, ...r }) => (b.show ? { ...r, next } : r)) }, origin);
+}
+/* hourly, with the guard: a spaced twin that Meta paused, rejected or moved to MARKETING is switched off at once */
+async function checkSpacedTwins(env) {
+  if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false };
+  const keys = (await env.RATE.list({ prefix: 'tmplsp:', limit: 200 }).catch(() => ({ keys: [] }))).keys || []; let off = 0;
+  for (const k of keys) {
+    const twin = await env.RATE.get(k.name).catch(() => null); if (!twin) continue;
+    const t = await templateInfo(env, twin).catch(() => null);
+    if (!t || t.status !== 'APPROVED' || t.category !== 'UTILITY') { await env.RATE.delete(k.name).catch(() => {}); off++; await logEvent(env, { area: 'תבניות', action: 'עותק מרווח כובה — חזרה לנוסח הקודם', ok: false, review: true, detail: `${twin} · ${t ? t.status + '/' + t.category : 'לא נמצא'}` }).catch(() => {}); }
+  }
+  return { ok: true, on: keys.length - off, off };
+}
 async function runTemplateGuard(env) {
   if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false, why: 'not-configured' };
   const waba = '1378764257421712', tok = env.WA_TOKEN_GUESTS;
@@ -4944,7 +5387,8 @@ async function lateInvite(env, ev, tok, name, phone) {
   /* same media choice as wave 1: video, else image, else text */
   const [vidT, imgT, vidOk] = await Promise.all([env.RATE.get('invitetmpl_vid'), env.RATE.get('invitetmpl_img'), env.RATE.get('vidok:' + tok)]);
   const invite = String(ev[44] || '').trim();
-  const tmpl = (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl;
+  /* 17/11: the wording the client chose, when its template is approved; else the general one as before */
+  const tmpl = await styledTemplate(env, tok, (vidT && vidOk) ? 'vid' : (imgT && invite) ? 'img' : 'text', (vidT && vidOk) ? vidT : (imgT && invite) ? imgT : inviteTmpl);
   const media = (vidT && vidOk) ? 'https://go.ishur.io/vid/' + tok : (imgT && invite) ? invite : '';
   const custom = await customTemplateFor(env, tok);
   const gname = String(name || '').trim() || 'אורח יקר';
@@ -4958,7 +5402,24 @@ async function lateInvite(env, ev, tok, name, phone) {
   await noteGuestSend(env, res, tok, 1, p, gk);
   await addEvCost(env, tok, msgCost(tmpl)).catch(() => {});
   await env.RATE.delete(qk).catch(() => {});
+  await stampSentDates(env, tok, { [p]: '' }).catch(() => {});   /* 15/11: the list showed "נשלח" empty for a guest who did get it */
   return { sent: true, why: 'sent' };
+}
+/* 15/11: write "תאריך שליחה 1" (column I) for guests of one event whose invitation went out but whose row
+   has no date. dates = { phone: 'YYYY-MM-DD HH:MM' | '' (= now) }. Only empty cells are written. → rows written */
+async function stampSentDates(env, tok, dates) {
+  const raw = await readSnapshot(env, 'write');
+  const vals = (raw && raw.guests && raw.guests.values) || [];
+  const now = new Date().toLocaleString('sv-SE', { timeZone: 'Asia/Jerusalem' }).slice(0, 16);
+  const data = [];
+  vals.forEach((r, i) => {
+    if (String((r || [])[28] || '').trim() !== tok) return;
+    const ph = normPhone(r[4]);
+    if (!(ph in dates) || String(r[8] || '').trim()) return;
+    data.push({ range: `אורחים!I${i + 2}`, values: [[dates[ph] || now]] });
+  });
+  if (!data.length) return 0;
+  return (await sheetBatchWrite(env, data)) ? data.length : 0;
 }
 async function drainLateInvites(env) {
   if (!env.RATE || !sendWindowState().open) return { sent: 0, closed: true };
@@ -4982,6 +5443,62 @@ async function drainLateInvites(env) {
     if (/^queued:budget/.test(r.why)) break;   /* the budget is out — the rest waits */
   }
   return { sent, tried, queued: keys.length };
+}
+/* ── 12/11 (Richard: "מעולה תבצע") — a wave abandoned after three days strands
+   the guests it never reached. Who is left = has a phone, never answered, no
+   wsent:/wdead: mark for wave 1. Pure, so the rule is testable. */
+export function waveRestOf(guests, sentSet, deadSet) {
+  const out = [], seen = new Set();
+  for (const g of guests || []) {
+    const p = normPhone(String((g || [])[4] || '').trim());
+    if (!p || seen.has(p)) continue;
+    seen.add(p);
+    if (String(g[15] || '').trim() !== '') continue;          /* answered = reached */
+    if (sentSet.has(p) || deadSet.has(p)) continue;
+    out.push({ name: String(g[3] || '').trim(), phone: p });
+  }
+  return out;
+}
+async function kvNames(env, prefix) {
+  const out = []; let cursor;
+  for (let i = 0; i < 20; i++) {
+    const page = await env.RATE.list({ prefix, cursor, limit: 1000 }).catch(() => null);
+    if (!page) break;
+    for (const k of page.keys) out.push(k.name.slice(prefix.length));
+    if (page.list_complete) break;
+    cursor = page.cursor;
+  }
+  return out;
+}
+async function waveRest(env, token, guests) {
+  const [sent, dead] = await Promise.all([kvNames(env, `wsent:${token}:1:`), kvNames(env, `wdead:${token}:1:`)]);
+  return waveRestOf(guests, new Set(sent), new Set(dead));
+}
+/* the click in the admin is the explicit "שלח": the rest goes into the late-invite
+   queue, which keeps every gate of a wave (hours, Shabbat, pause, hold, budget) */
+async function handleWaveRest(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key || request.headers.get('x-admin-key'))) return deny(403, 'bad-admin-key', origin);
+  const want = String(b.token || b.tok8 || '').trim();
+  if (!/^[0-9a-f-]{8,36}$/.test(want)) return deny(400, 'bad-args', origin);
+  const raw = await readSnapshot(env, 'ops');
+  if (!raw) return deny(502, 'reader-failed', origin);
+  const ev = ((raw.events && raw.events.values) || []).find(r => { const t = String((r || [])[1] || '').trim(); return t === want || (want.length === 8 && t.slice(0, 8) === want); });
+  if (!ev) return deny(404, 'event-not-found', origin);
+  const token = String(ev[1]).trim();
+  const evDay = String(ev[6] || '').trim().slice(0, 10);
+  if (String(ev[27] || '').trim() === 'כן') return okJson({ ok: false, why: 'cancelled', n: 0 }, origin);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(evDay) && evDay < ilDate()) return okJson({ ok: false, why: 'event-passed', n: 0 }, origin);
+  const guests = ((raw.guests && raw.guests.values) || []).filter(g => String((g || [])[28] || '').trim() === token);
+  const rest = await waveRest(env, token, guests);
+  const queued = (await kvNames(env, `lateinv:${token}:`)).length;
+  const name = eventHosts(ev) || String(ev[2] || '').trim();
+  if (!b.confirm) return okJson({ ok: true, applied: false, n: rest.length, queued, name, sample: rest.slice(0, 3).map(r => r.name) }, origin);
+  const at = new Date().toISOString();
+  let n = 0;
+  for (const r of rest.slice(0, 600)) { await env.RATE.put(`lateinv:${token}:${r.phone}`, JSON.stringify({ name: r.name, at, why: 'wave-rest' }), { expirationTtl: 7 * 86400 }); n++; }
+  await logEvent(env, { area: 'שליחה', action: `שלח לשאר · ${n} הזמנות נכנסו לתור (גל 1 שננטש)`, ok: true, token, detail: 'אישור מנהל במרכז הבקרה' }).catch(() => {});
+  return okJson({ ok: true, applied: true, n, name }, origin);
 }
 async function noteGuestSend(env, wa, token, wave, phone, gk) {
   if (!env.RATE || !wa || !wa.ok || !wa.id) return;
@@ -5273,6 +5790,14 @@ async function checkCustomTemplates(env) {
     rec.status = st; rec.reason = st === 'REJECTED' ? String(t.rejected_reason || '') : ''; rec.checked = new Date().toISOString();
     await env.RATE.put(k, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
     const token = k.slice('customtmpl:'.length);
+    /* 17/11 (Richard): an event that was put on hold only to wait for its wording goes back to sending by itself the moment
+       Meta approves it (relonappr:<token>). A rejection leaves the hold in place and says so. */
+    if (await env.RATE.get('relonappr:' + token).catch(() => null)) {
+      if (st === 'APPROVED') { await env.RATE.delete('hold:' + token).catch(() => {}); await env.RATE.delete('holdtill:' + token).catch(() => {}); await env.RATE.delete('relonappr:' + token).catch(() => {});
+        await env.RATE.put('pacer:pending', ilDate(), { expirationTtl: 86400 }).catch(() => {});   /* a released hold must wake the pacer, or the wave waits for tomorrow (found live 17/11: released at 12:00, pacer said nothing-pending) */
+        await slackSend(env, `▶️ *הנוסח אושר, השליחות לאירוע חזרו*\n\n• אירוע ${token.slice(0, 8)}\n• תבנית ${rec.name}\n\nמה לעשות: כלום, הגל ימשיך לפי התכנון`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {}); }
+      else await slackSend(env, `⛔ *הנוסח נדחה, האירוע נשאר בעצירה*\n\n• אירוע ${token.slice(0, 8)}\n• ${rec.reason || st}\n\nמה לעשות: לתקן את הנוסח ולהגיש מחדש, או לשחרר את האירוע בנוסח הכללי`, { important: true, oneoff: true, urgent: true, key: 'relonappr' }).catch(() => {});
+    }
     await logEvent(env, { area: 'מטא', action: st === 'APPROVED' ? 'תבנית בהתאמה אישית אושרה' : `תבנית בהתאמה אישית: ${st}`, ok: st === 'APPROVED', review: st !== 'APPROVED', token, ref: rec.name, detail: rec.reason || '' });
     await slackPost(env, `${st === 'APPROVED' ? '✅' : '⛔'} *נוסח הזמנה בהתאמה אישית ${st === 'APPROVED' ? 'אושר' : 'נדחה'}* · אירוע ${token.slice(0, 8)}${rec.reason ? ' · ' + rec.reason : ''}${st === 'APPROVED' ? '' : '\nהלקוח רואה את זה בלוח ויכול לערוך ולהגיש שוב בעצמו; עד אז יוצא הנוסח הרגיל.'}`, { oneoff: true }).catch(() => {});   /* oneoff: Meta decided once per template */
   }
@@ -5360,6 +5885,25 @@ export function extraAnswerOf(text, buttonId) {
    and a last one after 6h — all inside Meta's 24h service window, so plain
    text is allowed. awaitparty:<guest_id> now holds {at, phone, ch, token,
    nudges}; a number in any form clears it (see the inbound handler). */
+/* 16/11 (Richard: "שממש יהיה ברור מה קורה בכל שלב"): the replies a guest gets after answering, in ONE place —
+   the inbound handler sends these constants and the board (/api/template-text → flow) shows the same ones. */
+const GUEST_REPLY = {
+  askParty: 'איזה כיף! כמה תהיו בסך הכל?',
+  declined: 'חבל שלא תהיו, תודה שעדכנתם 🙏',
+  maybe: 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂',
+  counted: (n) => `נרשם, ${n} מגיעים 🎉 נתראה!`,
+  calendarBtn: 'הוספה ליומן',
+};
+function guestFlow() {
+  return [
+    { when: 'האורח לוחץ "מגיע" (או כותב שמגיע)', note: 'נרשם מיד כ-1, עד שיענה כמה', msgs: [{ text: GUEST_REPLY.askParty }] },
+    { when: 'האורח עונה מספר, למשל 2', note: 'הכמות נרשמת בגיליון', msgs: [{ text: GUEST_REPLY.counted(2), buttons: [GUEST_REPLY.calendarBtn] }] },
+    { when: 'לא ענה כמה · אחרי שעתיים', msgs: [{ text: PARTY_NUDGES[0].text }] },
+    { when: 'עדיין לא ענה · אחרי 6 שעות', note: 'תזכורת אחרונה, אחריה לא שואלים שוב', msgs: [{ text: PARTY_NUDGES[1].text }] },
+    { when: 'האורח לוחץ "לא מגיע"', msgs: [{ text: GUEST_REPLY.declined }] },
+    { when: 'האורח מתלבט ("אולי")', msgs: [{ text: GUEST_REPLY.maybe }] },
+  ];
+}
 const PARTY_NUDGES = [
   { afterMs: 2 * 3600e3, text: 'רק מוודאים 🙂 כמה תגיעו בסך הכל? אפשר לענות רק במספר.' },
   { afterMs: 6 * 3600e3, text: 'כדי שבעלי השמחה יוכלו להיערך — כמה תהיו? מספר אחד וסיימנו 🙏' },
@@ -5400,6 +5944,18 @@ async function drainPartyNudges(env) {
 }
 
 function b_isAdminish(f) { return !!(f && f.preview_checkin); }
+/* the guest an incoming answer belongs to: the event that actually wrote to this number (whatsapp.js
+   findGuestByPhone, preferContacted). The KV marks are read only when the phone is on more than one list —
+   a late invitation leaves a wsent: mark but no send date on the row. */
+async function guestForReply(env, raw, phone) {
+  const p = normPhone(phone), toks = new Set();
+  for (const r of (raw && raw.guests && raw.guests.values) || []) if (normPhone(r[4]) === p) { const t = String(r[28] || '').trim(); if (t) toks.add(t); }
+  const sent = new Set();
+  if (toks.size > 1 && env.RATE) {
+    for (const t of toks) for (const w of [1, 2, 3]) { if (await env.RATE.get(`wsent:${t}:${w}:${p}`).catch(() => null)) { sent.add(t); break; } }
+  }
+  return findGuestByPhone(raw, phone, ilDate(), { preferContacted: true, sent });
+}
 async function writeGuestReply(env, guest, outcome, party) {
   const r = await hookFetch(env, env.HOOK_EVENTS, {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -5585,9 +6141,12 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     /* A/B (ab.js): swaps the name only when the engine would have sent the
        test's control anyway; off unless AB_ENABLED=on. The challenger has the
        same six variables and the same buttons. */
-    const chosenTmpl = useVid ? vidTmpl : useImg ? imgTmpl : (wave.key === 2 ? remindTmpl : inviteTmpl);
+    const baseTmpl = useVid ? vidTmpl : useImg ? imgTmpl : (wave.key === 2 ? remindTmpl : inviteTmpl);
+    /* 17/11: the wording the client chose (same six parameters and buttons), when Meta approved its template; else the general one */
+    const chosenTmpl = await styledTemplate(env, token, useVid ? 'vid' : useImg ? 'img' : 'text', baseTmpl);
+    const styled = chosenTmpl !== baseTmpl;
     const abType = wave.key === 2 ? 'reminder' : wave.key === 3 ? 'extra' : 'invite';
-    const abv = custom ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
+    const abv = custom || styled ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
     const res = custom
       ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
       : await sendTemplate(env, phone, abv ? abv.template : chosenTmpl,
@@ -5900,7 +6459,19 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (await env.RATE.get('wave:' + token + ':1')) continue;          // wave 1 actually completed — all good
       if (await env.RATE.get('watchdog:' + token)) continue;            // already shouted about this one
       const guestN = gRows.filter(g => String(g[28] || '').trim() === token).length;
+      /* 18/11 Richard ("תתקן"): the completion flag is missing whenever a few guests are still failing at Meta, so this
+         shouted "no invitation went out" for waves that reached almost everyone (580 of 593). Count what really went
+         out: nearly all → quiet; some → say how many; none → the loud alert. A failed count reads as "none". */
+      let sentN = 0;
+      try { let cursor; do { const l = await env.RATE.list({ prefix: `wsent:${token}:1:`, limit: 1000, cursor }); sentN += (l.keys || []).length; cursor = l.list_complete ? undefined : l.cursor; } while (cursor); } catch { sentN = 0; }
+      if (guestN && sentN / guestN >= 0.9) continue;
       await env.RATE.put('watchdog:' + token, today, { expirationTtl: 30 * 86400 });
+      if (sentN > 0) {
+        await alert(env, 'גל ראשון יצא רק לחלק מהמוזמנים',
+          `${ev[2] || ''} · אירוע ${token.slice(0, 8)} · הגל הראשון (${w1}) יצא ל-${sentN} מתוך ${guestN} מוזמנים. לבדוק מי נשאר ולמה.`, token.slice(0, 8), { key: 'partial_invite:' + token.slice(0, 8), sev: 'P2' });
+        out.push({ token, type: 'watchdog_partial_send', lateBy, guests: guestN, sent: sentN });
+        continue;
+      }
       await alert(env, '🚨 אירוע ששולם ולא יצאה ממנו הזמנה',
         `${ev[2] || ''} (${ev[3] || ''}) · אירוע ${token.slice(0, 8)} · הגל הראשון היה אמור לצאת ב-${w1} (לפני ${lateBy} ימים) ל-${guestN} מוזמנים, ואין סימן שיצא. לבדוק ידנית עכשיו — זה בדיוק המקרה שבו מתגלה מאוחר.`, token.slice(0, 8), { key: 'no_invite:' + token.slice(0, 8), sev: 'P1' });
       out.push({ token, type: 'watchdog_no_send', lateBy, guests: guestN });
@@ -5975,8 +6546,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       if (lateBy > 3 && !dry && env.RATE && !(await env.RATE.get(`wave:${token}:${wave.key}`)) &&
           !(await env.RATE.get(`wlate:${token}:${wave.key}`))) {
         await env.RATE.put(`wlate:${token}:${wave.key}`, today, { expirationTtl: 120 * 86400 });
-        await logEvent(env, { area: 'שליחה', action: `גל ${wave.key} ננטש — עברו 3 ימים מהתאריך ולא הושלם`, ok: false, review: true, token,
-          detail: 'לבדוק מי לא קיבל; שליחה ידנית דרך /api/send-date עם תאריך חדש' });
+        /* 12/11 (Richard): say it out loud, with how many are stranded and one place to send them */
+        const restN = wave.key === 1 ? (await waveRest(env, token, guests).catch(() => [])).length : 0;
+        await alert(env, 'שליחה', `גל ${wave.key} ננטש · ${eventHosts(ev) || String(ev[2] || '').trim() || token.slice(0, 8)} — עברו 3 ימים מהתאריך ולא הושלם`,
+          wave.key === 1 ? (restN ? `${restN} אורחים לא קיבלו הזמנה. לשליחה לשאר: https://ishur.io/admin.html?rest=${token.slice(0, 8)}` : 'כל מי שהיה צריך לקבל קיבל.') : 'לבדוק מי לא קיבל.',
+          { key: `wave_abandoned:${token.slice(0, 8)}:${wave.key}`, sev: 'P1', action: wave.key === 1 && restN ? 'ללחוץ על הקישור ולאשר "שלח לשאר"' : 'לבדוק' }).catch(() => {});
       }
       if (lateBy < 0 || lateBy > 3) continue;
       /* never chase after the event itself has passed */
@@ -6051,7 +6625,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       .filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
     /* calls are a plan feature: בסיס never enters the call queue — the basic
        upsell stage offers the upgrade instead of silently marking calls */
-    if (lastSend && lastSend < today && planKeyOf(ev) !== 'basic') {
+    const callDateOv = env.RATE ? await env.RATE.get('calldate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
+    /* 18/11 Richard: the automatic round never opens on a Friday (Thursday send → Sunday round). A day set by hand is kept as set. */
+    const fridayToday = new Date(today + 'T12:00:00Z').getUTCDay() === 5;
+    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today && !fridayToday)) && planKeyOf(ev) !== 'basic') {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
@@ -6097,6 +6674,44 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         if (queued || failed) out.push({ token, type: 'escalation', queued, failed });
       }
     }
+
+    /* 12/11 Richard: a bought call round (callsaddon:<token>) is one MORE round, on a
+       day the engine picks: בסיס — the morning after the last planned send; a plan with
+       calls — the first morning after its own rounds are spent (פרמיום after its one,
+       הכל כלול after its three). Whoever still has no answer goes back into the queue. */
+    const hasCallsAddon = env.RATE ? !!(await env.RATE.get('callsaddon:' + token).catch(() => null)) : false;
+    if (hasCallsAddon) {
+      const planK = planKeyOf(ev), ownCap = planMaxCallTries(planK), esc2Key = `esc2:${token}`;
+      const afterSends = callDateOv ? callDateOv <= today : !!(lastSend && lastSend < today);
+      const escDay = ownCap && env.RATE ? await env.RATE.get(`esc:${token}`).catch(() => null) : null;
+      const stillOwn = guests.some(g => String(g[21] || '').trim() === 'נדרשת שיחה' && (Number(String(g[29] || '').trim()) || 0) < ownCap);
+      const ready = ownCap ? !!(escDay && String(escDay).slice(0, 10) < today && !stillOwn) : afterSends;
+      if (ready && !(env.RATE && await env.RATE.get(esc2Key))) {
+        let queued = 0, failed = 0;
+        for (const g of guests) {
+          const rsvp = String(g[15] || '').trim();
+          const gid = String(g[2] || '').trim();
+          if ((rsvp !== '' && rsvp !== 'מתלבט') || !gid) continue;
+          if (/לא להתקשר/.test(String(g[22] || ''))) continue;          // asked not to be called — never again
+          if (!isIlMobile(normPhone(g[4] || ''))) continue;
+          if (String(g[21] || '').trim() === 'נדרשת שיחה') { queued++; continue; }   // already waiting; the higher cap covers it
+          if (dry) { queued++; continue; }
+          const gKey = `escg2:${gid}`;
+          if (env.RATE && await env.RATE.get(gKey)) { queued++; continue; }
+          const r = await hookFetch(env, env.HOOK_EVENTS, {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ event_type: 'call_result', guest_id: gid, rsvp: '__keep__', call_status: 'נדרשת שיחה',
+              answer: 'סבב שיחות נוסף', tries: '__keep__', party: '__keep__', ts: new Date().toISOString() }),
+          }).catch(() => null);
+          if (!r || r.status !== 200) { failed++; continue; }
+          if (env.RATE) await env.RATE.put(gKey, today, { expirationTtl: 120 * 86400 }).catch(() => {});
+          queued++;
+        }
+        if (!dry && env.RATE && !failed) await env.RATE.put(esc2Key, today, { expirationTtl: 120 * 86400 });
+        if (!dry && (queued || failed)) await logEvent(env, { area: 'שיחות', action: 'סבב שיחות נוסף (תוספת) נכנס לתור', ok: !failed, review: !!failed, token, detail: `נכנסו ${queued}${failed ? ' · נכשלו ' + failed : ''}` }).catch(() => {});
+        if (queued || failed) out.push({ token, type: 'escalation_addon', queued, failed });
+      }
+    }
   }
 
   for (const ev of evRows) {
@@ -6129,10 +6744,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
       out.push({ token, daysLeft, confirmed, diners, declined, pending, would_send_to: phone });
       continue;
     }
-    const wa = await sendClientE(env, phone, 'ishur_doch', [
+    const [dochName, dochParams] = await dochTemplate(env, phone, [
       evName, String(confirmed), String(diners), String(declined), String(pending),
       'https://ishur.io/dashboard.html?t=' + token,
     ]);
+    const wa = await sendClientE(env, phone, dochName, dochParams);
     if (wa.ok && env.RATE) await env.RATE.put('report7:' + token, today, { expirationTtl: 60 * 86400 });
     if (wa.ok) await addEvCost(env, token, msgCost('ishur_doch'));
     if (!wa.ok && !wa.held && !(await env.RATE.get('alertonce:doch:' + token + ':' + today).catch(() => null))) { await env.RATE.put('alertonce:doch:' + token + ':' + today, '1', { expirationTtl: 86400 }).catch(() => {}); await alert(env, 'דוח שבוע-לפני', 'שליחת הדוח נכשלה (נאמר פעם ביום)', token + ': ' + wa.error, { key: 'send_fail:' + token.slice(0, 8) + ':doch' }); }
@@ -6157,7 +6773,8 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
 
     if (env.RATE && await env.RATE.get('hold:' + token)) continue;
     const daysAfter = Math.round((Date.parse(today) - Date.parse(date)) / 864e5);
-    if (daysAfter < 1 || daysAfter > 14) continue; // day-after and up to two weeks late, then let it go
+    const todaOv = env.RATE ? await env.RATE.get('todadate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
+    if (todaOv ? (today < todaOv || daysAfter > 30) : (daysAfter < 1 || daysAfter > 14)) continue; // day-after and up to two weeks late, then let it go
     if (wavesWanting && daysAfter <= THANKS_MAX_WAIT && !dry) { out.push({ token, type: 'guest_thanks_deferred', why: 'waves-first', days_after: daysAfter }); continue; }
     if (env.RATE && await env.RATE.get('eoe:' + token)) continue;
 
@@ -6379,6 +6996,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const invited = env.RATE ? await env.RATE.get(`wave:${token}:1`) : null;
     const time = String(ev[36] || '').trim() || 'בשעות הערב';
     const venue = [String(ev[38] || '').trim(), String(ev[37] || '').trim()].filter(Boolean).join(', ');
+    const invite = String(ev[44] || '').trim();   /* 12/11: the invitation image rides on the D-1 (_img twins) */
 
     if (cancelled) {
       if (!invited || date < today) continue;
@@ -6525,7 +7143,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
           giftLinks: (e, tok) => giftLinksOf(e, tok), cleanLink, guestEventName, cleanParam, navOn: navOnFor,
         }, { date: heDate(date), time, address: venue });
         if (dbm.kind === 'combo') {
-          const wa = await sendTemplate(env, phone, dbm.template, dbm.params, '', 'he', 'guests', { occasion, wave: 'daybefore', token, components: dbm.components });
+          /* 12/11 Richard: the D-1 carries the invitation image once Meta approved the _img twin of this template */
+          const imgTwin = invite && env.RATE ? await env.RATE.get('tmplimg:' + dbm.template).catch(() => null) : null;
+          const wa = await sendTemplate(env, phone, imgTwin || dbm.template, dbm.params, imgTwin ? invite : '', 'he', 'guests', { occasion, wave: 'daybefore', token, components: dbm.components });
           if (wa.held) { cut = true; break; }
           if (wa.permanent) { failed++; cut = true; break; }
           if (budget) budget.left--;
@@ -6537,10 +7157,11 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
         const navRaw = navT && env.RATE ? await env.RATE.get('navlink:' + token) : null;
         const navU = navRaw && navLinkOk(navRaw) ? navRaw : null;   /* 02/11 audit: links stored before the allowlist are re-checked at send time */
         const abv = await ab.pickVariant(env, 'daybefore', phone, token, { current: navU ? navT : 'ishur_yom_lifnei' });
+        const plainTwin = !navU && invite && env.RATE ? await env.RATE.get('tmplimg:' + abv.template).catch(() => null) : null;
         const wa = navU
           ? await sendTemplate(env, phone, abv.template, [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה', navU], '', 'he', 'guests', { occasion, wave: 'daybefore', token })
-          : await sendTemplate(env, phone, abv.template,
-            [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], '', 'he', 'guests',
+          : await sendTemplate(env, phone, plainTwin || abv.template,
+            [gname, evName, heDate(date), time, venue || 'פרטים אצל בעלי השמחה'], plainTwin ? invite : '', 'he', 'guests',
             { occasion, wave: 'daybefore', token });
         if (wa.held) { cut = true; break; }
         if (wa.permanent) { failed++; cut = true; break; }
@@ -6564,7 +7185,10 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     }
 
     /* rulebook: a call round takes time — no calls offer under 7 days out */
-    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7) {
+    /* 15/11: this stage runs in its own scope — the add-on flag of the call stage above does not exist here,
+       and reading it crashed the whole engine the first morning a בסיס event reached this line */
+    const boughtCalls = env.RATE ? !!(await env.RATE.get('callsaddon:' + token).catch(() => null)) : false;
+    if (plan === 'basic' && fileUp && guests.length && daysLeft >= 7 && !boughtCalls) {
       /* measure from the FIRST wave that already went out: by the time the
          last one lands there is no room left before the 7-day calls cutoff */
       const firstSend = [39, 40, 41].map(c => String(ev[c] || '').trim().slice(0, 10))
@@ -6652,7 +7276,7 @@ export { staleSentByEvent as _staleSentByEvent, runDailyEngine as _runDailyEngin
    reaches for the sheet when the last run left work behind, or when the call
    queue is warm.
    ────────────────────────────────────────────────────────────────────────── */
-const PACE_SENDS = 25;    // guest messages per tick — 63 ticks ≈ 1,500/day
+const PACE_SENDS = 50;    // base guest messages per tick (12/11: dynamic up to pacer_batch_max on busy days)
 const PACE_CALLS = 6;     // dials per tick — 63 ticks ≈ 375/day
 const PACE_CALLBACKS = 3; // ring-backs per tick, taken OUT of PACE_CALLS
 
@@ -6685,7 +7309,7 @@ async function templateCheck(env, out) {
   /* 08/11: the template guard, once an hour (own key) */
   try {
     const gk = 'tmplguard:hour:' + new Date().toISOString().slice(0, 13);
-    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); out.billing = await checkBillingRecovered(env).catch(e => ({ error: String(e && e.message || e) })); }
+    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); out.spaced = await checkSpacedTwins(env).catch(() => null); out.billing = await checkBillingRecovered(env).catch(e => ({ error: String(e && e.message || e) })); }
   } catch (e) { await alert(env, 'מטא', 'בודק התבניות נפל', String((e && e.message) || e), { key: 'tmplguard_crash', sev: 'P1' }).catch(() => {}); }
   /* Meta approvals, checked once an hour: the image invitation and the invoice
      template switch themselves on the moment they are approved. */
@@ -6700,6 +7324,8 @@ async function templateCheck(env, out) {
          invoice goes to clients from 4499. */
       const checks = [
         { name: clientOnPortfolio(env) ? 'ishur_heshbonit_n' : 'ishur_heshbonit', key: 'invoicetmpl', waba: clientWaba(env), tok: clientToken(env) },
+        /* 17/11: the weekly report with the client's PIN next to the board link (the board asks for it) → tmplpin:ishur_doch once approved */
+        { name: 'ishur_doch_kod', key: 'tmplpin:ishur_doch', waba: clientWaba(env), tok: clientToken(env) },
         /* 27/09: the _u copies are UTILITY (no per-user marketing cap, 131049); once approved they win the key */
         { name: 'hazmana_ishur_img_u', key: 'invitetmpl_img', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
         { name: 'hazmana_ishur_vid_u', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS },
@@ -6707,6 +7333,9 @@ async function templateCheck(env, out) {
         { name: 'hazmana_ishur_vid', key: 'invitetmpl_vid', waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS, fallbackOnly: true },
         /* 25/10 Richard ("החלף"): the nav copy is billed MARKETING (₪0.12); the plain
            ishur_yom_lifnei is UTILITY (₪0.02). navtmpl stays unset on purpose. */
+        /* 12/11: day-before twins with the invitation image → tmplimg:<base> = <base>_img once approved */
+        ...['ishur_yom_lifnei', ...['t', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp'].map(k => 'ishur_lifnei_plain_' + k), ...['n', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp'].map(k => 'ishur_lifnei_combo_' + k)]
+          .map(n => ({ name: n + '_img', key: 'tmplimg:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
         /* footer copies (11/09): approved → tmplf:<original> = <copy> */
         ...['ishur_toda_orach', 'ishur_dchiya', 'ishur_bitul', 'ishur_shulchan', 'ishur_yom_lifnei', 'ishur_hazmana_shuv']
           .map(n => ({ name: n + '_f', key: 'tmplf:' + n, waba: '1378764257421712', tok: env.WA_TOKEN_GUESTS })),
@@ -6879,6 +7508,17 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
      today. Runs even while sending is paused — a paused system is exactly
      when Richard still wants to see what queued overnight. */
   const ilHour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hour12: false }).format());
+  /* 16/11: hostess reminders, 7 days and 1 day before the event. Asked once an hour from 09:00; each line goes out once (hostrem:*). */
+  if (ilHour >= 9 && ilHour < 21 && !(await isOff(env, 'hostess_reminders')) && await env.RATE.get('hostremtick:' + today + ':' + ilHour) !== '1') {
+    await env.RATE.put('hostremtick:' + today + ':' + ilHour, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
+    await styleStatus(env).catch(() => {});   /* which style templates Meta has approved by now (once an hour) */
+    await step('hostess_reminders', () => hostessReminders(env, { post: (t, o) => slackSend(env, t, o), kvPrefix })).catch(() => {});
+    /* 16/11: the short report every three days, to Slack and to the address in KV cfg:report_email (asked once an hour; sent once on a report day) */
+    if (!(await isOff(env, 'report3'))) await step('report3', async () => periodicReport(env, { income: reportIncome(env), post: (t, o) => slackSend(env, t, o), mail: m => sendPlainEmail(env, m), to: String((await env.RATE.get('cfg:report_email').catch(() => '')) || '').trim() })).catch(() => {});
+    /* on the event day each assigned hostess gets today's event and her report link (once; outside WhatsApp's 24h window it cannot be delivered, then Slack gets a manual link) */
+    await hostessDayMessages(env, { kvPrefix, arrivalOf, slack: (t, o) => slackSend(env, t, o),
+      send: async (phone, st, text) => { const link = checkinUrl(st.sid); const r = await sendCtaUrl(env, phone, text, 'דיווח נוכחות', link, 'client', { who: 'נועה (דיילות)' }).catch(() => null); return { ok: !!(r && r.ok), wa: `https://wa.me/${phone}?text=${encodeURIComponent(text + '\n' + link)}` }; } }).catch(() => {});
+  }
   if (ilHour >= 9 && await env.RATE.get('slackqflush:' + today) !== '1') {
     await env.RATE.put('slackqflush:' + today, '1', { expirationTtl: 2 * 86400 }).catch(() => {});
     /* 04/11 slack-gate: the 09:00 "בוקר · סיכום" (slack-gate.js slackDigest) replaces the bare night-queue
@@ -6938,10 +7578,26 @@ async function runPacer(env, run = null, { part = 'all' } = {}) {
     } catch (e) { out.autoretry = { error: String(e && e.message) }; }
   }
   if (sendWin.open && await env.RATE.get('pacer:pending') === today) {
-    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: paceSends(env, PACE_SENDS) })).catch(e => {
+    /* 12/11 Richard: how many this tick — what is still planned for today (plan:today, precomputed every tick)
+       against the minutes left to 12:00 and to the window's close */
+    const paceInfo = await (async () => {
+      const base = paceSends(env, PACE_SENDS), max = paceSendsMax(env);
+      try {
+        const plan = JSON.parse((await env.RATE.get('plan:today')) || 'null');
+        const days = plan && plan.data && plan.data.days; const d0 = Array.isArray(days) ? days.find(x => x.day === today) || days[0] : (days && days[today]);
+        const items = (d0 && d0.items) || [];
+        const remaining = items.filter(i => i.kind === 'send' && i.status !== 'done' && i.status !== 'missed').reduce((n, i) => n + Math.max(0, (Number(i.planned_n) || 0) - (Number(i.done_n) || 0)), 0);
+        const il = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Jerusalem', weekday: 'short', hour: '2-digit', minute: '2-digit', hour12: false }).formatToParts(new Date());
+        const g = t => (il.find(x => x.type === t) || {}).value || ''; const mins = Number(g('hour')) % 24 * 60 + Number(g('minute'));
+        const close = g('weekday') === 'Fri' ? 13 * 60 : 20 * 60 + 30, target = g('weekday') === 'Fri' ? 12 * 60 : 12 * 60;
+        return { ...dynamicPace({ remaining, minsLeft: close - mins, minsToTarget: target - mins, base, max }), remaining, base, max };
+      } catch (e) { return { pace: base, why: 'no-plan', base, max }; }
+    })();
+    if (env.RATE) await env.RATE.put('pacer:pace', JSON.stringify({ ...paceInfo, at: new Date().toISOString() }), { expirationTtl: 3600 }).catch(() => {});
+    const r = await step('d_engine', () => runDailyEngine(env, false, null, { budget: paceInfo.pace })).catch(e => {
       return { ok: false, error: String((e && e.message) || e) };
     });
-    out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated } : { ran: false, error: r && r.error };
+    out.sends = r && r.ok ? { ran: true, truncated: !!r.truncated, pace: paceInfo.pace, pace_why: paceInfo.why, remaining: paceInfo.remaining } : { ran: false, error: r && r.error, pace: paceInfo.pace };
     /* a tick that failed while work is pending used to vanish into the
        heartbeat; one alert a day is the difference between "Richard knows in
        20 minutes" and "somebody finds out at the hall" */
@@ -7209,7 +7865,7 @@ async function runBackup(env) {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         url: `spreadsheets/${sheetId(env)}/values:batchGet`,
-        qk1: 'ranges', qv1: `${tab}!A1:AZ3000`,
+        qk1: 'ranges', qv1: `${tab}!A1:AZ`,   /* 12/11: open-ended — the 3000-row cap was 469 rows from cutting the guests tab silently */
       }),
     }).catch(() => null);
     if (!r || !r.ok) return { ok: false, error: 'read-failed: ' + tab };
@@ -7219,7 +7875,34 @@ async function runBackup(env) {
   const date = ilDate();
   const body = JSON.stringify({ at: new Date().toISOString(), date, tabs });
   await env.RATE.put('backup:' + date, body, { expirationTtl: 35 * 86400 });
-  return { ok: true, date, bytes: body.length, rows: Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, v.length])) };
+  /* 12/11: a second copy outside KV, never deleted */
+  let r2 = false;
+  if (env.AUDIT_R2) { try { await env.AUDIT_R2.put(`backup/sheet/${date}.json`, body, { httpMetadata: { contentType: 'application/json' } }); r2 = true; } catch {} }
+  return { ok: true, date, r2, bytes: body.length, rows: Object.fromEntries(Object.entries(tabs).map(([k, v]) => [k, v.length])) };
+}
+
+/* 12/11: the running state lives only in KV — who got which wave, opt-outs, partners,
+   hostesses. One file a day in R2: marker prefixes by name only (the value is "1"),
+   small valued prefixes with their values (capped, to stay inside the subrequest budget). */
+const STATE_MARKS = ['wsent:', 'wdead:', 'wfail:', 'wave:', 'wlate:', 'optout:'];
+const STATE_VALUES = ['partner:', 'ref:', 'staff:', 'hold:', 'customtmpl:', 'extrasend:', 'waveprio:', 'hostessbook:', 'auto:off:', 'sentdate:'];
+async function runStateBackup(env) {
+  if (!env.RATE || !env.AUDIT_R2) return { ok: false, error: 'not-configured' };
+  try {
+    const marks = {}, values = {}; let gets = 0, capped = false;
+    for (const p of STATE_MARKS) marks[p] = await kvNames(env, p);
+    for (const p of STATE_VALUES) {
+      values[p] = {};
+      for (const n of await kvNames(env, p)) {
+        if (gets >= 400) { capped = true; break; }
+        values[p][n] = await env.RATE.get(p + n); gets++;
+      }
+    }
+    const date = ilDate();
+    const body = JSON.stringify({ at: new Date().toISOString(), date, capped, marks, values });
+    await env.AUDIT_R2.put(`backup/state/${date}.json`, body, { httpMetadata: { contentType: 'application/json' } });
+    return { ok: true, date, bytes: body.length, capped, marks: Object.fromEntries(Object.entries(marks).map(([k, v]) => [k, v.length])), values: gets };
+  } catch (e) { return { ok: false, error: String((e && e.message) || e).slice(0, 200) }; }
 }
 
 async function handleBackup(request, env, origin) {
@@ -7227,6 +7910,7 @@ async function handleBackup(request, env, origin) {
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
   if (!isAdmin(env, body.admin_key)) return deny(403, 'bad-admin-key', origin);
   if (body.run) {
+    if (body.run === 'state') return okJson(await runStateBackup(env), origin);
     const res = await runBackup(env);
     if (!res.ok) { await alert(env, 'גיבוי', 'גיבוי ידני נכשל', res.error || '', { oneoff: true }); return deny(502, res.error || 'backup-failed', origin); }   /* oneoff: one manual backup request */
     return okJson(res, origin);
@@ -7546,8 +8230,8 @@ function eventsForPhone(raw, phone) {
 
 /* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
 function accountDeps() {
-  return { okJson, deny, normPhone, overBudget, safeEqual, readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
-    sendOtpTemplate, sendEmail: sendPlainEmail, today: () => ilDate() };
+  return { okJson, deny, normPhone, overBudget, memOver, otpAttemptAllowed, safeEqual, tokenRecord, referralSummary: async (e, t) => referralSummary(e, t, await tokenRecord(e, t)), readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
+    sendOtpTemplate, sendText, sendEmail: sendPlainEmail, today: () => ilDate() };
 }
 async function handleOtpSend(request, env, origin) {
   let body = {};
@@ -7565,7 +8249,7 @@ async function handleOtpSend(request, env, origin) {
   if (!eventsForPhone(raw, phone).length) return deny(404, 'no-events', origin);
   const code = String(100000 + (crypto.getRandomValues(new Uint32Array(1))[0] % 900000));
   await env.RATE.put('otp:' + phone,
-    JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600 }),
+    JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 600, id: crypto.randomUUID() }),
     { expirationTtl: 600 });
   /* 12/11 (Richard: "מה שעובד עם הקוד לטלפון לא עובד טוב"): the same ladder as the personal area —
      Noa → guests number → email the client gave us / the leads sheet */
@@ -7731,10 +8415,16 @@ async function handleCostLog(request, env, origin) {
     });
   }
 
+  /* 16/11 (Richard): the same report also says what came IN each day — income, the VAT inside it, Grow's fee —
+     and the fixed subscriptions on the day they are charged, so the board can show profit per day and the journal */
+  let inc = { income: {}, fixed: {}, vat_rate: 0.18, fee_cfg: null, truncated: true };
+  try { inc = await buildIncomeDays(env, { ...opsDeps(), parsePaidDesc }, { raw, fresh: body.fresh === true }); } catch (e) { await logEvent(env, { area: 'כספים', action: 'חישוב הכנסות יומי נכשל', ok: false, review: true, detail: String(e && e.message).slice(0, 200) }).catch(() => {}); }
   return okJson({
     ok: true,
     days: Object.values(days).sort((a, b) => a.date < b.date ? -1 : 1),
     events,
+    income: inc.income, fixed: inc.fixed, vat_rate: inc.vat_rate, fee_cfg: inc.fee_cfg, income_truncated: inc.truncated,
+    extras: await (async () => { const out = []; try { const names = Object.fromEntries(events.map(e => [e.token8, e.name || e.client])); for (const [k, v] of Object.entries(await kvPrefix(env, 'evextra:'))) for (const x of JSON.parse(v) || []) out.push({ tok8: k, name: names[k] || '', ...x }); } catch {} return out; })(),
     generated_at: new Date().toISOString(),
   }, origin);
 }
@@ -8055,21 +8745,38 @@ async function handleVoiceTools(request, env, origin) {
   }
   if (body.action === 'testcall' && body.agent === 'shir_out') {
     /* Shir rings an admin number as if they were a wedding guest (demo data, no sheet row) */
-    const to = normPhone(body.to || '');
+    /* 18/11 Richard: "חייג ללקוח" in the clients screen — the same sample call, to the event's own client, with HIS event's details */
+    let demoEv = null;
+    if (body.demo_token) {
+      const snapD = await readSnapshot(env, 'send');
+      demoEv = ((snapD && snapD.events && snapD.events.values) || []).find(r => String((r || [])[1] || '').trim() === String(body.demo_token).trim()) || null;
+      if (!demoEv) return deny(404, 'unknown-token', origin);
+    }
+    const to = normPhone(demoEv ? demoEv[3] || '' : body.to || '');
     const admins = String(env.ADMIN_PHONES || '').split(',').map(s => normPhone(s.trim()));
-    if (!to || !admins.includes(to)) return deny(400, 'admin-numbers-only', origin);
+    /* 18/11 Richard: a lead who asks to hear a sample call gets this same demo. Only with demo_lead set on purpose, an Israeli mobile, and inside lead hours (10:00–20:00). */
+    const inHours = (() => { const h = Number(ilTime().slice(0, 2)); return h >= 10 && h < 20; })();
+    const leadDemo = (body.demo_lead === true || !!demoEv) && isIlMobile(to) && inHours;
+    if (demoEv && !inHours) return deny(409, 'outside-hours', origin);
+    if (!to || (!admins.includes(to) && !leadDemo)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
     const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
       event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
       /* body.rsvp = 'מתלבט' rehearses the undecided opener (21/10) */
       rsvp: body.rsvp === 'מתלבט' ? 'מתלבט' : '' };
+    if (demoEv) {
+      const c = k => String(demoEv[k] ?? '').trim(), dDay = c(6).slice(0, 10);
+      let evName = ''; try { evName = guestEventName(demoEv, { article: true }) || ''; } catch {}
+      Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: evName || c(34) || g.event_name,
+        event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
+    }
     const payload = buildCallPayload(g, env.SHIR_FROM);
     payload.metadata.test = 'voice-tools-shir';
     const r = await fetch('https://api.retellai.com/v2/create-phone-call', { method: 'POST', headers: { Authorization: 'Bearer ' + env.RETELL_KEY, 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
     await retellBillingGuard(env, r);
     const j = r ? await r.json().catch(() => null) : null;
     if (!r || !r.ok) return okJson({ ok: false, status: r && r.status, error: j }, origin);
-    await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
+    await logRow(env, 'calls', { agent: 'שיר', dir: 'יוצאת', phone: to, name: g.name, kind: demoEv ? 'שיחת דוגמה ללקוח' : 'בדיקה (דמו חתונה)', status: 'חויג ' + ilTime(), id: String(j.call_id || '') }).catch(() => {});
     return okJson({ ok: true, call_id: j.call_id }, origin);
   }
   if (body.action === 'testcall') {
@@ -8720,7 +9427,9 @@ async function resendInvitation(env, guestPhone) {
 
   const raw = await readSnapshot(env, 'send');
   if (!raw) return { ok: false, why: snapMiss(env) };
-  const guest = findGuestByPhone(raw, phone, ilDate());
+  /* 15/11: "send it again" can only mean an invitation this guest already got — never the invitation of
+     another list they are on that has not gone out yet */
+  const guest = await guestForReply(env, raw, phone);
   if (!guest) return { ok: false, why: 'not-a-guest' };
 
   const evRows = (raw.events && raw.events.values) || [];
@@ -9217,6 +9926,35 @@ async function handleSendDate(request, env, origin) {
 function verifyOk(env, t) {
   if (!t) return false;
   return (!!env.WA_VERIFY && t === env.WA_VERIFY) || (!!env.WA_VERIFY_GUESTS && t === env.WA_VERIFY_GUESTS);
+}
+/* 12/11 security: Meta signs every webhook POST with the app secret — X-Hub-Signature-256 is
+   'sha256=' + HMAC-SHA256(app secret, raw body). Each of the two apps has its own secret
+   (META_APP_SECRET for the client number's app, META_APP_SECRET_GUESTS for the guests number's
+   app; the WA_APP_SECRET* names are accepted too). A channel is verified only once its secret
+   exists, so storing one secret changes nothing for the other channel.
+   → '' when the request may proceed, or the channel name whose signature check failed. */
+async function waSignatureRefused(env, t, rawBody, header) {
+  const chans = [];
+  if (env.WA_VERIFY && t === env.WA_VERIFY) chans.push({ ch: 'client', secret: String(env.META_APP_SECRET || env.WA_APP_SECRET || '') });
+  if (env.WA_VERIFY_GUESTS && t === env.WA_VERIFY_GUESTS) chans.push({ ch: 'guests', secret: String(env.META_APP_SECRET_GUESTS || env.WA_APP_SECRET_GUESTS || '') });
+  const keyed = chans.filter(c => c.secret);
+  if (!keyed.length) return '';
+  const given = String(header || '').trim().toLowerCase();
+  for (const c of keyed) {
+    const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(c.secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(rawBody));
+    const want = 'sha256=' + [...new Uint8Array(mac)].map(b => b.toString(16).padStart(2, '0')).join('');
+    if (safeEqual(given, want)) return '';
+  }
+  if (keyed.length < chans.length) {
+    /* both apps share one verify token and only one secret is stored: the URL cannot tell the
+       channels apart, so the number the payload names decides which rule applies */
+    let pid = '';
+    try { const p = JSON.parse(rawBody); pid = String((((((p.entry || [])[0] || {}).changes || [])[0] || {}).value || {}).metadata?.phone_number_id || ''); } catch {}
+    const ch = isGuestPhone(env, pid) ? 'guests' : 'client';
+    if (!keyed.some(c => c.ch === ch)) return '';
+  }
+  return keyed[0].ch;
 }
 
 /* 26/09: the number is already inside the ishur.io portfolio (phone id
@@ -9982,7 +10720,7 @@ async function handleWaSend(request, env, origin) {
    read goes through readSnapshot(env, cls); nothing calls Make directly. */
 
 async function serveImage(env, pathname) {
-  const token = pathname.slice('/img/'.length);
+  const token = await fromPub(env, pathname.slice('/img/'.length));
   if (!env.RATE || !/^[0-9a-f-]{36}$/.test(token)) return new Response('not-found', { status: 404 });
   const { value, metadata } = await env.RATE.getWithMetadata('img:' + token, { type: 'arrayBuffer' });
   if (!value) return new Response('not-found', { status: 404 });
@@ -10003,6 +10741,8 @@ const MAX_BODY_BYTES = 12 * 1024 * 1024;   // the upload cap plus headroom
 /* hostess calendar slot for one event: arrival 60 min before the reception,
    plus travel (45 inside the centre, 90 outside), until reception + 5h.
    Times are Israel local; stored as UTC ISO for the iCal feed. */
+/* the same verified income the money screen reads (cost-log), for the three-day report */
+function reportIncome(env) { return async () => { const raw = await readSnapshot(env, 'ops').catch(() => null); return buildIncomeDays(env, { ...opsDeps(), parsePaidDesc }, { raw }); }; }
 async function writeHostessBooking(env, token, b) {
   if (!env.RATE || !/^\d{4}-\d{2}-\d{2}$/.test(String(b.date || ''))) return;
   const rec = /^(\d{1,2}):(\d{2})$/.exec(String(b.reception || '')) || [null, '19', '00'];
@@ -10014,9 +10754,12 @@ async function writeHostessBooking(env, token, b) {
     return new Date(Date.UTC(+b.date.slice(0, 4), +b.date.slice(5, 7) - 1, +b.date.slice(8, 10), h, m) - off * 60000);
   };
   const recMin = Number(rec[1]) * 60 + Number(rec[2]);
-  const startMin = recMin - 60 - travel, endMin = recMin + 5 * 60;
+  const startMin = recMin - 40 - travel, endMin = recMin + 5 * 60;   /* 12/11 Richard: on site 40 minutes before the reception */
   const start = local(Math.floor(startMin / 60), ((startMin % 60) + 60) % 60), end = local(Math.floor(endMin / 60), endMin % 60);
+  let prevBook = null; try { prevBook = JSON.parse(await env.RATE.get('hostessbook:' + token) || 'null'); } catch {}
   await env.RATE.put('hostessbook:' + token, JSON.stringify({ ...b, reception: rec[1] + ':' + rec[2], start: start.toISOString(), end: end.toISOString(), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 }).catch(() => {});
+  /* 16/11: Slack hears once when the date is set or changes (not on every save of the form) */
+  await alertDateSet(env, String(token).slice(0, 8), { ...b, reception: rec[1] + ':' + rec[2] }, prevBook, { post: (t, o) => slackSend(env, t, o) }).catch(() => {});
   /* Richard 05/10: the monday board "אירועים עם דיילות - אישור הגעה" (18433947622)
      gets one row per hostess event; the דיילת column links to the roster
      board. Updated in place when the setup form is saved again. */
@@ -10045,6 +10788,23 @@ async function writeHostessBooking(env, token, b) {
 
 
 
+/* 12/11 security: the hostess calendar feed's address was derived from APP_KEY — which ships to every browser in
+   config.js — so anyone could work the address out and read clients' names, venues and phones. It is derived from
+   ADMIN_KEY now (never leaves the Worker). No ADMIN_KEY → an address nobody can guess. */
+async function hostessIcsKey(env) {
+  return sha256Hex((env.ADMIN_KEY ? 'k|' + env.ADMIN_KEY : 'none|' + crypto.randomUUID()) + '|hostess-ics|v2');
+}
+
+const HARDEN_HEADERS = { 'Strict-Transport-Security': 'max-age=31536000', 'X-Content-Type-Options': 'nosniff', 'Referrer-Policy': 'strict-origin-when-cross-origin' };
+function hardenResponse(res) {
+  try {
+    if (!res || res.status === 101 || res.webSocket) return res;
+    const h = new Headers(res.headers);
+    for (const [k, v] of Object.entries(HARDEN_HEADERS)) if (!h.has(k)) h.set(k, v);
+    return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h });
+  } catch { return res; }
+}
+
 async function checkStamp(fields, appKey) {
   const { app, nonce, stamp_ts, sig } = fields;
   if (!app || !nonce || !stamp_ts || !sig) return 'missing-stamp';
@@ -10071,7 +10831,10 @@ async function overBudget(env, key, limit, windowSec) {
   /* 09/11: the TTL used to reset on every hit, so a page that polls kept its own bucket alive forever (a window that never closed) */
   const { metadata } = await env.RATE.getWithMetadata(key).catch(() => ({ metadata: null }));
   const until = metadata && metadata.until ? Number(metadata.until) : Math.floor(Date.now() / 1000) + windowSec;
-  await env.RATE.put(key, String(current + 1), { expiration: Math.max(until, Math.floor(Date.now() / 1000) + 60), metadata: { until } });
+  /* 18/11: "at least 60 seconds ahead" was asked for exactly 60, and the store refused it whenever a second ticked on the
+     way ("Invalid expiration"). That threw out of every route that counts — sign-in, the board's data — as a failure to
+     the client. The floor is 90 seconds now, and a counter that cannot be written never fails the request it counts. */
+  try { await env.RATE.put(key, String(current + 1), { expiration: Math.max(until, Math.floor(Date.now() / 1000) + 90), metadata: { until } }); } catch {}
   return false;
 }
 
@@ -10215,6 +10978,24 @@ async function buildCalendarMonth(env, month) {
       token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: v.tmpl || (v.type === 'text' ? 'טקסט' : v.type || ''),
       status: v.ok === false ? 'failed' : (v.status || 'sent'), error: v.error || '', text: String(v.text || '').slice(0, 120), done: true });
   });
+  /* 12/11: the per-day index (slog:) fills whatever the capped log: scan missed — same row, never twice */
+  try {
+    const seen = new Set(); for (const d of Object.keys(days)) for (const e of days[d]) seen.add(e.phone + ':' + Date.parse(e.at));
+    const seenLoose = new Set(); for (const d of Object.keys(days)) for (const e of days[d]) seenLoose.add(e.phone + ':' + Math.round(Date.parse(e.at) / 2000));
+    let cursor;
+    for (let i = 0; i < 40; i++) {
+      const page = await env.RATE.list({ prefix: 'slog:' + month, cursor, limit: 1000 }).catch(() => null); if (!page) break;
+      for (const k of page.keys) {
+        const p = k.name.split(':'); const d = p[1], ts = Number(p[2]), phone = p[3], m = k.metadata || {};
+        if (!d || !ts || !phone || seen.has(phone + ':' + ts) || seenLoose.has(phone + ':' + Math.round(ts / 2000))) continue;
+        const who = nameByPhone[phone] || {};
+        const tok = m.tok ? Object.keys(evByTok).find(t => t.startsWith(m.tok)) : who.tok;
+        day(d).push({ at: new Date(ts).toISOString(), phone, name: who.name || '', kind: who.kind || (m.ch === 'guests' ? 'אורח' : 'לקוח/ליד'), ch: m.ch || 'client',
+          token: tok || '', event: tok && evByTok[tok] ? evByTok[tok].event : '', what: m.t === 'text' ? 'טקסט' : (m.t || ''), status: m.ok === false ? 'failed' : 'sent', error: m.e || '', text: '', done: true });
+      }
+      if (page.list_complete) break; cursor = page.cursor;
+    }
+  } catch {}
   /* future: what the engine will do, per event, per date in the month */
   const KINDS = { 1: 'הזמנה (גל 1)', 2: 'תזכורת (גל 2)', 3: 'שליחה נוספת (גל 3)', daybefore: 'יום לפני', shulchan: 'שולחן ביום האירוע', toda: 'תודה יום אחרי', eoe: 'סיכום ללקוח' };
   const markerOf = (kind, tok, ph) => kind === 'daybefore' ? `s5d:${tok}:${ph}` : kind === 'shulchan' ? `s5t:${tok}:${ph}` : kind === 'toda' ? `s3t:${tok}:${ph}` : `wsent:${tok}:${kind}:${ph}`;
@@ -10347,6 +11128,7 @@ function opsJob(env, name, fn, extra = {}) { return withRun(env, JOB_TO_ID[name]
    each, after the handler answered OK (and only when it was not a dry run). The handler itself is
    untouched; the body is read from a clone. revert: only the global pause flips back from here. */
 const tok8 = t => String(t || '').slice(0, 8);
+export { parsePaidDesc as _parsePaidDesc, referralVerify as _referralVerify };
 export const CHANGE_ROUTES = {
   '/api/pause': { kind: 'pause', when: b => typeof b.paused === 'boolean', summary: b => (b.paused ? 'עצירה כללית הופעלה: כל השליחות הושהו' : 'עצירה כללית בוטלה: השליחות חזרו'),
     details: b => ({ paused: b.paused }), revert: b => ({ possible: true, how: 'toggle', payload: { pause: !b.paused } }) },
@@ -10389,6 +11171,19 @@ async function changeWrap(request, env, inner) {
 }
 
 const CFG_ROUTES = new Set(['/api/gift-blast', '/api/subevent-send', '/api/subevent-remind', '/api/sms-blast', '/api/resend', '/api/wave-retry', '/api/daily-run', '/api/call-round']);
+/* 12/11 /api/admin/home: what may ride in a batch — the admin READ routes (the same list assets/lite.js caches)
+   and GET /api/ops/*; never a body with an action-like field, never the batch route itself. */
+const HOME_READS = new Set(['status', 'leads', 'wave-audit', 'cap-status', 'call-board', 'evlog', 'ads-health', 'feedback-list', 'client-flags', 'calendar', 'send-board', 'ops-stats', 'traffic', 'campaign-stats', 'cost-log', 'shir-calls', 'template-stats', 'calls-log', 'inbox', 'board-event', 'template-text', 'msg-stats', 'brain-toggle', 'pause', 'fixedcost', 'addon-quote', 'leads-board', 'floor', 'referrals', 'partner/list', 'design-list', 'staff', 'event-flag']);
+const HOME_MUTATING = ['action', 'act', 'mode', 'set', 'on', 'date', 'order', 'text', 'assignments', 'payload', 'blocked', 'paused', 'update', 'delete', 'send', 'template', 'to', 'enabled', 'confirm'];
+export function homeReadOk(p, m, body) {
+  const path = String(p || '').split('?')[0];
+  if (!/^\/api\/[a-zA-Z0-9/_-]+$/.test(path) || path === '/api/admin/home') return false;
+  if (m === 'GET') return path.startsWith('/api/ops/');
+  if (!HOME_READS.has(path.slice(5))) return false;
+  const b = body && typeof body === 'object' ? body : {};
+  if (path === '/api/event-flag' && 'on' in b) return false;   /* with `on` it is a write, even on:false */
+  return !HOME_MUTATING.some(k => b[k] !== undefined && b[k] !== null && b[k] !== false && b[k] !== '');
+}
 const WORKER = {
   /* 04/11 incident: work queued with ctx.waitUntil gets only ~30 s after the
      handler returns, so the long cron jobs (main pacer pass, סקירה plan) were cut
@@ -10472,6 +11267,7 @@ const WORKER = {
     if (String(event.cron || '').startsWith('*/10')) {
       ctx.waitUntil(opsJob(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
+      ctx.waitUntil(reconcileLeads(env).catch(() => {}));   /* 16/11 the monday leads board against its mirror: a missed webhook heals here (read-only) */
       ctx.waitUntil(opsJob(env, 'pullMetaFormLeads', () => pullMetaFormLeads(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainPartyNudges', () => drainPartyNudges(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'runEventDayBlasts', () => runEventDayBlasts(env)).catch(() => {}));
@@ -10484,7 +11280,13 @@ const WORKER = {
       ctx.waitUntil(opsJob(env, 'drainAdminCalls', () => drainAdminCalls(env)).catch(() => {}));
       /* 02/11 noa-chase R1+R2: monday "לא ענה" → nq: queue, then the cadence
          drain (2 per tick, calling window only). No-op while NOA_CHASE is off. */
-      if (String(env.NOA_CHASE || '') === 'on') ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
+      /* 12/11 Richard: once a day, between 10:00 and 20:00, a hostess whose link is 30 days old gets it again */
+      try {
+        const dKey = 'stafflinkday:' + ilDate(); const hr = Number(String(ilTime()).slice(0, 2));
+        if (env.RATE && hr >= 10 && hr < 20 && !(await env.RATE.get(dKey))) { await env.RATE.put(dKey, '1', { expirationTtl: 2 * 86400 }); ctx.waitUntil(staffLinkRefresh(env, { sendCtaUrl, logEvent, slackSend }).catch(() => {})); }
+      } catch {}
+      /* 12/11 Richard: the ops/admin switch (auto:off:noa_chase) stops the chase too, not only the env var */
+      if (String(env.NOA_CHASE || '') === 'on' && !(await isOff(env, 'noa_chase').catch(() => false))) ctx.waitUntil(opsJob(env, 'noaChaseTick', () => noaChaseTick(env, {
         leadRows: async () => (((await snapshotCached(env, 'dial')) || {}).leads || {}).values || [],
         callBlocked: p => callBlocked(env, p), leadReplied: (p, since) => leadReplied(env, p, since),
         retellBillingGuard: r => retellBillingGuard(env, r), logRow: (tab, rec) => logRow(env, tab, rec),
@@ -10541,6 +11343,9 @@ const WORKER = {
     const morningBudget = sendWindowState().open ? PACE_SENDS * 2 : 0;
     ctx.waitUntil(withRun(env, 'd_engine', () => runDailyEngine(env, false, null, { budget: morningBudget })).then(() => withRun(env, 'backup', () => runBackup(env))).then(res => {
       if (res && !res.ok) return alert(env, 'גיבוי יומי', 'הגיבוי נכשל', res.error || '', { key: 'backup_fail', sev: 'P1' });
+      if (res && res.ok && !res.r2) return alert(env, 'גיבוי יומי', 'העותק השני (R2) לא נכתב', 'הגיבוי ב-KV תקין', { key: 'backup_r2_fail' });
+    }).then(() => runStateBackup(env)).then(sr => {
+      if (sr && !sr.ok) return alert(env, 'גיבוי יומי', 'גיבוי המצב השוטף נכשל', sr.error || '', { key: 'backup_state_fail' });
     }).catch(e => alert(env, 'מנוע יומי', 'הריצה נפלה באמצע',
       String((e && e.stack) || e).slice(0, 500), { key: 'engine_crash', sev: 'P1' })).then(() => {
       /* Monday morning: the weekly message-performance digest into Slack */
@@ -10550,7 +11355,11 @@ const WORKER = {
   },
 
   /* 03/11 change log wrapper (CHANGE_ROUTES); everything else goes straight to fetchMain */
-  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); return changeWrap(request, env, rq => WORKER.fetchMain(rq, env, ctx)); },
+  /* 12/11 security: every answer leaves with the three headers that cost nothing — HTTPS only from now on (HSTS),
+     no content-type guessing (an uploaded file is never run as a page), and no full URL (tokens live in URLs)
+     handed to other sites. A header a route already set is left as it is. */
+  /* 16/11 login + users (auth.js): authGate is the one place a user session is accepted (and, only when KV cfg:auth_enforce = 'on', where a bare shared key from a browser is refused). No session and switch off = the same request, untouched. */
+  async fetch(request, env, ctx) { installStagingGuard(env); env = wrapEmail(env); const g = await authGate(request, env, ctx, { isRead: homeReadOk }); if (g.response) return hardenResponse(g.response); return hardenResponse(await changeWrap(g.request, env, rq => WORKER.fetchMain(rq, env, ctx))); },
   async fetchMain(request, env, ctx) {
     const origin = request.headers.get('Origin') || '';
     const url = new URL(request.url);
@@ -10564,13 +11373,46 @@ const WORKER = {
       return okJson({ ok: true, staging: isStaging(env), worker: isStaging(env) ? 'ishur-webhooks-staging' : 'ishur-webhooks',
         version: String((env.CF_VERSION_METADATA && env.CF_VERSION_METADATA.id) || '').slice(0, 8), commit: String(BUILD_INFO.commit || '').slice(0, 8), branch: BUILD_INFO.branch || '', crons: isStaging(env) ? 'off' : 'on' }, origin);
     }
+    /* 12/11 אדמין אחד (.sdlc/admin-only §4): the admin page asks for everything its view needs in ONE request.
+       {admin_key, calls:[{p:'/api/…', m:'POST'|'GET', b:{…}}]} → each read runs through this same handler and comes
+       back as {s, t}. Reads only: the route must be on the list and the body may not carry an action-like field.
+       /api/ops/realtime (3–5 s to build) is kept 60 s in KV. */
+    if (url.pathname === '/api/admin/home' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!(await adminKeyOk(env, b.admin_key))   /* raw key or a signed session, like every admin page sends */) return deny(403, 'bad-admin-key', origin);
+      const ip = request.headers.get('CF-Connecting-IP') || '';
+      const calls = (Array.isArray(b.calls) ? b.calls : []).slice(0, 40);
+      const results = await Promise.all(calls.map(async c => {
+        const t0 = Date.now();
+        try {
+          const p = String((c && c.p) || ''), m = c && c.m === 'GET' ? 'GET' : 'POST';
+          if (!homeReadOk(p, m, c && c.b)) return { s: 400, t: '{"ok":false,"error":"not-a-batchable-read"}' };
+          const cacheKey = m === 'GET' && p.split('?')[0] === '/api/ops/realtime' ? 'homecache:realtime2' : '';
+          /* the copy is fresh for 60 s. An older one (up to 10 min) is still answered at once and rebuilt behind the reply, so the page never waits 5 s for it. */
+          const build = async () => { const r0 = await WORKER.fetchMain(new Request('https://go.ishur.io' + p, { method: 'GET', headers: { 'x-admin-key': String(b.admin_key), Origin: origin } }), env, ctx); const t0x = await r0.text(); if (r0.status === 200 && t0x.length < 400000) await env.RATE.put(cacheKey, JSON.stringify({ at: Date.now(), t: t0x }), { expirationTtl: 600 }).catch(() => {}); return { s: r0.status, t: t0x, ms: Date.now() - t0 }; };
+          if (cacheKey && env.RATE) {
+            let hit = null; try { hit = JSON.parse(await env.RATE.get(cacheKey) || 'null'); } catch { hit = null; }
+            if (hit && hit.t) { if (Date.now() - hit.at > 60000 && ctx && ctx.waitUntil) ctx.waitUntil(build().catch(() => {})); return { s: 200, t: hit.t, cached: true, age: Math.round((Date.now() - hit.at) / 1000) }; }
+            return await build();
+          }
+          const rq = new Request('https://go.ishur.io' + p, { method: m, headers: { 'Content-Type': 'application/json', 'x-admin-key': String(b.admin_key), Origin: origin, ...(ip ? { 'CF-Connecting-IP': ip } : {}) },
+            ...(m === 'POST' ? { body: JSON.stringify({ ...((c && c.b) || {}), admin_key: b.admin_key }) } : {}) });
+          const r = await WORKER.fetchMain(rq, env, ctx);
+          const t = await r.text();
+          return { s: r.status, t, ms: Date.now() - t0 };
+        } catch (e) { return { s: 500, t: JSON.stringify({ ok: false, error: 'batch-item-failed' }) }; }
+      }));
+      return okJson({ ok: true, results }, origin);
+    }
     /* 03/11 edit-in-place: the cron-driven settings also bind the ops routes and the manual send routes */
     if (url.pathname.startsWith('/api/ops/') || CFG_ROUTES.has(url.pathname)) env = await withCfg(env).catch(() => env);
     /* 03/11 ops control center (ops.js) — admin_key or an admin session stamp */
     if (url.pathname.startsWith('/api/ops/')) return handleOps(request, env, origin, url, opsDeps());
     /* 03/11 review raffle (raffle.js): public config/enter/claim-google */
     if (url.pathname.startsWith('/api/raffle/')) return handleRaffle(request, env, origin, url, { okJson, deny, normPhone, overBudget, fetchSnapshot: e => readSnapshot(e, 'dashboard'), getBrain: e => getBrain(e), slackSend: (e, t, o) => slackSend(e, t, o), sendText: (e, to, text, ch, c) => sendText(e, to, text, ch, c) });
+    if (url.pathname === '/webhooks/monday-leads') return handleMondayWebhook(request, env, url);
     if (url.pathname.startsWith('/api/crm/')) return handleCrm(request, env, origin, url, crmDeps(ctx));
+    if (url.pathname.startsWith('/api/auth/')) return handleAuth(request, env, origin, url);   /* 16/11 Google sign-in, users, action log (auth.js) */
     /* iPad sessions: a valid sess. token becomes the real admin key before any
        handler reads the body. Grow's IPN is skipped — its body is not ours. */
     if (url.pathname.startsWith('/api/') && request.method === 'POST' &&
@@ -10748,6 +11590,21 @@ const WORKER = {
           headers: { Authorization: 'OAuth ' + tok, file_offset: '0', 'Content-Type': type }, body: buf });
         const j2 = await s2.json().catch(() => ({}));
         if (!j2.h) return okJson({ ok: false, step: 'upload', resp: j2 }, origin);
+        /* 12/11 Richard: "תזכורות יום לפני עם התמונה של ההזמנה — קבוע לכולם". clone_of=<approved template> →
+           the same body/footer/buttons from Meta, plus an IMAGE header, submitted as <name>_img. */
+        if (b.clone_of) {
+          const base = String(b.clone_of).trim();
+          const rq = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(base)}&fields=name,status,category,components`, { headers: { Authorization: 'Bearer ' + tok } });
+          const jq = await rq.json().catch(() => ({})); const src = (jq.data || []).find(x => x.name === base);
+          if (!src) return okJson({ ok: false, step: 'clone-src', resp: jq }, origin);
+          const comps = (src.components || []).filter(c => c.type !== 'HEADER');
+          const tplC = { name: base + '_img', language: 'he', category: src.category || 'UTILITY', allow_category_change: false,
+            components: [{ type: 'HEADER', format: 'IMAGE', example: { header_handle: [j2.h] } }, ...comps] };
+          const sC = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' }, body: JSON.stringify(tplC) });
+          const jC = await sC.json().catch(() => ({}));
+          await logEvent(env, { area: 'מטא', action: `תבנית ${base}_img (עם תמונת ההזמנה) הוגשה לאישור`, ok: !!jC.id, review: !jC.id, ref: base + '_img', detail: JSON.stringify(jC).slice(0, 300) }).catch(() => {});
+          return okJson({ ok: !!jC.id, name: base + '_img', resp: jC, sent: tplC }, origin);
+        }
         const name = String(b.name || (isVid ? 'hazmana_ishur_vid' : 'hazmana_ishur_img'));
         /* 27/09: Meta silently recategorised the invitations as MARKETING, and
            per-user marketing caps (131049) started eating guests. An invitation
@@ -10809,13 +11666,42 @@ const WORKER = {
           await logEvent(env, { area: 'אירוע', action: 'סוג האירוע עודכן ע"י מנהל → ' + occ, ok: !!okw, token: tok }).catch(() => {});
           return okJson({ ok: !!okw, row: idx + 2, occasion: occ }, origin);
         }
+        /* 15/11: take back an answer that was written on the wrong event's row (one guest row: מגיע?, סטטוס מענה, זמן ביצוע) */
+        if (b.action === 'sent-reconcile') {
+          const tok = String(b.token || '').trim();
+          if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-args', origin);
+          const dates = {}, marks = [];
+          for (const [ph, d] of Object.entries(b.dates || {})) { const p = normPhone(ph); if (p && /^(|\d{4}-\d{2}-\d{2}( \d{2}:\d{2})?)$/.test(String(d))) dates[p] = String(d); }
+          for (const ph of (Array.isArray(b.marks) ? b.marks : []).slice(0, 200)) { const p = normPhone(ph); if (p) marks.push(p); }
+          let marked = 0;
+          for (const p of marks) { const gk = `wsent:${tok}:1:${p}`; if (!(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 120 * 86400 }); marked++; } }
+          const written = Object.keys(dates).length ? await stampSentDates(env, tok, dates) : 0;
+          await logEvent(env, { area: 'אורחים', action: `תיקון רישום שליחה: ${written} תאריכים נכתבו, ${marked} סימוני "נשלח" הושלמו`, ok: true, token: tok }).catch(() => {});
+          return okJson({ ok: true, written, marked }, origin);
+        }
+        if (b.action === 'guest-clear-answer') {
+          const gid = String(b.guest_id || '').trim();
+          if (!/^G-[0-9a-f]{8}-\d+$/.test(gid)) return deny(400, 'bad-args', origin);
+          const raw = await readSnapshot(env, 'write');
+          const idx = ((raw && raw.guests && raw.guests.values) || []).findIndex(r => String((r || [])[2] || '').trim() === gid);
+          if (idx < 0) return deny(404, 'guest-not-found', origin);
+          const row = idx + 2, was = String(raw.guests.values[idx][15] || '').trim();
+          const okw = await sheetBatchWrite(env, [{ range: `אורחים!P${row}`, values: [['']] }, { range: `אורחים!W${row}:X${row}`, values: [['', '']] }]);
+          await logEvent(env, { area: 'אורחים', action: `תשובה שנרשמה באירוע הלא נכון נמחקה ע"י מנהל (${was || 'ריק'})`, ok: !!okw, token: String(raw.guests.values[idx][28] || '').trim(), detail: gid }).catch(() => {});
+          return okJson({ ok: !!okw, row, was }, origin);
+        }
         if (b.action === 'flushlogs') return okJson(await flushSheetLogs(env), origin);
         if (b.action === 'invoice-make') {
           /* recovery: issue an invoice for a payment whose first attempt
              failed, and send it if the template is live */
           const inv = await createInvoice(env, b);
           if (inv.ok && b.token && env.RATE) {
-            await env.RATE.put('invoice:' + b.token, JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+            /* 12/11: every invoice of an event lives under its own key; the purchase invoice (invoice:<token>) is only
+               filled when it is still empty, so a manual add-on invoice never replaces it on the client's board */
+            const mainKey = 'invoice:' + b.token, has = await env.RATE.get(mainKey).catch(() => null);
+            const rec = JSON.stringify({ url: inv.url, number: inv.number, id: inv.id, at: new Date().toISOString(), addon: !!has, kind: String(b.description || b.kind || (has ? 'תוספת' : 'רכישה')).slice(0, 80), sum: Number(b.sum) || null });
+            await env.RATE.put(has ? mainKey + ':m' + inv.number : mainKey, rec, { expirationTtl: 400 * 86400 });
+            try { await referralVerifyByInvoice(env, b.token); } catch {}
           }
           let wa = null;
           if (inv.ok && b.phone && b.send !== false) {
@@ -10906,7 +11792,7 @@ const WORKER = {
        in Google Calendar (it shows under the "דיילות" calendar list as its own
        calendar), and the availability check counts them instantly. */
     if (url.pathname.startsWith('/cal/hostess-') && request.method === 'GET') {
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      const key = await hostessIcsKey(env);
       if (url.pathname !== '/cal/hostess-' + key.slice(0, 24) + '.ics') return new Response('not found', { status: 404 });
       const rows = [];
       if (env.RATE) {
@@ -10930,11 +11816,13 @@ const WORKER = {
        Apple Calendar opens it straight from WhatsApp/Safari, Google via the
        cal.html page. Two reminders baked in, our line in the description. */
     if (url.pathname.startsWith('/cal/') && request.method === 'GET') {
-      const tok = url.pathname.slice(5).replace(/\.ics$/, '');
-      if (!/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
+      const calId = url.pathname.slice(5).replace(/\.ics$/, '');
+      if (!/^[0-9a-f-]{36}$/.test(calId)) return new Response('not-found', { status: 404 });
+      const tok = await fromPub(env, calId);
       const raw = await readSnapshot(env, 'dashboard');
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return new Response('not-found', { status: 404 });
+      const pub = await pubIdOf(env, tok);   /* what the file itself carries — never the dashboard token */
       const c = i => String(ev[i] ?? '').trim();
       const date = c(6).slice(0, 10); if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return new Response('no-date', { status: 404 });
       const tm = (c(36).match(/^(\d{1,2}):(\d{2})/) || [null, '19', '30']);
@@ -10948,15 +11836,15 @@ const WORKER = {
       const esc = t => String(t).replace(/\\/g, '\\\\').replace(/\n/g, '\\n').replace(/,/g, '\\,').replace(/;/g, '\;');
       const desc = [`${title}`, c(36) ? `קבלת פנים ${c(36)}` : '', where ? `📍 ${where}` : '', nav ? `🧭 ניווט: ${nav}` : '', '', 'אישורי הגעה בוואטסאפ · ishur.io', 'https://ishur.io'].filter(x => x !== null).join('\n');
       const ics = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//ishur.io//RSVP//HE', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH',
-        'BEGIN:VEVENT', `UID:${tok}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
-        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${tok}`,
+        'BEGIN:VEVENT', `UID:${pub}@ishur.io`, `DTSTAMP:${fmt(new Date())}`, `DTSTART:${fmt(start)}`, `DTEND:${fmt(end)}`,
+        `SUMMARY:${esc(title)}`, where ? `LOCATION:${esc(where)}` : '', `DESCRIPTION:${esc(desc)}`, `URL:https://ishur.io/rsvp.html?t=${pub}`,
         'BEGIN:VALARM', 'TRIGGER:-P1D', 'ACTION:DISPLAY', `DESCRIPTION:${esc('מחר: ' + title)}`, 'END:VALARM',
         'BEGIN:VALARM', 'TRIGGER:-PT3H', 'ACTION:DISPLAY', `DESCRIPTION:${esc('בעוד 3 שעות: ' + title)}`, 'END:VALARM',
         'END:VEVENT', 'END:VCALENDAR'].filter(Boolean).join('\r\n');
-      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${tok.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
+      return new Response(ics, { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': `attachment; filename="ishur-${pub.slice(0, 8)}.ics"`, 'Cache-Control': 'no-store', ...cors(origin) } });
     }
     if (url.pathname.startsWith('/vid/') && request.method === 'GET') {
-      const tok = url.pathname.slice(5);
+      const tok = await fromPub(env, url.pathname.slice(5));
       if (!env.RATE || !/^[0-9a-f-]{36}$/.test(tok)) return new Response('not-found', { status: 404 });
       const v = await env.RATE.get('vid:' + tok, { type: 'arrayBuffer' });
       if (!v) return new Response('not-found', { status: 404 });
@@ -10983,6 +11871,18 @@ const WORKER = {
     }
     if (url.pathname === '/api/shir-calls' && request.method === 'POST') {
       return handleShirCalls(request, env, origin);
+    }
+    /* 16/11: the heavy admin reads answer at once from the last result and rebuild behind the response (swr.js).
+       Only for a request that carries a valid admin key; anything else falls through to the route as before. */
+    if (request.method === 'POST' && SWR_ROUTES[url.pathname] && !request.headers.get('x-swr-inner') && String(env.SWR_OFF || '') !== '1') {
+      let sb = null, stext = '';
+      try { stext = await request.clone().text(); sb = JSON.parse(stext); } catch { sb = null; }
+      if (sb && isAdmin(env, sb.admin_key)) {
+        const hit = await swrServe({ pathname: url.pathname, body: sb, env, ctx, produce: async () => {
+          const r = await WORKER.fetchMain(new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-swr-inner': '1', ...(origin ? { Origin: origin } : {}) }, body: stext }), env, ctx);
+          if (r.status !== 200) return null; const t = await r.text(); return /^\s*\{[\s\S]*"ok"\s*:\s*true/.test(t.slice(0, 400)) ? t : null; } }).catch(() => null);
+        if (hit) return new Response(hit.text, { status: 200, headers: { 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store', 'x-ishur-age': String(Math.round(hit.age_ms / 1000)), ...cors(origin) } });
+      }
     }
     if (url.pathname === '/api/ops-stats' && request.method === 'POST') {
       return handleOpsStats(request, env, origin);
@@ -11328,7 +12228,7 @@ const WORKER = {
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
       const from = normPhone(b.phone || '');
       const raw = await readSnapshot(env, 'send');
-      const guest = raw ? findGuestByPhone(raw, from, ilDate()) : null;
+      const guest = raw ? await guestForReply(env, raw, from) : null;
       if (!guest) return okJson({ ok: false, why: 'not-a-guest' }, origin);
       const say = (t) => sendText(env, from, t, 'guests', { who: 'שיר (מענה אוטומטי)' });
       const handled = await guestFreeText(env, raw, guest, from, String(b.text || ''), say);
@@ -11415,6 +12315,157 @@ const WORKER = {
     /* Richard 28/09 (clients page): one click sends the client a WhatsApp with
        the link to their dashboard, or to the upload/settings page. Free text
        inside the 24h window, otherwise the matching template. */
+    /* 17/11 Richard: the client's PIN for the personal area (phone + 4 digits). {token | phone, reset?} → {pin} */
+    if (url.pathname === '/api/client-pin' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      let phone = normPhone(b.phone || '');
+      if (!phone && b.token) { const rec = await tokenRecord(env, String(b.token).trim()); phone = rec ? normPhone(rec.phone || '') : ''; }
+      if (!/^972\d{8,9}$/.test(phone)) return deny(404, 'no-phone', origin);
+      const pin = b.reset ? await resetPin(env, phone) : await pinFor(env, phone);
+      if (b.reset) await logEvent(env, { area: 'אזור אישי', action: 'קוד כניסה הוחלף ע"י מנהל', ok: true, phone }).catch(() => {});
+      return okJson({ ok: true, pin, locked: !!(await env.RATE.get('acctpinlock:' + phone).catch(() => null)) }, origin);
+    }
+    /* 18/11 Richard: an email per client, typed in the clients screen. When it exists, the link buttons send by WhatsApp AND by email. */
+    if (url.pathname === '/api/client-contact' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      let phone = normPhone(b.phone || '');
+      if (!phone && b.token) { const rec = await tokenRecord(env, String(b.token).trim()); phone = rec ? normPhone(rec.phone || '') : ''; }
+      if (!/^972\d{8,9}$/.test(phone)) return deny(404, 'no-phone', origin);
+      const c = await readContact(env, phone);
+      if (b.email !== undefined) {
+        const e = String(b.email || '').trim();
+        if (e && !validEmail(e)) return deny(400, 'bad-email', origin);
+        c.email = e; c.at = new Date().toISOString();
+        await env.RATE.put('contact:' + phone, JSON.stringify(c));
+        await logEvent(env, { area: 'לקוחות', action: e ? 'מייל של לקוח עודכן מהניהול' : 'מייל של לקוח נמחק מהניהול', ok: true, phone }).catch(() => {});
+      }
+      return okJson({ ok: true, email: validEmail(c.email) ? String(c.email).trim() : '' }, origin);
+    }
+    /* 18/11 Richard: replace the client's phone on ONE event from the clients screen. Writes the events sheet (column D)
+       and the token record, and carries the email over. The sign-in code follows the phone, so it changes with it.
+       The client's other events, credit and old conversations stay on the old number. */
+    if (url.pathname === '/api/client-phone' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(), next = normPhone(b.phone || '');
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (!/^9725\d{8}$/.test(next)) return deny(400, 'bad-phone', origin);
+      const raw = await readSnapshot(env, 'write').catch(() => null);
+      const rows = (raw && raw.events && raw.events.values) || [];
+      const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === tok);
+      if (idx < 0) return deny(404, 'event-not-found', origin);
+      const cell = String(rows[idx][3] || '').trim(), prev = normPhone(cell);
+      if (prev === next) return okJson({ ok: true, phone: next, changed: false }, origin);
+      const okw = await sheetBatchWrite(env, [{ range: `אירועים!D${idx + 2}`, values: [[/^0/.test(cell) || !cell ? '0' + next.slice(3) : next]] }]);
+      if (!okw) { await logEvent(env, { area: 'לקוחות', action: 'החלפת טלפון של לקוח נכשלה בכתיבה לגיליון', ok: false, review: true, token: tok, phone: prev }).catch(() => {}); return deny(502, 'sheet-write-failed', origin); }
+      try { const rec = (await tokenRecord(env, tok)) || {}; await env.RATE.put('token:' + tok, JSON.stringify({ ...rec, phone: next }), { expirationTtl: TOKEN_TTL }); } catch {}
+      try { const oc = await readContact(env, prev), nc = await readContact(env, next); if (validEmail(oc.email) && !validEmail(nc.email)) await env.RATE.put('contact:' + next, JSON.stringify({ ...nc, email: String(oc.email).trim(), at: new Date().toISOString() })); } catch {}
+      await logEvent(env, { area: 'לקוחות', action: 'טלפון של לקוח הוחלף מהניהול', ok: true, review: true, token: tok, phone: next, detail: `${prev} → ${next}` }).catch(() => {});
+      return okJson({ ok: true, phone: next, changed: true, was: prev }, origin);
+    }
+    /* 18/11 Richard ("שמור את כל ההקלטות אי פעם"): check which calls are already kept, and keep the ones that are not,
+       straight from the voice provider. POST {admin_key, call_ids: [...up to 8], redo?} */
+    if (url.pathname === '/api/rec-archive' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.AUDIT_R2) return deny(503, 'no-bucket', origin);
+      const out = [];
+      for (const id of (Array.isArray(b.call_ids) ? b.call_ids : []).map(String).filter(x => /^[A-Za-z0-9_]{8,80}$/.test(x)).slice(0, 8)) {
+        const had = await env.AUDIT_R2.head('rec/' + id).catch(() => null);
+        if (had && had.customMetadata && had.customMetadata.name && !b.redo) { out.push({ id, state: 'kept', name: decodeURIComponent(had.customMetadata.name), bytes: had.size }); continue; }
+        if (b.check) { out.push({ id, state: had ? 'kept-no-details' : 'missing' }); continue; }
+        const c = await retellApi(env, '/v2/get-call/' + id).catch(() => null);
+        if (!c || !c.call_id) { out.push({ id, state: 'provider-has-no-call' }); continue; }
+        if (!c.recording_url) { out.push({ id, state: 'no-recording' }); continue; }
+        const md = c.metadata || {}, dv = c.retell_llm_dynamic_variables || {};
+        const kept = await audit.keepCall(env, c, { kind: md.kind, token: md.token, event_name: dv.event_name || md.event_name || '', outcome: (c.call_analysis && c.call_analysis.custom_analysis_data && c.call_analysis.custom_analysis_data.outcome) || '' }).catch(() => null);
+        out.push({ id, state: kept && kept.has_recording ? 'saved' : 'failed', name: kept && kept.name, bytes: kept && kept.bytes });
+      }
+      return okJson({ ok: true, results: out }, origin);
+    }
+    /* 18/11 Richard: "איך זה נראה למוזמנים" on the client board — the reminder, the day-before and the event-day messages
+       as THIS event would send them now (same resolvers the engine uses: nav link, gift links and seating decide the
+       version), filled with the event's own details and an invented guest. Read-only: nothing is sent or written. */
+    if (url.pathname === '/api/preview-messages' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:preview:' + (request.headers.get('CF-Connecting-IP') || 'x'), 40, 3600)) return deny(429, 'rate-limited', origin);
+      const raw = await readSnapshot(env, 'dashboard').catch(() => null);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === tok);
+      if (!ev) return deny(404, 'event-not-found', origin);
+      const tmplText = async name => {
+        const ck = 'tmpltext2:' + name;
+        let t = null; try { t = JSON.parse((await env.RATE.get(ck)) || 'null'); } catch {}
+        if (t) return t;
+        try {
+          const r = await fetch(`https://graph.facebook.com/v21.0/1378764257421712/message_templates?name=${encodeURIComponent(name)}&fields=name,status,category,components`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+          const j = await r.json(); const x = (j.data || []).find(y => y.name === name); if (!x) return null;
+          const comps = x.components || [], head = comps.find(c2 => c2.type === 'HEADER') || {};
+          t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', header_format: String(head.format || ''), body: (comps.find(c2 => c2.type === 'BODY') || {}).text || '', footer: (comps.find(c2 => c2.type === 'FOOTER') || {}).text || '', buttons: ((comps.find(c2 => c2.type === 'BUTTONS') || {}).buttons || []).map(z => z.text) };
+          await env.RATE.put(ck, JSON.stringify(t), { expirationTtl: 6 * 3600 }).catch(() => {});
+          return t;
+        } catch { return null; }
+      };
+      const fill = (body, params) => String(body || '').replace(/\{\{(\d+)\}\}/g, (m, i) => String(params[Number(i) - 1] ?? ''));
+      const c = k => String(ev[k] ?? '').trim();
+      const seated = ((raw.guests && raw.guests.values) || []).some(g => String(g[28] || '').trim() === tok && String(g[30] || '').trim());
+      const guest = { phone: '', name: 'דנה', table: seated ? '5' : '' };
+      const deps = { comboUsable: (e2, n) => giftVariantUsable(e2, n), giftOn: async (e2, t2) => giftActive(await giftLinksOf(e2, t2)), giftLinks: (e2, t2) => giftLinksOf(e2, t2), cleanLink, guestEventName, cleanParam, navOn: navOnFor };
+      const date = c(6).slice(0, 10), time = c(36), venue = [c(38), c(37)].filter(Boolean).join(', ');
+      const hasImg = env.RATE ? ((await env.RATE.list({ prefix: 'img:' + tok, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
+      const image = /^https:\/\//.test(c(44)) ? c(44) : hasImg ? 'https://go.ishur.io/img/' + ((await pubIdOf(env, tok).catch(() => '')) || tok) : '';
+      const out = [];
+      const add = async (key, title, when, name, params, withImage) => {
+        const t = name ? await tmplText(name) : null; if (!t || !t.body) return;
+        out.push({ key, title, when, text: fill(t.body, params), buttons: t.buttons || [], footer: t.footer || '', image: withImage && image ? image : '' });
+      };
+      try {
+        const db = await dayBeforeMessageFor(env, ev, guest, deps, { date: heDate(date), time, address: venue });
+        if (db && db.kind === 'combo') { const twin = image && env.RATE ? await env.RATE.get('tmplimg:' + db.template).catch(() => null) : null; await add('daybefore', 'יום לפני האירוע', 'יוצאת יום לפני, למי שאישר הגעה', db.template, db.params, !!twin); }
+        else await add('daybefore', 'יום לפני האירוע', 'יוצאת יום לפני, למי שאישר הגעה', 'ishur_yom_lifnei', ['דנה', guestEventName(ev, { article: false }), heDate(date), time || 'בשעות הערב', venue || 'פרטים אצל בעלי השמחה'], false);
+      } catch {}
+      try {
+        const ed = await eventDayMessage(env, ev, guest);
+        if (ed && ed.kind === 'combo') await add('eventday', 'יום האירוע', 'יוצאת בבוקר האירוע רק למי שלא קיבל את הפרטים יום לפני, או כשנוסף שולחן, ניווט או מתנה', ed.template, ed.params, false);
+      } catch {}
+      return okJson({ ok: true, guest: 'דנה', seated, messages: out }, origin);
+    }
+    /* 18/11 Richard: a written price quote in Morning (חשבונית ירוקה) with the order's special terms in its remarks.
+       POST {admin_key, action: 'types' | 'preview' | 'create', type, name, phone, email?, price (incl. VAT), description, remarks}.
+       'preview' returns the PDF without creating anything; 'create' issues the document. Nothing is sent to the client from here. */
+    if (url.pathname === '/api/quote-doc' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const mt = await morningToken(env).catch(() => null); if (!mt) return deny(502, 'morning-auth-failed', origin);
+      const MAPI = 'https://api.greeninvoice.co.il/api/v1', hd = { 'Content-Type': 'application/json', Authorization: 'Bearer ' + mt };
+      if (b.action === 'types') { const r = await fetch(MAPI + '/documents/types?lang=he', { headers: hd }).catch(() => null); return okJson({ ok: !!(r && r.ok), status: r && r.status, types: r ? await r.json().catch(() => null) : null }, origin); }
+      const items = (Array.isArray(b.items) ? b.items : []).map(x => ({ description: String((x && x.description) || '').slice(0, 160), quantity: 1, price: Number(x && x.price) || 0, currency: 'ILS', vatType: 1 })).filter(x => x.price > 0 && x.description).slice(0, 8);
+      const price = items.length ? items.reduce((a2, x) => a2 + x.price, 0) : Number(b.price) || 0, type = Number(b.type) || 0;
+      if (!price || !type || !String(b.name || '').trim()) return deny(400, 'missing-fields', origin);
+      const doc = { type, lang: 'he', currency: 'ILS', date: ilDate(), description: String(b.description || '').slice(0, 160), remarks: String(b.remarks || '').slice(0, 4000),
+        footer: 'שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io',
+        client: { name: String(b.name).slice(0, 100), phone: String(b.phone || ''), emails: b.email ? [String(b.email)] : [], country: 'IL', add: false },
+        income: items.length ? items : [{ description: String(b.description || '').slice(0, 160), quantity: 1, price, currency: 'ILS', vatType: 1 }] };
+      const r = await fetch(MAPI + (b.action === 'create' ? '/documents' : '/documents/preview'), { method: 'POST', headers: hd, body: JSON.stringify(doc) }).catch(() => null);
+      const j = r ? await r.json().catch(() => null) : null;
+      if (b.action === 'create') await logEvent(env, { area: 'כספים', action: 'הצעת מחיר הופקה בחשבונית ירוקה', ok: !!(r && r.ok && j && j.id), review: true, phone: normPhone(b.phone || ''), detail: `${b.name} · ₪${price} · ${String((j && (j.number || j.errorMessage)) || '').slice(0, 80)}` }).catch(() => {});
+      return okJson({ ok: !!(r && r.ok), status: r && r.status, result: j }, origin);
+    }
+    if (url.pathname === '/api/template-spaced' && request.method === 'POST') return handleTemplateSpaced(request, env, origin);
+    /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
+    if (url.pathname === '/api/mail-test' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const to = String(b.to || '').trim(); if (!validEmail(to)) return deny(400, 'bad-email', origin);
+      const link = 'https://go.ishur.io/dashboard.html?t=example', body = 'היי, הנה הקישור ללוח הבקרה של האירוע שלכם, שם רואים בכל רגע מי אישר:';
+      const m = await sendPlainEmail(env, { to, from: { email: 'info@ishur.io', name: 'ishur.io' }, subject: 'הקישור ללוח הבקרה שלכם',
+        text: `${body}\n${link}\n\nלכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד 0000\n\n(הודעת בדיקה)`,
+        html: `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;font-size:16px;color:#111"><p>${body}</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#14432F;color:#fff;border-radius:6px;text-decoration:none">לוח הבקרה</a></p><p>לכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד 0000</p><p style="color:#555;font-size:13px">${link} · הודעת בדיקה</p></div>` }).catch(e2 => ({ ok: false, error: String(e2) }));
+      return okJson({ ok: !!(m && m.ok), error: (m && m.error) || '', id: (m && m.message_id) || '' }, origin);
+    }
     if (url.pathname === '/api/client-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -11423,15 +12474,22 @@ const WORKER = {
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev) return deny(404, 'unknown-token', origin);
       const phone = normPhone(ev[3] || ''); const first = String(ev[2] || '').trim().split(/\s+/)[0] || '';
-      const evName = String(ev[34] || ev[5] || 'האירוע').trim();
+      /* 12/11 (Shilat): an event that has not been set up yet has no name of its own, and its "occasion" cell can be
+         stale — Make copies it from the client's old lead row, so a second purchase read "האירוע של חינה" and looked
+         like the old event's link. Until the client names the event the text says "the new event", with the date paid. */
+      const named = String(ev[34] || '').trim();
+      const evName = named || 'האירוע החדש שלכם';
       const kind = b.kind === 'upload' ? 'upload' : 'dashboard';
       const link = kind === 'upload' ? `https://go.ishur.io/upload.html?t=${tok}` : `https://go.ishur.io/dashboard.html?t=${tok}`;
       const text = kind === 'upload'
-        ? `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע של ${evName}:\n${link}`
-        : `היי ${first}, הנה הקישור ללוח הבקרה של ${evName}, שם רואים בכל רגע מי אישר:\n${link}`;
+        ? (named ? `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרות האירוע של ${evName}:\n${link}` : `היי ${first}, הנה הקישור להעלאת רשימת המוזמנים והגדרת האירוע החדש שלכם:\n${link}`)
+        : (named ? `היי ${first}, הנה הקישור ללוח הבקרה של ${evName}, שם רואים בכל רגע מי אישר:\n${link}` : `היי ${first}, הנה הקישור ללוח הבקרה של האירוע החדש שלכם:\n${link}`);
       const ctx = { who: 'ריצ׳רד', token: tok };
+      /* 17/11 Richard: the PIN for the personal area goes out with the board link */
+      const pin = kind === 'dashboard' ? await pinFor(env, phone) : '';
+      const pinLine = pin ? `\n\nלכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד ${pin}` : '';
       /* inside the 24h window a real button; otherwise a template */
-      let res = await sendCtaUrl(env, phone, text.split('\n')[0], kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה', link, 'client', ctx);
+      let res = await sendCtaUrl(env, phone, text.split('\n')[0] + pinLine, kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה', link, 'client', ctx);
       let via = 'button';
       if (!res.ok) {
         via = 'template';
@@ -11439,11 +12497,26 @@ const WORKER = {
         else {
           const snap = buildDashboard(tok, raw, 0, {});
           const t = snap.totals || {};
-          res = await sendTemplate(env, phone, 'ishur_doch', [evName, String(t.confirmed || 0), String(t.confirmed_seats || 0), String(t.declined || 0), String(t.pending || 0), link], '', 'he', 'client', ctx);
+          const [dn, dp] = await dochTemplate(env, phone, [evName, String(t.confirmed || 0), String(t.confirmed_seats || 0), String(t.declined || 0), String(t.pending || 0), link]);
+          res = await sendTemplate(env, phone, dn, dp, '', 'he', 'client', ctx);
         }
       }
       await logEvent(env, { area: 'לקוחות', action: `נשלח ללקוח קישור ל${kind === 'upload' ? 'העלאה' : 'לוח'} (${via})`, ok: res.ok, phone, token: tok, detail: res.error || '' }).catch(() => {});
-      return okJson({ ok: res.ok, via, error: res.error || '' }, origin);
+      /* the same message by email, when the client has one on file. A failed email never fails the WhatsApp send. */
+      let mail = '';
+      try {
+        const to = String((await readContact(env, phone)).email || '').trim();
+        if (validEmail(to)) {
+          const body = text.split('\n')[0], escH = x => String(x).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+          const pinTxt = pin ? `לכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד ${pin}` : '';
+          const m = await sendPlainEmail(env, { to, from: { email: 'info@ishur.io', name: 'ishur.io' }, subject: kind === 'upload' ? 'הקישור להעלאת רשימת המוזמנים' : 'הקישור ללוח הבקרה שלכם',
+            text: `${body}\n${link}${pinTxt ? '\n\n' + pinTxt : ''}`,
+            html: `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;font-size:16px;color:#111"><p>${escH(body)}</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#14432F;color:#fff;border-radius:6px;text-decoration:none">${kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה'}</a></p>${pinTxt ? `<p>${escH(pinTxt)}</p>` : ''}<p style="color:#555;font-size:13px">${escH(link)}</p></div>` }).catch(e2 => ({ ok: false, error: String(e2) }));
+          mail = m && m.ok ? 'sent' : 'failed';
+          await logEvent(env, { area: 'לקוחות', action: `קישור ל${kind === 'upload' ? 'העלאה' : 'לוח'} נשלח גם למייל`, ok: mail === 'sent', review: mail !== 'sent', phone, token: tok, detail: mail === 'sent' ? '' : String((m && m.error) || '').slice(0, 120) }).catch(() => {});
+        }
+      } catch {}
+      return okJson({ ok: res.ok, via, error: res.error || '', mail }, origin);
     }
     if (url.pathname === '/api/resend' && request.method === 'POST') {
       return handleResend(request, env, origin);
@@ -11504,7 +12577,7 @@ const WORKER = {
         const want = new Set(b.tok8s.map(x => String(x || '').slice(0, 8)).filter(Boolean).slice(0, 80));
         const events = {};
         const gAll = (raw && raw.guests && raw.guests.values) || [];
-        const nextDay = d => { let t = new Date(d + 'T12:00:00Z'); do { t = new Date(t.getTime() + 864e5); } while (t.getUTCDay() === 6); return t.toISOString().slice(0, 10); };
+        const nextDay = d => { let t = new Date(d + 'T12:00:00Z'); do { t = new Date(t.getTime() + 864e5); } while (t.getUTCDay() === 6 || t.getUTCDay() === 5); return t.toISOString().slice(0, 10); };   /* 18/11: not on Friday either */
         for (const r of (raw && raw.events && raw.events.values) || []) {
           const tk = String((r || [])[1] || '').trim(); if (!want.has(tk.slice(0, 8))) continue; const c = i => String(r[i] ?? '').trim();
           /* Shir's round: the morning after the last planned wave, to whoever has not answered (engine escalation, esc:<token>) */
@@ -11547,8 +12620,18 @@ const WORKER = {
         return okJson({ ok: true, order: order.map(t => t.slice(0, 8)) }, origin);
       }
       const token = full(b.tok8);
-      const send = { w1: 'invite', w2: 'reminder', w3: 'extra' }[String(b.type || '')];
       if (!token) return deny(404, 'event-not-found', origin);
+      /* 12/11 Richard ("תאפשר לי לערוך את כל התאריכים"): the call round and the thank-you get an explicit
+         day (KV override); the engine and the client board read the same key. */
+      if (b.type === 'calls' || b.type === 'thanks') {
+        const d = String(b.date || '').slice(0, 10);
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return deny(400, 'bad-date', origin);
+        await env.RATE.put((b.type === 'calls' ? 'calldate:' : 'todadate:') + token, d, { expirationTtl: 200 * 86400 });
+        if (b.type === 'calls') await env.RATE.delete('esc:' + token).catch(() => {});   /* a moved round re-opens the escalation for its new day */
+        await logEvent(env, { area: 'לוח', action: `${b.type === 'calls' ? 'סבב השיחות' : 'הודעת התודה'} הועבר/ה מהלוח → ${d}`, ok: true, token }).catch(() => {});
+        return okJson({ ok: true, type: b.type, date: d }, origin);
+      }
+      const send = { w1: 'invite', w2: 'reminder', w3: 'extra' }[String(b.type || '')];
       if (!send) return deny(400, 'only-waves-move', origin);
       const inner = new Request(request.url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token, send, date: String(b.date || '') }) });
       const res = await handleSendDate(inner, env, origin);
@@ -11697,8 +12780,10 @@ const WORKER = {
       const keys = await kvKeys(env, 'bic:', 20000);
       const now = Date.now();
       const stamps = keys.map(k => Number(k.split(':')[1])).filter(t => Number.isFinite(t) && now - t < 86400e3).sort((a, b2) => a - b2);
-      let tier = 250, tierName = 'TIER_250';
+      let tier = 250, tierName = 'TIER_250'; const graph = {};
       try {
+        /* 12/11: every guest number, raw, so a stale/failed tier read is visible instead of a silent 250 */
+        for (const id of guestPhoneIds(env)) { const r0 = await fetch(`https://graph.facebook.com/v21.0/${id}?fields=messaging_limit_tier,quality_rating,display_phone_number`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } }); graph[id] = await r0.json().catch(() => ({ status: r0.status })); }
         const r = await fetch(`https://graph.facebook.com/v21.0/${env.WA_PHONE_ID_GUESTS}?fields=messaging_limit_tier`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
         const j = await r.json(); tierName = j.messaging_limit_tier || tierName;
         tier = ({ TIER_50: 50, TIER_250: 250, TIER_1K: 1000, TIER_10K: 10000, TIER_100K: 100000, TIER_UNLIMITED: 0 })[tierName] ?? 250;
@@ -11717,8 +12802,9 @@ const WORKER = {
       const lateQ = Object.keys(await kvPrefix(env, 'lateinv:').catch(() => ({}))).length;
       const budget = cap ? { ...cap, portfolio_limit: cap.scope === 'number' ? cap.limit : (Number(env.GUEST_PORTFOLIO_BUDGET) > 0 ? guestPortfolioBudget(env) : cap.limit),
         per_number_limit: cap.numbers.length ? Math.max(...cap.numbers.map(n => n.limit)) : 0, left: cap.remaining, late_invites_waiting: lateQ } : { late_invites_waiting: lateQ };
-      return okJson({ ok: true, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
+      return okJson({ ok: true, graph, tier: tierName, limit: tier, used, left, capped, frees_at: freesAt, oldest_expires_at: windowOpensAt, counting_since: '2026-10-20T11:00:00Z', budget }, origin);
     }
+    if (url.pathname === '/api/wave-rest' && request.method === 'POST') return handleWaveRest(request, env, origin);
     if (url.pathname === '/api/wave-audit' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -11785,7 +12871,12 @@ const WORKER = {
     /* coexist.html posts Meta's Embedded Signup FINISH payload here, so the
        new phone_number_id / waba_id are in the log even if the tab closes */
     if (url.pathname === '/api/coexist-done' && request.method === 'POST') {
-      let b = {}; try { b = await request.json(); } catch {}
+      /* 12/11 security: this route is public (Meta's Embedded Signup calls back into the page), so it is bounded:
+         a few calls an hour per address, ids are digits only, and nothing but the three ids is kept or posted */
+      if (await overBudget(env, 'rl:coexist:' + (request.headers.get('CF-Connecting-IP') || 'x'), 5, 3600)) return deny(429, 'slow-down', origin);
+      let b0 = {}; try { b0 = await request.json(); } catch {}
+      const idOf = v => String(v == null ? '' : v).replace(/\D/g, '').slice(0, 24);
+      const b = { phone_number_id: idOf(b0 && b0.phone_number_id), waba_id: idOf(b0 && b0.waba_id), business_id: idOf(b0 && b0.business_id) };
       const detail = `phone_number_id=${b.phone_number_id || '?'} · waba_id=${b.waba_id || '?'} · business_id=${b.business_id || '?'}`;
       if (env.RATE) await env.RATE.put('coexist:last', JSON.stringify({ ...b, at: new Date().toISOString() }), { expirationTtl: 30 * 86400 }).catch(() => {});
       await logEvent(env, { area: 'ווצאפ', action: 'נועה חוברה ב-coexistence (Embedded Signup)', ok: true, detail }).catch(() => {});
@@ -11823,8 +12914,15 @@ const WORKER = {
       return okJson({ ok: true, token: tok, since: new Date(since).toISOString(), guests: out.length, tally, rows: out }, origin);
     }
     if (url.pathname.startsWith('/rec/') && request.method === 'GET') {
-      const k = url.searchParams.get('key') || '';
-      return audit.serveRecording(env, url, !!(k && isAdmin(env, k)));
+      /* 12/11 security: the admin pages send the key in a header (X-Admin-Key) and play the answer from a blob, so the
+         key is not part of a URL any more. ?key= is still read for pages a browser has cached. A session token is
+         accepted like the raw key. Signed links (?e=&s=) need neither. */
+      const hk = request.headers.get('X-Admin-Key') || '';
+      const k = hk || url.searchParams.get('key') || '';
+      const res = await audit.serveRecording(env, url, !!(k && await adminKeyOk(env, k)));
+      if (!hk) return res;
+      const h = new Headers(res.headers); for (const [n, v] of Object.entries(cors(origin))) h.set(n, v);
+      return new Response(res.body, { status: res.status, headers: h });
     }
     /* 22/10: the full audit log, filtered; CSV or JSON, every row re-verified */
     /* 01/11: automations registry + live state + 7-day read-only projection (automations.html).
@@ -11851,7 +12949,9 @@ const WORKER = {
     if (url.pathname === '/api/monday-hook' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return okJson({ ok: false }, origin); }
       if (b.challenge) return new Response(JSON.stringify({ challenge: b.challenge }), { headers: { 'Content-Type': 'application/json' } });
-      if ((url.searchParams.get('k') || '') !== (env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '')) return deny(403, 'bad-key', origin);
+      { /* 12/11 security: no configured key = closed (it used to compare '' to '' and pass), and the compare is constant-time */
+        const want = String(env.MONDAY_HOOK_KEY || env.ADMIN_KEY || '');
+        if (!want || !safeEqual(String(url.searchParams.get('k') || ''), want)) return deny(403, 'bad-key', origin); }
       const e = b.event || {};
       const t = String(e.type || '');
       const name = String(e.pulseName || e.itemName || '').trim();
@@ -11963,7 +13063,7 @@ const WORKER = {
       const videoUrl = hasVideo ? 'https://go.ishur.io/vid/' + token : '';
       const useImg = !hasVideo && !!(imgTmpl && invite);
       const custom = await customTemplateFor(env, token);
-      const tmpl = custom ? custom.name : (hasVideo ? vidTmpl : useImg ? imgTmpl : inviteTmpl);
+      const tmpl = custom ? custom.name : await styledTemplate(env, token, hasVideo ? 'vid' : useImg ? 'img' : 'text', hasVideo ? vidTmpl : useImg ? imgTmpl : inviteTmpl);
       const wa = custom
         ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, token, name, preview: true })
         : await sendTemplate(env, phone, tmpl, [name, occasion, hosts, date, time, venue], hasVideo ? videoUrl : useImg ? invite : '', 'he', 'guests', { occasion, token, name, preview: true });
@@ -12016,6 +13116,23 @@ const WORKER = {
       await logEvent(env, { area: 'מטא', action: j.id ? 'תבנית ishur_kod הוגשה על מספר האורחים' : 'הגשת ishur_kod על מספר האורחים נכשלה', ok: !!j.id, review: !j.id, ref: 'ishur_kod', detail: j.id ? `id ${j.id} · ${j.status || ''}` : String((j.error && (j.error.error_user_msg || j.error.message)) || 'submit-failed').slice(0, 200) }).catch(() => {});
       return okJson({ ok: !!j.id, id: j.id || '', status: j.status || '', error: j.error ? String(j.error.error_user_msg || j.error.message || '').slice(0, 200) : '' }, origin);
     }
+    /* 17/11 Richard ("כן"): submit ishur_doch_kod — the report template plus one line with the client's PIN. {check:true} only reads its state */
+    if (url.pathname === '/api/pin-template' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const waba = clientWaba(env), H = { Authorization: 'Bearer ' + clientToken(env), 'Content-Type': 'application/json' };
+      const cur = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=ishur_doch_kod&fields=name,status,category,language,rejected_reason`, { headers: H }).then(r => r.json()).catch(() => ({}));
+      const have = (cur.data || []).filter(t => t.name === 'ishur_doch_kod');
+      if (b.check === true || have.length) return okJson({ ok: true, exists: have.length > 0, templates: have, live: env.RATE ? await env.RATE.get('tmplpin:ishur_doch') : null }, origin);
+      const payload = { name: 'ishur_doch_kod', language: 'he', category: 'UTILITY', components: [
+        { type: 'BODY', text: 'היי, הנה עדכון המצב על {{1}} נכון להיום.\n\nמספר האורחים שאישרו הגעה עד כה: {{2}}, ובסך הכל {{3}} סועדים.\nמספר המוזמנים שהודיעו שלא יגיעו: {{4}}.\nמספר המוזמנים שטרם השיבו: {{5}}.\n\nאת כל הפרטים, כולל רשימת האורחים המלאה, אפשר לראות בלוח הבקרה האישי שלכם:\n{{6}}\n\nקוד הכניסה שלכם ללוח: {{7}}\n\nאנחנו כאן לכל שאלה.',
+          example: { body_text: [['החתונה של דנה ויואב', '84', '132', '9', '57', 'https://ishur.io/dashboard.html?t=example', '4827']] } },
+        { type: 'FOOTER', text: 'ishur.io · אישורי הגעה בוואטסאפ' } ] };
+      const r = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: H, body: JSON.stringify(payload) }).catch(() => null);
+      const j = r ? await r.json().catch(() => ({})) : {};
+      await logEvent(env, { area: 'מטא', action: j.id ? 'תבנית ishur_doch_kod (דוח + קוד כניסה) הוגשה' : 'הגשת ishur_doch_kod נכשלה', ok: !!j.id, review: !j.id, ref: 'ishur_doch_kod', detail: j.id ? `id ${j.id} · ${j.status || ''}` : String((j.error && (j.error.error_user_msg || j.error.message)) || '').slice(0, 200) }).catch(() => {});
+      return okJson({ ok: !!j.id, id: j.id || '', status: j.status || '', category: j.category || '', error: j.error ? String(j.error.error_user_msg || j.error.message || '').slice(0, 200) : '' }, origin);
+    }
     if (url.pathname === '/api/meta-admin' && request.method === 'POST') {
       return handleMetaAdmin(request, env, origin);
     }
@@ -12026,7 +13143,7 @@ const WORKER = {
       const names = [...new Set((Array.isArray(b.names) ? b.names : []).map(n => String(n || '').trim()).filter(n => /^[a-z0-9_]{1,80}$/.test(n)))].slice(0, 12);
       const out = {};
       for (const name of names) {
-        const ck = 'tmpltext:' + name;
+        const ck = 'tmpltext2:' + name;
         let t = null; try { t = env.RATE ? JSON.parse((await env.RATE.get(ck)) || 'null') : null; } catch {}
         if (!t) {
           for (const [waba, tok] of [['1378764257421712', env.WA_TOKEN_GUESTS], [clientWaba(env), clientToken(env)]]) {
@@ -12039,7 +13156,7 @@ const WORKER = {
               const body = (comps.find(c => c.type === 'BODY') || {}).text || '';
               const head = (comps.find(c => c.type === 'HEADER') || {});
               const btns = ((comps.find(c => c.type === 'BUTTONS') || {}).buttons || []).map(z => z.text);
-              t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', body, footer: (comps.find(c => c.type === 'FOOTER') || {}).text || '', buttons: btns };
+              t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', header_format: String(head.format || ''), body, footer: (comps.find(c => c.type === 'FOOTER') || {}).text || '', buttons: btns };
               break;
             } catch {}
           }
@@ -12047,7 +13164,22 @@ const WORKER = {
         }
         out[name] = t || { name, missing: true };
       }
-      return okJson({ ok: true, templates: out }, origin);
+      /* 16/11: the picture or video THIS event sends in the header, so the board shows the message as the guest sees it */
+      let media = null;
+      const t8 = String(b.tok8 || '').trim();
+      if (/^[0-9a-f]{8}$/.test(t8)) {
+        try {
+          const raw = await readSnapshot(env, 'guest');
+          const ev = ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim().startsWith(t8));
+          if (ev) {
+            const token = String(ev[1]).trim(), img = String(ev[44] || '').trim();
+            const vid = env.RATE ? ((await env.RATE.list({ prefix: 'vid:' + token, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
+            const hasImg = !/^https:\/\//.test(img) && env.RATE ? ((await env.RATE.list({ prefix: 'img:' + token, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
+            media = { image: /^https:\/\//.test(img) ? img : hasImg ? 'https://' + url.hostname + '/img/' + token : '', video: vid ? 'https://' + url.hostname + '/vid/' + token : '' };
+          }
+        } catch {}
+      }
+      return okJson({ ok: true, templates: out, media, flow: guestFlow() }, origin);
     }
     /* 01/11: per-template performance from the audit log (templates.html) */
     if (url.pathname === '/api/template-stats' && request.method === 'POST') {
@@ -12079,7 +13211,7 @@ const WORKER = {
        Public, the 36-char event token is the secret (like rsvp-info); no phone numbers go out. */
     if (url.pathname === '/api/table-lookup' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:tlookup:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
@@ -12110,7 +13242,7 @@ const WORKER = {
     if (url.pathname === '/api/rsvp-info' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpinfo:' + ip, 120, 3600)) return deny(429, 'slow-down', origin);
@@ -12120,17 +13252,18 @@ const WORKER = {
       const c = i => String(ev[i] ?? '').trim();
       const [vidOk, nav] = await Promise.all([env.RATE.get('vidok:' + tok), env.RATE.get('navlink:' + tok)]);
       return okJson({ ok: true, occasion: c(5), hosts: c(34) || c(2), date: c(6).slice(0, 10), time: c(36), venue: c(4), city: c(37), address: c(38),
-        image_url: c(44) || '', video_url: vidOk ? 'https://go.ishur.io/vid/' + tok : '', nav_link: nav || '', roles: c(47) }, origin);
+        /* the artwork addresses carry the public id too — the real token never reaches a guest page */
+        image_url: (c(44) || '').split(tok).join(await pubIdOf(env, tok)), video_url: vidOk ? 'https://go.ishur.io/vid/' + await pubIdOf(env, tok) : '', nav_link: nav || '', roles: c(47) }, origin);
     }
     if (url.pathname === '/api/rsvp-self' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
-      const tok = String(b.token || '').trim();
+      const tok = await fromPub(env, String(b.token || '').trim());
       const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec) return deny(404, 'bad-token', origin);
       const ip = request.headers.get('CF-Connecting-IP') || 'x';
       if (await overBudget(env, 'rl:rsvpself:' + ip, 10, 3600)) return deny(429, 'slow-down', origin);
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
@@ -12142,8 +13275,10 @@ const WORKER = {
       const existing = gRows.find(g => normPhone(g[4] || '') === phone);
       if (existing) {
         /* already on the list (invited by the hosts): this is simply their answer */
-        const guest = findGuestByPhone(raw, phone, ilDate());
-        if (guest) await writeGuestReply(env, guest, 'מגיע', party).catch(() => {});
+        /* 15/11: the link belongs to ONE event — the answer goes on that event's row, never on another
+           list this phone happens to be on (findGuestByPhone picks by phone across all events) */
+        const gid = String(existing[2] || '').trim();
+        if (gid) await writeGuestReply(env, { guest_id: gid, token: tok }, 'מגיע', party).catch(() => {});
         await logEvent(env, { area: 'ווצאפ', action: 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
         return okJson({ ok: true, existing: true }, origin);
       }
@@ -12171,7 +13306,7 @@ const WORKER = {
     if (url.pathname === '/api/hostess-ics-url' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
-      const key = await sha256Hex(String(env.APP_KEY || '') + '|hostess-ics');
+      const key = await hostessIcsKey(env);
       return okJson({ ok: true, url: 'https://go.ishur.io/cal/hostess-' + key.slice(0, 24) + '.ics' }, origin);
     }
     if (url.pathname === '/api/design-brief' && request.method === 'POST') {
@@ -12182,15 +13317,30 @@ const WORKER = {
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       /* generous: the page re-checks on every field change and retries quietly */
       if (await overBudget(env, 'rl:hcheck:' + (request.headers.get('CF-Connecting-IP') || 'x'), 400, 3600)) return deny(429, 'slow-down', origin);
-      const date = String(b.date || '').slice(0, 10);
+      /* 12/11 Richard: from the client board the hostess is an ADD-ON — the package is
+         already paid, so only the hostess (+ travel) is charged, and the event's own
+         date / city / size fill whatever the page did not send */
+      let addonEv = null, addonMode = false;
+      if (b.addon === true && /^[0-9a-f-]{36}$/.test(String(b.token || ''))) {
+        const tr0 = await tokenRecord(env, String(b.token));
+        if (tr0) {
+          addonMode = true;
+          try { const raw0 = await readSnapshot(env, 'dashboard'); addonEv = eventsForPhone(raw0, normPhone(tr0.phone || '')).find(e => e.token === String(b.token)) || null; } catch {}
+        }
+      }
+      const isoOf = v => { const x = String(v || '').trim(); const m = x.match(/^(\d{1,2})[./](\d{1,2})[./](\d{4})/); return m ? `${m[3]}-${m[2].padStart(2, '0')}-${m[1].padStart(2, '0')}` : x.slice(0, 10); };
+      let date = isoOf(b.date);
+      if (addonMode && !/^\d{4}-\d{2}-\d{2}$/.test(date) && addonEv) date = isoOf(addonEv.event_date);
       if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || date < ilDate()) return okJson({ ok: false, why: 'bad-date' }, origin);
-      const city = String(b.city || '').replace(/[\u200e\u200f'"]/g, '').trim().slice(0, 40);
+      let city = String(b.city || '').replace(/[\u200e\u200f'"<>]/g, '').trim().slice(0, 40);
+      if (addonMode && city.length < 2 && addonEv) city = String(addonEv.venue_city || '').replace(/[\u200e\u200f'"<>]/g, '').trim().slice(0, 40);
       if (city.length < 2) return okJson({ ok: false, why: 'bad-city' }, origin);
-      const guests = parseInt(String(b.guests || ''), 10) || 0;
+      let guests = parseInt(String(b.guests || ''), 10) || 0;
+      if (addonMode && !guests) { try { guests = Number(await tierWithPromo(env, String(b.token), 0)) || 0; } catch {} }
       let plan = /^(basic|pro|premium)$/.test(String(b.plan || '')) ? String(b.plan) : '';
       const PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
       const PLAN_TEXT = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' };
-      if (!PRICES[guests] || !plan) return okJson({ ok: false, why: 'bad-package' }, origin);
+      if (!addonMode && (!PRICES[guests] || !plan)) return okJson({ ok: false, why: 'bad-package' }, origin);
       /* Richard 03/11 (global): hostesses wanted → under 300 records one, 300+ two (paylink.hostessesFor) */
       const n = hostessesFor(guests, true);
       const hostessPrice = HOSTESS_PRICE[n] || HOSTESS_PRICE[2];
@@ -12199,7 +13349,7 @@ const WORKER = {
          else the live bundle for it. Design free, plan becomes הכל כלול. */
       const bundle0 = PL_BUNDLES[String(b.offer || '')] || null;
       const named = bundle0 && bundleLive(bundle0) && bundle0.hostesses === n && bundle0.guests.includes(guests) ? String(b.offer) : '';
-      const bundleKey = named || pickBundle(guests, n);
+      const bundleKey = addonMode ? '' : (named || pickBundle(guests, n));
       const bundle = bundleKey ? PL_BUNDLES[bundleKey] : null;
       const bundleOn = !!bundle;
       /* 03/11: invitation design rides along — free with a bundle, ₪79 otherwise */
@@ -12249,13 +13399,13 @@ const WORKER = {
         const tr = await tokenRecord(env, String(b.token));
         if (tr) { if (!phone) phone = normPhone(tr.phone || ''); if (!name) name = String(tr.name || '').trim().slice(0, 60); }
       }
-      const listTotal = PRICES[guests][plan] + hostessPrice + travel + designPrice;
+      const listTotal = addonMode ? hostessPrice + travel : PRICES[guests][plan] + hostessPrice + travel + designPrice;
       const total = bundleOn ? bundle.total + travel : listTotal;
       /* Richard 05/10: the Grow title says "כולל דיילת/2 דיילות", travel
          is inside the sum and travels in cField2 (read back at payment).
          parsePaidDesc reads tier / plan / hostesses from the same words, so a
          bundle keeps them and only adds its tag at the end. */
-      const desc = `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + bundleKey : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
+      const desc = addonMode ? `תוספת: ${n === 1 ? 'דיילת לאירוע' : n + ' דיילות לאירוע'} · ${String(b.token).slice(0, 8)}` : `${guests} רשומות ${PLAN_TEXT[plan]} כולל ${n === 1 ? 'דיילת' : n + ' דיילות'}${bundleOn ? ' · מבצע ' + bundleKey : ''}${withDesign ? (bundleOn ? ' + עיצוב הזמנה במתנה' : ' + עיצוב הזמנה') : ''}`;
       /* a design order carries the structured code (paylink.js) so the IPN grants it */
       const pkgCode = withDesign ? '|' + buildCode({ plan, records: guests, design: true, hostesses: n, travel: travel > 0, extra_wave: false, calls: false }) : '';
       let payUrl = '';
@@ -12264,7 +13414,7 @@ const WORKER = {
       if (available && env.GROW_LINK_HOOK && b.link !== false) {
         try {
           const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ sum: total, description: desc, token: '', kind: 'hostess', scope: city, label: desc, n,
+            body: JSON.stringify({ sum: total, description: desc, ...(addonMode ? { title: desc.replace(/ · [0-9a-f]{8}$/, '') } : {}), token: addonMode ? String(b.token) : '', kind: 'hostess', scope: city, label: desc, n,
               name: name || 'לקוח ishur', phone: phone ? phone.replace(/^972/, '0') : '',
               successUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token + '&paid=hostess' : 'https://ishur.io/thanks.html?hostess=' + n, cancelUrl: /^[0-9a-f-]{36}$/.test(String(b.token || '')) ? 'https://ishur.io/dashboard.html?t=' + b.token : 'https://ishur.io/#pricing',
               cField1: date, cField2: 'hostess:' + n + ':travel:' + travel + ':' + city + pkgCode }) }).catch(() => null);
@@ -12278,7 +13428,7 @@ const WORKER = {
         detail: `${date} · ${city} · ${n} דיילות · נסיעות ${travel} · סה"כ ${total}${payUrl ? ' · קישור נוצר' : ' · בלי קישור'}${calNote ? ' · ' + calNote : ''}` }).catch(() => {});
       if (available && env.GROW_LINK_HOOK && b.link !== false && !payUrl) await slackSend(env, `⚠️ *דיילות: לא נוצר קישור תשלום* · ${name || phone || '?'} · ${date} · ${city} · ₪${total} — הלקוח יופנה לוואטסאפ, לבדוק את Make (ishur - addon payment link)`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: one hostess request */
       if (!available) await slackSend(env, `📅 *דיילות: תאריך תפוס* · ${name || phone || '?'} · ${date} · ${city} · ${guests} רשומות — הלקוח קיבל "אין דיילת פנויה"`, { urgent: true, oneoff: true }).catch(() => {});   /* oneoff: one hostess request */
-      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: PRICES[guests][plan], design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
+      return okJson({ ok: true, available, n, travel, center, total, hostess_price: hostessPrice, package_price: addonMode ? 0 : PRICES[guests][plan], addon: addonMode, design_price: withDesign ? designPrice : null, url: payUrl, desc, cal: calNote || 'ok',
         ...(bundleOn ? { bundle: { key: bundleKey, list_total: listTotal, total } } : {}) }, origin);
     }
     /* the client's navigation link (Waze / Google Maps), sent in the day-before
@@ -12375,7 +13525,14 @@ const WORKER = {
       return handleCostLog(request, env, origin);
     }
     /* 12/11 personal-area (account.html): phone → code → session → events / credit / contact */
-    if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') return handleAccount(request, env, origin, url, accountDeps());
+    if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') {
+      /* 18/11: a thrown error here reached the client as "wrong code". It is now recorded with its text and answered as a temporary failure the page retries. */
+      try { return await handleAccount(request, env, origin, url, accountDeps()); }
+      catch (e) {
+        await logEvent(env, { area: 'אזור אישי', action: 'תקלה בשרת בזמן כניסה: ' + url.pathname.replace('/api/account/', ''), ok: false, review: true, detail: String((e && e.message) || e).slice(0, 200) }).catch(() => {});
+        return deny(503, 'try-again', origin);
+      }
+    }
     if (url.pathname === '/api/review-claim' && request.method === 'POST') return handleReviewClaim(request, env, origin, accountDeps());
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);
@@ -12453,6 +13610,102 @@ const WORKER = {
       return okJson({ ok: true, token: tok, active: !(await env.RATE.get('inactive:' + tok)) }, origin);
     }
     /* the flags the clients page shows next to each event, one call */
+    /* ── 12/11 הזמן חבר ──────────────────────────────────────────────────── */
+    /* public: what the site may know about a code (mode + first name) */
+    if (url.pathname === '/api/referral' && request.method === 'GET') {
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:ref:' + ip, 120, 600)) return deny(429, 'rate-limited', origin);
+      const code = String(url.searchParams.get('code') || '').toLowerCase();
+      if (!REF.isCode(code)) return okJson({ ok: false }, origin);
+      const ref = await refOf(env, code);
+      /* 12/11: "how many came in through the link" — one per visitor per day */
+      if (ref && env.RATE) {
+        try {
+          const seen = 'refseen:' + code + ':' + ip;
+          if (!(await env.RATE.get(seen))) {
+            await env.RATE.put(seen, '1', { expirationTtl: 86400 });
+            let h = null; try { h = JSON.parse(await env.RATE.get('refhits:' + code) || 'null'); } catch {}
+            await env.RATE.put('refhits:' + code, JSON.stringify(refHitAdd(h, ilDate())), { expirationTtl: REF_TTL });
+          }
+        } catch {}
+      }
+      return okJson(REF.publicRef(ref), origin);
+    }
+    /* the client's choice, from the dashboard (the token is the credential) */
+    if (url.pathname === '/api/referral' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const token = String(b.token || '').toLowerCase();
+      const rec = await tokenRecord(env, token);
+      if (!rec) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:refset:' + token, 30, 3600)) return deny(429, 'slow-down', origin);
+      const code = REF.codeOf(token);
+      if (!REF.MODES.includes(b.mode)) return okJson({ ok: false, error: 'bad-mode' }, origin);
+      /* 12/11 Richard: two fixed links per client — the old code is always the discount link, the second code is always
+         the commission link. The choice only says which ONE the card shows, and can change at any time: a link that
+         was already published keeps its meaning. A code that earned commission under the old rule stays commission. */
+      const code2 = REF.codeOfCommission(token);
+      const ref = await refOf(env, code);
+      const mk = REF.newRef({ token, phone: rec.phone, name: rec.name, mode: 'discount' });
+      if (!mk.ok) return okJson({ ok: false, error: mk.error }, origin);
+      const legacy = !!(ref && ref.mode === 'commission' && (await refRecordsOf(env, code)).length);
+      await env.RATE.put('ref:' + code, JSON.stringify(legacy ? { ...ref, view: b.mode } : { ...mk.ref, at: (ref && ref.at) || mk.ref.at, locked: true, view: b.mode }), { expirationTtl: REF_TTL });
+      if (!(await refOf(env, code2))) await env.RATE.put('ref:' + code2, JSON.stringify({ ...mk.ref, code: code2, mode: 'commission', locked: true }), { expirationTtl: REF_TTL });
+      await logEvent(env, { area: 'הפניות', action: `הלקוח בחר ${b.mode === 'discount' ? '20% הנחה לחברים' : '20% עמלה'}`, ok: true, phone: rec.phone, token }).catch(() => {});
+      return okJson({ ok: true, ...(await referralSummary(env, token, rec)) }, origin);
+    }
+    /* the site, right before it sends a referred friend to Grow: remember code ↔ phone (30d)
+       so the IPN attributes the payment even if Grow never echoes cField3 */
+    if (url.pathname === '/api/ref-touch' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const stampError = await checkStamp(b, env.APP_KEY);
+      if (stampError) return deny(403, stampError, origin);
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:reftouch:' + ip, 20, 3600)) return deny(429, 'slow-down', origin);
+      const code = String(b.code || '').toLowerCase(), phone = normPhone(b.phone || '');
+      if (!REF.isCode(code) || !phone) return okJson({ ok: false }, origin);
+      if (!(await refOf(env, code))) return okJson({ ok: false }, origin);
+      await env.RATE.put('refpend:' + phone, code, { expirationTtl: 30 * 86400 });
+      return okJson({ ok: true }, origin);
+    }
+    if (url.pathname === '/api/staff-checkin' && request.method === 'POST') return handleCheckin(request, env, origin, { okJson, deny, overBudget, ilDate, ilTime, logEvent });
+    if (url.pathname === '/api/staff-photo' && request.method === 'GET') return handleStaffPhoto(env, url);
+    if (url.pathname === '/api/staff' && request.method === 'POST') return handleStaff(request, env, origin, { okJson, deny, isAdmin, normPhone, sendCtaUrl, logEvent });
+    if (url.pathname.startsWith('/api/partner/')) return handlePartner(request, env, origin, url, { okJson, deny, isAdmin, overBudget, logEvent, refRecordsOf, REF_TTL, normPhone });
+    /* admin: everything, for clients.html › הפניות */
+    if (url.pathname === '/api/referrals' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const refs = [], records = [], ledgers = {};
+      for (const k of (await env.RATE.list({ prefix: 'ref:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) refs.push(r); } catch {} }
+      for (const k of (await env.RATE.list({ prefix: 'refrec:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) records.push(r); } catch {} }
+      for (const k of (await env.RATE.list({ prefix: 'credit:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) { try { const r = JSON.parse(await env.RATE.get(k.name) || 'null'); if (r) ledgers[k.name.slice(7)] = r; } catch {} }
+      records.sort((a, c) => String(c.at).localeCompare(String(a.at)));
+      return okJson({ ok: true, refs, records, ledgers: Object.fromEntries(Object.entries(ledgers).map(([p, l]) => [p, { ...l, balance: REF.ledgerBalance(l) }])), pending_line: REF.pendingLine(Object.values(ledgers)) }, origin);
+    }
+    if (url.pathname === '/api/referrals/act' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const who = String(b.who || '').slice(0, 40);
+      if (b.act === 'verify') {
+        const id = String(b.id || '');
+        if (!/^[0-9a-f]{8}:/.test(id)) return deny(400, 'bad-id', origin);
+        return okJson(await referralVerify(env, id, { by: 'manual', who }), origin);
+      }
+      if (b.act === 'redeem') {
+        /* marks every verified record of this referrer redeemed and zeroes the ledger */
+        const phone = normPhone(b.phone || '');
+        if (!phone) return deny(400, 'bad-phone', origin);
+        const L = await ledgerOf(env, phone);
+        const r = REF.ledgerRedeem(L, { note: String(b.note || '').slice(0, 80) });
+        await env.RATE.put('credit:' + phone, JSON.stringify(r.ledger));
+        for (const k of (await env.RATE.list({ prefix: 'refrec:', limit: 1000 }).catch(() => ({ keys: [] }))).keys || []) {
+          try { const rec = JSON.parse(await env.RATE.get(k.name) || 'null'); if (rec && rec.referrer_phone === phone) { const rr = REF.redeemRecord(rec); if (rr.changed) await env.RATE.put(k.name, JSON.stringify(rr.rec), { expirationTtl: REF_TTL }); } } catch {}
+        }
+        await logEvent(env, { area: 'הפניות', action: `זיכוי ₪${r.redeemed} מומש${who ? ' · ' + who : ''}`, ok: true, phone, detail: String(b.note || '') }).catch(() => {});
+        return okJson({ ok: true, redeemed: r.redeemed }, origin);
+      }
+      return deny(400, 'bad-act', origin);
+    }
     if (url.pathname === '/api/client-flags' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -12468,6 +13721,7 @@ const WORKER = {
     }
     if (url.pathname === '/api/design-flow' && request.method === 'POST') return handleDesignFlow(request, env, origin, url.hostname);
     if (url.pathname === '/api/design-version' && request.method === 'POST') return handleDesignVersion(request, env, origin, url.hostname);
+    if (url.pathname === '/api/design-list' && request.method === 'POST') return handleDesignList(request, env, origin, url.hostname);
     /* token-scoped read of a design file: the key itself carries the token, so
        one event's link can never open another event's file */
     if (url.pathname === '/api/design-file' && request.method === 'GET') {
@@ -12574,7 +13828,7 @@ const WORKER = {
       if (!rec) return deny(404, 'unknown-token', origin);
       if (await overBudget(env, 'rl:gedit:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
       const gid = String(b.guest_id || '').trim();
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = b.phone != null ? normPhone(b.phone || '') : '';
       if (!name) return deny(400, 'bad-name', origin);
       if (b.phone != null && !isWaPhone(phone)) return deny(400, 'bad-phone', origin);
@@ -12699,7 +13953,7 @@ const WORKER = {
       if (b.query) return okJson({ ok: true, used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
       if (b.mode === 'tier' && tier.left <= 0) return okJson({ ok: false, error: 'tier-full', used, left: Math.max(0, LIMIT - used), limit: LIMIT, tier }, origin);
       if (mode === 'free' && used >= LIMIT) return okJson({ ok: false, error: 'limit', used, left: 0, limit: LIMIT, tier }, origin);
-      const name = String(b.name || '').trim().slice(0, 60);
+      const name = String(b.name || '').replace(/[<>]/g, '').trim().slice(0, 60);   /* 12/11 security: a name is text, never markup */
       const phone = normPhone(b.phone || '');
       const party = Math.max(1, Math.min(20, parseInt(b.party, 10) || 1));
       if (!name) return deny(400, 'bad-name', origin);
@@ -12721,7 +13975,8 @@ const WORKER = {
       /* invitation now, only if the first wave already went out; otherwise
          the guest simply rides the wave with everybody else */
       let sent = false, why = 'with-wave';
-      if (ev && env.RATE && await env.RATE.get('wave:' + tok + ':1')) {
+      /* 15/11: an abandoned wave 1 (wlate:) never sets wave:…:1 — guests added after it were told "with the wave" and got nothing */
+      if (ev && env.RATE && (await env.RATE.get('wave:' + tok + ':1') || await env.RATE.get('wlate:' + tok + ':1'))) {
         const li = await lateInvite(env, ev, tok, name, phone);
         sent = li.sent; why = li.why;
       }
@@ -13059,6 +14314,152 @@ const WORKER = {
       await logEvent(env, { area: 'לידים', action: 'עדכון ליד · ' + what, ok: true, phone, detail: b.note !== undefined ? String(b.note).slice(0, 200) : '' });
       return okJson({ ok: true, lead: { phone, ...r.state, lastNote: r.state.notes.length ? r.state.notes[r.state.notes.length - 1] : null } }, origin);
     }
+    /* 12/11 one-off: build the slog: index for a month from the existing log: keys, a slice per call (cursor in, cursor out) */
+    if (url.pathname === '/api/calendar-backfill' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const month = /^\d{4}-\d{2}$/.test(String(b.month || '')) ? String(b.month) : ilDate().slice(0, 7);
+      const fromTs = Date.parse(month + '-01T00:00:00+02:00') - 3600e3, toTs = fromTs + 32 * 864e5;
+      let cursor = b.cursor || undefined, ops = 0, scanned = 0, written = 0, done = false;
+      while (ops < 700) {
+        const page = await env.RATE.list({ prefix: 'log:', cursor, limit: 1000 }).catch(() => null); ops++;
+        if (!page) break;
+        scanned += page.keys.length;
+        const hits = page.keys.map(k => { const p = k.name.split(':'); return { name: k.name, phone: p[1], ts: Number(p[p.length - 1]) }; }).filter(x => x.phone && x.ts >= fromTs && x.ts <= toTs);
+        for (let c = 0; c < hits.length; c += 40) {
+          await Promise.all(hits.slice(c, c + 40).map(async x => {
+            let v = null; try { v = JSON.parse(await env.RATE.get(x.name)); } catch {}
+            if (!v || v.dir !== 'out' || v.phone_app) return;
+            const d = ilDate(new Date(x.ts)); if (d.slice(0, 7) !== month) return;
+            await env.RATE.put('slog:' + d + ':' + x.ts + ':' + x.phone, '1', { expirationTtl: 200 * 86400, metadata: { ch: v.ch || 'client', ok: v.ok !== false && v.status !== 'failed', t: v.tmpl || String(v.type || ''), tok: String(v.tok || '').slice(0, 8), e: String(v.error || '').slice(0, 60) } }).catch(() => {});
+            written++;
+          }));
+          ops += Math.min(40, hits.length - c) * 2;
+        }
+        if (page.list_complete) { done = true; cursor = ''; break; }
+        cursor = page.cursor;
+      }
+      if (done) await env.RATE.delete('calcache:' + month).catch(() => {});
+      return okJson({ ok: true, month, scanned, written, done, cursor: cursor || '' }, origin);
+    }
+    /* 16/11 the one journal (next/calendar.html): the hostess layer — who is booked on which day, and the days marked
+       "no hostess available" by hand (hostessoff:<date>). Saturdays are greyed by the page itself. */
+    /* 16/11 a cost that belongs to one event (hostess wages, a courier…): evextra:<tok8> = [{id,label,ils,day}].
+       POST {action:'list'|'add'|'remove', tok8, label, ils, day, id} — it enters the day and month profit on its day. */
+    if (url.pathname === '/api/event-cost' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      const t8 = String(b.tok8 || '').trim();
+      if (b.action === 'add' || b.action === 'remove') {
+        if (!/^[0-9a-f]{8}$/.test(t8)) return deny(400, 'bad-event', origin);
+        let cur = []; try { cur = JSON.parse(await env.RATE.get('evextra:' + t8) || '[]') || []; } catch {}
+        const out = editEventCosts(cur, b.action === 'remove' ? { remove: b.id } : b, ilDate());
+        if (!out.ok) return deny(400, out.error || 'bad-input', origin);
+        if (out.list.length) await env.RATE.put('evextra:' + t8, JSON.stringify(out.list)); else await env.RATE.delete('evextra:' + t8);
+        await env.RATE.delete('incdays').catch(() => {});
+      }
+      const all = await kvPrefix(env, 'evextra:'), items = [];
+      for (const [k, v] of Object.entries(all)) { try { for (const x of JSON.parse(v) || []) items.push({ tok8: k, ...x }); } catch {} }
+      return okJson({ ok: true, items: items.sort((x, y) => String(y.day).localeCompare(String(x.day))) }, origin);
+    }
+    /* what the three-day report would say right now; nothing is sent */
+    if (url.pathname === '/api/report3' && request.method === 'POST') { let rb = {}; try { rb = await request.json(); } catch { return deny(400, 'bad-json', origin); } if (!isAdmin(env, rb.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const inc = await reportIncome(env)().catch(() => null); if (!inc) return okJson({ ok: false, error: 'no-income-data' }, origin); const day = reportDay(), m = monthIncome(inc.income, day.slice(0, 7), day);
+      return okJson({ ok: true, month: m, text: reportText(m, day.slice(0, 7), day, { truncated: monthCut(inc, day.slice(0, 7)) }), read_back_to: inc.oldest ? reportDay(Number(inc.oldest) || Date.parse(inc.oldest)) : null, email_set: !!(await env.RATE.get('cfg:report_email').catch(() => '')) }, origin); }
+    /* 17/11 invitation wording per style. Admin: {action:'status'|'submit'} for the nine Meta templates.
+       Anyone with the event token: read the event's style; set it until the first wave went out (an admin may always set it). */
+    if (url.pathname === '/api/invite-styles' && request.method === 'POST') { let sb2 = {}; try { sb2 = await request.json(); } catch { return deny(400, 'bad-json', origin); } if (!isAdmin(env, sb2.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (sb2.action === 'submit') { const appId = '1084149031015902', tk = env.WA_TOKEN_GUESTS; let vidTok = ''; try { const pg = await env.RATE.list({ prefix: 'vid:', limit: 5 }); vidTok = ((pg.keys || [])[0] || {}).name || ''; } catch {}
+        return okJson(await styleSubmit(env, { headerHandle: async kind => { const h = await metaHeaderHandle(env, kind === 'vid' ? (vidTok ? 'https://go.ishur.io/vid/' + vidTok.slice(4) : '') : 'https://ishur.io/assets/logo.png', appId, tk); return h && h.handle ? h.handle : ''; } }), origin); }
+      return okJson(await styleStatus(env), origin); }
+    if (url.pathname === '/api/invite-style' && request.method === 'POST') { let ib = {}; try { ib = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const itok = String(ib.token || '').trim(), admin = isAdmin(env, ib.admin_key); if (!/^[0-9a-f-]{36}$/.test(itok) || !env.RATE) return deny(400, 'bad-request', origin);
+      if (!admin && !(await tokenRecord(env, itok))) return deny(404, 'unknown-token', origin);
+      const sent = !!(await env.RATE.get('wave:' + itok + ':1').catch(() => null)); let custom = null; try { custom = JSON.parse((await env.RATE.get('customtmpl:' + itok)) || 'null'); } catch {}
+      if (ib.style !== undefined) { const st = normStyle(ib.style); if (!st) return deny(400, 'bad-style', origin); if (sent && !admin) return okJson({ ok: false, error: 'already-sent' }, origin);
+        if (!admin && await overBudget(env, 'rl:invstyle:' + itok, 20, 3600)) return deny(429, 'slow-down', origin);
+        if (OWN_TEMPLATE(st)) await env.RATE.put('invstyle:' + itok, st, { expirationTtl: 400 * 86400 }); else await env.RATE.delete('invstyle:' + itok); forgetStyle(env);
+        /* choosing one of our styles puts the client's own wording aside (it stays stored, just not used) */
+        if (custom && (custom.status === 'APPROVED' || custom.status === 'PENDING') && ib.drop_custom === true) { custom.was = custom.status; custom.status = 'REPLACED'; await env.RATE.put('customtmpl:' + itok, JSON.stringify(custom), { expirationTtl: 400 * 86400 }); }
+        await logEvent(env, { area: 'לוח', action: `נוסח ההזמנה נבחר: ${INV_STYLES[st].he}${admin ? ' (ניהול)' : ''}`, ok: true, token: itok }).catch(() => {}); }
+      const ok2 = await approvedMap(env), cur = (await eventStyle(env, itok)) || 'happy';
+      return okJson({ ok: true, style: cur, sent, custom: custom ? { status: custom.status, text: String(custom.text || '').slice(0, 1024) } : null,
+        styles: Object.entries(INV_STYLES).map(([k2, v2]) => ({ key: k2, he: v2.he, note: v2.note, body: v2.body || '', ready: !OWN_TEMPLATE(k2) || (!!ok2[styleTmplName(k2, 'text')] && !!ok2[styleTmplName(k2, 'img')]) })) }, origin); }
+    if (url.pathname === '/api/leads-monday' && request.method === 'POST') return handleLeadsMonday(request, env, origin, { okJson, deny, isAdmin, gql: mondayGql, findLead: mondayFindLead });
+    if (url.pathname === '/api/callers' && request.method === 'POST') return handleCallers(request, env, origin, { okJson, deny, isAdmin, normPhone, kvPrefix });
+    if (url.pathname === '/api/hostess-pay' && request.method === 'POST') return handleHostessPay(request, env, origin, { okJson, deny, isAdmin, kvPrefix });
+    if (url.pathname === '/api/hostess-receipt' && request.method === 'POST') return handleReceiptUpload(request, env, origin, { okJson, deny, adminKeyOk });
+    if (url.pathname === '/api/hostess-receipt' && request.method === 'GET') return handleReceiptGet(env, url);
+    if (url.pathname === '/api/journal-hostess' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+      if (b.set_off && /^\d{4}-\d{2}-\d{2}$/.test(String(b.set_off.date || ''))) {
+        if (b.set_off.on) await env.RATE.put('hostessoff:' + b.set_off.date, JSON.stringify({ at: new Date().toISOString(), note: String(b.set_off.note || '').slice(0, 80) }), { expirationTtl: 500 * 86400 });
+        else await env.RATE.delete('hostessoff:' + b.set_off.date);
+      }
+      /* 16/11 the hostess screen: which hostess works which event, and the dates a hostess cannot work */
+      const jget = async k => { try { return JSON.parse(await env.RATE.get(k) || 'null'); } catch { return null; } };
+      const fresh = { asg: {}, unav: {} };   /* KV list() lags its own writes: what this request just wrote is laid over the listing */
+      if (b.assign && /^[0-9a-f]{8}$/.test(String(b.assign.tok8 || '')) && /^9725\d{8}$/.test(String(b.assign.phone || ''))) {
+        const k = 'hostassign:' + b.assign.tok8; const cur = new Set((await jget(k)) || []);
+        if (b.assign.on) { if (await env.RATE.get('staff:' + b.assign.phone)) cur.add(b.assign.phone); } else cur.delete(b.assign.phone);
+        if (cur.size) await env.RATE.put(k, JSON.stringify([...cur].slice(0, 12)), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
+        fresh.asg[b.assign.tok8] = [...cur].slice(0, 12);
+        /* the pay clock: a shift exists while she is assigned */
+        await syncShift(env, { tok8: b.assign.tok8, phone: b.assign.phone, on: cur.has(b.assign.phone), date: b.assign.date, name: b.assign.name, city: b.assign.city }).catch(() => {});
+      }
+      if (b.set_avail && /^9725\d{8}$/.test(String(b.set_avail.phone || '')) && /^\d{4}-\d{2}-\d{2}$/.test(String(b.set_avail.date || ''))) {
+        const k = 'hostunavail:' + b.set_avail.phone; const cur = new Set((await jget(k)) || []);
+        if (b.set_avail.on) cur.delete(b.set_avail.date); else cur.add(b.set_avail.date);
+        const keep = [...cur].filter(x => x >= new Date(Date.now() - 7 * 86400e3).toISOString().slice(0, 10)).sort().slice(0, 200);
+        if (keep.length) await env.RATE.put(k, JSON.stringify(keep), { expirationTtl: 500 * 86400 }); else await env.RATE.delete(k);
+        fresh.unav[b.set_avail.phone] = keep;
+      }
+      const [books, bought, off] = await Promise.all([kvPrefix(env, 'hostessbook:'), kvPrefix(env, 'hostess:'), kvPrefix(env, 'hostessoff:')]);
+      const days = {}, seen = new Set();
+      const put = (date, row) => { if (/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) (days[date] = days[date] || []).push(row); };
+      for (const [tok, v] of Object.entries(books)) { let x = null; try { x = JSON.parse(v); } catch {} if (!x) continue; seen.add(tok);
+        put(x.date, { tok8: tok.slice(0, 8), n: Number(x.n) || 1, client: String(x.client || ''), city: String(x.city || ''), venue: String(x.venue || ''), reception: String(x.reception || ''), state: 'scheduled' }); }
+      /* bought but the client has not filled the event details yet: the date they asked about is still worth seeing */
+      for (const [tok, v] of Object.entries(bought)) { if (seen.has(tok)) continue; let x = null; try { x = JSON.parse(v); } catch {} if (!x) continue;
+        put(x.date, { tok8: tok.slice(0, 8), n: Number(x.n) || 1, client: '', city: String(x.city || ''), venue: '', reception: '', state: 'bought' }); }
+      /* who the event belongs to, so the journal can show it and open the client's own board (admin-only answer) */
+      try {
+        const snap = await readSnapshot(env, 'guest');
+        const evBy = {}; for (const r of (snap && snap.events && snap.events.values) || []) { const t = String((r || [])[1] || '').trim(); if (t) evBy[t.slice(0, 8)] = r; }
+        for (const list of Object.values(days)) for (const x of list) {
+          const r = evBy[x.tok8]; if (!r) continue; const c = i => String(r[i] ?? '').trim();
+          Object.assign(x, { client: x.client || c(34) || c(2), buyer: c(2), phone: c(3), occasion: c(5), event_date: c(6).slice(0, 10), time: c(36), city: x.city || c(37), venue: x.venue || c(38), tier: c(32), plan: planKeyOf(r), paid: c(8),
+            board: 'https://go.ishur.io/dashboard.html?t=' + String(r[1]).trim() });
+        }
+      } catch {}
+      /* every dated event (a month back and on), how many hostesses it bought, and who is assigned */
+      let events = [], staff = [];
+      try {
+        const [asg, staffKv, unav] = await Promise.all([kvPrefix(env, 'hostassign:'), kvPrefix(env, 'staff:'), kvPrefix(env, 'hostunavail:')]);
+        const pj = v => { try { return JSON.parse(v); } catch { return null; } };
+        for (const [t, v] of Object.entries(fresh.asg)) asg[t] = JSON.stringify(v);
+        for (const [ph, v] of Object.entries(fresh.unav)) unav[ph] = JSON.stringify(v);
+        staff = Object.entries(staffKv).map(([ph, v]) => { const x = pj(v) || {}; return { phone: ph, name: String(x.name || ''), g: x.g === 'm' ? 'm' : 'f', unavail: pj(unav[ph] || 'null') || [] }; }).filter(x => x.name).sort((x, y) => x.name.localeCompare(y.name, 'he'));
+        const need = {}; for (const list of Object.values(days)) for (const x of list) need[x.tok8] = { n: x.n, state: x.state };
+        const snap = await readSnapshot(env, 'guest'); const from = new Date(Date.now() - 31 * 86400e3).toISOString().slice(0, 10);
+        for (const r of (snap && snap.events && snap.events.values) || []) {
+          const c = i => String((r || [])[i] ?? '').trim(); const tok = c(1), date = c(6).slice(0, 10);
+          if (!/^[0-9a-f-]{36}$/.test(tok) || !/^\d{4}-\d{2}-\d{2}$/.test(date) || date < from) continue;
+          if (c(27) === 'כן' || !(Number(c(8)) > 0)) continue;   /* cancelled, or never paid */
+          const t8 = tok.slice(0, 8), nd = need[t8];
+          events.push({ tok8: t8, date, name: c(34) || c(2), buyer: c(2), phone: c(3), occasion: c(5), time: c(36), city: c(37), venue: c(38), need: nd ? nd.n : 0, state: nd ? nd.state : '', assigned: pj(asg[t8] || 'null') || [], board: 'https://go.ishur.io/dashboard.html?t=' + tok });
+        }
+        /* hostesses bought before the client filled the event date in the sheet: still an event on the date they asked for */
+        const have = new Set(events.map(e => e.tok8 + '|' + e.date));
+        for (const [date, list] of Object.entries(days)) for (const x of list) { if (date < from || have.has(x.tok8 + '|' + date)) continue;
+          events.push({ tok8: x.tok8, date, name: x.client || x.buyer || 'אירוע ' + x.tok8, buyer: x.buyer || '', phone: x.phone || '', occasion: x.occasion || '', time: x.reception || x.time || '', city: x.city || '', venue: x.venue || '', need: x.n, state: x.state, assigned: pj(asg[x.tok8] || 'null') || [], board: x.board || '' }); }
+        events.sort((x, y) => x.date < y.date ? -1 : x.date > y.date ? 1 : 0);
+      } catch {}
+      return okJson({ ok: true, days, off: Object.fromEntries(Object.keys(off).map(k => [k, true])), events, staff }, origin);
+    }
     if (url.pathname === '/api/calendar' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -13193,7 +14594,10 @@ const WORKER = {
     if (url.pathname === '/api/status') {
       /* the calls page asks with the admin key and gets the whole queue */
       const admin = String(stampFields.admin_key || '');
-      if (admin) {
+      /* 18/11: an admin's browser opening a CLIENT board sends its key together with the event token (the PIN
+         lock lets it through). It used to get the call queue here, so the board came up with no data. The key
+         alone, or with a view, still gets the admin answers. */
+      if (admin && !tokenRead) {   /* a token next to the key always means "this event's board", whatever view the page names */
         if (!isAdmin(env, admin)) return deny(403, 'bad-admin-key', origin);
         const raw = await readSnapshot(env, 'ops');
         if (!raw) return deny(502, 'reader-failed', origin);
@@ -13226,10 +14630,38 @@ const WORKER = {
         if (!phone || code.length < 4) return deny(403, 'bad-login', origin);
         if (!env.RATE) return deny(503, 'kv-not-bound', origin);
         if (await overBudget(env, 'rl:login:' + phone, 12, 3600)) return deny(429, 'rate-limited', origin);
+        /* 12/11 security: wrong guesses are also counted per IP, and in this isolate per code, so a burst of
+           parallel guesses shares one count. Only WRONG guesses count: a client whose saved code is right
+           (it keeps working for a month, below) is never slowed by this. */
+        const ipFails = 'rl:loginfail:' + ip;
+        if (memCount(ipFails) >= 30 || (Number(await env.RATE.get(ipFails).catch(() => 0)) || 0) >= 30) return deny(429, 'rate-limited', origin);
+        /* 18/11: this gate (the board opened without a personal link, e.g. from the home-screen app) asked only for the
+           one-time WhatsApp code, so clients typing their fixed 4-digit code were refused. The fixed code signs in here
+           too. A right code costs nothing; only wrong ones count (per phone and per address), and each is recorded. */
+        if (code.length === 4) {
+          if (await env.RATE.get('acctpinlock:' + phone).catch(() => null)) return deny(429, 'pin-locked', origin);
+          const wantPin = await pinFor(env, phone).catch(() => '');
+          if (!wantPin || !safeEqual(code, wantPin)) {
+            memOver(ipFails, 30, 3600); await overBudget(env, ipFails, 30, 3600).catch(() => {});
+            await overBudget(env, 'rl:acctpinh:' + phone, 1e9, 3600).catch(() => {});
+            await logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: הקוד שהוקלד שונה מהקוד של הלקוח', ok: false, review: true, phone, detail: 'מסך הכניסה של הלוח · ' + String(request.headers.get('User-Agent') || '').slice(0, 90) }).catch(() => {});
+            return deny(403, 'bad-login', origin);
+          }
+          const rawP = await readSnapshot(env, 'dashboard');
+          if (!rawP) return deny(502, 'reader-failed', origin);
+          const evsP = eventsForPhone(rawP, phone);
+          if (!evsP.length) { await logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: הקוד נכון אבל אין אירוע משולם על המספר הזה בגיליון', ok: false, review: true, phone, detail: 'מסך הכניסה של הלוח' }).catch(() => {}); return deny(404, 'no-events', origin); }
+          await logEvent(env, { area: 'אזור אישי', action: 'כניסה ללוח הבקרה עם קוד קבוע (מסך הכניסה)', ok: true, phone }).catch(() => {});
+          return okJson({ ok: true, events: evsP, board_session: await mintAcctSession(env, phone).catch(() => '') }, origin);
+        }
         let rec = null;
         try { rec = JSON.parse(await env.RATE.get('otp:' + phone)); } catch {}
-        const good = rec && (rec.tries || 0) < 6 && safeEqual(String(rec.code), code);
+        const tryKey = 'otptry:otp:' + phone + ':' + ((rec && (rec.id || rec.exp)) || '');
+        const match = !!rec && safeEqual(String(rec.code), code);
+        const burned = match ? memCount(tryKey) >= 6 : memOver(tryKey, 6, 1800);
+        const good = match && !burned && (rec.tries || 0) < 6;
         if (!good) {
+          memOver(ipFails, 30, 3600); await overBudget(env, ipFails, 30, 3600).catch(() => {});
           if (rec) {
             /* keep the record's own remaining lifetime — a stranger guessing
                wrong must not shorten a legitimate month-long session */
@@ -13247,12 +14679,25 @@ const WORKER = {
         if (!raw) return deny(502, 'reader-failed', origin);
         const evs = eventsForPhone(raw, phone);
         if (!evs.length) return deny(404, 'no-events', origin);
-        return okJson({ ok: true, events: evs }, origin);
+        /* 17/11: the WhatsApp code proved the phone, so the locked board opens without asking for the PIN too */
+        return okJson({ ok: true, events: evs, board_session: await mintAcctSession(env, phone).catch(() => '') }, origin);
       }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
       const raw = await readSnapshot(env, 'dashboard');
       if (!raw) return deny(502, 'reader-failed', origin);
+      /* 17/11 Richard ("תנעל"): the link alone no longer opens the board — see boardLockOn in account.js. Off: delete cfg:board_pin */
+      /* 18/11 Richard: only the board asks for the code. The guest-list upload page keeps working from its link, but
+         without a code it gets the event and the counts only — never the guest list, phones, gifts or invoices. */
+      let limitedView = false;
+      if (await boardLockOn(env) && !(stampFields.admin_key && await adminKeyOk(env, stampFields.admin_key)) && !(await boardSessionOk(env, accountDeps(), raw, token, stampFields.board_session))) {
+        if (stampFields.view === 'upload') limitedView = true;
+        else {
+          const own = normPhone((await tokenRecord(env, token)).phone || '');
+          return new Response(JSON.stringify({ ok: false, error: 'pin-required', to: own.slice(-2) }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+        }
+      }
       const refCount = env.RATE ? Number(await env.RATE.get('refcred:' + token.slice(0, 8))) || 0 : 0;
+      let referral = null; try { referral = await referralSummary(env, token, await tokenRecord(env, token)); } catch {}
       /* which waves already fired, so the page can lock those rows */
       const sentWaves = {};
       if (env.RATE) {
@@ -13265,6 +14710,8 @@ const WORKER = {
         }
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
+        sentWaves.callDate = await env.RATE.get('calldate:' + token).catch(() => null);
+        sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
         sentWaves.callsAddon = !!(await env.RATE.get('callsaddon:' + token));
         /* did the event-day message go out to anybody */
@@ -13285,6 +14732,8 @@ const WORKER = {
         waitIds.forEach((id, i) => { if (hits[i]) sentWaves.dialed.add(id); });
       }
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
+      /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
+      if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
       /* 20/10: a paid token whose event row never reached the sheet (Make
          write failed) made the page throw 1101 instead of saying so. The
          client sees the "still setting up" screen; we see it in the journal. */
@@ -13304,19 +14753,23 @@ const WORKER = {
         /* when each guest's wave-1 message was accepted (wsent: expiration − TTL), for the 24 h "not delivered" rule */
         const staleAt = {};
         try { let cursor; do { const l = await env.RATE.list({ prefix: `wsent:${token}:1:`, limit: 1000, cursor }); for (const k of l.keys || []) { const ph = k.name.split(':')[3]; if (ph && k.expiration) staleAt[ph] = k.expiration * 1000 - WSENT_TTL_S * 1000; } cursor = l.list_complete ? undefined : l.cursor; } while (cursor); } catch {}
+        /* 18/11: the board took 8–14 s and looked empty meanwhile — an unsent list of 189 guests cost ~2,800 single
+           reads (5 kinds × 3 waves each). One listing per kind and wave says which phones have a key at all, and only
+           those are read. A listing that fails is treated as "unknown" and falls back to the single read. A key written
+           in the last minute may be missing from the listing; it shows on the next load. */
+        const KINDS = ['wsent', 'wdead', 'wfail', 'wferr', 'wst'];
+        const haveKey = {};
+        await Promise.all(KINDS.flatMap(kind => WAVES.map(async w => {
+          const set = new Set();
+          try { let cursor; do { const l = await env.RATE.list({ prefix: `${kind}:${token}:${w}:`, limit: 1000, cursor }); for (const k of l.keys || []) set.add(k.name.split(':')[3]); cursor = l.list_complete ? undefined : l.cursor; } while (cursor); haveKey[kind + w] = set; }
+          catch { haveKey[kind + w] = null; }
+        })));
+        const readKey = (kind, w, ph) => { const set = haveKey[kind + w]; return set && !set.has(ph) ? Promise.resolve(null) : env.RATE.get(`${kind}:${token}:${w}:${ph}`).catch(() => null); };
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          /* KV reads are capped per request; a big list already spends ~5 per
-             guest on wave 1, so waves 2–3 are read only when wave 1 is silent. */
           const readWave = async w => {
-            const [ok, dead, fail, code, dlv] = await Promise.all([
-              env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
-            ]);
+            const [ok, dead, fail, code, dlv] = await Promise.all(KINDS.map(kind => readKey(kind, w, ph)));
             return { ok, dead, fail, code, dlv };
           };
           const per = [await readWave(1)];
@@ -13325,7 +14778,7 @@ const WORKER = {
           const ok = per.some(x => x.ok);
           /* a pending guest's ticks may belong to the reminder (wave 2): one more read, pending only */
           const answered0 = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
-          if (ok && !answered0 && per.length === 1) per.push({ dlv: await env.RATE.get(`wst:${token}:2:${ph}`).catch(() => null) });
+          if (ok && !answered0 && per.length === 1) per.push({ dlv: await readKey('wst', 2, ph) });
           const dlv = per.map(x => x.dlv).filter(Boolean).sort((a, b) => (rank[b] || 0) - (rank[a] || 0))[0] || null;
           /* a failure only counts when no wave got through; the newest wave's reason wins */
           const failed = [...per].reverse().find(x => x.dead || x.fail) || {};
@@ -13396,6 +14849,14 @@ const WORKER = {
         try { const ct = JSON.parse((await env.RATE.get('customtmpl:' + token)) || 'null'); snapshot.custom_template = ct ? { status: ct.status, text: ct.text, reason: ct.reason || '', at: ct.at, header: ct.header, id: ct.id || '', n: ct.n || 1 } : null; } catch { snapshot.custom_template = null; }
         /* Richard 21/10: the Morning invoice is downloadable from the board */
         try { const inv = JSON.parse((await env.RATE.get('invoice:' + token)) || 'null'); snapshot.invoice = inv && inv.url ? { url: inv.url, number: inv.number || '', at: inv.at || '' } : null; } catch { snapshot.invoice = null; }
+        /* 12/11 Richard: every invoice that belongs to THIS event (purchase + add-ons + manual), newest last */
+        try {
+          const l = await env.RATE.list({ prefix: 'invoice:' + token, limit: 50 });
+          const all = [];
+          for (const k of l.keys || []) { try { const j = JSON.parse((await env.RATE.get(k.name)) || 'null'); if (j && j.url) all.push({ url: j.url, number: String(j.number || ''), at: j.at || '', kind: j.kind || (k.name === 'invoice:' + token ? 'רכישה' : 'תוספת'), sum: j.sum || null }); } catch {} }
+          all.sort((a, b) => String(a.number).localeCompare(String(b.number), 'en', { numeric: true }));
+          snapshot.invoices = all;
+        } catch { snapshot.invoices = snapshot.invoice ? [{ ...snapshot.invoice, kind: 'רכישה' }] : []; }
         /* a direct-link buyer's row has no tier until the engine fills it;
            the payment record knows, so add-on prices never fall back to "לפרטים" */
         if (snapshot.event && !String(snapshot.event.guests_tier || '').trim()) {
@@ -13431,6 +14892,8 @@ const WORKER = {
           snapshot.extra = { label: xq.label || 'הסעה', q: xq.q, yes, yes_seats: yes.reduce((t, x) => t + (x.seats || 0), 0), no };
         }
       } catch {}
+      snapshot.referral = referral;
+      if (limitedView) { for (const k of ['guests', 'changes', 'checkin', 'gifts', 'invoice', 'invoices', 'referral', 'referral_code', 'media']) delete snapshot[k]; snapshot.limited = true; }
       return okJson(snapshot, origin);
     }
 
@@ -13504,7 +14967,7 @@ const WORKER = {
     if (url.pathname === '/api/lead' && env.RATE) {
       await logEvent(env, { area: 'אתר', action: 'ליד מהטופס → מייק', ok: upstream.ok, review: !upstream.ok,
         phone: stampFields.phone || '', detail: `${stampFields.name || ''} · ${stampFields.occasion || ''} · HTTP ${upstream.status}` });
-      if (upstream.ok) { try { await noteLead(env, stampFields); } catch {} }
+      if (upstream.ok) { try { await noteLead(env, stampFields, { ip }); } catch {} }
       /* server-side copy of the pixel's Lead / InitiateCheckout (10.9) */
       try {
         const et = String(stampFields.event_type || '');

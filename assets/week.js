@@ -10,15 +10,17 @@
     '.wk{--wk-ok:#2E7D5B;--wk-bad:#A8402F;--wk-wait:#8A5A00;--wk-mute:var(--ink3,#7A847C);--wk-rail:#F0EFE9}' +
     'html[data-theme=dark] .wk{--wk-ok:#7BC9A4;--wk-bad:#F08A8A;--wk-wait:#E3AA4C;--wk-rail:#232A25}' +
     '.wk-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.5rem;align-items:start}' +
-    '.wk-day{background:var(--wk-rail);border-radius:14px;padding:.5rem;min-height:120px}' +
+    '.wk-day{background:var(--wk-rail);border-radius:14px;padding:.5rem;min-height:120px;max-height:74vh;overflow-y:auto;overscroll-behavior:contain}' +
     '.wk-day.today{background:transparent;box-shadow:inset 0 0 0 2px var(--gold,#A8853C)}' +
     '.wk-day.past{opacity:.62}' +
+    '.wk-done{font-size:.76rem;font-weight:600;color:var(--wk-ok);background:rgba(46,125,91,.12);border:1px solid rgba(46,125,91,.35);border-radius:8px;padding:.3rem .5rem;margin:0 0 .4rem;text-align:center}' +
     '.wk-dh{display:flex;justify-content:space-between;align-items:baseline;gap:.3rem;padding:.1rem .2rem .45rem}' +
     '.wk-dh b{font-size:.9rem}.wk-dh span{font-size:.7rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
     '.wk-cap{font-size:.68rem;color:var(--wk-mute);padding:0 .2rem .4rem;font-variant-numeric:tabular-nums}.wk-cap.over{color:var(--wk-bad);font-weight:600}' +
     '.wk-ev{background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:11px;padding:.45rem .55rem;margin-bottom:.4rem}' +
     '.wk-evn{font-weight:600;font-size:.82rem;line-height:1.25;display:flex;gap:.3rem;align-items:baseline;flex-wrap:wrap}' +
-    '.wk-evn em{font-style:normal;font-size:.64rem;font-weight:600;background:var(--gold,#A8853C);color:#fff;border-radius:99px;padding:.02rem .4rem}' +
+    '.wk-s.plan{color:#3F6FD8}.wk-s.run{color:var(--ink,#1B2420);font-weight:700}html[data-theme=dark] .wk-s.plan{color:#8FB0FF}html[data-theme=dark] .wk-s.run{color:#fff}.wk-s .wk-s.bad{font-weight:600}.wk-mr.plan{color:#3F6FD8}.wk-mr.bad{color:#C0392B;font-weight:700}.wk-mr.run{color:var(--ink,#1B2420);font-weight:700}.wk-mr.ok{color:#1F7A52}html[data-theme=dark] .wk-mr.plan{color:#8FB0FF}html[data-theme=dark] .wk-mr.bad{color:#F08A8A}html[data-theme=dark] .wk-mr.run{color:#fff}html[data-theme=dark] .wk-mr.ok{color:#7BC9A4}.wk-mleg{display:flex;gap:1rem;flex-wrap:wrap;font-size:.74rem;color:var(--ink3,#7A8279);margin:.5rem 0 0}.wk-mleg .wk-mr{display:inline;width:auto}' +
+    'html[data-theme=dark] .wk-evn em{color:#1A1509}.wk-evn em{font-style:normal;font-size:.64rem;font-weight:600;background:var(--gold,#A8853C);color:#fff;border-radius:99px;padding:.02rem .4rem}' +
     '.wk-it{display:block;width:100%;text-align:right;font:inherit;background:none;border:0;border-top:1px solid var(--line,#E3E1D8);padding:.32rem 0 .2rem;margin-top:.3rem;cursor:pointer;color:inherit}' +
     '.wk-it:hover .wk-t,.wk-it:focus-visible .wk-t{text-decoration:underline}.wk-it:focus-visible{outline:2px solid var(--gold,#A8853C);outline-offset:2px;border-radius:4px}' +
     '.wk-t{font-size:.74rem;color:var(--ink2,#4A554E)}' +
@@ -27,8 +29,15 @@
     '.wk-evb{font:inherit;font-weight:600;font-size:.82rem;background:none;border:0;padding:0;color:inherit;cursor:pointer;text-align:right;text-decoration:underline;text-decoration-color:var(--line,#E3E1D8);text-underline-offset:3px}.wk-evb:hover{text-decoration-color:var(--gold,#A8853C)}' +
     '.wk-live{font-size:.68rem;color:var(--wk-ok);margin-top:.2rem;font-variant-numeric:tabular-nums}' +
     '.wk-it.pend{animation:wkblink 1.6s ease-in-out infinite}@keyframes wkblink{0%,100%{opacity:1}50%{opacity:.38}}' +
-    '.wk-nav{display:flex;align-items:center;gap:.6rem;margin:0 0 .6rem}.wk-nav b{font-size:.95rem}.wk-nav span{font-size:.76rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
-    '.wk-arr{font:inherit;width:30px;height:30px;border-radius:50%;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
+    '.wk-nav{display:flex;align-items:center;gap:.7rem;margin:0 0 .7rem;flex-wrap:wrap}' +
+    '.wk-seg{display:inline-flex;border:1px solid var(--line,#E3E1D8);border-radius:8px;overflow:hidden;background:var(--card,#fff)}.wk-seg button{font:inherit;font-size:.8rem;padding:.35rem .8rem;border:0;background:none;color:var(--wk-mute);cursor:pointer}.wk-seg button+button{border-inline-start:1px solid var(--line,#E3E1D8)}.wk-seg button[aria-selected=true]{background:rgba(168,133,60,.12);color:inherit;font-weight:600}' +
+    '.wk-pager{display:inline-flex;align-items:center;gap:.45rem}.wk-ttl{display:inline-flex;flex-direction:column;align-items:center;min-width:7.5rem;line-height:1.2}.wk-ttl b{font-size:.95rem}.wk-ttl small{font-size:.74rem;color:var(--wk-mute);font-variant-numeric:tabular-nums}' +
+    '.wk-list{display:grid;gap:.25rem}.wk-lh{display:flex;gap:.5rem;align-items:baseline;margin:.6rem 0 .1rem;font-size:.84rem}.wk-lh span{color:var(--wk-mute);font-size:.76rem}.wk-lh.today b{color:var(--gold,#A8853C)}' +
+    '.wk-lr{display:grid;grid-template-columns:1.4rem minmax(0,1.3fr) minmax(0,1.2fr) 6.5rem minmax(0,1fr);gap:.5rem;align-items:center;width:100%;text-align:right;font:inherit;font-size:.84rem;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.45rem .6rem;color:inherit;cursor:pointer}.wk-lr:hover{border-color:var(--gold,#A8853C)}.wk-ln{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wk-lt{color:var(--wk-mute);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.wk-lq{font-variant-numeric:tabular-nums}.wk-lr .wk-s{margin:0}' +
+    '@media (max-width:700px){.wk-lr{grid-template-columns:1.4rem 1fr auto}.wk-lt,.wk-lr .wk-s{grid-column:2/-1}}' +
+    '.wk-mgrid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:.3rem}.wk-mdow{font-size:.72rem;color:var(--wk-mute);text-align:center;padding:.2rem 0}' +
+    '.wk-mc{font:inherit;min-height:104px;display:flex;flex-direction:column;align-items:flex-start;gap:.1rem;text-align:right;background:var(--card,#fff);border:1px solid var(--line,#E3E1D8);border-radius:8px;padding:.35rem .4rem;color:inherit;cursor:pointer;font-size:.72rem;overflow:hidden}.wk-mc b{font-size:.84rem}.wk-mc.today{border-color:var(--gold,#A8853C);border-width:2px}.wk-mc.past{opacity:.6}.wk-mc.blank{border:0;background:none;cursor:default}.wk-mc:hover{border-color:var(--gold,#A8853C)}.wk-mc span{font-variant-numeric:tabular-nums;white-space:nowrap}.wk-me{color:var(--wk-mute);max-width:100%;overflow:hidden;text-overflow:ellipsis}.wk-mr{display:flex;gap:.25rem;width:100%;min-width:0}.wk-mr i{font-style:normal;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis}.wk-mr.ok{color:var(--wk-ok)}.wk-mevt{font-weight:600;max-width:100%;overflow:hidden;text-overflow:ellipsis}' +
+    '.wk-arr{font:inherit;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;padding:0;border-radius:8px;border:1px solid var(--line,#E3E1D8);background:var(--card,#fff);color:inherit;cursor:pointer;font-size:1.1rem;line-height:1}.wk-arr.txt{width:auto;padding:0 .7rem;font-size:.8rem;border-radius:99px}.wk-arr:hover{border-color:var(--gold,#A8853C)}' +
     '.wk-ev.done{background:rgba(46,125,91,.09);border-color:rgba(46,125,91,.35)}html[data-theme=dark] .wk-ev.done{background:rgba(123,201,164,.12)}' +
     '.wk-why{display:block;font-size:.66rem;color:var(--wk-mute);margin:.05rem 0 .1rem}' +
     '.wk-evs{font-size:.68rem;color:var(--wk-mute);margin-top:.1rem}' +
@@ -36,7 +45,7 @@
     '.wk-toast{position:fixed;bottom:1rem;left:50%;transform:translateX(-50%);background:var(--ink,#1B2420);color:var(--card,#fff);padding:.55rem 1rem;border-radius:10px;font-size:.84rem;z-index:96}' +
     '.wk-empty{font-size:.74rem;color:var(--wk-mute);padding:.3rem .2rem}' +
     '.wk-note{font-size:.74rem;color:var(--wk-mute);margin:.5rem 0 0}' +
-    '@media (max-width:900px){.wk-grid{grid-template-columns:1fr}.wk-day.past{display:none}.wk-day{min-height:0}}' +
+    '@media (max-width:900px){.wk-grid{grid-template-columns:1fr}.wk-day.past{display:none}.wk-day{min-height:0;max-height:none}}' +
     '.wk-bg{position:fixed;inset:0;background:rgba(15,46,34,.45);display:flex;align-items:center;justify-content:center;padding:1rem;z-index:95}' +
     '.wk-sh{background:var(--card,#fff);color:var(--ink,#1B2420);border-radius:16px;width:100%;max-width:620px;max-height:86vh;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 24px 70px rgba(0,0,0,.3)}' +
     '.wk-sh header{display:flex;justify-content:space-between;align-items:center;gap:.6rem;padding:.8rem 1rem;border-bottom:1px solid var(--line,#E3E1D8)}' +
@@ -44,6 +53,13 @@
     '.wk-bd{overflow:auto;padding:.8rem 1rem 1rem;font-size:.86rem}' +
     '.wk-kv{display:grid;grid-template-columns:auto 1fr;gap:.25rem .8rem;margin:0 0 .8rem}.wk-kv dt{color:var(--wk-mute)}.wk-kv dd{margin:0;font-variant-numeric:tabular-nums}' +
     '.wk-h{font-size:.8rem;font-weight:600;margin:.9rem 0 .35rem}' +
+    '.wk-wa{max-width:340px;margin:.3rem 0 .7rem}.wk-bub{white-space:pre-wrap;background:#E7F6E0;color:#1B2420;border-radius:8px 8px 8px 2px;padding:.55rem .7rem;font-size:.86rem;line-height:1.5;overflow:hidden}' +
+    '.wk-bub small{display:block;color:#5B6B60;margin-top:.4rem;font-size:.74rem}.wk-med{display:block;width:calc(100% + 1.4rem);max-width:none;margin:-.55rem -.7rem .5rem;max-height:340px;object-fit:cover;background:#D5E5CF}' +
+    '.wk-nomed{display:grid;place-items:center;height:110px;font-size:.76rem;color:#5B6B60}' +
+    '.wk-wbt{display:flex;flex-direction:column;gap:3px;margin-top:3px}.wk-wbt span{background:#F4FAF1;color:#0B6E99;text-align:center;font-size:.84rem;font-weight:600;border-radius:8px;padding:.45rem .5rem}' +
+    '.wk-flow{list-style:none;margin:.2rem 0 0;padding:0;border-inline-start:2px solid rgba(0,0,0,.1)}.wk-flow li{padding:0 .8rem .2rem 0;position:relative}' +
+    '.wk-flow li::before{content:"";position:absolute;inset-inline-start:-6px;top:.35rem;width:10px;height:10px;border-radius:50%;background:#0F4C35}' +
+    '.wk-when{font-size:.8rem;font-weight:700;margin:.2rem 0}' +
     '.wk-msg{white-space:pre-wrap;background:#E7F6E0;color:#1B2420;border-radius:10px 10px 10px 2px;padding:.6rem .75rem;font-size:.84rem;line-height:1.5}' +
     '.wk-msg small{display:block;color:#5B6B60;margin-top:.4rem}.wk-btns{display:flex;gap:.3rem;flex-wrap:wrap;margin-top:.4rem}.wk-btns span{font-size:.74rem;border:1px solid #9CC7A4;border-radius:8px;padding:.15rem .5rem;color:#1D5E3A}' +
     '.wk-tn{font-size:.72rem;color:var(--wk-mute);margin:.2rem 0 .15rem;direction:ltr;text-align:right}' +
@@ -57,33 +73,50 @@
   var EXPECT = { w1: 'hazmana_ishur', w2: 'hazmana_ishur', w3: 'hazmana_ishur', table: 'ishur_shulchan', daybefore: 'ishur_yom_lifnei', thanks: 'ishur_toda_orach' };
   var BUCKET_HE = { read: 'נקרא', delivered: 'נמסר', no_status: 'נשלח', failed: 'נכשל', pending: 'ממתין', answered: 'ענו', skipped: 'דילוג', dropped: 'דולג', unknown: 'לא ידוע' };
 
-  var opt = {}, root = null, plan = null, boards = {}, texts = {};
+  var opt = {}, root = null, plan = null, boards = {}, texts = {}, medias = {}, flow = null;
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function stamp(b) { return window.IshurGuard ? IshurGuard.stamp(b) : b; }
   function post(path, body) {
     return fetch(opt.base + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stamp(Object.assign({ admin_key: opt.key }, body || {}))) })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
-  function getOne(period) {
-    return fetch(opt.base + '/api/ops/plan?period=' + period, { headers: { 'x-admin-key': opt.key } })
+  /* 18/11 (Richard): "עדכן עכשיו" and every page load ask the server to recompute (fresh=1), not only to serve its saved copy */
+  var wantFresh = false;
+  function getOne(period, fresh) {
+    return fetch(opt.base + '/api/ops/plan?period=' + period + (fresh ? '&fresh=1' : ''), { headers: { 'x-admin-key': opt.key } })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
   /* 09/11 (Richard): from today forward — seven days, even across the week/month edge */
-  function getPlan() {
-    return Promise.all([getOne('week'), getOne('month')]).then(function (r) {
+  /* 12/11 (Richard: "יותר מהיר, אינטראקטיבי"): the days are fetched once and kept; paging a week or a month
+     is drawn from memory at once, and the network only refreshes in the background. */
+  var store = null;
+  var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
+  function fetchDays() {
+    /* a fresh recompute saves all periods at once, so the month is read after it instead of recomputing twice */
+    var both = wantFresh ? getOne('week', true).then(function (w) { return getOne('month').then(function (m) { return [w, m]; }); }) : Promise.all([getOne('week'), getOne('month')]);
+    return both.then(function (r) {
       var w = r[0], m = r[1]; if (!(w && w.ok) && !(m && m.ok)) return null;
       var base = (w && w.ok) ? w : m, by = {};
       [m, w].forEach(function (p) { if (p && p.ok) (p.days || []).forEach(function (d) { by[d.day] = d; }); });
-      var today = base.today;
-      /* fixed Sunday..Saturday columns; weekOff pages the week (arrows / trackpad). Days the planner has no data for are rendered empty. */
-      var t = new Date(today + 'T12:00:00Z'); var sun = new Date(t.getTime() - t.getUTCDay() * 864e5 + weekOff * 7 * 864e5);
-      var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
-      var days = [];
-      for (var i = 0; i < 7; i++) { var iso = new Date(sun.getTime() + i * 864e5).toISOString().slice(0, 10); days.push(by[iso] || { day: iso, dow_he: DOW[i], past: iso < today, today: iso === today, future: iso > today, items: [], capacity: null, nodata: true }); }
-      return { ok: true, at: base.at, today: today, days: days, range: [days[0].day, days[6].day] };
+      store = { by: by, today: base.today, at: base.at, t: Date.now() };
+      return store;
     });
   }
-  var info = {}, live = null, weekOff = 0;
+  function dayOf(iso, dowIdx) {
+    var d = store.by[iso]; if (d) return JSON.parse(JSON.stringify(d));   /* a copy: applyPending moves items around */
+    return { day: iso, dow_he: DOW[dowIdx], past: iso < store.today, today: iso === store.today, future: iso > store.today, items: [], capacity: null, nodata: true };
+  }
+  /* fixed Sunday..Saturday columns; weekOff pages the week (arrows / trackpad) */
+  function buildWeek() {
+    if (!store) return null;
+    var t = new Date(store.today + 'T12:00:00Z'); var sun = new Date(t.getTime() - t.getUTCDay() * 864e5 + weekOff * 7 * 864e5);
+    var days = [];
+    for (var i = 0; i < 7; i++) days.push(dayOf(new Date(sun.getTime() + i * 864e5).toISOString().slice(0, 10), i));
+    return { ok: true, at: store.at, today: store.today, days: days, range: [days[0].day, days[6].day] };
+  }
+  function getPlan() { return fetchDays().then(buildWeek); }
+  var info = {}, live = null, weekOff = 0, monthOff = 0, view = 'week';
+  try { var sv = localStorage.getItem('wk_view'); if (sv === 'list' || sv === 'month') view = sv; } catch (e) {}
   /* 09/11 (Richard): a dragged wave jumps to the new day at once and blinks dimmed until the planner confirms it; then it settles */
   var pend = {}; try { pend = JSON.parse(localStorage.getItem('wk_pend') || '{}'); } catch (e) {}
   function pendSave() { try { localStorage.setItem('wk_pend', JSON.stringify(pend)); } catch (e) {} }
@@ -133,20 +166,20 @@
     var r = String(it.reason_he || '');
     if (it.kind === 'call') {
       if (it.status === 'done') return { c: 'ok', t: (it.answered || 0) + ' ענו' };
-      if (it.status === 'in_progress') return { c: 'wait', t: 'בתהליך · ' + (it.answered || 0) + ' ענו' };
+      if (it.status === 'in_progress') return { c: 'run', t: 'בתהליך · ' + (it.answered || 0) + ' ענו' };
       if (/hold|מוחזק/.test(r)) return { c: 'wait', t: 'מוחזק' };
-      return { c: it.status === 'missed' ? 'bad' : 'wait', t: it.status === 'missed' ? (r || 'לא קרה') : 'ממתין' + (it.time_hm ? ' · ' + it.time_hm : '') };
+      return { c: it.status === 'missed' ? 'bad' : 'plan', t: it.status === 'missed' ? (r || 'לא קרה') : 'ממתין' + (it.time_hm ? ' · ' + it.time_hm : '') };
     }
     if (it._pend) return { c: 'wait', t: '↪ הועבר לכאן · מתעדכן…' };
     if (it._note) return { c: 'mute', t: it._note };
-    if (it.status === 'done') return { c: 'ok', t: it.failed_n ? '✓ יצא · ' + it.failed_n + ' נכשלו' : '✓ יצא' };
+    if (it.status === 'done') return { c: 'ok', t: '✓ יצא', f: it.failed_n ? it.failed_n + ' נכשלו' : '' };
     if (/hold|מוחזק/.test(r)) return { c: 'wait', t: '⏸ מוחזק' };
     if (/131042|חיוב מטא/.test(r)) return { c: 'bad', t: '✗ חיוב מטא חסום' };
-    if (/מכסה|cap/.test(r)) return { c: 'wait', t: it.status === 'in_progress' ? '⏳ ממשיך כשיתפנה מקום (מכסה)' : '↪ ממתין למכסה' };
-    if (/נדחה/.test(r)) return { c: 'wait', t: '↪ ' + r };
-    if (it.status === 'in_progress') return { c: 'wait', t: '⏳ בתהליך' };
+    if (/מכסה|cap/.test(r)) return { c: it.status === 'in_progress' ? 'run' : 'plan', t: it.status === 'in_progress' ? '⏳ ממשיך כשיתפנה מקום (מכסה)' : '↪ ממתין למכסה' };
+    if (/נדחה/.test(r)) return { c: 'plan', t: '↪ ' + r };
+    if (it.status === 'in_progress') return { c: 'run', t: '⏳ בתהליך' };
     if (it.status === 'missed') return { c: 'bad', t: '✗ ' + (r || 'לא יצא') };
-    return { c: day.future ? 'mute' : 'wait', t: (day.future ? 'מתוכנן' : 'ממתין') + (it.time_hm ? ' · ' + it.time_hm : '') };
+    return { c: 'plan', t: (day.future ? 'מתוכנן' : 'ממתין') + (it.time_hm ? ' · ' + it.time_hm : '') };
   }
 
   function dayItems(day) {
@@ -189,15 +222,100 @@
     });
   }
 
+  /* 12/11 Richard: the same week as a list, and a whole month as a calendar */
+  var MON = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
+  function monthOf() {
+    var t = new Date(((store && store.today) || new Date().toISOString().slice(0, 10)) + 'T12:00:00Z');
+    var d = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() + monthOff, 1));
+    return { y: d.getUTCFullYear(), m: d.getUTCMonth(), label: MON[d.getUTCMonth()] + ' ' + d.getUTCFullYear() };
+  }
+  function nOf(it) { return it.kind === 'call' ? (it.planned_n || it.done_n || 0) : Math.max(it.planned_n || 0, it.done_n || 0); }
+  function listHtml() {
+    var h = '<div class="wk-list">', any = false;
+    (plan.days || []).forEach(function (day, di) {
+      var gs = dayItems(day); if (!gs.length) return; any = true;
+      h += '<div class="wk-lh' + (day.today ? ' today' : '') + '"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
+      gs.forEach(function (g) {
+        g.items.forEach(function (it) {
+          var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
+          h += '<button type="button" class="wk-lr wk-it" data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-li">' + (it.kind === 'call' ? '📞' : it.kind === 'send' || it.kind === 'lead_sends' ? '💬' : '•') + '</span>' +
+            '<span class="wk-ln">' + esc(g.name || (it.event && it.event.name) || '') + '</span><span class="wk-lt">' + esc(SHORT[kindKey] || it.label_he || '') + '</span>' +
+            '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + (st.f ? ' · <span class="wk-s bad">' + esc(st.f) + '</span>' : '') + '</span></button>';
+        });
+      });
+    });
+    return h + (any ? '' : '<div class="wk-empty">אין שליחות או שיחות בשבוע הזה</div>') + '</div>';
+  }
+  function shown(it) { return (it.kind === 'send' && it.type !== 'reply') || it.kind === 'call' || it.kind === 'lead_sends'; }
+  function monthRows(d) {
+    var by = {}, out = [];
+    /* the same lines the day shows, so Shir's projected call rounds are on the month too */
+    var its = (d && d.items) || []; if (d && d.day && plan) { its = []; dayItems(d).forEach(function (g) { its = its.concat(g.items); }); }
+    its.forEach(function (it) {
+      if (!shown(it) || !nOf(it)) return;
+      var call = it.kind === 'call', k = (it.kind === 'lead_sends' ? 'leads' : (it.event && it.event.tok8) || it.id) + (call ? ':c' : '');
+      if (!by[k]) { by[k] = { name: it.kind === 'lead_sends' ? 'לידים' : (it.event && it.event.name) || '', n: 0, call: call, done: true }; out.push(by[k]); }
+      by[k].n += nOf(it); if (it.status !== 'done') by[k].done = false;
+      /* 16/11 Richard: planned blue, failed red, going out now white, sent green */
+      var stt = it.status === 'done' ? 'ok' : it.status === 'missed' ? 'bad' : it.status === 'in_progress' ? 'run' : 'plan';
+      var rank = { bad: 3, run: 2, plan: 1, ok: 0 }; if (by[k].st == null || rank[stt] > rank[by[k].st]) by[k].st = stt;
+    });
+    return out;
+  }
+  /* a month cell opens the day right here — the same lines the week shows, each one opening its own sheet */
+  function openDay(iso) {
+    var d = store && store.by[iso]; var its = ((d && d.items) || []).filter(shown), evs = ((d && d.items) || []).filter(function (it) { return it.kind === 'event'; });
+    var day = d || { day: iso, future: store && iso > store.today };
+    var h = evs.map(function (it) { return '<p class="wk-tn">● ' + esc(it.label_he || (it.event && it.event.name) || '') + (it.reason_he ? ' · ' + esc(it.reason_he) : '') + '</p>'; }).join('');
+    h += its.length ? '<div class="wk-list">' + its.map(function (it) {
+      var st = statusOf(it, day), kindKey = it.kind === 'send' ? it.type : it.kind;
+      return '<button type="button" class="wk-lr" data-id="' + esc(it.id) + '"><span class="wk-li">' + (it.kind === 'call' ? '📞' : '💬') + '</span><span class="wk-ln">' + esc(it.kind === 'lead_sends' ? 'לידים · נועה' : (it.event && it.event.name) || '') + '</span><span class="wk-lt">' + esc(SHORT[kindKey] || it.label_he || '') + '</span>' +
+        '<span class="wk-lq">' + (it.done_n ? num(it.done_n) + ' / ' : '') + num(nOf(it)) + '</span><span class="wk-s ' + st.c + '">' + esc(st.t) + (st.f ? ' · <span class="wk-s bad">' + esc(st.f) + '</span>' : '') + '</span></button>';
+    }).join('') + '</div>' : '<p class="wk-note">אין שליחות או שיחות ביום הזה.</p>';
+    var cap = d && d.capacity; if (cap && cap.capacity) h += '<p class="wk-note">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + '</p>';
+    var bd = sheet(((d && d.dow_he) ? d.dow_he + ' · ' : '') + dm(iso), h);
+    bd.addEventListener('click', function (e) { var b = e.target.closest('.wk-lr'); if (b) openIt(day, b.dataset.id); });
+  }
+  function monthHtml(mo) {
+    var first = new Date(Date.UTC(mo.y, mo.m, 1)), n = new Date(Date.UTC(mo.y, mo.m + 1, 0)).getUTCDate();
+    var h = '<div class="wk-mgrid">' + DOW.map(function (d) { return '<div class="wk-mdow">' + d + '</div>'; }).join('');
+    for (var b = 0; b < first.getUTCDay(); b++) h += '<div class="wk-mc blank"></div>';
+    for (var i = 1; i <= n; i++) {
+      var iso = new Date(Date.UTC(mo.y, mo.m, i)).toISOString().slice(0, 10), d = store && store.by[iso], evs = [], rows = monthRows(d);
+      ((d && d.items) || []).forEach(function (it) { if (it.kind === 'event' && it.event && it.event.name) evs.push(it.event.name); });
+      /* 12/11 Richard: "כאן אני רוצה יותר נתונים" — who gets what on the day, not only a total */
+      h += '<button type="button" class="wk-mc' + (store && iso === store.today ? ' today' : '') + (store && iso < store.today ? ' past' : '') + '" data-goday="' + iso + '"><b>' + i + '</b>' +
+        evs.slice(0, 2).map(function (e) { return '<span class="wk-mevt">● ' + esc(e) + '</span>'; }).join('') +
+        rows.slice(0, 4).map(function (r) { return '<span class="wk-mr ' + (r.st || 'plan') + '" title="' + ({ ok: 'נשלח', bad: 'נכשל', run: 'בשליחה', plan: 'מתוכנן' })[r.st || 'plan'] + '">' + (r.call ? '📞' : '💬') + '<i>' + esc(r.name) + '</i>' + num(r.n) + '</span>'; }).join('') +
+        (rows.length > 4 ? '<span class="wk-me">+' + (rows.length - 4) + ' נוספים</span>' : '') + '</button>';
+    }
+    return h + '</div><div class="wk-mleg"><span class="wk-mr plan">● מתוכנן</span><span class="wk-mr run">● בשליחה</span><span class="wk-mr ok">● נשלח</span><span class="wk-mr bad">● נכשל</span><span>💬 הודעות · 📞 שיחות</span></div>';
+  }
+  /* 12/11 Richard: "תסמן בירוק שאדע שהיום זהו" — today is done when nothing on it is still waiting or running */
+  function dayDone(day) {
+    var its = (day.items || []).filter(function (it) { return it.kind === 'send' || it.kind === 'call'; });
+    return its.length > 0 && its.every(function (it) { return it.status === 'done' || it.status === 'missed'; });
+  }
   function render() {
     if (!root) return;
     if (!plan) { root.innerHTML = '<div class="wk-empty">לא הצלחתי לטעון את השבוע. רענון בעוד רגע.</div>'; return; }
     var lbl = weekOff === 0 ? 'השבוע' : weekOff === -1 ? 'שבוע שעבר' : weekOff === 1 ? 'שבוע הבא' : (weekOff < 0 ? 'לפני ' + (-weekOff) + ' שבועות' : 'בעוד ' + weekOff + ' שבועות');
-    var html = '<div class="wk-nav"><button type="button" class="wk-arr" data-w="-1" aria-label="שבוע קודם">›</button><b>' + esc(lbl) + '</b><span>' + esc(dm(plan.range[0]) + ' – ' + dm(plan.range[1])) + '</span>' + (weekOff ? '<button type="button" class="wk-arr txt" data-w="0">היום</button>' : '') + '<button type="button" class="wk-arr" data-w="1" aria-label="שבוע הבא">‹</button></div>';
+    var CH_R = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m9 6 6 6-6 6"/></svg>';
+    var CH_L = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m15 6-6 6 6 6"/></svg>';
+    var mo = monthOf(), isM = view === 'month';
+    var title = isM ? mo.label : lbl, rangeTxt = isM ? '' : dm(plan.range[0]) + ' – ' + dm(plan.range[1]);
+    var off = isM ? monthOff : weekOff;
+    /* RTL: earlier is on the right and its arrow points right; later is on the left and points left */
+    var html = '<div class="wk-nav"><div class="wk-seg" role="tablist">' + [['week', 'שבוע'], ['list', 'רשימה'], ['month', 'חודש']].map(function (v) { return '<button type="button" role="tab" data-view="' + v[0] + '" aria-selected="' + (view === v[0]) + '">' + v[1] + '</button>'; }).join('') + '</div>' +
+      '<div class="wk-pager"><button type="button" class="wk-arr" data-w="-1" aria-label="' + (isM ? 'חודש קודם' : 'שבוע קודם') + '">' + CH_R + '</button><span class="wk-ttl"><b>' + esc(title) + '</b>' + (rangeTxt ? '<small>' + esc(rangeTxt) + '</small>' : '') + '</span><button type="button" class="wk-arr" data-w="1" aria-label="' + (isM ? 'חודש הבא' : 'שבוע הבא') + '">' + CH_L + '</button></div>' +
+      (off ? '<button type="button" class="wk-arr txt" data-w="0">היום</button>' : '') + '</div>';
+    var noteHtml = '<p class="wk-note">' + (live ? '● חי ' + esc(hm(live.at)) + ' · ' : '') + 'תכנון עודכן ' + esc(hm(plan.at)) + '</p>';
+    if (view === 'list') { root.innerHTML = html + listHtml() + noteHtml; return; }
+    if (isM) { root.innerHTML = html + monthHtml(mo) + noteHtml; return; }
     html += '<div class="wk-grid">';
     (plan.days || []).forEach(function (day, di) {
       var cls = 'wk-day' + (day.today ? ' today' : '') + (day.past ? ' past' : '');
-      html += '<section data-day="' + esc(day.day) + '" class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';
+      html += '<section data-day="' + esc(day.day) + '" class="' + cls + '" aria-label="' + esc(day.dow_he + ' ' + dm(day.day)) + '"><div class="wk-dh"><b>' + esc(day.dow_he) + (day.today ? ' · היום' : '') + '</b><span>' + esc(dm(day.day)) + '</span></div>';   /* 12/11 Richard: no 'today is done' line — green cards already say it */
       var cap = day.capacity;
       if (day.today && live && live.cap && live.cap.limit) html += '<div class="wk-cap">● עכשיו: ' + num(live.cap.used) + ' מתוך ' + num(live.cap.limit) + ' יצאו ב-24 שעות · נשארו ' + num(live.cap.remaining) + '</div>';
       else if (cap && cap.capacity) html += '<div class="wk-cap' + (cap.overflow > 0 ? ' over' : '') + '">' + num(cap.planned) + ' הודעות מתוך תקרה ' + num(cap.capacity) + (cap.overflow > 0 ? ' · ' + num(cap.overflow) + ' עוברות למחר' : '') + '</div>';
@@ -231,7 +349,7 @@
               ? '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0))   /* the whole wave only in the click-through sheet */
               : '<b>' + num(it.done_n) + '</b> נשלחו מתוך ' + num(Math.max(it.planned_n || 0, it.done_n || 0) || it.of || 0);
           var movable = it.kind === 'send' && /^w[123]$/.test(it.type) && it.status !== 'done';
-          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + '</span></button>';
+          html += '<button type="button" class="wk-it' + (it._pend ? ' pend' : '') + '"' + (movable ? ' draggable="true" data-move="' + esc(it.event.tok8 + '|' + it.type) + '"' : '') + ' data-d="' + di + '" data-id="' + esc(it.id) + '"><span class="wk-t">' + (it.kind === 'call' ? '📞 ' : it.kind === 'send' ? '💬 ' : '') + esc(SHORT[kindKey] || it.label_he) + '</span>' + (why ? '<span class="wk-why">' + esc(why) + '</span>' : '') + '<div class="wk-n">' + n + '</div><span class="wk-s ' + st.c + '">' + esc(st.t) + (st.f ? ' · <span class="wk-s bad">' + esc(st.f) + '</span>' : '') + '</span></button>';
         });
         html += '</div>';
       });
@@ -254,14 +372,38 @@
     return bg.querySelector('.wk-bd');
   }
 
-  function msgHtml(t, expected) {
+  /* 16/11 (Richard): the message as the guest sees it — the event's picture or video on top, the wording, the buttons —
+     and under it what the system answers at each step after the guest replies (the same texts the handler sends). */
+  function bubble(o) {
+    return '<div class="wk-wa"><div class="wk-bub">' + (o.media || '') + (o.header ? '<b>' + esc(o.header) + '</b>\n' : '') + esc(o.body || '') + (o.footer ? '<small>' + esc(o.footer) + '</small>' : '') + '</div>' +
+      (o.buttons && o.buttons.length ? '<div class="wk-wbt">' + o.buttons.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+  }
+  function mediaHtml(t, media) {
+    var f = String((t && t.header_format) || '');
+    if (f !== 'IMAGE' && f !== 'VIDEO') return '';
+    var safe = function (u) { return /^https:\/\/[a-z0-9.-]+\//i.test(String(u || '')) ? String(u) : ''; };
+    var v = media && safe(media.video), im = media && safe(media.image);
+    if (f === 'VIDEO' && v) return '<video class="wk-med" src="' + esc(v) + '" controls preload="metadata" playsinline></video>';
+    if (im) return '<img class="wk-med" src="' + esc(im) + '" alt="ההזמנה שנשלחת" loading="lazy">';
+    if (v) return '<video class="wk-med" src="' + esc(v) + '" controls preload="metadata" playsinline></video>';
+    return '<div class="wk-med wk-nomed">' + (f === 'VIDEO' ? 'סרטון' : 'תמונה') + ' · לא נמצא קובץ לאירוע</div>';
+  }
+  function msgHtml(t, expected, media) {
     if (!t || t.missing) return '<p class="wk-tn">' + esc((t && t.name) || '') + ' · הנוסח לא נמצא במטא</p>';
-    return '<p class="wk-tn">' + esc(t.name) + (expected ? ' · צפוי' : '') + ' · ' + esc(t.category || '') + ' · ' + esc(t.status || '') + '</p><div class="wk-msg">' + (t.header ? '<b>' + esc(t.header) + '</b>\n' : '') + esc(t.body) + (t.footer ? '<small>' + esc(t.footer) + '</small>' : '') + '</div>' +
-      (t.buttons && t.buttons.length ? '<div class="wk-btns">' + t.buttons.map(function (b) { return '<span>' + esc(b) + '</span>'; }).join('') + '</div>' : '');
+    var hdr = /^\[/.test(String(t.header || '')) ? '' : t.header;
+    return '<p class="wk-tn">' + esc(t.name) + (expected ? ' · צפוי' : '') + ' · ' + esc(t.category || '') + ' · ' + esc(t.status || '') + '</p>' +
+      bubble({ media: mediaHtml(t, media), header: hdr, body: t.body, footer: t.footer, buttons: t.buttons });
+  }
+  function flowHtml(flow) {
+    if (!flow || !flow.length) return '';
+    return '<div class="wk-h">מה קורה אחרי שהאורח עונה</div><ol class="wk-flow">' + flow.map(function (s) {
+      return '<li><div class="wk-when">' + esc(s.when) + '</div>' + (s.msgs || []).map(function (m) { return bubble({ body: m.text, buttons: m.buttons }); }).join('') + (s.note ? '<p class="wk-note">' + esc(s.note) + '</p>' : '') + '</li>';
+    }).join('') + '</ol>';
   }
 
-  function open(di, id) {
-    var day = plan.days[di]; var it = (day.items || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
+  function open(di, id) { return openIt(plan.days[di], id); }
+  function openIt(day, id) {
+    if (!day) return; var it = (day.items || []).filter(function (x) { return x.id === id; })[0]; if (!it) return;
     var kindKey = it.kind === 'send' ? it.type : it.kind;
     var st = statusOf(it, day);
     var title = (SHORT[kindKey] || it.label_he) + (it.event && it.event.name && it.kind !== 'lead_sends' ? ' · ' + it.event.name : '');
@@ -269,7 +411,7 @@
       (it.total_sent != null && it.of ? '<dt>בסך הכל</dt><dd>' + num(it.total_sent) + ' מתוך ' + num(it.of) + (it.left != null ? ' · נשארו ' + num(it.left) : '') + '</dd>' : '') + '<dt>' + (it.kind === 'call' ? 'חויגו' : 'נשלחו היום') + '</dt><dd>' + num(it.done_n) + (it.planned_n ? ' מתוך ' + num(it.planned_n) : '') + (it.of && it.of !== it.planned_n ? ' (קהל ' + num(it.of) + ')' : '') + '</dd>' +
       (it.failed_n ? '<dt>נכשלו</dt><dd>' + num(it.failed_n) + '</dd>' : '') +
       (it.kind === 'call' ? '<dt>ענו</dt><dd>' + num(it.answered || 0) + '</dd>' : '') +
-      '<dt>מצב</dt><dd>' + esc(st.t) + '</dd>' + (it.reason_he ? '<dt>למה</dt><dd>' + esc(it.reason_he) + '</dd>' : '') + '</dl>';
+      '<dt>מצב</dt><dd>' + esc(st.t + (st.f ? ' · ' + st.f : '')) + '</dd>' + (it.reason_he ? '<dt>למה</dt><dd>' + esc(it.reason_he) + '</dd>' : '') + '</dl>';
     var bd = sheet(title, kv + '<div class="wk-more"><p class="wk-note">טוען נוסח ונמענים…</p></div>');
     var more = bd.querySelector('.wk-more');
     if (it.kind === 'call') { more.innerHTML = '<a class="wk-a" href="admin.html?view=calls">למוקד השיחות, עם הקלטות ותמלולים ›</a>'; return; }
@@ -282,12 +424,15 @@
       var expected = false;
       if (!names.length && EXPECT[it.type]) { names = [EXPECT[it.type]]; expected = true; }
       var need = names.filter(function (n) { return !texts[n]; });
-      var tp = need.length ? post('template-text', { names: need }).then(function (r) { if (r && r.templates) Object.keys(r.templates).forEach(function (k) { texts[k] = r.templates[k]; }); }) : Promise.resolve();
+      var askMedia = !(tok in medias);
+      var tp = need.length || askMedia ? post('template-text', { names: need, tok8: tok }).then(function (r) { if (r && r.templates) Object.keys(r.templates).forEach(function (k) { texts[k] = r.templates[k]; }); if (r) { medias[tok] = r.media || null; if (r.flow) flow = r.flow; } }) : Promise.resolve();
       return tp.then(function () {
         var h = '';
         if (names.length) {
           h += '<div class="wk-h">הנוסח' + (names.length > 1 ? ' · ' + names.length + ' גרסאות לפי האורח' : '') + '</div>';
-          names.slice(0, 3).forEach(function (n) { h += (row && row.templates[n] ? '<p class="wk-tn">' + num(row.templates[n]) + ' הודעות</p>' : '') + msgHtml(texts[n], expected); });
+          names.slice(0, 3).forEach(function (n) { h += (row && row.templates[n] ? '<p class="wk-tn">' + num(row.templates[n]) + ' הודעות</p>' : '') + msgHtml(texts[n], expected, medias[tok]); });
+          /* the reply flow belongs to messages that ask for an answer: the ones with buttons */
+          if (names.some(function (n) { return texts[n] && texts[n].buttons && texts[n].buttons.length > 1; })) h += flowHtml(flow);
         } else h += '<p class="wk-note">אין נוסח רשום להודעה הזאת.</p>';
         var ppl = row && row.people;
         if (ppl) {
@@ -305,7 +450,7 @@
           if (tabs.length) show(tabs[0]);
           more.querySelectorAll('.wk-tabs button').forEach(function (bt) { bt.addEventListener('click', function () { show(bt.dataset.b); }); });
         } else more.innerHTML = h;
-        more.insertAdjacentHTML('beforeend', '<a class="wk-a" href="calendar.html">ללוח השליחות המלא ›</a>');
+        more.insertAdjacentHTML('beforeend', '<a class="wk-a" href="clients.html">ללקוחות · התקדמות השליחות בניהול האירוע ›</a>');
       });
     }).catch(function () { more.innerHTML = '<p class="wk-note">לא הצלחתי לטעון את הפרטים.</p>'; });
   }
@@ -372,7 +517,43 @@
       }
     });
   }
-  function load() { return Promise.all([getPlan().then(function (p) { if (p && p.ok) plan = p; return plan ? loadInfo() : null; }), getLive()]).then(function () { applyPending(); render(); }, render); }
+  /* 18/11 (Richard): when the board was last refreshed, when the next refresh is due, and a button to refresh now */
+  var fr = { last: 0, next: 0, busy: false, ok: true };
+  function frBar() {
+    var el = document.getElementById('wk-fresh');
+    if (!el && root && root.parentNode) {
+      el = document.createElement('div'); el.id = 'wk-fresh';
+      el.style.cssText = 'display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.8rem;opacity:.85;margin:.2rem 0 .5rem';
+      el.innerHTML = '<span data-fr-t></span><button type="button" data-fr-now style="font:inherit;font-size:.78rem;padding:.2rem .6rem;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer">עדכן עכשיו</button>';
+      root.parentNode.insertBefore(el, root);
+      el.querySelector('[data-fr-now]').addEventListener('click', function () { refreshNow(); });
+    }
+    return el;
+  }
+  function frTick() {
+    var el = frBar(); if (!el) return;
+    var t = el.querySelector('[data-fr-t]'), b = el.querySelector('[data-fr-now]'), now = Date.now();
+    var clock = function (ms) { var d = new Date(ms); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2); };
+    var ago = fr.last ? Math.max(0, Math.round((now - fr.last) / 1000)) : null, left = fr.next ? Math.max(0, Math.round((fr.next - now) / 1000)) : null;
+    var planAt = store && store.at ? ' · תכנון חושב ' + esc(hm(store.at)) : '';
+    b.disabled = fr.busy; b.textContent = fr.busy ? 'מעדכן…' : 'עדכן עכשיו';
+    t.innerHTML = (fr.last ? 'עדכון אחרון ' + clock(fr.last) + ' (לפני ' + (ago < 60 ? ago + ' שנ׳' : Math.floor(ago / 60) + ' דק׳') + ')' : 'טוען…') + planAt +
+      (fr.busy ? '' : left === null ? '' : document.hidden ? '' : ' · העדכון הבא בעוד ' + left + ' שנ׳') + (fr.ok ? '' : ' · <b>העדכון האחרון לא הצליח, מוצג המצב הקודם</b>');
+  }
+  function load() {
+    fr.busy = true; frTick();
+    return Promise.all([getPlan().then(function (p) { fr.ok = !!(p && p.ok); if (p && p.ok) { plan = p; fr.last = Date.now(); } return plan ? loadInfo() : null; }), getLive()])
+      .then(function () { applyPending(); render(); }, render)
+      .then(function () { fr.busy = false; fr.next = Date.now() + 60000; frTick(); });
+  }
+  function refreshNow() { if (fr.busy) return Promise.resolve(); wantFresh = true; return load().then(function () { wantFresh = false; }, function () { wantFresh = false; }); }
+  /* paging: draw from memory now; go to the network only when what we hold is older than a minute */
+  function page() {
+    if (!store) return load();
+    plan = buildWeek(); applyPending(); render();
+    loadInfo().then(render, function () {});
+    if (Date.now() - store.t > 60000) load();
+  }
   var timer = null;
 
   window.IshurWeek = {
@@ -384,19 +565,32 @@
         root.dataset.wired = '1';
         root.addEventListener('click', function (e) { var n = e.target.closest('.wk-evb'); if (n) { openEvent(n.dataset.tok); return; } var b = e.target.closest('.wk-it'); if (b) open(Number(b.dataset.d), b.dataset.id); });
         wireDnd();
-        root.addEventListener('click', function (e) { var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w); weekOff = w === 0 ? 0 : weekOff + w; load(); });
+        root.addEventListener('click', function (e) {
+          var v = e.target.closest('.wk-seg [data-view]'); if (v) {   /* scoped: the admin page has its own data-view ancestors */ view = v.dataset.view; try { localStorage.setItem('wk_view', view); } catch (x) {} page(); return; }
+          var c = e.target.closest('[data-goday]');
+          if (c) { openDay(c.dataset.goday); return; }
+          var a = e.target.closest('.wk-arr'); if (!a) return; var w = Number(a.dataset.w);
+          if (view === 'month') monthOff = w === 0 ? 0 : monthOff + w; else weekOff = w === 0 ? 0 : weekOff + w;
+          page();
+        });
         /* trackpad: a horizontal swipe pages the week (RTL: swipe toward the left = earlier) */
         var wheelAcc = 0, wheelAt = 0;
         root.addEventListener('wheel', function (e) {
           if (Math.abs(e.deltaX) < Math.abs(e.deltaY) * 1.5) return;
           var now = Date.now(); if (now - wheelAt > 400) wheelAcc = 0; wheelAt = now; wheelAcc += e.deltaX;
-          if (Math.abs(wheelAcc) > 140) { weekOff += wheelAcc > 0 ? -1 : 1; wheelAcc = 0; e.preventDefault(); load(); }
+          if (Math.abs(wheelAcc) > 140) { if (view === 'month') monthOff += wheelAcc > 0 ? -1 : 1; else weekOff += wheelAcc > 0 ? -1 : 1; wheelAcc = 0; e.preventDefault(); page(); }
         }, { passive: false });
         root.innerHTML = '<div class="wk-empty">טוען את השבוע…</div>';
       }
       boards = {};
-      if (!timer) timer = setInterval(function () { if (document.hidden || document.querySelector('.wk-bg')) return; load(); }, 60000);
-      return load();
+      if (!timer) {
+        timer = setInterval(function () { if (document.hidden || document.querySelector('.wk-bg') || fr.busy) return; if (Date.now() >= fr.next) load(); }, 1000);
+        setInterval(frTick, 1000);
+        /* coming back to the tab refreshes at once instead of waiting for the next minute */
+        document.addEventListener('visibilitychange', function () { if (!document.hidden && !fr.busy && Date.now() >= fr.next) load(); });
+      }
+      /* every page load: the saved copy at once, then a real recompute in the background */
+      return load().then(function () { return refreshNow(); });
     }
   };
 })();

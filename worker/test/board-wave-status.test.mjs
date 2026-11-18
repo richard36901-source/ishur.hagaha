@@ -18,3 +18,8 @@ test('nothing sent and the date passed → עבר; flag set → sent', () => {
   assert.equal(inv(buildDashboard('TOK', raw, 0, { count: { 1: 0 } })).status, 'passed');
   assert.equal(inv(buildDashboard('TOK', raw, 0, { 1: true })).status, 'sent');
 });
+test('12/11: admin-set call-round and thank-you days win over the derived ones', () => {
+  const d = buildDashboard('TOK', { events: { values: [Array(45).fill('h'), (() => { const r = Array(45).fill(''); r[1] = 'TOK'; r[6] = '2026-11-30'; r[31] = 'הכל כלול'; r[39] = '2026-11-09'; r[40] = '2026-11-19'; return r; })()] }, guests: { values: [] } }, 0, { callDate: '2026-11-25', todaDate: '2026-12-03' });
+  assert.equal(d.sends.find(s => s.key === 'calls').date, '2026-11-25');
+  assert.equal(d.sends.find(s => s.key === 'day_after').date, '2026-12-03');
+});

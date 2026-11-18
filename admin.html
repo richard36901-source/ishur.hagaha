@@ -8,17 +8,20 @@
 <title>מרכז הבקרה · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@300;400;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=72"></script>
+<script src="config.js?v=74"></script>
 <script src="assets/ux.js?v=4"></script>
-<script src="assets/adminbar.js?v=17" defer></script>
-<script src="assets/guard.js?v=19"></script>
+<script src="assets/adminbar.js?v=23" defer></script>
+<script src="assets/guard.js?v=21"></script>
 <script src="assets/lite.js?v=1"></script>
-<script src="assets/paylink-gen.js?v=3"></script>
-<script src="assets/playbook.js?v=2"></script>
+<link rel="stylesheet" href="assets/picker.css">
+<script src="assets/datepicker.js"></script>
+<script src="assets/paylink-gen.js?v=7"></script>
+<script src="assets/pnl-journal.js?v=12"></script>
+<script src="assets/playbook.js?v=4"></script>
 <script src="assets/sendboard.js?v=3"></script>
 <script src="assets/callboard.js?v=1"></script>
-<script src="assets/callslog.js?v=1"></script>
-<script src="assets/week.js?v=11"></script>
+<script src="assets/callslog.js?v=2"></script>
+<script src="assets/week.js?v=22"></script>
 <style>
   :root{
     --pine:#0F2E22; --pine-deep:#0A2119; --gold:#A8853C; --gold-soft:#C7AE7A;
@@ -498,7 +501,7 @@
   html.embed .wrap{padding-top:.6rem}html.embed #hello,html.embed #today{display:none}
   details.plfold summary{cursor:pointer;font-weight:600;list-style:none;display:flex;gap:.5rem;align-items:center}details.plfold summary::before{content:"+";display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:var(--pine);color:#fff;font-size:1rem}details.plfold[open] summary::before{content:"–"}details.plfold .linkcard{margin-top:.6rem}
   /* 09/11 Richard: "תעיף כל מה שמיותר" — the main view is the top + the week + links + שליטה */
-  body[data-view="main"] #main > :not(#hqtop):not(.sec-calls):not(#ctl){display:none !important}
+  /* 12/11 Richard: "תחזיר את זה מתחת ללו"ז שליחות" — site visits, cost per client, funnel and the rest are back under the week */
   .strip2{grid-template-columns:repeat(2,minmax(0,1fr)) !important}
   .strip2 .st{text-decoration:none;color:inherit}
   .strip2 .st .v{font-size:1.5rem}
@@ -577,7 +580,7 @@
     <div id="week"></div>
     <details class="plfold"><summary>קישור תשלום חדש</summary><div class="linkcard"><div id="pl-gen"></div></div></details>
     <nav class="quick">
-      <a href="leads.html">לידים</a><a href="inbox.html">אינבוקס</a><a href="clients.html">לקוחות</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="calendar.html">לוח שליחות</a>
+      <a href="leads.html">לידים</a><a href="inbox.html">אינבוקס</a><a href="clients.html">לקוחות</a><a href="clients.html#referrals">שגרירים</a><a href="clients.html#staff">דיילות</a><a href="clients.html#designs">עיצובים</a><a href="admin.html?view=calls">מוקד שיחות</a><a href="calendar.html">לוח שליחות</a>
     </nav>
   </div>
 
@@ -916,9 +919,10 @@
     </span>
   </h2>
   <div class="fold" id="fold-cost" hidden>
+    <div id="pjHost"></div>
     <div class="tblwrap tall">
       <table>
-        <thead><tr><th>תאריך</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th><th>פרסום ₪</th><th>סה״כ ₪</th></tr></thead>
+        <thead><tr><th>תאריך</th><th>הכנסות ₪</th><th>הודעות</th><th>תבניות</th><th>כשלים</th><th>עלות WA ₪</th><th>עלות שיר ₪</th><th>פרסום ₪</th><th>סליקה ₪</th><th>קבועות ₪</th><th>סה״כ הוצאות ₪</th><th>רווח ₪</th><th>מע״מ ₪</th><th>רווח אחרי מע״מ ₪</th></tr></thead>
         <tbody id="costRows"></tbody>
       </table>
     </div>
@@ -983,6 +987,18 @@
         <button type="button" id="pauseTog" class="sw" role="switch" aria-checked="false" aria-label="שליחות פעילות" disabled><i></i></button></span>
       </div>
       <p class="ctl-alarm" id="pauseAlarm" hidden>כל השליחות מושהות: המנוע היומי, ההודעות ושיחות שיר</p>
+    </div>
+
+    <!-- 12/11 Richard: a switch for Noa's calls to leads who did not answer (noa_chase) -->
+    <div class="ctl-row">
+      <div class="ctl-top">
+        <div>
+          <div class="ctl-label">נועה מתקשרת ללידים שלא ענו</div>
+          <div class="ctl-note" id="chaseNote">בודקים את המצב מול השרת…</div>
+        </div>
+        <span class="sw-wrap"><span class="sw-state" id="chaseState">טוען…</span>
+        <button type="button" id="chaseTog" class="sw" role="switch" aria-checked="false" aria-label="נועה מתקשרת ללידים" disabled><i></i></button></span>
+      </div>
     </div>
 
     <div class="ctl-row">
@@ -1266,6 +1282,7 @@
     if (liveBusy()) return;
     if (VIEW === 'calls' && !UNIFIED) loadShir();
     loadPause();
+    if (!fastTick._chase || Date.now() - fastTick._chase > 60000) { fastTick._chase = Date.now(); loadChase(); }
     if (slowDue && Date.now() >= slowDue) slowTick();
   }
 
@@ -1275,7 +1292,7 @@
     loadStatus(true);
     loadBrain();
     hqLoad();
-    if (VIEW === 'main') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); return; }
+    if (VIEW === 'main') { if (window.IshurWeek && $('week')) IshurWeek.mount($('week'), { key: adminKey, base: CFG.endpoint('status').replace(/\/api\/status$/, '') }); if (statsOn && Date.now() - statsAt > 5 * 60000) loadStats(); return; }
     loadOps();
     loadCost();
     loadTraffic();
@@ -1283,6 +1300,8 @@
     loadBoard();
   }
 
+  var statsOn = false, statsAt = 0;
+  function loadStats() { statsAt = Date.now(); loadOps(); loadCost(); loadTraffic(); loadCampaigns(); loadBoard(); loadFeedback(); }
   function liveStart() {
     liveStop();
     fastTimer = setInterval(fastTick, FAST_MS);
@@ -1330,7 +1349,13 @@
     }
     loadBrain();
     loadPause();
-    if (VIEW === 'main') return;   /* 09/11: the hidden sections no longer fetch (they caused 429s) */
+    /* 12/11: on the home view the numbers load when they scroll into sight, then every 5 minutes (every minute caused 429s) */
+    if (VIEW === 'main') {
+      var g = $('growth');
+      if (g && 'IntersectionObserver' in window) { var io = new IntersectionObserver(function (en) { if (en.some(function (x) { return x.isIntersecting; })) { io.disconnect(); statsOn = true; loadStats(); } }, { rootMargin: '600px' }); io.observe(g); }
+      else { statsOn = true; loadStats(); }
+      return;
+    }
     loadOps();
     loadCost();
     loadTraffic();
@@ -1371,10 +1396,10 @@
         var route = f.route === 'high' ? '<span class="pill p-ok">המלצה</span>'
                   : f.route === 'low' ? '<span class="pill p-warn">הערה אלינו</span>'
                   : '<span style="color:var(--ink3)">לא דירג</span>';
-        var note = f.note ? '<span title="' + String(f.note).replace(/"/g, '&quot;') + '">' + String(f.note).slice(0, 80) + (f.note.length > 80 ? '…' : '') + '</span>' : (f.left ? '<span style="color:var(--ink3)">עזב בלי ללחוץ</span>' : '');
+        var note = f.note ? '<span title="' + esc(f.note) + '">' + esc(String(f.note).slice(0, 80)) + (f.note.length > 80 ? '…' : '') + '</span>' : (f.left ? '<span style="color:var(--ink3)">עזב בלי ללחוץ</span>' : '');
         tr.innerHTML =
-          '<td>' + (f.name || (f.token || '').slice(0, 8)) + (f.occasion ? ' · ' + f.occasion : '') + '</td>' +
-          '<td>' + (f.client || '—') + '</td>' +
+          '<td>' + esc(f.name || (f.token || '').slice(0, 8)) + (f.occasion ? ' · ' + esc(f.occasion) : '') + '</td>' +
+          '<td>' + esc(f.client || '—') + '</td>' +
           '<td>' + (f.who === 2 ? 'בן/בת הזוג' : 'בעל השמחה') + '</td>' +
           '<td>' + (fbWhen(f.at) || '—') + '</td>' +
           '<td>' + fbScore(f.nps) + '</td>' +
@@ -1479,10 +1504,10 @@
       else if (e.cancelled) invPill = '<span class="pill p-warn">—</span>';
       else { invPill = '<span class="pill p-no">חסרה</span>'; missingInv++; }
       tr.innerHTML =
-        '<td>' + (e.name || e.client || '—') + (e.occasion ? ' · ' + e.occasion : '') + (isDone(e) ? ' <span class="pill p-done">הסתיים</span>' : '') + '</td>' +
+        '<td>' + esc(e.name || e.client || '—') + (e.occasion ? ' · ' + esc(e.occasion) : '') + (isDone(e) ? ' <span class="pill p-done">הסתיים</span>' : '') + '</td>' +
         '<td>' + holdCell(e) + '</td>' +
         '<td>' + heDate(e.date) + '</td>' +
-        '<td>' + (e.plan || '—') + (e.tier ? ' · ' + e.tier : '') + '</td>' +
+        '<td>' + esc(e.plan || '—') + (e.tier ? ' · ' + esc(e.tier) : '') + '</td>' +
         '<td>' + e.sum.toLocaleString('he-IL') + '</td>' +
         '<td>' + (costIls ? costIls.toFixed(2) : '0') + '</td>' +
         '<td style="font-weight:600;color:' + (profit >= 0 ? '#0F4C35' : '#A8402F') + '">' + (Math.round(profit * 100) / 100).toLocaleString('he-IL') + '</td>' +
@@ -1493,7 +1518,7 @@
         '<td>' + e.seats + '</td>' +
         '<td>' + e.pending + '</td>' +
         '<td>' + (e.need_call || '') + '</td>' +
-        '<td>' + (e.token ? '<button type="button" class="fbcopy" data-token="' + e.token + '" data-ev="' + String(e.name || e.client || '').replace(/"/g, '&quot;') + '" title="העתקת הודעת סיום + קישור משוב">📋 משוב</button>' : '') + '</td>';
+        '<td>' + (e.token ? '<button type="button" class="fbcopy" data-token="' + esc(e.token) + '" data-ev="' + esc(e.name || e.client || '') + '" title="העתקת הודעת סיום + קישור משוב">📋 משוב</button>' : '') + '</td>';
       var cls = [];
       if (isDone(e)) cls.push('row-done');
       if (e.token && holdMap[e.token]) cls.push('row-hold');
@@ -1850,6 +1875,7 @@
         if (!d || !d.ok) return;
         costDays = d.days || [];
         costEvents = d.events || [];
+        incByDay = d.income || {}; fixedByMonth = d.fixed || {};
         costMap = {};
         /* 25/10: the worker now sends ₪ per event (cost_ils). costMap keeps it as agorot × USD_ILS so the old formula still yields ₪ */
       costEvents.forEach(function (e) { costMap[e.token8] = e.cost_ils != null ? e.cost_ils * 100 / USD_ILS : e.cost_usd_cents; });
@@ -1862,26 +1888,44 @@
 
   /* a day's line: messages, calls, ads, and the sum. Days the ad account
      knows but the message log does not (before 30.8) still get a row. */
+  /* 16/11: income per day (payments, VAT inside them, Grow's fee) and the fixed subscriptions on their charge day,
+     from the same /api/cost-log answer. profit = income − every cost of the day; net = profit − VAT on sales. */
+  var incByDay = {}, fixedByMonth = {}, pj = null;
+  function ilTodayStr() { return new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem' }).format(new Date()); }
   function costLines() {
-    var seen = {};
+    var seen = {}, today = ilTodayStr();
     var lines = costDays.map(function (r) { seen[r.date] = true; return r; });
-    Object.keys(adByDay).forEach(function (d) { if (!seen[d]) lines.push({ date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); });
+    var blank = function (d) { if (!seen[d] && d <= today) { seen[d] = true; lines.push({ date: d, wa_out: 0, wa_tmpl: 0, wa_fail: 0, wa_cost_usd_cents: 0, shir_cost_usd_cents: 0 }); } };
+    Object.keys(adByDay).forEach(blank);
+    Object.keys(incByDay).forEach(blank);
+    Object.keys(fixedByMonth).forEach(function (m) { (fixedByMonth[m] || []).forEach(function (x) { blank(m + '-' + String(x.day || 10).padStart(2, '0')); }); });
     lines.sort(function (a, b) { return a.date < b.date ? -1 : 1; });
+    var r2 = function (x) { return Math.round((Number(x) || 0) * 100) / 100; };
     return lines.map(function (r) {
       var wa = r.wa_cost_usd_cents / 100 * USD_ILS, shir = r.shir_cost_usd_cents / 100 * USD_ILS, ads = adByDay[r.date] || 0;
-      return { date: r.date, out: r.wa_out, tmpl: r.wa_tmpl, fail: r.wa_fail || '', wa: wa, shir: shir, ads: ads, total: wa + shir + ads };
+      var inc = incByDay[r.date] || { revenue: 0, vat: 0, fees: 0, payments: 0, deals: [] };
+      var fxItems = (fixedByMonth[r.date.slice(0, 7)] || []).filter(function (x) { return (x.day || 10) === Number(r.date.slice(8, 10)); });
+      var fixed = fxItems.reduce(function (t, x) { return t + (Number(x.ils) || 0); }, 0);
+      var total = r2(wa + shir + ads + inc.fees + fixed), profit = r2(inc.revenue - total);
+      return { date: r.date, out: r.wa_out, tmpl: r.wa_tmpl, fail: r.wa_fail || '', wa: wa, shir: shir, ads: ads,
+        rev: inc.revenue, vat: inc.vat, fee: inc.fees, feeEst: !!inc.fee_estimated, pay: inc.payments, deals: inc.deals || [], fixed: fixed, fixedItems: fxItems,
+        total: total, profit: profit, net: r2(profit - inc.vat) };
     });
   }
   function renderCostTable() {
-    if (!costDays.length && !Object.keys(adByDay).length) return;
+    if (!costDays.length && !Object.keys(adByDay).length && !Object.keys(incByDay).length) return;
     keepScroll($('costRows'), function () {
       $('costRows').innerHTML = costLines().slice(-60).reverse().map(function (l) {
-        return '<tr><td>' + heDate(l.date) + '</td><td>' + l.out + '</td><td>' + l.tmpl +
+        var col = function (v) { return v > 0 ? 'var(--ok)' : v < 0 ? 'var(--warn)' : 'inherit'; };
+        return '<tr><td>' + heDate(l.date) + '</td><td>' + (l.rev ? '<b>' + l.rev.toFixed(2) + '</b>' : '') + '</td><td>' + l.out + '</td><td>' + l.tmpl +
           '</td><td>' + l.fail + '</td><td>' + l.wa.toFixed(2) +
           '</td><td>' + l.shir.toFixed(2) + '</td><td>' + (l.ads ? l.ads.toFixed(2) : '') +
-          '</td><td><b>' + l.total.toFixed(2) + '</b></td></tr>';
+          '</td><td>' + (l.fee ? l.fee.toFixed(2) + (l.feeEst ? ' ≈' : '') : '') + '</td><td>' + (l.fixed ? l.fixed.toFixed(2) : '') +
+          '</td><td><b>' + l.total.toFixed(2) + '</b></td><td style="color:' + col(l.profit) + '"><span dir="ltr">' + l.profit.toFixed(2) +
+          '</span></td><td>' + (l.vat ? l.vat.toFixed(2) : '') + '</td><td style="color:' + col(l.net) + '"><b dir="ltr">' + l.net.toFixed(2) + '</b></td></tr>';
       }).join('');
     });
+    if (window.IshurJournal && $('pjHost')) { if (!pj) pj = window.IshurJournal.mount($('pjHost'), costLines); else pj.redraw(); }
   }
 
   function downloadCsv(name, header, rows) {
@@ -1894,9 +1938,9 @@
   }
   $('csvDays').addEventListener('click', function () {
     downloadCsv('ishur-costs-daily.csv',
-      ['תאריך', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪', 'פרסום ₪', 'סה״כ ₪'],
+      ['תאריך', 'הכנסות ₪', 'הודעות', 'תבניות', 'כשלים', 'עלות WA ₪', 'עלות שיר ₪', 'פרסום ₪', 'סליקה ₪', 'קבועות ₪', 'סה״כ הוצאות ₪', 'רווח ₪', 'מע״מ ₪', 'רווח אחרי מע״מ ₪'],
       costLines().map(function (l) {
-        return [l.date, l.out, l.tmpl, l.fail, l.wa.toFixed(2), l.shir.toFixed(2), l.ads.toFixed(2), l.total.toFixed(2)];
+        return [l.date, l.rev.toFixed(2), l.out, l.tmpl, l.fail, l.wa.toFixed(2), l.shir.toFixed(2), l.ads.toFixed(2), l.fee.toFixed(2), l.fixed.toFixed(2), l.total.toFixed(2), l.profit.toFixed(2), l.vat.toFixed(2), l.net.toFixed(2)];
       }));
   });
   $('csvEvents').addEventListener('click', function () {
@@ -2083,6 +2127,50 @@
             '<b>לא ייעצר:</b> הודעות נכנסות ותשובות של אורחים עדיין מתקבלות ונרשמות כרגיל. רק היוצאות נעצרות.<br><br>' +
             'אפשר להפעיל מחדש בכל רגע מאותו מתג.'
     }, function (ok) { if (ok) applyPause(true); });
+  });
+
+  /* ── 12/11: "שלח לשאר" — the Slack alert on an abandoned wave links here with ?rest=<tok8> ── */
+  function waveRestFlow() {
+    var m = /[?&]rest=([0-9a-f]{8})\b/.exec(location.search); if (!m || !adminKey) return;
+    var base = CFG.endpoint('status').replace(/\/api\/status$/, '');
+    var call = function (confirm) { return fetch(base + '/api/wave-rest', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey }, body: JSON.stringify({ tok8: m[1], confirm: !!confirm }) }).then(function (r) { return r.json(); }); };
+    var clean = function () { try { history.replaceState(null, '', location.pathname); } catch (e) {} };
+    call(false).then(function (d) {
+      if (!d || !d.ok) { clean(); flash('bad', d && d.why === 'event-passed' ? 'האירוע כבר עבר, לא נשלח כלום.' : 'לא מצאתי את האירוע, לא נשלח כלום.'); return; }
+      if (!d.n) { clean(); flash('ok', (d.name || 'האירוע') + ': אין אורחים שנשארו בלי הזמנה' + (d.queued ? ' (' + d.queued + ' כבר בתור)' : '') + '.'); return; }
+      var esc = function (v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+      askConfirm({ title: 'לשלוח הזמנה ל-' + d.n + ' שנשארו?', yes: 'כן, לשלוח ל-' + d.n,
+        body: '<b>' + esc(d.name || '') + '</b><br>' + d.n + ' אורחים לא קיבלו את ההזמנה ולא ענו' + (d.sample && d.sample.length ? ' (למשל ' + d.sample.map(esc).join(', ') + ')' : '') + '.<br><br>ההזמנות נכנסות לתור ויוצאות רק בשעות השליחה, 10 בכל פעימה.' },
+        function (ok) { clean(); if (!ok) return; call(true).then(function (r) { flash(r && r.applied ? 'ok' : 'bad', r && r.applied ? r.n + ' הזמנות נכנסו לתור.' : FAIL_SAVE); }, function () { flash('bad', FAIL_NET); }); });
+    }, function () { flash('bad', FAIL_NET); });
+  }
+  setTimeout(waveRestFlow, 1200);
+
+  /* ── 1b. Noa's chase calls to unanswered leads: the ops kill switch noa_chase ── */
+  var chaseOn = null;
+  function opsToggle(enabled, confirm) {
+    var base = CFG.endpoint('status').replace(/\/api\/status$/, '');
+    return fetch(base + '/api/ops/toggle', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-admin-key': adminKey },
+      body: JSON.stringify(confirm ? { id: 'noa_chase', enabled: enabled, confirm: 'noa_chase', who: 'richard' } : { id: 'noa_chase', enabled: enabled }) }).then(function (r) { return r.json(); });
+  }
+  function paintChase(on) {
+    chaseOn = on;
+    var b = $('chaseTog'), st = $('chaseState'), note = $('chaseNote');
+    if (!b) return;
+    b.disabled = false; b.setAttribute('aria-checked', on ? 'true' : 'false');
+    st.textContent = on ? 'פעיל' : 'כבוי';
+    note.textContent = on ? 'פעיל: נועה מחייגת רק ללידים שסומן להם "נועה תחייג" במאנדיי, כל עוד הסטטוס "לא ענה" (2 בכל פעימה, בשעות החיוג).' : 'כבוי: נועה לא מחייגת ללידים, גם לא למסומנים. הודעות נכנסות עדיין נענות.';
+  }
+  function loadChase() {
+    if (!$('chaseTog')) return;
+    opsToggle(true, false).then(function (j) { if (j && typeof j.enabled_now === 'boolean') paintChase(j.enabled_now); else { $('chaseState').textContent = 'לא נטען'; } }).catch(function () { $('chaseState').textContent = 'לא נטען'; });
+  }
+  if ($('chaseTog')) $('chaseTog').addEventListener('click', function () {
+    if (chaseOn === null) return;
+    var next = !chaseOn;
+    var go = function () { $('chaseTog').disabled = true; opsToggle(next, true).then(function (j) { if (j && j.applied) { paintChase(next); IshurUX.toast(next ? 'נועה חזרה לחייג ללידים' : 'נועה הפסיקה לחייג ללידים'); } else { $('chaseTog').disabled = false; IshurUX.toast('לא הצליח: ' + ((j && (j.he || j.error)) || '')); } }).catch(function () { $('chaseTog').disabled = false; IshurUX.toast('לא הצליח'); }); };
+    if (next) { go(); return; }
+    askConfirm({ title: 'לעצור את השיחות של נועה ללידים?', yes: 'כן, לעצור', body: 'נועה תפסיק לחייג ללידים שלא ענו עד שתדליק שוב. שיחות שכבר רצות לא נקטעות.' }, function (ok) { if (ok) go(); });
   });
 
   /* ── 2. one number in or out of sending ── */
@@ -2312,7 +2400,7 @@
           var tr = document.createElement('tr');
           var pct = d.leads_total ? Math.round(u[1] / d.leads_total * 100) : 0;
           var closed = u[2] || 0, cr = u[1] ? Math.round(closed / u[1] * 100) : 0;
-          tr.innerHTML = '<td>' + u[0] + '</td><td>' + u[1] + '</td><td>' + pct + '%</td><td style="font-weight:600;color:' + (closed ? '#0F4C35' : 'var(--ink3)') + '">' + closed + '</td><td>' + (closed ? cr + '%' : '—') + '</td>';
+          tr.innerHTML = '<td>' + esc(u[0]) + '</td><td>' + esc(u[1]) + '</td><td>' + pct + '%</td><td style="font-weight:600;color:' + (closed ? '#0F4C35' : 'var(--ink3)') + '">' + closed + '</td><td>' + (closed ? cr + '%' : '—') + '</td>';
           rows.appendChild(tr);
         });
         syncFolds();

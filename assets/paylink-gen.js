@@ -76,8 +76,9 @@
         return '<button type="button" role="option" aria-selected="' + (String(o.v) === String(value)) + '" data-set="' + id + '" data-v="' + esc(o.v) + '"' + (o.off ? ' disabled' : '') + '>' + esc(o.t) + '</button>';
       }).join('') + '</div>' : '') + '</div>';
   }
-  function tg(key, label, on, extra, off) {
-    return '<button type="button" class="plg-tg' + (on ? ' on' : '') + '" role="checkbox" aria-checked="' + (!!on) + '" data-tg="' + key + '"' + (off ? ' disabled' : '') + '>' +
+  /* 12/11 Richard: nothing on this form is a dead spot — a chip that cannot be chosen answers the click with the reason */
+  function tg(key, label, on, extra, off, why) {
+    return '<button type="button" class="plg-tg' + (on ? ' on' : '') + (off ? ' off' : '') + '" role="checkbox" aria-checked="' + (!!on) + '" data-tg="' + key + '"' + (off ? ' aria-disabled="true" data-why="' + esc(why || 'לא זמין בבחירה הנוכחית') + '"' : '') + '>' +
       '<span class="box" aria-hidden="true">' + (on ? '✓' : '') + '</span><span class="t">' + esc(label) + '</span><b>' + esc(extra || '') + '</b></button>';
   }
   function money(n) { return '₪' + Number(n || 0).toLocaleString('he-IL'); }
@@ -97,7 +98,7 @@
       field('שם הלקוח *', '<input data-in="name" value="' + esc(s.name) + '" autocomplete="off">') +
       field('טלפון *', '<input data-in="phone" inputmode="tel" dir="ltr" placeholder="05X-XXXXXXX" value="' + esc(s.phone) + '">') +
       dd('occasion', 'סוג אירוע *', s.occasion, occ, s.open === 'occasion') +
-      field('תאריך האירוע (לא חובה)', '<input data-in="event_date" type="date" value="' + esc(s.event_date) + '">') +
+      '<div class="plg-f"><span class="lbl">תאריך האירוע (לא חובה)</span><input data-in="event_date" data-idate="free" type="date" value="' + esc(s.event_date) + '"></div>' +
       (inB ? '<div class="plg-f"><span class="lbl">חבילה</span><div class="plg-list">' + tg('no_calls', 'בלי שיחות בכלל (אותו מחיר, חבילת בסיס)', s.no_calls, s.no_calls ? 'חבילה + דיילות' : 'הכל כלול') + '</div></div>'
         : dd('plan', 'חבילה', s.plan, ['basic', 'pro', 'premium'].map(function (k) { return { v: k, t: PLAN_HE[k] }; }), s.open === 'plan')) +
       dd('records', 'רשומות', s.records, recs.map(function (n) { return { v: n, t: 'עד ' + n + ' רשומות' }; }), s.open === 'records') +
@@ -105,16 +106,16 @@
         '<div class="plg-li">' + dd('hostesses', 'דיילות באירוע', s.hostesses, hostOpts, s.open === 'hostesses') + '<b>' + (inB ? money(pr.bundleTotal) : (s.hostesses && hp[s.hostesses] ? money(hp[s.hostesses]) : '')) + '</b></div>' +
         (pr.note ? '<div class="plg-li"><span class="plg-miss">' + esc(pr.note) + '</span></div>' : '') +
         tg('design', inB ? 'עיצוב ההזמנה במתנה' : 'עיצוב הזמנה', s.design, inB ? 'כלול · ' + money(0) : money(cfg.DESIGN_PRICE || 79)) +
-        tg('travel', 'נסיעות (מחוץ למרכז)', s.travel && s.hostesses, s.hostesses ? money(inB && cfg.bundlePick(s.records, pr.hostesses).travel != null ? cfg.bundlePick(s.records, pr.hostesses).travel : travelFor(cfg, pr.hostesses || s.hostesses)) : 'רק עם דיילות', !s.hostesses) +
+        tg('travel', 'נסיעות (מחוץ למרכז)', s.travel && s.hostesses, s.hostesses ? money(inB && cfg.bundlePick(s.records, pr.hostesses).travel != null ? cfg.bundlePick(s.records, pr.hostesses).travel : travelFor(cfg, pr.hostesses || s.hostesses)) : 'רק עם דיילות', !s.hostesses, 'נסיעות מתווספות רק כשיש דיילות. בחרו קודם דיילות') +
         tg('extra_wave', 'גל תזכורת שלישי', s.extra_wave, money(wave)) +
-        (inB ? (s.no_calls ? '' : tg('calls', 'סבב שיחות AI', false, 'כלול · ' + money(0), true))
-          : tg('calls', 'סבב שיחות AI', s.calls && !CALLS_INCLUDED[s.plan], CALLS_INCLUDED[s.plan] ? 'כלול בחבילה' : money(callsP), !!CALLS_INCLUDED[s.plan])) +
+        (inB ? (s.no_calls ? '' : tg('calls', 'סבב שיחות AI', false, 'כלול · ' + money(0), true, 'סבב השיחות כבר כלול בחבילה הזו'))
+          : tg('calls', 'סבב שיחות AI', s.calls && !CALLS_INCLUDED[s.plan], CALLS_INCLUDED[s.plan] ? 'כלול בחבילה' : money(callsP), !!CALLS_INCLUDED[s.plan], 'סבב השיחות כבר כלול בחבילה הזו')) +
       '</div></div>' +
       '<div class="plg-sum">' + pr.lines.map(function (l) { return '<div><span>' + esc(l.label) + '</span><span>' + money(l.price) + '</span></div>'; }).join('') +
         '<div class="tot"><span>סה"כ</span><span>' + money(pr.total) + '</span></div>' +
         '<div class="note">הסכום הסופי מחושב בשרת מאותן טבלאות</div></div>' +
       '<div class="plg-act">' +
-        '<button type="button" class="plg-btn p" data-plg="make"' + (miss.length || s.busy ? ' disabled' : '') + '>' + (s.busy ? 'יוצר…' : 'צור קישור') + '</button>' +
+        '<button type="button" class="plg-btn p" data-plg="make"' + (s.busy ? ' disabled' : '') + (miss.length ? ' aria-disabled="true"' : '') + '>' + (s.busy ? 'יוצר…' : 'צור קישור') + '</button>' +
         (miss.length ? '<span class="plg-miss">חסר: ' + esc(miss.join(', ')) + '</span>' : '') +
         (s.err ? '<span class="plg-miss">' + esc(s.err) + '</span>' : '') +
       '</div>' +
@@ -126,7 +127,7 @@
   }
 
   /* tokens = the ishur.io brand set (assets/ops/ops.css :root), with the admin pages' own vars as fallbacks */
-  var CSS = '.plg-card{--b:var(--pine,#0F4C35);--b2:#0A3826;--b4:#F3F8F5;--ln:var(--line,#E1E4DE);--r:10px;background:var(--card,#fff);border:1px solid var(--ln);border-radius:14px;padding:1.1rem 1.2rem;margin-top:.5rem;box-shadow:0 1px 3px rgba(15,46,34,.05),0 14px 40px rgba(15,46,34,.06);display:flex;flex-direction:column;gap:1.2rem}' +
+  var CSS = '.plg-card{--b:var(--pine,#0F4C35);--b2:#0A3826;--b4:#F3F8F5;--ln:var(--line,#E1E4DE);--r:8px;background:var(--card,#fff);border:1px solid var(--ln);border-radius:8px;padding:1.1rem 1.2rem;margin-top:.5rem;box-shadow:0 1px 3px rgba(15,46,34,.05),0 14px 40px rgba(15,46,34,.06);display:flex;flex-direction:column;gap:1.2rem}' +
     'html[data-theme=dark] .plg-card{--b2:#7BC9A4;--b4:#132B20}' +
     '.plg{display:flex;flex-direction:column;gap:.95rem;max-width:34rem}' +
     '.plg .lbl{display:block;font-size:.78rem;font-weight:600;color:var(--ink2,#4E5C55);margin-bottom:.35rem}' +
@@ -134,29 +135,30 @@
     '.plg-f input,.plg-ddb{font:inherit;font-size:.92rem;height:44px;padding:0 .8rem;border:1px solid var(--ln);border-radius:var(--r);background:var(--card,#fff);color:var(--ink,#1B2620);width:100%;box-sizing:border-box}' +
     '.plg-f input:focus,.plg-ddb:focus-visible{outline:none;border-color:var(--b);box-shadow:0 0 0 3px rgba(15,76,53,.12)}' +
     '.plg-ddb{text-align:start;cursor:pointer;display:flex;align-items:center;justify-content:space-between}.plg-ddb::after{content:"";width:7px;height:7px;border:solid var(--ink3,#7F8C86);border-width:0 1.5px 1.5px 0;transform:rotate(45deg) translateY(-2px)}' +
+    '.plg-card .isel-btn,.plg-card .isel-native,.plg-card input,.plg-card .sbtn,.plg-card button{border-radius:8px}' +
     '.plg-ddl{position:absolute;z-index:20;inset-inline:0;top:100%;margin-top:.25rem;background:var(--card,#fff);border:1px solid var(--ln);border-radius:var(--r);box-shadow:0 8px 28px rgba(0,0,0,.12);display:flex;flex-direction:column;max-height:16rem;overflow:auto;padding:.25rem}' +
     '.plg-ddl button{font:inherit;font-size:.88rem;text-align:start;min-height:40px;padding:0 .7rem;border:0;border-radius:8px;background:none;color:var(--ink,#1B2620);cursor:pointer;white-space:nowrap}.plg-ddl button[aria-selected=true]{font-weight:700;color:var(--b)}.plg-ddl button:hover{background:var(--b4)}.plg-ddl button:disabled{opacity:.45;cursor:not-allowed}' +
-    '.plg-list{border:1px solid var(--ln);border-radius:12px;overflow:visible}' +
+    '.plg-list{border:1px solid var(--ln);border-radius:8px;overflow:visible}' +
     '.plg-li,.plg-tg{display:grid;grid-template-columns:1fr auto;align-items:center;gap:.8rem;min-height:52px;padding:.4rem .9rem;border-bottom:1px solid var(--ln)}' +
     '.plg-li .plg-dd .lbl{margin-bottom:.2rem}.plg-li b,.plg-tg b{font-variant-numeric:tabular-nums;font-weight:600;color:var(--ink2,#4E5C55);min-width:4.5rem;text-align:end}' +
     '.plg-tg{grid-template-columns:auto 1fr auto;width:100%;font:inherit;font-size:.92rem;border:0;border-bottom:1px solid var(--ln);background:none;color:var(--ink,#1B2620);cursor:pointer;text-align:start}.plg-tg:last-child{border-bottom:0}.plg-tg:hover:not(:disabled){background:var(--b4)}' +
-    '.plg-tg .box{width:1.25rem;height:1.25rem;border:1.5px solid var(--ln);border-radius:6px;display:inline-grid;place-items:center;font-size:.75rem}.plg-tg.on .box{background:var(--b);color:#fff;border-color:var(--b)}.plg-tg:disabled{opacity:.55;cursor:default}' +
+    '.plg-tg .box{width:1.25rem;height:1.25rem;border:1.5px solid var(--ln);border-radius:6px;display:inline-grid;place-items:center;font-size:.75rem}.plg-tg.on .box{background:var(--b);color:#fff;border-color:var(--b)}.plg-tg:disabled,.plg-tg.off{opacity:.6}.plg-btn[aria-disabled=true]{opacity:.6}' +
     '.plg-sum{font-size:.86rem;display:flex;flex-direction:column;gap:.25rem}.plg-sum div{display:flex;justify-content:space-between;gap:1rem;color:var(--ink2,#4E5C55)}' +
     '.plg-sum .tot{color:var(--ink,#1B2620);font-weight:600;font-size:1rem;align-items:baseline;border-top:2px solid var(--ln);padding-top:.6rem;margin-top:.35rem;font-variant-numeric:tabular-nums}.plg-sum .tot span:last-child{font-family:Rubik,inherit;font-size:1.9rem;letter-spacing:-.02em}.plg-sum .note{font-size:.72rem;color:var(--ink3,#7F8C86)}' +
     '.plg-act{display:flex;flex-wrap:wrap;gap:.5rem;align-items:center}' +
     '.plg-btn,.plg-card .sbtn{font:inherit;font-size:.9rem;font-weight:600;height:44px;padding:0 1.1rem;border-radius:var(--r);border:1px solid rgba(15,76,53,.2);background:var(--b4);color:var(--b2);cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:.4rem;text-decoration:none;transition:background .15s,transform .1s}' +
-    '.plg-btn:active,.plg-card .sbtn:active{transform:scale(.97)}.plg-btn.p,.plg-card .sbtn.p{background:var(--b);border-color:transparent;color:#fff}.plg-btn:disabled{opacity:.45;cursor:not-allowed}.plg-card .sbtn.d{background:none;border-color:transparent;color:#A8402F}' +
+    'html[data-theme=dark] .plg-btn.p,html[data-theme=dark] .plg-card .sbtn.p{color:#0A2119}html[data-theme=dark] .plg-card{--b4:#1C2E25;--b2:#8FD3AE}.plg-btn:active,.plg-card .sbtn:active{transform:scale(.97)}.plg-btn.p,.plg-card .sbtn.p{background:var(--b);border-color:transparent;color:#fff}.plg-btn:disabled{opacity:.45;cursor:not-allowed}.plg-card .sbtn.d{background:none;border-color:transparent;color:#A8402F}' +
     '.plg-miss{font-size:.8rem;color:#A8402F}.plg-out{display:flex;flex-direction:column;gap:.5rem;padding-top:.9rem;border-top:1px solid var(--ln)}.plg-out .u{font-size:.8rem;direction:ltr;text-align:left;word-break:break-all;color:var(--ink2,#4E5C55);background:var(--b4);border-radius:var(--r);padding:.55rem .7rem}.plg-out .d{font-size:.8rem;color:var(--ink2,#4E5C55)}' +
     '.plg-saved{border-top:1px solid var(--ln);padding-top:1rem}.plg-saved h3{font-size:.95rem;margin:0 0 .5rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:baseline}.plg-saved h3 span{font-size:.72rem;font-weight:500;color:var(--ink3,#7F8C86)}' +
-    '.plg-card .lk{border-radius:12px;border-inline-start-width:4px}.plg-card .lk input{height:36px;border-radius:8px}' +
+    '.plg-card .lk{border-radius:8px;border-inline-start-width:4px}.plg-card .lk input{height:36px;border-radius:8px}' +
     /* 09/11 (Richard): "קצר וקולע" — the same form, compact: fields in a grid, add-ons as one row of pills, total + button on one line */
     '.plg{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.6rem .7rem;max-width:none;align-items:end}' +
     '.plg .lbl{margin-bottom:.2rem;font-size:.72rem}.plg-f input,.plg-ddb{height:38px;font-size:.88rem}' +
     '.plg > .plg-f:nth-child(-n+4){grid-column:span 1}@media (max-width:900px){.plg{grid-template-columns:repeat(2,minmax(0,1fr))}}' +
     '.plg > .plg-f:has(.plg-list){grid-column:1/-1}' +
     '.plg-list{border:0;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center}' +
-    '.plg-li{border:0;padding:0;min-height:0;display:flex;gap:.4rem;align-items:center;width:auto}.plg-li .plg-dd .lbl{display:none}.plg-li .plg-ddb{height:34px;width:auto;min-width:9rem;border-radius:999px;font-size:.82rem}.plg-li b{min-width:0}' +
-    '.plg-tg{display:inline-flex;width:auto;min-height:34px;padding:0 .7rem 0 .5rem;border:1px solid var(--ln)!important;border-radius:999px;gap:.4rem;font-size:.82rem;background:var(--card,#fff)}.plg-tg.on{border-color:var(--b)!important;background:var(--b4)}.plg-tg b{min-width:0;font-size:.78rem}.plg-tg .box{width:1rem;height:1rem;font-size:.65rem}' +
+    '.plg-li{border:0;padding:0;min-height:0;display:flex;gap:.4rem;align-items:center;width:auto}.plg-li .plg-dd .lbl{display:none}.plg-li .plg-ddb{height:34px;width:auto;min-width:9rem;border-radius:8px;font-size:.82rem}.plg-li b{min-width:0}' +
+    '.plg-tg{display:inline-flex;width:auto;min-height:34px;padding:0 .7rem 0 .5rem;border:1px solid var(--ln)!important;border-radius:8px;gap:.4rem;font-size:.82rem;background:var(--card,#fff)}.plg-tg.on{border-color:var(--b)!important;background:var(--b4)}.plg-tg b{min-width:0;font-size:.78rem}.plg-tg .box{width:1rem;height:1rem;font-size:.65rem}' +
     '.plg-sum{grid-column:1/span 2;flex-direction:row;flex-wrap:wrap;align-items:baseline;gap:.3rem .9rem}.plg-sum div{font-size:.78rem}.plg-sum .tot{border:0;padding:0;margin:0;order:-1;gap:.4rem}.plg-sum .tot span:last-child{font-size:1.35rem}.plg-sum .note{display:none}' +
     '.plg-act{grid-column:3/-1;justify-content:flex-end}.plg-btn{height:38px}' +
     '.plg-out{grid-column:1/-1;flex-direction:row;flex-wrap:wrap;align-items:center;padding-top:.5rem}.plg-out .u{flex:1;min-width:14rem;padding:.4rem .6rem}' +
@@ -178,7 +180,7 @@
     var st = doc.createElement('style'); st.textContent = CSS; doc.head.appendChild(st);
     var BASE = cfg.endpoint('status').replace(/\/api\/status$/, '');
     var s = fresh();
-    function draw() { host.innerHTML = render(s, cfg); }
+    function draw() { host.innerHTML = render(s, cfg); if (root.IshurDate && root.IshurDate.enhanceAll) { try { root.IshurDate.enhanceAll(host); } catch (e) {} } }
     function changed() { s.url = ''; s.err = ''; s.copied = false; }
     host.addEventListener('click', function (ev) {
       var b = ev.target.closest('button,a'); if (!b || !host.contains(b)) { return; }
@@ -189,6 +191,7 @@
         if (k === 'hostesses' && !s.hostesses) { s.travel = false; s.no_calls = false; }
         s.open = ''; changed(); draw(); return;
       }
+      if (b.dataset.tg && b.getAttribute('aria-disabled') === 'true') { s.err = b.dataset.why || ''; draw(); return; }
       if (b.dataset.tg) { s[b.dataset.tg] = !s[b.dataset.tg]; changed(); draw(); return; }
       if (b.dataset.plg === 'copy') {
         var done = function () { s.copied = true; draw(); };
@@ -196,7 +199,13 @@
         return;
       }
       if (b.dataset.plg === 'make') {
-        if (problems(s).length) return;
+        if (problems(s).length) {
+          /* go to the first thing that is missing instead of doing nothing */
+          var need = !String(s.name || '').trim() || String(s.name).trim().length < 2 ? 'name' : !phoneOk(s.phone) ? 'phone' : '';
+          if (need) { var f = host.querySelector('[data-in="' + need + '"]'); if (f) f.focus(); }
+          else if (!s.occasion) { s.open = 'occasion'; draw(); }
+          return;
+        }
         s.busy = true; s.err = ''; draw();
         var body = Object.assign({ admin_key: key }, payload(s, cfg));
         root.fetch(BASE + '/api/pay-link', { method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -210,15 +219,24 @@
           }, function () { s.busy = false; s.err = 'לא נוצר קישור: אין חיבור'; draw(); });
       }
     });
+    host.addEventListener('change', function (ev) { var k = ev.target.dataset && ev.target.dataset.in; if (k !== 'event_date') return; s[k] = ev.target.value; changed(); var o = host.querySelector('.plg-out'); if (o) o.remove(); refreshBar(); });
     host.addEventListener('input', function (ev) { var k = ev.target.dataset && ev.target.dataset.in; if (!k) return; s[k] = ev.target.value; if (s.url) { changed(); var o = host.querySelector('.plg-out'); if (o) o.remove(); } refreshBar(); });
     /* typing must not lose focus: only the button bar re-renders while typing */
     function refreshBar() {
       var mk = host.querySelector('[data-plg="make"]'), miss = problems(s), bar = mk && mk.parentNode;
-      if (!mk) return; mk.disabled = !!miss.length;
+      if (!mk) return; if (miss.length) mk.setAttribute('aria-disabled', 'true'); else mk.removeAttribute('aria-disabled');
       var old = bar.querySelector('.plg-miss'); if (old) old.remove();
       if (miss.length) { var sp = doc.createElement('span'); sp.className = 'plg-miss'; sp.textContent = 'חסר: ' + miss.join(', '); bar.appendChild(sp); }
     }
-    doc.addEventListener('click', function (ev) { if (s.open && !host.contains(ev.target)) { s.open = ''; draw(); } });
+    /* 16/11: opening a dropdown re-renders the form, so by the time the click reaches the document its target is
+       already detached and host.contains() says "outside" — the list closed the instant it opened (Richard:
+       "אי אפשר לבחור שום דבר"). The path the event travelled still holds the form. */
+    doc.addEventListener('click', function (ev) {
+      if (!s.open) return;
+      var path = ev.composedPath ? ev.composedPath() : [];
+      if (path.indexOf(host) >= 0 || host.contains(ev.target)) return;
+      s.open = ''; draw();
+    });
     draw();
   }
 
