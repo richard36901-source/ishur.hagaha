@@ -8759,14 +8759,14 @@ async function handleVoiceTools(request, env, origin) {
     if (demoEv && !inHours) return deny(409, 'outside-hours', origin);
     if (!to || (!admins.includes(to) && !leadDemo)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
-    const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
+    const g = { kind: 'guest', phone: to, /* 18/11 evening: the opener says "בשם <event_name>", so this is the couple's names, not "החתונה של…" (Ziv heard "בשם החתונה של נועה ויונתן") */ name: String(body.name || (body.demo_lead === true ? '' : 'שלו')), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'נועה ויונתן',
       event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
       /* body.rsvp = 'מתלבט' rehearses the undecided opener (21/10) */
       rsvp: body.rsvp === 'מתלבט' ? 'מתלבט' : '' };
     if (demoEv) {
       const c = k => String(demoEv[k] ?? '').trim(), dDay = c(6).slice(0, 10);
       let evName = ''; try { evName = guestEventName(demoEv, { article: true }) || ''; } catch {}
-      Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: evName || c(34) || g.event_name,
+      Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: c(34) || c(2) || evName || g.event_name,
         event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
     }
     const payload = buildCallPayload(g, env.SHIR_FROM);
