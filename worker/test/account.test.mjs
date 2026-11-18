@@ -289,3 +289,16 @@ test('board lock: the phone the PIN was checked against opens the board even whe
   assert.equal(r.status, 200);
   assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, board_session: r.session }))).status, 200);
 });
+
+/* 18/11 Richard: the thank-you page shows the client's sign-in code once, right after paying */
+test('claim: the answer carries the PIN the first time and inside 30 minutes; later only the token', async () => {
+  const { pinFor } = await import('../account.js');
+  const mk = extra => env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }), 'grow:REF1': TOK, ...extra });
+  const e = mk({});
+  const a = await post(e, '/api/claim', await stamped(e, { ref: 'REF1' }));
+  assert.equal(a.token, TOK); assert.equal(a.pin, await pinFor(e, PHONE)); assert.equal(a.pin_phone, '0521234567');
+  assert.equal((await post(e, '/api/claim', await stamped(e, { ref: 'REF1' }))).pin, a.pin, 'a reload inside the window still shows it');
+  const old = mk({ ['pinshown:' + TOK]: String(Date.now() - 31 * 60000) });
+  const b = await post(old, '/api/claim', await stamped(old, { ref: 'REF1' }));
+  assert.equal(b.token, TOK); assert.equal(b.pin, undefined);
+});

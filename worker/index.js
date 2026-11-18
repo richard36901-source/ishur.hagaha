@@ -1662,7 +1662,18 @@ async function handleClaim(request, env, origin) {
       status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
     });
   }
-  return new Response(JSON.stringify({ ok: true, token }), {
+  /* 18/11 Richard: right after paying, the thank-you page shows the client's sign-in code once. Only inside the first
+     30 minutes from the first time it was shown; later the code comes only by WhatsApp to the phone on file. */
+  let pin = '', pinPhone = '';
+  try {
+    const rec = await tokenRecord(env, token); const ph = rec ? normPhone(rec.phone || '') : '';
+    if (/^972\d{8,9}$/.test(ph)) {
+      const first = Number(await env.RATE.get('pinshown:' + token)) || 0;
+      if (!first) await env.RATE.put('pinshown:' + token, String(Date.now()), { expirationTtl: 400 * 86400 });
+      if (!first || Date.now() - first < 30 * 60000) { pin = await pinFor(env, ph); pinPhone = '0' + ph.slice(3); }
+    }
+  } catch {}
+  return new Response(JSON.stringify(pin ? { ok: true, token, pin, pin_phone: pinPhone } : { ok: true, token }), {
     status: 200, headers: { 'Content-Type': 'application/json', ...cors(origin) },
   });
 }
