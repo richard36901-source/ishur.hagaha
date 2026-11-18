@@ -685,6 +685,8 @@
         <span id="ctStatus" style="font-size:.78rem"></span>
       </div>
       <!-- 17/11 Richard: until the first invitation goes out, the client picks one of our wordings here, or writes their own below -->
+      <!-- 18/11 Richard: first a "שנה נוסח" button; the wordings (ours and "נוסח אישי") show only after it is pressed -->
+      <button type="button" class="btn" id="stChange" hidden style="margin:.5rem 0 0">שנה נוסח</button>
       <div class="stypick" id="stPick" hidden role="group" aria-label="סגנון הנוסח"></div>
       <pre id="ctText" style="white-space:pre-wrap;font:inherit;font-size:.86rem;background:var(--bg2,#f2f2ee);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;color:var(--ink2)"></pre>
       <p id="ctNote" style="margin:0 0 .5rem;font-size:.78rem;color:var(--ink3)"></p>
@@ -1306,11 +1308,16 @@
     var ev = data.event || {}, v = ['{שם האורח}', ev.occasion_label || ev.occasion || 'אירוע', ev.name1 || 'בעלי השמחה', ev.event_date ? new Date(ev.event_date + 'T12:00:00').toLocaleDateString('he-IL') : 'התאריך', ev.reception_time || 'השעה', [ev.venue_name, ev.venue_city].filter(Boolean).join(', ')];
     return s.body.replace(/\{\{(\d)\}\}/g, function (m, i) { return v[Number(i) - 1] || ''; });
   }
+  var stOpen = false;
   function paintStyles() {
-    var box = $('stPick'); if (!box || !STY || demo) return;
+    var box = $('stPick'), chg = $('stChange'); if (!box || demo) return;
     var ct = data.custom_template || null, own = ct && (ct.status === 'APPROVED' || ct.status === 'PENDING');
-    box.hidden = !!STY.sent;
-    box.innerHTML = STY.styles.map(function (s) { var on = !own && s.key === STY.style; return '<button type="button" data-st="' + esc(s.key) + '" aria-pressed="' + on + '"' + (s.ready ? '' : ' disabled title="הנוסח הזה עוד בבדיקה של וואטסאפ"') + '>' + esc(s.he) + (s.ready ? '' : ' · בקרוב') + '</button>'; }).join('');
+    var sentNow = STY ? !!STY.sent : !!(data.sends && data.sends.some(function (x) { return x.key === 'invite' && x.status === 'sent'; }));
+    if (chg) chg.hidden = sentNow || stOpen;
+    box.hidden = sentNow || !stOpen;
+    box.innerHTML = (STY ? STY.styles : []).map(function (s) { var on = !own && s.key === STY.style; return '<button type="button" data-st="' + esc(s.key) + '" aria-pressed="' + on + '"' + (s.ready ? '' : ' disabled title="הנוסח הזה עוד בבדיקה של וואטסאפ"') + '>' + esc(s.he) + (s.ready ? '' : ' · בקרוב') + '</button>'; }).join('') +
+      '<button type="button" data-st-own aria-pressed="' + !!own + '">נוסח אישי</button>';
+    if (!STY) return;
     if (!own) { var cur = STY.styles.filter(function (s) { return s.key === STY.style; })[0]; $('ctStatus').textContent = 'נוסח ' + (cur ? cur.he : 'רגיל'); $('ctText').textContent = styleText(cur); }
   }
   function loadStyles(body) {
@@ -1322,6 +1329,11 @@
   }
   document.addEventListener('click', function (e) { var b = e.target.closest && e.target.closest('#stPick button[data-st]'); if (!b || b.disabled || b.getAttribute('aria-pressed') === 'true') return; var ct0 = data.custom_template || null; if (ct0 && (ct0.status === 'APPROVED' || ct0.status === 'PENDING')) { if (!confirm('יש לכם נוסח אישי. לעבור לנוסח ' + b.textContent + ' במקומו?')) return; data.custom_template = null; renderCustomText(); } loadStyles({ style: b.dataset.st, drop_custom: true }); });
 
+  document.addEventListener('click', function (e) {
+    var t = e.target.closest && e.target.closest('#stChange, #stPick button[data-st-own]'); if (!t) return;
+    if (t.id === 'stChange') { stOpen = true; paintStyles(); return; }
+    var b = $('ctBtn'); if (b) b.click();
+  });
   function renderCustomText() {
     var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
     if (!st) return;
@@ -1337,7 +1349,8 @@
     }
     else if (ct && (ct.status === 'REJECTED' || ct.status === 'FAILED')) { st.innerHTML = '<span style="color:var(--warn,#a3321f)">✕ הנוסח לא אושר</span>'; tx.textContent = ct.text; nt.textContent = 'וואטסאפ לא אישרו את הנוסח' + (ct.reason ? ' (' + ct.reason + ')' : '') + '. ערכו אותו כאן ואנחנו מגישים אוטומטית נוסח חדש לאישור; בינתיים יוצא הנוסח הרגיל.'; b.textContent = 'עריכה והגשה מחדש'; }
     else { st.textContent = 'הנוסח הרגיל'; tx.textContent = DEFAULT_INVITE(); nt.textContent = 'רוצים ניסוח משלכם? כותבים אותו, אנחנו מגישים לאישור וואטסאפ, וברגע שמאושר ההזמנה יוצאת בניסוח שלכם.'; }
-    b.hidden = !!sent || demo;
+    b.hidden = true;   /* 18/11: the own-wording editor opens from the "נוסח אישי" option after "שנה נוסח" */
+    paintStyles();
     if (sent && ct && ct.status === 'PENDING') nt.innerHTML += '<br>ההזמנה הראשונה כבר יצאה בנוסח הרגיל. הנוסח שלכם ישמש להזמנות של מוזמנים שתוסיפו מעכשיו, ברגע שיאושר. התזכורות הן הודעה נפרדת ("עדיין לא ענית") ולא משתנות.';
     else if (sent && ct && ct.status === 'APPROVED') nt.textContent = 'ההזמנה הראשונה יצאה בנוסח הרגיל. מוזמנים שתוסיפו מעכשיו יקבלו את הנוסח שלכם. התזכורות הן הודעה נפרדת ולא משתנות.';
     else if (sent) nt.textContent = 'ההזמנות כבר יצאו, הנוסח נעול.';
@@ -1351,6 +1364,7 @@
       box.innerHTML = '<div class="dpop" style="background:var(--card,#fff);border-radius:14px;padding:1.1rem;width:100%;max-width:440px">' +
         '<h3 style="margin:0 0 .3rem">נוסח ההזמנה שלכם</h3>' +
         '<p style="margin:0 0 .6rem;font-size:.84rem;color:var(--ink2)">כתבו את ההודעה כמו שתרצו שהמוזמנים יקבלו. כפתורי "מגיע / לא מגיע / עדיין לא ידוע" מתווספים אוטומטית. בלי שם האורח (אי אפשר להכניס שדות).</p>' +
+        '<p style="margin:0 0 .6rem;font-size:.82rem;color:#9A5B00;background:rgba(154,91,0,.08);border-radius:8px;padding:.5rem .65rem"><b>חשוב:</b> נוסח אישי עובר אישור של וואטסאפ. בדרך כלל זה לוקח עד שעה, ולפעמים עד 24 שעות. השאירו מספיק זמן לפני מועד השליחה, ובדקו כאן לפני יום השליחה שהנוסח אושר. אם הוא לא יאושר עד אז, ההזמנה תצא בנוסח הרגיל.</p>' +
         '<textarea id="ctArea" rows="9" style="width:100%;font:inherit;font-size:.9rem;padding:.6rem;border:1px solid var(--bdr);border-radius:10px;resize:vertical"></textarea>' +
         '<p id="ctErr" style="margin:.3rem 0 .6rem;font-size:.8rem;color:var(--warn,#a3321f);min-height:1.2em"></p>' +
         '<button type="button" class="buy" id="ctSend" style="width:100%;margin-bottom:.5rem">הגשה לאישור וואטסאפ</button>' +
