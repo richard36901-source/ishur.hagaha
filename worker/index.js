@@ -14410,19 +14410,23 @@ const WORKER = {
         /* when each guest's wave-1 message was accepted (wsent: expiration − TTL), for the 24 h "not delivered" rule */
         const staleAt = {};
         try { let cursor; do { const l = await env.RATE.list({ prefix: `wsent:${token}:1:`, limit: 1000, cursor }); for (const k of l.keys || []) { const ph = k.name.split(':')[3]; if (ph && k.expiration) staleAt[ph] = k.expiration * 1000 - WSENT_TTL_S * 1000; } cursor = l.list_complete ? undefined : l.cursor; } while (cursor); } catch {}
+        /* 18/11: the board took 8–14 s and looked empty meanwhile — an unsent list of 189 guests cost ~2,800 single
+           reads (5 kinds × 3 waves each). One listing per kind and wave says which phones have a key at all, and only
+           those are read. A listing that fails is treated as "unknown" and falls back to the single read. A key written
+           in the last minute may be missing from the listing; it shows on the next load. */
+        const KINDS = ['wsent', 'wdead', 'wfail', 'wferr', 'wst'];
+        const haveKey = {};
+        await Promise.all(KINDS.flatMap(kind => WAVES.map(async w => {
+          const set = new Set();
+          try { let cursor; do { const l = await env.RATE.list({ prefix: `${kind}:${token}:${w}:`, limit: 1000, cursor }); for (const k of l.keys || []) set.add(k.name.split(':')[3]); cursor = l.list_complete ? undefined : l.cursor; } while (cursor); haveKey[kind + w] = set; }
+          catch { haveKey[kind + w] = null; }
+        })));
+        const readKey = (kind, w, ph) => { const set = haveKey[kind + w]; return set && !set.has(ph) ? Promise.resolve(null) : env.RATE.get(`${kind}:${token}:${w}:${ph}`).catch(() => null); };
         const states = await Promise.all(snapshot.guests.map(async g => {
           const ph = normPhone(g.phone || '');
           if (!ph) return 'none';
-          /* KV reads are capped per request; a big list already spends ~5 per
-             guest on wave 1, so waves 2–3 are read only when wave 1 is silent. */
           const readWave = async w => {
-            const [ok, dead, fail, code, dlv] = await Promise.all([
-              env.RATE.get(`wsent:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wdead:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wfail:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wferr:${token}:${w}:${ph}`).catch(() => null),
-              env.RATE.get(`wst:${token}:${w}:${ph}`).catch(() => null),
-            ]);
+            const [ok, dead, fail, code, dlv] = await Promise.all(KINDS.map(kind => readKey(kind, w, ph)));
             return { ok, dead, fail, code, dlv };
           };
           const per = [await readWave(1)];
@@ -14431,7 +14435,7 @@ const WORKER = {
           const ok = per.some(x => x.ok);
           /* a pending guest's ticks may belong to the reminder (wave 2): one more read, pending only */
           const answered0 = g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided';
-          if (ok && !answered0 && per.length === 1) per.push({ dlv: await env.RATE.get(`wst:${token}:2:${ph}`).catch(() => null) });
+          if (ok && !answered0 && per.length === 1) per.push({ dlv: await readKey('wst', 2, ph) });
           const dlv = per.map(x => x.dlv).filter(Boolean).sort((a, b) => (rank[b] || 0) - (rank[a] || 0))[0] || null;
           /* a failure only counts when no wave got through; the newest wave's reason wins */
           const failed = [...per].reverse().find(x => x.dead || x.fail) || {};
