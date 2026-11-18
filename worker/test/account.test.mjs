@@ -323,3 +323,32 @@ test('board lock: the upload page gets the event and counts without a code, neve
   assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK }))).status, 401);
   assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, view: 'dashboard' }))).status, 401);
 });
+
+/* 18/11 Richard: replace a client's phone on one event from the clients screen */
+test('client-phone (admin): refuses a bad number and a missing key; an unknown event is 404', async () => {
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }) });
+  assert.equal((await post(e, '/api/client-phone', { token: TOK, phone: '0541112233' })).status, 403);
+  assert.equal((await post(e, '/api/client-phone', { admin_key: 'k', token: TOK, phone: '03-1234567' })).status, 400);
+  assert.equal((await post(e, '/api/client-phone', { admin_key: 'k', token: 'zz', phone: '0541112233' })).status, 400);
+  assert.equal((await post(e, '/api/client-phone', { admin_key: 'k', token: '99999999-9999-4999-8999-999999999999', phone: '0541112233' })).status, 404);
+  const same = await post(e, '/api/client-phone', { admin_key: 'k', token: TOK, phone: '0521234567' });
+  assert.equal(same.status, 200); assert.equal(same.changed, false);
+});
+test('client-phone (admin): a real change writes column D of the event row, moves the token record, and the PIN follows the new phone', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }), 'contact:972521234567': JSON.stringify({ email: 'dana@example.com' }) }, { BRAIN_HOOK: 'https://hook.test/brain' });
+  /* the sheet writer answers like Sheets does when cells were written */
+  const prevFetch = globalThis.fetch;
+  globalThis.fetch = async (url, init = {}) => { if (String(url) === 'https://hook.test/brain') { calls.push({ u: String(url), body: init.body ? String(init.body) : '' }); return new Response(JSON.stringify({ totalUpdatedCells: 1 })); } return prevFetch(url, init); };
+  const before = calls.length;
+  const r = await post(e, '/api/client-phone', { admin_key: 'k', token: TOK, phone: '054-1112233' });
+  globalThis.fetch = prevFetch;
+  if (r.status === 502) return assert.fail('the test env has no sheet writer: ' + JSON.stringify(r));
+  assert.equal(r.status, 200); assert.equal(r.changed, true); assert.equal(r.phone, '972541112233'); assert.equal(r.was, PHONE);
+  assert.equal(JSON.parse(e.RATE.m.get('token:' + TOK)).phone, '972541112233');
+  assert.equal(JSON.parse(e.RATE.m.get('token:' + TOK)).clientId, 'c1');
+  const wrote = calls.slice(before).map(c => String(c.body || '')).filter(x => /אירועים!D\d+/.test(x));
+  assert.equal(wrote.length, 1, 'exactly one write, to column D'); assert.ok(wrote[0].includes('0541112233'));
+  assert.equal(JSON.parse(e.RATE.m.get('contact:972541112233')).email, 'dana@example.com');
+  assert.equal((await post(e, '/api/client-pin', { admin_key: 'k', token: TOK })).pin, await pinFor(e, '972541112233'));
+});

@@ -8,7 +8,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="/assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="/config.js?v=95"></script>
+<script src="/config.js?v=96"></script>
 <script src="/next/assets/batch.js?v=6"></script>
 <script src="/assets/ux.js?v=4"></script>
 <script src="/next/assets/adminbar.js?v=17" defer></script>
@@ -479,6 +479,19 @@
         });
       }).catch(function () { box.innerHTML = '<h3>מצב האירוע</h3><div class="meta">לא נטען</div>'; });
   }
+  document.addEventListener('click', async function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-phone="save"]'); if (!b) return;
+    var inp = document.getElementById('popPhone'), pop = document.querySelector('#pop .pop'); if (!inp || !pop) return;
+    var t = pop.dataset.t, e = events.filter(function (x) { return x.token === t; })[0] || {}, v = inp.value.replace(/\D/g, '');
+    if (!/^(05\d{8}|9725\d{8})$/.test(v)) { toast('צריך מספר נייד ישראלי'); return; }
+    if (!(await askConfirm('הטלפון של ' + (e.client || 'הלקוח') + ' באירוע הזה יוחלף ל-' + v + '. קוד הכניסה שלו ישתנה בהתאם, וההודעות יישלחו למספר החדש.', { title: 'להחליף טלפון?', ok: 'החלף' }))) return;
+    b.disabled = true;
+    api('client-phone', { token: t, phone: v }).then(function (r) { return r.json(); }).then(function (j) {
+      b.disabled = false;
+      if (j && j.ok) { e.phone = j.phone; inp.value = j.phone; var bx = document.getElementById('popPin'), pv = document.getElementById('popPinV'); if (bx && pv) { bx.dataset.shown = ''; bx.dataset.code = ''; pv.textContent = '••••'; } toast(j.changed ? 'הטלפון הוחלף. הקוד החדש מופיע ב"הצג"' : 'זה כבר המספר הרשום'); }
+      else toast(j && j.error === 'bad-phone' ? 'מספר לא תקין' : 'הטלפון לא הוחלף');
+    }).catch(function () { b.disabled = false; toast('הטלפון לא הוחלף'); });
+  });
   function loadMail(t) {
     var inp = document.getElementById('popMail'); if (!inp) return;
     api('client-contact', { token: t }).then(function (r) { return r.json(); }).then(function (j) {
@@ -521,6 +534,9 @@
       /* 18/11 Richard: the client's sign-in code at the top of the popup, hidden until asked for */
       '<div class="meta" id="popPin" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">קוד כניסה של הלקוח: <b id="popPinV" dir="ltr" style="font-size:1.05rem;letter-spacing:.15em">••••</b>' +
         '<button type="button" class="btn g" data-pin="toggle">הצג</button><button type="button" class="btn g" data-pin="copy" hidden>📋 העתק</button></div>' +
+      /* 18/11 Richard: the client's phone on this event, replaceable from here */
+      '<div class="meta" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">טלפון הלקוח: <input type="tel" id="popPhone" dir="ltr" inputmode="tel" autocomplete="off" value="' + esc(e.phone || '') + '" style="flex:1;min-width:11rem;font:inherit;padding:.3rem .5rem;border:1px solid var(--bdr,#ccc);border-radius:6px;background:transparent;color:inherit">' +
+        '<button type="button" class="btn g" data-phone="save">החלף</button></div>' +
       /* 18/11 Richard: the client's email; when filled, "שלח קישור" goes out by WhatsApp and by email */
       '<div class="meta" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">מייל הלקוח: <input type="email" id="popMail" dir="ltr" placeholder="name@example.com" autocomplete="off" style="flex:1;min-width:11rem;font:inherit;padding:.3rem .5rem;border:1px solid var(--bdr,#ccc);border-radius:6px;background:transparent;color:inherit">' +
         '<button type="button" class="btn g" data-mail="save">שמור</button><span id="popMailS"></span></div>' +

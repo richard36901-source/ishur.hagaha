@@ -12231,6 +12231,28 @@ const WORKER = {
       }
       return okJson({ ok: true, email: validEmail(c.email) ? String(c.email).trim() : '' }, origin);
     }
+    /* 18/11 Richard: replace the client's phone on ONE event from the clients screen. Writes the events sheet (column D)
+       and the token record, and carries the email over. The sign-in code follows the phone, so it changes with it.
+       The client's other events, credit and old conversations stay on the old number. */
+    if (url.pathname === '/api/client-phone' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(), next = normPhone(b.phone || '');
+      if (!/^[0-9a-f-]{36}$/.test(tok)) return deny(400, 'bad-token', origin);
+      if (!/^9725\d{8}$/.test(next)) return deny(400, 'bad-phone', origin);
+      const raw = await readSnapshot(env, 'write').catch(() => null);
+      const rows = (raw && raw.events && raw.events.values) || [];
+      const idx = rows.findIndex(r => String((r || [])[1] || '').trim() === tok);
+      if (idx < 0) return deny(404, 'event-not-found', origin);
+      const cell = String(rows[idx][3] || '').trim(), prev = normPhone(cell);
+      if (prev === next) return okJson({ ok: true, phone: next, changed: false }, origin);
+      const okw = await sheetBatchWrite(env, [{ range: `אירועים!D${idx + 2}`, values: [[/^0/.test(cell) || !cell ? '0' + next.slice(3) : next]] }]);
+      if (!okw) { await logEvent(env, { area: 'לקוחות', action: 'החלפת טלפון של לקוח נכשלה בכתיבה לגיליון', ok: false, review: true, token: tok, phone: prev }).catch(() => {}); return deny(502, 'sheet-write-failed', origin); }
+      try { const rec = (await tokenRecord(env, tok)) || {}; await env.RATE.put('token:' + tok, JSON.stringify({ ...rec, phone: next }), { expirationTtl: TOKEN_TTL }); } catch {}
+      try { const oc = await readContact(env, prev), nc = await readContact(env, next); if (validEmail(oc.email) && !validEmail(nc.email)) await env.RATE.put('contact:' + next, JSON.stringify({ ...nc, email: String(oc.email).trim(), at: new Date().toISOString() })); } catch {}
+      await logEvent(env, { area: 'לקוחות', action: 'טלפון של לקוח הוחלף מהניהול', ok: true, review: true, token: tok, phone: next, detail: `${prev} → ${next}` }).catch(() => {});
+      return okJson({ ok: true, phone: next, changed: true, was: prev }, origin);
+    }
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
     if (url.pathname === '/api/mail-test' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
