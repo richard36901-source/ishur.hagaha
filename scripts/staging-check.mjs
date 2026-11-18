@@ -104,7 +104,11 @@ const waitBoard = p => p.waitForFunction(() => !document.getElementById('main').
   await link.waitFor({ state: 'visible', timeout: 40000 }).catch(() => {});
   const listed = await link.count() > 0;
   check('personal area: phone + code signs in and lists the event', listed);
-  if (listed) { await Promise.all([p.waitForURL(/dashboard\.html/, { timeout: 30000 }).catch(() => {}), link.click()]); check('…and the board opens from there without asking again', await waitBoard(p) && await boardOpen(p), `${await rows(p)} rows`); }
+  if (listed) {
+    /* a first visit shows the guided-tour overlay over the page, so the link is followed by its address (same tab, same sign-in) rather than by a click */
+    await p.goto(new URL(await link.getAttribute('href'), p.url()).href, { waitUntil: 'domcontentloaded' });
+    check('…and the board opens from there without asking again', await waitBoard(p) && await boardOpen(p), `${await rows(p)} rows`);
+  }
   await ctx.close();
 }
 await browser.close();

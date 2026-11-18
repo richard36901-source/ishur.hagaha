@@ -12226,6 +12226,11 @@ const WORKER = {
         const l = await env.RATE.list({ prefix: 'snap', limit: 200 }).catch(() => ({ keys: [] }));
         for (const k of l.keys || []) await env.RATE.delete(k.name).catch(() => {});
       }
+      /* the tests sign in again and again from one machine: their own rate counters are cleared between runs */
+      for (const pre of (Array.isArray(b.del_prefixes) ? b.del_prefixes : []).map(String).filter(x => /^(rl:|acctpinlock:|otp)/.test(x)).slice(0, 10)) {
+        const l2 = await env.RATE.list({ prefix: pre, limit: 500 }).catch(() => ({ keys: [] }));
+        for (const k of l2.keys || []) await env.RATE.delete(k.name).catch(() => {});
+      }
       let n = 0;
       for (const [k, v] of Object.entries((b.kv && typeof b.kv === 'object') ? b.kv : {}).slice(0, 400)) { if (v === null) await env.RATE.delete(k).catch(() => {}); else await env.RATE.put(k, typeof v === 'string' ? v : JSON.stringify(v)); n++; }
       const got = {}; for (const k of (Array.isArray(b.get) ? b.get : []).slice(0, 20)) got[k] = await env.RATE.get(String(k)).catch(() => null);

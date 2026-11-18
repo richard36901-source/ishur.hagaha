@@ -68,7 +68,7 @@ function adminKey() {
 }
 export async function seed(extraKv = {}) {
   const b = build();
-  const r = await fetch(BASE + '/api/staging-seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey(), snapshot: b.snapshot, kv: { ...b.kv, ...extraKv } }) });
+  const r = await fetch(BASE + '/api/staging-seed', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ admin_key: adminKey(), snapshot: b.snapshot, kv: { ...b.kv, ...extraKv }, del_prefixes: ['rl:acctpin', 'rl:bpin', 'rl:login', 'rl:acctotp', 'acctpinlock:'] }) });
   return { status: r.status, body: await r.json().catch(() => null) };
 }
 export async function kv(set = {}, get = []) {
