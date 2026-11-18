@@ -302,3 +302,14 @@ test('claim: the answer carries the PIN the first time and inside 30 minutes; la
   const b = await post(old, '/api/claim', await stamped(old, { ref: 'REF1' }));
   assert.equal(b.token, TOK); assert.equal(b.pin, undefined);
 });
+
+/* 18/11 Richard: a client email typed in the clients screen; link buttons then go by WhatsApp and by email */
+test('client-contact (admin): set, read, clear, bad email refused, no key 403', async () => {
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }) });
+  assert.equal((await post(e, '/api/client-contact', { token: TOK })).status, 403);
+  assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', token: TOK })).email, '');
+  assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', token: TOK, email: 'not-an-email' })).status, 400);
+  assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', token: TOK, email: ' dana@example.com ' })).email, 'dana@example.com');
+  assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', phone: '0521234567' })).email, 'dana@example.com');
+  assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', token: TOK, email: '' })).email, '');
+});

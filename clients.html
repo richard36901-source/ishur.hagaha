@@ -7,7 +7,7 @@
 <title>לקוחות · ishur.io</title>
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@700&family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="config.js?v=91"></script>
+<script src="config.js?v=94"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/adminbar.js?v=23" defer></script>
 <script src="assets/guard.js?v=21"></script>
@@ -468,6 +468,23 @@
         });
       }).catch(function () { box.innerHTML = '<h3>מצב האירוע</h3><div class="meta">לא נטען</div>'; });
   }
+  function loadMail(t) {
+    var inp = document.getElementById('popMail'); if (!inp) return;
+    api('client-contact', { token: t }).then(function (r) { return r.json(); }).then(function (j) {
+      var pop = document.querySelector('#pop .pop'); if (!pop || pop.dataset.t !== t || document.activeElement === inp) return;
+      if (j && j.ok) inp.value = j.email || '';
+    }).catch(function () {});
+  }
+  document.addEventListener('click', function (ev) {
+    var b = ev.target.closest && ev.target.closest('[data-mail="save"]'); if (!b) return;
+    var inp = document.getElementById('popMail'), pop = document.querySelector('#pop .pop'), st = document.getElementById('popMailS'); if (!inp || !pop) return;
+    b.disabled = true;
+    api('client-contact', { token: pop.dataset.t, email: inp.value.trim() }).then(function (r) { return r.json(); }).then(function (j) {
+      b.disabled = false;
+      if (j && j.ok) { inp.value = j.email || ''; if (st) st.textContent = j.email ? 'נשמר ✓ הקישורים יישלחו גם למייל' : 'נמחק'; toast(j.email ? 'המייל נשמר' : 'המייל נמחק'); }
+      else toast(j && j.error === 'bad-email' ? 'כתובת המייל לא תקינה' : 'לא נשמר');
+    }).catch(function () { b.disabled = false; toast('לא נשמר'); });
+  });
   /* the code is fetched only when "הצג" is pressed, and hidden again on the next press */
   document.addEventListener('click', function (ev) {
     var b = ev.target.closest && ev.target.closest('[data-pin]'); if (!b) return;
@@ -493,6 +510,9 @@
       /* 18/11 Richard: the client's sign-in code at the top of the popup, hidden until asked for */
       '<div class="meta" id="popPin" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">קוד כניסה של הלקוח: <b id="popPinV" dir="ltr" style="font-size:1.05rem;letter-spacing:.15em">••••</b>' +
         '<button type="button" class="btn g" data-pin="toggle">הצג</button><button type="button" class="btn g" data-pin="copy" hidden>📋 העתק</button></div>' +
+      /* 18/11 Richard: the client's email; when filled, "שלח קישור" goes out by WhatsApp and by email */
+      '<div class="meta" style="margin:.45rem 0;display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">מייל הלקוח: <input type="email" id="popMail" dir="ltr" placeholder="name@example.com" autocomplete="off" style="flex:1;min-width:11rem;font:inherit;padding:.3rem .5rem;border:1px solid var(--bdr,#ccc);border-radius:6px;background:transparent;color:inherit">' +
+        '<button type="button" class="btn g" data-mail="save">שמור</button><span id="popMailS"></span></div>' +
       '<div class="sec" id="popSum"><h3>מצב האירוע</h3><div class="meta">טוען…</div></div>' +
       '<div class="sec"><h3>תמונת ההזמנה</h3><div class="acts"><label class="btn">🖼 החלפת תמונה<input type="file" accept="image/*" data-img hidden></label><span class="meta">מחליפה מיד, גם אם ההזמנות כבר יצאו (שליחות הבאות עם התמונה החדשה)</span></div></div>' +
       (function () { var r = recOf(t); if (!r) return ''; return '<div class="refNote">הופנה ע"י <b>' + refName(r) + '</b> · ' + (r.path === 'discount' ? 'הנחה ₪' + r.discount_given : 'זיכוי ₪' + r.credit) + ' · ' +
@@ -527,6 +547,7 @@
       fetch(CFG.endpoint('media'), { method: 'POST', body: fd }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'התמונה הוחלפה' : 'לא הוחלפה: ' + (j.error || '')); fi.value = ''; }).catch(function () { toast('לא הוחלפה'); });
     });
     document.addEventListener('keydown', function esc1(ev) { if (ev.key === 'Escape') { bg.remove(); document.removeEventListener('keydown', esc1); } });
+    loadMail(t);   /* 18/11: the client email, when one is on file */
   }
   $('list').addEventListener('click', async function (ev) {
     if (ev.target.closest('button[data-ract]')) { refAct(ev); return; }
@@ -542,7 +563,7 @@
       p = api('preview-invite', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ל-' + (j.to || '') + (j.media === 'image' ? ' עם התמונה' : j.media === 'video' ? ' עם הווידאו' : ' בלי מדיה') : 'לא נשלח: ' + (j.error || j.why || j.error_code || '')); });
     } else if (act === 'link-dashboard' || act === 'link-upload') {
       var kind = act === 'link-upload' ? 'upload' : 'dashboard';
-      p = api('client-link', { token: t, kind: kind }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נשלח ללקוח בוואטסאפ (' + (j.via === 'button' ? 'עם כפתור' : 'תבנית') + ')' : 'לא נשלח' + (j.error ? ': ' + j.error : '')); });
+      p = api('client-link', { token: t, kind: kind }).then(function (r) { return r.json(); }).then(function (j) { var ml = j.mail === 'sent' ? ' + מייל' : j.mail === 'failed' ? ' · המייל לא נשלח' : ''; toast(j.ok ? 'נשלח ללקוח בוואטסאפ (' + (j.via === 'button' ? 'עם כפתור' : 'תבנית') + ')' + ml : 'לא נשלח בוואטסאפ' + (j.error ? ': ' + j.error : '') + ml); });
     } else if (act === 'reset') {
       if (!(await askConfirm('הלקוח (או אתה) יעלה רשימה מחדש. אם ההזמנות כבר יצאו, זה ייחסם.', { title: 'למחוק את רשימת המוזמנים?', ok: 'כן, למחוק', danger: true }))) { b.disabled = false; return; }
       p = api('guests-reset', { token: t }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'נמחקו ' + j.deleted + ' שורות. אפשר להעלות מחדש' : (j.error === 'already-sent' ? 'ההזמנות כבר יצאו, אפשר רק להוסיף' : 'לא הצליח')); });

@@ -12199,6 +12199,23 @@ const WORKER = {
       if (b.reset) await logEvent(env, { area: 'אזור אישי', action: 'קוד כניסה הוחלף ע"י מנהל', ok: true, phone }).catch(() => {});
       return okJson({ ok: true, pin, locked: !!(await env.RATE.get('acctpinlock:' + phone).catch(() => null)) }, origin);
     }
+    /* 18/11 Richard: an email per client, typed in the clients screen. When it exists, the link buttons send by WhatsApp AND by email. */
+    if (url.pathname === '/api/client-contact' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      let phone = normPhone(b.phone || '');
+      if (!phone && b.token) { const rec = await tokenRecord(env, String(b.token).trim()); phone = rec ? normPhone(rec.phone || '') : ''; }
+      if (!/^972\d{8,9}$/.test(phone)) return deny(404, 'no-phone', origin);
+      const c = await readContact(env, phone);
+      if (b.email !== undefined) {
+        const e = String(b.email || '').trim();
+        if (e && !validEmail(e)) return deny(400, 'bad-email', origin);
+        c.email = e; c.at = new Date().toISOString();
+        await env.RATE.put('contact:' + phone, JSON.stringify(c));
+        await logEvent(env, { area: 'לקוחות', action: e ? 'מייל של לקוח עודכן מהניהול' : 'מייל של לקוח נמחק מהניהול', ok: true, phone }).catch(() => {});
+      }
+      return okJson({ ok: true, email: validEmail(c.email) ? String(c.email).trim() : '' }, origin);
+    }
     if (url.pathname === '/api/client-link' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -12235,7 +12252,21 @@ const WORKER = {
         }
       }
       await logEvent(env, { area: 'לקוחות', action: `נשלח ללקוח קישור ל${kind === 'upload' ? 'העלאה' : 'לוח'} (${via})`, ok: res.ok, phone, token: tok, detail: res.error || '' }).catch(() => {});
-      return okJson({ ok: res.ok, via, error: res.error || '' }, origin);
+      /* the same message by email, when the client has one on file. A failed email never fails the WhatsApp send. */
+      let mail = '';
+      try {
+        const to = String((await readContact(env, phone)).email || '').trim();
+        if (validEmail(to)) {
+          const body = text.split('\n')[0], escH = x => String(x).replace(/[&<>"]/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ch]));
+          const pinTxt = pin ? `לכניסה גם דרך האזור האישי באתר: מספר הטלפון שלכם וקוד ${pin}` : '';
+          const m = await sendPlainEmail(env, { to, from: { email: 'info@ishur.io', name: 'ishur.io' }, subject: kind === 'upload' ? 'הקישור להעלאת רשימת המוזמנים' : 'הקישור ללוח הבקרה שלכם',
+            text: `${body}\n${link}${pinTxt ? '\n\n' + pinTxt : ''}`,
+            html: `<div dir="rtl" style="font-family:Heebo,Arial,sans-serif;font-size:16px;color:#111"><p>${escH(body)}</p><p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#14432F;color:#fff;border-radius:6px;text-decoration:none">${kind === 'upload' ? 'העלאת רשימה' : 'לוח הבקרה'}</a></p>${pinTxt ? `<p>${escH(pinTxt)}</p>` : ''}<p style="color:#555;font-size:13px">${escH(link)}</p></div>` }).catch(e2 => ({ ok: false, error: String(e2) }));
+          mail = m && m.ok ? 'sent' : 'failed';
+          await logEvent(env, { area: 'לקוחות', action: `קישור ל${kind === 'upload' ? 'העלאה' : 'לוח'} נשלח גם למייל`, ok: mail === 'sent', review: mail !== 'sent', phone, token: tok, detail: mail === 'sent' ? '' : String((m && m.error) || '').slice(0, 120) }).catch(() => {});
+        }
+      } catch {}
+      return okJson({ ok: res.ok, via, error: res.error || '', mail }, origin);
     }
     if (url.pathname === '/api/resend' && request.method === 'POST') {
       return handleResend(request, env, origin);
