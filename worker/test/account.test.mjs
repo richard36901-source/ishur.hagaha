@@ -277,3 +277,11 @@ test('board-pin-send: the PIN goes to the phone on file only, 3 an hour', async 
   await post(e, '/api/account/board-pin-send', { token: TOK }); await post(e, '/api/account/board-pin-send', { token: TOK });
   assert.equal((await post(e, '/api/account/board-pin-send', { token: TOK })).status, 429);
 });
+/* 18/11 incident: a correct PIN looped back to the code card when the token record's phone was not the sheet's owner cell */
+test('board lock: the phone the PIN was checked against opens the board even when the events sheet lists another owner', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: OTHER, name: 'דנה', clientId: 'c1' }), 'cfg:board_pin': '1' });
+  const r = await post(e, '/api/account/board-pin', { token: TOK, pin: await pinFor(e, OTHER) });
+  assert.equal(r.status, 200);
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, board_session: r.session }))).status, 200);
+});

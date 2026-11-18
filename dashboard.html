@@ -2968,7 +2968,7 @@
         try { localStorage.setItem('ishur_acct_session', j.session); } catch (e) {}
         var back = ''; try { back = new URLSearchParams(location.search).get('back') || ''; } catch (e) {}
         if (/^[a-z-]+\.html([?#].*)?$/.test(back)) { location.replace(back); return; }
-        b.textContent = 'טוענים את הלוח…'; delete pinFor.board_session; loadData(pinFor);   /* the card stays until the board is drawn */
+        b.textContent = 'טוענים את הלוח…'; pinFor.board_session = j.session; loadData(pinFor);   /* the card stays until the board is drawn */
         return;
       }
       b.disabled = false; b.textContent = 'כניסה';

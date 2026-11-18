@@ -5,7 +5,7 @@
      · navigations and /api/* GETs: network first, cache as the fallback
      · other same-origin static GETs: cache first, refreshed in the background
      · POSTs and cross-origin requests are never touched */
-const VERSION = 'ishur-dash-v24';
+const VERSION = 'ishur-dash-v25';
 const SHELL = [
   'dashboard.html', 'config.js', 'manifest.webmanifest',
   'assets/ux.js', 'assets/tracking.js', 'assets/guard.js', 'assets/lead.js', 'assets/design-card.js', 'assets/pwa.js', 'assets/tour.js',
@@ -35,9 +35,13 @@ async function networkFirst(req) {
 }
 async function cacheFirst(req) {
   const c = await caches.open(VERSION);
-  const hit = await c.match(req) || await c.match(req, { ignoreSearch: true });
+  /* 18/11: a file asked for under a new ?v= must come from the network. Falling
+     back to the same path under an OLD ?v= handed returning clients yesterday's
+     guard.js and config.js, and the board came up empty. The old copy is now
+     only the offline fallback. */
+  const hit = await c.match(req);
   const fresh = fetch(req).then((res) => { if (res && res.ok && res.type === 'basic') c.put(req, res.clone()).catch(() => {}); return res; }).catch(() => null);
-  return hit || (await fresh) || fetch(req);
+  return hit || (await fresh) || (await c.match(req, { ignoreSearch: true })) || fetch(req);
 }
 
 self.addEventListener('fetch', (e) => {

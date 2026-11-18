@@ -152,7 +152,12 @@ export async function tryPin(env, d, phone, pin, ip) {
 export async function boardLockOn(env) { try { return !!env.RATE && (await env.RATE.get('cfg:board_pin')) === '1'; } catch { return false; } }
 export async function boardSessionOk(env, d, raw, token, session) {
   const phone = await verifySession(env, session, d.safeEqual);
-  return !!phone && d.eventsForPhone(raw, phone).some(e => e.token === token);
+  if (!phone) return false;
+  /* 18/11: the PIN is checked against the phone on the token record, so that same phone must open the board.
+     Asking the events sheet alone (paid, not cancelled, same owner cell) sent clients back to the code card
+     after a correct code whenever the sheet row and the record disagreed. */
+  try { const rec = d.tokenRecord ? await d.tokenRecord(env, token) : null; if (rec && d.normPhone(rec.phone || '') === phone) return true; } catch {}
+  return d.eventsForPhone(raw, phone).some(e => e.token === token);
 }
 const tail = phone => String(phone || '').slice(-2);
 
