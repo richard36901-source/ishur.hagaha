@@ -12214,6 +12214,23 @@ const WORKER = {
     /* dev-staging 12/11: smoke.sh proves the guard on the live staging worker — one text to `phone`
        through the normal send path. Returns the send result ({error:'staging-blocked'} for a number
        outside STAGING_ALLOWLIST). Does not exist in production (404). */
+    /* 18/11 staging only: load the invented demo sheet and any KV rows the tests need (token records, switches).
+       Refused outside staging, and without the staging admin key. */
+    if (url.pathname === '/api/staging-seed' && request.method === 'POST') {
+      if (!isStaging(env)) return deny(404, 'unknown-route', origin);
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (b.snapshot) {
+        if (!b.snapshot.events || !Array.isArray(b.snapshot.events.values)) return deny(400, 'bad-snapshot', origin);
+        await env.RATE.put('stg:snapshot', JSON.stringify(b.snapshot));
+        const l = await env.RATE.list({ prefix: 'snap', limit: 200 }).catch(() => ({ keys: [] }));
+        for (const k of l.keys || []) await env.RATE.delete(k.name).catch(() => {});
+      }
+      let n = 0;
+      for (const [k, v] of Object.entries((b.kv && typeof b.kv === 'object') ? b.kv : {}).slice(0, 400)) { if (v === null) await env.RATE.delete(k).catch(() => {}); else await env.RATE.put(k, typeof v === 'string' ? v : JSON.stringify(v)); n++; }
+      const got = {}; for (const k of (Array.isArray(b.get) ? b.get : []).slice(0, 20)) got[k] = await env.RATE.get(String(k)).catch(() => null);
+      return okJson({ ok: true, staging: true, events: b.snapshot ? b.snapshot.events.values.length : undefined, guests: b.snapshot ? ((b.snapshot.guests || {}).values || []).length : undefined, kv: n, values: got }, origin);
+    }
     if (url.pathname === '/api/staging-probe' && request.method === 'POST') {
       if (!isStaging(env)) return deny(404, 'not-staging', origin);
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

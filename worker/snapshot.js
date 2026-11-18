@@ -110,6 +110,9 @@ async function kdel(env, k) { try { await env.RATE.delete(k); } catch {} }
 /* the raw transport: POST {kind:'snapshot'} to the Make status scenario */
 export async function fetchRaw(env) {
   if (!env.HOOK_STATUS) return null;
+  /* 18/11 staging: the development environment has no Make scenario behind it. Its sheet is an invented demo kept in its
+     own KV (seeded by scripts/staging-seed.mjs); HOOK_STATUS = "kv:<key>" names it. Never true in production. */
+  if (env.STAGING === '1' && String(env.HOOK_STATUS).startsWith('kv:')) return kjson(env, String(env.HOOK_STATUS).slice(3));
   const r = await fetch(env.HOOK_STATUS, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ kind: 'snapshot' }) }).catch(() => null);
   if (!r || r.status !== 200) return null;
   try { return await r.json(); } catch { return null; }
