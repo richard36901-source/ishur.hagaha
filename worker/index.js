@@ -26,7 +26,7 @@ import { parseGuestFile, guestsFromRows } from './parse.js';
 import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, isTestEventRow, planMaxCallTries } from './dashboard.js';
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab } from './evlog.js';
-import { createInvoice, token as morningToken } from './invoice.js';
+import { createInvoice, token as morningToken, invoiceTerms, HOSTESS_TERMS } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
@@ -12426,13 +12426,18 @@ const WORKER = {
       const items = (Array.isArray(b.items) ? b.items : []).map(x => ({ description: String((x && x.description) || '').slice(0, 160), quantity: 1, price: Number(x && x.price) || 0, currency: 'ILS', vatType: 1 })).filter(x => x.price > 0 && x.description).slice(0, 8);
       const price = items.length ? items.reduce((a2, x) => a2 + x.price, 0) : Number(b.price) || 0, type = Number(b.type) || 0;
       if (!price || !type || !String(b.name || '').trim()) return deny(400, 'missing-fields', origin);
-      const doc = { type, lang: 'he', currency: 'ILS', date: ilDate(), description: String(b.description || '').slice(0, 160), remarks: String(b.remarks || '').slice(0, 4000),
-        footer: 'שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io',
+      /* 18/11 evening (Richard: invoice 1225 went out on "לקוח ishur"): the same route can issue the credit note against a wrong
+         document (linked: [its id]) and the corrected invoice-receipt (pay_type + purchase_terms), so a fix never needs a new route. */
+      const doc = { type, lang: 'he', currency: 'ILS', date: ilDate(), description: String(b.description || '').slice(0, 160),
+        remarks: b.purchase_terms ? invoiceTerms({ tier: b.tier, plan: b.plan }) + (b.hostess ? '\n\n' + HOSTESS_TERMS : '') : String(b.remarks || '').slice(0, 4000),
+        footer: String(b.footer || 'שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io').slice(0, 300),
+        ...(Array.isArray(b.linked) && b.linked.length ? { linkedDocumentIds: b.linked.map(String).filter(x => /^[0-9a-f-]{36}$/.test(x)).slice(0, 5) } : {}),
+        ...(Number(b.pay_type) ? { payment: [{ type: Number(b.pay_type), price, currency: 'ILS', date: ilDate() }] } : {}),
         client: { name: String(b.name).slice(0, 100), phone: String(b.phone || ''), emails: b.email ? [String(b.email)] : [], country: 'IL', add: false },
         income: items.length ? items : [{ description: String(b.description || '').slice(0, 160), quantity: 1, price, currency: 'ILS', vatType: 1 }] };
       const r = await fetch(MAPI + (b.action === 'create' ? '/documents' : '/documents/preview'), { method: 'POST', headers: hd, body: JSON.stringify(doc) }).catch(() => null);
       const j = r ? await r.json().catch(() => null) : null;
-      if (b.action === 'create') await logEvent(env, { area: 'כספים', action: 'הצעת מחיר הופקה בחשבונית ירוקה', ok: !!(r && r.ok && j && j.id), review: true, phone: normPhone(b.phone || ''), detail: `${b.name} · ₪${price} · ${String((j && (j.number || j.errorMessage)) || '').slice(0, 80)}` }).catch(() => {});
+      if (b.action === 'create') await logEvent(env, { area: 'כספים', action: (type === 330 ? 'חשבונית זיכוי' : type === 320 ? 'חשבונית מס-קבלה' : 'הצעת מחיר') + ' הופקה בחשבונית ירוקה', ok: !!(r && r.ok && j && j.id), review: true, phone: normPhone(b.phone || ''), detail: `${b.name} · ₪${price} · ${String((j && (j.number || j.errorMessage)) || '').slice(0, 80)}` }).catch(() => {});
       return okJson({ ok: !!(r && r.ok), status: r && r.status, result: j }, origin);
     }
     if (url.pathname === '/api/template-spaced' && request.method === 'POST') return handleTemplateSpaced(request, env, origin);
