@@ -106,7 +106,10 @@ const waitBoard = p => p.waitForFunction(() => !document.getElementById('main').
   check('personal area: phone + code signs in and lists the event', listed);
   if (listed) {
     /* a first visit shows the guided-tour overlay over the page, so the link is followed by its address (same tab, same sign-in) rather than by a click */
-    await p.goto(new URL(await link.getAttribute('href'), p.url()).href, { waitUntil: 'domcontentloaded' });
+    /* the worker writes event links with the production host (https://ishur.io/…). On staging that would leave the
+       environment, so the same path is opened on the staging site, where this sign-in lives. */
+    const target = new URL(await link.getAttribute('href'), p.url());
+    await p.goto(SITE + target.pathname + target.search, { waitUntil: 'domcontentloaded' });
     check('…and the board opens from there without asking again', await waitBoard(p) && await boardOpen(p), `${await rows(p)} rows`);
   }
   await ctx.close();

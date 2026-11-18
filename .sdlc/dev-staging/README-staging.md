@@ -42,6 +42,29 @@ Optional: `WA_TOKEN`, `WA_TOKEN_GUESTS`, `WA_PHONE_ID`, `WA_PHONE_ID_GUESTS` —
 `wa-not-configured`; with them the allowlist still applies. **Never** `HOOK_EVENTS` / `HOOK_STATUS` / `HOOK_LEADS`
 / `HOOK_GROW` (production Make scenarios).
 
+## Client boards and sign-in on staging (added 18/11/2026)
+
+Staging has no Make scenario behind its client boards. Its sheet is an invented demo (3 events, 114 guests, made-up
+names and numbers) kept in the staging KV and served through `HOOK_STATUS = "kv:stg:snapshot"`.
+
+```bash
+node worker/scripts/staging-seed.mjs          # (re)load the demo sheet + token records
+node scripts/staging-check.mjs                # sign in the ways clients really arrive; exit 0 = 13/13
+```
+
+`scripts/staging-check.mjs` is the gate for anything that touches client sign-in, the board link, `config.js`,
+`assets/guard.js`, `sw.js` or the status route. It turns the board lock ON in staging, then signs in by the personal
+link (first visit), as a returning device with an OLD `config.js`, with no link at all (home-screen app), and through
+the personal area; checks a wrong code is refused; checks staging cannot send; and leaves the lock off again.
+It needs Chrome and playwright (`PLAYWRIGHT_PATH=/path/to/playwright/index.mjs` when it is not installed in the repo).
+
+Known differences from production:
+- event links the worker writes (personal area, messages) carry the production host `https://ishur.io/…`; on staging
+  open the same path on `staging.ishur.io`;
+- sheet writes are not available (no `BRAIN_HOOK`): flows that write the sheet answer a failure on staging;
+- demo tokens: `aaaaaaaa-0000-4000-8000-000000000001` (wedding, 36 guests), `bbbbbbbb-…0002` (bar mitzvah, 60, sent),
+  `cccccccc-…0003` (past event). Sign-in codes: `POST /api/client-pin {admin_key, token}` with the staging key.
+
 ## Running a cron job by hand on staging
 
 Crons are off. The same admin routes production's crons call are available with the staging admin key, e.g.
