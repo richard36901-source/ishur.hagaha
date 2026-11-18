@@ -153,7 +153,8 @@
   <section class="card lg" id="login" hidden>
     <div class="lg-b">
       <h2 class="lg-t">כניסה לאזור האישי</h2>
-      <div class="lg-seg" role="tablist" aria-label="איך נכנסים">
+      <!-- 18/11 Richard: the "עוד אין לי אירוע" tab is off; whoever has no event gets the buy-a-package button below -->
+      <div class="lg-seg" role="tablist" aria-label="איך נכנסים" style="display:none" hidden>
         <button type="button" role="tab" id="tabPhone" aria-selected="true" aria-controls="panePhone">יש לי אירוע</button>
         <button type="button" role="tab" id="tabMail" aria-selected="false" aria-controls="paneMail">עוד אין לי אירוע</button>
       </div>
