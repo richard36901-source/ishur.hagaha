@@ -10830,7 +10830,10 @@ async function overBudget(env, key, limit, windowSec) {
   /* 09/11: the TTL used to reset on every hit, so a page that polls kept its own bucket alive forever (a window that never closed) */
   const { metadata } = await env.RATE.getWithMetadata(key).catch(() => ({ metadata: null }));
   const until = metadata && metadata.until ? Number(metadata.until) : Math.floor(Date.now() / 1000) + windowSec;
-  await env.RATE.put(key, String(current + 1), { expiration: Math.max(until, Math.floor(Date.now() / 1000) + 60), metadata: { until } });
+  /* 18/11: "at least 60 seconds ahead" was asked for exactly 60, and the store refused it whenever a second ticked on the
+     way ("Invalid expiration"). That threw out of every route that counts — sign-in, the board's data — as a failure to
+     the client. The floor is 90 seconds now, and a counter that cannot be written never fails the request it counts. */
+  try { await env.RATE.put(key, String(current + 1), { expiration: Math.max(until, Math.floor(Date.now() / 1000) + 90), metadata: { until } }); } catch {}
   return false;
 }
 
@@ -14613,6 +14616,25 @@ const WORKER = {
            (it keeps working for a month, below) is never slowed by this. */
         const ipFails = 'rl:loginfail:' + ip;
         if (memCount(ipFails) >= 30 || (Number(await env.RATE.get(ipFails).catch(() => 0)) || 0) >= 30) return deny(429, 'rate-limited', origin);
+        /* 18/11: this gate (the board opened without a personal link, e.g. from the home-screen app) asked only for the
+           one-time WhatsApp code, so clients typing their fixed 4-digit code were refused. The fixed code signs in here
+           too. A right code costs nothing; only wrong ones count (per phone and per address), and each is recorded. */
+        if (code.length === 4) {
+          if (await env.RATE.get('acctpinlock:' + phone).catch(() => null)) return deny(429, 'pin-locked', origin);
+          const wantPin = await pinFor(env, phone).catch(() => '');
+          if (!wantPin || !safeEqual(code, wantPin)) {
+            memOver(ipFails, 30, 3600); await overBudget(env, ipFails, 30, 3600).catch(() => {});
+            await overBudget(env, 'rl:acctpinh:' + phone, 1e9, 3600).catch(() => {});
+            await logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: הקוד שהוקלד שונה מהקוד של הלקוח', ok: false, review: true, phone, detail: 'מסך הכניסה של הלוח · ' + String(request.headers.get('User-Agent') || '').slice(0, 90) }).catch(() => {});
+            return deny(403, 'bad-login', origin);
+          }
+          const rawP = await readSnapshot(env, 'dashboard');
+          if (!rawP) return deny(502, 'reader-failed', origin);
+          const evsP = eventsForPhone(rawP, phone);
+          if (!evsP.length) { await logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: הקוד נכון אבל אין אירוע משולם על המספר הזה בגיליון', ok: false, review: true, phone, detail: 'מסך הכניסה של הלוח' }).catch(() => {}); return deny(404, 'no-events', origin); }
+          await logEvent(env, { area: 'אזור אישי', action: 'כניסה ללוח הבקרה עם קוד קבוע (מסך הכניסה)', ok: true, phone }).catch(() => {});
+          return okJson({ ok: true, events: evsP, board_session: await mintAcctSession(env, phone).catch(() => '') }, origin);
+        }
         let rec = null;
         try { rec = JSON.parse(await env.RATE.get('otp:' + phone)); } catch {}
         const tryKey = 'otptry:otp:' + phone + ':' + ((rec && (rec.id || rec.exp)) || '');

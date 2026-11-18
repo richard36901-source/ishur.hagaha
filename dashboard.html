@@ -182,6 +182,8 @@
   .row-p{font-size:.74rem;color:var(--ink3);direction:ltr;text-align:right}
   .pill{flex-shrink:0;font-size:.72rem;font-weight:500;border-radius:99px;padding:.12rem .55rem;white-space:nowrap}
   .pill.yes{background:var(--green4);color:var(--green2)}
+  /* 18/11: lux.css paints this pill dark green on a light tint; on the dark theme that was dark on dark */
+  html[data-theme=dark] .pill.yes{background:#1D4533;color:#A6E3C3}
   .pill.no{background:var(--err-bg);color:var(--err)}
   .pill.wait{background:var(--bg3);color:var(--ink3)}
   .tbl-sp .more{font:inherit;font-size:1rem;line-height:1;letter-spacing:.05em;color:var(--ink3);background:none;border:1px solid transparent;border-radius:8px;padding:.1rem .35rem;cursor:pointer}
@@ -642,13 +644,14 @@
 <div class="wrap" id="gate" hidden>
   <div class="gate-card">
     <h2>כניסה ללוח הבקרה</h2>
-    <p class="gate-sub">מקלידים את הטלפון, מקבלים קוד לוואטסאפ ונכנסים</p>
+    <p class="gate-sub">נכנסים עם מספר הטלפון וקוד הכניסה שלכם (4 ספרות)</p>
     <label class="gate-l" for="g-phone">מספר טלפון</label>
     <input class="gate-in" id="g-phone" inputmode="tel" autocomplete="tel" placeholder="050-0000000">
-    <button type="button" class="gate-send" id="g-send">שליחת קוד בוואטסאפ</button>
     <label class="gate-l" for="g-code">קוד כניסה</label>
-    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••••">
+    <input class="gate-in code" id="g-code" inputmode="numeric" maxlength="6" placeholder="••••">
     <button type="button" class="gate-btn" id="g-go">כניסה</button>
+    <!-- 18/11: the fixed 4-digit code is the main way in; a one-time WhatsApp code stays for whoever does not have it -->
+    <button type="button" class="gate-send" id="g-send" style="margin-top:.6rem">אין לי את הקוד · שלחו לי קוד חד-פעמי לוואטסאפ</button>
     <p class="gate-err" id="g-err" aria-live="polite"></p>
     <p class="gate-note">הקוד מגיע לוואטסאפ של המספר שאיתו נרשמתם.<br>משהו לא מסתדר? <a href="#" id="g-wa" target="_blank" rel="noopener">כתבו לנו</a></p>
   </div>
@@ -912,6 +915,26 @@
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
+  /* 18/11: a returning device can run this (always fresh) page with a config.js its cache kept from days ago. An address
+     that file does not know yet came back broken, and the code screen answered a right code with a failure. The
+     addresses this page needs are derived here from the one that has always been there. */
+  (function () {
+    var need = { 'account-board-pin': '/api/account/board-pin', 'account-board-pin-send': '/api/account/board-pin-send', 'preview-messages': '/api/preview-messages', inviteStyle: '/api/invite-style', 'custom-template': '/api/custom-template' };
+    var orig = CFG.endpoint;
+    CFG.endpoint = function (k) {
+      /* an old config.js answers an unknown name with a guessed path (/api/<name>), which exists nowhere: for the
+         names below this page never asks it */
+      if (need[k]) { var st = orig('status') || ''; if (/\/api\/status$/.test(st)) return st.replace(/\/api\/status$/, need[k]); }
+      return orig(k);
+    };
+    /* when a newer cache worker takes over, load the page once more so its scripts are the current ones */
+    try {
+      if ('serviceWorker' in navigator && navigator.serviceWorker.controller) navigator.serviceWorker.addEventListener('controllerchange', function () {
+        try { if (sessionStorage.getItem('ishur_sw_rl')) return; sessionStorage.setItem('ishur_sw_rl', '1'); } catch (e) { return; }
+        location.reload();
+      });
+    } catch (e) {}
+  })();
   var qs = new URLSearchParams(location.search);
   var token = (qs.get('t') || '').trim();
   /* 03/11 PWA: the home-screen launch opens dashboard.html?pwa=1 (no token); reuse the last one */
@@ -3171,12 +3194,16 @@
   }
 
   $('g-go').addEventListener('click', gateSubmit);
+  /* the fixed code is 4 digits: the fourth digit signs in, unless a one-time (6-digit) code was asked for */
+  var otpAsked = false;
+  $('g-code').addEventListener('input', function () { if (!otpAsked && this.value.replace(/\D/g, '').length === 4 && IshurLead.isValidPhone($('g-phone').value.trim()) && !$('g-go').disabled) gateSubmit(); });
   ['g-phone', 'g-code'].forEach(function (id) {
     $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') gateSubmit(); });
   });
 
   /* "send me a code": the worker fires ishur_kod to this phone's WhatsApp */
   $('g-send').addEventListener('click', function () {
+    otpAsked = true;
     var phone = $('g-phone').value.trim();
     $('g-err').style.color = '';
     if (!IshurLead.isValidPhone(phone)) {

@@ -352,3 +352,17 @@ test('client-phone (admin): a real change writes column D of the event row, move
   assert.equal(JSON.parse(e.RATE.m.get('contact:972541112233')).email, 'dana@example.com');
   assert.equal((await post(e, '/api/client-pin', { admin_key: 'k', token: TOK })).pin, await pinFor(e, '972541112233'));
 });
+
+/* 18/11 incident: the board opened without a personal link (home-screen app) asked for a one-time code only; clients typed their fixed code and were refused */
+test('board gate (phone + code): the fixed 4-digit code signs in and returns the events and a board session; a wrong one is refused; a right one is never rate-counted', async () => {
+  const { pinFor } = await import('../account.js');
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }) });
+  const pin = await pinFor(e, PHONE), wrong = pin === '0001' ? '0002' : '0001';
+  const bad = await post(e, '/api/status', await stamped(e, { phone: '0521234567', code: wrong }));
+  assert.equal(bad.status, 403); assert.equal(bad.error, 'bad-login');
+  for (let i = 0; i < 9; i++) { const ok = await post(e, '/api/status', await stamped(e, { phone: '0521234567', code: pin })); assert.equal(ok.status, 200, 'reload ' + i); assert.ok(ok.events.length >= 1); assert.match(ok.board_session, /^acct\./); }
+  await e.RATE.put('cfg:board_pin', '1');
+  const ok2 = await post(e, '/api/status', await stamped(e, { phone: '0521234567', code: pin }));
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: ok2.events[0].token, board_session: ok2.board_session }))).status, 200, 'the session from the gate opens the locked board');
+  assert.equal((await post(e, '/api/status', await stamped(e, { phone: '0531234567', code: await pinFor(e, '972531234567') }))).status, 404, 'a right code for a number with no event');
+});
