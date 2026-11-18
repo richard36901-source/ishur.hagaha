@@ -14417,9 +14417,15 @@ const WORKER = {
       const raw = await readSnapshot(env, 'dashboard');
       if (!raw) return deny(502, 'reader-failed', origin);
       /* 17/11 Richard ("תנעל"): the link alone no longer opens the board — see boardLockOn in account.js. Off: delete cfg:board_pin */
+      /* 18/11 Richard: only the board asks for the code. The guest-list upload page keeps working from its link, but
+         without a code it gets the event and the counts only — never the guest list, phones, gifts or invoices. */
+      let limitedView = false;
       if (await boardLockOn(env) && !(stampFields.admin_key && await adminKeyOk(env, stampFields.admin_key)) && !(await boardSessionOk(env, accountDeps(), raw, token, stampFields.board_session))) {
-        const own = normPhone((await tokenRecord(env, token)).phone || '');
-        return new Response(JSON.stringify({ ok: false, error: 'pin-required', to: own.slice(-2) }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+        if (stampFields.view === 'upload') limitedView = true;
+        else {
+          const own = normPhone((await tokenRecord(env, token)).phone || '');
+          return new Response(JSON.stringify({ ok: false, error: 'pin-required', to: own.slice(-2) }), { status: 401, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
+        }
       }
       const refCount = env.RATE ? Number(await env.RATE.get('refcred:' + token.slice(0, 8))) || 0 : 0;
       let referral = null; try { referral = await referralSummary(env, token, await tokenRecord(env, token)); } catch {}
@@ -14618,6 +14624,7 @@ const WORKER = {
         }
       } catch {}
       snapshot.referral = referral;
+      if (limitedView) { for (const k of ['guests', 'changes', 'checkin', 'gifts', 'invoice', 'invoices', 'referral', 'referral_code', 'media']) delete snapshot[k]; snapshot.limited = true; }
       return okJson(snapshot, origin);
     }
 

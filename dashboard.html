@@ -2992,6 +2992,8 @@
   }
   $('p-go').addEventListener('click', pinGo);
   $('p-pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') pinGo(); });
+  /* 18/11 Richard: the fourth digit signs in by itself, no need to press the button */
+  $('p-pin').addEventListener('input', function () { if (this.value.replace(/\D/g, '').length === 4 && !$('p-go').disabled) pinGo(); });
   $('p-send').addEventListener('click', function () {
     var b = $('p-send'); b.disabled = true; $('p-err').style.color = '';
     acctApi('account-board-pin-send', { token: pinFor.token }).then(function (j) {

@@ -313,3 +313,13 @@ test('client-contact (admin): set, read, clear, bad email refused, no key 403', 
   assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', phone: '0521234567' })).email, 'dana@example.com');
   assert.equal((await post(e, '/api/client-contact', { admin_key: 'k', token: TOK, email: '' })).email, '');
 });
+
+/* 18/11 Richard: with the lock on, only the board asks for the code; the upload page works from its link with a reduced answer */
+test('board lock: the upload page gets the event and counts without a code, never the guest list', async () => {
+  const e = env({ ['token:' + TOK]: JSON.stringify({ phone: '972521234567', name: 'דנה', clientId: 'c1' }), 'cfg:board_pin': '1' });
+  const up = await post(e, '/api/status', await stamped(e, { token: TOK, view: 'upload' }));
+  assert.equal(up.status, 200); assert.ok(up.event); assert.ok(up.totals); assert.equal(up.limited, true);
+  for (const k of ['guests', 'gifts', 'invoices', 'checkin', 'changes']) assert.equal(up[k], undefined, k + ' must not be sent without a code');
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK }))).status, 401);
+  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, view: 'dashboard' }))).status, 401);
+});

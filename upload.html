@@ -1372,7 +1372,7 @@
      stays as a fallback for the old links. */
   (function () {
     if (!token) return;
-    var payload = { token: token };
+    var payload = { token: token, view: 'upload' };   /* 18/11: this page never asks for the sign-in code; without one the server sends the event and counts only */
     fetch(CFG.endpoint('status'), {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload)

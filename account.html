@@ -520,6 +520,8 @@
     }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('lerr').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
   }
   $('pgo').addEventListener('click', pinLogin);
+  /* 18/11 Richard: with the phone filled in, the fourth digit signs in by itself */
+  $('pin').addEventListener('input', function () { if (this.value.replace(/\D/g, '').length === 4 && $('phone').value.replace(/\D/g, '').length >= 9 && !$('pgo').disabled) pinLogin(); });
   $('pin').addEventListener('keydown', function (e) { if (e.key === 'Enter') pinLogin(); });
   $('go').addEventListener('click', login);
   $('code').addEventListener('keydown', function (e) { if (e.key === 'Enter') login(); });
