@@ -99,6 +99,9 @@ export const ALLOWED_ORIGINS = [
      know the host. The page loaded and nothing on it worked. */
   'https://go.ishur.io',
   'http://localhost:4180',
+  /* 18/11 staging: the development site. Its pages talk only to go-staging (config.js picks by hostname); without
+     this line the browser refused every call and the staging board could never load. */
+  'https://staging.ishur.io',
 ];
 
 export function cors(origin) {
