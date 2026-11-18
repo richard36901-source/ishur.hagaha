@@ -10,6 +10,7 @@ workers_dev = true
 [assets]
 directory = "../dist-site"
 not_found_handling = "404-page"
+html_handling = "none"   # 18/11: serve /dashboard.html as it is, like GitHub Pages does in production (the default strips .html and redirects)
 
 [[routes]]
 pattern = "staging.ishur.io"

@@ -106,7 +106,7 @@ window.IshurGuard = (function () {
   /* 17/11: a client page other than the board (seating, budget, list upload…) that is told "pin-required" sends the
      client to the board, which asks for the PIN once and brings them back. */
   try {
-    if (window.fetch && !/dashboard\.html$/.test(location.pathname)) {
+    if (window.fetch && !/dashboard(\.html)?\/?$/.test(location.pathname)) {   /* 18/11: a host that serves the page as /dashboard (no .html) sent the board to itself in a loop */
       var rawFetch = window.fetch;
       window.fetch = function (u, o) {
         var p = rawFetch.apply(this, arguments);
