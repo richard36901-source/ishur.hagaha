@@ -113,6 +113,21 @@ window.IshurGuard = (function () {
         try {
           if (typeof u === 'string' && /\/api\/status$/.test(u) && o && typeof o.body === 'string') {
             var tk = (o.body.match(/"token":"([0-9a-f-]{36})"/) || [])[1];
+            /* 18/11: a signed-in admin (clients screen, seating, live…) is not a client and has no PIN. When the
+               locked board answers "pin-required", ask again with the admin's own sign-in and hand THAT answer back. */
+            var ak = ''; try { ak = localStorage.getItem('ishur_calls_key') || ''; } catch (e0) {}
+            if (tk && ak && !/"admin_key"/.test(o.body)) {
+              var self = this;
+              return p.then(function (r) {
+                if (r.status !== 401) return r;
+                return r.clone().json().then(function (j) {
+                  if (!j || j.error !== 'pin-required') return r;
+                  var b2 = JSON.parse(o.body); b2.admin_key = ak;
+                  var o2 = {}; for (var k in o) o2[k] = o[k]; o2.body = JSON.stringify(b2);
+                  return rawFetch.call(self, u, o2).then(function (r2) { return r2.ok ? r2 : r; }, function () { return r; });
+                }, function () { return r; });
+              });
+            }
             if (tk) p.then(function (r) {
               if (r.status !== 401) return;
               r.clone().json().then(function (j) {

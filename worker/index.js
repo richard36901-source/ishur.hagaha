@@ -14284,7 +14284,7 @@ const WORKER = {
       /* 18/11: an admin's browser opening a CLIENT board sends its key together with the event token (the PIN
          lock lets it through). It used to get the call queue here, so the board came up with no data. The key
          alone, or with a view, still gets the admin answers. */
-      if (admin && !(tokenRead && !stampFields.view)) {
+      if (admin && !tokenRead) {   /* a token next to the key always means "this event's board", whatever view the page names */
         if (!isAdmin(env, admin)) return deny(403, 'bad-admin-key', origin);
         const raw = await readSnapshot(env, 'ops');
         if (!raw) return deny(502, 'reader-failed', origin);
