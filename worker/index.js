@@ -5130,6 +5130,81 @@ function guardWatchList() {
   for (const k of ['s', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_yom_plain_' + k);
   return [...fam, 'ishur_yom_lifnei', 'ishur_shulchan', 'hazmana_ishur', 'ishur_hazmana_shuv', 'ishur_bitul', 'ishur_dchiya', 'ishur_toda_orach_u'];
 }
+/* ══ 18/11 Richard: "תרווח את זה קצת" — a blank line above the table line and after the navigation line in the day-before
+   and event-day messages. A template's wording cannot be edited in place without a new review that takes it off the
+   air, so each LIVE template (the original, or the utility copy the guard put in its place) gets a spaced twin
+   <name>_sp. A twin is used only after it is APPROVED as UTILITY and switched on (KV tmplsp:<name> = <name>_sp);
+   until then, and whenever the key is absent, sending is exactly as before. Text templates only: the image-header
+   twins need an uploaded picture and are left as they are for now. ══ */
+export function spacedBody(text) {
+  const lines = String(text || '').split('\n'), out = [];
+  for (let i = 0; i < lines.length; i++) {
+    const ln = lines[i], isTable = /השולחן שלכם/.test(ln), isNav = /לניווט לחצו/.test(ln);
+    if (isTable && out.length && out[out.length - 1].trim() !== '') out.push('');
+    out.push(ln);
+    if (isNav && i < lines.length - 1 && lines[i + 1].trim() !== '') out.push('');
+  }
+  return out.join('\n');
+}
+function spacedFamily() {
+  const fam = [];
+  for (const k of ['n', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_combo_' + k, 'ishur_yom_combo_' + k);
+  for (const k of ['t', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_lifnei_plain_' + k);
+  for (const k of ['s', 't', 'g', 'gb', 'gp', 'tg', 'tgb', 'tgp']) fam.push('ishur_yom_plain_' + k);
+  return fam;
+}
+async function handleTemplateSpaced(request, env, origin) {
+  let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+  if (!env.WA_TOKEN_GUESTS || !env.RATE) return deny(503, 'not-configured', origin);
+  const waba = '1378764257421712', tok = env.WA_TOKEN_GUESTS;
+  const all = {}; let url = `https://graph.facebook.com/v21.0/${waba}/message_templates?fields=name,status,category,language,components&limit=200`;
+  for (let i = 0; url && i < 10; i++) {
+    const r = await fetch(url, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null); const j = r ? await r.json().catch(() => null) : null;
+    for (const t of (j && j.data) || []) all[t.name] = t;
+    url = j && j.paging && j.paging.next;
+  }
+  const rows = [];
+  for (const base of spacedFamily()) {
+    const live = (await env.RATE.get('tmplalt:' + base).catch(() => null)) || base, t = all[live], twin = live + '_sp', tw = all[twin];
+    const body = t ? ((t.components || []).find(c => c.type === 'BODY') || {}).text || '' : '', next = spacedBody(body);
+    rows.push({ base, live, twin, live_status: t ? t.status : 'MISSING', live_category: t ? t.category : '', changes: !!t && next !== body, twin_status: tw ? tw.status : '', twin_category: tw ? tw.category : '', on: (await env.RATE.get('tmplsp:' + live).catch(() => null)) === twin, t, next });
+  }
+  const want = new Set((Array.isArray(b.names) ? b.names : []).map(String));
+  const pick = r => !want.size || want.has(r.base) || want.has(r.live);
+  if (b.action === 'submit') {
+    for (const r of rows.filter(pick)) {
+      if (!r.t || !r.changes || r.twin_status || r.live_status !== 'APPROVED') { r.submit = r.twin_status ? 'exists' : r.changes ? 'skipped' : 'no-change'; continue; }
+      const comps = (r.t.components || []).map(c => (c.type === 'BODY' ? { ...c, text: r.next } : c));
+      if (comps.some(c => c.type === 'HEADER' && c.format && c.format !== 'TEXT')) { r.submit = 'media-header'; continue; }
+      const res = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: r.twin, language: r.t.language || 'he', category: 'UTILITY', components: comps }) }).catch(() => null);
+      const j = res ? await res.json().catch(() => null) : null;
+      r.submit = res && res.ok ? 'submitted' : 'failed: ' + String((j && j.error && (j.error.error_user_msg || j.error.message)) || 'no answer').slice(0, 160);
+      if (res && res.ok) { r.twin_status = String((j && j.status) || 'PENDING'); r.twin_category = String((j && j.category) || ''); }
+    }
+    await logEvent(env, { area: 'תבניות', action: 'הוגשו עותקים מרווחים של הודעות יום-לפני ויום-האירוע', ok: true, detail: rows.filter(r => r.submit === 'submitted').length + ' הוגשו' }).catch(() => {});
+  }
+  if (b.action === 'activate' || b.action === 'deactivate') {
+    for (const r of rows.filter(pick)) {
+      if (b.action === 'deactivate') { await env.RATE.delete('tmplsp:' + r.live).catch(() => {}); r.on = false; continue; }
+      if (r.twin_status === 'APPROVED' && r.twin_category === 'UTILITY') { await env.RATE.put('tmplsp:' + r.live, r.twin); r.on = true; } else r.activate = 'not-approved-utility';
+    }
+    await logEvent(env, { area: 'תבניות', action: b.action === 'activate' ? 'עותקים מרווחים הופעלו' : 'עותקים מרווחים כובו', ok: true, detail: rows.filter(pick).map(r => r.live + ':' + (r.on ? 'on' : 'off')).join(' ').slice(0, 400) }).catch(() => {});
+  }
+  return okJson({ ok: true, rows: rows.map(({ t, next, ...r }) => (b.show ? { ...r, next } : r)) }, origin);
+}
+/* hourly, with the guard: a spaced twin that Meta paused, rejected or moved to MARKETING is switched off at once */
+async function checkSpacedTwins(env) {
+  if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false };
+  const keys = (await env.RATE.list({ prefix: 'tmplsp:', limit: 200 }).catch(() => ({ keys: [] }))).keys || []; let off = 0;
+  for (const k of keys) {
+    const twin = await env.RATE.get(k.name).catch(() => null); if (!twin) continue;
+    const t = await templateInfo(env, twin).catch(() => null);
+    if (!t || t.status !== 'APPROVED' || t.category !== 'UTILITY') { await env.RATE.delete(k.name).catch(() => {}); off++; await logEvent(env, { area: 'תבניות', action: 'עותק מרווח כובה — חזרה לנוסח הקודם', ok: false, review: true, detail: `${twin} · ${t ? t.status + '/' + t.category : 'לא נמצא'}` }).catch(() => {}); }
+  }
+  return { ok: true, on: keys.length - off, off };
+}
 async function runTemplateGuard(env) {
   if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false, why: 'not-configured' };
   const waba = '1378764257421712', tok = env.WA_TOKEN_GUESTS;
@@ -7233,7 +7308,7 @@ async function templateCheck(env, out) {
   /* 08/11: the template guard, once an hour (own key) */
   try {
     const gk = 'tmplguard:hour:' + new Date().toISOString().slice(0, 13);
-    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); out.billing = await checkBillingRecovered(env).catch(e => ({ error: String(e && e.message || e) })); }
+    if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); out.spaced = await checkSpacedTwins(env).catch(() => null); out.billing = await checkBillingRecovered(env).catch(e => ({ error: String(e && e.message || e) })); }
   } catch (e) { await alert(env, 'מטא', 'בודק התבניות נפל', String((e && e.message) || e), { key: 'tmplguard_crash', sev: 'P1' }).catch(() => {}); }
   /* Meta approvals, checked once an hour: the image invitation and the invoice
      template switch themselves on the moment they are approved. */
@@ -12336,6 +12411,7 @@ const WORKER = {
       } catch {}
       return okJson({ ok: true, guest: 'דנה', seated, messages: out }, origin);
     }
+    if (url.pathname === '/api/template-spaced' && request.method === 'POST') return handleTemplateSpaced(request, env, origin);
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
     if (url.pathname === '/api/mail-test' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

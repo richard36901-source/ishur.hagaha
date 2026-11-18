@@ -635,6 +635,9 @@ export async function sendTemplate(env, to, name, params = [], imageUrl = '', la
   let altName = '';
   if (!isClient) { try { altName = env.RATE ? (await env.RATE.get('tmplalt:' + name)) || '' : ''; } catch {} }
   if (altName) name = altName;
+  /* 18/11 (Richard): a spaced twin of this guest template, once approved as UTILITY and switched on (index.js spacedFamily) */
+  if (!isClient) { try { const sp = env.RATE ? await env.RATE.get('tmplsp:' + name) : null; if (sp) name = sp; } catch {} }
+  if (altName) { /* the copy is already the live name */ }
   else if (isClient && clientOnPortfolio(env) && PORTFOLIO_RENAMED.has(name)) name = name + '_n';
   else { try { const f = env.RATE ? await env.RATE.get('tmplf:' + name) : null; if (f) name = f; } catch {} }
   /* 02/11 audit: Meta refuses a body variable with a newline / tab / more
