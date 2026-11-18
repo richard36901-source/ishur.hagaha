@@ -175,8 +175,10 @@
           </div>
         </div>
         <p class="err" id="lerr" aria-live="polite"></p>
-        <p class="note"><span id="pinNote">הקוד נשלח אליכם בוואטסאפ יחד עם הקישור ללוח הבקרה. <a href="#" id="toOtp">שכחתי את הקוד</a></span><span id="otpNote" hidden>נשלח קוד חד-פעמי לוואטסאפ של המספר, ואם לא, למייל שרשום אצלנו. <a href="#" id="toPin">חזרה לכניסה עם קוד קבוע</a></span> · <a id="waHelp" href="#" target="_blank" rel="noopener">עזרה</a></p>
-        <a class="btn sec" id="noAcct" href="index.html#pricing">אין לי אירוע אצלכם · לרכישת חבילה</a>
+        <p class="note"><span id="pinNote">הקוד נשלח אליכם בוואטסאפ יחד עם הקישור ללוח הבקרה. <a href="#" id="toOtp" target="_blank" rel="noopener">שכחתי את הקוד</a></span><span id="otpNote" hidden>נשלח קוד חד-פעמי לוואטסאפ של המספר, ואם לא, למייל שרשום אצלנו. <a href="#" id="toPin">חזרה לכניסה עם קוד קבוע</a></span><a id="waHelp" href="#" hidden></a></p>
+        <a class="btn sec" id="noAcct" href="index.html#pricing">אין לי אירוע אצלכם</a>
+        <!-- 18/11 Richard: anyone may look at a sample board: invented names, nothing can be changed -->
+        <a class="btn sec" id="demoBoard" href="dashboard.html?demo=1&sample=1">לוח בקרה לדוגמה</a>
       </div>
       <div id="paneMail" role="tabpanel" aria-labelledby="tabMail" hidden>
         <label class="l" for="mail">המייל שלכם</label>
@@ -505,7 +507,8 @@
   }
   /* 17/11 Richard: phone + the 4-digit PIN we sent with the board link; the WhatsApp code stays as the way in without it */
   function way(otp) { $('pinWrap').hidden = !!otp; $('otpWrap').hidden = !otp; $('pinNote').hidden = !!otp; $('otpNote').hidden = !otp; $('lerr').textContent = ''; }
-  $('toOtp').addEventListener('click', function (e) { e.preventDefault(); way(true); });
+  /* 18/11 Richard: "שכחתי את הקוד" opens WhatsApp with the message ready; our line answers with the code when the number is a client's */
+  $('toOtp').href = CFG.waLink('שכחתי את הקוד');
   $('toPin').addEventListener('click', function (e) { e.preventDefault(); way(false); });
   function pinLogin() {
     var phone = $('phone').value.trim(), pin = $('pin').value.replace(/\D/g, ''); $('lerr').className = 'err';

@@ -3174,7 +3174,20 @@
     showApp();
     loadData({ token: token }, false);
   } else if (demo) {
-    if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
+    /* 18/11 Richard: ?demo=1&sample=1 is the "לוח בקרה לדוגמה" anyone can open from the personal-area sign-in: straight in,
+       invented names, a clear notice on top, and nothing on it can be pressed except looking around (filters, search). */
+    var sample = qs.get('sample') === '1';
+    if (sample) {
+      data = demoData(); showApp(); render();
+      var mn = $('main');
+      if (mn && !$('demoNote')) mn.insertAdjacentHTML('afterbegin', '<div id="demoNote" role="note" style="margin:0 0 .8rem;padding:.7rem .9rem;border:1px solid var(--bdr2,#c9b37a);border-radius:8px;background:var(--green4,#eef5f0);font-size:.86rem;line-height:1.5"><b>לוח בקרה לדוגמה.</b> האירוע, השמות והמספרים כאן בדויים, וכל קשר בינם לבין המציאות מקרי לחלוטין. אפשר להסתכל ולסנן, אי אפשר לבצע פעולות. <a href="index.html#pricing" style="font-weight:600">לרכישת חבילה</a></div>');
+      document.addEventListener('click', function (e) {
+        var t = e.target; if (!t.closest) return;
+        if (t.closest('#demoNote a, .filt, .filters button, #toc a, .toc a, .theme-btn, #themeBtn')) return;
+        if (t.closest('#main button, #main a, #main label, #main input[type=file], #main input[type=date], #main select, #main textarea')) { e.preventDefault(); e.stopPropagation(); if (window.IshurUX) IshurUX.toast('זה לוח לדוגמה, אי אפשר לבצע בו פעולות'); }
+      }, true);
+    }
+    else if (preview || sessionStorage.getItem('ishur_demo_in')) { data = demoData(); showApp(); render(); }
     else showGate();
   } else {
     var saved = null;

@@ -2876,7 +2876,7 @@ async function processRetellEvent(env, body) {
     const dur0 = c0.start_timestamp && c0.end_timestamp ? Math.round((c0.end_timestamp - c0.start_timestamp) / 1000) : null;
     /* 22/10: the recording and the full transcript are kept by us (Retell
        deletes them), and the live log shows them in Hebrew. */
-    const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
+    const kept = await audit.keepCall(env, c0, { kind: meta0.kind, token: meta0.token, event_name: (c0.retell_llm_dynamic_variables || {}).event_name || '', outcome: action.result ? action.result.rsvp : '' }).catch(() => null);
     /* Richard 22/10: the line says who was called and for which event */
     const dv0 = c0.retell_llm_dynamic_variables || {};
     const gName0 = String(dv0.guest_name || dv0.lead_name || dv0.caller_name || dv0.name || '').trim();
@@ -3933,6 +3933,21 @@ async function handleWaWebhook(request, env, url) {
          writes to Noa's line and is neither a client nor a known lead becomes a
          lead right away: KV + Monday through noteLead, and Slack now (no
          10-minute quiet wait — they are on WhatsApp, not mid-checkout). */
+      /* 18/11 Richard: "שכחתי את הקוד" written to Noa's line from a client's own number is answered with that client's sign-in
+         code. The number is the proof: the code goes only to the phone that wrote, and only when a paid event sits on it.
+         A fixed reply, not Noa's AI, so it works while Noa is off. Three an hour. */
+      if (ch === 'client' && !echo && /שכחתי\s+(את\s+)?ה?קוד/.test(String(body || ''))) {
+        try {
+          const pF = normPhone(from), snapF = await readSnapshot(env, 'dashboard').catch(() => null);
+          const mineF = snapF ? eventsForPhone(snapF, pF) : [];
+          if (!mineF.length) await logEvent(env, { area: 'אזור אישי', action: 'ביקשו קוד כניסה ממספר שאין עליו אירוע משולם', ok: false, review: true, phone: pF }).catch(() => {});
+          else if (!(await overBudget(env, 'rl:forgotpin:' + pF, 3, 3600))) {
+            const pinF = await pinFor(env, pF);
+            const rF = pinF ? await sendText(env, from, `קוד הכניסה שלכם לאזור האישי וללוח הבקרה: ${pinF}\nנכנסים עם מספר הטלפון הזה והקוד. כדאי לשמור אותו.`, 'client', { who: 'מערכת (קוד כניסה)' }).catch(() => null) : null;
+            await logEvent(env, { area: 'אזור אישי', action: rF && rF.ok ? 'קוד הכניסה נשלח ללקוח שכתב "שכחתי את הקוד"' : 'קוד הכניסה לא נשלח ללקוח שביקש', ok: !!(rF && rF.ok), review: !(rF && rF.ok), phone: pF, token: mineF[0].token }).catch(() => {});
+          }
+        } catch {}
+      }
       /* 12/11 Richard: a registered hostess reports arrival / chuppah / leaving here — kept as evidence, answered with what was recorded */
       if (ch === 'client' && !echo) {
         try {
@@ -12252,6 +12267,26 @@ const WORKER = {
       try { const oc = await readContact(env, prev), nc = await readContact(env, next); if (validEmail(oc.email) && !validEmail(nc.email)) await env.RATE.put('contact:' + next, JSON.stringify({ ...nc, email: String(oc.email).trim(), at: new Date().toISOString() })); } catch {}
       await logEvent(env, { area: 'לקוחות', action: 'טלפון של לקוח הוחלף מהניהול', ok: true, review: true, token: tok, phone: next, detail: `${prev} → ${next}` }).catch(() => {});
       return okJson({ ok: true, phone: next, changed: true, was: prev }, origin);
+    }
+    /* 18/11 Richard ("שמור את כל ההקלטות אי פעם"): check which calls are already kept, and keep the ones that are not,
+       straight from the voice provider. POST {admin_key, call_ids: [...up to 8], redo?} */
+    if (url.pathname === '/api/rec-archive' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.AUDIT_R2) return deny(503, 'no-bucket', origin);
+      const out = [];
+      for (const id of (Array.isArray(b.call_ids) ? b.call_ids : []).map(String).filter(x => /^[A-Za-z0-9_]{8,80}$/.test(x)).slice(0, 8)) {
+        const had = await env.AUDIT_R2.head('rec/' + id).catch(() => null);
+        if (had && had.customMetadata && had.customMetadata.name && !b.redo) { out.push({ id, state: 'kept', name: decodeURIComponent(had.customMetadata.name), bytes: had.size }); continue; }
+        if (b.check) { out.push({ id, state: had ? 'kept-no-details' : 'missing' }); continue; }
+        const c = await retellApi(env, '/v2/get-call/' + id).catch(() => null);
+        if (!c || !c.call_id) { out.push({ id, state: 'provider-has-no-call' }); continue; }
+        if (!c.recording_url) { out.push({ id, state: 'no-recording' }); continue; }
+        const md = c.metadata || {}, dv = c.retell_llm_dynamic_variables || {};
+        const kept = await audit.keepCall(env, c, { kind: md.kind, token: md.token, event_name: dv.event_name || md.event_name || '', outcome: (c.call_analysis && c.call_analysis.custom_analysis_data && c.call_analysis.custom_analysis_data.outcome) || '' }).catch(() => null);
+        out.push({ id, state: kept && kept.has_recording ? 'saved' : 'failed', name: kept && kept.name, bytes: kept && kept.bytes });
+      }
+      return okJson({ ok: true, results: out }, origin);
     }
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
     if (url.pathname === '/api/mail-test' && request.method === 'POST') {
