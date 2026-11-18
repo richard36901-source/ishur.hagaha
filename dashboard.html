@@ -2970,7 +2970,14 @@
     var pin = $('p-pin').value.replace(/\D/g, ''), b = $('p-go'); $('p-err').style.color = '';
     if (pin.length !== 4) { $('p-err').textContent = 'הקוד הוא 4 ספרות'; return; }
     b.disabled = true; b.textContent = 'נכנסים…'; $('p-err').textContent = '';
-    acctApi('account-board-pin', { token: pinFor.token, pin: pin }).then(function (j) {
+    /* 18/11: a temporary failure on our side is tried once more by itself and never called "wrong code" */
+    var tryPin = function (again) {
+      return acctApi('account-board-pin', { token: pinFor.token, pin: pin }).then(function (j) {
+        if (j.status >= 500 && again) return new Promise(function (res) { setTimeout(res, 1500); }).then(function () { return tryPin(false); });
+        return j;
+      });
+    };
+    tryPin(true).then(function (j) {
       if (j.status === 200 && j.session) {
         try { localStorage.setItem('ishur_acct_session', j.session); } catch (e) {}
         var back = ''; try { back = new URLSearchParams(location.search).get('back') || ''; } catch (e) {}
@@ -2979,7 +2986,8 @@
         return;
       }
       b.disabled = false; b.textContent = 'כניסה';
-      $('p-err').textContent = j.status === 429 ? (j.error === 'pin-locked' ? 'היו יותר מדי ניסיונות. כתבו לנו ונפתח לכם את הכניסה' : 'יותר מדי ניסיונות. נסו שוב בעוד שעה') : 'הקוד לא נכון. אפשר לבקש אותו שוב לוואטסאפ';
+      $('p-err').textContent = j.status === 429 ? (j.error === 'pin-locked' ? 'היו יותר מדי ניסיונות. כתבו לנו ונפתח לכם את הכניסה' : 'יותר מדי ניסיונות. נסו שוב בעוד שעה')
+        : j.status >= 500 ? 'לא הצלחנו להיכנס עכשיו. נסו שוב בעוד רגע' : 'הקוד לא נכון. אפשר לבקש אותו שוב לוואטסאפ';
     }).catch(function () { b.disabled = false; b.textContent = 'כניסה'; $('p-err').textContent = 'לא הצלחנו להיכנס עכשיו. נסו שוב'; });
   }
   $('p-go').addEventListener('click', pinGo);

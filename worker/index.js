@@ -13233,7 +13233,14 @@ const WORKER = {
       return handleCostLog(request, env, origin);
     }
     /* 12/11 personal-area (account.html): phone → code → session → events / credit / contact */
-    if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') return handleAccount(request, env, origin, url, accountDeps());
+    if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') {
+      /* 18/11: a thrown error here reached the client as "wrong code". It is now recorded with its text and answered as a temporary failure the page retries. */
+      try { return await handleAccount(request, env, origin, url, accountDeps()); }
+      catch (e) {
+        await logEvent(env, { area: 'אזור אישי', action: 'תקלה בשרת בזמן כניסה: ' + url.pathname.replace('/api/account/', ''), ok: false, review: true, detail: String((e && e.message) || e).slice(0, 200) }).catch(() => {});
+        return deny(503, 'try-again', origin);
+      }
+    }
     if (url.pathname === '/api/review-claim' && request.method === 'POST') return handleReviewClaim(request, env, origin, accountDeps());
     if (url.pathname === '/api/otp-send' && request.method === 'POST') {
       return handleOtpSend(request, env, origin);

@@ -80,8 +80,10 @@
     return fetch(opt.base + '/api/' + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(stamp(Object.assign({ admin_key: opt.key }, body || {}))) })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
-  function getOne(period) {
-    return fetch(opt.base + '/api/ops/plan?period=' + period, { headers: { 'x-admin-key': opt.key } })
+  /* 18/11 (Richard): "עדכן עכשיו" and every page load ask the server to recompute (fresh=1), not only to serve its saved copy */
+  var wantFresh = false;
+  function getOne(period, fresh) {
+    return fetch(opt.base + '/api/ops/plan?period=' + period + (fresh ? '&fresh=1' : ''), { headers: { 'x-admin-key': opt.key } })
       .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; });
   }
   /* 09/11 (Richard): from today forward — seven days, even across the week/month edge */
@@ -90,7 +92,9 @@
   var store = null;
   var DOW = ['ראשון', 'שני', 'שלישי', 'רביעי', 'חמישי', 'שישי', 'שבת'];
   function fetchDays() {
-    return Promise.all([getOne('week'), getOne('month')]).then(function (r) {
+    /* a fresh recompute saves all periods at once, so the month is read after it instead of recomputing twice */
+    var both = wantFresh ? getOne('week', true).then(function (w) { return getOne('month').then(function (m) { return [w, m]; }); }) : Promise.all([getOne('week'), getOne('month')]);
+    return both.then(function (r) {
       var w = r[0], m = r[1]; if (!(w && w.ok) && !(m && m.ok)) return null;
       var base = (w && w.ok) ? w : m, by = {};
       [m, w].forEach(function (p) { if (p && p.ok) (p.days || []).forEach(function (d) { by[d.day] = d; }); });
@@ -513,7 +517,36 @@
       }
     });
   }
-  function load() { return Promise.all([getPlan().then(function (p) { if (p && p.ok) plan = p; return plan ? loadInfo() : null; }), getLive()]).then(function () { applyPending(); render(); }, render); }
+  /* 18/11 (Richard): when the board was last refreshed, when the next refresh is due, and a button to refresh now */
+  var fr = { last: 0, next: 0, busy: false, ok: true };
+  function frBar() {
+    var el = document.getElementById('wk-fresh');
+    if (!el && root && root.parentNode) {
+      el = document.createElement('div'); el.id = 'wk-fresh';
+      el.style.cssText = 'display:flex;gap:.6rem;align-items:center;flex-wrap:wrap;font-size:.8rem;opacity:.85;margin:.2rem 0 .5rem';
+      el.innerHTML = '<span data-fr-t></span><button type="button" data-fr-now style="font:inherit;font-size:.78rem;padding:.2rem .6rem;border:1px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer">עדכן עכשיו</button>';
+      root.parentNode.insertBefore(el, root);
+      el.querySelector('[data-fr-now]').addEventListener('click', function () { refreshNow(); });
+    }
+    return el;
+  }
+  function frTick() {
+    var el = frBar(); if (!el) return;
+    var t = el.querySelector('[data-fr-t]'), b = el.querySelector('[data-fr-now]'), now = Date.now();
+    var clock = function (ms) { var d = new Date(ms); return ('0' + d.getHours()).slice(-2) + ':' + ('0' + d.getMinutes()).slice(-2) + ':' + ('0' + d.getSeconds()).slice(-2); };
+    var ago = fr.last ? Math.max(0, Math.round((now - fr.last) / 1000)) : null, left = fr.next ? Math.max(0, Math.round((fr.next - now) / 1000)) : null;
+    var planAt = store && store.at ? ' · תכנון חושב ' + esc(hm(store.at)) : '';
+    b.disabled = fr.busy; b.textContent = fr.busy ? 'מעדכן…' : 'עדכן עכשיו';
+    t.innerHTML = (fr.last ? 'עדכון אחרון ' + clock(fr.last) + ' (לפני ' + (ago < 60 ? ago + ' שנ׳' : Math.floor(ago / 60) + ' דק׳') + ')' : 'טוען…') + planAt +
+      (fr.busy ? '' : left === null ? '' : document.hidden ? '' : ' · העדכון הבא בעוד ' + left + ' שנ׳') + (fr.ok ? '' : ' · <b>העדכון האחרון לא הצליח, מוצג המצב הקודם</b>');
+  }
+  function load() {
+    fr.busy = true; frTick();
+    return Promise.all([getPlan().then(function (p) { fr.ok = !!(p && p.ok); if (p && p.ok) { plan = p; fr.last = Date.now(); } return plan ? loadInfo() : null; }), getLive()])
+      .then(function () { applyPending(); render(); }, render)
+      .then(function () { fr.busy = false; fr.next = Date.now() + 60000; frTick(); });
+  }
+  function refreshNow() { if (fr.busy) return Promise.resolve(); wantFresh = true; return load().then(function () { wantFresh = false; }, function () { wantFresh = false; }); }
   /* paging: draw from memory now; go to the network only when what we hold is older than a minute */
   function page() {
     if (!store) return load();
@@ -550,8 +583,14 @@
         root.innerHTML = '<div class="wk-empty">טוען את השבוע…</div>';
       }
       boards = {};
-      if (!timer) timer = setInterval(function () { if (document.hidden || document.querySelector('.wk-bg')) return; load(); }, 60000);
-      return load();
+      if (!timer) {
+        timer = setInterval(function () { if (document.hidden || document.querySelector('.wk-bg') || fr.busy) return; if (Date.now() >= fr.next) load(); }, 1000);
+        setInterval(frTick, 1000);
+        /* coming back to the tab refreshes at once instead of waiting for the next minute */
+        document.addEventListener('visibilitychange', function () { if (!document.hidden && !fr.busy && Date.now() >= fr.next) load(); });
+      }
+      /* every page load: the saved copy at once, then a real recompute in the background */
+      return load().then(function () { return refreshNow(); });
     }
   };
 })();

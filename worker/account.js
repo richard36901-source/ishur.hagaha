@@ -214,6 +214,9 @@ export async function handleAccount(request, env, origin, url, d) {
   if (!env.RATE) return d.deny(503, 'kv-not-bound', origin);
   let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
   const ip = request.headers.get('CF-Connecting-IP') || 'unknown';
+  /* 18/11: clients typed the right PIN and saw "wrong code"; nothing recorded why. Every refused PIN sign-in now leaves a journal row with the reason. */
+  const pinFail = (why, x = {}) => d.logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: ' + why, ok: false, review: true, phone: x.phone || '', token: String(x.token || '').slice(0, 8),
+    detail: `${path} · ${String(request.headers.get('User-Agent') || '').slice(0, 90)} · ${String(request.headers.get('Origin') || '').slice(0, 40)}` }).catch(() => {});
 
   if (path === 'otp') {
     const phone = d.normPhone(b.phone || '');
@@ -253,11 +256,11 @@ export async function handleAccount(request, env, origin, url, d) {
   /* the board link + the PIN: the phone is the one the event was bought with, so only the PIN is typed */
   if (path === 'board-pin' || path === 'board-pin-send') {
     const tok = String(b.token || '').trim().toLowerCase();
-    if (!/^[0-9a-f-]{36}$/.test(tok)) return d.deny(403, 'bad-token', origin);
-    if (await d.overBudget(env, 'rl:bpintok:' + ip, 60, 3600)) return d.deny(429, 'rate-limited', origin);
+    if (!/^[0-9a-f-]{36}$/.test(tok)) { await pinFail('הקישור לא בצורת טוקן (' + String(b.token || '').length + ' תווים)'); return d.deny(403, 'bad-token', origin); }
+    if (await d.overBudget(env, 'rl:bpintok:' + ip, 60, 3600)) { await pinFail('יותר מדי ניסיונות מאותה כתובת', { token: tok }); return d.deny(429, 'rate-limited', origin); }
     const rec = await d.tokenRecord(env, tok);
     const phone = rec ? d.normPhone(rec.phone || '') : '';
-    if (!/^972\d{8,9}$/.test(phone)) return d.deny(403, 'bad-token', origin);
+    if (!/^972\d{8,9}$/.test(phone)) { await pinFail(rec ? 'אין טלפון תקין ברשומת האירוע' : 'אין רשומת אירוע לטוקן', { token: tok }); return d.deny(403, 'bad-token', origin); }
     if (path === 'board-pin-send') {
       /* Richard: "תשלח למי שמבקש" — the PIN goes only to the phone on file, never to a number the visitor types */
       if (await d.overBudget(env, 'rl:bpinsend:' + phone, 3, 3600) || await d.overBudget(env, 'rl:bpinsendd:' + phone, 6, 86400)) return d.deny(429, 'rate-limited', origin);
@@ -270,9 +273,9 @@ export async function handleAccount(request, env, origin, url, d) {
       return d.okJson({ ok: true, to: tail(phone) }, origin);
     }
     const pin = String(b.pin || '').replace(/\D/g, '');
-    if (pin.length !== 4) return d.deny(403, 'bad-login', origin);
+    if (pin.length !== 4) { await pinFail('הגיעו ' + pin.length + ' ספרות במקום 4 (נשלחו ' + String(b.pin || '').length + ' תווים)', { phone, token: tok }); return d.deny(403, 'bad-login', origin); }
     const bad = await tryPin(env, d, phone, pin, ip);
-    if (bad) return d.deny(bad[0], bad[1], origin);
+    if (bad) { await pinFail(bad[1] === 'bad-login' ? 'הקוד שהוקלד שונה מהקוד של הלקוח' : bad[1], { phone, token: tok }); return d.deny(bad[0], bad[1], origin); }
     const session = await mintSession(env, phone);
     await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה ללוח הבקרה עם קוד קבוע', ok: true, phone, token: tok }).catch(() => {});
     return d.okJson({ ok: true, session }, origin);
@@ -281,12 +284,12 @@ export async function handleAccount(request, env, origin, url, d) {
   if (path === 'pin-login') {
     const phone = d.normPhone(b.phone || '');
     const pin = String(b.pin || '').replace(/\D/g, '');
-    if (!/^972\d{8,9}$/.test(phone) || pin.length !== 4) return d.deny(403, 'bad-login', origin);
+    if (!/^972\d{8,9}$/.test(phone) || pin.length !== 4) { await pinFail(pin.length !== 4 ? 'הגיעו ' + pin.length + ' ספרות במקום 4' : 'מספר טלפון לא תקין', { phone }); return d.deny(403, 'bad-login', origin); }
     const bad = await tryPin(env, d, phone, pin, ip);
-    if (bad) return d.deny(bad[0], bad[1], origin);
+    if (bad) { await pinFail(bad[1] === 'bad-login' ? 'הקוד שהוקלד שונה מהקוד של הלקוח' : bad[1], { phone }); return d.deny(bad[0], bad[1], origin); }
     const raw = await d.readSnapshot(env, 'dashboard').catch(() => null);
-    if (!raw) return d.deny(502, 'reader-failed', origin);
-    if (!d.eventsForPhone(raw, phone).length) return d.deny(403, 'bad-login', origin);
+    if (!raw) { await pinFail('הגיליון לא נקרא', { phone }); return d.deny(502, 'reader-failed', origin); }
+    if (!d.eventsForPhone(raw, phone).length) { await pinFail('הקוד נכון אבל אין אירוע משולם על המספר הזה בגיליון', { phone }); return d.deny(403, 'bad-login', origin); }
     const session = await mintSession(env, phone);
     await d.logEvent(env, { area: 'אזור אישי', action: 'כניסה לאזור האישי עם קוד קבוע', ok: true, phone }).catch(() => {});
     return d.okJson({ ok: true, session }, origin);
