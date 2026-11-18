@@ -265,7 +265,11 @@ test('board lock: off → the link opens as before; on → 401 pin-required, the
   assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, board_session: r.session }))).status, 200);
   const { mintSession } = await import('../account.js');
   assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, board_session: await mintSession(e, OTHER) }))).status, 401);
-  assert.equal((await post(e, '/api/status', await stamped(e, { token: TOK, admin_key: 'k' }))).status, 200);
+  const adm = await post(e, '/api/status', await stamped(e, { token: TOK, admin_key: 'k' }));
+  assert.equal(adm.status, 200);
+  /* 18/11 incident: the admin's browser got the call queue instead of the board, and the board showed no data */
+  assert.ok(adm.event && Array.isArray(adm.guests), 'an admin opening a client board gets the board itself');
+  assert.equal(adm.queue, undefined);
 });
 test('board-pin-send: the PIN goes to the phone on file only, 3 an hour', async () => {
   const { pinFor } = await import('../account.js');
