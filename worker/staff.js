@@ -98,8 +98,14 @@ export async function staffOnMessage(env, phone, text, ts, d) {
   try {
     const hits = [];
     for (const k of (await env.RATE.list({ prefix: 'hostessbook:', limit: 500 })).keys || []) { const b = await kvJson(env, k.name); if (b && b.date === day) hits.push({ tok: k.name.slice(12), name: b.name || b.event || '' }); }
-    if (hits.length === 1) { tok = hits[0].tok; ev = hits[0].name; }
-  } catch {}
+    /* 18/11 Richard: a registered number is a hostess only on a day she is assigned to an event. On any other day
+       (and for Richard's and Shalev's own numbers, which are registered too) the message is an ordinary message:
+       no attendance row, no "נרשם" reply. */
+    const mine = [];
+    for (const h of hits) { const a = await kvJson(env, 'hostassign:' + h.tok.slice(0, 8)); if (Array.isArray(a) && a.includes(phone)) mine.push(h); }
+    if (!mine.length) return null;
+    tok = mine[0].tok; ev = mine[0].name;
+  } catch { return null; }
   await env.RATE.put(`stafflog:${day}:${ts}:${phone}`, '1', { expirationTtl: 3 * 365 * 86400,
     metadata: { n: String(st.name || '').slice(0, 40), k: p.kind, t: p.time || hm, at: hm, x: String(text || '').slice(0, 120), tok: tok.slice(0, 36), ev: String(ev).slice(0, 60) } });
   await d.logEvent(env, { area: 'דיילות', action: `${KIND_HE[p.kind]} · ${st.name || phone} · ${p.time || hm}`, ok: true, phone, token: tok, detail: String(text || '').slice(0, 200) }).catch(() => {});
