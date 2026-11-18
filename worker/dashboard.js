@@ -228,6 +228,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
         tries: Number(g(29)) || 0,
         call_ans: g(22),
         at: g(25).slice(0, 10),
+        at_ts: g(25).slice(0, 19),   /* 18/11: full time of the last change, so the newest confirmations sort to the top of the board */
       };
     });
 
@@ -284,7 +285,8 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
     if (last) {
       const d = new Date(last + 'T12:00:00Z');
       d.setUTCDate(d.getUTCDate() + 1);
-      if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);   // never on Shabbat
+      /* 18/11 Richard: a round that falls on Friday (the send was on Thursday) starts on Sunday; never on Shabbat */
+      if (d.getUTCDay() === 5) d.setUTCDate(d.getUTCDate() + 2); else if (d.getUTCDay() === 6) d.setUTCDate(d.getUTCDate() + 1);
       const start = (sent.callDate && /^\d{4}-\d{2}-\d{2}$/.test(sent.callDate)) ? sent.callDate : d.toISOString().slice(0, 10);   /* 12/11: admin-set day wins */
       /* 04/11: a guest who used up every try is not waiting any more - the
          round is over even though the sheet still flags them */

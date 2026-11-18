@@ -1665,6 +1665,13 @@
       if (tbl && tq && (tbl === tq || tbl.indexOf(tq) > -1)) return true;
       return !!digits && String(g.phone || '').replace(/\D/g, '').indexOf(digits) > -1;
     });
+    /* 18/11 Richard: whoever confirmed goes to the top, the newest answer first, so new confirmations are seen at once. Everyone else keeps their order. */
+    list = list.map(function (g, i) { return { g: g, i: i }; }).sort(function (a, b) {
+      var ca = a.g.status === 'confirmed' ? 1 : 0, cb = b.g.status === 'confirmed' ? 1 : 0;
+      if (ca !== cb) return cb - ca;
+      if (ca) { var ta = String(a.g.at_ts || a.g.at || ''), tb = String(b.g.at_ts || b.g.at || ''); if (ta !== tb) return ta < tb ? 1 : -1; }
+      return a.i - b.i;
+    }).map(function (x) { return x.g; });
     var sum = list.reduce(function (a, g) { return a + (g.seats || 1); }, 0);
     var sumEl = $('listSum');
     if (sumEl) {

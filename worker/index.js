@@ -6512,7 +6512,9 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     /* calls are a plan feature: בסיס never enters the call queue — the basic
        upsell stage offers the upgrade instead of silently marking calls */
     const callDateOv = env.RATE ? await env.RATE.get('calldate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
-    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today)) && planKeyOf(ev) !== 'basic') {
+    /* 18/11 Richard: the automatic round never opens on a Friday (Thursday send → Sunday round). A day set by hand is kept as set. */
+    const fridayToday = new Date(today + 'T12:00:00Z').getUTCDay() === 5;
+    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today && !fridayToday)) && planKeyOf(ev) !== 'basic') {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
@@ -12269,7 +12271,7 @@ const WORKER = {
         const want = new Set(b.tok8s.map(x => String(x || '').slice(0, 8)).filter(Boolean).slice(0, 80));
         const events = {};
         const gAll = (raw && raw.guests && raw.guests.values) || [];
-        const nextDay = d => { let t = new Date(d + 'T12:00:00Z'); do { t = new Date(t.getTime() + 864e5); } while (t.getUTCDay() === 6); return t.toISOString().slice(0, 10); };
+        const nextDay = d => { let t = new Date(d + 'T12:00:00Z'); do { t = new Date(t.getTime() + 864e5); } while (t.getUTCDay() === 6 || t.getUTCDay() === 5); return t.toISOString().slice(0, 10); };   /* 18/11: not on Friday either */
         for (const r of (raw && raw.events && raw.events.values) || []) {
           const tk = String((r || [])[1] || '').trim(); if (!want.has(tk.slice(0, 8))) continue; const c = i => String(r[i] ?? '').trim();
           /* Shir's round: the morning after the last planned wave, to whoever has not answered (engine escalation, esc:<token>) */
