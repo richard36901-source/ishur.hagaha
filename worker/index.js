@@ -12288,6 +12288,54 @@ const WORKER = {
       }
       return okJson({ ok: true, results: out }, origin);
     }
+    /* 18/11 Richard: "איך זה נראה למוזמנים" on the client board — the reminder, the day-before and the event-day messages
+       as THIS event would send them now (same resolvers the engine uses: nav link, gift links and seating decide the
+       version), filled with the event's own details and an invented guest. Read-only: nothing is sent or written. */
+    if (url.pathname === '/api/preview-messages' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:preview:' + (request.headers.get('CF-Connecting-IP') || 'x'), 40, 3600)) return deny(429, 'rate-limited', origin);
+      const raw = await readSnapshot(env, 'dashboard').catch(() => null);
+      const ev = ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim() === tok);
+      if (!ev) return deny(404, 'event-not-found', origin);
+      const tmplText = async name => {
+        const ck = 'tmpltext2:' + name;
+        let t = null; try { t = JSON.parse((await env.RATE.get(ck)) || 'null'); } catch {}
+        if (t) return t;
+        try {
+          const r = await fetch(`https://graph.facebook.com/v21.0/1378764257421712/message_templates?name=${encodeURIComponent(name)}&fields=name,status,category,components`, { headers: { Authorization: 'Bearer ' + env.WA_TOKEN_GUESTS } });
+          const j = await r.json(); const x = (j.data || []).find(y => y.name === name); if (!x) return null;
+          const comps = x.components || [], head = comps.find(c2 => c2.type === 'HEADER') || {};
+          t = { name, status: x.status || '', category: x.category || '', header: head.format === 'TEXT' ? head.text || '' : head.format ? '[' + head.format + ']' : '', header_format: String(head.format || ''), body: (comps.find(c2 => c2.type === 'BODY') || {}).text || '', footer: (comps.find(c2 => c2.type === 'FOOTER') || {}).text || '', buttons: ((comps.find(c2 => c2.type === 'BUTTONS') || {}).buttons || []).map(z => z.text) };
+          await env.RATE.put(ck, JSON.stringify(t), { expirationTtl: 6 * 3600 }).catch(() => {});
+          return t;
+        } catch { return null; }
+      };
+      const fill = (body, params) => String(body || '').replace(/\{\{(\d+)\}\}/g, (m, i) => String(params[Number(i) - 1] ?? ''));
+      const c = k => String(ev[k] ?? '').trim();
+      const seated = ((raw.guests && raw.guests.values) || []).some(g => String(g[28] || '').trim() === tok && String(g[30] || '').trim());
+      const guest = { phone: '', name: 'דנה', table: seated ? '5' : '' };
+      const deps = { comboUsable: (e2, n) => giftVariantUsable(e2, n), giftOn: async (e2, t2) => giftActive(await giftLinksOf(e2, t2)), giftLinks: (e2, t2) => giftLinksOf(e2, t2), cleanLink, guestEventName, cleanParam, navOn: navOnFor };
+      const date = c(6).slice(0, 10), time = c(36), venue = [c(38), c(37)].filter(Boolean).join(', ');
+      const hasImg = env.RATE ? ((await env.RATE.list({ prefix: 'img:' + tok, limit: 1 }).catch(() => ({ keys: [] }))).keys || []).length > 0 : false;
+      const image = /^https:\/\//.test(c(44)) ? c(44) : hasImg ? 'https://go.ishur.io/img/' + ((await pubIdOf(env, tok).catch(() => '')) || tok) : '';
+      const out = [];
+      const add = async (key, title, when, name, params, withImage) => {
+        const t = name ? await tmplText(name) : null; if (!t || !t.body) return;
+        out.push({ key, title, when, text: fill(t.body, params), buttons: t.buttons || [], footer: t.footer || '', image: withImage && image ? image : '' });
+      };
+      try {
+        const db = await dayBeforeMessageFor(env, ev, guest, deps, { date: heDate(date), time, address: venue });
+        if (db && db.kind === 'combo') { const twin = image && env.RATE ? await env.RATE.get('tmplimg:' + db.template).catch(() => null) : null; await add('daybefore', 'יום לפני האירוע', 'יוצאת יום לפני, למי שאישר הגעה', db.template, db.params, !!twin); }
+        else await add('daybefore', 'יום לפני האירוע', 'יוצאת יום לפני, למי שאישר הגעה', 'ishur_yom_lifnei', ['דנה', guestEventName(ev, { article: false }), heDate(date), time || 'בשעות הערב', venue || 'פרטים אצל בעלי השמחה'], false);
+      } catch {}
+      try {
+        const ed = await eventDayMessage(env, ev, guest);
+        if (ed && ed.kind === 'combo') await add('eventday', 'יום האירוע', 'יוצאת בבוקר האירוע רק למי שלא קיבל את הפרטים יום לפני, או כשנוסף שולחן, ניווט או מתנה', ed.template, ed.params, false);
+      } catch {}
+      return okJson({ ok: true, guest: 'דנה', seated, messages: out }, origin);
+    }
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
     if (url.pathname === '/api/mail-test' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

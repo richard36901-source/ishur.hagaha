@@ -19,7 +19,7 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
-<script src="config.js?v=93"></script>
+<script src="config.js?v=97"></script>
 <script src="assets/ux.js?v=4"></script>
 <script src="assets/tracking.js?v=23"></script>
 <script src="assets/guard.js?v=21"></script>
@@ -694,6 +694,8 @@
       <pre id="ctText" style="white-space:pre-wrap;font:inherit;font-size:.86rem;background:var(--bg2,#f2f2ee);border-radius:10px;padding:.6rem .8rem;margin:.5rem 0;color:var(--ink2)"></pre>
       <p id="ctNote" style="margin:0 0 .5rem;font-size:.78rem;color:var(--ink3)"></p>
       <button type="button" class="buy" id="ctBtn" style="background:var(--green4);color:var(--green2)">נוסח בהתאמה אישית</button>
+      <!-- 18/11 Richard: opens a popup that shows the messages as the guests will see them, with this event's details -->
+      <button type="button" class="btn" id="pvBtn" style="margin-top:.4rem">📱 איך זה נראה למוזמנים</button>
     </div>
   </section>
 
@@ -1340,6 +1342,46 @@
     if (t.id === 'stChange') { stOpen = true; paintStyles(); return; }
     var b = $('ctBtn'); if (b) b.click();
   });
+  /* the preview popup: the invitation and the reminder from what the board already shows; the day-before and event-day
+     messages from the server, which picks the same version the real send would (navigation, table, gift) */
+  (function () {
+    var pb = $('pvBtn'); if (!pb) return;
+    var bubble = function (m) {
+      return '<div style="margin:0 0 1.1rem"><div style="font-size:.8rem;font-weight:700;margin:0 0 .15rem">' + esc(m.title) + '</div>' +
+        (m.when ? '<div style="font-size:.74rem;color:var(--ink3);margin:0 0 .35rem">' + esc(m.when) + '</div>' : '') +
+        '<div style="background:#E7F6E1;color:#111;border-radius:8px;padding:.5rem .6rem;max-width:22rem;box-shadow:0 1px 1px rgba(0,0,0,.12)">' +
+          (m.video ? '<video src="' + esc(m.video) + '" muted playsinline controls preload="metadata" style="width:100%;border-radius:6px;display:block;margin:0 0 .4rem;background:#000"></video>' : m.image ? '<img src="' + esc(m.image) + '" alt="" loading="lazy" style="width:100%;border-radius:6px;display:block;margin:0 0 .4rem">' : '') +
+          '<div style="white-space:pre-wrap;font-size:.86rem;line-height:1.45">' + esc(m.text) + '</div>' +
+          (m.footer ? '<div style="font-size:.7rem;color:#667;margin-top:.35rem">' + esc(m.footer) + '</div>' : '') +
+        '</div>' +
+        (m.buttons && m.buttons.length ? '<div style="max-width:22rem;margin-top:.25rem;display:flex;flex-direction:column;gap:.2rem">' + m.buttons.map(function (x) { return '<div style="background:#fff;color:#0A7CFF;text-align:center;font-size:.84rem;font-weight:600;padding:.42rem;border-radius:8px;box-shadow:0 1px 1px rgba(0,0,0,.12)">' + esc(x) + '</div>'; }).join('') + '</div>' : '') +
+      '</div>';
+    };
+    pb.addEventListener('click', function () {
+      var md = (data && data.media) || {}, txt = ($('ctText') || {}).textContent || '';
+      var inviteBtns = ['מגיע', 'לא מגיע', 'עדיין לא ידוע'];
+      var first = [
+        { title: 'ההזמנה', when: 'ההודעה הראשונה, לכל הרשימה', text: txt, buttons: inviteBtns, footer: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"', image: md.video_url ? '' : (md.image_url || md.url || ''), video: md.video_url || '' },
+        { title: 'תזכורת למי שלא ענה', when: 'אותה הודעה שוב, רק למי שעוד לא ענה', text: txt, buttons: inviteBtns, footer: 'נשלח ע"י ishur.io · הגיע בטעות? השיבו "טעות"' }
+      ];
+      var box = document.createElement('div');
+      box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;z-index:90;padding:1rem';
+      box.innerHTML = '<div class="dpop" role="dialog" aria-modal="true" style="background:var(--card,#fff);border-radius:8px;padding:1rem;width:100%;max-width:460px;max-height:88vh;overflow:auto">' +
+        '<h3 style="margin:0 0 .2rem">כך זה נראה למוזמנים</h3>' +
+        '<p style="margin:0 0 .8rem;font-size:.8rem;color:var(--ink2)">הדמיה עם פרטי האירוע שלכם ואורחת לדוגמה בשם דנה. שום דבר לא נשלח מכאן.</p>' +
+        '<div id="pvList" style="background:#ECE5DD;border-radius:8px;padding:.8rem">' + first.map(bubble).join('') + '<div id="pvMore" style="font-size:.8rem;color:#555">טוענים את הודעות יום לפני ויום האירוע…</div></div>' +
+        '<button type="button" class="btn" id="pvX" style="width:100%;margin-top:.7rem">סגירה</button></div>';
+      document.body.appendChild(box);
+      box.querySelector('#pvX').addEventListener('click', function () { box.remove(); });
+      box.addEventListener('click', function (e) { if (e.target === box) box.remove(); });
+      if (demo || !token) { box.querySelector('#pvMore').textContent = ''; return; }
+      fetch(CFG.endpoint('preview-messages'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token }) })
+        .then(function (r) { return r.json(); }).then(function (j) {
+          var more = box.querySelector('#pvMore'); if (!more) return;
+          more.outerHTML = j && j.ok && j.messages && j.messages.length ? j.messages.map(bubble).join('') : '<div style="font-size:.8rem;color:#555">הודעות יום לפני ויום האירוע יוצגו כאן אחרי שתמלאו תאריך, שעה וכתובת.</div>';
+        }).catch(function () { var more = box.querySelector('#pvMore'); if (more) more.textContent = ''; });
+    });
+  })();
   function renderCustomText() {
     var ct = data.custom_template || null, st = $('ctStatus'), tx = $('ctText'), nt = $('ctNote'), b = $('ctBtn');
     if (!st) return;
