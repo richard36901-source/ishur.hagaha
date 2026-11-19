@@ -81,8 +81,7 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  /* config.js declares CFG without putting it on window, so it is looked up by name */
-  var C = (typeof CFG !== 'undefined' && CFG) || null;
+  var C = window.ISHUR_CONFIG || null;   /* the site config (config.js): which server this host talks to, and the WhatsApp link */
   var BASE = (C && C.endpoint) ? C.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
   var o = (new URLSearchParams(location.search).get('o') || '').replace(/[^0-9a-f]/g, '');
   var wa = function (t) { return (C && C.waLink) ? C.waLink(t) : 'https://wa.me/972559504499?text=' + encodeURIComponent(t); };
