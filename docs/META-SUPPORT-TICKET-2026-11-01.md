@@ -58,7 +58,7 @@
 > - Business-level health status is **BLOCKED** with error **141010** ("The Business has not passed business verification") and **141015** (business-initiated conversation limit reached).
 > - Phone number **+972 55-972-6673** (phone number ID 1107514695777584) has GREEN quality but is stuck at messaging limit **TIER_250**. It returns error **141012** and the note "Your display name has not been approved yet".
 >
-> We are an Israeli WhatsApp RSVP service for weddings and events (https://ishur.io), registered as a licensed dealer (עוסק מורשה) no. **322414905**. Event hosts upload their own guest list and we send them the invitation and reminders on the host's behalf. With the 250 limit we cannot deliver all invitations and reminders for events already booked, and we have had to spread sends across days and a second number.
+> We are an Israeli WhatsApp RSVP service for weddings and events (https://ishur.io), registered as a licensed dealer (עוסק מורשה) no. **[הוסר]**. Event hosts upload their own guest list and we send them the invitation and reminders on the host's behalf. With the 250 limit we cannot deliver all invitations and reminders for events already booked, and we have had to spread sends across days and a second number.
 >
 > Could you please review our verification, tell us whether any document or information is missing, and confirm what we need to do to complete it? We can provide our business registration certificate and other documents right away.
 >
@@ -76,7 +76,7 @@
 > - ברמת העסק המצב **חסום**, עם שגיאה **141010** (העסק לא עבר אימות) ושגיאה **141015** (הגעתם לתקרת השיחות שהעסק יוזם).
 > - המספר **+972 55-972-6673** באיכות ירוקה, אבל תקוע על תקרה של **250**. מופיעה בו שגיאה **141012** וההערה "שם התצוגה עדיין לא אושר".
 >
-> אנחנו שירות ישראלי לאישורי הגעה בוואטסאפ לחתונות ואירועים, עוסק מורשה **322414905**. בעלי האירוע מעלים את רשימת המוזמנים שלהם, ואנחנו שולחים להם הזמנה ותזכורות בשמם. בתקרה של 250 אנחנו לא מצליחים לשלוח את כל ההזמנות והתזכורות לאירועים שכבר נסגרו, ונאלצנו לפזר את השליחה על פני כמה ימים ועל מספר שני.
+> אנחנו שירות ישראלי לאישורי הגעה בוואטסאפ לחתונות ואירועים, עוסק מורשה **[הוסר]**. בעלי האירוע מעלים את רשימת המוזמנים שלהם, ואנחנו שולחים להם הזמנה ותזכורות בשמם. בתקרה של 250 אנחנו לא מצליחים לשלוח את כל ההזמנות והתזכורות לאירועים שכבר נסגרו, ונאלצנו לפזר את השליחה על פני כמה ימים ועל מספר שני.
 >
 > נבקש שתבדקו את האימות, תגידו לנו אם חסר מסמך או מידע כלשהו, ותאשרו מה עלינו לעשות כדי להשלים אותו. נוכל לשלוח מיד תעודת עוסק ומסמכים נוספים.
 >
@@ -88,7 +88,7 @@
 
 לפי [Official documents to upload](https://www.facebook.com/business/help/159334372093366): עברית היא שפה נתמכת. המסמכים צריכים להוכיח שם משפטי וגם כתובת או טלפון רשמיים. לא מקבלים מסמכים שהעסק מילא בעצמו או מסמכים שפג תוקפם. חשבון חשמל, מים וכדומה מתקבל רק לכתובת ולטלפון, ורק כשהשם המשפטי מופיע עליו.
 
-- [ ] **תעודת עוסק מורשה** ממע"מ (רשות המסים) עם המספר 322414905. זה מסמך הרישום הראשי.
+- [ ] **תעודת עוסק מורשה** ממע"מ (רשות המסים) עם המספר [הוסר]. זה מסמך הרישום הראשי.
 - [ ] **אישור ניהול ספרים** או **אישור ניכוי מס במקור** מרשות המסים: מסמך מס ממשלתי שלא מולא על ידי העסק.
 - [ ] **דף חשבון בנק עסקי** על שם העוסק, עם כתובת.
 - [ ] חשבון חשמל, מים או טלפון על שם העוסק, רק אם הכתובת לא מופיעה בתעודה.
@@ -102,16 +102,16 @@
 ### מה האתר מציג היום, ומה שיניתי (patch על הענף, לא commit ולא deploy)
 | קובץ | לפני | אחרי |
 |---|---|---|
-| `index.html` | מספר העוסק הופיע רק ב-JSON-LD (`vatID`). השם הופיע רק בחלון התשלום. **לא הייתה כתובת.** | שורת © בפוטר: `© 2026 אישורי הגעה · ishur.io · ריצארד טומסקי, עוסק מורשה 322414905 · כל הזכויות שמורות` |
-| `terms.html` | בסעיף "יצירת קשר" היו רק ishur.io וטלפון | נוספה שורה: `<p>מפעיל השירות: ריצארד טומסקי, עוסק מורשה 322414905</p>` |
-| `llms.txt` | לא היו שם ולא מספר עוסק | נוספה שורה: `- Operator: ריצארד טומסקי, עוסק מורשה 322414905 (Israel). Website: https://ishur.io` |
+| `index.html` | מספר העוסק הופיע רק ב-JSON-LD (`vatID`). השם הופיע רק בחלון התשלום. **לא הייתה כתובת.** | שורת © בפוטר: `© 2026 אישורי הגעה · ishur.io · ריצארד טומסקי, עוסק מורשה [הוסר] · כל הזכויות שמורות` |
+| `terms.html` | בסעיף "יצירת קשר" היו רק ishur.io וטלפון | נוספה שורה: `<p>מפעיל השירות: ריצארד טומסקי, עוסק מורשה [הוסר]</p>` |
+| `llms.txt` | לא היו שם ולא מספר עוסק | נוספה שורה: `- Operator: ריצארד טומסקי, עוסק מורשה [הוסר] (Israel). Website: https://ishur.io` |
 
-המקורות, מילה במילה מתוך ה-repo: מספר העוסק מגיע מ-`index.html:27` (`"vatID": "322414905"`) ומ-`.sdlc/seo-gen.py:189` (`עוסק מורשה 322414905`, שכבר מוצג בפוטרים של דפי הערים). השם מגיע מ-`index.html:2779` ("החיוב מופיע על שם ריצארד טומסקי").
+המקורות, מילה במילה מתוך ה-repo: מספר העוסק מגיע מ-`index.html:27` (`"vatID": "[הוסר]"`) ומ-`.sdlc/seo-gen.py:189` (`עוסק מורשה [הוסר]`, שכבר מוצג בפוטרים של דפי הערים). השם מגיע מ-`index.html:2779` ("החיוב מופיע על שם ריצארד טומסקי").
 
 **TODO, כתובת (ריצארד ממלא, לא להמציא):** אחרי שהכתובת ידועה, מעתיקים אותה בדיוק כמו בתעודת העוסק לשלושה המקומות האלה:
 ```html
 <!-- index.html, f-copy2 -->
-… ריצארד טומסקי, עוסק מורשה 322414905 · [כתובת כמו בתעודת העוסק] · כל הזכויות שמורות
+… ריצארד טומסקי, עוסק מורשה [הוסר] · [כתובת כמו בתעודת העוסק] · כל הזכויות שמורות
 <!-- terms.html, #contact -->
 <p>כתובת: [כתובת כמו בתעודת העוסק]</p>
 ```

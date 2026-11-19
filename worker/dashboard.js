@@ -168,6 +168,8 @@ export function buildBizStats(raw) {
       token: tok, client: t(ev[2]), name: t(ev[34]) || t(ev[2]),
       occasion: t(ev[5]), date: t(ev[6]), paid, sum,
       paid_at: (t(ev[25]).match(/\d{4}-\d{2}-\d{2}/) || [''])[0],
+      /* 18/11 Richard: the clients screen lists by the moment the deal closed, so two sales on one day keep their order */
+      paid_ts: (t(ev[25]).match(/\d{4}-\d{2}-\d{2}T[\d:.]+Z?/) || [''])[0],
       phone: t(ev[3]),
       plan: t(ev[31]), tier: t(ev[32]),
       invoice: t(ev[9]),
@@ -279,7 +281,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
      a call"). It starts the morning after the last planned send, for whoever
      still has not answered; בסיס has no calls. */
   /* 04/11: a paid calls add-on on בסיס shows the round too */
-  if (planMaxCallTries(planKeyOf(ev)) > 0 || sent.callsAddon) {
+  if (!sent.noCalls && (planMaxCallTries(planKeyOf(ev)) > 0 || sent.callsAddon)) {
     const last = [c(39), c(40), sent.extraPaid || sent[3] ? c(41) : '']
       .map(d => d.slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
     if (last) {

@@ -62,6 +62,6 @@ Machine-readable prices and offers: https://ishur.io/offers.json
 - Messages are sent 09:00–20:00, never on Shabbat; Fridays until 15:00.
 - Guests do not install anything: they answer with buttons inside WhatsApp.
 - Changes and support are handled over WhatsApp: +972-55-950-4499 · info@ishur.io
-- Operator: ריצארד טומסקי, עוסק מורשה 322414905 (Israel). Website: https://ishur.io
+- Operator: ריצארד טומסקי, עוסק מורשה (Israel). Website: https://ishur.io
 
 City pages: Tel Aviv, Jerusalem, Haifa, Rishon LeZion, Petah Tikva, Netanya, Beer Sheva, Ramat Gan (e.g. /tel-aviv.html).

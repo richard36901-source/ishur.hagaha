@@ -27,7 +27,7 @@ import { buildDashboard, buildCallQueue, callOutcome, buildBizStats, planKeyOf, 
 import { logRow, logUpdate, flushSheetLogs, readTabTail, readTabAll, upsertClientRow, ilTime } from './sheetlogs.js';
 import { proxy as evProxy, appendTab, sheetId } from './evlog.js';
 import { installStagingGuard, wrapEmail, isStaging, isAllowedPhone } from './staging-guard.js';   /* dev-staging 12/11: staging never reaches a real guest */
-import { createInvoice, token as morningToken } from './invoice.js';
+import { createInvoice, token as morningToken, invoiceTerms, HOSTESS_TERMS } from './invoice.js';
 import { callWindowState, msUntilCallWindow, sendWindowState, isNoContactDay, buildCallPayload, retellToCallResult, verifyRetellSignature, ilDate, shouldDial, inboundLookup, inboundVariables, inboundMetadata, inboundCallVerdict, leadFromRow, noaInboundVariables, openingLine } from './shir.js';
 import { mondayMarkWon, mondayUpsertLead, mondayGql, mondayFindLead, mondayLeadNotes } from './monday.js';
 import { mergeLeads, sortLeads, countByStatus, applyLeadUpdate, eventsFromSnapshot, groupsOf, LEAD_STATUSES, LEAD_OWNERS, LEAD_GROUPS } from './leads.js';
@@ -3008,7 +3008,9 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
      those ticks do not each cost a Make operation (review finding #10) */
   const raw = await snapshotCached(env, 'dial').catch(() => null);
   if (!raw) return { ok: false, why: snapMiss(env) };
-  const { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
+  let { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
+  /* 19/11 Richard (אריאל ודיקלה): an event can opt out of phone calls altogether — nocalls:<token>. Nobody of it is dialed. */
+  try { const off = new Set(Object.keys(await kvPrefix(env, 'nocalls:'))); if (off.size) queue = queue.filter(g => !off.has(g.token)); } catch {}
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
@@ -6628,7 +6630,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const callDateOv = env.RATE ? await env.RATE.get('calldate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
     /* 18/11 Richard: the automatic round never opens on a Friday (Thursday send → Sunday round). A day set by hand is kept as set. */
     const fridayToday = new Date(today + 'T12:00:00Z').getUTCDay() === 5;
-    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today && !fridayToday)) && planKeyOf(ev) !== 'basic') {
+    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today && !fridayToday)) && planKeyOf(ev) !== 'basic' && !(env.RATE && await env.RATE.get('nocalls:' + token).catch(() => null))) {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
@@ -8760,14 +8762,14 @@ async function handleVoiceTools(request, env, origin) {
     if (demoEv && !inHours) return deny(409, 'outside-hours', origin);
     if (!to || (!admins.includes(to) && !leadDemo)) return deny(400, 'admin-numbers-only', origin);
     if (!env.SHIR_FROM) return deny(503, 'shir-not-configured', origin);
-    const g = { kind: 'guest', phone: to, name: String(body.name || 'שלו'), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'החתונה של נועה ויונתן',
+    const g = { kind: 'guest', phone: to, /* 18/11 evening: the opener says "בשם <event_name>", so this is the couple's names, not "החתונה של…" (Ziv heard "בשם החתונה של נועה ויונתן") */ name: String(body.name || (body.demo_lead === true ? '' : 'שלו')), client_name: 'נועה ויונתן', occasion: 'חתונה', event_name: 'נועה ויונתן',
       event_date: /^\d{4}-\d{2}-\d{2}$/.test(String(body.event_date || '')) ? String(body.event_date) : new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10), reception_time: '19:30', venue_name: 'הגן הקסום', venue_city: 'רמת גן', party: '2', guest_id: 'G-demo-' + Date.now(), token: '', tries: 0, max_tries: 1,
       /* body.rsvp = 'מתלבט' rehearses the undecided opener (21/10) */
       rsvp: body.rsvp === 'מתלבט' ? 'מתלבט' : '' };
     if (demoEv) {
       const c = k => String(demoEv[k] ?? '').trim(), dDay = c(6).slice(0, 10);
       let evName = ''; try { evName = guestEventName(demoEv, { article: true }) || ''; } catch {}
-      Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: evName || c(34) || g.event_name,
+      Object.assign(g, { name: String(body.name || c(2).split(/\s+/)[0] || 'אורח יקר'), client_name: c(34) || c(2) || g.client_name, occasion: c(5) || g.occasion, event_name: c(34) || c(2) || evName || g.event_name,
         event_date: /^\d{4}-\d{2}-\d{2}$/.test(dDay) ? dDay : g.event_date, reception_time: c(36) || g.reception_time, venue_name: c(4) || c(38) || g.venue_name, venue_city: c(37) || g.venue_city });
     }
     const payload = buildCallPayload(g, env.SHIR_FROM);
@@ -9773,8 +9775,19 @@ export async function qaDigest(env, days = 1, today = ilDate()) {
     for (const [f, n] of Object.entries(x)) tot[f] = (tot[f] || 0) + (Number(n) || 0);
   }
   const since = Date.parse(dates[dates.length - 1] + 'T00:00:00+02:00');
-  const lessons = (await getMemory(env, 'שיר').catch(() => [])).filter(m => Date.parse(m.at || 0) >= since).map(m => m.text);
-  return { days, from: dates[dates.length - 1], to: today, ...tot, lessons };
+  const fresh = (await getMemory(env, 'שיר').catch(() => [])).filter(m => Date.parse(m.at || 0) >= since);
+  const lessons = fresh.map(m => m.text);
+  /* 18/11 Richard: "what changed, why, what it was and what it became, with the exact recording".
+     Two sources: lessons the reviewer added on its own (each knows the call it came from), and changes made to the
+     script by hand, written to shirchange:<day> as [{what, before, after, why, call_id}]. */
+  const link = async id => { try { return id ? await audit.recordingLink(env, id, 30) : ''; } catch { return ''; } };
+  const changes = [];
+  for (const m of fresh) { const id = String(m.source || '').startsWith('call:') ? String(m.source).slice(5) : ''; changes.push({ kind: 'auto', what: m.text, why: m.why || '', before: 'לא הייתה הנחיה כזו', after: m.text, rec: await link(id) }); }
+  for (const d of dates) {
+    let arr = []; try { arr = JSON.parse((await env.RATE.get('shirchange:' + d)) || '[]') || []; } catch {}
+    for (const c of arr) changes.push({ kind: 'manual', what: String(c.what || ''), why: String(c.why || ''), before: String(c.before || ''), after: String(c.after || ''), rec: await link(String(c.call_id || '')) });
+  }
+  return { days, from: dates[dates.length - 1], to: today, ...tot, lessons, changes };
 }
 function qaDigestText(d) {
   const n = k => Number(d[k]) || 0;
@@ -9784,7 +9797,12 @@ function qaDigestText(d) {
     `שיחות: ${n('calls')} · דיברו עם אדם: ${talked} · תא קולי: ${n('voicemail')} · לא ענו: ${n('noanswer')} · לא חוברו (ספק): ${n('notconn')}`,
     `תשובות שנרשמו ע"י שיר: ${rec} · תוקנו אוטומטית מהתמליל: ${n('fixed')} · פערים שלא תוקנו: ${n('gap')} · לבדיקה ידנית: ${n('manual')}`,
     `כיסוי רישום בשיחות עם אדם: ${pct}%`,
-    d.lessons && d.lessons.length ? `לקחים שנכנסו להנחיות (${d.lessons.length}):\n• ` + d.lessons.slice(0, 8).join('\n• ') : 'לא נוספו לקחים.'].join('\n');
+    d.changes && d.changes.length
+      ? `*מה השתנה בתסריט של שיר (${d.changes.length}):*\n` + d.changes.slice(0, 10).map((c, i) => [
+          `${i + 1}. *${c.what}*${c.kind === 'auto' ? ' · נוסף אוטומטית מבקרת השיחה' : ''}`,
+          c.why ? `   למה: ${c.why}` : '', c.before ? `   לפני: ${c.before}` : '', c.after && c.after !== c.what ? `   אחרי: ${c.after}` : '',
+          c.rec ? `   ההקלטה: ${c.rec}` : ''].filter(Boolean).join('\n')).join('\n')
+      : 'התסריט לא השתנה.'].join('\n');
 }
 async function runQaDigests(env) {
   if (!env.RATE) return;
@@ -9793,7 +9811,7 @@ async function runQaDigests(env) {
   const hm = Number(get('hour')) * 60 + Number(get('minute')), wd = get('weekday'), today = ilDate();
   if (hm >= 20 * 60 + 45 && !(await seenOnce(env, 'qadigest:d:' + today))) {
     const d = await qaDigest(env, 1, today);
-    if (Number(d.calls) > 0) await slackPost(env, qaDigestText(d), { cls: 'info', key: 'qadigest:d:' + today });
+    if (Number(d.calls) > 0 || (d.changes && d.changes.length)) await slackPost(env, qaDigestText(d), { cls: 'info', key: 'qadigest:d:' + today });
   }
   if (wd === 'Sun' && hm >= 9 * 60 && !(await seenOnce(env, 'qadigest:w:' + today))) {
     await slackPost(env, qaDigestText(await qaDigest(env, 7, today)), { cls: 'info', key: 'qadigest:w:' + today });
@@ -11636,6 +11654,15 @@ const WORKER = {
         if (b.action === 'audit-meta') return okJson(await audit.refreshMeta(env, await readSnapshot(env, 'ops')), origin);
         if (b.action === 'audit-mirror') return okJson(await audit.mirrorRows(env, (tab, rows) => appendTab(env, tab, audit.MIRROR_HEAD, rows)), origin);
         if (b.action === 'audit-root') return okJson(await audit.dailyRoot(env, ilDate().replace(/-/g, '')), origin);
+        /* 18/11: the daily call report as it would be posted now (dry: nothing is sent) */
+        if (b.action === 'qa-digest') { const d = await qaDigest(env, Number(b.days) || 1); return okJson({ ok: true, digest: d, text: qaDigestText(d) }, origin); }
+        /* 18/11: run the call reviewer on one past call and show what it says. Dry: nothing is written, fixed or remembered. */
+        if (b.action === 'qa-review') {
+          const c = await retellApi(env, '/v2/get-call/' + String(b.call_id || '').replace(/[^A-Za-z0-9_]/g, ''));
+          if (!c || !c.call_id) return deny(404, 'no-call', origin);
+          const qa = callFromRetell(c, {}, { event: String((c.retell_llm_dynamic_variables || {}).host_name || '') });
+          return okJson({ ok: true, review: await reviewCall(env, qa, { debug: true }), duration_s: qa.duration_s }, origin);
+        }
         /* 25/10: one event row from the sheet, by token prefix — admin debugging */
         if (b.action === 'ev-row') {
           const pre = String(b.token || '').trim();
@@ -12389,6 +12416,33 @@ const WORKER = {
     }
     /* 18/11 Richard ("שמור את כל ההקלטות אי פעם"): check which calls are already kept, and keep the ones that are not,
        straight from the voice provider. POST {admin_key, call_ids: [...up to 8], redo?} */
+    /* 19/11 Richard (Aviv's board): a guest the invitation never reached answered through the group link, which adds a
+       second row for the same person and eats a record of the package. Admin only: take ONE row off an event.
+       Guard: the row must still be unanswered, and the same event must hold another row for that person that did answer
+       (same phone, or the same name words). The sheet row is not deleted — its event cell (AC) is rewritten, so it leaves
+       the board and the count and can be put back by hand. POST {token, guest_id, dry?} */
+    if (url.pathname === '/api/guest-remove-dup' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(), gid = String(b.guest_id || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !gid) return deny(400, 'bad-args', origin);
+      const raw = await readSnapshot(env, 'write').catch(() => null);
+      const rows = (raw && raw.guests && raw.guests.values) || [];
+      const mine = rows.map((r, i) => ({ r: r || [], i })).filter(x => String(x.r[28] || '').trim() === tok);
+      const hit = mine.find(x => String(x.r[2] || '').trim() === gid);
+      if (!hit) return deny(404, 'guest-not-found', origin);
+      const words = n => String(n || '').replace(/[^\u0590-\u05ffA-Za-z ]/g, '').split(/\s+/).filter(Boolean).sort().join(' ');
+      const tail = p => String(p || '').replace(/\D/g, '').slice(-9);
+      const rsvp = String(hit.r[15] || '').trim();
+      if (rsvp) return deny(409, 'row-has-an-answer', origin);
+      const twin = mine.find(x => x.i !== hit.i && String(x.r[15] || '').trim() && ((tail(x.r[4]) && tail(x.r[4]) === tail(hit.r[4])) || (words(x.r[3]) && words(x.r[3]) === words(hit.r[3]))));
+      if (!twin) return deny(409, 'no-answered-twin', origin);
+      const plan = { row: hit.i + 2, keep_row: twin.i + 2, keep_rsvp: String(twin.r[15] || '').trim() };
+      if (b.dry) return okJson({ ok: true, dry: true, ...plan }, origin);
+      const okw = await sheetBatchWrite(env, [{ range: `אורחים!AC${hit.i + 2}`, values: [['removed-dup:' + tok.slice(0, 8)]] }, { range: `אורחים!V${hit.i + 2}`, values: [['']] }]);
+      await logEvent(env, { area: 'לקוחות', action: 'שורה כפולה של מוזמן הוסרה מהאירוע', ok: !!okw, review: true, token: tok, detail: `שורה ${hit.i + 2} הוסרה · נשארה שורה ${twin.i + 2} (${plan.keep_rsvp})` }).catch(() => {});
+      return okw ? okJson({ ok: true, ...plan }, origin) : deny(502, 'sheet-write-failed', origin);
+    }
     if (url.pathname === '/api/rec-archive' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -12467,13 +12521,18 @@ const WORKER = {
       const items = (Array.isArray(b.items) ? b.items : []).map(x => ({ description: String((x && x.description) || '').slice(0, 160), quantity: 1, price: Number(x && x.price) || 0, currency: 'ILS', vatType: 1 })).filter(x => x.price > 0 && x.description).slice(0, 8);
       const price = items.length ? items.reduce((a2, x) => a2 + x.price, 0) : Number(b.price) || 0, type = Number(b.type) || 0;
       if (!price || !type || !String(b.name || '').trim()) return deny(400, 'missing-fields', origin);
-      const doc = { type, lang: 'he', currency: 'ILS', date: ilDate(), description: String(b.description || '').slice(0, 160), remarks: String(b.remarks || '').slice(0, 4000),
-        footer: 'שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io',
+      /* 18/11 evening (Richard: invoice 1225 went out on "לקוח ishur"): the same route can issue the credit note against a wrong
+         document (linked: [its id]) and the corrected invoice-receipt (pay_type + purchase_terms), so a fix never needs a new route. */
+      const doc = { type, lang: 'he', currency: 'ILS', date: ilDate(), description: String(b.description || '').slice(0, 160),
+        remarks: b.purchase_terms ? invoiceTerms({ tier: b.tier, plan: b.plan }) + (b.hostess ? '\n\n' + HOSTESS_TERMS : '') : String(b.remarks || '').slice(0, 4000),
+        footer: String(b.footer || 'שירות לקוחות בוואטסאפ 055-950-4499 · ishur.io').slice(0, 300),
+        ...(Array.isArray(b.linked) && b.linked.length ? { linkedDocumentIds: b.linked.map(String).filter(x => /^[0-9a-f-]{36}$/.test(x)).slice(0, 5) } : {}),
+        ...(Number(b.pay_type) ? { payment: [{ type: Number(b.pay_type), price, currency: 'ILS', date: ilDate() }] } : {}),
         client: { name: String(b.name).slice(0, 100), phone: String(b.phone || ''), emails: b.email ? [String(b.email)] : [], country: 'IL', add: false },
         income: items.length ? items : [{ description: String(b.description || '').slice(0, 160), quantity: 1, price, currency: 'ILS', vatType: 1 }] };
       const r = await fetch(MAPI + (b.action === 'create' ? '/documents' : '/documents/preview'), { method: 'POST', headers: hd, body: JSON.stringify(doc) }).catch(() => null);
       const j = r ? await r.json().catch(() => null) : null;
-      if (b.action === 'create') await logEvent(env, { area: 'כספים', action: 'הצעת מחיר הופקה בחשבונית ירוקה', ok: !!(r && r.ok && j && j.id), review: true, phone: normPhone(b.phone || ''), detail: `${b.name} · ₪${price} · ${String((j && (j.number || j.errorMessage)) || '').slice(0, 80)}` }).catch(() => {});
+      if (b.action === 'create') await logEvent(env, { area: 'כספים', action: (type === 330 ? 'חשבונית זיכוי' : type === 320 ? 'חשבונית מס-קבלה' : 'הצעת מחיר') + ' הופקה בחשבונית ירוקה', ok: !!(r && r.ok && j && j.id), review: true, phone: normPhone(b.phone || ''), detail: `${b.name} · ₪${price} · ${String((j && (j.number || j.errorMessage)) || '').slice(0, 80)}` }).catch(() => {});
       return okJson({ ok: !!(r && r.ok), status: r && r.status, result: j }, origin);
     }
     if (url.pathname === '/api/template-spaced' && request.method === 'POST') return handleTemplateSpaced(request, env, origin);
@@ -14733,6 +14792,7 @@ const WORKER = {
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
         sentWaves.callDate = await env.RATE.get('calldate:' + token).catch(() => null);
+        sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
         sentWaves.callsAddon = !!(await env.RATE.get('callsaddon:' + token));

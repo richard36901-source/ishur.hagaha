@@ -110,6 +110,7 @@
   <div class="bar">
     <select id="fActive"><option value="all">הכל</option><option value="active">פעילים</option><option value="inactive">לא פעילים</option></select>
     <button type="button" class="btn" id="fPast" aria-pressed="false">הצג אירועים שעברו ובוטלו</button>
+    <button type="button" class="btn" id="fSort" aria-pressed="false">מיין: האירוע הקרוב קודם</button>
     <input type="search" id="q" placeholder="חיפוש: שם, טלפון, אירוע">
     <span class="meta" id="count"></span>
   </div>
@@ -167,7 +168,7 @@
   }
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(function () { el.classList.remove('on'); }, 1800); }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
-  function when(e) { var d = Date.parse(e.paid_at || ''); return isNaN(d) ? 0 : d; }
+  function when(e) { var d = Date.parse(e.paid_ts || e.paid_at || ''); return isNaN(d) ? 0 : d; }
   function heDate(iso) { var d = new Date(iso); return isNaN(d) ? (iso || '—') : d.toLocaleDateString('he-IL', { day: '2-digit', month: '2-digit', year: '2-digit' }); }
 
   window.addEventListener('ishur:fresh', function () { load(); });
@@ -399,6 +400,15 @@
       if (q && !((e.client || '') + ' ' + (e.name || '') + ' ' + (e.phone || '') + ' ' + (e.occasion || '')).includes(q)) return false;
       return true;
     });
+    /* 18/11 Richard: the list is in the order the deals closed (newest on top); the button re-sorts by the nearest event date. Events with no date go last. */
+    var near = $('fSort').getAttribute('aria-pressed') === 'true';
+    $('fSort').textContent = near ? 'מיין: לפי סדר הסגירה' : 'מיין: האירוע הקרוב קודם';
+    if (near) rows = rows.map(function (e, i) { return { e: e, i: i }; }).sort(function (a, b) {
+      var da = String(a.e.date || '').slice(0, 10), db = String(b.e.date || '').slice(0, 10);
+      if (!da !== !db) return da ? -1 : 1;
+      if (da !== db) return da < db ? -1 : 1;
+      return a.i - b.i;
+    }).map(function (x) { return x.e; });
     $('count').textContent = rows.length + ' אירועים' + (hidden ? ' · ' + hidden + ' שעברו/בוטלו מוסתרים' : '');
     $('fPast').textContent = showPast ? 'הסתר אירועים שעברו ובוטלו' : 'הצג אירועים שעברו ובוטלו';
     $('empty').hidden = !!rows.length;
@@ -617,6 +627,7 @@
   });
   $('fActive').addEventListener('change', render);
   $('fPast').addEventListener('click', function () { var on = $('fPast').getAttribute('aria-pressed') === 'true'; $('fPast').setAttribute('aria-pressed', on ? 'false' : 'true'); render(); });
+  $('fSort').addEventListener('click', function () { var on = $('fSort').getAttribute('aria-pressed') === 'true'; $('fSort').setAttribute('aria-pressed', on ? 'false' : 'true'); render(); });
   $('q').addEventListener('input', render);
 
   function gate(err) { $('gate').hidden = false; $('main').hidden = true; $('keyErr').textContent = err || ''; }

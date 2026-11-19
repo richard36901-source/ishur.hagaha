@@ -80,7 +80,7 @@ const hostess = (C.HOSTESS.tiers || []).map((t) => ({ hostesses: t.count, up_to_
 
 const offersJson = {
   source: 'Generated from https://ishur.io/config.js by scripts/build-offers.mjs. Prices in ILS, VAT included, one-time per event.',
-  business: { name: 'ishur.io · אישורי הגעה', operator: 'ריצארד טומסקי, עוסק מורשה 322414905', url: SITE + '/', whatsapp: '+' + C.WHATSAPP_NUMBER },
+  business: { name: 'ishur.io · אישורי הגעה', operator: 'ריצארד טומסקי, עוסק מורשה', url: SITE + '/', whatsapp: '+' + C.WHATSAPP_NUMBER },
   currency: 'ILS',
   pricing_model: 'תשלום אחד לאירוע לפי כמות רשומות (מספר טלפון אחד = רשומה אחת), בלי מנוי',
   from_price: Math.min(...packages.map((p) => p.from_price)),

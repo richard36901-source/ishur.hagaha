@@ -122,7 +122,7 @@ cannot say how often.
 
 9. **Internal links + sitemap** — homepage footer gains a row (השוואת מחירים + 5 new pages;
    hashvaa was not linked from the homepage at all); the 10 landing pages get a fuller footer
-   with the legal line "ריצארד טומסקי, עוסק מורשה 322414905"; faq/hashvaa footers link the new
+   with the legal line "ריצארד טומסקי, עוסק מורשה [הוסר]"; faq/hashvaa footers link the new
    pages. `sitemap.xml`: 20 URLs (all public pages, incl. why.html and the 5 new ones), each with
    `lastmod`.
 

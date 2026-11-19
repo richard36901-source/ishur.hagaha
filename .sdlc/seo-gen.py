@@ -186,7 +186,7 @@ TEMPLATE = """<!DOCTYPE html>
 </div>
 <footer>
   <a href="https://ishur.io/">דף הבית</a> · <a href="faq.html">שאלות נפוצות</a> · <a href="terms.html">תנאי שימוש</a><br>
-  © 2026 אישורי הגעה · ishur.io · עוסק מורשה 322414905
+  © 2026 אישורי הגעה · ishur.io
 </footer>
 </body>
 </html>
@@ -203,7 +203,7 @@ def build(p):
             "@context": "https://schema.org", "@type": "Service",
             "name": p["title"], "description": p["desc"],
             "provider": {"@type": "LocalBusiness", "name": "ishur.io · אישורי הגעה",
-                          "url": "https://ishur.io", "vatID": "322414905"},
+                          "url": "https://ishur.io"},
             "areaServed": p.get("city", "ישראל"),
             "offers": {"@type": "Offer", "priceCurrency": "ILS", "price": "50",
                         "description": "מחיר פתיחה לאירוע, לפי כמות מוזמנים"},

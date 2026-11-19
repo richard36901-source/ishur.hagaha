@@ -480,7 +480,7 @@ export async function addMemory(env, agent, lines, source) {
     const g = src.trusted ? { ok: !!String(l || '').trim(), text: String(l || '').trim(), why: 'empty' } : memoryGuard(l, src);
     if (!g.ok) { rejected.push({ text: l, why: g.why }); continue; }
     if (have.has(g.text)) { rejected.push({ text: l, why: 'duplicate' }); continue; }
-    mem.push({ text: g.text, at: new Date().toISOString(), source: String(src.source || ''), by: String(src.by || '') });
+    mem.push({ text: g.text, at: new Date().toISOString(), source: String(src.source || ''), by: String(src.by || ''), ...(src.why ? { why: String(src.why).slice(0, 200) } : {}) });
     have.add(g.text); added.push(g.text);
   }
   if (mem.length > MEMORY_MAX) mem = mem.slice(-MEMORY_MAX);   // FIFO: the oldest leave
