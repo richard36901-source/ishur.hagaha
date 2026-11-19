@@ -5201,6 +5201,30 @@ async function handleTemplateSpaced(request, env, origin) {
   }
   return okJson({ ok: true, rows: rows.map(({ t, next, ...r }) => (b.show ? { ...r, next } : r)) }, origin);
 }
+/* 19/11: two-button twins waiting for Meta (tmplynwait:<base> = twin). Approved → tmplyn:<base> is set and the wait ends;
+   rejected → the wait ends and it is said once. An active twin that Meta later paused or rejected is switched off. */
+async function checkYesNoTwins(env) {
+  if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false };
+  const waits = (await env.RATE.list({ prefix: 'tmplynwait:', limit: 50 }).catch(() => ({ keys: [] }))).keys || [];
+  for (const k of waits) {
+    const base = k.name.slice('tmplynwait:'.length), twin = await env.RATE.get(k.name).catch(() => null); if (!twin) continue;
+    const t = await templateInfo(env, twin).catch(() => null); const st = t ? String(t.status || '').toUpperCase() : '';
+    if (st === 'APPROVED') { await env.RATE.put('tmplyn:' + base, twin); await env.RATE.delete(k.name).catch(() => {});
+      await logEvent(env, { area: 'תבניות', action: 'עותק עם שני כפתורים אושר והופעל', ok: true, ref: twin }).catch(() => {});
+      await slackPost(env, `✅ *הודעת "מגיע / לא מגיע" אושרה במטא והופעלה* · ${twin}\nאירועים במצב כן/לא יקבלו אותה מהשליחה הבאה.`, { oneoff: true }).catch(() => {}); }
+    else if (st === 'REJECTED' || st === 'DISABLED') { await env.RATE.delete(k.name).catch(() => {});
+      await logEvent(env, { area: 'תבניות', action: 'עותק עם שני כפתורים נדחה במטא', ok: false, review: true, ref: twin }).catch(() => {});
+      await slackPost(env, `⛔ *הודעת "מגיע / לא מגיע" נדחתה במטא* · ${twin}\nאירועים במצב כן/לא ימשיכו לקבל את ההודעה הרגילה עם שלושה כפתורים.\n\nמה לעשות: להגיש נוסח אחר`, { oneoff: true }).catch(() => {}); }
+  }
+  const on = (await env.RATE.list({ prefix: 'tmplyn:', limit: 50 }).catch(() => ({ keys: [] }))).keys || [];
+  for (const k of on) {
+    const twin = await env.RATE.get(k.name).catch(() => null); if (!twin) continue;
+    const t = await templateInfo(env, twin).catch(() => null);
+    if (t && String(t.status || '').toUpperCase() !== 'APPROVED') { await env.RATE.delete(k.name).catch(() => {});
+      await logEvent(env, { area: 'תבניות', action: 'עותק עם שני כפתורים כובה — חזרה להודעה הרגילה', ok: false, review: true, ref: twin, detail: String(t.status || '') }).catch(() => {}); }
+  }
+  return { ok: true, waiting: waits.length, on: on.length };
+}
 /* hourly, with the guard: a spaced twin that Meta paused, rejected or moved to MARKETING is switched off at once */
 async function checkSpacedTwins(env) {
   if (!env.WA_TOKEN_GUESTS || !env.RATE) return { ok: false };
@@ -7320,6 +7344,7 @@ async function templateCheck(env, out) {
   try {
     const gk = 'tmplguard:hour:' + new Date().toISOString().slice(0, 13);
     if (env.RATE && !(await env.RATE.get(gk))) { await env.RATE.put(gk, '1', { expirationTtl: 7200 }); out.tmplguard = await runTemplateGuard(env); out.spaced = await checkSpacedTwins(env).catch(() => null); out.billing = await checkBillingRecovered(env).catch(e => ({ error: String(e && e.message || e) })); }
+    try { await checkYesNoTwins(env); } catch {}   /* 19/11: a two-button twin switches itself on the hour Meta approves it */
   } catch (e) { await alert(env, 'מטא', 'בודק התבניות נפל', String((e && e.message) || e), { key: 'tmplguard_crash', sev: 'P1' }).catch(() => {}); }
   /* Meta approvals, checked once an hour: the image invitation and the invoice
      template switch themselves on the moment they are approved. */
@@ -12533,7 +12558,7 @@ const WORKER = {
               body: JSON.stringify({ name: twin, language: live.language || 'he', category: live.category || 'UTILITY', components: comps }) }).catch(() => null);
             const j = res ? await res.json().catch(() => null) : null;
             row.submit = res && res.ok ? 'submitted' : 'failed: ' + String((j && j.error && (j.error.error_user_msg || j.error.message)) || 'no answer').slice(0, 200);
-            if (res && res.ok) { row.twin_status = String((j && j.status) || 'PENDING'); row.twin_category = String((j && j.category) || ''); }
+            if (res && res.ok) { row.twin_status = String((j && j.status) || 'PENDING'); row.twin_category = String((j && j.category) || ''); await env.RATE.put('tmplynwait:' + base, twin, { expirationTtl: 30 * 86400 }); }
             await logEvent(env, { area: 'תבניות', action: 'הוגש עותק עם שני כפתורים (מגיע / לא מגיע)', ok: !!(res && res.ok), review: !(res && res.ok), ref: twin, detail: row.submit }).catch(() => {});
           }
         }
@@ -12541,6 +12566,7 @@ const WORKER = {
         if (b.action === 'deactivate') { await env.RATE.delete('tmplyn:' + base).catch(() => {}); row.on = false; }
         rows.push(row);
       }
+      if (b.action === 'check') return okJson({ ok: true, check: await checkYesNoTwins(env), rows }, origin);
       return okJson({ ok: true, live_invite: live0, rows }, origin);
     }
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
