@@ -1780,7 +1780,7 @@
     }
     if (!list.length) {
       $('rows').innerHTML = '<div class="empty">' +
-        (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : filter === 'failed' ? 'ההזמנה הגיעה לכל המוזמנים.' : 'אין כאן אף אחד עדיין.') + '</div>';
+        (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : filter === 'failed' ? ((data.sends || []).some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); }) ? 'ההזמנה הגיעה לכל המוזמנים.' : 'ההזמנות עוד לא נשלחו.') : 'אין כאן אף אחד עדיין.') + '</div>';
       return;
     }
     var over = eventIsOver();
