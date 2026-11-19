@@ -957,6 +957,17 @@
     '131042': 'תקלה זמנית בחיבור לוואטסאפ מצידנו.',
     'stale': 'וואטסאפ קיבל את ההודעה אבל לא מסר אותה לטלפון כבר יממה (טלפון כבוי, בלי קליטה או מספר לא פעיל).'
   };
+  /* 19/11 Richard: the "נכשלו" tab — guests the invitation did not reach, and still without an answer.
+     Returns a short reason, or '' when the guest was reached (or already answered some other way).
+     A guest with no send at all counts only once the invitation wave went out (somebody added later). */
+  function notReached(g) {
+    if (!g || g.status !== 'pending') return '';
+    if (g.sent === 'failed') return g.sent_code === '131026' ? 'אין וואטסאפ' : 'לא נמסר';
+    if (g.sent === 'retrying') return 'ננסה שוב';
+    var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); });
+    if ((!g.sent || g.sent === 'none') && afterInvite && !g.self) return 'טרם נשלח';
+    return '';
+  }
   function sendBadge(g) {
     var afterInvite = data.sends && data.sends.some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); });
     if (!g.sent || g.sent === 'none') return '<span class="sendst none"></span>';   /* Richard 11/11: never paint "לא נשלח" on a guest row — blank, not red */
@@ -1714,14 +1725,15 @@
        spelled out in the line under the search. */
     var recs = function (k, fallback) {
       if (!useList) return fallback;
-      return list.filter(function (g) { return k === 'all' || g.status === k; }).length;
+      return list.filter(function (g) { return k === 'failed' ? !!notReached(g) : (k === 'all' || g.status === k); }).length;
     };
     var opts = [
       { k: 'all', l: 'הכל', n: recs('all', t.records) },
       { k: 'confirmed', l: 'אישרו', n: recs('confirmed', t.confirmed) },
       { k: 'undecided', l: 'לא בטוחים', n: recs('undecided', t.undecided) },
       { k: 'pending', l: 'לא ענו', n: recs('pending', t.pending) },
-      { k: 'declined', l: 'לא מגיעים', n: recs('declined', t.declined) }
+      { k: 'declined', l: 'לא מגיעים', n: recs('declined', t.declined) },
+      { k: 'failed', l: 'נכשלו', n: recs('failed', 0) }
     ];
 
     $('filters').innerHTML = opts.map(function (o) {
@@ -1740,7 +1752,8 @@
   function renderRows() {
     var needle = query.trim().toLowerCase();
     var list = (data.guests || []).filter(function (g) {
-      if (filter !== 'all' && g.status !== filter) return false;
+      if (filter === 'failed') { if (!notReached(g)) return false; }
+      else if (filter !== 'all' && g.status !== filter) return false;
       if (!needle) return true;
       var digits = needle.replace(/\D/g, '');
       if ((g.name || '').toLowerCase().indexOf(needle) > -1) return true;
@@ -1767,7 +1780,7 @@
     }
     if (!list.length) {
       $('rows').innerHTML = '<div class="empty">' +
-        (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : 'אין כאן אף אחד עדיין.') + '</div>';
+        (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : filter === 'failed' ? ((data.sends || []).some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); }) ? 'ההזמנה הגיעה לכל המוזמנים.' : 'ההזמנות עוד לא נשלחו.') : 'אין כאן אף אחד עדיין.') + '</div>';
       return;
     }
     var over = eventIsOver();
@@ -1785,6 +1798,8 @@
     if ($('rowsHTbl')) $('rowsHTbl').hidden = !anyConfirmedNow;
     $('rows').innerHTML = list.map(function (g) {
       var st = STATUS[g.status] || STATUS.pending;
+      /* in the "נכשלו" tab the pill says why the invitation did not reach this guest */
+      if (filter === 'failed') st = { pill: 'no', label: notReached(g) || st.label };
       /* confirmed guests get a table box; the rest keep the layout aligned */
       var esc = function (s) { return String(s || '').replace(/[&<>"]/g, ''); };
       var tbl = g.status === 'confirmed' && g.id
