@@ -281,7 +281,7 @@ export function buildDashboard(token, raw, refCount = 0, sent = {}) {
      a call"). It starts the morning after the last planned send, for whoever
      still has not answered; בסיס has no calls. */
   /* 04/11: a paid calls add-on on בסיס shows the round too */
-  if (planMaxCallTries(planKeyOf(ev)) > 0 || sent.callsAddon) {
+  if (!sent.noCalls && (planMaxCallTries(planKeyOf(ev)) > 0 || sent.callsAddon)) {
     const last = [c(39), c(40), sent.extraPaid || sent[3] ? c(41) : '']
       .map(d => d.slice(0, 10)).filter(d => /^\d{4}-\d{2}-\d{2}$/.test(d)).sort().pop();
     if (last) {

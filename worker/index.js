@@ -3007,7 +3007,9 @@ async function runShirDispatch(env, { max = 25, force = false, quiet = false } =
      those ticks do not each cost a Make operation (review finding #10) */
   const raw = await snapshotCached(env, 'dial').catch(() => null);
   if (!raw) return { ok: false, why: snapMiss(env) };
-  const { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
+  let { queue } = buildCallQueue(raw, 3, await callsAddonTokens(env));
+  /* 19/11 Richard (אריאל ודיקלה): an event can opt out of phone calls altogether — nocalls:<token>. Nobody of it is dialed. */
+  try { const off = new Set(Object.keys(await kvPrefix(env, 'nocalls:'))); if (off.size) queue = queue.filter(g => !off.has(g.token)); } catch {}
   /* a closed window with people waiting is worth saying out loud: silence here
      is exactly how the queue grew unnoticed */
   if (!win.open && !force) {
@@ -6627,7 +6629,7 @@ async function runDailyEngine(env, dry, todayOverride, opts = {}) {
     const callDateOv = env.RATE ? await env.RATE.get('calldate:' + token).catch(() => null) : null;   /* 12/11: a day set from the clients screen */
     /* 18/11 Richard: the automatic round never opens on a Friday (Thursday send → Sunday round). A day set by hand is kept as set. */
     const fridayToday = new Date(today + 'T12:00:00Z').getUTCDay() === 5;
-    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today && !fridayToday)) && planKeyOf(ev) !== 'basic') {
+    if (((callDateOv && callDateOv <= today) || (!callDateOv && lastSend && lastSend < today && !fridayToday)) && planKeyOf(ev) !== 'basic' && !(env.RATE && await env.RATE.get('nocalls:' + token).catch(() => null))) {
       const escKey = `esc:${token}`;
       if (!(env.RATE && await env.RATE.get(escKey))) {
         let queued = 0, failed = 0;
@@ -12373,6 +12375,33 @@ const WORKER = {
     }
     /* 18/11 Richard ("שמור את כל ההקלטות אי פעם"): check which calls are already kept, and keep the ones that are not,
        straight from the voice provider. POST {admin_key, call_ids: [...up to 8], redo?} */
+    /* 19/11 Richard (Aviv's board): a guest the invitation never reached answered through the group link, which adds a
+       second row for the same person and eats a record of the package. Admin only: take ONE row off an event.
+       Guard: the row must still be unanswered, and the same event must hold another row for that person that did answer
+       (same phone, or the same name words). The sheet row is not deleted — its event cell (AC) is rewritten, so it leaves
+       the board and the count and can be put back by hand. POST {token, guest_id, dry?} */
+    if (url.pathname === '/api/guest-remove-dup' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      const tok = String(b.token || '').trim(), gid = String(b.guest_id || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !gid) return deny(400, 'bad-args', origin);
+      const raw = await readSnapshot(env, 'write').catch(() => null);
+      const rows = (raw && raw.guests && raw.guests.values) || [];
+      const mine = rows.map((r, i) => ({ r: r || [], i })).filter(x => String(x.r[28] || '').trim() === tok);
+      const hit = mine.find(x => String(x.r[2] || '').trim() === gid);
+      if (!hit) return deny(404, 'guest-not-found', origin);
+      const words = n => String(n || '').replace(/[^\u0590-\u05ffA-Za-z ]/g, '').split(/\s+/).filter(Boolean).sort().join(' ');
+      const tail = p => String(p || '').replace(/\D/g, '').slice(-9);
+      const rsvp = String(hit.r[15] || '').trim();
+      if (rsvp) return deny(409, 'row-has-an-answer', origin);
+      const twin = mine.find(x => x.i !== hit.i && String(x.r[15] || '').trim() && ((tail(x.r[4]) && tail(x.r[4]) === tail(hit.r[4])) || (words(x.r[3]) && words(x.r[3]) === words(hit.r[3]))));
+      if (!twin) return deny(409, 'no-answered-twin', origin);
+      const plan = { row: hit.i + 2, keep_row: twin.i + 2, keep_rsvp: String(twin.r[15] || '').trim() };
+      if (b.dry) return okJson({ ok: true, dry: true, ...plan }, origin);
+      const okw = await sheetBatchWrite(env, [{ range: `אורחים!AC${hit.i + 2}`, values: [['removed-dup:' + tok.slice(0, 8)]] }, { range: `אורחים!V${hit.i + 2}`, values: [['']] }]);
+      await logEvent(env, { area: 'לקוחות', action: 'שורה כפולה של מוזמן הוסרה מהאירוע', ok: !!okw, review: true, token: tok, detail: `שורה ${hit.i + 2} הוסרה · נשארה שורה ${twin.i + 2} (${plan.keep_rsvp})` }).catch(() => {});
+      return okw ? okJson({ ok: true, ...plan }, origin) : deny(502, 'sheet-write-failed', origin);
+    }
     if (url.pathname === '/api/rec-archive' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
       if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
@@ -14722,6 +14751,7 @@ const WORKER = {
         /* wave 3 is a paid add-on: the dashboard shows it only once Grow
            confirmed the payment (Richard 12/10) */
         sentWaves.callDate = await env.RATE.get('calldate:' + token).catch(() => null);
+        sentWaves.noCalls = !!(await env.RATE.get('nocalls:' + token).catch(() => null));   /* 19/11: this event asked for no phone calls */
         sentWaves.todaDate = await env.RATE.get('todadate:' + token).catch(() => null);
         sentWaves.extraPaid = !!(await env.RATE.get('extrasend:' + token));
         sentWaves.callsAddon = !!(await env.RATE.get('callsaddon:' + token));
