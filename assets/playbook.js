@@ -392,7 +392,7 @@ document.addEventListener('click', function (ev) {
   if (act === 'make') {
     if (!l.sum || !l.tier) { alert('צריך סכום ומכסת רשומות'); return; }
     b.disabled = true; b.textContent = 'יוצר…';
-    var payload = { admin_key: adminKey, sum: l.sum, tier: l.tier, plan: 'premium', hostess: l.hostess, note: 'playbook' };
+    var payload = { admin_key: adminKey, sum: l.sum, tier: l.tier, plan: 'premium', hostess: l.hostess, note: 'playbook', title: l.name };   /* 19/11: the link is now our order page (name, phone, terms) and not a bare Grow link */
     fetch(BASE + '/api/pay-link', { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) }).then(function (r) { return r.json(); }).then(function (j) {
       if (j && j.ok && j.url) { l.url = j.url; pbRenderLinks(); pbSave(); }

@@ -46,7 +46,7 @@ import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evl
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
-import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
@@ -2137,14 +2137,16 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
        but it would have been counted against the cap and shown twice) */
     let existingRows = 0, duplicates = [];
     if (merge) {
-      const have = new Set();
+      const have = new Set(), linkNames = new Set();
       for (const g of ((capSnap && capSnap.guests && capSnap.guests.values) || [])) {
         if (String(g[28] || '').trim() !== token) continue;
         existingRows++;
         const p = normPhone(g[4] || ''); if (p) have.add(p);
+        /* 19/11: somebody who already answered through the group link is on the board; the same name in an added file is them */
+        if (/נרשם מהקישור/.test(String(g[24] || ''))) { const nk = guestNameKey(g[3]); if (nk) linkNames.add(nk); }
       }
       const fresh = [];
-      for (const g of guests) { const p = normPhone(g.phone); if (p && have.has(p)) duplicates.push(g.name || p); else { fresh.push(g); have.add(p); } }
+      for (const g of guests) { const p = normPhone(g.phone); const nk = guestNameKey(g.name); if ((p && have.has(p)) || (nk && linkNames.has(nk))) duplicates.push(g.name || p); else { fresh.push(g); have.add(p); } }
       if (!fresh.length) {
         return new Response(JSON.stringify({ ok: false, error: 'all-duplicates', duplicates: duplicates.length }),
           { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
@@ -13160,6 +13162,17 @@ const WORKER = {
       const tier = Number(b.tier) || 0, planText = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[String(b.plan || '')] || '';
       const hn = Number(b.hostess) || (b.hostess ? 2 : 0);
       const description = String(b.description || `${tier} רשומות ${planText}${hn === 1 ? ' + דיילת אחת' : hn > 1 ? ` + ${hn} דיילות` : ''}`).trim();
+      /* 19/11 Richard: a saved promo link went straight to Grow with no client on it, so the sale landed as "לקוח ishur"
+         with phone 0500000000, the invoice carried no name and the buyer never ticked the terms (יוחאי בללי, 18/11).
+         A saved promo is now an ORDER PAGE of ours: name, phone, occasion, terms — and only then a Grow link minted for
+         that person. The offer itself (sum / records / hostesses) is kept here, so the page cannot change the price. */
+      if (String(b.note || '') === 'playbook' && env.RATE) {
+        const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
+        await env.RATE.put('promo:' + id, JSON.stringify({ sum, tier, plan: planText, hostess: hn, description, title: String(b.title || '').slice(0, 80), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+        const url2 = 'https://go.ishur.io/order.html?o=' + id;
+        await logEvent(env, { area: 'תשלום', action: `קישור מבצע (עמוד הזמנה): ${description} · ₪${sum}`, ok: true, detail: url2 }).catch(() => {});
+        return okJson({ ok: true, url: url2, description, sum, order_page: true }, origin);
+      }
       const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         sum, description, token: '', kind: 'special', scope: 'all', label: description, n: tier,
         name: String(b.name || 'לקוח ishur'), phone: String(b.phone || '').replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
@@ -13170,6 +13183,36 @@ const WORKER = {
       const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
       await logEvent(env, { area: 'תשלום', action: `קישור תשלום מיוחד: ${description} · ₪${sum}`, ok: !!link, review: !link, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
       return okJson({ ok: !!link, url: link || '', description, sum, make: link ? undefined : mtxt.slice(0, 200) }, origin);
+    }
+    /* 19/11: the order page of a saved promo. info → what is being bought; order → the buyer's details + consent, then a Grow link for them. */
+    if ((url.pathname === '/api/promo-info' || url.pathname === '/api/promo-order') && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const id = String(b.o || '').replace(/[^0-9a-f]/g, '').slice(0, 12);
+      let pr = null; try { pr = id.length === 12 && env.RATE ? JSON.parse((await env.RATE.get('promo:' + id)) || 'null') : null; } catch {}
+      if (!pr) return deny(404, 'unknown-offer', origin);
+      if (url.pathname === '/api/promo-info') return okJson({ ok: true, sum: pr.sum, tier: pr.tier, plan: pr.plan, hostess: pr.hostess, title: pr.title || '' }, origin);
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:promoorder:' + ip, 12, 3600)) return deny(429, 'slow-down', origin);
+      const name = String(b.name || '').replace(/[<>"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60), phone = normPhone(b.phone || '');
+      const occasion = String(b.occasion || '').replace(/[<>"]/g, '').trim().slice(0, 30);
+      if (name.length < 2 || !/[א-תA-Za-z]/.test(name)) return deny(400, 'bad-name', origin);
+      if (!isIlMobile(phone)) return deny(400, 'bad-phone', origin);
+      if (b.consent !== true) return deny(400, 'no-consent', origin);
+      if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook' }, origin);
+      const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        sum: pr.sum, description: pr.description, token: '', kind: 'special', scope: 'all', label: pr.description, n: pr.tier,
+        name, phone: phone.replace(/^972/, '0'), email: validEmail(b.email) ? String(b.email).trim() : 'noreply@ishur.io',
+        /* the thanks page on the SAME host as the order page, so it finds the phone the buyer just typed and claims the purchase by itself */
+        successUrl: 'https://go.ishur.io/thanks.html', cancelUrl: 'https://go.ishur.io/order.html?o=' + id,
+        cField1: 'promo:' + id, cField2: occasion,
+      }) }).catch(() => null);
+      let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
+      const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+      /* the consent is evidence: who, when, from where, to which terms */
+      await logEvent(env, { area: 'תשלום', action: link ? 'הזמנה מעמוד מבצע: פרטים ואישור תנאים התקבלו, נוצר קישור תשלום' : 'הזמנה מעמוד מבצע: לא נוצר קישור תשלום', ok: !!link, review: !link, phone,
+        detail: `${name} · ${pr.description} · ₪${pr.sum} · אישר/ה את תנאי השימוש (ishur.io/terms.html) · ${ip}${link ? '' : ' · ' + mtxt.slice(0, 160)}` }).catch(() => {});
+      if (!link) { await alert(env, 'תשלום', 'עמוד מבצע: לא נוצר קישור תשלום', `${pr.description} · ${mtxt.slice(0, 160)}`, { key: 'promoorder_fail' }).catch(() => {}); return okJson({ ok: false, why: 'no-link' }, origin); }
+      return okJson({ ok: true, url: String(link) }, origin);
     }
     if (url.pathname === '/api/audit-export' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -13353,14 +13396,28 @@ const WORKER = {
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
       const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
-      const existing = gRows.find(g => normPhone(g[4] || '') === phone);
+      let existing = gRows.find(g => normPhone(g[4] || '') === phone);
+      /* 19/11 Richard: "שזה יאחד". No row with this phone, but exactly ONE unanswered row of the event carries the same
+         name → it is the same person, listed with a wrong number. The answer goes on that row and the row takes the
+         phone they just gave (the latest update wins), so nothing is added and later reminders reach them. */
+      let mergedByName = false;
+      if (!existing) {
+        const nk = guestNameKey(name);
+        const twins = nk ? gRows.filter(g => !String(g[15] || '').trim() && !/נרשם מהקישור/.test(String(g[24] || '')) && guestNameKey(g[3]) === nk) : [];
+        if (twins.length === 1) {
+          existing = twins[0]; mergedByName = true;
+          const all = (raw && raw.guests && raw.guests.values) || [], idx = all.indexOf(existing);
+          const was = String(existing[4] || '').trim();
+          if (idx >= 0) await sheetBatchWrite(env, [{ range: `אורחים!E${idx + 2}`, values: [[/^0/.test(was) ? '0' + phone.slice(3) : phone]] }]).catch(() => {});
+        }
+      }
       if (existing) {
         /* already on the list (invited by the hosts): this is simply their answer */
         /* 15/11: the link belongs to ONE event — the answer goes on that event's row, never on another
            list this phone happens to be on (findGuestByPhone picks by phone across all events) */
         const gid = String(existing[2] || '').trim();
         if (gid) await writeGuestReply(env, { guest_id: gid, token: tok }, 'מגיע', party).catch(() => {});
-        await logEvent(env, { area: 'ווצאפ', action: 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
+        await logEvent(env, { area: 'ווצאפ', action: mergedByName ? 'אורח מהרשימה אישר דרך הקישור (אוחד לפי שם, הטלפון עודכן)' : 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, review: mergedByName, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
         return okJson({ ok: true, existing: true }, origin);
       }
       const now = new Date().toISOString();
