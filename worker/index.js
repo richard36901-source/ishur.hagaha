@@ -4199,9 +4199,11 @@ async function handleWaWebhook(request, env, url) {
         /* Richard 20/10: count them as 1 right away (the host sees a number,
            not a blank), ask once now, nudge twice more inside the 24h window */
         const saved = await writeGuestReply(env, guest, 'מגיע', 1);
-        if (saved && env.RATE) await armPartyNudge(env, guest, from, ch);
+        /* 19/11 Richard (אריאל ודיקלה): a yes/no event (yesno:<token>) never asks how many — "מגיע" is one place, and that is the end of it */
+        const yesNoOnly = !!(env.RATE && await env.RATE.get('yesno:' + guest.token).catch(() => null));
+        if (saved && env.RATE && !yesNoOnly) await armPartyNudge(env, guest, from, ch);
         await say(saved
-          ? GUEST_REPLY.askParty
+          ? (yesNoOnly ? GUEST_REPLY.yesOnly : GUEST_REPLY.askParty)
           : HOLD);
       } else if (parsed.outcome === 'מגיע') {
         const saved = await writeGuestReply(env, guest, 'מגיע', parsed.party);
@@ -4381,8 +4383,9 @@ async function guestFreeText(env, raw, guest, from, text, say, sendCh = 'guests'
   }
   if (saysYes) {
     const saved = await writeGuestReply(env, guest, 'מגיע', 1);
-    if (saved && env.RATE) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
-    await say(saved ? GUEST_REPLY.askParty : 'קיבלנו, רגע רושמים 🙂');
+    const yesNoOnly2 = !!(env.RATE && await env.RATE.get('yesno:' + guest.token).catch(() => null));   /* 19/11: a yes/no event does not ask how many */
+    if (saved && env.RATE && !yesNoOnly2) await armPartyNudge(env, guest, from, sendCh);   /* 02/11 audit: was an undefined `ch` → ReferenceError after the sheet write, the guest got no reply */
+    await say(saved ? (yesNoOnly2 ? GUEST_REPLY.yesOnly : GUEST_REPLY.askParty) : 'קיבלנו, רגע רושמים 🙂');
     await log('אורח שינה למגיע בטקסט חופשי'); return true;
   }
   const when = c(6) ? `📅 ${heDate(c(6))}${c(36) ? ' בשעה ' + c(36) : ''}` : '';
@@ -5895,6 +5898,7 @@ const GUEST_REPLY = {
   declined: 'חבל שלא תהיו, תודה שעדכנתם 🙏',
   maybe: 'אין לחץ, אפשר לעדכן כאן בכל רגע 🙂',
   counted: (n) => `נרשם, ${n} מגיעים 🎉 נתראה!`,
+  yesOnly: 'נרשם, תודה! נתראה באירוע 🎉',   /* 19/11: yes/no events — no count question */
   calendarBtn: 'הוספה ליומן',
 };
 function guestFlow() {
@@ -6149,10 +6153,13 @@ async function sendWave(env, ev, token, guests, wave, dry, budget) {
     const chosenTmpl = await styledTemplate(env, token, useVid ? 'vid' : useImg ? 'img' : 'text', baseTmpl);
     const styled = chosenTmpl !== baseTmpl;
     const abType = wave.key === 2 ? 'reminder' : wave.key === 3 ? 'extra' : 'invite';
-    const abv = custom || styled ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
+    /* 19/11 Richard: a yes/no event sends the same wording with two buttons only (מגיע/ה · לא מגיע/ה). The twin is
+       <template>_yn, used only after Meta approved it (tmplyn:<template>); until then the regular one goes out. */
+    const ynTwin = !custom && env.RATE && await env.RATE.get('yesno:' + token).catch(() => null) ? await env.RATE.get('tmplyn:' + chosenTmpl).catch(() => null) : null;
+    const abv = custom || styled || ynTwin ? null : await ab.pickVariant(env, abType, phone, token, { current: chosenTmpl });
     const res = custom
       ? await sendTemplate(env, phone, custom.name, [], custom.header === 'NONE' ? '' : (custom.header === 'VIDEO' ? videoUrl : invite), 'he', 'guests', { occasion, wave: wave.key, token, name })
-      : await sendTemplate(env, phone, abv ? abv.template : chosenTmpl,
+      : await sendTemplate(env, phone, ynTwin || (abv ? abv.template : chosenTmpl),
       [name, occasion, hosts, date, time, venue], useVid ? videoUrl : useImg ? invite : '', 'he', 'guests',
       { occasion, wave: wave.key, token, name });
     /* 02/11 audit: the budget (or a missing number) is out — stop HERE and
@@ -12497,6 +12504,45 @@ const WORKER = {
       return okJson({ ok: !!(r && r.ok), status: r && r.status, result: j }, origin);
     }
     if (url.pathname === '/api/template-spaced' && request.method === 'POST') return handleTemplateSpaced(request, env, origin);
+    /* 19/11: two-button twins (<name>_yn) of the invitation/reminder templates, for yes/no events.
+       POST {action?: 'submit'|'activate'|'deactivate', names?: [...]} — default names: the live invitation template. */
+    if (url.pathname === '/api/template-yesno' && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      if (!isAdmin(env, b.admin_key)) return deny(403, 'bad-admin-key', origin);
+      if (!env.WA_TOKEN_GUESTS || !env.RATE) return deny(503, 'not-configured', origin);
+      const waba = '1378764257421712', tok = env.WA_TOKEN_GUESTS;
+      const live0 = (await env.RATE.get('invitetmpl').catch(() => null)) || 'hazmana_ishur';
+      const names = (Array.isArray(b.names) && b.names.length ? b.names.map(String) : [live0]).slice(0, 6);
+      const rows = [];
+      for (const base of names) {
+        const t = await templateInfo(env, base, { components: true }).catch(() => null);
+        const r1 = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(base)}&fields=name,status,category,language,components`, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+        const j1 = r1 ? await r1.json().catch(() => null) : null;
+        const live = ((j1 && j1.data) || []).find(x => x.name === base) || null;
+        const twin = base + '_yn';
+        const r2 = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates?name=${encodeURIComponent(twin)}&fields=name,status,category`, { headers: { Authorization: 'Bearer ' + tok } }).catch(() => null);
+        const j2 = r2 ? await r2.json().catch(() => null) : null;
+        const tw = ((j2 && j2.data) || []).find(x => x.name === twin) || null;
+        const row = { base, twin, live_status: live ? live.status : 'MISSING', live_category: live ? live.category : '', twin_status: tw ? tw.status : '', twin_category: tw ? tw.category : '', on: (await env.RATE.get('tmplyn:' + base).catch(() => null)) === twin,
+          buttons: live ? (((live.components || []).find(c => c.type === 'BUTTONS') || {}).buttons || []).map(x => x.text) : [], body: live ? (((live.components || []).find(c => c.type === 'BODY') || {}).text || '').slice(0, 600) : '', known: !!t };
+        if (b.action === 'submit' && live && live.status === 'APPROVED' && !tw) {
+          const comps = (live.components || []).map(c => c.type === 'BUTTONS' ? { type: 'BUTTONS', buttons: [{ type: 'QUICK_REPLY', text: 'מגיע/ה' }, { type: 'QUICK_REPLY', text: 'לא מגיע/ה' }] } : c);
+          if (comps.some(c => c.type === 'HEADER' && c.format && c.format !== 'TEXT')) row.submit = 'media-header';
+          else {
+            const res = await fetch(`https://graph.facebook.com/v21.0/${waba}/message_templates`, { method: 'POST', headers: { Authorization: 'Bearer ' + tok, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ name: twin, language: live.language || 'he', category: live.category || 'UTILITY', components: comps }) }).catch(() => null);
+            const j = res ? await res.json().catch(() => null) : null;
+            row.submit = res && res.ok ? 'submitted' : 'failed: ' + String((j && j.error && (j.error.error_user_msg || j.error.message)) || 'no answer').slice(0, 200);
+            if (res && res.ok) { row.twin_status = String((j && j.status) || 'PENDING'); row.twin_category = String((j && j.category) || ''); }
+            await logEvent(env, { area: 'תבניות', action: 'הוגש עותק עם שני כפתורים (מגיע / לא מגיע)', ok: !!(res && res.ok), review: !(res && res.ok), ref: twin, detail: row.submit }).catch(() => {});
+          }
+        }
+        if (b.action === 'activate') { if (row.twin_status === 'APPROVED') { await env.RATE.put('tmplyn:' + base, twin); row.on = true; } else row.activate = 'not-approved'; }
+        if (b.action === 'deactivate') { await env.RATE.delete('tmplyn:' + base).catch(() => {}); row.on = false; }
+        rows.push(row);
+      }
+      return okJson({ ok: true, live_invite: live0, rows }, origin);
+    }
     /* 18/11: one test email from the client sender (info@ishur.io), to check where it lands. Admin only. */
     if (url.pathname === '/api/mail-test' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
