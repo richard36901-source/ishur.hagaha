@@ -13121,6 +13121,17 @@ const WORKER = {
       const tier = Number(b.tier) || 0, planText = { basic: 'בסיס', pro: 'פרמיום', premium: 'הכל כלול' }[String(b.plan || '')] || '';
       const hn = Number(b.hostess) || (b.hostess ? 2 : 0);
       const description = String(b.description || `${tier} רשומות ${planText}${hn === 1 ? ' + דיילת אחת' : hn > 1 ? ` + ${hn} דיילות` : ''}`).trim();
+      /* 19/11 Richard: a saved promo link went straight to Grow with no client on it, so the sale landed as "לקוח ishur"
+         with phone 0500000000, the invoice carried no name and the buyer never ticked the terms (יוחאי בללי, 18/11).
+         A saved promo is now an ORDER PAGE of ours: name, phone, occasion, terms — and only then a Grow link minted for
+         that person. The offer itself (sum / records / hostesses) is kept here, so the page cannot change the price. */
+      if (String(b.note || '') === 'playbook' && env.RATE) {
+        const id = Array.from(crypto.getRandomValues(new Uint8Array(6)), x => x.toString(16).padStart(2, '0')).join('');
+        await env.RATE.put('promo:' + id, JSON.stringify({ sum, tier, plan: planText, hostess: hn, description, title: String(b.title || '').slice(0, 80), at: new Date().toISOString() }), { expirationTtl: 400 * 86400 });
+        const url2 = 'https://go.ishur.io/order.html?o=' + id;
+        await logEvent(env, { area: 'תשלום', action: `קישור מבצע (עמוד הזמנה): ${description} · ₪${sum}`, ok: true, detail: url2 }).catch(() => {});
+        return okJson({ ok: true, url: url2, description, sum, order_page: true }, origin);
+      }
       const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
         sum, description, token: '', kind: 'special', scope: 'all', label: description, n: tier,
         name: String(b.name || 'לקוח ishur'), phone: String(b.phone || '').replace(/^972/, '0'), email: String(b.email || 'noreply@ishur.io'),
@@ -13131,6 +13142,36 @@ const WORKER = {
       const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
       await logEvent(env, { area: 'תשלום', action: `קישור תשלום מיוחד: ${description} · ₪${sum}`, ok: !!link, review: !link, detail: link ? String(link) : mtxt.slice(0, 200) }).catch(() => {});
       return okJson({ ok: !!link, url: link || '', description, sum, make: link ? undefined : mtxt.slice(0, 200) }, origin);
+    }
+    /* 19/11: the order page of a saved promo. info → what is being bought; order → the buyer's details + consent, then a Grow link for them. */
+    if ((url.pathname === '/api/promo-info' || url.pathname === '/api/promo-order') && request.method === 'POST') {
+      let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const id = String(b.o || '').replace(/[^0-9a-f]/g, '').slice(0, 12);
+      let pr = null; try { pr = id.length === 12 && env.RATE ? JSON.parse((await env.RATE.get('promo:' + id)) || 'null') : null; } catch {}
+      if (!pr) return deny(404, 'unknown-offer', origin);
+      if (url.pathname === '/api/promo-info') return okJson({ ok: true, sum: pr.sum, tier: pr.tier, plan: pr.plan, hostess: pr.hostess, title: pr.title || '' }, origin);
+      const ip = request.headers.get('CF-Connecting-IP') || 'x';
+      if (await overBudget(env, 'rl:promoorder:' + ip, 12, 3600)) return deny(429, 'slow-down', origin);
+      const name = String(b.name || '').replace(/[<>"]/g, '').replace(/\s+/g, ' ').trim().slice(0, 60), phone = normPhone(b.phone || '');
+      const occasion = String(b.occasion || '').replace(/[<>"]/g, '').trim().slice(0, 30);
+      if (name.length < 2 || !/[א-תA-Za-z]/.test(name)) return deny(400, 'bad-name', origin);
+      if (!isIlMobile(phone)) return deny(400, 'bad-phone', origin);
+      if (b.consent !== true) return deny(400, 'no-consent', origin);
+      if (!env.GROW_LINK_HOOK) return okJson({ ok: false, why: 'no-hook' }, origin);
+      const mk = await hookFetch(env, env.GROW_LINK_HOOK, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
+        sum: pr.sum, description: pr.description, token: '', kind: 'special', scope: 'all', label: pr.description, n: pr.tier,
+        name, phone: phone.replace(/^972/, '0'), email: validEmail(b.email) ? String(b.email).trim() : 'noreply@ishur.io',
+        /* the thanks page on the SAME host as the order page, so it finds the phone the buyer just typed and claims the purchase by itself */
+        successUrl: 'https://go.ishur.io/thanks.html', cancelUrl: 'https://go.ishur.io/order.html?o=' + id,
+        cField1: 'promo:' + id, cField2: occasion,
+      }) }).catch(() => null);
+      let mj = null, mtxt = ''; try { mtxt = mk ? await mk.text() : ''; mj = JSON.parse(mtxt); } catch {}
+      const link = mj && (mj.url || mj.link || (mj.data && mj.data.url));
+      /* the consent is evidence: who, when, from where, to which terms */
+      await logEvent(env, { area: 'תשלום', action: link ? 'הזמנה מעמוד מבצע: פרטים ואישור תנאים התקבלו, נוצר קישור תשלום' : 'הזמנה מעמוד מבצע: לא נוצר קישור תשלום', ok: !!link, review: !link, phone,
+        detail: `${name} · ${pr.description} · ₪${pr.sum} · אישר/ה את תנאי השימוש (ishur.io/terms.html) · ${ip}${link ? '' : ' · ' + mtxt.slice(0, 160)}` }).catch(() => {});
+      if (!link) { await alert(env, 'תשלום', 'עמוד מבצע: לא נוצר קישור תשלום', `${pr.description} · ${mtxt.slice(0, 160)}`, { key: 'promoorder_fail' }).catch(() => {}); return okJson({ ok: false, why: 'no-link' }, origin); }
+      return okJson({ ok: true, url: String(link) }, origin);
     }
     if (url.pathname === '/api/audit-export' && request.method === 'POST') {
       let b = {}; try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

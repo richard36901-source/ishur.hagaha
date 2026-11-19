@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex">
+<title>הזמנה · אישורי הגעה</title>
+<link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&family=Rubik:wght@500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=74"></script>
+<style>
+  /* 19/11 Richard: the page a saved promo link opens. Name, phone, occasion and the terms tick come BEFORE the payment,
+     so the sale never lands without a client on it. Our brand, simple, radius 8px at most, light and dark. */
+  :root{
+    --green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;
+    --ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bg:#f9fafb;--card:#fff;--err:#9a3412;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{--green:#7FD1A8;--green2:#A6E3C3;--green4:#16261F;--ink:#F3F4F6;--ink2:#D1D5DB;--ink3:#9CA3AF;--bdr:#2B3440;--bg:#0E1512;--card:#141D19;--err:#FDBA74}
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  [hidden]{display:none!important}
+  body{font-family:'Heebo',sans-serif;background:var(--bg);color:var(--ink);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:28px 16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+  .card{width:100%;max-width:440px;background:var(--card);border:1px solid var(--bdr);border-radius:8px;padding:1.5rem 1.4rem 1.6rem}
+  .brand{display:flex;align-items:center;gap:.5rem;font-weight:600;font-size:.92rem;margin-bottom:1.2rem}
+  .brand img{width:26px;height:26px}
+  h1{font-family:'Rubik',sans-serif;font-size:1.3rem;font-weight:600;margin-bottom:.9rem}
+  .offer{border:1px solid var(--bdr);background:var(--green4);border-radius:8px;padding:.85rem 1rem;margin-bottom:1.2rem}
+  .offer .t{font-weight:600;font-size:.95rem}
+  .offer ul{list-style:none;margin:.35rem 0 .5rem;font-size:.88rem;color:var(--ink2)}
+  .offer li::before{content:"✓ ";color:var(--green)}
+  .offer .sum{font-family:'Rubik',sans-serif;font-size:1.35rem;font-weight:600;color:var(--green)}
+  .offer .vat{font-size:.78rem;color:var(--ink3);margin-inline-start:.35rem}
+  label{display:block;font-size:.84rem;font-weight:500;margin:.8rem 0 .25rem}
+  input[type=text],input[type=tel],select{width:100%;font:inherit;font-size:1rem;padding:.65rem .75rem;border:1px solid var(--bdr);border-radius:8px;background:var(--card);color:var(--ink)}
+  input:focus,select:focus{outline:2px solid var(--green);outline-offset:1px}
+  .ok{display:flex;gap:.55rem;align-items:flex-start;margin-top:1rem;font-size:.86rem;color:var(--ink2)}
+  .ok input{width:20px;height:20px;margin-top:.15rem;flex:none;accent-color:var(--green)}
+  .ok a{color:var(--green);text-decoration:underline}
+  button{width:100%;margin-top:1.1rem;font:inherit;font-weight:600;font-size:1rem;padding:.8rem;border:0;border-radius:8px;background:var(--gold);color:#fff;cursor:pointer}
+  button:active{transform:scale(.99)}
+  button[disabled]{opacity:.6;cursor:default}
+  .msg{min-height:1.2em;margin-top:.6rem;font-size:.84rem;color:var(--err)}
+  .foot{margin-top:1rem;font-size:.78rem;color:var(--ink3);text-align:center}
+  .foot a{color:var(--ink3)}
+</style>
+</head>
+<body>
+<main class="card">
+  <div class="brand"><img src="assets/logo.png" alt=""><span>אישורי הגעה · ishur.io</span></div>
+  <div id="load" style="color:var(--ink3);font-size:.9rem">רק רגע…</div>
+  <div id="gone" hidden>
+    <h1>הקישור הזה כבר לא פעיל</h1>
+    <p style="color:var(--ink2);font-size:.92rem">כתבו לנו בוואטסאפ ונשלח לכם קישור מעודכן.</p>
+    <button type="button" id="wa1">לוואטסאפ שלנו</button>
+  </div>
+  <form id="f" hidden novalidate>
+    <h1>פרטים להזמנה</h1>
+    <div class="offer">
+      <div class="t" id="oT"></div>
+      <ul id="oL"></ul>
+      <span class="sum" id="oS"></span><span class="vat">כולל מע״מ</span>
+    </div>
+    <label for="name">שם מלא</label>
+    <input id="name" type="text" autocomplete="name" maxlength="60" required>
+    <label for="phone">טלפון נייד</label>
+    <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000" maxlength="14" required>
+    <label for="occ">סוג האירוע</label>
+    <select id="occ" required>
+      <option value="">בחירה</option>
+      <option>חתונה</option><option>בר מצווה</option><option>בת מצווה</option><option>חינה</option><option>ברית</option><option>בריתה</option><option>יום הולדת</option><option>אירוע חברה</option><option>אחר</option>
+    </select>
+    <label class="ok"><input id="consent" type="checkbox"><span>קראתי ואני מאשר/ת את <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש ומדיניות הפרטיות</a>, כולל מדיניות הביטול.</span></label>
+    <button type="submit" id="go">לתשלום מאובטח</button>
+    <div class="msg" id="msg" role="status" aria-live="polite"></div>
+    <div class="foot">התשלום מתבצע בעמוד מאובטח של Grow · <a href="terms.html" target="_blank" rel="noopener">תנאי השימוש</a></div>
+  </form>
+</main>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var BASE = (window.CFG && CFG.endpoint) ? CFG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+  var o = (new URLSearchParams(location.search).get('o') || '').replace(/[^0-9a-f]/g, '');
+  var wa = function (t) { return (window.CFG && CFG.waLink) ? CFG.waLink(t) : 'https://wa.me/972559504499?text=' + encodeURIComponent(t); };
+  var post = function (path, body) {
+    return fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
+      .then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
+  };
+  function gone() { $('load').hidden = true; $('f').hidden = true; $('gone').hidden = false; }
+  $('wa1').addEventListener('click', function () { location.href = wa('היי, קיבלתי קישור להזמנה שלא נפתח'); });
+  if (o.length !== 12) { gone(); return; }
+  post('/api/promo-info', { o: o }).then(function (j) {
+    if (!j || !j.ok) { gone(); return; }
+    $('oT').textContent = j.title || 'חבילת אישורי הגעה';
+    var li = ['אישורי הגעה בוואטסאפ · ' + (j.plan || 'הכל כלול'), 'עד ' + j.tier + ' רשומות'];
+    if (j.hostess) li.push(j.hostess === 1 ? 'דיילת אחת באירוע' : j.hostess + ' דיילות באירוע');
+    $('oL').innerHTML = ''; li.forEach(function (t) { var e = document.createElement('li'); e.textContent = t; $('oL').appendChild(e); });
+    $('oS').textContent = '₪' + Number(j.sum).toLocaleString('he-IL');
+    $('load').hidden = true; $('f').hidden = false; $('name').focus();
+  }, gone);
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var name = $('name').value.replace(/\s+/g, ' ').trim(), phone = $('phone').value.replace(/\D/g, ''), occ = $('occ').value;
+    var msg = $('msg'); msg.textContent = '';
+    if (name.length < 2) { msg.textContent = 'נא למלא שם מלא'; $('name').focus(); return; }
+    if (!/^(05\d{8}|9725\d{8})$/.test(phone)) { msg.textContent = 'נא למלא מספר נייד מלא, למשל 050-1234567'; $('phone').focus(); return; }
+    if (!occ) { msg.textContent = 'נא לבחור את סוג האירוע'; $('occ').focus(); return; }
+    if (!$('consent').checked) { msg.textContent = 'כדי להמשיך צריך לאשר את תנאי השימוש'; $('consent').focus(); return; }
+    var b = $('go'); b.disabled = true; b.textContent = 'פותחים את עמוד התשלום…';
+    post('/api/promo-order', { o: o, name: name, phone: phone, occasion: occ, consent: true }).then(function (j) {
+      if (j && j.ok && j.url) { try { localStorage.setItem('ishur_pending', JSON.stringify({ phone: phone, name: name, occasion: occ, consent: true, at: Date.now() })); } catch (e) {} location.href = j.url; return; }
+      b.disabled = false; b.textContent = 'לתשלום מאובטח';
+      msg.innerHTML = ''; var a = document.createElement('a'); a.href = wa('היי, אני רוצה להשלים הזמנה: ' + name); a.textContent = 'עמוד התשלום לא נפתח כרגע. לחצו כאן ונשלים יחד בוואטסאפ.'; a.style.color = 'inherit'; msg.appendChild(a);
+    }, function () { b.disabled = false; b.textContent = 'לתשלום מאובטח'; msg.textContent = 'אין חיבור כרגע. נסו שוב בעוד רגע.'; });
+  });
+})();
+</script>
+</body>
+</html>
