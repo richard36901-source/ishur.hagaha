@@ -2,7 +2,7 @@
   "source": "Generated from https://ishur.io/config.js by scripts/build-offers.mjs. Prices in ILS, VAT included, one-time per event.",
   "business": {
     "name": "ishur.io · אישורי הגעה",
-    "operator": "ריצארד טומסקי, עוסק מורשה 322414905",
+    "operator": "ריצארד טומסקי, עוסק מורשה",
     "url": "https://ishur.io/",
     "whatsapp": "+972559504499"
   },

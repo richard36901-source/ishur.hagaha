@@ -203,7 +203,7 @@ Tiers are enforced in code (`agent/src/gate.js`): 🟢 read-only runs immediatel
 - 9799: TIER_250.
 - `business_users` returned `[]`.
 
-**Site edits for verification:** one legal line on each of `index.html` (footer), `terms.html` and `llms.txt`: "ריצארד טומסקי, עוסק מורשה 322414905".
+**Site edits for verification:** one legal line on each of `index.html` (footer), `terms.html` and `llms.txt`: "ריצארד טומסקי, עוסק מורשה [הוסר]".
 
 **Needs Richard:**
 - The business address. It isn't in the repo; it's a TODO in the ticket.
