@@ -45,7 +45,7 @@ import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evl
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
 import { slackQuietHours, slackSend, flushSlackQueue, slackPost, slackResolve, alert, URGENT_ALERT_RE, SLACK_FOOTERS, slackFormat } from './slack.js';
 import { slackDigest } from './slack-gate.js';   /* 04/11 the 09:00 morning digest (registry: slack_digest) */
-import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody } from './lib.js';
+import { normPhone, isWaPhone, isIlMobile, sendingPaused, okJson, seenOnce, safeEqual, isAdmin, isTestPhone, kvPrefix, ALLOWED_ORIGINS, cors, deny, sha256Hex, memOver, memCount, makeWriterBody, guestNameKey } from './lib.js';
 import { authGate, handleAuth, isSessionToken, readSession } from './auth.js';
 import { alertDateSet, hostessReminders, arrivalOf } from './hostess-alerts.js';
 import { SWR_ROUTES, swrServe } from './swr.js';
@@ -2136,14 +2136,16 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
        but it would have been counted against the cap and shown twice) */
     let existingRows = 0, duplicates = [];
     if (merge) {
-      const have = new Set();
+      const have = new Set(), linkNames = new Set();
       for (const g of ((capSnap && capSnap.guests && capSnap.guests.values) || [])) {
         if (String(g[28] || '').trim() !== token) continue;
         existingRows++;
         const p = normPhone(g[4] || ''); if (p) have.add(p);
+        /* 19/11: somebody who already answered through the group link is on the board; the same name in an added file is them */
+        if (/נרשם מהקישור/.test(String(g[24] || ''))) { const nk = guestNameKey(g[3]); if (nk) linkNames.add(nk); }
       }
       const fresh = [];
-      for (const g of guests) { const p = normPhone(g.phone); if (p && have.has(p)) duplicates.push(g.name || p); else { fresh.push(g); have.add(p); } }
+      for (const g of guests) { const p = normPhone(g.phone); const nk = guestNameKey(g.name); if ((p && have.has(p)) || (nk && linkNames.has(nk))) duplicates.push(g.name || p); else { fresh.push(g); have.add(p); } }
       if (!fresh.length) {
         return new Response(JSON.stringify({ ok: false, error: 'all-duplicates', duplicates: duplicates.length }),
           { status: 422, headers: { 'Content-Type': 'application/json', ...cors(origin) } });
@@ -13312,14 +13314,28 @@ const WORKER = {
       const ev = ((raw && raw.events && raw.events.values) || []).find(r => String(r[1] || '').trim() === tok);
       if (!ev || String(ev[27] || '').trim() === 'כן') return deny(404, 'bad-token', origin);
       const gRows = ((raw && raw.guests && raw.guests.values) || []).filter(g => String(g[28] || '').trim() === tok);
-      const existing = gRows.find(g => normPhone(g[4] || '') === phone);
+      let existing = gRows.find(g => normPhone(g[4] || '') === phone);
+      /* 19/11 Richard: "שזה יאחד". No row with this phone, but exactly ONE unanswered row of the event carries the same
+         name → it is the same person, listed with a wrong number. The answer goes on that row and the row takes the
+         phone they just gave (the latest update wins), so nothing is added and later reminders reach them. */
+      let mergedByName = false;
+      if (!existing) {
+        const nk = guestNameKey(name);
+        const twins = nk ? gRows.filter(g => !String(g[15] || '').trim() && !/נרשם מהקישור/.test(String(g[24] || '')) && guestNameKey(g[3]) === nk) : [];
+        if (twins.length === 1) {
+          existing = twins[0]; mergedByName = true;
+          const all = (raw && raw.guests && raw.guests.values) || [], idx = all.indexOf(existing);
+          const was = String(existing[4] || '').trim();
+          if (idx >= 0) await sheetBatchWrite(env, [{ range: `אורחים!E${idx + 2}`, values: [[/^0/.test(was) ? '0' + phone.slice(3) : phone]] }]).catch(() => {});
+        }
+      }
       if (existing) {
         /* already on the list (invited by the hosts): this is simply their answer */
         /* 15/11: the link belongs to ONE event — the answer goes on that event's row, never on another
            list this phone happens to be on (findGuestByPhone picks by phone across all events) */
         const gid = String(existing[2] || '').trim();
         if (gid) await writeGuestReply(env, { guest_id: gid, token: tok }, 'מגיע', party).catch(() => {});
-        await logEvent(env, { area: 'ווצאפ', action: 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
+        await logEvent(env, { area: 'ווצאפ', action: mergedByName ? 'אורח מהרשימה אישר דרך הקישור (אוחד לפי שם, הטלפון עודכן)' : 'אורח מהרשימה אישר דרך הקישור הציבורי', ok: true, review: mergedByName, token: tok, phone, detail: name + ' · ' + party }).catch(() => {});
         return okJson({ ok: true, existing: true }, origin);
       }
       const now = new Date().toISOString();

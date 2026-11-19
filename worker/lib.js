@@ -200,3 +200,11 @@ export function makeWriterBody(env, url, body) {
   }
   return body;
 }
+
+/* 19/11 Richard (Aviv's board): the same person twice — once from the hosts' list with a wrong phone (the invitation
+   never arrived), once from the group link with the right one. A name is "the same" when it holds the same words in
+   any order ("אברגיל נתי" = "נתי אברגיל"); one-word names never match, they are too common to merge on. */
+export function guestNameKey(name) {
+  const w = String(name || '').replace(/[^\u0590-\u05ffA-Za-z ]/g, ' ').split(/\s+/).filter(Boolean).map(x => x.toLowerCase()).sort();
+  return w.length >= 2 ? w.join(' ') : '';
+}
