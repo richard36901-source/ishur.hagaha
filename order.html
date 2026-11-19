@@ -81,9 +81,11 @@
 <script>
 (function () {
   var $ = function (id) { return document.getElementById(id); };
-  var BASE = (window.CFG && CFG.endpoint) ? CFG.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
+  /* config.js declares CFG without putting it on window, so it is looked up by name */
+  var C = (typeof CFG !== 'undefined' && CFG) || null;
+  var BASE = (C && C.endpoint) ? C.endpoint('status').replace(/\/api\/status$/, '') : 'https://go.ishur.io';
   var o = (new URLSearchParams(location.search).get('o') || '').replace(/[^0-9a-f]/g, '');
-  var wa = function (t) { return (window.CFG && CFG.waLink) ? CFG.waLink(t) : 'https://wa.me/972559504499?text=' + encodeURIComponent(t); };
+  var wa = function (t) { return (C && C.waLink) ? C.waLink(t) : 'https://wa.me/972559504499?text=' + encodeURIComponent(t); };
   var post = function (path, body) {
     return fetch(BASE + path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) })
       .then(function (r) { return r.json().catch(function () { return { ok: false }; }); });
