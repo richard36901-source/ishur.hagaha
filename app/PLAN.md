@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 21:40.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 21:45.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -33,12 +33,12 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 Split on 20/11 at Richard's request: routine, well-specified work for Opus now; work that needs design judgment or carries production risk for Fable.
 
 **Opus, tonight** (each has a check that says pass or fail)
-- [ ] Simulator, iPhone 18 Pro: tap the code field on the sign-in screen and take a screenshot. Pass = the strip under the clock is solid pine, no text behind it (`#sbar` in `www/app.css`, pinned in `www/app.js`). If it still fails, write what you saw here and leave it for Fable.
-- [ ] Leave the simulator signed in to the second demo client so Richard can play. Phone and code: the way `app/test/app-check.mjs` reads them with `DEMO=2`. The simulator is slow: wait about a minute after launch, and several seconds after each tap before typing.
-- [ ] Give the board's buttons Latin `id`s where they have none (`dashboard.html`, `upload.html`), so `board_click` is counted. Change no behaviour. Check: `npm run check` in `app/` says 39/39, and `/api/app/analytics` lists `board_controls`.
+- [x] Status-bar strip with the keyboard open: seen working in the simulator 20/11 21:26 (solid pine under the clock on both fields).
+- [x] Simulator left signed in to the second demo client (150 invited) 20/11 21:26, on the notification question. To do it again: Phone and code: the way `app/test/app-check.mjs` reads them with `DEMO=2`. The simulator is slow: wait about a minute after launch, and several seconds after each tap before typing.
+- [x] Board taps are counted without touching the board's markup: a control with no id is named by its first `data-*` attribute or its class (`assets/app-track.js`). `npm run check` 40/40, report lists `dashboard#t-skip`.
 - [ ] Runbook `app/RUNBOOK.md`: write the "Not written yet" sections that need no account (signing steps, TestFlight, what to do on a rejection), from Apple's and Capacitor's docs.
-- [ ] Look into the 3 Worker tests that fail after 21:00 Israel time (`test/crm.test.mjs:269`, `test/slack-gate.test.mjs:96` and `:172`). They are not from the app work. Find the cause and write it here. Do not edit the tests; `scripts/promote.sh` stops when they fail, so Richard needs to know.
-- [ ] Merge `origin/main` into `staging` (5 commits), run the Worker tests and `npm run check`, deploy staging. On any merge conflict in `worker/index.js`, stop and leave it for Fable.
+- [x] The 3 Worker tests that fail in the evening: cause is the clock, confirmed 20/11 by running them with the clock moved 12 hours back (33/33 pass) and at 21:28 (3 fail). `crm.test.mjs:269` sets a reminder 3 hours ahead and expects it on today's agenda, so it fails from 21:00 to midnight. `slack-gate.test.mjs:96` and `:172` expect a "resolved" Slack line that is held back at night. The tests were not edited. Until someone fixes them, run `scripts/promote.sh` during the day.
+- [x] `origin/main` merged into `client-app` and `staging` (20/11, commit c44595f). `worker/index.js` merged by itself; two conflicts resolved (`delete-account.html` kept ours, `registry-code.json` regenerated). Worker tests 1044/1044 with the clock at morning, staging smoke PASS, app check 40/40. Not pushed to origin.
 - [ ] After each item: tick it here and in Linear AUT-1141.
 
 **Fable, tomorrow** (design or risk)
@@ -48,6 +48,7 @@ Split on 20/11 at Richard's request: routine, well-specified work for Opus now; 
 - [ ] Whether a Cloudflare Worker can reach Apple's push service at all (unverified since the spec), and the fallback if not. Needs Richard's push key.
 - [ ] Version 1.1: does Apple require its own payment for buying an RSVP package, and the purchase flow that follows from the answer.
 - [ ] Richard's adjustments after he plays with the app in the simulator.
+  - 20/11 21:30, Richard: the empty sixth tile in the board's status grid should hold the commitment to the venue ("כאן תעשה ההתחייבות מול האולם"). Nothing like it exists in the board or the Worker yet. Open question put to Richard: he types the number he committed to the venue and the tile shows the gap to confirmed. Not started.
 - [ ] Usage data: move to D1 if the token gets the permission; design of the report screen when Richard wants it.
 
 ## 1. Apple account (M2)
