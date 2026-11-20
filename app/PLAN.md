@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 22:20.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 22:45.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -15,7 +15,7 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 | M3 | Server and site changes live on production | open |
 | M4 | App signed, App Store record created | open, needs M2 |
 | M5 | App on your own iPhone through TestFlight | open, needs M3 + M4 |
-| M6 | Approved on the App Store | open, about a week after M2 |
+| M6 | Approved on the App Store | open, roughly two weeks after M2 (the redesign was added on 20/11) |
 | M7 | On Google Play | open, 3 weeks or more |
 | M8 | Real clients using it | open |
 | M9 | Version 1.1: buying the next event in the app | later |
@@ -28,9 +28,22 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 
 ---
 
-## Waiting for Richard: the redesign (round 6)
+## The redesign (round 6): decided 20/11, build starts 21/11
 
-On 20/11 Richard asked for a new layout of the tabs, sign-in with Apple or Google, buying in the app, an event schedule with a calendar button, and an event picker. The plan is in `.sdlc/client-app/round6-redesign.md`. Nothing is built. Five questions, asked one at a time; the first is the order of releases. The milestone table and the "about a week" estimate above assume the proposed order (1.0 without sign-in changes and buying).
+Plan: `.sdlc/client-app/round6-redesign.md`. Richard decided: no payments in the app (upgrades, add-ons and new events on the website only); sign-in with Apple or Google and the event schedule come as updates after the first submission.
+
+**Version 1.0 now also includes** (Fable, from 21/11, on staging):
+- [ ] The board in four views, one per tab: ראשי (status, budget, seating, checklist), מוזמנים (list, print, replace list, both add-guest options), שליחות (send schedule, invitation, wording, design, links), חשבון.
+- [ ] Event picker in the header and an all-events page: a row per event, past events greyed and last.
+- [ ] "החבילה שלי" in חשבון: what the package includes and its terms. No prices, no upgrade button.
+- [ ] Review after the event (1 to 10 and a line of text), using the review flow that already exists; Apple's own rating prompt from time to time. Check Google's review-gating rule and Apple's rating-prompt rule against their current text first.
+- [ ] Update the store texts, screenshots and checks for the new layout.
+
+This adds work before the first submission: the "about a week after Apple activates" estimate becomes roughly two weeks. Not measured; revise after the four views are built.
+
+**After 1.0:** 1.1 sign-in with Apple or Google · 1.2 event schedule and calendar button.
+
+Small questions still open, asked one at a time: where the group link sits (ראשי or מוזמנים); whether the review can be skipped once.
 
 ## Claude's own queue (no approval needed, staging only)
 

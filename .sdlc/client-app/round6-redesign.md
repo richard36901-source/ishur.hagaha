@@ -1,6 +1,6 @@
 # client-app · round 6: the app's layout, sign-in, buying, schedule (plan for approval)
 
-Status: **draft, waiting for Richard**. Nothing in this file is built. Written 20/11/2026 from Richard's message that evening.
+Status: **release order and no-payments decided by Richard 20/11; the 1.0 part is approved to build, starting 21/11**. Nothing in this file is built yet. Written 20/11/2026 from Richard's message that evening.
 Rule for this round: no code on `client-app` until Richard answers question 1 below; about 65 commits already wait for one promote.
 
 ## What Richard asked for (his words, shortened)
@@ -84,7 +84,8 @@ What has to be decided or supplied:
 - The app shows what the client already has: "my package" (what is included, the terms) and every event bought on the website, which appears in the app by itself.
 - So checks P7 and P13 (no prices, nothing that sells) stay exactly as they are, and the spec lines "Payments: none" stay true.
 - Section 4 below is kept for the day buying in the app is reopened.
-- Still open: whether sign-in with Apple or Google and the event schedule go into the first submission or into updates.
+- Sign-in with Apple or Google and the event schedule come as updates after the first submission (Richard, same evening: "כן, בעדכון").
+- So version 1.0 is: what is built now + the four views + the event picker and all-events page + "my package" + the review after the event + Apple's rating prompt. Releases after it: 1.1 sign-in, 1.2 schedule and calendar. Buying in the app: not planned.
 
 ## 4. Buying: add-ons, upgrades, another event
 
