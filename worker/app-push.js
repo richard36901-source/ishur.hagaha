@@ -33,7 +33,29 @@ export function quiet(now = new Date()) {
   return h >= 21 || h < 9;
 }
 
-export function buildPush(kind, x = {}) {
+/* 21/11 the client's chosen language (app/www/i18n.js), kept per device at registration. Hebrew is below in buildPush;
+   the others here. Guest and event names stay as they are written. */
+const PUSH_I18N = {
+  en: { guest: 'A guest', answer: 'New answer', yes: (f, n) => `${f} confirmed, ${n === 1 ? '1 coming' : n + ' coming'}`, no: f => `${f} is not coming`, maybe: f => `${f} is not sure yet`, daily: 'Daily summary', ans: a => (a === 1 ? '1 new answer' : a + ' new answers'), coming: n => n + ' coming', pending: n => n + ' have not replied', sent: 'Invitations sent', failed: n => `The invitation did not reach ${n} guests. See who in the Guests tab.` },
+  ru: { guest: 'Гость', answer: 'Новый ответ', yes: (f, n) => `${f}: придёт, гостей: ${n}`, no: f => `${f}: не придёт`, maybe: f => `${f}: ещё не уверен(а)`, daily: 'Итоги дня', ans: a => 'новых ответов: ' + a, coming: n => 'придут: ' + n, pending: n => 'не ответили: ' + n, sent: 'Приглашения отправлены', failed: n => `Приглашение не дошло до гостей: ${n}. Кому — во вкладке «Гости».` },
+  ar: { guest: 'ضيف', answer: 'ردّ جديد', yes: (f, n) => `${f} أكّد الحضور، ${n === 1 ? 'شخص واحد' : n + ' أشخاص'}`, no: f => `${f} لن يحضر`, maybe: f => `${f} غير متأكد بعد`, daily: 'ملخص يومي', ans: a => (a === 1 ? 'ردّ جديد واحد' : a + ' ردود جديدة'), coming: n => n + ' سيحضرون', pending: n => n + ' لم يردّوا بعد', sent: 'أُرسلت الدعوات', failed: n => `لم تصل الدعوة إلى ${n} ضيوف. يمكن رؤية من في تبويب الضيوف.` },
+  fr: { guest: 'Un invité', answer: 'Nouvelle réponse', yes: (f, n) => `${f} a confirmé, ${n === 1 ? '1 personne' : n + ' personnes'}`, no: f => `${f} ne viendra pas`, maybe: f => `${f} n’est pas encore sûr(e)`, daily: 'Résumé du jour', ans: a => (a === 1 ? '1 nouvelle réponse' : a + ' nouvelles réponses'), coming: n => n + ' viennent', pending: n => n + ' n’ont pas répondu', sent: 'Invitations envoyées', failed: n => `L’invitation n’est pas parvenue à ${n} invités. Voir qui dans l’onglet Invités.` },
+  es: { guest: 'Un invitado', answer: 'Nueva respuesta', yes: (f, n) => `${f} confirmó, ${n === 1 ? '1 persona' : n + ' personas'}`, no: f => `${f} no vendrá`, maybe: f => `${f} aún no está seguro/a`, daily: 'Resumen del día', ans: a => (a === 1 ? '1 respuesta nueva' : a + ' respuestas nuevas'), coming: n => n + ' vienen', pending: n => n + ' sin responder', sent: 'Invitaciones enviadas', failed: n => `La invitación no llegó a ${n} invitados. Vean a quiénes en la pestaña Invitados.` },
+  yi: { guest: 'א גאַסט', answer: 'אַ נײַער ענטפֿער', yes: (f, n) => `${f} האָט באַשטעטיקט, ${n === 1 ? '1 קומט' : n + ' קומען'}`, no: f => `${f} וועט נישט קומען`, maybe: f => `${f} איז נאָך נישט זיכער`, daily: 'טאָג־סך־הכּל', ans: a => (a === 1 ? '1 נײַער ענטפֿער' : a + ' נײַע ענטפֿערס'), coming: n => n + ' קומען', pending: n => n + ' האָבן נאָך נישט געענטפֿערט', sent: 'די אײַנלאַדונגען זײַנען געשיקט', failed: n => `די אײַנלאַדונג איז נישט אָנגעקומען צו ${n} געסט. זעט ווער אין דער געסט־לשונית.` },
+  am: { guest: 'እንግዳ', answer: 'አዲስ ምላሽ', yes: (f, n) => `${f} መገኘቱን አረጋግጧል፣ ${n} ሰው`, no: f => `${f} አይመጣም`, maybe: f => `${f} ገና እርግጠኛ አይደለም`, daily: 'የቀኑ ማጠቃለያ', ans: a => a + ' አዲስ ምላሾች', coming: n => n + ' ይመጣሉ', pending: n => n + ' ገና አልመለሱም', sent: 'ግብዣዎቹ ተልከዋል', failed: n => `ግብዣው ለ${n} እንግዶች አልደረሰም። እነማን እንደሆኑ በእንግዶች ትር ይመልከቱ።` },
+};
+export const PUSH_LANGS = new Set(['he', ...Object.keys(PUSH_I18N)]);
+
+export function buildPush(kind, x = {}, lang = 'he') {
+  const L = PUSH_I18N[lang];
+  if (L) {
+    const f = scrub(x.guest).split(' ').slice(0, 2).join(' ') || L.guest, e = scrub(x.event);
+    let t = 'ishur', b = '';
+    if (kind === 'answer') { t = e || L.answer; const n = Number(x.seats) || 1; b = x.status === 'confirmed' ? L.yes(f, n) : x.status === 'declined' ? L.no(f) : L.maybe(f); }
+    else if (kind === 'daily') { t = e ? L.daily + ' · ' + e : L.daily; const a = Number(x.answered) || 0; b = [a ? L.ans(a) : '', x.confirmed != null ? L.coming(Number(x.confirmed)) : '', x.pending != null ? L.pending(Number(x.pending)) : ''].filter(Boolean).join(' · '); }
+    else if (kind === 'failed') { t = e || L.sent; b = L.failed(Number(x.failed) || 0); }
+    return { title: scrub(t), body: scrub(b), data: { kind } };
+  }
   const first = scrub(x.guest).split(' ').slice(0, 2).join(' ') || 'מוזמן';
   const ev = scrub(x.event);
   let title = 'ishur', body = '';
@@ -55,11 +77,12 @@ export function buildPush(kind, x = {}) {
   return { title: scrub(title), body: scrub(body), data: { kind } };
 }
 
-export async function register(env, phone, { device, platform, sandbox = false } = {}) {
+export async function register(env, phone, { device, platform, sandbox = false, lang = 'he' } = {}) {
   device = String(device || '').trim(); platform = platform === 'android' ? 'android' : 'ios';
   if (!/^[A-Za-z0-9_:\-]{32,4096}$/.test(device)) return { ok: false, error: 'bad-device' };
   const rec = await read(env, phone);
-  rec.devices = [{ device, platform, sandbox: !!sandbox, at: new Date().toISOString() }, ...rec.devices.filter(d => d.device !== device)].slice(0, MAX_DEVICES);
+  lang = PUSH_LANGS.has(lang) ? lang : 'he';
+  rec.devices = [{ device, platform, sandbox: !!sandbox, lang, at: new Date().toISOString() }, ...rec.devices.filter(d => d.device !== device)].slice(0, MAX_DEVICES);
   await write(env, phone, rec);
   return { ok: true, prefs: rec.prefs };
 }
@@ -107,7 +130,7 @@ async function sendApns(env, dev, payload) {
 async function deliver(env, phone, rec, payload, send) {
   let sent = 0; const gone = [];
   for (const dev of rec.devices) {
-    let r; try { r = await send(env, dev, payload); } catch (e) { r = { status: 0, error: String(e && e.message || e).slice(0, 120) }; }
+    let r; try { r = await send(env, dev, typeof payload === 'function' ? payload(dev.lang || 'he') : payload); } catch (e) { r = { status: 0, error: String(e && e.message || e).slice(0, 120) }; }
     if (r.status === 200) sent++;
     else if (r.status === 410 || /BadDeviceToken|Unregistered/.test(r.reason || '')) gone.push(dev.device);
   }
@@ -125,7 +148,7 @@ export async function notifyAnswer(env, phone, x, { now = new Date(), send = sen
     await write(env, phone, rec);
     return { sent: 0, held: true };
   }
-  const r = await deliver(env, phone, rec, buildPush('answer', x), send);
+  const r = await deliver(env, phone, rec, lang => buildPush('answer', x, lang), send);
   if (r.dropped) await write(env, phone, rec);
   return r;
 }
@@ -135,7 +158,7 @@ export async function dailySummary(env, phone, x, { now = new Date(), send = sen
   const rec = await read(env, phone);
   const answered = rec.held.filter(h => !x.token || h.t === x.token).length;
   let r = { sent: 0 };
-  if (rec.devices.length && rec.prefs.daily && !quiet(now)) r = await deliver(env, phone, rec, buildPush('daily', { ...x, answered }), send);
+  if (rec.devices.length && rec.prefs.daily && !quiet(now)) r = await deliver(env, phone, rec, lang => buildPush('daily', { ...x, answered }, lang), send);
   rec.held = []; await write(env, phone, rec);
   return r;
 }
@@ -143,7 +166,7 @@ export async function notifyFailed(env, phone, x, { now = new Date(), send = sen
   if (!(await on(env)) || quiet(now)) return { sent: 0 };
   const rec = await read(env, phone);
   if (!rec.devices.length || !rec.prefs.failed || !(Number(x.failed) > 0)) return { sent: 0 };
-  const r = await deliver(env, phone, rec, buildPush('failed', x), send);
+  const r = await deliver(env, phone, rec, lang => buildPush('failed', x, lang), send);
   if (r.dropped) await write(env, phone, rec);
   return r;
 }

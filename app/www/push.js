@@ -17,7 +17,7 @@
   function showPrefs(prefs) { $('pushCard').hidden = false; Object.keys(KINDS).forEach(function (id) { $(id).checked = prefs ? prefs[KINDS[id]] !== false : true; }); }
   function sendToken() {
     if (!device || !App.session()) return;
-    App.post('/api/app/push-register', { session: App.session(), device: device, platform: platform, sandbox: !!ENV.apnsSandbox })
+    App.post('/api/app/push-register', { session: App.session(), device: device, platform: platform, sandbox: !!ENV.apnsSandbox, lang: (window.IshurI18n && IshurI18n.lang) || 'he' })
       .then(function (r) { if (r.status === 200 && r.body.ok) { App.store.set('push', 'on'); showPrefs(r.body.prefs); } });
   }
   Push.addListener('registration', function (t) { device = (t && t.value) || ''; sendToken(); });

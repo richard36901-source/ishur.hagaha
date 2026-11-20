@@ -101,3 +101,21 @@ test('morningRun: once a day, only in the 09:00 hour, one summary per client wit
   assert.equal((await P.morningRun(env, d, { now: at(9, 10), send })).ran, false);
   assert.equal(sent.length, 1);
 });
+
+test('21/11 languages: each device gets the notification in its own language; names stay as written', async () => {
+  for (const l of ['en', 'ru', 'ar', 'fr', 'es', 'yi', 'am']) for (const kind of ['answer', 'daily', 'failed']) {
+    const p = P.buildPush(kind, { guest: 'דנה כהן', seats: 3, status: 'confirmed', event: 'נועה ויונתן', confirmed: 41, pending: 12, failed: 6, answered: 2 }, l);
+    assert.ok(p.title && p.body, l + kind); assert.doesNotMatch(JSON.stringify(p), /\d{7,}/);
+    if (l !== 'yi') assert.doesNotMatch(p.body.replace(/דנה כהן|נועה ויונתן/g, ''), /[\u0590-\u05FF]/, l + ' ' + kind + ': ' + p.body);
+  }
+  assert.equal(P.buildPush('answer', { guest: 'דנה כהן', seats: 3, status: 'confirmed' }, 'en').body, 'דנה כהן confirmed, 3 coming');
+  assert.equal(P.buildPush('answer', { guest: 'דנה כהן', seats: 3, status: 'confirmed' }, 'xx').body, 'דנה כהן אישר/ה הגעה, 3 מגיעים', 'unknown → Hebrew');
+  await P.register(env, PHONE, { device: DEV, platform: 'ios', lang: 'fr' });
+  await P.register(env, PHONE, { device: 'b'.repeat(64), platform: 'ios', lang: 'zz' });
+  const devs = (await P.read(env, PHONE)).devices;
+  assert.deepEqual(devs.map(d => d.lang).sort(), ['fr', 'he']);
+  await P.notifyAnswer(env, PHONE, { guest: 'דנה', seats: 2, status: 'confirmed', event: 'א', token: TOK }, { now: at(12), send });
+  assert.equal(sent.length, 2);
+  assert.match(sent.find(x => x.device.device === DEV).payload.body, /a confirmé/, 'French device');
+  assert.match(sent.find(x => x.device.device !== DEV).payload.body, /אישר\/ה הגעה/, 'unknown language falls back to Hebrew');
+});
