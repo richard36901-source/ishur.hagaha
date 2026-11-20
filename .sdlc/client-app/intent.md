@@ -49,6 +49,13 @@ My reading: a client who just bought signs in to the app and does the whole setu
 guest upload), and sees every event on their phone number. Covered by the board-inside-the-app decision, extended
 to the pages the board links to (guest upload first).
 
+## Richard, 20/11/2026 (third round, in chat)
+- Header in the middle, reads "אישורי הגעה לאירועים" (first he wrote "אישורי הגעה - ishur.io"; I kept "- ishur.io"
+  after the new title, my reading). Done.
+- The main screen should look like the client board on the site, with the event details and the invitation (image,
+  text). Done by making home ("ראשי") the board itself; the app's own summary is the no-network fallback.
+- He wants to see every screen: `app/store/preview/`.
+
 ## Open questions for Richard
 1. App display name (default proposal: "ishur" with subtitle "אישורי הגעה לאירוע").
 2. Push at night: a guest who confirms at 23:00. Proposal: no push 21:00–09:00, held into the 09:00 summary.

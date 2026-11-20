@@ -79,9 +79,14 @@
   function show(signedIn) {
     $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn;
   }
+  /* Home ("ראשי") is the regular client board itself, so the app looks and works like the board clients know.
+     With no network the app's own summary takes its place, from the copy saved on the device. */
+  var offline = (navigator.onLine === false);
   function tab(name) {
+    if (name === 'board' && offline) name = 'summary';
     ['summary', 'guests', 'sends', 'board', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== name; });
-    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
+    var lit = name === 'summary' ? 'board' : name;
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === lit); });
     window.scrollTo(0, 0);
     if (name === 'board') openBoard();
   }
@@ -168,6 +173,9 @@
     loading = true;
     return post('/api/status', { token: current, board_session: session }).then(function (r) {
       loading = false;
+      var was = offline; offline = r.status === 0;
+      if (offline && !$('v-board').hidden) tab('summary');
+      if (was && !offline && !$('v-summary').hidden) tab('board');
       if (r.status === 200 && r.body.ok) {
         data = normalize(slim(r.body)); store.set('data:' + current, data); store.set('at:' + current, Date.now()); render();
       } else if (r.status === 401 && r.body.error === 'pin-required') { signOut(true); }
@@ -187,8 +195,8 @@
     });
   }
   function start() {
-    show(true); tab('summary'); render();
-    loadAccount().then(function (ok) { if (ok) { render(); return loadEvent(); } });
+    show(true); tab('board'); render();
+    loadAccount().then(function (ok) { if (ok) { render(); if (!$('v-board').hidden) openBoard(); return loadEvent(); } });
     document.dispatchEvent(new CustomEvent('ishur:signed-in', { detail: { session: session } }));
   }
   function signOut(silent) {
@@ -223,7 +231,7 @@
   $('filters').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-f'); render(); });
   document.querySelector('.grid').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-go'); tab('guests'); render(); });
   $('search').addEventListener('input', renderGuests);
-  function pickEvent(tok) { if (!tok || tok === current) return; current = tok; boardFor = ''; $('boardFrame').removeAttribute('src'); store.set('current', tok); data = null; filter = 'all'; tab('summary'); render(); loadEvent(); }
+  function pickEvent(tok) { if (!tok || tok === current) return; current = tok; boardFor = ''; $('boardFrame').removeAttribute('src'); store.set('current', tok); data = null; filter = 'all'; tab('board'); render(); loadEvent(); }
   $('evList').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) pickEvent(b.getAttribute('data-ev')); });
   $('evSwitch').addEventListener('click', function () { tab('account'); });
   $('share').addEventListener('click', function () {
@@ -249,6 +257,8 @@
   });
 
   /* refresh when the app comes back to the front, and by pulling down at the top of a list */
+  window.addEventListener('offline', function () { offline = true; if (!$('v-board').hidden) tab('summary'); });
+  window.addEventListener('online', function () { if (session) loadEvent(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden && session) loadEvent(true); });
   var pullY = null;
   document.addEventListener('touchstart', function (e) { pullY = window.scrollY <= 0 ? e.touches[0].clientY : null; }, { passive: true });

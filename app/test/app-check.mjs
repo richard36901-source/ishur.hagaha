@@ -87,8 +87,15 @@ try {
   const wantName = [truth.event.name1, truth.event.name2].filter(Boolean)[0];
   check('P1 right code opens the summary with the event name', inOk && evName.includes(wantName), evName.trim() + (inOk ? '' : ' · sign-in note: ' + (await p.textContent('#signinNote').catch(() => '')) + ' · ' + jsErrors.join(' | ')));
   const head = await p.evaluate(() => { const b = document.querySelector('#app .brand'), r = b.getBoundingClientRect(); return { text: b.textContent.trim(), off: Math.abs((r.left + r.right) / 2 - innerWidth / 2) }; });
-  check('header reads "אישורי הגעה - ishur.io" and sits in the middle', head.text === 'אישורי הגעה - ishur.io' && head.off <= 2, head.text + ' · ' + head.off.toFixed(1) + 'px off centre');
-  await p.screenshot({ path: path.join(SHOTS, '2-summary-light.png') });
+  check('header reads "אישורי הגעה לאירועים - ishur.io" and sits in the middle', head.text === 'אישורי הגעה לאירועים - ishur.io' && head.off <= 2, head.text + ' · ' + head.off.toFixed(1) + 'px off centre');
+  /* home is the regular board itself */
+  const homeIsBoard = await p.frameLocator('#boardFrame').locator('#rows .pill').nth(5).waitFor({ timeout: 60000 }).then(() => true, () => false);
+  check('home after sign-in is the regular board, tab "ראשי" lit', homeIsBoard && await p.evaluate(() => !document.getElementById('v-board').hidden && document.querySelector('#tabs .on span').textContent === 'ראשי'));
+  /* the board's first-visit tour is skipped for the screenshots, the way a client taps "דלגו על הכל" */
+  await p.waitForTimeout(1500);
+  await p.frameLocator('#boardFrame').getByText('דלגו על הכל').click({ timeout: 5000 }).catch(() => {});
+  { const f0 = p.frames().find(f => /dashboard/.test(f.url())); if (f0) await f0.evaluate(() => window.scrollTo(0, 0)); }
+  await p.waitForTimeout(600); await p.screenshot({ path: path.join(SHOTS, '2-home-light.png') });
 
   /* P2: the six guest tabs show the counts computed from the same JSON */
   await p.click('[data-tab=guests]');
@@ -134,19 +141,29 @@ try {
   check('saved copy on the device holds no phone numbers', saved.length > 100 && !/\d{9,}/.test(saved) && !/phone|gift|invoice/.test(saved));
   check('no link from the app to the web board', !/dashboard\.html/.test(src));
 
+  /* screenshots of the home board further down: the invitation, the guests, the send schedule */
+  await p.click('[data-tab=board]');
+  if (frame) {
+    for (const [sel, name] of [['#mediaCard', '9-home-invitation'], ['#rows', '10-home-guests'], ['#sendsCard', '11-home-sends'], ['#shareCard', '12-home-share']]) {
+      await frame.evaluate(s2 => { const el = document.querySelector(s2); if (el) el.scrollIntoView({ block: 'start' }); }, sel);
+      await p.waitForTimeout(500); await p.screenshot({ path: path.join(SHOTS, name + '.png') });
+    }
+  }
+
   /* P3: no network, reload: the last state is still there with "עודכן" */
   await ctx.route('https://go-staging.ishur.io/**', r => r.abort());
   await p.reload({ waitUntil: 'domcontentloaded' });
   await p.waitForSelector('#tabs:not([hidden])', { timeout: 15000 }).catch(() => {});
   await p.waitForTimeout(2500);
   const off = await p.evaluate(() => ({ all: (document.getElementById('kpiAll') || {}).textContent, stamp: (document.getElementById('stamp') || {}).textContent, text: document.body.innerText }));
+  check('P3 offline: the app\'s own summary takes the place of the board', await p.evaluate(() => !document.getElementById('v-summary').hidden && document.getElementById('v-board').hidden));
   check('P3 offline: counts still on screen', Number(off.all) === want.all, `screen ${off.all}, data ${want.all}`);
   check('P3 offline: says when it was updated, no error wording', /עודכן/.test(off.stamp || '') && !BAD_WORDS.test(off.text), (off.stamp || '').trim());
   await ctx.unroute('https://go-staging.ishur.io/**');
 
   /* dark, by device setting (P8 screenshots) */
   await p.emulateMedia({ colorScheme: 'dark' });
-  await p.click('[data-tab=summary]'); await p.waitForTimeout(400); await p.screenshot({ path: path.join(SHOTS, '6-summary-dark.png') });
+  await p.waitForTimeout(400); await p.screenshot({ path: path.join(SHOTS, '6-summary-dark.png') });
   await p.click('[data-tab=guests]'); await p.waitForTimeout(400); await p.screenshot({ path: path.join(SHOTS, '7-guests-dark.png') });
   const bg = await p.evaluate(() => getComputedStyle(document.body).backgroundColor);
   check('P8 dark follows the device setting', /rgb\((\d+), (\d+), (\d+)\)/.test(bg) && bg.match(/\d+/g).slice(0, 3).every(n => Number(n) < 60), bg);
