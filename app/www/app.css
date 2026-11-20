@@ -115,3 +115,88 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(-
 .view.board{padding:0;max-width:none;animation:none}
 #boardFrame{display:block;width:100%;border:0;height:calc(100vh - 46px - env(safe-area-inset-top) - var(--tabh) - env(safe-area-inset-bottom));background:var(--bg)}
 #boardWait{position:absolute;inset-inline:0;top:40%}
+
+/* ── iOS feel (20/11, Richard: "שזה ירגיש כמו אפליקציה שאפל יצרה") ─────────────────────────────────────────────
+   Human Interface Guidelines conventions on our brand colours: a 44pt navigation bar, large titles, a translucent
+   tab bar with a hairline, grouped inset lists, system switches, a sheet with a grabber, instant tab changes,
+   press states instead of hover, nothing selectable that is not text to copy. Corners stay at 8px. */
+:root{--hair:rgba(60,60,67,.18);--fill:rgba(118,118,128,.12);--sep-inset:.9rem}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--line:#2C2C2E;--hair:rgba(84,84,88,.6);--fill:rgba(118,118,128,.24);--ink:#fff;--ink2:rgba(235,235,245,.72);--ink3:rgba(235,235,245,.5)}}
+html{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea{-webkit-user-select:text;user-select:text}
+body{font-size:17px;line-height:1.35;letter-spacing:-.01em}
+button,a,.row,.kpi{touch-action:manipulation}
+
+/* navigation bar */
+.head.small{height:calc(44px + env(safe-area-inset-top));padding:env(safe-area-inset-top) 1rem 0;border-bottom:.5px solid rgba(199,174,122,.35)}
+.head.small .brand{font-size:17px;font-weight:600;letter-spacing:-.02em}
+.evswitch{bottom:7px;min-height:30px;font-size:13px;border-width:.5px}
+
+/* large titles */
+h1.large{font-size:34px;line-height:41px;font-weight:700;letter-spacing:-.02em;margin:.35rem .1rem .6rem}
+.sticky{top:calc(44px + env(safe-area-inset-top))}
+#boardFrame{height:calc(100vh - 44px - env(safe-area-inset-top) - var(--tabh) - env(safe-area-inset-bottom))}
+
+/* cards and grouped lists: no outline, a hairline between rows that starts after the text edge */
+.card,.list,.kpi{border:0;box-shadow:0 0 0 .5px var(--hair)}
+.row{border-bottom:0;position:relative;min-height:44px;padding:.65rem var(--sep-inset)}
+.row + .row::before,.links > * + *::before,.switch + .switch::before,#evList button + button::before{content:"";position:absolute;top:0;inset-inline:var(--sep-inset) 0;height:.5px;background:var(--hair)}
+.links a,.links button,.switch,#evList button{position:relative;border-bottom:0;min-height:44px}
+.links a::after{content:"";position:absolute;inset-inline-end:2px;top:50%;width:7px;height:7px;border-inline-start:2px solid var(--ink3);border-bottom:2px solid var(--ink3);transform:translateY(-50%) rotate(45deg);opacity:.6}
+[dir=rtl] .links a::after{transform:translateY(-50%) rotate(45deg)}
+.eyebrow{font-size:13px;letter-spacing:0;font-weight:400;color:var(--ink3);text-transform:none}
+.row .nm{font-size:17px;font-weight:400}
+.row .meta{font-size:13px}
+.pill{font-size:13px;font-weight:500;border-radius:6px}
+
+/* search field and inputs: filled, no outline */
+input[type=search]{border:0;background:var(--fill) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%238E8E93' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='8.5' cy='8.5' r='5.5'/%3E%3Cpath d='m13 13 4 4'/%3E%3C/svg%3E") no-repeat;background-size:16px;background-position:right .6rem center;min-height:36px;padding:.3rem 2rem .3rem .7rem;font-size:17px;-webkit-appearance:none;appearance:none}
+input[type=search]::-webkit-search-cancel-button{-webkit-appearance:none}
+input[type=tel],input[type=text]{border:0;background:var(--fill);min-height:44px;font-size:17px}
+label{font-size:13px;font-weight:400;color:var(--ink3)}
+.filters button{border:0;background:var(--fill);min-height:32px;font-size:15px;color:var(--ink)}
+.filters button.on{background:var(--green);color:#fff}
+
+/* buttons: 50pt filled, pressed state dims; no hover */
+.btn{font-size:17px;font-weight:600;transition:opacity .12s}
+.btn:active,.kpi:active,.row:active,.links a:active,.links button:active{opacity:.6}
+.btn.ghost{border:0;background:var(--fill)}
+.links .quiet{color:var(--no)}
+#signout{color:var(--green)}
+
+/* system switch */
+.switch input{-webkit-appearance:none;appearance:none;flex:none;width:51px;height:31px;border-radius:8px;background:rgba(120,120,128,.32);position:relative;transition:background .2s;outline-offset:3px}
+.switch input::after{content:"";position:absolute;top:2px;inset-inline-start:2px;width:27px;height:27px;border-radius:6px;background:#fff;box-shadow:0 2px 4px rgba(0,0,0,.2);transition:transform .25s cubic-bezier(.3,1.3,.5,1)}
+.switch input:checked{background:#34C759}
+.switch input:checked::after{transform:translateX(-20px)}
+[dir=ltr] .switch input:checked::after{transform:translateX(20px)}
+
+/* tab bar: translucent material, hairline, 10pt labels; changing tabs is instant */
+.tabs{background:color-mix(in srgb,var(--card) 82%,transparent);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:.5px solid var(--hair)}
+.tabs button{font-size:10px;font-weight:500;gap:3px;height:49px}
+:root{--tabh:49px}
+.tabs svg{width:26px;height:26px;stroke-width:1.7}
+.tabs button.on svg{fill:currentColor;fill-opacity:.16}
+.view{animation:none!important}
+
+/* sheet: grabber, slides up with a spring */
+.sheetbox{border-radius:8px 8px 0 0;padding-top:.5rem}
+.grabber{width:36px;height:5px;border-radius:3px;background:var(--ink3);opacity:.4;margin:0 auto .9rem}
+@media (prefers-reduced-motion:no-preference){
+  .sheet{animation:dim .2s ease-out}
+  .sheetbox{animation:up .38s cubic-bezier(.2,.9,.25,1.05)}
+  @keyframes dim{from{background:rgba(10,20,15,0)}}
+  @keyframes up{from{transform:translateY(100%)}}
+}
+.big{font-size:56px;letter-spacing:-.03em}
+.kpi b{font-size:22px;font-weight:600}
+.kpi span{font-size:12px}
+.stamp{font-size:12px}
+
+/* response: feedback on the press itself, at once (apple-design §1); nothing waits for release */
+.btn:active,.filters button:active,.kpi:active{transform:scale(.97);transition:transform .1s ease-out,opacity .1s}
+.tabs button:active svg{transform:scale(.9);transition:transform .1s ease-out}
+/* people who turn transparency down or contrast up get solid bars and real borders (apple-design §14) */
+@media (prefers-reduced-transparency:reduce){.tabs{background:var(--card);-webkit-backdrop-filter:none;backdrop-filter:none}}
+@media (prefers-contrast:more){.card,.list,.kpi{box-shadow:0 0 0 1px var(--ink3)}.tabs{background:var(--card);border-top:1px solid var(--ink3)}}
+@media (prefers-reduced-motion:reduce){.sheetbox,.sheet{animation:none}.switch input::after{transition:none}}
