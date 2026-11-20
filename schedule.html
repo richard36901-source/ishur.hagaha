@@ -79,6 +79,11 @@
   .cal{display:flex;flex-direction:column;gap:.5rem;padding:.8rem 1rem}
   .cal .btn{text-align:center;padding:.65rem 1rem}
   html.in-app .top #back{display:none}
+  /* dark, by device setting, like the board */
+  @media (prefers-color-scheme: dark){
+    :root{--ink:#E8EBE7;--ink2:#C2C9C1;--ink3:#8D968C;--bdr:#2A342E;--bdr2:rgba(123,201,164,.25);--bg2:#131714;--card:#1B211D;--green4:#132B20;--green2:#7BC9A4}
+    .btn.p{background:#2E7D5B}
+  }
 </style>
 </head>
 <body>

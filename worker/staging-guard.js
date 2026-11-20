@@ -45,7 +45,8 @@ const SEND_WA = /^graph\.facebook\.com$/;
 const SEND_RETELL = /^api\.retellai\.com$/;
 /* 21/11 client app: Apple's push service. Only device tokens registered through the staging app (our own test phones)
    are stored on staging, so a push from here cannot reach a real client. */
-const OPEN = [/^hooks\.slack\.com$/, /^hook\.[a-z0-9-]+\.make\.com$/, /^api\.anthropic\.com$/, /^us\.i\.posthog\.com$/, /^api(\.sandbox)?\.push\.apple\.com$/];
+const OPEN = [/^hooks\.slack\.com$/, /^hook\.[a-z0-9-]+\.make\.com$/, /^api\.anthropic\.com$/, /^us\.i\.posthog\.com$/, /^api(\.sandbox)?\.push\.apple\.com$/,
+  /^fcm\.googleapis\.com$/, /^oauth2\.googleapis\.com$/];   /* Android push (FCM) and its token exchange: same reasoning as APNs */
 const READ_ONLY = [/^api\.monday\.com$/, /^api\.telnyx\.com$/, /^api\.linear\.app$/, /^api\.cloudflare\.com$/, /\.googleapis\.com$/, /^api\.github\.com$/];
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 

@@ -11,6 +11,7 @@
    Secrets (Worker secrets, never in the repo): APNS_KEY_P8 (the .p8 text), APNS_KEY_ID, APNS_TEAM_ID.
    Android (FCM) is not built yet. */
 
+import { sendFcm } from './fcm.js';
 export const BUNDLE_ID = 'io.ishur.client';
 const KEY = p => 'apppush:' + p;
 const DEFAULT_PREFS = { answer: true, daily: true, failed: true };
@@ -90,7 +91,8 @@ export async function apnsJwt(env, now = Date.now()) {
 }
 export const apnsReady = env => !!(env.APNS_KEY_P8 && env.APNS_KEY_ID && env.APNS_TEAM_ID);
 async function sendApns(env, dev, payload) {
-  if (dev.platform !== 'ios') return { status: 0, error: 'android-not-built' };
+  if (dev.platform === 'android') return sendFcm(env, dev, payload);   /* fcm.js */
+  if (dev.platform !== 'ios') return { status: 0, error: 'unknown-platform' };
   if (!apnsReady(env)) return { status: 0, error: 'apns-not-configured' };
   const host = dev.sandbox ? 'api.sandbox.push.apple.com' : 'api.push.apple.com';
   const r = await fetch(`https://${host}/3/device/${dev.device}`, {

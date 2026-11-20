@@ -9,6 +9,20 @@
     var page = ((location.pathname.split('/').pop() || '').replace(/\.html$/, '') || 'home').replace(/[^A-Za-z0-9_-]/g, '').slice(0, 40);
     var send = function (n, p) { try { window.parent.postMessage({ ishurTrack: { n: n, p: p } }, '*'); } catch (e) {} };
     send('board_view', { page: page });
+    /* 21/11 the App Store review demo: the server refuses anything that would send (demo-readonly). Say so plainly
+       instead of the page's usual "not saved". Watches responses only; changes nothing that is sent. */
+    if (window.fetch && !window.__ishurDemoWatch) {
+      window.__ishurDemoWatch = true;
+      var f0 = window.fetch;
+      window.fetch = function () {
+        return f0.apply(this, arguments).then(function (r) {
+          if (r && r.status === 403) r.clone().json().then(function (j) {
+            if (j && j.error === 'demo-readonly' && window.IshurUX && IshurUX.toast) IshurUX.toast('זה חשבון הדגמה: כאן לא נשלחות הודעות ולא מתבצעים שינויים באירוע.');
+          }).catch(function () {});
+          return r;
+        });
+      };
+    }
     document.addEventListener('click', function (e) {
       var el = e.target && e.target.closest && e.target.closest('button,a,summary,[role=button],[data-tab],[data-f],[data-act]');
       if (!el) return;
