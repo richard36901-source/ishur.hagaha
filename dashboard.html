@@ -156,7 +156,16 @@
 
   /* headline numbers */
   .kpis{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr)}
-  @media(min-width:520px){.kpis{grid-template-columns:repeat(5,1fr)}}
+  @media(min-width:520px){.kpis{grid-template-columns:repeat(3,1fr)}}
+  @media(min-width:860px){.kpis{grid-template-columns:repeat(6,1fr)}}
+  /* 20/11 the sixth cell: what the client committed to the venue, our recommendation, a tick when they agree */
+  .kpi.venue{cursor:pointer;animation-delay:.55s}
+  .kpi.venue .kpi-v button{font:inherit;font-size:.95rem;font-weight:600;color:var(--green);background:none;border:1px solid var(--bdr2);border-radius:8px;padding:.25rem .7rem;cursor:pointer}
+  .kpi.venue .ven-ok{color:var(--green);font-weight:600}
+  .kpi.venue .ven-off{color:var(--warn)}
+  .kpi.venue form{display:flex;gap:.3rem;justify-content:center;align-items:center}
+  .kpi.venue input{width:4.6rem;font:inherit;font-size:16px;text-align:center;padding:.3rem;border:1px solid var(--bdr2);border-radius:8px;background:var(--card);color:var(--ink)}
+  .kpi.venue form button{font:inherit;font-size:.85rem;font-weight:600;color:#fff;background:var(--green2);border:0;border-radius:8px;padding:.4rem .6rem;cursor:pointer}
   .kpi{background:var(--card);padding:.9rem .6rem;text-align:center;animation:kfade .55s var(--ease) both}
   .kpi:nth-child(1){animation-delay:.05s}
   .kpi:nth-child(2){animation-delay:.15s}
@@ -1573,7 +1582,8 @@
       kpi(t.confirmed_seats, 'אישרו', rc(t.confirmed), true) +
       kpi(dv, 'לא מגיעים', rc(t.declined)) +
       kpi(uv, 'לא בטוחים', rc(t.undecided)) +
-      kpi(pv, 'לא ענו', rc(t.pending != null && t.awaiting_call != null ? t.pending + t.awaiting_call : t.pending));
+      kpi(pv, 'לא ענו', rc(t.pending != null && t.awaiting_call != null ? t.pending + t.awaiting_call : t.pending)) +
+      venueTile(data.venue);
 
     if (totalPeople) {
       $('prog').hidden = false;
@@ -1726,6 +1736,52 @@
       setTimeout(function () { el.textContent = target; }, delay + dur + 300);
     });
   }
+
+  /* 20/11 Richard: the commitment to the venue. The client types the number they promised the hall; the line under
+     it is our recommendation (shown once at least half of the invited people answered) and whether the two agree. */
+  var venueEdit = false;
+  function venueTile(v) {
+    v = v || {};
+    var rec = v.recommended != null ? 'מומלץ: ' + v.recommended : 'המלצה תופיע כשרוב המוזמנים יענו';
+    var top, sub;
+    if (venueEdit) {
+      top = '<form id="venueForm"><input id="venueIn" type="number" inputmode="numeric" min="0" max="5000" step="1" value="' + (v.commit || '') + '" aria-label="כמה מנות התחייבתם לאולם"><button type="submit" id="venueSave">שמירה</button></form>';
+      sub = rec;
+    } else if (!v.commit) {
+      top = '<button type="button" id="venueAdd">הוספה</button>'; sub = rec;
+    } else {
+      top = String(v.commit);
+      sub = v.recommended == null ? rec
+        : v.ok ? '<span class="ven-ok">✓ מתאים להמלצה (' + v.recommended + ')</span>'
+        : '<span class="ven-off">' + (v.diff > 0 ? 'גבוה ב-' + v.diff : 'נמוך ב-' + (-v.diff)) + ' מההמלצה (' + v.recommended + ')</span>';
+    }
+    return '<div class="kpi venue" id="venueTile"><div class="kpi-v">' + top + '</div><div class="kpi-l">התחייבות לאולם</div><div class="kpi-s">' + sub + '</div></div>';
+  }
+  function venuePaint() { var el = $('venueTile'); if (el && data) el.outerHTML = venueTile(data.venue); }   /* this cell only, not the whole board */
+  function venueSave(n) {
+    var payload = { token: token, n: n };
+    return fetch(CFG.endpoint('venue-commit'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) })
+      .then(function (r) { return r.json(); }).then(function (j) {
+        if (!j || !j.ok) return false;
+        var v = data.venue = data.venue || {};
+        v.commit = j.commit || null;
+        v.diff = v.commit && v.recommended != null ? v.commit - v.recommended : null;
+        v.ok = v.commit && v.recommended != null ? Math.abs(v.diff) <= Math.max(5, Math.round(v.recommended * 0.05)) : null;
+        return true;
+      })['catch'](function () { return false; });
+  }
+  document.addEventListener('click', function (e) {
+    var tile = e.target.closest && e.target.closest('#venueTile'); if (!tile || venueEdit || !data) return;
+    venueEdit = true; venuePaint(); var inp = $('venueIn'); if (inp) { inp.focus(); inp.select(); }
+  });
+  document.addEventListener('submit', function (e) {
+    if (!e.target || e.target.id !== 'venueForm') return;
+    e.preventDefault();
+    var raw = String($('venueIn').value || '').trim(), n = raw === '' ? 0 : Number(raw);
+    if (!(n >= 0 && n <= 5000 && Math.floor(n) === n)) { $('venueIn').focus(); return; }
+    $('venueSave').disabled = true;
+    venueSave(n).then(function (ok) { if (ok) venueEdit = false; venuePaint(); });
+  });
 
   function kpi(v, l, s, hi) {
     return '<div class="kpi' + (hi ? ' hi' : '') + '">' +

@@ -134,6 +134,22 @@ try {
   const bar = frame ? await frame.evaluate(() => !!document.getElementById('ishur-consent')) : true;
   check('P13 no tracking requests and no cookie bar inside the app', trackers.length === 0 && !bar, [...new Set(trackers)].join(' ') + (bar ? ' cookie bar shown' : ''));
   check('P13 the session is not left in the address', !/acct\./.test(inBoard.hash));
+
+  /* the venue-commitment tile (Richard 20/11): type a number, it is saved and shown with the recommendation line; then cleared */
+  if (frame) {
+    const tile = fr.locator('#venueTile');
+    await tile.scrollIntoViewIfNeeded().catch(() => {});
+    await tile.click(); await fr.locator('#venueIn').fill('77'); await fr.locator('#venueSave').click();
+    await fr.locator('#venueTile .kpi-v', { hasText: '77' }).waitFor({ timeout: 15000 }).catch(() => {});
+    const shown = await frame.evaluate(() => ({ v: document.querySelector('#venueTile .kpi-v').textContent.trim(), l: document.querySelector('#venueTile .kpi-l').textContent.trim(), s: document.querySelector('#venueTile .kpi-s').textContent.trim() }));
+    const saved = (await api('/api/status', { token: TOKEN, board_session: sess })).body.venue || {};
+    const wantSub = saved.recommended == null ? /המלצה תופיע/ : saved.ok ? /מתאים להמלצה/ : /מההמלצה/;
+    check('venue tile: the typed number is saved and shown with the recommendation line', shown.v === '77' && shown.l === 'התחייבות לאולם' && saved.commit === 77 && wantSub.test(shown.s), JSON.stringify({ shown, saved }));
+    await tile.click(); await fr.locator('#venueIn').fill(''); await fr.locator('#venueSave').click();
+    await fr.locator('#venueAdd').waitFor({ timeout: 15000 }).catch(() => {});
+    const cleared = (await api('/api/status', { token: TOKEN, board_session: sess })).body.venue || {};
+    check('venue tile: an empty number clears it', cleared.commit === null && await fr.locator('#venueAdd').count() === 1, JSON.stringify(cleared));
+  }
   await p.waitForTimeout(600); await p.screenshot({ path: path.join(SHOTS, '8-board-light.png') });
 
   /* what is saved on the device: no phone numbers, no board link to a page that sells */

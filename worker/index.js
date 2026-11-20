@@ -77,7 +77,8 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';   /* 20/11 client app */
+import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';
+import { venueFor, parseCommit, writeCommit } from './venue-commit.js';   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
 import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
@@ -9902,6 +9903,22 @@ async function handleTelnyxCheck(request, env, origin) {
    ─────────────────────────────────────────────────────────────────────────── */
 const SEND_COL = { invite: { n: 1, idx: 39, col: 'AN' }, reminder: { n: 2, idx: 40, col: 'AO' }, extra: { n: 3, idx: 41, col: 'AP' } };
 
+/* 20/11 Richard: the number the client committed to the venue. POST {token, n}; n empty or 0 clears it.
+   The board's token is the key, as for send-date. worker/venue-commit.js */
+async function handleVenueCommit(request, env, origin) {
+  let body = {};
+  try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+  const token = String(body.token || '').trim();
+  if (!/^[0-9a-f-]{36}$/.test(token)) return deny(403, 'bad-token', origin);
+  if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
+  if (!env.RATE) return deny(503, 'kv-not-bound', origin);
+  if (await overBudget(env, 'rl:venuecommit:' + token, 30, 3600)) return deny(429, 'slow-down', origin);
+  const n = parseCommit(body.n);
+  if (n == null) return deny(400, 'bad-number', origin);
+  await writeCommit(env, token, n);
+  return okJson({ ok: true, commit: n || null }, origin);
+}
+
 async function handleSendDate(request, env, origin) {
   let body = {};
   try { body = await request.json(); } catch { return deny(400, 'bad-json', origin); }
@@ -12731,6 +12748,9 @@ const WORKER = {
     if (url.pathname === '/api/send-date' && request.method === 'POST') {
       return handleSendDate(request, env, origin);
     }
+    if (url.pathname === '/api/venue-commit' && request.method === 'POST') {
+      return handleVenueCommit(request, env, origin);
+    }
     /* 09/11 control-center drag & drop (assets/week.js):
        board-move  {admin_key, tok8, type:w1|w2|w3, date} → the same rules as the client's send-date
        board-order {admin_key, order:[tok8…]}             → waveorder: the engine sends waves in this order */
@@ -14967,6 +14987,7 @@ const WORKER = {
       const snapshot = buildDashboard(token, raw, refCount, sentWaves);
       /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
       if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
+      if (snapshot && snapshot.ok && env.RATE) snapshot.venue = await venueFor(env, token, snapshot.totals || {});   /* 20/11 venue-commit.js */
       /* 20/10: a paid token whose event row never reached the sheet (Make
          write failed) made the page throw 1101 instead of saying so. The
          client sees the "still setting up" screen; we see it in the journal. */
