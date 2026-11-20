@@ -1763,6 +1763,12 @@ function parsePaidDesc(desc) {
 /* Shalev, 10/09: 0.30 ₪ per message + 20 ₪ per round; 2 ₪ per AI call + 20 ₪;
    postponement/cancellation 0.30 ₪ per guest; up to 10 extra guests free. */
 const ADDON_RATES = { msg: 0.30, call: 2, base: 20, freeGuests: 10 };
+/* 20/11 Richard: records the admin adds from the clients screen ("הוספת רשומות") raise the client's own add-a-guest
+   allowance — the counter on the board goes 10/10 → 10/20. gaddbonus:<token> = the total granted so far. */
+async function freeGuestLimit(env, token) {
+  let bonus = 0; try { bonus = parseInt(await env.RATE.get('gaddbonus:' + token), 10) || 0; } catch {}
+  return ADDON_RATES.freeGuests + Math.max(0, bonus);
+}
 /* package prices — mirrors config.js PRICE_TABLE; keep the two in sync */
 const PKG_PRICES = { 50: { basic: 50, pro: 95, premium: 140 }, 100: { basic: 99, pro: 149, premium: 199 }, 200: { basic: 199, pro: 279, premium: 339 }, 300: { basic: 299, pro: 379, premium: 449 }, 400: { basic: 399, pro: 489, premium: 559 }, 500: { basic: 499, pro: 589, premium: 669 }, 600: { basic: 599, pro: 699, premium: 789 }, 700: { basic: 699, pro: 819, premium: 919 }, 800: { basic: 799, pro: 929, premium: 1049 }, 900: { basic: 899, pro: 1049, premium: 1179 } };
 const PLAN_RANK = { basic: 0, pro: 1, premium: 2 };
@@ -2158,7 +2164,7 @@ async function handleGuestFile(form, file, rec, token, env, origin, target, st) 
        one number is one invitation, exactly as the waves dedupe them */
     const billable = countBillable(guests) + (merge ? mergeBase : 0);
     /* Shalev, 10/09: up to 10 guests over the package are free */
-    if (tierNum && billable > tierNum + ADDON_RATES.freeGuests) {
+    if (tierNum && billable > tierNum + await freeGuestLimit(env, String(rec.token || token || ''))) {
       await slackPost(env, `📈 *חריגת מכסה בהעלאה* · ${rec.name || ''}: ${billable} רשומות מול חבילת ${tierNum} — ההעלאה נחסמה והוצעה הגדלה`, { key: 'over_quota:' + String(rec.token || rec.phone || ''), level: billable, action: 'להציע הגדלה; ההעלאה חסומה עד אז' });
       return new Response(JSON.stringify({
         ok: false, error: 'over-tier', allowed: tierNum, got: billable,
@@ -13751,6 +13757,8 @@ const WORKER = {
         let paid = null; try { paid = JSON.parse(await env.RATE.get('paid:' + tok)) || null; } catch {}
         const before = paid ? Number(paid.tier) || 0 : 0, after = before + n;
         await env.RATE.put('addon:' + tok, JSON.stringify({ n: (cur.n || 0) + n, ref: 'admin', at: new Date().toISOString(), before, after }), { expirationTtl: 200 * 86400 });
+        /* 20/11: the grant is what the client sees — the add-a-guest allowance on the board grows by n */
+        { const bonus0 = parseInt(await env.RATE.get('gaddbonus:' + tok).catch(() => null), 10) || 0; await env.RATE.put('gaddbonus:' + tok, String(bonus0 + n), { expirationTtl: 400 * 86400 }); }
         if (paid) { paid.tier = after; await env.RATE.put('paid:' + tok, JSON.stringify(paid), { expirationTtl: 400 * 86400 }); }
         else await env.RATE.put('paid:' + tok, JSON.stringify({ tier: after, plan: '', planText: '', desc: 'תוספת מנהל' }), { expirationTtl: 400 * 86400 });
       } else if (kind === 'calls') {
@@ -14107,7 +14115,7 @@ const WORKER = {
       const rec = /^[0-9a-f-]{36}$/.test(tok) ? await tokenRecord(env, tok) : null;
       if (!rec) return deny(404, 'unknown-token', origin);
       if (await overBudget(env, 'rl:gadd:' + tok, 90, 3600)) return deny(429, 'slow-down', origin);
-      const LIMIT = ADDON_RATES.freeGuests;
+      const LIMIT = await freeGuestLimit(env, tok);
       const cntKey = 'gadd:' + tok;
       const used = parseInt(await env.RATE.get(cntKey), 10) || 0;
       /* Richard 21/10: two separate pools. "tier" = seats the package already
