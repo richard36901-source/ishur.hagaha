@@ -24,7 +24,7 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 | A15 | Availability: Israel only (non-trader under DSA) | DSA page | open (App Store Connect) |
 | A16 | Support URL and marketing URL live | metadata | open |
 | A17 | Name, subtitle, description, keywords in Hebrew (+ English) approved by Richard | 2.3 | texts in `listing.md`; decision delegated to Claude by Richard 20/11/2026, not read by him |
-| A18 | App icon 1024, no alpha; splash | 2.3 | open (Richard approves icon) |
+| A18 | App icon 1024, no alpha; splash | 2.3 | icon made 20/11 from the site's mark on pine (iOS 1024 no alpha, Android mipmaps, `store/icon-512.png`); delegated to Claude, not seen by Richard; not yet viewed on a simulator home screen |
 | A19 | Review notes: what the service is, that accounts are created when a client buys the service off the app, demo phone + code, how to see a push | 2.1 | open |
 | A20 | Works on a clean install with no network (shows sign-in, no blank screen) and on the oldest supported iOS (15) | 2.1 | open |
 | A21 | TestFlight build tested on a real iPhone | 2.1 | open |
@@ -45,3 +45,4 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 
 ## Decisions
 - App ID `io.ishur.client` (iOS bundle ID and Android application ID): kept. Richard delegated the decision to Claude on 20/11/2026 ("do it all yourself"); it cannot be changed after the first store upload.
+- Simulator run 20/11/2026 (iPhone 18 Pro, iOS 27.2): demo client signs in, summary screen shows the counts, notification sheet appears and closes. Seen and not fixed: with the keyboard open the header title slides under the status bar on the sign-in screen.

@@ -27,7 +27,9 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -conf
 ```
 "** BUILD SUCCEEDED **" is the pass. The app is at `ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app`.
 Running it needs an iOS simulator runtime: Xcode → Settings → Components → iOS. On 20/11/2026 the iOS 27.2
-runtime took 16 GB on disk, and a booted simulator about 7.5 GB more while it runs. Keep 25 GB free.
+runtime took 8 GB on disk (a second, unused 27.2 image for iPhone Duo was deleted that day:
+`xcrun simctl runtime list`, `xcrun simctl runtime delete <id>`), and a booted simulator 4 to 7 GB more while it
+runs. Keep 15 GB free. The first launch after a boot shows a black screen for about a minute; taps arrive late.
 ```bash
 xcrun simctl boot "iPhone 18 Pro" && xcrun simctl install booted ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
 xcrun simctl launch booted io.ishur.client && xcrun simctl io booted screenshot shot.png
