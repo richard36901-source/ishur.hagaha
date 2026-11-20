@@ -262,6 +262,12 @@
     });
   });
 
+  /* the pine strip over the status bar follows the visible part of the page when the keyboard moves it */
+  if (window.visualViewport) {
+    var pinBar = function () { $('sbar').style.transform = 'translateY(' + Math.max(0, Math.round(window.visualViewport.offsetTop)) + 'px)'; };
+    window.visualViewport.addEventListener('scroll', pinBar); window.visualViewport.addEventListener('resize', pinBar);
+  }
+
   /* refresh when the app comes back to the front, and by pulling down at the top of a list */
   window.addEventListener('offline', function () { offline = true; if (!$('v-board').hidden) tab('summary'); });
   window.addEventListener('online', function () { if (session) loadEvent(true); });

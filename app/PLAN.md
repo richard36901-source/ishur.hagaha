@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 21:30.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 21:40.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -27,6 +27,28 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 3. **You:** say "promote" when you are ready for the server changes to go live (step 3 below).
 
 ---
+
+## Claude's own queue (no approval needed, staging only)
+
+Split on 20/11 at Richard's request: routine, well-specified work for Opus now; work that needs design judgment or carries production risk for Fable.
+
+**Opus, tonight** (each has a check that says pass or fail)
+- [ ] Simulator, iPhone 18 Pro: tap the code field on the sign-in screen and take a screenshot. Pass = the strip under the clock is solid pine, no text behind it (`#sbar` in `www/app.css`, pinned in `www/app.js`). If it still fails, write what you saw here and leave it for Fable.
+- [ ] Leave the simulator signed in to the second demo client so Richard can play. Phone and code: the way `app/test/app-check.mjs` reads them with `DEMO=2`. The simulator is slow: wait about a minute after launch, and several seconds after each tap before typing.
+- [ ] Give the board's buttons Latin `id`s where they have none (`dashboard.html`, `upload.html`), so `board_click` is counted. Change no behaviour. Check: `npm run check` in `app/` says 39/39, and `/api/app/analytics` lists `board_controls`.
+- [ ] Runbook `app/RUNBOOK.md`: write the "Not written yet" sections that need no account (signing steps, TestFlight, what to do on a rejection), from Apple's and Capacitor's docs.
+- [ ] Look into the 3 Worker tests that fail after 21:00 Israel time (`test/crm.test.mjs:269`, `test/slack-gate.test.mjs:96` and `:172`). They are not from the app work. Find the cause and write it here. Do not edit the tests; `scripts/promote.sh` stops when they fail, so Richard needs to know.
+- [ ] Merge `origin/main` into `staging` (5 commits), run the Worker tests and `npm run check`, deploy staging. On any merge conflict in `worker/index.js`, stop and leave it for Fable.
+- [ ] After each item: tick it here and in Linear AUT-1141.
+
+**Fable, tomorrow** (design or risk)
+- [ ] Reviewer demo client on production (spec R11): a fixed phone and code that never expire, invented guests, unable to send anything, and not blocked by the sign-in caps. This touches sign-in security in the Worker.
+- [ ] The production release itself, when Richard says "promote": review the 55+ commits and 17 Worker files going live, the rollback, and the order of steps.
+- [ ] Android notifications through Firebase from the Worker (service-account sign-in, tests). Nothing is written yet.
+- [ ] Whether a Cloudflare Worker can reach Apple's push service at all (unverified since the spec), and the fallback if not. Needs Richard's push key.
+- [ ] Version 1.1: does Apple require its own payment for buying an RSVP package, and the purchase flow that follows from the answer.
+- [ ] Richard's adjustments after he plays with the app in the simulator.
+- [ ] Usage data: move to D1 if the token gets the permission; design of the report screen when Richard wants it.
 
 ## 1. Apple account (M2)
 
@@ -111,7 +133,7 @@ Nothing in the app works for real clients until this is done. Today production h
 
 ## Known gaps
 
-- The status-bar fix (keyboard open on sign-in) is written but not yet seen working on a device.
+- The status-bar fix: the first version (a fixed strip) did NOT work in the simulator, seen 20/11 21:22. A second version that follows the visible area is built and installed, not yet checked.
 - Android has never been built: no Java or Android SDK on this Mac.
 - Board buttons without an id are not counted in the usage report.
 - Usage data sits in key-value storage; the report can lag by up to a minute.
