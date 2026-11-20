@@ -18,6 +18,8 @@
   html,body{height:100%}
   body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;overflow:hidden;touch-action:none}
   .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);height:56px}
+  /* 21/11: in other languages the buttons are longer; on a phone the bar wraps instead of pushing "save" off screen */
+  @media (max-width:640px){html[lang]:not([lang=he]) .top{height:auto;min-height:56px;flex-wrap:wrap;row-gap:.4rem}}
   .top h1{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
   .top .sub{font-size:.78rem;color:var(--ink3)}
   .top .sp{flex:1}
