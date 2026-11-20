@@ -15,6 +15,7 @@ export const SAFE = new Set([
   '/api/status', '/api/account/pin-login', '/api/account/me', '/api/account/logout', '/api/account/contact',
   '/api/budget', '/api/seatplan', '/api/lineup', '/api/venue-commit', '/api/preview-messages',
   '/api/app/events', '/api/app/push-register', '/api/app/push-unregister', '/api/app/push-prefs', '/api/app/delete-request',
+  '/api/client-pin', '/api/app/review-seed',   /* admin-only: read the demo's code, seed it */
 ]);
 
 /* → a Response-shaped decision: null (go on) or { error } (refuse) */
