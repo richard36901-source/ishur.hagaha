@@ -121,3 +121,11 @@ test('wrapEmail: staging send is refused without touching the binding; productio
   const p = wrapEmail({ EMAIL: binding });
   assert.equal(p.EMAIL, binding);
 });
+
+test('21/11: Apple push (APNs) is allowed on staging; a look-alike host is not', () => {
+  const env = { STAGING: '1', STAGING_ALLOWLIST: '972545764327' };
+  assert.deepEqual(decide(env, 'https://api.sandbox.push.apple.com/3/device/abc', 'POST', '{}'), { ok: true });
+  assert.deepEqual(decide(env, 'https://api.push.apple.com/3/device/abc', 'POST', '{}'), { ok: true });
+  assert.equal(decide(env, 'https://api.push.apple.com.evil.example/3/device/abc', 'POST', '{}').ok, false);
+  assert.equal(decide(env, 'https://push.apple.com/x', 'POST', '{}').ok, false);
+});

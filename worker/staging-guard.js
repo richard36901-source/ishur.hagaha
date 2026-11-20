@@ -9,7 +9,7 @@
    globalThis.fetch once per isolate and decides per request, deny by default:
      · graph.facebook.com …/messages POST  → body.to must be on STAGING_ALLOWLIST
      · api.retellai.com create-phone-call → body.to_number must be on it
-     · Slack, Make hooks, Anthropic, PostHog → allowed (staging secrets decide
+     · Slack, Make hooks, Anthropic, PostHog, Apple push (APNs) → allowed (staging secrets decide
        where they land; the Sheet id comes from SHEET_ID)
      · Monday, Telnyx, Linear, Cloudflare, googleapis → reads only
      · Morning / GreenInvoice / Meshulam (money) and anything else → blocked
@@ -43,7 +43,9 @@ export function isAllowedPhone(env, phone) {
 /* hosts and what they may do in staging */
 const SEND_WA = /^graph\.facebook\.com$/;
 const SEND_RETELL = /^api\.retellai\.com$/;
-const OPEN = [/^hooks\.slack\.com$/, /^hook\.[a-z0-9-]+\.make\.com$/, /^api\.anthropic\.com$/, /^us\.i\.posthog\.com$/];
+/* 21/11 client app: Apple's push service. Only device tokens registered through the staging app (our own test phones)
+   are stored on staging, so a push from here cannot reach a real client. */
+const OPEN = [/^hooks\.slack\.com$/, /^hook\.[a-z0-9-]+\.make\.com$/, /^api\.anthropic\.com$/, /^us\.i\.posthog\.com$/, /^api(\.sandbox)?\.push\.apple\.com$/];
 const READ_ONLY = [/^api\.monday\.com$/, /^api\.telnyx\.com$/, /^api\.linear\.app$/, /^api\.cloudflare\.com$/, /\.googleapis\.com$/, /^api\.github\.com$/];
 const WRITE = new Set(['POST', 'PUT', 'PATCH', 'DELETE']);
 
