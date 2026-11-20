@@ -173,6 +173,7 @@ try {
   const usage = (await api('/api/app/analytics', { admin_key: adminKey(), days: 1, phone: PHONE })).body;
   const mine = usage.client || {}, mev = mine.events || {}, mtabs = mine.tabs || {};
   check('P16 usage log has this client\'s sign-in, guest and send tabs, and the board page', mev.signin_ok >= 1 && mtabs.guests >= 1 && mtabs.sends >= 1 && mev.board_view >= 1 && (usage.board_pages || {}).dashboard >= 1, JSON.stringify({ events: mev, tabs: mtabs, pages: usage.board_pages }).slice(0, 320));
+  check('P16 a tap inside the board is counted by the control\'s name', Object.keys(usage.board_controls || {}).length >= 1, JSON.stringify(usage.board_controls || {}).slice(0, 200));
   check('P16 nothing in the usage report looks like a phone or a Hebrew name', !/\d{9,}|[\u0590-\u05FF]/.test(JSON.stringify(usage)));
 
   /* P3: no network, reload: the last state is still there with "עודכן" */

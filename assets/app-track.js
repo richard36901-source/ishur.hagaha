@@ -12,7 +12,18 @@
     document.addEventListener('click', function (e) {
       var el = e.target && e.target.closest && e.target.closest('button,a,summary,[role=button],[data-tab],[data-f],[data-act]');
       if (!el) return;
-      var id = el.id || el.getAttribute('data-tab') || el.getAttribute('data-f') || el.getAttribute('data-act') || el.getAttribute('data-go') || '';
+      var id = el.id || '';
+      /* no id: name the control by its first data-* attribute ("guide-waze", "do-yes"), else by its first class.
+         A value is used only when it is short and has no run of 4+ digits, so a guest's id or phone never leaves. */
+      if (!id) {
+        for (var i = 0; i < el.attributes.length && !id; i++) {
+          var a = el.attributes[i]; if (a.name.indexOf('data-') !== 0) continue;
+          var k = a.name.slice(5), v = String(a.value || '');
+          id = k + (/^[A-Za-z0-9_-]{1,16}$/.test(v) && !/\d{4,}/.test(v) ? '-' + v : '');
+        }
+      }
+      if (!id) id = (String(el.className || '').split(/\s+/)[0] || '') || el.tagName.toLowerCase();
+      id = id.slice(0, 40);
       if (!/^[A-Za-z][A-Za-z0-9_-]{0,39}$/.test(id)) return;
       send('board_click', { page: page, id: id });
     }, true);
