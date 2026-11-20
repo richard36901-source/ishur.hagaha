@@ -4,6 +4,7 @@ window.ISHUR_ENV = {
   name: 'staging',
   api: 'https://go-staging.ishur.io',
   site: 'https://staging.ishur.io',
+  board: 'https://staging.ishur.io/dashboard',
   whatsapp: '972559504499',
   version: '1.0.0'
 };

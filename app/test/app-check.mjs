@@ -110,6 +110,20 @@ try {
   await p.click('[data-tab=account]');
   await p.screenshot({ path: path.join(SHOTS, '5-account-light.png') });
 
+  /* P13: the regular board, in app mode, inside the app */
+  await p.click('[data-tab=board]');
+  const fr = p.frameLocator('#boardFrame');
+  const boardUp = await fr.locator('#rows .pill').nth(5).waitFor({ timeout: 60000 }).then(() => true, () => false);
+  check('P13 the board opens inside the app with its guest rows', boardUp);
+  const frame = p.frames().find(f => /dashboard/.test(f.url()));
+  const inBoard = frame ? await frame.evaluate(() => {
+    const vis = sel => Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null || el.getClientRects().length).length;
+    return { mode: document.documentElement.classList.contains('in-app'), shown: ['.top .brand', '.theme-tog', '#pwaCard', '#addonsCard', '#refCard', '#invoiceCard', '.buy', '.toc'].filter(s => vis(s) > 0), shekel: /₪/.test(document.body.innerText), hash: location.hash };
+  }) : { mode: false, shown: ['no frame'], shekel: true, hash: '' };
+  check('P13 app mode is on and nothing that sells is visible', inBoard.mode && inBoard.shown.length === 0 && !inBoard.shekel, inBoard.shown.join(' ') + (inBoard.shekel ? ' ₪ on screen' : ''));
+  check('P13 the session is not left in the address', !/acct\./.test(inBoard.hash));
+  await p.waitForTimeout(600); await p.screenshot({ path: path.join(SHOTS, '8-board-light.png') });
+
   /* what is saved on the device: no phone numbers, no board link to a page that sells */
   const saved = await p.evaluate(() => Object.keys(localStorage).filter(k => /^ishurapp_data:/.test(k)).map(k => localStorage.getItem(k)).join(''));
   check('saved copy on the device holds no phone numbers', saved.length > 100 && !/\d{9,}/.test(saved) && !/phone|gift|invoice/.test(saved));

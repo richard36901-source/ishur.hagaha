@@ -80,10 +80,21 @@
     $('signin').hidden = signedIn; $('app').hidden = !signedIn; $('tabs').hidden = !signedIn;
   }
   function tab(name) {
-    ['summary', 'guests', 'sends', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== name; });
+    ['summary', 'guests', 'sends', 'board', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== name; });
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     window.scrollTo(0, 0);
+    if (name === 'board') openBoard();
   }
+  /* The regular client board, in its app mode, inside the app. The session travels in the address fragment (never
+     sent to a server), so a locked board opens too. Loaded on first use and again when the event changes. */
+  var boardFor = '';
+  function openBoard() {
+    if (!current || boardFor === current) return;
+    boardFor = current;
+    $('boardWait').hidden = false;
+    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1#s=' + encodeURIComponent(session);
+  }
+  $('boardFrame').addEventListener('load', function () { $('boardWait').hidden = true; });
   function evTitle(e) { return (e && (e.name || e.occasion)) || 'האירוע'; }
 
   function render() {
@@ -184,7 +195,7 @@
     var s = session;
     document.dispatchEvent(new CustomEvent('ishur:signed-out', { detail: { session: s } }));
     if (s && !silent) post('/api/account/logout', { session: s });
-    session = ''; events = []; current = ''; data = null; filter = 'all';
+    session = ''; events = []; current = ''; data = null; filter = 'all'; boardFor = ''; $('boardFrame').removeAttribute('src');
     store.clear(); $('code').value = ''; $('signinNote').textContent = '';
     show(false);
   }
@@ -206,13 +217,13 @@
   });
   $('forgot').addEventListener('click', function (e) { e.preventDefault(); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
   $('support').addEventListener('click', function (e) { e.preventDefault(); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
-  $('privacy').addEventListener('click', function (e) { e.preventDefault(); openUrl('https://ishur.io/terms.html#privacy'); });
+  $('privacy').addEventListener('click', function (e) { e.preventDefault(); openUrl(ENV.site + '/terms.html#privacy'); });
   $('signout').addEventListener('click', function () { signOut(false); });
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { tab(b.getAttribute('data-tab')); haptic(); } });
   $('filters').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-f'); render(); });
   document.querySelector('.grid').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-go'); tab('guests'); render(); });
   $('search').addEventListener('input', renderGuests);
-  function pickEvent(tok) { if (!tok || tok === current) return; current = tok; store.set('current', tok); data = null; filter = 'all'; tab('summary'); render(); loadEvent(); }
+  function pickEvent(tok) { if (!tok || tok === current) return; current = tok; boardFor = ''; $('boardFrame').removeAttribute('src'); store.set('current', tok); data = null; filter = 'all'; tab('summary'); render(); loadEvent(); }
   $('evList').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) pickEvent(b.getAttribute('data-ev')); });
   $('evSwitch').addEventListener('click', function () { tab('account'); });
   $('share').addEventListener('click', function () {

@@ -37,7 +37,25 @@
       if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     } catch (e) {}
   })();
+  /* 20/11 client app: the board shown inside the ishur app (dashboard.html?…&app=1). App mode only hides things
+     (site header brand, theme button, install card, everything that sells) and takes the client's session from
+     the address fragment the app passes. Without app=1 nothing here runs. */
+  (function () {
+    try {
+      var inApp = /[?&]app=1(&|$)/.test(location.search);
+      if (inApp) { try { sessionStorage.setItem('ishur_in_app', '1'); } catch (e0) {} }
+      else { try { inApp = sessionStorage.getItem('ishur_in_app') === '1'; } catch (e1) {} }
+      if (!inApp) return;
+      document.documentElement.classList.add('in-app');
+      var m = /(?:^#|&)s=(acct\.[0-9a-zA-Z._-]{20,200})(?:&|$)/.exec(location.hash || '');
+      if (m) { try { localStorage.setItem('ishur_acct_session', m[1]); } catch (e2) {} try { history.replaceState(null, '', location.pathname + location.search); } catch (e3) {} }
+    } catch (e) {}
+  })();
 </script>
+<style>
+  html.in-app .top .brand,html.in-app .theme-tog,html.in-app #pwaCard,html.in-app #addonsCard,html.in-app #refCard,
+  html.in-app #invoiceCard,html.in-app .buy,html.in-app .toc,html.in-app #tierPop,html.in-app #tierPopBg{display:none!important}
+</style>
 
 <style>
   :root{

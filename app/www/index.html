@@ -82,8 +82,13 @@
   </section>
 
   <section id="v-sends" class="view" hidden>
-    <div class="card"><div class="eyebrow">לוח השליחות</div><p class="sub">מה יוצא למוזמנים ומתי. לשינוי תאריך כתבו לנו בוואטסאפ.</p></div>
+    <div class="card"><div class="eyebrow">לוח השליחות</div><p class="sub">מה יוצא למוזמנים ומתי. שינוי תאריך, תמונה וסגנון נעשים בלשונית ניהול.</p></div>
     <div id="sendRows" class="list"></div>
+  </section>
+
+  <section id="v-board" class="view board" hidden>
+    <iframe id="boardFrame" title="לוח האירוע" allow="clipboard-write; web-share"></iframe>
+    <p id="boardWait" class="empty">טוענים את הלוח…</p>
   </section>
 
   <section id="v-account" class="view" hidden>
@@ -115,6 +120,7 @@
     <button data-tab="summary" class="on"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg><span>סיכום</span></button>
     <button data-tab="guests"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="8" r="2.4"/><path d="M16.5 13.2c2.4.2 4 1.700 4.500 4.300"/></svg><span>מוזמנים</span></button>
     <button data-tab="sends"><svg viewBox="0 0 24 24"><rect x="4" y="5.500" width="16" height="14.500" rx="2"/><path d="M4 10h16M8.500 3.500v4M15.500 3.500v4"/></svg><span>שליחות</span></button>
+    <button data-tab="board"><svg viewBox="0 0 24 24"><rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><rect x="13" y="13" width="7" height="7" rx="1.5"/></svg><span>ניהול</span></button>
     <button data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.500" r="3.700"/><path d="M4.500 20c.9-3.900 3.900-6 7.500-6s6.600 2.100 7.500 6"/></svg><span>חשבון</span></button>
   </nav>
 </div>
