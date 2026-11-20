@@ -190,6 +190,8 @@ export async function morningRun(env, d, { now = new Date(), send } = {}) {
   } catch { return { ran: false }; }
 }
 
+import { ingest as evIngest, report as evReport, purge as evPurge } from './app-events.js';
+
 /* ── /api/app/* ── POST, JSON. Every client route needs the client's session (the same one the personal area uses). */
 export async function handleApp(request, env, origin, url, d) {
   const path = url.pathname.replace(/^\/api\/app\//, '');
@@ -207,8 +209,16 @@ export async function handleApp(request, env, origin, url, d) {
     return d.okJson({ ok: results.some(r => r.status === 200), results }, origin);
   }
 
+  /* usage events (app-events.js): the report and the purge are for an admin */
+  if (path === 'analytics' || path === 'events-purge') {
+    if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
+    if (path === 'events-purge') return b.phone ? d.okJson(await evPurge(env, String(b.phone)), origin) : d.deny(400, 'no-phone', origin);
+    return d.okJson(await evReport(env, { days: b.days, phone: String(b.phone || '') }), origin);
+  }
+
   const phone = await d.verifySession(env, String(b.session || ''));
   if (!phone) return d.deny(401, 'no-session', origin);
+  if (path === 'events') return d.okJson(await evIngest(env, phone, b), origin);
   if (path === 'push-register') { const r = await register(env, phone, b); return r.ok ? d.okJson({ ...r, on: await on(env) }, origin) : d.deny(400, r.error, origin); }
   if (path === 'push-unregister') return d.okJson(await unregister(env, phone, b.device), origin);
   if (path === 'push-prefs') return d.okJson(b.prefs ? await setPrefs(env, phone, b.prefs) : { ok: true, prefs: (await read(env, phone)).prefs }, origin);
@@ -217,6 +227,7 @@ export async function handleApp(request, env, origin, url, d) {
        days (events, guest lists, answers), so it lands in the journal marked for review. */
     await env.RATE.put('appdelete:' + phone, new Date().toISOString(), { expirationTtl: 90 * 86400 }).catch(() => {});
     await d.logEvent(env, { area: 'אפליקציה', action: 'בקשת מחיקת חשבון ומידע מהאפליקציה (לבצע תוך 7 ימים)', ok: true, review: true, phone }).catch(() => {});
+    await evPurge(env, phone).catch(() => {});   /* the client's usage events go at once (R24) */
     return d.okJson({ ok: true }, origin);
   }
   return d.deny(404, 'unknown-app-route', origin);

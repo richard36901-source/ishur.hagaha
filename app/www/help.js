@@ -49,8 +49,9 @@
     $('helpDots').innerHTML = topic.steps.map(function (_, i) { return '<i' + (i === step ? ' class="on"' : '') + '></i>'; }).join('');
     $('helpNext').hidden = last; $('helpReplay').hidden = !last; $('helpWa').hidden = !last;
   }
+  var T = function (n, p) { if (window.IshurTrack) window.IshurTrack.track(n, p); };
   function openTopic(i) {
-    topic = TOPICS[i]; step = 0;
+    topic = TOPICS[i]; step = 0; T('help_topic', { topic: i });
     $('helpTopics').hidden = true; $('helpPlayer').hidden = false; $('helpBack').hidden = false;
     $('helpPlayer').setAttribute('data-steps', topic.steps.length); $('helpTitle').textContent = topic.title; draw();
   }
@@ -59,11 +60,11 @@
 
   $('helpTopics').innerHTML = TOPICS.map(function (t, i) { return '<button type="button" class="row nav" data-i="' + i + '"><span class="nm">' + t.title + '</span></button>'; }).join('');
   $('helpTopics').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) openTopic(Number(b.getAttribute('data-i'))); });
-  $('helpNext').addEventListener('click', function () { if (step < topic.steps.length - 1) { step++; draw(); } });
+  $('helpNext').addEventListener('click', function () { if (step < topic.steps.length - 1) { step++; draw(); if (step === topic.steps.length - 1) T('help_done', { topic: TOPICS.indexOf(topic) }); } });
   $('helpReplay').addEventListener('click', function () { step = 0; draw(); });
   $('helpBack').addEventListener('click', list);
   $('helpClose').addEventListener('click', function () { $('help').hidden = true; });
-  $('helpOpen').addEventListener('click', function () { open(); });
+  $('helpOpen').addEventListener('click', function () { T('help_open'); open(); });
   $('helpWa').addEventListener('click', function (e) {
     e.preventDefault();
     var url = 'https://wa.me/' + ENV.whatsapp + '?text=' + encodeURIComponent('היי, צריך/ה עזרה באפליקציה: ' + (topic ? topic.title : ''));

@@ -104,3 +104,33 @@ P14 (R17). `app-check.mjs`: from the board tab, opening guest upload stays insid
 ## Out of scope (version 1)
 Buying anything (1.1), partner and hostess screens, iPad layout,
 EU storefronts, turning the board lock back on.
+
+## Round 5 (20/11/2026, Richard, by message): usage data
+"prep it all for tracking as much as possible so we'll know how users use the app, databases etc. ... make it better
+over time and learn users' behaviours ... later we'll connect so they can buy rsvp for the next event in the app."
+This replaces the earlier store answer "no analytics". Advertising pixels, PostHog and the site's `/px` counter stay
+off inside the app; what is added is our own usage log, on our own Worker, with no third-party SDK.
+
+R20. The app records what a signed-in client does: app opened, sign-in passed or not, which tab, event switched,
+     guest filter, share, WhatsApp tap, help topic, notification question and answer, delete request, a script error,
+     and inside the board frame which page is on screen and which control was tapped (by its id, never its text).
+R21. Events go to `POST /api/app/events` with the client's session, in batches, kept on the device while offline.
+     Nothing is recorded before sign-in is sent unless that person then signs in.
+R22. The Worker keeps only names from a fixed list and props from a fixed list; a value with Hebrew letters or a run of
+     7+ digits is dropped, so a guest's name or phone cannot be stored. The client is stored as a keyed hash of the
+     phone, not the phone. Kept 400 days.
+R23. `POST /api/app/analytics {admin_key, days}` answers: active clients per day, event counts, tabs, board pages and
+     controls, script errors, platform and version, a funnel (signed in → saw the board → opened guests → was asked
+     about notifications → said yes) and return on day 1 and day 7. With `phone`, one client's own counts.
+R24. A delete-account request removes that client's usage events at once; `POST /api/app/events-purge` does the same
+     for an admin.
+R25. Names `purchase_view`, `purchase_start`, `purchase_done` are reserved for 1.1; nothing sends them yet.
+Storage: the Worker's KV (the API token has no D1 permission, 20/11). Keys `appev:<day>:<uid>:<id>`, one per batch;
+finished days are summarised once into `appsum:<day>`. Moving to D1 later is a copy of these rows.
+
+P16 (R20, R21). `app-check.mjs`: after the run's clicks, `/api/app/analytics` for the demo phone on staging lists
+     `signin_ok`, `tab_view` for guests and sends, and `board_view` with page `dashboard`.
+P17 (R22). `node --test worker/test/app-events.test.mjs`: an unknown name, a Hebrew value and a phone-like value are
+     not in what is stored; the stored record has no phone.
+P18 (R24). Same test file: after purge, no key of that client is left and other clients' keys are.
+P19. P13 and P14 unchanged and still pass: no pixel, PostHog or `/px` request in app mode.

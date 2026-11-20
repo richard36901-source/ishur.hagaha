@@ -7,6 +7,7 @@
   var App = window.IshurApp || {}, ENV = window.ISHUR_ENV || {};
   var $ = function (id) { return document.getElementById(id); };
   var Push = App.plugin && App.plugin('PushNotifications');
+  var T = function (n, p) { if (window.IshurTrack) window.IshurTrack.track(n, p); };
   if (!App.native || !Push) return;
   var device = '';
   var KINDS = { pushAnswer: 'answer', pushDaily: 'daily', pushFailed: 'failed' };
@@ -20,23 +21,24 @@
   }
   Push.addListener('registration', function (t) { device = (t && t.value) || ''; sendToken(); });
   Push.addListener('registrationError', function () { /* quiet: the app works without push */ });
-  Push.addListener('pushNotificationActionPerformed', function () { if (App.reload) App.reload(); });   /* tapped a notification: open and refresh */
+  Push.addListener('pushNotificationActionPerformed', function () { T('push_open'); if (App.reload) App.reload(); });   /* tapped a notification: open and refresh */
 
   function ask() {
-    Push.requestPermissions().then(function (p) { if (p && p.receive === 'granted') Push.register(); else App.store.set('push', 'declined'); }).catch(function () {});
+    Push.requestPermissions().then(function (p) { if (p && p.receive === 'granted') { T('push_granted'); Push.register(); } else { T('push_denied'); App.store.set('push', 'declined'); } }).catch(function () {});
   }
   function begin() {
     Push.checkPermissions().then(function (p) {
       if (p && p.receive === 'granted') { Push.register(); return; }
       if (p && p.receive === 'denied') return;                       /* decided in iOS Settings: we do not nag */
       if (App.store.get('push')) return;                             /* already answered our own question */
-      setTimeout(function () { if (App.session()) $('pushAsk').hidden = false; }, 4000);   /* after the board is on screen, not on top of sign-in */
+      setTimeout(function () { if (App.session()) { $('pushAsk').hidden = false; T('push_sheet_view'); } }, 4000);   /* after the board is on screen, not on top of sign-in */
     }).catch(function () {});
   }
-  $('pushYes').addEventListener('click', function () { $('pushAsk').hidden = true; App.store.set('push', 'asked'); ask(); });
-  $('pushNo').addEventListener('click', function () { $('pushAsk').hidden = true; App.store.set('push', 'later'); });
+  $('pushYes').addEventListener('click', function () { T('push_yes'); $('pushAsk').hidden = true; App.store.set('push', 'asked'); ask(); });
+  $('pushNo').addEventListener('click', function () { T('push_no'); $('pushAsk').hidden = true; App.store.set('push', 'later'); });
   Object.keys(KINDS).forEach(function (id) {
     $(id).addEventListener('change', function () {
+      T('push_pref', { id: KINDS[id], ok: $(id).checked });
       var prefs = {}; Object.keys(KINDS).forEach(function (k) { prefs[KINDS[k]] = $(k).checked; });
       App.post('/api/app/push-prefs', { session: App.session(), prefs: prefs });
     });

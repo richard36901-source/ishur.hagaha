@@ -11,6 +11,7 @@
   var ENV = window.ISHUR_ENV || {};
   var $ = function (id) { return document.getElementById(id); };
   var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+  var T = function (n, p) { if (window.IshurTrack) window.IshurTrack.track(n, p); };   /* usage events: track.js */
   var plugin = function (n) { return (NATIVE && window.Capacitor.Plugins && window.Capacitor.Plugins[n]) || null; };
 
   /* ── storage (everything under one prefix, so sign-out can remove it all) ── */
@@ -83,7 +84,8 @@
      With no network the app's own summary takes its place, from the copy saved on the device. */
   var offline = (navigator.onLine === false);
   function tab(name) {
-    if (name === 'board' && offline) name = 'summary';
+    if (name === 'board' && offline) { name = 'summary'; T('offline_view'); }
+    T('tab_view', { tab: name });
     ['summary', 'guests', 'sends', 'board', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== name; });
     var lit = name === 'summary' ? 'board' : name;
     Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === lit); });
@@ -217,25 +219,28 @@
     go.disabled = true; note.textContent = 'בודקים…';
     post('/api/account/pin-login', { phone: phone, pin: code }).then(function (r) {
       go.disabled = false;
-      if (r.status === 200 && r.body.session) { session = r.body.session; store.set('session', session); note.textContent = ''; haptic(); start(); return; }
+      if (r.status === 200 && r.body.session) { session = r.body.session; store.set('session', session); note.textContent = ''; haptic(); T('signin_ok'); start(); return; }
+      T('signin_fail', { kind: String(r.status) });
       if (r.status === 429) note.textContent = 'נעשו כמה ניסיונות ברצף. נסו שוב בעוד שעה, או כתבו לנו בוואטסאפ ונעזור מיד.';
       else if (r.status === 403) note.textContent = 'הטלפון והקוד לא תואמים. בדקו את הקוד בהודעה ששלחנו, או כתבו לנו בוואטסאפ.';
       else note.textContent = 'לא הצלחנו להתחבר כרגע. בדקו את החיבור לאינטרנט ונסו שוב.';
     });
   });
-  $('forgot').addEventListener('click', function (e) { e.preventDefault(); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
-  $('support').addEventListener('click', function (e) { e.preventDefault(); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
-  $('privacy').addEventListener('click', function (e) { e.preventDefault(); openUrl(ENV.site + '/terms.html#privacy'); });
+  $('forgot').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'signin' }); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
+  $('support').addEventListener('click', function (e) { e.preventDefault(); T('whatsapp_tap', { from: 'account' }); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
+  $('privacy').addEventListener('click', function (e) { e.preventDefault(); T('privacy_open'); openUrl(ENV.site + '/terms.html#privacy'); });
   $('signout').addEventListener('click', function () { signOut(false); });
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { tab(b.getAttribute('data-tab')); haptic(); } });
-  $('filters').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-f'); render(); });
+  $('filters').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-f'); T('guest_filter', { id: filter }); render(); });
   document.querySelector('.grid').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-go'); tab('guests'); render(); });
   $('search').addEventListener('input', renderGuests);
-  function pickEvent(tok) { if (!tok || tok === current) return; current = tok; boardFor = ''; $('boardFrame').removeAttribute('src'); store.set('current', tok); data = null; filter = 'all'; tab('board'); render(); loadEvent(); }
+  $('search').addEventListener('change', function () { if ($('search').value.trim()) T('guest_search'); });   /* that a search happened, never what was typed */
+  function pickEvent(tok) { if (!tok || tok === current) return; current = tok; boardFor = ''; $('boardFrame').removeAttribute('src'); store.set('current', tok); T('event_switch'); data = null; filter = 'all'; tab('board'); render(); loadEvent(); }
   $('evList').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) pickEvent(b.getAttribute('data-ev')); });
   $('evSwitch').addEventListener('click', function () { tab('account'); });
   $('share').addEventListener('click', function () {
     if (!data || !data.pub) return;
+    T('share_link');
     var url = 'https://ishur.io/rsvp.html?t=' + encodeURIComponent(data.pub), text = 'אישור הגעה ל' + ($('evName').textContent || 'אירוע');
     var s = plugin('Share');
     if (s) s.share({ title: text, text: text, url: url, dialogTitle: 'שיתוף' }).catch(function () {});
@@ -244,11 +249,12 @@
   });
 
   /* delete-account request: in the app, as Apple and Google ask. If the request cannot be sent, hand off to WhatsApp. */
-  $('delete').addEventListener('click', function () { $('sheetNote').textContent = ''; $('sheetYes').hidden = false; $('sheet').hidden = false; });
+  $('delete').addEventListener('click', function () { T('delete_open'); $('sheetNote').textContent = ''; $('sheetYes').hidden = false; $('sheet').hidden = false; });
   $('sheetNo').addEventListener('click', function () { $('sheet').hidden = true; });
   $('sheet').addEventListener('click', function (e) { if (e.target === $('sheet')) $('sheet').hidden = true; });
   $('sheetYes').addEventListener('click', function () {
     $('sheetYes').disabled = true;
+    T('delete_request');
     post('/api/app/delete-request', { session: session }).then(function (r) {
       $('sheetYes').disabled = false;
       if (r.status === 200 && r.body.ok) { $('sheetYes').hidden = true; $('sheetNo').textContent = 'סגירה'; $('sheetNote').textContent = 'הבקשה התקבלה. נמחק את החשבון והמידע תוך 7 ימים ונעדכן אתכם בוואטסאפ.'; }
@@ -262,8 +268,9 @@
   document.addEventListener('visibilitychange', function () { if (!document.hidden && session) loadEvent(true); });
   var pullY = null;
   document.addEventListener('touchstart', function (e) { pullY = window.scrollY <= 0 ? e.touches[0].clientY : null; }, { passive: true });
-  document.addEventListener('touchend', function (e) { if (pullY != null && e.changedTouches[0].clientY - pullY > 90 && session) { haptic(); loadEvent(); } pullY = null; }, { passive: true });
+  document.addEventListener('touchend', function (e) { if (pullY != null && e.changedTouches[0].clientY - pullY > 90 && session) { haptic(); T('pull_refresh'); loadEvent(); } pullY = null; }, { passive: true });
 
   window.IshurApp = { post: post, store: store, plugin: plugin, native: NATIVE, session: function () { return session; }, reload: loadEvent, openEvent: pickEvent };
-  if (session) start(); else show(false);
+  T('app_open', { signed: session ? 1 : 0 });
+  if (session) start(); else { show(false); T('signin_view'); }
 })();
