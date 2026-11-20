@@ -9,7 +9,7 @@
 - Bundle / package id: `io.ishur.client` (proposed; becomes permanent when registered).
 - Availability: Israel only in version 1.
 
-## App Store text (drafts for Richard's approval, 20/11/2026)
+## App Store text (20/11/2026: Richard delegated the decision to Claude; he has not read these texts)
 
 ### עברית
 - **שם (30):** אישורי הגעה לאירועים
@@ -77,8 +77,7 @@ optional. Account deletion: Account tab → "בקשה למחיקת החשבון 
 | Usage data, diagnostics, location, advertising data | no | | | |
 - Data is encrypted in transit (HTTPS). Users can request deletion: in the app and at https://ishur.io/delete-account.html.
 - No third-party advertising or analytics SDK in the app; the board inside the app loads none (check P13/P14).
-- Still open, and it changes the answers above: the worker's own page counter `/px` (a random visitor id, path) is
-  requested by the board inside the app. Either switch it off in app mode or declare "Product interaction, not linked".
+- The worker's own page counter `/px` does not run in app mode (20/11, check P13/P14 count it as a tracking request).
 
 ## Age rating answers (draft)
 No web browsing outside our own pages, no user-generated content shown to other users, no chat, no ads, no
