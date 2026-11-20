@@ -12,6 +12,7 @@
   var device = '';
   var KINDS = { pushAnswer: 'answer', pushDaily: 'daily', pushFailed: 'failed' };
   var platform = (window.Capacitor.getPlatform && window.Capacitor.getPlatform()) === 'android' ? 'android' : 'ios';
+  if (platform === 'android' && !ENV.androidPush) return;   /* no Firebase file yet: registering would crash (env.js) */
 
   function showPrefs(prefs) { $('pushCard').hidden = false; Object.keys(KINDS).forEach(function (id) { $(id).checked = prefs ? prefs[KINDS[id]] !== false : true; }); }
   function sendToken() {

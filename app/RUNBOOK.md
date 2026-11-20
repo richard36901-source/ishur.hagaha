@@ -133,5 +133,17 @@ the closed-test list, send them the opt-in link, and they must keep the app inst
 Not built yet (spec R11). Needs: a fixed phone and code on production that never expire, invented guests, no
 message ever sent from it, and not blocked by the sign-in limits.
 
+## Android build (set up 21/11/2026 on this Mac)
+- Java 21: `brew install openjdk@21` → `export JAVA_HOME=/opt/homebrew/opt/openjdk@21`
+- Android SDK: `brew install --cask android-commandlinetools` → `export ANDROID_HOME=/opt/homebrew/share/android-commandlinetools`;
+  `sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "platforms;android-36" "build-tools;36.0.0"` (Gradle adds 35 itself).
+  `android/local.properties` holds `sdk.dir` (not committed).
+- Debug build: `npx cap sync android && cd android && ./gradlew assembleDebug` → `app/build/outputs/apk/debug/app-debug.apk`.
+  Checked 21/11: id io.ishur.client, target API 36, permissions internet, network state, notifications, vibrate.
+- Not run on an emulator yet (needs 2–4 GB more disk). Store build: `./gradlew bundleRelease` with an upload key
+  (create with keytool, keep it outside the repo, back it up: losing it means a new listing).
+- Push on Android is off (`androidPush: false` in `www/env.js`) until Firebase's `google-services.json` is in
+  `android/app/`; registering without it crashes the app. The Worker's FCM sender is not written yet.
+
 ## Not written yet
-Android build and signing (no Android tools on this Mac yet), FCM sender.
+FCM sender in the Worker, release signing for Android.

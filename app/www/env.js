@@ -6,6 +6,7 @@ window.ISHUR_ENV = {
   "site": "https://staging.ishur.io",
   "board": "https://staging.ishur.io/dashboard",
   "apnsSandbox": true,
+  "androidPush": false,
   "whatsapp": "972559504499",
   "version": "1.0.0"
 };

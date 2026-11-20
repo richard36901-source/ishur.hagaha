@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 03:20. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 03:50. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -120,8 +120,9 @@ Nothing in the app works for real clients until this is done. Today production h
 
 - [ ] **You:** register at play.google.com/console/signup, personal account, pay the one-time fee, verify your identity. Pick the developer name you want shown.
 - [ ] **You:** on the sign-up screens, check whether Google asks for a closed test with 12 testers for 14 days before going public. Tell Claude what it says.
-- [ ] **Together:** install Android Studio on this Mac (about 10 GB; the Mac has 12 GB free, so free more space first).
-- [ ] **Claude:** build the Android app, run it, connect Android notifications (Firebase).
+- [x] Android Studio not needed: the command-line SDK is installed instead (848 MB).
+- [x] **Claude:** Android debug build works on this Mac (21/11, Java 21 + Android SDK installed): 5.9 MB, target API 36. Not yet run on an emulator (disk). Push on Android stays off until Firebase.
+- [ ] **Claude:** run it on an emulator or a phone; connect Android notifications (Firebase) after step 13.
 - [ ] **You:** create a Firebase project when Claude asks, download the service file, tell Claude where it is.
 - [ ] **You:** if Google requires it, find 12 people with Android phones and send them the test link.
 - [ ] **Together:** store listing, Data safety form, submit.
