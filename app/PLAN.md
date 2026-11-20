@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 22:00.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 22:20.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -27,6 +27,10 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 3. **You:** say "promote" when you are ready for the server changes to go live (step 3 below).
 
 ---
+
+## Waiting for Richard: the redesign (round 6)
+
+On 20/11 Richard asked for a new layout of the tabs, sign-in with Apple or Google, buying in the app, an event schedule with a calendar button, and an event picker. The plan is in `.sdlc/client-app/round6-redesign.md`. Nothing is built. Five questions, asked one at a time; the first is the order of releases. The milestone table and the "about a week" estimate above assume the proposed order (1.0 without sign-in changes and buying).
 
 ## Claude's own queue (no approval needed, staging only)
 
