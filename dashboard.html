@@ -912,6 +912,7 @@
 
 <script src="assets/select.js?v=19"></script>
 <script src="assets/datepicker.js?v=19"></script>
+<script src="assets/i18n.js?v=3" defer></script>
 <script>
 (function () {
   var CFG = window.ISHUR_CONFIG;
@@ -2637,7 +2638,8 @@
     if (!addonQuote) return;
     $('addons').querySelectorAll('[data-addon]').forEach(function (b) {
       var k = b.dataset.addon, it = priceOf(k, 'all');
-      if (it && it.price) b.textContent = (b.textContent.indexOf('סבב נוסף') === 0 ? 'סבב נוסף · ₪' : 'הוספה · ₪') + it.price;
+      /* the label is read back here; with another language on screen the Hebrew is kept beside it (data-he, i18n.js) */
+      if (it && it.price) b.textContent = ((b.getAttribute('data-he') || b.textContent).indexOf('סבב נוסף') === 0 ? 'סבב נוסף · ₪' : 'הוספה · ₪') + it.price;
     });
   }
   function askScope() {
