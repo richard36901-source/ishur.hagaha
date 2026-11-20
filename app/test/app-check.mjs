@@ -67,7 +67,7 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 3, locale: 'he-IL' });
   const p = await ctx.newPage();
   const jsErrors = []; p.on('pageerror', e => jsErrors.push(String(e.message)));
-  const trackers = []; p.on('request', r => { if (/facebook\.(net|com)|tiktok|googletagmanager|google-analytics|doubleclick|posthog|ishur\.io\/ph\//i.test(r.url())) trackers.push(new URL(r.url()).host); });
+  const trackers = []; p.on('request', r => { if (/facebook\.(net|com)|tiktok|googletagmanager|google-analytics|doubleclick|posthog|ishur\.io\/ph\/|ishur\.io\/px(\?|$)/i.test(r.url())) trackers.push(new URL(r.url()).host); });
   await p.goto('http://localhost:4180/', { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('#signin:not([hidden])', { timeout: 15000 });
   await p.screenshot({ path: path.join(SHOTS, '1-signin-light.png') });

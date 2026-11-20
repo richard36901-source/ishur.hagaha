@@ -343,6 +343,7 @@ window.IshurTrack = (function () {
   }
 
   function beacon(kind) {
+    if (IN_APP) return;   /* 20/11 client app: no page counter inside the app, so the store answer stays "no analytics" */
     var v = visitorId();
     if (!v) return;
     var a = attribution() || {};
