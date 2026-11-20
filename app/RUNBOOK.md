@@ -26,7 +26,13 @@ xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -conf
   -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO build
 ```
 "** BUILD SUCCEEDED **" is the pass. The app is at `ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app`.
-Running it needs an iOS simulator runtime: Xcode → Settings → Components → iOS (several GB).
+Running it needs an iOS simulator runtime: Xcode → Settings → Components → iOS. On 20/11/2026 the iOS 27.2
+runtime took 16 GB on disk, and a booted simulator about 7.5 GB more while it runs. Keep 25 GB free.
+```bash
+xcrun simctl boot "iPhone 18 Pro" && xcrun simctl install booted ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app
+xcrun simctl launch booted io.ishur.client && xcrun simctl io booted screenshot shot.png
+xcrun simctl shutdown all      # frees the 7.5 GB
+```
 
 ## Build for a store
 ```bash
