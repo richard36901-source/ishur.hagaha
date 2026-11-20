@@ -70,8 +70,11 @@ npm run env:staging             # ALWAYS switch back before committing
 - A board control is reported only when it has an `id` (or `data-tab` / `data-f` / `data-act`) in Latin letters.
 - Remove one client's events: `POST /api/app/events-purge {admin_key, phone}`. A delete-account request from the app
   does this by itself.
-- Not there yet: a screen to read the report (today it is JSON), D1 instead of KV (the API token has no D1 permission),
-  purchase events (names reserved, nothing sends them).
+- Database: the code writes to a D1 database when the Worker has one bound as `APP_DB` (tables in
+  `worker/migrations-app/`), and to KV when it does not. To switch staging over: give the Cloudflare API token
+  Account → D1 → Edit, run `sh worker/scripts/app-d1-setup.sh`, then `scripts/deploy-staging.sh worker`. The report
+  answers the same from both (a test compares them). Events already in KV are not copied; they age out in 400 days.
+- Not there yet: a screen to read the report (today it is JSON); purchase events (names reserved, nothing sends them).
 
 ## Not written yet (filled in as each loop is done)
 Signing and certificates, push keys (APNs .p8, Firebase), the Worker push switch `cfg:app_push`, the reviewer demo

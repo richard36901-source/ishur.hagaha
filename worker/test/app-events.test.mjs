@@ -90,3 +90,36 @@ test('routes: events need a session, the report and the purge need the admin key
   assert.equal((await call('delete-request', { session: 'good' })).body.ok, true);
   assert.equal(stored().length, 0);
 });
+
+/* ── the same behaviour with the D1 database bound (APP_DB). node:sqlite stands in for D1 and runs the real SQL. ── */
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+function d1() {
+  const db = new DatabaseSync(':memory:');
+  db.exec(fs.readFileSync(new URL('../migrations-app/0001_app_events.sql', import.meta.url), 'utf8'));
+  const mk = (sql, args = []) => ({ bind: (...a) => mk(sql, a), all: async () => ({ results: db.prepare(sql).all(...args) }), first: async () => db.prepare(sql).get(...args) ?? null, run: async () => { db.prepare(sql).run(...args); return { success: true }; }, _run: () => db.prepare(sql).run(...args) });
+  return { db, prepare: sql => mk(sql), batch: async stmts => { for (const st of stmts) st._run(); return []; } };
+}
+const fill = async (e, d19, d20) => {
+  await E.ingest(e, A, { plat: 'ios', ver: '1.0.0', events: [ev('signin_ok', {}, d19.getTime()), ev('tab_view', { tab: 'board' }, d19.getTime()), ev('board_view', { page: 'dashboard' }, d19.getTime()), ev('push_sheet_view', {}, d19.getTime()), ev('push_yes', {}, d19.getTime())] }, { now: d19 });
+  await E.ingest(e, B, { plat: 'android', ver: '1.0.0', events: [ev('signin_ok', {}, d19.getTime()), ev('tab_view', { tab: 'guests' }, d19.getTime())] }, { now: d19 });
+  await E.ingest(e, A, { plat: 'ios', ver: '1.0.0', events: [ev('app_open', {}, d20.getTime()), ev('tab_view', { tab: 'guests' }, d20.getTime()), ev('board_click', { page: 'dashboard', id: 'editInvite' }, d20.getTime()), ev('js_error', { msg: 'x is undefined' }, d20.getTime())] }, { now: d20 });
+};
+test('database: the report is identical to the one from KV', async () => {
+  const d19 = at(19), d20 = at(20), kvEnv = { RATE: kv(), ADMIN_KEY: 'k' }, dbEnv = { RATE: kv(), ADMIN_KEY: 'k', APP_DB: d1() };
+  await fill(kvEnv, d19, d20); await fill(dbEnv, d19, d20);
+  const a = await E.report(kvEnv, { days: 3, now: d20, phone: A }), b = await E.report(dbEnv, { days: 3, now: d20, phone: A });
+  assert.deepEqual(b, a);
+  assert.equal(b.clients, 2); assert.deepEqual(b.return, { new_clients: 2, day1_eligible: 2, day1: 1, day7_eligible: 0, day7: 0 });
+  assert.ok(![...dbEnv.RATE.m.keys()].some(k => k.startsWith('appev:')), 'with a database nothing is written to KV but the rate counter');
+});
+test('database: rows hold no phone, no Hebrew and no unknown event; purge removes one client only', async () => {
+  const now = at(20), t = now.getTime(), e = { RATE: kv(), ADMIN_KEY: 'k', APP_DB: d1() };
+  await E.ingest(e, A, { plat: 'ios', ver: '1.0.0', events: [ev('tab_view', { tab: 'guests' }, t), ev('made_up', {}, t), ev('board_click', { page: 'dashboard', id: 'דנה כהן' }, t), ev('board_click', { page: 'dashboard', id: '0521234567' }, t)] }, { now });
+  await E.ingest(e, B, { events: [ev('app_open', {}, t)] }, { now });
+  const rows = e.APP_DB.db.prepare('SELECT * FROM app_events').all(), dump = JSON.stringify(rows) + JSON.stringify(e.APP_DB.db.prepare('SELECT * FROM app_users').all());
+  assert.equal(rows.length, 4); assert.doesNotMatch(dump, /made_up|[\u0590-\u05FF]|521234567/);
+  assert.deepEqual(await E.purge(e, A), { ok: true, removed: 3 });
+  assert.equal(e.APP_DB.db.prepare('SELECT COUNT(*) AS c FROM app_events').get().c, 1);
+  assert.equal(e.APP_DB.db.prepare('SELECT COUNT(*) AS c FROM app_users').get().c, 1);
+});

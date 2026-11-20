@@ -5,7 +5,11 @@
      appfirst:<uid>                the first day this client sent anything                                     800 days
      appsum:<YYYYMMDD>             a finished day, summarised once                                             400 days
      rl:appev:<uid>:<hour>         batches this hour (cap)
-   uid is a keyed hash of the phone; the phone itself is never stored here. */
+   uid is a keyed hash of the phone; the phone itself is never stored here.
+
+   20/11 night: when the Worker has a D1 database bound as APP_DB (tables in migrations-app/), events go there
+   instead, one row each, and the report reads from it. Without APP_DB everything above still works. The answer of
+   report() is the same from both. */
 
 export const NAMES = new Set([
   'app_open', 'app_background', 'signin_view', 'signin_ok', 'signin_fail', 'signout',
@@ -64,8 +68,17 @@ export async function ingest(env, phone, b = {}, { now = new Date() } = {}) {
   if (!ev.length) return { ok: true, kept: 0, dropped };
   const plat = ['ios', 'android', 'web'].includes(b.plat) ? b.plat : 'web';
   const ver = typeof b.ver === 'string' && /^[0-9A-Za-z.-]{1,16}$/.test(b.ver) ? b.ver : '';
-  await env.RATE.put('appev:' + day + ':' + uid + ':' + ms.toString(36) + rand(), JSON.stringify({ uid, plat, ver, at: now.toISOString(), ev }), { expirationTtl: TTL });
   await env.RATE.put(hourKey, String(used + 1), { expirationTtl: 7200 });
+  if (env.APP_DB) {
+    const ins = env.APP_DB.prepare('INSERT INTO app_events (ts, day, uid, sid, name, plat, ver, tab, page, ctl, msg, props) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
+    const str = v => (v == null ? null : String(v));
+    await env.APP_DB.batch([
+      ...ev.map(e => ins.bind(e.t, day, uid, e.s, e.n, plat, ver, str(e.p.tab), str(e.p.page), str(e.p.id), str(e.p.msg), JSON.stringify(e.p))),
+      env.APP_DB.prepare('INSERT INTO app_users (uid, first_day, last_day, plat, ver, events) VALUES (?,?,?,?,?,?) ON CONFLICT(uid) DO UPDATE SET last_day = excluded.last_day, plat = excluded.plat, ver = excluded.ver, events = events + excluded.events').bind(uid, day, day, plat, ver, ev.length),
+    ]);
+    return { ok: true, kept: ev.length, dropped, store: 'db' };
+  }
+  await env.RATE.put('appev:' + day + ':' + uid + ':' + ms.toString(36) + rand(), JSON.stringify({ uid, plat, ver, at: now.toISOString(), ev }), { expirationTtl: TTL });
   if (!(await env.RATE.get('appfirst:' + uid))) await env.RATE.put('appfirst:' + uid, day, { expirationTtl: 2 * TTL });
   return { ok: true, kept: ev.length, dropped };
 }
@@ -108,12 +121,29 @@ export async function daySummary(env, day, { today = dayOf() } = {}) {
   return sum;
 }
 
+/* The same per-day summaries, built from the database: one grouped query for the whole range. */
+async function dbSummaries(env, list) {
+  const by = {}; for (const d of list) by[d] = { day: d, batches: 0, events: 0, users: {}, names: {}, tabs: {}, pages: {}, clicks: {}, errors: {}, plat: {}, ver: {} };
+  const q = await env.APP_DB.prepare('SELECT day, uid, name, plat, ver, tab, page, ctl, msg, COUNT(*) AS c FROM app_events WHERE day >= ? AND day <= ? GROUP BY day, uid, name, plat, ver, tab, page, ctl, msg').bind(list[0], list[list.length - 1]).all();
+  for (const r of (q.results || [])) {
+    const sum = by[r.day]; if (!sum) continue;
+    const c = Number(r.c) || 0, u = sum.users[r.uid] || (sum.users[r.uid] = { n: {}, tabs: {}, plat: r.plat, ver: r.ver });
+    sum.events += c; bump(sum.names, r.name, c); bump(u.n, r.name, c);
+    if (r.name === 'tab_view' && r.tab) { bump(sum.tabs, r.tab, c); bump(u.tabs, r.tab, c); }
+    if (r.name === 'board_view' && r.page) bump(sum.pages, r.page, c);
+    if (r.name === 'board_click' && r.ctl) bump(sum.clicks, (r.page || '') + '#' + r.ctl, c);
+    if (r.name === 'js_error') bump(sum.errors, r.msg || 'unknown', c);
+  }
+  for (const sum of Object.values(by)) for (const u of Object.values(sum.users)) { bump(sum.plat, u.plat || 'web'); bump(sum.ver, u.ver || '?'); }
+  return list.map(d => by[d]);
+}
+
 const addDays = (day, n) => { const d = new Date(Date.UTC(+day.slice(0, 4), +day.slice(4, 6) - 1, +day.slice(6, 8) + n, 12)); return d.toISOString().slice(0, 10).replace(/-/g, ''); };
 
 export async function report(env, { days = 14, now = new Date(), phone = '' } = {}) {
   const n = Math.max(1, Math.min(90, Number(days) || 14)), today = dayOf(now);
   const list = []; for (let i = n - 1; i >= 0; i--) list.push(addDays(today, -i));
-  const sums = await Promise.all(list.map(d => daySummary(env, d, { today })));
+  const sums = env.APP_DB ? await dbSummaries(env, list) : await Promise.all(list.map(d => daySummary(env, d, { today })));
   const out = { ok: true, days: n, from: list[0], to: today, daily: [], events: {}, tabs: {}, board_pages: {}, board_controls: {}, errors: {}, platforms: {}, versions: {} };
   const seen = {};   /* uid → { days:Set, n:{} , tabs:{} } */
   for (const s of sums) {
@@ -145,7 +175,10 @@ export async function report(env, { days = 14, now = new Date(), phone = '' } = 
     ['shared_link', has(u => u.n.share_link)],
   ].map(([step, clients]) => ({ step, clients }));
   /* return: of the clients first seen inside this window, how many came back the next day / a week later */
-  const uids = Object.keys(seen), firsts = await Promise.all(uids.map(u => env.RATE.get('appfirst:' + u)));
+  const uids = Object.keys(seen);
+  let firsts;
+  if (env.APP_DB) { const fq = await env.APP_DB.prepare('SELECT uid, first_day FROM app_users WHERE last_day >= ?').bind(list[0]).all(); const fm = {}; for (const r of (fq.results || [])) fm[r.uid] = r.first_day; firsts = uids.map(u => fm[u] || null); }
+  else firsts = await Promise.all(uids.map(u => env.RATE.get('appfirst:' + u)));
   const ret = { new_clients: 0, day1_eligible: 0, day1: 0, day7_eligible: 0, day7: 0 };
   uids.forEach((uid, i) => {
     const f = firsts[i]; if (!f || f < list[0]) return;
@@ -161,10 +194,17 @@ export async function report(env, { days = 14, now = new Date(), phone = '' } = 
 
 /* Remove everything one client sent. Used by the delete-account request and by an admin. */
 export async function purge(env, phone) {
-  const uid = await uidFor(env, phone), keys = (await listAll(env, 'appev:')).filter(k => k.split(':')[2] === uid);
+  const uid = await uidFor(env, phone);
+  let removedDb = 0;
+  if (env.APP_DB) {
+    const n = await env.APP_DB.prepare('SELECT COUNT(*) AS c FROM app_events WHERE uid = ?').bind(uid).first();
+    await env.APP_DB.batch([env.APP_DB.prepare('DELETE FROM app_events WHERE uid = ?').bind(uid), env.APP_DB.prepare('DELETE FROM app_users WHERE uid = ?').bind(uid)]);
+    removedDb = Number(n && n.c) || 0;
+  }
+  const keys = (await listAll(env, 'appev:')).filter(k => k.split(':')[2] === uid);   /* and anything still in KV from before the database */
   const days = new Set(keys.map(k => k.split(':')[1]));
   for (let i = 0; i < keys.length; i += 40) await Promise.all(keys.slice(i, i + 40).map(k => env.RATE.delete(k)));
   await Promise.all([...days].map(d => env.RATE.delete('appsum:' + d)));
   await env.RATE.delete('appfirst:' + uid);
-  return { ok: true, removed: keys.length };
+  return { ok: true, removed: keys.length + removedDb };
 }
