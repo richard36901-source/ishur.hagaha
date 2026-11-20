@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 02:40. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 03:20. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -62,7 +62,7 @@ Split on 20/11 at Richard's request: routine, well-specified work for Opus now; 
 - [ ] After each item: tick it here and in Linear AUT-1141.
 
 **Fable, tomorrow** (design or risk)
-- [ ] Reviewer demo client on production (spec R11): a fixed phone and code that never expire, invented guests, unable to send anything, and not blocked by the sign-in caps. This touches sign-in security in the Worker.
+- [x] Reviewer demo client, built and checked on staging (21/11). A helper's audit found that no send path in the engine skips test events, so the demo event is kept OUT of the sheet: it lives in KV `review:rows` and is added only to sign-in, the event list and the board status (`worker/review-demo.js`). Any POST naming the demo token or phone is refused (`demo-readonly`) except read/notes routes; the phone is never locked out. Checked on staging: seeded from the second demo event (60 guests), signed in after 8 wrong codes, saw only the demo event; guest-add, send-date, custom-template, event-change, addon-pay and otp-send all refused; a real client's request unaffected. Production: set `REVIEW_TOKEN`/`REVIEW_PHONE` in the production vars and seed with invented rows at the promote. Not done: a friendly message on the board when the demo refuses an action (today the board shows its usual "not saved").
 - [ ] The production release itself, when Richard says "promote": review the 55+ commits and 17 Worker files going live, the rollback, and the order of steps.
 - [ ] Android notifications through Firebase from the Worker (service-account sign-in, tests). Nothing is written yet.
 - [x] A Cloudflare Worker reaches Apple's push service (21/11): `POST /api/app/apns-probe` got Apple's own answer `InvalidProviderToken` from both hosts. The staging guard now lets staging talk to Apple's push hosts (only staging-registered test phones can receive). A real notification still needs Richard's push key.

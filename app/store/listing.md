@@ -61,7 +61,7 @@
 Ishur is the companion app for clients of ishur.io, a service that sends event invitations over WhatsApp and
 collects RSVPs. Clients buy the service on our website or through a sales call, and an account is created for
 them then; the app has no sign-up and sells nothing. Sign in with the demo account below to see a demo event.
-Demo phone: [to fill] · Code: [to fill]. Notifications: after sign-in the app explains them and asks; they are
+Demo phone: 050-000-5201 · Code: [read with /api/client-pin after the promote; the production code differs from staging]. The demo event is invented and sends nothing: actions that would message guests are refused. Notifications: after sign-in the app explains them and asks; they are
 optional. Account deletion: Account tab → "בקשה למחיקת החשבון והמידע".
 
 ## Privacy answers (App Store "App Privacy" and Google "Data safety"), draft
