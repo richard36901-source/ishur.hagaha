@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 21:45.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 22:00.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -48,7 +48,7 @@ Split on 20/11 at Richard's request: routine, well-specified work for Opus now; 
 - [ ] Whether a Cloudflare Worker can reach Apple's push service at all (unverified since the spec), and the fallback if not. Needs Richard's push key.
 - [ ] Version 1.1: does Apple require its own payment for buying an RSVP package, and the purchase flow that follows from the answer.
 - [ ] Richard's adjustments after he plays with the app in the simulator.
-  - 20/11 21:30, Richard: the empty sixth tile in the board's status grid should hold the commitment to the venue ("כאן תעשה ההתחייבות מול האולם"). Nothing like it exists in the board or the Worker yet. Open question put to Richard: he types the number he committed to the venue and the tile shows the gap to confirmed. Not started.
+  - 20/11 21:30, Richard: the empty sixth tile in the board's status grid should hold the commitment to the venue ("כאן תעשה ההתחייבות מול האולם"). Nothing like it exists in the board or the Worker yet. Built on staging 20/11 22:00 as Richard described it: the client types the number, the line under it is our recommendation, a tick when they agree (within 5 people or 5%). Recommendation = confirmed + half the undecided + 30% of the silent, shown once half of the invited people answered; those three numbers are Claude's first setting, for Richard to tune. `worker/venue-commit.js`, `POST /api/venue-commit`, app check 42/42 for both demo clients.
 - [ ] Usage data: move to D1 if the token gets the permission; design of the report screen when Richard wants it.
 
 ## 1. Apple account (M2)
