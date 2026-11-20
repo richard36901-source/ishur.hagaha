@@ -215,6 +215,20 @@ export async function handleApp(request, env, origin, url, d) {
     }
     return d.okJson({ ok: true, out }, origin);
   }
+  /* admin: the App Store review demo (review-demo.js). {admin_key, from: <token of an invented event in the current
+     snapshot>} copies that event and its guests, re-keyed to REVIEW_TOKEN / REVIEW_PHONE, into KV review:rows; or
+     {admin_key, rows:{events, guests}} stores given rows. Never writes the sheet. */
+  if (path === 'review-seed') {
+    if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
+    if (!d.reviewOn || !d.reviewOn(env)) return d.deny(409, 'review-off', origin);
+    let src = b.rows;
+    if (!src && b.from) { const raw = await d.readSnapshot(env, 'dashboard'); src = { events: ((raw && raw.events && raw.events.values) || []).filter(r => String(r[1] || '').trim() === String(b.from)), guests: (raw && raw.guests && raw.guests.values) || [] }; }
+    const rows = d.reviewRekey(env, src || {});
+    if (!rows.events.length) return d.deny(404, 'no-event', origin);
+    await env.RATE.put('review:rows', JSON.stringify(rows));
+    await env.RATE.put('token:' + env.REVIEW_TOKEN, JSON.stringify({ phone: String(env.REVIEW_PHONE).replace(/\D/g, '').replace(/^0/, '972'), review_demo: true }));
+    return d.okJson({ ok: true, events: rows.events.length, guests: rows.guests.length }, origin);
+  }
   if (path === 'push-test') {   /* admin: one test notification to a phone's devices; works with the switch off */
     if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
     const phone = String(b.phone || ''); const rec = await read(env, phone);

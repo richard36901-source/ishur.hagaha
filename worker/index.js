@@ -80,6 +80,7 @@ import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';
 import { venueFor, parseCommit, writeCommit } from './venue-commit.js';
 import { packageFor } from './package.js';
+import { reviewOn, demoGate, withDemo, rekey as reviewRekey } from './review-demo.js';   /* 21/11 App Store review demo */
 import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedKey as lineupKey, readRec as lineupRead, writeRec as lineupWrite } from './lineup.js';   /* 21/11 לוז אירוע */   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
 import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
@@ -8279,7 +8280,7 @@ function eventsForPhone(raw, phone) {
 
 /* 12/11 personal-area: what account.js needs from here (same pattern as raffle / crm deps) */
 function accountDeps() {
-  return { okJson, deny, normPhone, overBudget, memOver, otpAttemptAllowed, safeEqual, tokenRecord, referralSummary: async (e, t) => referralSummary(e, t, await tokenRecord(e, t)), readSnapshot: (e, cls) => readSnapshot(e, cls), eventsForPhone, logEvent, slackSend,
+  return { okJson, deny, normPhone, overBudget, memOver, otpAttemptAllowed, safeEqual, tokenRecord, referralSummary: async (e, t) => referralSummary(e, t, await tokenRecord(e, t)), readSnapshot: (e, cls) => readSnapshot(e, cls).then(r => withDemo(e, r)), eventsForPhone, logEvent, slackSend,
     sendOtpTemplate, sendText, sendEmail: sendPlainEmail, today: () => ilDate() };
 }
 async function handleOtpSend(request, env, origin) {
@@ -11451,6 +11452,12 @@ const WORKER = {
     if (request.method === 'OPTIONS') {
       return new Response(null, { status: 204, headers: cors(origin) });
     }
+    /* 21/11 App Store review demo (review-demo.js): a POST that names the demo token or phone is refused unless the
+       route only reads or saves notes. Costs nothing when REVIEW_TOKEN is not set. */
+    if (request.method === 'POST' && reviewOn(env) && url.pathname.startsWith('/api/')) {
+      const g = demoGate(env, 'POST', url.pathname, await request.clone().text().catch(() => ''));
+      if (g) return deny(403, g.error, origin);
+    }
     /* dev-staging 12/11: which worker is this — smoke.sh and promote.sh read it */
     if (url.pathname === '/api/health' && request.method === 'GET') {
       return okJson({ ok: true, staging: isStaging(env), worker: isStaging(env) ? 'ishur-webhooks-staging' : 'ishur-webhooks',
@@ -13796,7 +13803,7 @@ const WORKER = {
     }
     /* 20/11 client app (app/): push registration, notification switches, delete-account request. worker/app-push.js */
     if (url.pathname.startsWith('/api/app/')) {
-      try { return await handleApp(request, env, origin, url, { okJson, deny, isAdmin, logEvent, verifySession: (e, s) => verifyAcctSession(e, s, safeEqual) }); }
+      try { return await handleApp(request, env, origin, url, { okJson, deny, isAdmin, logEvent, verifySession: (e, s) => verifyAcctSession(e, s, safeEqual), readSnapshot, reviewRekey, reviewOn }); }
       catch (e) {
         await logEvent(env, { area: 'אפליקציה', action: 'תקלה בשרת בנתיב של האפליקציה: ' + url.pathname.replace('/api/app/', ''), ok: false, review: true, detail: String((e && e.message) || e).slice(0, 200) }).catch(() => {});
         return deny(503, 'try-again', origin);
@@ -14927,7 +14934,7 @@ const WORKER = {
             await logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: הקוד שהוקלד שונה מהקוד של הלקוח', ok: false, review: true, phone, detail: 'מסך הכניסה של הלוח · ' + String(request.headers.get('User-Agent') || '').slice(0, 90) }).catch(() => {});
             return deny(403, 'bad-login', origin);
           }
-          const rawP = await readSnapshot(env, 'dashboard');
+          const rawP = await withDemo(env, await readSnapshot(env, 'dashboard'));
           if (!rawP) return deny(502, 'reader-failed', origin);
           const evsP = eventsForPhone(rawP, phone);
           if (!evsP.length) { await logEvent(env, { area: 'אזור אישי', action: 'כניסה עם קוד קבוע נדחתה: הקוד נכון אבל אין אירוע משולם על המספר הזה בגיליון', ok: false, review: true, phone, detail: 'מסך הכניסה של הלוח' }).catch(() => {}); return deny(404, 'no-events', origin); }
@@ -14955,7 +14962,7 @@ const WORKER = {
         await env.RATE.put('otp:' + phone,
           JSON.stringify({ code, tries: 0, exp: Math.floor(Date.now() / 1000) + 30 * 86400 }),
           { expirationTtl: 30 * 86400 });
-        const raw = await readSnapshot(env, 'dashboard');
+        const raw = await withDemo(env, await readSnapshot(env, 'dashboard'));
         if (!raw) return deny(502, 'reader-failed', origin);
         const evs = eventsForPhone(raw, phone);
         if (!evs.length) return deny(404, 'no-events', origin);
@@ -14963,7 +14970,7 @@ const WORKER = {
         return okJson({ ok: true, events: evs, board_session: await mintAcctSession(env, phone).catch(() => '') }, origin);
       }
       if (!(await tokenRecord(env, token))) return deny(404, 'unknown-token', origin);
-      const raw = await readSnapshot(env, 'dashboard');
+      const raw = await withDemo(env, await readSnapshot(env, 'dashboard'));   /* the review demo event, for showing only */
       if (!raw) return deny(502, 'reader-failed', origin);
       /* 17/11 Richard ("תנעל"): the link alone no longer opens the board — see boardLockOn in account.js. Off: delete cfg:board_pin */
       /* 18/11 Richard: only the board asks for the code. The guest-list upload page keeps working from its link, but
