@@ -257,3 +257,6 @@ label{font-size:13px;font-weight:400;color:var(--ink3)}
   @keyframes hink{0%{transform:scaleX(0)}45%,100%{transform:scaleX(1)}}
   @keyframes hscroll{0%,20%{transform:translateY(26px)}70%,100%{transform:translateY(-10px)}}
 }
+/* 20/11: the status-bar zone stays pine whatever scrolls beneath it (with the keyboard open iOS scrolls the page,
+   and the header title or the card slid under the clock) */
+body::before{content:"";position:fixed;top:0;inset-inline:0;height:env(safe-area-inset-top);background:var(--pine);z-index:40;pointer-events:none}
