@@ -1,0 +1,9594 @@
+{
+ "לחיצה לעריכת שם וטלפון": {
+  "n": 480,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא ענו": {
+  "n": 463,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "עדכון ידני": {
+  "n": 330,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "אישרו": {
+  "n": 313,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html",
+   "seating.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "✓✓ נקרא": {
+  "n": 251,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "ההודעה נקראה (וי כחול)": {
+  "n": 250,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "שולחן": {
+  "n": 164,
+  "where": [
+   "dashboard.html",
+   "checklist.html",
+   "table.html",
+   "dashboard"
+  ]
+ },
+ "לא מגיעים": {
+  "n": 132,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html",
+   "checklist.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "לא בטוחים": {
+  "n": 127,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "יוסי לוי": {
+  "n": 105,
+  "where": [
+   "app/www/help.js",
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "אורי לוי": {
+  "n": 104,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "מאיה לוי": {
+  "n": 104,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "הדס פרידמן": {
+  "n": 100,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "שגיא פרידמן": {
+  "n": 100,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "יוסי פרידמן": {
+  "n": 100,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "הדס לוי": {
+  "n": 94,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "שגיא לוי": {
+  "n": 94,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "אורי פרידמן": {
+  "n": 90,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "מאיה פרידמן": {
+  "n": 90,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html",
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "+ קבוצה": {
+  "n": 87,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "קבוצה": {
+  "n": 86,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "סגירה": {
+  "n": 63,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "dashboard.html",
+   "upload.html",
+   "seating.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "טלפון": {
+  "n": 61,
+  "where": [
+   "app/www/index.html",
+   "app/www/help.js",
+   "dashboard.html",
+   "upload.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "מוזמנים": {
+  "n": 52,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "dashboard.html",
+   "upload.html",
+   "budget.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "מגיע/ה": {
+  "n": 42,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html",
+   "app"
+  ]
+ },
+ "מחיקה": {
+  "n": 41,
+  "where": [
+   "budget.html",
+   "schedule.html"
+  ]
+ },
+ "3 מגיעים": {
+  "n": 40,
+  "where": [
+   "app"
+  ]
+ },
+ "כניסה": {
+  "n": 38,
+  "where": [
+   "app/www/index.html",
+   "dashboard.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "מתוזמן": {
+  "n": 37,
+  "where": [
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "שמירה": {
+  "n": 35,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "dashboard"
+  ]
+ },
+ "לוח השליחות": {
+  "n": 34,
+  "where": [
+   "app/www/index.html",
+   "app/www/help.js",
+   "dashboard.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "שם הסעיף": {
+  "n": 34,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הערות (ספק, מקדמה, מה כלול)": {
+  "n": 34,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "לא עכשיו": {
+  "n": 33,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "feedback.html",
+   "app"
+  ]
+ },
+ "קוד כניסה": {
+  "n": 33,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "כתבו לנו": {
+  "n": 33,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אוטומטי": {
+  "n": 32,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "dashboard"
+  ]
+ },
+ "ענו ב-18.11": {
+  "n": 32,
+  "where": [
+   "app"
+  ]
+ },
+ "ענו ב-19.11": {
+  "n": 32,
+  "where": [
+   "app"
+  ]
+ },
+ "הנוסח הזה עוד בבדיקה של וואטסאפ": {
+  "n": 30,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה": {
+  "n": 29,
+  "where": [
+   "app/www/help.js",
+   "dashboard.html",
+   "upload.html",
+   "seating.html",
+   "dashboard"
+  ]
+ },
+ "תזכורת למי שלא ענה": {
+  "n": 29,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "כמות": {
+  "n": 28,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "dashboard"
+  ]
+ },
+ "ההזמנה ואישור ההגעה": {
+  "n": 25,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "עזרה והסברים": {
+  "n": 23,
+  "where": [
+   "app/www/index.html",
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "ביטול": {
+  "n": 23,
+  "where": [
+   "app/www/index.html",
+   "dashboard.html",
+   "upload.html",
+   "seating.html",
+   "assets/ux.js",
+   "assets/design-card.js",
+   "app"
+  ]
+ },
+ "המצב": {
+  "n": 23,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "המוזמנים": {
+  "n": 23,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אישורי הגעה לאירועים -": {
+  "n": 22,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "חשבון": {
+  "n": 22,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "הזמן חבר": {
+  "n": 22,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "משהו לא מסתדר?": {
+  "n": 22,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "כלה": {
+  "n": 22,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חתן": {
+  "n": 22,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחרו תאריך": {
+  "n": 21,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "ההזמנה שלכם": {
+  "n": 21,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "קישור לקבוצה": {
+  "n": 21,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הוספת מוזמנים": {
+  "n": 21,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שדרוגים ותוספות": {
+  "n": 21,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "חשבונית": {
+  "n": 21,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "2 מגיעים": {
+  "n": 20,
+  "where": [
+   "app"
+  ]
+ },
+ "4 מגיעים": {
+  "n": 20,
+  "where": [
+   "app"
+  ]
+ },
+ "שיחה טלפונית למי שלא ענה": {
+  "n": 19,
+  "where": [
+   "dashboard.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "תזכורת עם הכתובת": {
+  "n": 19,
+  "where": [
+   "dashboard.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "אישורי": {
+  "n": 19,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "feedback.html",
+   "dashboard"
+  ]
+ },
+ "הגעה": {
+  "n": 19,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "feedback.html",
+   "dashboard"
+  ]
+ },
+ "שינוי תאריך": {
+  "n": 18,
+  "where": [
+   "app/www/help.js",
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הודעת תודה לאורחים": {
+  "n": 18,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הכל": {
+  "n": 17,
+  "where": [
+   "app/www/index.html",
+   "dashboard.html",
+   "seating.html",
+   "app"
+  ]
+ },
+ "חתונה": {
+  "n": 17,
+  "where": [
+   "upload.html",
+   "app"
+  ]
+ },
+ "בעל השמחה": {
+  "n": 17,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בעלת השמחה": {
+  "n": 17,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חוגג": {
+  "n": 17,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חוגגת": {
+  "n": 17,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "האירוע שלכם": {
+  "n": 16,
+  "where": [
+   "dashboard.html",
+   "schedule.html",
+   "budget.html",
+   "dashboard"
+  ]
+ },
+ "ענו ב-20.11": {
+  "n": 16,
+  "where": [
+   "app"
+  ]
+ },
+ "מה קורה": {
+  "n": 16,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "שליחה": {
+  "n": 15,
+  "where": [
+   "dashboard.html",
+   "feedback.html",
+   "assets/design-card.js",
+   "dashboard"
+  ]
+ },
+ "שליחה נוספת": {
+  "n": 15,
+  "where": [
+   "dashboard.html",
+   "dashboard",
+   "upload.html"
+  ]
+ },
+ "דיילות באירוע": {
+  "n": 15,
+  "where": [
+   "upload.html",
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "0 רשומות": {
+  "n": 15,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪31": {
+  "n": 15,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "10 רשומות": {
+  "n": 15,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪38": {
+  "n": 15,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נכשלו": {
+  "n": 14,
+  "where": [
+   "app/www/index.html",
+   "dashboard.html",
+   "app"
+  ]
+ },
+ "חזרה": {
+  "n": 14,
+  "where": [
+   "app/www/index.html",
+   "feedback.html",
+   "app"
+  ]
+ },
+ "שנה נוסח": {
+  "n": 14,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "איתי": {
+  "n": 14,
+  "where": [
+   "dashboard.html",
+   "app",
+   "dashboard"
+  ]
+ },
+ "📱 ברקוד שולחנות": {
+  "n": 14,
+  "where": [
+   "dashboard.html",
+   "checklist.html",
+   "dashboard"
+  ]
+ },
+ "שמחה": {
+  "n": 14,
+  "where": [
+   "dashboard",
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "תזכורת נוספת לכל הרשימה בתאריך שתבחרו, למשל שבוע לפני האירוע": {
+  "n": 14,
+  "where": [
+   "dashboard",
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "הודעת דחייה או עדכון מועד": {
+  "n": 14,
+  "where": [
+   "dashboard",
+   "dashboard.html",
+   "app"
+  ]
+ },
+ "הודעת ביטול אירוע": {
+  "n": 14,
+  "where": [
+   "dashboard",
+   "dashboard.html",
+   "app"
+  ]
+ },
+ "2 מקומות · לא ענו": {
+  "n": 14,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "4 מקומות · לא ענו": {
+  "n": 14,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "האירועים שלי": {
+  "n": 13,
+  "where": [
+   "app/www/index.html",
+   "dashboard.html",
+   "app"
+  ]
+ },
+ "הוספת מוזמן": {
+  "n": 13,
+  "where": [
+   "app/www/help.js",
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "העתקה": {
+  "n": 13,
+  "where": [
+   "app/www/help.js",
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "נוסח אישי": {
+  "n": 13,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "נועה ויונתן": {
+  "n": 13,
+  "where": [
+   "app",
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הזמנות": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "upload.html",
+   "app"
+  ]
+ },
+ "שיתוף קישור אישור ההגעה": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "טוענים את הלוח…": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "dashboard.html",
+   "app"
+  ]
+ },
+ "המלצה עלינו": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "ראשי": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "הבא": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "להראות שוב": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "לדרג עכשיו": {
+  "n": 12,
+  "where": [
+   "app/www/index.html",
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "סטטוס": {
+  "n": 12,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "נוסח בהתאמה אישית": {
+  "n": 12,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "מי שאישרו הגעה יקבלו ביום האירוע הודעה עם מספר השולחן": {
+  "n": 12,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "רשומה": {
+  "n": 12,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "כמות מוזמנים": {
+  "n": 12,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "הסרה": {
+  "n": 12,
+  "where": [
+   "upload.html",
+   "seating.html"
+  ]
+ },
+ "בר מצווה": {
+  "n": 12,
+  "where": [
+   "upload.html",
+   "app"
+  ]
+ },
+ "חיפוש לפי שם": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "לוח האירוע": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "כניסה ללוח האירוע": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "הטלפון שנרשמתם איתו והקוד בן 4 הספרות שקיבלתם מאיתנו.": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "קוד": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "אין לי קוד · כתבו לנו בוואטסאפ": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "מגיעים לאירוע": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "לא הגיעה ההזמנה": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "הדבר הבא שיוצא": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "מה יוצא למוזמנים ומתי. שינוי תאריך, תמונה וסגנון נעשים בלשונית ראשי.": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "כל האירועים שלי": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "החבילה שלי": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "תוספות לאירוע הזה": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "התנאים המלאים": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "התראות": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "מוזמן ענה": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "סיכום יומי ב-09:00": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "ההזמנה לא הגיעה למוזמנים": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "בלי התראות בין 21:00 ל-09:00.": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "דברו איתנו בוואטסאפ": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "מדיניות פרטיות": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "יציאה מהחשבון": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "בקשה למחיקת החשבון והמידע": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "שליחות": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "לקבל הודעה כשמוזמן עונה?": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "נודיע לכם כשמוזמן מאשר הגעה, נשלח סיכום קצר כל בוקר ב-09:00, ונספר אם הזמנה לא הגיעה. בלי פרסומות, ובלי הודעות בין 21:00 ל-09:00. אפשר לכבות בכל רגע בלשונית חשבון.": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "כן, להודיע לי": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "עדיין לא ברור? דברו איתנו בוואטסאפ": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "איך היה האירוע?": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "מחיקת החשבון והמידע": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "נמחק את פרטי החשבון, רשימות המוזמנים והתשובות שלהם. אירוע שעוד לא התקיים יפסיק לקבל אישורי הגעה. המחיקה מתבצעת תוך 7 ימים ואי אפשר לבטל אותה אחר כך.": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "לשלוח בקשת מחיקה": {
+  "n": 11,
+  "where": [
+   "app/www/index.html",
+   "app"
+  ]
+ },
+ "מה המספרים אומרים": {
+  "n": 11,
+  "where": [
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "איך מוסיפים מוזמן": {
+  "n": 11,
+  "where": [
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "איך משנים תאריך שליחה": {
+  "n": 11,
+  "where": [
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "מה זה \"נכשלו\" ומה עושים": {
+  "n": 11,
+  "where": [
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "איך משתפים קישור אישור הגעה": {
+  "n": 11,
+  "where": [
+   "app/www/help.js",
+   "app"
+  ]
+ },
+ "מצב תצוגה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "תוכן הלוח": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "סגנון הנוסח": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "חיפוש לפי שם, טלפון או שולחן": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הדביקו כאן קישור מוויז או גוגל מפות": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "קישור ביט (bit.co.il)": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "קישור פייבוקס (payboxapp.com)": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "רוצים ניסוח משלכם? כותבים אותו, אנחנו מגישים לאישור וואטסאפ, וברגע שמאושר ההזמנה יוצאת בניסוח שלכם.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "חברים חסכו ₪0 · הרווחתם ₪0": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "בחרו למעלה: הנחה לחברים או עמלה לכם. אפשר להחליף מתי שרוצים, וקישור שכבר שיתפתם נשאר כמו שהיה.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "לא נשמר, נסו שוב": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "schedule.html",
+   "budget.html"
+  ]
+ },
+ "לפרטים": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "upload.html",
+   "dashboard"
+  ]
+ },
+ "שדרוג": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "לוח הבקרה · אישורי הגעה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "האירועים שלכם": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "בחרו את האירוע שתרצו לראות": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הקלידו את הקוד בן 4 הספרות שקיבלתם מאיתנו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שלחו לי את הקוד לוואטסאפ": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הקוד נשלח רק למספר שאיתו נרשמתם.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "כניסה ללוח הבקרה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "נכנסים עם מספר הטלפון וקוד הכניסה שלכם (4 ספרות)": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "מספר טלפון": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אין לי את הקוד · שלחו לי קוד חד-פעמי לוואטסאפ": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הקוד מגיע לוואטסאפ של המספר שאיתו נרשמתם.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "האירוע הסתיים. הנתונים נשמרים לצפייה.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "החלפת התמונה / הווידאו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "נוסח ההזמנה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "📱 איך זה נראה למוזמנים": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "📲 הוסיפו למסך הבית": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🎨 עיצוב ההזמנה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אחוז מענה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🚌 הסעה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🪑 סידור הושבה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🖨 רשימה להדפסה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "💰 תקציב": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🗓 לוז אירוע": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "⟳ החלפת הרשימה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שמירת שיבוץ שולחנות": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אפשר להזיז תאריך שליחה בעצמכם, כל עוד לא עברה השעה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "ביום שהוא נקבע. אחרי זה השליחה כבר יצאה לדרך.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "תודה שחגגתם איתנו 💚": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "האירוע מאחוריכם. נשמח אם תקדישו דקה, זה עוזר לזוגות הבאים למצוא אותנו:": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🎥 המלצה קצרה בווידאו או באודיו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "מכירים זוג לפני אירוע? בחרו מה מתאים לכם, ושתפו את הקישור או את התמונה לסטורי.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "20% הנחה לחברים": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "החברים מקבלים 20% הנחה על החבילה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "20% עמלה לי": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "מכל חבילה שחבר סוגר דרככם": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הבחירה ננעלה אחרי ההפניה הראשונה.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "🎁 צברתם הטבה: סבב שליחה נוסף מתנה. היא רשומה על שמכם ומחכה לכם כאן בלוח.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "ערכת שיתוף לסטורי": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שיתוף בוואטסאפ": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "למימוש": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "העמלה נצברת כזיכוי למימוש על החבילות והתוספות שלנו, לא במזומן. ההפניה נספרת כשחבר משלם דרך הקישור.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "ההפניות והאירועים שלכם קידמו אתכם. תודה שאתם ממליצים עלינו!": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "לערכת השיתוף": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שלחו לקבוצת הוואטסאפ של המשפחה. מי שלוחץ \"מגיע/ה\" נכנס לרשימה ולסידור ההושבה. הודעות ותזכורות אליהם נפתחות בתוספת אחת קטנה.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "פתיחה בוואטסאפ": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "העתקת ההודעה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "קישור ניווט (Waze / Google Maps) · לא חובה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "איך מוציאים קישור?": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "יצורף להזמנה בקישור ולתזכורת של יום לפני האירוע.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "קישור למתנה (ביט / פייבוקס) · חינם, לא חובה": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הסבר לביט": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "הסבר לפייבוקס": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אורח ששואל איך לתת מתנה יקבל את הקישור אוטומטית. כבוי כברירת מחדל.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "בקרוב: מתנה באשראי דרכנו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "מעניין אותי": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "לשלוח את הקישור לאורחים": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שכחתם מישהו? עד 10 מוזמנים נוספים בחינם. ממלאים שם, טלפון וכמה מגיעים, ולוחצים שליחה. אם ההזמנות כבר יצאו, ההזמנה נשלחת אליהם מיד.": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "יש שאלה על האירוע?": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "דברו איתנו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "אין תמונה או וידאו": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "בלוח": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "כל האירועים שלי ›": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "התחייבות לאולם": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "החשבונית תופיע כאן ברגע שתופק. אם שילמתם ועדיין לא רואים אותה,": {
+  "n": 11,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "תפקיד באירוע": {
+  "n": 10,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הורדה כאקסל": {
+  "n": 10,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "סוג האירוע": {
+  "n": 10,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להזמנה. ההזמנה תישלח כטקסט בלבד.": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נוסח שמחה": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "רשמי · בקרוב": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "מכובד · בקרוב": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "שובב · בקרוב": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "36 רשומות": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "דרגת ארד": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "0 מתוך 10": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "סבב שיחות מסוכן AI": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הפעלת הודעות לנרשמים מהקישור": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "מי שאישר דרך הקישור הציבורי יקבל גם תזכורת, יום-לפני ושולחן": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הגדלת כמות מוזמנים או שדרוג מסלול": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "עד 10 מוזמנים נוספים חינם. מעבר לזה, או למסלול עם שיחות, משלמים רק את ההפרש": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "עיצוב הזמנה": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הזמנה דיגיטלית מעוצבת לאירוע, לפי הסגנון שתבחרו, כולל 2 סבבי תיקונים, מוכנה לוואטסאפ": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪79": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הודעה לכל הרשימה על שינוי במועד": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הודעה לכל הרשימה על ביטול": {
+  "n": 10,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "גררו להגדלה": {
+  "n": 10,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "הסרת שולחן": {
+  "n": 10,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "1 מקום": {
+  "n": 10,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "3 מקומות": {
+  "n": 10,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "אין מוזמנים ברשימה הזו עדיין.": {
+  "n": 9,
+  "where": [
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "→ ללוח": {
+  "n": 9,
+  "where": [
+   "schedule.html",
+   "budget.html",
+   "seating.html"
+  ]
+ },
+ "3 מקומות · לא ענו": {
+  "n": 9,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "1 מקום · לא ענו": {
+  "n": 9,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "האירוע": {
+  "n": 8,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html",
+   "upload.html",
+   "checklist.html"
+  ]
+ },
+ "נשמר": {
+  "n": 8,
+  "where": [
+   "schedule.html",
+   "budget.html"
+  ]
+ },
+ "הזמנה דיגיטלית לאורחים בוואטסאפ": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "2 הודעות אישורי הגעה (הזמנה + תזכורת למי שלא ענה)": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "דף מעקב 24/7 מי אישר": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "תזכורת יום לפני עם כתובת האולם וניווט": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "סידורי הושבה, ניהול תקציב, קישור מתנות ביט/פייבוקס": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "עד 10 מוזמנים נוספים חינם": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "הודעת תודה לאורחים יום אחרי האירוע": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "דוח מסודר ביום האירוע": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "גרסה 1.0.0 · סביבת בדיקות": {
+  "n": 8,
+  "where": [
+   "app"
+  ]
+ },
+ "חינה": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בת מצווה": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ברית / בריתה": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "יום הולדת": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חלאקה": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הפרשת חלה": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אירוע עסקי": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אחר": {
+  "n": 8,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שעה": {
+  "n": 8,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "ימים": {
+  "n": 7,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html",
+   "feedback.html"
+  ]
+ },
+ "מגיעים": {
+  "n": 7,
+  "where": [
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html",
+   "checklist.html"
+  ]
+ },
+ "נועה": {
+  "n": 7,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "יונתן": {
+  "n": 7,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "אולם הגן הקסום": {
+  "n": 7,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "שומר…": {
+  "n": 7,
+  "where": [
+   "dashboard.html",
+   "schedule.html",
+   "budget.html",
+   "seating.html"
+  ]
+ },
+ "פנייה בוואטסאפ": {
+  "n": 7,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "שדרוג החבילה": {
+  "n": 7,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "דיילות": {
+  "n": 7,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שמירה והפעלת השליחה": {
+  "n": 7,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לכתיבת ביקורת בגוגל": {
+  "n": 7,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "סיימתי ✓": {
+  "n": 7,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "מתוך": {
+  "n": 6,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html",
+   "seating.html",
+   "assets/design-card.js"
+  ]
+ },
+ "נשלח": {
+  "n": 6,
+  "where": [
+   "app/www/app.js",
+   "app"
+  ]
+ },
+ "רמת גן": {
+  "n": 6,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "ההזמנות כבר יצאו, אי אפשר להחליף.": {
+  "n": 6,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "רשומות": {
+  "n": 6,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "המלצה תופיע כשרוב המוזמנים יענו": {
+  "n": 6,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "כמה מגיעים": {
+  "n": 6,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "הגדרת האירוע": {
+  "n": 6,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "עבר": {
+  "n": 6,
+  "where": [
+   "dashboard.html",
+   "dashboard"
+  ]
+ },
+ "בחירה מאנשי הקשר": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נוסח משלכם": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "השליחה לא הצליחה": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ניסיון נוסף": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "העלאה והמשך להגדרות": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחרו סוג אירוע": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תאריך האירוע": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תיאור האירוע": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "סגנון ההודעה": {
+  "n": 6,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקישור לא תקין. היכנסו מחדש דרך הלוח שלכם.": {
+  "n": 6,
+  "where": [
+   "schedule.html",
+   "budget.html"
+  ]
+ },
+ "בלי שולחן": {
+  "n": 6,
+  "where": [
+   "seating.html",
+   "checklist.html"
+  ]
+ },
+ "🖨 הדפסה / שמירה כ-PDF": {
+  "n": 6,
+  "where": [
+   "checklist.html",
+   "table.html"
+  ]
+ },
+ "ishur.io · אישורי הגעה": {
+  "n": 6,
+  "where": [
+   "checklist.html",
+   "table.html"
+  ]
+ },
+ "1 · פחות": {
+  "n": 6,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "10 · מאוד": {
+  "n": 6,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "ההגרלה ב-": {
+  "n": 6,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "⭐ ביקורת בגוגל": {
+  "n": 6,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תנאי ההגרלה": {
+  "n": 6,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "הגן הקסום, רמת גן": {
+  "n": 6,
+  "where": [
+   "dashboard",
+   "dashboard.html",
+   "schedule.html"
+  ]
+ },
+ "אולמי הדקל, חיפה": {
+  "n": 6,
+  "where": [
+   "dashboard",
+   "dashboard.html",
+   "schedule.html"
+  ]
+ },
+ "לא נמסר": {
+  "n": 5,
+  "where": [
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html"
+  ]
+ },
+ "ללא שם": {
+  "n": 5,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html",
+   "seating.html"
+  ]
+ },
+ "מגיע": {
+  "n": 5,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו לשמור, נסו שוב": {
+  "n": 5,
+  "where": [
+   "dashboard.html",
+   "feedback.html",
+   "assets/design-card.js"
+  ]
+ },
+ "כלול": {
+  "n": 5,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "רשימת אנשי הקשר לבדיקה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "רשימת המוזמנים להקלדה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם המוזמן או המשפחה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כמה מוזמנים?": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כנס לקוחות שנתי": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "רחוב ומספר": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ערב של הרצאות ונטוורקינג. חניה חינם במקום.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הסרת התמונה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שלב 2 מתוך 2 · פרטי האירוע": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אתם כותבים, וואטסאפ מאשרים (עד 24 שעות)": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הגדרת האירוע · אישורי הגעה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "העלאת רשימת המוזמנים": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "קובץ Excel או CSV. הקובץ נקרא לפי סדר העמודות, לא לפי הכותרות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אין אקסל, או שהקובץ לא נפתח בטלפון?": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אפשר להקליד את הרשימה כאן בדף": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "סדר העמודות בקובץ": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם המוזמן כפי שיופיע בהודעה. משפחה נרשמת בשם אחד, למשל": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "משפחת לוי": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נייד ישראלי (05X) או מספר בחו\"ל עם קידומת מדינה (+43…, +1…). עם מקפים או בלי. למספרים בחו\"ל נשלחות הודעות וואטסאפ בלבד, בלי שיחות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כמה אנשים ההזמנה מכסה.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שורת כותרות בראש הקובץ זה בסדר, נזהה אותה לבד.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הסדר חייב להישמר: A שם, B טלפון, C כמות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אחרי ההעלאה תגיע אליכם הודעה בוואטסאפ שהקובץ תקין ונקלט.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לחצו לבחירת קובץ": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "או גררו אותו לכאן · עד": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "החלפה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אין קובץ מוכן?": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להורדת קובץ לדוגמה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הורדת קובץ למילוי": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הורידו, מלאו שם, טלפון וכמה מגיעים מכל רשומה, ושמרו. מי שכבר יש לו קובץ פשוט מעלה אותו.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "יש לכם את המוזמנים באנשי הקשר?": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בוחרים אנשי קשר, עוברים על הרשימה, ואנחנו הופכים אותה לקובץ.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "העלאת קובץ אנשי קשר (vcf)": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "איך מוציאים קובץ אנשי קשר מהטלפון?": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אייפון, הדרך המהירה (iOS 16 ומעלה)": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "באפליקציית אנשי הקשר: רשימות ← הוספת רשימה (למשל \"חתונה\").": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מוסיפים לרשימה את המוזמנים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לחיצה ארוכה על הרשימה ← \"ייצוא\" ← שמירה בקבצים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חוזרים לכאן ומעלים את הקובץ.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אייפון, הדרך שעובדת תמיד (מהמחשב)": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נכנסים ל-iCloud.com ← אנשי קשר.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מסמנים את המוזמנים (Cmd/Ctrl + קליק, או ⌘A לכל הרשימה).": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "⚙ / שיתוף ← \"ייצוא vCard\".": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מעלים כאן את קובץ ה-vcf.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אנדרואיד": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הכי פשוט: הכפתור \"בחירה מאנשי הקשר\" למעלה.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "או באפליקציית אנשי הקשר: מסמנים ← שיתוף ← קובץ vcf, ומעלים כאן.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "גללו עד סוף הרשימה כדי להמשיך": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "עברתי על כל הרשימה ומאשר/ת": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אישור והמשך": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אין אקסל? מקלידים את הרשימה כאן": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם, טלפון וכמה מוזמנים בכל שורה. אפשר גם להדביק רשימה שלמה. הרשימה נשמרת במכשיר הזה גם אם יוצאים מהדף, עד שמאפסים אותה.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להקליד את הרשימה כאן": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "+ הוספת מוזמן": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "איפוס הרשימה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אישור והמשך להגדרות": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מוזמן חדש": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "טלפון נייד": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך מספר נייד, למשל 050-1234567. מספר בחו\"ל נכתב עם קידומת המדינה (+1…).": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כמה מוזמנים? בחירה סוגרת ושומרת": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הסרה מהרשימה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הפרטים האלה נכנסים להודעה שהמוזמנים מקבלים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם האירוע": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שעת קבלת פנים": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "המקום": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם האולם או הגן": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כתובת": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "עיר": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מגיעות שעה לפני קבלת הפנים, עם הלוח שלנו ביד.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הנסיעות נקבעות לפי העיר שהזנתם למעלה. במרכז (אשקלון עד הרצליה) הן כלולות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הנוסח שלכם": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כותבים את ההודעה בדיוק כמו שתגיע למוזמנים (בלי [שם], הכפתורים והתמונה נוספים אוטומטית). וואטסאפ צריכים לאשר את הנוסח, בדרך כלל תוך שעה ועד 24 שעות, ולכן": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "השליחה הראשונה נקבעת לכל המוקדם מחרתיים": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ". עד האישור אפשר לעקוב בלוח הבקרה.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "התיאור נכנס להודעה שהמוזמנים מקבלים. התאריך, המקום והכפתורים נוספים אוטומטית.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כך ההודעה תיראה אצל המוזמן": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תמונת ההזמנה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תמונה או וידאו שיישלחו עם ההזמנה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא חובה · JPG/PNG עד 4MB, MP4 עד 16MB": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחירת תמונה מהמכשיר": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "JPG, PNG או WebP עד 4MB. התמונה מצורפת להודעת ההזמנה שהמוזמנים מקבלים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אין לכם הזמנה? תעצבו לי הזמנה · ₪": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תנאים": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "המחיר כולל עיצוב אחד ושני סבבי תיקונים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כל סבב תיקונים מעבר לכך בתוספת ₪49 לסבב, לרכישה מתוך לוח הבקרה.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שינוי מהותי (סגנון חדש או עיצוב מאפס) ייחשב כעיצוב חדש.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "העיצוב מתחיל לאחר קבלת כל הפרטים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מרגע התשלום לא יינתן החזר כספי, מאחר שהעבודה מתחילה עם התשלום, בין אם נשלחו הפרטים לעיצוב ובין אם לא.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "באחריות הלקוח לבדוק את נכונות הפרטים בעיצוב לפני האישור.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מסירה תוך 3 ימי עסקים מקבלת כל הפרטים.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מתי שולחים": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחרו קודם את תאריך האירוע ונציע לוח שליחות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שליחה ראשונה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא חובה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "השליחה יוצאת בבוקר. כדי שההודעות יצאו ביום מסוים צריך לסיים את ההגדרה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "עד 06:00 באותו יום": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ", אחרת המועד הראשון האפשרי הוא למחרת.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בשבת לא שולחים כלל": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ", וביום שישי השליחה יוצאת עד": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תוספות": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תאריך השליחה הנוספת": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תזכורת נוספת לכל הרשימה, לא יאוחר מיום האירוע.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שומרים קודם את כל ההגדרות, ומיד אחרי זה עוברים לתשלום על התוספת.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אם התשלום לא יושלם, התזכורת הנוספת פשוט לא תישלח": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ושאר השליחות יוצאות כרגיל.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שינויים ותוספות אחרות אפשר לעשות בלוח הבקרה, אחרי שההגדרות נשמרות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אפשר לשנות תאריכים עתידיים בוואטסאפ, עד 06:00 ביום המשלוח.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הכל מוגדר": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "קיבלנו את הרשימה ואת פרטי האירוע.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אישור עם סיכום יגיע אליכם בוואטסאפ בדקות הקרובות.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "יש שינוי? כתבו לנו": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקישור הזה כבר לא פעיל": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ייתכן שהוחלף בקישור חדש, או שהאירוע נסגר.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כתבו לנו ונשלח קישור עדכני.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לפנייה בוואטסאפ": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בדקו את החיבור ונסו שוב.": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להחליף את הרשימה בקובץ הזה": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כמה שורות בקובץ צריכות תשומת לב": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להעלות כך בכל זאת": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אתקן את הקובץ ואעלה שוב": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ishur.io · אישורי הגעה בוואטסאפ": {
+  "n": 5,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקישור לא תקין": {
+  "n": 5,
+  "where": [
+   "table.html",
+   "feedback.html"
+  ]
+ },
+ "נותרו 29 ימים לאירוע": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "אפשר להחליף עד 48 שעות לפני השליחה הראשונה (25.11.2026).": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "שלום {שם האורח}! הוזמנתם לחתונה של נועה ויונתן. 📅 20.12.2026 🕐 קבלת פנים 19:30 📍 הגן הקסום, רמת גן נשמח לדעת אם תגיעו:": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הכל · 36": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "אישרו · 0": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא בטוחים · 0": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא ענו · 36": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא מגיעים · 0": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נכשלו · 0": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "36 רשומות · 90 מוזמנים": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "36 מתוך 100 בחבילה · נותרו 64": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום רביעי, 25 בנובמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום שבת, 5 בדצמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום ראשון, 6 בדצמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום ראשון, 20 בדצמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום שני, 21 בדצמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. דיילת אחת מתחת ל-300 רשומות, 2 דיילות מ-300 ומעלה. ניתן להוסיף עד שבועיים לפני האירוע. מחוץ למרכז: תוספת נסיעות 250 ₪ (דיילת אחת) או 500 ₪ (2 דיילות)": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪1790": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נציג מתקשר למי שלא הגיב ומאשר בשמו · 36 מוזמנים עדיין לא ענו": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪92": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נותרו 11 ימים לאירוע": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "שלום {שם האורח}! הוזמנתם לבר מצווה של איתי. 📅 2.12.2026 🕐 קבלת פנים 18:00 📍 אולמי הדקל, חיפה נשמח לדעת אם תגיעו:": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "60 רשומות": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "30 רשומות": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "מומלץ: 78": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הכל · 60": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "אישרו · 30": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא בטוחים · 10": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא ענו · 10": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "לא מגיעים · 10": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נכשלו · 10": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "60 רשומות · 150 מוזמנים": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "60 מתוך 200 בחבילה · נותרו 140": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום שבת, 14 בנובמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום ראשון, 22 בנובמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום שני, 23 בנובמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום רביעי, 2 בדצמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "יום חמישי, 3 בדצמבר 2026": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "מקבלות אורחים, מסמנות הגעה בלוח בזמן אמת ומכוונות לשולחנות. דיילת אחת מתחת ל-300 רשומות, 2 דיילות מ-300 ומעלה. ניתן להוסיף עד שבועיים לפני האירוע. מחוץ למרכז: תוספת נסיעות 250 ₪ (דיילת אחת) או 500 ₪ (2 דיילות) · פחות משבועיים לאירוע, נבדוק זמינות ידנית": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "נציג מתקשר למי שלא הגיב ומאשר בשמו · 10 מוזמנים עדיין לא ענו": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪40": {
+  "n": 5,
+  "where": [
+   "dashboard",
+   "dashboard.html"
+  ]
+ },
+ "2 מקומות": {
+  "n": 5,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "1 מקום ·": {
+  "n": 5,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "4 מקומות": {
+  "n": 5,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "3 מקומות ·": {
+  "n": 5,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "נשמר ✓": {
+  "n": 4,
+  "where": [
+   "dashboard.html",
+   "seating.html"
+  ]
+ },
+ "לא הצלחנו להוסיף, נסו שוב": {
+  "n": 4,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הוספה · ₪": {
+  "n": 4,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "(היום)": {
+  "n": 4,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "לוח הבקרה": {
+  "n": 4,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רגע אחד": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שינויים לא נשמרו": {
+  "n": 4,
+  "where": [
+   "schedule.html",
+   "budget.html",
+   "seating.html"
+  ]
+ },
+ "קבלת פנים": {
+  "n": 4,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "אישורי הגעה (ishur.io)": {
+  "n": 4,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הזמנות בוואטסאפ, תזכורות, שיחות, לוח בקרה": {
+  "n": 4,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "איפה אני יושב/ת?": {
+  "n": 4,
+  "where": [
+   "table.html"
+  ]
+ },
+ "לא הצלחנו לשלוח, נסו שוב": {
+  "n": 4,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שלחתי את הסרטון ✓": {
+  "n": 4,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "נועה ויונתן ▾": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "יום ראשון · 20.12.2026 · 19:30 · בעוד 29 ימים": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "הגן הקסום · רמת גן": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "0 מתוך 36 הזמנות נענו": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "עודכן ב-21.11, 01:02": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "חבילת פרמיום": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "עד 100 מוזמנים": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "סבב שיחות מסוכן AI למי שלא ענה ולמתלבטים": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "20.12.2026 · הגן הקסום": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "שם הכלה": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם החתן": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חמה וישירה, מתאימה לרוב האירועים": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "רשמי": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מנוסחת בגוף שלישי, ללא סלנג": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מכובד": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לשון גבוהה, לאירועים דתיים ומסורתיים": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שובב": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "קלילה, לחברים ולאירועים צעירים": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "סגנון שמחה": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שלום [שם]! 🎊": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נועה ויונתן מתחתנים ומזמינים אתכם לשמוח איתם!": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "📅 15 בספטמבר 2025 | 📍 אולם הגן הקסום": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נשמח מאוד לראותכם! 🤍": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נשלח עבור … · ishur.io": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הגיע בטעות? השיבו \"הסר\" ולא נכתוב שוב.": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שששש… זה סוד! 🤫 אתי חוגגת 50 ונשמח שתגיעו לחגוג איתנו ❤️ 📍 The Beach | 17.11 | 19:00 נשמח לאישורי הגעה!": {
+  "n": 4,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "איתי ▾": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "יום רביעי · 02.12.2026 · 18:00 · בעוד 11 ימים": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "אולמי הדקל · חיפה": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "50 מתוך 60 הזמנות נענו": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "עודכן ב-21.11, 01:03": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "14.11.2026 · ענו 50": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "חבילת הכל כלול": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "עד 200 מוזמנים": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "3 סבבי שיחות מסוכן AI": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "טיפול ידני במוזמנים שלא עונים": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "עדיפות בתמיכה": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "02.12.2026 · אולמי הדקל": {
+  "n": 4,
+  "where": [
+   "app"
+  ]
+ },
+ "אין וואטסאפ": {
+  "n": 3,
+  "where": [
+   "app/www/app.js",
+   "app/www/help.js",
+   "dashboard.html"
+  ]
+ },
+ "לא נמצא מוזמן שמתאים לחיפוש.": {
+  "n": 3,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html"
+  ]
+ },
+ "אירוע": {
+  "n": 3,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html"
+  ]
+ },
+ "הגשה לאישור וואטסאפ": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הועתק ✓": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חסר שם": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הטלפון לא נראה תקין": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "המספר הזה כבר ברשימה": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הטלפון לא תקין": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· לא מגיעים": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· מתלבטים": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שמירת התאריך": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, רציתי להוסיף לאירוע שלי:": {
+  "n": 3,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "לא הצלחנו לשלוח עכשיו. נסו שוב עוד רגע": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כמה": {
+  "n": 3,
+  "where": [
+   "dashboard.html",
+   "checklist.html"
+  ]
+ },
+ "עדיין אין נרשמים מהקישור": {
+  "n": 3,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לכל הרשימה": {
+  "n": 3,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "למשל: הבית בחולון / מספרת לילך": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "שעת החופה": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "לוז אירוע · אישורי הגעה": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "הפרטים": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "יוצאים מ": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "זמן נסיעה לאולם (דקות)": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "האולם": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "הצעה ללוז לפי הפרטים": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "🚗 בדיקת זמן הנסיעה בוויז": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "הלוז": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "אפשר לשנות כל שעה וכל שורה": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "+ שורה": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "ביומן שלכם": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "📅 הוספה ליומן של אפל": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "📅 הוספה ליומן גוגל": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "כל שורה בלוז נכנסת ליומן כאירוע נפרד. היומן מתעדכן מעצמו כשמשנים כאן, תוך כמה שעות.": {
+  "n": 3,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "אולם / גן אירועים": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "כולל מנות, שתייה, בר": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "קייטרינג / מנה לאדם": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "אם לא כלול באולם": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "צלם וידאו וסטילס": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "DJ / להקה": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "שמלה": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "חליפה": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "איפור ושיער": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "טבעות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עיצוב ופרחים": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הזמנות ועיצוב": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הסעות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מלון / חדר": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "רב / חופה": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מתנות לאורחים": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "אטרקציות (בר קוקטיילים, צילום מגנטים)": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "שונות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מאזן, אחרי הזנת מתנות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "תקציב האירוע · אישורי הגעה": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "סך ההוצאות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עלות למוזמן": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הוצאות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "כתבו מחיר ליד כל סעיף. אפשר להוסיף, לשנות שם ולמחוק.": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "+ סעיף": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מתנות": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "סך המתנות שהתקבלו": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עדכנו אחרי האירוע, או תוך כדי": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "כמה אנשים נתנו": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "לא חובה. נותן ממוצע מתנה לאדם": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "איך זה מחושב": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עלות למוזמן = סך ההוצאות חלקי מספר המוזמנים (מי שאישרו הגעה; עד שיש אישורים, לפי כמות המוזמנים ברשימה). המאזן = מתנות פחות הוצאות. הנתונים נשמרים אצלנו ורק אתם רואים אותם.": {
+  "n": 3,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "חיפוש אורח": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "סידור הושבה · אישורי הגעה": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "סידור הושבה": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "טוען…": {
+  "n": 3,
+  "where": [
+   "seating.html",
+   "checklist.html",
+   "table.html"
+  ]
+ },
+ "תבניות": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "+ שולחן עגול": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "+ שולחן ארוך": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "גררו אורח מהרשימה אל שולחן · גררו שולחן להזזה · הנקודה הזהובה מגדילה ומוסיפה מקומות": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שיבוץ אוטומטי למי שנשאר": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "ניקוי": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "+ קבוצה: לחצו על \"+ קבוצה\" ליד אורח": {
+  "n": 3,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "רשימת מוזמנים להדפסה · ishur.io": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "רק מגיעים": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "גם מתלבטים": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "לפי שולחן": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "לפי א-ב": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "‹ ללוח הבקרה": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "סועדים": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "הגיעו בפועל: ________": {
+  "n": 3,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "סורקים את הברקוד עם המצלמה": {
+  "n": 3,
+  "where": [
+   "table.html"
+  ]
+ },
+ "מקלידים שם או טלפון": {
+  "n": 3,
+  "where": [
+   "table.html"
+  ]
+ },
+ "רואים את מספר השולחן ומי יושב איתכם": {
+  "n": 3,
+  "where": [
+   "table.html"
+  ]
+ },
+ "העתקת הקישור": {
+  "n": 3,
+  "where": [
+   "table.html"
+  ]
+ },
+ "כמה מילים…": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שם מלא": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "מספר נייד (לעדכון אם זכיתם)": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "איך היה? · ishur.io": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "איך היה? 🙂": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שתי שאלות, עשר שניות. זה עוזר לנו להשתפר.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "עד כמה תמליצו עלינו לחברים?": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "איך הייתה החוויה איתנו?": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תודה! עוד רגע אחד": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כמה מילים על החוויה? מה אהבתם, מה היה אפשר לעשות טוב יותר.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "המשך": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "דלגו": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "נשמח גם לכמה מילים בגוגל": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "אם בא לכם, כתבו בגוגל איך היה, בדיוק כמו שזה היה. זה עוזר לזוגות הבאים להכיר אותנו.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "מגישים = נכנסים להגרלה": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "מקליטים לנו המלצה קצרה ומקבלים כרטיסים להגרלה. ככה זה עובד:": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "הפרס": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שעות": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "דקות": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שניות": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "2 כרטיסים": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "🎥 העלאת סרטון": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "המלצה קצרה בווידאו, עד דקה. נפתח בחלון חדש.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "להקלטת הסרטון": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כרטיס 1": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כמה מילים בגוגל. נפתח בחלון חדש.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "סרטון = 2 כרטיסים. תוכן ההמלצה לא משפיע על הסיכוי לזכות.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "לכרטיסים שלי": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "אתם בהגרלה!": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "מספרי הכרטיסים שלכם:": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ ". אם תזכו, נעדכן אתכם בוואטסאפ ובטלפון.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "· תודה מכל הלב, צוות ishur.io": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "איזה כיף לשמוע!": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "המלצת וידאו קצרה עוזרת לנו יותר מכל דבר אחר, ועליה נרשם לכם זיכוי לאירוע הבא:": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "₪30 זיכוי": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "🎥 המלצת וידאו": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "30 שניות מהטלפון, בלי הכנה. נפתח בחלון חדש.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "להקליט המלצה": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כמה מילים בדף של ishur.io בגוגל. נפתח בחלון חדש.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "לכתוב ביקורת": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "הזיכוי נרשם על שמכם ומתממש בחבילות ובתוספות שלנו. רואים אותו": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "באזור האישי": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תודה!": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תודה, קיבלנו": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "קראנו כל מילה. תודה שעזרתם לנו להשתפר.": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כתבו לנו בוואטסאפ ונעזור:": {
+  "n": 3,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "לחיצה = רענון (או R)": {
+  "n": 3,
+  "where": [
+   "assets/ux.js",
+   "budget.html"
+  ]
+ },
+ "ננסה שוב": {
+  "n": 2,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html"
+  ]
+ },
+ "טרם נשלח": {
+  "n": 2,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html"
+  ]
+ },
+ "עודכן ב-": {
+  "n": 2,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "ההזמנה הגיעה לכל המוזמנים.": {
+  "n": 2,
+  "where": [
+   "app/www/app.js",
+   "dashboard.html"
+  ]
+ },
+ "ביקורת על האירוע": {
+  "n": 2,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "תמונה עד 4MB": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "assets/design-card.js"
+  ]
+ },
+ "מעלים…": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "assets/design-card.js"
+  ]
+ },
+ "הוחלף ✓": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנות כבר יצאו": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצליח, נסו שוב": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בעלי השמחה": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "השעה": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מתלבטים": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רשומות ·": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא מגיע": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נשלח ע\"י ishur.io · הגיע בטעות? השיבו \"טעות\"": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו להגיש, נסו שוב": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נשמר ✓ ההודעות ייצאו בבוקר האירוע": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שומרים…": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "השמירה נכשלה — נסו שוב": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקישור הזה כבר לא פעיל, רעננו את העמוד": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "(מגיעים": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך עודכן": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בשעה": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "נוסף וההזמנה נשלחה ✓": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נוסף ✓ ההזמנה תישלח עם כולם": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו להחליף, נסו שוב": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "דחיית האירוע": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "החזרת האירוע": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, רציתי להוסיף דיילות לאירוע שלי ב-": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא בשבת. בחרו יום אחר.": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו לעדכן, נסו שוב בעוד רגע.": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אישור": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בסיס · הודעות בלבד": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "פרמיום · הודעות + שיחה": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "הכל כלול · הודעות + 3 סבבי שיחות": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "מוזמנים ·": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "עד 899": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "בחרו כמות או מסלול גבוהים יותר": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "להשלמה: ₪": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "מכינים קישור…": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "היי, רציתי לשדרג את החבילה ל-": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "מוזמנים,": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "היי, רציתי לשדרג את החבילה שלי.": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "האזור האישי של האירוע שלכם": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היום": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אירועים שהסתיימו": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נכנסים…": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "צריך מספר נייד ישראלי, 10 ספרות שמתחילות ב-05": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שליחת קוד בוואטסאפ": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע הסתיים": {
+  "n": 2,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נסגר, פחות מ-' + a.minDaysBefore + ' יום לאירוע": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "' + (t === 900 ? 'עד 899' : 'עד ' + t) + ' מוזמנים' + (t === curTier ? ' (היום)' : '') + '": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "מסלול": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "' + NAMES[p] + (p === curPlan ? ' (היום)' : '') + '": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "לתשלום": {
+  "n": 2,
+  "where": [
+   "dashboard.html",
+   "upload.html"
+  ]
+ },
+ "נשלחו הרבה בקשות מהדפדפן הזה. נסו שוב בעוד כמה דקות.": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "השרת החזיר שגיאה (": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "). נסו שוב בעוד רגע.": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "דיילת אחת": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "· כלול בהזמנה": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שמירה ומעבר לתשלום": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נסיעות כלולות": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שעת הטקס / הפתיחה": {
+  "n": 2,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "עוד אין לוז. מלאו את הפרטים ולחצו \"הצעה ללוז לפי הפרטים\", או הוסיפו שורות בעצמכם.": {
+  "n": 2,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "אישרו הגעה": {
+  "n": 2,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מוזמנים ברשימה": {
+  "n": 2,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "לא נשמר, לחצו לניסיון נוסף": {
+  "n": 2,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "לא הצלחנו לטעון את האירוע": {
+  "n": 2,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "לא הצלחנו לטעון": {
+  "n": 2,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "גררו אורחים לכאן": {
+  "n": 2,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "מקומות:": {
+  "n": 2,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "או משכו את הנקודה הזהובה": {
+  "n": 2,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "הגיעו": {
+  "n": 2,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "מתנה": {
+  "n": 2,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "אין מוזמנים להצגה בסינון הזה.": {
+  "n": 2,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "לא הצלחנו לרשום, נסו שוב": {
+  "n": 2,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תמונות": {
+  "n": 2,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "החבילה שלכם: פרמיום · עד 100 מוזמנים": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חתונה · 20.12.2026": {
+  "n": 2,
+  "where": [
+   "schedule.html",
+   "budget.html"
+  ]
+ },
+ "חתונה · נועה ויונתן": {
+  "n": 2,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "החבילה שלכם: הכל כלול · עד 200 מוזמנים": {
+  "n": 2,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בר מצווה · 02.12.2026": {
+  "n": 2,
+  "where": [
+   "schedule.html",
+   "budget.html"
+  ]
+ },
+ "בר מצווה · איתי": {
+  "n": 2,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "ראשון": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "שני": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "שלישי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "רביעי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "חמישי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "שישי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "שבת": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "גרסה": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· סביבת בדיקות": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "חבילת": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "יום": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· בעוד": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· מחר": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· היום": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "הזמנות נענו": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "בשליחה": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "כבוי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "לא רלוונטי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· נשלח ל-": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· ענו": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "· שולחן": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "ענו ב-": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "כתבו את מספר הטלפון המלא שנרשמתם איתו.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "הקוד הוא 4 ספרות.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "בודקים…": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "נעשו כמה ניסיונות ברצף. נסו שוב בעוד שעה, או כתבו לנו בוואטסאפ ונעזור מיד.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "הטלפון והקוד לא תואמים. בדקו את הקוד בהודעה ששלחנו, או כתבו לנו בוואטסאפ.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "לא הצלחנו להתחבר כרגע. בדקו את החיבור לאינטרנט ונסו שוב.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "היי, יש לי שאלה על האירוע שלי": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "הסתיים": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "האירוע של": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "מאחוריכם. דקה מזמנכם עוזרת לנו להשתפר ולזוגות הבאים לבחור.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "אישור הגעה ל": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "שיתוף": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "הקישור הועתק": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "הבקשה התקבלה. נמחק את החשבון והמידע תוך 7 ימים ונעדכן אתכם בוואטסאפ.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "היי, אני מבקש/ת למחוק את החשבון והמידע שלי ב-ishur": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "1; $('evSwitch').hidden = !many; $('evSwitch').textContent = evTitle(ev) + ' ▾'; renderEvents(); var pk = data && data.package; $('pkgCard').hidden = !pk; if (pk) { $('pkgName').textContent = 'חבילת ' + pk.name; $('pkgGuests').textContent = pk.guests ? 'עד ' + pk.guests + ' מוזמנים' : ''; $('pkgList').innerHTML = pk.included.map(function (l) { return '": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "1 ? g.seats + ' מגיעים' : 'מגיע/ה') + (g.table ? ' · שולחן ' + g.table : '') : (g.at ? 'ענו ב-' + heDay(g.at) : ''); return '": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "' + esc(g.name || 'ללא שם') + '": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "להשאיר ביקורת": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "אין אירועים בחשבון הזה.": {
+  "n": 1,
+  "where": [
+   "app/www/app.js"
+  ]
+ },
+ "המספר הגדול למעלה הוא כמה אנשים מגיעים לאירוע.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "מתחתיו רואים כמה אישרו, כמה לא בטוחים, כמה עוד לא ענו וכמה לא מגיעים.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "נגיעה במספר פותחת את רשימת האנשים שמאחוריו.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "בלשונית \"ראשי\" גוללים למטה עד \"הוספת מוזמן\".": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "כותבים את השם ואת מספר הטלפון של המוזמן.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "נוגעים ב\"הוספה\". המוזמן נכנס לרשימה ויקבל הזמנה בשליחה הבאה.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "בלשונית \"ראשי\" גוללים עד \"לוח השליחות\".": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "ליד השליחה שרוצים להזיז נוגעים ב\"שינוי תאריך\".": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "בוחרים יום חדש. אפשר לשנות עד השעה 06:00 בבוקר של יום השליחה.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "\"נכשלו\" הם מוזמנים שההזמנה לא הגיעה לטלפון שלהם.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "דנה כהן": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "ליד כל שם כתובה הסיבה: אין וואטסאפ במספר, או שההודעה לא נמסרה.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "בודקים שהמספר נכון. אם הוא נכון, שולחים להם את קישור אישור ההגעה מהטלפון שלכם.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "יש קישור אחד שכל מוזמן יכול לאשר דרכו הגעה, גם מי שלא קיבל הזמנה.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "נוגעים ב\"שיתוף קישור אישור ההגעה\" ובוחרים וואטסאפ או כל אפליקציה אחרת.": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "שיתוף קישור": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "קישור אישור הגעה": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "וואטסאפ": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "הודעות": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "היי, צריך/ה עזרה באפליקציה:": {
+  "n": 1,
+  "where": [
+   "app/www/help.js"
+  ]
+ },
+ "היי, לגבי האירוע שלי:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "המספר לא פעיל בוואטסאפ, או שהגדרות הפרטיות שלו חוסמות הודעות ממי שלא שמור אצלו באנשי הקשר.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים שלא שמורים אצלו. זה מצב זמני מצד וואטסאפ.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים כרגע (מצב זמני מצד וואטסאפ).": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הסרטון או התמונה לא נטענו אצל וואטסאפ באותו רגע.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "תקלה זמנית בחיבור לוואטסאפ מצידנו.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "וואטסאפ קיבל את ההודעה אבל לא מסר אותה לטלפון כבר יממה (טלפון כבוי, בלי קליטה או מספר לא פעיל).": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא נשלח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "וואטסאפ לא הצליח למסור את ההודעה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ננסה לשלוח שוב אוטומטית": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אנחנו נתקשר למספר בימים הקרובים כדי לאשר הגעה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ניסינו שלוש פעמים. כדאי לשלוח להם את ההזמנה מהטלפון שלכם.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא נמסר עדיין": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת כהן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "דנה לוי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת פרץ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רות אברהם": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת ביטון": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יעל שרון": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת אזולאי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עומר ניסים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת מלכה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שירה גבאי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת אוחיון": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "איתן ברק": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת חדד": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ליאור עמר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת סבן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "טל רוזן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אורי בר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "גיא דדון": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מיכל סגל": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת יוסף": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רון אלבז": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יוסי מזרחי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת אלון": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נטע פרידמן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת קדוש": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אבי שמש": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הילה נחום": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "משפחת שוקרון": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "דוד טל": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ענת ברוך": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הודעת תודה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בית הכנסת הגדול": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שירה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עמית": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חוות האורנים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע הסתיים, הנתונים נשמרים לצפייה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אפשר להחליף עד 48 שעות לפני השליחה הראשונה (": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אפשר להחליף עד 48 שעות לפני השליחה הראשונה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נעול: פחות מ-48 שעות לשליחה הראשונה. לשינוי כתבו לנו.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "וידאו עד 16MB": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "פחות מ-48 שעות לשליחה, כתבו לנו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "n🕐 קבלת פנים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "nnנשמח לדעת אם תגיעו:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הנוסח האישי שלכם עדיין בבדיקה של וואטסאפ. אם לא יאושר עד מועד השליחה, תישלח ההזמנה הרגילה (הנוסח שמוצג בלוח תחת \"הנוסח הרגיל\"). וואטסאפ בדרך כלל מאשרים תוך שעה, אבל זה יכול לקחת עד 24 שעות, לכן מומלץ לקבוע את השליחה לפחות 25 שעות אחרי ההגשה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "תזכורת: נשלחה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "(בתהליך)": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "תזכורת: מתוכננת": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מגיעים עם לינה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מגיעים בלי לינה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עם לינה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בלי לינה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אין כאן אף אחד בסינון הזה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· ההודעה יצאה ל-": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "תת-אירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "disabled title=\"הנוסח הזה עוד בבדיקה של וואטסאפ\"": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· בקרוב": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נוסח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רגיל": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנה כבר יצאה, אי אפשר לשנות נוסח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✓ הנוסח שונה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לנוסח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ ". כך תצא ההזמנה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יש לכם נוסח אישי. לעבור לנוסח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "במקומו?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עדיין לא ידוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההודעה הראשונה, לכל הרשימה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אותה הודעה שוב, רק למי שעוד לא ענה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "זה הנוסח שהמוזמנים מקבלים, עם כפתורי האישור למטה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הוגש": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ ". וואטסאפ בדרך כלל מאשרים תוך שעה, לפעמים עד 24 שעות. עד האישור יוצא הנוסח הרגיל.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "באחריותכם לוודא לפני מועד השליחה שכתוב כאן \"מאושר\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "וואטסאפ לא אישרו את הנוסח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ ". ערכו אותו כאן ואנחנו מגישים אוטומטית נוסח חדש לאישור; בינתיים יוצא הנוסח הרגיל.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עריכה והגשה מחדש": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הנוסח הרגיל": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנה הראשונה יצאה בנוסח הרגיל. מוזמנים שתוסיפו מעכשיו יקבלו את הנוסח שלכם. התזכורות הן הודעה נפרדת ולא משתנות.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנות כבר יצאו, הנוסח נעול.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "קצר מדי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בלי סוגריים מסולסלים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מגישים…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הוגש לאישור וואטסאפ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הסעה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אמרו כן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אנשים)": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הודעת הביטול יצאה לאורחים.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הודעת הביטול תצא לאורחים בדקות הקרובות.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נותרו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ימים לאירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע מחר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע היום": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע היה לפני": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "המספרים האלה מתעדכנים בזמן אמת: כמה אישרו, כמה מגיעים בפועל, כמה סירבו ומי עוד לא ענה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כאן רואים מה יצא ומה מתוכנן: ההזמנה, התזכורות והודעת יום האירוע. אפשר להזיז תאריכים לפני שהגל יוצא.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הרשימה המלאה, עם סטטוס לכל אחד. לוחצים על שם כדי לערוך, ומסננים לפי מי שאישר או עוד לא ענה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נזכרתם במישהו? מוסיפים אותו כאן והוא יקבל הזמנה בגל הבא.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שתפו את ishur עם זוג שמתכנן אירוע. כל חבר שסוגר דרככם מקדם אתכם בדרגה ומזכה אתכם.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האזור האישי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כל האירועים שלכם, הביקורות והזיכוי שצברתם, במקום אחד. נכנסים עם הטלפון וקוד.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כמו אפליקציה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הוסיפו את הלוח למסך הבית וייפתח בלחיצה אחת.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מצב לילה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מחליף בין תצוגה בהירה לכהה. ברירת המחדל לפי הטלפון שלכם.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "דרגת": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שודרגתם לדרגת": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. דרך הקישור שלי יש לכם 20% הנחה על כל החבילות:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מתכננים אירוע? עשינו את אישורי ההגעה עם ishur.io: ההזמנה בוואטסאפ, האורחים מאשרים בלחיצה ורואים בזמן אמת מי מגיע. שווה בדיקה:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חברים חסכו ₪": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הרווחתם ₪": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חבר אחד סגר דרככם": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חברים סגרו דרככם": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הפניה אחת ממתינה לאישור": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הפניות ממתינות לאישור": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יתרה למימוש: ₪": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כל חבר שסוגר דרך הקישור מקבל 20% הנחה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כל חבר שסוגר דרך הקישור מזכה אתכם ב-20% מהחבילה שלו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, יש לי ₪": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "זיכוי מהפניות ב-ishur.io (קוד": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "). רוצה לממש אותו על חבילה / תוספת לאירוע הבא.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הבחירה ננעלה אחרי ההפניה הראשונה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מומלץ:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "גבוה ב-": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נמוך ב-": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מההמלצה (": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שולחן 5": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנות עוד לא נשלחו.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אין כאן אף אחד עדיין.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אנשים (": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "\" placeholder=\"שולחן\" maxlength=\"12\"": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הגיע?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "\" title=\"לחיצה לעריכת שם וטלפון\"": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע הסתיים. השיבוץ נשמר לצפייה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אושר,": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סומן: לא מגיעים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סומן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עוד לא סומן": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מספר לא תקין": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סומן: הגיעו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סומן: לא הגיע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כמות: מספר בין 0 ל-99": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יש שינויים שלא נשמרו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "השליחה הזו כבר יצאה, אי אפשר לשנות מועד": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אפשר לבחור רק תאריך עתידי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך חייב להיות לפני האירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בשבת לא נשלחות הודעות, בחרו יום אחר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הסדר חייב להישמר: הזמנה, אחר כך תזכורת, אחר כך תזכורת נוספת": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע מסומן אצלנו כמבוטל, אי אפשר לשנות מועדים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא זיהינו את השליחה הזו, רעננו את העמוד ונסו שוב": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך לא תקין, בחרו תאריך מהלוח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יותר מדי נסיונות, נסו בעוד רגע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו לעדכן, נסו שוב בעוד רגע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חויגו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· ענו בשיחה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· ענו אחר כך בוואטסאפ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· לא ענו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· עוד לא חויגו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ענו בסבב הזה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· מגיעים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לוח השליחות ייקבע אחרי ההגדרה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נעול": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עוד לא נקבע תאריך": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עוד לא נקבע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מי שמסתבך": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שיהיה מדויק שככה עושים את זה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "איך מוציאים קישור מוויז": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "פותחים את וויז ומחפשים את האולם או את הכתובת של האירוע.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "במסך של המקום לוחצים על \"צא בזמן אחר\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לוחצים \"שמור\". הנסיעה נשמרת עם מאיפה ולאן.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בנסיעה השמורה לוחצים על \"שיתוף\" ואז על \"העתק קישור\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חוזרים לכאן, מדביקים בשדה \"קישור ניווט\" ולוחצים \"שמירה\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אפשר גם מהמחשב: ב-waze.com/live-map מקלידים את האולם כיעד ולוחצים על סמל הקישור בפינה התחתונה. גם קישור מגוגל מפות (\"שיתוף\" ואז \"העתקה\") מתקבל.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "איך מוציאים קישור מביט": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "פותחים את ביט בטלפון של מי שמקבל את המתנות, ולוחצים על \"קבוצה\" במסך הראשי.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בוחרים לאן הכסף נאסף: ליתרה או לכיס.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מגדירים את מטרת האיסוף (למשל \"מתנות לחתונה\"), בוחרים סכום פתוח כדי שכל אורח יחליט כמה לתת, וקובעים משך איסוף שמסתיים אחרי האירוע.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אחרי הפתיחה נכנסים למסך הקבוצה, לוחצים \"לשתף\" ומעתיקים את הלינק.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חוזרים לכאן, מדביקים בשדה \"קישור ביט\", מסמנים \"לשלוח את הקישור לאורחים\" ולוחצים \"שמירה\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקישור עובד רק עד מועד סיום האיסוף שקבעתם, אז כדאי לתת לו כמה ימים אחרי האירוע. לפי ביט: אפשר לקבל עד ₪100,000 בשנה, ומעל ₪25,000 בשנה נגבית עמלה של 0.8%.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "איך מוציאים קישור מפייבוקס": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "פותחים את פייבוקס ויוצרים קבוצה חדשה לאירוע, עם שם ומטרה (למשל \"מתנות לחתונה\").": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "במסך הראשי של הקבוצה לוחצים על \"הזמנת חברים\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בוחרים לשתף קישור להצטרפות (ולא לבחור מאנשי הקשר), ומעתיקים אותו.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חוזרים לכאן, מדביקים בשדה \"קישור פייבוקס\", מסמנים \"לשלוח את הקישור לאורחים\" ולוחצים \"שמירה\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לפי פייבוקס: בקבוצה פרטית רק מנהל הקבוצה מזמין בקישור, ובקבוצה ציבורית כל חבר יכול לשלוח אותו. את הכסף מושך מנהל הקבוצה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, אני צריך עזרה עם": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "איך מוציאים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי כולם 🎉 מזמינים אתכם ל": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כדי שנדע לשמור לכם מקום, לחצו על הקישור ואשרו הגעה:n": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מחכים לראותכם 💚": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההודעה הועתקה, הדביקו בקבוצה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נשמר ✓ יצורף להזמנה בקישור ולתזכורת של יום לפני": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הוסר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "זה לא קישור של Waze או Google Maps": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כדי להפעיל צריך לפחות קישור אחד": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נשמר ✓ הקישור יישלח לאורחים ששואלים על מתנה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נשמר ✓ (כבוי, לא נשלח לאורחים)": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "זה לא קישור של ביט או פייבוקס": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בחבילה · נותרו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מוסיף…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "החבילה מלאה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הגעתם ל-": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מוזמנים נוספים. לעוד מקומות, הגדלת חבילה בתוספות למטה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "תודה, רשמנו ✓": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שולח…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הגעתם למכסה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הרשימה הקיימת תימחק והקובץ החדש ייכנס במקומה. הקובץ: שם | טלפון | כמות, בסדר הזה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "להחליף את רשימת המוזמנים?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כן, לבחור קובץ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מעלה…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שורות דולגו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההזמנות כבר יצאו, אי אפשר להחליף. אפשר להוסיף מוזמנים למעלה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקובץ גדול מהחבילה (": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מול": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא נמצאו שורות תקינות בקובץ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רכישה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חשבונית מס/קבלה אחת הופקה לאירוע.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חשבוניות מס/קבלה הופקו לאירוע.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מס׳": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, שילמתי ואני לא רואה חשבונית בלוח הבקרה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מוזמנים עדיין לא ענו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ביטול האירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· סבב נוסף יוצא אוטומטית אחרי הסבבים שבחבילה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· פחות משבועיים לאירוע, נבדוק זמינות ידנית": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ ". אפשר לבדוק זמינות?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כדי לבדוק זמינות דיילות צריך קודם תאריך לאירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בודקים זמינות…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ ". אפשר קישור לתשלום?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך תפוס אצל הדיילות, נבדוק אפשרות ידנית": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סבב נוסף": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סבב נוסף · ₪": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, רציתי שליחה נוספת לאירוע שלי.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עדיין אין מוזמנים ברשימה. אחרי שמעלים רשימה אפשר להוסיף שליחה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מוזמנים · ₪": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רגע…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "במצב הדגמה לא משנים אירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "זה לא כלול בחבילה. אפשר להוסיף מהתוספות למטה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בחרו תאריך עתידי.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האורחים יקבלו הודעת עדכון.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האורחים כבר קיבלו הודעת ביטול, אז הם יקבלו הודעת עדכון עם התאריך.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע חזר להיות פעיל.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע בוטל. הודעת הביטול תצא לאורחים תוך דקות.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בחרו תאריך.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך עודכן ל-": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "במצב הדגמה לא עוברים לתשלום": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אין כרגע למי לשלוח, אין מה לרכוש": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, רציתי להוסיף תוספת לאירוע שלי.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מחר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בעוד": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מעבר לאירוע אחר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האזור האישי שלכם": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, אין לי קוד כניסה ללוח הבקרה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היי, לא הצלחתי להיכנס ללוח הבקרה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקוד הוא 4 ספרות": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היו יותר מדי ניסיונות. כתבו לנו ונפתח לכם את הכניסה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "יותר מדי ניסיונות. נסו שוב בעוד שעה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו להיכנס עכשיו. נסו שוב בעוד רגע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקוד לא נכון. אפשר לבקש אותו שוב לוואטסאפ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו להיכנס עכשיו. נסו שוב": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שלחנו את הקוד לוואטסאפ של המספר שמסתיים ב-": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקוד כבר נשלח כמה פעמים. בדקו בוואטסאפ, או כתבו לנו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הצלחנו לשלוח עכשיו. כתבו לנו ונעזור": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "המספר או הקוד לא נכונים. בדקו ונסו שוב.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקוד קצר מדי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "במצב הדגמה כל קוד עובד 🙂": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שולחים…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הקוד בדרך אליכם בוואטסאפ 🙂": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא מצאנו אירוע למספר הזה. אם שילמתם ועדיין לא מופיע, כתבו לנו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נשלחו כמה קודים לאחרונה. חכו דקה ונסו שוב": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לוח בקרה לדוגמה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "זה לוח לדוגמה, אי אפשר לבצע בו פעולות": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; /* Richard 11/11: never paint \"לא נשלח\" on a guest row — blank, not red */ if (g.sent === 'sent' || g.status === 'confirmed' || g.status === 'declined' || g.status === 'undecided') { /* Richard 22/10: נשלח (Meta accepted) → התקבל (delivered) → נקרא (blue ticks / replied) */ var dv = g.delivery || (g.status !== 'pending' ? 'read' : 'sent'); if (dv === 'read') return '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✓✓ התקבל": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✓ נשלח": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מצורף וידאו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "להזמנה. ההזמנה תישלח עם הווידאו.'; } else if (m.image_url) { prev.innerHTML = '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מצורפת תמונה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "להזמנה. כך היא תיראה אצל המוזמנים.'; } else { prev.innerHTML = '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "⏳ הנוסח עדיין בבדיקה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "המועד המומלץ:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "באחריותכם לוודא לפני מועד השליחה שהנוסח מופיע בלוח כ\"מאושר\".": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "שינוי מועד ל-' + esc(IshurDate.pretty(safe) || safe) + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מאשר/ת, להמשיך במועד שבחרתי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אירועים מקושרים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "· אותה רשימת מוזמנים, תשובות נפרדות": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + k((c.with_stay || {}).people || 0, 'מגיעים עם לינה', ((c.with_stay || {}).guests || 0) + ' רשומות', true) + k((c.no_stay || {}).people || 0, 'מגיעים בלי לינה', ((c.no_stay || {}).guests || 0) + ' רשומות') + k((c.no || {}).guests || 0, 'לא מגיעים', 'רשומות') + k((c.undecided || {}).guests || 0, 'מתלבטים', 'רשומות') + k((c.no_reply || {}).guests || 0, 'לא ענו', 'מתוך ' + (c.total || 0)) + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; var rl = subevReminderLine(sv.reminder); var n = function (key) { return all.filter(function (g) { return key === 'all' || g.status === key; }).length; }; var opts = [['all', 'הכל'], ['with_stay', 'עם לינה'], ['no_stay', 'בלי לינה'], ['undecided', 'מתלבטים'], ['none', 'לא ענו'], ['no', 'לא מגיעים']]; var chips = '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; var sorts = [['status', 'סטטוס'], ['name', 'שם'], ['n', 'כמות']]; var sortBar = '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מיון:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (when ? ' · ענו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + e(g.status_he || 'לא ענו') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (q ? 'לא נמצא מוזמן שמתאים לחיפוש.' : 'אין כאן אף אחד בסינון הזה.') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אותה רשימת מוזמנים של האירוע הראשי, הודעה אחת ותשובות נפרדות.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חזרה לאירוע הראשי": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + e(rl) + (sv.sent ? ' · ההודעה יצאה ל-' + sv.sent : '') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ההודעה יצאה ל-' + sv.sent + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (list.length ? list.length + ' רשומות · ' + people + ' מגיעים' : '') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "תשובה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + esc(s.he) + (s.ready ? '' : ' · בקרוב') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כך זה נראה למוזמנים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הדמיה עם פרטי האירוע שלכם ואורחת לדוגמה בשם דנה. שום דבר לא נשלח מכאן.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "טוענים את הודעות יום לפני ויום האירוע…": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הודעות יום לפני ויום האירוע יוצגו כאן אחרי שתמלאו תאריך, שעה וכתובת.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✓ נוסח אישי מאושר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; tx.textContent = ct.text; nt.textContent = 'זה הנוסח שהמוזמנים מקבלים, עם כפתורי האישור למטה.'; } else if (ct && ct.status === 'PENDING') { var safe = ctSafeDate(), soon = safe && inv && inv.status === 'scheduled' && isoDay(inv.date)": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "⏳ ממתין לאישור וואטסאפ": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; tx.textContent = ct.text; nt.innerHTML = 'הוגש ' + esc(IshurDate.pretty(isoDay(ct.at)) || '') + '. וואטסאפ בדרך כלל מאשרים תוך שעה, לפעמים עד 24 שעות. עד האישור יוצא הנוסח הרגיל.' + (safe ? '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מומלץ לשלוח מ-' + esc(IshurDate.pretty(safe) || safe) + ' ואילך.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' : '') + ' באחריותכם לוודא לפני מועד השליחה שכתוב כאן \"מאושר\".' + (soon ? '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "⚠ ההזמנה מתוזמנת ל-' + esc(IshurDate.pretty(inv.date) || inv.date) + ', לפני המועד המומלץ. אם הנוסח לא יאושר עד אז, תצא ההזמנה הרגילה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✕ הנוסח לא אושר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נוסח ההזמנה שלכם": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כתבו את ההודעה כמו שתרצו שהמוזמנים יקבלו. כפתורי \"מגיע / לא מגיע / עדיין לא ידוע\" מתווספים אוטומטית. בלי שם האורח (אי אפשר להכניס שדות).": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "חשוב:": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "נוסח אישי עובר אישור של וואטסאפ. בדרך כלל זה לוקח עד שעה, ולפעמים עד 24 שעות. השאירו מספיק זמן לפני מועד השליחה, ובדקו כאן לפני יום השליחה שהנוסח אושר. אם הוא לא יאושר עד אז, ההזמנה תצא בנוסח הרגיל.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "': '&gt;', '\"': '&quot;' }[ch]; }); }; $('extraH').textContent = '🚌 ' + (x.label || 'הסעה') + ' · ' + (x.yes || []).length + ' אמרו כן' + (x.yes_seats ? ' (' + x.yes_seats + ' אנשים)' : ''); var rows = (x.yes || []).map(function (g) { return '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עוד אין תשובות. השאלה נשלחת לכל מי שמאשר הגעה ומוסר כמות.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא צריכים הסעה: ' + x.no + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע מסומן כמבוטל. ' + ((data.changes || {}).cancel_notice_sent ? 'הודעת הביטול יצאה לאורחים.' : 'הודעת הביטול תצא לאורחים בדקות הקרובות.') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✓ מתאים להמלצה (' + v.recommended + ')": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "0 ? 'גבוה ב-' + v.diff : 'נמוך ב-' + (-v.diff)) + ' מההמלצה (' + v.recommended + ')": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (needle ? 'לא נמצא מוזמן שמתאים לחיפוש.' : filter === 'failed' ? ((data.sends || []).some(function (x) { return x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'); }) ? 'ההזמנה הגיעה לכל המוזמנים.' : 'ההזמנות עוד לא נשלחו.') : 'אין כאן אף אחד עדיין.') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הגיעו ' + (data.checkin.arrived_total || 0) + ' אנשים (' + (data.checkin.arrived_people || 0) + ' רשומות)": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (g.arrived ? '✓ ' + escH(g.arrived) : 'הגיע?') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מהקישור": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✓ מגיעים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "✕ לא מגיעים": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כמה מגיעים?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + String(g.name || 'ללא שם').replace(/": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כמה הגיעו בפועל? ' + (g.seats ? 'אישרו ' + g.seats + ' · ' : '') + (cur ? 'סומן ' + cur : 'עוד לא סומן') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא הגיע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כמו שאישרו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עריכת רשומה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "למה לא נמסר?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מה קורה עכשיו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (unset ? 'עוד לא הוגדרו פרטי האירוע (תאריך, מקום, שעה). לוח השליחות ייקבע מיד אחרי ההגדרה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' : 'לוח השליחות ייקבע אחרי ההגדרה.') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בוצע ✓": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בתהליך": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (s.auto ? 'אוטומטי' : 'נעול') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + esc(IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע תאריך') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "מועד חדש ל' + esc(s.label) + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כרגע ' + esc(IshurDate.pretty(s.date) || s.date || 'עוד לא נקבע') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הבנתי, להדבקת הקישור": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "עדיין מסתבכים? כתבו לנו": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (list.length === 1 ? 'חשבונית מס/קבלה אחת הופקה לאירוע.' : list.length + ' חשבוניות מס/קבלה הופקו לאירוע.') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (x.number ? 'מס׳ ' + String(x.number).replace(/": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; var lbl = k === 'postpone' ? 'דחיית האירוע' : (ev.cancelled ? 'החזרת האירוע' : 'ביטול האירוע'); action = allowed ? '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (price ? 'הוספה · ₪' + price : 'לפרטים') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "סבב נוסף' + (price ? ' · ₪' + price : '') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; extra += ' · סבב נוסף יוצא אוטומטית אחרי הסבבים שבחבילה'; } } else if (k === 'hostess' && dte != null && dte": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'; extra += ' · פחות משבועיים לאירוע, נבדוק זמינות ידנית'; } else if (state === 'too-late') { cls = ' late'; mark = '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (k === 'more_guests' ? 'שדרוג' : price ? 'הוספה · ₪' + price : 'לפרטים') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "למי לשלוח את הסבב הנוסף?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לכולם · ' + all.n + ' מוזמנים · ₪' + all.price + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רק למי שלא ענה · ' + un.n + ' · ₪' + un.price + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "להחזיר את האירוע?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע יחזור להיות פעיל והשליחות ימשיכו לפי הלוח.' + ((data.changes || {}).cancel_notice_sent ? ' האורחים כבר קיבלו הודעת ביטול, אז הם יקבלו הודעת עדכון עם התאריך.' : '') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כן, להחזיר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "'); b1.querySelector('#dpopOk').addEventListener('click', function () { postChange({ action: 'restore' }, b1, 'האירוע חזר להיות פעיל.'); }); return; } if (k === 'cancel') { var b2 = changeBox('": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לבטל את האירוע?": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "בטוחים? כל מי שהוזמן יקבל הודעת ביטול תוך דקות, וכל השליחות ייעצרו. אם בסוף האירוע כן מתקיים, אפשר להחזיר אותו מכאן.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אני מבין/ה שהאורחים יקבלו הודעת ביטול": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כן, לבטל את האירוע": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לא, להשאיר": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "התאריך היום: ' + esc(IshurDate.pretty(ev.event_date) || ev.event_date || '') + '. בחרו את התאריך החדש; כל מי שכבר הוזמן יקבל הודעת עדכון תוך דקות, ושליחות שנפלו אחרי התאריך החדש יוקדמו.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אישור הדחייה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "היום: ' + curTier + ' מוזמנים · ' + NAMES[curPlan].split(' · ')[0] + '. משלמים רק את ההפרש.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + 'צפייה בנתוני דוגמה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "אלה נתוני דוגמה להמחשה, לא האירוע שלכם.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "' + (n === 0 ? 'היום' : n + ' ימים') + '": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כתבו לנו ונשלח קישור עדכני.', false); } }); return; } if (e && e.dead) { if (fromGate) { localStorage.removeItem('ishur_dash'); localStorage.removeItem('ishur_dash_list'); localStorage.removeItem('ishur_dash_ev'); myEvents = []; creds = null; showGate('המספר או הקוד לא נכונים. בדקו ונסו שוב.'); return; } showApp(); fail('הקישור הזה כבר לא פעיל.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "כתבו לנו ונשלח קישור עדכני.', false); return; } if (e && e.message === 'not-json') { IshurLead.track('dashboard_no_response', { raw: String(e.raw || '').slice(0, 40) }); showApp(); fail('לוח הבקרה עדיין לא מחזיר נתונים.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "הוא יתמלא מעצמו ברגע שהחיבור יושלם.', true); return; } showApp(); fail('לא הצלחנו לטעון את הנתונים כרגע.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "רעננו את העמוד, ואם זה חוזר כתבו לנו.', true); }); } function gateSubmit() { var phone = $('g-phone').value.trim(); var code = $('g-code').value.trim(); $('g-err').textContent = ''; if (!IshurLead.isValidPhone(phone)) { $('g-err').textContent = 'צריך מספר נייד ישראלי, 10 ספרות שמתחילות ב-05'; return; } if (code.length": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לוח בקרה לדוגמה.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "האירוע, השמות והמספרים כאן בדויים, וכל קשר בינם לבין המציאות מקרי לחלוטין. אפשר להסתכל ולסנן, אי אפשר לבצע פעולות.": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "לרכישת חבילה": {
+  "n": 1,
+  "where": [
+   "dashboard.html"
+  ]
+ },
+ "ל עם קידומת מדינה (+43…, +1…). עם מקפים או בלי. למספרים בחו": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ייצוא": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ייצוא vCard": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שששש… זה סוד! 🤫&#10;&#10;אתי חוגגת 50 ונשמח שתגיעו לחגוג איתנו ❤️&#10;📍 The Beach | 17.11 | 19:00&#10;&#10;נשמח לאישורי הגעה!": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תצוגה מקדימה של תמונת ההזמנה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שלב 1 מתוך 2 · רשימת המוזמנים": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "חזרה — להעלות קובץ אחר": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הרשימה הקודמת תימחק והקובץ הזה ייכנס במקומה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להחליף את הרשימה?": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כן, להחליף": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "היי, הקישור להעלאת רשימת המוזמנים כבר לא פעיל. אפשר קישור חדש?": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "היי, רציתי לעדכן משהו בהגדרות האירוע.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "סוג הקובץ לא נתמך. העלו Excel (xlsx) או CSV.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקובץ לא מתאים": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקובץ גדול מ-": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "MB. רשימת מוזמנים לא אמורה להתקרב לזה, בדקו שזה הקובץ הנכון.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקובץ גדול מדי": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נבחר קובץ": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ההעלאה עדיין לא מחוברת. שלחו לנו את הקובץ בוואטסאפ ונטפל בזה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מעלה את הקובץ": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקובץ נקלט, ממשיכים להגדרות": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לאירוע הזה כבר הועלתה רשימה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ההזמנות לרשימה הזאת כבר יצאו, אז אי אפשר להחליף אותה. אפשר להוסיף מוזמנים חדשים, כתבו לנו כאן מה צריך.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא הצלחנו להחליף את הרשימה. נסו שוב בעוד רגע, ואם זה חוזר כתבו לנו.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא זיהינו שורות תקינות בקובץ. ודאו: עמודה A — שם, עמודה B — טלפון נייד (05X, או מספר בחו\"ל עם קידומת מדינה), בלי שורת כותרת חובה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא הצלחנו לקרוא את הקובץ. שמרו אותו מחדש כ-Excel (xlsx) או CSV ונסו שוב.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "סוג הקובץ לא נתמך — צריך Excel (xlsx/xls) או CSV.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הקובץ גדול מדי (עד 8MB).": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תמונת ההזמנה צריכה להיות JPG או PNG. אם שמרתם מקנבה, בחרו הורדה כ-JPG.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הווידאו צריך להיות קובץ MP4.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הווידאו גדול מדי (עד 16MB).": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "יש יותר מ-2000 שורות — פצלו את הקובץ או כתבו לנו.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "רשימת המוזמנים נשלחת דרך הטופס הזה בלבד. רעננו את הדף ונסו שוב.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הרשימה כוללת": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הזמנות, והחבילה שרכשתם מכסה עד": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ". אפשר לשדרג את החבילה כאן ולשלם רק את ההפרש,": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "או לחזור ולהעלות קובץ בגודל המתאים. (הזמנה = מספר טלפון אחד, גם אם מגיעים כמה אנשים)": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הרשימה גדולה מהחבילה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא הצלחנו להשלים את ההעלאה. בדקו את החיבור ונסו שוב.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "✗ שורה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "· לא תיקלט": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "⚠ שורה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ייקלטו": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אורחים": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שורות לא ייקלטו": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בעל": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם ה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "אפשר גם שם משפחה אחד, למשל משפחת לוי.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כאן ייכנס תיאור האירוע שתכתבו למעלה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מקום האירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הזינו עיר כדי לדעת אם יש תוספת נסיעות.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "באזור המרכז": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "היי, האירוע שלי ב": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ואני צריך/ה לשלם נסיעות לדיילות (₪": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "החבילה שלכם:": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "· עד": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ". הקובץ שלכם:": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ההגדרות נשמרות קודם. התשלום הוא על השליחה הנוספת בלבד.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תזכורת": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "למי שלא ענה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תזכורת נוספת": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ויום אחריו יוצאת הודעת התודה. שווה לוודא שהרשימה מעודכנת.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "האירוע קרוב, אז לוח השליחות נקבע אוטומטית. ההזמנה יוצאת": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך שם": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחרו את תאריך האירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך שעת קבלת פנים": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך שם אולם או גן": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך כתובת": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך עיר": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחרו מתי יוצאת השליחה הראשונה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "צריך": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כתבו תיאור קצר לאירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בחרו תאריך לשליחה הנוספת": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כתבו את ההודעה המלאה (לפחות 20 תווים), או בחרו סגנון מוכן.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בלי סוגריים מסולסלים בנוסח.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "האירוע קרוב מדי: אין זמן לאישור וואטסאפ. בחרו סגנון מוכן.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "עם נוסח משלכם השליחה הראשונה יכולה לצאת לכל המוקדם": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "השליחה חייבת לצאת לפני האירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "התזכורת צריכה לצאת אחרי השליחה הראשונה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "התזכורת חייבת לצאת לפני האירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "השליחה הנוספת לא יכולה לצאת אחרי האירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "רק JPG, PNG, WebP או וידאו MP4.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "התמונה גדולה מדי — עד 4MB.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "הווידאו גדול מדי — עד 16MB.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ההגדרות עדיין לא מחוברות. שלחו לנו את הפרטים בוואטסאפ ונטפל בזה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שומר ומעביר לתשלום": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שומר": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "היי, הוספתי שליחה נוספת בתאריך": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "ורציתי להשלים את התשלום.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "לא הצלחנו לשמור את ההגדרות. בדקו את החיבור ונסו שוב.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם בן/בת הזוג": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שם בן/בת הזוג השני/ה": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "מצב החלפה: הקובץ שתעלו": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "יחליף": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "את רשימת המוזמנים הקיימת. אפשרי עד השליחה הראשונה.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "שלום [שם],": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "'; $('styleHead').textContent = 'תיאור האירוע'; $('previewFoot').innerHTML = footHtml(); return; } $('styleHead').textContent = 'סגנון ההודעה'; if (isCustom()) { var ct = ($('f-custom').value || '').trim(); $('preview').innerHTML = '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "כאן תופיע ההודעה שתכתבו למעלה, בדיוק כמו שתגיע למוזמנים.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "נסיעות שולמו": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "· ' + esc(city) + ' באזור המרכז'; act.innerHTML = '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "'; } else { var sum = H.travelFor ? H.travelFor(n) : H.travel; /* Richard 05/10: 250 for one hostess, 500 for 2 or 3 */ tr.innerHTML = esc(city) + ' מחוץ למרכז:": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "תוספת נסיעות ₪' + esc(sum) + '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ", בתשלום נפרד אחרי השמירה.'; act.innerHTML = '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "היום: ' + curTier + ' מוזמנים · ' + NAMES[curPlan].split(' · ')[0] + (need ? '. הקובץ שלכם: ' + need + ' הזמנות' : '') + '. משלמים רק את ההפרש.": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "' + (isExtra ? (extraSend ? 'הסרה' : 'הוספה') : (price ? 'הוספה · ₪' + price : 'לפרטים')) + '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "' + (r.auto ? 'אוטומטי' : r.tag) + '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "בבוקר האירוע": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ ", ' + 'ויום אחריו יוצאת הודעת התודה. שווה לוודא שהרשימה מעודכנת.' : 'האירוע קרוב, אז לוח השליחות נקבע אוטומטית. ההזמנה יוצאת ' + '": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "= ed) { showErr('sd1', 'השליחה חייבת לצאת לפני האירוע'); ok = false; } if (s2) { if (s1 && s2": {
+  "n": 1,
+  "where": [
+   "upload.html"
+  ]
+ },
+ "להחליף את הלוז הנוכחי בהצעה חדשה?": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "לוז ·": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "לוז אירוע": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "אחרי חצות": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "רווח (מתנות פחות הוצאות)": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הפסד (מתנות פחות הוצאות)": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "ממוצע מתנה:": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "לאדם ·": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עלות למוזמן:": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מתנה ממוצעת נדרשת לכיסוי ההוצאות:": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "לאדם": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "השמירה נכשלה, נסו שוב": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "למחוק את \"": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מחיקת סעיף": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "תקציב ·": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "תקציב האירוע": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "מאזן": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "= 0 ? 'hi' : 'bad') : ''); var gn = Number(giftsN) || 0; $('giftNote').textContent = gifts && gn ? 'ממוצע מתנה: ' + fmt(gifts / gn) + ' לאדם · ' + (people ? 'עלות למוזמן: ' + fmt(t / people) : '') : (gifts && people ? 'מתנה ממוצעת נדרשת לכיסוי ההוצאות: ' + fmt(t / people) + ' לאדם' : ''); } function paintRows() { $('rows').innerHTML = items.map(function (it, i) { return '": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "סירבו": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "משפחה": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "חברים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "עבודה": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שכנים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "מוזמנים עדיין בלי שולחן ·": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "משובצים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "מקום": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "מקומות": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "כבר משובצים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ ": כולם שובצו סביב שולחן": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שובצו, חסר מקום לשאר": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "אולם קלאסי": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "עגולים בשורות": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "צורת ח": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "ארוכים מסביב לרחבה": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שורות ארוכות": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שולחנות ארוכים בטורים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "ראשי + עגולים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שולחן ראשי ארוך ומסביב עגולים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שולחנות סודרו ·": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "כל האורחים יחזרו לרשימה בלי שולחן ונשמור מיד. השולחנות עצמם נשארים.": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "לנקות את כל השיבוץ?": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "כן, לנקות": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "אורחים לא נכנסו, צריך עוד שולחן": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "כולם משובצים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "בשולחן": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "יושבים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "אנשים. הם יחזרו לרשימה.": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "להסיר את השולחן?": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "כן, להסיר": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "אין מקום בשולחן": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "פנויים, צריך": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "→ שולחן": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "לא הצלחנו לשמור": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "יש שינויים שלא נשמרו. לשמור לפני שחוזרים ללוח?": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "לשמור את הסידור?": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "שמירה וחזרה": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "לצאת בלי לשמור": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "קישור לא תקין": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "' + esc(gl || '+ קבוצה') + '": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "' + g.party + (g.party === 1 ? ' מקום' : ' מקומות') + (g.status !== 'confirmed' ? ' · ' + (STL[g.status] || '') : '') + '": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "' + m.length + (left ? ' · ' + left + ' בלי שולחן' : '') + '": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "קבוצה של ' + esc(g.name) + '": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "בחרו קבוצה, או כתבו חדשה. אחר כך גוררים את הקבוצה כולה לשולחן.": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "בלי קבוצה": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "תבנית אולם": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "בקליק אחד השולחנות מסודרים. מי שכבר יושב בשולחן עם אותו מספר נשאר בו.": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "כמה שולחנות?": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "(' + seats + ' מקומות ברשימה, ~10 לשולחן)": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "סידור": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "· מתלבט/ת": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "· לא ענה": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "· קבלת פנים": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "הזמנות ·": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "רשימת מוזמנים להדפסה": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "הקישור לא תקין. פתחו את הרשימה מתוך לוח הבקרה של האירוע.": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "' + esc(heDate(ev.event_date)) + (ev.reception_time ? ' · קבלת פנים ' + esc(ev.reception_time) : '') + (ev.venue_name ? ' · ' + esc(ev.venue_name) : '') + (ev.venue_city ? ', ' + esc(ev.venue_city) : '') + '": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "' + (k === 'בלי שולחן' ? k : /^שולחן/.test(k) ? esc(k) : 'שולחן ' + esc(k)) + '": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "' + list.length + ' הזמנות · ' + s + ' סועדים": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "הופק ' + new Date().toLocaleString('he-IL') + '": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "לא הצלחנו לטעון את הרשימה. נסו שוב בעוד רגע.": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "לא הצלחנו לטעון את הרשימה.": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "איפה אני יושב/ת? ·": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "✓ הועתק": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "איפה אני יושב/ת? · ishur.io": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "סרקו שוב את הברקוד בכניסה.": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "משהו השתבש": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "נסו שוב בעוד רגע.": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "'; return; } var ev = d.event, title = (ev.occasion ? ev.occasion + ' · ' : '') + ev.name; document.title = 'איפה אני יושב/ת? · ' + ev.name; if (poster) { var link = 'https://ishur.io/table.html?t=' + tok; app.className = 'poster'; app.innerHTML = '": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "'; app.parentNode.insertBefore(bar, app); document.getElementById('pr').addEventListener('click', function () { window.print(); }); document.getElementById('cp').addEventListener('click', function () { navigator.clipboard.writeText(link).then(function () { document.getElementById('cp').textContent = '✓ הועתק'; }); }); return; } app.innerHTML = '": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "שם מלא או מספר טלפון": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "חיפוש": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "השם כמו שמופיע בהזמנה. אפשר גם רק שם משפחה.": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "מחפשים…": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "לא מצאנו \"' + esc(v) + '\". נסו שם משפחה בלבד, או את מספר הטלפון שאליו הגיעה ההזמנה. אפשר גם לפנות לדיילת בכניסה 🙂": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "'; return; } res.innerHTML = m.map(function (h) { var tbl = /^שולחן/.test(h.table) ? h.table : 'שולחן ' + h.table; return '": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "' + h.seats + ' מקומות": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "יושבים איתכם:": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "תודה על הכנות": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כמה מילים על מה שהיה אפשר לעשות טוב יותר? כל הערה נקראת על ידי הצוות.": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כתבו מספר נייד, כדי שנוכל לעדכן אם זכיתם": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "המספר לא תקין": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "ההגרלה כבר נסגרה": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "הסרטון נרשם ✓": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "הביקורת נרשמה ✓": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שלחנו לכם את המספרים גם בוואטסאפ.": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "שמרו צילום מסך של המספרים.": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "המלצת וידאו · ₪30 זיכוי": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "לוחצים, מקליטים 30 שניות מהטלפון וחוזרים לכאן ללחוץ \"שלחתי\". בלי הכנה, בלי עריכה.": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "להקלטת ההמלצה": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "ביקורת בגוגל": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "נפתח דף הביקורות שלנו בגוגל. כותבים כמה מילים, מפרסמים, וחוזרים לכאן ללחוץ \"סיימתי\".": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "הזיכוי ניתן על ציונים של 6 ומעלה": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "כבר רשום אצלנו ✓": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תודה! ₪": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "נזקפו לזיכוי שלכם": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תודה רבה!": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "סך הזיכוי שלכם: ₪": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ ". הוא מתממש בחבילות ובתוספות שלנו, ורואים אותו באזור האישי.": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "תודה שהקדשתם לנו מזמנכם.": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "זיכוי": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "לאזור האישי": {
+  "n": 1,
+  "where": [
+   "feedback.html"
+  ]
+ },
+ "רגע, לוודא": {
+  "n": 1,
+  "where": [
+   "assets/ux.js"
+  ]
+ },
+ "כן, להמשיך": {
+  "n": 1,
+  "where": [
+   "assets/ux.js"
+  ]
+ },
+ "מרענן…": {
+  "n": 1,
+  "where": [
+   "assets/ux.js"
+  ]
+ },
+ "עודכן HH:MM": {
+  "n": 1,
+  "where": [
+   "assets/ux.js"
+  ]
+ },
+ "עודכן": {
+  "n": 1,
+  "where": [
+   "assets/ux.js"
+  ]
+ },
+ "input[type=search], #q, #gsearch, .gsearch, input[placeholder*=\"חיפוש\"]": {
+  "n": 1,
+  "where": [
+   "assets/ux.js"
+  ]
+ },
+ "\" alt=\"עיצוב ההזמנה, גרסה": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "\" alt=\"תמונת השראה": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "שמירת השינויים": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "כתבו כמה מילים על מה שתרצו": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "כבר התחלנו לעצב, הערות אפשר לשלוח על הגרסה": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "כתבו מה לשנות": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "סבבי התיקונים נוצלו": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "התשלום לא זמין כרגע, כתבו לנו בוואטסאפ": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "JPG, PNG או WebP בלבד": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "תודה! העיצוב אושר": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "ההערות נשלחו": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "מעבירים לתשלום…": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "יש לכם עוד סבב תיקונים פתוח": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "חלק מהתמונות לא עלו": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "דנה ואבי · 12.12 · אולם הגןnסגנון מינימליסטי, ירוק זית ושמנת": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "גרסה ראשונה לפי הבקשה": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "תוקן הצבע": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "ירוק כהה יותר": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "📄 פתיחת גרסה ' + v.n + ' (PDF)": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "סבבי תיקונים: ' + (s.rounds_used || 0) + ' מתוך ' + (s.rounds_total || 0) + '": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "נשלח, נחזור עם עיצוב ראשון ✨": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "עריכת הבקשה": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "מה תרצו בהזמנה?": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "שמות, סגנון, צבעים, נוסח, וכל מה שחשוב לכם. אפשר לצרף עד ' + MAX_REFS + ' תמונות השראה.": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "＋ תמונות השראה (' + refs.length + '/' + MAX_REFS + ')": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "' + (hasBrief ? 'שמירת השינויים' : 'שליחה') + '": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "גרסה ' + last.n + ' מחכה לכם. מה דעתכם?": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "שליחת ההערות": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "מאשר/ת ✅": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "יש לי הערות ✍️": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "סבבי התיקונים הכלולים נוצלו. אפשר לרכוש סבב תיקונים נוסף.": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "רכישת סבב נוסף · ₪' + esc(s.round_price || 49) + '": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "קיבלנו את ההערות, נחזור עם גרסה מתוקנת 🙌": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "אישרתם ✅ אנחנו מכינים את הקבצים הסופיים.": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "העיצוב מוכן 🎉": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "היסטוריה (' + vs.length + ' גרסאות)": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "גרסה ' + v.n + '": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "דנה ואבי": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "12.12.2026 · אולם הגן": {
+  "n": 1,
+  "where": [
+   "assets/design-card.js"
+  ]
+ },
+ "לוז · נועה ויונתן": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "תקציב · נועה ויונתן": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עודכן 01:03": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "החתונה של נועה ויונתן · 20.12.2026": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "60 מוזמנים עדיין בלי שולחן · 12 משובצים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "יום ראשון, 20 בדצמבר 2026 · קבלת פנים 19:30 · הגן הקסום, רמת גן": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "הופק 21.11.2026, 1:03:35": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "חתונה · נועה ויונתן · יום ראשון, 20 בדצמבר": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "איפה אני יושב/ת? · נועה ויונתן": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "לוז · איתי": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "התארגנות, איפור ולבוש": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "יציאה לאולם מהבית בקריות (25 דקות נסיעה + 15 דקות מרווח)": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "הגעה לאולם ובדיקת הסידורים": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "טקס / פתיחה": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "ארוחה": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "ריקודים": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "סיום האירוע": {
+  "n": 1,
+  "where": [
+   "schedule.html"
+  ]
+ },
+ "תקציב · איתי": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "עודכן 01:04": {
+  "n": 1,
+  "where": [
+   "budget.html"
+  ]
+ },
+ "הבר מצווה של איתי · 2.12.2026": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "120 מוזמנים עדיין בלי שולחן · 0 משובצים": {
+  "n": 1,
+  "where": [
+   "seating.html"
+  ]
+ },
+ "יום רביעי, 2 בדצמבר 2026 · קבלת פנים 18:00 · אולמי הדקל, חיפה": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "30 הזמנות · 70 סועדים": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "הופק 21.11.2026, 1:04:47": {
+  "n": 1,
+  "where": [
+   "checklist.html"
+  ]
+ },
+ "בר מצווה · איתי · יום רביעי, 2 בדצמבר": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ },
+ "איפה אני יושב/ת? · איתי": {
+  "n": 1,
+  "where": [
+   "table.html"
+  ]
+ }
+}
