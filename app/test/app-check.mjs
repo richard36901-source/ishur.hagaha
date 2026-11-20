@@ -103,7 +103,7 @@ try {
   const visible = async () => { const f = p.frames().find(x => /dashboard/.test(x.url())); return f ? f.evaluate(ss => ss.filter(q => { const el = document.querySelector(q); return !!el && el.getClientRects().length > 0; }), ALL) : ['no frame']; };
   const same = (a, b) => a.length === b.length && b.every(x => a.includes(x));
   let shown = await visible();
-  check('R6 ראשי: status, group link, seating and budget; no guest list, no sends, nothing that sells', same(shown, ['#kpis', '#shareCard', '#seatingLink', '#budgetLink']), shown.join(' '));
+  check('R6 ראשי: status, seating and budget; no guest list, no sends, no group link, nothing that sells', same(shown, ['#kpis', '#seatingLink', '#budgetLink']), shown.join(' '));
   await p.click('[data-tab=guests]');
   await fr0.locator('#rows .pill').nth(5).waitFor({ timeout: 30000 }).catch(() => {});
   shown = await visible();
@@ -112,7 +112,7 @@ try {
   await p.click('[data-tab=sends]');
   await fr0.locator('#sendsCard').waitFor({ timeout: 30000 }).catch(() => {});
   shown = await visible();
-  check('R6 שליחות: the send schedule and the invitation; no status, no guest list', same(shown, ['#sendsCard', '#mediaCard']), shown.join(' '));
+  check('R6 שליחות: the send schedule, the invitation and the group link (Richard 20/11 night); no status, no guest list', same(shown, ['#sendsCard', '#mediaCard', '#shareCard']), shown.join(' '));
   await p.waitForTimeout(400); await p.screenshot({ path: path.join(SHOTS, '4-sends-light.png') });
   await p.click('[data-tab=account]');
   const pkgWant = truth.package || {};

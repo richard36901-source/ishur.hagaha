@@ -31,7 +31,7 @@ Lines marked (reading) are Claude's interpretation of Richard's wording, to conf
 | Progress bar under the tiles | ראשי | |
 | מעקב תקציב, סידורי הושבה, צ'קליסט (the row of buttons) | ראשי | |
 | **לוז אירוע** (new) | ראשי | section 5 |
-| קישור לקבוצה | ראשי | decided by Richard 20/11 ("בראשי") |
+| קישור לקבוצה | שליחות | Richard first said ראשי, then after seeing it in the simulator: "קישור לקבוצה תזיז לשליחות" (20/11 night) |
 | רשימת המוזמנים, filters, search | מוזמנים | not shown on ראשי any more |
 | רשימה להדפסה | מוזמנים | |
 | החלפת רשימה (upload a new file) | מוזמנים | |

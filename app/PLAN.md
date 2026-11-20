@@ -33,7 +33,7 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 Plan: `.sdlc/client-app/round6-redesign.md`. Richard decided: no payments in the app (upgrades, add-ons and new events on the website only); sign-in with Apple or Google and the event schedule come as updates after the first submission.
 
 **Version 1.0 now also includes** (Fable, from 21/11, on staging):
-- [x] The board in four views, one per tab (20/11 night, staging): ראשי = status with the venue tile, seating, table codes, budget, group link · מוזמנים = the list, print, replace list, add guests · שליחות = send schedule, invitation, wording, design. Seen in the simulator for ראשי only; the other tabs are checked in Chrome. With no network each tab falls back to the app's own screen.
+- [x] The board in four views, one per tab (20/11 night, staging): ראשי = status with the venue tile, seating, table codes, budget · מוזמנים = the list, print, replace list, add guests · שליחות = send schedule, invitation, wording, design, group link. Seen in the simulator for ראשי only; the other tabs are checked in Chrome. With no network each tab falls back to the app's own screen.
 - [x] All-events page (from the header picker and from חשבון): a row per event, past events greyed and last, with a review button. Checked with one event only; the demo clients have no past event, so the greyed row and the review button are not exercised.
 - [x] "החבילה שלי" in חשבון: package name, guest tier, every included line, add-ons bought, link to the terms. No prices (`worker/package.js`; a test fails if its lines drift from `config.js`).
 - [ ] Review after the event: the prompt on opening the app is built (one "לא עכשיו", then only "לדרג עכשיו") and opens the existing `feedback.html` inside the app. NOT tested: no demo client has a past event. Still to do: Apple's own rating prompt (needs a native plugin); check Google's review-gating rule and Apple's rating-prompt rule against their current text; the existing web flow offers Google and video only to high scores.
@@ -44,7 +44,7 @@ This adds work before the first submission: the "about a week after Apple activa
 
 **After 1.0:** 1.1 sign-in with Apple or Google · 1.2 event schedule and calendar button.
 
-Decided 20/11: the group link sits in ראשי. The review after the event can be skipped once. No open questions for 1.0; the build can start.
+Decided 20/11: the group link sits in שליחות (moved from ראשי after Richard saw it). The review after the event can be skipped once. No open questions for 1.0; the build can start.
 
 ## Claude's own queue (no approval needed, staging only)
 

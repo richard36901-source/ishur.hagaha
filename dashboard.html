@@ -56,7 +56,7 @@
       setView((/[?&]view=([a-z]+)/.exec(location.search) || [])[1] || 'home');
       window.addEventListener('message', function (e) { if (e.source === window.parent && e.data && e.data.ishurView) setView(String(e.data.ishurView)); });
       document.addEventListener('DOMContentLoaded', function () {
-        var MAP = { statusCard: 'home', shareCard: 'home', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
+        var MAP = { statusCard: 'home', shareCard: 'sends', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
           mediaCard: 'sends', designCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none' };
         Object.keys(MAP).forEach(function (id) { var el = document.getElementById(id); if (el) el.setAttribute('data-v', MAP[id]); });
       });
