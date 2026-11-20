@@ -2,6 +2,8 @@
 
 The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 21:30.
 
+In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
+
 Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude** = Claude does it · **Together** = Claude does it, you sign in or approve.
 
 ## Milestones
