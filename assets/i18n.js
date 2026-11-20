@@ -385,7 +385,8 @@
   var GLOBE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.6 2.7 2.6 15.3 0 18M12 3c-2.6 2.7-2.6 15.3 0 18"/></svg>';
   function paintPicker() {
     var w = document.getElementById('langPick'); if (!w) return;
-    w.querySelector('.lng-n').textContent = meta(lang).n;
+    /* on the header the button is short (the brand sits right beside it): the code of the language, the full name is in the list */
+    w.querySelector('.lng-n').textContent = ({ he: 'עב', yi: 'יי', ar: 'ع' })[lang] || lang.toUpperCase();
     var os = w.querySelectorAll('.lng-o');
     for (var i = 0; i < os.length; i++) os[i].setAttribute('aria-checked', os[i].getAttribute('data-l') === lang ? 'true' : 'false');
   }
