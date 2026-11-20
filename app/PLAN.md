@@ -134,7 +134,7 @@ Nothing in the app works for real clients until this is done. Today production h
 ## 9. Later
 
 - [ ] **Claude:** a screen to read the usage report (you said not now, 20/11).
-- [ ] Usage data in a real database: the code, tables, tests and a setup script are ready (20/11 night); staging still writes to KV. One step is missing: the Cloudflare API token needs Account → D1 → Edit. Richard asked Claude to do it in Chrome; the Claude in Chrome extension was not connected that night, so it is not done. Then: `sh worker/scripts/app-d1-setup.sh` and deploy staging.
+- [x] Usage data in a real database (21/11 00:20): Claude added Account → D1 → Edit to the Cloudflare token in Chrome, created `ishur-app-staging` (tables `app_events`, `app_users`) and bound it to the staging Worker. Checked: three events sent as the demo client landed as rows, and the report read them back. Production gets its own database (`sh worker/scripts/app-d1-setup.sh production`) as part of the promote.
 - [ ] **Together:** version 1.1, buying the next event in the app. First decide with Apple's rules whether it must use Apple's own payment.
 
 ---
