@@ -89,7 +89,7 @@ try {
   const head = await p.evaluate(() => { const b = document.querySelector('#app .brand'), r = b.getBoundingClientRect(); return { text: b.textContent.trim(), off: Math.abs((r.left + r.right) / 2 - innerWidth / 2) }; });
   check('header reads "אישורי הגעה לאירועים - ishur.io" and sits in the middle', head.text === 'אישורי הגעה לאירועים - ishur.io' && head.off <= 2, head.text + ' · ' + head.off.toFixed(1) + 'px off centre');
   /* home is the regular board itself */
-  const homeIsBoard = await p.frameLocator('#boardFrame').locator('#rows .pill').nth(5).waitFor({ timeout: 60000 }).then(() => true, () => false);
+  const homeIsBoard = await p.frameLocator('#boardFrame').locator('#kpis .kpi').nth(5).waitFor({ timeout: 60000 }).then(() => true, () => false);
   check('home after sign-in is the regular board, tab "ראשי" lit', homeIsBoard && await p.evaluate(() => !document.getElementById('v-board').hidden && document.querySelector('#tabs .on span').textContent === 'ראשי'));
   /* the board's first-visit tour is skipped for the screenshots, the way a client taps "דלגו על הכל" */
   await p.waitForTimeout(1500);
@@ -97,34 +97,40 @@ try {
   { const f0 = p.frames().find(f => /dashboard/.test(f.url())); if (f0) await f0.evaluate(() => window.scrollTo(0, 0)); }
   await p.waitForTimeout(600); await p.screenshot({ path: path.join(SHOTS, '2-home-light.png') });
 
-  /* P2: the six guest tabs show the counts computed from the same JSON */
+  /* Round 6 (Richard 20/11): ראשי, מוזמנים and שליחות are three views of the regular board. What each one shows: */
+  const fr0 = p.frameLocator('#boardFrame');
+  const ALL = ['#kpis', '#shareCard', '#seatingLink', '#budgetLink', '#rows', '#checklistLink', '#replaceLink', '#gaddCard', '#sendsCard', '#mediaCard', '#refCard', '#addonsCard'];
+  const visible = async () => { const f = p.frames().find(x => /dashboard/.test(x.url())); return f ? f.evaluate(ss => ss.filter(q => { const el = document.querySelector(q); return !!el && el.getClientRects().length > 0; }), ALL) : ['no frame']; };
+  const same = (a, b) => a.length === b.length && b.every(x => a.includes(x));
+  let shown = await visible();
+  check('R6 ראשי: status, group link, seating and budget; no guest list, no sends, nothing that sells', same(shown, ['#kpis', '#shareCard', '#seatingLink', '#budgetLink']), shown.join(' '));
   await p.click('[data-tab=guests]');
-  await p.waitForSelector('#guestRows .row', { timeout: 20000 }).catch(() => {});
-  for (const k of Object.keys(want)) {
-    await p.click(`#filters [data-f=${k}]`);
-    const got = await p.evaluate(k2 => ({ badge: Number(document.querySelector(`#filters [data-f=${k2}] .n`).textContent), rows: document.querySelectorAll('#guestRows .row').length }), k);
-    check(`P2 tab ${k}`, got.badge === want[k] && got.rows === want[k], `screen ${got.badge}/${got.rows} rows, data ${want[k]}`);
-  }
-  await p.click('#filters [data-f=all]');
-  await p.screenshot({ path: path.join(SHOTS, '3-guests-light.png') });
-  const needle = G[3].name, wantRows = G.filter(g => g.name.includes(needle)).length;
-  await p.fill('#search', needle);
-  const found = await p.evaluate(() => document.querySelectorAll('#guestRows .row').length);
-  check('P2 search leaves only the matching rows', found === wantRows && found >= 1, `${found} rows, data ${wantRows}`);
-  await p.fill('#search', '');
-
+  await fr0.locator('#rows .pill').nth(5).waitFor({ timeout: 30000 }).catch(() => {});
+  shown = await visible();
+  check('R6 מוזמנים: the list, print, replace list and add guests; nothing else', same(shown, ['#rows', '#checklistLink', '#replaceLink', '#gaddCard']), shown.join(' '));
+  await p.waitForTimeout(400); await p.screenshot({ path: path.join(SHOTS, '3-guests-light.png') });
   await p.click('[data-tab=sends]');
-  const sendRows = await p.evaluate(() => document.querySelectorAll('#sendRows .row').length);
-  check('send schedule lists every send', sendRows === (truth.sends || []).length, `${sendRows} of ${(truth.sends || []).length}`);
-  await p.screenshot({ path: path.join(SHOTS, '4-sends-light.png') });
+  await fr0.locator('#sendsCard').waitFor({ timeout: 30000 }).catch(() => {});
+  shown = await visible();
+  check('R6 שליחות: the send schedule and the invitation; no status, no guest list', same(shown, ['#sendsCard', '#mediaCard']), shown.join(' '));
+  await p.waitForTimeout(400); await p.screenshot({ path: path.join(SHOTS, '4-sends-light.png') });
   await p.click('[data-tab=account]');
+  const pkgWant = truth.package || {};
+  const pkg = await p.evaluate(() => ({ name: document.getElementById('pkgName').textContent, lines: document.querySelectorAll('#pkgList li').length, text: document.getElementById('v-account').innerText }));
+  check('R6 חשבון: my package shows its name and every included line, with no price', pkg.name.includes(pkgWant.name) && pkg.lines === (pkgWant.included || []).length && pkg.lines >= 6 && !/₪|מחיר|שדרג/.test(pkg.text), `${pkg.name} · ${pkg.lines} lines, data ${(pkgWant.included || []).length}`);
+  const myEvents = ((await api('/api/account/me', { session: sess })).body.events || []).filter(e => e.token);
+  await p.click('#eventsOpen');
+  const evp = await p.evaluate(() => ({ rows: document.querySelectorAll('#evList .evrow').length, pastLast: (() => { const r = Array.from(document.querySelectorAll('#evList .evrow')); const firstPast = r.findIndex(x => x.classList.contains('past')); return firstPast < 0 || r.slice(firstPast).every(x => x.classList.contains('past')); })(), open: !document.getElementById('events').hidden }));
+  check('R6 all my events: a row per event, past events last', evp.open && evp.rows === myEvents.length && evp.rows >= 1 && evp.pastLast, `${evp.rows} rows, data ${myEvents.length}`);
+  await p.screenshot({ path: path.join(SHOTS, '14-events-light.png') });
+  await p.click('#eventsClose');
   await p.screenshot({ path: path.join(SHOTS, '5-account-light.png') });
 
   /* P13: the regular board, in app mode, inside the app */
   await p.click('[data-tab=board]');
   const fr = p.frameLocator('#boardFrame');
-  const boardUp = await fr.locator('#rows .pill').nth(5).waitFor({ timeout: 60000 }).then(() => true, () => false);
-  check('P13 the board opens inside the app with its guest rows', boardUp);
+  const boardUp = await fr.locator('#kpis .kpi').nth(5).waitFor({ timeout: 60000 }).then(() => true, () => false);
+  check('P13 the board opens inside the app with its status tiles', boardUp);
   const frame = p.frames().find(f => /dashboard/.test(f.url()));
   const inBoard = frame ? await frame.evaluate(() => {
     const vis = sel => Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null || el.getClientRects().length).length;
@@ -170,8 +176,7 @@ try {
     check('P14 still no tracking requests', trackers.length === 0, [...new Set(trackers)].join(' '));
     await p.screenshot({ path: path.join(SHOTS, '13-setup-upload.png') });
     await p.evaluate(() => { const f = document.getElementById('boardFrame'); f.src = f.src; });   /* back to the board */
-    await p.frameLocator('#boardFrame').locator('#rows .pill').nth(5).waitFor({ timeout: 60000 }).catch(() => {});
-    await p.frameLocator('#boardFrame').getByText('דלגו על הכל').click({ timeout: 3000 }).catch(() => {});
+    await p.frameLocator('#boardFrame').locator('#kpis .kpi').nth(5).waitFor({ timeout: 60000 }).catch(() => {});
   }
   const frame2 = p.frames().find(f => /dashboard/.test(f.url()));
 
@@ -201,6 +206,28 @@ try {
   check('P3 offline: the app\'s own summary takes the place of the board', await p.evaluate(() => !document.getElementById('v-summary').hidden && document.getElementById('v-board').hidden));
   check('P3 offline: counts still on screen', Number(off.all) === want.all, `screen ${off.all}, data ${want.all}`);
   check('P3 offline: says when it was updated, no error wording', /עודכן/.test(off.stamp || '') && !BAD_WORDS.test(off.text), (off.stamp || '').trim());
+  /* P2: with no network the app's own guest list takes over; its six tabs show the counts computed from the same JSON */
+  await p.click('[data-tab=guests]');
+  await p.waitForSelector('#guestRows .row', { timeout: 20000 }).catch(() => {});
+  for (const k of Object.keys(want)) {
+    await p.click(`#filters [data-f=${k}]`);
+    const got = await p.evaluate(k2 => ({ badge: Number(document.querySelector(`#filters [data-f=${k2}] .n`).textContent), rows: document.querySelectorAll('#guestRows .row').length }), k);
+    check(`P2 tab ${k}`, got.badge === want[k] && got.rows === want[k], `screen ${got.badge}/${got.rows} rows, data ${want[k]}`);
+  }
+  await p.click('#filters [data-f=all]');
+  await p.screenshot({ path: path.join(SHOTS, '3b-guests-offline.png') });
+  const needle = G[3].name, wantRows = G.filter(g => g.name.includes(needle)).length;
+  await p.fill('#search', needle);
+  const found = await p.evaluate(() => document.querySelectorAll('#guestRows .row').length);
+  check('P2 search leaves only the matching rows', found === wantRows && found >= 1, `${found} rows, data ${wantRows}`);
+  await p.fill('#search', '');
+
+  await p.click('[data-tab=sends]');
+  const sendRows = await p.evaluate(() => document.querySelectorAll('#sendRows .row').length);
+  check('send schedule lists every send', sendRows === (truth.sends || []).length, `${sendRows} of ${(truth.sends || []).length}`);
+  await p.screenshot({ path: path.join(SHOTS, '4b-sends-offline.png') });
+
+  await p.click('[data-tab=board]');
   await ctx.unroute('https://go-staging.ishur.io/**');
 
   /* dark, by device setting (P8 screenshots) */
