@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 22:45.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 23:30. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -33,10 +33,11 @@ Legend: `[x]` done · `[ ]` open · **You** = only Richard can do it · **Claude
 Plan: `.sdlc/client-app/round6-redesign.md`. Richard decided: no payments in the app (upgrades, add-ons and new events on the website only); sign-in with Apple or Google and the event schedule come as updates after the first submission.
 
 **Version 1.0 now also includes** (Fable, from 21/11, on staging):
-- [ ] The board in four views, one per tab: ראשי (status, budget, seating, checklist), מוזמנים (list, print, replace list, both add-guest options), שליחות (send schedule, invitation, wording, design, links), חשבון.
-- [ ] Event picker in the header and an all-events page: a row per event, past events greyed and last.
-- [ ] "החבילה שלי" in חשבון: what the package includes and its terms. No prices, no upgrade button.
-- [ ] Review after the event (1 to 10 and a line of text), using the review flow that already exists; Apple's own rating prompt from time to time. Check Google's review-gating rule and Apple's rating-prompt rule against their current text first.
+- [x] The board in four views, one per tab (20/11 night, staging): ראשי = status with the venue tile, seating, table codes, budget, group link · מוזמנים = the list, print, replace list, add guests · שליחות = send schedule, invitation, wording, design. Seen in the simulator for ראשי only; the other tabs are checked in Chrome. With no network each tab falls back to the app's own screen.
+- [x] All-events page (from the header picker and from חשבון): a row per event, past events greyed and last, with a review button. Checked with one event only; the demo clients have no past event, so the greyed row and the review button are not exercised.
+- [x] "החבילה שלי" in חשבון: package name, guest tier, every included line, add-ons bought, link to the terms. No prices (`worker/package.js`; a test fails if its lines drift from `config.js`).
+- [ ] Review after the event: the prompt on opening the app is built (one "לא עכשיו", then only "לדרג עכשיו") and opens the existing `feedback.html` inside the app. NOT tested: no demo client has a past event. Still to do: Apple's own rating prompt (needs a native plugin); check Google's review-gating rule and Apple's rating-prompt rule against their current text; the existing web flow offers Google and video only to high scores.
+- [x] "המלצה עלינו" in חשבון opens the board's referral card inside the app. It shows discount and commission wording; whether Apple reads that as steering to buy elsewhere is an open risk to decide before submission.
 - [ ] Update the store texts, screenshots and checks for the new layout.
 
 This adds work before the first submission: the "about a week after Apple activates" estimate becomes roughly two weeks. Not measured; revise after the four views are built.
