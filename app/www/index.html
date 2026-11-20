@@ -127,6 +127,17 @@
   </nav>
 </div>
 
+<!-- push: our own explanation first; the system question comes only after "כן" (Apple 4.5.4) -->
+<div id="pushAsk" class="sheet" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="pushAskT">
+    <div class="grabber" aria-hidden="true"></div>
+    <h2 id="pushAskT">לקבל הודעה כשמוזמן עונה?</h2>
+    <p class="sub">נודיע לכם כשמוזמן מאשר הגעה, נשלח סיכום קצר כל בוקר ב-09:00, ונספר אם הזמנה לא הגיעה. בלי פרסומות, ובלי הודעות בין 21:00 ל-09:00. אפשר לכבות בכל רגע בלשונית חשבון.</p>
+    <button id="pushYes" class="btn" type="button">כן, להודיע לי</button>
+    <button id="pushNo" class="btn ghost" type="button">לא עכשיו</button>
+  </div>
+</div>
+
 <!-- help centre: short animated explanations, one idea per screen -->
 <div id="help" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
   <header class="helpbar">
@@ -160,5 +171,6 @@
 <script src="env.js"></script>
 <script src="app.js"></script>
 <script src="help.js"></script>
+<script src="push.js"></script>
 </body>
 </html>

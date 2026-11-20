@@ -6,8 +6,8 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const HERE = path.dirname(fileURLToPath(import.meta.url));
 const ENVS = {
-  staging: { name: 'staging', api: 'https://go-staging.ishur.io', site: 'https://staging.ishur.io', board: 'https://staging.ishur.io/dashboard' },
-  production: { name: 'production', api: 'https://go.ishur.io', site: 'https://go.ishur.io', board: 'https://go.ishur.io/dashboard.html' },
+  staging: { name: 'staging', api: 'https://go-staging.ishur.io', site: 'https://staging.ishur.io', board: 'https://staging.ishur.io/dashboard', apnsSandbox: true },
+  production: { name: 'production', api: 'https://go.ishur.io', site: 'https://go.ishur.io', board: 'https://go.ishur.io/dashboard.html', apnsSandbox: false },
 };
 const which = process.argv[2];
 if (!ENVS[which]) { console.error('usage: set-env.mjs staging|production'); process.exit(2); }
