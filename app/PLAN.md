@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 01:30. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 02:10. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -42,7 +42,9 @@ Plan: `.sdlc/client-app/round6-redesign.md`. Richard decided: no payments in the
 
 This adds work before the first submission: the "about a week after Apple activates" estimate becomes roughly two weeks. Not measured; revise after the four views are built.
 
-**After 1.0:** 1.1 sign-in with Apple or Google · 1.2 event schedule and calendar button.
+- [x] Event schedule (לוז אירוע), moved into 1.0 on Richard's yes (21/11): button in ראשי, `schedule.html` (works on the website too). The client types where they leave from, the drive time and the ceremony time; "הצעה ללוז" works the day back from the reception (an hour at the venue, the drive, 15 minutes for traffic); every line editable; Waze button to check the drive. Calendar: Apple (webcal subscription) and Google (add by URL), one feed that updates itself (`/api/lineup.ics`, fixed ids). Seen working in the simulator: the app handed the feed to Calendar, which showed all 8 lines on the right day and times (`app/test/shots/17-calendar-subscribe.png`). Not tried: the Google Calendar button, and a change made after subscribing showing up in Calendar. Stored in D1 (KV served stale reads for a minute). The suggested times are Claude's first setting.
+
+**After 1.0:** 1.1 sign-in with Apple or Google.
 
 Decided 20/11: the group link sits in שליחות (moved from ראשי after Richard saw it). The review after the event can be skipped once. No open questions for 1.0; the build can start.
 
