@@ -28,6 +28,10 @@ test('Israel time is converted to UTC with the right offset for the day (winter 
   assert.equal(L.ilUtc('2026-07-01', 19 * 60), '20260701T160000Z');
   assert.equal(L.ilUtc('2026-12-02', 1440 + 75), '20261202T231500Z', 'after midnight is the next day');
 });
+test('the module runs without Node globals (Cloudflare Workers have no Buffer)', () => {
+  const src = fs.readFileSync(new URL('../lineup.js', import.meta.url), 'utf8');
+  assert.doesNotMatch(src, /\bBuffer\b|\bprocess\.|require\(/);
+});
 test('the calendar file: one entry per line, fixed ids, venue, escaped text, CRLF', () => {
   const rec = L.clean({ date: '2026-12-02', title: 'איתי', venue: 'אולמי הדקל, חיפה', items: [{ m: 1080, text: 'קבלת פנים' }, { m: 1125, text: 'טקס; פתיחה' }] });
   const f = L.ics(rec, 'aaaaaaaa-0000-4000-8000-000000000001', new Date(Date.UTC(2026, 10, 20)));
