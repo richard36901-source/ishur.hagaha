@@ -50,6 +50,10 @@ R17. (20/11) Every page the board links to and a client uses for setup (guest up
      list, gifts) opens inside the app in the same app mode: no site chrome, no tracking, nothing that sells.
      A client with a paid event and no guests yet lands on the setup steps, not on empty counts.
 R18. (20/11) All events on the client's phone are listed after sign-in (built: event switcher + list in חשבון).
+R19. (20/11) Help for non-technical and older clients: a "עזרה" entry in the app with short animated explanations
+     (what each number means, how to add guests, how to change a send date, what "נכשלו" means and what to do),
+     and the same explanation offered in place at the spots where people go wrong. Large text, one idea per
+     screen, can be replayed, respects reduced motion, always ends with "דברו איתנו בוואטסאפ". Not built yet.
 R16. (20/11) Version 1.1, after 1.0 is approved: buying an event and add-ons in the app (own sdlc slug).
 
 ## Pass conditions (machine-checkable)

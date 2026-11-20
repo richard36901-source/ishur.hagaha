@@ -56,6 +56,15 @@ to the pages the board links to (guest upload first).
   text). Done by making home ("ראשי") the board itself; the app's own summary is the no-network fallback.
 - He wants to see every screen: `app/store/preview/`.
 
+## Richard, 20/11/2026 (fourth round, in chat)
+- "שזה ירגיש כמו אפליקציה שאפל יצרה", with the apple and taste skills. Done as a first pass on the app's own
+  screens (HIG conventions on our colours); the board inside the frame keeps the site's look.
+- Name: Hebrew "אישורי הגעה לאירועים", English "Ishur" (`app/store/listing.md`).
+- He asked me to install Xcode and to open the Apple and Google sign-up pages for him. Pages opened; the App Store
+  install and both sign-ups need his own Apple / Google sign-in and payment.
+- Help centre: wherever a person can go wrong there should be a short animated explanation, so the oldest and
+  least technical clients understand ("שהכל יהיה ברור למשתמשים הכי מבוגרים"). Not built yet → spec R19.
+
 ## Open questions for Richard
 1. App display name (default proposal: "ishur" with subtitle "אישורי הגעה לאירוע").
 2. Push at night: a guest who confirms at 23:00. Proposal: no push 21:00–09:00, held into the 09:00 summary.
