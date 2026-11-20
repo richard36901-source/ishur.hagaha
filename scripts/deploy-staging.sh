@@ -15,7 +15,7 @@ if [ "$WHAT" = all ] || [ "$WHAT" = site ]; then
   rm -rf dist-site && mkdir dist-site
   # the same files GitHub Pages serves: repo root minus _config.yml's excludes
   rsync -a --exclude .git --exclude .github --exclude .gitignore --exclude dist-site --exclude .wrangler --exclude .claude --exclude .sdlc \
-    --exclude worker --exclude agent --exclude docs --exclude scripts --exclude node_modules --exclude '*.fixture.json' \
+    --exclude worker --exclude agent --exclude app --exclude docs --exclude scripts --exclude node_modules --exclude '*.fixture.json' \
     --exclude HANDOFF.md --exclude README.md --exclude SENDING-LOGIC.md --exclude TASKS.md --exclude CNAME ./ dist-site/
   # <meta name="robots"> is not injected: staging is for people with the link; robots.txt below keeps crawlers out
   printf 'User-agent: *\nDisallow: /\n' > dist-site/robots.txt

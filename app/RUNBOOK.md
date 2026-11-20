@@ -16,7 +16,8 @@ cd app
 STAGING_SECRETS=/path/to/worker/.staging.secrets PLAYWRIGHT_PATH=/path/to/playwright/index.mjs npm run check
 DEMO=2 ... npm run check        # the demo client with mixed answers
 ```
-Exit 0 and "21/21 passed" is the pass. Screenshots land in `test/shots/`.
+Exit 0 and "24/24 passed" is the pass. The script first clears the staging sign-in counters (6 tries an hour per
+phone); that reset exists on staging only. Screenshots land in `test/shots/`.
 
 ## Build for a store
 ```bash

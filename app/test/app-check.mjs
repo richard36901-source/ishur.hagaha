@@ -46,6 +46,9 @@ try {
   const health = await fetch(BASE + '/api/health').then(r => r.json()).catch(() => ({}));
   check('this is the staging worker', health.staging === true, health.worker || '?');
   if (health.staging !== true) throw new Error('not staging: stopping');
+  /* staging only: clear this machine's sign-in counters (6 tries an hour per phone), as scripts/staging-check.mjs does */
+  const cleared = await api('/api/staging-seed', { admin_key: adminKey(), del_prefixes: ['rl:acctpin', 'acctpinlock:'] });
+  check('staging sign-in counters cleared for the run', cleared.status === 200 && cleared.body.ok !== false, 'status ' + cleared.status);
   const PIN = (await api('/api/client-pin', { admin_key: adminKey(), token: TOKEN })).body.pin || '';
   check('the demo client has a sign-in code', /^\d{4}$/.test(PIN));
   const WRONG = PIN === '0001' ? '0002' : '0001';
@@ -81,7 +84,7 @@ try {
   await p.waitForFunction(() => /\d/.test((document.getElementById('kpiAll') || {}).textContent || ''), null, { timeout: 60000 }).catch(() => {});
   const evName = await p.textContent('#evName').catch(() => '');
   const wantName = [truth.event.name1, truth.event.name2].filter(Boolean)[0];
-  check('P1 right code opens the summary with the event name', inOk && evName.includes(wantName), evName.trim());
+  check('P1 right code opens the summary with the event name', inOk && evName.includes(wantName), evName.trim() + (inOk ? '' : ' · sign-in note: ' + (await p.textContent('#signinNote').catch(() => '')) + ' · ' + jsErrors.join(' | ')));
   await p.screenshot({ path: path.join(SHOTS, '2-summary-light.png') });
 
   /* P2: the six guest tabs show the counts computed from the same JSON */
@@ -106,6 +109,11 @@ try {
   await p.screenshot({ path: path.join(SHOTS, '4-sends-light.png') });
   await p.click('[data-tab=account]');
   await p.screenshot({ path: path.join(SHOTS, '5-account-light.png') });
+
+  /* what is saved on the device: no phone numbers, no board link to a page that sells */
+  const saved = await p.evaluate(() => Object.keys(localStorage).filter(k => /^ishurapp_data:/.test(k)).map(k => localStorage.getItem(k)).join(''));
+  check('saved copy on the device holds no phone numbers', saved.length > 100 && !/\d{9,}/.test(saved) && !/phone|gift|invoice/.test(saved));
+  check('no link from the app to the web board', !/dashboard\.html/.test(src));
 
   /* P3: no network, reload: the last state is still there with "עודכן" */
   await ctx.route('https://go-staging.ishur.io/**', r => r.abort());

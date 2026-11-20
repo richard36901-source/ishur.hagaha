@@ -15,7 +15,7 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 | A7 | Push is optional, asked after an in-app explanation, per-kind switches, no marketing | 4.5.4 | not built |
 | A8 | Privacy policy URL, and the policy names the app and push | 5.1.1(i) | `terms.html#privacy` exists; app text not added |
 | A9 | Privacy labels: Phone number, Name, User ID, Contacts (guest lists), Device ID; none for tracking | App privacy | answers file: open |
-| A10 | Privacy manifest in the build | third-party SDK rule | `ios/App/App/PrivacyInfo.xcprivacy` (plutil OK; not yet built) |
+| A10 | Privacy manifest in the build | third-party SDK rule | file written, plutil OK; NOT yet added to the Xcode target, never built |
 | A11 | `ITSAppUsesNonExemptEncryption` = NO (HTTPS only) | export compliance | set in Info.plist |
 | A12 | Built with Xcode 26+ / iOS 26 SDK | upload requirement | Xcode not installed |
 | A13 | iPhone only, portrait; screenshots at the size App Store Connect asks for | screenshots | device family set to iPhone; screenshots open |

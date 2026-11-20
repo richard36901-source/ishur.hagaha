@@ -60,6 +60,18 @@
     (d.guests || []).forEach(function (g) { if (g.status === 'awaiting_call' || !STATUS[g.status]) g.status = 'pending'; });
     return d;
   }
+  /* Keep only what the screens show. Guest phones, gifts, invoices and the rest of the board's data are dropped
+     before anything is held in memory or saved on the device. */
+  function slim(d) {
+    var e = d.event || {}, t = d.totals || {};
+    return {
+      ok: true, pub: d.pub || '',
+      event: { name1: e.name1, name2: e.name2, occasion: e.occasion, occasion_label: e.occasion_label, event_date: e.event_date, reception_time: e.reception_time, venue_name: e.venue_name, venue_city: e.venue_city },
+      totals: { confirmed_seats: t.confirmed_seats },
+      sends: (d.sends || []).map(function (s) { return { key: s.key, label: s.label, date: s.date, status: s.status, sent_n: s.sent_n, stats: s.stats ? { answered: s.stats.answered } : null }; }),
+      guests: (d.guests || []).map(function (g) { return { name: g.name, status: g.status, seats: g.seats, table: g.table, self: g.self, at: String(g.at || '').slice(0, 10), sent: g.sent, sent_code: g.sent_code }; })
+    };
+  }
   function inFilter(g, k) { return k === 'all' ? true : k === 'failed' ? !!notReached(g) : g.status === k; }
   function count(k) { return ((data && data.guests) || []).filter(function (g) { return inFilter(g, k); }).length; }
 
@@ -146,7 +158,7 @@
     return post('/api/status', { token: current, board_session: session }).then(function (r) {
       loading = false;
       if (r.status === 200 && r.body.ok) {
-        data = normalize(r.body); store.set('data:' + current, r.body); store.set('at:' + current, Date.now()); render();
+        data = normalize(slim(r.body)); store.set('data:' + current, data); store.set('at:' + current, Date.now()); render();
       } else if (r.status === 401 && r.body.error === 'pin-required') { signOut(true); }
       else if (!quiet) render();   /* keep what we had; the "עודכן ב-" line tells the client how fresh it is */
     });
@@ -195,7 +207,6 @@
   $('forgot').addEventListener('click', function (e) { e.preventDefault(); openUrl(waLink('היי, אני צריך/ה את קוד הכניסה לאפליקציה של ishur')); });
   $('support').addEventListener('click', function (e) { e.preventDefault(); openUrl(waLink('היי, יש לי שאלה על האירוע שלי')); });
   $('privacy').addEventListener('click', function (e) { e.preventDefault(); openUrl('https://ishur.io/terms.html#privacy'); });
-  $('fullBoard').addEventListener('click', function (e) { e.preventDefault(); if (current) openUrl(ENV.site + '/dashboard.html?t=' + encodeURIComponent(current)); });
   $('signout').addEventListener('click', function () { signOut(false); });
   $('tabs').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) { tab(b.getAttribute('data-tab')); haptic(); } });
   $('filters').addEventListener('click', function (e) { var b = e.target.closest('button'); if (!b) return; filter = b.getAttribute('data-f'); render(); });
