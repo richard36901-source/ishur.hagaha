@@ -241,6 +241,20 @@ test('pin-login: guessing is capped per hour even with the right PIN afterwards;
   assert.equal(e3.RATE.m.has('acctpinlock:972521234567'), false);
   assert.equal((await post(e3, '/api/account/pin-login', { phone: '0521234567', pin: await pinFor(e3, PHONE) })).status, 200);
 });
+test('review phone (Apple review demo): never locked, no per-phone cap; any other phone still capped', async () => {
+  const { pinFor, PIN_HOUR } = await import('../account.js');
+  const e = env({ 'acctpinlock:972521234567': 'x' }); e.REVIEW_PHONE = '0521234567';
+  const pin = await pinFor(e, PHONE), wrong = pin === '0001' ? '0002' : '0001';
+  /* PIN_HOUR + 2 wrong tries: past the per-phone hourly cap (kept small: the per-IP cap is shared by the whole run) */
+  for (let i = 0; i < PIN_HOUR + 2; i++) assert.equal((await post(e, '/api/account/pin-login', { phone: '0521234567', pin: wrong })).status, 403);
+  assert.equal((await post(e, '/api/account/pin-login', { phone: '0521234567', pin })).status, 200, 'still opens after many wrong tries and an old lock');
+  /* the exemption is for that phone only (checked on tryPin itself, so the shared per-IP budget is not spent) */
+  const { tryPin, isReviewPhone } = await import('../account.js');
+  const e2 = env({ 'acctpinlock:972521234567': 'x' }); e2.REVIEW_PHONE = '0500005201';
+  assert.equal(isReviewPhone(e2, '972500005201'), true); assert.equal(isReviewPhone(e2, '972521234567'), false);
+  const d = { overBudget: async () => false, memOver: () => false, logEvent: async () => {}, safeEqual: (a, b) => a === b };
+  assert.deepEqual(await tryPin(e2, d, '972521234567', await pinFor(e2, PHONE), '1.1.1.1'), [429, 'pin-locked'], 'a normal phone keeps its lock');
+});
 test('client-pin (admin): returns the same PIN the client signs in with; reset replaces it; no admin key 403', async () => {
   const { pinFor } = await import('../account.js');
   const e = env();

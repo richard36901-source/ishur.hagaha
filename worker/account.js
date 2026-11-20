@@ -118,6 +118,13 @@ export async function verifyEmailSession(env, token, safeEqual) {
    an hour and PIN_DAY a day per phone (every try counts, before the compare), and the day limit locks the PIN
    (acctpinlock:) until the owner signs in once with the WhatsApp code. */
 export const PIN_HOUR = 6, PIN_DAY = 20;
+/* 21/11 App Store review (Apple 2.1: the demo account "must not expire"). The phone in env REVIEW_PHONE (the demo
+   client, a test phone whose event sends nothing) is never locked and has no per-phone cap, so a reviewer who mistypes
+   cannot lock it. The per-IP cap still applies. Worst case for a guesser: an invented event that sends nothing. */
+export function isReviewPhone(env, phone) {
+  const r = String((env && env.REVIEW_PHONE) || '').replace(/\D/g, '').replace(/^0/, '972');
+  return !!r && String(phone || '') === r;
+}
 const WEAK_PIN = p => /^(\d)\1{3}$/.test(p) || p === '1234' || p === '4321' || p === '0123';
 export async function pinFor(env, phone) {
   phone = String(phone || '');
@@ -140,6 +147,7 @@ const nonceOf = token => (String(token || '').match(/^acct\.\d+\.([0-9a-f]{32})\
 /* one budget for both ways in (the personal area and the board link). → null when the PIN is right, else [status, error] */
 export async function tryPin(env, d, phone, pin, ip) {
   if ((d.memOver && d.memOver('acctpini:' + ip, 30, 3600)) || await d.overBudget(env, 'rl:acctpini:' + ip, 30, 3600)) return [429, 'rate-limited'];
+  if (isReviewPhone(env, phone)) { const want = await pinFor(env, phone); return want && d.safeEqual(pin, want) ? null : [403, 'bad-login']; }
   if (await env.RATE.get('acctpinlock:' + phone).catch(() => null)) return [429, 'pin-locked'];
   if (await d.overBudget(env, 'rl:acctpind:' + phone, PIN_DAY, 86400)) {
     await env.RATE.put('acctpinlock:' + phone, new Date().toISOString(), { expirationTtl: 30 * 86400 }).catch(() => {});
