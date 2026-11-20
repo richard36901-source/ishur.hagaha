@@ -27,10 +27,20 @@ export function parseCommit(v) {
   const n = Number(String(v).trim());
   return Number.isInteger(n) && n >= 0 && n <= MAX_COMMIT ? n : null;
 }
+/* storage: D1 (APP_DB, table venue_commits) when bound, so a save or a clear reads back at once (KV may serve a cached
+   read for a minute); KV otherwise */
 export async function readCommit(env, token) {
-  try { const n = parseInt(await env.RATE.get('venuecommit:' + token), 10); return n > 0 ? n : null; } catch { return null; }
+  try {
+    if (env.APP_DB) { const r = await env.APP_DB.prepare('SELECT n FROM venue_commits WHERE token = ?').bind(token).first(); return r && r.n > 0 ? Number(r.n) : null; }
+    const n = parseInt(await env.RATE.get('venuecommit:' + token), 10); return n > 0 ? n : null;
+  } catch { return null; }
 }
 export async function writeCommit(env, token, n) {
+  if (env.APP_DB) {
+    if (n > 0) await env.APP_DB.prepare('INSERT INTO venue_commits (token, n, at) VALUES (?,?,?) ON CONFLICT(token) DO UPDATE SET n = excluded.n, at = excluded.at').bind(token, n, new Date().toISOString()).run();
+    else await env.APP_DB.prepare('DELETE FROM venue_commits WHERE token = ?').bind(token).run();
+    return;
+  }
   if (n > 0) await env.RATE.put('venuecommit:' + token, String(n), { expirationTtl: 400 * 86400 });
   else await env.RATE.delete('venuecommit:' + token);
 }

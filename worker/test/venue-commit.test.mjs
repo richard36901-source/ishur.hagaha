@@ -36,3 +36,15 @@ test('saved, read back with the status, cleared', async () => {
   await V.writeCommit(env, TOK, 0);
   assert.equal(env.RATE.m.size, 0);
 });
+
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+test('with the database: saved, changed and cleared, nothing in KV', async () => {
+  const db = new DatabaseSync(':memory:'); db.exec(fs.readFileSync(new URL('../migrations-app/0003_venue_commits.sql', import.meta.url), 'utf8'));
+  const mk = (sql, a = []) => ({ bind: (...x) => mk(sql, x), first: async () => db.prepare(sql).get(...a) ?? null, run: async () => db.prepare(sql).run(...a) });
+  const env = { RATE: kv(), APP_DB: { prepare: sql => mk(sql) } }, totals = { confirmed_seats: 70, undecided_seats: 20, pending_seats: 30, declined_seats: 30 };
+  await V.writeCommit(env, TOK, 90); assert.equal((await V.venueFor(env, TOK, totals)).commit, 90);
+  await V.writeCommit(env, TOK, 120); assert.equal((await V.venueFor(env, TOK, totals)).commit, 120);
+  await V.writeCommit(env, TOK, 0); assert.equal((await V.venueFor(env, TOK, totals)).commit, null);
+  assert.equal(env.RATE.m.size, 0);
+});
