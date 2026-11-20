@@ -6,7 +6,7 @@ import * as L from '../lineup.js';
 test('a wedding is worked back from the reception, with the drive time and 15 minutes of margin', () => {
   const s = L.suggest({ occasion: 'חתונה', reception: '19:00', ceremony: '20:15', drive: 40, from: 'רמת גן' });
   const at = t => s.find(x => x.text.startsWith(t));
-  assert.equal(L.toHM(at('יציאה לאולם').m), '17:05');   /* 19:00 − 60 at the venue − 40 drive − 15 margin */ assert.match(at('יציאה לאולם').text, /מרמת גן.*40 דקות/);
+  assert.equal(L.toHM(at('יציאה לאולם').m), '17:05');   /* 19:00 − 60 at the venue − 40 drive − 15 margin */ assert.equal(at('יציאה לאולם').text, 'יציאה לאולם מרמת גן');   /* short, so it fits one line on a phone */
   assert.equal(L.toHM(at('קבלת פנים').m), '19:00'); assert.equal(L.toHM(at('חופה').m), '20:15'); assert.equal(L.toHM(at('חתימה').m), '19:55');
   assert.equal(L.toHM(at('סיום').m), '01:15'); assert.ok(at('סיום').m >= 1440, 'after midnight counts as the next day');
   assert.deepEqual(s.map(x => x.m), [...s.map(x => x.m)].sort((a, b) => a - b));

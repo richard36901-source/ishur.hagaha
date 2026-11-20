@@ -22,12 +22,12 @@ export const toHM = m => { const x = ((Math.round(m) % 1440) + 1440) % 1440; ret
 export function suggest({ occasion = '', reception = '', ceremony = '', drive = 30, from = '' } = {}) {
   const R = hm(reception) ?? 19 * 60, wedding = /חתונה|wedding/i.test(occasion);
   const C = hm(ceremony) ?? R + (wedding ? 60 : 45), D = Math.max(0, Math.min(300, Number(drive) || 0));
-  const leave = R - 60 - D - 15;
+  const leave = R - 60 - D - 15;   /* an hour at the venue before the reception, the drive, and 15 minutes for traffic */
   const L = wedding ? [
     [R - 300, 'תחילת איפור ושיער'],
     [R - 180, 'הצלם מגיע, התארגנות ולבוש'],
     [R - 150, 'צילומי זוג ומשפחה'],
-    [leave, 'יציאה לאולם' + (from ? ' מ' + from : '') + ` (${D} דקות נסיעה + 15 דקות מרווח)`],
+    [leave, 'יציאה לאולם' + (from ? ' מ' + from : '')],
     [R - 60, 'הגעה לאולם ובדיקת הסידורים עם המפיק'],
     [R, 'קבלת פנים'],
     [C - 20, 'חתימה על הכתובה'],
@@ -38,7 +38,7 @@ export function suggest({ occasion = '', reception = '', ceremony = '', drive = 
     [C + 300, 'סיום האירוע'],
   ] : [
     [R - 180, 'התארגנות ולבוש'],
-    [leave, 'יציאה לאולם' + (from ? ' מ' + from : '') + ` (${D} דקות נסיעה + 15 דקות מרווח)`],
+    [leave, 'יציאה לאולם' + (from ? ' מ' + from : '')],
     [R - 60, 'הגעה לאולם ובדיקת הסידורים'],
     [R, 'קבלת פנים'],
     [C, 'טקס / פתיחה'],
