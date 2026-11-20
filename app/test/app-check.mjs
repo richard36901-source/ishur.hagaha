@@ -86,6 +86,8 @@ try {
   const evName = await p.textContent('#evName').catch(() => '');
   const wantName = [truth.event.name1, truth.event.name2].filter(Boolean)[0];
   check('P1 right code opens the summary with the event name', inOk && evName.includes(wantName), evName.trim() + (inOk ? '' : ' · sign-in note: ' + (await p.textContent('#signinNote').catch(() => '')) + ' · ' + jsErrors.join(' | ')));
+  const head = await p.evaluate(() => { const b = document.querySelector('#app .brand'), r = b.getBoundingClientRect(); return { text: b.textContent.trim(), off: Math.abs((r.left + r.right) / 2 - innerWidth / 2) }; });
+  check('header reads "אישורי הגעה - ishur.io" and sits in the middle', head.text === 'אישורי הגעה - ishur.io' && head.off <= 2, head.text + ' · ' + head.off.toFixed(1) + 'px off centre');
   await p.screenshot({ path: path.join(SHOTS, '2-summary-light.png') });
 
   /* P2: the six guest tabs show the counts computed from the same JSON */
