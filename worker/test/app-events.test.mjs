@@ -123,3 +123,15 @@ test('database: rows hold no phone, no Hebrew and no unknown event; purge remove
   assert.equal(e.APP_DB.db.prepare('SELECT COUNT(*) AS c FROM app_events').get().c, 1);
   assert.equal(e.APP_DB.db.prepare('SELECT COUNT(*) AS c FROM app_users').get().c, 1);
 });
+
+test('cost: with the database, a batch writes nothing to KV (the hourly cap is counted in the database)', async () => {
+  const now = at(20), t = now.getTime(), e = { RATE: kv(), ADMIN_KEY: 'k', APP_DB: d1() };
+  let kvWrites = 0; const put = e.RATE.put; e.RATE.put = async (k, v, o) => { kvWrites++; return put(k, v, o); };
+  for (let i = 0; i < 3; i++) await E.ingest(e, A, { events: [ev('app_open', {}, t)] }, { now });
+  assert.equal(kvWrites, 0);
+  const many = Array.from({ length: 50 }, () => ev('tab_view', { tab: 'guests' }, t));
+  for (let i = 0; i < 240; i++) e.APP_DB.db.prepare("INSERT INTO app_events (ts, day, uid, name) VALUES (?, '20261120', ?, 'x')").run(t, await E.uidFor(e, A));
+  for (let i = 0; i < 49; i++) e.APP_DB.db.prepare("INSERT INTO app_events (ts, day, uid, name) SELECT ts, day, uid, name FROM app_events WHERE uid = ? LIMIT 240").run(await E.uidFor(e, A));
+  assert.deepEqual(await E.ingest(e, A, { events: many }, { now }), { ok: false, error: 'slow-down' });
+  assert.equal((await E.ingest(e, B, { events: [ev('app_open', {}, t)] }, { now })).ok, true, 'another client is not blocked');
+});

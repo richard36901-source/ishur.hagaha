@@ -55,7 +55,7 @@ try {
 
   /* the truth to compare with: the same data the app reads */
   const sess = (await api('/api/account/pin-login', { phone: PHONE, pin: PIN })).body.session || '';
-  const truth = (await api('/api/status', { token: TOKEN, board_session: sess })).body;
+  const truth = (await api('/api/status', { token: TOKEN, board_session: sess, app: 1 })).body;
   const G = truth.guests || [];
   const afterInvite = (truth.sends || []).some(x => x.key === 'invite' && (x.status === 'sent' || x.status === 'passed'));
   const notReached = g => g.status === 'pending' && (g.sent === 'failed' || g.sent === 'retrying' || ((!g.sent || g.sent === 'none') && afterInvite && !g.self));

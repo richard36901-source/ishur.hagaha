@@ -59,16 +59,18 @@ const rand = () => Math.random().toString(36).slice(2, 8);
 
 export async function ingest(env, phone, b = {}, { now = new Date() } = {}) {
   const ms = now.getTime(), uid = await uidFor(env, phone), day = dayOf(now);
+  /* the hourly cap. With the database it is counted there (a read, cheap); KV writes are the costly item on
+     Cloudflare, so the KV counter is used only when there is no database. */
   const hourKey = 'rl:appev:' + uid + ':' + Math.floor(ms / 3600e3);
-  const used = Number(await env.RATE.get(hourKey)) || 0;
-  if (used >= PER_HOUR) return { ok: false, error: 'slow-down' };
+  let used = 0;
+  if (env.APP_DB) { const r = await env.APP_DB.prepare('SELECT COUNT(*) AS c FROM app_events WHERE uid = ? AND ts >= ?').bind(uid, ms - 3600e3).first(); if ((Number(r && r.c) || 0) >= PER_HOUR * BATCH_MAX) return { ok: false, error: 'slow-down' }; }
+  else { used = Number(await env.RATE.get(hourKey)) || 0; if (used >= PER_HOUR) return { ok: false, error: 'slow-down' }; }
   const raw = Array.isArray(b.events) ? b.events.slice(0, BATCH_MAX) : [];
   const ev = raw.map(e => cleanEvent(e, ms)).filter(Boolean);
   const dropped = (Array.isArray(b.events) ? b.events.length : 0) - ev.length;
   if (!ev.length) return { ok: true, kept: 0, dropped };
   const plat = ['ios', 'android', 'web'].includes(b.plat) ? b.plat : 'web';
   const ver = typeof b.ver === 'string' && /^[0-9A-Za-z.-]{1,16}$/.test(b.ver) ? b.ver : '';
-  await env.RATE.put(hourKey, String(used + 1), { expirationTtl: 7200 });
   if (env.APP_DB) {
     const ins = env.APP_DB.prepare('INSERT INTO app_events (ts, day, uid, sid, name, plat, ver, tab, page, ctl, msg, props) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)');
     const str = v => (v == null ? null : String(v));
@@ -78,6 +80,7 @@ export async function ingest(env, phone, b = {}, { now = new Date() } = {}) {
     ]);
     return { ok: true, kept: ev.length, dropped, store: 'db' };
   }
+  await env.RATE.put(hourKey, String(used + 1), { expirationTtl: 7200 });
   await env.RATE.put('appev:' + day + ':' + uid + ':' + ms.toString(36) + rand(), JSON.stringify({ uid, plat, ver, at: now.toISOString(), ev }), { expirationTtl: TTL });
   if (!(await env.RATE.get('appfirst:' + uid))) await env.RATE.put('appfirst:' + uid, day, { expirationTtl: 2 * TTL });
   return { ok: true, kept: ev.length, dropped };

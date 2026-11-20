@@ -192,7 +192,7 @@
     var cached = store.get('data:' + current);
     if (cached && !data) { data = normalize(cached); render(); }
     loading = true;
-    return post('/api/status', { token: current, board_session: session }).then(function (r) {
+    return post('/api/status', { token: current, board_session: session, app: 1 }).then(function (r) {
       loading = false;
       var was = offline; offline = r.status === 0;
       if (was !== offline && VIEW_OF[curTab]) tab(curTab);   /* the network came or went: the same tab, its other form */

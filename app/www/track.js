@@ -16,7 +16,7 @@
     Q.push({ n: String(n), t: Date.now(), s: sid, p: p || {} });
     if (Q.length > MAX) Q = Q.slice(-MAX);
     save();
-    if (Q.length >= 20) flush();
+    if (Q.length >= 40) flush();
   }
   function send(session, batch) {
     return fetch(ENV.api + '/api/app/events', { method: 'POST', keepalive: true, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session: session, plat: plat, ver: ENV.version || '', events: batch }) })
@@ -34,7 +34,9 @@
   }
   window.IshurTrack = { track: track, flush: flush };
 
-  setInterval(function () { flush(); }, 20000);
+  /* cost: one request per batch. Sent when 40 events are waiting, when the app goes to the background, on sign-out,
+     and otherwise every 2 minutes, not more often. */
+  setInterval(function () { flush(); }, 120000);
   document.addEventListener('visibilitychange', function () { if (document.hidden) { track('app_background'); flush(); } else track('app_open', { from: 'resume' }); });
   document.addEventListener('ishur:signed-in', function () { setTimeout(flush, 1500); });
   /* sign-out clears the device's storage right after this event, so the last batch leaves now, with the old session */

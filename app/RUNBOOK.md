@@ -76,6 +76,18 @@ npm run env:staging             # ALWAYS switch back before committing
   answers the same from both (a test compares them). Events already in KV are not copied; they age out in 400 days.
 - Not there yet: a screen to read the report (today it is JSON); purchase events (names reserved, nothing sends them).
 
+## Running cost (Richard 21/11: keep it as low as possible)
+What the app adds on Cloudflare, per signed-in client:
+- Opening the app: one `/api/account/me`, one `/api/status` (the app's own copy), and the board page in the frame
+  (its own `/api/status`). Switching tabs does not reload anything; the app tells the board which view to show.
+- Usage events: one request per batch, sent at 40 events, when the app goes to the background, on sign-out, or at
+  most every 2 minutes. With the D1 database a batch writes rows to D1 and nothing to KV (KV writes are the costliest
+  item); the hourly cap is counted in D1.
+- "החבילה שלי" (five KV reads) is computed only when the app asks (`app: 1`), not on every web board refresh.
+- The venue-commitment tile: one KV read per status, one KV write per save.
+- Push: sent only for real answers and the 09:00 summary, never at night, and off until the switch is on.
+Before adding anything that runs on a timer or on every request, write here what it costs.
+
 ## Signing and the first upload to Apple (written 21/11, before the account was active: steps not yet run)
 1. Xcode → Settings → Accounts: the Apple account of the developer program is signed in.
 2. `ios/App/App.xcodeproj` → target App → Signing & Capabilities: tick "Automatically manage signing", Team = the

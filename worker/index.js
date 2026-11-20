@@ -14989,7 +14989,8 @@ const WORKER = {
       /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
       if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
       if (snapshot && snapshot.ok && env.RATE) snapshot.venue = await venueFor(env, token, snapshot.totals || {});   /* 20/11 venue-commit.js */
-      if (snapshot && snapshot.ok && snapshot.event) snapshot.package = await packageFor(env, token, snapshot.event);   /* 20/11 package.js */
+      /* 20/11 package.js. Only the app asks for it ({app:1}): five KV reads the web board does not need on every refresh */
+      if (snapshot && snapshot.ok && snapshot.event && stampFields.app) snapshot.package = await packageFor(env, token, snapshot.event);
       /* 20/10: a paid token whose event row never reached the sheet (Make
          write failed) made the page throw 1101 instead of saying so. The
          client sees the "still setting up" screen; we see it in the journal. */
