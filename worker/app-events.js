@@ -14,7 +14,7 @@
 export const NAMES = new Set([
   'app_open', 'app_background', 'signin_view', 'signin_ok', 'signin_fail', 'signout',
   'tab_view', 'event_switch', 'guest_filter', 'guest_search', 'share_link', 'whatsapp_tap', 'privacy_open',
-  'pull_refresh', 'offline_view', 'events_open', 'ref_open', 'terms_open', 'review_prompt', 'review_go', 'review_later',
+  'pull_refresh', 'offline_view', 'events_open', 'ref_open', 'terms_open', 'review_prompt', 'review_go', 'review_later', 'rate_prompt',
   'push_sheet_view', 'push_yes', 'push_no', 'push_granted', 'push_denied', 'push_pref', 'push_open',
   'help_open', 'help_topic', 'help_done',
   'delete_open', 'delete_request', 'js_error',

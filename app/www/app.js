@@ -197,7 +197,7 @@
       var was = offline; offline = r.status === 0;
       if (was !== offline && VIEW_OF[curTab]) tab(curTab);   /* the network came or went: the same tab, its other form */
       if (r.status === 200 && r.body.ok) {
-        data = normalize(slim(r.body)); store.set('data:' + current, data); store.set('at:' + current, Date.now()); render();
+        data = normalize(slim(r.body)); store.set('data:' + current, data); store.set('at:' + current, Date.now()); render(); maybeRate();
       } else if (r.status === 401 && r.body.error === 'pin-required') { signOut(true); }
       else if (!quiet) render();   /* keep what we had; the "עודכן ב-" line tells the client how fresh it is */
     });
@@ -323,6 +323,22 @@
   var pullY = null;
   document.addEventListener('touchstart', function (e) { pullY = window.scrollY <= 0 ? e.touches[0].clientY : null; }, { passive: true });
   document.addEventListener('touchend', function (e) { if (pullY != null && e.changedTouches[0].clientY - pullY > 90 && session) { haptic(); T('pull_refresh'); loadEvent(); } pullY = null; }, { passive: true });
+
+  /* Apple's / Google's own rating prompt (Richard 20/11: ask from time to time). Asked after a good moment: more
+     guests confirmed since the client last looked, from the third opening on, and at most every 120 days on this
+     phone. The system decides whether it really shows (Apple shows it at most three times a year). */
+  function maybeRate() {
+    try {
+      var R = plugin('InAppReview'); if (!R || !data || !data.totals) return;
+      var yes = Number(data.totals.confirmed_seats) || 0, k = 'yes:' + current, before = store.get(k);
+      store.set(k, yes);
+      var opens = (store.get('opens') || 0), last = store.get('rated_at') || 0;
+      if (before == null || yes <= before || opens < 3 || Date.now() - last < 120 * 86400e3) return;
+      store.set('rated_at', Date.now()); T('rate_prompt');
+      R.requestReview().catch(function () {});
+    } catch (e) {}
+  }
+  store.set('opens', (store.get('opens') || 0) + 1);
 
   window.IshurApp = { post: post, store: store, plugin: plugin, native: NATIVE, session: function () { return session; }, reload: loadEvent, openEvent: pickEvent };
   T('app_open', { signed: session ? 1 : 0 });
