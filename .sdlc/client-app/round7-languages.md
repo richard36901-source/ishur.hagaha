@@ -24,6 +24,10 @@ Design:
 - Translations: Claude writes them from `i18n/strings.json` (collected by `app/scripts/i18n-collect.mjs`).
   Amharic and Yiddish especially need a native speaker's check before launch; marked as unverified.
 
+Implementation note (21/11): another session built a language overlay for the board home (`assets/i18n.js`, menu in
+the header). So the board home uses that overlay, the app's own screens use `app/www/i18n.js`, and the board's other
+pages use `assets/i18n-pages.js` (a copy of the app's). All three read `?lang=` and remember the choice.
+
 Pass conditions (machine-checked by `app/scripts/i18n-check.mjs`):
 - A1. For each of the 7 languages, on the app's four tabs, the events page, and the board pages (dashboard home,
   guests, sends views; upload step 2; schedule; budget; seating; checklist), no visible text equals a collected Hebrew
@@ -42,6 +46,14 @@ What changes: every message an event sends (invitation, reminder, extra send, da
 cancel/postpone) would exist per language, and the event remembers its choice. WhatsApp messages with buttons go out
 as Meta-approved templates, so each language is a set of templates Meta must approve, and the buttons' text is part
 of the template. Today the engine sends Hebrew templates only.
+
+Size, counted 21/11 in the Worker: the engine uses about 50 WhatsApp templates, about 40 of them sent to guests
+(invitation and reminder per client wording, the day-before message in 16 variants for gift/table/bus links, the event-day
+message in 16 variants, table number, thank-you in 4, cancel, postpone). Every guest language adds about 40 templates for
+Meta to approve; a two-language combination is a further set of its own. A custom wording is already submitted to Meta
+per client (`/api/custom-template`), so a custom wording in another language goes through the same path.
+Recommended start (Claude): the custom-wording path first (it already exists per client), with buttons and the later
+messages in the language the client picks; then the fixed templates for the languages clients actually choose.
 
 Decisions for Richard, one at a time:
 1. "Two languages" means one message holding both languages (text and buttons in both), or two separate messages?
