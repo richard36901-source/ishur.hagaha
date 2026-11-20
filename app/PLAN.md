@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 23:30. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 23:55. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -134,7 +134,7 @@ Nothing in the app works for real clients until this is done. Today production h
 ## 9. Later
 
 - [ ] **Claude:** a screen to read the usage report (you said not now, 20/11).
-- [ ] **You:** add D1 permission to the Cloudflare API token so usage data can move to a real database.
+- [ ] Usage data in a real database: the code, tables, tests and a setup script are ready (20/11 night); staging still writes to KV. One step is missing: the Cloudflare API token needs Account → D1 → Edit. Richard asked Claude to do it in Chrome; the Claude in Chrome extension was not connected that night, so it is not done. Then: `sh worker/scripts/app-d1-setup.sh` and deploy staging.
 - [ ] **Together:** version 1.1, buying the next event in the app. First decide with Apple's rules whether it must use Apple's own payment.
 
 ---
