@@ -77,7 +77,8 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession } from './account.js';   /* 12/11 personal-area */
+import { handleApp } from './app-push.js';   /* 20/11 client app */
+import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
 import { handleSubeventCreate, handleSubeventSend, handleSubeventRemind, handleSubeventSummary, continueSubevents, handleShabbatInbound, routeToSub, getSub, subsOf, SUBEVENT_KINDS } from './subevent.js';   /* 03/11 linked sub-events (שבת חתן) */
@@ -13661,6 +13662,14 @@ const WORKER = {
     }
     if (url.pathname === '/api/cost-log' && request.method === 'POST') {
       return handleCostLog(request, env, origin);
+    }
+    /* 20/11 client app (app/): push registration, notification switches, delete-account request. worker/app-push.js */
+    if (url.pathname.startsWith('/api/app/')) {
+      try { return await handleApp(request, env, origin, url, { okJson, deny, isAdmin, logEvent, verifySession: (e, s) => verifyAcctSession(e, s, safeEqual) }); }
+      catch (e) {
+        await logEvent(env, { area: 'אפליקציה', action: 'תקלה בשרת בנתיב של האפליקציה: ' + url.pathname.replace('/api/app/', ''), ok: false, review: true, detail: String((e && e.message) || e).slice(0, 200) }).catch(() => {});
+        return deny(503, 'try-again', origin);
+      }
     }
     /* 12/11 personal-area (account.html): phone → code → session → events / credit / contact */
     if (url.pathname.startsWith('/api/account/') && url.pathname !== '/api/account/setup-template') {
