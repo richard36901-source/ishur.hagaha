@@ -1,4 +1,4 @@
-# client-app · intent (20/11/2026)
+# client-app · intent (20/11/2026, approved by Richard 20/11 with the changes below)
 
 ## Problem
 Clients follow their event on a web board (`dashboard.html`). They learn that a guest answered only by opening it.
@@ -33,10 +33,18 @@ event and guest list natively, gets push notifications about answers, and a huma
 - The site's `config.js` treats `localhost` as staging and the Worker refuses unknown origins, so a bundled app
   cannot reuse the site's config as is. The app gets its own config.
 
+## Richard's changes, 20/11/2026 (approved: "כן")
+- The app should have nearly the same functions and look as the regular client board ("הוספנו המון דברים מעולים").
+  Decision: version 1.0 shows the board itself inside the app in an app mode (no site header, no install card, no
+  purchase UI), next to the app's own sign-in, tab bar, push, share and offline summary. New board features reach the
+  app without a store release.
+- He wants clients to be able to buy an event in the app. Decision: not in 1.0 (a reviewer may read it as 3.1.1 and
+  block the first submission); version 1.1, right after approval, adds buying an event and add-ons.
+- Cost he accepted: +3–5 working days, iOS around 10–12/12.
+
 ## Open questions for Richard
 1. App display name (default proposal: "ishur" with subtitle "אישורי הגעה לאירוע").
 2. Push at night: a guest who confirms at 23:00. Proposal: no push 21:00–09:00, held into the 09:00 summary.
-3. Add-ons that cost money (call rounds, hostess): proposal for version 1 is that the app does not sell anything and
-   hands off to WhatsApp, to keep payments out of the review.
+3. (answered 20/11) Nothing is sold in 1.0; buying an event and add-ons comes in 1.1.
 4. Reviewer demo account: a demo client on production that can never send (needs his OK, goes through staging first).
 5. Seller name: enrol now as Individual under his personal name, or wait for a בע"מ + D-U-N-S.

@@ -8,12 +8,15 @@
   recorded; the 09:00 summary inside an existing cron. Tests `worker/test/app-push.test.mjs`.
 - `delete-account.html` (new public page), `terms.html` privacy section (app + push).
 - Worker secrets (staging, then production): `APNS_KEY_P8`, `APNS_KEY_ID`, `APNS_TEAM_ID`, `FCM_SERVICE_ACCOUNT`.
-- Nothing in `dashboard.html`, `config.js`, `assets/guard.js`, `sw.js` or the existing sign-in routes.
+- 20/11: `dashboard.html` gets an app mode (`?app=1`, R15): a class on `<html>` plus a hide list. Staging first,
+  `staging-check.mjs` 13/13, production only with the first promote. Nothing in `config.js`, `assets/guard.js`,
+  `sw.js` or the existing sign-in routes.
 
 ## Loops (each ends with its check run and read)
 | # | Goal | Check | Needs Richard |
 |---|---|---|---|
 | 1 | App screens work in a browser against staging: sign-in, four tabs, offline | P1 P2 P3 P7 P8 | no |
+| 1b | Board app mode on staging + board tab in the app | P13 P11 | no |
 | 2 | Worker push module + routes, tests green, deployed to staging | P4 P6 P11 | no |
 | 3 | Listing kit, privacy answers, checklist skeleton, runbook draft, delete-account page | files exist, P6 curl | texts: his approval |
 | 4 | iOS project builds, runs in the simulator against staging | P9 | Xcode installed |
@@ -41,7 +44,13 @@ no rejection; every day of delay on those two moves the date by a day. Android i
 not 3–4: 14 days + up to 7 days of Google review are fixed, and the clock starts only when the 12th tester opts in.
 Apple's enrolment verification time is not published; I did not verify how long it takes for an Israeli individual.
 
+**Revised 20/11 after Richard's changes (board inside the app, +3–5 days):** iOS submit around 7–8/12, live around
+10–12/12 with no rejection. Android unchanged (end of December; its clock depends on the 12 testers, not on this).
+
 ## Risks
+- **Board in a frame on iOS**: storage inside a framed page of another origin is partitioned in WKWebView; verified
+  only in Chrome until Xcode is installed. Fallback: open the board as the main page with the app's tab bar drawn by
+  the board's app mode.
 - **4.2 rejection**: bundled native-feeling screens, push, share sheet, offline, no web chrome; review notes explain
   the app's purpose and the demo account. Rollback: none needed; a rejection costs 2–4 days per round.
 - **APNs from a Worker (HTTP/2)**: unverified. Test in loop 5 first thing. Fallback: FCM HTTP v1 for both platforms.

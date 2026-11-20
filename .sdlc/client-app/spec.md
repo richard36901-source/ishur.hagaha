@@ -8,7 +8,9 @@ Store rules below were read from Apple's and Google's own pages on 20/11/2026; q
 remote web view of `dashboard.html`.
 - One codebase for iOS and Android; the same language as the rest of the repo, so whoever maintains the site can
   maintain the app. Official plugins for push, share, haptics, preferences. iOS project uses Swift Package Manager.
-- Why not a remote wrapper of the board: guideline 4.2 ("beyond a repackaged website") is the main rejection risk,
+- 20/11: the board itself is shown in one tab (R15) because Richard wants its full function; the app's own screens,
+  push, share and offline stay, and they are what keeps 4.2 risk down.
+- Why not only a remote wrapper of the board: guideline 4.2 ("beyond a repackaged website") is the main rejection risk,
   the board's service worker does not run under the app's scheme, and `config.js` would point `localhost` at staging.
 - Why not SwiftUI + Kotlin: two codebases, two skill sets. Why not Expo/React Native: a new language and build
   service in a repo that has neither; no gain for review.
@@ -40,6 +42,12 @@ R13. Store listing kit in `app/store/`: name, subtitle, description (HE + EN), k
 R14. Distribution: Israel storefront only in version 1 (per Apple's DSA page this means no trader status and no
      address or phone on the product page).
 
+R15. (20/11) Tab "הלוח" shows the regular client board inside the app, in app mode: `dashboard.html?t=<token>&app=1`
+     from the site, framed by the app. App mode hides the site header, the theme button, the install card and every
+     purchase element (add-ons card, upgrade prompts, pay links, prices). Without `app=1` the board is byte-for-byte
+     what it is today in behaviour. The app passes the client's session to the frame so a locked board also opens.
+R16. (20/11) Version 1.1, after 1.0 is approved: buying an event and add-ons in the app (own sdlc slug).
+
 ## Pass conditions (machine-checkable)
 P1 (R1,R3). `node app/test/app-check.mjs` signs in on a served `app/www` against go-staging with the demo phone and
    its code, lands on סיכום with the demo event's name; a wrong code stays on the sign-in screen with no word from
@@ -64,6 +72,10 @@ P11 (existing behaviour). `scripts/staging-check.mjs` 13/13 and `scripts/smoke.s
    deploy to staging; worker tests pass.
 P12 (submission). Every line of `app/store/CHECKLIST.md` has evidence (file, screenshot or command output).
 
+P13 (R15). `app-check.mjs`: the board tab loads the staging board for the demo event and its guest rows are on
+   screen; inside the frame none of the selectors in the app-mode hide list is visible and the visible text has no
+   `₪`. `scripts/staging-check.mjs` 13/13 afterwards (the board without `app=1` is unchanged).
+
 ## Policy flags
 - **Security/PII**: guest names and phones are shown in the app and cached on the device (app sandbox only). The
   session token is the existing 90-day `acct.` session. Push tokens stored per phone in KV, removed on sign-out and
@@ -79,5 +91,5 @@ P12 (submission). Every line of `app/store/CHECKLIST.md` has evidence (file, scr
   both platforms.
 
 ## Out of scope (version 1)
-Buying add-ons, editing the guest list, uploading guests, seating, gifts, partner and hostess screens, iPad layout,
+Buying anything (1.1), partner and hostess screens, iPad layout,
 EU storefronts, turning the board lock back on.
