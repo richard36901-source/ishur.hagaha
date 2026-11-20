@@ -42,6 +42,13 @@ event and guest list natively, gets push notifications about answers, and a huma
   block the first submission); version 1.1, right after approval, adds buying an event and add-ons.
 - Cost he accepted: +3–5 working days, iOS around 10–12/12.
 
+## Richard, 20/11/2026 (second message)
+"שתהיה להם אופציה ממש להגדיר את כל האירוע מהאפליקציה כולל תמונה סגנון מתי שליחה... כל מה שיש להם בלוח הבקרה
+ובמקום העלאת המוזמנים. שנגיד רכשו ואוכל להגיד להם להתחבר ויראו ישר הכל ואם יש כמה אירועים אז את הכמה אירועים האלה."
+My reading: a client who just bought signs in to the app and does the whole setup there (image, style, send times,
+guest upload), and sees every event on their phone number. Covered by the board-inside-the-app decision, extended
+to the pages the board links to (guest upload first).
+
 ## Open questions for Richard
 1. App display name (default proposal: "ishur" with subtitle "אישורי הגעה לאירוע").
 2. Push at night: a guest who confirms at 23:00. Proposal: no push 21:00–09:00, held into the 09:00 summary.

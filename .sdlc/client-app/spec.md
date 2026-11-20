@@ -46,6 +46,10 @@ R15. (20/11) Tab "הלוח" shows the regular client board inside the app, in ap
      from the site, framed by the app. App mode hides the site header, the theme button, the install card and every
      purchase element (add-ons card, upgrade prompts, pay links, prices). Without `app=1` the board is byte-for-byte
      what it is today in behaviour. The app passes the client's session to the frame so a locked board also opens.
+R17. (20/11) Every page the board links to and a client uses for setup (guest upload first, then seating, table
+     list, gifts) opens inside the app in the same app mode: no site chrome, no tracking, nothing that sells.
+     A client with a paid event and no guests yet lands on the setup steps, not on empty counts.
+R18. (20/11) All events on the client's phone are listed after sign-in (built: event switcher + list in חשבון).
 R16. (20/11) Version 1.1, after 1.0 is approved: buying an event and add-ons in the app (own sdlc slug).
 
 ## Pass conditions (machine-checkable)
@@ -75,6 +79,9 @@ P12 (submission). Every line of `app/store/CHECKLIST.md` has evidence (file, scr
 P13 (R15). `app-check.mjs`: the board tab loads the staging board for the demo event and its guest rows are on
    screen; inside the frame none of the selectors in the app-mode hide list is visible and the visible text has no
    `₪`. `scripts/staging-check.mjs` 13/13 afterwards (the board without `app=1` is unchanged).
+
+P14 (R17). `app-check.mjs`: from the board tab, opening guest upload stays inside the frame, in app mode, with no
+   tracking requests and no `₪`; a new demo client with no guests sees the setup steps. (Not built yet.)
 
 ## Policy flags
 - **Security/PII**: guest names and phones are shown in the app and cached on the device (app sandbox only). The

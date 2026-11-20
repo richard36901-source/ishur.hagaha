@@ -12,6 +12,7 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 | A4 | Demo account in App Review Information, works on production, never expires | 2.1(a) | not built (needs Richard's OK) |
 | A5 | Back end is on during review; reviewer network not rate-limited out | 2.1(a) | open |
 | A6 | No purchase UI, prices or calls to buy | 3.1.1, 3.1.3 | P7 grep clean |
+| A6b | No advertising pixels or analytics load inside the app (board app mode) | 5.1.2, ATT | check P13: zero tracker requests on staging |
 | A7 | Push is optional, asked after an in-app explanation, per-kind switches, no marketing | 4.5.4 | not built |
 | A8 | Privacy policy URL, and the policy names the app and push | 5.1.1(i) | `terms.html#privacy` exists; app text not added |
 | A9 | Privacy labels: Phone number, Name, User ID, Contacts (guest lists), Device ID; none for tracking | App privacy | answers file: open |
