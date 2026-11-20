@@ -187,6 +187,32 @@ try {
   check('P8 dark follows the device setting', /rgb\((\d+), (\d+), (\d+)\)/.test(bg) && bg.match(/\d+/g).slice(0, 3).every(n => Number(n) < 60), bg);
 
   /* sign out returns to the sign-in screen and forgets the session */
+  /* P15: help centre: every topic plays through, big text, ends with WhatsApp, quiet under reduced motion */
+  await p.click('[data-tab=account]'); await p.click('#helpOpen');
+  const topics = await p.locator('#helpTopics button').count();
+  check('P15 help lists its topics', topics >= 4, topics + ' topics');
+  let helpOk = true, helpWhy = '';
+  for (let i = 0; i < topics; i++) {
+    await p.locator('#helpTopics button').nth(i).click();
+    const steps = Number(await p.getAttribute('#helpPlayer', 'data-steps'));
+    for (let k = 0; k < steps; k++) {
+      const st = await p.evaluate(() => ({ size: parseFloat(getComputedStyle(document.getElementById('helpText')).fontSize), text: document.getElementById('helpText').textContent.trim(), scene: document.querySelectorAll('#helpScene *').length }));
+      if (st.size < 20 || st.text.length < 8 || st.scene < 1) { helpOk = false; helpWhy = `topic ${i} step ${k}: ${st.size}px "${st.text.slice(0, 20)}" scene ${st.scene}`; }
+      if (k === 0 && i === 0) await p.screenshot({ path: path.join(SHOTS, '14-help-step.png') });
+      if (k < steps - 1) await p.click('#helpNext');
+    }
+    const end = await p.evaluate(() => ({ wa: !document.getElementById('helpWa').hidden, replay: !document.getElementById('helpReplay').hidden }));
+    if (!end.wa || !end.replay || !(steps >= 2)) { helpOk = false; helpWhy = `topic ${i}: end of topic wa=${end.wa} replay=${end.replay} steps=${steps}`; }
+    await p.click('#helpBack');
+  }
+  check('P15 every help topic plays to its end: text 20px+, a picture per step, WhatsApp and replay at the end', helpOk, helpWhy);
+  await p.locator('#helpTopics button').first().click();
+  await p.emulateMedia({ reducedMotion: 'reduce', colorScheme: 'dark' });
+  const still = await p.evaluate(() => Array.from(document.querySelectorAll('#helpScene *')).every(el => getComputedStyle(el).animationName === 'none'));
+  check('P15 no movement in help when the device asks for reduced motion', still);
+  await p.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'dark' });
+  await p.click('#helpClose');
+
   /* P6: the delete-account request starts inside the app and the server takes it */
   await p.click('[data-tab=account]'); await p.click('#delete'); await p.click('#sheetYes');
   await p.waitForFunction(() => /התקבלה/.test(document.getElementById('sheetNote').textContent), null, { timeout: 30000 }).catch(() => {});

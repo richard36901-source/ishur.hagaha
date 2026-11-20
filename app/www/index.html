@@ -110,6 +110,7 @@
       <p class="sub">בלי התראות בין 21:00 ל-09:00.</p>
     </div>
     <div class="card links">
+      <button id="helpOpen" type="button" class="nav">עזרה והסברים</button>
       <a id="support" href="#">דברו איתנו בוואטסאפ</a>
       <a id="privacy" href="#">מדיניות פרטיות</a>
       <button id="signout" type="button">יציאה מהחשבון</button>
@@ -126,6 +127,24 @@
   </nav>
 </div>
 
+<!-- help centre: short animated explanations, one idea per screen -->
+<div id="help" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="helpTitle">
+  <header class="helpbar">
+    <button id="helpBack" type="button" hidden>חזרה</button>
+    <h2 id="helpTitle">עזרה והסברים</h2>
+    <button id="helpClose" type="button">סגירה</button>
+  </header>
+  <div id="helpTopics" class="list helptopics"></div>
+  <div id="helpPlayer" class="helpplayer" hidden>
+    <div class="helpdots" id="helpDots" aria-hidden="true"></div>
+    <div id="helpScene" class="scene" aria-hidden="true"></div>
+    <p id="helpText" class="helptext" aria-live="polite"></p>
+    <button id="helpNext" class="btn" type="button">הבא</button>
+    <button id="helpReplay" class="btn ghost" type="button" hidden>להראות שוב</button>
+    <a id="helpWa" class="btn ghost" href="#" hidden>עדיין לא ברור? דברו איתנו בוואטסאפ</a>
+  </div>
+</div>
+
 <!-- delete-account sheet -->
 <div id="sheet" class="sheet" hidden>
   <div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="sheetT">
@@ -140,5 +159,6 @@
 
 <script src="env.js"></script>
 <script src="app.js"></script>
+<script src="help.js"></script>
 </body>
 </html>
