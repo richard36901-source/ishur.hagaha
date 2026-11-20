@@ -13,6 +13,9 @@ const DICT_DIR = path.join(ROOT, 'app', 'www', 'i18n');
 const all = fs.readdirSync(DICT_DIR).filter(f => /^[a-z]{2}\.json$/.test(f)).map(f => f.slice(0, 2));
 const LANGS = (process.env.LANGS || all.join(',')).split(',').filter(Boolean);
 const dicts = Object.fromEntries(LANGS.map(l => [l, JSON.parse(fs.readFileSync(path.join(DICT_DIR, l + '.json'), 'utf8'))]));
+/* the two copies of the layer differ only in their header comment */
+const body = f => fs.readFileSync(path.join(ROOT, f), 'utf8').replace(/^\/\*[\s\S]*?\*\/\n/, '');
+if (body('app/www/i18n.js') !== body('assets/i18n-pages.js')) { console.log('FAIL app/www/i18n.js and assets/i18n-pages.js differ'); process.exit(1); }
 const { chromium } = await import(process.env.PLAYWRIGHT_PATH || 'playwright');
 const key = fs.readFileSync(process.env.STAGING_SECRETS, 'utf8').match(/^ADMIN_KEY=(.+)$/m)[1].trim();
 const BASE = 'https://go-staging.ishur.io', SITE = 'https://staging.ishur.io', PHONE = '0500000102', TOK = 'bbbbbbbb-0000-4000-8000-000000000002';
@@ -23,13 +26,16 @@ const server = http.createServer((q, r) => { const f = path.normalize(path.join(
 await new Promise(r => server.listen(4180, '127.0.0.1', r));
 
 /* the visible texts that are still a Hebrew UI key (for yi: a key whose Yiddish differs) */
+/* client data (names, venue, the invitation wording) stays in Hebrew on purpose: read it from the event and skip it */
+let DATA = [];
+const isData = t => DATA.some(d => d && t.includes(d));
 const leftovers = async (frame, lang) => (await frame.evaluate(() => {
   const o = [], vis = el => !!(el && (el.offsetParent || el.getClientRects().length));
   const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
   while (w.nextNode()) { const p = w.currentNode.parentElement; if (!p || /^(SCRIPT|STYLE)$/.test(p.tagName) || !vis(p) || p.closest('[data-noi18n]')) continue; o.push(w.currentNode.nodeValue); }
   document.querySelectorAll('[placeholder]').forEach(el => vis(el) && o.push(el.getAttribute('placeholder')));
   return o;
-}).catch(() => [])).map(s => s.replace(/\s+/g, ' ').trim()).filter(s => KEYS.has(s) && !(lang === 'yi' && dicts.yi[s] === s));
+}).catch(() => [])).map(s => s.replace(/\s+/g, ' ').trim()).filter(s => KEYS.has(s) && !isData(s) && !(lang === 'yi' && dicts.yi[s] === s));
 const layout = frame => frame.evaluate(() => ({ dir: document.documentElement.getAttribute('dir'), wide: document.documentElement.scrollWidth > innerWidth + 1 })).catch(() => ({ dir: '?', wide: false }));
 
 const report = {}; let fail = 0;
@@ -38,6 +44,11 @@ try {
   await api('/api/staging-seed', { admin_key: key, del_prefixes: ['rl:acctpin', 'acctpinlock:'] });
   const pin = (await api('/api/client-pin', { admin_key: key, token: TOK })).pin;
   const sess = (await api('/api/account/pin-login', { phone: PHONE, pin })).session;
+  const st = await api('/api/status', { token: TOK, board_session: sess, app: 1 });
+  const ev = st.event || {};
+  DATA = [ev.name1, ev.name2, ev.venue_name, ev.venue_city, ...(st.guests || []).map(g => g.name), ...(st.guests || []).map(g => g.table)].filter(x => x && String(x).length > 1).map(String);
+  if (st.custom_template && st.custom_template.text) DATA.push(String(st.custom_template.text).slice(0, 30));
+  DATA.push('שלום {שם האורח}');
   for (const lang of LANGS) {
     const r = report[lang] = { left: {}, dir: {}, wide: [], persisted: null };
     const note = (where, list, lay) => { if (list.length) r.left[where] = [...new Set(list)]; r.dir[where] = lay.dir; if (lay.wide) r.wide.push(where); };
