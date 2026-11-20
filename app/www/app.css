@@ -272,3 +272,6 @@ label{font-size:13px;font-weight:400;color:var(--ink3)}
 .evrow .meta{display:block}
 .evrow .evrev{margin:0 .8rem .7rem;width:calc(100% - 1.6rem)}
 #pageFrame{flex:1;width:100%;border:0;background:var(--bg)}
+
+/* 21/11 language picker */
+.langpick{font:inherit;font-size:1rem;color:var(--ink);background:transparent;border:0;text-align:end;padding:.2rem 0}

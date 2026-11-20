@@ -12,6 +12,9 @@
   var $ = function (id) { return document.getElementById(id); };
   var NATIVE = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
   var T = function (n, p) { if (window.IshurTrack) window.IshurTrack.track(n, p); };   /* usage events: track.js */
+  /* languages (i18n.js): the app's choice travels to every board page it opens */
+  var I18N = window.IshurI18n || { lang: 'he', langs: { he: { name: 'עברית' } }, set: function () {} };
+  var LQ = '&lang=' + I18N.lang;
   var plugin = function (n) { return (NATIVE && window.Capacitor.Plugins && window.Capacitor.Plugins[n]) || null; };
 
   /* ── storage (everything under one prefix, so sign-out can remove it all) ── */
@@ -119,7 +122,7 @@
     if (boardFor === current) { postView(); return; }
     boardFor = current;
     $('boardWait').hidden = false;
-    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + '#s=' + encodeURIComponent(session);
+    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + LQ + '#s=' + encodeURIComponent(session);
   }
   $('boardFrame').addEventListener('load', function () { $('boardWait').hidden = true; postView(); });
   function evTitle(e) { return (e && (e.name || e.occasion)) || 'האירוע'; }
@@ -272,7 +275,7 @@
   }
   function openEvents() { T('events_open'); renderEvents(); $('events').hidden = false; }
   function openPage(title, url) { $('pageTitle').textContent = title; $('pageFrame').title = title; $('pageFrame').src = url; $('page').hidden = false; }
-  function reviewUrl(tok) { return ENV.site + '/feedback.html?t=' + encodeURIComponent(tok) + '&app=1'; }
+  function reviewUrl(tok) { return ENV.site + '/feedback.html?t=' + encodeURIComponent(tok) + '&app=1' + LQ; }
   $('evList').addEventListener('click', function (e) {
     var r = e.target.closest('[data-review]'); if (r) { T('review_go', { from: 'events' }); openPage('ביקורת על האירוע', reviewUrl(r.getAttribute('data-review'))); return; }
     var b = e.target.closest('[data-ev]'); if (b) { $('events').hidden = true; pickEvent(b.getAttribute('data-ev')); }
@@ -281,7 +284,7 @@
   $('eventsOpen').addEventListener('click', openEvents);
   $('eventsClose').addEventListener('click', function () { $('events').hidden = true; });
   $('pageClose').addEventListener('click', function () { $('page').hidden = true; $('pageFrame').removeAttribute('src'); if (session) loadAccount().then(function () { render(); }); });
-  $('refOpen').addEventListener('click', function () { if (!current) return; T('ref_open'); openPage('המלצה עלינו', ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=account#s=' + encodeURIComponent(session)); });
+  $('refOpen').addEventListener('click', function () { if (!current) return; T('ref_open'); openPage('המלצה עלינו', ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=account' + LQ + '#s=' + encodeURIComponent(session)); });
   $('pkgTerms').addEventListener('click', function (e) { e.preventDefault(); T('terms_open'); openUrl(ENV.site + '/terms.html'); });
   /* after the event: asked when the app opens. "לא עכשיו" is offered once; the next time only "לדרג עכשיו". */
   var reviewFor = '';
@@ -347,6 +350,13 @@
     } catch (e) {}
   }
   store.set('opens', (store.get('opens') || 0) + 1);
+
+  (function () {
+    var sel = $('langPick'); if (!sel) return;
+    sel.innerHTML = Object.keys(I18N.langs).map(function (k) { return '<option value="' + k + '"' + (k === I18N.lang ? ' selected' : '') + '>' + I18N.langs[k].name + '</option>'; }).join('');
+    sel.setAttribute('data-noi18n', '');   /* each language keeps its own name */
+    sel.addEventListener('change', function () { T('lang_set', { id: sel.value }); I18N.set(sel.value); if (window.IshurTrack) window.IshurTrack.flush(); setTimeout(function () { location.reload(); }, 300); });
+  })();
 
   window.IshurApp = { post: post, store: store, plugin: plugin, native: NATIVE, session: function () { return session; }, reload: loadEvent, openEvent: pickEvent };
   T('app_open', { signed: session ? 1 : 0 });

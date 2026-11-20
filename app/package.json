@@ -9,7 +9,8 @@
     "env:production": "node scripts/set-env.mjs production",
     "sync": "cap sync",
     "ios": "cap open ios",
-    "android": "cap open android"
+    "android": "cap open android",
+    "i18n": "mkdir -p www/i18n && cp ../assets/i18n.js www/i18n.js && cp ../assets/i18n/*.json www/i18n/ 2>/dev/null; echo i18n copied"
   },
   "dependencies": {
     "@capacitor-community/in-app-review": "^8.0.0",
