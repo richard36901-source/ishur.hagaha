@@ -43,7 +43,7 @@ This adds work before the first submission: the "about a week after Apple activa
 
 **After 1.0:** 1.1 sign-in with Apple or Google · 1.2 event schedule and calendar button.
 
-Decided 20/11: the group link sits in ראשי. Still open: whether the review after the event can be skipped once.
+Decided 20/11: the group link sits in ראשי. The review after the event can be skipped once. No open questions for 1.0; the build can start.
 
 ## Claude's own queue (no approval needed, staging only)
 

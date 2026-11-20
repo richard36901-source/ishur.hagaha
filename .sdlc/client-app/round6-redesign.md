@@ -124,7 +124,7 @@ Two rule points, both from memory and **not fetched today**, to check before bui
 - **Offering the Google review only to people who gave a high score** is what Google calls review gating, and Google's review policy forbids it. The safe version shows the Google link to everyone and asks low scorers "what went wrong" as well, not instead.
 - **Rating the app itself**: Apple wants its own rating prompt to be used and limits how often it appears (about three times a year); a home-made "rate us in the App Store" prompt can be rejected. So "from time to time" is Apple's prompt, triggered by us after a good moment (for example after a guest confirms).
 
-A review that blocks the app until it is filled is Richard's call; Claude's recommendation is one skip.
+Decided by Richard 20/11: the review can be skipped once ("לא עכשיו"); after that it stays as a button on the event's row.
 
 ## 6. Proposed order of releases
 
