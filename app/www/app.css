@@ -142,7 +142,7 @@ h1.large{font-size:34px;line-height:41px;font-weight:700;letter-spacing:-.02em;m
 .row{border-bottom:0;position:relative;min-height:44px;padding:.65rem var(--sep-inset)}
 .row + .row::before,.links > * + *::before,.switch + .switch::before,#evList button + button::before{content:"";position:absolute;top:0;inset-inline:var(--sep-inset) 0;height:.5px;background:var(--hair)}
 .links a,.links button,.switch,#evList button{position:relative;border-bottom:0;min-height:44px}
-.links a::after{content:"";position:absolute;inset-inline-end:2px;top:50%;width:7px;height:7px;border-inline-start:2px solid var(--ink3);border-bottom:2px solid var(--ink3);transform:translateY(-50%) rotate(45deg);opacity:.6}
+.links a::after{content:"";position:absolute;inset-inline-end:2px;top:50%;width:7px;height:7px;border-left:2px solid var(--ink3);border-bottom:2px solid var(--ink3);transform:translateY(-50%) rotate(45deg);opacity:.6}
 [dir=rtl] .links a::after{transform:translateY(-50%) rotate(45deg)}
 .eyebrow{font-size:13px;letter-spacing:0;font-weight:400;color:var(--ink3);text-transform:none}
 .row .nm{font-size:17px;font-weight:400}
