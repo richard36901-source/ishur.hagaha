@@ -75,6 +75,17 @@ What has to be decided or supplied:
 - **Richard supplies**: the "Sign in with Apple" capability on the App ID, and Google OAuth client IDs (iOS and Android) from Google Cloud.
 - Store answers change: the app would collect an email address (or Apple's relay address).
 
+## Decided by Richard, 20/11/2026 late evening
+
+"הכל כרגע ללא תשלומים ... הכי חשוב שנגיש אפליקציה שאנשים יוכלו להשתמש ומקסימום כל השדרוגים יהיו רק בווב."
+
+- No payments in the app for now. Upgrades, add-ons and buying another event happen on the website only.
+- What follows for the app (Israel storefront): no buy button, no price, and no text or link that sends people to the website to buy; Apple's rule quoted in the research file says apps may not encourage other purchase methods in the app outside the United States storefront. Clients hear about upgrades from us on WhatsApp, outside the app.
+- The app shows what the client already has: "my package" (what is included, the terms) and every event bought on the website, which appears in the app by itself.
+- So checks P7 and P13 (no prices, nothing that sells) stay exactly as they are, and the spec lines "Payments: none" stay true.
+- Section 4 below is kept for the day buying in the app is reopened.
+- Still open: whether sign-in with Apple or Google and the event schedule go into the first submission or into updates.
+
 ## 4. Buying: add-ons, upgrades, another event
 
 Not designed yet. First the payment rule has to be settled, because it decides the whole flow and who takes a cut.
