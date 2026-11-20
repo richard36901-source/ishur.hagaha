@@ -13,11 +13,26 @@
 
 <script src="config.js?v=87"></script>
 <script src="assets/ux.js?v=4"></script>
-<script src="assets/tracking.js?v=23"></script>
+<script src="assets/tracking.js?v=24"></script>
 <script src="assets/guard.js?v=22"></script>
 <script src="assets/lead.js?v=24"></script>
 <script src="assets/messages.js?v=19"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
+<script>
+  /* 20/11 client app: this page opened inside the ishur app (from the board in app mode, or with &app=1) hides
+     the site brand and everything that sells. Outside the app nothing here runs. */
+  (function () {
+    try {
+      var inApp = /[?&]app=1(&|$)/.test(location.search);
+      if (inApp) sessionStorage.setItem('ishur_in_app', '1'); else inApp = sessionStorage.getItem('ishur_in_app') === '1';
+      if (inApp) document.documentElement.classList.add('in-app');
+    } catch (e) {}
+  })();
+</script>
+<style>
+  html.in-app .lux-head .brand,html.in-app #dsgnWrap,html.in-app #hostessSec,html.in-app #upgradeBtn,
+  html.in-app .sec:has(> #addons),html.in-app .addon-buy,html.in-app [data-addon],html.in-app #upGo{display:none!important}
+</style>
 
 <style>
   :root{

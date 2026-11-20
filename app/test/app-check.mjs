@@ -128,7 +128,7 @@ try {
   const frame = p.frames().find(f => /dashboard/.test(f.url()));
   const inBoard = frame ? await frame.evaluate(() => {
     const vis = sel => Array.from(document.querySelectorAll(sel)).filter(el => el.offsetParent !== null || el.getClientRects().length).length;
-    return { mode: document.documentElement.classList.contains('in-app'), shown: ['.top .brand', '.theme-tog', '#pwaCard', '#addonsCard', '#refCard', '#invoiceCard', '.buy', '.toc'].filter(s => vis(s) > 0), shekel: /₪/.test(document.body.innerText), hash: location.hash };
+    return { mode: document.documentElement.classList.contains('in-app'), shown: ['.top .brand', '.theme-tog', '#pwaCard', '#addonsCard', '#refCard', '#invoiceCard', '[data-addon]', '[data-scope]', '.toc'].filter(s => vis(s) > 0), shekel: /₪/.test(document.body.innerText), hash: location.hash };
   }) : { mode: false, shown: ['no frame'], shekel: true, hash: '' };
   check('P13 app mode is on and nothing that sells is visible', inBoard.mode && inBoard.shown.length === 0 && !inBoard.shekel, inBoard.shown.join(' ') + (inBoard.shekel ? ' ₪ on screen' : ''));
   const bar = frame ? await frame.evaluate(() => !!document.getElementById('ishur-consent')) : true;
@@ -141,11 +141,29 @@ try {
   check('saved copy on the device holds no phone numbers', saved.length > 100 && !/\d{9,}/.test(saved) && !/phone|gift|invoice/.test(saved));
   check('no link from the app to the web board', !/dashboard\.html/.test(src));
 
+  /* P14: guest upload / event setup opens inside the app, in app mode, with nothing that sells */
+  if (frame) {
+    await frame.goto(frame.url().replace(/\/dashboard[^?]*/, '/upload.html').replace(/&app=1.*/, '') + '&step=2', { waitUntil: 'domcontentloaded' }).catch(() => {});
+    await p.waitForTimeout(4000);
+    const up = p.frames().find(f => /upload/.test(f.url()));
+    const st = up ? await up.evaluate(() => {
+      const vis = sel => Array.from(document.querySelectorAll(sel)).filter(el => el.getClientRects().length).length;
+      return { mode: document.documentElement.classList.contains('in-app'), shown: ['.lux-head .brand', '#dsgnWrap', '#hostessSec', '#upgradeBtn', '#addons', '.addon-buy', '[data-addon]', '#ishur-consent'].filter(s => vis(s) > 0), shekel: /₪/.test(document.body.innerText), len: document.body.innerText.length };
+    }) : { mode: false, shown: ['no upload frame'], shekel: true, len: 0 };
+    check('P14 guest upload opens inside the app in app mode, nothing that sells', st.mode && st.shown.length === 0 && !st.shekel && st.len > 200, st.shown.join(' ') + (st.shekel ? ' ₪ on screen' : '') + ' · ' + st.len + ' chars');
+    check('P14 still no tracking requests', trackers.length === 0, [...new Set(trackers)].join(' '));
+    await p.screenshot({ path: path.join(SHOTS, '13-setup-upload.png') });
+    await p.evaluate(() => { const f = document.getElementById('boardFrame'); f.src = f.src; });   /* back to the board */
+    await p.frameLocator('#boardFrame').locator('#rows .pill').nth(5).waitFor({ timeout: 60000 }).catch(() => {});
+    await p.frameLocator('#boardFrame').getByText('דלגו על הכל').click({ timeout: 3000 }).catch(() => {});
+  }
+  const frame2 = p.frames().find(f => /dashboard/.test(f.url()));
+
   /* screenshots of the home board further down: the invitation, the guests, the send schedule */
   await p.click('[data-tab=board]');
-  if (frame) {
+  if (frame2) {
     for (const [sel, name] of [['#mediaCard', '9-home-invitation'], ['#rows', '10-home-guests'], ['#sendsCard', '11-home-sends'], ['#shareCard', '12-home-share']]) {
-      await frame.evaluate(s2 => { const el = document.querySelector(s2); if (el) el.scrollIntoView({ block: 'start' }); }, sel);
+      await frame2.evaluate(s2 => { const el = document.querySelector(s2); if (el) el.scrollIntoView({ block: 'start' }); }, sel);
       await p.waitForTimeout(500); await p.screenshot({ path: path.join(SHOTS, name + '.png') });
     }
   }
