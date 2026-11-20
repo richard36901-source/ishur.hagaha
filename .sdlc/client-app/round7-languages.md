@@ -19,7 +19,8 @@ Design:
   language: text nodes, placeholder, title, aria-label, document title, and anything the page adds later (a
   MutationObserver). Texts with numbers ("נותרו 12 ימים לאירוע") are translated by known pieces around the numbers.
   A text that still has Hebrew after that (a guest's or venue's name) is left as it is.
-- Choice: a picker in the app's חשבון; first default = the phone's language if we have it, else Hebrew. The app passes
+- Choice: a picker in the app's חשבון; default Hebrew (Claude's choice: many Israelis keep their phone in English, so
+  following the phone would switch Hebrew speakers to English). The app passes
   `lang=` to every board page it opens; the board remembers it for the tab.
 - Translations: Claude writes them from `i18n/strings.json` (collected by `app/scripts/i18n-collect.mjs`).
   Amharic and Yiddish especially need a native speaker's check before launch; marked as unverified.
@@ -57,6 +58,6 @@ messages in the language the client picks; then the fixed templates for the lang
 
 Decisions for Richard, one at a time:
 1. "Two languages" means one message holding both languages (text and buttons in both), or two separate messages?
-2. Which languages for guests first (each one is about 8 templates to approve with Meta).
+2. Which languages for guests first (each one is about 40 templates to approve with Meta, see above).
 3. Custom text in another language: does the client write it in that language, or do we translate it?
 Build after the answers; it touches the live sending engine, so it gets its own spec and tests.
