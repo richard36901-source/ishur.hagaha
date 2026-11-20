@@ -95,3 +95,19 @@ payment webhook confirms the charge. A token cannot be reached by editing a URL.
 - [ ] Confirm `MAKE_LEAD_WEBHOOK` reuses the existing orders hook or gets its own
 - [ ] Point Grow's post-payment redirect at `https://ishur.io/thanks.html`
 - [ ] Make scenario should upsert `lead_partial` on `session_id`, not insert
+
+---
+
+## Build app · the ishur client app (iPhone + Android)
+
+Full list with short instructions, kept up to date: [`app/PLAN.md`](app/PLAN.md). Started 20/11/2026.
+
+- [x] M1 · App built and checked on staging (20/11)
+- [ ] M2 · Apple Developer account active (paid 20/11, waiting for Apple)
+- [ ] M3 · Server and site changes live on production (Richard says "promote")
+- [ ] M4 · App signed, push key, App Store record
+- [ ] M5 · App on Richard's iPhone through TestFlight
+- [ ] M6 · Approved on the App Store
+- [ ] M7 · On Google Play
+- [ ] M8 · Real clients using it
+- [ ] M9 · 1.1: buying the next event in the app
