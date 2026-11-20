@@ -77,3 +77,27 @@ test('routes: a session is required; delete-request writes a journal row', async
   assert.equal((await call('push-unregister', { session: 'good', device: DEV })).status, 200);
   assert.equal((await call('push-test', { admin_key: 'nope', phone: PHONE })).status, 403);
 });
+
+test('answerHook: maps the sheet status, finds the client by the event token, stays quiet on anything odd', async () => {
+  await P.register(env, PHONE, { device: DEV, platform: 'ios' });
+  const d = { tokenRecord: async (e, t) => (t === TOK ? { phone: PHONE } : null) };
+  assert.equal((await P.answerHook(env, d, { token: TOK, name: 'דנה כהן' }, 'מגיע', 3, { now: at(12), send })).sent, 1);
+  assert.equal(sent[0].payload.body, 'דנה כהן אישר/ה הגעה, 3 מגיעים');
+  assert.equal((await P.answerHook(env, d, { token: 'nope', name: 'x' }, 'מגיע', 1, { now: at(12), send })).sent, 0);
+  assert.equal((await P.answerHook(env, d, { token: TOK, name: 'x' }, '__keep__', 1, { now: at(12), send })).sent, 0);
+  assert.equal((await P.answerHook(env, { tokenRecord: async () => { throw new Error('kv down'); } }, { token: TOK, name: 'x' }, 'מגיע', 1, { now: at(12), send })).sent, 0);
+  assert.equal(sent.length, 1);
+});
+test('morningRun: once a day, only in the 09:00 hour, one summary per client with the app', async () => {
+  env.RATE.list = async ({ prefix }) => ({ keys: [...env.RATE.m.keys()].filter(k => k.startsWith(prefix)).map(name => ({ name })) });
+  await P.register(env, PHONE, { device: DEV, platform: 'ios' });
+  await P.notifyAnswer(env, PHONE, { token: TOK, guest: 'דנה', seats: 2, status: 'confirmed' }, { now: at(23), send });
+  const d = { readSnapshot: async () => ({}), eventsForPhone: () => [{ token: TOK, event_name: 'נועה ויונתן', event_date: '2026-12-19' }], buildDashboard: () => ({ totals: { confirmed_seats: 41, pending: 12 } }) };
+  assert.equal((await P.morningRun(env, d, { now: at(8, 50), send })).ran, false);
+  const r = await P.morningRun(env, d, { now: at(9, 0), send });
+  assert.equal(r.ran, true); assert.equal(r.sent, 1);
+  assert.match(sent[0].payload.body, /תשובה חדשה אחת · 41 מגיעים · 12 עוד לא ענו/);
+  assert.doesNotMatch(JSON.stringify(sent[0].payload), /\d{7,}/);
+  assert.equal((await P.morningRun(env, d, { now: at(9, 10), send })).ran, false);
+  assert.equal(sent.length, 1);
+});

@@ -146,6 +146,50 @@ export async function notifyFailed(env, phone, x, { now = new Date(), send = sen
   return r;
 }
 
+/* ── the two places the Worker calls in ── both return quietly whatever happens: an answer must never fail to be
+   saved, and a cron must never stop, because of a notification. */
+const HE_STATUS = { 'מגיע': 'confirmed', 'לא מגיע': 'declined', 'מתלבט': 'undecided' };
+/* A guest's answer was written (WhatsApp reply or the RSVP page). `guest` = { token, name }, outcome is the sheet's
+   Hebrew status. Not called for the client's own manual change on the board. */
+export async function answerHook(env, d, guest, outcome, party, opts = {}) {
+  try {
+    if (!guest || !guest.token || !HE_STATUS[outcome] || !(await on(env))) return { sent: 0 };
+    const rec = await d.tokenRecord(env, guest.token);
+    const phone = String((rec && rec.phone) || '');
+    if (!/^972\d{8,9}$/.test(phone)) return { sent: 0 };
+    return await notifyAnswer(env, phone, { token: guest.token, guest: guest.name || '', seats: party, status: HE_STATUS[outcome] }, opts);
+  } catch { return { sent: 0 }; }
+}
+/* Called from the ten-minute cron. Does its work once a day, in the first run of the 09:00 hour in Israel (so it
+   is right in summer and in winter): one summary per client that has the app, for their nearest coming event. */
+export async function morningRun(env, d, { now = new Date(), send } = {}) {
+  try {
+    if (!(await on(env))) return { ran: false };
+    const il = new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Jerusalem', hour: '2-digit', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(now);
+    const part = t => (il.find(x => x.type === t) || {}).value;
+    if (Number(part('hour')) !== 9) return { ran: false };
+    const day = `${part('year')}-${part('month')}-${part('day')}`, mark = 'apppushday:' + day;
+    if (await env.RATE.get(mark)) return { ran: false };
+    await env.RATE.put(mark, '1', { expirationTtl: 2 * 86400 });
+    const keys = ((await env.RATE.list({ prefix: 'apppush:', limit: 500 })).keys || []).map(k => k.name.slice('apppush:'.length));
+    if (!keys.length) return { ran: true, sent: 0 };
+    const raw = await d.readSnapshot(env, 'dashboard');
+    let sent = 0;
+    for (const phone of keys) {
+      try {
+        const evs = raw ? (d.eventsForPhone(raw, phone) || []).filter(e => e.token && String(e.event_date || '').slice(0, 10) >= day) : [];
+        evs.sort((a, b) => String(a.event_date).localeCompare(String(b.event_date)));
+        const ev = evs[0];
+        if (!ev) { const rec = await read(env, phone); if (rec.held.length) { rec.held = []; await write(env, phone, rec); } continue; }
+        const snap = d.buildDashboard(ev.token, raw) || {}; const t = snap.totals || {};
+        const r = await dailySummary(env, phone, { token: ev.token, event: ev.event_name || '', confirmed: t.confirmed_seats, pending: t.pending }, send ? { now, send } : { now });
+        sent += r.sent || 0;
+      } catch {}
+    }
+    return { ran: true, sent };
+  } catch { return { ran: false }; }
+}
+
 /* ── /api/app/* ── POST, JSON. Every client route needs the client's session (the same one the personal area uses). */
 export async function handleApp(request, env, origin, url, d) {
   const path = url.pathname.replace(/^\/api\/app\//, '');

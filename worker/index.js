@@ -77,7 +77,7 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 /* 02/11 noa-chase: Monday "לא ענה" → Noa's cadence queue, post-call QA, memory. All behind NOA_CHASE. */
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
-import { handleApp } from './app-push.js';   /* 20/11 client app */
+import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';   /* 20/11 client app */
 import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
@@ -5975,6 +5975,9 @@ async function writeGuestReply(env, guest, outcome, party) {
     }),
   }).catch(() => null);
   const ok = !!r && r.status === 200;
+  /* 20/11 client app: tell the event's client that a guest answered (off unless cfg:app_push = 1; never throws).
+     Skipped when the client made the change themselves on the board. */
+  if (ok && !guest.by_client) await appAnswerHook(env, { tokenRecord }, guest, outcome, party);
   if (!ok && env.RATE) {
     await env.RATE.put('rsvpfail:' + guest.guest_id + ':' + Date.now(),
       JSON.stringify({ guest_id: guest.guest_id, outcome, party: party ?? null, at: new Date().toISOString() }),
@@ -11286,6 +11289,8 @@ const WORKER = {
       return;
     }
     if (String(event.cron || '').startsWith('*/10')) {
+      /* 20/11 client app: the 09:00 summary push (once a day, Israel time; off unless cfg:app_push = 1) */
+      ctx.waitUntil(appMorningRun(env, { readSnapshot, eventsForPhone, buildDashboard }).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'adsHealthWatch', () => adsHealthWatch(env)).catch(() => {}));
       ctx.waitUntil(opsJob(env, 'drainLeadPings', () => drainLeadPings(env)).catch(() => {}));
       ctx.waitUntil(reconcileLeads(env).catch(() => {}));   /* 16/11 the monday leads board against its mirror: a missed webhook heals here (read-only) */
@@ -14071,7 +14076,7 @@ const WORKER = {
       const raw = await readSnapshot(env, 'guest');
       const row = ((raw && raw.guests && raw.guests.values) || []).find(r => String(r[2] || '').trim() === gid && String(r[28] || '').trim() === tok);
       if (!row) return deny(404, 'unknown-guest', origin);
-      const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim() };
+      const guest = { guest_id: gid, token: tok, phone: normPhone(row[4] || ''), name: String(row[3] || '').trim(), by_client: true };
       const saved = await writeGuestReply(env, guest, outcome, outcome === 'מגיע' ? party : undefined);
       if (saved && env.RATE) await env.RATE.delete('awaitparty:' + gid).catch(() => {});
       await logEvent(env, { area: 'לוח לקוח', action: 'המארח אישר אורח ידנית', ok: saved, phone: guest.phone, token: tok, detail: `${guest.name}: ${outcome}${party ? ' · ' + party : ''}` }).catch(() => {});
