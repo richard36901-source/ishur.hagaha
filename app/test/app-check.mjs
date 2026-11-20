@@ -148,12 +148,14 @@ try {
     await tile.click(); await fr.locator('#venueIn').fill('77'); await fr.locator('#venueSave').click();
     await fr.locator('#venueTile .kpi-v', { hasText: '77' }).waitFor({ timeout: 15000 }).catch(() => {});
     const shown = await frame.evaluate(() => ({ v: document.querySelector('#venueTile .kpi-v').textContent.trim(), l: document.querySelector('#venueTile .kpi-l').textContent.trim(), s: document.querySelector('#venueTile .kpi-s').textContent.trim() }));
-    const saved = (await api('/api/status', { token: TOKEN, board_session: sess })).body.venue || {};
+    /* KV is eventually consistent: a read right after the write may still see the old value, so poll up to 30s */
+    const pollVenue = async want => { let v = {}; for (let i = 0; i < 10; i++) { v = (await api('/api/status', { token: TOKEN, board_session: sess })).body.venue || {}; if (v.commit === want) break; await p.waitForTimeout(3000); } return v; };
+    const saved = await pollVenue(77);
     const wantSub = saved.recommended == null ? /המלצה תופיע/ : saved.ok ? /מתאים להמלצה/ : /מההמלצה/;
     check('venue tile: the typed number is saved and shown with the recommendation line', shown.v === '77' && shown.l === 'התחייבות לאולם' && saved.commit === 77 && wantSub.test(shown.s), JSON.stringify({ shown, saved }));
     await tile.click(); await fr.locator('#venueIn').fill(''); await fr.locator('#venueSave').click();
     await fr.locator('#venueAdd').waitFor({ timeout: 15000 }).catch(() => {});
-    const cleared = (await api('/api/status', { token: TOKEN, board_session: sess })).body.venue || {};
+    const cleared = await pollVenue(null);
     check('venue tile: an empty number clears it', cleared.commit === null && await fr.locator('#venueAdd').count() === 1, JSON.stringify(cleared));
   }
   await p.waitForTimeout(600); await p.screenshot({ path: path.join(SHOTS, '8-board-light.png') });
@@ -263,6 +265,36 @@ try {
   check('P15 no movement in help when the device asks for reduced motion', still);
   await p.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'dark' });
   await p.click('#helpClose');
+
+  /* Review after the event (Richard 20/11). No demo client has a past event, so the account answer is given one:
+     the real answer from staging plus an invented past event that has not been reviewed yet. */
+  const PAST = 'cccccccc-0000-4000-8000-00000000000c';
+  await ctx.route('**/api/account/me', async route => {
+    let r; try { r = await route.fetch(); } catch { return; }   /* the page reloaded while this was in flight */
+    const j = await r.json().catch(() => ({}));
+    j.events = (j.events || []).concat([{ token: PAST, name: 'אירוע שעבר', occasion: 'חתונה', date: '2025-06-01', venue: 'אולם לדוגמה', past: true, next: 'score' }]);
+    await route.fulfill({ response: r, json: j }).catch(() => {});
+  });
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  const asked1 = await p.locator('#reviewAsk:not([hidden])').waitFor({ timeout: 30000 }).then(() => true, () => false);
+  const later1 = await p.locator('#reviewLater').isVisible().catch(() => false);
+  check('review: the app asks about the past event on opening, with "לא עכשיו"', asked1 && later1);
+  await p.click('#reviewLater');
+  await p.reload({ waitUntil: 'domcontentloaded' });
+  const asked2 = await p.locator('#reviewAsk:not([hidden])').waitFor({ timeout: 30000 }).then(() => true, () => false);
+  const later2 = await p.locator('#reviewLater').isVisible().catch(() => true);
+  check('review: the second time there is no "לא עכשיו", only "לדרג עכשיו"', asked2 && !later2);
+  await p.click('#reviewGo');
+  const revUrl = await p.locator('#page:not([hidden]) #pageFrame').getAttribute('src').catch(() => '');
+  check('review: "לדרג עכשיו" opens the review form for that event inside the app', /\/feedback\.html\?t=cccccccc-0000-4000-8000-00000000000c&app=1/.test(revUrl || ''), revUrl);
+  await p.screenshot({ path: path.join(SHOTS, '15-review.png') });
+  await p.click('#pageClose');
+  await p.click('[data-tab=account]'); await p.click('#eventsOpen');
+  const rowsR = await p.evaluate(() => Array.from(document.querySelectorAll('#evList .evrow')).map(r => ({ past: r.classList.contains('past'), rev: !!r.querySelector('[data-review]') })));
+  check('all my events: the past event is greyed, last, with a review button', rowsR.length >= 2 && rowsR[rowsR.length - 1].past && rowsR[rowsR.length - 1].rev && rowsR.slice(0, -1).every(r => !r.past), JSON.stringify(rowsR));
+  await p.screenshot({ path: path.join(SHOTS, '16-events-past.png') });
+  await p.click('#eventsClose');
+  await ctx.unroute('**/api/account/me');
 
   /* P6: the delete-account request starts inside the app and the server takes it */
   await p.click('[data-tab=account]'); await p.click('#delete'); await p.click('#sheetYes');

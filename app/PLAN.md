@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 20/11/2026, 23:55. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 00:50. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -36,9 +36,9 @@ Plan: `.sdlc/client-app/round6-redesign.md`. Richard decided: no payments in the
 - [x] The board in four views, one per tab (20/11 night, staging): ראשי = status with the venue tile, seating, table codes, budget · מוזמנים = the list, print, replace list, add guests · שליחות = send schedule, invitation, wording, design, group link. Seen in the simulator for ראשי only; the other tabs are checked in Chrome. With no network each tab falls back to the app's own screen.
 - [x] All-events page (from the header picker and from חשבון): a row per event, past events greyed and last, with a review button. Checked with one event only; the demo clients have no past event, so the greyed row and the review button are not exercised.
 - [x] "החבילה שלי" in חשבון: package name, guest tier, every included line, add-ons bought, link to the terms. No prices (`worker/package.js`; a test fails if its lines drift from `config.js`).
-- [ ] Review after the event: the prompt on opening the app is built (one "לא עכשיו", then only "לדרג עכשיו") and opens the existing `feedback.html` inside the app. NOT tested: no demo client has a past event. Still to do: Apple's own rating prompt (needs a native plugin); check Google's review-gating rule and Apple's rating-prompt rule against their current text; the existing web flow offers Google and video only to high scores.
+- [x] Review after the event (21/11): the prompt on opening the app, one "לא עכשיו" then only "לדרג עכשיו", opens `feedback.html` inside the app; the past event is greyed and last on the events page with a review button. Checked with an invented past event injected into the account answer (no demo client has one). Apple's/Google's own rating prompt added (`@capacitor-community/in-app-review` 8.0.0): after more guests confirmed, from the third opening, at most every 120 days; not seen on a device. Still to check against current text: Google's review-gating rule (the existing web flow offers Google and video only to high scores).
 - [x] "המלצה עלינו" in חשבון opens the board's referral card inside the app. It shows discount and commission wording; whether Apple reads that as steering to buy elsewhere is an open risk to decide before submission.
-- [ ] Update the store texts, screenshots and checks for the new layout.
+- [x] Store texts (HE+EN), four screenshots (`store/screenshots/ios-6.9/`, 1320x2868) and the app check updated for the four tabs (21/11). App check 51/51 for both demo clients.
 
 This adds work before the first submission: the "about a week after Apple activates" estimate becomes roughly two weeks. Not measured; revise after the four views are built.
 
