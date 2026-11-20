@@ -177,6 +177,40 @@
     return fetch(CFG.endpoint(name), { method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) });
   }
+
+  /* 20/11 Richard: "הוספת רשומות" asks how many (10 to 100, in tens) instead of always giving 50.
+     Same dialog look as the confirm one (ux.js). Resolves to the number, or 0 when closed. */
+  function askAmount() {
+    return new Promise(function (resolve) {
+      var bg = document.createElement('div'); bg.className = 'ux-dlg-bg';
+      var box = document.createElement('div'); box.className = 'ux-dlg'; box.setAttribute('role', 'dialog'); box.setAttribute('aria-modal', 'true'); box.setAttribute('aria-label', 'כמה רשומות להוסיף');
+      var h = document.createElement('h3'); h.textContent = 'כמה רשומות להוסיף?';
+      var p = document.createElement('p'); p.textContent = 'תוספת חינם ללקוח. המכסה שלו גדלה מיד.';
+      var grid = document.createElement('div'); grid.style.cssText = 'display:grid;grid-template-columns:repeat(5,1fr);gap:.4rem;margin:0 0 1rem';
+      var pick = 0, btns = [];
+      var ok = document.createElement('button'); ok.type = 'button'; ok.className = 'ok'; ok.textContent = 'בחרו כמות'; ok.disabled = true; ok.style.opacity = '.55';
+      for (var v = 10; v <= 100; v += 10) (function (v) {
+        var b = document.createElement('button'); b.type = 'button'; b.textContent = String(v); b.dataset.n = String(v);
+        b.style.cssText = 'min-width:0;padding:.55rem 0;border-radius:8px';
+        b.addEventListener('click', function () {
+          pick = v; btns.forEach(function (x) { var on = x === b; x.style.background = on ? 'var(--green,var(--pine,#0F4C35))' : ''; x.style.color = on ? '#fff' : ''; x.setAttribute('aria-pressed', on ? 'true' : 'false'); });
+          ok.disabled = false; ok.style.opacity = ''; ok.textContent = 'להוסיף ' + v + ' רשומות';
+        });
+        btns.push(b); grid.appendChild(b);
+      })(v);
+      var row = document.createElement('div'); row.className = 'row';
+      var no = document.createElement('button'); no.type = 'button'; no.textContent = 'ביטול';
+      row.appendChild(ok); row.appendChild(no); box.appendChild(h); box.appendChild(p); box.appendChild(grid); box.appendChild(row);
+      document.body.appendChild(bg); document.body.appendChild(box);
+      requestAnimationFrame(function () { bg.classList.add('on'); box.classList.add('on'); btns[0].focus(); });
+      function done(n) { bg.classList.remove('on'); box.classList.remove('on'); setTimeout(function () { bg.remove(); box.remove(); }, 200); document.removeEventListener('keydown', onKey); resolve(n); }
+      function onKey(e) { if (e.key === 'Escape') done(0); }
+      ok.addEventListener('click', function () { if (pick) done(pick); });
+      no.addEventListener('click', function () { done(0); });
+      bg.addEventListener('click', function () { done(0); });
+      document.addEventListener('keydown', onKey);
+    });
+  }
   function toast(t) { var el = $('toast'); el.textContent = t; el.classList.add('on'); setTimeout(function () { el.classList.remove('on'); }, 1800); }
   function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
   function when(e) { var d = Date.parse(e.paid_ts || e.paid_at || ''); return isNaN(d) ? 0 : d; }
@@ -564,7 +598,7 @@
         '<button class="btn" data-act="fblinks">📋 העתק הודעת משוב</button>' +
         '<button class="btn g" data-act="preview">📲 שלח דוגמת הזמנה ללקוח</button></div></div>' +
       '<div class="sec"><h3>תוספות בחינם</h3><div class="acts">' +
-        '<button class="btn g" data-act="guests">+50 מוזמנים</button>' +
+        '<button class="btn g" data-act="guests">+ הוספת רשומות</button>' +
         '<button class="btn g" data-act="extrasend">שליחה נוספת</button>' +
         '<button class="btn g" data-act="calls">סבב שיחות</button></div></div>' +
       /* 12/11 אדמין אחד: what used to need the ops screen — edit, paid, invoice, call round, cancel. Every button asks first. */
@@ -723,9 +757,10 @@
     } else if (act === 'active') {
       p = api('client-active', { token: t, active: !fl.active }).then(function (r) { return r.json(); }).then(function (j) { if (j.ok) { flags[t] = Object.assign(fl, { active: j.active }); render(); } });
     } else {
-      var kind = act, n = act === 'guests' ? 50 : undefined;
-      if (!(await askConfirm('לתת ללקוח ' + b.textContent + '?', { title: 'תוספת חינם', ok: 'כן, לתת' }))) { b.disabled = false; return; }
-      p = api('grant-addon', { token: t, kind: kind, n: n }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? 'ניתן' : 'לא הצליח'); return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); }); });
+      var kind = act, n;
+      if (act === 'guests') { n = await askAmount(); if (!n) { b.disabled = false; return; } }
+      else if (!(await askConfirm('לתת ללקוח ' + b.textContent + '?', { title: 'תוספת חינם', ok: 'כן, לתת' }))) { b.disabled = false; return; }
+      p = api('grant-addon', { token: t, kind: kind, n: n }).then(function (r) { return r.json(); }).then(function (j) { toast(j.ok ? (n ? 'נוספו ' + n + ' רשומות' : 'ניתן') : 'לא הצליח'); return api('client-flags', { tokens: [t] }).then(function (r) { return r.json(); }).then(function (f) { flags[t] = (f.flags || {})[t] || fl; render(); }); });
     }
     p.catch(function () { toast('שגיאה'); }).then(function () { b.disabled = false; });
   });
