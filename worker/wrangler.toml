@@ -173,3 +173,10 @@ bucket_name = "ishur-audit-staging"
 
 [[env.staging.send_email]]
 name = "EMAIL"
+
+# ishur client app: usage data (worker/app-events.js, migrations-app/). Added by scripts/app-d1-setup.sh
+[[env.staging.d1_databases]]
+binding = "APP_DB"
+database_name = "ishur-app-staging"
+database_id = "e1b353f2-1230-4f01-992c-94bd38009494"
+migrations_dir = "migrations-app"
