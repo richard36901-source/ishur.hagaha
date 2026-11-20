@@ -79,7 +79,8 @@ import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.j
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';
 import { venueFor, parseCommit, writeCommit } from './venue-commit.js';
-import { packageFor } from './package.js';   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
+import { packageFor } from './package.js';
+import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedKey as lineupKey } from './lineup.js';   /* 21/11 לוז אירוע */   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
 import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
@@ -13716,6 +13717,32 @@ const WORKER = {
     /* Richard 29/09: the client's budget planner (budget.html). One KV record per
        event: items [{name, amount, notes}], gifts (total received). Prefill happens
        on the page; here it is just a store, token-gated like the seating plan. */
+    /* 21/11 Richard: the event-day schedule. POST {token} reads (or suggests), POST {token, items, …} saves, POST
+       {token, suggest:{occasion, reception, ceremony, drive, from}} answers a fresh suggestion without saving.
+       GET /api/lineup.ics?t=&k= is the calendar feed (k = a key per token, so the link alone does not open others). */
+    if (url.pathname === '/api/lineup' && request.method === 'POST') {
+      let b = {};
+      try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }
+      const tok = String(b.token || '').trim();
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !(await tokenRecord(env, tok))) return deny(404, 'unknown-token', origin);
+      if (await overBudget(env, 'rl:lineup:' + tok, 120, 3600)) return deny(429, 'slow-down', origin);
+      const feed = `https://${url.host}/api/lineup.ics?t=${tok}&k=${await lineupKey(env, tok)}`;
+      if (b.suggest && typeof b.suggest === 'object') return okJson({ ok: true, items: lineupSuggest(b.suggest) }, origin);
+      if (Array.isArray(b.items)) {
+        const rec = { ...lineupClean(b), at: new Date().toISOString() };
+        await env.RATE.put('lineup:' + tok, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+        return okJson({ ok: true, ...rec, feed }, origin);
+      }
+      let rec = null; try { rec = JSON.parse(await env.RATE.get('lineup:' + tok)); } catch {}
+      return okJson({ ok: true, saved: !!rec, ...(rec || { items: [] }), feed }, origin);
+    }
+    if (url.pathname === '/api/lineup.ics' && request.method === 'GET') {
+      const tok = String(url.searchParams.get('t') || '').trim(), k = String(url.searchParams.get('k') || '');
+      if (!/^[0-9a-f-]{36}$/.test(tok) || !safeEqual(k, await lineupKey(env, tok))) return new Response('not found', { status: 404 });
+      let rec = null; try { rec = JSON.parse(await env.RATE.get('lineup:' + tok)); } catch {}
+      if (!rec) return new Response('not found', { status: 404 });
+      return new Response(lineupIcs(rec, tok), { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': 'inline; filename="ishur-lineup.ics"', 'Cache-Control': 'private, max-age=3600' } });
+    }
     if (url.pathname === '/api/budget' && request.method === 'POST') {
       let b = {};
       try { b = await request.json(); } catch { return deny(400, 'bad-json', origin); }

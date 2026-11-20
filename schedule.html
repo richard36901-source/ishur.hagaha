@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="robots" content="noindex">
+<title>לוז אירוע · אישורי הגעה</title>
+<link rel="icon" href="assets/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="config.js?v=74"></script>
+<script src="assets/ux.js?v=4"></script>
+<script src="assets/guard.js?v=22"></script>
+<style>
+  :root{--green:#0F4C35;--green2:#0A3826;--green4:#F3F8F5;--gold:#A8853C;--ink:#111827;--ink2:#374151;--ink3:#6b7280;--bdr:#e5e7eb;--bdr2:rgba(15,76,53,.2);--bg2:#f9fafb;--card:#fff;--warn:#A8402F;--err-bg:#FBEDEA}
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:'Heebo',sans-serif;background:var(--bg2);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+  .top{display:flex;align-items:center;gap:.8rem;padding:.6rem 1rem;background:var(--card);border-bottom:1px solid var(--bdr);position:sticky;top:0;z-index:5}
+  .top h1{font-family:'Rubik',sans-serif;font-size:1.05rem;font-weight:600}
+  .top .sub{font-size:.78rem;color:var(--ink3)}
+  .top .sp{flex:1}
+  .btn{font:inherit;font-size:.84rem;font-weight:600;padding:.45rem .95rem;border-radius:999px;border:1.5px solid var(--bdr);background:var(--card);color:var(--ink);cursor:pointer;text-decoration:none;white-space:nowrap}
+  .btn.p{background:var(--green);color:#fff;border-color:transparent}
+  .btn.p.ok{background:var(--green4);color:var(--green2);border:1.5px solid var(--bdr2)}
+  .btn.p.saving{background:var(--gold)}
+  .wrap{max-width:860px;margin:0 auto;padding:1rem 1rem 4rem}
+  .sum{display:grid;grid-template-columns:repeat(2,1fr);gap:1px;background:var(--bdr);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:1rem}
+  @media(min-width:640px){.sum{grid-template-columns:repeat(4,1fr)}}
+  .k{background:var(--card);padding:.9rem .6rem;text-align:center}
+  .k b{display:block;font-family:'Rubik',sans-serif;font-size:1.35rem;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink)}
+  .k span{font-size:.72rem;color:var(--ink3)}
+  .k.hi b{color:var(--green2)}
+  .k.bad b{color:var(--warn)}
+  .card{background:var(--card);border:1px solid var(--bdr);border-radius:16px;overflow:hidden;margin-bottom:1rem}
+  .card-h{padding:.75rem 1rem;border-bottom:1px solid var(--bdr);font-family:'Rubik',sans-serif;font-size:.8rem;font-weight:600;letter-spacing:.08em;color:var(--gold);display:flex;justify-content:space-between;align-items:center;gap:.5rem}
+  .row{display:grid;grid-template-columns:1fr 7.2rem;gap:.5rem;align-items:center;padding:.55rem 1rem;border-bottom:1px solid var(--bdr)}
+  .row:last-child{border-bottom:none}
+  .row .nm{font-size:.92rem;font-weight:500;min-width:0}
+  .row .nm input{width:100%;font:inherit;font-size:.92rem;font-weight:500;border:none;background:transparent;color:var(--ink);padding:.15rem 0}
+  .row .nm input:focus{outline:none;border-bottom:1px solid var(--green)}
+  .row .nt{grid-column:1/-1;font-size:.78rem;color:var(--ink3)}
+  .row .nt input{width:100%;font:inherit;font-size:.78rem;border:none;background:transparent;color:var(--ink3);padding:0}
+  .row .nt input:focus{outline:none;color:var(--ink2)}
+  .amt{display:flex;align-items:center;gap:.25rem;direction:ltr;justify-content:flex-end}
+  .amt input{width:6rem;font:inherit;font-size:.95rem;font-weight:600;text-align:right;padding:.35rem .5rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink);font-variant-numeric:tabular-nums}
+  .amt input:focus{outline:none;border-color:var(--green);background:var(--card)}
+  .amt i{font-style:normal;color:var(--ink3);font-size:.85rem}
+  .row.ours{background:var(--green4)}
+  .row.ours .amt input{background:var(--card)}
+  .row .x{position:absolute}
+  .rowwrap{position:relative}
+  .del{font:inherit;font-size:.9rem;color:var(--ink3);background:none;border:none;cursor:pointer;padding:0 .3rem;line-height:1}
+  .del:hover{color:var(--warn)}
+  .nm-line{display:flex;align-items:center;gap:.3rem}
+  .add{padding:.6rem 1rem}
+  .gift{display:grid;grid-template-columns:1fr 7.2rem;gap:.5rem;align-items:center;padding:.6rem 1rem;border-bottom:1px solid var(--bdr)}
+  .gift:last-child{border-bottom:none}
+  .gift .l{font-size:.9rem;font-weight:500}
+  .gift .l small{display:block;font-size:.74rem;color:var(--ink3);font-weight:400}
+  .note{font-size:.74rem;color:var(--ink3);padding:.6rem 1rem}
+  .skel{background:linear-gradient(90deg,var(--bdr) 25%,#f3f4f6 37%,var(--bdr) 63%);background-size:400% 100%;animation:sh 1.2s infinite;color:transparent!important;border-radius:6px}
+  @keyframes sh{0%{background-position:100% 0}100%{background-position:0 0}}
+  .bad-tok{padding:3rem 1rem;text-align:center;color:var(--ink3)}
+
+  .fields{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;padding:.8rem 1rem}
+  .fields label{display:block;font-size:.76rem;color:var(--ink3);margin-bottom:.2rem}
+  .fields input{width:100%;font:inherit;font-size:.95rem;padding:.45rem .6rem;border:1.5px solid var(--bdr);border-radius:10px;background:var(--bg2);color:var(--ink)}
+  .fields input:focus{outline:none;border-color:var(--green);background:var(--card)}
+  .fields .wide{grid-column:1/-1}
+  .fields .ro{font-size:.95rem;padding:.45rem 0;font-weight:600}
+  .acts{display:flex;gap:.5rem;flex-wrap:wrap;padding:0 1rem .9rem}
+  .li{display:grid;grid-template-columns:6.4rem 1fr auto;gap:.5rem;align-items:center;padding:.45rem 1rem;border-bottom:1px solid var(--bdr)}
+  .li:last-child{border-bottom:none}
+  .li input{font:inherit;font-size:.92rem;border:1.5px solid transparent;border-radius:8px;background:transparent;color:var(--ink);padding:.3rem .4rem;width:100%}
+  .li input:focus{outline:none;border-color:var(--green);background:var(--card)}
+  .li .t{font-variant-numeric:tabular-nums;font-weight:600;direction:ltr;text-align:right}
+  .li small{grid-column:2/-1;font-size:.7rem;color:var(--ink3);margin-top:-.3rem}
+  .cal{display:flex;flex-direction:column;gap:.5rem;padding:.8rem 1rem}
+  .cal .btn{text-align:center;padding:.65rem 1rem}
+  html.in-app .top #back{display:none}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="btn" id="back" href="#">→ ללוח</a>
+  <div><h1 id="title">לוז אירוע</h1><div class="sub" id="sub">&nbsp;</div></div>
+  <span class="sp"></span>
+  <button type="button" class="btn p ok" id="save" disabled>נשמר</button>
+</div>
+<div class="wrap" id="main" hidden>
+  <div class="card">
+    <div class="card-h"><span>הפרטים</span></div>
+    <div class="fields">
+      <div><label>קבלת פנים</label><div class="ro" id="recep">—</div></div>
+      <div><label for="cer" id="cerL">שעת החופה</label><input id="cer" type="time"></div>
+      <div class="wide"><label for="from">יוצאים מ</label><input id="from" placeholder="למשל: הבית בחולון / מספרת לילך"></div>
+      <div><label for="drive">זמן נסיעה לאולם (דקות)</label><input id="drive" type="number" inputmode="numeric" min="0" max="300" placeholder="30"></div>
+      <div><label>האולם</label><div class="ro" id="venue">—</div></div>
+    </div>
+    <div class="acts">
+      <button type="button" class="btn p" id="sugg">הצעה ללוז לפי הפרטים</button>
+      <a class="btn" id="waze" href="#" target="_blank" rel="noopener">🚗 בדיקת זמן הנסיעה בוויז</a>
+    </div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span>הלוז</span><span style="font-weight:400;letter-spacing:0;color:var(--ink3)">אפשר לשנות כל שעה וכל שורה</span></div>
+    <div id="rows"></div>
+    <div class="add"><button type="button" class="btn" id="addRow">+ שורה</button></div>
+  </div>
+  <div class="card">
+    <div class="card-h"><span>ביומן שלכם</span></div>
+    <div class="cal">
+      <a class="btn p" id="calApple" href="#">📅 הוספה ליומן של אפל</a>
+      <a class="btn" id="calGoogle" href="#" target="_blank" rel="noopener">📅 הוספה ליומן גוגל</a>
+    </div>
+    <div class="note">כל שורה בלוז נכנסת ליומן כאירוע נפרד. היומן מתעדכן מעצמו כשמשנים כאן, תוך כמה שעות.</div>
+  </div>
+</div>
+<div class="bad-tok" id="bad" hidden>הקישור לא תקין. היכנסו מחדש דרך הלוח שלכם.</div>
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  var CFG = window.ISHUR_CONFIG;
+  var token = new URLSearchParams(location.search).get('t') || '';
+  if (!/^[0-9a-f-]{36}$/.test(token)) { $('bad').hidden = false; return; }
+  var inApp = false; try { inApp = /[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1'; } catch (e) {}
+  if (inApp) document.documentElement.classList.add('in-app');
+  $('back').href = 'dashboard.html?t=' + encodeURIComponent(token);
+  var ev = {}, items = [], feed = '', dirty = false, saveT = null;
+  var hm = function (s) { var m = /^(\d{1,2}):(\d{2})/.exec(String(s || '')); return m ? +m[1] * 60 + +m[2] : null; };
+  var toHM = function (m) { var x = ((Math.round(m) % 1440) + 1440) % 1440; return ('0' + Math.floor(x / 60)).slice(-2) + ':' + ('0' + x % 60).slice(-2); };
+  var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
+  function api(body) {
+    body.token = token;
+    return fetch(CFG.endpoint('lineup'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) }).then(function (r) { return r.json(); });
+  }
+  function paint() {
+    items.sort(function (a, b) { return a.m - b.m; });
+    $('rows').innerHTML = items.map(function (it, i) {
+      return '<div class="li" data-i="' + i + '"><input class="t f-t" type="time" value="' + toHM(it.m) + '" aria-label="שעה"><input class="f-x" value="' + esc(it.text) + '" placeholder="מה קורה" aria-label="מה קורה"><button type="button" class="del" data-i="' + i + '" aria-label="מחיקה">✕</button>' + (it.m >= 1440 ? '<small>אחרי חצות</small>' : '') + '</div>';
+    }).join('') || '<div class="note">עוד אין לוז. מלאו את הפרטים ולחצו "הצעה ללוז לפי הפרטים", או הוסיפו שורות בעצמכם.</div>';
+  }
+  function feedLinks() {
+    if (!feed) return;
+    var webcal = feed.replace(/^https:/, 'webcal:');
+    $('calApple').href = webcal;
+    $('calGoogle').href = 'https://calendar.google.com/calendar/r?cid=' + encodeURIComponent(webcal);
+  }
+  function markDirty() { dirty = true; $('save').disabled = false; $('save').className = 'btn p'; $('save').textContent = 'שינויים לא נשמרו'; clearTimeout(saveT); saveT = setTimeout(save, 900); }
+  function save() {
+    if (!dirty) return Promise.resolve();
+    $('save').className = 'btn p saving'; $('save').textContent = 'שומר…';
+    return api({ items: items, date: ev.event_date, title: [ev.name1, ev.name2].filter(Boolean).join(' ו') || ev.occasion || '', venue: [ev.venue_name, ev.venue_city].filter(Boolean).join(', '), from: $('from').value, drive: $('drive').value, ceremony: $('cer').value })
+      .then(function (j) { if (!j || !j.ok) throw new Error('save'); dirty = false; feed = j.feed || feed; feedLinks(); $('save').disabled = true; $('save').className = 'btn p ok'; $('save').textContent = 'נשמר'; })
+      .catch(function () { $('save').className = 'btn p'; $('save').textContent = 'לא נשמר, נסו שוב'; });
+  }
+  $('save').addEventListener('click', save);
+  ['from', 'drive', 'cer'].forEach(function (id) { $(id).addEventListener('input', markDirty); });
+  $('rows').addEventListener('change', function (e) {
+    var row = e.target.closest('.li'); if (!row) return; var it = items[Number(row.dataset.i)];
+    if (e.target.classList.contains('f-t')) { var m = hm(e.target.value); if (m != null) { it.m = m < 360 ? m + 1440 : m; paint(); } }
+    markDirty();
+  });
+  $('rows').addEventListener('input', function (e) {
+    var row = e.target.closest('.li'); if (!row) return;
+    if (e.target.classList.contains('f-x')) { items[Number(row.dataset.i)].text = e.target.value.slice(0, 80); markDirty(); }
+  });
+  $('rows').addEventListener('click', function (e) { var b = e.target.closest('.del'); if (!b) return; items.splice(Number(b.dataset.i), 1); paint(); markDirty(); });
+  $('addRow').addEventListener('click', function () {
+    var last = items.length ? items[items.length - 1].m + 30 : (hm(ev.reception_time) || 1140);
+    items.push({ m: last, text: '' }); paint(); markDirty();
+    var x = $('rows').querySelectorAll('.f-x'); if (x.length) x[x.length - 1].focus();
+  });
+  $('sugg').addEventListener('click', function () {
+    if (items.length && !confirm('להחליף את הלוז הנוכחי בהצעה חדשה?')) return;
+    $('sugg').disabled = true;
+    api({ suggest: { occasion: ev.occasion || '', reception: ev.reception_time || '', ceremony: $('cer').value, drive: $('drive').value || 30, from: $('from').value } })
+      .then(function (j) { $('sugg').disabled = false; if (j && j.ok) { items = j.items; paint(); markDirty(); } })
+      .catch(function () { $('sugg').disabled = false; });
+  });
+  /* inside the ishur app the calendar and Waze links are opened by the app itself (a frame cannot open them) */
+  ['calApple', 'calGoogle', 'waze'].forEach(function (id) {
+    $(id).addEventListener('click', function (e) {
+      if (!inApp || window.parent === window) return;
+      e.preventDefault(); if (id !== 'waze') save();
+      try { window.parent.postMessage({ ishurOpen: $(id).href }, '*'); } catch (x) {}
+    });
+  });
+  $('calApple').addEventListener('click', function () { if (!inApp) save(); });
+  $('calGoogle').addEventListener('click', function () { if (!inApp) save(); });
+
+  var payload = { token: token };
+  Promise.all([
+    fetch(CFG.endpoint('status'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(window.IshurGuard ? IshurGuard.stamp(payload) : payload) }).then(function (r) { return r.json(); }),
+    api({})
+  ]).then(function (res) {
+    var d = res[0] || {}, l = res[1] || {};
+    if (!d.ok || !l.ok) { $('bad').hidden = false; return; }
+    ev = d.event || {};
+    var wedding = /חתונה/.test(ev.occasion || '');
+    $('cerL').textContent = wedding ? 'שעת החופה' : 'שעת הטקס / הפתיחה';
+    $('title').textContent = 'לוז · ' + ([ev.name1, ev.name2].filter(Boolean).join(' ו') || 'האירוע שלכם');
+    $('sub').textContent = [ev.occasion, ev.event_date ? ev.event_date.split('-').reverse().join('.') : ''].filter(Boolean).join(' · ');
+    $('recep').textContent = ev.reception_time || '—';
+    var venue = [ev.venue_name, ev.venue_city].filter(Boolean).join(', ');
+    $('venue').textContent = venue || '—';
+    $('waze').href = 'https://waze.com/ul?q=' + encodeURIComponent(venue) + '&navigate=yes';
+    $('waze').hidden = !venue;
+    $('from').value = l.from || ''; $('drive').value = l.drive || ''; $('cer').value = l.ceremony || '';
+    items = l.items || []; feed = l.feed || '';
+    feedLinks(); paint();
+    $('main').hidden = false;
+  }).catch(function () { $('bad').hidden = false; });
+})();
+</script>
+</body>
+</html>

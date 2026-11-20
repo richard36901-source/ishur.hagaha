@@ -102,6 +102,14 @@
     if (screen === 'board') openBoard();
   }
   var siteOrigin = ''; try { siteOrigin = new URL(ENV.site).origin; } catch (e) {}
+  /* a site page in the frame (the event schedule) asks the app to open a link it cannot open itself: the calendar
+     feed (webcal:, handed to the phone, which offers Apple Calendar) or an https page (Google Calendar, Waze) */
+  window.addEventListener('message', function (e) {
+    if (!siteOrigin || e.origin !== siteOrigin || !e.data || typeof e.data.ishurOpen !== 'string') return;
+    var u = e.data.ishurOpen;
+    if (/^webcal:\/\//.test(u)) { T('calendar_open', { kind: 'apple' }); window.location.href = u; }
+    else if (/^https:\/\/(calendar\.google\.com|waze\.com)\//.test(u)) { T('calendar_open', { kind: /waze/.test(u) ? 'waze' : 'google' }); openUrl(u); }
+  });
   function postView() { try { $('boardFrame').contentWindow.postMessage({ ishurView: view }, siteOrigin || '*'); } catch (e) {} }
   /* The regular client board, in its app mode, inside the app. The session travels in the address fragment (never
      sent to a server), so a locked board opens too. Loaded on first use and again when the event changes. */

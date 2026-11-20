@@ -99,11 +99,11 @@ try {
 
   /* Round 6 (Richard 20/11): ראשי, מוזמנים and שליחות are three views of the regular board. What each one shows: */
   const fr0 = p.frameLocator('#boardFrame');
-  const ALL = ['#kpis', '#shareCard', '#seatingLink', '#budgetLink', '#rows', '#checklistLink', '#replaceLink', '#gaddCard', '#sendsCard', '#mediaCard', '#refCard', '#addonsCard'];
+  const ALL = ['#kpis', '#shareCard', '#seatingLink', '#budgetLink', '#lineupLink', '#rows', '#checklistLink', '#replaceLink', '#gaddCard', '#sendsCard', '#mediaCard', '#refCard', '#addonsCard'];
   const visible = async () => { const f = p.frames().find(x => /dashboard/.test(x.url())); return f ? f.evaluate(ss => ss.filter(q => { const el = document.querySelector(q); return !!el && el.getClientRects().length > 0; }), ALL) : ['no frame']; };
   const same = (a, b) => a.length === b.length && b.every(x => a.includes(x));
   let shown = await visible();
-  check('R6 ראשי: status, seating and budget; no guest list, no sends, no group link, nothing that sells', same(shown, ['#kpis', '#seatingLink', '#budgetLink']), shown.join(' '));
+  check('R6 ראשי: status, seating, budget and the event schedule; no guest list, no sends, no group link, nothing that sells', same(shown, ['#kpis', '#seatingLink', '#budgetLink', '#lineupLink']), shown.join(' '));
   await p.click('[data-tab=guests]');
   await fr0.locator('#rows .pill').nth(5).waitFor({ timeout: 30000 }).catch(() => {});
   shown = await visible();

@@ -79,7 +79,7 @@
   html.in-app[data-view=home] #guestsCard > :not(.card-h),
   html.in-app[data-view=home] #guestsCard .card-h > span:first-child,
   html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,
-  html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink{display:none!important}
+  html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink,html.in-app[data-view=guests] #lineupLink{display:none!important}
   html.in-app[data-view=home] #guestsCard .gl-acts{width:100%;justify-content:center}
 </style>
 
@@ -784,7 +784,7 @@
 
   <!-- guests -->
   <section class="card" id="guestsCard">
-    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
+    <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><a class="buy" id="lineupLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🗓 לוז אירוע</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>
     <p class="list-sum" id="listSum"></p>
@@ -2558,6 +2558,7 @@
     var cl = $('checklistLink'); if (cl) { if (token && !demo) cl.href = 'checklist.html?t=' + encodeURIComponent(token); else cl.hidden = true; }
     var ql = $('qrLink'); if (ql) { if (token && !demo) ql.href = 'table.html?qr=1&t=' + encodeURIComponent((data && data.pub) || token); else ql.hidden = true; }   /* 09/11 Richard: a check-list for the entrance, every client */
     var bl = $('budgetLink'); if (bl) { if (token && !demo) bl.href = 'budget.html?v=1&t=' + encodeURIComponent(token); else bl.hidden = true; }
+    var ll = $('lineupLink'); if (ll) { if (token && !demo) ll.href = 'schedule.html?t=' + encodeURIComponent(token); else ll.hidden = true; }   /* 21/11 לוז אירוע */
     if (!token || demo) { b.hidden = true; return; }
     b.addEventListener('click', function () {
       askConfirm('הרשימה הקיימת תימחק והקובץ החדש ייכנס במקומה. הקובץ: שם | טלפון | כמות, בסדר הזה.', { title: 'להחליף את רשימת המוזמנים?', ok: 'כן, לבחור קובץ', danger: true })
