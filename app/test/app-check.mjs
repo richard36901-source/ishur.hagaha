@@ -67,6 +67,7 @@ try {
   const ctx = await browser.newContext({ viewport: { width: 393, height: 852 }, deviceScaleFactor: 3, locale: 'he-IL' });
   const p = await ctx.newPage();
   const jsErrors = []; p.on('pageerror', e => jsErrors.push(String(e.message)));
+  const trackers = []; p.on('request', r => { if (/facebook\.(net|com)|tiktok|googletagmanager|google-analytics|doubleclick|posthog|ishur\.io\/ph\//i.test(r.url())) trackers.push(new URL(r.url()).host); });
   await p.goto('http://localhost:4180/', { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('#signin:not([hidden])', { timeout: 15000 });
   await p.screenshot({ path: path.join(SHOTS, '1-signin-light.png') });
@@ -121,6 +122,8 @@ try {
     return { mode: document.documentElement.classList.contains('in-app'), shown: ['.top .brand', '.theme-tog', '#pwaCard', '#addonsCard', '#refCard', '#invoiceCard', '.buy', '.toc'].filter(s => vis(s) > 0), shekel: /₪/.test(document.body.innerText), hash: location.hash };
   }) : { mode: false, shown: ['no frame'], shekel: true, hash: '' };
   check('P13 app mode is on and nothing that sells is visible', inBoard.mode && inBoard.shown.length === 0 && !inBoard.shekel, inBoard.shown.join(' ') + (inBoard.shekel ? ' ₪ on screen' : ''));
+  const bar = frame ? await frame.evaluate(() => !!document.getElementById('ishur-consent')) : true;
+  check('P13 no tracking requests and no cookie bar inside the app', trackers.length === 0 && !bar, [...new Set(trackers)].join(' ') + (bar ? ' cookie bar shown' : ''));
   check('P13 the session is not left in the address', !/acct\./.test(inBoard.hash));
   await p.waitForTimeout(600); await p.screenshot({ path: path.join(SHOTS, '8-board-light.png') });
 

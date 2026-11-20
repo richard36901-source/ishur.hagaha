@@ -279,10 +279,16 @@ window.IshurTrack = (function () {
     bar.querySelector('#ishur-consent-ok').addEventListener('click', function () { setConsent('all'); bar.remove(); loadMarketing(); });
     bar.querySelector('#ishur-consent-no').addEventListener('click', function () { setConsent('essential'); bar.remove(); });
   }
+  /* 20/11 client app: a page shown inside the ishur app (…&app=1, remembered for the tab) loads no advertising
+     pixels, no PostHog and shows no cookie bar. The app stores do not allow tracking without their own consent
+     flow, and the app declares that it does not track. */
+  var IN_APP = (function () { try { return /[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1'; } catch (e) { return false; } })();
   var ch = consent();
-  if (ch === 'all') loadMarketing();
-  else if (!ch) { if (document.body) consentBar(); else document.addEventListener('DOMContentLoaded', consentBar); }
-  loadPostHog();
+  if (!IN_APP) {
+    if (ch === 'all') loadMarketing();
+    else if (!ch) { if (document.body) consentBar(); else document.addEventListener('DOMContentLoaded', consentBar); }
+    loadPostHog();
+  }
 
   /* ══ pending order ════════════════════════════════════════════════════════
      Stored before the redirect to Grow so the page the buyer comes back to
