@@ -98,8 +98,9 @@ P14 (R17). `app-check.mjs`: from the board tab, opening guest upload stays insid
 - **Cost**: Apple 99 USD/year, Google 25 USD once. APNs and FCM are free. No new paid service.
 - **Live clients**: no push goes to real clients until Richard says so; the push sender has an off switch
   (`cfg:app_push`), default off in production.
-- **Unverified**: whether a Cloudflare Worker reaches APNs (HTTP/2 required). Tested in loop 4; fallback is FCM for
-  both platforms.
+- **APNs from a Worker**: verified 21/11/2026. `POST /api/app/apns-probe` on staging sent a request signed with a throwaway
+  key to both api.sandbox.push.apple.com and api.push.apple.com; Apple answered 403 `InvalidProviderToken`, so the request
+  arrived (APNs speaks only HTTP/2). The staging guard now allows these two hosts.
 
 ## Out of scope (version 1)
 Buying anything (1.1), partner and hostess screens, iPad layout,

@@ -1,6 +1,6 @@
 # Build app · ishur client app
 
-The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 02:10. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
+The one file to follow. Claude updates it after every step. Last update: 21/11/2026, 02:40. Running cost notes: `app/RUNBOOK.md`. App check 47/47 for both demo clients; Worker tests 1052/1052 with the clock at morning.
 
 In Linear: [AUT-1141 Build app](https://linear.app/autoscalehq/issue/AUT-1141/build-app), project Ishur.io. Its 18 sub-issues are the **You** and **Together** steps below, numbered in order.
 
@@ -42,7 +42,7 @@ Plan: `.sdlc/client-app/round6-redesign.md`. Richard decided: no payments in the
 
 This adds work before the first submission: the "about a week after Apple activates" estimate becomes roughly two weeks. Not measured; revise after the four views are built.
 
-- [x] Event schedule (לוז אירוע), moved into 1.0 on Richard's yes (21/11): button in ראשי, `schedule.html` (works on the website too). The client types where they leave from, the drive time and the ceremony time; "הצעה ללוז" works the day back from the reception (an hour at the venue, the drive, 15 minutes for traffic); every line editable; Waze button to check the drive. Calendar: Apple (webcal subscription) and Google (add by URL), one feed that updates itself (`/api/lineup.ics`, fixed ids). Seen working in the simulator: the app handed the feed to Calendar, which showed all 8 lines on the right day and times (`app/test/shots/17-calendar-subscribe.png`). Not tried: the Google Calendar button, and a change made after subscribing showing up in Calendar. Stored in D1 (KV served stale reads for a minute). The suggested times are Claude's first setting.
+- [x] Event schedule (לוז אירוע), moved into 1.0 on Richard's yes (21/11): button in ראשי, `schedule.html` (works on the website too). The client types where they leave from, the drive time and the ceremony time; "הצעה ללוז" works the day back from the reception (an hour at the venue, the drive, 15 minutes for traffic); every line editable; Waze button to check the drive. Calendar: Apple (webcal subscription) and Google (add by URL), one feed that updates itself (`/api/lineup.ics`, fixed ids). Seen working in the simulator: the app handed the feed to Calendar, which showed all 8 lines on the right day and times (`app/test/shots/17-calendar-subscribe.png`). Google Calendar button checked 21/11 in Chrome: Google opened its "Add calendar" dialog with the feed (cancelled, nothing added). Not tried: a change made after subscribing showing up in a calendar. Stored in D1 (KV served stale reads for a minute). The suggested times are Claude's first setting.
 
 **After 1.0:** 1.1 sign-in with Apple or Google.
 
@@ -65,7 +65,7 @@ Split on 20/11 at Richard's request: routine, well-specified work for Opus now; 
 - [ ] Reviewer demo client on production (spec R11): a fixed phone and code that never expire, invented guests, unable to send anything, and not blocked by the sign-in caps. This touches sign-in security in the Worker.
 - [ ] The production release itself, when Richard says "promote": review the 55+ commits and 17 Worker files going live, the rollback, and the order of steps.
 - [ ] Android notifications through Firebase from the Worker (service-account sign-in, tests). Nothing is written yet.
-- [ ] Whether a Cloudflare Worker can reach Apple's push service at all (unverified since the spec), and the fallback if not. Needs Richard's push key.
+- [x] A Cloudflare Worker reaches Apple's push service (21/11): `POST /api/app/apns-probe` got Apple's own answer `InvalidProviderToken` from both hosts. The staging guard now lets staging talk to Apple's push hosts (only staging-registered test phones can receive). A real notification still needs Richard's push key.
 - [ ] Version 1.1: does Apple require its own payment for buying an RSVP package, and the purchase flow that follows from the answer.
 - [ ] Richard's adjustments after he plays with the app in the simulator.
   - 20/11 21:30, Richard: the empty sixth tile in the board's status grid should hold the commitment to the venue ("כאן תעשה ההתחייבות מול האולם"). Nothing like it exists in the board or the Worker yet. Built on staging 20/11 22:00 as Richard described it: the client types the number, the line under it is our recommendation, a tick when they agree (within 5 people or 5%). Recommendation = confirmed + half the undecided + 30% of the silent, shown once half of the invited people answered; those three numbers are Claude's first setting, for Richard to tune. `worker/venue-commit.js`, `POST /api/venue-commit`, app check 42/42 for both demo clients.
