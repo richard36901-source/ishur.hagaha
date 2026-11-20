@@ -74,9 +74,13 @@ optional. Account deletion: Account tab → "בקשה למחיקת החשבון 
 | User ID (client id) | yes | yes | no | App functionality |
 | Contacts (guest names and phones the client uploaded) | yes | yes | no | App functionality |
 | Device ID (push token) | yes, only if notifications are allowed | yes | no | App functionality |
-| Usage data, diagnostics, location, advertising data | no | | | |
+| Usage data: product interaction (screens opened, controls tapped) | yes | yes (a keyed hash of the phone) | no | Analytics, App functionality |
+| Diagnostics: crash/error data (script error text, no personal data) | yes | yes | no | Analytics |
+| Location, advertising data, browsing history, purchases | no | | | |
 - Data is encrypted in transit (HTTPS). Users can request deletion: in the app and at https://ishur.io/delete-account.html.
-- No third-party advertising or analytics SDK in the app; the board inside the app loads none (check P13/P14).
+- No third-party advertising or analytics SDK in the app; the board inside the app loads none (check P13/P14). Usage data is
+  our own log on our own Worker (`worker/app-events.js`, spec R20-R25): not shared, not used for tracking, kept 400 days,
+  deleted with a delete-account request. Google Data safety: "App interactions" and "Diagnostics", collected, not shared.
 - The worker's own page counter `/px` does not run in app mode (20/11, check P13/P14 count it as a tracking request).
 
 ## Age rating answers (draft)

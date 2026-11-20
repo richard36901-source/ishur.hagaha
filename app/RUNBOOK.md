@@ -59,6 +59,20 @@ npm run env:staging             # ALWAYS switch back before committing
   `appdelete:<phone>`. A person carries it out within 7 days.
 - Not connected yet: the call from "a guest answered" to `notifyAnswer`, the 09:00 summary cron, Android (FCM).
 
+## Usage data (how clients use the app)
+- Code: `worker/app-events.js`, `www/track.js`, `assets/app-track.js` (the board inside the frame). Tests:
+  `node --test worker/test/app-events.test.mjs`. Stored in the Worker's KV under `appev:`, kept 400 days.
+- Read it: `POST /api/app/analytics {admin_key, days}` (1 to 90). Add `phone` for one client's own counts. It answers
+  clients per day, event counts, tabs, board pages and controls, script errors, platform, version, a funnel and
+  return on day 1 and day 7.
+- A new event: add its name to `NAMES` in `worker/app-events.js`, then call `T('name', {…})` in the app. Props are a
+  fixed list of keys; a value with Hebrew letters or 7+ digits in a row is dropped on purpose.
+- A board control is reported only when it has an `id` (or `data-tab` / `data-f` / `data-act`) in Latin letters.
+- Remove one client's events: `POST /api/app/events-purge {admin_key, phone}`. A delete-account request from the app
+  does this by itself.
+- Not there yet: a screen to read the report (today it is JSON), D1 instead of KV (the API token has no D1 permission),
+  purchase events (names reserved, nothing sends them).
+
 ## Not written yet (filled in as each loop is done)
 Signing and certificates, push keys (APNs .p8, Firebase), the Worker push switch `cfg:app_push`, the reviewer demo
 client, TestFlight, Play closed test, what to do on a rejection.

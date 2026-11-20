@@ -15,7 +15,7 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 | A6b | No advertising pixels or analytics load inside the app (board app mode) | 5.1.2, ATT | check P13: zero tracker requests on staging |
 | A7 | Push is optional, asked after an in-app explanation, per-kind switches, no marketing | 4.5.4 | server switches built; in-app permission screen not built |
 | A8 | Privacy policy URL, and the policy names the app and push | 5.1.1(i) | `terms.html#privacy` exists; app text not added |
-| A9 | Privacy labels: Phone number, Name, User ID, Contacts (guest lists), Device ID; none for tracking | App privacy | draft in `listing.md`; `/px` counter off in app mode (staging, P13/P14) |
+| A9 | Privacy labels: Phone number, Name, User ID, Contacts (guest lists), Device ID; none for tracking | App privacy | draft in `listing.md`, now WITH Usage Data + Diagnostics (own log, not tracking; R20-R25, 20/11); `/px`, pixels, PostHog stay off in app mode (P13/P14) |
 | A10 | Privacy manifest in the build | third-party SDK rule | in the app target; present in the built bundle (simulator build 20/11) |
 | A11 | `ITSAppUsesNonExemptEncryption` = NO (HTTPS only) | export compliance | set in Info.plist |
 | A12 | Built with Xcode 26+ / iOS 26 SDK | upload requirement | Xcode 27.2, iOS 27.2 SDK; simulator build succeeds and the app launches to the sign-in screen on iPhone 18 Pro / iOS 27.2 (`store/preview/15-simulator-signin.png`); sign-in inside the simulator NOT yet done; no device or archive build yet |
