@@ -43,7 +43,7 @@ This adds work before the first submission: the "about a week after Apple activa
 
 **After 1.0:** 1.1 sign-in with Apple or Google · 1.2 event schedule and calendar button.
 
-Small questions still open, asked one at a time: where the group link sits (ראשי or מוזמנים); whether the review can be skipped once.
+Decided 20/11: the group link sits in ראשי. Still open: whether the review after the event can be skipped once.
 
 ## Claude's own queue (no approval needed, staging only)
 
