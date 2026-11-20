@@ -6,14 +6,14 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 ## Apple (App Store Review Guidelines)
 | # | Item | Rule | Evidence / state |
 |---|---|---|---|
-| A1 | App is more than the website: own screens, push, share sheet, offline | 4.2 | screens: `app/test/shots/`, check 21/21. Push: not built |
+| A1 | App is more than the website: own screens, push, share sheet, offline | 4.2 | screens: `app/store/preview/`, check 34/34 on staging. Push: server side built and tested, not connected to answers, never sent to a device |
 | A2 | No sign-up, no link to register, no web sign-in | 4, 5.1.1(v) FAQ | `www/index.html` has none |
-| A3 | Account deletion can be started inside the app | 5.1.1(v) | sheet exists; Worker route not built |
+| A3 | Account deletion can be started inside the app | 5.1.1(v) | built; check P6 passes on staging; not on production |
 | A4 | Demo account in App Review Information, works on production, never expires | 2.1(a) | not built (needs Richard's OK) |
 | A5 | Back end is on during review; reviewer network not rate-limited out | 2.1(a) | open |
 | A6 | No purchase UI, prices or calls to buy | 3.1.1, 3.1.3 | P7 grep clean |
 | A6b | No advertising pixels or analytics load inside the app (board app mode) | 5.1.2, ATT | check P13: zero tracker requests on staging |
-| A7 | Push is optional, asked after an in-app explanation, per-kind switches, no marketing | 4.5.4 | not built |
+| A7 | Push is optional, asked after an in-app explanation, per-kind switches, no marketing | 4.5.4 | server switches built; in-app permission screen not built |
 | A8 | Privacy policy URL, and the policy names the app and push | 5.1.1(i) | `terms.html#privacy` exists; app text not added |
 | A9 | Privacy labels: Phone number, Name, User ID, Contacts (guest lists), Device ID; none for tracking | App privacy | answers file: open |
 | A10 | Privacy manifest in the build | third-party SDK rule | file written, plutil OK; NOT yet added to the Xcode target, never built |
@@ -34,7 +34,7 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 |---|---|---|---|
 | G1 | Closed test: 12 testers opted in for 14 continuous days | answer/14151465 | not started |
 | G2 | Target API 36 | answer/11926878 | `android/variables.gradle` targetSdk 36 |
-| G3 | Account deletion: in-app path + web link | answer/13327111 | sheet exists; web page + route not built |
+| G3 | Account deletion: in-app path + web link | answer/13327111 | in-app path built (staging); public web page not built |
 | G4 | Data safety form: Name, Phone, Contacts, User IDs, Device IDs; encrypted in transit; deletion request available | answer/10787469 | open |
 | G5 | Not a bare web view; we own the site | WebView policy | own screens |
 | G6 | Privacy policy URL | User data policy | exists; app text not added |

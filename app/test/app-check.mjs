@@ -187,6 +187,11 @@ try {
   check('P8 dark follows the device setting', /rgb\((\d+), (\d+), (\d+)\)/.test(bg) && bg.match(/\d+/g).slice(0, 3).every(n => Number(n) < 60), bg);
 
   /* sign out returns to the sign-in screen and forgets the session */
+  /* P6: the delete-account request starts inside the app and the server takes it */
+  await p.click('[data-tab=account]'); await p.click('#delete'); await p.click('#sheetYes');
+  await p.waitForFunction(() => /התקבלה/.test(document.getElementById('sheetNote').textContent), null, { timeout: 30000 }).catch(() => {});
+  check('P6 delete-account request is accepted from inside the app', /התקבלה/.test(await p.textContent('#sheetNote')));
+  await p.click('#sheetNo');
   await p.click('[data-tab=account]'); await p.click('#signout');
   const out = await p.evaluate(() => ({ signin: !document.getElementById('signin').hidden, left: Object.keys(localStorage).filter(k => /^ishurapp_/.test(k)) }));
   check('sign out forgets the session and the cached guests', out.signin && out.left.length === 0, out.left.join(','));
