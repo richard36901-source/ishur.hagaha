@@ -16,5 +16,5 @@ if [ -z "$ID" ]; then
 fi
 [ -n "$ID" ] || { echo "app-d1-setup: could not create or find $NAME (does the token have D1:Edit?)"; exit 1; }
 grep -q "database_name = \"$NAME\"" wrangler.toml || printf '\n# ishur client app: usage data (worker/app-events.js, migrations-app/). Added by scripts/app-d1-setup.sh\n%s\nbinding = "APP_DB"\ndatabase_name = "%s"\ndatabase_id = "%s"\nmigrations_dir = "migrations-app"\n' "$HEAD" "$NAME" "$ID" >> wrangler.toml
-npx wrangler d1 execute "$NAME" --remote --file migrations-app/0001_app_events.sql $ENVFLAG >/dev/null
+for f in migrations-app/*.sql; do npx wrangler d1 execute "$NAME" --remote --file "$f" $ENVFLAG >/dev/null; done
 echo "app-d1-setup: $NAME ($ID) is ready and bound as APP_DB for $WHICH. Deploy the worker to start using it."

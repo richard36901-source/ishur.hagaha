@@ -80,7 +80,7 @@ import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';
 import { venueFor, parseCommit, writeCommit } from './venue-commit.js';
 import { packageFor } from './package.js';
-import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedKey as lineupKey } from './lineup.js';   /* 21/11 לוז אירוע */   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
+import { suggest as lineupSuggest, clean as lineupClean, ics as lineupIcs, feedKey as lineupKey, readRec as lineupRead, writeRec as lineupWrite } from './lineup.js';   /* 21/11 לוז אירוע */   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
 import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
@@ -13730,16 +13730,16 @@ const WORKER = {
       if (b.suggest && typeof b.suggest === 'object') return okJson({ ok: true, items: lineupSuggest(b.suggest) }, origin);
       if (Array.isArray(b.items)) {
         const rec = { ...lineupClean(b), at: new Date().toISOString() };
-        await env.RATE.put('lineup:' + tok, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+        await lineupWrite(env, tok, rec);
         return okJson({ ok: true, ...rec, feed }, origin);
       }
-      let rec = null; try { rec = JSON.parse(await env.RATE.get('lineup:' + tok)); } catch {}
+      const rec = await lineupRead(env, tok);
       return okJson({ ok: true, saved: !!rec, ...(rec || { items: [] }), feed }, origin);
     }
     if (url.pathname === '/api/lineup.ics' && request.method === 'GET') {
       const tok = String(url.searchParams.get('t') || '').trim(), k = String(url.searchParams.get('k') || '');
       if (!/^[0-9a-f-]{36}$/.test(tok) || !safeEqual(k, await lineupKey(env, tok))) return new Response('not found', { status: 404 });
-      let rec = null; try { rec = JSON.parse(await env.RATE.get('lineup:' + tok)); } catch {}
+      const rec = await lineupRead(env, tok);
       if (!rec) return new Response('not found', { status: 404 });
       return new Response(lineupIcs(rec, tok), { headers: { 'Content-Type': 'text/calendar; charset=utf-8', 'Content-Disposition': 'inline; filename="ishur-lineup.ics"', 'Cache-Control': 'private, max-age=3600' } });
     }

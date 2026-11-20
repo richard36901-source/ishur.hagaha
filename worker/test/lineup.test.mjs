@@ -43,3 +43,20 @@ test('the feed key is fixed per token and differs between tokens', async () => {
   const a = await L.feedKey(env, 'aaaa'), b = await L.feedKey(env, 'bbbb');
   assert.match(a, /^[0-9a-f]{16}$/); assert.equal(a, await L.feedKey(env, 'aaaa')); assert.notEqual(a, b);
 });
+
+import { DatabaseSync } from 'node:sqlite';
+import fs from 'node:fs';
+test('storage: with the database a save reads back at once; without it, KV', async () => {
+  const db = new DatabaseSync(':memory:'); db.exec(fs.readFileSync(new URL('../migrations-app/0002_lineups.sql', import.meta.url), 'utf8'));
+  const mk = (sql, a = []) => ({ bind: (...x) => mk(sql, x), first: async () => db.prepare(sql).get(...a) ?? null, run: async () => db.prepare(sql).run(...a) });
+  const m = new Map(), kv = { get: async k => m.get(k) ?? null, put: async (k, v) => { m.set(k, v); } };
+  const withDb = { RATE: kv, APP_DB: { prepare: sql => mk(sql) } }, T = 'aaaaaaaa-0000-4000-8000-000000000001';
+  assert.equal(await L.readRec(withDb, T), null);
+  await L.writeRec(withDb, T, { items: [{ m: 600, text: 'א' }], at: 'x' });
+  await L.writeRec(withDb, T, { items: [{ m: 700, text: 'ב' }], at: 'y' });
+  assert.deepEqual((await L.readRec(withDb, T)).items, [{ m: 700, text: 'ב' }]);
+  assert.equal(m.size, 0, 'nothing in KV when the database is there');
+  const noDb = { RATE: kv };
+  await L.writeRec(noDb, T, { items: [{ m: 800, text: 'ג' }] });
+  assert.deepEqual((await L.readRec(noDb, T)).items, [{ m: 800, text: 'ג' }]);
+});

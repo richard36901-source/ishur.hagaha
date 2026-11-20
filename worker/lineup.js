@@ -5,6 +5,17 @@
    The suggestion is Claude's first setting (20/11), to be tuned. Travel time is typed by the client: an automatic one
    needs a paid maps service (spec: no new paid service). */
 const MAX_ITEMS = 40;
+/* storage: D1 (APP_DB, table lineups) when bound, so a save reads back at once; KV otherwise */
+export async function readRec(env, token) {
+  try {
+    if (env.APP_DB) { const r = await env.APP_DB.prepare('SELECT rec FROM lineups WHERE token = ?').bind(token).first(); if (r) return JSON.parse(r.rec); }
+    return JSON.parse(await env.RATE.get('lineup:' + token)) || null;
+  } catch { return null; }
+}
+export async function writeRec(env, token, rec) {
+  if (env.APP_DB) await env.APP_DB.prepare('INSERT INTO lineups (token, rec, at) VALUES (?,?,?) ON CONFLICT(token) DO UPDATE SET rec = excluded.rec, at = excluded.at').bind(token, JSON.stringify(rec), rec.at || new Date().toISOString()).run();
+  else await env.RATE.put('lineup:' + token, JSON.stringify(rec), { expirationTtl: 400 * 86400 });
+}
 const hm = s => { const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || '').trim()); return m && +m[1] < 24 && +m[2] < 60 ? +m[1] * 60 + +m[2] : null; };
 export const toHM = m => { const x = ((Math.round(m) % 1440) + 1440) % 1440; return String(Math.floor(x / 60)).padStart(2, '0') + ':' + String(x % 60).padStart(2, '0'); };
 
