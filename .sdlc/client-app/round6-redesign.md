@@ -14,6 +14,12 @@ Rule for this round: no code on `client-app` until Richard answers question 1 be
 7. Plan it all properly: most convenient for clients, within Apple's rules, so they can upgrade, add things, manage the event, buy more events; a new event starts with the full onboarding (file upload and so on).
 8. **Sign in with Apple or Google** in the app. The website keeps the code as today. In the app: a client with a code types it once, is then asked to connect Apple or Google to continue, and from then on that client signs in to the app only with Apple or Google.
 
+## Added by Richard later the same evening
+
+9. **My package**: a place that shows the terms and everything included in the package they bought, with an option to upgrade. So maybe all add-ons and upgrades live in חשבון, and adding another event too.
+10. **A page of all events**: one row per event; an event that has passed is greyed and moves to the bottom, with a way to leave a review of that event. Or: on opening the app after the event, the client is taken to a review with a 1 to 10 score. A high score offers a Google review or a video; a low score asks why and is kept with us. Or simply an internal review in the app.
+11. **Rate the app**: ask from time to time.
+
 ## 1. Where everything goes
 
 Lines marked (reading) are Claude's interpretation of Richard's wording, to confirm.
@@ -35,7 +41,9 @@ Lines marked (reading) are Claude's interpretation of Richard's wording, to conf
 | עיצוב ההזמנה (style) | שליחות | |
 | Links in the message: Waze, Bit, PayBox, gifts | שליחות | |
 | הסעה and other extras of the message | שליחות | |
-| תוספות לאירוע (hostesses, phone calls, extra send) | שליחות | (reading) Richard said "maybe"; hidden until section 4 is settled |
+| תוספות לאירוע (hostesses, phone calls, extra send) and upgrades | חשבון | Richard's second message moved them here from שליחות; hidden until section 4 is settled |
+| **החבילה שלי** (new): what the package includes, its terms, upgrade | חשבון | what is included can ship in 1.0; the upgrade button waits for section 4 |
+| **כל האירועים** (new): a row per event, past events greyed and last, review button on a past event | the page behind the event picker | section 7 |
 | המלצה עלינו, tiers, credits | חשבון | |
 | חשבונית | חשבון | |
 | כל האירועים שלי + הוספת אירוע | חשבון, and the picker in the header | "add event" depends on section 4 |
@@ -92,13 +100,27 @@ This conflicts with what is written today, and each is Richard's to change, not 
 - **Travel time**: the spec says no new paid service. So in the first version the client types the drive time, with a button that opens Waze for the route. An automatic travel time needs a maps service that charges past a free quota; that is a cost decision.
 - **Calendar button**: the app hands the phone one calendar file with all the lines; the phone offers Apple Calendar or Google Calendar. No calendar permission and no new privacy answer. Unverified: whether pressing it again updates the same entries or adds a second set in Google Calendar; test before promising "update".
 
+## 7. Reviews after the event, and rating the app
+
+What exists today: the board shows a "תודה שחגגתם איתנו" card after the event, `feedback.html`, and the Worker keeps a review state per event with a claim for a Google review or a video (`worker/account.js`). The app should reuse this, not build a second one.
+
+Proposed:
+- After the event date, the first time the client opens the app, a review screen comes up: a 1 to 10 score and an optional line of text, saved with us. It can be closed once with "לא עכשיו" and stays available on the event's row.
+- After the score, the same next step for everyone: the Google review link and the video option.
+
+Two rule points, both from memory and **not fetched today**, to check before building:
+- **Offering the Google review only to people who gave a high score** is what Google calls review gating, and Google's review policy forbids it. The safe version shows the Google link to everyone and asks low scorers "what went wrong" as well, not instead.
+- **Rating the app itself**: Apple wants its own rating prompt to be used and limits how often it appears (about three times a year); a home-made "rate us in the App Store" prompt can be rejected. So "from time to time" is Apple's prompt, triggered by us after a good moment (for example after a guest confirms).
+
+A review that blocks the app until it is filled is Richard's call; Claude's recommendation is one skip.
+
 ## 6. Proposed order of releases
 
 Putting all of this into the first submission moves the launch from about a week after Apple activates the account to a month or more, and puts the riskiest review question (payments) in the first review.
 
 | Release | What | Why this order |
 |---|---|---|
-| **1.0** | What is built now + the four views (sections 1, 2) + event picker and events page, without "add event" | Ships soon; no payments in the first review |
+| **1.0** | What is built now + the four views (sections 1, 2) + event picker and the all-events page, without "add event" + "my package" (what is included, no upgrade button) + the review after the event and Apple's rating prompt (section 7) | Ships soon; no payments in the first review |
 | **1.1** | Sign in with Apple or Google (section 3) | Needs Richard's capability and OAuth clients |
 | **1.2** | Event schedule and calendar (section 5) | Self-contained, no rule questions |
 | **1.3** | Buying: add event with onboarding, add-ons, upgrades (section 4) | After the payment rule is settled |
