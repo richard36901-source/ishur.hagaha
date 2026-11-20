@@ -23,14 +23,15 @@ try {
   await p.goto('http://localhost:4180/'); await p.waitForSelector('#signin:not([hidden])');
   await p.fill('#phone', PHONE); await p.fill('#code', PIN); await p.click('#go');
   await p.waitForSelector('#tabs:not([hidden])', { timeout: 60000 });
-  await p.frameLocator('#boardFrame').locator('#rows .pill').nth(5).waitFor({ timeout: 60000 });
-  await p.waitForTimeout(1500);
-  await p.frameLocator('#boardFrame').getByText('דלגו על הכל').click({ timeout: 5000 }).catch(() => {});
-  /* the notification sheet, if the page shows it in a browser */
+  /* 21/11 the four tabs: ראשי, מוזמנים and שליחות are views of the board; חשבון shows "החבילה שלי" */
+  const fr = p.frameLocator('#boardFrame');
+  await fr.locator('#kpis .kpi').nth(5).waitFor({ timeout: 60000 });
   await p.getByText('לא עכשיו').click({ timeout: 1500 }).catch(() => {});
-  const f = p.frames().find(x => /dashboard/.test(x.url())); if (f) await f.evaluate(() => window.scrollTo(0, 0));
-  await p.waitForTimeout(800); await shot('1-home');
-  for (const [i, t] of [[2, 'guests'], [3, 'sends']]) { await p.click(`[data-tab=${t}]`); await p.waitForTimeout(1200); await shot(`${i}-${t}`); }
+  const top = async () => { const f = p.frames().find(x => /dashboard/.test(x.url())); if (f) await f.evaluate(() => window.scrollTo(0, 0)); await p.waitForTimeout(1200); };
+  await top(); await shot('1-home');
+  await p.click('[data-tab=guests]'); await fr.locator('#rows .pill').nth(5).waitFor({ timeout: 30000 }).catch(() => {}); await top(); await shot('2-guests');
+  await p.click('[data-tab=sends]'); await fr.locator('#sendsCard').waitFor({ timeout: 30000 }).catch(() => {}); await top(); await shot('3-sends');
+  await p.click('[data-tab=account]'); await p.waitForTimeout(800); await shot('4-account');
   await b.close(); code = 0;
 } catch (e) { console.error(String(e)); } finally { server.close(); }
 process.exit(code);

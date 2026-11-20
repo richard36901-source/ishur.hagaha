@@ -76,6 +76,50 @@ npm run env:staging             # ALWAYS switch back before committing
   answers the same from both (a test compares them). Events already in KV are not copied; they age out in 400 days.
 - Not there yet: a screen to read the report (today it is JSON); purchase events (names reserved, nothing sends them).
 
-## Not written yet (filled in as each loop is done)
-Signing and certificates, push keys (APNs .p8, Firebase), the Worker push switch `cfg:app_push`, the reviewer demo
-client, TestFlight, Play closed test, what to do on a rejection.
+## Signing and the first upload to Apple (written 21/11, before the account was active: steps not yet run)
+1. Xcode → Settings → Accounts: the Apple account of the developer program is signed in.
+2. `ios/App/App.xcodeproj` → target App → Signing & Capabilities: tick "Automatically manage signing", Team = the
+   individual team. Bundle identifier stays `io.ishur.client` (cannot change after the first upload).
+3. Same screen → "+ Capability" → Push Notifications (Xcode registers it on the App ID).
+4. Build number: raise it for every upload (`CURRENT_PROJECT_VERSION`); the version (`MARKETING_VERSION`) only for a
+   new store release.
+5. `npm run env:production && npx cap sync ios`, then in Xcode: device "Any iOS Device" → Product → Archive →
+   Distribute App → App Store Connect → Upload. `npm run env:staging` afterwards; `git diff www/env.js` must be empty.
+6. The build appears in App Store Connect → TestFlight after processing (usually under an hour). Answer the export
+   question: the app uses only standard HTTPS, so "None of the algorithms mentioned above".
+
+## Push keys
+- iPhone (APNs): developer.apple.com → Certificates, IDs & Profiles → Keys → "+" → tick Apple Push Notifications
+  service → download the `.p8` (downloads once only). Put it in the Worker:
+  `npx wrangler secret put APNS_KEY_P8 --env staging < AuthKey_XXXX.p8`, then `APNS_KEY_ID` and `APNS_TEAM_ID` the
+  same way. Without `--env staging` for production. Test: `POST /api/app/push-test {admin_key, phone}`.
+- Android (Firebase): not built yet. The Worker needs a service-account key and a sender written for FCM HTTP v1.
+
+## The push switch
+KV `cfg:app_push` = `1` turns sending on. Staging: `npx wrangler kv key put --env staging --binding RATE cfg:app_push 1`.
+Production stays off until Richard says so.
+
+## TestFlight (iPhone testers)
+- Internal testers (people on the developer account): no review, the build is available as soon as it is processed.
+- External testers (anyone by email or public link): the first build goes through a short Beta App Review.
+- Testers install the TestFlight app, open the invitation on the phone, install ishur.
+
+## Google Play closed test
+Personal accounts made after 13/11/2023 must run a closed test with at least 12 testers opted in for 14 days in a
+row before production access (Google's page, read 20/11/2026). Testers need a Google account; add their emails to
+the closed-test list, send them the opt-in link, and they must keep the app installed for the 14 days.
+
+## When Apple rejects
+1. Read the message in App Store Connect → the version → Resolution Center. It names the guideline number.
+2. The usual ones for this app: 2.1 (demo account did not work: check the reviewer demo client on production),
+   4.2 (looks like a website: point to notifications, offline copy, help, calendar), 5.1.1 (sign-in or deletion),
+   3.1.1 (anything that looks like buying: there must be no price, no buy button and no "buy on the website" text).
+3. Fix, raise the build number, upload, and reply in the Resolution Center with what changed. Or, if the reviewer
+   misread, reply with an explanation and screenshots without a new build.
+
+## The reviewer demo client
+Not built yet (spec R11). Needs: a fixed phone and code on production that never expire, invented guests, no
+message ever sent from it, and not blocked by the sign-in limits.
+
+## Not written yet
+Android build and signing (no Android tools on this Mac yet), FCM sender.

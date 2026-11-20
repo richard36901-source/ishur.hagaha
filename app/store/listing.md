@@ -20,12 +20,11 @@
   האפליקציה של לקוחות ishur.io: שירות אישורי הגעה לאירועים בוואטסאפ.
 
   אחרי שהזמנתם את השירות, נכנסים עם הטלפון והקוד שקיבלתם ורואים את האירוע שלכם:
-  · כמה מגיעים, כמה אישרו, מי לא בטוח ומי עוד לא ענה
-  · רשימת המוזמנים המלאה, עם חיפוש לפי שם
-  · למי ההזמנה לא הגיעה, ולמה
-  · לוח השליחות: מה יוצא למוזמנים ומתי, עם אפשרות לשנות תאריך
-  · הזמנה עם תמונה ונוסח משלכם, והוספת מוזמנים
-  · קישור אישור הגעה לשיתוף בקבוצות
+  · ראשי: כמה מגיעים, כמה אישרו, מי לא בטוח ומי עוד לא ענה, וכמה מנות כדאי להתחייב לאולם
+  · סידורי הושבה, ברקוד שולחנות ומעקב תקציב
+  · מוזמנים: הרשימה המלאה עם חיפוש, רשימה להדפסה, החלפת רשימה והוספת מוזמנים
+  · שליחות: מה יוצא למוזמנים ומתי, ההזמנה והנוסח, וקישור אישור הגעה לשיתוף בקבוצות
+  · חשבון: כל האירועים שלכם ומה כלול בחבילה
 
   התראות, אם תרצו: כשמוזמן עונה, סיכום קצר כל בוקר, וכשהזמנה לא הגיעה. בלי התראות בלילה.
 
@@ -43,12 +42,11 @@
   The app for ishur.io clients: WhatsApp RSVP management for events in Israel.
 
   Sign in with the phone number and code you received when you ordered the service, and follow your event:
-  · How many are coming, who confirmed, who is unsure and who has not answered
-  · The full guest list, searchable by name
-  · Which invitations did not arrive, and why
-  · The send schedule: what goes out to guests and when, with the option to move a date
-  · Your invitation image and wording, and adding guests
-  · A shareable RSVP link for groups
+  · Home: how many are coming, who confirmed, who is unsure, who has not answered, and how many to commit to the venue
+  · Seating plan, table QR codes and budget
+  · Guests: the full list with search, a printable list, replacing the list and adding guests
+  · Sends: what goes out to guests and when, your invitation and wording, and a shareable RSVP link for groups
+  · Account: all your events and what your package includes
 
   Optional notifications: when a guest answers, a short summary every morning, and when an invitation did not arrive. Never at night.
 
