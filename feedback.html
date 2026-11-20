@@ -91,10 +91,20 @@
     <p class="err" id="err2"></p>
   </section>
 
+  <!-- 21/11 Richard: Google review asked of everyone, after the text, with no credit and no raffle ticket (Google policy) -->
+  <section id="s-google" hidden>
+    <div class="mark">⭐</div>
+    <h1>נשמח גם לכמה מילים בגוגל</h1>
+    <p class="lede">אם בא לכם, כתבו בגוגל איך היה, בדיוק כמו שזה היה. זה עוזר לזוגות הבאים להכיר אותנו.</p>
+    <a class="btn" id="g2Go" href="#" target="_blank" rel="noopener">לכתיבת ביקורת בגוגל</a>
+    <button class="btn sec" id="g2Done" type="button" hidden>סיימתי ✓</button>
+    <button class="btn sec" id="g2Skip" type="button">לא עכשיו</button>
+  </section>
+
   <section id="s-raffle" hidden>
     <div class="mark">🎁</div>
     <h1>מגישים = נכנסים להגרלה</h1>
-    <p class="lede">משאירים לנו ביקורת ומקבלים כרטיס להגרלה. ככה זה עובד:</p>
+    <p class="lede">מקליטים לנו המלצה קצרה ומקבלים כרטיסים להגרלה. ככה זה עובד:</p>
     <div class="prize"><span class="sub">הפרס</span><b id="rPrize"></b><span class="sub">ההגרלה ב-<span id="rDate"></span></span>
       <div class="timer" id="rTimer"><div><b id="cD">0</b><span>ימים</span></div><div><b id="cH">00</b><span>שעות</span></div><div><b id="cM">00</b><span>דקות</span></div><div><b id="cS">00</b><span>שניות</span></div></div>
     </div>
@@ -112,7 +122,7 @@
       <a class="btn" id="gGo" href="#" target="_blank" rel="noopener">לכתיבת ביקורת בגוגל</a>
       <button class="btn sec" id="gDone" type="button" hidden>סיימתי ✓</button>
     </div>
-    <p class="fine">סרטון = 2 כרטיסים · ביקורת בגוגל = כרטיס 1 · שניהם = 3 כרטיסים. תוכן הביקורת לא משפיע על הסיכוי לזכות.</p>
+    <p class="fine">סרטון = 2 כרטיסים. תוכן ההמלצה לא משפיע על הסיכוי לזכות.</p>
     <button class="btn" id="rFinish" type="button" hidden>לכרטיסים שלי</button>
     <button class="btn sec" id="rSkip" type="button">לא עכשיו</button>
     <p class="err" id="err3"></p>
@@ -133,9 +143,9 @@
   <section id="s-choice" hidden>
     <div class="mark">💚</div>
     <h1>איזה כיף לשמוע!</h1>
-    <p class="lede">המלצה שלכם עוזרת לנו יותר מכל דבר אחר, ועל כל אחת נרשם לכם זיכוי לאירוע הבא. בוחרים מה שנוח לכם:</p>
+    <p class="lede">המלצת וידאו קצרה עוזרת לנו יותר מכל דבר אחר, ועליה נרשם לכם זיכוי לאירוע הבא:</p>
     <div class="act" id="cVideo"><span class="tag">₪30 זיכוי</span><h3>🎥 המלצת וידאו</h3><p>30 שניות מהטלפון, בלי הכנה. נפתח בחלון חדש.</p><button class="btn" type="button" data-pick="video">להקליט המלצה</button></div>
-    <div class="act" id="cGoogle"><span class="tag">₪20 זיכוי</span><h3>⭐ ביקורת בגוגל</h3><p>כמה מילים בדף של ishur.io בגוגל. נפתח בחלון חדש.</p><button class="btn sec" type="button" data-pick="google">לכתוב ביקורת</button></div>
+    <div class="act" id="cGoogle" hidden><h3>⭐ ביקורת בגוגל</h3><p>כמה מילים בדף של ishur.io בגוגל. נפתח בחלון חדש.</p><button class="btn sec" type="button" data-pick="google">לכתוב ביקורת</button></div>
     <button class="btn sec" id="cSkip" type="button" style="margin-top:1rem">לא עכשיו</button>
     <p class="fine" id="cFine">הזיכוי נרשם על שמכם ומתממש בחבילות ובתוספות שלנו. רואים אותו <a href="account.html">באזור האישי</a>.</p>
   </section>
@@ -202,7 +212,7 @@
   var done = { video: false, google: false }, bal = 0, stepParam = new URLSearchParams(location.search).get('step');
   /* raffle config: one GET, never blocks the scores */
   var rafP = fetch(CFG.endpoint('raffle-config')).then(function (r) { return r.json(); }).catch(function () { return null; });
-  function show(id) { ['s1', 's-text', 's-raffle', 's-choice', 's-step', 's-thanks', 's-done', 's-tix'].forEach(function (x) { $(x).hidden = x !== id; }); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} }
+  function show(id) { ['s1', 's-text', 's-google', 's-raffle', 's-choice', 's-step', 's-thanks', 's-done', 's-tix'].forEach(function (x) { $(x).hidden = x !== id; }); try { window.scrollTo({ top: 0, behavior: 'smooth' }); } catch (e) {} }
   function beacon(o) { o.token = token; o.who = who; try { navigator.sendBeacon(CFG.endpoint('feedback'), new Blob([JSON.stringify(o)], { type: 'application/json' })); } catch (e) { post(o); } }
   $('go').addEventListener('click', function () {
     $('go').disabled = true; $('err').textContent = '';
@@ -216,15 +226,21 @@
       show('s-text'); $('note').focus();
     }).catch(function () { $('err').textContent = 'לא הצלחנו לשלוח, נסו שוב'; $('go').disabled = false; });
   });
-  /* after the text: high scores (min ≥ 6, as before) → the raffle teaser when it is on, else the old video link; low → thanks */
+  /* after the text: everyone is asked for a Google review (no credit, no ticket); then high scores (min ≥ 6) → the
+     video testimonial (raffle or credit). Inside the ishur app there is no credit or raffle at all: the app sells
+     nothing and shows no ₪. */
+  var inApp = /[?&]app=1(&|$)/.test(location.search);
   function afterText() {
-    if (route !== 'high') { show('s-done'); return; }
+    if (review && !done.google) { $('g2Go').href = review; ph('google_ask_shown', { route: route }); show('s-google'); return; }
+    afterGoogle();
+  }
+  function afterGoogle() {
+    if (route !== 'high' || inApp) { show('s-done'); return; }
     rafP.then(function (c) {
-      R = c && c.on && !c.drawn && Date.parse(c.draw_at) > Date.now() && (c.video || c.google) ? c : null;
+      R = c && c.on && !c.drawn && Date.parse(c.draw_at) > Date.now() && c.video ? c : null;
       if (!R) { showChoice(); return; }
       $('rPrize').textContent = R.prize_he; $('rDate').textContent = dateHe(R.draw_at);
       if (R.video) { $('vGo').href = R.video_url; $('aVideo').hidden = false; }
-      if (R.google) { $('gGo').href = R.google_review_url; $('aGoogle').hidden = false; }
       if (who) $('rWho').hidden = false;
       tick(); setInterval(tick, 1000);
       ph('raffle_teaser_shown');
@@ -269,6 +285,14 @@
   }
   $('vDone').addEventListener('click', function () { claim('video', $('vDone'), $('aVideo')); });
   $('gDone').addEventListener('click', function () { claim('google', $('gDone'), $('aGoogle')); });
+  $('g2Go').addEventListener('click', function () { ph('feedback_click', { target: 'review' }); beacon({ click: 'review' }); $('g2Done').hidden = false; });
+  $('g2Skip').addEventListener('click', function () { ph('google_ask_skipped'); afterGoogle(); });
+  $('g2Done').addEventListener('click', function () {
+    $('g2Done').disabled = true;
+    fetch(CFG.endpoint('review-claim'), { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ token: token, kind: 'google' }) })
+      .then(function (r) { return r.json(); }).catch(function () { return null; })
+      .then(function (j) { if (j && j.ok) done.google = true; ph('google_review_done'); afterGoogle(); });
+  });
   $('rSkip').addEventListener('click', function () { ph('raffle_skipped'); show('s-done'); });
   $('rFinish').addEventListener('click', function () {
     var host = $('tixList'); host.innerHTML = '';
@@ -279,12 +303,12 @@
   });
   /* ── the credit flow (raffle off) ── */
   var KIND = {
-    video: { ils: 30, mark: '🎥', h: 'המלצת וידאו · ₪30 זיכוי', lede: 'לוחצים, מקליטים 30 שניות מהטלפון וחוזרים לכאן ללחוץ "שלחתי". בלי הכנה, בלי עריכה.', go: 'להקלטת ההמלצה', doneTxt: 'שלחתי את הסרטון ✓', link: function () { return clip; }, click: 'clip', other: 'google', otherH: '⭐ רוצים גם ביקורת בגוגל?', otherP: 'כמה מילים בגוגל, ועוד ₪20 זיכוי.', otherBtn: 'לכתוב ביקורת בגוגל' },
-    google: { ils: 20, mark: '⭐', h: 'ביקורת בגוגל · ₪20 זיכוי', lede: 'נפתח דף הביקורות שלנו בגוגל. כותבים כמה מילים, מפרסמים, וחוזרים לכאן ללחוץ "סיימתי".', go: 'לכתיבת ביקורת בגוגל', doneTxt: 'סיימתי ✓', link: function () { return review; }, click: 'review', other: 'video', otherH: '🎥 רוצים גם להקליט המלצה?', otherP: '30 שניות מהטלפון, ועוד ₪30 זיכוי.', otherBtn: 'להקליט המלצה' }
+    video: { ils: 30, mark: '🎥', h: 'המלצת וידאו · ₪30 זיכוי', lede: 'לוחצים, מקליטים 30 שניות מהטלפון וחוזרים לכאן ללחוץ "שלחתי". בלי הכנה, בלי עריכה.', go: 'להקלטת ההמלצה', doneTxt: 'שלחתי את הסרטון ✓', link: function () { return clip; }, click: 'clip', other: 'google', otherH: '', otherP: '', otherBtn: '' },
+    google: { ils: 0, mark: '⭐', h: 'ביקורת בגוגל', lede: 'נפתח דף הביקורות שלנו בגוגל. כותבים כמה מילים, מפרסמים, וחוזרים לכאן ללחוץ "סיימתי".', go: 'לכתיבת ביקורת בגוגל', doneTxt: 'סיימתי ✓', link: function () { return review; }, click: 'review', other: 'video', otherH: '', otherP: '', otherBtn: '' }
   };
   var cur = '';
   function showChoice() {
-    $('cVideo').hidden = done.video || !clip; $('cGoogle').hidden = done.google || !review;
+    $('cVideo').hidden = done.video || !clip; $('cGoogle').hidden = true;   /* 21/11: Google has its own step, with no credit */
     if ($('cVideo').hidden && $('cGoogle').hidden) { show('s-done'); return; }
     ph('review_choice_shown', { video: !$('cVideo').hidden, google: !$('cGoogle').hidden }); show('s-choice');
   }
@@ -302,9 +326,9 @@
         if (!j || !j.ok) { $('stDone').disabled = false; $('err4').textContent = j && j.error === 'low-score' ? 'הזיכוי ניתן על ציונים של 6 ומעלה' : 'לא הצלחנו לרשום, נסו שוב'; return; }
         done = { video: !!j.video, google: !!j.google }; bal = Number(j.balance_ils) || 0;
         ph('review_claimed', { kind: kind, ils: j.ils, balance: bal });
-        $('thH').textContent = j.already ? 'כבר רשום אצלנו ✓' : 'תודה! ₪' + k.ils + ' נזקפו לזיכוי שלכם';
-        $('thLede').textContent = 'סך הזיכוי שלכם: ₪' + bal + '. הוא מתממש בחבילות ובתוספות שלנו, ורואים אותו באזור האישי.';
-        var o = KIND[k.other], canOther = !done[k.other] && !!o.link();
+        $('thH').textContent = j.already ? 'כבר רשום אצלנו ✓' : j.ils ? 'תודה! ₪' + j.ils + ' נזקפו לזיכוי שלכם' : 'תודה רבה!';
+        $('thLede').textContent = j.ils || bal ? 'סך הזיכוי שלכם: ₪' + bal + '. הוא מתממש בחבילות ובתוספות שלנו, ורואים אותו באזור האישי.' : 'תודה שהקדשתם לנו מזמנכם.';
+        var o = KIND[k.other], canOther = false;   /* 21/11: no second offer; Google is never offered for credit */
         $('thOther').hidden = !canOther;
         if (canOther) { $('thTag').textContent = '₪' + o.ils + ' זיכוי'; $('thOtherH').textContent = k.otherH; $('thOtherP').textContent = k.otherP; $('thOtherBtn').textContent = k.otherBtn; $('thOtherBtn').onclick = function () { openStep(k.other); }; }
         $('thFine').innerHTML = (canOther ? 'או ' : '') + '<a href="account.html">לאזור האישי</a> · תודה מכל הלב, צוות ishur.io';
@@ -322,7 +346,7 @@
     post({ state: true }).then(function (j) {
       if (!j || !j.ok || !j.scored) { $('s1').hidden = false; return; }
       route = j.route; clip = j.clip || ''; review = j.review || ''; done = { video: !!j.video, google: !!j.google }; bal = Number(j.balance_ils) || 0;
-      if (route !== 'high') { show('s-done'); return; }
+      if (stepParam === 'video' && (route !== 'high' || inApp)) { show('s-done'); return; }
       if (done[stepParam]) { showChoice(); return; }
       openStep(stepParam);
     }).catch(function () { $('s1').hidden = false; });

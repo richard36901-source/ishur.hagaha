@@ -148,7 +148,9 @@ test('feedback: route high at 6/6, low at 5/6; response carries scored/video/goo
   r = await post(e, '/api/feedback', { token: TOK3, nps: 5, exp: 6 }); assert.equal(r.route, 'low');
   r = await post(e, '/api/feedback', { token: TOK2, state: true }); assert.equal(r.scored, true); assert.equal(r.route, 'high');
 });
-test('review-claim: 409 before scores, 30 then 50 after high scores, repeat is idempotent, low score 409', async () => {
+/* 21/11/2026 Richard: a Google review earns no credit and may come from any score (Google's "Rating Manipulation" policy).
+   Before that this test expected ₪20 for Google and a 50 balance. */
+test('review-claim: 409 before scores; video 30 after high scores; Google records with no credit, from any score; idempotent', async () => {
   const e = env();
   assert.equal((await post(e, '/api/review-claim', { token: TOK2, kind: 'video' })).error, 'not-scored');
   assert.equal((await post(e, '/api/review-claim', { token: TOK2, kind: 'x' })).status, 400);
@@ -156,15 +158,17 @@ test('review-claim: 409 before scores, 30 then 50 after high scores, repeat is i
   let r = await post(e, '/api/review-claim', { token: TOK2, kind: 'video' });
   assert.equal(r.status, 200); assert.equal(r.ils, 30); assert.equal(r.balance_ils, 30); assert.equal(r.video, true);
   r = await post(e, '/api/review-claim', { token: TOK2, kind: 'google' });
-  assert.equal(r.ils, 20); assert.equal(r.balance_ils, 50); assert.equal(r.google, true);
+  assert.equal(r.ils, 0); assert.equal(r.balance_ils, 30, 'a Google review adds no credit'); assert.equal(r.google, true);
   r = await post(e, '/api/review-claim', { token: TOK2, kind: 'google' });
-  assert.equal(r.already, true); assert.equal(r.balance_ils, 50, 'no double credit');
-  const led = JSON.parse(e.RATE.m.get('credit:' + PHONE)); assert.equal(led.entries.length, 2);
+  assert.equal(r.already, true); assert.equal(r.balance_ils, 30);
+  const led = JSON.parse(e.RATE.m.get('credit:' + PHONE)); assert.equal(led.entries.length, 1, 'only the video earned a credit');
   await post(e, '/api/feedback', { token: TOK3, nps: 4, exp: 9 });
   assert.equal((await post(e, '/api/review-claim', { token: TOK3, kind: 'video' })).error, 'low-score');
+  r = await post(e, '/api/review-claim', { token: TOK3, kind: 'google' });
+  assert.equal(r.status, 200); assert.equal(r.ils, 0); assert.equal(r.google, true, 'a low score may leave a Google review too');
   /* and the personal area shows it */
   const s = await login(e); const me = await post(e, '/api/account/me', { session: s });
-  assert.equal(me.credit.balance_ils, 50); assert.equal(me.credit.entries[0].kind_he, 'ביקורת בגוגל'); assert.equal(me.events[1].next, 'done');
+  assert.equal(me.credit.balance_ils, 30); assert.equal(me.credit.entries[0].kind_he, 'המלצת וידאו'); assert.equal(me.events[1].next, 'done');
 });
 test('dashboard gate /api/otp-send uses the same ladder (guests number when Noa is unpaid)', async () => {
   metaMode = 'noa-131042';

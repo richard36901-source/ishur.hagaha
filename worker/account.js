@@ -24,7 +24,11 @@
    (KV is eventually consistent); the KV row only revokes. Never in a URL.
    ========================================================================== */
 
-export const CREDIT_ILS = { video: 30, google: 20 };
+/* 21/11 Richard: no credit for a Google review. Google's policy ("Rating Manipulation") forbids incentives and asking
+   only satisfied customers, so a Google review is asked of everyone and earns nothing. The video testimonial is our
+   own content and keeps its credit. */
+export const CREDIT_ILS = { video: 30 };
+const CLAIM_KINDS = { video: 1, google: 1 };
 export const KIND_HE = { review_video: 'המלצת וידאו', review_google: 'ביקורת בגוגל', referral: 'הפניית חבר' };
 export const OTP_TTL = 600, OTP_TRIES = 5, SESSION_DAYS = 90;
 const WA_NOA = '972559504499';
@@ -429,7 +433,7 @@ export async function handleReviewClaim(request, env, origin, d) {
   const token = String(b.token || '').trim().toLowerCase();
   const kind = String(b.kind || '');
   if (!/^[0-9a-f-]{20,40}$/.test(token)) return d.deny(400, 'bad-token', origin);
-  if (!CREDIT_ILS[kind]) return d.deny(400, 'bad-kind', origin);
+  if (!CLAIM_KINDS[kind]) return d.deny(400, 'bad-kind', origin);
   if (await d.overBudget(env, 'rl:claim:' + token, 10, 3600)) return d.deny(429, 'slow-down', origin);
   const raw = await d.readSnapshot(env, 'guest').catch(() => null);
   const ev = ((raw && raw.events && raw.events.values) || []).find(r => String((r || [])[1] || '').trim().toLowerCase() === token);
@@ -438,14 +442,14 @@ export async function handleReviewClaim(request, env, origin, d) {
   const fb = (await kvJson(env, 'fb:' + token)) || {};
   const st = reviewState(fb);
   if (!st.scored) return d.deny(409, 'not-scored', origin);
-  if (st.route !== 'high') return d.deny(409, 'low-score', origin);
+  if (kind === 'video' && st.route !== 'high') return d.deny(409, 'low-score', origin);
   if (fb[kind + '_at']) return d.okJson({ ok: true, already: true, ils: 0, balance_ils: ledgerBalance(await readLedger(env, phone)) }, origin);
   fb[kind + '_at'] = new Date().toISOString();
   await env.RATE.put('fb:' + token, JSON.stringify(fb));
-  const ils = CREDIT_ILS[kind];
-  const balance = await addCredit(env, phone, { kind: 'review_' + kind, ils, token });
+  const ils = CREDIT_ILS[kind] || 0;
+  const balance = ils ? await addCredit(env, phone, { kind: 'review_' + kind, ils, token }) : ledgerBalance(await readLedger(env, phone));
   const evName = String(ev[34] || ev[2] || token.slice(0, 8)).trim();
-  await d.logEvent(env, { area: 'סוף-אירוע', action: `${KIND_HE['review_' + kind]} נרשמה · ₪${ils} זיכוי (יתרה ₪${balance})`, ok: true, token, phone }).catch(() => {});
-  await d.slackSend(env, `⭐ *${KIND_HE['review_' + kind]}* · ${evName} · ${phone}\n₪${ils} נזקפו לזיכוי · יתרה ₪${balance}`, { oneoff: true }).catch(() => {});
+  await d.logEvent(env, { area: 'סוף-אירוע', action: `${KIND_HE['review_' + kind]} נרשמה` + (ils ? ` · ₪${ils} זיכוי (יתרה ₪${balance})` : ' (ללא זיכוי)'), ok: true, token, phone }).catch(() => {});
+  await d.slackSend(env, `⭐ *${KIND_HE['review_' + kind]}* · ${evName} · ${phone}` + (ils ? `\n₪${ils} נזקפו לזיכוי · יתרה ₪${balance}` : ''), { oneoff: true }).catch(() => {});
   return d.okJson({ ok: true, ils, balance_ils: balance, video: !!fb.video_at, google: !!fb.google_at }, origin);
 }
