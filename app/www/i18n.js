@@ -1,9 +1,11 @@
-/* ishur.io · languages (round 7, 21/11/2026). The pages are written in Hebrew; this swaps every Hebrew text it knows for
+/* ishur client app · languages for the app's own screens (round 7, 21/11/2026). The board pages have their own overlay
+   (assets/i18n.js on the site, by another session); the app opens them with ?lang=<code>, which that overlay reads.
+   The app's screens are written in Hebrew; this swaps every Hebrew text it knows for
    the chosen language: text, placeholder, title, aria-label, button values, the page title, confirm/alert, and anything
    a page adds later. A text that still has Hebrew after the swap (a guest's, venue's or event's name) is left as it is.
    Adding a language = one line in LANGS + one file i18n/<code>.json ({ "<Hebrew>": "<translation>" }).
    Choice: ?lang=xx (the app passes it), else the one remembered on this device, else Hebrew.
-   The same file runs in the app (app/www/i18n.js, copied by `npm run i18n` in app/). */
+   Dictionaries: app/www/i18n/<code>.json. */
 (function () {
   'use strict';
   var LANGS = {

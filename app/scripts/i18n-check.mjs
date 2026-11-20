@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /* round 7 pass conditions A1–A3, A5 (.sdlc/client-app/round7-languages.md). For each language: sign in to the app on
-   staging, walk the four tabs and the events page, then open each board page with ?lang=. Report every visible text
+   staging, walk the four tabs and the events page, then open each board page with ?lang=. The app's own screens use
+   app/www/i18n.js; the board pages use the site's overlay (assets/i18n.js, another session). Report every visible text
    that is still a Hebrew UI text, the page direction, and pages wider than the screen.
    LANGS=en,ru node app/scripts/i18n-check.mjs   (default: every language file present)   exit 0 = all pass
    Needs STAGING_SECRETS and PLAYWRIGHT_PATH, like test/app-check.mjs. Serves app/www on localhost:4180. */
@@ -8,9 +9,10 @@ import fs from 'node:fs'; import path from 'node:path'; import http from 'node:h
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const KEYS = new Set(JSON.parse(fs.readFileSync(path.join(ROOT, 'i18n', 'keys.json'), 'utf8')));
 const RTL = { he: 1, ar: 1, yi: 1 };
-const all = fs.readdirSync(path.join(ROOT, 'assets', 'i18n')).filter(f => /^[a-z]{2}\.json$/.test(f)).map(f => f.slice(0, 2));
+const DICT_DIR = path.join(ROOT, 'app', 'www', 'i18n');
+const all = fs.readdirSync(DICT_DIR).filter(f => /^[a-z]{2}\.json$/.test(f)).map(f => f.slice(0, 2));
 const LANGS = (process.env.LANGS || all.join(',')).split(',').filter(Boolean);
-const dicts = Object.fromEntries(LANGS.map(l => [l, JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', 'i18n', l + '.json'), 'utf8'))]));
+const dicts = Object.fromEntries(LANGS.map(l => [l, JSON.parse(fs.readFileSync(path.join(DICT_DIR, l + '.json'), 'utf8'))]));
 const { chromium } = await import(process.env.PLAYWRIGHT_PATH || 'playwright');
 const key = fs.readFileSync(process.env.STAGING_SECRETS, 'utf8').match(/^ADMIN_KEY=(.+)$/m)[1].trim();
 const BASE = 'https://go-staging.ishur.io', SITE = 'https://staging.ishur.io', PHONE = '0500000102', TOK = 'bbbbbbbb-0000-4000-8000-000000000002';
