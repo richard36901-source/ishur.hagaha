@@ -246,6 +246,32 @@
     ['דלגו על הכל', 'Skip all', 'Tout passer', 'Omitir todo', 'איבערהיפּן אַלץ', 'تخطي الكل', 'Пропустить всё'],
     ['מצב תצוגה', 'Display mode', 'Mode d’affichage', 'Modo de visualización', 'אויסזען־מאָדוס', 'وضع العرض', 'Режим отображения'],
     ['תוכן הלוח', 'Board contents', 'Sommaire du tableau', 'Contenido del panel', 'אינהאַלט פֿונעם ברעט', 'محتوى اللوحة', 'Содержание панели'],
+    ["בוצע ✓", "Done ✓", "Fait ✓", "Hecho ✓", "געטאָן ✓", "تم ✓", "Готово ✓"],
+    ["תוצאות הסבב", "Round results", "Résultats de la série", "Resultados de la ronda", "רעזולטאַטן פֿון דער רונדע", "نتائج الجولة", "Итоги раунда"],
+    ["מצורפת תמונה", "Image attached", "Image jointe", "Imagen adjunta", "אַ בילד איז צוגעלייגט", "صورة مرفقة", "Изображение прикреплено"],
+    ["✓ נוסח אישי מאושר", "✓ Your wording is approved", "✓ Votre texte est approuvé", "✓ Su texto está aprobado", "✓ אײַער נוסח איז באַשטעטיקט", "✓ صيغتكم معتمدة", "✓ Ваш текст одобрен"],
+    ["ההזמנות כבר יצאו, הנוסח נעול.", "The invitations have already gone out, the wording is locked.", "Les invitations sont déjà parties, le texte est verrouillé.", "Las invitaciones ya se enviaron, el texto está bloqueado.", "די אײַנלאַדונגען זענען שוין אַרויס, דער נוסח איז פֿאַרשלאָסן.", "تم إرسال الدعوات، الصيغة مقفلة.", "Приглашения уже отправлены, текст зафиксирован."],
+    ["להזמנה. כך היא תיראה אצל המוזמנים.", "for the invitation. This is how guests will see it.", "pour l’invitation. Voici ce que verront les invités.", "para la invitación. Así la verán los invitados.", "פֿאַר דער אײַנלאַדונג. אַזוי וועלן די געסט זי זען.", "للدعوة. هكذا ستظهر لدى المدعوين.", "для приглашения. Так его увидят гости."],
+    ["ההזמנה הראשונה יצאה בנוסח הרגיל. מוזמנים שתוסיפו מעכשיו יקבלו את הנוסח שלכם. התזכורות הן הודעה נפרדת ולא משתנות.", "The first invitation went out with the regular wording. Guests you add from now on will get your wording. Reminders are a separate message and do not change.", "La première invitation est partie avec le texte habituel. Les invités ajoutés désormais recevront votre texte. Les rappels sont un message distinct et ne changent pas.", "La primera invitación salió con el texto habitual. Los invitados que añada a partir de ahora recibirán su texto. Los recordatorios son un mensaje aparte y no cambian.", "די ערשטע אײַנלאַדונג איז אַרויס מיטן געוויינטלעכן נוסח. געסט וואָס איר וועט צולייגן פֿון איצט וועלן באַקומען אײַער נוסח. די דערמאָנונגען זענען אַ באַזונדערע מעלדונג און בײַטן זיך נישט.", "الدعوة الأولى أُرسلت بالصيغة العادية. المدعوون الذين تضيفونهم من الآن سيستلمون صيغتكم. التذكيرات رسالة منفصلة ولا تتغير.", "Первое приглашение ушло с обычным текстом. Гости, которых вы добавите с этого момента, получат ваш текст. Напоминания — отдельное сообщение, они не меняются."],
+    ["חשבונית מס/קבלה אחת הופקה לאירוע.", "One tax invoice/receipt was issued for the event.", "Une facture/reçu a été émise pour l’événement.", "Se emitió una factura/recibo para el evento.", "איין שטײַער־חשבון/קבלה איז אַרויסגעגעבן געוואָרן פֿאַר דער שׂימחה.", "صدرت فاتورة ضريبية/إيصال واحد للمناسبة.", "Для события выставлен один счёт-фактура/чек."],
+    ["{n} חשבוניות מס/קבלה הופקו לאירוע.", "{n} tax invoices/receipts were issued for the event.", "{n} factures/reçus ont été émis pour l’événement.", "Se emitieron {n} facturas/recibos para el evento.", "{n} שטײַער־חשבונות/קבלות זענען אַרויסגעגעבן געוואָרן פֿאַר דער שׂימחה.", "صدرت {n} فواتير ضريبية/إيصالات للمناسبة.", "Для события выставлено счетов-фактур/чеков: {n}."],
+    ["מס׳ {n} · רכישה · {n}", "No. {n} · purchase · {n}", "N° {n} · achat · {n}", "N.º {n} · compra · {n}", "נומ׳ {n} · קויף · {n}", "رقم {n} · شراء · {n}", "№ {n} · покупка · {n}"],
+    ["מס׳ {n} · רכישה · ₪{n} · {n}", "No. {n} · purchase · ₪{n} · {n}", "N° {n} · achat · {n} ₪ · {n}", "N.º {n} · compra · ₪{n} · {n}", "נומ׳ {n} · קויף · ₪{n} · {n}", "رقم {n} · شراء · ₪{n} · {n}", "№ {n} · покупка · ₪{n} · {n}"],
+    ["מס׳ {n} · תוספת · ₪{n} · {n}", "No. {n} · add-on · ₪{n} · {n}", "N° {n} · supplément · {n} ₪ · {n}", "N.º {n} · extra · ₪{n} · {n}", "נומ׳ {n} · צוגאָב · ₪{n} · {n}", "رقم {n} · إضافة · ₪{n} · {n}", "№ {n} · дополнение · ₪{n} · {n}"],
+    ["המספר לא פעיל בוואטסאפ, או שהגדרות הפרטיות שלו חוסמות הודעות ממי שלא שמור אצלו באנשי הקשר", "The number is not active on WhatsApp, or its privacy settings block messages from senders not saved in its contacts", "Le numéro n’est pas actif sur WhatsApp, ou ses réglages de confidentialité bloquent les messages des expéditeurs absents de ses contacts", "El número no está activo en WhatsApp, o su configuración de privacidad bloquea mensajes de quien no está en sus contactos", "דער נומער איז נישט אַקטיוו אויף וואַטסאַפּ, אָדער זײַנע פּריוואַטקייט־אײַנשטעלונגען בלאָקירן מעלדונגען פֿון ווער ס׳איז נישט אין זײַנע קאָנטאַקטן", "الرقم غير نشط على واتساب، أو إعدادات الخصوصية لديه تحجب الرسائل ممن ليسوا في جهات اتصاله", "Номер не активен в WhatsApp, либо настройки приватности блокируют сообщения от тех, кого нет в контактах"],
+    ["וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים שלא שמורים אצלו", "WhatsApp limits messages to this contact from businesses not saved in their contacts", "WhatsApp limite pour ce contact les messages d’entreprises absentes de ses contacts", "WhatsApp limita para este contacto los mensajes de empresas que no tiene guardadas", "וואַטסאַפּ באַגרענעצט פֿאַר דעם קאָנטאַקט מעלדונגען פֿון געשעפֿטן וואָס זענען נישט בײַ אים פֿאַרשריבן", "واتساب يقيّد لهذه الجهة الرسائل من الأعمال غير المحفوظة لديها", "WhatsApp ограничивает для этого контакта сообщения от компаний, которых нет в его контактах"],
+    ["זה מצב זמני מצד וואטסאפ", "This is a temporary state on WhatsApp’s side", "C’est une situation temporaire du côté de WhatsApp", "Es una situación temporal por parte de WhatsApp", "דאָס איז אַ צײַטווײַליקער מצבֿ פֿון וואַטסאַפּס זײַט", "هذه حالة مؤقتة من جهة واتساب", "Это временное ограничение со стороны WhatsApp"],
+    ["וואטסאפ מגביל לאיש הקשר הזה הודעות מעסקים כרגע (מצב זמני מצד וואטסאפ)", "WhatsApp is currently limiting business messages to this contact (a temporary state on WhatsApp’s side)", "WhatsApp limite actuellement les messages d’entreprises pour ce contact (situation temporaire du côté de WhatsApp)", "WhatsApp limita por ahora los mensajes de empresas a este contacto (situación temporal por parte de WhatsApp)", "וואַטסאַפּ באַגרענעצט איצט געשעפֿט־מעלדונגען צו דעם קאָנטאַקט (אַ צײַטווײַליקער מצבֿ פֿון וואַטסאַפּס זײַט)", "واتساب يقيّد حاليًا رسائل الأعمال لهذه الجهة (حالة مؤقتة من جهة واتساب)", "WhatsApp сейчас ограничивает сообщения от компаний этому контакту (временно, со стороны WhatsApp)"],
+    ["הסרטון או התמונה לא נטענו אצל וואטסאפ באותו רגע", "The video or image did not load at WhatsApp at that moment", "La vidéo ou l’image ne s’est pas chargée chez WhatsApp à ce moment-là", "El vídeo o la imagen no se cargó en WhatsApp en ese momento", "דער ווידעאָ אָדער דאָס בילד האָט זיך נישט אָנגעלאָדן בײַ וואַטסאַפּ אין יענעם מאָמענט", "لم يُحمَّل الفيديو أو الصورة لدى واتساب في تلك اللحظة", "Видео или изображение не загрузилось в WhatsApp в тот момент"],
+    ["תקלה זמנית בחיבור לוואטסאפ מצידנו", "A temporary connection issue with WhatsApp on our side", "Un souci temporaire de connexion à WhatsApp de notre côté", "Un problema temporal de conexión con WhatsApp por nuestra parte", "אַ צײַטווײַליקע שטערונג אין דער פֿאַרבינדונג מיט וואַטסאַפּ פֿון אונדזער זײַט", "خلل مؤقت في الاتصال بواتساب من جهتنا", "Временный сбой соединения с WhatsApp на нашей стороне"],
+    ["וואטסאפ קיבל את ההודעה אבל לא מסר אותה לטלפון כבר יממה (טלפון כבוי, בלי קליטה או מספר לא פעיל)", "WhatsApp accepted the message but has not delivered it to the phone for a day (phone off, no reception or an inactive number)", "WhatsApp a accepté le message mais ne l’a pas remis au téléphone depuis un jour (téléphone éteint, sans réseau ou numéro inactif)", "WhatsApp aceptó el mensaje pero lleva un día sin entregarlo al teléfono (teléfono apagado, sin cobertura o número inactivo)", "וואַטסאַפּ האָט אָנגענומען די מעלדונג אָבער האָט זי שוין אַ מעת־לעת נישט איבערגעגעבן צום טעלעפֿאָן (אויסגעלאָשענער טעלעפֿאָן, אָן אָפּנעם אָדער אַ נישט־אַקטיווער נומער)", "استلم واتساب الرسالة لكنه لم يسلّمها إلى الهاتف منذ يوم (هاتف مغلق، بلا تغطية أو رقم غير نشط)", "WhatsApp принял сообщение, но уже сутки не доставил его на телефон (телефон выключен, нет сети или номер не активен)"],
+    ["וואטסאפ לא הצליח למסור את ההודעה", "WhatsApp could not deliver the message", "WhatsApp n’a pas pu remettre le message", "WhatsApp no pudo entregar el mensaje", "וואַטסאַפּ האָט נישט געקענט איבערגעבן די מעלדונג", "تعذّر على واتساب تسليم الرسالة", "WhatsApp не смог доставить сообщение"],
+    ["ננסה לשלוח שוב אוטומטית ב-{n}", "We will try to send again automatically on {n}", "Nous réessaierons automatiquement le {n}", "Lo intentaremos de nuevo automáticamente el {n}", "מיר וועלן פּרוּוון שיקן ווידער אויטאָמאַטיש דעם {n}", "سنحاول الإرسال مجددًا تلقائيًا في {n}", "Мы автоматически попробуем снова {n}"],
+    ["ננסה לשלוח שוב אוטומטית", "We will try to send again automatically", "Nous réessaierons automatiquement", "Lo intentaremos de nuevo automáticamente", "מיר וועלן פּרוּוון שיקן ווידער אויטאָמאַטיש", "سنحاول الإرسال مجددًا تلقائيًا", "Мы автоматически попробуем снова"],
+    ["ניסינו שלוש פעמים", "We tried three times", "Nous avons essayé trois fois", "Lo intentamos tres veces", "מיר האָבן געפּרוּווט דרײַ מאָל", "حاولنا ثلاث مرات", "Мы пробовали три раза"],
+    ["כדאי לשלוח להם את ההזמנה מהטלפון שלכם", "It is worth sending them the invitation from your own phone", "Mieux vaut leur envoyer l’invitation depuis votre téléphone", "Conviene enviarles la invitación desde su teléfono", "ס׳איז כּדאַי זיי צו שיקן די אײַנלאַדונג פֿון אײַער טעלעפֿאָן", "يُستحسن إرسال الدعوة لهم من هاتفكم", "Лучше отправить им приглашение со своего телефона"],
+    ["למה לא נמסר?", "Why was it not delivered?", "Pourquoi n’a-t-il pas été remis ?", "¿Por qué no se entregó?", "פֿאַרוואָס איז עס נישט איבערגעגעבן געוואָרן?", "لماذا لم تُسلَّم؟", "Почему не доставлено?"],
+    ["מה קורה עכשיו", "What happens now", "Et maintenant", "Qué pasa ahora", "וואָס געשעט איצט", "ماذا يحدث الآن", "Что дальше"],
     ['שפה', 'Language', 'Langue', 'Idioma', 'שפּראַך', 'اللغة', 'Язык']
   ];
 
@@ -277,10 +303,27 @@
         return new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(dt);
       } catch (e) { return null; }
     }
+    var one = withNumbers(he, i);
+    if (one != null) return one;
+    /* a text built from several sentences (the "why was it not delivered" card): each sentence on its own; all or nothing */
+    var parts = he.split(/(?<=[.!?])\s+/);
+    if (parts.length < 2) return null;
+    var out = [];
+    for (var p = 0; p < parts.length; p++) {
+      var seg = parts[p], end = /[.!?]$/.test(seg) ? seg.slice(-1) : '', body = end ? seg.slice(0, -1) : seg;
+      if (!HEB.test(seg)) { out.push(seg); continue; }
+      var t = (DICT[seg] && DICT[seg][i]) || withNumbers(seg, i);
+      if (t == null) { t = (DICT[body] && DICT[body][i]) || withNumbers(body, i); if (t != null) t += end; }
+      if (t == null) return null;
+      out.push(t);
+    }
+    return out.join(' ');
+  }
+  function withNumbers(he, i) {
     var nums = [];
     var key = he.replace(NUM, function (m) { nums.push(m); return '{n}'; });
     if (!nums.length) return null;
-    row = DICT[key];
+    var row = DICT[key];
     if (!row) return null;
     var k = 0;
     return row[i].replace(/\{n\}/g, function () { return nums[k++] != null ? nums[k - 1] : ''; });
