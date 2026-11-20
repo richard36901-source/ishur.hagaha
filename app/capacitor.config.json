@@ -1,0 +1,12 @@
+{
+  "appId": "io.ishur.client",
+  "appName": "ishur",
+  "webDir": "www",
+  "ios": { "contentInset": "never", "backgroundColor": "#0F2E22" },
+  "android": { "backgroundColor": "#0F2E22" },
+  "plugins": {
+    "CapacitorHttp": { "enabled": true },
+    "SplashScreen": { "launchAutoHide": true, "launchShowDuration": 600, "backgroundColor": "#0F2E22", "showSpinner": false },
+    "PushNotifications": { "presentationOptions": ["badge", "sound", "alert"] }
+  }
+}

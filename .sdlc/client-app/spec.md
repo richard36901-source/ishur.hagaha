@@ -15,7 +15,8 @@ remote web view of `dashboard.html`.
 - The web board stays the full tool. The app covers the daily use: who answered, who did not, what goes out when.
 
 ## Requirements
-R1. Sign-in screen in the app: phone + 4-digit code, against the existing `/api/status` phone+code branch. No change
+R1. Sign-in screen in the app: phone + 4-digit code, against the existing `/api/account/pin-login` + `/api/account/me`
+    routes (the `/api/status` phone+code branch needs the website stamp, found 20/11). No change
     to any existing route. "שכחתי את הקוד" opens WhatsApp to ishur. No sign-up, no link to register (keeps Apple
     5.1.1(v) FAQ and 4 out of the way).
 R2. Tab bar with four tabs: סיכום (event, counts, next send), מוזמנים (tabs הכל / אישרו / לא בטוחים / לא ענו /
@@ -30,8 +31,8 @@ R7. Quiet hours: no push 21:00–09:00 Israel time; answers in that window go in
 R8. Account: sign out (revokes the session, removes the push token), delete-account request inside the app plus a
     public web page with the same request, privacy policy link, support link (WhatsApp).
 R9. No purchase UI, prices or "buy" calls to action anywhere in the app (Apple 3.1.1 / 3.1.3). Add-ons: not shown.
-R10. Light by default, dark by device setting, RTL, Dynamic Type friendly sizes, radius ≤ 8px, brand colours
-     (pine #0F2E22, green #0F4C35, gold #A8853C, cream #FAF8F1), Heebo bundled in the app (no font CDN).
+R10. Light by default, dark by device setting, RTL, sizes in rem, radius ≤ 8px, brand colours
+     (pine #0F2E22, green #0F4C35, gold #A8853C, cream #FAF8F1), the device system font (no font CDN).
 R11. Reviewer demo client on production: a fixed phone + code that never expires, invented guests, cannot send.
 R12. Runbook `app/RUNBOOK.md`: build, test, release an update on both stores, renew keys, without Claude.
 R13. Store listing kit in `app/store/`: name, subtitle, description (HE + EN), keywords, screenshots at the sizes

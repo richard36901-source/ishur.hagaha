@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">ishur</string>
+    <string name="title_activity_main">ishur</string>
+    <string name="package_name">io.ishur.client</string>
+    <string name="custom_url_scheme">io.ishur.client</string>
+</resources>

@@ -3,6 +3,7 @@
 exclude:
   - worker
   - agent
+  - app
   - docs
   - .sdlc
   - .claude

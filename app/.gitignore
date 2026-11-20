@@ -1,0 +1,13 @@
+node_modules/
+test/shots/
+ios/App/build/
+ios/DerivedData/
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+*.p8
+google-services.json
+GoogleService-Info.plist
+*.keystore
+*.jks

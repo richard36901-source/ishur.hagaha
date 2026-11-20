@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="format-detection" content="telephone=no">
+<title>ishur</title>
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+
+<!-- sign-in -->
+<main id="signin" hidden>
+  <header class="head">
+    <img src="img/logo-gold.png" alt="" width="44" height="44">
+    <div class="brand">ishur<span>.io</span></div>
+  </header>
+  <form class="card" id="signinForm" novalidate>
+    <h1>כניסה ללוח האירוע</h1>
+    <p class="sub">הטלפון שנרשמתם איתו והקוד בן 4 הספרות שקיבלתם מאיתנו.</p>
+    <label for="phone">טלפון</label>
+    <input id="phone" type="tel" inputmode="tel" autocomplete="tel" placeholder="050-0000000" dir="ltr">
+    <label for="code">קוד</label>
+    <input id="code" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="off" placeholder="••••" dir="ltr">
+    <button id="go" class="btn" type="submit">כניסה</button>
+    <p id="signinNote" class="note" role="status" aria-live="polite"></p>
+    <a id="forgot" class="link" href="#">אין לי קוד · כתבו לנו בוואטסאפ</a>
+  </form>
+</main>
+
+<!-- signed in -->
+<div id="app" hidden>
+  <header class="head small">
+    <div class="brand">ishur<span>.io</span></div>
+    <button id="evSwitch" class="evswitch" type="button" hidden></button>
+  </header>
+
+  <section id="v-summary" class="view">
+    <div class="card">
+      <div class="eyebrow" id="evKind"></div>
+      <h1 id="evName"></h1>
+      <p class="sub" id="evWhen"></p>
+      <p class="sub" id="evWhere"></p>
+    </div>
+    <div class="card hero">
+      <div class="big" id="kpiSeats">–</div>
+      <div class="biglbl">מגיעים לאירוע</div>
+      <div class="bar" aria-hidden="true"><i id="barYes"></i><i id="barMaybe"></i><i id="barNo"></i></div>
+      <div class="barlbl" id="barLbl"></div>
+    </div>
+    <div class="grid">
+      <button class="kpi" data-go="all"><b id="kpiAll">–</b><span>הזמנות</span></button>
+      <button class="kpi" data-go="confirmed"><b id="kpiYes">–</b><span>אישרו</span></button>
+      <button class="kpi" data-go="undecided"><b id="kpiMaybe">–</b><span>לא בטוחים</span></button>
+      <button class="kpi" data-go="pending"><b id="kpiWait">–</b><span>לא ענו</span></button>
+      <button class="kpi" data-go="declined"><b id="kpiNo">–</b><span>לא מגיעים</span></button>
+      <button class="kpi" data-go="failed"><b id="kpiFail">–</b><span>לא הגיעה ההזמנה</span></button>
+    </div>
+    <div class="card" id="nextCard" hidden>
+      <div class="eyebrow">הדבר הבא שיוצא</div>
+      <div class="rowline"><span id="nextLbl"></span><span class="muted" id="nextDate"></span></div>
+    </div>
+    <button id="share" class="btn ghost" type="button">שיתוף קישור אישור ההגעה</button>
+    <p class="stamp" id="stamp"></p>
+  </section>
+
+  <section id="v-guests" class="view" hidden>
+    <div class="sticky">
+      <input id="search" type="search" placeholder="חיפוש לפי שם" autocomplete="off">
+      <div id="filters" class="filters" role="tablist">
+        <button data-f="all" role="tab">הכל <span class="n">0</span></button>
+        <button data-f="confirmed" role="tab">אישרו <span class="n">0</span></button>
+        <button data-f="undecided" role="tab">לא בטוחים <span class="n">0</span></button>
+        <button data-f="pending" role="tab">לא ענו <span class="n">0</span></button>
+        <button data-f="declined" role="tab">לא מגיעים <span class="n">0</span></button>
+        <button data-f="failed" role="tab">נכשלו <span class="n">0</span></button>
+      </div>
+    </div>
+    <div id="guestRows" class="list"></div>
+    <p id="guestEmpty" class="empty" hidden></p>
+  </section>
+
+  <section id="v-sends" class="view" hidden>
+    <div class="card"><div class="eyebrow">לוח השליחות</div><p class="sub">מה יוצא למוזמנים ומתי. שינוי תאריך נעשה בלוח המלא באתר או מולנו בוואטסאפ.</p></div>
+    <div id="sendRows" class="list"></div>
+  </section>
+
+  <section id="v-account" class="view" hidden>
+    <div class="card">
+      <div class="eyebrow">החשבון</div>
+      <div class="rowline"><span>טלפון</span><span class="muted" id="accPhone" dir="ltr"></span></div>
+    </div>
+    <div class="card" id="evListCard" hidden>
+      <div class="eyebrow">האירועים שלי</div>
+      <div id="evList"></div>
+    </div>
+    <div class="card" id="pushCard" hidden>
+      <div class="eyebrow">התראות</div>
+      <label class="switch"><span>מוזמן ענה</span><input type="checkbox" id="pushAnswer"></label>
+      <label class="switch"><span>סיכום יומי ב-09:00</span><input type="checkbox" id="pushDaily"></label>
+      <label class="switch"><span>ההזמנה לא הגיעה למוזמנים</span><input type="checkbox" id="pushFailed"></label>
+      <p class="sub">בלי התראות בין 21:00 ל-09:00.</p>
+    </div>
+    <div class="card links">
+      <a id="support" href="#">דברו איתנו בוואטסאפ</a>
+      <a id="privacy" href="#">מדיניות פרטיות</a>
+      <a id="fullBoard" href="#">הלוח המלא באתר</a>
+      <button id="signout" type="button">יציאה מהחשבון</button>
+      <button id="delete" type="button" class="quiet">בקשה למחיקת החשבון והמידע</button>
+    </div>
+    <p class="stamp" id="ver"></p>
+  </section>
+
+  <nav id="tabs" class="tabs" hidden>
+    <button data-tab="summary" class="on"><svg viewBox="0 0 24 24"><path d="M4 11.5 12 5l8 6.5V20h-5v-5H9v5H4z"/></svg><span>סיכום</span></button>
+    <button data-tab="guests"><svg viewBox="0 0 24 24"><circle cx="9" cy="9" r="3.2"/><path d="M3 19c.6-3.2 3-5 6-5s5.4 1.8 6 5"/><circle cx="17" cy="8" r="2.4"/><path d="M16.5 13.2c2.4.2 4 1.700 4.500 4.300"/></svg><span>מוזמנים</span></button>
+    <button data-tab="sends"><svg viewBox="0 0 24 24"><rect x="4" y="5.500" width="16" height="14.500" rx="2"/><path d="M4 10h16M8.500 3.500v4M15.500 3.500v4"/></svg><span>שליחות</span></button>
+    <button data-tab="account"><svg viewBox="0 0 24 24"><circle cx="12" cy="8.500" r="3.700"/><path d="M4.500 20c.9-3.900 3.900-6 7.500-6s6.600 2.100 7.500 6"/></svg><span>חשבון</span></button>
+  </nav>
+</div>
+
+<!-- delete-account sheet -->
+<div id="sheet" class="sheet" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="sheetT">
+    <h2 id="sheetT">מחיקת החשבון והמידע</h2>
+    <p class="sub">נמחק את פרטי החשבון, רשימות המוזמנים והתשובות שלהם. אירוע שעוד לא התקיים יפסיק לקבל אישורי הגעה. המחיקה מתבצעת תוך 7 ימים ואי אפשר לבטל אותה אחר כך.</p>
+    <button id="sheetYes" class="btn danger" type="button">לשלוח בקשת מחיקה</button>
+    <button id="sheetNo" class="btn ghost" type="button">ביטול</button>
+    <p id="sheetNote" class="note" role="status" aria-live="polite"></p>
+  </div>
+</div>
+
+<script src="env.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
