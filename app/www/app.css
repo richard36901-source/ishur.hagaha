@@ -261,3 +261,14 @@ label{font-size:13px;font-weight:400;color:var(--ink3)}
    part of the page (the visual viewport), which carries fixed elements with it, so app.js keeps this strip at the
    top of what is visible. */
 #sbar{position:fixed;top:0;inset-inline:0;height:env(safe-area-inset-top);background:var(--pine);z-index:40;pointer-events:none}
+
+/* 20/11 round 6: my package, all my events, a site page over the app */
+.pkglist{margin:.4rem 0 .6rem;padding-inline-start:1.1rem;color:var(--ink2);font-size:.95rem;line-height:1.55}
+.evpage{padding:.6rem .9rem calc(1.2rem + env(safe-area-inset-bottom))}
+.evrow{background:var(--card);border:1px solid var(--line);border-radius:var(--r);margin-bottom:.6rem;overflow:hidden}
+.evrow.on{border-color:var(--gold)}
+.evrow.past{opacity:.6}
+.evrow .row{width:100%;text-align:start}
+.evrow .meta{display:block}
+.evrow .evrev{margin:0 .8rem .7rem;width:calc(100% - 1.6rem)}
+#pageFrame{flex:1;width:100%;border:0;background:var(--bg)}

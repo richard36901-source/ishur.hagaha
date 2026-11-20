@@ -78,7 +78,8 @@ import { handleOutreach, handleOutreachTrack } from './outreach.js';   /* 02/11 
 import { noaChaseTick, noaChaseCallEnded, memoryBlock, getMemory } from './noa.js';
 import { reviewCall, applyReview, callFromRetell } from './callqa.js';
 import { handleApp, answerHook as appAnswerHook, morningRun as appMorningRun } from './app-push.js';
-import { venueFor, parseCommit, writeCommit } from './venue-commit.js';   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
+import { venueFor, parseCommit, writeCommit } from './venue-commit.js';
+import { packageFor } from './package.js';   /* 20/11 "החבילה שלי" in the app */   /* 20/11 the board's venue-commitment tile */   /* 20/11 client app */
 import { handleAccount, handleReviewClaim, sendLoginCode, reviewState, readLedger, ledgerBalance, emailFromLeads, readContact, validEmail, pinFor, resetPin, boardLockOn, boardSessionOk, mintSession as mintAcctSession, verifySession as verifyAcctSession } from './account.js';   /* 12/11 personal-area */
 import { sendEmail as sendPlainEmail } from './outreach.js';
 import { navLinkOk, giftLinkOk } from './links.js';
@@ -14988,6 +14989,7 @@ const WORKER = {
       /* 12/11 security: the id the board puts in the links it hands to GUESTS (group RSVP link, table QR) */
       if (snapshot && snapshot.ok) snapshot.pub = await pubIdOf(env, token);
       if (snapshot && snapshot.ok && env.RATE) snapshot.venue = await venueFor(env, token, snapshot.totals || {});   /* 20/11 venue-commit.js */
+      if (snapshot && snapshot.ok && snapshot.event) snapshot.package = await packageFor(env, token, snapshot.event);   /* 20/11 package.js */
       /* 20/10: a paid token whose event row never reached the sheet (Make
          write failed) made the page throw 1101 instead of saying so. The
          client sees the "still setting up" screen; we see it in the journal. */

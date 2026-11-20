@@ -64,6 +64,8 @@
   function next() { if (!state) return; if (state.i >= state.steps.length - 1) close(true); else show(state.i + 1); }
   function prev() { if (state && state.i > 0) show(state.i - 1); }
   function start(page, steps, opts) {
+    /* 20/11: inside the ishur app the board is split over the app's tabs and the app has its own help; no tour there */
+    if (document.documentElement.classList.contains('in-app')) return;
     opts = opts || {}; lastSteps = steps; lastPage = page;
     if (state) return false;
     if (!opts.force && ls(KEY + page)) return false;

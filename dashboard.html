@@ -27,7 +27,7 @@
 <script src="assets/lead.js?v=24"></script>
 <script src="assets/design-card.js?v=2"></script>
 <script src="assets/pwa.js?v=1"></script>
-<script src="assets/tour.js?v=2"></script>
+<script src="assets/tour.js?v=3"></script>
 <script>IshurLead.init({ variant: 'v1' });</script>
 <script>
   /* apply the saved (or system) theme before first paint — no flash */
@@ -48,14 +48,39 @@
       else { try { inApp = sessionStorage.getItem('ishur_in_app') === '1'; } catch (e1) {} }
       if (!inApp) return;
       document.documentElement.classList.add('in-app');
+      /* 20/11 Richard: inside the app the board is split over the app's tabs. view=home|guests|sends|account shows
+         only that tab's cards; the app switches view with a message, without reloading. The website never sets
+         a view, so the board there is unchanged. */
+      var VIEWS = { home: 1, guests: 1, sends: 1, account: 1 };
+      var setView = function (v) { if (!VIEWS[v]) v = 'home'; document.documentElement.setAttribute('data-view', v); try { window.scrollTo(0, 0); } catch (e4) {} };
+      setView((/[?&]view=([a-z]+)/.exec(location.search) || [])[1] || 'home');
+      window.addEventListener('message', function (e) { if (e.source === window.parent && e.data && e.data.ishurView) setView(String(e.data.ishurView)); });
+      document.addEventListener('DOMContentLoaded', function () {
+        var MAP = { statusCard: 'home', shareCard: 'home', afterCard: 'home', guestsCard: 'home guests', gaddCard: 'guests',
+          mediaCard: 'sends', designCard: 'sends', extraCard: 'sends', sendsCard: 'sends', changeNote: 'sends', refCard: 'account', invoiceCard: 'account', addonsCard: 'none', pwaCard: 'none' };
+        Object.keys(MAP).forEach(function (id) { var el = document.getElementById(id); if (el) el.setAttribute('data-v', MAP[id]); });
+      });
       var m = /(?:^#|&)s=(acct\.[0-9a-zA-Z._-]{20,200})(?:&|$)/.exec(location.hash || '');
       if (m) { try { localStorage.setItem('ishur_acct_session', m[1]); } catch (e2) {} try { history.replaceState(null, '', location.pathname + location.search); } catch (e3) {} }
     } catch (e) {}
   })();
 </script>
 <style>
-  html.in-app .top .brand,html.in-app .theme-tog,html.in-app #pwaCard,html.in-app #addonsCard,html.in-app #refCard,
-  html.in-app #invoiceCard,html.in-app [data-addon],html.in-app [data-scope],html.in-app #upGo,html.in-app .toc,html.in-app #tierPop,html.in-app #tierPopBg{display:none!important}
+  html.in-app .top .brand,html.in-app .theme-tog,html.in-app #pwaCard,html.in-app #addonsCard,
+  html.in-app [data-addon],html.in-app [data-scope],html.in-app #upGo,html.in-app .toc,html.in-app #tierPop,html.in-app #tierPopBg{display:none!important}
+  /* 20/11 the app's tabs: a card shows only in the views named in its data-v; a card with no data-v shows in home */
+  html.in-app[data-view=home] [data-v]:not([data-v~=home]),
+  html.in-app[data-view=guests] [data-v]:not([data-v~=guests]),
+  html.in-app[data-view=sends] [data-v]:not([data-v~=sends]),
+  html.in-app[data-view=account] [data-v]:not([data-v~=account]),
+  html.in-app:not([data-view=home]) #main > section.card:not([data-v]),
+  html.in-app:not([data-view=home]) #overNote{display:none!important}
+  /* the guests card: in home only its buttons (seating, table codes, budget); in guests the list, print and replace */
+  html.in-app[data-view=home] #guestsCard > :not(.card-h),
+  html.in-app[data-view=home] #guestsCard .card-h > span:first-child,
+  html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,
+  html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink{display:none!important}
+  html.in-app[data-view=home] #guestsCard .gl-acts{width:100%;justify-content:center}
 </style>
 
 <style>
@@ -742,7 +767,7 @@
     <div class="card-b" data-dz-body></div>
   </section>
 
-  <section class="card">
+  <section class="card" id="statusCard">
     <div class="card-h">המצב</div>
     <div class="kpis" id="kpis"></div>
     <div class="prog" id="prog" hidden>
@@ -758,7 +783,7 @@
   </section>
 
   <!-- guests -->
-  <section class="card">
+  <section class="card" id="guestsCard">
     <div class="card-h" style="display:flex;justify-content:space-between;align-items:center;gap:.5rem;flex-wrap:wrap"><span>המוזמנים</span><span class="gl-acts"><a class="buy" id="seatingLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">🪑 סידור הושבה</a><a class="buy" id="checklistLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="רשימת מוזמנים לפי שולחן, עם ריבוע סימון למי שהגיע — להדפסה או PDF">🖨 רשימה להדפסה</a><a class="buy" id="qrLink" href="#" target="_blank" rel="noopener" style="text-decoration:none;background:var(--green4);color:var(--green2)" title="ברקוד לכניסה: האורח סורק, מקליד שם או טלפון ורואה את השולחן שלו">📱 ברקוד שולחנות</a><a class="buy" id="budgetLink" href="#" style="text-decoration:none;background:var(--green4);color:var(--green2)">💰 תקציב</a><input type="file" id="listFile" accept=".csv,.xlsx,.xls" hidden><button type="button" class="buy" id="replaceLink" style="background:var(--green4);color:var(--green2)">⟳ החלפת הרשימה</button> <span id="listMsg" style="font-size:.78rem;color:var(--ink3)"></span></span></div>
     <div class="filters" id="filters"></div>
     <div class="gsearch-w"><input class="gsearch" id="gsearch" type="search" placeholder="חיפוש לפי שם, טלפון או שולחן"></div>

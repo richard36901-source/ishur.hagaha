@@ -99,9 +99,18 @@
     <div class="card">
       <div class="rowline"><span>טלפון</span><span class="muted" id="accPhone" dir="ltr"></span></div>
     </div>
-    <div class="card" id="evListCard" hidden>
-      <div class="eyebrow">האירועים שלי</div>
-      <div id="evList"></div>
+    <div class="card links">
+      <button id="eventsOpen" type="button" class="nav">כל האירועים שלי</button>
+    </div>
+    <div class="card" id="pkgCard" hidden>
+      <div class="eyebrow">החבילה שלי</div>
+      <div class="rowline"><span id="pkgName"></span><span class="muted" id="pkgGuests"></span></div>
+      <ul id="pkgList" class="pkglist"></ul>
+      <div id="pkgAddons" hidden><div class="eyebrow">תוספות לאירוע הזה</div><ul id="pkgAddonList" class="pkglist"></ul></div>
+      <a id="pkgTerms" class="link" href="#">התנאים המלאים</a>
+    </div>
+    <div class="card links">
+      <button id="refOpen" type="button" class="nav">המלצה עלינו</button>
     </div>
     <div class="card" id="pushCard" hidden>
       <div class="eyebrow">התראות</div>
@@ -154,6 +163,29 @@
     <button id="helpNext" class="btn" type="button">הבא</button>
     <button id="helpReplay" class="btn ghost" type="button" hidden>להראות שוב</button>
     <a id="helpWa" class="btn ghost" href="#" hidden>עדיין לא ברור? דברו איתנו בוואטסאפ</a>
+  </div>
+</div>
+
+<!-- all my events: one row each; an event that has passed is greyed, sits last, and can be reviewed -->
+<div id="events" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="eventsTitle">
+  <header class="helpbar"><span></span><h2 id="eventsTitle">האירועים שלי</h2><button id="eventsClose" type="button">סגירה</button></header>
+  <div id="evList" class="list evpage"></div>
+</div>
+
+<!-- a page of the site shown over the app (the review form, "recommend us") -->
+<div id="page" class="help" hidden role="dialog" aria-modal="true" aria-labelledby="pageTitle">
+  <header class="helpbar"><span></span><h2 id="pageTitle"></h2><button id="pageClose" type="button">סגירה</button></header>
+  <iframe id="pageFrame" title="" referrerpolicy="no-referrer"></iframe>
+</div>
+
+<!-- after the event: asked once on opening the app; "לא עכשיו" is offered one time only -->
+<div id="reviewAsk" class="sheet" hidden>
+  <div class="sheetbox" role="dialog" aria-modal="true" aria-labelledby="reviewAskT">
+    <div class="grabber" aria-hidden="true"></div>
+    <h2 id="reviewAskT">איך היה האירוע?</h2>
+    <p class="sub" id="reviewAskP"></p>
+    <button id="reviewGo" class="btn" type="button">לדרג עכשיו</button>
+    <button id="reviewLater" class="btn ghost" type="button">לא עכשיו</button>
   </div>
 </div>
 

@@ -67,6 +67,7 @@
     var e = d.event || {}, t = d.totals || {};
     return {
       ok: true, pub: d.pub || '',
+      package: d.package ? { name: d.package.name, guests: d.package.guests, included: d.package.included || [], addons: d.package.addons || [] } : null,
       event: { name1: e.name1, name2: e.name2, occasion: e.occasion, occasion_label: e.occasion_label, event_date: e.event_date, reception_time: e.reception_time, venue_name: e.venue_name, venue_city: e.venue_city },
       totals: { confirmed_seats: t.confirmed_seats },
       sends: (d.sends || []).map(function (s) { return { key: s.key, label: s.label, date: s.date, status: s.status, sent_n: s.sent_n, stats: s.stats ? { answered: s.stats.answered } : null }; }),
@@ -83,25 +84,36 @@
   /* Home ("ראשי") is the regular client board itself, so the app looks and works like the board clients know.
      With no network the app's own summary takes its place, from the copy saved on the device. */
   var offline = (navigator.onLine === false);
+  /* 20/11 Richard: ראשי, מוזמנים and שליחות are three views of the regular board (home, guests, sends), so every
+     setting works the way clients know it. With no network each tab falls back to the app's own slim screen. */
+  var VIEW_OF = { board: 'home', guests: 'guests', sends: 'sends' }, view = 'home', curTab = 'board';
   function tab(name) {
-    if (name === 'board' && offline) { name = 'summary'; T('offline_view'); }
+    if (name === 'summary') name = 'board';
+    curTab = name;
     T('tab_view', { tab: name });
-    ['summary', 'guests', 'sends', 'board', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== name; });
-    var lit = name === 'summary' ? 'board' : name;
-    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === lit); });
+    var screen = name;
+    if (VIEW_OF[name]) {
+      if (offline) { if (name === 'board') { screen = 'summary'; T('offline_view'); } }
+      else { view = VIEW_OF[name]; screen = 'board'; }
+    }
+    ['summary', 'guests', 'sends', 'board', 'account'].forEach(function (t) { $('v-' + t).hidden = t !== screen; });
+    Array.prototype.forEach.call(document.querySelectorAll('#tabs button'), function (b) { b.classList.toggle('on', b.getAttribute('data-tab') === name); });
     window.scrollTo(0, 0);
-    if (name === 'board') openBoard();
+    if (screen === 'board') openBoard();
   }
+  var siteOrigin = ''; try { siteOrigin = new URL(ENV.site).origin; } catch (e) {}
+  function postView() { try { $('boardFrame').contentWindow.postMessage({ ishurView: view }, siteOrigin || '*'); } catch (e) {} }
   /* The regular client board, in its app mode, inside the app. The session travels in the address fragment (never
      sent to a server), so a locked board opens too. Loaded on first use and again when the event changes. */
   var boardFor = '';
   function openBoard() {
-    if (!current || boardFor === current) return;
+    if (!current) return;
+    if (boardFor === current) { postView(); return; }
     boardFor = current;
     $('boardWait').hidden = false;
-    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1#s=' + encodeURIComponent(session);
+    $('boardFrame').src = ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=' + view + '#s=' + encodeURIComponent(session);
   }
-  $('boardFrame').addEventListener('load', function () { $('boardWait').hidden = true; });
+  $('boardFrame').addEventListener('load', function () { $('boardWait').hidden = true; postView(); });
   function evTitle(e) { return (e && (e.name || e.occasion)) || 'האירוע'; }
 
   function render() {
@@ -110,8 +122,15 @@
     $('ver').textContent = 'גרסה ' + (ENV.version || '') + (ENV.name === 'staging' ? ' · סביבת בדיקות' : '');
     var many = events.length > 1;
     $('evSwitch').hidden = !many; $('evSwitch').textContent = evTitle(ev) + ' ▾';
-    $('evListCard').hidden = !many;
-    $('evList').innerHTML = events.map(function (e) { return '<button type="button" data-ev="' + esc(e.token) + '"' + (e.token === current ? ' class="on"' : '') + '>' + esc(evTitle(e)) + ' <span class="muted">' + esc(heDate(e.date)) + '</span></button>'; }).join('');
+    renderEvents();
+    var pk = data && data.package;
+    $('pkgCard').hidden = !pk;
+    if (pk) {
+      $('pkgName').textContent = 'חבילת ' + pk.name; $('pkgGuests').textContent = pk.guests ? 'עד ' + pk.guests + ' מוזמנים' : '';
+      $('pkgList').innerHTML = pk.included.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('');
+      $('pkgAddons').hidden = !pk.addons.length;
+      $('pkgAddonList').innerHTML = pk.addons.map(function (l) { return '<li>' + esc(l) + '</li>'; }).join('');
+    }
     if (!data) {
       $('evName').textContent = evTitle(ev); $('evKind').textContent = ev.occasion || '';
       $('evWhen').textContent = heDate(ev.date); $('evWhere').textContent = [ev.venue, ev.city].filter(Boolean).join(' · ');
@@ -176,8 +195,7 @@
     return post('/api/status', { token: current, board_session: session }).then(function (r) {
       loading = false;
       var was = offline; offline = r.status === 0;
-      if (offline && !$('v-board').hidden) tab('summary');
-      if (was && !offline && !$('v-summary').hidden) tab('board');
+      if (was !== offline && VIEW_OF[curTab]) tab(curTab);   /* the network came or went: the same tab, its other form */
       if (r.status === 200 && r.body.ok) {
         data = normalize(slim(r.body)); store.set('data:' + current, data); store.set('at:' + current, Date.now()); render();
       } else if (r.status === 401 && r.body.error === 'pin-required') { signOut(true); }
@@ -198,7 +216,7 @@
   }
   function start() {
     show(true); tab('board'); render();
-    loadAccount().then(function (ok) { if (ok) { render(); if (!$('v-board').hidden) openBoard(); return loadEvent(); } });
+    loadAccount().then(function (ok) { if (ok) { render(); if (!$('v-board').hidden) openBoard(); askReview(); return loadEvent(); } });
     document.dispatchEvent(new CustomEvent('ishur:signed-in', { detail: { session: session } }));
   }
   function signOut(silent) {
@@ -236,8 +254,38 @@
   $('search').addEventListener('input', renderGuests);
   $('search').addEventListener('change', function () { if ($('search').value.trim()) T('guest_search'); });   /* that a search happened, never what was typed */
   function pickEvent(tok) { if (!tok || tok === current) return; current = tok; boardFor = ''; $('boardFrame').removeAttribute('src'); store.set('current', tok); T('event_switch'); data = null; filter = 'all'; tab('board'); render(); loadEvent(); }
-  $('evList').addEventListener('click', function (e) { var b = e.target.closest('button'); if (b) pickEvent(b.getAttribute('data-ev')); });
-  $('evSwitch').addEventListener('click', function () { tab('account'); });
+  /* all my events: upcoming first; an event that has passed is greyed, last, and can be reviewed */
+  function renderEvents() {
+    $('evList').innerHTML = events.map(function (e) {
+      var meta = [heDate(e.date), e.venue, e.past ? 'הסתיים' : ''].filter(Boolean).join(' · ');
+      var rev = e.past && e.next === 'score' ? '<button type="button" class="btn ghost evrev" data-review="' + esc(e.token) + '">להשאיר ביקורת</button>' : '';
+      return '<div class="evrow' + (e.past ? ' past' : '') + (e.token === current ? ' on' : '') + '"><button type="button" class="row nav" data-ev="' + esc(e.token) + '"><span><span class="nm">' + esc(evTitle(e)) + '</span><span class="meta">' + esc(meta) + '</span></span></button>' + rev + '</div>';
+    }).join('') || '<p class="empty">אין אירועים בחשבון הזה.</p>';
+  }
+  function openEvents() { T('events_open'); renderEvents(); $('events').hidden = false; }
+  function openPage(title, url) { $('pageTitle').textContent = title; $('pageFrame').title = title; $('pageFrame').src = url; $('page').hidden = false; }
+  function reviewUrl(tok) { return ENV.site + '/feedback.html?t=' + encodeURIComponent(tok) + '&app=1'; }
+  $('evList').addEventListener('click', function (e) {
+    var r = e.target.closest('[data-review]'); if (r) { T('review_go', { from: 'events' }); openPage('ביקורת על האירוע', reviewUrl(r.getAttribute('data-review'))); return; }
+    var b = e.target.closest('[data-ev]'); if (b) { $('events').hidden = true; pickEvent(b.getAttribute('data-ev')); }
+  });
+  $('evSwitch').addEventListener('click', openEvents);
+  $('eventsOpen').addEventListener('click', openEvents);
+  $('eventsClose').addEventListener('click', function () { $('events').hidden = true; });
+  $('pageClose').addEventListener('click', function () { $('page').hidden = true; $('pageFrame').removeAttribute('src'); if (session) loadAccount().then(function () { render(); }); });
+  $('refOpen').addEventListener('click', function () { if (!current) return; T('ref_open'); openPage('המלצה עלינו', ENV.board + '?t=' + encodeURIComponent(current) + '&app=1&view=account#s=' + encodeURIComponent(session)); });
+  $('pkgTerms').addEventListener('click', function (e) { e.preventDefault(); T('terms_open'); openUrl(ENV.site + '/terms.html'); });
+  /* after the event: asked when the app opens. "לא עכשיו" is offered once; the next time only "לדרג עכשיו". */
+  var reviewFor = '';
+  function askReview() {
+    var e = events.filter(function (x) { return x.past && x.next === 'score'; })[0]; if (!e) return;
+    reviewFor = e.token;
+    $('reviewAskP').textContent = 'האירוע של ' + evTitle(e) + ' מאחוריכם. דקה מזמנכם עוזרת לנו להשתפר ולזוגות הבאים לבחור.';
+    $('reviewLater').hidden = store.get('rev:' + e.token) === 'later';
+    T('review_prompt'); $('reviewAsk').hidden = false;
+  }
+  $('reviewGo').addEventListener('click', function () { $('reviewAsk').hidden = true; T('review_go', { from: 'prompt' }); openPage('ביקורת על האירוע', reviewUrl(reviewFor)); });
+  $('reviewLater').addEventListener('click', function () { $('reviewAsk').hidden = true; T('review_later'); store.set('rev:' + reviewFor, 'later'); });
   $('share').addEventListener('click', function () {
     if (!data || !data.pub) return;
     T('share_link');
@@ -269,7 +317,7 @@
   }
 
   /* refresh when the app comes back to the front, and by pulling down at the top of a list */
-  window.addEventListener('offline', function () { offline = true; if (!$('v-board').hidden) tab('summary'); });
+  window.addEventListener('offline', function () { offline = true; if (VIEW_OF[curTab]) tab(curTab); });
   window.addEventListener('online', function () { if (session) loadEvent(true); });
   document.addEventListener('visibilitychange', function () { if (!document.hidden && session) loadEvent(true); });
   var pullY = null;
