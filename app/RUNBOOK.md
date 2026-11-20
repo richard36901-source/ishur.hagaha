@@ -19,6 +19,15 @@ DEMO=2 ... npm run check        # the demo client with mixed answers
 Exit 0 and "37/37 passed" is the pass. The script first clears the staging sign-in counters (6 tries an hour per
 phone); that reset exists on staging only. Screenshots land in `test/shots/`.
 
+## Build for the simulator (no signing needed)
+```bash
+cd app && npx cap sync
+xcodebuild -project ios/App/App.xcodeproj -scheme App -sdk iphonesimulator -configuration Debug \
+  -destination 'generic/platform=iOS Simulator' -derivedDataPath ios/DerivedData CODE_SIGNING_ALLOWED=NO build
+```
+"** BUILD SUCCEEDED **" is the pass. The app is at `ios/DerivedData/Build/Products/Debug-iphonesimulator/App.app`.
+Running it needs an iOS simulator runtime: Xcode → Settings → Components → iOS (several GB).
+
 ## Build for a store
 ```bash
 cd app

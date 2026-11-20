@@ -6,7 +6,7 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 ## Apple (App Store Review Guidelines)
 | # | Item | Rule | Evidence / state |
 |---|---|---|---|
-| A1 | App is more than the website: own screens, push, share sheet, offline | 4.2 | screens: `app/store/preview/`, check 34/34 on staging. Push: server side built and tested, not connected to answers, never sent to a device |
+| A1 | App is more than the website: own screens, push, share sheet, offline | 4.2 | screens: `app/store/preview/`, check 37/37 on staging. Push: server side built and tested, not connected to answers, never sent to a device |
 | A2 | No sign-up, no link to register, no web sign-in | 4, 5.1.1(v) FAQ | `www/index.html` has none |
 | A3 | Account deletion can be started inside the app | 5.1.1(v) | built; check P6 passes on staging; not on production |
 | A4 | Demo account in App Review Information, works on production, never expires | 2.1(a) | not built (needs Richard's OK) |
@@ -16,9 +16,9 @@ Sources read on 20/11/2026: `.sdlc/client-app/research-2026-11-20.md`. State on 
 | A7 | Push is optional, asked after an in-app explanation, per-kind switches, no marketing | 4.5.4 | server switches built; in-app permission screen not built |
 | A8 | Privacy policy URL, and the policy names the app and push | 5.1.1(i) | `terms.html#privacy` exists; app text not added |
 | A9 | Privacy labels: Phone number, Name, User ID, Contacts (guest lists), Device ID; none for tracking | App privacy | answers file: open |
-| A10 | Privacy manifest in the build | third-party SDK rule | file written, plutil OK; NOT yet added to the Xcode target, never built |
+| A10 | Privacy manifest in the build | third-party SDK rule | in the app target; present in the built bundle (simulator build 20/11) |
 | A11 | `ITSAppUsesNonExemptEncryption` = NO (HTTPS only) | export compliance | set in Info.plist |
-| A12 | Built with Xcode 26+ / iOS 26 SDK | upload requirement | Xcode not installed |
+| A12 | Built with Xcode 26+ / iOS 26 SDK | upload requirement | Xcode 27.2, iOS 27.2 SDK; simulator build succeeds; no device or archive build yet |
 | A13 | iPhone only, portrait; screenshots at the size App Store Connect asks for | screenshots | device family set to iPhone; screenshots open |
 | A14 | Age rating questionnaire (no web access, no UGC, no chat, no ads) | age ratings | open |
 | A15 | Availability: Israel only (non-trader under DSA) | DSA page | open (App Store Connect) |
