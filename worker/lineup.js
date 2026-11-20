@@ -75,7 +75,7 @@ export function ilUtc(date, m) {
   return t.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
 }
 const esc = s => String(s).replace(/\\/g, '\\\\').replace(/;/g, '\;').replace(/,/g, '\\,');
-/* bytes, not characters: Hebrew is two bytes. TextEncoder, because Workers have no Buffer. */
+/* bytes, not characters: Hebrew is two bytes. TextEncoder, because Workers lack the Node byte helpers. */
 const TE = new TextEncoder(), bytes = x => TE.encode(x).length;
 const fold = line => { const out = []; let s = line; while (bytes(s) > 74) { let n = 70; while (bytes(s.slice(0, n)) > 74) n--; out.push(s.slice(0, n)); s = ' ' + s.slice(n); } out.push(s); return out.join('\r\n'); };
 
