@@ -199,6 +199,22 @@ export async function handleApp(request, env, origin, url, d) {
   if (!env.RATE) return d.deny(503, 'kv-not-bound', origin);
   let b = {}; try { b = await request.json(); } catch { return d.deny(400, 'bad-json', origin); }
 
+  /* admin: can this Worker reach Apple's push service at all? (spec risk: APNs needs HTTP/2). Signs with a throwaway
+     key, so Apple answers 403 InvalidProviderToken when the request arrives; anything else is printed as it came. */
+  if (path === 'apns-probe') {
+    if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
+    const kp = await crypto.subtle.generateKey({ name: 'ECDSA', namedCurve: 'P-256' }, true, ['sign']);
+    const head = b64uText(JSON.stringify({ alg: 'ES256', kid: 'PROBE00000' })), claims = b64uText(JSON.stringify({ iss: 'PROBE00000', iat: Math.floor(Date.now() / 1000) }));
+    const sig = await crypto.subtle.sign({ name: 'ECDSA', hash: 'SHA-256' }, kp.privateKey, new TextEncoder().encode(head + '.' + claims));
+    const out = {};
+    for (const host of ['api.sandbox.push.apple.com', 'api.push.apple.com']) {
+      try {
+        const r = await fetch(`https://${host}/3/device/${'0'.repeat(64)}`, { method: 'POST', headers: { authorization: `bearer ${head}.${claims}.${b64u(sig)}`, 'apns-topic': BUNDLE_ID, 'apns-push-type': 'alert', 'content-type': 'application/json' }, body: '{"aps":{"alert":"probe"}}' });
+        out[host] = { status: r.status, body: (await r.text()).slice(0, 200) };
+      } catch (e) { out[host] = { error: String(e && e.message || e).slice(0, 200) }; }
+    }
+    return d.okJson({ ok: true, out }, origin);
+  }
   if (path === 'push-test') {   /* admin: one test notification to a phone's devices; works with the switch off */
     if (!d.isAdmin(env, b.admin_key)) return d.deny(403, 'bad-admin-key', origin);
     const phone = String(b.phone || ''); const rec = await read(env, phone);
