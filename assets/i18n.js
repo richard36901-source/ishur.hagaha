@@ -276,6 +276,16 @@
     ["כדאי לשלוח להם את ההזמנה מהטלפון שלכם", "It is worth sending them the invitation from your own phone", "Mieux vaut leur envoyer l’invitation depuis votre téléphone", "Conviene enviarles la invitación desde su teléfono", "ס׳איז כּדאַי זיי צו שיקן די אײַנלאַדונג פֿון אײַער טעלעפֿאָן", "يُستحسن إرسال الدعوة لهم من هاتفكم", "Лучше отправить им приглашение со своего телефона"],
     ["למה לא נמסר?", "Why was it not delivered?", "Pourquoi n’a-t-il pas été remis ?", "¿Por qué no se entregó?", "פֿאַרוואָס איז עס נישט איבערגעגעבן געוואָרן?", "لماذا لم تُسلَّم؟", "Почему не доставлено?"],
     ["מה קורה עכשיו", "What happens now", "Et maintenant", "Qué pasa ahora", "וואָס געשעט איצט", "ماذا يحدث الآن", "Что дальше"],
+    ["תקציב", "Budget", "Budget", "Presupuesto", "בודזשעט", "الميزانية", "Бюджет"],
+    ["קבלת פנים {n}", "Reception {n}", "Accueil {n}", "Recepción {n}", "קבלת־פּנים {n}", "الاستقبال {n}", "Сбор гостей {n}"],
+    ["חתונה", "Wedding", "Mariage", "Boda", "חתונה", "زفاف", "Свадьба"],
+    ["בר מצווה", "Bar mitzvah", "Bar-mitsva", "Bar mitzvá", "בר־מצווה", "بار متسفا", "Бар-мицва"],
+    ["בת מצווה", "Bat mitzvah", "Bat-mitsva", "Bat mitzvá", "בת־מצווה", "بات متسفا", "Бат-мицва"],
+    ["ברית", "Brit milah", "Brit mila", "Brit milá", "ברית", "ختان", "Брит-мила"],
+    ["חינה", "Henna", "Henné", "Henna", "חינה", "حنّة", "Хина"],
+    ["מכובד", "Dignified", "Solennel", "Solemne", "כּבֿודיק", "وقورة", "Торжественный"],
+    ["רשמי", "Formal", "Formel", "Formal", "אָפֿיציעל", "رسمية", "Официальный"],
+    ["שובב", "Playful", "Espiègle", "Divertido", "שטיפֿעריש", "مرحة", "Игривый"],
     ['שפה', 'Language', 'Langue', 'Idioma', 'שפּראַך', 'اللغة', 'Язык']
   ];
 
@@ -349,6 +359,12 @@
     var one = i ? withNumbers(he, i) : null;
     if (one != null) return one;
     /* a text built from several sentences (the "why was it not delivered" card): each sentence on its own; all or nothing */
+    /* "חתונה · דיקלה ואריאל" — pieces joined by a middle dot: translate the pieces we know, leave the event's own words */
+    if (he.indexOf(' · ') > 0 && !DICT[he]) {
+      var ps = he.split(' · '), hit = 0, o2 = [];
+      for (var z = 0; z < ps.length; z++) { var tz = HEB.test(ps[z]) ? trPiece(ps[z], i) : null; if (tz != null) hit++; o2.push(tz != null ? tz : ps[z]); }
+      if (hit) return o2.join(' · ');
+    }
     var parts = he.split(/(?<=[.!?])\s+/);
     if (parts.length < 2) return null;
     var out = [];
@@ -361,6 +377,13 @@
       out.push(t);
     }
     return out.join(' ');
+  }
+  function trPiece(x, i) {
+    var d = DATE_RE.exec(x) || /^(\d{1,2}) ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר) (\d{4})$/.exec(x);
+    if (d) { try { var day = d.length === 5 ? d[2] : d[1], mon = d.length === 5 ? d[3] : d[2], yr = d.length === 5 ? d[4] : d[3];
+      if (lang === 'yi') return day + '.' + (MONTHS.indexOf(mon) + 1) + '.' + yr;
+      return new Intl.DateTimeFormat(meta(lang).loc, d.length === 5 ? { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' } : { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(new Date(Date.UTC(Number(yr), MONTHS.indexOf(mon), Number(day), 12))); } catch (e) { return null; } }
+    return part(x, i);
   }
   function part(x, i) { return (i && DICT[x] && DICT[x][i]) || (i ? withNumbers(x, i) : null) || fromFile(x); }
   function withNumbers(he, i) {
