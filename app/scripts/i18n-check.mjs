@@ -86,9 +86,11 @@ try {
     const nLeft = Object.values(r.left).reduce((a, x) => a + x.length, 0);
     const ok = !r.missing && !nLeft && !badDir.length && !r.wide.length && r.persisted === lang && r.frameLang === lang;
     if (!ok) fail++;
+    /* saved after each language, so a cut-off run still leaves what it found */
+    const RP = path.join(ROOT, 'i18n', 'check-report.json'); let prev = {}; try { prev = JSON.parse(fs.readFileSync(RP, 'utf8')); } catch {}
+    prev[lang] = { ...r, ok, at: new Date().toISOString() }; fs.writeFileSync(RP, JSON.stringify(prev, null, 1));
     console.log(`${ok ? 'ok  ' : 'FAIL'} ${lang}: untranslated ${nLeft}, wrong direction ${badDir.length ? badDir.join(' ') : 0}, too wide ${r.wide.length ? r.wide.join(' ') : 0}, kept ${r.persisted}, board ${r.frameLang}${r.missing ? ', dictionary missing ' + r.missing : ''}`);
   }
 } finally { await b.close(); server.close(); }
-fs.writeFileSync(path.join(ROOT, 'i18n', 'check-report.json'), JSON.stringify(report, null, 1));
 console.log(`${LANGS.length - fail}/${LANGS.length} languages pass`);
 process.exit(fail ? 1 : 0);
