@@ -6,6 +6,13 @@
    2. Skeleton shimmer on KPI tiles and empty tables until data lands.
    3. Non-blocking toasts instead of alert().
    4. A soft fade-in so page-to-page never flashes white. */
+/* 22/11 Richard: inside the app the language is chosen in חשבון, not by the button on each page */
+(function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'; document.head.appendChild(s);
+  /* dragging the page down while typing hides the keyboard, as in iOS apps */
+  var y0 = null; document.addEventListener('touchstart', function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
+  document.addEventListener('touchmove', function (e) { var a = document.activeElement; if (y0 == null || !a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return; if (e.touches[0].clientY - y0 > 12 && !e.target.closest('input,textarea')) { a.blur(); y0 = null; } }, { passive: true });
+} } catch (e) {} })();
+
 (function () {
   'use strict';
   var READ_KEYS = { admin_key: 1, view: 1, channel: 1, phone: 1, limit: 1, date: 1, day: 1, action: 1, nonce: 1, stamp_ts: 1, sig: 1, app: 1, token: 1, tokens: 1, agent: 1, month: 1 };

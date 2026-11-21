@@ -6,11 +6,25 @@
 <meta name="color-scheme" content="light dark">
 <meta name="format-detection" content="telephone=no">
 <title>ishur</title>
+<script>
+/* 22/11 appearance before the first paint: the saved choice (light / dark), else the phone's setting */
+(function () { var t = 'auto'; try { t = localStorage.getItem('ishur_appearance') || 'auto'; } catch (e) {}
+  var dark = t === 'dark' || (t === 'auto' && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches);
+  document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light'); })();
+</script>
 <link rel="stylesheet" href="app.css">
 <script src="i18n.js"></script>
 </head>
 <body>
 <div id="sbar" aria-hidden="true"></div>
+
+<!-- 22/11 Richard: on opening, the logo, what we do, and how to reach us. Fades once the app is ready. -->
+<div id="splash" aria-hidden="true">
+  <img src="img/logo-gold.png" alt="" width="88" height="88">
+  <div class="sp-t">אישורי הגעה לאירועים</div>
+  <div class="sp-b"><bdi>ishur<span>.io</span></bdi></div>
+  <div class="sp-c">תמיכה בוואטסאפ <bdi dir="ltr">055-9504499</bdi><br><bdi dir="ltr">info@ishur.io</bdi></div>
+</div>
 
 <!-- sign-in -->
 <main id="signin" hidden>
@@ -33,8 +47,11 @@
 
 <!-- signed in -->
 <div id="app" hidden>
-  <header class="head small">
-    <div class="brand">אישורי הגעה לאירועים - <bdi>ishur<span>.io</span></bdi></div>
+  <!-- 22/11 Richard "like iOS apps": a thin bar with the logo (so a shared screenshot carries the brand) and the
+       screen's title; on screens with a big title the small one appears only once the big one scrolls away -->
+  <header class="head small nav" id="nav">
+    <img class="navlogo" src="img/logo-gold.png" alt="ishur.io" width="26" height="26">
+    <div class="navtitle brand" id="navTitle"></div>
     <button id="evSwitch" class="evswitch" type="button" hidden></button>
   </header>
 
@@ -86,13 +103,17 @@
 
   <section id="v-sends" class="view" hidden>
     <h1 class="large">לוח השליחות</h1>
-    <div class="card"><p class="sub">מה יוצא למוזמנים ומתי. שינוי תאריך, תמונה וסגנון נעשים בלשונית ראשי.</p></div>
+    <div class="card"><p class="sub">מה יוצא למוזמנים ומתי. שינוי תאריך, תמונה וסגנון נעשים כאן כשיש חיבור לאינטרנט.</p></div>
     <div id="sendRows" class="list"></div>
   </section>
 
   <section id="v-board" class="view board" hidden>
     <iframe id="boardFrame" title="לוח האירוע" allow="clipboard-write; web-share"></iframe>
-    <p id="boardWait" class="empty">טוענים את הלוח…</p>
+    <div id="boardWait" class="skel" aria-label="טוענים את הלוח…">
+      <div class="sk-hero"><i class="sk" style="width:40%"></i><i class="sk" style="width:62%;height:22px"></i><i class="sk" style="width:30%"></i></div>
+      <div class="sk-grid"><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i></div>
+      <div class="sk-rows"><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i><i class="sk"></i></div>
+    </div>
   </section>
 
   <section id="v-account" class="view" hidden>
@@ -115,6 +136,17 @@
     </div>
     <div class="card">
       <label class="rowline" for="langPick"><span>שפה</span><select id="langPick" class="langpick" aria-label="שפה"></select></label>
+      <div class="rowline appear"><span>מראה</span>
+        <div class="seg" id="appearance" role="radiogroup" aria-label="מראה">
+          <button type="button" role="radio" data-a="light">בהיר</button><button type="button" role="radio" data-a="dark">כהה</button><button type="button" role="radio" data-a="auto">כמו בטלפון</button>
+        </div>
+      </div>
+    </div>
+    <!-- 22/11 Richard: "contact us" with WhatsApp and email -->
+    <div class="card links" id="contactCard">
+      <div class="eyebrow">צרו קשר</div>
+      <a id="contactWa" href="#" class="nav"><span>וואטסאפ</span><span class="muted" dir="ltr">055-9504499</span></a>
+      <a id="contactMail" href="mailto:info@ishur.io" class="nav"><span>אימייל</span><span class="muted" dir="ltr">info@ishur.io</span></a>
     </div>
     <div class="card" id="pushCard" hidden>
       <div class="eyebrow">התראות</div>
@@ -125,7 +157,6 @@
     </div>
     <div class="card links">
       <button id="helpOpen" type="button" class="nav">עזרה והסברים</button>
-      <a id="support" href="#">דברו איתנו בוואטסאפ</a>
       <a id="privacy" href="#">מדיניות פרטיות</a>
       <button id="signout" type="button">יציאה מהחשבון</button>
       <button id="delete" type="button" class="quiet">בקשה למחיקת החשבון והמידע</button>

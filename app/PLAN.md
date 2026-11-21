@@ -60,8 +60,43 @@ Plan: `.sdlc/client-app/round7-languages.md`. The client picks a language in ח�
   page and five board pages: no Hebrew interface text left (names and invitation wording stay as written), right
   direction, nothing wider than the phone, the choice kept, the board follows the app. Hebrew unchanged: app check
   51/51 for both demo clients, Worker 1073/1073. Fixed on the way: the seating page's top bar pushed Save off a phone
-  screen (in Hebrew too). Not checked: the help animations in each language, and a real device.
+  screen (in Hebrew too). Not checked: a real device.
+- [x] Help centre in every language (21/11, `app/scripts/help-check.mjs`): all 9 pass on every topic and step: no Hebrew
+  left, nothing in the moving pictures sticking out or wrapping, right direction, and every quoted button or tab name
+  is the word the app uses in that language. Fixed: the typing line covered the field label in ru, fr, es, pt; the
+  Hebrew help still sent people to ראשי to add guests and change send dates (since the redesign they are in מוזמנים
+  and שליחות), and named buttons that no longer exist ("הוספה", "שיתוף קישור"); the offline שליחות screen said the
+  same. The check opens the real staging board at each tab a step names and fails if the label is not shown there
+  (it caught the old text). Six new sentences added to the app's dictionaries only; the site's copies
+  (`assets/i18n/`, other session) were asked to take them. Translations unverified by native speakers, like the rest.
 - [ ] Guest messages in other languages (Part B of the plan): waiting for Richard's answers, one at a time.
+
+## Round 8 · feel like the apps people use every day (Richard, 22/11)
+His words, shortened: the bottom bar like Apple's, WhatsApp's and Instagram's ("we need to be on the level of those
+apps"; the Figma connection has those designs); maybe no constant top bar, or keep one so a screenshot that gets
+shared carries our brand; on opening: the logo, "אישורי הגעה לאירועים", support WhatsApp 055-9504499 and the email
+(info@ishur.io, from the site); loading with the logo and skeletons; in חשבון "צרו קשר" with WhatsApp and email
+buttons; swipe from the edge goes back; dragging the page down hides the keyboard, "just like all the native iOS apps".
+- [x] Language button off the board pages inside the app (22/11): the choice lives in חשבון only. Website unchanged.
+- Check: `app/scripts/round8-check.mjs` 21/21 (22/11). Board-side parts (language button, theme, keyboard) need client-app merged into staging to be seen in the app.
+- [x] Bottom bar: the selected tab's icon is filled, its label bold, a light tap feel (22/11).
+- [x] Top bar (22/11): logo at the start, the screen's title in the middle (the event's name on ראשי); on חשבון the big title shrinks into the bar on scroll.
+- [x] Opening screen: logo, "אישורי הגעה לאירועים", WhatsApp 055-9504499 and info@ishur.io; at least 0.8 s, gone by 5 s. Seen on the simulator.
+- [x] Loading: skeletons in the board's shape over the frame while it loads.
+- [x] חשבון: "צרו קשר" with WhatsApp and email.
+- [x] Swipe back from the edge on the events page, help and opened pages (checked with touch input in Chrome; not yet by hand on a phone).
+- [x] Dragging down while typing hides the keyboard (app screens and board pages).
+- [x] Cookie notice inside the app (22/11, Richard: "if we at all need it"): the app tracks nobody, so none is shown.
+  Privacy and terms links now open in app mode; the home page's own notice also stays hidden in app mode.
+- [x] Appearance in חשבון: light, dark, or as the phone; kept on the device; the board in the app follows.
+- [ ] Top bar decided 22/11: "Yes, like iOS apps" (a big title that shrinks to a thin bar on scroll, small logo kept).
+Seating (22/11, same evening):
+- [ ] Landscape: turning the phone gives a bigger floor to drag on.
+- [ ] Tap a guest or a group, type the table, and they are seated there.
+- [ ] Change or remove a table from the list only.
+- [ ] Hide the guest list to lay out the venue first, then seat.
+- [ ] First-time guidance at the right steps.
+- [ ] Later: video guides in חשבון (after the app is finished).
 
 ## Claude's own queue (no approval needed, staging only)
 

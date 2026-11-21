@@ -57,7 +57,21 @@ Recommended start (Claude): the custom-wording path first (it already exists per
 messages in the language the client picks; then the fixed templates for the languages clients actually choose.
 
 Decisions for Richard, one at a time:
-1. "Two languages" means one message holding both languages (text and buttons in both), or two separate messages?
-2. Which languages for guests first (each one is about 40 templates to approve with Meta, see above).
-3. Custom text in another language: does the client write it in that language, or do we translate it?
+1. ~~"Two languages": one message or two?~~ **Decided 21/11** (Richard: "they can choose if they want one other
+   language instead of hebrew or one hebrew and another one in one message"). Per event the client picks one of:
+   Hebrew only (today) · one other language instead of Hebrew · Hebrew + one other language in the same message
+   (text and buttons in both). Never two separate messages. So each guest language needs two template sets: alone,
+   and paired with Hebrew.
+2. ~~Which languages for guests first~~ **Decided 21/11** (Richard: "do all languages we got time", "all the requested"):
+   all of them: en, ru, ar, fr, es, yi, am (+ pt, already in the app). Checked the same day on Meta's pages
+   (message-templates, supported-languages): Yiddish and Amharic are **not** template languages Meta lists; the others
+   are. Limits: 250 templates per account if the business is unverified, 6,000 if verified; every language version
+   counts; at most 100 new templates an hour. All 8 languages x 2 sets (alone, with Hebrew) x about 40 = about 640
+   templates, so this needs the verified limit, and submitting takes at least 7 hours at Meta's rate. Meta's pages say
+   nothing about mixing two languages in one template.
+   **Decided 21/11** (Richard: "Skip those two"): no guest messages in Yiddish or Amharic. Guest languages are
+   en, ru, ar, fr, es, pt (the app and board keep all 9). 6 x 2 sets x about 40 = about 480 new templates: still over
+   250, so the business must be verified with Meta (6,000).
+3. ~~Custom text in another language~~ **Decided 22/11** (Richard: "Client writes it"): the client writes it in that
+   language; we do not translate it. Spec: `round7-partB-spec.md`.
 Build after the answers; it touches the live sending engine, so it gets its own spec and tests.

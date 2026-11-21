@@ -20,7 +20,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700&family=Heebo:wght@300;400;500;600;700&family=Rubik:wght@400;500;600&display=swap" rel="stylesheet">
 
 <script src="config.js?v=97"></script>
-<script src="assets/ux.js?v=4"></script>
+<script src="assets/ux.js?v=5"></script>
 <script src="assets/tracking.js?v=25"></script>
 <script src="assets/app-track.js?v=3" defer></script>
 <script src="assets/guard.js?v=22"></script>
@@ -34,6 +34,9 @@
   (function () {
     try {
       var t = localStorage.getItem('ishur_theme');
+      /* 22/11 inside the app the appearance is chosen in the app's חשבון and passed as &theme= */
+      var at = /[?&]app=1(&|$)/.test(location.search) && (/[?&]theme=(dark|light)(&|$)/.exec(location.search) || [])[1];
+      if (at) { t = at; try { localStorage.setItem('ishur_theme', at); } catch (e2) {} }
       if (!t && window.matchMedia && matchMedia('(prefers-color-scheme: dark)').matches) t = 'dark';
       if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
     } catch (e) {}
@@ -81,6 +84,9 @@
   html.in-app[data-view=home] #checklistLink,html.in-app[data-view=home] #replaceLink,
   html.in-app[data-view=guests] #seatingLink,html.in-app[data-view=guests] #qrLink,html.in-app[data-view=guests] #budgetLink,html.in-app[data-view=guests] #lineupLink{display:none!important}
   html.in-app[data-view=home] #guestsCard .gl-acts{width:100%;justify-content:center;flex-wrap:wrap;overflow:visible;row-gap:.5rem}
+  /* 22/11 Richard ("aligning it properly"): in the app the four buttons sit in an even 2 x 2 grid, same width each */
+  html.in-app[data-view=home] #guestsCard .gl-acts{display:grid;grid-template-columns:1fr 1fr;gap:.5rem}
+  html.in-app[data-view=home] #guestsCard .gl-acts .buy{display:flex;align-items:center;justify-content:center;gap:.35rem;width:100%;min-height:44px;text-align:center}
 </style>
 
 <style>

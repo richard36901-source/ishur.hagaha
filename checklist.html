@@ -8,6 +8,10 @@
 <link rel="icon" type="image/png" sizes="128x128" href="assets/favicon.png">
 <link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="config.js?v=74"></script>
+<script>
+/* 22/11 Richard: inside the app the language is chosen in חשבון, not by the button on each page */
+(function () { try { if (/[?&]app=1(&|$)/.test(location.search) || sessionStorage.getItem('ishur_in_app') === '1') { var s = document.createElement('style'); s.textContent = '#langPick{display:none!important}'; document.head.appendChild(s); } } catch (e) {} })();
+</script>
 <script src="assets/i18n.js?v=7" defer></script>
 <script src="assets/guard.js?v=22"></script>
 <style>

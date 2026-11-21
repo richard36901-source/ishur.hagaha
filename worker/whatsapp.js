@@ -19,6 +19,7 @@ import { logRow } from './sheetlogs.js';
 import { logEvent, stream } from './evlog.js';
 import { isStaging, isAllowedPhone, BLOCKED as STAGING_BLOCKED } from './staging-guard.js';
 import { noteDailySend } from './wavenote.js';
+import { toHebrewReply } from './guest-lang.js';
 /* index.js registers the event-name resolver (it owns the sheet snapshot); whatsapp.js stays import-free of index.js */
 export const waveNoteDeps = { eventName: null };
 import { capacity, numberState, rollingUsed, nextFreeAt, readHourBuckets, bumpHourBucket, cachedTiers, tierLimit, epochHour } from './budget.js';
@@ -714,7 +715,8 @@ export function parseInboundReply(msg) {
     text = String((i.button_reply && i.button_reply.title) || (i.list_reply && i.list_reply.title) || '');
   } else if (msg.type === 'text') text = String((msg.text && msg.text.body) || '');
   else return null;
-  text = text.trim();
+  /* 22/11 round 7: a translated button tap (or wrong-number word) is read as today's Hebrew word; see guest-lang.js */
+  text = toHebrewReply(text).trim();
   if (!text) return null;
 
   const clean = text.replace(/[‎‏]/g, '');

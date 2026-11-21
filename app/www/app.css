@@ -6,11 +6,11 @@
   --yes:#0F4C35;--yes-bg:#E7F1EC;--maybe:#8A6A12;--maybe-bg:#FBF3DC;--no:#8C2F2F;--no-bg:#F6E7E5;--wait:#4A554E;--wait-bg:#EEEDE7;
   --r:8px;--tabh:58px;
 }
-@media (prefers-color-scheme:dark){
-  :root{
+/* 22/11 Richard: appearance in חשבון (light, dark, or as the phone). index.html sets html[data-theme] before the first
+   paint from the saved choice or the phone; every dark rule hangs on it. */
+html[data-theme=dark]{
     --bg:#101612;--card:#19211C;--ink:#F1EEE4;--ink2:#C3C8C1;--ink3:#8F9891;--line:#2A342E;
     --green:#3E9C76;--yes:#6FC3A0;--yes-bg:#17332A;--maybe:#E0BE62;--maybe-bg:#33290F;--no:#E39A94;--no-bg:#3A1F1D;--wait:#C3C8C1;--wait-bg:#262E29;
-  }
 }
 *{box-sizing:border-box;margin:0;padding:0}
 [hidden]{display:none!important}
@@ -48,7 +48,7 @@ input[type=tel],input[type=text],input[type=search]{
 #code{letter-spacing:.4em}
 input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
 .btn{display:block;width:100%;min-height:50px;margin-top:1.1rem;border-radius:var(--r);background:var(--pine);color:#F8F4EA;font-weight:600;font-size:1.02rem}
-@media (prefers-color-scheme:dark){.btn{background:#2C7A5B}}
+html[data-theme=dark] .btn{background:#2C7A5B}
 .btn:active{opacity:.85}
 .btn[disabled]{opacity:.55}
 .btn.ghost{background:none;color:var(--green);border:1px solid var(--line);margin-top:.2rem}
@@ -76,7 +76,7 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(-
 .filters::-webkit-scrollbar{display:none}
 .filters button{flex:none;min-height:40px;padding:.3rem .7rem;border:1px solid var(--line);border-radius:var(--r);background:var(--card);font-size:.88rem;color:var(--ink2);white-space:nowrap}
 .filters button.on{background:var(--pine);border-color:var(--pine);color:#F8F4EA}
-@media (prefers-color-scheme:dark){.filters button.on{background:#2C7A5B;border-color:#2C7A5B}}
+html[data-theme=dark] .filters button.on{background:#2C7A5B;border-color:#2C7A5B}
 .filters .n{font-variant-numeric:tabular-nums;opacity:.8;margin-inline-start:.15rem}
 .list{background:var(--card);border:1px solid var(--line);border-radius:var(--r);overflow:hidden}
 .list:empty{display:none}
@@ -121,7 +121,7 @@ input:focus-visible,button:focus-visible,a:focus-visible{outline:2px solid var(-
    tab bar with a hairline, grouped inset lists, system switches, a sheet with a grabber, instant tab changes,
    press states instead of hover, nothing selectable that is not text to copy. Corners stay at 8px. */
 :root{--hair:rgba(60,60,67,.18);--fill:rgba(118,118,128,.12);--sep-inset:.9rem}
-@media (prefers-color-scheme:dark){:root{--bg:#000;--card:#1C1C1E;--line:#2C2C2E;--hair:rgba(84,84,88,.6);--fill:rgba(118,118,128,.24);--ink:#fff;--ink2:rgba(235,235,245,.72);--ink3:rgba(235,235,245,.5)}}
+html[data-theme=dark]{--bg:#000;--card:#1C1C1E;--line:#2C2C2E;--hair:rgba(84,84,88,.6);--fill:rgba(118,118,128,.24);--ink:#fff;--ink2:rgba(235,235,245,.72);--ink3:rgba(235,235,245,.5)}
 html{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,textarea{-webkit-user-select:text;user-select:text}
 body{font-size:17px;line-height:1.35;letter-spacing:-.01em}
@@ -229,17 +229,19 @@ label{font-size:13px;font-weight:400;color:var(--ink3)}
 .sc-page{width:70%;display:flex;flex-direction:column;gap:.5rem}
 .sc-line{height:12px;border-radius:6px;background:var(--fill)}.sc-line.short{width:60%}
 .sc-goal{font-size:17px;font-weight:600;color:var(--green);padding:.5rem;border-radius:var(--r);box-shadow:0 0 0 1.5px var(--green);text-align:center}
-.sc-field{position:relative;width:80%;height:46px;border-radius:var(--r);background:var(--fill);display:flex;align-items:center;padding:0 .8rem}
+.sc-field{position:relative;width:86%;height:46px;border-radius:var(--r);background:var(--fill);display:flex;align-items:center;padding:0 .8rem}
 .sc-ph{font-size:16px;color:var(--ink3)}
-.sc-ink{position:absolute;inset-inline-start:4.2rem;height:10px;border-radius:5px;background:var(--ink);width:45%;transform-origin:right center}
+.sc-ink{flex:0 1 45%;margin-inline-start:auto;height:10px;border-radius:5px;background:var(--ink);transform-origin:right center}
+[dir=ltr] .sc-ink{transform-origin:left center}
+.sc-ph{flex:none;white-space:nowrap;margin-inline-end:.6rem}
 .sc-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;width:90%}
 .sc-day{aspect-ratio:1;display:flex;align-items:center;justify-content:center;font-size:15px;border-radius:var(--r);background:var(--bg)}
 .sc-day.pick{background:var(--green);color:#fff;font-weight:600}
 .sc-row{display:flex;align-items:center;justify-content:space-between;width:92%;padding:.8rem;border-radius:var(--r);background:var(--bg);box-shadow:0 0 0 .5px var(--hair)}
-.sc-name{font-size:19px}.sc-pill{font-size:15px;font-weight:600;color:var(--no);background:var(--no-bg);padding:.25rem .6rem;border-radius:6px}
+.sc-name{font-size:19px;min-width:0}.sc-pill{font-size:15px;font-weight:600;color:var(--no);background:var(--no-bg);padding:.25rem .6rem;border-radius:6px;white-space:nowrap;margin-inline-start:.5rem}
 .sc-link{font-size:17px;font-weight:600;color:var(--green);padding:.7rem 1rem;border-radius:var(--r);background:var(--fill)}
 .sc-apps{display:flex;gap:.5rem}
-.sc-app{font-size:14px;padding:.5rem .7rem;border-radius:var(--r);background:var(--bg);box-shadow:0 0 0 .5px var(--hair)}
+.sc-app{white-space:nowrap;font-size:14px;padding:.5rem .7rem;border-radius:var(--r);background:var(--bg);box-shadow:0 0 0 .5px var(--hair)}
 @media (prefers-reduced-motion:no-preference){
   .sc-big{animation:hpop .6s cubic-bezier(.2,.9,.25,1) both}
   .sc-tile.lit{animation:hlit 2.8s ease-in-out infinite}
@@ -275,3 +277,46 @@ label{font-size:13px;font-weight:400;color:var(--ink3)}
 
 /* 21/11 language picker */
 .langpick{font:inherit;font-size:1rem;color:var(--ink);background:transparent;border:0;text-align:end;padding:.2rem 0}
+/* ══ 22/11 round 8: feel like the apps people use every day (Richard: Apple, WhatsApp, Instagram) ══ */
+html[data-theme=dark]{color-scheme:dark}html[data-theme=light]{color-scheme:light}
+/* opening screen: logo, what we do, how to reach us; fades out once the app is ready */
+#splash{position:fixed;inset:0;z-index:100;background:var(--pine);color:#F8F4EA;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;padding:env(safe-area-inset-top) 1.5rem env(safe-area-inset-bottom);transition:opacity .35s ease-out}
+#splash.out{opacity:0;pointer-events:none}
+#splash img{margin-bottom:.4rem}
+#splash .sp-t{font-size:22px;font-weight:700;letter-spacing:-.01em}
+#splash .sp-b{font-size:15px;color:var(--gold-soft)}#splash .sp-b span{color:#F8F4EA}
+#splash .sp-c{position:absolute;bottom:calc(env(safe-area-inset-bottom) + 28px);inset-inline:0;text-align:center;font-size:13px;line-height:1.6;color:rgba(248,244,234,.72)}
+/* top bar: logo at the start, the screen's title in the middle (iOS navigation bar) */
+.head.small.nav{display:grid;grid-template-columns:44px 1fr 44px;align-items:center;justify-items:center;text-align:center}
+.nav .navlogo{justify-self:start;border-radius:6px}
+.nav .navtitle{font-size:17px;font-weight:600;letter-spacing:-.02em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%;transition:opacity .2s}
+.nav .navtitle.hide{opacity:0}
+.nav .evswitch{grid-column:2;grid-row:1}
+.nav:has(.evswitch:not([hidden])) .navtitle{display:none}
+/* loading: the board's shape in grey, shimmering, instead of a line of text */
+.skel{padding:.9rem}
+.skel .sk{display:block;height:14px;border-radius:6px;background:var(--fill);position:relative;overflow:hidden}
+.skel .sk::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(255,255,255,.35),transparent);transform:translateX(-100%);animation:sk 1.2s ease-in-out infinite}
+html[data-theme=dark] .skel .sk::after{background:linear-gradient(90deg,transparent,rgba(255,255,255,.08),transparent)}
+@keyframes sk{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.skel .sk::after{animation:none}}
+.sk-hero{display:flex;flex-direction:column;align-items:center;gap:.6rem;padding:1.4rem 1rem;border-radius:var(--r);background:var(--card);margin-bottom:.8rem}
+.sk-grid{display:grid;grid-template-columns:1fr 1fr;gap:.6rem;margin-bottom:.8rem}.sk-grid .sk{height:74px}
+.sk-rows{display:flex;flex-direction:column;gap:.55rem;background:var(--card);border-radius:var(--r);padding:.9rem}.sk-rows .sk{height:18px}
+/* tab bar: the selected tab's icon is filled (WhatsApp / Instagram / Apple's own apps) */
+.tabs button.on svg{fill:currentColor;fill-opacity:1}
+.tabs button[data-tab=sends].on svg path{stroke:var(--card)}
+.tabs button.on span{font-weight:600}
+/* appearance: a segmented control */
+.rowline.appear{margin-top:.7rem;gap:.6rem}
+.seg{display:inline-flex;background:var(--fill);border-radius:8px;padding:2px}
+.seg button{font-size:13px;padding:.3rem .65rem;border-radius:7px;color:var(--ink)}
+.seg button[aria-checked=true]{background:var(--card);box-shadow:0 1px 3px rgba(0,0,0,.12);font-weight:600}
+#contactCard .nav{display:flex;justify-content:space-between;align-items:center}
+/* swipe back: the page follows the finger */
+.help.swiping{transition:none!important}
+.help.swipe-out{transition:transform .22s ease-out}
+#contactCard .nav{padding-inline-end:1.4rem}
+/* the skeleton covers the board's frame from the top while it loads, instead of sitting under it */
+.view.board{position:relative}
+#boardWait.skel{position:absolute;top:0;inset-inline:0;bottom:0;background:var(--bg);z-index:1}

@@ -1,0 +1,141 @@
+{
+ "_note": "22/11 round 7 Part B (Richard: all guest messages in the chosen language). One entry per distinct line of the Hebrew templates in worker/templates/, with every {{n}} written as {{#}}; the numbers are filled back in order. Claude's translations, not yet read by native speakers. Generated files: scripts/translate-templates.mjs.",
+ "lines": {
+  "היי {{#}}, תזכורת קטנה: מחר חוגגים את {{#}}! 🎉": {
+   "en": "Hi {{#}}, a quick reminder: tomorrow we celebrate {{#}}! 🎉",
+   "ru": "Здравствуйте, {{#}}! Небольшое напоминание: завтра празднуем {{#}}! 🎉",
+   "ar": "مرحبًا {{#}}، تذكير صغير: غدًا نحتفل بـ{{#}}! 🎉",
+   "fr": "Bonjour {{#}}, petit rappel : demain, nous célébrons {{#}} ! 🎉",
+   "es": "Hola {{#}}, un pequeño recordatorio: ¡mañana celebramos {{#}}! 🎉",
+   "pt": "Olá {{#}}, um lembrete rápido: amanhã celebramos {{#}}! 🎉" },
+  "📅 בתאריך {{#}} בשעה {{#}}": {
+   "en": "📅 On {{#}} at {{#}}", "ru": "📅 {{#}} в {{#}}", "ar": "📅 بتاريخ {{#}} الساعة {{#}}",
+   "fr": "📅 Le {{#}} à {{#}}", "es": "📅 El {{#}} a las {{#}}", "pt": "📅 Em {{#}} às {{#}}" },
+  "📍 הכתובת: {{#}}": {
+   "en": "📍 Address: {{#}}", "ru": "📍 Адрес: {{#}}", "ar": "📍 العنوان: {{#}}",
+   "fr": "📍 Adresse : {{#}}", "es": "📍 Dirección: {{#}}", "pt": "📍 Endereço: {{#}}" },
+  "🧭 לניווט לחצו על הכפתור למטה.": {
+   "en": "🧭 For directions, tap the button below.", "ru": "🧭 Чтобы проложить маршрут, нажмите кнопку ниже.",
+   "ar": "🧭 للوصول اضغطوا على الزر أدناه.", "fr": "🧭 Pour l’itinéraire, touchez le bouton ci-dessous.",
+   "es": "🧭 Para llegar, toquen el botón de abajo.", "pt": "🧭 Para chegar, toquem no botão abaixo." },
+  "🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בביט או בפייבוקס בכפתור למטה.": {
+   "en": "🎁 Anyone who would like to give the hosts a gift can do so with Bit or PayBox using the button below.",
+   "ru": "🎁 Кто хочет сделать подарок виновникам торжества, может сделать это через Bit или PayBox кнопкой ниже.",
+   "ar": "🎁 من يرغب في تقديم هدية لأصحاب المناسبة يمكنه ذلك عبر Bit أو PayBox بالزر أدناه.",
+   "fr": "🎁 Pour offrir un cadeau aux hôtes, c’est possible par Bit ou PayBox avec le bouton ci-dessous.",
+   "es": "🎁 Quien quiera hacer un regalo a los anfitriones puede hacerlo por Bit o PayBox con el botón de abajo.",
+   "pt": "🎁 Quem quiser dar um presente aos anfitriões pode fazê-lo por Bit ou PayBox no botão abaixo." },
+  "🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בביט בכפתור למטה.": {
+   "en": "🎁 Anyone who would like to give the hosts a gift can do so with Bit using the button below.",
+   "ru": "🎁 Кто хочет сделать подарок виновникам торжества, может сделать это через Bit кнопкой ниже.",
+   "ar": "🎁 من يرغب في تقديم هدية لأصحاب المناسبة يمكنه ذلك عبر Bit بالزر أدناه.",
+   "fr": "🎁 Pour offrir un cadeau aux hôtes, c’est possible par Bit avec le bouton ci-dessous.",
+   "es": "🎁 Quien quiera hacer un regalo a los anfitriones puede hacerlo por Bit con el botón de abajo.",
+   "pt": "🎁 Quem quiser dar um presente aos anfitriões pode fazê-lo por Bit no botão abaixo." },
+  "🎁 מי שירצה לתת מתנה לבעלי השמחה, אפשר בפייבוקס בכפתור למטה.": {
+   "en": "🎁 Anyone who would like to give the hosts a gift can do so with PayBox using the button below.",
+   "ru": "🎁 Кто хочет сделать подарок виновникам торжества, может сделать это через PayBox кнопкой ниже.",
+   "ar": "🎁 من يرغب في تقديم هدية لأصحاب المناسبة يمكنه ذلك عبر PayBox بالزر أدناه.",
+   "fr": "🎁 Pour offrir un cadeau aux hôtes, c’est possible par PayBox avec le bouton ci-dessous.",
+   "es": "🎁 Quien quiera hacer un regalo a los anfitriones puede hacerlo por PayBox con el botón de abajo.",
+   "pt": "🎁 Quem quiser dar um presente aos anfitriões pode fazê-lo por PayBox no botão abaixo." },
+  "שמרו את ההודעה עם הפרטים, ונתראה שם. מחכים לראותכם!": {
+   "en": "Save this message with the details, and see you there. We look forward to seeing you!",
+   "ru": "Сохраните это сообщение с деталями, и до встречи. Ждём вас!",
+   "ar": "احفظوا هذه الرسالة مع التفاصيل، ونلقاكم هناك. بانتظاركم!",
+   "fr": "Gardez ce message avec les détails, et à bientôt. Nous avons hâte de vous voir !",
+   "es": "Guarden este mensaje con los detalles y nos vemos allí. ¡Los esperamos!",
+   "pt": "Guardem esta mensagem com os detalhes e até lá. Esperamos por vocês!" },
+  "🪑 השולחן שלכם: שולחן מספר {{#}}.": {
+   "en": "🪑 Your table: table number {{#}}.", "ru": "🪑 Ваш стол: стол номер {{#}}.", "ar": "🪑 طاولتكم: طاولة رقم {{#}}.",
+   "fr": "🪑 Votre table : table numéro {{#}}.", "es": "🪑 Su mesa: mesa número {{#}}.", "pt": "🪑 Sua mesa: mesa número {{#}}." },
+  "השולחן שלכם: שולחן מספר {{#}}.": {
+   "en": "Your table: table number {{#}}.", "ru": "Ваш стол: стол номер {{#}}.", "ar": "طاولتكم: طاولة رقم {{#}}.",
+   "fr": "Votre table : table numéro {{#}}.", "es": "Su mesa: mesa número {{#}}.", "pt": "Sua mesa: mesa número {{#}}." },
+  "היי {{#}}, חבל שלא יכולתם להגיע ל{{#}} 🙏": {
+   "en": "Hi {{#}}, we're sorry you couldn't make it to {{#}} 🙏", "ru": "Здравствуйте, {{#}}! Жаль, что вы не смогли прийти на {{#}} 🙏",
+   "ar": "مرحبًا {{#}}، من المؤسف أنكم لم تتمكنوا من حضور {{#}} 🙏", "fr": "Bonjour {{#}}, dommage que vous n’ayez pas pu venir à {{#}} 🙏",
+   "es": "Hola {{#}}, qué pena que no pudieron venir a {{#}} 🙏", "pt": "Olá {{#}}, que pena que vocês não puderam vir a {{#}} 🙏" },
+  "במידה ותרצו לתת מתנה לבעלי השמחה, תוכלו לבצע זאת בביט או בפייבוקס בכפתור למטה.": {
+   "en": "If you would like to give the hosts a gift, you can do so with Bit or PayBox using the button below.",
+   "ru": "Если вы хотите сделать подарок виновникам торжества, это можно сделать через Bit или PayBox кнопкой ниже.",
+   "ar": "إذا رغبتم في تقديم هدية لأصحاب المناسبة، يمكنكم ذلك عبر Bit أو PayBox بالزر أدناه.",
+   "fr": "Si vous souhaitez offrir un cadeau aux hôtes, vous pouvez le faire par Bit ou PayBox avec le bouton ci-dessous.",
+   "es": "Si desean hacer un regalo a los anfitriones, pueden hacerlo por Bit o PayBox con el botón de abajo.",
+   "pt": "Se quiserem dar um presente aos anfitriões, podem fazê-lo por Bit ou PayBox no botão abaixo." },
+  "שלום {{#}}! מחכים לראותכם היום ב{{#}} 🎉": {
+   "en": "Hello {{#}}! We look forward to seeing you today at {{#}} 🎉", "ru": "Здравствуйте, {{#}}! Ждём вас сегодня на {{#}} 🎉",
+   "ar": "مرحبًا {{#}}! بانتظاركم اليوم في {{#}} 🎉", "fr": "Bonjour {{#}} ! Nous vous attendons aujourd’hui à {{#}} 🎉",
+   "es": "¡Hola {{#}}! Los esperamos hoy en {{#}} 🎉", "pt": "Olá {{#}}! Esperamos vocês hoje em {{#}} 🎉" },
+  "שמרו את ההודעה, ואפשר להציג אותה בכניסה אם צריך.": {
+   "en": "Save this message; you can show it at the entrance if needed.", "ru": "Сохраните это сообщение: при необходимости его можно показать на входе.",
+   "ar": "احفظوا الرسالة، ويمكن إظهارها عند المدخل إذا لزم الأمر.", "fr": "Gardez ce message, vous pourrez le montrer à l’entrée si besoin.",
+   "es": "Guarden este mensaje; pueden mostrarlo en la entrada si hace falta.", "pt": "Guardem esta mensagem; dá para mostrá-la na entrada se precisar." },
+  "מאחלים ערב מושלם, נתראה!": {
+   "en": "Wishing you a perfect evening, see you soon!", "ru": "Желаем прекрасного вечера, до встречи!", "ar": "نتمنى لكم أمسية رائعة، نراكم قريبًا!",
+   "fr": "Nous vous souhaitons une soirée parfaite, à tout à l’heure !", "es": "¡Les deseamos una noche perfecta, nos vemos!", "pt": "Desejamos uma noite perfeita, até já!" },
+  "היי {{#}}, תודה שהייתם איתנו ב{{#}} 🤍": {
+   "en": "Hi {{#}}, thank you for being with us at {{#}} 🤍", "ru": "Здравствуйте, {{#}}! Спасибо, что были с нами на {{#}} 🤍",
+   "ar": "مرحبًا {{#}}، شكرًا لأنكم كنتم معنا في {{#}} 🤍", "fr": "Bonjour {{#}}, merci d’avoir été avec nous à {{#}} 🤍",
+   "es": "Hola {{#}}, gracias por acompañarnos en {{#}} 🤍", "pt": "Olá {{#}}, obrigado por estarem conosco em {{#}} 🤍" },
+  "היה שמח יותר בזכותכם.": {
+   "en": "It was a happier celebration thanks to you.", "ru": "Благодаря вам праздник был ещё радостнее.", "ar": "كانت الفرحة أكبر بوجودكم.",
+   "fr": "La fête a été encore plus belle grâce à vous.", "es": "Gracias a ustedes fue aún más alegre.", "pt": "Foi ainda mais alegre graças a vocês." },
+  "🎁 אם תרצו לתת מתנה לבעלי השמחה, אפשר בביט או בפייבוקס בכפתור למטה.": {
+   "en": "🎁 If you would like to give the hosts a gift, you can use Bit or PayBox with the button below.",
+   "ru": "🎁 Если хотите сделать подарок виновникам торжества, это можно через Bit или PayBox кнопкой ниже.",
+   "ar": "🎁 إذا رغبتم في تقديم هدية لأصحاب المناسبة، يمكن ذلك عبر Bit أو PayBox بالزر أدناه.",
+   "fr": "🎁 Si vous souhaitez offrir un cadeau aux hôtes, c’est possible par Bit ou PayBox avec le bouton ci-dessous.",
+   "es": "🎁 Si desean hacer un regalo a los anfitriones, pueden usar Bit o PayBox con el botón de abajo.",
+   "pt": "🎁 Se quiserem dar um presente aos anfitriões, podem usar Bit ou PayBox no botão abaixo." },
+  "היי {{#}}, עדכון לאחר {{#}}: אישור ההגעה שלכם נסגר במערכת, ואין צורך בפעולה נוספת מצדכם. תודה שאישרתם והגעתם.": {
+   "en": "Hi {{#}}, an update after {{#}}: your RSVP is now closed in our system, and nothing more is needed from you. Thank you for confirming and coming.",
+   "ru": "Здравствуйте, {{#}}! Обновление после {{#}}: ваш ответ закрыт в системе, больше ничего делать не нужно. Спасибо, что ответили и пришли.",
+   "ar": "مرحبًا {{#}}، تحديث بعد {{#}}: تم إغلاق تأكيد حضوركم في النظام، ولا حاجة لأي إجراء آخر من جهتكم. شكرًا لتأكيدكم وحضوركم.",
+   "fr": "Bonjour {{#}}, une mise à jour après {{#}} : votre réponse est clôturée dans notre système, vous n’avez plus rien à faire. Merci d’avoir répondu et d’être venus.",
+   "es": "Hola {{#}}, una actualización tras {{#}}: su confirmación quedó cerrada en el sistema y no necesitan hacer nada más. Gracias por confirmar y venir.",
+   "pt": "Olá {{#}}, uma atualização após {{#}}: a sua confirmação foi encerrada no sistema e não é preciso fazer mais nada. Obrigado por confirmarem e virem." },
+  "⏰ שעה: {{#}}": {
+   "en": "⏰ Time: {{#}}", "ru": "⏰ Время: {{#}}", "ar": "⏰ الساعة: {{#}}", "fr": "⏰ Heure : {{#}}", "es": "⏰ Hora: {{#}}", "pt": "⏰ Horário: {{#}}" },
+  "לניווט לחצו על הכפתור למטה. שמרו את ההודעה, ואפשר להציג אותה בכניסה אם צריך.": {
+   "en": "For directions, tap the button below. Save this message; you can show it at the entrance if needed.",
+   "ru": "Чтобы проложить маршрут, нажмите кнопку ниже. Сохраните это сообщение: при необходимости его можно показать на входе.",
+   "ar": "للوصول اضغطوا على الزر أدناه. احفظوا الرسالة، ويمكن إظهارها عند المدخل إذا لزم الأمر.",
+   "fr": "Pour l’itinéraire, touchez le bouton ci-dessous. Gardez ce message, vous pourrez le montrer à l’entrée si besoin.",
+   "es": "Para llegar, toquen el botón de abajo. Guarden este mensaje; pueden mostrarlo en la entrada si hace falta.",
+   "pt": "Para chegar, toquem no botão abaixo. Guardem esta mensagem; dá para mostrá-la na entrada se precisar." },
+  "היי, היום בשעה {{#}} חוגגים את {{#}}! 🎉": {
+   "en": "Hi, today at {{#}} we celebrate {{#}}! 🎉", "ru": "Здравствуйте! Сегодня в {{#}} празднуем {{#}}! 🎉",
+   "ar": "مرحبًا، اليوم الساعة {{#}} نحتفل بـ{{#}}! 🎉", "fr": "Bonjour, aujourd’hui à {{#}}, nous célébrons {{#}} ! 🎉",
+   "es": "Hola, ¡hoy a las {{#}} celebramos {{#}}! 🎉", "pt": "Olá, hoje às {{#}} celebramos {{#}}! 🎉" },
+  "🧭 ניווט: {{#}}": {
+   "en": "🧭 Directions: {{#}}", "ru": "🧭 Маршрут: {{#}}", "ar": "🧭 الوصول: {{#}}", "fr": "🧭 Itinéraire : {{#}}", "es": "🧭 Cómo llegar: {{#}}", "pt": "🧭 Como chegar: {{#}}" },
+  "מחכים לראותכם!": {
+   "en": "We look forward to seeing you!", "ru": "Ждём вас!", "ar": "بانتظاركم!", "fr": "Au plaisir de vous voir !", "es": "¡Los esperamos!", "pt": "Esperamos vocês!" },
+  "שמרו את ההודעה, ואפשר להציג אותה בכניסה אם צריך. מאחלים ערב מושלם, נתראה!": {
+   "en": "Save this message; you can show it at the entrance if needed. Wishing you a perfect evening, see you soon!",
+   "ru": "Сохраните это сообщение: при необходимости его можно показать на входе. Желаем прекрасного вечера, до встречи!",
+   "ar": "احفظوا الرسالة، ويمكن إظهارها عند المدخل إذا لزم الأمر. نتمنى لكم أمسية رائعة، نراكم قريبًا!",
+   "fr": "Gardez ce message, vous pourrez le montrer à l’entrée si besoin. Nous vous souhaitons une soirée parfaite, à tout à l’heure !",
+   "es": "Guarden este mensaje; pueden mostrarlo en la entrada si hace falta. ¡Les deseamos una noche perfecta, nos vemos!",
+   "pt": "Guardem esta mensagem; dá para mostrá-la na entrada se precisar. Desejamos uma noite perfeita, até já!" }
+ },
+ "buttons": {
+  "ניווט למקום": { "he_short": "ניווט",
+   "en": ["Directions", "Directions"], "ru": ["Как добраться", "Маршрут"], "ar": ["الاتجاهات", "الاتجاهات"],
+   "fr": ["Itinéraire", "Itinéraire"], "es": ["Cómo llegar", "Cómo llegar"], "pt": ["Como chegar", "Como chegar"] },
+  "מתנה בביט / פייבוקס": { "he_short": "מתנה",
+   "en": ["Gift via Bit / PayBox", "Gift"], "ru": ["Подарок: Bit / PayBox", "Подарок"], "ar": ["هدية عبر Bit / PayBox", "هدية"],
+   "fr": ["Cadeau Bit / PayBox", "Cadeau"], "es": ["Regalo Bit / PayBox", "Regalo"], "pt": ["Presente Bit / PayBox", "Presente"] },
+  "מתנה בביט": { "he_short": "מתנה בביט",
+   "en": ["Gift via Bit", "Gift"], "ru": ["Подарок через Bit", "Подарок"], "ar": ["هدية عبر Bit", "هدية"],
+   "fr": ["Cadeau par Bit", "Cadeau"], "es": ["Regalo por Bit", "Regalo"], "pt": ["Presente por Bit", "Presente"] },
+  "מתנה בפייבוקס": { "he_short": "מתנה בפייבוקס",
+   "en": ["Gift via PayBox", "Gift"], "ru": ["Подарок через PayBox", "Подарок"], "ar": ["هدية عبر PayBox", "هدية"],
+   "fr": ["Cadeau par PayBox", "Cadeau"], "es": ["Regalo por PayBox", "Regalo"], "pt": ["Presente por PayBox", "Presente"] },
+  "לפרטים": { "he_short": "לפרטים",
+   "en": ["Details", "Details"], "ru": ["Подробнее", "Подробнее"], "ar": ["التفاصيل", "التفاصيل"],
+   "fr": ["Détails", "Détails"], "es": ["Detalles", "Detalles"], "pt": ["Detalhes", "Detalhes"] }
+ },
+ "skip": ["ishur_shabat_hatan_reminder"]
+}
