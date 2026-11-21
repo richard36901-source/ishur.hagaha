@@ -40,7 +40,7 @@ import { giftActive, giftKey, declineGiftText, eventDayGiftSlot, eventHasSeating
 import { waveNoteDeps } from './whatsapp.js';
 import { sendText, sendImage, sendTemplate, sendOtpTemplate, inviteText, parseInboundReply, extractInbound, findGuestByPhone, partyFromText, guestIntent, isQuestion, touchConversation, guestsReady } from './whatsapp.js';
 import { isAppAutoReply, chaseStopReason, leadAlertHeader, lastInboundTs } from './inbound.js';
-import { isTableQuestion, tableFor, tableReply, cleanVenueItems } from './seating.js';
+import { isTableQuestion, tableFor, tableReply } from './seating.js';
 import { promoCheck, promoGo, promoBurn, promoAdmin, normCode } from './promo.js';
 import { logEvent, flushEventLog, readLogTail, OWNER_PHONE, stream } from './evlog.js';
 import { recordHit, recordPurchase, trafficReport } from './traffic.js';
@@ -13783,18 +13783,14 @@ const WORKER = {
         }));
         /* Richard 21/10: guest groups (משפחה / חברים / …) live with the plan */
         let groups = {};
-        /* the stored plan is read at most once per save (KV reads cost money): only when groups or items are not sent */
-        let prev; const stored = async () => { if (prev === undefined) { try { prev = JSON.parse(await env.RATE.get('seatplan:' + tok)) || {}; } catch { prev = {}; } } return prev; };
         if (b.groups && typeof b.groups === 'object') {
           for (const [gid, lbl] of Object.entries(b.groups).slice(0, 2000)) { const l = String(lbl || '').trim().slice(0, 24); if (l) groups[String(gid).slice(0, 40)] = l; }
-        } else groups = (await stored()).groups || {};
-        /* 22/11: venue items (חופה, בר, במה…) — kept as they were when a save sends no items */
-        const items = cleanVenueItems(Array.isArray(b.items) ? b.items : (await stored()).items);
-        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, items, at: new Date().toISOString() }));
-        return okJson({ ok: true, tables, groups, items }, origin);
+        } else { try { groups = (JSON.parse(await env.RATE.get('seatplan:' + tok)) || {}).groups || {}; } catch {} }
+        await env.RATE.put('seatplan:' + tok, JSON.stringify({ tables, groups, at: new Date().toISOString() }));
+        return okJson({ ok: true, tables, groups }, origin);
       }
       let plan = null; try { plan = JSON.parse(await env.RATE.get('seatplan:' + tok)); } catch {}
-      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {}, items: cleanVenueItems(plan && plan.items) }, origin);
+      return okJson({ ok: true, tables: (plan && plan.tables) || [], groups: (plan && plan.groups) || {} }, origin);
     }
     if (url.pathname === '/api/seating' && request.method === 'POST') {
       return handleSeating(request, env, origin);

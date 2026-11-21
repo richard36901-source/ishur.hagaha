@@ -56,21 +56,3 @@ export function tableReply(info) {
   lines.push('', 'נתראה באירוע 🙂');
   return lines.join('\n');
 }
-
-/* ══ 22/11 Richard: venue items on the seating plan (חופה, בר, במה, מטבח…), each with its own shape, name and colour,
-   so the client lays out the whole hall. They sit next to the tables in seatplan:<token> and never take guests.
-   Everything a client sends is cleaned here: known kinds and shapes only, a #rrggbb colour, short plain text. ══ */
-export const VENUE_KINDS = ['chuppah', 'bar', 'stage', 'kitchen', 'dance', 'dj', 'entrance', 'buffet', 'photo', 'gifts', 'other'];
-export const VENUE_SHAPES = ['rect', 'round', 'hex', 'oct'];
-export function cleanVenueItems(list) {
-  if (!Array.isArray(list)) return [];
-  const num = (v, lo, hi, d) => { const n = Number(v); return Number.isFinite(n) ? Math.max(lo, Math.min(hi, Math.round(n))) : d; };
-  return list.slice(0, 60).filter(it => it && typeof it === 'object').map(it => ({
-    kind: VENUE_KINDS.includes(it.kind) ? it.kind : 'other',
-    shape: VENUE_SHAPES.includes(it.shape) ? it.shape : 'rect',
-    label: String(it.label == null ? '' : it.label).replace(/[<>]/g, '').replace(/\s+/g, ' ').trim().slice(0, 24),
-    color: /^#[0-9a-f]{6}$/i.test(String(it.color || '')) ? String(it.color).toLowerCase() : '#e8dcc0',
-    x: num(it.x, 0, 4000, 0), y: num(it.y, 0, 4000, 0),
-    w: num(it.w, 30, 800, 140), h: num(it.h, 30, 800, 100),
-  }));
-}
