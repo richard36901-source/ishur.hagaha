@@ -60,7 +60,15 @@ Plan: `.sdlc/client-app/round7-languages.md`. The client picks a language in ח�
   page and five board pages: no Hebrew interface text left (names and invitation wording stay as written), right
   direction, nothing wider than the phone, the choice kept, the board follows the app. Hebrew unchanged: app check
   51/51 for both demo clients, Worker 1073/1073. Fixed on the way: the seating page's top bar pushed Save off a phone
-  screen (in Hebrew too). Not checked: the help animations in each language, and a real device.
+  screen (in Hebrew too). Not checked: a real device.
+- [x] Help centre in every language (21/11, `app/scripts/help-check.mjs`): all 9 pass on every topic and step: no Hebrew
+  left, nothing in the moving pictures sticking out or wrapping, right direction, and every quoted button or tab name
+  is the word the app uses in that language. Fixed: the typing line covered the field label in ru, fr, es, pt; the
+  Hebrew help still sent people to ראשי to add guests and change send dates (since the redesign they are in מוזמנים
+  and שליחות), and named buttons that no longer exist ("הוספה", "שיתוף קישור"); the offline שליחות screen said the
+  same. The check opens the real staging board at each tab a step names and fails if the label is not shown there
+  (it caught the old text). Six new sentences added to the app's dictionaries only; the site's copies
+  (`assets/i18n/`, other session) were asked to take them. Translations unverified by native speakers, like the rest.
 - [ ] Guest messages in other languages (Part B of the plan): waiting for Richard's answers, one at a time.
 
 ## Claude's own queue (no approval needed, staging only)
