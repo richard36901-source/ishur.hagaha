@@ -28,8 +28,12 @@
     { c: 'es', n: 'Español', dir: 'ltr', loc: 'es-ES' },
     { c: 'yi', n: 'ייִדיש', dir: 'rtl', loc: 'yi' },
     { c: 'ar', n: 'العربية', dir: 'rtl', loc: 'ar' },
-    { c: 'ru', n: 'Русский', dir: 'ltr', loc: 'ru-RU' }
+    { c: 'ru', n: 'Русский', dir: 'ltr', loc: 'ru-RU' },
+    { c: 'am', n: 'አማርኛ', dir: 'ltr', loc: 'am' },
+    { c: 'pt', n: 'Português', dir: 'ltr', loc: 'pt-BR' }
   ];
+  /* languages that live only in a dictionary file (assets/i18n/<code>.json), with no column in ROWS below */
+  var FILE_ONLY = { am: 1, pt: 1 };
   var IDX = { en: 1, fr: 2, es: 3, yi: 4, ar: 5, ru: 6 };
 
   var ROWS = [
@@ -284,6 +288,43 @@
   var MONTHS = ['ינואר', 'פברואר', 'מרץ', 'אפריל', 'מאי', 'יוני', 'יולי', 'אוגוסט', 'ספטמבר', 'אוקטובר', 'נובמבר', 'דצמבר'];
   var DATE_RE = /^יום (ראשון|שני|שלישי|רביעי|חמישי|שישי|שבת), (\d{1,2}) ב(ינואר|פברואר|מרץ|אפריל|מאי|יוני|יולי|אוגוסט|ספטמבר|אוקטובר|נובמבר|דצמבר) (\d{4})$/;
 
+  /* The full dictionaries (about 1,500 texts per language, every client screen) live in assets/i18n/<code>.json as
+     { Hebrew: translation }. They are fetched once, when the language is chosen. ROWS above stays the first word on
+     the board's own texts; the file covers everything else. A number inside a text is lifted out here too, so
+     "3 מגיעים" in the file also answers "7 מגיעים". */
+  var BASE = (function () { try { var cs = document.currentScript && document.currentScript.src; return cs ? cs.replace(/i18n\.js(\?.*)?$/, 'i18n/') : 'assets/i18n/'; } catch (e) { return 'assets/i18n/'; } })();
+  var EXTRA = Object.create(null), LOADING = Object.create(null);
+  function indexFile(obj) {
+    var exact = Object.create(null), norm = Object.create(null);
+    for (var he in obj) {
+      var v = obj[he]; if (typeof v !== 'string' || !v) continue;
+      exact[he] = v;
+      var nums = he.match(NUM); if (!nums) continue;
+      var tpl = v, ok = true;
+      for (var q = 0; q < nums.length; q++) { var at = tpl.indexOf(nums[q]); if (at < 0) { ok = false; break; } tpl = tpl.slice(0, at) + '\u0001' + q + '\u0002' + tpl.slice(at + nums[q].length); }
+      var nk = he.replace(NUM, '{n}');
+      if (ok && !norm[nk]) norm[nk] = tpl;
+    }
+    return { exact: exact, norm: norm };
+  }
+  function fromFile(he) {
+    var x = EXTRA[lang]; if (!x) return null;
+    if (x.exact[he]) return x.exact[he];
+    var nums = []; var key = he.replace(NUM, function (m) { nums.push(m); return '{n}'; });
+    if (!nums.length) return null;
+    /* a file row that was written with {n} itself ("שלב {n} מתוך {n}") */
+    if (x.exact[key]) { var k2 = 0; return x.exact[key].replace(/\{n\}/g, function () { return nums[k2++] != null ? nums[k2 - 1] : ''; }); }
+    var tpl = x.norm[key]; if (!tpl) return null;
+    return tpl.replace(/\u0001(\d+)\u0002/g, function (_, q) { return nums[Number(q)] != null ? nums[Number(q)] : ''; });
+  }
+  function loadFile(c, then) {
+    if (c === 'he' || EXTRA[c] || LOADING[c]) { if (EXTRA[c] && then) then(); return; }
+    LOADING[c] = 1;
+    fetch(BASE + c + '.json').then(function (r) { return r.ok ? r.json() : null; }).then(function (j) {
+      LOADING[c] = 0; if (j && typeof j === 'object') { EXTRA[c] = indexFile(j); if (then) then(); }
+    }).catch(function () { LOADING[c] = 0; });
+  }
+
   var lang = 'he';
   function meta(c) { for (var i = 0; i < LANGS.length; i++) if (LANGS[i].c === c) return LANGS[i]; return LANGS[0]; }
 
@@ -291,8 +332,10 @@
   function tr(he) {
     if (lang === 'he' || !he || !HEB.test(he)) return null;
     var i = IDX[lang];
-    var row = DICT[he];
+    var row = i ? DICT[he] : null;
     if (row) return row[i];
+    var b0 = i ? withNumbers(he, i) : null; if (b0 != null) return b0;   /* the board's own rows first, numbers included */
+    var f0 = fromFile(he); if (f0 != null) return f0;
     var d = DATE_RE.exec(he);
     if (d) {
       try {
@@ -303,7 +346,7 @@
         return new Intl.DateTimeFormat(loc, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' }).format(dt);
       } catch (e) { return null; }
     }
-    var one = withNumbers(he, i);
+    var one = i ? withNumbers(he, i) : null;
     if (one != null) return one;
     /* a text built from several sentences (the "why was it not delivered" card): each sentence on its own; all or nothing */
     var parts = he.split(/(?<=[.!?])\s+/);
@@ -312,13 +355,14 @@
     for (var p = 0; p < parts.length; p++) {
       var seg = parts[p], end = /[.!?]$/.test(seg) ? seg.slice(-1) : '', body = end ? seg.slice(0, -1) : seg;
       if (!HEB.test(seg)) { out.push(seg); continue; }
-      var t = (DICT[seg] && DICT[seg][i]) || withNumbers(seg, i);
-      if (t == null) { t = (DICT[body] && DICT[body][i]) || withNumbers(body, i); if (t != null) t += end; }
+      var t = part(seg, i);
+      if (t == null) { t = part(body, i); if (t != null) t += end; }
       if (t == null) return null;
       out.push(t);
     }
     return out.join(' ');
   }
+  function part(x, i) { return (i && DICT[x] && DICT[x][i]) || (i ? withNumbers(x, i) : null) || fromFile(x); }
   function withNumbers(he, i) {
     var nums = [];
     var key = he.replace(NUM, function (m) { nums.push(m); return '{n}'; });
@@ -435,8 +479,9 @@
   }
   function picker() {
     var anchor = document.getElementById('themeTog');
-    if (!anchor || document.getElementById('langPick')) return;
-    var st = document.createElement('style'); st.textContent = CSS; document.head.appendChild(st);
+    if (document.getElementById('langPick') || !document.body) return;
+    var floating = !anchor || !!document.querySelector('[data-i18n-float]') || !/dashboard/.test(location.pathname);
+    var st = document.createElement('style'); st.textContent = CSS + (floating ? '.lng.flt{position:fixed;top:.6rem;left:.6rem;z-index:8000}.lng.flt .lng-b{background:var(--card,#fff);color:var(--ink,#111827);border-color:var(--bdr,#e5e7eb);box-shadow:0 2px 10px rgba(15,46,34,.12)}html[data-theme=dark] .lng.flt .lng-b{background:#141D19;color:#F3F4F6;border-color:#2B3440}@media print{.lng{display:none}}' : ''); document.head.appendChild(st);
     var w = document.createElement('div'); w.id = 'langPick'; w.className = 'lng'; w.setAttribute('data-noi18n', '');
     var b = document.createElement('button'); b.type = 'button'; b.className = 'lng-b'; b.setAttribute('aria-haspopup', 'menu'); b.setAttribute('aria-expanded', 'false'); b.setAttribute('aria-label', 'שפה · Language');
     b.innerHTML = GLOBE + '<span class="lng-n"></span><span class="car" aria-hidden="true">▾</span>';
@@ -458,12 +503,13 @@
       os[(i + (e.key === 'ArrowDown' ? 1 : os.length - 1)) % os.length].focus();
     });
     w.appendChild(b); w.appendChild(m);
-    anchor.parentNode.insertBefore(w, anchor);
+    if (floating) { w.classList.add('flt'); document.body.appendChild(w); } else anchor.parentNode.insertBefore(w, anchor);
     paintPicker();
   }
 
   function set(c) {
-    lang = IDX[c] || c === 'he' ? c : 'he';
+    lang = IDX[c] || FILE_ONLY[c] || c === 'he' ? c : 'he';
+    loadFile(lang, function () { if (lang === c) applyAll(); });
     try { localStorage.setItem('ishur_lang', lang); } catch (e) {}
     paintPicker();
     applyAll();
@@ -472,9 +518,10 @@
   function start() {
     var want = '';
     try { want = new URLSearchParams(location.search).get('lang') || localStorage.getItem('ishur_lang') || ''; } catch (e) {}
-    lang = IDX[want] ? want : 'he';
+    lang = IDX[want] || FILE_ONLY[want] ? want : 'he';
+    if (!meta(lang) || meta(lang).c !== lang) lang = 'he';
     picker();
-    if (lang !== 'he') applyAll();
+    if (lang !== 'he') { applyAll(); loadFile(lang, function () { applyAll(); }); }
     watch();
   }
 
