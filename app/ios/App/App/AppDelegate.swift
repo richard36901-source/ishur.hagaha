@@ -51,3 +51,12 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
         return config
     }
 }
+
+/* 22/11 Richard: "if they get keyboard and they slide it down it will disappear, just like all the native iOS apps".
+   iOS's own behaviour (Mail, WhatsApp): dragging the page down takes the keyboard down with the finger.
+   Main.storyboard uses this class instead of Capacitor's plain one. */
+class MainViewController: CAPBridgeViewController {
+    override func capacitorDidLoad() {
+        webView?.scrollView.keyboardDismissMode = .interactive
+    }
+}

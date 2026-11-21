@@ -319,7 +319,7 @@
     document.addEventListener('touchstart', function (e) { y0 = e.touches.length === 1 ? e.touches[0].clientY : null; }, { passive: true });
     document.addEventListener('touchmove', function (e) {
       var a = document.activeElement; if (y0 == null || !a || !/^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return;
-      if (e.touches[0].clientY - y0 > 12 && !e.target.closest('input,textarea')) { a.blur(); y0 = null; }
+      if (e.touches[0].clientY - y0 > 4 && !e.target.closest('input,textarea')) { a.blur(); y0 = null; }
     }, { passive: true });
   })();
   $('privacy').addEventListener('click', function (e) { e.preventDefault(); T('privacy_open'); openUrl(ENV.site + '/terms.html?app=1' + LQ + '#privacy');   /* app=1: the website's cookie bar is not shown in the app, which tracks nobody */ });
